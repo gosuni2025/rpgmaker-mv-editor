@@ -1208,6 +1208,10 @@ body {
   background: #2675bf;
 }
 
+.event-command-row.group-highlight {
+  background: #1e3a5f;
+}
+
 .event-commands-toolbar {
   display: flex;
   gap: 4px;
