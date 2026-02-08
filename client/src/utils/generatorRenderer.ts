@@ -15,16 +15,17 @@ export const FACE_RENDER_ORDER: string[] = [
 
 // TV(걷기) 렌더링 순서 (bottom → top, layer 20→1)
 export const TV_RENDER_ORDER: string[] = [
-  'Wing2', 'Cloak2', 'Tail2', 'FrontHair2', 'Beard2', 'Body', 'FacialMark',
-  'RearHair2', 'Clothing2', 'Beard1', 'Clothing1', 'Tail1', 'Cloak1',
-  'BeastEars', 'Glasses', 'RearHair1', 'AccA', 'FrontHair1', 'AccB', 'Wing1',
+  'Wing2', 'Cloak2', 'Tail2', 'FrontHair2', 'Beard2', 'Body', 'Ears',
+  'FacialMark', 'RearHair2', 'Clothing2', 'Beard1', 'Clothing1', 'Tail1',
+  'Cloak1', 'BeastEars', 'Glasses', 'RearHair1', 'AccA', 'FrontHair1',
+  'AccB', 'Wing1',
 ];
 
 // SV(전투) 렌더링 순서 (bottom → top, layer 15→1)
 export const SV_RENDER_ORDER: string[] = [
-  'Wing', 'Cloak2', 'Tail', 'Body', 'FacialMark', 'RearHair1', 'Clothing2',
-  'Beard', 'Clothing1', 'Cloak1', 'BeastEars', 'Glasses', 'AccA', 'FrontHair',
-  'AccB',
+  'Wing', 'Cloak2', 'Tail', 'Body', 'Ears', 'FacialMark', 'RearHair1',
+  'Clothing2', 'Beard', 'Clothing1', 'Cloak1', 'BeastEars', 'Glasses',
+  'AccA', 'FrontHair', 'AccB',
 ];
 
 const imageCache = new Map<string, HTMLImageElement>();

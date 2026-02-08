@@ -167,7 +167,8 @@ export default function CharacterGeneratorDialog() {
           colorRows[cl.index] = cl.defaultGradientRow;
         }
       }
-      const shouldSelect = ['Body', 'Face', 'Eyes', 'Ears', 'Eyebrows', 'Nose', 'Mouth'].includes(partName);
+      const shouldSelect = ['Body', 'Face', 'Eyes', 'Ears', 'Eyebrows', 'Nose', 'Mouth',
+        'FrontHair', 'FrontHair1', 'RearHair1'].includes(partName);
       sel[partName] = {
         patternId: shouldSelect ? firstPattern.id : null,
         colorRows,

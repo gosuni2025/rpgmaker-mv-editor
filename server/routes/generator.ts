@@ -147,6 +147,11 @@ interface SpritePattern {
 
 // Parse Face filename: FG_[Part]_p[pattern]_c[colorIndex]_m[gradientRow].png
 // m value is optional (absent means fixed color, not recolorable)
+// 파트명 첫 글자 대문자로 정규화 (SV의 body → Body 등)
+function normalizePart(part: string): string {
+  return part.charAt(0).toUpperCase() + part.slice(1);
+}
+
 function parseFaceFilename(filename: string): {
   part: string;
   pattern: string;
@@ -158,7 +163,7 @@ function parseFaceFilename(filename: string): {
   );
   if (!match) return null;
   return {
-    part: match[1],
+    part: normalizePart(match[1]),
     pattern: `p${match[2]}`,
     colorIndex: parseInt(match[3], 10),
     gradientRow: match[4] != null ? parseInt(match[4], 10) : null,
@@ -178,7 +183,7 @@ function parseSpriteFilename(
   );
   if (!match) return null;
   return {
-    part: match[1],
+    part: normalizePart(match[1]),
     pattern: `p${match[2]}`,
     isColorMap: match[3] === '_c',
   };
