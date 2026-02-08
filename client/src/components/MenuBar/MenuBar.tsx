@@ -151,7 +151,7 @@ export default function MenuBar() {
       case 'eventSearch': setShowEventSearchDialog(true); break;
       case 'characterGenerator': setShowCharacterGeneratorDialog(true); break;
       case 'resourceManager': setShowResourceManagerDialog(true); break;
-      case 'playtest': window.open(`/api/project/playtest`, '_blank'); break;
+      case 'playtest': window.open('/game/index.html', '_blank'); break;
       case 'openFolder': fetch('/api/project/open-folder', { method: 'POST' }); break;
     }
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
