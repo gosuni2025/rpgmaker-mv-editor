@@ -2296,11 +2296,7 @@ Spriteset_Map.prototype.createParallax = function() {
 };
 
 Spriteset_Map.prototype.createTilemap = function() {
-    if (Graphics.isWebGL() && RendererFactory.supportsShaderTilemap()) {
-        this._tilemap = new ShaderTilemap();
-    } else {
-        this._tilemap = new Tilemap();
-    }
+    this._tilemap = new ShaderTilemap();
     this._tilemap.tileWidth = $gameMap.tileWidth();
     this._tilemap.tileHeight = $gameMap.tileHeight();
     this._tilemap.setData($gameMap.width(), $gameMap.height(), $gameMap.data());
