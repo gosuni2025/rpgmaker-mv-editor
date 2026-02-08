@@ -1,18 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Troop, TroopMember, TroopPage, EventCommand } from '../../types/rpgMakerMV';
 import EventCommandEditor from '../EventEditor/EventCommandEditor';
+import apiClient from '../../api/client';
 
 interface TroopsTabProps {
   data: (Troop | null)[] | undefined;
   onChange: (data: (Troop | null)[]) => void;
 }
 
+interface RefItem { id: number; name: string }
+
 const SPAN_OPTIONS = ['Battle', 'Turn', 'Moment'];
+
+const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 export default function TroopsTab({ data, onChange }: TroopsTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const [activePage, setActivePage] = useState(0);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const [enemies, setEnemies] = useState<RefItem[]>([]);
+  const [actors, setActors] = useState<RefItem[]>([]);
+
+  useEffect(() => {
+    apiClient.get<(RefItem | null)[]>('/database/enemies').then(d => setEnemies(d.filter(Boolean) as RefItem[])).catch(() => {});
+    apiClient.get<(RefItem | null)[]>('/database/actors').then(d => setActors(d.filter(Boolean) as RefItem[])).catch(() => {});
+  }, []);
 
   const handleFieldChange = (field: keyof Troop, value: unknown) => {
     if (!data) return;
@@ -113,7 +125,10 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
             </div>
             {(selectedItem.members || []).map((member: TroopMember, i: number) => (
               <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
-                <label style={{ flex: 1 }}>Enemy ID <input type="number" value={member.enemyId} onChange={(e) => handleMemberChange(i, 'enemyId', Number(e.target.value))} /></label>
+                <label style={{ flex: 2 }}>Enemy <select value={member.enemyId} onChange={(e) => handleMemberChange(i, 'enemyId', Number(e.target.value))} style={selectStyle}>
+                  <option value={0}>(None)</option>
+                  {enemies.map(en => <option key={en.id} value={en.id}>{String(en.id).padStart(4, '0')}: {en.name}</option>)}
+                </select></label>
                 <label>X <input type="number" value={member.x} onChange={(e) => handleMemberChange(i, 'x', Number(e.target.value))} style={{ width: 50 }} /></label>
                 <label>Y <input type="number" value={member.y} onChange={(e) => handleMemberChange(i, 'y', Number(e.target.value))} style={{ width: 50 }} /></label>
                 <label className="db-checkbox-label"><input type="checkbox" checked={member.hidden} onChange={(e) => handleMemberChange(i, 'hidden', e.target.checked)} /> Hidden</label>
@@ -162,8 +177,10 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
                     <input type="checkbox" checked={page.conditions?.actorValid ?? false}
                       onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, actorValid: e.target.checked })} />
                     Actor
-                    <input type="number" value={page.conditions?.actorId ?? 1} style={{ width: 40 }} disabled={!page.conditions?.actorValid}
-                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, actorId: Number(e.target.value) })} />
+                    <select value={page.conditions?.actorId ?? 1} style={{ ...selectStyle, width: 120 }} disabled={!page.conditions?.actorValid}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, actorId: Number(e.target.value) })}>
+                      {actors.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
                     HP &le;
                     <input type="number" value={page.conditions?.actorHp ?? 0} style={{ width: 40 }} disabled={!page.conditions?.actorValid}
                       onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, actorHp: Number(e.target.value) })} />

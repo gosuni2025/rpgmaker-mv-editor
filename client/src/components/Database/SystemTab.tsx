@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { SystemData, AudioFile, Vehicle } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
 import ImagePicker from '../common/ImagePicker';
+import apiClient from '../../api/client';
 
 interface SystemTabProps {
   data: SystemData | undefined;
   onChange: (data: SystemData) => void;
 }
+
+interface RefItem { id: number; name: string }
 
 const DEFAULT_AUDIO: AudioFile = { name: '', pan: 0, pitch: 100, volume: 90 };
 
@@ -17,7 +20,15 @@ const SOUND_NAMES = [
   'Evasion', 'Magic Evasion', 'Magic Reflect', 'Shop', 'Use Item',
 ];
 
+const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
+
 export default function SystemTab({ data, onChange }: SystemTabProps) {
+  const [actorsList, setActorsList] = useState<RefItem[]>([]);
+
+  useEffect(() => {
+    apiClient.get<(RefItem | null)[]>('/database/actors').then(d => setActorsList(d.filter(Boolean) as RefItem[])).catch(() => {});
+  }, []);
+
   if (!data) return null;
 
   const handleChange = (field: keyof SystemData, value: unknown) => {
@@ -138,7 +149,10 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
         <label key={i}>
           Member {i + 1}
           <div className="db-party-row">
-            <input type="number" value={memberId} onChange={(e) => handlePartyChange(i, e.target.value)} />
+            <select value={memberId} onChange={(e) => handlePartyChange(i, e.target.value)} style={selectStyle}>
+              <option value={0}>(None)</option>
+              {actorsList.map(a => <option key={a.id} value={a.id}>{String(a.id).padStart(4, '0')}: {a.name}</option>)}
+            </select>
             <button className="db-btn-small" onClick={() => removePartyMember(i)}>-</button>
           </div>
         </label>

@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Skill, Damage, Effect } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import DamageEditor from '../common/DamageEditor';
 import EffectsEditor from '../common/EffectsEditor';
+import apiClient from '../../api/client';
 
 interface SkillsTabProps {
   data: (Skill | null)[] | undefined;
   onChange: (data: (Skill | null)[]) => void;
 }
+
+interface RefItem { id: number; name: string }
 
 const SCOPE_OPTIONS = [
   { value: 0, label: 'None' },
@@ -38,10 +41,24 @@ const HIT_TYPE_OPTIONS = [
 ];
 
 const DEFAULT_DAMAGE: Damage = { critical: false, elementId: 0, formula: '', type: 0, variance: 0 };
+const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 export default function SkillsTab({ data, onChange }: SkillsTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const [skillTypes, setSkillTypes] = useState<string[]>([]);
+  const [weaponTypes, setWeaponTypes] = useState<string[]>([]);
+  const [animations, setAnimations] = useState<RefItem[]>([]);
+
+  useEffect(() => {
+    apiClient.get<{ skillTypes?: string[]; weaponTypes?: string[] }>('/database/system').then(sys => {
+      if (sys.skillTypes) setSkillTypes(sys.skillTypes);
+      if (sys.weaponTypes) setWeaponTypes(sys.weaponTypes);
+    }).catch(() => {});
+    apiClient.get<(RefItem | null)[]>('/database/animations').then(d => {
+      setAnimations(d.filter(Boolean) as RefItem[]);
+    }).catch(() => {});
+  }, []);
 
   const handleFieldChange = (field: keyof Skill, value: unknown) => {
     if (!data) return;
@@ -133,13 +150,11 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              Skill Type ID
-              <input
-                type="number"
-                value={selectedItem.stypeId || 0}
-                onChange={(e) => handleFieldChange('stypeId', Number(e.target.value))}
-                min={0}
-              />
+              Skill Type
+              <select value={selectedItem.stypeId || 0} onChange={(e) => handleFieldChange('stypeId', Number(e.target.value))} style={selectStyle}>
+                {skillTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
+                {skillTypes.length === 0 && <option value={selectedItem.stypeId || 0}>{selectedItem.stypeId}</option>}
+              </select>
             </label>
 
             <label>
@@ -239,13 +254,11 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              Animation ID
-              <input
-                type="number"
-                value={selectedItem.animationId || 0}
-                onChange={(e) => handleFieldChange('animationId', Number(e.target.value))}
-                min={0}
-              />
+              Animation
+              <select value={selectedItem.animationId || 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))} style={selectStyle}>
+                <option value={0}>(None)</option>
+                {animations.map(a => <option key={a.id} value={a.id}>{String(a.id).padStart(4, '0')}: {a.name}</option>)}
+              </select>
             </label>
 
             <DamageEditor
@@ -277,22 +290,18 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
 
             <label>
               Required Weapon Type 1
-              <input
-                type="number"
-                value={selectedItem.requiredWtypeId1 || 0}
-                onChange={(e) => handleFieldChange('requiredWtypeId1', Number(e.target.value))}
-                min={0}
-              />
+              <select value={selectedItem.requiredWtypeId1 || 0} onChange={(e) => handleFieldChange('requiredWtypeId1', Number(e.target.value))} style={selectStyle}>
+                <option value={0}>(None)</option>
+                {weaponTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
+              </select>
             </label>
 
             <label>
               Required Weapon Type 2
-              <input
-                type="number"
-                value={selectedItem.requiredWtypeId2 || 0}
-                onChange={(e) => handleFieldChange('requiredWtypeId2', Number(e.target.value))}
-                min={0}
-              />
+              <select value={selectedItem.requiredWtypeId2 || 0} onChange={(e) => handleFieldChange('requiredWtypeId2', Number(e.target.value))} style={selectStyle}>
+                <option value={0}>(None)</option>
+                {weaponTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
+              </select>
             </label>
 
             <EffectsEditor

@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Item, Damage, Effect } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import DamageEditor from '../common/DamageEditor';
 import EffectsEditor from '../common/EffectsEditor';
+import apiClient from '../../api/client';
 
 interface ItemsTabProps {
   data: (Item | null)[] | undefined;
   onChange: (data: (Item | null)[]) => void;
 }
+
+interface RefItem { id: number; name: string }
 
 const SCOPE_OPTIONS = [
   'None', '1 Enemy', 'All Enemies', '1 Random Enemy', '2 Random', '3 Random', '4 Random',
@@ -17,9 +20,18 @@ const OCCASION_OPTIONS = ['Always', 'Only in Battle', 'Only from Menu', 'Never']
 const HIT_TYPE_OPTIONS = ['Certain Hit', 'Physical Attack', 'Magical Attack'];
 const ITEM_TYPE_OPTIONS = ['Regular Item', 'Key Item', 'Hidden Item A', 'Hidden Item B'];
 
+const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
+
 export default function ItemsTab({ data, onChange }: ItemsTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const [animations, setAnimations] = useState<RefItem[]>([]);
+
+  useEffect(() => {
+    apiClient.get<(RefItem | null)[]>('/database/animations').then(d => {
+      setAnimations(d.filter(Boolean) as RefItem[]);
+    }).catch(() => {});
+  }, []);
 
   const handleFieldChange = (field: keyof Item, value: unknown) => {
     if (!data) return;
@@ -133,8 +145,11 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
               </select>
             </label>
             <label>
-              Animation ID
-              <input type="number" value={selectedItem.animationId || 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))} />
+              Animation
+              <select value={selectedItem.animationId || 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))} style={selectStyle}>
+                <option value={0}>(None)</option>
+                {animations.map(a => <option key={a.id} value={a.id}>{String(a.id).padStart(4, '0')}: {a.name}</option>)}
+              </select>
             </label>
 
             <DamageEditor
