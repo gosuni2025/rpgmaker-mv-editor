@@ -527,6 +527,196 @@ export function getAutotileBlockInfo(tileId: number): AutotileBlockInfo | null {
   return { setNumber, bx, by, tableType, kind };
 }
 
+// For each half-tile coordinate in the autotile source area,
+// determine which directions are "present" (neighbor exists) when that half-tile is used.
+// Returns a map: "qsx,qsy" → { top, right, bottom, left, topLeft, topRight, bottomLeft, bottomRight }
+// where each boolean indicates that direction is PRESENT for the conditions that use this half-tile.
+// null means "always true" or "always false" or "doesn't matter for this quarter".
+export interface HalfTileMeaning {
+  // For each direction, true = neighbor present, false = neighbor absent, null = not relevant to this half-tile
+  top: boolean | null; right: boolean | null; bottom: boolean | null; left: boolean | null;
+  topLeft: boolean | null; topRight: boolean | null; bottomLeft: boolean | null; bottomRight: boolean | null;
+  quarterIndex: number; // which quarter (0=TL, 1=TR, 2=BL, 3=BR)
+}
+
+// Build the floor half-tile meaning map by reverse-engineering q0Coords..q3Coords
+export function getFloorHalfTileMeanings(): Map<string, HalfTileMeaning[]> {
+  const result = new Map<string, HalfTileMeaning[]>();
+  // For Q0 (top-left quarter): depends on top, left, topLeft
+  // Enumerate all 8 combos of (top, left, topLeft)
+  for (let mask = 0; mask < 8; mask++) {
+    const top = !!(mask & 1), left = !!(mask & 2), tl = !!(mask & 4);
+    const [qsx, qsy] = q0Coords(top, left, tl);
+    const key = `${qsx},${qsy}`;
+    if (!result.has(key)) result.set(key, []);
+    result.get(key)!.push({
+      top, left, topLeft: tl,
+      right: null, bottom: null, topRight: null, bottomLeft: null, bottomRight: null,
+      quarterIndex: 0,
+    });
+  }
+  // For Q1 (top-right quarter): depends on top, right, topRight
+  for (let mask = 0; mask < 8; mask++) {
+    const top = !!(mask & 1), right = !!(mask & 2), tr = !!(mask & 4);
+    const [qsx, qsy] = q1Coords(top, right, tr);
+    const key = `${qsx},${qsy}`;
+    if (!result.has(key)) result.set(key, []);
+    result.get(key)!.push({
+      top, right, topRight: tr,
+      left: null, bottom: null, topLeft: null, bottomLeft: null, bottomRight: null,
+      quarterIndex: 1,
+    });
+  }
+  // For Q2 (bottom-left quarter): depends on bottom, left, bottomLeft
+  for (let mask = 0; mask < 8; mask++) {
+    const bottom = !!(mask & 1), left = !!(mask & 2), bl = !!(mask & 4);
+    const [qsx, qsy] = q2Coords(bottom, left, bl);
+    const key = `${qsx},${qsy}`;
+    if (!result.has(key)) result.set(key, []);
+    result.get(key)!.push({
+      bottom, left, bottomLeft: bl,
+      top: null, right: null, topLeft: null, topRight: null, bottomRight: null,
+      quarterIndex: 2,
+    });
+  }
+  // For Q3 (bottom-right quarter): depends on bottom, right, bottomRight
+  for (let mask = 0; mask < 8; mask++) {
+    const bottom = !!(mask & 1), right = !!(mask & 2), br = !!(mask & 4);
+    const [qsx, qsy] = q3Coords(bottom, right, br);
+    const key = `${qsx},${qsy}`;
+    if (!result.has(key)) result.set(key, []);
+    result.get(key)!.push({
+      bottom, right, bottomRight: br,
+      top: null, left: null, topLeft: null, topRight: null, bottomLeft: null,
+      quarterIndex: 3,
+    });
+  }
+  // Consolidate: for each key, merge entries with same quarterIndex
+  // Find the "common" condition for each direction
+  const consolidated = new Map<string, HalfTileMeaning[]>();
+  for (const [key, entries] of result.entries()) {
+    // Group by quarterIndex
+    const byQuarter = new Map<number, HalfTileMeaning[]>();
+    for (const e of entries) {
+      if (!byQuarter.has(e.quarterIndex)) byQuarter.set(e.quarterIndex, []);
+      byQuarter.get(e.quarterIndex)!.push(e);
+    }
+    const merged: HalfTileMeaning[] = [];
+    for (const [qi, qEntries] of byQuarter.entries()) {
+      // For each direction, check if all entries agree
+      const dirs = ['top', 'right', 'bottom', 'left', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight'] as const;
+      const m: HalfTileMeaning = {
+        top: null, right: null, bottom: null, left: null,
+        topLeft: null, topRight: null, bottomLeft: null, bottomRight: null,
+        quarterIndex: qi,
+      };
+      for (const d of dirs) {
+        const vals = qEntries.map(e => e[d]);
+        if (vals.every(v => v === null)) {
+          m[d] = null;
+        } else {
+          const nonNull = vals.filter(v => v !== null);
+          if (nonNull.length > 0 && nonNull.every(v => v === nonNull[0])) {
+            m[d] = nonNull[0];
+          } else {
+            m[d] = null; // disagree → doesn't matter
+          }
+        }
+      }
+      merged.push(m);
+    }
+    consolidated.set(key, merged);
+  }
+  return consolidated;
+}
+
+// Build the wall half-tile meaning map
+export function getWallHalfTileMeanings(): Map<string, HalfTileMeaning[]> {
+  const result = new Map<string, HalfTileMeaning[]>();
+  // Wall Q0(TL): left?0:2, top?0:2
+  for (let mask = 0; mask < 4; mask++) {
+    const top = !!(mask & 1), left = !!(mask & 2);
+    const qsx = left ? 0 : 2, qsy = top ? 0 : 2;
+    const key = `${qsx},${qsy}`;
+    if (!result.has(key)) result.set(key, []);
+    result.get(key)!.push({
+      top, left,
+      right: null, bottom: null, topLeft: null, topRight: null, bottomLeft: null, bottomRight: null,
+      quarterIndex: 0,
+    });
+  }
+  // Wall Q1(TR): right?3:1, top?0:2
+  for (let mask = 0; mask < 4; mask++) {
+    const top = !!(mask & 1), right = !!(mask & 2);
+    const qsx = right ? 3 : 1, qsy = top ? 0 : 2;
+    const key = `${qsx},${qsy}`;
+    if (!result.has(key)) result.set(key, []);
+    result.get(key)!.push({
+      top, right,
+      left: null, bottom: null, topLeft: null, topRight: null, bottomLeft: null, bottomRight: null,
+      quarterIndex: 1,
+    });
+  }
+  // Wall Q2(BL): left?0:2, bottom?3:1
+  for (let mask = 0; mask < 4; mask++) {
+    const bottom = !!(mask & 1), left = !!(mask & 2);
+    const qsx = left ? 0 : 2, qsy = bottom ? 3 : 1;
+    const key = `${qsx},${qsy}`;
+    if (!result.has(key)) result.set(key, []);
+    result.get(key)!.push({
+      bottom, left,
+      top: null, right: null, topLeft: null, topRight: null, bottomLeft: null, bottomRight: null,
+      quarterIndex: 2,
+    });
+  }
+  // Wall Q3(BR): right?3:1, bottom?3:1
+  for (let mask = 0; mask < 4; mask++) {
+    const bottom = !!(mask & 1), right = !!(mask & 2);
+    const qsx = right ? 3 : 1, qsy = bottom ? 3 : 1;
+    const key = `${qsx},${qsy}`;
+    if (!result.has(key)) result.set(key, []);
+    result.get(key)!.push({
+      bottom, right,
+      top: null, left: null, topLeft: null, topRight: null, bottomLeft: null, bottomRight: null,
+      quarterIndex: 3,
+    });
+  }
+  // Consolidate
+  const consolidated = new Map<string, HalfTileMeaning[]>();
+  for (const [key, entries] of result.entries()) {
+    const byQuarter = new Map<number, HalfTileMeaning[]>();
+    for (const e of entries) {
+      if (!byQuarter.has(e.quarterIndex)) byQuarter.set(e.quarterIndex, []);
+      byQuarter.get(e.quarterIndex)!.push(e);
+    }
+    const merged: HalfTileMeaning[] = [];
+    for (const [qi, qEntries] of byQuarter.entries()) {
+      const dirs = ['top', 'right', 'bottom', 'left', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight'] as const;
+      const m: HalfTileMeaning = {
+        top: null, right: null, bottom: null, left: null,
+        topLeft: null, topRight: null, bottomLeft: null, bottomRight: null,
+        quarterIndex: qi,
+      };
+      for (const d of dirs) {
+        const vals = qEntries.map(e => e[d]);
+        if (vals.every(v => v === null)) {
+          m[d] = null;
+        } else {
+          const nonNull = vals.filter(v => v !== null);
+          if (nonNull.length > 0 && nonNull.every(v => v === nonNull[0])) {
+            m[d] = nonNull[0];
+          } else {
+            m[d] = null;
+          }
+        }
+      }
+      merged.push(m);
+    }
+    consolidated.set(key, merged);
+  }
+  return consolidated;
+}
+
 // Debug: detailed autotile info for a position
 export function debugAutotileAt(
   data: number[], width: number, height: number,
