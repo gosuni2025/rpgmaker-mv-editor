@@ -360,17 +360,31 @@
     // PerspectiveCamera의 역투영으로 Z=0 평면 교점 계산
     //=========================================================================
 
+    Mode3D._lastScreenToWorld = null;
+    Mode3D._lastScreenX = -1;
+    Mode3D._lastScreenY = -1;
+
     Mode3D.screenToWorld = function(screenX, screenY) {
+        // 같은 좌표에 대해 캐시 반환 (canvasToMapX/Y가 별도 호출되므로)
+        if (this._lastScreenX === screenX && this._lastScreenY === screenY &&
+            this._lastScreenToWorld) {
+            return this._lastScreenToWorld;
+        }
+
         var camera = this._perspCamera;
         if (!camera) return null;
+
+        // matrixWorld 최신화 (렌더 루프 밖에서 호출될 수 있으므로)
+        camera.updateMatrixWorld(true);
 
         var w = Graphics.width;
         var h = Graphics.height;
 
         // NDC 좌표 (-1 ~ 1)
-        // Y축: projectionMatrix에서 이미 반전되어 있으므로 그대로 사용
+        // Y축: _positionCamera에서 projectionMatrix[5]를 반전시켰으므로
+        // inverse도 Y가 반전됨 → NDC Y를 반전시켜 보상
         var ndcX = (screenX / w) * 2 - 1;
-        var ndcY = (screenY / h) * 2 - 1;
+        var ndcY = -((screenY / h) * 2 - 1);
 
         // near/far 두 점을 unproject
         var near = new THREE.Vector3(ndcX, ndcY, -1);
@@ -387,15 +401,23 @@
         if (Math.abs(dir.z) < 1e-6) return null;
         var t = -near.z / dir.z;
 
-        return {
+        var result = {
             x: near.x + t * dir.x,
             y: near.y + t * dir.y
         };
+
+        this._lastScreenX = screenX;
+        this._lastScreenY = screenY;
+        this._lastScreenToWorld = result;
+        return result;
     };
 
     //=========================================================================
     // Game_Map.canvasToMapX/Y 오버라이드
     // 3D 모드 활성 시 screenToWorld로 올바른 타일 좌표 계산
+    // 원본: canvasToMapX(x) → (displayX * 48 + x) / 48
+    // screenToWorld의 결과 world.x는 카메라 월드 공간의 X좌표이며,
+    // 이는 2D OrthographicCamera에서의 screen pixel X와 동일한 좌표계
     //=========================================================================
 
     var _Game_Map_canvasToMapX = Game_Map.prototype.canvasToMapX;
