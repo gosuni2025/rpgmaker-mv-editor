@@ -20,6 +20,9 @@ export default function MapCanvas() {
   const lastTile = useRef<{ x: number; y: number } | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const pendingChanges = useRef<TileChange[]>([]);
+  // Shadow paint mode: true = adding shadow, false = removing shadow (set on first click)
+  const shadowPaintMode = useRef<boolean>(true);
+  const shadowPainted = useRef<Set<string>>(new Set());
 
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedTool = useEditorStore((s) => s.selectedTool);
@@ -703,21 +706,39 @@ export default function MapCanvas() {
     [currentLayer, selectedTileId, updateMapTiles, pushUndo]
   );
 
-  // Shadow painting: toggle 1/4 quarter of a tile based on mouse sub-position
+  // Shadow painting: set/clear 1/4 quarter of a tile based on mouse sub-position
   // Shadow data is stored in layer z=4 as a 4-bit pattern (bits 0-3 for each quarter)
   // Bit 0: top-left, Bit 1: top-right, Bit 2: bottom-left, Bit 3: bottom-right
+  // On first click, determines add/remove mode based on current state of that quarter.
+  // Subsequent drags apply the same mode. Already-painted quarters are skipped.
   const applyShadow = useCallback(
-    (tileX: number, tileY: number, subX: number, subY: number) => {
+    (tileX: number, tileY: number, subX: number, subY: number, isFirst: boolean) => {
       const latestMap = useEditorStore.getState().currentMap;
       if (!latestMap) return;
       const z = 4; // Shadow layer
       const idx = (z * latestMap.height + tileY) * latestMap.width + tileX;
       const oldBits = latestMap.data[idx] || 0;
-      // Determine which quarter was clicked based on sub-tile position
       const qx = subX < TILE_SIZE_PX / 2 ? 0 : 1;
       const qy = subY < TILE_SIZE_PX / 2 ? 0 : 1;
       const quarter = qy * 2 + qx; // 0=TL, 1=TR, 2=BL, 3=BR
-      const newBits = oldBits ^ (1 << quarter);
+      const key = `${tileX},${tileY},${quarter}`;
+
+      if (isFirst) {
+        // Determine mode: if quarter is off → add mode, if on → remove mode
+        shadowPaintMode.current = !(oldBits & (1 << quarter));
+        shadowPainted.current.clear();
+      }
+
+      // Skip if already painted this quarter in this stroke
+      if (shadowPainted.current.has(key)) return;
+      shadowPainted.current.add(key);
+
+      let newBits: number;
+      if (shadowPaintMode.current) {
+        newBits = oldBits | (1 << quarter);  // add
+      } else {
+        newBits = oldBits & ~(1 << quarter); // remove
+      }
       if (oldBits === newBits) return;
       const change: TileChange = { x: tileX, y: tileY, z, oldTileId: oldBits, newTileId: newBits };
       updateMapTile(tileX, tileY, z, newBits);
@@ -962,7 +983,7 @@ export default function MapCanvas() {
       if (selectedTool === 'shadow') {
         const sub = canvasToSubTile(e);
         if (sub) {
-          applyShadow(sub.x, sub.y, sub.subX, sub.subY);
+          applyShadow(sub.x, sub.y, sub.subX, sub.subY, true);
         }
       } else if (selectedTool === 'rectangle' || selectedTool === 'ellipse') {
         dragStart.current = tile;
@@ -1002,7 +1023,7 @@ export default function MapCanvas() {
       if (selectedTool === 'shadow') {
         const sub = canvasToSubTile(e);
         if (sub) {
-          applyShadow(sub.x, sub.y, sub.subX, sub.subY);
+          applyShadow(sub.x, sub.y, sub.subX, sub.subY, false);
         }
         return;
       }
