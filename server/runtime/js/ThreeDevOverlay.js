@@ -29,9 +29,30 @@
             'scrollbar-width:thin', 'scrollbar-color:#555 transparent'
         ].join(';');
 
+        var topBar = document.createElement('div');
+        topBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;';
+
         fpsEl = document.createElement('div');
-        fpsEl.style.cssText = 'font-size:13px;font-weight:bold;margin-bottom:4px;color:#0f0;';
-        overlay.appendChild(fpsEl);
+        fpsEl.style.cssText = 'font-size:13px;font-weight:bold;color:#0f0;';
+        topBar.appendChild(fpsEl);
+
+        var copyBtn = document.createElement('button');
+        copyBtn.textContent = 'Copy';
+        copyBtn.style.cssText = 'background:#444;color:#ccc;border:1px solid #666;padding:1px 6px;font:10px monospace;cursor:pointer;border-radius:2px;';
+        copyBtn.addEventListener('mouseenter', function() { copyBtn.style.background = '#555'; });
+        copyBtn.addEventListener('mouseleave', function() { copyBtn.style.background = '#444'; });
+        copyBtn.addEventListener('click', function() {
+            var scene = getScene();
+            if (!scene) return;
+            var json = buildTreeJSON(scene, 0);
+            var text = JSON.stringify(json, null, 2);
+            navigator.clipboard.writeText(text).then(function() {
+                copyBtn.textContent = 'Copied!';
+                setTimeout(function() { copyBtn.textContent = 'Copy'; }, 1000);
+            });
+        });
+        topBar.appendChild(copyBtn);
+        overlay.appendChild(topBar);
 
         var separator = document.createElement('div');
         separator.style.cssText = 'border-top:1px solid #555;margin:2px 0 4px;';
@@ -83,6 +104,33 @@
             if (obj.intensity !== undefined) parts.push('i=' + obj.intensity.toFixed(1));
         }
         return parts.length ? ' <span style="color:#888">' + parts.join(' ') + '</span>' : '';
+    }
+
+    function buildTreeJSON(obj, depth) {
+        if (!obj || depth > 15) return null;
+        var label = getNodeLabel(obj);
+        var node = { type: label };
+        var p = obj.position;
+        if (p && (p.x !== 0 || p.y !== 0 || p.z !== 0)) {
+            node.position = { x: +p.x.toFixed(1), y: +p.y.toFixed(1), z: +p.z.toFixed(1) };
+        }
+        if (!obj.visible) node.visible = false;
+        if (obj.isMesh && obj.material) {
+            var mat = obj.material;
+            node.material = mat.type || mat.constructor.name || undefined;
+        }
+        if (obj.isLight) {
+            node.color = '#' + obj.color.getHexString();
+            node.intensity = +obj.intensity.toFixed(1);
+        }
+        if (obj.children && obj.children.length > 0) {
+            node.children = [];
+            for (var i = 0; i < obj.children.length; i++) {
+                var child = buildTreeJSON(obj.children[i], depth + 1);
+                if (child) node.children.push(child);
+            }
+        }
+        return node;
     }
 
     function buildTree(obj, depth, path) {
