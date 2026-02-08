@@ -399,10 +399,111 @@ export function computeAutoShapeForPosition(
   }
 }
 
+// Get autotile source block info (sheet, bx, by, table type) for debug/visualization
+export interface AutotileBlockInfo {
+  setNumber: number;
+  bx: number;
+  by: number;
+  tableType: 'floor' | 'wall' | 'waterfall';
+  kind: number;
+}
+
+export function getAutotileBlockInfo(tileId: number): AutotileBlockInfo | null {
+  if (!isAutotile(tileId) || isTileA5(tileId)) return null;
+  const kind = getAutotileKind(tileId);
+  const tx = kind % 8;
+  const ty = Math.floor(kind / 8);
+  let bx = 0;
+  let by = 0;
+  let setNumber = 0;
+  let tableType: 'floor' | 'wall' | 'waterfall' = 'floor';
+
+  if (isTileA1(tileId)) {
+    setNumber = 0;
+    if (kind === 0) { bx = 0; by = 0; }
+    else if (kind === 1) { bx = 0; by = 3; }
+    else if (kind === 2) { bx = 6; by = 0; }
+    else if (kind === 3) { bx = 6; by = 3; }
+    else {
+      bx = Math.floor(tx / 4) * 8;
+      by = ty * 6 + Math.floor(tx / 2) % 2 * 3;
+      if (kind % 2 === 0) {
+        bx += 0;
+      } else {
+        bx += 6;
+        tableType = 'waterfall';
+      }
+    }
+  } else if (isTileA2(tileId)) {
+    setNumber = 1;
+    bx = tx * 2;
+    by = (ty - 2) * 3;
+  } else if (isTileA3(tileId)) {
+    setNumber = 2;
+    bx = tx * 2;
+    by = (ty - 6) * 2;
+    tableType = 'wall';
+  } else if (isTileA4(tileId)) {
+    setNumber = 3;
+    bx = tx * 2;
+    by = Math.floor((ty - 10) * 2.5 + (ty % 2 === 1 ? 0.5 : 0));
+    if (ty % 2 === 1) {
+      tableType = 'wall';
+    }
+  } else {
+    return null;
+  }
+
+  return { setNumber, bx, by, tableType, kind };
+}
+
+// Debug: detailed autotile info for a position
+export function debugAutotileAt(
+  data: number[], width: number, height: number,
+  x: number, y: number, z: number
+): {
+  tileId: number; kind: number; shape: number;
+  isAuto: boolean; isA5: boolean;
+  neighbors: Record<string, { tileId: number; kind: number; sameKind: boolean }>;
+  computedShape: number;
+} | null {
+  const idx = (z * height + y) * width + x;
+  const tileId = data[idx];
+  if (!tileId) return null;
+  const isAuto = isAutotile(tileId);
+  const a5 = isTileA5(tileId);
+  const kind = isAuto && !a5 ? getAutotileKind(tileId) : -1;
+  const shape = isAuto && !a5 ? getAutotileShape(tileId) : -1;
+
+  const dirs: [string, number, number][] = [
+    ['topLeft', -1, -1], ['top', 0, -1], ['topRight', 1, -1],
+    ['left', -1, 0], ['right', 1, 0],
+    ['bottomLeft', -1, 1], ['bottom', 0, 1], ['bottomRight', 1, 1],
+  ];
+
+  const neighbors: Record<string, { tileId: number; kind: number; sameKind: boolean }> = {};
+  for (const [name, dx, dy] of dirs) {
+    const nx = x + dx, ny = y + dy;
+    if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+      neighbors[name] = { tileId: -1, kind: -1, sameKind: true }; // out of bounds = same
+    } else {
+      const nIdx = (z * height + ny) * width + nx;
+      const nId = data[nIdx];
+      const nAuto = isAutotile(nId) && !isTileA5(nId);
+      const nKind = nAuto ? getAutotileKind(nId) : -1;
+      neighbors[name] = { tileId: nId, kind: nKind, sameKind: nAuto && nKind === kind };
+    }
+  }
+
+  const computedShape = isAuto && !a5 ? computeAutoShapeForPosition(data, width, height, x, y, z, tileId) : -1;
+
+  return { tileId, kind, shape, isAuto, isA5: a5, neighbors, computedShape };
+}
+
 // Debug: expose tileHelper for console testing
 (window as unknown as Record<string, unknown>).__tileHelper = {
   computeAutoShapeForPosition, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId,
-  TILE_ID_A1, TILE_ID_A2, TILE_ID_A3, TILE_ID_A4, TILE_ID_A5,
+  TILE_ID_A1, TILE_ID_A2, TILE_ID_A3, TILE_ID_A4, TILE_ID_A5, debugAutotileAt, getTileRenderInfo,
 };
 
 // Exports for tile ID constants

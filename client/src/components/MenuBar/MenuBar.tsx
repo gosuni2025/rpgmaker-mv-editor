@@ -109,6 +109,8 @@ export default function MenuBar() {
         { type: 'separator' },
         { label: '캐릭터 생성...', action: 'characterGenerator', disabled: () => !hasProject },
         { label: '자원 관리...', action: 'resourceManager', disabled: () => !hasProject },
+        { type: 'separator' },
+        { label: '오토타일 디버그...', action: 'autotileDebug', disabled: () => !hasProject },
       ],
     },
     {
@@ -153,6 +155,7 @@ export default function MenuBar() {
       case 'resourceManager': setShowResourceManagerDialog(true); break;
       case 'playtest': window.open('/game/index.html', '_blank'); break;
       case 'openFolder': fetch('/api/project/open-folder', { method: 'POST' }); break;
+      case 'autotileDebug': window.dispatchEvent(new CustomEvent('editor-autotile-debug')); break;
     }
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
