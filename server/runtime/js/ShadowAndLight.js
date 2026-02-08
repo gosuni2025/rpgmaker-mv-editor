@@ -65,11 +65,11 @@ ShadowLight._shadowMaterial = null;
 // 설정
 ShadowLight.config = {
     // 광원 설정
-    ambientColor: 0x404060,           // 환경광 (약간 푸른 어둠)
-    ambientIntensity: 0.4,
-    directionalColor: 0xffeedd,       // 햇빛 색상 (따뜻한 톤)
-    directionalIntensity: 0.8,
-    lightDirection: new THREE.Vector3(-1, -2, -3).normalize(), // 광원 방향
+    ambientColor: 0xccccdd,           // 환경광 (밝은 톤, 약간 푸른기)
+    ambientIntensity: 0.7,
+    directionalColor: 0xfff8ee,       // 햇빛 색상 (따뜻한 톤)
+    directionalIntensity: 1.0,
+    lightDirection: new THREE.Vector3(-1, -1, -2).normalize(), // 광원 방향 (Z 성분 크게)
 
     // 플레이어 포인트 라이트
     playerLightColor: 0xffcc88,       // 횃불 색상
@@ -165,7 +165,9 @@ ShadowLight._addLightsToScene = function(scene) {
     // 위치는 방향의 반대 (광원이 오는 방향)
     var dir = this.config.lightDirection;
     this._directionalLight.position.set(-dir.x * 1000, -dir.y * 1000, -dir.z * 1000);
+    // target을 scene에 추가해야 DirectionalLight 방향이 올바르게 동작
     scene.add(this._directionalLight);
+    scene.add(this._directionalLight.target);
 };
 
 ShadowLight._removeLightsFromScene = function(scene) {
@@ -174,6 +176,7 @@ ShadowLight._removeLightsFromScene = function(scene) {
         this._ambientLight = null;
     }
     if (this._directionalLight) {
+        scene.remove(this._directionalLight.target);
         scene.remove(this._directionalLight);
         this._directionalLight = null;
     }
