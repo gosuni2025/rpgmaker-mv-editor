@@ -257,7 +257,8 @@ export default function MapCanvas() {
     }
 
     if (showGrid) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      // 검은 테두리 (바깥쪽)
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = 1;
       for (let x = 0; x <= width; x++) {
         ctx.beginPath();
@@ -269,6 +270,21 @@ export default function MapCanvas() {
         ctx.beginPath();
         ctx.moveTo(0, y * TILE_SIZE_PX + 0.5);
         ctx.lineTo(cw, y * TILE_SIZE_PX + 0.5);
+        ctx.stroke();
+      }
+      // 흰 선 (안쪽, 대비용)
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= width; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * TILE_SIZE_PX + 1.5, 0);
+        ctx.lineTo(x * TILE_SIZE_PX + 1.5, ch);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= height; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * TILE_SIZE_PX + 1.5);
+        ctx.lineTo(cw, y * TILE_SIZE_PX + 1.5);
         ctx.stroke();
       }
     }
