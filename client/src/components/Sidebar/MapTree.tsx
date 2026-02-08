@@ -163,6 +163,9 @@ export default function MapTree() {
     setEditingId(null);
   }, [editingId, editName, maps, updateMapInfos]);
 
+  const projectName = useEditorStore((s) => s.projectName);
+  const [rootCollapsed, setRootCollapsed] = useState(false);
+
   if (!maps || maps.length === 0) {
     return (
       <div
@@ -177,11 +180,19 @@ export default function MapTree() {
 
   return (
     <div className="map-tree" onClick={closeContextMenu}>
-      {tree.map((node) => (
+      <div
+        className="map-tree-node map-tree-root"
+        onClick={() => setRootCollapsed(!rootCollapsed)}
+        onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0 }); }}
+      >
+        <span className="map-tree-toggle">{rootCollapsed ? '▶' : '▼'}</span>
+        <span className="map-tree-label">{projectName || 'Project'}</span>
+      </div>
+      {!rootCollapsed && tree.map((node) => (
         <TreeNode
           key={node.id}
           node={node}
-          depth={0}
+          depth={1}
           selectedId={currentMapId}
           onSelect={selectMap}
           collapsed={collapsed}

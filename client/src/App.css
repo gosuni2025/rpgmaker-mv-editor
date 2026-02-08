@@ -122,16 +122,24 @@ body {
 }
 
 .sidebar-top {
-  flex: 1;
   overflow-y: auto;
   min-height: 0;
 }
 
 .sidebar-bottom {
-  flex: 0 0 auto;
-  max-height: 40%;
   overflow-y: auto;
-  border-top: 1px solid #222;
+  min-height: 0;
+}
+
+.sidebar-split-handle {
+  flex-shrink: 0;
+  height: 4px;
+  cursor: row-resize;
+  background: #222;
+}
+
+.sidebar-split-handle:hover {
+  background: #2675bf;
 }
 
 .sidebar-header {
@@ -180,6 +188,10 @@ body {
   margin-left: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.map-tree-root {
+  font-weight: bold;
 }
 
 /* Main area */

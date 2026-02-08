@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import './App.css';
 import useEditorStore from './store/useEditorStore';
 import MenuBar from './components/MenuBar/MenuBar';
@@ -19,6 +19,51 @@ import SoundTestDialog from './components/SoundTestDialog';
 import EventSearchDialog from './components/EventSearchDialog';
 import ResourceManagerDialog from './components/ResourceManagerDialog';
 import CharacterGeneratorDialog from './components/CharacterGeneratorDialog';
+
+function SidebarSplit({ editMode }: { editMode: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [splitRatio, setSplitRatio] = useState(0.5);
+  const dragging = useRef(false);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!dragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const ratio = (ev.clientY - rect.top) / rect.height;
+      setSplitRatio(Math.max(0.15, Math.min(0.85, ratio)));
+    };
+
+    const onMouseUp = () => {
+      dragging.current = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, []);
+
+  const showTileset = editMode === 'map';
+
+  return (
+    <div className="sidebar-split" ref={containerRef}>
+      {showTileset && (
+        <div className="sidebar-top" style={{ flex: `0 0 ${splitRatio * 100}%` }}>
+          <TilesetPalette />
+        </div>
+      )}
+      {showTileset && (
+        <div className="sidebar-split-handle" onMouseDown={handleMouseDown} />
+      )}
+      <div className="sidebar-bottom" style={showTileset ? { flex: `0 0 ${(1 - splitRatio) * 100}%` } : { flex: 1 }}>
+        <MapTree />
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const projectPath = useEditorStore((s) => s.projectPath);
@@ -55,13 +100,7 @@ export default function App() {
 
       <div className="sidebar">
         <ResizablePanel defaultWidth={260} minWidth={150} maxWidth={500}>
-          <div className="sidebar-split">
-            {editMode === 'map' && <TilesetPalette />}
-            <div className="sidebar-bottom">
-              <div className="sidebar-header">Maps</div>
-              <MapTree />
-            </div>
-          </div>
+          <SidebarSplit editMode={editMode} />
         </ResizablePanel>
       </div>
 
