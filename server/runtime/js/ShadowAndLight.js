@@ -66,16 +66,16 @@ ShadowLight._shadowMaterial = null;
 // 설정
 ShadowLight.config = {
     // 광원 설정
-    ambientColor: 0xccccdd,           // 환경광 (밝은 톤, 약간 푸른기)
-    ambientIntensity: 0.7,
+    ambientColor: 0x667788,           // 환경광 (어두운 푸른 톤 - 달빛 느낌)
+    ambientIntensity: 0.4,
     directionalColor: 0xfff8ee,       // 햇빛 색상 (따뜻한 톤)
-    directionalIntensity: 1.0,
+    directionalIntensity: 0.3,
     lightDirection: new THREE.Vector3(-1, -1, -2).normalize(), // 광원 방향 (Z 성분 크게)
 
     // 플레이어 포인트 라이트
     playerLightColor: 0xffcc88,       // 횃불 색상
-    playerLightIntensity: 1.2,
-    playerLightDistance: 250,          // 범위 (px)
+    playerLightIntensity: 1.5,
+    playerLightDistance: 300,          // 범위 (px)
 
     // 그림자 설정
     shadowOpacity: 0.4,
@@ -108,7 +108,7 @@ ShadowLight._convertMaterial = function(sprite) {
         side: oldMat.side,
         opacity: oldMat.opacity,
         blending: oldMat.blending,
-        emissive: new THREE.Color(0x222222),
+        emissive: new THREE.Color(0x111111),
     });
     newMat.visible = oldMat.visible;
     newMat.needsUpdate = true;

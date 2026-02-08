@@ -344,7 +344,7 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                         depthTest: false,
                         depthWrite: false,
                         side: THREE.DoubleSide,
-                        emissive: new THREE.Color(0x222222),
+                        emissive: new THREE.Color(0x111111),
                     });
                 } else {
                     material = new THREE.MeshBasicMaterial({
