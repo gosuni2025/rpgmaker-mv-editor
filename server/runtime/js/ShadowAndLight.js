@@ -236,17 +236,18 @@ ShadowLight._removeLightsFromScene = function(scene) {
 // PointLight 풀 관리
 //=============================================================================
 
-ShadowLight._getPointLight = function(parent) {
+ShadowLight._getPointLight = function() {
     var idx = this._pointLightIndex;
     if (idx >= this._pointLights.length) {
         var light = new THREE.PointLight(0xffffff, 0, 200);
-        light.position.z = 50; // 캐릭터 위에 위치
         this._pointLights.push(light);
     }
     var light = this._pointLights[idx];
-    if (light.parent !== parent) {
+    // scene에 직접 추가 (타일맵과 동일한 좌표계에서 작동하도록)
+    var rendererObj = Graphics._rendererObj || Graphics._renderer;
+    if (rendererObj && rendererObj.scene && light.parent !== rendererObj.scene) {
         if (light.parent) light.parent.remove(light);
-        parent.add(light);
+        rendererObj.scene.add(light);
     }
     light.visible = true;
     this._pointLightIndex++;
@@ -488,14 +489,16 @@ Spriteset_Map.prototype._updatePointLights = function() {
     // 플레이어 라이트
     if ($gamePlayer && !$gamePlayer.isTransparent()) {
         var playerSprite = this._getPlayerSprite();
-        if (playerSprite && playerSprite._threeObj && playerSprite._threeObj.parent) {
-            var light = ShadowLight._getPointLight(playerSprite._threeObj.parent);
+        if (playerSprite && playerSprite._threeObj) {
+            var light = ShadowLight._getPointLight();
             light.color.setHex(ShadowLight.config.playerLightColor);
             light.intensity = ShadowLight.config.playerLightIntensity;
             light.distance = ShadowLight.config.playerLightDistance;
-            light.position.x = playerSprite._threeObj.position.x;
-            light.position.y = playerSprite._threeObj.position.y - 24;
-            light.position.z = 80;
+            // 월드 좌표 계산
+            playerSprite._threeObj.updateWorldMatrix(true, false);
+            var worldPos = new THREE.Vector3();
+            playerSprite._threeObj.getWorldPosition(worldPos);
+            light.position.set(worldPos.x, worldPos.y - 24, 80);
         }
     }
 
@@ -508,16 +511,18 @@ Spriteset_Map.prototype._updatePointLights = function() {
         var lightMatch = note.match(/<light(?:\s*:\s*(\d+)(?:\s*,\s*#?([0-9a-fA-F]{6}))?)?>/i);
         if (lightMatch) {
             var evSprite = this._getEventSprite(ev);
-            if (evSprite && evSprite._threeObj && evSprite._threeObj.parent) {
-                var light = ShadowLight._getPointLight(evSprite._threeObj.parent);
+            if (evSprite && evSprite._threeObj) {
+                var light = ShadowLight._getPointLight();
                 var dist = lightMatch[1] ? parseInt(lightMatch[1]) : 150;
                 var color = lightMatch[2] ? parseInt(lightMatch[2], 16) : 0xffcc88;
                 light.color.setHex(color);
                 light.intensity = 1.0;
                 light.distance = dist;
-                light.position.x = evSprite._threeObj.position.x;
-                light.position.y = evSprite._threeObj.position.y - 24;
-                light.position.z = 80;
+                // 월드 좌표 계산
+                evSprite._threeObj.updateWorldMatrix(true, false);
+                var worldPos = new THREE.Vector3();
+                evSprite._threeObj.getWorldPosition(worldPos);
+                light.position.set(worldPos.x, worldPos.y - 24, 80);
             }
         }
     }
