@@ -225,7 +225,8 @@
         var camera = rendererObj.camera;
         var w = rendererObj._width;
         var h = rendererObj._height;
-        var is3D = ConfigManager.mode3d && Mode3D._spriteset;
+        var is3D = ConfigManager.mode3d && Mode3D._spriteset &&
+            SceneManager._scene instanceof Scene_Map;
 
         rendererObj._drawOrderCounter = 0;
 

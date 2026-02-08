@@ -295,16 +295,31 @@ ThreeTilemapRectLayer.prototype._flush = function() {
         var mesh = this._meshes[setNumber];
 
         if (mesh) {
-            // 기존 mesh의 geometry를 새로 교체 (MeshStandardMaterial 호환)
-            var oldGeo = mesh.geometry;
-            geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-            geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
-            if (!isShadow) {
-                geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+            // 기존 geometry의 attribute 데이터만 교체 (객체 재사용)
+            geometry = mesh.geometry;
+            var posAttr = geometry.attributes.position;
+            if (posAttr && posAttr.array.length === posArray.length) {
+                posAttr.array.set(posArray);
+                posAttr.needsUpdate = true;
+            } else {
+                geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
             }
-            mesh.geometry = geometry;
-            if (oldGeo) oldGeo.dispose();
+            var normAttr = geometry.attributes.normal;
+            if (normAttr && normAttr.array.length === normalArray.length) {
+                normAttr.array.set(normalArray);
+                normAttr.needsUpdate = true;
+            } else {
+                geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
+            }
+            if (!isShadow) {
+                var uvAttr = geometry.attributes.uv;
+                if (uvAttr && uvAttr.array.length === uvArray.length) {
+                    uvAttr.array.set(uvArray);
+                    uvAttr.needsUpdate = true;
+                } else {
+                    geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+                }
+            }
             mesh.visible = true;
         } else {
             // 새 geometry + mesh 생성
