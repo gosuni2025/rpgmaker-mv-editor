@@ -337,6 +337,8 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                     onIndexChange={(idx) => updateImage({ characterIndex: idx })}
                     direction={page.image.direction}
                     onDirectionChange={(dir) => updateImage({ direction: dir })}
+                    pattern={page.image.pattern}
+                    onPatternChange={(pat) => updateImage({ pattern: pat })}
                   />
                 </div>
 

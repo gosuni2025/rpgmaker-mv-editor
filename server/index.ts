@@ -177,6 +177,7 @@ app.get('/game/index.html', (req, res) => {
         <script type="text/javascript" src="js/rpg_sprites.js"></script>
         <script type="text/javascript" src="js/rpg_windows.js"></script>
         <script type="text/javascript" src="js/Mode3D.js"></script>
+        <script type="text/javascript" src="js/ShadowAndLight.js"></script>
         <script type="text/javascript" src="js/plugins.js"></script>
         <script type="text/javascript" src="js/main.js"></script>
     </body>

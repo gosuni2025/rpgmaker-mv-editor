@@ -9,6 +9,8 @@ interface ImagePickerProps {
   onIndexChange?: (index: number) => void;
   direction?: number;
   onDirectionChange?: (direction: number) => void;
+  pattern?: number;
+  onPatternChange?: (pattern: number) => void;
 }
 
 // RPG Maker MV direction: 2=아래, 4=왼쪽, 6=오른쪽, 8=위
@@ -17,42 +19,38 @@ const DIR_FROM_ROW: Record<number, number> = { 0: 2, 1: 4, 2: 6, 3: 8 };
 const ROW_FROM_DIR: Record<number, number> = { 2: 0, 4: 1, 6: 2, 8: 3 };
 
 function getCharacterSheetInfo(fileName: string) {
-  // $ 접두사: 1캐릭터(3x4), 그 외: 8캐릭터(12x8)
   const isSingle = fileName.startsWith('$');
   return {
     charCols: isSingle ? 1 : 4,
     charRows: isSingle ? 1 : 2,
-    patternsPerChar: 3,
-    dirsPerChar: 4,
+    patterns: 3,
+    dirs: 4,
     totalCols: isSingle ? 3 : 12,
     totalRows: isSingle ? 4 : 8,
-    maxIndex: isSingle ? 0 : 7,
   };
 }
 
-/** 스프라이트 시트 전체를 표시하고, 개별 프레임 클릭으로 선택 */
-function SheetSelector({ imgSrc, fileName, type, selectedIndex, selectedDirection, onSelect }: {
+/** 스프라이트 시트 전체 표시, 개별 프레임 클릭 선택 */
+function SheetSelector({ imgSrc, fileName, type, selectedIndex, selectedDirection, selectedPattern, onSelect }: {
   imgSrc: string;
   fileName: string;
   type: string;
   selectedIndex: number;
   selectedDirection: number;
-  onSelect: (index: number, direction: number) => void;
+  selectedPattern: number;
+  onSelect: (index: number, direction: number, pattern: number) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    setLoaded(false);
-  }, [imgSrc]);
+  useEffect(() => { setLoaded(false); }, [imgSrc]);
 
   if (type === 'characters') {
     const info = getCharacterSheetInfo(fileName);
-    const dirRow = ROW_FROM_DIR[selectedDirection] ?? 0;
     const selCharCol = selectedIndex % info.charCols;
     const selCharRow = Math.floor(selectedIndex / info.charCols);
-    // 선택된 프레임의 절대 좌표 (중앙 패턴 = pattern index 1)
-    const selCol = selCharCol * info.patternsPerChar + 1;
-    const selRow = selCharRow * info.dirsPerChar + dirRow;
+    const selDirRow = ROW_FROM_DIR[selectedDirection] ?? 0;
+    const selAbsCol = selCharCol * info.patterns + selectedPattern;
+    const selAbsRow = selCharRow * info.dirs + selDirRow;
 
     return (
       <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -72,15 +70,16 @@ function SheetSelector({ imgSrc, fileName, type, selectedIndex, selectedDirectio
             {Array.from({ length: info.totalRows * info.totalCols }, (_, i) => {
               const col = i % info.totalCols;
               const row = Math.floor(i / info.totalCols);
-              const charCol = Math.floor(col / info.patternsPerChar);
-              const charRow = Math.floor(row / info.dirsPerChar);
+              const charCol = Math.floor(col / info.patterns);
+              const charRow = Math.floor(row / info.dirs);
               const charIdx = charRow * info.charCols + charCol;
-              const dir = DIR_FROM_ROW[row % info.dirsPerChar];
-              const isSelected = col === selCol && row === selRow;
+              const pat = col % info.patterns;
+              const dir = DIR_FROM_ROW[row % info.dirs];
+              const isSelected = col === selAbsCol && row === selAbsRow;
               return (
                 <div
                   key={i}
-                  onClick={() => onSelect(charIdx, dir)}
+                  onClick={() => onSelect(charIdx, dir, pat)}
                   style={{
                     cursor: 'pointer',
                     border: isSelected ? '2px solid #2675bf' : '1px solid rgba(255,255,255,0.05)',
@@ -118,7 +117,7 @@ function SheetSelector({ imgSrc, fileName, type, selectedIndex, selectedDirectio
           {Array.from({ length: cellCount }, (_, i) => (
             <div
               key={i}
-              onClick={() => onSelect(i, 2)}
+              onClick={() => onSelect(i, 2, 0)}
               style={{
                 cursor: 'pointer',
                 border: i === selectedIndex ? '2px solid #2675bf' : '1px solid rgba(255,255,255,0.05)',
@@ -134,12 +133,13 @@ function SheetSelector({ imgSrc, fileName, type, selectedIndex, selectedDirectio
 }
 
 /** 프리뷰 썸네일 */
-function CellPreview({ imgSrc, fileName, type, cellIndex, direction, size }: {
+function CellPreview({ imgSrc, fileName, type, cellIndex, direction, pattern, size }: {
   imgSrc: string;
   fileName: string;
   type: string;
   cellIndex: number;
   direction?: number;
+  pattern?: number;
   size: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -157,8 +157,9 @@ function CellPreview({ imgSrc, fileName, type, cellIndex, direction, size }: {
         const charCol = cellIndex % info.charCols;
         const charRow = Math.floor(cellIndex / info.charCols);
         const dirRow = ROW_FROM_DIR[direction ?? 2] ?? 0;
-        const sx = (charCol * info.patternsPerChar + 1) * fw; // 중앙 패턴
-        const sy = (charRow * info.dirsPerChar + dirRow) * fh;
+        const pat = pattern ?? 1;
+        const sx = (charCol * info.patterns + pat) * fw;
+        const sy = (charRow * info.dirs + dirRow) * fh;
         canvas.width = fw;
         canvas.height = fh;
         canvas.getContext('2d')!.drawImage(img, sx, sy, fw, fh, 0, 0, fw, fh);
@@ -174,7 +175,7 @@ function CellPreview({ imgSrc, fileName, type, cellIndex, direction, size }: {
       }
     };
     img.src = imgSrc;
-  }, [imgSrc, fileName, type, cellIndex, direction]);
+  }, [imgSrc, fileName, type, cellIndex, direction, pattern]);
 
   return (
     <canvas
@@ -191,18 +192,20 @@ function getCellCount(type: string) {
   return 0;
 }
 
-export default function ImagePicker({ type, value, onChange, index, onIndexChange, direction, onDirectionChange }: ImagePickerProps) {
+export default function ImagePicker({ type, value, onChange, index, onIndexChange, direction, onDirectionChange, pattern, onPatternChange }: ImagePickerProps) {
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<string[]>([]);
   const [selected, setSelected] = useState(value);
   const [selectedIndex, setSelectedIndex] = useState(index ?? 0);
   const [selectedDirection, setSelectedDirection] = useState(direction ?? 2);
+  const [selectedPattern, setSelectedPattern] = useState(pattern ?? 1);
 
   useEffect(() => {
     if (!open) return;
     setSelected(value);
     setSelectedIndex(index ?? 0);
     setSelectedDirection(direction ?? 2);
+    setSelectedPattern(pattern ?? 1);
     apiClient.get<string[]>(`/resources/${type}`).then(setFiles).catch(() => setFiles([]));
   }, [open]);
 
@@ -210,6 +213,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     onChange(selected.replace(/\.png$/i, ''));
     if (onIndexChange) onIndexChange(selectedIndex);
     if (onDirectionChange) onDirectionChange(selectedDirection);
+    if (onPatternChange) onPatternChange(selectedPattern);
     setOpen(false);
   };
 
@@ -228,6 +232,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
               type={type}
               cellIndex={index}
               direction={direction}
+              pattern={pattern}
               size={48}
             />
           ) : (
@@ -276,9 +281,11 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
                     type={type}
                     selectedIndex={selectedIndex}
                     selectedDirection={selectedDirection}
-                    onSelect={(idx, dir) => {
+                    selectedPattern={selectedPattern}
+                    onSelect={(idx, dir, pat) => {
                       setSelectedIndex(idx);
                       setSelectedDirection(dir);
+                      setSelectedPattern(pat);
                     }}
                   />
                 ) : selected ? (
