@@ -84,22 +84,27 @@ ShadowLight.config = {
 
 //=============================================================================
 // Material 교체 시스템
-// MeshBasicMaterial -> MeshLambertMaterial (조명 영향을 받도록)
+// MeshBasicMaterial -> MeshStandardMaterial (조명 영향을 받도록)
 //=============================================================================
 
 ShadowLight._convertedMaterials = new WeakMap();
 
 /**
- * MeshBasicMaterial을 MeshLambertMaterial로 교체
+ * MeshBasicMaterial을 MeshStandardMaterial로 교체
  * 기존 텍스처, 투명도, 블렌딩 등 속성을 모두 유지
  */
 ShadowLight._convertMaterial = function(sprite) {
     if (!sprite || !sprite._material) return;
-    if (sprite._material.isMeshLambertMaterial) return;
+    if (sprite._material.isMeshStandardMaterial) return;
     if (this._convertedMaterials.has(sprite._material)) return;
 
     var oldMat = sprite._material;
-    var newMat = new THREE.MeshLambertMaterial({
+    // MeshStandardMaterial은 sRGB 텍스처를 기대
+    if (oldMat.map && oldMat.map.encoding !== THREE.sRGBEncoding) {
+        oldMat.map.encoding = THREE.sRGBEncoding;
+        oldMat.map.needsUpdate = true;
+    }
+    var newMat = new THREE.MeshStandardMaterial({
         map: oldMat.map,
         transparent: oldMat.transparent,
         depthTest: oldMat.depthTest,
@@ -107,6 +112,8 @@ ShadowLight._convertMaterial = function(sprite) {
         side: oldMat.side,
         opacity: oldMat.opacity,
         blending: oldMat.blending,
+        roughness: 1.0,
+        metalness: 0.0,
         emissive: new THREE.Color(0x222222), // 약간의 자체 발광 (완전 어둠 방지)
     });
     newMat.visible = oldMat.visible;
@@ -120,11 +127,11 @@ ShadowLight._convertMaterial = function(sprite) {
 };
 
 /**
- * MeshLambertMaterial을 MeshBasicMaterial로 되돌리기
+ * MeshStandardMaterial을 MeshBasicMaterial로 되돌리기
  */
 ShadowLight._revertMaterial = function(sprite) {
     if (!sprite || !sprite._material) return;
-    if (!sprite._material.isMeshLambertMaterial) return;
+    if (!sprite._material.isMeshStandardMaterial) return;
 
     var oldMat = sprite._material;
     var newMat = new THREE.MeshBasicMaterial({
@@ -145,7 +152,7 @@ ShadowLight._revertMaterial = function(sprite) {
 
 //=============================================================================
 // 타일맵 Material 교체
-// ThreeTilemapRectLayer의 내부 메시들을 MeshLambertMaterial로 교체
+// ThreeTilemapRectLayer의 내부 메시들을 MeshStandardMaterial로 교체
 //=============================================================================
 
 ShadowLight._convertTilemapMaterials = function(tilemap) {
@@ -164,19 +171,26 @@ ShadowLight._convertTilemapMaterials = function(tilemap) {
                 for (var key in rectLayer._meshes) {
                     var mesh = rectLayer._meshes[key];
                     if (!mesh || !mesh.material) continue;
-                    if (mesh.material.isMeshLambertMaterial) continue;
+                    if (mesh.material.isMeshStandardMaterial) continue;
                     if (!mesh.material.isMeshBasicMaterial) continue;
                     // 그림자 메시는 교체하지 않음 (검은색 반투명)
                     if (parseInt(key) === -1) continue;
 
                     var oldMat = mesh.material;
-                    var newMat = new THREE.MeshLambertMaterial({
+                    // MeshStandardMaterial은 sRGB 텍스처를 기대
+                    if (oldMat.map && oldMat.map.encoding !== THREE.sRGBEncoding) {
+                        oldMat.map.encoding = THREE.sRGBEncoding;
+                        oldMat.map.needsUpdate = true;
+                    }
+                    var newMat = new THREE.MeshStandardMaterial({
                         map: oldMat.map,
                         transparent: oldMat.transparent,
                         depthTest: oldMat.depthTest,
                         depthWrite: oldMat.depthWrite,
                         side: oldMat.side,
                         opacity: oldMat.opacity,
+                        roughness: 1.0,
+                        metalness: 0.0,
                         emissive: new THREE.Color(0x222222),
                     });
                     newMat.visible = oldMat.visible;
@@ -206,7 +220,6 @@ ShadowLight._revertTilemapMaterials = function(tilemap) {
                     var mesh = rectLayer._meshes[key];
                     if (!mesh) continue;
                     if (mesh._originalMaterial) {
-                        // map이 바뀌었을 수 있으므로 복원
                         mesh._originalMaterial.map = mesh.material.map;
                         mesh._originalMaterial.visible = mesh.material.visible;
                         mesh.material = mesh._originalMaterial;
@@ -479,6 +492,10 @@ Spriteset_Map.prototype._activateShadowLight = function() {
     if (rendererObj && rendererObj.scene) {
         ShadowLight._addLightsToScene(rendererObj.scene);
     }
+    // MeshStandardMaterial의 올바른 색상을 위해 sRGB output 활성화
+    if (rendererObj && rendererObj.renderer) {
+        rendererObj.renderer.outputEncoding = THREE.sRGBEncoding;
+    }
 
     // 캐릭터 스프라이트 material 교체
     if (this._characterSprites) {
@@ -487,7 +504,7 @@ Spriteset_Map.prototype._activateShadowLight = function() {
         }
     }
 
-    // 타일맵 material 교체 (MeshBasicMaterial → MeshLambertMaterial)
+    // 타일맵 material 교체 (MeshBasicMaterial → MeshStandardMaterial)
     ShadowLight._convertTilemapMaterials(this._tilemap);
 
     // shadow mesh는 _updateShadowMesh에서 parent 설정 및 표시됨
@@ -498,6 +515,10 @@ Spriteset_Map.prototype._deactivateShadowLight = function() {
     if (rendererObj && rendererObj.scene) {
         ShadowLight._removeLightsFromScene(rendererObj.scene);
     }
+    // outputEncoding 복원
+    if (rendererObj && rendererObj.renderer) {
+        rendererObj.renderer.outputEncoding = THREE.LinearEncoding;
+    }
 
     // material 복원
     if (this._characterSprites) {
@@ -506,7 +527,7 @@ Spriteset_Map.prototype._deactivateShadowLight = function() {
         }
     }
 
-    // 타일맵 material 복원 (MeshLambertMaterial → MeshBasicMaterial)
+    // 타일맵 material 복원 (MeshStandardMaterial → MeshBasicMaterial)
     ShadowLight._revertTilemapMaterials(this._tilemap);
 
     // shadow mesh 숨기기 및 씬 그래프에서 제거
@@ -591,7 +612,7 @@ var _Sprite_Character_updateBitmap = Sprite_Character.prototype.updateBitmap;
 Sprite_Character.prototype.updateBitmap = function() {
     _Sprite_Character_updateBitmap.call(this);
     // material이 교체되면 다시 변환
-    if (ShadowLight._active && this._material && !this._material.isMeshLambertMaterial) {
+    if (ShadowLight._active && this._material && !this._material.isMeshStandardMaterial) {
         ShadowLight._convertMaterial(this);
     }
 };
