@@ -60,10 +60,14 @@ router.get('/status', (_req: Request, res: Response) => {
 
 // POST /api/generator/set-path - 사용자 지정 Generator 경로 설정
 router.post('/set-path', (req: Request, res: Response) => {
-  const { path: newPath } = req.body as { path: string };
+  let { path: newPath } = req.body as { path: string };
   if (!newPath) {
     customGeneratorPath = null;
     return res.json({ success: true, cleared: true });
+  }
+  // ~ 를 홈 디렉토리로 확장
+  if (newPath.startsWith('~')) {
+    newPath = path.join(process.env.HOME || '', newPath.slice(1));
   }
   if (!isValidGeneratorPath(newPath)) {
     return res.status(400).json({ error: '유효하지 않은 Generator 경로입니다. gradients.png 파일이 포함된 폴더를 지정하세요.' });

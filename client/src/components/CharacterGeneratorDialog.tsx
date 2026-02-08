@@ -421,9 +421,21 @@ export default function CharacterGeneratorDialog() {
                 <button className="db-btn" onClick={handleSetCustomPath}>설정</button>
               </div>
               {pathError && <p style={{ marginTop: 6, fontSize: 11, color: '#f77' }}>{pathError}</p>}
-              <p style={{ marginTop: 8, fontSize: 11, color: '#666' }}>
-                gradients.png, Face/, TV/, SV/, Variation/ 폴더가 포함된 경로를 지정하세요.
-              </p>
+              <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: '#888', lineHeight: '24px' }}>기본 경로:</span>
+                <button className="db-btn" style={{ fontSize: 10, padding: '2px 8px' }}
+                  onClick={() => setCustomPath('~/Library/Application Support/Steam/steamapps/common/RPG Maker MV/RPG Maker MV.app/Contents/MacOS/Generator')}>
+                  macOS
+                </button>
+                <button className="db-btn" style={{ fontSize: 10, padding: '2px 8px' }}
+                  onClick={() => setCustomPath('C:\\Program Files (x86)\\Steam\\steamapps\\common\\RPG Maker MV\\Generator')}>
+                  Windows
+                </button>
+                <button className="db-btn" style={{ fontSize: 10, padding: '2px 8px' }}
+                  onClick={() => setCustomPath('~/.steam/steam/steamapps/common/RPG Maker MV/Generator')}>
+                  Linux
+                </button>
+              </div>
             </div>
             {statusMsg && <p style={{ marginTop: 12, fontSize: 12, color: '#7af', textAlign: 'center' }}>{statusMsg}</p>}
           </div>
