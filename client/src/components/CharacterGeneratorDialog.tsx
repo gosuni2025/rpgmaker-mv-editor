@@ -7,6 +7,8 @@ import {
   compositeFaceCharacter,
   compositeTVSVCharacter,
   FACE_RENDER_ORDER,
+  TV_RENDER_ORDER,
+  SV_RENDER_ORDER,
 } from '../utils/generatorRenderer';
 
 type Gender = 'Male' | 'Female' | 'Kid';
@@ -57,6 +59,12 @@ interface GeneratorStatus {
   inProject: boolean;
   steamAvailable: boolean;
   customPath: string | null;
+}
+
+function getRenderOrder(type: OutputType): string[] {
+  if (type === 'TV') return TV_RENDER_ORDER;
+  if (type === 'SV') return SV_RENDER_ORDER;
+  return FACE_RENDER_ORDER;
 }
 
 const GENDER_LABELS: Record<Gender, string> = { Male: '남성', Female: '여성', Kid: '아이' };
@@ -145,7 +153,7 @@ export default function CharacterGeneratorDialog() {
 
   const initSelections = (manifest: FacePartManifest | TVSVPartManifest, type: OutputType) => {
     const sel: Record<string, PartSelection> = {};
-    for (const partName of FACE_RENDER_ORDER) {
+    for (const partName of getRenderOrder(type)) {
       const partData = manifest[partName];
       if (!partData || partData.patterns.length === 0) {
         sel[partName] = { patternId: null, colorRows: {} };
@@ -191,8 +199,9 @@ export default function CharacterGeneratorDialog() {
     const size = OUTPUT_SIZES[outputType];
     try {
       let result: HTMLCanvasElement;
+      const renderOrder = getRenderOrder(outputType);
       if (outputType === 'Face') {
-        const parts = FACE_RENDER_ORDER
+        const parts = renderOrder
           .filter((pn) => selections[pn]?.patternId)
           .map((pn) => {
             const sel = selections[pn];
@@ -210,7 +219,7 @@ export default function CharacterGeneratorDialog() {
           .filter(Boolean) as any[];
         result = await compositeFaceCharacter(parts, gradients, size.w, size.h);
       } else {
-        const parts = FACE_RENDER_ORDER
+        const parts = renderOrder
           .filter((pn) => selections[pn]?.patternId)
           .map((pn) => {
             const sel = selections[pn];
@@ -227,7 +236,7 @@ export default function CharacterGeneratorDialog() {
             };
           })
           .filter(Boolean) as any[];
-        result = await compositeTVSVCharacter(parts, gradients, size.w, size.h);
+        result = await compositeTVSVCharacter(parts, gradients, size.w, size.h, outputType as 'TV' | 'SV');
       }
       const ctx = canvasRef.current.getContext('2d')!;
       canvasRef.current.width = size.w;
@@ -274,7 +283,7 @@ export default function CharacterGeneratorDialog() {
   const handleRandomize = useCallback(() => {
     const manifest = outputType === 'Face' ? faceManifest : tvsvManifest;
     const sel: Record<string, PartSelection> = {};
-    for (const partName of FACE_RENDER_ORDER) {
+    for (const partName of getRenderOrder(outputType)) {
       const partData = manifest[partName];
       if (!partData || partData.patterns.length === 0) {
         sel[partName] = { patternId: null, colorRows: {} };
@@ -365,7 +374,7 @@ export default function CharacterGeneratorDialog() {
 
   const previewSize = OUTPUT_SIZES[outputType];
   const scale = outputType === 'SV' ? 0.5 : 1.5;
-  const availableParts = FACE_RENDER_ORDER.filter((pn) => manifest[pn]?.patterns?.length > 0);
+  const availableParts = getRenderOrder(outputType).filter((pn) => manifest[pn]?.patterns?.length > 0);
 
   const handleSetCustomPath = async () => {
     if (!customPath.trim()) return;

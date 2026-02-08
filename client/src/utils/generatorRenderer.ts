@@ -6,10 +6,25 @@ const GRADIENT_ROWS = 70;
 const GRADIENT_ROW_HEIGHT = 4;
 const GRADIENT_SAMPLE_X = 128;
 
+// Face 렌더링 순서 (bottom → top, layer 37→1)
 export const FACE_RENDER_ORDER: string[] = [
-  'RearHair2', 'RearHair1', 'Cloak2', 'Body', 'Face', 'Ears', 'BeastEars',
-  'Eyes', 'Eyebrows', 'Nose', 'Mouth', 'FacialMark', 'Beard', 'FrontHair',
-  'Cloak1', 'Clothing1', 'Clothing2', 'Glasses', 'AccA', 'AccB',
+  'RearHair2', 'Cloak2', 'Body', 'Clothing2', 'Face', 'Mouth', 'Nose',
+  'FacialMark', 'Eyes', 'Eyebrows', 'RearHair1', 'Ears', 'Clothing1',
+  'Beard', 'BeastEars', 'AccA', 'Cloak1', 'FrontHair', 'Glasses', 'AccB',
+];
+
+// TV(걷기) 렌더링 순서 (bottom → top, layer 20→1)
+export const TV_RENDER_ORDER: string[] = [
+  'Wing2', 'Cloak2', 'Tail2', 'FrontHair2', 'Beard2', 'Body', 'FacialMark',
+  'RearHair2', 'Clothing2', 'Beard1', 'Clothing1', 'Tail1', 'Cloak1',
+  'BeastEars', 'Glasses', 'RearHair1', 'AccA', 'FrontHair1', 'AccB', 'Wing1',
+];
+
+// SV(전투) 렌더링 순서 (bottom → top, layer 15→1)
+export const SV_RENDER_ORDER: string[] = [
+  'Wing', 'Cloak2', 'Tail', 'Body', 'FacialMark', 'RearHair1', 'Clothing2',
+  'Beard', 'Clothing1', 'Cloak1', 'BeastEars', 'Glasses', 'AccA', 'FrontHair',
+  'AccB',
 ];
 
 const imageCache = new Map<string, HTMLImageElement>();
@@ -184,7 +199,7 @@ export async function compositeFaceCharacter(
   canvas.height = canvasHeight;
   const ctx = canvas.getContext('2d')!;
 
-  const sortedParts = sortByRenderOrder(parts);
+  const sortedParts = sortByRenderOrder(parts, FACE_RENDER_ORDER);
 
   for (const part of sortedParts) {
     for (const layer of part.layers) {
@@ -215,13 +230,15 @@ export async function compositeTVSVCharacter(
   gradients: ImageData,
   canvasWidth: number,
   canvasHeight: number,
+  outputType: 'TV' | 'SV' = 'TV',
 ): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
   canvas.width = canvasWidth;
   canvas.height = canvasHeight;
   const ctx = canvas.getContext('2d')!;
 
-  const sortedParts = sortByRenderOrder(parts);
+  const order = outputType === 'SV' ? SV_RENDER_ORDER : TV_RENDER_ORDER;
+  const sortedParts = sortByRenderOrder(parts, order);
 
   for (const part of sortedParts) {
     const recolored = await recolorTVSVPart(
@@ -238,12 +255,13 @@ export async function compositeTVSVCharacter(
 
 function sortByRenderOrder<T extends { partName: string }>(
   parts: T[],
+  order: string[],
 ): T[] {
   return [...parts].sort((a, b) => {
-    const idxA = FACE_RENDER_ORDER.indexOf(a.partName);
-    const idxB = FACE_RENDER_ORDER.indexOf(b.partName);
-    const orderA = idxA === -1 ? FACE_RENDER_ORDER.length : idxA;
-    const orderB = idxB === -1 ? FACE_RENDER_ORDER.length : idxB;
+    const idxA = order.indexOf(a.partName);
+    const idxB = order.indexOf(b.partName);
+    const orderA = idxA === -1 ? order.length : idxA;
+    const orderB = idxB === -1 ? order.length : idxB;
     return orderA - orderB;
   });
 }
