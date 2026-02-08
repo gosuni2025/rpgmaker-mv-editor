@@ -1,0 +1,480 @@
+import { create } from 'zustand';
+import apiClient from '../api/client';
+import type { MapInfo, MapData, TilesetData } from '../types/rpgMakerMV';
+
+const PROJECT_STORAGE_KEY = 'rpg-editor-current-project';
+const MAP_STORAGE_KEY = 'rpg-editor-current-map';
+
+export interface TileChange {
+  x: number;
+  y: number;
+  z: number;
+  oldTileId: number;
+  newTileId: number;
+}
+
+export interface HistoryEntry {
+  mapId: number;
+  changes: TileChange[];
+}
+
+export interface ClipboardData {
+  type: 'tiles' | 'event';
+  tiles?: { x: number; y: number; z: number; tileId: number }[];
+  width?: number;
+  height?: number;
+  event?: unknown;
+}
+
+export interface EditorState {
+  // Project
+  projectPath: string | null;
+  projectName: string | null;
+
+  // Maps
+  maps: (MapInfo | null)[];
+  currentMapId: number | null;
+  currentMap: (MapData & { tilesetNames?: string[] }) | null;
+
+  // Tileset
+  tilesetInfo: TilesetData | null;
+
+  // Mode
+  editMode: 'map' | 'event';
+
+  // Drawing tools
+  selectedTool: string;
+  selectedTileId: number;
+  currentLayer: number;
+
+  // Zoom
+  zoomLevel: number;
+
+  // Undo/Redo
+  undoStack: HistoryEntry[];
+  redoStack: HistoryEntry[];
+
+  // Clipboard
+  clipboard: ClipboardData | null;
+
+  // Mouse position
+  cursorTileX: number;
+  cursorTileY: number;
+
+  // Selection (for rectangle/ellipse preview and copy)
+  selectionStart: { x: number; y: number } | null;
+  selectionEnd: { x: number; y: number } | null;
+
+  // Event editor
+  selectedEventId: number | null;
+
+  // UI dialogs
+  showOpenProjectDialog: boolean;
+  showNewProjectDialog: boolean;
+  showDatabaseDialog: boolean;
+  showDeployDialog: boolean;
+  showFindDialog: boolean;
+  showPluginManagerDialog: boolean;
+  showSoundTestDialog: boolean;
+  showEventSearchDialog: boolean;
+  showResourceManagerDialog: boolean;
+  showCharacterGeneratorDialog: boolean;
+
+  // Actions - Project
+  openProject: (path: string) => Promise<void>;
+  closeProject: () => void;
+  restoreLastProject: () => Promise<void>;
+  loadMaps: () => Promise<void>;
+  selectMap: (mapId: number) => Promise<void>;
+  saveCurrentMap: () => Promise<void>;
+
+  // Actions - Map CRUD
+  createMap: (opts: { name?: string; width?: number; height?: number; tilesetId?: number; parentId?: number }) => Promise<number | null>;
+  deleteMap: (mapId: number) => Promise<void>;
+  updateMapInfos: (mapInfos: (MapInfo | null)[]) => Promise<void>;
+
+  // Actions - Map editing
+  updateMapTile: (x: number, y: number, z: number, tileId: number) => void;
+  updateMapTiles: (changes: { x: number; y: number; z: number; tileId: number }[]) => void;
+  pushUndo: (changes: TileChange[]) => void;
+  undo: () => void;
+  redo: () => void;
+
+  // Actions - Clipboard
+  copyTiles: (x1: number, y1: number, x2: number, y2: number) => void;
+  cutTiles: (x1: number, y1: number, x2: number, y2: number) => void;
+  pasteTiles: (x: number, y: number) => void;
+  deleteTiles: (x1: number, y1: number, x2: number, y2: number) => void;
+
+  // Actions - Event
+  copyEvent: (eventId: number) => void;
+  cutEvent: (eventId: number) => void;
+  pasteEvent: (x: number, y: number) => void;
+  deleteEvent: (eventId: number) => void;
+
+  // Actions - UI
+  setEditMode: (mode: 'map' | 'event') => void;
+  setSelectedTool: (tool: string) => void;
+  setSelectedTileId: (id: number) => void;
+  setCurrentLayer: (layer: number) => void;
+  setZoomLevel: (level: number) => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  zoomActualSize: () => void;
+  setCursorTile: (x: number, y: number) => void;
+  setSelection: (start: { x: number; y: number } | null, end: { x: number; y: number } | null) => void;
+  setSelectedEventId: (id: number | null) => void;
+
+  // Actions - Dialog toggles
+  setShowOpenProjectDialog: (show: boolean) => void;
+  setShowNewProjectDialog: (show: boolean) => void;
+  setShowDatabaseDialog: (show: boolean) => void;
+  setShowDeployDialog: (show: boolean) => void;
+  setShowFindDialog: (show: boolean) => void;
+  setShowPluginManagerDialog: (show: boolean) => void;
+  setShowSoundTestDialog: (show: boolean) => void;
+  setShowEventSearchDialog: (show: boolean) => void;
+  setShowResourceManagerDialog: (show: boolean) => void;
+  setShowCharacterGeneratorDialog: (show: boolean) => void;
+}
+
+const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4];
+const MAX_UNDO = 20;
+
+const useEditorStore = create<EditorState>((set, get) => ({
+  // State
+  projectPath: null,
+  projectName: null,
+  maps: [],
+  currentMapId: null,
+  currentMap: null,
+  tilesetInfo: null,
+  editMode: 'map',
+  selectedTool: 'pen',
+  selectedTileId: 0,
+  currentLayer: 0,
+  zoomLevel: 1,
+  undoStack: [],
+  redoStack: [],
+  clipboard: null,
+  cursorTileX: 0,
+  cursorTileY: 0,
+  selectionStart: null,
+  selectionEnd: null,
+  selectedEventId: null,
+  showOpenProjectDialog: false,
+  showNewProjectDialog: false,
+  showDatabaseDialog: false,
+  showDeployDialog: false,
+  showFindDialog: false,
+  showPluginManagerDialog: false,
+  showSoundTestDialog: false,
+  showEventSearchDialog: false,
+  showResourceManagerDialog: false,
+  showCharacterGeneratorDialog: false,
+
+  // Project actions
+  openProject: async (projectPath: string) => {
+    const res = await apiClient.post<{ name?: string }>('/project/open', { path: projectPath });
+    set({
+      projectPath,
+      projectName: res.name || projectPath.split('/').pop() || null,
+      undoStack: [],
+      redoStack: [],
+      clipboard: null,
+      selectedEventId: null,
+    });
+    localStorage.setItem(PROJECT_STORAGE_KEY, projectPath);
+    get().loadMaps();
+  },
+
+  closeProject: () => {
+    apiClient.post('/project/close', {}).catch(() => {});
+    set({
+      projectPath: null,
+      projectName: null,
+      maps: [],
+      currentMapId: null,
+      currentMap: null,
+      tilesetInfo: null,
+      undoStack: [],
+      redoStack: [],
+      clipboard: null,
+      selectedEventId: null,
+    });
+    localStorage.removeItem(PROJECT_STORAGE_KEY);
+    localStorage.removeItem(MAP_STORAGE_KEY);
+  },
+
+  restoreLastProject: async () => {
+    const saved = localStorage.getItem(PROJECT_STORAGE_KEY);
+    if (saved) {
+      try {
+        await get().openProject(saved);
+        const savedMap = localStorage.getItem(MAP_STORAGE_KEY);
+        if (savedMap) {
+          const mapId = parseInt(savedMap, 10);
+          if (!isNaN(mapId) && mapId > 0) {
+            await get().selectMap(mapId);
+          }
+        }
+      } catch {
+        localStorage.removeItem(PROJECT_STORAGE_KEY);
+        localStorage.removeItem(MAP_STORAGE_KEY);
+      }
+    }
+  },
+
+  loadMaps: async () => {
+    const maps = await apiClient.get<(MapInfo | null)[]>('/maps');
+    set({ maps });
+  },
+
+  selectMap: async (mapId: number) => {
+    set({ currentMapId: mapId, undoStack: [], redoStack: [] });
+    localStorage.setItem(MAP_STORAGE_KEY, String(mapId));
+    const map = await apiClient.get<MapData>(`/maps/${mapId}`);
+    if (map.tilesetId) {
+      try {
+        const tilesets = await apiClient.get<(TilesetData | null)[]>('/database/tilesets');
+        const tilesetInfo = tilesets[map.tilesetId];
+        if (tilesetInfo) {
+          map.tilesetNames = tilesetInfo.tilesetNames;
+          set({ currentMap: map, tilesetInfo });
+        } else {
+          set({ currentMap: map });
+        }
+      } catch {
+        set({ currentMap: map });
+      }
+    } else {
+      set({ currentMap: map });
+    }
+  },
+
+  saveCurrentMap: async () => {
+    const { currentMapId, currentMap } = get();
+    if (!currentMapId || !currentMap) return;
+    await apiClient.put(`/maps/${currentMapId}`, currentMap);
+  },
+
+  createMap: async (opts) => {
+    try {
+      const res = await apiClient.post<{ id: number }>('/maps', opts);
+      await get().loadMaps();
+      return res.id;
+    } catch {
+      return null;
+    }
+  },
+
+  deleteMap: async (mapId: number) => {
+    await apiClient.delete(`/maps/${mapId}`);
+    const { currentMapId } = get();
+    if (currentMapId === mapId) {
+      set({ currentMapId: null, currentMap: null, tilesetInfo: null });
+    }
+    await get().loadMaps();
+  },
+
+  updateMapInfos: async (mapInfos: (MapInfo | null)[]) => {
+    await apiClient.put('/maps', mapInfos);
+    set({ maps: mapInfos });
+  },
+
+  // Map editing
+  updateMapTile: (x: number, y: number, z: number, tileId: number) => {
+    const map = get().currentMap;
+    if (!map) return;
+    const newData = [...map.data];
+    newData[(z * map.height + y) * map.width + x] = tileId;
+    set({ currentMap: { ...map, data: newData } });
+  },
+
+  updateMapTiles: (changes: { x: number; y: number; z: number; tileId: number }[]) => {
+    const map = get().currentMap;
+    if (!map) return;
+    const newData = [...map.data];
+    for (const c of changes) {
+      newData[(c.z * map.height + c.y) * map.width + c.x] = c.tileId;
+    }
+    set({ currentMap: { ...map, data: newData } });
+  },
+
+  pushUndo: (changes: TileChange[]) => {
+    const { currentMapId, undoStack } = get();
+    if (!currentMapId || changes.length === 0) return;
+    const newStack = [...undoStack, { mapId: currentMapId, changes }];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({ undoStack: newStack, redoStack: [] });
+  },
+
+  undo: () => {
+    const { undoStack, currentMap, currentMapId } = get();
+    if (undoStack.length === 0 || !currentMap || !currentMapId) return;
+    const entry = undoStack[undoStack.length - 1];
+    if (entry.mapId !== currentMapId) return;
+
+    const newData = [...currentMap.data];
+    const redoChanges: TileChange[] = [];
+    for (const c of entry.changes) {
+      const idx = (c.z * currentMap.height + c.y) * currentMap.width + c.x;
+      redoChanges.push({ ...c, oldTileId: c.newTileId, newTileId: c.oldTileId });
+      newData[idx] = c.oldTileId;
+    }
+
+    set({
+      currentMap: { ...currentMap, data: newData },
+      undoStack: undoStack.slice(0, -1),
+      redoStack: [...get().redoStack, { mapId: currentMapId, changes: redoChanges }],
+    });
+  },
+
+  redo: () => {
+    const { redoStack, currentMap, currentMapId } = get();
+    if (redoStack.length === 0 || !currentMap || !currentMapId) return;
+    const entry = redoStack[redoStack.length - 1];
+    if (entry.mapId !== currentMapId) return;
+
+    const newData = [...currentMap.data];
+    const undoChanges: TileChange[] = [];
+    for (const c of entry.changes) {
+      const idx = (c.z * currentMap.height + c.y) * currentMap.width + c.x;
+      undoChanges.push({ ...c, oldTileId: c.newTileId, newTileId: c.oldTileId });
+      newData[idx] = c.newTileId;
+    }
+
+    set({
+      currentMap: { ...currentMap, data: newData },
+      redoStack: redoStack.slice(0, -1),
+      undoStack: [...get().undoStack, { mapId: currentMapId, changes: undoChanges }],
+    });
+  },
+
+  // Clipboard - tiles
+  copyTiles: (x1: number, y1: number, x2: number, y2: number) => {
+    const map = get().currentMap;
+    if (!map) return;
+    const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+    const tiles: { x: number; y: number; z: number; tileId: number }[] = [];
+    for (let z = 0; z < 4; z++) {
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          const tileId = map.data[(z * map.height + y) * map.width + x];
+          tiles.push({ x: x - minX, y: y - minY, z, tileId });
+        }
+      }
+    }
+    set({ clipboard: { type: 'tiles', tiles, width: maxX - minX + 1, height: maxY - minY + 1 } });
+  },
+
+  cutTiles: (x1: number, y1: number, x2: number, y2: number) => {
+    get().copyTiles(x1, y1, x2, y2);
+    get().deleteTiles(x1, y1, x2, y2);
+  },
+
+  pasteTiles: (x: number, y: number) => {
+    const { clipboard, currentMap } = get();
+    if (!clipboard || clipboard.type !== 'tiles' || !clipboard.tiles || !currentMap) return;
+    const changes: TileChange[] = [];
+    const newData = [...currentMap.data];
+    for (const t of clipboard.tiles) {
+      const tx = x + t.x, ty = y + t.y;
+      if (tx < 0 || tx >= currentMap.width || ty < 0 || ty >= currentMap.height) continue;
+      const idx = (t.z * currentMap.height + ty) * currentMap.width + tx;
+      changes.push({ x: tx, y: ty, z: t.z, oldTileId: newData[idx], newTileId: t.tileId });
+      newData[idx] = t.tileId;
+    }
+    set({ currentMap: { ...currentMap, data: newData } });
+    get().pushUndo(changes);
+  },
+
+  deleteTiles: (x1: number, y1: number, x2: number, y2: number) => {
+    const map = get().currentMap;
+    if (!map) return;
+    const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+    const changes: TileChange[] = [];
+    const newData = [...map.data];
+    for (let z = 0; z < 4; z++) {
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          const idx = (z * map.height + y) * map.width + x;
+          if (newData[idx] !== 0) {
+            changes.push({ x, y, z, oldTileId: newData[idx], newTileId: 0 });
+            newData[idx] = 0;
+          }
+        }
+      }
+    }
+    set({ currentMap: { ...map, data: newData } });
+    get().pushUndo(changes);
+  },
+
+  // Clipboard - events
+  copyEvent: (eventId: number) => {
+    const map = get().currentMap;
+    if (!map || !map.events) return;
+    const ev = map.events.find((e) => e && e.id === eventId);
+    if (ev) set({ clipboard: { type: 'event', event: JSON.parse(JSON.stringify(ev)) } });
+  },
+
+  cutEvent: (eventId: number) => {
+    get().copyEvent(eventId);
+    get().deleteEvent(eventId);
+  },
+
+  pasteEvent: (x: number, y: number) => {
+    const { clipboard, currentMap } = get();
+    if (!clipboard || clipboard.type !== 'event' || !clipboard.event || !currentMap) return;
+    const events = [...(currentMap.events || [])];
+    const maxId = events.reduce((max, e) => (e && e.id > max ? e.id : max), 0);
+    const newEvent = { ...(clipboard.event as Record<string, unknown>), id: maxId + 1, x, y };
+    while (events.length <= maxId + 1) events.push(null);
+    events[maxId + 1] = newEvent as MapData['events'][0];
+    set({ currentMap: { ...currentMap, events } });
+  },
+
+  deleteEvent: (eventId: number) => {
+    const map = get().currentMap;
+    if (!map || !map.events) return;
+    const events = map.events.map((e) => (e && e.id === eventId ? null : e));
+    set({ currentMap: { ...map, events } });
+  },
+
+  // UI actions
+  setEditMode: (mode: 'map' | 'event') => set({ editMode: mode }),
+  setSelectedTool: (tool: string) => set({ selectedTool: tool }),
+  setSelectedTileId: (id: number) => set({ selectedTileId: id }),
+  setCurrentLayer: (layer: number) => set({ currentLayer: layer }),
+  setZoomLevel: (level: number) => set({ zoomLevel: level }),
+  zoomIn: () => {
+    const { zoomLevel } = get();
+    const idx = ZOOM_LEVELS.indexOf(zoomLevel);
+    if (idx < ZOOM_LEVELS.length - 1) set({ zoomLevel: ZOOM_LEVELS[idx + 1] });
+  },
+  zoomOut: () => {
+    const { zoomLevel } = get();
+    const idx = ZOOM_LEVELS.indexOf(zoomLevel);
+    if (idx > 0) set({ zoomLevel: ZOOM_LEVELS[idx - 1] });
+  },
+  zoomActualSize: () => set({ zoomLevel: 1 }),
+  setCursorTile: (x: number, y: number) => set({ cursorTileX: x, cursorTileY: y }),
+  setSelection: (start, end) => set({ selectionStart: start, selectionEnd: end }),
+  setSelectedEventId: (id: number | null) => set({ selectedEventId: id }),
+
+  // Dialog toggles
+  setShowOpenProjectDialog: (show: boolean) => set({ showOpenProjectDialog: show }),
+  setShowNewProjectDialog: (show: boolean) => set({ showNewProjectDialog: show }),
+  setShowDatabaseDialog: (show: boolean) => set({ showDatabaseDialog: show }),
+  setShowDeployDialog: (show: boolean) => set({ showDeployDialog: show }),
+  setShowFindDialog: (show: boolean) => set({ showFindDialog: show }),
+  setShowPluginManagerDialog: (show: boolean) => set({ showPluginManagerDialog: show }),
+  setShowSoundTestDialog: (show: boolean) => set({ showSoundTestDialog: show }),
+  setShowEventSearchDialog: (show: boolean) => set({ showEventSearchDialog: show }),
+  setShowResourceManagerDialog: (show: boolean) => set({ showResourceManagerDialog: show }),
+  setShowCharacterGeneratorDialog: (show: boolean) => set({ showCharacterGeneratorDialog: show }),
+}));
+
+export default useEditorStore;

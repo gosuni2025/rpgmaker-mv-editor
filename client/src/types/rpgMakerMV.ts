@@ -1,0 +1,422 @@
+// RPG Maker MV 데이터 타입 정의
+
+export interface MapInfo {
+  id: number;
+  name: string;
+  parentId: number;
+  order: number;
+  expanded?: boolean;
+  scrollX?: number;
+  scrollY?: number;
+}
+
+export interface MapData {
+  displayName: string;
+  name?: string;
+  width: number;
+  height: number;
+  data: number[];
+  events: (RPGEvent | null)[];
+  tilesetId: number;
+  tilesetNames?: string[];
+  autoplayBgm: boolean;
+  autoplayBgs: boolean;
+  bgm?: AudioFile;
+  bgs?: AudioFile;
+  encounterList: unknown[];
+  encounterStep: number;
+  note: string;
+  parallaxLoopX: boolean;
+  parallaxLoopY: boolean;
+  parallaxName: string;
+  parallaxShow: boolean;
+  parallaxSx: number;
+  parallaxSy: number;
+  scrollType: number;
+  specifyBattleback: boolean;
+  battleback1Name: string;
+  battleback2Name: string;
+}
+
+export interface RPGEvent {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  note: string;
+  pages: EventPage[];
+}
+
+export interface EventPage {
+  conditions: EventConditions;
+  directionFix: boolean;
+  image: EventImage;
+  list: EventCommand[];
+  moveFrequency: number;
+  moveRoute: MoveRoute;
+  moveSpeed: number;
+  moveType: number;
+  priorityType: number;
+  stepAnime: boolean;
+  through: boolean;
+  trigger: number;
+  walkAnime: boolean;
+}
+
+export interface EventConditions {
+  actorId: number;
+  actorValid: boolean;
+  itemId: number;
+  itemValid: boolean;
+  selfSwitchCh: string;
+  selfSwitchValid: boolean;
+  switch1Id: number;
+  switch1Valid: boolean;
+  switch2Id: number;
+  switch2Valid: boolean;
+  variableId: number;
+  variableValid: boolean;
+  variableValue: number;
+}
+
+export interface EventImage {
+  characterIndex: number;
+  characterName: string;
+  direction: number;
+  pattern: number;
+  tileId: number;
+}
+
+export interface EventCommand {
+  code: number;
+  indent: number;
+  parameters: unknown[];
+}
+
+export interface MoveRoute {
+  list: MoveCommand[];
+  repeat: boolean;
+  skippable: boolean;
+  wait: boolean;
+}
+
+export interface MoveCommand {
+  code: number;
+  parameters?: unknown[];
+}
+
+export interface AudioFile {
+  name: string;
+  pan: number;
+  pitch: number;
+  volume: number;
+}
+
+export interface Actor {
+  id: number;
+  name: string;
+  nickname: string;
+  classId: number;
+  initialLevel: number;
+  maxLevel: number;
+  profile: string;
+  characterName: string;
+  characterIndex: number;
+  faceName: string;
+  faceIndex: number;
+  battlerName: string;
+  equips: number[];
+  traits: Trait[];
+  note: string;
+}
+
+export interface Trait {
+  code: number;
+  dataId: number;
+  value: number;
+}
+
+export interface Skill {
+  id: number;
+  name: string;
+  iconIndex: number;
+  description: string;
+  stypeId: number;
+  scope: number;
+  occasion: number;
+  mpCost: number;
+  tpCost: number;
+  speed: number;
+  successRate: number;
+  repeats: number;
+  tpGain: number;
+  hitType: number;
+  animationId: number;
+  damage: Damage;
+  effects: Effect[];
+  message1: string;
+  message2: string;
+  note: string;
+  requiredWtypeId1: number;
+  requiredWtypeId2: number;
+}
+
+export interface Damage {
+  critical: boolean;
+  elementId: number;
+  formula: string;
+  type: number;
+  variance: number;
+}
+
+export interface Effect {
+  code: number;
+  dataId: number;
+  value1: number;
+  value2: number;
+}
+
+export interface Item {
+  id: number;
+  name: string;
+  iconIndex: number;
+  description: string;
+  itypeId: number;
+  price: number;
+  consumable: boolean;
+  scope: number;
+  occasion: number;
+  speed: number;
+  successRate: number;
+  repeats: number;
+  tpGain: number;
+  hitType: number;
+  animationId: number;
+  damage: Damage;
+  effects: Effect[];
+  note: string;
+}
+
+export interface SystemData {
+  gameTitle: string;
+  currencyUnit: string;
+  locale: string;
+  startMapId: number;
+  startX: number;
+  startY: number;
+  windowTone: [number, number, number, number];
+  partyMembers: number[];
+  elements: string[];
+  equipTypes: string[];
+  skillTypes: string[];
+  weaponTypes: string[];
+  armorTypes: string[];
+  switches: string[];
+  variables: string[];
+  battleBgm: AudioFile;
+  defeatMe: AudioFile;
+  gameoverMe: AudioFile;
+  titleBgm: AudioFile;
+  victoryMe: AudioFile;
+  title1Name: string;
+  title2Name: string;
+  battlerName: string;
+  boat: Vehicle;
+  ship: Vehicle;
+  airship: Vehicle;
+  editMapId: number;
+  magicSkills: number[];
+  menuCommands: boolean[];
+  optDisplayTp: boolean;
+  optDrawTitle: boolean;
+  optExtraExp: boolean;
+  optFloorDeath: boolean;
+  optFollowers: boolean;
+  optSideView: boolean;
+  optSlipDeath: boolean;
+  optTransparent: boolean;
+  sounds: AudioFile[];
+  terms: unknown;
+  testBattlers: unknown[];
+  testTroopId: number;
+  versionId: number;
+  battleback1Name: string;
+  battleback2Name: string;
+}
+
+export interface Vehicle {
+  bgm: AudioFile;
+  characterIndex: number;
+  characterName: string;
+  startMapId: number;
+  startX: number;
+  startY: number;
+}
+
+export interface TilesetData {
+  id: number;
+  name: string;
+  mode: number;
+  tilesetNames: string[];
+  flags: number[];
+  note: string;
+}
+
+export interface Learning {
+  level: number;
+  skillId: number;
+  note: string;
+}
+
+export interface RPGClass {
+  id: number;
+  name: string;
+  expParams: number[];
+  params: number[][];
+  learnings: Learning[];
+  traits: Trait[];
+  note: string;
+}
+
+export interface Weapon {
+  id: number;
+  name: string;
+  iconIndex: number;
+  description: string;
+  wtypeId: number;
+  etypeId: number;
+  params: number[];
+  price: number;
+  animationId: number;
+  traits: Trait[];
+  note: string;
+}
+
+export interface Armor {
+  id: number;
+  name: string;
+  iconIndex: number;
+  description: string;
+  atypeId: number;
+  etypeId: number;
+  params: number[];
+  price: number;
+  traits: Trait[];
+  note: string;
+}
+
+export interface DropItem {
+  kind: number;
+  dataId: number;
+  denominator: number;
+}
+
+export interface EnemyAction {
+  conditionParam1: number;
+  conditionParam2: number;
+  conditionType: number;
+  rating: number;
+  skillId: number;
+}
+
+export interface Enemy {
+  id: number;
+  name: string;
+  battlerName: string;
+  battlerHue: number;
+  params: number[];
+  exp: number;
+  gold: number;
+  dropItems: DropItem[];
+  actions: EnemyAction[];
+  traits: Trait[];
+  note: string;
+}
+
+export interface TroopMember {
+  enemyId: number;
+  x: number;
+  y: number;
+  hidden: boolean;
+}
+
+export interface TroopPage {
+  conditions: TroopConditions;
+  span: number;
+  list: EventCommand[];
+}
+
+export interface TroopConditions {
+  actorHp: number;
+  actorId: number;
+  actorValid: boolean;
+  enemyHp: number;
+  enemyIndex: number;
+  enemyValid: boolean;
+  switchId: number;
+  switchValid: boolean;
+  turnA: number;
+  turnB: number;
+  turnEnding: boolean;
+  turnValid: boolean;
+}
+
+export interface Troop {
+  id: number;
+  name: string;
+  members: TroopMember[];
+  pages: TroopPage[];
+}
+
+export interface State {
+  id: number;
+  name: string;
+  iconIndex: number;
+  restriction: number;
+  priority: number;
+  removeAtBattleEnd: boolean;
+  removeByRestriction: boolean;
+  autoRemovalTiming: number;
+  minTurns: number;
+  maxTurns: number;
+  removeByDamage: boolean;
+  chanceByDamage: number;
+  removeByWalking: boolean;
+  stepsToRemove: number;
+  message1: string;
+  message2: string;
+  message3: string;
+  message4: string;
+  motion: number;
+  overlay: number;
+  traits: Trait[];
+  note: string;
+}
+
+export interface AnimationTiming {
+  flashColor: number[];
+  flashDuration: number;
+  flashScope: number;
+  frame: number;
+  se: AudioFile;
+}
+
+export interface Animation {
+  id: number;
+  name: string;
+  animation1Name: string;
+  animation1Hue: number;
+  animation2Name: string;
+  animation2Hue: number;
+  position: number;
+  frames: number[][][];
+  timings: AnimationTiming[];
+}
+
+export interface CommonEvent {
+  id: number;
+  name: string;
+  trigger: number;
+  switchId: number;
+  list: EventCommand[];
+}
