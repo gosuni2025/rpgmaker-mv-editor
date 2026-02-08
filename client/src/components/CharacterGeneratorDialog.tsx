@@ -80,6 +80,25 @@ const EXPORT_TYPE_LABELS: Record<string, string> = {
   sv_actors: '전투 캐릭터 (img/sv_actors)',
 };
 
+// 같은 _m 값(defaultGradientRow)을 공유하는 파트들은 같은 색상 그룹
+// defaultGradientRow를 키로 사용하여 모든 파트의 해당 color layer를 동기화
+function buildColorGroupMap(manifest: FacePartManifest, selections: Record<string, PartSelection>): Map<number, Array<{ part: string; layerIdx: number }>> {
+  const groups = new Map<number, Array<{ part: string; layerIdx: number }>>();
+  for (const [partName, partData] of Object.entries(manifest)) {
+    const sel = selections[partName];
+    if (!sel?.patternId) continue;
+    const pattern = partData.patterns.find((p) => p.id === sel.patternId) as FacePattern | undefined;
+    if (!pattern) continue;
+    for (const cl of pattern.colorLayers) {
+      if (!groups.has(cl.defaultGradientRow)) {
+        groups.set(cl.defaultGradientRow, []);
+      }
+      groups.get(cl.defaultGradientRow)!.push({ part: partName, layerIdx: cl.index });
+    }
+  }
+  return groups;
+}
+
 export default function CharacterGeneratorDialog() {
   const setShowCharacterGeneratorDialog = useEditorStore((s) => s.setShowCharacterGeneratorDialog);
 
@@ -257,9 +276,21 @@ export default function CharacterGeneratorDialog() {
         const partData = faceManifest[activePart];
         const pattern = partData?.patterns.find((p) => p.id === patternId);
         if (pattern) {
+          // 같은 그룹의 다른 파트에서 이미 설정된 색상이 있으면 그걸 사용
+          const groups = buildColorGroupMap(faceManifest, prev);
           for (const cl of pattern.colorLayers) {
             if (!(cl.index in colorRows)) {
-              colorRows[cl.index] = cl.defaultGradientRow;
+              // 같은 defaultGradientRow 그룹에서 이미 설정된 색상 찾기
+              const groupMembers = groups.get(cl.defaultGradientRow) || [];
+              let existingRow: number | null = null;
+              for (const member of groupMembers) {
+                const memberSel = prev[member.part];
+                if (memberSel?.colorRows[member.layerIdx] !== undefined) {
+                  existingRow = memberSel.colorRows[member.layerIdx];
+                  break;
+                }
+              }
+              colorRows[cl.index] = existingRow ?? cl.defaultGradientRow;
             }
           }
         }
@@ -270,20 +301,55 @@ export default function CharacterGeneratorDialog() {
 
   const handleSelectColor = (row: number) => {
     setSelections((prev) => {
-      const current = prev[activePart] || { patternId: null, colorRows: {} };
-      return {
-        ...prev,
-        [activePart]: {
+      const updated = { ...prev };
+
+      if (outputType === 'Face') {
+        // 현재 파트의 현재 레이어에서 defaultGradientRow를 찾아 같은 그룹 동기화
+        const currentSel = prev[activePart];
+        const pattern = faceManifest[activePart]?.patterns.find(
+          (p) => p.id === currentSel?.patternId
+        ) as FacePattern | undefined;
+        const currentLayer = pattern?.colorLayers.find((cl) => cl.index === activeColorLayerIdx);
+        const defaultRow = currentLayer?.defaultGradientRow;
+
+        if (defaultRow !== undefined) {
+          // 같은 defaultGradientRow를 가진 모든 파트의 해당 레이어를 동기화
+          const groups = buildColorGroupMap(faceManifest, prev);
+          const groupMembers = groups.get(defaultRow) || [];
+          for (const member of groupMembers) {
+            const memberSel = updated[member.part] || { patternId: null, colorRows: {} };
+            updated[member.part] = {
+              ...memberSel,
+              colorRows: { ...memberSel.colorRows, [member.layerIdx]: row },
+            };
+          }
+        } else {
+          // 고정 색상 레이어이거나 그룹 없으면 현재 파트만 변경
+          const current = prev[activePart] || { patternId: null, colorRows: {} };
+          updated[activePart] = {
+            ...current,
+            colorRows: { ...current.colorRows, [activeColorLayerIdx]: row },
+          };
+        }
+      } else {
+        // TV/SV는 기존 로직
+        const current = prev[activePart] || { patternId: null, colorRows: {} };
+        updated[activePart] = {
           ...current,
           colorRows: { ...current.colorRows, [activeColorLayerIdx]: row },
-        },
-      };
+        };
+      }
+
+      return updated;
     });
   };
 
   const handleRandomize = useCallback(() => {
     const manifest = outputType === 'Face' ? faceManifest : tvsvManifest;
     const sel: Record<string, PartSelection> = {};
+    // 같은 defaultGradientRow를 가진 레이어들이 동일한 색상을 쓰도록
+    const groupColors = new Map<number, number>();
+
     for (const partName of getRenderOrder(outputType)) {
       const partData = manifest[partName];
       if (!partData || partData.patterns.length === 0) {
@@ -301,7 +367,10 @@ export default function CharacterGeneratorDialog() {
       if (outputType === 'Face') {
         const fp = randomPattern as FacePattern;
         for (const cl of fp.colorLayers) {
-          colorRows[cl.index] = Math.floor(Math.random() * 70) + 1;
+          if (!groupColors.has(cl.defaultGradientRow)) {
+            groupColors.set(cl.defaultGradientRow, Math.floor(Math.random() * 70));
+          }
+          colorRows[cl.index] = groupColors.get(cl.defaultGradientRow)!;
         }
       } else {
         colorRows[1] = Math.floor(Math.random() * 70) + 1;
