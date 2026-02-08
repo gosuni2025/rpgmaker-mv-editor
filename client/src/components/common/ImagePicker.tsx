@@ -11,64 +11,48 @@ interface ImagePickerProps {
   onDirectionChange?: (direction: number) => void;
 }
 
-interface CellLayout {
-  cols: number;
-  rows: number;
-}
-
-function getCellCount(type: string) {
-  if (type === 'faces') return 8;
-  if (type === 'characters') return 8;
-  if (type === 'sv_actors') return 1;
-  return 0;
-}
-
-function getCellLayout(type: string): CellLayout {
-  if (type === 'faces') return { cols: 4, rows: 2 };
-  if (type === 'characters') return { cols: 4, rows: 2 };
-  return { cols: 1, rows: 1 };
-}
-
 // RPG Maker MV direction: 2=아래, 4=왼쪽, 6=오른쪽, 8=위
 // 스프라이트 시트 행 순서: 0=아래(2), 1=왼쪽(4), 2=오른쪽(6), 3=위(8)
-const DIR_TO_ROW = [2, 4, 6, 8]; // row index -> direction value
 const DIR_FROM_ROW: Record<number, number> = { 0: 2, 1: 4, 2: 6, 3: 8 };
 const ROW_FROM_DIR: Record<number, number> = { 2: 0, 4: 1, 6: 2, 8: 3 };
 
+function getCharacterSheetInfo(fileName: string) {
+  // $ 접두사: 1캐릭터(3x4), 그 외: 8캐릭터(12x8)
+  const isSingle = fileName.startsWith('$');
+  return {
+    charCols: isSingle ? 1 : 4,
+    charRows: isSingle ? 1 : 2,
+    patternsPerChar: 3,
+    dirsPerChar: 4,
+    totalCols: isSingle ? 3 : 12,
+    totalRows: isSingle ? 4 : 8,
+    maxIndex: isSingle ? 0 : 7,
+  };
+}
+
 /** 스프라이트 시트 전체를 표시하고, 개별 프레임 클릭으로 선택 */
-function SheetSelector({ imgSrc, type, layout, cellCount, selectedIndex, onSelect, selectedDirection, onDirectionSelect }: {
+function SheetSelector({ imgSrc, fileName, type, selectedIndex, selectedDirection, onSelect }: {
   imgSrc: string;
+  fileName: string;
   type: string;
-  layout: CellLayout;
-  cellCount: number;
   selectedIndex: number;
-  onSelect: (i: number) => void;
-  selectedDirection?: number;
-  onDirectionSelect?: (dir: number) => void;
+  selectedDirection: number;
+  onSelect: (index: number, direction: number) => void;
 }) {
-  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    setImgSize(null);
-    const img = new Image();
-    img.onload = () => setImgSize({ w: img.naturalWidth, h: img.naturalHeight });
-    img.src = imgSrc;
-    return () => { img.onload = null; };
+    setLoaded(false);
   }, [imgSrc]);
 
-  if (!imgSize) return null;
-
-  if (type === 'characters' && onDirectionSelect) {
-    // 캐릭터: 12열(4캐릭터x3패턴) x 8행(2캐릭터x4방향) 개별 프레임 그리드
-    const charCols = layout.cols;  // 4
-    const charRows = layout.rows;  // 2
-    const patternsPerChar = 3;
-    const dirsPerChar = 4;
-    const totalCols = charCols * patternsPerChar; // 12
-    const totalRows = charRows * dirsPerChar;      // 8
-    const frameCellW = imgSize.w / totalCols;
-    const frameCellH = imgSize.h / totalRows;
-    const dirRow = ROW_FROM_DIR[selectedDirection ?? 2] ?? 0;
+  if (type === 'characters') {
+    const info = getCharacterSheetInfo(fileName);
+    const dirRow = ROW_FROM_DIR[selectedDirection] ?? 0;
+    const selCharCol = selectedIndex % info.charCols;
+    const selCharRow = Math.floor(selectedIndex / info.charCols);
+    // 선택된 프레임의 절대 좌표 (중앙 패턴 = pattern index 1)
+    const selCol = selCharCol * info.patternsPerChar + 1;
+    const selRow = selCharRow * info.dirsPerChar + dirRow;
 
     return (
       <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -76,87 +60,87 @@ function SheetSelector({ imgSrc, type, layout, cellCount, selectedIndex, onSelec
           src={imgSrc}
           style={{ display: 'block', imageRendering: 'pixelated', maxWidth: '100%' }}
           draggable={false}
+          onLoad={() => setLoaded(true)}
         />
-        <div style={{
-          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-          display: 'grid',
-          gridTemplateColumns: `repeat(${totalCols}, 1fr)`,
-          gridTemplateRows: `repeat(${totalRows}, 1fr)`,
-        }}>
-          {Array.from({ length: totalRows }, (_, row) =>
-            Array.from({ length: totalCols }, (_, col) => {
-              const charCol = Math.floor(col / patternsPerChar);
-              const charRow = Math.floor(row / dirsPerChar);
-              const charIdx = charRow * charCols + charCol;
-              const dirIdx = row % dirsPerChar;
-              const dir = DIR_FROM_ROW[dirIdx];
-              const isSelected = charIdx === selectedIndex && dirIdx === dirRow;
-              const isCharSelected = charIdx === selectedIndex;
+        {loaded && (
+          <div style={{
+            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+            display: 'grid',
+            gridTemplateColumns: `repeat(${info.totalCols}, 1fr)`,
+            gridTemplateRows: `repeat(${info.totalRows}, 1fr)`,
+          }}>
+            {Array.from({ length: info.totalRows * info.totalCols }, (_, i) => {
+              const col = i % info.totalCols;
+              const row = Math.floor(i / info.totalCols);
+              const charCol = Math.floor(col / info.patternsPerChar);
+              const charRow = Math.floor(row / info.dirsPerChar);
+              const charIdx = charRow * info.charCols + charCol;
+              const dir = DIR_FROM_ROW[row % info.dirsPerChar];
+              const isSelected = col === selCol && row === selRow;
               return (
                 <div
-                  key={`${row}-${col}`}
-                  onClick={() => {
-                    onSelect(charIdx);
-                    onDirectionSelect(dir);
-                  }}
+                  key={i}
+                  onClick={() => onSelect(charIdx, dir)}
                   style={{
                     cursor: 'pointer',
-                    border: isSelected ? '2px solid #2675bf' : '2px solid transparent',
-                    background: isSelected
-                      ? 'rgba(38,117,191,0.3)'
-                      : isCharSelected
-                        ? 'rgba(38,117,191,0.1)'
-                        : 'transparent',
+                    border: isSelected ? '2px solid #2675bf' : '1px solid rgba(255,255,255,0.05)',
+                    background: isSelected ? 'rgba(38,117,191,0.3)' : 'transparent',
                     boxSizing: 'border-box',
                   }}
                 />
               );
-            })
-          )}
-        </div>
+            })}
+          </div>
+        )}
       </div>
     );
   }
 
-  // faces 등: 기존 셀 단위 선택
+  // faces: 셀 단위 선택
+  const layout = type === 'faces' ? { cols: 4, rows: 2 } : { cols: 1, rows: 1 };
+  const cellCount = type === 'faces' ? 8 : 1;
+
   return (
     <div style={{ position: 'relative', display: 'inline-block' }}>
       <img
         src={imgSrc}
         style={{ display: 'block', imageRendering: 'pixelated', maxWidth: '100%' }}
         draggable={false}
+        onLoad={() => setLoaded(true)}
       />
-      <div style={{
-        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-        display: 'grid',
-        gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
-        gridTemplateRows: `repeat(${layout.rows}, 1fr)`,
-      }}>
-        {Array.from({ length: cellCount }, (_, i) => (
-          <div
-            key={i}
-            onClick={() => onSelect(i)}
-            style={{
-              cursor: 'pointer',
-              border: i === selectedIndex ? '2px solid #2675bf' : '2px solid transparent',
-              background: i === selectedIndex ? 'rgba(38,117,191,0.2)' : 'transparent',
-              boxSizing: 'border-box',
-            }}
-          />
-        ))}
-      </div>
+      {loaded && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+          display: 'grid',
+          gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
+          gridTemplateRows: `repeat(${layout.rows}, 1fr)`,
+        }}>
+          {Array.from({ length: cellCount }, (_, i) => (
+            <div
+              key={i}
+              onClick={() => onSelect(i, 2)}
+              style={{
+                cursor: 'pointer',
+                border: i === selectedIndex ? '2px solid #2675bf' : '1px solid rgba(255,255,255,0.05)',
+                background: i === selectedIndex ? 'rgba(38,117,191,0.2)' : 'transparent',
+                boxSizing: 'border-box',
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 /** 프리뷰 썸네일 */
-function CellPreview({ imgSrc, type, cellIndex, layout, size, direction }: {
+function CellPreview({ imgSrc, fileName, type, cellIndex, direction, size }: {
   imgSrc: string;
+  fileName: string;
   type: string;
   cellIndex: number;
-  layout: CellLayout;
-  size: number;
   direction?: number;
+  size: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -165,28 +149,32 @@ function CellPreview({ imgSrc, type, cellIndex, layout, size, direction }: {
     img.onload = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const cellW = img.naturalWidth / layout.cols;
-      const cellH = img.naturalHeight / layout.rows;
-      const col = cellIndex % layout.cols;
-      const row = Math.floor(cellIndex / layout.cols);
 
       if (type === 'characters') {
-        const pw = cellW / 3;
-        const ph = cellH / 4;
+        const info = getCharacterSheetInfo(fileName);
+        const fw = img.naturalWidth / info.totalCols;
+        const fh = img.naturalHeight / info.totalRows;
+        const charCol = cellIndex % info.charCols;
+        const charRow = Math.floor(cellIndex / info.charCols);
         const dirRow = ROW_FROM_DIR[direction ?? 2] ?? 0;
-        canvas.width = pw;
-        canvas.height = ph;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, col * cellW + pw, row * cellH + dirRow * ph, pw, ph, 0, 0, pw, ph);
-      } else {
-        canvas.width = cellW;
-        canvas.height = cellH;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, col * cellW, row * cellH, cellW, cellH, 0, 0, cellW, cellH);
+        const sx = (charCol * info.patternsPerChar + 1) * fw; // 중앙 패턴
+        const sy = (charRow * info.dirsPerChar + dirRow) * fh;
+        canvas.width = fw;
+        canvas.height = fh;
+        canvas.getContext('2d')!.drawImage(img, sx, sy, fw, fh, 0, 0, fw, fh);
+      } else if (type === 'faces') {
+        const cols = 4, rows = 2;
+        const cw = img.naturalWidth / cols;
+        const ch = img.naturalHeight / rows;
+        const col = cellIndex % cols;
+        const row = Math.floor(cellIndex / cols);
+        canvas.width = cw;
+        canvas.height = ch;
+        canvas.getContext('2d')!.drawImage(img, col * cw, row * ch, cw, ch, 0, 0, cw, ch);
       }
     };
     img.src = imgSrc;
-  }, [imgSrc, type, cellIndex, layout, direction]);
+  }, [imgSrc, fileName, type, cellIndex, direction]);
 
   return (
     <canvas
@@ -194,6 +182,13 @@ function CellPreview({ imgSrc, type, cellIndex, layout, size, direction }: {
       style={{ maxWidth: size, maxHeight: size, imageRendering: 'pixelated' }}
     />
   );
+}
+
+function getCellCount(type: string) {
+  if (type === 'faces') return 8;
+  if (type === 'characters') return 8;
+  if (type === 'sv_actors') return 1;
+  return 0;
 }
 
 export default function ImagePicker({ type, value, onChange, index, onIndexChange, direction, onDirectionChange }: ImagePickerProps) {
@@ -219,22 +214,21 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
   };
 
   const cellCount = getCellCount(type);
-  const layout = getCellLayout(type);
-
+  const hasIndex = cellCount > 1;
   const getImgUrl = (name: string) => `/api/resources/${type}/${name}`;
 
   return (
     <div className="image-picker">
       <div className="image-picker-preview" onClick={() => setOpen(true)}>
         {value ? (
-          cellCount > 1 && index !== undefined ? (
+          hasIndex && index !== undefined ? (
             <CellPreview
               imgSrc={getImgUrl(value.includes('.') ? value : value + '.png')}
+              fileName={value}
               type={type}
               cellIndex={index}
-              layout={layout}
-              size={48}
               direction={direction}
+              size={48}
             />
           ) : (
             <img
@@ -275,16 +269,17 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
                 })}
               </div>
               <div className="image-picker-preview-area">
-                {selected && cellCount > 1 && onIndexChange ? (
+                {selected && hasIndex && onIndexChange ? (
                   <SheetSelector
                     imgSrc={getImgUrl(selected + '.png')}
+                    fileName={selected}
                     type={type}
-                    layout={layout}
-                    cellCount={cellCount}
                     selectedIndex={selectedIndex}
-                    onSelect={setSelectedIndex}
                     selectedDirection={selectedDirection}
-                    onDirectionSelect={onDirectionChange ? setSelectedDirection : undefined}
+                    onSelect={(idx, dir) => {
+                      setSelectedIndex(idx);
+                      setSelectedDirection(dir);
+                    }}
                   />
                 ) : selected ? (
                   <img
