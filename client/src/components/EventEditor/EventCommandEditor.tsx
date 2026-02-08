@@ -264,7 +264,7 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
 
       {showAddDialog && (
         <div className="modal-overlay" onClick={() => setShowAddDialog(false)}>
-          <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: 700, height: 600 }}>
+          <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: '90vw', maxWidth: 1200, height: '80vh' }}>
             <div className="image-picker-header">Insert Command</div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
               {Object.entries(COMMAND_CATEGORIES).map(([category, cmds]) => (

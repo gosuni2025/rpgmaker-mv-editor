@@ -1076,6 +1076,11 @@ body {
 .insert-command-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+}
+
+.insert-command-grid .context-menu-item {
+  padding: 6px 12px;
 }
 
 .context-menu-item:hover {
