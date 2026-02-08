@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import type { TilesetData } from '../../types/rpgMakerMV';
+import ImagePicker from '../common/ImagePicker';
+import TileFlagsEditor from './TileFlagsEditor';
 
 interface TilesetsTabProps {
   data: (TilesetData | null)[] | undefined;
@@ -89,13 +91,19 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
             {TILESET_LABELS.map((label, i) => (
               <label key={i}>
                 {label}
-                <input
-                  type="text"
+                <ImagePicker
+                  type="tilesets"
                   value={(selectedItem.tilesetNames || [])[i] || ''}
-                  onChange={(e) => handleTilesetNameChange(i, e.target.value)}
+                  onChange={(name) => handleTilesetNameChange(i, name)}
                 />
               </label>
             ))}
+
+            <TileFlagsEditor
+              flags={selectedItem.flags || []}
+              tilesetNames={selectedItem.tilesetNames || Array(9).fill('')}
+              onChange={(flags) => handleFieldChange('flags', flags)}
+            />
 
             <label>
               Note

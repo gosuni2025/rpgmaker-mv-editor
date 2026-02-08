@@ -1,6 +1,7 @@
 import React from 'react';
-import type { SystemData, AudioFile } from '../../types/rpgMakerMV';
+import type { SystemData, AudioFile, Vehicle } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
+import ImagePicker from '../common/ImagePicker';
 
 interface SystemTabProps {
   data: SystemData | undefined;
@@ -176,12 +177,53 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
       <div className="db-form-section">Title Screen</div>
       <label>
         Title 1 Image
-        <input type="text" value={data.title1Name || ''} onChange={(e) => handleChange('title1Name', e.target.value)} />
+        <ImagePicker type="titles1" value={data.title1Name || ''} onChange={(name) => handleChange('title1Name', name)} />
       </label>
       <label>
         Title 2 Image
-        <input type="text" value={data.title2Name || ''} onChange={(e) => handleChange('title2Name', e.target.value)} />
+        <ImagePicker type="titles2" value={data.title2Name || ''} onChange={(name) => handleChange('title2Name', name)} />
       </label>
+
+      <div className="db-form-section">Battle Background</div>
+      <label>
+        Battleback 1
+        <ImagePicker type="battlebacks1" value={data.battleback1Name || ''} onChange={(name) => handleChange('battleback1Name', name)} />
+      </label>
+      <label>
+        Battleback 2
+        <ImagePicker type="battlebacks2" value={data.battleback2Name || ''} onChange={(name) => handleChange('battleback2Name', name)} />
+      </label>
+
+      {(['boat', 'ship', 'airship'] as const).map((vehicleKey) => {
+        const vehicle: Vehicle = (data as unknown as Record<string, Vehicle>)[vehicleKey] || { bgm: { ...DEFAULT_AUDIO }, characterIndex: 0, characterName: '', startMapId: 0, startX: 0, startY: 0 };
+        const updateVehicle = (field: keyof Vehicle, value: unknown) => {
+          handleChange(vehicleKey as keyof SystemData, { ...vehicle, [field]: value });
+        };
+        return (
+          <div key={vehicleKey}>
+            <div className="db-form-section">{vehicleKey.charAt(0).toUpperCase() + vehicleKey.slice(1)}</div>
+            <label>
+              Character
+              <ImagePicker
+                type="characters"
+                value={vehicle.characterName || ''}
+                onChange={(name) => updateVehicle('characterName', name)}
+                index={vehicle.characterIndex ?? 0}
+                onIndexChange={(idx) => updateVehicle('characterIndex', idx)}
+              />
+            </label>
+            <label>
+              BGM
+              <AudioPicker type="bgm" value={vehicle.bgm || DEFAULT_AUDIO} onChange={(a) => updateVehicle('bgm', a)} />
+            </label>
+            <div className="db-form-row">
+              <label>Start Map <input type="number" value={vehicle.startMapId || 0} onChange={(e) => updateVehicle('startMapId', Number(e.target.value))} /></label>
+              <label>X <input type="number" value={vehicle.startX || 0} onChange={(e) => updateVehicle('startX', Number(e.target.value))} /></label>
+              <label>Y <input type="number" value={vehicle.startY || 0} onChange={(e) => updateVehicle('startY', Number(e.target.value))} /></label>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

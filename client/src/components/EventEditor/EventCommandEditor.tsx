@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { EventCommand } from '../../types/rpgMakerMV';
+import CommandParamEditor from './CommandParamEditor';
 
 interface EventCommandEditorProps {
   commands: EventCommand[];
@@ -102,50 +103,92 @@ const COMMAND_CATEGORIES = {
   ],
 };
 
+// Commands that have no parameters and can be inserted directly
+const NO_PARAM_CODES = new Set([112, 113, 115, 206, 221, 222, 243, 244, 251, 351, 352, 353, 354]);
+
+// Commands that need a parameter editor
+const HAS_PARAM_EDITOR = new Set([
+  101, 105, 108, 117, 118, 119, 121, 122, 123, 124, 125, 126, 127, 128, 129,
+  201, 230, 241, 242, 245, 246, 249, 250, 321, 325, 355, 356,
+]);
+
 export default function EventCommandEditor({ commands, onChange }: EventCommandEditorProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [pendingCode, setPendingCode] = useState<number | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-  const insertCommand = (code: number) => {
+  const insertCommandWithParams = (code: number, params: unknown[], extraCommands?: EventCommand[]) => {
     const insertAt = selectedIndex >= 0 ? selectedIndex : commands.length - 1;
     const indent = commands[insertAt]?.indent || 0;
-    const newCmd: EventCommand = { code, indent, parameters: [] };
+    const newCmd: EventCommand = { code, indent, parameters: params };
 
-    // For some commands, insert matching end markers
     const newCommands = [...commands];
     if (code === 111) {
-      // Conditional branch: add empty end branch
       newCommands.splice(insertAt, 0, newCmd, { code: 0, indent: indent + 1, parameters: [] }, { code: 412, indent, parameters: [] });
     } else if (code === 112) {
-      // Loop: add repeat above
       newCommands.splice(insertAt, 0, newCmd, { code: 0, indent: indent + 1, parameters: [] }, { code: 413, indent, parameters: [] });
     } else if (code === 102) {
-      // Show choices: add default branches
       newCommands.splice(insertAt, 0,
-        { code: 102, indent, parameters: [['Yes', 'No'], 0] },
+        { code: 102, indent, parameters: params.length ? params : [['Yes', 'No'], 0] },
         { code: 402, indent, parameters: [0, 'Yes'] },
         { code: 0, indent: indent + 1, parameters: [] },
         { code: 402, indent, parameters: [1, 'No'] },
         { code: 0, indent: indent + 1, parameters: [] },
         { code: 404, indent, parameters: [] },
       );
+    } else if (extraCommands && extraCommands.length > 0) {
+      const extras = extraCommands.map(ec => ({ ...ec, indent }));
+      newCommands.splice(insertAt, 0, newCmd, ...extras);
     } else {
       newCommands.splice(insertAt, 0, newCmd);
     }
     onChange(newCommands);
     setShowAddDialog(false);
+    setPendingCode(null);
+  };
+
+  const handleCommandSelect = (code: number) => {
+    if (NO_PARAM_CODES.has(code)) {
+      insertCommandWithParams(code, []);
+    } else if (HAS_PARAM_EDITOR.has(code)) {
+      setShowAddDialog(false);
+      setPendingCode(code);
+    } else {
+      // No editor yet — insert with empty params
+      insertCommandWithParams(code, []);
+    }
+  };
+
+  const updateCommandParams = (index: number, params: unknown[]) => {
+    const newCommands = [...commands];
+    newCommands[index] = { ...newCommands[index], parameters: params };
+    onChange(newCommands);
+    setEditingIndex(null);
+  };
+
+  const handleDoubleClick = (index: number) => {
+    const cmd = commands[index];
+    if (cmd.code === 0) {
+      setShowAddDialog(true);
+      return;
+    }
+    // For commands with param editors, open the editor
+    if (HAS_PARAM_EDITOR.has(cmd.code)) {
+      setEditingIndex(index);
+    }
   };
 
   const deleteCommand = () => {
     if (selectedIndex < 0 || selectedIndex >= commands.length) return;
     const cmd = commands[selectedIndex];
-    if (cmd.code === 0 && selectedIndex === commands.length - 1) return; // Can't delete terminal
+    if (cmd.code === 0 && selectedIndex === commands.length - 1) return;
     const newCommands = commands.filter((_, i) => i !== selectedIndex);
     onChange(newCommands);
     setSelectedIndex(Math.min(selectedIndex, newCommands.length - 1));
   };
 
-  const getCommandDisplay = (cmd: EventCommand, index: number): string => {
+  const getCommandDisplay = (cmd: EventCommand): string => {
     const code = cmd.code;
     if (code === 0) return '';
     const DESCS: Record<number, string> = {
@@ -181,6 +224,7 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
       401: ':', 402: 'When', 403: 'When Cancel', 404: 'End', 405: ':',
       408: ':', 411: 'Else', 412: 'End', 413: 'Repeat Above',
       601: 'If Win', 602: 'If Escape', 603: 'If Lose', 604: 'End',
+      655: ':',
     };
     let text = DESCS[code] || `@${code}`;
     if (cmd.parameters && cmd.parameters.length > 0) {
@@ -199,14 +243,14 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
       <div className="db-form-section">Event Commands</div>
       <div className="event-commands-list">
         {commands.map((cmd, i) => {
-          const display = getCommandDisplay(cmd, i);
+          const display = getCommandDisplay(cmd);
           return (
             <div
               key={i}
               className={`event-command-row${i === selectedIndex ? ' selected' : ''}`}
               style={{ paddingLeft: 8 + cmd.indent * 20 }}
               onClick={() => setSelectedIndex(i)}
-              onDoubleClick={() => setShowAddDialog(true)}
+              onDoubleClick={() => handleDoubleClick(i)}
             >
               {display || <span style={{ color: '#555' }}>&loz;</span>}
             </div>
@@ -230,7 +274,7 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
                     <div
                       key={c.code}
                       className="context-menu-item"
-                      onClick={() => insertCommand(c.code)}
+                      onClick={() => handleCommandSelect(c.code)}
                     >
                       {c.name}
                     </div>
@@ -243,6 +287,25 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
             </div>
           </div>
         </div>
+      )}
+
+      {/* Parameter editor for new commands */}
+      {pendingCode !== null && (
+        <CommandParamEditor
+          code={pendingCode}
+          onOk={(params, extra) => insertCommandWithParams(pendingCode, params, extra)}
+          onCancel={() => setPendingCode(null)}
+        />
+      )}
+
+      {/* Parameter editor for editing existing commands */}
+      {editingIndex !== null && (
+        <CommandParamEditor
+          code={commands[editingIndex].code}
+          command={commands[editingIndex]}
+          onOk={(params) => updateCommandParams(editingIndex, params)}
+          onCancel={() => setEditingIndex(null)}
+        />
       )}
     </div>
   );

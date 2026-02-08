@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import type { Animation, AnimationTiming } from '../../types/rpgMakerMV';
+import type { Animation, AnimationTiming, AudioFile } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
+import AudioPicker from '../common/AudioPicker';
 
 interface AnimationsTabProps {
   data: (Animation | null)[] | undefined;
@@ -122,19 +123,36 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
               <button className="db-btn-small" onClick={addTiming}>+</button>
             </div>
             {(selectedItem.timings || []).map((timing: AnimationTiming, i: number) => (
-              <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, padding: '2px 0' }}>
-                <label>Frame <input type="number" value={timing.frame} onChange={(e) => handleTimingChange(i, 'frame', Number(e.target.value))} style={{ width: 50 }} /></label>
-                <label>SE <input type="text" value={timing.se?.name || ''} readOnly style={{ width: 80 }} /></label>
-                <label>
-                  Scope
-                  <select value={timing.flashScope} onChange={(e) => handleTimingChange(i, 'flashScope', Number(e.target.value))} style={{ width: 70 }}>
-                    <option value={0}>None</option>
-                    <option value={1}>Target</option>
-                    <option value={2}>Screen</option>
-                    <option value={3}>Delete Target</option>
-                  </select>
-                </label>
-                <button className="db-btn-small" onClick={() => removeTiming(i)}>-</button>
+              <div key={i} style={{ fontSize: 12, padding: '4px 0', borderBottom: '1px solid #444' }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
+                  <label>Frame <input type="number" value={timing.frame} onChange={(e) => handleTimingChange(i, 'frame', Number(e.target.value))} style={{ width: 50 }} /></label>
+                  <label>
+                    Flash Scope
+                    <select value={timing.flashScope} onChange={(e) => handleTimingChange(i, 'flashScope', Number(e.target.value))} style={{ width: 90 }}>
+                      <option value={0}>None</option>
+                      <option value={1}>Target</option>
+                      <option value={2}>Screen</option>
+                      <option value={3}>Delete Target</option>
+                    </select>
+                  </label>
+                  <label>Duration <input type="number" value={timing.flashDuration || 0} onChange={(e) => handleTimingChange(i, 'flashDuration', Number(e.target.value))} style={{ width: 40 }} /></label>
+                  <button className="db-btn-small" onClick={() => removeTiming(i)}>-</button>
+                </div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <label style={{ flex: 1 }}>
+                    SE
+                    <AudioPicker type="se" value={timing.se || { name: '', pan: 0, pitch: 100, volume: 90 }} onChange={(a: AudioFile) => handleTimingChange(i, 'se', a)} />
+                  </label>
+                  <label>Flash Color (RGBA)
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      {[0, 1, 2, 3].map((ci) => (
+                        <input key={ci} type="number" value={(timing.flashColor || [255, 255, 255, 170])[ci]}
+                          onChange={(e) => { const c = [...(timing.flashColor || [255, 255, 255, 170])]; c[ci] = Number(e.target.value); handleTimingChange(i, 'flashColor', c); }}
+                          style={{ width: 40 }} min={0} max={255} />
+                      ))}
+                    </div>
+                  </label>
+                </div>
               </div>
             ))}
           </>

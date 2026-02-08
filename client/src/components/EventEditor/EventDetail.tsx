@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent, EventPage, EventConditions, EventImage, EventCommand, MoveRoute, MapData } from '../../types/rpgMakerMV';
 import EventCommandEditor from './EventCommandEditor';
+import ImagePicker from '../common/ImagePicker';
 
 interface EventDetailProps {
   eventId: number;
@@ -327,12 +328,23 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
 
                 <div className="db-form-section">Image</div>
                 <label style={{ fontSize: 12, color: '#aaa' }}>
-                  Character Name
-                  <input type="text" value={page.image.characterName || ''} onChange={(e) => updateImage({ characterName: e.target.value })} style={selectStyle} />
+                  Character
+                  <ImagePicker
+                    type="characters"
+                    value={page.image.characterName || ''}
+                    onChange={(name) => updateImage({ characterName: name })}
+                    index={page.image.characterIndex}
+                    onIndexChange={(idx) => updateImage({ characterIndex: idx })}
+                  />
                 </label>
                 <label style={{ fontSize: 12, color: '#aaa' }}>
-                  Character Index
-                  <input type="number" value={page.image.characterIndex} onChange={(e) => updateImage({ characterIndex: Number(e.target.value) })} style={selectStyle} />
+                  Direction
+                  <select value={page.image.direction} onChange={(e) => updateImage({ direction: Number(e.target.value) })} style={selectStyle}>
+                    <option value={2}>Down</option>
+                    <option value={4}>Left</option>
+                    <option value={6}>Right</option>
+                    <option value={8}>Up</option>
+                  </select>
                 </label>
 
                 <div className="db-form-section">Autonomous Movement</div>

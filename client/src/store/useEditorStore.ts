@@ -477,4 +477,7 @@ const useEditorStore = create<EditorState>((set, get) => ({
   setShowCharacterGeneratorDialog: (show: boolean) => set({ showCharacterGeneratorDialog: show }),
 }));
 
+// Debug: expose store globally
+(window as unknown as Record<string, unknown>).__editorStore = useEditorStore;
+
 export default useEditorStore;

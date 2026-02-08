@@ -134,6 +134,55 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
 
             {page && (
               <>
+                <div className="db-form-section">Conditions</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: '#aaa', marginBottom: 8 }}>
+                  <label className="db-checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" checked={page.conditions?.turnValid ?? false}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, turnValid: e.target.checked })} />
+                    Turn
+                    <input type="number" value={page.conditions?.turnA ?? 0} style={{ width: 40 }} disabled={!page.conditions?.turnValid}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, turnA: Number(e.target.value) })} />
+                    +
+                    <input type="number" value={page.conditions?.turnB ?? 0} style={{ width: 40 }} disabled={!page.conditions?.turnValid}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, turnB: Number(e.target.value) })} />
+                    x
+                  </label>
+                  <label className="db-checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" checked={page.conditions?.enemyValid ?? false}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, enemyValid: e.target.checked })} />
+                    Enemy #{' '}
+                    <input type="number" value={page.conditions?.enemyIndex ?? 0} style={{ width: 40 }} disabled={!page.conditions?.enemyValid}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, enemyIndex: Number(e.target.value) })} />
+                    HP &le;
+                    <input type="number" value={page.conditions?.enemyHp ?? 0} style={{ width: 40 }} disabled={!page.conditions?.enemyValid}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, enemyHp: Number(e.target.value) })} />
+                    %
+                  </label>
+                  <label className="db-checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" checked={page.conditions?.actorValid ?? false}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, actorValid: e.target.checked })} />
+                    Actor
+                    <input type="number" value={page.conditions?.actorId ?? 1} style={{ width: 40 }} disabled={!page.conditions?.actorValid}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, actorId: Number(e.target.value) })} />
+                    HP &le;
+                    <input type="number" value={page.conditions?.actorHp ?? 0} style={{ width: 40 }} disabled={!page.conditions?.actorValid}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, actorHp: Number(e.target.value) })} />
+                    %
+                  </label>
+                  <label className="db-checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" checked={page.conditions?.switchValid ?? false}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, switchValid: e.target.checked })} />
+                    Switch
+                    <input type="number" value={page.conditions?.switchId ?? 1} style={{ width: 60 }} disabled={!page.conditions?.switchValid}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, switchId: Number(e.target.value) })} />
+                  </label>
+                  <label className="db-checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" checked={page.conditions?.turnEnding ?? false}
+                      onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, turnEnding: e.target.checked })} />
+                    Turn End
+                  </label>
+                </div>
+
                 <label>
                   Span
                   <select value={page.span || 0} onChange={(e) => handlePageChange(activePage, 'span', Number(e.target.value))}>

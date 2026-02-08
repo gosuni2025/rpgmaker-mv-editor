@@ -690,9 +690,24 @@ export default function MapCanvas() {
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
-      if (e.button !== 0) return;
       const tile = canvasToTile(e);
       if (!tile) return;
+
+      // Right-click in map mode → erase tile
+      if (e.button === 2 && editMode === 'map') {
+        const latestMap = useEditorStore.getState().currentMap;
+        if (!latestMap) return;
+        const z = currentLayer;
+        const idx = (z * latestMap.height + tile.y) * latestMap.width + tile.x;
+        const oldTileId = latestMap.data[idx];
+        if (oldTileId !== 0) {
+          pushUndo([{ x: tile.x, y: tile.y, z, tileId: oldTileId }]);
+          updateMapTiles([{ x: tile.x, y: tile.y, z, tileId: 0 }]);
+        }
+        return;
+      }
+
+      if (e.button !== 0) return;
 
       if (editMode === 'event') {
         // In event mode, select event at this position
@@ -715,7 +730,7 @@ export default function MapCanvas() {
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, placeTileWithUndo, selectedTool, editMode, currentMap, setSelectedEventId]
+    [canvasToTile, placeTileWithUndo, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles]
   );
 
   const handleMouseMove = useCallback(
@@ -788,20 +803,22 @@ export default function MapCanvas() {
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
-      if (editMode !== 'event') return;
       e.preventDefault();
-      const tile = canvasToTile(e);
-      if (!tile || !currentMap) return;
-      const ev = currentMap.events?.find(
-        (ev) => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y
-      );
-      setEventCtxMenu({
-        x: e.clientX,
-        y: e.clientY,
-        tileX: tile.x,
-        tileY: tile.y,
-        eventId: ev ? ev.id : null,
-      });
+      if (editMode === 'event') {
+        const tile = canvasToTile(e);
+        if (!tile || !currentMap) return;
+        const ev = currentMap.events?.find(
+          (ev) => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y
+        );
+        setEventCtxMenu({
+          x: e.clientX,
+          y: e.clientY,
+          tileX: tile.x,
+          tileY: tile.y,
+          eventId: ev ? ev.id : null,
+        });
+      }
+      // In map mode, right-click erases tiles (handled in mousedown)
     },
     [editMode, canvasToTile, currentMap]
   );
