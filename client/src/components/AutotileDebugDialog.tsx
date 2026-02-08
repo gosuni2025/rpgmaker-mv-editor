@@ -281,25 +281,25 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
       // Flag ON for everything except the outer corner of each half-tile
       // Each half-tile in a 2×2 block: the corner facing outward is OFF
       const region2Grids: Record<string, boolean[][]> = {
-        '2,0': [ // top-left of inner corner block → bottom-right corner OFF
-          [true, true, true],
-          [true, true, true],
-          [true, true, false],
-        ],
-        '3,0': [ // top-right → bottom-left corner OFF
-          [true, true, true],
-          [true, true, true],
+        '2,0': [ // top-left of inner corner block → top-left corner OFF
           [false, true, true],
+          [true, true, true],
+          [true, true, true],
         ],
-        '2,1': [ // bottom-left → top-right corner OFF
+        '3,0': [ // top-right → top-right corner OFF
           [true, true, false],
           [true, true, true],
           [true, true, true],
         ],
-        '3,1': [ // bottom-right → top-left corner OFF
+        '2,1': [ // bottom-left → bottom-left corner OFF
+          [true, true, true],
+          [true, true, true],
           [false, true, true],
+        ],
+        '3,1': [ // bottom-right → bottom-right corner OFF
           [true, true, true],
           [true, true, true],
+          [true, true, false],
         ],
       };
 
