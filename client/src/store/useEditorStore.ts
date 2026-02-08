@@ -345,7 +345,7 @@ const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   undo: () => {
-    const { undoStack, currentMap, currentMapId } = get();
+    const { undoStack, currentMap, currentMapId, showToast } = get();
     if (undoStack.length === 0 || !currentMap || !currentMapId) return;
     const entry = undoStack[undoStack.length - 1];
     if (entry.mapId !== currentMapId) return;
@@ -363,10 +363,11 @@ const useEditorStore = create<EditorState>((set, get) => ({
       undoStack: undoStack.slice(0, -1),
       redoStack: [...get().redoStack, { mapId: currentMapId, changes: redoChanges }],
     });
+    showToast(`실행 취소 (타일 ${entry.changes.length}개 변경)`);
   },
 
   redo: () => {
-    const { redoStack, currentMap, currentMapId } = get();
+    const { redoStack, currentMap, currentMapId, showToast } = get();
     if (redoStack.length === 0 || !currentMap || !currentMapId) return;
     const entry = redoStack[redoStack.length - 1];
     if (entry.mapId !== currentMapId) return;
@@ -384,6 +385,7 @@ const useEditorStore = create<EditorState>((set, get) => ({
       redoStack: redoStack.slice(0, -1),
       undoStack: [...get().undoStack, { mapId: currentMapId, changes: undoChanges }],
     });
+    showToast(`다시 실행 (타일 ${entry.changes.length}개 변경)`);
   },
 
   // Clipboard - tiles
