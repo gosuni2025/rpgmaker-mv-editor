@@ -81,6 +81,7 @@ export default function App() {
   const showEventSearchDialog = useEditorStore((s) => s.showEventSearchDialog);
   const showResourceManagerDialog = useEditorStore((s) => s.showResourceManagerDialog);
   const showCharacterGeneratorDialog = useEditorStore((s) => s.showCharacterGeneratorDialog);
+  const toastMessage = useEditorStore((s) => s.toastMessage);
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
   useFileWatcher();
   const setShowOpenProjectDialog = useEditorStore((s) => s.setShowOpenProjectDialog);
@@ -150,6 +151,7 @@ export default function App() {
       {showResourceManagerDialog && <ResourceManagerDialog />}
       {showCharacterGeneratorDialog && <CharacterGeneratorDialog />}
       <AutotileDebugDialog open={showAutotileDebug} onClose={() => setShowAutotileDebug(false)} />
+      {toastMessage && <div className="toast">{toastMessage}</div>}
     </div>
   );
 }

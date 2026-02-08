@@ -73,6 +73,10 @@ export interface EditorState {
   // Event editor
   selectedEventId: number | null;
 
+  // Toast
+  toastMessage: string | null;
+  showToast: (message: string) => void;
+
   // UI dialogs
   showOpenProjectDialog: boolean;
   showNewProjectDialog: boolean;
@@ -170,6 +174,11 @@ const useEditorStore = create<EditorState>((set, get) => ({
   selectionStart: null,
   selectionEnd: null,
   selectedEventId: null,
+  toastMessage: null,
+  showToast: (message: string) => {
+    set({ toastMessage: message });
+    setTimeout(() => set({ toastMessage: null }), 2000);
+  },
   showOpenProjectDialog: false,
   showNewProjectDialog: false,
   showDatabaseDialog: false,
@@ -278,9 +287,10 @@ const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   saveCurrentMap: async () => {
-    const { currentMapId, currentMap } = get();
+    const { currentMapId, currentMap, showToast } = get();
     if (!currentMapId || !currentMap) return;
     await apiClient.put(`/maps/${currentMapId}`, currentMap);
+    showToast('저장 완료');
   },
 
   createMap: async (opts) => {
