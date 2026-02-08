@@ -106,10 +106,10 @@ function ShowTextEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: un
 
   return (
     <>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
+      <div style={{ fontSize: 12, color: '#aaa' }}>
         Face
         <ImagePicker type="faces" value={faceName} onChange={setFaceName} index={faceIndex} onIndexChange={setFaceIndex} />
-      </label>
+      </div>
       <label style={{ fontSize: 12, color: '#aaa' }}>
         Background
         <select value={background} onChange={e => setBackground(Number(e.target.value))} style={selectStyle}>

@@ -327,7 +327,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                 </label>
 
                 <div className="db-form-section">Image</div>
-                <label style={{ fontSize: 12, color: '#aaa' }}>
+                <div style={{ fontSize: 12, color: '#aaa' }}>
                   Character
                   <ImagePicker
                     type="characters"
@@ -336,7 +336,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                     index={page.image.characterIndex}
                     onIndexChange={(idx) => updateImage({ characterIndex: idx })}
                   />
-                </label>
+                </div>
                 <label style={{ fontSize: 12, color: '#aaa' }}>
                   Direction
                   <select value={page.image.direction} onChange={(e) => updateImage({ direction: Number(e.target.value) })} style={selectStyle}>
