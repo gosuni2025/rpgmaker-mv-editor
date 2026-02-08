@@ -103,7 +103,9 @@ export async function recolorFacePart(
       continue;
     }
 
-    const brightness = pixels[i]; // R channel = brightness
+    // RGB에서 luminance 계산 후 반전 (gradient: x=0 밝음, x=255 어두움)
+    const lum = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+    const brightness = 255 - Math.round(lum);
     const color = getGradientColor(gradients, gradientRow, brightness);
     pixels[i] = color.r;
     pixels[i + 1] = color.g;
@@ -153,7 +155,8 @@ export async function recolorTVSVPart(
       continue;
     }
 
-    const brightness = pixels[i]; // R channel = brightness
+    const lum = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+    const brightness = 255 - Math.round(lum);
     const color = getGradientColor(gradients, gradientRow, brightness);
     pixels[i] = color.r;
     pixels[i + 1] = color.g;
