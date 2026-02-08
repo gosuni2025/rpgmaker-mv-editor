@@ -275,69 +275,56 @@ function isWaterfallKind(tileId: number): boolean {
   return kind >= 4 && kind % 2 === 1;
 }
 
-// Quarter-tile source coordinate computation.
-// Each quarter is determined independently by its two adjacent edges and corner.
-// Verified against all 48 entries of FLOOR_AUTOTILE_TABLE.
-function q0Coords(top: boolean, left: boolean, tl: boolean): [number, number] {
-  const x = left ? 0 : 2;
-  const y = (top && left) ? (tl ? 0 : 2) : top ? 2 : ((!left && tl) ? 0 : 4);
-  return [x, y];
-}
-function q1Coords(top: boolean, right: boolean, tr: boolean): [number, number] {
-  if (top && right) return tr ? [1, 0] : [3, 2];
-  if (top) return [1, 2];
-  if (right) return [3, 4];
-  return tr ? [3, 0] : [1, 4];
-}
-function q2Coords(bottom: boolean, left: boolean, bl: boolean): [number, number] {
-  if (bottom && left) return bl ? [0, 1] : [0, 5];
-  if (bottom) return [2, 5];
-  if (left) return [0, 3];
-  return bl ? [2, 1] : [2, 3];
-}
-function q3Coords(bottom: boolean, right: boolean, br: boolean): [number, number] {
-  if (bottom && right) return br ? [1, 1] : [3, 5];
-  if (bottom) return [1, 5];
-  if (right) return [3, 3];
-  return br ? [3, 1] : [1, 3];
-}
-
-// Build shape lookup: quarter coordinates → shape index
-const FLOOR_SHAPE_LOOKUP = new Map<string, number>();
-(function() {
-  for (let i = 0; i < FLOOR_AUTOTILE_TABLE.length; i++) {
-    const t = FLOOR_AUTOTILE_TABLE[i];
-    const key = `${t[0][0]},${t[0][1]},${t[1][0]},${t[1][1]},${t[2][0]},${t[2][1]},${t[3][0]},${t[3][1]}`;
-    FLOOR_SHAPE_LOOKUP.set(key, i);
-  }
-})();
-
+// Floor autotile shape calculation.
+// Shape is determined by which cardinal neighbors are ABSENT (= edges/borders)
+// and inner corner sub-index (diagonal ABSENT when both adjacent cardinals PRESENT).
+//
+// Shape groups by absent cardinal directions:
+//   0 absent: 0-15  (inner corner combos: icTL*1 + icTR*2 + icBR*4 + icBL*8)
+//   L absent: 16-19 (sub: icTR*1 + icBR*2)
+//   T absent: 20-23 (sub: icBR*1 + icBL*2)
+//   R absent: 24-27 (sub: icBL*1 + icTL*2)
+//   B absent: 28-31 (sub: icTL*1 + icTR*2)
+//   L+R: 32, T+B: 33
+//   T+L: 34-35 (sub: icBR), T+R: 36-37 (sub: icBL)
+//   R+B: 38-39 (sub: icTL), B+L: 40-41 (sub: icTR)
+//   T+R+L: 42, T+B+L: 43, R+B+L: 44, T+R+B: 45
+//   T+R+B+L: 46
 function findFloorShape(
   top: boolean, right: boolean, bottom: boolean, left: boolean,
   topLeft: boolean, topRight: boolean, bottomLeft: boolean, bottomRight: boolean
 ): number {
-  // In RPG Maker MV, corners only produce a visual difference when ALL 4 edges
-  // are connected AND ALL 4 corners are connected (shape 47 = fully inner tile).
-  // Otherwise (any edge or corner missing), corners are treated as absent (shape 46 for 4-edge).
-  const allEdges = top && right && bottom && left;
-  const allCorners = allEdges && topLeft && topRight && bottomLeft && bottomRight;
-  const tl = allCorners;
-  const tr = allCorners;
-  const bl = allCorners;
-  const br = allCorners;
+  // Inner corners: both adjacent cardinals PRESENT but diagonal ABSENT
+  const icTL = top && left && !topLeft ? 1 : 0;
+  const icTR = top && right && !topRight ? 1 : 0;
+  const icBL = bottom && left && !bottomLeft ? 1 : 0;
+  const icBR = bottom && right && !bottomRight ? 1 : 0;
 
-  // Free diagonals: diagonal present but NEITHER adjacent edge connected
-  const tlFree = !top && !left && topLeft;
-  const trFree = !top && !right && topRight;
-  const blFree = !bottom && !left && bottomLeft;
-  const brFree = !bottom && !right && bottomRight;
+  const absentT = !top, absentR = !right, absentB = !bottom, absentL = !left;
+  const n = (absentT ? 1 : 0) + (absentR ? 1 : 0) + (absentB ? 1 : 0) + (absentL ? 1 : 0);
 
-  const c0 = q0Coords(top, left, tl || tlFree);
-  const c1 = q1Coords(top, right, tr || trFree);
-  const c2 = q2Coords(bottom, left, bl || blFree);
-  const c3 = q3Coords(bottom, right, br || brFree);
-  const key = `${c0[0]},${c0[1]},${c1[0]},${c1[1]},${c2[0]},${c2[1]},${c3[0]},${c3[1]}`;
-  return FLOOR_SHAPE_LOOKUP.get(key) ?? 0;
+  if (n === 0) return icTL + icTR * 2 + icBR * 4 + icBL * 8;
+  if (n === 1) {
+    if (absentL) return 16 + icTR + icBR * 2;
+    if (absentT) return 20 + icBR + icBL * 2;
+    if (absentR) return 24 + icBL + icTL * 2;
+    return 28 + icTL + icTR * 2; // absentB
+  }
+  if (n === 2) {
+    if (absentL && absentR) return 32;
+    if (absentT && absentB) return 33;
+    if (absentT && absentL) return 34 + icBR;
+    if (absentT && absentR) return 36 + icBL;
+    if (absentR && absentB) return 38 + icTL;
+    return 40 + icTR; // absentB && absentL
+  }
+  if (n === 3) {
+    if (!absentB) return 42;
+    if (!absentR) return 43;
+    if (!absentT) return 44;
+    return 45; // !absentL
+  }
+  return 46; // n === 4
 }
 
 // Wall shape lookup
@@ -407,9 +394,9 @@ const WALL_SHAPE_TO_BITMASK: number[] = [];
 
 (function buildShapeToBitmask() {
   // Floor: try all 256 combinations of 8 directions
-  // We want the "minimal" bitmask for each shape (fewest neighbors set)
+  // Store the maximal bitmask (most neighbors set) for each shape
   const floorMap = new Map<number, number>();
-  for (let mask = 0; mask < 256; mask++) {
+  for (let mask = 255; mask >= 0; mask--) {
     const top = !!(mask & 1);
     const right = !!(mask & 2);
     const bottom = !!(mask & 4);
@@ -429,7 +416,7 @@ const WALL_SHAPE_TO_BITMASK: number[] = [];
 
   // Wall: try all 16 combinations of 4 directions
   const wallMap = new Map<number, number>();
-  for (let mask = 0; mask < 16; mask++) {
+  for (let mask = 15; mask >= 0; mask--) {
     const top = !!(mask & 1);
     const right = !!(mask & 2);
     const bottom = !!(mask & 4);
@@ -525,196 +512,6 @@ export function getAutotileBlockInfo(tileId: number): AutotileBlockInfo | null {
   }
 
   return { setNumber, bx, by, tableType, kind };
-}
-
-// For each half-tile coordinate in the autotile source area,
-// determine which directions are "present" (neighbor exists) when that half-tile is used.
-// Returns a map: "qsx,qsy" → { top, right, bottom, left, topLeft, topRight, bottomLeft, bottomRight }
-// where each boolean indicates that direction is PRESENT for the conditions that use this half-tile.
-// null means "always true" or "always false" or "doesn't matter for this quarter".
-export interface HalfTileMeaning {
-  // For each direction, true = neighbor present, false = neighbor absent, null = not relevant to this half-tile
-  top: boolean | null; right: boolean | null; bottom: boolean | null; left: boolean | null;
-  topLeft: boolean | null; topRight: boolean | null; bottomLeft: boolean | null; bottomRight: boolean | null;
-  quarterIndex: number; // which quarter (0=TL, 1=TR, 2=BL, 3=BR)
-}
-
-// Build the floor half-tile meaning map by reverse-engineering q0Coords..q3Coords
-export function getFloorHalfTileMeanings(): Map<string, HalfTileMeaning[]> {
-  const result = new Map<string, HalfTileMeaning[]>();
-  // For Q0 (top-left quarter): depends on top, left, topLeft
-  // Enumerate all 8 combos of (top, left, topLeft)
-  for (let mask = 0; mask < 8; mask++) {
-    const top = !!(mask & 1), left = !!(mask & 2), tl = !!(mask & 4);
-    const [qsx, qsy] = q0Coords(top, left, tl);
-    const key = `${qsx},${qsy}`;
-    if (!result.has(key)) result.set(key, []);
-    result.get(key)!.push({
-      top, left, topLeft: tl,
-      right: null, bottom: null, topRight: null, bottomLeft: null, bottomRight: null,
-      quarterIndex: 0,
-    });
-  }
-  // For Q1 (top-right quarter): depends on top, right, topRight
-  for (let mask = 0; mask < 8; mask++) {
-    const top = !!(mask & 1), right = !!(mask & 2), tr = !!(mask & 4);
-    const [qsx, qsy] = q1Coords(top, right, tr);
-    const key = `${qsx},${qsy}`;
-    if (!result.has(key)) result.set(key, []);
-    result.get(key)!.push({
-      top, right, topRight: tr,
-      left: null, bottom: null, topLeft: null, bottomLeft: null, bottomRight: null,
-      quarterIndex: 1,
-    });
-  }
-  // For Q2 (bottom-left quarter): depends on bottom, left, bottomLeft
-  for (let mask = 0; mask < 8; mask++) {
-    const bottom = !!(mask & 1), left = !!(mask & 2), bl = !!(mask & 4);
-    const [qsx, qsy] = q2Coords(bottom, left, bl);
-    const key = `${qsx},${qsy}`;
-    if (!result.has(key)) result.set(key, []);
-    result.get(key)!.push({
-      bottom, left, bottomLeft: bl,
-      top: null, right: null, topLeft: null, topRight: null, bottomRight: null,
-      quarterIndex: 2,
-    });
-  }
-  // For Q3 (bottom-right quarter): depends on bottom, right, bottomRight
-  for (let mask = 0; mask < 8; mask++) {
-    const bottom = !!(mask & 1), right = !!(mask & 2), br = !!(mask & 4);
-    const [qsx, qsy] = q3Coords(bottom, right, br);
-    const key = `${qsx},${qsy}`;
-    if (!result.has(key)) result.set(key, []);
-    result.get(key)!.push({
-      bottom, right, bottomRight: br,
-      top: null, left: null, topLeft: null, topRight: null, bottomLeft: null,
-      quarterIndex: 3,
-    });
-  }
-  // Consolidate: for each key, merge entries with same quarterIndex
-  // Find the "common" condition for each direction
-  const consolidated = new Map<string, HalfTileMeaning[]>();
-  for (const [key, entries] of result.entries()) {
-    // Group by quarterIndex
-    const byQuarter = new Map<number, HalfTileMeaning[]>();
-    for (const e of entries) {
-      if (!byQuarter.has(e.quarterIndex)) byQuarter.set(e.quarterIndex, []);
-      byQuarter.get(e.quarterIndex)!.push(e);
-    }
-    const merged: HalfTileMeaning[] = [];
-    for (const [qi, qEntries] of byQuarter.entries()) {
-      // For each direction, check if all entries agree
-      const dirs = ['top', 'right', 'bottom', 'left', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight'] as const;
-      const m: HalfTileMeaning = {
-        top: null, right: null, bottom: null, left: null,
-        topLeft: null, topRight: null, bottomLeft: null, bottomRight: null,
-        quarterIndex: qi,
-      };
-      for (const d of dirs) {
-        const vals = qEntries.map(e => e[d]);
-        if (vals.every(v => v === null)) {
-          m[d] = null;
-        } else {
-          const nonNull = vals.filter(v => v !== null);
-          if (nonNull.length > 0 && nonNull.every(v => v === nonNull[0])) {
-            m[d] = nonNull[0];
-          } else {
-            m[d] = null; // disagree → doesn't matter
-          }
-        }
-      }
-      merged.push(m);
-    }
-    consolidated.set(key, merged);
-  }
-  return consolidated;
-}
-
-// Build the wall half-tile meaning map
-export function getWallHalfTileMeanings(): Map<string, HalfTileMeaning[]> {
-  const result = new Map<string, HalfTileMeaning[]>();
-  // Wall Q0(TL): left?0:2, top?0:2
-  for (let mask = 0; mask < 4; mask++) {
-    const top = !!(mask & 1), left = !!(mask & 2);
-    const qsx = left ? 0 : 2, qsy = top ? 0 : 2;
-    const key = `${qsx},${qsy}`;
-    if (!result.has(key)) result.set(key, []);
-    result.get(key)!.push({
-      top, left,
-      right: null, bottom: null, topLeft: null, topRight: null, bottomLeft: null, bottomRight: null,
-      quarterIndex: 0,
-    });
-  }
-  // Wall Q1(TR): right?3:1, top?0:2
-  for (let mask = 0; mask < 4; mask++) {
-    const top = !!(mask & 1), right = !!(mask & 2);
-    const qsx = right ? 3 : 1, qsy = top ? 0 : 2;
-    const key = `${qsx},${qsy}`;
-    if (!result.has(key)) result.set(key, []);
-    result.get(key)!.push({
-      top, right,
-      left: null, bottom: null, topLeft: null, topRight: null, bottomLeft: null, bottomRight: null,
-      quarterIndex: 1,
-    });
-  }
-  // Wall Q2(BL): left?0:2, bottom?3:1
-  for (let mask = 0; mask < 4; mask++) {
-    const bottom = !!(mask & 1), left = !!(mask & 2);
-    const qsx = left ? 0 : 2, qsy = bottom ? 3 : 1;
-    const key = `${qsx},${qsy}`;
-    if (!result.has(key)) result.set(key, []);
-    result.get(key)!.push({
-      bottom, left,
-      top: null, right: null, topLeft: null, topRight: null, bottomLeft: null, bottomRight: null,
-      quarterIndex: 2,
-    });
-  }
-  // Wall Q3(BR): right?3:1, bottom?3:1
-  for (let mask = 0; mask < 4; mask++) {
-    const bottom = !!(mask & 1), right = !!(mask & 2);
-    const qsx = right ? 3 : 1, qsy = bottom ? 3 : 1;
-    const key = `${qsx},${qsy}`;
-    if (!result.has(key)) result.set(key, []);
-    result.get(key)!.push({
-      bottom, right,
-      top: null, left: null, topLeft: null, topRight: null, bottomLeft: null, bottomRight: null,
-      quarterIndex: 3,
-    });
-  }
-  // Consolidate
-  const consolidated = new Map<string, HalfTileMeaning[]>();
-  for (const [key, entries] of result.entries()) {
-    const byQuarter = new Map<number, HalfTileMeaning[]>();
-    for (const e of entries) {
-      if (!byQuarter.has(e.quarterIndex)) byQuarter.set(e.quarterIndex, []);
-      byQuarter.get(e.quarterIndex)!.push(e);
-    }
-    const merged: HalfTileMeaning[] = [];
-    for (const [qi, qEntries] of byQuarter.entries()) {
-      const dirs = ['top', 'right', 'bottom', 'left', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight'] as const;
-      const m: HalfTileMeaning = {
-        top: null, right: null, bottom: null, left: null,
-        topLeft: null, topRight: null, bottomLeft: null, bottomRight: null,
-        quarterIndex: qi,
-      };
-      for (const d of dirs) {
-        const vals = qEntries.map(e => e[d]);
-        if (vals.every(v => v === null)) {
-          m[d] = null;
-        } else {
-          const nonNull = vals.filter(v => v !== null);
-          if (nonNull.length > 0 && nonNull.every(v => v === nonNull[0])) {
-            m[d] = nonNull[0];
-          } else {
-            m[d] = null;
-          }
-        }
-      }
-      merged.push(m);
-    }
-    consolidated.set(key, merged);
-  }
-  return consolidated;
 }
 
 // Debug: detailed autotile info for a position
