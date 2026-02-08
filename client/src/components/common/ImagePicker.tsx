@@ -9,10 +9,6 @@ interface ImagePickerProps {
   onIndexChange?: (index: number) => void;
 }
 
-// faces: 4x2 셀, 각 셀 = 이미지너비/4 x 이미지높이/2
-// characters: 4x2 셀, 각 셀 = 3패턴x4방향 (이미지너비/4 x 이미지높이/2)
-// sv_actors: 전체 1개
-
 interface CellLayout {
   cols: number;
   rows: number;
@@ -31,119 +27,64 @@ function getCellLayout(type: string): CellLayout {
   return { cols: 1, rows: 1 };
 }
 
-/** 셀 전체 영역을 캔버스에 그려서 반환 (캐릭터: 3패턴x4방향 전체) */
-function drawCellToCanvas(
-  img: HTMLImageElement,
-  cellIndex: number,
-  layout: CellLayout,
-): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  const cellW = img.naturalWidth / layout.cols;
-  const cellH = img.naturalHeight / layout.rows;
-  canvas.width = cellW;
-  canvas.height = cellH;
-  const ctx = canvas.getContext('2d')!;
-  const col = cellIndex % layout.cols;
-  const row = Math.floor(cellIndex / layout.cols);
-  ctx.drawImage(img, col * cellW, row * cellH, cellW, cellH, 0, 0, cellW, cellH);
-  return canvas;
-}
-
-/** 캐릭터 대표 프레임 1개만 추출 (중앙 패턴, 아래 방향) - 썸네일용 */
-function drawCharacterPreview(
-  img: HTMLImageElement,
-  cellIndex: number,
-  layout: CellLayout,
-): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  const cellW = img.naturalWidth / layout.cols;
-  const cellH = img.naturalHeight / layout.rows;
-  const patternW = cellW / 3;
-  const patternH = cellH / 4;
-  canvas.width = patternW;
-  canvas.height = patternH;
-  const ctx = canvas.getContext('2d')!;
-  const col = cellIndex % layout.cols;
-  const row = Math.floor(cellIndex / layout.cols);
-  const sx = col * cellW + patternW; // 중앙 패턴
-  const sy = row * cellH;            // 아래 방향
-  ctx.drawImage(img, sx, sy, patternW, patternH, 0, 0, patternW, patternH);
-  return canvas;
-}
-
-function CellGrid({ imgSrc, type, cellCount, layout, selectedIndex, onSelect }: {
+/** 스프라이트 시트 전체를 표시하고, 셀 클릭으로 선택하는 그리드 */
+function SheetSelector({ imgSrc, type, layout, cellCount, selectedIndex, onSelect }: {
   imgSrc: string;
   type: string;
-  cellCount: number;
   layout: CellLayout;
+  cellCount: number;
   selectedIndex: number;
   onSelect: (i: number) => void;
 }) {
-  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const imgRef = useRef<HTMLImageElement | null>(null);
+  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
-    setImgLoaded(false);
     const img = new Image();
-    img.onload = () => {
-      imgRef.current = img;
-      setImgLoaded(true);
-    };
+    img.onload = () => setImgSize({ w: img.naturalWidth, h: img.naturalHeight });
     img.src = imgSrc;
     return () => { img.onload = null; };
   }, [imgSrc]);
 
-  useEffect(() => {
-    if (!imgLoaded || !imgRef.current) return;
-    const img = imgRef.current;
-    for (let i = 0; i < cellCount; i++) {
-      const target = canvasRefs.current[i];
-      if (!target) continue;
-      const src = drawCellToCanvas(img, i, layout);
-      target.width = src.width;
-      target.height = src.height;
-      target.getContext('2d')!.drawImage(src, 0, 0);
-    }
-  }, [imgLoaded, imgSrc, cellCount, layout]);
+  if (!imgSize) return null;
 
-  // 캐릭터: 각 셀이 3x4 프레임이라 좀 더 크게, faces: 정사각형
-  const cellW = type === 'characters' ? 96 : 80;
-  const cellH = type === 'characters' ? 128 : 80;
+  const cellW = imgSize.w / layout.cols;
+  const cellH = imgSize.h / layout.rows;
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: `repeat(${layout.cols}, ${cellW}px)`,
-      gap: 4,
-    }}>
-      {Array.from({ length: cellCount }, (_, i) => (
-        <div
-          key={i}
-          onClick={() => onSelect(i)}
-          style={{
-            cursor: 'pointer',
-            border: i === selectedIndex ? '2px solid #2675bf' : '2px solid transparent',
-            borderRadius: 3,
-            background: i === selectedIndex ? 'rgba(38,117,191,0.15)' : 'transparent',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: cellW,
-            height: cellH,
-            padding: 2,
-          }}
-        >
-          <canvas
-            ref={el => { canvasRefs.current[i] = el; }}
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <img
+        src={imgSrc}
+        style={{
+          display: 'block',
+          imageRendering: 'pixelated',
+          maxWidth: '100%',
+        }}
+        draggable={false}
+      />
+      {/* 셀 선택 오버레이 */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        display: 'grid',
+        gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
+        gridTemplateRows: `repeat(${layout.rows}, 1fr)`,
+      }}>
+        {Array.from({ length: cellCount }, (_, i) => (
+          <div
+            key={i}
+            onClick={() => onSelect(i)}
             style={{
-              maxWidth: '100%',
-              maxHeight: '100%',
-              imageRendering: 'pixelated',
+              cursor: 'pointer',
+              border: i === selectedIndex ? '2px solid #2675bf' : '2px solid transparent',
+              background: i === selectedIndex ? 'rgba(38,117,191,0.2)' : 'transparent',
+              boxSizing: 'border-box',
             }}
           />
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -163,12 +104,25 @@ function CellPreview({ imgSrc, type, cellIndex, layout, size }: {
     img.onload = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const src = type === 'characters'
-        ? drawCharacterPreview(img, cellIndex, layout)
-        : drawCellToCanvas(img, cellIndex, layout);
-      canvas.width = src.width;
-      canvas.height = src.height;
-      canvas.getContext('2d')!.drawImage(src, 0, 0);
+      const cellW = img.naturalWidth / layout.cols;
+      const cellH = img.naturalHeight / layout.rows;
+      const col = cellIndex % layout.cols;
+      const row = Math.floor(cellIndex / layout.cols);
+
+      if (type === 'characters') {
+        // 대표 프레임: 중앙 패턴, 아래 방향
+        const pw = cellW / 3;
+        const ph = cellH / 4;
+        canvas.width = pw;
+        canvas.height = ph;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, col * cellW + pw, row * cellH, pw, ph, 0, 0, pw, ph);
+      } else {
+        canvas.width = cellW;
+        canvas.height = cellH;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, col * cellW, row * cellH, cellW, cellH, 0, 0, cellW, cellH);
+      }
     };
     img.src = imgSrc;
   }, [imgSrc, type, cellIndex, layout]);
@@ -176,11 +130,7 @@ function CellPreview({ imgSrc, type, cellIndex, layout, size }: {
   return (
     <canvas
       ref={canvasRef}
-      style={{
-        maxWidth: size,
-        maxHeight: size,
-        imageRendering: 'pixelated',
-      }}
+      style={{ maxWidth: size, maxHeight: size, imageRendering: 'pixelated' }}
     />
   );
 }
@@ -261,11 +211,11 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
               </div>
               <div className="image-picker-preview-area">
                 {selected && cellCount > 1 && onIndexChange ? (
-                  <CellGrid
+                  <SheetSelector
                     imgSrc={getImgUrl(selected + '.png')}
                     type={type}
-                    cellCount={cellCount}
                     layout={layout}
+                    cellCount={cellCount}
                     selectedIndex={selectedIndex}
                     onSelect={setSelectedIndex}
                   />
