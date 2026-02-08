@@ -99,11 +99,6 @@ ShadowLight._convertMaterial = function(sprite) {
     if (this._convertedMaterials.has(sprite._material)) return;
 
     var oldMat = sprite._material;
-    // MeshStandardMaterial은 sRGB 텍스처를 기대
-    if (oldMat.map && oldMat.map.encoding !== THREE.sRGBEncoding) {
-        oldMat.map.encoding = THREE.sRGBEncoding;
-        oldMat.map.needsUpdate = true;
-    }
     var newMat = new THREE.MeshStandardMaterial({
         map: oldMat.map,
         transparent: oldMat.transparent,
@@ -114,7 +109,7 @@ ShadowLight._convertMaterial = function(sprite) {
         blending: oldMat.blending,
         roughness: 1.0,
         metalness: 0.0,
-        emissive: new THREE.Color(0x222222), // 약간의 자체 발광 (완전 어둠 방지)
+        emissive: new THREE.Color(0x222222),
     });
     newMat.visible = oldMat.visible;
     newMat.needsUpdate = true;
@@ -177,11 +172,6 @@ ShadowLight._convertTilemapMaterials = function(tilemap) {
                     if (parseInt(key) === -1) continue;
 
                     var oldMat = mesh.material;
-                    // MeshStandardMaterial은 sRGB 텍스처를 기대
-                    if (oldMat.map && oldMat.map.encoding !== THREE.sRGBEncoding) {
-                        oldMat.map.encoding = THREE.sRGBEncoding;
-                        oldMat.map.needsUpdate = true;
-                    }
                     var newMat = new THREE.MeshStandardMaterial({
                         map: oldMat.map,
                         transparent: oldMat.transparent,
@@ -492,11 +482,6 @@ Spriteset_Map.prototype._activateShadowLight = function() {
     if (rendererObj && rendererObj.scene) {
         ShadowLight._addLightsToScene(rendererObj.scene);
     }
-    // MeshStandardMaterial의 올바른 색상을 위해 sRGB output 활성화
-    if (rendererObj && rendererObj.renderer) {
-        rendererObj.renderer.outputEncoding = THREE.sRGBEncoding;
-    }
-
     // 캐릭터 스프라이트 material 교체
     if (this._characterSprites) {
         for (var i = 0; i < this._characterSprites.length; i++) {
@@ -515,11 +500,6 @@ Spriteset_Map.prototype._deactivateShadowLight = function() {
     if (rendererObj && rendererObj.scene) {
         ShadowLight._removeLightsFromScene(rendererObj.scene);
     }
-    // outputEncoding 복원
-    if (rendererObj && rendererObj.renderer) {
-        rendererObj.renderer.outputEncoding = THREE.LinearEncoding;
-    }
-
     // material 복원
     if (this._characterSprites) {
         for (var i = 0; i < this._characterSprites.length; i++) {

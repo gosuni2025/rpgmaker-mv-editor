@@ -295,18 +295,16 @@ ThreeTilemapRectLayer.prototype._flush = function() {
         var mesh = this._meshes[setNumber];
 
         if (mesh) {
-            // 기존 geometry 재사용 (attribute 교체)
-            geometry = mesh.geometry;
+            // 기존 mesh의 geometry를 새로 교체 (MeshStandardMaterial 호환)
+            var oldGeo = mesh.geometry;
+            geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
             geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
             if (!isShadow) {
                 geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
             }
-            geometry.attributes.position.needsUpdate = true;
-            geometry.attributes.normal.needsUpdate = true;
-            if (!isShadow && geometry.attributes.uv) {
-                geometry.attributes.uv.needsUpdate = true;
-            }
+            mesh.geometry = geometry;
+            if (oldGeo) oldGeo.dispose();
             mesh.visible = true;
         } else {
             // 새 geometry + mesh 생성
