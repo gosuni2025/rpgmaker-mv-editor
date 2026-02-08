@@ -335,17 +335,10 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                     onChange={(name) => updateImage({ characterName: name })}
                     index={page.image.characterIndex}
                     onIndexChange={(idx) => updateImage({ characterIndex: idx })}
+                    direction={page.image.direction}
+                    onDirectionChange={(dir) => updateImage({ direction: dir })}
                   />
                 </div>
-                <label style={{ fontSize: 12, color: '#aaa' }}>
-                  Direction
-                  <select value={page.image.direction} onChange={(e) => updateImage({ direction: Number(e.target.value) })} style={selectStyle}>
-                    <option value={2}>Down</option>
-                    <option value={4}>Left</option>
-                    <option value={6}>Right</option>
-                    <option value={8}>Up</option>
-                  </select>
-                </label>
 
                 <div className="db-form-section">Autonomous Movement</div>
                 <label style={{ fontSize: 12, color: '#aaa' }}>
