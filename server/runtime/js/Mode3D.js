@@ -355,4 +355,73 @@
         Mode3D.registerBillboard(this._destinationSprite);
     };
 
+    //=========================================================================
+    // 화면 좌표 → 월드 좌표 변환 (3D 모드용)
+    // PerspectiveCamera의 역투영으로 Z=0 평면 교점 계산
+    //=========================================================================
+
+    Mode3D.screenToWorld = function(screenX, screenY) {
+        var camera = this._perspCamera;
+        if (!camera) return null;
+
+        var w = Graphics.width;
+        var h = Graphics.height;
+
+        // NDC 좌표 (-1 ~ 1)
+        // Y축: projectionMatrix에서 이미 반전되어 있으므로 그대로 사용
+        var ndcX = (screenX / w) * 2 - 1;
+        var ndcY = (screenY / h) * 2 - 1;
+
+        // near/far 두 점을 unproject
+        var near = new THREE.Vector3(ndcX, ndcY, -1);
+        var far  = new THREE.Vector3(ndcX, ndcY,  1);
+        near.applyMatrix4(camera.projectionMatrixInverse);
+        near.applyMatrix4(camera.matrixWorld);
+        far.applyMatrix4(camera.projectionMatrixInverse);
+        far.applyMatrix4(camera.matrixWorld);
+
+        // ray direction
+        var dir = new THREE.Vector3().subVectors(far, near).normalize();
+
+        // Z=0 평면과의 교점: near.z + t * dir.z = 0
+        if (Math.abs(dir.z) < 1e-6) return null;
+        var t = -near.z / dir.z;
+
+        return {
+            x: near.x + t * dir.x,
+            y: near.y + t * dir.y
+        };
+    };
+
+    //=========================================================================
+    // Game_Map.canvasToMapX/Y 오버라이드
+    // 3D 모드 활성 시 screenToWorld로 올바른 타일 좌표 계산
+    //=========================================================================
+
+    var _Game_Map_canvasToMapX = Game_Map.prototype.canvasToMapX;
+    Game_Map.prototype.canvasToMapX = function(x) {
+        if (ConfigManager.mode3d && Mode3D._active && Mode3D._perspCamera) {
+            var world = Mode3D.screenToWorld(x, TouchInput.y);
+            if (world) {
+                var tileWidth = this.tileWidth();
+                var originX = this._displayX * tileWidth;
+                return this.roundX(Math.floor((originX + world.x) / tileWidth));
+            }
+        }
+        return _Game_Map_canvasToMapX.call(this, x);
+    };
+
+    var _Game_Map_canvasToMapY = Game_Map.prototype.canvasToMapY;
+    Game_Map.prototype.canvasToMapY = function(y) {
+        if (ConfigManager.mode3d && Mode3D._active && Mode3D._perspCamera) {
+            var world = Mode3D.screenToWorld(TouchInput.x, y);
+            if (world) {
+                var tileHeight = this.tileHeight();
+                var originY = this._displayY * tileHeight;
+                return this.roundY(Math.floor((originY + world.y) / tileHeight));
+            }
+        }
+        return _Game_Map_canvasToMapY.call(this, y);
+    };
+
 })();
