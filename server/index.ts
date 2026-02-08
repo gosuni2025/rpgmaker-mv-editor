@@ -30,7 +30,7 @@ app.get('/game/save/:filename', (req, res) => {
   if (!projectManager.isOpen()) return res.status(404).send('No project open');
   if (!validSaveFile(req.params.filename)) return res.status(400).send('Invalid filename');
   const filePath = path.join(projectManager.currentPath!, 'save', req.params.filename);
-  if (!fs.existsSync(filePath)) return res.status(404).send('Not found');
+  if (!fs.existsSync(filePath)) return res.type('text/plain').send('');
   res.type('text/plain').send(fs.readFileSync(filePath, 'utf8'));
 });
 
