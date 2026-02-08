@@ -4,16 +4,15 @@ import useEditorStore from '../../store/useEditorStore';
 interface Tool {
   id: string;
   label: string;
-  icon: string;
 }
 
 const tools: Tool[] = [
-  { id: 'pen', label: 'Pen', icon: '✏' },
-  { id: 'rectangle', label: 'Rect', icon: '▭' },
-  { id: 'ellipse', label: 'Ellipse', icon: '⬭' },
-  { id: 'fill', label: 'Fill', icon: '⬛' },
-  { id: 'eraser', label: 'Eraser', icon: '◻' },
-  { id: 'shadow', label: 'Shadow', icon: '◧' },
+  { id: 'pen', label: '연필' },
+  { id: 'rectangle', label: '직사각형' },
+  { id: 'ellipse', label: '타원' },
+  { id: 'fill', label: '채우기' },
+  { id: 'eraser', label: '지우개' },
+  { id: 'shadow', label: '그림자' },
 ];
 
 const layers = [0, 1, 2, 3];
@@ -41,9 +40,8 @@ export default function DrawToolbar() {
             ...styles.btn,
             ...(editMode === 'map' ? styles.btnActive : {}),
           }}
-          title="Map mode"
         >
-          Map
+          맵
         </button>
         <button
           onClick={() => setEditMode('event')}
@@ -51,9 +49,8 @@ export default function DrawToolbar() {
             ...styles.btn,
             ...(editMode === 'event' ? styles.btnActive : {}),
           }}
-          title="Event mode"
         >
-          Event
+          이벤트
         </button>
       </div>
 
@@ -64,7 +61,6 @@ export default function DrawToolbar() {
         {tools.map((t) => (
           <button
             key={t.id}
-            title={t.label}
             onClick={() => setSelectedTool(t.id)}
             style={{
               ...styles.btn,
@@ -72,7 +68,7 @@ export default function DrawToolbar() {
               ...(editMode === 'event' ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
             }}
           >
-            {t.icon}
+            {t.label}
           </button>
         ))}
       </div>
@@ -81,7 +77,7 @@ export default function DrawToolbar() {
 
       {/* Layer selector */}
       <div style={styles.group}>
-        <span style={styles.label}>Layer:</span>
+        <span style={styles.label}>레이어:</span>
         <select
           value={currentLayer}
           onChange={(e) => setCurrentLayer(Number(e.target.value))}
@@ -106,24 +102,23 @@ export default function DrawToolbar() {
           );
         }}
         style={{ ...styles.btn, ...(showGrid ? styles.btnActive : {}) }}
-        title="Toggle Grid"
       >
-        #
+        격자
       </button>
 
       <div style={styles.separator} />
 
       {/* Zoom controls */}
       <div style={styles.group}>
-        <button onClick={zoomOut} style={styles.btn} title="Zoom Out">-</button>
+        <button onClick={zoomOut} style={styles.btn}>축소</button>
         <span style={styles.zoomLabel}>{Math.round(zoomLevel * 100)}%</span>
-        <button onClick={zoomIn} style={styles.btn} title="Zoom In">+</button>
+        <button onClick={zoomIn} style={styles.btn}>확대</button>
       </div>
 
       <div style={{ flex: 1 }} />
 
       <button onClick={saveCurrentMap} style={styles.saveBtn}>
-        Save
+        저장
       </button>
     </div>
   );
@@ -151,7 +146,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 3,
     padding: '4px 8px',
     cursor: 'pointer',
-    fontSize: 14,
+    fontSize: 12,
   },
   btnActive: {
     background: '#0078d4',
