@@ -231,9 +231,34 @@ ThreeTilemapRectLayer.prototype._flush = function() {
 
         if (!isShadow && !texture) continue;
 
+        // 디버그: 텍스처 필터 상태 확인 (한 번만)
+        if (!isShadow && texture && !this._debugLogged) {
+            this._debugLogged = true;
+            console.log('[ThreeTilemap] setNumber=' + sn +
+                ' minFilter=' + texture.minFilter + ' (Nearest=' + THREE.NearestFilter + ')' +
+                ' magFilter=' + texture.magFilter +
+                ' texW=' + texW + ' texH=' + texH +
+                ' isCanvasTexture=' + (texture.isCanvasTexture || false) +
+                ' flipY=' + texture.flipY +
+                ' generateMipmaps=' + texture.generateMipmaps);
+        }
+
+        // NearestFilter 매 프레임 강제 (다른 곳에서 리셋될 수 있으므로)
+        if (!isShadow && texture) {
+            if (texture.minFilter !== THREE.NearestFilter ||
+                texture.magFilter !== THREE.NearestFilter) {
+                texture.minFilter = THREE.NearestFilter;
+                texture.magFilter = THREE.NearestFilter;
+                texture.generateMipmaps = false;
+                texture.anisotropy = 1;
+                texture.needsUpdate = true;
+            }
+        }
+
         // UV 정규화 + 애니메이션 적용
         var vertCount = data.count * 6;
         var posArray = new Float32Array(vertCount * 3);
+        var normalArray = new Float32Array(vertCount * 3);
         var uvArray = new Float32Array(vertCount * 2);
         var animOffsets = this._animData[setNumber] || [];
 
@@ -252,6 +277,11 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                 posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
                 posArray[posOff + j * 3 + 2] = 0;
 
+                // Normal: 모든 타일 쿼드는 Z+ 방향 (카메라를 향함)
+                normalArray[posOff + j * 3]     = 0;
+                normalArray[posOff + j * 3 + 1] = 0;
+                normalArray[posOff + j * 3 + 2] = 1;
+
                 if (!isShadow) {
                     // UV: 픽셀→정규화, 애니메이션 오프셋 적용, flipY
                     uvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
@@ -268,10 +298,12 @@ ThreeTilemapRectLayer.prototype._flush = function() {
             // 기존 geometry 재사용 (attribute 교체)
             geometry = mesh.geometry;
             geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
             if (!isShadow) {
                 geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
             }
             geometry.attributes.position.needsUpdate = true;
+            geometry.attributes.normal.needsUpdate = true;
             if (!isShadow && geometry.attributes.uv) {
                 geometry.attributes.uv.needsUpdate = true;
             }
@@ -280,6 +312,7 @@ ThreeTilemapRectLayer.prototype._flush = function() {
             // 새 geometry + mesh 생성
             geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
             if (!isShadow) {
                 geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
             }
@@ -293,7 +326,7 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                     opacity: sc[3],
                     depthTest: false,
                     depthWrite: false,
-                    side: THREE.DoubleSide
+                    side: THREE.DoubleSide,
                 });
             } else {
                 // NearestFilter 강제
@@ -307,7 +340,7 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                     transparent: true,
                     depthTest: false,
                     depthWrite: false,
-                    side: THREE.DoubleSide
+                    side: THREE.DoubleSide,
                 });
             }
 

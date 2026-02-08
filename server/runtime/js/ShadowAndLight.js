@@ -144,6 +144,82 @@ ShadowLight._revertMaterial = function(sprite) {
 };
 
 //=============================================================================
+// 타일맵 Material 교체
+// ThreeTilemapRectLayer의 내부 메시들을 MeshLambertMaterial로 교체
+//=============================================================================
+
+ShadowLight._convertTilemapMaterials = function(tilemap) {
+    if (!tilemap) return;
+    // ShaderTilemap의 lowerZLayer, upperZLayer 접근
+    var zLayers = [tilemap.lowerZLayer, tilemap.upperZLayer];
+    for (var z = 0; z < zLayers.length; z++) {
+        var zLayer = zLayers[z];
+        if (!zLayer || !zLayer.children) continue;
+        for (var c = 0; c < zLayer.children.length; c++) {
+            var composite = zLayer.children[c];
+            if (!composite || !composite.children) continue;
+            for (var r = 0; r < composite.children.length; r++) {
+                var rectLayer = composite.children[r];
+                if (!rectLayer || !rectLayer._meshes) continue;
+                for (var key in rectLayer._meshes) {
+                    var mesh = rectLayer._meshes[key];
+                    if (!mesh || !mesh.material) continue;
+                    if (mesh.material.isMeshLambertMaterial) continue;
+                    if (!mesh.material.isMeshBasicMaterial) continue;
+                    // 그림자 메시는 교체하지 않음 (검은색 반투명)
+                    if (parseInt(key) === -1) continue;
+
+                    var oldMat = mesh.material;
+                    var newMat = new THREE.MeshLambertMaterial({
+                        map: oldMat.map,
+                        transparent: oldMat.transparent,
+                        depthTest: oldMat.depthTest,
+                        depthWrite: oldMat.depthWrite,
+                        side: oldMat.side,
+                        opacity: oldMat.opacity,
+                        emissive: new THREE.Color(0x222222),
+                    });
+                    newMat.visible = oldMat.visible;
+                    newMat.needsUpdate = true;
+                    mesh.material = newMat;
+                    // 원본 material 참조 보존 (복원용)
+                    mesh._originalMaterial = oldMat;
+                }
+            }
+        }
+    }
+};
+
+ShadowLight._revertTilemapMaterials = function(tilemap) {
+    if (!tilemap) return;
+    var zLayers = [tilemap.lowerZLayer, tilemap.upperZLayer];
+    for (var z = 0; z < zLayers.length; z++) {
+        var zLayer = zLayers[z];
+        if (!zLayer || !zLayer.children) continue;
+        for (var c = 0; c < zLayer.children.length; c++) {
+            var composite = zLayer.children[c];
+            if (!composite || !composite.children) continue;
+            for (var r = 0; r < composite.children.length; r++) {
+                var rectLayer = composite.children[r];
+                if (!rectLayer || !rectLayer._meshes) continue;
+                for (var key in rectLayer._meshes) {
+                    var mesh = rectLayer._meshes[key];
+                    if (!mesh) continue;
+                    if (mesh._originalMaterial) {
+                        // map이 바뀌었을 수 있으므로 복원
+                        mesh._originalMaterial.map = mesh.material.map;
+                        mesh._originalMaterial.visible = mesh.material.visible;
+                        mesh.material = mesh._originalMaterial;
+                        mesh.material.needsUpdate = true;
+                        delete mesh._originalMaterial;
+                    }
+                }
+            }
+        }
+    }
+};
+
+//=============================================================================
 // Scene에 조명 추가/제거
 //=============================================================================
 
@@ -378,6 +454,9 @@ Spriteset_Map.prototype._updateShadowLight = function() {
 
     if (!enabled) return;
 
+    // 타일맵 material 갱신 (_flush에서 새 메시가 생길 수 있으므로 매 프레임)
+    ShadowLight._convertTilemapMaterials(this._tilemap);
+
     // shadow mesh 업데이트
     if (this._shadowMeshes) {
         for (var i = 0; i < this._characterSprites.length; i++) {
@@ -408,6 +487,9 @@ Spriteset_Map.prototype._activateShadowLight = function() {
         }
     }
 
+    // 타일맵 material 교체 (MeshBasicMaterial → MeshLambertMaterial)
+    ShadowLight._convertTilemapMaterials(this._tilemap);
+
     // shadow mesh는 _updateShadowMesh에서 parent 설정 및 표시됨
 };
 
@@ -423,6 +505,9 @@ Spriteset_Map.prototype._deactivateShadowLight = function() {
             ShadowLight._revertMaterial(this._characterSprites[i]);
         }
     }
+
+    // 타일맵 material 복원 (MeshLambertMaterial → MeshBasicMaterial)
+    ShadowLight._revertTilemapMaterials(this._tilemap);
 
     // shadow mesh 숨기기 및 씬 그래프에서 제거
     if (this._shadowMeshes) {
