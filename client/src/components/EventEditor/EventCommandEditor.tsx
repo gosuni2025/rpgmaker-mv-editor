@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import CommandParamEditor from './CommandParamEditor';
 
@@ -204,11 +204,56 @@ const HAS_PARAM_EDITOR = new Set([
   201, 230, 241, 242, 245, 246, 249, 250, 321, 325, 355, 356,
 ]);
 
+const MAX_UNDO = 50;
+
 export default function EventCommandEditor({ commands, onChange }: EventCommandEditorProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [pendingCode, setPendingCode] = useState<number | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  const undoStack = useRef<EventCommand[][]>([]);
+  const redoStack = useRef<EventCommand[][]>([]);
+
+  const changeWithHistory = useCallback((newCommands: EventCommand[]) => {
+    undoStack.current.push(commands);
+    if (undoStack.current.length > MAX_UNDO) undoStack.current.shift();
+    redoStack.current = [];
+    onChange(newCommands);
+  }, [commands, onChange]);
+
+  const undo = useCallback(() => {
+    if (undoStack.current.length === 0) return;
+    redoStack.current.push(commands);
+    const prev = undoStack.current.pop()!;
+    onChange(prev);
+    setSelectedIndex(-1);
+  }, [commands, onChange]);
+
+  const redo = useCallback(() => {
+    if (redoStack.current.length === 0) return;
+    undoStack.current.push(commands);
+    const next = redoStack.current.pop()!;
+    onChange(next);
+    setSelectedIndex(-1);
+  }, [commands, onChange]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        redo();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
 
   const [groupStart, groupEnd] = useMemo(() => {
     if (selectedIndex < 0 || selectedIndex >= commands.length) return [-1, -1];
@@ -240,7 +285,7 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
     } else {
       newCommands.splice(insertAt, 0, newCmd);
     }
-    onChange(newCommands);
+    changeWithHistory(newCommands);
     setShowAddDialog(false);
     setPendingCode(null);
   };
@@ -260,7 +305,7 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
   const updateCommandParams = (index: number, params: unknown[]) => {
     const newCommands = [...commands];
     newCommands[index] = { ...newCommands[index], parameters: params };
-    onChange(newCommands);
+    changeWithHistory(newCommands);
     setEditingIndex(null);
   };
 
@@ -282,7 +327,7 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
     if (cmd.code === 0 && selectedIndex === commands.length - 1) return;
     const [start, end] = getCommandGroupRange(commands, selectedIndex);
     const newCommands = commands.filter((_, i) => i < start || i > end);
-    onChange(newCommands);
+    changeWithHistory(newCommands);
     setSelectedIndex(Math.min(start, newCommands.length - 1));
   };
 
@@ -358,6 +403,9 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
       <div className="event-commands-toolbar">
         <button className="db-btn-small" onClick={() => setShowAddDialog(true)}>Add</button>
         <button className="db-btn-small" onClick={deleteCommand} disabled={selectedIndex < 0}>Delete</button>
+        <span style={{ flex: 1 }} />
+        <button className="db-btn-small" onClick={undo} disabled={undoStack.current.length === 0} title="Ctrl+Z">Undo</button>
+        <button className="db-btn-small" onClick={redo} disabled={redoStack.current.length === 0} title="Ctrl+Shift+Z">Redo</button>
       </div>
 
       {showAddDialog && (
