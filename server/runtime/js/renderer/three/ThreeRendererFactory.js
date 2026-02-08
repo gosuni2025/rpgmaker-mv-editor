@@ -424,27 +424,25 @@
     // -----------------------------------------------------------------------
 
     /**
-     * Creates a tilemap layer for the canvas-based tilemap.
-     * ShaderTilemap is not supported; returns null so the engine falls
-     * back to the canvas Tilemap.
+     * Creates a tilemap layer (GPU-native).
+     * Returns { zLayer, layer } for ShaderTilemap compatibility.
      *
      * @param {Number} zIndex
      * @param {Array} bitmaps
      * @param {Boolean} useSquareShader
-     * @return {null} Always null (shader tilemap not supported)
+     * @return {{ zLayer: ThreeTilemapZLayer, layer: ThreeTilemapCompositeLayer }}
      */
     ThreeRendererFactory.createTilemapLayer = function(zIndex, bitmaps, useSquareShader) {
-        // ShaderTilemap layers are not supported in the Three.js backend.
-        // The engine will fall back to canvas-based Tilemap rendering.
-        return null;
+        var zLayer = new ThreeTilemapZLayer(zIndex);
+        return { zLayer: zLayer, layer: zLayer._compositeLayer };
     };
 
     /**
      * Whether this backend supports shader-based tilemap rendering.
-     * @return {Boolean} Always false for Three.js backend
+     * @return {Boolean} true - Three.js backend uses GPU-native tilemap
      */
     ThreeRendererFactory.supportsShaderTilemap = function() {
-        return false;
+        return true;
     };
 
     // -----------------------------------------------------------------------

@@ -50,13 +50,58 @@
     Mode3D._billboardTargets = [];
     Mode3D._spriteset = null;
     Mode3D._perspCamera = null;
-    Mode3D._renderTarget = null;
-    Mode3D._ssaaScale = 2; // 수퍼샘플링 배율
-    Mode3D._quadScene = null;
-    Mode3D._quadCamera = null;
-    Mode3D._quadMesh = null;
 
     window.Mode3D = Mode3D;
+
+    //=========================================================================
+    // ShaderTilemap._hackRenderer 오버라이드
+    // renderer.plugins.tilemap 대신 인스턴스에 직접 저장
+    //=========================================================================
+
+    ShaderTilemap.prototype._hackRenderer = function(renderer) {
+        var af = this.animationFrame % 4;
+        if (af == 3) af = 1;
+        this._tileAnimX = af * this._tileWidth;
+        this._tileAnimY = (this.animationFrame % 3) * this._tileHeight;
+        return renderer;
+    };
+
+    //=========================================================================
+    // ShaderTilemap.updateTransform 오버라이드
+    // Three.js 경로에서는 renderWebGL/renderCanvas가 호출되지 않아
+    // _hackRenderer가 실행 안됨 → updateTransform에서 애니메이션 갱신
+    //=========================================================================
+
+    var _ShaderTilemap_updateTransform = ShaderTilemap.prototype.updateTransform;
+    ShaderTilemap.prototype.updateTransform = function() {
+        this._hackRenderer(null);
+        _ShaderTilemap_updateTransform.call(this);
+    };
+
+    //=========================================================================
+    // ShaderTilemap._paintAllTiles 오버라이드
+    // 3D 모드에서는 기울임으로 인해 더 넓은 영역이 보이므로
+    // 상하 여분 타일을 추가로 그림
+    //=========================================================================
+
+    var _ShaderTilemap_paintAllTiles = ShaderTilemap.prototype._paintAllTiles;
+    ShaderTilemap.prototype._paintAllTiles = function(startX, startY) {
+        if (!ConfigManager.mode3d) {
+            _ShaderTilemap_paintAllTiles.call(this, startX, startY);
+            return;
+        }
+        this.lowerZLayer.clear();
+        this.upperZLayer.clear();
+        // 3D 기울임 보정: 상하로 여분 타일 추가
+        var extraRows = 6;
+        var tileCols = Math.ceil(this._width / this._tileWidth) + 1;
+        var tileRows = Math.ceil(this._height / this._tileHeight) + 1 + extraRows * 2;
+        for (var y = -extraRows; y < tileRows - extraRows; y++) {
+            for (var x = 0; x < tileCols; x++) {
+                this._paintTiles(startX, startY, x, y);
+            }
+        }
+    };
 
     //=========================================================================
     // Spriteset_Map 참조 저장
@@ -71,7 +116,6 @@
     //=========================================================================
     // PerspectiveCamera 생성
     // dist = (h/2) / tan(fov/2)로 OrthographicCamera와 같은 영역 커버
-    // projection matrix의 Y를 뒤집어 Y-down 좌표계에 맞춤
     //=========================================================================
 
     Mode3D._createPerspCamera = function(w, h) {
@@ -135,62 +179,6 @@
     };
 
     //=========================================================================
-    // SSAA RenderTarget - 맵을 고해상도로 렌더 후 NearestFilter로 표시
-    //=========================================================================
-
-    Mode3D._ensureRenderTarget = function(w, h) {
-        var scale = this._ssaaScale;
-        var tw = w * scale;
-        var th = h * scale;
-
-        if (this._renderTarget &&
-            this._renderTarget.width === tw &&
-            this._renderTarget.height === th) {
-            return;
-        }
-
-        // 이전 것 정리
-        if (this._renderTarget) {
-            this._renderTarget.dispose();
-        }
-
-        this._renderTarget = new THREE.WebGLRenderTarget(tw, th, {
-            minFilter: THREE.NearestFilter,
-            magFilter: THREE.NearestFilter,
-            format: THREE.RGBAFormat,
-            depthBuffer: true,
-            stencilBuffer: false
-        });
-
-        // RenderTarget을 화면에 그릴 풀스크린 쿼드
-        if (!this._quadScene) {
-            this._quadScene = new THREE.Scene();
-            this._quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-        }
-
-        // 기존 쿼드 정리
-        if (this._quadMesh) {
-            this._quadScene.remove(this._quadMesh);
-            this._quadMesh.geometry.dispose();
-            this._quadMesh.material.dispose();
-        }
-
-        var quadGeo = new THREE.PlaneGeometry(2, 2);
-        var quadMat = new THREE.MeshBasicMaterial({
-            map: this._renderTarget.texture,
-            depthTest: false,
-            depthWrite: false
-        });
-        // NearestFilter로 다운스케일 (크리스피 유지)
-        this._renderTarget.texture.minFilter = THREE.NearestFilter;
-        this._renderTarget.texture.magFilter = THREE.NearestFilter;
-        this._renderTarget.texture.generateMipmaps = false;
-
-        this._quadMesh = new THREE.Mesh(quadGeo, quadMat);
-        this._quadScene.add(this._quadMesh);
-    };
-
-    //=========================================================================
     // 빌보드 - 캐릭터를 카메라 방향으로 세움
     //=========================================================================
 
@@ -222,7 +210,7 @@
 
     //=========================================================================
     // ThreeRendererStrategy.render 오버라이드
-    // 3D 모드: 2-pass 렌더링
+    // 3D 모드: 2-pass 렌더링 (SSAA 없음, 직접 렌더)
     //   1) PerspectiveCamera로 Spriteset_Map (맵+캐릭터) 렌더
     //   2) OrthographicCamera로 나머지 UI 렌더 (합성)
     //=========================================================================
@@ -256,8 +244,6 @@
         this._syncHierarchy(rendererObj, stage);
 
         if (is3D) {
-            var scale = Mode3D._ssaaScale;
-
             // PerspectiveCamera 준비
             if (!Mode3D._perspCamera) {
                 Mode3D._perspCamera = Mode3D._createPerspCamera(w, h);
@@ -266,10 +252,7 @@
             Mode3D._applyBillboards();
             Mode3D._enforceNearestFilter(scene);
 
-            // SSAA RenderTarget 준비
-            Mode3D._ensureRenderTarget(w, h);
-
-            // --- Pass 1: 맵을 고해상도 RenderTarget에 렌더 ---
+            // --- Pass 1: PerspectiveCamera로 맵(Spriteset_Map)만 렌더 ---
             var stageObj = stage._threeObj;
             var childVisibility = [];
             if (stageObj) {
@@ -283,19 +266,10 @@
                 }
             }
 
-            // RenderTarget에 렌더 (고해상도)
-            renderer.setRenderTarget(Mode3D._renderTarget);
-            renderer.setViewport(0, 0, w * scale, h * scale);
             renderer.autoClear = true;
             renderer.render(scene, Mode3D._perspCamera);
-            renderer.setRenderTarget(null);
-            renderer.setViewport(0, 0, w, h);
 
-            // --- Pass 2: RenderTarget을 화면에 NearestFilter로 출력 ---
-            renderer.autoClear = true;
-            renderer.render(Mode3D._quadScene, Mode3D._quadCamera);
-
-            // --- Pass 3: UI (OrthographicCamera) ---
+            // --- Pass 2: OrthographicCamera로 UI 렌더 (합성) ---
             if (stageObj) {
                 for (var i = 0; i < stageObj.children.length; i++) {
                     var child = stageObj.children[i];
@@ -338,11 +312,6 @@
         _ThreeStrategy_resize.call(this, rendererObj, width, height);
         if (Mode3D._perspCamera) {
             Mode3D._perspCamera = Mode3D._createPerspCamera(width, height);
-        }
-        // RenderTarget도 새 크기로 재생성
-        if (Mode3D._renderTarget) {
-            Mode3D._renderTarget.dispose();
-            Mode3D._renderTarget = null;
         }
     };
 
