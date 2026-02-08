@@ -45,6 +45,12 @@ export default function MapCanvas() {
 
   const selectedEventId = useEditorStore((s) => s.selectedEventId);
 
+  // Event drag state
+  const isDraggingEvent = useRef(false);
+  const draggedEventId = useRef<number | null>(null);
+  const dragEventOrigin = useRef<{ x: number; y: number } | null>(null);
+  const [dragPreview, setDragPreview] = useState<{ x: number; y: number } | null>(null);
+
   useEffect(() => {
     const handler = (e: Event) => setShowGrid((e as CustomEvent<boolean>).detail);
     window.addEventListener('editor-toggle-grid', handler);
@@ -165,6 +171,24 @@ export default function MapCanvas() {
     }
     return () => { cancelled = true; };
   }, [currentMap?.events]);
+
+  // Draw drag preview overlay
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const ctx = overlay.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    if (dragPreview && isDraggingEvent.current) {
+      const dx = dragPreview.x * TILE_SIZE_PX;
+      const dy = dragPreview.y * TILE_SIZE_PX;
+      ctx.fillStyle = 'rgba(0,180,80,0.4)';
+      ctx.fillRect(dx, dy, TILE_SIZE_PX, TILE_SIZE_PX);
+      ctx.strokeStyle = '#0f0';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(dx + 1, dy + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
+    }
+  }, [dragPreview]);
 
   // Main canvas rendering
   useEffect(() => {
@@ -798,12 +822,18 @@ export default function MapCanvas() {
       if (e.button !== 0) return;
 
       if (editMode === 'event') {
-        // In event mode, select event at this position
+        // In event mode, select event at this position; start drag if on event
         if (currentMap && currentMap.events) {
           const ev = currentMap.events.find(
             (ev) => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y
           );
           setSelectedEventId(ev ? ev.id : null);
+          if (ev) {
+            isDraggingEvent.current = true;
+            draggedEventId.current = ev.id;
+            dragEventOrigin.current = { x: tile.x, y: tile.y };
+            setDragPreview(null);
+          }
         }
         return;
       }
@@ -828,6 +858,16 @@ export default function MapCanvas() {
         setCursorTile(tile.x, tile.y);
       }
 
+      // Event drag preview
+      if (isDraggingEvent.current && tile && dragEventOrigin.current) {
+        if (tile.x !== dragEventOrigin.current.x || tile.y !== dragEventOrigin.current.y) {
+          setDragPreview({ x: tile.x, y: tile.y });
+        } else {
+          setDragPreview(null);
+        }
+        return;
+      }
+
       if (!isDrawing.current || !tile) return;
 
       if (selectedTool === 'rectangle' || selectedTool === 'ellipse') {
@@ -848,6 +888,33 @@ export default function MapCanvas() {
 
   const handleMouseUp = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
+      // Complete event drag
+      if (isDraggingEvent.current && draggedEventId.current != null) {
+        const tile = canvasToTile(e);
+        const origin = dragEventOrigin.current;
+        if (tile && origin && (tile.x !== origin.x || tile.y !== origin.y)) {
+          const latestMap = useEditorStore.getState().currentMap;
+          if (latestMap && latestMap.events) {
+            // Check no event already at target position
+            const occupied = latestMap.events.some(ev => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y);
+            if (!occupied) {
+              const events = latestMap.events.map(ev => {
+                if (ev && ev.id === draggedEventId.current) {
+                  return { ...ev, x: tile.x, y: tile.y };
+                }
+                return ev;
+              });
+              useEditorStore.setState({ currentMap: { ...latestMap, events } as MapData & { tilesetNames?: string[] } });
+            }
+          }
+        }
+        isDraggingEvent.current = false;
+        draggedEventId.current = null;
+        dragEventOrigin.current = null;
+        setDragPreview(null);
+        return;
+      }
+
       if (isDrawing.current) {
         if (selectedTool === 'rectangle' && dragStart.current) {
           const tile = canvasToTile(e);
@@ -967,7 +1034,16 @@ export default function MapCanvas() {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+          onMouseLeave={(e) => {
+            // Cancel event drag on leave
+            if (isDraggingEvent.current) {
+              isDraggingEvent.current = false;
+              draggedEventId.current = null;
+              dragEventOrigin.current = null;
+              setDragPreview(null);
+            }
+            handleMouseUp(e);
+          }}
           onDoubleClick={handleDoubleClick}
           onContextMenu={handleContextMenu}
           style={{

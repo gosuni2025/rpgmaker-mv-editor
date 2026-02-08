@@ -40,6 +40,15 @@ export default function TypesTab({ data, onChange }: TypesTabProps) {
     onChange({ ...data, [activeCategory]: newItems });
   };
 
+  const moveItem = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 1 || target >= items.length) return; // Don't swap with index 0 (null entry)
+    if (index < 1) return;
+    const newItems = [...items];
+    [newItems[index], newItems[target]] = [newItems[target], newItems[index]];
+    onChange({ ...data, [activeCategory]: newItems });
+  };
+
   return (
     <div className="db-tab-layout">
       <div className="db-list">
@@ -68,7 +77,11 @@ export default function TypesTab({ data, onChange }: TypesTabProps) {
               style={{ flex: 1, background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 }}
             />
             {i > 0 && (
-              <button className="db-btn-small" onClick={() => removeItem(i)}>-</button>
+              <>
+                <button className="db-btn-small" onClick={() => moveItem(i, -1)} disabled={i <= 1} title="Move Up">&uarr;</button>
+                <button className="db-btn-small" onClick={() => moveItem(i, 1)} disabled={i >= items.length - 1} title="Move Down">&darr;</button>
+                <button className="db-btn-small" onClick={() => removeItem(i)}>-</button>
+              </>
             )}
           </div>
         ))}
