@@ -231,18 +231,6 @@ ThreeTilemapRectLayer.prototype._flush = function() {
 
         if (!isShadow && !texture) continue;
 
-        // 디버그: 텍스처 필터 상태 확인 (한 번만)
-        if (!isShadow && texture && !this._debugLogged) {
-            this._debugLogged = true;
-            console.log('[ThreeTilemap] setNumber=' + sn +
-                ' minFilter=' + texture.minFilter + ' (Nearest=' + THREE.NearestFilter + ')' +
-                ' magFilter=' + texture.magFilter +
-                ' texW=' + texW + ' texH=' + texH +
-                ' isCanvasTexture=' + (texture.isCanvasTexture || false) +
-                ' flipY=' + texture.flipY +
-                ' generateMipmaps=' + texture.generateMipmaps);
-        }
-
         // NearestFilter 매 프레임 강제 (다른 곳에서 리셋될 수 있으므로)
         if (!isShadow && texture) {
             if (texture.minFilter !== THREE.NearestFilter ||
@@ -348,13 +336,25 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                 texture.generateMipmaps = false;
                 texture.anisotropy = 1;
 
-                material = new THREE.MeshBasicMaterial({
-                    map: texture,
-                    transparent: true,
-                    depthTest: false,
-                    depthWrite: false,
-                    side: THREE.DoubleSide,
-                });
+                // ShadowLight 활성 시 조명을 받을 수 있도록 MeshLambertMaterial 사용
+                if (window.ShadowLight && window.ShadowLight._active) {
+                    material = new THREE.MeshLambertMaterial({
+                        map: texture,
+                        transparent: true,
+                        depthTest: false,
+                        depthWrite: false,
+                        side: THREE.DoubleSide,
+                        emissive: new THREE.Color(0x222222),
+                    });
+                } else {
+                    material = new THREE.MeshBasicMaterial({
+                        map: texture,
+                        transparent: true,
+                        depthTest: false,
+                        depthWrite: false,
+                        side: THREE.DoubleSide,
+                    });
+                }
             }
 
             mesh = new THREE.Mesh(geometry, material);

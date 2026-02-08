@@ -230,12 +230,15 @@
 
         rendererObj._drawOrderCounter = 0;
 
-        // stage를 scene에 연결
+        // stage를 scene에 연결 (라이트 등 다른 scene children 보존)
         if (stage._threeObj && stage._threeObj.parent !== scene) {
-            while (scene.children.length > 0) {
-                scene.remove(scene.children[0]);
+            // 기존 stage._threeObj (있다면) 만 제거하고 새 것을 추가
+            // 라이트, 라이트 타겟 등 다른 children은 보존
+            if (scene._stageObj) {
+                scene.remove(scene._stageObj);
             }
             scene.add(stage._threeObj);
+            scene._stageObj = stage._threeObj;
         }
 
         // updateTransform + hierarchy sync

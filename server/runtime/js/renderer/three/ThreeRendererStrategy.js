@@ -124,11 +124,12 @@
 
         // Ensure the stage's Three.js object is in the scene
         if (stage._threeObj && stage._threeObj.parent !== scene) {
-            // Clear previous scene children
-            while (scene.children.length > 0) {
-                scene.remove(scene.children[0]);
+            // 기존 stage만 제거 (라이트 등 다른 children 보존)
+            if (scene._stageObj) {
+                scene.remove(scene._stageObj);
             }
             scene.add(stage._threeObj);
+            scene._stageObj = stage._threeObj;
         }
 
         // Call updateTransform on the stage hierarchy first.
@@ -319,10 +320,11 @@
         if (stage) {
             rendererObj._drawOrderCounter = 0;
             if (stage._threeObj && stage._threeObj.parent !== scene) {
-                while (scene.children.length > 0) {
-                    scene.remove(scene.children[0]);
+                if (scene._stageObj) {
+                    scene.remove(scene._stageObj);
                 }
                 scene.add(stage._threeObj);
+                scene._stageObj = stage._threeObj;
             }
             if (stage.updateTransform) {
                 stage.updateTransform();
