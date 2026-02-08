@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Armor, Trait } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import TraitsEditor from '../common/TraitsEditor';
+import apiClient from '../../api/client';
 
 interface ArmorsTabProps {
   data: (Armor | null)[] | undefined;
@@ -9,10 +10,20 @@ interface ArmorsTabProps {
 }
 
 const PARAM_NAMES = ['Max HP', 'Max MP', 'Attack', 'Defense', 'M.Attack', 'M.Defense', 'Agility', 'Luck'];
+const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const [armorTypes, setArmorTypes] = useState<string[]>([]);
+  const [equipTypes, setEquipTypes] = useState<string[]>([]);
+
+  useEffect(() => {
+    apiClient.get<{ armorTypes?: string[]; equipTypes?: string[] }>('/database/system').then(sys => {
+      if (sys.armorTypes) setArmorTypes(sys.armorTypes);
+      if (sys.equipTypes) setEquipTypes(sys.equipTypes);
+    }).catch(() => {});
+  }, []);
 
   const handleFieldChange = (field: keyof Armor, value: unknown) => {
     if (!data) return;
@@ -98,20 +109,18 @@ export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
               />
             </label>
             <label>
-              Armor Type ID
-              <input
-                type="number"
-                value={selectedItem.atypeId || 0}
-                onChange={(e) => handleFieldChange('atypeId', Number(e.target.value))}
-              />
+              Armor Type
+              <select value={selectedItem.atypeId || 0} onChange={(e) => handleFieldChange('atypeId', Number(e.target.value))} style={selectStyle}>
+                {armorTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
+                {armorTypes.length === 0 && <option value={selectedItem.atypeId || 0}>{selectedItem.atypeId}</option>}
+              </select>
             </label>
             <label>
-              Equip Type ID
-              <input
-                type="number"
-                value={selectedItem.etypeId || 0}
-                onChange={(e) => handleFieldChange('etypeId', Number(e.target.value))}
-              />
+              Equip Type
+              <select value={selectedItem.etypeId || 0} onChange={(e) => handleFieldChange('etypeId', Number(e.target.value))} style={selectStyle}>
+                {equipTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
+                {equipTypes.length === 0 && <option value={selectedItem.etypeId || 0}>{selectedItem.etypeId}</option>}
+              </select>
             </label>
             <label>
               Price

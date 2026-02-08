@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Actor, Trait } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import TraitsEditor from '../common/TraitsEditor';
+import apiClient from '../../api/client';
 
 interface ActorsTabProps {
   data: (Actor | null)[] | undefined;
@@ -9,6 +10,10 @@ interface ActorsTabProps {
 }
 
 const EQUIP_SLOT_NAMES = ['Weapon', 'Shield', 'Head', 'Body', 'Accessory'];
+
+interface RefItem { id: number; name: string }
+
+const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 function createNewActor(id: number): Actor {
   return {
@@ -33,6 +38,15 @@ function createNewActor(id: number): Actor {
 export default function ActorsTab({ data, onChange }: ActorsTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const [classes, setClasses] = useState<RefItem[]>([]);
+  const [weapons, setWeapons] = useState<RefItem[]>([]);
+  const [armors, setArmors] = useState<RefItem[]>([]);
+
+  useEffect(() => {
+    apiClient.get<(RefItem | null)[]>('/database/classes').then(d => setClasses(d.filter(Boolean) as RefItem[])).catch(() => {});
+    apiClient.get<(RefItem | null)[]>('/database/weapons').then(d => setWeapons(d.filter(Boolean) as RefItem[])).catch(() => {});
+    apiClient.get<(RefItem | null)[]>('/database/armors').then(d => setArmors(d.filter(Boolean) as RefItem[])).catch(() => {});
+  }, []);
 
   const handleFieldChange = (field: keyof Actor, value: unknown) => {
     if (!data) return;
@@ -109,12 +123,15 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
               />
             </label>
             <label>
-              Class ID
-              <input
-                type="number"
+              Class
+              <select
                 value={selectedItem.classId || 0}
                 onChange={(e) => handleFieldChange('classId', Number(e.target.value))}
-              />
+                style={selectStyle}
+              >
+                <option value={0}>(None)</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{String(c.id).padStart(4, '0')}: {c.name}</option>)}
+              </select>
             </label>
             <label>
               Initial Level
@@ -173,17 +190,22 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
 
             <div className="db-form-section">Initial Equipment</div>
             <div className="db-equip-row">
-              {EQUIP_SLOT_NAMES.map((name, i) => (
-                <label key={i} className="db-equip-slot">
-                  {name}
-                  <input
-                    type="number"
-                    value={selectedItem.equips?.[i] ?? 0}
-                    onChange={(e) => handleEquipChange(i, Number(e.target.value))}
-                    min={0}
-                  />
-                </label>
-              ))}
+              {EQUIP_SLOT_NAMES.map((name, i) => {
+                const list = i === 0 ? weapons : armors;
+                return (
+                  <label key={i} className="db-equip-slot">
+                    {name}
+                    <select
+                      value={selectedItem.equips?.[i] ?? 0}
+                      onChange={(e) => handleEquipChange(i, Number(e.target.value))}
+                      style={selectStyle}
+                    >
+                      <option value={0}>(None)</option>
+                      {list.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    </select>
+                  </label>
+                );
+              })}
             </div>
 
             <TraitsEditor

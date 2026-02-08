@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Weapon, Trait } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import TraitsEditor from '../common/TraitsEditor';
+import apiClient from '../../api/client';
 
 interface WeaponsTabProps {
   data: (Weapon | null)[] | undefined;
@@ -9,10 +10,24 @@ interface WeaponsTabProps {
 }
 
 const PARAM_NAMES = ['Max HP', 'Max MP', 'Attack', 'Defense', 'M.Attack', 'M.Defense', 'Agility', 'Luck'];
+const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const [weaponTypes, setWeaponTypes] = useState<string[]>([]);
+  const [equipTypes, setEquipTypes] = useState<string[]>([]);
+  const [animations, setAnimations] = useState<{ id: number; name: string }[]>([]);
+
+  useEffect(() => {
+    apiClient.get<{ weaponTypes?: string[]; equipTypes?: string[] }>('/database/system').then(sys => {
+      if (sys.weaponTypes) setWeaponTypes(sys.weaponTypes);
+      if (sys.equipTypes) setEquipTypes(sys.equipTypes);
+    }).catch(() => {});
+    apiClient.get<({ id: number; name: string } | null)[]>('/database/animations').then(d => {
+      setAnimations((d.filter(Boolean) as { id: number; name: string }[]));
+    }).catch(() => {});
+  }, []);
 
   const handleFieldChange = (field: keyof Weapon, value: unknown) => {
     if (!data) return;
@@ -99,20 +114,18 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
               />
             </label>
             <label>
-              Weapon Type ID
-              <input
-                type="number"
-                value={selectedItem.wtypeId || 0}
-                onChange={(e) => handleFieldChange('wtypeId', Number(e.target.value))}
-              />
+              Weapon Type
+              <select value={selectedItem.wtypeId || 0} onChange={(e) => handleFieldChange('wtypeId', Number(e.target.value))} style={selectStyle}>
+                {weaponTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
+                {weaponTypes.length === 0 && <option value={selectedItem.wtypeId || 0}>{selectedItem.wtypeId}</option>}
+              </select>
             </label>
             <label>
-              Equip Type ID
-              <input
-                type="number"
-                value={selectedItem.etypeId || 0}
-                onChange={(e) => handleFieldChange('etypeId', Number(e.target.value))}
-              />
+              Equip Type
+              <select value={selectedItem.etypeId || 0} onChange={(e) => handleFieldChange('etypeId', Number(e.target.value))} style={selectStyle}>
+                {equipTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
+                {equipTypes.length === 0 && <option value={selectedItem.etypeId || 0}>{selectedItem.etypeId}</option>}
+              </select>
             </label>
             <label>
               Price
@@ -123,12 +136,11 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
               />
             </label>
             <label>
-              Animation ID
-              <input
-                type="number"
-                value={selectedItem.animationId || 0}
-                onChange={(e) => handleFieldChange('animationId', Number(e.target.value))}
-              />
+              Animation
+              <select value={selectedItem.animationId || 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))} style={selectStyle}>
+                <option value={0}>(None)</option>
+                {animations.map(a => <option key={a.id} value={a.id}>{String(a.id).padStart(4, '0')}: {a.name}</option>)}
+              </select>
             </label>
 
             <div className="db-form-section">Parameters</div>

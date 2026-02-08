@@ -1,15 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { RPGClass } from '../../types/rpgMakerMV';
 import TraitsEditor from '../common/TraitsEditor';
+import apiClient from '../../api/client';
 
 interface ClassesTabProps {
   data: (RPGClass | null)[] | undefined;
   onChange: (data: (RPGClass | null)[]) => void;
 }
 
+const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, flex: 1 };
+
+const EXP_PARAM_LABELS = ['Base Value', 'Extra Value', 'Acceleration A', 'Acceleration B'];
+
 export default function ClassesTab({ data, onChange }: ClassesTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const [skills, setSkills] = useState<{ id: number; name: string }[]>([]);
+
+  useEffect(() => {
+    apiClient.get<({ id: number; name: string } | null)[]>('/database/skills').then(d => {
+      setSkills((d.filter(Boolean) as { id: number; name: string }[]));
+    }).catch(() => {});
+  }, []);
 
   const handleFieldChange = (field: keyof RPGClass, value: unknown) => {
     if (!data) return;
@@ -95,7 +107,7 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
             <div className="db-form-section">EXP Curve</div>
             {(selectedItem.expParams || []).map((val: number, i: number) => (
               <label key={i}>
-                Param {i + 1}
+                {EXP_PARAM_LABELS[i] || `Param ${i + 1}`}
                 <input
                   type="number"
                   value={val}
@@ -153,13 +165,16 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
                     onChange={(e) => handleLearningChange(i, 'level', Number(e.target.value))}
                   />
                 </label>
-                <label style={{ flex: 1 }}>
-                  Skill ID
-                  <input
-                    type="number"
+                <label style={{ flex: 2 }}>
+                  Skill
+                  <select
                     value={l.skillId}
                     onChange={(e) => handleLearningChange(i, 'skillId', Number(e.target.value))}
-                  />
+                    style={selectStyle}
+                  >
+                    <option value={0}>(None)</option>
+                    {skills.map(s => <option key={s.id} value={s.id}>{String(s.id).padStart(4, '0')}: {s.name}</option>)}
+                  </select>
                 </label>
                 <button className="db-btn-small" onClick={() => removeLearning(i)}>-</button>
               </div>
