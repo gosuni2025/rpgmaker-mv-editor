@@ -10,12 +10,12 @@ interface ImagePickerProps {
 }
 
 // faces: 4x2 셀, 각 셀 = 이미지너비/4 x 이미지높이/2
-// characters: 4x2 셀, 각 셀 = 3패턴x4방향 (이미지너비/4 x 이미지높이/2), 대표 프레임은 중앙 하단방향
+// characters: 4x2 셀, 각 셀 = 3패턴x4방향 (이미지너비/4 x 이미지높이/2)
 // sv_actors: 전체 1개
 
 interface CellLayout {
-  cols: number;  // 셀 그리드 열 수
-  rows: number;  // 셀 그리드 행 수
+  cols: number;
+  rows: number;
 }
 
 function getCellCount(type: string) {
@@ -31,38 +31,43 @@ function getCellLayout(type: string): CellLayout {
   return { cols: 1, rows: 1 };
 }
 
-/** 캔버스에 셀 하나를 그려서 반환 */
+/** 셀 전체 영역을 캔버스에 그려서 반환 (캐릭터: 3패턴x4방향 전체) */
 function drawCellToCanvas(
   img: HTMLImageElement,
-  type: string,
   cellIndex: number,
   layout: CellLayout,
 ): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   const cellW = img.naturalWidth / layout.cols;
   const cellH = img.naturalHeight / layout.rows;
+  canvas.width = cellW;
+  canvas.height = cellH;
+  const ctx = canvas.getContext('2d')!;
+  const col = cellIndex % layout.cols;
+  const row = Math.floor(cellIndex / layout.cols);
+  ctx.drawImage(img, col * cellW, row * cellH, cellW, cellH, 0, 0, cellW, cellH);
+  return canvas;
+}
 
-  if (type === 'characters') {
-    // 캐릭터: 각 셀은 3패턴x4방향, 대표 프레임 = 패턴1(중앙), 방향0(아래)
-    const patternW = cellW / 3;
-    const patternH = cellH / 4;
-    canvas.width = patternW;
-    canvas.height = patternH;
-    const ctx = canvas.getContext('2d')!;
-    const col = cellIndex % layout.cols;
-    const row = Math.floor(cellIndex / layout.cols);
-    const sx = col * cellW + patternW; // 중앙 패턴 (index 1)
-    const sy = row * cellH;            // 아래 방향 (index 0)
-    ctx.drawImage(img, sx, sy, patternW, patternH, 0, 0, patternW, patternH);
-  } else {
-    // faces 등: 셀 전체
-    canvas.width = cellW;
-    canvas.height = cellH;
-    const ctx = canvas.getContext('2d')!;
-    const col = cellIndex % layout.cols;
-    const row = Math.floor(cellIndex / layout.cols);
-    ctx.drawImage(img, col * cellW, row * cellH, cellW, cellH, 0, 0, cellW, cellH);
-  }
+/** 캐릭터 대표 프레임 1개만 추출 (중앙 패턴, 아래 방향) - 썸네일용 */
+function drawCharacterPreview(
+  img: HTMLImageElement,
+  cellIndex: number,
+  layout: CellLayout,
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  const cellW = img.naturalWidth / layout.cols;
+  const cellH = img.naturalHeight / layout.rows;
+  const patternW = cellW / 3;
+  const patternH = cellH / 4;
+  canvas.width = patternW;
+  canvas.height = patternH;
+  const ctx = canvas.getContext('2d')!;
+  const col = cellIndex % layout.cols;
+  const row = Math.floor(cellIndex / layout.cols);
+  const sx = col * cellW + patternW; // 중앙 패턴
+  const sy = row * cellH;            // 아래 방향
+  ctx.drawImage(img, sx, sy, patternW, patternH, 0, 0, patternW, patternH);
   return canvas;
 }
 
@@ -79,6 +84,7 @@ function CellGrid({ imgSrc, type, cellCount, layout, selectedIndex, onSelect }: 
   const imgRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
+    setImgLoaded(false);
     const img = new Image();
     img.onload = () => {
       imgRef.current = img;
@@ -94,19 +100,21 @@ function CellGrid({ imgSrc, type, cellCount, layout, selectedIndex, onSelect }: 
     for (let i = 0; i < cellCount; i++) {
       const target = canvasRefs.current[i];
       if (!target) continue;
-      const src = drawCellToCanvas(img, type, i, layout);
+      const src = drawCellToCanvas(img, i, layout);
       target.width = src.width;
       target.height = src.height;
       target.getContext('2d')!.drawImage(src, 0, 0);
     }
-  }, [imgLoaded, imgSrc, type, cellCount, layout]);
+  }, [imgLoaded, imgSrc, cellCount, layout]);
 
-  const cellSize = type === 'faces' ? 80 : 64;
+  // 캐릭터: 각 셀이 3x4 프레임이라 좀 더 크게, faces: 정사각형
+  const cellW = type === 'characters' ? 96 : 80;
+  const cellH = type === 'characters' ? 128 : 80;
 
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: `repeat(${layout.cols}, ${cellSize}px)`,
+      gridTemplateColumns: `repeat(${layout.cols}, ${cellW}px)`,
       gap: 4,
     }}>
       {Array.from({ length: cellCount }, (_, i) => (
@@ -121,8 +129,8 @@ function CellGrid({ imgSrc, type, cellCount, layout, selectedIndex, onSelect }: 
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: cellSize,
-            height: cellSize,
+            width: cellW,
+            height: cellH,
             padding: 2,
           }}
         >
@@ -140,7 +148,7 @@ function CellGrid({ imgSrc, type, cellCount, layout, selectedIndex, onSelect }: 
   );
 }
 
-/** 프리뷰 썸네일 (선택된 셀 1개) */
+/** 프리뷰 썸네일 (캐릭터는 대표 프레임 1개, 그 외는 셀 전체) */
 function CellPreview({ imgSrc, type, cellIndex, layout, size }: {
   imgSrc: string;
   type: string;
@@ -155,7 +163,9 @@ function CellPreview({ imgSrc, type, cellIndex, layout, size }: {
     img.onload = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const src = drawCellToCanvas(img, type, cellIndex, layout);
+      const src = type === 'characters'
+        ? drawCharacterPreview(img, cellIndex, layout)
+        : drawCellToCanvas(img, cellIndex, layout);
       canvas.width = src.width;
       canvas.height = src.height;
       canvas.getContext('2d')!.drawImage(src, 0, 0);
