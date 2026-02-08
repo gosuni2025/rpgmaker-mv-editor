@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Enemy, DropItem, EnemyAction } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import TraitsEditor from '../common/TraitsEditor';
+import apiClient from '../../api/client';
 
 interface EnemiesTabProps {
   data: (Enemy | null)[] | undefined;
   onChange: (data: (Enemy | null)[]) => void;
 }
+
+interface RefItem { id: number; name: string }
+const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 const PARAM_NAMES = ['Max HP', 'Max MP', 'Attack', 'Defense', 'M.Attack', 'M.Defense', 'Agility', 'Luck'];
 
@@ -25,6 +29,17 @@ const CONDITION_TYPE_LABELS: Record<number, string> = {
 export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const [skills, setSkills] = useState<RefItem[]>([]);
+  const [items, setItems] = useState<RefItem[]>([]);
+  const [weapons, setWeapons] = useState<RefItem[]>([]);
+  const [armors, setArmors] = useState<RefItem[]>([]);
+
+  useEffect(() => {
+    apiClient.get<(RefItem | null)[]>('/database/skills').then(d => setSkills(d.filter(Boolean) as RefItem[])).catch(() => {});
+    apiClient.get<(RefItem | null)[]>('/database/items').then(d => setItems(d.filter(Boolean) as RefItem[])).catch(() => {});
+    apiClient.get<(RefItem | null)[]>('/database/weapons').then(d => setWeapons(d.filter(Boolean) as RefItem[])).catch(() => {});
+    apiClient.get<(RefItem | null)[]>('/database/armors').then(d => setArmors(d.filter(Boolean) as RefItem[])).catch(() => {});
+  }, []);
 
   const handleFieldChange = (field: keyof Enemy, value: unknown) => {
     if (!data) return;
@@ -196,8 +211,13 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
                   </select>
                 </label>
                 <label style={{ flex: 1 }}>
-                  Data ID
-                  <input type="number" value={drop.dataId} min={1} onChange={(e) => handleDropItemChange(i, 'dataId', Number(e.target.value))} />
+                  Item
+                  <select value={drop.dataId} onChange={(e) => handleDropItemChange(i, 'dataId', Number(e.target.value))} style={selectStyle}>
+                    <option value={0}>(None)</option>
+                    {(drop.kind === 1 ? items : drop.kind === 2 ? weapons : drop.kind === 3 ? armors : []).map(it =>
+                      <option key={it.id} value={it.id}>{it.name}</option>
+                    )}
+                  </select>
                 </label>
                 <label style={{ flex: 1 }}>
                   1/N
@@ -214,9 +234,12 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
             {(selectedItem.actions || []).map((action: EnemyAction, i: number) => (
               <div key={i} style={{ border: '1px solid #444', borderRadius: 4, padding: 8, marginBottom: 8 }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
-                  <label style={{ flex: 1 }}>
-                    Skill ID
-                    <input type="number" value={action.skillId} min={1} onChange={(e) => handleActionChange(i, 'skillId', Number(e.target.value))} />
+                  <label style={{ flex: 2 }}>
+                    Skill
+                    <select value={action.skillId} onChange={(e) => handleActionChange(i, 'skillId', Number(e.target.value))} style={selectStyle}>
+                      <option value={0}>(None)</option>
+                      {skills.map(s => <option key={s.id} value={s.id}>{String(s.id).padStart(4, '0')}: {s.name}</option>)}
+                    </select>
                   </label>
                   <label style={{ flex: 1 }}>
                     Rating
