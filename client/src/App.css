@@ -1081,6 +1081,9 @@ body {
 
 .insert-command-grid .context-menu-item {
   padding: 6px 12px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
 }
 
 .context-menu-item:hover {
