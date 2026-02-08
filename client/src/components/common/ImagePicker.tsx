@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import apiClient from '../../api/client';
 
 interface ImagePickerProps {
@@ -7,6 +7,172 @@ interface ImagePickerProps {
   onChange: (name: string) => void;
   index?: number;
   onIndexChange?: (index: number) => void;
+}
+
+// faces: 4x2 셀, 각 셀 = 이미지너비/4 x 이미지높이/2
+// characters: 4x2 셀, 각 셀 = 3패턴x4방향 (이미지너비/4 x 이미지높이/2), 대표 프레임은 중앙 하단방향
+// sv_actors: 전체 1개
+
+interface CellLayout {
+  cols: number;  // 셀 그리드 열 수
+  rows: number;  // 셀 그리드 행 수
+}
+
+function getCellCount(type: string) {
+  if (type === 'faces') return 8;
+  if (type === 'characters') return 8;
+  if (type === 'sv_actors') return 1;
+  return 0;
+}
+
+function getCellLayout(type: string): CellLayout {
+  if (type === 'faces') return { cols: 4, rows: 2 };
+  if (type === 'characters') return { cols: 4, rows: 2 };
+  return { cols: 1, rows: 1 };
+}
+
+/** 캔버스에 셀 하나를 그려서 반환 */
+function drawCellToCanvas(
+  img: HTMLImageElement,
+  type: string,
+  cellIndex: number,
+  layout: CellLayout,
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  const cellW = img.naturalWidth / layout.cols;
+  const cellH = img.naturalHeight / layout.rows;
+
+  if (type === 'characters') {
+    // 캐릭터: 각 셀은 3패턴x4방향, 대표 프레임 = 패턴1(중앙), 방향0(아래)
+    const patternW = cellW / 3;
+    const patternH = cellH / 4;
+    canvas.width = patternW;
+    canvas.height = patternH;
+    const ctx = canvas.getContext('2d')!;
+    const col = cellIndex % layout.cols;
+    const row = Math.floor(cellIndex / layout.cols);
+    const sx = col * cellW + patternW; // 중앙 패턴 (index 1)
+    const sy = row * cellH;            // 아래 방향 (index 0)
+    ctx.drawImage(img, sx, sy, patternW, patternH, 0, 0, patternW, patternH);
+  } else {
+    // faces 등: 셀 전체
+    canvas.width = cellW;
+    canvas.height = cellH;
+    const ctx = canvas.getContext('2d')!;
+    const col = cellIndex % layout.cols;
+    const row = Math.floor(cellIndex / layout.cols);
+    ctx.drawImage(img, col * cellW, row * cellH, cellW, cellH, 0, 0, cellW, cellH);
+  }
+  return canvas;
+}
+
+function CellGrid({ imgSrc, type, cellCount, layout, selectedIndex, onSelect }: {
+  imgSrc: string;
+  type: string;
+  cellCount: number;
+  layout: CellLayout;
+  selectedIndex: number;
+  onSelect: (i: number) => void;
+}) {
+  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => {
+      imgRef.current = img;
+      setImgLoaded(true);
+    };
+    img.src = imgSrc;
+    return () => { img.onload = null; };
+  }, [imgSrc]);
+
+  useEffect(() => {
+    if (!imgLoaded || !imgRef.current) return;
+    const img = imgRef.current;
+    for (let i = 0; i < cellCount; i++) {
+      const target = canvasRefs.current[i];
+      if (!target) continue;
+      const src = drawCellToCanvas(img, type, i, layout);
+      target.width = src.width;
+      target.height = src.height;
+      target.getContext('2d')!.drawImage(src, 0, 0);
+    }
+  }, [imgLoaded, imgSrc, type, cellCount, layout]);
+
+  const cellSize = type === 'faces' ? 80 : 64;
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: `repeat(${layout.cols}, ${cellSize}px)`,
+      gap: 4,
+    }}>
+      {Array.from({ length: cellCount }, (_, i) => (
+        <div
+          key={i}
+          onClick={() => onSelect(i)}
+          style={{
+            cursor: 'pointer',
+            border: i === selectedIndex ? '2px solid #2675bf' : '2px solid transparent',
+            borderRadius: 3,
+            background: i === selectedIndex ? 'rgba(38,117,191,0.15)' : 'transparent',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: cellSize,
+            height: cellSize,
+            padding: 2,
+          }}
+        >
+          <canvas
+            ref={el => { canvasRefs.current[i] = el; }}
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              imageRendering: 'pixelated',
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** 프리뷰 썸네일 (선택된 셀 1개) */
+function CellPreview({ imgSrc, type, cellIndex, layout, size }: {
+  imgSrc: string;
+  type: string;
+  cellIndex: number;
+  layout: CellLayout;
+  size: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const src = drawCellToCanvas(img, type, cellIndex, layout);
+      canvas.width = src.width;
+      canvas.height = src.height;
+      canvas.getContext('2d')!.drawImage(src, 0, 0);
+    };
+    img.src = imgSrc;
+  }, [imgSrc, type, cellIndex, layout]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        maxWidth: size,
+        maxHeight: size,
+        imageRendering: 'pixelated',
+      }}
+    />
+  );
 }
 
 export default function ImagePicker({ type, value, onChange, index, onIndexChange }: ImagePickerProps) {
@@ -28,51 +194,23 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     setOpen(false);
   };
 
-  const getCellCount = () => {
-    if (type === 'faces') return 8;
-    if (type === 'characters') return 8;
-    if (type === 'sv_actors') return 1;
-    return 0;
-  };
-
-  const getCellLayout = () => {
-    if (type === 'faces') return { cols: 4, rows: 2, cellW: 144, cellH: 144 };
-    if (type === 'characters') return { cols: 4, rows: 2, cellW: 48, cellH: 48 };
-    return { cols: 1, rows: 1, cellW: 48, cellH: 48 };
-  };
+  const cellCount = getCellCount(type);
+  const layout = getCellLayout(type);
 
   const getImgUrl = (name: string) => `/api/resources/${type}/${name}`;
-
-  const cellCount = getCellCount();
-  const layout = getCellLayout();
 
   return (
     <div className="image-picker">
       <div className="image-picker-preview" onClick={() => setOpen(true)}>
         {value ? (
           cellCount > 1 && index !== undefined ? (
-            <div style={{
-              width: type === 'faces' ? 48 : 32,
-              height: type === 'faces' ? 48 : 32,
-              overflow: 'hidden',
-              position: 'relative',
-              display: 'inline-block',
-              verticalAlign: 'middle',
-            }}>
-              <img
-                src={getImgUrl(value.includes('.') ? value : value + '.png')}
-                alt={value}
-                style={{
-                  position: 'absolute',
-                  width: layout.cols * (type === 'faces' ? 48 : 32),
-                  height: layout.rows * (type === 'faces' ? 48 : 32),
-                  left: -(index % layout.cols) * (type === 'faces' ? 48 : 32),
-                  top: -Math.floor(index / layout.cols) * (type === 'faces' ? 48 : 32),
-                  imageRendering: 'pixelated',
-                }}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-            </div>
+            <CellPreview
+              imgSrc={getImgUrl(value.includes('.') ? value : value + '.png')}
+              type={type}
+              cellIndex={index}
+              layout={layout}
+              size={48}
+            />
           ) : (
             <img
               src={getImgUrl(value.includes('.') ? value : value + '.png')}
@@ -113,48 +251,14 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
               </div>
               <div className="image-picker-preview-area">
                 {selected && cellCount > 1 && onIndexChange ? (
-                  <div className="image-picker-cell-grid" style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
-                    gap: 2,
-                    maxWidth: type === 'faces' ? 400 : 300,
-                  }}>
-                    {Array.from({ length: cellCount }, (_, i) => {
-                      const cellCol = i % layout.cols;
-                      const cellRow = Math.floor(i / layout.cols);
-                      return (
-                        <div
-                          key={i}
-                          className={`image-picker-cell${i === selectedIndex ? ' selected' : ''}`}
-                          onClick={() => setSelectedIndex(i)}
-                          style={{
-                            cursor: 'pointer',
-                            border: i === selectedIndex ? '2px solid #2675bf' : '2px solid transparent',
-                            borderRadius: 3,
-                            overflow: 'hidden',
-                            position: 'relative',
-                            aspectRatio: `${layout.cellW}/${layout.cellH}`,
-                            background: i === selectedIndex ? 'rgba(38,117,191,0.15)' : 'transparent',
-                          }}
-                        >
-                          <div style={{
-                            width: `${layout.cols * 100}%`,
-                            position: 'relative',
-                            left: `${-cellCol * 100}%`,
-                            top: `${-cellRow * 100}%`,
-                          }}>
-                            <img
-                              src={getImgUrl(selected + '.png')}
-                              alt={`${selected} #${i}`}
-                              style={{ width: '100%', display: 'block', imageRendering: 'pixelated' }}
-                              draggable={false}
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <CellGrid
+                    imgSrc={getImgUrl(selected + '.png')}
+                    type={type}
+                    cellCount={cellCount}
+                    layout={layout}
+                    selectedIndex={selectedIndex}
+                    onSelect={setSelectedIndex}
+                  />
                 ) : selected ? (
                   <img
                     src={getImgUrl(selected + '.png')}
