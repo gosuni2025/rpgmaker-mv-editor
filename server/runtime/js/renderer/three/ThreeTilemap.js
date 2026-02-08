@@ -348,14 +348,12 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                 texture.generateMipmaps = false;
                 texture.anisotropy = 1;
 
-                material = new THREE.MeshStandardMaterial({
+                material = new THREE.MeshBasicMaterial({
                     map: texture,
                     transparent: true,
                     depthTest: false,
                     depthWrite: false,
                     side: THREE.DoubleSide,
-                    roughness: 1.0,
-                    metalness: 0.0,
                 });
             }
 
