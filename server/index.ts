@@ -64,6 +64,8 @@ app.get('/game/index.html', (req, res) => {
   if (!projectManager.isOpen()) return res.status(404).send('No project open');
 
   const title = path.basename(projectManager.currentPath!);
+  const isDev = req.query.dev === 'true';
+  const devScript = isDev ? '\n        <script type="text/javascript" src="js/ThreeDevOverlay.js"></script>' : '';
   const html = `<!DOCTYPE html>
 <html>
     <head>
@@ -178,7 +180,7 @@ app.get('/game/index.html', (req, res) => {
         <script type="text/javascript" src="js/rpg_windows.js"></script>
         <script type="text/javascript" src="js/Mode3D.js"></script>
         <script type="text/javascript" src="js/ShadowAndLight.js"></script>
-        <script type="text/javascript" src="js/plugins.js"></script>
+        <script type="text/javascript" src="js/plugins.js"></script>${devScript}
         <script type="text/javascript" src="js/main.js"></script>
     </body>
 </html>`;
