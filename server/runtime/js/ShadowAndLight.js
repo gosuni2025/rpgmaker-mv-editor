@@ -457,9 +457,6 @@ Spriteset_Map.prototype._updateShadowLight = function() {
 
     if (!enabled) return;
 
-    // 타일맵 material 갱신 (_flush에서 새 메시가 생길 수 있으므로 매 프레임)
-    ShadowLight._convertTilemapMaterials(this._tilemap);
-
     // shadow mesh 업데이트
     if (this._shadowMeshes) {
         for (var i = 0; i < this._characterSprites.length; i++) {
@@ -489,9 +486,6 @@ Spriteset_Map.prototype._activateShadowLight = function() {
         }
     }
 
-    // 타일맵 material 교체 (MeshBasicMaterial → MeshStandardMaterial)
-    ShadowLight._convertTilemapMaterials(this._tilemap);
-
     // shadow mesh는 _updateShadowMesh에서 parent 설정 및 표시됨
 };
 
@@ -506,9 +500,6 @@ Spriteset_Map.prototype._deactivateShadowLight = function() {
             ShadowLight._revertMaterial(this._characterSprites[i]);
         }
     }
-
-    // 타일맵 material 복원 (MeshStandardMaterial → MeshBasicMaterial)
-    ShadowLight._revertTilemapMaterials(this._tilemap);
 
     // shadow mesh 숨기기 및 씬 그래프에서 제거
     if (this._shadowMeshes) {
