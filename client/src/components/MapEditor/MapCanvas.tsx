@@ -280,6 +280,22 @@ export default function MapCanvas() {
       }
     }
 
+    // Render shadow layer (z=4) - 4-quarter shadow bits
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const shadowBits = data[(4 * height + y) * width + x];
+        if (!shadowBits || !(shadowBits & 0x0f)) continue;
+        const dx = x * TILE_SIZE_PX;
+        const dy = y * TILE_SIZE_PX;
+        for (let i = 0; i < 4; i++) {
+          if (shadowBits & (1 << i)) {
+            ctx.fillRect(dx + (i % 2) * half, dy + Math.floor(i / 2) * half, half, half);
+          }
+        }
+      }
+    }
+
     if (showGrid) {
       // 검은 테두리 (바깥쪽)
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
@@ -445,6 +461,22 @@ export default function MapCanvas() {
     return posToTile(cx, cy);
   }, [zoomLevel]);
 
+  // Returns pixel position within the tile (for shadow quarter detection)
+  const canvasToSubTile = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const container = canvas.parentElement;
+    if (!container) return null;
+    const rect = container.getBoundingClientRect();
+    const cx = (e.clientX - rect.left) / zoomLevel;
+    const cy = (e.clientY - rect.top) / zoomLevel;
+    const tile = posToTile(cx, cy);
+    if (!tile) return null;
+    const subX = cx - tile.x * TILE_SIZE_PX;
+    const subY = cy - tile.y * TILE_SIZE_PX;
+    return { ...tile, subX, subY };
+  }, [zoomLevel]);
+
   const getTileChange = useCallback((x: number, y: number, z: number, newTileId: number): TileChange | null => {
     const latestMap = useEditorStore.getState().currentMap;
     if (!latestMap) return null;
@@ -547,9 +579,8 @@ export default function MapCanvas() {
         }
       } else if (selectedTool === 'fill') {
         floodFill(x, y);
-      } else if (selectedTool === 'shadow') {
-        applyShadow(x, y);
       }
+      // shadow is handled separately in handleMouseDown with sub-tile coords
     },
     [selectedTool, selectedTileId, currentLayer, updateMapTiles, placeAutotileAt]
   );
@@ -672,21 +703,27 @@ export default function MapCanvas() {
     [currentLayer, selectedTileId, updateMapTiles, pushUndo]
   );
 
+  // Shadow painting: toggle 1/4 quarter of a tile based on mouse sub-position
+  // Shadow data is stored in layer z=4 as a 4-bit pattern (bits 0-3 for each quarter)
+  // Bit 0: top-left, Bit 1: top-right, Bit 2: bottom-left, Bit 3: bottom-right
   const applyShadow = useCallback(
-    (x: number, y: number) => {
+    (tileX: number, tileY: number, subX: number, subY: number) => {
       const latestMap = useEditorStore.getState().currentMap;
       if (!latestMap) return;
-      // Shadow uses layer 3 (shadow layer) with a special tile pattern
-      const z = 3;
-      const idx = (z * latestMap.height + y) * latestMap.width + x;
-      const oldTileId = latestMap.data[idx];
-      // Toggle shadow: cycle through shadow quarter patterns (simplified: toggle between 0 and a shadow marker value)
-      const newTileId = oldTileId === 0 ? 5 : 0; // Use tileId 5 as shadow marker
-      const change: TileChange = { x, y, z, oldTileId, newTileId };
-      updateMapTile(x, y, z, newTileId);
-      pushUndo([change]);
+      const z = 4; // Shadow layer
+      const idx = (z * latestMap.height + tileY) * latestMap.width + tileX;
+      const oldBits = latestMap.data[idx] || 0;
+      // Determine which quarter was clicked based on sub-tile position
+      const qx = subX < TILE_SIZE_PX / 2 ? 0 : 1;
+      const qy = subY < TILE_SIZE_PX / 2 ? 0 : 1;
+      const quarter = qy * 2 + qx; // 0=TL, 1=TR, 2=BL, 3=BR
+      const newBits = oldBits ^ (1 << quarter);
+      if (oldBits === newBits) return;
+      const change: TileChange = { x: tileX, y: tileY, z, oldTileId: oldBits, newTileId: newBits };
+      updateMapTile(tileX, tileY, z, newBits);
+      pendingChanges.current.push(change);
     },
-    [updateMapTile, pushUndo]
+    [updateMapTile]
   );
 
   // Batch place tiles with autotile shape recalculation
@@ -874,16 +911,27 @@ export default function MapCanvas() {
       const tile = canvasToTile(e);
       if (!tile) return;
 
-      // Right-click in map mode → erase tile
+      // Right-click in map mode → erase tile (or clear shadow)
       if (e.button === 2 && editMode === 'map') {
         const latestMap = useEditorStore.getState().currentMap;
         if (!latestMap) return;
-        const z = currentLayer;
-        const idx = (z * latestMap.height + tile.y) * latestMap.width + tile.x;
-        const oldTileId = latestMap.data[idx];
-        if (oldTileId !== 0) {
-          pushUndo([{ x: tile.x, y: tile.y, z, oldTileId, newTileId: 0 }]);
-          updateMapTiles([{ x: tile.x, y: tile.y, z, tileId: 0 }]);
+        if (selectedTool === 'shadow') {
+          // Clear all shadow bits for this tile
+          const z = 4;
+          const idx = (z * latestMap.height + tile.y) * latestMap.width + tile.x;
+          const oldBits = latestMap.data[idx];
+          if (oldBits !== 0) {
+            pushUndo([{ x: tile.x, y: tile.y, z, oldTileId: oldBits, newTileId: 0 }]);
+            updateMapTiles([{ x: tile.x, y: tile.y, z, tileId: 0 }]);
+          }
+        } else {
+          const z = currentLayer;
+          const idx = (z * latestMap.height + tile.y) * latestMap.width + tile.x;
+          const oldTileId = latestMap.data[idx];
+          if (oldTileId !== 0) {
+            pushUndo([{ x: tile.x, y: tile.y, z, oldTileId, newTileId: 0 }]);
+            updateMapTiles([{ x: tile.x, y: tile.y, z, tileId: 0 }]);
+          }
         }
         return;
       }
@@ -911,13 +959,18 @@ export default function MapCanvas() {
       lastTile.current = tile;
       pendingChanges.current = [];
 
-      if (selectedTool === 'rectangle' || selectedTool === 'ellipse') {
+      if (selectedTool === 'shadow') {
+        const sub = canvasToSubTile(e);
+        if (sub) {
+          applyShadow(sub.x, sub.y, sub.subX, sub.subY);
+        }
+      } else if (selectedTool === 'rectangle' || selectedTool === 'ellipse') {
         dragStart.current = tile;
       } else {
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, placeTileWithUndo, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles]
   );
 
   const handleMouseMove = useCallback(
@@ -946,13 +999,21 @@ export default function MapCanvas() {
         return;
       }
 
+      if (selectedTool === 'shadow') {
+        const sub = canvasToSubTile(e);
+        if (sub) {
+          applyShadow(sub.x, sub.y, sub.subX, sub.subY);
+        }
+        return;
+      }
+
       if (lastTile.current && tile.x === lastTile.current.x && tile.y === lastTile.current.y) return;
       lastTile.current = tile;
       if (selectedTool === 'pen' || selectedTool === 'eraser') {
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, placeTileWithUndo, selectedTool, setCursorTile, drawOverlayPreview]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, setCursorTile, drawOverlayPreview]
   );
 
   const handleMouseUp = useCallback(
