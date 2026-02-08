@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
 import type { RPGEvent, EventPage, MapData } from '../../types/rpgMakerMV';
-import { getTileRenderInfo, posToTile, TILE_SIZE_PX } from '../../utils/tileHelper';
+import { getTileRenderInfo, posToTile, TILE_SIZE_PX, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition } from '../../utils/tileHelper';
 import EventDetail from '../EventEditor/EventDetail';
 
 interface EventContextMenu {
@@ -35,6 +35,7 @@ export default function MapCanvas() {
 
   const [showGrid, setShowGrid] = useState(true);
   const [tilesetImages, setTilesetImages] = useState<Record<number, HTMLImageElement>>({});
+  const [charImages, setCharImages] = useState<Record<string, HTMLImageElement>>({});
   const [eventCtxMenu, setEventCtxMenu] = useState<EventContextMenu | null>(null);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const copyEvent = useEditorStore((s) => s.copyEvent);
@@ -125,6 +126,46 @@ export default function MapCanvas() {
     };
   }, [currentMap?.tilesetId, currentMap?.tilesetNames]);
 
+  // Load character images used by events
+  useEffect(() => {
+    if (!currentMap || !currentMap.events) {
+      setCharImages({});
+      return;
+    }
+    const names = new Set<string>();
+    for (const ev of currentMap.events) {
+      if (!ev || !ev.pages) continue;
+      for (const page of ev.pages) {
+        if (page.image && page.image.characterName) {
+          names.add(page.image.characterName);
+        }
+      }
+    }
+    if (names.size === 0) {
+      setCharImages({});
+      return;
+    }
+    let cancelled = false;
+    const loaded: Record<string, HTMLImageElement> = {};
+    let remaining = names.size;
+    for (const name of names) {
+      const img = new Image();
+      img.onload = () => {
+        if (cancelled) return;
+        loaded[name] = img;
+        remaining--;
+        if (remaining <= 0) setCharImages({ ...loaded });
+      };
+      img.onerror = () => {
+        if (cancelled) return;
+        remaining--;
+        if (remaining <= 0) setCharImages({ ...loaded });
+      };
+      img.src = `/api/resources/img_characters/${name}.png`;
+    }
+    return () => { cancelled = true; };
+  }, [currentMap?.events]);
+
   // Main canvas rendering
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -210,30 +251,71 @@ export default function MapCanvas() {
 
     if (events) {
       const showEventDetails = editMode === 'event';
-      ctx.fillStyle = 'rgba(0,120,212,0.35)';
-      ctx.strokeStyle = '#0078d4';
-      ctx.lineWidth = 2;
       events.forEach((ev) => {
         if (!ev || ev.id === 0) return;
         const ex = ev.x * TILE_SIZE_PX;
         const ey = ev.y * TILE_SIZE_PX;
-        ctx.fillRect(ex, ey, TILE_SIZE_PX, TILE_SIZE_PX);
-        ctx.strokeRect(ex + 1, ey + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
 
-        if (showEventDetails && ev.name) {
-          ctx.save();
-          ctx.fillStyle = '#fff';
-          ctx.font = 'bold 10px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          ctx.shadowColor = '#000';
-          ctx.shadowBlur = 2;
-          ctx.fillText(ev.name, ex + TILE_SIZE_PX / 2, ey + 2, TILE_SIZE_PX - 4);
-          ctx.restore();
+        // Draw character image from first page
+        let drewImage = false;
+        if (ev.pages && ev.pages.length > 0) {
+          const page = ev.pages[0];
+          const img = page.image;
+          if (img && img.characterName && charImages[img.characterName]) {
+            const charImg = charImages[img.characterName];
+            const isSingle = img.characterName.startsWith('$');
+            // Single character: whole sheet is 3 patterns x 4 directions
+            // Normal: 4x2 grid of characters, each 3 patterns x 4 directions
+            const charW = isSingle ? charImg.width / 3 : charImg.width / 12;
+            const charH = isSingle ? charImg.height / 4 : charImg.height / 8;
+            // Character index position in sheet
+            const charCol = isSingle ? 0 : img.characterIndex % 4;
+            const charRow = isSingle ? 0 : Math.floor(img.characterIndex / 4);
+            // Direction: 2=down(0), 4=left(1), 6=right(2), 8=up(3)
+            const dirRow = img.direction === 8 ? 3 : img.direction === 6 ? 2 : img.direction === 4 ? 1 : 0;
+            const pattern = img.pattern || 1;
+            const sx = charCol * charW * 3 + pattern * charW;
+            const sy = charRow * charH * 4 + dirRow * charH;
+            // Draw centered on tile, scaled to fit
+            const scale = Math.min(TILE_SIZE_PX / charW, TILE_SIZE_PX / charH);
+            const dw = charW * scale;
+            const dh = charH * scale;
+            const dx = ex + (TILE_SIZE_PX - dw) / 2;
+            const dy = ey + (TILE_SIZE_PX - dh);
+            ctx.drawImage(charImg, sx, sy, charW, charH, dx, dy, dw, dh);
+            drewImage = true;
+          }
+        }
+
+        // Event mode overlay
+        if (showEventDetails) {
+          if (!drewImage) {
+            ctx.fillStyle = 'rgba(0,120,212,0.35)';
+            ctx.fillRect(ex, ey, TILE_SIZE_PX, TILE_SIZE_PX);
+          }
+          ctx.strokeStyle = '#0078d4';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(ex + 1, ey + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
+
+          if (ev.name) {
+            ctx.save();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = '#000';
+            ctx.shadowBlur = 2;
+            ctx.fillText(ev.name, ex + TILE_SIZE_PX / 2, ey + 2, TILE_SIZE_PX - 4);
+            ctx.restore();
+          }
+        } else if (!drewImage) {
+          // Map mode: show subtle indicator for events without images
+          ctx.fillStyle = 'rgba(0,120,212,0.25)';
+          ctx.fillRect(ex, ey, TILE_SIZE_PX, TILE_SIZE_PX);
         }
       });
     }
-  }, [currentMap, tilesetImages, showGrid, editMode]);
+  }, [currentMap, tilesetImages, charImages, showGrid, editMode]);
 
   const canvasToTile = useCallback((e: React.MouseEvent<HTMLElement>) => {
     const canvas = canvasRef.current;
@@ -247,30 +329,88 @@ export default function MapCanvas() {
   }, [zoomLevel]);
 
   const getTileChange = useCallback((x: number, y: number, z: number, newTileId: number): TileChange | null => {
-    if (!currentMap) return null;
-    const idx = (z * currentMap.height + y) * currentMap.width + x;
-    const oldTileId = currentMap.data[idx];
+    const latestMap = useEditorStore.getState().currentMap;
+    if (!latestMap) return null;
+    const idx = (z * latestMap.height + y) * latestMap.width + x;
+    const oldTileId = latestMap.data[idx];
     if (oldTileId === newTileId) return null;
     return { x, y, z, oldTileId, newTileId };
-  }, [currentMap]);
+  }, []);
+
+  // Place a tile with autotile shape calculation and neighbor updates
+  const placeAutotileAt = useCallback(
+    (x: number, y: number, z: number, tileId: number, data: number[], width: number, height: number, changes: TileChange[], updates: { x: number; y: number; z: number; tileId: number }[]) => {
+      // Place the tile first (temporarily in data for neighbor calculation)
+      const idx = (z * height + y) * width + x;
+      const oldId = data[idx];
+      data[idx] = tileId;
+
+      if (isAutotile(tileId) && !isTileA5(tileId)) {
+        // Compute correct shape for placed tile
+        const kind = getAutotileKindExported(tileId);
+        const shape = computeAutoShapeForPosition(data, width, height, x, y, z, tileId);
+        const correctId = makeAutotileId(kind, shape);
+        data[idx] = correctId;
+        if (correctId !== oldId) {
+          changes.push({ x, y, z, oldTileId: oldId, newTileId: correctId });
+          updates.push({ x, y, z, tileId: correctId });
+        }
+      } else {
+        if (tileId !== oldId) {
+          changes.push({ x, y, z, oldTileId: oldId, newTileId: tileId });
+          updates.push({ x, y, z, tileId });
+        }
+      }
+
+      // Update neighbors' shapes
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          const nIdx = (z * height + ny) * width + nx;
+          const nTileId = data[nIdx];
+          if (!isAutotile(nTileId) || isTileA5(nTileId)) continue;
+          const nKind = getAutotileKindExported(nTileId);
+          const nShape = computeAutoShapeForPosition(data, width, height, nx, ny, z, nTileId);
+          const nCorrectId = makeAutotileId(nKind, nShape);
+          if (nCorrectId !== nTileId) {
+            const nOldId = nTileId;
+            data[nIdx] = nCorrectId;
+            changes.push({ x: nx, y: ny, z, oldTileId: nOldId, newTileId: nCorrectId });
+            updates.push({ x: nx, y: ny, z, tileId: nCorrectId });
+          }
+        }
+      }
+    },
+    []
+  );
 
   const placeTileWithUndo = useCallback(
     (tilePos: { x: number; y: number } | null) => {
-      if (!currentMap || !tilePos) return;
+      // Always get latest state from store to avoid stale closures
+      const latestMap = useEditorStore.getState().currentMap;
+      if (!latestMap || !tilePos) return;
       const { x, y } = tilePos;
-      if (x < 0 || x >= currentMap.width || y < 0 || y >= currentMap.height) return;
+      if (x < 0 || x >= latestMap.width || y < 0 || y >= latestMap.height) return;
 
       if (selectedTool === 'eraser') {
-        const change = getTileChange(x, y, currentLayer, 0);
-        if (change) {
-          pendingChanges.current.push(change);
-          updateMapTile(x, y, currentLayer, 0);
+        const changes: TileChange[] = [];
+        const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+        const data = [...latestMap.data];
+        placeAutotileAt(x, y, currentLayer, 0, data, latestMap.width, latestMap.height, changes, updates);
+        if (updates.length > 0) {
+          pendingChanges.current.push(...changes);
+          updateMapTiles(updates);
         }
       } else if (selectedTool === 'pen') {
-        const change = getTileChange(x, y, currentLayer, selectedTileId);
-        if (change) {
-          pendingChanges.current.push(change);
-          updateMapTile(x, y, currentLayer, selectedTileId);
+        const changes: TileChange[] = [];
+        const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+        const data = [...latestMap.data];
+        placeAutotileAt(x, y, currentLayer, selectedTileId, data, latestMap.width, latestMap.height, changes, updates);
+        if (updates.length > 0) {
+          pendingChanges.current.push(...changes);
+          updateMapTiles(updates);
         }
       } else if (selectedTool === 'fill') {
         floodFill(x, y);
@@ -278,93 +418,201 @@ export default function MapCanvas() {
         applyShadow(x, y);
       }
     },
-    [currentMap, selectedTool, selectedTileId, currentLayer, updateMapTile]
+    [selectedTool, selectedTileId, currentLayer, updateMapTiles, placeAutotileAt]
   );
 
   const floodFill = useCallback(
     (startX: number, startY: number) => {
-      if (!currentMap) return;
-      const { width, height, data } = currentMap;
+      const latestMap = useEditorStore.getState().currentMap;
+      if (!latestMap) return;
+      const { width, height } = latestMap;
       const z = currentLayer;
+      const data = [...latestMap.data];
       const targetId = data[(z * height + startY) * width + startX];
-      if (targetId === selectedTileId) return;
+      // For autotiles, compare by kind not exact ID
+      const targetIsAutotile = isAutotile(targetId) && !isTileA5(targetId);
+      const targetKind = targetIsAutotile ? getAutotileKindExported(targetId) : -1;
+      const newIsAutotile = isAutotile(selectedTileId) && !isTileA5(selectedTileId);
+      const newKind = newIsAutotile ? getAutotileKindExported(selectedTileId) : -1;
+      if (targetIsAutotile && newIsAutotile && targetKind === newKind) return;
+      if (!targetIsAutotile && !newIsAutotile && targetId === selectedTileId) return;
 
       const visited = new Set<string>();
       const queue = [{ x: startX, y: startY }];
-      const changes: TileChange[] = [];
-      const tileUpdates: { x: number; y: number; z: number; tileId: number }[] = [];
+      const filledPositions: { x: number; y: number }[] = [];
 
+      // First pass: find all positions to fill
       while (queue.length > 0) {
         const { x, y } = queue.shift()!;
         const key = `${x},${y}`;
         if (visited.has(key)) continue;
         if (x < 0 || x >= width || y < 0 || y >= height) continue;
-
         const idx = (z * height + y) * width + x;
-        if (data[idx] !== targetId) continue;
-
+        const curId = data[idx];
+        const curIsAuto = isAutotile(curId) && !isTileA5(curId);
+        const match = targetIsAutotile
+          ? (curIsAuto && getAutotileKindExported(curId) === targetKind)
+          : (curId === targetId);
+        if (!match) continue;
         visited.add(key);
-        changes.push({ x, y, z, oldTileId: targetId, newTileId: selectedTileId });
-        tileUpdates.push({ x, y, z, tileId: selectedTileId });
+        filledPositions.push({ x, y });
         queue.push({ x: x + 1, y }, { x: x - 1, y }, { x, y: y + 1 }, { x, y: y - 1 });
       }
 
-      if (tileUpdates.length > 0) {
-        updateMapTiles(tileUpdates);
+      if (filledPositions.length === 0) return;
+
+      // Second pass: place tiles with autotile shape calculation
+      const changes: TileChange[] = [];
+      const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+
+      // Set all filled positions first (raw)
+      for (const { x, y } of filledPositions) {
+        const idx = (z * height + y) * width + x;
+        data[idx] = selectedTileId;
+      }
+
+      // Now compute correct shapes for all filled + their neighbors
+      const toRecalc = new Set<string>();
+      for (const { x, y } of filledPositions) {
+        toRecalc.add(`${x},${y}`);
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+              toRecalc.add(`${nx},${ny}`);
+            }
+          }
+        }
+      }
+
+      // Snapshot old data for undo
+      const oldData = latestMap.data;
+      for (const posKey of toRecalc) {
+        const [px, py] = posKey.split(',').map(Number);
+        const idx = (z * height + py) * width + px;
+        const tileId = data[idx];
+        if (isAutotile(tileId) && !isTileA5(tileId)) {
+          const kind = getAutotileKindExported(tileId);
+          const shape = computeAutoShapeForPosition(data, width, height, px, py, z, tileId);
+          const correctId = makeAutotileId(kind, shape);
+          data[idx] = correctId;
+        }
+        if (data[idx] !== oldData[idx]) {
+          changes.push({ x: px, y: py, z, oldTileId: oldData[idx], newTileId: data[idx] });
+          updates.push({ x: px, y: py, z, tileId: data[idx] });
+        }
+      }
+
+      if (updates.length > 0) {
+        updateMapTiles(updates);
         pushUndo(changes);
       }
     },
-    [currentMap, currentLayer, selectedTileId, updateMapTiles, pushUndo]
+    [currentLayer, selectedTileId, updateMapTiles, pushUndo]
   );
 
   const applyShadow = useCallback(
     (x: number, y: number) => {
-      if (!currentMap) return;
+      const latestMap = useEditorStore.getState().currentMap;
+      if (!latestMap) return;
       // Shadow uses layer 3 (shadow layer) with a special tile pattern
       const z = 3;
-      const idx = (z * currentMap.height + y) * currentMap.width + x;
-      const oldTileId = currentMap.data[idx];
+      const idx = (z * latestMap.height + y) * latestMap.width + x;
+      const oldTileId = latestMap.data[idx];
       // Toggle shadow: cycle through shadow quarter patterns (simplified: toggle between 0 and a shadow marker value)
       const newTileId = oldTileId === 0 ? 5 : 0; // Use tileId 5 as shadow marker
       const change: TileChange = { x, y, z, oldTileId, newTileId };
       updateMapTile(x, y, z, newTileId);
       pushUndo([change]);
     },
-    [currentMap, updateMapTile, pushUndo]
+    [updateMapTile, pushUndo]
   );
 
-  const drawRectangle = useCallback(
-    (start: { x: number; y: number }, end: { x: number; y: number }) => {
-      if (!currentMap) return;
-      const minX = Math.max(0, Math.min(start.x, end.x));
-      const maxX = Math.min(currentMap.width - 1, Math.max(start.x, end.x));
-      const minY = Math.max(0, Math.min(start.y, end.y));
-      const maxY = Math.min(currentMap.height - 1, Math.max(start.y, end.y));
+  // Batch place tiles with autotile shape recalculation
+  const batchPlaceWithAutotile = useCallback(
+    (positions: { x: number; y: number }[], tileId: number) => {
+      const latestMap = useEditorStore.getState().currentMap;
+      if (!latestMap || positions.length === 0) return;
+      const { width, height } = latestMap;
+      const z = currentLayer;
+      const data = [...latestMap.data];
+      const oldData = latestMap.data;
 
-      const changes: TileChange[] = [];
-      const tileUpdates: { x: number; y: number; z: number; tileId: number }[] = [];
+      // Set all positions first (raw)
+      for (const { x, y } of positions) {
+        const idx = (z * height + y) * width + x;
+        data[idx] = tileId;
+      }
 
-      for (let y = minY; y <= maxY; y++) {
-        for (let x = minX; x <= maxX; x++) {
-          const change = getTileChange(x, y, currentLayer, selectedTileId);
-          if (change) {
-            changes.push(change);
-            tileUpdates.push({ x, y, z: currentLayer, tileId: selectedTileId });
+      // Collect all positions that need shape recalculation
+      const toRecalc = new Set<string>();
+      for (const { x, y } of positions) {
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+              toRecalc.add(`${nx},${ny}`);
+            }
           }
         }
       }
 
-      if (tileUpdates.length > 0) {
-        updateMapTiles(tileUpdates);
+      // Recalculate shapes
+      for (const posKey of toRecalc) {
+        const [px, py] = posKey.split(',').map(Number);
+        const idx = (z * height + py) * width + px;
+        const tid = data[idx];
+        if (isAutotile(tid) && !isTileA5(tid)) {
+          const kind = getAutotileKindExported(tid);
+          const shape = computeAutoShapeForPosition(data, width, height, px, py, z, tid);
+          data[idx] = makeAutotileId(kind, shape);
+        }
+      }
+
+      // Build changes and updates
+      const changes: TileChange[] = [];
+      const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+      for (const posKey of toRecalc) {
+        const [px, py] = posKey.split(',').map(Number);
+        const idx = (z * height + py) * width + px;
+        if (data[idx] !== oldData[idx]) {
+          changes.push({ x: px, y: py, z, oldTileId: oldData[idx], newTileId: data[idx] });
+          updates.push({ x: px, y: py, z, tileId: data[idx] });
+        }
+      }
+
+      if (updates.length > 0) {
+        updateMapTiles(updates);
         pushUndo(changes);
       }
     },
-    [currentMap, currentLayer, selectedTileId, getTileChange, updateMapTiles, pushUndo]
+    [currentLayer, updateMapTiles, pushUndo]
+  );
+
+  const drawRectangle = useCallback(
+    (start: { x: number; y: number }, end: { x: number; y: number }) => {
+      const latestMap = useEditorStore.getState().currentMap;
+      if (!latestMap) return;
+      const minX = Math.max(0, Math.min(start.x, end.x));
+      const maxX = Math.min(latestMap.width - 1, Math.max(start.x, end.x));
+      const minY = Math.max(0, Math.min(start.y, end.y));
+      const maxY = Math.min(latestMap.height - 1, Math.max(start.y, end.y));
+
+      const positions: { x: number; y: number }[] = [];
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          positions.push({ x, y });
+        }
+      }
+      batchPlaceWithAutotile(positions, selectedTileId);
+    },
+    [selectedTileId, batchPlaceWithAutotile]
   );
 
   const drawEllipse = useCallback(
     (start: { x: number; y: number }, end: { x: number; y: number }) => {
-      if (!currentMap) return;
+      const latestMap = useEditorStore.getState().currentMap;
+      if (!latestMap) return;
       const minX = Math.min(start.x, end.x);
       const maxX = Math.max(start.x, end.x);
       const minY = Math.min(start.y, end.y);
@@ -375,31 +623,20 @@ export default function MapCanvas() {
       const rx = (maxX - minX) / 2;
       const ry = (maxY - minY) / 2;
 
-      const changes: TileChange[] = [];
-      const tileUpdates: { x: number; y: number; z: number; tileId: number }[] = [];
-
+      const positions: { x: number; y: number }[] = [];
       for (let y = minY; y <= maxY; y++) {
         for (let x = minX; x <= maxX; x++) {
-          if (x < 0 || x >= currentMap.width || y < 0 || y >= currentMap.height) continue;
-          // Check if point is inside ellipse
+          if (x < 0 || x >= latestMap.width || y < 0 || y >= latestMap.height) continue;
           const dx = (x - cx) / (rx || 0.5);
           const dy = (y - cy) / (ry || 0.5);
           if (dx * dx + dy * dy <= 1) {
-            const change = getTileChange(x, y, currentLayer, selectedTileId);
-            if (change) {
-              changes.push(change);
-              tileUpdates.push({ x, y, z: currentLayer, tileId: selectedTileId });
-            }
+            positions.push({ x, y });
           }
         }
       }
-
-      if (tileUpdates.length > 0) {
-        updateMapTiles(tileUpdates);
-        pushUndo(changes);
-      }
+      batchPlaceWithAutotile(positions, selectedTileId);
     },
-    [currentMap, currentLayer, selectedTileId, getTileChange, updateMapTiles, pushUndo]
+    [selectedTileId, batchPlaceWithAutotile]
   );
 
   // Draw preview overlay for rectangle/ellipse
