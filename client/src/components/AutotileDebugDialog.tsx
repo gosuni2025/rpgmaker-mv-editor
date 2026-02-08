@@ -281,25 +281,25 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
       // Flag ON for everything except the outer corner of each half-tile
       // Each half-tile in a 2×2 block: the corner facing outward is OFF
       const region2Grids: Record<string, boolean[][]> = {
-        '2,0': [ // top-left of inner corner block → top-left corner OFF
-          [false, true, true],
-          [true, true, true],
-          [true, true, true],
+        '2,0': [ // top-left of inner corner block → top-left corner ON (absent)
+          [true, false, false],
+          [false, false, false],
+          [false, false, false],
         ],
-        '3,0': [ // top-right → top-right corner OFF
-          [true, true, false],
-          [true, true, true],
-          [true, true, true],
+        '3,0': [ // top-right → top-right corner ON (absent)
+          [false, false, true],
+          [false, false, false],
+          [false, false, false],
         ],
-        '2,1': [ // bottom-left → bottom-left corner OFF
-          [true, true, true],
-          [true, true, true],
-          [false, true, true],
+        '2,1': [ // bottom-left → bottom-left corner ON (absent)
+          [false, false, false],
+          [false, false, false],
+          [true, false, false],
         ],
-        '3,1': [ // bottom-right → bottom-right corner OFF
-          [true, true, true],
-          [true, true, true],
-          [true, true, false],
+        '3,1': [ // bottom-right → bottom-right corner ON (absent)
+          [false, false, false],
+          [false, false, false],
+          [false, false, true],
         ],
       };
 
@@ -335,19 +335,19 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
 
           const grid: boolean[][] = [
             [
-              !isTopEdge && !isLeftEdge,  // top-left
-              !isTopEdge,                  // top
-              !isTopEdge && !isRightEdge,  // top-right
+              isTopEdge || isLeftEdge,    // top-left
+              isTopEdge,                  // top
+              isTopEdge || isRightEdge,   // top-right
             ],
             [
-              !isLeftEdge,                 // left
-              true,                        // center (always self)
-              !isRightEdge,                // right
+              isLeftEdge,                 // left
+              false,                      // center
+              isRightEdge,                // right
             ],
             [
-              !isBottomEdge && !isLeftEdge,  // bottom-left
-              !isBottomEdge,                  // bottom
-              !isBottomEdge && !isRightEdge,  // bottom-right
+              isBottomEdge || isLeftEdge,   // bottom-left
+              isBottomEdge,                 // bottom
+              isBottomEdge || isRightEdge,  // bottom-right
             ],
           ];
 
@@ -387,9 +387,9 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
           const isRight = gx === 3;
 
           const grid: boolean[][] = [
-            [!isTop && !isLeft, !isTop, !isTop && !isRight],
-            [!isLeft, true, !isRight],
-            [!isBottom && !isLeft, !isBottom, !isBottom && !isRight],
+            [isTop || isLeft, isTop, isTop || isRight],
+            [isLeft, false, isRight],
+            [isBottom || isLeft, isBottom, isBottom || isRight],
           ];
 
           for (let my = 0; my < 3; my++) {
@@ -423,9 +423,9 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
     // [left, center, right]
     // [bl, bottom, br]
     const grid: [string, boolean][][] = [
-      [['topLeft', neighbors.topLeft], ['top', neighbors.top], ['topRight', neighbors.topRight]],
-      [['left', neighbors.left], ['center', true], ['right', neighbors.right]],
-      [['bottomLeft', neighbors.bottomLeft], ['bottom', neighbors.bottom], ['bottomRight', neighbors.bottomRight]],
+      [['topLeft', !neighbors.topLeft], ['top', !neighbors.top], ['topRight', !neighbors.topRight]],
+      [['left', !neighbors.left], ['center', false], ['right', !neighbors.right]],
+      [['bottomLeft', !neighbors.bottomLeft], ['bottom', !neighbors.bottom], ['bottomRight', !neighbors.bottomRight]],
     ];
 
     for (let gy = 0; gy < 3; gy++) {
