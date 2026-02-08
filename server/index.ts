@@ -1,3 +1,4 @@
+import fs from 'fs';
 import http from 'http';
 import path from 'path';
 import express from 'express';
@@ -21,6 +22,41 @@ app.use(express.json({ limit: '50mb' }));
 
 // Playtest: serve game in new window
 const runtimePath = path.join(__dirname, 'runtime');
+
+// /game/save/* - 게임 세이브 파일 저장/로드 API (config, global, save files)
+const validSaveFile = (name: string) => /^[\w.-]+\.rpgsave(\.bak)?$/.test(name);
+
+app.get('/game/save/:filename', (req, res) => {
+  if (!projectManager.isOpen()) return res.status(404).send('No project open');
+  if (!validSaveFile(req.params.filename)) return res.status(400).send('Invalid filename');
+  const filePath = path.join(projectManager.currentPath!, 'save', req.params.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).send('Not found');
+  res.type('text/plain').send(fs.readFileSync(filePath, 'utf8'));
+});
+
+app.put('/game/save/:filename', express.text({ limit: '10mb' }), (req, res) => {
+  if (!projectManager.isOpen()) return res.status(404).send('No project open');
+  if (!validSaveFile(req.params.filename)) return res.status(400).send('Invalid filename');
+  const saveDir = path.join(projectManager.currentPath!, 'save');
+  if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true });
+  fs.writeFileSync(path.join(saveDir, req.params.filename), req.body, 'utf8');
+  res.json({ ok: true });
+});
+
+app.delete('/game/save/:filename', (req, res) => {
+  if (!projectManager.isOpen()) return res.status(404).send('No project open');
+  if (!validSaveFile(req.params.filename)) return res.status(400).send('Invalid filename');
+  const filePath = path.join(projectManager.currentPath!, 'save', req.params.filename);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  res.json({ ok: true });
+});
+
+app.get('/game/save-exists/:filename', (req, res) => {
+  if (!projectManager.isOpen()) return res.json({ exists: false });
+  if (!validSaveFile(req.params.filename)) return res.json({ exists: false });
+  const filePath = path.join(projectManager.currentPath!, 'save', req.params.filename);
+  res.json({ exists: fs.existsSync(filePath) });
+});
 
 // /game/index.html - 동적 생성 (내장 런타임 JS + 프로젝트 플러그인)
 // plugins.js만 로드하면 PluginManager.setup()이 main.js에서 개별 플러그인을 동적 로드함
@@ -56,10 +92,91 @@ app.get('/game/index.html', (req, res) => {
         <script type="text/javascript" src="js/renderer/three/ThreeFilters.js"></script>
         <script type="text/javascript" src="js/rpg_core.js"></script>
         <script type="text/javascript" src="js/rpg_managers.js"></script>
+        <script type="text/javascript">
+        // StorageManager override: 서버 API를 통해 프로젝트 save/ 폴더에 저장
+        (function() {
+            function saveFileName(savefileId) {
+                if (savefileId < 0) return 'config.rpgsave';
+                if (savefileId === 0) return 'global.rpgsave';
+                return 'file' + savefileId + '.rpgsave';
+            }
+
+            function syncRequest(method, url, data) {
+                var xhr = new XMLHttpRequest();
+                xhr.open(method, url, false);
+                if (data !== undefined) {
+                    xhr.setRequestHeader('Content-Type', 'text/plain');
+                    xhr.send(data);
+                } else {
+                    xhr.send();
+                }
+                return xhr;
+            }
+
+            StorageManager.save = function(savefileId, json) {
+                var data = LZString.compressToBase64(json);
+                var name = saveFileName(savefileId);
+                syncRequest('PUT', '/game/save/' + name, data);
+            };
+
+            StorageManager.load = function(savefileId) {
+                var name = saveFileName(savefileId);
+                var xhr = syncRequest('GET', '/game/save/' + name);
+                if (xhr.status === 200 && xhr.responseText) {
+                    return LZString.decompressFromBase64(xhr.responseText);
+                }
+                return null;
+            };
+
+            StorageManager.exists = function(savefileId) {
+                var name = saveFileName(savefileId);
+                var xhr = syncRequest('GET', '/game/save-exists/' + name);
+                if (xhr.status === 200) {
+                    return JSON.parse(xhr.responseText).exists;
+                }
+                return false;
+            };
+
+            StorageManager.remove = function(savefileId) {
+                var name = saveFileName(savefileId);
+                syncRequest('DELETE', '/game/save/' + name);
+            };
+
+            StorageManager.backup = function(savefileId) {
+                if (this.exists(savefileId)) {
+                    var data = this.load(savefileId);
+                    var compressed = LZString.compressToBase64(data);
+                    var name = saveFileName(savefileId) + '.bak';
+                    syncRequest('PUT', '/game/save/' + name, compressed);
+                }
+            };
+
+            StorageManager.backupExists = function(savefileId) {
+                var name = saveFileName(savefileId) + '.bak';
+                var xhr = syncRequest('GET', '/game/save-exists/' + name);
+                if (xhr.status === 200) {
+                    return JSON.parse(xhr.responseText).exists;
+                }
+                return false;
+            };
+
+            StorageManager.cleanBackup = function(savefileId) {
+                if (this.backupExists(savefileId)) {
+                    var name = saveFileName(savefileId) + '.bak';
+                    syncRequest('DELETE', '/game/save/' + name);
+                }
+            };
+
+            StorageManager.isLocalMode = function() {
+                return false;
+            };
+        })();
+        </script>
         <script type="text/javascript" src="js/rpg_objects.js"></script>
         <script type="text/javascript" src="js/rpg_scenes.js"></script>
         <script type="text/javascript" src="js/rpg_sprites.js"></script>
         <script type="text/javascript" src="js/rpg_windows.js"></script>
+        <script type="text/javascript" src="js/Mode3D.js"></script>
         <script type="text/javascript" src="js/plugins.js"></script>
         <script type="text/javascript" src="js/main.js"></script>
     </body>
