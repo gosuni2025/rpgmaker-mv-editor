@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import apiClient from '../api/client';
-import type { MapInfo, MapData, TilesetData } from '../types/rpgMakerMV';
+import type { MapInfo, MapData, TilesetData, SystemData } from '../types/rpgMakerMV';
 
 const PROJECT_STORAGE_KEY = 'rpg-editor-current-project';
 const MAP_STORAGE_KEY = 'rpg-editor-current-map';
@@ -38,6 +38,11 @@ export interface EditorState {
 
   // Tileset
   tilesetInfo: TilesetData | null;
+
+  // System
+  systemData: SystemData | null;
+  playerCharacterName: string | null;
+  playerCharacterIndex: number;
 
   // Mode
   editMode: 'map' | 'event';
@@ -149,6 +154,9 @@ const useEditorStore = create<EditorState>((set, get) => ({
   currentMapId: null,
   currentMap: null,
   tilesetInfo: null,
+  systemData: null,
+  playerCharacterName: null,
+  playerCharacterIndex: 0,
   editMode: 'map',
   selectedTool: 'pen',
   selectedTileId: 0,
@@ -186,6 +194,20 @@ const useEditorStore = create<EditorState>((set, get) => ({
     });
     localStorage.setItem(PROJECT_STORAGE_KEY, projectPath);
     get().loadMaps();
+    // Load system data for player start position etc.
+    apiClient.get<SystemData>('/database/system').then(async (sys) => {
+      set({ systemData: sys });
+      // Load leader actor's character info
+      if (sys.partyMembers && sys.partyMembers.length > 0) {
+        try {
+          const actors = await apiClient.get<({ characterName: string; characterIndex: number } | null)[]>('/database/actors');
+          const leader = actors[sys.partyMembers[0]];
+          if (leader) {
+            set({ playerCharacterName: leader.characterName, playerCharacterIndex: leader.characterIndex });
+          }
+        } catch {}
+      }
+    }).catch(() => {});
   },
 
   closeProject: () => {
@@ -197,6 +219,9 @@ const useEditorStore = create<EditorState>((set, get) => ({
       currentMapId: null,
       currentMap: null,
       tilesetInfo: null,
+      systemData: null,
+      playerCharacterName: null,
+      playerCharacterIndex: 0,
       undoStack: [],
       redoStack: [],
       clipboard: null,

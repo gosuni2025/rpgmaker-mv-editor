@@ -44,12 +44,17 @@ export default function MapCanvas() {
   const clipboard = useEditorStore((s) => s.clipboard);
 
   const selectedEventId = useEditorStore((s) => s.selectedEventId);
+  const currentMapId = useEditorStore((s) => s.currentMapId);
+  const systemData = useEditorStore((s) => s.systemData);
+  const playerCharacterName = useEditorStore((s) => s.playerCharacterName);
+  const playerCharacterIndex = useEditorStore((s) => s.playerCharacterIndex);
 
   // Event drag state
   const isDraggingEvent = useRef(false);
   const draggedEventId = useRef<number | null>(null);
   const dragEventOrigin = useRef<{ x: number; y: number } | null>(null);
   const [dragPreview, setDragPreview] = useState<{ x: number; y: number } | null>(null);
+  const [playerCharImg, setPlayerCharImg] = useState<HTMLImageElement | null>(null);
 
   useEffect(() => {
     const handler = (e: Event) => setShowGrid((e as CustomEvent<boolean>).detail);
@@ -171,6 +176,25 @@ export default function MapCanvas() {
     }
     return () => { cancelled = true; };
   }, [currentMap?.events]);
+
+  // Load player character image for start position display
+  useEffect(() => {
+    if (!playerCharacterName) {
+      setPlayerCharImg(null);
+      return;
+    }
+    // Reuse from charImages if already loaded
+    if (charImages[playerCharacterName]) {
+      setPlayerCharImg(charImages[playerCharacterName]);
+      return;
+    }
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => { if (!cancelled) setPlayerCharImg(img); };
+    img.onerror = () => { if (!cancelled) setPlayerCharImg(null); };
+    img.src = `/api/resources/img_characters/${playerCharacterName}.png`;
+    return () => { cancelled = true; };
+  }, [playerCharacterName, charImages]);
 
   // Draw drag preview overlay
   useEffect(() => {
@@ -379,7 +403,36 @@ export default function MapCanvas() {
         }
       });
     }
-  }, [currentMap, tilesetImages, charImages, showGrid, editMode, currentLayer]);
+    // Player start position - character in blue frame (like original RPG Maker MV)
+    if (systemData && currentMapId === systemData.startMapId) {
+      const px = systemData.startX * TILE_SIZE_PX;
+      const py = systemData.startY * TILE_SIZE_PX;
+
+      ctx.save();
+      // Draw character image if available
+      if (playerCharImg) {
+        const isSingle = playerCharacterName?.startsWith('$');
+        const charW = isSingle ? playerCharImg.width / 3 : playerCharImg.width / 12;
+        const charH = isSingle ? playerCharImg.height / 4 : playerCharImg.height / 8;
+        const charCol = isSingle ? 0 : playerCharacterIndex % 4;
+        const charRow = isSingle ? 0 : Math.floor(playerCharacterIndex / 4);
+        // Direction: down (row 0), pattern 1 (middle)
+        const srcX = charCol * charW * 3 + 1 * charW;
+        const srcY = charRow * charH * 4 + 0 * charH;
+        const scale = Math.min(TILE_SIZE_PX / charW, TILE_SIZE_PX / charH);
+        const dw = charW * scale;
+        const dh = charH * scale;
+        const dx = px + (TILE_SIZE_PX - dw) / 2;
+        const dy = py + (TILE_SIZE_PX - dh);
+        ctx.drawImage(playerCharImg, srcX, srcY, charW, charH, dx, dy, dw, dh);
+      }
+      // Blue frame
+      ctx.strokeStyle = '#0078ff';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(px + 1.5, py + 1.5, TILE_SIZE_PX - 3, TILE_SIZE_PX - 3);
+      ctx.restore();
+    }
+  }, [currentMap, tilesetImages, charImages, showGrid, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex]);
 
   const canvasToTile = useCallback((e: React.MouseEvent<HTMLElement>) => {
     const canvas = canvasRef.current;
