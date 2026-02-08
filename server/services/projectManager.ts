@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import fileWatcher from './fileWatcher';
 
 const projectManager = {
   currentPath: null as string | null,
@@ -31,6 +32,7 @@ const projectManager = {
   },
 
   writeJSON(filename: string, data: unknown): void {
+    fileWatcher.markApiWrite(filename);
     const filePath = path.join(this.getDataPath(), filename);
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
   },

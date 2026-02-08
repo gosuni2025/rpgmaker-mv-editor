@@ -19,6 +19,8 @@ import SoundTestDialog from './components/SoundTestDialog';
 import EventSearchDialog from './components/EventSearchDialog';
 import ResourceManagerDialog from './components/ResourceManagerDialog';
 import CharacterGeneratorDialog from './components/CharacterGeneratorDialog';
+import AutotileDebugDialog from './components/AutotileDebugDialog';
+import useFileWatcher from './hooks/useFileWatcher';
 
 function SidebarSplit({ editMode }: { editMode: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -79,6 +81,8 @@ export default function App() {
   const showEventSearchDialog = useEditorStore((s) => s.showEventSearchDialog);
   const showResourceManagerDialog = useEditorStore((s) => s.showResourceManagerDialog);
   const showCharacterGeneratorDialog = useEditorStore((s) => s.showCharacterGeneratorDialog);
+  const [showAutotileDebug, setShowAutotileDebug] = useState(false);
+  useFileWatcher();
   const setShowOpenProjectDialog = useEditorStore((s) => s.setShowOpenProjectDialog);
   const openProject = useEditorStore((s) => s.openProject);
   const restoreLastProject = useEditorStore((s) => s.restoreLastProject);
@@ -86,6 +90,12 @@ export default function App() {
   useEffect(() => {
     restoreLastProject();
   }, [restoreLastProject]);
+
+  useEffect(() => {
+    const handler = () => setShowAutotileDebug(true);
+    window.addEventListener('editor-autotile-debug', handler);
+    return () => window.removeEventListener('editor-autotile-debug', handler);
+  }, []);
 
   const handleOpenProject = async (path: string) => {
     setShowOpenProjectDialog(false);
@@ -139,6 +149,7 @@ export default function App() {
       {showEventSearchDialog && <EventSearchDialog />}
       {showResourceManagerDialog && <ResourceManagerDialog />}
       {showCharacterGeneratorDialog && <CharacterGeneratorDialog />}
+      <AutotileDebugDialog open={showAutotileDebug} onClose={() => setShowAutotileDebug(false)} />
     </div>
   );
 }
