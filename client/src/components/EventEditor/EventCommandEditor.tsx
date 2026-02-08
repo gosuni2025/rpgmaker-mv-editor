@@ -274,7 +274,7 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
                     {cmds.map(c => (
                       <div
                         key={c.code}
-                        className="context-menu-item"
+                        className="insert-command-item"
                         onClick={() => handleCommandSelect(c.code)}
                       >
                         {c.name}

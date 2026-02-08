@@ -1075,15 +1075,17 @@ body {
 
 .insert-command-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0;
+  grid-template-columns: 1fr 1fr 1fr;
 }
 
-.insert-command-grid .context-menu-item {
-  padding: 6px 12px;
-  white-space: normal;
-  overflow: visible;
-  text-overflow: unset;
+.insert-command-item {
+  padding: 6px 16px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.insert-command-item:hover {
+  background: #2675bf;
 }
 
 .context-menu-item:hover {
