@@ -1487,11 +1487,12 @@ body {
   bottom: 40px;
   left: 50%;
   transform: translateX(-50%);
-  background: #323232;
+  background: #4caf50;
   color: #fff;
   padding: 8px 24px;
   border-radius: 4px;
   font-size: 13px;
+  font-weight: bold;
   z-index: 10000;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   animation: toast-fade 2s ease-in-out;
