@@ -240,7 +240,6 @@ ShadowLight._createShadowMesh = function() {
     this._ensureShadowMaterial();
     var geo = new THREE.PlaneGeometry(1, 1);
     var mesh = new THREE.Mesh(geo, this._shadowMaterial);
-    mesh.renderOrder = -1; // 캐릭터보다 먼저 그려짐
     return mesh;
 };
 
@@ -252,6 +251,16 @@ ShadowLight._createShadowMesh = function() {
 ShadowLight._updateShadowMesh = function(shadowMesh, charSprite) {
     var spriteObj = charSprite._threeObj;
     if (!spriteObj || !spriteObj.visible) {
+        shadowMesh.visible = false;
+        return;
+    }
+
+    // 씬 그래프에 아직 추가되지 않았으면 추가
+    // (_threeObj.parent는 _syncHierarchy 이후에야 설정됨)
+    if (!shadowMesh.parent && spriteObj.parent) {
+        spriteObj.parent.add(shadowMesh);
+    }
+    if (!shadowMesh.parent) {
         shadowMesh.visible = false;
         return;
     }
@@ -273,7 +282,7 @@ ShadowLight._updateShadowMesh = function(shadowMesh, charSprite) {
     // shadow mesh 위치 = 캐릭터 발밑 + 광원 오프셋
     shadowMesh.position.x = spriteObj.position.x + offsetX * 0.3;
     shadowMesh.position.y = spriteObj.position.y + offsetY;
-    shadowMesh.position.z = spriteObj.position.z - 0.5; // 약간 뒤에
+    shadowMesh.position.z = spriteObj.position.z - 0.5; // 캐릭터보다 약간 뒤에
 
     // shadow mesh 크기: 캐릭터 너비 유지, 높이는 압축 (바닥에 눕히기)
     shadowMesh.scale.x = spriteObj.scale.x;
@@ -315,8 +324,6 @@ ShadowLight._updateShadowMesh = function(shadowMesh, charSprite) {
         shadowMesh.material = this._shadowMaterial.clone();
         shadowMesh.material.map = charSprite._material.map;
         shadowMesh.material.needsUpdate = true;
-    } else if (shadowMesh.material.map) {
-        // 이미 올바른 텍스처
     }
 
     // opacity: 캐릭터 투명도에 비례
@@ -338,15 +345,12 @@ var _Spriteset_Map_createCharacters = Spriteset_Map.prototype.createCharacters;
 Spriteset_Map.prototype.createCharacters = function() {
     _Spriteset_Map_createCharacters.call(this);
     // 각 캐릭터 스프라이트에 shadow mesh 생성
+    // 주의: 이 시점에서는 _threeObj.parent가 아직 null이므로
+    // 씬 그래프 추가는 update 루프에서 수행
     this._shadowMeshes = [];
     for (var i = 0; i < this._characterSprites.length; i++) {
         var shadowMesh = ShadowLight._createShadowMesh();
         this._shadowMeshes.push(shadowMesh);
-        // 타일맵에 추가 (캐릭터 스프라이트와 같은 부모)
-        var charSprite = this._characterSprites[i];
-        if (charSprite._threeObj && charSprite._threeObj.parent) {
-            charSprite._threeObj.parent.add(shadowMesh);
-        }
     }
 };
 
@@ -401,12 +405,7 @@ Spriteset_Map.prototype._activateShadowLight = function() {
         }
     }
 
-    // shadow mesh 표시
-    if (this._shadowMeshes) {
-        for (var i = 0; i < this._shadowMeshes.length; i++) {
-            this._shadowMeshes[i].visible = true;
-        }
-    }
+    // shadow mesh는 _updateShadowMesh에서 parent 설정 및 표시됨
 };
 
 Spriteset_Map.prototype._deactivateShadowLight = function() {
@@ -422,10 +421,13 @@ Spriteset_Map.prototype._deactivateShadowLight = function() {
         }
     }
 
-    // shadow mesh 숨기기
+    // shadow mesh 숨기기 및 씬 그래프에서 제거
     if (this._shadowMeshes) {
         for (var i = 0; i < this._shadowMeshes.length; i++) {
             this._shadowMeshes[i].visible = false;
+            if (this._shadowMeshes[i].parent) {
+                this._shadowMeshes[i].parent.remove(this._shadowMeshes[i]);
+            }
         }
     }
 };
