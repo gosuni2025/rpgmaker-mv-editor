@@ -204,7 +204,7 @@ const HAS_PARAM_EDITOR = new Set([
   201, 230, 241, 242, 245, 246, 249, 250, 321, 325, 355, 356,
 ]);
 
-const MAX_UNDO = 50;
+const MAX_UNDO = 100;
 
 export default function EventCommandEditor({ commands, onChange }: EventCommandEditorProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
