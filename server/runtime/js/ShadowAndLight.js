@@ -69,14 +69,14 @@ ShadowLight.config = {
     ambientColor: 0x667788,           // 환경광 (어두운 푸른 톤 - 달빛 느낌)
     ambientIntensity: 0.4,
     directionalColor: 0xfff8ee,       // 햇빛 색상 (따뜻한 톤)
-    directionalIntensity: 0.3,
+    directionalIntensity: 0.1,
     lightDirection: new THREE.Vector3(-1, -1, -2).normalize(), // 광원 방향 (Z 성분 크게)
 
     // 플레이어 포인트 라이트
-    playerLightColor: 0xffcc88,       // 횃불 색상
-    playerLightIntensity: 2.0,
-    playerLightDistance: 500,          // 범위 (px)
-    playerLightZ: 30,                 // 높이 (낮을수록 넓게 퍼짐)
+    playerLightColor: 0xa25f06,       // 횃불 색상
+    playerLightIntensity: 1.2,
+    playerLightDistance: 200,          // 범위 (pixel 단위, decay=0에서 이 범위 밖은 영향 없음)
+    playerLightZ: 30,                 // 높이
 
     // 그림자 설정
     shadowOpacity: 0.4,
@@ -97,11 +97,11 @@ ShadowLight._convertedMaterials = new WeakMap();
  */
 ShadowLight._convertMaterial = function(sprite) {
     if (!sprite || !sprite._material) return;
-    if (sprite._material.isMeshLambertMaterial) return;
+    if (sprite._material.isMeshPhongMaterial) return;
     if (this._convertedMaterials.has(sprite._material)) return;
 
     var oldMat = sprite._material;
-    var newMat = new THREE.MeshLambertMaterial({
+    var newMat = new THREE.MeshPhongMaterial({
         map: oldMat.map,
         transparent: oldMat.transparent,
         depthTest: oldMat.depthTest,
@@ -110,6 +110,8 @@ ShadowLight._convertMaterial = function(sprite) {
         opacity: oldMat.opacity,
         blending: oldMat.blending,
         emissive: new THREE.Color(0x111111),
+        specular: new THREE.Color(0x000000),  // 반사광 없음
+        shininess: 0,
     });
     newMat.visible = oldMat.visible;
     newMat.needsUpdate = true;
@@ -126,7 +128,7 @@ ShadowLight._convertMaterial = function(sprite) {
  */
 ShadowLight._revertMaterial = function(sprite) {
     if (!sprite || !sprite._material) return;
-    if (!sprite._material.isMeshLambertMaterial) return;
+    if (!sprite._material.isMeshPhongMaterial) return;
 
     var oldMat = sprite._material;
     var newMat = new THREE.MeshBasicMaterial({
@@ -240,7 +242,7 @@ ShadowLight._removeLightsFromScene = function(scene) {
 ShadowLight._getPointLight = function() {
     var idx = this._pointLightIndex;
     if (idx >= this._pointLights.length) {
-        var light = new THREE.PointLight(0xffffff, 0, 200, 0);  // decay=0 (감쇠 없음)
+        var light = new THREE.PointLight(0xffffff, 0, 200, 0);  // decay=0: distance 기반 linear cutoff (1/d² 물리 감쇠 아님)
         this._pointLights.push(light);
     }
     var light = this._pointLights[idx];
@@ -454,13 +456,17 @@ Spriteset_Map.prototype._activateShadowLight = function() {
         }
     }
 
-    // 타일맵 메시 재생성 (MeshLambertMaterial로 새로 생성되도록)
+    // 타일맵 메시 재생성 (MeshPhongMaterial로 새로 생성되도록)
     ShadowLight._resetTilemapMeshes(this._tilemap);
+
+    // 디버그 UI 생성
+    ShadowLight._createDebugUI();
 
     // shadow mesh는 _updateShadowMesh에서 parent 설정 및 표시됨
 };
 
 Spriteset_Map.prototype._deactivateShadowLight = function() {
+    ShadowLight._removeDebugUI();
     var rendererObj = Graphics._rendererObj || Graphics._renderer;
     if (rendererObj && rendererObj.scene) {
         ShadowLight._removeLightsFromScene(rendererObj.scene);
@@ -512,6 +518,7 @@ Spriteset_Map.prototype._updatePointLights = function() {
             light.color.setHex(ShadowLight.config.playerLightColor);
             light.intensity = ShadowLight.config.playerLightIntensity;
             light.distance = ShadowLight.config.playerLightDistance;
+            light.decay = ShadowLight._debugDecay !== undefined ? ShadowLight._debugDecay : 0;
             var wp = ShadowLight._getWrapperWorldPos(playerSprite);
             light.position.set(wp.x, wp.y - 24, ShadowLight.config.playerLightZ);
         }
@@ -533,16 +540,18 @@ Spriteset_Map.prototype._updatePointLights = function() {
                 light.color.setHex(color);
                 light.intensity = 1.0;
                 light.distance = dist;
+                light.decay = ShadowLight._debugDecay !== undefined ? ShadowLight._debugDecay : 0;
                 var wp = ShadowLight._getWrapperWorldPos(evSprite);
                 light.position.set(wp.x, wp.y - 24, ShadowLight.config.playerLightZ);
             }
         }
     }
 
+    // PointLight 개수 변경 시 타일맵 material 셰이더 재컴파일
+    // (_hideUnusedPointLights가 _pointLightIndex를 0으로 리셋하므로 먼저 저장)
+    var activeCount = ShadowLight._pointLightIndex;
     ShadowLight._hideUnusedPointLights();
 
-    // PointLight 개수 변경 시 타일맵 material 셰이더 재컴파일
-    var activeCount = ShadowLight._pointLightIndex;
     if (activeCount !== ShadowLight._lastPointLightCount) {
         ShadowLight._lastPointLightCount = activeCount;
         ShadowLight._invalidateTilemapMaterials(this._tilemap);
@@ -567,7 +576,7 @@ ShadowLight._invalidateTilemapMaterials = function(tilemap) {
                 if (!rectLayer || !rectLayer._meshes) continue;
                 for (var key in rectLayer._meshes) {
                     var mesh = rectLayer._meshes[key];
-                    if (mesh && mesh.material && mesh.material.isMeshLambertMaterial) {
+                    if (mesh && mesh.material && mesh.material.isMeshPhongMaterial) {
                         mesh.material.needsUpdate = true;
                     }
                 }
@@ -604,7 +613,7 @@ var _Sprite_Character_updateBitmap = Sprite_Character.prototype.updateBitmap;
 Sprite_Character.prototype.updateBitmap = function() {
     _Sprite_Character_updateBitmap.call(this);
     // material이 교체되면 다시 변환
-    if (ShadowLight._active && this._material && !this._material.isMeshLambertMaterial) {
+    if (ShadowLight._active && this._material && !this._material.isMeshPhongMaterial) {
         ShadowLight._convertMaterial(this);
     }
 };
@@ -618,6 +627,196 @@ Graphics._createRenderer = function() {
     _Graphics_createRenderer.call(this);
     // rendererObj 참조를 저장 (scene 접근용)
     Graphics._rendererObj = this._renderer;
+};
+
+//=============================================================================
+// 디버그 UI - 화면 오른쪽 상단에 라이팅 파라미터 실시간 조절
+//=============================================================================
+
+ShadowLight._createDebugUI = function() {
+    if (this._debugPanel) return;
+
+    var panel = document.createElement('div');
+    panel.id = 'sl-debug-panel';
+    panel.style.cssText = 'position:fixed;top:10px;right:10px;z-index:99999;background:rgba(0,0,0,0.85);color:#eee;font:12px monospace;padding:10px;border-radius:6px;min-width:220px;pointer-events:auto;';
+
+    var title = document.createElement('div');
+    title.textContent = 'ShadowLight Debug';
+    title.style.cssText = 'font-weight:bold;margin-bottom:8px;color:#ffcc88;';
+    panel.appendChild(title);
+
+    var self = this;
+    var controls = [
+        { label: 'Intensity', key: 'playerLightIntensity', min: 0, max: 5, step: 0.1 },
+        { label: 'Distance', key: 'playerLightDistance', min: 50, max: 2000, step: 50 },
+        { label: 'Light Z', key: 'playerLightZ', min: 0, max: 500, step: 10 },
+        { label: 'Ambient', key: 'ambientIntensity', min: 0, max: 2, step: 0.05 },
+        { label: 'Dir Light', key: 'directionalIntensity', min: 0, max: 2, step: 0.05 },
+    ];
+
+    controls.forEach(function(c) {
+        var row = document.createElement('div');
+        row.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+
+        var lbl = document.createElement('span');
+        lbl.textContent = c.label;
+        lbl.style.cssText = 'width:70px;font-size:11px;';
+
+        var slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = c.min;
+        slider.max = c.max;
+        slider.step = c.step;
+        slider.value = self.config[c.key];
+        slider.style.cssText = 'width:90px;height:14px;';
+
+        var val = document.createElement('span');
+        val.textContent = parseFloat(self.config[c.key]).toFixed(1);
+        val.style.cssText = 'width:40px;font-size:11px;text-align:right;';
+
+        slider.addEventListener('input', function() {
+            var v = parseFloat(slider.value);
+            self.config[c.key] = v;
+            val.textContent = v.toFixed(c.step < 1 ? 2 : 0);
+            // 실시간 반영
+            if (c.key === 'ambientIntensity' && self._ambientLight) {
+                self._ambientLight.intensity = v;
+            }
+            if (c.key === 'directionalIntensity' && self._directionalLight) {
+                self._directionalLight.intensity = v;
+            }
+        });
+
+        row.appendChild(lbl);
+        row.appendChild(slider);
+        row.appendChild(val);
+        panel.appendChild(row);
+    });
+
+    // Decay 토글 (0 또는 1)
+    var decayRow = document.createElement('div');
+    decayRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+    var decayLbl = document.createElement('span');
+    decayLbl.textContent = 'Decay';
+    decayLbl.style.cssText = 'width:70px;font-size:11px;';
+    var decaySelect = document.createElement('select');
+    decaySelect.style.cssText = 'font:11px monospace;background:#333;color:#eee;border:1px solid #555;';
+    [0, 1, 2].forEach(function(d) {
+        var opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = d;
+        decaySelect.appendChild(opt);
+    });
+    decaySelect.value = '0';
+    self._debugDecay = 0;
+    decaySelect.addEventListener('change', function() {
+        self._debugDecay = parseInt(decaySelect.value);
+    });
+    decayRow.appendChild(decayLbl);
+    decayRow.appendChild(decaySelect);
+    panel.appendChild(decayRow);
+
+    // 정수 색상값을 #rrggbb 문자열로 변환하는 헬퍼
+    function intToHex(colorInt) {
+        if (typeof colorInt === 'string') return colorInt;
+        return '#' + ('000000' + (colorInt >>> 0).toString(16)).slice(-6);
+    }
+
+    // 빛 색깔 피커
+    var colorControls = [
+        { label: 'Light Color', key: 'playerLightColor' },
+        { label: 'Ambient Color', key: 'ambientColor' },
+    ];
+
+    colorControls.forEach(function(cc) {
+        var row = document.createElement('div');
+        row.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+
+        var lbl = document.createElement('span');
+        lbl.textContent = cc.label;
+        lbl.style.cssText = 'width:70px;font-size:11px;';
+
+        var initColor = intToHex(self.config[cc.key]);
+        var colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.value = initColor;
+        colorInput.style.cssText = 'width:40px;height:20px;border:1px solid #555;background:#333;cursor:pointer;';
+
+        var hexVal = document.createElement('span');
+        hexVal.textContent = initColor;
+        hexVal.style.cssText = 'font-size:11px;color:#aaa;';
+
+        colorInput.addEventListener('input', function() {
+            var hex = colorInput.value;
+            var colorInt = parseInt(hex.replace('#', ''), 16);
+            self.config[cc.key] = colorInt;
+            hexVal.textContent = hex;
+            if (cc.key === 'playerLightColor') {
+                // 모든 활성 포인트라이트 색상 업데이트
+                if (self._lightPool) {
+                    self._lightPool.forEach(function(l) {
+                        if (l.parent) l.color.setHex(colorInt);
+                    });
+                }
+            }
+            if (cc.key === 'ambientColor' && self._ambientLight) {
+                self._ambientLight.color.setHex(colorInt);
+            }
+        });
+
+        row.appendChild(lbl);
+        row.appendChild(colorInput);
+        row.appendChild(hexVal);
+        panel.appendChild(row);
+    });
+
+    // 현재값 복사 버튼
+    var copyBtn = document.createElement('button');
+    copyBtn.textContent = '현재값 복사';
+    copyBtn.style.cssText = 'margin-top:8px;width:100%;padding:4px 8px;font:11px monospace;background:#446;color:#eee;border:1px solid #668;border-radius:3px;cursor:pointer;';
+    copyBtn.addEventListener('click', function() {
+        var cfg = self.config;
+        var text = [
+            'playerLightIntensity: ' + cfg.playerLightIntensity,
+            'playerLightDistance: ' + cfg.playerLightDistance,
+            'playerLightZ: ' + cfg.playerLightZ,
+            'playerLightColor: 0x' + ('000000' + ((cfg.playerLightColor || 0xffffff) >>> 0).toString(16)).slice(-6),
+            'ambientIntensity: ' + cfg.ambientIntensity,
+            'ambientColor: 0x' + ('000000' + ((cfg.ambientColor || 0xffffff) >>> 0).toString(16)).slice(-6),
+            'directionalIntensity: ' + cfg.directionalIntensity,
+            'decay: ' + (self._debugDecay !== undefined ? self._debugDecay : 0),
+        ].join('\n');
+
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(function() {
+                copyBtn.textContent = '복사 완료!';
+                setTimeout(function() { copyBtn.textContent = '현재값 복사'; }, 1500);
+            });
+        } else {
+            // fallback
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            copyBtn.textContent = '복사 완료!';
+            setTimeout(function() { copyBtn.textContent = '현재값 복사'; }, 1500);
+        }
+    });
+    copyBtn.addEventListener('mouseover', function() { copyBtn.style.background = '#557'; });
+    copyBtn.addEventListener('mouseout', function() { copyBtn.style.background = '#446'; });
+    panel.appendChild(copyBtn);
+
+    document.body.appendChild(panel);
+    this._debugPanel = panel;
+};
+
+ShadowLight._removeDebugUI = function() {
+    if (this._debugPanel) {
+        this._debugPanel.remove();
+        this._debugPanel = null;
+    }
 };
 
 //=============================================================================

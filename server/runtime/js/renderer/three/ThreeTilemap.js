@@ -265,10 +265,13 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                 posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
                 posArray[posOff + j * 3 + 2] = 0;
 
-                // Normal: 모든 타일 쿼드는 Z+ 방향 (카메라를 향함)
+                // Normal: Mode3D(Y-down projectionMatrix 반전)에서는 normalMatrix도 반전되므로
+                // Z-로 설정해야 반전 후 Z+(카메라 향함)이 되어 라이팅 정상 작동
+                // 2D 모드에서는 Z+ (기본)
+                var nz = (window.ConfigManager && window.ConfigManager.mode3d) ? -1 : 1;
                 normalArray[posOff + j * 3]     = 0;
                 normalArray[posOff + j * 3 + 1] = 0;
-                normalArray[posOff + j * 3 + 2] = 1;
+                normalArray[posOff + j * 3 + 2] = nz;
 
                 if (!isShadow) {
                     // UV: 픽셀→정규화, 애니메이션 오프셋 적용, flipY
@@ -336,15 +339,18 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                 texture.generateMipmaps = false;
                 texture.anisotropy = 1;
 
-                // ShadowLight 활성 시 조명을 받을 수 있도록 MeshLambertMaterial 사용
+                // ShadowLight 활성 시 조명을 받을 수 있도록 MeshPhongMaterial 사용
+                // (MeshLambertMaterial은 per-vertex lighting이라 큰 메시에서 PointLight 효과가 안 보임)
                 if (window.ShadowLight && window.ShadowLight._active) {
-                    material = new THREE.MeshLambertMaterial({
+                    material = new THREE.MeshPhongMaterial({
                         map: texture,
                         transparent: true,
                         depthTest: false,
                         depthWrite: false,
                         side: THREE.DoubleSide,
                         emissive: new THREE.Color(0x111111),
+                        specular: new THREE.Color(0x000000),
+                        shininess: 0,
                     });
                 } else {
                     material = new THREE.MeshBasicMaterial({
