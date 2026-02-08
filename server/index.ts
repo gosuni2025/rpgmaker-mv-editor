@@ -1,4 +1,3 @@
-import fs from 'fs';
 import http from 'http';
 import path from 'path';
 import express from 'express';
@@ -24,26 +23,9 @@ app.use(express.json({ limit: '50mb' }));
 const runtimePath = path.join(__dirname, 'runtime');
 
 // /game/index.html - 동적 생성 (내장 런타임 JS + 프로젝트 플러그인)
+// plugins.js만 로드하면 PluginManager.setup()이 main.js에서 개별 플러그인을 동적 로드함
 app.get('/game/index.html', (req, res) => {
   if (!projectManager.isOpen()) return res.status(404).send('No project open');
-
-  // 프로젝트의 plugins.js를 읽어 플러그인 목록 확인
-  const pluginsJsPath = path.join(projectManager.currentPath!, 'js', 'plugins.js');
-  let pluginScripts = '';
-  try {
-    const pluginsContent = fs.readFileSync(pluginsJsPath, 'utf-8');
-    // plugins.js에서 $plugins 배열 파싱
-    const match = pluginsContent.match(/\$plugins\s*=\s*(\[[\s\S]*?\]);/);
-    if (match) {
-      const plugins = JSON.parse(match[1]) as Array<{name: string; status: boolean}>;
-      pluginScripts = plugins
-        .filter((p: {name: string; status: boolean}) => p.status)
-        .map((p: {name: string; status: boolean}) => `        <script type="text/javascript" src="js/plugins/${p.name}.js"></script>`)
-        .join('\n');
-    }
-  } catch (e) {
-    // 플러그인 없으면 무시
-  }
 
   const title = path.basename(projectManager.currentPath!);
   const html = `<!DOCTYPE html>
@@ -79,7 +61,6 @@ app.get('/game/index.html', (req, res) => {
         <script type="text/javascript" src="js/rpg_sprites.js"></script>
         <script type="text/javascript" src="js/rpg_windows.js"></script>
         <script type="text/javascript" src="js/plugins.js"></script>
-${pluginScripts}
         <script type="text/javascript" src="js/main.js"></script>
     </body>
 </html>`;
