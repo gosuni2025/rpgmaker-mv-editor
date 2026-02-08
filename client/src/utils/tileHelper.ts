@@ -316,26 +316,17 @@ function findFloorShape(
   top: boolean, right: boolean, bottom: boolean, left: boolean,
   topLeft: boolean, topRight: boolean, bottomLeft: boolean, bottomRight: boolean
 ): number {
-  // In RPG Maker MV, corners only produce a visual difference when ALL 4 edges
-  // are connected AND ALL 4 corners are connected (shape 47 = fully inner tile).
-  // Otherwise (any edge or corner missing), corners are treated as absent (shape 46 for 4-edge).
-  const allEdges = top && right && bottom && left;
-  const allCorners = allEdges && topLeft && topRight && bottomLeft && bottomRight;
-  const tl = allCorners;
-  const tr = allCorners;
-  const bl = allCorners;
-  const br = allCorners;
+  // In RPG Maker MV, a corner matters only when BOTH adjacent edges are connected.
+  // e.g. topLeft matters only when top && left are both true.
+  const tl = top && left && topLeft;
+  const tr = top && right && topRight;
+  const bl = bottom && left && bottomLeft;
+  const br = bottom && right && bottomRight;
 
-  // Free diagonals: diagonal present but NEITHER adjacent edge connected
-  const tlFree = !top && !left && topLeft;
-  const trFree = !top && !right && topRight;
-  const blFree = !bottom && !left && bottomLeft;
-  const brFree = !bottom && !right && bottomRight;
-
-  const c0 = q0Coords(top, left, tl || tlFree);
-  const c1 = q1Coords(top, right, tr || trFree);
-  const c2 = q2Coords(bottom, left, bl || blFree);
-  const c3 = q3Coords(bottom, right, br || brFree);
+  const c0 = q0Coords(top, left, tl);
+  const c1 = q1Coords(top, right, tr);
+  const c2 = q2Coords(bottom, left, bl);
+  const c3 = q3Coords(bottom, right, br);
   const key = `${c0[0]},${c0[1]},${c1[0]},${c1[1]},${c2[0]},${c2[1]},${c3[0]},${c3[1]}`;
   return FLOOR_SHAPE_LOOKUP.get(key) ?? 0;
 }
@@ -375,7 +366,7 @@ export function computeAutoShapeForPosition(
   const kind = getAutotileKind(tileId);
 
   function sameKind(nx: number, ny: number): boolean {
-    if (nx < 0 || nx >= width || ny < 0 || ny >= height) return false;
+    if (nx < 0 || nx >= width || ny < 0 || ny >= height) return true;
     const nId = data[(z * height + ny) * width + nx];
     if (!isAutotile(nId) || isTileA5(nId)) return false;
     return getAutotileKind(nId) === kind;

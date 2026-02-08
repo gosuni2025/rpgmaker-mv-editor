@@ -56,6 +56,7 @@ interface GeneratorStatus {
   available: boolean;
   inProject: boolean;
   steamAvailable: boolean;
+  customPath: string | null;
 }
 
 const GENDER_LABELS: Record<Gender, string> = { Male: '남성', Female: '여성', Kid: '아이' };
@@ -91,6 +92,8 @@ export default function CharacterGeneratorDialog() {
   const [genStatus, setGenStatus] = useState<GeneratorStatus | null>(null);
   const [copying, setCopying] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
+  const [customPath, setCustomPath] = useState('');
+  const [pathError, setPathError] = useState('');
 
   // 내보내기 모달
   const [exportModal, setExportModal] = useState<{ type: string } | null>(null);
@@ -104,7 +107,7 @@ export default function CharacterGeneratorDialog() {
   useEffect(() => {
     apiClient.get<GeneratorStatus>('/generator/status')
       .then(setGenStatus)
-      .catch(() => setGenStatus({ available: false, inProject: false, steamAvailable: false }));
+      .catch(() => setGenStatus({ available: false, inProject: false, steamAvailable: false, customPath: null }));
   }, []);
 
   // gradients 로드
@@ -364,31 +367,65 @@ export default function CharacterGeneratorDialog() {
   const scale = outputType === 'SV' ? 0.5 : 1.5;
   const availableParts = FACE_RENDER_ORDER.filter((pn) => manifest[pn]?.patterns?.length > 0);
 
+  const handleSetCustomPath = async () => {
+    if (!customPath.trim()) return;
+    setPathError('');
+    try {
+      await apiClient.post('/generator/set-path', { path: customPath.trim() });
+      const status = await apiClient.get<GeneratorStatus>('/generator/status');
+      setGenStatus(status);
+      if (!status.available) {
+        setPathError('해당 경로에서 Generator 리소스를 찾을 수 없습니다 (gradients.png 필요)');
+      }
+    } catch (e: any) {
+      setPathError(e?.message || '경로 설정 실패');
+    }
+  };
+
   // Generator 리소스 미사용 가능 상태
   if (genStatus && !genStatus.available) {
     return (
       <div className="db-dialog-overlay" onClick={handleClose}>
-        <div className="db-dialog" onClick={(e) => e.stopPropagation()} style={{ width: 500, height: 'auto' }}>
+        <div className="db-dialog" onClick={(e) => e.stopPropagation()} style={{ width: 560, height: 'auto' }}>
           <div className="db-dialog-header">캐릭터 생성기</div>
-          <div style={{ padding: 20, textAlign: 'center' }}>
-            <p style={{ marginBottom: 12, color: '#ccc' }}>
+          <div style={{ padding: 20 }}>
+            <p style={{ marginBottom: 16, color: '#ccc', textAlign: 'center' }}>
               Generator 리소스를 찾을 수 없습니다.
             </p>
-            {genStatus.steamAvailable ? (
-              <>
-                <p style={{ fontSize: 12, color: '#999', marginBottom: 16 }}>
-                  Steam에서 Generator 리소스를 감지했습니다. 프로젝트로 복사하시겠습니까?
+            {genStatus.steamAvailable && (
+              <div style={{ marginBottom: 16, textAlign: 'center' }}>
+                <p style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>
+                  Steam에서 Generator 리소스를 감지했습니다.
                 </p>
                 <button className="db-btn" onClick={handleCopyToProject} disabled={copying}>
                   {copying ? '복사 중...' : '프로젝트에 복사'}
                 </button>
-              </>
-            ) : (
-              <p style={{ fontSize: 12, color: '#999' }}>
-                RPG Maker MV가 Steam에 설치되어 있어야 합니다.
-              </p>
+              </div>
             )}
-            {statusMsg && <p style={{ marginTop: 12, fontSize: 12, color: '#7af' }}>{statusMsg}</p>}
+            <div style={{ borderTop: '1px solid #555', paddingTop: 16 }}>
+              <p style={{ fontSize: 12, color: '#aaa', marginBottom: 8 }}>
+                Generator 폴더 경로를 직접 지정:
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  value={customPath}
+                  onChange={(e) => setCustomPath(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSetCustomPath(); }}
+                  placeholder="/path/to/Generator"
+                  style={{
+                    flex: 1, background: '#2b2b2b', border: '1px solid #555', borderRadius: 3,
+                    padding: '6px 10px', color: '#ddd', fontSize: 12, outline: 'none',
+                  }}
+                />
+                <button className="db-btn" onClick={handleSetCustomPath}>설정</button>
+              </div>
+              {pathError && <p style={{ marginTop: 6, fontSize: 11, color: '#f77' }}>{pathError}</p>}
+              <p style={{ marginTop: 8, fontSize: 11, color: '#666' }}>
+                gradients.png, Face/, TV/, SV/, Variation/ 폴더가 포함된 경로를 지정하세요.
+              </p>
+            </div>
+            {statusMsg && <p style={{ marginTop: 12, fontSize: 12, color: '#7af', textAlign: 'center' }}>{statusMsg}</p>}
           </div>
           <div className="db-dialog-footer">
             <button className="db-btn" onClick={handleClose}>닫기</button>

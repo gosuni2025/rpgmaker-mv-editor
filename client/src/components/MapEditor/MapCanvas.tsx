@@ -813,7 +813,7 @@ export default function MapCanvas() {
         const idx = (z * latestMap.height + tile.y) * latestMap.width + tile.x;
         const oldTileId = latestMap.data[idx];
         if (oldTileId !== 0) {
-          pushUndo([{ x: tile.x, y: tile.y, z, tileId: oldTileId }]);
+          pushUndo([{ x: tile.x, y: tile.y, z, oldTileId, newTileId: 0 }]);
           updateMapTiles([{ x: tile.x, y: tile.y, z, tileId: 0 }]);
         }
         return;

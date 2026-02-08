@@ -5,31 +5,71 @@ import projectManager from '../services/projectManager';
 
 const router = express.Router();
 
-const GENERATOR_PATH = path.join(
-  process.env.HOME || '',
-  'Library/Application Support/Steam/steamapps/common/RPG Maker MV/RPG Maker MV.app/Contents/MacOS/Generator'
-);
+// 기본 Steam 설치 경로 후보들
+const STEAM_GENERATOR_PATHS = [
+  path.join(process.env.HOME || '', 'Library/Application Support/Steam/steamapps/common/RPG Maker MV/RPG Maker MV.app/Contents/MacOS/Generator'),
+  path.join(process.env.HOME || '', '.steam/steam/steamapps/common/RPG Maker MV/Generator'),
+  'C:\\Program Files (x86)\\Steam\\steamapps\\common\\RPG Maker MV\\Generator',
+  'C:\\Program Files\\Steam\\steamapps\\common\\RPG Maker MV\\Generator',
+];
+
+// 사용자 지정 경로 (런타임에 설정 가능)
+let customGeneratorPath: string | null = null;
 
 const VALID_GENDERS = ['Male', 'Female', 'Kid'];
 const VALID_OUTPUT_TYPES = ['Face', 'TV', 'SV', 'TVD'];
 
-// Generator 경로 결정: 프로젝트 내 generator/ 폴더 우선, 없으면 Steam 경로
-function getGeneratorPath(): string {
-  if (projectManager.isOpen()) {
-    const projectGen = path.join(projectManager.currentPath!, 'generator');
-    if (fs.existsSync(projectGen) && fs.existsSync(path.join(projectGen, 'gradients.png'))) {
-      return projectGen;
+function findSteamGeneratorPath(): string | null {
+  for (const p of STEAM_GENERATOR_PATHS) {
+    if (fs.existsSync(p) && fs.existsSync(path.join(p, 'gradients.png'))) {
+      return p;
     }
   }
-  return GENERATOR_PATH;
+  return null;
 }
 
-// GET /api/generator/status - Check if Generator resources are available
+function isValidGeneratorPath(p: string): boolean {
+  return fs.existsSync(p) && fs.existsSync(path.join(p, 'gradients.png'));
+}
+
+// Generator 경로 결정: 1) 프로젝트 내 generator/ 2) 사용자 지정 3) Steam 자동 탐색
+function getGeneratorPath(): string | null {
+  if (projectManager.isOpen()) {
+    const projectGen = path.join(projectManager.currentPath!, 'generator');
+    if (isValidGeneratorPath(projectGen)) return projectGen;
+  }
+  if (customGeneratorPath && isValidGeneratorPath(customGeneratorPath)) return customGeneratorPath;
+  return findSteamGeneratorPath();
+}
+
+// GET /api/generator/status
 router.get('/status', (_req: Request, res: Response) => {
   const genPath = getGeneratorPath();
-  const exists = fs.existsSync(genPath) && fs.existsSync(path.join(genPath, 'gradients.png'));
-  const inProject = projectManager.isOpen() && genPath !== GENERATOR_PATH;
-  res.json({ available: exists, path: genPath, inProject, steamAvailable: fs.existsSync(GENERATOR_PATH) });
+  const steamPath = findSteamGeneratorPath();
+  const available = genPath !== null;
+  const inProject = available && projectManager.isOpen() &&
+    genPath === path.join(projectManager.currentPath!, 'generator');
+  res.json({
+    available,
+    path: genPath,
+    inProject,
+    steamAvailable: steamPath !== null,
+    customPath: customGeneratorPath,
+  });
+});
+
+// POST /api/generator/set-path - 사용자 지정 Generator 경로 설정
+router.post('/set-path', (req: Request, res: Response) => {
+  const { path: newPath } = req.body as { path: string };
+  if (!newPath) {
+    customGeneratorPath = null;
+    return res.json({ success: true, cleared: true });
+  }
+  if (!isValidGeneratorPath(newPath)) {
+    return res.status(400).json({ error: '유효하지 않은 Generator 경로입니다. gradients.png 파일이 포함된 폴더를 지정하세요.' });
+  }
+  customGeneratorPath = newPath;
+  res.json({ success: true, path: newPath });
 });
 
 // POST /api/generator/copy-to-project - Copy Generator resources into project
@@ -38,12 +78,16 @@ router.post('/copy-to-project', (req: Request, res: Response) => {
     if (!projectManager.isOpen()) {
       return res.status(404).json({ error: 'No project open' });
     }
-    if (!fs.existsSync(GENERATOR_PATH)) {
-      return res.status(404).json({ error: 'Generator resources not found at Steam path' });
+    const srcPath = getGeneratorPath();
+    if (!srcPath) {
+      return res.status(404).json({ error: 'Generator resources not found' });
     }
-
+    // 이미 프로젝트 안에 있으면 복사 불필요
     const destDir = path.join(projectManager.currentPath!, 'generator');
-    copyDirRecursive(GENERATOR_PATH, destDir);
+    if (srcPath === destDir) {
+      return res.json({ success: true, path: destDir, message: 'Already in project' });
+    }
+    copyDirRecursive(srcPath, destDir);
 
     res.json({ success: true, path: destDir });
   } catch (err: unknown) {
@@ -67,7 +111,9 @@ function copyDirRecursive(src: string, dest: string) {
 // GET /api/generator/gradients - Serve gradients.png palette image
 router.get('/gradients', (_req: Request, res: Response) => {
   try {
-    const filePath = path.join(getGeneratorPath(), 'gradients.png');
+    const genPath = getGeneratorPath();
+    if (!genPath) return res.status(404).json({ error: 'Generator not configured' });
+    const filePath = path.join(genPath, 'gradients.png');
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'gradients.png not found' });
     }
@@ -237,7 +283,9 @@ router.get('/parts/:gender/:outputType', (req: Request<{ gender: string; outputT
       return res.status(400).json({ error: `Invalid output type: ${outputType}` });
     }
 
-    const dirPath = path.join(getGeneratorPath(), outputType, gender);
+    const genPath = getGeneratorPath();
+    if (!genPath) return res.status(404).json({ error: 'Generator not configured' });
+    const dirPath = path.join(genPath, outputType, gender);
     if (!fs.existsSync(dirPath)) {
       return res.status(404).json({ error: 'Directory not found' });
     }
@@ -266,7 +314,9 @@ router.get('/variation/:gender/:part', (req: Request<{ gender: string; part: str
       return res.status(400).json({ error: `Invalid gender: ${gender}` });
     }
 
-    const dirPath = path.join(getGeneratorPath(), 'Variation', gender);
+    const genPath = getGeneratorPath();
+    if (!genPath) return res.status(404).json({ error: 'Generator not configured' });
+    const dirPath = path.join(genPath, 'Variation', gender);
     if (!fs.existsSync(dirPath)) {
       return res.status(404).json({ error: 'Directory not found' });
     }
@@ -303,7 +353,9 @@ router.get('/image/:outputType/:gender/:filename', (req: Request<{ outputType: s
       return res.status(400).json({ error: `Invalid gender: ${gender}` });
     }
 
-    const filePath = path.join(getGeneratorPath(), outputType, gender, filename);
+    const genPath = getGeneratorPath();
+    if (!genPath) return res.status(404).json({ error: 'Generator not configured' });
+    const filePath = path.join(genPath, outputType, gender, filename);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'File not found' });
     }
