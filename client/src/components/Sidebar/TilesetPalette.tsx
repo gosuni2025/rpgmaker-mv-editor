@@ -246,6 +246,15 @@ export default function TilesetPalette() {
 
   const handleTabClick = (tab: PaletteTab) => {
     setActiveTab(tab);
+    if (tab === 'R') {
+      setCurrentLayer(5);
+    } else if (currentMap) {
+      // Reset layer when switching away from R
+      const layer = useEditorStore.getState().currentLayer;
+      if (layer === 5) {
+        setCurrentLayer(tab === 'A' ? 0 : 1);
+      }
+    }
   };
 
   const hasSheet = (tab: PaletteTab): boolean => {

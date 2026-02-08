@@ -249,6 +249,30 @@ export default function MapCanvas() {
       }
     }
 
+    // Region overlay when in region editing mode (layer 5)
+    if (currentLayer === 5) {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const regionId = data[(5 * height + y) * width + x];
+          if (regionId === 0) continue;
+          const rx = x * TILE_SIZE_PX;
+          const ry = y * TILE_SIZE_PX;
+          const hue = (regionId * 137) % 360;
+          ctx.fillStyle = `hsla(${hue}, 60%, 40%, 0.5)`;
+          ctx.fillRect(rx, ry, TILE_SIZE_PX, TILE_SIZE_PX);
+          ctx.save();
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = '#000';
+          ctx.shadowBlur = 2;
+          ctx.fillText(String(regionId), rx + TILE_SIZE_PX / 2, ry + TILE_SIZE_PX / 2);
+          ctx.restore();
+        }
+      }
+    }
+
     if (events) {
       const showEventDetails = editMode === 'event';
       events.forEach((ev) => {
@@ -315,7 +339,7 @@ export default function MapCanvas() {
         }
       });
     }
-  }, [currentMap, tilesetImages, charImages, showGrid, editMode]);
+  }, [currentMap, tilesetImages, charImages, showGrid, editMode, currentLayer]);
 
   const canvasToTile = useCallback((e: React.MouseEvent<HTMLElement>) => {
     const canvas = canvasRef.current;
@@ -394,6 +418,22 @@ export default function MapCanvas() {
       const { x, y } = tilePos;
       if (x < 0 || x >= latestMap.width || y < 0 || y >= latestMap.height) return;
 
+      // Region layer: direct placement, no autotile
+      if (currentLayer === 5) {
+        if (selectedTool === 'fill') {
+          floodFill(x, y);
+          return;
+        }
+        const z = 5;
+        const idx = (z * latestMap.height + y) * latestMap.width + x;
+        const oldTileId = latestMap.data[idx];
+        const newTileId = selectedTool === 'eraser' ? 0 : selectedTileId;
+        if (oldTileId === newTileId) return;
+        pendingChanges.current.push({ x, y, z, oldTileId, newTileId });
+        updateMapTiles([{ x, y, z, tileId: newTileId }]);
+        return;
+      }
+
       if (selectedTool === 'eraser') {
         const changes: TileChange[] = [];
         const updates: { x: number; y: number; z: number; tileId: number }[] = [];
@@ -429,6 +469,34 @@ export default function MapCanvas() {
       const z = currentLayer;
       const data = [...latestMap.data];
       const targetId = data[(z * height + startY) * width + startX];
+
+      // Region layer: simple flood fill, no autotile
+      if (z === 5) {
+        if (targetId === selectedTileId) return;
+        const visited = new Set<string>();
+        const queue = [{ x: startX, y: startY }];
+        const changes: TileChange[] = [];
+        const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+        while (queue.length > 0) {
+          const { x, y } = queue.shift()!;
+          const key = `${x},${y}`;
+          if (visited.has(key)) continue;
+          if (x < 0 || x >= width || y < 0 || y >= height) continue;
+          const idx = (z * height + y) * width + x;
+          if (data[idx] !== targetId) continue;
+          visited.add(key);
+          changes.push({ x, y, z, oldTileId: targetId, newTileId: selectedTileId });
+          updates.push({ x, y, z, tileId: selectedTileId });
+          data[idx] = selectedTileId;
+          queue.push({ x: x + 1, y }, { x: x - 1, y }, { x, y: y + 1 }, { x, y: y - 1 });
+        }
+        if (updates.length > 0) {
+          updateMapTiles(updates);
+          pushUndo(changes);
+        }
+        return;
+      }
+
       // For autotiles, compare by kind not exact ID
       const targetIsAutotile = isAutotile(targetId) && !isTileA5(targetId);
       const targetKind = targetIsAutotile ? getAutotileKindExported(targetId) : -1;
@@ -535,6 +603,26 @@ export default function MapCanvas() {
       if (!latestMap || positions.length === 0) return;
       const { width, height } = latestMap;
       const z = currentLayer;
+
+      // Region layer: direct batch placement, no autotile
+      if (z === 5) {
+        const changes: TileChange[] = [];
+        const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+        for (const { x, y } of positions) {
+          const idx = (z * height + y) * width + x;
+          const oldId = latestMap.data[idx];
+          if (oldId !== tileId) {
+            changes.push({ x, y, z, oldTileId: oldId, newTileId: tileId });
+            updates.push({ x, y, z, tileId });
+          }
+        }
+        if (updates.length > 0) {
+          updateMapTiles(updates);
+          pushUndo(changes);
+        }
+        return;
+      }
+
       const data = [...latestMap.data];
       const oldData = latestMap.data;
 
