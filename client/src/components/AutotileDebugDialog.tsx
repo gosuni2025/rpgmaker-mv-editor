@@ -3,7 +3,6 @@ import useEditorStore from '../store/useEditorStore';
 import {
   getTileRenderInfo, TILE_SIZE_PX, makeAutotileId,
   getAutotileBlockInfo, getShapeNeighbors,
-  getFloorHalfTileMeanings, getWallHalfTileMeanings,
   TILE_ID_A1,
 } from '../utils/tileHelper';
 
@@ -248,50 +247,159 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
       ctx.stroke();
     }
 
-    // Draw 3x3 minimal bitmask on each half-tile in the sprite sheet.
-    // Each half-tile is used by a specific quarter (TL/TR/BL/BR) with specific neighbor conditions.
-    // Use getFloorHalfTileMeanings / getWallHalfTileMeanings to get the exact meaning.
+    // 3x3 minimal bitmask overlay on each half-tile.
+    // Floor autotile source area (4×6 half-tiles) is divided into 3 regions:
+    //   Region 1 (top-left 2×2 half-tiles): UNUSED (duplicates of region 3)
+    //   Region 2 (top-right 2×2 half-tiles): inner corners - flag ON except corners
+    //   Region 3 (bottom 4×4 half-tiles): area tiles - flag ON except outer edges
+    // Wall autotile (4×4 half-tiles): similar but 2 rows only
+    //
+    // "Flag ON" = neighbor exists in that direction (red).
+    // When placing, match flagged directions against actual neighbor tiles.
     const halfTileScale = HALF * scale;
     const miniSub = halfTileScale / 3;
 
-    const meaningMap = tableType === 'wall'
-      ? getWallHalfTileMeanings()
-      : tableType === 'floor'
-      ? getFloorHalfTileMeanings()
-      : null;
-
-    if (meaningMap) {
-      for (let gy = 0; gy < srcHalfH; gy++) {
-        for (let gx = 0; gx < srcHalfW; gx++) {
-          const key = `${gx},${gy}`;
-          const meanings = meaningMap.get(key);
-          if (!meanings || meanings.length === 0) continue;
-
+    if (tableType === 'floor') {
+      // --- Region 1: top-left 2×2 half-tiles (0,0)-(1,1) → X (unused) ---
+      for (let gy = 0; gy < 2; gy++) {
+        for (let gx = 0; gx < 2; gx++) {
           const hx = padding + gx * halfTileScale;
           const hy = drawY + padding + gy * halfTileScale;
+          // Draw X over it
+          ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(hx + 2, hy + 2);
+          ctx.lineTo(hx + halfTileScale - 2, hy + halfTileScale - 2);
+          ctx.moveTo(hx + halfTileScale - 2, hy + 2);
+          ctx.lineTo(hx + 2, hy + halfTileScale - 2);
+          ctx.stroke();
+        }
+      }
 
-          // Use the first meaning entry
-          const m = meanings[0];
+      // --- Region 2: top-right 2×2 half-tiles (2,0)-(3,1) → inner corners ---
+      // Flag ON for everything except the outer corner of each half-tile
+      // Each half-tile in a 2×2 block: the corner facing outward is OFF
+      const region2Grids: Record<string, boolean[][]> = {
+        '2,0': [ // top-left of inner corner block → bottom-right corner OFF
+          [true, true, true],
+          [true, true, true],
+          [true, true, false],
+        ],
+        '3,0': [ // top-right → bottom-left corner OFF
+          [true, true, true],
+          [true, true, true],
+          [false, true, true],
+        ],
+        '2,1': [ // bottom-left → top-right corner OFF
+          [true, true, false],
+          [true, true, true],
+          [true, true, true],
+        ],
+        '3,1': [ // bottom-right → top-left corner OFF
+          [false, true, true],
+          [true, true, true],
+          [true, true, true],
+        ],
+      };
 
-          // Build 3x3 grid: true = neighbor present (red), false = absent (no fill), null = don't care (dim)
-          const grid: (boolean | null)[][] = [
-            [m.topLeft, m.top, m.topRight],
-            [m.left, true, m.right],
-            [m.bottomLeft, m.bottom, m.bottomRight],
+      for (const [key, grid] of Object.entries(region2Grids)) {
+        const [gx, gy] = key.split(',').map(Number);
+        const hx = padding + gx * halfTileScale;
+        const hy = drawY + padding + gy * halfTileScale;
+        for (let my = 0; my < 3; my++) {
+          for (let mx = 0; mx < 3; mx++) {
+            const sx = hx + mx * miniSub;
+            const sy = hy + my * miniSub;
+            if (grid[my][mx]) {
+              ctx.fillStyle = 'rgba(255, 50, 50, 0.5)';
+              ctx.fillRect(sx, sy, miniSub, miniSub);
+            }
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(sx, sy, miniSub, miniSub);
+          }
+        }
+      }
+
+      // --- Region 3: bottom 4×4 half-tiles (0,2)-(3,5) → area tiles ---
+      // Flag ON for interior, OFF for outer edges
+      for (let gy = 2; gy < 6; gy++) {
+        for (let gx = 0; gx < 4; gx++) {
+          const hx = padding + gx * halfTileScale;
+          const hy = drawY + padding + gy * halfTileScale;
+          const isTopEdge = gy === 2;
+          const isBottomEdge = gy === 5;
+          const isLeftEdge = gx === 0;
+          const isRightEdge = gx === 3;
+
+          const grid: boolean[][] = [
+            [
+              !isTopEdge && !isLeftEdge,  // top-left
+              !isTopEdge,                  // top
+              !isTopEdge && !isRightEdge,  // top-right
+            ],
+            [
+              !isLeftEdge,                 // left
+              true,                        // center (always self)
+              !isRightEdge,                // right
+            ],
+            [
+              !isBottomEdge && !isLeftEdge,  // bottom-left
+              !isBottomEdge,                  // bottom
+              !isBottomEdge && !isRightEdge,  // bottom-right
+            ],
           ];
 
           for (let my = 0; my < 3; my++) {
             for (let mx = 0; mx < 3; mx++) {
-              const val = grid[my][mx];
               const sx = hx + mx * miniSub;
               const sy = hy + my * miniSub;
-              if (val === true) {
+              if (grid[my][mx]) {
                 ctx.fillStyle = 'rgba(255, 50, 50, 0.5)';
                 ctx.fillRect(sx, sy, miniSub, miniSub);
-              } else if (val === false) {
-                // Not present - leave empty (dark)
               }
-              // null = irrelevant to this quarter - leave transparent
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+              ctx.lineWidth = 0.5;
+              ctx.strokeRect(sx, sy, miniSub, miniSub);
+            }
+          }
+        }
+      }
+
+      // Region labels
+      ctx.fillStyle = 'rgba(255, 100, 100, 0.8)';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText('안씀', padding + 4, drawY + padding + halfTileScale + 12);
+      ctx.fillText('inner corners', padding + 2 * halfTileScale + 4, drawY + padding + halfTileScale + 12);
+      ctx.fillText('area tiles', padding + 4, drawY + padding + 4 * halfTileScale + 12);
+
+    } else if (tableType === 'wall') {
+      // Wall: 4×4 half-tiles, all area tiles
+      // Outer edges OFF, interior ON
+      for (let gy = 0; gy < 4; gy++) {
+        for (let gx = 0; gx < 4; gx++) {
+          const hx = padding + gx * halfTileScale;
+          const hy = drawY + padding + gy * halfTileScale;
+          const isTop = gy === 0;
+          const isBottom = gy === 3;
+          const isLeft = gx === 0;
+          const isRight = gx === 3;
+
+          const grid: boolean[][] = [
+            [!isTop && !isLeft, !isTop, !isTop && !isRight],
+            [!isLeft, true, !isRight],
+            [!isBottom && !isLeft, !isBottom, !isBottom && !isRight],
+          ];
+
+          for (let my = 0; my < 3; my++) {
+            for (let mx = 0; mx < 3; mx++) {
+              const sx = hx + mx * miniSub;
+              const sy = hy + my * miniSub;
+              if (grid[my][mx]) {
+                ctx.fillStyle = 'rgba(255, 50, 50, 0.5)';
+                ctx.fillRect(sx, sy, miniSub, miniSub);
+              }
               ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
               ctx.lineWidth = 0.5;
               ctx.strokeRect(sx, sy, miniSub, miniSub);
