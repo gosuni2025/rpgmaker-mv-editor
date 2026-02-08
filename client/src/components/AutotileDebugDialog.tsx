@@ -3,7 +3,7 @@ import useEditorStore from '../store/useEditorStore';
 import {
   getTileRenderInfo, TILE_SIZE_PX,
   isAutotile, isTileA5, getAutotileKindExported, makeAutotileId,
-  getAutotileBlockInfo,
+  getAutotileBlockInfo, getShapeNeighbors,
   TILE_ID_A1, TILE_ID_A2, TILE_ID_A3, TILE_ID_A4, TILE_ID_A5,
 } from '../utils/tileHelper';
 
@@ -249,6 +249,41 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
     }
   }, [selectedKind, tilesetImages]);
 
+  // Draw 3x3 neighbor bitmask overlay on a shape cell
+  const drawNeighborOverlay = useCallback((
+    ctx: CanvasRenderingContext2D,
+    dx: number, dy: number, cellSize: number,
+    shape: number, tableType: 'floor' | 'wall' | 'waterfall'
+  ) => {
+    const neighbors = getShapeNeighbors(shape, tableType);
+    const sub = cellSize / 3;
+    // 3x3 grid: [row][col] mapping to directions
+    // [tl, top, tr]
+    // [left, center, right]
+    // [bl, bottom, br]
+    const grid: [string, boolean][][] = [
+      [['topLeft', neighbors.topLeft], ['top', neighbors.top], ['topRight', neighbors.topRight]],
+      [['left', neighbors.left], ['center', true], ['right', neighbors.right]],
+      [['bottomLeft', neighbors.bottomLeft], ['bottom', neighbors.bottom], ['bottomRight', neighbors.bottomRight]],
+    ];
+
+    for (let gy = 0; gy < 3; gy++) {
+      for (let gx = 0; gx < 3; gx++) {
+        const [, active] = grid[gy][gx];
+        const sx = dx + gx * sub;
+        const sy = dy + gy * sub;
+        if (active) {
+          ctx.fillStyle = 'rgba(255, 50, 50, 0.45)';
+          ctx.fillRect(sx, sy, sub, sub);
+        }
+        // Grid line
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(sx, sy, sub, sub);
+      }
+    }
+  }, []);
+
   // Draw all 48 shapes for the selected kind
   const drawAllShapes = useCallback(() => {
     const canvas = shapesCanvasRef.current;
@@ -256,9 +291,15 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Determine table type for this kind
+    const baseTileId = TILE_ID_A1 + selectedKind * 48;
+    const blockInfo = getAutotileBlockInfo(baseTileId);
+    const tableType = blockInfo?.tableType ?? 'floor';
+    const shapeCount = tableType === 'wall' ? 16 : tableType === 'waterfall' ? 4 : 48;
+
     const shapeSize = 48;
     const cols = 8;
-    const rows = Math.ceil(48 / cols);
+    const rows = Math.ceil(shapeCount / cols);
     const padding = 10;
     const labelH = 14;
 
@@ -270,9 +311,9 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
 
     ctx.fillStyle = '#fff';
     ctx.font = '12px monospace';
-    ctx.fillText(`48 shapes (kind=${selectedKind}):`, padding, 18);
+    ctx.fillText(`${shapeCount} shapes (kind=${selectedKind}, ${tableType}):`, padding, 18);
 
-    for (let s = 0; s < 48; s++) {
+    for (let s = 0; s < shapeCount; s++) {
       const sid = makeAutotileId(selectedKind, s);
       const info = getTileRenderInfo(sid);
       const col = s % cols;
@@ -296,12 +337,15 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
         }
       }
 
+      // Draw 3x3 neighbor bitmask overlay
+      drawNeighborOverlay(ctx, dx, dy, shapeSize, s, tableType);
+
       // Shape index label
       ctx.fillStyle = '#888';
       ctx.font = '10px monospace';
       ctx.fillText(`${s}`, dx + 2, dy + shapeSize + 11);
     }
-  }, [selectedKind, tilesetImages]);
+  }, [selectedKind, tilesetImages, drawNeighborOverlay]);
 
   useEffect(() => {
     if (open && selectedKind !== null) {

@@ -399,6 +399,76 @@ export function computeAutoShapeForPosition(
   }
 }
 
+// Reverse lookup: shape → neighbor bitmask for floor autotiles
+// Bitmask bits: top=1, right=2, bottom=4, left=8, topLeft=16, topRight=32, bottomLeft=64, bottomRight=128
+// Returns the canonical neighbor bitmask that produces this shape
+const FLOOR_SHAPE_TO_BITMASK: number[] = [];
+const WALL_SHAPE_TO_BITMASK: number[] = [];
+
+(function buildShapeToBitmask() {
+  // Floor: try all 256 combinations of 8 directions
+  // We want the "minimal" bitmask for each shape (fewest neighbors set)
+  const floorMap = new Map<number, number>();
+  for (let mask = 0; mask < 256; mask++) {
+    const top = !!(mask & 1);
+    const right = !!(mask & 2);
+    const bottom = !!(mask & 4);
+    const left = !!(mask & 8);
+    const tl = !!(mask & 16);
+    const tr = !!(mask & 32);
+    const bl = !!(mask & 64);
+    const br = !!(mask & 128);
+    const shape = findFloorShape(top, right, bottom, left, tl, tr, bl, br);
+    if (!floorMap.has(shape)) {
+      floorMap.set(shape, mask);
+    }
+  }
+  for (let s = 0; s < 48; s++) {
+    FLOOR_SHAPE_TO_BITMASK[s] = floorMap.get(s) ?? 0;
+  }
+
+  // Wall: try all 16 combinations of 4 directions
+  const wallMap = new Map<number, number>();
+  for (let mask = 0; mask < 16; mask++) {
+    const top = !!(mask & 1);
+    const right = !!(mask & 2);
+    const bottom = !!(mask & 4);
+    const left = !!(mask & 8);
+    const shape = findWallShape(top, right, bottom, left);
+    if (!wallMap.has(shape)) {
+      wallMap.set(shape, mask);
+    }
+  }
+  for (let s = 0; s < 16; s++) {
+    WALL_SHAPE_TO_BITMASK[s] = wallMap.get(s) ?? 0;
+  }
+})();
+
+export interface ShapeNeighborInfo {
+  top: boolean; right: boolean; bottom: boolean; left: boolean;
+  topLeft: boolean; topRight: boolean; bottomLeft: boolean; bottomRight: boolean;
+}
+
+export function getShapeNeighbors(shape: number, tableType: 'floor' | 'wall' | 'waterfall'): ShapeNeighborInfo {
+  let mask = 0;
+  if (tableType === 'floor') {
+    mask = FLOOR_SHAPE_TO_BITMASK[shape] ?? 0;
+  } else if (tableType === 'wall') {
+    mask = WALL_SHAPE_TO_BITMASK[shape] ?? 0;
+  } else {
+    // waterfall: left=bit0, right=bit1
+    mask = ((shape & 1) ? 0 : 8) | ((shape & 2) ? 0 : 2); // invert: shape bit means NOT connected
+    return {
+      top: false, right: !!(shape & 2) === false, bottom: false, left: !!(shape & 1) === false,
+      topLeft: false, topRight: false, bottomLeft: false, bottomRight: false,
+    };
+  }
+  return {
+    top: !!(mask & 1), right: !!(mask & 2), bottom: !!(mask & 4), left: !!(mask & 8),
+    topLeft: !!(mask & 16), topRight: !!(mask & 32), bottomLeft: !!(mask & 64), bottomRight: !!(mask & 128),
+  };
+}
+
 // Get autotile source block info (sheet, bx, by, table type) for debug/visualization
 export interface AutotileBlockInfo {
   setNumber: number;
