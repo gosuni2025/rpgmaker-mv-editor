@@ -269,7 +269,7 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
             <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
               {Object.entries(COMMAND_CATEGORIES).map(([category, cmds]) => (
                 <div key={category}>
-                  <div style={{ fontWeight: 'bold', fontSize: 12, color: '#bbb', padding: '8px 4px 4px', borderBottom: '1px solid #444' }}>{category}</div>
+                  <div style={{ fontWeight: 'bold', fontSize: 12, color: '#4ea6f5', padding: '8px 8px 4px', borderBottom: '1px solid #444', background: '#333' }}>{category}</div>
                   <div className="insert-command-grid">
                     {cmds.map(c => (
                       <div
