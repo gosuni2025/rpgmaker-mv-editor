@@ -247,6 +247,86 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
       ctx.lineTo(padding + srcPxW * scale, y);
       ctx.stroke();
     }
+
+    // Draw 3x3 neighbor bitmask on each half-tile in the sprite sheet
+    // For each half-tile (qsx, qsy), find which shapes use it and for which quarter,
+    // then show the "common" neighbor pattern
+    const shapeCount = tableType === 'wall' ? 16 : tableType === 'waterfall' ? 4 : 48;
+    const autotileTable = tableType === 'wall'
+      ? [[2,2],[1,2],[2,1],[1,1],[0,2],[1,2],[0,1],[1,1],[2,0],[1,0],[2,1],[1,1],[0,0],[1,0],[0,1],[1,1],[2,2],[3,2],[2,1],[3,1],[0,2],[3,2],[0,1],[3,1],[2,0],[3,0],[2,1],[3,1],[0,0],[3,0],[0,1],[3,1],[2,2],[1,2],[2,3],[1,3],[0,2],[1,2],[0,3],[1,3],[2,0],[1,0],[2,3],[1,3],[0,0],[1,0],[0,3],[1,3],[2,2],[3,2],[2,3],[3,3],[0,2],[3,2],[0,3],[3,3],[2,0],[3,0],[2,3],[3,3],[0,0],[3,0],[0,3],[3,3]]
+      : null; // Use getTileRenderInfo for actual tables
+
+    // Build a map: "qsx,qsy" → list of {shape, quarterIndex}
+    const halfTileUsage = new Map<string, { shape: number; qi: number }[]>();
+    for (let s = 0; s < shapeCount; s++) {
+      const sid = makeAutotileId(selectedKind, s);
+      const info = getTileRenderInfo(sid);
+      if (!info || info.type !== 'autotile') continue;
+      for (let qi = 0; qi < 4; qi++) {
+        const q = info.quarters[qi];
+        // Convert absolute pixel coords back to relative half-tile coords
+        const absSrcX = bx * 2 * HALF;
+        const absSrcY = by * 2 * HALF;
+        const relQsx = Math.round((q.sx - absSrcX) / HALF);
+        const relQsy = Math.round((q.sy - absSrcY) / HALF);
+        if (relQsx < 0 || relQsx >= srcHalfW || relQsy < 0 || relQsy >= srcHalfH) continue;
+        const key = `${relQsx},${relQsy}`;
+        if (!halfTileUsage.has(key)) halfTileUsage.set(key, []);
+        halfTileUsage.get(key)!.push({ shape: s, qi });
+      }
+    }
+
+    // For each half-tile, compute the "typical" neighbor pattern
+    // by OR-ing the bitmasks of all shapes that use it
+    const halfTileScale = HALF * scale;
+    const miniSub = halfTileScale / 3;
+
+    for (let gy = 0; gy < srcHalfH; gy++) {
+      for (let gx = 0; gx < srcHalfW; gx++) {
+        const key = `${gx},${gy}`;
+        const usages = halfTileUsage.get(key);
+        if (!usages || usages.length === 0) continue;
+
+        // Collect all neighbor patterns for shapes using this half-tile
+        // Use intersection (AND) so we show what's ALWAYS true for this half-tile
+        let commonNeighbors = {
+          top: true, right: true, bottom: true, left: true,
+          topLeft: true, topRight: true, bottomLeft: true, bottomRight: true,
+        };
+        for (const { shape } of usages) {
+          const n = getShapeNeighbors(shape, tableType);
+          commonNeighbors.top = commonNeighbors.top && n.top;
+          commonNeighbors.right = commonNeighbors.right && n.right;
+          commonNeighbors.bottom = commonNeighbors.bottom && n.bottom;
+          commonNeighbors.left = commonNeighbors.left && n.left;
+          commonNeighbors.topLeft = commonNeighbors.topLeft && n.topLeft;
+          commonNeighbors.topRight = commonNeighbors.topRight && n.topRight;
+          commonNeighbors.bottomLeft = commonNeighbors.bottomLeft && n.bottomLeft;
+          commonNeighbors.bottomRight = commonNeighbors.bottomRight && n.bottomRight;
+        }
+
+        const hx = padding + gx * halfTileScale;
+        const hy = drawY + padding + gy * halfTileScale;
+
+        const miniGrid: boolean[][] = [
+          [commonNeighbors.topLeft, commonNeighbors.top, commonNeighbors.topRight],
+          [commonNeighbors.left, true, commonNeighbors.right],
+          [commonNeighbors.bottomLeft, commonNeighbors.bottom, commonNeighbors.bottomRight],
+        ];
+
+        for (let my = 0; my < 3; my++) {
+          for (let mx = 0; mx < 3; mx++) {
+            if (miniGrid[my][mx]) {
+              ctx.fillStyle = 'rgba(255, 50, 50, 0.4)';
+              ctx.fillRect(hx + mx * miniSub, hy + my * miniSub, miniSub, miniSub);
+            }
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(hx + mx * miniSub, hy + my * miniSub, miniSub, miniSub);
+          }
+        }
+      }
+    }
   }, [selectedKind, tilesetImages]);
 
   // Draw 3x3 neighbor bitmask overlay on a shape cell
