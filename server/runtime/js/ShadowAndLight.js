@@ -484,22 +484,34 @@ Spriteset_Map.prototype._deactivateShadowLight = function() {
     }
 };
 
+/**
+ * wrapper hierarchy의 _x, _y를 부모 체인 따라 합산하여 월드 좌표 계산
+ * (Three.js의 matrixWorld는 syncTransform 이전에 호출하면 부정확)
+ */
+ShadowLight._getWrapperWorldPos = function(wrapper) {
+    var wx = 0, wy = 0;
+    var cur = wrapper;
+    while (cur) {
+        wx += (cur._x || 0);
+        wy += (cur._y || 0);
+        cur = cur.parent;
+    }
+    return { x: wx, y: wy };
+};
+
 Spriteset_Map.prototype._updatePointLights = function() {
     ShadowLight._pointLightIndex = 0;
 
     // 플레이어 라이트
     if ($gamePlayer && !$gamePlayer.isTransparent()) {
         var playerSprite = this._getPlayerSprite();
-        if (playerSprite && playerSprite._threeObj) {
+        if (playerSprite) {
             var light = ShadowLight._getPointLight();
             light.color.setHex(ShadowLight.config.playerLightColor);
             light.intensity = ShadowLight.config.playerLightIntensity;
             light.distance = ShadowLight.config.playerLightDistance;
-            // 월드 좌표 계산
-            playerSprite._threeObj.updateWorldMatrix(true, false);
-            var worldPos = new THREE.Vector3();
-            playerSprite._threeObj.getWorldPosition(worldPos);
-            light.position.set(worldPos.x, worldPos.y - 24, ShadowLight.config.playerLightZ);
+            var wp = ShadowLight._getWrapperWorldPos(playerSprite);
+            light.position.set(wp.x, wp.y - 24, ShadowLight.config.playerLightZ);
         }
     }
 
@@ -512,18 +524,15 @@ Spriteset_Map.prototype._updatePointLights = function() {
         var lightMatch = note.match(/<light(?:\s*:\s*(\d+)(?:\s*,\s*#?([0-9a-fA-F]{6}))?)?>/i);
         if (lightMatch) {
             var evSprite = this._getEventSprite(ev);
-            if (evSprite && evSprite._threeObj) {
+            if (evSprite) {
                 var light = ShadowLight._getPointLight();
                 var dist = lightMatch[1] ? parseInt(lightMatch[1]) : 150;
                 var color = lightMatch[2] ? parseInt(lightMatch[2], 16) : 0xffcc88;
                 light.color.setHex(color);
                 light.intensity = 1.0;
                 light.distance = dist;
-                // 월드 좌표 계산
-                evSprite._threeObj.updateWorldMatrix(true, false);
-                var worldPos = new THREE.Vector3();
-                evSprite._threeObj.getWorldPosition(worldPos);
-                light.position.set(worldPos.x, worldPos.y - 24, ShadowLight.config.playerLightZ);
+                var wp = ShadowLight._getWrapperWorldPos(evSprite);
+                light.position.set(wp.x, wp.y - 24, ShadowLight.config.playerLightZ);
             }
         }
     }
