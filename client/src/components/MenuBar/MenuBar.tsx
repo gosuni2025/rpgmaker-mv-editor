@@ -153,11 +153,7 @@ export default function MenuBar() {
       case 'eventSearch': setShowEventSearchDialog(true); break;
       case 'characterGenerator': setShowCharacterGeneratorDialog(true); break;
       case 'resourceManager': setShowResourceManagerDialog(true); break;
-      case 'playtest': {
-        const devParam = new URLSearchParams(window.location.search).has('dev') ? '?dev=true' : '';
-        saveCurrentMap().then(() => window.open('/game/index.html' + devParam, '_blank'));
-        break;
-      }
+      case 'playtest': saveCurrentMap().then(() => window.open('/game/index.html?dev=true', '_blank')); break;
       case 'openFolder': fetch('/api/project/open-folder', { method: 'POST' }); break;
       case 'autotileDebug': window.dispatchEvent(new CustomEvent('editor-autotile-debug')); break;
     }
