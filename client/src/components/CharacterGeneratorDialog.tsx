@@ -47,10 +47,15 @@ interface GradientSwatch {
   color: string;
 }
 
-// 부품별 선택 상태
 interface PartSelection {
-  patternId: string | null; // null = 없음
-  colorRows: Record<number, number>; // colorLayerIndex -> gradientRow
+  patternId: string | null;
+  colorRows: Record<number, number>;
+}
+
+interface GeneratorStatus {
+  available: boolean;
+  inProject: boolean;
+  steamAvailable: boolean;
 }
 
 const GENDER_LABELS: Record<Gender, string> = { Male: '남성', Female: '여성', Kid: '아이' };
@@ -59,6 +64,11 @@ const OUTPUT_SIZES: Record<OutputType, { w: number; h: number }> = {
   Face: { w: 144, h: 144 },
   TV: { w: 144, h: 192 },
   SV: { w: 576, h: 384 },
+};
+const EXPORT_TYPE_LABELS: Record<string, string> = {
+  faces: '얼굴 (img/faces)',
+  characters: '걷기 캐릭터 (img/characters)',
+  sv_actors: '전투 캐릭터 (img/sv_actors)',
 };
 
 export default function CharacterGeneratorDialog() {
@@ -77,21 +87,40 @@ export default function CharacterGeneratorDialog() {
   const [gradients, setGradients] = useState<ImageData | null>(null);
   const [swatches, setSwatches] = useState<GradientSwatch[]>([]);
 
+  // 상태 / 리소스 복사
+  const [genStatus, setGenStatus] = useState<GeneratorStatus | null>(null);
+  const [copying, setCopying] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
+
+  // 내보내기 모달
+  const [exportModal, setExportModal] = useState<{ type: string } | null>(null);
+  const [exportName, setExportName] = useState('');
+  const exportInputRef = useRef<HTMLInputElement>(null);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewTimerRef = useRef<number>(0);
 
-  // gradients 로드 (한번만)
+  // Generator 상태 확인
   useEffect(() => {
+    apiClient.get<GeneratorStatus>('/generator/status')
+      .then(setGenStatus)
+      .catch(() => setGenStatus({ available: false, inProject: false, steamAvailable: false }));
+  }, []);
+
+  // gradients 로드
+  useEffect(() => {
+    if (!genStatus?.available) return;
     loadGradients('/api/generator/gradients').then((gd) => {
       setGradients(gd);
       setSwatches(getGradientSwatches(gd));
     }).catch(console.error);
-  }, []);
+  }, [genStatus?.available]);
 
   // 성별/출력타입 변경 시 매니페스트 로드
   useEffect(() => {
+    if (!genStatus?.available) return;
     loadManifest();
-  }, [gender, outputType]);
+  }, [gender, outputType, genStatus?.available]);
 
   const loadManifest = async () => {
     try {
@@ -127,10 +156,7 @@ export default function CharacterGeneratorDialog() {
           colorRows[cl.index] = cl.defaultGradientRow;
         }
       }
-      // Body와 Face는 기본 선택
-      const shouldSelect = partName === 'Body' || partName === 'Face' ||
-                           partName === 'Eyes' || partName === 'Ears' ||
-                           partName === 'Eyebrows' || partName === 'Nose' || partName === 'Mouth';
+      const shouldSelect = ['Body', 'Face', 'Eyes', 'Ears', 'Eyebrows', 'Nose', 'Mouth'].includes(partName);
       sel[partName] = {
         patternId: shouldSelect ? firstPattern.id : null,
         colorRows,
@@ -141,17 +167,13 @@ export default function CharacterGeneratorDialog() {
 
   // 부품별 Variation 아이콘 로드
   useEffect(() => {
-    if (!activePart) return;
+    if (!activePart || !genStatus?.available) return;
     const key = `${gender}/${activePart}`;
     if (variations[key]) return;
     apiClient.get<VariationIcon[]>(`/generator/variation/${gender}/${activePart}`)
-      .then((icons) => {
-        setVariations((prev) => ({ ...prev, [key]: icons }));
-      })
-      .catch(() => {
-        setVariations((prev) => ({ ...prev, [key]: [] }));
-      });
-  }, [gender, activePart]);
+      .then((icons) => setVariations((prev) => ({ ...prev, [key]: icons })))
+      .catch(() => setVariations((prev) => ({ ...prev, [key]: [] })));
+  }, [gender, activePart, genStatus?.available]);
 
   // 미리보기 렌더링
   useEffect(() => {
@@ -218,7 +240,6 @@ export default function CharacterGeneratorDialog() {
     setSelections((prev) => {
       const current = prev[activePart] || { patternId: null, colorRows: {} };
       const colorRows = { ...current.colorRows };
-      // Face 모드에서 패턴 변경 시 기본 color row 설정
       if (patternId && outputType === 'Face') {
         const partData = faceManifest[activePart];
         const pattern = partData?.patterns.find((p) => p.id === patternId);
@@ -256,7 +277,6 @@ export default function CharacterGeneratorDialog() {
         sel[partName] = { patternId: null, colorRows: {} };
         continue;
       }
-      // 필수 부품은 항상 선택, 나머지는 50% 확률
       const isMandatory = ['Body', 'Face', 'Eyes', 'Ears', 'Eyebrows', 'Nose', 'Mouth'].includes(partName);
       const shouldSelect = isMandatory || Math.random() > 0.5;
       if (!shouldSelect) {
@@ -278,35 +298,49 @@ export default function CharacterGeneratorDialog() {
     setSelections(sel);
   }, [outputType, faceManifest, tvsvManifest]);
 
-  const handleExport = async (exportType: 'faces' | 'characters' | 'sv_actors') => {
-    if (!canvasRef.current) return;
-    // 해당 타입으로 렌더링
-    let targetOutput: OutputType;
-    let targetSize: { w: number; h: number };
-    if (exportType === 'faces') {
-      targetOutput = 'Face';
-      targetSize = OUTPUT_SIZES.Face;
-    } else if (exportType === 'characters') {
-      targetOutput = 'TV';
-      targetSize = OUTPUT_SIZES.TV;
-    } else {
-      targetOutput = 'SV';
-      targetSize = OUTPUT_SIZES.SV;
-    }
+  // 내보내기 모달 열기
+  const openExportModal = (exportType: string) => {
+    setExportName('');
+    setExportModal({ type: exportType });
+    setTimeout(() => exportInputRef.current?.focus(), 50);
+  };
 
+  // 실제 내보내기 실행
+  const doExport = async () => {
+    if (!canvasRef.current || !exportModal || !exportName.trim()) return;
     const canvas = canvasRef.current;
     const data = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-    const name = prompt('파일 이름을 입력하세요:');
-    if (!name) return;
+    const filename = exportName.trim().endsWith('.png') ? exportName.trim() : exportName.trim() + '.png';
     try {
       await apiClient.post('/generator/export', {
-        type: exportType,
-        name: name.endsWith('.png') ? name : name + '.png',
+        type: exportModal.type,
+        name: filename,
         data,
       });
-      alert('내보내기 완료!');
+      setStatusMsg(`내보내기 완료: ${filename}`);
+      setExportModal(null);
+      setTimeout(() => setStatusMsg(''), 3000);
     } catch (e) {
-      alert('내보내기 실패: ' + e);
+      setStatusMsg(`내보내기 실패: ${e}`);
+      setTimeout(() => setStatusMsg(''), 5000);
+    }
+  };
+
+  // Steam에서 프로젝트로 복사
+  const handleCopyToProject = async () => {
+    setCopying(true);
+    setStatusMsg('Generator 리소스를 프로젝트로 복사 중...');
+    try {
+      await apiClient.post('/generator/copy-to-project', {});
+      setStatusMsg('복사 완료! 리소스를 다시 불러옵니다...');
+      const status = await apiClient.get<GeneratorStatus>('/generator/status');
+      setGenStatus(status);
+      setStatusMsg('Generator 리소스가 프로젝트에 복사되었습니다.');
+      setTimeout(() => setStatusMsg(''), 3000);
+    } catch (e) {
+      setStatusMsg(`복사 실패: ${e}`);
+    } finally {
+      setCopying(false);
     }
   };
 
@@ -319,7 +353,6 @@ export default function CharacterGeneratorDialog() {
   const variationKey = `${gender}/${activePart}`;
   const currentVariations = variations[variationKey] ?? [];
 
-  // Face 모드에서 현재 패턴의 색상 레이어 목록
   const currentFacePattern = outputType === 'Face'
     ? (faceManifest[activePart]?.patterns.find((p) => p.id === currentSelection.patternId) as FacePattern | undefined)
     : undefined;
@@ -327,12 +360,43 @@ export default function CharacterGeneratorDialog() {
     ? currentFacePattern.colorLayers.map((cl) => cl.index)
     : [];
 
-  // 프리뷰 캔버스 크기
   const previewSize = OUTPUT_SIZES[outputType];
   const scale = outputType === 'SV' ? 0.5 : 1.5;
-
-  // 어떤 파트가 활성화되어 있는지 (선택된 패턴이 있는지)
   const availableParts = FACE_RENDER_ORDER.filter((pn) => manifest[pn]?.patterns?.length > 0);
+
+  // Generator 리소스 미사용 가능 상태
+  if (genStatus && !genStatus.available) {
+    return (
+      <div className="db-dialog-overlay" onClick={handleClose}>
+        <div className="db-dialog" onClick={(e) => e.stopPropagation()} style={{ width: 500, height: 'auto' }}>
+          <div className="db-dialog-header">캐릭터 생성기</div>
+          <div style={{ padding: 20, textAlign: 'center' }}>
+            <p style={{ marginBottom: 12, color: '#ccc' }}>
+              Generator 리소스를 찾을 수 없습니다.
+            </p>
+            {genStatus.steamAvailable ? (
+              <>
+                <p style={{ fontSize: 12, color: '#999', marginBottom: 16 }}>
+                  Steam에서 Generator 리소스를 감지했습니다. 프로젝트로 복사하시겠습니까?
+                </p>
+                <button className="db-btn" onClick={handleCopyToProject} disabled={copying}>
+                  {copying ? '복사 중...' : '프로젝트에 복사'}
+                </button>
+              </>
+            ) : (
+              <p style={{ fontSize: 12, color: '#999' }}>
+                RPG Maker MV가 Steam에 설치되어 있어야 합니다.
+              </p>
+            )}
+            {statusMsg && <p style={{ marginTop: 12, fontSize: 12, color: '#7af' }}>{statusMsg}</p>}
+          </div>
+          <div className="db-dialog-footer">
+            <button className="db-btn" onClick={handleClose}>닫기</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="db-dialog-overlay" onClick={handleClose}>
@@ -370,7 +434,6 @@ export default function CharacterGeneratorDialog() {
           {/* 패턴 선택 + 색상 팔레트 */}
           <div className="cg-pattern-area">
             <div className="cg-pattern-grid">
-              {/* 없음 옵션 */}
               <div
                 className={`cg-pattern-cell none-cell${currentSelection.patternId === null ? ' selected' : ''}`}
                 onClick={() => handleSelectPattern(null)}
@@ -399,7 +462,6 @@ export default function CharacterGeneratorDialog() {
               })}
             </div>
 
-            {/* 색상 팔레트 */}
             {currentSelection.patternId && (
               <div className="cg-color-area">
                 <div className="cg-color-label">색상</div>
@@ -455,17 +517,58 @@ export default function CharacterGeneratorDialog() {
                 }}
               />
             </div>
+            {statusMsg && (
+              <div style={{ fontSize: 11, color: '#7af', textAlign: 'center' }}>{statusMsg}</div>
+            )}
           </div>
         </div>
 
         <div className="db-dialog-footer">
+          {!genStatus?.inProject && genStatus?.steamAvailable && (
+            <button className="db-btn" onClick={handleCopyToProject} disabled={copying} style={{ marginRight: 'auto' }}>
+              {copying ? '복사 중...' : '리소스를 프로젝트에 복사'}
+            </button>
+          )}
           <button className="db-btn" onClick={handleRandomize}>랜덤</button>
-          <button className="db-btn" onClick={() => handleExport('faces')}>얼굴 내보내기</button>
-          <button className="db-btn" onClick={() => handleExport('characters')}>걷기 캐릭터 내보내기</button>
-          <button className="db-btn" onClick={() => handleExport('sv_actors')}>전투 캐릭터 내보내기</button>
+          <button className="db-btn" onClick={() => openExportModal('faces')}>얼굴 내보내기</button>
+          <button className="db-btn" onClick={() => openExportModal('characters')}>걷기 내보내기</button>
+          <button className="db-btn" onClick={() => openExportModal('sv_actors')}>전투 내보내기</button>
           <button className="db-btn" onClick={handleClose}>닫기</button>
         </div>
       </div>
+
+      {/* 내보내기 모달 */}
+      {exportModal && (
+        <div className="db-dialog-overlay" style={{ zIndex: 2100 }} onClick={() => setExportModal(null)}>
+          <div className="cg-export-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="db-dialog-header">내보내기 - {EXPORT_TYPE_LABELS[exportModal.type]}</div>
+            <div style={{ padding: 16 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#aaa' }}>
+                파일 이름
+                <input
+                  ref={exportInputRef}
+                  type="text"
+                  value={exportName}
+                  onChange={(e) => setExportName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') doExport(); }}
+                  placeholder="예: GeneratedFace"
+                  style={{
+                    background: '#2b2b2b', border: '1px solid #555', borderRadius: 3,
+                    padding: '6px 10px', color: '#ddd', fontSize: 13, outline: 'none',
+                  }}
+                />
+              </label>
+              <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+                .png 확장자는 자동으로 추가됩니다
+              </div>
+            </div>
+            <div className="db-dialog-footer">
+              <button className="db-btn" onClick={doExport} disabled={!exportName.trim()}>저장</button>
+              <button className="db-btn" onClick={() => setExportModal(null)}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

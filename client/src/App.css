@@ -1438,3 +1438,11 @@ body {
   border: 1px solid #555;
   background: #222;
 }
+
+.cg-export-modal {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
