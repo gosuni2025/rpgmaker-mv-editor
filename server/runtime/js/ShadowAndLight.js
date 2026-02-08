@@ -255,6 +255,8 @@ ShadowLight._getPointLight = function() {
     return light;
 };
 
+ShadowLight._lastPointLightCount = 0;
+
 ShadowLight._hideUnusedPointLights = function() {
     for (var i = this._pointLightIndex; i < this._pointLights.length; i++) {
         this._pointLights[i].visible = false;
@@ -538,6 +540,40 @@ Spriteset_Map.prototype._updatePointLights = function() {
     }
 
     ShadowLight._hideUnusedPointLights();
+
+    // PointLight 개수 변경 시 타일맵 material 셰이더 재컴파일
+    var activeCount = ShadowLight._pointLightIndex;
+    if (activeCount !== ShadowLight._lastPointLightCount) {
+        ShadowLight._lastPointLightCount = activeCount;
+        ShadowLight._invalidateTilemapMaterials(this._tilemap);
+    }
+};
+
+/**
+ * 타일맵 MeshLambertMaterial의 needsUpdate를 설정하여 셰이더 재컴파일 트리거
+ * (scene의 라이트 구성이 변경되면 셰이더에 새 라이트를 반영해야 함)
+ */
+ShadowLight._invalidateTilemapMaterials = function(tilemap) {
+    if (!tilemap) return;
+    var zLayers = [tilemap.lowerZLayer, tilemap.upperZLayer];
+    for (var z = 0; z < zLayers.length; z++) {
+        var zLayer = zLayers[z];
+        if (!zLayer || !zLayer.children) continue;
+        for (var c = 0; c < zLayer.children.length; c++) {
+            var composite = zLayer.children[c];
+            if (!composite || !composite.children) continue;
+            for (var r = 0; r < composite.children.length; r++) {
+                var rectLayer = composite.children[r];
+                if (!rectLayer || !rectLayer._meshes) continue;
+                for (var key in rectLayer._meshes) {
+                    var mesh = rectLayer._meshes[key];
+                    if (mesh && mesh.material && mesh.material.isMeshLambertMaterial) {
+                        mesh.material.needsUpdate = true;
+                    }
+                }
+            }
+        }
+    }
 };
 
 Spriteset_Map.prototype._getPlayerSprite = function() {
