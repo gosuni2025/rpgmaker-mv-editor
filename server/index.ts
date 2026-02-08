@@ -13,6 +13,7 @@ import resourcesRoutes from './routes/resources';
 import audioRoutes from './routes/audio';
 import pluginsRoutes from './routes/plugins';
 import eventsRoutes from './routes/events';
+import generatorRoutes from './routes/generator';
 
 const app = express();
 app.use(cors());
@@ -35,6 +36,7 @@ app.use('/api/resources', resourcesRoutes);
 app.use('/api/audio', audioRoutes);
 app.use('/api/plugins', pluginsRoutes);
 app.use('/api/events', eventsRoutes);
+app.use('/api/generator', generatorRoutes);
 
 const server = http.createServer(app);
 
