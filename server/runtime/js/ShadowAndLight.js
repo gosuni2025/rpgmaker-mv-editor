@@ -74,8 +74,9 @@ ShadowLight.config = {
 
     // 플레이어 포인트 라이트
     playerLightColor: 0xffcc88,       // 횃불 색상
-    playerLightIntensity: 1.5,
-    playerLightDistance: 300,          // 범위 (px)
+    playerLightIntensity: 2.0,
+    playerLightDistance: 500,          // 범위 (px)
+    playerLightZ: 30,                 // 높이 (낮을수록 넓게 퍼짐)
 
     // 그림자 설정
     shadowOpacity: 0.4,
@@ -239,7 +240,7 @@ ShadowLight._removeLightsFromScene = function(scene) {
 ShadowLight._getPointLight = function() {
     var idx = this._pointLightIndex;
     if (idx >= this._pointLights.length) {
-        var light = new THREE.PointLight(0xffffff, 0, 200);
+        var light = new THREE.PointLight(0xffffff, 0, 200, 0);  // decay=0 (감쇠 없음)
         this._pointLights.push(light);
     }
     var light = this._pointLights[idx];
@@ -498,7 +499,7 @@ Spriteset_Map.prototype._updatePointLights = function() {
             playerSprite._threeObj.updateWorldMatrix(true, false);
             var worldPos = new THREE.Vector3();
             playerSprite._threeObj.getWorldPosition(worldPos);
-            light.position.set(worldPos.x, worldPos.y - 24, 80);
+            light.position.set(worldPos.x, worldPos.y - 24, ShadowLight.config.playerLightZ);
         }
     }
 
@@ -522,7 +523,7 @@ Spriteset_Map.prototype._updatePointLights = function() {
                 evSprite._threeObj.updateWorldMatrix(true, false);
                 var worldPos = new THREE.Vector3();
                 evSprite._threeObj.getWorldPosition(worldPos);
-                light.position.set(worldPos.x, worldPos.y - 24, 80);
+                light.position.set(worldPos.x, worldPos.y - 24, ShadowLight.config.playerLightZ);
             }
         }
     }
