@@ -424,7 +424,7 @@ export default function CharacterGeneratorDialog() {
               <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11, color: '#888', lineHeight: '24px' }}>기본 경로:</span>
                 <button className="db-btn" style={{ fontSize: 10, padding: '2px 8px' }}
-                  onClick={() => setCustomPath('~/Library/Application Support/Steam/steamapps/common/RPG Maker MV/Generator')}>
+                  onClick={() => setCustomPath('~/Library/Application Support/Steam/steamapps/common/RPG Maker MV/RPG Maker MV.app/Contents/MacOS/Generator')}>
                   macOS
                 </button>
                 <button className="db-btn" style={{ fontSize: 10, padding: '2px 8px' }}

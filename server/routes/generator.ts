@@ -7,6 +7,7 @@ const router = express.Router();
 
 // 기본 Steam 설치 경로 후보들
 const STEAM_GENERATOR_PATHS = [
+  path.join(process.env.HOME || '', 'Library/Application Support/Steam/steamapps/common/RPG Maker MV/RPG Maker MV.app/Contents/MacOS/Generator'),
   path.join(process.env.HOME || '', 'Library/Application Support/Steam/steamapps/common/RPG Maker MV/Generator'),
   path.join(process.env.HOME || '', '.steam/steam/steamapps/common/RPG Maker MV/Generator'),
   'C:\\Program Files (x86)\\Steam\\steamapps\\common\\RPG Maker MV\\Generator',
