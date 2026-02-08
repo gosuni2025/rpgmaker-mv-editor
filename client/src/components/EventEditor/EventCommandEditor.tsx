@@ -264,21 +264,23 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
 
       {showAddDialog && (
         <div className="modal-overlay" onClick={() => setShowAddDialog(false)}>
-          <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: 500, height: 500 }}>
+          <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: 700, height: 600 }}>
             <div className="image-picker-header">Insert Command</div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
               {Object.entries(COMMAND_CATEGORIES).map(([category, cmds]) => (
                 <div key={category}>
                   <div style={{ fontWeight: 'bold', fontSize: 12, color: '#bbb', padding: '8px 4px 4px', borderBottom: '1px solid #444' }}>{category}</div>
-                  {cmds.map(c => (
-                    <div
-                      key={c.code}
-                      className="context-menu-item"
-                      onClick={() => handleCommandSelect(c.code)}
-                    >
-                      {c.name}
-                    </div>
-                  ))}
+                  <div className="insert-command-grid">
+                    {cmds.map(c => (
+                      <div
+                        key={c.code}
+                        className="context-menu-item"
+                        onClick={() => handleCommandSelect(c.code)}
+                      >
+                        {c.name}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

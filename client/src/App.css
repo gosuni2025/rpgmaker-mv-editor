@@ -1073,6 +1073,11 @@ body {
   white-space: nowrap;
 }
 
+.insert-command-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .context-menu-item:hover {
   background: #2675bf;
 }
