@@ -28,6 +28,10 @@ export default function DrawToolbar() {
   const zoomIn = useEditorStore((s) => s.zoomIn);
   const zoomOut = useEditorStore((s) => s.zoomOut);
   const saveCurrentMap = useEditorStore((s) => s.saveCurrentMap);
+  const mode3d = useEditorStore((s) => s.mode3d);
+  const shadowLight = useEditorStore((s) => s.shadowLight);
+  const setMode3d = useEditorStore((s) => s.setMode3d);
+  const setShadowLight = useEditorStore((s) => s.setShadowLight);
   const [showGrid, setShowGrid] = React.useState(true);
 
   return (
@@ -105,6 +109,24 @@ export default function DrawToolbar() {
       >
         격자
       </button>
+
+      <div style={styles.separator} />
+
+      {/* 3D / Lighting toggles */}
+      <div style={styles.group}>
+        <button
+          onClick={() => setMode3d(!mode3d)}
+          style={{ ...styles.btn, ...(mode3d ? styles.btnActive : {}) }}
+        >
+          3D
+        </button>
+        <button
+          onClick={() => setShadowLight(!shadowLight)}
+          style={{ ...styles.btn, ...(shadowLight ? styles.btnActive : {}) }}
+        >
+          조명
+        </button>
+      </div>
 
       <div style={styles.separator} />
 

@@ -11,6 +11,9 @@ declare const ThreeContainer: any;
 declare const RendererStrategy: any;
 declare const RendererFactory: any;
 declare const Graphics: any;
+declare const Mode3D: any;
+declare const ShadowLight: any;
+declare const ConfigManager: any;
 
 interface EventContextMenu {
   x: number;
@@ -72,8 +75,8 @@ export default function MapCanvas() {
   const rendererObjRef = useRef<any>(null);
   const tilemapRef = useRef<any>(null);
   const stageRef = useRef<any>(null);
-  const animFrameRef = useRef<number>(0);
   const lastMapDataRef = useRef<number[] | null>(null);
+  const renderRequestedRef = useRef(false);
 
   const currentMap = useEditorStore((s) => s.currentMap);
   const tilesetInfo = useEditorStore((s) => s.tilesetInfo);
@@ -90,6 +93,8 @@ export default function MapCanvas() {
   const pushUndo = useEditorStore((s) => s.pushUndo);
   const setCursorTile = useEditorStore((s) => s.setCursorTile);
   const setSelectedEventId = useEditorStore((s) => s.setSelectedEventId);
+  const mode3d = useEditorStore((s) => s.mode3d);
+  const shadowLight = useEditorStore((s) => s.shadowLight);
 
   const [showGrid, setShowGrid] = useState(true);
   const [tilesetImages, setTilesetImages] = useState<Record<number, HTMLImageElement>>({});
@@ -272,9 +277,31 @@ export default function MapCanvas() {
     canvas.width = mapPxW;
     canvas.height = mapPxH;
 
-    // Create renderer using ThreeRendererStrategy
+    // Create renderer manually with preserveDrawingBuffer for on-demand rendering
     const strategy = RendererStrategy.getStrategy();
-    const rendererObj = strategy.createRenderer(mapPxW, mapPxH, { view: canvas });
+    const THREE = (window as any).THREE;
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: false,
+      alpha: false,
+      preserveDrawingBuffer: true,
+      powerPreference: 'high-performance',
+    });
+    renderer.setSize(mapPxW, mapPxH);
+    renderer.setClearColor(0x000000, 1);
+    renderer.sortObjects = true;
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(0, mapPxW, 0, mapPxH, -10000, 10000);
+    camera.position.z = 100;
+    const rendererObj = {
+      renderer, scene, camera,
+      _width: mapPxW, _height: mapPxH,
+      view: renderer.domElement,
+      gl: renderer.getContext(),
+      textureGC: { maxIdle: 3600, run: () => {} },
+      plugins: {},
+      _drawOrderCounter: 0,
+    };
     rendererObjRef.current = rendererObj;
 
     // Create stage container
@@ -286,6 +313,10 @@ export default function MapCanvas() {
     tilemap._margin = 0;
     tilemap._width = mapPxW;
     tilemap._height = mapPxH;
+    // Initialize animation state (update() is not called in editor mode,
+    // but _hackRenderer reads animationFrame during updateTransform)
+    tilemap.animationCount = 0;
+    tilemap.animationFrame = 0;
     tilemapRef.current = tilemap;
 
     // Set map data
@@ -339,14 +370,12 @@ export default function MapCanvas() {
     stage.addChild(tilemap);
     rendererObj.scene.add(stage._threeObj);
 
-    // Render loop
-    let running = true;
-    function renderLoop() {
-      if (!running) return;
+    // Set Mode3D spriteset reference (for 2-pass 3D rendering)
+    Mode3D._spriteset = tilemap;
 
-      // Update animation (water tiles etc.)
-      tilemap.update();
-
+    // On-demand render function
+    function renderOnce() {
+      if (!rendererObjRef.current) return;
       // Sync map data if changed
       const latestMap = useEditorStore.getState().currentMap;
       if (latestMap && latestMap.data !== lastMapDataRef.current) {
@@ -354,25 +383,78 @@ export default function MapCanvas() {
         tilemap._needsRepaint = true;
         lastMapDataRef.current = latestMap.data;
       }
-
-      // Update transforms and paint tiles
-      tilemap.updateTransform();
-
+      // Reset draw order counter
+      rendererObj._drawOrderCounter = 0;
+      // Update transforms on stage (recurses into tilemap)
+      stage.updateTransform();
       // Sync hierarchy for render order
       strategy._syncHierarchy(rendererObj, stage);
 
-      // Render
-      rendererObj.renderer.render(rendererObj.scene, rendererObj.camera);
-
-      animFrameRef.current = requestAnimationFrame(renderLoop);
+      const is3D = ConfigManager.mode3d && Mode3D._spriteset;
+      if (is3D) {
+        // 3D 2-pass rendering
+        if (!Mode3D._perspCamera) {
+          Mode3D._perspCamera = Mode3D._createPerspCamera(mapPxW, mapPxH);
+        }
+        Mode3D._positionCamera(Mode3D._perspCamera, mapPxW, mapPxH);
+        Mode3D._enforceNearestFilter(rendererObj.scene);
+        rendererObj.renderer.render(rendererObj.scene, Mode3D._perspCamera);
+      } else {
+        rendererObj.renderer.render(rendererObj.scene, rendererObj.camera);
+      }
     }
 
-    animFrameRef.current = requestAnimationFrame(renderLoop);
+    // Debounced render via rAF to coalesce multiple store updates
+    function requestRender() {
+      if (renderRequestedRef.current) return;
+      renderRequestedRef.current = true;
+      requestAnimationFrame(() => {
+        renderRequestedRef.current = false;
+        renderOnce();
+      });
+    }
+
+    // Initial render
+    renderOnce();
+
+    // Subscribe to store changes for on-demand re-render
+    const unsubscribe = useEditorStore.subscribe((state, prevState) => {
+      if (state.currentMap !== prevState.currentMap) {
+        requestRender();
+      }
+      // 3D mode toggle
+      if (state.mode3d !== prevState.mode3d) {
+        if (!state.mode3d) {
+          Mode3D._perspCamera = null;
+        }
+        tilemap._needsRepaint = true;
+        requestRender();
+      }
+      // Lighting toggle
+      if (state.shadowLight !== prevState.shadowLight) {
+        if (state.shadowLight) {
+          ShadowLight._active = true;
+          ShadowLight._addLightsToScene(rendererObj.scene);
+        } else {
+          ShadowLight._active = false;
+          ShadowLight._removeLightsFromScene(rendererObj.scene);
+        }
+        ShadowLight._resetTilemapMeshes(tilemap);
+        tilemap._needsRepaint = true;
+        requestRender();
+      }
+    });
 
     return () => {
-      running = false;
-      cancelAnimationFrame(animFrameRef.current);
-      // Cleanup
+      unsubscribe();
+      // Cleanup lighting
+      if (ShadowLight._active) {
+        ShadowLight._removeLightsFromScene(rendererObj.scene);
+        ShadowLight._active = false;
+      }
+      Mode3D._spriteset = null;
+      Mode3D._perspCamera = null;
+      // Cleanup renderer
       if (rendererObj && rendererObj.renderer) {
         rendererObj.renderer.dispose();
       }

@@ -76,6 +76,10 @@ export interface EditorState {
   // Event editor
   selectedEventId: number | null;
 
+  // 3D / Lighting
+  mode3d: boolean;
+  shadowLight: boolean;
+
   // Toast
   toastMessage: string | null;
   showToast: (message: string) => void;
@@ -137,6 +141,8 @@ export interface EditorState {
   setCursorTile: (x: number, y: number) => void;
   setSelection: (start: { x: number; y: number } | null, end: { x: number; y: number } | null) => void;
   setSelectedEventId: (id: number | null) => void;
+  setMode3d: (enabled: boolean) => void;
+  setShadowLight: (enabled: boolean) => void;
 
   // Actions - Dialog toggles
   setShowOpenProjectDialog: (show: boolean) => void;
@@ -181,6 +187,8 @@ const useEditorStore = create<EditorState>((set, get) => ({
   selectionStart: null,
   selectionEnd: null,
   selectedEventId: null,
+  mode3d: false,
+  shadowLight: false,
   toastMessage: null,
   showToast: (message: string) => {
     set({ toastMessage: message });
@@ -508,6 +516,16 @@ const useEditorStore = create<EditorState>((set, get) => ({
   setCursorTile: (x: number, y: number) => set({ cursorTileX: x, cursorTileY: y }),
   setSelection: (start, end) => set({ selectionStart: start, selectionEnd: end }),
   setSelectedEventId: (id: number | null) => set({ selectedEventId: id }),
+  setMode3d: (enabled: boolean) => {
+    const ConfigManager = (window as any).ConfigManager;
+    if (ConfigManager) ConfigManager.mode3d = enabled;
+    set({ mode3d: enabled });
+  },
+  setShadowLight: (enabled: boolean) => {
+    const ConfigManager = (window as any).ConfigManager;
+    if (ConfigManager) ConfigManager.shadowLight = enabled;
+    set({ shadowLight: enabled });
+  },
 
   // Dialog toggles
   setShowOpenProjectDialog: (show: boolean) => set({ showOpenProjectDialog: show }),
