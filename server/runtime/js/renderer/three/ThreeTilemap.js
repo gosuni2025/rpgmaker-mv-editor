@@ -348,7 +348,7 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                         depthTest: true,
                         depthWrite: true,
                         side: THREE.DoubleSide,
-                        emissive: new THREE.Color(0x111111),
+                        emissive: new THREE.Color(0x000000),
                         specular: new THREE.Color(0x000000),
                         shininess: 0,
                     });
@@ -367,6 +367,20 @@ ThreeTilemapRectLayer.prototype._flush = function() {
             // ShadowLight 활성 시 그림자를 받을 수 있도록 설정
             if (window.ShadowLight && window.ShadowLight._active && !isShadow) {
                 mesh.receiveShadow = true;
+                // upperZLayer(zIndex=4)의 오브젝트 타일은 그림자를 드리우도록 설정
+                var parentZLayer = this.parent && this.parent.parent;
+                if (parentZLayer && parentZLayer.z === 4) {
+                    mesh.castShadow = true;
+                    // 투명 영역이 그림자를 만들지 않도록 customDepthMaterial 설정
+                    if (texture) {
+                        mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
+                            depthPacking: THREE.RGBADepthPacking,
+                            map: texture,
+                            alphaTest: 0.5,
+                            side: THREE.DoubleSide,
+                        });
+                    }
+                }
             }
             this._meshes[setNumber] = mesh;
             this._threeObj.add(mesh);

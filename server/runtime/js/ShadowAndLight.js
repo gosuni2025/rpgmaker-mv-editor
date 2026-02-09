@@ -67,16 +67,19 @@ ShadowLight._shadowMaterial = null;
 ShadowLight.config = {
     // 광원 설정
     ambientColor: 0x667788,           // 환경광 (어두운 푸른 톤 - 달빛 느낌)
-    ambientIntensity: 0.4,
+    ambientIntensity: 0.2,
     directionalColor: 0xfff8ee,       // 햇빛 색상 (따뜻한 톤)
-    directionalIntensity: 0.1,
+    directionalIntensity: 0.05,
     lightDirection: new THREE.Vector3(-1, -1, -2).normalize(), // 광원 방향 (Z 성분 크게)
 
     // 플레이어 포인트 라이트
     playerLightColor: 0xa25f06,       // 횃불 색상
-    playerLightIntensity: 1.2,
+    playerLightIntensity: 2.7,
     playerLightDistance: 200,          // 범위 (pixel 단위, decay=0에서 이 범위 밖은 영향 없음)
     playerLightZ: 30,                 // 높이
+
+    // 오브젝트 레이어 (upperZLayer) 높이
+    upperLayerZ: 24,                  // PointLight(z=30)와 가까워지도록 상승
 
     // 그림자 설정
     shadowOpacity: 0.4,
@@ -103,13 +106,14 @@ ShadowLight._convertMaterial = function(sprite) {
     var oldMat = sprite._material;
     var newMat = new THREE.MeshPhongMaterial({
         map: oldMat.map,
-        transparent: oldMat.transparent,
+        transparent: false,
+        alphaTest: 0.5,
         depthTest: true,
         depthWrite: true,
         side: oldMat.side,
         opacity: oldMat.opacity,
         blending: oldMat.blending,
-        emissive: new THREE.Color(0x111111),
+        emissive: new THREE.Color(0x000000),
         specular: new THREE.Color(0x000000),  // 반사광 없음
         shininess: 0,
     });
@@ -511,6 +515,11 @@ Spriteset_Map.prototype._activateShadowLight = function() {
     // 타일맵 메시 재생성 (MeshPhongMaterial로 새로 생성되도록)
     ShadowLight._resetTilemapMeshes(this._tilemap);
 
+    // upperZLayer를 z 방향으로 상승시켜 PointLight 조명 효과 개선
+    if (this._tilemap && this._tilemap.upperZLayer) {
+        this._tilemap.upperZLayer._threeObj.position.z = ShadowLight.config.upperLayerZ;
+    }
+
     // 디버그 UI 생성
     ShadowLight._createDebugUI();
 
@@ -532,6 +541,11 @@ Spriteset_Map.prototype._deactivateShadowLight = function() {
 
     // 타일맵 material 복원
     ShadowLight._revertTilemapMaterials(this._tilemap);
+
+    // upperZLayer z 위치 복원
+    if (this._tilemap && this._tilemap.upperZLayer) {
+        this._tilemap.upperZLayer._threeObj.position.z = 4; // 원래 zIndex
+    }
 
     // shadow mesh 숨기기 및 씬 그래프에서 제거
     if (this._shadowMeshes) {
