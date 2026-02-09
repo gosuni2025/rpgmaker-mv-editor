@@ -130,6 +130,7 @@ window.ShadowLight = ShadowLight;
 
 ShadowLight._active = false;
 ShadowLight._spriteset = null;
+ShadowLight._scene = null;         // 에디터에서 직접 설정 가능한 scene 레퍼런스
 
 // 3D 조명 오브젝트
 ShadowLight._directionalLight = null;
@@ -152,7 +153,9 @@ ShadowLight._shadowMaterial = null;
 ShadowLight._findScene = function() {
     var rendererObj = Graphics._rendererObj || Graphics._renderer;
     if (rendererObj && rendererObj.scene) return rendererObj.scene;
-    // fallback: spriteset의 tilemap에서 parent chain 따라 올라가기
+    // fallback 1: 에디터에서 직접 설정한 scene 레퍼런스
+    if (this._scene) return this._scene;
+    // fallback 2: spriteset의 tilemap에서 parent chain 따라 올라가기
     if (this._spriteset && this._spriteset._tilemap && this._spriteset._tilemap._threeObj) {
         var obj = this._spriteset._tilemap._threeObj;
         while (obj.parent) obj = obj.parent;
@@ -857,48 +860,51 @@ ShadowLight._directionToOffset = function(d, dist) {
 Spriteset_Map.prototype._updatePointLights = function() {
     ShadowLight._pointLightIndex = 0;
 
-    // 플레이어 라이트
-    if ($gamePlayer && !$gamePlayer.isTransparent()) {
+    // 플레이어 라이트 (PointLight - 횃불 효과, 플레이어가 보일 때만)
+    var playerWp = null;
+    if ($gamePlayer) {
         var playerSprite = this._getPlayerSprite();
         if (playerSprite) {
+            playerWp = ShadowLight._getWrapperWorldPos(playerSprite);
+        }
+        if (!$gamePlayer.isTransparent() && playerWp) {
             var light = ShadowLight._getPointLight();
             light.color.setHex(ShadowLight.config.playerLightColor);
             light.intensity = ShadowLight.config.playerLightIntensity;
             light.distance = ShadowLight.config.playerLightDistance;
             light.decay = ShadowLight._debugDecay !== undefined ? ShadowLight._debugDecay : 0;
-            var wp = ShadowLight._getWrapperWorldPos(playerSprite);
-            light.position.set(wp.x, wp.y - 24, ShadowLight.config.playerLightZ);
-
-            // SpotLight 위치/방향 업데이트
-            if (ShadowLight._playerSpotLight && ShadowLight.config.spotLightEnabled) {
-                var spot = ShadowLight._playerSpotLight;
-                spot.visible = true;
-                var cfg = ShadowLight.config;
-                spot.color.setHex(cfg.spotLightColor);
-                spot.intensity = cfg.spotLightIntensity;
-                spot.distance = cfg.spotLightDistance;
-                spot.angle = cfg.spotLightAngle;
-                spot.penumbra = cfg.spotLightPenumbra;
-                spot.decay = ShadowLight._debugDecay !== undefined ? ShadowLight._debugDecay : 0;
-
-                // SpotLight를 플레이어 위치 위에 배치
-                spot.position.set(wp.x, wp.y - 24, cfg.spotLightZ);
-
-                // target을 플레이어가 바라보는 방향으로 설정
-                var dir = $gamePlayer.direction();
-                var off = ShadowLight._directionToOffset(dir, cfg.spotLightTargetDistance);
-                ShadowLight._playerSpotTarget.position.set(
-                    wp.x + off.x,
-                    wp.y - 24 + off.y,
-                    0  // 바닥 레벨
-                );
-                ShadowLight._playerSpotTarget.updateMatrixWorld();
-            }
+            light.position.set(playerWp.x, playerWp.y - 24, ShadowLight.config.playerLightZ);
         }
     }
 
-    // SpotLight가 비활성 또는 플레이어가 없으면 숨기기
-    if (ShadowLight._playerSpotLight && !ShadowLight.config.spotLightEnabled) {
+    // SpotLight 위치/방향 업데이트 (플레이어 투명 여부 무관 - 에디터에서도 작동)
+    if (ShadowLight._playerSpotLight && ShadowLight.config.spotLightEnabled && playerWp) {
+        var spot = ShadowLight._playerSpotLight;
+        spot.visible = true;
+        var cfg = ShadowLight.config;
+        spot.color.setHex(cfg.spotLightColor);
+        spot.intensity = cfg.spotLightIntensity;
+        spot.distance = cfg.spotLightDistance;
+        spot.angle = cfg.spotLightAngle;
+        spot.penumbra = cfg.spotLightPenumbra;
+        spot.decay = ShadowLight._debugDecay !== undefined ? ShadowLight._debugDecay : 0;
+
+        // SpotLight를 플레이어 위치 위에 배치
+        spot.position.set(playerWp.x, playerWp.y - 24, cfg.spotLightZ);
+
+        // target을 플레이어가 바라보는 방향으로 설정
+        var dir = $gamePlayer.direction();
+        var off = ShadowLight._directionToOffset(dir, cfg.spotLightTargetDistance);
+        ShadowLight._playerSpotTarget.position.set(
+            playerWp.x + off.x,
+            playerWp.y - 24 + off.y,
+            0  // 바닥 레벨
+        );
+        ShadowLight._playerSpotTarget.updateMatrixWorld();
+    }
+
+    // SpotLight가 비활성이면 숨기기
+    if (ShadowLight._playerSpotLight && (!ShadowLight.config.spotLightEnabled || !playerWp)) {
         ShadowLight._playerSpotLight.visible = false;
     }
 

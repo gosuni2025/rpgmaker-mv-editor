@@ -187,6 +187,8 @@ export function useThreeRenderer(
       // 디스플레이 위치를 0,0으로 (에디터에서는 스크롤 없이 전체 맵 표시)
       w.$gameMap._displayX = 0;
       w.$gameMap._displayY = 0;
+      // 에디터에서는 플레이어를 투명 처리 (ShadowLight 플레이어 라이트도 비활성화됨)
+      w.$gamePlayer.setTransparent(true);
 
       // --- Spriteset_Map 생성 ---
       const stage = new ThreeContainer();
@@ -194,6 +196,12 @@ export function useThreeRenderer(
 
       const spriteset = new Spriteset_Map();
       spritesetRef.current = spriteset;
+      w._editorSpriteset = spriteset;
+
+      // Spriteset_Base가 생성하는 _blackScreen(opacity=255)과 _fadeSprite를 투명화
+      // (게임에서는 Scene_Map이 페이드 인 처리하지만 에디터에서는 즉시 표시)
+      if (spriteset._blackScreen) spriteset._blackScreen.opacity = 0;
+      if (spriteset._fadeSprite) spriteset._fadeSprite.opacity = 0;
 
       // Spriteset_Map 내부의 tilemap 참조 저장
       tilemapRef.current = spriteset._tilemap;
@@ -213,6 +221,19 @@ export function useThreeRenderer(
       // stage에 spriteset 추가
       stage.addChild(spriteset);
       rendererObj.scene.add(stage._threeObj);
+
+      // 초기 shadowLight 상태 동기화
+      // scene 레퍼런스를 ShadowLight에 알려주어 _findScene()에서 사용
+      ShadowLight._scene = rendererObj.scene;
+      const editorState = useEditorStore.getState();
+      if (editorState.shadowLight) {
+        w.ConfigManager.shadowLight = true;
+        // _active는 설정하지 않음 → _updateShadowLight에서 전체 _activateShadowLight 수행
+        syncEditorLightsToScene(rendererObj.scene, editorState.currentMap?.editorLights, editorState.mode3d);
+      }
+      if (editorState.mode3d) {
+        w.ConfigManager.mode3d = true;
+      }
 
       // Create 3D grid mesh
       const gridVertices: number[] = [];
@@ -283,12 +304,21 @@ export function useThreeRenderer(
         });
       }
 
-      // 초기 렌더링 (비트맵 로드 대기)
+      // 초기 렌더링 (비트맵 로드 대기 + 메시 생성까지 반복)
+      let initFrameCount = 0;
       function waitAndRender() {
         if (disposed) return;
         if (spriteset._tilemap && spriteset._tilemap.isReady()) {
           spriteset._tilemap._needsRepaint = true;
           renderOnce();
+          // 타일맵 메시가 생성될 때까지 몇 프레임 더 렌더 (paint→flush 파이프라인)
+          // ShadowLight 활성화도 씬 트리 연결 후에야 가능하므로 추가 재시도
+          initFrameCount++;
+          const _SL = w.ShadowLight;
+          const shadowPending = _SL && w.ConfigManager?.shadowLight && !_SL._active;
+          if (initFrameCount < 10 || (shadowPending && initFrameCount < 60)) {
+            animFrameId = requestAnimationFrame(waitAndRender);
+          }
         } else {
           animFrameId = requestAnimationFrame(waitAndRender);
         }
@@ -328,17 +358,22 @@ export function useThreeRenderer(
           requestRender();
         }
         if (state.shadowLight !== prevState.shadowLight) {
-          if (state.shadowLight) {
-            ShadowLight._active = true;
-            ShadowLight._addLightsToScene(rendererObj.scene);
-            syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
-          } else {
+          // ConfigManager 동기화 후 _updateShadowLight가 전체 활성화/비활성화 수행
+          // (활성화: _activateShadowLight → 라이트 추가 + material 교체 + shadow mesh 등)
+          w.ConfigManager.shadowLight = state.shadowLight;
+          if (!state.shadowLight) {
+            // 비활성화는 즉시 수행
             ShadowLight._active = false;
             ShadowLight._removeLightsFromScene(rendererObj.scene);
-          }
-          if (spriteset._tilemap) {
-            ShadowLight._resetTilemapMeshes(spriteset._tilemap);
-            spriteset._tilemap._needsRepaint = true;
+            if (spriteset._tilemap) {
+              ShadowLight._resetTilemapMeshes(spriteset._tilemap);
+              spriteset._tilemap._needsRepaint = true;
+            }
+          } else {
+            // 활성화는 _active를 false로 두어 다음 renderOnce → spriteset.update()에서
+            // _updateShadowLight → _activateShadowLight 전체 경로가 실행되도록 함
+            ShadowLight._active = false;
+            syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
           }
           requestRender();
         }
