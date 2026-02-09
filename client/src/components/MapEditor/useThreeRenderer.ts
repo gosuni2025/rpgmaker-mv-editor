@@ -652,8 +652,8 @@ export function useThreeRenderer(
       const cy = ey + TILE_SIZE_PX / 2;
 
       // 이미지가 없는 이벤트: 반투명 파란 배경
-      const hasImage = ev.pages && ev.pages[0] && (
-        ev.pages[0].characterName || ev.pages[0].tileId > 0
+      const hasImage = ev.pages && ev.pages[0]?.image && (
+        ev.pages[0].image.characterName || ev.pages[0].image.tileId > 0
       );
       if (!hasImage) {
         const fillGeom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
