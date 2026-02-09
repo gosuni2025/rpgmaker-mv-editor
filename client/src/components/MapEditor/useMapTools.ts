@@ -441,6 +441,7 @@ export function useMapTools(
         mesh.position.set(cx, cy, 7);
         mesh.renderOrder = 10002;
         mesh.frustumCulled = false;
+        mesh.userData.editorGrid = true;
         rObj.scene.add(mesh);
         toolPreviewMeshesRef.current.push(mesh);
         // Outline
@@ -458,6 +459,7 @@ export function useMapTools(
         line.position.set(cx, cy, 7.5);
         line.renderOrder = 10003;
         line.frustumCulled = false;
+        line.userData.editorGrid = true;
         rObj.scene.add(line);
         toolPreviewMeshesRef.current.push(line);
       } else if (selectedTool === 'ellipse') {
@@ -480,6 +482,7 @@ export function useMapTools(
         fillMesh.position.set(cx, cy, 7);
         fillMesh.renderOrder = 10002;
         fillMesh.frustumCulled = false;
+        fillMesh.userData.editorGrid = true;
         rObj.scene.add(fillMesh);
         toolPreviewMeshesRef.current.push(fillMesh);
         // Outline
@@ -491,6 +494,7 @@ export function useMapTools(
         line.position.set(cx, cy, 7.5);
         line.renderOrder = 10003;
         line.frustumCulled = false;
+        line.userData.editorGrid = true;
         rObj.scene.add(line);
         toolPreviewMeshesRef.current.push(line);
       }

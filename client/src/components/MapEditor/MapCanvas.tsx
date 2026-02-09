@@ -132,6 +132,7 @@ export default function MapCanvas() {
       mesh.position.set(cx, cy, 6);
       mesh.renderOrder = 10000;
       mesh.frustumCulled = false;
+      mesh.userData.editorGrid = true;
       scene.add(mesh);
       existing.push(mesh);
 
@@ -150,6 +151,7 @@ export default function MapCanvas() {
       line.position.set(cx, cy, 6.5);
       line.renderOrder = 10001;
       line.frustumCulled = false;
+      line.userData.editorGrid = true;
       scene.add(line);
       existing.push(line);
     }
