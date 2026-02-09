@@ -47,6 +47,10 @@
         renderer.setSize(width, height);
         renderer.setClearColor(0x000000, 0);
 
+        // Enable shadow map for real-time shadow casting
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
         // Disable auto-sorting; we control render order via z-position
         renderer.sortObjects = true;
 

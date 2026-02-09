@@ -345,8 +345,8 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                     material = new THREE.MeshPhongMaterial({
                         map: texture,
                         transparent: true,
-                        depthTest: false,
-                        depthWrite: false,
+                        depthTest: true,
+                        depthWrite: true,
                         side: THREE.DoubleSide,
                         emissive: new THREE.Color(0x111111),
                         specular: new THREE.Color(0x000000),
@@ -364,6 +364,10 @@ ThreeTilemapRectLayer.prototype._flush = function() {
             }
 
             mesh = new THREE.Mesh(geometry, material);
+            // ShadowLight 활성 시 그림자를 받을 수 있도록 설정
+            if (window.ShadowLight && window.ShadowLight._active && !isShadow) {
+                mesh.receiveShadow = true;
+            }
             this._meshes[setNumber] = mesh;
             this._threeObj.add(mesh);
         }

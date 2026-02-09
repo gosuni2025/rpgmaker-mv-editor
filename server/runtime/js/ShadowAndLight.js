@@ -104,8 +104,8 @@ ShadowLight._convertMaterial = function(sprite) {
     var newMat = new THREE.MeshPhongMaterial({
         map: oldMat.map,
         transparent: oldMat.transparent,
-        depthTest: oldMat.depthTest,
-        depthWrite: oldMat.depthWrite,
+        depthTest: true,
+        depthWrite: true,
         side: oldMat.side,
         opacity: oldMat.opacity,
         blending: oldMat.blending,
@@ -119,6 +119,9 @@ ShadowLight._convertMaterial = function(sprite) {
     // Mesh에 새 material 적용
     sprite._threeObj.material = newMat;
     sprite._material = newMat;
+
+    // Shadow Map: 캐릭터가 그림자를 드리우도록 설정
+    sprite._threeObj.castShadow = true;
 
     this._convertedMaterials.set(newMat, true);
 };
@@ -134,8 +137,8 @@ ShadowLight._revertMaterial = function(sprite) {
     var newMat = new THREE.MeshBasicMaterial({
         map: oldMat.map,
         transparent: oldMat.transparent,
-        depthTest: oldMat.depthTest,
-        depthWrite: oldMat.depthWrite,
+        depthTest: false,
+        depthWrite: false,
         side: oldMat.side,
         opacity: oldMat.opacity,
         blending: oldMat.blending,
@@ -145,6 +148,7 @@ ShadowLight._revertMaterial = function(sprite) {
 
     sprite._threeObj.material = newMat;
     sprite._material = newMat;
+    sprite._threeObj.castShadow = false;
 };
 
 //=============================================================================
@@ -217,6 +221,29 @@ ShadowLight._addLightsToScene = function(scene) {
         dir = this.config.lightDirection;
     }
     this._directionalLight.position.set(-dir.x * 1000, -dir.y * 1000, -dir.z * 1000);
+
+    // Shadow Map 설정
+    this._directionalLight.castShadow = true;
+    this._directionalLight.shadow.mapSize.width = 2048;
+    this._directionalLight.shadow.mapSize.height = 2048;
+    // OrthographicCamera 범위 (맵 크기에 맞게 넉넉히)
+    var shadowCamSize = Math.max(
+        (typeof Graphics !== 'undefined' ? Graphics._width : 2000),
+        (typeof Graphics !== 'undefined' ? Graphics._height : 2000)
+    );
+    this._directionalLight.shadow.camera.left = -shadowCamSize;
+    this._directionalLight.shadow.camera.right = shadowCamSize;
+    this._directionalLight.shadow.camera.top = shadowCamSize;
+    this._directionalLight.shadow.camera.bottom = -shadowCamSize;
+    this._directionalLight.shadow.camera.near = 0.1;
+    this._directionalLight.shadow.camera.far = 5000;
+    this._directionalLight.shadow.bias = -0.002;
+
+    // target을 맵 중심으로 설정
+    var cx = shadowCamSize / 2;
+    var cy = shadowCamSize / 2;
+    this._directionalLight.target.position.set(cx, cy, 0);
+
     // target을 scene에 추가해야 DirectionalLight 방향이 올바르게 동작
     scene.add(this._directionalLight);
     scene.add(this._directionalLight.target);
