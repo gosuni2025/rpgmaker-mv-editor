@@ -490,6 +490,33 @@ function sync3DOverlays(
         const bh = mapObj.height;
         const isSelected = selectedObjectId === mapObj.id;
         const outlineColor = isSelected ? 0x00ff66 : 0x00cc66;
+        // Passability X markers
+        if (mapObj.passability) {
+          const pad = 4;
+          const xMat = new THREE.LineBasicMaterial({ color: 0xff3c3c, depthTest: false, transparent: true, opacity: 0.8 });
+          for (let row = 0; row < mapObj.height; row++) {
+            for (let col = 0; col < mapObj.width; col++) {
+              if (mapObj.passability[row]?.[col] === false) {
+                const tx = (mapObj.x + col) * TILE_SIZE_PX;
+                const ty = (mapObj.y - mapObj.height + 1 + row) * TILE_SIZE_PX;
+                const xPts = [
+                  new THREE.Vector3(tx + pad, ty + pad, 0),
+                  new THREE.Vector3(tx + TILE_SIZE_PX - pad, ty + TILE_SIZE_PX - pad, 0),
+                ];
+                const xPts2 = [
+                  new THREE.Vector3(tx + TILE_SIZE_PX - pad, ty + pad, 0),
+                  new THREE.Vector3(tx + pad, ty + TILE_SIZE_PX - pad, 0),
+                ];
+                const l1 = new THREE.Line(new THREE.BufferGeometry().setFromPoints(xPts), xMat);
+                const l2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints(xPts2), xMat);
+                l1.renderOrder = 896; l1.frustumCulled = false;
+                l2.renderOrder = 896; l2.frustumCulled = false;
+                scene.add(l1); scene.add(l2);
+                objectMeshesRef.current.push(l1, l2);
+              }
+            }
+          }
+        }
         const hw = bw * TILE_SIZE_PX / 2;
         const hh = bh * TILE_SIZE_PX / 2;
         const pts = [
@@ -1399,6 +1426,28 @@ export default function MapCanvas() {
           const bw = obj.width * TILE_SIZE_PX;
           const bh = obj.height * TILE_SIZE_PX;
           const isSelected = selectedObjectId === obj.id;
+          // Draw passability X markers on impassable tiles
+          if (obj.passability) {
+            for (let row = 0; row < obj.height; row++) {
+              for (let col = 0; col < obj.width; col++) {
+                if (obj.passability[row]?.[col] === false) {
+                  const tx = (obj.x + col) * TILE_SIZE_PX;
+                  const ty = (obj.y - obj.height + 1 + row) * TILE_SIZE_PX;
+                  const pad = 4;
+                  ctx.save();
+                  ctx.strokeStyle = 'rgba(255,60,60,0.8)';
+                  ctx.lineWidth = 2;
+                  ctx.beginPath();
+                  ctx.moveTo(tx + pad, ty + pad);
+                  ctx.lineTo(tx + TILE_SIZE_PX - pad, ty + TILE_SIZE_PX - pad);
+                  ctx.moveTo(tx + TILE_SIZE_PX - pad, ty + pad);
+                  ctx.lineTo(tx + pad, ty + TILE_SIZE_PX - pad);
+                  ctx.stroke();
+                  ctx.restore();
+                }
+              }
+            }
+          }
           ctx.strokeStyle = isSelected ? '#00ff66' : '#00cc66';
           ctx.lineWidth = isSelected ? 3 : 1;
           ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
