@@ -1,0 +1,448 @@
+import type { MapData, MapObject } from '../types/rpgMakerMV';
+import { resizeMapData, resizeEvents } from '../utils/mapResize';
+import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry } from './types';
+import { MAX_UNDO } from './types';
+
+export const editingSlice: SliceCreator<Pick<EditorState,
+  'editMode' | 'selectedTool' | 'selectedTileId' | 'selectedTiles' | 'selectedTilesWidth' | 'selectedTilesHeight' |
+  'currentLayer' | 'clipboard' | 'cursorTileX' | 'cursorTileY' | 'selectionStart' | 'selectionEnd' |
+  'selectedEventId' | 'selectedObjectId' | 'undoStack' | 'redoStack' |
+  'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' |
+  'copyTiles' | 'cutTiles' | 'pasteTiles' | 'deleteTiles' |
+  'copyEvent' | 'cutEvent' | 'pasteEvent' | 'deleteEvent' |
+  'setSelectedObjectId' | 'addObject' | 'updateObject' | 'deleteObject' |
+  'setEditMode' | 'setSelectedTool' | 'setSelectedTileId' | 'setSelectedTiles' |
+  'setCurrentLayer' | 'setCursorTile' | 'setSelection' | 'setSelectedEventId'
+>> = (set, get) => ({
+  editMode: 'map',
+  selectedTool: 'pen',
+  selectedTileId: 0,
+  selectedTiles: null,
+  selectedTilesWidth: 1,
+  selectedTilesHeight: 1,
+  currentLayer: 0,
+  clipboard: null,
+  cursorTileX: 0,
+  cursorTileY: 0,
+  selectionStart: null,
+  selectionEnd: null,
+  selectedEventId: null,
+  selectedObjectId: null,
+  undoStack: [],
+  redoStack: [],
+
+  // Map editing
+  updateMapTile: (x: number, y: number, z: number, tileId: number) => {
+    const map = get().currentMap;
+    if (!map) return;
+    const newData = [...map.data];
+    newData[(z * map.height + y) * map.width + x] = tileId;
+    set({ currentMap: { ...map, data: newData } });
+  },
+
+  updateMapTiles: (changes: { x: number; y: number; z: number; tileId: number }[]) => {
+    const map = get().currentMap;
+    if (!map) return;
+    const newData = [...map.data];
+    for (const c of changes) {
+      newData[(c.z * map.height + c.y) * map.width + c.x] = c.tileId;
+    }
+    set({ currentMap: { ...map, data: newData } });
+  },
+
+  pushUndo: (changes: TileChange[]) => {
+    const { currentMapId, undoStack } = get();
+    if (!currentMapId || changes.length === 0) return;
+    const newStack = [...undoStack, { mapId: currentMapId, changes } as TileHistoryEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({ undoStack: newStack, redoStack: [] });
+  },
+
+  undo: () => {
+    const { undoStack, currentMap, currentMapId, showToast } = get();
+    if (undoStack.length === 0 || !currentMap || !currentMapId) return;
+    const entry = undoStack[undoStack.length - 1];
+    if (entry.mapId !== currentMapId) return;
+
+    if (entry.type === 'resize') {
+      const re = entry as ResizeHistoryEntry;
+      const redoEntry: ResizeHistoryEntry = {
+        mapId: currentMapId,
+        type: 'resize',
+        oldWidth: re.newWidth, oldHeight: re.newHeight, oldData: re.newData, oldEvents: re.newEvents,
+        newWidth: re.oldWidth, newHeight: re.oldHeight, newData: re.oldData, newEvents: re.oldEvents,
+      };
+      set({
+        currentMap: { ...currentMap, width: re.oldWidth, height: re.oldHeight, data: re.oldData, events: re.oldEvents },
+        undoStack: undoStack.slice(0, -1),
+        redoStack: [...get().redoStack, redoEntry],
+      });
+      showToast(`실행 취소 (맵 크기 ${re.oldWidth}x${re.oldHeight})`);
+      return;
+    }
+
+    if (entry.type === 'object') {
+      const oe = entry as ObjectHistoryEntry;
+      const redoEntry: ObjectHistoryEntry = {
+        mapId: currentMapId, type: 'object',
+        oldObjects: oe.newObjects, newObjects: oe.oldObjects,
+        oldSelectedObjectId: get().selectedObjectId,
+      };
+      set({
+        currentMap: { ...currentMap, objects: oe.oldObjects },
+        selectedObjectId: oe.oldSelectedObjectId,
+        undoStack: undoStack.slice(0, -1),
+        redoStack: [...get().redoStack, redoEntry],
+      });
+      showToast('실행 취소 (오브젝트)');
+      return;
+    }
+
+    if (entry.type === 'light') {
+      const le = entry as LightHistoryEntry;
+      const redoEntry: LightHistoryEntry = {
+        mapId: currentMapId, type: 'light',
+        oldLights: le.newLights, newLights: le.oldLights,
+        oldSelectedLightId: get().selectedLightId,
+      };
+      set({
+        currentMap: { ...currentMap, editorLights: le.oldLights },
+        selectedLightId: le.oldSelectedLightId,
+        undoStack: undoStack.slice(0, -1),
+        redoStack: [...get().redoStack, redoEntry],
+      });
+      showToast('실행 취소 (조명)');
+      return;
+    }
+
+    const te = entry as TileHistoryEntry;
+    const newData = [...currentMap.data];
+    const redoChanges: TileChange[] = [];
+    for (const c of te.changes) {
+      const idx = (c.z * currentMap.height + c.y) * currentMap.width + c.x;
+      redoChanges.push({ ...c, oldTileId: c.newTileId, newTileId: c.oldTileId });
+      newData[idx] = c.oldTileId;
+    }
+
+    set({
+      currentMap: { ...currentMap, data: newData },
+      undoStack: undoStack.slice(0, -1),
+      redoStack: [...get().redoStack, { mapId: currentMapId, changes: redoChanges } as TileHistoryEntry],
+    });
+    showToast(`실행 취소 (타일 ${te.changes.length}개 변경)`);
+  },
+
+  redo: () => {
+    const { redoStack, currentMap, currentMapId, showToast } = get();
+    if (redoStack.length === 0 || !currentMap || !currentMapId) return;
+    const entry = redoStack[redoStack.length - 1];
+    if (entry.mapId !== currentMapId) return;
+
+    if (entry.type === 'resize') {
+      const re = entry as ResizeHistoryEntry;
+      const undoEntry: ResizeHistoryEntry = {
+        mapId: currentMapId,
+        type: 'resize',
+        oldWidth: re.newWidth, oldHeight: re.newHeight, oldData: re.newData, oldEvents: re.newEvents,
+        newWidth: re.oldWidth, newHeight: re.oldHeight, newData: re.oldData, newEvents: re.oldEvents,
+      };
+      set({
+        currentMap: { ...currentMap, width: re.oldWidth, height: re.oldHeight, data: re.oldData, events: re.oldEvents },
+        redoStack: redoStack.slice(0, -1),
+        undoStack: [...get().undoStack, undoEntry],
+      });
+      showToast(`다시 실행 (맵 크기 ${re.oldWidth}x${re.oldHeight})`);
+      return;
+    }
+
+    if (entry.type === 'object') {
+      const oe = entry as ObjectHistoryEntry;
+      const undoEntry: ObjectHistoryEntry = {
+        mapId: currentMapId, type: 'object',
+        oldObjects: oe.newObjects, newObjects: oe.oldObjects,
+        oldSelectedObjectId: get().selectedObjectId,
+      };
+      set({
+        currentMap: { ...currentMap, objects: oe.oldObjects },
+        selectedObjectId: oe.oldSelectedObjectId,
+        redoStack: redoStack.slice(0, -1),
+        undoStack: [...get().undoStack, undoEntry],
+      });
+      showToast('다시 실행 (오브젝트)');
+      return;
+    }
+
+    if (entry.type === 'light') {
+      const le = entry as LightHistoryEntry;
+      const undoEntry: LightHistoryEntry = {
+        mapId: currentMapId, type: 'light',
+        oldLights: le.newLights, newLights: le.oldLights,
+        oldSelectedLightId: get().selectedLightId,
+      };
+      set({
+        currentMap: { ...currentMap, editorLights: le.oldLights },
+        selectedLightId: le.oldSelectedLightId,
+        redoStack: redoStack.slice(0, -1),
+        undoStack: [...get().undoStack, undoEntry],
+      });
+      showToast('다시 실행 (조명)');
+      return;
+    }
+
+    const te = entry as TileHistoryEntry;
+    const newData = [...currentMap.data];
+    const undoChanges: TileChange[] = [];
+    for (const c of te.changes) {
+      const idx = (c.z * currentMap.height + c.y) * currentMap.width + c.x;
+      undoChanges.push({ ...c, oldTileId: c.newTileId, newTileId: c.oldTileId });
+      newData[idx] = c.newTileId;
+    }
+
+    set({
+      currentMap: { ...currentMap, data: newData },
+      redoStack: redoStack.slice(0, -1),
+      undoStack: [...get().undoStack, { mapId: currentMapId, changes: undoChanges } as TileHistoryEntry],
+    });
+    showToast(`다시 실행 (타일 ${te.changes.length}개 변경)`);
+  },
+
+  resizeMap: (newWidth: number, newHeight: number, offsetX: number, offsetY: number) => {
+    const { currentMap, currentMapId, undoStack, showToast } = get();
+    if (!currentMap || !currentMapId) return;
+    const { width: oldW, height: oldH, data: oldData, events: oldEvents } = currentMap;
+    if (newWidth === oldW && newHeight === oldH && offsetX === 0 && offsetY === 0) return;
+    const nw = Math.max(1, Math.min(256, newWidth));
+    const nh = Math.max(1, Math.min(256, newHeight));
+    const newData = resizeMapData(oldData, oldW, oldH, nw, nh, offsetX, offsetY);
+    const newEvents = resizeEvents(oldEvents, nw, nh, offsetX, offsetY);
+    const historyEntry: ResizeHistoryEntry = {
+      mapId: currentMapId,
+      type: 'resize',
+      oldWidth: oldW, oldHeight: oldH, oldData, oldEvents,
+      newWidth: nw, newHeight: nh, newData, newEvents,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({
+      currentMap: { ...currentMap, width: nw, height: nh, data: newData, events: newEvents },
+      undoStack: newStack,
+      redoStack: [],
+    });
+    showToast(`맵 크기 변경 ${oldW}x${oldH} → ${nw}x${nh}`);
+  },
+
+  // Clipboard - tiles
+  copyTiles: (x1: number, y1: number, x2: number, y2: number) => {
+    const map = get().currentMap;
+    if (!map) return;
+    const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+    const tiles: { x: number; y: number; z: number; tileId: number }[] = [];
+    for (let z = 0; z < 4; z++) {
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          const tileId = map.data[(z * map.height + y) * map.width + x];
+          tiles.push({ x: x - minX, y: y - minY, z, tileId });
+        }
+      }
+    }
+    set({ clipboard: { type: 'tiles', tiles, width: maxX - minX + 1, height: maxY - minY + 1 } });
+  },
+
+  cutTiles: (x1: number, y1: number, x2: number, y2: number) => {
+    get().copyTiles(x1, y1, x2, y2);
+    get().deleteTiles(x1, y1, x2, y2);
+  },
+
+  pasteTiles: (x: number, y: number) => {
+    const { clipboard, currentMap } = get();
+    if (!clipboard || clipboard.type !== 'tiles' || !clipboard.tiles || !currentMap) return;
+    const changes: TileChange[] = [];
+    const newData = [...currentMap.data];
+    for (const t of clipboard.tiles) {
+      const tx = x + t.x, ty = y + t.y;
+      if (tx < 0 || tx >= currentMap.width || ty < 0 || ty >= currentMap.height) continue;
+      const idx = (t.z * currentMap.height + ty) * currentMap.width + tx;
+      changes.push({ x: tx, y: ty, z: t.z, oldTileId: newData[idx], newTileId: t.tileId });
+      newData[idx] = t.tileId;
+    }
+    set({ currentMap: { ...currentMap, data: newData } });
+    get().pushUndo(changes);
+  },
+
+  deleteTiles: (x1: number, y1: number, x2: number, y2: number) => {
+    const map = get().currentMap;
+    if (!map) return;
+    const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+    const changes: TileChange[] = [];
+    const newData = [...map.data];
+    for (let z = 0; z < 4; z++) {
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          const idx = (z * map.height + y) * map.width + x;
+          if (newData[idx] !== 0) {
+            changes.push({ x, y, z, oldTileId: newData[idx], newTileId: 0 });
+            newData[idx] = 0;
+          }
+        }
+      }
+    }
+    set({ currentMap: { ...map, data: newData } });
+    get().pushUndo(changes);
+  },
+
+  // Clipboard - events
+  copyEvent: (eventId: number) => {
+    const map = get().currentMap;
+    if (!map || !map.events) return;
+    const ev = map.events.find((e) => e && e.id === eventId);
+    if (ev) set({ clipboard: { type: 'event', event: JSON.parse(JSON.stringify(ev)) } });
+  },
+
+  cutEvent: (eventId: number) => {
+    get().copyEvent(eventId);
+    get().deleteEvent(eventId);
+  },
+
+  pasteEvent: (x: number, y: number) => {
+    const { clipboard, currentMap } = get();
+    if (!clipboard || clipboard.type !== 'event' || !clipboard.event || !currentMap) return;
+    const events = [...(currentMap.events || [])];
+    const maxId = events.reduce((max, e) => (e && e.id > max ? e.id : max), 0);
+    const newEvent = { ...(clipboard.event as Record<string, unknown>), id: maxId + 1, x, y };
+    while (events.length <= maxId + 1) events.push(null);
+    events[maxId + 1] = newEvent as MapData['events'][0];
+    set({ currentMap: { ...currentMap, events } });
+  },
+
+  deleteEvent: (eventId: number) => {
+    const map = get().currentMap;
+    if (!map || !map.events) return;
+    const events = map.events.map((e) => (e && e.id === eventId ? null : e));
+    set({ currentMap: { ...map, events } });
+  },
+
+  // Object actions
+  setSelectedObjectId: (id: number | null) => set({ selectedObjectId: id }),
+
+  addObject: (x: number, y: number) => {
+    const { currentMap, currentMapId, selectedTiles, selectedTilesWidth, selectedTilesHeight, selectedTileId, undoStack, selectedObjectId } = get();
+    if (!currentMap || !currentMapId) return;
+    const oldObjects = currentMap.objects || [];
+    const objects = [...oldObjects];
+    const newId = objects.length > 0 ? Math.max(...objects.map(o => o.id)) + 1 : 1;
+    let tileIds: number[][];
+    let w: number, h: number;
+    if (selectedTiles && selectedTilesWidth > 0 && selectedTilesHeight > 0) {
+      tileIds = selectedTiles.map(row => [...row]);
+      w = selectedTilesWidth;
+      h = selectedTilesHeight;
+    } else {
+      tileIds = [[selectedTileId]];
+      w = 1;
+      h = 1;
+    }
+    const passability: boolean[][] = [];
+    for (let row = 0; row < h; row++) {
+      passability.push(Array(w).fill(row < h - 1));
+    }
+    const newObj: MapObject = {
+      id: newId,
+      name: `OBJ${newId}`,
+      x,
+      y,
+      tileIds,
+      width: w,
+      height: h,
+      zHeight: 0,
+      passability,
+    };
+    objects.push(newObj);
+    const historyEntry: ObjectHistoryEntry = {
+      mapId: currentMapId, type: 'object',
+      oldObjects: oldObjects, newObjects: objects,
+      oldSelectedObjectId: selectedObjectId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({
+      currentMap: { ...currentMap, objects },
+      selectedObjectId: newId,
+      undoStack: newStack,
+      redoStack: [],
+    });
+  },
+
+  updateObject: (id: number, updates: Partial<MapObject>) => {
+    const { currentMap, currentMapId, undoStack, selectedObjectId } = get();
+    if (!currentMap || !currentMapId || !currentMap.objects) return;
+    const oldObjects = currentMap.objects;
+    const objects = oldObjects.map(o => o.id === id ? { ...o, ...updates } : o);
+    const historyEntry: ObjectHistoryEntry = {
+      mapId: currentMapId, type: 'object',
+      oldObjects, newObjects: objects,
+      oldSelectedObjectId: selectedObjectId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({
+      currentMap: { ...currentMap, objects },
+      undoStack: newStack,
+      redoStack: [],
+    });
+  },
+
+  deleteObject: (id: number) => {
+    const { currentMap, currentMapId, undoStack, selectedObjectId } = get();
+    if (!currentMap || !currentMapId || !currentMap.objects) return;
+    const oldObjects = currentMap.objects;
+    const objects = oldObjects.filter(o => o.id !== id);
+    const historyEntry: ObjectHistoryEntry = {
+      mapId: currentMapId, type: 'object',
+      oldObjects, newObjects: objects,
+      oldSelectedObjectId: selectedObjectId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({
+      currentMap: { ...currentMap, objects },
+      selectedObjectId: selectedObjectId === id ? null : selectedObjectId,
+      undoStack: newStack,
+      redoStack: [],
+    });
+  },
+
+  // UI setters
+  setEditMode: (mode: 'map' | 'event' | 'light' | 'object') => {
+    const state = get();
+    const updates: Partial<EditorState> = { editMode: mode };
+    if (mode === 'light') {
+      updates.lightEditMode = true;
+      updates.shadowLight = true;
+      if (typeof (window as any).ConfigManager !== 'undefined') {
+        (window as any).ConfigManager.shadowLight = true;
+      }
+      setTimeout(() => get().initEditorLights(), 0);
+    } else {
+      if (state.editMode === 'light') {
+        updates.lightEditMode = false;
+        updates.selectedLightId = null;
+      }
+    }
+    if (mode !== 'object') {
+      updates.selectedObjectId = null;
+    }
+    if (mode !== 'event') {
+      updates.selectedEventId = null;
+    }
+    set(updates);
+  },
+  setSelectedTool: (tool: string) => set({ selectedTool: tool }),
+  setSelectedTileId: (id: number) => set({ selectedTileId: id, selectedTiles: null, selectedTilesWidth: 1, selectedTilesHeight: 1 }),
+  setSelectedTiles: (tiles: number[][] | null, width: number, height: number) => set({ selectedTiles: tiles, selectedTilesWidth: width, selectedTilesHeight: height }),
+  setCurrentLayer: (layer: number) => set({ currentLayer: layer }),
+  setCursorTile: (x: number, y: number) => set({ cursorTileX: x, cursorTileY: y }),
+  setSelection: (start, end) => set({ selectionStart: start, selectionEnd: end }),
+  setSelectedEventId: (id: number | null) => set({ selectedEventId: id }),
+});
