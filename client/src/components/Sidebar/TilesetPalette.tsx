@@ -80,7 +80,10 @@ export default function TilesetPalette() {
   const selectedLightType = useEditorStore((s) => s.selectedLightType);
   const setSelectedLightType = useEditorStore((s) => s.setSelectedLightType);
 
-  const [activeTab, setActiveTab] = useState<PaletteTab>('A');
+  const paletteTab = useEditorStore((s) => s.paletteTab);
+  const setPaletteTab = useEditorStore((s) => s.setPaletteTab);
+  const activeTab = paletteTab as PaletteTab;
+  const setActiveTab = setPaletteTab;
   const [tilesetImages, setTilesetImages] = useState<Record<number, HTMLImageElement>>({});
   const [selectedRegion, setSelectedRegion] = useState(0);
 

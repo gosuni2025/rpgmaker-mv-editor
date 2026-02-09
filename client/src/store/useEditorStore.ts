@@ -118,6 +118,9 @@ export interface EditorState {
   shadowLight: boolean;
   depthOfField: boolean;
 
+  // Palette tab
+  paletteTab: 'A' | 'B' | 'C' | 'D' | 'E' | 'R';
+
   // Light editor
   lightEditMode: boolean;
   selectedLightId: number | null;
@@ -195,6 +198,9 @@ export interface EditorState {
   setShadowLight: (enabled: boolean) => void;
   setDepthOfField: (enabled: boolean) => void;
 
+  // Actions - Palette
+  setPaletteTab: (tab: 'A' | 'B' | 'C' | 'D' | 'E' | 'R') => void;
+
   // Actions - Light editor
   setLightEditMode: (enabled: boolean) => void;
   setSelectedLightId: (id: number | null) => void;
@@ -256,6 +262,7 @@ const useEditorStore = create<EditorState>((set, get) => ({
   mode3d: false,
   shadowLight: false,
   depthOfField: false,
+  paletteTab: 'A',
   lightEditMode: false,
   selectedLightId: null,
   selectedLightType: 'point',
@@ -847,6 +854,9 @@ const useEditorStore = create<EditorState>((set, get) => ({
     if (ConfigManager) ConfigManager.depthOfField = enabled;
     set({ depthOfField: enabled });
   },
+
+  // Palette actions
+  setPaletteTab: (tab: 'A' | 'B' | 'C' | 'D' | 'E' | 'R') => set({ paletteTab: tab }),
 
   // Light editor actions
   setLightEditMode: (enabled: boolean) => set({ lightEditMode: enabled, selectedLightId: null }),

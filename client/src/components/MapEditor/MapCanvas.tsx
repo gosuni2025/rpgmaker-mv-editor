@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
 import type { RPGEvent, EventPage, MapData, EditorLights, MapObject } from '../../types/rpgMakerMV';
-import { posToTile, TILE_SIZE_PX, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition, getTileRenderInfo } from '../../utils/tileHelper';
+import { posToTile, TILE_SIZE_PX, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition, getTileRenderInfo, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1 } from '../../utils/tileHelper';
 import EventDetail from '../EventEditor/EventDetail';
 
 // Runtime globals (loaded via index.html script tags)
@@ -134,17 +134,12 @@ function createTileSprite(THREE: any, img: HTMLImageElement, sx: number, sy: num
   return mesh;
 }
 
-/** Create a textured PlaneGeometry mesh for a character image region.
- *  Uses Mesh instead of Sprite because Mode3D's Y-flipped projection matrix
- *  breaks THREE.Sprite rendering. */
+/** Create a textured PlaneGeometry mesh for a character image region. */
 function createCharSprite(THREE: any, img: HTMLImageElement, sx: number, sy: number, sw: number, sh: number, tileSize: number): any {
   const canvas = document.createElement('canvas');
   canvas.width = sw;
   canvas.height = sh;
   const ctx = canvas.getContext('2d')!;
-  // Flip vertically to compensate for Mode3D's Y-inverted projection matrix
-  ctx.translate(0, sh);
-  ctx.scale(1, -1);
   ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.NearestFilter;
@@ -208,15 +203,12 @@ function createTileOutline(THREE: any, x: number, y: number, tileSize: number, c
   return line;
 }
 
-/** Create a text label as PlaneGeometry mesh (Sprite broken with Y-flipped projection) */
+/** Create a text label as PlaneGeometry mesh */
 function createTextSprite(THREE: any, text: string, fontSize: number, color: string): any {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 32;
   const ctx = canvas.getContext('2d')!;
-  // Flip vertically to compensate for Mode3D's Y-inverted projection matrix
-  ctx.translate(0, 32);
-  ctx.scale(1, -1);
   ctx.font = `bold ${fontSize}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -503,9 +495,6 @@ function sync3DOverlays(
       canvas.width = objPxW;
       canvas.height = objPxH;
       const ctx = canvas.getContext('2d')!;
-      // Y-flip for Mode3D's inverted projection
-      ctx.translate(0, objPxH);
-      ctx.scale(1, -1);
       let hasTile = false;
       for (let row = 0; row < mapObj.height; row++) {
         for (let col = 0; col < mapObj.width; col++) {
@@ -708,6 +697,9 @@ export default function MapCanvas() {
   const addObject = useEditorStore((s) => s.addObject);
   const updateObject = useEditorStore((s) => s.updateObject);
   const deleteObject = useEditorStore((s) => s.deleteObject);
+  const setSelectedTileId = useEditorStore((s) => s.setSelectedTileId);
+  const setCurrentLayer = useEditorStore((s) => s.setCurrentLayer);
+  const setPaletteTab = useEditorStore((s) => s.setPaletteTab);
 
   // Map boundary resize drag state
   type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | null;
@@ -758,6 +750,19 @@ export default function MapCanvas() {
   const draggedObjectId = useRef<number | null>(null);
   const dragObjectOrigin = useRef<{ x: number; y: number } | null>(null);
   const [objectDragPreview, setObjectDragPreview] = useState<{ x: number; y: number } | null>(null);
+
+  // Alt key state for eyedropper cursor
+  const [altPressed, setAltPressed] = useState(false);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Alt') setAltPressed(true); };
+    const onKeyUp = (e: KeyboardEvent) => { if (e.key === 'Alt') setAltPressed(false); };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, []);
 
   // 미들 클릭 드래그 패닝
   const isPanning = useRef(false);
@@ -1899,6 +1904,53 @@ export default function MapCanvas() {
   }, [zoomLevel, mode3d, currentMap]);
 
   // =========================================================================
+  // Eyedropper (스포이드) - Alt+Click으로 맵 타일 픽업
+  // =========================================================================
+  const eyedropTile = useCallback((tileX: number, tileY: number) => {
+    const map = useEditorStore.getState().currentMap;
+    if (!map) return;
+
+    // 레이어 위에서부터 확인 (z=3→0), 비어있지 않은 첫 레이어의 타일을 선택
+    let pickedTileId = 0;
+    let pickedLayer = 0;
+    for (let z = 3; z >= 0; z--) {
+      const idx = (z * map.height + tileY) * map.width + tileX;
+      const tid = map.data[idx];
+      if (tid !== 0) {
+        pickedTileId = tid;
+        pickedLayer = z;
+        break;
+      }
+    }
+
+    // 타일 ID로부터 팔레트 탭 결정
+    let tab: 'A' | 'B' | 'C' | 'D' | 'E' = 'B';
+    if (pickedTileId >= TILE_ID_A1) {
+      tab = 'A';
+    } else if (pickedTileId >= TILE_ID_A5) {
+      tab = 'A';
+    } else if (pickedTileId >= TILE_ID_E) {
+      tab = 'E';
+    } else if (pickedTileId >= TILE_ID_D) {
+      tab = 'D';
+    } else if (pickedTileId >= TILE_ID_C) {
+      tab = 'C';
+    } else {
+      tab = 'B';
+    }
+
+    // 오토타일의 경우 대표 타일 ID(shape=46)로 변환
+    if (isAutotile(pickedTileId)) {
+      const kind = getAutotileKindExported(pickedTileId);
+      pickedTileId = makeAutotileId(kind, 46);
+    }
+
+    setPaletteTab(tab);
+    setSelectedTileId(pickedTileId);
+    setCurrentLayer(tab === 'A' ? 0 : 1);
+  }, [setPaletteTab, setSelectedTileId, setCurrentLayer]);
+
+  // =========================================================================
   // Map boundary resize detection
   // =========================================================================
   const EDGE_THRESHOLD = 16; // px (in map-space, before zoom) - detect inside the map boundary
@@ -2498,6 +2550,13 @@ export default function MapCanvas() {
       const tile = canvasToTile(e);
       if (!tile) return;
 
+      // Alt+Click: 스포이드 (eyedropper)
+      if (e.altKey && e.button === 0 && editMode === 'map') {
+        eyedropTile(tile.x, tile.y);
+        e.preventDefault();
+        return;
+      }
+
       if (e.button === 2 && editMode === 'map') {
         const latestMap = useEditorStore.getState().currentMap;
         if (!latestMap) return;
@@ -2595,7 +2654,7 @@ export default function MapCanvas() {
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight, mode3d, detectEdge, getCanvasPx, handleResizeMove, handleResizeUp, updateResizePreview]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight, mode3d, detectEdge, getCanvasPx, handleResizeMove, handleResizeUp, updateResizePreview, eyedropTile]
   );
 
   const handleMouseMove = useCallback(
@@ -2881,7 +2940,7 @@ export default function MapCanvas() {
             ...styles.canvas,
             position: 'relative',
             zIndex: 1,
-            cursor: panning ? 'grabbing' : mode3d ? (editMode === 'event' ? 'pointer' : 'crosshair') : undefined,
+            cursor: panning ? 'grabbing' : altPressed && editMode === 'map' ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.54 3.54 1.41 1.41L16.25 6.8l.88.88-5.66 5.66-1.41-1.41-2.12 2.12a3 3 0 000 4.24l.71.71a3 3 0 004.24 0l2.12-2.12-1.41-1.41 5.66-5.66.88.88 1.41-1.41-3.54-3.54a1 1 0 000-1.41z' fill='white' stroke='black' stroke-width='0.5'/%3E%3C/svg%3E") 2 22, crosshair` : mode3d ? (editMode === 'event' ? 'pointer' : 'crosshair') : undefined,
           }}
         />
         <canvas
@@ -2909,7 +2968,7 @@ export default function MapCanvas() {
             top: 0,
             left: 0,
             zIndex: mode3d ? -1 : 2,
-            cursor: panning ? 'grabbing' : resizeCursor || (editMode === 'event' ? 'pointer' : 'crosshair'),
+            cursor: panning ? 'grabbing' : altPressed && editMode === 'map' ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.54 3.54 1.41 1.41L16.25 6.8l.88.88-5.66 5.66-1.41-1.41-2.12 2.12a3 3 0 000 4.24l.71.71a3 3 0 004.24 0l2.12-2.12-1.41-1.41 5.66-5.66.88.88 1.41-1.41-3.54-3.54a1 1 0 000-1.41z' fill='white' stroke='black' stroke-width='0.5'/%3E%3C/svg%3E") 2 22, crosshair` : resizeCursor || (editMode === 'event' ? 'pointer' : 'crosshair'),
             pointerEvents: mode3d ? 'none' : 'auto',
             display: mode3d ? 'none' : 'block',
           }}
