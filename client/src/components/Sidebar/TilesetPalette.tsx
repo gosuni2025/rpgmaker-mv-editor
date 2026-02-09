@@ -436,8 +436,7 @@ export default function TilesetPalette() {
                       key={pl.id}
                       className={`light-point-item${selectedLightId === pl.id ? ' selected' : ''}`}
                       onClick={() => {
-                        setSelectedLightType('point');
-                        setSelectedLightId(pl.id);
+                        useEditorStore.setState({ selectedLightType: 'point', selectedLightId: pl.id });
                       }}
                     >
                       <div className="light-point-swatch" style={{ backgroundColor: pl.color }} />
