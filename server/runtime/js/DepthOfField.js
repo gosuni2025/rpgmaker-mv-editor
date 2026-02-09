@@ -18,11 +18,17 @@
 //=============================================================================
 
 ConfigManager.depthOfField = false;
+ConfigManager.dofFocus = 500;
+ConfigManager.dofAperture = 5;    // 실제값 * 1000 (0~100 정수로 관리, 표시: 0.005)
+ConfigManager.dofMaxblur = 10;    // 실제값 * 1000 (0~100 정수로 관리, 표시: 0.010)
 
 var _ConfigManager_makeData = ConfigManager.makeData;
 ConfigManager.makeData = function() {
     var config = _ConfigManager_makeData.call(this);
     config.depthOfField = this.depthOfField;
+    config.dofFocus = this.dofFocus;
+    config.dofAperture = this.dofAperture;
+    config.dofMaxblur = this.dofMaxblur;
     return config;
 };
 
@@ -30,16 +36,109 @@ var _ConfigManager_applyData = ConfigManager.applyData;
 ConfigManager.applyData = function(config) {
     _ConfigManager_applyData.call(this, config);
     this.depthOfField = this.readFlag(config, 'depthOfField');
+    this.dofFocus = this.readDofValue(config, 'dofFocus', 500);
+    this.dofAperture = this.readDofValue(config, 'dofAperture', 5);
+    this.dofMaxblur = this.readDofValue(config, 'dofMaxblur', 10);
+};
+
+ConfigManager.readDofValue = function(config, name, defaultValue) {
+    var value = config[name];
+    if (value !== undefined) {
+        return Number(value);
+    }
+    return defaultValue;
 };
 
 //=============================================================================
-// Window_Options - "피사계 심도" 옵션 추가
+// Window_Options - DoF 옵션 추가
 //=============================================================================
+
+// DoF 심볼 정의
+var DOF_SYMBOLS = {
+    'dofFocus':    { min: 10,  max: 2000, step: 50,  label: '초점 거리', format: function(v) { return v; } },
+    'dofAperture': { min: 0,   max: 100,  step: 1,   label: '조리개',    format: function(v) { return (v / 1000).toFixed(3); } },
+    'dofMaxblur':  { min: 0,   max: 100,  step: 1,   label: '최대 블러', format: function(v) { return (v / 1000).toFixed(3); } }
+};
 
 var _Window_Options_addGeneralOptions = Window_Options.prototype.addGeneralOptions;
 Window_Options.prototype.addGeneralOptions = function() {
     _Window_Options_addGeneralOptions.call(this);
     this.addCommand('피사계 심도', 'depthOfField');
+    this.addCommand('  초점 거리', 'dofFocus');
+    this.addCommand('  조리개', 'dofAperture');
+    this.addCommand('  최대 블러', 'dofMaxblur');
+};
+
+Window_Options.prototype.isDofSymbol = function(symbol) {
+    return !!DOF_SYMBOLS[symbol];
+};
+
+var _Window_Options_statusText = Window_Options.prototype.statusText;
+Window_Options.prototype.statusText = function(index) {
+    var symbol = this.commandSymbol(index);
+    if (this.isDofSymbol(symbol)) {
+        var value = this.getConfigValue(symbol);
+        return DOF_SYMBOLS[symbol].format(value);
+    }
+    return _Window_Options_statusText.call(this, index);
+};
+
+var _Window_Options_processOk = Window_Options.prototype.processOk;
+Window_Options.prototype.processOk = function() {
+    var index = this.index();
+    var symbol = this.commandSymbol(index);
+    if (this.isDofSymbol(symbol)) {
+        var def = DOF_SYMBOLS[symbol];
+        var value = this.getConfigValue(symbol);
+        value += def.step;
+        if (value > def.max) value = def.min;
+        this.changeValue(symbol, value);
+    } else {
+        _Window_Options_processOk.call(this);
+    }
+};
+
+var _Window_Options_cursorRight = Window_Options.prototype.cursorRight;
+Window_Options.prototype.cursorRight = function(wrap) {
+    var index = this.index();
+    var symbol = this.commandSymbol(index);
+    if (this.isDofSymbol(symbol)) {
+        var def = DOF_SYMBOLS[symbol];
+        var value = this.getConfigValue(symbol);
+        value += def.step;
+        value = Math.min(value, def.max);
+        this.changeValue(symbol, value);
+    } else {
+        _Window_Options_cursorRight.call(this, wrap);
+    }
+};
+
+var _Window_Options_cursorLeft = Window_Options.prototype.cursorLeft;
+Window_Options.prototype.cursorLeft = function(wrap) {
+    var index = this.index();
+    var symbol = this.commandSymbol(index);
+    if (this.isDofSymbol(symbol)) {
+        var def = DOF_SYMBOLS[symbol];
+        var value = this.getConfigValue(symbol);
+        value -= def.step;
+        value = Math.max(value, def.min);
+        this.changeValue(symbol, value);
+    } else {
+        _Window_Options_cursorLeft.call(this, wrap);
+    }
+};
+
+// DoF 옵션 값 변경 시 DepthOfField.config에 실시간 반영
+var _Window_Options_setConfigValue = Window_Options.prototype.setConfigValue;
+Window_Options.prototype.setConfigValue = function(symbol, value) {
+    _Window_Options_setConfigValue.call(this, symbol, value);
+    if (symbol === 'dofFocus') {
+        DepthOfField.config.focus = value;
+    } else if (symbol === 'dofAperture') {
+        DepthOfField.config.aperture = value / 1000;
+    } else if (symbol === 'dofMaxblur') {
+        DepthOfField.config.maxblur = value / 1000;
+    }
 };
 
 //=============================================================================
@@ -606,6 +705,13 @@ _ThreeStrategy.render = function(rendererObj, stage) {
 // Spriteset_Map - DoF 활성화/비활성화 감지
 //=============================================================================
 
+// ConfigManager → DepthOfField.config 동기화
+DepthOfField._syncConfigFromManager = function() {
+    this.config.focus = ConfigManager.dofFocus;
+    this.config.aperture = ConfigManager.dofAperture / 1000;
+    this.config.maxblur = ConfigManager.dofMaxblur / 1000;
+};
+
 var _Spriteset_Map_update_dof = Spriteset_Map.prototype.update;
 Spriteset_Map.prototype.update = function() {
     _Spriteset_Map_update_dof.call(this);
@@ -614,6 +720,7 @@ Spriteset_Map.prototype.update = function() {
 
     if (shouldBeActive && !DepthOfField._active) {
         DepthOfField._active = true;
+        DepthOfField._syncConfigFromManager();
         DepthOfField._createDebugUI();
     } else if (!shouldBeActive && DepthOfField._active) {
         DepthOfField._active = false;
@@ -670,6 +777,10 @@ DepthOfField._createDebugUI = function() {
             var v = parseFloat(slider.value);
             self.config[c.key] = v;
             val.textContent = v.toFixed(c.decimals);
+            // ConfigManager에도 동기화
+            if (c.key === 'focus') ConfigManager.dofFocus = v;
+            else if (c.key === 'aperture') ConfigManager.dofAperture = Math.round(v * 1000);
+            else if (c.key === 'maxblur') ConfigManager.dofMaxblur = Math.round(v * 1000);
         });
 
         row.appendChild(lbl);
