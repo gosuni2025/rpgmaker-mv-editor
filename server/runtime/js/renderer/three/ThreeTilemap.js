@@ -356,6 +356,7 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                             'float dotNL = saturate( abs( dot( geometry.normal, directLight.direction ) ) );'
                         );
                     };
+                    material.customProgramCacheKey = function() { return 'bilateral_tilemap'; };
                 } else {
                     material = new THREE.MeshBasicMaterial({
                         map: texture,

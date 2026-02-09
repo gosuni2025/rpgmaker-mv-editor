@@ -157,6 +157,8 @@ ShadowLight._convertMaterial = function(sprite) {
             'float dotNL = saturate( abs( dot( geometry.normal, directLight.direction ) ) );'
         );
     };
+    // 캐시 키를 고유하게 설정하여 셰이더 프로그램이 재컴파일되도록 강제
+    newMat.customProgramCacheKey = function() { return 'bilateral_' + this.uuid; };
 
     // Mesh에 새 material 적용
     sprite._threeObj.material = newMat;
