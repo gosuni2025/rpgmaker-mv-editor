@@ -175,20 +175,20 @@ ShadowLight.config = {
 
     // 플레이어 포인트 라이트
     playerLightColor: 0xa25f06,       // 횃불 색상
-    playerLightIntensity: 2.7,
+    playerLightIntensity: 0.8,
     playerLightDistance: 200,          // 범위 (pixel 단위, decay=0에서 이 범위 밖은 영향 없음)
-    playerLightZ: 30,                 // 높이
+    playerLightZ: 40,                 // 높이
 
     // 플레이어 SpotLight (방향성 그림자)
     spotLightEnabled: true,
     spotLightColor: 0xffeedd,         // 손전등 색상 (따뜻한 백색)
-    spotLightIntensity: 4.0,
-    spotLightDistance: 500,            // 비추는 범위
-    spotLightAngle: Math.PI / 4,      // 원뿔 반각 (45도)
-    spotLightPenumbra: 0.4,           // 가장자리 부드러움 (0~1)
-    spotLightZ: 200,                  // 높이 (그림자 위치 정확도를 위해 높게)
+    spotLightIntensity: 0.8,
+    spotLightDistance: 250,            // 비추는 범위
+    spotLightAngle: 0.60,             // 원뿔 반각 (약 34도)
+    spotLightPenumbra: 0.9,           // 가장자리 부드러움 (0~1)
+    spotLightZ: 120,                  // 높이
     spotLightShadowMapSize: 2048,     // 그림자 맵 해상도
-    spotLightTargetDistance: 120,     // target까지의 거리 (플레이어 앞)
+    spotLightTargetDistance: 70,      // target까지의 거리 (플레이어 앞)
 
     // 오브젝트 레이어 (upperZLayer) 높이
     upperLayerZ: 24,                  // PointLight(z=30)와 가까워지도록 상승
