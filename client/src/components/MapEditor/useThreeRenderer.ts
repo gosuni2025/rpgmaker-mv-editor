@@ -365,19 +365,16 @@ export function useThreeRenderer(
           requestRender(5);
         }
         if (state.shadowLight !== prevState.shadowLight) {
-          // ConfigManager 동기화 후 _updateShadowLight가 전체 활성화/비활성화 수행
-          // (활성화: _activateShadowLight → 라이트 추가 + material 교체 + shadow mesh 등)
           w.ConfigManager.shadowLight = state.shadowLight;
           if (!state.shadowLight) {
-            // 비활성화는 즉시 수행
+            // 비활성화: _deactivateShadowLight가 material 복원, 라이트 제거, upperZ 리셋 등 전체 처리
+            spriteset._deactivateShadowLight();
             ShadowLight._active = false;
-            ShadowLight._removeLightsFromScene(rendererObj.scene);
             if (spriteset._tilemap) {
-              ShadowLight._resetTilemapMeshes(spriteset._tilemap);
               spriteset._tilemap._needsRepaint = true;
             }
           } else {
-            // 활성화는 _active를 false로 두어 다음 renderOnce → spriteset.update()에서
+            // 활성화: _active를 false로 두어 다음 renderOnce → spriteset.update()에서
             // _updateShadowLight → _activateShadowLight 전체 경로가 실행되도록 함
             ShadowLight._active = false;
             syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
