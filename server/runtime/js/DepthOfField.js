@@ -46,7 +46,7 @@ var DepthOfField = {};
 DepthOfField._active = false;
 DepthOfField._composer = null;
 DepthOfField._tiltShiftPass = null;
-DepthOfField._debugPanel = null;
+DepthOfField._debugSection = null;
 
 window.DepthOfField = DepthOfField;
 
@@ -625,9 +625,9 @@ Spriteset_Map.prototype.update = function() {
     var shouldShowDebug = ConfigManager.mode3d;
     var shouldBeActive = ConfigManager.mode3d && ConfigManager.depthOfField;
 
-    if (shouldShowDebug && !DepthOfField._debugPanel) {
+    if (shouldShowDebug && !DepthOfField._debugSection) {
         DepthOfField._createDebugUI();
-    } else if (!shouldShowDebug && DepthOfField._debugPanel) {
+    } else if (!shouldShowDebug && DepthOfField._debugSection) {
         DepthOfField._removeDebugUI();
     }
 
@@ -644,24 +644,39 @@ Spriteset_Map.prototype.update = function() {
 //=============================================================================
 
 DepthOfField._createDebugUI = function() {
-    if (this._debugPanel) return;
+    if (this._debugSection) return;
 
-    var panel = document.createElement('div');
-    panel.id = 'dof-debug-panel';
-    // ShadowLight Debug 패널 아래에 배치
-    var topOffset = 10;
-    var slPanel = document.getElementById('sl-debug-panel');
-    if (slPanel) {
-        topOffset = slPanel.offsetTop + slPanel.offsetHeight + 8;
-    }
-    panel.style.cssText = 'position:fixed;top:' + topOffset + 'px;right:10px;z-index:99999;background:rgba(0,0,0,0.85);color:#eee;font:12px monospace;padding:10px;border-radius:6px;min-width:240px;pointer-events:auto;';
-
-    var title = document.createElement('div');
-    title.textContent = 'DoF Debug';
-    title.style.cssText = 'font-weight:bold;margin-bottom:8px;color:#88ccff;';
-    panel.appendChild(title);
+    // ShadowLight 패널의 DoF 컨테이너에 삽입
+    var container = document.getElementById('sl-debug-dof-container');
+    if (!container) return; // ShadowLight 패널이 아직 없으면 대기
 
     var self = this;
+    var sectionStyle = 'border-top:1px solid #444;padding-top:6px;margin-top:6px;';
+
+    // 접기/펼치기 가능한 DoF 섹션
+    var wrapper = document.createElement('div');
+    wrapper.style.cssText = sectionStyle;
+
+    var header = document.createElement('div');
+    header.style.cssText = 'font-weight:bold;font-size:11px;color:#88ccff;cursor:pointer;user-select:none;display:flex;align-items:center;gap:4px;';
+    var arrow = document.createElement('span');
+    arrow.textContent = '\u25B6'; // 초기 접힘
+    arrow.style.cssText = 'font-size:9px;width:10px;';
+    var labelSpan = document.createElement('span');
+    labelSpan.textContent = 'DoF (피사계 심도)';
+    header.appendChild(arrow);
+    header.appendChild(labelSpan);
+    wrapper.appendChild(header);
+
+    var body = document.createElement('div');
+    body.style.display = 'none'; // 초기 접힘
+
+    header.addEventListener('click', function() {
+        var isHidden = body.style.display === 'none';
+        body.style.display = isHidden ? '' : 'none';
+        arrow.textContent = isHidden ? '\u25BC' : '\u25B6';
+    });
+
     var controls = [
         { label: 'Focus Y', key: 'focusY', min: 0, max: 1, step: 0.01, decimals: 2 },
         { label: 'Focus Range', key: 'focusRange', min: 0, max: 0.5, step: 0.01, decimals: 2 },
@@ -698,7 +713,7 @@ DepthOfField._createDebugUI = function() {
         row.appendChild(lbl);
         row.appendChild(slider);
         row.appendChild(val);
-        panel.appendChild(row);
+        body.appendChild(row);
     });
 
     // ON/OFF 토글
@@ -715,11 +730,11 @@ DepthOfField._createDebugUI = function() {
     });
     toggleRow.appendChild(toggleLbl);
     toggleRow.appendChild(toggleCb);
-    panel.appendChild(toggleRow);
+    body.appendChild(toggleRow);
 
-    // 현재값 복사 버튼
+    // DoF 현재값 복사 버튼
     var copyBtn = document.createElement('button');
-    copyBtn.textContent = '현재값 복사';
+    copyBtn.textContent = 'DoF 현재값 복사';
     copyBtn.style.cssText = 'margin-top:8px;width:100%;padding:4px 8px;font:11px monospace;background:#446;color:#eee;border:1px solid #668;border-radius:3px;cursor:pointer;';
     copyBtn.addEventListener('click', function() {
         var cfg = self.config;
@@ -733,7 +748,7 @@ DepthOfField._createDebugUI = function() {
         if (navigator.clipboard) {
             navigator.clipboard.writeText(text).then(function() {
                 copyBtn.textContent = '복사 완료!';
-                setTimeout(function() { copyBtn.textContent = '현재값 복사'; }, 1500);
+                setTimeout(function() { copyBtn.textContent = 'DoF 현재값 복사'; }, 1500);
             });
         } else {
             var ta = document.createElement('textarea');
@@ -743,21 +758,22 @@ DepthOfField._createDebugUI = function() {
             document.execCommand('copy');
             document.body.removeChild(ta);
             copyBtn.textContent = '복사 완료!';
-            setTimeout(function() { copyBtn.textContent = '현재값 복사'; }, 1500);
+            setTimeout(function() { copyBtn.textContent = 'DoF 현재값 복사'; }, 1500);
         }
     });
     copyBtn.addEventListener('mouseover', function() { copyBtn.style.background = '#557'; });
     copyBtn.addEventListener('mouseout', function() { copyBtn.style.background = '#446'; });
-    panel.appendChild(copyBtn);
+    body.appendChild(copyBtn);
 
-    document.body.appendChild(panel);
-    this._debugPanel = panel;
+    wrapper.appendChild(body);
+    container.appendChild(wrapper);
+    this._debugSection = wrapper;
 };
 
 DepthOfField._removeDebugUI = function() {
-    if (this._debugPanel) {
-        this._debugPanel.remove();
-        this._debugPanel = null;
+    if (this._debugSection) {
+        this._debugSection.remove();
+        this._debugSection = null;
     }
 };
 

@@ -1349,9 +1349,9 @@ ShadowLight._createDebugUI = function() {
     spotSmapRow.appendChild(spotSmapSelect);
     spotBody.appendChild(spotSmapRow);
 
-    // 현재값 복사 버튼
+    // 광원 현재값 복사 버튼
     var copyBtn = document.createElement('button');
-    copyBtn.textContent = '현재값 복사';
+    copyBtn.textContent = '광원 현재값 복사';
     copyBtn.style.cssText = 'margin-top:8px;width:100%;padding:4px 8px;font:11px monospace;background:#446;color:#eee;border:1px solid #668;border-radius:3px;cursor:pointer;';
     copyBtn.addEventListener('click', function() {
         var cfg = self.config;
@@ -1394,7 +1394,7 @@ ShadowLight._createDebugUI = function() {
         if (navigator.clipboard) {
             navigator.clipboard.writeText(text).then(function() {
                 copyBtn.textContent = '복사 완료!';
-                setTimeout(function() { copyBtn.textContent = '현재값 복사'; }, 1500);
+                setTimeout(function() { copyBtn.textContent = '광원 현재값 복사'; }, 1500);
             });
         } else {
             // fallback
@@ -1405,12 +1405,17 @@ ShadowLight._createDebugUI = function() {
             document.execCommand('copy');
             document.body.removeChild(ta);
             copyBtn.textContent = '복사 완료!';
-            setTimeout(function() { copyBtn.textContent = '현재값 복사'; }, 1500);
+            setTimeout(function() { copyBtn.textContent = '광원 현재값 복사'; }, 1500);
         }
     });
     copyBtn.addEventListener('mouseover', function() { copyBtn.style.background = '#557'; });
     copyBtn.addEventListener('mouseout', function() { copyBtn.style.background = '#446'; });
     panel.appendChild(copyBtn);
+
+    // DoF 섹션 삽입 포인트 (DepthOfField가 여기에 섹션을 추가함)
+    var dofContainer = document.createElement('div');
+    dofContainer.id = 'sl-debug-dof-container';
+    panel.appendChild(dofContainer);
 
     document.body.appendChild(panel);
     this._debugPanel = panel;
