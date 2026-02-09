@@ -349,6 +349,13 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                         specular: new THREE.Color(0x000000),
                         shininess: 0,
                     });
+                    // 양면 라이팅: 노멀 뒷면에서도 빛을 받음
+                    material.onBeforeCompile = function(shader) {
+                        shader.fragmentShader = shader.fragmentShader.replace(
+                            'float dotNL = saturate( dot( geometry.normal, directLight.direction ) );',
+                            'float dotNL = saturate( abs( dot( geometry.normal, directLight.direction ) ) );'
+                        );
+                    };
                 } else {
                     material = new THREE.MeshBasicMaterial({
                         map: texture,

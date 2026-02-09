@@ -67,9 +67,9 @@ ShadowLight._shadowMaterial = null;
 ShadowLight.config = {
     // 광원 설정
     ambientColor: 0x667788,           // 환경광 (어두운 푸른 톤 - 달빛 느낌)
-    ambientIntensity: 0.1,
+    ambientIntensity: 0.15,
     directionalColor: 0xfff8ee,       // 햇빛 색상 (따뜻한 톤)
-    directionalIntensity: 0.3,
+    directionalIntensity: 0.15,
     lightDirection: new THREE.Vector3(-1, -1, -2).normalize(), // 광원 방향 (Z 성분 크게)
 
     // 플레이어 포인트 라이트
@@ -149,6 +149,14 @@ ShadowLight._convertMaterial = function(sprite) {
     });
     newMat.visible = oldMat.visible;
     newMat.needsUpdate = true;
+
+    // 양면 라이팅: dotNL = abs(dot(N, L)) → 노멀 뒷면에서도 빛을 받음
+    newMat.onBeforeCompile = function(shader) {
+        shader.fragmentShader = shader.fragmentShader.replace(
+            'float dotNL = saturate( dot( geometry.normal, directLight.direction ) );',
+            'float dotNL = saturate( abs( dot( geometry.normal, directLight.direction ) ) );'
+        );
+    };
 
     // Mesh에 새 material 적용
     sprite._threeObj.material = newMat;
@@ -248,12 +256,22 @@ ShadowLight._addLightsToScene = function(scene) {
     // AmbientLight - 전체적인 환경광
     var ambColor = el ? parseInt(el.ambient.color.replace('#', ''), 16) : this.config.ambientColor;
     var ambIntensity = el ? el.ambient.intensity : this.config.ambientIntensity;
+    // config에 동기화 (디버그 패널 초기값과 일치시킴)
+    if (el) {
+        this.config.ambientColor = ambColor;
+        this.config.ambientIntensity = ambIntensity;
+    }
     this._ambientLight = new THREE.AmbientLight(ambColor, ambIntensity);
     scene.add(this._ambientLight);
 
     // DirectionalLight - 태양/달빛 (그림자 방향 결정)
     var dirColor = el ? parseInt(el.directional.color.replace('#', ''), 16) : this.config.directionalColor;
     var dirIntensity = el ? el.directional.intensity : this.config.directionalIntensity;
+    // config에 동기화
+    if (el) {
+        this.config.directionalColor = dirColor;
+        this.config.directionalIntensity = dirIntensity;
+    }
     this._directionalLight = new THREE.DirectionalLight(dirColor, dirIntensity);
     // 위치는 방향의 반대 (광원이 오는 방향)
     var dir;
