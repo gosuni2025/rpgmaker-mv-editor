@@ -315,6 +315,10 @@ MapRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuffer, 
         if (stageObj) stageObj.visible = true;
     }
 
+    // Shadow Map: Pass 1에서만 갱신 (Sky/UI pass에서 비는 것 방지)
+    // composer 전체가 autoUpdate=false로 실행되므로 여기서 needsUpdate 설정
+    renderer.shadowMap.needsUpdate = true;
+
     // Pass 1: PerspectiveCamera - 맵(Spriteset_Map)만
     var blackScreenObj = this.spriteset._blackScreen &&
                          this.spriteset._blackScreen._threeObj;
@@ -590,9 +594,15 @@ _ThreeStrategy.render = function(rendererObj, stage) {
             DepthOfField._composer.setSize(w, h);
         }
 
+        // Shadow Map: multi-pass 렌더링에서 shadow map은 MapRenderPass의
+        // Pass 1에서만 갱신되도록 autoUpdate=false로 감싸기
+        var prevShadowAutoUpdate = renderer.shadowMap.autoUpdate;
+        renderer.shadowMap.autoUpdate = false;
+
         // 렌더!
         DepthOfField._composer.render();
 
+        renderer.shadowMap.autoUpdate = prevShadowAutoUpdate;
         Mode3D._active = true;
     } else {
         // DoF 비활성 → 기존 렌더 경로

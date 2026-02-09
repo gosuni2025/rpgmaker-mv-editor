@@ -344,6 +344,11 @@
             Mode3D._positionCamera(Mode3D._perspCamera, width, height);
             Mode3D._applyBillboards();
 
+            // Shadow Map: multi-pass에서 Pass 2(UI)가 shadow map을 비우지 않도록
+            var prevShadowAutoUpdate = renderer.shadowMap.autoUpdate;
+            renderer.shadowMap.autoUpdate = false;
+            renderer.shadowMap.needsUpdate = true;
+
             // Pass 1: PerspectiveCamera로 맵만 렌더
             var stageObj = stage._threeObj;
             var childVis = [];
@@ -377,6 +382,7 @@
                 }
             }
             renderer.autoClear = true;
+            renderer.shadowMap.autoUpdate = prevShadowAutoUpdate;
         } else {
             renderer.render(scene, camera);
         }

@@ -131,7 +131,7 @@
     //=========================================================================
     // 카메라 위치 설정
     // 화면 중심에서 tilt 각도만큼 위에서 내려다봄
-    // projection matrix Y 반전으로 Y-down 좌표계 대응
+    // projectionMatrix의 m[5]를 반전하여 Y-down 좌표계 대응
     //=========================================================================
 
     Mode3D._positionCamera = function(camera, w, h) {
@@ -152,7 +152,7 @@
         camera.lookAt(new THREE.Vector3(cx, cy, 0));
         camera.updateProjectionMatrix();
 
-        // Y-down 좌표계 보정: projection matrix의 Y 스케일 반전
+        // Y-down 좌표계: projectionMatrix의 Y축 반전
         var m = camera.projectionMatrix.elements;
         m[5] = -m[5];
         camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
@@ -251,6 +251,7 @@
             if (!Mode3D._perspCamera) {
                 Mode3D._perspCamera = Mode3D._createPerspCamera(w, h);
             }
+
             Mode3D._positionCamera(Mode3D._perspCamera, w, h);
             Mode3D._applyBillboards();
             Mode3D._enforceNearestFilter(scene);
@@ -266,6 +267,11 @@
 
             var stageObj = stage._threeObj;
 
+            // Shadow Map: multi-pass 렌더링에서 shadow map은 Pass 1에서만 갱신
+            // Sky pass/UI pass에서 stageObj가 hidden이면 shadow map이 비게 됨
+            var prevShadowAutoUpdate = renderer.shadowMap.autoUpdate;
+            renderer.shadowMap.autoUpdate = false;
+
             // --- Pass 0: Sky background (PerspectiveCamera) ---
             if (skyMesh) {
                 // Hide everything except sky
@@ -276,6 +282,9 @@
                 skyMesh.visible = false;
                 if (stageObj) stageObj.visible = true;
             }
+
+            // Pass 1에서 shadow map 갱신
+            renderer.shadowMap.needsUpdate = true;
 
             // --- Pass 1: PerspectiveCamera로 맵(Spriteset_Map)만 렌더 ---
             // Hide _blackScreen so parallax sky shows through map edges
@@ -327,6 +336,7 @@
                 }
             }
             renderer.autoClear = true;
+            renderer.shadowMap.autoUpdate = prevShadowAutoUpdate;
 
         } else {
             // 3D 해제
@@ -418,8 +428,7 @@
         var h = Graphics.height;
 
         // NDC 좌표 (-1 ~ 1)
-        // Y축: _positionCamera에서 projectionMatrix[5]를 반전시켰으므로
-        // inverse도 Y가 반전됨 → NDC Y를 반전시켜 보상
+        // 화면 Y-down → NDC Y-up 변환
         var ndcX = (screenX / w) * 2 - 1;
         var ndcY = -((screenY / h) * 2 - 1);
 
