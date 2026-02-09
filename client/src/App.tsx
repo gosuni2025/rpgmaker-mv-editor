@@ -20,6 +20,7 @@ import EventSearchDialog from './components/EventSearchDialog';
 import ResourceManagerDialog from './components/ResourceManagerDialog';
 import CharacterGeneratorDialog from './components/CharacterGeneratorDialog';
 import AutotileDebugDialog from './components/AutotileDebugDialog';
+import LightInspector from './components/Sidebar/LightInspector';
 import useFileWatcher from './hooks/useFileWatcher';
 
 function SidebarSplit({ editMode }: { editMode: string }) {
@@ -82,6 +83,7 @@ export default function App() {
   const showResourceManagerDialog = useEditorStore((s) => s.showResourceManagerDialog);
   const showCharacterGeneratorDialog = useEditorStore((s) => s.showCharacterGeneratorDialog);
   const toastMessage = useEditorStore((s) => s.toastMessage);
+  const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
   useFileWatcher();
   const setShowOpenProjectDialog = useEditorStore((s) => s.setShowOpenProjectDialog);
@@ -106,7 +108,7 @@ export default function App() {
   };
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout${lightEditMode ? ' with-inspector' : ''}`}>
       <MenuBar />
 
       <div className="sidebar">
@@ -132,6 +134,12 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {lightEditMode && (
+        <div className="inspector-area">
+          <LightInspector />
+        </div>
+      )}
 
       <StatusBar />
 

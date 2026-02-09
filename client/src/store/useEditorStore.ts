@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import apiClient from '../api/client';
-import type { MapInfo, MapData, TilesetData, SystemData } from '../types/rpgMakerMV';
+import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, EditorAmbientLight, EditorDirectionalLight } from '../types/rpgMakerMV';
+import { DEFAULT_EDITOR_LIGHTS } from '../types/rpgMakerMV';
 
 const PROJECT_STORAGE_KEY = 'rpg-editor-current-project';
 const MAP_STORAGE_KEY = 'rpg-editor-current-map';
@@ -80,6 +81,11 @@ export interface EditorState {
   mode3d: boolean;
   shadowLight: boolean;
 
+  // Light editor
+  lightEditMode: boolean;
+  selectedLightId: number | null;
+  selectedLightType: 'point' | 'ambient' | 'directional';
+
   // Toast
   toastMessage: string | null;
   showToast: (message: string) => void;
@@ -144,6 +150,17 @@ export interface EditorState {
   setMode3d: (enabled: boolean) => void;
   setShadowLight: (enabled: boolean) => void;
 
+  // Actions - Light editor
+  setLightEditMode: (enabled: boolean) => void;
+  setSelectedLightId: (id: number | null) => void;
+  setSelectedLightType: (type: 'point' | 'ambient' | 'directional') => void;
+  initEditorLights: () => void;
+  addPointLight: (x: number, y: number) => void;
+  updatePointLight: (id: number, updates: Partial<EditorPointLight>) => void;
+  deletePointLight: (id: number) => void;
+  updateAmbientLight: (updates: Partial<EditorAmbientLight>) => void;
+  updateDirectionalLight: (updates: Partial<EditorDirectionalLight>) => void;
+
   // Actions - Dialog toggles
   setShowOpenProjectDialog: (show: boolean) => void;
   setShowNewProjectDialog: (show: boolean) => void;
@@ -189,6 +206,9 @@ const useEditorStore = create<EditorState>((set, get) => ({
   selectedEventId: null,
   mode3d: false,
   shadowLight: false,
+  lightEditMode: false,
+  selectedLightId: null,
+  selectedLightType: 'point',
   toastMessage: null,
   showToast: (message: string) => {
     set({ toastMessage: message });
@@ -525,6 +545,61 @@ const useEditorStore = create<EditorState>((set, get) => ({
     const ConfigManager = (window as any).ConfigManager;
     if (ConfigManager) ConfigManager.shadowLight = enabled;
     set({ shadowLight: enabled });
+  },
+
+  // Light editor actions
+  setLightEditMode: (enabled: boolean) => set({ lightEditMode: enabled, selectedLightId: null }),
+  setSelectedLightId: (id: number | null) => set({ selectedLightId: id }),
+  setSelectedLightType: (type: 'point' | 'ambient' | 'directional') => set({ selectedLightType: type, selectedLightId: null }),
+
+  initEditorLights: () => {
+    const map = get().currentMap;
+    if (!map) return;
+    if (!map.editorLights) {
+      set({ currentMap: { ...map, editorLights: JSON.parse(JSON.stringify(DEFAULT_EDITOR_LIGHTS)) } });
+    }
+  },
+
+  addPointLight: (x: number, y: number) => {
+    const map = get().currentMap;
+    if (!map || !map.editorLights) return;
+    const points = [...map.editorLights.points];
+    const newId = points.length > 0 ? Math.max(...points.map(p => p.id)) + 1 : 1;
+    const newLight: EditorPointLight = { id: newId, x, y, color: '#ffcc88', intensity: 1.0, distance: 150, decay: 0 };
+    points.push(newLight);
+    set({
+      currentMap: { ...map, editorLights: { ...map.editorLights, points } },
+      selectedLightId: newId,
+    });
+  },
+
+  updatePointLight: (id: number, updates: Partial<EditorPointLight>) => {
+    const map = get().currentMap;
+    if (!map || !map.editorLights) return;
+    const points = map.editorLights.points.map(p => p.id === id ? { ...p, ...updates } : p);
+    set({ currentMap: { ...map, editorLights: { ...map.editorLights, points } } });
+  },
+
+  deletePointLight: (id: number) => {
+    const map = get().currentMap;
+    if (!map || !map.editorLights) return;
+    const points = map.editorLights.points.filter(p => p.id !== id);
+    set({
+      currentMap: { ...map, editorLights: { ...map.editorLights, points } },
+      selectedLightId: get().selectedLightId === id ? null : get().selectedLightId,
+    });
+  },
+
+  updateAmbientLight: (updates: Partial<EditorAmbientLight>) => {
+    const map = get().currentMap;
+    if (!map || !map.editorLights) return;
+    set({ currentMap: { ...map, editorLights: { ...map.editorLights, ambient: { ...map.editorLights.ambient, ...updates } } } });
+  },
+
+  updateDirectionalLight: (updates: Partial<EditorDirectionalLight>) => {
+    const map = get().currentMap;
+    if (!map || !map.editorLights) return;
+    set({ currentMap: { ...map, editorLights: { ...map.editorLights, directional: { ...map.editorLights.directional, ...updates } } } });
   },
 
   // Dialog toggles

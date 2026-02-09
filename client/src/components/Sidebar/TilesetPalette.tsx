@@ -6,8 +6,8 @@ import {
   getTileRenderInfo,
 } from '../../utils/tileHelper';
 
-type PaletteTab = 'A' | 'B' | 'C' | 'D' | 'E' | 'R';
-const TABS: PaletteTab[] = ['A', 'B', 'C', 'D', 'E', 'R'];
+type PaletteTab = 'A' | 'B' | 'C' | 'D' | 'E' | 'R' | 'L';
+const TABS: PaletteTab[] = ['A', 'B', 'C', 'D', 'E', 'R', 'L'];
 
 // Tab → tileset image index mapping
 const TAB_SHEET_INDEX: Record<PaletteTab, number[]> = {
@@ -17,6 +17,7 @@ const TAB_SHEET_INDEX: Record<PaletteTab, number[]> = {
   D: [7],
   E: [8],
   R: [],
+  L: [],
 };
 
 // B-E tile ID offsets
@@ -74,8 +75,17 @@ export default function TilesetPalette() {
   const setSelectedTiles = useEditorStore((s) => s.setSelectedTiles);
   const setCurrentLayer = useEditorStore((s) => s.setCurrentLayer);
   const currentMap = useEditorStore((s) => s.currentMap);
+  const lightEditMode = useEditorStore((s) => s.lightEditMode);
+  const setLightEditMode = useEditorStore((s) => s.setLightEditMode);
+  const setShadowLight = useEditorStore((s) => s.setShadowLight);
+  const initEditorLights = useEditorStore((s) => s.initEditorLights);
+  const selectedLightId = useEditorStore((s) => s.selectedLightId);
+  const setSelectedLightId = useEditorStore((s) => s.setSelectedLightId);
+  const selectedLightType = useEditorStore((s) => s.selectedLightType);
+  const setSelectedLightType = useEditorStore((s) => s.setSelectedLightType);
 
   const [activeTab, setActiveTab] = useState<PaletteTab>('A');
+  const prevShadowLightRef = useRef(false);
   const [tilesetImages, setTilesetImages] = useState<Record<number, HTMLImageElement>>({});
   const [selectedRegion, setSelectedRegion] = useState(0);
 
@@ -296,7 +306,7 @@ export default function TilesetPalette() {
 
   // Main render
   useEffect(() => {
-    if (activeTab === 'R') return; // R tab doesn't use canvas
+    if (activeTab === 'R' || activeTab === 'L') return; // R/L tabs don't use canvas
     if (activeTab === 'A') {
       renderATab();
     } else {
@@ -432,19 +442,31 @@ export default function TilesetPalette() {
 
   const handleTabClick = (tab: PaletteTab) => {
     setActiveTab(tab);
-    if (tab === 'R') {
-      setCurrentLayer(5);
-    } else if (currentMap) {
-      // Reset layer when switching away from R
-      const layer = useEditorStore.getState().currentLayer;
-      if (layer === 5) {
-        setCurrentLayer(tab === 'A' ? 0 : 1);
+    if (tab === 'L') {
+      // L탭 진입: 조명 모드 활성화 + 조명 자동 ON
+      prevShadowLightRef.current = useEditorStore.getState().shadowLight;
+      setLightEditMode(true);
+      initEditorLights();
+      setShadowLight(true);
+    } else {
+      // L탭 이탈: 조명 모드 비활성화, 이전 조명 상태 복원
+      if (lightEditMode) {
+        setLightEditMode(false);
+        setShadowLight(prevShadowLightRef.current);
+      }
+      if (tab === 'R') {
+        setCurrentLayer(5);
+      } else if (currentMap) {
+        const layer = useEditorStore.getState().currentLayer;
+        if (layer === 5) {
+          setCurrentLayer(tab === 'A' ? 0 : 1);
+        }
       }
     }
   };
 
   const hasSheet = (tab: PaletteTab): boolean => {
-    if (tab === 'R') return true;
+    if (tab === 'R' || tab === 'L') return true;
     return TAB_SHEET_INDEX[tab].some(idx => !!tilesetImages[idx]);
   };
 
@@ -466,7 +488,55 @@ export default function TilesetPalette() {
         ))}
       </div>
       <div style={styles.scrollArea}>
-        {activeTab === 'R' ? (
+        {activeTab === 'L' ? (
+          <div className="light-palette">
+            <div className="light-palette-section-title">조명 타입</div>
+            <div
+              className={`light-type-item${selectedLightType === 'point' ? ' selected' : ''}`}
+              onClick={() => setSelectedLightType('point')}
+            >
+              <div className="light-type-icon" style={{ backgroundColor: '#ffcc88' }} />
+              포인트 라이트
+            </div>
+            <div
+              className={`light-type-item${selectedLightType === 'ambient' ? ' selected' : ''}`}
+              onClick={() => setSelectedLightType('ambient')}
+            >
+              <div className="light-type-icon" style={{ backgroundColor: '#667788' }} />
+              앰비언트 라이트
+            </div>
+            <div
+              className={`light-type-item${selectedLightType === 'directional' ? ' selected' : ''}`}
+              onClick={() => setSelectedLightType('directional')}
+            >
+              <div className="light-type-icon" style={{ backgroundColor: '#fff8ee' }} />
+              디렉셔널 라이트
+            </div>
+
+            {currentMap?.editorLights?.points && currentMap.editorLights.points.length > 0 && (
+              <>
+                <div className="light-palette-section-title" style={{ marginTop: 8 }}>
+                  배치된 포인트 라이트 ({currentMap.editorLights.points.length})
+                </div>
+                <div className="light-point-list">
+                  {currentMap.editorLights.points.map((pl) => (
+                    <div
+                      key={pl.id}
+                      className={`light-point-item${selectedLightId === pl.id ? ' selected' : ''}`}
+                      onClick={() => {
+                        setSelectedLightType('point');
+                        setSelectedLightId(pl.id);
+                      }}
+                    >
+                      <div className="light-point-swatch" style={{ backgroundColor: pl.color }} />
+                      #{pl.id} ({pl.x}, {pl.y})
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        ) : activeTab === 'R' ? (
           <div className="region-palette">
             {Array.from({ length: 256 }, (_, i) => (
               <div
@@ -474,8 +544,8 @@ export default function TilesetPalette() {
                 className={`region-cell${selectedRegion === i ? ' selected' : ''}`}
                 onClick={() => {
                   setSelectedRegion(i);
-                  setCurrentLayer(5); // Region layer
-                  setSelectedTileId(i); // Use tileId for region
+                  setCurrentLayer(5);
+                  setSelectedTileId(i);
                 }}
                 style={i > 0 ? { backgroundColor: `hsl(${(i * 137) % 360}, 50%, 30%)` } : undefined}
               >

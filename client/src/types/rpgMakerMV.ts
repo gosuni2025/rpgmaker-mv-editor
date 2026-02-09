@@ -36,6 +36,7 @@ export interface MapData {
   specifyBattleback: boolean;
   battleback1Name: string;
   battleback2Name: string;
+  editorLights?: EditorLights;
 }
 
 export interface RPGEvent {
@@ -420,3 +421,37 @@ export interface CommonEvent {
   switchId: number;
   list: EventCommand[];
 }
+
+// Editor-only lighting data (stored as custom field in map JSON, ignored by RPG Maker MV)
+export interface EditorPointLight {
+  id: number;
+  x: number;
+  y: number;
+  color: string;
+  intensity: number;
+  distance: number;
+  decay: number;
+}
+
+export interface EditorAmbientLight {
+  color: string;
+  intensity: number;
+}
+
+export interface EditorDirectionalLight {
+  color: string;
+  intensity: number;
+  direction: [number, number, number];
+}
+
+export interface EditorLights {
+  ambient: EditorAmbientLight;
+  directional: EditorDirectionalLight;
+  points: EditorPointLight[];
+}
+
+export const DEFAULT_EDITOR_LIGHTS: EditorLights = {
+  ambient: { color: '#667788', intensity: 0.4 },
+  directional: { color: '#fff8ee', intensity: 0.1, direction: [-1, -1, -2] },
+  points: [],
+};

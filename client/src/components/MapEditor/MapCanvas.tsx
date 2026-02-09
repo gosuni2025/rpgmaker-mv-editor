@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
-import type { RPGEvent, EventPage, MapData } from '../../types/rpgMakerMV';
+import type { RPGEvent, EventPage, MapData, EditorLights } from '../../types/rpgMakerMV';
 import { posToTile, TILE_SIZE_PX, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition } from '../../utils/tileHelper';
 import EventDetail from '../EventEditor/EventDetail';
 
@@ -78,6 +78,7 @@ export default function MapCanvas() {
   const lastMapDataRef = useRef<number[] | null>(null);
   const renderRequestedRef = useRef(false);
   const parallaxDivRef = useRef<HTMLDivElement>(null);
+  const gridMeshRef = useRef<any>(null);
 
   const currentMap = useEditorStore((s) => s.currentMap);
   const tilesetInfo = useEditorStore((s) => s.tilesetInfo);
@@ -96,6 +97,19 @@ export default function MapCanvas() {
   const setSelectedEventId = useEditorStore((s) => s.setSelectedEventId);
   const mode3d = useEditorStore((s) => s.mode3d);
   const shadowLight = useEditorStore((s) => s.shadowLight);
+  const lightEditMode = useEditorStore((s) => s.lightEditMode);
+  const selectedLightId = useEditorStore((s) => s.selectedLightId);
+  const selectedLightType = useEditorStore((s) => s.selectedLightType);
+  const setSelectedLightId = useEditorStore((s) => s.setSelectedLightId);
+  const addPointLight = useEditorStore((s) => s.addPointLight);
+  const updatePointLight = useEditorStore((s) => s.updatePointLight);
+  const deletePointLight = useEditorStore((s) => s.deletePointLight);
+
+  // Light drag state
+  const isDraggingLight = useRef(false);
+  const draggedLightId = useRef<number | null>(null);
+  const dragLightOrigin = useRef<{ x: number; y: number } | null>(null);
+  const [lightDragPreview, setLightDragPreview] = useState<{ x: number; y: number } | null>(null);
 
   const [showGrid, setShowGrid] = useState(true);
   const [tilesetImages, setTilesetImages] = useState<Record<number, HTMLImageElement>>({});
@@ -126,16 +140,51 @@ export default function MapCanvas() {
     return () => window.removeEventListener('editor-toggle-grid', handler);
   }, []);
 
-  // Handle Delete key for events
+  // Sync 3D grid mesh visibility with showGrid and mode3d state
+  useEffect(() => {
+    const gridMesh = gridMeshRef.current;
+    if (!gridMesh) return;
+    gridMesh.visible = showGrid && mode3d;
+    // Trigger re-render
+    if (renderRequestedRef.current) return;
+    renderRequestedRef.current = true;
+    requestAnimationFrame(() => {
+      renderRequestedRef.current = false;
+      if (!rendererObjRef.current || !stageRef.current) return;
+      const rendererObj = rendererObjRef.current;
+      const strategy = (window as any).RendererStrategy?.getStrategy();
+      rendererObj._drawOrderCounter = 0;
+      stageRef.current.updateTransform();
+      if (strategy) strategy._syncHierarchy(rendererObj, stageRef.current);
+      const is3D = ConfigManager.mode3d && Mode3D._spriteset;
+      if (is3D) {
+        if (!Mode3D._perspCamera) {
+          Mode3D._perspCamera = Mode3D._createPerspCamera(rendererObj._width, rendererObj._height);
+        }
+        Mode3D._positionCamera(Mode3D._perspCamera, rendererObj._width, rendererObj._height);
+        Mode3D._enforceNearestFilter(rendererObj.scene);
+        rendererObj.renderer.render(rendererObj.scene, Mode3D._perspCamera);
+      } else {
+        rendererObj.renderer.render(rendererObj.scene, rendererObj.camera);
+      }
+    });
+  }, [showGrid, mode3d]);
+
+  // Handle Delete key for events and lights
   useEffect(() => {
     const handleDelete = () => {
+      if (lightEditMode && selectedLightId != null) {
+        deletePointLight(selectedLightId);
+        setSelectedLightId(null);
+        return;
+      }
       if (editMode === 'event' && selectedEventId != null) {
         deleteEvent(selectedEventId);
       }
     };
     window.addEventListener('editor-delete', handleDelete);
     return () => window.removeEventListener('editor-delete', handleDelete);
-  }, [editMode, selectedEventId, deleteEvent]);
+  }, [editMode, selectedEventId, deleteEvent, lightEditMode, selectedLightId, deletePointLight, setSelectedLightId]);
 
   // Handle Copy/Paste for events
   useEffect(() => {
@@ -374,6 +423,34 @@ export default function MapCanvas() {
     // Set Mode3D spriteset reference (for 2-pass 3D rendering)
     Mode3D._spriteset = tilemap;
 
+    // Create 3D grid mesh (LineSegments) for perspective-correct grid overlay
+    const gridVertices: number[] = [];
+    // Vertical lines
+    for (let x = 0; x <= width; x++) {
+      gridVertices.push(x * TILE_SIZE_PX, 0, 0);
+      gridVertices.push(x * TILE_SIZE_PX, mapPxH, 0);
+    }
+    // Horizontal lines
+    for (let y = 0; y <= height; y++) {
+      gridVertices.push(0, y * TILE_SIZE_PX, 0);
+      gridVertices.push(mapPxW, y * TILE_SIZE_PX, 0);
+    }
+    const gridGeometry = new THREE.BufferGeometry();
+    gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(gridVertices, 3));
+    const gridMaterial = new THREE.LineBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.5,
+      depthTest: false,
+    });
+    const gridLines = new THREE.LineSegments(gridGeometry, gridMaterial);
+    gridLines.renderOrder = 9999;
+    // Place grid slightly above tilemap to avoid z-fighting
+    gridLines.position.z = 5;
+    gridLines.visible = false; // managed by showGrid state
+    rendererObj.scene.add(gridLines);
+    gridMeshRef.current = gridLines;
+
     // On-demand render function
     function renderOnce() {
       if (!rendererObjRef.current) return;
@@ -436,6 +513,8 @@ export default function MapCanvas() {
         if (state.shadowLight) {
           ShadowLight._active = true;
           ShadowLight._addLightsToScene(rendererObj.scene);
+          // Apply editor lights after adding scene lights
+          syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights);
         } else {
           ShadowLight._active = false;
           ShadowLight._removeLightsFromScene(rendererObj.scene);
@@ -444,10 +523,22 @@ export default function MapCanvas() {
         tilemap._needsRepaint = true;
         requestRender();
       }
+      // Editor lights changed (property edits, add/remove)
+      if (state.shadowLight && state.currentMap?.editorLights !== prevState.currentMap?.editorLights) {
+        syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights);
+        requestRender();
+      }
     });
 
     return () => {
       unsubscribe();
+      // Cleanup grid mesh
+      if (gridMeshRef.current) {
+        rendererObj.scene.remove(gridMeshRef.current);
+        gridMeshRef.current.geometry.dispose();
+        gridMeshRef.current.material.dispose();
+        gridMeshRef.current = null;
+      }
       // Cleanup lighting
       if (ShadowLight._active) {
         ShadowLight._removeLightsFromScene(rendererObj.scene);
@@ -498,8 +589,8 @@ export default function MapCanvas() {
 
     ctx.clearRect(0, 0, cw, ch);
 
-    // Grid
-    if (showGrid) {
+    // Grid (skip in 3D mode - grid is rendered as Three.js mesh)
+    if (showGrid && !mode3d) {
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = 1;
       for (let x = 0; x <= width; x++) {
@@ -651,7 +742,7 @@ export default function MapCanvas() {
       ctx.lineWidth = 2;
       ctx.strokeRect(dx + 1, dy + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
     }
-  }, [currentMap, charImages, showGrid, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex, dragPreview]);
+  }, [currentMap, charImages, showGrid, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex, dragPreview, mode3d]);
 
   // =========================================================================
   // Coordinate conversion
