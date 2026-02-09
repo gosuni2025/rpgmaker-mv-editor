@@ -16,8 +16,11 @@ declare const ShadowLight: any;
 declare const ConfigManager: any;
 declare const DepthOfField: any;
 
+console.log('[MapCanvas] MODULE LOADED', Date.now());
+
 /** 에디터에서 3D+DoF가 활성화된 경우 composer를 통해 렌더, 아닌 경우 직접 렌더 */
 function editorRender(rendererObj: any, stage: any) {
+  console.log('[MapCanvas] editorRender called');
   const is3D = ConfigManager.mode3d && Mode3D._spriteset;
   if (is3D) {
     if (!Mode3D._perspCamera) {
@@ -532,8 +535,19 @@ function sync3DOverlays(
         texture.magFilter = THREE.NearestFilter;
         texture.needsUpdate = true;
         const geometry = new THREE.PlaneGeometry(objPxW, objPxH);
-        const material = new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
+        const material = new THREE.MeshPhongMaterial({
+          map: texture,
+          transparent: false,
+          alphaTest: 0.5,
+          depthTest: true,
+          depthWrite: true,
+          side: THREE.DoubleSide,
+          specular: new THREE.Color(0x000000),
+          shininess: 0,
+        });
         const mesh = new THREE.Mesh(geometry, material);
+        mesh.receiveShadow = true;
+        mesh.castShadow = true;
         mesh.renderOrder = 880;
         mesh.frustumCulled = false;
         // Billboard rotation
