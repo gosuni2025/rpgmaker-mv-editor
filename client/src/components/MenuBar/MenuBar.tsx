@@ -20,6 +20,7 @@ export default function MenuBar() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const projectPath = useEditorStore((s) => s.projectPath);
+  const currentMapId = useEditorStore((s) => s.currentMapId);
   const editMode = useEditorStore((s) => s.editMode);
   const selectedTool = useEditorStore((s) => s.selectedTool);
   const undoStack = useEditorStore((s) => s.undoStack);
@@ -116,7 +117,9 @@ export default function MenuBar() {
     {
       label: '게임',
       items: [
-        { label: '플레이 테스트', action: 'playtest', shortcut: 'Ctrl+R', disabled: () => !hasProject },
+        { label: '타이틀부터 테스트', action: 'playtestTitle', shortcut: 'Ctrl+R', disabled: () => !hasProject },
+        { label: '현재 맵에서 테스트', action: 'playtestCurrentMap', shortcut: 'Ctrl+Shift+R', disabled: () => !hasProject },
+        { type: 'separator' },
         { label: '폴더 열기', action: 'openFolder', disabled: () => !hasProject },
       ],
     },
@@ -153,7 +156,11 @@ export default function MenuBar() {
       case 'eventSearch': setShowEventSearchDialog(true); break;
       case 'characterGenerator': setShowCharacterGeneratorDialog(true); break;
       case 'resourceManager': setShowResourceManagerDialog(true); break;
-      case 'playtest': saveCurrentMap().then(() => window.open('/game/index.html?dev=true', '_blank')); break;
+      case 'playtestTitle': saveCurrentMap().then(() => window.open('/game/index.html?dev=true', '_blank')); break;
+      case 'playtestCurrentMap': saveCurrentMap().then(() => {
+        const mapId = currentMapId || 1;
+        window.open(`/game/index.html?dev=true&startMapId=${mapId}`, '_blank');
+      }); break;
       case 'openFolder': fetch('/api/project/open-folder', { method: 'POST' }); break;
       case 'autotileDebug': window.dispatchEvent(new CustomEvent('editor-autotile-debug')); break;
     }
@@ -177,7 +184,8 @@ export default function MenuBar() {
       else if (ctrl && e.key === '-') { e.preventDefault(); handleAction('zoomOut'); }
       else if (ctrl && e.key === '0') { e.preventDefault(); handleAction('zoomActual'); }
       else if (e.key === 'Delete') { handleAction('delete'); }
-      else if (ctrl && e.key === 'r') { e.preventDefault(); handleAction('playtest'); }
+      else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'r') { e.preventDefault(); handleAction('playtestCurrentMap'); }
+      else if (ctrl && e.key === 'r') { e.preventDefault(); handleAction('playtestTitle'); }
       else if (e.key === 'F5') { e.preventDefault(); handleAction('modeMap'); }
       else if (e.key === 'F6') { e.preventDefault(); handleAction('modeEvent'); }
       else if (e.key === 'F9') { e.preventDefault(); handleAction('database'); }

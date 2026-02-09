@@ -65,7 +65,23 @@ app.get('/game/index.html', (req, res) => {
 
   const title = path.basename(projectManager.currentPath!);
   const isDev = req.query.dev === 'true';
+  const startMapId = req.query.startMapId ? parseInt(req.query.startMapId as string, 10) : 0;
   const devScript = isDev ? '\n        <script type="text/javascript" src="js/ThreeDevOverlay.js"></script>' : '';
+  const startMapScript = startMapId > 0 ? `
+        <script type="text/javascript">
+        // 현재 맵에서 테스트: 타이틀 스킵하고 지정 맵에서 시작
+        (function() {
+            var _Scene_Boot_start = Scene_Boot.prototype.start;
+            Scene_Boot.prototype.start = function() {
+                Scene_Base.prototype.start.call(this);
+                SoundManager.preloadImportantSounds();
+                DataManager.setupNewGame();
+                $gamePlayer.reserveTransfer(${startMapId}, 0, 0);
+                SceneManager.goto(Scene_Map);
+                this.updateDocumentTitle();
+            };
+        })();
+        </script>` : '';
   const html = `<!DOCTYPE html>
 <html>
     <head>
@@ -180,7 +196,7 @@ app.get('/game/index.html', (req, res) => {
         <script type="text/javascript" src="js/rpg_windows.js"></script>
         <script type="text/javascript" src="js/Mode3D.js"></script>
         <script type="text/javascript" src="js/ShadowAndLight.js"></script>
-        <script type="text/javascript" src="js/plugins.js"></script>${devScript}
+        <script type="text/javascript" src="js/plugins.js"></script>${devScript}${startMapScript}
         <script type="text/javascript" src="js/main.js"></script>
     </body>
 </html>`;
