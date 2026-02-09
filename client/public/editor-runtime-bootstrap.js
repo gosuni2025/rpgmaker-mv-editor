@@ -240,4 +240,34 @@ if (typeof Game_Map === 'undefined') {
 // 런타임 로드 완료 플래그
 window._editorRuntimeReady = false;
 
+// --- Three.js ShaderChunk 글로벌 패치: 양면 라이팅 ---
+// Y-flip(m[5]=-m[5])으로 인해 gl_FrontFacing이 반전되어
+// DOUBLE_SIDED 노멀이 뒤집히고 빛 방향이 거꾸로 되는 문제 수정.
+// lights_phong_pars_fragment에서 dotNL에 abs()를 적용하여 양면 동일 라이팅.
+if (typeof THREE !== 'undefined' && THREE.ShaderChunk) {
+    var phongChunkKey = 'lights_phong_pars_fragment';
+    if (THREE.ShaderChunk[phongChunkKey]) {
+        var original = 'float dotNL = saturate( dot( geometry.normal, directLight.direction ) );';
+        var patched = 'float dotNL = saturate( abs( dot( geometry.normal, directLight.direction ) ) );';
+        if (THREE.ShaderChunk[phongChunkKey].indexOf(original) >= 0) {
+            THREE.ShaderChunk[phongChunkKey] = THREE.ShaderChunk[phongChunkKey].replace(original, patched);
+            console.log('[Editor] ShaderChunk patched: bilateral lighting (phong)');
+        }
+    }
+    // Lambert vertex shader도 패치 (vLightBack을 vLightFront와 동일하게)
+    var lambertChunkKey = 'lights_lambert_vertex';
+    if (THREE.ShaderChunk[lambertChunkKey]) {
+        var lambOriginal = 'vLightBack += saturate( -dotNL ) * directLightColor_Diffuse;';
+        var lambPatched = 'vLightBack += saturate( dotNL ) * directLightColor_Diffuse;';
+        var chunk = THREE.ShaderChunk[lambertChunkKey];
+        while (chunk.indexOf(lambOriginal) >= 0) {
+            chunk = chunk.replace(lambOriginal, lambPatched);
+        }
+        if (chunk !== THREE.ShaderChunk[lambertChunkKey]) {
+            THREE.ShaderChunk[lambertChunkKey] = chunk;
+            console.log('[Editor] ShaderChunk patched: bilateral lighting (lambert)');
+        }
+    }
+}
+
 console.log('[Editor] Runtime bootstrap globals initialized');

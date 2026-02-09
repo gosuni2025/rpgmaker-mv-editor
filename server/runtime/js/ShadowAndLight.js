@@ -67,9 +67,9 @@ ShadowLight._shadowMaterial = null;
 ShadowLight.config = {
     // 광원 설정
     ambientColor: 0x667788,           // 환경광 (어두운 푸른 톤 - 달빛 느낌)
-    ambientIntensity: 0.15,
+    ambientIntensity: 0.35,
     directionalColor: 0xfff8ee,       // 햇빛 색상 (따뜻한 톤)
-    directionalIntensity: 0.15,
+    directionalIntensity: 0.3,
     lightDirection: new THREE.Vector3(-1, -1, -2).normalize(), // 광원 방향 (Z 성분 크게)
 
     // 플레이어 포인트 라이트
@@ -150,15 +150,7 @@ ShadowLight._convertMaterial = function(sprite) {
     newMat.visible = oldMat.visible;
     newMat.needsUpdate = true;
 
-    // 양면 라이팅: dotNL = abs(dot(N, L)) → 노멀 뒷면에서도 빛을 받음
-    newMat.onBeforeCompile = function(shader) {
-        shader.fragmentShader = shader.fragmentShader.replace(
-            'float dotNL = saturate( dot( geometry.normal, directLight.direction ) );',
-            'float dotNL = saturate( abs( dot( geometry.normal, directLight.direction ) ) );'
-        );
-    };
-    // 캐시 키를 고유하게 설정하여 셰이더 프로그램이 재컴파일되도록 강제
-    newMat.customProgramCacheKey = function() { return 'bilateral_' + this.uuid; };
+    // 양면 라이팅은 editor-runtime-bootstrap.js에서 ShaderChunk 글로벌 패치로 적용됨
 
     // Mesh에 새 material 적용
     sprite._threeObj.material = newMat;
