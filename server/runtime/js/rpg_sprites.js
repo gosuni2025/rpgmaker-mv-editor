@@ -2277,6 +2277,7 @@ Spriteset_Map.prototype.update = function() {
     this.updateTileset();
     this.updateParallax();
     this.updateTilemap();
+    this.updateMapObjects();
     this.updateShadow();
     this.updateWeather();
 };
@@ -2354,11 +2355,11 @@ Spriteset_Map.prototype.createMapObjects = function() {
         if (!obj) continue;
         // Create a container sprite for the entire object
         var container = new Sprite();
-        container.x = obj.x * tw;
-        // anchor Y at the bottom row of the object
-        container.y = (obj.y + 1) * th;
+        // Store map tile coordinates for scroll-based position update
+        container._mapObjX = obj.x;
+        container._mapObjY = obj.y;
+        container._mapObjH = obj.height;
         container.z = 3; // above lower tiles, below characters
-        container.anchor = new Point(0, 1);
 
         for (var row = 0; row < obj.height; row++) {
             for (var col = 0; col < obj.width; col++) {
@@ -2377,7 +2378,7 @@ Spriteset_Map.prototype.createMapObjects = function() {
                 var sy = Math.floor(tileId % 256 / 8) % 16 * th;
                 tileSprite.setFrame(sx, sy, tw, th);
                 tileSprite.x = col * tw;
-                tileSprite.y = row * th - (obj.height * th); // relative to container bottom
+                tileSprite.y = (row - obj.height) * th;
                 container.addChild(tileSprite);
             }
         }
@@ -2389,6 +2390,18 @@ Spriteset_Map.prototype.createMapObjects = function() {
         if (typeof Mode3D !== 'undefined') {
             Mode3D.registerBillboard(container);
         }
+    }
+};
+
+Spriteset_Map.prototype.updateMapObjects = function() {
+    if (!this._objectSprites) return;
+    var tw = $gameMap.tileWidth();
+    var th = $gameMap.tileHeight();
+    for (var i = 0; i < this._objectSprites.length; i++) {
+        var container = this._objectSprites[i];
+        // Update position based on map scroll (same as character screenX/Y)
+        container.x = Math.round($gameMap.adjustX(container._mapObjX) * tw);
+        container.y = Math.round($gameMap.adjustY(container._mapObjY) * th + th);
     }
 };
 
