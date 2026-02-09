@@ -49,7 +49,7 @@
 
         // Enable shadow map for real-time shadow casting
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.shadowMap.type = THREE.PCFShadowMap;
 
         // Disable auto-sorting; we control render order via z-position
         renderer.sortObjects = true;
