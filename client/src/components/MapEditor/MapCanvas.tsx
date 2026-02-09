@@ -1443,7 +1443,7 @@ export default function MapCanvas() {
   // =========================================================================
   // Map boundary resize detection
   // =========================================================================
-  const EDGE_THRESHOLD = 8; // px (in map-space, before zoom)
+  const EDGE_THRESHOLD = 16; // px (in map-space, before zoom) - detect inside the map boundary
   const detectEdge = useCallback((e: React.MouseEvent<HTMLElement>): ResizeEdge => {
     if (!currentMap || mode3d) return null;
     const canvas = webglCanvasRef.current;
@@ -1457,10 +1457,11 @@ export default function MapCanvas() {
     const mapH = currentMap.height * TILE_SIZE_PX;
     const t = EDGE_THRESHOLD;
 
-    const nearN = py >= -t && py <= t;
-    const nearS = py >= mapH - t && py <= mapH + t;
-    const nearW = px >= -t && px <= t;
-    const nearE = px >= mapW - t && px <= mapW + t;
+    // Detect edges from inside the map boundary only (canvas doesn't extend beyond map)
+    const nearN = py >= 0 && py <= t;
+    const nearS = py >= mapH - t && py <= mapH;
+    const nearW = px >= 0 && px <= t;
+    const nearE = px >= mapW - t && px <= mapW;
 
     if (nearN && nearW) return 'nw';
     if (nearN && nearE) return 'ne';
