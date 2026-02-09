@@ -1057,21 +1057,16 @@ ShadowLight._createDebugUI = function() {
     panel.appendChild(title);
 
     var self = this;
-    var controls = [
-        { label: 'Intensity', key: 'playerLightIntensity', min: 0, max: 5, step: 0.1 },
-        { label: 'Distance', key: 'playerLightDistance', min: 50, max: 2000, step: 50 },
-        { label: 'Light Z', key: 'playerLightZ', min: 0, max: 500, step: 10 },
-        { label: 'Ambient', key: 'ambientIntensity', min: 0, max: 2, step: 0.05 },
-        { label: 'Dir Light', key: 'directionalIntensity', min: 0, max: 2, step: 0.05 },
-        { label: 'Spot Int', key: 'spotLightIntensity', min: 0, max: 10, step: 0.1 },
-        { label: 'Spot Dist', key: 'spotLightDistance', min: 50, max: 1000, step: 50 },
-        { label: 'Spot Angle', key: 'spotLightAngle', min: 0.1, max: 1.5, step: 0.05 },
-        { label: 'Spot Pen', key: 'spotLightPenumbra', min: 0, max: 1, step: 0.05 },
-        { label: 'Spot Z', key: 'spotLightZ', min: 10, max: 500, step: 10 },
-        { label: 'Spot TDist', key: 'spotLightTargetDistance', min: 30, max: 500, step: 10 },
-    ];
+    var sectionStyle = 'border-top:1px solid #444;padding-top:6px;margin-top:6px;';
 
-    controls.forEach(function(c) {
+    // 정수 색상값을 #rrggbb 문자열로 변환하는 헬퍼
+    function intToHex(colorInt) {
+        if (typeof colorInt === 'string') return colorInt;
+        return '#' + ('000000' + (colorInt >>> 0).toString(16)).slice(-6);
+    }
+
+    // 슬라이더 행 생성 헬퍼
+    function addSliderRow(parent, c) {
         var row = document.createElement('div');
         row.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
 
@@ -1095,7 +1090,6 @@ ShadowLight._createDebugUI = function() {
             var v = parseFloat(slider.value);
             self.config[c.key] = v;
             val.textContent = v.toFixed(c.step < 1 ? 2 : 0);
-            // 실시간 반영
             if (c.key === 'ambientIntensity' && self._ambientLight) {
                 self._ambientLight.intensity = v;
             }
@@ -1107,65 +1101,11 @@ ShadowLight._createDebugUI = function() {
         row.appendChild(lbl);
         row.appendChild(slider);
         row.appendChild(val);
-        panel.appendChild(row);
-    });
-
-    // Decay 토글 (0 또는 1)
-    var decayRow = document.createElement('div');
-    decayRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
-    var decayLbl = document.createElement('span');
-    decayLbl.textContent = 'Decay';
-    decayLbl.style.cssText = 'width:70px;font-size:11px;';
-    var decaySelect = document.createElement('select');
-    decaySelect.style.cssText = 'font:11px monospace;background:#333;color:#eee;border:1px solid #555;';
-    [0, 1, 2].forEach(function(d) {
-        var opt = document.createElement('option');
-        opt.value = d;
-        opt.textContent = d;
-        decaySelect.appendChild(opt);
-    });
-    decaySelect.value = '0';
-    self._debugDecay = 0;
-    decaySelect.addEventListener('change', function() {
-        self._debugDecay = parseInt(decaySelect.value);
-    });
-    decayRow.appendChild(decayLbl);
-    decayRow.appendChild(decaySelect);
-    panel.appendChild(decayRow);
-
-    // 정수 색상값을 #rrggbb 문자열로 변환하는 헬퍼
-    function intToHex(colorInt) {
-        if (typeof colorInt === 'string') return colorInt;
-        return '#' + ('000000' + (colorInt >>> 0).toString(16)).slice(-6);
+        parent.appendChild(row);
     }
 
-    // 빛 색깔 피커
-    // SpotLight ON/OFF 토글
-    var spotRow = document.createElement('div');
-    spotRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
-    var spotLbl = document.createElement('span');
-    spotLbl.textContent = 'SpotLight';
-    spotLbl.style.cssText = 'width:70px;font-size:11px;';
-    var spotCheck = document.createElement('input');
-    spotCheck.type = 'checkbox';
-    spotCheck.checked = self.config.spotLightEnabled;
-    spotCheck.addEventListener('change', function() {
-        self.config.spotLightEnabled = spotCheck.checked;
-        if (self._playerSpotLight) {
-            self._playerSpotLight.visible = spotCheck.checked;
-        }
-    });
-    spotRow.appendChild(spotLbl);
-    spotRow.appendChild(spotCheck);
-    panel.appendChild(spotRow);
-
-    var colorControls = [
-        { label: 'Light Color', key: 'playerLightColor' },
-        { label: 'Spot Color', key: 'spotLightColor' },
-        { label: 'Ambient Color', key: 'ambientColor' },
-    ];
-
-    colorControls.forEach(function(cc) {
+    // 컬러 피커 행 생성 헬퍼
+    function addColorRow(parent, cc) {
         var row = document.createElement('div');
         row.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
 
@@ -1189,7 +1129,6 @@ ShadowLight._createDebugUI = function() {
             self.config[cc.key] = colorInt;
             hexVal.textContent = hex;
             if (cc.key === 'playerLightColor') {
-                // 모든 활성 포인트라이트 색상 업데이트
                 if (self._lightPool) {
                     self._lightPool.forEach(function(l) {
                         if (l.parent) l.color.setHex(colorInt);
@@ -1204,8 +1143,86 @@ ShadowLight._createDebugUI = function() {
         row.appendChild(lbl);
         row.appendChild(colorInput);
         row.appendChild(hexVal);
-        panel.appendChild(row);
+        parent.appendChild(row);
+    }
+
+    // ── 환경광 섹션 ──
+    var envTitle = document.createElement('div');
+    envTitle.textContent = '환경광';
+    envTitle.style.cssText = 'font-weight:bold;font-size:11px;color:#88ccff;' + sectionStyle;
+    panel.appendChild(envTitle);
+
+    addSliderRow(panel, { label: 'Ambient', key: 'ambientIntensity', min: 0, max: 2, step: 0.05 });
+    addSliderRow(panel, { label: 'Dir Light', key: 'directionalIntensity', min: 0, max: 2, step: 0.05 });
+    addColorRow(panel, { label: 'Ambient Color', key: 'ambientColor' });
+
+    // ── 플레이어 라이트 섹션 ──
+    var playerTitle = document.createElement('div');
+    playerTitle.textContent = '플레이어 라이트';
+    playerTitle.style.cssText = 'font-weight:bold;font-size:11px;color:#ffcc66;' + sectionStyle;
+    panel.appendChild(playerTitle);
+
+    addSliderRow(panel, { label: 'Intensity', key: 'playerLightIntensity', min: 0, max: 5, step: 0.1 });
+    addSliderRow(panel, { label: 'Distance', key: 'playerLightDistance', min: 50, max: 2000, step: 50 });
+    addSliderRow(panel, { label: 'Light Z', key: 'playerLightZ', min: 0, max: 500, step: 10 });
+    addColorRow(panel, { label: 'Light Color', key: 'playerLightColor' });
+
+    // Decay 토글
+    var decayRow = document.createElement('div');
+    decayRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+    var decayLbl = document.createElement('span');
+    decayLbl.textContent = 'Decay';
+    decayLbl.style.cssText = 'width:70px;font-size:11px;';
+    var decaySelect = document.createElement('select');
+    decaySelect.style.cssText = 'font:11px monospace;background:#333;color:#eee;border:1px solid #555;';
+    [0, 1, 2].forEach(function(d) {
+        var opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = d;
+        decaySelect.appendChild(opt);
     });
+    decaySelect.value = '0';
+    self._debugDecay = 0;
+    decaySelect.addEventListener('change', function() {
+        self._debugDecay = parseInt(decaySelect.value);
+    });
+    decayRow.appendChild(decayLbl);
+    decayRow.appendChild(decaySelect);
+    panel.appendChild(decayRow);
+
+    // ── 스포트라이트 섹션 ──
+    var spotTitle = document.createElement('div');
+    spotTitle.textContent = '스포트라이트';
+    spotTitle.style.cssText = 'font-weight:bold;font-size:11px;color:#ff9966;' + sectionStyle;
+    panel.appendChild(spotTitle);
+
+    // SpotLight ON/OFF 토글
+    var spotRow = document.createElement('div');
+    spotRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+    var spotLbl = document.createElement('span');
+    spotLbl.textContent = 'Enabled';
+    spotLbl.style.cssText = 'width:70px;font-size:11px;';
+    var spotCheck = document.createElement('input');
+    spotCheck.type = 'checkbox';
+    spotCheck.checked = self.config.spotLightEnabled;
+    spotCheck.addEventListener('change', function() {
+        self.config.spotLightEnabled = spotCheck.checked;
+        if (self._playerSpotLight) {
+            self._playerSpotLight.visible = spotCheck.checked;
+        }
+    });
+    spotRow.appendChild(spotLbl);
+    spotRow.appendChild(spotCheck);
+    panel.appendChild(spotRow);
+
+    addSliderRow(panel, { label: 'Spot Int', key: 'spotLightIntensity', min: 0, max: 10, step: 0.1 });
+    addSliderRow(panel, { label: 'Spot Dist', key: 'spotLightDistance', min: 50, max: 1000, step: 50 });
+    addSliderRow(panel, { label: 'Spot Angle', key: 'spotLightAngle', min: 0.1, max: 1.5, step: 0.05 });
+    addSliderRow(panel, { label: 'Spot Pen', key: 'spotLightPenumbra', min: 0, max: 1, step: 0.05 });
+    addSliderRow(panel, { label: 'Spot Z', key: 'spotLightZ', min: 10, max: 500, step: 10 });
+    addSliderRow(panel, { label: 'Spot TDist', key: 'spotLightTargetDistance', min: 30, max: 500, step: 10 });
+    addColorRow(panel, { label: 'Spot Color', key: 'spotLightColor' });
+
 
     // 현재값 복사 버튼
     var copyBtn = document.createElement('button');
