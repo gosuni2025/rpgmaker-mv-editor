@@ -595,19 +595,15 @@ export function useThreeRenderer(
         cvs.width = TILE_SIZE_PX;
         cvs.height = TILE_SIZE_PX;
         const ctx = cvs.getContext('2d')!;
-        // Y-flip: OrthographicCamera의 Y축이 아래로 향하므로 캔버스를 뒤집어야 함
-        ctx.save();
-        ctx.scale(1, -1);
-        ctx.translate(0, -TILE_SIZE_PX);
         const scale = Math.min(TILE_SIZE_PX / charW, TILE_SIZE_PX / charH);
         const dw = charW * scale;
         const dh = charH * scale;
         const dx = (TILE_SIZE_PX - dw) / 2;
         const dy = TILE_SIZE_PX - dh;
         ctx.drawImage(img, srcX, srcY, charW, charH, dx, dy, dw, dh);
-        ctx.restore();
 
         const tex = new THREE.CanvasTexture(cvs);
+        tex.flipY = false;
         tex.minFilter = THREE.LinearFilter;
         const geom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
         const mat = new THREE.MeshBasicMaterial({
@@ -698,22 +694,29 @@ export function useThreeRenderer(
 
       // 이벤트 이름 라벨
       const displayName = ev.name || `EV${String(ev.id).padStart(3, '0')}`;
+      const cvsW = 128;
+      const cvsH = 32;
       const cvs = document.createElement('canvas');
-      cvs.width = 256;
-      cvs.height = 48;
+      cvs.width = cvsW;
+      cvs.height = cvsH;
       const ctx = cvs.getContext('2d')!;
-      ctx.clearRect(0, 0, 256, 48);
+      ctx.clearRect(0, 0, cvsW, cvsH);
+      // Y-flip: OrthographicCamera의 Y축이 아래로 향하므로 캔버스를 뒤집어야 함
+      ctx.save();
+      ctx.scale(1, -1);
+      ctx.translate(0, -cvsH);
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 24px sans-serif';
+      ctx.font = 'bold 18px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.shadowColor = '#000';
-      ctx.shadowBlur = 4;
-      ctx.fillText(displayName, 128, 4, 248);
+      ctx.shadowBlur = 3;
+      ctx.fillText(displayName, cvsW / 2, 4, cvsW - 4);
+      ctx.restore();
       const tex = new THREE.CanvasTexture(cvs);
       tex.minFilter = THREE.LinearFilter;
       const labelW = TILE_SIZE_PX;
-      const labelH = TILE_SIZE_PX * (48 / 256);
+      const labelH = TILE_SIZE_PX * (cvsH / cvsW);
       const labelGeom = new THREE.PlaneGeometry(labelW, labelH);
       const labelMat = new THREE.MeshBasicMaterial({
         map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
