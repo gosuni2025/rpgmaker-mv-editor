@@ -1906,6 +1906,7 @@ export default function MapCanvas() {
   // =========================================================================
   // Eyedropper (스포이드) - Alt+Click으로 맵 타일 픽업
   // =========================================================================
+  const showToast = useEditorStore((s) => s.showToast);
   const eyedropTile = useCallback((tileX: number, tileY: number) => {
     const map = useEditorStore.getState().currentMap;
     if (!map) return;
@@ -1939,16 +1940,18 @@ export default function MapCanvas() {
       tab = 'B';
     }
 
+    const rawTileId = pickedTileId;
     // 오토타일의 경우 대표 타일 ID(shape=46)로 변환
     if (isAutotile(pickedTileId)) {
       const kind = getAutotileKindExported(pickedTileId);
       pickedTileId = makeAutotileId(kind, 46);
     }
 
+    showToast(`스포이드: 탭=${tab} 타일=${rawTileId}→${pickedTileId} 레이어=${pickedLayer}`);
     setPaletteTab(tab);
     setSelectedTileId(pickedTileId);
     setCurrentLayer(tab === 'A' ? 0 : 1);
-  }, [setPaletteTab, setSelectedTileId, setCurrentLayer]);
+  }, [setPaletteTab, setSelectedTileId, setCurrentLayer, showToast]);
 
   // =========================================================================
   // Map boundary resize detection
