@@ -348,12 +348,29 @@
                 }
             }
 
+            // Hide editor overlay meshes (grid, region, drag preview etc.)
+            // during Pass 1 - they are scene direct children with high renderOrder
+            var overlayVisibility = [];
+            for (var oi = 0; oi < scene.children.length; oi++) {
+                var obj = scene.children[oi];
+                if (obj !== stageObj && obj.renderOrder >= 9998) {
+                    overlayVisibility.push({ idx: oi, visible: obj.visible });
+                    obj.visible = false;
+                }
+            }
+
             renderer.autoClear = !skyMesh;  // Don't clear if sky was drawn
             renderer.render(scene, Mode3D._perspCamera);
 
             // Restore _blackScreen
             if (blackScreenObj) {
                 blackScreenObj.visible = blackScreenWasVisible;
+            }
+
+            // Restore overlay visibility for Pass 2
+            for (var oi = 0; oi < overlayVisibility.length; oi++) {
+                scene.children[overlayVisibility[oi].idx].visible =
+                    overlayVisibility[oi].visible;
             }
 
             // --- Pass 2: OrthographicCamera로 UI 렌더 (합성) ---
