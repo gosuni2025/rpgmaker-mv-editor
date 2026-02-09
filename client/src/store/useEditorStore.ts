@@ -50,6 +50,9 @@ export interface EditorState {
   // Drawing tools
   selectedTool: string;
   selectedTileId: number;
+  selectedTiles: number[][] | null; // 2D array [row][col] of tile IDs for multi-tile selection
+  selectedTilesWidth: number;
+  selectedTilesHeight: number;
   currentLayer: number;
 
   // Zoom
@@ -125,6 +128,7 @@ export interface EditorState {
   setEditMode: (mode: 'map' | 'event') => void;
   setSelectedTool: (tool: string) => void;
   setSelectedTileId: (id: number) => void;
+  setSelectedTiles: (tiles: number[][] | null, width: number, height: number) => void;
   setCurrentLayer: (layer: number) => void;
   setZoomLevel: (level: number) => void;
   zoomIn: () => void;
@@ -164,6 +168,9 @@ const useEditorStore = create<EditorState>((set, get) => ({
   editMode: 'map',
   selectedTool: 'pen',
   selectedTileId: 0,
+  selectedTiles: null,
+  selectedTilesWidth: 1,
+  selectedTilesHeight: 1,
   currentLayer: 0,
   zoomLevel: 1,
   undoStack: [],
@@ -483,7 +490,8 @@ const useEditorStore = create<EditorState>((set, get) => ({
   // UI actions
   setEditMode: (mode: 'map' | 'event') => set({ editMode: mode }),
   setSelectedTool: (tool: string) => set({ selectedTool: tool }),
-  setSelectedTileId: (id: number) => set({ selectedTileId: id }),
+  setSelectedTileId: (id: number) => set({ selectedTileId: id, selectedTiles: null, selectedTilesWidth: 1, selectedTilesHeight: 1 }),
+  setSelectedTiles: (tiles: number[][] | null, width: number, height: number) => set({ selectedTiles: tiles, selectedTilesWidth: width, selectedTilesHeight: height }),
   setCurrentLayer: (layer: number) => set({ currentLayer: layer }),
   setZoomLevel: (level: number) => set({ zoomLevel: level }),
   zoomIn: () => {

@@ -67,13 +67,22 @@ const A_TILE_ENTRIES = buildAtileEntries();
 export default function TilesetPalette() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const selectedTileId = useEditorStore((s) => s.selectedTileId);
+  const selectedTiles = useEditorStore((s) => s.selectedTiles);
+  const selectedTilesWidth = useEditorStore((s) => s.selectedTilesWidth);
+  const selectedTilesHeight = useEditorStore((s) => s.selectedTilesHeight);
   const setSelectedTileId = useEditorStore((s) => s.setSelectedTileId);
+  const setSelectedTiles = useEditorStore((s) => s.setSelectedTiles);
   const setCurrentLayer = useEditorStore((s) => s.setCurrentLayer);
   const currentMap = useEditorStore((s) => s.currentMap);
 
   const [activeTab, setActiveTab] = useState<PaletteTab>('A');
   const [tilesetImages, setTilesetImages] = useState<Record<number, HTMLImageElement>>({});
   const [selectedRegion, setSelectedRegion] = useState(0);
+
+  // Drag selection state for multi-tile selection
+  const isDragging = useRef(false);
+  const dragStartCell = useRef<{ col: number; row: number } | null>(null);
+  const [dragCurrentCell, setDragCurrentCell] = useState<{ col: number; row: number } | null>(null);
 
   // Load ALL tileset images
   useEffect(() => {
@@ -138,18 +147,53 @@ export default function TilesetPalette() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
 
-    // Highlight selected tile
+    // Highlight selection (drag preview or committed selection)
     const offset = TAB_TILE_OFFSET[activeTab] ?? 0;
-    const localId = selectedTileId - offset;
-    if (localId >= 0 && localId < 256) {
-      const cols = 16;
-      const col = localId % cols;
-      const row = Math.floor(localId / cols);
+    const cols = 16;
+
+    if (isDragging.current && dragStartCell.current && dragCurrentCell) {
+      // Drag preview highlight
+      const minCol = Math.min(dragStartCell.current.col, dragCurrentCell.col);
+      const maxCol = Math.max(dragStartCell.current.col, dragCurrentCell.col);
+      const minRow = Math.min(dragStartCell.current.row, dragCurrentCell.row);
+      const maxRow = Math.max(dragStartCell.current.row, dragCurrentCell.row);
       ctx.strokeStyle = '#ff0000';
       ctx.lineWidth = 2;
-      ctx.strokeRect(col * TILE_SIZE_PX + 1, row * TILE_SIZE_PX + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+      const rx = minCol * TILE_SIZE_PX + 1;
+      const ry = minRow * TILE_SIZE_PX + 1;
+      const rw = (maxCol - minCol + 1) * TILE_SIZE_PX - 2;
+      const rh = (maxRow - minRow + 1) * TILE_SIZE_PX - 2;
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeRect(rx, ry, rw, rh);
+    } else if (selectedTiles && selectedTilesWidth > 1 || selectedTiles && selectedTilesHeight > 1) {
+      // Multi-tile committed selection: find top-left from selectedTileId
+      const localId = selectedTileId - offset;
+      if (localId >= 0 && localId < 256) {
+        const startCol = localId % cols;
+        const startRow = Math.floor(localId / cols);
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+        const rx = startCol * TILE_SIZE_PX + 1;
+        const ry = startRow * TILE_SIZE_PX + 1;
+        const rw = selectedTilesWidth * TILE_SIZE_PX - 2;
+        const rh = selectedTilesHeight * TILE_SIZE_PX - 2;
+        ctx.fillRect(rx, ry, rw, rh);
+        ctx.strokeRect(rx, ry, rw, rh);
+      }
+    } else {
+      // Single tile selection
+      const localId = selectedTileId - offset;
+      if (localId >= 0 && localId < 256) {
+        const col = localId % cols;
+        const row = Math.floor(localId / cols);
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(col * TILE_SIZE_PX + 1, row * TILE_SIZE_PX + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
+      }
     }
-  }, [activeTab, tilesetImages, selectedTileId]);
+  }, [activeTab, tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, dragCurrentCell]);
 
   // Render A tab (autotile thumbnails grid)
   const renderATab = useCallback(() => {
@@ -195,14 +239,53 @@ export default function TilesetPalette() {
         }
       }
 
-      // Highlight selected
-      if (selectedTileId === entry.tileId) {
+    }
+
+    // Draw selection highlight for A tab
+    if (isDragging.current && dragStartCell.current && dragCurrentCell) {
+      const minCol = Math.min(dragStartCell.current.col, dragCurrentCell.col);
+      const maxCol = Math.max(dragStartCell.current.col, dragCurrentCell.col);
+      const minRow = Math.min(dragStartCell.current.row, dragCurrentCell.row);
+      const maxRow = Math.max(dragStartCell.current.row, dragCurrentCell.row);
+      ctx.strokeStyle = '#ff0000';
+      ctx.lineWidth = 2;
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+      const rx = minCol * TILE_SIZE_PX + 1;
+      const ry = minRow * TILE_SIZE_PX + 1;
+      const rw = (maxCol - minCol + 1) * TILE_SIZE_PX - 2;
+      const rh = (maxRow - minRow + 1) * TILE_SIZE_PX - 2;
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeRect(rx, ry, rw, rh);
+    } else if (selectedTiles && (selectedTilesWidth > 1 || selectedTilesHeight > 1)) {
+      // Multi-tile committed selection on A tab
+      const startIdx = A_TILE_ENTRIES.findIndex(e => e.tileId === selectedTileId);
+      if (startIdx >= 0) {
+        const startCol = startIdx % cols;
+        const startRow = Math.floor(startIdx / cols);
         ctx.strokeStyle = '#ff0000';
         ctx.lineWidth = 2;
-        ctx.strokeRect(dx + 1, dy + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+        const rx = startCol * TILE_SIZE_PX + 1;
+        const ry = startRow * TILE_SIZE_PX + 1;
+        const rw = selectedTilesWidth * TILE_SIZE_PX - 2;
+        const rh = selectedTilesHeight * TILE_SIZE_PX - 2;
+        ctx.fillRect(rx, ry, rw, rh);
+        ctx.strokeRect(rx, ry, rw, rh);
+      }
+    } else {
+      // Single tile highlight
+      for (let i = 0; i < totalEntries; i++) {
+        if (selectedTileId === A_TILE_ENTRIES[i].tileId) {
+          const sc = i % cols;
+          const sr = Math.floor(i / cols);
+          ctx.strokeStyle = '#ff0000';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(sc * TILE_SIZE_PX + 1, sr * TILE_SIZE_PX + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
+          break;
+        }
       }
     }
-  }, [tilesetImages, selectedTileId]);
+  }, [tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, dragCurrentCell]);
 
   // Main render
   useEffect(() => {
@@ -214,34 +297,125 @@ export default function TilesetPalette() {
     }
   }, [activeTab, renderATab, renderNormalTab]);
 
-  const handleClick = useCallback(
+  const canvasToCell = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
-      if (!canvas) return;
+      if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
       const cx = (e.clientX - rect.left) * scaleX;
       const cy = (e.clientY - rect.top) * scaleY;
-      const col = Math.floor(cx / TILE_SIZE_PX);
-      const row = Math.floor(cy / TILE_SIZE_PX);
+      const cols = activeTab === 'A' ? 8 : 16;
+      const col = Math.max(0, Math.min(cols - 1, Math.floor(cx / TILE_SIZE_PX)));
+      const row = Math.max(0, Math.floor(cy / TILE_SIZE_PX));
+      return { col, row };
+    },
+    [activeTab]
+  );
 
+  const getTileIdForCell = useCallback(
+    (col: number, row: number): number => {
       if (activeTab === 'A') {
         const cols = 8;
         const idx = row * cols + col;
         if (idx >= 0 && idx < A_TILE_ENTRIES.length) {
-          setSelectedTileId(A_TILE_ENTRIES[idx].tileId);
-          setCurrentLayer(0); // A tiles go to lower layer
+          return A_TILE_ENTRIES[idx].tileId;
         }
+        return 0;
       } else {
         const cols = 16;
         const localId = row * cols + col;
         const offset = TAB_TILE_OFFSET[activeTab] ?? 0;
-        setSelectedTileId(offset + localId);
-        setCurrentLayer(1); // B-E tiles go to upper layer
+        return offset + localId;
       }
     },
-    [activeTab, setSelectedTileId, setCurrentLayer]
+    [activeTab]
+  );
+
+  const commitSelection = useCallback(
+    (startCol: number, startRow: number, endCol: number, endRow: number) => {
+      const minCol = Math.min(startCol, endCol);
+      const maxCol = Math.max(startCol, endCol);
+      const minRow = Math.min(startRow, endRow);
+      const maxRow = Math.max(startRow, endRow);
+      const w = maxCol - minCol + 1;
+      const h = maxRow - minRow + 1;
+
+      const layer = activeTab === 'A' ? 0 : 1;
+      setCurrentLayer(layer);
+
+      if (w === 1 && h === 1) {
+        // Single tile selection
+        setSelectedTileId(getTileIdForCell(minCol, minRow));
+      } else {
+        // Multi-tile selection: build 2D array
+        const tiles: number[][] = [];
+        for (let r = 0; r < h; r++) {
+          const rowTiles: number[] = [];
+          for (let c = 0; c < w; c++) {
+            rowTiles.push(getTileIdForCell(minCol + c, minRow + r));
+          }
+          tiles.push(rowTiles);
+        }
+        // Set the top-left tile as selectedTileId for backward compat
+        const topLeftId = getTileIdForCell(minCol, minRow);
+        useEditorStore.setState({ selectedTileId: topLeftId });
+        setSelectedTiles(tiles, w, h);
+      }
+    },
+    [activeTab, getTileIdForCell, setSelectedTileId, setSelectedTiles, setCurrentLayer]
+  );
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (e.button !== 0) return;
+      const cell = canvasToCell(e);
+      if (!cell) return;
+      isDragging.current = true;
+      dragStartCell.current = cell;
+      setDragCurrentCell(cell);
+    },
+    [canvasToCell]
+  );
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (!isDragging.current || !dragStartCell.current) return;
+      const cell = canvasToCell(e);
+      if (!cell) return;
+      setDragCurrentCell(cell);
+    },
+    [canvasToCell]
+  );
+
+  const handleMouseUp = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (!isDragging.current || !dragStartCell.current) return;
+      isDragging.current = false;
+      const cell = canvasToCell(e);
+      const start = dragStartCell.current;
+      const end = cell || dragCurrentCell;
+      if (!end) return;
+      commitSelection(start.col, start.row, end.col, end.row);
+      dragStartCell.current = null;
+      setDragCurrentCell(null);
+    },
+    [canvasToCell, dragCurrentCell, commitSelection]
+  );
+
+  // Handle mouse leaving the canvas while dragging
+  const handleMouseLeave = useCallback(
+    () => {
+      if (!isDragging.current || !dragStartCell.current) return;
+      isDragging.current = false;
+      const start = dragStartCell.current;
+      const end = dragCurrentCell || start;
+      commitSelection(start.col, start.row, end.col, end.row);
+      dragStartCell.current = null;
+      setDragCurrentCell(null);
+    },
+    [dragCurrentCell, commitSelection]
   );
 
   const handleTabClick = (tab: PaletteTab) => {
@@ -300,7 +474,10 @@ export default function TilesetPalette() {
         ) : (
           <canvas
             ref={canvasRef}
-            onClick={handleClick}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
             style={styles.canvas}
           />
         )}

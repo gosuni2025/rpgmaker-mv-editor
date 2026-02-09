@@ -27,6 +27,9 @@ export default function MapCanvas() {
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedTool = useEditorStore((s) => s.selectedTool);
   const selectedTileId = useEditorStore((s) => s.selectedTileId);
+  const selectedTiles = useEditorStore((s) => s.selectedTiles);
+  const selectedTilesWidth = useEditorStore((s) => s.selectedTilesWidth);
+  const selectedTilesHeight = useEditorStore((s) => s.selectedTilesHeight);
   const currentLayer = useEditorStore((s) => s.currentLayer);
   const editMode = useEditorStore((s) => s.editMode);
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
@@ -546,10 +549,31 @@ export default function MapCanvas() {
       const { x, y } = tilePos;
       if (x < 0 || x >= latestMap.width || y < 0 || y >= latestMap.height) return;
 
+      const { selectedTiles: sTiles, selectedTilesWidth: stW, selectedTilesHeight: stH } = useEditorStore.getState();
+      const isMulti = sTiles && (stW > 1 || stH > 1);
+
       // Region layer: direct placement, no autotile
       if (currentLayer === 5) {
         if (selectedTool === 'fill') {
           floodFill(x, y);
+          return;
+        }
+        if (isMulti && selectedTool === 'pen') {
+          for (let row = 0; row < stH; row++) {
+            for (let col = 0; col < stW; col++) {
+              const tx = x + col, ty = y + row;
+              if (tx >= latestMap.width || ty >= latestMap.height) continue;
+              const z = 5;
+              const idx = (z * latestMap.height + ty) * latestMap.width + tx;
+              const oldTileId = latestMap.data[idx];
+              const newTileId = sTiles[row][col];
+              if (oldTileId !== newTileId) {
+                pendingChanges.current.push({ x: tx, y: ty, z, oldTileId, newTileId });
+              }
+            }
+          }
+          const updates = pendingChanges.current.filter((_, i) => i >= pendingChanges.current.length - stW * stH).map(c => ({ x: c.x, y: c.y, z: c.z, tileId: c.newTileId }));
+          if (updates.length > 0) updateMapTiles(updates);
           return;
         }
         const z = 5;
@@ -572,13 +596,31 @@ export default function MapCanvas() {
           updateMapTiles(updates);
         }
       } else if (selectedTool === 'pen') {
-        const changes: TileChange[] = [];
-        const updates: { x: number; y: number; z: number; tileId: number }[] = [];
-        const data = [...latestMap.data];
-        placeAutotileAt(x, y, currentLayer, selectedTileId, data, latestMap.width, latestMap.height, changes, updates);
-        if (updates.length > 0) {
-          pendingChanges.current.push(...changes);
-          updateMapTiles(updates);
+        if (isMulti) {
+          // Multi-tile pen: place the entire pattern
+          const changes: TileChange[] = [];
+          const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+          const data = [...latestMap.data];
+          for (let row = 0; row < stH; row++) {
+            for (let col = 0; col < stW; col++) {
+              const tx = x + col, ty = y + row;
+              if (tx < 0 || tx >= latestMap.width || ty < 0 || ty >= latestMap.height) continue;
+              placeAutotileAt(tx, ty, currentLayer, sTiles[row][col], data, latestMap.width, latestMap.height, changes, updates);
+            }
+          }
+          if (updates.length > 0) {
+            pendingChanges.current.push(...changes);
+            updateMapTiles(updates);
+          }
+        } else {
+          const changes: TileChange[] = [];
+          const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+          const data = [...latestMap.data];
+          placeAutotileAt(x, y, currentLayer, selectedTileId, data, latestMap.width, latestMap.height, changes, updates);
+          if (updates.length > 0) {
+            pendingChanges.current.push(...changes);
+            updateMapTiles(updates);
+          }
         }
       } else if (selectedTool === 'fill') {
         floodFill(x, y);
@@ -748,12 +790,25 @@ export default function MapCanvas() {
   );
 
   // Batch place tiles with autotile shape recalculation
+  // Supports multi-tile pattern: when selectedTiles is set, tile ID for each position is tiled from the pattern
   const batchPlaceWithAutotile = useCallback(
     (positions: { x: number; y: number }[], tileId: number) => {
       const latestMap = useEditorStore.getState().currentMap;
       if (!latestMap || positions.length === 0) return;
       const { width, height } = latestMap;
       const z = currentLayer;
+
+      const { selectedTiles: sTiles, selectedTilesWidth: stW, selectedTilesHeight: stH } = useEditorStore.getState();
+      const isMulti = sTiles && (stW > 1 || stH > 1);
+
+      // Helper to get tile ID for a position (supports multi-tile tiling)
+      const getTileForPos = (x: number, y: number): number => {
+        if (!isMulti) return tileId;
+        // Find bounding box min to tile pattern from top-left
+        const col = ((x % stW) + stW) % stW;
+        const row = ((y % stH) + stH) % stH;
+        return sTiles[row][col];
+      };
 
       // Region layer: direct batch placement, no autotile
       if (z === 5) {
@@ -762,9 +817,10 @@ export default function MapCanvas() {
         for (const { x, y } of positions) {
           const idx = (z * height + y) * width + x;
           const oldId = latestMap.data[idx];
-          if (oldId !== tileId) {
-            changes.push({ x, y, z, oldTileId: oldId, newTileId: tileId });
-            updates.push({ x, y, z, tileId });
+          const newId = getTileForPos(x, y);
+          if (oldId !== newId) {
+            changes.push({ x, y, z, oldTileId: oldId, newTileId: newId });
+            updates.push({ x, y, z, tileId: newId });
           }
         }
         if (updates.length > 0) {
@@ -780,7 +836,7 @@ export default function MapCanvas() {
       // Set all positions first (raw)
       for (const { x, y } of positions) {
         const idx = (z * height + y) * width + x;
-        data[idx] = tileId;
+        data[idx] = getTileForPos(x, y);
       }
 
       // Collect all positions that need shape recalculation
