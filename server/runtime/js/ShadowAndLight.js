@@ -1121,23 +1121,46 @@ ShadowLight._createDebugUI = function() {
         parent.appendChild(row);
     }
 
-    // ── 환경광 섹션 ──
-    var envTitle = document.createElement('div');
-    envTitle.textContent = '환경광';
-    envTitle.style.cssText = 'font-weight:bold;font-size:11px;color:#88ccff;' + sectionStyle;
-    panel.appendChild(envTitle);
+    // 접기/펼치기 가능한 섹션 생성 헬퍼
+    // collapsed: 초기 접힘 상태 (기본 false = 펼침)
+    function createSection(parent, label, color, collapsed) {
+        var wrapper = document.createElement('div');
+        wrapper.style.cssText = sectionStyle;
 
-    addSliderRow(panel, { label: 'Ambient', key: 'ambientIntensity', min: 0, max: 3, step: 0.05 });
-    addColorRow(panel, { label: 'Ambient Color', key: 'ambientColor' });
+        var header = document.createElement('div');
+        header.style.cssText = 'font-weight:bold;font-size:11px;color:' + color + ';cursor:pointer;user-select:none;display:flex;align-items:center;gap:4px;';
+        var arrow = document.createElement('span');
+        arrow.textContent = collapsed ? '\u25B6' : '\u25BC';
+        arrow.style.cssText = 'font-size:9px;width:10px;';
+        var labelSpan = document.createElement('span');
+        labelSpan.textContent = label;
+        header.appendChild(arrow);
+        header.appendChild(labelSpan);
+        wrapper.appendChild(header);
+
+        var body = document.createElement('div');
+        body.style.display = collapsed ? 'none' : '';
+        wrapper.appendChild(body);
+
+        header.addEventListener('click', function() {
+            var isHidden = body.style.display === 'none';
+            body.style.display = isHidden ? '' : 'none';
+            arrow.textContent = isHidden ? '\u25BC' : '\u25B6';
+        });
+
+        parent.appendChild(wrapper);
+        return body;
+    }
+
+    // ── 환경광 섹션 ──
+    var envBody = createSection(panel, '환경광', '#88ccff', false);
+    addSliderRow(envBody, { label: 'Ambient', key: 'ambientIntensity', min: 0, max: 3, step: 0.05 });
+    addColorRow(envBody, { label: 'Ambient Color', key: 'ambientColor' });
 
     // ── 디렉셔널 라이트 섹션 ──
-    var dirTitle = document.createElement('div');
-    dirTitle.textContent = '디렉셔널 라이트';
-    dirTitle.style.cssText = 'font-weight:bold;font-size:11px;color:#aaddff;' + sectionStyle;
-    panel.appendChild(dirTitle);
-
-    addSliderRow(panel, { label: 'Dir Int', key: 'directionalIntensity', min: 0, max: 3, step: 0.05 });
-    addColorRow(panel, { label: 'Dir Color', key: 'directionalColor' });
+    var dirBody = createSection(panel, '디렉셔널 라이트', '#aaddff', true);
+    addSliderRow(dirBody, { label: 'Dir Int', key: 'directionalIntensity', min: 0, max: 3, step: 0.05 });
+    addColorRow(dirBody, { label: 'Dir Color', key: 'directionalColor' });
 
     // Direction X/Y/Z 슬라이더
     ['x', 'y', 'z'].forEach(function(axis, idx) {
@@ -1170,7 +1193,7 @@ ShadowLight._createDebugUI = function() {
         dirRow.appendChild(dirLbl);
         dirRow.appendChild(dirSlider);
         dirRow.appendChild(dirVal);
-        panel.appendChild(dirRow);
+        dirBody.appendChild(dirRow);
     });
 
     // Shadow castShadow 토글
@@ -1187,7 +1210,7 @@ ShadowLight._createDebugUI = function() {
     });
     shadowCastRow.appendChild(shadowCastLbl);
     shadowCastRow.appendChild(shadowCastCheck);
-    panel.appendChild(shadowCastRow);
+    dirBody.appendChild(shadowCastRow);
 
     // Shadow Map Size 셀렉트
     var smapRow = document.createElement('div');
@@ -1215,33 +1238,25 @@ ShadowLight._createDebugUI = function() {
     });
     smapRow.appendChild(smapLbl);
     smapRow.appendChild(smapSelect);
-    panel.appendChild(smapRow);
+    dirBody.appendChild(smapRow);
 
-    addSliderRow(panel, { label: 'Bias', key: 'shadowBias', min: -0.01, max: 0.01, step: 0.0001 });
-    addSliderRow(panel, { label: 'Near', key: 'shadowNear', min: 0.1, max: 100, step: 1 });
-    addSliderRow(panel, { label: 'Far', key: 'shadowFar', min: 100, max: 20000, step: 100 });
+    addSliderRow(dirBody, { label: 'Bias', key: 'shadowBias', min: -0.01, max: 0.01, step: 0.0001 });
+    addSliderRow(dirBody, { label: 'Near', key: 'shadowNear', min: 0.1, max: 100, step: 1 });
+    addSliderRow(dirBody, { label: 'Far', key: 'shadowFar', min: 100, max: 20000, step: 100 });
 
     // ── 그림자 설정 섹션 ──
-    var shadowTitle = document.createElement('div');
-    shadowTitle.textContent = '그림자 설정';
-    shadowTitle.style.cssText = 'font-weight:bold;font-size:11px;color:#cc99ff;' + sectionStyle;
-    panel.appendChild(shadowTitle);
-
-    addSliderRow(panel, { label: 'Opacity', key: 'shadowOpacity', min: 0, max: 1, step: 0.05 });
-    addSliderRow(panel, { label: 'Offset', key: 'shadowOffsetScale', min: 0, max: 3, step: 0.1 });
-    addColorRow(panel, { label: 'Shadow Color', key: 'shadowColor' });
-    addSliderRow(panel, { label: 'UpperZ', key: 'upperLayerZ', min: 0, max: 100, step: 1 });
+    var shadowBody = createSection(panel, '그림자 설정', '#cc99ff', true);
+    addSliderRow(shadowBody, { label: 'Opacity', key: 'shadowOpacity', min: 0, max: 1, step: 0.05 });
+    addSliderRow(shadowBody, { label: 'Offset', key: 'shadowOffsetScale', min: 0, max: 3, step: 0.1 });
+    addColorRow(shadowBody, { label: 'Shadow Color', key: 'shadowColor' });
+    addSliderRow(shadowBody, { label: 'UpperZ', key: 'upperLayerZ', min: 0, max: 100, step: 1 });
 
     // ── 플레이어 라이트 섹션 ──
-    var playerTitle = document.createElement('div');
-    playerTitle.textContent = '플레이어 라이트';
-    playerTitle.style.cssText = 'font-weight:bold;font-size:11px;color:#ffcc66;' + sectionStyle;
-    panel.appendChild(playerTitle);
-
-    addSliderRow(panel, { label: 'Intensity', key: 'playerLightIntensity', min: 0, max: 5, step: 0.1 });
-    addSliderRow(panel, { label: 'Distance', key: 'playerLightDistance', min: 50, max: 2000, step: 50 });
-    addSliderRow(panel, { label: 'Light Z', key: 'playerLightZ', min: 0, max: 500, step: 10 });
-    addColorRow(panel, { label: 'Light Color', key: 'playerLightColor' });
+    var playerBody = createSection(panel, '플레이어 라이트', '#ffcc66', false);
+    addSliderRow(playerBody, { label: 'Intensity', key: 'playerLightIntensity', min: 0, max: 5, step: 0.1 });
+    addSliderRow(playerBody, { label: 'Distance', key: 'playerLightDistance', min: 50, max: 2000, step: 50 });
+    addSliderRow(playerBody, { label: 'Light Z', key: 'playerLightZ', min: 0, max: 500, step: 10 });
+    addColorRow(playerBody, { label: 'Light Color', key: 'playerLightColor' });
 
     // Decay 토글
     var decayRow = document.createElement('div');
@@ -1264,13 +1279,10 @@ ShadowLight._createDebugUI = function() {
     });
     decayRow.appendChild(decayLbl);
     decayRow.appendChild(decaySelect);
-    panel.appendChild(decayRow);
+    playerBody.appendChild(decayRow);
 
     // ── 스포트라이트 섹션 ──
-    var spotTitle = document.createElement('div');
-    spotTitle.textContent = '스포트라이트';
-    spotTitle.style.cssText = 'font-weight:bold;font-size:11px;color:#ff9966;' + sectionStyle;
-    panel.appendChild(spotTitle);
+    var spotBody = createSection(panel, '스포트라이트', '#ff9966', true);
 
     // SpotLight ON/OFF 토글
     var spotRow = document.createElement('div');
@@ -1289,15 +1301,15 @@ ShadowLight._createDebugUI = function() {
     });
     spotRow.appendChild(spotLbl);
     spotRow.appendChild(spotCheck);
-    panel.appendChild(spotRow);
+    spotBody.appendChild(spotRow);
 
-    addSliderRow(panel, { label: 'Spot Int', key: 'spotLightIntensity', min: 0, max: 10, step: 0.1 });
-    addSliderRow(panel, { label: 'Spot Dist', key: 'spotLightDistance', min: 50, max: 1000, step: 50 });
-    addSliderRow(panel, { label: 'Spot Angle', key: 'spotLightAngle', min: 0.1, max: 1.5, step: 0.05 });
-    addSliderRow(panel, { label: 'Spot Pen', key: 'spotLightPenumbra', min: 0, max: 1, step: 0.05 });
-    addSliderRow(panel, { label: 'Spot Z', key: 'spotLightZ', min: 10, max: 500, step: 10 });
-    addSliderRow(panel, { label: 'Spot TDist', key: 'spotLightTargetDistance', min: 30, max: 500, step: 10 });
-    addColorRow(panel, { label: 'Spot Color', key: 'spotLightColor' });
+    addSliderRow(spotBody, { label: 'Spot Int', key: 'spotLightIntensity', min: 0, max: 10, step: 0.1 });
+    addSliderRow(spotBody, { label: 'Spot Dist', key: 'spotLightDistance', min: 50, max: 1000, step: 50 });
+    addSliderRow(spotBody, { label: 'Spot Angle', key: 'spotLightAngle', min: 0.1, max: 1.5, step: 0.05 });
+    addSliderRow(spotBody, { label: 'Spot Pen', key: 'spotLightPenumbra', min: 0, max: 1, step: 0.05 });
+    addSliderRow(spotBody, { label: 'Spot Z', key: 'spotLightZ', min: 10, max: 500, step: 10 });
+    addSliderRow(spotBody, { label: 'Spot TDist', key: 'spotLightTargetDistance', min: 30, max: 500, step: 10 });
+    addColorRow(spotBody, { label: 'Spot Color', key: 'spotLightColor' });
 
     // SpotLight Shadow Map Size 셀렉트
     var spotSmapRow = document.createElement('div');
@@ -1325,7 +1337,7 @@ ShadowLight._createDebugUI = function() {
     });
     spotSmapRow.appendChild(spotSmapLbl);
     spotSmapRow.appendChild(spotSmapSelect);
-    panel.appendChild(spotSmapRow);
+    spotBody.appendChild(spotSmapRow);
 
     // 현재값 복사 버튼
     var copyBtn = document.createElement('button');
