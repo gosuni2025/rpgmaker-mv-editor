@@ -3,7 +3,6 @@ import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
 import EventDetail from '../EventEditor/EventDetail';
-import { useImageLoader } from './useImageLoader';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { useThreeRenderer } from './useThreeRenderer';
 import { useOverlayRenderer } from './useOverlayRenderer';
@@ -37,10 +36,9 @@ export default function MapCanvas() {
   const pasteEvent = useEditorStore((s) => s.pasteEvent);
 
   // Compose hooks
-  const { tilesetImages, charImages, playerCharImg } = useImageLoader();
   const { showGrid, altPressed, panning } = useKeyboardShortcuts(containerRef);
 
-  useThreeRenderer(webglCanvasRef, tilesetImages, charImages, playerCharImg, showGrid);
+  useThreeRenderer(webglCanvasRef, showGrid);
 
   const tools = useMapTools(webglCanvasRef, overlayRef, pendingChanges, shadowPaintMode, shadowPainted);
 
@@ -56,7 +54,7 @@ export default function MapCanvas() {
   } = useMouseHandlers(webglCanvasRef, tools, pendingChanges);
 
   useOverlayRenderer(
-    overlayRef, tilesetImages, charImages, playerCharImg, showGrid,
+    overlayRef, showGrid,
     dragPreview, isDraggingEvent,
     lightDragPreview, isDraggingLight,
     objectDragPreview, isDraggingObject, draggedObjectId,

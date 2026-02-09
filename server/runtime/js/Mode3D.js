@@ -199,6 +199,37 @@
         }
     };
 
+    /**
+     * SpotLight 방향 기준 빌보드: shadow pass에서 캐릭터가 SpotLight를 향하도록 회전
+     * SpotLight는 위(z=spotLightZ)에서 앞(direction)을 비추므로,
+     * shadow camera 시점에서 캐릭터가 정면으로 보이도록 rotation.x를 조정
+     */
+    Mode3D._applyBillboardsForShadow = function() {
+        if (!window.ShadowLight || !ShadowLight._playerSpotLight || !ShadowLight.config.spotLightEnabled) {
+            // SpotLight가 없으면 일반 빌보드 유지
+            return;
+        }
+        var spot = ShadowLight._playerSpotLight;
+        var target = ShadowLight._playerSpotTarget;
+        if (!spot || !target) return;
+
+        // SpotLight에서 target까지의 방향 벡터
+        var dx = target.position.x - spot.position.x;
+        var dy = target.position.y - spot.position.y;
+        var dz = (target.position.z || 0) - (spot.position.z || 0);
+        var lenXY = Math.sqrt(dx * dx + dy * dy);
+        // SpotLight가 위에서 비추므로, shadow camera가 보는 각도
+        // atan2(dz, lenXY) = 빛이 아래로 내려오는 각도
+        var shadowTilt = -Math.atan2(dz, lenXY);
+
+        for (var i = 0; i < this._billboardTargets.length; i++) {
+            var sprite = this._billboardTargets[i];
+            if (sprite._threeObj && sprite._visible !== false) {
+                sprite._threeObj.rotation.x = shadowTilt;
+            }
+        }
+    };
+
     Mode3D._resetBillboards = function() {
         for (var i = 0; i < this._billboardTargets.length; i++) {
             var sprite = this._billboardTargets[i];
@@ -267,10 +298,29 @@
 
             var stageObj = stage._threeObj;
 
-            // Shadow Map: multi-pass 렌더링에서 shadow map은 Pass 1에서만 갱신
-            // Sky pass/UI pass에서 stageObj가 hidden이면 shadow map이 비게 됨
+            // Shadow Map: multi-pass 렌더링에서 shadow map은 별도 패스에서 갱신
             var prevShadowAutoUpdate = renderer.shadowMap.autoUpdate;
             renderer.shadowMap.autoUpdate = false;
+
+            // --- Shadow Pass: SpotLight 방향 빌보드로 shadow map 갱신 ---
+            // 캐릭터를 SpotLight 방향으로 회전 → shadow map 렌더 → 카메라 빌보드 복구
+            if (window.ShadowLight && ShadowLight._playerSpotLight &&
+                ShadowLight.config.spotLightEnabled && ShadowLight._active) {
+                Mode3D._applyBillboardsForShadow();
+                renderer.shadowMap.needsUpdate = true;
+                // color/depth 출력 차단, shadow map만 갱신
+                var gl = renderer.getContext();
+                gl.colorMask(false, false, false, false);
+                gl.depthMask(false);
+                renderer.render(scene, Mode3D._perspCamera);
+                gl.colorMask(true, true, true, true);
+                gl.depthMask(true);
+                // 카메라 빌보드로 복구
+                Mode3D._applyBillboards();
+            } else {
+                // SpotLight 없으면 기존대로 Pass 1에서 shadow map 갱신
+                renderer.shadowMap.needsUpdate = true;
+            }
 
             // --- Pass 0: Sky background (PerspectiveCamera) ---
             if (skyMesh) {
@@ -282,9 +332,6 @@
                 skyMesh.visible = false;
                 if (stageObj) stageObj.visible = true;
             }
-
-            // Pass 1에서 shadow map 갱신
-            renderer.shadowMap.needsUpdate = true;
 
             // --- Pass 1: PerspectiveCamera로 맵(Spriteset_Map)만 렌더 ---
             // Hide _blackScreen so parallax sky shows through map edges

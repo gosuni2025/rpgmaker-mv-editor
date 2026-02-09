@@ -245,6 +245,17 @@ app.use('/game/movies', (req, res, next) => {
   express.static(path.join(projectManager.currentPath!, 'movies'))(req, res, next);
 });
 
+// 에디터 런타임용: 프로젝트 img/, data/ 직접 서빙 (ImageManager.loadBitmap이 사용)
+app.use('/img', (req, res, next) => {
+  if (!projectManager.isOpen()) return res.status(404).send('No project');
+  express.static(path.join(projectManager.currentPath!, 'img'))(req, res, next);
+});
+app.use('/data', (req, res, next) => {
+  if (!projectManager.isOpen()) return res.status(404).send('No project');
+  res.set('Cache-Control', 'no-store');
+  express.static(path.join(projectManager.currentPath!, 'data'))(req, res, next);
+});
+
 app.use('/api/project', projectRoutes);
 app.use('/api/maps', mapsRoutes);
 app.use('/api/database', databaseRoutes);
