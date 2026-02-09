@@ -35,7 +35,7 @@ function createLightMarkerSprite(THREE: any, color: string): any {
   ctx.fillText('💡', 32, 32);
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
-  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
   const sprite = new THREE.Sprite(material);
   sprite.scale.set(32, 32, 1);
   sprite.renderOrder = 999;
@@ -51,6 +51,7 @@ function createLightStemLine(THREE: any, px: number, py: number, z: number, colo
     opacity: 0.6,
     transparent: true,
     depthTest: false,
+    side: THREE.DoubleSide,
   });
   const geometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(px, py, 0),
@@ -60,6 +61,76 @@ function createLightStemLine(THREE: any, px: number, py: number, z: number, colo
   line.computeLineDistances();
   line.renderOrder = 998;
   return line;
+}
+
+/** Create a canvas-based THREE.Sprite for a character image region */
+function createCharSprite(THREE: any, img: HTMLImageElement, sx: number, sy: number, sw: number, sh: number, tileSize: number): any {
+  const canvas = document.createElement('canvas');
+  canvas.width = sw;
+  canvas.height = sh;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.NearestFilter;
+  texture.magFilter = THREE.NearestFilter;
+  texture.needsUpdate = true;
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+  const sprite = new THREE.Sprite(material);
+  const scale = Math.min(tileSize / sw, tileSize / sh);
+  sprite.scale.set(sw * scale, sh * scale, 1);
+  sprite.renderOrder = 900;
+  return sprite;
+}
+
+/** Create a flat colored quad (PlaneGeometry) at tile position */
+function createTileQuad(THREE: any, x: number, y: number, tileSize: number, color: number, opacity: number, renderOrder: number): any {
+  const geometry = new THREE.PlaneGeometry(tileSize, tileSize);
+  const material = new THREE.MeshBasicMaterial({
+    color, opacity, transparent: true, depthTest: false, side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.set(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, 2);
+  mesh.renderOrder = renderOrder;
+  return mesh;
+}
+
+/** Create a wireframe rectangle at tile position */
+function createTileOutline(THREE: any, x: number, y: number, tileSize: number, color: number, lineWidth: number, renderOrder: number): any {
+  const hw = tileSize / 2;
+  const pts = [
+    new THREE.Vector3(-hw, -hw, 0), new THREE.Vector3(hw, -hw, 0),
+    new THREE.Vector3(hw, hw, 0), new THREE.Vector3(-hw, hw, 0),
+    new THREE.Vector3(-hw, -hw, 0),
+  ];
+  const geometry = new THREE.BufferGeometry().setFromPoints(pts);
+  const material = new THREE.LineBasicMaterial({ color, depthTest: false, transparent: true, opacity: 1.0 });
+  const line = new THREE.Line(geometry, material);
+  line.position.set(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, 3);
+  line.renderOrder = renderOrder;
+  return line;
+}
+
+/** Create a text label sprite */
+function createTextSprite(THREE: any, text: string, fontSize: number, color: string): any {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d')!;
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = '#000';
+  ctx.shadowBlur = 2;
+  ctx.fillStyle = color;
+  ctx.fillText(text, 64, 16, 124);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(64, 16, 1);
+  sprite.renderOrder = 910;
+  return sprite;
 }
 
 /** Sync editor-defined lights to Three.js scene via ShadowLight runtime */
@@ -123,6 +194,187 @@ function syncEditorLightsToScene(scene: any, editorLights: EditorLights | undefi
   }
 }
 
+/** Sync 3D overlay objects (events, player, regions) into Three.js scene */
+function sync3DOverlays(
+  scene: any,
+  eventSpritesRef: React.MutableRefObject<any[]>,
+  playerSpriteRef: React.MutableRefObject<any>,
+  regionMeshesRef: React.MutableRefObject<any[]>,
+  currentMap: any,
+  charImages: Record<string, HTMLImageElement>,
+  editMode: string,
+  currentLayer: number,
+  systemData: any,
+  currentMapId: number | null,
+  playerCharImg: HTMLImageElement | null,
+  playerCharacterName: string | null,
+  playerCharacterIndex: number,
+) {
+  const THREE = (window as any).THREE;
+  if (!THREE) return;
+
+  // --- Cleanup existing event sprites ---
+  for (const obj of eventSpritesRef.current) {
+    scene.remove(obj);
+    if (obj.material?.map) obj.material.map.dispose();
+    if (obj.material) obj.material.dispose();
+    if (obj.geometry) obj.geometry.dispose();
+  }
+  eventSpritesRef.current = [];
+
+  // --- Cleanup existing player sprite ---
+  if (playerSpriteRef.current) {
+    for (const obj of playerSpriteRef.current) {
+      scene.remove(obj);
+      if (obj.material?.map) obj.material.map.dispose();
+      if (obj.material) obj.material.dispose();
+      if (obj.geometry) obj.geometry.dispose();
+    }
+    playerSpriteRef.current = null;
+  }
+
+  // --- Cleanup existing region meshes ---
+  for (const obj of regionMeshesRef.current) {
+    scene.remove(obj);
+    if (obj.material?.map) obj.material.map.dispose();
+    if (obj.material) obj.material.dispose();
+    if (obj.geometry) obj.geometry.dispose();
+  }
+  regionMeshesRef.current = [];
+
+  if (!currentMap) return;
+  const { width, height, data, events } = currentMap;
+
+  // --- Region overlay (layer 5) ---
+  if (currentLayer === 5) {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const regionId = data[(5 * height + y) * width + x];
+        if (regionId === 0) continue;
+        const hue = (regionId * 137) % 360;
+        const color = new THREE.Color(`hsl(${hue}, 60%, 40%)`);
+        const quad = createTileQuad(THREE, x, y, TILE_SIZE_PX, color.getHex(), 0.5, 850);
+        scene.add(quad);
+        regionMeshesRef.current.push(quad);
+
+        // Region number label
+        const label = createTextSprite(THREE, String(regionId), 12, '#fff');
+        label.position.set(x * TILE_SIZE_PX + TILE_SIZE_PX / 2, y * TILE_SIZE_PX + TILE_SIZE_PX / 2, 4);
+        scene.add(label);
+        regionMeshesRef.current.push(label);
+      }
+    }
+  }
+
+  // --- Events ---
+  if (events) {
+    const showEventDetails = editMode === 'event';
+    events.forEach((ev: any) => {
+      if (!ev || ev.id === 0) return;
+      const ex = ev.x;
+      const ey = ev.y;
+
+      let drewImage = false;
+      if (ev.pages && ev.pages.length > 0) {
+        const page = ev.pages[0];
+        const img = page.image;
+        if (img && img.characterName && charImages[img.characterName]) {
+          const charImg = charImages[img.characterName];
+          const isSingle = img.characterName.startsWith('$');
+          const charW = isSingle ? charImg.width / 3 : charImg.width / 12;
+          const charH = isSingle ? charImg.height / 4 : charImg.height / 8;
+          const charCol = isSingle ? 0 : img.characterIndex % 4;
+          const charRow = isSingle ? 0 : Math.floor(img.characterIndex / 4);
+          const dirRow = img.direction === 8 ? 3 : img.direction === 6 ? 2 : img.direction === 4 ? 1 : 0;
+          const pattern = img.pattern || 1;
+          const sx = charCol * charW * 3 + pattern * charW;
+          const sy = charRow * charH * 4 + dirRow * charH;
+
+          const sprite = createCharSprite(THREE, charImg, sx, sy, charW, charH, TILE_SIZE_PX);
+          // Billboard tilt
+          sprite._threeObj = sprite; // for compatibility
+          const tilt = -Mode3D._tiltRad;
+          sprite.rotation.x = tilt;
+
+          const scale = Math.min(TILE_SIZE_PX / charW, TILE_SIZE_PX / charH);
+          const dw = charW * scale;
+          const dh = charH * scale;
+          // Position: center-bottom aligned like 2D version
+          sprite.position.set(
+            ex * TILE_SIZE_PX + TILE_SIZE_PX / 2,
+            ey * TILE_SIZE_PX + TILE_SIZE_PX - dh / 2,
+            4
+          );
+          scene.add(sprite);
+          eventSpritesRef.current.push(sprite);
+          drewImage = true;
+        }
+      }
+
+      if (showEventDetails) {
+        if (!drewImage) {
+          // Blue fill quad
+          const quad = createTileQuad(THREE, ex, ey, TILE_SIZE_PX, 0x0078d4, 0.35, 890);
+          scene.add(quad);
+          eventSpritesRef.current.push(quad);
+        }
+        // Blue outline
+        const outline = createTileOutline(THREE, ex, ey, TILE_SIZE_PX, 0x0078d4, 2, 895);
+        scene.add(outline);
+        eventSpritesRef.current.push(outline);
+
+        // Name label
+        if (ev.name) {
+          const label = createTextSprite(THREE, ev.name, 12, '#fff');
+          label.position.set(ex * TILE_SIZE_PX + TILE_SIZE_PX / 2, ey * TILE_SIZE_PX + 8, 5);
+          scene.add(label);
+          eventSpritesRef.current.push(label);
+        }
+      } else if (!drewImage) {
+        const quad = createTileQuad(THREE, ex, ey, TILE_SIZE_PX, 0x0078d4, 0.25, 890);
+        scene.add(quad);
+        eventSpritesRef.current.push(quad);
+      }
+    });
+  }
+
+  // --- Player start position ---
+  if (systemData && currentMapId === systemData.startMapId) {
+    const px = systemData.startX;
+    const py = systemData.startY;
+    const objs: any[] = [];
+
+    if (playerCharImg) {
+      const isSingle = playerCharacterName?.startsWith('$');
+      const charW = isSingle ? playerCharImg.width / 3 : playerCharImg.width / 12;
+      const charH = isSingle ? playerCharImg.height / 4 : playerCharImg.height / 8;
+      const charCol = isSingle ? 0 : playerCharacterIndex % 4;
+      const charRow = isSingle ? 0 : Math.floor(playerCharacterIndex / 4);
+      const srcX = charCol * charW * 3 + 1 * charW;
+      const srcY = charRow * charH * 4 + 0 * charH;
+
+      const sprite = createCharSprite(THREE, playerCharImg, srcX, srcY, charW, charH, TILE_SIZE_PX);
+      sprite.rotation.x = -Mode3D._tiltRad;
+      const scale = Math.min(TILE_SIZE_PX / charW, TILE_SIZE_PX / charH);
+      const dh = charH * scale;
+      sprite.position.set(
+        px * TILE_SIZE_PX + TILE_SIZE_PX / 2,
+        py * TILE_SIZE_PX + TILE_SIZE_PX - dh / 2,
+        4
+      );
+      scene.add(sprite);
+      objs.push(sprite);
+    }
+
+    // Blue outline for player start
+    const outline = createTileOutline(THREE, px, py, TILE_SIZE_PX, 0x0078ff, 3, 895);
+    scene.add(outline);
+    objs.push(outline);
+
+    playerSpriteRef.current = objs;
+  }
+}
+
 /** Create a runtime Bitmap from a loaded HTMLImageElement */
 function createBitmapFromImage(img: HTMLImageElement): any {
   const BitmapClass = (window as any).Bitmap;
@@ -179,6 +431,12 @@ export default function MapCanvas() {
   const renderRequestedRef = useRef(false);
   const parallaxDivRef = useRef<HTMLDivElement>(null);
   const gridMeshRef = useRef<any>(null);
+  // 3D overlay refs (events, player, regions, selection/cursor rendered in Three.js scene)
+  const eventSpritesRef = useRef<any[]>([]);
+  const playerSpriteRef = useRef<any>(null);
+  const regionMeshesRef = useRef<any[]>([]);
+  const cursorMeshRef = useRef<any>(null);
+  const selectionMeshRef = useRef<any>(null);
 
   const currentMap = useEditorStore((s) => s.currentMap);
   const tilesetInfo = useEditorStore((s) => s.tilesetInfo);
@@ -204,6 +462,16 @@ export default function MapCanvas() {
   const addPointLight = useEditorStore((s) => s.addPointLight);
   const updatePointLight = useEditorStore((s) => s.updatePointLight);
   const deletePointLight = useEditorStore((s) => s.deletePointLight);
+  const resizeMap = useEditorStore((s) => s.resizeMap);
+
+  // Map boundary resize drag state
+  type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | null;
+  const isResizing = useRef(false);
+  const resizeEdge = useRef<ResizeEdge>(null);
+  const resizeStartPx = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const resizeOrigSize = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+  const [resizePreview, setResizePreview] = useState<{ dLeft: number; dTop: number; dRight: number; dBottom: number } | null>(null);
+  const [resizeCursor, setResizeCursor] = useState<string | null>(null);
 
   // Light drag state
   const isDraggingLight = useRef(false);
@@ -633,6 +901,42 @@ export default function MapCanvas() {
 
     return () => {
       unsubscribe();
+      // Cleanup 3D overlay sprites
+      for (const obj of eventSpritesRef.current) {
+        rendererObj.scene.remove(obj);
+        if (obj.material?.map) obj.material.map.dispose();
+        if (obj.material) obj.material.dispose();
+        if (obj.geometry) obj.geometry.dispose();
+      }
+      eventSpritesRef.current = [];
+      if (playerSpriteRef.current) {
+        for (const obj of playerSpriteRef.current) {
+          rendererObj.scene.remove(obj);
+          if (obj.material?.map) obj.material.map.dispose();
+          if (obj.material) obj.material.dispose();
+          if (obj.geometry) obj.geometry.dispose();
+        }
+        playerSpriteRef.current = null;
+      }
+      for (const obj of regionMeshesRef.current) {
+        rendererObj.scene.remove(obj);
+        if (obj.material?.map) obj.material.map.dispose();
+        if (obj.material) obj.material.dispose();
+        if (obj.geometry) obj.geometry.dispose();
+      }
+      regionMeshesRef.current = [];
+      if (cursorMeshRef.current) {
+        rendererObj.scene.remove(cursorMeshRef.current);
+        cursorMeshRef.current.geometry?.dispose();
+        cursorMeshRef.current.material?.dispose();
+        cursorMeshRef.current = null;
+      }
+      if (selectionMeshRef.current) {
+        rendererObj.scene.remove(selectionMeshRef.current);
+        selectionMeshRef.current.geometry?.dispose();
+        selectionMeshRef.current.material?.dispose();
+        selectionMeshRef.current = null;
+      }
       // Cleanup grid mesh
       if (gridMeshRef.current) {
         rendererObj.scene.remove(gridMeshRef.current);
@@ -657,6 +961,86 @@ export default function MapCanvas() {
       lastMapDataRef.current = null;
     };
   }, [currentMap?.tilesetId, currentMap?.width, currentMap?.height, tilesetImages, tilesetInfo]);
+
+  // =========================================================================
+  // 3D overlay sync (events, player, regions in Three.js scene)
+  // =========================================================================
+  useEffect(() => {
+    if (!mode3d) return;
+    const rendererObj = rendererObjRef.current;
+    if (!rendererObj) return;
+
+    sync3DOverlays(
+      rendererObj.scene,
+      eventSpritesRef,
+      playerSpriteRef,
+      regionMeshesRef,
+      currentMap,
+      charImages,
+      editMode,
+      currentLayer,
+      systemData,
+      currentMapId,
+      playerCharImg,
+      playerCharacterName,
+      playerCharacterIndex,
+    );
+
+    // Trigger re-render
+    if (!renderRequestedRef.current) {
+      renderRequestedRef.current = true;
+      requestAnimationFrame(() => {
+        renderRequestedRef.current = false;
+        if (!rendererObjRef.current || !stageRef.current) return;
+        const rObj = rendererObjRef.current;
+        const strategy = (window as any).RendererStrategy?.getStrategy();
+        rObj._drawOrderCounter = 0;
+        stageRef.current.updateTransform();
+        if (strategy) strategy._syncHierarchy(rObj, stageRef.current);
+        if (ConfigManager.mode3d && Mode3D._spriteset) {
+          if (!Mode3D._perspCamera) {
+            Mode3D._perspCamera = Mode3D._createPerspCamera(rObj._width, rObj._height);
+          }
+          Mode3D._positionCamera(Mode3D._perspCamera, rObj._width, rObj._height);
+          Mode3D._enforceNearestFilter(rObj.scene);
+          rObj.renderer.render(rObj.scene, Mode3D._perspCamera);
+        } else {
+          rObj.renderer.render(rObj.scene, rObj.camera);
+        }
+      });
+    }
+  }, [mode3d, currentMap, charImages, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex]);
+
+  // Cleanup 3D overlays when switching out of 3D mode
+  useEffect(() => {
+    if (mode3d) return;
+    const rendererObj = rendererObjRef.current;
+    if (!rendererObj) return;
+    // Remove 3D overlay objects when mode3d is off
+    for (const obj of eventSpritesRef.current) {
+      rendererObj.scene.remove(obj);
+      if (obj.material?.map) obj.material.map.dispose();
+      if (obj.material) obj.material.dispose();
+      if (obj.geometry) obj.geometry.dispose();
+    }
+    eventSpritesRef.current = [];
+    if (playerSpriteRef.current) {
+      for (const obj of playerSpriteRef.current) {
+        rendererObj.scene.remove(obj);
+        if (obj.material?.map) obj.material.map.dispose();
+        if (obj.material) obj.material.dispose();
+        if (obj.geometry) obj.geometry.dispose();
+      }
+      playerSpriteRef.current = null;
+    }
+    for (const obj of regionMeshesRef.current) {
+      rendererObj.scene.remove(obj);
+      if (obj.material?.map) obj.material.map.dispose();
+      if (obj.material) obj.material.dispose();
+      if (obj.geometry) obj.geometry.dispose();
+    }
+    regionMeshesRef.current = [];
+  }, [mode3d]);
 
   // =========================================================================
   // Overlay canvas rendering (grid, regions, events, player)
@@ -722,8 +1106,8 @@ export default function MapCanvas() {
       }
     }
 
-    // Region overlay (layer 5)
-    if (currentLayer === 5) {
+    // Region overlay (layer 5) - skip in 3D mode (rendered in Three.js scene)
+    if (currentLayer === 5 && !mode3d) {
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
           const regionId = data[(5 * height + y) * width + x];
@@ -746,8 +1130,8 @@ export default function MapCanvas() {
       }
     }
 
-    // Events
-    if (events) {
+    // Events - skip in 3D mode (rendered in Three.js scene)
+    if (events && !mode3d) {
       const showEventDetails = editMode === 'event';
       events.forEach((ev) => {
         if (!ev || ev.id === 0) return;
@@ -806,8 +1190,8 @@ export default function MapCanvas() {
       });
     }
 
-    // Player start position
-    if (systemData && currentMapId === systemData.startMapId) {
+    // Player start position - skip in 3D mode (rendered in Three.js scene)
+    if (systemData && currentMapId === systemData.startMapId && !mode3d) {
       const px = systemData.startX * TILE_SIZE_PX;
       const py = systemData.startY * TILE_SIZE_PX;
 
@@ -833,8 +1217,8 @@ export default function MapCanvas() {
       ctx.restore();
     }
 
-    // Light markers (visible when shadowLight is ON)
-    if (shadowLight && currentMap?.editorLights?.points) {
+    // Light markers (visible when shadowLight is ON, 2D overlay only in non-3D mode)
+    if (shadowLight && !mode3d && currentMap?.editorLights?.points) {
       for (const light of currentMap.editorLights.points) {
         const lx = light.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
         const lyBase = light.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
@@ -921,10 +1305,24 @@ export default function MapCanvas() {
     const container = canvas.parentElement;
     if (!container) return null;
     const rect = container.getBoundingClientRect();
-    const cx = (e.clientX - rect.left) / zoomLevel;
-    const cy = (e.clientY - rect.top) / zoomLevel;
-    return posToTile(cx, cy);
-  }, [zoomLevel]);
+    const screenX = (e.clientX - rect.left) / zoomLevel;
+    const screenY = (e.clientY - rect.top) / zoomLevel;
+
+    // 3D mode: use Mode3D.screenToWorld for perspective-correct tile coordinates
+    if (mode3d && ConfigManager.mode3d && Mode3D._perspCamera) {
+      const world = Mode3D.screenToWorld(screenX, screenY);
+      if (world) {
+        const tileX = Math.floor(world.x / TILE_SIZE_PX);
+        const tileY = Math.floor(world.y / TILE_SIZE_PX);
+        if (!currentMap) return null;
+        if (tileX < 0 || tileX >= currentMap.width || tileY < 0 || tileY >= currentMap.height) return null;
+        return { x: tileX, y: tileY };
+      }
+      return null;
+    }
+
+    return posToTile(screenX, screenY);
+  }, [zoomLevel, mode3d, currentMap]);
 
   const canvasToSubTile = useCallback((e: React.MouseEvent<HTMLElement>) => {
     const canvas = webglCanvasRef.current;
@@ -932,14 +1330,26 @@ export default function MapCanvas() {
     const container = canvas.parentElement;
     if (!container) return null;
     const rect = container.getBoundingClientRect();
-    const cx = (e.clientX - rect.left) / zoomLevel;
-    const cy = (e.clientY - rect.top) / zoomLevel;
-    const tile = posToTile(cx, cy);
+    const screenX = (e.clientX - rect.left) / zoomLevel;
+    const screenY = (e.clientY - rect.top) / zoomLevel;
+
+    if (mode3d && ConfigManager.mode3d && Mode3D._perspCamera) {
+      const world = Mode3D.screenToWorld(screenX, screenY);
+      if (!world || !currentMap) return null;
+      const tileX = Math.floor(world.x / TILE_SIZE_PX);
+      const tileY = Math.floor(world.y / TILE_SIZE_PX);
+      if (tileX < 0 || tileX >= currentMap.width || tileY < 0 || tileY >= currentMap.height) return null;
+      const subX = world.x - tileX * TILE_SIZE_PX;
+      const subY = world.y - tileY * TILE_SIZE_PX;
+      return { x: tileX, y: tileY, subX, subY };
+    }
+
+    const tile = posToTile(screenX, screenY);
     if (!tile) return null;
-    const subX = cx - tile.x * TILE_SIZE_PX;
-    const subY = cy - tile.y * TILE_SIZE_PX;
+    const subX = screenX - tile.x * TILE_SIZE_PX;
+    const subY = screenY - tile.y * TILE_SIZE_PX;
     return { ...tile, subX, subY };
-  }, [zoomLevel]);
+  }, [zoomLevel, mode3d, currentMap]);
 
   // =========================================================================
   // Tool logic (unchanged from original)
@@ -1712,14 +2122,33 @@ export default function MapCanvas() {
         )}
         <canvas
           ref={webglCanvasRef}
-          style={{ ...styles.canvas, position: 'relative', zIndex: 1 }}
+          onMouseDown={mode3d ? handleMouseDown : undefined}
+          onMouseMove={mode3d ? handleMouseMove : undefined}
+          onMouseUp={mode3d ? handleMouseUp : undefined}
+          onMouseLeave={mode3d ? (e) => {
+            if (isDraggingEvent.current) {
+              isDraggingEvent.current = false;
+              draggedEventId.current = null;
+              dragEventOrigin.current = null;
+              setDragPreview(null);
+            }
+            handleMouseUp(e);
+          } : undefined}
+          onDoubleClick={mode3d ? handleDoubleClick : undefined}
+          onContextMenu={mode3d ? handleContextMenu : undefined}
+          style={{
+            ...styles.canvas,
+            position: 'relative',
+            zIndex: 1,
+            cursor: mode3d ? (editMode === 'event' ? 'pointer' : 'crosshair') : undefined,
+          }}
         />
         <canvas
           ref={overlayRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={(e) => {
+          onMouseDown={mode3d ? undefined : handleMouseDown}
+          onMouseMove={mode3d ? undefined : handleMouseMove}
+          onMouseUp={mode3d ? undefined : handleMouseUp}
+          onMouseLeave={mode3d ? undefined : (e) => {
             if (isDraggingEvent.current) {
               isDraggingEvent.current = false;
               draggedEventId.current = null;
@@ -1728,15 +2157,17 @@ export default function MapCanvas() {
             }
             handleMouseUp(e);
           }}
-          onDoubleClick={handleDoubleClick}
-          onContextMenu={handleContextMenu}
+          onDoubleClick={mode3d ? undefined : handleDoubleClick}
+          onContextMenu={mode3d ? undefined : handleContextMenu}
           style={{
             ...styles.canvas,
             position: 'absolute',
             top: 0,
             left: 0,
-            zIndex: 2,
+            zIndex: mode3d ? -1 : 2,
             cursor: editMode === 'event' ? 'pointer' : 'crosshair',
+            pointerEvents: mode3d ? 'none' : 'auto',
+            display: mode3d ? 'none' : 'block',
           }}
         />
       </div>
