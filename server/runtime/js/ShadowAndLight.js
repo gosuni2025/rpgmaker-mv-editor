@@ -373,7 +373,8 @@ ShadowLight._addLightsToScene = function(scene) {
     this._directionalLight.castShadow = true;
     this._directionalLight.shadow.mapSize.width = 2048;
     this._directionalLight.shadow.mapSize.height = 2048;
-    // OrthographicCamera 범위 (맵 크기에 맞게 타이트하게)
+    // OrthographicCamera 범위: 화면 좌표계 전체를 커버
+    // 스프라이트는 화면 좌표(0~width, 0~height)에 있으므로 화면 크기면 충분
     var shadowCamSize = Math.max(
         (typeof Graphics !== 'undefined' ? Graphics._width : 1000),
         (typeof Graphics !== 'undefined' ? Graphics._height : 1000)
@@ -387,10 +388,10 @@ ShadowLight._addLightsToScene = function(scene) {
     this._directionalLight.shadow.camera.far = 5000;
     this._directionalLight.shadow.bias = -0.001;
 
-    // target을 맵 중심으로 설정
-    var cx = shadowCamSize / 2;
-    var cy = shadowCamSize / 2;
-    this._directionalLight.target.position.set(cx, cy, 0);
+    // target을 화면 중심으로 설정 (스프라이트가 화면 좌표계에 있으므로)
+    var vw2 = (typeof Graphics !== 'undefined' ? Graphics._width : 816) / 2;
+    var vh2 = (typeof Graphics !== 'undefined' ? Graphics._height : 624) / 2;
+    this._directionalLight.target.position.set(vw2, vh2, 0);
 
     // target을 scene에 추가해야 DirectionalLight 방향이 올바르게 동작
     scene.add(this._directionalLight);
@@ -639,15 +640,14 @@ Spriteset_Map.prototype._updateShadowLight = function() {
 
     if (!enabled) return;
 
-    // Shadow camera를 현재 뷰포트 중심으로 추적
-    if (ShadowLight._directionalLight && this._tilemap) {
-        var ox = this._tilemap.origin.x;
-        var oy = this._tilemap.origin.y;
+    // Shadow camera를 화면 중심으로 추적
+    // 캐릭터 스프라이트는 screenX/screenY (화면 좌표 0~width, 0~height)에 배치되므로
+    // shadow camera도 화면 좌표계 중심을 따라야 함
+    if (ShadowLight._directionalLight) {
         var vw = Graphics._width || 816;
         var vh = Graphics._height || 624;
-        // 뷰포트 중심 = 스크롤 오프셋 + 화면 절반
-        var cx = ox + vw / 2;
-        var cy = oy + vh / 2;
+        var cx = vw / 2;
+        var cy = vh / 2;
         var dir = ShadowLight.config.lightDirection;
         ShadowLight._directionalLight.position.set(
             cx - dir.x * 1000,
