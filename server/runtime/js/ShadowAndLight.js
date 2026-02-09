@@ -197,6 +197,10 @@ ShadowLight.config = {
     shadowOpacity: 0.4,
     shadowColor: 0x000000,
     shadowOffsetScale: 0.6,           // 광원 방향에 따른 오프셋 스케일
+    shadowMapSize: 2048,              // 디렉셔널 그림자 맵 해상도
+    shadowBias: -0.001,
+    shadowNear: 1,
+    shadowFar: 5000,
 };
 
 //=============================================================================
@@ -729,8 +733,10 @@ Spriteset_Map.prototype._activateShadowLight = function() {
         this._tilemap.upperZLayer._threeObj.position.z = ShadowLight.config.upperLayerZ;
     }
 
-    // 디버그 UI 생성
-    ShadowLight._createDebugUI();
+    // 디버그 UI 생성 (에디터 모드가 아니고, ?dev=true 일 때만)
+    if (!window.__editorMode && /[?&]dev=true/.test(window.location.search)) {
+        ShadowLight._createDebugUI();
+    }
 
     // shadow mesh는 _updateShadowMesh에서 parent 설정 및 표시됨
 };
@@ -1041,12 +1047,23 @@ ShadowLight._createDebugUI = function() {
         slider.addEventListener('input', function() {
             var v = parseFloat(slider.value);
             self.config[c.key] = v;
-            val.textContent = v.toFixed(c.step < 1 ? 2 : 0);
+            val.textContent = v.toFixed(c.step < 1 ? (c.step < 0.01 ? 4 : 2) : 0);
             if (c.key === 'ambientIntensity' && self._ambientLight) {
                 self._ambientLight.intensity = v;
             }
             if (c.key === 'directionalIntensity' && self._directionalLight) {
                 self._directionalLight.intensity = v;
+            }
+            if (c.key === 'shadowBias' && self._directionalLight) {
+                self._directionalLight.shadow.bias = v;
+            }
+            if (c.key === 'shadowNear' && self._directionalLight) {
+                self._directionalLight.shadow.camera.near = v;
+                self._directionalLight.shadow.camera.updateProjectionMatrix();
+            }
+            if (c.key === 'shadowFar' && self._directionalLight) {
+                self._directionalLight.shadow.camera.far = v;
+                self._directionalLight.shadow.camera.updateProjectionMatrix();
             }
         });
 
@@ -1090,6 +1107,12 @@ ShadowLight._createDebugUI = function() {
             if (cc.key === 'ambientColor' && self._ambientLight) {
                 self._ambientLight.color.setHex(colorInt);
             }
+            if (cc.key === 'directionalColor' && self._directionalLight) {
+                self._directionalLight.color.setHex(colorInt);
+            }
+            if (cc.key === 'spotLightColor' && self._playerSpotLight) {
+                self._playerSpotLight.color.setHex(colorInt);
+            }
         });
 
         row.appendChild(lbl);
@@ -1104,9 +1127,110 @@ ShadowLight._createDebugUI = function() {
     envTitle.style.cssText = 'font-weight:bold;font-size:11px;color:#88ccff;' + sectionStyle;
     panel.appendChild(envTitle);
 
-    addSliderRow(panel, { label: 'Ambient', key: 'ambientIntensity', min: 0, max: 2, step: 0.05 });
-    addSliderRow(panel, { label: 'Dir Light', key: 'directionalIntensity', min: 0, max: 2, step: 0.05 });
+    addSliderRow(panel, { label: 'Ambient', key: 'ambientIntensity', min: 0, max: 3, step: 0.05 });
     addColorRow(panel, { label: 'Ambient Color', key: 'ambientColor' });
+
+    // ── 디렉셔널 라이트 섹션 ──
+    var dirTitle = document.createElement('div');
+    dirTitle.textContent = '디렉셔널 라이트';
+    dirTitle.style.cssText = 'font-weight:bold;font-size:11px;color:#aaddff;' + sectionStyle;
+    panel.appendChild(dirTitle);
+
+    addSliderRow(panel, { label: 'Dir Int', key: 'directionalIntensity', min: 0, max: 3, step: 0.05 });
+    addColorRow(panel, { label: 'Dir Color', key: 'directionalColor' });
+
+    // Direction X/Y/Z 슬라이더
+    ['x', 'y', 'z'].forEach(function(axis, idx) {
+        var dirRow = document.createElement('div');
+        dirRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+        var dirLbl = document.createElement('span');
+        dirLbl.textContent = 'Dir ' + axis.toUpperCase();
+        dirLbl.style.cssText = 'width:70px;font-size:11px;';
+        var dirSlider = document.createElement('input');
+        dirSlider.type = 'range';
+        dirSlider.min = -5;
+        dirSlider.max = 5;
+        dirSlider.step = 0.1;
+        dirSlider.value = self.config.lightDirection ? self.config.lightDirection.toArray()[idx] : [-1,-1,-2][idx];
+        dirSlider.style.cssText = 'width:90px;height:14px;';
+        var dirVal = document.createElement('span');
+        dirVal.textContent = parseFloat(dirSlider.value).toFixed(1);
+        dirVal.style.cssText = 'width:40px;font-size:11px;text-align:right;';
+        dirSlider.addEventListener('input', function() {
+            var v = parseFloat(dirSlider.value);
+            dirVal.textContent = v.toFixed(1);
+            var cur = self.config.lightDirection.toArray();
+            cur[idx] = v;
+            self.config.lightDirection = new THREE.Vector3(cur[0], cur[1], cur[2]).normalize();
+            if (self._directionalLight) {
+                var dir = self.config.lightDirection;
+                self._directionalLight.position.set(-dir.x * 1000, -dir.y * 1000, -dir.z * 1000);
+            }
+        });
+        dirRow.appendChild(dirLbl);
+        dirRow.appendChild(dirSlider);
+        dirRow.appendChild(dirVal);
+        panel.appendChild(dirRow);
+    });
+
+    // Shadow castShadow 토글
+    var shadowCastRow = document.createElement('div');
+    shadowCastRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+    var shadowCastLbl = document.createElement('span');
+    shadowCastLbl.textContent = 'Shadow';
+    shadowCastLbl.style.cssText = 'width:70px;font-size:11px;';
+    var shadowCastCheck = document.createElement('input');
+    shadowCastCheck.type = 'checkbox';
+    shadowCastCheck.checked = true;
+    shadowCastCheck.addEventListener('change', function() {
+        if (self._directionalLight) self._directionalLight.castShadow = shadowCastCheck.checked;
+    });
+    shadowCastRow.appendChild(shadowCastLbl);
+    shadowCastRow.appendChild(shadowCastCheck);
+    panel.appendChild(shadowCastRow);
+
+    // Shadow Map Size 셀렉트
+    var smapRow = document.createElement('div');
+    smapRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+    var smapLbl = document.createElement('span');
+    smapLbl.textContent = 'ShadowMap';
+    smapLbl.style.cssText = 'width:70px;font-size:11px;';
+    var smapSelect = document.createElement('select');
+    smapSelect.style.cssText = 'font:11px monospace;background:#333;color:#eee;border:1px solid #555;';
+    [512, 1024, 2048, 4096].forEach(function(sz) {
+        var opt = document.createElement('option');
+        opt.value = sz;
+        opt.textContent = sz + '';
+        smapSelect.appendChild(opt);
+    });
+    smapSelect.value = self.config.shadowMapSize || 2048;
+    smapSelect.addEventListener('change', function() {
+        var sz = parseInt(smapSelect.value);
+        self.config.shadowMapSize = sz;
+        if (self._directionalLight) {
+            self._directionalLight.shadow.mapSize.width = sz;
+            self._directionalLight.shadow.mapSize.height = sz;
+            self._directionalLight.shadow.map = null; // 다시 생성되도록
+        }
+    });
+    smapRow.appendChild(smapLbl);
+    smapRow.appendChild(smapSelect);
+    panel.appendChild(smapRow);
+
+    addSliderRow(panel, { label: 'Bias', key: 'shadowBias', min: -0.01, max: 0.01, step: 0.0001 });
+    addSliderRow(panel, { label: 'Near', key: 'shadowNear', min: 0.1, max: 100, step: 1 });
+    addSliderRow(panel, { label: 'Far', key: 'shadowFar', min: 100, max: 20000, step: 100 });
+
+    // ── 그림자 설정 섹션 ──
+    var shadowTitle = document.createElement('div');
+    shadowTitle.textContent = '그림자 설정';
+    shadowTitle.style.cssText = 'font-weight:bold;font-size:11px;color:#cc99ff;' + sectionStyle;
+    panel.appendChild(shadowTitle);
+
+    addSliderRow(panel, { label: 'Opacity', key: 'shadowOpacity', min: 0, max: 1, step: 0.05 });
+    addSliderRow(panel, { label: 'Offset', key: 'shadowOffsetScale', min: 0, max: 3, step: 0.1 });
+    addColorRow(panel, { label: 'Shadow Color', key: 'shadowColor' });
+    addSliderRow(panel, { label: 'UpperZ', key: 'upperLayerZ', min: 0, max: 100, step: 1 });
 
     // ── 플레이어 라이트 섹션 ──
     var playerTitle = document.createElement('div');
@@ -1175,6 +1299,33 @@ ShadowLight._createDebugUI = function() {
     addSliderRow(panel, { label: 'Spot TDist', key: 'spotLightTargetDistance', min: 30, max: 500, step: 10 });
     addColorRow(panel, { label: 'Spot Color', key: 'spotLightColor' });
 
+    // SpotLight Shadow Map Size 셀렉트
+    var spotSmapRow = document.createElement('div');
+    spotSmapRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+    var spotSmapLbl = document.createElement('span');
+    spotSmapLbl.textContent = 'Spot SMap';
+    spotSmapLbl.style.cssText = 'width:70px;font-size:11px;';
+    var spotSmapSelect = document.createElement('select');
+    spotSmapSelect.style.cssText = 'font:11px monospace;background:#333;color:#eee;border:1px solid #555;';
+    [512, 1024, 2048, 4096].forEach(function(sz) {
+        var opt = document.createElement('option');
+        opt.value = sz;
+        opt.textContent = sz + '';
+        spotSmapSelect.appendChild(opt);
+    });
+    spotSmapSelect.value = self.config.spotLightShadowMapSize || 2048;
+    spotSmapSelect.addEventListener('change', function() {
+        var sz = parseInt(spotSmapSelect.value);
+        self.config.spotLightShadowMapSize = sz;
+        if (self._playerSpotLight) {
+            self._playerSpotLight.shadow.mapSize.width = sz;
+            self._playerSpotLight.shadow.mapSize.height = sz;
+            self._playerSpotLight.shadow.map = null;
+        }
+    });
+    spotSmapRow.appendChild(spotSmapLbl);
+    spotSmapRow.appendChild(spotSmapSelect);
+    panel.appendChild(spotSmapRow);
 
     // 현재값 복사 버튼
     var copyBtn = document.createElement('button');
@@ -1182,16 +1333,31 @@ ShadowLight._createDebugUI = function() {
     copyBtn.style.cssText = 'margin-top:8px;width:100%;padding:4px 8px;font:11px monospace;background:#446;color:#eee;border:1px solid #668;border-radius:3px;cursor:pointer;';
     copyBtn.addEventListener('click', function() {
         var cfg = self.config;
+        var dirArr = cfg.lightDirection ? cfg.lightDirection.toArray() : [-1,-1,-2];
         var text = [
+            '--- 환경광 ---',
+            'ambientIntensity: ' + cfg.ambientIntensity,
+            'ambientColor: 0x' + ('000000' + ((cfg.ambientColor || 0xffffff) >>> 0).toString(16)).slice(-6),
+            '--- 디렉셔널 라이트 ---',
+            'directionalIntensity: ' + cfg.directionalIntensity,
+            'directionalColor: 0x' + ('000000' + ((cfg.directionalColor || 0xffffff) >>> 0).toString(16)).slice(-6),
+            'lightDirection: [' + dirArr[0].toFixed(2) + ', ' + dirArr[1].toFixed(2) + ', ' + dirArr[2].toFixed(2) + ']',
+            'shadowMapSize: ' + cfg.shadowMapSize,
+            'shadowBias: ' + cfg.shadowBias,
+            'shadowNear: ' + cfg.shadowNear,
+            'shadowFar: ' + cfg.shadowFar,
+            '--- 그림자 설정 ---',
+            'shadowOpacity: ' + cfg.shadowOpacity,
+            'shadowColor: 0x' + ('000000' + ((cfg.shadowColor || 0) >>> 0).toString(16)).slice(-6),
+            'shadowOffsetScale: ' + cfg.shadowOffsetScale,
+            'upperLayerZ: ' + cfg.upperLayerZ,
+            '--- 플레이어 라이트 ---',
             'playerLightIntensity: ' + cfg.playerLightIntensity,
             'playerLightDistance: ' + cfg.playerLightDistance,
             'playerLightZ: ' + cfg.playerLightZ,
             'playerLightColor: 0x' + ('000000' + ((cfg.playerLightColor || 0xffffff) >>> 0).toString(16)).slice(-6),
-            'ambientIntensity: ' + cfg.ambientIntensity,
-            'ambientColor: 0x' + ('000000' + ((cfg.ambientColor || 0xffffff) >>> 0).toString(16)).slice(-6),
-            'directionalIntensity: ' + cfg.directionalIntensity,
             'decay: ' + (self._debugDecay !== undefined ? self._debugDecay : 0),
-            '--- SpotLight ---',
+            '--- 스포트라이트 ---',
             'spotLightEnabled: ' + cfg.spotLightEnabled,
             'spotLightIntensity: ' + cfg.spotLightIntensity,
             'spotLightDistance: ' + cfg.spotLightDistance,
@@ -1200,6 +1366,7 @@ ShadowLight._createDebugUI = function() {
             'spotLightColor: 0x' + ('000000' + ((cfg.spotLightColor || 0xffffff) >>> 0).toString(16)).slice(-6),
             'spotLightZ: ' + cfg.spotLightZ,
             'spotLightTargetDistance: ' + cfg.spotLightTargetDistance,
+            'spotLightShadowMapSize: ' + cfg.spotLightShadowMapSize,
         ].join('\n');
 
         if (navigator.clipboard) {

@@ -8,6 +8,9 @@
 // 런타임보다 먼저 필요한 최소한의 글로벌만 설정.
 //=============================================================================
 
+// --- 에디터 모드 플래그 (ShadowLight 디버그 UI 억제용) ---
+window.__editorMode = true;
+
 // --- Point class (rpg_core.js Tilemap에서 사용) ---
 if (typeof Point === 'undefined') {
     function Point(x, y) {
