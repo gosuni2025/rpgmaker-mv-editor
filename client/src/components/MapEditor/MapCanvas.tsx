@@ -770,32 +770,33 @@ export default function MapCanvas() {
       ctx.restore();
     }
 
-    // Light markers (when L tab active)
-    if (lightEditMode && currentMap?.editorLights?.points) {
+    // Light markers (visible when shadowLight is ON)
+    if (shadowLight && currentMap?.editorLights?.points) {
       for (const light of currentMap.editorLights.points) {
         const lx = light.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
         const ly = light.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
 
-        // Influence radius circle
-        ctx.beginPath();
-        ctx.arc(lx, ly, light.distance, 0, Math.PI * 2);
-        ctx.strokeStyle = light.color + '30';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.fillStyle = light.color + '10';
-        ctx.fill();
+        if (lightEditMode) {
+          // L탭: 영향 반경 + 선택 하이라이트 표시
+          ctx.beginPath();
+          ctx.arc(lx, ly, light.distance, 0, Math.PI * 2);
+          ctx.strokeStyle = light.color + '30';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.fillStyle = light.color + '10';
+          ctx.fill();
 
-        // Center marker
-        const isSelected = selectedLightId === light.id;
-        ctx.beginPath();
-        ctx.arc(lx, ly, isSelected ? 12 : 9, 0, Math.PI * 2);
-        ctx.fillStyle = light.color;
-        ctx.fill();
-        ctx.strokeStyle = isSelected ? '#fff' : '#000';
-        ctx.lineWidth = isSelected ? 3 : 1.5;
-        ctx.stroke();
+          const isSelected = selectedLightId === light.id;
+          ctx.beginPath();
+          ctx.arc(lx, ly, isSelected ? 12 : 9, 0, Math.PI * 2);
+          ctx.fillStyle = light.color;
+          ctx.fill();
+          ctx.strokeStyle = isSelected ? '#fff' : '#000';
+          ctx.lineWidth = isSelected ? 3 : 1.5;
+          ctx.stroke();
+        }
 
-        // Label (lightbulb emoji)
+        // 💡 아이콘 (항상 표시)
         ctx.font = '16px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
