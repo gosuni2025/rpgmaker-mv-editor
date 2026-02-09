@@ -137,6 +137,10 @@ ShadowLight._ambientLight = null;
 ShadowLight._pointLights = [];       // 동적 포인트 라이트 풀
 ShadowLight._pointLightIndex = 0;    // 현재 프레임 사용 인덱스
 
+// 플레이어 SpotLight (방향성 그림자용)
+ShadowLight._playerSpotLight = null;
+ShadowLight._playerSpotTarget = null;
+
 // 그림자
 ShadowLight._shadowMeshes = [];      // 캐릭터별 shadow mesh
 ShadowLight._shadowMaterial = null;
@@ -155,6 +159,17 @@ ShadowLight.config = {
     playerLightIntensity: 2.7,
     playerLightDistance: 200,          // 범위 (pixel 단위, decay=0에서 이 범위 밖은 영향 없음)
     playerLightZ: 30,                 // 높이
+
+    // 플레이어 SpotLight (방향성 그림자)
+    spotLightEnabled: true,
+    spotLightColor: 0xffeedd,         // 손전등 색상 (따뜻한 백색)
+    spotLightIntensity: 3.0,
+    spotLightDistance: 300,            // 비추는 범위
+    spotLightAngle: Math.PI / 5,      // 원뿔 반각 (36도)
+    spotLightPenumbra: 0.3,           // 가장자리 부드러움 (0~1)
+    spotLightZ: 50,                   // 높이
+    spotLightShadowMapSize: 1024,     // 그림자 맵 해상도
+    spotLightTargetDistance: 120,     // target까지의 거리 (플레이어 앞)
 
     // 오브젝트 레이어 (upperZLayer) 높이
     upperLayerZ: 24,                  // PointLight(z=30)와 가까워지도록 상승
@@ -381,6 +396,29 @@ ShadowLight._addLightsToScene = function(scene) {
     scene.add(this._directionalLight);
     scene.add(this._directionalLight.target);
 
+    // SpotLight - 플레이어 방향성 그림자 (항상 생성, visible로 제어)
+    this._playerSpotLight = new THREE.SpotLight(
+        this.config.spotLightColor,
+        this.config.spotLightIntensity,
+        this.config.spotLightDistance,
+        this.config.spotLightAngle,
+        this.config.spotLightPenumbra,
+        0  // decay=0
+    );
+    this._playerSpotLight.castShadow = true;
+    this._playerSpotLight.shadow.mapSize.width = this.config.spotLightShadowMapSize;
+    this._playerSpotLight.shadow.mapSize.height = this.config.spotLightShadowMapSize;
+    this._playerSpotLight.shadow.camera.near = 1;
+    this._playerSpotLight.shadow.camera.far = this.config.spotLightDistance + 100;
+    this._playerSpotLight.shadow.bias = -0.002;
+    this._playerSpotLight.visible = this.config.spotLightEnabled;
+
+    // SpotLight target (플레이어 앞 방향)
+    this._playerSpotTarget = new THREE.Object3D();
+    this._playerSpotLight.target = this._playerSpotTarget;
+
+    scene.add(this._playerSpotLight);
+    scene.add(this._playerSpotTarget);
 };
 
 ShadowLight._removeLightsFromScene = function(scene) {
@@ -392,6 +430,13 @@ ShadowLight._removeLightsFromScene = function(scene) {
         scene.remove(this._directionalLight.target);
         scene.remove(this._directionalLight);
         this._directionalLight = null;
+    }
+    // SpotLight 제거
+    if (this._playerSpotLight) {
+        if (this._playerSpotTarget) scene.remove(this._playerSpotTarget);
+        scene.remove(this._playerSpotLight);
+        this._playerSpotLight = null;
+        this._playerSpotTarget = null;
     }
     // 포인트 라이트 제거
     for (var i = 0; i < this._pointLights.length; i++) {
@@ -734,6 +779,20 @@ ShadowLight._getWrapperWorldPos = function(wrapper) {
     return { x: wx, y: wy };
 };
 
+/**
+ * RPG Maker MV direction을 XY 오프셋으로 변환
+ * 2=아래(Y+), 4=왼쪽(X-), 6=오른쪽(X+), 8=위(Y-)
+ */
+ShadowLight._directionToOffset = function(d, dist) {
+    switch (d) {
+        case 2:  return { x: 0, y: dist };    // 아래
+        case 4:  return { x: -dist, y: 0 };   // 왼쪽
+        case 6:  return { x: dist, y: 0 };    // 오른쪽
+        case 8:  return { x: 0, y: -dist };   // 위
+        default: return { x: 0, y: dist };     // 기본: 아래
+    }
+};
+
 Spriteset_Map.prototype._updatePointLights = function() {
     ShadowLight._pointLightIndex = 0;
 
@@ -748,7 +807,38 @@ Spriteset_Map.prototype._updatePointLights = function() {
             light.decay = ShadowLight._debugDecay !== undefined ? ShadowLight._debugDecay : 0;
             var wp = ShadowLight._getWrapperWorldPos(playerSprite);
             light.position.set(wp.x, wp.y - 24, ShadowLight.config.playerLightZ);
+
+            // SpotLight 위치/방향 업데이트
+            if (ShadowLight._playerSpotLight && ShadowLight.config.spotLightEnabled) {
+                var spot = ShadowLight._playerSpotLight;
+                spot.visible = true;
+                var cfg = ShadowLight.config;
+                spot.color.setHex(cfg.spotLightColor);
+                spot.intensity = cfg.spotLightIntensity;
+                spot.distance = cfg.spotLightDistance;
+                spot.angle = cfg.spotLightAngle;
+                spot.penumbra = cfg.spotLightPenumbra;
+                spot.decay = ShadowLight._debugDecay !== undefined ? ShadowLight._debugDecay : 0;
+
+                // SpotLight를 플레이어 위치 위에 배치
+                spot.position.set(wp.x, wp.y - 24, cfg.spotLightZ);
+
+                // target을 플레이어가 바라보는 방향으로 설정
+                var dir = $gamePlayer.direction();
+                var off = ShadowLight._directionToOffset(dir, cfg.spotLightTargetDistance);
+                ShadowLight._playerSpotTarget.position.set(
+                    wp.x + off.x,
+                    wp.y - 24 + off.y,
+                    0  // 바닥 레벨
+                );
+                ShadowLight._playerSpotTarget.updateMatrixWorld();
+            }
         }
+    }
+
+    // SpotLight가 비활성 또는 플레이어가 없으면 숨기기
+    if (ShadowLight._playerSpotLight && !ShadowLight.config.spotLightEnabled) {
+        ShadowLight._playerSpotLight.visible = false;
     }
 
     // 이벤트 라이트 (<light> 노트 태그)
@@ -906,6 +996,12 @@ ShadowLight._createDebugUI = function() {
         { label: 'Light Z', key: 'playerLightZ', min: 0, max: 500, step: 10 },
         { label: 'Ambient', key: 'ambientIntensity', min: 0, max: 2, step: 0.05 },
         { label: 'Dir Light', key: 'directionalIntensity', min: 0, max: 2, step: 0.05 },
+        { label: 'Spot Int', key: 'spotLightIntensity', min: 0, max: 10, step: 0.1 },
+        { label: 'Spot Dist', key: 'spotLightDistance', min: 50, max: 1000, step: 50 },
+        { label: 'Spot Angle', key: 'spotLightAngle', min: 0.1, max: 1.5, step: 0.05 },
+        { label: 'Spot Pen', key: 'spotLightPenumbra', min: 0, max: 1, step: 0.05 },
+        { label: 'Spot Z', key: 'spotLightZ', min: 10, max: 500, step: 10 },
+        { label: 'Spot TDist', key: 'spotLightTargetDistance', min: 30, max: 500, step: 10 },
     ];
 
     controls.forEach(function(c) {
@@ -977,8 +1073,28 @@ ShadowLight._createDebugUI = function() {
     }
 
     // 빛 색깔 피커
+    // SpotLight ON/OFF 토글
+    var spotRow = document.createElement('div');
+    spotRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+    var spotLbl = document.createElement('span');
+    spotLbl.textContent = 'SpotLight';
+    spotLbl.style.cssText = 'width:70px;font-size:11px;';
+    var spotCheck = document.createElement('input');
+    spotCheck.type = 'checkbox';
+    spotCheck.checked = self.config.spotLightEnabled;
+    spotCheck.addEventListener('change', function() {
+        self.config.spotLightEnabled = spotCheck.checked;
+        if (self._playerSpotLight) {
+            self._playerSpotLight.visible = spotCheck.checked;
+        }
+    });
+    spotRow.appendChild(spotLbl);
+    spotRow.appendChild(spotCheck);
+    panel.appendChild(spotRow);
+
     var colorControls = [
         { label: 'Light Color', key: 'playerLightColor' },
+        { label: 'Spot Color', key: 'spotLightColor' },
         { label: 'Ambient Color', key: 'ambientColor' },
     ];
 
@@ -1039,6 +1155,15 @@ ShadowLight._createDebugUI = function() {
             'ambientColor: 0x' + ('000000' + ((cfg.ambientColor || 0xffffff) >>> 0).toString(16)).slice(-6),
             'directionalIntensity: ' + cfg.directionalIntensity,
             'decay: ' + (self._debugDecay !== undefined ? self._debugDecay : 0),
+            '--- SpotLight ---',
+            'spotLightEnabled: ' + cfg.spotLightEnabled,
+            'spotLightIntensity: ' + cfg.spotLightIntensity,
+            'spotLightDistance: ' + cfg.spotLightDistance,
+            'spotLightAngle: ' + cfg.spotLightAngle.toFixed(2),
+            'spotLightPenumbra: ' + cfg.spotLightPenumbra,
+            'spotLightColor: 0x' + ('000000' + ((cfg.spotLightColor || 0xffffff) >>> 0).toString(16)).slice(-6),
+            'spotLightZ: ' + cfg.spotLightZ,
+            'spotLightTargetDistance: ' + cfg.spotLightTargetDistance,
         ].join('\n');
 
         if (navigator.clipboard) {
