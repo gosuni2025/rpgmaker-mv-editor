@@ -3,10 +3,7 @@ import type { EditorLights } from '../../types/rpgMakerMV';
 import { createLightMarkerSprite, createLightStemLine } from './threeSpriteFactory';
 
 // Runtime globals (loaded via index.html script tags)
-declare const ConfigManager: any;
-declare const Mode3D: any;
 declare const ShadowLight: any;
-declare const DepthOfField: any;
 
 /** Dispose a Three.js mesh/line/sprite and remove from scene */
 export function disposeSceneObject(scene: any, obj: any): void {
@@ -22,52 +19,6 @@ export function disposeSceneObjects(scene: any, objects: any[]): void {
     disposeSceneObject(scene, obj);
   }
   objects.length = 0;
-}
-
-/** 에디터에서 3D+DoF가 활성화된 경우 composer를 통해 렌더, 아닌 경우 직접 렌더 */
-export function editorRender(rendererObj: any, stage: any) {
-  const is3D = ConfigManager.mode3d && Mode3D._spriteset;
-  if (is3D) {
-    if (!Mode3D._perspCamera) {
-      Mode3D._perspCamera = Mode3D._createPerspCamera(rendererObj._width, rendererObj._height);
-    }
-    Mode3D._positionCamera(Mode3D._perspCamera, rendererObj._width, rendererObj._height);
-    Mode3D._applyBillboards();
-    Mode3D._enforceNearestFilter(rendererObj.scene);
-
-    // DoF 활성 시 composer 사용
-    if (ConfigManager.depthOfField && typeof DepthOfField !== 'undefined') {
-      if (!DepthOfField._composer || DepthOfField._lastStage !== stage) {
-        DepthOfField._createComposer(rendererObj, stage);
-      }
-      // RenderPass에 최신 참조 반영
-      DepthOfField._renderPass.perspCamera = Mode3D._perspCamera;
-      DepthOfField._renderPass.spriteset = Mode3D._spriteset;
-      DepthOfField._renderPass.stage = stage;
-      DepthOfField._renderPass.scene = rendererObj.scene;
-      DepthOfField._renderPass.camera = rendererObj.camera;
-      // UIRenderPass에 최신 참조 반영
-      DepthOfField._uiPass.spriteset = Mode3D._spriteset;
-      DepthOfField._uiPass.stage = stage;
-      DepthOfField._uiPass.scene = rendererObj.scene;
-      DepthOfField._uiPass.camera = rendererObj.camera;
-      DepthOfField._updateUniforms();
-      // Composer 크기 동기화
-      const w = rendererObj._width;
-      const h = rendererObj._height;
-      if (DepthOfField._composer.renderTarget1.width !== w ||
-          DepthOfField._composer.renderTarget1.height !== h) {
-        DepthOfField._composer.setSize(w, h);
-      }
-      DepthOfField._composer.render();
-    } else {
-      if (DepthOfField?._composer) DepthOfField._disposeComposer();
-      rendererObj.renderer.render(rendererObj.scene, Mode3D._perspCamera);
-    }
-  } else {
-    if (DepthOfField?._composer) DepthOfField._disposeComposer();
-    rendererObj.renderer.render(rendererObj.scene, rendererObj.camera);
-  }
 }
 
 /** Sync editor-defined lights to Three.js scene via ShadowLight runtime */

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
-import { editorRender, syncEditorLightsToScene, disposeSceneObjects } from './threeSceneSync';
+import { syncEditorLightsToScene, disposeSceneObjects } from './threeSceneSync';
 import apiClient from '../../api/client';
 
 // Runtime globals (loaded via index.html script tags)
@@ -283,16 +283,9 @@ export function useThreeRenderer(
           // update 중 에러는 무시 (에디터 환경에서 일부 게임 로직은 불필요)
         }
 
-        rendererObj._drawOrderCounter = 0;
-        stage.updateTransform();
+        // 게임 런타임의 렌더 함수 사용 (Mode3D → DepthOfField 오버라이드 체인 포함)
         const strategy = RendererStrategy.getStrategy();
-        strategy._syncHierarchy(rendererObj, stage);
-
-        const _SL = w.ShadowLight;
-        if (_SL?._active) {
-          rendererObj.renderer.shadowMap.needsUpdate = true;
-        }
-        editorRender(rendererObj, stage);
+        strategy.render(rendererObj, stage);
       }
 
       function requestRender(frames = 1) {
@@ -462,12 +455,8 @@ export function useThreeRenderer(
     requestAnimationFrame(() => {
       renderRequestedRef.current = false;
       if (!rendererObjRef.current || !stageRef.current) return;
-      const rendererObj = rendererObjRef.current;
       const strategy = (window as any).RendererStrategy?.getStrategy();
-      rendererObj._drawOrderCounter = 0;
-      stageRef.current.updateTransform();
-      if (strategy) strategy._syncHierarchy(rendererObj, stageRef.current);
-      editorRender(rendererObj, stageRef.current);
+      if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
     });
   }, [showGrid, mode3d]);
 
