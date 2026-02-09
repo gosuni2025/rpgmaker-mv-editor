@@ -116,6 +116,7 @@ export interface EditorState {
   // 3D / Lighting
   mode3d: boolean;
   shadowLight: boolean;
+  depthOfField: boolean;
 
   // Light editor
   lightEditMode: boolean;
@@ -192,6 +193,7 @@ export interface EditorState {
   setSelectedEventId: (id: number | null) => void;
   setMode3d: (enabled: boolean) => void;
   setShadowLight: (enabled: boolean) => void;
+  setDepthOfField: (enabled: boolean) => void;
 
   // Actions - Light editor
   setLightEditMode: (enabled: boolean) => void;
@@ -253,6 +255,7 @@ const useEditorStore = create<EditorState>((set, get) => ({
   selectedObjectId: null,
   mode3d: false,
   shadowLight: false,
+  depthOfField: false,
   lightEditMode: false,
   selectedLightId: null,
   selectedLightType: 'point',
@@ -838,6 +841,11 @@ const useEditorStore = create<EditorState>((set, get) => ({
     const ConfigManager = (window as any).ConfigManager;
     if (ConfigManager) ConfigManager.shadowLight = enabled;
     set({ shadowLight: enabled });
+  },
+  setDepthOfField: (enabled: boolean) => {
+    const ConfigManager = (window as any).ConfigManager;
+    if (ConfigManager) ConfigManager.depthOfField = enabled;
+    set({ depthOfField: enabled });
   },
 
   // Light editor actions

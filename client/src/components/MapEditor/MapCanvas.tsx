@@ -14,6 +14,47 @@ declare const Graphics: any;
 declare const Mode3D: any;
 declare const ShadowLight: any;
 declare const ConfigManager: any;
+declare const DepthOfField: any;
+
+/** 에디터에서 3D+DoF가 활성화된 경우 composer를 통해 렌더, 아닌 경우 직접 렌더 */
+function editorRender(rendererObj: any, stage: any) {
+  const is3D = ConfigManager.mode3d && Mode3D._spriteset;
+  if (is3D) {
+    if (!Mode3D._perspCamera) {
+      Mode3D._perspCamera = Mode3D._createPerspCamera(rendererObj._width, rendererObj._height);
+    }
+    Mode3D._positionCamera(Mode3D._perspCamera, rendererObj._width, rendererObj._height);
+    Mode3D._enforceNearestFilter(rendererObj.scene);
+
+    // DoF 활성 시 composer 사용
+    if (ConfigManager.depthOfField && typeof DepthOfField !== 'undefined') {
+      if (!DepthOfField._composer || DepthOfField._lastStage !== stage) {
+        DepthOfField._createComposer(rendererObj, stage);
+      }
+      // RenderPass에 최신 참조 반영
+      DepthOfField._renderPass.perspCamera = Mode3D._perspCamera;
+      DepthOfField._renderPass.spriteset = Mode3D._spriteset;
+      DepthOfField._renderPass.stage = stage;
+      DepthOfField._renderPass.scene = rendererObj.scene;
+      DepthOfField._renderPass.camera = rendererObj.camera;
+      DepthOfField._updateUniforms();
+      // Composer 크기 동기화
+      const w = rendererObj._width;
+      const h = rendererObj._height;
+      if (DepthOfField._composer.renderTarget1.width !== w ||
+          DepthOfField._composer.renderTarget1.height !== h) {
+        DepthOfField._composer.setSize(w, h);
+      }
+      DepthOfField._composer.render();
+    } else {
+      if (DepthOfField?._composer) DepthOfField._disposeComposer();
+      rendererObj.renderer.render(rendererObj.scene, Mode3D._perspCamera);
+    }
+  } else {
+    if (DepthOfField?._composer) DepthOfField._disposeComposer();
+    rendererObj.renderer.render(rendererObj.scene, rendererObj.camera);
+  }
+}
 
 interface EventContextMenu {
   x: number;
@@ -109,8 +150,8 @@ function createCharSprite(THREE: any, img: HTMLImageElement, sx: number, sy: num
   const isShadowActive = (window as any).ShadowLight?._active;
   const material = isShadowActive
     ? new THREE.MeshPhongMaterial({
-        map: texture, depthTest: true, depthWrite: true, transparent: true, side: THREE.DoubleSide,
-        emissive: new THREE.Color(0x111111), specular: new THREE.Color(0x000000), shininess: 0,
+        map: texture, depthTest: true, depthWrite: true, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide,
+        emissive: new THREE.Color(0x000000), specular: new THREE.Color(0x000000), shininess: 0,
       })
     : new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geometry, material);
@@ -779,17 +820,7 @@ export default function MapCanvas() {
       rendererObj._drawOrderCounter = 0;
       stageRef.current.updateTransform();
       if (strategy) strategy._syncHierarchy(rendererObj, stageRef.current);
-      const is3D = ConfigManager.mode3d && Mode3D._spriteset;
-      if (is3D) {
-        if (!Mode3D._perspCamera) {
-          Mode3D._perspCamera = Mode3D._createPerspCamera(rendererObj._width, rendererObj._height);
-        }
-        Mode3D._positionCamera(Mode3D._perspCamera, rendererObj._width, rendererObj._height);
-        Mode3D._enforceNearestFilter(rendererObj.scene);
-        rendererObj.renderer.render(rendererObj.scene, Mode3D._perspCamera);
-      } else {
-        rendererObj.renderer.render(rendererObj.scene, rendererObj.camera);
-      }
+      editorRender(rendererObj, stageRef.current);
     });
   }, [showGrid, mode3d]);
 
@@ -993,6 +1024,7 @@ export default function MapCanvas() {
       _drawOrderCounter: 0,
     };
     rendererObjRef.current = rendererObj;
+    (window as any)._editorRendererObj = rendererObj; // debug
 
     // Create stage container
     const stage = new ThreeContainer();
@@ -1109,17 +1141,60 @@ export default function MapCanvas() {
       // Sync hierarchy for render order
       strategy._syncHierarchy(rendererObj, stage);
 
-      const is3D = ConfigManager.mode3d && Mode3D._spriteset;
-      if (is3D) {
-        // 3D 2-pass rendering
-        if (!Mode3D._perspCamera) {
-          Mode3D._perspCamera = Mode3D._createPerspCamera(mapPxW, mapPxH);
+      // Shadow map: 첫 render에서 shadow map 생성 + 두 번째 render에서 적용
+      // on-demand 렌더이므로 shadow map이 항상 최신 상태여야 함
+      if (ShadowLight?._active) {
+        rendererObj.renderer.shadowMap.needsUpdate = true;
+      }
+      editorRender(rendererObj, stage);
+
+      // Shadow debug log (one-shot)
+      if (ShadowLight?._active && !(renderOnce as any)._shadowLogged) {
+        (renderOnce as any)._shadowLogged = true;
+        const r = rendererObj.renderer;
+        const dl = ShadowLight._directionalLight;
+        const gl = r.getContext();
+        // count cast/recv meshes
+        let castCount = 0, recvCount = 0;
+        rendererObj.scene.traverse((o: any) => {
+          if (o.isMesh && o.castShadow) castCount++;
+          if (o.isMesh && o.receiveShadow) recvCount++;
+        });
+        // sample shadow map
+        let shadowPixelInfo = 'no shadow map';
+        if (dl?.shadow?.map) {
+          try {
+            const props = r.properties.get(dl.shadow.map);
+            if (props?.__webglFramebuffer) {
+              const curFB = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+              gl.bindFramebuffer(gl.FRAMEBUFFER, props.__webglFramebuffer);
+              let nonMax = 0;
+              for (let sx = 0; sx < 2048; sx += 64) {
+                for (let sy = 0; sy < 2048; sy += 64) {
+                  const p = new Uint8Array(4);
+                  gl.readPixels(sx, sy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, p);
+                  if (p[0] < 255 || p[1] < 255 || p[2] < 255) nonMax++;
+                }
+              }
+              gl.bindFramebuffer(gl.FRAMEBUFFER, curFB);
+              shadowPixelInfo = `${nonMax} non-max pixels out of ${32*32} samples`;
+            }
+          } catch (e) { shadowPixelInfo = 'read error: ' + (e as any).message; }
         }
-        Mode3D._positionCamera(Mode3D._perspCamera, mapPxW, mapPxH);
-        Mode3D._enforceNearestFilter(rendererObj.scene);
-        rendererObj.renderer.render(rendererObj.scene, Mode3D._perspCamera);
-      } else {
-        rendererObj.renderer.render(rendererObj.scene, rendererObj.camera);
+        const sc = dl?.shadow?.camera;
+        console.log(`[Shadow Debug] enabled=${r.shadowMap.enabled} cast=${castCount} recv=${recvCount} shadowMap=${shadowPixelInfo} lightIntensity=${dl?.intensity} bias=${dl?.shadow?.bias} shadowCam=[${sc?.left},${sc?.right},${sc?.top},${sc?.bottom}] near=${sc?.near} far=${sc?.far}`);
+        console.log(`[Shadow Debug] lightPos=(${dl?.position?.x},${dl?.position?.y},${dl?.position?.z}) targetPos=(${dl?.target?.position?.x},${dl?.target?.position?.y},${dl?.target?.position?.z})`);
+        // Log cast mesh details
+        rendererObj.scene.traverse((o: any) => {
+          if (o.isMesh && o.castShadow) {
+            console.log(`[Shadow Cast] pos=(${Math.round(o.position.x)},${Math.round(o.position.y)},${Math.round(o.position.z)}) transparent=${o.material.transparent} alphaTest=${o.material.alphaTest} customDepth=${!!o.customDepthMaterial}`);
+          }
+          if (o.isMesh && o.receiveShadow) {
+            const norm = o.geometry?.attributes?.normal;
+            const nz = norm ? norm.getZ(0) : 'N/A';
+            console.log(`[Shadow Recv] mat=${o.material.type} transparent=${o.material.transparent} depthWrite=${o.material.depthWrite} depthTest=${o.material.depthTest} normalZ=${nz} side=${o.material.side}`);
+          }
+        });
       }
     }
 
@@ -1172,9 +1247,9 @@ export default function MapCanvas() {
             if (!mesh.material?.isMeshPhongMaterial) {
               const oldMat = mesh.material;
               mesh.material = new THREE.MeshPhongMaterial({
-                map: oldMat.map, transparent: true, depthTest: true, depthWrite: true,
-                side: THREE.DoubleSide, emissive: new THREE.Color(0x111111),
-                specular: new THREE.Color(0x000000), shininess: 0, alphaTest: 0.5,
+                map: oldMat.map, transparent: false, alphaTest: 0.5, depthTest: true, depthWrite: true,
+                side: THREE.DoubleSide, emissive: new THREE.Color(0x000000),
+                specular: new THREE.Color(0x000000), shininess: 0,
               });
               mesh.material.visible = oldMat.visible;
               mesh.material.needsUpdate = true;
@@ -1225,6 +1300,10 @@ export default function MapCanvas() {
         }
         ShadowLight._resetTilemapMeshes(tilemap);
         tilemap._needsRepaint = true;
+        requestRender();
+      }
+      // DoF toggle
+      if (state.depthOfField !== prevState.depthOfField) {
         requestRender();
       }
       // Editor lights changed (property edits, add/remove)
@@ -1345,15 +1424,7 @@ export default function MapCanvas() {
       rObj._drawOrderCounter = 0;
       stageRef.current.updateTransform();
       if (strategy) strategy._syncHierarchy(rObj, stageRef.current);
-      if (ConfigManager.mode3d && Mode3D._spriteset) {
-        if (!Mode3D._perspCamera) {
-          Mode3D._perspCamera = Mode3D._createPerspCamera(rObj._width, rObj._height);
-        }
-        Mode3D._positionCamera(Mode3D._perspCamera, rObj._width, rObj._height);
-        rObj.renderer.render(rObj.scene, Mode3D._perspCamera);
-      } else {
-        rObj.renderer.render(rObj.scene, rObj.camera);
-      }
+      editorRender(rObj, stageRef.current);
       renderRequestedRef.current = false;
     });
   }, [mode3d, currentMap, charImages, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex, tilesetImages, selectedObjectId]);

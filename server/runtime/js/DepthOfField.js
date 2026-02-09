@@ -160,11 +160,13 @@ var TiltShiftShader = {
 function FullScreenQuad(material) {
     var geometry = new THREE.PlaneGeometry(2, 2);
     this._mesh = new THREE.Mesh(geometry, material);
+    this._scene = new THREE.Scene();
+    this._scene.add(this._mesh);
     this._camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 }
 
 FullScreenQuad.prototype.render = function(renderer) {
-    renderer.render(this._mesh, this._camera);
+    renderer.render(this._scene, this._camera);
 };
 
 FullScreenQuad.prototype.dispose = function() {
