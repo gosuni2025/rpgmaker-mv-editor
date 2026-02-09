@@ -444,11 +444,11 @@ export function useThreeRenderer(
     };
   }, [currentMap?.tilesetId, currentMap?.width, currentMap?.height, currentMapId, tilesetInfo]);
 
-  // Sync grid mesh visibility (always via Three.js, both 2D and 3D)
+  // Sync grid mesh visibility (2D only - 3D에서는 평면 grid가 지형과 안 맞음)
   useEffect(() => {
     const gridMesh = gridMeshRef.current;
     if (!gridMesh) return;
-    gridMesh.visible = showGrid;
+    gridMesh.visible = showGrid && !mode3d;
     requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
   }, [showGrid, mode3d]);
 
@@ -468,7 +468,7 @@ export function useThreeRenderer(
     }
     regionMeshesRef.current = [];
 
-    if (currentLayer !== 5) {
+    if (currentLayer !== 5 || mode3d) {
       requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
       return;
     }
@@ -517,7 +517,7 @@ export function useThreeRenderer(
       }
     }
     requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
-  }, [currentMap, currentLayer]);
+  }, [currentMap, currentLayer, mode3d]);
 
   // Sync drag previews (event/light/object drag) via Three.js
   useEffect(() => {
