@@ -225,6 +225,7 @@ app.use('/game/icon', express.static(path.join(runtimePath, 'icon')));
 // /game/data, /game/img, /game/audio, /game/movies - 프로젝트에서 서빙
 app.use('/game/data', (req, res, next) => {
   if (!projectManager.isOpen()) return res.status(404).send('No project');
+  res.set('Cache-Control', 'no-store');
   express.static(path.join(projectManager.currentPath!, 'data'))(req, res, next);
 });
 app.use('/game/img', (req, res, next) => {
