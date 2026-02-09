@@ -63,23 +63,31 @@ function createLightStemLine(THREE: any, px: number, py: number, z: number, colo
   return line;
 }
 
-/** Create a canvas-based THREE.Sprite for a character image region */
+/** Create a textured PlaneGeometry mesh for a character image region.
+ *  Uses Mesh instead of Sprite because Mode3D's Y-flipped projection matrix
+ *  breaks THREE.Sprite rendering. */
 function createCharSprite(THREE: any, img: HTMLImageElement, sx: number, sy: number, sw: number, sh: number, tileSize: number): any {
   const canvas = document.createElement('canvas');
   canvas.width = sw;
   canvas.height = sh;
   const ctx = canvas.getContext('2d')!;
+  // Flip vertically to compensate for Mode3D's Y-inverted projection matrix
+  ctx.translate(0, sh);
+  ctx.scale(1, -1);
   ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.NearestFilter;
   texture.magFilter = THREE.NearestFilter;
   texture.needsUpdate = true;
-  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
-  const sprite = new THREE.Sprite(material);
   const scale = Math.min(tileSize / sw, tileSize / sh);
-  sprite.scale.set(sw * scale, sh * scale, 1);
-  sprite.renderOrder = 900;
-  return sprite;
+  const w = sw * scale;
+  const h = sh * scale;
+  const geometry = new THREE.PlaneGeometry(w, h);
+  const material = new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.renderOrder = 900;
+  mesh.frustumCulled = false;
+  return mesh;
 }
 
 /** Create a flat colored quad (PlaneGeometry) at tile position */
@@ -91,6 +99,7 @@ function createTileQuad(THREE: any, x: number, y: number, tileSize: number, colo
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, 2);
   mesh.renderOrder = renderOrder;
+  mesh.frustumCulled = false;
   return mesh;
 }
 
@@ -107,15 +116,19 @@ function createTileOutline(THREE: any, x: number, y: number, tileSize: number, c
   const line = new THREE.Line(geometry, material);
   line.position.set(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, 3);
   line.renderOrder = renderOrder;
+  line.frustumCulled = false;
   return line;
 }
 
-/** Create a text label sprite */
+/** Create a text label as PlaneGeometry mesh (Sprite broken with Y-flipped projection) */
 function createTextSprite(THREE: any, text: string, fontSize: number, color: string): any {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 32;
   const ctx = canvas.getContext('2d')!;
+  // Flip vertically to compensate for Mode3D's Y-inverted projection matrix
+  ctx.translate(0, 32);
+  ctx.scale(1, -1);
   ctx.font = `bold ${fontSize}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -126,11 +139,12 @@ function createTextSprite(THREE: any, text: string, fontSize: number, color: str
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
   texture.needsUpdate = true;
-  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
-  const sprite = new THREE.Sprite(material);
-  sprite.scale.set(64, 16, 1);
-  sprite.renderOrder = 910;
-  return sprite;
+  const geometry = new THREE.PlaneGeometry(64, 16);
+  const material = new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.renderOrder = 910;
+  mesh.frustumCulled = false;
+  return mesh;
 }
 
 /** Sync editor-defined lights to Three.js scene via ShadowLight runtime */
@@ -291,10 +305,8 @@ function sync3DOverlays(
           const sy = charRow * charH * 4 + dirRow * charH;
 
           const sprite = createCharSprite(THREE, charImg, sx, sy, charW, charH, TILE_SIZE_PX);
-          // Billboard tilt
-          sprite._threeObj = sprite; // for compatibility
-          const tilt = -Mode3D._tiltRad;
-          sprite.rotation.x = tilt;
+          // Billboard tilt (rotate mesh to face camera)
+          sprite.rotation.x = -Mode3D._tiltRad;
 
           const scale = Math.min(TILE_SIZE_PX / charW, TILE_SIZE_PX / charH);
           const dw = charW * scale;
@@ -1001,29 +1013,25 @@ export default function MapCanvas() {
       playerCharacterIndex,
     );
 
-    // Trigger re-render
-    if (!renderRequestedRef.current) {
-      renderRequestedRef.current = true;
-      requestAnimationFrame(() => {
-        renderRequestedRef.current = false;
-        if (!rendererObjRef.current || !stageRef.current) return;
-        const rObj = rendererObjRef.current;
-        const strategy = (window as any).RendererStrategy?.getStrategy();
-        rObj._drawOrderCounter = 0;
-        stageRef.current.updateTransform();
-        if (strategy) strategy._syncHierarchy(rObj, stageRef.current);
-        if (ConfigManager.mode3d && Mode3D._spriteset) {
-          if (!Mode3D._perspCamera) {
-            Mode3D._perspCamera = Mode3D._createPerspCamera(rObj._width, rObj._height);
-          }
-          Mode3D._positionCamera(Mode3D._perspCamera, rObj._width, rObj._height);
-          Mode3D._enforceNearestFilter(rObj.scene);
-          rObj.renderer.render(rObj.scene, Mode3D._perspCamera);
-        } else {
-          rObj.renderer.render(rObj.scene, rObj.camera);
+    // Trigger re-render (always schedule, even if one is pending)
+    requestAnimationFrame(() => {
+      if (!rendererObjRef.current || !stageRef.current) return;
+      const rObj = rendererObjRef.current;
+      const strategy = (window as any).RendererStrategy?.getStrategy();
+      rObj._drawOrderCounter = 0;
+      stageRef.current.updateTransform();
+      if (strategy) strategy._syncHierarchy(rObj, stageRef.current);
+      if (ConfigManager.mode3d && Mode3D._spriteset) {
+        if (!Mode3D._perspCamera) {
+          Mode3D._perspCamera = Mode3D._createPerspCamera(rObj._width, rObj._height);
         }
-      });
-    }
+        Mode3D._positionCamera(Mode3D._perspCamera, rObj._width, rObj._height);
+        rObj.renderer.render(rObj.scene, Mode3D._perspCamera);
+      } else {
+        rObj.renderer.render(rObj.scene, rObj.camera);
+      }
+      renderRequestedRef.current = false;
+    });
   }, [mode3d, currentMap, charImages, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex]);
 
   // Cleanup 3D overlays when switching out of 3D mode
