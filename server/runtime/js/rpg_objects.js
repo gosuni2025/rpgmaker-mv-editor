@@ -5950,7 +5950,22 @@ Game_Map.prototype.autotileType = function(x, y, z) {
 };
 
 Game_Map.prototype.isPassable = function(x, y, d) {
-    return this.checkPassage(x, y, (1 << (d / 2 - 1)) & 0x0f);
+    if (!this.checkPassage(x, y, (1 << (d / 2 - 1)) & 0x0f)) return false;
+    var objects = $dataMap.objects;
+    if (objects) {
+        for (var i = 0; i < objects.length; i++) {
+            var obj = objects[i];
+            if (!obj || !obj.passability) continue;
+            var col = x - obj.x;
+            var row = y - (obj.y - obj.height + 1);
+            if (col >= 0 && col < obj.width && row >= 0 && row < obj.height) {
+                if (obj.passability[row] && obj.passability[row][col] === false) {
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
 };
 
 Game_Map.prototype.isBoatPassable = function(x, y) {
