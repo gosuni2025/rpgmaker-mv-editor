@@ -38,14 +38,14 @@
         var rendererOptions = {
             canvas: options.view || undefined,
             antialias: false,
-            alpha: false,
+            alpha: true,
             preserveDrawingBuffer: false,
             powerPreference: 'high-performance'
         };
 
         var renderer = new THREE.WebGLRenderer(rendererOptions);
         renderer.setSize(width, height);
-        renderer.setClearColor(0x000000, 1);
+        renderer.setClearColor(0x000000, 0);
 
         // Disable auto-sorting; we control render order via z-position
         renderer.sortObjects = true;

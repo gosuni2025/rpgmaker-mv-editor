@@ -6,8 +6,8 @@ import {
   getTileRenderInfo,
 } from '../../utils/tileHelper';
 
-type PaletteTab = 'A' | 'B' | 'C' | 'D' | 'E' | 'R' | 'L';
-const TABS: PaletteTab[] = ['A', 'B', 'C', 'D', 'E', 'R', 'L'];
+type PaletteTab = 'A' | 'B' | 'C' | 'D' | 'E' | 'R';
+const TABS: PaletteTab[] = ['A', 'B', 'C', 'D', 'E', 'R'];
 
 // Tab → tileset image index mapping
 const TAB_SHEET_INDEX: Record<PaletteTab, number[]> = {
@@ -75,17 +75,13 @@ export default function TilesetPalette() {
   const setSelectedTiles = useEditorStore((s) => s.setSelectedTiles);
   const setCurrentLayer = useEditorStore((s) => s.setCurrentLayer);
   const currentMap = useEditorStore((s) => s.currentMap);
-  const lightEditMode = useEditorStore((s) => s.lightEditMode);
-  const setLightEditMode = useEditorStore((s) => s.setLightEditMode);
-  const setShadowLight = useEditorStore((s) => s.setShadowLight);
-  const initEditorLights = useEditorStore((s) => s.initEditorLights);
+  const editMode = useEditorStore((s) => s.editMode);
   const selectedLightId = useEditorStore((s) => s.selectedLightId);
   const setSelectedLightId = useEditorStore((s) => s.setSelectedLightId);
   const selectedLightType = useEditorStore((s) => s.selectedLightType);
   const setSelectedLightType = useEditorStore((s) => s.setSelectedLightType);
 
   const [activeTab, setActiveTab] = useState<PaletteTab>('A');
-  const prevShadowLightRef = useRef(false);
   const [tilesetImages, setTilesetImages] = useState<Record<number, HTMLImageElement>>({});
   const [selectedRegion, setSelectedRegion] = useState(0);
 
@@ -442,53 +438,26 @@ export default function TilesetPalette() {
 
   const handleTabClick = (tab: PaletteTab) => {
     setActiveTab(tab);
-    if (tab === 'L') {
-      // L탭 진입: 조명 모드 활성화 + 조명 자동 ON
-      prevShadowLightRef.current = useEditorStore.getState().shadowLight;
-      setLightEditMode(true);
-      initEditorLights();
-      setShadowLight(true);
-    } else {
-      // L탭 이탈: 조명 모드 비활성화, 이전 조명 상태 복원
-      if (lightEditMode) {
-        setLightEditMode(false);
-        setShadowLight(prevShadowLightRef.current);
-      }
-      if (tab === 'R') {
-        setCurrentLayer(5);
-      } else if (currentMap) {
-        const layer = useEditorStore.getState().currentLayer;
-        if (layer === 5) {
-          setCurrentLayer(tab === 'A' ? 0 : 1);
-        }
+    if (tab === 'R') {
+      setCurrentLayer(5);
+    } else if (currentMap) {
+      const layer = useEditorStore.getState().currentLayer;
+      if (layer === 5) {
+        setCurrentLayer(tab === 'A' ? 0 : 1);
       }
     }
   };
 
   const hasSheet = (tab: PaletteTab): boolean => {
-    if (tab === 'R' || tab === 'L') return true;
+    if (tab === 'R') return true;
     return TAB_SHEET_INDEX[tab].some(idx => !!tilesetImages[idx]);
   };
 
   return (
     <div style={styles.container}>
-      <div style={styles.tabBar}>
-        {TABS.map((tab) => (
-          <div
-            key={tab}
-            style={{
-              ...styles.tab,
-              ...(activeTab === tab ? styles.tabActive : {}),
-              ...(hasSheet(tab) ? {} : styles.tabDisabled),
-            }}
-            onClick={() => handleTabClick(tab)}
-          >
-            {tab}
-          </div>
-        ))}
-      </div>
-      <div style={styles.scrollArea}>
-        {activeTab === 'L' ? (
+      {editMode === 'light' ? (
+        /* Light edit mode: show light palette instead of tileset tabs */
+        <div style={styles.scrollArea}>
           <div className="light-palette">
             <div className="light-palette-section-title">조명 타입</div>
             <div
@@ -536,7 +505,27 @@ export default function TilesetPalette() {
               </>
             )}
           </div>
-        ) : activeTab === 'R' ? (
+        </div>
+      ) : (
+        /* Normal tileset mode */
+        <>
+        <div style={styles.tabBar}>
+          {TABS.map((tab) => (
+            <div
+              key={tab}
+              style={{
+                ...styles.tab,
+                ...(activeTab === tab ? styles.tabActive : {}),
+                ...(hasSheet(tab) ? {} : styles.tabDisabled),
+              }}
+              onClick={() => handleTabClick(tab)}
+            >
+              {tab}
+            </div>
+          ))}
+        </div>
+        <div style={styles.scrollArea}>
+          {activeTab === 'R' ? (
           <div className="region-palette">
             {Array.from({ length: 256 }, (_, i) => (
               <div
@@ -564,6 +553,8 @@ export default function TilesetPalette() {
           />
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

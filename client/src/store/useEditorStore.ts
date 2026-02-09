@@ -71,7 +71,7 @@ export interface EditorState {
   playerCharacterIndex: number;
 
   // Mode
-  editMode: 'map' | 'event' | 'object';
+  editMode: 'map' | 'event' | 'light' | 'object';
 
   // Drawing tools
   selectedTool: string;
@@ -170,7 +170,7 @@ export interface EditorState {
   deleteObject: (id: number) => void;
 
   // Actions - UI
-  setEditMode: (mode: 'map' | 'event' | 'object') => void;
+  setEditMode: (mode: 'map' | 'event' | 'light' | 'object') => void;
   setSelectedTool: (tool: string) => void;
   setSelectedTileId: (id: number) => void;
   setSelectedTiles: (tiles: number[][] | null, width: number, height: number) => void;
@@ -741,11 +741,26 @@ const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   // UI actions
-  setEditMode: (mode: 'map' | 'event' | 'object') => {
+  setEditMode: (mode: 'map' | 'event' | 'light' | 'object') => {
+    const state = get();
     const updates: Partial<EditorState> = { editMode: mode };
-    if (mode === 'object') {
-      updates.lightEditMode = false;
+    // light mode: activate lightEditMode + shadowLight
+    if (mode === 'light') {
+      updates.lightEditMode = true;
+      updates.shadowLight = true;
+      if (typeof ConfigManager !== 'undefined') {
+        (window as any).ConfigManager.shadowLight = true;
+      }
+      // Initialize editor lights if needed
+      setTimeout(() => get().initEditorLights(), 0);
     } else {
+      // Exiting light mode: deactivate lightEditMode
+      if (state.editMode === 'light') {
+        updates.lightEditMode = false;
+        updates.selectedLightId = null;
+      }
+    }
+    if (mode !== 'object') {
       updates.selectedObjectId = null;
     }
     if (mode !== 'event') {

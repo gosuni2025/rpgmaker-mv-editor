@@ -57,6 +57,15 @@ export default function DrawToolbar() {
           이벤트
         </button>
         <button
+          onClick={() => setEditMode('light')}
+          style={{
+            ...styles.btn,
+            ...(editMode === 'light' ? styles.btnActive : {}),
+          }}
+        >
+          조명
+        </button>
+        <button
           onClick={() => setEditMode('object')}
           style={{
             ...styles.btn,

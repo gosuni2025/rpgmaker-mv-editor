@@ -63,6 +63,28 @@ function createLightStemLine(THREE: any, px: number, py: number, z: number, colo
   return line;
 }
 
+/** Create a textured PlaneGeometry mesh for a tile from a tileset image.
+ *  Used for rendering map objects (billboard tiles) in 3D mode. */
+function createTileSprite(THREE: any, img: HTMLImageElement, sx: number, sy: number, sw: number, sh: number, drawW: number, drawH: number): any {
+  const canvas = document.createElement('canvas');
+  canvas.width = sw;
+  canvas.height = sh;
+  const ctx = canvas.getContext('2d')!;
+  ctx.translate(0, sh);
+  ctx.scale(1, -1);
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.NearestFilter;
+  texture.magFilter = THREE.NearestFilter;
+  texture.needsUpdate = true;
+  const geometry = new THREE.PlaneGeometry(drawW, drawH);
+  const material = new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.renderOrder = 880;
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
 /** Create a textured PlaneGeometry mesh for a character image region.
  *  Uses Mesh instead of Sprite because Mode3D's Y-flipped projection matrix
  *  breaks THREE.Sprite rendering. */
@@ -208,12 +230,13 @@ function syncEditorLightsToScene(scene: any, editorLights: EditorLights | undefi
   }
 }
 
-/** Sync 3D overlay objects (events, player, regions) into Three.js scene */
+/** Sync 3D overlay objects (events, player, regions, map objects) into Three.js scene */
 function sync3DOverlays(
   scene: any,
   eventSpritesRef: React.MutableRefObject<any[]>,
   playerSpriteRef: React.MutableRefObject<any>,
   regionMeshesRef: React.MutableRefObject<any[]>,
+  objectMeshesRef: React.MutableRefObject<any[]>,
   currentMap: any,
   charImages: Record<string, HTMLImageElement>,
   editMode: string,
@@ -223,6 +246,8 @@ function sync3DOverlays(
   playerCharImg: HTMLImageElement | null,
   playerCharacterName: string | null,
   playerCharacterIndex: number,
+  tilesetImages: Record<number, HTMLImageElement>,
+  selectedObjectId: number | null,
 ) {
   const THREE = (window as any).THREE;
   if (!THREE) return;
@@ -255,6 +280,15 @@ function sync3DOverlays(
     if (obj.geometry) obj.geometry.dispose();
   }
   regionMeshesRef.current = [];
+
+  // --- Cleanup existing object meshes ---
+  for (const obj of objectMeshesRef.current) {
+    scene.remove(obj);
+    if (obj.material?.map) obj.material.map.dispose();
+    if (obj.material) obj.material.dispose();
+    if (obj.geometry) obj.geometry.dispose();
+  }
+  objectMeshesRef.current = [];
 
   if (!currentMap) return;
   const { width, height, data, events } = currentMap;
@@ -385,6 +419,74 @@ function sync3DOverlays(
 
     playerSpriteRef.current = objs;
   }
+
+  // --- Map objects (tile-based) ---
+  if (currentMap.objects) {
+    const isObjectMode = editMode === 'object';
+    const HALF = TILE_SIZE_PX / 2;
+    for (const mapObj of currentMap.objects) {
+      for (let row = 0; row < mapObj.height; row++) {
+        for (let col = 0; col < mapObj.width; col++) {
+          const tileId = mapObj.tileIds[row]?.[col];
+          if (!tileId || tileId === 0) continue;
+          const drawX = (mapObj.x + col) * TILE_SIZE_PX;
+          const drawY = (mapObj.y - mapObj.height + 1 + row) * TILE_SIZE_PX;
+          const info = getTileRenderInfo(tileId);
+          if (!info) continue;
+          if (info.type === 'normal') {
+            const img = tilesetImages[info.sheet];
+            if (img) {
+              const mesh = createTileSprite(THREE, img, info.sx, info.sy, info.sw, info.sh, TILE_SIZE_PX, TILE_SIZE_PX);
+              mesh.position.set(drawX + TILE_SIZE_PX / 2, drawY + TILE_SIZE_PX / 2, 3);
+              scene.add(mesh);
+              objectMeshesRef.current.push(mesh);
+            }
+          } else if (info.type === 'autotile') {
+            for (let q = 0; q < 4; q++) {
+              const quarter = info.quarters[q];
+              const img = tilesetImages[quarter.sheet];
+              if (!img) continue;
+              const qx = drawX + (q % 2) * HALF;
+              const qy = drawY + Math.floor(q / 2) * HALF;
+              const mesh = createTileSprite(THREE, img, quarter.sx, quarter.sy, HALF, HALF, HALF, HALF);
+              mesh.position.set(qx + HALF / 2, qy + HALF / 2, 3);
+              scene.add(mesh);
+              objectMeshesRef.current.push(mesh);
+            }
+          }
+        }
+      }
+      if (isObjectMode) {
+        const bx = mapObj.x;
+        const by = mapObj.y - mapObj.height + 1;
+        const bw = mapObj.width;
+        const bh = mapObj.height;
+        const isSelected = selectedObjectId === mapObj.id;
+        const outlineColor = isSelected ? 0x00ff66 : 0x00cc66;
+        const hw = bw * TILE_SIZE_PX / 2;
+        const hh = bh * TILE_SIZE_PX / 2;
+        const pts = [
+          new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+          new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+          new THREE.Vector3(-hw, -hh, 0),
+        ];
+        const geom = new THREE.BufferGeometry().setFromPoints(pts);
+        const mat = new THREE.LineBasicMaterial({ color: outlineColor, depthTest: false, transparent: true });
+        const line = new THREE.Line(geom, mat);
+        line.position.set(bx * TILE_SIZE_PX + hw, by * TILE_SIZE_PX + hh, 4);
+        line.renderOrder = 895;
+        line.frustumCulled = false;
+        scene.add(line);
+        objectMeshesRef.current.push(line);
+        if (mapObj.name) {
+          const label = createTextSprite(THREE, mapObj.name, 10, '#fff');
+          label.position.set(bx * TILE_SIZE_PX + hw, by * TILE_SIZE_PX + 8, 5);
+          scene.add(label);
+          objectMeshesRef.current.push(label);
+        }
+      }
+    }
+  }
 }
 
 /** Create a runtime Bitmap from a loaded HTMLImageElement */
@@ -443,10 +545,11 @@ export default function MapCanvas() {
   const renderRequestedRef = useRef(false);
   const parallaxDivRef = useRef<HTMLDivElement>(null);
   const gridMeshRef = useRef<any>(null);
-  // 3D overlay refs (events, player, regions, selection/cursor rendered in Three.js scene)
+  // 3D overlay refs (events, player, regions, objects, selection/cursor rendered in Three.js scene)
   const eventSpritesRef = useRef<any[]>([]);
   const playerSpriteRef = useRef<any>(null);
   const regionMeshesRef = useRef<any[]>([]);
+  const objectMeshesRef = useRef<any[]>([]);
   const cursorMeshRef = useRef<any>(null);
   const selectionMeshRef = useRef<any>(null);
 
@@ -488,6 +591,11 @@ export default function MapCanvas() {
   const resizeStartPx = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const resizeOrigSize = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
   const [resizePreview, setResizePreview] = useState<{ dLeft: number; dTop: number; dRight: number; dBottom: number } | null>(null);
+  const resizePreviewRef = useRef<{ dLeft: number; dTop: number; dRight: number; dBottom: number } | null>(null);
+  const updateResizePreview = useCallback((val: { dLeft: number; dTop: number; dRight: number; dBottom: number } | null) => {
+    resizePreviewRef.current = val;
+    setResizePreview(val);
+  }, []);
   const [resizeCursor, setResizeCursor] = useState<string | null>(null);
 
   // Light drag state
@@ -1002,6 +1110,7 @@ export default function MapCanvas() {
       eventSpritesRef,
       playerSpriteRef,
       regionMeshesRef,
+      objectMeshesRef,
       currentMap,
       charImages,
       editMode,
@@ -1011,6 +1120,8 @@ export default function MapCanvas() {
       playerCharImg,
       playerCharacterName,
       playerCharacterIndex,
+      tilesetImages,
+      selectedObjectId,
     );
 
     // Trigger re-render (always schedule, even if one is pending)
@@ -1032,7 +1143,7 @@ export default function MapCanvas() {
       }
       renderRequestedRef.current = false;
     });
-  }, [mode3d, currentMap, charImages, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex]);
+  }, [mode3d, currentMap, charImages, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex, tilesetImages, selectedObjectId]);
 
   // Cleanup 3D overlays when switching out of 3D mode
   useEffect(() => {
@@ -1063,6 +1174,13 @@ export default function MapCanvas() {
       if (obj.geometry) obj.geometry.dispose();
     }
     regionMeshesRef.current = [];
+    for (const obj of objectMeshesRef.current) {
+      rendererObj.scene.remove(obj);
+      if (obj.material?.map) obj.material.map.dispose();
+      if (obj.material) obj.material.dispose();
+      if (obj.geometry) obj.geometry.dispose();
+    }
+    objectMeshesRef.current = [];
   }, [mode3d]);
 
   // =========================================================================
@@ -1270,8 +1388,32 @@ export default function MapCanvas() {
         if (obj) {
           const px = objectDragPreview.x * TILE_SIZE_PX;
           const py = (objectDragPreview.y - obj.height + 1) * TILE_SIZE_PX;
-          ctx.fillStyle = 'rgba(0,204,102,0.3)';
-          ctx.fillRect(px, py, obj.width * TILE_SIZE_PX, obj.height * TILE_SIZE_PX);
+          // Draw tile images at preview position with transparency
+          ctx.save();
+          ctx.globalAlpha = 0.6;
+          for (let row = 0; row < obj.height; row++) {
+            for (let col = 0; col < obj.width; col++) {
+              const tileId = obj.tileIds[row]?.[col];
+              if (!tileId || tileId === 0) continue;
+              const drawX = px + col * TILE_SIZE_PX;
+              const drawY = py + row * TILE_SIZE_PX;
+              const info = getTileRenderInfo(tileId);
+              if (!info) continue;
+              if (info.type === 'normal') {
+                const img = tilesetImages[info.sheet];
+                if (img) ctx.drawImage(img, info.sx, info.sy, info.sw, info.sh, drawX, drawY, TILE_SIZE_PX, TILE_SIZE_PX);
+              } else if (info.type === 'autotile') {
+                const HALF = TILE_SIZE_PX / 2;
+                for (let q = 0; q < 4; q++) {
+                  const quarter = info.quarters[q];
+                  const img = tilesetImages[quarter.sheet];
+                  if (!img) continue;
+                  ctx.drawImage(img, quarter.sx, quarter.sy, HALF, HALF, drawX + (q % 2) * HALF, drawY + Math.floor(q / 2) * HALF, HALF, HALF);
+                }
+              }
+            }
+          }
+          ctx.restore();
           ctx.strokeStyle = '#00ff66';
           ctx.lineWidth = 2;
           ctx.strokeRect(px, py, obj.width * TILE_SIZE_PX, obj.height * TILE_SIZE_PX);
@@ -1958,6 +2100,64 @@ export default function MapCanvas() {
   // =========================================================================
   // Mouse event handlers (unchanged logic)
   // =========================================================================
+  // Resize drag uses window-level listeners so dragging outside canvas still works
+  const handleResizeMove = useCallback((e: MouseEvent) => {
+    if (!isResizing.current || !resizeEdge.current) return;
+    const canvas = webglCanvasRef.current;
+    if (!canvas) return;
+    const container = canvas.parentElement;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / zoomLevel;
+    const py = (e.clientY - rect.top) / zoomLevel;
+    const dx = px - resizeStartPx.current.x;
+    const dy = py - resizeStartPx.current.y;
+    const edge = resizeEdge.current;
+    const dtX = Math.round(dx / TILE_SIZE_PX);
+    const dtY = Math.round(dy / TILE_SIZE_PX);
+    let dLeft = 0, dTop = 0, dRight = 0, dBottom = 0;
+    if (edge.includes('e')) dRight = dtX;
+    if (edge.includes('w')) dLeft = dtX;
+    if (edge.includes('s')) dBottom = dtY;
+    if (edge.includes('n')) dTop = dtY;
+    const origW = resizeOrigSize.current.w;
+    const origH = resizeOrigSize.current.h;
+    const newW = origW + dRight - dLeft;
+    const newH = origH + dBottom - dTop;
+    if (newW < 1) { if (dRight !== 0) dRight = 1 - origW + dLeft; else dLeft = origW + dRight - 1; }
+    if (newH < 1) { if (dBottom !== 0) dBottom = 1 - origH + dTop; else dTop = origH + dBottom - 1; }
+    if (newW > 256) { if (dRight !== 0) dRight = 256 - origW + dLeft; else dLeft = origW + dRight - 256; }
+    if (newH > 256) { if (dBottom !== 0) dBottom = 256 - origH + dTop; else dTop = origH + dBottom - 256; }
+    updateResizePreview({ dLeft, dTop, dRight, dBottom });
+  }, [zoomLevel, updateResizePreview]);
+
+  const handleResizeUp = useCallback(() => {
+    if (!isResizing.current) return;
+    isResizing.current = false;
+    resizeEdge.current = null;
+    window.removeEventListener('mousemove', handleResizeMove);
+    window.removeEventListener('mouseup', handleResizeUp);
+    const preview = resizePreviewRef.current;
+    if (preview) {
+      const { dLeft, dTop, dRight, dBottom } = preview;
+      if (dLeft !== 0 || dTop !== 0 || dRight !== 0 || dBottom !== 0) {
+        const origW = resizeOrigSize.current.w;
+        const origH = resizeOrigSize.current.h;
+        const newW = origW + dRight - dLeft;
+        const newH = origH + dBottom - dTop;
+        resizeMap(newW, newH, -dLeft, -dTop);
+      }
+    }
+    updateResizePreview(null);
+  }, [handleResizeMove, resizeMap, updateResizePreview]);
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('mousemove', handleResizeMove);
+      window.removeEventListener('mouseup', handleResizeUp);
+    };
+  }, [handleResizeMove, handleResizeUp]);
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
       // Map boundary resize: start resize if on edge
@@ -1970,7 +2170,9 @@ export default function MapCanvas() {
             resizeEdge.current = edge;
             resizeStartPx.current = px;
             resizeOrigSize.current = { w: currentMap.width, h: currentMap.height };
-            setResizePreview({ dLeft: 0, dTop: 0, dRight: 0, dBottom: 0 });
+            updateResizePreview({ dLeft: 0, dTop: 0, dRight: 0, dBottom: 0 });
+            window.addEventListener('mousemove', handleResizeMove);
+            window.addEventListener('mouseup', handleResizeUp);
             e.preventDefault();
             return;
           }
@@ -2070,36 +2272,13 @@ export default function MapCanvas() {
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight, mode3d, detectEdge, getCanvasPx]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight, mode3d, detectEdge, getCanvasPx, handleResizeMove, handleResizeUp, updateResizePreview]
   );
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
-      // Map boundary resize: update preview during drag
-      if (isResizing.current && resizeEdge.current) {
-        const px = getCanvasPx(e);
-        if (!px) return;
-        const dx = px.x - resizeStartPx.current.x;
-        const dy = px.y - resizeStartPx.current.y;
-        const edge = resizeEdge.current;
-        const dtX = Math.round(dx / TILE_SIZE_PX);
-        const dtY = Math.round(dy / TILE_SIZE_PX);
-        let dLeft = 0, dTop = 0, dRight = 0, dBottom = 0;
-        if (edge.includes('e')) dRight = dtX;
-        if (edge.includes('w')) dLeft = dtX;
-        if (edge.includes('s')) dBottom = dtY;
-        if (edge.includes('n')) dTop = dtY;
-        const origW = resizeOrigSize.current.w;
-        const origH = resizeOrigSize.current.h;
-        const newW = origW + dRight - dLeft;
-        const newH = origH + dBottom - dTop;
-        if (newW < 1) { if (dRight !== 0) dRight = 1 - origW + dLeft; else dLeft = origW + dRight - 1; }
-        if (newH < 1) { if (dBottom !== 0) dBottom = 1 - origH + dTop; else dTop = origH + dBottom - 1; }
-        if (newW > 256) { if (dRight !== 0) dRight = 256 - origW + dLeft; else dLeft = origW + dRight - 256; }
-        if (newH > 256) { if (dBottom !== 0) dBottom = 256 - origH + dTop; else dTop = origH + dBottom - 256; }
-        setResizePreview({ dLeft, dTop, dRight, dBottom });
-        return;
-      }
+      // Map boundary resize is handled by window-level listeners (handleResizeMove)
+      if (isResizing.current) return;
 
       // Edge cursor detection (non-dragging)
       if (editMode === 'map' && !mode3d && !isDrawing.current && !isDraggingEvent.current && !isDraggingLight.current) {
@@ -2174,23 +2353,8 @@ export default function MapCanvas() {
 
   const handleMouseUp = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
-      // Map boundary resize: commit
-      if (isResizing.current && resizePreview) {
-        isResizing.current = false;
-        resizeEdge.current = null;
-        const { dLeft, dTop, dRight, dBottom } = resizePreview;
-        setResizePreview(null);
-        if (dLeft !== 0 || dTop !== 0 || dRight !== 0 || dBottom !== 0) {
-          const origW = resizeOrigSize.current.w;
-          const origH = resizeOrigSize.current.h;
-          const newW = origW + dRight - dLeft;
-          const newH = origH + dBottom - dTop;
-          const offsetX = -dLeft;
-          const offsetY = -dTop;
-          resizeMap(newW, newH, offsetX, offsetY);
-        }
-        return;
-      }
+      // Map boundary resize is handled by window-level listener (handleResizeUp)
+      if (isResizing.current) return;
 
       // Light drag commit
       if (isDraggingLight.current && draggedLightId.current != null) {
@@ -2403,12 +2567,9 @@ export default function MapCanvas() {
           onMouseMove={mode3d ? undefined : handleMouseMove}
           onMouseUp={mode3d ? undefined : handleMouseUp}
           onMouseLeave={mode3d ? undefined : (e) => {
-            if (isResizing.current) {
-              isResizing.current = false;
-              resizeEdge.current = null;
-              setResizePreview(null);
-            }
+            // Resize drag continues via window-level listeners, don't cancel here
             setResizeCursor(null);
+            if (isResizing.current) return; // Don't trigger other cleanup during resize
             if (isDraggingEvent.current) {
               isDraggingEvent.current = false;
               draggedEventId.current = null;

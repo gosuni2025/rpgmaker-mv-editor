@@ -255,8 +255,37 @@
             Mode3D._applyBillboards();
             Mode3D._enforceNearestFilter(scene);
 
-            // --- Pass 1: PerspectiveCamera로 맵(Spriteset_Map)만 렌더 ---
+            // Find parallax sky mesh in scene
+            var skyMesh = null;
+            for (var si = 0; si < scene.children.length; si++) {
+                if (scene.children[si]._isParallaxSky) {
+                    skyMesh = scene.children[si];
+                    break;
+                }
+            }
+
             var stageObj = stage._threeObj;
+
+            // --- Pass 0: Sky background (PerspectiveCamera) ---
+            if (skyMesh) {
+                // Hide everything except sky
+                if (stageObj) stageObj.visible = false;
+                skyMesh.visible = true;
+                renderer.autoClear = true;
+                renderer.render(scene, Mode3D._perspCamera);
+                skyMesh.visible = false;
+                if (stageObj) stageObj.visible = true;
+            }
+
+            // --- Pass 1: PerspectiveCamera로 맵(Spriteset_Map)만 렌더 ---
+            // Hide _blackScreen so parallax sky shows through map edges
+            var blackScreenObj = Mode3D._spriteset._blackScreen &&
+                                 Mode3D._spriteset._blackScreen._threeObj;
+            var blackScreenWasVisible = blackScreenObj ? blackScreenObj.visible : false;
+            if (skyMesh && blackScreenObj) {
+                blackScreenObj.visible = false;
+            }
+
             var childVisibility = [];
             if (stageObj) {
                 for (var i = 0; i < stageObj.children.length; i++) {
@@ -269,8 +298,13 @@
                 }
             }
 
-            renderer.autoClear = true;
+            renderer.autoClear = !skyMesh;  // Don't clear if sky was drawn
             renderer.render(scene, Mode3D._perspCamera);
+
+            // Restore _blackScreen
+            if (blackScreenObj) {
+                blackScreenObj.visible = blackScreenWasVisible;
+            }
 
             // --- Pass 2: OrthographicCamera로 UI 렌더 (합성) ---
             if (stageObj) {
