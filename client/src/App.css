@@ -1657,6 +1657,17 @@ input, textarea, [contenteditable="true"] {
   flex-shrink: 0;
 }
 
+.light-inspector-label.draggable {
+  cursor: ew-resize;
+  user-select: none;
+  color: #8cf;
+}
+
+.light-inspector-label.draggable:hover {
+  color: #adf;
+  text-decoration: underline;
+}
+
 .light-inspector-input {
   background: #2b2b2b;
   border: 1px solid #555;
