@@ -66,6 +66,7 @@ app.get('/game/index.html', (req, res) => {
   const title = path.basename(projectManager.currentPath!);
   const isDev = req.query.dev === 'true';
   const startMapId = req.query.startMapId ? parseInt(req.query.startMapId as string, 10) : 0;
+  const hasStartPos = req.query.startX !== undefined && req.query.startY !== undefined;
   const startX = req.query.startX ? parseInt(req.query.startX as string, 10) : 0;
   const startY = req.query.startY ? parseInt(req.query.startY as string, 10) : 0;
   const devScript = isDev ? '\n        <script type="text/javascript" src="js/ThreeDevOverlay.js"></script>' : '';
@@ -78,7 +79,9 @@ app.get('/game/index.html', (req, res) => {
                 Scene_Base.prototype.start.call(this);
                 SoundManager.preloadImportantSounds();
                 DataManager.setupNewGame();
-                $gamePlayer.reserveTransfer(${startMapId}, ${startX}, ${startY});
+                ${hasStartPos
+                  ? `$gamePlayer.reserveTransfer(${startMapId}, ${startX}, ${startY});`
+                  : `$gamePlayer.reserveTransfer(${startMapId}, $dataSystem.startX, $dataSystem.startY);`}
                 SceneManager.goto(Scene_Map);
                 this.updateDocumentTitle();
             };
