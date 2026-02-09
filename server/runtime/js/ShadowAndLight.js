@@ -1191,7 +1191,7 @@ ShadowLight._createDebugUI = function() {
         slider.min = 0;
         slider.max = 80;
         slider.step = 1;
-        slider.value = window.Mode3D ? Mode3D._tiltDeg : 35;
+        slider.value = window.Mode3D ? Mode3D._tiltDeg : 60;
         slider.style.cssText = 'width:90px;height:14px;';
         var val = document.createElement('span');
         val.textContent = slider.value + '°';
@@ -1468,7 +1468,7 @@ ShadowLight._createDebugUI = function() {
         var camFov = (window.Mode3D && Mode3D._perspCamera) ? Mode3D._perspCamera.fov : 60;
         var text = [
             '--- 카메라 ---',
-            'tiltDeg: ' + (window.Mode3D ? Mode3D._tiltDeg : 35),
+            'tiltDeg: ' + (window.Mode3D ? Mode3D._tiltDeg : 60),
             'fov: ' + camFov,
             'extraRows: ' + (window.Mode3D ? Mode3D._extraRows : 6),
             '--- 환경광 ---',

@@ -45,7 +45,7 @@
 
     var Mode3D = {};
     Mode3D._active = false;
-    Mode3D._tiltDeg = 35;
+    Mode3D._tiltDeg = 60;
     Mode3D._tiltRad = Mode3D._tiltDeg * Math.PI / 180;
     Mode3D._billboardTargets = [];
     Mode3D._spriteset = null;
