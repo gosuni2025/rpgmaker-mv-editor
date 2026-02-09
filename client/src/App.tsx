@@ -50,7 +50,7 @@ function SidebarSplit({ editMode }: { editMode: string }) {
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
-  const showTileset = editMode === 'map' || editMode === 'object';
+  const showTileset = editMode === 'map' || editMode === 'object' || editMode === 'light';
 
   return (
     <div className="sidebar-split" ref={containerRef}>
