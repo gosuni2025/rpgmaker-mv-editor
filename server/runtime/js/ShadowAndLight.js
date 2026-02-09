@@ -67,9 +67,9 @@ ShadowLight._shadowMaterial = null;
 ShadowLight.config = {
     // 광원 설정
     ambientColor: 0x667788,           // 환경광 (어두운 푸른 톤 - 달빛 느낌)
-    ambientIntensity: 0.85,
+    ambientIntensity: 0.1,
     directionalColor: 0xfff8ee,       // 햇빛 색상 (따뜻한 톤)
-    directionalIntensity: 0.05,
+    directionalIntensity: 0.3,
     lightDirection: new THREE.Vector3(-1, -1, -2).normalize(), // 광원 방향 (Z 성분 크게)
 
     // 플레이어 포인트 라이트
@@ -93,6 +93,36 @@ ShadowLight.config = {
 //=============================================================================
 
 ShadowLight._convertedMaterials = new WeakMap();
+
+/**
+ * castShadow 메시의 customDepthMaterial.map을 현재 material.map과 동기화
+ * (텍스처 로드/교체 후 customDepthMaterial.map이 stale해지는 것 방지)
+ */
+ShadowLight._syncCustomDepthMaps = function(sprites) {
+    if (!sprites) return;
+    for (var i = 0; i < sprites.length; i++) {
+        var sprite = sprites[i];
+        if (!sprite || !sprite._threeObj) continue;
+        var obj = sprite._threeObj;
+        if (obj.castShadow && obj.customDepthMaterial && sprite._material &&
+            sprite._material.map && obj.customDepthMaterial.map !== sprite._material.map) {
+            obj.customDepthMaterial.map = sprite._material.map;
+            obj.customDepthMaterial.needsUpdate = true;
+        }
+        // 오브젝트 컨테이너의 자식도 동기화
+        if (sprite.children) {
+            for (var j = 0; j < sprite.children.length; j++) {
+                var child = sprite.children[j];
+                if (child && child._threeObj && child._threeObj.castShadow &&
+                    child._threeObj.customDepthMaterial && child._material &&
+                    child._material.map && child._threeObj.customDepthMaterial.map !== child._material.map) {
+                    child._threeObj.customDepthMaterial.map = child._material.map;
+                    child._threeObj.customDepthMaterial.needsUpdate = true;
+                }
+            }
+        }
+    }
+};
 
 /**
  * MeshBasicMaterial을 MeshLambertMaterial로 교체
@@ -126,21 +156,15 @@ ShadowLight._convertMaterial = function(sprite) {
 
     // Shadow Map: 캐릭터가 그림자를 드리우도록 설정
     sprite._threeObj.castShadow = true;
-    // customDepthMaterial: alpha-tested shadow silhouette
+    // customDepthMaterial: alpha-tested shadow silhouette (스프라이트 모양대로 그림자)
     sprite._threeObj.customDepthMaterial = new THREE.MeshDepthMaterial({
         depthPacking: THREE.RGBADepthPacking,
         map: newMat.map,
         alphaTest: 0.5,
         side: THREE.DoubleSide,
     });
-    // Z 위치를 올려서 shadow map depth에서 타일맵과 분리
-    if (sprite._threeObj.position.z < 48) {
-        sprite._shadowOrigZ = sprite._threeObj.position.z;
-        sprite._threeObj.position.z = 48;
-    }
 
     this._convertedMaterials.set(newMat, true);
-    console.log('[Shadow] convertMaterial: castShadow=' + sprite._threeObj.castShadow + ' transparent=' + newMat.transparent + ' alphaTest=' + newMat.alphaTest + ' z=' + sprite._threeObj.position.z + ' customDepth=' + !!sprite._threeObj.customDepthMaterial);
 };
 
 /**
@@ -167,11 +191,6 @@ ShadowLight._revertMaterial = function(sprite) {
     sprite._material = newMat;
     sprite._threeObj.castShadow = false;
     sprite._threeObj.customDepthMaterial = null;
-    // Z 위치 복원
-    if (sprite._shadowOrigZ !== undefined) {
-        sprite._threeObj.position.z = sprite._shadowOrigZ;
-        delete sprite._shadowOrigZ;
-    }
 };
 
 //=============================================================================
@@ -272,47 +291,6 @@ ShadowLight._addLightsToScene = function(scene) {
     scene.add(this._directionalLight);
     scene.add(this._directionalLight.target);
 
-    // Shadow Map 디버그 로그
-    console.log('[Shadow] DirectionalLight added: castShadow=' + this._directionalLight.castShadow +
-        ' mapSize=' + this._directionalLight.shadow.mapSize.width +
-        ' cam=[' + this._directionalLight.shadow.camera.left + ',' + this._directionalLight.shadow.camera.right + ',' +
-        this._directionalLight.shadow.camera.top + ',' + this._directionalLight.shadow.camera.bottom + ']' +
-        ' near=' + this._directionalLight.shadow.camera.near + ' far=' + this._directionalLight.shadow.camera.far +
-        ' bias=' + this._directionalLight.shadow.bias +
-        ' lightPos=(' + this._directionalLight.position.x + ',' + this._directionalLight.position.y + ',' + this._directionalLight.position.z + ')');
-
-    // ===== Shadow Map 파이프라인 테스트 =====
-    // 불투명 바닥 + 박스로 그림자가 정말 그려지는지 확인
-    var testCx = (typeof Graphics !== 'undefined' ? Graphics._width : 816) / 2;
-    var testCy = (typeof Graphics !== 'undefined' ? Graphics._height : 624) / 2;
-
-    // 바닥 플레인 (receiveShadow, 불투명 녹색)
-    var floorGeo = new THREE.PlaneGeometry(300, 300);
-    var floorMat = new THREE.MeshPhongMaterial({
-        color: 0x00aa00,
-        transparent: false,
-        side: THREE.DoubleSide,
-    });
-    this._testFloor = new THREE.Mesh(floorGeo, floorMat);
-    this._testFloor.receiveShadow = true;
-    this._testFloor.position.set(testCx, testCy, 0);
-    this._testFloor.frustumCulled = false;
-    scene.add(this._testFloor);
-
-    // 박스 (castShadow, 불투명 빨강)
-    var boxGeo = new THREE.BoxGeometry(60, 60, 60);
-    var boxMat = new THREE.MeshPhongMaterial({
-        color: 0xff0000,
-        transparent: false,
-    });
-    this._testBox = new THREE.Mesh(boxGeo, boxMat);
-    this._testBox.castShadow = true;
-    this._testBox.position.set(testCx, testCy, 80);
-    this._testBox.frustumCulled = false;
-    scene.add(this._testBox);
-
-    console.log('[Shadow] TEST GEOMETRY added: floor at (' + testCx + ',' + testCy + ',0) box at (' + testCx + ',' + testCy + ',80)');
-    // ===== /Shadow Map 파이프라인 테스트 =====
 };
 
 ShadowLight._removeLightsFromScene = function(scene) {
@@ -325,9 +303,6 @@ ShadowLight._removeLightsFromScene = function(scene) {
         scene.remove(this._directionalLight);
         this._directionalLight = null;
     }
-    // 테스트 지오메트리 제거
-    if (this._testFloor) { scene.remove(this._testFloor); this._testFloor = null; }
-    if (this._testBox) { scene.remove(this._testBox); this._testBox = null; }
     // 포인트 라이트 제거
     for (var i = 0; i < this._pointLights.length; i++) {
         if (this._pointLights[i].parent) {
@@ -550,6 +525,10 @@ Spriteset_Map.prototype._updateShadowLight = function() {
         // shadow camera updateProjectionMatrix (position/target 변경 반영)
         ShadowLight._directionalLight.shadow.camera.updateProjectionMatrix();
     }
+
+    // customDepthMaterial.map 동기화 (텍스처 로드 후 stale 방지)
+    ShadowLight._syncCustomDepthMaps(this._characterSprites);
+    ShadowLight._syncCustomDepthMaps(this._objectSprites);
 
     // shadow mesh 업데이트
     if (this._shadowMeshes) {
@@ -789,9 +768,17 @@ Spriteset_Map.prototype._getEventSprite = function(event) {
 var _Sprite_Character_updateBitmap = Sprite_Character.prototype.updateBitmap;
 Sprite_Character.prototype.updateBitmap = function() {
     _Sprite_Character_updateBitmap.call(this);
+    if (!ShadowLight._active || !this._material) return;
     // material이 교체되면 다시 변환
-    if (ShadowLight._active && this._material && !this._material.isMeshPhongMaterial) {
+    if (!this._material.isMeshPhongMaterial) {
         ShadowLight._convertMaterial(this);
+    }
+    // customDepthMaterial.map을 현재 material.map과 동기화
+    // (텍스처 로드/변경 시 customDepthMaterial.map이 stale해지는 것 방지)
+    if (this._threeObj && this._threeObj.customDepthMaterial &&
+        this._material.map && this._threeObj.customDepthMaterial.map !== this._material.map) {
+        this._threeObj.customDepthMaterial.map = this._material.map;
+        this._threeObj.customDepthMaterial.needsUpdate = true;
     }
 };
 
