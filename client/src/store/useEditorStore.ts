@@ -42,7 +42,15 @@ export interface ObjectHistoryEntry {
   oldSelectedObjectId: number | null;
 }
 
-export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry;
+export interface LightHistoryEntry {
+  mapId: number;
+  type: 'light';
+  oldLights: EditorLights;
+  newLights: EditorLights;
+  oldSelectedLightId: number | null;
+}
+
+export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry;
 
 export interface ClipboardData {
   type: 'tiles' | 'event';
@@ -458,6 +466,23 @@ const useEditorStore = create<EditorState>((set, get) => ({
       return;
     }
 
+    if (entry.type === 'light') {
+      const le = entry as LightHistoryEntry;
+      const redoEntry: LightHistoryEntry = {
+        mapId: currentMapId, type: 'light',
+        oldLights: le.newLights, newLights: le.oldLights,
+        oldSelectedLightId: get().selectedLightId,
+      };
+      set({
+        currentMap: { ...currentMap, editorLights: le.oldLights },
+        selectedLightId: le.oldSelectedLightId,
+        undoStack: undoStack.slice(0, -1),
+        redoStack: [...get().redoStack, redoEntry],
+      });
+      showToast('실행 취소 (조명)');
+      return;
+    }
+
     const te = entry as TileHistoryEntry;
     const newData = [...currentMap.data];
     const redoChanges: TileChange[] = [];
@@ -512,6 +537,23 @@ const useEditorStore = create<EditorState>((set, get) => ({
         undoStack: [...get().undoStack, undoEntry],
       });
       showToast('다시 실행 (오브젝트)');
+      return;
+    }
+
+    if (entry.type === 'light') {
+      const le = entry as LightHistoryEntry;
+      const undoEntry: LightHistoryEntry = {
+        mapId: currentMapId, type: 'light',
+        oldLights: le.newLights, newLights: le.oldLights,
+        oldSelectedLightId: get().selectedLightId,
+      };
+      set({
+        currentMap: { ...currentMap, editorLights: le.oldLights },
+        selectedLightId: le.oldSelectedLightId,
+        redoStack: redoStack.slice(0, -1),
+        undoStack: [...get().undoStack, undoEntry],
+      });
+      showToast('다시 실행 (조명)');
       return;
     }
 
@@ -812,45 +854,101 @@ const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   addPointLight: (x: number, y: number) => {
-    const map = get().currentMap;
-    if (!map || !map.editorLights) return;
+    const { currentMap: map, currentMapId, undoStack, selectedLightId } = get();
+    if (!map || !map.editorLights || !currentMapId) return;
+    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
     const points = [...map.editorLights.points];
     const newId = points.length > 0 ? Math.max(...points.map(p => p.id)) + 1 : 1;
     const newLight: EditorPointLight = { id: newId, x, y, z: 30, color: '#ffcc88', intensity: 1.0, distance: 150, decay: 0 };
     points.push(newLight);
+    const newLights = { ...map.editorLights, points };
+    const historyEntry: LightHistoryEntry = {
+      mapId: currentMapId, type: 'light', oldLights, newLights: JSON.parse(JSON.stringify(newLights)),
+      oldSelectedLightId: selectedLightId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
     set({
-      currentMap: { ...map, editorLights: { ...map.editorLights, points } },
+      currentMap: { ...map, editorLights: newLights },
       selectedLightId: newId,
+      undoStack: newStack,
+      redoStack: [],
     });
   },
 
   updatePointLight: (id: number, updates: Partial<EditorPointLight>) => {
-    const map = get().currentMap;
-    if (!map || !map.editorLights) return;
+    const { currentMap: map, currentMapId, undoStack, selectedLightId } = get();
+    if (!map || !map.editorLights || !currentMapId) return;
+    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
     const points = map.editorLights.points.map(p => p.id === id ? { ...p, ...updates } : p);
-    set({ currentMap: { ...map, editorLights: { ...map.editorLights, points } } });
+    const newLights = { ...map.editorLights, points };
+    const historyEntry: LightHistoryEntry = {
+      mapId: currentMapId, type: 'light', oldLights, newLights: JSON.parse(JSON.stringify(newLights)),
+      oldSelectedLightId: selectedLightId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({
+      currentMap: { ...map, editorLights: newLights },
+      undoStack: newStack,
+      redoStack: [],
+    });
   },
 
   deletePointLight: (id: number) => {
-    const map = get().currentMap;
-    if (!map || !map.editorLights) return;
+    const { currentMap: map, currentMapId, undoStack, selectedLightId } = get();
+    if (!map || !map.editorLights || !currentMapId) return;
+    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
     const points = map.editorLights.points.filter(p => p.id !== id);
+    const newLights = { ...map.editorLights, points };
+    const historyEntry: LightHistoryEntry = {
+      mapId: currentMapId, type: 'light', oldLights, newLights: JSON.parse(JSON.stringify(newLights)),
+      oldSelectedLightId: selectedLightId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
     set({
-      currentMap: { ...map, editorLights: { ...map.editorLights, points } },
-      selectedLightId: get().selectedLightId === id ? null : get().selectedLightId,
+      currentMap: { ...map, editorLights: newLights },
+      selectedLightId: selectedLightId === id ? null : selectedLightId,
+      undoStack: newStack,
+      redoStack: [],
     });
   },
 
   updateAmbientLight: (updates: Partial<EditorAmbientLight>) => {
-    const map = get().currentMap;
-    if (!map || !map.editorLights) return;
-    set({ currentMap: { ...map, editorLights: { ...map.editorLights, ambient: { ...map.editorLights.ambient, ...updates } } } });
+    const { currentMap: map, currentMapId, undoStack, selectedLightId } = get();
+    if (!map || !map.editorLights || !currentMapId) return;
+    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
+    const newLights = { ...map.editorLights, ambient: { ...map.editorLights.ambient, ...updates } };
+    const historyEntry: LightHistoryEntry = {
+      mapId: currentMapId, type: 'light', oldLights, newLights: JSON.parse(JSON.stringify(newLights)),
+      oldSelectedLightId: selectedLightId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({
+      currentMap: { ...map, editorLights: newLights },
+      undoStack: newStack,
+      redoStack: [],
+    });
   },
 
   updateDirectionalLight: (updates: Partial<EditorDirectionalLight>) => {
-    const map = get().currentMap;
-    if (!map || !map.editorLights) return;
-    set({ currentMap: { ...map, editorLights: { ...map.editorLights, directional: { ...map.editorLights.directional, ...updates } } } });
+    const { currentMap: map, currentMapId, undoStack, selectedLightId } = get();
+    if (!map || !map.editorLights || !currentMapId) return;
+    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
+    const newLights = { ...map.editorLights, directional: { ...map.editorLights.directional, ...updates } };
+    const historyEntry: LightHistoryEntry = {
+      mapId: currentMapId, type: 'light', oldLights, newLights: JSON.parse(JSON.stringify(newLights)),
+      oldSelectedLightId: selectedLightId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({
+      currentMap: { ...map, editorLights: newLights },
+      undoStack: newStack,
+      redoStack: [],
+    });
   },
 
   // Start position
