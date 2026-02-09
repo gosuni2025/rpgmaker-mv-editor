@@ -5,6 +5,8 @@ import {
   getAutotileBlockInfo, getShapeNeighbors,
   TILE_ID_A1,
 } from '../utils/tileHelper';
+import { buildAutotileEntries } from '../utils/autotileEntries';
+import { loadTilesetImages } from '../utils/tilesetImageLoader';
 
 interface Props {
   open: boolean;
@@ -12,31 +14,6 @@ interface Props {
 }
 
 const HALF = TILE_SIZE_PX / 2;
-
-// Build autotile kind entries (same as TilesetPalette)
-interface AutotileEntry {
-  kind: number;
-  label: string;
-  tileId: number; // base tile ID (shape 46 = fully connected)
-  category: string;
-}
-
-function buildAutotileEntries(): AutotileEntry[] {
-  const entries: AutotileEntry[] = [];
-  for (let k = 0; k < 16; k++) {
-    entries.push({ kind: k, label: `A1-${k}`, tileId: TILE_ID_A1 + k * 48 + 46, category: 'A1' });
-  }
-  for (let k = 16; k < 48; k++) {
-    entries.push({ kind: k, label: `A2-${k - 16}`, tileId: TILE_ID_A1 + k * 48 + 46, category: 'A2' });
-  }
-  for (let k = 48; k < 80; k++) {
-    entries.push({ kind: k, label: `A3-${k - 48}`, tileId: TILE_ID_A1 + k * 48 + 46, category: 'A3' });
-  }
-  for (let k = 80; k < 128; k++) {
-    entries.push({ kind: k, label: `A4-${k - 80}`, tileId: TILE_ID_A1 + k * 48 + 46, category: 'A4' });
-  }
-  return entries;
-}
 
 const AUTOTILE_ENTRIES = buildAutotileEntries();
 
@@ -51,30 +28,7 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
   // Load tileset images
   useEffect(() => {
     if (!open || !currentMap?.tilesetNames) return;
-    const names = currentMap.tilesetNames;
-    const loaded: Record<number, HTMLImageElement> = {};
-    let cancelled = false;
-    let remaining = 0;
-    for (let idx = 0; idx <= 8; idx++) {
-      const name = names[idx];
-      if (!name) continue;
-      remaining++;
-      const img = new Image();
-      img.onload = () => {
-        if (cancelled) return;
-        loaded[idx] = img;
-        remaining--;
-        if (remaining <= 0) setTilesetImages({ ...loaded });
-      };
-      img.onerror = () => {
-        if (cancelled) return;
-        remaining--;
-        if (remaining <= 0) setTilesetImages({ ...loaded });
-      };
-      img.src = `/api/resources/img_tilesets/${name}.png`;
-    }
-    if (remaining === 0) setTilesetImages({});
-    return () => { cancelled = true; };
+    return loadTilesetImages(currentMap.tilesetNames, setTilesetImages);
   }, [open, currentMap?.tilesetId, currentMap?.tilesetNames]);
 
   // Draw autotile palette (left side)

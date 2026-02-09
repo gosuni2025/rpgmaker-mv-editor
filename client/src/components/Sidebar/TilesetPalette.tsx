@@ -2,9 +2,10 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import {
   TILE_SIZE_PX, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E,
-  TILE_ID_A1, TILE_ID_A2, TILE_ID_A3, TILE_ID_A4, TILE_ID_A5,
   getTileRenderInfo,
 } from '../../utils/tileHelper';
+import { buildAutotileEntries } from '../../utils/autotileEntries';
+import { loadTilesetImages } from '../../utils/tilesetImageLoader';
 
 type PaletteTab = 'A' | 'B' | 'C' | 'D' | 'E' | 'R';
 const TABS: PaletteTab[] = ['A', 'B', 'C', 'D', 'E', 'R'];
@@ -29,40 +30,7 @@ const TAB_TILE_OFFSET: Record<string, number> = {
 
 const HALF = TILE_SIZE_PX / 2;
 
-// A-tab autotile definitions: each kind with its sheet index and base tile ID
-interface AutotileEntry {
-  sheet: number;
-  kind: number;
-  label: string;
-  tileId: number;
-}
-
-function buildAtileEntries(): AutotileEntry[] {
-  const entries: AutotileEntry[] = [];
-  // A1: kinds 0-15 (sheet 0)
-  for (let k = 0; k < 16; k++) {
-    entries.push({ sheet: 0, kind: k, label: `A1-${k}`, tileId: TILE_ID_A1 + k * 48 + 46 });
-  }
-  // A2: kinds 16-47 (sheet 1), ty starts at 2
-  for (let k = 16; k < 48; k++) {
-    entries.push({ sheet: 1, kind: k, label: `A2-${k - 16}`, tileId: TILE_ID_A1 + k * 48 + 46 });
-  }
-  // A3: kinds 48-79 (sheet 2)
-  for (let k = 48; k < 80; k++) {
-    entries.push({ sheet: 2, kind: k, label: `A3-${k - 48}`, tileId: TILE_ID_A1 + k * 48 + 46 });
-  }
-  // A4: kinds 80-127 (sheet 3)
-  for (let k = 80; k < 128; k++) {
-    entries.push({ sheet: 3, kind: k, label: `A4-${k - 80}`, tileId: TILE_ID_A1 + k * 48 + 46 });
-  }
-  // A5: non-autotile, 128 tiles (sheet 4)
-  for (let i = 0; i < 128; i++) {
-    entries.push({ sheet: 4, kind: -1, label: `A5-${i}`, tileId: TILE_ID_A5 + i });
-  }
-  return entries;
-}
-
-const A_TILE_ENTRIES = buildAtileEntries();
+const A_TILE_ENTRIES = buildAutotileEntries(true);
 
 export default function TilesetPalette() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -98,34 +66,7 @@ export default function TilesetPalette() {
       setTilesetImages({});
       return;
     }
-
-    const names = currentMap.tilesetNames;
-    const loaded: Record<number, HTMLImageElement> = {};
-    let cancelled = false;
-    let remaining = 0;
-
-    for (let idx = 0; idx <= 8; idx++) {
-      const name = names[idx];
-      if (!name) continue;
-      remaining++;
-      const img = new Image();
-      img.onload = () => {
-        if (cancelled) return;
-        loaded[idx] = img;
-        remaining--;
-        if (remaining <= 0) setTilesetImages({ ...loaded });
-      };
-      img.onerror = () => {
-        if (cancelled) return;
-        remaining--;
-        if (remaining <= 0) setTilesetImages({ ...loaded });
-      };
-      img.src = `/api/resources/img_tilesets/${name}.png`;
-    }
-
-    if (remaining === 0) setTilesetImages({});
-
-    return () => { cancelled = true; };
+    return loadTilesetImages(currentMap.tilesetNames, setTilesetImages);
   }, [currentMap?.tilesetId, currentMap?.tilesetNames]);
 
   // Render B-E tab (simple tileset image)
