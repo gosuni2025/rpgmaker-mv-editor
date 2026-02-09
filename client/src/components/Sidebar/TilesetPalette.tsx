@@ -149,7 +149,16 @@ export default function TilesetPalette() {
 
     // Highlight selection (drag preview or committed selection)
     const offset = TAB_TILE_OFFSET[activeTab] ?? 0;
-    const cols = 16;
+
+    // Convert localId (0~255) to image grid position (col, row) in 16-col layout
+    // RPG Maker MV: left half (0~127) → cols 0-7, right half (128~255) → cols 8-15
+    const localIdToCell = (localId: number) => {
+      if (localId < 128) {
+        return { col: localId % 8, row: Math.floor(localId / 8) };
+      } else {
+        return { col: 8 + (localId - 128) % 8, row: Math.floor((localId - 128) / 8) };
+      }
+    };
 
     if (isDragging.current && dragStartCell.current && dragCurrentCell) {
       // Drag preview highlight
@@ -166,17 +175,16 @@ export default function TilesetPalette() {
       const rh = (maxRow - minRow + 1) * TILE_SIZE_PX - 2;
       ctx.fillRect(rx, ry, rw, rh);
       ctx.strokeRect(rx, ry, rw, rh);
-    } else if (selectedTiles && selectedTilesWidth > 1 || selectedTiles && selectedTilesHeight > 1) {
+    } else if (selectedTiles && (selectedTilesWidth > 1 || selectedTilesHeight > 1)) {
       // Multi-tile committed selection: find top-left from selectedTileId
       const localId = selectedTileId - offset;
       if (localId >= 0 && localId < 256) {
-        const startCol = localId % cols;
-        const startRow = Math.floor(localId / cols);
+        const cell = localIdToCell(localId);
         ctx.strokeStyle = '#ff0000';
         ctx.lineWidth = 2;
         ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
-        const rx = startCol * TILE_SIZE_PX + 1;
-        const ry = startRow * TILE_SIZE_PX + 1;
+        const rx = cell.col * TILE_SIZE_PX + 1;
+        const ry = cell.row * TILE_SIZE_PX + 1;
         const rw = selectedTilesWidth * TILE_SIZE_PX - 2;
         const rh = selectedTilesHeight * TILE_SIZE_PX - 2;
         ctx.fillRect(rx, ry, rw, rh);
@@ -186,11 +194,10 @@ export default function TilesetPalette() {
       // Single tile selection
       const localId = selectedTileId - offset;
       if (localId >= 0 && localId < 256) {
-        const col = localId % cols;
-        const row = Math.floor(localId / cols);
+        const cell = localIdToCell(localId);
         ctx.strokeStyle = '#ff0000';
         ctx.lineWidth = 2;
-        ctx.strokeRect(col * TILE_SIZE_PX + 1, row * TILE_SIZE_PX + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
+        ctx.strokeRect(cell.col * TILE_SIZE_PX + 1, cell.row * TILE_SIZE_PX + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
       }
     }
   }, [activeTab, tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, dragCurrentCell]);
@@ -324,8 +331,13 @@ export default function TilesetPalette() {
         }
         return 0;
       } else {
-        const cols = 16;
-        const localId = row * cols + col;
+        // B-E tileset image layout: 16 cols (768px / 48px)
+        // But RPG Maker MV tile ID mapping uses 8-col halves:
+        //   Left half (col 0-7): localId = row * 8 + col       (0~127)
+        //   Right half (col 8-15): localId = 128 + row * 8 + (col - 8) (128~255)
+        const localId = col < 8
+          ? row * 8 + col
+          : 128 + row * 8 + (col - 8);
         const offset = TAB_TILE_OFFSET[activeTab] ?? 0;
         return offset + localId;
       }
