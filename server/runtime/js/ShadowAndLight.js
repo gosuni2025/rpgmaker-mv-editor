@@ -112,6 +112,7 @@ ShadowLight._convertMaterial = function(sprite) {
         emissive: new THREE.Color(0x111111),
         specular: new THREE.Color(0x000000),  // 반사광 없음
         shininess: 0,
+        alphaTest: 0.5,  // 투명 배경은 그림자 생성하지 않음
     });
     newMat.visible = oldMat.visible;
     newMat.needsUpdate = true;

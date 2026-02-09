@@ -37,6 +37,7 @@ export interface MapData {
   battleback1Name: string;
   battleback2Name: string;
   editorLights?: EditorLights;
+  editorDoF?: EditorDoF;
   objects?: MapObject[];
 }
 
@@ -469,4 +470,19 @@ export const DEFAULT_EDITOR_LIGHTS: EditorLights = {
   ambient: { color: '#667788', intensity: 0.4 },
   directional: { color: '#fff8ee', intensity: 0.1, direction: [-1, -1, -2] },
   points: [],
+};
+
+// Editor-only DoF data (stored as custom field in map JSON, ignored by RPG Maker MV)
+export interface EditorDoF {
+  enabled: boolean;
+  focus: number;
+  aperture: number;
+  maxblur: number;
+}
+
+export const DEFAULT_EDITOR_DOF: EditorDoF = {
+  enabled: false,
+  focus: 500,
+  aperture: 0.005,
+  maxblur: 0.01,
 };

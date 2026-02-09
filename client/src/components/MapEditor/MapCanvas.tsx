@@ -111,6 +111,7 @@ function createCharSprite(THREE: any, img: HTMLImageElement, sx: number, sy: num
     ? new THREE.MeshPhongMaterial({
         map: texture, depthTest: true, depthWrite: true, transparent: true, side: THREE.DoubleSide,
         emissive: new THREE.Color(0x111111), specular: new THREE.Color(0x000000), shininess: 0,
+        alphaTest: 0.5,
       })
     : new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geometry, material);
@@ -1097,6 +1098,7 @@ export default function MapCanvas() {
       strategy._syncHierarchy(rendererObj, stage);
 
       const is3D = ConfigManager.mode3d && Mode3D._spriteset;
+
       if (is3D) {
         // 3D 2-pass rendering
         if (!Mode3D._perspCamera) {
@@ -1151,6 +1153,45 @@ export default function MapCanvas() {
           ShadowLight._active = false;
           ShadowLight._removeLightsFromScene(rendererObj.scene);
         }
+        // Update editor overlay sprites for shadow casting
+        const updateSpriteShadow = (mesh: any) => {
+          if (!mesh?.isMesh) return;
+          const active = state.shadowLight;
+          if (active) {
+            if (!mesh.material?.isMeshPhongMaterial) {
+              const oldMat = mesh.material;
+              mesh.material = new THREE.MeshPhongMaterial({
+                map: oldMat.map, transparent: true, depthTest: true, depthWrite: true,
+                side: THREE.DoubleSide, emissive: new THREE.Color(0x111111),
+                specular: new THREE.Color(0x000000), shininess: 0, alphaTest: 0.5,
+              });
+              mesh.material.visible = oldMat.visible;
+              mesh.material.needsUpdate = true;
+              oldMat.dispose();
+            }
+            mesh.castShadow = true;
+          } else {
+            if (mesh.material?.isMeshPhongMaterial) {
+              const oldMat = mesh.material;
+              mesh.material = new THREE.MeshBasicMaterial({
+                map: oldMat.map, transparent: true, depthTest: false,
+                side: THREE.DoubleSide,
+              });
+              mesh.material.visible = oldMat.visible;
+              mesh.material.needsUpdate = true;
+              oldMat.dispose();
+            }
+            mesh.castShadow = false;
+          }
+        };
+        for (const obj of eventSpritesRef.current) {
+          updateSpriteShadow(obj);
+        }
+        if (playerSpriteRef.current) {
+          for (const obj of playerSpriteRef.current) {
+            updateSpriteShadow(obj);
+          }
+        }
         ShadowLight._resetTilemapMeshes(tilemap);
         tilemap._needsRepaint = true;
         requestRender();
@@ -1158,6 +1199,14 @@ export default function MapCanvas() {
       // Editor lights changed (property edits, add/remove)
       if (state.shadowLight && state.currentMap?.editorLights !== prevState.currentMap?.editorLights) {
         syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
+        requestRender();
+      }
+      // DoF toggle
+      if (state.depthOfField !== prevState.depthOfField) {
+        requestRender();
+      }
+      // DoF settings changed
+      if (state.currentMap?.editorDoF !== prevState.currentMap?.editorDoF) {
         requestRender();
       }
     });

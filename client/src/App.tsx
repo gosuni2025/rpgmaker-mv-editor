@@ -22,6 +22,7 @@ import CharacterGeneratorDialog from './components/CharacterGeneratorDialog';
 import AutotileDebugDialog from './components/AutotileDebugDialog';
 import LightInspector from './components/Sidebar/LightInspector';
 import ObjectInspector from './components/Sidebar/ObjectInspector';
+import DoFInspector from './components/Sidebar/DoFInspector';
 import useFileWatcher from './hooks/useFileWatcher';
 
 function SidebarSplit({ editMode }: { editMode: string }) {
@@ -85,6 +86,7 @@ export default function App() {
   const showCharacterGeneratorDialog = useEditorStore((s) => s.showCharacterGeneratorDialog);
   const toastMessage = useEditorStore((s) => s.toastMessage);
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
+  const depthOfField = useEditorStore((s) => s.depthOfField);
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
   useFileWatcher();
   const setShowOpenProjectDialog = useEditorStore((s) => s.setShowOpenProjectDialog);
@@ -109,7 +111,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app-layout${(lightEditMode || editMode === 'object') ? ' with-inspector' : ''}`}>
+    <div className={`app-layout${(lightEditMode || editMode === 'object' || depthOfField) ? ' with-inspector' : ''}`}>
       <MenuBar />
 
       <div className="sidebar">
@@ -136,9 +138,14 @@ export default function App() {
         )}
       </div>
 
-      {(lightEditMode || editMode === 'object') && (
+      {(lightEditMode || editMode === 'object' || depthOfField) && (
         <div className="inspector-area">
-          {editMode === 'object' ? <ObjectInspector /> : <LightInspector />}
+          {editMode === 'object' ? <ObjectInspector /> : (
+            <>
+              {lightEditMode && <LightInspector />}
+              {depthOfField && <DoFInspector />}
+            </>
+          )}
         </div>
       )}
 

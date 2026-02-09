@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import apiClient from '../api/client';
-import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, EditorAmbientLight, EditorDirectionalLight, MapObject, RPGEvent } from '../types/rpgMakerMV';
-import { DEFAULT_EDITOR_LIGHTS } from '../types/rpgMakerMV';
+import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, EditorAmbientLight, EditorDirectionalLight, EditorLights, EditorDoF, MapObject, RPGEvent } from '../types/rpgMakerMV';
+import { DEFAULT_EDITOR_LIGHTS, DEFAULT_EDITOR_DOF } from '../types/rpgMakerMV';
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
 
 const PROJECT_STORAGE_KEY = 'rpg-editor-current-project';
@@ -122,6 +122,9 @@ export interface EditorState {
   selectedLightId: number | null;
   selectedLightType: 'point' | 'ambient' | 'directional';
 
+  // DoF
+  depthOfField: boolean;
+
   // Toast
   toastMessage: string | null;
   showToast: (message: string) => void;
@@ -192,6 +195,11 @@ export interface EditorState {
   setSelectedEventId: (id: number | null) => void;
   setMode3d: (enabled: boolean) => void;
   setShadowLight: (enabled: boolean) => void;
+  setDepthOfField: (enabled: boolean) => void;
+
+  // Actions - DoF editor
+  initEditorDoF: () => void;
+  updateEditorDoF: (updates: Partial<EditorDoF>) => void;
 
   // Actions - Light editor
   setLightEditMode: (enabled: boolean) => void;
@@ -256,6 +264,7 @@ const useEditorStore = create<EditorState>((set, get) => ({
   lightEditMode: false,
   selectedLightId: null,
   selectedLightType: 'point',
+  depthOfField: false,
   toastMessage: null,
   showToast: (message: string) => {
     set({ toastMessage: message });
@@ -365,6 +374,17 @@ const useEditorStore = create<EditorState>((set, get) => ({
       }
     } else {
       set({ currentMap: map });
+    }
+    // 맵의 editorDoF 설정을 런타임에 반영
+    const DoF = (window as any).DepthOfField;
+    if (DoF && map.editorDoF) {
+      DoF.config.focus = map.editorDoF.focus;
+      DoF.config.aperture = map.editorDoF.aperture;
+      DoF.config.maxblur = map.editorDoF.maxblur;
+      const CM = (window as any).ConfigManager;
+      if (CM) CM.depthOfField = map.editorDoF.enabled;
+      DoF._updateUniforms();
+      set({ depthOfField: map.editorDoF.enabled });
     }
   },
 
@@ -838,6 +858,47 @@ const useEditorStore = create<EditorState>((set, get) => ({
     const ConfigManager = (window as any).ConfigManager;
     if (ConfigManager) ConfigManager.shadowLight = enabled;
     set({ shadowLight: enabled });
+  },
+  setDepthOfField: (enabled: boolean) => {
+    const ConfigManager = (window as any).ConfigManager;
+    if (ConfigManager) ConfigManager.depthOfField = enabled;
+    set({ depthOfField: enabled });
+    // editorDoF에도 반영
+    const map = get().currentMap;
+    if (map) {
+      const oldDoF = map.editorDoF || JSON.parse(JSON.stringify(DEFAULT_EDITOR_DOF));
+      set({ currentMap: { ...map, editorDoF: { ...oldDoF, enabled } } });
+    }
+  },
+
+  // DoF editor actions
+  initEditorDoF: () => {
+    const map = get().currentMap;
+    if (!map) return;
+    if (!map.editorDoF) {
+      set({ currentMap: { ...map, editorDoF: JSON.parse(JSON.stringify(DEFAULT_EDITOR_DOF)) } });
+    }
+  },
+
+  updateEditorDoF: (updates: Partial<EditorDoF>) => {
+    const map = get().currentMap;
+    if (!map) return;
+    const oldDoF = map.editorDoF || JSON.parse(JSON.stringify(DEFAULT_EDITOR_DOF));
+    const newDoF = { ...oldDoF, ...updates };
+    // 런타임에 실시간 반영
+    const DoF = (window as any).DepthOfField;
+    if (DoF) {
+      if (updates.focus !== undefined) DoF.config.focus = updates.focus;
+      if (updates.aperture !== undefined) DoF.config.aperture = updates.aperture;
+      if (updates.maxblur !== undefined) DoF.config.maxblur = updates.maxblur;
+      if (updates.enabled !== undefined) {
+        const ConfigManager = (window as any).ConfigManager;
+        if (ConfigManager) ConfigManager.depthOfField = updates.enabled;
+        set({ depthOfField: updates.enabled });
+      }
+      DoF._updateUniforms();
+    }
+    set({ currentMap: { ...map, editorDoF: newDoF } });
   },
 
   // Light editor actions
