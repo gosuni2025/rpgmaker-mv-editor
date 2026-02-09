@@ -2,8 +2,15 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
 import type { RPGEvent, EventPage, MapData } from '../../types/rpgMakerMV';
-import { getTileRenderInfo, posToTile, TILE_SIZE_PX, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition } from '../../utils/tileHelper';
+import { posToTile, TILE_SIZE_PX, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition } from '../../utils/tileHelper';
 import EventDetail from '../EventEditor/EventDetail';
+
+// Runtime globals (loaded via index.html script tags)
+declare const ShaderTilemap: any;
+declare const ThreeContainer: any;
+declare const RendererStrategy: any;
+declare const RendererFactory: any;
+declare const Graphics: any;
 
 interface EventContextMenu {
   x: number;
@@ -13,18 +20,63 @@ interface EventContextMenu {
   eventId: number | null;
 }
 
+/** Create a runtime Bitmap from a loaded HTMLImageElement */
+function createBitmapFromImage(img: HTMLImageElement): any {
+  const BitmapClass = (window as any).Bitmap;
+  const bmp = Object.create(BitmapClass.prototype);
+  bmp._defer = false;
+  bmp._image = null;
+  bmp._url = '';
+  bmp._paintOpacity = 255;
+  bmp._smooth = false;
+  bmp._loadListeners = [];
+  bmp._loadingState = 'loaded';
+  bmp._decodeAfterRequest = false;
+  bmp.cacheEntry = null;
+  bmp.fontFace = 'GameFont';
+  bmp.fontSize = 28;
+  bmp.fontItalic = false;
+  bmp.textColor = '#ffffff';
+  bmp.outlineColor = 'rgba(0, 0, 0, 0.5)';
+  bmp.outlineWidth = 4;
+  bmp._dirty = false;
+
+  // Create canvas and draw image onto it
+  bmp.__canvas = document.createElement('canvas');
+  bmp.__canvas.width = img.width;
+  bmp.__canvas.height = img.height;
+  bmp.__context = bmp.__canvas.getContext('2d', { willReadFrequently: true });
+  bmp.__context.drawImage(img, 0, 0);
+
+  // Create Three.js base texture from the canvas
+  bmp.__baseTexture = RendererFactory.createBaseTexture(bmp.__canvas);
+  bmp.__baseTexture.mipmap = false;
+  bmp.__baseTexture.width = img.width;
+  bmp.__baseTexture.height = img.height;
+  RendererFactory.setScaleMode(bmp.__baseTexture, RendererFactory.SCALE_MODE_NEAREST);
+
+  return bmp;
+}
+
 export default function MapCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
   const lastTile = useRef<{ x: number; y: number } | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const pendingChanges = useRef<TileChange[]>([]);
-  // Shadow paint mode: true = adding shadow, false = removing shadow (set on first click)
   const shadowPaintMode = useRef<boolean>(true);
   const shadowPainted = useRef<Set<string>>(new Set());
 
+  // Three.js renderer refs
+  const rendererObjRef = useRef<any>(null);
+  const tilemapRef = useRef<any>(null);
+  const stageRef = useRef<any>(null);
+  const animFrameRef = useRef<number>(0);
+  const lastMapDataRef = useRef<number[] | null>(null);
+
   const currentMap = useEditorStore((s) => s.currentMap);
+  const tilesetInfo = useEditorStore((s) => s.tilesetInfo);
   const selectedTool = useEditorStore((s) => s.selectedTool);
   const selectedTileId = useEditorStore((s) => s.selectedTileId);
   const selectedTiles = useEditorStore((s) => s.selectedTiles);
@@ -88,7 +140,6 @@ export default function MapCanvas() {
     };
     const handlePaste = () => {
       if (editMode === 'event' && clipboard?.type === 'event') {
-        // Paste at cursor position or current selected event position
         const ev = currentMap?.events?.find(e => e && e.id === selectedEventId);
         if (ev) {
           pasteEvent(ev.x, ev.y + 1);
@@ -103,6 +154,7 @@ export default function MapCanvas() {
     };
   }, [editMode, selectedEventId, copyEvent, pasteEvent, clipboard, currentMap]);
 
+  // Load tileset images
   useEffect(() => {
     if (!currentMap || !currentMap.tilesetNames) {
       setTilesetImages({});
@@ -113,7 +165,6 @@ export default function MapCanvas() {
     const loaded: Record<number, HTMLImageElement> = {};
     let cancelled = false;
 
-    // Load ALL tileset images: A1(0), A2(1), A3(2), A4(3), A5(4), B(5), C(6), D(7), E(8)
     const indices = [0, 1, 2, 3, 4, 5, 6, 7, 8];
     let remaining = 0;
 
@@ -183,13 +234,12 @@ export default function MapCanvas() {
     return () => { cancelled = true; };
   }, [currentMap?.events]);
 
-  // Load player character image for start position display
+  // Load player character image
   useEffect(() => {
     if (!playerCharacterName) {
       setPlayerCharImg(null);
       return;
     }
-    // Reuse from charImages if already loaded
     if (charImages[playerCharacterName]) {
       setPlayerCharImg(charImages[playerCharacterName]);
       return;
@@ -202,108 +252,171 @@ export default function MapCanvas() {
     return () => { cancelled = true; };
   }, [playerCharacterName, charImages]);
 
-  // Draw drag preview overlay
+  // =========================================================================
+  // Three.js ShaderTilemap setup & render loop
+  // =========================================================================
+  useEffect(() => {
+    const canvas = webglCanvasRef.current;
+    if (!canvas || !currentMap || !(window as any)._editorRuntimeReady) return;
+    if (Object.keys(tilesetImages).length === 0) return;
+
+    const { width, height, data } = currentMap;
+    const mapPxW = width * TILE_SIZE_PX;
+    const mapPxH = height * TILE_SIZE_PX;
+
+    // Set Graphics dimensions directly (bypass setter to avoid _updateAllElements)
+    Graphics._width = mapPxW;
+    Graphics._height = mapPxH;
+
+    // Set canvas size
+    canvas.width = mapPxW;
+    canvas.height = mapPxH;
+
+    // Create renderer using ThreeRendererStrategy
+    const strategy = RendererStrategy.getStrategy();
+    const rendererObj = strategy.createRenderer(mapPxW, mapPxH, { view: canvas });
+    rendererObjRef.current = rendererObj;
+
+    // Create stage container
+    const stage = new ThreeContainer();
+    stageRef.current = stage;
+
+    // Create ShaderTilemap
+    const tilemap = new ShaderTilemap();
+    tilemap._margin = 0;
+    tilemap._width = mapPxW;
+    tilemap._height = mapPxH;
+    tilemapRef.current = tilemap;
+
+    // Set map data
+    tilemap.setData(width, height, [...data]);
+    lastMapDataRef.current = data;
+
+    // Set tileset flags
+    if (tilesetInfo && tilesetInfo.flags) {
+      tilemap.flags = tilesetInfo.flags;
+    }
+
+    // Create Bitmap objects from loaded images
+    const bitmaps: any[] = [];
+    for (let i = 0; i < 9; i++) {
+      if (tilesetImages[i]) {
+        bitmaps[i] = createBitmapFromImage(tilesetImages[i]);
+      } else {
+        // Create placeholder bitmap using Object.create to avoid bootstrap
+        // constructor's own properties shadowing rpg_core.js prototype getters
+        const BitmapClass = (window as any).Bitmap;
+        const placeholder = Object.create(BitmapClass.prototype);
+        placeholder._defer = false;
+        placeholder._image = null;
+        placeholder._url = '';
+        placeholder._paintOpacity = 255;
+        placeholder._smooth = false;
+        placeholder._loadListeners = [];
+        placeholder._loadingState = 'loaded';
+        placeholder._decodeAfterRequest = false;
+        placeholder.cacheEntry = null;
+        placeholder._dirty = false;
+        placeholder.__canvas = document.createElement('canvas');
+        placeholder.__canvas.width = 1;
+        placeholder.__canvas.height = 1;
+        placeholder.__context = placeholder.__canvas.getContext('2d');
+        placeholder.__baseTexture = RendererFactory.createBaseTexture(placeholder.__canvas);
+        placeholder.__baseTexture.mipmap = false;
+        placeholder.__baseTexture.width = 1;
+        placeholder.__baseTexture.height = 1;
+        bitmaps[i] = placeholder;
+      }
+    }
+    tilemap.bitmaps = bitmaps;
+
+    // Force layer creation and refresh
+    tilemap._createLayers();
+    tilemap.refreshTileset();
+    tilemap._needsRepaint = true;
+
+    // Add tilemap to stage, stage to scene
+    stage.addChild(tilemap);
+    rendererObj.scene.add(stage._threeObj);
+
+    // Render loop
+    let running = true;
+    function renderLoop() {
+      if (!running) return;
+
+      // Update animation (water tiles etc.)
+      tilemap.update();
+
+      // Sync map data if changed
+      const latestMap = useEditorStore.getState().currentMap;
+      if (latestMap && latestMap.data !== lastMapDataRef.current) {
+        tilemap._mapData = [...latestMap.data];
+        tilemap._needsRepaint = true;
+        lastMapDataRef.current = latestMap.data;
+      }
+
+      // Update transforms and paint tiles
+      tilemap.updateTransform();
+
+      // Sync hierarchy for render order
+      strategy._syncHierarchy(rendererObj, stage);
+
+      // Render
+      rendererObj.renderer.render(rendererObj.scene, rendererObj.camera);
+
+      animFrameRef.current = requestAnimationFrame(renderLoop);
+    }
+
+    animFrameRef.current = requestAnimationFrame(renderLoop);
+
+    return () => {
+      running = false;
+      cancelAnimationFrame(animFrameRef.current);
+      // Cleanup
+      if (rendererObj && rendererObj.renderer) {
+        rendererObj.renderer.dispose();
+      }
+      rendererObjRef.current = null;
+      tilemapRef.current = null;
+      stageRef.current = null;
+      lastMapDataRef.current = null;
+    };
+  }, [currentMap?.tilesetId, currentMap?.width, currentMap?.height, tilesetImages, tilesetInfo]);
+
+  // =========================================================================
+  // Overlay canvas rendering (grid, regions, events, player)
+  // =========================================================================
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return;
     const ctx = overlay.getContext('2d');
     if (!ctx) return;
-    ctx.clearRect(0, 0, overlay.width, overlay.height);
-    if (dragPreview && isDraggingEvent.current) {
-      const dx = dragPreview.x * TILE_SIZE_PX;
-      const dy = dragPreview.y * TILE_SIZE_PX;
-      ctx.fillStyle = 'rgba(0,180,80,0.4)';
-      ctx.fillRect(dx, dy, TILE_SIZE_PX, TILE_SIZE_PX);
-      ctx.strokeStyle = '#0f0';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(dx + 1, dy + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
-    }
-  }, [dragPreview]);
-
-  // Main canvas rendering
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
     if (!currentMap) {
-      canvas.width = 400;
-      canvas.height = 300;
-      ctx.fillStyle = '#1e1e1e';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      overlay.width = 400;
+      overlay.height = 300;
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
       ctx.fillStyle = '#666';
       ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('No map selected', canvas.width / 2, canvas.height / 2);
+      ctx.fillText('No map selected', overlay.width / 2, overlay.height / 2);
       return;
     }
 
     const { width, height, data, events } = currentMap;
     const cw = width * TILE_SIZE_PX;
     const ch = height * TILE_SIZE_PX;
-    canvas.width = cw;
-    canvas.height = ch;
 
-    // Also size the overlay
-    if (overlayRef.current) {
-      overlayRef.current.width = cw;
-      overlayRef.current.height = ch;
+    // Ensure overlay is correct size
+    if (overlay.width !== cw || overlay.height !== ch) {
+      overlay.width = cw;
+      overlay.height = ch;
     }
 
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, cw, ch);
+    ctx.clearRect(0, 0, cw, ch);
 
-    const half = TILE_SIZE_PX / 2;
-    for (let z = 0; z < 4; z++) {
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const tileId = data[(z * height + y) * width + x];
-          if (tileId === 0) continue;
-
-          const info = getTileRenderInfo(tileId);
-          if (!info) continue;
-
-          const dx = x * TILE_SIZE_PX;
-          const dy = y * TILE_SIZE_PX;
-
-          if (info.type === 'normal') {
-            const img = tilesetImages[info.sheet];
-            if (!img) continue;
-            ctx.drawImage(img, info.sx, info.sy, info.sw, info.sh, dx, dy, TILE_SIZE_PX, TILE_SIZE_PX);
-          } else {
-            // Autotile: composite 4 quarter-tiles
-            const q = info.quarters;
-            for (let i = 0; i < 4; i++) {
-              const img = tilesetImages[q[i].sheet];
-              if (!img) continue;
-              const qdx = dx + (i % 2) * half;
-              const qdy = dy + Math.floor(i / 2) * half;
-              ctx.drawImage(img, q[i].sx, q[i].sy, half, half, qdx, qdy, half, half);
-            }
-          }
-        }
-      }
-    }
-
-    // Render shadow layer (z=4) - 4-quarter shadow bits
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const shadowBits = data[(4 * height + y) * width + x];
-        if (!shadowBits || !(shadowBits & 0x0f)) continue;
-        const dx = x * TILE_SIZE_PX;
-        const dy = y * TILE_SIZE_PX;
-        for (let i = 0; i < 4; i++) {
-          if (shadowBits & (1 << i)) {
-            ctx.fillRect(dx + (i % 2) * half, dy + Math.floor(i / 2) * half, half, half);
-          }
-        }
-      }
-    }
-
+    // Grid
     if (showGrid) {
-      // 검은 테두리 (바깥쪽)
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = 1;
       for (let x = 0; x <= width; x++) {
@@ -318,7 +431,6 @@ export default function MapCanvas() {
         ctx.lineTo(cw, y * TILE_SIZE_PX + 0.5);
         ctx.stroke();
       }
-      // 흰 선 (안쪽, 대비용)
       ctx.strokeStyle = 'rgba(255,255,255,0.25)';
       ctx.lineWidth = 1;
       for (let x = 0; x <= width; x++) {
@@ -335,7 +447,7 @@ export default function MapCanvas() {
       }
     }
 
-    // Region overlay when in region editing mode (layer 5)
+    // Region overlay (layer 5)
     if (currentLayer === 5) {
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
@@ -359,6 +471,7 @@ export default function MapCanvas() {
       }
     }
 
+    // Events
     if (events) {
       const showEventDetails = editMode === 'event';
       events.forEach((ev) => {
@@ -366,7 +479,6 @@ export default function MapCanvas() {
         const ex = ev.x * TILE_SIZE_PX;
         const ey = ev.y * TILE_SIZE_PX;
 
-        // Draw character image from first page
         let drewImage = false;
         if (ev.pages && ev.pages.length > 0) {
           const page = ev.pages[0];
@@ -374,19 +486,14 @@ export default function MapCanvas() {
           if (img && img.characterName && charImages[img.characterName]) {
             const charImg = charImages[img.characterName];
             const isSingle = img.characterName.startsWith('$');
-            // Single character: whole sheet is 3 patterns x 4 directions
-            // Normal: 4x2 grid of characters, each 3 patterns x 4 directions
             const charW = isSingle ? charImg.width / 3 : charImg.width / 12;
             const charH = isSingle ? charImg.height / 4 : charImg.height / 8;
-            // Character index position in sheet
             const charCol = isSingle ? 0 : img.characterIndex % 4;
             const charRow = isSingle ? 0 : Math.floor(img.characterIndex / 4);
-            // Direction: 2=down(0), 4=left(1), 6=right(2), 8=up(3)
             const dirRow = img.direction === 8 ? 3 : img.direction === 6 ? 2 : img.direction === 4 ? 1 : 0;
             const pattern = img.pattern || 1;
             const sx = charCol * charW * 3 + pattern * charW;
             const sy = charRow * charH * 4 + dirRow * charH;
-            // Draw centered on tile, scaled to fit
             const scale = Math.min(TILE_SIZE_PX / charW, TILE_SIZE_PX / charH);
             const dw = charW * scale;
             const dh = charH * scale;
@@ -397,7 +504,6 @@ export default function MapCanvas() {
           }
         }
 
-        // Event mode overlay
         if (showEventDetails) {
           if (!drewImage) {
             ctx.fillStyle = 'rgba(0,120,212,0.35)';
@@ -419,26 +525,24 @@ export default function MapCanvas() {
             ctx.restore();
           }
         } else if (!drewImage) {
-          // Map mode: show subtle indicator for events without images
           ctx.fillStyle = 'rgba(0,120,212,0.25)';
           ctx.fillRect(ex, ey, TILE_SIZE_PX, TILE_SIZE_PX);
         }
       });
     }
-    // Player start position - character in blue frame (like original RPG Maker MV)
+
+    // Player start position
     if (systemData && currentMapId === systemData.startMapId) {
       const px = systemData.startX * TILE_SIZE_PX;
       const py = systemData.startY * TILE_SIZE_PX;
 
       ctx.save();
-      // Draw character image if available
       if (playerCharImg) {
         const isSingle = playerCharacterName?.startsWith('$');
         const charW = isSingle ? playerCharImg.width / 3 : playerCharImg.width / 12;
         const charH = isSingle ? playerCharImg.height / 4 : playerCharImg.height / 8;
         const charCol = isSingle ? 0 : playerCharacterIndex % 4;
         const charRow = isSingle ? 0 : Math.floor(playerCharacterIndex / 4);
-        // Direction: down (row 0), pattern 1 (middle)
         const srcX = charCol * charW * 3 + 1 * charW;
         const srcY = charRow * charH * 4 + 0 * charH;
         const scale = Math.min(TILE_SIZE_PX / charW, TILE_SIZE_PX / charH);
@@ -448,16 +552,29 @@ export default function MapCanvas() {
         const dy = py + (TILE_SIZE_PX - dh);
         ctx.drawImage(playerCharImg, srcX, srcY, charW, charH, dx, dy, dw, dh);
       }
-      // Blue frame
       ctx.strokeStyle = '#0078ff';
       ctx.lineWidth = 3;
       ctx.strokeRect(px + 1.5, py + 1.5, TILE_SIZE_PX - 3, TILE_SIZE_PX - 3);
       ctx.restore();
     }
-  }, [currentMap, tilesetImages, charImages, showGrid, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex]);
 
+    // Drag preview
+    if (dragPreview && isDraggingEvent.current) {
+      const dx = dragPreview.x * TILE_SIZE_PX;
+      const dy = dragPreview.y * TILE_SIZE_PX;
+      ctx.fillStyle = 'rgba(0,180,80,0.4)';
+      ctx.fillRect(dx, dy, TILE_SIZE_PX, TILE_SIZE_PX);
+      ctx.strokeStyle = '#0f0';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(dx + 1, dy + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
+    }
+  }, [currentMap, charImages, showGrid, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex, dragPreview]);
+
+  // =========================================================================
+  // Coordinate conversion
+  // =========================================================================
   const canvasToTile = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    const canvas = canvasRef.current;
+    const canvas = webglCanvasRef.current;
     if (!canvas) return null;
     const container = canvas.parentElement;
     if (!container) return null;
@@ -467,9 +584,8 @@ export default function MapCanvas() {
     return posToTile(cx, cy);
   }, [zoomLevel]);
 
-  // Returns pixel position within the tile (for shadow quarter detection)
   const canvasToSubTile = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    const canvas = canvasRef.current;
+    const canvas = webglCanvasRef.current;
     if (!canvas) return null;
     const container = canvas.parentElement;
     if (!container) return null;
@@ -483,25 +599,16 @@ export default function MapCanvas() {
     return { ...tile, subX, subY };
   }, [zoomLevel]);
 
-  const getTileChange = useCallback((x: number, y: number, z: number, newTileId: number): TileChange | null => {
-    const latestMap = useEditorStore.getState().currentMap;
-    if (!latestMap) return null;
-    const idx = (z * latestMap.height + y) * latestMap.width + x;
-    const oldTileId = latestMap.data[idx];
-    if (oldTileId === newTileId) return null;
-    return { x, y, z, oldTileId, newTileId };
-  }, []);
-
-  // Place a tile with autotile shape calculation and neighbor updates
+  // =========================================================================
+  // Tool logic (unchanged from original)
+  // =========================================================================
   const placeAutotileAt = useCallback(
     (x: number, y: number, z: number, tileId: number, data: number[], width: number, height: number, changes: TileChange[], updates: { x: number; y: number; z: number; tileId: number }[]) => {
-      // Place the tile first (temporarily in data for neighbor calculation)
       const idx = (z * height + y) * width + x;
       const oldId = data[idx];
       data[idx] = tileId;
 
       if (isAutotile(tileId) && !isTileA5(tileId)) {
-        // Compute correct shape for placed tile
         const kind = getAutotileKindExported(tileId);
         const shape = computeAutoShapeForPosition(data, width, height, x, y, z, tileId);
         const correctId = makeAutotileId(kind, shape);
@@ -517,7 +624,6 @@ export default function MapCanvas() {
         }
       }
 
-      // Update neighbors' shapes
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           if (dx === 0 && dy === 0) continue;
@@ -543,7 +649,6 @@ export default function MapCanvas() {
 
   const placeTileWithUndo = useCallback(
     (tilePos: { x: number; y: number } | null) => {
-      // Always get latest state from store to avoid stale closures
       const latestMap = useEditorStore.getState().currentMap;
       if (!latestMap || !tilePos) return;
       const { x, y } = tilePos;
@@ -552,7 +657,6 @@ export default function MapCanvas() {
       const { selectedTiles: sTiles, selectedTilesWidth: stW, selectedTilesHeight: stH } = useEditorStore.getState();
       const isMulti = sTiles && (stW > 1 || stH > 1);
 
-      // Region layer: direct placement, no autotile
       if (currentLayer === 5) {
         if (selectedTool === 'fill') {
           floodFill(x, y);
@@ -597,7 +701,6 @@ export default function MapCanvas() {
         }
       } else if (selectedTool === 'pen') {
         if (isMulti) {
-          // Multi-tile pen: place the entire pattern
           const changes: TileChange[] = [];
           const updates: { x: number; y: number; z: number; tileId: number }[] = [];
           const data = [...latestMap.data];
@@ -625,7 +728,6 @@ export default function MapCanvas() {
       } else if (selectedTool === 'fill') {
         floodFill(x, y);
       }
-      // shadow is handled separately in handleMouseDown with sub-tile coords
     },
     [selectedTool, selectedTileId, currentLayer, updateMapTiles, placeAutotileAt]
   );
@@ -639,7 +741,6 @@ export default function MapCanvas() {
       const data = [...latestMap.data];
       const targetId = data[(z * height + startY) * width + startX];
 
-      // Region layer: simple flood fill, no autotile
       if (z === 5) {
         if (targetId === selectedTileId) return;
         const visited = new Set<string>();
@@ -666,7 +767,6 @@ export default function MapCanvas() {
         return;
       }
 
-      // For autotiles, compare by kind not exact ID
       const targetIsAutotile = isAutotile(targetId) && !isTileA5(targetId);
       const targetKind = targetIsAutotile ? getAutotileKindExported(targetId) : -1;
       const newIsAutotile = isAutotile(selectedTileId) && !isTileA5(selectedTileId);
@@ -678,7 +778,6 @@ export default function MapCanvas() {
       const queue = [{ x: startX, y: startY }];
       const filledPositions: { x: number; y: number }[] = [];
 
-      // First pass: find all positions to fill
       while (queue.length > 0) {
         const { x, y } = queue.shift()!;
         const key = `${x},${y}`;
@@ -698,17 +797,14 @@ export default function MapCanvas() {
 
       if (filledPositions.length === 0) return;
 
-      // Second pass: place tiles with autotile shape calculation
       const changes: TileChange[] = [];
       const updates: { x: number; y: number; z: number; tileId: number }[] = [];
 
-      // Set all filled positions first (raw)
       for (const { x, y } of filledPositions) {
         const idx = (z * height + y) * width + x;
         data[idx] = selectedTileId;
       }
 
-      // Now compute correct shapes for all filled + their neighbors
       const toRecalc = new Set<string>();
       for (const { x, y } of filledPositions) {
         toRecalc.add(`${x},${y}`);
@@ -722,7 +818,6 @@ export default function MapCanvas() {
         }
       }
 
-      // Snapshot old data for undo
       const oldData = latestMap.data;
       for (const posKey of toRecalc) {
         const [px, py] = posKey.split(',').map(Number);
@@ -748,38 +843,31 @@ export default function MapCanvas() {
     [currentLayer, selectedTileId, updateMapTiles, pushUndo]
   );
 
-  // Shadow painting: set/clear 1/4 quarter of a tile based on mouse sub-position
-  // Shadow data is stored in layer z=4 as a 4-bit pattern (bits 0-3 for each quarter)
-  // Bit 0: top-left, Bit 1: top-right, Bit 2: bottom-left, Bit 3: bottom-right
-  // On first click, determines add/remove mode based on current state of that quarter.
-  // Subsequent drags apply the same mode. Already-painted quarters are skipped.
   const applyShadow = useCallback(
     (tileX: number, tileY: number, subX: number, subY: number, isFirst: boolean) => {
       const latestMap = useEditorStore.getState().currentMap;
       if (!latestMap) return;
-      const z = 4; // Shadow layer
+      const z = 4;
       const idx = (z * latestMap.height + tileY) * latestMap.width + tileX;
       const oldBits = latestMap.data[idx] || 0;
       const qx = subX < TILE_SIZE_PX / 2 ? 0 : 1;
       const qy = subY < TILE_SIZE_PX / 2 ? 0 : 1;
-      const quarter = qy * 2 + qx; // 0=TL, 1=TR, 2=BL, 3=BR
+      const quarter = qy * 2 + qx;
       const key = `${tileX},${tileY},${quarter}`;
 
       if (isFirst) {
-        // Determine mode: if quarter is off → add mode, if on → remove mode
         shadowPaintMode.current = !(oldBits & (1 << quarter));
         shadowPainted.current.clear();
       }
 
-      // Skip if already painted this quarter in this stroke
       if (shadowPainted.current.has(key)) return;
       shadowPainted.current.add(key);
 
       let newBits: number;
       if (shadowPaintMode.current) {
-        newBits = oldBits | (1 << quarter);  // add
+        newBits = oldBits | (1 << quarter);
       } else {
-        newBits = oldBits & ~(1 << quarter); // remove
+        newBits = oldBits & ~(1 << quarter);
       }
       if (oldBits === newBits) return;
       const change: TileChange = { x: tileX, y: tileY, z, oldTileId: oldBits, newTileId: newBits };
@@ -789,8 +877,6 @@ export default function MapCanvas() {
     [updateMapTile]
   );
 
-  // Batch place tiles with autotile shape recalculation
-  // Supports multi-tile pattern: when selectedTiles is set, tile ID for each position is tiled from the pattern
   const batchPlaceWithAutotile = useCallback(
     (positions: { x: number; y: number }[], tileId: number) => {
       const latestMap = useEditorStore.getState().currentMap;
@@ -801,16 +887,13 @@ export default function MapCanvas() {
       const { selectedTiles: sTiles, selectedTilesWidth: stW, selectedTilesHeight: stH } = useEditorStore.getState();
       const isMulti = sTiles && (stW > 1 || stH > 1);
 
-      // Helper to get tile ID for a position (supports multi-tile tiling)
       const getTileForPos = (x: number, y: number): number => {
         if (!isMulti) return tileId;
-        // Find bounding box min to tile pattern from top-left
         const col = ((x % stW) + stW) % stW;
         const row = ((y % stH) + stH) % stH;
         return sTiles[row][col];
       };
 
-      // Region layer: direct batch placement, no autotile
       if (z === 5) {
         const changes: TileChange[] = [];
         const updates: { x: number; y: number; z: number; tileId: number }[] = [];
@@ -833,13 +916,11 @@ export default function MapCanvas() {
       const data = [...latestMap.data];
       const oldData = latestMap.data;
 
-      // Set all positions first (raw)
       for (const { x, y } of positions) {
         const idx = (z * height + y) * width + x;
         data[idx] = getTileForPos(x, y);
       }
 
-      // Collect all positions that need shape recalculation
       const toRecalc = new Set<string>();
       for (const { x, y } of positions) {
         for (let dy = -1; dy <= 1; dy++) {
@@ -852,7 +933,6 @@ export default function MapCanvas() {
         }
       }
 
-      // Recalculate shapes
       for (const posKey of toRecalc) {
         const [px, py] = posKey.split(',').map(Number);
         const idx = (z * height + py) * width + px;
@@ -864,7 +944,6 @@ export default function MapCanvas() {
         }
       }
 
-      // Build changes and updates
       const changes: TileChange[] = [];
       const updates: { x: number; y: number; z: number; tileId: number }[] = [];
       for (const posKey of toRecalc) {
@@ -934,7 +1013,6 @@ export default function MapCanvas() {
     [selectedTileId, batchPlaceWithAutotile]
   );
 
-  // Draw preview overlay for rectangle/ellipse
   const drawOverlayPreview = useCallback(
     (start: { x: number; y: number }, end: { x: number; y: number }) => {
       const overlay = overlayRef.current;
@@ -983,17 +1061,18 @@ export default function MapCanvas() {
     if (ctx) ctx.clearRect(0, 0, overlay.width, overlay.height);
   }, []);
 
+  // =========================================================================
+  // Mouse event handlers (unchanged logic)
+  // =========================================================================
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
       const tile = canvasToTile(e);
       if (!tile) return;
 
-      // Right-click in map mode → erase tile (or clear shadow)
       if (e.button === 2 && editMode === 'map') {
         const latestMap = useEditorStore.getState().currentMap;
         if (!latestMap) return;
         if (selectedTool === 'shadow') {
-          // Clear all shadow bits for this tile
           const z = 4;
           const idx = (z * latestMap.height + tile.y) * latestMap.width + tile.x;
           const oldBits = latestMap.data[idx];
@@ -1016,7 +1095,6 @@ export default function MapCanvas() {
       if (e.button !== 0) return;
 
       if (editMode === 'event') {
-        // In event mode, select event at this position; start drag if on event
         if (currentMap && currentMap.events) {
           const ev = currentMap.events.find(
             (ev) => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y
@@ -1057,7 +1135,6 @@ export default function MapCanvas() {
         setCursorTile(tile.x, tile.y);
       }
 
-      // Event drag preview
       if (isDraggingEvent.current && tile && dragEventOrigin.current) {
         if (tile.x !== dragEventOrigin.current.x || tile.y !== dragEventOrigin.current.y) {
           setDragPreview({ x: tile.x, y: tile.y });
@@ -1095,14 +1172,12 @@ export default function MapCanvas() {
 
   const handleMouseUp = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
-      // Complete event drag
       if (isDraggingEvent.current && draggedEventId.current != null) {
         const tile = canvasToTile(e);
         const origin = dragEventOrigin.current;
         if (tile && origin && (tile.x !== origin.x || tile.y !== origin.y)) {
           const latestMap = useEditorStore.getState().currentMap;
           if (latestMap && latestMap.events) {
-            // Check no event already at target position
             const occupied = latestMap.events.some(ev => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y);
             if (!occupied) {
               const events = latestMap.events.map(ev => {
@@ -1132,7 +1207,6 @@ export default function MapCanvas() {
           if (tile) drawEllipse(dragStart.current, tile);
           clearOverlay();
         } else if (pendingChanges.current.length > 0) {
-          // Commit pen/eraser undo
           pushUndo(pendingChanges.current);
         }
       }
@@ -1156,7 +1230,6 @@ export default function MapCanvas() {
         setSelectedEventId(ev.id);
         setEditingEventId(ev.id);
       } else {
-        // Double click on empty tile in event mode → create new event
         createNewEvent(tile.x, tile.y);
       }
     },
@@ -1180,7 +1253,6 @@ export default function MapCanvas() {
           eventId: ev ? ev.id : null,
         });
       }
-      // In map mode, right-click erases tiles (handled in mousedown)
     },
     [editMode, canvasToTile, currentMap]
   );
@@ -1225,6 +1297,9 @@ export default function MapCanvas() {
 
   const closeEventCtxMenu = useCallback(() => setEventCtxMenu(null), []);
 
+  // =========================================================================
+  // Render
+  // =========================================================================
   return (
     <div style={styles.container} onClick={closeEventCtxMenu}>
       <div style={{
@@ -1233,7 +1308,7 @@ export default function MapCanvas() {
         transformOrigin: '0 0',
       }}>
         <canvas
-          ref={canvasRef}
+          ref={webglCanvasRef}
           style={styles.canvas}
         />
         <canvas
@@ -1242,7 +1317,6 @@ export default function MapCanvas() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={(e) => {
-            // Cancel event drag on leave
             if (isDraggingEvent.current) {
               isDraggingEvent.current = false;
               draggedEventId.current = null;

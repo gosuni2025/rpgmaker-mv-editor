@@ -7,6 +7,29 @@
 </head>
 <body>
   <div id="root"></div>
+
+  <!-- 게임 런타임 로드 (Three.js + RPG Maker MV 런타임) -->
+  <script src="/runtime/libs/three.min.js"></script>
+  <script src="/editor-runtime-bootstrap.js"></script>
+  <script src="/runtime/renderer/RendererFactory.js"></script>
+  <script src="/runtime/renderer/RendererStrategy.js"></script>
+  <script src="/runtime/renderer/three/ThreeContainer.js"></script>
+  <script src="/runtime/renderer/three/ThreeSprite.js"></script>
+  <script src="/runtime/renderer/three/ThreeGraphicsNode.js"></script>
+  <script src="/runtime/renderer/three/ThreeFilters.js"></script>
+  <script src="/runtime/renderer/three/ThreeTilemap.js"></script>
+  <script src="/runtime/renderer/three/ThreeRendererFactory.js"></script>
+  <script src="/runtime/renderer/three/ThreeRendererStrategy.js"></script>
+  <script src="/runtime/rpg_core.js"></script>
+  <script src="/runtime/Mode3D.js"></script>
+  <script src="/runtime/ShadowAndLight.js"></script>
+  <script>
+    RendererFactory.setBackend('threejs');
+    RendererStrategy.setStrategy('threejs');
+    window._editorRuntimeReady = true;
+    console.log('[Editor] Runtime loaded successfully');
+  </script>
+
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
