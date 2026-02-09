@@ -159,7 +159,8 @@ export default function MenuBar() {
       case 'playtestTitle': saveCurrentMap().then(() => window.open('/game/index.html?dev=true', '_blank')); break;
       case 'playtestCurrentMap': saveCurrentMap().then(() => {
         const mapId = currentMapId || 1;
-        window.open(`/game/index.html?dev=true&startMapId=${mapId}`, '_blank');
+        const { cursorTileX, cursorTileY } = useEditorStore.getState();
+        window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${cursorTileX}&startY=${cursorTileY}`, '_blank');
       }); break;
       case 'openFolder': fetch('/api/project/open-folder', { method: 'POST' }); break;
       case 'autotileDebug': window.dispatchEvent(new CustomEvent('editor-autotile-debug')); break;
