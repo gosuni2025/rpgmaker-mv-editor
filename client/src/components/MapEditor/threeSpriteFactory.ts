@@ -4,7 +4,17 @@ export function createLightMarkerSprite(THREE: any, color: string): any {
   canvas.width = 64;
   canvas.height = 64;
   const ctx = canvas.getContext('2d')!;
-  ctx.font = '48px sans-serif';
+  // 어두운 반투명 원형 배경 (빛 위에서도 가시성 확보)
+  ctx.beginPath();
+  ctx.arc(32, 32, 28, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+  ctx.fill();
+  // 라이트 색상 테두리
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = color;
+  ctx.stroke();
+  // 이모지
+  ctx.font = '36px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('💡', 32, 32);
