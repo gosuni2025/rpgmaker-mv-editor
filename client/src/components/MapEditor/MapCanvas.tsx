@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
-import type { RPGEvent, EventPage, MapData, EditorLights } from '../../types/rpgMakerMV';
-import { posToTile, TILE_SIZE_PX, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition } from '../../utils/tileHelper';
+import type { RPGEvent, EventPage, MapData, EditorLights, MapObject } from '../../types/rpgMakerMV';
+import { posToTile, TILE_SIZE_PX, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition, getTileRenderInfo } from '../../utils/tileHelper';
 import EventDetail from '../EventEditor/EventDetail';
 
 // Runtime globals (loaded via index.html script tags)
@@ -463,6 +463,11 @@ export default function MapCanvas() {
   const updatePointLight = useEditorStore((s) => s.updatePointLight);
   const deletePointLight = useEditorStore((s) => s.deletePointLight);
   const resizeMap = useEditorStore((s) => s.resizeMap);
+  const selectedObjectId = useEditorStore((s) => s.selectedObjectId);
+  const setSelectedObjectId = useEditorStore((s) => s.setSelectedObjectId);
+  const addObject = useEditorStore((s) => s.addObject);
+  const updateObject = useEditorStore((s) => s.updateObject);
+  const deleteObject = useEditorStore((s) => s.deleteObject);
 
   // Map boundary resize drag state
   type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | null;
@@ -503,6 +508,12 @@ export default function MapCanvas() {
   const [dragPreview, setDragPreview] = useState<{ x: number; y: number } | null>(null);
   const [playerCharImg, setPlayerCharImg] = useState<HTMLImageElement | null>(null);
 
+  // Object drag state
+  const isDraggingObject = useRef(false);
+  const draggedObjectId = useRef<number | null>(null);
+  const dragObjectOrigin = useRef<{ x: number; y: number } | null>(null);
+  const [objectDragPreview, setObjectDragPreview] = useState<{ x: number; y: number } | null>(null);
+
   useEffect(() => {
     const handler = (e: Event) => setShowGrid((e as CustomEvent<boolean>).detail);
     window.addEventListener('editor-toggle-grid', handler);
@@ -539,12 +550,16 @@ export default function MapCanvas() {
     });
   }, [showGrid, mode3d]);
 
-  // Handle Delete key for events and lights
+  // Handle Delete key for events, lights, and objects
   useEffect(() => {
     const handleDelete = () => {
       if (lightEditMode && selectedLightId != null) {
         deletePointLight(selectedLightId);
         setSelectedLightId(null);
+        return;
+      }
+      if (editMode === 'object' && selectedObjectId != null) {
+        deleteObject(selectedObjectId);
         return;
       }
       if (editMode === 'event' && selectedEventId != null) {
@@ -553,7 +568,7 @@ export default function MapCanvas() {
     };
     window.addEventListener('editor-delete', handleDelete);
     return () => window.removeEventListener('editor-delete', handleDelete);
-  }, [editMode, selectedEventId, deleteEvent, lightEditMode, selectedLightId, deletePointLight, setSelectedLightId]);
+  }, [editMode, selectedEventId, deleteEvent, lightEditMode, selectedLightId, deletePointLight, setSelectedLightId, selectedObjectId, deleteObject]);
 
   // Handle Copy/Paste for events
   useEffect(() => {
@@ -1190,6 +1205,72 @@ export default function MapCanvas() {
       });
     }
 
+    // Objects overlay
+    if (currentMap?.objects && !mode3d) {
+      const isObjectMode = editMode === 'object';
+      for (const obj of currentMap.objects) {
+        for (let row = 0; row < obj.height; row++) {
+          for (let col = 0; col < obj.width; col++) {
+            const tileId = obj.tileIds[row]?.[col];
+            if (!tileId || tileId === 0) continue;
+            const drawX = (obj.x + col) * TILE_SIZE_PX;
+            const drawY = (obj.y - obj.height + 1 + row) * TILE_SIZE_PX;
+            const info = getTileRenderInfo(tileId);
+            if (!info) continue;
+            if (info.type === 'normal') {
+              const img = tilesetImages[info.sheet];
+              if (img) {
+                ctx.drawImage(img, info.sx, info.sy, info.sw, info.sh, drawX, drawY, TILE_SIZE_PX, TILE_SIZE_PX);
+              }
+            } else if (info.type === 'autotile') {
+              const HALF = TILE_SIZE_PX / 2;
+              for (let q = 0; q < 4; q++) {
+                const quarter = info.quarters[q];
+                const img = tilesetImages[quarter.sheet];
+                if (!img) continue;
+                const qx = drawX + (q % 2) * HALF;
+                const qy = drawY + Math.floor(q / 2) * HALF;
+                ctx.drawImage(img, quarter.sx, quarter.sy, HALF, HALF, qx, qy, HALF, HALF);
+              }
+            }
+          }
+        }
+        if (isObjectMode) {
+          const bx = obj.x * TILE_SIZE_PX;
+          const by = (obj.y - obj.height + 1) * TILE_SIZE_PX;
+          const bw = obj.width * TILE_SIZE_PX;
+          const bh = obj.height * TILE_SIZE_PX;
+          const isSelected = selectedObjectId === obj.id;
+          ctx.strokeStyle = isSelected ? '#00ff66' : '#00cc66';
+          ctx.lineWidth = isSelected ? 3 : 1;
+          ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+          if (obj.name) {
+            ctx.save();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = '#000';
+            ctx.shadowBlur = 2;
+            ctx.fillText(obj.name, bx + bw / 2, by + 2, bw - 4);
+            ctx.restore();
+          }
+        }
+      }
+      if (objectDragPreview && isDraggingObject.current && draggedObjectId.current != null) {
+        const obj = currentMap.objects.find(o => o.id === draggedObjectId.current);
+        if (obj) {
+          const px = objectDragPreview.x * TILE_SIZE_PX;
+          const py = (objectDragPreview.y - obj.height + 1) * TILE_SIZE_PX;
+          ctx.fillStyle = 'rgba(0,204,102,0.3)';
+          ctx.fillRect(px, py, obj.width * TILE_SIZE_PX, obj.height * TILE_SIZE_PX);
+          ctx.strokeStyle = '#00ff66';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(px, py, obj.width * TILE_SIZE_PX, obj.height * TILE_SIZE_PX);
+        }
+      }
+    }
+
     // Player start position - skip in 3D mode (rendered in Three.js scene)
     if (systemData && currentMapId === systemData.startMapId && !mode3d) {
       const px = systemData.startX * TILE_SIZE_PX;
@@ -1350,6 +1431,58 @@ export default function MapCanvas() {
     const subY = screenY - tile.y * TILE_SIZE_PX;
     return { ...tile, subX, subY };
   }, [zoomLevel, mode3d, currentMap]);
+
+  // =========================================================================
+  // Map boundary resize detection
+  // =========================================================================
+  const EDGE_THRESHOLD = 8; // px (in map-space, before zoom)
+  const detectEdge = useCallback((e: React.MouseEvent<HTMLElement>): ResizeEdge => {
+    if (!currentMap || mode3d) return null;
+    const canvas = webglCanvasRef.current;
+    if (!canvas) return null;
+    const container = canvas.parentElement;
+    if (!container) return null;
+    const rect = container.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / zoomLevel;
+    const py = (e.clientY - rect.top) / zoomLevel;
+    const mapW = currentMap.width * TILE_SIZE_PX;
+    const mapH = currentMap.height * TILE_SIZE_PX;
+    const t = EDGE_THRESHOLD;
+
+    const nearN = py >= -t && py <= t;
+    const nearS = py >= mapH - t && py <= mapH + t;
+    const nearW = px >= -t && px <= t;
+    const nearE = px >= mapW - t && px <= mapW + t;
+
+    if (nearN && nearW) return 'nw';
+    if (nearN && nearE) return 'ne';
+    if (nearS && nearW) return 'sw';
+    if (nearS && nearE) return 'se';
+    if (nearN && px > t && px < mapW - t) return 'n';
+    if (nearS && px > t && px < mapW - t) return 's';
+    if (nearW && py > t && py < mapH - t) return 'w';
+    if (nearE && py > t && py < mapH - t) return 'e';
+    return null;
+  }, [currentMap, zoomLevel, mode3d]);
+
+  const edgeToCursor = (edge: ResizeEdge): string | null => {
+    switch (edge) {
+      case 'n': case 's': return 'ns-resize';
+      case 'e': case 'w': return 'ew-resize';
+      case 'ne': case 'sw': return 'nesw-resize';
+      case 'nw': case 'se': return 'nwse-resize';
+      default: return null;
+    }
+  };
+
+  const getCanvasPx = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    const canvas = webglCanvasRef.current;
+    if (!canvas) return null;
+    const container = canvas.parentElement;
+    if (!container) return null;
+    const rect = container.getBoundingClientRect();
+    return { x: (e.clientX - rect.left) / zoomLevel, y: (e.clientY - rect.top) / zoomLevel };
+  }, [zoomLevel]);
 
   // =========================================================================
   // Tool logic (unchanged from original)
@@ -1818,6 +1951,23 @@ export default function MapCanvas() {
   // =========================================================================
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
+      // Map boundary resize: start resize if on edge
+      if (e.button === 0 && editMode === 'map' && !mode3d) {
+        const edge = detectEdge(e);
+        if (edge) {
+          const px = getCanvasPx(e);
+          if (px && currentMap) {
+            isResizing.current = true;
+            resizeEdge.current = edge;
+            resizeStartPx.current = px;
+            resizeOrigSize.current = { w: currentMap.width, h: currentMap.height };
+            setResizePreview({ dLeft: 0, dTop: 0, dRight: 0, dBottom: 0 });
+            e.preventDefault();
+            return;
+          }
+        }
+      }
+
       const tile = canvasToTile(e);
       if (!tile) return;
 
@@ -1862,6 +2012,24 @@ export default function MapCanvas() {
         return;
       }
 
+      if (editMode === 'object') {
+        const objects = currentMap?.objects || [];
+        const hitObj = objects.find(o =>
+          tile.x >= o.x && tile.x < o.x + o.width &&
+          tile.y >= o.y - o.height + 1 && tile.y <= o.y
+        );
+        if (hitObj) {
+          setSelectedObjectId(hitObj.id);
+          isDraggingObject.current = true;
+          draggedObjectId.current = hitObj.id;
+          dragObjectOrigin.current = { x: tile.x, y: tile.y };
+          setObjectDragPreview(null);
+        } else {
+          addObject(tile.x, tile.y);
+        }
+        return;
+      }
+
       if (editMode === 'event') {
         if (currentMap && currentMap.events) {
           const ev = currentMap.events.find(
@@ -1893,11 +2061,43 @@ export default function MapCanvas() {
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight, mode3d, detectEdge, getCanvasPx]
   );
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
+      // Map boundary resize: update preview during drag
+      if (isResizing.current && resizeEdge.current) {
+        const px = getCanvasPx(e);
+        if (!px) return;
+        const dx = px.x - resizeStartPx.current.x;
+        const dy = px.y - resizeStartPx.current.y;
+        const edge = resizeEdge.current;
+        const dtX = Math.round(dx / TILE_SIZE_PX);
+        const dtY = Math.round(dy / TILE_SIZE_PX);
+        let dLeft = 0, dTop = 0, dRight = 0, dBottom = 0;
+        if (edge.includes('e')) dRight = dtX;
+        if (edge.includes('w')) dLeft = dtX;
+        if (edge.includes('s')) dBottom = dtY;
+        if (edge.includes('n')) dTop = dtY;
+        const origW = resizeOrigSize.current.w;
+        const origH = resizeOrigSize.current.h;
+        const newW = origW + dRight - dLeft;
+        const newH = origH + dBottom - dTop;
+        if (newW < 1) { if (dRight !== 0) dRight = 1 - origW + dLeft; else dLeft = origW + dRight - 1; }
+        if (newH < 1) { if (dBottom !== 0) dBottom = 1 - origH + dTop; else dTop = origH + dBottom - 1; }
+        if (newW > 256) { if (dRight !== 0) dRight = 256 - origW + dLeft; else dLeft = origW + dRight - 256; }
+        if (newH > 256) { if (dBottom !== 0) dBottom = 256 - origH + dTop; else dTop = origH + dBottom - 256; }
+        setResizePreview({ dLeft, dTop, dRight, dBottom });
+        return;
+      }
+
+      // Edge cursor detection (non-dragging)
+      if (editMode === 'map' && !mode3d && !isDrawing.current && !isDraggingEvent.current && !isDraggingLight.current) {
+        const edge = detectEdge(e);
+        setResizeCursor(edgeToCursor(edge));
+      }
+
       const tile = canvasToTile(e);
       if (tile) {
         setCursorTile(tile.x, tile.y);
@@ -1909,6 +2109,21 @@ export default function MapCanvas() {
           setLightDragPreview({ x: tile.x, y: tile.y });
         } else {
           setLightDragPreview(null);
+        }
+        return;
+      }
+
+      // Object dragging
+      if (isDraggingObject.current && tile && dragObjectOrigin.current) {
+        if (tile.x !== dragObjectOrigin.current.x || tile.y !== dragObjectOrigin.current.y) {
+          const obj = currentMap?.objects?.find(o => o.id === draggedObjectId.current);
+          if (obj) {
+            const dx = tile.x - dragObjectOrigin.current.x;
+            const dy = tile.y - dragObjectOrigin.current.y;
+            setObjectDragPreview({ x: obj.x + dx, y: obj.y + dy });
+          }
+        } else {
+          setObjectDragPreview(null);
         }
         return;
       }
@@ -1945,11 +2160,29 @@ export default function MapCanvas() {
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, setCursorTile, drawOverlayPreview]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, setCursorTile, drawOverlayPreview, getCanvasPx, detectEdge, editMode, mode3d]
   );
 
   const handleMouseUp = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
+      // Map boundary resize: commit
+      if (isResizing.current && resizePreview) {
+        isResizing.current = false;
+        resizeEdge.current = null;
+        const { dLeft, dTop, dRight, dBottom } = resizePreview;
+        setResizePreview(null);
+        if (dLeft !== 0 || dTop !== 0 || dRight !== 0 || dBottom !== 0) {
+          const origW = resizeOrigSize.current.w;
+          const origH = resizeOrigSize.current.h;
+          const newW = origW + dRight - dLeft;
+          const newH = origH + dBottom - dTop;
+          const offsetX = -dLeft;
+          const offsetY = -dTop;
+          resizeMap(newW, newH, offsetX, offsetY);
+        }
+        return;
+      }
+
       // Light drag commit
       if (isDraggingLight.current && draggedLightId.current != null) {
         const tile = canvasToTile(e);
@@ -1961,6 +2194,18 @@ export default function MapCanvas() {
         draggedLightId.current = null;
         dragLightOrigin.current = null;
         setLightDragPreview(null);
+        return;
+      }
+
+      // Object drag commit
+      if (isDraggingObject.current && draggedObjectId.current != null) {
+        if (objectDragPreview) {
+          updateObject(draggedObjectId.current, { x: objectDragPreview.x, y: objectDragPreview.y });
+        }
+        isDraggingObject.current = false;
+        draggedObjectId.current = null;
+        dragObjectOrigin.current = null;
+        setObjectDragPreview(null);
         return;
       }
 
@@ -2007,7 +2252,7 @@ export default function MapCanvas() {
       dragStart.current = null;
       pendingChanges.current = [];
     },
-    [selectedTool, canvasToTile, drawRectangle, drawEllipse, clearOverlay, pushUndo, updatePointLight]
+    [selectedTool, canvasToTile, drawRectangle, drawEllipse, clearOverlay, pushUndo, updatePointLight, resizeMap, resizePreview]
   );
 
   const handleDoubleClick = useCallback(
@@ -2149,6 +2394,12 @@ export default function MapCanvas() {
           onMouseMove={mode3d ? undefined : handleMouseMove}
           onMouseUp={mode3d ? undefined : handleMouseUp}
           onMouseLeave={mode3d ? undefined : (e) => {
+            if (isResizing.current) {
+              isResizing.current = false;
+              resizeEdge.current = null;
+              setResizePreview(null);
+            }
+            setResizeCursor(null);
             if (isDraggingEvent.current) {
               isDraggingEvent.current = false;
               draggedEventId.current = null;
@@ -2165,11 +2416,55 @@ export default function MapCanvas() {
             top: 0,
             left: 0,
             zIndex: mode3d ? -1 : 2,
-            cursor: editMode === 'event' ? 'pointer' : 'crosshair',
+            cursor: resizeCursor || (editMode === 'event' ? 'pointer' : 'crosshair'),
             pointerEvents: mode3d ? 'none' : 'auto',
             display: mode3d ? 'none' : 'block',
           }}
         />
+        {/* Resize preview overlay */}
+        {resizePreview && currentMap && (() => {
+          const { dLeft, dTop, dRight, dBottom } = resizePreview;
+          const origW = resizeOrigSize.current.w;
+          const origH = resizeOrigSize.current.h;
+          const newW = origW + dRight - dLeft;
+          const newH = origH + dBottom - dTop;
+          const previewLeft = dLeft * TILE_SIZE_PX;
+          const previewTop = dTop * TILE_SIZE_PX;
+          const previewW = newW * TILE_SIZE_PX;
+          const previewH = newH * TILE_SIZE_PX;
+          return (
+            <>
+              <div style={{
+                position: 'absolute',
+                left: previewLeft,
+                top: previewTop,
+                width: previewW,
+                height: previewH,
+                border: '2px dashed #4af',
+                pointerEvents: 'none',
+                zIndex: 3,
+                boxSizing: 'border-box',
+              }} />
+              <div style={{
+                position: 'absolute',
+                left: previewLeft + previewW / 2,
+                top: previewTop - 20,
+                transform: 'translateX(-50%)',
+                background: 'rgba(0,0,0,0.7)',
+                color: '#4af',
+                padding: '2px 8px',
+                borderRadius: 3,
+                fontSize: 12,
+                fontWeight: 'bold',
+                pointerEvents: 'none',
+                zIndex: 4,
+                whiteSpace: 'nowrap',
+              }}>
+                {origW}x{origH} → {newW}x{newH}
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {eventCtxMenu && (

@@ -56,6 +56,15 @@ export default function DrawToolbar() {
         >
           이벤트
         </button>
+        <button
+          onClick={() => setEditMode('object')}
+          style={{
+            ...styles.btn,
+            ...(editMode === 'object' ? styles.btnActive : {}),
+          }}
+        >
+          오브젝트
+        </button>
       </div>
 
       <div style={styles.separator} />
@@ -69,7 +78,7 @@ export default function DrawToolbar() {
             style={{
               ...styles.btn,
               ...(selectedTool === t.id ? styles.btnActive : {}),
-              ...(editMode === 'event' ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
+              ...(editMode !== 'map' ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
             }}
           >
             {t.label}

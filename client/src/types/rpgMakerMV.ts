@@ -37,6 +37,7 @@ export interface MapData {
   battleback1Name: string;
   battleback2Name: string;
   editorLights?: EditorLights;
+  objects?: MapObject[];
 }
 
 export interface RPGEvent {
@@ -420,6 +421,19 @@ export interface CommonEvent {
   trigger: number;
   switchId: number;
   list: EventCommand[];
+}
+
+// Editor-only object data (stored as custom field in map JSON, ignored by RPG Maker MV)
+export interface MapObject {
+  id: number;
+  name: string;
+  x: number;            // 기준점 타일 X (하단 좌측)
+  y: number;            // 기준점 타일 Y (하단 행)
+  tileIds: number[][];  // [row][col] 타일 ID (row 0 = 상단)
+  width: number;        // 타일 열 수
+  height: number;       // 타일 행 수
+  zHeight: number;      // Z 높이 오프셋 (3D 빌보드용)
+  passability: boolean[][]; // [row][col] true=통행가능, false=불가
 }
 
 // Editor-only lighting data (stored as custom field in map JSON, ignored by RPG Maker MV)

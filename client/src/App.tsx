@@ -21,6 +21,7 @@ import ResourceManagerDialog from './components/ResourceManagerDialog';
 import CharacterGeneratorDialog from './components/CharacterGeneratorDialog';
 import AutotileDebugDialog from './components/AutotileDebugDialog';
 import LightInspector from './components/Sidebar/LightInspector';
+import ObjectInspector from './components/Sidebar/ObjectInspector';
 import useFileWatcher from './hooks/useFileWatcher';
 
 function SidebarSplit({ editMode }: { editMode: string }) {
@@ -49,7 +50,7 @@ function SidebarSplit({ editMode }: { editMode: string }) {
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
-  const showTileset = editMode === 'map';
+  const showTileset = editMode === 'map' || editMode === 'object';
 
   return (
     <div className="sidebar-split" ref={containerRef}>
@@ -108,7 +109,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app-layout${lightEditMode ? ' with-inspector' : ''}`}>
+    <div className={`app-layout${(lightEditMode || editMode === 'object') ? ' with-inspector' : ''}`}>
       <MenuBar />
 
       <div className="sidebar">
@@ -135,9 +136,9 @@ export default function App() {
         )}
       </div>
 
-      {lightEditMode && (
+      {(lightEditMode || editMode === 'object') && (
         <div className="inspector-area">
-          <LightInspector />
+          {editMode === 'object' ? <ObjectInspector /> : <LightInspector />}
         </div>
       )}
 

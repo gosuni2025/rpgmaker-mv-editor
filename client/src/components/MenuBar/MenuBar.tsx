@@ -80,6 +80,7 @@ export default function MenuBar() {
       items: [
         { label: '지도', action: 'modeMap', shortcut: 'F5', checked: () => editMode === 'map' },
         { label: '이벤트', action: 'modeEvent', shortcut: 'F6', checked: () => editMode === 'event' },
+        { label: '오브젝트', action: 'modeObject', shortcut: 'F7', checked: () => editMode === 'object' },
       ],
     },
     {
@@ -142,6 +143,7 @@ export default function MenuBar() {
       case 'find': setShowFindDialog(true); break;
       case 'modeMap': setEditMode('map'); break;
       case 'modeEvent': setEditMode('event'); break;
+      case 'modeObject': setEditMode('object'); break;
       case 'toolPen': setSelectedTool('pen'); break;
       case 'toolRectangle': setSelectedTool('rectangle'); break;
       case 'toolEllipse': setSelectedTool('ellipse'); break;
@@ -188,6 +190,7 @@ export default function MenuBar() {
       else if (ctrl && e.key === 'r') { e.preventDefault(); handleAction('playtestTitle'); }
       else if (e.key === 'F5') { e.preventDefault(); handleAction('modeMap'); }
       else if (e.key === 'F6') { e.preventDefault(); handleAction('modeEvent'); }
+      else if (e.key === 'F7') { e.preventDefault(); handleAction('modeObject'); }
       else if (e.key === 'F9') { e.preventDefault(); handleAction('database'); }
     };
     window.addEventListener('keydown', handleKeyDown);

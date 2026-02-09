@@ -1713,3 +1713,35 @@ input, textarea, [contenteditable="true"] {
 .light-inspector-delete:hover {
   background: #e55;
 }
+
+/* Passability grid for Object Inspector */
+.passability-cell {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  cursor: pointer;
+  border: 1px solid #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  user-select: none;
+}
+.passability-cell.passable {
+  background: rgba(0, 180, 80, 0.5);
+}
+.passability-cell.passable::after {
+  content: 'O';
+  color: #afc;
+}
+.passability-cell.impassable {
+  background: rgba(200, 50, 50, 0.5);
+}
+.passability-cell.impassable::after {
+  content: 'X';
+  color: #faa;
+}
+.passability-cell:hover {
+  border-color: #aaa;
+}
