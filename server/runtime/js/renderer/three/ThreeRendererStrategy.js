@@ -332,9 +332,50 @@
             this._syncHierarchy(rendererObj, stage);
         }
 
-        // Render to the render target
+        // Render to the render target (3D 2-pass or 2D single-pass)
         renderer.setRenderTarget(renderTarget);
-        renderer.render(scene, camera);
+        var is3D = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d &&
+            typeof Mode3D !== 'undefined' && Mode3D._spriteset && Mode3D._perspCamera;
+        if (is3D) {
+            Mode3D._positionCamera(Mode3D._perspCamera, width, height);
+            Mode3D._applyBillboards();
+
+            // Pass 1: PerspectiveCamera로 맵만 렌더
+            var stageObj = stage._threeObj;
+            var childVis = [];
+            if (stageObj) {
+                for (var ci = 0; ci < stageObj.children.length; ci++) {
+                    childVis.push(stageObj.children[ci].visible);
+                }
+                var spritesetObj = Mode3D._spriteset._threeObj;
+                for (var ci = 0; ci < stageObj.children.length; ci++) {
+                    stageObj.children[ci].visible = (stageObj.children[ci] === spritesetObj);
+                }
+            }
+            renderer.autoClear = true;
+            renderer.render(scene, Mode3D._perspCamera);
+
+            // Pass 2: OrthographicCamera로 UI 합성
+            if (stageObj) {
+                for (var ci = 0; ci < stageObj.children.length; ci++) {
+                    var child = stageObj.children[ci];
+                    child.visible = childVis[ci];
+                    if (child === spritesetObj) child.visible = false;
+                }
+            }
+            renderer.autoClear = false;
+            renderer.render(scene, camera);
+
+            // 가시성 복원
+            if (stageObj) {
+                for (var ci = 0; ci < stageObj.children.length; ci++) {
+                    stageObj.children[ci].visible = childVis[ci];
+                }
+            }
+            renderer.autoClear = true;
+        } else {
+            renderer.render(scene, camera);
+        }
         renderer.setRenderTarget(null);
 
         // Read pixels from the render target
