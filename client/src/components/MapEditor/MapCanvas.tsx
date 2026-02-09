@@ -971,9 +971,11 @@ export default function MapCanvas() {
       preserveDrawingBuffer: true,
       powerPreference: 'high-performance',
     });
+    // Three.js WebGLState caches viewport/scissor — canvas.width 변경으로
+    // GL state가 리셋되어도 캐시는 남아 gl.viewport() 호출을 skip할 수 있음.
+    // state.reset()으로 내부 캐시를 강제 초기화.
+    renderer.state.reset();
     renderer.setSize(mapPxW, mapPxH, false);
-    renderer.setScissor(0, 0, mapPxW, mapPxH);
-    renderer.setScissorTest(false);
     renderer.setClearColor(0x000000, 0);
     renderer.sortObjects = true;
     // Enable shadow map for real-time shadow casting
