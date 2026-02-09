@@ -117,7 +117,16 @@ function createCharSprite(THREE: any, img: HTMLImageElement, sx: number, sy: num
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = 900;
   mesh.frustumCulled = false;
-  if (isShadowActive) mesh.castShadow = true;
+  if (isShadowActive) {
+    mesh.castShadow = true;
+    // customDepthMaterial for correct alpha-tested shadow silhouette
+    mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
+      depthPacking: THREE.RGBADepthPacking,
+      map: texture,
+      alphaTest: 0.5,
+      side: THREE.DoubleSide,
+    });
+  }
   return mesh;
 }
 
@@ -357,10 +366,11 @@ function sync3DOverlays(
           const dw = charW * scale;
           const dh = charH * scale;
           // Position: center-bottom aligned like 2D version
+          // z=48 for shadow map depth separation from tilemap (z=0)
           sprite.position.set(
             ex * TILE_SIZE_PX + TILE_SIZE_PX / 2,
             ey * TILE_SIZE_PX + TILE_SIZE_PX - dh / 2,
-            4
+            48
           );
           scene.add(sprite);
           eventSpritesRef.current.push(sprite);
@@ -414,10 +424,11 @@ function sync3DOverlays(
       sprite.rotation.x = -Mode3D._tiltRad;
       const scale = Math.min(TILE_SIZE_PX / charW, TILE_SIZE_PX / charH);
       const dh = charH * scale;
+      // z=48 for shadow map depth separation from tilemap (z=0)
       sprite.position.set(
         px * TILE_SIZE_PX + TILE_SIZE_PX / 2,
         py * TILE_SIZE_PX + TILE_SIZE_PX - dh / 2,
-        4
+        48
       );
       scene.add(sprite);
       objs.push(sprite);
@@ -1170,6 +1181,20 @@ export default function MapCanvas() {
               oldMat.dispose();
             }
             mesh.castShadow = true;
+            // customDepthMaterial for alpha-tested shadow silhouette
+            if (!mesh.customDepthMaterial) {
+              mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
+                depthPacking: THREE.RGBADepthPacking,
+                map: mesh.material.map,
+                alphaTest: 0.5,
+                side: THREE.DoubleSide,
+              });
+            }
+            // z=48 for shadow map depth separation
+            if (mesh.position.z < 48) {
+              mesh._shadowOrigZ = mesh.position.z;
+              mesh.position.z = 48;
+            }
           } else {
             if (mesh.material?.isMeshPhongMaterial) {
               const oldMat = mesh.material;
@@ -1182,6 +1207,12 @@ export default function MapCanvas() {
               oldMat.dispose();
             }
             mesh.castShadow = false;
+            mesh.customDepthMaterial = null;
+            // z 복원
+            if (mesh._shadowOrigZ !== undefined) {
+              mesh.position.z = mesh._shadowOrigZ;
+              delete mesh._shadowOrigZ;
+            }
           }
         };
         for (const obj of eventSpritesRef.current) {

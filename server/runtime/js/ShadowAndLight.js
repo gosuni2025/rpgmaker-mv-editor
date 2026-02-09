@@ -123,6 +123,18 @@ ShadowLight._convertMaterial = function(sprite) {
 
     // Shadow Map: 캐릭터가 그림자를 드리우도록 설정
     sprite._threeObj.castShadow = true;
+    // customDepthMaterial: alpha-tested shadow silhouette
+    sprite._threeObj.customDepthMaterial = new THREE.MeshDepthMaterial({
+        depthPacking: THREE.RGBADepthPacking,
+        map: newMat.map,
+        alphaTest: 0.5,
+        side: THREE.DoubleSide,
+    });
+    // Z 위치를 올려서 shadow map depth에서 타일맵과 분리
+    if (sprite._threeObj.position.z < 48) {
+        sprite._shadowOrigZ = sprite._threeObj.position.z;
+        sprite._threeObj.position.z = 48;
+    }
 
     this._convertedMaterials.set(newMat, true);
 };
@@ -150,6 +162,12 @@ ShadowLight._revertMaterial = function(sprite) {
     sprite._threeObj.material = newMat;
     sprite._material = newMat;
     sprite._threeObj.castShadow = false;
+    sprite._threeObj.customDepthMaterial = null;
+    // Z 위치 복원
+    if (sprite._shadowOrigZ !== undefined) {
+        sprite._threeObj.position.z = sprite._shadowOrigZ;
+        delete sprite._shadowOrigZ;
+    }
 };
 
 //=============================================================================
@@ -227,18 +245,19 @@ ShadowLight._addLightsToScene = function(scene) {
     this._directionalLight.castShadow = true;
     this._directionalLight.shadow.mapSize.width = 2048;
     this._directionalLight.shadow.mapSize.height = 2048;
-    // OrthographicCamera 범위 (맵 크기에 맞게 넉넉히)
+    // OrthographicCamera 범위 (맵 크기에 맞게 타이트하게)
     var shadowCamSize = Math.max(
-        (typeof Graphics !== 'undefined' ? Graphics._width : 2000),
-        (typeof Graphics !== 'undefined' ? Graphics._height : 2000)
+        (typeof Graphics !== 'undefined' ? Graphics._width : 1000),
+        (typeof Graphics !== 'undefined' ? Graphics._height : 1000)
     );
-    this._directionalLight.shadow.camera.left = -shadowCamSize;
-    this._directionalLight.shadow.camera.right = shadowCamSize;
-    this._directionalLight.shadow.camera.top = shadowCamSize;
-    this._directionalLight.shadow.camera.bottom = -shadowCamSize;
-    this._directionalLight.shadow.camera.near = 0.1;
+    var halfSize = shadowCamSize / 2 + 100; // 약간 여유
+    this._directionalLight.shadow.camera.left = -halfSize;
+    this._directionalLight.shadow.camera.right = halfSize;
+    this._directionalLight.shadow.camera.top = halfSize;
+    this._directionalLight.shadow.camera.bottom = -halfSize;
+    this._directionalLight.shadow.camera.near = 1;
     this._directionalLight.shadow.camera.far = 5000;
-    this._directionalLight.shadow.bias = -0.002;
+    this._directionalLight.shadow.bias = -0.001;
 
     // target을 맵 중심으로 설정
     var cx = shadowCamSize / 2;
