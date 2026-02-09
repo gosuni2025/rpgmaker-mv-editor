@@ -262,11 +262,11 @@ export function useThreeRenderer(
         depthTest: false,
       });
       const gridLines = new THREE.LineSegments(gridGeometry, gridMaterial);
-      gridLines.renderOrder = 100;  // < 9998 so it renders in Pass 1 (PerspectiveCamera) for 3D mode
+      gridLines.renderOrder = 9999;
       gridLines.position.z = 5;
       gridLines.visible = true;
       gridLines.frustumCulled = false;
-      rendererObj.scene.add(gridLines);
+      stage._threeObj.add(gridLines);  // stageObj의 자식 → 2D/3D 동일 패스에서 렌더
       gridMeshRef.current = gridLines;
 
       // --- 렌더 루프 ---
