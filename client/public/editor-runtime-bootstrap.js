@@ -240,21 +240,26 @@ if (typeof Game_Map === 'undefined') {
 // 런타임 로드 완료 플래그
 window._editorRuntimeReady = false;
 
-// --- Three.js ShaderChunk 글로벌 패치: 양면 라이팅 ---
-// Y-flip(m[5]=-m[5])으로 인해 gl_FrontFacing이 반전되어
-// DOUBLE_SIDED 노멀이 뒤집히고 빛 방향이 거꾸로 되는 문제 수정.
-// lights_phong_pars_fragment에서 dotNL에 abs()를 적용하여 양면 동일 라이팅.
+// --- Three.js ShaderChunk 글로벌 패치: Y-flip 라이팅 수정 ---
+// Y-flip(m[5]=-m[5])으로 인해 gl_FrontFacing이 반전 → DOUBLE_SIDED에서
+// faceDirection=-1 → 노멀이 뒤집혀 빛 방향이 거꾸로 되는 문제 수정.
+//
+// 해결: normal_fragment_begin에서 faceDirection을 항상 1.0으로 강제.
+// 우리 엔진은 이미 geometry 노멀을 Z=-1로 수동 설정하여 y-flip에 대응하므로
+// gl_FrontFacing 기반 뒤집기가 필요 없음 (오히려 이중 반전이 됨).
 if (typeof THREE !== 'undefined' && THREE.ShaderChunk) {
-    var phongChunkKey = 'lights_phong_pars_fragment';
-    if (THREE.ShaderChunk[phongChunkKey]) {
-        var original = 'float dotNL = saturate( dot( geometry.normal, directLight.direction ) );';
-        var patched = 'float dotNL = saturate( abs( dot( geometry.normal, directLight.direction ) ) );';
-        if (THREE.ShaderChunk[phongChunkKey].indexOf(original) >= 0) {
-            THREE.ShaderChunk[phongChunkKey] = THREE.ShaderChunk[phongChunkKey].replace(original, patched);
-            console.log('[Editor] ShaderChunk patched: bilateral lighting (phong)');
+    // 1) normal_fragment_begin: faceDirection을 항상 1.0으로 강제
+    var normalChunkKey = 'normal_fragment_begin';
+    if (THREE.ShaderChunk[normalChunkKey]) {
+        var normalOrig = 'float faceDirection = gl_FrontFacing ? 1.0 : - 1.0;';
+        var normalPatch = 'float faceDirection = 1.0;';
+        if (THREE.ShaderChunk[normalChunkKey].indexOf(normalOrig) >= 0) {
+            THREE.ShaderChunk[normalChunkKey] = THREE.ShaderChunk[normalChunkKey].replace(normalOrig, normalPatch);
+            console.log('[Editor] ShaderChunk patched: normal_fragment_begin (faceDirection=1.0)');
         }
     }
-    // Lambert vertex shader도 패치 (vLightBack을 vLightFront와 동일하게)
+    // 2) Lambert vertex shader: vLightBack을 vLightFront와 동일하게
+    //    (fragment에서 gl_FrontFacing으로 vLightBack을 선택하더라도 동일한 값)
     var lambertChunkKey = 'lights_lambert_vertex';
     if (THREE.ShaderChunk[lambertChunkKey]) {
         var lambOriginal = 'vLightBack += saturate( -dotNL ) * directLightColor_Diffuse;';
@@ -265,7 +270,23 @@ if (typeof THREE !== 'undefined' && THREE.ShaderChunk) {
         }
         if (chunk !== THREE.ShaderChunk[lambertChunkKey]) {
             THREE.ShaderChunk[lambertChunkKey] = chunk;
-            console.log('[Editor] ShaderChunk patched: bilateral lighting (lambert)');
+            console.log('[Editor] ShaderChunk patched: lights_lambert_vertex (bilateral)');
+        }
+    }
+    // 3) Lambert fragment: gl_FrontFacing 선택도 항상 Front를 사용하도록
+    var lambFragKey = 'meshlambert_frag';
+    if (THREE.ShaderChunk[lambFragKey]) {
+        // Direct diffuse
+        var lfOrig1 = 'reflectedLight.directDiffuse = ( gl_FrontFacing ) ? vLightFront : vLightBack;';
+        var lfPatch1 = 'reflectedLight.directDiffuse = vLightFront;';
+        // Indirect diffuse
+        var lfOrig2 = 'reflectedLight.indirectDiffuse += ( gl_FrontFacing ) ? vIndirectFront : vIndirectBack;';
+        var lfPatch2 = 'reflectedLight.indirectDiffuse += vIndirectFront;';
+        var lfChunk = THREE.ShaderChunk[lambFragKey];
+        if (lfChunk.indexOf(lfOrig1) >= 0 || lfChunk.indexOf(lfOrig2) >= 0) {
+            lfChunk = lfChunk.replace(lfOrig1, lfPatch1).replace(lfOrig2, lfPatch2);
+            THREE.ShaderChunk[lambFragKey] = lfChunk;
+            console.log('[Editor] ShaderChunk patched: meshlambert_frag (bypass gl_FrontFacing)');
         }
     }
 }
