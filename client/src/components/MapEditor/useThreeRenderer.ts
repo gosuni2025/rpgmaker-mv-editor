@@ -478,7 +478,7 @@ export function useThreeRenderer(
     }
     regionMeshesRef.current = [];
 
-    if (currentLayer !== 5 || mode3d) {
+    if (currentLayer !== 5) {
       requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
       return;
     }
@@ -499,6 +499,7 @@ export function useThreeRenderer(
         mesh.position.set(x * TILE_SIZE_PX + TILE_SIZE_PX / 2, y * TILE_SIZE_PX + TILE_SIZE_PX / 2, 4);
         mesh.renderOrder = 9998;
         mesh.frustumCulled = false;
+        mesh.userData.editorGrid = true;
         rendererObj.scene.add(mesh);
         regionMeshesRef.current.push(mesh);
 
@@ -522,6 +523,7 @@ export function useThreeRenderer(
         labelMesh.position.set(x * TILE_SIZE_PX + TILE_SIZE_PX / 2, y * TILE_SIZE_PX + TILE_SIZE_PX / 2, 4.5);
         labelMesh.renderOrder = 9999;
         labelMesh.frustumCulled = false;
+        labelMesh.userData.editorGrid = true;
         rendererObj.scene.add(labelMesh);
         regionMeshesRef.current.push(labelMesh);
       }

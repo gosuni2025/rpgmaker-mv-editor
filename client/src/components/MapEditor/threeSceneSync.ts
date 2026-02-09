@@ -124,12 +124,14 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
     // Light marker (both 2D and 3D - always rendered via Three.js)
     const sprite = createLightMarkerSprite(THREE, pl.color);
     sprite.position.set(px, py, pz);
+    sprite.userData.editorGrid = true;
     scene.add(sprite);
     ShadowLight._editorLightMarkers.push(sprite);
 
     // Z > 0 이면 바닥~라이트 연결선
     if (pz > 2) {
       const stem = createLightStemLine(THREE, px, py, pz, pl.color);
+      stem.userData.editorGrid = true;
       scene.add(stem);
       ShadowLight._editorLightMarkers.push(stem);
     }
