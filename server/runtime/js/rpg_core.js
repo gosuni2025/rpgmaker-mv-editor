@@ -6013,7 +6013,43 @@ TilingSprite.prototype.setFrame = function(x, y, width, height) {
 TilingSprite.prototype.updateTransform = function() {
     this._tileOriginX = Math.round(-this.origin.x);
     this._tileOriginY = Math.round(-this.origin.y);
+    this._tilePosition.x = this._tileOriginX;
+    this._tilePosition.y = this._tileOriginY;
     ThreeSprite.prototype.updateTransform.call(this);
+};
+
+/**
+ * Override _updateTexture to apply RepeatWrapping for tiling.
+ */
+TilingSprite.prototype._updateTexture = function() {
+    ThreeSprite.prototype._updateTexture.call(this);
+    if (this._threeTexture) {
+        this._threeTexture.wrapS = THREE.RepeatWrapping;
+        this._threeTexture.wrapT = THREE.RepeatWrapping;
+        this._threeTexture.needsUpdate = true;
+    }
+};
+
+/**
+ * Override syncTransform to handle tile offset and repeat via UV manipulation.
+ */
+TilingSprite.prototype.syncTransform = function() {
+    ThreeSprite.prototype.syncTransform.call(this);
+
+    if (this._threeTexture && this._frameWidth > 0 && this._frameHeight > 0) {
+        var tw = this._threeTexture.image ? this._threeTexture.image.width : this._frameWidth;
+        var th = this._threeTexture.image ? this._threeTexture.image.height : this._frameHeight;
+
+        if (tw > 0 && th > 0) {
+            var offsetX = (this._tilePosition.x / tw) || 0;
+            var offsetY = (this._tilePosition.y / th) || 0;
+            var repeatX = (this._frameWidth / (tw * this._tileScale.x)) || 1;
+            var repeatY = (this._frameHeight / (th * this._tileScale.y)) || 1;
+
+            this._threeTexture.offset.set(-offsetX, -offsetY);
+            this._threeTexture.repeat.set(repeatX, repeatY);
+        }
+    }
 };
 
 /**
