@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
 import { syncEditorLightsToScene, disposeSceneObjects } from './threeSceneSync';
@@ -115,6 +115,9 @@ export function useThreeRenderer(
   const playerCharacterIndex = useEditorStore((s) => s.playerCharacterIndex);
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const selectedLightId = useEditorStore((s) => s.selectedLightId);
+
+  // Track renderer readiness so overlay useEffects re-run after async setup
+  const [rendererReady, setRendererReady] = useState(false);
 
   // Three.js renderer refs
   const rendererObjRef = useRef<any>(null);
@@ -335,6 +338,7 @@ export function useThreeRenderer(
         }
       }
       waitAndRender();
+      setRendererReady(true);
 
       const unsubscribe = useEditorStore.subscribe((state, prevState) => {
         if (state.currentMap !== prevState.currentMap) {
@@ -453,6 +457,7 @@ export function useThreeRenderer(
     setup();
 
     return () => {
+      setRendererReady(false);
       if ((rendererObjRef as any)._cleanup) {
         (rendererObjRef as any)._cleanup();
       }
@@ -534,7 +539,7 @@ export function useThreeRenderer(
       }
     }
     requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
-  }, [currentMap, currentLayer, mode3d]);
+  }, [currentMap, currentLayer, mode3d, rendererReady]);
 
   // Player start position overlay (blue border + character image)
   useEffect(() => {
@@ -626,7 +631,7 @@ export function useThreeRenderer(
     }
 
     requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
-  }, [systemData, currentMapId, playerCharacterName, playerCharacterIndex]);
+  }, [systemData, currentMapId, playerCharacterName, playerCharacterIndex, rendererReady]);
 
   // Sync event overlay (border + name) in event edit mode
   // 캐릭터 스프라이트의 _threeObj에 자식으로 추가 → 3D 빌보드 자동 적용
@@ -756,7 +761,7 @@ export function useThreeRenderer(
     }
 
     requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
-  }, [editMode, currentMap?.events]);
+  }, [editMode, currentMap?.events, rendererReady]);
 
   // Sync drag previews (event/light/object drag) via Three.js
   useEffect(() => {
