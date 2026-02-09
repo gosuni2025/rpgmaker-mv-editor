@@ -67,7 +67,7 @@ ShadowLight._shadowMaterial = null;
 ShadowLight.config = {
     // 광원 설정
     ambientColor: 0x667788,           // 환경광 (어두운 푸른 톤 - 달빛 느낌)
-    ambientIntensity: 0.2,
+    ambientIntensity: 0.85,
     directionalColor: 0xfff8ee,       // 햇빛 색상 (따뜻한 톤)
     directionalIntensity: 0.05,
     lightDirection: new THREE.Vector3(-1, -1, -2).normalize(), // 광원 방향 (Z 성분 크게)
@@ -140,6 +140,7 @@ ShadowLight._convertMaterial = function(sprite) {
     }
 
     this._convertedMaterials.set(newMat, true);
+    console.log('[Shadow] convertMaterial: castShadow=' + sprite._threeObj.castShadow + ' transparent=' + newMat.transparent + ' alphaTest=' + newMat.alphaTest + ' z=' + sprite._threeObj.position.z + ' customDepth=' + !!sprite._threeObj.customDepthMaterial);
 };
 
 /**
@@ -270,6 +271,48 @@ ShadowLight._addLightsToScene = function(scene) {
     // target을 scene에 추가해야 DirectionalLight 방향이 올바르게 동작
     scene.add(this._directionalLight);
     scene.add(this._directionalLight.target);
+
+    // Shadow Map 디버그 로그
+    console.log('[Shadow] DirectionalLight added: castShadow=' + this._directionalLight.castShadow +
+        ' mapSize=' + this._directionalLight.shadow.mapSize.width +
+        ' cam=[' + this._directionalLight.shadow.camera.left + ',' + this._directionalLight.shadow.camera.right + ',' +
+        this._directionalLight.shadow.camera.top + ',' + this._directionalLight.shadow.camera.bottom + ']' +
+        ' near=' + this._directionalLight.shadow.camera.near + ' far=' + this._directionalLight.shadow.camera.far +
+        ' bias=' + this._directionalLight.shadow.bias +
+        ' lightPos=(' + this._directionalLight.position.x + ',' + this._directionalLight.position.y + ',' + this._directionalLight.position.z + ')');
+
+    // ===== Shadow Map 파이프라인 테스트 =====
+    // 불투명 바닥 + 박스로 그림자가 정말 그려지는지 확인
+    var testCx = (typeof Graphics !== 'undefined' ? Graphics._width : 816) / 2;
+    var testCy = (typeof Graphics !== 'undefined' ? Graphics._height : 624) / 2;
+
+    // 바닥 플레인 (receiveShadow, 불투명 녹색)
+    var floorGeo = new THREE.PlaneGeometry(300, 300);
+    var floorMat = new THREE.MeshPhongMaterial({
+        color: 0x00aa00,
+        transparent: false,
+        side: THREE.DoubleSide,
+    });
+    this._testFloor = new THREE.Mesh(floorGeo, floorMat);
+    this._testFloor.receiveShadow = true;
+    this._testFloor.position.set(testCx, testCy, 0);
+    this._testFloor.frustumCulled = false;
+    scene.add(this._testFloor);
+
+    // 박스 (castShadow, 불투명 빨강)
+    var boxGeo = new THREE.BoxGeometry(60, 60, 60);
+    var boxMat = new THREE.MeshPhongMaterial({
+        color: 0xff0000,
+        transparent: false,
+    });
+    this._testBox = new THREE.Mesh(boxGeo, boxMat);
+    this._testBox.castShadow = true;
+    this._testBox.position.set(testCx, testCy, 80);
+    this._testBox.frustumCulled = false;
+    scene.add(this._testBox);
+
+    console.log('[Shadow] TEST GEOMETRY added: floor at (' + testCx + ',' + testCy + ',0) box at (' + testCx + ',' + testCy + ',80)');
+    // ===== /Shadow Map 파이프라인 테스트 =====
 };
 
 ShadowLight._removeLightsFromScene = function(scene) {
@@ -282,6 +325,9 @@ ShadowLight._removeLightsFromScene = function(scene) {
         scene.remove(this._directionalLight);
         this._directionalLight = null;
     }
+    // 테스트 지오메트리 제거
+    if (this._testFloor) { scene.remove(this._testFloor); this._testFloor = null; }
+    if (this._testBox) { scene.remove(this._testBox); this._testBox = null; }
     // 포인트 라이트 제거
     for (var i = 0; i < this._pointLights.length; i++) {
         if (this._pointLights[i].parent) {
@@ -483,6 +529,28 @@ Spriteset_Map.prototype._updateShadowLight = function() {
 
     if (!enabled) return;
 
+    // Shadow camera를 현재 뷰포트 중심으로 추적
+    if (ShadowLight._directionalLight && this._tilemap) {
+        var ox = this._tilemap.origin.x;
+        var oy = this._tilemap.origin.y;
+        var vw = Graphics._width || 816;
+        var vh = Graphics._height || 624;
+        // 뷰포트 중심 = 스크롤 오프셋 + 화면 절반
+        var cx = ox + vw / 2;
+        var cy = oy + vh / 2;
+        var dir = ShadowLight.config.lightDirection;
+        ShadowLight._directionalLight.position.set(
+            cx - dir.x * 1000,
+            cy - dir.y * 1000,
+            -dir.z * 1000
+        );
+        ShadowLight._directionalLight.target.position.set(cx, cy, 0);
+        ShadowLight._directionalLight.target.updateMatrixWorld();
+
+        // shadow camera updateProjectionMatrix (position/target 변경 반영)
+        ShadowLight._directionalLight.shadow.camera.updateProjectionMatrix();
+    }
+
     // shadow mesh 업데이트
     if (this._shadowMeshes) {
         for (var i = 0; i < this._characterSprites.length; i++) {
@@ -511,6 +579,18 @@ Spriteset_Map.prototype._activateShadowLight = function() {
             ShadowLight._convertMaterial(this._characterSprites[i]);
         }
     }
+    // 오브젝트 스프라이트 material 교체 (container + 자식 tileSprite)
+    if (this._objectSprites) {
+        for (var i = 0; i < this._objectSprites.length; i++) {
+            var container = this._objectSprites[i];
+            ShadowLight._convertMaterial(container);
+            if (container.children) {
+                for (var j = 0; j < container.children.length; j++) {
+                    ShadowLight._convertMaterial(container.children[j]);
+                }
+            }
+        }
+    }
 
     // 타일맵 메시 재생성 (MeshPhongMaterial로 새로 생성되도록)
     ShadowLight._resetTilemapMeshes(this._tilemap);
@@ -536,6 +616,18 @@ Spriteset_Map.prototype._deactivateShadowLight = function() {
     if (this._characterSprites) {
         for (var i = 0; i < this._characterSprites.length; i++) {
             ShadowLight._revertMaterial(this._characterSprites[i]);
+        }
+    }
+    // 오브젝트 스프라이트 material 복원
+    if (this._objectSprites) {
+        for (var i = 0; i < this._objectSprites.length; i++) {
+            var container = this._objectSprites[i];
+            ShadowLight._revertMaterial(container);
+            if (container.children) {
+                for (var j = 0; j < container.children.length; j++) {
+                    ShadowLight._revertMaterial(container.children[j]);
+                }
+            }
         }
     }
 

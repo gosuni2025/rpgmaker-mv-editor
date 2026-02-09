@@ -535,19 +535,8 @@ function sync3DOverlays(
         texture.magFilter = THREE.NearestFilter;
         texture.needsUpdate = true;
         const geometry = new THREE.PlaneGeometry(objPxW, objPxH);
-        const material = new THREE.MeshPhongMaterial({
-          map: texture,
-          transparent: false,
-          alphaTest: 0.5,
-          depthTest: true,
-          depthWrite: true,
-          side: THREE.DoubleSide,
-          specular: new THREE.Color(0x000000),
-          shininess: 0,
-        });
+        const material = new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
         const mesh = new THREE.Mesh(geometry, material);
-        mesh.receiveShadow = true;
-        mesh.castShadow = true;
         mesh.renderOrder = 880;
         mesh.frustumCulled = false;
         // Billboard rotation
