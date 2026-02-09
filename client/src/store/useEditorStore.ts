@@ -34,7 +34,15 @@ export interface ResizeHistoryEntry {
   newEvents: (RPGEvent | null)[];
 }
 
-export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry;
+export interface ObjectHistoryEntry {
+  mapId: number;
+  type: 'object';
+  oldObjects: MapObject[];
+  newObjects: MapObject[];
+  oldSelectedObjectId: number | null;
+}
+
+export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry;
 
 export interface ClipboardData {
   type: 'tiles' | 'event';
@@ -433,6 +441,23 @@ const useEditorStore = create<EditorState>((set, get) => ({
       return;
     }
 
+    if (entry.type === 'object') {
+      const oe = entry as ObjectHistoryEntry;
+      const redoEntry: ObjectHistoryEntry = {
+        mapId: currentMapId, type: 'object',
+        oldObjects: oe.newObjects, newObjects: oe.oldObjects,
+        oldSelectedObjectId: get().selectedObjectId,
+      };
+      set({
+        currentMap: { ...currentMap, objects: oe.oldObjects },
+        selectedObjectId: oe.oldSelectedObjectId,
+        undoStack: undoStack.slice(0, -1),
+        redoStack: [...get().redoStack, redoEntry],
+      });
+      showToast('실행 취소 (오브젝트)');
+      return;
+    }
+
     const te = entry as TileHistoryEntry;
     const newData = [...currentMap.data];
     const redoChanges: TileChange[] = [];
@@ -470,6 +495,23 @@ const useEditorStore = create<EditorState>((set, get) => ({
         undoStack: [...get().undoStack, undoEntry],
       });
       showToast(`다시 실행 (맵 크기 ${re.oldWidth}x${re.oldHeight})`);
+      return;
+    }
+
+    if (entry.type === 'object') {
+      const oe = entry as ObjectHistoryEntry;
+      const undoEntry: ObjectHistoryEntry = {
+        mapId: currentMapId, type: 'object',
+        oldObjects: oe.newObjects, newObjects: oe.oldObjects,
+        oldSelectedObjectId: get().selectedObjectId,
+      };
+      set({
+        currentMap: { ...currentMap, objects: oe.oldObjects },
+        selectedObjectId: oe.oldSelectedObjectId,
+        redoStack: redoStack.slice(0, -1),
+        undoStack: [...get().undoStack, undoEntry],
+      });
+      showToast('다시 실행 (오브젝트)');
       return;
     }
 
@@ -611,9 +653,10 @@ const useEditorStore = create<EditorState>((set, get) => ({
   setSelectedObjectId: (id: number | null) => set({ selectedObjectId: id }),
 
   addObject: (x: number, y: number) => {
-    const { currentMap, selectedTiles, selectedTilesWidth, selectedTilesHeight, selectedTileId } = get();
-    if (!currentMap) return;
-    const objects = [...(currentMap.objects || [])];
+    const { currentMap, currentMapId, selectedTiles, selectedTilesWidth, selectedTilesHeight, selectedTileId, undoStack, selectedObjectId } = get();
+    if (!currentMap || !currentMapId) return;
+    const oldObjects = currentMap.objects || [];
+    const objects = [...oldObjects];
     const newId = objects.length > 0 ? Math.max(...objects.map(o => o.id)) + 1 : 1;
     let tileIds: number[][];
     let w: number, h: number;
@@ -643,26 +686,57 @@ const useEditorStore = create<EditorState>((set, get) => ({
       passability,
     };
     objects.push(newObj);
+    const historyEntry: ObjectHistoryEntry = {
+      mapId: currentMapId, type: 'object',
+      oldObjects: oldObjects, newObjects: objects,
+      oldSelectedObjectId: selectedObjectId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
     set({
       currentMap: { ...currentMap, objects },
       selectedObjectId: newId,
+      undoStack: newStack,
+      redoStack: [],
     });
   },
 
   updateObject: (id: number, updates: Partial<MapObject>) => {
-    const map = get().currentMap;
-    if (!map || !map.objects) return;
-    const objects = map.objects.map(o => o.id === id ? { ...o, ...updates } : o);
-    set({ currentMap: { ...map, objects } });
+    const { currentMap, currentMapId, undoStack, selectedObjectId } = get();
+    if (!currentMap || !currentMapId || !currentMap.objects) return;
+    const oldObjects = currentMap.objects;
+    const objects = oldObjects.map(o => o.id === id ? { ...o, ...updates } : o);
+    const historyEntry: ObjectHistoryEntry = {
+      mapId: currentMapId, type: 'object',
+      oldObjects, newObjects: objects,
+      oldSelectedObjectId: selectedObjectId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({
+      currentMap: { ...currentMap, objects },
+      undoStack: newStack,
+      redoStack: [],
+    });
   },
 
   deleteObject: (id: number) => {
-    const map = get().currentMap;
-    if (!map || !map.objects) return;
-    const objects = map.objects.filter(o => o.id !== id);
+    const { currentMap, currentMapId, undoStack, selectedObjectId } = get();
+    if (!currentMap || !currentMapId || !currentMap.objects) return;
+    const oldObjects = currentMap.objects;
+    const objects = oldObjects.filter(o => o.id !== id);
+    const historyEntry: ObjectHistoryEntry = {
+      mapId: currentMapId, type: 'object',
+      oldObjects, newObjects: objects,
+      oldSelectedObjectId: selectedObjectId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
     set({
-      currentMap: { ...map, objects },
-      selectedObjectId: get().selectedObjectId === id ? null : get().selectedObjectId,
+      currentMap: { ...currentMap, objects },
+      selectedObjectId: selectedObjectId === id ? null : selectedObjectId,
+      undoStack: newStack,
+      redoStack: [],
     });
   },
 
