@@ -691,6 +691,11 @@ export default function MapCanvas() {
   const dragObjectOrigin = useRef<{ x: number; y: number } | null>(null);
   const [objectDragPreview, setObjectDragPreview] = useState<{ x: number; y: number } | null>(null);
 
+  // 미들 클릭 드래그 패닝
+  const isPanning = useRef(false);
+  const panStart = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number }>({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+  const [panning, setPanning] = useState(false);
+
   // 마우스 휠로 줌 인/아웃
   useEffect(() => {
     const el = containerRef.current;
@@ -701,7 +706,36 @@ export default function MapCanvas() {
       else if (e.deltaY > 0) zoomOut();
     };
     el.addEventListener('wheel', handleWheel, { passive: false });
-    return () => el.removeEventListener('wheel', handleWheel);
+
+    // 미들 클릭 패닝
+    const handlePanStart = (e: MouseEvent) => {
+      if (e.button !== 1) return; // 미들 클릭만
+      e.preventDefault();
+      isPanning.current = true;
+      setPanning(true);
+      panStart.current = { x: e.clientX, y: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop };
+    };
+    const handlePanMove = (e: MouseEvent) => {
+      if (!isPanning.current) return;
+      el.scrollLeft = panStart.current.scrollLeft - (e.clientX - panStart.current.x);
+      el.scrollTop = panStart.current.scrollTop - (e.clientY - panStart.current.y);
+    };
+    const handlePanEnd = (e: MouseEvent) => {
+      if (e.button !== 1 || !isPanning.current) return;
+      isPanning.current = false;
+      setPanning(false);
+    };
+
+    el.addEventListener('mousedown', handlePanStart);
+    window.addEventListener('mousemove', handlePanMove);
+    window.addEventListener('mouseup', handlePanEnd);
+
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+      el.removeEventListener('mousedown', handlePanStart);
+      window.removeEventListener('mousemove', handlePanMove);
+      window.removeEventListener('mouseup', handlePanEnd);
+    };
   }, [zoomIn, zoomOut]);
 
   useEffect(() => {
@@ -1169,6 +1203,14 @@ export default function MapCanvas() {
       Mode3D._perspCamera = null;
       // Cleanup renderer
       if (rendererObj && rendererObj.renderer) {
+        // Reset GL state before disposing to avoid stale state on canvas reuse
+        const gl = rendererObj.renderer.getContext();
+        if (gl) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+          gl.scissor(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+          gl.disable(gl.SCISSOR_TEST);
+        }
         rendererObj.renderer.dispose();
       }
       // Reset canvas inline styles that may have been set by Three.js
@@ -2631,7 +2673,7 @@ export default function MapCanvas() {
   const mapPxH = (currentMap?.height || 0) * TILE_SIZE_PX;
 
   return (
-    <div ref={containerRef} style={styles.container} onClick={closeEventCtxMenu}>
+    <div ref={containerRef} style={{ ...styles.container, cursor: panning ? 'grabbing' : undefined }} onClick={closeEventCtxMenu}>
       <div style={{
         position: 'relative',
         transform: `scale(${zoomLevel})`,
