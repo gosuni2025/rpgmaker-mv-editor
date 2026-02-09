@@ -17,7 +17,6 @@ const TAB_SHEET_INDEX: Record<PaletteTab, number[]> = {
   D: [7],
   E: [8],
   R: [],
-  L: [],
 };
 
 // B-E tile ID offsets
@@ -302,7 +301,7 @@ export default function TilesetPalette() {
 
   // Main render
   useEffect(() => {
-    if (activeTab === 'R' || activeTab === 'L') return; // R/L tabs don't use canvas
+    if (activeTab === 'R') return; // R tab doesn't use canvas
     if (activeTab === 'A') {
       renderATab();
     } else {

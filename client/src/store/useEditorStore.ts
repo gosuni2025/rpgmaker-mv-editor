@@ -748,7 +748,7 @@ const useEditorStore = create<EditorState>((set, get) => ({
     if (mode === 'light') {
       updates.lightEditMode = true;
       updates.shadowLight = true;
-      if (typeof ConfigManager !== 'undefined') {
+      if (typeof (window as any).ConfigManager !== 'undefined') {
         (window as any).ConfigManager.shadowLight = true;
       }
       // Initialize editor lights if needed
