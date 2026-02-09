@@ -691,16 +691,14 @@ export default function MapCanvas() {
   const dragObjectOrigin = useRef<{ x: number; y: number } | null>(null);
   const [objectDragPreview, setObjectDragPreview] = useState<{ x: number; y: number } | null>(null);
 
-  // Ctrl+마우스 휠로 줌 인/아웃
+  // 마우스 휠로 줌 인/아웃
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        if (e.deltaY < 0) zoomIn();
-        else if (e.deltaY > 0) zoomOut();
-      }
+      e.preventDefault();
+      if (e.deltaY < 0) zoomIn();
+      else if (e.deltaY > 0) zoomOut();
     };
     el.addEventListener('wheel', handleWheel, { passive: false });
     return () => el.removeEventListener('wheel', handleWheel);
@@ -898,8 +896,14 @@ export default function MapCanvas() {
     // Set Graphics dimensions directly (bypass setter to avoid _updateAllElements)
     Graphics._width = mapPxW;
     Graphics._height = mapPxH;
+    Graphics.width = mapPxW;
+    Graphics.height = mapPxH;
+    Graphics.boxWidth = mapPxW;
+    Graphics.boxHeight = mapPxH;
 
-    // Set canvas size
+    // Reset any inline styles from previous Three.js setSize, then set canvas size
+    canvas.style.width = '';
+    canvas.style.height = '';
     canvas.width = mapPxW;
     canvas.height = mapPxH;
 
@@ -913,7 +917,7 @@ export default function MapCanvas() {
       preserveDrawingBuffer: true,
       powerPreference: 'high-performance',
     });
-    renderer.setSize(mapPxW, mapPxH);
+    renderer.setSize(mapPxW, mapPxH, false);
     renderer.setClearColor(0x000000, 0);
     renderer.sortObjects = true;
     const scene = new THREE.Scene();
@@ -1166,6 +1170,11 @@ export default function MapCanvas() {
       // Cleanup renderer
       if (rendererObj && rendererObj.renderer) {
         rendererObj.renderer.dispose();
+      }
+      // Reset canvas inline styles that may have been set by Three.js
+      if (canvas) {
+        canvas.style.width = '';
+        canvas.style.height = '';
       }
       rendererObjRef.current = null;
       tilemapRef.current = null;
