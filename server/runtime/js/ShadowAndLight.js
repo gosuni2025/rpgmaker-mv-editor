@@ -145,6 +145,22 @@ ShadowLight._playerSpotTarget = null;
 ShadowLight._shadowMeshes = [];      // 캐릭터별 shadow mesh
 ShadowLight._shadowMaterial = null;
 
+/**
+ * Three.js Scene을 찾는 헬퍼
+ * Graphics._rendererObj가 없는 에디터 환경에서도 tilemap의 parent chain을 따라 Scene을 찾음
+ */
+ShadowLight._findScene = function() {
+    var rendererObj = Graphics._rendererObj || Graphics._renderer;
+    if (rendererObj && rendererObj.scene) return rendererObj.scene;
+    // fallback: spriteset의 tilemap에서 parent chain 따라 올라가기
+    if (this._spriteset && this._spriteset._tilemap && this._spriteset._tilemap._threeObj) {
+        var obj = this._spriteset._tilemap._threeObj;
+        while (obj.parent) obj = obj.parent;
+        if (obj.isScene) return obj;
+    }
+    return null;
+};
+
 // 설정
 ShadowLight.config = {
     // 광원 설정
@@ -460,10 +476,10 @@ ShadowLight._getPointLight = function() {
     }
     var light = this._pointLights[idx];
     // scene에 직접 추가 (타일맵과 동일한 좌표계에서 작동하도록)
-    var rendererObj = Graphics._rendererObj || Graphics._renderer;
-    if (rendererObj && rendererObj.scene && light.parent !== rendererObj.scene) {
+    var scene = this._findScene();
+    if (scene && light.parent !== scene) {
         if (light.parent) light.parent.remove(light);
-        rendererObj.scene.add(light);
+        scene.add(light);
     }
     light.visible = true;
     this._pointLightIndex++;
@@ -631,7 +647,8 @@ Spriteset_Map.prototype._updateShadowLight = function() {
     if (enabled && !ShadowLight._active) {
         // 활성화
         this._activateShadowLight();
-        ShadowLight._active = true;
+        // scene을 못 찾으면 다음 프레임에서 재시도
+        ShadowLight._active = !!ShadowLight._ambientLight;
     } else if (!enabled && ShadowLight._active) {
         // 비활성화
         this._deactivateShadowLight();
@@ -661,6 +678,51 @@ Spriteset_Map.prototype._updateShadowLight = function() {
         ShadowLight._directionalLight.shadow.camera.updateProjectionMatrix();
     }
 
+    // --- 디버그 로그: shadow 좌표 검증 (60프레임마다 1회) ---
+    if (!ShadowLight._debugFrame) ShadowLight._debugFrame = 0;
+    ShadowLight._debugFrame++;
+    if (ShadowLight._debugFrame % 120 === 1) {
+        // 첫 번째 오브젝트 스프라이트의 좌표
+        if (this._objectSprites && this._objectSprites.length > 0) {
+            var objSpr = this._objectSprites[0];
+            if (objSpr && objSpr._threeObj) {
+                var m = objSpr._threeObj.matrixWorld.elements;
+                console.log('[ShadowDebug] obj sprite threeObj.matrixWorld pos:', m[12].toFixed(1), m[13].toFixed(1), m[14].toFixed(1));
+                console.log('[ShadowDebug] obj sprite _x,_y:', (objSpr._x||0).toFixed(1), (objSpr._y||0).toFixed(1));
+                var wp = ShadowLight._getWrapperWorldPos(objSpr);
+                console.log('[ShadowDebug] obj sprite wrapperWorldPos:', wp.x.toFixed(1), wp.y.toFixed(1));
+            }
+        }
+        // 첫 번째 캐릭터 스프라이트
+        if (this._characterSprites && this._characterSprites.length > 0) {
+            var charSpr = this._characterSprites[0];
+            if (charSpr && charSpr._threeObj) {
+                var m2 = charSpr._threeObj.matrixWorld.elements;
+                console.log('[ShadowDebug] char sprite threeObj.matrixWorld pos:', m2[12].toFixed(1), m2[13].toFixed(1), m2[14].toFixed(1));
+                console.log('[ShadowDebug] char sprite _x,_y:', (charSpr._x||0).toFixed(1), (charSpr._y||0).toFixed(1));
+            }
+        }
+        // DirectionalLight shadow camera
+        if (ShadowLight._directionalLight) {
+            var dl = ShadowLight._directionalLight;
+            console.log('[ShadowDebug] dirLight pos:', dl.position.x.toFixed(1), dl.position.y.toFixed(1), dl.position.z.toFixed(1));
+            console.log('[ShadowDebug] dirLight target:', dl.target.position.x.toFixed(1), dl.target.position.y.toFixed(1), dl.target.position.z.toFixed(1));
+            var sc = dl.shadow.camera;
+            console.log('[ShadowDebug] shadow cam L/R/T/B:', sc.left.toFixed(0), sc.right.toFixed(0), sc.top.toFixed(0), sc.bottom.toFixed(0));
+        }
+        // SpotLight
+        if (ShadowLight._playerSpotLight && ShadowLight._playerSpotLight.visible) {
+            var sl = ShadowLight._playerSpotLight;
+            console.log('[ShadowDebug] spotLight pos:', sl.position.x.toFixed(1), sl.position.y.toFixed(1), sl.position.z.toFixed(1));
+            console.log('[ShadowDebug] spotTarget pos:', ShadowLight._playerSpotTarget.position.x.toFixed(1), ShadowLight._playerSpotTarget.position.y.toFixed(1), ShadowLight._playerSpotTarget.position.z.toFixed(1));
+        }
+        // tilemap origin
+        if (this._tilemap) {
+            console.log('[ShadowDebug] tilemap origin:', this._tilemap.origin.x.toFixed(1), this._tilemap.origin.y.toFixed(1));
+        }
+        console.log('---');
+    }
+
     // customDepthMaterial.map 동기화 (텍스처 로드 후 stale 방지)
     ShadowLight._syncCustomDepthMaps(this._characterSprites);
     ShadowLight._syncCustomDepthMaps(this._objectSprites);
@@ -682,10 +744,9 @@ Spriteset_Map.prototype._updateShadowLight = function() {
 };
 
 Spriteset_Map.prototype._activateShadowLight = function() {
-    // scene에 접근하려면 rendererObj가 필요
-    var rendererObj = Graphics._rendererObj || Graphics._renderer;
-    if (rendererObj && rendererObj.scene) {
-        ShadowLight._addLightsToScene(rendererObj.scene);
+    var scene = ShadowLight._findScene();
+    if (scene) {
+        ShadowLight._addLightsToScene(scene);
     }
     // 캐릭터 스프라이트 material 교체
     if (this._characterSprites) {
@@ -722,9 +783,9 @@ Spriteset_Map.prototype._activateShadowLight = function() {
 
 Spriteset_Map.prototype._deactivateShadowLight = function() {
     ShadowLight._removeDebugUI();
-    var rendererObj = Graphics._rendererObj || Graphics._renderer;
-    if (rendererObj && rendererObj.scene) {
-        ShadowLight._removeLightsFromScene(rendererObj.scene);
+    var scene = ShadowLight._findScene();
+    if (scene) {
+        ShadowLight._removeLightsFromScene(scene);
     }
     // material 복원
     if (this._characterSprites) {
