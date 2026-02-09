@@ -111,7 +111,6 @@ function createCharSprite(THREE: any, img: HTMLImageElement, sx: number, sy: num
     ? new THREE.MeshPhongMaterial({
         map: texture, depthTest: true, depthWrite: true, transparent: true, side: THREE.DoubleSide,
         emissive: new THREE.Color(0x111111), specular: new THREE.Color(0x000000), shininess: 0,
-        alphaTest: 0.5,
       })
     : new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geometry, material);
@@ -1111,7 +1110,6 @@ export default function MapCanvas() {
       strategy._syncHierarchy(rendererObj, stage);
 
       const is3D = ConfigManager.mode3d && Mode3D._spriteset;
-
       if (is3D) {
         // 3D 2-pass rendering
         if (!Mode3D._perspCamera) {
@@ -1232,14 +1230,6 @@ export default function MapCanvas() {
       // Editor lights changed (property edits, add/remove)
       if (state.shadowLight && state.currentMap?.editorLights !== prevState.currentMap?.editorLights) {
         syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
-        requestRender();
-      }
-      // DoF toggle
-      if (state.depthOfField !== prevState.depthOfField) {
-        requestRender();
-      }
-      // DoF settings changed
-      if (state.currentMap?.editorDoF !== prevState.currentMap?.editorDoF) {
         requestRender();
       }
     });
