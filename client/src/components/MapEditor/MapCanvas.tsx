@@ -23,6 +23,44 @@ interface EventContextMenu {
   eventId: number | null;
 }
 
+/** Sync editor-defined lights to Three.js scene via ShadowLight runtime */
+function syncEditorLightsToScene(scene: any, editorLights: EditorLights | undefined) {
+  if (!editorLights || !ShadowLight._active) return;
+  const THREE = (window as any).THREE;
+  if (!THREE) return;
+
+  // Update ambient light
+  if (ShadowLight._ambientLight) {
+    ShadowLight._ambientLight.color.set(editorLights.ambient.color);
+    ShadowLight._ambientLight.intensity = editorLights.ambient.intensity;
+  }
+
+  // Update directional light
+  if (ShadowLight._directionalLight) {
+    ShadowLight._directionalLight.color.set(editorLights.directional.color);
+    ShadowLight._directionalLight.intensity = editorLights.directional.intensity;
+    const d = editorLights.directional.direction;
+    ShadowLight._directionalLight.position.set(-d[0] * 1000, -d[1] * 1000, -d[2] * 1000);
+  }
+
+  // Remove existing editor point lights from scene
+  if (!ShadowLight._editorPointLights) ShadowLight._editorPointLights = [];
+  for (const light of ShadowLight._editorPointLights) {
+    scene.remove(light);
+  }
+  ShadowLight._editorPointLights = [];
+
+  // Add point lights from editor data
+  for (const pl of editorLights.points) {
+    const light = new THREE.PointLight(pl.color, pl.intensity, pl.distance, pl.decay);
+    const px = pl.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+    const py = pl.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+    light.position.set(px, py, ShadowLight.config?.playerLightZ || 30);
+    scene.add(light);
+    ShadowLight._editorPointLights.push(light);
+  }
+}
+
 /** Create a runtime Bitmap from a loaded HTMLImageElement */
 function createBitmapFromImage(img: HTMLImageElement): any {
   const BitmapClass = (window as any).Bitmap;
@@ -732,7 +770,55 @@ export default function MapCanvas() {
       ctx.restore();
     }
 
-    // Drag preview
+    // Light markers (when L tab active)
+    if (lightEditMode && currentMap?.editorLights?.points) {
+      for (const light of currentMap.editorLights.points) {
+        const lx = light.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+        const ly = light.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+
+        // Influence radius circle
+        ctx.beginPath();
+        ctx.arc(lx, ly, light.distance, 0, Math.PI * 2);
+        ctx.strokeStyle = light.color + '30';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = light.color + '10';
+        ctx.fill();
+
+        // Center marker
+        const isSelected = selectedLightId === light.id;
+        ctx.beginPath();
+        ctx.arc(lx, ly, isSelected ? 12 : 9, 0, Math.PI * 2);
+        ctx.fillStyle = light.color;
+        ctx.fill();
+        ctx.strokeStyle = isSelected ? '#fff' : '#000';
+        ctx.lineWidth = isSelected ? 3 : 1.5;
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000';
+        ctx.shadowBlur = 2;
+        ctx.fillText('L', lx, ly);
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    // Light drag preview
+    if (lightDragPreview && isDraggingLight.current) {
+      const dx = lightDragPreview.x * TILE_SIZE_PX;
+      const dy = lightDragPreview.y * TILE_SIZE_PX;
+      ctx.fillStyle = 'rgba(255,204,136,0.4)';
+      ctx.fillRect(dx, dy, TILE_SIZE_PX, TILE_SIZE_PX);
+      ctx.strokeStyle = '#ffcc88';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(dx + 1, dy + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
+    }
+
+    // Drag preview (events)
     if (dragPreview && isDraggingEvent.current) {
       const dx = dragPreview.x * TILE_SIZE_PX;
       const dy = dragPreview.y * TILE_SIZE_PX;
@@ -742,7 +828,7 @@ export default function MapCanvas() {
       ctx.lineWidth = 2;
       ctx.strokeRect(dx + 1, dy + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
     }
-  }, [currentMap, charImages, showGrid, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex, dragPreview, mode3d]);
+  }, [currentMap, charImages, showGrid, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex, dragPreview, mode3d, lightEditMode, selectedLightId, lightDragPreview]);
 
   // =========================================================================
   // Coordinate conversion
@@ -1268,6 +1354,22 @@ export default function MapCanvas() {
 
       if (e.button !== 0) return;
 
+      // Light edit mode: place or select lights
+      if (lightEditMode && selectedLightType === 'point') {
+        const lights = currentMap?.editorLights?.points || [];
+        const hitLight = lights.find(l => l.x === tile.x && l.y === tile.y);
+        if (hitLight) {
+          setSelectedLightId(hitLight.id);
+          isDraggingLight.current = true;
+          draggedLightId.current = hitLight.id;
+          dragLightOrigin.current = { x: tile.x, y: tile.y };
+          setLightDragPreview(null);
+        } else {
+          addPointLight(tile.x, tile.y);
+        }
+        return;
+      }
+
       if (editMode === 'event') {
         if (currentMap && currentMap.events) {
           const ev = currentMap.events.find(
@@ -1299,7 +1401,7 @@ export default function MapCanvas() {
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight]
   );
 
   const handleMouseMove = useCallback(
@@ -1307,6 +1409,16 @@ export default function MapCanvas() {
       const tile = canvasToTile(e);
       if (tile) {
         setCursorTile(tile.x, tile.y);
+      }
+
+      // Light dragging
+      if (isDraggingLight.current && tile && dragLightOrigin.current) {
+        if (tile.x !== dragLightOrigin.current.x || tile.y !== dragLightOrigin.current.y) {
+          setLightDragPreview({ x: tile.x, y: tile.y });
+        } else {
+          setLightDragPreview(null);
+        }
+        return;
       }
 
       if (isDraggingEvent.current && tile && dragEventOrigin.current) {
@@ -1346,6 +1458,20 @@ export default function MapCanvas() {
 
   const handleMouseUp = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
+      // Light drag commit
+      if (isDraggingLight.current && draggedLightId.current != null) {
+        const tile = canvasToTile(e);
+        const origin = dragLightOrigin.current;
+        if (tile && origin && (tile.x !== origin.x || tile.y !== origin.y)) {
+          updatePointLight(draggedLightId.current, { x: tile.x, y: tile.y });
+        }
+        isDraggingLight.current = false;
+        draggedLightId.current = null;
+        dragLightOrigin.current = null;
+        setLightDragPreview(null);
+        return;
+      }
+
       if (isDraggingEvent.current && draggedEventId.current != null) {
         const tile = canvasToTile(e);
         const origin = dragEventOrigin.current;
@@ -1389,7 +1515,7 @@ export default function MapCanvas() {
       dragStart.current = null;
       pendingChanges.current = [];
     },
-    [selectedTool, canvasToTile, drawRectangle, drawEllipse, clearOverlay, pushUndo]
+    [selectedTool, canvasToTile, drawRectangle, drawEllipse, clearOverlay, pushUndo, updatePointLight]
   );
 
   const handleDoubleClick = useCallback(
