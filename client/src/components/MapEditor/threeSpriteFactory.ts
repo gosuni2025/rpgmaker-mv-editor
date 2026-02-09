@@ -71,6 +71,9 @@ export function createCharSprite(THREE: any, img: HTMLImageElement, sx: number, 
   canvas.width = sw;
   canvas.height = sh;
   const ctx = canvas.getContext('2d')!;
+  // Mode3D Y-flip 카메라 보정: 캔버스를 미리 뒤집어 그림
+  ctx.translate(0, sh);
+  ctx.scale(1, -1);
   ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.NearestFilter;
@@ -140,6 +143,9 @@ export function createTextSprite(THREE: any, text: string, fontSize: number, col
   canvas.width = 128;
   canvas.height = 32;
   const ctx = canvas.getContext('2d')!;
+  // Mode3D Y-flip 카메라 보정: 캔버스를 미리 뒤집어 그림
+  ctx.translate(0, 32);
+  ctx.scale(1, -1);
   ctx.font = `bold ${fontSize}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

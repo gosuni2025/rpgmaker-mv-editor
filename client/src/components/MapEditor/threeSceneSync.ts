@@ -315,6 +315,9 @@ export function sync3DOverlays(
       canvas.width = objPxW;
       canvas.height = objPxH;
       const ctx = canvas.getContext('2d')!;
+      // Mode3D Y-flip 카메라 보정: 캔버스를 미리 뒤집어 그림
+      ctx.translate(0, objPxH);
+      ctx.scale(1, -1);
       let hasTile = false;
       for (let row = 0; row < mapObj.height; row++) {
         for (let col = 0; col < mapObj.width; col++) {
