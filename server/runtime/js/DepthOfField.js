@@ -52,9 +52,9 @@ window.DepthOfField = DepthOfField;
 
 DepthOfField.config = {
     focusY: 0.55,       // 포커스 중심 Y위치 (0=상단, 1=하단), 캐릭터 약간 아래
-    focusRange: 0.15,   // 선명 영역 반폭
-    maxblur: 0.01,      // 최대 블러
-    blurPower: 2.0      // 블러 증가 커브 (1=선형, 2=이차, 부드러운 전환)
+    focusRange: 0.1,    // 선명 영역 반폭
+    maxblur: 0.05,      // 최대 블러
+    blurPower: 1.5      // 블러 증가 커브 (1=선형, 2=이차, 부드러운 전환)
 };
 
 //=============================================================================
@@ -480,6 +480,13 @@ _ThreeStrategy.render = function(rendererObj, stage) {
     var is3D = ConfigManager.mode3d && Mode3D._spriteset;
     var isDoF = is3D && ConfigManager.depthOfField;
 
+    if (!DepthOfField._loggedOnce && isDoF) {
+        DepthOfField._loggedOnce = true;
+        console.log('[DoF] Render override active, composing via TiltShift');
+        console.log('[DoF] config:', JSON.stringify(DepthOfField.config));
+        console.log('[DoF] composer:', !!DepthOfField._composer, 'tiltShiftPass:', !!DepthOfField._tiltShiftPass);
+    }
+
     if (isDoF) {
         // Composer가 없거나 stage가 바뀌면 재생성
         if (!DepthOfField._composer || DepthOfField._lastStage !== stage) {
@@ -537,6 +544,19 @@ _ThreeStrategy.render = function(rendererObj, stage) {
 
         // 렌더!
         DepthOfField._composer.render();
+
+        if (!DepthOfField._loggedCompose) {
+            DepthOfField._loggedCompose = true;
+            var u = DepthOfField._tiltShiftPass.uniforms;
+            console.log('[DoF] Composed! uniforms: focusY=' + u.focusY.value +
+                ' focusRange=' + u.focusRange.value +
+                ' maxblur=' + u.maxblur.value +
+                ' blurPower=' + u.blurPower.value +
+                ' aspect=' + u.aspect.value);
+            console.log('[DoF] RT size:', DepthOfField._composer.renderTarget1.width,
+                'x', DepthOfField._composer.renderTarget1.height);
+            console.log('[DoF] tColor texture:', !!u.tColor.value);
+        }
 
         Mode3D._active = true;
     } else {
@@ -600,7 +620,7 @@ DepthOfField._createDebugUI = function() {
     var controls = [
         { label: 'Focus Y', key: 'focusY', min: 0, max: 1, step: 0.01, decimals: 2 },
         { label: 'Focus Range', key: 'focusRange', min: 0, max: 0.5, step: 0.01, decimals: 2 },
-        { label: 'Max Blur', key: 'maxblur', min: 0, max: 0.05, step: 0.001, decimals: 3 },
+        { label: 'Max Blur', key: 'maxblur', min: 0, max: 0.2, step: 0.005, decimals: 3 },
         { label: 'Blur Power', key: 'blurPower', min: 0.5, max: 5, step: 0.1, decimals: 1 }
     ];
 
