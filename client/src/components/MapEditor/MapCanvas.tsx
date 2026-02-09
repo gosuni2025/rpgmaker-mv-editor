@@ -37,6 +37,11 @@ function editorRender(rendererObj: any, stage: any) {
       DepthOfField._renderPass.stage = stage;
       DepthOfField._renderPass.scene = rendererObj.scene;
       DepthOfField._renderPass.camera = rendererObj.camera;
+      // UIRenderPass에 최신 참조 반영
+      DepthOfField._uiPass.spriteset = Mode3D._spriteset;
+      DepthOfField._uiPass.stage = stage;
+      DepthOfField._uiPass.scene = rendererObj.scene;
+      DepthOfField._uiPass.camera = rendererObj.camera;
       DepthOfField._updateUniforms();
       // Composer 크기 동기화
       const w = rendererObj._width;
@@ -1125,6 +1130,7 @@ export default function MapCanvas() {
 
     // On-demand render function
     function renderOnce() {
+      console.log('[Shadow] renderOnce ENTRY');
       if (!rendererObjRef.current) return;
       // Skip render if map size changed (useEffect will re-create renderer with new size)
       const latestMap = useEditorStore.getState().currentMap;
@@ -1141,18 +1147,19 @@ export default function MapCanvas() {
       // Sync hierarchy for render order
       strategy._syncHierarchy(rendererObj, stage);
 
-      // Shadow map: 첫 render에서 shadow map 생성 + 두 번째 render에서 적용
-      // on-demand 렌더이므로 shadow map이 항상 최신 상태여야 함
-      if (ShadowLight?._active) {
+      // Shadow map: on-demand 렌더이므로 shadow map이 항상 최신 상태여야 함
+      const _SL = (window as any).ShadowLight;
+      if (_SL?._active) {
         rendererObj.renderer.shadowMap.needsUpdate = true;
       }
+      console.log('[Shadow] renderOnce called, SL active=' + !!(_SL?._active) + ', shadowMapEnabled=' + rendererObj.renderer.shadowMap.enabled);
       editorRender(rendererObj, stage);
 
       // Shadow debug log (one-shot)
-      if (ShadowLight?._active && !(renderOnce as any)._shadowLogged) {
+      if (_SL?._active && !(renderOnce as any)._shadowLogged) {
         (renderOnce as any)._shadowLogged = true;
         const r = rendererObj.renderer;
-        const dl = ShadowLight._directionalLight;
+        const dl = _SL._directionalLight;
         const gl = r.getContext();
         // count cast/recv meshes
         let castCount = 0, recvCount = 0;

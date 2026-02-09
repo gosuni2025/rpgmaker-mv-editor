@@ -341,21 +341,7 @@ MapRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuffer, 
         blackScreenObj.visible = blackScreenWasVisible;
     }
 
-    // Pass 2: OrthographicCamera - UI
-    if (stageObj) {
-        for (var i = 0; i < stageObj.children.length; i++) {
-            var child = stageObj.children[i];
-            child.visible = childVisibility[i];
-            if (child === spritesetObj) {
-                child.visible = false;
-            }
-        }
-    }
-
-    renderer.autoClear = false;
-    renderer.render(scene, this.camera);
-
-    // 가시성 복원
+    // 가시성 복원 (UI는 UIRenderPass에서 별도 렌더)
     if (stageObj) {
         for (var i = 0; i < stageObj.children.length; i++) {
             stageObj.children[i].visible = childVisibility[i];
@@ -408,6 +394,59 @@ TiltShiftPass.prototype.dispose = function() {
     this.fsQuad.dispose();
 };
 
+// --- UIRenderPass (블러 후 UI를 선명하게 합성) ---
+function UIRenderPass(scene, camera, spriteset, stage) {
+    this.scene = scene;
+    this.camera = camera;
+    this.spriteset = spriteset;
+    this.stage = stage;
+    this.enabled = true;
+    this.needsSwap = false;
+    this.renderToScreen = true;
+}
+
+UIRenderPass.prototype.setSize = function() {};
+
+UIRenderPass.prototype.render = function(renderer /*, writeBuffer, readBuffer */) {
+    var scene = this.scene;
+    var stageObj = this.stage ? this.stage._threeObj : null;
+    if (!stageObj) return;
+
+    // spriteset(맵)을 숨기고 UI만 표시
+    var spritesetObj = this.spriteset._threeObj;
+    var childVisibility = [];
+    for (var i = 0; i < stageObj.children.length; i++) {
+        childVisibility.push(stageObj.children[i].visible);
+        stageObj.children[i].visible = (stageObj.children[i] !== spritesetObj) && childVisibility[i];
+    }
+
+    // 하늘도 숨김
+    for (var si = 0; si < scene.children.length; si++) {
+        if (scene.children[si]._isParallaxSky) {
+            scene.children[si].visible = false;
+            break;
+        }
+    }
+
+    renderer.setRenderTarget(null);
+    renderer.autoClear = false;
+    renderer.render(scene, this.camera);
+
+    // 가시성 복원
+    for (var i = 0; i < stageObj.children.length; i++) {
+        stageObj.children[i].visible = childVisibility[i];
+    }
+    for (var si = 0; si < scene.children.length; si++) {
+        if (scene.children[si]._isParallaxSky) {
+            scene.children[si].visible = true;
+            break;
+        }
+    }
+    renderer.autoClear = true;
+};
+
+UIRenderPass.prototype.dispose = function() {};
+
 //=============================================================================
 // DepthOfField - Composer 생성/파괴
 //=============================================================================
@@ -430,7 +469,7 @@ DepthOfField._createComposer = function(rendererObj, stage) {
     );
     composer.addPass(renderPass);
 
-    // TiltShiftPass (화면 Y좌표 기반 DoF)
+    // TiltShiftPass (화면 Y좌표 기반 DoF) - 맵에만 블러
     var tiltShiftPass = new TiltShiftPass({
         focusY: this.config.focusY,
         focusRange: this.config.focusRange,
@@ -440,9 +479,14 @@ DepthOfField._createComposer = function(rendererObj, stage) {
     tiltShiftPass.renderToScreen = true;
     composer.addPass(tiltShiftPass);
 
+    // UIRenderPass - 블러된 맵 위에 UI를 선명하게 합성
+    var uiPass = new UIRenderPass(scene, camera, Mode3D._spriteset, stage);
+    composer.addPass(uiPass);
+
     this._composer = composer;
     this._tiltShiftPass = tiltShiftPass;
     this._renderPass = renderPass;
+    this._uiPass = uiPass;
     this._lastStage = stage;
 };
 
@@ -452,6 +496,7 @@ DepthOfField._disposeComposer = function() {
         this._composer = null;
         this._tiltShiftPass = null;
         this._renderPass = null;
+        this._uiPass = null;
         this._lastStage = null;
     }
 };
@@ -479,13 +524,6 @@ _ThreeStrategy.render = function(rendererObj, stage) {
 
     var is3D = ConfigManager.mode3d && Mode3D._spriteset;
     var isDoF = is3D && ConfigManager.depthOfField;
-
-    if (!DepthOfField._loggedOnce && isDoF) {
-        DepthOfField._loggedOnce = true;
-        console.log('[DoF] Render override active, composing via TiltShift');
-        console.log('[DoF] config:', JSON.stringify(DepthOfField.config));
-        console.log('[DoF] composer:', !!DepthOfField._composer, 'tiltShiftPass:', !!DepthOfField._tiltShiftPass);
-    }
 
     if (isDoF) {
         // Composer가 없거나 stage가 바뀌면 재생성
@@ -530,6 +568,12 @@ _ThreeStrategy.render = function(rendererObj, stage) {
         DepthOfField._renderPass.scene = scene;
         DepthOfField._renderPass.camera = camera;
 
+        // UIRenderPass에 최신 참조 반영
+        DepthOfField._uiPass.spriteset = Mode3D._spriteset;
+        DepthOfField._uiPass.stage = stage;
+        DepthOfField._uiPass.scene = scene;
+        DepthOfField._uiPass.camera = camera;
+
         // uniform 갱신
         DepthOfField._updateUniforms();
 
@@ -544,19 +588,6 @@ _ThreeStrategy.render = function(rendererObj, stage) {
 
         // 렌더!
         DepthOfField._composer.render();
-
-        if (!DepthOfField._loggedCompose) {
-            DepthOfField._loggedCompose = true;
-            var u = DepthOfField._tiltShiftPass.uniforms;
-            console.log('[DoF] Composed! uniforms: focusY=' + u.focusY.value +
-                ' focusRange=' + u.focusRange.value +
-                ' maxblur=' + u.maxblur.value +
-                ' blurPower=' + u.blurPower.value +
-                ' aspect=' + u.aspect.value);
-            console.log('[DoF] RT size:', DepthOfField._composer.renderTarget1.width,
-                'x', DepthOfField._composer.renderTarget1.height);
-            console.log('[DoF] tColor texture:', !!u.tColor.value);
-        }
 
         Mode3D._active = true;
     } else {
