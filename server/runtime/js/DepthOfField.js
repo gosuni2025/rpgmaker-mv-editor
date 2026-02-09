@@ -421,16 +421,21 @@ UIRenderPass.prototype.render = function(renderer /*, writeBuffer, readBuffer */
     }
 
     // 하늘도 숨김
+    var skyWasVisible = false;
     for (var si = 0; si < scene.children.length; si++) {
         if (scene.children[si]._isParallaxSky) {
+            skyWasVisible = scene.children[si].visible;
             scene.children[si].visible = false;
             break;
         }
     }
 
-    renderer.setRenderTarget(null);
+    // 블러된 맵 위에 UI를 합성 (clear 하지 않음)
+    var prevAutoClear = renderer.autoClear;
     renderer.autoClear = false;
+    renderer.setRenderTarget(null);
     renderer.render(scene, this.camera);
+    renderer.autoClear = prevAutoClear;
 
     // 가시성 복원
     for (var i = 0; i < stageObj.children.length; i++) {
@@ -438,11 +443,10 @@ UIRenderPass.prototype.render = function(renderer /*, writeBuffer, readBuffer */
     }
     for (var si = 0; si < scene.children.length; si++) {
         if (scene.children[si]._isParallaxSky) {
-            scene.children[si].visible = true;
+            scene.children[si].visible = skyWasVisible;
             break;
         }
     }
-    renderer.autoClear = true;
 };
 
 UIRenderPass.prototype.dispose = function() {};
