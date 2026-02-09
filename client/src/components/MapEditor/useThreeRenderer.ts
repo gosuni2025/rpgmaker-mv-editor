@@ -666,6 +666,7 @@ export function useThreeRenderer(
         fillMesh.position.set(cx, cy, 5.5);
         fillMesh.renderOrder = 9990;
         fillMesh.frustumCulled = false;
+        fillMesh.userData.editorGrid = true;
         rendererObj.scene.add(fillMesh);
         eventOverlayMeshesRef.current.push(fillMesh);
       }
@@ -686,27 +687,28 @@ export function useThreeRenderer(
       line.position.set(cx, cy, 5.8);
       line.renderOrder = 9991;
       line.frustumCulled = false;
+      line.userData.editorGrid = true;
       rendererObj.scene.add(line);
       eventOverlayMeshesRef.current.push(line);
 
       // 이벤트 이름 라벨
       const displayName = ev.name || `EV${String(ev.id).padStart(3, '0')}`;
       const cvs = document.createElement('canvas');
-      cvs.width = 128;
-      cvs.height = 24;
+      cvs.width = 256;
+      cvs.height = 48;
       const ctx = cvs.getContext('2d')!;
-      ctx.clearRect(0, 0, 128, 24);
+      ctx.clearRect(0, 0, 256, 48);
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 12px sans-serif';
+      ctx.font = 'bold 24px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.shadowColor = '#000';
-      ctx.shadowBlur = 3;
-      ctx.fillText(displayName, 64, 2, 124);
+      ctx.shadowBlur = 4;
+      ctx.fillText(displayName, 128, 4, 248);
       const tex = new THREE.CanvasTexture(cvs);
       tex.minFilter = THREE.LinearFilter;
       const labelW = TILE_SIZE_PX;
-      const labelH = TILE_SIZE_PX * (24 / 128);
+      const labelH = TILE_SIZE_PX * (48 / 256);
       const labelGeom = new THREE.PlaneGeometry(labelW, labelH);
       const labelMat = new THREE.MeshBasicMaterial({
         map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
@@ -715,6 +717,7 @@ export function useThreeRenderer(
       labelMesh.position.set(cx, ey + 2 + labelH / 2, 5.9);
       labelMesh.renderOrder = 9992;
       labelMesh.frustumCulled = false;
+      labelMesh.userData.editorGrid = true;
       rendererObj.scene.add(labelMesh);
       eventOverlayMeshesRef.current.push(labelMesh);
     }
