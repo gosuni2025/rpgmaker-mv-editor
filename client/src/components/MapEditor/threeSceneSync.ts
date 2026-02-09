@@ -32,6 +32,7 @@ export function editorRender(rendererObj: any, stage: any) {
       Mode3D._perspCamera = Mode3D._createPerspCamera(rendererObj._width, rendererObj._height);
     }
     Mode3D._positionCamera(Mode3D._perspCamera, rendererObj._width, rendererObj._height);
+    Mode3D._applyBillboards();
     Mode3D._enforceNearestFilter(rendererObj.scene);
 
     // DoF 활성 시 composer 사용

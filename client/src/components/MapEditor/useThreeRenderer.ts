@@ -215,8 +215,8 @@ export function useThreeRenderer(
         spriteset._tilemap._needsRepaint = true;
       }
 
-      // Mode3D에 spriteset 설정
-      Mode3D._spriteset = spriteset._tilemap;
+      // Mode3D._spriteset은 Spriteset_Map.initialize에서 자동 설정됨 (= this)
+      // 별도 설정 불필요
 
       // stage에 spriteset 추가
       stage.addChild(spriteset);
