@@ -123,6 +123,7 @@ export function useThreeRenderer(
   // Overlay refs
   const regionMeshesRef = useRef<any[]>([]);
   const objectMeshesRef = useRef<any[]>([]);
+  const eventOverlayMeshesRef = useRef<any[]>([]);
   const cursorMeshRef = useRef<any>(null);
   const selectionMeshRef = useRef<any>(null);
   const dragPreviewMeshesRef = useRef<any[]>([]);
@@ -266,7 +267,8 @@ export function useThreeRenderer(
       gridLines.position.z = 5;
       gridLines.visible = true;
       gridLines.frustumCulled = false;
-      stage._threeObj.add(gridLines);  // stageObj의 자식 → 2D/3D 동일 패스에서 렌더
+      gridLines.userData.editorGrid = true;  // Mode3D에서 Pass별 visibility 제어용
+      rendererObj.scene.add(gridLines);
       gridMeshRef.current = gridLines;
 
       // --- 렌더 루프 ---
@@ -519,6 +521,106 @@ export function useThreeRenderer(
     }
     requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
   }, [currentMap, currentLayer, mode3d]);
+
+  // Sync event overlay (border + name) in event edit mode
+  useEffect(() => {
+    const rendererObj = rendererObjRef.current;
+    if (!rendererObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    // Dispose existing event overlay meshes
+    for (const m of eventOverlayMeshesRef.current) {
+      rendererObj.scene.remove(m);
+      if (m.material?.map) m.material.map.dispose();
+      m.geometry?.dispose();
+      m.material?.dispose();
+    }
+    eventOverlayMeshesRef.current = [];
+
+    if (editMode !== 'event' || !currentMap?.events) {
+      requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
+      return;
+    }
+
+    const events = currentMap.events;
+    for (let i = 1; i < events.length; i++) {
+      const ev = events[i];
+      if (!ev) continue;
+
+      const ex = ev.x * TILE_SIZE_PX;
+      const ey = ev.y * TILE_SIZE_PX;
+      const cx = ex + TILE_SIZE_PX / 2;
+      const cy = ey + TILE_SIZE_PX / 2;
+
+      // 이미지가 없는 이벤트: 반투명 파란 배경
+      const hasImage = ev.pages && ev.pages[0] && (
+        ev.pages[0].characterName || ev.pages[0].tileId > 0
+      );
+      if (!hasImage) {
+        const fillGeom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
+        const fillMat = new THREE.MeshBasicMaterial({
+          color: 0x0078d4, opacity: 0.35, transparent: true, depthTest: false, side: THREE.DoubleSide,
+        });
+        const fillMesh = new THREE.Mesh(fillGeom, fillMat);
+        fillMesh.position.set(cx, cy, 5.5);
+        fillMesh.renderOrder = 9990;
+        fillMesh.frustumCulled = false;
+        rendererObj.scene.add(fillMesh);
+        eventOverlayMeshesRef.current.push(fillMesh);
+      }
+
+      // 파란색 테두리
+      const hw = TILE_SIZE_PX / 2 - 1;
+      const hh = TILE_SIZE_PX / 2 - 1;
+      const pts = [
+        new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+        new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+        new THREE.Vector3(-hw, -hh, 0),
+      ];
+      const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+      const lineMat = new THREE.LineBasicMaterial({
+        color: 0x0078d4, depthTest: false, transparent: true, opacity: 1.0,
+      });
+      const line = new THREE.Line(lineGeom, lineMat);
+      line.position.set(cx, cy, 5.8);
+      line.renderOrder = 9991;
+      line.frustumCulled = false;
+      rendererObj.scene.add(line);
+      eventOverlayMeshesRef.current.push(line);
+
+      // 이벤트 이름 라벨
+      const displayName = ev.name || `EV${String(ev.id).padStart(3, '0')}`;
+      const cvs = document.createElement('canvas');
+      cvs.width = 128;
+      cvs.height = 24;
+      const ctx = cvs.getContext('2d')!;
+      ctx.clearRect(0, 0, 128, 24);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 3;
+      ctx.fillText(displayName, 64, 2, 124);
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.minFilter = THREE.LinearFilter;
+      const labelW = TILE_SIZE_PX;
+      const labelH = TILE_SIZE_PX * (24 / 128);
+      const labelGeom = new THREE.PlaneGeometry(labelW, labelH);
+      const labelMat = new THREE.MeshBasicMaterial({
+        map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
+      });
+      const labelMesh = new THREE.Mesh(labelGeom, labelMat);
+      labelMesh.position.set(cx, ey + 2 + labelH / 2, 5.9);
+      labelMesh.renderOrder = 9992;
+      labelMesh.frustumCulled = false;
+      rendererObj.scene.add(labelMesh);
+      eventOverlayMeshesRef.current.push(labelMesh);
+    }
+
+    requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
+  }, [editMode, currentMap?.events]);
 
   // Sync drag previews (event/light/object drag) via Three.js
   useEffect(() => {

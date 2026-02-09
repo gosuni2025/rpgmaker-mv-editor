@@ -348,12 +348,19 @@
                 }
             }
 
-            // Hide editor overlay meshes (grid, region, drag preview etc.)
-            // during Pass 1 - they are scene direct children with high renderOrder
+            // Editor overlay visibility for Pass 1 (PerspectiveCamera)
+            // - editorGrid: SHOW in Pass 1 (3D perspective grid)
+            // - other overlays (renderOrder >= 9998): HIDE in Pass 1
             var overlayVisibility = [];
+            var gridVisibility = [];
             for (var oi = 0; oi < scene.children.length; oi++) {
                 var obj = scene.children[oi];
-                if (obj !== stageObj && obj.renderOrder >= 9998) {
+                if (obj === stageObj) continue;
+                if (obj.userData && obj.userData.editorGrid) {
+                    // Grid: save state, keep visible for Pass 1
+                    gridVisibility.push({ idx: oi, visible: obj.visible });
+                } else if (obj.renderOrder >= 9998) {
+                    // Other overlays: hide for Pass 1
                     overlayVisibility.push({ idx: oi, visible: obj.visible });
                     obj.visible = false;
                 }
@@ -367,7 +374,10 @@
                 blackScreenObj.visible = blackScreenWasVisible;
             }
 
-            // Restore overlay visibility for Pass 2
+            // Pass 2 prep: hide grid, restore other overlays
+            for (var oi = 0; oi < gridVisibility.length; oi++) {
+                scene.children[gridVisibility[oi].idx].visible = false;
+            }
             for (var oi = 0; oi < overlayVisibility.length; oi++) {
                 scene.children[overlayVisibility[oi].idx].visible =
                     overlayVisibility[oi].visible;
@@ -392,6 +402,11 @@
                 for (var i = 0; i < stageObj.children.length; i++) {
                     stageObj.children[i].visible = childVisibility[i];
                 }
+            }
+            // Restore grid visibility after Pass 2
+            for (var oi = 0; oi < gridVisibility.length; oi++) {
+                scene.children[gridVisibility[oi].idx].visible =
+                    gridVisibility[oi].visible;
             }
             renderer.autoClear = true;
             renderer.shadowMap.autoUpdate = prevShadowAutoUpdate;
