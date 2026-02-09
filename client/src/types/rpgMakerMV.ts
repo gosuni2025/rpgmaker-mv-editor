@@ -427,6 +427,7 @@ export interface EditorPointLight {
   id: number;
   x: number;
   y: number;
+  z: number;
   color: string;
   intensity: number;
   distance: number;

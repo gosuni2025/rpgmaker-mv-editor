@@ -565,7 +565,7 @@ const useEditorStore = create<EditorState>((set, get) => ({
     if (!map || !map.editorLights) return;
     const points = [...map.editorLights.points];
     const newId = points.length > 0 ? Math.max(...points.map(p => p.id)) + 1 : 1;
-    const newLight: EditorPointLight = { id: newId, x, y, color: '#ffcc88', intensity: 1.0, distance: 150, decay: 0 };
+    const newLight: EditorPointLight = { id: newId, x, y, z: 30, color: '#ffcc88', intensity: 1.0, distance: 150, decay: 0 };
     points.push(newLight);
     set({
       currentMap: { ...map, editorLights: { ...map.editorLights, points } },

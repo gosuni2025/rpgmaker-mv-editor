@@ -162,8 +162,39 @@ export default function LightInspector() {
         <div className="light-inspector-section">
           <div className="light-inspector-title">포인트 라이트 #{selectedPoint.id}</div>
           <div className="light-inspector-row">
-            <span className="light-inspector-label">위치</span>
-            <span style={{ fontSize: 12, color: '#ccc' }}>({selectedPoint.x}, {selectedPoint.y})</span>
+            <span className="light-inspector-label">X</span>
+            <input
+              type="number"
+              className="light-inspector-input"
+              value={selectedPoint.x}
+              onChange={(e) => updatePointLight(selectedPoint.id, { x: parseInt(e.target.value) || 0 })}
+            />
+          </div>
+          <div className="light-inspector-row">
+            <span className="light-inspector-label">Y</span>
+            <input
+              type="number"
+              className="light-inspector-input"
+              value={selectedPoint.y}
+              onChange={(e) => updatePointLight(selectedPoint.id, { y: parseInt(e.target.value) || 0 })}
+            />
+          </div>
+          <div className="light-inspector-row">
+            <span className="light-inspector-label">Z (높이)</span>
+            <input
+              type="range"
+              className="light-inspector-slider"
+              min={0} max={200} step={1}
+              value={selectedPoint.z}
+              onChange={(e) => updatePointLight(selectedPoint.id, { z: parseFloat(e.target.value) })}
+            />
+            <input
+              type="number"
+              className="light-inspector-input"
+              min={0} max={200} step={1}
+              value={selectedPoint.z}
+              onChange={(e) => updatePointLight(selectedPoint.id, { z: parseFloat(e.target.value) || 0 })}
+            />
           </div>
           <div className="light-inspector-row">
             <span className="light-inspector-label">색상</span>

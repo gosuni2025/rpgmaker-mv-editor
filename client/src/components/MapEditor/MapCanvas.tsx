@@ -55,7 +55,7 @@ function syncEditorLightsToScene(scene: any, editorLights: EditorLights | undefi
     const light = new THREE.PointLight(pl.color, pl.intensity, pl.distance, pl.decay);
     const px = pl.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
     const py = pl.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
-    light.position.set(px, py, ShadowLight.config?.playerLightZ || 30);
+    light.position.set(px, py, pl.z ?? ShadowLight.config?.playerLightZ ?? 30);
     scene.add(light);
     ShadowLight._editorPointLights.push(light);
   }
@@ -795,14 +795,13 @@ export default function MapCanvas() {
         ctx.lineWidth = isSelected ? 3 : 1.5;
         ctx.stroke();
 
-        // Label
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 9px sans-serif';
+        // Label (lightbulb emoji)
+        ctx.font = '16px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.shadowColor = '#000';
-        ctx.shadowBlur = 2;
-        ctx.fillText('L', lx, ly);
+        ctx.shadowBlur = 3;
+        ctx.fillText('💡', lx, ly);
         ctx.shadowBlur = 0;
       }
     }
