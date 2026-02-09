@@ -197,6 +197,7 @@ ShadowLight.config = {
     shadowOpacity: 0.4,
     shadowColor: 0x000000,
     shadowOffsetScale: 0.6,           // 광원 방향에 따른 오프셋 스케일
+    shadowRadius: 1,                  // 실시간 그림자 블러 반경
     shadowMapSize: 2048,              // 디렉셔널 그림자 맵 해상도
     shadowBias: -0.001,
     shadowNear: 1,
@@ -410,6 +411,7 @@ ShadowLight._addLightsToScene = function(scene) {
     this._directionalLight.shadow.camera.near = 1;
     this._directionalLight.shadow.camera.far = 5000;
     this._directionalLight.shadow.bias = -0.001;
+    this._directionalLight.shadow.radius = this.config.shadowRadius;
 
     // target을 화면 중심으로 설정 (스프라이트가 화면 좌표계에 있으므로)
     var vw2 = (typeof Graphics !== 'undefined' ? Graphics._width : 816) / 2;
@@ -435,6 +437,7 @@ ShadowLight._addLightsToScene = function(scene) {
     this._playerSpotLight.shadow.camera.near = 1;
     this._playerSpotLight.shadow.camera.far = this.config.spotLightDistance + 100;
     this._playerSpotLight.shadow.bias = -0.002;
+    this._playerSpotLight.shadow.radius = this.config.shadowRadius;
     this._playerSpotLight.visible = this.config.spotLightEnabled;
 
     // SpotLight target (플레이어 앞 방향)
@@ -528,6 +531,7 @@ ShadowLight._createShadowMesh = function() {
     this._ensureShadowMaterial();
     var geo = new THREE.PlaneGeometry(1, 1);
     var mesh = new THREE.Mesh(geo, this._shadowMaterial);
+    mesh.renderOrder = 1; // 타일맵보다 나중에 렌더링하여 보이도록
     return mesh;
 };
 
@@ -1079,6 +1083,14 @@ ShadowLight._createDebugUI = function() {
                     });
                 }
             }
+            if (c.key === 'shadowRadius') {
+                if (self._directionalLight) {
+                    self._directionalLight.shadow.radius = v;
+                }
+                if (self._playerSpotLight) {
+                    self._playerSpotLight.shadow.radius = v;
+                }
+            }
         });
 
         row.appendChild(lbl);
@@ -1365,6 +1377,7 @@ ShadowLight._createDebugUI = function() {
 
     // ── 그림자 설정 섹션 ──
     var shadowBody = createSection(panel, '그림자 설정', '#cc99ff', true);
+    addSliderRow(shadowBody, { label: 'Radius', key: 'shadowRadius', min: 0, max: 10, step: 0.5 });
     addSliderRow(shadowBody, { label: 'Opacity', key: 'shadowOpacity', min: 0, max: 1, step: 0.05 });
     addSliderRow(shadowBody, { label: 'Offset', key: 'shadowOffsetScale', min: 0, max: 3, step: 0.1 });
     addColorRow(shadowBody, { label: 'Shadow Color', key: 'shadowColor' });
@@ -1483,6 +1496,7 @@ ShadowLight._createDebugUI = function() {
             'shadowNear: ' + cfg.shadowNear,
             'shadowFar: ' + cfg.shadowFar,
             '--- 그림자 설정 ---',
+            'shadowRadius: ' + cfg.shadowRadius,
             'shadowOpacity: ' + cfg.shadowOpacity,
             'shadowColor: 0x' + ('000000' + ((cfg.shadowColor || 0) >>> 0).toString(16)).slice(-6),
             'shadowOffsetScale: ' + cfg.shadowOffsetScale,
