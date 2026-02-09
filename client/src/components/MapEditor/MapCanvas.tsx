@@ -958,8 +958,9 @@ export default function MapCanvas() {
     // On-demand render function
     function renderOnce() {
       if (!rendererObjRef.current) return;
-      // Sync map data if changed
+      // Skip render if map size changed (useEffect will re-create renderer with new size)
       const latestMap = useEditorStore.getState().currentMap;
+      if (latestMap && (latestMap.width * TILE_SIZE_PX !== mapPxW || latestMap.height * TILE_SIZE_PX !== mapPxH)) return;
       if (latestMap && latestMap.data !== lastMapDataRef.current) {
         tilemap._mapData = [...latestMap.data];
         tilemap._needsRepaint = true;
@@ -2210,7 +2211,14 @@ export default function MapCanvas() {
       // Light edit mode: place or select lights
       if (lightEditMode && selectedLightType === 'point') {
         const lights = currentMap?.editorLights?.points || [];
-        const hitLight = lights.find(l => l.x === tile.x && l.y === tile.y);
+        const hitLight = lights.find(l => {
+          if (l.x === tile.x && l.y === tile.y) return true;
+          // Z 오프셋에 의한 시각적 위치도 히트 가능
+          const zOffset = (l.z ?? 0) * 0.5;
+          const visualY = l.y * TILE_SIZE_PX + TILE_SIZE_PX / 2 - zOffset;
+          const visualTileY = Math.floor(visualY / TILE_SIZE_PX);
+          return l.x === tile.x && visualTileY === tile.y;
+        });
         if (hitLight) {
           setSelectedLightId(hitLight.id);
           isDraggingLight.current = true;
