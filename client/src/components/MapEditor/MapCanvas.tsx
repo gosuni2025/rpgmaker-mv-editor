@@ -828,7 +828,7 @@ export default function MapCanvas() {
       ctx.lineWidth = 2;
       ctx.strokeRect(dx + 1, dy + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
     }
-  }, [currentMap, charImages, showGrid, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex, dragPreview, mode3d, lightEditMode, selectedLightId, lightDragPreview]);
+  }, [currentMap, charImages, showGrid, editMode, currentLayer, systemData, currentMapId, playerCharImg, playerCharacterName, playerCharacterIndex, dragPreview, mode3d, shadowLight, lightEditMode, selectedLightId, lightDragPreview]);
 
   // =========================================================================
   // Coordinate conversion
