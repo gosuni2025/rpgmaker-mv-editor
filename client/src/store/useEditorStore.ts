@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import apiClient from '../api/client';
-import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, EditorAmbientLight, EditorDirectionalLight, EditorLights, MapObject, RPGEvent } from '../types/rpgMakerMV';
+import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, EditorAmbientLight, EditorDirectionalLight, EditorPlayerLight, EditorSpotLight, EditorShadowSettings, EditorLights, MapObject, RPGEvent } from '../types/rpgMakerMV';
 import { DEFAULT_EDITOR_LIGHTS } from '../types/rpgMakerMV';
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
 
@@ -211,6 +211,9 @@ export interface EditorState {
   deletePointLight: (id: number) => void;
   updateAmbientLight: (updates: Partial<EditorAmbientLight>) => void;
   updateDirectionalLight: (updates: Partial<EditorDirectionalLight>) => void;
+  updatePlayerLight: (updates: Partial<EditorPlayerLight>) => void;
+  updateSpotLight: (updates: Partial<EditorSpotLight>) => void;
+  updateShadowSettings: (updates: Partial<EditorShadowSettings>) => void;
 
   // Actions - Start position
   setPlayerStartPosition: (mapId: number, x: number, y: number) => Promise<void>;
@@ -967,6 +970,51 @@ const useEditorStore = create<EditorState>((set, get) => ({
       undoStack: newStack,
       redoStack: [],
     });
+  },
+
+  updatePlayerLight: (updates: Partial<EditorPlayerLight>) => {
+    const { currentMap: map, currentMapId, undoStack, selectedLightId } = get();
+    if (!map || !map.editorLights || !currentMapId) return;
+    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
+    const cur = map.editorLights.playerLight ?? { color: '#a25f06', intensity: 0.8, distance: 200, z: 40 };
+    const newLights = { ...map.editorLights, playerLight: { ...cur, ...updates } };
+    const historyEntry: LightHistoryEntry = {
+      mapId: currentMapId, type: 'light', oldLights, newLights: JSON.parse(JSON.stringify(newLights)),
+      oldSelectedLightId: selectedLightId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({ currentMap: { ...map, editorLights: newLights }, undoStack: newStack, redoStack: [] });
+  },
+
+  updateSpotLight: (updates: Partial<EditorSpotLight>) => {
+    const { currentMap: map, currentMapId, undoStack, selectedLightId } = get();
+    if (!map || !map.editorLights || !currentMapId) return;
+    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
+    const cur = map.editorLights.spotLight ?? { enabled: true, color: '#ffeedd', intensity: 0.8, distance: 250, angle: 0.60, penumbra: 0.9, z: 120, shadowMapSize: 2048, targetDistance: 70 };
+    const newLights = { ...map.editorLights, spotLight: { ...cur, ...updates } };
+    const historyEntry: LightHistoryEntry = {
+      mapId: currentMapId, type: 'light', oldLights, newLights: JSON.parse(JSON.stringify(newLights)),
+      oldSelectedLightId: selectedLightId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({ currentMap: { ...map, editorLights: newLights }, undoStack: newStack, redoStack: [] });
+  },
+
+  updateShadowSettings: (updates: Partial<EditorShadowSettings>) => {
+    const { currentMap: map, currentMapId, undoStack, selectedLightId } = get();
+    if (!map || !map.editorLights || !currentMapId) return;
+    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
+    const cur = map.editorLights.shadow ?? { opacity: 0.4, color: '#000000', offsetScale: 0.6 };
+    const newLights = { ...map.editorLights, shadow: { ...cur, ...updates } };
+    const historyEntry: LightHistoryEntry = {
+      mapId: currentMapId, type: 'light', oldLights, newLights: JSON.parse(JSON.stringify(newLights)),
+      oldSelectedLightId: selectedLightId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > MAX_UNDO) newStack.shift();
+    set({ currentMap: { ...map, editorLights: newLights }, undoStack: newStack, redoStack: [] });
   },
 
   // Start position

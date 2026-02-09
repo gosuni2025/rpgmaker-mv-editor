@@ -457,16 +457,52 @@ export interface EditorDirectionalLight {
   color: string;
   intensity: number;
   direction: [number, number, number];
+  castShadow?: boolean;
+  shadowMapSize?: number;
+  shadowBias?: number;
+  shadowNear?: number;
+  shadowFar?: number;
+}
+
+export interface EditorPlayerLight {
+  color: string;
+  intensity: number;
+  distance: number;
+  z: number;
+}
+
+export interface EditorSpotLight {
+  enabled: boolean;
+  color: string;
+  intensity: number;
+  distance: number;
+  angle: number;
+  penumbra: number;
+  z: number;
+  shadowMapSize: number;
+  targetDistance: number;
+}
+
+export interface EditorShadowSettings {
+  opacity: number;
+  color: string;
+  offsetScale: number;
 }
 
 export interface EditorLights {
   ambient: EditorAmbientLight;
   directional: EditorDirectionalLight;
   points: EditorPointLight[];
+  playerLight?: EditorPlayerLight;
+  spotLight?: EditorSpotLight;
+  shadow?: EditorShadowSettings;
 }
 
 export const DEFAULT_EDITOR_LIGHTS: EditorLights = {
   ambient: { color: '#667788', intensity: 0.4 },
-  directional: { color: '#fff8ee', intensity: 0.1, direction: [-1, -1, -2] },
+  directional: { color: '#fff8ee', intensity: 0.1, direction: [-1, -1, -2], castShadow: true, shadowMapSize: 2048, shadowBias: -0.001, shadowNear: 1, shadowFar: 5000 },
   points: [],
+  playerLight: { color: '#a25f06', intensity: 0.8, distance: 200, z: 40 },
+  spotLight: { enabled: true, color: '#ffeedd', intensity: 0.8, distance: 250, angle: 0.60, penumbra: 0.9, z: 120, shadowMapSize: 2048, targetDistance: 70 },
+  shadow: { opacity: 0.4, color: '#000000', offsetScale: 0.6 },
 };

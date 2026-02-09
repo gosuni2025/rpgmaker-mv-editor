@@ -84,10 +84,64 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
 
   // Update directional light
   if (ShadowLight._directionalLight) {
-    ShadowLight._directionalLight.color.set(editorLights.directional.color);
-    ShadowLight._directionalLight.intensity = editorLights.directional.intensity;
-    const d = editorLights.directional.direction;
-    ShadowLight._directionalLight.position.set(-d[0] * 1000, -d[1] * 1000, -d[2] * 1000);
+    const dl = ShadowLight._directionalLight;
+    const ed = editorLights.directional;
+    dl.color.set(ed.color);
+    dl.intensity = ed.intensity;
+    const d = ed.direction;
+    dl.position.set(-d[0] * 1000, -d[1] * 1000, -d[2] * 1000);
+    if (ed.castShadow !== undefined) dl.castShadow = ed.castShadow;
+    if (ed.shadowMapSize !== undefined) {
+      dl.shadow.mapSize.width = ed.shadowMapSize;
+      dl.shadow.mapSize.height = ed.shadowMapSize;
+    }
+    if (ed.shadowBias !== undefined) dl.shadow.bias = ed.shadowBias;
+    if (ed.shadowNear !== undefined) dl.shadow.camera.near = ed.shadowNear;
+    if (ed.shadowFar !== undefined) dl.shadow.camera.far = ed.shadowFar;
+  }
+
+  // Update player light
+  if (ShadowLight._playerLight && editorLights.playerLight) {
+    const pl = editorLights.playerLight;
+    ShadowLight._playerLight.color.set(pl.color);
+    ShadowLight._playerLight.intensity = pl.intensity;
+    ShadowLight._playerLight.distance = pl.distance;
+    ShadowLight.config.playerLightZ = pl.z;
+    ShadowLight.config.playerLightColor = parseInt(pl.color.replace('#', ''), 16);
+    ShadowLight.config.playerLightIntensity = pl.intensity;
+    ShadowLight.config.playerLightDistance = pl.distance;
+  }
+
+  // Update spot light
+  if (ShadowLight._playerSpotLight && editorLights.spotLight) {
+    const sl = editorLights.spotLight;
+    const spot = ShadowLight._playerSpotLight;
+    spot.visible = sl.enabled;
+    spot.color.set(sl.color);
+    spot.intensity = sl.intensity;
+    spot.distance = sl.distance;
+    spot.angle = sl.angle;
+    spot.penumbra = sl.penumbra;
+    if (sl.shadowMapSize) {
+      spot.shadow.mapSize.width = sl.shadowMapSize;
+      spot.shadow.mapSize.height = sl.shadowMapSize;
+    }
+    ShadowLight.config.spotLightEnabled = sl.enabled;
+    ShadowLight.config.spotLightColor = parseInt(sl.color.replace('#', ''), 16);
+    ShadowLight.config.spotLightIntensity = sl.intensity;
+    ShadowLight.config.spotLightDistance = sl.distance;
+    ShadowLight.config.spotLightAngle = sl.angle;
+    ShadowLight.config.spotLightPenumbra = sl.penumbra;
+    ShadowLight.config.spotLightZ = sl.z;
+    ShadowLight.config.spotLightTargetDistance = sl.targetDistance;
+  }
+
+  // Update shadow settings
+  if (editorLights.shadow) {
+    const ss = editorLights.shadow;
+    ShadowLight.config.shadowOpacity = ss.opacity;
+    ShadowLight.config.shadowColor = parseInt(ss.color.replace('#', ''), 16);
+    ShadowLight.config.shadowOffsetScale = ss.offsetScale;
   }
 
   // Remove existing editor point lights + markers from scene
