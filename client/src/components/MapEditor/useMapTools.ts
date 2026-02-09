@@ -30,8 +30,8 @@ export interface MapToolsResult {
 const EDGE_THRESHOLD = 16;
 
 export function useMapTools(
-  webglCanvasRef: React.RefObject<HTMLCanvasElement>,
-  overlayRef: React.RefObject<HTMLCanvasElement>,
+  webglCanvasRef: React.RefObject<HTMLCanvasElement | null>,
+  overlayRef: React.RefObject<HTMLCanvasElement | null>,
   pendingChanges: React.MutableRefObject<TileChange[]>,
   shadowPaintMode: React.MutableRefObject<boolean>,
   shadowPainted: React.MutableRefObject<Set<string>>,

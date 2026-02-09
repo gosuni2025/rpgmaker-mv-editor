@@ -8,7 +8,7 @@ interface KeyboardShortcutsResult {
 }
 
 export function useKeyboardShortcuts(
-  containerRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLDivElement | null>,
 ): KeyboardShortcutsResult {
   const [altPressed, setAltPressed] = useState(false);
   const [showGrid, setShowGrid] = useState(true);

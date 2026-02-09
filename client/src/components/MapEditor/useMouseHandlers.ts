@@ -38,7 +38,7 @@ export interface MouseHandlersResult {
 }
 
 export function useMouseHandlers(
-  webglCanvasRef: React.RefObject<HTMLCanvasElement>,
+  webglCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   tools: MapToolsResult,
   pendingChanges: React.MutableRefObject<TileChange[]>,
 ): MouseHandlersResult {

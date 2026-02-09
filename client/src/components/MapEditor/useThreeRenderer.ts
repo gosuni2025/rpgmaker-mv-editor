@@ -29,7 +29,7 @@ export interface ThreeRendererRefs {
 }
 
 export function useThreeRenderer(
-  webglCanvasRef: React.RefObject<HTMLCanvasElement>,
+  webglCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   tilesetImages: Record<number, HTMLImageElement>,
   charImages: Record<string, HTMLImageElement>,
   playerCharImg: HTMLImageElement | null,

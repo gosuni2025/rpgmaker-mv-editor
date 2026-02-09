@@ -3,7 +3,7 @@ import useEditorStore from '../../store/useEditorStore';
 import { TILE_SIZE_PX, getTileRenderInfo } from '../../utils/tileHelper';
 
 export function useOverlayRenderer(
-  overlayRef: React.RefObject<HTMLCanvasElement>,
+  overlayRef: React.RefObject<HTMLCanvasElement | null>,
   tilesetImages: Record<number, HTMLImageElement>,
   charImages: Record<string, HTMLImageElement>,
   playerCharImg: HTMLImageElement | null,
