@@ -624,24 +624,35 @@ export function useThreeRenderer(
   }, [systemData, currentMapId, playerCharacterName, playerCharacterIndex]);
 
   // Sync event overlay (border + name) in event edit mode
+  // 캐릭터 스프라이트의 _threeObj에 자식으로 추가 → 3D 빌보드 자동 적용
   useEffect(() => {
+    const spriteset = spritesetRef.current;
     const rendererObj = rendererObjRef.current;
     if (!rendererObj) return;
     const THREE = (window as any).THREE;
     if (!THREE) return;
 
-    // Dispose existing event overlay meshes
+    // Dispose: 이전 오버레이 제거 (부모에서 remove)
     for (const m of eventOverlayMeshesRef.current) {
-      rendererObj.scene.remove(m);
+      if (m.parent) m.parent.remove(m);
       if (m.material?.map) m.material.map.dispose();
       m.geometry?.dispose();
       m.material?.dispose();
     }
     eventOverlayMeshesRef.current = [];
 
-    if (editMode !== 'event' || !currentMap?.events) {
+    if (editMode !== 'event' || !currentMap?.events || !spriteset?._characterSprites) {
       requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
       return;
+    }
+
+    // eventId → Sprite_Character 맵 구축
+    const charSprites = spriteset._characterSprites as any[];
+    const eventSpriteMap = new Map<number, any>();
+    for (const cs of charSprites) {
+      if (cs._character && cs._character._eventId) {
+        eventSpriteMap.set(cs._character._eventId, cs);
+      }
     }
 
     const events = currentMap.events;
@@ -649,12 +660,11 @@ export function useThreeRenderer(
       const ev = events[i];
       if (!ev) continue;
 
-      const ex = ev.x * TILE_SIZE_PX;
-      const ey = ev.y * TILE_SIZE_PX;
-      const cx = ex + TILE_SIZE_PX / 2;
-      const cy = ey + TILE_SIZE_PX / 2;
+      const sprite = eventSpriteMap.get(ev.id);
+      // 스프라이트의 _threeObj가 있으면 거기에 자식으로 추가
+      const parentObj = sprite?._threeObj;
 
-      // 이미지가 없는 이벤트: 반투명 파란 배경
+      // 이미지가 없는 이벤트: 반투명 파란 배경 (scene에 직접 추가)
       const hasImage = ev.pages && ev.pages[0]?.image && (
         ev.pages[0].image.characterName || ev.pages[0].image.tileId > 0
       );
@@ -664,7 +674,9 @@ export function useThreeRenderer(
           color: 0x0078d4, opacity: 0.35, transparent: true, depthTest: false, side: THREE.DoubleSide,
         });
         const fillMesh = new THREE.Mesh(fillGeom, fillMat);
-        fillMesh.position.set(cx, cy, 5.5);
+        const ex = ev.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+        const ey = ev.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+        fillMesh.position.set(ex, ey, 5.5);
         fillMesh.renderOrder = 9990;
         fillMesh.frustumCulled = false;
         fillMesh.userData.editorGrid = true;
@@ -672,7 +684,9 @@ export function useThreeRenderer(
         eventOverlayMeshesRef.current.push(fillMesh);
       }
 
-      // 파란색 테두리
+      // 파란색 테두리 (scene에 직접 - 타일 기준 위치)
+      const tileX = ev.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+      const tileY = ev.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
       const hw = TILE_SIZE_PX / 2 - 1;
       const hh = TILE_SIZE_PX / 2 - 1;
       const pts = [
@@ -685,48 +699,54 @@ export function useThreeRenderer(
         color: 0x0078d4, depthTest: false, transparent: true, opacity: 1.0,
       });
       const line = new THREE.Line(lineGeom, lineMat);
-      line.position.set(cx, cy, 5.8);
+      line.position.set(tileX, tileY, 5.8);
       line.renderOrder = 9991;
       line.frustumCulled = false;
       line.userData.editorGrid = true;
       rendererObj.scene.add(line);
       eventOverlayMeshesRef.current.push(line);
 
-      // 이벤트 이름 라벨
+      // 이벤트 이름 라벨 → 스프라이트의 _threeObj 자식으로 추가
       const displayName = ev.name || `EV${String(ev.id).padStart(3, '0')}`;
-      const cvsW = 128;
-      const cvsH = 32;
+      const cvsW = 256;
+      const cvsH = 64;
       const cvs = document.createElement('canvas');
       cvs.width = cvsW;
       cvs.height = cvsH;
       const ctx = cvs.getContext('2d')!;
       ctx.clearRect(0, 0, cvsW, cvsH);
-      // Y-flip: OrthographicCamera의 Y축이 아래로 향하므로 캔버스를 뒤집어야 함
-      ctx.save();
-      ctx.scale(1, -1);
-      ctx.translate(0, -cvsH);
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 18px sans-serif';
+      ctx.font = 'bold 36px sans-serif';
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
+      ctx.textBaseline = 'middle';
       ctx.shadowColor = '#000';
-      ctx.shadowBlur = 3;
-      ctx.fillText(displayName, cvsW / 2, 4, cvsW - 4);
-      ctx.restore();
+      ctx.shadowBlur = 4;
+      ctx.fillText(displayName, cvsW / 2, cvsH / 2, cvsW - 8);
       const tex = new THREE.CanvasTexture(cvs);
+      tex.flipY = false;
       tex.minFilter = THREE.LinearFilter;
-      const labelW = TILE_SIZE_PX;
-      const labelH = TILE_SIZE_PX * (cvsH / cvsW);
+      const labelW = TILE_SIZE_PX * 1.5;
+      const labelH = labelW * (cvsH / cvsW);
       const labelGeom = new THREE.PlaneGeometry(labelW, labelH);
       const labelMat = new THREE.MeshBasicMaterial({
         map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
       });
       const labelMesh = new THREE.Mesh(labelGeom, labelMat);
-      labelMesh.position.set(cx, ey + 2 + labelH / 2, 5.9);
       labelMesh.renderOrder = 9992;
       labelMesh.frustumCulled = false;
       labelMesh.userData.editorGrid = true;
-      rendererObj.scene.add(labelMesh);
+
+      if (parentObj) {
+        // 스프라이트 자식: 로컬 좌표 (0,0이 스프라이트 위치)
+        // 스프라이트 높이의 위쪽에 배치 (anchor.y=1 기준이므로 위로 올림)
+        const spriteH = sprite._threeObj.scale.y || TILE_SIZE_PX;
+        labelMesh.position.set(0, -spriteH - labelH / 2 - 2, 1);
+        parentObj.add(labelMesh);
+      } else {
+        // 스프라이트 없으면 scene에 직접
+        labelMesh.position.set(tileX, ev.y * TILE_SIZE_PX - labelH / 2 - 2, 5.9);
+        rendererObj.scene.add(labelMesh);
+      }
       eventOverlayMeshesRef.current.push(labelMesh);
     }
 
