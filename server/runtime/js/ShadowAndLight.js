@@ -1010,7 +1010,7 @@ ShadowLight._createDebugUI = function() {
     panel.style.cssText = 'position:fixed;top:10px;right:10px;z-index:99999;background:rgba(0,0,0,0.85);color:#eee;font:12px monospace;padding:10px;border-radius:6px;min-width:220px;pointer-events:auto;';
 
     var title = document.createElement('div');
-    title.textContent = 'ShadowLight Debug';
+    title.textContent = '맵 인스펙터';
     title.style.cssText = 'font-weight:bold;margin-bottom:8px;color:#ffcc88;';
     panel.appendChild(title);
 
@@ -1064,6 +1064,20 @@ ShadowLight._createDebugUI = function() {
             if (c.key === 'shadowFar' && self._directionalLight) {
                 self._directionalLight.shadow.camera.far = v;
                 self._directionalLight.shadow.camera.updateProjectionMatrix();
+            }
+            if (c.key === 'upperLayerZ') {
+                var ss = self._spriteset;
+                if (ss && ss._tilemap && ss._tilemap.upperZLayer) {
+                    ss._tilemap.upperZLayer._threeObj.position.z = v;
+                }
+            }
+            if (c.key === 'shadowOpacity') {
+                var ss = self._spriteset;
+                if (ss && ss._shadowMeshes) {
+                    ss._shadowMeshes.forEach(function(m) {
+                        if (m.material) m.material.opacity = v;
+                    });
+                }
             }
         });
 
@@ -1161,6 +1175,101 @@ ShadowLight._createDebugUI = function() {
         parent.appendChild(wrapper);
         return body;
     }
+
+    // ── 카메라 섹션 ──
+    var camBody = createSection(panel, '카메라', '#88ff88', false);
+
+    // Tilt (기울기 각도)
+    (function() {
+        var row = document.createElement('div');
+        row.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+        var lbl = document.createElement('span');
+        lbl.textContent = 'Tilt';
+        lbl.style.cssText = 'width:70px;font-size:11px;';
+        var slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = 0;
+        slider.max = 80;
+        slider.step = 1;
+        slider.value = window.Mode3D ? Mode3D._tiltDeg : 35;
+        slider.style.cssText = 'width:90px;height:14px;';
+        var val = document.createElement('span');
+        val.textContent = slider.value + '°';
+        val.style.cssText = 'width:40px;font-size:11px;text-align:right;';
+        slider.addEventListener('input', function() {
+            var v = parseFloat(slider.value);
+            val.textContent = v + '°';
+            if (window.Mode3D) {
+                Mode3D._tiltDeg = v;
+                Mode3D._tiltRad = v * Math.PI / 180;
+            }
+        });
+        row.appendChild(lbl);
+        row.appendChild(slider);
+        row.appendChild(val);
+        camBody.appendChild(row);
+    })();
+
+    // FOV (시야각)
+    (function() {
+        var row = document.createElement('div');
+        row.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+        var lbl = document.createElement('span');
+        lbl.textContent = 'FOV';
+        lbl.style.cssText = 'width:70px;font-size:11px;';
+        var slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = 20;
+        slider.max = 120;
+        slider.step = 1;
+        slider.value = (window.Mode3D && Mode3D._perspCamera) ? Mode3D._perspCamera.fov : 60;
+        slider.style.cssText = 'width:90px;height:14px;';
+        var val = document.createElement('span');
+        val.textContent = slider.value + '°';
+        val.style.cssText = 'width:40px;font-size:11px;text-align:right;';
+        slider.addEventListener('input', function() {
+            var v = parseFloat(slider.value);
+            val.textContent = v + '°';
+            if (window.Mode3D && Mode3D._perspCamera) {
+                Mode3D._perspCamera.fov = v;
+                Mode3D._perspCamera.updateProjectionMatrix();
+            }
+        });
+        row.appendChild(lbl);
+        row.appendChild(slider);
+        row.appendChild(val);
+        camBody.appendChild(row);
+    })();
+
+    // Extra Rows (3D 모드 여분 타일 행)
+    (function() {
+        var row = document.createElement('div');
+        row.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+        var lbl = document.createElement('span');
+        lbl.textContent = 'ExtraRows';
+        lbl.style.cssText = 'width:70px;font-size:11px;';
+        var slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = 0;
+        slider.max = 20;
+        slider.step = 1;
+        slider.value = window.Mode3D ? (Mode3D._extraRows || 6) : 6;
+        slider.style.cssText = 'width:90px;height:14px;';
+        var val = document.createElement('span');
+        val.textContent = slider.value;
+        val.style.cssText = 'width:40px;font-size:11px;text-align:right;';
+        slider.addEventListener('input', function() {
+            var v = parseInt(slider.value);
+            val.textContent = v;
+            if (window.Mode3D) {
+                Mode3D._extraRows = v;
+            }
+        });
+        row.appendChild(lbl);
+        row.appendChild(slider);
+        row.appendChild(val);
+        camBody.appendChild(row);
+    })();
 
     // ── 환경광 섹션 ──
     var envBody = createSection(panel, '환경광', '#88ccff', false);
@@ -1351,12 +1460,17 @@ ShadowLight._createDebugUI = function() {
 
     // 광원 현재값 복사 버튼
     var copyBtn = document.createElement('button');
-    copyBtn.textContent = '광원 현재값 복사';
+    copyBtn.textContent = '현재값 복사';
     copyBtn.style.cssText = 'margin-top:8px;width:100%;padding:4px 8px;font:11px monospace;background:#446;color:#eee;border:1px solid #668;border-radius:3px;cursor:pointer;';
     copyBtn.addEventListener('click', function() {
         var cfg = self.config;
         var dirArr = cfg.lightDirection ? cfg.lightDirection.toArray() : [-1,-1,-2];
+        var camFov = (window.Mode3D && Mode3D._perspCamera) ? Mode3D._perspCamera.fov : 60;
         var text = [
+            '--- 카메라 ---',
+            'tiltDeg: ' + (window.Mode3D ? Mode3D._tiltDeg : 35),
+            'fov: ' + camFov,
+            'extraRows: ' + (window.Mode3D ? Mode3D._extraRows : 6),
             '--- 환경광 ---',
             'ambientIntensity: ' + cfg.ambientIntensity,
             'ambientColor: 0x' + ('000000' + ((cfg.ambientColor || 0xffffff) >>> 0).toString(16)).slice(-6),
@@ -1394,7 +1508,7 @@ ShadowLight._createDebugUI = function() {
         if (navigator.clipboard) {
             navigator.clipboard.writeText(text).then(function() {
                 copyBtn.textContent = '복사 완료!';
-                setTimeout(function() { copyBtn.textContent = '광원 현재값 복사'; }, 1500);
+                setTimeout(function() { copyBtn.textContent = '현재값 복사'; }, 1500);
             });
         } else {
             // fallback
@@ -1405,7 +1519,7 @@ ShadowLight._createDebugUI = function() {
             document.execCommand('copy');
             document.body.removeChild(ta);
             copyBtn.textContent = '복사 완료!';
-            setTimeout(function() { copyBtn.textContent = '광원 현재값 복사'; }, 1500);
+            setTimeout(function() { copyBtn.textContent = '현재값 복사'; }, 1500);
         }
     });
     copyBtn.addEventListener('mouseover', function() { copyBtn.style.background = '#557'; });

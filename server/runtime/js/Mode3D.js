@@ -50,6 +50,7 @@
     Mode3D._billboardTargets = [];
     Mode3D._spriteset = null;
     Mode3D._perspCamera = null;
+    Mode3D._extraRows = 6;
 
     window.Mode3D = Mode3D;
 
@@ -93,7 +94,7 @@
         this.lowerZLayer.clear();
         this.upperZLayer.clear();
         // 3D 기울임 보정: 상하로 여분 타일 추가
-        var extraRows = 6;
+        var extraRows = Mode3D._extraRows;
         var tileCols = Math.ceil(this._width / this._tileWidth) + 1;
         var tileRows = Math.ceil(this._height / this._tileHeight) + 1 + extraRows * 2;
         for (var y = -extraRows; y < tileRows - extraRows; y++) {
