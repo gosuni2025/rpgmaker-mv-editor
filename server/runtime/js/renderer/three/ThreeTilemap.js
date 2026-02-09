@@ -265,12 +265,10 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                 posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
                 posArray[posOff + j * 3 + 2] = 0;
 
-                // Normal: Z+ (카메라 향함)
-                // PointLight는 위치 기반 조명이므로 실제 기하학적 노멀 방향이 중요
-                // PointLight 계산은 worldNormal·lightDir이므로 Z+가 올바름
+                // Normal: Z- (y-flip으로 카메라가 뒷면을 보므로 노멀도 반전)
                 normalArray[posOff + j * 3]     = 0;
                 normalArray[posOff + j * 3 + 1] = 0;
-                normalArray[posOff + j * 3 + 2] = 1;
+                normalArray[posOff + j * 3 + 2] = -1;
 
                 if (!isShadow) {
                     // UV: 픽셀→정규화, 애니메이션 오프셋 적용, flipY

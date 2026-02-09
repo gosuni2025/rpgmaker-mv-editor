@@ -16,6 +16,11 @@
 function ThreeSprite(texture) {
     // Create the Three.js geometry and material
     this._geometry = new THREE.PlaneGeometry(1, 1);
+    // y-flip (m[5]=-m[5]) 모드에서 카메라가 뒷면을 보므로 노멀 반전
+    var norms = this._geometry.attributes.normal;
+    for (var ni = 0; ni < norms.count; ni++) {
+        norms.setZ(ni, -1);
+    }
     this._material = new THREE.MeshBasicMaterial({
         transparent: true,
         depthTest: false,
