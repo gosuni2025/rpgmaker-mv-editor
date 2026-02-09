@@ -1,9 +1,9 @@
 //=============================================================================
-// DepthOfField.js - Three.js Depth of Field (Bokeh) Post-processing
+// DepthOfField.js - Tilt-Shift DoF Post-processing (옥토패스 트래블러 스타일)
 //=============================================================================
-// 3D 모드에서 Bokeh DoF 포스트프로세싱 효과를 적용합니다.
-//
-// - EffectComposer / RenderPass / BokehPass를 내장 (Three.js r128 호환)
+// 3D 모드에서 화면 Y좌표 기반 Tilt-Shift DoF 효과를 적용합니다.
+// - 화면 상단(원경): 블러 → 포커스 영역(캐릭터): 선명 → 화면 하단(근경): 블러
+// - EffectComposer / RenderPass / TiltShiftPass를 내장 (Three.js r128 호환)
 // - Mode3D._perspCamera가 활성화된 경우에만 동작
 // - 게임 옵션에서 ON/OFF 가능
 // - 개발 모드에서 Debug UI로 파라미터 실시간 조절
@@ -18,17 +18,11 @@
 //=============================================================================
 
 ConfigManager.depthOfField = false;
-ConfigManager.dofFocus = 500;
-ConfigManager.dofAperture = 5;    // 실제값 * 1000 (0~100 정수로 관리, 표시: 0.005)
-ConfigManager.dofMaxblur = 10;    // 실제값 * 1000 (0~100 정수로 관리, 표시: 0.010)
 
 var _ConfigManager_makeData = ConfigManager.makeData;
 ConfigManager.makeData = function() {
     var config = _ConfigManager_makeData.call(this);
     config.depthOfField = this.depthOfField;
-    config.dofFocus = this.dofFocus;
-    config.dofAperture = this.dofAperture;
-    config.dofMaxblur = this.dofMaxblur;
     return config;
 };
 
@@ -36,109 +30,12 @@ var _ConfigManager_applyData = ConfigManager.applyData;
 ConfigManager.applyData = function(config) {
     _ConfigManager_applyData.call(this, config);
     this.depthOfField = this.readFlag(config, 'depthOfField');
-    this.dofFocus = this.readDofValue(config, 'dofFocus', 500);
-    this.dofAperture = this.readDofValue(config, 'dofAperture', 5);
-    this.dofMaxblur = this.readDofValue(config, 'dofMaxblur', 10);
-};
-
-ConfigManager.readDofValue = function(config, name, defaultValue) {
-    var value = config[name];
-    if (value !== undefined) {
-        return Number(value);
-    }
-    return defaultValue;
-};
-
-//=============================================================================
-// Window_Options - DoF 옵션 추가
-//=============================================================================
-
-// DoF 심볼 정의
-var DOF_SYMBOLS = {
-    'dofFocus':    { min: 10,  max: 2000, step: 50,  label: '초점 거리', format: function(v) { return v; } },
-    'dofAperture': { min: 0,   max: 100,  step: 1,   label: '조리개',    format: function(v) { return (v / 1000).toFixed(3); } },
-    'dofMaxblur':  { min: 0,   max: 100,  step: 1,   label: '최대 블러', format: function(v) { return (v / 1000).toFixed(3); } }
 };
 
 var _Window_Options_addGeneralOptions = Window_Options.prototype.addGeneralOptions;
 Window_Options.prototype.addGeneralOptions = function() {
     _Window_Options_addGeneralOptions.call(this);
     this.addCommand('피사계 심도', 'depthOfField');
-    this.addCommand('  초점 거리', 'dofFocus');
-    this.addCommand('  조리개', 'dofAperture');
-    this.addCommand('  최대 블러', 'dofMaxblur');
-};
-
-Window_Options.prototype.isDofSymbol = function(symbol) {
-    return !!DOF_SYMBOLS[symbol];
-};
-
-var _Window_Options_statusText = Window_Options.prototype.statusText;
-Window_Options.prototype.statusText = function(index) {
-    var symbol = this.commandSymbol(index);
-    if (this.isDofSymbol(symbol)) {
-        var value = this.getConfigValue(symbol);
-        return DOF_SYMBOLS[symbol].format(value);
-    }
-    return _Window_Options_statusText.call(this, index);
-};
-
-var _Window_Options_processOk = Window_Options.prototype.processOk;
-Window_Options.prototype.processOk = function() {
-    var index = this.index();
-    var symbol = this.commandSymbol(index);
-    if (this.isDofSymbol(symbol)) {
-        var def = DOF_SYMBOLS[symbol];
-        var value = this.getConfigValue(symbol);
-        value += def.step;
-        if (value > def.max) value = def.min;
-        this.changeValue(symbol, value);
-    } else {
-        _Window_Options_processOk.call(this);
-    }
-};
-
-var _Window_Options_cursorRight = Window_Options.prototype.cursorRight;
-Window_Options.prototype.cursorRight = function(wrap) {
-    var index = this.index();
-    var symbol = this.commandSymbol(index);
-    if (this.isDofSymbol(symbol)) {
-        var def = DOF_SYMBOLS[symbol];
-        var value = this.getConfigValue(symbol);
-        value += def.step;
-        value = Math.min(value, def.max);
-        this.changeValue(symbol, value);
-    } else {
-        _Window_Options_cursorRight.call(this, wrap);
-    }
-};
-
-var _Window_Options_cursorLeft = Window_Options.prototype.cursorLeft;
-Window_Options.prototype.cursorLeft = function(wrap) {
-    var index = this.index();
-    var symbol = this.commandSymbol(index);
-    if (this.isDofSymbol(symbol)) {
-        var def = DOF_SYMBOLS[symbol];
-        var value = this.getConfigValue(symbol);
-        value -= def.step;
-        value = Math.max(value, def.min);
-        this.changeValue(symbol, value);
-    } else {
-        _Window_Options_cursorLeft.call(this, wrap);
-    }
-};
-
-// DoF 옵션 값 변경 시 DepthOfField.config에 실시간 반영
-var _Window_Options_setConfigValue = Window_Options.prototype.setConfigValue;
-Window_Options.prototype.setConfigValue = function(symbol, value) {
-    _Window_Options_setConfigValue.call(this, symbol, value);
-    if (symbol === 'dofFocus') {
-        DepthOfField.config.focus = value;
-    } else if (symbol === 'dofAperture') {
-        DepthOfField.config.aperture = value / 1000;
-    } else if (symbol === 'dofMaxblur') {
-        DepthOfField.config.maxblur = value / 1000;
-    }
 };
 
 //=============================================================================
@@ -148,32 +45,30 @@ Window_Options.prototype.setConfigValue = function(symbol, value) {
 var DepthOfField = {};
 DepthOfField._active = false;
 DepthOfField._composer = null;
-DepthOfField._bokehPass = null;
-DepthOfField._renderTarget = null;
+DepthOfField._tiltShiftPass = null;
 DepthOfField._debugPanel = null;
 
 window.DepthOfField = DepthOfField;
 
 DepthOfField.config = {
-    focus: 500.0,
-    aperture: 0.005,
-    maxblur: 0.01
+    focusY: 0.55,       // 포커스 중심 Y위치 (0=상단, 1=하단), 캐릭터 약간 아래
+    focusRange: 0.15,   // 선명 영역 반폭
+    maxblur: 0.01,      // 최대 블러
+    blurPower: 2.0      // 블러 증가 커브 (1=선형, 2=이차, 부드러운 전환)
 };
 
 //=============================================================================
-// Bokeh Shader (Three.js examples 기반, r128 호환)
+// Tilt-Shift Shader (화면 Y좌표 기반 DoF)
 //=============================================================================
 
-var BokehShader = {
+var TiltShiftShader = {
     uniforms: {
-        tColor:    { value: null },
-        tDepth:    { value: null },
-        focus:     { value: 500.0 },
-        aperture:  { value: 0.005 },
-        maxblur:   { value: 0.01 },
-        nearClip:  { value: 1.0 },
-        farClip:   { value: 1000.0 },
-        aspect:    { value: 1.0 }
+        tColor:     { value: null },
+        focusY:     { value: 0.55 },   // 포커스 중심 (0=상단, 1=하단), 캐릭터 위치
+        focusRange: { value: 0.15 },   // 선명한 영역의 반폭 (UV 단위)
+        maxblur:    { value: 0.01 },   // 최대 블러 강도
+        blurPower:  { value: 2.0 },    // 블러 증가 커브 (1=선형, 2=이차)
+        aspect:     { value: 1.0 }
     },
     vertexShader: [
         'varying vec2 vUv;',
@@ -186,32 +81,21 @@ var BokehShader = {
         'varying vec2 vUv;',
         '',
         'uniform sampler2D tColor;',
-        'uniform sampler2D tDepth;',
-        '',
+        'uniform float focusY;',
+        'uniform float focusRange;',
         'uniform float maxblur;',
-        'uniform float aperture;',
-        'uniform float nearClip;',
-        'uniform float farClip;',
-        'uniform float focus;',
+        'uniform float blurPower;',
         'uniform float aspect;',
-        '',
-        'float getDepth(const in vec2 screenPos) {',
-        '    float fragCoordZ = texture2D(tDepth, screenPos).x;',
-        '    return fragCoordZ;',
-        '}',
-        '',
-        'float getViewZ(const in float depth) {',
-        '    return nearClip * farClip / (farClip - depth * (farClip - nearClip));',
-        '}',
         '',
         'void main() {',
         '    vec2 aspectCorrect = vec2(1.0, aspect);',
         '',
-        '    float viewZ = getViewZ(getDepth(vUv));',
-        '    float factor = (focus + viewZ);',
+        '    // 화면 Y좌표에서 포커스 중심까지의 거리로 블러량 결정',
+        '    float dist = abs(vUv.y - focusY);',
+        '    float t = max(0.0, dist - focusRange) / (1.0 - focusRange);',
+        '    float blur = maxblur * pow(clamp(t, 0.0, 1.0), blurPower);',
         '',
-        '    vec2 dofblur = vec2(clamp(factor * aperture, -maxblur, maxblur));',
-        '',
+        '    vec2 dofblur = vec2(blur);',
         '    vec2 dofblur9 = dofblur * 0.9;',
         '    vec2 dofblur7 = dofblur * 0.7;',
         '    vec2 dofblur4 = dofblur * 0.4;',
@@ -397,7 +281,7 @@ function MapRenderPass(scene, camera, perspCamera, spriteset, stage) {
     this.spriteset = spriteset;
     this.stage = stage;
     this.enabled = true;
-    this.needsSwap = false;
+    this.needsSwap = true;
     this.clear = true;
 }
 
@@ -480,72 +364,33 @@ MapRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuffer, 
 
 MapRenderPass.prototype.dispose = function() {};
 
-// --- BokehPass ---
-function BokehPass(scene, camera, params) {
-    this.scene = scene;
-    this.camera = camera;
+// --- TiltShiftPass (화면 Y좌표 기반 DoF) ---
+function TiltShiftPass(params) {
     this.enabled = true;
     this.needsSwap = true;
     this.renderToScreen = false;
 
-    var focus = (params && params.focus !== undefined) ? params.focus : 500.0;
-    var aperture = (params && params.aperture !== undefined) ? params.aperture : 0.005;
-    var maxblur = (params && params.maxblur !== undefined) ? params.maxblur : 0.01;
+    this.uniforms = THREE.UniformsUtils.clone(TiltShiftShader.uniforms);
+    if (params) {
+        if (params.focusY !== undefined) this.uniforms.focusY.value = params.focusY;
+        if (params.focusRange !== undefined) this.uniforms.focusRange.value = params.focusRange;
+        if (params.maxblur !== undefined) this.uniforms.maxblur.value = params.maxblur;
+        if (params.blurPower !== undefined) this.uniforms.blurPower.value = params.blurPower;
+    }
 
-    // depth render target
-    this.depthTarget = new THREE.WebGLRenderTarget(1, 1, {
-        minFilter: THREE.NearestFilter,
-        magFilter: THREE.NearestFilter
-    });
-    this.depthTarget.texture.name = 'BokehPass.depth';
-    this.depthTarget.depthTexture = new THREE.DepthTexture();
-    this.depthTarget.depthTexture.type = THREE.UnsignedShortType;
-
-    // depth material (override)
-    this.depthMaterial = new THREE.MeshDepthMaterial();
-    this.depthMaterial.depthPacking = THREE.RGBADepthPacking;
-    this.depthMaterial.blending = THREE.NoBlending;
-
-    // bokeh shader material
-    this.uniforms = THREE.UniformsUtils.clone(BokehShader.uniforms);
-    this.uniforms.focus.value = focus;
-    this.uniforms.aperture.value = aperture;
-    this.uniforms.maxblur.value = maxblur;
-    this.uniforms.nearClip.value = camera.near;
-    this.uniforms.farClip.value = camera.far;
-    this.uniforms.aspect.value = camera.aspect || 1.0;
-
-    this.materialBokeh = new THREE.ShaderMaterial({
+    this.material = new THREE.ShaderMaterial({
         uniforms: this.uniforms,
-        vertexShader: BokehShader.vertexShader,
-        fragmentShader: BokehShader.fragmentShader
+        vertexShader: TiltShiftShader.vertexShader,
+        fragmentShader: TiltShiftShader.fragmentShader
     });
 
-    this.fsQuad = new FullScreenQuad(this.materialBokeh);
+    this.fsQuad = new FullScreenQuad(this.material);
 }
 
-BokehPass.prototype.setSize = function(width, height) {
-    this.depthTarget.setSize(width, height);
-};
+TiltShiftPass.prototype.setSize = function(/* width, height */) {};
 
-BokehPass.prototype.render = function(renderer, writeBuffer, readBuffer /*, deltaTime, maskActive */) {
-    var scene = this.scene;
-    var camera = this.camera;
-
-    // depth pass - scene의 모든 오브젝트를 depthMaterial로 렌더
-    var oldOverride = scene.overrideMaterial;
-    scene.overrideMaterial = this.depthMaterial;
-    renderer.setRenderTarget(this.depthTarget);
-    renderer.clear();
-    renderer.render(scene, camera);
-    scene.overrideMaterial = oldOverride;
-
-    // bokeh pass
+TiltShiftPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
     this.uniforms.tColor.value = readBuffer.texture;
-    this.uniforms.tDepth.value = this.depthTarget.depthTexture;
-    this.uniforms.nearClip.value = camera.near;
-    this.uniforms.farClip.value = camera.far;
-    this.uniforms.aspect.value = (camera.aspect || 1.0);
 
     if (this.renderToScreen) {
         renderer.setRenderTarget(null);
@@ -556,9 +401,8 @@ BokehPass.prototype.render = function(renderer, writeBuffer, readBuffer /*, delt
     this.fsQuad.render(renderer);
 };
 
-BokehPass.prototype.dispose = function() {
-    this.depthTarget.dispose();
-    this.materialBokeh.dispose();
+TiltShiftPass.prototype.dispose = function() {
+    this.material.dispose();
     this.fsQuad.dispose();
 };
 
@@ -584,17 +428,18 @@ DepthOfField._createComposer = function(rendererObj, stage) {
     );
     composer.addPass(renderPass);
 
-    // BokehPass
-    var bokehPass = new BokehPass(scene, Mode3D._perspCamera, {
-        focus: this.config.focus,
-        aperture: this.config.aperture,
-        maxblur: this.config.maxblur
+    // TiltShiftPass (화면 Y좌표 기반 DoF)
+    var tiltShiftPass = new TiltShiftPass({
+        focusY: this.config.focusY,
+        focusRange: this.config.focusRange,
+        maxblur: this.config.maxblur,
+        blurPower: this.config.blurPower
     });
-    bokehPass.renderToScreen = true;
-    composer.addPass(bokehPass);
+    tiltShiftPass.renderToScreen = true;
+    composer.addPass(tiltShiftPass);
 
     this._composer = composer;
-    this._bokehPass = bokehPass;
+    this._tiltShiftPass = tiltShiftPass;
     this._renderPass = renderPass;
     this._lastStage = stage;
 };
@@ -603,17 +448,20 @@ DepthOfField._disposeComposer = function() {
     if (this._composer) {
         this._composer.dispose();
         this._composer = null;
-        this._bokehPass = null;
+        this._tiltShiftPass = null;
         this._renderPass = null;
         this._lastStage = null;
     }
 };
 
 DepthOfField._updateUniforms = function() {
-    if (!this._bokehPass) return;
-    this._bokehPass.uniforms.focus.value = this.config.focus;
-    this._bokehPass.uniforms.aperture.value = this.config.aperture;
-    this._bokehPass.uniforms.maxblur.value = this.config.maxblur;
+    if (!this._tiltShiftPass) return;
+    this._tiltShiftPass.uniforms.focusY.value = this.config.focusY;
+    this._tiltShiftPass.uniforms.focusRange.value = this.config.focusRange;
+    this._tiltShiftPass.uniforms.maxblur.value = this.config.maxblur;
+    this._tiltShiftPass.uniforms.blurPower.value = this.config.blurPower;
+    this._tiltShiftPass.uniforms.aspect.value =
+        Graphics.height / Graphics.width;
 };
 
 //=============================================================================
@@ -673,9 +521,6 @@ _ThreeStrategy.render = function(rendererObj, stage) {
         DepthOfField._renderPass.scene = scene;
         DepthOfField._renderPass.camera = camera;
 
-        // BokehPass의 카메라도 갱신
-        DepthOfField._bokehPass.camera = Mode3D._perspCamera;
-
         // uniform 갱신
         DepthOfField._updateUniforms();
 
@@ -705,26 +550,24 @@ _ThreeStrategy.render = function(rendererObj, stage) {
 // Spriteset_Map - DoF 활성화/비활성화 감지
 //=============================================================================
 
-// ConfigManager → DepthOfField.config 동기화
-DepthOfField._syncConfigFromManager = function() {
-    this.config.focus = ConfigManager.dofFocus;
-    this.config.aperture = ConfigManager.dofAperture / 1000;
-    this.config.maxblur = ConfigManager.dofMaxblur / 1000;
-};
-
 var _Spriteset_Map_update_dof = Spriteset_Map.prototype.update;
 Spriteset_Map.prototype.update = function() {
     _Spriteset_Map_update_dof.call(this);
 
+    // 3D 모드이면 Debug UI 표시 (DoF ON/OFF와 무관)
+    var shouldShowDebug = ConfigManager.mode3d;
     var shouldBeActive = ConfigManager.mode3d && ConfigManager.depthOfField;
+
+    if (shouldShowDebug && !DepthOfField._debugPanel) {
+        DepthOfField._createDebugUI();
+    } else if (!shouldShowDebug && DepthOfField._debugPanel) {
+        DepthOfField._removeDebugUI();
+    }
 
     if (shouldBeActive && !DepthOfField._active) {
         DepthOfField._active = true;
-        DepthOfField._syncConfigFromManager();
-        DepthOfField._createDebugUI();
     } else if (!shouldBeActive && DepthOfField._active) {
         DepthOfField._active = false;
-        DepthOfField._removeDebugUI();
         DepthOfField._disposeComposer();
     }
 };
@@ -738,8 +581,13 @@ DepthOfField._createDebugUI = function() {
 
     var panel = document.createElement('div');
     panel.id = 'dof-debug-panel';
-    // ShadowLight Debug 패널이 오른쪽 상단이므로, 그 아래에 위치
-    panel.style.cssText = 'position:fixed;top:10px;left:10px;z-index:99999;background:rgba(0,0,0,0.85);color:#eee;font:12px monospace;padding:10px;border-radius:6px;min-width:240px;pointer-events:auto;';
+    // ShadowLight Debug 패널 아래에 배치
+    var topOffset = 10;
+    var slPanel = document.getElementById('sl-debug-panel');
+    if (slPanel) {
+        topOffset = slPanel.offsetTop + slPanel.offsetHeight + 8;
+    }
+    panel.style.cssText = 'position:fixed;top:' + topOffset + 'px;right:10px;z-index:99999;background:rgba(0,0,0,0.85);color:#eee;font:12px monospace;padding:10px;border-radius:6px;min-width:240px;pointer-events:auto;';
 
     var title = document.createElement('div');
     title.textContent = 'DoF Debug';
@@ -748,9 +596,10 @@ DepthOfField._createDebugUI = function() {
 
     var self = this;
     var controls = [
-        { label: 'Focus', key: 'focus', min: 0, max: 2000, step: 10, decimals: 0 },
-        { label: 'Aperture', key: 'aperture', min: 0, max: 0.1, step: 0.0005, decimals: 4 },
-        { label: 'Max Blur', key: 'maxblur', min: 0, max: 0.1, step: 0.001, decimals: 3 }
+        { label: 'Focus Y', key: 'focusY', min: 0, max: 1, step: 0.01, decimals: 2 },
+        { label: 'Focus Range', key: 'focusRange', min: 0, max: 0.5, step: 0.01, decimals: 2 },
+        { label: 'Max Blur', key: 'maxblur', min: 0, max: 0.05, step: 0.001, decimals: 3 },
+        { label: 'Blur Power', key: 'blurPower', min: 0.5, max: 5, step: 0.1, decimals: 1 }
     ];
 
     controls.forEach(function(c) {
@@ -777,10 +626,6 @@ DepthOfField._createDebugUI = function() {
             var v = parseFloat(slider.value);
             self.config[c.key] = v;
             val.textContent = v.toFixed(c.decimals);
-            // ConfigManager에도 동기화
-            if (c.key === 'focus') ConfigManager.dofFocus = v;
-            else if (c.key === 'aperture') ConfigManager.dofAperture = Math.round(v * 1000);
-            else if (c.key === 'maxblur') ConfigManager.dofMaxblur = Math.round(v * 1000);
         });
 
         row.appendChild(lbl);
@@ -812,9 +657,10 @@ DepthOfField._createDebugUI = function() {
     copyBtn.addEventListener('click', function() {
         var cfg = self.config;
         var text = [
-            'focus: ' + cfg.focus,
-            'aperture: ' + cfg.aperture,
-            'maxblur: ' + cfg.maxblur
+            'focusY: ' + cfg.focusY,
+            'focusRange: ' + cfg.focusRange,
+            'maxblur: ' + cfg.maxblur,
+            'blurPower: ' + cfg.blurPower
         ].join('\n');
 
         if (navigator.clipboard) {
@@ -859,14 +705,17 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
     if (command === 'DoF' || command === 'DepthOfField') {
         if (args[0] === 'on') ConfigManager.depthOfField = true;
         if (args[0] === 'off') ConfigManager.depthOfField = false;
-        if (args[0] === 'focus' && args[1]) {
-            DepthOfField.config.focus = parseFloat(args[1]);
+        if (args[0] === 'focusY' && args[1]) {
+            DepthOfField.config.focusY = parseFloat(args[1]);
         }
-        if (args[0] === 'aperture' && args[1]) {
-            DepthOfField.config.aperture = parseFloat(args[1]);
+        if (args[0] === 'focusRange' && args[1]) {
+            DepthOfField.config.focusRange = parseFloat(args[1]);
         }
         if (args[0] === 'maxblur' && args[1]) {
             DepthOfField.config.maxblur = parseFloat(args[1]);
+        }
+        if (args[0] === 'blurPower' && args[1]) {
+            DepthOfField.config.blurPower = parseFloat(args[1]);
         }
     }
 };
