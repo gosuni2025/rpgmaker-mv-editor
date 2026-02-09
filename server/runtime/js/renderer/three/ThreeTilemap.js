@@ -283,7 +283,6 @@ ThreeTilemapRectLayer.prototype._flush = function() {
         var mesh = this._meshes[setNumber];
 
         // 현재 모드에 맞는 material 속성 결정
-        var needsDepth = !isShadow && (window.ConfigManager && window.ConfigManager.mode3d);
         var needsPhong = !isShadow && (window.ShadowLight && window.ShadowLight._active);
 
         if (mesh) {
@@ -334,16 +333,16 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                     mesh.material = new THREE.MeshBasicMaterial({
                         map: texture,
                         transparent: true,
-                        depthTest: needsDepth,
-                        depthWrite: needsDepth,
+                        depthTest: false,
+                        depthWrite: false,
                         side: THREE.DoubleSide,
                     });
                     mesh.material.needsUpdate = true;
                 } else {
-                    // 같은 material 타입이지만 depthTest 상태가 다르면 갱신
-                    if (mesh.material.depthTest !== needsDepth) {
-                        mesh.material.depthTest = needsDepth;
-                        mesh.material.depthWrite = needsDepth;
+                    // Phong material이 아닌 경우 depthTest/depthWrite는 항상 false
+                    if (mesh.material.depthTest !== false) {
+                        mesh.material.depthTest = false;
+                        mesh.material.depthWrite = false;
                         mesh.material.needsUpdate = true;
                     }
                 }
@@ -395,8 +394,8 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                     material = new THREE.MeshBasicMaterial({
                         map: texture,
                         transparent: true,
-                        depthTest: needsDepth,
-                        depthWrite: needsDepth,
+                        depthTest: false,
+                        depthWrite: false,
                         side: THREE.DoubleSide,
                     });
                 }
