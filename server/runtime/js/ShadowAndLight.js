@@ -734,7 +734,7 @@ Spriteset_Map.prototype._activateShadowLight = function() {
 
     // upperZLayer를 z 방향으로 상승시켜 PointLight 조명 효과 개선
     if (this._tilemap && this._tilemap.upperZLayer) {
-        this._tilemap.upperZLayer._threeObj.position.z = ShadowLight.config.upperLayerZ;
+        this._tilemap.upperZLayer._zIndex = ShadowLight.config.upperLayerZ;
     }
 
     // 디버그 UI 생성 (에디터 모드가 아니고, ?dev=true 일 때만)
@@ -1072,7 +1072,7 @@ ShadowLight._createDebugUI = function() {
             if (c.key === 'upperLayerZ') {
                 var ss = self._spriteset;
                 if (ss && ss._tilemap && ss._tilemap.upperZLayer) {
-                    ss._tilemap.upperZLayer._threeObj.position.z = v;
+                    ss._tilemap.upperZLayer._zIndex = v;
                 }
             }
             if (c.key === 'shadowOpacity') {
@@ -1378,9 +1378,6 @@ ShadowLight._createDebugUI = function() {
     // ── 그림자 설정 섹션 ──
     var shadowBody = createSection(panel, '그림자 설정', '#cc99ff', true);
     addSliderRow(shadowBody, { label: 'Radius', key: 'shadowRadius', min: 0, max: 10, step: 0.5 });
-    addSliderRow(shadowBody, { label: 'Opacity', key: 'shadowOpacity', min: 0, max: 1, step: 0.05 });
-    addSliderRow(shadowBody, { label: 'Offset', key: 'shadowOffsetScale', min: 0, max: 3, step: 0.1 });
-    addColorRow(shadowBody, { label: 'Shadow Color', key: 'shadowColor' });
     addSliderRow(shadowBody, { label: 'UpperZ', key: 'upperLayerZ', min: 0, max: 100, step: 1 });
 
     // ── 플레이어 라이트 섹션 ──
@@ -1497,9 +1494,6 @@ ShadowLight._createDebugUI = function() {
             'shadowFar: ' + cfg.shadowFar,
             '--- 그림자 설정 ---',
             'shadowRadius: ' + cfg.shadowRadius,
-            'shadowOpacity: ' + cfg.shadowOpacity,
-            'shadowColor: 0x' + ('000000' + ((cfg.shadowColor || 0) >>> 0).toString(16)).slice(-6),
-            'shadowOffsetScale: ' + cfg.shadowOffsetScale,
             'upperLayerZ: ' + cfg.upperLayerZ,
             '--- 플레이어 라이트 ---',
             'playerLightIntensity: ' + cfg.playerLightIntensity,
