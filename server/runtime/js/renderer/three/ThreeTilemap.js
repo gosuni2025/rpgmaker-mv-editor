@@ -282,6 +282,10 @@ ThreeTilemapRectLayer.prototype._flush = function() {
         var geometry;
         var mesh = this._meshes[setNumber];
 
+        // 현재 모드에 맞는 material 속성 결정
+        var needsDepth = !isShadow && (window.ConfigManager && window.ConfigManager.mode3d);
+        var needsPhong = !isShadow && (window.ShadowLight && window.ShadowLight._active);
+
         if (mesh) {
             // 기존 geometry의 attribute 데이터만 교체 (객체 재사용)
             geometry = mesh.geometry;
@@ -308,6 +312,43 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                     geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
                 }
             }
+
+            // material 타입 전환: ShadowLight 상태에 따라 Phong↔Basic 교체
+            if (!isShadow) {
+                var isPhong = mesh.material.isMeshPhongMaterial;
+                if (needsPhong && !isPhong) {
+                    mesh.material.dispose();
+                    mesh.material = new THREE.MeshPhongMaterial({
+                        map: texture,
+                        transparent: true,
+                        depthTest: true,
+                        depthWrite: true,
+                        side: THREE.DoubleSide,
+                        emissive: new THREE.Color(0x000000),
+                        specular: new THREE.Color(0x000000),
+                        shininess: 0,
+                    });
+                    mesh.material.needsUpdate = true;
+                } else if (!needsPhong && isPhong) {
+                    mesh.material.dispose();
+                    mesh.material = new THREE.MeshBasicMaterial({
+                        map: texture,
+                        transparent: true,
+                        depthTest: needsDepth,
+                        depthWrite: needsDepth,
+                        side: THREE.DoubleSide,
+                    });
+                    mesh.material.needsUpdate = true;
+                } else {
+                    // 같은 material 타입이지만 depthTest 상태가 다르면 갱신
+                    if (mesh.material.depthTest !== needsDepth) {
+                        mesh.material.depthTest = needsDepth;
+                        mesh.material.depthWrite = needsDepth;
+                        mesh.material.needsUpdate = true;
+                    }
+                }
+            }
+
             mesh.visible = true;
         } else {
             // 새 geometry + mesh 생성
@@ -338,7 +379,7 @@ ThreeTilemapRectLayer.prototype._flush = function() {
 
                 // ShadowLight 활성 시 조명을 받을 수 있도록 MeshPhongMaterial 사용
                 // (MeshLambertMaterial은 per-vertex lighting이라 큰 메시에서 PointLight 효과가 안 보임)
-                if (window.ShadowLight && window.ShadowLight._active) {
+                if (needsPhong) {
                     material = new THREE.MeshPhongMaterial({
                         map: texture,
                         transparent: true,
@@ -354,8 +395,8 @@ ThreeTilemapRectLayer.prototype._flush = function() {
                     material = new THREE.MeshBasicMaterial({
                         map: texture,
                         transparent: true,
-                        depthTest: false,
-                        depthWrite: false,
+                        depthTest: needsDepth,
+                        depthWrite: needsDepth,
                         side: THREE.DoubleSide,
                     });
                 }
