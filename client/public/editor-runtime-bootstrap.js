@@ -185,11 +185,6 @@ if (typeof Window_Options === 'undefined') {
     function Window_Options() {}
     Window_Options.prototype.addGeneralOptions = function() {};
     Window_Options.prototype.addCommand = function() {};
-    Window_Options.prototype.statusText = function() { return ''; };
-    Window_Options.prototype.processOk = function() {};
-    Window_Options.prototype.cursorRight = function() {};
-    Window_Options.prototype.cursorLeft = function() {};
-    Window_Options.prototype.setConfigValue = function(symbol, value) { ConfigManager[symbol] = value; };
     window.Window_Options = Window_Options;
 }
 
