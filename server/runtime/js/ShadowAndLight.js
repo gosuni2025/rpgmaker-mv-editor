@@ -1113,6 +1113,16 @@ ShadowLight._createDebugUI = function() {
             if (cc.key === 'spotLightColor' && self._playerSpotLight) {
                 self._playerSpotLight.color.setHex(colorInt);
             }
+            if (cc.key === 'shadowColor') {
+                if (self._shadowMaterial) self._shadowMaterial.color.setHex(colorInt);
+                // clone된 개별 shadow mesh material도 업데이트
+                var ss = self._spriteset;
+                if (ss && ss._shadowMeshes) {
+                    ss._shadowMeshes.forEach(function(m) {
+                        if (m.material) m.material.color.setHex(colorInt);
+                    });
+                }
+            }
         });
 
         row.appendChild(lbl);
