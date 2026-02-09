@@ -595,12 +595,17 @@ export function useThreeRenderer(
         cvs.width = TILE_SIZE_PX;
         cvs.height = TILE_SIZE_PX;
         const ctx = cvs.getContext('2d')!;
+        // Y-flip: OrthographicCamera의 Y축이 아래로 향하므로 캔버스를 뒤집어야 함
+        ctx.save();
+        ctx.scale(1, -1);
+        ctx.translate(0, -TILE_SIZE_PX);
         const scale = Math.min(TILE_SIZE_PX / charW, TILE_SIZE_PX / charH);
         const dw = charW * scale;
         const dh = charH * scale;
         const dx = (TILE_SIZE_PX - dw) / 2;
         const dy = TILE_SIZE_PX - dh;
         ctx.drawImage(img, srcX, srcY, charW, charH, dx, dy, dw, dh);
+        ctx.restore();
 
         const tex = new THREE.CanvasTexture(cvs);
         tex.minFilter = THREE.LinearFilter;
