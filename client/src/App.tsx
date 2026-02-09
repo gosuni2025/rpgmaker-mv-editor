@@ -18,7 +18,7 @@ import PluginManagerDialog from './components/PluginManagerDialog';
 import SoundTestDialog from './components/SoundTestDialog';
 import EventSearchDialog from './components/EventSearchDialog';
 import ResourceManagerDialog from './components/ResourceManagerDialog';
-import CharacterGeneratorDialog from './components/CharacterGeneratorDialog';
+import CharacterGeneratorDialog from './components/CharacterGenerator/CharacterGeneratorDialog';
 import AutotileDebugDialog from './components/AutotileDebugDialog';
 import LightInspector from './components/Sidebar/LightInspector';
 import ObjectInspector from './components/Sidebar/ObjectInspector';
