@@ -15,6 +15,84 @@
 (function() {
 
 //=============================================================================
+// Three.js ShaderChunk 글로벌 패치: Y-flip 라이팅 수정
+//=============================================================================
+// Mode3D._positionCamera()에서 projectionMatrix m[5]=-m[5] (Y-flip)를 적용하면
+// gl_FrontFacing이 반전됨 → DOUBLE_SIDED 셰이더에서 faceDirection이 잘못 계산되어
+// 노멀이 이중 반전되고 빛 방향이 거꾸로 되는 문제 수정.
+//
+// 해결: faceDirection을 항상 1.0으로 강제하고, Lambert 셰이더의
+// gl_FrontFacing 기반 분기를 우회하여 양면 라이팅을 균일하게 적용.
+//=============================================================================
+if (typeof THREE !== 'undefined' && THREE.ShaderChunk) {
+    // 1) normal_fragment_begin: faceDirection을 항상 1.0으로 강제
+    (function() {
+        var key = 'normal_fragment_begin';
+        var chunk = THREE.ShaderChunk[key];
+        if (chunk) {
+            var orig = 'float faceDirection = gl_FrontFacing ? 1.0 : - 1.0;';
+            if (chunk.indexOf(orig) >= 0) {
+                THREE.ShaderChunk[key] = chunk.replace(orig, 'float faceDirection = 1.0;');
+                console.log('[ShadowLight] ShaderChunk patched: normal_fragment_begin (faceDirection=1.0)');
+            }
+        }
+    })();
+
+    // 2) Lambert vertex shader: vLightBack을 vLightFront와 동일하게
+    (function() {
+        var key = 'lights_lambert_vertex';
+        var chunk = THREE.ShaderChunk[key];
+        if (chunk) {
+            var orig = 'saturate( -dotNL )';
+            var patched = 'saturate( dotNL )';
+            var newChunk = chunk.split(orig).join(patched);
+            if (newChunk !== chunk) {
+                THREE.ShaderChunk[key] = newChunk;
+                console.log('[ShadowLight] ShaderChunk patched: lights_lambert_vertex (bilateral)');
+            }
+        }
+    })();
+
+    // 3) Lambert fragment: gl_FrontFacing 선택을 항상 Front로 고정
+    (function() {
+        var key = 'meshlambert_frag';
+        var chunk = THREE.ShaderChunk[key];
+        if (chunk) {
+            var changed = false;
+            var o1 = 'reflectedLight.directDiffuse = ( gl_FrontFacing ) ? vLightFront : vLightBack;';
+            var o2 = 'reflectedLight.indirectDiffuse += ( gl_FrontFacing ) ? vIndirectFront : vIndirectBack;';
+            if (chunk.indexOf(o1) >= 0) {
+                chunk = chunk.replace(o1, 'reflectedLight.directDiffuse = vLightFront;');
+                changed = true;
+            }
+            if (chunk.indexOf(o2) >= 0) {
+                chunk = chunk.replace(o2, 'reflectedLight.indirectDiffuse += vIndirectFront;');
+                changed = true;
+            }
+            if (changed) {
+                THREE.ShaderChunk[key] = chunk;
+                console.log('[ShadowLight] ShaderChunk patched: meshlambert_frag (bypass gl_FrontFacing)');
+            }
+        }
+    })();
+
+    // 4) Phong fragment: normal_fragment_begin 패치로 커버되지만,
+    //    lights_phong_pars_fragment의 dotNL도 abs()로 감싸서 안전하게 처리
+    (function() {
+        var key = 'lights_phong_pars_fragment';
+        var chunk = THREE.ShaderChunk[key];
+        if (chunk) {
+            var orig = 'float dotNL = saturate( dot( geometry.normal, directLight.direction ) );';
+            var patched = 'float dotNL = saturate( abs( dot( geometry.normal, directLight.direction ) ) );';
+            if (chunk.indexOf(orig) >= 0) {
+                THREE.ShaderChunk[key] = chunk.replace(orig, patched);
+                console.log('[ShadowLight] ShaderChunk patched: lights_phong_pars_fragment (abs dotNL)');
+            }
+        }
+    })();
+}
+
+//=============================================================================
 // ConfigManager - 그림자/광원 설정 추가
 //=============================================================================
 
