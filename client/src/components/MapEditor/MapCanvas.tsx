@@ -170,7 +170,7 @@ function createTextSprite(THREE: any, text: string, fontSize: number, color: str
 }
 
 /** Sync editor-defined lights to Three.js scene via ShadowLight runtime */
-function syncEditorLightsToScene(scene: any, editorLights: EditorLights | undefined) {
+function syncEditorLightsToScene(scene: any, editorLights: EditorLights | undefined, mode3d = false) {
   if (!editorLights || !ShadowLight._active) return;
   const THREE = (window as any).THREE;
   if (!THREE) return;
@@ -215,17 +215,19 @@ function syncEditorLightsToScene(scene: any, editorLights: EditorLights | undefi
     scene.add(light);
     ShadowLight._editorPointLights.push(light);
 
-    // 3D 💡 스프라이트 마커
-    const sprite = createLightMarkerSprite(THREE, pl.color);
-    sprite.position.set(px, py, pz);
-    scene.add(sprite);
-    ShadowLight._editorLightMarkers.push(sprite);
+    // 3D 💡 스프라이트 마커 (3D 모드에서만 - 2D 모드에서는 오버레이 캔버스에서 렌더링)
+    if (mode3d) {
+      const sprite = createLightMarkerSprite(THREE, pl.color);
+      sprite.position.set(px, py, pz);
+      scene.add(sprite);
+      ShadowLight._editorLightMarkers.push(sprite);
 
-    // Z > 0 이면 바닥~라이트 연결선
-    if (pz > 2) {
-      const stem = createLightStemLine(THREE, px, py, pz, pl.color);
-      scene.add(stem);
-      ShadowLight._editorLightMarkers.push(stem);
+      // Z > 0 이면 바닥~라이트 연결선
+      if (pz > 2) {
+        const stem = createLightStemLine(THREE, px, py, pz, pl.color);
+        scene.add(stem);
+        ShadowLight._editorLightMarkers.push(stem);
+      }
     }
   }
 }
@@ -1035,6 +1037,10 @@ export default function MapCanvas() {
         if (!state.mode3d) {
           Mode3D._perspCamera = null;
         }
+        // mode3d 변경 시 라이트 마커 재동기화 (3D↔2D 마커 전환)
+        if (state.shadowLight && state.currentMap?.editorLights) {
+          syncEditorLightsToScene(rendererObj.scene, state.currentMap.editorLights, state.mode3d);
+        }
         tilemap._needsRepaint = true;
         requestRender();
       }
@@ -1044,7 +1050,7 @@ export default function MapCanvas() {
           ShadowLight._active = true;
           ShadowLight._addLightsToScene(rendererObj.scene);
           // Apply editor lights after adding scene lights
-          syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights);
+          syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
         } else {
           ShadowLight._active = false;
           ShadowLight._removeLightsFromScene(rendererObj.scene);
@@ -1055,7 +1061,7 @@ export default function MapCanvas() {
       }
       // Editor lights changed (property edits, add/remove)
       if (state.shadowLight && state.currentMap?.editorLights !== prevState.currentMap?.editorLights) {
-        syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights);
+        syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
         requestRender();
       }
     });
