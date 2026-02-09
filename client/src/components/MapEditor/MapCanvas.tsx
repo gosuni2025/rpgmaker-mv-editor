@@ -164,6 +164,7 @@ export default function MapCanvas() {
   const systemData = useEditorStore((s) => s.systemData);
   const playerCharacterName = useEditorStore((s) => s.playerCharacterName);
   const playerCharacterIndex = useEditorStore((s) => s.playerCharacterIndex);
+  const setPlayerStartPosition = useEditorStore((s) => s.setPlayerStartPosition);
 
   // Event drag state
   const isDraggingEvent = useRef(false);
@@ -1697,6 +1698,8 @@ export default function MapCanvas() {
               <div className="context-menu-item" onClick={() => { pasteEvent(eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); }}>Paste</div>
             </>
           )}
+          <div className="context-menu-separator" />
+          <div className="context-menu-item" onClick={() => { if (currentMapId) setPlayerStartPosition(currentMapId, eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); }}>시작 위치 설정</div>
         </div>
       )}
 

@@ -161,6 +161,9 @@ export interface EditorState {
   updateAmbientLight: (updates: Partial<EditorAmbientLight>) => void;
   updateDirectionalLight: (updates: Partial<EditorDirectionalLight>) => void;
 
+  // Actions - Start position
+  setPlayerStartPosition: (mapId: number, x: number, y: number) => Promise<void>;
+
   // Actions - Dialog toggles
   setShowOpenProjectDialog: (show: boolean) => void;
   setShowNewProjectDialog: (show: boolean) => void;
@@ -600,6 +603,20 @@ const useEditorStore = create<EditorState>((set, get) => ({
     const map = get().currentMap;
     if (!map || !map.editorLights) return;
     set({ currentMap: { ...map, editorLights: { ...map.editorLights, directional: { ...map.editorLights.directional, ...updates } } } });
+  },
+
+  // Start position
+  setPlayerStartPosition: async (mapId: number, x: number, y: number) => {
+    const { systemData, showToast } = get();
+    if (!systemData) return;
+    const updated = { ...systemData, startMapId: mapId, startX: x, startY: y };
+    try {
+      await apiClient.put('/database/system', updated);
+      set({ systemData: updated });
+      showToast(`시작 위치 설정: 맵 ${mapId} (${x}, ${y})`);
+    } catch {
+      showToast('시작 위치 저장 실패');
+    }
   },
 
   // Dialog toggles
