@@ -23,6 +23,45 @@ interface EventContextMenu {
   eventId: number | null;
 }
 
+/** Create a canvas-based SpriteMaterial for 💡 marker */
+function createLightMarkerSprite(THREE: any, color: string): any {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d')!;
+  ctx.font = '48px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('💡', 32, 32);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(32, 32, 1);
+  sprite.renderOrder = 999;
+  return sprite;
+}
+
+/** Create a dashed line from ground to light Z position */
+function createLightStemLine(THREE: any, px: number, py: number, z: number, color: string): any {
+  const material = new THREE.LineDashedMaterial({
+    color: color,
+    dashSize: 4,
+    gapSize: 4,
+    opacity: 0.6,
+    transparent: true,
+    depthTest: false,
+  });
+  const geometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(px, py, 0),
+    new THREE.Vector3(px, py, z),
+  ]);
+  const line = new THREE.Line(geometry, material);
+  line.computeLineDistances();
+  line.renderOrder = 998;
+  return line;
+}
+
 /** Sync editor-defined lights to Three.js scene via ShadowLight runtime */
 function syncEditorLightsToScene(scene: any, editorLights: EditorLights | undefined) {
   if (!editorLights || !ShadowLight._active) return;
@@ -43,21 +82,44 @@ function syncEditorLightsToScene(scene: any, editorLights: EditorLights | undefi
     ShadowLight._directionalLight.position.set(-d[0] * 1000, -d[1] * 1000, -d[2] * 1000);
   }
 
-  // Remove existing editor point lights from scene
+  // Remove existing editor point lights + markers from scene
   if (!ShadowLight._editorPointLights) ShadowLight._editorPointLights = [];
   for (const light of ShadowLight._editorPointLights) {
     scene.remove(light);
   }
   ShadowLight._editorPointLights = [];
 
-  // Add point lights from editor data
+  if (!ShadowLight._editorLightMarkers) ShadowLight._editorLightMarkers = [];
+  for (const marker of ShadowLight._editorLightMarkers) {
+    scene.remove(marker);
+    if (marker.material?.map) marker.material.map.dispose();
+    if (marker.material) marker.material.dispose();
+    if (marker.geometry) marker.geometry.dispose();
+  }
+  ShadowLight._editorLightMarkers = [];
+
+  // Add point lights + 3D markers from editor data
   for (const pl of editorLights.points) {
     const light = new THREE.PointLight(pl.color, pl.intensity, pl.distance, pl.decay);
     const px = pl.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
     const py = pl.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
-    light.position.set(px, py, pl.z ?? ShadowLight.config?.playerLightZ ?? 30);
+    const pz = pl.z ?? ShadowLight.config?.playerLightZ ?? 30;
+    light.position.set(px, py, pz);
     scene.add(light);
     ShadowLight._editorPointLights.push(light);
+
+    // 3D 💡 스프라이트 마커
+    const sprite = createLightMarkerSprite(THREE, pl.color);
+    sprite.position.set(px, py, pz);
+    scene.add(sprite);
+    ShadowLight._editorLightMarkers.push(sprite);
+
+    // Z > 0 이면 바닥~라이트 연결선
+    if (pz > 2) {
+      const stem = createLightStemLine(THREE, px, py, pz, pl.color);
+      scene.add(stem);
+      ShadowLight._editorLightMarkers.push(stem);
+    }
   }
 }
 
