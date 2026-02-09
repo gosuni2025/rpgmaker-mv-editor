@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
+import ImagePicker from '../common/ImagePicker';
 
 interface TilesetEntry {
   id: number;
@@ -238,8 +239,11 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
           <div className="db-form" style={{ gap: 8, flex: 'none' }}>
             <label>
               <span>Image</span>
-              <input type="text" value={mapData.parallaxName}
-                onChange={e => updateField('parallaxName', e.target.value)} />
+              <ImagePicker
+                type="parallaxes"
+                value={mapData.parallaxName}
+                onChange={name => updateField('parallaxName', name)}
+              />
             </label>
             <div style={{ display: 'flex', gap: 12 }}>
               <label className="db-checkbox-row">
