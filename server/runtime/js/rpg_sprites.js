@@ -2266,6 +2266,7 @@ Spriteset_Map.prototype.createLowerLayer = function() {
     this.createParallax();
     this.createTilemap();
     this.createCharacters();
+    this.createMapObjects();
     this.createShadow();
     this.createDestination();
     this.createWeather();
@@ -2336,6 +2337,58 @@ Spriteset_Map.prototype.createCharacters = function() {
     this._characterSprites.push(new Sprite_Character($gamePlayer));
     for (var i = 0; i < this._characterSprites.length; i++) {
         this._tilemap.addChild(this._characterSprites[i]);
+    }
+};
+
+Spriteset_Map.prototype.createMapObjects = function() {
+    this._objectSprites = [];
+    var objects = $dataMap.objects;
+    if (!objects || !Array.isArray(objects)) return;
+    var tw = $gameMap.tileWidth();
+    var th = $gameMap.tileHeight();
+    var tileset = $gameMap.tileset();
+    if (!tileset) return;
+
+    for (var i = 0; i < objects.length; i++) {
+        var obj = objects[i];
+        if (!obj) continue;
+        // Create a container sprite for the entire object
+        var container = new Sprite();
+        container.x = obj.x * tw;
+        // anchor Y at the bottom row of the object
+        container.y = (obj.y + 1) * th;
+        container.z = 3; // above lower tiles, below characters
+        container.anchor = new Point(0, 1);
+
+        for (var row = 0; row < obj.height; row++) {
+            for (var col = 0; col < obj.width; col++) {
+                var tileIds = obj.tileIds[row];
+                if (!tileIds) continue;
+                var tileId = tileIds[col];
+                if (!tileId || tileId === 0) continue;
+
+                var setNumber = 5 + Math.floor(tileId / 256);
+                var tilesetName = tileset.tilesetNames[setNumber];
+                if (!tilesetName) continue;
+
+                var tileSprite = new Sprite();
+                tileSprite.bitmap = ImageManager.loadTileset(tilesetName);
+                var sx = (Math.floor(tileId / 128) % 2 * 8 + tileId % 8) * tw;
+                var sy = Math.floor(tileId % 256 / 8) % 16 * th;
+                tileSprite.setFrame(sx, sy, tw, th);
+                tileSprite.x = col * tw;
+                tileSprite.y = row * th - (obj.height * th); // relative to container bottom
+                container.addChild(tileSprite);
+            }
+        }
+
+        this._tilemap.addChild(container);
+        this._objectSprites.push(container);
+
+        // Register as billboard for 3D mode
+        if (typeof Mode3D !== 'undefined') {
+            Mode3D.registerBillboard(container);
+        }
     }
 };
 

@@ -420,41 +420,66 @@ function sync3DOverlays(
     playerSpriteRef.current = objs;
   }
 
-  // --- Map objects (tile-based) ---
+  // --- Map objects (tile-based, billboard in 3D) ---
   if (currentMap.objects) {
     const isObjectMode = editMode === 'object';
     const HALF = TILE_SIZE_PX / 2;
+    const tilt = -Mode3D._tiltRad;
     for (const mapObj of currentMap.objects) {
+      // Build a single billboard canvas for the entire object
+      const objPxW = mapObj.width * TILE_SIZE_PX;
+      const objPxH = mapObj.height * TILE_SIZE_PX;
+      const canvas = document.createElement('canvas');
+      canvas.width = objPxW;
+      canvas.height = objPxH;
+      const ctx = canvas.getContext('2d')!;
+      // Y-flip for Mode3D's inverted projection
+      ctx.translate(0, objPxH);
+      ctx.scale(1, -1);
+      let hasTile = false;
       for (let row = 0; row < mapObj.height; row++) {
         for (let col = 0; col < mapObj.width; col++) {
           const tileId = mapObj.tileIds[row]?.[col];
           if (!tileId || tileId === 0) continue;
-          const drawX = (mapObj.x + col) * TILE_SIZE_PX;
-          const drawY = (mapObj.y - mapObj.height + 1 + row) * TILE_SIZE_PX;
           const info = getTileRenderInfo(tileId);
           if (!info) continue;
+          const dx = col * TILE_SIZE_PX;
+          const dy = row * TILE_SIZE_PX;
           if (info.type === 'normal') {
             const img = tilesetImages[info.sheet];
-            if (img) {
-              const mesh = createTileSprite(THREE, img, info.sx, info.sy, info.sw, info.sh, TILE_SIZE_PX, TILE_SIZE_PX);
-              mesh.position.set(drawX + TILE_SIZE_PX / 2, drawY + TILE_SIZE_PX / 2, 3);
-              scene.add(mesh);
-              objectMeshesRef.current.push(mesh);
-            }
+            if (img) { ctx.drawImage(img, info.sx, info.sy, info.sw, info.sh, dx, dy, TILE_SIZE_PX, TILE_SIZE_PX); hasTile = true; }
           } else if (info.type === 'autotile') {
             for (let q = 0; q < 4; q++) {
               const quarter = info.quarters[q];
               const img = tilesetImages[quarter.sheet];
               if (!img) continue;
-              const qx = drawX + (q % 2) * HALF;
-              const qy = drawY + Math.floor(q / 2) * HALF;
-              const mesh = createTileSprite(THREE, img, quarter.sx, quarter.sy, HALF, HALF, HALF, HALF);
-              mesh.position.set(qx + HALF / 2, qy + HALF / 2, 3);
-              scene.add(mesh);
-              objectMeshesRef.current.push(mesh);
+              ctx.drawImage(img, quarter.sx, quarter.sy, HALF, HALF, dx + (q % 2) * HALF, dy + Math.floor(q / 2) * HALF, HALF, HALF);
+              hasTile = true;
             }
           }
         }
+      }
+      if (hasTile) {
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.NearestFilter;
+        texture.magFilter = THREE.NearestFilter;
+        texture.needsUpdate = true;
+        const geometry = new THREE.PlaneGeometry(objPxW, objPxH);
+        const material = new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.renderOrder = 880;
+        mesh.frustumCulled = false;
+        // Billboard rotation
+        mesh.rotation.x = tilt;
+        // Position: anchor at bottom-center of the object's footprint
+        const footX = mapObj.x * TILE_SIZE_PX + objPxW / 2;
+        const footY = mapObj.y * TILE_SIZE_PX + TILE_SIZE_PX;
+        const halfH = objPxH / 2;
+        const cosT = Math.cos(tilt);
+        const sinT = Math.sin(tilt);
+        mesh.position.set(footX, footY - halfH * cosT, halfH * (-sinT));
+        scene.add(mesh);
+        objectMeshesRef.current.push(mesh);
       }
       if (isObjectMode) {
         const bx = mapObj.x;
