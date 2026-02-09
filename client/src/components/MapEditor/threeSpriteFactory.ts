@@ -2,6 +2,7 @@ import { TILE_SIZE_PX } from '../../utils/tileHelper';
 
 // Runtime globals (loaded via index.html script tags)
 declare const RendererFactory: any;
+declare const ThreeSprite: any;
 
 /** Create a canvas-based SpriteMaterial for 💡 marker */
 export function createLightMarkerSprite(THREE: any, color: string): any {
@@ -43,65 +44,56 @@ export function createLightStemLine(THREE: any, px: number, py: number, z: numbe
   return line;
 }
 
-/** Create a textured PlaneGeometry mesh for a tile from a tileset image.
- *  Used for rendering map objects (billboard tiles) in 3D mode. */
+/** 게임 런타임 ThreeSprite를 사용하여 이미지의 서브영역으로 메시 생성 */
+function createRuntimeSprite(img: HTMLImageElement | HTMLCanvasElement, sx: number, sy: number, sw: number, sh: number): any {
+  const baseTexture = RendererFactory.createBaseTexture(img);
+  const texture = RendererFactory.createTexture(baseTexture);
+  texture.frame = { x: sx, y: sy, width: sw, height: sh };
+  texture._updateID++;
+  const sprite = new ThreeSprite(texture);
+  sprite.anchor.set(0.5, 0.5);
+  sprite.updateTransform();
+  return sprite;
+}
+
+/** Create a textured mesh for a tile from a tileset image.
+ *  Uses game runtime ThreeSprite for correct UV/normal handling. */
 export function createTileSprite(THREE: any, img: HTMLImageElement, sx: number, sy: number, sw: number, sh: number, drawW: number, drawH: number): any {
-  const canvas = document.createElement('canvas');
-  canvas.width = sw;
-  canvas.height = sh;
-  const ctx = canvas.getContext('2d')!;
-  ctx.translate(0, sh);
-  ctx.scale(1, -1);
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.minFilter = THREE.NearestFilter;
-  texture.magFilter = THREE.NearestFilter;
-  texture.needsUpdate = true;
-  const geometry = new THREE.PlaneGeometry(drawW, drawH);
-  const material = new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(geometry, material);
+  const sprite = createRuntimeSprite(img, sx, sy, sw, sh);
+  sprite.scale.set(drawW / sw, drawH / sh);
+  sprite.updateTransform();
+
+  const mesh = sprite._threeObj;
   mesh.renderOrder = 880;
   mesh.frustumCulled = false;
+  mesh.material.depthTest = false;
   return mesh;
 }
 
-/** Create a textured PlaneGeometry mesh for a character image region. */
+/** Create a textured mesh for a character image region.
+ *  Uses game runtime ThreeSprite for correct UV/normal handling. */
 export function createCharSprite(THREE: any, img: HTMLImageElement, sx: number, sy: number, sw: number, sh: number, tileSize: number): any {
-  const canvas = document.createElement('canvas');
-  canvas.width = sw;
-  canvas.height = sh;
-  const ctx = canvas.getContext('2d')!;
-  // Mode3D Y-flip 카메라 보정: 캔버스를 미리 뒤집어 그림
-  ctx.translate(0, sh);
-  ctx.scale(1, -1);
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.minFilter = THREE.NearestFilter;
-  texture.magFilter = THREE.NearestFilter;
-  texture.needsUpdate = true;
-  const scale = Math.min(tileSize / sw, tileSize / sh);
-  const w = sw * scale;
-  const h = sh * scale;
-  const geometry = new THREE.PlaneGeometry(w, h);
-  // ShadowLight 활성 시 MeshPhongMaterial + castShadow 사용
-  const isShadowActive = (window as any).ShadowLight?._active;
-  const material = isShadowActive
-    ? new THREE.MeshPhongMaterial({
-        map: texture, depthTest: true, depthWrite: true, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide,
-        emissive: new THREE.Color(0x000000), specular: new THREE.Color(0x000000), shininess: 0,
-      })
-    : new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(geometry, material);
+  const sprite = createRuntimeSprite(img, sx, sy, sw, sh);
+  const scaleFactor = Math.min(tileSize / sw, tileSize / sh);
+  sprite.scale.set(scaleFactor, scaleFactor);
+  sprite.updateTransform();
+
+  const mesh = sprite._threeObj;
   mesh.renderOrder = 900;
   mesh.frustumCulled = false;
-  if (isShadowActive) {
+
+  // ShadowLight 활성 시 MeshPhongMaterial + castShadow 사용
+  const ShadowLightGlobal = (window as any).ShadowLight;
+  if (ShadowLightGlobal?._active) {
+    const map = mesh.material.map;
     mesh.castShadow = true;
-    // customDepthMaterial for correct alpha-tested shadow silhouette
+    mesh.material = new THREE.MeshPhongMaterial({
+      map, depthTest: true, depthWrite: true, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide,
+      emissive: new THREE.Color(0x000000), specular: new THREE.Color(0x000000), shininess: 0,
+    });
     mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
       depthPacking: THREE.RGBADepthPacking,
-      map: texture,
-      alphaTest: 0.5,
-      side: THREE.DoubleSide,
+      map, alphaTest: 0.5, side: THREE.DoubleSide,
     });
   }
   return mesh;
@@ -137,15 +129,12 @@ export function createTileOutline(THREE: any, x: number, y: number, tileSize: nu
   return line;
 }
 
-/** Create a text label as PlaneGeometry mesh */
+/** Create a text label using game runtime ThreeSprite */
 export function createTextSprite(THREE: any, text: string, fontSize: number, color: string): any {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 32;
   const ctx = canvas.getContext('2d')!;
-  // Mode3D Y-flip 카메라 보정: 캔버스를 미리 뒤집어 그림
-  ctx.translate(0, 32);
-  ctx.scale(1, -1);
   ctx.font = `bold ${fontSize}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -153,14 +142,27 @@ export function createTextSprite(THREE: any, text: string, fontSize: number, col
   ctx.shadowBlur = 2;
   ctx.fillStyle = color;
   ctx.fillText(text, 64, 16, 124);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.minFilter = THREE.LinearFilter;
-  texture.needsUpdate = true;
-  const geometry = new THREE.PlaneGeometry(64, 16);
-  const material = new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(geometry, material);
+
+  const sprite = createRuntimeSprite(canvas, 0, 0, 128, 32);
+  // 원본 PlaneGeometry(64,16)에 맞춤: ThreeSprite 지오메트리는 128x32이므로 0.5 스케일
+  sprite.scale.set(0.5, 0.5);
+  sprite.updateTransform();
+
+  const mesh = sprite._threeObj;
   mesh.renderOrder = 910;
   mesh.frustumCulled = false;
+  mesh.material.depthTest = false;
+  return mesh;
+}
+
+/** 캔버스로부터 게임 런타임 ThreeSprite 메시를 생성 */
+export function createCanvasSprite(canvas: HTMLCanvasElement): any {
+  const sprite = createRuntimeSprite(canvas, 0, 0, canvas.width, canvas.height);
+  sprite.updateTransform();
+  const mesh = sprite._threeObj;
+  mesh.renderOrder = 880;
+  mesh.frustumCulled = false;
+  mesh.material.depthTest = false;
   return mesh;
 }
 

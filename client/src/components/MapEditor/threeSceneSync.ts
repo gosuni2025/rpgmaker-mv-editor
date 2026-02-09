@@ -1,7 +1,7 @@
 import React from 'react';
 import { TILE_SIZE_PX, getTileRenderInfo } from '../../utils/tileHelper';
 import type { EditorLights } from '../../types/rpgMakerMV';
-import { createLightMarkerSprite, createLightStemLine, createCharSprite, createTileQuad, createTileOutline, createTextSprite } from './threeSpriteFactory';
+import { createLightMarkerSprite, createLightStemLine, createCharSprite, createTileQuad, createTileOutline, createTextSprite, createCanvasSprite } from './threeSpriteFactory';
 
 // Runtime globals (loaded via index.html script tags)
 declare const ConfigManager: any;
@@ -315,9 +315,6 @@ export function sync3DOverlays(
       canvas.width = objPxW;
       canvas.height = objPxH;
       const ctx = canvas.getContext('2d')!;
-      // Mode3D Y-flip 카메라 보정: 캔버스를 미리 뒤집어 그림
-      ctx.translate(0, objPxH);
-      ctx.scale(1, -1);
       let hasTile = false;
       for (let row = 0; row < mapObj.height; row++) {
         for (let col = 0; col < mapObj.width; col++) {
@@ -342,15 +339,7 @@ export function sync3DOverlays(
         }
       }
       if (hasTile) {
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.minFilter = THREE.NearestFilter;
-        texture.magFilter = THREE.NearestFilter;
-        texture.needsUpdate = true;
-        const geometry = new THREE.PlaneGeometry(objPxW, objPxH);
-        const material = new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.renderOrder = 880;
-        mesh.frustumCulled = false;
+        const mesh = createCanvasSprite(canvas);
         // Billboard rotation
         mesh.rotation.x = tilt;
         // Position: anchor at bottom-center of the object's footprint
