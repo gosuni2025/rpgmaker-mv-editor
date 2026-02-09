@@ -582,6 +582,7 @@ function createBitmapFromImage(img: HTMLImageElement): any {
 }
 
 export default function MapCanvas() {
+  const containerRef = useRef<HTMLDivElement>(null);
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
@@ -617,6 +618,8 @@ export default function MapCanvas() {
   const currentLayer = useEditorStore((s) => s.currentLayer);
   const editMode = useEditorStore((s) => s.editMode);
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
+  const zoomIn = useEditorStore((s) => s.zoomIn);
+  const zoomOut = useEditorStore((s) => s.zoomOut);
   const updateMapTile = useEditorStore((s) => s.updateMapTile);
   const updateMapTiles = useEditorStore((s) => s.updateMapTiles);
   const pushUndo = useEditorStore((s) => s.pushUndo);
@@ -687,6 +690,21 @@ export default function MapCanvas() {
   const draggedObjectId = useRef<number | null>(null);
   const dragObjectOrigin = useRef<{ x: number; y: number } | null>(null);
   const [objectDragPreview, setObjectDragPreview] = useState<{ x: number; y: number } | null>(null);
+
+  // Ctrl+마우스 휠로 줌 인/아웃
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) zoomIn();
+        else if (e.deltaY > 0) zoomOut();
+      }
+    };
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [zoomIn, zoomOut]);
 
   useEffect(() => {
     const handler = (e: Event) => setShowGrid((e as CustomEvent<boolean>).detail);
@@ -2604,7 +2622,7 @@ export default function MapCanvas() {
   const mapPxH = (currentMap?.height || 0) * TILE_SIZE_PX;
 
   return (
-    <div style={styles.container} onClick={closeEventCtxMenu}>
+    <div ref={containerRef} style={styles.container} onClick={closeEventCtxMenu}>
       <div style={{
         position: 'relative',
         transform: `scale(${zoomLevel})`,
