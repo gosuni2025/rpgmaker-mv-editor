@@ -42,12 +42,13 @@ interface TreeNodeProps {
   depth: number;
   selectedId: number | null;
   onSelect: (id: number) => void;
+  onDoubleClick: (id: number) => void;
   collapsed: Record<number, boolean>;
   onToggle: (id: number) => void;
   onContextMenu: (e: React.MouseEvent, mapId: number) => void;
 }
 
-function TreeNode({ node, depth, selectedId, onSelect, collapsed, onToggle, onContextMenu }: TreeNodeProps) {
+function TreeNode({ node, depth, selectedId, onSelect, onDoubleClick, collapsed, onToggle, onContextMenu }: TreeNodeProps) {
   const isCollapsed = collapsed[node.id];
   const hasChildren = node.children && node.children.length > 0;
 
@@ -57,6 +58,7 @@ function TreeNode({ node, depth, selectedId, onSelect, collapsed, onToggle, onCo
         className={`map-tree-node${node.id === selectedId ? ' selected' : ''}`}
         style={{ paddingLeft: 8 + depth * 16 }}
         onClick={() => onSelect(node.id)}
+        onDoubleClick={() => onDoubleClick(node.id)}
         onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, node.id); }}
       >
         <span
@@ -78,6 +80,7 @@ function TreeNode({ node, depth, selectedId, onSelect, collapsed, onToggle, onCo
             depth={depth + 1}
             selectedId={selectedId}
             onSelect={onSelect}
+            onDoubleClick={onDoubleClick}
             collapsed={collapsed}
             onToggle={onToggle}
             onContextMenu={onContextMenu}
@@ -108,6 +111,14 @@ export default function MapTree() {
   const handleToggle = (id: number) => {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
   };
+
+  const handleDoubleClick = useCallback((mapId: number) => {
+    const info = maps.find(m => m && m.id === mapId);
+    if (info) {
+      setMapPropsId(mapId);
+      setMapPropsName(info.name);
+    }
+  }, [maps]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, mapId: number) => {
     setContextMenu({ x: e.clientX, y: e.clientY, mapId });
@@ -195,6 +206,7 @@ export default function MapTree() {
           depth={1}
           selectedId={currentMapId}
           onSelect={selectMap}
+          onDoubleClick={handleDoubleClick}
           collapsed={collapsed}
           onToggle={handleToggle}
           onContextMenu={handleContextMenu}

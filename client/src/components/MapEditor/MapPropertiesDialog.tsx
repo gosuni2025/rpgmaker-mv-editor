@@ -237,14 +237,14 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
           {/* Parallax */}
           <div className="db-form-section">Parallax Background</div>
           <div className="db-form" style={{ gap: 8, flex: 'none' }}>
-            <label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, color: '#aaa' }}>
               <span>Image</span>
               <ImagePicker
                 type="parallaxes"
                 value={mapData.parallaxName}
                 onChange={name => updateField('parallaxName', name)}
               />
-            </label>
+            </div>
             <div style={{ display: 'flex', gap: 12 }}>
               <label className="db-checkbox-row">
                 <input type="checkbox" checked={mapData.parallaxLoopX}
