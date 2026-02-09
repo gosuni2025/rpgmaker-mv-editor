@@ -1,7 +1,8 @@
 import React, { useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
-import { posToTile, TILE_SIZE_PX, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1 } from '../../utils/tileHelper';
+import { posToTile, TILE_SIZE_PX, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1 } from '../../utils/tileHelper';
+import { placeAutotileAtPure, floodFillRegion, floodFillTile, batchPlaceWithAutotilePure, getRectanglePositions, getEllipsePositions } from './mapToolAlgorithms';
 
 // Runtime globals (loaded via index.html script tags)
 declare const ConfigManager: any;
@@ -62,7 +63,6 @@ export function useMapTools(
     const screenX = (e.clientX - rect.left) / zoomLevel;
     const screenY = (e.clientY - rect.top) / zoomLevel;
 
-    // 3D mode: use Mode3D.screenToWorld for perspective-correct tile coordinates
     if (mode3d && ConfigManager.mode3d && Mode3D._perspCamera) {
       const world = Mode3D.screenToWorld(screenX, screenY);
       if (world) {
@@ -106,13 +106,12 @@ export function useMapTools(
   }, [zoomLevel, mode3d, currentMap]);
 
   // =========================================================================
-  // Eyedropper (스포이드) - Alt+Click으로 맵 타일 픽업
+  // Eyedropper (스포이드)
   // =========================================================================
   const eyedropTile = useCallback((tileX: number, tileY: number) => {
     const map = useEditorStore.getState().currentMap;
     if (!map) return;
 
-    // 레이어 위에서부터 확인 (z=3→0), 비어있지 않은 첫 레이어의 타일을 선택
     let pickedTileId = 0;
     let pickedLayer = 0;
     for (let z = 3; z >= 0; z--) {
@@ -125,7 +124,6 @@ export function useMapTools(
       }
     }
 
-    // 타일 ID로부터 팔레트 탭 결정
     let tab: 'A' | 'B' | 'C' | 'D' | 'E' = 'B';
     if (pickedTileId >= TILE_ID_A1) {
       tab = 'A';
@@ -142,7 +140,6 @@ export function useMapTools(
     }
 
     const rawTileId = pickedTileId;
-    // 오토타일의 경우 대표 타일 ID(shape=46)로 변환
     if (isAutotile(pickedTileId)) {
       const kind = getAutotileKindExported(pickedTileId);
       pickedTileId = makeAutotileId(kind, 46);
@@ -206,49 +203,11 @@ export function useMapTools(
   }, [zoomLevel]);
 
   // =========================================================================
-  // Tool logic
+  // Tool wrappers (delegate to pure algorithms)
   // =========================================================================
   const placeAutotileAt = useCallback(
     (x: number, y: number, z: number, tileId: number, data: number[], width: number, height: number, changes: TileChange[], updates: { x: number; y: number; z: number; tileId: number }[]) => {
-      const idx = (z * height + y) * width + x;
-      const oldId = data[idx];
-      data[idx] = tileId;
-
-      if (isAutotile(tileId) && !isTileA5(tileId)) {
-        const kind = getAutotileKindExported(tileId);
-        const shape = computeAutoShapeForPosition(data, width, height, x, y, z, tileId);
-        const correctId = makeAutotileId(kind, shape);
-        data[idx] = correctId;
-        if (correctId !== oldId) {
-          changes.push({ x, y, z, oldTileId: oldId, newTileId: correctId });
-          updates.push({ x, y, z, tileId: correctId });
-        }
-      } else {
-        if (tileId !== oldId) {
-          changes.push({ x, y, z, oldTileId: oldId, newTileId: tileId });
-          updates.push({ x, y, z, tileId });
-        }
-      }
-
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          const nx = x + dx, ny = y + dy;
-          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-          const nIdx = (z * height + ny) * width + nx;
-          const nTileId = data[nIdx];
-          if (!isAutotile(nTileId) || isTileA5(nTileId)) continue;
-          const nKind = getAutotileKindExported(nTileId);
-          const nShape = computeAutoShapeForPosition(data, width, height, nx, ny, z, nTileId);
-          const nCorrectId = makeAutotileId(nKind, nShape);
-          if (nCorrectId !== nTileId) {
-            const nOldId = nTileId;
-            data[nIdx] = nCorrectId;
-            changes.push({ x: nx, y: ny, z, oldTileId: nOldId, newTileId: nCorrectId });
-            updates.push({ x: nx, y: ny, z, tileId: nCorrectId });
-          }
-        }
-      }
+      placeAutotileAtPure(x, y, z, tileId, data, width, height, changes, updates);
     },
     []
   );
@@ -260,27 +219,9 @@ export function useMapTools(
       const { width, height } = latestMap;
       const z = currentLayer;
       const data = [...latestMap.data];
-      const targetId = data[(z * height + startY) * width + startX];
 
       if (z === 5) {
-        if (targetId === selectedTileId) return;
-        const visited = new Set<string>();
-        const queue = [{ x: startX, y: startY }];
-        const changes: TileChange[] = [];
-        const updates: { x: number; y: number; z: number; tileId: number }[] = [];
-        while (queue.length > 0) {
-          const { x, y } = queue.shift()!;
-          const key = `${x},${y}`;
-          if (visited.has(key)) continue;
-          if (x < 0 || x >= width || y < 0 || y >= height) continue;
-          const idx = (z * height + y) * width + x;
-          if (data[idx] !== targetId) continue;
-          visited.add(key);
-          changes.push({ x, y, z, oldTileId: targetId, newTileId: selectedTileId });
-          updates.push({ x, y, z, tileId: selectedTileId });
-          data[idx] = selectedTileId;
-          queue.push({ x: x + 1, y }, { x: x - 1, y }, { x, y: y + 1 }, { x, y: y - 1 });
-        }
+        const { changes, updates } = floodFillRegion(data, width, height, startX, startY, z, selectedTileId);
         if (updates.length > 0) {
           updateMapTiles(updates);
           pushUndo(changes);
@@ -288,74 +229,7 @@ export function useMapTools(
         return;
       }
 
-      const targetIsAutotile = isAutotile(targetId) && !isTileA5(targetId);
-      const targetKind = targetIsAutotile ? getAutotileKindExported(targetId) : -1;
-      const newIsAutotile = isAutotile(selectedTileId) && !isTileA5(selectedTileId);
-      const newKind = newIsAutotile ? getAutotileKindExported(selectedTileId) : -1;
-      if (targetIsAutotile && newIsAutotile && targetKind === newKind) return;
-      if (!targetIsAutotile && !newIsAutotile && targetId === selectedTileId) return;
-
-      const visited = new Set<string>();
-      const queue = [{ x: startX, y: startY }];
-      const filledPositions: { x: number; y: number }[] = [];
-
-      while (queue.length > 0) {
-        const { x, y } = queue.shift()!;
-        const key = `${x},${y}`;
-        if (visited.has(key)) continue;
-        if (x < 0 || x >= width || y < 0 || y >= height) continue;
-        const idx = (z * height + y) * width + x;
-        const curId = data[idx];
-        const curIsAuto = isAutotile(curId) && !isTileA5(curId);
-        const match = targetIsAutotile
-          ? (curIsAuto && getAutotileKindExported(curId) === targetKind)
-          : (curId === targetId);
-        if (!match) continue;
-        visited.add(key);
-        filledPositions.push({ x, y });
-        queue.push({ x: x + 1, y }, { x: x - 1, y }, { x, y: y + 1 }, { x, y: y - 1 });
-      }
-
-      if (filledPositions.length === 0) return;
-
-      const changes: TileChange[] = [];
-      const updates: { x: number; y: number; z: number; tileId: number }[] = [];
-
-      for (const { x, y } of filledPositions) {
-        const idx = (z * height + y) * width + x;
-        data[idx] = selectedTileId;
-      }
-
-      const toRecalc = new Set<string>();
-      for (const { x, y } of filledPositions) {
-        toRecalc.add(`${x},${y}`);
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const nx = x + dx, ny = y + dy;
-            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-              toRecalc.add(`${nx},${ny}`);
-            }
-          }
-        }
-      }
-
-      const oldData = latestMap.data;
-      for (const posKey of toRecalc) {
-        const [px, py] = posKey.split(',').map(Number);
-        const idx = (z * height + py) * width + px;
-        const tileId = data[idx];
-        if (isAutotile(tileId) && !isTileA5(tileId)) {
-          const kind = getAutotileKindExported(tileId);
-          const shape = computeAutoShapeForPosition(data, width, height, px, py, z, tileId);
-          const correctId = makeAutotileId(kind, shape);
-          data[idx] = correctId;
-        }
-        if (data[idx] !== oldData[idx]) {
-          changes.push({ x: px, y: py, z, oldTileId: oldData[idx], newTileId: data[idx] });
-          updates.push({ x: px, y: py, z, tileId: data[idx] });
-        }
-      }
-
+      const { changes, updates } = floodFillTile(data, latestMap.data, width, height, startX, startY, z, selectedTileId);
       if (updates.length > 0) {
         updateMapTiles(updates);
         pushUndo(changes);
@@ -415,67 +289,8 @@ export function useMapTools(
         return sTiles[row][col];
       };
 
-      if (z === 5) {
-        const changes: TileChange[] = [];
-        const updates: { x: number; y: number; z: number; tileId: number }[] = [];
-        for (const { x, y } of positions) {
-          const idx = (z * height + y) * width + x;
-          const oldId = latestMap.data[idx];
-          const newId = getTileForPos(x, y);
-          if (oldId !== newId) {
-            changes.push({ x, y, z, oldTileId: oldId, newTileId: newId });
-            updates.push({ x, y, z, tileId: newId });
-          }
-        }
-        if (updates.length > 0) {
-          updateMapTiles(updates);
-          pushUndo(changes);
-        }
-        return;
-      }
-
       const data = [...latestMap.data];
-      const oldData = latestMap.data;
-
-      for (const { x, y } of positions) {
-        const idx = (z * height + y) * width + x;
-        data[idx] = getTileForPos(x, y);
-      }
-
-      const toRecalc = new Set<string>();
-      for (const { x, y } of positions) {
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const nx = x + dx, ny = y + dy;
-            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-              toRecalc.add(`${nx},${ny}`);
-            }
-          }
-        }
-      }
-
-      for (const posKey of toRecalc) {
-        const [px, py] = posKey.split(',').map(Number);
-        const idx = (z * height + py) * width + px;
-        const tid = data[idx];
-        if (isAutotile(tid) && !isTileA5(tid)) {
-          const kind = getAutotileKindExported(tid);
-          const shape = computeAutoShapeForPosition(data, width, height, px, py, z, tid);
-          data[idx] = makeAutotileId(kind, shape);
-        }
-      }
-
-      const changes: TileChange[] = [];
-      const updates: { x: number; y: number; z: number; tileId: number }[] = [];
-      for (const posKey of toRecalc) {
-        const [px, py] = posKey.split(',').map(Number);
-        const idx = (z * height + py) * width + px;
-        if (data[idx] !== oldData[idx]) {
-          changes.push({ x: px, y: py, z, oldTileId: oldData[idx], newTileId: data[idx] });
-          updates.push({ x: px, y: py, z, tileId: data[idx] });
-        }
-      }
-
+      const { changes, updates } = batchPlaceWithAutotilePure(data, latestMap.data, width, height, z, positions, getTileForPos);
       if (updates.length > 0) {
         updateMapTiles(updates);
         pushUndo(changes);
@@ -573,17 +388,7 @@ export function useMapTools(
     (start: { x: number; y: number }, end: { x: number; y: number }) => {
       const latestMap = useEditorStore.getState().currentMap;
       if (!latestMap) return;
-      const minX = Math.max(0, Math.min(start.x, end.x));
-      const maxX = Math.min(latestMap.width - 1, Math.max(start.x, end.x));
-      const minY = Math.max(0, Math.min(start.y, end.y));
-      const maxY = Math.min(latestMap.height - 1, Math.max(start.y, end.y));
-
-      const positions: { x: number; y: number }[] = [];
-      for (let y = minY; y <= maxY; y++) {
-        for (let x = minX; x <= maxX; x++) {
-          positions.push({ x, y });
-        }
-      }
+      const positions = getRectanglePositions(start, end, latestMap.width, latestMap.height);
       batchPlaceWithAutotile(positions, selectedTileId);
     },
     [selectedTileId, batchPlaceWithAutotile]
@@ -593,27 +398,7 @@ export function useMapTools(
     (start: { x: number; y: number }, end: { x: number; y: number }) => {
       const latestMap = useEditorStore.getState().currentMap;
       if (!latestMap) return;
-      const minX = Math.min(start.x, end.x);
-      const maxX = Math.max(start.x, end.x);
-      const minY = Math.min(start.y, end.y);
-      const maxY = Math.max(start.y, end.y);
-
-      const cx = (minX + maxX) / 2;
-      const cy = (minY + maxY) / 2;
-      const rx = (maxX - minX) / 2;
-      const ry = (maxY - minY) / 2;
-
-      const positions: { x: number; y: number }[] = [];
-      for (let y = minY; y <= maxY; y++) {
-        for (let x = minX; x <= maxX; x++) {
-          if (x < 0 || x >= latestMap.width || y < 0 || y >= latestMap.height) continue;
-          const dx = (x - cx) / (rx || 0.5);
-          const dy = (y - cy) / (ry || 0.5);
-          if (dx * dx + dy * dy <= 1) {
-            positions.push({ x, y });
-          }
-        }
-      }
+      const positions = getEllipsePositions(start, end, latestMap.width, latestMap.height);
       batchPlaceWithAutotile(positions, selectedTileId);
     },
     [selectedTileId, batchPlaceWithAutotile]
