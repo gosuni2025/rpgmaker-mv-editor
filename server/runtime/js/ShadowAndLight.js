@@ -182,12 +182,12 @@ ShadowLight.config = {
     // 플레이어 SpotLight (방향성 그림자)
     spotLightEnabled: true,
     spotLightColor: 0xffeedd,         // 손전등 색상 (따뜻한 백색)
-    spotLightIntensity: 3.0,
-    spotLightDistance: 300,            // 비추는 범위
-    spotLightAngle: Math.PI / 5,      // 원뿔 반각 (36도)
-    spotLightPenumbra: 0.3,           // 가장자리 부드러움 (0~1)
-    spotLightZ: 50,                   // 높이
-    spotLightShadowMapSize: 1024,     // 그림자 맵 해상도
+    spotLightIntensity: 4.0,
+    spotLightDistance: 500,            // 비추는 범위
+    spotLightAngle: Math.PI / 4,      // 원뿔 반각 (45도)
+    spotLightPenumbra: 0.4,           // 가장자리 부드러움 (0~1)
+    spotLightZ: 200,                  // 높이 (그림자 위치 정확도를 위해 높게)
+    spotLightShadowMapSize: 2048,     // 그림자 맵 해상도
     spotLightTargetDistance: 120,     // target까지의 거리 (플레이어 앞)
 
     // 오브젝트 레이어 (upperZLayer) 높이
@@ -660,9 +660,7 @@ Spriteset_Map.prototype._updateShadowLight = function() {
 
     if (!enabled) return;
 
-    // Shadow camera를 화면 중심으로 추적
-    // 캐릭터 스프라이트는 screenX/screenY (화면 좌표 0~width, 0~height)에 배치되므로
-    // shadow camera도 화면 좌표계 중심을 따라야 함
+    // DirectionalLight shadow camera를 화면 중심으로 추적
     if (ShadowLight._directionalLight) {
         var vw = Graphics._width || 816;
         var vh = Graphics._height || 624;
@@ -676,8 +674,6 @@ Spriteset_Map.prototype._updateShadowLight = function() {
         );
         ShadowLight._directionalLight.target.position.set(cx, cy, 0);
         ShadowLight._directionalLight.target.updateMatrixWorld();
-
-        // shadow camera updateProjectionMatrix (position/target 변경 반영)
         ShadowLight._directionalLight.shadow.camera.updateProjectionMatrix();
     }
 
@@ -832,8 +828,9 @@ Spriteset_Map.prototype._updatePointLights = function() {
         }
     }
 
-    // SpotLight 위치/방향 업데이트 (플레이어 투명 여부 무관 - 에디터에서도 작동)
-    if (ShadowLight._playerSpotLight && ShadowLight.config.spotLightEnabled && playerWp) {
+    // SpotLight 위치/방향 업데이트
+    if (ShadowLight._playerSpotLight && ShadowLight.config.spotLightEnabled && playerWp &&
+        $gamePlayer && !$gamePlayer.isTransparent()) {
         var spot = ShadowLight._playerSpotLight;
         spot.visible = true;
         var cfg = ShadowLight.config;

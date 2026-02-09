@@ -206,20 +206,17 @@
      */
     Mode3D._applyBillboardsForShadow = function() {
         if (!window.ShadowLight || !ShadowLight._playerSpotLight || !ShadowLight.config.spotLightEnabled) {
-            // SpotLight가 없으면 일반 빌보드 유지
             return;
         }
         var spot = ShadowLight._playerSpotLight;
         var target = ShadowLight._playerSpotTarget;
         if (!spot || !target) return;
 
-        // SpotLight에서 target까지의 방향 벡터
+        // SpotLight에서 target까지의 방향으로 빌보드 회전 (shadow map 렌더링용)
         var dx = target.position.x - spot.position.x;
         var dy = target.position.y - spot.position.y;
         var dz = (target.position.z || 0) - (spot.position.z || 0);
         var lenXY = Math.sqrt(dx * dx + dy * dy);
-        // SpotLight가 위에서 비추므로, shadow camera가 보는 각도
-        // atan2(dz, lenXY) = 빛이 아래로 내려오는 각도
         var shadowTilt = -Math.atan2(dz, lenXY);
 
         for (var i = 0; i < this._billboardTargets.length; i++) {
@@ -302,23 +299,19 @@
             var prevShadowAutoUpdate = renderer.shadowMap.autoUpdate;
             renderer.shadowMap.autoUpdate = false;
 
-            // --- Shadow Pass: SpotLight 방향 빌보드로 shadow map 갱신 ---
-            // 캐릭터를 SpotLight 방향으로 회전 → shadow map 렌더 → 카메라 빌보드 복구
+            // --- Shadow Pass: SpotLight shadow용 빌보드 회전 → shadow map 갱신 ---
             if (window.ShadowLight && ShadowLight._playerSpotLight &&
                 ShadowLight.config.spotLightEnabled && ShadowLight._active) {
                 Mode3D._applyBillboardsForShadow();
                 renderer.shadowMap.needsUpdate = true;
-                // color/depth 출력 차단, shadow map만 갱신
                 var gl = renderer.getContext();
                 gl.colorMask(false, false, false, false);
                 gl.depthMask(false);
                 renderer.render(scene, Mode3D._perspCamera);
                 gl.colorMask(true, true, true, true);
                 gl.depthMask(true);
-                // 카메라 빌보드로 복구
                 Mode3D._applyBillboards();
             } else {
-                // SpotLight 없으면 기존대로 Pass 1에서 shadow map 갱신
                 renderer.shadowMap.needsUpdate = true;
             }
 

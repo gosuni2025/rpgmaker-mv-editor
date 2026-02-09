@@ -295,13 +295,20 @@ export function useThreeRenderer(
         editorRender(rendererObj, stage);
       }
 
-      function requestRender() {
+      function requestRender(frames = 1) {
         if (renderRequestedRef.current) return;
         renderRequestedRef.current = true;
-        animFrameId = requestAnimationFrame(() => {
+        let remaining = frames;
+        function doFrame() {
           renderRequestedRef.current = false;
           renderOnce();
-        });
+          remaining--;
+          if (remaining > 0 && !disposed) {
+            renderRequestedRef.current = true;
+            animFrameId = requestAnimationFrame(doFrame);
+          }
+        }
+        animFrameId = requestAnimationFrame(doFrame);
       }
 
       // 초기 렌더링 (비트맵 로드 대기 + 메시 생성까지 반복)
@@ -355,7 +362,7 @@ export function useThreeRenderer(
             syncEditorLightsToScene(rendererObj.scene, state.currentMap.editorLights, state.mode3d);
           }
           if (spriteset._tilemap) spriteset._tilemap._needsRepaint = true;
-          requestRender();
+          requestRender(5);
         }
         if (state.shadowLight !== prevState.shadowLight) {
           // ConfigManager 동기화 후 _updateShadowLight가 전체 활성화/비활성화 수행
@@ -375,7 +382,7 @@ export function useThreeRenderer(
             ShadowLight._active = false;
             syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
           }
-          requestRender();
+          requestRender(5);
         }
         if (state.depthOfField !== prevState.depthOfField) {
           requestRender();
