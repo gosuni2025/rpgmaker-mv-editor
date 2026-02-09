@@ -774,9 +774,28 @@ export default function MapCanvas() {
     if (shadowLight && currentMap?.editorLights?.points) {
       for (const light of currentMap.editorLights.points) {
         const lx = light.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
-        const ly = light.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+        const lyBase = light.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+        const zOffset = (light.z ?? 0) * 0.5; // Z높이를 시각적 오프셋으로
+        const ly = lyBase - zOffset;
 
         if (lightEditMode) {
+          // Z 오프셋이 있으면 바닥 위치와 점선 연결
+          if (zOffset > 2) {
+            ctx.setLineDash([3, 3]);
+            ctx.strokeStyle = light.color + '80';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(lx, lyBase);
+            ctx.lineTo(lx, ly);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            // 바닥 마커
+            ctx.beginPath();
+            ctx.arc(lx, lyBase, 3, 0, Math.PI * 2);
+            ctx.fillStyle = light.color + '60';
+            ctx.fill();
+          }
+
           // L탭: 영향 반경 + 선택 하이라이트 표시
           ctx.beginPath();
           ctx.arc(lx, ly, light.distance, 0, Math.PI * 2);

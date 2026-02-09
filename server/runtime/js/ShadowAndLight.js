@@ -196,20 +196,26 @@ ShadowLight._revertTilemapMaterials = function(tilemap) {
 ShadowLight._addLightsToScene = function(scene) {
     if (this._ambientLight) return; // 이미 추가됨
 
+    // editorLights 맵별 설정 (에디터에서 저장한 커스텀 데이터)
+    var el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+
     // AmbientLight - 전체적인 환경광
-    this._ambientLight = new THREE.AmbientLight(
-        this.config.ambientColor,
-        this.config.ambientIntensity
-    );
+    var ambColor = el ? parseInt(el.ambient.color.replace('#', ''), 16) : this.config.ambientColor;
+    var ambIntensity = el ? el.ambient.intensity : this.config.ambientIntensity;
+    this._ambientLight = new THREE.AmbientLight(ambColor, ambIntensity);
     scene.add(this._ambientLight);
 
     // DirectionalLight - 태양/달빛 (그림자 방향 결정)
-    this._directionalLight = new THREE.DirectionalLight(
-        this.config.directionalColor,
-        this.config.directionalIntensity
-    );
+    var dirColor = el ? parseInt(el.directional.color.replace('#', ''), 16) : this.config.directionalColor;
+    var dirIntensity = el ? el.directional.intensity : this.config.directionalIntensity;
+    this._directionalLight = new THREE.DirectionalLight(dirColor, dirIntensity);
     // 위치는 방향의 반대 (광원이 오는 방향)
-    var dir = this.config.lightDirection;
+    var dir;
+    if (el && el.directional.direction) {
+        dir = new THREE.Vector3(el.directional.direction[0], el.directional.direction[1], el.directional.direction[2]).normalize();
+    } else {
+        dir = this.config.lightDirection;
+    }
     this._directionalLight.position.set(-dir.x * 1000, -dir.y * 1000, -dir.z * 1000);
     // target을 scene에 추가해야 DirectionalLight 방향이 올바르게 동작
     scene.add(this._directionalLight);
@@ -544,6 +550,25 @@ Spriteset_Map.prototype._updatePointLights = function() {
                 var wp = ShadowLight._getWrapperWorldPos(evSprite);
                 light.position.set(wp.x, wp.y - 24, ShadowLight.config.playerLightZ);
             }
+        }
+    }
+
+    // 에디터에서 배치한 포인트 라이트 ($dataMap.editorLights.points)
+    var el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+    if (el && el.points) {
+        var tw = $gameMap.tileWidth();
+        var th = $gameMap.tileHeight();
+        for (var j = 0; j < el.points.length; j++) {
+            var pl = el.points[j];
+            var light = ShadowLight._getPointLight();
+            light.color.setHex(parseInt(pl.color.replace('#', ''), 16));
+            light.intensity = pl.intensity;
+            light.distance = pl.distance;
+            light.decay = pl.decay || 0;
+            // 타일 좌표 → 화면 좌표 (스크롤 반영)
+            var sx = Math.round($gameMap.adjustX(pl.x) * tw + tw / 2);
+            var sy = Math.round($gameMap.adjustY(pl.y) * th + th / 2);
+            light.position.set(sx, sy, pl.z || ShadowLight.config.playerLightZ);
         }
     }
 
