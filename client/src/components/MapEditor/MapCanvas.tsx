@@ -77,8 +77,7 @@ export default function MapCanvas() {
   const stageRef = useRef<any>(null);
   const lastMapDataRef = useRef<number[] | null>(null);
   const renderRequestedRef = useRef(false);
-  const parallaxMeshRef = useRef<any>(null);
-  const parallaxNameRef = useRef<string>('');
+  const parallaxDivRef = useRef<HTMLDivElement>(null);
 
   const currentMap = useEditorStore((s) => s.currentMap);
   const tilesetInfo = useEditorStore((s) => s.tilesetInfo);
@@ -285,12 +284,12 @@ export default function MapCanvas() {
     const renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: false,
-      alpha: false,
+      alpha: true,
       preserveDrawingBuffer: true,
       powerPreference: 'high-performance',
     });
     renderer.setSize(mapPxW, mapPxH);
-    renderer.setClearColor(0x000000, 1);
+    renderer.setClearColor(0x000000, 0);
     renderer.sortObjects = true;
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(0, mapPxW, 0, mapPxH, -10000, 10000);
@@ -375,55 +374,6 @@ export default function MapCanvas() {
     // Set Mode3D spriteset reference (for 2-pass 3D rendering)
     Mode3D._spriteset = tilemap;
 
-    // Parallax background setup
-    function updateParallaxBackground(parallaxName: string, show: boolean) {
-      // Remove existing parallax mesh
-      if (parallaxMeshRef.current) {
-        rendererObj.scene.remove(parallaxMeshRef.current);
-        if (parallaxMeshRef.current.material.map) {
-          parallaxMeshRef.current.material.map.dispose();
-        }
-        parallaxMeshRef.current.material.dispose();
-        parallaxMeshRef.current.geometry.dispose();
-        parallaxMeshRef.current = null;
-      }
-      parallaxNameRef.current = parallaxName;
-
-      if (!parallaxName || !show) return;
-
-      const img = new Image();
-      img.onload = () => {
-        if (!rendererObjRef.current) return;
-        // Check if parallax name hasn't changed while loading
-        if (parallaxNameRef.current !== parallaxName) return;
-
-        const tex = new THREE.TextureLoader().load(img.src);
-        tex.wrapS = THREE.RepeatWrapping;
-        tex.wrapT = THREE.RepeatWrapping;
-        tex.magFilter = THREE.LinearFilter;
-        tex.minFilter = THREE.LinearFilter;
-        // Tile the texture to fill the entire map area
-        tex.repeat.set(mapPxW / img.width, mapPxH / img.height);
-        tex.image = img;
-        tex.needsUpdate = true;
-
-        const geo = new THREE.PlaneGeometry(mapPxW, mapPxH);
-        const mat = new THREE.MeshBasicMaterial({ map: tex, depthTest: false, depthWrite: false });
-        const mesh = new THREE.Mesh(geo, mat);
-        // Position at center of map, behind tilemap (z=-1)
-        mesh.position.set(mapPxW / 2, mapPxH / 2, -1);
-        mesh.renderOrder = -1;
-        rendererObj.scene.add(mesh);
-        parallaxMeshRef.current = mesh;
-
-        requestRender();
-      };
-      img.src = `/api/resources/parallaxes/${parallaxName}.png`;
-    }
-
-    // Initial parallax
-    updateParallaxBackground(currentMap.parallaxName, currentMap.parallaxShow);
-
     // On-demand render function
     function renderOnce() {
       if (!rendererObjRef.current) return;
@@ -472,13 +422,6 @@ export default function MapCanvas() {
     const unsubscribe = useEditorStore.subscribe((state, prevState) => {
       if (state.currentMap !== prevState.currentMap) {
         requestRender();
-        // Check if parallax settings changed
-        const curMap = state.currentMap;
-        const prevMap = prevState.currentMap;
-        if (curMap && prevMap &&
-            (curMap.parallaxName !== prevMap.parallaxName || curMap.parallaxShow !== prevMap.parallaxShow)) {
-          updateParallaxBackground(curMap.parallaxName, curMap.parallaxShow);
-        }
       }
       // 3D mode toggle
       if (state.mode3d !== prevState.mode3d) {
@@ -505,17 +448,6 @@ export default function MapCanvas() {
 
     return () => {
       unsubscribe();
-      // Cleanup parallax
-      if (parallaxMeshRef.current) {
-        rendererObj.scene.remove(parallaxMeshRef.current);
-        if (parallaxMeshRef.current.material.map) {
-          parallaxMeshRef.current.material.map.dispose();
-        }
-        parallaxMeshRef.current.material.dispose();
-        parallaxMeshRef.current.geometry.dispose();
-        parallaxMeshRef.current = null;
-      }
-      parallaxNameRef.current = '';
       // Cleanup lighting
       if (ShadowLight._active) {
         ShadowLight._removeLightsFromScene(rendererObj.scene);
@@ -1451,6 +1383,11 @@ export default function MapCanvas() {
   // =========================================================================
   // Render
   // =========================================================================
+  const parallaxName = currentMap?.parallaxName || '';
+  const parallaxShow = currentMap?.parallaxShow ?? false;
+  const mapPxW = (currentMap?.width || 0) * TILE_SIZE_PX;
+  const mapPxH = (currentMap?.height || 0) * TILE_SIZE_PX;
+
   return (
     <div style={styles.container} onClick={closeEventCtxMenu}>
       <div style={{
@@ -1458,9 +1395,25 @@ export default function MapCanvas() {
         transform: `scale(${zoomLevel})`,
         transformOrigin: '0 0',
       }}>
+        {parallaxName && parallaxShow && (
+          <div
+            ref={parallaxDivRef}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: mapPxW,
+              height: mapPxH,
+              backgroundImage: `url(/api/resources/parallaxes/${parallaxName}.png)`,
+              backgroundRepeat: 'repeat',
+              backgroundSize: 'auto',
+              zIndex: 0,
+            }}
+          />
+        )}
         <canvas
           ref={webglCanvasRef}
-          style={styles.canvas}
+          style={{ ...styles.canvas, position: 'relative', zIndex: 1 }}
         />
         <canvas
           ref={overlayRef}
@@ -1483,6 +1436,7 @@ export default function MapCanvas() {
             position: 'absolute',
             top: 0,
             left: 0,
+            zIndex: 2,
             cursor: editMode === 'event' ? 'pointer' : 'crosshair',
           }}
         />
