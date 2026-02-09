@@ -105,10 +105,18 @@ function createCharSprite(THREE: any, img: HTMLImageElement, sx: number, sy: num
   const w = sw * scale;
   const h = sh * scale;
   const geometry = new THREE.PlaneGeometry(w, h);
-  const material = new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
+  // ShadowLight 활성 시 MeshPhongMaterial + castShadow 사용
+  const isShadowActive = (window as any).ShadowLight?._active;
+  const material = isShadowActive
+    ? new THREE.MeshPhongMaterial({
+        map: texture, depthTest: true, depthWrite: true, transparent: true, side: THREE.DoubleSide,
+        emissive: new THREE.Color(0x111111), specular: new THREE.Color(0x000000), shininess: 0,
+      })
+    : new THREE.MeshBasicMaterial({ map: texture, depthTest: false, transparent: true, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = 900;
   mesh.frustumCulled = false;
+  if (isShadowActive) mesh.castShadow = true;
   return mesh;
 }
 
@@ -952,8 +960,13 @@ export default function MapCanvas() {
       powerPreference: 'high-performance',
     });
     renderer.setSize(mapPxW, mapPxH, false);
+    renderer.setScissor(0, 0, mapPxW, mapPxH);
+    renderer.setScissorTest(false);
     renderer.setClearColor(0x000000, 0);
     renderer.sortObjects = true;
+    // Enable shadow map for real-time shadow casting
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(0, mapPxW, 0, mapPxH, -10000, 10000);
     camera.position.z = 100;
@@ -2715,7 +2728,7 @@ export default function MapCanvas() {
             ...styles.canvas,
             position: 'relative',
             zIndex: 1,
-            cursor: mode3d ? (editMode === 'event' ? 'pointer' : 'crosshair') : undefined,
+            cursor: panning ? 'grabbing' : mode3d ? (editMode === 'event' ? 'pointer' : 'crosshair') : undefined,
           }}
         />
         <canvas
@@ -2743,7 +2756,7 @@ export default function MapCanvas() {
             top: 0,
             left: 0,
             zIndex: mode3d ? -1 : 2,
-            cursor: resizeCursor || (editMode === 'event' ? 'pointer' : 'crosshair'),
+            cursor: panning ? 'grabbing' : resizeCursor || (editMode === 'event' ? 'pointer' : 'crosshair'),
             pointerEvents: mode3d ? 'none' : 'auto',
             display: mode3d ? 'none' : 'block',
           }}
