@@ -14,6 +14,30 @@ declare const DataManager: any;
 declare const ImageManager: any;
 declare const Spriteset_Map: any;
 
+/** Request a render frame (shared helper for all overlay effects) */
+function requestRenderFrames(
+  rendererObjRef: React.MutableRefObject<any>,
+  stageRef: React.MutableRefObject<any>,
+  renderRequestedRef: React.MutableRefObject<boolean>,
+  frames = 1,
+) {
+  if (renderRequestedRef.current) return;
+  renderRequestedRef.current = true;
+  let remaining = frames;
+  function doFrame() {
+    renderRequestedRef.current = false;
+    if (!rendererObjRef.current || !stageRef.current) return;
+    const strategy = (window as any).RendererStrategy?.getStrategy();
+    if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
+    remaining--;
+    if (remaining > 0) {
+      renderRequestedRef.current = true;
+      requestAnimationFrame(doFrame);
+    }
+  }
+  requestAnimationFrame(doFrame);
+}
+
 export interface ThreeRendererRefs {
   rendererObjRef: React.MutableRefObject<any>;
   tilemapRef: React.MutableRefObject<any>;
@@ -26,34 +50,35 @@ export interface ThreeRendererRefs {
   objectMeshesRef: React.MutableRefObject<any[]>;
   cursorMeshRef: React.MutableRefObject<any>;
   selectionMeshRef: React.MutableRefObject<any>;
+  dragPreviewMeshesRef: React.MutableRefObject<any[]>;
+  toolPreviewMeshesRef: React.MutableRefObject<any[]>;
+}
+
+export interface DragPreviewInfo {
+  type: 'event' | 'light' | 'object';
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
 }
 
 /** 게임 런타임 전역 데이터($data*, $game*) 초기화 */
 async function initGameGlobals() {
   const w = window as any;
-  // 이미 초기화되었으면 스킵
   if (w._editorGameInitialized) return;
 
   try {
-    // $dataSystem 로드
     const sys = await apiClient.get<any>('/database/system');
     w.$dataSystem = sys;
-
-    // $dataTilesets 로드
     const tilesets = await apiClient.get<any>('/database/tilesets');
     w.$dataTilesets = tilesets;
-
-    // $dataActors 로드 (Game_Actors에서 필요)
     const actors = await apiClient.get<any>('/database/actors');
     w.$dataActors = actors;
-
-    // $dataCommonEvents 로드
     try {
       const ce = await apiClient.get<any>('/database/commonEvents');
       w.$dataCommonEvents = ce;
     } catch { w.$dataCommonEvents = []; }
 
-    // 기타 $data* 초기화 (Game 객체 생성에 필요한 최소값)
     if (!w.$dataClasses) w.$dataClasses = [null];
     if (!w.$dataSkills) w.$dataSkills = [null];
     if (!w.$dataItems) w.$dataItems = [null];
@@ -65,9 +90,7 @@ async function initGameGlobals() {
     if (!w.$dataAnimations) w.$dataAnimations = [null];
     if (!w.$dataMapInfos) w.$dataMapInfos = [null];
 
-    // 게임 객체 생성
     DataManager.createGameObjects();
-
     w._editorGameInitialized = true;
     console.log('[Editor] Game globals initialized');
   } catch (e) {
@@ -78,6 +101,7 @@ async function initGameGlobals() {
 export function useThreeRenderer(
   webglCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   showGrid: boolean,
+  dragPreviews: DragPreviewInfo[],
 ): ThreeRendererRefs {
   const currentMap = useEditorStore((s) => s.currentMap);
   const tilesetInfo = useEditorStore((s) => s.tilesetInfo);
@@ -96,11 +120,13 @@ export function useThreeRenderer(
   const lastMapDataRef = useRef<number[] | null>(null);
   const renderRequestedRef = useRef(false);
   const gridMeshRef = useRef<any>(null);
-  // 3D overlay refs
+  // Overlay refs
   const regionMeshesRef = useRef<any[]>([]);
   const objectMeshesRef = useRef<any[]>([]);
   const cursorMeshRef = useRef<any>(null);
   const selectionMeshRef = useRef<any>(null);
+  const dragPreviewMeshesRef = useRef<any[]>([]);
+  const toolPreviewMeshesRef = useRef<any[]>([]);
 
   // =========================================================================
   // Spriteset_Map 기반 Three.js 렌더링 setup & render loop
@@ -114,7 +140,6 @@ export function useThreeRenderer(
     let animFrameId: number | null = null;
 
     const setup = async () => {
-      // 게임 전역 초기화
       await initGameGlobals();
       if (disposed) return;
 
@@ -164,14 +189,12 @@ export function useThreeRenderer(
       rendererObjRef.current = rendererObj;
       w._editorRendererObj = rendererObj;
 
-      // --- $dataMap 설정 (에디터의 맵 데이터를 직접 참조) ---
       w.$dataMap = {
         ...currentMap,
         data: [...data],
-        // Game_Map.setup에 필요한 필드
         tilesetId: currentMap.tilesetId,
-        width: width,
-        height: height,
+        width,
+        height,
         scrollType: currentMap.scrollType || 0,
         events: currentMap.events || [],
         parallaxName: currentMap.parallaxName || '',
@@ -182,15 +205,11 @@ export function useThreeRenderer(
         parallaxSy: currentMap.parallaxSy || 0,
       };
 
-      // $gameMap.setup() 호출
       w.$gameMap.setup(currentMapId);
-      // 디스플레이 위치를 0,0으로 (에디터에서는 스크롤 없이 전체 맵 표시)
       w.$gameMap._displayX = 0;
       w.$gameMap._displayY = 0;
-      // 에디터에서는 플레이어를 투명 처리 (ShadowLight 플레이어 라이트도 비활성화됨)
       w.$gamePlayer.setTransparent(true);
 
-      // --- Spriteset_Map 생성 ---
       const stage = new ThreeContainer();
       stageRef.current = stage;
 
@@ -198,16 +217,12 @@ export function useThreeRenderer(
       spritesetRef.current = spriteset;
       w._editorSpriteset = spriteset;
 
-      // Spriteset_Base가 생성하는 _blackScreen(opacity=255)과 _fadeSprite를 투명화
-      // (게임에서는 Scene_Map이 페이드 인 처리하지만 에디터에서는 즉시 표시)
       if (spriteset._blackScreen) spriteset._blackScreen.opacity = 0;
       if (spriteset._fadeSprite) spriteset._fadeSprite.opacity = 0;
 
-      // Spriteset_Map 내부의 tilemap 참조 저장
       tilemapRef.current = spriteset._tilemap;
       lastMapDataRef.current = data;
 
-      // tilemap 마진을 0으로 (에디터에서는 전체 맵 표시)
       if (spriteset._tilemap) {
         spriteset._tilemap._margin = 0;
         spriteset._tilemap._width = mapPxW;
@@ -215,27 +230,20 @@ export function useThreeRenderer(
         spriteset._tilemap._needsRepaint = true;
       }
 
-      // Mode3D._spriteset은 Spriteset_Map.initialize에서 자동 설정됨 (= this)
-      // 별도 설정 불필요
-
-      // stage에 spriteset 추가
       stage.addChild(spriteset);
       rendererObj.scene.add(stage._threeObj);
 
-      // 초기 shadowLight 상태 동기화
-      // scene 레퍼런스를 ShadowLight에 알려주어 _findScene()에서 사용
       ShadowLight._scene = rendererObj.scene;
       const editorState = useEditorStore.getState();
       if (editorState.shadowLight) {
         w.ConfigManager.shadowLight = true;
-        // _active는 설정하지 않음 → _updateShadowLight에서 전체 _activateShadowLight 수행
         syncEditorLightsToScene(rendererObj.scene, editorState.currentMap?.editorLights, editorState.mode3d);
       }
       if (editorState.mode3d) {
         w.ConfigManager.mode3d = true;
       }
 
-      // Create 3D grid mesh
+      // Create grid mesh (used in both 2D and 3D)
       const gridVertices: number[] = [];
       for (let x = 0; x <= width; x++) {
         gridVertices.push(x * TILE_SIZE_PX, 0, 0);
@@ -266,7 +274,6 @@ export function useThreeRenderer(
         const latestMap = useEditorStore.getState().currentMap;
         if (latestMap && (latestMap.width * TILE_SIZE_PX !== mapPxW || latestMap.height * TILE_SIZE_PX !== mapPxH)) return;
 
-        // 맵 데이터 변경 동기화
         if (latestMap && latestMap.data !== lastMapDataRef.current) {
           w.$dataMap.data = [...latestMap.data];
           if (spriteset._tilemap) {
@@ -276,14 +283,12 @@ export function useThreeRenderer(
           lastMapDataRef.current = latestMap.data;
         }
 
-        // Spriteset_Map update (캐릭터 위치, 타일셋 변경 등)
         try {
           spriteset.update();
-        } catch (e) {
-          // update 중 에러는 무시 (에디터 환경에서 일부 게임 로직은 불필요)
+        } catch (_e) {
+          // update 중 에러는 무시
         }
 
-        // 게임 런타임의 렌더 함수 사용 (Mode3D → DepthOfField 오버라이드 체인 포함)
         const strategy = RendererStrategy.getStrategy();
         strategy.render(rendererObj, stage);
       }
@@ -304,15 +309,12 @@ export function useThreeRenderer(
         animFrameId = requestAnimationFrame(doFrame);
       }
 
-      // 초기 렌더링 (비트맵 로드 대기 + 메시 생성까지 반복)
       let initFrameCount = 0;
       function waitAndRender() {
         if (disposed) return;
         if (spriteset._tilemap && spriteset._tilemap.isReady()) {
           spriteset._tilemap._needsRepaint = true;
           renderOnce();
-          // 타일맵 메시가 생성될 때까지 몇 프레임 더 렌더 (paint→flush 파이프라인)
-          // ShadowLight 활성화도 씬 트리 연결 후에야 가능하므로 추가 재시도
           initFrameCount++;
           const _SL = w.ShadowLight;
           const shadowPending = _SL && w.ConfigManager?.shadowLight && !_SL._active;
@@ -325,24 +327,21 @@ export function useThreeRenderer(
       }
       waitAndRender();
 
-      // Store 변경 구독
       const unsubscribe = useEditorStore.subscribe((state, prevState) => {
         if (state.currentMap !== prevState.currentMap) {
-          // 이벤트 변경 시 캐릭터 스프라이트 재생성
           if (state.currentMap && prevState.currentMap &&
               state.currentMap.events !== prevState.currentMap.events) {
             w.$dataMap.events = state.currentMap.events || [];
             try {
               w.$gameMap.setupEvents();
-              // 기존 캐릭터 스프라이트 제거 후 재생성
               if (spriteset._characterSprites) {
                 for (const cs of spriteset._characterSprites) {
                   if (spriteset._tilemap) spriteset._tilemap.removeChild(cs);
                 }
               }
               spriteset.createCharacters();
-            } catch (e) {
-              console.warn('[Editor] Failed to recreate characters:', e);
+            } catch (_e) {
+              console.warn('[Editor] Failed to recreate characters:', _e);
             }
           }
           requestRender();
@@ -360,15 +359,12 @@ export function useThreeRenderer(
         if (state.shadowLight !== prevState.shadowLight) {
           w.ConfigManager.shadowLight = state.shadowLight;
           if (!state.shadowLight) {
-            // 비활성화: _deactivateShadowLight가 material 복원, 라이트 제거, upperZ 리셋 등 전체 처리
             spriteset._deactivateShadowLight();
             ShadowLight._active = false;
             if (spriteset._tilemap) {
               spriteset._tilemap._needsRepaint = true;
             }
           } else {
-            // 활성화: _active를 false로 두어 다음 renderOnce → spriteset.update()에서
-            // _updateShadowLight → _activateShadowLight 전체 경로가 실행되도록 함
             ShadowLight._active = false;
             syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
           }
@@ -383,13 +379,16 @@ export function useThreeRenderer(
         }
       });
 
-      // cleanup 함수를 ref에 저장
       (rendererObjRef as any)._cleanup = () => {
         unsubscribe();
         disposed = true;
         if (animFrameId != null) cancelAnimationFrame(animFrameId);
         disposeSceneObjects(rendererObj.scene, regionMeshesRef.current);
         regionMeshesRef.current = [];
+        disposeSceneObjects(rendererObj.scene, dragPreviewMeshesRef.current);
+        dragPreviewMeshesRef.current = [];
+        disposeSceneObjects(rendererObj.scene, toolPreviewMeshesRef.current);
+        toolPreviewMeshesRef.current = [];
         if (cursorMeshRef.current) {
           rendererObj.scene.remove(cursorMeshRef.current);
           cursorMeshRef.current.geometry?.dispose();
@@ -445,25 +444,153 @@ export function useThreeRenderer(
     };
   }, [currentMap?.tilesetId, currentMap?.width, currentMap?.height, currentMapId, tilesetInfo]);
 
-  // Sync 3D grid mesh visibility
+  // Sync grid mesh visibility (always via Three.js, both 2D and 3D)
   useEffect(() => {
     const gridMesh = gridMeshRef.current;
     if (!gridMesh) return;
-    gridMesh.visible = showGrid && mode3d;
-    if (renderRequestedRef.current) return;
-    renderRequestedRef.current = true;
-    requestAnimationFrame(() => {
-      renderRequestedRef.current = false;
-      if (!rendererObjRef.current || !stageRef.current) return;
-      const strategy = (window as any).RendererStrategy?.getStrategy();
-      if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
-    });
+    gridMesh.visible = showGrid;
+    requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
   }, [showGrid, mode3d]);
+
+  // Sync region overlay (Three.js meshes)
+  useEffect(() => {
+    const rendererObj = rendererObjRef.current;
+    if (!rendererObj || !currentMap) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    // Dispose existing region meshes
+    for (const m of regionMeshesRef.current) {
+      rendererObj.scene.remove(m);
+      m.geometry?.dispose();
+      if (m.material?.map) m.material.map.dispose();
+      m.material?.dispose();
+    }
+    regionMeshesRef.current = [];
+
+    if (currentLayer !== 5) {
+      requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
+      return;
+    }
+
+    const { width, height, data } = currentMap;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const regionId = data[(5 * height + y) * width + x];
+        if (regionId === 0) continue;
+        const hue = (regionId * 137) % 360;
+        const color = new THREE.Color(`hsl(${hue}, 60%, 40%)`);
+        // Region fill quad
+        const geom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
+        const mat = new THREE.MeshBasicMaterial({
+          color, opacity: 0.5, transparent: true, depthTest: false, side: THREE.DoubleSide,
+        });
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.position.set(x * TILE_SIZE_PX + TILE_SIZE_PX / 2, y * TILE_SIZE_PX + TILE_SIZE_PX / 2, 4);
+        mesh.renderOrder = 9998;
+        mesh.frustumCulled = false;
+        rendererObj.scene.add(mesh);
+        regionMeshesRef.current.push(mesh);
+
+        // Region ID text label
+        const cvs = document.createElement('canvas');
+        cvs.width = 48; cvs.height = 48;
+        const ctx = cvs.getContext('2d')!;
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000';
+        ctx.shadowBlur = 3;
+        ctx.fillText(String(regionId), 24, 24);
+        const tex = new THREE.CanvasTexture(cvs);
+        const labelGeom = new THREE.PlaneGeometry(TILE_SIZE_PX * 0.6, TILE_SIZE_PX * 0.6);
+        const labelMat = new THREE.MeshBasicMaterial({
+          map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
+        });
+        const labelMesh = new THREE.Mesh(labelGeom, labelMat);
+        labelMesh.position.set(x * TILE_SIZE_PX + TILE_SIZE_PX / 2, y * TILE_SIZE_PX + TILE_SIZE_PX / 2, 4.5);
+        labelMesh.renderOrder = 9999;
+        labelMesh.frustumCulled = false;
+        rendererObj.scene.add(labelMesh);
+        regionMeshesRef.current.push(labelMesh);
+      }
+    }
+    requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
+  }, [currentMap, currentLayer]);
+
+  // Sync drag previews (event/light/object drag) via Three.js
+  useEffect(() => {
+    const rendererObj = rendererObjRef.current;
+    if (!rendererObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    // Dispose existing
+    for (const m of dragPreviewMeshesRef.current) {
+      rendererObj.scene.remove(m);
+      m.geometry?.dispose();
+      m.material?.dispose();
+    }
+    dragPreviewMeshesRef.current = [];
+
+    for (const dp of dragPreviews) {
+      let fillColor: number, strokeColor: number;
+      let dpW = 1, dpH = 1;
+      if (dp.type === 'event') {
+        fillColor = 0x00b450; strokeColor = 0x00ff00;
+      } else if (dp.type === 'light') {
+        fillColor = 0xffcc88; strokeColor = 0xffcc88;
+      } else {
+        fillColor = 0x00ff66; strokeColor = 0x00ff66;
+        dpW = dp.width || 1;
+        dpH = dp.height || 1;
+      }
+
+      // Fill quad
+      const geom = new THREE.PlaneGeometry(TILE_SIZE_PX * dpW, TILE_SIZE_PX * dpH);
+      const mat = new THREE.MeshBasicMaterial({
+        color: fillColor, opacity: 0.4, transparent: true, depthTest: false, side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(geom, mat);
+      const cx = dp.x * TILE_SIZE_PX + TILE_SIZE_PX * dpW / 2;
+      const cy = dp.type === 'object'
+        ? (dp.y - dpH + 1) * TILE_SIZE_PX + TILE_SIZE_PX * dpH / 2
+        : dp.y * TILE_SIZE_PX + TILE_SIZE_PX * dpH / 2;
+      mesh.position.set(cx, cy, 6);
+      mesh.renderOrder = 10000;
+      mesh.frustumCulled = false;
+      rendererObj.scene.add(mesh);
+      dragPreviewMeshesRef.current.push(mesh);
+
+      // Stroke outline
+      const hw = TILE_SIZE_PX * dpW / 2;
+      const hh = TILE_SIZE_PX * dpH / 2;
+      const pts = [
+        new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+        new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+        new THREE.Vector3(-hw, -hh, 0),
+      ];
+      const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+      const lineMat = new THREE.LineBasicMaterial({
+        color: strokeColor, depthTest: false, transparent: true, opacity: 1.0,
+      });
+      const line = new THREE.Line(lineGeom, lineMat);
+      line.position.set(cx, cy, 6.5);
+      line.renderOrder = 10001;
+      line.frustumCulled = false;
+      rendererObj.scene.add(line);
+      dragPreviewMeshesRef.current.push(line);
+    }
+
+    requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
+  }, [dragPreviews]);
 
   return {
     rendererObjRef, tilemapRef, stageRef, spritesetRef, gridMeshRef,
     renderRequestedRef, lastMapDataRef,
     regionMeshesRef, objectMeshesRef,
     cursorMeshRef, selectionMeshRef,
+    dragPreviewMeshesRef, toolPreviewMeshesRef,
   };
 }

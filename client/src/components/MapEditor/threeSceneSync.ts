@@ -121,19 +121,17 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
     scene.add(light);
     ShadowLight._editorPointLights.push(light);
 
-    // 3D marker (3D 모드에서만 - 2D 모드에서는 오버레이 캔버스에서 렌더링)
-    if (mode3d) {
-      const sprite = createLightMarkerSprite(THREE, pl.color);
-      sprite.position.set(px, py, pz);
-      scene.add(sprite);
-      ShadowLight._editorLightMarkers.push(sprite);
+    // Light marker (both 2D and 3D - always rendered via Three.js)
+    const sprite = createLightMarkerSprite(THREE, pl.color);
+    sprite.position.set(px, py, pz);
+    scene.add(sprite);
+    ShadowLight._editorLightMarkers.push(sprite);
 
-      // Z > 0 이면 바닥~라이트 연결선
-      if (pz > 2) {
-        const stem = createLightStemLine(THREE, px, py, pz, pl.color);
-        scene.add(stem);
-        ShadowLight._editorLightMarkers.push(stem);
-      }
+    // Z > 0 이면 바닥~라이트 연결선
+    if (pz > 2) {
+      const stem = createLightStemLine(THREE, px, py, pz, pl.color);
+      scene.add(stem);
+      ShadowLight._editorLightMarkers.push(stem);
     }
   }
 }
