@@ -25,6 +25,11 @@ export default function MapCanvas() {
   const currentMap = useEditorStore((s) => s.currentMap);
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
   const editMode = useEditorStore((s) => s.editMode);
+  const selectedTool = useEditorStore((s) => s.selectedTool);
+  const selectedTileId = useEditorStore((s) => s.selectedTileId);
+  const selectedTiles = useEditorStore((s) => s.selectedTiles);
+  const selectedTilesWidth = useEditorStore((s) => s.selectedTilesWidth);
+  const selectedTilesHeight = useEditorStore((s) => s.selectedTilesHeight);
   const clipboard = useEditorStore((s) => s.clipboard);
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const setPlayerStartPosition = useEditorStore((s) => s.setPlayerStartPosition);
@@ -41,7 +46,7 @@ export default function MapCanvas() {
   // But handlers produce drag previews... we use useMemo to build dragPreviews from state
 
   const {
-    rendererObjRef, stageRef, renderRequestedRef, toolPreviewMeshesRef,
+    rendererObjRef, tilemapRef, stageRef, renderRequestedRef, toolPreviewMeshesRef,
   } = useThreeRenderer(webglCanvasRef, showGrid, []); // dragPreviews filled via useEffect
 
   const tools = useMapTools(
@@ -50,10 +55,10 @@ export default function MapCanvas() {
   );
 
   const {
-    handleMouseDown, handleMouseMove, handleMouseUp,
+    handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave,
     handleDoubleClick, handleContextMenu, createNewEvent,
     resizePreview, resizeCursor, dragPreview,
-    lightDragPreview, objectDragPreview,
+    lightDragPreview, objectDragPreview, hoverTile,
     eventCtxMenu, editingEventId, setEditingEventId,
     closeEventCtxMenu,
     isDraggingEvent, isDraggingLight, isDraggingObject, draggedObjectId,
@@ -169,6 +174,165 @@ export default function MapCanvas() {
   }, [dragPreviews]);
 
   // =========================================================================
+  // Tile cursor preview (반투명 타일 프리뷰)
+  // =========================================================================
+  const tilePreviewMeshesRef = useRef<any[]>([]);
+  React.useEffect(() => {
+    const rObj = rendererObjRef.current;
+    if (!rObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+    const tilemap = tilemapRef.current;
+
+    // Dispose existing
+    for (const m of tilePreviewMeshesRef.current) {
+      rObj.scene.remove(m);
+      m.geometry?.dispose();
+      if (m.material?.map) m.material.map.dispose();
+      m.material?.dispose();
+    }
+    tilePreviewMeshesRef.current = [];
+
+    // 프리뷰 표시 조건: map/object 모드, pen 도구, 드래그 중이 아님, hoverTile 있음
+    const showPreview = hoverTile && tilemap &&
+      (editMode === 'map' || editMode === 'object') &&
+      (selectedTool === 'pen') &&
+      selectedTileId > 0;
+
+    if (!showPreview) {
+      // Trigger render to clear
+      if (!renderRequestedRef.current) {
+        renderRequestedRef.current = true;
+        requestAnimationFrame(() => {
+          renderRequestedRef.current = false;
+          if (!rendererObjRef.current || !stageRef.current) return;
+          const strategy = (window as any).RendererStrategy?.getStrategy();
+          if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
+        });
+      }
+      return;
+    }
+
+    const tw = TILE_SIZE_PX;
+    const th = TILE_SIZE_PX;
+    const isMulti = selectedTiles && (selectedTilesWidth > 1 || selectedTilesHeight > 1);
+    const tilesW = isMulti ? selectedTilesWidth : 1;
+    const tilesH = isMulti ? selectedTilesHeight : 1;
+
+    // 오프스크린 캔버스에 타일 그리기
+    const cvs = document.createElement('canvas');
+    cvs.width = tw * tilesW;
+    cvs.height = th * tilesH;
+    const ctx = cvs.getContext('2d')!;
+
+    // Bitmap 래퍼 생성 (Tilemap._drawTile이 사용하는 인터페이스)
+    const offBitmap = {
+      _canvas: cvs,
+      _context: ctx,
+      width: cvs.width,
+      height: cvs.height,
+      bltImage(source: any, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number) {
+        const srcCanvas = source._canvas || source._image;
+        if (srcCanvas) {
+          ctx.drawImage(srcCanvas, sx, sy, sw, sh, dx, dy, dw, dh);
+        }
+      },
+      blt(source: any, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw?: number, dh?: number) {
+        this.bltImage(source, sx, sy, sw, sh, dx, dy, dw ?? sw, dh ?? sh);
+      },
+    };
+
+    // 타일 그리기
+    const Tilemap = (window as any).Tilemap;
+    if (Tilemap && tilemap) {
+      // tilemap의 bitmaps와 _tileWidth/_tileHeight 사용
+      const origBitmaps = tilemap.bitmaps;
+      const origTileW = tilemap._tileWidth;
+      const origTileH = tilemap._tileHeight;
+
+      for (let row = 0; row < tilesH; row++) {
+        for (let col = 0; col < tilesW; col++) {
+          const tileId = isMulti ? selectedTiles![row][col] : selectedTileId;
+          if (tileId <= 0) continue;
+          const dx = col * tw;
+          const dy = row * th;
+          // _drawTile은 Tilemap.prototype에 있음
+          Tilemap.prototype._drawTile.call(
+            { bitmaps: origBitmaps, _tileWidth: origTileW, _tileHeight: origTileH, flags: tilemap.flags },
+            offBitmap, tileId, dx, dy,
+          );
+        }
+      }
+    }
+
+    // Three.js 텍스처 생성
+    const texture = new THREE.CanvasTexture(cvs);
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.flipY = false;
+
+    const geom = new THREE.PlaneGeometry(tw * tilesW, th * tilesH);
+    const mat = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity: 0.6,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+
+    // 오브젝트 모드: y 기준점이 하단
+    const baseX = hoverTile!.x;
+    const baseY = hoverTile!.y;
+    let cx: number, cy: number;
+    if (editMode === 'object') {
+      cx = baseX * tw + tw * tilesW / 2;
+      cy = (baseY - tilesH + 1) * th + th * tilesH / 2;
+    } else {
+      cx = baseX * tw + tw * tilesW / 2;
+      cy = baseY * th + th * tilesH / 2;
+    }
+
+    mesh.position.set(cx, cy, 8);
+    mesh.renderOrder = 10010;
+    mesh.frustumCulled = false;
+    mesh.userData.editorGrid = true;
+    rObj.scene.add(mesh);
+    tilePreviewMeshesRef.current.push(mesh);
+
+    // 테두리
+    const hw = tw * tilesW / 2;
+    const hh = th * tilesH / 2;
+    const pts = [
+      new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+      new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+      new THREE.Vector3(-hw, -hh, 0),
+    ];
+    const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: 0xffffff, depthTest: false, transparent: true, opacity: 0.8,
+    });
+    const line = new THREE.Line(lineGeom, lineMat);
+    line.position.set(cx, cy, 8.5);
+    line.renderOrder = 10011;
+    line.frustumCulled = false;
+    line.userData.editorGrid = true;
+    rObj.scene.add(line);
+    tilePreviewMeshesRef.current.push(line);
+
+    // Trigger render
+    if (!renderRequestedRef.current) {
+      renderRequestedRef.current = true;
+      requestAnimationFrame(() => {
+        renderRequestedRef.current = false;
+        if (!rendererObjRef.current || !stageRef.current) return;
+        const strategy = (window as any).RendererStrategy?.getStrategy();
+        if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
+      });
+    }
+  }, [hoverTile, editMode, selectedTool, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight]);
+
+  // =========================================================================
   // Render
   // =========================================================================
   const parallaxName = currentMap?.parallaxName || '';
@@ -206,14 +370,7 @@ export default function MapCanvas() {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={(e) => {
-            if (isResizing.current) return;
-            if (isDraggingEvent.current) {
-              isDraggingEvent.current = false;
-              setEditingEventId(null);
-            }
-            handleMouseUp(e);
-          }}
+          onMouseLeave={handleMouseLeave}
           onDoubleClick={handleDoubleClick}
           onContextMenu={handleContextMenu}
           style={{

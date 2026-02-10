@@ -18,6 +18,7 @@ export interface MouseHandlersResult {
   handleMouseDown: (e: React.MouseEvent<HTMLElement>) => void;
   handleMouseMove: (e: React.MouseEvent<HTMLElement>) => void;
   handleMouseUp: (e: React.MouseEvent<HTMLElement>) => void;
+  handleMouseLeave: (e: React.MouseEvent<HTMLElement>) => void;
   handleDoubleClick: (e: React.MouseEvent<HTMLElement>) => void;
   handleContextMenu: (e: React.MouseEvent<HTMLElement>) => void;
   createNewEvent: (x: number, y: number) => void;
@@ -26,6 +27,7 @@ export interface MouseHandlersResult {
   dragPreview: { x: number; y: number } | null;
   lightDragPreview: { x: number; y: number } | null;
   objectDragPreview: { x: number; y: number } | null;
+  hoverTile: { x: number; y: number } | null;
   eventCtxMenu: EventContextMenu | null;
   editingEventId: number | null;
   setEditingEventId: (id: number | null) => void;
@@ -89,6 +91,9 @@ export function useMouseHandlers(
   const draggedObjectId = useRef<number | null>(null);
   const dragObjectOrigin = useRef<{ x: number; y: number } | null>(null);
   const [objectDragPreview, setObjectDragPreview] = useState<{ x: number; y: number } | null>(null);
+
+  // Hover tile (for cursor preview)
+  const [hoverTile, setHoverTile] = useState<{ x: number; y: number } | null>(null);
 
   // Context menu & event editing state
   const [eventCtxMenu, setEventCtxMenu] = useState<EventContextMenu | null>(null);
@@ -234,6 +239,9 @@ export function useMouseHandlers(
       const tile = canvasToTile(e);
       if (tile) {
         setCursorTile(tile.x, tile.y);
+        setHoverTile(tile);
+      } else {
+        setHoverTile(null);
       }
 
       // Light dragging
@@ -449,13 +457,26 @@ export function useMouseHandlers(
     setEditingEventId(maxId + 1);
   }, [currentMap, setSelectedEventId]);
 
+  const handleMouseLeave = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      setHoverTile(null);
+      if (isResizing.current) return;
+      if (isDraggingEvent.current) {
+        isDraggingEvent.current = false;
+        setEditingEventId(null);
+      }
+      handleMouseUp(e);
+    },
+    [handleMouseUp]
+  );
+
   const closeEventCtxMenu = useCallback(() => setEventCtxMenu(null), []);
 
   return {
-    handleMouseDown, handleMouseMove, handleMouseUp,
+    handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave,
     handleDoubleClick, handleContextMenu, createNewEvent,
     resizePreview, resizeCursor, dragPreview,
-    lightDragPreview, objectDragPreview,
+    lightDragPreview, objectDragPreview, hoverTile,
     eventCtxMenu, editingEventId, setEditingEventId,
     closeEventCtxMenu,
     isDraggingEvent, isDraggingLight, isDraggingObject, draggedObjectId,
