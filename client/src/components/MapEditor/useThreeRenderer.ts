@@ -623,6 +623,7 @@ export function useThreeRenderer(
     line.position.set(cx, cy, 5.2);
     line.renderOrder = 9995;
     line.frustumCulled = false;
+    line.userData.editorGrid = true;
     rendererObj.scene.add(line);
     startPosMeshesRef.current.push(line);
 
@@ -655,6 +656,7 @@ export function useThreeRenderer(
       labelMesh.position.set(cx, py - labelH / 2 - 2, 5.3);
       labelMesh.renderOrder = 9996;
       labelMesh.frustumCulled = false;
+      labelMesh.userData.editorGrid = true;
       rendererObj.scene.add(labelMesh);
       startPosMeshesRef.current.push(labelMesh);
     }
@@ -696,6 +698,7 @@ export function useThreeRenderer(
         mesh.position.set(cx, cy, 5.1);
         mesh.renderOrder = 9994;
         mesh.frustumCulled = false;
+        mesh.userData.editorGrid = true;
         rendererObj.scene.add(mesh);
         startPosMeshesRef.current.push(mesh);
         requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
@@ -877,6 +880,7 @@ export function useThreeRenderer(
       mesh.position.set(cx, cy, 6);
       mesh.renderOrder = 10000;
       mesh.frustumCulled = false;
+      mesh.userData.editorGrid = true;
       rendererObj.scene.add(mesh);
       dragPreviewMeshesRef.current.push(mesh);
 
@@ -896,6 +900,7 @@ export function useThreeRenderer(
       line.position.set(cx, cy, 6.5);
       line.renderOrder = 10001;
       line.frustumCulled = false;
+      line.userData.editorGrid = true;
       rendererObj.scene.add(line);
       dragPreviewMeshesRef.current.push(line);
     }
