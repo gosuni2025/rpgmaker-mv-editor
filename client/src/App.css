@@ -541,11 +541,160 @@ input, textarea, [contenteditable="true"] {
   gap: 8px;
 }
 
-/* System tab extras */
-.db-system-form {
-  max-width: 500px;
+/* System tab - 3 column grid layout */
+.db-system-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: 16px;
+  padding: 12px 16px;
+  overflow-y: auto;
+  height: 100%;
 }
 
+.db-system-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.db-system-column label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.db-system-column input[type="text"],
+.db-system-column input[type="number"],
+.db-system-column select {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.db-system-column input[type="text"]:focus,
+.db-system-column input[type="number"]:focus,
+.db-system-column select:focus {
+  border-color: #2675bf;
+}
+
+.db-system-section {
+  font-size: 12px;
+  font-weight: bold;
+  color: #bbb;
+  padding: 6px 0 4px;
+  margin-top: 4px;
+  border-top: 1px solid #555;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.db-system-section:first-child {
+  border-top: none;
+  margin-top: 0;
+}
+
+.db-system-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.db-system-row > label {
+  flex: 1;
+}
+
+.db-system-checkbox {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  cursor: pointer;
+}
+
+.db-system-checkbox input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* Audio row for compact music/sound lists */
+.db-system-audio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.db-system-audio-row > span {
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.db-system-audio-row > div {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Attack motions list */
+.db-system-motions-list {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #444;
+  border-radius: 3px;
+  background: #2b2b2b;
+}
+
+.db-system-motion-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  font-size: 12px;
+  color: #ccc;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.db-system-motion-row:last-child {
+  border-bottom: none;
+}
+
+.db-system-motion-row > span {
+  min-width: 80px;
+  flex-shrink: 0;
+  color: #aaa;
+}
+
+.db-system-motion-row select,
+.db-system-motion-row input[type="number"] {
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 2px 4px;
+  color: #ddd;
+  font-size: 12px;
+}
+
+.db-system-motion-row select {
+  flex: 1;
+}
+
+.db-system-motion-row input[type="number"] {
+  width: 50px;
+}
+
+/* Slider row */
 .db-slider-row {
   display: flex;
   align-items: center;
@@ -563,14 +712,34 @@ input, textarea, [contenteditable="true"] {
   color: #ddd;
 }
 
+/* Party member row */
 .db-party-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.db-party-row input {
+.db-party-row select {
   flex: 1;
+}
+
+/* Vehicle image row */
+.db-system-vehicle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.db-system-vehicle-row > span {
+  min-width: 50px;
+  flex-shrink: 0;
+}
+
+.db-system-vehicle-row > div {
+  flex: 1;
+  min-width: 0;
 }
 
 /* DB Buttons */

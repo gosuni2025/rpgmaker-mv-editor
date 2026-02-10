@@ -199,6 +199,11 @@ export interface Item {
   note: string;
 }
 
+export interface AttackMotion {
+  type: number;
+  weaponImageId: number;
+}
+
 export interface SystemData {
   gameTitle: string;
   currencyUnit: string;
@@ -215,6 +220,7 @@ export interface SystemData {
   armorTypes: string[];
   switches: string[];
   variables: string[];
+  attackMotions: AttackMotion[];
   battleBgm: AudioFile;
   defeatMe: AudioFile;
   gameoverMe: AudioFile;
