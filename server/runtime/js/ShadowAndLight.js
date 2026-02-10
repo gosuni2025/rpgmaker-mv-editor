@@ -1538,7 +1538,7 @@ ShadowLight._createDebugUI = function() {
     var skyBody = createSection(panel, '스카이박스', '#ffb74d', true);
     (function() {
         var skyGrid = document.createElement('div');
-        skyGrid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:3px;max-height:200px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#555 transparent;';
+        skyGrid.style.cssText = 'display:grid;grid-template-columns:repeat(2,1fr);gap:4px;max-height:240px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#555 transparent;padding:2px;';
         skyBody.appendChild(skyGrid);
 
         // img/skybox 폴더에서 이미지 목록 로드
@@ -1550,11 +1550,11 @@ ShadowLight._createDebugUI = function() {
             var pngs = files.filter(function(f) { return /\.(png|jpe?g|webp)$/i.test(f); }).sort();
             pngs.forEach(function(filename) {
                 var thumb = document.createElement('div');
-                thumb.style.cssText = 'cursor:pointer;border:2px solid transparent;border-radius:3px;overflow:hidden;aspect-ratio:2/1;';
+                thumb.style.cssText = 'cursor:pointer;border:2px solid transparent;border-radius:3px;overflow:hidden;height:48px;';
                 var img = document.createElement('img');
                 img.src = 'img/skybox/' + filename;
                 img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
-                img.title = filename;
+                img.title = filename.replace(/\.[^.]+$/, '');
                 thumb.appendChild(img);
                 thumb.addEventListener('mouseenter', function() { if (!thumb._active) thumb.style.borderColor = '#ffb74d'; });
                 thumb.addEventListener('mouseleave', function() { if (!thumb._active) thumb.style.borderColor = 'transparent'; });
