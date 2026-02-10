@@ -51,6 +51,7 @@
     Mode3D._spriteset = null;
     Mode3D._perspCamera = null;
     Mode3D._extraRows = 6;
+    Mode3D._extraCols = 4;
 
     window.Mode3D = Mode3D;
 
@@ -93,12 +94,13 @@
         }
         this.lowerZLayer.clear();
         this.upperZLayer.clear();
-        // 3D 기울임 보정: 상하로 여분 타일 추가
+        // 3D 기울임 보정: 상하로 여분 타일, 좌우도 여분 컬럼 추가
         var extraRows = Mode3D._extraRows;
-        var tileCols = Math.ceil(this._width / this._tileWidth) + 1;
+        var extraCols = Mode3D._extraCols || 0;
+        var tileCols = Math.ceil(this._width / this._tileWidth) + 1 + extraCols * 2;
         var tileRows = Math.ceil(this._height / this._tileHeight) + 1 + extraRows * 2;
         for (var y = -extraRows; y < tileRows - extraRows; y++) {
-            for (var x = 0; x < tileCols; x++) {
+            for (var x = -extraCols; x < tileCols - extraCols; x++) {
                 this._paintTiles(startX, startY, x, y);
             }
         }
@@ -137,8 +139,22 @@
 
     Mode3D._positionCamera = function(camera, w, h) {
         var fovRad = camera.fov * Math.PI / 180;
-        var dist = (h / 2) / Math.tan(fovRad / 2);
+        var halfFov = fovRad / 2;
+        var aspect = w / h;
         var tilt = this._tiltRad;
+
+        // 높이 기준 거리
+        var distH = (h / 2) / Math.tan(halfFov);
+        // 너비 기준 거리 (수평 FOV 고려)
+        var hFovHalf = Math.atan(Math.tan(halfFov) * aspect);
+        var distW = (w / 2) / Math.tan(hFovHalf);
+        // 에디터 모드: tilt 시 Z=0 평면에서 수평 가시 영역이 줄어드므로
+        // 너비 기준 거리에 tilt 보정 (cos(tilt)만큼 유효 거리 감소)
+        var dist = distH;
+        if (window.__editorMode && tilt > 0) {
+            var distWCorrected = distW / Math.cos(tilt);
+            dist = Math.max(distH, distWCorrected);
+        }
 
         var cx = w / 2;
         var cy = h / 2;
@@ -149,6 +165,8 @@
             dist * Math.cos(tilt)
         );
 
+        // far plane도 충분히 넓게
+        camera.far = dist * 4;
         camera.up.set(0, 1, 0);
         camera.lookAt(new THREE.Vector3(cx, cy, 0));
         camera.updateProjectionMatrix();
