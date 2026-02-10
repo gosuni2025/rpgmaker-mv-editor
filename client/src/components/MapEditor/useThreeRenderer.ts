@@ -91,6 +91,18 @@ async function initGameGlobals() {
     if (!w.$dataMapInfos) w.$dataMapInfos = [null];
 
     DataManager.createGameObjects();
+
+    // 에디터에서는 플레이어/followers/vehicles 스프라이트를 생성하지 않음 (이벤트만)
+    w.Spriteset_Map.prototype.createCharacters = function(this: any) {
+      this._characterSprites = [];
+      w.$gameMap.events().forEach(function(this: any, event: any) {
+        this._characterSprites.push(new w.Sprite_Character(event));
+      }, this);
+      for (let i = 0; i < this._characterSprites.length; i++) {
+        this._tilemap.addChild(this._characterSprites[i]);
+      }
+    };
+
     w._editorGameInitialized = true;
     console.log('[Editor] Game globals initialized');
   } catch (e) {
@@ -613,6 +625,39 @@ export function useThreeRenderer(
     line.frustumCulled = false;
     rendererObj.scene.add(line);
     startPosMeshesRef.current.push(line);
+
+    // "플레이어 시작점" label (blue text, same style as event labels)
+    {
+      const cvsW = 320;
+      const cvsH = 80;
+      const cvs = document.createElement('canvas');
+      cvs.width = cvsW;
+      cvs.height = cvsH;
+      const ctx = cvs.getContext('2d')!;
+      ctx.clearRect(0, 0, cvsW, cvsH);
+      ctx.fillStyle = '#4da6ff';
+      ctx.font = 'bold 48px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 4;
+      ctx.fillText('플레이어 시작점', cvsW / 2, cvsH / 2, cvsW - 8);
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.flipY = false;
+      tex.minFilter = THREE.LinearFilter;
+      const labelW = TILE_SIZE_PX * 1.5;
+      const labelH = labelW * (cvsH / cvsW);
+      const labelGeom = new THREE.PlaneGeometry(labelW, labelH);
+      const labelMat = new THREE.MeshBasicMaterial({
+        map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
+      });
+      const labelMesh = new THREE.Mesh(labelGeom, labelMat);
+      labelMesh.position.set(cx, py - labelH / 2 - 2, 5.3);
+      labelMesh.renderOrder = 9996;
+      labelMesh.frustumCulled = false;
+      rendererObj.scene.add(labelMesh);
+      startPosMeshesRef.current.push(labelMesh);
+    }
 
     // Character image (loaded async via CanvasTexture)
     if (playerCharacterName) {
