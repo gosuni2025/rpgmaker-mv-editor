@@ -497,11 +497,21 @@ export function useThreeRenderer(
   useEffect(() => {
     const container = containerRef.current;
     if (!container || !rendererReady) return;
-    const handleScroll = () => {
+    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+    const doRender = () => {
       requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
     };
+    const handleScroll = () => {
+      doRender();
+      // 스크롤 종료 후에도 확실히 최종 프레임 렌더링
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(doRender, 50);
+    };
     container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (scrollTimer) clearTimeout(scrollTimer);
+    };
   }, [rendererReady]);
 
   // Sync grid mesh visibility
