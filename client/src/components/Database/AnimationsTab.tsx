@@ -1,8 +1,73 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Animation, AnimationTiming, AudioFile } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import AudioPicker from '../common/AudioPicker';
 import apiClient from '../../api/client';
+
+// 대상 이미지 선택 팝업
+function TargetPickerPopup({ enemyList, value, onSelect, onClose }: {
+  enemyList: string[];
+  value: string;
+  onSelect: (name: string) => void;
+  onClose: () => void;
+}) {
+  const [filter, setFilter] = useState('');
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const filtered = useMemo(() => {
+    if (!filter) return enemyList;
+    const lower = filter.toLowerCase();
+    return enemyList.filter(n => n.toLowerCase().includes(lower));
+  }, [enemyList, filter]);
+
+  return (
+    <div className="target-picker-popup" ref={popupRef}>
+      <div className="target-picker-header">
+        <span>대상 선택</span>
+        <button className="db-btn-small" onClick={onClose}>X</button>
+      </div>
+      <input
+        type="text"
+        placeholder="검색..."
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        className="target-picker-search"
+        autoFocus
+      />
+      <div className="target-picker-grid">
+        <div
+          className={`target-picker-item${value === '' ? ' selected' : ''}`}
+          onClick={() => { onSelect(''); onClose(); }}
+        >
+          <div className="target-picker-thumb empty">(없음)</div>
+        </div>
+        {filtered.map((name) => (
+          <div
+            key={name}
+            className={`target-picker-item${name === value ? ' selected' : ''}`}
+            onClick={() => { onSelect(name); onClose(); }}
+          >
+            <img
+              src={`/api/resources/img_enemies/${name}.png`}
+              alt={name}
+              className="target-picker-thumb"
+              loading="lazy"
+            />
+            <div className="target-picker-name">{name}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 interface AnimationsTabProps {
   data: (Animation | null)[] | undefined;
@@ -16,6 +81,7 @@ function AnimationPreview({ animation }: { animation: Animation | undefined }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [targetImage, setTargetImage] = useState<string>('');
   const [enemyList, setEnemyList] = useState<string[]>([]);
+  const [showTargetPicker, setShowTargetPicker] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [currentFrame, setCurrentFrame] = useState(0);
   const animFrameRef = useRef(0);
@@ -258,19 +324,30 @@ function AnimationPreview({ animation }: { animation: Animation | undefined }) {
   return (
     <div className="anim-preview-container">
       <div className="anim-preview-toolbar">
-        <label className="anim-preview-target-label">
+        <div className="anim-preview-target-label">
           대상
-          <select
-            value={targetImage}
-            onChange={(e) => setTargetImage(e.target.value)}
-            className="anim-preview-target-select"
+          <button
+            className="target-picker-btn"
+            onClick={() => setShowTargetPicker(true)}
           >
-            <option value="">(없음)</option>
-            {enemyList.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-        </label>
+            {targetImage ? (
+              <>
+                <img src={`/api/resources/img_enemies/${targetImage}.png`} className="target-picker-btn-thumb" alt="" />
+                <span>{targetImage}</span>
+              </>
+            ) : (
+              <span>(없음)</span>
+            )}
+          </button>
+        </div>
+        {showTargetPicker && (
+          <TargetPickerPopup
+            enemyList={enemyList}
+            value={targetImage}
+            onSelect={setTargetImage}
+            onClose={() => setShowTargetPicker(false)}
+          />
+        )}
         <div className="anim-preview-controls">
           {!playing ? (
             <button className="db-btn-small anim-play-btn" onClick={playAnimation} disabled={totalFrames === 0}>
