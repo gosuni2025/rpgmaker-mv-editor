@@ -628,6 +628,15 @@ input, textarea, [contenteditable="true"] {
   cursor: pointer;
 }
 
+/* Field label (non-label wrapper to avoid click interference with ImagePicker) */
+.db-system-field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #aaa;
+}
+
 /* Audio row for compact music/sound lists */
 .db-system-audio-row {
   display: flex;

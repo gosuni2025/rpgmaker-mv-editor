@@ -185,14 +185,14 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
       <div className="db-system-column">
         {/* 타이틀 화면 */}
         <div className="db-system-section">타이틀 화면</div>
-        <label>
-          타이틀 1
+        <div className="db-system-field-label">
+          <span>타이틀 1</span>
           <ImagePicker type="titles1" value={data.title1Name || ''} onChange={(name) => handleChange('title1Name', name)} />
-        </label>
-        <label>
-          타이틀 2
+        </div>
+        <div className="db-system-field-label">
+          <span>타이틀 2</span>
           <ImagePicker type="titles2" value={data.title2Name || ''} onChange={(name) => handleChange('title2Name', name)} />
-        </label>
+        </div>
         <label className="db-system-checkbox">
           <input type="checkbox" checked={data.optDrawTitle ?? true} onChange={(e) => handleChange('optDrawTitle', e.target.checked)} />
           게임 타이틀 표시

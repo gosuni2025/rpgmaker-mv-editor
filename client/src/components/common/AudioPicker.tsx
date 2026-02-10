@@ -24,7 +24,7 @@ export default function AudioPicker({ type, value, onChange }: AudioPickerProps)
     setVolume(value.volume);
     setPitch(value.pitch);
     setPan(value.pan);
-  }, [open, type, value]);
+  }, [open, type]);
 
   const play = (name?: string) => {
     const n = name || selected;
@@ -75,19 +75,16 @@ export default function AudioPicker({ type, value, onChange }: AudioPickerProps)
                 >
                   (None)
                 </div>
-                {files.map(f => {
-                  const name = f.replace(/\.(ogg|m4a|wav|mp3)$/i, '');
-                  return (
+                {[...new Set(files.map(f => f.replace(/\.(ogg|m4a|wav|mp3)$/i, '')))].map(name => (
                     <div
-                      key={f}
+                      key={name}
                       className={`image-picker-item${selected === name ? ' selected' : ''}`}
                       onClick={() => setSelected(name)}
                       onDoubleClick={() => { setSelected(name); play(name); }}
                     >
                       {name}
                     </div>
-                  );
-                })}
+                  ))}
               </div>
               <div className="audio-picker-controls">
                 <label>Volume <input type="range" min={0} max={100} value={volume} onChange={e => setVolume(Number(e.target.value))} /> {volume}</label>
