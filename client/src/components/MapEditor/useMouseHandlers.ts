@@ -38,6 +38,7 @@ export interface MouseHandlersResult {
   draggedObjectId: React.MutableRefObject<number | null>;
   isResizing: React.MutableRefObject<boolean>;
   resizeOrigSize: React.MutableRefObject<{ w: number; h: number }>;
+  isOrbiting: React.MutableRefObject<boolean>;
 }
 
 export function useMouseHandlers(
@@ -70,6 +71,12 @@ export function useMouseHandlers(
   const isDrawing = useRef(false);
   const lastTile = useRef<{ x: number; y: number } | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
+
+  // Camera orbit state (middle mouse drag in 3D mode)
+  const isOrbiting = useRef(false);
+  const orbitStart = useRef<{ x: number; y: number } | null>(null);
+  const orbitStartTilt = useRef(0);
+  const orbitStartYaw = useRef(0);
 
   // Map boundary resize hook
   const { isResizing, resizeOrigSize, resizePreview, resizeCursor, setResizeCursor, startResize } = useResizeHandlers(webglCanvasRef, zoomLevel, resizeMap);
@@ -148,6 +155,17 @@ export function useMouseHandlers(
             updateMapTiles([{ x: tile.x, y: tile.y, z, tileId: 0 }]);
           }
         }
+        return;
+      }
+
+      // Middle mouse button: camera orbit in 3D mode
+      if (e.button === 1 && mode3d) {
+        e.preventDefault();
+        const Mode3D = (window as any).Mode3D;
+        isOrbiting.current = true;
+        orbitStart.current = { x: e.clientX, y: e.clientY };
+        orbitStartTilt.current = Mode3D?._tiltDeg ?? 60;
+        orbitStartYaw.current = Mode3D?._yawDeg ?? 0;
         return;
       }
 
@@ -231,6 +249,24 @@ export function useMouseHandlers(
     (e: React.MouseEvent<HTMLElement>) => {
       if (isResizing.current) return;
 
+      // Camera orbit drag
+      if (isOrbiting.current && orbitStart.current) {
+        const dx = e.clientX - orbitStart.current.x;
+        const dy = e.clientY - orbitStart.current.y;
+        const Mode3D = (window as any).Mode3D;
+        if (Mode3D) {
+          // 상하 드래그: tilt 변경 (20~85도 범위)
+          const newTilt = Math.max(20, Math.min(85, orbitStartTilt.current + dy * 0.3));
+          Mode3D._tiltDeg = newTilt;
+          Mode3D._tiltRad = newTilt * Math.PI / 180;
+          // 좌우 드래그: yaw 변경
+          const newYaw = orbitStartYaw.current - dx * 0.3;
+          Mode3D._yawDeg = newYaw;
+          Mode3D._yawRad = newYaw * Math.PI / 180;
+        }
+        return;
+      }
+
       if (editMode === 'map' && !mode3d && !isDrawing.current && !isDraggingEvent.current && !isDraggingLight.current) {
         const edge = detectEdge(e);
         setResizeCursor(edgeToCursor(edge));
@@ -306,6 +342,11 @@ export function useMouseHandlers(
 
   const handleMouseUp = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
+      if (isOrbiting.current) {
+        isOrbiting.current = false;
+        orbitStart.current = null;
+        return;
+      }
       if (isResizing.current) return;
 
       // Light drag commit
@@ -460,6 +501,11 @@ export function useMouseHandlers(
   const handleMouseLeave = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
       setHoverTile(null);
+      if (isOrbiting.current) {
+        isOrbiting.current = false;
+        orbitStart.current = null;
+        return;
+      }
       if (isResizing.current) return;
       if (isDraggingEvent.current) {
         isDraggingEvent.current = false;
@@ -480,6 +526,6 @@ export function useMouseHandlers(
     eventCtxMenu, editingEventId, setEditingEventId,
     closeEventCtxMenu,
     isDraggingEvent, isDraggingLight, isDraggingObject, draggedObjectId,
-    isResizing, resizeOrigSize,
+    isResizing, resizeOrigSize, isOrbiting,
   };
 }

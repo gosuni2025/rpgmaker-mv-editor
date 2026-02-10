@@ -47,6 +47,8 @@
     Mode3D._active = false;
     Mode3D._tiltDeg = 60;
     Mode3D._tiltRad = Mode3D._tiltDeg * Math.PI / 180;
+    Mode3D._yawDeg = 0;
+    Mode3D._yawRad = 0;
     Mode3D._billboardTargets = [];
     Mode3D._spriteset = null;
     Mode3D._perspCamera = null;
@@ -142,6 +144,7 @@
         var halfFov = fovRad / 2;
         var aspect = w / h;
         var tilt = this._tiltRad;
+        var yaw = this._yawRad || 0;
 
         // 높이 기준 거리
         var distH = (h / 2) / Math.tan(halfFov);
@@ -159,10 +162,15 @@
         var cx = w / 2;
         var cy = h / 2;
 
+        // yaw 회전: 카메라를 맵 중심(cx, cy, 0) 주위로 Y축 회전
+        var offX = dist * Math.cos(tilt) * Math.sin(yaw);
+        var offY = dist * Math.sin(tilt);
+        var offZ = dist * Math.cos(tilt) * Math.cos(yaw);
+
         camera.position.set(
-            cx,
-            cy + dist * Math.sin(tilt),
-            dist * Math.cos(tilt)
+            cx + offX,
+            cy + offY,
+            offZ
         );
 
         // far plane도 충분히 넓게

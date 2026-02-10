@@ -9,6 +9,7 @@ export default defineConfig({
       '/game': 'http://localhost:3001',
       '/img': 'http://localhost:3001',
       '/data': 'http://localhost:3001',
+      '/plugins': 'http://localhost:3001',
     },
   },
 });
