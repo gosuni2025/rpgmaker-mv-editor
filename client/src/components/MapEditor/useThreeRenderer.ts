@@ -220,6 +220,10 @@ export function useThreeRenderer(
       w.$gameMap._displayY = 0;
       w.$gamePlayer.setTransparent(true);
 
+      // ShadowLight._scene을 Spriteset_Map 생성 전에 설정해야
+      // _activateShadowLight → _findScene()이 새 씬을 찾을 수 있음
+      ShadowLight._scene = rendererObj.scene;
+
       const stage = new ThreeContainer();
       stageRef.current = stage;
 
@@ -243,7 +247,6 @@ export function useThreeRenderer(
       stage.addChild(spriteset);
       rendererObj.scene.add(stage._threeObj);
 
-      ShadowLight._scene = rendererObj.scene;
       const editorState = useEditorStore.getState();
       if (editorState.shadowLight) {
         w.ConfigManager.shadowLight = true;
