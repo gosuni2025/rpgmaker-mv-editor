@@ -367,6 +367,21 @@ export function useThreeRenderer(
               console.warn('[Editor] Failed to recreate characters:', _e);
             }
           }
+          if (state.currentMap && prevState.currentMap &&
+              state.currentMap.objects !== prevState.currentMap.objects) {
+            w.$dataMap.objects = state.currentMap.objects || [];
+            try {
+              // 기존 오브젝트 스프라이트 제거
+              if (spriteset._objectSprites) {
+                for (const os of spriteset._objectSprites) {
+                  if (spriteset._tilemap) spriteset._tilemap.removeChild(os);
+                }
+              }
+              spriteset.createMapObjects();
+            } catch (_e) {
+              console.warn('[Editor] Failed to recreate map objects:', _e);
+            }
+          }
           requestRender();
         }
         if (state.mode3d !== prevState.mode3d) {
