@@ -53,7 +53,20 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   pushUndo: (changes: TileChange[]) => {
     const { currentMapId, undoStack } = get();
     if (!currentMapId || changes.length === 0) return;
-    const newStack = [...undoStack, { mapId: currentMapId, changes } as TileHistoryEntry];
+    // 동일 좌표+레이어의 중복 변경을 병합: 첫 번째 oldTileId + 마지막 newTileId 유지
+    const merged = new Map<string, TileChange>();
+    for (const c of changes) {
+      const key = `${c.x},${c.y},${c.z}`;
+      const existing = merged.get(key);
+      if (existing) {
+        existing.newTileId = c.newTileId;
+      } else {
+        merged.set(key, { ...c });
+      }
+    }
+    const mergedChanges = [...merged.values()].filter(c => c.oldTileId !== c.newTileId);
+    if (mergedChanges.length === 0) return;
+    const newStack = [...undoStack, { mapId: currentMapId, changes: mergedChanges } as TileHistoryEntry];
     if (newStack.length > MAX_UNDO) newStack.shift();
     set({ undoStack: newStack, redoStack: [] });
   },
