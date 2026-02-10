@@ -28,6 +28,7 @@ function ThreeSprite(texture) {
         side: THREE.DoubleSide
     });
     this._threeObj = new THREE.Mesh(this._geometry, this._material);
+    this._threeObj.frustumCulled = false;
     this._threeObj._wrapper = this;
 
     // Rendering order for the mesh (needed for proper 2D layering)

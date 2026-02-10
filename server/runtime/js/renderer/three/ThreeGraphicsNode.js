@@ -300,6 +300,7 @@ ThreeGraphicsNode.prototype._getOrCreateMesh = function() {
             side: THREE.DoubleSide
         });
         mesh = new THREE.Mesh(geometry, material);
+        mesh.frustumCulled = false;
         this._meshes.push(mesh);
         this._threeObj.add(mesh);
     }

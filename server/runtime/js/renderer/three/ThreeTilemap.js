@@ -402,6 +402,7 @@ ThreeTilemapRectLayer.prototype._flush = function() {
             }
 
             mesh = new THREE.Mesh(geometry, material);
+            mesh.frustumCulled = false;
             // ShadowLight 활성 시 그림자를 받을 수 있도록 설정
             if (window.ShadowLight && window.ShadowLight._active && !isShadow) {
                 mesh.receiveShadow = true;
