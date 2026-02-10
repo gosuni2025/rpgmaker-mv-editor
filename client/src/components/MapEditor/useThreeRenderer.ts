@@ -322,6 +322,7 @@ export function useThreeRenderer(
       }
 
       let initFrameCount = 0;
+      let shadowSynced = false;
       function waitAndRender() {
         if (disposed) return;
         if (spriteset._tilemap && spriteset._tilemap.isReady()) {
@@ -330,6 +331,12 @@ export function useThreeRenderer(
           initFrameCount++;
           const _SL = w.ShadowLight;
           const shadowPending = _SL && w.ConfigManager?.shadowLight && !_SL._active;
+          // ShadowLight가 활성화된 직후 에디터 라이트 동기화
+          if (!shadowSynced && _SL && _SL._active && w.ConfigManager?.shadowLight) {
+            shadowSynced = true;
+            const es = useEditorStore.getState();
+            syncEditorLightsToScene(rendererObj.scene, es.currentMap?.editorLights, es.mode3d);
+          }
           if (initFrameCount < 10 || (shadowPending && initFrameCount < 60)) {
             animFrameId = requestAnimationFrame(waitAndRender);
           }
@@ -396,6 +403,9 @@ export function useThreeRenderer(
         unsubscribe();
         disposed = true;
         if (animFrameId != null) cancelAnimationFrame(animFrameId);
+        // cancelAnimationFrame이 doFrame 실행을 막으면 renderRequestedRef가 true로 남아
+        // 새 setup의 requestRender가 영원히 스킵되는 버그 방지
+        renderRequestedRef.current = false;
         disposeSceneObjects(rendererObj.scene, regionMeshesRef.current);
         regionMeshesRef.current = [];
         disposeSceneObjects(rendererObj.scene, startPosMeshesRef.current);
