@@ -47,7 +47,7 @@ export default function MapCanvas() {
 
   const {
     rendererObjRef, tilemapRef, stageRef, renderRequestedRef, toolPreviewMeshesRef,
-  } = useThreeRenderer(webglCanvasRef, containerRef, showGrid, []); // dragPreviews filled via useEffect
+  } = useThreeRenderer(webglCanvasRef, showGrid, []); // dragPreviews filled via useEffect
 
   const tools = useMapTools(
     webglCanvasRef, pendingChanges, shadowPaintMode, shadowPainted,

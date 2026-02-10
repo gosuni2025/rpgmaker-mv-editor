@@ -100,7 +100,6 @@ async function initGameGlobals() {
 
 export function useThreeRenderer(
   webglCanvasRef: React.RefObject<HTMLCanvasElement | null>,
-  containerRef: React.RefObject<HTMLDivElement | null>,
   showGrid: boolean,
   dragPreviews: DragPreviewInfo[],
 ): ThreeRendererRefs {
@@ -492,27 +491,6 @@ export function useThreeRenderer(
       }
     };
   }, [currentMap?.tilesetId, currentMap?.width, currentMap?.height, currentMapId, tilesetInfo]);
-
-  // Re-render on container scroll (fixes black areas when scrolling large maps)
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || !rendererReady) return;
-    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
-    const doRender = () => {
-      requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
-    };
-    const handleScroll = () => {
-      doRender();
-      // 스크롤 종료 후에도 확실히 최종 프레임 렌더링
-      if (scrollTimer) clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(doRender, 50);
-    };
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      container.removeEventListener('scroll', handleScroll);
-      if (scrollTimer) clearTimeout(scrollTimer);
-    };
-  }, [rendererReady]);
 
   // Sync grid mesh visibility
   useEffect(() => {
