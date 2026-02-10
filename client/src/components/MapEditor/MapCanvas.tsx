@@ -176,39 +176,94 @@ export default function MapCanvas() {
   // =========================================================================
   // Tile cursor preview (반투명 타일 프리뷰)
   // =========================================================================
-  const tilePreviewMeshesRef = useRef<any[]>([]);
+  const tilePreviewMeshRef = useRef<any>(null);  // 타일 이미지 메시
+  const tilePreviewLineRef = useRef<any>(null);  // 테두리 라인
+  const tilePreviewTextureRef = useRef<any>(null); // 텍스처 (재사용)
+
+  // 텍스처 생성 (타일 선택이 변경될 때만)
+  React.useEffect(() => {
+    // 기존 텍스처 해제
+    if (tilePreviewTextureRef.current) {
+      tilePreviewTextureRef.current.dispose();
+      tilePreviewTextureRef.current = null;
+    }
+
+    const THREE = (window as any).THREE;
+    const tilemap = tilemapRef.current;
+    const TilemapClass = (window as any).Tilemap;
+    if (!THREE || !tilemap || !TilemapClass || selectedTileId <= 0) return;
+    if (editMode !== 'map' && editMode !== 'object') return;
+    if (selectedTool !== 'pen') return;
+
+    const tw = TILE_SIZE_PX;
+    const th = TILE_SIZE_PX;
+    const isMulti = selectedTiles && (selectedTilesWidth > 1 || selectedTilesHeight > 1);
+    const tilesW = isMulti ? selectedTilesWidth : 1;
+    const tilesH = isMulti ? selectedTilesHeight : 1;
+
+    const cvs = document.createElement('canvas');
+    cvs.width = tw * tilesW;
+    cvs.height = th * tilesH;
+    const ctx = cvs.getContext('2d')!;
+
+    const offBitmap = {
+      _canvas: cvs, _context: ctx, width: cvs.width, height: cvs.height,
+      bltImage(source: any, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number) {
+        const srcCanvas = source._canvas || source._image;
+        if (srcCanvas) ctx.drawImage(srcCanvas, sx, sy, sw, sh, dx, dy, dw, dh);
+      },
+      blt(source: any, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw?: number, dh?: number) {
+        this.bltImage(source, sx, sy, sw, sh, dx, dy, dw ?? sw, dh ?? sh);
+      },
+    };
+
+    const proxy = Object.create(TilemapClass.prototype);
+    proxy.bitmaps = tilemap.bitmaps;
+    proxy._tileWidth = tilemap._tileWidth;
+    proxy._tileHeight = tilemap._tileHeight;
+    proxy.flags = tilemap.flags;
+
+    for (let row = 0; row < tilesH; row++) {
+      for (let col = 0; col < tilesW; col++) {
+        const tileId = isMulti ? selectedTiles![row][col] : selectedTileId;
+        if (tileId <= 0) continue;
+        proxy._drawTile(offBitmap, tileId, col * tw, row * th);
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(cvs);
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.flipY = false;
+    tilePreviewTextureRef.current = texture;
+  }, [editMode, selectedTool, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight]);
+
+  // 메시 표시/숨김 및 위치 업데이트 (hoverTile이 변경될 때)
   React.useEffect(() => {
     const rObj = rendererObjRef.current;
     if (!rObj) return;
     const THREE = (window as any).THREE;
     if (!THREE) return;
-    const tilemap = tilemapRef.current;
 
-    // Dispose existing
-    for (const m of tilePreviewMeshesRef.current) {
-      rObj.scene.remove(m);
-      m.geometry?.dispose();
-      if (m.material?.map) m.material.map.dispose();
-      m.material?.dispose();
-    }
-    tilePreviewMeshesRef.current = [];
-
-    // 프리뷰 표시 조건: map/object 모드, pen 도구, 드래그 중이 아님, hoverTile 있음
-    const showPreview = hoverTile && tilemap &&
+    const texture = tilePreviewTextureRef.current;
+    const showPreview = hoverTile && texture &&
       (editMode === 'map' || editMode === 'object') &&
-      (selectedTool === 'pen') &&
-      selectedTileId > 0;
+      selectedTool === 'pen' && selectedTileId > 0;
 
     if (!showPreview) {
-      // Trigger render to clear
-      if (!renderRequestedRef.current) {
-        renderRequestedRef.current = true;
-        requestAnimationFrame(() => {
-          renderRequestedRef.current = false;
-          if (!rendererObjRef.current || !stageRef.current) return;
-          const strategy = (window as any).RendererStrategy?.getStrategy();
-          if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
-        });
+      // 숨기기
+      if (tilePreviewMeshRef.current) {
+        tilePreviewMeshRef.current.visible = false;
+        tilePreviewLineRef.current.visible = false;
+        if (!renderRequestedRef.current) {
+          renderRequestedRef.current = true;
+          requestAnimationFrame(() => {
+            renderRequestedRef.current = false;
+            if (!rendererObjRef.current || !stageRef.current) return;
+            const strategy = (window as any).RendererStrategy?.getStrategy();
+            if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
+          });
+        }
       }
       return;
     }
@@ -219,66 +274,52 @@ export default function MapCanvas() {
     const tilesW = isMulti ? selectedTilesWidth : 1;
     const tilesH = isMulti ? selectedTilesHeight : 1;
 
-    // 오프스크린 캔버스에 타일 그리기
-    const cvs = document.createElement('canvas');
-    cvs.width = tw * tilesW;
-    cvs.height = th * tilesH;
-    const ctx = cvs.getContext('2d')!;
-
-    // Bitmap 래퍼 생성 (Tilemap._drawTile이 사용하는 인터페이스)
-    const offBitmap = {
-      _canvas: cvs,
-      _context: ctx,
-      width: cvs.width,
-      height: cvs.height,
-      bltImage(source: any, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number) {
-        const srcCanvas = source._canvas || source._image;
-        if (srcCanvas) {
-          ctx.drawImage(srcCanvas, sx, sy, sw, sh, dx, dy, dw, dh);
-        }
-      },
-      blt(source: any, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw?: number, dh?: number) {
-        this.bltImage(source, sx, sy, sw, sh, dx, dy, dw ?? sw, dh ?? sh);
-      },
-    };
-
-    // 타일 그리기 - Tilemap 프로토타입 체인을 활용한 임시 객체 생성
-    const TilemapClass = (window as any).Tilemap;
-    if (TilemapClass && tilemap) {
-      const proxy = Object.create(TilemapClass.prototype);
-      proxy.bitmaps = tilemap.bitmaps;
-      proxy._tileWidth = tilemap._tileWidth;
-      proxy._tileHeight = tilemap._tileHeight;
-      proxy.flags = tilemap.flags;
-
-      for (let row = 0; row < tilesH; row++) {
-        for (let col = 0; col < tilesW; col++) {
-          const tileId = isMulti ? selectedTiles![row][col] : selectedTileId;
-          if (tileId <= 0) continue;
-          const dx = col * tw;
-          const dy = row * th;
-          proxy._drawTile(offBitmap, tileId, dx, dy);
-        }
+    // 메시가 없거나 텍스처가 바뀌었으면 재생성
+    if (!tilePreviewMeshRef.current || tilePreviewMeshRef.current.material.map !== texture) {
+      // 기존 제거
+      if (tilePreviewMeshRef.current) {
+        rObj.scene.remove(tilePreviewMeshRef.current);
+        tilePreviewMeshRef.current.geometry?.dispose();
+        tilePreviewMeshRef.current.material?.dispose();
       }
+      if (tilePreviewLineRef.current) {
+        rObj.scene.remove(tilePreviewLineRef.current);
+        tilePreviewLineRef.current.geometry?.dispose();
+        tilePreviewLineRef.current.material?.dispose();
+      }
+
+      const geom = new THREE.PlaneGeometry(tw * tilesW, th * tilesH);
+      const mat = new THREE.MeshBasicMaterial({
+        map: texture, transparent: true, opacity: 0.6,
+        depthTest: false, side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.renderOrder = 10010;
+      mesh.frustumCulled = false;
+      mesh.userData.editorGrid = true;
+      rObj.scene.add(mesh);
+      tilePreviewMeshRef.current = mesh;
+
+      const hw = tw * tilesW / 2;
+      const hh = th * tilesH / 2;
+      const pts = [
+        new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+        new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+        new THREE.Vector3(-hw, -hh, 0),
+      ];
+      const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+      const lineMat = new THREE.LineBasicMaterial({
+        color: 0xffffff, depthTest: false, transparent: true, opacity: 0.8,
+      });
+      const line = new THREE.Line(lineGeom, lineMat);
+      line.renderOrder = 10011;
+      line.frustumCulled = false;
+      line.userData.editorGrid = true;
+      rObj.scene.add(line);
+      tilePreviewLineRef.current = line;
     }
 
-    // Three.js 텍스처 생성
-    const texture = new THREE.CanvasTexture(cvs);
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    texture.flipY = false;
-
-    const geom = new THREE.PlaneGeometry(tw * tilesW, th * tilesH);
-    const mat = new THREE.MeshBasicMaterial({
-      map: texture,
-      transparent: true,
-      opacity: 0.6,
-      depthTest: false,
-      side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(geom, mat);
-
-    // 오브젝트 모드: y 기준점이 하단
+    // 위치 업데이트
     const baseX = hoverTile!.x;
     const baseY = hoverTile!.y;
     let cx: number, cy: number;
@@ -290,32 +331,10 @@ export default function MapCanvas() {
       cy = baseY * th + th * tilesH / 2;
     }
 
-    mesh.position.set(cx, cy, 8);
-    mesh.renderOrder = 10010;
-    mesh.frustumCulled = false;
-    mesh.userData.editorGrid = true;
-    rObj.scene.add(mesh);
-    tilePreviewMeshesRef.current.push(mesh);
-
-    // 테두리
-    const hw = tw * tilesW / 2;
-    const hh = th * tilesH / 2;
-    const pts = [
-      new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
-      new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
-      new THREE.Vector3(-hw, -hh, 0),
-    ];
-    const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
-    const lineMat = new THREE.LineBasicMaterial({
-      color: 0xffffff, depthTest: false, transparent: true, opacity: 0.8,
-    });
-    const line = new THREE.Line(lineGeom, lineMat);
-    line.position.set(cx, cy, 8.5);
-    line.renderOrder = 10011;
-    line.frustumCulled = false;
-    line.userData.editorGrid = true;
-    rObj.scene.add(line);
-    tilePreviewMeshesRef.current.push(line);
+    tilePreviewMeshRef.current.position.set(cx, cy, 8);
+    tilePreviewMeshRef.current.visible = true;
+    tilePreviewLineRef.current.position.set(cx, cy, 8.5);
+    tilePreviewLineRef.current.visible = true;
 
     // Trigger render
     if (!renderRequestedRef.current) {

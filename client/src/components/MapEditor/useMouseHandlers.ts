@@ -239,9 +239,9 @@ export function useMouseHandlers(
       const tile = canvasToTile(e);
       if (tile) {
         setCursorTile(tile.x, tile.y);
-        setHoverTile(tile);
+        setHoverTile(prev => (!prev || prev.x !== tile.x || prev.y !== tile.y) ? tile : prev);
       } else {
-        setHoverTile(null);
+        setHoverTile(prev => prev ? null : prev);
       }
 
       // Light dragging
