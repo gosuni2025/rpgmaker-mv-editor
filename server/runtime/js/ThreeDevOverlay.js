@@ -11,8 +11,6 @@
     var overlay = null;
     var fpsEl = null;
     var treeEl = null;
-    var skyboxEl = null;
-    var skyboxLoaded = false;
     var frames = 0;
     var lastTime = performance.now();
     var fps = 0;
@@ -63,26 +61,6 @@
         treeEl = document.createElement('div');
         treeEl.style.cssText = 'white-space:nowrap;';
         overlay.appendChild(treeEl);
-
-        // Skybox image selector section
-        var skySep = document.createElement('div');
-        skySep.style.cssText = 'border-top:1px solid #555;margin:6px 0 4px;';
-        overlay.appendChild(skySep);
-
-        var skyHeader = document.createElement('div');
-        skyHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;cursor:pointer;';
-        skyHeader.innerHTML = '<span style="color:#ffb74d;font-weight:bold;font-size:11px">Skybox</span><span id="sky-toggle" style="color:#aaa;font-size:10px">\u25bc</span>';
-        var skyCollapsed = false;
-        skyHeader.addEventListener('click', function() {
-            skyCollapsed = !skyCollapsed;
-            skyboxEl.style.display = skyCollapsed ? 'none' : 'grid';
-            document.getElementById('sky-toggle').textContent = skyCollapsed ? '\u25b6' : '\u25bc';
-        });
-        overlay.appendChild(skyHeader);
-
-        skyboxEl = document.createElement('div');
-        skyboxEl.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:3px;max-height:300px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#555 transparent;';
-        overlay.appendChild(skyboxEl);
 
         document.body.appendChild(overlay);
     }
@@ -209,66 +187,6 @@
         return null;
     }
 
-    function loadSkyboxList() {
-        if (skyboxLoaded) return;
-        skyboxLoaded = true;
-        // img/skybox 폴더에서 이미지 목록 가져오기
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/api/resources/img_skybox', true);
-        xhr.onload = function() {
-            if (xhr.status !== 200) return;
-            var files = JSON.parse(xhr.responseText);
-            var pngs = files.filter(function(f) { return /\.(png|jpe?g|webp)$/i.test(f); });
-            pngs.sort();
-            skyboxEl.innerHTML = '';
-            pngs.forEach(function(filename) {
-                var thumb = document.createElement('div');
-                thumb.style.cssText = 'cursor:pointer;border:2px solid transparent;border-radius:3px;overflow:hidden;aspect-ratio:2/1;';
-                var img = document.createElement('img');
-                img.src = 'img/skybox/' + filename;
-                img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
-                img.title = filename;
-                thumb.appendChild(img);
-                thumb.addEventListener('mouseenter', function() { thumb.style.borderColor = '#ffb74d'; });
-                thumb.addEventListener('mouseleave', function() {
-                    if (!thumb._active) thumb.style.borderColor = 'transparent';
-                });
-                thumb.addEventListener('click', function() {
-                    // Deselect all
-                    var items = skyboxEl.querySelectorAll('div');
-                    for (var i = 0; i < items.length; i++) {
-                        items[i].style.borderColor = 'transparent';
-                        items[i]._active = false;
-                    }
-                    thumb.style.borderColor = '#ffb74d';
-                    thumb._active = true;
-                    changeSkyboxTexture(filename);
-                });
-                skyboxEl.appendChild(thumb);
-            });
-        };
-        xhr.send();
-    }
-
-    function changeSkyboxTexture(filename) {
-        var scene = getScene();
-        if (!scene) return;
-        // _isParallaxSky 메시 찾기
-        var skyMesh = null;
-        scene.traverse(function(obj) {
-            if (obj._isParallaxSky) skyMesh = obj;
-        });
-        if (!skyMesh) return;
-        var loader = new THREE.TextureLoader();
-        loader.load('img/skybox/' + filename, function(texture) {
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.flipY = false;
-            if (skyMesh.material.map) skyMesh.material.map.dispose();
-            skyMesh.material.map = texture;
-            skyMesh.material.needsUpdate = true;
-        });
-    }
-
     function getRendererInfo() {
         if (typeof Graphics !== 'undefined' && Graphics._renderer && Graphics._renderer.renderer) {
             var r = Graphics._renderer.renderer;
@@ -304,8 +222,6 @@
             var scene = getScene();
             if (scene) {
                 treeEl.innerHTML = buildTree(scene, 0, 'root');
-                // Load skybox list once scene is ready
-                if (!skyboxLoaded && skyboxEl) loadSkyboxList();
             } else {
                 treeEl.innerHTML = '<span style="color:#888">Scene not ready...</span>';
             }

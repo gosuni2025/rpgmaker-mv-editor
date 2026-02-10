@@ -1534,6 +1534,56 @@ ShadowLight._createDebugUI = function() {
     copyBtn.addEventListener('mouseout', function() { copyBtn.style.background = '#446'; });
     panel.appendChild(copyBtn);
 
+    // ── 스카이박스 섹션 ──
+    var skyBody = createSection(panel, '스카이박스', '#ffb74d', true);
+    (function() {
+        var skyGrid = document.createElement('div');
+        skyGrid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:3px;max-height:200px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#555 transparent;';
+        skyBody.appendChild(skyGrid);
+
+        // img/skybox 폴더에서 이미지 목록 로드
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/resources/img_skybox', true);
+        xhr.onload = function() {
+            if (xhr.status !== 200) return;
+            var files = JSON.parse(xhr.responseText);
+            var pngs = files.filter(function(f) { return /\.(png|jpe?g|webp)$/i.test(f); }).sort();
+            pngs.forEach(function(filename) {
+                var thumb = document.createElement('div');
+                thumb.style.cssText = 'cursor:pointer;border:2px solid transparent;border-radius:3px;overflow:hidden;aspect-ratio:2/1;';
+                var img = document.createElement('img');
+                img.src = 'img/skybox/' + filename;
+                img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                img.title = filename;
+                thumb.appendChild(img);
+                thumb.addEventListener('mouseenter', function() { if (!thumb._active) thumb.style.borderColor = '#ffb74d'; });
+                thumb.addEventListener('mouseleave', function() { if (!thumb._active) thumb.style.borderColor = 'transparent'; });
+                thumb.addEventListener('click', function() {
+                    var items = skyGrid.querySelectorAll('div');
+                    for (var i = 0; i < items.length; i++) { items[i].style.borderColor = 'transparent'; items[i]._active = false; }
+                    thumb.style.borderColor = '#ffb74d';
+                    thumb._active = true;
+                    // _isParallaxSky 메시 찾아서 텍스처 교체
+                    var scene = Graphics._renderer && Graphics._renderer.scene;
+                    if (!scene) return;
+                    var skyMesh = null;
+                    scene.traverse(function(obj) { if (obj._isParallaxSky) skyMesh = obj; });
+                    if (!skyMesh) return;
+                    var loader = new THREE.TextureLoader();
+                    loader.load('img/skybox/' + filename, function(tex) {
+                        tex.colorSpace = THREE.SRGBColorSpace;
+                        tex.flipY = false;
+                        if (skyMesh.material.map) skyMesh.material.map.dispose();
+                        skyMesh.material.map = tex;
+                        skyMesh.material.needsUpdate = true;
+                    });
+                });
+                skyGrid.appendChild(thumb);
+            });
+        };
+        xhr.send();
+    })();
+
     // DoF 섹션 삽입 포인트 (DepthOfField가 여기에 섹션을 추가함)
     var dofContainer = document.createElement('div');
     dofContainer.id = 'sl-debug-dof-container';
