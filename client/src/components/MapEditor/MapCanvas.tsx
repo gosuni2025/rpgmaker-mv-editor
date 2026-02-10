@@ -242,13 +242,14 @@ export default function MapCanvas() {
       },
     };
 
-    // 타일 그리기
-    const Tilemap = (window as any).Tilemap;
-    if (Tilemap && tilemap) {
-      // tilemap의 bitmaps와 _tileWidth/_tileHeight 사용
-      const origBitmaps = tilemap.bitmaps;
-      const origTileW = tilemap._tileWidth;
-      const origTileH = tilemap._tileHeight;
+    // 타일 그리기 - Tilemap 프로토타입 체인을 활용한 임시 객체 생성
+    const TilemapClass = (window as any).Tilemap;
+    if (TilemapClass && tilemap) {
+      const proxy = Object.create(TilemapClass.prototype);
+      proxy.bitmaps = tilemap.bitmaps;
+      proxy._tileWidth = tilemap._tileWidth;
+      proxy._tileHeight = tilemap._tileHeight;
+      proxy.flags = tilemap.flags;
 
       for (let row = 0; row < tilesH; row++) {
         for (let col = 0; col < tilesW; col++) {
@@ -256,11 +257,7 @@ export default function MapCanvas() {
           if (tileId <= 0) continue;
           const dx = col * tw;
           const dy = row * th;
-          // _drawTile은 Tilemap.prototype에 있음
-          Tilemap.prototype._drawTile.call(
-            { bitmaps: origBitmaps, _tileWidth: origTileW, _tileHeight: origTileH, flags: tilemap.flags },
-            offBitmap, tileId, dx, dy,
-          );
+          proxy._drawTile(offBitmap, tileId, dx, dy);
         }
       }
     }
