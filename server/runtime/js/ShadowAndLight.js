@@ -1584,6 +1584,46 @@ ShadowLight._createDebugUI = function() {
         xhr.send();
     })();
 
+    // 스카이박스 회전 속도 슬라이더
+    (function() {
+        var rotRow = document.createElement('div');
+        rotRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px;';
+
+        var rotLabel = document.createElement('span');
+        rotLabel.textContent = '회전';
+        rotLabel.style.cssText = 'color:#ccc;font-size:11px;min-width:28px;';
+        rotRow.appendChild(rotLabel);
+
+        var rotSlider = document.createElement('input');
+        rotSlider.type = 'range';
+        rotSlider.min = '-0.2';
+        rotSlider.max = '0.2';
+        rotSlider.step = '0.005';
+        rotSlider.value = window._skyBoxGetRotationSpeed ? window._skyBoxGetRotationSpeed() : 0.02;
+        rotSlider.style.cssText = 'flex:1;height:14px;accent-color:#ffb74d;';
+        rotRow.appendChild(rotSlider);
+
+        var rotValue = document.createElement('span');
+        rotValue.textContent = parseFloat(rotSlider.value).toFixed(3);
+        rotValue.style.cssText = 'color:#ffb74d;font-size:11px;min-width:40px;text-align:right;';
+        rotRow.appendChild(rotValue);
+
+        rotSlider.addEventListener('input', function() {
+            var speed = parseFloat(rotSlider.value);
+            rotValue.textContent = speed.toFixed(3);
+            if (window._skyBoxSetRotationSpeed) window._skyBoxSetRotationSpeed(speed);
+        });
+
+        // 더블클릭으로 0 리셋
+        rotSlider.addEventListener('dblclick', function() {
+            rotSlider.value = '0';
+            rotValue.textContent = '0.000';
+            if (window._skyBoxSetRotationSpeed) window._skyBoxSetRotationSpeed(0);
+        });
+
+        skyBody.appendChild(rotRow);
+    })();
+
     // DoF 섹션 삽입 포인트 (DepthOfField가 여기에 섹션을 추가함)
     var dofContainer = document.createElement('div');
     dofContainer.id = 'sl-debug-dof-container';
