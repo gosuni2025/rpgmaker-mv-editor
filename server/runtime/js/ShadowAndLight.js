@@ -721,25 +721,23 @@ ShadowLight._updateProbeDebugVis = function(sprite, cx, cy, cz, perNormal) {
     var boxH = fh;       // 실제 프레임 높이
     var boxD = fw * 0.5; // 깊이는 폭의 절반
 
-    // 와이어프레임 박스 위치/크기, billboard rotation 적용
+    // 와이어프레임 박스 위치/크기 (axis-aligned, rotation 없음)
+    // 프록시 박스는 가상 볼륨이므로 지면에 서있는 형태로 표시
     data.box.position.set(lx, ly, lz);
     data.box.scale.set(boxW, boxH, boxD);
-    // billboard과 동일한 rotation 적용 (Y축이 Z방향으로 기울어짐)
-    var rotX = sprite._threeObj ? sprite._threeObj.rotation.x : 0;
-    data.box.rotation.x = rotX;
+    data.box.rotation.set(0, 0, 0);
 
     // raycasting용 hitBox도 동기화
     if (data.hitBox) {
         data.hitBox.position.set(lx, ly, lz);
         data.hitBox.scale.set(boxW, boxH, boxD);
-        data.hitBox.rotation.x = rotX;
+        data.hitBox.rotation.set(0, 0, 0);
     }
 
-    // 이름 라벨 위치: 박스 위쪽에 배치, billboard과 같은 회전
+    // 이름 라벨 위치: 박스 위쪽에 배치
     if (data.label) {
-        var labelOffY = -boxH * 0.5 - 12; // 박스 위 약간 위
-        data.label.position.set(lx, ly + labelOffY * Math.cos(rotX), lz + labelOffY * Math.sin(rotX));
-        data.label.rotation.x = rotX;
+        // Y-down 좌표계이므로 위 = 음수 방향
+        data.label.position.set(lx, ly - boxH * 0.5 - 12, lz);
     }
 
     // 법선 화살표 업데이트
