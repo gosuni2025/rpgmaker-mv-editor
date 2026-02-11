@@ -1081,9 +1081,12 @@ export function useMouseHandlers(
       if (isDraggingPlayerStart.current) {
         isDraggingPlayerStart.current = false;
         if (playerStartDragPos && currentMapId) {
-          setPlayerStartPosition(currentMapId, playerStartDragPos.x, playerStartDragPos.y);
+          setPlayerStartPosition(currentMapId, playerStartDragPos.x, playerStartDragPos.y).then(() => {
+            setPlayerStartDragPos(null);
+          });
+        } else {
+          setPlayerStartDragPos(null);
         }
-        setPlayerStartDragPos(null);
         return;
       }
 
