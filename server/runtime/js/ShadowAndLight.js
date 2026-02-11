@@ -565,10 +565,13 @@ ShadowLight._createProbeDebugMeshes = function(sprite) {
     boxMesh.renderOrder = 9998;
     group.add(boxMesh);
 
-    // raycasting용 투명 solid 박스 (클릭 감지용, 화면에는 안 보임)
+    // raycasting용 투명 solid 박스 (호버 감지용, 화면에는 거의 안 보임)
     var hitGeo = new THREE.BoxGeometry(1, 1, 1);
     var hitMat = new THREE.MeshBasicMaterial({
-        visible: false, // 렌더링하지 않지만 raycasting은 가능
+        transparent: true,
+        opacity: 0,       // 완전 투명이지만 raycasting은 가능
+        depthWrite: false,
+        depthTest: false,
     });
     var hitMesh = new THREE.Mesh(hitGeo, hitMat);
     hitMesh.frustumCulled = false;
@@ -801,7 +804,14 @@ ShadowLight._installProbeClickHandler = function() {
             e.stopPropagation();
         }
     };
-    var canvas = Graphics._renderer ? Graphics._renderer.domElement : null;
+    // 에디터의 실제 WebGL 캔버스 찾기
+    var canvas = null;
+    if (window._editorRendererObj && window._editorRendererObj.renderer) {
+        canvas = window._editorRendererObj.renderer.domElement;
+    }
+    if (!canvas && Graphics._renderer) {
+        canvas = Graphics._renderer.domElement;
+    }
     if (!canvas) {
         canvas = document.querySelector('canvas');
     }
@@ -867,12 +877,15 @@ ShadowLight._onProbeHover = function(e) {
     raycaster.setFromCamera(mouse, camera);
 
     // hitBox들만 수집 (userData._probeSprite가 있는 메시)
+    // matrixWorld 갱신 보장
+    this._probeDebugGroup.updateWorldMatrix(true, true);
     var hitTargets = [];
     this._probeDebugGroup.traverse(function(obj) {
         if (obj.isMesh && obj.userData._probeSprite) {
             hitTargets.push(obj);
         }
     });
+    if (hitTargets.length === 0) return;
 
     var intersects = raycaster.intersectObjects(hitTargets, false);
 
