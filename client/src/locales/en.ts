@@ -61,6 +61,8 @@ const en = {
     playtestTitle: 'Playtest from Title',
     playtestCurrentMap: 'Playtest Current Map',
     openFolder: 'Open Folder',
+    settings: 'Settings',
+    language: 'Language',
   },
 
   toolbar: {

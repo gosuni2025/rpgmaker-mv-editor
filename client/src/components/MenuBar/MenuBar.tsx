@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import useEditorStore from '../../store/useEditorStore';
 
 interface MenuItem {
@@ -9,6 +10,7 @@ interface MenuItem {
   type?: string;
   checked?: () => boolean;
   disabled?: () => boolean;
+  children?: MenuItem[];
 }
 
 interface Menu {
@@ -61,6 +63,19 @@ export default function MenuBar() {
         { label: t('common.save'), action: 'save', shortcut: 'Ctrl+S', disabled: () => !hasProject },
         { type: 'separator' },
         { label: t('menu.deploy'), action: 'deploy', disabled: () => !hasProject },
+        { type: 'separator' },
+        {
+          label: t('menu.settings'),
+          children: [
+            {
+              label: t('menu.language'),
+              children: [
+                { label: '한국어', action: 'langKo', checked: () => i18n.language === 'ko' },
+                { label: 'English', action: 'langEn', checked: () => i18n.language === 'en' },
+              ],
+            },
+          ],
+        },
       ],
     },
     {
@@ -167,6 +182,8 @@ export default function MenuBar() {
       }); break;
       case 'openFolder': fetch('/api/project/open-folder', { method: 'POST' }); break;
       case 'autotileDebug': window.dispatchEvent(new CustomEvent('editor-autotile-debug')); break;
+      case 'langKo': i18n.changeLanguage('ko'); localStorage.setItem('editor-lang', 'ko'); break;
+      case 'langEn': i18n.changeLanguage('en'); localStorage.setItem('editor-lang', 'en'); break;
     }
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
@@ -211,6 +228,35 @@ export default function MenuBar() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [openMenu]);
 
+  const renderMenuItems = (items: MenuItem[]) =>
+    items.map((item, j) =>
+      item.type === 'separator' ? (
+        <div key={j} className="menubar-separator" />
+      ) : item.children ? (
+        <div key={item.label} className="menubar-dropdown-item menubar-submenu">
+          <span className="menubar-check" />
+          <span className="menubar-item-label">{item.label}</span>
+          <span className="menubar-submenu-arrow">▶</span>
+          <div className="menubar-dropdown menubar-dropdown-sub">
+            {renderMenuItems(item.children)}
+          </div>
+        </div>
+      ) : (
+        <div
+          key={item.label}
+          className={`menubar-dropdown-item${item.disabled?.() ? ' disabled' : ''}`}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            if (!item.disabled?.() && item.action) handleAction(item.action);
+          }}
+        >
+          <span className="menubar-check">{item.checked?.() ? '\u2713' : ''}</span>
+          <span className="menubar-item-label">{item.label}</span>
+          {item.shortcut && <span className="shortcut">{item.shortcut}</span>}
+        </div>
+      )
+    );
+
   return (
     <div className="menubar" ref={menuRef}>
       {menus.map((menu, i) => (
@@ -223,24 +269,7 @@ export default function MenuBar() {
           {menu.label}
           {openMenu === i && (
             <div className="menubar-dropdown">
-              {menu.items.map((item, j) =>
-                item.type === 'separator' ? (
-                  <div key={j} className="menubar-separator" />
-                ) : (
-                  <div
-                    key={item.label}
-                    className={`menubar-dropdown-item${item.disabled?.() ? ' disabled' : ''}`}
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      if (!item.disabled?.() && item.action) handleAction(item.action);
-                    }}
-                  >
-                    <span className="menubar-check">{item.checked?.() ? '\u2713' : ''}</span>
-                    <span className="menubar-item-label">{item.label}</span>
-                    {item.shortcut && <span className="shortcut">{item.shortcut}</span>}
-                  </div>
-                )
-              )}
+              {renderMenuItems(menu.items)}
             </div>
           )}
         </div>

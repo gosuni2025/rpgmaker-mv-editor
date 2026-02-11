@@ -63,6 +63,8 @@ const ko = {
     playtestTitle: '타이틀부터 테스트',
     playtestCurrentMap: '현재 맵에서 테스트',
     openFolder: '폴더 열기',
+    settings: '환경설정',
+    language: '언어',
   },
 
   // === Toolbar ===

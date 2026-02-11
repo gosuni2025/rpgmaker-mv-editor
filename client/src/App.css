@@ -111,6 +111,27 @@ input, textarea, [contenteditable="true"] {
   margin: 2px 0;
 }
 
+.menubar-submenu {
+  position: relative;
+}
+
+.menubar-submenu-arrow {
+  font-size: 8px;
+  color: #aaa;
+  margin-left: 12px;
+}
+
+.menubar-dropdown-sub {
+  display: none;
+  position: absolute;
+  left: 100%;
+  top: -1px;
+}
+
+.menubar-submenu:hover > .menubar-dropdown-sub {
+  display: block;
+}
+
 /* Sidebar */
 .sidebar {
   grid-area: sidebar;
