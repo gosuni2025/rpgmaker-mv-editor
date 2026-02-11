@@ -215,20 +215,61 @@ function isValidDropTarget(commands: EventCommand[], targetIndex: number, dragSt
   return true;
 }
 
+/**
+ * 선택된 인덱스들을 그룹 단위로 확장.
+ * 각 선택된 인덱스의 그룹 범위를 구해서 연속 범위들의 배열로 반환.
+ */
+function expandSelectionToGroups(commands: EventCommand[], indices: Set<number>): [number, number][] {
+  if (indices.size === 0) return [];
+  const expanded = new Set<number>();
+  for (const idx of indices) {
+    const [start, end] = getCommandGroupRange(commands, idx);
+    for (let i = start; i <= end; i++) expanded.add(i);
+  }
+  // 연속 범위로 병합
+  const sorted = [...expanded].sort((a, b) => a - b);
+  const ranges: [number, number][] = [];
+  let rangeStart = sorted[0];
+  let rangeEnd = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === rangeEnd + 1) {
+      rangeEnd = sorted[i];
+    } else {
+      ranges.push([rangeStart, rangeEnd]);
+      rangeStart = sorted[i];
+      rangeEnd = sorted[i];
+    }
+  }
+  ranges.push([rangeStart, rangeEnd]);
+  return ranges;
+}
+
+// 내부 클립보드 (컴포넌트 외부에 두어 리렌더 없이 유지)
+let commandClipboard: EventCommand[] = [];
+
 export default function EventCommandEditor({ commands, onChange }: EventCommandEditorProps) {
-  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [lastClickedIndex, setLastClickedIndex] = useState(-1);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [pendingCode, setPendingCode] = useState<number | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [hasClipboard, setHasClipboard] = useState(commandClipboard.length > 0);
 
   // 드래그 상태
   const [dragGroupRange, setDragGroupRange] = useState<[number, number] | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
   const dragStartY = useRef<number>(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const undoStack = useRef<EventCommand[][]>([]);
   const redoStack = useRef<EventCommand[][]>([]);
+
+  // 단일 선택 편의: 선택된 항목 중 가장 작은 인덱스 (삽입 위치 등에 사용)
+  const primaryIndex = useMemo(() => {
+    if (selectedIndices.size === 0) return -1;
+    return Math.min(...selectedIndices);
+  }, [selectedIndices]);
 
   const changeWithHistory = useCallback((newCommands: EventCommand[]) => {
     undoStack.current.push(commands);
@@ -242,7 +283,8 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
     redoStack.current.push(commands);
     const prev = undoStack.current.pop()!;
     onChange(prev);
-    setSelectedIndex(-1);
+    setSelectedIndices(new Set());
+    setLastClickedIndex(-1);
   }, [commands, onChange]);
 
   const redo = useCallback(() => {
@@ -250,33 +292,149 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
     undoStack.current.push(commands);
     const next = redoStack.current.pop()!;
     onChange(next);
-    setSelectedIndex(-1);
+    setSelectedIndices(new Set());
+    setLastClickedIndex(-1);
   }, [commands, onChange]);
 
+  const deleteSelected = useCallback(() => {
+    if (selectedIndices.size === 0) return;
+    // 그룹 단위로 확장
+    const ranges = expandSelectionToGroups(commands, selectedIndices);
+    const toRemove = new Set<number>();
+    for (const [start, end] of ranges) {
+      for (let i = start; i <= end; i++) toRemove.add(i);
+    }
+    // 마지막 빈 명령어는 삭제 방지
+    const lastIdx = commands.length - 1;
+    if (commands[lastIdx]?.code === 0) toRemove.delete(lastIdx);
+
+    if (toRemove.size === 0) return;
+    const newCommands = commands.filter((_, i) => !toRemove.has(i));
+    changeWithHistory(newCommands);
+    const minRemoved = Math.min(...toRemove);
+    setSelectedIndices(new Set([Math.min(minRemoved, newCommands.length - 1)]));
+    setLastClickedIndex(Math.min(minRemoved, newCommands.length - 1));
+  }, [commands, selectedIndices, changeWithHistory]);
+
+  // --- 복사 / 붙여넣기 ---
+  const copySelected = useCallback(() => {
+    if (selectedIndices.size === 0) return;
+    const ranges = expandSelectionToGroups(commands, selectedIndices);
+    const copied: EventCommand[] = [];
+    for (const [start, end] of ranges) {
+      for (let i = start; i <= end; i++) {
+        copied.push(JSON.parse(JSON.stringify(commands[i])));
+      }
+    }
+    commandClipboard = copied;
+    setHasClipboard(true);
+  }, [commands, selectedIndices]);
+
+  const pasteAtSelection = useCallback(() => {
+    if (commandClipboard.length === 0) return;
+    const insertAt = primaryIndex >= 0 ? primaryIndex : commands.length - 1;
+    const baseIndent = commands[insertAt]?.indent || 0;
+    // 클립보드 커맨드의 indent를 삽입 위치 기준으로 보정
+    const clipMinIndent = Math.min(...commandClipboard.map(c => c.indent));
+    const indentDelta = baseIndent - clipMinIndent;
+    const adjusted = commandClipboard.map(c => ({
+      ...c,
+      indent: c.indent + indentDelta,
+      parameters: JSON.parse(JSON.stringify(c.parameters)),
+    }));
+    const newCommands = [...commands];
+    newCommands.splice(insertAt, 0, ...adjusted);
+    changeWithHistory(newCommands);
+    // 붙여넣은 범위를 선택
+    const newSelection = new Set<number>();
+    for (let i = insertAt; i < insertAt + adjusted.length; i++) newSelection.add(i);
+    setSelectedIndices(newSelection);
+    setLastClickedIndex(insertAt);
+  }, [commands, primaryIndex, changeWithHistory]);
+
+  // 커맨드 목록 내부에서만 Cmd+C/V 처리 (이벤트 커맨드 에디터에 포커스 있을 때)
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+      // 모달 열려있으면 무시
+      if (showAddDialog || pendingCode !== null || editingIndex !== null) return;
+
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && !e.shiftKey) {
         e.preventDefault();
+        e.stopPropagation();
+        copySelected();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'v' && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        pasteAtSelection();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
         undo();
       } else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
         e.preventDefault();
+        e.stopPropagation();
         redo();
       } else if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
         e.preventDefault();
+        e.stopPropagation();
         redo();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault();
+        e.stopPropagation();
+        // 전체 선택 (마지막 빈 명령어 제외)
+        const all = new Set<number>();
+        for (let i = 0; i < commands.length - 1; i++) all.add(i);
+        setSelectedIndices(all);
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedIndices.size > 0) {
+          e.preventDefault();
+          deleteSelected();
+        }
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]);
 
+    container.addEventListener('keydown', handleKeyDown);
+    return () => container.removeEventListener('keydown', handleKeyDown);
+  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, showAddDialog, pendingCode, editingIndex, selectedIndices, commands]);
+
+  // 그룹 하이라이트는 단일 선택 시에만
   const [groupStart, groupEnd] = useMemo(() => {
-    if (selectedIndex < 0 || selectedIndex >= commands.length) return [-1, -1];
-    return getCommandGroupRange(commands, selectedIndex);
-  }, [selectedIndex, commands]);
+    if (selectedIndices.size !== 1) return [-1, -1];
+    const idx = [...selectedIndices][0];
+    if (idx < 0 || idx >= commands.length) return [-1, -1];
+    return getCommandGroupRange(commands, idx);
+  }, [selectedIndices, commands]);
+
+  const handleRowClick = useCallback((index: number, e: React.MouseEvent) => {
+    if (e.shiftKey && lastClickedIndex >= 0) {
+      // Shift+클릭: 마지막 클릭 위치부터 현재까지 범위 선택
+      const start = Math.min(lastClickedIndex, index);
+      const end = Math.max(lastClickedIndex, index);
+      const newSet = new Set(selectedIndices);
+      for (let i = start; i <= end; i++) newSet.add(i);
+      setSelectedIndices(newSet);
+    } else if (e.metaKey || e.ctrlKey) {
+      // Cmd/Ctrl+클릭: 토글
+      const newSet = new Set(selectedIndices);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      setSelectedIndices(newSet);
+      setLastClickedIndex(index);
+    } else {
+      // 일반 클릭: 단일 선택
+      setSelectedIndices(new Set([index]));
+      setLastClickedIndex(index);
+    }
+  }, [lastClickedIndex, selectedIndices]);
 
   const insertCommandWithParams = (code: number, params: unknown[], extraCommands?: EventCommand[]) => {
-    const insertAt = selectedIndex >= 0 ? selectedIndex : commands.length - 1;
+    const insertAt = primaryIndex >= 0 ? primaryIndex : commands.length - 1;
     const indent = commands[insertAt]?.indent || 0;
     const newCmd: EventCommand = { code, indent, parameters: params };
 
@@ -349,7 +507,8 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
     e.stopPropagation();
     const range = getCommandGroupRange(commands, index);
     setDragGroupRange(range);
-    setSelectedIndex(index);
+    setSelectedIndices(new Set([index]));
+    setLastClickedIndex(index);
     dragStartY.current = e.clientY;
 
     const handleMouseMove = (ev: MouseEvent) => {
@@ -403,7 +562,8 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
               const insertAt = prevDrop > end ? prevDrop - groupLen : prevDrop;
               rest.splice(insertAt, 0, ...group);
               changeWithHistory(rest);
-              setSelectedIndex(insertAt);
+              setSelectedIndices(new Set([insertAt]));
+              setLastClickedIndex(insertAt);
             }
           }
           return null;
@@ -426,16 +586,6 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
     if (CHILD_TO_PARENT[cmd.code] && ![401, 405, 408, 655, 605].includes(cmd.code)) return false;
     return true;
   }, [commands]);
-
-  const deleteCommand = () => {
-    if (selectedIndex < 0 || selectedIndex >= commands.length) return;
-    const cmd = commands[selectedIndex];
-    if (cmd.code === 0 && selectedIndex === commands.length - 1) return;
-    const [start, end] = getCommandGroupRange(commands, selectedIndex);
-    const newCommands = commands.filter((_, i) => i < start || i > end);
-    changeWithHistory(newCommands);
-    setSelectedIndex(Math.min(start, newCommands.length - 1));
-  };
 
   const getCommandDisplay = (cmd: EventCommand): string => {
     const code = cmd.code;
@@ -488,22 +638,24 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }} ref={containerRef} tabIndex={-1}>
       <div className="db-form-section">Event Commands</div>
       <div className="event-commands-list" ref={listRef}>
         {commands.map((cmd, i) => {
           const display = getCommandDisplay(cmd);
           const draggable = isDraggable(i);
           const isDragging = dragGroupRange !== null && i >= dragGroupRange[0] && i <= dragGroupRange[1];
+          const isSelected = selectedIndices.has(i);
+          const isGroupHL = selectedIndices.size === 1 && i >= groupStart && i <= groupEnd && !isSelected;
           return (
             <React.Fragment key={i}>
               {dropTargetIndex === i && dragGroupRange && !(i >= dragGroupRange[0] && i <= dragGroupRange[1] + 1) && (
                 <div className="event-command-drop-indicator" />
               )}
               <div
-                className={`event-command-row${i === selectedIndex ? ' selected' : ''}${i >= groupStart && i <= groupEnd && i !== selectedIndex ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}`}
+                className={`event-command-row${isSelected ? ' selected' : ''}${isGroupHL ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}`}
                 style={{ paddingLeft: draggable ? cmd.indent * 20 : 8 + cmd.indent * 20 }}
-                onClick={() => setSelectedIndex(i)}
+                onClick={e => handleRowClick(i, e)}
                 onDoubleClick={() => handleDoubleClick(i)}
               >
                 {draggable && (
@@ -526,7 +678,10 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
       </div>
       <div className="event-commands-toolbar">
         <button className="db-btn-small" onClick={() => setShowAddDialog(true)}>Add</button>
-        <button className="db-btn-small" onClick={deleteCommand} disabled={selectedIndex < 0}>Delete</button>
+        <button className="db-btn-small" onClick={deleteSelected} disabled={selectedIndices.size === 0}>Delete</button>
+        <span className="event-commands-toolbar-sep" />
+        <button className="db-btn-small" onClick={copySelected} disabled={selectedIndices.size === 0} title="Cmd+C">Copy</button>
+        <button className="db-btn-small" onClick={pasteAtSelection} disabled={!hasClipboard} title="Cmd+V">Paste</button>
         <span style={{ flex: 1 }} />
         <button className="db-btn-small" onClick={undo} disabled={undoStack.current.length === 0} title="Ctrl+Z">Undo</button>
         <button className="db-btn-small" onClick={redo} disabled={redoStack.current.length === 0} title="Ctrl+Shift+Z">Redo</button>
