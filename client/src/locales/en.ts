@@ -39,6 +39,7 @@ const en = {
     openProject: 'Open Project...',
     closeProject: 'Close Project',
     deploy: 'Deploy...',
+    migrate: 'Runtime Migration...',
     find: 'Find...',
     map: 'Map',
     event: 'Event',
@@ -604,14 +605,23 @@ const en = {
 
   newProject: {
     title: 'New Project',
-    projectName: 'Project Name',
-    gameTitle: 'Game Title',
-    savePath: 'Save Location',
-    browse: 'Browse',
-    selectFolder: 'Select This Folder',
-    create: 'Create',
-    creating: 'Creating...',
-    nameAndPathRequired: 'Please enter project name and save path',
+    useRpgMakerMV: 'Please create new projects in RPG Maker MV.\nThis editor is a compatible editor for editing existing projects.',
+    compatibilityNote: 'After creating a project, you can open it with "Open Project".',
+  },
+
+  migration: {
+    title: 'Runtime Migration',
+    description: 'The game player files (js/) in your project differ from this editor\'s runtime. Migration will replace the files listed below with the editor\'s version.',
+    file: 'File',
+    status: 'Status',
+    editorSize: 'Editor',
+    projectSize: 'Project',
+    statusAdd: 'New',
+    statusUpdate: 'Changed',
+    statusSame: 'Same',
+    summary: 'To change: {{changed}} / Total {{total}}',
+    migrate: 'Migrate',
+    migrating: 'Migrating...',
   },
 
   find: {

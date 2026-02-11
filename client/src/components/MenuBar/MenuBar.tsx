@@ -65,6 +65,7 @@ export default function MenuBar() {
         { label: t('common.save'), action: 'save', shortcut: 'Ctrl+S', disabled: () => !hasProject },
         { type: 'separator' },
         { label: t('menu.deploy'), action: 'deploy', disabled: () => !hasProject },
+        { label: t('menu.migrate'), action: 'migrate', disabled: () => !hasProject },
         { type: 'separator' },
         { label: t('menu.options'), action: 'options' },
       ],
@@ -184,6 +185,7 @@ export default function MenuBar() {
       case 'selectAll': window.dispatchEvent(new CustomEvent('editor-selectall')); break;
       case 'deselect': window.dispatchEvent(new CustomEvent('editor-deselect')); break;
       case 'autotileDebug': window.dispatchEvent(new CustomEvent('editor-autotile-debug')); break;
+      case 'migrate': window.dispatchEvent(new CustomEvent('editor-migrate')); break;
       case 'options': setShowOptionsDialog(true); break;
       case 'localization': setShowLocalizationDialog(true); break;
     }

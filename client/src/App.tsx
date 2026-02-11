@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import './App.css';
 import useEditorStore from './store/useEditorStore';
+import apiClient from './api/client';
 import MenuBar from './components/MenuBar/MenuBar';
 import MapTree from './components/Sidebar/MapTree';
 import TilesetPalette from './components/Sidebar/TilesetPalette';
@@ -12,6 +13,7 @@ import { addRecentProject } from './components/OpenProjectDialog';
 import MapCanvas from './components/MapEditor/MapCanvas';
 import DrawToolbar from './components/MapEditor/DrawToolbar';
 import NewProjectDialog from './components/NewProjectDialog';
+import MigrationDialog from './components/MigrationDialog';
 import DeployDialog from './components/DeployDialog';
 import FindDialog from './components/FindDialog';
 import PluginManagerDialog from './components/PluginManagerDialog';
@@ -107,11 +109,37 @@ export default function App() {
     return () => window.removeEventListener('editor-autotile-debug', handler);
   }, []);
 
-  const handleOpenProject = async (path: string) => {
+  useEffect(() => {
+    const handler = () => {
+      const pp = useEditorStore.getState().projectPath;
+      if (pp) setMigrationPath(pp);
+    };
+    window.addEventListener('editor-migrate', handler);
+    return () => window.removeEventListener('editor-migrate', handler);
+  }, []);
+
+  const [migrationPath, setMigrationPath] = useState<string | null>(null);
+
+  const handleOpenProject = async (projectPath: string) => {
     setShowOpenProjectDialog(false);
-    await openProject(path);
+    try {
+      const res = await apiClient.get<{ needsMigration: boolean }>(
+        `/project/migration-check?path=${encodeURIComponent(projectPath)}`
+      );
+      if (res.needsMigration) {
+        // Open the project first (so migrate API works), then show dialog
+        await openProject(projectPath);
+        const name = useEditorStore.getState().projectName;
+        addRecentProject(projectPath, name || '');
+        setMigrationPath(projectPath);
+        return;
+      }
+    } catch {
+      // If migration check fails, just open normally
+    }
+    await openProject(projectPath);
     const name = useEditorStore.getState().projectName;
-    addRecentProject(path, name || '');
+    addRecentProject(projectPath, name || '');
   };
 
   return (
@@ -157,6 +185,13 @@ export default function App() {
         />
       )}
       {showNewProjectDialog && <NewProjectDialog />}
+      {migrationPath && (
+        <MigrationDialog
+          projectPath={migrationPath}
+          onComplete={() => setMigrationPath(null)}
+          onSkip={() => setMigrationPath(null)}
+        />
+      )}
       {showDatabaseDialog && <DatabaseDialog />}
       {showDeployDialog && <DeployDialog />}
       {showFindDialog && <FindDialog />}

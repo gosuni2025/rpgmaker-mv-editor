@@ -41,6 +41,7 @@ const ko = {
     openProject: '프로젝트 열기...',
     closeProject: '프로젝트 닫기',
     deploy: '배포...',
+    migrate: '런타임 마이그레이션...',
     find: '찾기...',
     map: '지도',
     event: '이벤트',
@@ -907,14 +908,24 @@ const ko = {
   // === New Project Dialog ===
   newProject: {
     title: '새 프로젝트',
-    projectName: '프로젝트 이름',
-    gameTitle: '게임 타이틀',
-    savePath: '저장 위치',
-    browse: '찾아보기',
-    selectFolder: '이 폴더 선택',
-    create: '생성',
-    creating: '생성 중...',
-    nameAndPathRequired: '프로젝트 이름과 저장 경로를 입력해주세요',
+    useRpgMakerMV: '새 프로젝트는 RPG Maker MV에서 생성해 주세요.\n이 에디터는 RPG Maker MV의 호환 에디터로, 기존 프로젝트를 편집하는 용도입니다.',
+    compatibilityNote: '프로젝트 생성 후 "프로젝트 열기"로 불러올 수 있습니다.',
+  },
+
+  // === Migration Dialog ===
+  migration: {
+    title: '런타임 마이그레이션',
+    description: '프로젝트의 게임 플레이어(js/) 파일이 이 에디터의 런타임과 다릅니다. 마이그레이션하면 아래 파일들이 에디터 버전으로 교체됩니다.',
+    file: '파일',
+    status: '상태',
+    editorSize: '에디터',
+    projectSize: '프로젝트',
+    statusAdd: '추가',
+    statusUpdate: '변경',
+    statusSame: '동일',
+    summary: '변경 대상: {{changed}}개 / 전체 {{total}}개',
+    migrate: '마이그레이션',
+    migrating: '마이그레이션 중...',
   },
 
   // === Find Dialog ===

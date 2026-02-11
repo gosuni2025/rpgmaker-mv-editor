@@ -1,10 +1,41 @@
 import express, { Request, Response } from 'express';
 import fs from 'fs';
+import crypto from 'crypto';
 import path from 'path';
 import os from 'os';
 import { exec } from 'child_process';
 import projectManager from '../services/projectManager';
 import fileWatcher from '../services/fileWatcher';
+
+const runtimePath = path.join(__dirname, '..', 'runtime');
+
+/** Collect all files under a directory recursively, returning relative paths */
+function collectFiles(dir: string, base: string = dir): string[] {
+  const results: string[] = [];
+  if (!fs.existsSync(dir)) return results;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectFiles(full, base));
+    } else {
+      results.push(path.relative(base, full));
+    }
+  }
+  return results;
+}
+
+function fileHash(filePath: string): string {
+  const content = fs.readFileSync(filePath);
+  return crypto.createHash('md5').update(content).digest('hex');
+}
+
+interface MigrationFile {
+  file: string;       // relative path like "js/rpg_core.js"
+  status: 'add' | 'update' | 'same';
+  editorSize?: number;
+  projectSize?: number;
+}
 
 const router = express.Router();
 
@@ -217,6 +248,94 @@ router.post('/deploy', (req: Request, res: Response) => {
 
     copyDir(srcPath, destPath);
     res.json({ success: true, outputPath: destPath });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Migration: compare editor runtime files with project js/ folder
+router.get('/migration-check', (req: Request, res: Response) => {
+  try {
+    const projectPath = req.query.path as string;
+    if (!projectPath) {
+      return res.status(400).json({ error: 'path is required' });
+    }
+
+    const runtimeJsDir = path.join(runtimePath, 'js');
+    const projectJsDir = path.join(projectPath, 'js');
+
+    // Collect all runtime js files
+    const runtimeFiles = collectFiles(runtimeJsDir, runtimeJsDir);
+
+    const files: MigrationFile[] = [];
+    let needsMigration = false;
+
+    for (const relFile of runtimeFiles) {
+      // Skip plugins-related files (those are project-specific)
+      if (relFile === 'plugins.js' || relFile.startsWith('plugins/') || relFile.startsWith('plugins\\')) continue;
+
+      const editorFile = path.join(runtimeJsDir, relFile);
+      const projectFile = path.join(projectJsDir, relFile);
+      const editorSize = fs.statSync(editorFile).size;
+
+      if (!fs.existsSync(projectFile)) {
+        files.push({ file: `js/${relFile}`, status: 'add', editorSize });
+        needsMigration = true;
+      } else {
+        const projectSize = fs.statSync(projectFile).size;
+        const editorHash = fileHash(editorFile);
+        const projectHash = fileHash(projectFile);
+        if (editorHash !== projectHash) {
+          files.push({ file: `js/${relFile}`, status: 'update', editorSize, projectSize });
+          needsMigration = true;
+        } else {
+          files.push({ file: `js/${relFile}`, status: 'same', editorSize, projectSize });
+        }
+      }
+    }
+
+    // Sort: add/update first, then same
+    files.sort((a, b) => {
+      const order = { add: 0, update: 1, same: 2 };
+      return order[a.status] - order[b.status];
+    });
+
+    res.json({ needsMigration, files });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Migration: copy editor runtime files to project js/ folder
+router.post('/migrate', (req: Request, res: Response) => {
+  try {
+    if (!projectManager.isOpen()) {
+      return res.status(404).json({ error: 'No project open' });
+    }
+
+    const runtimeJsDir = path.join(runtimePath, 'js');
+    const projectJsDir = path.join(projectManager.currentPath!, 'js');
+    const runtimeFiles = collectFiles(runtimeJsDir, runtimeJsDir);
+
+    const copied: string[] = [];
+    for (const relFile of runtimeFiles) {
+      if (relFile === 'plugins.js' || relFile.startsWith('plugins/') || relFile.startsWith('plugins\\')) continue;
+
+      const src = path.join(runtimeJsDir, relFile);
+      const dest = path.join(projectJsDir, relFile);
+
+      // Check if different
+      if (fs.existsSync(dest)) {
+        if (fileHash(src) === fileHash(dest)) continue;
+      }
+
+      // Ensure target directory exists
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(src, dest);
+      copied.push(`js/${relFile}`);
+    }
+
+    res.json({ success: true, copied });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }
