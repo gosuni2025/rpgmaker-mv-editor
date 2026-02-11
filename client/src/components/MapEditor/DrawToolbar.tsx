@@ -30,10 +30,8 @@ export default function DrawToolbar() {
   const saveCurrentMap = useEditorStore((s) => s.saveCurrentMap);
   const mode3d = useEditorStore((s) => s.mode3d);
   const shadowLight = useEditorStore((s) => s.shadowLight);
-  const depthOfField = useEditorStore((s) => s.depthOfField);
   const setMode3d = useEditorStore((s) => s.setMode3d);
   const setShadowLight = useEditorStore((s) => s.setShadowLight);
-  const setDepthOfField = useEditorStore((s) => s.setDepthOfField);
   const [showGrid, setShowGrid] = React.useState(true);
 
   return (
@@ -145,12 +143,6 @@ export default function DrawToolbar() {
           style={{ ...styles.btn, ...(shadowLight ? styles.btnActive : {}) }}
         >
           조명
-        </button>
-        <button
-          onClick={() => setDepthOfField(!depthOfField)}
-          style={{ ...styles.btn, ...(depthOfField ? styles.btnActive : {}) }}
-        >
-          DoF
         </button>
       </div>
 
