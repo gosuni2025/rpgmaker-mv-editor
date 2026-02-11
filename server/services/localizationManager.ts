@@ -17,7 +17,7 @@ interface EventCommand {
 // Text command codes that should be localized
 const TEXT_CODES = new Set([101, 401, 102, 105, 405, 321, 325]);
 
-function getLanguagesDir(): string {
+export function getLanguagesDir(): string {
   return path.join(projectManager.currentPath!, 'languages');
 }
 

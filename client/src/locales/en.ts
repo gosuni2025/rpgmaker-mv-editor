@@ -727,6 +727,8 @@ const en = {
     helpProgress: 'Overall translation progress across all categories.',
     helpEdit: 'Click a translation cell to edit. Enter to save, Esc to cancel.\nCtrl+Z: Undo, Ctrl+Y: Redo',
     helpInit: 'Source language: the base language of the game\nTarget languages: languages to translate into\nConfirm will extract all texts from the project.',
+    openFolder: 'Open Folder',
+    helpOpenFolder: 'Open the languages folder containing CSV files in the file manager.',
   },
 };
 

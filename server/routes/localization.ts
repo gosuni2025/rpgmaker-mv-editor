@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { exec } from 'child_process';
 import * as l10n from '../services/localizationManager';
 
 const router = express.Router();
@@ -94,6 +95,26 @@ router.get('/categories', (_req: Request, res: Response) => {
   try {
     const categories = l10n.getCategories();
     res.json(categories);
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// POST /api/localization/open-folder — open languages folder in file manager
+router.post('/open-folder', (_req: Request, res: Response) => {
+  try {
+    const dir = l10n.getLanguagesDir();
+    const platform = process.platform;
+    let cmd: string;
+    if (platform === 'darwin') {
+      cmd = `open "${dir}"`;
+    } else if (platform === 'win32') {
+      cmd = `explorer "${dir}"`;
+    } else {
+      cmd = `xdg-open "${dir}"`;
+    }
+    exec(cmd);
+    res.json({ success: true });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

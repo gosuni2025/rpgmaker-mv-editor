@@ -168,6 +168,10 @@ export default function LocalizationDialog() {
     }
   };
 
+  const handleOpenFolder = async () => {
+    await apiClient.post('/localization/open-folder', {});
+  };
+
   const handleSync = async () => {
     setSyncing(true);
     try {
@@ -427,6 +431,10 @@ export default function LocalizationDialog() {
                 {syncing ? '...' : t('localization.sync')}
               </button>
               <HelpButton text={t('localization.helpSync' as any)} />
+              <button className="db-btn" onClick={handleOpenFolder}>
+                {t('localization.openFolder' as any)}
+              </button>
+              <HelpButton text={t('localization.helpOpenFolder' as any)} />
               <div className="l10n-filters">
                 {(['all', 'untranslated', 'outdated'] as FilterMode[]).map(f => (
                   <button

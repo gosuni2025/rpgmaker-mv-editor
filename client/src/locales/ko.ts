@@ -1035,6 +1035,8 @@ const ko = {
     helpProgress: '전체 번역 진행률입니다. 모든 카테고리의 번역 상태를 종합합니다.',
     helpEdit: '번역 셀을 클릭하여 편집합니다. Enter로 저장, Esc로 취소.\nCtrl+Z: 실행 취소, Ctrl+Y: 다시 실행',
     helpInit: '원본 언어: 게임의 기본 언어\n번역 언어: 번역할 대상 언어\n확인을 누르면 프로젝트의 모든 텍스트가 추출됩니다.',
+    openFolder: '폴더 열기',
+    helpOpenFolder: 'CSV 파일이 저장된 languages 폴더를 파일 탐색기에서 엽니다.',
   },
 };
 

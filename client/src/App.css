@@ -2557,13 +2557,13 @@ input, textarea, [contenteditable="true"] {
 }
 
 .l10n-help-btn {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   border: 1px solid #666;
-  background: transparent;
-  color: #888;
-  font-size: 11px;
+  background: #3a3a3a;
+  color: #aaa;
+  font-size: 12px;
   font-weight: bold;
   cursor: pointer;
   padding: 0;
