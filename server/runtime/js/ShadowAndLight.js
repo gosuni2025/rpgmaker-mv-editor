@@ -627,11 +627,61 @@ ShadowLight._createProbeDebugMeshes = function(sprite) {
         arrows.push({ line: line, sphere: sphere, mat: lineMat, sphereMat: sphereMat });
     }
 
+    // 이름 라벨 (CanvasTexture → PlaneGeometry Mesh)
+    var name = this._getSpriteName(sprite);
+    var labelMesh = this._createLabelMesh(name);
+    labelMesh.frustumCulled = false;
+    labelMesh.renderOrder = 10000;
+    group.add(labelMesh);
+
     this._probeDebugGroup.add(group);
 
-    var data = { group: group, box: boxMesh, hitBox: hitMesh, arrows: arrows };
+    var data = { group: group, box: boxMesh, hitBox: hitMesh, arrows: arrows, label: labelMesh };
     this._probeDebugData.set(sprite, data);
     return data;
+};
+
+/**
+ * 텍스트 라벨 Mesh 생성 (CanvasTexture + PlaneGeometry)
+ * Mode3D의 Y-flip 환경에서 정상 표시되도록 Y 반전 적용
+ */
+ShadowLight._createLabelMesh = function(text) {
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    var fontSize = 14;
+    ctx.font = 'bold ' + fontSize + 'px monospace';
+    var metrics = ctx.measureText(text);
+    var tw = Math.ceil(metrics.width) + 8;
+    var th = fontSize + 6;
+    canvas.width = tw;
+    canvas.height = th;
+
+    // Y-flip: Mode3D의 m[5]=-m[5] 보정
+    ctx.save();
+    ctx.translate(0, th);
+    ctx.scale(1, -1);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.fillRect(0, 0, tw, th);
+    ctx.font = 'bold ' + fontSize + 'px monospace';
+    ctx.fillStyle = '#66ffcc';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 4, th / 2);
+    ctx.restore();
+
+    var tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    var mat = new THREE.MeshBasicMaterial({
+        map: tex,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    var geo = new THREE.PlaneGeometry(tw, th);
+    var mesh = new THREE.Mesh(geo, mat);
+    return mesh;
 };
 
 /**
@@ -675,6 +725,13 @@ ShadowLight._updateProbeDebugVis = function(sprite, cx, cy, cz, perNormal) {
         data.hitBox.position.set(lx, ly, lz);
         data.hitBox.scale.set(boxW, boxH, boxD);
         data.hitBox.rotation.x = rotX;
+    }
+
+    // 이름 라벨 위치: 박스 위쪽에 배치, billboard과 같은 회전
+    if (data.label) {
+        var labelOffY = -boxH * 0.5 - 12; // 박스 위 약간 위
+        data.label.position.set(lx, ly + labelOffY * Math.cos(rotX), lz + labelOffY * Math.sin(rotX));
+        data.label.rotation.x = rotX;
     }
 
     // 법선 화살표 업데이트
