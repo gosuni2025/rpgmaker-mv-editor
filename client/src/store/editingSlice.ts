@@ -1,7 +1,8 @@
 import type { MapData, MapObject, CameraZone } from '../types/rpgMakerMV';
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
 import { isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition } from '../utils/tileHelper';
-import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry, EventHistoryEntry, ClipboardData } from './types';
+import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry, EventHistoryEntry, PlayerStartHistoryEntry, ClipboardData } from './types';
+import apiClient from '../api/client';
 
 /** 오브젝트 변경에 대한 undo 항목 push (헬퍼) */
 function pushObjectUndoEntry(
@@ -285,6 +286,27 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       return;
     }
 
+    if (entry.type === 'playerStart') {
+      const pe = entry as PlayerStartHistoryEntry;
+      const redoEntry: PlayerStartHistoryEntry = {
+        mapId: currentMapId, type: 'playerStart',
+        oldMapId: pe.newMapId, oldX: pe.newX, oldY: pe.newY,
+        newMapId: pe.oldMapId, newX: pe.oldX, newY: pe.oldY,
+      };
+      const { systemData } = get();
+      if (systemData) {
+        const updated = { ...systemData, startMapId: pe.oldMapId, startX: pe.oldX, startY: pe.oldY };
+        set({
+          systemData: updated,
+          undoStack: undoStack.slice(0, -1),
+          redoStack: [...get().redoStack, redoEntry],
+        });
+        apiClient.put('/database/system', updated).catch(() => {});
+      }
+      showToast('실행 취소 (시작 위치)');
+      return;
+    }
+
     const te = entry as TileHistoryEntry;
     const newData = [...currentMap.data];
     const redoChanges: TileChange[] = [];
@@ -396,6 +418,27 @@ export const editingSlice: SliceCreator<Pick<EditorState,
         undoStack: [...get().undoStack, undoEntry],
       });
       showToast('다시 실행 (이벤트)');
+      return;
+    }
+
+    if (entry.type === 'playerStart') {
+      const pe = entry as PlayerStartHistoryEntry;
+      const undoEntry: PlayerStartHistoryEntry = {
+        mapId: currentMapId, type: 'playerStart',
+        oldMapId: pe.newMapId, oldX: pe.newX, oldY: pe.newY,
+        newMapId: pe.oldMapId, newX: pe.oldX, newY: pe.oldY,
+      };
+      const { systemData } = get();
+      if (systemData) {
+        const updated = { ...systemData, startMapId: pe.oldMapId, startX: pe.oldX, startY: pe.oldY };
+        set({
+          systemData: updated,
+          redoStack: redoStack.slice(0, -1),
+          undoStack: [...get().undoStack, undoEntry],
+        });
+        apiClient.put('/database/system', updated).catch(() => {});
+      }
+      showToast('다시 실행 (시작 위치)');
       return;
     }
 

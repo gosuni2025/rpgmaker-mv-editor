@@ -1,6 +1,6 @@
 import apiClient from '../api/client';
 import type { MapInfo, MapData, TilesetData, SystemData } from '../types/rpgMakerMV';
-import type { EditorState, SliceCreator } from './types';
+import type { EditorState, SliceCreator, PlayerStartHistoryEntry } from './types';
 import { PROJECT_STORAGE_KEY, MAP_STORAGE_KEY } from './types';
 
 export const projectSlice: SliceCreator<Pick<EditorState,
@@ -154,12 +154,23 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   },
 
   setPlayerStartPosition: async (mapId: number, x: number, y: number) => {
-    const { systemData, showToast } = get();
+    const { systemData, showToast, currentMapId, undoStack, maxUndo } = get();
     if (!systemData) return;
+    const oldMapId = systemData.startMapId;
+    const oldX = systemData.startX;
+    const oldY = systemData.startY;
+    if (oldMapId === mapId && oldX === x && oldY === y) return;
     const updated = { ...systemData, startMapId: mapId, startX: x, startY: y };
     try {
       await apiClient.put('/database/system', updated);
-      set({ systemData: updated });
+      const entry: PlayerStartHistoryEntry = {
+        mapId: currentMapId!, type: 'playerStart',
+        oldMapId, oldX, oldY,
+        newMapId: mapId, newX: x, newY: y,
+      };
+      const newStack = [...undoStack, entry];
+      if (newStack.length > maxUndo) newStack.shift();
+      set({ systemData: updated, undoStack: newStack, redoStack: [] });
       showToast(`시작 위치 설정: 맵 ${mapId} (${x}, ${y})`);
     } catch {
       showToast('시작 위치 저장 실패');
