@@ -237,13 +237,13 @@ export default function LocalizationDialog() {
 
   if (loading) {
     return (
-      <div className="dialog-overlay" onClick={() => setShowLocalizationDialog(false)}>
-        <div className="dialog l10n-dialog" onClick={e => e.stopPropagation()}>
-          <div className="dialog-header">
+      <div className="db-dialog-overlay" onClick={() => setShowLocalizationDialog(false)}>
+        <div className="db-dialog l10n-dialog" onClick={e => e.stopPropagation()}>
+          <div className="db-dialog-header">
             <span>{t('localization.title')}</span>
-            <button className="dialog-close" onClick={() => setShowLocalizationDialog(false)}>×</button>
+            <button className="db-dialog-close" onClick={() => setShowLocalizationDialog(false)}>×</button>
           </div>
-          <div className="dialog-body" style={{ padding: 20 }}>{t('common.loading')}</div>
+          <div className="db-dialog-body" style={{ padding: 20 }}>{t('common.loading')}</div>
         </div>
       </div>
     );
@@ -252,13 +252,13 @@ export default function LocalizationDialog() {
   // Init panel
   if (!config) {
     return (
-      <div className="dialog-overlay" onClick={() => setShowLocalizationDialog(false)}>
-        <div className="dialog l10n-dialog l10n-init-dialog" onClick={e => e.stopPropagation()}>
-          <div className="dialog-header">
+      <div className="db-dialog-overlay" onClick={() => setShowLocalizationDialog(false)}>
+        <div className="db-dialog l10n-dialog l10n-init-dialog" onClick={e => e.stopPropagation()}>
+          <div className="db-dialog-header">
             <span>{t('localization.title')}</span>
-            <button className="dialog-close" onClick={() => setShowLocalizationDialog(false)}>×</button>
+            <button className="db-dialog-close" onClick={() => setShowLocalizationDialog(false)}>×</button>
           </div>
-          <div className="dialog-body l10n-init-body">
+          <div className="db-dialog-body l10n-init-body">
             <p>{t('localization.initDescription')}</p>
             <div className="l10n-init-form">
               <label>
@@ -307,13 +307,13 @@ export default function LocalizationDialog() {
   }
 
   return (
-    <div className="dialog-overlay" onClick={() => setShowLocalizationDialog(false)}>
-      <div className="dialog l10n-dialog l10n-main-dialog" onClick={e => e.stopPropagation()}>
-        <div className="dialog-header">
+    <div className="db-dialog-overlay" onClick={() => setShowLocalizationDialog(false)}>
+      <div className="db-dialog l10n-dialog l10n-main-dialog" onClick={e => e.stopPropagation()}>
+        <div className="db-dialog-header">
           <span>{t('localization.title')}</span>
-          <button className="dialog-close" onClick={() => setShowLocalizationDialog(false)}>×</button>
+          <button className="db-dialog-close" onClick={() => setShowLocalizationDialog(false)}>×</button>
         </div>
-        <div className="dialog-body l10n-main-body">
+        <div className="db-dialog-body l10n-main-body">
           {/* Left: category tree */}
           <div className="l10n-sidebar">
             {Object.entries(groupedCats).map(([groupType, cats]) => {
