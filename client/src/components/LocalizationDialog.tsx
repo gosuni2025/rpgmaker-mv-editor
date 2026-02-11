@@ -45,6 +45,34 @@ function getCsvPath(categoryId: string): string {
 
 type FilterMode = 'all' | 'untranslated' | 'outdated';
 
+function HelpButton({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  const ref = useRef<HTMLButtonElement>(null);
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        ref={ref}
+        className="l10n-help-btn"
+        onClick={() => setShow(!show)}
+        onBlur={() => setShow(false)}
+      >?</button>
+      {show && (
+        <div className="l10n-help-tooltip">
+          {text.split('\n').map((line, i) => <div key={i}>{line}</div>)}
+        </div>
+      )}
+    </span>
+  );
+}
+
+interface UndoEntry {
+  csvPath: string;
+  key: string;
+  lang: string;
+  oldText: string;
+  newText: string;
+}
+
 export default function LocalizationDialog() {
   const { t } = useTranslation();
   const setShowLocalizationDialog = useEditorStore((s) => s.setShowLocalizationDialog);
@@ -62,6 +90,10 @@ export default function LocalizationDialog() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const editRef = useRef<HTMLTextAreaElement>(null);
+
+  // Undo/Redo stacks
+  const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
+  const [redoStack, setRedoStack] = useState<UndoEntry[]>([]);
 
   // Init form state
   const [initSource, setInitSource] = useState('ko');
@@ -157,16 +189,60 @@ export default function LocalizationDialog() {
   const handleCellSave = async () => {
     if (!editCell || !selectedCategory) return;
     const csvPath = getCsvPath(selectedCategory);
+    const oldRow = rows.find(r => r.key === editCell.key);
+    const oldText = oldRow ? (oldRow[editCell.lang] || '') : '';
+    if (oldText === editValue) { setEditCell(null); return; }
     await apiClient.put('/localization/entry', {
       csvPath, key: editCell.key, lang: editCell.lang, text: editValue,
     });
-    // Update local state
+    setUndoStack(prev => [...prev, { csvPath, key: editCell.key, lang: editCell.lang, oldText, newText: editValue }]);
+    setRedoStack([]);
     setRows(prev => prev.map(r =>
       r.key === editCell.key ? { ...r, [editCell.lang]: editValue, [editCell.lang + '_ts']: String(Math.floor(Date.now() / 1000)) } : r
     ));
     setEditCell(null);
     loadStats();
   };
+
+  const applyUndoRedo = useCallback(async (entry: UndoEntry, text: string) => {
+    await apiClient.put('/localization/entry', { csvPath: entry.csvPath, key: entry.key, lang: entry.lang, text });
+    setRows(prev => prev.map(r =>
+      r.key === entry.key ? { ...r, [entry.lang]: text, [entry.lang + '_ts']: String(Math.floor(Date.now() / 1000)) } : r
+    ));
+    loadStats();
+  }, [loadStats]);
+
+  const handleUndo = useCallback(async () => {
+    if (undoStack.length === 0) return;
+    const entry = undoStack[undoStack.length - 1];
+    setUndoStack(prev => prev.slice(0, -1));
+    setRedoStack(prev => [...prev, entry]);
+    await applyUndoRedo(entry, entry.oldText);
+  }, [undoStack, applyUndoRedo]);
+
+  const handleRedo = useCallback(async () => {
+    if (redoStack.length === 0) return;
+    const entry = redoStack[redoStack.length - 1];
+    setRedoStack(prev => prev.slice(0, -1));
+    setUndoStack(prev => [...prev, entry]);
+    await applyUndoRedo(entry, entry.newText);
+  }, [redoStack, applyUndoRedo]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleUndo();
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [handleUndo, handleRedo]);
 
   const handleCellKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -259,7 +335,10 @@ export default function LocalizationDialog() {
             <button className="db-dialog-close" onClick={() => setShowLocalizationDialog(false)}>×</button>
           </div>
           <div className="db-dialog-body l10n-init-body">
-            <p>{t('localization.initDescription')}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+              <p style={{ margin: 0, color: '#aaa' }}>{t('localization.initDescription')}</p>
+              <HelpButton text={t('localization.helpInit' as any)} />
+            </div>
             <div className="l10n-init-form">
               <label>
                 {t('localization.sourceLanguage')}
@@ -347,6 +426,7 @@ export default function LocalizationDialog() {
               <button className="db-btn" onClick={handleSync} disabled={syncing}>
                 {syncing ? '...' : t('localization.sync')}
               </button>
+              <HelpButton text={t('localization.helpSync' as any)} />
               <div className="l10n-filters">
                 {(['all', 'untranslated', 'outdated'] as FilterMode[]).map(f => (
                   <button
@@ -357,6 +437,7 @@ export default function LocalizationDialog() {
                     {t(`localization.filter${f.charAt(0).toUpperCase() + f.slice(1)}` as any)}
                   </button>
                 ))}
+                <HelpButton text={t('localization.helpFilter' as any)} />
               </div>
               <input
                 className="l10n-search"
@@ -370,6 +451,7 @@ export default function LocalizationDialog() {
                 <div className="l10n-progress-track">
                   <div className="l10n-progress-fill" style={{ width: `${getTotalProgress()}%` }} />
                 </div>
+                <HelpButton text={t('localization.helpEdit' as any)} />
               </div>
             </div>
 

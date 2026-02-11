@@ -2556,6 +2556,47 @@ input, textarea, [contenteditable="true"] {
   padding: 20px !important;
 }
 
+.l10n-help-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid #666;
+  background: transparent;
+  color: #888;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.l10n-help-btn:hover {
+  background: #444;
+  color: #ddd;
+  border-color: #888;
+}
+
+.l10n-help-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 6px;
+  background: #222;
+  color: #ccc;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  min-width: 200px;
+  max-width: 350px;
+  z-index: 3000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
 /* Translate button (for Phase 3) */
 .l10n-translate-btn {
   background: none;

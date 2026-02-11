@@ -721,6 +721,12 @@ const en = {
       common_events: 'Common Events',
     },
     translate: 'Translate',
+    helpSync: 'Re-extract texts from the project and sync with CSVs. Use when new events or DB entries have been added.',
+    helpFilter: 'All: show all entries\nUntranslated: entries with no translation\nOutdated: entries where source text has changed',
+    helpSearch: 'Search by key name or translation text.',
+    helpProgress: 'Overall translation progress across all categories.',
+    helpEdit: 'Click a translation cell to edit. Enter to save, Esc to cancel.\nCtrl+Z: Undo, Ctrl+Y: Redo',
+    helpInit: 'Source language: the base language of the game\nTarget languages: languages to translate into\nConfirm will extract all texts from the project.',
   },
 };
 
