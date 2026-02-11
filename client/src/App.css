@@ -2499,6 +2499,10 @@ input, textarea, [contenteditable="true"] {
   cursor: pointer;
 }
 
+.l10n-table td.l10n-col-lang:hover {
+  background: rgba(38, 117, 191, 0.15);
+}
+
 .l10n-status-dot {
   display: inline-block;
   width: 8px;
@@ -2586,9 +2590,9 @@ input, textarea, [contenteditable="true"] {
   border: 1px solid #555;
   border-radius: 4px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-  padding: 12px;
-  min-width: 300px;
-  max-width: 450px;
+  padding: 16px;
+  min-width: 500px;
+  max-width: 800px;
   z-index: 1101;
 }
 
@@ -2601,36 +2605,36 @@ input, textarea, [contenteditable="true"] {
 
 .l10n-popup-source {
   background: #2a2a2a;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-radius: 3px;
-  margin-bottom: 10px;
-  font-size: 13px;
+  margin-bottom: 12px;
+  font-size: 14px;
   white-space: pre-wrap;
-  max-height: 80px;
+  max-height: 120px;
   overflow-y: auto;
 }
 
 .l10n-popup-lang {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .l10n-popup-lang-label {
-  font-size: 12px;
+  font-size: 13px;
   color: #aaa;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .l10n-popup-lang textarea {
   width: 100%;
-  min-height: 32px;
+  min-height: 60px;
   background: #222;
   color: #ddd;
   border: 1px solid #555;
   border-radius: 2px;
-  font-size: 13px;
+  font-size: 14px;
   font-family: inherit;
   resize: vertical;
-  padding: 4px;
+  padding: 6px;
 }
 
 .l10n-popup-actions {

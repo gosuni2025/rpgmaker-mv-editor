@@ -399,7 +399,7 @@ export default function LocalizationDialog() {
                             <td
                               key={lang}
                               className={`l10n-col-lang l10n-cell-${status}`}
-                              onDoubleClick={() => handleCellDoubleClick(row.key, lang, row[lang] || '')}
+                              onClick={() => handleCellDoubleClick(row.key, lang, row[lang] || '')}
                             >
                               {isEditing ? (
                                 <textarea

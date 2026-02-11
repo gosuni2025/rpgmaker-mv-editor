@@ -69,8 +69,8 @@ export default function TranslationPopup({ csvPath, entryKey, sourceText, anchor
       let top = rect.bottom + 4;
       let left = rect.left;
       // Keep within viewport
-      if (top + 300 > window.innerHeight) top = rect.top - 304;
-      if (left + 350 > window.innerWidth) left = window.innerWidth - 360;
+      if (top + 400 > window.innerHeight) top = rect.top - 404;
+      if (left + 520 > window.innerWidth) left = window.innerWidth - 530;
       setPos({ top, left });
     }
   }, [anchorRef]);
