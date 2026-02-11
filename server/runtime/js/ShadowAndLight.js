@@ -472,8 +472,16 @@ ShadowLight._updateProxyBoxLighting = function(sprites, includeChildren) {
         );
 
         // 디버그 시각화 업데이트
+        // 오브젝트의 자식 tileSprite는 부모 컨테이너 기준으로 한 번만 표시
         if (isDevMode) {
-            this._updateProbeDebugVis(sprite, charX, charY, charZ, perNormal);
+            var isObjChild = sprite.parent && sprite.parent._mapObjX !== undefined;
+            if (!isObjChild) {
+                // 캐릭터 스프라이트 또는 컨테이너 자체
+                this._updateProbeDebugVis(sprite, charX, charY, charZ, perNormal);
+            } else if (!this._probeDebugData || !this._probeDebugData.has(sprite.parent)) {
+                // 오브젝트 자식 중 첫 번째만 컨테이너 키로 디버그 표시
+                this._updateProbeDebugVis(sprite.parent, charX, charY, charZ, perNormal);
+            }
         }
     }
 
