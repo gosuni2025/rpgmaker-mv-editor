@@ -41,6 +41,7 @@ export default function MapCanvas() {
   const copyEvent = useEditorStore((s) => s.copyEvent);
   const deleteEvent = useEditorStore((s) => s.deleteEvent);
   const pasteEvent = useEditorStore((s) => s.pasteEvent);
+  const selectedCameraZoneId = useEditorStore((s) => s.selectedCameraZoneId);
 
   // Compose hooks
   const { showGrid, altPressed, panning } = useKeyboardShortcuts(containerRef);
@@ -60,22 +61,42 @@ export default function MapCanvas() {
     toolPreviewMeshesRef, rendererObjRef, stageRef, renderRequestedRef,
   );
 
+  const selectedEventIds = useEditorStore((s) => s.selectedEventIds);
+  const eventSelectionStart = useEditorStore((s) => s.eventSelectionStart);
+  const eventSelectionEnd = useEditorStore((s) => s.eventSelectionEnd);
+  const isEventPasting = useEditorStore((s) => s.isEventPasting);
+  const eventPastePreviewPos = useEditorStore((s) => s.eventPastePreviewPos);
+  const copyEvents = useEditorStore((s) => s.copyEvents);
+  const deleteEvents = useEditorStore((s) => s.deleteEvents);
+  const pasteEvents = useEditorStore((s) => s.pasteEvents);
+
   const {
     handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave,
     handleDoubleClick, handleContextMenu, createNewEvent,
-    resizePreview, resizeCursor, dragPreview,
-    lightDragPreview, objectDragPreview, hoverTile,
+    resizePreview, resizeCursor, dragPreview, eventMultiDragDelta,
+    lightDragPreview, objectDragPreview, cameraZoneDragPreview, hoverTile,
     eventCtxMenu, editingEventId, setEditingEventId,
     closeEventCtxMenu,
     isDraggingEvent, isDraggingLight, isDraggingObject, draggedObjectId,
-    isResizing, resizeOrigSize,
+    isResizing, resizeOrigSize, isSelectingEvents,
+    isDraggingCameraZone, isCreatingCameraZone,
   } = useMouseHandlers(webglCanvasRef, tools, pendingChanges);
 
   // Build drag previews for Three.js
   const dragPreviews = useMemo<DragPreviewInfo[]>(() => {
     const result: DragPreviewInfo[] = [];
-    if (dragPreview && isDraggingEvent.current) {
-      result.push({ type: 'event', x: dragPreview.x, y: dragPreview.y });
+    // Multi-event drag preview: show ghost for each selected event
+    if (eventMultiDragDelta && currentMap?.events && selectedEventIds.length > 0) {
+      for (const evId of selectedEventIds) {
+        const ev = currentMap.events.find(e => e && e.id === evId);
+        if (ev) {
+          result.push({
+            type: 'event',
+            x: ev.x + eventMultiDragDelta.dx,
+            y: ev.y + eventMultiDragDelta.dy,
+          });
+        }
+      }
     }
     if (lightDragPreview && isDraggingLight.current) {
       result.push({ type: 'light', x: lightDragPreview.x, y: lightDragPreview.y });
@@ -93,7 +114,7 @@ export default function MapCanvas() {
       }
     }
     return result;
-  }, [dragPreview, lightDragPreview, objectDragPreview, currentMap?.objects]);
+  }, [eventMultiDragDelta, selectedEventIds, lightDragPreview, objectDragPreview, currentMap?.objects, currentMap?.events]);
 
   // Sync drag previews to Three.js renderer
   React.useEffect(() => {
@@ -178,6 +199,168 @@ export default function MapCanvas() {
       });
     }
   }, [dragPreviews, rendererReady]);
+
+  // =========================================================================
+  // Camera Zone overlays (카메라 영역 오버레이)
+  // =========================================================================
+  React.useEffect(() => {
+    const rObj = rendererObjRef.current;
+    if (!rObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    // Dispose existing camera zone meshes
+    if (!(window as any)._editorCameraZoneMeshes) (window as any)._editorCameraZoneMeshes = [];
+    const existing = (window as any)._editorCameraZoneMeshes as any[];
+    for (const m of existing) {
+      rObj.scene.remove(m);
+      m.geometry?.dispose();
+      if (m.material?.map) m.material.map.dispose();
+      m.material?.dispose();
+    }
+    existing.length = 0;
+
+    const zones = currentMap?.cameraZones;
+    const shouldShow = editMode === 'cameraZone';
+
+    if (shouldShow && zones) {
+      for (const zone of zones) {
+        const rw = zone.width * TILE_SIZE_PX;
+        const rh = zone.height * TILE_SIZE_PX;
+        const cx = zone.x * TILE_SIZE_PX + rw / 2;
+        const cy = zone.y * TILE_SIZE_PX + rh / 2;
+        const isSelected = zone.id === selectedCameraZoneId;
+        const fillColor = isSelected ? 0xff8800 : 0x2288ff;
+        const strokeColor = isSelected ? 0xffaa44 : 0x44aaff;
+
+        // Fill
+        const geom = new THREE.PlaneGeometry(rw, rh);
+        const mat = new THREE.MeshBasicMaterial({
+          color: fillColor, opacity: isSelected ? 0.25 : 0.15, transparent: true,
+          depthTest: false, side: THREE.DoubleSide,
+        });
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.position.set(cx, cy, 5);
+        mesh.renderOrder = 9990;
+        mesh.frustumCulled = false;
+        mesh.userData.editorGrid = true;
+        rObj.scene.add(mesh);
+        existing.push(mesh);
+
+        // Dashed border
+        const hw = rw / 2, hh = rh / 2;
+        const pts = [
+          new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+          new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+          new THREE.Vector3(-hw, -hh, 0),
+        ];
+        const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+        const lineMat = new THREE.LineDashedMaterial({
+          color: strokeColor, depthTest: false, transparent: true,
+          opacity: 1.0, dashSize: 8, gapSize: 4,
+        });
+        const line = new THREE.Line(lineGeom, lineMat);
+        line.computeLineDistances();
+        line.position.set(cx, cy, 5.2);
+        line.renderOrder = 9991;
+        line.frustumCulled = false;
+        line.userData.editorGrid = true;
+        rObj.scene.add(line);
+        existing.push(line);
+
+        // Name label
+        if (zone.name) {
+          const fontSize = 14;
+          const labelCanvas = document.createElement('canvas');
+          const lctx = labelCanvas.getContext('2d')!;
+          lctx.font = `bold ${fontSize}px sans-serif`;
+          const textW = lctx.measureText(zone.name).width;
+          const padX = 6, padY = 4;
+          labelCanvas.width = textW + padX * 2;
+          labelCanvas.height = fontSize + padY * 2;
+          lctx.font = `bold ${fontSize}px sans-serif`;
+          lctx.fillStyle = 'rgba(0,0,0,0.6)';
+          lctx.fillRect(0, 0, labelCanvas.width, labelCanvas.height);
+          lctx.fillStyle = isSelected ? '#ffaa44' : '#88ccff';
+          lctx.textBaseline = 'top';
+          lctx.fillText(zone.name, padX, padY);
+
+          const labelTex = new THREE.CanvasTexture(labelCanvas);
+          labelTex.magFilter = THREE.LinearFilter;
+          labelTex.minFilter = THREE.LinearFilter;
+          labelTex.flipY = false;
+
+          const labelGeom = new THREE.PlaneGeometry(labelCanvas.width, labelCanvas.height);
+          const labelMat = new THREE.MeshBasicMaterial({
+            map: labelTex, transparent: true, depthTest: false, side: THREE.DoubleSide,
+          });
+          const labelMesh = new THREE.Mesh(labelGeom, labelMat);
+          labelMesh.position.set(
+            cx - rw / 2 + labelCanvas.width / 2 + 4,
+            cy - rh / 2 + labelCanvas.height / 2 + 4,
+            5.3
+          );
+          labelMesh.renderOrder = 9992;
+          labelMesh.frustumCulled = false;
+          labelMesh.userData.editorGrid = true;
+          rObj.scene.add(labelMesh);
+          existing.push(labelMesh);
+        }
+      }
+    }
+
+    // Drag/creation preview
+    if (shouldShow && cameraZoneDragPreview) {
+      const rw = cameraZoneDragPreview.width * TILE_SIZE_PX;
+      const rh = cameraZoneDragPreview.height * TILE_SIZE_PX;
+      const cx = cameraZoneDragPreview.x * TILE_SIZE_PX + rw / 2;
+      const cy = cameraZoneDragPreview.y * TILE_SIZE_PX + rh / 2;
+
+      const geom = new THREE.PlaneGeometry(rw, rh);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x44ff88, opacity: 0.2, transparent: true,
+        depthTest: false, side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(cx, cy, 5.5);
+      mesh.renderOrder = 9994;
+      mesh.frustumCulled = false;
+      mesh.userData.editorGrid = true;
+      rObj.scene.add(mesh);
+      existing.push(mesh);
+
+      const hw = rw / 2, hh = rh / 2;
+      const pts = [
+        new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+        new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+        new THREE.Vector3(-hw, -hh, 0),
+      ];
+      const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+      const lineMat = new THREE.LineDashedMaterial({
+        color: 0x44ff88, depthTest: false, transparent: true,
+        opacity: 1.0, dashSize: 6, gapSize: 4,
+      });
+      const line = new THREE.Line(lineGeom, lineMat);
+      line.computeLineDistances();
+      line.position.set(cx, cy, 5.7);
+      line.renderOrder = 9995;
+      line.frustumCulled = false;
+      line.userData.editorGrid = true;
+      rObj.scene.add(line);
+      existing.push(line);
+    }
+
+    // Trigger render
+    if (!renderRequestedRef.current) {
+      renderRequestedRef.current = true;
+      requestAnimationFrame(() => {
+        renderRequestedRef.current = false;
+        if (!rendererObjRef.current || !stageRef.current) return;
+        const strategy = (window as any).RendererStrategy?.getStrategy();
+        if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
+      });
+    }
+  }, [currentMap?.cameraZones, selectedCameraZoneId, cameraZoneDragPreview, editMode, rendererReady]);
 
   // =========================================================================
   // Selection rectangle overlay (선택 영역 오버레이)
@@ -268,6 +451,175 @@ export default function MapCanvas() {
       });
     }
   }, [selectionStart, selectionEnd, rendererReady]);
+
+  // =========================================================================
+  // Event selection overlays (선택된 이벤트 하이라이트 + 드래그 선택 영역)
+  // =========================================================================
+  React.useEffect(() => {
+    const rObj = rendererObjRef.current;
+    if (!rObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    // Dispose existing
+    if (!(window as any)._editorEventSelMeshes) (window as any)._editorEventSelMeshes = [];
+    const existing = (window as any)._editorEventSelMeshes as any[];
+    for (const m of existing) {
+      rObj.scene.remove(m);
+      m.geometry?.dispose();
+      m.material?.dispose();
+    }
+    existing.length = 0;
+
+    // 1. 선택된 이벤트 하이라이트
+    if (editMode === 'event' && selectedEventIds.length > 0 && currentMap?.events) {
+      for (const evId of selectedEventIds) {
+        const ev = currentMap.events.find(e => e && e.id === evId);
+        if (!ev) continue;
+        const cx = ev.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+        const cy = ev.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+
+        // 반투명 파란색 채우기
+        const geom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
+        const mat = new THREE.MeshBasicMaterial({
+          color: 0x4488ff, opacity: 0.3, transparent: true,
+          depthTest: false, side: THREE.DoubleSide,
+        });
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.position.set(cx, cy, 5.5);
+        mesh.renderOrder = 9998;
+        mesh.frustumCulled = false;
+        mesh.userData.editorGrid = true;
+        rObj.scene.add(mesh);
+        existing.push(mesh);
+
+        // 테두리
+        const hw = TILE_SIZE_PX / 2;
+        const pts = [
+          new THREE.Vector3(-hw, -hw, 0), new THREE.Vector3(hw, -hw, 0),
+          new THREE.Vector3(hw, hw, 0), new THREE.Vector3(-hw, hw, 0),
+          new THREE.Vector3(-hw, -hw, 0),
+        ];
+        const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+        const lineMat = new THREE.LineBasicMaterial({
+          color: 0x4488ff, depthTest: false, transparent: true, opacity: 1.0,
+        });
+        const line = new THREE.Line(lineGeom, lineMat);
+        line.position.set(cx, cy, 5.8);
+        line.renderOrder = 9999;
+        line.frustumCulled = false;
+        line.userData.editorGrid = true;
+        rObj.scene.add(line);
+        existing.push(line);
+      }
+    }
+
+    // 2. 드래그 선택 영역
+    if (editMode === 'event' && eventSelectionStart && eventSelectionEnd) {
+      const minX = Math.min(eventSelectionStart.x, eventSelectionEnd.x);
+      const maxX = Math.max(eventSelectionStart.x, eventSelectionEnd.x);
+      const minY = Math.min(eventSelectionStart.y, eventSelectionEnd.y);
+      const maxY = Math.max(eventSelectionStart.y, eventSelectionEnd.y);
+
+      const rw = (maxX - minX + 1) * TILE_SIZE_PX;
+      const rh = (maxY - minY + 1) * TILE_SIZE_PX;
+      const cx = minX * TILE_SIZE_PX + rw / 2;
+      const cy = minY * TILE_SIZE_PX + rh / 2;
+
+      const geom = new THREE.PlaneGeometry(rw, rh);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x00bfff, opacity: 0.15, transparent: true,
+        depthTest: false, side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(cx, cy, 6.5);
+      mesh.renderOrder = 10004;
+      mesh.frustumCulled = false;
+      mesh.userData.editorGrid = true;
+      rObj.scene.add(mesh);
+      existing.push(mesh);
+
+      const hw = rw / 2, hh = rh / 2;
+      const pts = [
+        new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+        new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+        new THREE.Vector3(-hw, -hh, 0),
+      ];
+      const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+      const lineMat = new THREE.LineDashedMaterial({
+        color: 0x00bfff, depthTest: false, transparent: true,
+        opacity: 1.0, dashSize: 6, gapSize: 4,
+      });
+      const line = new THREE.Line(lineGeom, lineMat);
+      line.computeLineDistances();
+      line.position.set(cx, cy, 6.8);
+      line.renderOrder = 10005;
+      line.frustumCulled = false;
+      line.userData.editorGrid = true;
+      rObj.scene.add(line);
+      existing.push(line);
+    }
+
+    // 3. 이벤트 붙여넣기 프리뷰
+    if (editMode === 'event' && isEventPasting && eventPastePreviewPos) {
+      const cb = clipboard;
+      let evts: any[] | undefined;
+      if (cb?.type === 'events' && cb.events) evts = cb.events as any[];
+      else if (cb?.type === 'event' && cb.event) evts = [cb.event];
+      if (evts && evts.length > 0) {
+        const minX = Math.min(...evts.map((e: any) => e.x));
+        const minY = Math.min(...evts.map((e: any) => e.y));
+        for (const evt of evts) {
+          const nx = eventPastePreviewPos.x + ((evt as any).x - minX);
+          const ny = eventPastePreviewPos.y + ((evt as any).y - minY);
+          const cx = nx * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+          const cy = ny * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+
+          const geom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
+          const mat = new THREE.MeshBasicMaterial({
+            color: 0x00b450, opacity: 0.4, transparent: true,
+            depthTest: false, side: THREE.DoubleSide,
+          });
+          const mesh = new THREE.Mesh(geom, mat);
+          mesh.position.set(cx, cy, 6);
+          mesh.renderOrder = 10000;
+          mesh.frustumCulled = false;
+          mesh.userData.editorGrid = true;
+          rObj.scene.add(mesh);
+          existing.push(mesh);
+
+          const hw = TILE_SIZE_PX / 2;
+          const pts = [
+            new THREE.Vector3(-hw, -hw, 0), new THREE.Vector3(hw, -hw, 0),
+            new THREE.Vector3(hw, hw, 0), new THREE.Vector3(-hw, hw, 0),
+            new THREE.Vector3(-hw, -hw, 0),
+          ];
+          const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+          const lineMat = new THREE.LineBasicMaterial({
+            color: 0x00ff00, depthTest: false, transparent: true, opacity: 1.0,
+          });
+          const line = new THREE.Line(lineGeom, lineMat);
+          line.position.set(cx, cy, 6.5);
+          line.renderOrder = 10001;
+          line.frustumCulled = false;
+          line.userData.editorGrid = true;
+          rObj.scene.add(line);
+          existing.push(line);
+        }
+      }
+    }
+
+    // Trigger render
+    if (!renderRequestedRef.current) {
+      renderRequestedRef.current = true;
+      requestAnimationFrame(() => {
+        renderRequestedRef.current = false;
+        if (!rendererObjRef.current || !stageRef.current) return;
+        const strategy = (window as any).RendererStrategy?.getStrategy();
+        if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
+      });
+    }
+  }, [editMode, selectedEventIds, eventSelectionStart, eventSelectionEnd, isEventPasting, eventPastePreviewPos, clipboard, currentMap?.events, rendererReady]);
 
   // =========================================================================
   // Paste preview overlay (붙여넣기 프리뷰)
@@ -728,20 +1080,27 @@ export default function MapCanvas() {
       {eventCtxMenu && (
         <div className="context-menu" style={{ left: eventCtxMenu.x, top: eventCtxMenu.y }} onClick={e => e.stopPropagation()}>
           {eventCtxMenu.eventId == null && (
-            <div className="context-menu-item" onClick={() => { createNewEvent(eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); }}>New Event...</div>
+            <div className="context-menu-item" onClick={() => { createNewEvent(eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); }}>새 이벤트...</div>
           )}
-          {eventCtxMenu.eventId != null && (
+          {eventCtxMenu.eventId != null && selectedEventIds.length > 1 && selectedEventIds.includes(eventCtxMenu.eventId) && (
             <>
-              <div className="context-menu-item" onClick={() => { setEditingEventId(eventCtxMenu.eventId!); closeEventCtxMenu(); }}>Edit...</div>
-              <div className="context-menu-item" onClick={() => { copyEvent(eventCtxMenu.eventId!); closeEventCtxMenu(); }}>Copy</div>
+              <div className="context-menu-item" onClick={() => { copyEvents(selectedEventIds); closeEventCtxMenu(); }}>복사 ({selectedEventIds.length}개)</div>
               <div className="context-menu-separator" />
-              <div className="context-menu-item" onClick={() => { deleteEvent(eventCtxMenu.eventId!); closeEventCtxMenu(); }}>Delete</div>
+              <div className="context-menu-item" onClick={() => { deleteEvents(selectedEventIds); closeEventCtxMenu(); }}>삭제 ({selectedEventIds.length}개)</div>
             </>
           )}
-          {clipboard?.type === 'event' && (
+          {eventCtxMenu.eventId != null && !(selectedEventIds.length > 1 && selectedEventIds.includes(eventCtxMenu.eventId)) && (
+            <>
+              <div className="context-menu-item" onClick={() => { setEditingEventId(eventCtxMenu.eventId!); closeEventCtxMenu(); }}>편집...</div>
+              <div className="context-menu-item" onClick={() => { copyEvent(eventCtxMenu.eventId!); closeEventCtxMenu(); }}>복사</div>
+              <div className="context-menu-separator" />
+              <div className="context-menu-item" onClick={() => { deleteEvent(eventCtxMenu.eventId!); closeEventCtxMenu(); }}>삭제</div>
+            </>
+          )}
+          {(clipboard?.type === 'event' || clipboard?.type === 'events') && (
             <>
               <div className="context-menu-separator" />
-              <div className="context-menu-item" onClick={() => { pasteEvent(eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); }}>Paste</div>
+              <div className="context-menu-item" onClick={() => { pasteEvents(eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); }}>붙여넣기</div>
             </>
           )}
           <div className="context-menu-separator" />

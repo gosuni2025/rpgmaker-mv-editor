@@ -26,8 +26,10 @@ export interface MouseHandlersResult {
   resizePreview: { dLeft: number; dTop: number; dRight: number; dBottom: number } | null;
   resizeCursor: string | null;
   dragPreview: { x: number; y: number } | null;
+  eventMultiDragDelta: { dx: number; dy: number } | null;
   lightDragPreview: { x: number; y: number } | null;
   objectDragPreview: { x: number; y: number } | null;
+  cameraZoneDragPreview: { x: number; y: number; width: number; height: number } | null;
   hoverTile: { x: number; y: number } | null;
   eventCtxMenu: EventContextMenu | null;
   editingEventId: number | null;
@@ -40,6 +42,9 @@ export interface MouseHandlersResult {
   isResizing: React.MutableRefObject<boolean>;
   resizeOrigSize: React.MutableRefObject<{ w: number; h: number }>;
   isOrbiting: React.MutableRefObject<boolean>;
+  isSelectingEvents: React.MutableRefObject<boolean>;
+  isDraggingCameraZone: React.MutableRefObject<boolean>;
+  isCreatingCameraZone: React.MutableRefObject<boolean>;
 }
 
 export function useMouseHandlers(
@@ -75,6 +80,19 @@ export function useMouseHandlers(
   const setSelectedObjectId = useEditorStore((s) => s.setSelectedObjectId);
   const addObject = useEditorStore((s) => s.addObject);
   const updateObject = useEditorStore((s) => s.updateObject);
+  const selectedEventIds = useEditorStore((s) => s.selectedEventIds);
+  const setSelectedEventIds = useEditorStore((s) => s.setSelectedEventIds);
+  const setEventSelectionStart = useEditorStore((s) => s.setEventSelectionStart);
+  const setEventSelectionEnd = useEditorStore((s) => s.setEventSelectionEnd);
+  const moveEvents = useEditorStore((s) => s.moveEvents);
+  const clearEventSelection = useEditorStore((s) => s.clearEventSelection);
+  const isEventPasting = useEditorStore((s) => s.isEventPasting);
+  const setIsEventPasting = useEditorStore((s) => s.setIsEventPasting);
+  const setEventPastePreviewPos = useEditorStore((s) => s.setEventPastePreviewPos);
+  const pasteEvents = useEditorStore((s) => s.pasteEvents);
+  const setSelectedCameraZoneId = useEditorStore((s) => s.setSelectedCameraZoneId);
+  const addCameraZone = useEditorStore((s) => s.addCameraZone);
+  const updateCameraZone = useEditorStore((s) => s.updateCameraZone);
 
   // Drawing state refs
   const isDrawing = useRef(false);
@@ -103,11 +121,27 @@ export function useMouseHandlers(
   const dragEventOrigin = useRef<{ x: number; y: number } | null>(null);
   const [dragPreview, setDragPreview] = useState<{ x: number; y: number } | null>(null);
 
+  // Event multi-select drag state
+  const isSelectingEvents = useRef(false);
+  const eventSelDragStart = useRef<{ x: number; y: number } | null>(null);
+  // Event multi-drag state (moving multiple selected events)
+  const isDraggingMultiEvents = useRef(false);
+  const multiEventDragOrigin = useRef<{ x: number; y: number } | null>(null);
+  const [eventMultiDragDelta, setEventMultiDragDelta] = useState<{ dx: number; dy: number } | null>(null);
+
   // Object drag state
   const isDraggingObject = useRef(false);
   const draggedObjectId = useRef<number | null>(null);
   const dragObjectOrigin = useRef<{ x: number; y: number } | null>(null);
   const [objectDragPreview, setObjectDragPreview] = useState<{ x: number; y: number } | null>(null);
+
+  // Camera zone drag state
+  const isDraggingCameraZone = useRef(false);
+  const draggedCameraZoneId = useRef<number | null>(null);
+  const dragCameraZoneOrigin = useRef<{ x: number; y: number } | null>(null);
+  const isCreatingCameraZone = useRef(false);
+  const createZoneStart = useRef<{ x: number; y: number } | null>(null);
+  const [cameraZoneDragPreview, setCameraZoneDragPreview] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   // Selection tool state
   const isSelecting = useRef(false);
@@ -283,6 +317,28 @@ export function useMouseHandlers(
         return;
       }
 
+      if (editMode === 'cameraZone') {
+        const zones = currentMap?.cameraZones || [];
+        const hitZone = zones.find(z =>
+          tile.x >= z.x && tile.x < z.x + z.width &&
+          tile.y >= z.y && tile.y < z.y + z.height
+        );
+        if (hitZone) {
+          setSelectedCameraZoneId(hitZone.id);
+          isDraggingCameraZone.current = true;
+          draggedCameraZoneId.current = hitZone.id;
+          dragCameraZoneOrigin.current = { x: tile.x, y: tile.y };
+          setCameraZoneDragPreview(null);
+        } else {
+          // 빈 영역: 새 존 생성 드래그 시작
+          setSelectedCameraZoneId(null);
+          isCreatingCameraZone.current = true;
+          createZoneStart.current = tile;
+          setCameraZoneDragPreview({ x: tile.x, y: tile.y, width: 1, height: 1 });
+        }
+        return;
+      }
+
       if (editMode === 'object') {
         const objects = currentMap?.objects || [];
         const hitObj = objects.find(o =>
@@ -302,16 +358,58 @@ export function useMouseHandlers(
       }
 
       if (editMode === 'event') {
+        const state = useEditorStore.getState();
+
+        // 붙여넣기 모드: 클릭으로 배치
+        if (state.isEventPasting) {
+          pasteEvents(tile.x, tile.y);
+          setIsEventPasting(false);
+          setEventPastePreviewPos(null);
+          return;
+        }
+
         if (currentMap && currentMap.events) {
           const ev = currentMap.events.find(
             (ev) => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y
           );
-          setSelectedEventId(ev ? ev.id : null);
+
           if (ev) {
-            isDraggingEvent.current = true;
-            draggedEventId.current = ev.id;
-            dragEventOrigin.current = { x: tile.x, y: tile.y };
-            setDragPreview(null);
+            const curIds = state.selectedEventIds;
+            if (e.shiftKey) {
+              // Shift+클릭: 토글 선택
+              if (curIds.includes(ev.id)) {
+                const newIds = curIds.filter(id => id !== ev.id);
+                setSelectedEventIds(newIds);
+                setSelectedEventId(newIds.length > 0 ? newIds[newIds.length - 1] : null);
+              } else {
+                const newIds = [...curIds, ev.id];
+                setSelectedEventIds(newIds);
+                setSelectedEventId(ev.id);
+              }
+            } else if (curIds.includes(ev.id)) {
+              // 이미 선택된 이벤트 클릭: 멀티 드래그 시작
+              isDraggingMultiEvents.current = true;
+              multiEventDragOrigin.current = { x: tile.x, y: tile.y };
+              setEventMultiDragDelta(null);
+            } else {
+              // 미선택 이벤트 클릭: 단일 선택 + 드래그 준비
+              setSelectedEventIds([ev.id]);
+              setSelectedEventId(ev.id);
+              isDraggingEvent.current = true;
+              draggedEventId.current = ev.id;
+              dragEventOrigin.current = { x: tile.x, y: tile.y };
+              setDragPreview(null);
+            }
+          } else {
+            // 빈 타일 클릭: 영역 선택 시작
+            if (!e.shiftKey) {
+              setSelectedEventIds([]);
+              setSelectedEventId(null);
+            }
+            isSelectingEvents.current = true;
+            eventSelDragStart.current = tile;
+            setEventSelectionStart(tile);
+            setEventSelectionEnd(tile);
           }
         }
         return;
@@ -431,10 +529,70 @@ export function useMouseHandlers(
         return;
       }
 
+      // Camera zone dragging
+      if (isDraggingCameraZone.current && tile && dragCameraZoneOrigin.current) {
+        const zone = currentMap?.cameraZones?.find(z => z.id === draggedCameraZoneId.current);
+        if (zone) {
+          const dx = tile.x - dragCameraZoneOrigin.current.x;
+          const dy = tile.y - dragCameraZoneOrigin.current.y;
+          if (dx !== 0 || dy !== 0) {
+            setCameraZoneDragPreview({ x: zone.x + dx, y: zone.y + dy, width: zone.width, height: zone.height });
+          } else {
+            setCameraZoneDragPreview(null);
+          }
+        }
+        return;
+      }
+
+      // Camera zone creation drag
+      if (isCreatingCameraZone.current && tile && createZoneStart.current) {
+        const sx = createZoneStart.current.x;
+        const sy = createZoneStart.current.y;
+        const minX = Math.min(sx, tile.x);
+        const minY = Math.min(sy, tile.y);
+        const maxX = Math.max(sx, tile.x);
+        const maxY = Math.max(sy, tile.y);
+        setCameraZoneDragPreview({ x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 });
+        return;
+      }
+
+      // Event multi-drag (moving multiple selected events)
+      if (isDraggingMultiEvents.current && tile && multiEventDragOrigin.current) {
+        const dx = tile.x - multiEventDragOrigin.current.x;
+        const dy = tile.y - multiEventDragOrigin.current.y;
+        if (dx !== 0 || dy !== 0) {
+          setEventMultiDragDelta({ dx, dy });
+        } else {
+          setEventMultiDragDelta(null);
+        }
+        return;
+      }
+
+      // Event area selection drag
+      if (isSelectingEvents.current && tile && eventSelDragStart.current) {
+        setEventSelectionEnd(tile);
+        return;
+      }
+
+      // Event pasting preview
+      if (editMode === 'event') {
+        const state = useEditorStore.getState();
+        if (state.isEventPasting && tile) {
+          setEventPastePreviewPos(tile);
+          return;
+        }
+      }
+
       if (isDraggingEvent.current && tile && dragEventOrigin.current) {
         if (tile.x !== dragEventOrigin.current.x || tile.y !== dragEventOrigin.current.y) {
-          setDragPreview({ x: tile.x, y: tile.y });
-        } else {
+          // 단일 이벤트 드래그가 시작되면 이것을 멀티드래그로 전환
+          isDraggingEvent.current = false;
+          isDraggingMultiEvents.current = true;
+          multiEventDragOrigin.current = dragEventOrigin.current;
+          dragEventOrigin.current = null;
+          const dx = tile.x - multiEventDragOrigin.current!.x;
+          const dy = tile.y - multiEventDragOrigin.current!.y;
+          setEventMultiDragDelta({ dx, dy });
           setDragPreview(null);
         }
         return;
@@ -564,6 +722,38 @@ export function useMouseHandlers(
         return;
       }
 
+      // Camera zone drag commit
+      if (isDraggingCameraZone.current && draggedCameraZoneId.current != null) {
+        if (cameraZoneDragPreview) {
+          updateCameraZone(draggedCameraZoneId.current, { x: cameraZoneDragPreview.x, y: cameraZoneDragPreview.y });
+        }
+        isDraggingCameraZone.current = false;
+        draggedCameraZoneId.current = null;
+        dragCameraZoneOrigin.current = null;
+        setCameraZoneDragPreview(null);
+        return;
+      }
+
+      // Camera zone creation commit
+      if (isCreatingCameraZone.current && createZoneStart.current) {
+        const tile = canvasToTile(e);
+        if (tile) {
+          const sx = createZoneStart.current.x;
+          const sy = createZoneStart.current.y;
+          const minX = Math.min(sx, tile.x);
+          const minY = Math.min(sy, tile.y);
+          const w = Math.abs(tile.x - sx) + 1;
+          const h = Math.abs(tile.y - sy) + 1;
+          if (w >= 2 && h >= 2) {
+            addCameraZone(minX, minY, w, h);
+          }
+        }
+        isCreatingCameraZone.current = false;
+        createZoneStart.current = null;
+        setCameraZoneDragPreview(null);
+        return;
+      }
+
       // Object drag commit
       if (isDraggingObject.current && draggedObjectId.current != null) {
         if (objectDragPreview) {
@@ -576,24 +766,62 @@ export function useMouseHandlers(
         return;
       }
 
-      if (isDraggingEvent.current && draggedEventId.current != null) {
+      // Event multi-drag commit
+      if (isDraggingMultiEvents.current) {
         const tile = canvasToTile(e);
-        const origin = dragEventOrigin.current;
-        if (tile && origin && (tile.x !== origin.x || tile.y !== origin.y)) {
-          const latestMap = useEditorStore.getState().currentMap;
-          if (latestMap && latestMap.events) {
-            const occupied = latestMap.events.some(ev => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y);
-            if (!occupied) {
-              const events = latestMap.events.map(ev => {
-                if (ev && ev.id === draggedEventId.current) {
-                  return { ...ev, x: tile.x, y: tile.y };
-                }
-                return ev;
-              });
-              useEditorStore.setState({ currentMap: { ...latestMap, events } as MapData & { tilesetNames?: string[] } });
-            }
+        if (tile && multiEventDragOrigin.current) {
+          const dx = tile.x - multiEventDragOrigin.current.x;
+          const dy = tile.y - multiEventDragOrigin.current.y;
+          const state = useEditorStore.getState();
+          if (dx !== 0 || dy !== 0) {
+            moveEvents(state.selectedEventIds, dx, dy);
           }
         }
+        isDraggingMultiEvents.current = false;
+        multiEventDragOrigin.current = null;
+        setEventMultiDragDelta(null);
+        return;
+      }
+
+      // Event area selection commit
+      if (isSelectingEvents.current) {
+        isSelectingEvents.current = false;
+        const start = eventSelDragStart.current;
+        const tile = canvasToTile(e);
+        eventSelDragStart.current = null;
+
+        if (start && tile && start.x === tile.x && start.y === tile.y) {
+          // 단일 클릭(드래그 없음) - 빈 공간이었으니 선택 해제
+          setEventSelectionStart(null);
+          setEventSelectionEnd(null);
+        } else if (start && tile && currentMap?.events) {
+          // 드래그 영역 내의 이벤트들 선택
+          const minX = Math.min(start.x, tile.x);
+          const maxX = Math.max(start.x, tile.x);
+          const minY = Math.min(start.y, tile.y);
+          const maxY = Math.max(start.y, tile.y);
+          const eventsInArea = currentMap.events
+            .filter(ev => ev && ev.id !== 0 && ev.x >= minX && ev.x <= maxX && ev.y >= minY && ev.y <= maxY)
+            .map(ev => ev!.id);
+          if (e.shiftKey) {
+            // Shift: 기존 선택에 추가
+            const curIds = useEditorStore.getState().selectedEventIds;
+            const merged = [...new Set([...curIds, ...eventsInArea])];
+            setSelectedEventIds(merged);
+            if (merged.length > 0) setSelectedEventId(merged[merged.length - 1]);
+          } else {
+            setSelectedEventIds(eventsInArea);
+            if (eventsInArea.length > 0) setSelectedEventId(eventsInArea[0]);
+            else setSelectedEventId(null);
+          }
+          setEventSelectionStart(null);
+          setEventSelectionEnd(null);
+        }
+        return;
+      }
+
+      // Single event drag (fallback - mouseUp without move)
+      if (isDraggingEvent.current && draggedEventId.current != null) {
         isDraggingEvent.current = false;
         draggedEventId.current = null;
         dragEventOrigin.current = null;
@@ -644,6 +872,13 @@ export function useMouseHandlers(
     (e: React.MouseEvent<HTMLElement>) => {
       e.preventDefault();
       if (editMode === 'event') {
+        // 붙여넣기 모드 취소
+        const state = useEditorStore.getState();
+        if (state.isEventPasting) {
+          setIsEventPasting(false);
+          setEventPastePreviewPos(null);
+          return;
+        }
         const tile = canvasToTile(e);
         if (!tile || !currentMap) return;
         const ev = currentMap.events?.find(
@@ -658,7 +893,7 @@ export function useMouseHandlers(
         });
       }
     },
-    [editMode, canvasToTile, currentMap]
+    [editMode, canvasToTile, currentMap, setIsEventPasting, setEventPastePreviewPos]
   );
 
   const createNewEvent = useCallback((x: number, y: number) => {
@@ -713,7 +948,31 @@ export function useMouseHandlers(
       if (isResizing.current) return;
       if (isDraggingEvent.current) {
         isDraggingEvent.current = false;
-        setEditingEventId(null);
+        draggedEventId.current = null;
+        dragEventOrigin.current = null;
+        setDragPreview(null);
+      }
+      if (isDraggingMultiEvents.current) {
+        isDraggingMultiEvents.current = false;
+        multiEventDragOrigin.current = null;
+        setEventMultiDragDelta(null);
+      }
+      if (isSelectingEvents.current) {
+        isSelectingEvents.current = false;
+        eventSelDragStart.current = null;
+        setEventSelectionStart(null);
+        setEventSelectionEnd(null);
+      }
+      if (isDraggingCameraZone.current) {
+        isDraggingCameraZone.current = false;
+        draggedCameraZoneId.current = null;
+        dragCameraZoneOrigin.current = null;
+        setCameraZoneDragPreview(null);
+      }
+      if (isCreatingCameraZone.current) {
+        isCreatingCameraZone.current = false;
+        createZoneStart.current = null;
+        setCameraZoneDragPreview(null);
       }
       // 선택 드래그 중이면 취소
       if (isSelecting.current) {
@@ -751,11 +1010,12 @@ export function useMouseHandlers(
   return {
     handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave,
     handleDoubleClick, handleContextMenu, createNewEvent,
-    resizePreview, resizeCursor, dragPreview,
+    resizePreview, resizeCursor, dragPreview, eventMultiDragDelta,
     lightDragPreview, objectDragPreview, hoverTile,
     eventCtxMenu, editingEventId, setEditingEventId,
     closeEventCtxMenu,
     isDraggingEvent, isDraggingLight, isDraggingObject, draggedObjectId,
-    isResizing, resizeOrigSize, isOrbiting,
+    isResizing, resizeOrigSize, isOrbiting, isSelectingEvents,
+    isDraggingCameraZone, isCreatingCameraZone, cameraZoneDragPreview,
   };
 }

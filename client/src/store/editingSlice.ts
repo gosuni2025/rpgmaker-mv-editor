@@ -1,7 +1,7 @@
-import type { MapData, MapObject } from '../types/rpgMakerMV';
+import type { MapData, MapObject, CameraZone } from '../types/rpgMakerMV';
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
 import { isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition } from '../utils/tileHelper';
-import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry } from './types';
+import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry } from './types';
 
 /**
  * 변경된 타일 위치 + 인접 타일의 오토타일 shape를 재계산.
@@ -43,11 +43,15 @@ function recalcAutotiles(
 export const editingSlice: SliceCreator<Pick<EditorState,
   'editMode' | 'selectedTool' | 'selectedTileId' | 'selectedTiles' | 'selectedTilesWidth' | 'selectedTilesHeight' |
   'currentLayer' | 'clipboard' | 'cursorTileX' | 'cursorTileY' | 'selectionStart' | 'selectionEnd' | 'isPasting' | 'pastePreviewPos' |
-  'selectedEventId' | 'selectedObjectId' | 'undoStack' | 'redoStack' |
+  'selectedEventId' | 'selectedEventIds' | 'eventSelectionStart' | 'eventSelectionEnd' | 'isEventPasting' | 'eventPastePreviewPos' |
+  'selectedObjectId' | 'selectedCameraZoneId' | 'undoStack' | 'redoStack' |
   'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' |
   'copyTiles' | 'cutTiles' | 'pasteTiles' | 'deleteTiles' | 'moveTiles' |
   'copyEvent' | 'cutEvent' | 'pasteEvent' | 'deleteEvent' |
+  'copyEvents' | 'pasteEvents' | 'deleteEvents' | 'moveEvents' |
+  'setSelectedEventIds' | 'setEventSelectionStart' | 'setEventSelectionEnd' | 'setIsEventPasting' | 'setEventPastePreviewPos' | 'clearEventSelection' |
   'setSelectedObjectId' | 'addObject' | 'updateObject' | 'deleteObject' |
+  'setSelectedCameraZoneId' | 'addCameraZone' | 'updateCameraZone' | 'deleteCameraZone' |
   'setEditMode' | 'setSelectedTool' | 'setSelectedTileId' | 'setSelectedTiles' |
   'setCurrentLayer' | 'setCursorTile' | 'setSelection' | 'setIsPasting' | 'setPastePreviewPos' | 'clearSelection' | 'setSelectedEventId'
 >> = (set, get) => ({
@@ -66,7 +70,13 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   isPasting: false,
   pastePreviewPos: null,
   selectedEventId: null,
+  selectedEventIds: [],
+  eventSelectionStart: null,
+  eventSelectionEnd: null,
+  isEventPasting: false,
+  eventPastePreviewPos: null,
   selectedObjectId: null,
+  selectedCameraZoneId: null,
   undoStack: [],
   redoStack: [],
 
@@ -167,6 +177,23 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       return;
     }
 
+    if (entry.type === 'cameraZone') {
+      const cze = entry as CameraZoneHistoryEntry;
+      const redoEntry: CameraZoneHistoryEntry = {
+        mapId: currentMapId, type: 'cameraZone',
+        oldZones: cze.newZones, newZones: cze.oldZones,
+        oldSelectedCameraZoneId: get().selectedCameraZoneId,
+      };
+      set({
+        currentMap: { ...currentMap, cameraZones: cze.oldZones },
+        selectedCameraZoneId: cze.oldSelectedCameraZoneId,
+        undoStack: undoStack.slice(0, -1),
+        redoStack: [...get().redoStack, redoEntry],
+      });
+      showToast('실행 취소 (카메라 영역)');
+      return;
+    }
+
     const te = entry as TileHistoryEntry;
     const newData = [...currentMap.data];
     const redoChanges: TileChange[] = [];
@@ -238,6 +265,23 @@ export const editingSlice: SliceCreator<Pick<EditorState,
         undoStack: [...get().undoStack, undoEntry],
       });
       showToast('다시 실행 (조명)');
+      return;
+    }
+
+    if (entry.type === 'cameraZone') {
+      const cze = entry as CameraZoneHistoryEntry;
+      const undoEntry: CameraZoneHistoryEntry = {
+        mapId: currentMapId, type: 'cameraZone',
+        oldZones: cze.newZones, newZones: cze.oldZones,
+        oldSelectedCameraZoneId: get().selectedCameraZoneId,
+      };
+      set({
+        currentMap: { ...currentMap, cameraZones: cze.oldZones },
+        selectedCameraZoneId: cze.oldSelectedCameraZoneId,
+        redoStack: redoStack.slice(0, -1),
+        undoStack: [...get().undoStack, undoEntry],
+      });
+      showToast('다시 실행 (카메라 영역)');
       return;
     }
 
@@ -432,6 +476,91 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     set({ currentMap: { ...map, events } });
   },
 
+  // Multi-event actions
+  copyEvents: (eventIds: number[]) => {
+    const map = get().currentMap;
+    if (!map || !map.events || eventIds.length === 0) return;
+    const evts = eventIds
+      .map(id => map.events.find(e => e && e.id === id))
+      .filter((e): e is NonNullable<typeof e> => !!e);
+    if (evts.length === 0) return;
+    set({ clipboard: { type: 'events', events: JSON.parse(JSON.stringify(evts)) } });
+  },
+
+  pasteEvents: (x: number, y: number) => {
+    const { clipboard, currentMap } = get();
+    if (!currentMap) return;
+    let evts: any[] | undefined;
+    if (clipboard?.type === 'events' && clipboard.events) {
+      evts = clipboard.events as any[];
+    } else if (clipboard?.type === 'event' && clipboard.event) {
+      evts = [clipboard.event];
+    }
+    if (!evts || evts.length === 0) return;
+    // 원본 이벤트들의 좌상단 기준으로 오프셋 계산
+    const minX = Math.min(...evts.map((e: any) => e.x));
+    const minY = Math.min(...evts.map((e: any) => e.y));
+    const events = [...(currentMap.events || [])];
+    let maxId = events.reduce((max, e) => (e && e.id > max ? e.id : max), 0);
+    const newIds: number[] = [];
+    for (const evt of evts) {
+      const newId = ++maxId;
+      const nx = x + ((evt as any).x - minX);
+      const ny = y + ((evt as any).y - minY);
+      // 해당 위치에 이미 이벤트가 있으면 스킵
+      const occupied = events.some(e => e && e.id !== 0 && e.x === nx && e.y === ny);
+      if (occupied) continue;
+      const newEvent = { ...(evt as any), id: newId, x: nx, y: ny };
+      while (events.length <= newId) events.push(null);
+      events[newId] = newEvent as MapData['events'][0];
+      newIds.push(newId);
+    }
+    set({ currentMap: { ...currentMap, events }, selectedEventIds: newIds, selectedEventId: newIds[0] ?? null });
+  },
+
+  deleteEvents: (eventIds: number[]) => {
+    const map = get().currentMap;
+    if (!map || !map.events || eventIds.length === 0) return;
+    const idSet = new Set(eventIds);
+    const events = map.events.map(e => (e && idSet.has(e.id) ? null : e));
+    set({ currentMap: { ...map, events }, selectedEventIds: [], selectedEventId: null });
+  },
+
+  moveEvents: (eventIds: number[], dx: number, dy: number) => {
+    const map = get().currentMap;
+    if (!map || !map.events || eventIds.length === 0) return;
+    if (dx === 0 && dy === 0) return;
+    const idSet = new Set(eventIds);
+    // 이동 대상 위치에 다른 이벤트가 있는지 확인
+    const movingEvents = map.events.filter(e => e && idSet.has(e.id));
+    const newPositions = movingEvents.map(e => ({ x: e!.x + dx, y: e!.y + dy }));
+    // 맵 범위 체크
+    if (newPositions.some(p => p.x < 0 || p.x >= map.width || p.y < 0 || p.y >= map.height)) return;
+    // 이동하지 않는 이벤트와 겹치는지 확인
+    const nonMoving = map.events.filter(e => e && e.id !== 0 && !idSet.has(e.id));
+    for (const np of newPositions) {
+      if (nonMoving.some(e => e!.x === np.x && e!.y === np.y)) return;
+    }
+    // 이동 대상끼리 겹치는지 확인
+    const posSet = new Set(newPositions.map(p => `${p.x},${p.y}`));
+    if (posSet.size !== newPositions.length) return;
+
+    const events = map.events.map(e => {
+      if (e && idSet.has(e.id)) {
+        return { ...e, x: e.x + dx, y: e.y + dy };
+      }
+      return e;
+    });
+    set({ currentMap: { ...map, events } });
+  },
+
+  setSelectedEventIds: (ids: number[]) => set({ selectedEventIds: ids }),
+  setEventSelectionStart: (pos) => set({ eventSelectionStart: pos }),
+  setEventSelectionEnd: (pos) => set({ eventSelectionEnd: pos }),
+  setIsEventPasting: (isPasting: boolean) => set({ isEventPasting: isPasting }),
+  setEventPastePreviewPos: (pos) => set({ eventPastePreviewPos: pos }),
+  clearEventSelection: () => set({ eventSelectionStart: null, eventSelectionEnd: null, selectedEventIds: [], selectedEventId: null, isEventPasting: false, eventPastePreviewPos: null }),
+
   // Object actions
   setSelectedObjectId: (id: number | null) => set({ selectedObjectId: id }),
 
@@ -522,8 +651,83 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     });
   },
 
+  // Camera zone actions
+  setSelectedCameraZoneId: (id: number | null) => set({ selectedCameraZoneId: id }),
+
+  addCameraZone: (x: number, y: number, width: number, height: number) => {
+    const { currentMap, currentMapId, undoStack, selectedCameraZoneId } = get();
+    if (!currentMap || !currentMapId) return;
+    const oldZones = currentMap.cameraZones || [];
+    const zones = [...oldZones];
+    const newId = zones.length > 0 ? Math.max(...zones.map(z => z.id)) + 1 : 1;
+    const newZone: CameraZone = {
+      id: newId,
+      name: `Zone${newId}`,
+      x, y, width, height,
+      zoom: 1.0,
+      tilt: 60,
+      yaw: 0,
+      transitionSpeed: 1.0,
+      priority: 0,
+      enabled: true,
+    };
+    zones.push(newZone);
+    const historyEntry: CameraZoneHistoryEntry = {
+      mapId: currentMapId, type: 'cameraZone',
+      oldZones: oldZones, newZones: zones,
+      oldSelectedCameraZoneId: selectedCameraZoneId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > get().maxUndo) newStack.shift();
+    set({
+      currentMap: { ...currentMap, cameraZones: zones },
+      selectedCameraZoneId: newId,
+      undoStack: newStack,
+      redoStack: [],
+    });
+  },
+
+  updateCameraZone: (id: number, updates: Partial<CameraZone>) => {
+    const { currentMap, currentMapId, undoStack, selectedCameraZoneId } = get();
+    if (!currentMap || !currentMapId || !currentMap.cameraZones) return;
+    const oldZones = currentMap.cameraZones;
+    const zones = oldZones.map(z => z.id === id ? { ...z, ...updates } : z);
+    const historyEntry: CameraZoneHistoryEntry = {
+      mapId: currentMapId, type: 'cameraZone',
+      oldZones, newZones: zones,
+      oldSelectedCameraZoneId: selectedCameraZoneId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > get().maxUndo) newStack.shift();
+    set({
+      currentMap: { ...currentMap, cameraZones: zones },
+      undoStack: newStack,
+      redoStack: [],
+    });
+  },
+
+  deleteCameraZone: (id: number) => {
+    const { currentMap, currentMapId, undoStack, selectedCameraZoneId } = get();
+    if (!currentMap || !currentMapId || !currentMap.cameraZones) return;
+    const oldZones = currentMap.cameraZones;
+    const zones = oldZones.filter(z => z.id !== id);
+    const historyEntry: CameraZoneHistoryEntry = {
+      mapId: currentMapId, type: 'cameraZone',
+      oldZones, newZones: zones,
+      oldSelectedCameraZoneId: selectedCameraZoneId,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > get().maxUndo) newStack.shift();
+    set({
+      currentMap: { ...currentMap, cameraZones: zones },
+      selectedCameraZoneId: selectedCameraZoneId === id ? null : selectedCameraZoneId,
+      undoStack: newStack,
+      redoStack: [],
+    });
+  },
+
   // UI setters
-  setEditMode: (mode: 'map' | 'event' | 'light' | 'object') => {
+  setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone') => {
     const state = get();
     const updates: Partial<EditorState> = { editMode: mode };
     if (mode !== 'map') {
@@ -550,6 +754,14 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     }
     if (mode !== 'event') {
       updates.selectedEventId = null;
+      updates.selectedEventIds = [];
+      updates.eventSelectionStart = null;
+      updates.eventSelectionEnd = null;
+      updates.isEventPasting = false;
+      updates.eventPastePreviewPos = null;
+    }
+    if (mode !== 'cameraZone') {
+      updates.selectedCameraZoneId = null;
     }
     set(updates);
   },

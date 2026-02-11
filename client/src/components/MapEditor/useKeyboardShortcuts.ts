@@ -29,6 +29,14 @@ export function useKeyboardShortcuts(
   const deleteEvent = useEditorStore((s) => s.deleteEvent);
   const copyEvent = useEditorStore((s) => s.copyEvent);
   const pasteEvent = useEditorStore((s) => s.pasteEvent);
+  const selectedEventIds = useEditorStore((s) => s.selectedEventIds);
+  const copyEvents = useEditorStore((s) => s.copyEvents);
+  const pasteEvents = useEditorStore((s) => s.pasteEvents);
+  const deleteEvents = useEditorStore((s) => s.deleteEvents);
+  const setIsEventPasting = useEditorStore((s) => s.setIsEventPasting);
+  const setEventPastePreviewPos = useEditorStore((s) => s.setEventPastePreviewPos);
+  const isEventPasting = useEditorStore((s) => s.isEventPasting);
+  const clearEventSelection = useEditorStore((s) => s.clearEventSelection);
   const clipboard = useEditorStore((s) => s.clipboard);
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectionStart = useEditorStore((s) => s.selectionStart);
@@ -126,8 +134,13 @@ export function useKeyboardShortcuts(
         deleteObject(selectedObjectId);
         return;
       }
-      if (editMode === 'event' && selectedEventId != null) {
-        deleteEvent(selectedEventId);
+      if (editMode === 'event') {
+        if (selectedEventIds.length > 0) {
+          deleteEvents(selectedEventIds);
+          showToast(`이벤트 ${selectedEventIds.length}개 삭제됨`);
+        } else if (selectedEventId != null) {
+          deleteEvent(selectedEventId);
+        }
       }
     };
     window.addEventListener('editor-delete', handleDelete);
@@ -142,8 +155,15 @@ export function useKeyboardShortcuts(
         showToast('선택 영역 복사됨');
         return;
       }
-      if (editMode === 'event' && selectedEventId != null) {
-        copyEvent(selectedEventId);
+      if (editMode === 'event') {
+        if (selectedEventIds.length > 0) {
+          copyEvents(selectedEventIds);
+          showToast(`이벤트 ${selectedEventIds.length}개 복사됨`);
+        } else if (selectedEventId != null) {
+          copyEvent(selectedEventId);
+          showToast('이벤트 복사됨');
+        }
+        return;
       }
     };
     const handleCut = () => {
@@ -151,6 +171,18 @@ export function useKeyboardShortcuts(
         cutTiles(selectionStart.x, selectionStart.y, selectionEnd.x, selectionEnd.y);
         clearSelection();
         showToast('선택 영역 잘라내기');
+        return;
+      }
+      if (editMode === 'event') {
+        if (selectedEventIds.length > 0) {
+          copyEvents(selectedEventIds);
+          deleteEvents(selectedEventIds);
+          showToast(`이벤트 ${selectedEventIds.length}개 잘라내기`);
+        } else if (selectedEventId != null) {
+          copyEvent(selectedEventId);
+          deleteEvent(selectedEventId);
+          showToast('이벤트 잘라내기');
+        }
         return;
       }
     };
@@ -161,11 +193,11 @@ export function useKeyboardShortcuts(
         showToast('붙여넣기 모드 - 클릭하여 배치');
         return;
       }
-      if (editMode === 'event' && clipboard?.type === 'event') {
-        const ev = currentMap?.events?.find(e => e && e.id === selectedEventId);
-        if (ev) {
-          pasteEvent(ev.x, ev.y + 1);
-        }
+      if (editMode === 'event' && (clipboard?.type === 'event' || clipboard?.type === 'events')) {
+        setIsEventPasting(true);
+        setEventPastePreviewPos({ x: cursorTileX, y: cursorTileY });
+        showToast('붙여넣기 모드 - 클릭하여 배치');
+        return;
       }
     };
     window.addEventListener('editor-copy', handleCopy);
@@ -176,7 +208,7 @@ export function useKeyboardShortcuts(
       window.removeEventListener('editor-cut', handleCut);
       window.removeEventListener('editor-paste', handlePaste);
     };
-  }, [editMode, selectedEventId, copyEvent, pasteEvent, clipboard, currentMap, selectionStart, selectionEnd, copyTiles, cutTiles, clearSelection, setIsPasting, setPastePreviewPos, cursorTileX, cursorTileY, showToast]);
+  }, [editMode, selectedEventId, selectedEventIds, copyEvent, copyEvents, deleteEvent, deleteEvents, pasteEvent, pasteEvents, clipboard, currentMap, selectionStart, selectionEnd, copyTiles, cutTiles, clearSelection, setIsPasting, setPastePreviewPos, setIsEventPasting, setEventPastePreviewPos, cursorTileX, cursorTileY, showToast]);
 
   // Handle Select All (Cmd+A)
   useEffect(() => {
@@ -184,6 +216,13 @@ export function useKeyboardShortcuts(
       if (editMode === 'map' && selectedTool === 'select' && currentMap) {
         setSelection({ x: 0, y: 0 }, { x: currentMap.width - 1, y: currentMap.height - 1 });
         showToast('전체 선택');
+      }
+      if (editMode === 'event' && currentMap?.events) {
+        const allIds = currentMap.events
+          .filter(e => e && e.id !== 0)
+          .map(e => e!.id);
+        useEditorStore.getState().setSelectedEventIds(allIds);
+        showToast(`전체 선택 (${allIds.length}개)`);
       }
     };
     window.addEventListener('editor-selectall', handleSelectAll);
@@ -200,14 +239,26 @@ export function useKeyboardShortcuts(
         }
         clearSelection();
       }
+      if (editMode === 'event') {
+        if (isEventPasting) {
+          setIsEventPasting(false);
+          setEventPastePreviewPos(null);
+        }
+        clearEventSelection();
+      }
     };
     window.addEventListener('editor-deselect', handleDeselect);
     return () => window.removeEventListener('editor-deselect', handleDeselect);
-  }, [editMode, isPasting, setIsPasting, setPastePreviewPos, clearSelection]);
+  }, [editMode, isPasting, isEventPasting, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection]);
 
   // Handle Escape key for selection/paste cancel
   useEffect(() => {
     const handleEscape = () => {
+      if (isEventPasting) {
+        setIsEventPasting(false);
+        setEventPastePreviewPos(null);
+        return;
+      }
       if (isPasting) {
         setIsPasting(false);
         setPastePreviewPos(null);
@@ -215,11 +266,17 @@ export function useKeyboardShortcuts(
       }
       if (selectionStart || selectionEnd) {
         clearSelection();
+        return;
+      }
+      // 이벤트 선택 해제
+      const state = useEditorStore.getState();
+      if (state.selectedEventIds.length > 0) {
+        clearEventSelection();
       }
     };
     window.addEventListener('editor-escape', handleEscape);
     return () => window.removeEventListener('editor-escape', handleEscape);
-  }, [isPasting, selectionStart, selectionEnd, setIsPasting, setPastePreviewPos, clearSelection]);
+  }, [isPasting, isEventPasting, selectionStart, selectionEnd, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection]);
 
   return { showGrid, altPressed, panning };
 }

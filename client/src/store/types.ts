@@ -1,4 +1,4 @@
-import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, EditorAmbientLight, EditorDirectionalLight, EditorPlayerLight, EditorSpotLight, EditorShadowSettings, EditorLights, MapObject, RPGEvent } from '../types/rpgMakerMV';
+import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, EditorAmbientLight, EditorDirectionalLight, EditorPlayerLight, EditorSpotLight, EditorShadowSettings, EditorLights, MapObject, RPGEvent, CameraZone } from '../types/rpgMakerMV';
 
 export const PROJECT_STORAGE_KEY = 'rpg-editor-current-project';
 export const MAP_STORAGE_KEY = 'rpg-editor-current-map';
@@ -48,14 +48,23 @@ export interface LightHistoryEntry {
   oldSelectedLightId: number | null;
 }
 
-export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry;
+export interface CameraZoneHistoryEntry {
+  mapId: number;
+  type: 'cameraZone';
+  oldZones: CameraZone[];
+  newZones: CameraZone[];
+  oldSelectedCameraZoneId: number | null;
+}
+
+export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry | CameraZoneHistoryEntry;
 
 export interface ClipboardData {
-  type: 'tiles' | 'event';
+  type: 'tiles' | 'event' | 'events';
   tiles?: { x: number; y: number; z: number; tileId: number }[];
   width?: number;
   height?: number;
   event?: unknown;
+  events?: unknown[];
 }
 
 export interface EditorState {
@@ -77,7 +86,7 @@ export interface EditorState {
   playerCharacterIndex: number;
 
   // Mode
-  editMode: 'map' | 'event' | 'light' | 'object';
+  editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone';
 
   // Drawing tools
   selectedTool: string;
@@ -109,9 +118,17 @@ export interface EditorState {
 
   // Event editor
   selectedEventId: number | null;
+  selectedEventIds: number[];
+  eventSelectionStart: { x: number; y: number } | null;
+  eventSelectionEnd: { x: number; y: number } | null;
+  isEventPasting: boolean;
+  eventPastePreviewPos: { x: number; y: number } | null;
 
   // Object editor
   selectedObjectId: number | null;
+
+  // Camera zone editor
+  selectedCameraZoneId: number | null;
 
   // 3D / Lighting
   mode3d: boolean;
@@ -184,6 +201,16 @@ export interface EditorState {
   cutEvent: (eventId: number) => void;
   pasteEvent: (x: number, y: number) => void;
   deleteEvent: (eventId: number) => void;
+  copyEvents: (eventIds: number[]) => void;
+  pasteEvents: (x: number, y: number) => void;
+  deleteEvents: (eventIds: number[]) => void;
+  moveEvents: (eventIds: number[], dx: number, dy: number) => void;
+  setSelectedEventIds: (ids: number[]) => void;
+  setEventSelectionStart: (pos: { x: number; y: number } | null) => void;
+  setEventSelectionEnd: (pos: { x: number; y: number } | null) => void;
+  setIsEventPasting: (isPasting: boolean) => void;
+  setEventPastePreviewPos: (pos: { x: number; y: number } | null) => void;
+  clearEventSelection: () => void;
 
   // Actions - Object
   setSelectedObjectId: (id: number | null) => void;
@@ -191,8 +218,14 @@ export interface EditorState {
   updateObject: (id: number, updates: Partial<MapObject>) => void;
   deleteObject: (id: number) => void;
 
+  // Actions - Camera Zone
+  setSelectedCameraZoneId: (id: number | null) => void;
+  addCameraZone: (x: number, y: number, width: number, height: number) => void;
+  updateCameraZone: (id: number, updates: Partial<CameraZone>) => void;
+  deleteCameraZone: (id: number) => void;
+
   // Actions - UI
-  setEditMode: (mode: 'map' | 'event' | 'light' | 'object') => void;
+  setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone') => void;
   setSelectedTool: (tool: string) => void;
   setSelectedTileId: (id: number) => void;
   setSelectedTiles: (tiles: number[][] | null, width: number, height: number) => void;
