@@ -81,6 +81,16 @@ export default function DrawToolbar() {
         >
           {t('toolbar.object')} <span style={styles.shortcut}>F8</span>
         </button>
+        <button
+          onClick={() => setEditMode('cameraZone')}
+          style={{
+            ...styles.btn,
+            ...(editMode === 'cameraZone' ? styles.btnActive : {}),
+          }}
+          title="F9"
+        >
+          {t('toolbar.cameraZone')} <span style={styles.shortcut}>F9</span>
+        </button>
       </div>
 
       <div style={styles.separator} />

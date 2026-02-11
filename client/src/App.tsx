@@ -24,6 +24,7 @@ import LocalizationDialog from './components/LocalizationDialog';
 import AutotileDebugDialog from './components/AutotileDebugDialog';
 import LightInspector from './components/Sidebar/LightInspector';
 import ObjectInspector from './components/Sidebar/ObjectInspector';
+import CameraZoneInspector from './components/Sidebar/CameraZoneInspector';
 import useFileWatcher from './hooks/useFileWatcher';
 
 function SidebarSplit({ editMode }: { editMode: string }) {
@@ -114,7 +115,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app-layout${(lightEditMode || editMode === 'object') ? ' with-inspector' : ''}`}>
+    <div className={`app-layout${(lightEditMode || editMode === 'object' || editMode === 'cameraZone') ? ' with-inspector' : ''}`}>
       <MenuBar />
 
       <div className="sidebar">
@@ -141,9 +142,9 @@ export default function App() {
         )}
       </div>
 
-      {(lightEditMode || editMode === 'object') && (
+      {(lightEditMode || editMode === 'object' || editMode === 'cameraZone') && (
         <div className="inspector-area">
-          {editMode === 'object' ? <ObjectInspector /> : <LightInspector />}
+          {editMode === 'object' ? <ObjectInspector /> : editMode === 'cameraZone' ? <CameraZoneInspector /> : <LightInspector />}
         </div>
       )}
 

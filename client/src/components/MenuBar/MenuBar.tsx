@@ -93,6 +93,7 @@ export default function MenuBar() {
         { label: t('menu.event'), action: 'modeEvent', shortcut: 'F6', checked: () => editMode === 'event' },
         { label: t('menu.light', '조명'), action: 'modeLight', shortcut: 'F7', checked: () => editMode === 'light' },
         { label: t('menu.object'), action: 'modeObject', shortcut: 'F8', checked: () => editMode === 'object' },
+        { label: t('menu.cameraZone', '카메라 영역'), action: 'modeCameraZone', shortcut: 'F9', checked: () => editMode === 'cameraZone' },
       ],
     },
     {
@@ -116,7 +117,7 @@ export default function MenuBar() {
     {
       label: t('menu.tools'),
       items: [
-        { label: t('menu.database'), action: 'database', shortcut: 'F9', disabled: () => !hasProject },
+        { label: t('menu.database'), action: 'database', shortcut: 'F10', disabled: () => !hasProject },
         { label: t('menu.pluginManager'), action: 'pluginManager', disabled: () => !hasProject },
         { label: t('menu.soundTest'), action: 'soundTest', disabled: () => !hasProject },
         { label: t('menu.eventSearch'), action: 'eventSearch', disabled: () => !hasProject },
@@ -159,6 +160,7 @@ export default function MenuBar() {
       case 'modeEvent': setEditMode('event'); break;
       case 'modeLight': setEditMode('light'); break;
       case 'modeObject': setEditMode('object'); break;
+      case 'modeCameraZone': setEditMode('cameraZone'); break;
       case 'toolPen': setSelectedTool('pen'); break;
       case 'toolRectangle': setSelectedTool('rectangle'); break;
       case 'toolEllipse': setSelectedTool('ellipse'); break;
@@ -214,7 +216,8 @@ export default function MenuBar() {
       else if (e.key === 'F6') { e.preventDefault(); handleAction('modeEvent'); }
       else if (e.key === 'F7') { e.preventDefault(); handleAction('modeLight'); }
       else if (e.key === 'F8') { e.preventDefault(); handleAction('modeObject'); }
-      else if (e.key === 'F9') { e.preventDefault(); handleAction('database'); }
+      else if (e.key === 'F9') { e.preventDefault(); handleAction('modeCameraZone'); }
+      else if (e.key === 'F10') { e.preventDefault(); handleAction('database'); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);

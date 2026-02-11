@@ -6,7 +6,7 @@ import { lightSlice } from './lightSlice';
 import { uiSlice } from './uiSlice';
 
 // Re-export types for backward compatibility
-export type { TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, HistoryEntry, ClipboardData, EditorState } from './types';
+export type { TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry, HistoryEntry, ClipboardData, EditorState } from './types';
 
 const useEditorStore = create<EditorState>((...a) => ({
   ...projectSlice(...a),
