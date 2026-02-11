@@ -737,7 +737,15 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     flex: 1,
     overflow: 'auto',
-    background: '#1a1a1a',
+    backgroundColor: '#808080',
+    backgroundImage: `
+      linear-gradient(45deg, #666 25%, transparent 25%),
+      linear-gradient(-45deg, #666 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #666 75%),
+      linear-gradient(-45deg, transparent 75%, #666 75%)
+    `,
+    backgroundSize: '16px 16px',
+    backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
     border: '1px solid #555',
   },
   canvas: {
