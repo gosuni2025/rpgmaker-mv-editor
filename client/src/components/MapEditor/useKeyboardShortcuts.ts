@@ -36,6 +36,8 @@ export function useKeyboardShortcuts(
   const copyTiles = useEditorStore((s) => s.copyTiles);
   const cutTiles = useEditorStore((s) => s.cutTiles);
   const deleteTiles = useEditorStore((s) => s.deleteTiles);
+  const selectedTool = useEditorStore((s) => s.selectedTool);
+  const setSelection = useEditorStore((s) => s.setSelection);
   const clearSelection = useEditorStore((s) => s.clearSelection);
   const isPasting = useEditorStore((s) => s.isPasting);
   const setIsPasting = useEditorStore((s) => s.setIsPasting);
@@ -175,6 +177,33 @@ export function useKeyboardShortcuts(
       window.removeEventListener('editor-paste', handlePaste);
     };
   }, [editMode, selectedEventId, copyEvent, pasteEvent, clipboard, currentMap, selectionStart, selectionEnd, copyTiles, cutTiles, clearSelection, setIsPasting, setPastePreviewPos, cursorTileX, cursorTileY, showToast]);
+
+  // Handle Select All (Cmd+A)
+  useEffect(() => {
+    const handleSelectAll = () => {
+      if (editMode === 'map' && selectedTool === 'select' && currentMap) {
+        setSelection({ x: 0, y: 0 }, { x: currentMap.width - 1, y: currentMap.height - 1 });
+        showToast('전체 선택');
+      }
+    };
+    window.addEventListener('editor-selectall', handleSelectAll);
+    return () => window.removeEventListener('editor-selectall', handleSelectAll);
+  }, [editMode, selectedTool, currentMap, setSelection, showToast]);
+
+  // Handle Deselect (Cmd+D)
+  useEffect(() => {
+    const handleDeselect = () => {
+      if (editMode === 'map') {
+        if (isPasting) {
+          setIsPasting(false);
+          setPastePreviewPos(null);
+        }
+        clearSelection();
+      }
+    };
+    window.addEventListener('editor-deselect', handleDeselect);
+    return () => window.removeEventListener('editor-deselect', handleDeselect);
+  }, [editMode, isPasting, setIsPasting, setPastePreviewPos, clearSelection]);
 
   // Handle Escape key for selection/paste cancel
   useEffect(() => {

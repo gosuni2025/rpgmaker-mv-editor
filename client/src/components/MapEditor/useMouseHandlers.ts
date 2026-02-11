@@ -364,19 +364,7 @@ export function useMouseHandlers(
       if (selectedTool === 'select' && editMode === 'map') {
         const state = useEditorStore.getState();
 
-        // 붙여넣기 프리뷰 이동
-        if (state.isPasting && tile) {
-          setPastePreviewPos(tile);
-          return;
-        }
-
-        // 선택 영역 드래그
-        if (isSelecting.current && tile && selectionDragStart.current) {
-          setSelection(selectionDragStart.current, tile);
-          return;
-        }
-
-        // 선택 영역 이동
+        // 선택 영역 이동 (isPasting보다 먼저 체크해야 프리뷰 위치가 올바름)
         if (isMovingSelection.current && tile && moveOriginRef.current && originalSelectionBounds.current) {
           const dx = tile.x - moveOriginRef.current.x;
           const dy = tile.y - moveOriginRef.current.y;
@@ -386,6 +374,18 @@ export function useMouseHandlers(
             { x: ob.maxX + dx, y: ob.maxY + dy }
           );
           setPastePreviewPos({ x: ob.minX + dx, y: ob.minY + dy });
+          return;
+        }
+
+        // 붙여넣기 프리뷰 이동
+        if (state.isPasting && tile) {
+          setPastePreviewPos(tile);
+          return;
+        }
+
+        // 선택 영역 드래그
+        if (isSelecting.current && tile && selectionDragStart.current) {
+          setSelection(selectionDragStart.current, tile);
           return;
         }
       }

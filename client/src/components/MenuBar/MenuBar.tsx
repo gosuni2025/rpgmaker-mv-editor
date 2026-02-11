@@ -89,6 +89,9 @@ export default function MenuBar() {
         { label: t('common.paste'), action: 'paste', shortcut: 'Ctrl+V', disabled: () => !hasProject },
         { label: t('common.delete'), action: 'delete', shortcut: 'Del', disabled: () => !hasProject },
         { type: 'separator' },
+        { label: t('common.selectAll', '전체 선택'), action: 'selectAll', shortcut: 'Ctrl+A', disabled: () => !hasProject },
+        { label: t('common.deselect', '선택 해제'), action: 'deselect', shortcut: 'Ctrl+D', disabled: () => !hasProject },
+        { type: 'separator' },
         { label: t('menu.find'), action: 'find', shortcut: 'Ctrl+F', disabled: () => !hasProject },
       ],
     },
@@ -181,6 +184,8 @@ export default function MenuBar() {
         window.open(`/game/index.html?dev=true&startMapId=${mapId}`, '_blank');
       }); break;
       case 'openFolder': fetch('/api/project/open-folder', { method: 'POST' }); break;
+      case 'selectAll': window.dispatchEvent(new CustomEvent('editor-selectall')); break;
+      case 'deselect': window.dispatchEvent(new CustomEvent('editor-deselect')); break;
       case 'autotileDebug': window.dispatchEvent(new CustomEvent('editor-autotile-debug')); break;
       case 'langKo': i18n.changeLanguage('ko'); localStorage.setItem('editor-lang', 'ko'); break;
       case 'langEn': i18n.changeLanguage('en'); localStorage.setItem('editor-lang', 'en'); break;
@@ -204,6 +209,8 @@ export default function MenuBar() {
       else if (ctrl && (e.key === '=' || e.key === '+')) { e.preventDefault(); handleAction('zoomIn'); }
       else if (ctrl && e.key === '-') { e.preventDefault(); handleAction('zoomOut'); }
       else if (ctrl && e.key === '0') { e.preventDefault(); handleAction('zoomActual'); }
+      else if (ctrl && e.key === 'a') { e.preventDefault(); handleAction('selectAll'); }
+      else if (ctrl && e.key === 'd') { e.preventDefault(); handleAction('deselect'); }
       else if (e.key === 'Delete') { handleAction('delete'); }
       else if (e.key === 'Escape') { window.dispatchEvent(new CustomEvent('editor-escape')); }
       else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'r') { e.preventDefault(); handleAction('playtestCurrentMap'); }
