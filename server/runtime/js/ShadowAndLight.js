@@ -531,6 +531,8 @@ ShadowLight._ensureProbeDebugGroup = function() {
         var scene = this._findScene();
         if (scene) scene.add(this._probeDebugGroup);
     }
+    // 클릭으로 박스 정보 확인할 수 있도록 핸들러 설치
+    this._installProbeClickHandler();
 };
 
 /**
@@ -555,6 +557,16 @@ ShadowLight._createProbeDebugMeshes = function(sprite) {
     boxMesh.frustumCulled = false;
     boxMesh.renderOrder = 9998;
     group.add(boxMesh);
+
+    // raycasting용 투명 solid 박스 (클릭 감지용, 화면에는 안 보임)
+    var hitGeo = new THREE.BoxGeometry(1, 1, 1);
+    var hitMat = new THREE.MeshBasicMaterial({
+        visible: false, // 렌더링하지 않지만 raycasting은 가능
+    });
+    var hitMesh = new THREE.Mesh(hitGeo, hitMat);
+    hitMesh.frustumCulled = false;
+    hitMesh.userData._probeSprite = sprite; // 스프라이트 참조 저장
+    group.add(hitMesh);
 
     // 6방향 법선 화살표 (Line으로 구현)
     var arrows = [];
@@ -595,7 +607,7 @@ ShadowLight._createProbeDebugMeshes = function(sprite) {
 
     this._probeDebugGroup.add(group);
 
-    var data = { group: group, box: boxMesh, arrows: arrows };
+    var data = { group: group, box: boxMesh, hitBox: hitMesh, arrows: arrows };
     this._probeDebugData.set(sprite, data);
     return data;
 };
@@ -635,6 +647,13 @@ ShadowLight._updateProbeDebugVis = function(sprite, cx, cy, cz, perNormal) {
     // billboard과 동일한 rotation 적용 (Y축이 Z방향으로 기울어짐)
     var rotX = sprite._threeObj ? sprite._threeObj.rotation.x : 0;
     data.box.rotation.x = rotX;
+
+    // raycasting용 hitBox도 동기화
+    if (data.hitBox) {
+        data.hitBox.position.set(lx, ly, lz);
+        data.hitBox.scale.set(boxW, boxH, boxD);
+        data.hitBox.rotation.x = rotX;
+    }
 
     // 법선 화살표 업데이트
     var allNormals = this._probeNormalsAll;
@@ -688,6 +707,244 @@ ShadowLight._removeProbeDebugVis = function() {
     });
     this._probeDebugGroup = null;
     this._probeDebugData = null;
+    // 클릭 핸들러 제거
+    this._removeProbeClickHandler();
+};
+
+//=============================================================================
+// 프록시 박스 클릭 감지 - 디버그 박스 클릭 시 스프라이트 정보 표시
+//=============================================================================
+
+ShadowLight._probeRaycaster = new THREE.Raycaster();
+ShadowLight._probeMouseVec = new THREE.Vector2();
+ShadowLight._probeClickBound = null;  // 바인딩된 핸들러 참조
+ShadowLight._probeTooltip = null;     // 툴팁 DOM 엘리먼트
+ShadowLight._probeSelectedBox = null; // 선택된 박스 데이터
+
+/**
+ * 스프라이트에서 표시할 이름/정보 추출
+ */
+ShadowLight._getSpriteName = function(sprite) {
+    if (!sprite) return '(unknown)';
+
+    // Sprite_Character: _character 프로퍼티 확인
+    var ch = sprite._character;
+    if (ch) {
+        // 플레이어
+        if (ch === $gamePlayer) {
+            return 'Player (' + (ch.characterName() || 'tile') + ')';
+        }
+        // 동료
+        if (ch.constructor && ch.constructor.name === 'Game_Follower') {
+            return 'Follower (' + (ch.characterName() || 'tile') + ')';
+        }
+        // 탈것
+        if (ch.constructor && ch.constructor.name === 'Game_Vehicle') {
+            return 'Vehicle (' + (ch.characterName() || 'tile') + ')';
+        }
+        // 이벤트
+        if (typeof ch.eventId === 'function' && ch.eventId() > 0) {
+            var evData = ch.event ? ch.event() : null;
+            var evName = evData ? evData.name : '';
+            return 'Event #' + ch.eventId() + (evName ? ' "' + evName + '"' : '') +
+                   ' (' + (ch.characterName() || 'tile') + ')';
+        }
+        // 기타 캐릭터
+        return 'Character (' + (ch.characterName() || 'tile') + ')';
+    }
+
+    // 오브젝트 스프라이트: $dataMap.objects에서 매칭
+    if ($dataMap && $dataMap.objects) {
+        // 부모 컨테이너가 _mapObjX를 가지면 오브젝트
+        var container = sprite;
+        if (sprite.parent && sprite.parent._mapObjX !== undefined) {
+            container = sprite.parent;
+        }
+        if (container._mapObjX !== undefined) {
+            for (var i = 0; i < $dataMap.objects.length; i++) {
+                var obj = $dataMap.objects[i];
+                if (obj && obj.x === container._mapObjX && obj.y === container._mapObjY) {
+                    return 'Object #' + (obj.id || i) + (obj.name ? ' "' + obj.name + '"' : '') +
+                           ' (' + obj.x + ',' + obj.y + ')';
+                }
+            }
+            return 'Object (' + container._mapObjX + ',' + container._mapObjY + ')';
+        }
+    }
+
+    // 타일셋 이미지명 등 fallback
+    if (sprite._characterName) {
+        return sprite._characterName;
+    }
+    return '(sprite)';
+};
+
+/**
+ * 프록시 박스 클릭 핸들러 설치
+ */
+ShadowLight._installProbeClickHandler = function() {
+    if (this._probeClickBound) return; // 이미 설치됨
+    var self = this;
+    this._probeClickBound = function(e) {
+        self._onProbeClick(e);
+    };
+    var canvas = Graphics._renderer ? Graphics._renderer.domElement : null;
+    if (!canvas) {
+        // WebGL canvas 찾기
+        canvas = document.querySelector('canvas');
+    }
+    if (canvas) {
+        canvas.addEventListener('click', this._probeClickBound);
+        this._probeClickCanvas = canvas;
+    }
+};
+
+/**
+ * 프록시 박스 클릭 핸들러 제거
+ */
+ShadowLight._removeProbeClickHandler = function() {
+    if (this._probeClickBound && this._probeClickCanvas) {
+        this._probeClickCanvas.removeEventListener('click', this._probeClickBound);
+    }
+    this._probeClickBound = null;
+    this._probeClickCanvas = null;
+    this._removeProbeTooltip();
+    this._probeSelectedBox = null;
+};
+
+/**
+ * 클릭 시 raycasting으로 디버그 박스 감지
+ */
+ShadowLight._onProbeClick = function(e) {
+    if (!this._debugProbeVisible || !this._probeDebugGroup) return;
+    var camera = window.Mode3D ? Mode3D._perspCamera : null;
+    if (!camera) return;
+
+    var canvas = e.target;
+    var rect = canvas.getBoundingClientRect();
+    var mouse = this._probeMouseVec;
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    // Mode3D는 projectionMatrix의 m[5]를 반전 (Y-flip) → NDC Y축도 반전됨
+    mouse.y = ((e.clientY - rect.top) / rect.height) * 2 - 1;
+
+    var raycaster = this._probeRaycaster;
+    raycaster.setFromCamera(mouse, camera);
+
+    // hitBox들만 수집 (userData._probeSprite가 있는 메시)
+    var hitTargets = [];
+    this._probeDebugGroup.traverse(function(obj) {
+        if (obj.isMesh && obj.userData._probeSprite) {
+            hitTargets.push(obj);
+        }
+    });
+
+    var intersects = raycaster.intersectObjects(hitTargets, false);
+
+    if (intersects.length > 0) {
+        var hitObj = intersects[0].object;
+        var sprite = hitObj.userData._probeSprite;
+        var name = this._getSpriteName(sprite);
+
+        // 이전 선택 해제
+        if (this._probeSelectedBox && this._probeSelectedBox !== hitObj) {
+            // 이전 와이어프레임 색상 복원
+            this._setBoxHighlight(this._probeSelectedBox, false);
+        }
+        this._probeSelectedBox = hitObj;
+        this._setBoxHighlight(hitObj, true);
+
+        // emissive 값 읽기
+        var emissiveStr = '';
+        if (sprite._material && sprite._material.emissive) {
+            var em = sprite._material.emissive;
+            emissiveStr = 'Emissive: (' +
+                em.r.toFixed(3) + ', ' +
+                em.g.toFixed(3) + ', ' +
+                em.b.toFixed(3) + ')';
+        }
+
+        // 프레임 크기
+        var sizeStr = (sprite._frameWidth || '?') + 'x' + (sprite._frameHeight || '?');
+
+        this._showProbeTooltip(e.clientX, e.clientY, name, sizeStr, emissiveStr);
+    } else {
+        // 빈 곳 클릭: 선택 해제
+        if (this._probeSelectedBox) {
+            this._setBoxHighlight(this._probeSelectedBox, false);
+            this._probeSelectedBox = null;
+        }
+        this._removeProbeTooltip();
+    }
+};
+
+/**
+ * 디버그 박스 하이라이트 설정/해제
+ */
+ShadowLight._setBoxHighlight = function(hitMesh, highlight) {
+    // hitMesh의 형제인 wireframe boxMesh 찾기
+    if (!hitMesh || !hitMesh.parent) return;
+    var siblings = hitMesh.parent.children;
+    for (var i = 0; i < siblings.length; i++) {
+        var sib = siblings[i];
+        if (sib.isMesh && sib.material && sib.material.wireframe) {
+            if (highlight) {
+                sib.material.color.setHex(0xffffff);
+                sib.material.opacity = 1.0;
+            } else {
+                sib.material.color.setHex(0x44ff44);
+                sib.material.opacity = 0.6;
+            }
+            break;
+        }
+    }
+};
+
+/**
+ * 프록시 박스 정보 툴팁 표시
+ */
+ShadowLight._showProbeTooltip = function(x, y, name, size, emissive) {
+    if (!this._probeTooltip) {
+        var tip = document.createElement('div');
+        tip.style.cssText =
+            'position:fixed;z-index:100000;pointer-events:none;' +
+            'background:rgba(0,0,0,0.85);color:#eee;' +
+            'border:1px solid #66ffcc;border-radius:4px;' +
+            'padding:6px 10px;font-size:12px;font-family:monospace;' +
+            'line-height:1.5;white-space:nowrap;' +
+            'box-shadow:0 2px 8px rgba(0,0,0,0.5);';
+        document.body.appendChild(tip);
+        this._probeTooltip = tip;
+    }
+    var tip = this._probeTooltip;
+
+    var html = '<div style="color:#66ffcc;font-weight:bold;margin-bottom:2px;">' +
+               name.replace(/</g, '&lt;') + '</div>';
+    html += '<div style="color:#aaa;">Size: ' + size + '</div>';
+    if (emissive) {
+        html += '<div style="color:#aaa;">' + emissive + '</div>';
+    }
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+
+    // 화면 밖으로 나가지 않게 위치 조정
+    var tw = tip.offsetWidth;
+    var th = tip.offsetHeight;
+    var left = x + 12;
+    var top = y - th - 8;
+    if (left + tw > window.innerWidth) left = x - tw - 12;
+    if (top < 0) top = y + 16;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+};
+
+/**
+ * 프록시 박스 툴팁 제거
+ */
+ShadowLight._removeProbeTooltip = function() {
+    if (this._probeTooltip) {
+        this._probeTooltip.remove();
+        this._probeTooltip = null;
+    }
 };
 
 /**
