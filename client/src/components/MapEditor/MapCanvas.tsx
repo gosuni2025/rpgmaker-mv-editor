@@ -31,6 +31,10 @@ export default function MapCanvas() {
   const selectedTilesWidth = useEditorStore((s) => s.selectedTilesWidth);
   const selectedTilesHeight = useEditorStore((s) => s.selectedTilesHeight);
   const clipboard = useEditorStore((s) => s.clipboard);
+  const selectionStart = useEditorStore((s) => s.selectionStart);
+  const selectionEnd = useEditorStore((s) => s.selectionEnd);
+  const isPasting = useEditorStore((s) => s.isPasting);
+  const pastePreviewPos = useEditorStore((s) => s.pastePreviewPos);
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const setPlayerStartPosition = useEditorStore((s) => s.setPlayerStartPosition);
   const copyEvent = useEditorStore((s) => s.copyEvent);
@@ -172,6 +176,250 @@ export default function MapCanvas() {
       });
     }
   }, [dragPreviews]);
+
+  // =========================================================================
+  // Selection rectangle overlay (선택 영역 오버레이)
+  // =========================================================================
+  React.useEffect(() => {
+    const rObj = rendererObjRef.current;
+    if (!rObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    // Dispose existing selection meshes
+    if (!(window as any)._editorSelectionMeshes) (window as any)._editorSelectionMeshes = [];
+    const existing = (window as any)._editorSelectionMeshes as any[];
+    for (const m of existing) {
+      rObj.scene.remove(m);
+      m.geometry?.dispose();
+      m.material?.dispose();
+    }
+    existing.length = 0;
+
+    if (!selectionStart || !selectionEnd) {
+      // 렌더 트리거
+      if (!renderRequestedRef.current) {
+        renderRequestedRef.current = true;
+        requestAnimationFrame(() => {
+          renderRequestedRef.current = false;
+          if (!rendererObjRef.current || !stageRef.current) return;
+          const strategy = (window as any).RendererStrategy?.getStrategy();
+          if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
+        });
+      }
+      return;
+    }
+
+    const minX = Math.min(selectionStart.x, selectionEnd.x);
+    const maxX = Math.max(selectionStart.x, selectionEnd.x);
+    const minY = Math.min(selectionStart.y, selectionEnd.y);
+    const maxY = Math.max(selectionStart.y, selectionEnd.y);
+
+    const rw = (maxX - minX + 1) * TILE_SIZE_PX;
+    const rh = (maxY - minY + 1) * TILE_SIZE_PX;
+    const cx = minX * TILE_SIZE_PX + rw / 2;
+    const cy = minY * TILE_SIZE_PX + rh / 2;
+
+    // 반투명 채우기
+    const geom = new THREE.PlaneGeometry(rw, rh);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x00bfff, opacity: 0.15, transparent: true,
+      depthTest: false, side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.set(cx, cy, 6.5);
+    mesh.renderOrder = 10004;
+    mesh.frustumCulled = false;
+    mesh.userData.editorGrid = true;
+    rObj.scene.add(mesh);
+    existing.push(mesh);
+
+    // 점선 테두리
+    const hw = rw / 2, hh = rh / 2;
+    const pts = [
+      new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+      new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+      new THREE.Vector3(-hw, -hh, 0),
+    ];
+    const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+    const lineMat = new THREE.LineDashedMaterial({
+      color: 0x00bfff, depthTest: false, transparent: true,
+      opacity: 1.0, dashSize: 6, gapSize: 4,
+    });
+    const line = new THREE.Line(lineGeom, lineMat);
+    line.computeLineDistances();
+    line.position.set(cx, cy, 6.8);
+    line.renderOrder = 10005;
+    line.frustumCulled = false;
+    line.userData.editorGrid = true;
+    rObj.scene.add(line);
+    existing.push(line);
+
+    // 렌더 트리거
+    if (!renderRequestedRef.current) {
+      renderRequestedRef.current = true;
+      requestAnimationFrame(() => {
+        renderRequestedRef.current = false;
+        if (!rendererObjRef.current || !stageRef.current) return;
+        const strategy = (window as any).RendererStrategy?.getStrategy();
+        if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
+      });
+    }
+  }, [selectionStart, selectionEnd]);
+
+  // =========================================================================
+  // Paste preview overlay (붙여넣기 프리뷰)
+  // =========================================================================
+  const pastePreviewMeshRef = useRef<any>(null);
+  const pastePreviewLineRef = useRef<any>(null);
+  const pastePreviewTextureRef = useRef<any>(null);
+
+  // 붙여넣기 프리뷰 텍스처 생성 (clipboard 변경 시)
+  React.useEffect(() => {
+    if (pastePreviewTextureRef.current) {
+      pastePreviewTextureRef.current.dispose();
+      pastePreviewTextureRef.current = null;
+    }
+
+    const THREE = (window as any).THREE;
+    const tilemap = tilemapRef.current;
+    const TilemapClass = (window as any).Tilemap;
+    if (!THREE || !tilemap || !TilemapClass) return;
+    if (!clipboard || clipboard.type !== 'tiles' || !clipboard.tiles || !clipboard.width || !clipboard.height) return;
+
+    const tw = TILE_SIZE_PX;
+    const th = TILE_SIZE_PX;
+    const cvs = document.createElement('canvas');
+    cvs.width = tw * clipboard.width;
+    cvs.height = th * clipboard.height;
+    const ctx = cvs.getContext('2d')!;
+
+    const offBitmap = {
+      _canvas: cvs, _context: ctx, width: cvs.width, height: cvs.height,
+      bltImage(source: any, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number) {
+        const srcCanvas = source._canvas || source._image;
+        if (srcCanvas) ctx.drawImage(srcCanvas, sx, sy, sw, sh, dx, dy, dw, dh);
+      },
+      blt(source: any, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw?: number, dh?: number) {
+        this.bltImage(source, sx, sy, sw, sh, dx, dy, dw ?? sw, dh ?? sh);
+      },
+    };
+
+    const proxy = Object.create(TilemapClass.prototype);
+    proxy.bitmaps = tilemap.bitmaps;
+    proxy._tileWidth = tilemap._tileWidth;
+    proxy._tileHeight = tilemap._tileHeight;
+    proxy.flags = tilemap.flags;
+
+    for (const t of clipboard.tiles) {
+      if (t.tileId <= 0) continue;
+      proxy._drawTile(offBitmap, t.tileId, t.x * tw, t.y * th);
+    }
+
+    const texture = new THREE.CanvasTexture(cvs);
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.flipY = false;
+    pastePreviewTextureRef.current = texture;
+  }, [clipboard]);
+
+  // 붙여넣기 프리뷰 메시 표시/숨김 및 위치 업데이트
+  React.useEffect(() => {
+    const rObj = rendererObjRef.current;
+    if (!rObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    const texture = pastePreviewTextureRef.current;
+    const showPreview = isPasting && pastePreviewPos && texture &&
+      clipboard?.type === 'tiles' && clipboard.width && clipboard.height;
+
+    if (!showPreview) {
+      if (pastePreviewMeshRef.current) {
+        pastePreviewMeshRef.current.visible = false;
+        pastePreviewLineRef.current.visible = false;
+        if (!renderRequestedRef.current) {
+          renderRequestedRef.current = true;
+          requestAnimationFrame(() => {
+            renderRequestedRef.current = false;
+            if (!rendererObjRef.current || !stageRef.current) return;
+            const strategy = (window as any).RendererStrategy?.getStrategy();
+            if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
+          });
+        }
+      }
+      return;
+    }
+
+    const tw = TILE_SIZE_PX;
+    const th = TILE_SIZE_PX;
+    const tilesW = clipboard!.width!;
+    const tilesH = clipboard!.height!;
+
+    // 메시가 없거나 텍스처가 바뀌었으면 재생성
+    if (!pastePreviewMeshRef.current || pastePreviewMeshRef.current.material.map !== texture) {
+      if (pastePreviewMeshRef.current) {
+        rObj.scene.remove(pastePreviewMeshRef.current);
+        pastePreviewMeshRef.current.geometry?.dispose();
+        pastePreviewMeshRef.current.material?.dispose();
+      }
+      if (pastePreviewLineRef.current) {
+        rObj.scene.remove(pastePreviewLineRef.current);
+        pastePreviewLineRef.current.geometry?.dispose();
+        pastePreviewLineRef.current.material?.dispose();
+      }
+
+      const geom = new THREE.PlaneGeometry(tw * tilesW, th * tilesH);
+      const mat = new THREE.MeshBasicMaterial({
+        map: texture, transparent: true, opacity: 0.5,
+        depthTest: false, side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.renderOrder = 10012;
+      mesh.frustumCulled = false;
+      mesh.userData.editorGrid = true;
+      rObj.scene.add(mesh);
+      pastePreviewMeshRef.current = mesh;
+
+      const hw = tw * tilesW / 2;
+      const hh = th * tilesH / 2;
+      const pts = [
+        new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+        new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+        new THREE.Vector3(-hw, -hh, 0),
+      ];
+      const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+      const lineMat = new THREE.LineDashedMaterial({
+        color: 0x00bfff, depthTest: false, transparent: true,
+        opacity: 1.0, dashSize: 6, gapSize: 4,
+      });
+      const line = new THREE.Line(lineGeom, lineMat);
+      line.computeLineDistances();
+      line.renderOrder = 10013;
+      line.frustumCulled = false;
+      line.userData.editorGrid = true;
+      rObj.scene.add(line);
+      pastePreviewLineRef.current = line;
+    }
+
+    // 위치 업데이트
+    const cx = pastePreviewPos!.x * tw + tw * tilesW / 2;
+    const cy = pastePreviewPos!.y * th + th * tilesH / 2;
+    pastePreviewMeshRef.current.position.set(cx, cy, 8);
+    pastePreviewMeshRef.current.visible = true;
+    pastePreviewLineRef.current.position.set(cx, cy, 8.5);
+    pastePreviewLineRef.current.visible = true;
+
+    if (!renderRequestedRef.current) {
+      renderRequestedRef.current = true;
+      requestAnimationFrame(() => {
+        renderRequestedRef.current = false;
+        if (!rendererObjRef.current || !stageRef.current) return;
+        const strategy = (window as any).RendererStrategy?.getStrategy();
+        if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
+      });
+    }
+  }, [isPasting, pastePreviewPos, clipboard]);
 
   // =========================================================================
   // Tile cursor preview (반투명 타일 프리뷰)
@@ -393,7 +641,18 @@ export default function MapCanvas() {
             ...styles.canvas,
             position: 'relative',
             zIndex: 1,
-            cursor: panning ? 'grabbing' : altPressed && editMode === 'map' ? eyedropperCursor : resizeCursor || (editMode === 'event' ? 'pointer' : 'crosshair'),
+            cursor: panning ? 'grabbing'
+              : altPressed && editMode === 'map' ? eyedropperCursor
+              : resizeCursor
+              || (selectedTool === 'select' && isPasting ? 'copy'
+                : selectedTool === 'select' && selectionStart && selectionEnd && hoverTile
+                  && hoverTile.x >= Math.min(selectionStart.x, selectionEnd.x)
+                  && hoverTile.x <= Math.max(selectionStart.x, selectionEnd.x)
+                  && hoverTile.y >= Math.min(selectionStart.y, selectionEnd.y)
+                  && hoverTile.y <= Math.max(selectionStart.y, selectionEnd.y) ? 'move'
+                : selectedTool === 'select' ? 'crosshair'
+                : editMode === 'event' ? 'pointer'
+                : 'crosshair'),
           }}
         />
         {/* Resize preview overlay */}

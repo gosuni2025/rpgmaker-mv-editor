@@ -57,6 +57,13 @@ export function useMouseHandlers(
   const pushUndo = useEditorStore((s) => s.pushUndo);
   const setCursorTile = useEditorStore((s) => s.setCursorTile);
   const setSelectedEventId = useEditorStore((s) => s.setSelectedEventId);
+  const setSelection = useEditorStore((s) => s.setSelection);
+  const clearSelection = useEditorStore((s) => s.clearSelection);
+  const copyTiles = useEditorStore((s) => s.copyTiles);
+  const pasteTiles = useEditorStore((s) => s.pasteTiles);
+  const deleteTiles = useEditorStore((s) => s.deleteTiles);
+  const setIsPasting = useEditorStore((s) => s.setIsPasting);
+  const setPastePreviewPos = useEditorStore((s) => s.setPastePreviewPos);
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const selectedLightType = useEditorStore((s) => s.selectedLightType);
   const setSelectedLightId = useEditorStore((s) => s.setSelectedLightId);
@@ -99,6 +106,13 @@ export function useMouseHandlers(
   const dragObjectOrigin = useRef<{ x: number; y: number } | null>(null);
   const [objectDragPreview, setObjectDragPreview] = useState<{ x: number; y: number } | null>(null);
 
+  // Selection tool state
+  const isSelecting = useRef(false);
+  const selectionDragStart = useRef<{ x: number; y: number } | null>(null);
+  const isMovingSelection = useRef(false);
+  const moveOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const originalSelectionBounds = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
+
   // Hover tile (for cursor preview)
   const [hoverTile, setHoverTile] = useState<{ x: number; y: number } | null>(null);
 
@@ -132,6 +146,12 @@ export function useMouseHandlers(
       if (e.altKey && e.button === 0 && editMode === 'map') {
         eyedropTile(tile.x, tile.y);
         e.preventDefault();
+        return;
+      }
+
+      // Select tool: right-click clears selection
+      if (e.button === 2 && editMode === 'map' && selectedTool === 'select') {
+        clearSelection();
         return;
       }
 
@@ -170,6 +190,47 @@ export function useMouseHandlers(
       }
 
       if (e.button !== 0) return;
+
+      // Selection tool
+      if (selectedTool === 'select' && editMode === 'map') {
+        const state = useEditorStore.getState();
+
+        // 붙여넣기 모드: 클릭으로 배치
+        if (state.isPasting) {
+          pasteTiles(tile.x, tile.y);
+          setIsPasting(false);
+          setPastePreviewPos(null);
+          // 붙여넣기 위치에 선택 영역 설정
+          const cb = state.clipboard;
+          if (cb?.type === 'tiles' && cb.width && cb.height) {
+            setSelection({ x: tile.x, y: tile.y }, { x: tile.x + cb.width - 1, y: tile.y + cb.height - 1 });
+          }
+          return;
+        }
+
+        // 기존 선택 영역 내부 클릭: 이동 시작
+        if (state.selectionStart && state.selectionEnd) {
+          const minX = Math.min(state.selectionStart.x, state.selectionEnd.x);
+          const maxX = Math.max(state.selectionStart.x, state.selectionEnd.x);
+          const minY = Math.min(state.selectionStart.y, state.selectionEnd.y);
+          const maxY = Math.max(state.selectionStart.y, state.selectionEnd.y);
+
+          if (tile.x >= minX && tile.x <= maxX && tile.y >= minY && tile.y <= maxY) {
+            isMovingSelection.current = true;
+            moveOriginRef.current = { x: tile.x, y: tile.y };
+            originalSelectionBounds.current = { minX, minY, maxX, maxY };
+            copyTiles(minX, minY, maxX, maxY);
+            return;
+          }
+        }
+
+        // 새 선택 영역 시작
+        clearSelection();
+        isSelecting.current = true;
+        selectionDragStart.current = tile;
+        setSelection(tile, tile);
+        return;
+      }
 
       // Light edit mode: place or select lights
       if (lightEditMode && selectedLightType === 'point') {
@@ -242,7 +303,7 @@ export function useMouseHandlers(
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight, mode3d, detectEdge, getCanvasPx, startResize, eyedropTile]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight, mode3d, detectEdge, getCanvasPx, startResize, eyedropTile, clearSelection, setSelection, copyTiles, pasteTiles, setIsPasting, setPastePreviewPos]
   );
 
   const handleMouseMove = useCallback(
@@ -278,6 +339,35 @@ export function useMouseHandlers(
         setHoverTile(prev => (!prev || prev.x !== tile.x || prev.y !== tile.y) ? tile : prev);
       } else {
         setHoverTile(prev => prev ? null : prev);
+      }
+
+      // Selection tool: drag to select or move
+      if (selectedTool === 'select' && editMode === 'map') {
+        const state = useEditorStore.getState();
+
+        // 붙여넣기 프리뷰 이동
+        if (state.isPasting && tile) {
+          setPastePreviewPos(tile);
+          return;
+        }
+
+        // 선택 영역 드래그
+        if (isSelecting.current && tile && selectionDragStart.current) {
+          setSelection(selectionDragStart.current, tile);
+          return;
+        }
+
+        // 선택 영역 이동
+        if (isMovingSelection.current && tile && moveOriginRef.current && originalSelectionBounds.current) {
+          const dx = tile.x - moveOriginRef.current.x;
+          const dy = tile.y - moveOriginRef.current.y;
+          const ob = originalSelectionBounds.current;
+          setSelection(
+            { x: ob.minX + dx, y: ob.minY + dy },
+            { x: ob.maxX + dx, y: ob.maxY + dy }
+          );
+          return;
+        }
       }
 
       // Light dragging
@@ -337,7 +427,7 @@ export function useMouseHandlers(
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, setCursorTile, drawOverlayPreview, getCanvasPx, detectEdge, editMode, mode3d]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, setCursorTile, drawOverlayPreview, getCanvasPx, detectEdge, editMode, mode3d, setSelection, setPastePreviewPos]
   );
 
   const handleMouseUp = useCallback(
@@ -348,6 +438,43 @@ export function useMouseHandlers(
         return;
       }
       if (isResizing.current) return;
+
+      // Selection tool: finish select or move
+      if (selectedTool === 'select' && editMode === 'map') {
+        if (isSelecting.current) {
+          isSelecting.current = false;
+          const start = selectionDragStart.current;
+          const tile = canvasToTile(e);
+          selectionDragStart.current = null;
+          // 단일 클릭(드래그 없음)이면 선택 해제
+          if (start && tile && start.x === tile.x && start.y === tile.y) {
+            clearSelection();
+          }
+          return;
+        }
+
+        if (isMovingSelection.current) {
+          const tile = canvasToTile(e);
+          const ob = originalSelectionBounds.current;
+          if (tile && ob && moveOriginRef.current) {
+            const dx = tile.x - moveOriginRef.current.x;
+            const dy = tile.y - moveOriginRef.current.y;
+            if (dx !== 0 || dy !== 0) {
+              // 원래 위치의 타일 삭제 후 새 위치에 붙여넣기
+              deleteTiles(ob.minX, ob.minY, ob.maxX, ob.maxY);
+              pasteTiles(ob.minX + dx, ob.minY + dy);
+              setSelection(
+                { x: ob.minX + dx, y: ob.minY + dy },
+                { x: ob.maxX + dx, y: ob.maxY + dy }
+              );
+            }
+          }
+          isMovingSelection.current = false;
+          moveOriginRef.current = null;
+          originalSelectionBounds.current = null;
+          return;
+        }
+      }
 
       // Light drag commit
       if (isDraggingLight.current && draggedLightId.current != null) {
@@ -418,7 +545,7 @@ export function useMouseHandlers(
       dragStart.current = null;
       pendingChanges.current = [];
     },
-    [selectedTool, canvasToTile, drawRectangle, drawEllipse, clearOverlay, pushUndo, updatePointLight]
+    [selectedTool, canvasToTile, drawRectangle, drawEllipse, clearOverlay, pushUndo, updatePointLight, editMode, clearSelection, deleteTiles, pasteTiles, setSelection]
   );
 
   const handleDoubleClick = useCallback(
@@ -510,6 +637,18 @@ export function useMouseHandlers(
       if (isDraggingEvent.current) {
         isDraggingEvent.current = false;
         setEditingEventId(null);
+      }
+      // 선택 드래그 중이면 취소
+      if (isSelecting.current) {
+        isSelecting.current = false;
+        selectionDragStart.current = null;
+        return;
+      }
+      if (isMovingSelection.current) {
+        isMovingSelection.current = false;
+        moveOriginRef.current = null;
+        originalSelectionBounds.current = null;
+        return;
       }
       handleMouseUp(e);
     },

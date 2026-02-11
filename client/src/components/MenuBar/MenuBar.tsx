@@ -186,6 +186,7 @@ export default function MenuBar() {
       else if (ctrl && e.key === '-') { e.preventDefault(); handleAction('zoomOut'); }
       else if (ctrl && e.key === '0') { e.preventDefault(); handleAction('zoomActual'); }
       else if (e.key === 'Delete') { handleAction('delete'); }
+      else if (e.key === 'Escape') { window.dispatchEvent(new CustomEvent('editor-escape')); }
       else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'r') { e.preventDefault(); handleAction('playtestCurrentMap'); }
       else if (ctrl && e.key === 'r') { e.preventDefault(); handleAction('playtestTitle'); }
       else if (e.key === 'F5') { e.preventDefault(); handleAction('modeMap'); }

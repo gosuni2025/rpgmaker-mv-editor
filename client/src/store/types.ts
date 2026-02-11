@@ -104,6 +104,8 @@ export interface EditorState {
   // Selection
   selectionStart: { x: number; y: number } | null;
   selectionEnd: { x: number; y: number } | null;
+  isPasting: boolean;
+  pastePreviewPos: { x: number; y: number } | null;
 
   // Event editor
   selectedEventId: number | null;
@@ -191,6 +193,9 @@ export interface EditorState {
   zoomActualSize: () => void;
   setCursorTile: (x: number, y: number) => void;
   setSelection: (start: { x: number; y: number } | null, end: { x: number; y: number } | null) => void;
+  setIsPasting: (isPasting: boolean) => void;
+  setPastePreviewPos: (pos: { x: number; y: number } | null) => void;
+  clearSelection: () => void;
   setSelectedEventId: (id: number | null) => void;
   setMode3d: (enabled: boolean) => void;
   setShadowLight: (enabled: boolean) => void;

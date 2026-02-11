@@ -5,14 +5,14 @@ import { MAX_UNDO } from './types';
 
 export const editingSlice: SliceCreator<Pick<EditorState,
   'editMode' | 'selectedTool' | 'selectedTileId' | 'selectedTiles' | 'selectedTilesWidth' | 'selectedTilesHeight' |
-  'currentLayer' | 'clipboard' | 'cursorTileX' | 'cursorTileY' | 'selectionStart' | 'selectionEnd' |
+  'currentLayer' | 'clipboard' | 'cursorTileX' | 'cursorTileY' | 'selectionStart' | 'selectionEnd' | 'isPasting' | 'pastePreviewPos' |
   'selectedEventId' | 'selectedObjectId' | 'undoStack' | 'redoStack' |
   'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' |
   'copyTiles' | 'cutTiles' | 'pasteTiles' | 'deleteTiles' |
   'copyEvent' | 'cutEvent' | 'pasteEvent' | 'deleteEvent' |
   'setSelectedObjectId' | 'addObject' | 'updateObject' | 'deleteObject' |
   'setEditMode' | 'setSelectedTool' | 'setSelectedTileId' | 'setSelectedTiles' |
-  'setCurrentLayer' | 'setCursorTile' | 'setSelection' | 'setSelectedEventId'
+  'setCurrentLayer' | 'setCursorTile' | 'setSelection' | 'setIsPasting' | 'setPastePreviewPos' | 'clearSelection' | 'setSelectedEventId'
 >> = (set, get) => ({
   editMode: 'map',
   selectedTool: 'pen',
@@ -26,6 +26,8 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   cursorTileY: 0,
   selectionStart: null,
   selectionEnd: null,
+  isPasting: false,
+  pastePreviewPos: null,
   selectedEventId: null,
   selectedObjectId: null,
   undoStack: [],
@@ -430,6 +432,12 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   setEditMode: (mode: 'map' | 'event' | 'light' | 'object') => {
     const state = get();
     const updates: Partial<EditorState> = { editMode: mode };
+    if (mode !== 'map') {
+      updates.selectionStart = null;
+      updates.selectionEnd = null;
+      updates.isPasting = false;
+      updates.pastePreviewPos = null;
+    }
     if (mode === 'light') {
       updates.lightEditMode = true;
       updates.shadowLight = true;
@@ -451,11 +459,23 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     }
     set(updates);
   },
-  setSelectedTool: (tool: string) => set({ selectedTool: tool }),
+  setSelectedTool: (tool: string) => {
+    const updates: Partial<EditorState> = { selectedTool: tool };
+    if (tool !== 'select') {
+      updates.selectionStart = null;
+      updates.selectionEnd = null;
+      updates.isPasting = false;
+      updates.pastePreviewPos = null;
+    }
+    set(updates);
+  },
   setSelectedTileId: (id: number) => set({ selectedTileId: id, selectedTiles: null, selectedTilesWidth: 1, selectedTilesHeight: 1 }),
   setSelectedTiles: (tiles: number[][] | null, width: number, height: number) => set({ selectedTiles: tiles, selectedTilesWidth: width, selectedTilesHeight: height }),
   setCurrentLayer: (layer: number) => set({ currentLayer: layer }),
   setCursorTile: (x: number, y: number) => set({ cursorTileX: x, cursorTileY: y }),
   setSelection: (start, end) => set({ selectionStart: start, selectionEnd: end }),
+  setIsPasting: (isPasting: boolean) => set({ isPasting }),
+  setPastePreviewPos: (pos) => set({ pastePreviewPos: pos }),
+  clearSelection: () => set({ selectionStart: null, selectionEnd: null, isPasting: false, pastePreviewPos: null }),
   setSelectedEventId: (id: number | null) => set({ selectedEventId: id }),
 });

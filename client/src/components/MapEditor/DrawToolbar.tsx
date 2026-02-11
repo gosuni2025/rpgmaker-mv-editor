@@ -7,6 +7,7 @@ interface Tool {
 }
 
 const tools: Tool[] = [
+  { id: 'select', label: '선택' },
   { id: 'pen', label: '연필' },
   { id: 'rectangle', label: '직사각형' },
   { id: 'ellipse', label: '타원' },
