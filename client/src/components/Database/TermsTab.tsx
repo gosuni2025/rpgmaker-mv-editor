@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { SystemData } from '../../types/rpgMakerMV';
 
 interface TermsTabProps {
@@ -8,12 +9,7 @@ interface TermsTabProps {
 
 type TermSection = 'basic' | 'commands' | 'params' | 'messages';
 
-const SECTIONS: { key: TermSection; label: string }[] = [
-  { key: 'basic', label: 'Basic' },
-  { key: 'commands', label: 'Commands' },
-  { key: 'params', label: 'Params' },
-  { key: 'messages', label: 'Messages' },
-];
+// SECTIONS moved inside component to use t()
 
 const BASIC_KEYS = [
   'level', 'levelA', 'hp', 'hpA', 'mp', 'mpA', 'tp', 'tpA', 'exp', 'expA',
@@ -49,6 +45,13 @@ const MESSAGE_KEYS = [
 ];
 
 export default function TermsTab({ data, onChange }: TermsTabProps) {
+  const { t } = useTranslation();
+  const SECTIONS: { key: TermSection; label: string }[] = [
+    { key: 'basic', label: t('termsTab.basic') },
+    { key: 'commands', label: t('termsTab.commands') },
+    { key: 'params', label: t('termsTab.params') },
+    { key: 'messages', label: t('termsTab.messages') },
+  ];
   const [activeSection, setActiveSection] = useState<TermSection>('basic');
 
   if (!data) return null;

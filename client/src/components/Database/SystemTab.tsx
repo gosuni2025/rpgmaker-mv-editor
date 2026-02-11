@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { SystemData, AudioFile, Vehicle, AttackMotion } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
 import ImagePicker from '../common/ImagePicker';
@@ -13,20 +14,14 @@ interface RefItem { id: number; name: string }
 
 const DEFAULT_AUDIO: AudioFile = { name: '', pan: 0, pitch: 100, volume: 90 };
 
-const SOUND_NAMES = [
-  '커서', '확인', '취소', '부저', '장착', '저장', '불러오기', '전투 시작',
-  '도망', '적 공격', '적 피해', '적 기절', '보스 기절 1',
-  '보스 기절 2', '아군 피해', '아군 기절', '회복', '빗맞음',
-  '회피', '마법 회피', '마법 반사', '상점', '아이템 사용', '스킬 사용',
-];
-
-const MENU_COMMAND_NAMES = ['아이템', '스킬', '장비', '상태', '대열', '세이브'];
-
-const MOTION_TYPES = ['찌르기', '휘두르기', '날리기'];
-
-const VEHICLE_LABELS: Record<string, string> = { boat: '보트', ship: '배', airship: '비행선' };
+// SOUND_NAMES, MENU_COMMAND_NAMES, MOTION_TYPES, VEHICLE_LABELS moved inside component to use t()
 
 export default function SystemTab({ data, onChange }: SystemTabProps) {
+  const { t } = useTranslation();
+  const SOUND_NAMES = Array.from({length: 24}, (_, i) => t('system.soundNames.' + i));
+  const MENU_COMMAND_NAMES = Array.from({length: 6}, (_, i) => t('system.menuItems.' + i));
+  const MOTION_TYPES = Array.from({length: 3}, (_, i) => t('system.motionTypes.' + i));
+  const VEHICLE_LABELS: Record<string, string> = { boat: t('system.vehicles.boat'), ship: t('system.vehicles.ship'), airship: t('system.vehicles.airship') };
   const [actorsList, setActorsList] = useState<RefItem[]>([]);
 
   useEffect(() => {
@@ -107,13 +102,13 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
       <div className="db-system-column">
         {/* 초기 파티 */}
         <div className="db-system-section">
-          초기 파티
+          {t('system.initialParty')}
           <button className="db-btn-small" onClick={addPartyMember}>+</button>
         </div>
         {(data.partyMembers || []).map((memberId: number, i: number) => (
           <div key={i} className="db-party-row">
             <select value={memberId} onChange={(e) => handlePartyChange(i, e.target.value)}>
-              <option value={0}>(없음)</option>
+              <option value={0}>{t('common.none')}</option>
               {actorsList.map(a => <option key={a.id} value={a.id}>{String(a.id).padStart(4, '0')}: {a.name}</option>)}
             </select>
             <button className="db-btn-small" onClick={() => removePartyMember(i)}>-</button>
@@ -121,25 +116,25 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
         ))}
 
         {/* 게임 타이틀 */}
-        <div className="db-system-section">게임 타이틀</div>
+        <div className="db-system-section">{t('system.gameTitle')}</div>
         <label>
           <input type="text" value={data.gameTitle || ''} onChange={(e) => handleChange('gameTitle', e.target.value)} />
         </label>
 
         {/* 화폐 단위 */}
-        <div className="db-system-section">화폐 단위</div>
+        <div className="db-system-section">{t('system.currency')}</div>
         <label>
           <input type="text" value={data.currencyUnit || ''} onChange={(e) => handleChange('currencyUnit', e.target.value)} />
         </label>
 
         {/* 로케일 */}
-        <div className="db-system-section">로케일</div>
+        <div className="db-system-section">{t('system.locale')}</div>
         <label>
           <input type="text" value={data.locale || ''} onChange={(e) => handleChange('locale', e.target.value)} />
         </label>
 
         {/* 탈것 이미지 */}
-        <div className="db-system-section">탈것 이미지</div>
+        <div className="db-system-section">{t('system.vehicleImages')}</div>
         {(['boat', 'ship', 'airship'] as const).map((key) => {
           const v = getVehicle(key);
           return (
@@ -159,10 +154,10 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
         })}
 
         {/* 시작 위치 */}
-        <div className="db-system-section">시작 위치</div>
-        <label style={{ color: '#bbb', fontSize: 11 }}>플레이어</label>
+        <div className="db-system-section">{t('system.startPosition')}</div>
+        <label style={{ color: '#bbb', fontSize: 11 }}>{t('system.player')}</label>
         <div className="db-system-row">
-          <label>맵 <input type="number" value={data.startMapId || 0} onChange={(e) => handleChange('startMapId', Number(e.target.value))} /></label>
+          <label>{t('system.map')} <input type="number" value={data.startMapId || 0} onChange={(e) => handleChange('startMapId', Number(e.target.value))} /></label>
           <label>X <input type="number" value={data.startX || 0} onChange={(e) => handleChange('startX', Number(e.target.value))} /></label>
           <label>Y <input type="number" value={data.startY || 0} onChange={(e) => handleChange('startY', Number(e.target.value))} /></label>
         </div>
@@ -172,7 +167,7 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
             <React.Fragment key={key}>
               <label style={{ color: '#bbb', fontSize: 11 }}>{VEHICLE_LABELS[key]}</label>
               <div className="db-system-row">
-                <label>맵 <input type="number" value={v.startMapId || 0} onChange={(e) => updateVehicle(key, 'startMapId', Number(e.target.value))} /></label>
+                <label>{t('system.map')} <input type="number" value={v.startMapId || 0} onChange={(e) => updateVehicle(key, 'startMapId', Number(e.target.value))} /></label>
                 <label>X <input type="number" value={v.startX || 0} onChange={(e) => updateVehicle(key, 'startX', Number(e.target.value))} /></label>
                 <label>Y <input type="number" value={v.startY || 0} onChange={(e) => updateVehicle(key, 'startY', Number(e.target.value))} /></label>
               </div>
@@ -184,40 +179,40 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
       {/* ===== 중앙 컬럼 ===== */}
       <div className="db-system-column">
         {/* 타이틀 화면 */}
-        <div className="db-system-section">타이틀 화면</div>
+        <div className="db-system-section">{t('system.titleScreen')}</div>
         <div className="db-system-field-label">
-          <span>타이틀 1</span>
+          <span>{t('system.title1')}</span>
           <ImagePicker type="titles1" value={data.title1Name || ''} onChange={(name) => handleChange('title1Name', name)} />
         </div>
         <div className="db-system-field-label">
-          <span>타이틀 2</span>
+          <span>{t('system.title2')}</span>
           <ImagePicker type="titles2" value={data.title2Name || ''} onChange={(name) => handleChange('title2Name', name)} />
         </div>
         <label className="db-system-checkbox">
           <input type="checkbox" checked={data.optDrawTitle ?? true} onChange={(e) => handleChange('optDrawTitle', e.target.checked)} />
-          게임 타이틀 표시
+          {t('system.drawTitle')}
         </label>
 
         {/* 음악 */}
-        <div className="db-system-section">음악</div>
+        <div className="db-system-section">{t('system.music')}</div>
         <div className="db-system-audio-row">
-          <span>타이틀</span>
+          <span>{t('system.musicLabels.title')}</span>
           <div><AudioPicker type="bgm" value={data.titleBgm || DEFAULT_AUDIO} onChange={(a) => handleChange('titleBgm', a)} /></div>
         </div>
         <div className="db-system-audio-row">
-          <span>전투</span>
+          <span>{t('system.musicLabels.battle')}</span>
           <div><AudioPicker type="bgm" value={data.battleBgm || DEFAULT_AUDIO} onChange={(a) => handleChange('battleBgm', a)} /></div>
         </div>
         <div className="db-system-audio-row">
-          <span>승리</span>
+          <span>{t('system.musicLabels.victory')}</span>
           <div><AudioPicker type="me" value={data.victoryMe || DEFAULT_AUDIO} onChange={(a) => handleChange('victoryMe', a)} /></div>
         </div>
         <div className="db-system-audio-row">
-          <span>패배</span>
+          <span>{t('system.musicLabels.defeat')}</span>
           <div><AudioPicker type="me" value={data.defeatMe || DEFAULT_AUDIO} onChange={(a) => handleChange('defeatMe', a)} /></div>
         </div>
         <div className="db-system-audio-row">
-          <span>게임오버</span>
+          <span>{t('system.musicLabels.gameover')}</span>
           <div><AudioPicker type="me" value={data.gameoverMe || DEFAULT_AUDIO} onChange={(a) => handleChange('gameoverMe', a)} /></div>
         </div>
         {(['boat', 'ship', 'airship'] as const).map((key) => (
@@ -228,7 +223,7 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
         ))}
 
         {/* 메뉴 명령 */}
-        <div className="db-system-section">메뉴 명령</div>
+        <div className="db-system-section">{t('system.menuCommands')}</div>
         {MENU_COMMAND_NAMES.map((name, i) => (
           <label key={i} className="db-system-checkbox">
             <input type="checkbox" checked={data.menuCommands?.[i] ?? true} onChange={(e) => handleMenuCommandChange(i, e.target.checked)} />
@@ -237,7 +232,7 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
         ))}
 
         {/* [SV] 공격 모션 */}
-        <div className="db-system-section">[SV] 공격 모션</div>
+        <div className="db-system-section">{t('system.attackMotion')}</div>
         <div className="db-system-motions-list">
           {(data.weaponTypes || []).map((wName, i) => {
             if (i === 0) return null;
@@ -255,7 +250,7 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
         </div>
 
         {/* [SV] 마법 스킬 */}
-        <div className="db-system-section">[SV] 마법 스킬</div>
+        <div className="db-system-section">{t('system.magicSkills')}</div>
         {(data.skillTypes || []).map((sName, i) => {
           if (i === 0 || !sName) return null;
           return (
@@ -270,38 +265,38 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
       {/* ===== 우측 컬럼 ===== */}
       <div className="db-system-column">
         {/* 옵션 */}
-        <div className="db-system-section">옵션</div>
+        <div className="db-system-section">{t('system.options')}</div>
         <label className="db-system-checkbox">
           <input type="checkbox" checked={data.optSideView ?? false} onChange={(e) => handleChange('optSideView', e.target.checked)} />
-          사이드뷰 전투 사용
+          {t('system.optSideView')}
         </label>
         <label className="db-system-checkbox">
           <input type="checkbox" checked={data.optTransparent ?? false} onChange={(e) => handleChange('optTransparent', e.target.checked)} />
-          투명 상태로 시작
+          {t('system.optTransparent')}
         </label>
         <label className="db-system-checkbox">
           <input type="checkbox" checked={data.optFollowers ?? true} onChange={(e) => handleChange('optFollowers', e.target.checked)} />
-          파티원 따라다니기
+          {t('system.optFollowers')}
         </label>
         <label className="db-system-checkbox">
           <input type="checkbox" checked={data.optSlipDeath ?? false} onChange={(e) => handleChange('optSlipDeath', e.target.checked)} />
-          슬립 데미지로 기절
+          {t('system.optSlipDeath')}
         </label>
         <label className="db-system-checkbox">
           <input type="checkbox" checked={data.optFloorDeath ?? false} onChange={(e) => handleChange('optFloorDeath', e.target.checked)} />
-          바닥 데미지로 기절
+          {t('system.optFloorDeath')}
         </label>
         <label className="db-system-checkbox">
           <input type="checkbox" checked={data.optDisplayTp ?? true} onChange={(e) => handleChange('optDisplayTp', e.target.checked)} />
-          전투 중 TP 표시
+          {t('system.optDisplayTp')}
         </label>
         <label className="db-system-checkbox">
           <input type="checkbox" checked={data.optExtraExp ?? false} onChange={(e) => handleChange('optExtraExp', e.target.checked)} />
-          예비 멤버 경험치
+          {t('system.optExtraExp')}
         </label>
 
         {/* 효과음 */}
-        <div className="db-system-section">효과음</div>
+        <div className="db-system-section">{t('system.soundEffects')}</div>
         {SOUND_NAMES.map((name, i) => (
           <div key={i} className="db-system-audio-row">
             <span>{name}</span>
@@ -310,7 +305,7 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
         ))}
 
         {/* 윈도우 색상 */}
-        <div className="db-system-section">윈도우 색상</div>
+        <div className="db-system-section">{t('system.windowColor')}</div>
         {tone.map((val: number, i: number) => (
           <label key={i}>
             {toneLabels[i]}

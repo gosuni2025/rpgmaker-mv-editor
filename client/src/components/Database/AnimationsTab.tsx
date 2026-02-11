@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Animation, AnimationTiming, AudioFile } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import AudioPicker from '../common/AudioPicker';
@@ -11,6 +12,7 @@ function TargetPickerPopup({ enemyList, value, onSelect, onClose }: {
   onSelect: (name: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState('');
   const popupRef = useRef<HTMLDivElement>(null);
 
@@ -31,12 +33,12 @@ function TargetPickerPopup({ enemyList, value, onSelect, onClose }: {
   return (
     <div className="target-picker-popup" ref={popupRef}>
       <div className="target-picker-header">
-        <span>대상 선택</span>
+        <span>{t('animations.targetSelect')}</span>
         <button className="db-btn-small" onClick={onClose}>X</button>
       </div>
       <input
         type="text"
-        placeholder="검색..."
+        placeholder={t('animations.search')}
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
         className="target-picker-search"
@@ -47,7 +49,7 @@ function TargetPickerPopup({ enemyList, value, onSelect, onClose }: {
           className={`target-picker-item${value === '' ? ' selected' : ''}`}
           onClick={() => { onSelect(''); onClose(); }}
         >
-          <div className="target-picker-thumb empty">(없음)</div>
+          <div className="target-picker-thumb empty">{t('common.none')}</div>
         </div>
         {filtered.map((name) => (
           <div
@@ -74,10 +76,11 @@ interface AnimationsTabProps {
   onChange: (data: (Animation | null)[]) => void;
 }
 
-const POSITION_OPTIONS = ['머리 위', '중심', '발 밑', '화면'];
+// POSITION_OPTIONS moved inside component to use t()
 
 // 애니메이션 프리뷰 캔버스
 function AnimationPreview({ animation }: { animation: Animation | undefined }) {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [targetImage, setTargetImage] = useState<string>('');
   const [enemyList, setEnemyList] = useState<string[]>([]);
@@ -325,7 +328,7 @@ function AnimationPreview({ animation }: { animation: Animation | undefined }) {
     <div className="anim-preview-container">
       <div className="anim-preview-toolbar">
         <div className="anim-preview-target-label">
-          대상
+          {t('animations.target')}
           <button
             className="target-picker-btn"
             onClick={() => setShowTargetPicker(true)}
@@ -336,7 +339,7 @@ function AnimationPreview({ animation }: { animation: Animation | undefined }) {
                 <span>{targetImage}</span>
               </>
             ) : (
-              <span>(없음)</span>
+              <span>{t('common.none')}</span>
             )}
           </button>
         </div>
@@ -351,15 +354,15 @@ function AnimationPreview({ animation }: { animation: Animation | undefined }) {
         <div className="anim-preview-controls">
           {!playing ? (
             <button className="db-btn-small anim-play-btn" onClick={playAnimation} disabled={totalFrames === 0}>
-              ▶ 재생
+              {t('animations.play')}
             </button>
           ) : (
             <button className="db-btn-small anim-stop-btn" onClick={stopAnimation}>
-              ■ 정지
+              {t('animations.stop')}
             </button>
           )}
           <span className="anim-frame-info">
-            {playing ? currentFrame + 1 : 0} / {totalFrames} 프레임
+            {playing ? currentFrame + 1 : 0} / {totalFrames} {t('animations.frame')}
           </span>
         </div>
       </div>
@@ -374,6 +377,8 @@ function AnimationPreview({ animation }: { animation: Animation | undefined }) {
 }
 
 export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
+  const { t } = useTranslation();
+  const POSITION_OPTIONS = [t('animations.positions.0'), t('animations.positions.1'), t('animations.positions.2'), t('animations.positions.3')];
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
 
@@ -439,32 +444,32 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
             <div className="anim-top-section">
               <div className="anim-settings-panel">
                 <label>
-                  이름
+                  {t('common.name')}
                   <input type="text" value={selectedItem.name || ''} onChange={(e) => handleFieldChange('name', e.target.value)} />
                 </label>
 
-                <div className="db-form-section">이미지 1</div>
+                <div className="db-form-section">{t('animations.image1')}</div>
                 <ImagePicker
                   type="animations"
                   value={selectedItem.animation1Name || ''}
                   onChange={(n) => handleFieldChange('animation1Name', n)}
                 />
                 <label>
-                  색조
+                  {t('animations.hue')}
                   <div className="db-slider-row">
                     <input type="range" min={0} max={360} value={selectedItem.animation1Hue || 0} onChange={(e) => handleFieldChange('animation1Hue', Number(e.target.value))} />
                     <span className="db-slider-value">{selectedItem.animation1Hue || 0}</span>
                   </div>
                 </label>
 
-                <div className="db-form-section">이미지 2</div>
+                <div className="db-form-section">{t('animations.image2')}</div>
                 <ImagePicker
                   type="animations"
                   value={selectedItem.animation2Name || ''}
                   onChange={(n) => handleFieldChange('animation2Name', n)}
                 />
                 <label>
-                  색조
+                  {t('animations.hue')}
                   <div className="db-slider-row">
                     <input type="range" min={0} max={360} value={selectedItem.animation2Hue || 0} onChange={(e) => handleFieldChange('animation2Hue', Number(e.target.value))} />
                     <span className="db-slider-value">{selectedItem.animation2Hue || 0}</span>
@@ -472,14 +477,14 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                 </label>
 
                 <label>
-                  위치
+                  {t('animations.position')}
                   <select value={selectedItem.position || 0} onChange={(e) => handleFieldChange('position', Number(e.target.value))}>
                     {POSITION_OPTIONS.map((name, i) => <option key={i} value={i}>{name}</option>)}
                   </select>
                 </label>
 
                 <div style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
-                  {(selectedItem.frames || []).length} 프레임
+                  {(selectedItem.frames || []).length} {t('animations.frame')}
                 </div>
               </div>
 
@@ -487,23 +492,23 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
             </div>
 
             <div className="db-form-section">
-              타이밍
+              {t('animations.timing')}
               <button className="db-btn-small" onClick={addTiming}>+</button>
             </div>
             {(selectedItem.timings || []).map((timing: AnimationTiming, i: number) => (
               <div key={i} style={{ fontSize: 12, padding: '4px 0', borderBottom: '1px solid #444' }}>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
-                  <label>프레임 <input type="number" value={timing.frame} onChange={(e) => handleTimingChange(i, 'frame', Number(e.target.value))} style={{ width: 50 }} /></label>
+                  <label>{t('animations.frame')} <input type="number" value={timing.frame} onChange={(e) => handleTimingChange(i, 'frame', Number(e.target.value))} style={{ width: 50 }} /></label>
                   <label>
-                    플래시 범위
+                    {t('animations.flashScope')}
                     <select value={timing.flashScope} onChange={(e) => handleTimingChange(i, 'flashScope', Number(e.target.value))} style={{ width: 90 }}>
-                      <option value={0}>없음</option>
-                      <option value={1}>대상</option>
-                      <option value={2}>화면</option>
-                      <option value={3}>대상 제거</option>
+                      <option value={0}>{t('animations.flashScopes.0')}</option>
+                      <option value={1}>{t('animations.flashScopes.1')}</option>
+                      <option value={2}>{t('animations.flashScopes.2')}</option>
+                      <option value={3}>{t('animations.flashScopes.3')}</option>
                     </select>
                   </label>
-                  <label>지속시간 <input type="number" value={timing.flashDuration || 0} onChange={(e) => handleTimingChange(i, 'flashDuration', Number(e.target.value))} style={{ width: 40 }} /></label>
+                  <label>{t('animations.duration')} <input type="number" value={timing.flashDuration || 0} onChange={(e) => handleTimingChange(i, 'flashDuration', Number(e.target.value))} style={{ width: 40 }} /></label>
                   <button className="db-btn-small" onClick={() => removeTiming(i)}>-</button>
                 </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -511,7 +516,7 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                     SE
                     <AudioPicker type="se" value={timing.se || { name: '', pan: 0, pitch: 100, volume: 90 }} onChange={(a: AudioFile) => handleTimingChange(i, 'se', a)} />
                   </label>
-                  <label>플래시 색상 (RGBA)
+                  <label>{t('animations.flashColor')}
                     <div style={{ display: 'flex', gap: 2 }}>
                       {[0, 1, 2, 3].map((ci) => (
                         <input key={ci} type="number" value={(timing.flashColor || [255, 255, 255, 170])[ci]}
