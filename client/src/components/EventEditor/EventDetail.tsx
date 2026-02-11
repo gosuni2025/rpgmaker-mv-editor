@@ -88,19 +88,31 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
   };
 
   const updatePage = (pageIndex: number, partial: Partial<EventPage>) => {
-    const pages = [...editEvent.pages];
-    pages[pageIndex] = { ...pages[pageIndex], ...partial };
-    updateEvent({ pages });
+    setEditEvent((prev) => {
+      const pages = [...prev.pages];
+      pages[pageIndex] = { ...pages[pageIndex], ...partial };
+      return { ...prev, pages };
+    });
   };
 
   const updateConditions = (partial: Partial<EventConditions>) => {
-    if (!page) return;
-    updatePage(activePage, { conditions: { ...page.conditions, ...partial } });
+    setEditEvent((prev) => {
+      const pg = prev.pages?.[activePage];
+      if (!pg) return prev;
+      const pages = [...prev.pages];
+      pages[activePage] = { ...pg, conditions: { ...pg.conditions, ...partial } };
+      return { ...prev, pages };
+    });
   };
 
   const updateImage = (partial: Partial<EventImage>) => {
-    if (!page) return;
-    updatePage(activePage, { image: { ...page.image, ...partial } });
+    setEditEvent((prev) => {
+      const pg = prev.pages?.[activePage];
+      if (!pg) return prev;
+      const pages = [...prev.pages];
+      pages[activePage] = { ...pg, image: { ...pg.image, ...partial } };
+      return { ...prev, pages };
+    });
   };
 
   const addPage = () => {
