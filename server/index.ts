@@ -15,6 +15,7 @@ import audioRoutes from './routes/audio';
 import pluginsRoutes from './routes/plugins';
 import eventsRoutes from './routes/events';
 import generatorRoutes from './routes/generator';
+import localizationRoutes from './routes/localization';
 
 const app = express();
 app.use(cors());
@@ -268,6 +269,7 @@ app.use('/api/audio', audioRoutes);
 app.use('/api/plugins', pluginsRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/generator', generatorRoutes);
+app.use('/api/localization', localizationRoutes);
 
 const server = http.createServer(app);
 

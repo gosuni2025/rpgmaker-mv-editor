@@ -64,6 +64,7 @@ const en = {
     settings: 'Settings',
     language: 'Language',
     options: 'Options...',
+    localization: 'Localization...',
   },
 
   options: {
@@ -690,6 +691,36 @@ const en = {
     preparing: 'Preparing deployment...',
     complete: 'Deployment complete!',
     pathRequired: 'Please select an output path',
+  },
+
+  localization: {
+    title: 'Localization Manager',
+    init: 'Initialize',
+    sync: 'Sync',
+    sourceLanguage: 'Source Language',
+    targetLanguages: 'Target Languages',
+    addLanguage: 'Add Language',
+    filterAll: 'All',
+    filterUntranslated: 'Untranslated',
+    filterOutdated: 'Outdated',
+    search: 'Search...',
+    progress: 'Progress',
+    key: 'Key',
+    translated: 'Translated',
+    outdated: 'Outdated',
+    untranslated: 'Untranslated',
+    noData: 'No data',
+    syncComplete: 'Sync complete',
+    initComplete: 'Initialization complete',
+    notInitialized: 'Localization is not initialized',
+    initDescription: 'Set the source language and target languages to start localization.',
+    category: {
+      database: 'Database',
+      maps: 'Maps',
+      terms: 'Terms',
+      common_events: 'Common Events',
+    },
+    translate: 'Translate',
   },
 };
 

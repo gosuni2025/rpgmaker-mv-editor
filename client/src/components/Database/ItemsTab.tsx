@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Item, Damage, Effect } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import DamageEditor from '../common/DamageEditor';
+import TranslateButton from '../common/TranslateButton';
 import EffectsEditor from '../common/EffectsEditor';
 import apiClient from '../../api/client';
 
@@ -84,7 +85,10 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
           <>
             <label>
               {t('common.name')}
-              <input type="text" value={selectedItem.name || ''} onChange={(e) => handleFieldChange('name', e.target.value)} />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input type="text" value={selectedItem.name || ''} onChange={(e) => handleFieldChange('name', e.target.value)} style={{flex:1}} />
+                <TranslateButton csvPath="database/items.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
+              </div>
             </label>
             <div className="db-form-row">
               <label>
@@ -94,7 +98,10 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
             </div>
             <label>
               {t('common.description')}
-              <textarea value={selectedItem.description || ''} onChange={(e) => handleFieldChange('description', e.target.value)} rows={2} />
+              <div style={{display:'flex',gap:4,alignItems:'start'}}>
+                <textarea value={selectedItem.description || ''} onChange={(e) => handleFieldChange('description', e.target.value)} rows={2} style={{flex:1}} />
+                <TranslateButton csvPath="database/items.csv" entryKey={`${selectedItem.id}.description`} sourceText={selectedItem.description || ''} />
+              </div>
             </label>
             <label>
               {t('fields.itemType')}

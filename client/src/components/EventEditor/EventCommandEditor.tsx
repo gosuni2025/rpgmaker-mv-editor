@@ -2,10 +2,20 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import CommandParamEditor from './CommandParamEditor';
+import TranslateButton from '../common/TranslateButton';
+
+export interface EventCommandContext {
+  mapId?: number;
+  eventId?: number;
+  pageIndex?: number;
+  isCommonEvent?: boolean;
+  commonEventId?: number;
+}
 
 interface EventCommandEditorProps {
   commands: EventCommand[];
   onChange: (commands: EventCommand[]) => void;
+  context?: EventCommandContext;
 }
 
 // Commands that have no parameters and can be inserted directly
@@ -152,7 +162,7 @@ function expandSelectionToGroups(commands: EventCommand[], indices: Set<number>)
 // 내부 클립보드 (컴포넌트 외부에 두어 리렌더 없이 유지)
 let commandClipboard: EventCommand[] = [];
 
-export default function EventCommandEditor({ commands, onChange }: EventCommandEditorProps) {
+export default function EventCommandEditor({ commands, onChange, context }: EventCommandEditorProps) {
   const { t } = useTranslation();
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [lastClickedIndex, setLastClickedIndex] = useState(-1);
@@ -720,6 +730,28 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
                   </span>
                 )}
                 {display || <span style={{ color: '#555' }}>&loz;</span>}
+                {context && [101, 102, 105, 321, 325].includes(cmd.code) && (() => {
+                  const prefix = context.isCommonEvent
+                    ? `ce${context.commonEventId}`
+                    : `ev${context.eventId}.page${(context.pageIndex || 0) + 1}`;
+                  const csvPath = context.isCommonEvent ? 'common_events.csv' : `maps/map${String(context.mapId).padStart(3, '0')}.csv`;
+                  let sourceText = '';
+                  if (cmd.code === 101 || cmd.code === 105) {
+                    const lines: string[] = [];
+                    const followCode = cmd.code === 101 ? 401 : 405;
+                    for (let j = i + 1; j < commands.length && commands[j].code === followCode; j++) {
+                      lines.push(commands[j].parameters[0] as string);
+                    }
+                    sourceText = lines.join('\n');
+                  } else if (cmd.code === 102) {
+                    sourceText = ((cmd.parameters[0] as string[]) || []).join(', ');
+                  } else if (cmd.code === 321 || cmd.code === 325) {
+                    sourceText = (cmd.parameters[1] as string) || '';
+                  }
+                  return sourceText ? (
+                    <TranslateButton csvPath={csvPath} entryKey={`${prefix}.cmd${i}`} sourceText={sourceText} />
+                  ) : null;
+                })()}
               </div>
             </React.Fragment>
           );

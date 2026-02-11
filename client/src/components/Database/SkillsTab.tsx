@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Skill, Damage, Effect } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import DamageEditor from '../common/DamageEditor';
+import TranslateButton from '../common/TranslateButton';
 import EffectsEditor from '../common/EffectsEditor';
 import apiClient from '../../api/client';
 
@@ -127,11 +128,15 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
           <>
             <label>
               {t('common.name')}
-              <input
-                type="text"
-                value={selectedItem.name || ''}
-                onChange={(e) => handleFieldChange('name', e.target.value)}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={selectedItem.name || ''}
+                  onChange={(e) => handleFieldChange('name', e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/skills.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
+              </div>
             </label>
 
             <label>
@@ -144,11 +149,15 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
 
             <label>
               {t('common.description')}
-              <textarea
-                value={selectedItem.description || ''}
-                onChange={(e) => handleFieldChange('description', e.target.value)}
-                rows={2}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'start'}}>
+                <textarea
+                  value={selectedItem.description || ''}
+                  onChange={(e) => handleFieldChange('description', e.target.value)}
+                  rows={2}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/skills.csv" entryKey={`${selectedItem.id}.description`} sourceText={selectedItem.description || ''} />
+              </div>
             </label>
 
             <label>
@@ -272,20 +281,28 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
 
             <label>
               {t('fields.message1')}
-              <input
-                type="text"
-                value={selectedItem.message1 || ''}
-                onChange={(e) => handleFieldChange('message1', e.target.value)}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={selectedItem.message1 || ''}
+                  onChange={(e) => handleFieldChange('message1', e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/skills.csv" entryKey={`${selectedItem.id}.message1`} sourceText={selectedItem.message1 || ''} />
+              </div>
             </label>
 
             <label>
               {t('fields.message2')}
-              <input
-                type="text"
-                value={selectedItem.message2 || ''}
-                onChange={(e) => handleFieldChange('message2', e.target.value)}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={selectedItem.message2 || ''}
+                  onChange={(e) => handleFieldChange('message2', e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/skills.csv" entryKey={`${selectedItem.id}.message2`} sourceText={selectedItem.message2 || ''} />
+              </div>
             </label>
 
             <div className="db-form-section">{t('fields.requiredWeaponTypes')}</div>

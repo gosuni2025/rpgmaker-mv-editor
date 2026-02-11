@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { RPGClass } from '../../types/rpgMakerMV';
 import TraitsEditor from '../common/TraitsEditor';
 import apiClient from '../../api/client';
+import TranslateButton from '../common/TranslateButton';
 
 // RPG Maker MV EXP formula: rpg_objects.js line 3524
 function expForLevel(level: number, expParams: number[]): number {
@@ -242,11 +243,15 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
           <>
             <label>
               {t('common.name')}
-              <input
-                type="text"
-                value={selectedItem.name || ''}
-                onChange={(e) => handleFieldChange('name', e.target.value)}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={selectedItem.name || ''}
+                  onChange={(e) => handleFieldChange('name', e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/classes.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
+              </div>
             </label>
 
             <div className="db-form-section">{t('fields.expCurve')}</div>

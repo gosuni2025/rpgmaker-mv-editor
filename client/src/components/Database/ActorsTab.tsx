@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Actor, Trait } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import TraitsEditor from '../common/TraitsEditor';
+import TranslateButton from '../common/TranslateButton';
 import apiClient from '../../api/client';
 
 interface ActorsTabProps {
@@ -110,19 +111,27 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
           <>
             <label>
               {t('common.name')}
-              <input
-                type="text"
-                value={selectedItem.name || ''}
-                onChange={(e) => handleFieldChange('name', e.target.value)}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={selectedItem.name || ''}
+                  onChange={(e) => handleFieldChange('name', e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/actors.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
+              </div>
             </label>
             <label>
               {t('fields.nickname')}
-              <input
-                type="text"
-                value={selectedItem.nickname || ''}
-                onChange={(e) => handleFieldChange('nickname', e.target.value)}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={selectedItem.nickname || ''}
+                  onChange={(e) => handleFieldChange('nickname', e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/actors.csv" entryKey={`${selectedItem.id}.nickname`} sourceText={selectedItem.nickname || ''} />
+              </div>
             </label>
             <label>
               {t('fields.class')}
@@ -153,11 +162,15 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
             </label>
             <label>
               {t('fields.profile')}
-              <textarea
-                value={selectedItem.profile || ''}
-                onChange={(e) => handleFieldChange('profile', e.target.value)}
-                rows={3}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'start'}}>
+                <textarea
+                  value={selectedItem.profile || ''}
+                  onChange={(e) => handleFieldChange('profile', e.target.value)}
+                  rows={3}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/actors.csv" entryKey={`${selectedItem.id}.profile`} sourceText={selectedItem.profile || ''} />
+              </div>
             </label>
 
             <div className="db-form-section">{t('fields.images')}</div>

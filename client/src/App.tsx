@@ -20,6 +20,7 @@ import EventSearchDialog from './components/EventSearchDialog';
 import ResourceManagerDialog from './components/ResourceManagerDialog';
 import CharacterGeneratorDialog from './components/CharacterGenerator/CharacterGeneratorDialog';
 import OptionsDialog from './components/OptionsDialog';
+import LocalizationDialog from './components/LocalizationDialog';
 import AutotileDebugDialog from './components/AutotileDebugDialog';
 import LightInspector from './components/Sidebar/LightInspector';
 import ObjectInspector from './components/Sidebar/ObjectInspector';
@@ -85,6 +86,7 @@ export default function App() {
   const showResourceManagerDialog = useEditorStore((s) => s.showResourceManagerDialog);
   const showCharacterGeneratorDialog = useEditorStore((s) => s.showCharacterGeneratorDialog);
   const showOptionsDialog = useEditorStore((s) => s.showOptionsDialog);
+  const showLocalizationDialog = useEditorStore((s) => s.showLocalizationDialog);
   const toastMessage = useEditorStore((s) => s.toastMessage);
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
@@ -162,6 +164,7 @@ export default function App() {
       {showResourceManagerDialog && <ResourceManagerDialog />}
       {showCharacterGeneratorDialog && <CharacterGeneratorDialog />}
       {showOptionsDialog && <OptionsDialog />}
+      {showLocalizationDialog && <LocalizationDialog />}
       <AutotileDebugDialog open={showAutotileDebug} onClose={() => setShowAutotileDebug(false)} />
       {toastMessage && <div className="toast">{toastMessage}</div>}
     </div>

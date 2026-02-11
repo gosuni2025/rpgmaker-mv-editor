@@ -36,6 +36,7 @@ function getDefaultPage(): EventPage {
 export default function EventDetail({ eventId, onClose }: EventDetailProps) {
   const { t } = useTranslation();
   const currentMap = useEditorStore((s) => s.currentMap);
+  const currentMapId = useEditorStore((s) => s.currentMapId);
   const event = currentMap?.events?.find((e) => e && e.id === eventId) as RPGEvent | undefined;
 
   const [editEvent, setEditEvent] = useState<RPGEvent>(() => event ? JSON.parse(JSON.stringify(event)) : null!);
@@ -295,6 +296,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                 <EventCommandEditor
                   commands={page.list || []}
                   onChange={(newList) => updatePage(activePage, { list: newList })}
+                  context={{ mapId: currentMapId || undefined, eventId, pageIndex: activePage }}
                 />
               </div>
             </div>

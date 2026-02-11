@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { State } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import TraitsEditor from '../common/TraitsEditor';
+import TranslateButton from '../common/TranslateButton';
 
 interface StatesTabProps {
   data: (State | null)[] | undefined;
@@ -99,11 +100,15 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
           <>
             <label>
               {t('common.name')}
-              <input
-                type="text"
-                value={selectedItem.name || ''}
-                onChange={(e) => handleFieldChange('name', e.target.value)}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={selectedItem.name || ''}
+                  onChange={(e) => handleFieldChange('name', e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
+              </div>
             </label>
 
             <div className="db-form-section">{t('common.icon')}</div>
@@ -248,35 +253,51 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
             <div className="db-form-section">{t('fields.messages')}</div>
             <label>
               {t('fields.message1Actor')}
-              <input
-                type="text"
-                value={selectedItem.message1 || ''}
-                onChange={(e) => handleFieldChange('message1', e.target.value)}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={selectedItem.message1 || ''}
+                  onChange={(e) => handleFieldChange('message1', e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.message1`} sourceText={selectedItem.message1 || ''} />
+              </div>
             </label>
             <label>
               {t('fields.message2Enemy')}
-              <input
-                type="text"
-                value={selectedItem.message2 || ''}
-                onChange={(e) => handleFieldChange('message2', e.target.value)}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={selectedItem.message2 || ''}
+                  onChange={(e) => handleFieldChange('message2', e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.message2`} sourceText={selectedItem.message2 || ''} />
+              </div>
             </label>
             <label>
               {t('fields.message3Persist')}
-              <input
-                type="text"
-                value={selectedItem.message3 || ''}
-                onChange={(e) => handleFieldChange('message3', e.target.value)}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={selectedItem.message3 || ''}
+                  onChange={(e) => handleFieldChange('message3', e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.message3`} sourceText={selectedItem.message3 || ''} />
+              </div>
             </label>
             <label>
               {t('fields.message4Remove')}
-              <input
-                type="text"
-                value={selectedItem.message4 || ''}
-                onChange={(e) => handleFieldChange('message4', e.target.value)}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={selectedItem.message4 || ''}
+                  onChange={(e) => handleFieldChange('message4', e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.message4`} sourceText={selectedItem.message4 || ''} />
+              </div>
             </label>
 
             <div className="db-form-section">{t('fields.traits')}</div>

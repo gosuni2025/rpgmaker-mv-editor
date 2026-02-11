@@ -66,6 +66,7 @@ const ko = {
     settings: '환경설정',
     language: '언어',
     options: '옵션...',
+    localization: '로컬라이제이션...',
   },
 
   // === Options Dialog ===
@@ -997,6 +998,37 @@ const ko = {
     preparing: '배포 준비 중...',
     complete: '배포 완료!',
     pathRequired: '출력 경로를 선택해주세요',
+  },
+
+  // === Localization ===
+  localization: {
+    title: '로컬라이제이션 매니저',
+    init: '초기화',
+    sync: '동기화',
+    sourceLanguage: '원본 언어',
+    targetLanguages: '번역 언어',
+    addLanguage: '언어 추가',
+    filterAll: '전체',
+    filterUntranslated: '미번역',
+    filterOutdated: '업데이트 필요',
+    search: '검색...',
+    progress: '진행률',
+    key: '키',
+    translated: '번역됨',
+    outdated: '업데이트 필요',
+    untranslated: '미번역',
+    noData: '데이터 없음',
+    syncComplete: '동기화 완료',
+    initComplete: '초기화 완료',
+    notInitialized: '로컬라이제이션이 초기화되지 않았습니다',
+    initDescription: '로컬라이제이션을 시작하려면 원본 언어와 번역할 언어를 설정하세요.',
+    category: {
+      database: '데이터베이스',
+      maps: '맵',
+      terms: '용어',
+      common_events: '커먼 이벤트',
+    },
+    translate: '번역',
   },
 };
 

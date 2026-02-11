@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SystemData } from '../../types/rpgMakerMV';
+import TranslateButton from '../common/TranslateButton';
 
 interface TermsTabProps {
   data: SystemData | undefined;
@@ -102,16 +103,25 @@ export default function TermsTab({ data, onChange }: TermsTabProps) {
         <div className="db-form-section">
           {SECTIONS.find((s) => s.key === activeSection)?.label}
         </div>
-        {keys.map((key) => (
-          <label key={key}>
-            {key}
-            <input
-              type="text"
-              value={(section[key] as string) || ''}
-              onChange={(e) => handleTermChange(key, e.target.value)}
-            />
-          </label>
-        ))}
+        {keys.map((key, idx) => {
+          const termKey = activeSection === 'basic' || activeSection === 'commands' || activeSection === 'params'
+            ? `${activeSection}.${idx}`
+            : `messages.${key}`;
+          return (
+            <label key={key}>
+              {key}
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={(section[key] as string) || ''}
+                  onChange={(e) => handleTermChange(key, e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="terms.csv" entryKey={termKey} sourceText={(section[key] as string) || ''} />
+              </div>
+            </label>
+          );
+        })}
       </div>
     </div>
   );

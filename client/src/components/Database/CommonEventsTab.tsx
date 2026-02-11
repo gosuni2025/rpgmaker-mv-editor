@@ -97,6 +97,7 @@ export default function CommonEventsTab({ data, onChange }: CommonEventsTabProps
             <EventCommandEditor
               commands={selectedItem.list || [{ code: 0, indent: 0, parameters: [] }]}
               onChange={handleCommandsChange}
+              context={{ isCommonEvent: true, commonEventId: selectedItem.id }}
             />
           </>
         )}

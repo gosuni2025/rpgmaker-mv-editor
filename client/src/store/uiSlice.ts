@@ -28,12 +28,12 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'transparentColor' | 'maxUndo' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
-  'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' |
+  'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
   'showToast' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'setMode3d' | 'setShadowLight' | 'setDepthOfField' | 'setPaletteTab' |
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
-  'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' |
+  'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' | 'setShowLocalizationDialog' |
   'setTransparentColor' | 'setMaxUndo'
 >> = (set, get) => ({
   zoomLevel: 1,
@@ -56,6 +56,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   showResourceManagerDialog: false,
   showCharacterGeneratorDialog: false,
   showOptionsDialog: false,
+  showLocalizationDialog: false,
 
   showToast: (message: string) => {
     set({ toastMessage: message });
@@ -104,6 +105,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   setShowResourceManagerDialog: (show: boolean) => set({ showResourceManagerDialog: show }),
   setShowCharacterGeneratorDialog: (show: boolean) => set({ showCharacterGeneratorDialog: show }),
   setShowOptionsDialog: (show: boolean) => set({ showOptionsDialog: show }),
+  setShowLocalizationDialog: (show: boolean) => set({ showLocalizationDialog: show }),
   setTransparentColor: (color: { r: number; g: number; b: number }) => {
     localStorage.setItem(TRANSPARENT_COLOR_KEY, JSON.stringify(color));
     set({ transparentColor: color });

@@ -43,6 +43,7 @@ export default function MenuBar() {
   const setShowResourceManagerDialog = useEditorStore((s) => s.setShowResourceManagerDialog);
   const setShowCharacterGeneratorDialog = useEditorStore((s) => s.setShowCharacterGeneratorDialog);
   const setShowOptionsDialog = useEditorStore((s) => s.setShowOptionsDialog);
+  const setShowLocalizationDialog = useEditorStore((s) => s.setShowLocalizationDialog);
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
   const zoomIn = useEditorStore((s) => s.zoomIn);
@@ -122,6 +123,8 @@ export default function MenuBar() {
         { label: t('menu.characterGenerator'), action: 'characterGenerator', disabled: () => !hasProject },
         { label: t('menu.resourceManager'), action: 'resourceManager', disabled: () => !hasProject },
         { type: 'separator' },
+        { label: t('menu.localization'), action: 'localization', disabled: () => !hasProject },
+        { type: 'separator' },
         { label: t('menu.autotileDebug'), action: 'autotileDebug', disabled: () => !hasProject },
       ],
     },
@@ -178,11 +181,12 @@ export default function MenuBar() {
       case 'deselect': window.dispatchEvent(new CustomEvent('editor-deselect')); break;
       case 'autotileDebug': window.dispatchEvent(new CustomEvent('editor-autotile-debug')); break;
       case 'options': setShowOptionsDialog(true); break;
+      case 'localization': setShowLocalizationDialog(true); break;
     }
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
       setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
-      setShowCharacterGeneratorDialog, setShowOptionsDialog, setEditMode, setSelectedTool, zoomIn, zoomOut,
+      setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog, setEditMode, setSelectedTool, zoomIn, zoomOut,
       zoomActualSize, undo, redo]);
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Enemy, DropItem, EnemyAction } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import TraitsEditor from '../common/TraitsEditor';
+import TranslateButton from '../common/TranslateButton';
 import apiClient from '../../api/client';
 
 interface EnemiesTabProps {
@@ -141,11 +142,15 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
           <>
             <label>
               {t('common.name')}
-              <input
-                type="text"
-                value={selectedItem.name || ''}
-                onChange={(e) => handleFieldChange('name', e.target.value)}
-              />
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <input
+                  type="text"
+                  value={selectedItem.name || ''}
+                  onChange={(e) => handleFieldChange('name', e.target.value)}
+                  style={{flex:1}}
+                />
+                <TranslateButton csvPath="database/enemies.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
+              </div>
             </label>
 
             <div className="db-form-section">{t('fields.battlerImage')}</div>
