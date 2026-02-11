@@ -316,22 +316,21 @@ export default function LocalizationDialog() {
     if (!stats || targetLangs.length === 0) return null;
     const catStats = stats.categories.find(c => c.id === catId);
     if (!catStats || catStats.total === 0) return null;
-    // Average across all target languages
-    let totalTranslated = 0;
+    let upToDate = 0;
     for (const lang of targetLangs) {
-      totalTranslated += (catStats.translated[lang] || 0);
+      upToDate += (catStats.translated[lang] || 0) - (catStats.outdated[lang] || 0);
     }
-    const pct = Math.round((totalTranslated / (catStats.total * targetLangs.length)) * 100);
+    const pct = Math.round((upToDate / (catStats.total * targetLangs.length)) * 100);
     return pct;
   };
 
   const getTotalProgress = () => {
     if (!stats || targetLangs.length === 0 || stats.total.total === 0) return 0;
-    let totalTranslated = 0;
+    let upToDate = 0;
     for (const lang of targetLangs) {
-      totalTranslated += (stats.total.translated[lang] || 0);
+      upToDate += (stats.total.translated[lang] || 0) - (stats.total.outdated[lang] || 0);
     }
-    return Math.round((totalTranslated / (stats.total.total * targetLangs.length)) * 100);
+    return Math.round((upToDate / (stats.total.total * targetLangs.length)) * 100);
   };
 
   if (loading) {
