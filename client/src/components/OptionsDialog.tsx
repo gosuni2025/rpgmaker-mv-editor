@@ -7,13 +7,17 @@ export default function OptionsDialog() {
   const { t } = useTranslation();
   const transparentColor = useEditorStore((s) => s.transparentColor);
   const setTransparentColor = useEditorStore((s) => s.setTransparentColor);
+  const maxUndo = useEditorStore((s) => s.maxUndo);
+  const setMaxUndo = useEditorStore((s) => s.setMaxUndo);
   const setShowOptionsDialog = useEditorStore((s) => s.setShowOptionsDialog);
 
   const [localColor, setLocalColor] = useState(transparentColor);
   const [localLang, setLocalLang] = useState(i18n.language);
+  const [localMaxUndo, setLocalMaxUndo] = useState(maxUndo);
 
   const handleOK = () => {
     setTransparentColor(localColor);
+    setMaxUndo(localMaxUndo);
     if (localLang !== i18n.language) {
       i18n.changeLanguage(localLang);
       localStorage.setItem('editor-lang', localLang);
@@ -27,6 +31,7 @@ export default function OptionsDialog() {
 
   const handleApply = () => {
     setTransparentColor(localColor);
+    setMaxUndo(localMaxUndo);
     if (localLang !== i18n.language) {
       i18n.changeLanguage(localLang);
       localStorage.setItem('editor-lang', localLang);
@@ -121,6 +126,22 @@ export default function OptionsDialog() {
               </label>
             </div>
             <div style={checkerPreview(localColor)} />
+          </div>
+
+          {/* Undo History */}
+          <div className="db-form-section">{t('options.undoHistory')}</div>
+          <div className="db-form" style={{ gap: 8 }}>
+            <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <span>{t('options.maxUndoCount')}</span>
+              <input
+                type="number"
+                min={1}
+                max={999}
+                value={localMaxUndo}
+                onChange={(e) => setLocalMaxUndo(Math.max(1, Math.min(999, Number(e.target.value) || 1)))}
+                style={{ width: 80 }}
+              />
+            </label>
           </div>
 
           {/* Language */}

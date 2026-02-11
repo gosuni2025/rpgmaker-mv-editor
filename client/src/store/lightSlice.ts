@@ -1,7 +1,6 @@
 import type { EditorPointLight, EditorAmbientLight, EditorDirectionalLight, EditorPlayerLight, EditorSpotLight, EditorShadowSettings } from '../types/rpgMakerMV';
 import { DEFAULT_EDITOR_LIGHTS } from '../types/rpgMakerMV';
 import type { EditorState, SliceCreator, LightHistoryEntry } from './types';
-import { MAX_UNDO } from './types';
 
 export const lightSlice: SliceCreator<Pick<EditorState,
   'lightEditMode' | 'selectedLightId' | 'selectedLightType' |
@@ -39,7 +38,7 @@ export const lightSlice: SliceCreator<Pick<EditorState,
       oldSelectedLightId: selectedLightId,
     };
     const newStack = [...undoStack, historyEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({
       currentMap: { ...map, editorLights: newLights },
       selectedLightId: newId,
@@ -59,7 +58,7 @@ export const lightSlice: SliceCreator<Pick<EditorState,
       oldSelectedLightId: selectedLightId,
     };
     const newStack = [...undoStack, historyEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({
       currentMap: { ...map, editorLights: newLights },
       undoStack: newStack,
@@ -78,7 +77,7 @@ export const lightSlice: SliceCreator<Pick<EditorState,
       oldSelectedLightId: selectedLightId,
     };
     const newStack = [...undoStack, historyEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({
       currentMap: { ...map, editorLights: newLights },
       selectedLightId: selectedLightId === id ? null : selectedLightId,
@@ -97,7 +96,7 @@ export const lightSlice: SliceCreator<Pick<EditorState,
       oldSelectedLightId: selectedLightId,
     };
     const newStack = [...undoStack, historyEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({
       currentMap: { ...map, editorLights: newLights },
       undoStack: newStack,
@@ -115,7 +114,7 @@ export const lightSlice: SliceCreator<Pick<EditorState,
       oldSelectedLightId: selectedLightId,
     };
     const newStack = [...undoStack, historyEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({
       currentMap: { ...map, editorLights: newLights },
       undoStack: newStack,
@@ -134,7 +133,7 @@ export const lightSlice: SliceCreator<Pick<EditorState,
       oldSelectedLightId: selectedLightId,
     };
     const newStack = [...undoStack, historyEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({ currentMap: { ...map, editorLights: newLights }, undoStack: newStack, redoStack: [] });
   },
 
@@ -149,7 +148,7 @@ export const lightSlice: SliceCreator<Pick<EditorState,
       oldSelectedLightId: selectedLightId,
     };
     const newStack = [...undoStack, historyEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({ currentMap: { ...map, editorLights: newLights }, undoStack: newStack, redoStack: [] });
   },
 
@@ -164,7 +163,7 @@ export const lightSlice: SliceCreator<Pick<EditorState,
       oldSelectedLightId: selectedLightId,
     };
     const newStack = [...undoStack, historyEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({ currentMap: { ...map, editorLights: newLights }, undoStack: newStack, redoStack: [] });
   },
 });

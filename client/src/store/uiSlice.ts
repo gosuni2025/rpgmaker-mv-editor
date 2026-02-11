@@ -1,7 +1,19 @@
 import type { EditorState, SliceCreator } from './types';
-import { ZOOM_LEVELS } from './types';
+import { ZOOM_LEVELS, DEFAULT_MAX_UNDO } from './types';
 
 const TRANSPARENT_COLOR_KEY = 'rpg-editor-transparent-color';
+const MAX_UNDO_KEY = 'rpg-editor-max-undo';
+
+function loadMaxUndo(): number {
+  try {
+    const saved = localStorage.getItem(MAX_UNDO_KEY);
+    if (saved) {
+      const val = Number(saved);
+      if (val >= 1 && val <= 999) return val;
+    }
+  } catch {}
+  return DEFAULT_MAX_UNDO;
+}
 
 function loadTransparentColor(): { r: number; g: number; b: number } {
   try {
@@ -13,7 +25,7 @@ function loadTransparentColor(): { r: number; g: number; b: number } {
 
 export const uiSlice: SliceCreator<Pick<EditorState,
   'zoomLevel' | 'mode3d' | 'shadowLight' | 'depthOfField' | 'paletteTab' | 'toastMessage' |
-  'transparentColor' |
+  'transparentColor' | 'maxUndo' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' |
@@ -22,7 +34,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
   'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' |
-  'setTransparentColor'
+  'setTransparentColor' | 'setMaxUndo'
 >> = (set, get) => ({
   zoomLevel: 1,
   mode3d: false,
@@ -31,6 +43,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   paletteTab: 'A',
   toastMessage: null,
   transparentColor: loadTransparentColor(),
+  maxUndo: loadMaxUndo(),
 
   showOpenProjectDialog: false,
   showNewProjectDialog: false,
@@ -94,5 +107,10 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   setTransparentColor: (color: { r: number; g: number; b: number }) => {
     localStorage.setItem(TRANSPARENT_COLOR_KEY, JSON.stringify(color));
     set({ transparentColor: color });
+  },
+  setMaxUndo: (max: number) => {
+    const clamped = Math.max(1, Math.min(999, max));
+    localStorage.setItem(MAX_UNDO_KEY, String(clamped));
+    set({ maxUndo: clamped });
   },
 });

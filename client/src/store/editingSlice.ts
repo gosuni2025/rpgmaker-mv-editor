@@ -2,7 +2,6 @@ import type { MapData, MapObject } from '../types/rpgMakerMV';
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
 import { isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition } from '../utils/tileHelper';
 import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry } from './types';
-import { MAX_UNDO } from './types';
 
 /**
  * 변경된 타일 위치 + 인접 타일의 오토타일 shape를 재계산.
@@ -107,7 +106,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     const mergedChanges = [...merged.values()].filter(c => c.oldTileId !== c.newTileId);
     if (mergedChanges.length === 0) return;
     const newStack = [...undoStack, { mapId: currentMapId, changes: mergedChanges } as TileHistoryEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({ undoStack: newStack, redoStack: [] });
   },
 
@@ -275,7 +274,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       newWidth: nw, newHeight: nh, newData, newEvents,
     };
     const newStack = [...undoStack, historyEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({
       currentMap: { ...currentMap, width: nw, height: nh, data: newData, events: newEvents },
       undoStack: newStack,
@@ -475,7 +474,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       oldSelectedObjectId: selectedObjectId,
     };
     const newStack = [...undoStack, historyEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({
       currentMap: { ...currentMap, objects },
       selectedObjectId: newId,
@@ -495,7 +494,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       oldSelectedObjectId: selectedObjectId,
     };
     const newStack = [...undoStack, historyEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({
       currentMap: { ...currentMap, objects },
       undoStack: newStack,
@@ -514,7 +513,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       oldSelectedObjectId: selectedObjectId,
     };
     const newStack = [...undoStack, historyEntry];
-    if (newStack.length > MAX_UNDO) newStack.shift();
+    if (newStack.length > get().maxUndo) newStack.shift();
     set({
       currentMap: { ...currentMap, objects },
       selectedObjectId: selectedObjectId === id ? null : selectedObjectId,

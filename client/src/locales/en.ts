@@ -73,6 +73,8 @@ const en = {
     green: 'Green:',
     blue: 'Blue:',
     language: 'Language',
+    undoHistory: 'Undo History',
+    maxUndoCount: 'Max Count:',
     ui: 'UI',
     theme: 'Theme:',
     dark: 'Dark',

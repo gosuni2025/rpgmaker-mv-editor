@@ -76,6 +76,8 @@ const ko = {
     green: '초록:',
     blue: '파랑:',
     language: '언어',
+    undoHistory: '실행 취소 히스토리',
+    maxUndoCount: '최대 횟수:',
     ui: 'UI',
     theme: '테마:',
     dark: '다크',
