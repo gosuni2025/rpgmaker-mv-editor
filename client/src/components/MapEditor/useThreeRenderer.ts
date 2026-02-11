@@ -761,13 +761,13 @@ export function useThreeRenderer(
       if (!ev) continue;
 
       const sprite = eventSpriteMap.get(ev.id);
-      // 스프라이트의 _threeObj가 있으면 거기에 자식으로 추가
-      const parentObj = sprite?._threeObj;
-
-      // 이미지가 없는 이벤트: 반투명 파란 배경 (scene에 직접 추가)
+      // 이미지가 있는 이벤트인지 판단 (데이터 기반)
       const hasImage = ev.pages && ev.pages[0]?.image && (
         ev.pages[0].image.characterName || ev.pages[0].image.tileId > 0
       );
+      // 이미지가 있는 이벤트만 스프라이트의 _threeObj 자식으로 추가
+      // (이미지 없는 이벤트는 _threeObj.visible이 나중에 false로 변경되어 자식도 렌더링 안 됨)
+      const parentObj = hasImage && sprite?._threeObj ? sprite._threeObj : null;
       if (!hasImage) {
         const fillGeom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
         const fillMat = new THREE.MeshBasicMaterial({
