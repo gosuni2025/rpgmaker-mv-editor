@@ -62,6 +62,7 @@ export function useMouseHandlers(
   const copyTiles = useEditorStore((s) => s.copyTiles);
   const pasteTiles = useEditorStore((s) => s.pasteTiles);
   const deleteTiles = useEditorStore((s) => s.deleteTiles);
+  const moveTiles = useEditorStore((s) => s.moveTiles);
   const setIsPasting = useEditorStore((s) => s.setIsPasting);
   const setPastePreviewPos = useEditorStore((s) => s.setPastePreviewPos);
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
@@ -220,8 +221,22 @@ export function useMouseHandlers(
             moveOriginRef.current = { x: tile.x, y: tile.y };
             originalSelectionBounds.current = { minX, minY, maxX, maxY };
             copyTiles(minX, minY, maxX, maxY);
-            // 원래 위치 타일 즉시 삭제 + 프리뷰 표시
-            deleteTiles(minX, minY, maxX, maxY);
+            // 원래 위치 타일 시각적으로만 삭제 (undo 없이) + 프리뷰 표시
+            const latestMap = useEditorStore.getState().currentMap;
+            if (latestMap) {
+              const clearChanges: { x: number; y: number; z: number; tileId: number }[] = [];
+              for (let z = 0; z < 4; z++) {
+                for (let y = minY; y <= maxY; y++) {
+                  for (let x = minX; x <= maxX; x++) {
+                    const idx = (z * latestMap.height + y) * latestMap.width + x;
+                    if (latestMap.data[idx] !== 0) {
+                      clearChanges.push({ x, y, z, tileId: 0 });
+                    }
+                  }
+                }
+              }
+              if (clearChanges.length > 0) updateMapTiles(clearChanges);
+            }
             setIsPasting(true);
             setPastePreviewPos({ x: minX, y: minY });
             return;
@@ -307,7 +322,7 @@ export function useMouseHandlers(
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight, mode3d, detectEdge, getCanvasPx, startResize, eyedropTile, clearSelection, setSelection, copyTiles, deleteTiles, pasteTiles, setIsPasting, setPastePreviewPos]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight, mode3d, detectEdge, getCanvasPx, startResize, eyedropTile, clearSelection, setSelection, copyTiles, pasteTiles, setIsPasting, setPastePreviewPos]
   );
 
   const handleMouseMove = useCallback(
@@ -464,8 +479,8 @@ export function useMouseHandlers(
           if (tile && ob && moveOriginRef.current) {
             const dx = tile.x - moveOriginRef.current.x;
             const dy = tile.y - moveOriginRef.current.y;
-            // 새 위치에 붙여넣기 (원래 위치는 mouseDown에서 이미 삭제됨)
-            pasteTiles(ob.minX + dx, ob.minY + dy);
+            // moveTiles로 원자적 이동 (하나의 undo 항목)
+            moveTiles(ob.minX, ob.minY, ob.maxX, ob.maxY, ob.minX + dx, ob.minY + dy);
             setSelection(
               { x: ob.minX + dx, y: ob.minY + dy },
               { x: ob.maxX + dx, y: ob.maxY + dy }
@@ -549,7 +564,7 @@ export function useMouseHandlers(
       dragStart.current = null;
       pendingChanges.current = [];
     },
-    [selectedTool, canvasToTile, drawRectangle, drawEllipse, clearOverlay, pushUndo, updatePointLight, editMode, clearSelection, deleteTiles, pasteTiles, setSelection, setIsPasting, setPastePreviewPos]
+    [selectedTool, canvasToTile, drawRectangle, drawEllipse, clearOverlay, pushUndo, updatePointLight, editMode, clearSelection, deleteTiles, pasteTiles, moveTiles, setSelection, setIsPasting, setPastePreviewPos]
   );
 
   const handleDoubleClick = useCallback(
@@ -649,10 +664,16 @@ export function useMouseHandlers(
         return;
       }
       if (isMovingSelection.current) {
-        // 이동 취소: 원래 위치에 타일 복원
+        // 이동 취소: 원래 위치에 타일 복원 (undo 없이)
         const ob = originalSelectionBounds.current;
-        if (ob) {
-          pasteTiles(ob.minX, ob.minY);
+        const cb = useEditorStore.getState().clipboard;
+        if (ob && cb?.type === 'tiles' && cb.tiles) {
+          const restoreChanges: { x: number; y: number; z: number; tileId: number }[] = [];
+          for (const t of cb.tiles) {
+            const tx = ob.minX + t.x, ty = ob.minY + t.y;
+            restoreChanges.push({ x: tx, y: ty, z: t.z, tileId: t.tileId });
+          }
+          updateMapTiles(restoreChanges);
           setSelection({ x: ob.minX, y: ob.minY }, { x: ob.maxX, y: ob.maxY });
         }
         setIsPasting(false);
@@ -664,7 +685,7 @@ export function useMouseHandlers(
       }
       handleMouseUp(e);
     },
-    [handleMouseUp, pasteTiles, setIsPasting, setPastePreviewPos, setSelection]
+    [handleMouseUp, updateMapTiles, setIsPasting, setPastePreviewPos, setSelection]
   );
 
   const closeEventCtxMenu = useCallback(() => setEventCtxMenu(null), []);

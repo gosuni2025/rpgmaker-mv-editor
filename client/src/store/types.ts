@@ -168,6 +168,7 @@ export interface EditorState {
   cutTiles: (x1: number, y1: number, x2: number, y2: number) => void;
   pasteTiles: (x: number, y: number) => void;
   deleteTiles: (x1: number, y1: number, x2: number, y2: number) => void;
+  moveTiles: (srcX1: number, srcY1: number, srcX2: number, srcY2: number, destX: number, destY: number) => void;
 
   // Actions - Event
   copyEvent: (eventId: number) => void;

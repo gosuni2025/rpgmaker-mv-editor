@@ -8,7 +8,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'currentLayer' | 'clipboard' | 'cursorTileX' | 'cursorTileY' | 'selectionStart' | 'selectionEnd' | 'isPasting' | 'pastePreviewPos' |
   'selectedEventId' | 'selectedObjectId' | 'undoStack' | 'redoStack' |
   'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' |
-  'copyTiles' | 'cutTiles' | 'pasteTiles' | 'deleteTiles' |
+  'copyTiles' | 'cutTiles' | 'pasteTiles' | 'deleteTiles' | 'moveTiles' |
   'copyEvent' | 'cutEvent' | 'pasteEvent' | 'deleteEvent' |
   'setSelectedObjectId' | 'addObject' | 'updateObject' | 'deleteObject' |
   'setEditMode' | 'setSelectedTool' | 'setSelectedTileId' | 'setSelectedTiles' |
@@ -305,6 +305,37 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     }
     set({ currentMap: { ...map, data: newData } });
     get().pushUndo(changes);
+  },
+
+  moveTiles: (srcX1: number, srcY1: number, srcX2: number, srcY2: number, destX: number, destY: number) => {
+    const { clipboard, currentMap } = get();
+    if (!currentMap || !clipboard || clipboard.type !== 'tiles' || !clipboard.tiles) return;
+    const minX = Math.min(srcX1, srcX2), maxX = Math.max(srcX1, srcX2);
+    const minY = Math.min(srcY1, srcY2), maxY = Math.max(srcY1, srcY2);
+    const allChanges: TileChange[] = [];
+    const newData = [...currentMap.data];
+    // 1. 원본 영역 삭제
+    for (let z = 0; z < 4; z++) {
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          const idx = (z * currentMap.height + y) * currentMap.width + x;
+          if (newData[idx] !== 0) {
+            allChanges.push({ x, y, z, oldTileId: newData[idx], newTileId: 0 });
+            newData[idx] = 0;
+          }
+        }
+      }
+    }
+    // 2. 새 위치에 붙여넣기
+    for (const t of clipboard.tiles) {
+      const tx = destX + t.x, ty = destY + t.y;
+      if (tx < 0 || tx >= currentMap.width || ty < 0 || ty >= currentMap.height) continue;
+      const idx = (t.z * currentMap.height + ty) * currentMap.width + tx;
+      allChanges.push({ x: tx, y: ty, z: t.z, oldTileId: newData[idx], newTileId: t.tileId });
+      newData[idx] = t.tileId;
+    }
+    set({ currentMap: { ...currentMap, data: newData } });
+    get().pushUndo(allChanges);
   },
 
   // Clipboard - events
