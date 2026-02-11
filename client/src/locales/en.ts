@@ -695,7 +695,7 @@ const en = {
 
   localization: {
     title: 'Localization Manager',
-    init: 'Initialize',
+    init: 'Confirm',
     sync: 'Sync',
     sourceLanguage: 'Source Language',
     targetLanguages: 'Target Languages',
@@ -711,9 +711,9 @@ const en = {
     untranslated: 'Untranslated',
     noData: 'No data',
     syncComplete: 'Sync complete',
-    initComplete: 'Initialization complete',
-    notInitialized: 'Localization is not initialized',
-    initDescription: 'Set the source language and target languages to start localization.',
+    initComplete: 'Setup complete',
+    notInitialized: 'Localization is not configured',
+    initDescription: 'Select the source language and target languages to start localization.',
     category: {
       database: 'Database',
       maps: 'Maps',

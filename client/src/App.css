@@ -2224,13 +2224,14 @@ input, textarea, [contenteditable="true"] {
 }
 
 .l10n-init-dialog {
-  width: 500px;
+  width: 550px;
   height: auto;
   max-width: 90vw;
 }
 
 .l10n-init-body {
   padding: 20px;
+  flex-direction: column;
 }
 
 .l10n-init-body p {

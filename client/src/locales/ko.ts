@@ -1003,7 +1003,7 @@ const ko = {
   // === Localization ===
   localization: {
     title: '로컬라이제이션 매니저',
-    init: '초기화',
+    init: '확인',
     sync: '동기화',
     sourceLanguage: '원본 언어',
     targetLanguages: '번역 언어',
@@ -1019,9 +1019,9 @@ const ko = {
     untranslated: '미번역',
     noData: '데이터 없음',
     syncComplete: '동기화 완료',
-    initComplete: '초기화 완료',
-    notInitialized: '로컬라이제이션이 초기화되지 않았습니다',
-    initDescription: '로컬라이제이션을 시작하려면 원본 언어와 번역할 언어를 설정하세요.',
+    initComplete: '설정 완료',
+    notInitialized: '로컬라이제이션이 설정되지 않았습니다',
+    initDescription: '로컬라이제이션을 시작하려면 원본 언어와 번역 대상 언어를 선택하세요.',
     category: {
       database: '데이터베이스',
       maps: '맵',
