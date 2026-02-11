@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import CommandParamEditor from './CommandParamEditor';
 import TranslateButton from '../common/TranslateButton';
+import { fuzzyMatch } from '../../utils/fuzzySearch';
 
 export interface EventCommandContext {
   mapId?: number;
@@ -167,6 +168,8 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [lastClickedIndex, setLastClickedIndex] = useState(-1);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [commandFilter, setCommandFilter] = useState('');
+  const commandFilterRef = useRef<HTMLInputElement>(null);
   const [pendingCode, setPendingCode] = useState<number | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [hasClipboard, setHasClipboard] = useState(commandClipboard.length > 0);
@@ -775,29 +778,52 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       </div>
 
       {showAddDialog && (
-        <div className="modal-overlay" onClick={() => setShowAddDialog(false)}>
+        <div className="modal-overlay" onClick={() => { setShowAddDialog(false); setCommandFilter(''); }}>
           <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: 'calc(100vw - 40px)', height: 'calc(100vh - 40px)' }}>
             <div className="image-picker-header">{t('eventCommands.insertCommand')}</div>
+            <div className="command-filter-box">
+              <input
+                ref={commandFilterRef}
+                type="text"
+                className="command-filter-input"
+                placeholder={t('eventCommands.filterPlaceholder')}
+                value={commandFilter}
+                onChange={e => setCommandFilter(e.target.value)}
+                autoFocus
+              />
+              {commandFilter && (
+                <button className="command-filter-clear" onClick={() => { setCommandFilter(''); commandFilterRef.current?.focus(); }}>×</button>
+              )}
+            </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
-              {Object.entries(COMMAND_CATEGORIES).map(([category, cmds]) => (
-                <div key={category}>
-                  <div style={{ fontWeight: 'bold', fontSize: 12, color: '#4ea6f5', padding: '8px 8px 4px', borderBottom: '1px solid #444', background: '#333' }}>{category}</div>
-                  <div className="insert-command-grid">
-                    {cmds.map(c => (
-                      <div
-                        key={c.code}
-                        className="insert-command-item"
-                        onClick={() => handleCommandSelect(c.code)}
-                      >
-                        {c.name}
-                      </div>
-                    ))}
+              {(() => {
+                const filtered = Object.entries(COMMAND_CATEGORIES).map(([category, cmds]) => {
+                  const matched = cmds.filter(c => fuzzyMatch(c.name, commandFilter) || fuzzyMatch(category, commandFilter));
+                  return { category, matched };
+                }).filter(g => g.matched.length > 0);
+                if (filtered.length === 0) {
+                  return <div style={{ padding: 16, textAlign: 'center', color: '#888' }}>{t('eventCommands.noResults')}</div>;
+                }
+                return filtered.map(({ category, matched }) => (
+                  <div key={category}>
+                    <div style={{ fontWeight: 'bold', fontSize: 12, color: '#4ea6f5', padding: '8px 8px 4px', borderBottom: '1px solid #444', background: '#333' }}>{category}</div>
+                    <div className="insert-command-grid">
+                      {matched.map(c => (
+                        <div
+                          key={c.code}
+                          className="insert-command-item"
+                          onClick={() => handleCommandSelect(c.code)}
+                        >
+                          {c.name}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
             <div className="image-picker-footer">
-              <button className="db-btn" onClick={() => setShowAddDialog(false)}>{t('common.cancel')}</button>
+              <button className="db-btn" onClick={() => { setShowAddDialog(false); setCommandFilter(''); }}>{t('common.cancel')}</button>
             </div>
           </div>
         </div>

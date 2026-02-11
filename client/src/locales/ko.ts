@@ -512,6 +512,8 @@ const ko = {
   eventCommands: {
     title: '이벤트 커맨드',
     insertCommand: '커맨드 삽입',
+    filterPlaceholder: '검색 (초성 검색 가능: ㅁㅈㅍㅅ → 문장 표시)',
+    noResults: '검색 결과가 없습니다',
     dragToMove: '드래그하여 이동',
     moveUp: '위로 이동',
     moveDown: '아래로 이동',
