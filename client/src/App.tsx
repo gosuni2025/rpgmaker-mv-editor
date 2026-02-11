@@ -88,6 +88,7 @@ export default function App() {
   const showOptionsDialog = useEditorStore((s) => s.showOptionsDialog);
   const showLocalizationDialog = useEditorStore((s) => s.showLocalizationDialog);
   const toastMessage = useEditorStore((s) => s.toastMessage);
+  const parseErrors = useEditorStore((s) => s.parseErrors);
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
   useFileWatcher();
@@ -166,6 +167,27 @@ export default function App() {
       {showOptionsDialog && <OptionsDialog />}
       {showLocalizationDialog && <LocalizationDialog />}
       <AutotileDebugDialog open={showAutotileDebug} onClose={() => setShowAutotileDebug(false)} />
+      {parseErrors && parseErrors.length > 0 && (
+        <div className="db-dialog-overlay" onClick={() => useEditorStore.setState({ parseErrors: null })}>
+          <div className="db-dialog parse-errors-dialog" onClick={e => e.stopPropagation()}>
+            <div className="db-dialog-header">
+              <span>데이터 파싱 오류</span>
+              <button className="db-dialog-close" onClick={() => useEditorStore.setState({ parseErrors: null })}>×</button>
+            </div>
+            <div className="parse-errors-body">
+              <p className="parse-errors-summary">프로젝트 데이터 파일 {parseErrors.length}개에서 JSON 파싱 오류가 발견되었습니다.</p>
+              <div className="parse-errors-list">
+                {parseErrors.map((err, i) => (
+                  <div key={i} className="parse-error-item">
+                    <span className="parse-error-file">{err.file}</span>
+                    <span className="parse-error-msg">{err.error}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {toastMessage && <div className="toast">{toastMessage}</div>}
     </div>
   );

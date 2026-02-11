@@ -60,7 +60,23 @@ router.post('/open', (req: Request, res: Response) => {
     const system = projectManager.readJSON('System.json') as { gameTitle?: string };
     const mapInfos = projectManager.readJSON('MapInfos.json');
     const name = system.gameTitle || path.basename(projectPath);
-    res.json({ path: projectPath, name, system, mapInfos });
+
+    // Validate all data JSON files
+    const parseErrors: { file: string; error: string }[] = [];
+    const dataDir = projectManager.getDataPath();
+    try {
+      const files = fs.readdirSync(dataDir).filter(f => f.endsWith('.json'));
+      for (const file of files) {
+        try {
+          const raw = fs.readFileSync(path.join(dataDir, file), 'utf8');
+          JSON.parse(raw);
+        } catch (e) {
+          parseErrors.push({ file, error: (e as Error).message });
+        }
+      }
+    } catch { /* data dir read error - ignore */ }
+
+    res.json({ path: projectPath, name, system, mapInfos, parseErrors: parseErrors.length > 0 ? parseErrors : undefined });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

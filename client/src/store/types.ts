@@ -126,6 +126,9 @@ export interface EditorState {
   selectedLightId: number | null;
   selectedLightType: 'point' | 'ambient' | 'directional';
 
+  // Parse errors
+  parseErrors: { file: string; error: string }[] | null;
+
   // Toast
   toastMessage: string | null;
   showToast: (message: string) => void;

@@ -5,7 +5,7 @@ import { PROJECT_STORAGE_KEY, MAP_STORAGE_KEY } from './types';
 
 export const projectSlice: SliceCreator<Pick<EditorState,
   'projectPath' | 'projectName' | 'maps' | 'currentMapId' | 'currentMap' | 'tilesetInfo' |
-  'systemData' | 'playerCharacterName' | 'playerCharacterIndex' |
+  'systemData' | 'playerCharacterName' | 'playerCharacterIndex' | 'parseErrors' |
   'openProject' | 'closeProject' | 'restoreLastProject' | 'loadMaps' | 'selectMap' |
   'saveCurrentMap' | 'createMap' | 'deleteMap' | 'updateMapInfos' | 'setPlayerStartPosition'
 >> = (set, get) => ({
@@ -18,9 +18,10 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   systemData: null,
   playerCharacterName: null,
   playerCharacterIndex: 0,
+  parseErrors: null,
 
   openProject: async (projectPath: string) => {
-    const res = await apiClient.post<{ name?: string }>('/project/open', { path: projectPath });
+    const res = await apiClient.post<{ name?: string; parseErrors?: { file: string; error: string }[] }>('/project/open', { path: projectPath });
     set({
       projectPath,
       projectName: res.name || projectPath.split('/').pop() || null,
@@ -28,6 +29,7 @@ export const projectSlice: SliceCreator<Pick<EditorState,
       redoStack: [],
       clipboard: null,
       selectedEventId: null,
+      parseErrors: res.parseErrors || null,
     });
     localStorage.setItem(PROJECT_STORAGE_KEY, projectPath);
     get().loadMaps();
