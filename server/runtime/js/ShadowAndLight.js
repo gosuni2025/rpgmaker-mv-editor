@@ -793,7 +793,7 @@ ShadowLight._installProbeClickHandler = function() {
     if (this._probeClickBound) return; // 이미 설치됨
     var self = this;
     this._probeClickBound = function(e) {
-        self._onProbeClick(e);
+        self._onProbeHover(e);
     };
     // 프록시 박스 시각화 중엔 게임 입력(TouchInput) 차단
     this._probeMouseBlockBound = function(e) {
@@ -806,7 +806,14 @@ ShadowLight._installProbeClickHandler = function() {
         canvas = document.querySelector('canvas');
     }
     if (canvas) {
-        canvas.addEventListener('click', this._probeClickBound);
+        canvas.addEventListener('mousemove', this._probeClickBound);
+        canvas.addEventListener('mouseleave', function() {
+            self._removeProbeTooltip();
+            if (self._probeSelectedBox) {
+                self._setBoxHighlight(self._probeSelectedBox, false);
+                self._probeSelectedBox = null;
+            }
+        });
         // capture: true로 document의 mousedown/touchstart보다 먼저 잡아서 전파 차단
         canvas.addEventListener('mousedown', this._probeMouseBlockBound, true);
         canvas.addEventListener('touchstart', this._probeMouseBlockBound, true);
@@ -820,7 +827,7 @@ ShadowLight._installProbeClickHandler = function() {
 ShadowLight._removeProbeClickHandler = function() {
     if (this._probeClickCanvas) {
         if (this._probeClickBound) {
-            this._probeClickCanvas.removeEventListener('click', this._probeClickBound);
+            this._probeClickCanvas.removeEventListener('mousemove', this._probeClickBound);
         }
         if (this._probeMouseBlockBound) {
             this._probeClickCanvas.removeEventListener('mousedown', this._probeMouseBlockBound, true);
@@ -835,10 +842,17 @@ ShadowLight._removeProbeClickHandler = function() {
 };
 
 /**
- * 클릭 시 raycasting으로 디버그 박스 감지
+ * 마우스 호버 시 raycasting으로 디버그 박스 감지 (throttle 적용)
  */
-ShadowLight._onProbeClick = function(e) {
+ShadowLight._probeHoverLastTime = 0;
+ShadowLight._onProbeHover = function(e) {
     if (!this._debugProbeVisible || !this._probeDebugGroup) return;
+
+    // 50ms throttle
+    var now = performance.now();
+    if (now - this._probeHoverLastTime < 50) return;
+    this._probeHoverLastTime = now;
+
     var camera = window.Mode3D ? Mode3D._perspCamera : null;
     if (!camera) return;
 
@@ -865,15 +879,17 @@ ShadowLight._onProbeClick = function(e) {
     if (intersects.length > 0) {
         var hitObj = intersects[0].object;
         var sprite = hitObj.userData._probeSprite;
-        var name = this._getSpriteName(sprite);
 
-        // 이전 선택 해제
-        if (this._probeSelectedBox && this._probeSelectedBox !== hitObj) {
-            // 이전 와이어프레임 색상 복원
-            this._setBoxHighlight(this._probeSelectedBox, false);
+        // 같은 박스 위에 있으면 툴팁 위치만 업데이트
+        if (this._probeSelectedBox !== hitObj) {
+            if (this._probeSelectedBox) {
+                this._setBoxHighlight(this._probeSelectedBox, false);
+            }
+            this._probeSelectedBox = hitObj;
+            this._setBoxHighlight(hitObj, true);
         }
-        this._probeSelectedBox = hitObj;
-        this._setBoxHighlight(hitObj, true);
+
+        var name = this._getSpriteName(sprite);
 
         // emissive 값 읽기
         var emissiveStr = '';
@@ -890,7 +906,6 @@ ShadowLight._onProbeClick = function(e) {
 
         this._showProbeTooltip(e.clientX, e.clientY, name, sizeStr, emissiveStr);
     } else {
-        // 빈 곳 클릭: 선택 해제
         if (this._probeSelectedBox) {
             this._setBoxHighlight(this._probeSelectedBox, false);
             this._probeSelectedBox = null;
