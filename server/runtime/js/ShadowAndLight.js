@@ -520,6 +520,18 @@ Object.defineProperty(window, '_probeDebugActive', {
     configurable: true,
 });
 
+// 에디터(React)의 mousemove에서 호출할 수 있도록 전역 함수 노출
+window._probeDebugHover = function(clientX, clientY, target) {
+    ShadowLight._onProbeHoverXY(clientX, clientY, target);
+};
+window._probeDebugLeave = function() {
+    ShadowLight._removeProbeTooltip();
+    if (ShadowLight._probeSelectedBox) {
+        ShadowLight._setBoxHighlight(ShadowLight._probeSelectedBox, false);
+        ShadowLight._probeSelectedBox = null;
+    }
+};
+
 /**
  * 디버그 시각화를 위한 그룹과 캐시 초기화
  */
@@ -856,6 +868,13 @@ ShadowLight._removeProbeClickHandler = function() {
  */
 ShadowLight._probeHoverLastTime = 0;
 ShadowLight._onProbeHover = function(e) {
+    this._onProbeHoverXY(e.clientX, e.clientY, e.target);
+};
+
+/**
+ * clientX/clientY 기반 호버 처리 (native event, React 양쪽에서 호출 가능)
+ */
+ShadowLight._onProbeHoverXY = function(clientX, clientY, target) {
     if (!this._debugProbeVisible || !this._probeDebugGroup) return;
 
     // 50ms throttle
@@ -866,12 +885,20 @@ ShadowLight._onProbeHover = function(e) {
     var camera = window.Mode3D ? Mode3D._perspCamera : null;
     if (!camera) return;
 
-    var canvas = e.target;
+    // target이 canvas가 아닐 수 있으므로, 렌더러에서 직접 canvas를 가져옴
+    var canvas = target;
+    if (!canvas || !canvas.getBoundingClientRect) {
+        if (window._editorRendererObj && window._editorRendererObj.renderer) {
+            canvas = window._editorRendererObj.renderer.domElement;
+        }
+    }
+    if (!canvas) return;
+
     var rect = canvas.getBoundingClientRect();
     var mouse = this._probeMouseVec;
-    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     // Mode3D는 projectionMatrix의 m[5]를 반전 (Y-flip) → NDC Y축도 반전됨
-    mouse.y = ((e.clientY - rect.top) / rect.height) * 2 - 1;
+    mouse.y = ((clientY - rect.top) / rect.height) * 2 - 1;
 
     var raycaster = this._probeRaycaster;
     raycaster.setFromCamera(mouse, camera);

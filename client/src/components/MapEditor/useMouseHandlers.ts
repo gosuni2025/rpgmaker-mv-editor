@@ -337,7 +337,12 @@ export function useMouseHandlers(
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
-      if ((window as any)._probeDebugActive) return;
+      if ((window as any)._probeDebugActive) {
+        if ((window as any)._probeDebugHover) {
+          (window as any)._probeDebugHover(e.clientX, e.clientY, e.target);
+        }
+        return;
+      }
       if (isResizing.current) return;
 
       // Camera orbit drag
@@ -696,6 +701,9 @@ export function useMouseHandlers(
 
   const handleMouseLeave = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
+      if ((window as any)._probeDebugActive && (window as any)._probeDebugLeave) {
+        (window as any)._probeDebugLeave();
+      }
       setHoverTile(null);
       if (isOrbiting.current) {
         isOrbiting.current = false;
