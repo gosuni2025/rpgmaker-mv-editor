@@ -227,10 +227,24 @@ app.use('/game/js', express.static(path.join(runtimePath, 'js')));
 app.use('/game/fonts', express.static(path.join(runtimePath, 'fonts')));
 app.use('/game/icon', express.static(path.join(runtimePath, 'icon')));
 
-// /game/data, /game/img, /game/audio, /game/movies - 프로젝트에서 서빙
+// /game/data - 맵 파일은 ext 병합, 나머지는 정적 서빙
+const mapFilePattern = /^\/Map(\d{3})\.json$/;
 app.use('/game/data', (req, res, next) => {
   if (!projectManager.isOpen()) return res.status(404).send('No project');
   res.set('Cache-Control', 'no-store');
+  const match = req.path.match(mapFilePattern);
+  if (match) {
+    try {
+      const mapFile = `Map${match[1]}.json`;
+      const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
+      const ext = projectManager.readExtJSON(mapFile);
+      res.json({ ...data, ...ext });
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return res.status(404).send('Not found');
+      return res.status(500).send((err as Error).message);
+    }
+    return;
+  }
   express.static(path.join(projectManager.currentPath!, 'data'))(req, res, next);
 });
 app.use('/game/img', (req, res, next) => {
@@ -254,6 +268,19 @@ app.use('/img', (req, res, next) => {
 app.use('/data', (req, res, next) => {
   if (!projectManager.isOpen()) return res.status(404).send('No project');
   res.set('Cache-Control', 'no-store');
+  const match = req.path.match(mapFilePattern);
+  if (match) {
+    try {
+      const mapFile = `Map${match[1]}.json`;
+      const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
+      const ext = projectManager.readExtJSON(mapFile);
+      res.json({ ...data, ...ext });
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return res.status(404).send('Not found');
+      return res.status(500).send((err as Error).message);
+    }
+    return;
+  }
   express.static(path.join(projectManager.currentPath!, 'data'))(req, res, next);
 });
 app.use('/plugins', (req, res, next) => {

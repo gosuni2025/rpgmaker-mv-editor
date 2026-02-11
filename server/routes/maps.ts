@@ -6,6 +6,11 @@ import * as l10n from '../services/localizationManager';
 
 const router = express.Router();
 
+/** ext 파일로 분리할 확장 필드 */
+const EXTENSION_FIELDS = ['editorLights', 'objects', 'cameraZones'];
+/** 저장 시 제거만 하고 ext에도 넣지 않는 필드 */
+const STRIP_ONLY_FIELDS = ['tilesetNames'];
+
 router.get('/', (req: Request, res: Response) => {
   try {
     const data = projectManager.readJSON('MapInfos.json');
@@ -18,8 +23,12 @@ router.get('/', (req: Request, res: Response) => {
 router.get('/:id', (req: Request, res: Response) => {
   try {
     const id = String(req.params.id).padStart(3, '0');
-    const data = projectManager.readJSON(`Map${id}.json`);
-    res.json(data);
+    const mapFile = `Map${id}.json`;
+    const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
+    const ext = projectManager.readExtJSON(mapFile);
+    // ext 데이터를 병합 (ext 우선)
+    const merged = { ...data, ...ext };
+    res.json(merged);
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return res.status(404).json({ error: 'Map not found' });
@@ -31,7 +40,25 @@ router.get('/:id', (req: Request, res: Response) => {
 router.put('/:id', (req: Request, res: Response) => {
   try {
     const id = String(req.params.id).padStart(3, '0');
-    projectManager.writeJSON(`Map${id}.json`, req.body);
+    const mapFile = `Map${id}.json`;
+    const body = req.body as Record<string, unknown>;
+
+    // 확장 필드 분리
+    const extData: Record<string, unknown> = {};
+    const standardData = { ...body };
+    for (const field of EXTENSION_FIELDS) {
+      if (field in standardData) {
+        extData[field] = standardData[field];
+        delete standardData[field];
+      }
+    }
+    // strip-only 필드 제거 (ext에도 넣지 않음)
+    for (const field of STRIP_ONLY_FIELDS) {
+      delete standardData[field];
+    }
+
+    projectManager.writeJSON(mapFile, standardData);
+    projectManager.writeExtJSON(mapFile, extData);
 
     // Auto-sync localization CSV if initialized
     let l10nDiff = null;
@@ -124,14 +151,51 @@ router.delete('/:id', (req: Request, res: Response) => {
     mapInfos[id] = null;
     projectManager.writeJSON('MapInfos.json', mapInfos);
 
-    // Delete map file
+    // Delete map file + ext file
     const idStr = String(id).padStart(3, '0');
-    const filePath = path.join(projectManager.getDataPath(), `Map${idStr}.json`);
+    const mapFile = `Map${idStr}.json`;
+    const filePath = path.join(projectManager.getDataPath(), mapFile);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
+    projectManager.deleteExtJSON(mapFile);
 
     res.json({ success: true });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Migrate: 기존 맵 파일 내 확장 데이터를 ext 파일로 분리
+router.post('/migrate-extensions', (req: Request, res: Response) => {
+  try {
+    const mapInfos = projectManager.readJSON('MapInfos.json') as (null | { id: number })[];
+    let migrated = 0;
+
+    for (let i = 1; i < mapInfos.length; i++) {
+      if (!mapInfos[i]) continue;
+      const idStr = String(i).padStart(3, '0');
+      const mapFile = `Map${idStr}.json`;
+      try {
+        const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
+        const extData: Record<string, unknown> = {};
+        let hasExt = false;
+        for (const field of EXTENSION_FIELDS) {
+          if (field in data) {
+            extData[field] = data[field];
+            delete data[field];
+            hasExt = true;
+          }
+        }
+        if (hasExt) {
+          projectManager.writeJSON(mapFile, data);
+          projectManager.writeExtJSON(mapFile, extData);
+          migrated++;
+        }
+      } catch { /* skip missing maps */ }
+    }
+
+    res.json({ success: true, migrated });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

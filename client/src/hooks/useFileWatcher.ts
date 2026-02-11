@@ -70,8 +70,8 @@ async function handleFileChanged(filename: string) {
   console.log(`[FileWatcher] 외부 파일 변경 감지: ${filename}`);
 
   try {
-    // MapXXX.json - 현재 열린 맵이면 리로드
-    const mapMatch = filename.match(/^Map(\d{3})\.json$/);
+    // MapXXX.json 또는 MapXXX_ext.json - 현재 열린 맵이면 리로드
+    const mapMatch = filename.match(/^Map(\d{3})(?:_ext)?\.json$/);
     if (mapMatch) {
       const mapId = parseInt(mapMatch[1], 10);
       if (store.currentMapId === mapId) {
