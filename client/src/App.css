@@ -2128,9 +2128,14 @@ input, textarea, [contenteditable="true"] {
   width: 100%;
 }
 
-.camera-zone-action-btn:hover {
+.camera-zone-action-btn:hover:not(:disabled) {
   background: #4a6a8a;
   color: #fff;
+}
+
+.camera-zone-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Passability grid for Object Inspector */

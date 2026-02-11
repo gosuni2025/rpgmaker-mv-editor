@@ -1,6 +1,27 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
+
+function computeContentBounds(map: { width: number; height: number; data: number[] }) {
+  const { width, height, data } = map;
+  let minX = width, minY = height, maxX = -1, maxY = -1;
+  // 레이어 0~2만 검사 (z=3은 리전 레이어)
+  for (let z = 0; z < 3; z++) {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (z * height + y) * width + x;
+        if (data[idx] !== 0) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+  }
+  if (maxX < 0) return null; // 빈 맵
+  return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+}
 
 export default function CameraZoneInspector() {
   const currentMap = useEditorStore((s) => s.currentMap);
@@ -18,15 +39,27 @@ export default function CameraZoneInspector() {
   const mapWidth = currentMap?.width ?? 0;
   const mapHeight = currentMap?.height ?? 0;
 
+  const contentBounds = useMemo(() => {
+    if (!currentMap?.data || !currentMap.width || !currentMap.height) return null;
+    return computeContentBounds(currentMap as { width: number; height: number; data: number[] });
+  }, [currentMap?.data, currentMap?.width, currentMap?.height]);
+
+  const applyBounds = (bounds: { x: number; y: number; width: number; height: number }) => {
+    if (selectedZone) {
+      updateCameraZone(selectedZone.id, bounds);
+    } else {
+      addCameraZone(bounds.x, bounds.y, bounds.width, bounds.height);
+    }
+  };
+
+  const handleFitToContent = () => {
+    if (!contentBounds) return;
+    applyBounds(contentBounds);
+  };
+
   const handleFitToMap = () => {
     if (!currentMap) return;
-    if (selectedZone) {
-      updateCameraZone(selectedZone.id, {
-        x: 0, y: 0, width: mapWidth, height: mapHeight,
-      });
-    } else {
-      addCameraZone(0, 0, mapWidth, mapHeight);
-    }
+    applyBounds({ x: 0, y: 0, width: mapWidth, height: mapHeight });
   };
 
   return (
@@ -51,8 +84,19 @@ export default function CameraZoneInspector() {
       {/* Auto Settings */}
       <div className="light-inspector-section">
         <div className="light-inspector-title">자동 설정</div>
-        <button className="camera-zone-action-btn" onClick={handleFitToMap}>
-          {selectedZone ? '선택 영역을 맵 전체에 맞춤' : '맵 전체 영역 생성'}
+        <button className="camera-zone-action-btn" onClick={handleFitToContent}
+          disabled={!contentBounds}
+          title={contentBounds ? `콘텐츠 영역: (${contentBounds.x},${contentBounds.y}) ${contentBounds.width}x${contentBounds.height}` : '빈 맵'}
+        >
+          {selectedZone ? '콘텐츠 영역에 맞춤' : '콘텐츠 영역으로 생성'}
+        </button>
+        {contentBounds && (
+          <div style={{ color: '#777', fontSize: 10, marginTop: 3, paddingLeft: 2 }}>
+            콘텐츠: ({contentBounds.x},{contentBounds.y}) {contentBounds.width}x{contentBounds.height}
+          </div>
+        )}
+        <button className="camera-zone-action-btn" onClick={handleFitToMap} style={{ marginTop: 4 }}>
+          {selectedZone ? '맵 전체에 맞춤' : '맵 전체 영역 생성'}
         </button>
       </div>
 
