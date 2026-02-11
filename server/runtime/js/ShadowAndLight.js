@@ -503,8 +503,15 @@ ShadowLight._ensureProbeDebugGroup = function() {
     this._probeDebugGroup.name = 'ProbeBoxDebug';
     this._probeDebugGroup.frustumCulled = false;
     this._probeDebugData = new Map();
-    var scene = this._findScene();
-    if (scene) scene.add(this._probeDebugGroup);
+    // spritesetObj에 추가해야 Pass 2(2D 오버레이)에서 같이 숨겨짐
+    // scene에 직접 추가하면 Pass 1(3D) + Pass 2(2D) 양쪽에서 렌더됨
+    var ss = this._spriteset;
+    if (ss && ss._threeObj) {
+        ss._threeObj.add(this._probeDebugGroup);
+    } else {
+        var scene = this._findScene();
+        if (scene) scene.add(this._probeDebugGroup);
+    }
 };
 
 /**
@@ -639,8 +646,9 @@ ShadowLight._updateProbeDebugVis = function(sprite, cx, cy, cz, perNormal) {
  */
 ShadowLight._removeProbeDebugVis = function() {
     if (!this._probeDebugGroup) return;
-    var scene = this._findScene();
-    if (scene) scene.remove(this._probeDebugGroup);
+    if (this._probeDebugGroup.parent) {
+        this._probeDebugGroup.parent.remove(this._probeDebugGroup);
+    }
     // geometry/material dispose
     this._probeDebugGroup.traverse(function(obj) {
         if (obj.geometry) obj.geometry.dispose();
