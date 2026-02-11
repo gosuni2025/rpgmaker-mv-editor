@@ -51,6 +51,7 @@ export default function MapCanvas() {
 
   const {
     rendererObjRef, tilemapRef, stageRef, renderRequestedRef, toolPreviewMeshesRef,
+    rendererReady,
   } = useThreeRenderer(webglCanvasRef, showGrid, []); // dragPreviews filled via useEffect
 
   const tools = useMapTools(
@@ -175,7 +176,7 @@ export default function MapCanvas() {
         if (strategy && stageRef.current) strategy.render(rendererObjRef.current, stageRef.current);
       });
     }
-  }, [dragPreviews]);
+  }, [dragPreviews, rendererReady]);
 
   // =========================================================================
   // Selection rectangle overlay (선택 영역 오버레이)
@@ -265,7 +266,7 @@ export default function MapCanvas() {
         if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
       });
     }
-  }, [selectionStart, selectionEnd]);
+  }, [selectionStart, selectionEnd, rendererReady]);
 
   // =========================================================================
   // Paste preview overlay (붙여넣기 프리뷰)
@@ -321,7 +322,7 @@ export default function MapCanvas() {
     texture.minFilter = THREE.NearestFilter;
     texture.flipY = false;
     pastePreviewTextureRef.current = texture;
-  }, [clipboard]);
+  }, [clipboard, rendererReady]);
 
   // 붙여넣기 프리뷰 메시 표시/숨김 및 위치 업데이트
   React.useEffect(() => {
@@ -419,7 +420,7 @@ export default function MapCanvas() {
         if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
       });
     }
-  }, [isPasting, pastePreviewPos, clipboard]);
+  }, [isPasting, pastePreviewPos, clipboard, rendererReady]);
 
   // =========================================================================
   // Tile cursor preview (반투명 타일 프리뷰)
@@ -484,7 +485,7 @@ export default function MapCanvas() {
     texture.minFilter = THREE.NearestFilter;
     texture.flipY = false;
     tilePreviewTextureRef.current = texture;
-  }, [editMode, selectedTool, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight]);
+  }, [editMode, selectedTool, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, rendererReady]);
 
   // 메시 표시/숨김 및 위치 업데이트 (hoverTile이 변경될 때)
   React.useEffect(() => {
@@ -594,7 +595,7 @@ export default function MapCanvas() {
         if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
       });
     }
-  }, [hoverTile, editMode, selectedTool, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight]);
+  }, [hoverTile, editMode, selectedTool, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, rendererReady]);
 
   // =========================================================================
   // Render

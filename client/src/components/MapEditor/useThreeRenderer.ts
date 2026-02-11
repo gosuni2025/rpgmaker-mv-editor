@@ -52,6 +52,7 @@ export interface ThreeRendererRefs {
   selectionMeshRef: React.MutableRefObject<any>;
   dragPreviewMeshesRef: React.MutableRefObject<any[]>;
   toolPreviewMeshesRef: React.MutableRefObject<any[]>;
+  rendererReady: boolean;
 }
 
 export interface DragPreviewInfo {
@@ -448,6 +449,19 @@ export function useThreeRenderer(
         toolPreviewMeshesRef.current = [];
         disposeSceneObjects(rendererObj.scene, lightOverlayMeshesRef.current);
         lightOverlayMeshesRef.current = [];
+        // MapCanvas에서 관리하는 글로벌 메시 배열도 정리
+        const w = window as any;
+        for (const key of ['_editorSelectionMeshes', '_editorDragMeshes']) {
+          const arr = w[key] as any[] | undefined;
+          if (arr) {
+            for (const m of arr) {
+              rendererObj.scene.remove(m);
+              m.geometry?.dispose();
+              m.material?.dispose();
+            }
+            arr.length = 0;
+          }
+        }
         if (cursorMeshRef.current) {
           rendererObj.scene.remove(cursorMeshRef.current);
           cursorMeshRef.current.geometry?.dispose();
@@ -1017,5 +1031,6 @@ export function useThreeRenderer(
     regionMeshesRef, objectMeshesRef,
     cursorMeshRef, selectionMeshRef,
     dragPreviewMeshesRef, toolPreviewMeshesRef,
+    rendererReady,
   };
 }
