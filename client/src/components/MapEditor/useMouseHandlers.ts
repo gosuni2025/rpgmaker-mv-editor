@@ -27,6 +27,8 @@ export interface MouseHandlersResult {
   resizeCursor: string | null;
   dragPreview: { x: number; y: number } | null;
   eventMultiDragDelta: { dx: number; dy: number } | null;
+  lightMultiDragDelta: { dx: number; dy: number } | null;
+  objectMultiDragDelta: { dx: number; dy: number } | null;
   lightDragPreview: { x: number; y: number } | null;
   objectDragPreview: { x: number; y: number } | null;
   cameraZoneDragPreview: { x: number; y: number; width: number; height: number } | null;
@@ -43,6 +45,8 @@ export interface MouseHandlersResult {
   resizeOrigSize: React.MutableRefObject<{ w: number; h: number }>;
   isOrbiting: React.MutableRefObject<boolean>;
   isSelectingEvents: React.MutableRefObject<boolean>;
+  isSelectingLights: React.MutableRefObject<boolean>;
+  isSelectingObjects: React.MutableRefObject<boolean>;
   isDraggingCameraZone: React.MutableRefObject<boolean>;
   isCreatingCameraZone: React.MutableRefObject<boolean>;
   playerStartDragPos: { x: number; y: number } | null;
@@ -91,6 +95,28 @@ export function useMouseHandlers(
   const setIsEventPasting = useEditorStore((s) => s.setIsEventPasting);
   const setEventPastePreviewPos = useEditorStore((s) => s.setEventPastePreviewPos);
   const pasteEvents = useEditorStore((s) => s.pasteEvents);
+  const selectedLightIds = useEditorStore((s) => s.selectedLightIds);
+  const setSelectedLightIds = useEditorStore((s) => s.setSelectedLightIds);
+  const setLightSelectionStart = useEditorStore((s) => s.setLightSelectionStart);
+  const setLightSelectionEnd = useEditorStore((s) => s.setLightSelectionEnd);
+  const moveLights = useEditorStore((s) => s.moveLights);
+  const isLightPasting = useEditorStore((s) => s.isLightPasting);
+  const setIsLightPasting = useEditorStore((s) => s.setIsLightPasting);
+  const setLightPastePreviewPos = useEditorStore((s) => s.setLightPastePreviewPos);
+  const pasteLights = useEditorStore((s) => s.pasteLights);
+  const clearLightSelection = useEditorStore((s) => s.clearLightSelection);
+
+  const selectedObjectIds = useEditorStore((s) => s.selectedObjectIds);
+  const setSelectedObjectIds = useEditorStore((s) => s.setSelectedObjectIds);
+  const setObjectSelectionStart = useEditorStore((s) => s.setObjectSelectionStart);
+  const setObjectSelectionEnd = useEditorStore((s) => s.setObjectSelectionEnd);
+  const moveObjects = useEditorStore((s) => s.moveObjects);
+  const isObjectPasting = useEditorStore((s) => s.isObjectPasting);
+  const setIsObjectPasting = useEditorStore((s) => s.setIsObjectPasting);
+  const setObjectPastePreviewPos = useEditorStore((s) => s.setObjectPastePreviewPos);
+  const pasteObjects = useEditorStore((s) => s.pasteObjects);
+  const clearObjectSelection = useEditorStore((s) => s.clearObjectSelection);
+
   const setSelectedCameraZoneId = useEditorStore((s) => s.setSelectedCameraZoneId);
   const addCameraZone = useEditorStore((s) => s.addCameraZone);
   const updateCameraZone = useEditorStore((s) => s.updateCameraZone);
@@ -133,11 +159,27 @@ export function useMouseHandlers(
   const multiEventDragOrigin = useRef<{ x: number; y: number } | null>(null);
   const [eventMultiDragDelta, setEventMultiDragDelta] = useState<{ dx: number; dy: number } | null>(null);
 
+  // Light multi-select drag state
+  const isSelectingLights = useRef(false);
+  const lightSelDragStart = useRef<{ x: number; y: number } | null>(null);
+  // Light multi-drag state
+  const isDraggingMultiLights = useRef(false);
+  const multiLightDragOrigin = useRef<{ x: number; y: number } | null>(null);
+  const [lightMultiDragDelta, setLightMultiDragDelta] = useState<{ dx: number; dy: number } | null>(null);
+
   // Object drag state
   const isDraggingObject = useRef(false);
   const draggedObjectId = useRef<number | null>(null);
   const dragObjectOrigin = useRef<{ x: number; y: number } | null>(null);
   const [objectDragPreview, setObjectDragPreview] = useState<{ x: number; y: number } | null>(null);
+
+  // Object multi-select drag state
+  const isSelectingObjects = useRef(false);
+  const objectSelDragStart = useRef<{ x: number; y: number } | null>(null);
+  // Object multi-drag state
+  const isDraggingMultiObjects = useRef(false);
+  const multiObjectDragOrigin = useRef<{ x: number; y: number } | null>(null);
+  const [objectMultiDragDelta, setObjectMultiDragDelta] = useState<{ dx: number; dy: number } | null>(null);
 
   // Player start position drag state
   const isDraggingPlayerStart = useRef(false);
@@ -305,6 +347,16 @@ export function useMouseHandlers(
 
       // Light edit mode: place or select lights
       if (lightEditMode && selectedLightType === 'point') {
+        const state = useEditorStore.getState();
+
+        // 붙여넣기 모드
+        if (state.isLightPasting) {
+          pasteLights(tile.x, tile.y);
+          setIsLightPasting(false);
+          setLightPastePreviewPos(null);
+          return;
+        }
+
         const lights = currentMap?.editorLights?.points || [];
         const hitLight = lights.find(l => {
           if (l.x === tile.x && l.y === tile.y) return true;
@@ -314,13 +366,42 @@ export function useMouseHandlers(
           return l.x === tile.x && visualTileY === tile.y;
         });
         if (hitLight) {
-          setSelectedLightId(hitLight.id);
-          isDraggingLight.current = true;
-          draggedLightId.current = hitLight.id;
-          dragLightOrigin.current = { x: tile.x, y: tile.y };
-          setLightDragPreview(null);
+          const curIds = state.selectedLightIds;
+          if (e.shiftKey) {
+            // Shift+클릭: 토글 선택
+            if (curIds.includes(hitLight.id)) {
+              const newIds = curIds.filter(id => id !== hitLight.id);
+              setSelectedLightIds(newIds);
+              setSelectedLightId(newIds.length > 0 ? newIds[newIds.length - 1] : null);
+            } else {
+              const newIds = [...curIds, hitLight.id];
+              setSelectedLightIds(newIds);
+              setSelectedLightId(hitLight.id);
+            }
+          } else if (curIds.includes(hitLight.id)) {
+            // 이미 선택된 라이트 클릭: 멀티 드래그 시작
+            isDraggingMultiLights.current = true;
+            multiLightDragOrigin.current = { x: tile.x, y: tile.y };
+            setLightMultiDragDelta(null);
+          } else {
+            // 미선택 라이트 클릭: 단일 선택 + 드래그 준비
+            setSelectedLightIds([hitLight.id]);
+            setSelectedLightId(hitLight.id);
+            isDraggingLight.current = true;
+            draggedLightId.current = hitLight.id;
+            dragLightOrigin.current = { x: tile.x, y: tile.y };
+            setLightDragPreview(null);
+          }
         } else {
-          addPointLight(tile.x, tile.y);
+          // 빈 공간: Shift 없으면 선택 해제, 영역 선택 시작
+          if (!e.shiftKey) {
+            setSelectedLightIds([]);
+            setSelectedLightId(null);
+          }
+          isSelectingLights.current = true;
+          lightSelDragStart.current = tile;
+          setLightSelectionStart(tile);
+          setLightSelectionEnd(tile);
         }
         return;
       }
@@ -348,19 +429,58 @@ export function useMouseHandlers(
       }
 
       if (editMode === 'object') {
+        const state = useEditorStore.getState();
+
+        // 붙여넣기 모드
+        if (state.isObjectPasting) {
+          pasteObjects(tile.x, tile.y);
+          setIsObjectPasting(false);
+          setObjectPastePreviewPos(null);
+          return;
+        }
+
         const objects = currentMap?.objects || [];
         const hitObj = objects.find(o =>
           tile.x >= o.x && tile.x < o.x + o.width &&
           tile.y >= o.y - o.height + 1 && tile.y <= o.y
         );
         if (hitObj) {
-          setSelectedObjectId(hitObj.id);
-          isDraggingObject.current = true;
-          draggedObjectId.current = hitObj.id;
-          dragObjectOrigin.current = { x: tile.x, y: tile.y };
-          setObjectDragPreview(null);
+          const curIds = state.selectedObjectIds;
+          if (e.shiftKey) {
+            // Shift+클릭: 토글 선택
+            if (curIds.includes(hitObj.id)) {
+              const newIds = curIds.filter(id => id !== hitObj.id);
+              setSelectedObjectIds(newIds);
+              setSelectedObjectId(newIds.length > 0 ? newIds[newIds.length - 1] : null);
+            } else {
+              const newIds = [...curIds, hitObj.id];
+              setSelectedObjectIds(newIds);
+              setSelectedObjectId(hitObj.id);
+            }
+          } else if (curIds.includes(hitObj.id)) {
+            // 이미 선택된 오브젝트 클릭: 멀티 드래그 시작
+            isDraggingMultiObjects.current = true;
+            multiObjectDragOrigin.current = { x: tile.x, y: tile.y };
+            setObjectMultiDragDelta(null);
+          } else {
+            // 미선택 오브젝트 클릭: 단일 선택 + 드래그 준비
+            setSelectedObjectIds([hitObj.id]);
+            setSelectedObjectId(hitObj.id);
+            isDraggingObject.current = true;
+            draggedObjectId.current = hitObj.id;
+            dragObjectOrigin.current = { x: tile.x, y: tile.y };
+            setObjectDragPreview(null);
+          }
         } else {
-          addObject(tile.x, tile.y);
+          // 빈 공간
+          if (!e.shiftKey) {
+            setSelectedObjectIds([]);
+            setSelectedObjectId(null);
+          }
+          isSelectingObjects.current = true;
+          objectSelDragStart.current = tile;
+          setObjectSelectionStart(tile);
+          setObjectSelectionEnd(tile);
         }
         return;
       }
@@ -522,29 +642,89 @@ export function useMouseHandlers(
         }
       }
 
-      // Light dragging
+      // Light multi-drag
+      if (isDraggingMultiLights.current && tile && multiLightDragOrigin.current) {
+        const dx = tile.x - multiLightDragOrigin.current.x;
+        const dy = tile.y - multiLightDragOrigin.current.y;
+        if (dx !== 0 || dy !== 0) {
+          setLightMultiDragDelta({ dx, dy });
+        } else {
+          setLightMultiDragDelta(null);
+        }
+        return;
+      }
+
+      // Light single dragging → convert to multi-drag
       if (isDraggingLight.current && tile && dragLightOrigin.current) {
         if (tile.x !== dragLightOrigin.current.x || tile.y !== dragLightOrigin.current.y) {
-          setLightDragPreview({ x: tile.x, y: tile.y });
-        } else {
+          // 단일 라이트 드래그를 멀티 드래그로 전환
+          isDraggingLight.current = false;
+          isDraggingMultiLights.current = true;
+          multiLightDragOrigin.current = dragLightOrigin.current;
+          dragLightOrigin.current = null;
+          const dx = tile.x - multiLightDragOrigin.current!.x;
+          const dy = tile.y - multiLightDragOrigin.current!.y;
+          setLightMultiDragDelta({ dx, dy });
           setLightDragPreview(null);
         }
         return;
       }
 
-      // Object dragging
+      // Light area selection drag
+      if (isSelectingLights.current && tile && lightSelDragStart.current) {
+        setLightSelectionEnd(tile);
+        return;
+      }
+
+      // Light pasting preview
+      if (lightEditMode) {
+        const state = useEditorStore.getState();
+        if (state.isLightPasting && tile) {
+          setLightPastePreviewPos(tile);
+          return;
+        }
+      }
+
+      // Object multi-drag
+      if (isDraggingMultiObjects.current && tile && multiObjectDragOrigin.current) {
+        const dx = tile.x - multiObjectDragOrigin.current.x;
+        const dy = tile.y - multiObjectDragOrigin.current.y;
+        if (dx !== 0 || dy !== 0) {
+          setObjectMultiDragDelta({ dx, dy });
+        } else {
+          setObjectMultiDragDelta(null);
+        }
+        return;
+      }
+
+      // Object single dragging → convert to multi-drag
       if (isDraggingObject.current && tile && dragObjectOrigin.current) {
         if (tile.x !== dragObjectOrigin.current.x || tile.y !== dragObjectOrigin.current.y) {
-          const obj = currentMap?.objects?.find(o => o.id === draggedObjectId.current);
-          if (obj) {
-            const dx = tile.x - dragObjectOrigin.current.x;
-            const dy = tile.y - dragObjectOrigin.current.y;
-            setObjectDragPreview({ x: obj.x + dx, y: obj.y + dy });
-          }
-        } else {
+          isDraggingObject.current = false;
+          isDraggingMultiObjects.current = true;
+          multiObjectDragOrigin.current = dragObjectOrigin.current;
+          dragObjectOrigin.current = null;
+          const dx = tile.x - multiObjectDragOrigin.current!.x;
+          const dy = tile.y - multiObjectDragOrigin.current!.y;
+          setObjectMultiDragDelta({ dx, dy });
           setObjectDragPreview(null);
         }
         return;
+      }
+
+      // Object area selection drag
+      if (isSelectingObjects.current && tile && objectSelDragStart.current) {
+        setObjectSelectionEnd(tile);
+        return;
+      }
+
+      // Object pasting preview
+      if (editMode === 'object') {
+        const state = useEditorStore.getState();
+        if (state.isObjectPasting && tile) {
+          setObjectPastePreviewPos(tile);
+          return;
+        }
       }
 
       // Camera zone dragging
@@ -732,17 +912,67 @@ export function useMouseHandlers(
         }
       }
 
-      // Light drag commit
-      if (isDraggingLight.current && draggedLightId.current != null) {
+      // Light multi-drag commit
+      if (isDraggingMultiLights.current) {
         const tile = canvasToTile(e);
-        const origin = dragLightOrigin.current;
-        if (tile && origin && (tile.x !== origin.x || tile.y !== origin.y)) {
-          updatePointLight(draggedLightId.current, { x: tile.x, y: tile.y });
+        if (tile && multiLightDragOrigin.current) {
+          const dx = tile.x - multiLightDragOrigin.current.x;
+          const dy = tile.y - multiLightDragOrigin.current.y;
+          const state = useEditorStore.getState();
+          if (dx !== 0 || dy !== 0) {
+            moveLights(state.selectedLightIds, dx, dy);
+          }
         }
+        isDraggingMultiLights.current = false;
+        multiLightDragOrigin.current = null;
+        setLightMultiDragDelta(null);
+        return;
+      }
+
+      // Light single drag (mouseUp without move)
+      if (isDraggingLight.current && draggedLightId.current != null) {
         isDraggingLight.current = false;
         draggedLightId.current = null;
         dragLightOrigin.current = null;
         setLightDragPreview(null);
+        return;
+      }
+
+      // Light area selection commit
+      if (isSelectingLights.current) {
+        isSelectingLights.current = false;
+        const start = lightSelDragStart.current;
+        const tile = canvasToTile(e);
+        lightSelDragStart.current = null;
+
+        if (start && tile && start.x === tile.x && start.y === tile.y) {
+          // 단일 클릭: 빈 공간이면 새 라이트 추가
+          if (lightEditMode && selectedLightType === 'point') {
+            addPointLight(tile.x, tile.y);
+          }
+          setLightSelectionStart(null);
+          setLightSelectionEnd(null);
+        } else if (start && tile && currentMap?.editorLights?.points) {
+          const minX = Math.min(start.x, tile.x);
+          const maxX = Math.max(start.x, tile.x);
+          const minY = Math.min(start.y, tile.y);
+          const maxY = Math.max(start.y, tile.y);
+          const lightsInArea = currentMap.editorLights.points
+            .filter(l => l.x >= minX && l.x <= maxX && l.y >= minY && l.y <= maxY)
+            .map(l => l.id);
+          if (e.shiftKey) {
+            const curIds = useEditorStore.getState().selectedLightIds;
+            const merged = [...new Set([...curIds, ...lightsInArea])];
+            setSelectedLightIds(merged);
+            if (merged.length > 0) setSelectedLightId(merged[merged.length - 1]);
+          } else {
+            setSelectedLightIds(lightsInArea);
+            if (lightsInArea.length > 0) setSelectedLightId(lightsInArea[0]);
+            else setSelectedLightId(null);
+          }
+          setLightSelectionStart(null);
+          setLightSelectionEnd(null);
+        }
         return;
       }
 
@@ -778,15 +1008,72 @@ export function useMouseHandlers(
         return;
       }
 
-      // Object drag commit
-      if (isDraggingObject.current && draggedObjectId.current != null) {
-        if (objectDragPreview) {
-          updateObject(draggedObjectId.current, { x: objectDragPreview.x, y: objectDragPreview.y });
+      // Object multi-drag commit
+      if (isDraggingMultiObjects.current) {
+        const tile = canvasToTile(e);
+        if (tile && multiObjectDragOrigin.current) {
+          const dx = tile.x - multiObjectDragOrigin.current.x;
+          const dy = tile.y - multiObjectDragOrigin.current.y;
+          const state = useEditorStore.getState();
+          if (dx !== 0 || dy !== 0) {
+            moveObjects(state.selectedObjectIds, dx, dy);
+          }
         }
+        isDraggingMultiObjects.current = false;
+        multiObjectDragOrigin.current = null;
+        setObjectMultiDragDelta(null);
+        return;
+      }
+
+      // Object single drag (mouseUp without move)
+      if (isDraggingObject.current && draggedObjectId.current != null) {
         isDraggingObject.current = false;
         draggedObjectId.current = null;
         dragObjectOrigin.current = null;
         setObjectDragPreview(null);
+        return;
+      }
+
+      // Object area selection commit
+      if (isSelectingObjects.current) {
+        isSelectingObjects.current = false;
+        const start = objectSelDragStart.current;
+        const tile = canvasToTile(e);
+        objectSelDragStart.current = null;
+
+        if (start && tile && start.x === tile.x && start.y === tile.y) {
+          // 단일 클릭: 빈 공간이면 새 오브젝트 추가
+          addObject(tile.x, tile.y);
+          setObjectSelectionStart(null);
+          setObjectSelectionEnd(null);
+        } else if (start && tile && currentMap?.objects) {
+          const minX = Math.min(start.x, tile.x);
+          const maxX = Math.max(start.x, tile.x);
+          const minY = Math.min(start.y, tile.y);
+          const maxY = Math.max(start.y, tile.y);
+          const objectsInArea = currentMap.objects
+            .filter(o => {
+              // 오브젝트의 바운딩 박스와 선택 영역이 겹치는지
+              const oMinX = o.x;
+              const oMaxX = o.x + o.width - 1;
+              const oMinY = o.y - o.height + 1;
+              const oMaxY = o.y;
+              return oMinX <= maxX && oMaxX >= minX && oMinY <= maxY && oMaxY >= minY;
+            })
+            .map(o => o.id);
+          if (e.shiftKey) {
+            const curIds = useEditorStore.getState().selectedObjectIds;
+            const merged = [...new Set([...curIds, ...objectsInArea])];
+            setSelectedObjectIds(merged);
+            if (merged.length > 0) setSelectedObjectId(merged[merged.length - 1]);
+          } else {
+            setSelectedObjectIds(objectsInArea);
+            if (objectsInArea.length > 0) setSelectedObjectId(objectsInArea[0]);
+            else setSelectedObjectId(null);
+          }
+          setObjectSelectionStart(null);
+          setObjectSelectionEnd(null);
+        }
         return;
       }
 
@@ -1015,6 +1302,28 @@ export function useMouseHandlers(
         setEventSelectionStart(null);
         setEventSelectionEnd(null);
       }
+      if (isDraggingMultiLights.current) {
+        isDraggingMultiLights.current = false;
+        multiLightDragOrigin.current = null;
+        setLightMultiDragDelta(null);
+      }
+      if (isSelectingLights.current) {
+        isSelectingLights.current = false;
+        lightSelDragStart.current = null;
+        setLightSelectionStart(null);
+        setLightSelectionEnd(null);
+      }
+      if (isDraggingMultiObjects.current) {
+        isDraggingMultiObjects.current = false;
+        multiObjectDragOrigin.current = null;
+        setObjectMultiDragDelta(null);
+      }
+      if (isSelectingObjects.current) {
+        isSelectingObjects.current = false;
+        objectSelDragStart.current = null;
+        setObjectSelectionStart(null);
+        setObjectSelectionEnd(null);
+      }
       if (isDraggingCameraZone.current) {
         isDraggingCameraZone.current = false;
         draggedCameraZoneId.current = null;
@@ -1063,11 +1372,13 @@ export function useMouseHandlers(
     handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave,
     handleDoubleClick, handleContextMenu, createNewEvent,
     resizePreview, resizeCursor, dragPreview, eventMultiDragDelta,
+    lightMultiDragDelta, objectMultiDragDelta,
     lightDragPreview, objectDragPreview, hoverTile,
     eventCtxMenu, editingEventId, setEditingEventId,
     closeEventCtxMenu,
     isDraggingEvent, isDraggingLight, isDraggingObject, draggedObjectId,
     isResizing, resizeOrigSize, isOrbiting, isSelectingEvents,
+    isSelectingLights, isSelectingObjects,
     isDraggingCameraZone, isCreatingCameraZone, cameraZoneDragPreview,
     playerStartDragPos,
   };

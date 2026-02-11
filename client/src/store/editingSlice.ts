@@ -1,7 +1,29 @@
 import type { MapData, MapObject, CameraZone } from '../types/rpgMakerMV';
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
 import { isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition } from '../utils/tileHelper';
-import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry, EventHistoryEntry } from './types';
+import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry, EventHistoryEntry, ClipboardData } from './types';
+
+/** 오브젝트 변경에 대한 undo 항목 push (헬퍼) */
+function pushObjectUndoEntry(
+  get: () => EditorState,
+  set: (partial: Partial<EditorState> | ((s: EditorState) => Partial<EditorState>)) => void,
+  oldObjects: any[],
+  newObjects: any[],
+) {
+  const { currentMapId, undoStack, selectedObjectId, selectedObjectIds, maxUndo } = get();
+  if (!currentMapId) return;
+  const entry: ObjectHistoryEntry = {
+    mapId: currentMapId,
+    type: 'object',
+    oldObjects: oldObjects as any,
+    newObjects: newObjects as any,
+    oldSelectedObjectId: selectedObjectId,
+    oldSelectedObjectIds: selectedObjectIds,
+  };
+  const newStack = [...undoStack, entry];
+  if (newStack.length > maxUndo) newStack.shift();
+  set({ undoStack: newStack, redoStack: [] });
+}
 
 /** 이벤트 변경에 대한 undo 항목 push (헬퍼) */
 function pushEventUndoEntry(
@@ -83,13 +105,15 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'editMode' | 'selectedTool' | 'selectedTileId' | 'selectedTiles' | 'selectedTilesWidth' | 'selectedTilesHeight' |
   'currentLayer' | 'clipboard' | 'cursorTileX' | 'cursorTileY' | 'selectionStart' | 'selectionEnd' | 'isPasting' | 'pastePreviewPos' |
   'selectedEventId' | 'selectedEventIds' | 'eventSelectionStart' | 'eventSelectionEnd' | 'isEventPasting' | 'eventPastePreviewPos' |
-  'selectedObjectId' | 'selectedCameraZoneId' | 'undoStack' | 'redoStack' |
+  'selectedObjectId' | 'selectedObjectIds' | 'objectSelectionStart' | 'objectSelectionEnd' | 'isObjectPasting' | 'objectPastePreviewPos' |
+  'selectedCameraZoneId' | 'undoStack' | 'redoStack' |
   'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' |
   'copyTiles' | 'cutTiles' | 'pasteTiles' | 'deleteTiles' | 'moveTiles' |
   'copyEvent' | 'cutEvent' | 'pasteEvent' | 'deleteEvent' |
   'copyEvents' | 'pasteEvents' | 'deleteEvents' | 'moveEvents' |
   'setSelectedEventIds' | 'setEventSelectionStart' | 'setEventSelectionEnd' | 'setIsEventPasting' | 'setEventPastePreviewPos' | 'clearEventSelection' |
-  'setSelectedObjectId' | 'addObject' | 'updateObject' | 'deleteObject' |
+  'setSelectedObjectId' | 'setSelectedObjectIds' | 'setObjectSelectionStart' | 'setObjectSelectionEnd' | 'setIsObjectPasting' | 'setObjectPastePreviewPos' | 'clearObjectSelection' |
+  'addObject' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' |
   'setSelectedCameraZoneId' | 'addCameraZone' | 'updateCameraZone' | 'deleteCameraZone' |
   'setEditMode' | 'setSelectedTool' | 'setSelectedTileId' | 'setSelectedTiles' |
   'setCurrentLayer' | 'setCursorTile' | 'setSelection' | 'setIsPasting' | 'setPastePreviewPos' | 'clearSelection' | 'setSelectedEventId'
@@ -115,6 +139,11 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   isEventPasting: false,
   eventPastePreviewPos: null,
   selectedObjectId: null,
+  selectedObjectIds: [],
+  objectSelectionStart: null,
+  objectSelectionEnd: null,
+  isObjectPasting: false,
+  objectPastePreviewPos: null,
   selectedCameraZoneId: null,
   undoStack: [],
   redoStack: [],
@@ -188,10 +217,12 @@ export const editingSlice: SliceCreator<Pick<EditorState,
         mapId: currentMapId, type: 'object',
         oldObjects: oe.newObjects, newObjects: oe.oldObjects,
         oldSelectedObjectId: get().selectedObjectId,
+        oldSelectedObjectIds: get().selectedObjectIds,
       };
       set({
         currentMap: { ...currentMap, objects: oe.oldObjects },
         selectedObjectId: oe.oldSelectedObjectId,
+        selectedObjectIds: oe.oldSelectedObjectIds ?? [],
         undoStack: undoStack.slice(0, -1),
         redoStack: [...get().redoStack, redoEntry],
       });
@@ -205,10 +236,12 @@ export const editingSlice: SliceCreator<Pick<EditorState,
         mapId: currentMapId, type: 'light',
         oldLights: le.newLights, newLights: le.oldLights,
         oldSelectedLightId: get().selectedLightId,
+        oldSelectedLightIds: get().selectedLightIds,
       };
       set({
         currentMap: { ...currentMap, editorLights: le.oldLights },
         selectedLightId: le.oldSelectedLightId,
+        selectedLightIds: le.oldSelectedLightIds ?? [],
         undoStack: undoStack.slice(0, -1),
         redoStack: [...get().redoStack, redoEntry],
       });
@@ -298,10 +331,12 @@ export const editingSlice: SliceCreator<Pick<EditorState,
         mapId: currentMapId, type: 'object',
         oldObjects: oe.newObjects, newObjects: oe.oldObjects,
         oldSelectedObjectId: get().selectedObjectId,
+        oldSelectedObjectIds: get().selectedObjectIds,
       };
       set({
         currentMap: { ...currentMap, objects: oe.oldObjects },
         selectedObjectId: oe.oldSelectedObjectId,
+        selectedObjectIds: oe.oldSelectedObjectIds ?? [],
         redoStack: redoStack.slice(0, -1),
         undoStack: [...get().undoStack, undoEntry],
       });
@@ -315,10 +350,12 @@ export const editingSlice: SliceCreator<Pick<EditorState,
         mapId: currentMapId, type: 'light',
         oldLights: le.newLights, newLights: le.oldLights,
         oldSelectedLightId: get().selectedLightId,
+        oldSelectedLightIds: get().selectedLightIds,
       };
       set({
         currentMap: { ...currentMap, editorLights: le.oldLights },
         selectedLightId: le.oldSelectedLightId,
+        selectedLightIds: le.oldSelectedLightIds ?? [],
         redoStack: redoStack.slice(0, -1),
         undoStack: [...get().undoStack, undoEntry],
       });
@@ -653,9 +690,15 @@ export const editingSlice: SliceCreator<Pick<EditorState,
 
   // Object actions
   setSelectedObjectId: (id: number | null) => set({ selectedObjectId: id }),
+  setSelectedObjectIds: (ids: number[]) => set({ selectedObjectIds: ids }),
+  setObjectSelectionStart: (pos) => set({ objectSelectionStart: pos }),
+  setObjectSelectionEnd: (pos) => set({ objectSelectionEnd: pos }),
+  setIsObjectPasting: (isPasting: boolean) => set({ isObjectPasting: isPasting }),
+  setObjectPastePreviewPos: (pos) => set({ objectPastePreviewPos: pos }),
+  clearObjectSelection: () => set({ objectSelectionStart: null, objectSelectionEnd: null, selectedObjectIds: [], selectedObjectId: null, isObjectPasting: false, objectPastePreviewPos: null }),
 
   addObject: (x: number, y: number) => {
-    const { currentMap, currentMapId, selectedTiles, selectedTilesWidth, selectedTilesHeight, selectedTileId, undoStack, selectedObjectId } = get();
+    const { currentMap, currentMapId, selectedTiles, selectedTilesWidth, selectedTilesHeight, selectedTileId } = get();
     if (!currentMap || !currentMapId) return;
     const oldObjects = currentMap.objects || [];
     const objects = [...oldObjects];
@@ -687,58 +730,90 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       passability,
     };
     objects.push(newObj);
-    const historyEntry: ObjectHistoryEntry = {
-      mapId: currentMapId, type: 'object',
-      oldObjects: oldObjects, newObjects: objects,
-      oldSelectedObjectId: selectedObjectId,
-    };
-    const newStack = [...undoStack, historyEntry];
-    if (newStack.length > get().maxUndo) newStack.shift();
-    set({
-      currentMap: { ...currentMap, objects },
-      selectedObjectId: newId,
-      undoStack: newStack,
-      redoStack: [],
-    });
+    set({ currentMap: { ...currentMap, objects }, selectedObjectId: newId, selectedObjectIds: [newId] });
+    pushObjectUndoEntry(get, set, oldObjects, objects);
   },
 
   updateObject: (id: number, updates: Partial<MapObject>) => {
-    const { currentMap, currentMapId, undoStack, selectedObjectId } = get();
+    const { currentMap, currentMapId } = get();
     if (!currentMap || !currentMapId || !currentMap.objects) return;
     const oldObjects = currentMap.objects;
     const objects = oldObjects.map(o => o.id === id ? { ...o, ...updates } : o);
-    const historyEntry: ObjectHistoryEntry = {
-      mapId: currentMapId, type: 'object',
-      oldObjects, newObjects: objects,
-      oldSelectedObjectId: selectedObjectId,
-    };
-    const newStack = [...undoStack, historyEntry];
-    if (newStack.length > get().maxUndo) newStack.shift();
-    set({
-      currentMap: { ...currentMap, objects },
-      undoStack: newStack,
-      redoStack: [],
-    });
+    set({ currentMap: { ...currentMap, objects } });
+    pushObjectUndoEntry(get, set, oldObjects, objects);
   },
 
   deleteObject: (id: number) => {
-    const { currentMap, currentMapId, undoStack, selectedObjectId } = get();
+    const { currentMap, currentMapId, selectedObjectId } = get();
     if (!currentMap || !currentMapId || !currentMap.objects) return;
     const oldObjects = currentMap.objects;
     const objects = oldObjects.filter(o => o.id !== id);
-    const historyEntry: ObjectHistoryEntry = {
-      mapId: currentMapId, type: 'object',
-      oldObjects, newObjects: objects,
-      oldSelectedObjectId: selectedObjectId,
-    };
-    const newStack = [...undoStack, historyEntry];
-    if (newStack.length > get().maxUndo) newStack.shift();
     set({
       currentMap: { ...currentMap, objects },
       selectedObjectId: selectedObjectId === id ? null : selectedObjectId,
-      undoStack: newStack,
-      redoStack: [],
+      selectedObjectIds: get().selectedObjectIds.filter(oid => oid !== id),
     });
+    pushObjectUndoEntry(get, set, oldObjects, objects);
+  },
+
+  copyObjects: (objectIds: number[]) => {
+    const map = get().currentMap;
+    if (!map || !map.objects || objectIds.length === 0) return;
+    const objs = objectIds
+      .map(id => map.objects?.find(o => o.id === id))
+      .filter((o): o is NonNullable<typeof o> => !!o);
+    if (objs.length === 0) return;
+    set({ clipboard: { type: 'objects', objects: JSON.parse(JSON.stringify(objs)) } });
+  },
+
+  pasteObjects: (x: number, y: number) => {
+    const { clipboard, currentMap } = get();
+    if (!currentMap || !clipboard || clipboard.type !== 'objects' || !clipboard.objects) return;
+    const objs = clipboard.objects as MapObject[];
+    if (objs.length === 0) return;
+    const minX = Math.min(...objs.map(o => o.x));
+    const minY = Math.min(...objs.map(o => o.y));
+    const oldObjects = currentMap.objects || [];
+    const objects = [...oldObjects];
+    let maxId = objects.length > 0 ? Math.max(...objects.map(o => o.id)) : 0;
+    const newIds: number[] = [];
+    for (const obj of objs) {
+      const newId = ++maxId;
+      const nx = x + (obj.x - minX);
+      const ny = y + (obj.y - minY);
+      const newName = incrementName(obj.name, objects);
+      const newObj: MapObject = { ...obj, id: newId, x: nx, y: ny, name: newName };
+      objects.push(newObj);
+      newIds.push(newId);
+    }
+    set({ currentMap: { ...currentMap, objects }, selectedObjectIds: newIds, selectedObjectId: newIds[0] ?? null });
+    pushObjectUndoEntry(get, set, oldObjects, objects);
+  },
+
+  deleteObjects: (objectIds: number[]) => {
+    const { currentMap } = get();
+    if (!currentMap || !currentMap.objects || objectIds.length === 0) return;
+    const oldObjects = currentMap.objects;
+    const idSet = new Set(objectIds);
+    const objects = oldObjects.filter(o => !idSet.has(o.id));
+    set({ currentMap: { ...currentMap, objects }, selectedObjectIds: [], selectedObjectId: null });
+    pushObjectUndoEntry(get, set, oldObjects, objects);
+  },
+
+  moveObjects: (objectIds: number[], dx: number, dy: number) => {
+    const { currentMap } = get();
+    if (!currentMap || !currentMap.objects || objectIds.length === 0) return;
+    if (dx === 0 && dy === 0) return;
+    const idSet = new Set(objectIds);
+    const oldObjects = currentMap.objects;
+    const objects = oldObjects.map(o => {
+      if (idSet.has(o.id)) {
+        return { ...o, x: o.x + dx, y: o.y + dy };
+      }
+      return o;
+    });
+    set({ currentMap: { ...currentMap, objects } });
+    pushObjectUndoEntry(get, set, oldObjects, objects);
   },
 
   // Camera zone actions
@@ -837,10 +912,20 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       if (state.editMode === 'light') {
         updates.lightEditMode = false;
         updates.selectedLightId = null;
+        updates.selectedLightIds = [];
+        updates.lightSelectionStart = null;
+        updates.lightSelectionEnd = null;
+        updates.isLightPasting = false;
+        updates.lightPastePreviewPos = null;
       }
     }
     if (mode !== 'object') {
       updates.selectedObjectId = null;
+      updates.selectedObjectIds = [];
+      updates.objectSelectionStart = null;
+      updates.objectSelectionEnd = null;
+      updates.isObjectPasting = false;
+      updates.objectPastePreviewPos = null;
     }
     if (mode !== 'event') {
       updates.selectedEventId = null;

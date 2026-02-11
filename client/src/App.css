@@ -2116,6 +2116,23 @@ input, textarea, [contenteditable="true"] {
   background: #e55;
 }
 
+/* Camera Zone Action Button */
+.camera-zone-action-btn {
+  background: #3c5a7a;
+  color: #ddd;
+  border: 1px solid #567;
+  border-radius: 3px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  width: 100%;
+}
+
+.camera-zone-action-btn:hover {
+  background: #4a6a8a;
+  color: #fff;
+}
+
 /* Passability grid for Object Inspector */
 .passability-cell {
   width: 24px;

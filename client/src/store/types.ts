@@ -38,6 +38,7 @@ export interface ObjectHistoryEntry {
   oldObjects: MapObject[];
   newObjects: MapObject[];
   oldSelectedObjectId: number | null;
+  oldSelectedObjectIds: number[];
 }
 
 export interface LightHistoryEntry {
@@ -46,6 +47,7 @@ export interface LightHistoryEntry {
   oldLights: EditorLights;
   newLights: EditorLights;
   oldSelectedLightId: number | null;
+  oldSelectedLightIds: number[];
 }
 
 export interface CameraZoneHistoryEntry {
@@ -68,12 +70,14 @@ export interface EventHistoryEntry {
 export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry | CameraZoneHistoryEntry | EventHistoryEntry;
 
 export interface ClipboardData {
-  type: 'tiles' | 'event' | 'events';
+  type: 'tiles' | 'event' | 'events' | 'lights' | 'objects';
   tiles?: { x: number; y: number; z: number; tileId: number }[];
   width?: number;
   height?: number;
   event?: unknown;
   events?: unknown[];
+  lights?: unknown[];
+  objects?: unknown[];
 }
 
 export interface EditorState {
@@ -135,6 +139,11 @@ export interface EditorState {
 
   // Object editor
   selectedObjectId: number | null;
+  selectedObjectIds: number[];
+  objectSelectionStart: { x: number; y: number } | null;
+  objectSelectionEnd: { x: number; y: number } | null;
+  isObjectPasting: boolean;
+  objectPastePreviewPos: { x: number; y: number } | null;
 
   // Camera zone editor
   selectedCameraZoneId: number | null;
@@ -150,6 +159,11 @@ export interface EditorState {
   // Light editor
   lightEditMode: boolean;
   selectedLightId: number | null;
+  selectedLightIds: number[];
+  lightSelectionStart: { x: number; y: number } | null;
+  lightSelectionEnd: { x: number; y: number } | null;
+  isLightPasting: boolean;
+  lightPastePreviewPos: { x: number; y: number } | null;
   selectedLightType: 'point' | 'ambient' | 'directional';
 
   // Parse errors
@@ -223,9 +237,19 @@ export interface EditorState {
 
   // Actions - Object
   setSelectedObjectId: (id: number | null) => void;
+  setSelectedObjectIds: (ids: number[]) => void;
+  setObjectSelectionStart: (pos: { x: number; y: number } | null) => void;
+  setObjectSelectionEnd: (pos: { x: number; y: number } | null) => void;
+  setIsObjectPasting: (isPasting: boolean) => void;
+  setObjectPastePreviewPos: (pos: { x: number; y: number } | null) => void;
+  clearObjectSelection: () => void;
   addObject: (x: number, y: number) => void;
   updateObject: (id: number, updates: Partial<MapObject>) => void;
   deleteObject: (id: number) => void;
+  copyObjects: (objectIds: number[]) => void;
+  pasteObjects: (x: number, y: number) => void;
+  deleteObjects: (objectIds: number[]) => void;
+  moveObjects: (objectIds: number[], dx: number, dy: number) => void;
 
   // Actions - Camera Zone
   setSelectedCameraZoneId: (id: number | null) => void;
@@ -259,11 +283,21 @@ export interface EditorState {
   // Actions - Light editor
   setLightEditMode: (enabled: boolean) => void;
   setSelectedLightId: (id: number | null) => void;
+  setSelectedLightIds: (ids: number[]) => void;
+  setLightSelectionStart: (pos: { x: number; y: number } | null) => void;
+  setLightSelectionEnd: (pos: { x: number; y: number } | null) => void;
+  setIsLightPasting: (isPasting: boolean) => void;
+  setLightPastePreviewPos: (pos: { x: number; y: number } | null) => void;
+  clearLightSelection: () => void;
   setSelectedLightType: (type: 'point' | 'ambient' | 'directional') => void;
   initEditorLights: () => void;
   addPointLight: (x: number, y: number) => void;
   updatePointLight: (id: number, updates: Partial<EditorPointLight>) => void;
   deletePointLight: (id: number) => void;
+  copyLights: (lightIds: number[]) => void;
+  pasteLights: (x: number, y: number) => void;
+  deleteLights: (lightIds: number[]) => void;
+  moveLights: (lightIds: number[], dx: number, dy: number) => void;
   updateAmbientLight: (updates: Partial<EditorAmbientLight>) => void;
   updateDirectionalLight: (updates: Partial<EditorDirectionalLight>) => void;
   updatePlayerLight: (updates: Partial<EditorPlayerLight>) => void;

@@ -54,6 +54,24 @@ export function useKeyboardShortcuts(
   const cursorTileY = useEditorStore((s) => s.cursorTileY);
   const showToast = useEditorStore((s) => s.showToast);
 
+  // Light multi-select
+  const selectedLightIds = useEditorStore((s) => s.selectedLightIds);
+  const copyLights = useEditorStore((s) => s.copyLights);
+  const deleteLights = useEditorStore((s) => s.deleteLights);
+  const isLightPasting = useEditorStore((s) => s.isLightPasting);
+  const setIsLightPasting = useEditorStore((s) => s.setIsLightPasting);
+  const setLightPastePreviewPos = useEditorStore((s) => s.setLightPastePreviewPos);
+  const clearLightSelection = useEditorStore((s) => s.clearLightSelection);
+
+  // Object multi-select
+  const selectedObjectIds = useEditorStore((s) => s.selectedObjectIds);
+  const copyObjects = useEditorStore((s) => s.copyObjects);
+  const deleteObjects = useEditorStore((s) => s.deleteObjects);
+  const isObjectPasting = useEditorStore((s) => s.isObjectPasting);
+  const setIsObjectPasting = useEditorStore((s) => s.setIsObjectPasting);
+  const setObjectPastePreviewPos = useEditorStore((s) => s.setObjectPastePreviewPos);
+  const clearObjectSelection = useEditorStore((s) => s.clearObjectSelection);
+
   // Alt key state for eyedropper cursor
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Alt') setAltPressed(true); };
@@ -125,13 +143,23 @@ export function useKeyboardShortcuts(
         showToast('선택 영역 삭제됨');
         return;
       }
-      if (lightEditMode && selectedLightId != null) {
-        deletePointLight(selectedLightId);
-        setSelectedLightId(null);
+      if (lightEditMode) {
+        if (selectedLightIds.length > 0) {
+          deleteLights(selectedLightIds);
+          showToast(`조명 ${selectedLightIds.length}개 삭제됨`);
+        } else if (selectedLightId != null) {
+          deletePointLight(selectedLightId);
+          setSelectedLightId(null);
+        }
         return;
       }
-      if (editMode === 'object' && selectedObjectId != null) {
-        deleteObject(selectedObjectId);
+      if (editMode === 'object') {
+        if (selectedObjectIds.length > 0) {
+          deleteObjects(selectedObjectIds);
+          showToast(`오브젝트 ${selectedObjectIds.length}개 삭제됨`);
+        } else if (selectedObjectId != null) {
+          deleteObject(selectedObjectId);
+        }
         return;
       }
       if (editMode === 'event') {
@@ -145,9 +173,9 @@ export function useKeyboardShortcuts(
     };
     window.addEventListener('editor-delete', handleDelete);
     return () => window.removeEventListener('editor-delete', handleDelete);
-  }, [editMode, selectedEventId, deleteEvent, lightEditMode, selectedLightId, deletePointLight, setSelectedLightId, selectedObjectId, deleteObject, selectionStart, selectionEnd, deleteTiles, clearSelection, showToast]);
+  }, [editMode, selectedEventId, deleteEvent, lightEditMode, selectedLightId, selectedLightIds, deletePointLight, deleteLights, setSelectedLightId, selectedObjectId, selectedObjectIds, deleteObject, deleteObjects, selectionStart, selectionEnd, deleteTiles, clearSelection, showToast]);
 
-  // Handle Copy/Cut/Paste for events and tile selection
+  // Handle Copy/Cut/Paste for events, lights, objects, and tile selection
   useEffect(() => {
     const handleCopy = () => {
       if (editMode === 'map' && selectionStart && selectionEnd) {
@@ -162,6 +190,20 @@ export function useKeyboardShortcuts(
         } else if (selectedEventId != null) {
           copyEvent(selectedEventId);
           showToast('이벤트 복사됨');
+        }
+        return;
+      }
+      if (lightEditMode) {
+        if (selectedLightIds.length > 0) {
+          copyLights(selectedLightIds);
+          showToast(`조명 ${selectedLightIds.length}개 복사됨`);
+        }
+        return;
+      }
+      if (editMode === 'object') {
+        if (selectedObjectIds.length > 0) {
+          copyObjects(selectedObjectIds);
+          showToast(`오브젝트 ${selectedObjectIds.length}개 복사됨`);
         }
         return;
       }
@@ -185,6 +227,22 @@ export function useKeyboardShortcuts(
         }
         return;
       }
+      if (lightEditMode) {
+        if (selectedLightIds.length > 0) {
+          copyLights(selectedLightIds);
+          deleteLights(selectedLightIds);
+          showToast(`조명 ${selectedLightIds.length}개 잘라내기`);
+        }
+        return;
+      }
+      if (editMode === 'object') {
+        if (selectedObjectIds.length > 0) {
+          copyObjects(selectedObjectIds);
+          deleteObjects(selectedObjectIds);
+          showToast(`오브젝트 ${selectedObjectIds.length}개 잘라내기`);
+        }
+        return;
+      }
     };
     const handlePaste = () => {
       if (editMode === 'map' && clipboard?.type === 'tiles') {
@@ -199,6 +257,18 @@ export function useKeyboardShortcuts(
         showToast('붙여넣기 모드 - 클릭하여 배치');
         return;
       }
+      if (lightEditMode && clipboard?.type === 'lights') {
+        setIsLightPasting(true);
+        setLightPastePreviewPos({ x: cursorTileX, y: cursorTileY });
+        showToast('붙여넣기 모드 - 클릭하여 배치');
+        return;
+      }
+      if (editMode === 'object' && clipboard?.type === 'objects') {
+        setIsObjectPasting(true);
+        setObjectPastePreviewPos({ x: cursorTileX, y: cursorTileY });
+        showToast('붙여넣기 모드 - 클릭하여 배치');
+        return;
+      }
     };
     window.addEventListener('editor-copy', handleCopy);
     window.addEventListener('editor-cut', handleCut);
@@ -208,7 +278,7 @@ export function useKeyboardShortcuts(
       window.removeEventListener('editor-cut', handleCut);
       window.removeEventListener('editor-paste', handlePaste);
     };
-  }, [editMode, selectedEventId, selectedEventIds, copyEvent, copyEvents, deleteEvent, deleteEvents, pasteEvent, pasteEvents, clipboard, currentMap, selectionStart, selectionEnd, copyTiles, cutTiles, clearSelection, setIsPasting, setPastePreviewPos, setIsEventPasting, setEventPastePreviewPos, cursorTileX, cursorTileY, showToast]);
+  }, [editMode, selectedEventId, selectedEventIds, copyEvent, copyEvents, deleteEvent, deleteEvents, pasteEvent, pasteEvents, clipboard, currentMap, selectionStart, selectionEnd, copyTiles, cutTiles, clearSelection, setIsPasting, setPastePreviewPos, setIsEventPasting, setEventPastePreviewPos, lightEditMode, selectedLightIds, copyLights, deleteLights, setIsLightPasting, setLightPastePreviewPos, selectedObjectIds, copyObjects, deleteObjects, setIsObjectPasting, setObjectPastePreviewPos, cursorTileX, cursorTileY, showToast]);
 
   // Handle Select All (Cmd+A)
   useEffect(() => {
@@ -224,10 +294,20 @@ export function useKeyboardShortcuts(
         useEditorStore.getState().setSelectedEventIds(allIds);
         showToast(`전체 선택 (${allIds.length}개)`);
       }
+      if (lightEditMode && currentMap?.editorLights?.points) {
+        const allIds = currentMap.editorLights.points.map(l => l.id);
+        useEditorStore.getState().setSelectedLightIds(allIds);
+        showToast(`전체 선택 (조명 ${allIds.length}개)`);
+      }
+      if (editMode === 'object' && currentMap?.objects) {
+        const allIds = currentMap.objects.map(o => o.id);
+        useEditorStore.getState().setSelectedObjectIds(allIds);
+        showToast(`전체 선택 (오브젝트 ${allIds.length}개)`);
+      }
     };
     window.addEventListener('editor-selectall', handleSelectAll);
     return () => window.removeEventListener('editor-selectall', handleSelectAll);
-  }, [editMode, selectedTool, currentMap, setSelection, showToast]);
+  }, [editMode, selectedTool, currentMap, setSelection, showToast, lightEditMode]);
 
   // Handle Deselect (Cmd+D)
   useEffect(() => {
@@ -246,10 +326,24 @@ export function useKeyboardShortcuts(
         }
         clearEventSelection();
       }
+      if (lightEditMode) {
+        if (isLightPasting) {
+          setIsLightPasting(false);
+          setLightPastePreviewPos(null);
+        }
+        clearLightSelection();
+      }
+      if (editMode === 'object') {
+        if (isObjectPasting) {
+          setIsObjectPasting(false);
+          setObjectPastePreviewPos(null);
+        }
+        clearObjectSelection();
+      }
     };
     window.addEventListener('editor-deselect', handleDeselect);
     return () => window.removeEventListener('editor-deselect', handleDeselect);
-  }, [editMode, isPasting, isEventPasting, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection]);
+  }, [editMode, isPasting, isEventPasting, isLightPasting, isObjectPasting, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection, lightEditMode, setIsLightPasting, setLightPastePreviewPos, clearLightSelection, setIsObjectPasting, setObjectPastePreviewPos, clearObjectSelection]);
 
   // Handle Escape key for selection/paste cancel
   useEffect(() => {
@@ -257,6 +351,16 @@ export function useKeyboardShortcuts(
       if (isEventPasting) {
         setIsEventPasting(false);
         setEventPastePreviewPos(null);
+        return;
+      }
+      if (isLightPasting) {
+        setIsLightPasting(false);
+        setLightPastePreviewPos(null);
+        return;
+      }
+      if (isObjectPasting) {
+        setIsObjectPasting(false);
+        setObjectPastePreviewPos(null);
         return;
       }
       if (isPasting) {
@@ -272,11 +376,20 @@ export function useKeyboardShortcuts(
       const state = useEditorStore.getState();
       if (state.selectedEventIds.length > 0) {
         clearEventSelection();
+        return;
+      }
+      if (state.selectedLightIds.length > 0) {
+        clearLightSelection();
+        return;
+      }
+      if (state.selectedObjectIds.length > 0) {
+        clearObjectSelection();
+        return;
       }
     };
     window.addEventListener('editor-escape', handleEscape);
     return () => window.removeEventListener('editor-escape', handleEscape);
-  }, [isPasting, isEventPasting, selectionStart, selectionEnd, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection]);
+  }, [isPasting, isEventPasting, isLightPasting, isObjectPasting, selectionStart, selectionEnd, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection, setIsLightPasting, setLightPastePreviewPos, clearLightSelection, setIsObjectPasting, setObjectPastePreviewPos, clearObjectSelection]);
 
   return { showGrid, altPressed, panning };
 }
