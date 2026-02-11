@@ -7,12 +7,12 @@ export const DEFAULT_AUDIO: AudioFile = { name: '', pan: 0, pitch: 100, volume: 
 
 export const selectStyle = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 } as const;
 
-export function ShowTextEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[], extra?: EventCommand[]) => void; onCancel: () => void }) {
+export function ShowTextEditor({ p, onOk, onCancel, existingLines }: { p: unknown[]; onOk: (params: unknown[], extra?: EventCommand[]) => void; onCancel: () => void; existingLines?: string[] }) {
   const [faceName, setFaceName] = useState<string>((p[0] as string) || '');
   const [faceIndex, setFaceIndex] = useState<number>((p[1] as number) || 0);
   const [background, setBackground] = useState<number>((p[2] as number) || 0);
   const [positionType, setPositionType] = useState<number>((p[3] as number) || 2);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(existingLines?.join('\n') || '');
 
   const handleOk = () => {
     const lines = text.split('\n').filter((_, i) => i < 4);
@@ -55,11 +55,18 @@ export function ShowTextEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (par
   );
 }
 
-export function TextEditor({ p, onOk, onCancel, followCode, label, showSpeed }: {
+export function TextEditor({ p, onOk, onCancel, followCode, label, showSpeed, existingLines }: {
   p: unknown[]; onOk: (params: unknown[], extra?: EventCommand[]) => void; onCancel: () => void;
-  followCode: number; label: string; showSpeed?: boolean;
+  followCode: number; label: string; showSpeed?: boolean; existingLines?: string[];
 }) {
-  const [text, setText] = useState<string>((p[0] as string) || '');
+  const [text, setText] = useState<string>(() => {
+    if (existingLines && existingLines.length > 0) {
+      // 첫 번째 라인은 메인 커맨드의 p[0] (showSpeed가 아닌 경우)
+      if (!showSpeed && p[0]) return [p[0] as string, ...existingLines].join('\n');
+      return existingLines.join('\n');
+    }
+    return (p[0] as string) || '';
+  });
   const [speed, setSpeed] = useState<number>(showSpeed ? ((p[0] as number) || 2) : 2);
 
   const handleOk = () => {

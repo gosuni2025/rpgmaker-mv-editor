@@ -497,9 +497,49 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     }
   };
 
-  const updateCommandParams = (index: number, params: unknown[]) => {
+  const updateCommandParams = (index: number, params: unknown[], extra?: EventCommand[]) => {
     const newCommands = [...commands];
-    newCommands[index] = { ...newCommands[index], parameters: params };
+    const cmd = newCommands[index];
+    newCommands[index] = { ...cmd, parameters: params };
+
+    // 후속 라인(continuation) 교체: 기존 후속 라인 제거 후 새 extra 삽입
+    if (extra) {
+      const contCode = CONTINUATION_CODES[cmd.code];
+      if (contCode !== undefined) {
+        // 연속형: 기존 후속 코드 라인 제거
+        let removeEnd = index;
+        for (let i = index + 1; i < newCommands.length; i++) {
+          if (newCommands[i].code === contCode) removeEnd = i;
+          else break;
+        }
+        const removeCount = removeEnd - index;
+        if (removeCount > 0) {
+          newCommands.splice(index + 1, removeCount);
+        }
+        // 새 후속 라인 삽입 (indent는 원본 커맨드와 동일)
+        const insertExtra = extra.map(e => ({ ...e, indent: cmd.indent }));
+        newCommands.splice(index + 1, 0, ...insertExtra);
+      } else {
+        // 블록 구조형(102 Show Choices 등): 기존 블록 전체 교체
+        const endCodes = BLOCK_END_CODES[cmd.code];
+        if (endCodes) {
+          let blockEnd = index;
+          for (let i = index + 1; i < newCommands.length; i++) {
+            if (endCodes.includes(newCommands[i].code) && newCommands[i].indent === cmd.indent) {
+              blockEnd = i;
+              break;
+            }
+          }
+          const removeCount = blockEnd - index;
+          if (removeCount > 0) {
+            newCommands.splice(index + 1, removeCount);
+          }
+          const insertExtra = extra.map(e => ({ ...e, indent: e.indent + cmd.indent }));
+          newCommands.splice(index + 1, 0, ...insertExtra);
+        }
+      }
+    }
+
     changeWithHistory(newCommands);
     setEditingIndex(null);
   };
@@ -513,6 +553,19 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     // For commands with param editors, open the editor
     if (HAS_PARAM_EDITOR.has(cmd.code)) {
       setEditingIndex(index);
+      return;
+    }
+    // 부속 코드 더블클릭 시 부모 커맨드의 에디터를 열기
+    const parentCodes = CHILD_TO_PARENT[cmd.code];
+    if (parentCodes) {
+      for (let i = index - 1; i >= 0; i--) {
+        if (parentCodes.includes(commands[i].code) && commands[i].indent === cmd.indent) {
+          if (HAS_PARAM_EDITOR.has(commands[i].code)) {
+            setEditingIndex(i);
+          }
+          return;
+        }
+      }
     }
   };
 
@@ -839,14 +892,28 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       )}
 
       {/* Parameter editor for editing existing commands */}
-      {editingIndex !== null && (
-        <CommandParamEditor
-          code={commands[editingIndex].code}
-          command={commands[editingIndex]}
-          onOk={(params) => updateCommandParams(editingIndex, params)}
-          onCancel={() => setEditingIndex(null)}
-        />
-      )}
+      {editingIndex !== null && (() => {
+        const editCmd = commands[editingIndex];
+        // 후속 라인 수집
+        const contCode = CONTINUATION_CODES[editCmd.code];
+        const follows: EventCommand[] = [];
+        if (contCode !== undefined) {
+          for (let i = editingIndex + 1; i < commands.length; i++) {
+            if (commands[i].code === contCode) follows.push(commands[i]);
+            else break;
+          }
+        }
+        return (
+          <CommandParamEditor
+            key={editingIndex}
+            code={editCmd.code}
+            command={editCmd}
+            followCommands={follows}
+            onOk={(params, extra) => updateCommandParams(editingIndex, params, extra)}
+            onCancel={() => setEditingIndex(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

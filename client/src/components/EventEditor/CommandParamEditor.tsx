@@ -10,13 +10,14 @@ import {
 interface CommandParamEditorProps {
   code: number;
   command?: EventCommand;
+  followCommands?: EventCommand[];
   onOk: (params: unknown[], extraCommands?: EventCommand[]) => void;
   onCancel: () => void;
 }
 
-export default function CommandParamEditor({ code, command, onOk, onCancel }: CommandParamEditorProps) {
+export default function CommandParamEditor({ code, command, followCommands, onOk, onCancel }: CommandParamEditorProps) {
   const p = command?.parameters || [];
-  const content = getEditorContent(code, p, onOk, onCancel);
+  const content = getEditorContent(code, p, followCommands || [], onOk, onCancel);
   if (!content) {
     onOk(p);
     return null;
@@ -53,17 +54,21 @@ function getCommandName(code: number): string {
 }
 
 function getEditorContent(
-  code: number, p: unknown[],
+  code: number, p: unknown[], followCommands: EventCommand[],
   onOk: (params: unknown[], extraCommands?: EventCommand[]) => void,
   onCancel: () => void
 ): React.ReactNode | null {
+  // 후속 라인 텍스트 추출 헬퍼
+  const followText = (followCode: number) =>
+    followCommands.filter(c => c.code === followCode).map(c => c.parameters[0] as string);
+
   switch (code) {
     case 102: return <ShowChoicesEditor p={p} onOk={onOk} onCancel={onCancel} />;
-    case 101: return <ShowTextEditor p={p} onOk={onOk} onCancel={onCancel} />;
-    case 108: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={408} label="Comment" />;
-    case 355: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={655} label="Script" />;
+    case 101: return <ShowTextEditor p={p} onOk={onOk} onCancel={onCancel} existingLines={followText(401)} />;
+    case 108: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={408} label="Comment" existingLines={followText(408)} />;
+    case 355: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={655} label="Script" existingLines={followText(655)} />;
     case 356: return <SingleTextEditor p={p} onOk={onOk} onCancel={onCancel} label="Plugin Command" />;
-    case 105: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={405} label="Scrolling Text" showSpeed />;
+    case 105: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={405} label="Scrolling Text" showSpeed existingLines={followText(405)} />;
     case 121: return <ControlSwitchesEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 122: return <ControlVariablesEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 123: return <ControlSelfSwitchEditor p={p} onOk={onOk} onCancel={onCancel} />;
