@@ -220,6 +220,10 @@ export function useMouseHandlers(
             moveOriginRef.current = { x: tile.x, y: tile.y };
             originalSelectionBounds.current = { minX, minY, maxX, maxY };
             copyTiles(minX, minY, maxX, maxY);
+            // 원래 위치 타일 즉시 삭제 + 프리뷰 표시
+            deleteTiles(minX, minY, maxX, maxY);
+            setIsPasting(true);
+            setPastePreviewPos({ x: minX, y: minY });
             return;
           }
         }
@@ -303,7 +307,7 @@ export function useMouseHandlers(
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight, mode3d, detectEdge, getCanvasPx, startResize, eyedropTile, clearSelection, setSelection, copyTiles, pasteTiles, setIsPasting, setPastePreviewPos]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, setSelectedEventId, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, setSelectedLightId, addPointLight, mode3d, detectEdge, getCanvasPx, startResize, eyedropTile, clearSelection, setSelection, copyTiles, deleteTiles, pasteTiles, setIsPasting, setPastePreviewPos]
   );
 
   const handleMouseMove = useCallback(
@@ -366,6 +370,7 @@ export function useMouseHandlers(
             { x: ob.minX + dx, y: ob.minY + dy },
             { x: ob.maxX + dx, y: ob.maxY + dy }
           );
+          setPastePreviewPos({ x: ob.minX + dx, y: ob.minY + dy });
           return;
         }
       }
@@ -459,16 +464,15 @@ export function useMouseHandlers(
           if (tile && ob && moveOriginRef.current) {
             const dx = tile.x - moveOriginRef.current.x;
             const dy = tile.y - moveOriginRef.current.y;
-            if (dx !== 0 || dy !== 0) {
-              // 원래 위치의 타일 삭제 후 새 위치에 붙여넣기
-              deleteTiles(ob.minX, ob.minY, ob.maxX, ob.maxY);
-              pasteTiles(ob.minX + dx, ob.minY + dy);
-              setSelection(
-                { x: ob.minX + dx, y: ob.minY + dy },
-                { x: ob.maxX + dx, y: ob.maxY + dy }
-              );
-            }
+            // 새 위치에 붙여넣기 (원래 위치는 mouseDown에서 이미 삭제됨)
+            pasteTiles(ob.minX + dx, ob.minY + dy);
+            setSelection(
+              { x: ob.minX + dx, y: ob.minY + dy },
+              { x: ob.maxX + dx, y: ob.maxY + dy }
+            );
           }
+          setIsPasting(false);
+          setPastePreviewPos(null);
           isMovingSelection.current = false;
           moveOriginRef.current = null;
           originalSelectionBounds.current = null;
@@ -545,7 +549,7 @@ export function useMouseHandlers(
       dragStart.current = null;
       pendingChanges.current = [];
     },
-    [selectedTool, canvasToTile, drawRectangle, drawEllipse, clearOverlay, pushUndo, updatePointLight, editMode, clearSelection, deleteTiles, pasteTiles, setSelection]
+    [selectedTool, canvasToTile, drawRectangle, drawEllipse, clearOverlay, pushUndo, updatePointLight, editMode, clearSelection, deleteTiles, pasteTiles, setSelection, setIsPasting, setPastePreviewPos]
   );
 
   const handleDoubleClick = useCallback(
@@ -645,6 +649,14 @@ export function useMouseHandlers(
         return;
       }
       if (isMovingSelection.current) {
+        // 이동 취소: 원래 위치에 타일 복원
+        const ob = originalSelectionBounds.current;
+        if (ob) {
+          pasteTiles(ob.minX, ob.minY);
+          setSelection({ x: ob.minX, y: ob.minY }, { x: ob.maxX, y: ob.maxY });
+        }
+        setIsPasting(false);
+        setPastePreviewPos(null);
         isMovingSelection.current = false;
         moveOriginRef.current = null;
         originalSelectionBounds.current = null;
@@ -652,7 +664,7 @@ export function useMouseHandlers(
       }
       handleMouseUp(e);
     },
-    [handleMouseUp]
+    [handleMouseUp, pasteTiles, setIsPasting, setPastePreviewPos, setSelection]
   );
 
   const closeEventCtxMenu = useCallback(() => setEventCtxMenu(null), []);
