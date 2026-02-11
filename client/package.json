@@ -8,7 +8,6 @@
   },
   "dependencies": {
     "i18next": "^25.8.4",
-    "js-error-overlay": "github:painh/js-error-overlay",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-i18next": "^16.5.4",
