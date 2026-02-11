@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Skill, Damage, Effect } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import DamageEditor from '../common/DamageEditor';
@@ -12,43 +13,44 @@ interface SkillsTabProps {
 
 interface RefItem { id: number; name: string }
 
-const SCOPE_OPTIONS = [
-  { value: 0, label: 'None' },
-  { value: 1, label: '1 Enemy' },
-  { value: 2, label: 'All Enemies' },
-  { value: 3, label: '1 Random Enemy' },
-  { value: 4, label: '2 Random Enemies' },
-  { value: 5, label: '3 Random Enemies' },
-  { value: 6, label: '4 Random Enemies' },
-  { value: 7, label: '1 Ally' },
-  { value: 8, label: 'All Allies' },
-  { value: 9, label: '1 Ally (Dead)' },
-  { value: 10, label: 'All Allies (Dead)' },
-  { value: 11, label: 'The User' },
-];
-
-const OCCASION_OPTIONS = [
-  { value: 0, label: 'Always' },
-  { value: 1, label: 'Only in Battle' },
-  { value: 2, label: 'Only from Menu' },
-  { value: 3, label: 'Never' },
-];
-
-const HIT_TYPE_OPTIONS = [
-  { value: 0, label: 'Certain Hit' },
-  { value: 1, label: 'Physical Attack' },
-  { value: 2, label: 'Magical Attack' },
-];
-
 const DEFAULT_DAMAGE: Damage = { critical: false, elementId: 0, formula: '', type: 0, variance: 0 };
 const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 export default function SkillsTab({ data, onChange }: SkillsTabProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
   const [skillTypes, setSkillTypes] = useState<string[]>([]);
   const [weaponTypes, setWeaponTypes] = useState<string[]>([]);
   const [animations, setAnimations] = useState<RefItem[]>([]);
+
+  const SCOPE_OPTIONS = [
+    { value: 0, label: t('scope.none') },
+    { value: 1, label: t('scope.oneEnemy') },
+    { value: 2, label: t('scope.allEnemies') },
+    { value: 3, label: t('scope.randomEnemy1') },
+    { value: 4, label: t('scope.randomEnemy2') },
+    { value: 5, label: t('scope.randomEnemy3') },
+    { value: 6, label: t('scope.randomEnemy4') },
+    { value: 7, label: t('scope.oneAlly') },
+    { value: 8, label: t('scope.allAllies') },
+    { value: 9, label: t('scope.oneAllyDead') },
+    { value: 10, label: t('scope.allAlliesDead') },
+    { value: 11, label: t('scope.theUser') },
+  ];
+
+  const OCCASION_OPTIONS = [
+    { value: 0, label: t('occasion.always') },
+    { value: 1, label: t('occasion.onlyInBattle') },
+    { value: 2, label: t('occasion.onlyFromMenu') },
+    { value: 3, label: t('occasion.never') },
+  ];
+
+  const HIT_TYPE_OPTIONS = [
+    { value: 0, label: t('hitType.certainHit') },
+    { value: 1, label: t('hitType.physicalAttack') },
+    { value: 2, label: t('hitType.magicalAttack') },
+  ];
 
   useEffect(() => {
     apiClient.get<{ skillTypes?: string[]; weaponTypes?: string[] }>('/database/system').then(sys => {
@@ -107,7 +109,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
     <div className="db-tab-layout">
       <div className="db-list">
         <div className="db-list-header">
-          <span>Skills</span>
+          <span>{t('database.tabs.skills')}</span>
           <button className="db-btn-small" onClick={handleAddSkill}>+</button>
         </div>
         {data?.filter(Boolean).map((item) => (
@@ -124,7 +126,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
         {selectedItem && (
           <>
             <label>
-              Name
+              {t('common.name')}
               <input
                 type="text"
                 value={selectedItem.name || ''}
@@ -133,7 +135,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              Icon
+              {t('common.icon')}
             </label>
             <IconPicker
               value={selectedItem.iconIndex || 0}
@@ -141,7 +143,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             />
 
             <label>
-              Description
+              {t('common.description')}
               <textarea
                 value={selectedItem.description || ''}
                 onChange={(e) => handleFieldChange('description', e.target.value)}
@@ -150,7 +152,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              Skill Type
+              {t('fields.skillType')}
               <select value={selectedItem.stypeId || 0} onChange={(e) => handleFieldChange('stypeId', Number(e.target.value))} style={selectStyle}>
                 {skillTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
                 {skillTypes.length === 0 && <option value={selectedItem.stypeId || 0}>{selectedItem.stypeId}</option>}
@@ -158,7 +160,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              MP Cost
+              {t('fields.mpCost')}
               <input
                 type="number"
                 value={selectedItem.mpCost || 0}
@@ -168,7 +170,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              TP Cost
+              {t('fields.tpCost')}
               <input
                 type="number"
                 value={selectedItem.tpCost || 0}
@@ -178,7 +180,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              Scope
+              {t('fields.scope')}
               <select
                 value={selectedItem.scope || 0}
                 onChange={(e) => handleFieldChange('scope', Number(e.target.value))}
@@ -190,7 +192,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              Occasion
+              {t('fields.occasion')}
               <select
                 value={selectedItem.occasion || 0}
                 onChange={(e) => handleFieldChange('occasion', Number(e.target.value))}
@@ -202,7 +204,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              Hit Type
+              {t('fields.hitType')}
               <select
                 value={selectedItem.hitType || 0}
                 onChange={(e) => handleFieldChange('hitType', Number(e.target.value))}
@@ -214,7 +216,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              Speed
+              {t('fields.speed')}
               <input
                 type="number"
                 value={selectedItem.speed || 0}
@@ -223,7 +225,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              Success Rate
+              {t('fields.successRate')}
               <input
                 type="number"
                 value={selectedItem.successRate ?? 100}
@@ -234,7 +236,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              Repeats
+              {t('fields.repeats')}
               <input
                 type="number"
                 value={selectedItem.repeats || 1}
@@ -244,7 +246,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              TP Gain
+              {t('fields.tpGain')}
               <input
                 type="number"
                 value={selectedItem.tpGain || 0}
@@ -254,9 +256,9 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              Animation
+              {t('common.animation')}
               <select value={selectedItem.animationId || 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))} style={selectStyle}>
-                <option value={0}>(None)</option>
+                <option value={0}>{t('common.none')}</option>
                 {animations.map(a => <option key={a.id} value={a.id}>{String(a.id).padStart(4, '0')}: {a.name}</option>)}
               </select>
             </label>
@@ -266,10 +268,10 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
               onChange={(damage) => handleFieldChange('damage', damage)}
             />
 
-            <div className="db-form-section">Invocation</div>
+            <div className="db-form-section">{t('fields.invocation')}</div>
 
             <label>
-              Message 1
+              {t('fields.message1')}
               <input
                 type="text"
                 value={selectedItem.message1 || ''}
@@ -278,7 +280,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </label>
 
             <label>
-              Message 2
+              {t('fields.message2')}
               <input
                 type="text"
                 value={selectedItem.message2 || ''}
@@ -286,20 +288,20 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
               />
             </label>
 
-            <div className="db-form-section">Required Weapon Types</div>
+            <div className="db-form-section">{t('fields.requiredWeaponTypes')}</div>
 
             <label>
-              Required Weapon Type 1
+              {t('fields.requiredWeaponType1')}
               <select value={selectedItem.requiredWtypeId1 || 0} onChange={(e) => handleFieldChange('requiredWtypeId1', Number(e.target.value))} style={selectStyle}>
-                <option value={0}>(None)</option>
+                <option value={0}>{t('common.none')}</option>
                 {weaponTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
               </select>
             </label>
 
             <label>
-              Required Weapon Type 2
+              {t('fields.requiredWeaponType2')}
               <select value={selectedItem.requiredWtypeId2 || 0} onChange={(e) => handleFieldChange('requiredWtypeId2', Number(e.target.value))} style={selectStyle}>
-                <option value={0}>(None)</option>
+                <option value={0}>{t('common.none')}</option>
                 {weaponTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
               </select>
             </label>
@@ -310,7 +312,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             />
 
             <label>
-              Note
+              {t('common.note')}
               <textarea
                 value={selectedItem.note || ''}
                 onChange={(e) => handleFieldChange('note', e.target.value)}

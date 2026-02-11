@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import ActorsTab from './ActorsTab';
@@ -19,25 +20,25 @@ import TermsTab from './TermsTab';
 
 interface Tab {
   key: string;
-  label: string;
+  labelKey: string;
 }
 
 const TABS: Tab[] = [
-  { key: 'actors', label: 'Actors' },
-  { key: 'classes', label: 'Classes' },
-  { key: 'skills', label: 'Skills' },
-  { key: 'items', label: 'Items' },
-  { key: 'weapons', label: 'Weapons' },
-  { key: 'armors', label: 'Armors' },
-  { key: 'enemies', label: 'Enemies' },
-  { key: 'troops', label: 'Troops' },
-  { key: 'states', label: 'States' },
-  { key: 'animations', label: 'Animations' },
-  { key: 'tilesets', label: 'Tilesets' },
-  { key: 'commonEvents', label: 'Common Events' },
-  { key: 'system', label: 'System' },
-  { key: 'types', label: 'Types' },
-  { key: 'terms', label: 'Terms' },
+  { key: 'actors', labelKey: 'database.tabs.actors' },
+  { key: 'classes', labelKey: 'database.tabs.classes' },
+  { key: 'skills', labelKey: 'database.tabs.skills' },
+  { key: 'items', labelKey: 'database.tabs.items' },
+  { key: 'weapons', labelKey: 'database.tabs.weapons' },
+  { key: 'armors', labelKey: 'database.tabs.armors' },
+  { key: 'enemies', labelKey: 'database.tabs.enemies' },
+  { key: 'troops', labelKey: 'database.tabs.troops' },
+  { key: 'states', labelKey: 'database.tabs.states' },
+  { key: 'animations', labelKey: 'database.tabs.animations' },
+  { key: 'tilesets', labelKey: 'database.tabs.tilesets' },
+  { key: 'commonEvents', labelKey: 'database.tabs.commonEvents' },
+  { key: 'system', labelKey: 'database.tabs.system' },
+  { key: 'types', labelKey: 'database.tabs.types' },
+  { key: 'terms', labelKey: 'database.tabs.terms' },
 ];
 
 type TabComponentType = React.ComponentType<{ data: unknown; onChange: (data: unknown) => void }>;
@@ -61,6 +62,7 @@ const TAB_COMPONENTS: Record<string, TabComponentType> = {
 };
 
 export default function DatabaseDialog() {
+  const { t } = useTranslation();
   const setShowDatabaseDialog = useEditorStore((s) => s.setShowDatabaseDialog);
   const [activeTab, setActiveTab] = useState('actors');
   const [tabData, setTabData] = useState<Record<string, unknown>>({});
@@ -126,7 +128,7 @@ export default function DatabaseDialog() {
   return (
     <div className="db-dialog-overlay" onClick={handleCancel}>
       <div className="db-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="db-dialog-header">Database</div>
+        <div className="db-dialog-header">{t('database.title')}</div>
         <div className="db-dialog-body">
           <div className="db-tab-bar">
             {TABS.map((tab) => (
@@ -135,12 +137,12 @@ export default function DatabaseDialog() {
                 className={`db-tab-item${activeTab === tab.key ? ' active' : ''}`}
                 onClick={() => setActiveTab(tab.key)}
               >
-                {tab.label}
+                {t(tab.labelKey)}
               </div>
             ))}
           </div>
           <div className="db-tab-content">
-            {loading && <div className="db-loading">Loading...</div>}
+            {loading && <div className="db-loading">{t('common.loading')}</div>}
             {!loading && TabComponent && (
               <TabComponent
                 data={tabData[activeDataKey]}
@@ -149,15 +151,15 @@ export default function DatabaseDialog() {
             )}
             {!loading && !TabComponent && (
               <div className="db-placeholder">
-                {TABS.find((t) => t.key === activeTab)?.label} - 준비 중
+                {t(TABS.find((tb) => tb.key === activeTab)?.labelKey || '')} - {t('common.preparing')}
               </div>
             )}
           </div>
         </div>
         <div className="db-dialog-footer">
-          <button className="db-btn" onClick={handleOk}>OK</button>
-          <button className="db-btn" onClick={handleCancel}>Cancel</button>
-          <button className="db-btn" onClick={handleApply}>Apply</button>
+          <button className="db-btn" onClick={handleOk}>{t('common.ok')}</button>
+          <button className="db-btn" onClick={handleCancel}>{t('common.cancel')}</button>
+          <button className="db-btn" onClick={handleApply}>{t('common.apply')}</button>
         </div>
       </div>
     </div>

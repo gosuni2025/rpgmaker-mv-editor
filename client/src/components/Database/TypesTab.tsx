@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { SystemData } from '../../types/rpgMakerMV';
 
 interface TypesTabProps {
@@ -8,16 +9,17 @@ interface TypesTabProps {
 
 type TypeCategory = 'elements' | 'skillTypes' | 'weaponTypes' | 'armorTypes' | 'equipTypes';
 
-const CATEGORIES: { key: TypeCategory; label: string }[] = [
-  { key: 'elements', label: 'Elements' },
-  { key: 'skillTypes', label: 'Skill Types' },
-  { key: 'weaponTypes', label: 'Weapon Types' },
-  { key: 'armorTypes', label: 'Armor Types' },
-  { key: 'equipTypes', label: 'Equip Types' },
-];
-
 export default function TypesTab({ data, onChange }: TypesTabProps) {
+  const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState<TypeCategory>('elements');
+
+  const CATEGORIES: { key: TypeCategory; labelKey: string }[] = [
+    { key: 'elements', labelKey: 'typeCategories.elements' },
+    { key: 'skillTypes', labelKey: 'typeCategories.skillTypes' },
+    { key: 'weaponTypes', labelKey: 'typeCategories.weaponTypes' },
+    { key: 'armorTypes', labelKey: 'typeCategories.armorTypes' },
+    { key: 'equipTypes', labelKey: 'typeCategories.equipTypes' },
+  ];
 
   if (!data) return null;
 
@@ -58,13 +60,13 @@ export default function TypesTab({ data, onChange }: TypesTabProps) {
             className={`db-list-item${activeCategory === cat.key ? ' selected' : ''}`}
             onClick={() => setActiveCategory(cat.key)}
           >
-            {cat.label}
+            {t(cat.labelKey)}
           </div>
         ))}
       </div>
       <div className="db-form">
         <div className="db-form-section">
-          {CATEGORIES.find((c) => c.key === activeCategory)?.label}
+          {t(CATEGORIES.find((c) => c.key === activeCategory)?.labelKey || '')}
           <button className="db-btn-small" onClick={addItem}>+</button>
         </div>
         {items.map((item: string, i: number) => (
@@ -78,8 +80,8 @@ export default function TypesTab({ data, onChange }: TypesTabProps) {
             />
             {i > 0 && (
               <>
-                <button className="db-btn-small" onClick={() => moveItem(i, -1)} disabled={i <= 1} title="Move Up">&uarr;</button>
-                <button className="db-btn-small" onClick={() => moveItem(i, 1)} disabled={i >= items.length - 1} title="Move Down">&darr;</button>
+                <button className="db-btn-small" onClick={() => moveItem(i, -1)} disabled={i <= 1} title={t('eventCommands.moveUp')}>&uarr;</button>
+                <button className="db-btn-small" onClick={() => moveItem(i, 1)} disabled={i >= items.length - 1} title={t('eventCommands.moveDown')}>&darr;</button>
                 <button className="db-btn-small" onClick={() => removeItem(i)}>-</button>
               </>
             )}

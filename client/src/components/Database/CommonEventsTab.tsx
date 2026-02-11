@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { CommonEvent, EventCommand } from '../../types/rpgMakerMV';
 import EventCommandEditor from '../EventEditor/EventCommandEditor';
 
@@ -7,10 +8,10 @@ interface CommonEventsTabProps {
   onChange: (data: (CommonEvent | null)[]) => void;
 }
 
-const TRIGGER_OPTIONS = ['None', 'Autorun', 'Parallel'];
-
 export default function CommonEventsTab({ data, onChange }: CommonEventsTabProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
+  const TRIGGER_OPTIONS = [t('triggerOptions.none'), t('triggerOptions.autorun'), t('triggerOptions.parallel')];
   const selectedItem = data?.find((item) => item && item.id === selectedId);
 
   const handleFieldChange = (field: keyof CommonEvent, value: unknown) => {
@@ -56,13 +57,13 @@ export default function CommonEventsTab({ data, onChange }: CommonEventsTabProps
             {String(item!.id).padStart(4, '0')}: {item!.name}
           </div>
         ))}
-        <button className="db-btn-small" style={{ margin: '4px 8px', width: 'calc(100% - 16px)' }} onClick={handleAddNew}>+ Add</button>
+        <button className="db-btn-small" style={{ margin: '4px 8px', width: 'calc(100% - 16px)' }} onClick={handleAddNew}>+ {t('common.add')}</button>
       </div>
       <div className="db-form">
         {selectedItem && (
           <>
             <label>
-              Name
+              {t('common.name')}
               <input
                 type="text"
                 value={selectedItem.name || ''}
@@ -70,7 +71,7 @@ export default function CommonEventsTab({ data, onChange }: CommonEventsTabProps
               />
             </label>
             <label>
-              Trigger
+              {t('fields.trigger')}
               <select
                 value={selectedItem.trigger || 0}
                 onChange={(e) => handleFieldChange('trigger', Number(e.target.value))}
@@ -83,7 +84,7 @@ export default function CommonEventsTab({ data, onChange }: CommonEventsTabProps
             </label>
             {(selectedItem.trigger === 1 || selectedItem.trigger === 2) && (
               <label>
-                Switch ID
+                {t('fields.switchId')}
                 <input
                   type="number"
                   min={1}

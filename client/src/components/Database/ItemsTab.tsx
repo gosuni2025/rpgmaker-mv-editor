@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Item, Damage, Effect } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import DamageEditor from '../common/DamageEditor';
@@ -12,20 +13,21 @@ interface ItemsTabProps {
 
 interface RefItem { id: number; name: string }
 
-const SCOPE_OPTIONS = [
-  'None', '1 Enemy', 'All Enemies', '1 Random Enemy', '2 Random', '3 Random', '4 Random',
-  '1 Ally', 'All Allies', '1 Ally (Dead)', 'All Allies (Dead)', 'The User',
-];
-const OCCASION_OPTIONS = ['Always', 'Only in Battle', 'Only from Menu', 'Never'];
-const HIT_TYPE_OPTIONS = ['Certain Hit', 'Physical Attack', 'Magical Attack'];
-const ITEM_TYPE_OPTIONS = ['Regular Item', 'Key Item', 'Hidden Item A', 'Hidden Item B'];
-
 const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 export default function ItemsTab({ data, onChange }: ItemsTabProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
   const [animations, setAnimations] = useState<RefItem[]>([]);
+
+  const SCOPE_OPTIONS = [
+    t('scope.none'), t('scope.oneEnemy'), t('scope.allEnemies'), t('scope.randomEnemy1'), t('scope.randomEnemy2'), t('scope.randomEnemy3'), t('scope.randomEnemy4'),
+    t('scope.oneAlly'), t('scope.allAllies'), t('scope.oneAllyDead'), t('scope.allAlliesDead'), t('scope.theUser'),
+  ];
+  const OCCASION_OPTIONS = [t('occasion.always'), t('occasion.onlyInBattle'), t('occasion.onlyFromMenu'), t('occasion.never')];
+  const HIT_TYPE_OPTIONS = [t('hitType.certainHit'), t('hitType.physicalAttack'), t('hitType.magicalAttack')];
+  const ITEM_TYPE_OPTIONS = [t('itemType.regularItem'), t('itemType.keyItem'), t('itemType.hiddenItemA'), t('itemType.hiddenItemB')];
 
   useEffect(() => {
     apiClient.get<(RefItem | null)[]>('/database/animations').then(d => {
@@ -81,73 +83,73 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
         {selectedItem && (
           <>
             <label>
-              Name
+              {t('common.name')}
               <input type="text" value={selectedItem.name || ''} onChange={(e) => handleFieldChange('name', e.target.value)} />
             </label>
             <div className="db-form-row">
               <label>
-                Icon
+                {t('common.icon')}
                 <IconPicker value={selectedItem.iconIndex || 0} onChange={(v) => handleFieldChange('iconIndex', v)} />
               </label>
             </div>
             <label>
-              Description
+              {t('common.description')}
               <textarea value={selectedItem.description || ''} onChange={(e) => handleFieldChange('description', e.target.value)} rows={2} />
             </label>
             <label>
-              Item Type
+              {t('fields.itemType')}
               <select value={selectedItem.itypeId || 1} onChange={(e) => handleFieldChange('itypeId', Number(e.target.value))}>
                 {ITEM_TYPE_OPTIONS.map((name, i) => <option key={i} value={i + 1}>{name}</option>)}
               </select>
             </label>
             <label>
-              Price
+              {t('common.price')}
               <input type="number" value={selectedItem.price || 0} onChange={(e) => handleFieldChange('price', Number(e.target.value))} min={0} />
             </label>
             <label className="db-checkbox-label">
               <input type="checkbox" checked={selectedItem.consumable ?? true} onChange={(e) => handleFieldChange('consumable', e.target.checked)} />
-              Consumable
+              {t('fields.consumable')}
             </label>
             <label>
-              Scope
+              {t('fields.scope')}
               <select value={selectedItem.scope || 0} onChange={(e) => handleFieldChange('scope', Number(e.target.value))}>
                 {SCOPE_OPTIONS.map((name, i) => <option key={i} value={i}>{name}</option>)}
               </select>
             </label>
             <label>
-              Occasion
+              {t('fields.occasion')}
               <select value={selectedItem.occasion || 0} onChange={(e) => handleFieldChange('occasion', Number(e.target.value))}>
                 {OCCASION_OPTIONS.map((name, i) => <option key={i} value={i}>{name}</option>)}
               </select>
             </label>
 
-            <div className="db-form-section">Invocation</div>
+            <div className="db-form-section">{t('fields.invocation')}</div>
             <label>
-              Speed
+              {t('fields.speed')}
               <input type="number" value={selectedItem.speed || 0} onChange={(e) => handleFieldChange('speed', Number(e.target.value))} />
             </label>
             <label>
-              Success Rate
+              {t('fields.successRate')}
               <input type="number" value={selectedItem.successRate ?? 100} onChange={(e) => handleFieldChange('successRate', Number(e.target.value))} min={0} max={100} />
             </label>
             <label>
-              Repeats
+              {t('fields.repeats')}
               <input type="number" value={selectedItem.repeats || 1} onChange={(e) => handleFieldChange('repeats', Number(e.target.value))} min={1} />
             </label>
             <label>
-              TP Gain
+              {t('fields.tpGain')}
               <input type="number" value={selectedItem.tpGain || 0} onChange={(e) => handleFieldChange('tpGain', Number(e.target.value))} />
             </label>
             <label>
-              Hit Type
+              {t('fields.hitType')}
               <select value={selectedItem.hitType || 0} onChange={(e) => handleFieldChange('hitType', Number(e.target.value))}>
                 {HIT_TYPE_OPTIONS.map((name, i) => <option key={i} value={i}>{name}</option>)}
               </select>
             </label>
             <label>
-              Animation
+              {t('common.animation')}
               <select value={selectedItem.animationId || 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))} style={selectStyle}>
-                <option value={0}>(None)</option>
+                <option value={0}>{t('common.none')}</option>
                 {animations.map(a => <option key={a.id} value={a.id}>{String(a.id).padStart(4, '0')}: {a.name}</option>)}
               </select>
             </label>
@@ -163,7 +165,7 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
             />
 
             <label>
-              Note
+              {t('common.note')}
               <textarea value={selectedItem.note || ''} onChange={(e) => handleFieldChange('note', e.target.value)} rows={3} />
             </label>
           </>

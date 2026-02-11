@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { RPGClass } from '../../types/rpgMakerMV';
 import TraitsEditor from '../common/TraitsEditor';
 import apiClient from '../../api/client';
@@ -154,9 +155,8 @@ interface ClassesTabProps {
 
 const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, flex: 1 };
 
-const EXP_PARAM_LABELS = ['Base Value', 'Extra Value', 'Acceleration A', 'Acceleration B'];
-
 export default function ClassesTab({ data, onChange }: ClassesTabProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
   const [skills, setSkills] = useState<{ id: number; name: string }[]>([]);
@@ -218,7 +218,8 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
     setSelectedId(newClass.id);
   };
 
-  const PARAM_NAMES = ['Max HP', 'Max MP', 'Attack', 'Defense', 'M.Attack', 'M.Defense', 'Agility', 'Luck'];
+  const EXP_PARAM_LABELS = [t('expParams.baseValue'), t('expParams.extraValue'), t('expParams.accelerationA'), t('expParams.accelerationB')];
+  const PARAM_NAMES = [t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'), t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck')];
 
   return (
     <div className="db-tab-layout">
@@ -240,7 +241,7 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
         {selectedItem && (
           <>
             <label>
-              Name
+              {t('common.name')}
               <input
                 type="text"
                 value={selectedItem.name || ''}
@@ -248,7 +249,7 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
               />
             </label>
 
-            <div className="db-form-section">EXP Curve</div>
+            <div className="db-form-section">{t('fields.expCurve')}</div>
             <ExpCurveGraph expParams={selectedItem.expParams || [30, 20, 30, 30]} />
             {(selectedItem.expParams || []).map((val: number, i: number) => (
               <label key={i}>
@@ -265,7 +266,7 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
               </label>
             ))}
 
-            <div className="db-form-section">Parameter Curves (Level 1 / Level 99)</div>
+            <div className="db-form-section">{t('fields.paramCurves')}</div>
             {selectedItem.params && selectedItem.params.length > 0 && (
               <ParamCurveGraph params={selectedItem.params} paramNames={PARAM_NAMES} />
             )}
@@ -300,13 +301,13 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
             ))}
 
             <div className="db-form-section">
-              Learnings
+              {t('fields.learnings')}
               <button className="db-btn-small" onClick={addLearning}>+</button>
             </div>
             {(selectedItem.learnings || []).map((l, i) => (
               <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <label style={{ flex: 1 }}>
-                  Level
+                  {t('fields.level')}
                   <input
                     type="number"
                     value={l.level}
@@ -314,13 +315,13 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
                   />
                 </label>
                 <label style={{ flex: 2 }}>
-                  Skill
+                  {t('fields.skill')}
                   <select
                     value={l.skillId}
                     onChange={(e) => handleLearningChange(i, 'skillId', Number(e.target.value))}
                     style={selectStyle}
                   >
-                    <option value={0}>(None)</option>
+                    <option value={0}>{t('common.none')}</option>
                     {skills.map(s => <option key={s.id} value={s.id}>{String(s.id).padStart(4, '0')}: {s.name}</option>)}
                   </select>
                 </label>
@@ -328,14 +329,14 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
               </div>
             ))}
 
-            <div className="db-form-section">Traits</div>
+            <div className="db-form-section">{t('fields.traits')}</div>
             <TraitsEditor
               traits={selectedItem.traits || []}
               onChange={(traits) => handleFieldChange('traits', traits)}
             />
 
             <label>
-              Note
+              {t('common.note')}
               <textarea
                 value={selectedItem.note || ''}
                 onChange={(e) => handleFieldChange('note', e.target.value)}

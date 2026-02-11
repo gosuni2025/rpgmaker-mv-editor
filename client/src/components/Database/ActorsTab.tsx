@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Actor, Trait } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import TraitsEditor from '../common/TraitsEditor';
@@ -8,8 +9,6 @@ interface ActorsTabProps {
   data: (Actor | null)[] | undefined;
   onChange: (data: (Actor | null)[]) => void;
 }
-
-const EQUIP_SLOT_NAMES = ['Weapon', 'Shield', 'Head', 'Body', 'Accessory'];
 
 interface RefItem { id: number; name: string }
 
@@ -36,11 +35,14 @@ function createNewActor(id: number): Actor {
 }
 
 export default function ActorsTab({ data, onChange }: ActorsTabProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
   const [classes, setClasses] = useState<RefItem[]>([]);
   const [weapons, setWeapons] = useState<RefItem[]>([]);
   const [armors, setArmors] = useState<RefItem[]>([]);
+
+  const EQUIP_SLOT_NAMES = [t('fields.equipSlots.weapon'), t('fields.equipSlots.shield'), t('fields.equipSlots.head'), t('fields.equipSlots.body'), t('fields.equipSlots.accessory')];
 
   useEffect(() => {
     apiClient.get<(RefItem | null)[]>('/database/classes').then(d => setClasses(d.filter(Boolean) as RefItem[])).catch(() => {});
@@ -107,7 +109,7 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
         {selectedItem && (
           <>
             <label>
-              Name
+              {t('common.name')}
               <input
                 type="text"
                 value={selectedItem.name || ''}
@@ -115,7 +117,7 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
               />
             </label>
             <label>
-              Nickname
+              {t('fields.nickname')}
               <input
                 type="text"
                 value={selectedItem.nickname || ''}
@@ -123,18 +125,18 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
               />
             </label>
             <label>
-              Class
+              {t('fields.class')}
               <select
                 value={selectedItem.classId || 0}
                 onChange={(e) => handleFieldChange('classId', Number(e.target.value))}
                 style={selectStyle}
               >
-                <option value={0}>(None)</option>
+                <option value={0}>{t('common.none')}</option>
                 {classes.map(c => <option key={c.id} value={c.id}>{String(c.id).padStart(4, '0')}: {c.name}</option>)}
               </select>
             </label>
             <label>
-              Initial Level
+              {t('fields.initialLevel')}
               <input
                 type="number"
                 value={selectedItem.initialLevel || 1}
@@ -142,7 +144,7 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
               />
             </label>
             <label>
-              Max Level
+              {t('fields.maxLevel')}
               <input
                 type="number"
                 value={selectedItem.maxLevel || 99}
@@ -150,7 +152,7 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
               />
             </label>
             <label>
-              Profile
+              {t('fields.profile')}
               <textarea
                 value={selectedItem.profile || ''}
                 onChange={(e) => handleFieldChange('profile', e.target.value)}
@@ -158,9 +160,9 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
               />
             </label>
 
-            <div className="db-form-section">Images</div>
+            <div className="db-form-section">{t('fields.images')}</div>
             <label>
-              Face
+              {t('fields.face')}
               <ImagePicker
                 type="faces"
                 value={selectedItem.faceName || ''}
@@ -170,7 +172,7 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
               />
             </label>
             <label>
-              Character
+              {t('fields.character')}
               <ImagePicker
                 type="characters"
                 value={selectedItem.characterName || ''}
@@ -180,7 +182,7 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
               />
             </label>
             <label>
-              Battler (SV)
+              {t('fields.battlerSV')}
               <ImagePicker
                 type="sv_actors"
                 value={selectedItem.battlerName || ''}
@@ -188,7 +190,7 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
               />
             </label>
 
-            <div className="db-form-section">Initial Equipment</div>
+            <div className="db-form-section">{t('fields.initialEquipment')}</div>
             <div className="db-equip-row">
               {EQUIP_SLOT_NAMES.map((name, i) => {
                 const list = i === 0 ? weapons : armors;
@@ -200,7 +202,7 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
                       onChange={(e) => handleEquipChange(i, Number(e.target.value))}
                       style={selectStyle}
                     >
-                      <option value={0}>(None)</option>
+                      <option value={0}>{t('common.none')}</option>
                       {list.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
                     </select>
                   </label>
@@ -214,7 +216,7 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
             />
 
             <label>
-              Note
+              {t('common.note')}
               <textarea
                 value={selectedItem.note || ''}
                 onChange={(e) => handleFieldChange('note', e.target.value)}

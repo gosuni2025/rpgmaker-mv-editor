@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Troop, TroopMember, TroopPage, EventCommand } from '../../types/rpgMakerMV';
 import EventCommandEditor from '../EventEditor/EventCommandEditor';
 import apiClient from '../../api/client';
@@ -10,16 +11,17 @@ interface TroopsTabProps {
 
 interface RefItem { id: number; name: string }
 
-const SPAN_OPTIONS = ['Battle', 'Turn', 'Moment'];
-
 const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 export default function TroopsTab({ data, onChange }: TroopsTabProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
   const [activePage, setActivePage] = useState(0);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
   const [enemies, setEnemies] = useState<RefItem[]>([]);
   const [actors, setActors] = useState<RefItem[]>([]);
+
+  const SPAN_OPTIONS = [t('spanOptions.battle'), t('spanOptions.turn'), t('spanOptions.moment')];
 
   useEffect(() => {
     apiClient.get<(RefItem | null)[]>('/database/enemies').then(d => setEnemies(d.filter(Boolean) as RefItem[])).catch(() => {});
@@ -115,46 +117,46 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
         {selectedItem && (
           <>
             <label>
-              Name
+              {t('common.name')}
               <input type="text" value={selectedItem.name || ''} onChange={(e) => handleFieldChange('name', e.target.value)} />
             </label>
 
             <div className="db-form-section">
-              Members
+              {t('fields.members')}
               <button className="db-btn-small" onClick={addMember}>+</button>
             </div>
             {(selectedItem.members || []).map((member: TroopMember, i: number) => (
               <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
-                <label style={{ flex: 2 }}>Enemy <select value={member.enemyId} onChange={(e) => handleMemberChange(i, 'enemyId', Number(e.target.value))} style={selectStyle}>
-                  <option value={0}>(None)</option>
+                <label style={{ flex: 2 }}>{t('fields.enemy')} <select value={member.enemyId} onChange={(e) => handleMemberChange(i, 'enemyId', Number(e.target.value))} style={selectStyle}>
+                  <option value={0}>{t('common.none')}</option>
                   {enemies.map(en => <option key={en.id} value={en.id}>{String(en.id).padStart(4, '0')}: {en.name}</option>)}
                 </select></label>
                 <label>X <input type="number" value={member.x} onChange={(e) => handleMemberChange(i, 'x', Number(e.target.value))} style={{ width: 50 }} /></label>
                 <label>Y <input type="number" value={member.y} onChange={(e) => handleMemberChange(i, 'y', Number(e.target.value))} style={{ width: 50 }} /></label>
-                <label className="db-checkbox-label"><input type="checkbox" checked={member.hidden} onChange={(e) => handleMemberChange(i, 'hidden', e.target.checked)} /> Hidden</label>
+                <label className="db-checkbox-label"><input type="checkbox" checked={member.hidden} onChange={(e) => handleMemberChange(i, 'hidden', e.target.checked)} /> {t('fields.hidden')}</label>
                 <button className="db-btn-small" onClick={() => removeMember(i)}>-</button>
               </div>
             ))}
 
-            <div className="db-form-section">Battle Events</div>
+            <div className="db-form-section">{t('fields.battleEvents')}</div>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 8 }}>
               {(selectedItem.pages || []).map((_: TroopPage, i: number) => (
                 <button key={i} className="db-btn-small" style={i === activePage ? { background: '#2675bf', borderColor: '#2675bf', color: '#fff' } : {}} onClick={() => setActivePage(i)}>
                   {i + 1}
                 </button>
               ))}
-              <button className="db-btn-small" onClick={addPage}>New</button>
-              <button className="db-btn-small" onClick={deletePage} disabled={(selectedItem.pages || []).length <= 1}>Del</button>
+              <button className="db-btn-small" onClick={addPage}>{t('common.new')}</button>
+              <button className="db-btn-small" onClick={deletePage} disabled={(selectedItem.pages || []).length <= 1}>{t('common.del')}</button>
             </div>
 
             {page && (
               <>
-                <div className="db-form-section">Conditions</div>
+                <div className="db-form-section">{t('fields.conditions')}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: '#aaa', marginBottom: 8 }}>
                   <label className="db-checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <input type="checkbox" checked={page.conditions?.turnValid ?? false}
                       onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, turnValid: e.target.checked })} />
-                    Turn
+                    {t('fields.turn')}
                     <input type="number" value={page.conditions?.turnA ?? 0} style={{ width: 40 }} disabled={!page.conditions?.turnValid}
                       onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, turnA: Number(e.target.value) })} />
                     +
@@ -165,7 +167,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
                   <label className="db-checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <input type="checkbox" checked={page.conditions?.enemyValid ?? false}
                       onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, enemyValid: e.target.checked })} />
-                    Enemy #{' '}
+                    {t('fields.enemyNum')}{' '}
                     <input type="number" value={page.conditions?.enemyIndex ?? 0} style={{ width: 40 }} disabled={!page.conditions?.enemyValid}
                       onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, enemyIndex: Number(e.target.value) })} />
                     HP &le;
@@ -176,7 +178,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
                   <label className="db-checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <input type="checkbox" checked={page.conditions?.actorValid ?? false}
                       onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, actorValid: e.target.checked })} />
-                    Actor
+                    {t('fields.actor')}
                     <select value={page.conditions?.actorId ?? 1} style={{ ...selectStyle, width: 120 }} disabled={!page.conditions?.actorValid}
                       onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, actorId: Number(e.target.value) })}>
                       {actors.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -189,19 +191,19 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
                   <label className="db-checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <input type="checkbox" checked={page.conditions?.switchValid ?? false}
                       onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, switchValid: e.target.checked })} />
-                    Switch
+                    {t('fields.switch')}
                     <input type="number" value={page.conditions?.switchId ?? 1} style={{ width: 60 }} disabled={!page.conditions?.switchValid}
                       onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, switchId: Number(e.target.value) })} />
                   </label>
                   <label className="db-checkbox-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <input type="checkbox" checked={page.conditions?.turnEnding ?? false}
                       onChange={(e) => handlePageChange(activePage, 'conditions', { ...page.conditions, turnEnding: e.target.checked })} />
-                    Turn End
+                    {t('fields.turnEnd')}
                   </label>
                 </div>
 
                 <label>
-                  Span
+                  {t('fields.span')}
                   <select value={page.span || 0} onChange={(e) => handlePageChange(activePage, 'span', Number(e.target.value))}>
                     {SPAN_OPTIONS.map((name, i) => <option key={i} value={i}>{name}</option>)}
                   </select>

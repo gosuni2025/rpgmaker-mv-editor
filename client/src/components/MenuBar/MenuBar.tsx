@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 
 interface MenuItem {
@@ -16,6 +17,7 @@ interface Menu {
 }
 
 export default function MenuBar() {
+  const { t } = useTranslation();
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -50,78 +52,78 @@ export default function MenuBar() {
 
   const menus: Menu[] = [
     {
-      label: '파일',
+      label: t('menu.file'),
       items: [
-        { label: '새 프로젝트...', action: 'newProject' },
-        { label: '프로젝트 열기...', action: 'openProject' },
-        { label: '프로젝트 닫기', action: 'closeProject', disabled: () => !hasProject },
+        { label: t('menu.newProject'), action: 'newProject' },
+        { label: t('menu.openProject'), action: 'openProject' },
+        { label: t('menu.closeProject'), action: 'closeProject', disabled: () => !hasProject },
         { type: 'separator' },
-        { label: '저장', action: 'save', shortcut: 'Ctrl+S', disabled: () => !hasProject },
+        { label: t('common.save'), action: 'save', shortcut: 'Ctrl+S', disabled: () => !hasProject },
         { type: 'separator' },
-        { label: '배포...', action: 'deploy', disabled: () => !hasProject },
+        { label: t('menu.deploy'), action: 'deploy', disabled: () => !hasProject },
       ],
     },
     {
-      label: '편집',
+      label: t('menu.edit'),
       items: [
-        { label: '실행 취소', action: 'undo', shortcut: 'Ctrl+Z', disabled: () => undoStack.length === 0 },
-        { label: '다시 실행', action: 'redo', shortcut: 'Ctrl+Y', disabled: () => redoStack.length === 0 },
+        { label: t('common.undo'), action: 'undo', shortcut: 'Ctrl+Z', disabled: () => undoStack.length === 0 },
+        { label: t('common.redo'), action: 'redo', shortcut: 'Ctrl+Y', disabled: () => redoStack.length === 0 },
         { type: 'separator' },
-        { label: '잘라내기', action: 'cut', shortcut: 'Ctrl+X', disabled: () => !hasProject },
-        { label: '복사', action: 'copy', shortcut: 'Ctrl+C', disabled: () => !hasProject },
-        { label: '붙여넣기', action: 'paste', shortcut: 'Ctrl+V', disabled: () => !hasProject },
-        { label: '삭제', action: 'delete', shortcut: 'Del', disabled: () => !hasProject },
+        { label: t('common.cut'), action: 'cut', shortcut: 'Ctrl+X', disabled: () => !hasProject },
+        { label: t('common.copy'), action: 'copy', shortcut: 'Ctrl+C', disabled: () => !hasProject },
+        { label: t('common.paste'), action: 'paste', shortcut: 'Ctrl+V', disabled: () => !hasProject },
+        { label: t('common.delete'), action: 'delete', shortcut: 'Del', disabled: () => !hasProject },
         { type: 'separator' },
-        { label: '찾기...', action: 'find', shortcut: 'Ctrl+F', disabled: () => !hasProject },
+        { label: t('menu.find'), action: 'find', shortcut: 'Ctrl+F', disabled: () => !hasProject },
       ],
     },
     {
-      label: '모드',
+      label: t('menu.mode'),
       items: [
-        { label: '지도', action: 'modeMap', shortcut: 'F5', checked: () => editMode === 'map' },
-        { label: '이벤트', action: 'modeEvent', shortcut: 'F6', checked: () => editMode === 'event' },
-        { label: '오브젝트', action: 'modeObject', shortcut: 'F7', checked: () => editMode === 'object' },
+        { label: t('menu.map'), action: 'modeMap', shortcut: 'F5', checked: () => editMode === 'map' },
+        { label: t('menu.event'), action: 'modeEvent', shortcut: 'F6', checked: () => editMode === 'event' },
+        { label: t('menu.object'), action: 'modeObject', shortcut: 'F7', checked: () => editMode === 'object' },
       ],
     },
     {
-      label: '그리기',
+      label: t('menu.draw'),
       items: [
-        { label: '연필', action: 'toolPen', checked: () => selectedTool === 'pen' },
-        { label: '직사각형', action: 'toolRectangle', checked: () => selectedTool === 'rectangle' },
-        { label: '타원', action: 'toolEllipse', checked: () => selectedTool === 'ellipse' },
-        { label: '채우기', action: 'toolFill', checked: () => selectedTool === 'fill' },
-        { label: '그림자', action: 'toolShadow', checked: () => selectedTool === 'shadow' },
+        { label: t('menu.pencil'), action: 'toolPen', checked: () => selectedTool === 'pen' },
+        { label: t('menu.rectangle'), action: 'toolRectangle', checked: () => selectedTool === 'rectangle' },
+        { label: t('menu.ellipse'), action: 'toolEllipse', checked: () => selectedTool === 'ellipse' },
+        { label: t('menu.fill'), action: 'toolFill', checked: () => selectedTool === 'fill' },
+        { label: t('menu.shadow'), action: 'toolShadow', checked: () => selectedTool === 'shadow' },
       ],
     },
     {
-      label: '배율',
+      label: t('menu.scale'),
       items: [
-        { label: '확대', action: 'zoomIn', shortcut: 'Ctrl+=' },
-        { label: '축소', action: 'zoomOut', shortcut: 'Ctrl+-' },
-        { label: '실제 크기', action: 'zoomActual', shortcut: 'Ctrl+0' },
+        { label: t('menu.zoomIn'), action: 'zoomIn', shortcut: 'Ctrl+=' },
+        { label: t('menu.zoomOut'), action: 'zoomOut', shortcut: 'Ctrl+-' },
+        { label: t('menu.actualSize'), action: 'zoomActual', shortcut: 'Ctrl+0' },
       ],
     },
     {
-      label: '도구',
+      label: t('menu.tools'),
       items: [
-        { label: '데이터베이스...', action: 'database', shortcut: 'F9', disabled: () => !hasProject },
-        { label: '플러그인 관리...', action: 'pluginManager', disabled: () => !hasProject },
-        { label: '사운드 테스트...', action: 'soundTest', disabled: () => !hasProject },
-        { label: '이벤트 검색...', action: 'eventSearch', disabled: () => !hasProject },
+        { label: t('menu.database'), action: 'database', shortcut: 'F9', disabled: () => !hasProject },
+        { label: t('menu.pluginManager'), action: 'pluginManager', disabled: () => !hasProject },
+        { label: t('menu.soundTest'), action: 'soundTest', disabled: () => !hasProject },
+        { label: t('menu.eventSearch'), action: 'eventSearch', disabled: () => !hasProject },
         { type: 'separator' },
-        { label: '캐릭터 생성...', action: 'characterGenerator', disabled: () => !hasProject },
-        { label: '자원 관리...', action: 'resourceManager', disabled: () => !hasProject },
+        { label: t('menu.characterGenerator'), action: 'characterGenerator', disabled: () => !hasProject },
+        { label: t('menu.resourceManager'), action: 'resourceManager', disabled: () => !hasProject },
         { type: 'separator' },
-        { label: '오토타일 디버그...', action: 'autotileDebug', disabled: () => !hasProject },
+        { label: t('menu.autotileDebug'), action: 'autotileDebug', disabled: () => !hasProject },
       ],
     },
     {
-      label: '게임',
+      label: t('menu.game'),
       items: [
-        { label: '타이틀부터 테스트', action: 'playtestTitle', shortcut: 'Ctrl+R', disabled: () => !hasProject },
-        { label: '현재 맵에서 테스트', action: 'playtestCurrentMap', shortcut: 'Ctrl+Shift+R', disabled: () => !hasProject },
+        { label: t('menu.playtestTitle'), action: 'playtestTitle', shortcut: 'Ctrl+R', disabled: () => !hasProject },
+        { label: t('menu.playtestCurrentMap'), action: 'playtestCurrentMap', shortcut: 'Ctrl+Shift+R', disabled: () => !hasProject },
         { type: 'separator' },
-        { label: '폴더 열기', action: 'openFolder', disabled: () => !hasProject },
+        { label: t('menu.openFolder'), action: 'openFolder', disabled: () => !hasProject },
       ],
     },
   ];

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { State } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import TraitsEditor from '../common/TraitsEditor';
@@ -8,29 +9,30 @@ interface StatesTabProps {
   onChange: (data: (State | null)[]) => void;
 }
 
-const SV_MOTION_LABELS: Record<number, string> = {
-  0: 'Normal',
-  1: 'Abnormal',
-  2: 'Sleep',
-  3: 'Dead',
-};
-
-const SV_OVERLAY_LABELS: Record<number, string> = {
-  0: 'None',
-  1: 'Poison',
-  2: 'Blind',
-  3: 'Silence',
-  4: 'Rage',
-  5: 'Confusion',
-  6: 'Fascination',
-  7: 'Sleep',
-  8: 'Paralyze',
-  9: 'Curse',
-};
-
 export default function StatesTab({ data, onChange }: StatesTabProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
+
+  const SV_MOTION_LABELS: Record<number, string> = {
+    0: t('svMotion.normal'),
+    1: t('svMotion.abnormal'),
+    2: t('svMotion.sleep'),
+    3: t('svMotion.dead'),
+  };
+
+  const SV_OVERLAY_LABELS: Record<number, string> = {
+    0: t('svOverlay.none'),
+    1: t('svOverlay.poison'),
+    2: t('svOverlay.blind'),
+    3: t('svOverlay.silence'),
+    4: t('svOverlay.rage'),
+    5: t('svOverlay.confusion'),
+    6: t('svOverlay.fascination'),
+    7: t('svOverlay.sleep'),
+    8: t('svOverlay.paralyze'),
+    9: t('svOverlay.curse'),
+  };
 
   const handleFieldChange = (field: keyof State, value: unknown) => {
     if (!data) return;
@@ -96,7 +98,7 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
         {selectedItem && (
           <>
             <label>
-              Name
+              {t('common.name')}
               <input
                 type="text"
                 value={selectedItem.name || ''}
@@ -104,28 +106,28 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               />
             </label>
 
-            <div className="db-form-section">Icon</div>
+            <div className="db-form-section">{t('common.icon')}</div>
             <IconPicker
               value={selectedItem.iconIndex || 0}
               onChange={(idx) => handleFieldChange('iconIndex', idx)}
             />
 
             <label>
-              Restriction
+              {t('fields.restriction')}
               <select
                 value={selectedItem.restriction || 0}
                 onChange={(e) => handleFieldChange('restriction', Number(e.target.value))}
                 style={{ background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 }}
               >
-                <option value={0}>None</option>
-                <option value={1}>Attack an enemy</option>
-                <option value={2}>Attack anyone</option>
-                <option value={3}>Attack an ally</option>
-                <option value={4}>Cannot move</option>
+                <option value={0}>{t('restriction.none')}</option>
+                <option value={1}>{t('restriction.attackEnemy')}</option>
+                <option value={2}>{t('restriction.attackAnyone')}</option>
+                <option value={3}>{t('restriction.attackAlly')}</option>
+                <option value={4}>{t('restriction.cannotMove')}</option>
               </select>
             </label>
             <label>
-              Priority
+              {t('fields.priority')}
               <input
                 type="number"
                 min={0}
@@ -135,14 +137,14 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               />
             </label>
 
-            <div className="db-form-section">Removal Conditions</div>
+            <div className="db-form-section">{t('fields.removalConditions')}</div>
             <label className="db-checkbox-label">
               <input
                 type="checkbox"
                 checked={selectedItem.removeAtBattleEnd ?? false}
                 onChange={(e) => handleFieldChange('removeAtBattleEnd', e.target.checked)}
               />
-              Remove at Battle End
+              {t('fields.removeAtBattleEnd')}
             </label>
             <label className="db-checkbox-label">
               <input
@@ -150,23 +152,23 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
                 checked={selectedItem.removeByRestriction ?? false}
                 onChange={(e) => handleFieldChange('removeByRestriction', e.target.checked)}
               />
-              Remove by Restriction
+              {t('fields.removeByRestriction')}
             </label>
             <label>
-              Auto-Removal Timing
+              {t('fields.autoRemovalTiming')}
               <select
                 value={selectedItem.autoRemovalTiming || 0}
                 onChange={(e) => handleFieldChange('autoRemovalTiming', Number(e.target.value))}
                 style={{ background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 }}
               >
-                <option value={0}>None</option>
-                <option value={1}>Action End</option>
-                <option value={2}>Turn End</option>
+                <option value={0}>{t('autoRemoval.none')}</option>
+                <option value={1}>{t('autoRemoval.actionEnd')}</option>
+                <option value={2}>{t('autoRemoval.turnEnd')}</option>
               </select>
             </label>
             <div style={{ display: 'flex', gap: 8 }}>
               <label style={{ flex: 1 }}>
-                Min Turns
+                {t('fields.minTurns')}
                 <input
                   type="number"
                   value={selectedItem.minTurns || 0}
@@ -174,7 +176,7 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
                 />
               </label>
               <label style={{ flex: 1 }}>
-                Max Turns
+                {t('fields.maxTurns')}
                 <input
                   type="number"
                   value={selectedItem.maxTurns || 0}
@@ -188,10 +190,10 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
                 checked={selectedItem.removeByDamage ?? false}
                 onChange={(e) => handleFieldChange('removeByDamage', e.target.checked)}
               />
-              Remove by Damage
+              {t('fields.removeByDamage')}
             </label>
             <label>
-              Chance by Damage (%)
+              {t('fields.chanceByDamage')}
               <input
                 type="number"
                 min={0}
@@ -206,10 +208,10 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
                 checked={selectedItem.removeByWalking ?? false}
                 onChange={(e) => handleFieldChange('removeByWalking', e.target.checked)}
               />
-              Remove by Walking
+              {t('fields.removeByWalking')}
             </label>
             <label>
-              Steps to Remove
+              {t('fields.stepsToRemove')}
               <input
                 type="number"
                 value={selectedItem.stepsToRemove || 0}
@@ -217,9 +219,9 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               />
             </label>
 
-            <div className="db-form-section">SV (Side View)</div>
+            <div className="db-form-section">{t('fields.svSideView')}</div>
             <label>
-              SV Motion
+              {t('fields.svMotion')}
               <select
                 value={selectedItem.motion || 0}
                 onChange={(e) => handleFieldChange('motion', Number(e.target.value))}
@@ -231,7 +233,7 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               </select>
             </label>
             <label>
-              SV Overlay
+              {t('fields.svOverlay')}
               <select
                 value={selectedItem.overlay || 0}
                 onChange={(e) => handleFieldChange('overlay', Number(e.target.value))}
@@ -243,9 +245,9 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               </select>
             </label>
 
-            <div className="db-form-section">Messages</div>
+            <div className="db-form-section">{t('fields.messages')}</div>
             <label>
-              Message 1 (Actor)
+              {t('fields.message1Actor')}
               <input
                 type="text"
                 value={selectedItem.message1 || ''}
@@ -253,7 +255,7 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               />
             </label>
             <label>
-              Message 2 (Enemy)
+              {t('fields.message2Enemy')}
               <input
                 type="text"
                 value={selectedItem.message2 || ''}
@@ -261,7 +263,7 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               />
             </label>
             <label>
-              Message 3 (Persist)
+              {t('fields.message3Persist')}
               <input
                 type="text"
                 value={selectedItem.message3 || ''}
@@ -269,7 +271,7 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               />
             </label>
             <label>
-              Message 4 (Remove)
+              {t('fields.message4Remove')}
               <input
                 type="text"
                 value={selectedItem.message4 || ''}
@@ -277,14 +279,14 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               />
             </label>
 
-            <div className="db-form-section">Traits</div>
+            <div className="db-form-section">{t('fields.traits')}</div>
             <TraitsEditor
               traits={selectedItem.traits || []}
               onChange={(traits) => handleFieldChange('traits', traits)}
             />
 
             <label>
-              Note
+              {t('common.note')}
               <textarea
                 value={selectedItem.note || ''}
                 onChange={(e) => handleFieldChange('note', e.target.value)}

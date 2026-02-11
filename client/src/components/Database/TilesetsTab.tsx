@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { TilesetData } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import TileFlagsEditor from './TileFlagsEditor';
@@ -9,10 +10,11 @@ interface TilesetsTabProps {
 }
 
 const TILESET_LABELS = ['A1', 'A2', 'A3', 'A4', 'A5', 'B', 'C', 'D', 'E'];
-const MODE_OPTIONS = ['Field', 'Area'];
 
 export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
+  const MODE_OPTIONS = [t('tilesetMode.field'), t('tilesetMode.area')];
   const selectedItem = data?.find((item) => item && item.id === selectedId);
 
   const handleFieldChange = (field: keyof TilesetData, value: unknown) => {
@@ -61,13 +63,13 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
             {String(item!.id).padStart(4, '0')}: {item!.name}
           </div>
         ))}
-        <button className="db-btn-small" style={{ margin: '4px 8px', width: 'calc(100% - 16px)' }} onClick={handleAddNew}>+ Add</button>
+        <button className="db-btn-small" style={{ margin: '4px 8px', width: 'calc(100% - 16px)' }} onClick={handleAddNew}>+ {t('common.add')}</button>
       </div>
       <div className="db-form">
         {selectedItem && (
           <>
             <label>
-              Name
+              {t('common.name')}
               <input
                 type="text"
                 value={selectedItem.name || ''}
@@ -75,7 +77,7 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
               />
             </label>
             <label>
-              Mode
+              {t('menu.mode')}
               <select
                 value={selectedItem.mode || 0}
                 onChange={(e) => handleFieldChange('mode', Number(e.target.value))}
@@ -87,7 +89,7 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
               </select>
             </label>
 
-            <div className="db-form-section">Tileset Images</div>
+            <div className="db-form-section">{t('fields.tilesetImages')}</div>
             {TILESET_LABELS.map((label, i) => (
               <label key={i}>
                 {label}
@@ -106,7 +108,7 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
             />
 
             <label>
-              Note
+              {t('common.note')}
               <textarea
                 value={selectedItem.note || ''}
                 onChange={(e) => handleFieldChange('note', e.target.value)}

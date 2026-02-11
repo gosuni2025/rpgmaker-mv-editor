@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Weapon, Trait } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import TraitsEditor from '../common/TraitsEditor';
@@ -9,15 +10,17 @@ interface WeaponsTabProps {
   onChange: (data: (Weapon | null)[]) => void;
 }
 
-const PARAM_NAMES = ['Max HP', 'Max MP', 'Attack', 'Defense', 'M.Attack', 'M.Defense', 'Agility', 'Luck'];
 const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
   const [weaponTypes, setWeaponTypes] = useState<string[]>([]);
   const [equipTypes, setEquipTypes] = useState<string[]>([]);
   const [animations, setAnimations] = useState<{ id: number; name: string }[]>([]);
+
+  const PARAM_NAMES = [t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'), t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck')];
 
   useEffect(() => {
     apiClient.get<{ weaponTypes?: string[]; equipTypes?: string[] }>('/database/system').then(sys => {
@@ -72,7 +75,7 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
     <div className="db-tab-layout">
       <div className="db-list">
         <div className="db-list-header">
-          <span>Weapons</span>
+          <span>{t('database.tabs.weapons')}</span>
           <button className="db-btn-small" onClick={handleAddNew}>+</button>
         </div>
         {data?.filter(Boolean).map((item) => (
@@ -89,7 +92,7 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
         {selectedItem && (
           <>
             <label>
-              Name
+              {t('common.name')}
               <input
                 type="text"
                 value={selectedItem.name || ''}
@@ -98,7 +101,7 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
             </label>
 
             <div className="db-form-row">
-              <span className="db-form-label">Icon</span>
+              <span className="db-form-label">{t('common.icon')}</span>
               <IconPicker
                 value={selectedItem.iconIndex || 0}
                 onChange={(v) => handleFieldChange('iconIndex', v)}
@@ -106,7 +109,7 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
             </div>
 
             <label>
-              Description
+              {t('common.description')}
               <textarea
                 value={selectedItem.description || ''}
                 onChange={(e) => handleFieldChange('description', e.target.value)}
@@ -114,21 +117,21 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
               />
             </label>
             <label>
-              Weapon Type
+              {t('fields.weaponType')}
               <select value={selectedItem.wtypeId || 0} onChange={(e) => handleFieldChange('wtypeId', Number(e.target.value))} style={selectStyle}>
                 {weaponTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
                 {weaponTypes.length === 0 && <option value={selectedItem.wtypeId || 0}>{selectedItem.wtypeId}</option>}
               </select>
             </label>
             <label>
-              Equip Type
+              {t('fields.equipType')}
               <select value={selectedItem.etypeId || 0} onChange={(e) => handleFieldChange('etypeId', Number(e.target.value))} style={selectStyle}>
                 {equipTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
                 {equipTypes.length === 0 && <option value={selectedItem.etypeId || 0}>{selectedItem.etypeId}</option>}
               </select>
             </label>
             <label>
-              Price
+              {t('common.price')}
               <input
                 type="number"
                 value={selectedItem.price || 0}
@@ -136,14 +139,14 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
               />
             </label>
             <label>
-              Animation
+              {t('common.animation')}
               <select value={selectedItem.animationId || 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))} style={selectStyle}>
-                <option value={0}>(None)</option>
+                <option value={0}>{t('common.none')}</option>
                 {animations.map(a => <option key={a.id} value={a.id}>{String(a.id).padStart(4, '0')}: {a.name}</option>)}
               </select>
             </label>
 
-            <div className="db-form-section">Parameters</div>
+            <div className="db-form-section">{t('fields.parameters')}</div>
             {PARAM_NAMES.map((name, i) => (
               <label key={i}>
                 {name}
@@ -161,7 +164,7 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
             />
 
             <label>
-              Note
+              {t('common.note')}
               <textarea
                 value={selectedItem.note || ''}
                 onChange={(e) => handleFieldChange('note', e.target.value)}

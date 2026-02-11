@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Enemy, DropItem, EnemyAction } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import TraitsEditor from '../common/TraitsEditor';
@@ -12,27 +13,28 @@ interface EnemiesTabProps {
 interface RefItem { id: number; name: string }
 const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
-const PARAM_NAMES = ['Max HP', 'Max MP', 'Attack', 'Defense', 'M.Attack', 'M.Defense', 'Agility', 'Luck'];
-
-const DROP_KIND_LABELS: Record<number, string> = { 0: 'None', 1: 'Item', 2: 'Weapon', 3: 'Armor' };
-
-const CONDITION_TYPE_LABELS: Record<number, string> = {
-  0: 'Always',
-  1: 'Turn',
-  2: 'HP',
-  3: 'MP',
-  4: 'State',
-  5: 'Party Level',
-  6: 'Switch',
-};
-
 export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
   const [skills, setSkills] = useState<RefItem[]>([]);
   const [items, setItems] = useState<RefItem[]>([]);
   const [weapons, setWeapons] = useState<RefItem[]>([]);
   const [armors, setArmors] = useState<RefItem[]>([]);
+
+  const PARAM_NAMES = [t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'), t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck')];
+
+  const DROP_KIND_LABELS: Record<number, string> = { 0: t('dropKind.none'), 1: t('dropKind.item'), 2: t('dropKind.weapon'), 3: t('dropKind.armor') };
+
+  const CONDITION_TYPE_LABELS: Record<number, string> = {
+    0: t('conditionType.always'),
+    1: t('conditionType.turn'),
+    2: t('conditionType.hp'),
+    3: t('conditionType.mp'),
+    4: t('conditionType.state'),
+    5: t('conditionType.partyLevel'),
+    6: t('conditionType.switch'),
+  };
 
   useEffect(() => {
     apiClient.get<(RefItem | null)[]>('/database/skills').then(d => setSkills(d.filter(Boolean) as RefItem[])).catch(() => {});
@@ -138,7 +140,7 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
         {selectedItem && (
           <>
             <label>
-              Name
+              {t('common.name')}
               <input
                 type="text"
                 value={selectedItem.name || ''}
@@ -146,14 +148,14 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
               />
             </label>
 
-            <div className="db-form-section">Battler Image</div>
+            <div className="db-form-section">{t('fields.battlerImage')}</div>
             <ImagePicker
               type="enemies"
               value={selectedItem.battlerName || ''}
               onChange={(name) => handleFieldChange('battlerName', name)}
             />
             <label>
-              Battler Hue
+              {t('fields.battlerHue')}
               <input
                 type="number"
                 min={0}
@@ -163,7 +165,7 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
               />
             </label>
 
-            <div className="db-form-section">Parameters</div>
+            <div className="db-form-section">{t('fields.parameters')}</div>
             {PARAM_NAMES.map((name, i) => (
               <label key={i}>
                 {name}
@@ -176,7 +178,7 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
             ))}
 
             <label>
-              EXP
+              {t('fields.exp')}
               <input
                 type="number"
                 value={selectedItem.exp || 0}
@@ -184,7 +186,7 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
               />
             </label>
             <label>
-              Gold
+              {t('fields.gold')}
               <input
                 type="number"
                 value={selectedItem.gold || 0}
@@ -193,13 +195,13 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
             </label>
 
             <div className="db-form-section">
-              Drop Items
+              {t('fields.dropItems')}
               <button className="db-btn-small" onClick={addDropItem}>+</button>
             </div>
             {(selectedItem.dropItems || []).map((drop: DropItem, i: number) => (
               <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <label style={{ flex: 1 }}>
-                  Kind
+                  {t('fields.kind')}
                   <select
                     value={drop.kind}
                     onChange={(e) => handleDropItemChange(i, 'kind', Number(e.target.value))}
@@ -211,16 +213,16 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
                   </select>
                 </label>
                 <label style={{ flex: 1 }}>
-                  Item
+                  {t('fields.item')}
                   <select value={drop.dataId} onChange={(e) => handleDropItemChange(i, 'dataId', Number(e.target.value))} style={selectStyle}>
-                    <option value={0}>(None)</option>
+                    <option value={0}>{t('common.none')}</option>
                     {(drop.kind === 1 ? items : drop.kind === 2 ? weapons : drop.kind === 3 ? armors : []).map(it =>
                       <option key={it.id} value={it.id}>{it.name}</option>
                     )}
                   </select>
                 </label>
                 <label style={{ flex: 1 }}>
-                  1/N
+                  {t('fields.probability')}
                   <input type="number" value={drop.denominator} min={1} onChange={(e) => handleDropItemChange(i, 'denominator', Number(e.target.value))} />
                 </label>
                 <button className="db-btn-small" onClick={() => removeDropItem(i)}>-</button>
@@ -228,28 +230,28 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
             ))}
 
             <div className="db-form-section">
-              Action Patterns
+              {t('fields.actionPatterns')}
               <button className="db-btn-small" onClick={addAction}>+</button>
             </div>
             {(selectedItem.actions || []).map((action: EnemyAction, i: number) => (
               <div key={i} style={{ border: '1px solid #444', borderRadius: 4, padding: 8, marginBottom: 8 }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
                   <label style={{ flex: 2 }}>
-                    Skill
+                    {t('fields.skill')}
                     <select value={action.skillId} onChange={(e) => handleActionChange(i, 'skillId', Number(e.target.value))} style={selectStyle}>
-                      <option value={0}>(None)</option>
+                      <option value={0}>{t('common.none')}</option>
                       {skills.map(s => <option key={s.id} value={s.id}>{String(s.id).padStart(4, '0')}: {s.name}</option>)}
                     </select>
                   </label>
                   <label style={{ flex: 1 }}>
-                    Rating
+                    {t('fields.rating')}
                     <input type="number" value={action.rating} min={1} max={9} onChange={(e) => handleActionChange(i, 'rating', Number(e.target.value))} />
                   </label>
                   <button className="db-btn-small" onClick={() => removeAction(i)}>-</button>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <label style={{ flex: 1 }}>
-                    Condition
+                    {t('fields.condition')}
                     <select
                       value={action.conditionType}
                       onChange={(e) => handleActionChange(i, 'conditionType', Number(e.target.value))}
@@ -261,25 +263,25 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
                     </select>
                   </label>
                   <label style={{ flex: 1 }}>
-                    Param 1
+                    {t('fields.param1')}
                     <input type="number" value={action.conditionParam1} onChange={(e) => handleActionChange(i, 'conditionParam1', Number(e.target.value))} />
                   </label>
                   <label style={{ flex: 1 }}>
-                    Param 2
+                    {t('fields.param2')}
                     <input type="number" value={action.conditionParam2} onChange={(e) => handleActionChange(i, 'conditionParam2', Number(e.target.value))} />
                   </label>
                 </div>
               </div>
             ))}
 
-            <div className="db-form-section">Traits</div>
+            <div className="db-form-section">{t('fields.traits')}</div>
             <TraitsEditor
               traits={selectedItem.traits || []}
               onChange={(traits) => handleFieldChange('traits', traits)}
             />
 
             <label>
-              Note
+              {t('common.note')}
               <textarea
                 value={selectedItem.note || ''}
                 onChange={(e) => handleFieldChange('note', e.target.value)}

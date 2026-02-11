@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Armor, Trait } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import TraitsEditor from '../common/TraitsEditor';
@@ -9,14 +10,16 @@ interface ArmorsTabProps {
   onChange: (data: (Armor | null)[]) => void;
 }
 
-const PARAM_NAMES = ['Max HP', 'Max MP', 'Attack', 'Defense', 'M.Attack', 'M.Defense', 'Agility', 'Luck'];
 const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
   const [armorTypes, setArmorTypes] = useState<string[]>([]);
   const [equipTypes, setEquipTypes] = useState<string[]>([]);
+
+  const PARAM_NAMES = [t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'), t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck')];
 
   useEffect(() => {
     apiClient.get<{ armorTypes?: string[]; equipTypes?: string[] }>('/database/system').then(sys => {
@@ -67,7 +70,7 @@ export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
     <div className="db-tab-layout">
       <div className="db-list">
         <div className="db-list-header">
-          <span>Armors</span>
+          <span>{t('database.tabs.armors')}</span>
           <button className="db-btn-small" onClick={handleAddNew}>+</button>
         </div>
         {data?.filter(Boolean).map((item) => (
@@ -84,7 +87,7 @@ export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
         {selectedItem && (
           <>
             <label>
-              Name
+              {t('common.name')}
               <input
                 type="text"
                 value={selectedItem.name || ''}
@@ -93,7 +96,7 @@ export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
             </label>
 
             <div className="db-form-row">
-              <span className="db-form-label">Icon</span>
+              <span className="db-form-label">{t('common.icon')}</span>
               <IconPicker
                 value={selectedItem.iconIndex || 0}
                 onChange={(v) => handleFieldChange('iconIndex', v)}
@@ -101,7 +104,7 @@ export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
             </div>
 
             <label>
-              Description
+              {t('common.description')}
               <textarea
                 value={selectedItem.description || ''}
                 onChange={(e) => handleFieldChange('description', e.target.value)}
@@ -109,21 +112,21 @@ export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
               />
             </label>
             <label>
-              Armor Type
+              {t('fields.armorType')}
               <select value={selectedItem.atypeId || 0} onChange={(e) => handleFieldChange('atypeId', Number(e.target.value))} style={selectStyle}>
                 {armorTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
                 {armorTypes.length === 0 && <option value={selectedItem.atypeId || 0}>{selectedItem.atypeId}</option>}
               </select>
             </label>
             <label>
-              Equip Type
+              {t('fields.equipType')}
               <select value={selectedItem.etypeId || 0} onChange={(e) => handleFieldChange('etypeId', Number(e.target.value))} style={selectStyle}>
                 {equipTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
                 {equipTypes.length === 0 && <option value={selectedItem.etypeId || 0}>{selectedItem.etypeId}</option>}
               </select>
             </label>
             <label>
-              Price
+              {t('common.price')}
               <input
                 type="number"
                 value={selectedItem.price || 0}
@@ -131,7 +134,7 @@ export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
               />
             </label>
 
-            <div className="db-form-section">Parameters</div>
+            <div className="db-form-section">{t('fields.parameters')}</div>
             {PARAM_NAMES.map((name, i) => (
               <label key={i}>
                 {name}
@@ -149,7 +152,7 @@ export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
             />
 
             <label>
-              Note
+              {t('common.note')}
               <textarea
                 value={selectedItem.note || ''}
                 onChange={(e) => handleFieldChange('note', e.target.value)}
