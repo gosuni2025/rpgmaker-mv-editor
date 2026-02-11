@@ -3,7 +3,7 @@ import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, Edito
 export const PROJECT_STORAGE_KEY = 'rpg-editor-current-project';
 export const MAP_STORAGE_KEY = 'rpg-editor-current-map';
 export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4];
-export const DEFAULT_MAX_UNDO = 20;
+export const DEFAULT_MAX_UNDO = 100;
 
 export interface TileChange {
   x: number;
@@ -146,6 +146,7 @@ export interface EditorState {
   showResourceManagerDialog: boolean;
   showCharacterGeneratorDialog: boolean;
   showOptionsDialog: boolean;
+  showLocalizationDialog: boolean;
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;
@@ -239,6 +240,7 @@ export interface EditorState {
   setShowResourceManagerDialog: (show: boolean) => void;
   setShowCharacterGeneratorDialog: (show: boolean) => void;
   setShowOptionsDialog: (show: boolean) => void;
+  setShowLocalizationDialog: (show: boolean) => void;
   setTransparentColor: (color: { r: number; g: number; b: number }) => void;
   setMaxUndo: (max: number) => void;
 }
