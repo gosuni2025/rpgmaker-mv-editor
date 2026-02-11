@@ -588,13 +588,38 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
   }, [commands]);
 
   // --- 위/아래 이동 ---
+  // 이동용 그룹 범위: 해당 인덱스가 속한 "최상위 이동 단위"의 범위를 반환
+  // getCommandGroupRange와 달리, 부속 코드도 그 부모 블록 전체를 이동 단위로 취급
+  const getMoveGroupRange = useCallback((index: number): [number, number] => {
+    if (index < 0 || index >= commands.length) return [index, index];
+    const cmd = commands[index];
+    // 블록 부속 코드 → 부모 블록 전체
+    if (CHILD_TO_PARENT[cmd.code] && ![401, 405, 408, 655, 605].includes(cmd.code)) {
+      const parentCodes = CHILD_TO_PARENT[cmd.code];
+      for (let i = index - 1; i >= 0; i--) {
+        if (parentCodes.includes(commands[i].code) && commands[i].indent === cmd.indent) {
+          return getCommandGroupRange(commands, i);
+        }
+      }
+    }
+    // 연속 부속 코드(401 등) → 부모+연속라인 전체
+    if ([401, 405, 408, 655, 605].includes(cmd.code)) {
+      const parentCodes = CHILD_TO_PARENT[cmd.code];
+      for (let i = index - 1; i >= 0; i--) {
+        if (parentCodes && parentCodes.includes(commands[i].code)) {
+          return getCommandGroupRange(commands, i);
+        }
+        if (commands[i].code !== cmd.code) break;
+      }
+    }
+    return getCommandGroupRange(commands, index);
+  }, [commands]);
+
   const moveSelected = useCallback((direction: 'up' | 'down') => {
     if (selectedIndices.size === 0) return;
     const ranges = expandSelectionToGroups(commands, selectedIndices);
-    // 전체 선택 범위의 min/max
     const allMin = ranges[0][0];
     const allMax = ranges[ranges.length - 1][1];
-    // 이동할 모든 인덱스 수집
     const movingIndices = new Set<number>();
     for (const [s, e] of ranges) {
       for (let i = s; i <= e; i++) movingIndices.add(i);
@@ -602,31 +627,27 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
 
     if (direction === 'up') {
       if (allMin <= 0) return;
-      // 바로 위 행의 그룹 범위를 구해서 그 위로 이동
-      const aboveRange = getCommandGroupRange(commands, allMin - 1);
+      // 바로 위 커맨드의 이동 그룹 범위를 구함
+      const aboveRange = getMoveGroupRange(allMin - 1);
       const targetIdx = aboveRange[0];
       const newCommands = [...commands];
       const moving = [...movingIndices].sort((a, b) => a - b).map(i => newCommands[i]);
       const rest = newCommands.filter((_, i) => !movingIndices.has(i));
-      // 위쪽 그룹의 시작 위치에 삽입
       const insertAt = targetIdx;
       rest.splice(insertAt, 0, ...moving);
       changeWithHistory(rest);
-      // 선택 갱신
       const newSel = new Set<number>();
       for (let i = insertAt; i < insertAt + moving.length; i++) newSel.add(i);
       setSelectedIndices(newSel);
       setLastClickedIndex(insertAt);
     } else {
-      // 마지막 빈 명령어(code 0) 앞까지만 이동 가능
       if (allMax >= commands.length - 2) return;
-      // 바로 아래 행의 그룹 범위를 구해서 그 아래로 이동
-      const belowRange = getCommandGroupRange(commands, allMax + 1);
+      // 바로 아래 커맨드의 이동 그룹 범위를 구함
+      const belowRange = getMoveGroupRange(allMax + 1);
       const targetEnd = belowRange[1];
       const newCommands = [...commands];
       const moving = [...movingIndices].sort((a, b) => a - b).map(i => newCommands[i]);
       const rest = newCommands.filter((_, i) => !movingIndices.has(i));
-      // 아래쪽 그룹의 끝 다음 위치에 삽입 (이미 moving을 제거했으므로 보정)
       const insertAt = targetEnd - moving.length + 1;
       rest.splice(insertAt, 0, ...moving);
       changeWithHistory(rest);
@@ -635,7 +656,7 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
       setSelectedIndices(newSel);
       setLastClickedIndex(insertAt);
     }
-  }, [commands, selectedIndices, changeWithHistory]);
+  }, [commands, selectedIndices, changeWithHistory, getMoveGroupRange]);
 
   const canMoveUp = useMemo(() => {
     if (selectedIndices.size === 0) return false;
