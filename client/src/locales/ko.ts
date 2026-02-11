@@ -1011,6 +1011,7 @@ const ko = {
     filterAll: '전체',
     filterUntranslated: '미번역',
     filterOutdated: '업데이트 필요',
+    filterDeleted: '삭제됨',
     search: '검색...',
     progress: '진행률',
     key: '키',

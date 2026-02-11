@@ -54,7 +54,7 @@ export function writeCSVFile(relativePath: string, rows: CSVRow[], config: L10nC
 }
 
 function buildHeaders(config: L10nConfig): string[] {
-  const headers = ['key', 'ts', config.sourceLanguage, config.sourceLanguage + '_ts'];
+  const headers = ['key', 'ts', 'deleted', config.sourceLanguage, config.sourceLanguage + '_ts'];
   for (const lang of config.languages) {
     if (lang !== config.sourceLanguage) {
       headers.push(lang, lang + '_ts');
@@ -241,11 +241,18 @@ function syncEntries(existing: CSVRow[], extracted: ExtractedEntry[], config: L1
     existingMap.set(row.key, row);
   }
 
+  const extractedKeys = new Set(extracted.map(e => e.key));
   const result: CSVRow[] = [];
+
+  // Process extracted entries (new + existing)
   for (const entry of extracted) {
     const old = existingMap.get(entry.key);
     if (old) {
       const srcLang = config.sourceLanguage;
+      // Un-delete if previously deleted
+      if (old.deleted === '1') {
+        old.deleted = '';
+      }
       if (old[srcLang] !== entry.text) {
         // Source text changed — update ts
         old[srcLang] = entry.text;
@@ -253,9 +260,10 @@ function syncEntries(existing: CSVRow[], extracted: ExtractedEntry[], config: L1
         old[srcLang + '_ts'] = now;
       }
       result.push(old);
+      existingMap.delete(entry.key);
     } else {
       // New entry
-      const row: CSVRow = { key: entry.key, ts: now };
+      const row: CSVRow = { key: entry.key, ts: now, deleted: '' };
       row[config.sourceLanguage] = entry.text;
       row[config.sourceLanguage + '_ts'] = now;
       for (const lang of config.languages) {
@@ -267,6 +275,15 @@ function syncEntries(existing: CSVRow[], extracted: ExtractedEntry[], config: L1
       result.push(row);
     }
   }
+
+  // Mark remaining existing entries as deleted (keep translations)
+  for (const [, row] of existingMap) {
+    if (row.deleted !== '1') {
+      row.deleted = '1';
+    }
+    result.push(row);
+  }
+
   return result;
 }
 
@@ -375,7 +392,10 @@ function computeRowStats(rows: CSVRow[], config: L10nConfig): { total: number; t
     translated[lang] = 0;
     outdated[lang] = 0;
   }
+  let activeCount = 0;
   for (const row of rows) {
+    if (row.deleted === '1') continue;
+    activeCount++;
     for (const lang of config.languages) {
       if (lang === config.sourceLanguage) continue;
       const langTs = parseInt(row[lang + '_ts'] || '0', 10);
@@ -388,7 +408,7 @@ function computeRowStats(rows: CSVRow[], config: L10nConfig): { total: number; t
       }
     }
   }
-  return { total: rows.length, translated, outdated };
+  return { total: activeCount, translated, outdated };
 }
 
 export function getStats(): L10nStats {

@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import projectManager from '../services/projectManager';
+import * as l10n from '../services/localizationManager';
 
 const router = express.Router();
 
@@ -31,6 +32,15 @@ router.put('/:id', (req: Request, res: Response) => {
   try {
     const id = String(req.params.id).padStart(3, '0');
     projectManager.writeJSON(`Map${id}.json`, req.body);
+
+    // Auto-sync localization CSV if initialized
+    try {
+      const config = l10n.getConfig();
+      if (config) {
+        l10n.syncMapCSV(parseInt(req.params.id, 10));
+      }
+    } catch { /* localization sync failure should not block save */ }
+
     res.json({ success: true });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });

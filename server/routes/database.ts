@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import projectManager from '../services/projectManager';
+import * as l10n from '../services/localizationManager';
 
 const TYPE_MAP: Record<string, string> = {
   actors: 'Actors.json',
@@ -40,6 +41,9 @@ router.get('/:type', (req: Request<{ type: string }>, res: Response) => {
   }
 });
 
+// DB types that have localization sync support
+const L10N_DB_TYPES = new Set(['actors', 'classes', 'skills', 'items', 'weapons', 'armors', 'enemies', 'states']);
+
 router.put('/:type', (req: Request<{ type: string }>, res: Response) => {
   try {
     const filename = resolveFilename(req.params.type);
@@ -47,6 +51,22 @@ router.put('/:type', (req: Request<{ type: string }>, res: Response) => {
       return res.status(400).json({ error: `Unknown database type: ${req.params.type}` });
     }
     projectManager.writeJSON(filename, req.body);
+
+    // Auto-sync localization CSV if initialized
+    try {
+      const config = l10n.getConfig();
+      if (config) {
+        const type = req.params.type;
+        if (L10N_DB_TYPES.has(type)) {
+          l10n.syncDBCSV(type);
+        } else if (type === 'system') {
+          l10n.syncTermsCSV();
+        } else if (type === 'commonEvents') {
+          l10n.syncCommonEventsCSV();
+        }
+      }
+    } catch { /* localization sync failure should not block save */ }
+
     res.json({ success: true });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });

@@ -2537,6 +2537,11 @@ input, textarea, [contenteditable="true"] {
   background: rgba(244, 67, 54, 0.05);
 }
 
+.l10n-row-deleted td {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
 .l10n-edit-textarea {
   width: 100%;
   min-height: 40px;

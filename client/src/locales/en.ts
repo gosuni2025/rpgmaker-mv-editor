@@ -703,6 +703,7 @@ const en = {
     filterAll: 'All',
     filterUntranslated: 'Untranslated',
     filterOutdated: 'Outdated',
+    filterDeleted: 'Deleted',
     search: 'Search...',
     progress: 'Progress',
     key: 'Key',

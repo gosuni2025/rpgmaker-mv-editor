@@ -43,7 +43,7 @@ function getCsvPath(categoryId: string): string {
   return categoryId + '.csv';
 }
 
-type FilterMode = 'all' | 'untranslated' | 'outdated';
+type FilterMode = 'all' | 'untranslated' | 'outdated' | 'deleted';
 
 function HelpButton({ text }: { text: string }) {
   const [show, setShow] = useState(false);
@@ -268,6 +268,9 @@ export default function LocalizationDialog() {
   };
 
   const filteredRows = rows.filter(row => {
+    const isDeleted = row.deleted === '1';
+    if (filter === 'deleted') return isDeleted;
+    if (isDeleted) return false;
     if (filter === 'untranslated') {
       return targetLangs.some(l => getStatus(row, l) === 'untranslated');
     }
@@ -436,7 +439,7 @@ export default function LocalizationDialog() {
               </button>
               <HelpButton text={t('localization.helpOpenFolder' as any)} />
               <div className="l10n-filters">
-                {(['all', 'untranslated', 'outdated'] as FilterMode[]).map(f => (
+                {(['all', 'untranslated', 'outdated', 'deleted'] as FilterMode[]).map(f => (
                   <button
                     key={f}
                     className={`db-btn l10n-filter-btn${filter === f ? ' active' : ''}`}
@@ -479,7 +482,7 @@ export default function LocalizationDialog() {
                   </thead>
                   <tbody>
                     {filteredRows.map(row => (
-                      <tr key={row.key}>
+                      <tr key={row.key} className={row.deleted === '1' ? 'l10n-row-deleted' : ''}>
                         <td className="l10n-col-key l10n-key-cell">{row.key}</td>
                         <td className="l10n-col-src">{row[config.sourceLanguage]}</td>
                         {targetLangs.map(lang => {
