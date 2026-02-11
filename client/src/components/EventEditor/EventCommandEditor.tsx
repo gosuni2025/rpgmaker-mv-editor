@@ -764,14 +764,18 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
           const draggable = isDraggable(i);
           const isDragging = dragGroupRange !== null && i >= dragGroupRange[0] && i <= dragGroupRange[1];
           const isSelected = selectedIndices.has(i);
-          const isGroupHL = selectedIndices.size === 1 && i >= groupStart && i <= groupEnd && !isSelected;
+          const hasGroup = groupStart !== groupEnd;
+          const inGroup = hasGroup && selectedIndices.size === 1 && i >= groupStart && i <= groupEnd;
+          const isGroupHL = inGroup && !isSelected;
+          const isGroupFirst = inGroup && i === groupStart;
+          const isGroupLast = inGroup && i === groupEnd;
           return (
             <React.Fragment key={i}>
               {dropTargetIndex === i && dragGroupRange && !(i >= dragGroupRange[0] && i <= dragGroupRange[1] + 1) && (
                 <div className="event-command-drop-indicator" />
               )}
               <div
-                className={`event-command-row${isSelected ? ' selected' : ''}${isGroupHL ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}`}
+                className={`event-command-row${isSelected ? ' selected' : ''}${isGroupHL ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}${isGroupFirst ? ' group-first' : ''}${isGroupLast ? ' group-last' : ''}${inGroup ? ' group-member' : ''}`}
                 style={{ paddingLeft: draggable ? cmd.indent * 20 : 8 + cmd.indent * 20 }}
                 onClick={e => handleRowClick(i, e)}
                 onDoubleClick={() => handleDoubleClick(i)}

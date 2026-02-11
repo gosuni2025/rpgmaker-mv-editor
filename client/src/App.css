@@ -1472,6 +1472,23 @@ input, textarea, [contenteditable="true"] {
   background: #1e3a5f;
 }
 
+.event-command-row.group-member {
+  border-left: 2px solid #2675bf;
+  border-right: 2px solid #2675bf;
+}
+
+.event-command-row.group-first {
+  border-top: 2px solid #2675bf;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
+
+.event-command-row.group-last {
+  border-bottom: 2px solid #2675bf;
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+}
+
 .drag-handle {
   cursor: grab;
   color: #666;
