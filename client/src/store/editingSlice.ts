@@ -314,15 +314,24 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     const minY = Math.min(srcY1, srcY2), maxY = Math.max(srcY1, srcY2);
     const allChanges: TileChange[] = [];
     const newData = [...currentMap.data];
-    // 1. 원본 영역 삭제
+
+    // clipboard에서 원본 타일의 실제 데이터를 맵으로 구성 (mouseDown에서 이미 삭제되었으므로)
+    const origTileMap = new Map<string, number>();
+    for (const t of clipboard.tiles) {
+      const ox = minX + t.x, oy = minY + t.y;
+      origTileMap.set(`${ox},${oy},${t.z}`, t.tileId);
+    }
+
+    // 1. 원본 영역 삭제 (oldTileId는 clipboard의 실제 데이터 사용)
     for (let z = 0; z < 4; z++) {
       for (let y = minY; y <= maxY; y++) {
         for (let x = minX; x <= maxX; x++) {
-          const idx = (z * currentMap.height + y) * currentMap.width + x;
-          if (newData[idx] !== 0) {
-            allChanges.push({ x, y, z, oldTileId: newData[idx], newTileId: 0 });
-            newData[idx] = 0;
+          const origTileId = origTileMap.get(`${x},${y},${z}`) ?? 0;
+          if (origTileId !== 0) {
+            allChanges.push({ x, y, z, oldTileId: origTileId, newTileId: 0 });
           }
+          const idx = (z * currentMap.height + y) * currentMap.width + x;
+          newData[idx] = 0;
         }
       }
     }
