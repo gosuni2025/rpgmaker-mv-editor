@@ -315,7 +315,8 @@ export default function LocalizationDialog() {
   const getProgressBar = (catId: string) => {
     if (!stats || targetLangs.length === 0) return null;
     const catStats = stats.categories.find(c => c.id === catId);
-    if (!catStats || catStats.total === 0) return null;
+    if (!catStats) return null;
+    if (catStats.total === 0) return 100;
     let upToDate = 0;
     for (const lang of targetLangs) {
       upToDate += (catStats.translated[lang] || 0) - (catStats.outdated[lang] || 0);
@@ -477,10 +478,16 @@ export default function LocalizationDialog() {
                 onChange={e => setSearchText(e.target.value)}
               />
               <div className="l10n-progress-bar">
-                <span className={getTotalProgress() >= 100 ? 'l10n-progress-complete' : ''}>{t('localization.progress')}: {getTotalProgress()}%</span>
-                <div className="l10n-progress-track">
-                  <div className={`l10n-progress-fill${getTotalProgress() >= 100 ? ' complete' : ''}`} style={{ width: `${getTotalProgress()}%` }} />
-                </div>
+                {(() => {
+                  const pct = getTotalProgress();
+                  const isComplete = pct >= 100;
+                  return <>
+                    <span className={isComplete ? 'l10n-progress-complete' : ''}>{t('localization.progress')}: {pct}%</span>
+                    <div className="l10n-progress-track">
+                      <div className={`l10n-progress-fill${isComplete ? ' complete' : ''}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </>;
+                })()}
                 <HelpButton text={t('localization.helpEdit' as any)} />
               </div>
             </div>
