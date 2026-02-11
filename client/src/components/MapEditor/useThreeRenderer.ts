@@ -376,6 +376,22 @@ export function useThreeRenderer(
                 }
               }
               spriteset.createCharacters();
+              // 캐릭터 이미지 비동기 로드 후 렌더링 재요청
+              if (spriteset._characterSprites) {
+                for (const cs of spriteset._characterSprites) {
+                  const charName = typeof cs._character?.characterName === 'function'
+                    ? cs._character.characterName() : cs._character?.characterName;
+                  if (charName && w.ImageManager?.loadCharacter) {
+                    const bmp = w.ImageManager.loadCharacter(charName);
+                    if (bmp && !bmp.isReady()) {
+                      bmp.addLoadListener(() => {
+                        renderRequestedRef.current = false;
+                        requestRender(5);
+                      });
+                    }
+                  }
+                }
+              }
             } catch (_e) {
               console.warn('[Editor] Failed to recreate characters:', _e);
             }
@@ -395,7 +411,7 @@ export function useThreeRenderer(
               console.warn('[Editor] Failed to recreate map objects:', _e);
             }
           }
-          requestRender();
+          requestRender(3);
         }
         if (state.mode3d !== prevState.mode3d) {
           if (!state.mode3d) {
