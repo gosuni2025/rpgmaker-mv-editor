@@ -312,10 +312,11 @@ ShadowLight._tmpVec3c = new THREE.Vector3();
 ShadowLight._tmpColor = new THREE.Color();
 
 /**
- * 캐릭터 스프라이트들의 프록시 박스 라이팅 업데이트
- * @param {Array} sprites - Sprite_Character 배열
+ * 캐릭터/오브젝트 스프라이트들의 프록시 박스 라이팅 업데이트
+ * @param {Array} sprites - Sprite_Character 또는 오브젝트 스프라이트 배열
+ * @param {Boolean} includeChildren - true이면 container의 자식도 처리 (오브젝트용)
  */
-ShadowLight._updateProxyBoxLighting = function(sprites) {
+ShadowLight._updateProxyBoxLighting = function(sprites, includeChildren) {
     if (!sprites) return;
 
     // 이미 관리 중인 라이트 레퍼런스를 직접 사용 (scene.traverse 비용 회피)
@@ -339,9 +340,22 @@ ShadowLight._updateProxyBoxLighting = function(sprites) {
     var tmpColor = this._tmpColor;
     var isDevMode = this._debugProbeVisible;
 
-    for (var i = 0; i < sprites.length; i++) {
-        var sprite = sprites[i];
-        if (!sprite || !sprite._material || !sprite._material.isMeshPhongMaterial) continue;
+    // 대상 스프라이트 수집 (오브젝트는 container + 자식도 포함)
+    var targets = [];
+    for (var si = 0; si < sprites.length; si++) {
+        var s = sprites[si];
+        if (!s) continue;
+        if (s._material && s._material.isMeshPhongMaterial) targets.push(s);
+        if (includeChildren && s.children) {
+            for (var ci = 0; ci < s.children.length; ci++) {
+                var ch = s.children[ci];
+                if (ch && ch._material && ch._material.isMeshPhongMaterial) targets.push(ch);
+            }
+        }
+    }
+
+    for (var i = 0; i < targets.length; i++) {
+        var sprite = targets[i];
         if (!sprite._threeObj || !sprite._threeObj.visible) continue;
 
         // 캐릭터 월드 위치
@@ -1057,6 +1071,8 @@ Spriteset_Map.prototype._updateShadowLight = function() {
     // 프록시 박스 라이팅: 정면 외 5방향의 추가 조명을 emissive에 반영
     // (PointLight 위치 갱신 후에 호출해야 정확한 계산)
     ShadowLight._updateProxyBoxLighting(this._characterSprites);
+    // 오브젝트 스프라이트에도 적용 (container + 자식 tileSprite)
+    ShadowLight._updateProxyBoxLighting(this._objectSprites, true);
 };
 
 Spriteset_Map.prototype._activateShadowLight = function() {
