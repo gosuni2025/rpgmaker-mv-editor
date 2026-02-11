@@ -2432,8 +2432,16 @@ input, textarea, [contenteditable="true"] {
   margin-left: 4px;
 }
 
+.l10n-cat-pct.complete {
+  color: #4caf50;
+}
+
 .l10n-cat-item.selected .l10n-cat-pct {
   color: #ccc;
+}
+
+.l10n-cat-item.selected .l10n-cat-pct.complete {
+  color: #6fcf73;
 }
 
 /* Content area */
@@ -2492,9 +2500,17 @@ input, textarea, [contenteditable="true"] {
 
 .l10n-progress-fill {
   height: 100%;
-  background: #4caf50;
+  background: #e0a030;
   border-radius: 3px;
-  transition: width 0.3s;
+  transition: width 0.3s, background 0.3s;
+}
+
+.l10n-progress-fill.complete {
+  background: #4caf50;
+}
+
+.l10n-progress-complete {
+  color: #4caf50;
 }
 
 .l10n-placeholder {

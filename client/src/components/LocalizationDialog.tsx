@@ -433,7 +433,7 @@ export default function LocalizationDialog() {
                         onClick={() => setSelectedCategory(cat.id)}
                       >
                         <span className="l10n-cat-name">{cat.name}</span>
-                        {pct !== null && <span className="l10n-cat-pct">{pct}%</span>}
+                        {pct !== null && <span className={`l10n-cat-pct${pct >= 100 ? ' complete' : ''}`}>{pct}%</span>}
                       </div>
                     );
                   })}
@@ -477,9 +477,9 @@ export default function LocalizationDialog() {
                 onChange={e => setSearchText(e.target.value)}
               />
               <div className="l10n-progress-bar">
-                <span>{t('localization.progress')}: {getTotalProgress()}%</span>
+                <span className={getTotalProgress() >= 100 ? 'l10n-progress-complete' : ''}>{t('localization.progress')}: {getTotalProgress()}%</span>
                 <div className="l10n-progress-track">
-                  <div className="l10n-progress-fill" style={{ width: `${getTotalProgress()}%` }} />
+                  <div className={`l10n-progress-fill${getTotalProgress() >= 100 ? ' complete' : ''}`} style={{ width: `${getTotalProgress()}%` }} />
                 </div>
                 <HelpButton text={t('localization.helpEdit' as any)} />
               </div>
