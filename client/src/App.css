@@ -2529,6 +2529,28 @@ input, textarea, [contenteditable="true"] {
   color: #999;
 }
 
+.l10n-col-ts {
+  font-family: monospace;
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+  min-width: 110px;
+}
+
+.l10n-ts-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #aaa;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.l10n-ts-toggle input {
+  margin: 0;
+}
+
 .l10n-col-src {
   min-width: 150px;
 }

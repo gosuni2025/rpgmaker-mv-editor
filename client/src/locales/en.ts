@@ -730,6 +730,7 @@ const en = {
     helpInit: 'Source language: the base language of the game\nTarget languages: languages to translate into\nConfirm will extract all texts from the project.',
     openFolder: 'Open Folder',
     helpOpenFolder: 'Open the languages folder containing CSV files in the file manager.',
+    showTs: 'Show TS',
   },
 };
 

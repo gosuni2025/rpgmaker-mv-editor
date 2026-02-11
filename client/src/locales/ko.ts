@@ -1040,6 +1040,7 @@ const ko = {
     helpInit: '원본 언어: 게임의 기본 언어\n번역 언어: 번역할 대상 언어\n확인을 누르면 프로젝트의 모든 텍스트가 추출됩니다.',
     openFolder: '폴더 열기',
     helpOpenFolder: 'CSV 파일이 저장된 languages 폴더를 파일 탐색기에서 엽니다.',
+    showTs: 'TS 보기',
   },
 };
 

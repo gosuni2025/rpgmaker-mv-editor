@@ -45,6 +45,13 @@ function getCsvPath(categoryId: string): string {
 
 type FilterMode = 'all' | 'untranslated' | 'outdated' | 'deleted';
 
+function formatTs(ts: string | undefined): string {
+  if (!ts || ts === '0') return '-';
+  const d = new Date(parseInt(ts, 10) * 1000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function HelpButton({ text }: { text: string }) {
   const [show, setShow] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
@@ -89,6 +96,7 @@ export default function LocalizationDialog() {
   const [editValue, setEditValue] = useState('');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [showTs, setShowTs] = useState(false);
   const editRef = useRef<HTMLTextAreaElement>(null);
 
   // Undo/Redo stacks
@@ -438,6 +446,10 @@ export default function LocalizationDialog() {
                 {t('localization.openFolder' as any)}
               </button>
               <HelpButton text={t('localization.helpOpenFolder' as any)} />
+              <label className="l10n-ts-toggle">
+                <input type="checkbox" checked={showTs} onChange={e => setShowTs(e.target.checked)} />
+                {t('localization.showTs' as any)}
+              </label>
               <div className="l10n-filters">
                 {(['all', 'untranslated', 'outdated', 'deleted'] as FilterMode[]).map(f => (
                   <button
@@ -474,9 +486,14 @@ export default function LocalizationDialog() {
                   <thead>
                     <tr>
                       <th className="l10n-col-key">{t('localization.key')}</th>
+                      {showTs && <th className="l10n-col-ts">ts</th>}
                       <th className="l10n-col-src">{LANGUAGE_NAMES[config.sourceLanguage] || config.sourceLanguage}</th>
+                      {showTs && <th className="l10n-col-ts">{config.sourceLanguage}_ts</th>}
                       {targetLangs.map(lang => (
-                        <th key={lang} className="l10n-col-lang">{LANGUAGE_NAMES[lang] || lang}</th>
+                        <React.Fragment key={lang}>
+                          <th className="l10n-col-lang">{LANGUAGE_NAMES[lang] || lang}</th>
+                          {showTs && <th className="l10n-col-ts">{lang}_ts</th>}
+                        </React.Fragment>
                       ))}
                     </tr>
                   </thead>
@@ -484,36 +501,40 @@ export default function LocalizationDialog() {
                     {filteredRows.map(row => (
                       <tr key={row.key} className={row.deleted === '1' ? 'l10n-row-deleted' : ''}>
                         <td className="l10n-col-key l10n-key-cell">{row.key}</td>
+                        {showTs && <td className="l10n-col-ts">{formatTs(row.ts)}</td>}
                         <td className="l10n-col-src">{row[config.sourceLanguage]}</td>
+                        {showTs && <td className="l10n-col-ts">{formatTs(row[config.sourceLanguage + '_ts'])}</td>}
                         {targetLangs.map(lang => {
                           const status = getStatus(row, lang);
                           const isEditing = editCell?.key === row.key && editCell?.lang === lang;
                           return (
-                            <td
-                              key={lang}
-                              className={`l10n-col-lang l10n-cell-${status}`}
-                              onClick={() => handleCellDoubleClick(row.key, lang, row[lang] || '')}
-                            >
-                              {isEditing ? (
-                                <textarea
-                                  ref={editRef}
-                                  className="l10n-edit-textarea"
-                                  value={editValue}
-                                  onChange={e => setEditValue(e.target.value)}
-                                  onBlur={handleCellSave}
-                                  onKeyDown={handleCellKeyDown}
-                                />
-                              ) : (
-                                <span>{row[lang] || ''}</span>
-                              )}
-                              <span className={`l10n-status-dot l10n-dot-${status}`} />
-                            </td>
+                            <React.Fragment key={lang}>
+                              <td
+                                className={`l10n-col-lang l10n-cell-${status}`}
+                                onClick={() => handleCellDoubleClick(row.key, lang, row[lang] || '')}
+                              >
+                                {isEditing ? (
+                                  <textarea
+                                    ref={editRef}
+                                    className="l10n-edit-textarea"
+                                    value={editValue}
+                                    onChange={e => setEditValue(e.target.value)}
+                                    onBlur={handleCellSave}
+                                    onKeyDown={handleCellKeyDown}
+                                  />
+                                ) : (
+                                  <span>{row[lang] || ''}</span>
+                                )}
+                                <span className={`l10n-status-dot l10n-dot-${status}`} />
+                              </td>
+                              {showTs && <td className="l10n-col-ts">{formatTs(row[lang + '_ts'])}</td>}
+                            </React.Fragment>
                           );
                         })}
                       </tr>
                     ))}
                     {filteredRows.length === 0 && (
-                      <tr><td colSpan={2 + targetLangs.length} className="l10n-empty">{t('localization.noData')}</td></tr>
+                      <tr><td colSpan={2 + targetLangs.length + (showTs ? 2 + targetLangs.length : 0)} className="l10n-empty">{t('localization.noData')}</td></tr>
                     )}
                   </tbody>
                 </table>
