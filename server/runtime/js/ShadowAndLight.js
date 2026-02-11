@@ -513,6 +513,13 @@ ShadowLight._probeDebugGroup = null;  // 씬에 추가된 디버그 그룹
 ShadowLight._probeDebugData = null;   // sprite → { box, arrows[] } 매핑
 ShadowLight._debugProbeVisible = false;
 
+// 에디터(React) 쪽에서 참조할 수 있도록 전역 플래그 노출
+// window._probeDebugActive === true이면 에디터 마우스 입력 차단
+Object.defineProperty(window, '_probeDebugActive', {
+    get: function() { return ShadowLight._debugProbeVisible; },
+    configurable: true,
+});
+
 /**
  * 디버그 시각화를 위한 그룹과 캐시 초기화
  */

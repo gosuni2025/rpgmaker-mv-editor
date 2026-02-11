@@ -129,6 +129,9 @@ export function useMouseHandlers(
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
+      // 프록시 박스 디버그 시각화 활성화 시 에디터 입력 차단
+      if ((window as any)._probeDebugActive) return;
+
       // Map boundary resize: start resize if on edge
       if (e.button === 0 && editMode === 'map' && !mode3d) {
         const edge = detectEdge(e);
@@ -334,6 +337,7 @@ export function useMouseHandlers(
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
+      if ((window as any)._probeDebugActive) return;
       if (isResizing.current) return;
 
       // Camera orbit drag
@@ -487,6 +491,7 @@ export function useMouseHandlers(
 
   const handleMouseUp = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
+      if ((window as any)._probeDebugActive) return;
       if (isOrbiting.current) {
         isOrbiting.current = false;
         orbitStart.current = null;
