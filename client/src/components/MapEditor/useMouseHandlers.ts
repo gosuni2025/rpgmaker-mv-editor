@@ -194,7 +194,12 @@ export function useMouseHandlers(
   const dragCameraZoneOrigin = useRef<{ x: number; y: number } | null>(null);
   const isCreatingCameraZone = useRef(false);
   const createZoneStart = useRef<{ x: number; y: number } | null>(null);
-  const [cameraZoneDragPreview, setCameraZoneDragPreview] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [cameraZoneDragPreview, _setCameraZoneDragPreview] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const cameraZoneDragPreviewRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+  const setCameraZoneDragPreview = useCallback((v: { x: number; y: number; width: number; height: number } | null) => {
+    cameraZoneDragPreviewRef.current = v;
+    _setCameraZoneDragPreview(v);
+  }, []);
   // Camera zone resize state
   const isResizingCameraZone = useRef(false);
   const resizeCameraZoneId = useRef<number | null>(null);
@@ -1066,10 +1071,11 @@ export function useMouseHandlers(
 
       // Camera zone resize commit
       if (isResizingCameraZone.current && resizeCameraZoneId.current != null) {
-        if (cameraZoneDragPreview) {
+        const preview = cameraZoneDragPreviewRef.current;
+        if (preview) {
           updateCameraZone(resizeCameraZoneId.current, {
-            x: cameraZoneDragPreview.x, y: cameraZoneDragPreview.y,
-            width: cameraZoneDragPreview.width, height: cameraZoneDragPreview.height,
+            x: preview.x, y: preview.y,
+            width: preview.width, height: preview.height,
           });
         }
         isResizingCameraZone.current = false;
@@ -1083,8 +1089,9 @@ export function useMouseHandlers(
 
       // Camera zone drag commit
       if (isDraggingCameraZone.current && draggedCameraZoneId.current != null) {
-        if (cameraZoneDragPreview) {
-          updateCameraZone(draggedCameraZoneId.current, { x: cameraZoneDragPreview.x, y: cameraZoneDragPreview.y });
+        const preview = cameraZoneDragPreviewRef.current;
+        if (preview) {
+          updateCameraZone(draggedCameraZoneId.current, { x: preview.x, y: preview.y });
         }
         isDraggingCameraZone.current = false;
         draggedCameraZoneId.current = null;
