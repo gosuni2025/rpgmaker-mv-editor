@@ -49,6 +49,8 @@ export interface MouseHandlersResult {
   isSelectingObjects: React.MutableRefObject<boolean>;
   isDraggingCameraZone: React.MutableRefObject<boolean>;
   isCreatingCameraZone: React.MutableRefObject<boolean>;
+  isResizingCameraZone: React.MutableRefObject<boolean>;
+  cameraZoneCursor: string | null;
   playerStartDragPos: { x: number; y: number } | null;
 }
 
@@ -183,6 +185,7 @@ export function useMouseHandlers(
 
   // Player start position drag state
   const isDraggingPlayerStart = useRef(false);
+  const playerStartDragPosRef = useRef<{ x: number; y: number } | null>(null);
   const [playerStartDragPos, setPlayerStartDragPos] = useState<{ x: number; y: number } | null>(null);
 
   // Camera zone drag state
@@ -192,6 +195,13 @@ export function useMouseHandlers(
   const isCreatingCameraZone = useRef(false);
   const createZoneStart = useRef<{ x: number; y: number } | null>(null);
   const [cameraZoneDragPreview, setCameraZoneDragPreview] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  // Camera zone resize state
+  const isResizingCameraZone = useRef(false);
+  const resizeCameraZoneId = useRef<number | null>(null);
+  const resizeCameraZoneEdge = useRef<string | null>(null); // 'n','s','e','w','ne','nw','se','sw'
+  const resizeCameraZoneOriginal = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+  const resizeCameraZoneStart = useRef<{ x: number; y: number } | null>(null);
+  const [cameraZoneCursor, setCameraZoneCursor] = useState<string | null>(null);
 
   // Selection tool state
   const isSelecting = useRef(false);
@@ -210,6 +220,37 @@ export function useMouseHandlers(
   const { canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, eyedropTile,
     drawOverlayPreview, drawRectangle, drawEllipse, clearOverlay,
     detectEdge, edgeToCursor, getCanvasPx } = tools;
+
+  // Camera zone edge detection helper
+  const detectCameraZoneEdge = useCallback((tile: { x: number; y: number }, zone: { x: number; y: number; width: number; height: number }): string | null => {
+    const { x, y, width, height } = zone;
+    const onLeft = tile.x === x;
+    const onRight = tile.x === x + width - 1;
+    const onTop = tile.y === y;
+    const onBottom = tile.y === y + height - 1;
+    const inHorizontal = tile.x >= x && tile.x < x + width;
+    const inVertical = tile.y >= y && tile.y < y + height;
+
+    if (onTop && onLeft) return 'nw';
+    if (onTop && onRight) return 'ne';
+    if (onBottom && onLeft) return 'sw';
+    if (onBottom && onRight) return 'se';
+    if (onTop && inHorizontal) return 'n';
+    if (onBottom && inHorizontal) return 's';
+    if (onLeft && inVertical) return 'w';
+    if (onRight && inVertical) return 'e';
+    return null;
+  }, []);
+
+  const edgeToCursorStyle = useCallback((edge: string): string => {
+    const map: Record<string, string> = {
+      n: 'ns-resize', s: 'ns-resize',
+      e: 'ew-resize', w: 'ew-resize',
+      nw: 'nwse-resize', se: 'nwse-resize',
+      ne: 'nesw-resize', sw: 'nesw-resize',
+    };
+    return map[edge] || 'default';
+  }, []);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
@@ -408,6 +449,21 @@ export function useMouseHandlers(
 
       if (editMode === 'cameraZone') {
         const zones = currentMap?.cameraZones || [];
+        // 가장자리 리사이즈 감지 (선택된 존에 대해)
+        const selectedZoneId = useEditorStore.getState().selectedCameraZoneId;
+        const selectedZone = selectedZoneId != null ? zones.find(z => z.id === selectedZoneId) : null;
+        if (selectedZone) {
+          const edge = detectCameraZoneEdge(tile, selectedZone);
+          if (edge) {
+            isResizingCameraZone.current = true;
+            resizeCameraZoneId.current = selectedZone.id;
+            resizeCameraZoneEdge.current = edge;
+            resizeCameraZoneOriginal.current = { x: selectedZone.x, y: selectedZone.y, width: selectedZone.width, height: selectedZone.height };
+            resizeCameraZoneStart.current = { x: tile.x, y: tile.y };
+            setCameraZoneDragPreview({ x: selectedZone.x, y: selectedZone.y, width: selectedZone.width, height: selectedZone.height });
+            return;
+          }
+        }
         const hitZone = zones.find(z =>
           tile.x >= z.x && tile.x < z.x + z.width &&
           tile.y >= z.y && tile.y < z.y + z.height
@@ -534,6 +590,7 @@ export function useMouseHandlers(
               && tile.x === systemData.startX && tile.y === systemData.startY;
             if (isPlayerStart && !e.shiftKey) {
               isDraggingPlayerStart.current = true;
+              playerStartDragPosRef.current = { x: tile.x, y: tile.y };
               setPlayerStartDragPos({ x: tile.x, y: tile.y });
               setSelectedEventIds([]);
               setSelectedEventId(null);
@@ -727,6 +784,23 @@ export function useMouseHandlers(
         }
       }
 
+      // Camera zone resize
+      if (isResizingCameraZone.current && tile && resizeCameraZoneOriginal.current && resizeCameraZoneStart.current) {
+        const orig = resizeCameraZoneOriginal.current;
+        const edge = resizeCameraZoneEdge.current!;
+        const dx = tile.x - resizeCameraZoneStart.current.x;
+        const dy = tile.y - resizeCameraZoneStart.current.y;
+        let nx = orig.x, ny = orig.y, nw = orig.width, nh = orig.height;
+        if (edge.includes('w')) { nx = orig.x + dx; nw = orig.width - dx; }
+        if (edge.includes('e')) { nw = orig.width + dx; }
+        if (edge.includes('n')) { ny = orig.y + dy; nh = orig.height - dy; }
+        if (edge.includes('s')) { nh = orig.height + dy; }
+        if (nw < 1) { nx = nx + nw - 1; nw = 1; }
+        if (nh < 1) { ny = ny + nh - 1; nh = 1; }
+        setCameraZoneDragPreview({ x: nx, y: ny, width: nw, height: nh });
+        return;
+      }
+
       // Camera zone dragging
       if (isDraggingCameraZone.current && tile && dragCameraZoneOrigin.current) {
         const zone = currentMap?.cameraZones?.find(z => z.id === draggedCameraZoneId.current);
@@ -754,8 +828,22 @@ export function useMouseHandlers(
         return;
       }
 
+      // Camera zone hover cursor
+      if (editMode === 'cameraZone' && tile && !isDraggingCameraZone.current && !isCreatingCameraZone.current) {
+        const selectedZoneId = useEditorStore.getState().selectedCameraZoneId;
+        const zones = currentMap?.cameraZones || [];
+        const selectedZone = selectedZoneId != null ? zones.find(z => z.id === selectedZoneId) : null;
+        if (selectedZone) {
+          const edge = detectCameraZoneEdge(tile, selectedZone);
+          setCameraZoneCursor(edge ? edgeToCursorStyle(edge) : null);
+        } else {
+          setCameraZoneCursor(null);
+        }
+      }
+
       // Player start position drag
       if (isDraggingPlayerStart.current && tile) {
+        playerStartDragPosRef.current = { x: tile.x, y: tile.y };
         setPlayerStartDragPos({ x: tile.x, y: tile.y });
         return;
       }
@@ -976,6 +1064,23 @@ export function useMouseHandlers(
         return;
       }
 
+      // Camera zone resize commit
+      if (isResizingCameraZone.current && resizeCameraZoneId.current != null) {
+        if (cameraZoneDragPreview) {
+          updateCameraZone(resizeCameraZoneId.current, {
+            x: cameraZoneDragPreview.x, y: cameraZoneDragPreview.y,
+            width: cameraZoneDragPreview.width, height: cameraZoneDragPreview.height,
+          });
+        }
+        isResizingCameraZone.current = false;
+        resizeCameraZoneId.current = null;
+        resizeCameraZoneEdge.current = null;
+        resizeCameraZoneOriginal.current = null;
+        resizeCameraZoneStart.current = null;
+        setCameraZoneDragPreview(null);
+        return;
+      }
+
       // Camera zone drag commit
       if (isDraggingCameraZone.current && draggedCameraZoneId.current != null) {
         if (cameraZoneDragPreview) {
@@ -1080,11 +1185,14 @@ export function useMouseHandlers(
       // Player start position drag commit
       if (isDraggingPlayerStart.current) {
         isDraggingPlayerStart.current = false;
-        if (playerStartDragPos && currentMapId) {
-          setPlayerStartPosition(currentMapId, playerStartDragPos.x, playerStartDragPos.y).then(() => {
+        const dragPos = playerStartDragPosRef.current;
+        if (dragPos && currentMapId) {
+          setPlayerStartPosition(currentMapId, dragPos.x, dragPos.y).then(() => {
+            playerStartDragPosRef.current = null;
             setPlayerStartDragPos(null);
           });
         } else {
+          playerStartDragPosRef.current = null;
           setPlayerStartDragPos(null);
         }
         return;
@@ -1292,6 +1400,7 @@ export function useMouseHandlers(
       }
       if (isDraggingPlayerStart.current) {
         isDraggingPlayerStart.current = false;
+        playerStartDragPosRef.current = null;
         setPlayerStartDragPos(null);
       }
       if (isDraggingMultiEvents.current) {
@@ -1326,6 +1435,14 @@ export function useMouseHandlers(
         objectSelDragStart.current = null;
         setObjectSelectionStart(null);
         setObjectSelectionEnd(null);
+      }
+      if (isResizingCameraZone.current) {
+        isResizingCameraZone.current = false;
+        resizeCameraZoneId.current = null;
+        resizeCameraZoneEdge.current = null;
+        resizeCameraZoneOriginal.current = null;
+        resizeCameraZoneStart.current = null;
+        setCameraZoneDragPreview(null);
       }
       if (isDraggingCameraZone.current) {
         isDraggingCameraZone.current = false;
@@ -1383,6 +1500,7 @@ export function useMouseHandlers(
     isResizing, resizeOrigSize, isOrbiting, isSelectingEvents,
     isSelectingLights, isSelectingObjects,
     isDraggingCameraZone, isCreatingCameraZone, cameraZoneDragPreview,
+    isResizingCameraZone, cameraZoneCursor,
     playerStartDragPos,
   };
 }
