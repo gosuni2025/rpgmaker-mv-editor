@@ -242,10 +242,8 @@ ShadowLight._syncCustomDepthMaps = function(sprites) {
 };
 
 /**
- * MeshBasicMaterial을 MeshPhongMaterial + 6방향 법선 라이팅으로 교체
- * 빌보드 평면의 한계를 극복하여 측면/후면 조명도 올바르게 받도록
- * Valve의 Ambient Cube (Half-Life 2) 기법 적용:
- * UV 좌표 기반으로 가상의 3D 법선을 생성하여 6방향에서 조명 계산
+ * MeshBasicMaterial을 MeshPhongMaterial로 교체
+ * 기존 텍스처, 투명도, 블렌딩 등 속성을 모두 유지
  */
 ShadowLight._convertMaterial = function(sprite) {
     if (!sprite || !sprite._material) return;
@@ -267,72 +265,9 @@ ShadowLight._convertMaterial = function(sprite) {
         shininess: 0,
     });
     newMat.visible = oldMat.visible;
-
-    // 6방향 법선 라이팅 onBeforeCompile 패치
-    // MeshPhongMaterial의 모든 기능(lights, shadow)을 유지하면서
-    // fragment shader의 법선 계산만 UV 기반 가상 법선으로 교체
-    //
-    // 주의: Three.js r128에서 onBeforeCompile은 #include가 이미 resolve된 후 호출됨
-    // → 글로벌 패치된 normal_fragment_begin의 실제 텍스트를 찾아 교체해야 함
-    //
-    // UV 정규화: 스프라이트시트에서 현재 프레임 UV 범위를 uniform으로 전달하여
-    // 0~1 범위의 로컬 UV로 변환 후 법선 계산
-    newMat.userData.uvMin = new THREE.Vector2(0, 0);
-    newMat.userData.uvMax = new THREE.Vector2(1, 1);
-
-    newMat.onBeforeCompile = function(shader) {
-        // UV 범위 uniform 추가
-        shader.uniforms.uvMin = { value: newMat.userData.uvMin };
-        shader.uniforms.uvMax = { value: newMat.userData.uvMax };
-
-        // fragment shader에 uniform 선언 추가
-        shader.fragmentShader = 'uniform vec2 uvMin;\nuniform vec2 uvMax;\n' + shader.fragmentShader;
-
-        // 글로벌 패치 후의 normal_fragment_begin 내용:
-        //   float faceDirection = 1.0;
-        //   vec3 normal = normalize( vNormal );
-        //   #ifdef DOUBLE_SIDED
-        //       normal *= faceDirection;
-        //   #endif
-        // "vec3 normal = normalize( vNormal )" 를 6방향 법선으로 교체
-        shader.fragmentShader = shader.fragmentShader.replace(
-            'vec3 normal = normalize( vNormal );',
-            [
-                '// === 6-Direction Normal Lighting (Ambient Cube) ===',
-                '// 스프라이트시트 UV를 프레임 내 로컬 UV(0~1)로 정규화',
-                'vec2 localUV = (vUv - uvMin) / max(uvMax - uvMin, vec2(0.001));',
-                'vec2 centeredUV = localUV - 0.5; // -0.5 ~ 0.5',
-                '',
-                '// 로컬 법선: UV 기반 구면 매핑',
-                '// X: 좌(-X)~우(+X), Y: 위/아래',
-                'float nx = centeredUV.x * 2.0;',
-                'float ny = -centeredUV.y * 2.0;',
-                '// Z: 정면이 기본, 가장자리로 갈수록 약해짐 (구면 느낌)',
-                'float nz = max(0.0, 1.0 - length(centeredUV) * 1.5) + 0.3;',
-                'vec3 localN = normalize(vec3(nx, ny, nz));',
-                '',
-                '// vNormal은 view space의 빌보드 정면 법선',
-                '// 이를 Z축으로 삼아 tangent space → view space 변환',
-                'vec3 N = normalize(vNormal);',
-                'vec3 up = abs(N.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);',
-                'vec3 T = normalize(cross(up, N));',
-                'vec3 B = cross(N, T);',
-                'vec3 normal = normalize(T * localN.x + B * localN.y + N * localN.z);',
-            ].join('\n')
-        );
-
-        // 6방향 법선이 적절한 방향을 계산하므로, 글로벌 abs(dotNL) 패치를 되돌림
-        // (abs가 있으면 뒤쪽 라이트도 무조건 밝아지는 문제)
-        shader.fragmentShader = shader.fragmentShader.replace(
-            'float dotNL = saturate( abs( dot( geometry.normal, directLight.direction ) ) );',
-            'float dotNL = saturate( dot( geometry.normal, directLight.direction ) );'
-        );
-    };
-    // customProgramCacheKey로 캐시 구분
-    newMat.customProgramCacheKey = function() {
-        return 'billboard6dir';
-    };
     newMat.needsUpdate = true;
+
+    // 양면 라이팅은 editor-runtime-bootstrap.js에서 ShaderChunk 글로벌 패치로 적용됨
 
     // Mesh에 새 material 적용
     sprite._threeObj.material = newMat;
@@ -351,32 +286,142 @@ ShadowLight._convertMaterial = function(sprite) {
     this._convertedMaterials.set(newMat, true);
 };
 
+//=============================================================================
+// 프록시 박스 라이팅: CPU 기반 6방향 법선 라이트 프로빙
+// 빌보드 평면은 정면 법선만 있어 측면/후면 조명을 못 받는 문제를 해결.
+// 캐릭터 위치에서 가상의 박스 6면 법선으로 라이트 기여도를 CPU에서 계산하고,
+// 정면 외 방향의 추가 조명을 material.emissive에 반영한다.
+//=============================================================================
+
+ShadowLight._probeNormals = [
+    new THREE.Vector3( 1,  0,  0),  // +X (오른쪽)
+    new THREE.Vector3(-1,  0,  0),  // -X (왼쪽)
+    new THREE.Vector3( 0,  1,  0),  // +Y (아래, 화면 좌표계)
+    new THREE.Vector3( 0, -1,  0),  // -Y (위)
+    new THREE.Vector3( 0,  0, -1),  // -Z (뒤쪽)
+    // +Z (정면)는 Phong이 이미 처리하므로 제외
+];
+
+// 재사용할 임시 벡터
+ShadowLight._tmpVec3 = new THREE.Vector3();
+ShadowLight._tmpVec3b = new THREE.Vector3();
+ShadowLight._tmpVec3c = new THREE.Vector3();
+ShadowLight._tmpColor = new THREE.Color();
+
 /**
- * 6방향 법선 라이팅용 UV 범위 동기화
- * 스프라이트시트에서 현재 프레임의 UV 영역을 material uniform에 반영
- * @param {Array} sprites - 캐릭터 스프라이트 배열
+ * 캐릭터 스프라이트들의 프록시 박스 라이팅 업데이트
+ * @param {Array} sprites - Sprite_Character 배열
  */
-ShadowLight._syncBillboardUVRange = function(sprites) {
+ShadowLight._updateProxyBoxLighting = function(sprites) {
     if (!sprites) return;
+
+    // 이미 관리 중인 라이트 레퍼런스를 직접 사용 (scene.traverse 비용 회피)
+    var lights = [];
+    if (this._directionalLight && this._directionalLight.visible) {
+        lights.push(this._directionalLight);
+    }
+    if (this._playerSpotLight && this._playerSpotLight.visible) {
+        lights.push(this._playerSpotLight);
+    }
+    for (var pi = 0; pi < this._pointLights.length; pi++) {
+        if (this._pointLights[pi].visible) {
+            lights.push(this._pointLights[pi]);
+        }
+    }
+    if (lights.length === 0) return;
+
+    var normals = this._probeNormals;
+    var tmpDir = this._tmpVec3;
+    var tmpColor = this._tmpColor;
+
     for (var i = 0; i < sprites.length; i++) {
         var sprite = sprites[i];
-        if (!sprite || !sprite._material || !sprite._material.userData) continue;
-        if (!sprite._material.userData.uvMin) continue;
-        var geom = sprite._geometry;
-        if (!geom || !geom.attributes || !geom.attributes.uv) continue;
-        var uvAttr = geom.attributes.uv;
-        // UV의 min/max를 4개 정점에서 계산
-        var minU = Infinity, minV = Infinity, maxU = -Infinity, maxV = -Infinity;
-        for (var j = 0; j < uvAttr.count; j++) {
-            var u = uvAttr.getX(j);
-            var v = uvAttr.getY(j);
-            if (u < minU) minU = u;
-            if (v < minV) minV = v;
-            if (u > maxU) maxU = u;
-            if (v > maxV) maxV = v;
+        if (!sprite || !sprite._material || !sprite._material.isMeshPhongMaterial) continue;
+        if (!sprite._threeObj || !sprite._threeObj.visible) continue;
+
+        // 캐릭터 월드 위치
+        var wp = this._getWrapperWorldPos(sprite);
+        var charX = wp.x;
+        var charY = wp.y - 24; // 스프라이트 중심 높이 보정
+        var charZ = 20;        // 캐릭터 높이 (지면 위)
+
+        // 5방향(정면 제외) 라이트 기여도 누적
+        var extraR = 0, extraG = 0, extraB = 0;
+
+        for (var li = 0; li < lights.length; li++) {
+            var light = lights[li];
+            var lightColor = light.color;
+            var intensity = light.intensity;
+            if (intensity <= 0) continue;
+
+            // 라이트에서 캐릭터로의 방향 벡터
+            if (light.isDirectionalLight) {
+                // DirectionalLight: 방향은 position에서 target으로
+                tmpDir.copy(light.position).sub(light.target.position).normalize();
+            } else if (light.isPointLight || light.isSpotLight) {
+                tmpDir.set(
+                    light.position.x - charX,
+                    light.position.y - charY,
+                    light.position.z - charZ
+                );
+                var dist = tmpDir.length();
+                if (dist < 0.001) continue;
+                tmpDir.divideScalar(dist);
+
+                // 거리 감쇠 (decay=0일 때 linear falloff)
+                if (light.distance > 0) {
+                    if (dist > light.distance) continue;
+                    var decay = light.decay || 0;
+                    if (decay === 0) {
+                        intensity *= Math.max(0, 1.0 - dist / light.distance);
+                    } else {
+                        intensity *= Math.pow(Math.max(0, 1.0 - dist / light.distance), decay);
+                    }
+                }
+
+                // SpotLight 원뿔 감쇠
+                if (light.isSpotLight && light.target) {
+                    // 라이트에서 타겟으로의 방향 (스포트라이트가 비추는 방향)
+                    var spotAxis = ShadowLight._tmpVec3b
+                        .subVectors(light.target.position, light.position).normalize();
+                    // 라이트에서 캐릭터로의 방향
+                    var toChar = ShadowLight._tmpVec3c.set(
+                        charX - light.position.x,
+                        charY - light.position.y,
+                        charZ - light.position.z
+                    ).normalize();
+                    var angleCos = spotAxis.dot(toChar);
+                    var coneCos = Math.cos(light.angle);
+                    if (angleCos < coneCos) continue;
+                    var penumbraCos = Math.cos(light.angle * (1 - light.penumbra));
+                    var spotAttenuation = (angleCos - coneCos) / Math.max(penumbraCos - coneCos, 0.001);
+                    spotAttenuation = Math.min(1.0, spotAttenuation);
+                    intensity *= spotAttenuation;
+                }
+            } else {
+                continue;
+            }
+
+            if (intensity <= 0.001) continue;
+
+            // 5방향 법선에 대한 라이트 기여도
+            for (var n = 0; n < normals.length; n++) {
+                var dotNL = normals[n].dot(tmpDir);
+                if (dotNL > 0) {
+                    extraR += lightColor.r * intensity * dotNL;
+                    extraG += lightColor.g * intensity * dotNL;
+                    extraB += lightColor.b * intensity * dotNL;
+                }
+            }
         }
-        sprite._material.userData.uvMin.set(minU, minV);
-        sprite._material.userData.uvMax.set(maxU, maxV);
+
+        // 추가 조명을 emissive에 반영 (감쇠 계수로 강도 조절)
+        var factor = 0.3; // 측면 라이팅 강도 (0~1, 너무 밝지 않도록)
+        sprite._material.emissive.setRGB(
+            Math.min(1.0, extraR * factor),
+            Math.min(1.0, extraG * factor),
+            Math.min(1.0, extraB * factor)
+        );
     }
 };
 
@@ -783,10 +828,6 @@ Spriteset_Map.prototype._updateShadowLight = function() {
     ShadowLight._syncCustomDepthMaps(this._characterSprites);
     ShadowLight._syncCustomDepthMaps(this._objectSprites);
 
-    // 6방향 법선 라이팅: 캐릭터 스프라이트의 UV 범위를 material에 동기화
-    // (스프라이트시트에서 현재 프레임의 UV 영역이 매 프레임 변할 수 있음)
-    ShadowLight._syncBillboardUVRange(this._characterSprites);
-
     // shadow mesh 업데이트
     if (this._shadowMeshes) {
         for (var i = 0; i < this._characterSprites.length; i++) {
@@ -801,6 +842,10 @@ Spriteset_Map.prototype._updateShadowLight = function() {
 
     // 플레이어 포인트 라이트
     this._updatePointLights();
+
+    // 프록시 박스 라이팅: 정면 외 5방향의 추가 조명을 emissive에 반영
+    // (PointLight 위치 갱신 후에 호출해야 정확한 계산)
+    ShadowLight._updateProxyBoxLighting(this._characterSprites);
 };
 
 Spriteset_Map.prototype._activateShadowLight = function() {
