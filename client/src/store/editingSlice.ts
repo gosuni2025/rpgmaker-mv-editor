@@ -1,7 +1,45 @@
 import type { MapData, MapObject } from '../types/rpgMakerMV';
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
+import { isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition } from '../utils/tileHelper';
 import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry } from './types';
 import { MAX_UNDO } from './types';
+
+/**
+ * 변경된 타일 위치 + 인접 타일의 오토타일 shape를 재계산.
+ * data 배열을 직접 수정하고, 추가 변경사항을 changes에 추가.
+ */
+function recalcAutotiles(
+  data: number[], width: number, height: number,
+  affectedPositions: { x: number; y: number; z: number }[],
+  changes: TileChange[],
+) {
+  // 재계산 대상 수집 (변경 위치 + 인접 타일)
+  const toRecalc = new Set<string>();
+  for (const { x, y, z } of affectedPositions) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+          toRecalc.add(`${nx},${ny},${z}`);
+        }
+      }
+    }
+  }
+
+  for (const key of toRecalc) {
+    const [px, py, pz] = key.split(',').map(Number);
+    const idx = (pz * height + py) * width + px;
+    const tid = data[idx];
+    if (!isAutotile(tid) || isTileA5(tid)) continue;
+    const kind = getAutotileKindExported(tid);
+    const shape = computeAutoShapeForPosition(data, width, height, px, py, pz, tid);
+    const correctId = makeAutotileId(kind, shape);
+    if (correctId !== tid) {
+      changes.push({ x: px, y: py, z: pz, oldTileId: tid, newTileId: correctId });
+      data[idx] = correctId;
+    }
+  }
+}
 
 export const editingSlice: SliceCreator<Pick<EditorState,
   'editMode' | 'selectedTool' | 'selectedTileId' | 'selectedTiles' | 'selectedTilesWidth' | 'selectedTilesHeight' |
@@ -274,13 +312,16 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     if (!clipboard || clipboard.type !== 'tiles' || !clipboard.tiles || !currentMap) return;
     const changes: TileChange[] = [];
     const newData = [...currentMap.data];
+    const affected: { x: number; y: number; z: number }[] = [];
     for (const t of clipboard.tiles) {
       const tx = x + t.x, ty = y + t.y;
       if (tx < 0 || tx >= currentMap.width || ty < 0 || ty >= currentMap.height) continue;
       const idx = (t.z * currentMap.height + ty) * currentMap.width + tx;
       changes.push({ x: tx, y: ty, z: t.z, oldTileId: newData[idx], newTileId: t.tileId });
       newData[idx] = t.tileId;
+      affected.push({ x: tx, y: ty, z: t.z });
     }
+    recalcAutotiles(newData, currentMap.width, currentMap.height, affected, changes);
     set({ currentMap: { ...currentMap, data: newData } });
     get().pushUndo(changes);
   },
@@ -292,6 +333,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
     const changes: TileChange[] = [];
     const newData = [...map.data];
+    const affected: { x: number; y: number; z: number }[] = [];
     for (let z = 0; z < 4; z++) {
       for (let y = minY; y <= maxY; y++) {
         for (let x = minX; x <= maxX; x++) {
@@ -299,10 +341,12 @@ export const editingSlice: SliceCreator<Pick<EditorState,
           if (newData[idx] !== 0) {
             changes.push({ x, y, z, oldTileId: newData[idx], newTileId: 0 });
             newData[idx] = 0;
+            affected.push({ x, y, z });
           }
         }
       }
     }
+    recalcAutotiles(newData, map.width, map.height, affected, changes);
     set({ currentMap: { ...map, data: newData } });
     get().pushUndo(changes);
   },
@@ -336,13 +380,24 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       }
     }
     // 2. 새 위치에 붙여넣기
+    const affected: { x: number; y: number; z: number }[] = [];
     for (const t of clipboard.tiles) {
       const tx = destX + t.x, ty = destY + t.y;
       if (tx < 0 || tx >= currentMap.width || ty < 0 || ty >= currentMap.height) continue;
       const idx = (t.z * currentMap.height + ty) * currentMap.width + tx;
       allChanges.push({ x: tx, y: ty, z: t.z, oldTileId: newData[idx], newTileId: t.tileId });
       newData[idx] = t.tileId;
+      affected.push({ x: tx, y: ty, z: t.z });
     }
+    // 원본 영역도 affected에 추가 (주변 오토타일 재계산용)
+    for (let z = 0; z < 4; z++) {
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          affected.push({ x, y, z });
+        }
+      }
+    }
+    recalcAutotiles(newData, currentMap.width, currentMap.height, affected, allChanges);
     set({ currentMap: { ...currentMap, data: newData } });
     get().pushUndo(allChanges);
   },
