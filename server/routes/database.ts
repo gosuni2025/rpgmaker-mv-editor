@@ -53,21 +53,26 @@ router.put('/:type', (req: Request<{ type: string }>, res: Response) => {
     projectManager.writeJSON(filename, req.body);
 
     // Auto-sync localization CSV if initialized
+    let l10nDiff = null;
     try {
       const config = l10n.getConfig();
       if (config) {
         const type = req.params.type;
+        let diff = null;
         if (L10N_DB_TYPES.has(type)) {
-          l10n.syncDBCSV(type);
+          diff = l10n.syncDBCSV(type).diff;
         } else if (type === 'system') {
-          l10n.syncTermsCSV();
+          diff = l10n.syncTermsCSV().diff;
         } else if (type === 'commonEvents') {
-          l10n.syncCommonEventsCSV();
+          diff = l10n.syncCommonEventsCSV().diff;
+        }
+        if (diff && (diff.added.length || diff.modified.length || diff.deleted.length)) {
+          l10nDiff = diff;
         }
       }
     } catch { /* localization sync failure should not block save */ }
 
-    res.json({ success: true });
+    res.json({ success: true, l10nDiff });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

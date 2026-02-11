@@ -17,6 +17,12 @@ interface EventCommand {
 // Text command codes that should be localized
 const TEXT_CODES = new Set([101, 401, 102, 105, 405, 321, 325]);
 
+export interface L10nSyncDiff {
+  added: string[];    // new keys
+  modified: string[]; // source text changed keys
+  deleted: string[];  // newly deleted keys
+}
+
 export function getLanguagesDir(): string {
   return path.join(projectManager.currentPath!, 'languages');
 }
@@ -234,14 +240,14 @@ export function extractTermsKeys(): ExtractedEntry[] {
 
 // --- Sync logic ---
 
-function syncEntries(existing: CSVRow[], extracted: ExtractedEntry[], config: L10nConfig): CSVRow[] {
+function syncEntries(existing: CSVRow[], extracted: ExtractedEntry[], config: L10nConfig): { rows: CSVRow[]; diff: L10nSyncDiff } {
   const now = String(Math.floor(Date.now() / 1000));
   const existingMap = new Map<string, CSVRow>();
   for (const row of existing) {
     existingMap.set(row.key, row);
   }
 
-  const extractedKeys = new Set(extracted.map(e => e.key));
+  const diff: L10nSyncDiff = { added: [], modified: [], deleted: [] };
   const result: CSVRow[] = [];
 
   // Process extracted entries (new + existing)
@@ -258,6 +264,7 @@ function syncEntries(existing: CSVRow[], extracted: ExtractedEntry[], config: L1
         old[srcLang] = entry.text;
         old.ts = now;
         old[srcLang + '_ts'] = now;
+        diff.modified.push(entry.key);
       }
       result.push(old);
       existingMap.delete(entry.key);
@@ -273,6 +280,7 @@ function syncEntries(existing: CSVRow[], extracted: ExtractedEntry[], config: L1
         }
       }
       result.push(row);
+      diff.added.push(entry.key);
     }
   }
 
@@ -280,64 +288,72 @@ function syncEntries(existing: CSVRow[], extracted: ExtractedEntry[], config: L1
   for (const [, row] of existingMap) {
     if (row.deleted !== '1') {
       row.deleted = '1';
+      diff.deleted.push(row.key);
     }
     result.push(row);
   }
 
-  return result;
+  return { rows: result, diff };
 }
 
-export function syncMapCSV(mapId: number): { count: number } {
+export function syncMapCSV(mapId: number): { count: number; diff: L10nSyncDiff } {
   const config = getConfig();
   if (!config) throw new Error('Localization not initialized');
   const csvPath = `maps/map${String(mapId).padStart(3, '0')}.csv`;
   const existing = readCSVFile(csvPath);
   const extracted = extractMapKeys(mapId);
-  if (extracted.length === 0 && existing.length === 0) return { count: 0 };
-  const synced = syncEntries(existing, extracted, config);
+  if (extracted.length === 0 && existing.length === 0) return { count: 0, diff: { added: [], modified: [], deleted: [] } };
+  const { rows: synced, diff } = syncEntries(existing, extracted, config);
   writeCSVFile(csvPath, synced, config);
-  return { count: synced.length };
+  return { count: synced.length, diff };
 }
 
-export function syncDBCSV(type: string): { count: number } {
+export function syncDBCSV(type: string): { count: number; diff: L10nSyncDiff } {
   const config = getConfig();
   if (!config) throw new Error('Localization not initialized');
   const csvPath = `database/${type}.csv`;
   const existing = readCSVFile(csvPath);
   const extracted = extractDBKeys(type);
-  if (extracted.length === 0 && existing.length === 0) return { count: 0 };
-  const synced = syncEntries(existing, extracted, config);
+  if (extracted.length === 0 && existing.length === 0) return { count: 0, diff: { added: [], modified: [], deleted: [] } };
+  const { rows: synced, diff } = syncEntries(existing, extracted, config);
   writeCSVFile(csvPath, synced, config);
-  return { count: synced.length };
+  return { count: synced.length, diff };
 }
 
-export function syncTermsCSV(): { count: number } {
+export function syncTermsCSV(): { count: number; diff: L10nSyncDiff } {
   const config = getConfig();
   if (!config) throw new Error('Localization not initialized');
   const csvPath = 'terms.csv';
   const existing = readCSVFile(csvPath);
   const extracted = extractTermsKeys();
-  if (extracted.length === 0 && existing.length === 0) return { count: 0 };
-  const synced = syncEntries(existing, extracted, config);
+  if (extracted.length === 0 && existing.length === 0) return { count: 0, diff: { added: [], modified: [], deleted: [] } };
+  const { rows: synced, diff } = syncEntries(existing, extracted, config);
   writeCSVFile(csvPath, synced, config);
-  return { count: synced.length };
+  return { count: synced.length, diff };
 }
 
-export function syncCommonEventsCSV(): { count: number } {
+export function syncCommonEventsCSV(): { count: number; diff: L10nSyncDiff } {
   const config = getConfig();
   if (!config) throw new Error('Localization not initialized');
   const csvPath = 'common_events.csv';
   const existing = readCSVFile(csvPath);
   const extracted = extractCommonEventKeys();
-  if (extracted.length === 0 && existing.length === 0) return { count: 0 };
-  const synced = syncEntries(existing, extracted, config);
+  if (extracted.length === 0 && existing.length === 0) return { count: 0, diff: { added: [], modified: [], deleted: [] } };
+  const { rows: synced, diff } = syncEntries(existing, extracted, config);
   writeCSVFile(csvPath, synced, config);
-  return { count: synced.length };
+  return { count: synced.length, diff };
 }
 
-export function syncAll(): { maps: number; db: Record<string, number>; terms: number; commonEvents: number } {
+export function syncAll(): { maps: number; db: Record<string, number>; terms: number; commonEvents: number; diff: L10nSyncDiff } {
   const config = getConfig();
   if (!config) throw new Error('Localization not initialized');
+
+  const totalDiff: L10nSyncDiff = { added: [], modified: [], deleted: [] };
+  const mergeDiff = (d: L10nSyncDiff) => {
+    totalDiff.added.push(...d.added);
+    totalDiff.modified.push(...d.modified);
+    totalDiff.deleted.push(...d.deleted);
+  };
 
   // Sync all maps
   let mapInfos: any[];
@@ -349,24 +365,28 @@ export function syncAll(): { maps: number; db: Record<string, number>; terms: nu
   let mapCount = 0;
   for (const info of mapInfos) {
     if (!info) continue;
-    const { count } = syncMapCSV(info.id);
+    const { count, diff } = syncMapCSV(info.id);
     mapCount += count;
+    mergeDiff(diff);
   }
 
   // Sync DB types
   const dbCounts: Record<string, number> = {};
   for (const type of Object.keys(DB_TYPES)) {
-    const { count } = syncDBCSV(type);
+    const { count, diff } = syncDBCSV(type);
     dbCounts[type] = count;
+    mergeDiff(diff);
   }
 
   // Sync terms
-  const { count: termsCount } = syncTermsCSV();
+  const { count: termsCount, diff: termsDiff } = syncTermsCSV();
+  mergeDiff(termsDiff);
 
   // Sync common events
-  const { count: ceCount } = syncCommonEventsCSV();
+  const { count: ceCount, diff: ceDiff } = syncCommonEventsCSV();
+  mergeDiff(ceDiff);
 
-  return { maps: mapCount, db: dbCounts, terms: termsCount, commonEvents: ceCount };
+  return { maps: mapCount, db: dbCounts, terms: termsCount, commonEvents: ceCount, diff: totalDiff };
 }
 
 // --- Stats ---

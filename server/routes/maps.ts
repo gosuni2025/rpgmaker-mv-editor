@@ -34,14 +34,18 @@ router.put('/:id', (req: Request, res: Response) => {
     projectManager.writeJSON(`Map${id}.json`, req.body);
 
     // Auto-sync localization CSV if initialized
+    let l10nDiff = null;
     try {
       const config = l10n.getConfig();
       if (config) {
-        l10n.syncMapCSV(parseInt(req.params.id, 10));
+        const { diff } = l10n.syncMapCSV(parseInt(req.params.id, 10));
+        if (diff.added.length || diff.modified.length || diff.deleted.length) {
+          l10nDiff = diff;
+        }
       }
     } catch { /* localization sync failure should not block save */ }
 
-    res.json({ success: true });
+    res.json({ success: true, l10nDiff });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

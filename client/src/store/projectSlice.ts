@@ -115,8 +115,16 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   saveCurrentMap: async () => {
     const { currentMapId, currentMap, showToast } = get();
     if (!currentMapId || !currentMap) return;
-    await apiClient.put(`/maps/${currentMapId}`, currentMap);
-    showToast('저장 완료');
+    const res = await apiClient.put<{ success: boolean; l10nDiff?: { added: string[]; modified: string[]; deleted: string[] } }>(`/maps/${currentMapId}`, currentMap);
+    let msg = '저장 완료';
+    if (res.l10nDiff) {
+      const parts: string[] = [];
+      if (res.l10nDiff.added.length) parts.push(`추가 ${res.l10nDiff.added.length}`);
+      if (res.l10nDiff.modified.length) parts.push(`변경 ${res.l10nDiff.modified.length}`);
+      if (res.l10nDiff.deleted.length) parts.push(`삭제 ${res.l10nDiff.deleted.length}`);
+      msg += ` (L10n: ${parts.join(', ')})`;
+    }
+    showToast(msg);
   },
 
   createMap: async (opts) => {

@@ -46,6 +46,7 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
   const selectMap = useEditorStore((s) => s.selectMap);
   const maps = useEditorStore((s) => s.maps);
   const updateMapInfos = useEditorStore((s) => s.updateMapInfos);
+  const showToast = useEditorStore((s) => s.showToast);
 
   const [tilesets, setTilesets] = useState<TilesetEntry[]>([]);
   const [mapData, setMapData] = useState<MapProps | null>(null);
@@ -108,7 +109,14 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
         disableDashing: mapData.disableDashing,
         note: mapData.note,
       };
-      await apiClient.put(`/maps/${mapId}`, merged);
+      const res = await apiClient.put<{ success: boolean; l10nDiff?: { added: string[]; modified: string[]; deleted: string[] } }>(`/maps/${mapId}`, merged);
+      if (res.l10nDiff) {
+        const parts: string[] = [];
+        if (res.l10nDiff.added.length) parts.push(`추가 ${res.l10nDiff.added.length}`);
+        if (res.l10nDiff.modified.length) parts.push(`변경 ${res.l10nDiff.modified.length}`);
+        if (res.l10nDiff.deleted.length) parts.push(`삭제 ${res.l10nDiff.deleted.length}`);
+        showToast(`맵 속성 저장 완료 (L10n: ${parts.join(', ')})`);
+      }
 
       // Update map name in MapInfos
       if (name !== mapName) {

@@ -183,8 +183,16 @@ export default function LocalizationDialog() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      await apiClient.post('/localization/sync', {});
-      showToast(t('localization.syncComplete'));
+      const res = await apiClient.post<{ diff?: { added: string[]; modified: string[]; deleted: string[] } }>('/localization/sync', {});
+      let msg = t('localization.syncComplete');
+      if (res.diff && (res.diff.added.length || res.diff.modified.length || res.diff.deleted.length)) {
+        const parts: string[] = [];
+        if (res.diff.added.length) parts.push(`추가 ${res.diff.added.length}`);
+        if (res.diff.modified.length) parts.push(`변경 ${res.diff.modified.length}`);
+        if (res.diff.deleted.length) parts.push(`삭제 ${res.diff.deleted.length}`);
+        msg += ` (${parts.join(', ')})`;
+      }
+      showToast(msg);
       await Promise.all([loadCategories(), loadStats()]);
       if (selectedCategory) await loadCSV(selectedCategory);
     } finally {

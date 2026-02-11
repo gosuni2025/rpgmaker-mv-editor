@@ -64,6 +64,7 @@ const TAB_COMPONENTS: Record<string, TabComponentType> = {
 export default function DatabaseDialog() {
   const { t } = useTranslation();
   const setShowDatabaseDialog = useEditorStore((s) => s.setShowDatabaseDialog);
+  const showToast = useEditorStore((s) => s.showToast);
   const [activeTab, setActiveTab] = useState('actors');
   const [tabData, setTabData] = useState<Record<string, unknown>>({});
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
@@ -97,17 +98,30 @@ export default function DatabaseDialog() {
 
   const saveAll = useCallback(async () => {
     const dirtyKeys = Object.keys(dirty).filter((k) => dirty[k]);
+    const allDiffs: { added: string[]; modified: string[]; deleted: string[] } = { added: [], modified: [], deleted: [] };
     for (const key of dirtyKeys) {
       try {
-        await apiClient.put(`/database/${key}`, tabData[key]);
+        const res = await apiClient.put<{ success: boolean; l10nDiff?: { added: string[]; modified: string[]; deleted: string[] } }>(`/database/${key}`, tabData[key]);
+        if (res.l10nDiff) {
+          allDiffs.added.push(...res.l10nDiff.added);
+          allDiffs.modified.push(...res.l10nDiff.modified);
+          allDiffs.deleted.push(...res.l10nDiff.deleted);
+        }
       } catch (e) {
         console.error(`Failed to save ${key}:`, e);
         return false;
       }
     }
     setDirty({});
+    if (allDiffs.added.length || allDiffs.modified.length || allDiffs.deleted.length) {
+      const parts: string[] = [];
+      if (allDiffs.added.length) parts.push(`추가 ${allDiffs.added.length}`);
+      if (allDiffs.modified.length) parts.push(`변경 ${allDiffs.modified.length}`);
+      if (allDiffs.deleted.length) parts.push(`삭제 ${allDiffs.deleted.length}`);
+      showToast(`DB 저장 완료 (L10n: ${parts.join(', ')})`);
+    }
     return true;
-  }, [dirty, tabData]);
+  }, [dirty, tabData, showToast]);
 
   const handleOk = async () => {
     const ok = await saveAll();
