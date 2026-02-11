@@ -94,7 +94,7 @@ export default function MapCanvas() {
     isDraggingEvent, isDraggingLight, isDraggingObject, draggedObjectId,
     isResizing, resizeOrigSize, isSelectingEvents,
     isSelectingLights, isSelectingObjects,
-    isDraggingCameraZone, isCreatingCameraZone,
+    isDraggingCameraZone, isCreatingCameraZone, isResizingCameraZone, cameraZoneCursor,
     playerStartDragPos,
   } = useMouseHandlers(webglCanvasRef, tools, pendingChanges);
 
@@ -1435,7 +1435,8 @@ export default function MapCanvas() {
             zIndex: 1,
             cursor: panning ? 'grabbing'
               : altPressed && editMode === 'map' ? eyedropperCursor
-              : resizeCursor
+              : cameraZoneCursor
+              || resizeCursor
               || (selectedTool === 'select' && isPasting ? 'copy'
                 : selectedTool === 'select' && selectionStart && selectionEnd && hoverTile
                   && hoverTile.x >= Math.min(selectionStart.x, selectionEnd.x)
