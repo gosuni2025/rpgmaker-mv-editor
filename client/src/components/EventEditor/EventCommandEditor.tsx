@@ -206,11 +206,26 @@ const HAS_PARAM_EDITOR = new Set([
 
 const MAX_UNDO = 100;
 
+// 드래그 중인 그룹이 이동할 수 없는 위치인지 판별 (블록 내부 부속 코드 사이로 끼어드는 것 방지)
+function isValidDropTarget(commands: EventCommand[], targetIndex: number, dragStart: number, dragEnd: number): boolean {
+  // 마지막 빈 명령어(code 0) 뒤로는 이동 불가
+  if (targetIndex >= commands.length) return false;
+  // 자기 자신 범위 안으로 이동하는 건 무의미
+  if (targetIndex >= dragStart && targetIndex <= dragEnd + 1) return true;
+  return true;
+}
+
 export default function EventCommandEditor({ commands, onChange }: EventCommandEditorProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [pendingCode, setPendingCode] = useState<number | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  // 드래그 상태
+  const [dragGroupRange, setDragGroupRange] = useState<[number, number] | null>(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const dragStartY = useRef<number>(0);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const undoStack = useRef<EventCommand[][]>([]);
   const redoStack = useRef<EventCommand[][]>([]);
@@ -328,6 +343,90 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
     }
   };
 
+  // --- 드래그 앤 드롭 로직 ---
+  const handleDragHandleMouseDown = useCallback((e: React.MouseEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const range = getCommandGroupRange(commands, index);
+    setDragGroupRange(range);
+    setSelectedIndex(index);
+    dragStartY.current = e.clientY;
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!listRef.current) return;
+      const listRect = listRef.current.getBoundingClientRect();
+      const rows = listRef.current.querySelectorAll('.event-command-row');
+      const mouseY = ev.clientY;
+
+      // 자동 스크롤
+      const scrollMargin = 30;
+      if (mouseY < listRect.top + scrollMargin) {
+        listRef.current.scrollTop -= 6;
+      } else if (mouseY > listRect.bottom - scrollMargin) {
+        listRef.current.scrollTop += 6;
+      }
+
+      // 마우스 위치에 가장 가까운 행 경계 찾기
+      let closestIdx = 0;
+      let closestDist = Infinity;
+      for (let i = 0; i < rows.length; i++) {
+        const rect = rows[i].getBoundingClientRect();
+        const topDist = Math.abs(mouseY - rect.top);
+        const bottomDist = Math.abs(mouseY - rect.bottom);
+        if (topDist < closestDist) {
+          closestDist = topDist;
+          closestIdx = i;
+        }
+        if (bottomDist < closestDist) {
+          closestDist = bottomDist;
+          closestIdx = i + 1;
+        }
+      }
+      setDropTargetIndex(closestIdx);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+
+      // 실제 이동 수행
+      setDragGroupRange(prev => {
+        setDropTargetIndex(prevDrop => {
+          if (prev && prevDrop !== null) {
+            const [start, end] = prev;
+            if (isValidDropTarget(commands, prevDrop, start, end) &&
+                !(prevDrop >= start && prevDrop <= end + 1)) {
+              const groupLen = end - start + 1;
+              const group = commands.slice(start, end + 1);
+              const rest = [...commands.slice(0, start), ...commands.slice(end + 1)];
+              const insertAt = prevDrop > end ? prevDrop - groupLen : prevDrop;
+              rest.splice(insertAt, 0, ...group);
+              changeWithHistory(rest);
+              setSelectedIndex(insertAt);
+            }
+          }
+          return null;
+        });
+        return null;
+      });
+    };
+
+    document.body.style.cursor = 'grabbing';
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [commands, changeWithHistory]);
+
+  // 드래그 가능 여부 판별: 마지막 빈 명령어(종료 마커)와 블록 부속 코드는 드래그 불가
+  const isDraggable = useCallback((index: number): boolean => {
+    const cmd = commands[index];
+    // 맨 마지막 빈 명령어는 드래그 불가
+    if (cmd.code === 0 && index === commands.length - 1) return false;
+    // 블록 부속 코드(402, 403, 404, 411, 412, 413, 601~604)는 단독 드래그 불가
+    if (CHILD_TO_PARENT[cmd.code] && ![401, 405, 408, 655, 605].includes(cmd.code)) return false;
+    return true;
+  }, [commands]);
+
   const deleteCommand = () => {
     if (selectedIndex < 0 || selectedIndex >= commands.length) return;
     const cmd = commands[selectedIndex];
@@ -391,21 +490,39 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
       <div className="db-form-section">Event Commands</div>
-      <div className="event-commands-list">
+      <div className="event-commands-list" ref={listRef}>
         {commands.map((cmd, i) => {
           const display = getCommandDisplay(cmd);
+          const draggable = isDraggable(i);
+          const isDragging = dragGroupRange !== null && i >= dragGroupRange[0] && i <= dragGroupRange[1];
           return (
-            <div
-              key={i}
-              className={`event-command-row${i === selectedIndex ? ' selected' : ''}${i >= groupStart && i <= groupEnd && i !== selectedIndex ? ' group-highlight' : ''}`}
-              style={{ paddingLeft: 8 + cmd.indent * 20 }}
-              onClick={() => setSelectedIndex(i)}
-              onDoubleClick={() => handleDoubleClick(i)}
-            >
-              {display || <span style={{ color: '#555' }}>&loz;</span>}
-            </div>
+            <React.Fragment key={i}>
+              {dropTargetIndex === i && dragGroupRange && !(i >= dragGroupRange[0] && i <= dragGroupRange[1] + 1) && (
+                <div className="event-command-drop-indicator" />
+              )}
+              <div
+                className={`event-command-row${i === selectedIndex ? ' selected' : ''}${i >= groupStart && i <= groupEnd && i !== selectedIndex ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}`}
+                style={{ paddingLeft: draggable ? cmd.indent * 20 : 8 + cmd.indent * 20 }}
+                onClick={() => setSelectedIndex(i)}
+                onDoubleClick={() => handleDoubleClick(i)}
+              >
+                {draggable && (
+                  <span
+                    className="drag-handle"
+                    onMouseDown={e => handleDragHandleMouseDown(e, i)}
+                    title="드래그하여 이동"
+                  >
+                    ⠿
+                  </span>
+                )}
+                {display || <span style={{ color: '#555' }}>&loz;</span>}
+              </div>
+            </React.Fragment>
           );
         })}
+        {dropTargetIndex === commands.length && dragGroupRange && (
+          <div className="event-command-drop-indicator" />
+        )}
       </div>
       <div className="event-commands-toolbar">
         <button className="db-btn-small" onClick={() => setShowAddDialog(true)}>Add</button>

@@ -1388,6 +1388,13 @@ input, textarea, [contenteditable="true"] {
   cursor: pointer;
   white-space: pre-wrap;
   border-bottom: 1px solid #333;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.event-command-row.dragging {
+  opacity: 0.4;
 }
 
 .event-command-row:hover {
@@ -1400,6 +1407,35 @@ input, textarea, [contenteditable="true"] {
 
 .event-command-row.group-highlight {
   background: #1e3a5f;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: #666;
+  font-size: 11px;
+  width: 18px;
+  flex-shrink: 0;
+  text-align: center;
+  user-select: none;
+  letter-spacing: -1px;
+  line-height: 1;
+  padding: 2px 0;
+}
+
+.drag-handle:hover {
+  color: #aaa;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.event-command-drop-indicator {
+  height: 2px;
+  background: #4ea6f5;
+  margin: 0 4px;
+  border-radius: 1px;
+  pointer-events: none;
 }
 
 .event-commands-toolbar {
