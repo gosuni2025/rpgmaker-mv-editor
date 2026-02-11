@@ -200,7 +200,7 @@ function getCommandGroupRange(commands: EventCommand[], index: number): [number,
 
 // Commands that need a parameter editor
 const HAS_PARAM_EDITOR = new Set([
-  101, 105, 108, 117, 118, 119, 121, 122, 123, 124, 125, 126, 127, 128, 129,
+  101, 102, 105, 108, 117, 118, 119, 121, 122, 123, 124, 125, 126, 127, 128, 129,
   201, 230, 241, 242, 245, 246, 249, 250, 321, 325, 355, 356,
 ]);
 
@@ -270,12 +270,19 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
       newCommands.splice(insertAt, 0, newCmd, { code: 0, indent: indent + 1, parameters: [] }, { code: 412, indent, parameters: [] });
     } else if (code === 112) {
       newCommands.splice(insertAt, 0, newCmd, { code: 0, indent: indent + 1, parameters: [] }, { code: 413, indent, parameters: [] });
+    } else if (code === 102 && extraCommands && extraCommands.length > 0) {
+      const extras = extraCommands.map(ec => ({
+        ...ec,
+        indent: ec.indent === 0 ? indent : indent + ec.indent,
+      }));
+      newCommands.splice(insertAt, 0, newCmd, ...extras);
     } else if (code === 102) {
+      // fallback (에디터 없이 삽입 시)
       newCommands.splice(insertAt, 0,
-        { code: 102, indent, parameters: params.length ? params : [['Yes', 'No'], 0] },
-        { code: 402, indent, parameters: [0, 'Yes'] },
+        { code: 102, indent, parameters: [['예', '아니오'], -2, 0, 2, 0] },
+        { code: 402, indent, parameters: [0, '예'] },
         { code: 0, indent: indent + 1, parameters: [] },
-        { code: 402, indent, parameters: [1, 'No'] },
+        { code: 402, indent, parameters: [1, '아니오'] },
         { code: 0, indent: indent + 1, parameters: [] },
         { code: 404, indent, parameters: [] },
       );

@@ -4,7 +4,7 @@ import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, AudioEditor,
-  ChangePartyMemberEditor, ChangeNameEditor,
+  ChangePartyMemberEditor, ChangeNameEditor, ShowChoicesEditor,
 } from './commandEditors';
 
 interface CommandParamEditorProps {
@@ -23,7 +23,7 @@ export default function CommandParamEditor({ code, command, onOk, onCancel }: Co
   }
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: 480, maxHeight: '70vh' }}>
+      <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: code === 102 ? 560 : 480, maxHeight: '70vh' }}>
         <div className="image-picker-header">{getCommandName(code)}</div>
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {content}
@@ -58,6 +58,7 @@ function getEditorContent(
   onCancel: () => void
 ): React.ReactNode | null {
   switch (code) {
+    case 102: return <ShowChoicesEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 101: return <ShowTextEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 108: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={408} label="Comment" />;
     case 355: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={655} label="Script" />;
