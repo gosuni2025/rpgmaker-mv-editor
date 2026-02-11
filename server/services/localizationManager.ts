@@ -409,7 +409,7 @@ export function getStats(): L10nStats {
   for (const type of Object.keys(DB_TYPES)) {
     const rows = readCSVFile(`database/${type}.csv`);
     const stats = computeRowStats(rows, config);
-    categories.push({ id: `db/${type}`, name: type, ...stats });
+    categories.push({ id: `database/${type}`, name: type, ...stats });
     totalEntries += stats.total;
     for (const lang of Object.keys(stats.translated)) {
       totalTranslated[lang] += stats.translated[lang];
