@@ -36,6 +36,7 @@ export default function MapCanvas() {
   const isPasting = useEditorStore((s) => s.isPasting);
   const pastePreviewPos = useEditorStore((s) => s.pastePreviewPos);
   const currentMapId = useEditorStore((s) => s.currentMapId);
+  const systemData = useEditorStore((s) => s.systemData);
   const setPlayerStartPosition = useEditorStore((s) => s.setPlayerStartPosition);
   const transparentColor = useEditorStore((s) => s.transparentColor);
   const copyEvent = useEditorStore((s) => s.copyEvent);
@@ -53,7 +54,7 @@ export default function MapCanvas() {
 
   const {
     rendererObjRef, tilemapRef, stageRef, renderRequestedRef, toolPreviewMeshesRef,
-    rendererReady,
+    startPosMeshesRef, rendererReady,
   } = useThreeRenderer(webglCanvasRef, showGrid, []); // dragPreviews filled via useEffect
 
   const tools = useMapTools(
@@ -80,6 +81,7 @@ export default function MapCanvas() {
     isDraggingEvent, isDraggingLight, isDraggingObject, draggedObjectId,
     isResizing, resizeOrigSize, isSelectingEvents,
     isDraggingCameraZone, isCreatingCameraZone,
+    playerStartDragPos,
   } = useMouseHandlers(webglCanvasRef, tools, pendingChanges);
 
   // Build drag previews for Three.js
@@ -451,6 +453,40 @@ export default function MapCanvas() {
       });
     }
   }, [selectionStart, selectionEnd, rendererReady]);
+
+  // =========================================================================
+  // Player start position drag preview (시작 위치 드래그 시 위치 이동)
+  // =========================================================================
+  React.useEffect(() => {
+    const meshes = startPosMeshesRef.current;
+    if (!meshes || meshes.length === 0 || !systemData || currentMapId !== systemData.startMapId) return;
+    const origX = systemData.startX;
+    const origY = systemData.startY;
+    if (playerStartDragPos) {
+      const dx = (playerStartDragPos.x - origX) * TILE_SIZE_PX;
+      const dy = (playerStartDragPos.y - origY) * TILE_SIZE_PX;
+      for (const m of meshes) {
+        if (m._origPos === undefined) {
+          m._origPos = { x: m.position.x, y: m.position.y };
+        }
+        m.position.x = m._origPos.x + dx;
+        m.position.y = m._origPos.y + dy;
+      }
+    } else {
+      for (const m of meshes) {
+        if (m._origPos !== undefined) {
+          m.position.x = m._origPos.x;
+          m.position.y = m._origPos.y;
+          delete m._origPos;
+        }
+      }
+    }
+    const rObj = rendererObjRef.current;
+    if (rObj) {
+      const strategy = (window as any).RendererStrategy?.getStrategy();
+      if (strategy?.render) strategy.render(rObj.scene, rObj.camera);
+    }
+  }, [playerStartDragPos, systemData, currentMapId, rendererReady]);
 
   // =========================================================================
   // Event selection overlays (선택된 이벤트 하이라이트 + 드래그 선택 영역)

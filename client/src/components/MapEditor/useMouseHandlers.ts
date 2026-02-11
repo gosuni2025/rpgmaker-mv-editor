@@ -45,6 +45,7 @@ export interface MouseHandlersResult {
   isSelectingEvents: React.MutableRefObject<boolean>;
   isDraggingCameraZone: React.MutableRefObject<boolean>;
   isCreatingCameraZone: React.MutableRefObject<boolean>;
+  playerStartDragPos: { x: number; y: number } | null;
 }
 
 export function useMouseHandlers(
@@ -93,6 +94,9 @@ export function useMouseHandlers(
   const setSelectedCameraZoneId = useEditorStore((s) => s.setSelectedCameraZoneId);
   const addCameraZone = useEditorStore((s) => s.addCameraZone);
   const updateCameraZone = useEditorStore((s) => s.updateCameraZone);
+  const systemData = useEditorStore((s) => s.systemData);
+  const currentMapId = useEditorStore((s) => s.currentMapId);
+  const setPlayerStartPosition = useEditorStore((s) => s.setPlayerStartPosition);
 
   // Drawing state refs
   const isDrawing = useRef(false);
@@ -134,6 +138,10 @@ export function useMouseHandlers(
   const draggedObjectId = useRef<number | null>(null);
   const dragObjectOrigin = useRef<{ x: number; y: number } | null>(null);
   const [objectDragPreview, setObjectDragPreview] = useState<{ x: number; y: number } | null>(null);
+
+  // Player start position drag state
+  const isDraggingPlayerStart = useRef(false);
+  const [playerStartDragPos, setPlayerStartDragPos] = useState<{ x: number; y: number } | null>(null);
 
   // Camera zone drag state
   const isDraggingCameraZone = useRef(false);
@@ -401,6 +409,16 @@ export function useMouseHandlers(
               setDragPreview(null);
             }
           } else {
+            // 시작 위치 드래그 확인
+            const isPlayerStart = systemData && currentMapId === systemData.startMapId
+              && tile.x === systemData.startX && tile.y === systemData.startY;
+            if (isPlayerStart && !e.shiftKey) {
+              isDraggingPlayerStart.current = true;
+              setPlayerStartDragPos({ x: tile.x, y: tile.y });
+              setSelectedEventIds([]);
+              setSelectedEventId(null);
+              return;
+            }
             // 빈 타일 클릭: 영역 선택 시작
             if (!e.shiftKey) {
               setSelectedEventIds([]);
@@ -553,6 +571,12 @@ export function useMouseHandlers(
         const maxX = Math.max(sx, tile.x);
         const maxY = Math.max(sy, tile.y);
         setCameraZoneDragPreview({ x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 });
+        return;
+      }
+
+      // Player start position drag
+      if (isDraggingPlayerStart.current && tile) {
+        setPlayerStartDragPos({ x: tile.x, y: tile.y });
         return;
       }
 
@@ -766,6 +790,16 @@ export function useMouseHandlers(
         return;
       }
 
+      // Player start position drag commit
+      if (isDraggingPlayerStart.current) {
+        isDraggingPlayerStart.current = false;
+        if (playerStartDragPos && currentMapId) {
+          setPlayerStartPosition(currentMapId, playerStartDragPos.x, playerStartDragPos.y);
+        }
+        setPlayerStartDragPos(null);
+        return;
+      }
+
       // Event multi-drag commit
       if (isDraggingMultiEvents.current) {
         const tile = canvasToTile(e);
@@ -898,7 +932,8 @@ export function useMouseHandlers(
 
   const createNewEvent = useCallback((x: number, y: number) => {
     if (!currentMap) return;
-    const events = [...(currentMap.events || [])];
+    const oldEvents = [...(currentMap.events || [])];
+    const events = [...oldEvents];
     const maxId = events.reduce((max: number, e) => (e && e.id > max ? e.id : max), 0);
     const defaultPage: EventPage = {
       conditions: {
@@ -929,7 +964,20 @@ export function useMouseHandlers(
     };
     while (events.length <= maxId + 1) events.push(null);
     events[maxId + 1] = newEvent;
+    const state = useEditorStore.getState();
+    const currentMapId = state.currentMapId;
     useEditorStore.setState({ currentMap: { ...currentMap, events } as MapData & { tilesetNames?: string[] } });
+    // undo 기록
+    if (currentMapId) {
+      const undoStack = [...useEditorStore.getState().undoStack, {
+        mapId: currentMapId, type: 'event' as const,
+        oldEvents, newEvents: events,
+        oldSelectedEventId: state.selectedEventId,
+        oldSelectedEventIds: state.selectedEventIds,
+      }];
+      if (undoStack.length > state.maxUndo) undoStack.shift();
+      useEditorStore.setState({ undoStack, redoStack: [] });
+    }
     setSelectedEventId(maxId + 1);
     setEditingEventId(maxId + 1);
   }, [currentMap, setSelectedEventId]);
@@ -951,6 +999,10 @@ export function useMouseHandlers(
         draggedEventId.current = null;
         dragEventOrigin.current = null;
         setDragPreview(null);
+      }
+      if (isDraggingPlayerStart.current) {
+        isDraggingPlayerStart.current = false;
+        setPlayerStartDragPos(null);
       }
       if (isDraggingMultiEvents.current) {
         isDraggingMultiEvents.current = false;
@@ -1017,5 +1069,6 @@ export function useMouseHandlers(
     isDraggingEvent, isDraggingLight, isDraggingObject, draggedObjectId,
     isResizing, resizeOrigSize, isOrbiting, isSelectingEvents,
     isDraggingCameraZone, isCreatingCameraZone, cameraZoneDragPreview,
+    playerStartDragPos,
   };
 }

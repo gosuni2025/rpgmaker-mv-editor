@@ -52,6 +52,7 @@ export interface ThreeRendererRefs {
   selectionMeshRef: React.MutableRefObject<any>;
   dragPreviewMeshesRef: React.MutableRefObject<any[]>;
   toolPreviewMeshesRef: React.MutableRefObject<any[]>;
+  startPosMeshesRef: React.MutableRefObject<any[]>;
   rendererReady: boolean;
 }
 
@@ -1047,6 +1048,7 @@ export function useThreeRenderer(
     regionMeshesRef, objectMeshesRef,
     cursorMeshRef, selectionMeshRef,
     dragPreviewMeshesRef, toolPreviewMeshesRef,
+    startPosMeshesRef,
     rendererReady,
   };
 }

@@ -1,7 +1,46 @@
 import type { MapData, MapObject, CameraZone } from '../types/rpgMakerMV';
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
 import { isAutotile, isTileA5, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition } from '../utils/tileHelper';
-import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry } from './types';
+import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry, EventHistoryEntry } from './types';
+
+/** 이벤트 변경에 대한 undo 항목 push (헬퍼) */
+function pushEventUndoEntry(
+  get: () => EditorState,
+  set: (partial: Partial<EditorState> | ((s: EditorState) => Partial<EditorState>)) => void,
+  oldEvents: (any | null)[],
+  newEvents: (any | null)[],
+) {
+  const { currentMapId, undoStack, selectedEventId, selectedEventIds, maxUndo } = get();
+  if (!currentMapId) return;
+  const entry: EventHistoryEntry = {
+    mapId: currentMapId,
+    type: 'event',
+    oldEvents: oldEvents as any,
+    newEvents: newEvents as any,
+    oldSelectedEventId: selectedEventId,
+    oldSelectedEventIds: selectedEventIds,
+  };
+  const newStack = [...undoStack, entry];
+  if (newStack.length > maxUndo) newStack.shift();
+  set({ undoStack: newStack, redoStack: [] });
+}
+
+/** 이벤트 이름의 숫자 포스트픽스를 증가시킨 새 이름 반환 */
+function incrementName(name: string, events: (any | null)[]): string {
+  const match = name.match(/^(.*?)(\d+)$/);
+  if (!match) return name;
+  const prefix = match[1];
+  const numStr = match[2];
+  const padLen = numStr.length;
+  const existingNames = new Set(events.filter(e => e).map(e => e.name as string));
+  let num = parseInt(numStr, 10);
+  let newName: string;
+  do {
+    num++;
+    newName = prefix + String(num).padStart(padLen, '0');
+  } while (existingNames.has(newName));
+  return newName;
+}
 
 /**
  * 변경된 타일 위치 + 인접 타일의 오토타일 shape를 재계산.
@@ -194,6 +233,25 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       return;
     }
 
+    if (entry.type === 'event') {
+      const ee = entry as EventHistoryEntry;
+      const redoEntry: EventHistoryEntry = {
+        mapId: currentMapId, type: 'event',
+        oldEvents: ee.newEvents, newEvents: ee.oldEvents,
+        oldSelectedEventId: get().selectedEventId,
+        oldSelectedEventIds: get().selectedEventIds,
+      };
+      set({
+        currentMap: { ...currentMap, events: ee.oldEvents },
+        selectedEventId: ee.oldSelectedEventId,
+        selectedEventIds: ee.oldSelectedEventIds,
+        undoStack: undoStack.slice(0, -1),
+        redoStack: [...get().redoStack, redoEntry],
+      });
+      showToast('실행 취소 (이벤트)');
+      return;
+    }
+
     const te = entry as TileHistoryEntry;
     const newData = [...currentMap.data];
     const redoChanges: TileChange[] = [];
@@ -282,6 +340,25 @@ export const editingSlice: SliceCreator<Pick<EditorState,
         undoStack: [...get().undoStack, undoEntry],
       });
       showToast('다시 실행 (카메라 영역)');
+      return;
+    }
+
+    if (entry.type === 'event') {
+      const ee = entry as EventHistoryEntry;
+      const undoEntry: EventHistoryEntry = {
+        mapId: currentMapId, type: 'event',
+        oldEvents: ee.newEvents, newEvents: ee.oldEvents,
+        oldSelectedEventId: get().selectedEventId,
+        oldSelectedEventIds: get().selectedEventIds,
+      };
+      set({
+        currentMap: { ...currentMap, events: ee.oldEvents },
+        selectedEventId: ee.oldSelectedEventId,
+        selectedEventIds: ee.oldSelectedEventIds,
+        redoStack: redoStack.slice(0, -1),
+        undoStack: [...get().undoStack, undoEntry],
+      });
+      showToast('다시 실행 (이벤트)');
       return;
     }
 
@@ -461,19 +538,25 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   pasteEvent: (x: number, y: number) => {
     const { clipboard, currentMap } = get();
     if (!clipboard || clipboard.type !== 'event' || !clipboard.event || !currentMap) return;
-    const events = [...(currentMap.events || [])];
+    const oldEvents = [...(currentMap.events || [])];
+    const events = [...oldEvents];
     const maxId = events.reduce((max, e) => (e && e.id > max ? e.id : max), 0);
-    const newEvent = { ...(clipboard.event as Record<string, unknown>), id: maxId + 1, x, y };
+    const src = clipboard.event as Record<string, unknown>;
+    const newName = incrementName(src.name as string, events);
+    const newEvent = { ...src, id: maxId + 1, x, y, name: newName };
     while (events.length <= maxId + 1) events.push(null);
     events[maxId + 1] = newEvent as MapData['events'][0];
     set({ currentMap: { ...currentMap, events } });
+    pushEventUndoEntry(get, set, oldEvents, events);
   },
 
   deleteEvent: (eventId: number) => {
     const map = get().currentMap;
     if (!map || !map.events) return;
+    const oldEvents = [...map.events];
     const events = map.events.map((e) => (e && e.id === eventId ? null : e));
     set({ currentMap: { ...map, events } });
+    pushEventUndoEntry(get, set, oldEvents, events);
   },
 
   // Multi-event actions
@@ -500,7 +583,8 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     // 원본 이벤트들의 좌상단 기준으로 오프셋 계산
     const minX = Math.min(...evts.map((e: any) => e.x));
     const minY = Math.min(...evts.map((e: any) => e.y));
-    const events = [...(currentMap.events || [])];
+    const oldEvents = [...(currentMap.events || [])];
+    const events = [...oldEvents];
     let maxId = events.reduce((max, e) => (e && e.id > max ? e.id : max), 0);
     const newIds: number[] = [];
     for (const evt of evts) {
@@ -510,20 +594,24 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       // 해당 위치에 이미 이벤트가 있으면 스킵
       const occupied = events.some(e => e && e.id !== 0 && e.x === nx && e.y === ny);
       if (occupied) continue;
-      const newEvent = { ...(evt as any), id: newId, x: nx, y: ny };
+      const newName = incrementName((evt as any).name as string, events);
+      const newEvent = { ...(evt as any), id: newId, x: nx, y: ny, name: newName };
       while (events.length <= newId) events.push(null);
       events[newId] = newEvent as MapData['events'][0];
       newIds.push(newId);
     }
     set({ currentMap: { ...currentMap, events }, selectedEventIds: newIds, selectedEventId: newIds[0] ?? null });
+    pushEventUndoEntry(get, set, oldEvents, events);
   },
 
   deleteEvents: (eventIds: number[]) => {
     const map = get().currentMap;
     if (!map || !map.events || eventIds.length === 0) return;
+    const oldEvents = [...map.events];
     const idSet = new Set(eventIds);
     const events = map.events.map(e => (e && idSet.has(e.id) ? null : e));
     set({ currentMap: { ...map, events }, selectedEventIds: [], selectedEventId: null });
+    pushEventUndoEntry(get, set, oldEvents, events);
   },
 
   moveEvents: (eventIds: number[], dx: number, dy: number) => {
@@ -545,6 +633,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     const posSet = new Set(newPositions.map(p => `${p.x},${p.y}`));
     if (posSet.size !== newPositions.length) return;
 
+    const oldEvents = [...map.events];
     const events = map.events.map(e => {
       if (e && idSet.has(e.id)) {
         return { ...e, x: e.x + dx, y: e.y + dy };
@@ -552,6 +641,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       return e;
     });
     set({ currentMap: { ...map, events } });
+    pushEventUndoEntry(get, set, oldEvents, events);
   },
 
   setSelectedEventIds: (ids: number[]) => set({ selectedEventIds: ids }),

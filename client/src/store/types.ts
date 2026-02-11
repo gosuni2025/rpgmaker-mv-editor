@@ -56,7 +56,16 @@ export interface CameraZoneHistoryEntry {
   oldSelectedCameraZoneId: number | null;
 }
 
-export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry | CameraZoneHistoryEntry;
+export interface EventHistoryEntry {
+  mapId: number;
+  type: 'event';
+  oldEvents: (RPGEvent | null)[];
+  newEvents: (RPGEvent | null)[];
+  oldSelectedEventId: number | null;
+  oldSelectedEventIds: number[];
+}
+
+export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry | CameraZoneHistoryEntry | EventHistoryEntry;
 
 export interface ClipboardData {
   type: 'tiles' | 'event' | 'events';
