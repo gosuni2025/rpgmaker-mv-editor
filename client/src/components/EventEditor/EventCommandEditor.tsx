@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import CommandParamEditor from './CommandParamEditor';
 
@@ -6,102 +7,6 @@ interface EventCommandEditorProps {
   commands: EventCommand[];
   onChange: (commands: EventCommand[]) => void;
 }
-
-const COMMAND_CATEGORIES = {
-  'Tab 1 - Messages': [
-    { code: 101, name: 'Show Text...' },
-    { code: 102, name: 'Show Choices...' },
-    { code: 103, name: 'Input Number...' },
-    { code: 104, name: 'Select Item...' },
-    { code: 105, name: 'Show Scrolling Text...' },
-  ],
-  'Tab 1 - Flow Control': [
-    { code: 111, name: 'Conditional Branch...' },
-    { code: 112, name: 'Loop' },
-    { code: 113, name: 'Break Loop' },
-    { code: 115, name: 'Exit Event Processing' },
-    { code: 117, name: 'Common Event...' },
-    { code: 118, name: 'Label...' },
-    { code: 119, name: 'Jump to Label...' },
-    { code: 108, name: 'Comment...' },
-  ],
-  'Tab 1 - Game Progression': [
-    { code: 121, name: 'Control Switches...' },
-    { code: 122, name: 'Control Variables...' },
-    { code: 123, name: 'Control Self Switch...' },
-    { code: 124, name: 'Control Timer...' },
-  ],
-  'Tab 2 - Party': [
-    { code: 125, name: 'Change Gold...' },
-    { code: 126, name: 'Change Items...' },
-    { code: 127, name: 'Change Weapons...' },
-    { code: 128, name: 'Change Armors...' },
-    { code: 129, name: 'Change Party Member...' },
-  ],
-  'Tab 2 - Actor': [
-    { code: 311, name: 'Change HP...' },
-    { code: 312, name: 'Change MP...' },
-    { code: 313, name: 'Change TP...' },
-    { code: 314, name: 'Change State...' },
-    { code: 315, name: 'Recover All...' },
-    { code: 316, name: 'Change EXP...' },
-    { code: 317, name: 'Change Level...' },
-    { code: 318, name: 'Change Parameter...' },
-    { code: 319, name: 'Change Skill...' },
-    { code: 320, name: 'Change Equipment...' },
-    { code: 321, name: 'Change Name...' },
-    { code: 322, name: 'Change Class...' },
-  ],
-  'Tab 2 - Movement': [
-    { code: 201, name: 'Transfer Player...' },
-    { code: 202, name: 'Set Vehicle Location...' },
-    { code: 203, name: 'Set Event Location...' },
-    { code: 204, name: 'Scroll Map...' },
-    { code: 205, name: 'Set Movement Route...' },
-    { code: 206, name: 'Get On/Off Vehicle' },
-  ],
-  'Tab 3 - Screen': [
-    { code: 221, name: 'Fadeout Screen' },
-    { code: 222, name: 'Fadein Screen' },
-    { code: 223, name: 'Tint Screen...' },
-    { code: 224, name: 'Flash Screen...' },
-    { code: 225, name: 'Shake Screen...' },
-    { code: 230, name: 'Wait...' },
-  ],
-  'Tab 3 - Picture/Weather': [
-    { code: 231, name: 'Show Picture...' },
-    { code: 232, name: 'Move Picture...' },
-    { code: 233, name: 'Rotate Picture...' },
-    { code: 234, name: 'Tint Picture...' },
-    { code: 235, name: 'Erase Picture...' },
-    { code: 236, name: 'Set Weather...' },
-  ],
-  'Tab 3 - Audio/Video': [
-    { code: 241, name: 'Play BGM...' },
-    { code: 242, name: 'Fadeout BGM...' },
-    { code: 243, name: 'Save BGM' },
-    { code: 244, name: 'Resume BGM' },
-    { code: 245, name: 'Play BGS...' },
-    { code: 246, name: 'Fadeout BGS...' },
-    { code: 249, name: 'Play ME...' },
-    { code: 250, name: 'Play SE...' },
-    { code: 251, name: 'Stop SE' },
-    { code: 261, name: 'Play Movie...' },
-  ],
-  'Tab 3 - Scene Control': [
-    { code: 301, name: 'Battle Processing...' },
-    { code: 302, name: 'Shop Processing...' },
-    { code: 303, name: 'Name Input Processing...' },
-    { code: 351, name: 'Open Menu Screen' },
-    { code: 352, name: 'Open Save Screen' },
-    { code: 353, name: 'Game Over' },
-    { code: 354, name: 'Return to Title Screen' },
-  ],
-  'Tab 3 - Advanced': [
-    { code: 355, name: 'Script...' },
-    { code: 356, name: 'Plugin Command...' },
-  ],
-};
 
 // Commands that have no parameters and can be inserted directly
 const NO_PARAM_CODES = new Set([112, 113, 115, 206, 221, 222, 243, 244, 251, 351, 352, 353, 354]);
@@ -248,6 +153,7 @@ function expandSelectionToGroups(commands: EventCommand[], indices: Set<number>)
 let commandClipboard: EventCommand[] = [];
 
 export default function EventCommandEditor({ commands, onChange }: EventCommandEditorProps) {
+  const { t } = useTranslation();
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [lastClickedIndex, setLastClickedIndex] = useState(-1);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -264,6 +170,102 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
 
   const undoStack = useRef<EventCommand[][]>([]);
   const redoStack = useRef<EventCommand[][]>([]);
+
+  const COMMAND_CATEGORIES = useMemo(() => ({
+    [t('eventCommands.categories.tab1Messages')]: [
+      { code: 101, name: t('eventCommands.commands.101') },
+      { code: 102, name: t('eventCommands.commands.102') },
+      { code: 103, name: t('eventCommands.commands.103') },
+      { code: 104, name: t('eventCommands.commands.104') },
+      { code: 105, name: t('eventCommands.commands.105') },
+    ],
+    [t('eventCommands.categories.tab1FlowControl')]: [
+      { code: 111, name: t('eventCommands.commands.111') },
+      { code: 112, name: t('eventCommands.commands.112') },
+      { code: 113, name: t('eventCommands.commands.113') },
+      { code: 115, name: t('eventCommands.commands.115') },
+      { code: 117, name: t('eventCommands.commands.117') },
+      { code: 118, name: t('eventCommands.commands.118') },
+      { code: 119, name: t('eventCommands.commands.119') },
+      { code: 108, name: t('eventCommands.commands.108') },
+    ],
+    [t('eventCommands.categories.tab1GameProgression')]: [
+      { code: 121, name: t('eventCommands.commands.121') },
+      { code: 122, name: t('eventCommands.commands.122') },
+      { code: 123, name: t('eventCommands.commands.123') },
+      { code: 124, name: t('eventCommands.commands.124') },
+    ],
+    [t('eventCommands.categories.tab2Party')]: [
+      { code: 125, name: t('eventCommands.commands.125') },
+      { code: 126, name: t('eventCommands.commands.126') },
+      { code: 127, name: t('eventCommands.commands.127') },
+      { code: 128, name: t('eventCommands.commands.128') },
+      { code: 129, name: t('eventCommands.commands.129') },
+    ],
+    [t('eventCommands.categories.tab2Actor')]: [
+      { code: 311, name: t('eventCommands.commands.311') },
+      { code: 312, name: t('eventCommands.commands.312') },
+      { code: 313, name: t('eventCommands.commands.313') },
+      { code: 314, name: t('eventCommands.commands.314') },
+      { code: 315, name: t('eventCommands.commands.315') },
+      { code: 316, name: t('eventCommands.commands.316') },
+      { code: 317, name: t('eventCommands.commands.317') },
+      { code: 318, name: t('eventCommands.commands.318') },
+      { code: 319, name: t('eventCommands.commands.319') },
+      { code: 320, name: t('eventCommands.commands.320') },
+      { code: 321, name: t('eventCommands.commands.321') },
+      { code: 322, name: t('eventCommands.commands.322') },
+    ],
+    [t('eventCommands.categories.tab2Movement')]: [
+      { code: 201, name: t('eventCommands.commands.201') },
+      { code: 202, name: t('eventCommands.commands.202') },
+      { code: 203, name: t('eventCommands.commands.203') },
+      { code: 204, name: t('eventCommands.commands.204') },
+      { code: 205, name: t('eventCommands.commands.205') },
+      { code: 206, name: t('eventCommands.commands.206') },
+    ],
+    [t('eventCommands.categories.tab3Screen')]: [
+      { code: 221, name: t('eventCommands.commands.221') },
+      { code: 222, name: t('eventCommands.commands.222') },
+      { code: 223, name: t('eventCommands.commands.223') },
+      { code: 224, name: t('eventCommands.commands.224') },
+      { code: 225, name: t('eventCommands.commands.225') },
+      { code: 230, name: t('eventCommands.commands.230') },
+    ],
+    [t('eventCommands.categories.tab3PictureWeather')]: [
+      { code: 231, name: t('eventCommands.commands.231') },
+      { code: 232, name: t('eventCommands.commands.232') },
+      { code: 233, name: t('eventCommands.commands.233') },
+      { code: 234, name: t('eventCommands.commands.234') },
+      { code: 235, name: t('eventCommands.commands.235') },
+      { code: 236, name: t('eventCommands.commands.236') },
+    ],
+    [t('eventCommands.categories.tab3AudioVideo')]: [
+      { code: 241, name: t('eventCommands.commands.241') },
+      { code: 242, name: t('eventCommands.commands.242') },
+      { code: 243, name: t('eventCommands.commands.243') },
+      { code: 244, name: t('eventCommands.commands.244') },
+      { code: 245, name: t('eventCommands.commands.245') },
+      { code: 246, name: t('eventCommands.commands.246') },
+      { code: 249, name: t('eventCommands.commands.249') },
+      { code: 250, name: t('eventCommands.commands.250') },
+      { code: 251, name: t('eventCommands.commands.251') },
+      { code: 261, name: t('eventCommands.commands.261') },
+    ],
+    [t('eventCommands.categories.tab3SceneControl')]: [
+      { code: 301, name: t('eventCommands.commands.301') },
+      { code: 302, name: t('eventCommands.commands.302') },
+      { code: 303, name: t('eventCommands.commands.303') },
+      { code: 351, name: t('eventCommands.commands.351') },
+      { code: 352, name: t('eventCommands.commands.352') },
+      { code: 353, name: t('eventCommands.commands.353') },
+      { code: 354, name: t('eventCommands.commands.354') },
+    ],
+    [t('eventCommands.categories.tab3Advanced')]: [
+      { code: 355, name: t('eventCommands.commands.355') },
+      { code: 356, name: t('eventCommands.commands.356') },
+    ],
+  }), [t]);
 
   // 단일 선택 편의: 선택된 항목 중 가장 작은 인덱스 (삽입 위치 등에 사용)
   const primaryIndex = useMemo(() => {
@@ -673,42 +675,9 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
   const getCommandDisplay = (cmd: EventCommand): string => {
     const code = cmd.code;
     if (code === 0) return '';
-    const DESCS: Record<number, string> = {
-      101: 'Show Text', 102: 'Show Choices', 103: 'Input Number', 104: 'Select Item',
-      105: 'Show Scrolling Text', 108: 'Comment', 111: 'If', 112: 'Loop',
-      113: 'Break Loop', 115: 'Exit Event', 117: 'Common Event', 118: 'Label',
-      119: 'Jump to Label', 121: 'Control Switches', 122: 'Control Variables',
-      123: 'Control Self Switch', 124: 'Control Timer', 125: 'Change Gold',
-      126: 'Change Items', 127: 'Change Weapons', 128: 'Change Armors',
-      129: 'Change Party Member', 201: 'Transfer Player', 202: 'Set Vehicle Location',
-      203: 'Set Event Location', 204: 'Scroll Map', 205: 'Set Movement Route',
-      206: 'Get On/Off Vehicle', 211: 'Change Transparency', 212: 'Show Animation',
-      213: 'Show Balloon Icon', 214: 'Erase Event', 221: 'Fadeout Screen',
-      222: 'Fadein Screen', 223: 'Tint Screen', 224: 'Flash Screen',
-      225: 'Shake Screen', 230: 'Wait', 231: 'Show Picture', 232: 'Move Picture',
-      233: 'Rotate Picture', 234: 'Tint Picture', 235: 'Erase Picture',
-      236: 'Set Weather', 241: 'Play BGM', 242: 'Fadeout BGM', 243: 'Save BGM',
-      244: 'Resume BGM', 245: 'Play BGS', 246: 'Fadeout BGS', 249: 'Play ME',
-      250: 'Play SE', 251: 'Stop SE', 261: 'Play Movie', 281: 'Change Map Name Display',
-      282: 'Change Tileset', 283: 'Change Battle Back', 284: 'Change Parallax',
-      285: 'Get Location Info', 301: 'Battle Processing', 302: 'Shop Processing',
-      303: 'Name Input Processing', 311: 'Change HP', 312: 'Change MP',
-      313: 'Change TP', 314: 'Change State', 315: 'Recover All',
-      316: 'Change EXP', 317: 'Change Level', 318: 'Change Parameter',
-      319: 'Change Skill', 320: 'Change Equipment', 321: 'Change Name',
-      322: 'Change Class', 323: 'Change Actor Images', 324: 'Change Vehicle Image',
-      325: 'Change Nickname', 326: 'Change Profile', 331: 'Change Enemy HP',
-      332: 'Change Enemy MP', 333: 'Change Enemy TP', 334: 'Change Enemy State',
-      335: 'Enemy Recover All', 336: 'Enemy Appear', 337: 'Enemy Transform',
-      338: 'Show Battle Animation', 339: 'Force Action', 340: 'Abort Battle',
-      351: 'Open Menu Screen', 352: 'Open Save Screen', 353: 'Game Over',
-      354: 'Return to Title Screen', 355: 'Script', 356: 'Plugin Command',
-      401: ':', 402: 'When', 403: 'When Cancel', 404: 'End', 405: ':',
-      408: ':', 411: 'Else', 412: 'End', 413: 'Repeat Above',
-      601: 'If Win', 602: 'If Escape', 603: 'If Lose', 604: 'End',
-      655: ':',
-    };
-    let text = DESCS[code] || `@${code}`;
+    const displayKey = `eventCommands.display.${code}`;
+    const desc = t(displayKey);
+    let text = desc !== displayKey ? desc : `@${code}`;
     if (cmd.parameters && cmd.parameters.length > 0) {
       const params = cmd.parameters.map(p => typeof p === 'string' ? p : JSON.stringify(p)).join(', ');
       if (params.length > 60) {
@@ -722,7 +691,7 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }} ref={containerRef} tabIndex={-1}>
-      <div className="db-form-section">Event Commands</div>
+      <div className="db-form-section">{t('eventCommands.title')}</div>
       <div className="event-commands-list" ref={listRef}>
         {commands.map((cmd, i) => {
           const display = getCommandDisplay(cmd);
@@ -745,7 +714,7 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
                   <span
                     className="drag-handle"
                     onMouseDown={e => handleDragHandleMouseDown(e, i)}
-                    title="드래그하여 이동"
+                    title={t('eventCommands.dragToMove')}
                   >
                     ⠿
                   </span>
@@ -760,23 +729,23 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
         )}
       </div>
       <div className="event-commands-toolbar">
-        <button className="db-btn-small" onClick={() => setShowAddDialog(true)}>Add</button>
-        <button className="db-btn-small" onClick={deleteSelected} disabled={selectedIndices.size === 0}>Delete</button>
+        <button className="db-btn-small" onClick={() => setShowAddDialog(true)}>{t('common.add')}</button>
+        <button className="db-btn-small" onClick={deleteSelected} disabled={selectedIndices.size === 0}>{t('common.delete')}</button>
         <span className="event-commands-toolbar-sep" />
-        <button className="db-btn-small" onClick={copySelected} disabled={selectedIndices.size === 0} title="Cmd+C">Copy</button>
-        <button className="db-btn-small" onClick={pasteAtSelection} disabled={!hasClipboard} title="Cmd+V">Paste</button>
+        <button className="db-btn-small" onClick={copySelected} disabled={selectedIndices.size === 0} title="Cmd+C">{t('common.copy')}</button>
+        <button className="db-btn-small" onClick={pasteAtSelection} disabled={!hasClipboard} title="Cmd+V">{t('common.paste')}</button>
         <span className="event-commands-toolbar-sep" />
-        <button className="db-btn-small" onClick={() => moveSelected('up')} disabled={!canMoveUp} title="위로 이동">▲</button>
-        <button className="db-btn-small" onClick={() => moveSelected('down')} disabled={!canMoveDown} title="아래로 이동">▼</button>
+        <button className="db-btn-small" onClick={() => moveSelected('up')} disabled={!canMoveUp} title={t('eventCommands.moveUp')}>▲</button>
+        <button className="db-btn-small" onClick={() => moveSelected('down')} disabled={!canMoveDown} title={t('eventCommands.moveDown')}>▼</button>
         <span style={{ flex: 1 }} />
-        <button className="db-btn-small" onClick={undo} disabled={undoStack.current.length === 0} title="Ctrl+Z">Undo</button>
-        <button className="db-btn-small" onClick={redo} disabled={redoStack.current.length === 0} title="Ctrl+Shift+Z">Redo</button>
+        <button className="db-btn-small" onClick={undo} disabled={undoStack.current.length === 0} title="Ctrl+Z">{t('common.undo')}</button>
+        <button className="db-btn-small" onClick={redo} disabled={redoStack.current.length === 0} title="Ctrl+Shift+Z">{t('common.redo')}</button>
       </div>
 
       {showAddDialog && (
         <div className="modal-overlay" onClick={() => setShowAddDialog(false)}>
           <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: 'calc(100vw - 40px)', height: 'calc(100vh - 40px)' }}>
-            <div className="image-picker-header">Insert Command</div>
+            <div className="image-picker-header">{t('eventCommands.insertCommand')}</div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
               {Object.entries(COMMAND_CATEGORIES).map(([category, cmds]) => (
                 <div key={category}>
@@ -796,7 +765,7 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
               ))}
             </div>
             <div className="image-picker-footer">
-              <button className="db-btn" onClick={() => setShowAddDialog(false)}>Cancel</button>
+              <button className="db-btn" onClick={() => setShowAddDialog(false)}>{t('common.cancel')}</button>
             </div>
           </div>
         </div>

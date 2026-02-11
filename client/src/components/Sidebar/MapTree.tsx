@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { MapInfo } from '../../types/rpgMakerMV';
 import MapPropertiesDialog from '../MapEditor/MapPropertiesDialog';
@@ -92,6 +93,7 @@ function TreeNode({ node, depth, selectedId, onSelect, onDoubleClick, collapsed,
 }
 
 export default function MapTree() {
+  const { t } = useTranslation();
   const maps = useEditorStore((s) => s.maps);
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const selectMap = useEditorStore((s) => s.selectMap);
@@ -159,10 +161,10 @@ export default function MapTree() {
     if (!contextMenu) return;
     const mapId = contextMenu.mapId;
     closeContextMenu();
-    if (window.confirm(`Delete map ${mapId}?`)) {
+    if (window.confirm(t('mapTree.confirmDelete', { id: mapId }))) {
       await deleteMap(mapId);
     }
-  }, [contextMenu, deleteMap, closeContextMenu]);
+  }, [contextMenu, deleteMap, closeContextMenu, t]);
 
   const handleRenameSubmit = useCallback(async () => {
     if (editingId === null) return;
@@ -184,7 +186,7 @@ export default function MapTree() {
         style={{ padding: '8px', color: '#666' }}
         onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0 }); }}
       >
-        프로젝트를 열어주세요
+        {t('mapTree.openProject')}
       </div>
     );
   }
@@ -197,7 +199,7 @@ export default function MapTree() {
         onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0 }); }}
       >
         <span className="map-tree-toggle">{rootCollapsed ? '▶' : '▼'}</span>
-        <span className="map-tree-label">{projectName || 'Project'}</span>
+        <span className="map-tree-label">{projectName || t('mapTree.project')}</span>
       </div>
       {!rootCollapsed && tree.map((node) => (
         <TreeNode
@@ -216,10 +218,10 @@ export default function MapTree() {
       {editingId !== null && (
         <div className="modal-overlay" onClick={() => setEditingId(null)}>
           <div className="map-props-dialog" onClick={e => e.stopPropagation()}>
-            <div className="image-picker-header">Rename Map</div>
+            <div className="image-picker-header">{t('mapTree.renameMap')}</div>
             <div className="db-form" style={{ padding: 16 }}>
               <label>
-                Name
+                {t('common.name')}
                 <input
                   type="text"
                   value={editName}
@@ -230,8 +232,8 @@ export default function MapTree() {
               </label>
             </div>
             <div className="image-picker-footer">
-              <button className="db-btn" onClick={handleRenameSubmit}>OK</button>
-              <button className="db-btn" onClick={() => setEditingId(null)}>Cancel</button>
+              <button className="db-btn" onClick={handleRenameSubmit}>{t('common.ok')}</button>
+              <button className="db-btn" onClick={() => setEditingId(null)}>{t('common.cancel')}</button>
             </div>
           </div>
         </div>
@@ -247,13 +249,13 @@ export default function MapTree() {
 
       {contextMenu && (
         <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={e => e.stopPropagation()}>
-          <div className="context-menu-item" onClick={handleNewMap}>New Map...</div>
+          <div className="context-menu-item" onClick={handleNewMap}>{t('mapTree.newMap')}</div>
           {contextMenu.mapId > 0 && (
             <>
-              <div className="context-menu-item" onClick={handleMapProperties}>Map Properties...</div>
-              <div className="context-menu-item" onClick={handleEditMap}>Edit Map Name...</div>
+              <div className="context-menu-item" onClick={handleMapProperties}>{t('mapTree.mapProperties')}</div>
+              <div className="context-menu-item" onClick={handleEditMap}>{t('mapTree.editMapName')}</div>
               <div className="context-menu-separator" />
-              <div className="context-menu-item" onClick={handleDeleteMap}>Delete</div>
+              <div className="context-menu-item" onClick={handleDeleteMap}>{t('mapTree.deleteMap')}</div>
             </>
           )}
         </div>

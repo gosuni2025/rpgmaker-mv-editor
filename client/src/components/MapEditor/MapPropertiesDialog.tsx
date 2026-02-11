@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import ImagePicker from '../common/ImagePicker';
@@ -39,6 +40,7 @@ interface Props {
 }
 
 export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) {
+  const { t } = useTranslation();
   const currentMap = useEditorStore((s) => s.currentMap);
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const selectMap = useEditorStore((s) => s.selectMap);
@@ -131,8 +133,8 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
     return (
       <div className="db-dialog-overlay" onClick={onClose}>
         <div className="db-dialog" style={{ width: 550, height: 600 }} onClick={e => e.stopPropagation()}>
-          <div className="db-dialog-header">Map Properties</div>
-          <div className="db-dialog-body"><div className="db-loading">Loading...</div></div>
+          <div className="db-dialog-header">{t('mapProperties.title')}</div>
+          <div className="db-dialog-body"><div className="db-loading">{t('common.loading')}</div></div>
         </div>
       </div>
     );
@@ -141,66 +143,66 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
   return (
     <div className="db-dialog-overlay" onClick={onClose}>
       <div className="db-dialog" style={{ width: 550, maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
-        <div className="db-dialog-header">Map Properties - {name}</div>
+        <div className="db-dialog-header">{t('mapProperties.title')} - {name}</div>
         <div className="db-dialog-body" style={{ flexDirection: 'column', overflowY: 'auto', padding: 16, gap: 12 }}>
           {/* General Settings */}
-          <div className="db-form-section">General Settings</div>
+          <div className="db-form-section">{t('mapProperties.generalSettings')}</div>
           <div className="db-form" style={{ gap: 8, flex: 'none' }}>
             <label>
-              <span>Name</span>
+              <span>{t('common.name')}</span>
               <input type="text" value={name} onChange={e => setName(e.target.value)} />
             </label>
             <label>
-              <span>Display Name</span>
+              <span>{t('mapProperties.displayName')}</span>
               <input type="text" value={mapData.displayName} onChange={e => updateField('displayName', e.target.value)} />
             </label>
             <label>
-              <span>Tileset</span>
+              <span>{t('mapProperties.tileset')}</span>
               <select value={mapData.tilesetId} onChange={e => updateField('tilesetId', Number(e.target.value))}>
-                {tilesets.map(t => (
-                  <option key={t.id} value={t.id}>{t.id}: {t.name}</option>
+                {tilesets.map(ts => (
+                  <option key={ts.id} value={ts.id}>{ts.id}: {ts.name}</option>
                 ))}
               </select>
             </label>
             <div style={{ display: 'flex', gap: 12 }}>
               <label style={{ flex: 1 }}>
-                <span>Width</span>
+                <span>{t('mapProperties.width')}</span>
                 <input type="number" min={1} max={256} value={mapData.width}
                   onChange={e => updateField('width', Math.max(1, Math.min(256, Number(e.target.value))))} />
               </label>
               <label style={{ flex: 1 }}>
-                <span>Height</span>
+                <span>{t('mapProperties.height')}</span>
                 <input type="number" min={1} max={256} value={mapData.height}
                   onChange={e => updateField('height', Math.max(1, Math.min(256, Number(e.target.value))))} />
               </label>
             </div>
             <label>
-              <span>Scroll Type</span>
+              <span>{t('mapProperties.scrollType')}</span>
               <select value={mapData.scrollType} onChange={e => updateField('scrollType', Number(e.target.value))}>
-                <option value={0}>No Loop</option>
-                <option value={1}>Loop Vertically</option>
-                <option value={2}>Loop Horizontally</option>
-                <option value={3}>Loop Both</option>
+                <option value={0}>{t('mapProperties.scrollTypes.0')}</option>
+                <option value={1}>{t('mapProperties.scrollTypes.1')}</option>
+                <option value={2}>{t('mapProperties.scrollTypes.2')}</option>
+                <option value={3}>{t('mapProperties.scrollTypes.3')}</option>
               </select>
             </label>
             <label>
-              <span>Enc. Steps</span>
+              <span>{t('mapProperties.encSteps')}</span>
               <input type="number" min={1} max={999} value={mapData.encounterStep}
                 onChange={e => updateField('encounterStep', Number(e.target.value))} />
             </label>
           </div>
 
           {/* Autoplay */}
-          <div className="db-form-section">Autoplay</div>
+          <div className="db-form-section">{t('mapProperties.autoplay')}</div>
           <div className="db-form" style={{ gap: 8, flex: 'none' }}>
             <label className="db-checkbox-row">
               <input type="checkbox" checked={mapData.autoplayBgm}
                 onChange={e => updateField('autoplayBgm', e.target.checked)} />
-              <span>Autoplay BGM</span>
+              <span>{t('mapProperties.autoplayBGM')}</span>
             </label>
             {mapData.autoplayBgm && (
               <label>
-                <span>BGM Name</span>
+                <span>{t('mapProperties.bgmName')}</span>
                 <input type="text" value={mapData.bgm.name}
                   onChange={e => updateField('bgm', { ...mapData.bgm, name: e.target.value })} />
               </label>
@@ -208,11 +210,11 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
             <label className="db-checkbox-row">
               <input type="checkbox" checked={mapData.autoplayBgs}
                 onChange={e => updateField('autoplayBgs', e.target.checked)} />
-              <span>Autoplay BGS</span>
+              <span>{t('mapProperties.autoplayBGS')}</span>
             </label>
             {mapData.autoplayBgs && (
               <label>
-                <span>BGS Name</span>
+                <span>{t('mapProperties.bgsName')}</span>
                 <input type="text" value={mapData.bgs.name}
                   onChange={e => updateField('bgs', { ...mapData.bgs, name: e.target.value })} />
               </label>
@@ -220,25 +222,25 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
           </div>
 
           {/* Options */}
-          <div className="db-form-section">Options</div>
+          <div className="db-form-section">{t('mapProperties.options')}</div>
           <div className="db-form" style={{ gap: 8, flex: 'none' }}>
             <label className="db-checkbox-row">
               <input type="checkbox" checked={mapData.specifyBattleback}
                 onChange={e => updateField('specifyBattleback', e.target.checked)} />
-              <span>Specify Battleback</span>
+              <span>{t('mapProperties.specifyBattleback')}</span>
             </label>
             <label className="db-checkbox-row">
               <input type="checkbox" checked={mapData.disableDashing}
                 onChange={e => updateField('disableDashing', e.target.checked)} />
-              <span>Disable Dashing</span>
+              <span>{t('mapProperties.disableDashing')}</span>
             </label>
           </div>
 
           {/* Parallax */}
-          <div className="db-form-section">Parallax Background</div>
+          <div className="db-form-section">{t('mapProperties.parallaxBackground')}</div>
           <div className="db-form" style={{ gap: 8, flex: 'none' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, color: '#aaa' }}>
-              <span>Image</span>
+              <span>{t('mapProperties.image')}</span>
               <ImagePicker
                 type="parallaxes"
                 value={mapData.parallaxName}
@@ -249,24 +251,24 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
               <label className="db-checkbox-row">
                 <input type="checkbox" checked={mapData.parallaxLoopX}
                   onChange={e => updateField('parallaxLoopX', e.target.checked)} />
-                <span>Loop X</span>
+                <span>{t('mapProperties.loopX')}</span>
               </label>
               <label className="db-checkbox-row">
                 <input type="checkbox" checked={mapData.parallaxLoopY}
                   onChange={e => updateField('parallaxLoopY', e.target.checked)} />
-                <span>Loop Y</span>
+                <span>{t('mapProperties.loopY')}</span>
               </label>
             </div>
             {mapData.parallaxLoopX && (
               <label>
-                <span>Scroll X</span>
+                <span>{t('mapProperties.scrollX')}</span>
                 <input type="number" min={-32} max={32} value={mapData.parallaxSx}
                   onChange={e => updateField('parallaxSx', Number(e.target.value))} />
               </label>
             )}
             {mapData.parallaxLoopY && (
               <label>
-                <span>Scroll Y</span>
+                <span>{t('mapProperties.scrollY')}</span>
                 <input type="number" min={-32} max={32} value={mapData.parallaxSy}
                   onChange={e => updateField('parallaxSy', Number(e.target.value))} />
               </label>
@@ -274,18 +276,18 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
             <label className="db-checkbox-row">
               <input type="checkbox" checked={mapData.parallaxShow}
                 onChange={e => updateField('parallaxShow', e.target.checked)} />
-              <span>Show in Editor</span>
+              <span>{t('mapProperties.showInEditor')}</span>
             </label>
           </div>
 
           {/* Note */}
-          <div className="db-form-section">Note</div>
+          <div className="db-form-section">{t('common.note')}</div>
           <textarea value={mapData.note} onChange={e => updateField('note', e.target.value)}
             style={{ width: '100%', minHeight: 60, background: '#2a2a2a', color: '#ccc', border: '1px solid #555', padding: 8, resize: 'vertical' }} />
         </div>
         <div className="db-dialog-footer">
-          <button className="db-btn" onClick={handleOK}>OK</button>
-          <button className="db-btn" onClick={onClose}>Cancel</button>
+          <button className="db-btn" onClick={handleOK}>{t('common.ok')}</button>
+          <button className="db-btn" onClick={onClose}>{t('common.cancel')}</button>
         </div>
       </div>
     </div>

@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Damage } from '../../types/rpgMakerMV';
-
-const DAMAGE_TYPES = ['None', 'HP Damage', 'MP Damage', 'HP Recover', 'MP Recover', 'HP Drain', 'MP Drain'];
 
 interface DamageEditorProps {
   damage: Damage;
@@ -9,16 +8,23 @@ interface DamageEditorProps {
 }
 
 export default function DamageEditor({ damage, onChange }: DamageEditorProps) {
+  const { t } = useTranslation();
+
+  const DAMAGE_TYPES = useMemo(() => [
+    t('damage.types.0'), t('damage.types.1'), t('damage.types.2'), t('damage.types.3'),
+    t('damage.types.4'), t('damage.types.5'), t('damage.types.6'),
+  ], [t]);
+
   const update = (field: keyof Damage, value: unknown) => {
     onChange({ ...damage, [field]: value });
   };
 
   return (
     <div className="damage-editor">
-      <div className="db-form-section">Damage</div>
+      <div className="db-form-section">{t('damage.title')}</div>
       <div className="damage-row">
         <label>
-          Type
+          {t('damage.type')}
           <select value={damage.type} onChange={e => update('type', Number(e.target.value))}>
             {DAMAGE_TYPES.map((name, i) => (
               <option key={i} value={i}>{name}</option>
@@ -26,7 +32,7 @@ export default function DamageEditor({ damage, onChange }: DamageEditorProps) {
           </select>
         </label>
         <label>
-          Element
+          {t('damage.element')}
           <input
             type="number"
             value={damage.elementId}
@@ -39,7 +45,7 @@ export default function DamageEditor({ damage, onChange }: DamageEditorProps) {
       {damage.type !== 0 && (
         <>
           <label>
-            Formula
+            {t('damage.formula')}
             <input
               type="text"
               value={damage.formula}
@@ -48,7 +54,7 @@ export default function DamageEditor({ damage, onChange }: DamageEditorProps) {
           </label>
           <div className="damage-row">
             <label>
-              Variance
+              {t('damage.variance')}
               <input
                 type="number"
                 value={damage.variance}
@@ -64,7 +70,7 @@ export default function DamageEditor({ damage, onChange }: DamageEditorProps) {
                 checked={damage.critical}
                 onChange={e => update('critical', e.target.checked)}
               />
-              Critical
+              {t('damage.critical')}
             </label>
           </div>
         </>

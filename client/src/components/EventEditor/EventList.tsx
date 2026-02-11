@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent, MapData } from '../../types/rpgMakerMV';
 
@@ -9,6 +10,7 @@ interface ContextMenu {
 }
 
 export default function EventList() {
+  const { t } = useTranslation();
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedEventId = useEditorStore((s) => s.selectedEventId);
   const setSelectedEventId = useEditorStore((s) => s.setSelectedEventId);
@@ -104,14 +106,14 @@ export default function EventList() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }} onClick={closeContextMenu}>
       <div style={{ padding: '6px 8px', borderBottom: '1px solid #555', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontWeight: 'bold', fontSize: 12, color: '#bbb' }}>EVENTS</span>
-        <button className="db-btn-small" onClick={handleNewEvent}>+ New</button>
+        <span style={{ fontWeight: 'bold', fontSize: 12, color: '#bbb' }}>{t('eventList.title')}</span>
+        <button className="db-btn-small" onClick={handleNewEvent}>{t('eventList.newEvent')}</button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }} onContextMenu={(e) => handleContextMenu(e, null)}>
         {events.length === 0 && (
           <div style={{ padding: 16, color: '#666', fontSize: 12, textAlign: 'center' }}>
-            No events on this map
+            {t('eventList.noEvents')}
           </div>
         )}
         {events.map((ev) => (
@@ -134,9 +136,9 @@ export default function EventList() {
       {selectedEvent && (
         <div style={{ borderTop: '1px solid #555', padding: 8, fontSize: 12, color: '#aaa', background: '#333' }}>
           <div><strong>{selectedEvent.name}</strong> (ID: {selectedEvent.id})</div>
-          <div>Position: ({selectedEvent.x}, {selectedEvent.y})</div>
-          <div>Pages: {selectedEvent.pages?.length || 0}</div>
-          {selectedEvent.note && <div style={{ color: '#888', marginTop: 4 }}>Note: {selectedEvent.note.substring(0, 50)}</div>}
+          <div>{t('eventList.position')}: ({selectedEvent.x}, {selectedEvent.y})</div>
+          <div>{t('eventList.pages')}: {selectedEvent.pages?.length || 0}</div>
+          {selectedEvent.note && <div style={{ color: '#888', marginTop: 4 }}>{t('common.note')}: {selectedEvent.note.substring(0, 50)}</div>}
         </div>
       )}
 
@@ -156,20 +158,20 @@ export default function EventList() {
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="menubar-dropdown-item" onClick={handleNewEvent}>New Event</div>
+          <div className="menubar-dropdown-item" onClick={handleNewEvent}>{t('eventList.contextNew')}</div>
           {contextMenu.eventId != null && (
             <>
-              <div className="menubar-dropdown-item" onClick={() => { setSelectedEventId(contextMenu.eventId!); setShowDetail(true); closeContextMenu(); }}>Edit</div>
-              <div className="menubar-dropdown-item" onClick={handleCopyEvent}>Copy</div>
-              <div className="menubar-dropdown-item" onClick={handleCutEvent}>Cut</div>
+              <div className="menubar-dropdown-item" onClick={() => { setSelectedEventId(contextMenu.eventId!); setShowDetail(true); closeContextMenu(); }}>{t('eventList.contextEdit')}</div>
+              <div className="menubar-dropdown-item" onClick={handleCopyEvent}>{t('eventList.contextCopy')}</div>
+              <div className="menubar-dropdown-item" onClick={handleCutEvent}>{t('eventList.contextCut')}</div>
               <div className="menubar-separator" />
-              <div className="menubar-dropdown-item" onClick={handleDeleteEvent}>Delete</div>
+              <div className="menubar-dropdown-item" onClick={handleDeleteEvent}>{t('eventList.contextDelete')}</div>
             </>
           )}
           {clipboard?.type === 'event' && (
             <>
               <div className="menubar-separator" />
-              <div className="menubar-dropdown-item" onClick={handlePasteEvent}>Paste</div>
+              <div className="menubar-dropdown-item" onClick={handlePasteEvent}>{t('eventList.contextPaste')}</div>
             </>
           )}
         </div>

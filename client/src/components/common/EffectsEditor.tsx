@@ -1,15 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Effect } from '../../types/rpgMakerMV';
-
-const EFFECT_CODES: Record<number, string> = {
-  11: 'Recover HP', 12: 'Recover MP', 13: 'Gain TP',
-  21: 'Add State', 22: 'Remove State',
-  31: 'Add Buff', 32: 'Add Debuff', 33: 'Remove Buff', 34: 'Remove Debuff',
-  41: 'Special Effect', 42: 'Grow', 43: 'Learn Skill', 44: 'Common Event',
-};
-
-const PARAM_NAMES = ['Max HP', 'Max MP', 'Attack', 'Defense', 'M.Attack', 'M.Defense', 'Agility', 'Luck'];
-const SPECIAL_EFFECTS = ['Escape'];
 
 interface EffectsEditorProps {
   effects: Effect[];
@@ -17,6 +8,24 @@ interface EffectsEditorProps {
 }
 
 export default function EffectsEditor({ effects, onChange }: EffectsEditorProps) {
+  const { t } = useTranslation();
+
+  const EFFECT_CODES: Record<number, string> = useMemo(() => ({
+    11: t('effects.codes.11'), 12: t('effects.codes.12'), 13: t('effects.codes.13'),
+    21: t('effects.codes.21'), 22: t('effects.codes.22'),
+    31: t('effects.codes.31'), 32: t('effects.codes.32'), 33: t('effects.codes.33'), 34: t('effects.codes.34'),
+    41: t('effects.codes.41'), 42: t('effects.codes.42'), 43: t('effects.codes.43'), 44: t('effects.codes.44'),
+  }), [t]);
+
+  const PARAM_NAMES = useMemo(() => [
+    t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'),
+    t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck'),
+  ], [t]);
+
+  const SPECIAL_EFFECTS = useMemo(() => [
+    t('effects.specialEffects.0'),
+  ], [t]);
+
   const addEffect = () => {
     onChange([...effects, { code: 11, dataId: 0, value1: 0, value2: 0 }]);
   };
@@ -35,16 +44,16 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
       case 11: return `HP ${eff.value1 >= 0 ? '+' : ''}${Math.round(eff.value1 * 100)}% + ${eff.value2}`;
       case 12: return `MP ${eff.value1 >= 0 ? '+' : ''}${Math.round(eff.value1 * 100)}% + ${eff.value2}`;
       case 13: return `TP +${eff.value1}`;
-      case 21: return `Add State [${eff.dataId}] ${Math.round(eff.value1 * 100)}%`;
-      case 22: return `Remove State [${eff.dataId}] ${Math.round(eff.value1 * 100)}%`;
-      case 31: return `Buff ${PARAM_NAMES[eff.dataId] || eff.dataId} ${eff.value1} turns`;
-      case 32: return `Debuff ${PARAM_NAMES[eff.dataId] || eff.dataId} ${eff.value1} turns`;
-      case 33: return `Remove Buff ${PARAM_NAMES[eff.dataId] || eff.dataId}`;
-      case 34: return `Remove Debuff ${PARAM_NAMES[eff.dataId] || eff.dataId}`;
-      case 41: return `Special: ${SPECIAL_EFFECTS[eff.dataId] || eff.dataId}`;
-      case 42: return `Grow ${PARAM_NAMES[eff.dataId] || eff.dataId} +${eff.value1}`;
-      case 43: return `Learn Skill [${eff.dataId}]`;
-      case 44: return `Common Event [${eff.dataId}]`;
+      case 21: return `${t('effects.codes.21')} [${eff.dataId}] ${Math.round(eff.value1 * 100)}%`;
+      case 22: return `${t('effects.codes.22')} [${eff.dataId}] ${Math.round(eff.value1 * 100)}%`;
+      case 31: return `${t('effects.codes.31')} ${PARAM_NAMES[eff.dataId] || eff.dataId} ${eff.value1} turns`;
+      case 32: return `${t('effects.codes.32')} ${PARAM_NAMES[eff.dataId] || eff.dataId} ${eff.value1} turns`;
+      case 33: return `${t('effects.codes.33')} ${PARAM_NAMES[eff.dataId] || eff.dataId}`;
+      case 34: return `${t('effects.codes.34')} ${PARAM_NAMES[eff.dataId] || eff.dataId}`;
+      case 41: return `${t('effects.codes.41')}: ${SPECIAL_EFFECTS[eff.dataId] || eff.dataId}`;
+      case 42: return `${t('effects.codes.42')} ${PARAM_NAMES[eff.dataId] || eff.dataId} +${eff.value1}`;
+      case 43: return `${t('effects.codes.43')} [${eff.dataId}]`;
+      case 44: return `${t('effects.codes.44')} [${eff.dataId}]`;
       default: return `Code ${eff.code}`;
     }
   };
@@ -52,7 +61,7 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
   return (
     <div className="traits-editor">
       <div className="traits-header">
-        <span>Effects</span>
+        <span>{t('effects.title')}</span>
         <button className="db-btn-small" onClick={addEffect}>+</button>
       </div>
       <div className="traits-list">
@@ -130,7 +139,7 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
             <button className="db-btn-small" onClick={() => removeEffect(i)}>x</button>
           </div>
         ))}
-        {effects.length === 0 && <div className="traits-empty">No effects</div>}
+        {effects.length === 0 && <div className="traits-empty">{t('effects.noEffects')}</div>}
       </div>
     </div>
   );

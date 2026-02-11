@@ -1,31 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Trait } from '../../types/rpgMakerMV';
-
-const TRAIT_CODES: Record<number, string> = {
-  11: 'Element Rate', 12: 'Debuff Rate', 13: 'State Rate', 14: 'State Resist',
-  21: 'Parameter', 22: 'Ex-Parameter', 23: 'Sp-Parameter',
-  31: 'Attack Element', 32: 'Attack State', 33: 'Attack Speed', 34: 'Attack Times+',
-  41: 'Add Skill Type', 42: 'Seal Skill Type', 43: 'Add Skill', 44: 'Seal Skill',
-  51: 'Equip Weapon Type', 52: 'Equip Armor Type', 53: 'Lock Equip', 54: 'Seal Equip', 55: 'Slot Type',
-  61: 'Action Times+', 62: 'Special Flag', 63: 'Collapse Effect', 64: 'Party Ability',
-};
-
-const PARAM_NAMES = ['Max HP', 'Max MP', 'Attack', 'Defense', 'M.Attack', 'M.Defense', 'Agility', 'Luck'];
-const XPARAM_NAMES = ['Hit Rate', 'Evasion', 'Critical', 'Crit Evasion', 'Magic Evasion', 'Magic Reflect', 'Counter', 'HP Regen', 'MP Regen', 'TP Regen'];
-const SPARAM_NAMES = ['Target Rate', 'Guard Effect', 'Recovery', 'Pharmacology', 'MP Cost', 'TP Charge', 'Physical Damage', 'Magical Damage', 'Floor Damage', 'EXP Rate'];
-const SPECIAL_FLAGS = ['Auto Battle', 'Guard', 'Substitute', 'Preserve TP'];
-const COLLAPSE_EFFECTS = ['Boss', 'Instant', 'Not Disappear'];
-const PARTY_ABILITIES = ['Encounter Half', 'Encounter None', 'Cancel Surprise', 'Raise Preemptive', 'Gold Double', 'Drop Item Double'];
-
-function getDataIdLabel(code: number, dataId: number): string {
-  if (code === 21) return PARAM_NAMES[dataId] || `Param ${dataId}`;
-  if (code === 22) return XPARAM_NAMES[dataId] || `XParam ${dataId}`;
-  if (code === 23) return SPARAM_NAMES[dataId] || `SParam ${dataId}`;
-  if (code === 62) return SPECIAL_FLAGS[dataId] || `Flag ${dataId}`;
-  if (code === 63) return COLLAPSE_EFFECTS[dataId] || `Collapse ${dataId}`;
-  if (code === 64) return PARTY_ABILITIES[dataId] || `Ability ${dataId}`;
-  return String(dataId);
-}
 
 function getValueDisplay(code: number, value: number): string {
   if ([11, 12, 13, 21, 22, 23].includes(code)) return `${Math.round(value * 100)}%`;
@@ -41,6 +16,57 @@ interface TraitsEditorProps {
 }
 
 export default function TraitsEditor({ traits, onChange }: TraitsEditorProps) {
+  const { t } = useTranslation();
+
+  const TRAIT_CODES: Record<number, string> = useMemo(() => ({
+    11: t('traits.codes.11'), 12: t('traits.codes.12'), 13: t('traits.codes.13'), 14: t('traits.codes.14'),
+    21: t('traits.codes.21'), 22: t('traits.codes.22'), 23: t('traits.codes.23'),
+    31: t('traits.codes.31'), 32: t('traits.codes.32'), 33: t('traits.codes.33'), 34: t('traits.codes.34'),
+    41: t('traits.codes.41'), 42: t('traits.codes.42'), 43: t('traits.codes.43'), 44: t('traits.codes.44'),
+    51: t('traits.codes.51'), 52: t('traits.codes.52'), 53: t('traits.codes.53'), 54: t('traits.codes.54'), 55: t('traits.codes.55'),
+    61: t('traits.codes.61'), 62: t('traits.codes.62'), 63: t('traits.codes.63'), 64: t('traits.codes.64'),
+  }), [t]);
+
+  const PARAM_NAMES = useMemo(() => [
+    t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'),
+    t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck'),
+  ], [t]);
+
+  const XPARAM_NAMES = useMemo(() => [
+    t('traits.xparams.0'), t('traits.xparams.1'), t('traits.xparams.2'), t('traits.xparams.3'),
+    t('traits.xparams.4'), t('traits.xparams.5'), t('traits.xparams.6'), t('traits.xparams.7'),
+    t('traits.xparams.8'), t('traits.xparams.9'),
+  ], [t]);
+
+  const SPARAM_NAMES = useMemo(() => [
+    t('traits.sparams.0'), t('traits.sparams.1'), t('traits.sparams.2'), t('traits.sparams.3'),
+    t('traits.sparams.4'), t('traits.sparams.5'), t('traits.sparams.6'), t('traits.sparams.7'),
+    t('traits.sparams.8'), t('traits.sparams.9'),
+  ], [t]);
+
+  const SPECIAL_FLAGS = useMemo(() => [
+    t('traits.specialFlags.0'), t('traits.specialFlags.1'), t('traits.specialFlags.2'), t('traits.specialFlags.3'),
+  ], [t]);
+
+  const COLLAPSE_EFFECTS = useMemo(() => [
+    t('traits.collapseEffects.0'), t('traits.collapseEffects.1'), t('traits.collapseEffects.2'),
+  ], [t]);
+
+  const PARTY_ABILITIES = useMemo(() => [
+    t('traits.partyAbilities.0'), t('traits.partyAbilities.1'), t('traits.partyAbilities.2'),
+    t('traits.partyAbilities.3'), t('traits.partyAbilities.4'), t('traits.partyAbilities.5'),
+  ], [t]);
+
+  const getDataIdLabel = (code: number, dataId: number): string => {
+    if (code === 21) return PARAM_NAMES[dataId] || `Param ${dataId}`;
+    if (code === 22) return XPARAM_NAMES[dataId] || `XParam ${dataId}`;
+    if (code === 23) return SPARAM_NAMES[dataId] || `SParam ${dataId}`;
+    if (code === 62) return SPECIAL_FLAGS[dataId] || `Flag ${dataId}`;
+    if (code === 63) return COLLAPSE_EFFECTS[dataId] || `Collapse ${dataId}`;
+    if (code === 64) return PARTY_ABILITIES[dataId] || `Ability ${dataId}`;
+    return String(dataId);
+  };
+
   const addTrait = () => {
     onChange([...traits, { code: 11, dataId: 0, value: 1 }]);
   };
@@ -70,7 +96,7 @@ export default function TraitsEditor({ traits, onChange }: TraitsEditorProps) {
   return (
     <div className="traits-editor">
       <div className="traits-header">
-        <span>Traits</span>
+        <span>{t('traits.title')}</span>
         <button className="db-btn-small" onClick={addTrait}>+</button>
       </div>
       <div className="traits-list">
@@ -123,7 +149,7 @@ export default function TraitsEditor({ traits, onChange }: TraitsEditorProps) {
             <button className="db-btn-small" onClick={() => removeTrait(i)}>x</button>
           </div>
         ))}
-        {traits.length === 0 && <div className="traits-empty">No traits</div>}
+        {traits.length === 0 && <div className="traits-empty">{t('traits.noTraits')}</div>}
       </div>
     </div>
   );

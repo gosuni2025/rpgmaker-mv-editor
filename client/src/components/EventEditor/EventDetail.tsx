@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent, EventPage, EventConditions, EventImage, EventCommand, MoveRoute, MapData } from '../../types/rpgMakerMV';
 import EventCommandEditor from './EventCommandEditor';
@@ -8,12 +9,6 @@ interface EventDetailProps {
   eventId: number;
   onClose: () => void;
 }
-
-const MOVE_TYPES = ['Fixed', 'Random', 'Approach', 'Custom'];
-const MOVE_SPEEDS = ['x8 Slower', 'x4 Slower', 'x2 Slower', 'Normal', 'x2 Faster', 'x4 Faster'];
-const MOVE_FREQS = ['Lowest', 'Lower', 'Normal', 'Higher', 'Highest'];
-const PRIORITY_TYPES = ['Below characters', 'Same as characters', 'Above characters'];
-const TRIGGER_TYPES = ['Action Button', 'Player Touch', 'Event Touch', 'Autorun', 'Parallel'];
 
 function getDefaultPage(): EventPage {
   return {
@@ -38,136 +33,36 @@ function getDefaultPage(): EventPage {
   };
 }
 
-function getCommandDescription(cmd: EventCommand): string {
-  const code = cmd.code;
-  if (code === 0) return '';
-  const descs: Record<number, string> = {
-    101: 'Show Text',
-    102: 'Show Choices',
-    103: 'Input Number',
-    104: 'Select Item',
-    105: 'Show Scrolling Text',
-    108: 'Comment',
-    111: 'Conditional Branch',
-    112: 'Loop',
-    113: 'Break Loop',
-    115: 'Exit Event Processing',
-    117: 'Common Event',
-    118: 'Label',
-    119: 'Jump to Label',
-    121: 'Control Switches',
-    122: 'Control Variables',
-    123: 'Control Self Switch',
-    124: 'Control Timer',
-    125: 'Change Gold',
-    126: 'Change Items',
-    127: 'Change Weapons',
-    128: 'Change Armors',
-    129: 'Change Party Member',
-    132: 'Change Battle BGM',
-    133: 'Change Victory ME',
-    134: 'Change Save Access',
-    135: 'Change Menu Access',
-    136: 'Change Encounter',
-    137: 'Change Formation Access',
-    138: 'Change Window Color',
-    201: 'Transfer Player',
-    202: 'Set Vehicle Location',
-    203: 'Set Event Location',
-    204: 'Scroll Map',
-    205: 'Set Movement Route',
-    206: 'Get On/Off Vehicle',
-    211: 'Change Transparency',
-    212: 'Show Animation',
-    213: 'Show Balloon Icon',
-    214: 'Erase Event',
-    216: 'Change Player Followers',
-    217: 'Gather Followers',
-    221: 'Fadeout Screen',
-    222: 'Fadein Screen',
-    223: 'Tint Screen',
-    224: 'Flash Screen',
-    225: 'Shake Screen',
-    230: 'Wait',
-    231: 'Show Picture',
-    232: 'Move Picture',
-    233: 'Rotate Picture',
-    234: 'Tint Picture',
-    235: 'Erase Picture',
-    236: 'Set Weather',
-    241: 'Play BGM',
-    242: 'Fadeout BGM',
-    243: 'Save BGM',
-    244: 'Resume BGM',
-    245: 'Play BGS',
-    246: 'Fadeout BGS',
-    249: 'Play ME',
-    250: 'Play SE',
-    251: 'Stop SE',
-    261: 'Play Movie',
-    281: 'Change Map Name Display',
-    282: 'Change Tileset',
-    283: 'Change Battle Back',
-    284: 'Change Parallax',
-    285: 'Get Location Info',
-    301: 'Battle Processing',
-    302: 'Shop Processing',
-    303: 'Name Input Processing',
-    311: 'Change HP',
-    312: 'Change MP',
-    313: 'Change TP',
-    314: 'Change State',
-    315: 'Recover All',
-    316: 'Change EXP',
-    317: 'Change Level',
-    318: 'Change Parameter',
-    319: 'Change Skill',
-    320: 'Change Equipment',
-    321: 'Change Name',
-    322: 'Change Class',
-    323: 'Change Actor Images',
-    324: 'Change Vehicle Image',
-    325: 'Change Nickname',
-    326: 'Change Profile',
-    331: 'Change Enemy HP',
-    332: 'Change Enemy MP',
-    333: 'Change Enemy TP',
-    334: 'Change Enemy State',
-    335: 'Enemy Recover All',
-    336: 'Enemy Appear',
-    337: 'Enemy Transform',
-    338: 'Show Battle Animation',
-    339: 'Force Action',
-    340: 'Abort Battle',
-    351: 'Open Menu Screen',
-    352: 'Open Save Screen',
-    353: 'Game Over',
-    354: 'Return to Title Screen',
-    355: 'Script',
-    356: 'Plugin Command',
-    401: '(Text data)',
-    402: 'When [Choice]',
-    403: 'When Cancel',
-    404: '(Branch End)',
-    405: '(Scrolling text data)',
-    408: '(Comment data)',
-    411: 'Else',
-    412: '(Branch End)',
-    413: 'Repeat Above',
-    601: 'If Win',
-    602: 'If Escape',
-    603: 'If Lose',
-    604: '(Battle Branch End)',
-  };
-  return descs[code] || `Command ${code}`;
-}
-
 export default function EventDetail({ eventId, onClose }: EventDetailProps) {
+  const { t } = useTranslation();
   const currentMap = useEditorStore((s) => s.currentMap);
   const event = currentMap?.events?.find((e) => e && e.id === eventId) as RPGEvent | undefined;
 
   const [editEvent, setEditEvent] = useState<RPGEvent>(() => event ? JSON.parse(JSON.stringify(event)) : null!);
   const [activePage, setActivePage] = useState(0);
+
+  const MOVE_TYPES = useMemo(() => [
+    t('eventDetail.moveTypes.0'), t('eventDetail.moveTypes.1'), t('eventDetail.moveTypes.2'), t('eventDetail.moveTypes.3'),
+  ], [t]);
+
+  const MOVE_SPEEDS = useMemo(() => [
+    t('eventDetail.moveSpeeds.0'), t('eventDetail.moveSpeeds.1'), t('eventDetail.moveSpeeds.2'),
+    t('eventDetail.moveSpeeds.3'), t('eventDetail.moveSpeeds.4'), t('eventDetail.moveSpeeds.5'),
+  ], [t]);
+
+  const MOVE_FREQS = useMemo(() => [
+    t('eventDetail.moveFreqs.0'), t('eventDetail.moveFreqs.1'), t('eventDetail.moveFreqs.2'),
+    t('eventDetail.moveFreqs.3'), t('eventDetail.moveFreqs.4'),
+  ], [t]);
+
+  const PRIORITY_TYPES = useMemo(() => [
+    t('eventDetail.priorityTypes.0'), t('eventDetail.priorityTypes.1'), t('eventDetail.priorityTypes.2'),
+  ], [t]);
+
+  const TRIGGER_TYPES = useMemo(() => [
+    t('eventDetail.triggerTypes.0'), t('eventDetail.triggerTypes.1'), t('eventDetail.triggerTypes.2'),
+    t('eventDetail.triggerTypes.3'), t('eventDetail.triggerTypes.4'),
+  ], [t]);
 
   if (!editEvent) {
     return (
@@ -175,10 +70,10 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
         <div className="db-dialog" onClick={(e) => e.stopPropagation()} style={{ width: '70vw', height: '75vh' }}>
           <div className="db-dialog-header">Event #{eventId}</div>
           <div className="db-dialog-body">
-            <div className="db-placeholder">Event not found</div>
+            <div className="db-placeholder">{t('eventDetail.eventNotFound')}</div>
           </div>
           <div className="db-dialog-footer">
-            <button className="db-btn" onClick={onClose}>Close</button>
+            <button className="db-btn" onClick={onClose}>{t('common.close')}</button>
           </div>
         </div>
       </div>
@@ -248,7 +143,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
           {/* Event properties */}
           <div style={{ padding: '8px 16px', borderBottom: '1px solid #555', display: 'flex', gap: 16, alignItems: 'center', flexShrink: 0 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#aaa' }}>
-              Name
+              {t('common.name')}
               <input
                 type="text"
                 value={editEvent.name || ''}
@@ -257,7 +152,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
               />
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#aaa' }}>
-              Note
+              {t('common.note')}
               <input
                 type="text"
                 value={editEvent.note || ''}
@@ -280,9 +175,9 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
               </button>
             ))}
             <div style={{ flex: 1 }} />
-            <button className="db-btn-small" onClick={addPage}>New</button>
-            <button className="db-btn-small" onClick={copyPage}>Copy</button>
-            <button className="db-btn-small" onClick={deletePage} disabled={editEvent.pages.length <= 1}>Delete</button>
+            <button className="db-btn-small" onClick={addPage}>{t('common.new')}</button>
+            <button className="db-btn-small" onClick={copyPage}>{t('common.copy')}</button>
+            <button className="db-btn-small" onClick={deletePage} disabled={editEvent.pages.length <= 1}>{t('common.delete')}</button>
           </div>
 
           {/* Page content */}
@@ -290,45 +185,45 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
             <div style={{ flex: 1, overflow: 'auto', padding: '8px 16px', display: 'flex', gap: 16 }}>
               {/* Left column - conditions, image, movement, options */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div className="db-form-section">Conditions</div>
+                <div className="db-form-section">{t('fields.conditions')}</div>
                 <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={page.conditions.switch1Valid} onChange={(e) => updateConditions({ switch1Valid: e.target.checked })} />
-                  Switch 1
+                  {t('eventDetail.conditionSwitch1')}
                   <input type="number" value={page.conditions.switch1Id} onChange={(e) => updateConditions({ switch1Id: Number(e.target.value) })} style={{ ...selectStyle, width: 60 }} disabled={!page.conditions.switch1Valid} />
                 </label>
                 <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={page.conditions.switch2Valid} onChange={(e) => updateConditions({ switch2Valid: e.target.checked })} />
-                  Switch 2
+                  {t('eventDetail.conditionSwitch2')}
                   <input type="number" value={page.conditions.switch2Id} onChange={(e) => updateConditions({ switch2Id: Number(e.target.value) })} style={{ ...selectStyle, width: 60 }} disabled={!page.conditions.switch2Valid} />
                 </label>
                 <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={page.conditions.variableValid} onChange={(e) => updateConditions({ variableValid: e.target.checked })} />
-                  Variable
+                  {t('eventDetail.conditionVariable')}
                   <input type="number" value={page.conditions.variableId} onChange={(e) => updateConditions({ variableId: Number(e.target.value) })} style={{ ...selectStyle, width: 60 }} disabled={!page.conditions.variableValid} />
                   &ge;
                   <input type="number" value={page.conditions.variableValue} onChange={(e) => updateConditions({ variableValue: Number(e.target.value) })} style={{ ...selectStyle, width: 60 }} disabled={!page.conditions.variableValid} />
                 </label>
                 <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={page.conditions.selfSwitchValid} onChange={(e) => updateConditions({ selfSwitchValid: e.target.checked })} />
-                  Self Switch
+                  {t('eventDetail.conditionSelfSwitch')}
                   <select value={page.conditions.selfSwitchCh} onChange={(e) => updateConditions({ selfSwitchCh: e.target.value })} style={selectStyle} disabled={!page.conditions.selfSwitchValid}>
                     {['A', 'B', 'C', 'D'].map((ch) => <option key={ch} value={ch}>{ch}</option>)}
                   </select>
                 </label>
                 <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={page.conditions.itemValid} onChange={(e) => updateConditions({ itemValid: e.target.checked })} />
-                  Item
+                  {t('eventDetail.conditionItem')}
                   <input type="number" value={page.conditions.itemId} onChange={(e) => updateConditions({ itemId: Number(e.target.value) })} style={{ ...selectStyle, width: 60 }} disabled={!page.conditions.itemValid} />
                 </label>
                 <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={page.conditions.actorValid} onChange={(e) => updateConditions({ actorValid: e.target.checked })} />
-                  Actor
+                  {t('eventDetail.conditionActor')}
                   <input type="number" value={page.conditions.actorId} onChange={(e) => updateConditions({ actorId: Number(e.target.value) })} style={{ ...selectStyle, width: 60 }} disabled={!page.conditions.actorValid} />
                 </label>
 
-                <div className="db-form-section">Image</div>
+                <div className="db-form-section">{t('eventDetail.image')}</div>
                 <div style={{ fontSize: 12, color: '#aaa' }}>
-                  Character
+                  {t('fields.character')}
                   <ImagePicker
                     type="characters"
                     value={page.image.characterName || ''}
@@ -342,53 +237,53 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                   />
                 </div>
 
-                <div className="db-form-section">Autonomous Movement</div>
+                <div className="db-form-section">{t('eventDetail.autonomousMovement')}</div>
                 <label style={{ fontSize: 12, color: '#aaa' }}>
-                  Type
+                  {t('eventDetail.type')}
                   <select value={page.moveType} onChange={(e) => updatePage(activePage, { moveType: Number(e.target.value) })} style={selectStyle}>
                     {MOVE_TYPES.map((label, i) => <option key={i} value={i}>{label}</option>)}
                   </select>
                 </label>
                 <label style={{ fontSize: 12, color: '#aaa' }}>
-                  Speed
+                  {t('fields.speed')}
                   <select value={page.moveSpeed - 1} onChange={(e) => updatePage(activePage, { moveSpeed: Number(e.target.value) + 1 })} style={selectStyle}>
                     {MOVE_SPEEDS.map((label, i) => <option key={i} value={i}>{label}</option>)}
                   </select>
                 </label>
                 <label style={{ fontSize: 12, color: '#aaa' }}>
-                  Frequency
+                  {t('eventDetail.frequency')}
                   <select value={page.moveFrequency - 1} onChange={(e) => updatePage(activePage, { moveFrequency: Number(e.target.value) + 1 })} style={selectStyle}>
                     {MOVE_FREQS.map((label, i) => <option key={i} value={i}>{label}</option>)}
                   </select>
                 </label>
 
-                <div className="db-form-section">Options</div>
+                <div className="db-form-section">{t('eventDetail.options')}</div>
                 <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={page.walkAnime} onChange={(e) => updatePage(activePage, { walkAnime: e.target.checked })} />
-                  Walking Animation
+                  {t('eventDetail.walkingAnimation')}
                 </label>
                 <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={page.stepAnime} onChange={(e) => updatePage(activePage, { stepAnime: e.target.checked })} />
-                  Stepping Animation
+                  {t('eventDetail.steppingAnimation')}
                 </label>
                 <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={page.directionFix} onChange={(e) => updatePage(activePage, { directionFix: e.target.checked })} />
-                  Direction Fix
+                  {t('eventDetail.directionFix')}
                 </label>
                 <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={page.through} onChange={(e) => updatePage(activePage, { through: e.target.checked })} />
-                  Through
+                  {t('eventDetail.through')}
                 </label>
 
-                <div className="db-form-section">Priority & Trigger</div>
+                <div className="db-form-section">{t('eventDetail.priorityAndTrigger')}</div>
                 <label style={{ fontSize: 12, color: '#aaa' }}>
-                  Priority
+                  {t('fields.priority')}
                   <select value={page.priorityType} onChange={(e) => updatePage(activePage, { priorityType: Number(e.target.value) })} style={selectStyle}>
                     {PRIORITY_TYPES.map((label, i) => <option key={i} value={i}>{label}</option>)}
                   </select>
                 </label>
                 <label style={{ fontSize: 12, color: '#aaa' }}>
-                  Trigger
+                  {t('fields.trigger')}
                   <select value={page.trigger} onChange={(e) => updatePage(activePage, { trigger: Number(e.target.value) })} style={selectStyle}>
                     {TRIGGER_TYPES.map((label, i) => <option key={i} value={i}>{label}</option>)}
                   </select>
@@ -406,8 +301,8 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
           )}
         </div>
         <div className="db-dialog-footer">
-          <button className="db-btn" onClick={handleOk}>OK</button>
-          <button className="db-btn" onClick={onClose}>Cancel</button>
+          <button className="db-btn" onClick={handleOk}>{t('common.ok')}</button>
+          <button className="db-btn" onClick={onClose}>{t('common.cancel')}</button>
         </div>
       </div>
     </div>
