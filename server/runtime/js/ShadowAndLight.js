@@ -310,6 +310,9 @@ ShadowLight._tmpVec3 = new THREE.Vector3();
 ShadowLight._tmpVec3b = new THREE.Vector3();
 ShadowLight._tmpVec3c = new THREE.Vector3();
 ShadowLight._tmpColor = new THREE.Color();
+ShadowLight._tmpWorldPos = new THREE.Vector3();
+ShadowLight._tmpLocalPos = new THREE.Vector3();
+ShadowLight._tmpMatrix4 = new THREE.Matrix4();
 
 /**
  * 캐릭터/오브젝트 스프라이트들의 프록시 박스 라이팅 업데이트
@@ -358,11 +361,27 @@ ShadowLight._updateProxyBoxLighting = function(sprites, includeChildren) {
         var sprite = targets[i];
         if (!sprite._threeObj || !sprite._threeObj.visible) continue;
 
-        // 캐릭터 월드 위치
-        var wp = this._getWrapperWorldPos(sprite);
-        var charX = wp.x;
-        var charY = wp.y - 24; // 스프라이트 중심 높이 보정
-        var charZ = 20;        // 캐릭터 높이 (지면 위)
+        // 캐릭터 월드 위치 - _threeObj의 실제 matrixWorld에서 추출
+        var threeObj = sprite._threeObj;
+        threeObj.updateWorldMatrix(true, false);
+        var worldPos = this._tmpWorldPos;
+        worldPos.setFromMatrixPosition(threeObj.matrixWorld);
+
+        // geometry vertices에 anchor 오프셋이 bake되어 있음
+        // worldPos는 anchor 기준점이므로, geometry 중심으로 보정
+        var fw = sprite._frameWidth || 48;
+        var fh = sprite._frameHeight || 48;
+        var ax = sprite._anchorX || 0;
+        var ay = sprite._anchorY || 0;
+        // geometry 중심 오프셋 (로컬): centerX = (0.5 - ax) * fw, centerY = (0.5 - ay) * fh
+        var localCenterX = (0.5 - ax) * fw;
+        var localCenterY = (0.5 - ay) * fh;
+
+        // billboard rotation(rotation.x = -tiltRad)에 의해 Y가 Y/Z로 분해됨
+        var rotX = threeObj.rotation.x; // billboard tilt
+        var charX = worldPos.x + localCenterX;
+        var charY = worldPos.y + localCenterY * Math.cos(rotX);
+        var charZ = worldPos.z + localCenterY * Math.sin(rotX);
 
         // 6방향 라이트 기여도 (디버그용은 6방향 전부, emissive용은 5방향)
         var perNormal = isDevMode ? [0,0,0,0,0,0] : null;
@@ -593,16 +612,29 @@ ShadowLight._updateProbeDebugVis = function(sprite, cx, cy, cz, perNormal) {
         data = this._createProbeDebugMeshes(sprite);
     }
 
-    // 캐릭터 프레임 크기
+    // 월드 좌표를 디버그 그룹 부모의 로컬 좌표로 변환
+    var localPos = this._tmpLocalPos.set(cx, cy, cz);
+    if (this._probeDebugGroup && this._probeDebugGroup.parent) {
+        var parentInv = this._tmpMatrix4;
+        this._probeDebugGroup.parent.updateWorldMatrix(true, false);
+        parentInv.copy(this._probeDebugGroup.parent.matrixWorld).invert();
+        localPos.applyMatrix4(parentInv);
+    }
+    var lx = localPos.x, ly = localPos.y, lz = localPos.z;
+
+    // 실제 geometry 크기 기반 박스
     var fw = sprite._frameWidth || 48;
     var fh = sprite._frameHeight || 48;
-    var boxW = fw * 0.6;  // 박스 폭 (캐릭터보다 약간 작게)
-    var boxH = fh * 0.8;  // 박스 높이
-    var boxD = fw * 0.4;  // 박스 깊이
+    var boxW = fw;       // 실제 프레임 폭
+    var boxH = fh;       // 실제 프레임 높이
+    var boxD = fw * 0.5; // 깊이는 폭의 절반
 
-    // 와이어프레임 박스 위치/크기
-    data.box.position.set(cx, cy, cz);
+    // 와이어프레임 박스 위치/크기, billboard rotation 적용
+    data.box.position.set(lx, ly, lz);
     data.box.scale.set(boxW, boxH, boxD);
+    // billboard과 동일한 rotation 적용 (Y축이 Z방향으로 기울어짐)
+    var rotX = sprite._threeObj ? sprite._threeObj.rotation.x : 0;
+    data.box.rotation.x = rotX;
 
     // 법선 화살표 업데이트
     var allNormals = this._probeNormalsAll;
@@ -619,19 +651,19 @@ ShadowLight._updateProbeDebugVis = function(sprite, cx, cy, cz, perNormal) {
 
         // 라인 정점 업데이트: 중심 → 법선 방향
         var posAttr = arrow.line.geometry.attributes.position;
-        posAttr.setXYZ(0, cx, cy, cz);
+        posAttr.setXYZ(0, lx, ly, lz);
         posAttr.setXYZ(1,
-            cx + normal.x * arrowScale,
-            cy + normal.y * arrowScale,
-            cz + normal.z * arrowScale
+            lx + normal.x * arrowScale,
+            ly + normal.y * arrowScale,
+            lz + normal.z * arrowScale
         );
         posAttr.needsUpdate = true;
 
         // 끝점 구체
         arrow.sphere.position.set(
-            cx + normal.x * arrowScale,
-            cy + normal.y * arrowScale,
-            cz + normal.z * arrowScale
+            lx + normal.x * arrowScale,
+            ly + normal.y * arrowScale,
+            lz + normal.z * arrowScale
         );
         // 기여도에 따라 구체 크기/투명도 조절
         var sphereSize = 1.5 + brightness * 4;
