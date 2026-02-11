@@ -788,13 +788,21 @@ ShadowLight._installProbeClickHandler = function() {
     this._probeClickBound = function(e) {
         self._onProbeClick(e);
     };
+    // 프록시 박스 시각화 중엔 게임 입력(TouchInput) 차단
+    this._probeMouseBlockBound = function(e) {
+        if (self._debugProbeVisible) {
+            e.stopPropagation();
+        }
+    };
     var canvas = Graphics._renderer ? Graphics._renderer.domElement : null;
     if (!canvas) {
-        // WebGL canvas 찾기
         canvas = document.querySelector('canvas');
     }
     if (canvas) {
         canvas.addEventListener('click', this._probeClickBound);
+        // capture: true로 document의 mousedown/touchstart보다 먼저 잡아서 전파 차단
+        canvas.addEventListener('mousedown', this._probeMouseBlockBound, true);
+        canvas.addEventListener('touchstart', this._probeMouseBlockBound, true);
         this._probeClickCanvas = canvas;
     }
 };
@@ -803,10 +811,17 @@ ShadowLight._installProbeClickHandler = function() {
  * 프록시 박스 클릭 핸들러 제거
  */
 ShadowLight._removeProbeClickHandler = function() {
-    if (this._probeClickBound && this._probeClickCanvas) {
-        this._probeClickCanvas.removeEventListener('click', this._probeClickBound);
+    if (this._probeClickCanvas) {
+        if (this._probeClickBound) {
+            this._probeClickCanvas.removeEventListener('click', this._probeClickBound);
+        }
+        if (this._probeMouseBlockBound) {
+            this._probeClickCanvas.removeEventListener('mousedown', this._probeMouseBlockBound, true);
+            this._probeClickCanvas.removeEventListener('touchstart', this._probeMouseBlockBound, true);
+        }
     }
     this._probeClickBound = null;
+    this._probeMouseBlockBound = null;
     this._probeClickCanvas = null;
     this._removeProbeTooltip();
     this._probeSelectedBox = null;
