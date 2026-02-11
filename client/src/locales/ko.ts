@@ -807,6 +807,179 @@ const ko = {
     deleteMap: '삭제',
     confirmDelete: '맵 {{id}}을(를) 삭제하시겠습니까?',
   },
+
+  // === Animations Tab ===
+  animations: {
+    targetSelect: '대상 선택',
+    search: '검색...',
+    target: '대상',
+    play: '▶ 재생',
+    stop: '■ 정지',
+    frame: '프레임',
+    image1: '이미지 1',
+    image2: '이미지 2',
+    hue: '색조',
+    position: '위치',
+    positions: { 0: '머리 위', 1: '중심', 2: '발 밑', 3: '화면' },
+    timing: '타이밍',
+    flashScope: '플래시 범위',
+    flashScopes: { 0: '없음', 1: '대상', 2: '화면', 3: '대상 제거' },
+    duration: '지속시간',
+    flashColor: '플래시 색상 (RGBA)',
+  },
+
+  // === System Tab ===
+  system: {
+    initialParty: '초기 파티',
+    gameTitle: '게임 타이틀',
+    currency: '화폐 단위',
+    locale: '로케일',
+    vehicleImages: '탈것 이미지',
+    vehicles: { boat: '보트', ship: '배', airship: '비행선' },
+    startPosition: '시작 위치',
+    player: '플레이어',
+    map: '맵',
+    titleScreen: '타이틀 화면',
+    title1: '타이틀 1',
+    title2: '타이틀 2',
+    drawTitle: '게임 타이틀 표시',
+    music: '음악',
+    musicLabels: { title: '타이틀', battle: '전투', victory: '승리', defeat: '패배', gameover: '게임오버' },
+    menuCommands: '메뉴 명령',
+    menuItems: { 0: '아이템', 1: '스킬', 2: '장비', 3: '상태', 4: '대열', 5: '세이브' },
+    attackMotion: '[SV] 공격 모션',
+    motionTypes: { 0: '찌르기', 1: '휘두르기', 2: '날리기' },
+    magicSkills: '[SV] 마법 스킬',
+    options: '옵션',
+    optSideView: '사이드뷰 전투 사용',
+    optTransparent: '투명 상태로 시작',
+    optFollowers: '파티원 따라다니기',
+    optSlipDeath: '슬립 데미지로 기절',
+    optFloorDeath: '바닥 데미지로 기절',
+    optDisplayTp: '전투 중 TP 표시',
+    optExtraExp: '예비 멤버 경험치',
+    soundEffects: '효과음',
+    soundNames: {
+      0: '커서', 1: '확인', 2: '취소', 3: '부저', 4: '장착', 5: '저장', 6: '불러오기', 7: '전투 시작',
+      8: '도망', 9: '적 공격', 10: '적 피해', 11: '적 기절', 12: '보스 기절 1',
+      13: '보스 기절 2', 14: '아군 피해', 15: '아군 기절', 16: '회복', 17: '빗맞음',
+      18: '회피', 19: '마법 회피', 20: '마법 반사', 21: '상점', 22: '아이템 사용', 23: '스킬 사용',
+    },
+    windowColor: '윈도우 색상',
+  },
+
+  // === Open Project Dialog ===
+  openProject: {
+    title: '프로젝트 열기',
+    browseFolders: '폴더 탐색',
+    recentProjects: '최근 프로젝트',
+    parentFolder: '상위 폴더',
+    loading: '불러오는 중...',
+    noSubfolders: '하위 폴더 없음',
+    projectDetected: 'RPG Maker MV 프로젝트 감지됨',
+    noRecent: '최근 프로젝트 없음',
+    open: '열기',
+  },
+
+  // === New Project Dialog ===
+  newProject: {
+    title: '새 프로젝트',
+    projectName: '프로젝트 이름',
+    gameTitle: '게임 타이틀',
+    savePath: '저장 위치',
+    browse: '찾아보기',
+    selectFolder: '이 폴더 선택',
+    create: '생성',
+    creating: '생성 중...',
+    nameAndPathRequired: '프로젝트 이름과 저장 경로를 입력해주세요',
+  },
+
+  // === Find Dialog ===
+  find: {
+    title: '검색',
+    placeholder: '검색어 입력...',
+    typeName: '이름',
+    typeSwitch: '스위치 ID',
+    typeVariable: '변수 ID',
+    searching: '검색 중...',
+    search: '검색',
+    resultsPlaceholder: '검색 결과가 여기에 표시됩니다',
+    resultsCount: '{{count}}건 검색됨 ({{current}}/{{total}})',
+    prev: '이전',
+    next: '다음',
+  },
+
+  // === Event Search Dialog ===
+  eventSearch: {
+    title: '이벤트 검색',
+    placeholder: '검색어 입력...',
+    typeName: '이름',
+    typeSwitch: '스위치',
+    typeVariable: '변수',
+    searching: '검색 중...',
+    search: '검색',
+    mapHeader: '맵',
+    eventNameHeader: '이벤트 이름',
+    pageHeader: '페이지',
+    resultsPlaceholder: '검색 결과가 여기에 표시됩니다',
+    resultsCount: '{{count}}건 검색됨 — 더블 클릭으로 이동',
+  },
+
+  // === Plugin Manager Dialog ===
+  pluginManager: {
+    title: '플러그인 관리',
+    loading: '불러오는 중...',
+    noPlugins: '플러그인 없음',
+    noDescription: '설명 없음',
+    parameters: '파라미터',
+    selectPlugin: '플러그인을 선택하세요',
+    saving: '저장 중...',
+  },
+
+  // === Sound Test Dialog ===
+  soundTest: {
+    title: '사운드 테스트',
+    loading: '불러오는 중...',
+    play: '▶ 재생',
+    stop: '■ 정지',
+    volume: '음량',
+    playing: '재생 중: {{name}}',
+    noFiles: '파일 없음',
+    playFailed: '재생 실패',
+  },
+
+  // === Resource Manager Dialog ===
+  resourceManager: {
+    title: '자원 관리',
+    loading: '불러오는 중...',
+    noFiles: '파일 없음',
+    import: '가져오기',
+    export: '내보내기',
+    noPreview: '미리보기 없음',
+    selectFile: '파일을 선택하세요',
+    confirmDelete: '{{name}} 파일을 삭제하시겠습니까?',
+  },
+
+  // === Deploy Dialog ===
+  deploy: {
+    title: '배포',
+    platform: '플랫폼',
+    platformDesc: {
+      web: '웹 브라우저에서 실행 가능한 형태로 배포',
+      windows: 'Windows 실행 파일로 배포',
+      macos: 'macOS 앱으로 배포',
+    },
+    options: '옵션',
+    excludeUnused: '미사용 파일 제외',
+    outputPath: '출력 경로',
+    browse: '찾아보기',
+    selectFolder: '이 폴더 선택',
+    deploy: '배포',
+    deploying: '배포 중...',
+    preparing: '배포 준비 중...',
+    complete: '배포 완료!',
+    pathRequired: '출력 경로를 선택해주세요',
+  },
 };
 
 export default ko;

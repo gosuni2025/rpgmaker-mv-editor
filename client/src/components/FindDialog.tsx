@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
 import apiClient from '../api/client';
 
@@ -13,6 +14,7 @@ interface SearchResult {
 }
 
 export default function FindDialog() {
+  const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowFindDialog);
   const selectMap = useEditorStore((s) => s.selectMap);
   const setSelectedEventId = useEditorStore((s) => s.setSelectedEventId);
@@ -69,28 +71,28 @@ export default function FindDialog() {
   return (
     <div className="db-dialog-overlay" onClick={() => setShow(false)}>
       <div className="db-dialog" style={{ width: 560, height: 420, minHeight: 0 }} onClick={e => e.stopPropagation()}>
-        <div className="db-dialog-header">검색</div>
+        <div className="db-dialog-header">{t('find.title')}</div>
         <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, flex: 1, overflow: 'hidden' }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input type="text" value={query} onChange={e => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown} placeholder="검색어 입력..."
+              onKeyDown={handleKeyDown} placeholder={t('find.placeholder')}
               style={{ flex: 1, background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '6px 8px', color: '#ddd', fontSize: 13 }}
               autoFocus />
             <select value={searchType} onChange={e => setSearchType(e.target.value as SearchType)}
               style={{ background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '6px 8px', color: '#ddd', fontSize: 12 }}>
-              <option value="name">이름</option>
-              <option value="switch">스위치 ID</option>
-              <option value="variable">변수 ID</option>
+              <option value="name">{t('find.typeName')}</option>
+              <option value="switch">{t('find.typeSwitch')}</option>
+              <option value="variable">{t('find.typeVariable')}</option>
             </select>
             <button className="db-btn" onClick={handleSearch} disabled={searching}>
-              {searching ? '검색 중...' : '검색'}
+              {searching ? t('find.searching') : t('find.search')}
             </button>
           </div>
 
           <div style={{ flex: 1, overflow: 'auto', border: '1px solid #555', borderRadius: 3, background: '#2b2b2b' }}>
             {results.length === 0 && !error && (
               <div style={{ padding: 16, textAlign: 'center', color: '#666', fontSize: 12 }}>
-                {searching ? '검색 중...' : '검색 결과가 여기에 표시됩니다'}
+                {searching ? t('find.searching') : t('find.resultsPlaceholder')}
               </div>
             )}
             {error && <div style={{ padding: 8, color: '#e55', fontSize: 12 }}>{error}</div>}
@@ -112,16 +114,16 @@ export default function FindDialog() {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 11, color: '#888' }}>
-              {results.length > 0 ? `${results.length}건 검색됨 (${selectedIndex + 1}/${results.length})` : ''}
+              {results.length > 0 ? t('find.resultsCount', { count: results.length, current: selectedIndex + 1, total: results.length }) : ''}
             </span>
             <div style={{ display: 'flex', gap: 4 }}>
-              <button className="db-btn" onClick={searchPrev} disabled={results.length === 0}>이전</button>
-              <button className="db-btn" onClick={searchNext} disabled={results.length === 0}>다음</button>
+              <button className="db-btn" onClick={searchPrev} disabled={results.length === 0}>{t('find.prev')}</button>
+              <button className="db-btn" onClick={searchNext} disabled={results.length === 0}>{t('find.next')}</button>
             </div>
           </div>
         </div>
         <div className="db-dialog-footer">
-          <button className="db-btn" onClick={() => setShow(false)}>닫기</button>
+          <button className="db-btn" onClick={() => setShow(false)}>{t('common.close')}</button>
         </div>
       </div>
     </div>

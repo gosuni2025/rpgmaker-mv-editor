@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
 import apiClient from '../api/client';
 
@@ -9,6 +10,7 @@ interface AudioFile {
 }
 
 export default function SoundTestDialog() {
+  const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowSoundTestDialog);
   const [tab, setTab] = useState<AudioType>('bgm');
   const [files, setFiles] = useState<AudioFile[]>([]);
@@ -66,13 +68,13 @@ export default function SoundTestDialog() {
         if (ext === 'ogg') {
           tryPlay('m4a');
         } else {
-          setError('재생 실패');
+          setError(t('soundTest.playFailed'));
           setPlaying(null);
         }
       };
       audio.play().catch(() => {
         if (ext === 'ogg') tryPlay('m4a');
-        else { setError('재생 실패'); setPlaying(null); }
+        else { setError(t('soundTest.playFailed')); setPlaying(null); }
       });
       audioRef.current = audio;
     };
@@ -108,20 +110,20 @@ export default function SoundTestDialog() {
   return (
     <div className="db-dialog-overlay" onClick={() => { handleStop(); setShow(false); }}>
       <div className="db-dialog" style={{ width: 500, height: 420 }} onClick={e => e.stopPropagation()}>
-        <div className="db-dialog-header">사운드 테스트</div>
+        <div className="db-dialog-header">{t('soundTest.title')}</div>
         <div className="db-dialog-body" style={{ flexDirection: 'column' }}>
           <div style={{ display: 'flex', borderBottom: '1px solid #555', background: '#333' }}>
-            {tabs.map(t => (
-              <button key={t.key}
-                className={`opd-tab${tab === t.key ? ' active' : ''}`}
-                onClick={() => { handleStop(); setTab(t.key); }}>
-                {t.label}
+            {tabs.map(tb => (
+              <button key={tb.key}
+                className={`opd-tab${tab === tb.key ? ' active' : ''}`}
+                onClick={() => { handleStop(); setTab(tb.key); }}>
+                {tb.label}
               </button>
             ))}
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto' }}>
-            {loading && <div className="db-loading">불러오는 중...</div>}
+            {loading && <div className="db-loading">{t('soundTest.loading')}</div>}
             {error && <div style={{ padding: 8, color: '#e55', fontSize: 12 }}>{error}</div>}
             {!loading && files.map((f, i) => (
               <div key={f.name}
@@ -134,17 +136,17 @@ export default function SoundTestDialog() {
               </div>
             ))}
             {!loading && files.length === 0 && !error && (
-              <div style={{ padding: 16, textAlign: 'center', color: '#666', fontSize: 12 }}>파일 없음</div>
+              <div style={{ padding: 16, textAlign: 'center', color: '#666', fontSize: 12 }}>{t('soundTest.noFiles')}</div>
             )}
           </div>
 
           <div style={{ padding: '8px 12px', borderTop: '1px solid #555', background: '#333', display: 'flex', alignItems: 'center', gap: 12 }}>
             <button className="db-btn-small" onClick={() => {
               if (selectedIndex >= 0 && files[selectedIndex]) handlePlay(files[selectedIndex]);
-            }} disabled={selectedIndex < 0}>▶ 재생</button>
-            <button className="db-btn-small" onClick={handleStop} disabled={!playing}>■ 정지</button>
+            }} disabled={selectedIndex < 0}>{t('soundTest.play')}</button>
+            <button className="db-btn-small" onClick={handleStop} disabled={!playing}>{t('soundTest.stop')}</button>
             <div className="db-slider-row" style={{ flex: 1 }}>
-              <span style={{ fontSize: 11, color: '#aaa', minWidth: 30 }}>음량</span>
+              <span style={{ fontSize: 11, color: '#aaa', minWidth: 30 }}>{t('soundTest.volume')}</span>
               <input type="range" min={0} max={100} value={volume}
                 onChange={e => setVolume(Number(e.target.value))} />
               <span className="db-slider-value">{volume}%</span>
@@ -153,12 +155,12 @@ export default function SoundTestDialog() {
 
           {playing && (
             <div style={{ padding: '4px 12px', fontSize: 11, color: '#6c6', background: '#1a3a1a', borderTop: '1px solid #2a4a2a' }}>
-              재생 중: {playing}
+              {t('soundTest.playing', { name: playing })}
             </div>
           )}
         </div>
         <div className="db-dialog-footer">
-          <button className="db-btn" onClick={() => { handleStop(); setShow(false); }}>닫기</button>
+          <button className="db-btn" onClick={() => { handleStop(); setShow(false); }}>{t('common.close')}</button>
         </div>
       </div>
     </div>

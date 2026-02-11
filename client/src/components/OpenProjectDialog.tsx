@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../api/client';
 
 const RECENT_KEY = 'rpg-editor-recent-projects';
@@ -36,6 +37,7 @@ interface OpenProjectDialogProps {
 }
 
 export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialogProps) {
+  const { t } = useTranslation();
   const [currentPath, setCurrentPath] = useState('');
   const [dirs, setDirs] = useState<string[]>([]);
   const [parentPath, setParentPath] = useState('');
@@ -76,20 +78,20 @@ export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialog
   return (
     <div className="db-dialog-overlay" onClick={onClose}>
       <div className="open-project-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="db-dialog-header">프로젝트 열기</div>
+        <div className="db-dialog-header">{t('openProject.title')}</div>
 
         <div className="opd-tabs">
           <button
             className={`opd-tab${tab === 'browse' ? ' active' : ''}`}
             onClick={() => setTab('browse')}
           >
-            폴더 탐색
+            {t('openProject.browseFolders')}
           </button>
           <button
             className={`opd-tab${tab === 'recent' ? ' active' : ''}`}
             onClick={() => setTab('recent')}
           >
-            최근 프로젝트
+            {t('openProject.recentProjects')}
           </button>
         </div>
 
@@ -100,7 +102,7 @@ export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialog
                 className="opd-nav-btn"
                 onClick={() => browse(parentPath)}
                 disabled={currentPath === parentPath}
-                title="상위 폴더"
+                title={t('openProject.parentFolder')}
               >
                 ↑
               </button>
@@ -108,7 +110,7 @@ export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialog
             </div>
 
             <div className="opd-dir-list">
-              {loading && <div className="opd-loading">불러오는 중...</div>}
+              {loading && <div className="opd-loading">{t('openProject.loading')}</div>}
               {error && <div className="opd-error">{error}</div>}
               {!loading &&
                 dirs.map((dir) => (
@@ -122,13 +124,13 @@ export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialog
                   </div>
                 ))}
               {!loading && dirs.length === 0 && !error && (
-                <div className="opd-empty">하위 폴더 없음</div>
+                <div className="opd-empty">{t('openProject.noSubfolders')}</div>
               )}
             </div>
 
             {isRpgProject && (
               <div className="opd-project-badge">
-                RPG Maker MV 프로젝트 감지됨
+                {t('openProject.projectDetected')}
               </div>
             )}
           </div>
@@ -138,7 +140,7 @@ export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialog
           <div className="opd-body">
             <div className="opd-dir-list">
               {recentProjects.length === 0 && (
-                <div className="opd-empty">최근 프로젝트 없음</div>
+                <div className="opd-empty">{t('openProject.noRecent')}</div>
               )}
               {recentProjects.map((p) => (
                 <div
@@ -169,10 +171,10 @@ export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialog
             disabled={!currentPath}
             style={isRpgProject ? { background: '#0078d4', borderColor: '#0078d4' } : {}}
           >
-            열기
+            {t('openProject.open')}
           </button>
           <button className="db-btn" onClick={onClose}>
-            취소
+            {t('common.cancel')}
           </button>
         </div>
       </div>

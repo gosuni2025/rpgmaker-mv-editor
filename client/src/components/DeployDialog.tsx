@@ -1,10 +1,12 @@
 import React, { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
 import apiClient from '../api/client';
 
 type Platform = 'web' | 'windows' | 'macos';
 
 export default function DeployDialog() {
+  const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowDeployDialog);
   const projectPath = useEditorStore((s) => s.projectPath);
   const [platform, setPlatform] = useState<Platform>('web');
@@ -30,12 +32,12 @@ export default function DeployDialog() {
 
   const handleDeploy = async () => {
     if (!outputPath.trim()) {
-      setError('출력 경로를 선택해주세요');
+      setError(t('deploy.pathRequired'));
       return;
     }
     setDeploying(true);
     setError('');
-    setProgress('배포 준비 중...');
+    setProgress(t('deploy.preparing'));
     try {
       await apiClient.post('/project/deploy', {
         platform,
@@ -43,7 +45,7 @@ export default function DeployDialog() {
         excludeUnused,
         projectPath,
       });
-      setProgress('배포 완료!');
+      setProgress(t('deploy.complete'));
     } catch (e) {
       setError((e as Error).message);
       setProgress('');
@@ -53,18 +55,18 @@ export default function DeployDialog() {
   };
 
   const platforms: { key: Platform; label: string; desc: string }[] = [
-    { key: 'web', label: 'Web (HTML5)', desc: '웹 브라우저에서 실행 가능한 형태로 배포' },
-    { key: 'windows', label: 'Windows', desc: 'Windows 실행 파일로 배포' },
-    { key: 'macos', label: 'macOS', desc: 'macOS 앱으로 배포' },
+    { key: 'web', label: 'Web (HTML5)', desc: t('deploy.platformDesc.web') },
+    { key: 'windows', label: 'Windows', desc: t('deploy.platformDesc.windows') },
+    { key: 'macos', label: 'macOS', desc: t('deploy.platformDesc.macos') },
   ];
 
   return (
     <div className="db-dialog-overlay" onClick={() => setShow(false)}>
       <div className="db-dialog" style={{ width: 520, height: 'auto', minHeight: 0 }} onClick={e => e.stopPropagation()}>
-        <div className="db-dialog-header">배포</div>
+        <div className="db-dialog-header">{t('deploy.title')}</div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <div style={{ color: '#aaa', fontSize: 12, marginBottom: 8 }}>플랫폼</div>
+            <div style={{ color: '#aaa', fontSize: 12, marginBottom: 8 }}>{t('deploy.platform')}</div>
             {platforms.map(p => (
               <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer', fontSize: 13 }}>
                 <input type="radio" name="platform" checked={platform === p.key}
@@ -76,20 +78,20 @@ export default function DeployDialog() {
           </div>
 
           <div>
-            <div style={{ color: '#aaa', fontSize: 12, marginBottom: 8 }}>옵션</div>
+            <div style={{ color: '#aaa', fontSize: 12, marginBottom: 8 }}>{t('deploy.options')}</div>
             <label className="db-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
               <input type="checkbox" checked={excludeUnused}
                 onChange={e => setExcludeUnused(e.target.checked)} />
-              <span style={{ color: '#ddd' }}>미사용 파일 제외</span>
+              <span style={{ color: '#ddd' }}>{t('deploy.excludeUnused')}</span>
             </label>
           </div>
 
           <div>
-            <span style={{ color: '#aaa', fontSize: 12 }}>출력 경로</span>
+            <span style={{ color: '#aaa', fontSize: 12 }}>{t('deploy.outputPath')}</span>
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
               <input type="text" value={outputPath} readOnly
                 style={{ flex: 1, background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '6px 8px', color: '#ddd', fontSize: 13 }} />
-              <button className="db-btn" onClick={() => { setShowBrowse(true); browse(''); }}>찾아보기</button>
+              <button className="db-btn" onClick={() => { setShowBrowse(true); browse(''); }}>{t('deploy.browse')}</button>
             </div>
           </div>
 
@@ -107,7 +109,7 @@ export default function DeployDialog() {
                 </div>
               ))}
               <div style={{ padding: 4, borderTop: '1px solid #444', display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
-                <button className="db-btn-small" onClick={() => { setOutputPath(currentBrowsePath); setShowBrowse(false); }}>이 폴더 선택</button>
+                <button className="db-btn-small" onClick={() => { setOutputPath(currentBrowsePath); setShowBrowse(false); }}>{t('deploy.selectFolder')}</button>
               </div>
             </div>
           )}
@@ -118,9 +120,9 @@ export default function DeployDialog() {
         <div className="db-dialog-footer">
           <button className="db-btn" onClick={handleDeploy} disabled={deploying}
             style={{ background: '#0078d4', borderColor: '#0078d4' }}>
-            {deploying ? '배포 중...' : '배포'}
+            {deploying ? t('deploy.deploying') : t('deploy.deploy')}
           </button>
-          <button className="db-btn" onClick={() => setShow(false)}>닫기</button>
+          <button className="db-btn" onClick={() => setShow(false)}>{t('common.close')}</button>
         </div>
       </div>
     </div>

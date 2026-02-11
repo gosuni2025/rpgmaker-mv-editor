@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
 import apiClient from '../api/client';
 
@@ -28,6 +29,7 @@ interface ResourceFile {
 }
 
 export default function ResourceManagerDialog() {
+  const { t } = useTranslation();
   const setShowResourceManagerDialog = useEditorStore((s) => s.setShowResourceManagerDialog);
   const [selectedFolder, setSelectedFolder] = useState(RESOURCE_FOLDERS[0]);
   const [files, setFiles] = useState<ResourceFile[]>([]);
@@ -80,7 +82,7 @@ export default function ResourceManagerDialog() {
 
   const handleDelete = async () => {
     if (!selectedFile) return;
-    if (!confirm(`Delete ${selectedFile}?`)) return;
+    if (!confirm(t('resourceManager.confirmDelete', { name: selectedFile }))) return;
     try {
       const type = selectedFolder.replace('/', '_');
       await fetch(`/api/resources/${type}/${encodeURIComponent(selectedFile)}`, { method: 'DELETE' });
@@ -99,7 +101,7 @@ export default function ResourceManagerDialog() {
   return (
     <div className="db-dialog-overlay" onClick={handleClose}>
       <div className="db-dialog" onClick={(e) => e.stopPropagation()} style={{ width: '70vw', height: '70vh' }}>
-        <div className="db-dialog-header">Resource Manager</div>
+        <div className="db-dialog-header">{t('resourceManager.title')}</div>
         <div className="db-dialog-body">
           {/* Folder list */}
           <div className="db-list" style={{ width: 180, minWidth: 180 }}>
@@ -117,9 +119,9 @@ export default function ResourceManagerDialog() {
           {/* File list */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #555' }}>
             <div style={{ flex: 1, overflowY: 'auto', background: '#353535' }}>
-              {loading && <div className="db-loading">Loading...</div>}
+              {loading && <div className="db-loading">{t('resourceManager.loading')}</div>}
               {!loading && files.length === 0 && (
-                <div className="db-placeholder">No files</div>
+                <div className="db-placeholder">{t('resourceManager.noFiles')}</div>
               )}
               {!loading && files.map((file) => (
                 <div
@@ -138,9 +140,9 @@ export default function ResourceManagerDialog() {
                 onChange={handleImport}
                 style={{ display: 'none' }}
               />
-              <button className="db-btn" onClick={() => fileInputRef.current?.click()}>Import</button>
-              <button className="db-btn" onClick={handleExport} disabled={!selectedFile}>Export</button>
-              <button className="db-btn" onClick={handleDelete} disabled={!selectedFile}>Delete</button>
+              <button className="db-btn" onClick={() => fileInputRef.current?.click()}>{t('resourceManager.import')}</button>
+              <button className="db-btn" onClick={handleExport} disabled={!selectedFile}>{t('resourceManager.export')}</button>
+              <button className="db-btn" onClick={handleDelete} disabled={!selectedFile}>{t('common.delete')}</button>
             </div>
           </div>
 
@@ -154,13 +156,13 @@ export default function ResourceManagerDialog() {
               />
             ) : (
               <span style={{ color: '#666', fontSize: 12 }}>
-                {selectedFile ? 'No preview available' : 'Select a file'}
+                {selectedFile ? t('resourceManager.noPreview') : t('resourceManager.selectFile')}
               </span>
             )}
           </div>
         </div>
         <div className="db-dialog-footer">
-          <button className="db-btn" onClick={handleClose}>Close</button>
+          <button className="db-btn" onClick={handleClose}>{t('common.close')}</button>
         </div>
       </div>
     </div>
