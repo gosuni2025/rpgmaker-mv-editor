@@ -362,7 +362,7 @@ export function computeAutoShapeForPosition(
   const kind = getAutotileKind(tileId);
 
   function sameKind(nx: number, ny: number): boolean {
-    if (nx < 0 || nx >= width || ny < 0 || ny >= height) return true;
+    if (nx < 0 || nx >= width || ny < 0 || ny >= height) return false;
     const nId = data[(z * height + ny) * width + nx];
     if (!isAutotile(nId) || isTileA5(nId)) return false;
     return getAutotileKind(nId) === kind;
