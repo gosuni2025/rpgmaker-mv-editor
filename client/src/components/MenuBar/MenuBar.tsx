@@ -91,7 +91,8 @@ export default function MenuBar() {
       items: [
         { label: t('menu.map'), action: 'modeMap', shortcut: 'F5', checked: () => editMode === 'map' },
         { label: t('menu.event'), action: 'modeEvent', shortcut: 'F6', checked: () => editMode === 'event' },
-        { label: t('menu.object'), action: 'modeObject', shortcut: 'F7', checked: () => editMode === 'object' },
+        { label: t('menu.light', '조명'), action: 'modeLight', shortcut: 'F7', checked: () => editMode === 'light' },
+        { label: t('menu.object'), action: 'modeObject', shortcut: 'F8', checked: () => editMode === 'object' },
       ],
     },
     {
@@ -156,6 +157,7 @@ export default function MenuBar() {
       case 'find': setShowFindDialog(true); break;
       case 'modeMap': setEditMode('map'); break;
       case 'modeEvent': setEditMode('event'); break;
+      case 'modeLight': setEditMode('light'); break;
       case 'modeObject': setEditMode('object'); break;
       case 'toolPen': setSelectedTool('pen'); break;
       case 'toolRectangle': setSelectedTool('rectangle'); break;
@@ -210,7 +212,8 @@ export default function MenuBar() {
       else if (ctrl && e.key === 'r') { e.preventDefault(); handleAction('playtestTitle'); }
       else if (e.key === 'F5') { e.preventDefault(); handleAction('modeMap'); }
       else if (e.key === 'F6') { e.preventDefault(); handleAction('modeEvent'); }
-      else if (e.key === 'F7') { e.preventDefault(); handleAction('modeObject'); }
+      else if (e.key === 'F7') { e.preventDefault(); handleAction('modeLight'); }
+      else if (e.key === 'F8') { e.preventDefault(); handleAction('modeObject'); }
       else if (e.key === 'F9') { e.preventDefault(); handleAction('database'); }
     };
     window.addEventListener('keydown', handleKeyDown);

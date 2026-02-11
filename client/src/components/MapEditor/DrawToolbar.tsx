@@ -47,8 +47,9 @@ export default function DrawToolbar() {
             ...styles.btn,
             ...(editMode === 'map' ? styles.btnActive : {}),
           }}
+          title="F5"
         >
-          {t('toolbar.map')}
+          {t('toolbar.map')} <span style={styles.shortcut}>F5</span>
         </button>
         <button
           onClick={() => setEditMode('event')}
@@ -56,8 +57,9 @@ export default function DrawToolbar() {
             ...styles.btn,
             ...(editMode === 'event' ? styles.btnActive : {}),
           }}
+          title="F6"
         >
-          {t('toolbar.event')}
+          {t('toolbar.event')} <span style={styles.shortcut}>F6</span>
         </button>
         <button
           onClick={() => setEditMode('light')}
@@ -65,8 +67,9 @@ export default function DrawToolbar() {
             ...styles.btn,
             ...(editMode === 'light' ? styles.btnActive : {}),
           }}
+          title="F7"
         >
-          {t('toolbar.light')}
+          {t('toolbar.light')} <span style={styles.shortcut}>F7</span>
         </button>
         <button
           onClick={() => setEditMode('object')}
@@ -74,8 +77,9 @@ export default function DrawToolbar() {
             ...styles.btn,
             ...(editMode === 'object' ? styles.btnActive : {}),
           }}
+          title="F8"
         >
-          {t('toolbar.object')}
+          {t('toolbar.object')} <span style={styles.shortcut}>F8</span>
         </button>
       </div>
 
@@ -214,6 +218,11 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 3,
     padding: '2px 4px',
     fontSize: 12,
+  },
+  shortcut: {
+    color: '#888',
+    fontSize: 10,
+    marginLeft: 2,
   },
   zoomLabel: {
     color: '#ccc',
