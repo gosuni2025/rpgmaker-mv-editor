@@ -5444,6 +5444,19 @@ Game_Map.prototype.setup = function(mapId) {
     this.setupParallax();
     this.setupBattleback();
     this._needsRefresh = false;
+    this.setupCameraZones();
+};
+
+Game_Map.prototype.setupCameraZones = function() {
+    this._cameraZones = $dataMap.cameraZones || [];
+    this._activeCameraZone = null;
+    this._cameraTransition = null; // { targetZoom, targetTilt, targetYaw, speed }
+    this._defaultCamera = { zoom: 1.0, tilt: 60, yaw: 0 };
+    // Mode3D 현재 상태를 기본값으로 저장
+    if (window.Mode3D && Mode3D._active) {
+        this._defaultCamera.tilt = Mode3D._tiltDeg;
+        this._defaultCamera.yaw = Mode3D._yawDeg;
+    }
 };
 
 Game_Map.prototype.isEventRunning = function() {
@@ -6040,6 +6053,81 @@ Game_Map.prototype.update = function(sceneActive) {
     this.updateEvents();
     this.updateVehicles();
     this.updateParallax();
+    this.updateCameraZones();
+};
+
+Game_Map.prototype.updateCameraZones = function() {
+    if (!this._cameraZones || this._cameraZones.length === 0) return;
+    var player = $gamePlayer;
+    if (!player) return;
+    var px = player.x;
+    var py = player.y;
+
+    // 플레이어 위치에 해당하는 활성 존 찾기 (enabled + priority 높은 순)
+    var activeZone = null;
+    var bestPriority = -Infinity;
+    for (var i = 0; i < this._cameraZones.length; i++) {
+        var z = this._cameraZones[i];
+        if (!z.enabled) continue;
+        if (px >= z.x && px < z.x + z.width && py >= z.y && py < z.y + z.height) {
+            if (z.priority > bestPriority) {
+                bestPriority = z.priority;
+                activeZone = z;
+            }
+        }
+    }
+
+    // 존이 바뀌었으면 전환 시작
+    var prevZoneId = this._activeCameraZone ? this._activeCameraZone.id : null;
+    var newZoneId = activeZone ? activeZone.id : null;
+    if (prevZoneId !== newZoneId) {
+        this._activeCameraZone = activeZone;
+        var target = activeZone || this._defaultCamera;
+        var speed = activeZone ? activeZone.transitionSpeed : 1.0;
+        this._cameraTransition = {
+            targetZoom: target.zoom,
+            targetTilt: target.tilt,
+            targetYaw: target.yaw,
+            speed: speed
+        };
+    }
+
+    // 전환 애니메이션
+    if (this._cameraTransition) {
+        var t = this._cameraTransition;
+        var lerpFactor = Math.min(1.0, t.speed * 0.05); // 프레임당 보간 비율
+
+        // Zoom
+        if ($gameScreen) {
+            var curZoom = $gameScreen.zoomScale();
+            var newZoom = curZoom + (t.targetZoom - curZoom) * lerpFactor;
+            if (Math.abs(newZoom - t.targetZoom) < 0.001) newZoom = t.targetZoom;
+            $gameScreen.setZoom(0, 0, newZoom);
+        }
+
+        // Tilt & Yaw (3D 모드)
+        if (window.Mode3D && Mode3D._active) {
+            var curTilt = Mode3D._tiltDeg;
+            var newTilt = curTilt + (t.targetTilt - curTilt) * lerpFactor;
+            if (Math.abs(newTilt - t.targetTilt) < 0.1) newTilt = t.targetTilt;
+            Mode3D._tiltDeg = newTilt;
+            Mode3D._tiltRad = newTilt * Math.PI / 180;
+
+            var curYaw = Mode3D._yawDeg;
+            var newYaw = curYaw + (t.targetYaw - curYaw) * lerpFactor;
+            if (Math.abs(newYaw - t.targetYaw) < 0.1) newYaw = t.targetYaw;
+            Mode3D._yawDeg = newYaw;
+            Mode3D._yawRad = newYaw * Math.PI / 180;
+        }
+
+        // 모두 목표에 도달했으면 전환 완료
+        var zoomDone = !$gameScreen || Math.abs($gameScreen.zoomScale() - t.targetZoom) < 0.001;
+        var tiltDone = !Mode3D || !Mode3D._active || Math.abs(Mode3D._tiltDeg - t.targetTilt) < 0.1;
+        var yawDone = !Mode3D || !Mode3D._active || Math.abs(Mode3D._yawDeg - t.targetYaw) < 0.1;
+        if (zoomDone && tiltDone && yawDone) {
+            this._cameraTransition = null;
+        }
+    }
 };
 
 Game_Map.prototype.updateScroll = function() {
