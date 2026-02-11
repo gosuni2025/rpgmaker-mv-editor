@@ -587,6 +587,68 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
     return true;
   }, [commands]);
 
+  // --- 위/아래 이동 ---
+  const moveSelected = useCallback((direction: 'up' | 'down') => {
+    if (selectedIndices.size === 0) return;
+    const ranges = expandSelectionToGroups(commands, selectedIndices);
+    // 전체 선택 범위의 min/max
+    const allMin = ranges[0][0];
+    const allMax = ranges[ranges.length - 1][1];
+    // 이동할 모든 인덱스 수집
+    const movingIndices = new Set<number>();
+    for (const [s, e] of ranges) {
+      for (let i = s; i <= e; i++) movingIndices.add(i);
+    }
+
+    if (direction === 'up') {
+      if (allMin <= 0) return;
+      // 바로 위 행의 그룹 범위를 구해서 그 위로 이동
+      const aboveRange = getCommandGroupRange(commands, allMin - 1);
+      const targetIdx = aboveRange[0];
+      const newCommands = [...commands];
+      const moving = [...movingIndices].sort((a, b) => a - b).map(i => newCommands[i]);
+      const rest = newCommands.filter((_, i) => !movingIndices.has(i));
+      // 위쪽 그룹의 시작 위치에 삽입
+      const insertAt = targetIdx;
+      rest.splice(insertAt, 0, ...moving);
+      changeWithHistory(rest);
+      // 선택 갱신
+      const newSel = new Set<number>();
+      for (let i = insertAt; i < insertAt + moving.length; i++) newSel.add(i);
+      setSelectedIndices(newSel);
+      setLastClickedIndex(insertAt);
+    } else {
+      // 마지막 빈 명령어(code 0) 앞까지만 이동 가능
+      if (allMax >= commands.length - 2) return;
+      // 바로 아래 행의 그룹 범위를 구해서 그 아래로 이동
+      const belowRange = getCommandGroupRange(commands, allMax + 1);
+      const targetEnd = belowRange[1];
+      const newCommands = [...commands];
+      const moving = [...movingIndices].sort((a, b) => a - b).map(i => newCommands[i]);
+      const rest = newCommands.filter((_, i) => !movingIndices.has(i));
+      // 아래쪽 그룹의 끝 다음 위치에 삽입 (이미 moving을 제거했으므로 보정)
+      const insertAt = targetEnd - moving.length + 1;
+      rest.splice(insertAt, 0, ...moving);
+      changeWithHistory(rest);
+      const newSel = new Set<number>();
+      for (let i = insertAt; i < insertAt + moving.length; i++) newSel.add(i);
+      setSelectedIndices(newSel);
+      setLastClickedIndex(insertAt);
+    }
+  }, [commands, selectedIndices, changeWithHistory]);
+
+  const canMoveUp = useMemo(() => {
+    if (selectedIndices.size === 0) return false;
+    const ranges = expandSelectionToGroups(commands, selectedIndices);
+    return ranges[0][0] > 0;
+  }, [commands, selectedIndices]);
+
+  const canMoveDown = useMemo(() => {
+    if (selectedIndices.size === 0) return false;
+    const ranges = expandSelectionToGroups(commands, selectedIndices);
+    return ranges[ranges.length - 1][1] < commands.length - 2;
+  }, [commands, selectedIndices]);
+
   const getCommandDisplay = (cmd: EventCommand): string => {
     const code = cmd.code;
     if (code === 0) return '';
@@ -682,6 +744,9 @@ export default function EventCommandEditor({ commands, onChange }: EventCommandE
         <span className="event-commands-toolbar-sep" />
         <button className="db-btn-small" onClick={copySelected} disabled={selectedIndices.size === 0} title="Cmd+C">Copy</button>
         <button className="db-btn-small" onClick={pasteAtSelection} disabled={!hasClipboard} title="Cmd+V">Paste</button>
+        <span className="event-commands-toolbar-sep" />
+        <button className="db-btn-small" onClick={() => moveSelected('up')} disabled={!canMoveUp} title="위로 이동">▲</button>
+        <button className="db-btn-small" onClick={() => moveSelected('down')} disabled={!canMoveDown} title="아래로 이동">▼</button>
         <span style={{ flex: 1 }} />
         <button className="db-btn-small" onClick={undo} disabled={undoStack.current.length === 0} title="Ctrl+Z">Undo</button>
         <button className="db-btn-small" onClick={redo} disabled={redoStack.current.length === 0} title="Ctrl+Shift+Z">Redo</button>
