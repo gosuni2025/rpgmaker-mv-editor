@@ -481,10 +481,14 @@ export default function MapCanvas() {
         }
       }
     }
-    const rObj = rendererObjRef.current;
-    if (rObj) {
-      const strategy = (window as any).RendererStrategy?.getStrategy();
-      if (strategy?.render) strategy.render(rObj.scene, rObj.camera);
+    if (!renderRequestedRef.current) {
+      renderRequestedRef.current = true;
+      requestAnimationFrame(() => {
+        renderRequestedRef.current = false;
+        if (!rendererObjRef.current || !stageRef.current) return;
+        const strategy = (window as any).RendererStrategy?.getStrategy();
+        if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
+      });
     }
   }, [playerStartDragPos, systemData, currentMapId, rendererReady]);
 
