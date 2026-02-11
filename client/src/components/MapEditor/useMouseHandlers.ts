@@ -3,6 +3,7 @@ import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
 import type { RPGEvent, EventPage, MapData } from '../../types/rpgMakerMV';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
+import { placeAutotileAtPure } from './mapToolAlgorithms';
 import type { MapToolsResult } from './useMapTools';
 import { useResizeHandlers } from './useResizeHandlers';
 
@@ -77,6 +78,7 @@ export function useMouseHandlers(
 
   // Drawing state refs
   const isDrawing = useRef(false);
+  const isRightErasing = useRef(false);
   const lastTile = useRef<{ x: number; y: number } | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
 
@@ -159,21 +161,26 @@ export function useMouseHandlers(
       if (e.button === 2 && editMode === 'map') {
         const latestMap = useEditorStore.getState().currentMap;
         if (!latestMap) return;
+        isRightErasing.current = true;
+        lastTile.current = tile;
+        pendingChanges.current = [];
         if (selectedTool === 'shadow') {
           const z = 4;
           const idx = (z * latestMap.height + tile.y) * latestMap.width + tile.x;
           const oldBits = latestMap.data[idx];
           if (oldBits !== 0) {
-            pushUndo([{ x: tile.x, y: tile.y, z, oldTileId: oldBits, newTileId: 0 }]);
+            pendingChanges.current.push({ x: tile.x, y: tile.y, z, oldTileId: oldBits, newTileId: 0 });
             updateMapTiles([{ x: tile.x, y: tile.y, z, tileId: 0 }]);
           }
         } else {
           const z = currentLayer;
-          const idx = (z * latestMap.height + tile.y) * latestMap.width + tile.x;
-          const oldTileId = latestMap.data[idx];
-          if (oldTileId !== 0) {
-            pushUndo([{ x: tile.x, y: tile.y, z, oldTileId, newTileId: 0 }]);
-            updateMapTiles([{ x: tile.x, y: tile.y, z, tileId: 0 }]);
+          const data = [...latestMap.data];
+          const changes: TileChange[] = [];
+          const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+          placeAutotileAtPure(tile.x, tile.y, z, 0, data, latestMap.width, latestMap.height, changes, updates);
+          if (updates.length > 0) {
+            pendingChanges.current.push(...changes);
+            updateMapTiles(updates);
           }
         }
         return;
@@ -424,6 +431,34 @@ export function useMouseHandlers(
         return;
       }
 
+      // 우클릭 드래그 지우기
+      if (isRightErasing.current && tile) {
+        if (lastTile.current && tile.x === lastTile.current.x && tile.y === lastTile.current.y) return;
+        lastTile.current = tile;
+        const latestMap = useEditorStore.getState().currentMap;
+        if (!latestMap) return;
+        if (selectedTool === 'shadow') {
+          const z = 4;
+          const idx = (z * latestMap.height + tile.y) * latestMap.width + tile.x;
+          const oldBits = latestMap.data[idx];
+          if (oldBits !== 0) {
+            pendingChanges.current.push({ x: tile.x, y: tile.y, z, oldTileId: oldBits, newTileId: 0 });
+            updateMapTiles([{ x: tile.x, y: tile.y, z, tileId: 0 }]);
+          }
+        } else {
+          const z = currentLayer;
+          const data = [...latestMap.data];
+          const changes: TileChange[] = [];
+          const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+          placeAutotileAtPure(tile.x, tile.y, z, 0, data, latestMap.width, latestMap.height, changes, updates);
+          if (updates.length > 0) {
+            pendingChanges.current.push(...changes);
+            updateMapTiles(updates);
+          }
+        }
+        return;
+      }
+
       if (!isDrawing.current || !tile) return;
 
       if (selectedTool === 'rectangle' || selectedTool === 'ellipse') {
@@ -447,7 +482,7 @@ export function useMouseHandlers(
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, setCursorTile, drawOverlayPreview, getCanvasPx, detectEdge, editMode, mode3d, setSelection, setPastePreviewPos]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, setCursorTile, drawOverlayPreview, getCanvasPx, detectEdge, editMode, mode3d, setSelection, setPastePreviewPos, currentLayer, updateMapTiles]
   );
 
   const handleMouseUp = useCallback(
@@ -458,6 +493,16 @@ export function useMouseHandlers(
         return;
       }
       if (isResizing.current) return;
+
+      // 우클릭 드래그 지우기 종료
+      if (isRightErasing.current) {
+        isRightErasing.current = false;
+        if (pendingChanges.current.length > 0) {
+          pushUndo(pendingChanges.current);
+          pendingChanges.current = [];
+        }
+        return;
+      }
 
       // Selection tool: finish select or move
       if (selectedTool === 'select' && editMode === 'map') {
