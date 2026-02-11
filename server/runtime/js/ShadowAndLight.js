@@ -202,6 +202,9 @@ ShadowLight.config = {
     shadowBias: -0.001,
     shadowNear: 1,
     shadowFar: 5000,
+
+    // 프록시 박스 라이팅
+    probeEmissiveFactor: 0.3,          // 측면 라이팅 강도 (0~1)
 };
 
 //=============================================================================
@@ -331,8 +334,10 @@ ShadowLight._updateProxyBoxLighting = function(sprites) {
     if (lights.length === 0) return;
 
     var normals = this._probeNormals;
+    var allNormals = this._probeNormalsAll;
     var tmpDir = this._tmpVec3;
     var tmpColor = this._tmpColor;
+    var isDevMode = this._debugProbeVisible;
 
     for (var i = 0; i < sprites.length; i++) {
         var sprite = sprites[i];
@@ -345,7 +350,8 @@ ShadowLight._updateProxyBoxLighting = function(sprites) {
         var charY = wp.y - 24; // 스프라이트 중심 높이 보정
         var charZ = 20;        // 캐릭터 높이 (지면 위)
 
-        // 5방향(정면 제외) 라이트 기여도 누적
+        // 6방향 라이트 기여도 (디버그용은 6방향 전부, emissive용은 5방향)
+        var perNormal = isDevMode ? [0,0,0,0,0,0] : null;
         var extraR = 0, extraG = 0, extraB = 0;
 
         for (var li = 0; li < lights.length; li++) {
@@ -381,10 +387,8 @@ ShadowLight._updateProxyBoxLighting = function(sprites) {
 
                 // SpotLight 원뿔 감쇠
                 if (light.isSpotLight && light.target) {
-                    // 라이트에서 타겟으로의 방향 (스포트라이트가 비추는 방향)
                     var spotAxis = ShadowLight._tmpVec3b
                         .subVectors(light.target.position, light.position).normalize();
-                    // 라이트에서 캐릭터로의 방향
                     var toChar = ShadowLight._tmpVec3c.set(
                         charX - light.position.x,
                         charY - light.position.y,
@@ -404,25 +408,232 @@ ShadowLight._updateProxyBoxLighting = function(sprites) {
 
             if (intensity <= 0.001) continue;
 
-            // 5방향 법선에 대한 라이트 기여도
+            // 라이트의 밝기 (색상 × 강도)
+            var lum = (lightColor.r + lightColor.g + lightColor.b) / 3.0 * intensity;
+
+            // 5방향 법선에 대한 라이트 기여도 (emissive용)
             for (var n = 0; n < normals.length; n++) {
                 var dotNL = normals[n].dot(tmpDir);
                 if (dotNL > 0) {
                     extraR += lightColor.r * intensity * dotNL;
                     extraG += lightColor.g * intensity * dotNL;
                     extraB += lightColor.b * intensity * dotNL;
+                    if (isDevMode) {
+                        perNormal[n] += lum * dotNL;
+                    }
                 }
+            }
+            // 디버그: +Z(정면) 기여도도 계산
+            if (isDevMode) {
+                var dotFront = allNormals[5].dot(tmpDir);
+                if (dotFront > 0) perNormal[5] += lum * dotFront;
             }
         }
 
         // 추가 조명을 emissive에 반영 (감쇠 계수로 강도 조절)
-        var factor = 0.3; // 측면 라이팅 강도 (0~1, 너무 밝지 않도록)
+        var factor = this.config.probeEmissiveFactor;
         sprite._material.emissive.setRGB(
             Math.min(1.0, extraR * factor),
             Math.min(1.0, extraG * factor),
             Math.min(1.0, extraB * factor)
         );
+
+        // 디버그 시각화 업데이트
+        if (isDevMode) {
+            this._updateProbeDebugVis(sprite, charX, charY, charZ, perNormal);
+        }
     }
+
+    // 디버그 모드가 꺼졌으면 시각화 제거
+    if (!isDevMode && this._probeDebugGroup) {
+        this._removeProbeDebugVis();
+    }
+};
+
+//=============================================================================
+// 프록시 박스 디버그 시각화
+// 개발 모드에서 각 캐릭터의 가상 콜라이더 박스(와이어프레임)와
+// 6방향 법선 화살표(라이트 기여도에 따라 밝기 변화)를 3D 씬에 표시
+//=============================================================================
+
+// +Z(정면)를 포함한 전체 6방향 법선 (디버그 시각화용)
+ShadowLight._probeNormalsAll = [
+    new THREE.Vector3( 1,  0,  0),  // +X (오른쪽)
+    new THREE.Vector3(-1,  0,  0),  // -X (왼쪽)
+    new THREE.Vector3( 0,  1,  0),  // +Y (아래)
+    new THREE.Vector3( 0, -1,  0),  // -Y (위)
+    new THREE.Vector3( 0,  0, -1),  // -Z (뒤쪽)
+    new THREE.Vector3( 0,  0,  1),  // +Z (정면)
+];
+
+// 법선별 색상 (기본색, 밝기에 따라 스케일)
+ShadowLight._probeColors = [
+    0xff0000,  // +X 빨강
+    0x00ff00,  // -X 초록
+    0x0000ff,  // +Y 파랑
+    0xffff00,  // -Y 노랑
+    0xff00ff,  // -Z 마젠타
+    0x00ffff,  // +Z 시안
+];
+
+ShadowLight._probeDebugGroup = null;  // 씬에 추가된 디버그 그룹
+ShadowLight._probeDebugData = null;   // sprite → { box, arrows[] } 매핑
+ShadowLight._debugProbeVisible = false;
+
+/**
+ * 디버그 시각화를 위한 그룹과 캐시 초기화
+ */
+ShadowLight._ensureProbeDebugGroup = function() {
+    if (this._probeDebugGroup) return;
+    this._probeDebugGroup = new THREE.Group();
+    this._probeDebugGroup.name = 'ProbeBoxDebug';
+    this._probeDebugGroup.frustumCulled = false;
+    this._probeDebugData = new Map();
+    var scene = this._findScene();
+    if (scene) scene.add(this._probeDebugGroup);
+};
+
+/**
+ * 특정 스프라이트의 디버그 메시 생성 (와이어프레임 박스 + 법선 화살표 6개)
+ */
+ShadowLight._createProbeDebugMeshes = function(sprite) {
+    this._ensureProbeDebugGroup();
+
+    var group = new THREE.Group();
+    group.frustumCulled = false;
+
+    // 와이어프레임 박스 (캐릭터 크기에 맞춤)
+    var boxGeo = new THREE.BoxGeometry(1, 1, 1);
+    var boxMat = new THREE.MeshBasicMaterial({
+        color: 0x44ff44,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.6,
+        depthTest: false,
+    });
+    var boxMesh = new THREE.Mesh(boxGeo, boxMat);
+    boxMesh.frustumCulled = false;
+    boxMesh.renderOrder = 9998;
+    group.add(boxMesh);
+
+    // 6방향 법선 화살표 (Line으로 구현)
+    var arrows = [];
+    var allNormals = this._probeNormalsAll;
+    var colors = this._probeColors;
+    for (var n = 0; n < 6; n++) {
+        // 화살표 라인: 중심 → 법선 방향
+        var lineGeo = new THREE.BufferGeometry();
+        var positions = new Float32Array(6); // 2개 정점 × 3
+        lineGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        var lineMat = new THREE.LineBasicMaterial({
+            color: colors[n],
+            linewidth: 2,
+            transparent: true,
+            opacity: 0.3,
+            depthTest: false,
+        });
+        var line = new THREE.Line(lineGeo, lineMat);
+        line.frustumCulled = false;
+        line.renderOrder = 9999;
+        group.add(line);
+
+        // 화살표 끝 구체 (기여도에 따라 크기/밝기 변화)
+        var sphereGeo = new THREE.SphereGeometry(2, 6, 4);
+        var sphereMat = new THREE.MeshBasicMaterial({
+            color: colors[n],
+            transparent: true,
+            opacity: 0.3,
+            depthTest: false,
+        });
+        var sphere = new THREE.Mesh(sphereGeo, sphereMat);
+        sphere.frustumCulled = false;
+        sphere.renderOrder = 9999;
+        group.add(sphere);
+
+        arrows.push({ line: line, sphere: sphere, mat: lineMat, sphereMat: sphereMat });
+    }
+
+    this._probeDebugGroup.add(group);
+
+    var data = { group: group, box: boxMesh, arrows: arrows };
+    this._probeDebugData.set(sprite, data);
+    return data;
+};
+
+/**
+ * 특정 스프라이트의 디버그 시각화 업데이트
+ * @param {Object} sprite - 캐릭터 스프라이트
+ * @param {Number} cx, cy, cz - 프로빙 중심 좌표
+ * @param {Array} perNormal - 6방향 라이트 기여도 배열
+ */
+ShadowLight._updateProbeDebugVis = function(sprite, cx, cy, cz, perNormal) {
+    var data = this._probeDebugData ? this._probeDebugData.get(sprite) : null;
+    if (!data) {
+        data = this._createProbeDebugMeshes(sprite);
+    }
+
+    // 캐릭터 프레임 크기
+    var fw = sprite._frameWidth || 48;
+    var fh = sprite._frameHeight || 48;
+    var boxW = fw * 0.6;  // 박스 폭 (캐릭터보다 약간 작게)
+    var boxH = fh * 0.8;  // 박스 높이
+    var boxD = fw * 0.4;  // 박스 깊이
+
+    // 와이어프레임 박스 위치/크기
+    data.box.position.set(cx, cy, cz);
+    data.box.scale.set(boxW, boxH, boxD);
+
+    // 법선 화살표 업데이트
+    var allNormals = this._probeNormalsAll;
+    var arrowLen = 30; // 화살표 기본 길이
+
+    for (var n = 0; n < 6; n++) {
+        var arrow = data.arrows[n];
+        var normal = allNormals[n];
+        var contribution = perNormal[n] || 0;
+
+        // 기여도에 따른 시각 효과
+        var brightness = Math.min(1.0, contribution);
+        var arrowScale = arrowLen + brightness * 20; // 기여도 높으면 화살표 길어짐
+
+        // 라인 정점 업데이트: 중심 → 법선 방향
+        var posAttr = arrow.line.geometry.attributes.position;
+        posAttr.setXYZ(0, cx, cy, cz);
+        posAttr.setXYZ(1,
+            cx + normal.x * arrowScale,
+            cy + normal.y * arrowScale,
+            cz + normal.z * arrowScale
+        );
+        posAttr.needsUpdate = true;
+
+        // 끝점 구체
+        arrow.sphere.position.set(
+            cx + normal.x * arrowScale,
+            cy + normal.y * arrowScale,
+            cz + normal.z * arrowScale
+        );
+        // 기여도에 따라 구체 크기/투명도 조절
+        var sphereSize = 1.5 + brightness * 4;
+        arrow.sphere.scale.setScalar(sphereSize);
+        arrow.sphereMat.opacity = 0.2 + brightness * 0.8;
+        arrow.mat.opacity = 0.2 + brightness * 0.8;
+    }
+};
+
+/**
+ * 모든 디버그 시각화 제거
+ */
+ShadowLight._removeProbeDebugVis = function() {
+    if (!this._probeDebugGroup) return;
+    var scene = this._findScene();
+    if (scene) scene.remove(this._probeDebugGroup);
+    // geometry/material dispose
+    this._probeDebugGroup.traverse(function(obj) {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) obj.material.dispose();
+    });
+    this._probeDebugGroup = null;
+    this._probeDebugData = null;
 };
 
 /**
@@ -889,6 +1100,7 @@ Spriteset_Map.prototype._activateShadowLight = function() {
 };
 
 Spriteset_Map.prototype._deactivateShadowLight = function() {
+    ShadowLight._removeProbeDebugVis();
     ShadowLight._removeDebugUI();
     var scene = ShadowLight._findScene();
     if (scene) {
@@ -1676,6 +1888,44 @@ ShadowLight._createDebugUI = function() {
     copyBtn.addEventListener('mouseover', function() { copyBtn.style.background = '#557'; });
     copyBtn.addEventListener('mouseout', function() { copyBtn.style.background = '#446'; });
     panel.appendChild(copyBtn);
+
+    // ── 프록시 박스 디버그 섹션 ──
+    var probeBody = createSection(panel, '프록시 박스 라이팅', '#66ffcc', true);
+
+    // 프록시 박스 시각화 토글
+    var probeRow = document.createElement('div');
+    probeRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+    var probeLbl = document.createElement('span');
+    probeLbl.textContent = '시각화';
+    probeLbl.style.cssText = 'width:70px;font-size:11px;';
+    var probeCheck = document.createElement('input');
+    probeCheck.type = 'checkbox';
+    probeCheck.checked = false;
+    probeCheck.addEventListener('change', function() {
+        self._debugProbeVisible = probeCheck.checked;
+        if (!probeCheck.checked) {
+            self._removeProbeDebugVis();
+        }
+    });
+    probeRow.appendChild(probeLbl);
+    probeRow.appendChild(probeCheck);
+    probeBody.appendChild(probeRow);
+
+    // emissive factor 슬라이더
+    addSliderRow(probeBody, { label: 'Factor', key: 'probeEmissiveFactor', min: 0, max: 1, step: 0.05 });
+
+    // 범례
+    var legendDiv = document.createElement('div');
+    legendDiv.style.cssText = 'margin:6px 0;font-size:10px;line-height:1.6;';
+    legendDiv.innerHTML = [
+        '<span style="color:#ff4444">\u25CF</span> +X (우) ',
+        '<span style="color:#44ff44">\u25CF</span> -X (좌) ',
+        '<span style="color:#4444ff">\u25CF</span> +Y (하)<br>',
+        '<span style="color:#ffff44">\u25CF</span> -Y (상) ',
+        '<span style="color:#ff44ff">\u25CF</span> -Z (후) ',
+        '<span style="color:#44ffff">\u25CF</span> +Z (전)',
+    ].join('');
+    probeBody.appendChild(legendDiv);
 
     // ── 스카이박스 섹션 ──
     var skyBody = createSection(panel, '스카이박스', '#ffb74d', true);
