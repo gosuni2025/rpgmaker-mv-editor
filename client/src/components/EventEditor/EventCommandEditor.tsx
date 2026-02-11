@@ -418,8 +418,19 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
   // 그룹 하이라이트는 단일 선택 시에만
   const [groupStart, groupEnd] = useMemo(() => {
     if (selectedIndices.size !== 1) return [-1, -1];
-    const idx = [...selectedIndices][0];
+    let idx = [...selectedIndices][0];
     if (idx < 0 || idx >= commands.length) return [-1, -1];
+    // 연속형 부속 코드(401 등)를 선택한 경우 부모 커맨드를 찾아서 그 전체 그룹 범위 반환
+    const cmd = commands[idx];
+    if (CHILD_TO_PARENT[cmd.code]) {
+      const parentCodes = CHILD_TO_PARENT[cmd.code];
+      for (let i = idx - 1; i >= 0; i--) {
+        if (parentCodes.includes(commands[i].code) && commands[i].indent === cmd.indent) {
+          idx = i;
+          break;
+        }
+      }
+    }
     return getCommandGroupRange(commands, idx);
   }, [selectedIndices, commands]);
 
