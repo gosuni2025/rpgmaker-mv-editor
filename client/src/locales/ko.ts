@@ -65,6 +65,20 @@ const ko = {
     openFolder: '폴더 열기',
     settings: '환경설정',
     language: '언어',
+    options: '옵션...',
+  },
+
+  // === Options Dialog ===
+  options: {
+    title: '옵션',
+    transparentColor: '투명 색깔',
+    red: '빨강:',
+    green: '초록:',
+    blue: '파랑:',
+    language: '언어',
+    ui: 'UI',
+    theme: '테마:',
+    dark: '다크',
   },
 
   // === Toolbar ===

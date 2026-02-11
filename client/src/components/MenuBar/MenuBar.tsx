@@ -42,6 +42,7 @@ export default function MenuBar() {
   const setShowEventSearchDialog = useEditorStore((s) => s.setShowEventSearchDialog);
   const setShowResourceManagerDialog = useEditorStore((s) => s.setShowResourceManagerDialog);
   const setShowCharacterGeneratorDialog = useEditorStore((s) => s.setShowCharacterGeneratorDialog);
+  const setShowOptionsDialog = useEditorStore((s) => s.setShowOptionsDialog);
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
   const zoomIn = useEditorStore((s) => s.zoomIn);
@@ -64,18 +65,7 @@ export default function MenuBar() {
         { type: 'separator' },
         { label: t('menu.deploy'), action: 'deploy', disabled: () => !hasProject },
         { type: 'separator' },
-        {
-          label: t('menu.settings'),
-          children: [
-            {
-              label: t('menu.language'),
-              children: [
-                { label: '한국어', action: 'langKo', checked: () => i18n.language === 'ko' },
-                { label: 'English', action: 'langEn', checked: () => i18n.language === 'en' },
-              ],
-            },
-          ],
-        },
+        { label: t('menu.options'), action: 'options' },
       ],
     },
     {
@@ -187,13 +177,12 @@ export default function MenuBar() {
       case 'selectAll': window.dispatchEvent(new CustomEvent('editor-selectall')); break;
       case 'deselect': window.dispatchEvent(new CustomEvent('editor-deselect')); break;
       case 'autotileDebug': window.dispatchEvent(new CustomEvent('editor-autotile-debug')); break;
-      case 'langKo': i18n.changeLanguage('ko'); localStorage.setItem('editor-lang', 'ko'); break;
-      case 'langEn': i18n.changeLanguage('en'); localStorage.setItem('editor-lang', 'en'); break;
+      case 'options': setShowOptionsDialog(true); break;
     }
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
       setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
-      setShowCharacterGeneratorDialog, setEditMode, setSelectedTool, zoomIn, zoomOut,
+      setShowCharacterGeneratorDialog, setShowOptionsDialog, setEditMode, setSelectedTool, zoomIn, zoomOut,
       zoomActualSize, undo, redo]);
 
   useEffect(() => {

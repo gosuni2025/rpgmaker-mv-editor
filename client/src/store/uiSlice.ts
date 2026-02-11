@@ -1,16 +1,28 @@
 import type { EditorState, SliceCreator } from './types';
 import { ZOOM_LEVELS } from './types';
 
+const TRANSPARENT_COLOR_KEY = 'rpg-editor-transparent-color';
+
+function loadTransparentColor(): { r: number; g: number; b: number } {
+  try {
+    const saved = localStorage.getItem(TRANSPARENT_COLOR_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return { r: 255, g: 255, b: 255 };
+}
+
 export const uiSlice: SliceCreator<Pick<EditorState,
   'zoomLevel' | 'mode3d' | 'shadowLight' | 'depthOfField' | 'paletteTab' | 'toastMessage' |
+  'transparentColor' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
-  'showResourceManagerDialog' | 'showCharacterGeneratorDialog' |
+  'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' |
   'showToast' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'setMode3d' | 'setShadowLight' | 'setDepthOfField' | 'setPaletteTab' |
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
-  'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog'
+  'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' |
+  'setTransparentColor'
 >> = (set, get) => ({
   zoomLevel: 1,
   mode3d: false,
@@ -18,6 +30,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   depthOfField: false,
   paletteTab: 'A',
   toastMessage: null,
+  transparentColor: loadTransparentColor(),
 
   showOpenProjectDialog: false,
   showNewProjectDialog: false,
@@ -29,6 +42,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   showEventSearchDialog: false,
   showResourceManagerDialog: false,
   showCharacterGeneratorDialog: false,
+  showOptionsDialog: false,
 
   showToast: (message: string) => {
     set({ toastMessage: message });
@@ -76,4 +90,9 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   setShowEventSearchDialog: (show: boolean) => set({ showEventSearchDialog: show }),
   setShowResourceManagerDialog: (show: boolean) => set({ showResourceManagerDialog: show }),
   setShowCharacterGeneratorDialog: (show: boolean) => set({ showCharacterGeneratorDialog: show }),
+  setShowOptionsDialog: (show: boolean) => set({ showOptionsDialog: show }),
+  setTransparentColor: (color: { r: number; g: number; b: number }) => {
+    localStorage.setItem(TRANSPARENT_COLOR_KEY, JSON.stringify(color));
+    set({ transparentColor: color });
+  },
 });

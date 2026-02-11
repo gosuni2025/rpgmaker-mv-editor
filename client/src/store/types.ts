@@ -130,6 +130,9 @@ export interface EditorState {
   toastMessage: string | null;
   showToast: (message: string) => void;
 
+  // Options
+  transparentColor: { r: number; g: number; b: number };
+
   // UI dialogs
   showOpenProjectDialog: boolean;
   showNewProjectDialog: boolean;
@@ -141,6 +144,7 @@ export interface EditorState {
   showEventSearchDialog: boolean;
   showResourceManagerDialog: boolean;
   showCharacterGeneratorDialog: boolean;
+  showOptionsDialog: boolean;
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;
@@ -233,6 +237,8 @@ export interface EditorState {
   setShowEventSearchDialog: (show: boolean) => void;
   setShowResourceManagerDialog: (show: boolean) => void;
   setShowCharacterGeneratorDialog: (show: boolean) => void;
+  setShowOptionsDialog: (show: boolean) => void;
+  setTransparentColor: (color: { r: number; g: number; b: number }) => void;
 }
 
 export type SliceCreator<T> = (

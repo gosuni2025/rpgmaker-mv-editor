@@ -63,6 +63,19 @@ const en = {
     openFolder: 'Open Folder',
     settings: 'Settings',
     language: 'Language',
+    options: 'Options...',
+  },
+
+  options: {
+    title: 'Options',
+    transparentColor: 'Transparent Color',
+    red: 'Red:',
+    green: 'Green:',
+    blue: 'Blue:',
+    language: 'Language',
+    ui: 'UI',
+    theme: 'Theme:',
+    dark: 'Dark',
   },
 
   toolbar: {
