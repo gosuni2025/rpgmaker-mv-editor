@@ -6150,27 +6150,10 @@ Game_Map.prototype.updateCameraZone = function() {
     var halfScreenX = this.screenTileX() / 2;
     var halfScreenY = this.screenTileY() / 2;
 
-    // 카메라 객체의 실제 월드 타일 좌표
+    // 카메라 객체의 실제 월드 타일 좌표 (디버그용)
     var camWorld = this.getCameraWorldTile();
     this._cameraWorldX = camWorld.x;
     this._cameraWorldY = camWorld.y;
-
-    // 초기화 (맵 전환 시)
-    if (this._cameraZoneTargetX === undefined) {
-        this._cameraZoneTargetX = this._displayX + halfScreenX;
-        this._cameraZoneTargetY = this._displayY + halfScreenY;
-        this._activeCameraZoneId = null;
-        var startZone = this.findCameraZoneAt(camWorld.x, camWorld.y);
-        if (startZone) this._activeCameraZoneId = startZone.id;
-    }
-
-    // 존 전환 판정: 카메라 객체의 월드 위치 기준
-    var cameraZone = this.findCameraZoneAt(camWorld.x, camWorld.y);
-    if (cameraZone) {
-        this._activeCameraZoneId = cameraZone.id;
-    } else {
-        this._activeCameraZoneId = null;
-    }
 
     // 마진 = 화면 타일 수의 절반 (2D/3D 공통)
     var marginX = halfScreenX;
@@ -6181,6 +6164,23 @@ Game_Map.prototype.updateCameraZone = function() {
     var targetY = this._displayY + halfScreenY;
     var preClampX = targetX;
     var preClampY = targetY;
+
+    // 초기화 (맵 전환 시)
+    if (this._cameraZoneTargetX === undefined) {
+        this._cameraZoneTargetX = targetX;
+        this._cameraZoneTargetY = targetY;
+        this._activeCameraZoneId = null;
+        var startZone = this.findCameraZoneAt(targetX, targetY);
+        if (startZone) this._activeCameraZoneId = startZone.id;
+    }
+
+    // 존 전환 판정: 클램핑 전 타겟 기준 (클램핑으로 갇혀도 전환 감지 가능)
+    var cameraZone = this.findCameraZoneAt(targetX, targetY);
+    if (cameraZone) {
+        this._activeCameraZoneId = cameraZone.id;
+    } else {
+        this._activeCameraZoneId = null;
+    }
 
     // 활성 존이 있으면 경계에서만 클램핑
     if (this._activeCameraZoneId != null) {
