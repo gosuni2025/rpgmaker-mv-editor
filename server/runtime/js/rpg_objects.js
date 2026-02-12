@@ -6215,10 +6215,22 @@ Game_Map.prototype._updateCameraZoneDebugText = function(zones) {
     var active = this._activeCameraZone;
     var activeName = active ? (active.name || ('Zone' + active.id)) : 'none';
     var lerping = this._cameraScrollLerping ? ' [lerping]' : '';
-    var screenW = this.screenTileX();
-    var screenH = this.screenTileY();
-    var camInfo = 'CamView: ' + this._displayX.toFixed(2) + ', ' + this._displayY.toFixed(2) +
-        ' ~ ' + (this._displayX + screenW).toFixed(2) + ', ' + (this._displayY + screenH).toFixed(2);
+    var camInfo = '';
+    if (window.Mode3D && Mode3D._active && Mode3D._perspCamera) {
+        var fb = Mode3D.getFrustumTileBounds(
+            this._displayX, this._displayY,
+            this.tileWidth(), this.tileHeight()
+        );
+        if (fb) {
+            camInfo = 'Frustum: ' + fb.minTX.toFixed(2) + ', ' + fb.minTY.toFixed(2) +
+                ' ~ ' + fb.maxTX.toFixed(2) + ', ' + fb.maxTY.toFixed(2);
+        }
+    } else {
+        var screenW = this.screenTileX();
+        var screenH = this.screenTileY();
+        camInfo = 'CamView: ' + this._displayX.toFixed(2) + ', ' + this._displayY.toFixed(2) +
+            ' ~ ' + (this._displayX + screenW).toFixed(2) + ', ' + (this._displayY + screenH).toFixed(2);
+    }
     this._cameraZoneDebugEl.textContent =
         'PlayerZones: ' + (names.length > 0 ? names.join(', ') : 'none') +
         '\nActive: ' + activeName + lerping +
@@ -6257,12 +6269,60 @@ Game_Map.prototype._getActiveZoneBounds = function() {
 };
 
 // 바운딩 박스 기준으로 display clamp 목표 좌표 계산 (공통 헬퍼)
+// 3D 모드: frustum이 Z=0 평면에 투영된 영역 기준으로 클램핑
+// 2D 모드: displayX/Y + screenTileX/Y 기준으로 클램핑
 Game_Map.prototype._calcClampTarget = function(bounds) {
     if (!bounds) return null;
 
+    var targetX = this._displayX;
+    var targetY = this._displayY;
+
+    // 3D 모드: frustum 투영 영역 기준 클램핑
+    if (window.Mode3D && Mode3D._active && Mode3D._perspCamera) {
+        var fb = Mode3D.getFrustumTileBounds(
+            this._displayX, this._displayY,
+            this.tileWidth(), this.tileHeight()
+        );
+        if (fb) {
+            var viewW = fb.maxTX - fb.minTX;
+            var viewH = fb.maxTY - fb.minTY;
+
+            if (bounds.width >= viewW) {
+                // frustum 좌측이 존 좌측보다 왼쪽이면 → 오른쪽으로 밀기
+                if (fb.minTX < bounds.x) {
+                    targetX += bounds.x - fb.minTX;
+                }
+                // frustum 우측이 존 우측보다 오른쪽이면 → 왼쪽으로 밀기
+                else if (fb.maxTX > bounds.x + bounds.width) {
+                    targetX -= fb.maxTX - (bounds.x + bounds.width);
+                }
+            } else {
+                // 존이 뷰보다 작으면 중앙 정렬
+                var centerX = bounds.x + bounds.width / 2;
+                var viewCenterX = (fb.minTX + fb.maxTX) / 2;
+                targetX += centerX - viewCenterX;
+            }
+
+            if (bounds.height >= viewH) {
+                if (fb.minTY < bounds.y) {
+                    targetY += bounds.y - fb.minTY;
+                }
+                else if (fb.maxTY > bounds.y + bounds.height) {
+                    targetY -= fb.maxTY - (bounds.y + bounds.height);
+                }
+            } else {
+                var centerY = bounds.y + bounds.height / 2;
+                var viewCenterY = (fb.minTY + fb.maxTY) / 2;
+                targetY += centerY - viewCenterY;
+            }
+
+            return { x: targetX, y: targetY };
+        }
+    }
+
+    // 2D 모드: 기존 로직
     var screenW = this.screenTileX();
     var screenH = this.screenTileY();
-    var targetX, targetY;
 
     if (bounds.width >= screenW) {
         targetX = Math.max(bounds.x, Math.min(bounds.x + bounds.width - screenW, this._displayX));

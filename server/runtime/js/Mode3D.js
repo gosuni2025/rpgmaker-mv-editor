@@ -563,6 +563,46 @@
     };
 
     //=========================================================================
+    // 3D frustum이 Z=0 평면에서 차지하는 영역을 타일 좌표로 반환
+    // 카메라 존 클램핑에서 3D 가시영역 계산에 사용
+    // 반환: { minTX, minTY, maxTX, maxTY } 또는 null
+    //=========================================================================
+    Mode3D.getFrustumTileBounds = function(displayX, displayY, tileWidth, tileHeight) {
+        var camera = this._perspCamera;
+        if (!camera) return null;
+
+        camera.updateMatrixWorld(true);
+
+        var w = Graphics.width;
+        var h = Graphics.height;
+
+        // 화면 네 꼭짓점을 Z=0 평면에 투영
+        var corners = [
+            this.screenToWorld(0, 0),      // top-left
+            this.screenToWorld(w, 0),      // top-right
+            this.screenToWorld(0, h),      // bottom-left
+            this.screenToWorld(w, h)       // bottom-right
+        ];
+
+        // screenToWorld 캐시 초기화 (네 번 호출했으므로)
+        this._lastScreenToWorld = null;
+
+        var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (var i = 0; i < corners.length; i++) {
+            if (!corners[i]) return null;
+            // 월드 픽셀 → 타일 좌표
+            var tx = displayX + corners[i].x / tileWidth;
+            var ty = displayY + corners[i].y / tileHeight;
+            if (tx < minX) minX = tx;
+            if (ty < minY) minY = ty;
+            if (tx > maxX) maxX = tx;
+            if (ty > maxY) maxY = ty;
+        }
+
+        return { minTX: minX, minTY: minY, maxTX: maxX, maxTY: maxY };
+    };
+
+    //=========================================================================
     // Game_Map.canvasToMapX/Y 오버라이드
     // 3D 모드 활성 시 screenToWorld로 올바른 타일 좌표 계산
     // 원본: canvasToMapX(x) → (displayX * 48 + x) / 48
