@@ -198,8 +198,22 @@ export default function MenuBar() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 다이얼로그/모달 내부에서 발생한 키 이벤트는 맵 단축키로 처리하지 않음
+      const target = e.target as HTMLElement;
+      const inDialog = target.closest('.db-dialog-overlay');
       const ctrl = e.ctrlKey || e.metaKey;
+      // 전역 단축키 (다이얼로그 안에서도 동작)
       if (ctrl && e.key === 's') { e.preventDefault(); handleAction('save'); }
+      else if (e.key === 'F5') { e.preventDefault(); handleAction('modeMap'); }
+      else if (e.key === 'F6') { e.preventDefault(); handleAction('modeEvent'); }
+      else if (e.key === 'F7') { e.preventDefault(); handleAction('modeLight'); }
+      else if (e.key === 'F8') { e.preventDefault(); handleAction('modeObject'); }
+      else if (e.key === 'F9') { e.preventDefault(); handleAction('modeCameraZone'); }
+      else if (e.key === 'F10') { e.preventDefault(); handleAction('database'); }
+      else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'r') { e.preventDefault(); handleAction('playtestCurrentMap'); }
+      else if (ctrl && e.key === 'r') { e.preventDefault(); handleAction('playtestTitle'); }
+      // 다이얼로그 내부에서는 편집 단축키를 맵에 전파하지 않음
+      else if (inDialog) return;
       else if (ctrl && e.key === 'z') { e.preventDefault(); handleAction('undo'); }
       else if (ctrl && e.key === 'y') { e.preventDefault(); handleAction('redo'); }
       else if (ctrl && e.key === 'x') { e.preventDefault(); handleAction('cut'); }
@@ -213,14 +227,6 @@ export default function MenuBar() {
       else if (ctrl && e.key === 'd') { e.preventDefault(); handleAction('deselect'); }
       else if (e.key === 'Delete') { handleAction('delete'); }
       else if (e.key === 'Escape') { window.dispatchEvent(new CustomEvent('editor-escape')); }
-      else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'r') { e.preventDefault(); handleAction('playtestCurrentMap'); }
-      else if (ctrl && e.key === 'r') { e.preventDefault(); handleAction('playtestTitle'); }
-      else if (e.key === 'F5') { e.preventDefault(); handleAction('modeMap'); }
-      else if (e.key === 'F6') { e.preventDefault(); handleAction('modeEvent'); }
-      else if (e.key === 'F7') { e.preventDefault(); handleAction('modeLight'); }
-      else if (e.key === 'F8') { e.preventDefault(); handleAction('modeObject'); }
-      else if (e.key === 'F9') { e.preventDefault(); handleAction('modeCameraZone'); }
-      else if (e.key === 'F10') { e.preventDefault(); handleAction('database'); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
