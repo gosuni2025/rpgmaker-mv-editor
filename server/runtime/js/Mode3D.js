@@ -576,15 +576,34 @@
         var w = Graphics.width;
         var h = Graphics.height;
 
-        // 화면 네 꼭짓점을 Z=0 평면에 투영
-        var corners = [
-            this.screenToWorld(0, 0),      // top-left
-            this.screenToWorld(w, 0),      // top-right
-            this.screenToWorld(0, h),      // bottom-left
-            this.screenToWorld(w, h)       // bottom-right
+        // tilt가 높으면 화면 상단의 ray가 Z=0과 만나지 않을 수 있음
+        // 화면 가장자리의 여러 샘플 포인트를 사용하여 유효한 것들로 바운딩 박스 구성
+        var samplePoints = [
+            // 네 꼭짓점
+            [0, 0], [w, 0], [0, h], [w, h],
+            // 가장자리 중간점
+            [w/2, 0], [0, h/2], [w, h/2], [w/2, h],
+            // 상단을 아래로 점진적 탐색 (tilt가 높을 때 유효한 최상단 찾기)
+            [0, h*0.25], [w, h*0.25],
+            [0, h*0.5], [w, h*0.5],
         ];
 
-        // screenToWorld 캐시 초기화 (네 번 호출했으므로)
+        var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        var validCount = 0;
+
+        for (var i = 0; i < samplePoints.length; i++) {
+            var pt = this._screenToWorldSafe(samplePoints[i][0], samplePoints[i][1]);
+            if (!pt) continue;
+            validCount++;
+            var tx = displayX + pt.x / tileWidth;
+            var ty = displayY + pt.y / tileHeight;
+            if (tx < minX) minX = tx;
+            if (ty < minY) minY = ty;
+            if (tx > maxX) maxX = tx;
+            if (ty > maxY) maxY = ty;
+        }
+
+        // screenToWorld 캐시 초기화
         this._lastScreenToWorld = null;
 
         // 로그 (스로틀)
@@ -593,35 +612,48 @@
         if (shouldLog) {
             console.log('[Mode3D] getFrustumTileBounds',
                 '\n  displayXY:', displayX.toFixed(2), displayY.toFixed(2),
-                '\n  screenSize:', w, 'x', h,
                 '\n  tilt:', this._tiltDeg.toFixed(1), 'yaw:', this._yawDeg.toFixed(1),
-                '\n  corners(px):', JSON.stringify(corners.map(function(c) {
-                    return c ? {x: c.x.toFixed(1), y: c.y.toFixed(1)} : null;
-                })),
+                '\n  validSamples:', validCount, '/', samplePoints.length,
+                '\n  tileBounds:', validCount > 0 ? (minX.toFixed(2)+','+minY.toFixed(2)+' ~ '+maxX.toFixed(2)+','+maxY.toFixed(2)) : 'none',
                 '\n  camPos:', camera.position.x.toFixed(1), camera.position.y.toFixed(1), camera.position.z.toFixed(1)
             );
         }
 
-        var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        for (var i = 0; i < corners.length; i++) {
-            if (!corners[i]) return null;
-            // 월드 픽셀 → 타일 좌표
-            var tx = displayX + corners[i].x / tileWidth;
-            var ty = displayY + corners[i].y / tileHeight;
-            if (tx < minX) minX = tx;
-            if (ty < minY) minY = ty;
-            if (tx > maxX) maxX = tx;
-            if (ty > maxY) maxY = ty;
-        }
-
-        if (shouldLog) {
-            console.log('[Mode3D] frustum tile result:',
-                'min:', minX.toFixed(2), minY.toFixed(2),
-                'max:', maxX.toFixed(2), maxY.toFixed(2)
-            );
-        }
+        if (validCount < 2) return null;
 
         return { minTX: minX, minTY: minY, maxTX: maxX, maxTY: maxY };
+    };
+
+    // screenToWorld의 안전한 버전: t <= 0 (카메라 뒤쪽 교점) 제외
+    Mode3D._screenToWorldSafe = function(screenX, screenY) {
+        var camera = this._perspCamera;
+        if (!camera) return null;
+
+        var w = Graphics.width;
+        var h = Graphics.height;
+
+        var ndcX = (screenX / w) * 2 - 1;
+        var ndcY = -((screenY / h) * 2 - 1);
+
+        var near = new THREE.Vector3(ndcX, ndcY, -1);
+        var far  = new THREE.Vector3(ndcX, ndcY,  1);
+        near.applyMatrix4(camera.projectionMatrixInverse);
+        near.applyMatrix4(camera.matrixWorld);
+        far.applyMatrix4(camera.projectionMatrixInverse);
+        far.applyMatrix4(camera.matrixWorld);
+
+        var dir = new THREE.Vector3().subVectors(far, near).normalize();
+
+        // Z=0 평면과의 교점: near.z + t * dir.z = 0
+        if (Math.abs(dir.z) < 1e-6) return null;
+        var t = -near.z / dir.z;
+        // t <= 0이면 카메라 뒤쪽이므로 무효
+        if (t <= 0) return null;
+
+        return {
+            x: near.x + t * dir.x,
+            y: near.y + t * dir.y
+        };
     };
 
     //=========================================================================
