@@ -68,7 +68,7 @@ export function useLightHandlers(): LightHandlersResult {
 
     if (hitLight) {
       const curIds = state.selectedLightIds;
-      if (e.shiftKey) {
+      if (e.metaKey || e.ctrlKey) {
         if (curIds.includes(hitLight.id)) {
           const newIds = curIds.filter(id => id !== hitLight.id);
           setSelectedLightIds(newIds);
@@ -91,7 +91,7 @@ export function useLightHandlers(): LightHandlersResult {
         setLightDragPreview(null);
       }
     } else {
-      if (!e.shiftKey) {
+      if (!(e.metaKey || e.ctrlKey)) {
         setSelectedLightIds([]);
         setSelectedLightId(null);
       }
@@ -195,7 +195,7 @@ export function useLightHandlers(): LightHandlersResult {
         const lightsInArea = currentMap.editorLights.points
           .filter(l => l.x >= minX && l.x <= maxX && l.y >= minY && l.y <= maxY)
           .map(l => l.id);
-        if (e.shiftKey) {
+        if (e.metaKey || e.ctrlKey) {
           const curIds = useEditorStore.getState().selectedLightIds;
           const merged = [...new Set([...curIds, ...lightsInArea])];
           setSelectedLightIds(merged);

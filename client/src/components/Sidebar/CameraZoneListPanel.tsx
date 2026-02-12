@@ -55,8 +55,8 @@ export default function CameraZoneListPanel() {
   };
 
   const handleItemClick = (zoneId: number, e: React.MouseEvent) => {
-    if (e.shiftKey) {
-      // Shift+click: toggle selection
+    if (e.metaKey || e.ctrlKey) {
+      // Cmd/Ctrl+click: toggle selection
       if (selectedCameraZoneIds.includes(zoneId)) {
         const newIds = selectedCameraZoneIds.filter(id => id !== zoneId);
         setSelectedCameraZoneIds(newIds);

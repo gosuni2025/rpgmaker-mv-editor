@@ -325,6 +325,12 @@ export function useKeyboardShortcuts(
         useEditorStore.getState().setSelectedObjectIds(allIds);
         showToast(`전체 선택 (오브젝트 ${allIds.length}개)`);
       }
+      if (editMode === 'cameraZone' && currentMap?.cameraZones) {
+        const allIds = currentMap.cameraZones.map(z => z.id);
+        useEditorStore.getState().setSelectedCameraZoneIds(allIds);
+        if (allIds.length > 0) useEditorStore.getState().setSelectedCameraZoneId(allIds[0]);
+        showToast(`전체 선택 (카메라 영역 ${allIds.length}개)`);
+      }
     };
     window.addEventListener('editor-selectall', handleSelectAll);
     return () => window.removeEventListener('editor-selectall', handleSelectAll);
@@ -360,6 +366,10 @@ export function useKeyboardShortcuts(
           setObjectPastePreviewPos(null);
         }
         clearObjectSelection();
+      }
+      if (editMode === 'cameraZone') {
+        useEditorStore.getState().setSelectedCameraZoneIds([]);
+        useEditorStore.getState().setSelectedCameraZoneId(null);
       }
     };
     window.addEventListener('editor-deselect', handleDeselect);

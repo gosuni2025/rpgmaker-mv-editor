@@ -287,8 +287,8 @@ export function useCameraZoneHandlers(
     );
 
     if (hitZone) {
-      if (e.shiftKey) {
-        // Shift+click: toggle selection
+      if (e.metaKey || e.ctrlKey) {
+        // Cmd/Ctrl+click: toggle selection
         if (curIds.includes(hitZone.id)) {
           const newIds = curIds.filter(id => id !== hitZone.id);
           setSelectedCameraZoneIds(newIds);
@@ -316,7 +316,7 @@ export function useCameraZoneHandlers(
       }
     } else {
       // Click on empty space
-      if (!e.shiftKey) {
+      if (!(e.metaKey || e.ctrlKey)) {
         setSelectedCameraZoneIds([]);
         setSelectedCameraZoneId(null);
       }

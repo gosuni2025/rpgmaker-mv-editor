@@ -59,7 +59,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
     );
     if (hitObj) {
       const curIds = state.selectedObjectIds;
-      if (e.shiftKey) {
+      if (e.metaKey || e.ctrlKey) {
         if (curIds.includes(hitObj.id)) {
           const newIds = curIds.filter(id => id !== hitObj.id);
           setSelectedObjectIds(newIds);
@@ -82,7 +82,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
         setObjectDragPreview(null);
       }
     } else {
-      if (!e.shiftKey) {
+      if (!(e.metaKey || e.ctrlKey)) {
         setSelectedObjectIds([]);
         setSelectedObjectId(null);
       }
@@ -190,7 +190,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
             return oMinX <= maxX && oMaxX >= minX && oMinY <= maxY && oMaxY >= minY;
           })
           .map(o => o.id);
-        if (e.shiftKey) {
+        if (e.metaKey || e.ctrlKey) {
           const curIds = useEditorStore.getState().selectedObjectIds;
           const merged = [...new Set([...curIds, ...objectsInArea])];
           setSelectedObjectIds(merged);

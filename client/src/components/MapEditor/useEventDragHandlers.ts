@@ -92,7 +92,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
 
       if (ev) {
         const curIds = state.selectedEventIds;
-        if (e.shiftKey) {
+        if (e.metaKey || e.ctrlKey) {
           if (curIds.includes(ev.id)) {
             const newIds = curIds.filter(id => id !== ev.id);
             setSelectedEventIds(newIds);
@@ -118,7 +118,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
         // 시작 위치 드래그 확인
         const isPlayerStart = systemData && currentMapId === systemData.startMapId
           && tile.x === systemData.startX && tile.y === systemData.startY;
-        if (isPlayerStart && !e.shiftKey) {
+        if (isPlayerStart && !(e.metaKey || e.ctrlKey)) {
           isDraggingPlayerStart.current = true;
           playerStartDragPosRef.current = { x: tile.x, y: tile.y };
           setPlayerStartDragPos({ x: tile.x, y: tile.y });
@@ -127,7 +127,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
           return true;
         }
         // 빈 타일 클릭: 영역 선택 시작
-        if (!e.shiftKey) {
+        if (!(e.metaKey || e.ctrlKey)) {
           setSelectedEventIds([]);
           setSelectedEventId(null);
         }
@@ -255,7 +255,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
         const eventsInArea = currentMap.events
           .filter(ev => ev && ev.id !== 0 && ev.x >= minX && ev.x <= maxX && ev.y >= minY && ev.y <= maxY)
           .map(ev => ev!.id);
-        if (e.shiftKey) {
+        if (e.metaKey || e.ctrlKey) {
           const curIds = useEditorStore.getState().selectedEventIds;
           const merged = [...new Set([...curIds, ...eventsInArea])];
           setSelectedEventIds(merged);
