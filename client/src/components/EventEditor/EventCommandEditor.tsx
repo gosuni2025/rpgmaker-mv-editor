@@ -703,7 +703,9 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
                     ⠿
                   </span>
                 )}
-                {display || <span style={{ color: '#555' }}>&loz;</span>}
+                {display ? (
+                  (cmd.code === 108 || cmd.code === 408) ? <span style={{ color: '#6a9955' }}>{display}</span> : display
+                ) : <span style={{ color: '#555' }}>&loz;</span>}
                 {context && [101, 102, 105, 321, 325].includes(cmd.code) && (() => {
                   const prefix = context.isCommonEvent
                     ? `ce${context.commonEventId}`
