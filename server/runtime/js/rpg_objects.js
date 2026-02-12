@@ -6126,18 +6126,20 @@ Game_Map.prototype.getCameraZoneById = function(id) {
     return null;
 };
 
-// 카메라 객체의 월드 위치를 맵 타일 좌표로 변환
+// 카메라 객체의 맵 타일 좌표를 계산
+// 3D: cam.position은 Spriteset 로컬 좌표 (cx+offX, cy+offY)
+//      타일맵 origin = displayX*tw → 맵 타일 = displayX + cam.pos / tw
+// 2D: 화면 중심 = displayX + screenTileX/2
 Game_Map.prototype.getCameraWorldTile = function() {
     var tw = this.tileWidth();
     var th = this.tileHeight();
     if (typeof Mode3D !== 'undefined' && Mode3D._active && Mode3D._perspCamera) {
         var cam = Mode3D._perspCamera;
         return {
-            x: cam.position.x / tw,
-            y: cam.position.y / th
+            x: this._displayX + cam.position.x / tw,
+            y: this._displayY + cam.position.y / th
         };
     }
-    // 2D: 카메라 = 화면 중심
     return {
         x: this._displayX + this.screenTileX() / 2,
         y: this._displayY + this.screenTileY() / 2
