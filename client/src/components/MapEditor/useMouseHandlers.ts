@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
 import type { RPGEvent, EventPage, MapData } from '../../types/rpgMakerMV';
@@ -207,6 +207,8 @@ export function useMouseHandlers(
   const resizeCameraZoneOriginal = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   const resizeCameraZoneStart = useRef<{ x: number; y: number } | null>(null);
   const [cameraZoneCursor, setCameraZoneCursor] = useState<string | null>(null);
+  // Track active camera zone drag for window-level pointer capture
+  const [cameraZoneDragActive, setCameraZoneDragActive] = useState(false);
 
   // Selection tool state
   const isSelecting = useRef(false);
@@ -256,6 +258,147 @@ export function useMouseHandlers(
     };
     return map[edge] || 'default';
   }, []);
+
+  // Convert clientX/clientY to tile coordinates (unclamped, for camera zone drag outside canvas)
+  const clientToTileUnclamped = useCallback((clientX: number, clientY: number): { x: number; y: number } | null => {
+    const canvas = webglCanvasRef.current;
+    if (!canvas) return null;
+    const container = canvas.parentElement;
+    if (!container) return null;
+    const rect = container.getBoundingClientRect();
+    const zl = useEditorStore.getState().zoomLevel;
+    const screenX = (clientX - rect.left) / zl;
+    const screenY = (clientY - rect.top) / zl;
+    const m3d = useEditorStore.getState().mode3d;
+    const w = (window as any);
+    if (m3d && w.ConfigManager?.mode3d && w.Mode3D?._perspCamera) {
+      const world = w.Mode3D.screenToWorld(screenX, screenY);
+      if (world) return { x: Math.floor(world.x / TILE_SIZE_PX), y: Math.floor(world.y / TILE_SIZE_PX) };
+      return null;
+    }
+    return { x: Math.floor(screenX / TILE_SIZE_PX), y: Math.floor(screenY / TILE_SIZE_PX) };
+  }, [webglCanvasRef]);
+
+  // Window-level pointer events for camera zone drag/resize/create (allows dragging beyond canvas bounds)
+  useEffect(() => {
+    if (!cameraZoneDragActive) return;
+
+    const handleWindowPointerMove = (e: PointerEvent) => {
+      const tile = clientToTileUnclamped(e.clientX, e.clientY);
+      if (!tile) return;
+
+      // Camera zone resize
+      if (isResizingCameraZone.current && resizeCameraZoneOriginal.current && resizeCameraZoneStart.current) {
+        const orig = resizeCameraZoneOriginal.current;
+        const edge = resizeCameraZoneEdge.current!;
+        const dx = tile.x - resizeCameraZoneStart.current.x;
+        const dy = tile.y - resizeCameraZoneStart.current.y;
+        let nx = orig.x, ny = orig.y, nw = orig.width, nh = orig.height;
+        if (edge.includes('w')) { nx = orig.x + dx; nw = orig.width - dx; }
+        if (edge.includes('e')) { nw = orig.width + dx; }
+        if (edge.includes('n')) { ny = orig.y + dy; nh = orig.height - dy; }
+        if (edge.includes('s')) { nh = orig.height + dy; }
+        if (nw < 1) { nx = nx + nw - 1; nw = 1; }
+        if (nh < 1) { ny = ny + nh - 1; nh = 1; }
+        setCameraZoneDragPreview({ x: nx, y: ny, width: nw, height: nh });
+        return;
+      }
+
+      // Camera zone dragging
+      if (isDraggingCameraZone.current && dragCameraZoneOrigin.current) {
+        const map = useEditorStore.getState().currentMap;
+        const zone = map?.cameraZones?.find(z => z.id === draggedCameraZoneId.current);
+        if (zone) {
+          const dx = tile.x - dragCameraZoneOrigin.current.x;
+          const dy = tile.y - dragCameraZoneOrigin.current.y;
+          if (dx !== 0 || dy !== 0) {
+            setCameraZoneDragPreview({ x: zone.x + dx, y: zone.y + dy, width: zone.width, height: zone.height });
+          } else {
+            setCameraZoneDragPreview(null);
+          }
+        }
+        return;
+      }
+
+      // Camera zone creation drag
+      if (isCreatingCameraZone.current && createZoneStart.current) {
+        const sx = createZoneStart.current.x;
+        const sy = createZoneStart.current.y;
+        const minX = Math.min(sx, tile.x);
+        const minY = Math.min(sy, tile.y);
+        const maxX = Math.max(sx, tile.x);
+        const maxY = Math.max(sy, tile.y);
+        setCameraZoneDragPreview({ x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 });
+        return;
+      }
+    };
+
+    const handleWindowPointerUp = (e: PointerEvent) => {
+      const tile = clientToTileUnclamped(e.clientX, e.clientY);
+
+      // Camera zone resize commit
+      if (isResizingCameraZone.current && resizeCameraZoneId.current != null) {
+        const preview = cameraZoneDragPreviewRef.current;
+        if (preview) {
+          updateCameraZone(resizeCameraZoneId.current, {
+            x: preview.x, y: preview.y,
+            width: preview.width, height: preview.height,
+          });
+        }
+        isResizingCameraZone.current = false;
+        resizeCameraZoneId.current = null;
+        resizeCameraZoneEdge.current = null;
+        resizeCameraZoneOriginal.current = null;
+        resizeCameraZoneStart.current = null;
+        setCameraZoneDragPreview(null);
+        setCameraZoneDragActive(false);
+        return;
+      }
+
+      // Camera zone drag commit
+      if (isDraggingCameraZone.current && draggedCameraZoneId.current != null) {
+        const preview = cameraZoneDragPreviewRef.current;
+        if (preview) {
+          updateCameraZone(draggedCameraZoneId.current, { x: preview.x, y: preview.y });
+        }
+        isDraggingCameraZone.current = false;
+        draggedCameraZoneId.current = null;
+        dragCameraZoneOrigin.current = null;
+        setCameraZoneDragPreview(null);
+        setCameraZoneDragActive(false);
+        return;
+      }
+
+      // Camera zone creation commit
+      if (isCreatingCameraZone.current && createZoneStart.current) {
+        if (tile) {
+          const sx = createZoneStart.current.x;
+          const sy = createZoneStart.current.y;
+          const minX = Math.min(sx, tile.x);
+          const minY = Math.min(sy, tile.y);
+          const w = Math.abs(tile.x - sx) + 1;
+          const h = Math.abs(tile.y - sy) + 1;
+          if (w >= 2 && h >= 2) {
+            addCameraZone(minX, minY, w, h);
+          }
+        }
+        isCreatingCameraZone.current = false;
+        createZoneStart.current = null;
+        setCameraZoneDragPreview(null);
+        setCameraZoneDragActive(false);
+        return;
+      }
+
+      setCameraZoneDragActive(false);
+    };
+
+    window.addEventListener('pointermove', handleWindowPointerMove);
+    window.addEventListener('pointerup', handleWindowPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handleWindowPointerMove);
+      window.removeEventListener('pointerup', handleWindowPointerUp);
+    };
+  }, [cameraZoneDragActive, clientToTileUnclamped, setCameraZoneDragPreview, updateCameraZone, addCameraZone]);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
@@ -466,6 +609,7 @@ export function useMouseHandlers(
             resizeCameraZoneOriginal.current = { x: selectedZone.x, y: selectedZone.y, width: selectedZone.width, height: selectedZone.height };
             resizeCameraZoneStart.current = { x: tile.x, y: tile.y };
             setCameraZoneDragPreview({ x: selectedZone.x, y: selectedZone.y, width: selectedZone.width, height: selectedZone.height });
+            setCameraZoneDragActive(true);
             return;
           }
         }
@@ -479,12 +623,14 @@ export function useMouseHandlers(
           draggedCameraZoneId.current = hitZone.id;
           dragCameraZoneOrigin.current = { x: tile.x, y: tile.y };
           setCameraZoneDragPreview(null);
+          setCameraZoneDragActive(true);
         } else {
           // 빈 영역: 새 존 생성 드래그 시작
           setSelectedCameraZoneId(null);
           isCreatingCameraZone.current = true;
           createZoneStart.current = tile;
           setCameraZoneDragPreview({ x: tile.x, y: tile.y, width: 1, height: 1 });
+          setCameraZoneDragActive(true);
         }
         return;
       }
@@ -1087,6 +1233,7 @@ export function useMouseHandlers(
         resizeCameraZoneOriginal.current = null;
         resizeCameraZoneStart.current = null;
         setCameraZoneDragPreview(null);
+        setCameraZoneDragActive(false);
         return;
       }
 
@@ -1100,19 +1247,20 @@ export function useMouseHandlers(
         draggedCameraZoneId.current = null;
         dragCameraZoneOrigin.current = null;
         setCameraZoneDragPreview(null);
+        setCameraZoneDragActive(false);
         return;
       }
 
       // Camera zone creation commit
       if (isCreatingCameraZone.current && createZoneStart.current) {
-        const tile = canvasToTile(e);
-        if (tile) {
+        const unclTile = clientToTileUnclamped(e.clientX, e.clientY);
+        if (unclTile) {
           const sx = createZoneStart.current.x;
           const sy = createZoneStart.current.y;
-          const minX = Math.min(sx, tile.x);
-          const minY = Math.min(sy, tile.y);
-          const w = Math.abs(tile.x - sx) + 1;
-          const h = Math.abs(tile.y - sy) + 1;
+          const minX = Math.min(sx, unclTile.x);
+          const minY = Math.min(sy, unclTile.y);
+          const w = Math.abs(unclTile.x - sx) + 1;
+          const h = Math.abs(unclTile.y - sy) + 1;
           if (w >= 2 && h >= 2) {
             addCameraZone(minX, minY, w, h);
           }
@@ -1120,6 +1268,7 @@ export function useMouseHandlers(
         isCreatingCameraZone.current = false;
         createZoneStart.current = null;
         setCameraZoneDragPreview(null);
+        setCameraZoneDragActive(false);
         return;
       }
 
@@ -1446,24 +1595,9 @@ export function useMouseHandlers(
         setObjectSelectionStart(null);
         setObjectSelectionEnd(null);
       }
-      if (isResizingCameraZone.current) {
-        isResizingCameraZone.current = false;
-        resizeCameraZoneId.current = null;
-        resizeCameraZoneEdge.current = null;
-        resizeCameraZoneOriginal.current = null;
-        resizeCameraZoneStart.current = null;
-        setCameraZoneDragPreview(null);
-      }
-      if (isDraggingCameraZone.current) {
-        isDraggingCameraZone.current = false;
-        draggedCameraZoneId.current = null;
-        dragCameraZoneOrigin.current = null;
-        setCameraZoneDragPreview(null);
-      }
-      if (isCreatingCameraZone.current) {
-        isCreatingCameraZone.current = false;
-        createZoneStart.current = null;
-        setCameraZoneDragPreview(null);
+      // Camera zone drag/resize/create: don't cancel on mouse leave, window events will handle it
+      if (isResizingCameraZone.current || isDraggingCameraZone.current || isCreatingCameraZone.current) {
+        return;
       }
       // 선택 드래그 중이면 취소
       if (isSelecting.current) {
