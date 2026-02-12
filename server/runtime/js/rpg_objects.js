@@ -5604,8 +5604,12 @@ Game_Map.prototype.setupBattleback = function() {
 };
 
 Game_Map.prototype.setDisplayPos = function(x, y) {
+    var hasCZ = this._hasCameraZones();
     if (this.isLoopHorizontal()) {
         this._displayX = x.mod(this.width());
+        this._parallaxX = x;
+    } else if (hasCZ) {
+        this._displayX = x;
         this._parallaxX = x;
     } else {
         var endX = this.width() - this.screenTileX();
@@ -5614,6 +5618,9 @@ Game_Map.prototype.setDisplayPos = function(x, y) {
     }
     if (this.isLoopVertical()) {
         this._displayY = y.mod(this.height());
+        this._parallaxY = y;
+    } else if (hasCZ) {
+        this._displayY = y;
         this._parallaxY = y;
     } else {
         var endY = this.height() - this.screenTileY();
@@ -5848,6 +5855,11 @@ Game_Map.prototype.eventIdXy = function(x, y) {
     return list.length === 0 ? 0 : list[0].eventId();
 };
 
+Game_Map.prototype._hasCameraZones = function() {
+    var zones = $dataMap && $dataMap.cameraZones;
+    return zones && zones.length > 0;
+};
+
 Game_Map.prototype.scrollDown = function(distance) {
     if (this.isLoopVertical()) {
         this._displayY += distance;
@@ -5857,8 +5869,12 @@ Game_Map.prototype.scrollDown = function(distance) {
         }
     } else if (this.height() >= this.screenTileY()) {
         var lastY = this._displayY;
-        this._displayY = Math.min(this._displayY + distance,
-            this.height() - this.screenTileY());
+        if (this._hasCameraZones()) {
+            this._displayY += distance;
+        } else {
+            this._displayY = Math.min(this._displayY + distance,
+                this.height() - this.screenTileY());
+        }
         this._parallaxY += this._displayY - lastY;
     }
 };
@@ -5872,7 +5888,11 @@ Game_Map.prototype.scrollLeft = function(distance) {
         }
     } else if (this.width() >= this.screenTileX()) {
         var lastX = this._displayX;
-        this._displayX = Math.max(this._displayX - distance, 0);
+        if (this._hasCameraZones()) {
+            this._displayX -= distance;
+        } else {
+            this._displayX = Math.max(this._displayX - distance, 0);
+        }
         this._parallaxX += this._displayX - lastX;
     }
 };
@@ -5886,8 +5906,12 @@ Game_Map.prototype.scrollRight = function(distance) {
         }
     } else if (this.width() >= this.screenTileX()) {
         var lastX = this._displayX;
-        this._displayX = Math.min(this._displayX + distance,
-            this.width() - this.screenTileX());
+        if (this._hasCameraZones()) {
+            this._displayX += distance;
+        } else {
+            this._displayX = Math.min(this._displayX + distance,
+                this.width() - this.screenTileX());
+        }
         this._parallaxX += this._displayX - lastX;
     }
 };
@@ -5901,7 +5925,11 @@ Game_Map.prototype.scrollUp = function(distance) {
         }
     } else if (this.height() >= this.screenTileY()) {
         var lastY = this._displayY;
-        this._displayY = Math.max(this._displayY - distance, 0);
+        if (this._hasCameraZones()) {
+            this._displayY -= distance;
+        } else {
+            this._displayY = Math.max(this._displayY - distance, 0);
+        }
         this._parallaxY += this._displayY - lastY;
     }
 };
