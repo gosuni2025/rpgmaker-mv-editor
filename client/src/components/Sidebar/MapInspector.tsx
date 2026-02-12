@@ -203,11 +203,10 @@ export default function MapInspector() {
 
       {/* Battleback */}
       <div className="light-inspector-section">
-        <div className="light-inspector-title">전투 배경</div>
         <label className="map-inspector-checkbox">
           <input type="checkbox" checked={!!currentMap.specifyBattleback}
             onChange={(e) => updateMapField('specifyBattleback', e.target.checked)} />
-          <span>전투 배경 지정</span>
+          <span>전투 배경 설정</span>
         </label>
         {currentMap.specifyBattleback && (
           <div style={{ marginTop: 4 }}>
@@ -260,7 +259,7 @@ export default function MapInspector() {
 
       {/* Parallax */}
       <div className="light-inspector-section">
-        <div className="light-inspector-title">원경</div>
+        <div className="light-inspector-title">먼 배경</div>
         <div style={{ marginBottom: 4 }}>
           <ImagePicker
             type="parallaxes"
@@ -274,18 +273,18 @@ export default function MapInspector() {
               <label className="map-inspector-checkbox">
                 <input type="checkbox" checked={!!currentMap.parallaxLoopX}
                   onChange={(e) => updateMapField('parallaxLoopX', e.target.checked)} />
-                <span>X 루프</span>
+                <span>가로 루프</span>
               </label>
               <label className="map-inspector-checkbox">
                 <input type="checkbox" checked={!!currentMap.parallaxLoopY}
                   onChange={(e) => updateMapField('parallaxLoopY', e.target.checked)} />
-                <span>Y 루프</span>
+                <span>세로 루프</span>
               </label>
             </div>
             <label className="map-inspector-checkbox">
               <input type="checkbox" checked={currentMap.parallaxShow ?? false}
                 onChange={(e) => updateMapField('parallaxShow', e.target.checked)} />
-              <span>에디터 표시</span>
+              <span>에디터에서 보여주기</span>
             </label>
           </>
         )}
@@ -293,7 +292,7 @@ export default function MapInspector() {
 
       {/* Note */}
       <div className="light-inspector-section">
-        <div className="light-inspector-title">노트</div>
+        <div className="light-inspector-title">메모</div>
         <textarea
           className="map-inspector-textarea"
           value={currentMap.note || ''}
