@@ -5451,7 +5451,6 @@ Game_Map.prototype.setupCameraZones = function() {
     this._cameraZones = $dataMap.cameraZones || [];
     this._activeCameraZone = null;
     this._cameraTransition = null;
-    this._cameraScrollLerping = false;
     this._defaultCamera = { zoom: 1.0, tilt: 60, yaw: 0 };
     // Mode3D 현재 상태를 기본값으로 저장
     if (window.Mode3D && Mode3D._active) {
@@ -5863,6 +5862,8 @@ Game_Map.prototype.eventIdXy = function(x, y) {
 };
 
 Game_Map.prototype.scrollDown = function(distance) {
+    var savedX = this._displayX, savedY = this._displayY;
+    var savedPX = this._parallaxX, savedPY = this._parallaxY;
     if (this.isLoopVertical()) {
         this._displayY += distance;
         this._displayY %= $dataMap.height;
@@ -5875,10 +5876,12 @@ Game_Map.prototype.scrollDown = function(distance) {
             this.height() - this.screenTileY());
         this._parallaxY += this._displayY - lastY;
     }
-    this._preventScrollBeyondZone();
+    this._revertScrollIfOutsideAllZones(savedX, savedY, savedPX, savedPY);
 };
 
 Game_Map.prototype.scrollLeft = function(distance) {
+    var savedX = this._displayX, savedY = this._displayY;
+    var savedPX = this._parallaxX, savedPY = this._parallaxY;
     if (this.isLoopHorizontal()) {
         this._displayX += $dataMap.width - distance;
         this._displayX %= $dataMap.width;
@@ -5890,10 +5893,12 @@ Game_Map.prototype.scrollLeft = function(distance) {
         this._displayX = Math.max(this._displayX - distance, 0);
         this._parallaxX += this._displayX - lastX;
     }
-    this._preventScrollBeyondZone();
+    this._revertScrollIfOutsideAllZones(savedX, savedY, savedPX, savedPY);
 };
 
 Game_Map.prototype.scrollRight = function(distance) {
+    var savedX = this._displayX, savedY = this._displayY;
+    var savedPX = this._parallaxX, savedPY = this._parallaxY;
     if (this.isLoopHorizontal()) {
         this._displayX += distance;
         this._displayX %= $dataMap.width;
@@ -5906,10 +5911,12 @@ Game_Map.prototype.scrollRight = function(distance) {
             this.width() - this.screenTileX());
         this._parallaxX += this._displayX - lastX;
     }
-    this._preventScrollBeyondZone();
+    this._revertScrollIfOutsideAllZones(savedX, savedY, savedPX, savedPY);
 };
 
 Game_Map.prototype.scrollUp = function(distance) {
+    var savedX = this._displayX, savedY = this._displayY;
+    var savedPX = this._parallaxX, savedPY = this._parallaxY;
     if (this.isLoopVertical()) {
         this._displayY += $dataMap.height - distance;
         this._displayY %= $dataMap.height;
@@ -5921,7 +5928,7 @@ Game_Map.prototype.scrollUp = function(distance) {
         this._displayY = Math.max(this._displayY - distance, 0);
         this._parallaxY += this._displayY - lastY;
     }
-    this._preventScrollBeyondZone();
+    this._revertScrollIfOutsideAllZones(savedX, savedY, savedPX, savedPY);
 };
 
 Game_Map.prototype.isValid = function(x, y) {
@@ -6090,7 +6097,6 @@ Game_Map.prototype.updateCameraZones = function() {
     var newZoneId = activeZone ? activeZone.id : null;
     if (prevZoneId !== newZoneId) {
         this._activeCameraZone = activeZone;
-        this._cameraScrollLerping = true; // 존 전환 중 scroll clamp 비활성
         var target = activeZone || this._defaultCamera;
         var speed = activeZone ? activeZone.transitionSpeed : 1.0;
         this._cameraTransition = {
@@ -6202,7 +6208,6 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
             this._parallaxY += target.y - this._displayY;
             this._displayY = target.y;
         }
-        this._cameraScrollLerping = false;
         return;
     }
 
@@ -6218,11 +6223,31 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
     this._displayY = newY;
 };
 
-// scroll 시 카메라가 활성 존 밖으로 나가지 못하게 제한
-// _cameraScrollLerping이 true면 존 전환 중이므로 skip (lerp가 처리)
-Game_Map.prototype._preventScrollBeyondZone = function() {
-    if (this._cameraScrollLerping) return;
-    this.clampDisplayToActiveZone();
+// 카메라 화면이 어떤 존에라도 겹치는지 확인
+Game_Map.prototype._isDisplayInAnyZone = function() {
+    if (!this._cameraZones || this._cameraZones.length === 0) return false;
+    var screenW = this.screenTileX();
+    var screenH = this.screenTileY();
+    var camL = this._displayX, camT = this._displayY;
+    var camR = camL + screenW, camB = camT + screenH;
+    for (var i = 0; i < this._cameraZones.length; i++) {
+        var z = this._cameraZones[i];
+        if (!z.enabled) continue;
+        if (camL < z.x + z.width && camR > z.x && camT < z.y + z.height && camB > z.y) {
+            return true;
+        }
+    }
+    return false;
+};
+
+// scroll 후 카메라가 모든 존 밖이면 scroll 이전 값으로 되돌림
+Game_Map.prototype._revertScrollIfOutsideAllZones = function(sx, sy, spx, spy) {
+    if (!this._cameraZones || this._cameraZones.length === 0) return;
+    if (this._isDisplayInAnyZone()) return;
+    this._displayX = sx;
+    this._displayY = sy;
+    this._parallaxX = spx;
+    this._parallaxY = spy;
 };
 
 // 합집합 범위로 즉시 clamp (맵 초기 로드 등 특수 상황용)
