@@ -207,8 +207,6 @@ export function useMouseHandlers(
   const resizeCameraZoneOriginal = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   const resizeCameraZoneStart = useRef<{ x: number; y: number } | null>(null);
   const [cameraZoneCursor, setCameraZoneCursor] = useState<string | null>(null);
-  // Track active camera zone drag for window-level pointer capture
-  const [cameraZoneDragActive, setCameraZoneDragActive] = useState(false);
 
   // Selection tool state
   const isSelecting = useRef(false);
@@ -279,9 +277,13 @@ export function useMouseHandlers(
     return { x: Math.floor(screenX / TILE_SIZE_PX), y: Math.floor(screenY / TILE_SIZE_PX) };
   }, [webglCanvasRef]);
 
-  // Window-level pointer events for camera zone drag/resize/create (allows dragging beyond canvas bounds)
-  useEffect(() => {
-    if (!cameraZoneDragActive) return;
+  // Ref to hold cleanup function for window-level camera zone drag listeners
+  const cameraZoneWindowCleanup = useRef<(() => void) | null>(null);
+
+  // Start window-level pointer capture for camera zone drag/resize/create
+  const startCameraZoneWindowCapture = useCallback(() => {
+    // Remove previous listeners if any
+    cameraZoneWindowCleanup.current?.();
 
     const handleWindowPointerMove = (e: PointerEvent) => {
       const tile = clientToTileUnclamped(e.clientX, e.clientY);
@@ -333,6 +335,12 @@ export function useMouseHandlers(
       }
     };
 
+    const stopCapture = () => {
+      window.removeEventListener('pointermove', handleWindowPointerMove);
+      window.removeEventListener('pointerup', handleWindowPointerUp);
+      cameraZoneWindowCleanup.current = null;
+    };
+
     const handleWindowPointerUp = (e: PointerEvent) => {
       const tile = clientToTileUnclamped(e.clientX, e.clientY);
 
@@ -351,7 +359,7 @@ export function useMouseHandlers(
         resizeCameraZoneOriginal.current = null;
         resizeCameraZoneStart.current = null;
         setCameraZoneDragPreview(null);
-        setCameraZoneDragActive(false);
+        stopCapture();
         return;
       }
 
@@ -365,7 +373,7 @@ export function useMouseHandlers(
         draggedCameraZoneId.current = null;
         dragCameraZoneOrigin.current = null;
         setCameraZoneDragPreview(null);
-        setCameraZoneDragActive(false);
+        stopCapture();
         return;
       }
 
@@ -385,20 +393,22 @@ export function useMouseHandlers(
         isCreatingCameraZone.current = false;
         createZoneStart.current = null;
         setCameraZoneDragPreview(null);
-        setCameraZoneDragActive(false);
+        stopCapture();
         return;
       }
 
-      setCameraZoneDragActive(false);
+      stopCapture();
     };
 
     window.addEventListener('pointermove', handleWindowPointerMove);
     window.addEventListener('pointerup', handleWindowPointerUp);
-    return () => {
-      window.removeEventListener('pointermove', handleWindowPointerMove);
-      window.removeEventListener('pointerup', handleWindowPointerUp);
-    };
-  }, [cameraZoneDragActive, clientToTileUnclamped, setCameraZoneDragPreview, updateCameraZone, addCameraZone]);
+    cameraZoneWindowCleanup.current = stopCapture;
+  }, [clientToTileUnclamped, setCameraZoneDragPreview, updateCameraZone, addCameraZone]);
+
+  // Cleanup window listeners on unmount
+  useEffect(() => {
+    return () => { cameraZoneWindowCleanup.current?.(); };
+  }, []);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
@@ -609,7 +619,7 @@ export function useMouseHandlers(
             resizeCameraZoneOriginal.current = { x: selectedZone.x, y: selectedZone.y, width: selectedZone.width, height: selectedZone.height };
             resizeCameraZoneStart.current = { x: tile.x, y: tile.y };
             setCameraZoneDragPreview({ x: selectedZone.x, y: selectedZone.y, width: selectedZone.width, height: selectedZone.height });
-            setCameraZoneDragActive(true);
+            startCameraZoneWindowCapture();
             return;
           }
         }
@@ -623,14 +633,14 @@ export function useMouseHandlers(
           draggedCameraZoneId.current = hitZone.id;
           dragCameraZoneOrigin.current = { x: tile.x, y: tile.y };
           setCameraZoneDragPreview(null);
-          setCameraZoneDragActive(true);
+          startCameraZoneWindowCapture();
         } else {
           // 빈 영역: 새 존 생성 드래그 시작
           setSelectedCameraZoneId(null);
           isCreatingCameraZone.current = true;
           createZoneStart.current = tile;
           setCameraZoneDragPreview({ x: tile.x, y: tile.y, width: 1, height: 1 });
-          setCameraZoneDragActive(true);
+          startCameraZoneWindowCapture();
         }
         return;
       }
@@ -1233,7 +1243,7 @@ export function useMouseHandlers(
         resizeCameraZoneOriginal.current = null;
         resizeCameraZoneStart.current = null;
         setCameraZoneDragPreview(null);
-        setCameraZoneDragActive(false);
+        cameraZoneWindowCleanup.current?.();
         return;
       }
 
@@ -1247,7 +1257,7 @@ export function useMouseHandlers(
         draggedCameraZoneId.current = null;
         dragCameraZoneOrigin.current = null;
         setCameraZoneDragPreview(null);
-        setCameraZoneDragActive(false);
+        cameraZoneWindowCleanup.current?.();
         return;
       }
 
@@ -1268,7 +1278,7 @@ export function useMouseHandlers(
         isCreatingCameraZone.current = false;
         createZoneStart.current = null;
         setCameraZoneDragPreview(null);
-        setCameraZoneDragActive(false);
+        cameraZoneWindowCleanup.current?.();
         return;
       }
 
