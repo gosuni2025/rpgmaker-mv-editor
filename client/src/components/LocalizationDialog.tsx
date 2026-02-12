@@ -331,8 +331,8 @@ export default function LocalizationDialog() {
 
   if (loading) {
     return (
-      <div className="db-dialog-overlay" onClick={() => setShowLocalizationDialog(false)}>
-        <div className="db-dialog l10n-dialog" onClick={e => e.stopPropagation()}>
+      <div className="db-dialog-overlay">
+        <div className="db-dialog l10n-dialog">
           <div className="db-dialog-header">
             <span>{t('localization.title')}</span>
             <button className="db-dialog-close" onClick={() => setShowLocalizationDialog(false)}>×</button>
@@ -346,8 +346,8 @@ export default function LocalizationDialog() {
   // Init panel
   if (!config) {
     return (
-      <div className="db-dialog-overlay" onClick={() => setShowLocalizationDialog(false)}>
-        <div className="db-dialog l10n-dialog l10n-init-dialog" onClick={e => e.stopPropagation()}>
+      <div className="db-dialog-overlay">
+        <div className="db-dialog l10n-dialog l10n-init-dialog">
           <div className="db-dialog-header">
             <span>{t('localization.title')}</span>
             <button className="db-dialog-close" onClick={() => setShowLocalizationDialog(false)}>×</button>
@@ -404,8 +404,8 @@ export default function LocalizationDialog() {
   }
 
   return (
-    <div className="db-dialog-overlay" onClick={() => setShowLocalizationDialog(false)}>
-      <div className="db-dialog l10n-dialog l10n-main-dialog" onClick={e => e.stopPropagation()}>
+    <div className="db-dialog-overlay">
+      <div className="db-dialog l10n-dialog l10n-main-dialog">
         <div className="db-dialog-header">
           <span>{t('localization.title')}</span>
           <button className="db-dialog-close" onClick={() => setShowLocalizationDialog(false)}>×</button>

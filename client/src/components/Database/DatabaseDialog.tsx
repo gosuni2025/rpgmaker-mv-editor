@@ -141,8 +141,8 @@ export default function DatabaseDialog() {
   const activeDataKey = (activeTab === 'types' || activeTab === 'terms') ? 'system' : activeTab;
 
   return (
-    <div className="db-dialog-overlay" onClick={handleCancel}>
-      <div className="db-dialog" onClick={(e) => e.stopPropagation()}>
+    <div className="db-dialog-overlay">
+      <div className="db-dialog">
         <div className="db-dialog-header">{t('database.title')}</div>
         <div className="db-dialog-body">
           <div className="db-tab-bar">

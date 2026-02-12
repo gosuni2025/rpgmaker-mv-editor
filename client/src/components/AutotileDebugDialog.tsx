@@ -489,8 +489,8 @@ export default function AutotileDebugDialog({ open, onClose }: Props) {
   if (!open) return null;
 
   return (
-    <div className="db-dialog-overlay" onClick={onClose}>
-      <div className="db-dialog" onClick={(e) => e.stopPropagation()}
+    <div className="db-dialog-overlay">
+      <div className="db-dialog"
         style={{ width: '1100px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div className="db-dialog-header">
           <h2>오토타일 디버그</h2>

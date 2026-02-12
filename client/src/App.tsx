@@ -209,8 +209,8 @@ export default function App() {
       {showLocalizationDialog && <LocalizationDialog />}
       <AutotileDebugDialog open={showAutotileDebug} onClose={() => setShowAutotileDebug(false)} />
       {parseErrors && parseErrors.length > 0 && (
-        <div className="db-dialog-overlay" onClick={() => useEditorStore.setState({ parseErrors: null })}>
-          <div className="db-dialog parse-errors-dialog" onClick={e => e.stopPropagation()}>
+        <div className="db-dialog-overlay">
+          <div className="db-dialog parse-errors-dialog">
             <div className="db-dialog-header">
               <span>데이터 파싱 오류</span>
               <button className="db-dialog-close" onClick={() => useEditorStore.setState({ parseErrors: null })}>×</button>

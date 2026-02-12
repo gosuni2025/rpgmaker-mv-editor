@@ -59,8 +59,8 @@ export default function OptionsDialog() {
   };
 
   return (
-    <div className="db-dialog-overlay" onClick={handleCancel}>
-      <div className="db-dialog" style={{ width: 480, height: 'auto' }} onClick={(e) => e.stopPropagation()}>
+    <div className="db-dialog-overlay">
+      <div className="db-dialog" style={{ width: 480, height: 'auto' }}>
         <div className="db-dialog-header">{t('options.title')}</div>
         <div className="db-dialog-body" style={{ flexDirection: 'column', overflowY: 'auto', padding: 16, gap: 16 }}>
           {/* Transparent Color */}

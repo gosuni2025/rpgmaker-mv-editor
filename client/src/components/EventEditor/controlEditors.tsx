@@ -19,8 +19,8 @@ export function DataListPicker({ items, value, onChange, onClose, title }: {
     return result;
   }, [items, filter]);
   return (
-    <div className="modal-overlay" style={{ zIndex: 10001 }} onClick={onClose}>
-      <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: 320, maxHeight: '60vh' }}>
+    <div className="modal-overlay" style={{ zIndex: 10001 }}>
+      <div className="image-picker-dialog" style={{ width: 320, maxHeight: '60vh' }}>
         <div className="image-picker-header">{title || '선택'}</div>
         <div style={{ padding: '8px 12px' }}>
           <input

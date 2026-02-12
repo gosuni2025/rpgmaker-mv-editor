@@ -103,8 +103,8 @@ function ParamInputDialog({ code, initialParams, onOk, onCancel, t }: {
   switch (code) {
     case ROUTE_JUMP:
       return (
-        <div className="move-route-param-overlay" onClick={onCancel}>
-          <div className="move-route-param-dialog" onClick={e => e.stopPropagation()}>
+        <div className="move-route-param-overlay">
+          <div className="move-route-param-dialog">
             <div className="move-route-param-title">{t('moveRoute.commands.14')}</div>
             <div className="move-route-param-row">
               <label>{t('moveRoute.jumpX')}<input type="number" value={Number(params[0] ?? 0)} onChange={e => setParams([Number(e.target.value), params[1] ?? 0])} className="event-editor-input" style={{ width: 60 }} /></label>
@@ -119,8 +119,8 @@ function ParamInputDialog({ code, initialParams, onOk, onCancel, t }: {
       );
     case ROUTE_WAIT:
       return (
-        <div className="move-route-param-overlay" onClick={onCancel}>
-          <div className="move-route-param-dialog" onClick={e => e.stopPropagation()}>
+        <div className="move-route-param-overlay">
+          <div className="move-route-param-dialog">
             <div className="move-route-param-title">{t('moveRoute.commands.15')}</div>
             <div className="move-route-param-row">
               <label>{t('moveRoute.waitFrames')}<input type="number" min={1} value={Number(params[0] ?? 60)} onChange={e => setParams([Number(e.target.value)])} className="event-editor-input" style={{ width: 80 }} /></label>
@@ -135,8 +135,8 @@ function ParamInputDialog({ code, initialParams, onOk, onCancel, t }: {
     case ROUTE_SWITCH_ON:
     case ROUTE_SWITCH_OFF:
       return (
-        <div className="move-route-param-overlay" onClick={onCancel}>
-          <div className="move-route-param-dialog" onClick={e => e.stopPropagation()}>
+        <div className="move-route-param-overlay">
+          <div className="move-route-param-dialog">
             <div className="move-route-param-title">{t(`moveRoute.commands.${code}`)}</div>
             <div className="move-route-param-row">
               <label>{t('moveRoute.switchId')}<input type="number" min={1} value={Number(params[0] ?? 1)} onChange={e => setParams([Number(e.target.value)])} className="event-editor-input" style={{ width: 80 }} /></label>
@@ -150,8 +150,8 @@ function ParamInputDialog({ code, initialParams, onOk, onCancel, t }: {
       );
     case ROUTE_CHANGE_SPEED:
       return (
-        <div className="move-route-param-overlay" onClick={onCancel}>
-          <div className="move-route-param-dialog" onClick={e => e.stopPropagation()}>
+        <div className="move-route-param-overlay">
+          <div className="move-route-param-dialog">
             <div className="move-route-param-title">{t('moveRoute.commands.29')}</div>
             <div className="move-route-param-row">
               <label>{t('moveRoute.speed')}
@@ -169,8 +169,8 @@ function ParamInputDialog({ code, initialParams, onOk, onCancel, t }: {
       );
     case ROUTE_CHANGE_FREQ:
       return (
-        <div className="move-route-param-overlay" onClick={onCancel}>
-          <div className="move-route-param-dialog" onClick={e => e.stopPropagation()}>
+        <div className="move-route-param-overlay">
+          <div className="move-route-param-dialog">
             <div className="move-route-param-title">{t('moveRoute.commands.30')}</div>
             <div className="move-route-param-row">
               <label>{t('moveRoute.frequency')}
@@ -188,8 +188,8 @@ function ParamInputDialog({ code, initialParams, onOk, onCancel, t }: {
       );
     case ROUTE_CHANGE_OPACITY:
       return (
-        <div className="move-route-param-overlay" onClick={onCancel}>
-          <div className="move-route-param-dialog" onClick={e => e.stopPropagation()}>
+        <div className="move-route-param-overlay">
+          <div className="move-route-param-dialog">
             <div className="move-route-param-title">{t('moveRoute.commands.42')}</div>
             <div className="move-route-param-row">
               <label>{t('moveRoute.opacity')}<input type="number" min={0} max={255} value={Number(params[0] ?? 255)} onChange={e => setParams([Number(e.target.value)])} className="event-editor-input" style={{ width: 80 }} /></label>
@@ -203,8 +203,8 @@ function ParamInputDialog({ code, initialParams, onOk, onCancel, t }: {
       );
     case ROUTE_CHANGE_BLEND_MODE:
       return (
-        <div className="move-route-param-overlay" onClick={onCancel}>
-          <div className="move-route-param-dialog" onClick={e => e.stopPropagation()}>
+        <div className="move-route-param-overlay">
+          <div className="move-route-param-dialog">
             <div className="move-route-param-title">{t('moveRoute.commands.43')}</div>
             <div className="move-route-param-row">
               <label>{t('moveRoute.blendMode')}
@@ -223,8 +223,8 @@ function ParamInputDialog({ code, initialParams, onOk, onCancel, t }: {
     case ROUTE_PLAY_SE: {
       const se = (params[0] as { name: string; volume: number; pitch: number; pan: number } | undefined) ?? { name: '', volume: 90, pitch: 100, pan: 0 };
       return (
-        <div className="move-route-param-overlay" onClick={onCancel}>
-          <div className="move-route-param-dialog" onClick={e => e.stopPropagation()}>
+        <div className="move-route-param-overlay">
+          <div className="move-route-param-dialog">
             <div className="move-route-param-title">{t('moveRoute.commands.44')}</div>
             <div className="move-route-param-row">
               <AudioPicker
@@ -243,8 +243,8 @@ function ParamInputDialog({ code, initialParams, onOk, onCancel, t }: {
     }
     case ROUTE_SCRIPT:
       return (
-        <div className="move-route-param-overlay" onClick={onCancel}>
-          <div className="move-route-param-dialog" onClick={e => e.stopPropagation()}>
+        <div className="move-route-param-overlay">
+          <div className="move-route-param-dialog">
             <div className="move-route-param-title">{t('moveRoute.commands.45')}</div>
             <div className="move-route-param-row">
               <label style={{ width: '100%' }}>{t('moveRoute.script')}
@@ -265,8 +265,8 @@ function ParamInputDialog({ code, initialParams, onOk, onCancel, t }: {
       );
     case ROUTE_CHANGE_IMAGE:
       return (
-        <div className="move-route-param-overlay" onClick={onCancel}>
-          <div className="move-route-param-dialog" onClick={e => e.stopPropagation()}>
+        <div className="move-route-param-overlay">
+          <div className="move-route-param-dialog">
             <div className="move-route-param-title">{t('moveRoute.commands.41')}</div>
             <div className="move-route-param-row" style={{ flexDirection: 'column', gap: 6 }}>
               <label>이미지: <input type="text" value={String(params[0] ?? '')} onChange={e => setParams([e.target.value, params[1] ?? 0])} className="event-editor-input" style={{ width: 180 }} /></label>
@@ -364,8 +364,8 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel }: MoveRoute
   };
 
   return (
-    <div className="move-route-overlay" onClick={onCancel}>
-      <div className="move-route-dialog" onClick={e => e.stopPropagation()}>
+    <div className="move-route-overlay">
+      <div className="move-route-dialog">
         <div className="move-route-titlebar">{t('moveRoute.title')}</div>
         <div className="move-route-body">
           {/* 좌측: 이동 명령 리스트 */}

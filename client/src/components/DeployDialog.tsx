@@ -61,8 +61,8 @@ export default function DeployDialog() {
   ];
 
   return (
-    <div className="db-dialog-overlay" onClick={() => setShow(false)}>
-      <div className="db-dialog" style={{ width: 520, height: 'auto', minHeight: 0 }} onClick={e => e.stopPropagation()}>
+    <div className="db-dialog-overlay">
+      <div className="db-dialog" style={{ width: 520, height: 'auto', minHeight: 0 }}>
         <div className="db-dialog-header">{t('deploy.title')}</div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>

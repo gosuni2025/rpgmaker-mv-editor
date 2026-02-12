@@ -25,8 +25,8 @@ export default function CharacterGeneratorDialog() {
   // Generator 리소스 미사용 가능 상태
   if (genStatus && !genStatus.available) {
     return (
-      <div className="db-dialog-overlay" onClick={handleClose}>
-        <div className="db-dialog" onClick={(e) => e.stopPropagation()} style={{ width: 560, height: 'auto' }}>
+      <div className="db-dialog-overlay">
+        <div className="db-dialog" style={{ width: 560, height: 'auto' }}>
           <div className="db-dialog-header">캐릭터 생성기</div>
           <div style={{ padding: 20 }}>
             <p style={{ marginBottom: 16, color: '#ccc', textAlign: 'center' }}>
@@ -88,8 +88,8 @@ export default function CharacterGeneratorDialog() {
   }
 
   return (
-    <div className="db-dialog-overlay" onClick={handleClose}>
-      <div className="db-dialog cg-dialog" onClick={(e) => e.stopPropagation()}>
+    <div className="db-dialog-overlay">
+      <div className="db-dialog cg-dialog">
         <div className="db-dialog-header" style={{ display: 'flex', alignItems: 'center' }}>
           <span>캐릭터 생성기</span>
           <div className="cg-gender-tabs">
@@ -228,8 +228,8 @@ export default function CharacterGeneratorDialog() {
 
       {/* 내보내기 모달 */}
       {exportModal && (
-        <div className="db-dialog-overlay" style={{ zIndex: 2100 }} onClick={() => setExportModal(null)}>
-          <div className="cg-export-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="db-dialog-overlay" style={{ zIndex: 2100 }}>
+          <div className="cg-export-modal">
             <div className="db-dialog-header">내보내기 - {EXPORT_TYPE_LABELS[exportModal.type]}</div>
             <div style={{ padding: 16 }}>
               <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#aaa' }}>

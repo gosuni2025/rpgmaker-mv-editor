@@ -77,8 +77,8 @@ export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialog
   const recentProjects = getRecentProjects();
 
   return (
-    <div className="db-dialog-overlay" onClick={onClose}>
-      <div className="open-project-dialog" onClick={(e) => e.stopPropagation()}>
+    <div className="db-dialog-overlay">
+      <div className="open-project-dialog">
         <div className="db-dialog-header">{t('openProject.title')}</div>
 
         <div className="opd-tabs">

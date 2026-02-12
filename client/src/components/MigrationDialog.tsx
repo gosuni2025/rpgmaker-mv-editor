@@ -64,7 +64,7 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
 
   return (
     <div className="db-dialog-overlay">
-      <div className="db-dialog" style={{ width: 600, height: 'auto', minHeight: 0, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+      <div className="db-dialog" style={{ width: 600, height: 'auto', minHeight: 0, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
         <div className="db-dialog-header">{t('migration.title')}</div>
         <div style={{ padding: '16px 20px', flex: 1, overflow: 'auto' }}>
           {loading ? (

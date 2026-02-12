@@ -140,8 +140,8 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
 
   if (loading || !mapData) {
     return (
-      <div className="db-dialog-overlay" onClick={onClose}>
-        <div className="db-dialog" style={{ width: 550, height: 600 }} onClick={e => e.stopPropagation()}>
+      <div className="db-dialog-overlay">
+        <div className="db-dialog" style={{ width: 550, height: 600 }}>
           <div className="db-dialog-header">{t('mapProperties.title')}</div>
           <div className="db-dialog-body"><div className="db-loading">{t('common.loading')}</div></div>
         </div>
@@ -150,8 +150,8 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
   }
 
   return (
-    <div className="db-dialog-overlay" onClick={onClose}>
-      <div className="db-dialog" style={{ width: 550, maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
+    <div className="db-dialog-overlay">
+      <div className="db-dialog" style={{ width: 550, maxHeight: '85vh' }}>
         <div className="db-dialog-header">{t('mapProperties.title')} - {name}</div>
         <div className="db-dialog-body" style={{ flexDirection: 'column', overflowY: 'auto', padding: 16, gap: 12 }}>
           {/* General Settings */}

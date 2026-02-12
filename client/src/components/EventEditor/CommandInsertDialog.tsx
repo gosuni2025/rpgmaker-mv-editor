@@ -157,8 +157,8 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
   };
 
   return (
-    <div className="modal-overlay" onClick={() => onCancel()}>
-      <div className="cmd-insert-dialog" onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="cmd-insert-dialog">
         <div className="cmd-insert-title">{t('eventCommands.insertCommand')}</div>
         <div className="cmd-insert-toolbar">
           <div className="cmd-insert-tabs">

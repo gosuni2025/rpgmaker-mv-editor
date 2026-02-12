@@ -116,8 +116,8 @@ export default function PluginManagerDialog() {
   };
 
   return (
-    <div className="db-dialog-overlay" onClick={() => setShow(false)}>
-      <div className="db-dialog" style={{ width: 700, height: 500 }} onClick={e => e.stopPropagation()}>
+    <div className="db-dialog-overlay">
+      <div className="db-dialog" style={{ width: 700, height: 500 }}>
         <div className="db-dialog-header">{t('pluginManager.title')}</div>
         <div className="db-dialog-body">
           {loading ? (

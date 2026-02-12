@@ -71,8 +71,8 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
 
   if (!editEvent) {
     return (
-      <div className="db-dialog-overlay" onClick={onClose}>
-        <div className="db-dialog" onClick={(e) => e.stopPropagation()} style={{ width: '70vw', height: '75vh' }}>
+      <div className="db-dialog-overlay">
+        <div className="db-dialog" style={{ width: '70vw', height: '75vh' }}>
           <div className="db-dialog-header">Event #{eventId}</div>
           <div className="db-dialog-body">
             <div className="db-placeholder">{t('eventDetail.eventNotFound')}</div>
@@ -168,8 +168,8 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
   const padId = (id: number) => String(id).padStart(3, '0');
 
   return (
-    <div className="db-dialog-overlay" onClick={onClose}>
-      <div className="event-editor-dialog" onClick={(e) => e.stopPropagation()}>
+    <div className="db-dialog-overlay">
+      <div className="event-editor-dialog">
         {/* Title bar */}
         <div className="event-editor-titlebar">
           ID:{padId(editEvent.id)} - {t('eventDetail.title', '이벤트 에디터')}

@@ -218,8 +218,8 @@ export default function MapTree() {
       ))}
 
       {editingId !== null && (
-        <div className="modal-overlay" onClick={() => setEditingId(null)}>
-          <div className="map-props-dialog" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="map-props-dialog">
             <div className="image-picker-header">{t('mapTree.renameMap')}</div>
             <div className="db-form" style={{ padding: 16 }}>
               <label>

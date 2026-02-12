@@ -77,8 +77,8 @@ export default function TranslationPopup({ csvPath, entryKey, sourceText, anchor
 
   if (!config) {
     return (
-      <div className="l10n-popup-overlay" onClick={onClose}>
-        <div className="l10n-popup" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
+      <div className="l10n-popup-overlay">
+        <div className="l10n-popup" style={{ top: pos.top, left: pos.left }}>
           <div style={{ color: '#888', padding: 8 }}>
             {loading ? t('common.loading') : t('localization.notInitialized')}
           </div>
@@ -90,12 +90,11 @@ export default function TranslationPopup({ csvPath, entryKey, sourceText, anchor
   const targetLangs = config.languages.filter(l => l !== config.sourceLanguage);
 
   return (
-    <div className="l10n-popup-overlay" onClick={onClose}>
+    <div className="l10n-popup-overlay">
       <div
         ref={popupRef}
         className="l10n-popup"
         style={{ top: pos.top, left: pos.left }}
-        onClick={e => e.stopPropagation()}
       >
         <div className="l10n-popup-title">{entryKey}</div>
         <div className="l10n-popup-source">{sourceText}</div>

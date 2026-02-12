@@ -65,8 +65,8 @@ export default function AudioPicker({ type, value, onChange }: AudioPickerProps)
         {value.name && <span className="audio-picker-info">Vol:{value.volume} Pitch:{value.pitch}</span>}
       </div>
       {open && (
-        <div className="modal-overlay" onClick={handleCancel}>
-          <div className="audio-picker-dialog" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="audio-picker-dialog">
             <div className="image-picker-header">Select {type.toUpperCase()}</div>
             <div className="audio-picker-body">
               <div className="image-picker-list">

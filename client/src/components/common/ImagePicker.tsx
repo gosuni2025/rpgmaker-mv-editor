@@ -250,8 +250,8 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
         <span className="image-picker-name">{value || '(None)'}</span>
       </div>
       {open && (
-        <div className="modal-overlay" onClick={() => setOpen(false)}>
-          <div className="image-picker-dialog" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="image-picker-dialog">
             <div className="image-picker-header">Select {type}</div>
             <div className="image-picker-body">
               <div className="image-picker-list">

@@ -108,8 +108,8 @@ export default function SoundTestDialog() {
   ];
 
   return (
-    <div className="db-dialog-overlay" onClick={() => { handleStop(); setShow(false); }}>
-      <div className="db-dialog" style={{ width: 500, height: 420 }} onClick={e => e.stopPropagation()}>
+    <div className="db-dialog-overlay">
+      <div className="db-dialog" style={{ width: 500, height: 420 }}>
         <div className="db-dialog-header">{t('soundTest.title')}</div>
         <div className="db-dialog-body" style={{ flexDirection: 'column' }}>
           <div style={{ display: 'flex', borderBottom: '1px solid #555', background: '#333' }}>

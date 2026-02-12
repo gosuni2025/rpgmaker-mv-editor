@@ -99,8 +99,8 @@ export default function ResourceManagerDialog() {
     : null;
 
   return (
-    <div className="db-dialog-overlay" onClick={handleClose}>
-      <div className="db-dialog" onClick={(e) => e.stopPropagation()} style={{ width: '70vw', height: '70vh' }}>
+    <div className="db-dialog-overlay">
+      <div className="db-dialog" style={{ width: '70vw', height: '70vh' }}>
         <div className="db-dialog-header">{t('resourceManager.title')}</div>
         <div className="db-dialog-body">
           {/* Folder list */}
