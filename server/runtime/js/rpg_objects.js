@@ -5450,7 +5450,8 @@ Game_Map.prototype.setup = function(mapId) {
 Game_Map.prototype.setupCameraZones = function() {
     this._cameraZones = $dataMap.cameraZones || [];
     this._activeCameraZone = null;
-    this._cameraTransition = null; // { targetZoom, targetTilt, targetYaw, speed }
+    this._cameraTransition = null;
+    this._cameraScrollLerping = false;
     this._defaultCamera = { zoom: 1.0, tilt: 60, yaw: 0 };
     // Mode3D 현재 상태를 기본값으로 저장
     if (window.Mode3D && Mode3D._active) {
@@ -6089,6 +6090,7 @@ Game_Map.prototype.updateCameraZones = function() {
     var newZoneId = activeZone ? activeZone.id : null;
     if (prevZoneId !== newZoneId) {
         this._activeCameraZone = activeZone;
+        this._cameraScrollLerping = true; // 존 전환 중 scroll clamp 비활성
         var target = activeZone || this._defaultCamera;
         var speed = activeZone ? activeZone.transitionSpeed : 1.0;
         this._cameraTransition = {
@@ -6190,7 +6192,7 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
     var dx = target.x - this._displayX;
     var dy = target.y - this._displayY;
 
-    // 이미 목표에 충분히 가까우면 스냅
+    // 이미 목표에 충분히 가까우면 스냅 + lerp 완료
     if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) {
         if (Math.abs(dx) > 0.001) {
             this._parallaxX += target.x - this._displayX;
@@ -6200,6 +6202,7 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
             this._parallaxY += target.y - this._displayY;
             this._displayY = target.y;
         }
+        this._cameraScrollLerping = false;
         return;
     }
 
@@ -6215,29 +6218,10 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
     this._displayY = newY;
 };
 
-// 카메라 화면 영역이 어떤 존에라도 겹치는지 확인
-Game_Map.prototype._isDisplayInAnyZone = function() {
-    if (!this._cameraZones) return false;
-    var screenW = this.screenTileX();
-    var screenH = this.screenTileY();
-    var camL = this._displayX;
-    var camT = this._displayY;
-    var camR = camL + screenW;
-    var camB = camT + screenH;
-    for (var i = 0; i < this._cameraZones.length; i++) {
-        var z = this._cameraZones[i];
-        if (!z.enabled) continue;
-        // AABB 겹침 검사
-        if (camL < z.x + z.width && camR > z.x && camT < z.y + z.height && camB > z.y) {
-            return true;
-        }
-    }
-    return false;
-};
-
-// scroll 시 카메라가 모든 존 밖으로 나가면 즉시 clamp, 어딘가 존 안이면 lerp에 맡김
+// scroll 시 카메라가 활성 존 밖으로 나가지 못하게 제한
+// _cameraScrollLerping이 true면 존 전환 중이므로 skip (lerp가 처리)
 Game_Map.prototype._preventScrollBeyondZone = function() {
-    if (this._isDisplayInAnyZone()) return;
+    if (this._cameraScrollLerping) return;
     this.clampDisplayToActiveZone();
 };
 
