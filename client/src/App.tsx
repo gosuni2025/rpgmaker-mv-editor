@@ -27,6 +27,7 @@ import AutotileDebugDialog from './components/AutotileDebugDialog';
 import LightInspector from './components/Sidebar/LightInspector';
 import ObjectInspector from './components/Sidebar/ObjectInspector';
 import CameraZoneInspector from './components/Sidebar/CameraZoneInspector';
+import CameraZoneListPanel from './components/Sidebar/CameraZoneListPanel';
 import useFileWatcher from './hooks/useFileWatcher';
 
 function SidebarSplit({ editMode }: { editMode: string }) {
@@ -56,18 +57,20 @@ function SidebarSplit({ editMode }: { editMode: string }) {
   }, []);
 
   const showTileset = editMode === 'map' || editMode === 'object' || editMode === 'light';
+  const showCameraZoneList = editMode === 'cameraZone';
+  const showTopPanel = showTileset || showCameraZoneList;
 
   return (
     <div className="sidebar-split" ref={containerRef}>
-      {showTileset && (
+      {showTopPanel && (
         <div className="sidebar-top" style={{ flex: `0 0 ${splitRatio * 100}%` }}>
-          <TilesetPalette />
+          {showCameraZoneList ? <CameraZoneListPanel /> : <TilesetPalette />}
         </div>
       )}
-      {showTileset && (
+      {showTopPanel && (
         <div className="sidebar-split-handle" onMouseDown={handleMouseDown} />
       )}
-      <div className="sidebar-bottom" style={showTileset ? { flex: `0 0 ${(1 - splitRatio) * 100}%` } : { flex: 1 }}>
+      <div className="sidebar-bottom" style={showTopPanel ? { flex: `0 0 ${(1 - splitRatio) * 100}%` } : { flex: 1 }}>
         <MapTree />
       </div>
     </div>

@@ -1,27 +1,6 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
-
-function computeContentBounds(map: { width: number; height: number; data: number[] }) {
-  const { width, height, data } = map;
-  let minX = width, minY = height, maxX = -1, maxY = -1;
-  // 레이어 0~2만 검사 (z=3은 리전 레이어)
-  for (let z = 0; z < 3; z++) {
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const idx = (z * height + y) * width + x;
-        if (data[idx] !== 0) {
-          if (x < minX) minX = x;
-          if (x > maxX) maxX = x;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
-        }
-      }
-    }
-  }
-  if (maxX < 0) return null; // 빈 맵
-  return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
-}
 
 export default function CameraZoneInspector() {
   const currentMap = useEditorStore((s) => s.currentMap);
@@ -29,7 +8,6 @@ export default function CameraZoneInspector() {
   const updateCameraZone = useEditorStore((s) => s.updateCameraZone);
   const deleteCameraZone = useEditorStore((s) => s.deleteCameraZone);
   const setSelectedCameraZoneId = useEditorStore((s) => s.setSelectedCameraZoneId);
-  const addCameraZone = useEditorStore((s) => s.addCameraZone);
 
   const zones = currentMap?.cameraZones;
   const selectedZone = selectedCameraZoneId != null && zones
@@ -39,111 +17,20 @@ export default function CameraZoneInspector() {
   const mapWidth = currentMap?.width ?? 0;
   const mapHeight = currentMap?.height ?? 0;
 
-  const contentBounds = useMemo(() => {
-    if (!currentMap?.data || !currentMap.width || !currentMap.height) return null;
-    return computeContentBounds(currentMap as { width: number; height: number; data: number[] });
-  }, [currentMap?.data, currentMap?.width, currentMap?.height]);
-
-  const applyBounds = (bounds: { x: number; y: number; width: number; height: number }) => {
-    if (selectedZone) {
-      updateCameraZone(selectedZone.id, bounds);
-    } else {
-      addCameraZone(bounds.x, bounds.y, bounds.width, bounds.height);
-    }
-  };
-
-  const handleFitToContent = () => {
-    if (!contentBounds) return;
-    applyBounds(contentBounds);
-  };
-
-  const handleFitToMap = () => {
-    if (!currentMap) return;
-    applyBounds({ x: 0, y: 0, width: mapWidth, height: mapHeight });
-  };
+  if (!selectedZone) {
+    return (
+      <div className="light-inspector">
+        <div className="light-inspector-section">
+          <div style={{ color: '#888', fontSize: 12, padding: 8 }}>
+            왼쪽 목록에서 카메라 영역을 선택하세요
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="light-inspector">
-      {/* Map Info */}
-      <div className="light-inspector-section">
-        <div className="light-inspector-title">맵 정보</div>
-        <div className="light-inspector-row">
-          <span className="light-inspector-label">맵 크기</span>
-          <span style={{ color: '#ddd', fontSize: 12 }}>{mapWidth} x {mapHeight}</span>
-        </div>
-        <div className="light-inspector-row">
-          <span className="light-inspector-label">픽셀</span>
-          <span style={{ color: '#999', fontSize: 11 }}>{mapWidth * 48} x {mapHeight * 48}</span>
-        </div>
-        <div className="light-inspector-row">
-          <span className="light-inspector-label">영역 수</span>
-          <span style={{ color: '#ddd', fontSize: 12 }}>{zones?.length ?? 0}</span>
-        </div>
-      </div>
-
-      {/* Auto Settings */}
-      <div className="light-inspector-section">
-        <div className="light-inspector-title">자동 설정</div>
-        <button className="camera-zone-action-btn" onClick={handleFitToContent}
-          disabled={!contentBounds}
-          title={contentBounds ? `콘텐츠 영역: (${contentBounds.x},${contentBounds.y}) ${contentBounds.width}x${contentBounds.height}` : '빈 맵'}
-        >
-          {selectedZone ? '콘텐츠 영역에 맞춤' : '콘텐츠 영역으로 생성'}
-        </button>
-        {contentBounds && (
-          <div style={{ color: '#777', fontSize: 10, marginTop: 3, paddingLeft: 2 }}>
-            콘텐츠: ({contentBounds.x},{contentBounds.y}) {contentBounds.width}x{contentBounds.height}
-          </div>
-        )}
-        <button className="camera-zone-action-btn" onClick={handleFitToMap} style={{ marginTop: 4 }}>
-          {selectedZone ? '맵 전체에 맞춤' : '맵 전체 영역 생성'}
-        </button>
-      </div>
-
-      {/* Zone List */}
-      <div className="light-inspector-section">
-        <div className="light-inspector-title">
-          카메라 영역 목록
-          {selectedZone && (
-            <span
-              style={{ float: 'right', cursor: 'pointer', color: '#8cf', fontWeight: 'normal', fontSize: 10 }}
-              onClick={() => setSelectedCameraZoneId(null)}
-            >
-              선택 해제
-            </span>
-          )}
-        </div>
-        {zones && zones.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {zones.map((z) => (
-              <div
-                key={z.id}
-                className="light-inspector-row"
-                style={{
-                  cursor: 'pointer', padding: '4px 6px', borderRadius: 3,
-                  background: z.id === selectedCameraZoneId ? '#2675bf' : '#3a3a3a',
-                }}
-                onClick={() => setSelectedCameraZoneId(z.id === selectedCameraZoneId ? null : z.id)}
-              >
-                <span style={{
-                  color: z.id === selectedCameraZoneId ? '#fff' : z.enabled ? '#ccc' : '#666',
-                  fontSize: 12, flex: 1,
-                }}>
-                  #{z.id} {z.name}
-                </span>
-                <span style={{ color: z.id === selectedCameraZoneId ? '#cde' : '#888', fontSize: 11 }}>
-                  {z.width}x{z.height}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ color: '#666', fontSize: 12, padding: 8 }}>
-            맵에서 드래그하여 카메라 영역을 생성하세요
-          </div>
-        )}
-      </div>
-
       {/* Selected Zone Detail */}
       {selectedZone && (
         <>
