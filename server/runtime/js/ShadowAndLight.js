@@ -1817,13 +1817,26 @@ Graphics._createRenderer = function() {
 ShadowLight._createDebugUI = function() {
     if (this._debugPanel) return;
 
+    var PANEL_ID = 'mapInspector';
+    var SECTION_STORAGE_KEY = 'devPanel_mapInspector_sections';
+
+    // Load/save section collapsed states
+    var sectionStates = {};
+    try {
+        var raw = localStorage.getItem(SECTION_STORAGE_KEY);
+        if (raw) sectionStates = JSON.parse(raw);
+    } catch (e) {}
+    function saveSectionStates() {
+        try { localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify(sectionStates)); } catch (e) {}
+    }
+
     var panel = document.createElement('div');
     panel.id = 'sl-debug-panel';
     panel.style.cssText = 'position:fixed;top:10px;right:10px;z-index:99999;background:rgba(0,0,0,0.85);color:#eee;font:12px monospace;padding:10px;border-radius:6px;min-width:220px;pointer-events:auto;';
 
     var title = document.createElement('div');
     title.textContent = '맵 인스펙터';
-    title.style.cssText = 'font-weight:bold;margin-bottom:8px;color:#ffcc88;';
+    title.style.cssText = 'font-weight:bold;margin-bottom:8px;color:#ffcc88;display:flex;align-items:center;';
     panel.appendChild(title);
 
     var self = this;
@@ -1965,16 +1978,19 @@ ShadowLight._createDebugUI = function() {
         parent.appendChild(row);
     }
 
-    // 접기/펼치기 가능한 섹션 생성 헬퍼
-    // collapsed: 초기 접힘 상태 (기본 false = 펼침)
-    function createSection(parent, label, color, collapsed) {
+    // 접기/펼치기 가능한 섹션 생성 헬퍼 (localStorage 저장)
+    // defaultCollapsed: 초기 접힘 상태 (기본 false = 펼침)
+    function createSection(parent, label, color, defaultCollapsed) {
+        var sectionKey = label; // use label as key
+        var isCollapsed = sectionStates.hasOwnProperty(sectionKey) ? sectionStates[sectionKey] : defaultCollapsed;
+
         var wrapper = document.createElement('div');
         wrapper.style.cssText = sectionStyle;
 
         var header = document.createElement('div');
         header.style.cssText = 'font-weight:bold;font-size:11px;color:' + color + ';cursor:pointer;user-select:none;display:flex;align-items:center;gap:4px;';
         var arrow = document.createElement('span');
-        arrow.textContent = collapsed ? '\u25B6' : '\u25BC';
+        arrow.textContent = isCollapsed ? '\u25B6' : '\u25BC';
         arrow.style.cssText = 'font-size:9px;width:10px;';
         var labelSpan = document.createElement('span');
         labelSpan.textContent = label;
@@ -1983,13 +1999,15 @@ ShadowLight._createDebugUI = function() {
         wrapper.appendChild(header);
 
         var body = document.createElement('div');
-        body.style.display = collapsed ? 'none' : '';
+        body.style.display = isCollapsed ? 'none' : '';
         wrapper.appendChild(body);
 
         header.addEventListener('click', function() {
             var isHidden = body.style.display === 'none';
             body.style.display = isHidden ? '' : 'none';
             arrow.textContent = isHidden ? '\u25BC' : '\u25B6';
+            sectionStates[sectionKey] = !isHidden;
+            saveSectionStates();
         });
 
         parent.appendChild(wrapper);
@@ -2477,6 +2495,14 @@ ShadowLight._createDebugUI = function() {
 
     document.body.appendChild(panel);
     this._debugPanel = panel;
+
+    // Apply DevPanelUtils (draggable + collapse + localStorage)
+    if (window.DevPanelUtils) {
+        this._debugPanelCtrl = DevPanelUtils.makeDraggablePanel(panel, PANEL_ID, {
+            titleBar: title,
+            defaultPosition: 'top-right'
+        });
+    }
 };
 
 ShadowLight._removeDebugUI = function() {

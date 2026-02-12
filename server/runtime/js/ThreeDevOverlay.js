@@ -3,18 +3,41 @@
 //=============================================================================
 // Activated when URL contains ?dev=true
 // Shows scene tree and FPS counter at top-left corner
+// Supports: drag to move, collapse/expand, localStorage persistence
 //=============================================================================
 
 (function() {
     if (!(new URLSearchParams(window.location.search)).has('dev')) return;
 
+    var PANEL_ID = 'threeDevOverlay';
+    var TREE_STORAGE_KEY = 'devPanel_threeDevOverlay_tree';
+
     var overlay = null;
     var fpsEl = null;
     var treeEl = null;
+    var titleBar = null;
     var frames = 0;
     var lastTime = performance.now();
     var fps = 0;
     var collapsed = {};  // track collapsed nodes by path
+    var panelCtrl = null; // DevPanelUtils controller
+
+    // Load tree collapsed state from localStorage
+    function loadTreeCollapsed() {
+        try {
+            var raw = localStorage.getItem(TREE_STORAGE_KEY);
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) { return {}; }
+    }
+
+    function saveTreeCollapsed() {
+        try {
+            localStorage.setItem(TREE_STORAGE_KEY, JSON.stringify(collapsed));
+        } catch (e) {}
+    }
+
+    // Load saved tree state
+    collapsed = loadTreeCollapsed();
 
     function createOverlay() {
         overlay = document.createElement('div');
@@ -29,12 +52,13 @@
             'scrollbar-width:thin', 'scrollbar-color:#555 transparent'
         ].join(';');
 
-        var topBar = document.createElement('div');
-        topBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;';
+        // Title bar (drag handle)
+        titleBar = document.createElement('div');
+        titleBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;';
 
         fpsEl = document.createElement('div');
-        fpsEl.style.cssText = 'font-size:13px;font-weight:bold;color:#0f0;';
-        topBar.appendChild(fpsEl);
+        fpsEl.style.cssText = 'font-size:13px;font-weight:bold;color:#0f0;flex:1;';
+        titleBar.appendChild(fpsEl);
 
         var copyBtn = document.createElement('button');
         copyBtn.textContent = 'Copy';
@@ -51,8 +75,8 @@
                 setTimeout(function() { copyBtn.textContent = 'Copy'; }, 1000);
             });
         });
-        topBar.appendChild(copyBtn);
-        overlay.appendChild(topBar);
+        titleBar.appendChild(copyBtn);
+        overlay.appendChild(titleBar);
 
         var separator = document.createElement('div');
         separator.style.cssText = 'border-top:1px solid #555;margin:2px 0 4px;';
@@ -63,6 +87,14 @@
         overlay.appendChild(treeEl);
 
         document.body.appendChild(overlay);
+
+        // Apply DevPanelUtils (draggable + collapse + localStorage)
+        if (window.DevPanelUtils) {
+            panelCtrl = DevPanelUtils.makeDraggablePanel(overlay, PANEL_ID, {
+                titleBar: titleBar,
+                defaultPosition: 'top-left'
+            });
+        }
     }
 
     function getNodeLabel(obj) {
@@ -238,6 +270,8 @@
             var key = target.getAttribute('data-key');
             if (key) {
                 collapsed[key] = !collapsed[key];
+                // Save tree collapsed state to localStorage
+                saveTreeCollapsed();
                 // Force immediate tree update
                 if (treeEl) treeEl._lastUpdate = 0;
             }

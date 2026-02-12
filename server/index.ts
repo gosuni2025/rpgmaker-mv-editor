@@ -196,6 +196,7 @@ app.get('/game/index.html', (req, res) => {
             };
         })();
         </script>
+        <script type="text/javascript" src="js/DevPanelUtils.js"></script>
         <script type="text/javascript" src="js/rpg_objects.js"></script>
         <script type="text/javascript" src="js/rpg_scenes.js"></script>
         <script type="text/javascript" src="js/rpg_sprites.js"></script>

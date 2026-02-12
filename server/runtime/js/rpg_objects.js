@@ -6149,17 +6149,43 @@ Game_Map.prototype.updateCameraZones = function() {
 
 Game_Map.prototype._updateCameraZoneDebugText = function(zones) {
     if (!$gameTemp || !$gameTemp.isPlaytest()) {
-        if (this._cameraZoneDebugEl) {
-            this._cameraZoneDebugEl.style.display = 'none';
+        if (this._cameraZoneDebugWrapper) {
+            this._cameraZoneDebugWrapper.style.display = 'none';
         }
         return;
     }
     if (!this._cameraZoneDebugEl) {
+        var PANEL_ID = 'cameraZoneDebug';
+
+        var wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:fixed;top:8px;left:8px;z-index:9999;' +
+            'background:rgba(0,0,0,0.6);padding:4px 8px;pointer-events:auto;user-select:none;border-radius:4px;';
+
+        // Title bar for drag
+        var titleBar = document.createElement('div');
+        titleBar.style.cssText = 'color:#ffcc88;font:bold 12px monospace;margin-bottom:2px;display:flex;align-items:center;';
+        var titleText = document.createElement('span');
+        titleText.textContent = 'Camera Zones';
+        titleText.style.cssText = 'flex:1;';
+        titleBar.appendChild(titleText);
+        wrapper.appendChild(titleBar);
+
         var el = document.createElement('div');
-        el.style.cssText = 'position:fixed;top:8px;left:8px;color:#0f0;font:bold 14px monospace;' +
-            'background:rgba(0,0,0,0.6);padding:4px 8px;pointer-events:none;z-index:9999;white-space:pre';
-        document.body.appendChild(el);
+        el.style.cssText = 'color:#0f0;font:bold 14px monospace;white-space:pre;';
+        wrapper.appendChild(el);
+
+        document.body.appendChild(wrapper);
         this._cameraZoneDebugEl = el;
+        this._cameraZoneDebugWrapper = wrapper;
+
+        // Apply DevPanelUtils (draggable + collapse + localStorage)
+        if (window.DevPanelUtils) {
+            this._cameraZoneDebugCtrl = DevPanelUtils.makeDraggablePanel(wrapper, PANEL_ID, {
+                titleBar: titleBar,
+                bodyEl: el,
+                defaultPosition: 'top-left'
+            });
+        }
     }
     var names = [];
     for (var i = 0; i < zones.length; i++) {
@@ -6172,7 +6198,7 @@ Game_Map.prototype._updateCameraZoneDebugText = function(zones) {
         'Zones: ' + (names.length > 0 ? names.join(', ') : 'none') +
         '\nActive: ' + activeName + lerping +
         '\nDisplay: ' + this._displayX.toFixed(2) + ', ' + this._displayY.toFixed(2);
-    this._cameraZoneDebugEl.style.display = '';
+    this._cameraZoneDebugWrapper.style.display = '';
 };
 
 // 겹치는 존들의 합집합(union) 바운딩 박스 계산
