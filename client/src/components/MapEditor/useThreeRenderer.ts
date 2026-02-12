@@ -189,11 +189,19 @@ export function useThreeRenderer(
       rendererObj.scene.add(stage._threeObj);
 
       const editorState = useEditorStore.getState();
-      if (editorState.shadowLight) {
-        w.ConfigManager.shadowLight = true;
-        syncEditorLightsToScene(rendererObj.scene, editorState.currentMap?.editorLights, editorState.mode3d);
+      // 플러그인이 ConfigManager 값을 덮어쓸 수 있으므로, 런타임의 실제 값을 UI 상태에 동기화
+      const runtimeShadowLight = !!w.ConfigManager?.shadowLight;
+      const runtimeMode3d = !!w.ConfigManager?.mode3d;
+      if (runtimeShadowLight !== editorState.shadowLight) {
+        useEditorStore.setState({ shadowLight: runtimeShadowLight });
       }
-      if (editorState.mode3d) {
+      if (runtimeMode3d !== editorState.mode3d) {
+        useEditorStore.setState({ mode3d: runtimeMode3d });
+      }
+      if (runtimeShadowLight) {
+        syncEditorLightsToScene(rendererObj.scene, editorState.currentMap?.editorLights, runtimeMode3d);
+      }
+      if (runtimeMode3d) {
         w.ConfigManager.mode3d = true;
       }
 
