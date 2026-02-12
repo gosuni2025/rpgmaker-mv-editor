@@ -6172,18 +6172,9 @@ Game_Map.prototype.updateCameraZone = function() {
         this._activeCameraZoneId = null;
     }
 
-    // 프러스텀 마진 계산 (3D 모드 시)
+    // 마진 = 화면 타일 수의 절반 (2D/3D 공통)
     var marginX = halfScreenX;
     var marginY = halfScreenY;
-    if (typeof ConfigManager !== 'undefined' && ConfigManager.mode3d &&
-        typeof Mode3D !== 'undefined' && Mode3D._active && Mode3D.getFrustumWorldBounds) {
-        var bounds = Mode3D.getFrustumWorldBounds();
-        if (bounds) {
-            var tw = this.tileWidth();
-            marginX = (bounds.maxX - bounds.minX) / tw / 2;
-            marginY = (bounds.maxY - bounds.minY) / tw / 2;
-        }
-    }
 
     // 스크롤이 원하는 카메라 중심 (존 클램핑 전)
     var targetX = this._displayX + halfScreenX;
