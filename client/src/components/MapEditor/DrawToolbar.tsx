@@ -36,6 +36,11 @@ export default function DrawToolbar() {
   const setMode3d = useEditorStore((s) => s.setMode3d);
   const setShadowLight = useEditorStore((s) => s.setShadowLight);
   const showToast = useEditorStore((s) => s.showToast);
+  const setShowDatabaseDialog = useEditorStore((s) => s.setShowDatabaseDialog);
+  const setShowPluginManagerDialog = useEditorStore((s) => s.setShowPluginManagerDialog);
+  const setShowSoundTestDialog = useEditorStore((s) => s.setShowSoundTestDialog);
+  const setShowEventSearchDialog = useEditorStore((s) => s.setShowEventSearchDialog);
+  const setShowResourceManagerDialog = useEditorStore((s) => s.setShowResourceManagerDialog);
   const [showGrid, setShowGrid] = React.useState(true);
 
   return (
@@ -175,7 +180,32 @@ export default function DrawToolbar() {
         <button onClick={zoomIn} style={styles.btn}>{t('toolbar.zoomIn')}</button>
       </div>
 
+      <div style={styles.separator} />
+
+      {/* Tool shortcuts */}
+      <div style={styles.group}>
+        <button onClick={() => setShowDatabaseDialog(true)} style={styles.btn}>
+          {t('menu.database').replace('...', '')}
+        </button>
+        <button onClick={() => setShowPluginManagerDialog(true)} style={styles.btn}>
+          {t('menu.pluginManager').replace('...', '')}
+        </button>
+        <button onClick={() => setShowSoundTestDialog(true)} style={styles.btn}>
+          {t('menu.soundTest').replace('...', '')}
+        </button>
+        <button onClick={() => setShowEventSearchDialog(true)} style={styles.btn}>
+          {t('menu.eventSearch').replace('...', '')}
+        </button>
+        <button onClick={() => setShowResourceManagerDialog(true)} style={styles.btn}>
+          {t('menu.resourceManager').replace('...', '')}
+        </button>
+      </div>
+
       <div style={{ flex: 1 }} />
+
+      <button onClick={saveCurrentMap} style={styles.saveBtn}>
+        {t('toolbar.save')}
+      </button>
 
       <button
         onClick={() => {
@@ -188,10 +218,6 @@ export default function DrawToolbar() {
         title="Ctrl+Shift+R"
       >
         ▶ {t('menu.playtestCurrentMap')}
-      </button>
-
-      <button onClick={saveCurrentMap} style={styles.saveBtn}>
-        {t('toolbar.save')}
       </button>
     </div>
   );
@@ -264,7 +290,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '4px 12px',
     cursor: 'pointer',
     fontSize: 12,
-    marginRight: 4,
+    marginLeft: 4,
   },
   saveBtn: {
     background: '#0078d4',
