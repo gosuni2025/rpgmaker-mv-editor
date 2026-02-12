@@ -209,7 +209,6 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
             <button className="event-editor-page-btn" onClick={copyPage}>{t('common.copy')}</button>
             <button className="event-editor-page-btn" onClick={deletePage} disabled={editEvent.pages.length <= 1}>{t('common.delete')}</button>
           </div>
-          <button className="event-editor-page-btn event-editor-close-page">{t('eventDetail.closePage', '이벤트 페이지 닫기')}</button>
         </div>
 
         {/* Main content */}
