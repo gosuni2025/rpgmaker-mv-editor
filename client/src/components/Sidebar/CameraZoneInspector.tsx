@@ -18,6 +18,10 @@ export default function CameraZoneInspector() {
   const mapWidth = currentMap?.width ?? 0;
   const mapHeight = currentMap?.height ?? 0;
 
+  // 카메라존 최소 크기 = 화면 타일 수 (816/48=17, 624/48=13)
+  const minZoneWidth = Math.ceil(816 / 48);  // 17
+  const minZoneHeight = Math.ceil(624 / 48); // 13
+
   if (!selectedZone) {
     return (
       <div className="light-inspector">
@@ -87,18 +91,24 @@ export default function CameraZoneInspector() {
           <div className="light-inspector-section">
             <div className="light-inspector-title">크기</div>
             <div className="light-inspector-row">
-              <DragLabel label="W" value={selectedZone.width} step={1} min={1} max={mapWidth * 3}
-                onChange={(v) => updateCameraZone(selectedZone.id, { width: Math.max(1, Math.round(v)) })} />
-              <input type="number" className="light-inspector-input" min={1}
+              <DragLabel label="W" value={selectedZone.width} step={1} min={minZoneWidth} max={mapWidth * 3}
+                onChange={(v) => updateCameraZone(selectedZone.id, { width: Math.max(minZoneWidth, Math.round(v)) })} />
+              <input type="number" className="light-inspector-input" min={minZoneWidth}
                 value={selectedZone.width}
-                onChange={(e) => updateCameraZone(selectedZone.id, { width: Math.max(1, parseInt(e.target.value) || 1) })} />
+                onChange={(e) => updateCameraZone(selectedZone.id, { width: Math.max(minZoneWidth, parseInt(e.target.value) || minZoneWidth) })} />
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="H" value={selectedZone.height} step={1} min={1} max={mapHeight * 3}
-                onChange={(v) => updateCameraZone(selectedZone.id, { height: Math.max(1, Math.round(v)) })} />
-              <input type="number" className="light-inspector-input" min={1}
+              <DragLabel label="H" value={selectedZone.height} step={1} min={minZoneHeight} max={mapHeight * 3}
+                onChange={(v) => updateCameraZone(selectedZone.id, { height: Math.max(minZoneHeight, Math.round(v)) })} />
+              <input type="number" className="light-inspector-input" min={minZoneHeight}
                 value={selectedZone.height}
-                onChange={(e) => updateCameraZone(selectedZone.id, { height: Math.max(1, parseInt(e.target.value) || 1) })} />
+                onChange={(e) => updateCameraZone(selectedZone.id, { height: Math.max(minZoneHeight, parseInt(e.target.value) || minZoneHeight) })} />
+            </div>
+            <div className="light-inspector-row" style={{ marginTop: 2 }}>
+              <span className="light-inspector-label" style={{ color: '#777', fontSize: 10 }}>최소 크기</span>
+              <span style={{ color: '#777', fontSize: 10 }}>
+                {minZoneWidth} x {minZoneHeight} (화면 크기 이상이어야 카메라 경계가 동작)
+              </span>
             </div>
             <div className="light-inspector-row" style={{ marginTop: 2 }}>
               <span className="light-inspector-label" style={{ color: '#777', fontSize: 10 }}>픽셀</span>

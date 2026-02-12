@@ -3,6 +3,10 @@ import useEditorStore from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
 import type { MapToolsResult } from './useMapTools';
 
+// 카메라존 최소 크기 = 화면 타일 수
+const MIN_CZ_W = Math.ceil(816 / 48); // 17
+const MIN_CZ_H = Math.ceil(624 / 48); // 13
+
 export interface CameraZoneHandlersResult {
   isDraggingCameraZone: React.MutableRefObject<boolean>;
   isCreatingCameraZone: React.MutableRefObject<boolean>;
@@ -116,8 +120,8 @@ export function useCameraZoneHandlers(
         if (edge.includes('e')) { nw = orig.width + dx; }
         if (edge.includes('n')) { ny = orig.y + dy; nh = orig.height - dy; }
         if (edge.includes('s')) { nh = orig.height + dy; }
-        if (nw < 1) { nx = nx + nw - 1; nw = 1; }
-        if (nh < 1) { ny = ny + nh - 1; nh = 1; }
+        if (nw < MIN_CZ_W) { if (edge.includes('w')) nx = orig.x + orig.width - MIN_CZ_W; nw = MIN_CZ_W; }
+        if (nh < MIN_CZ_H) { if (edge.includes('n')) ny = orig.y + orig.height - MIN_CZ_H; nh = MIN_CZ_H; }
         setCameraZoneDragPreview({ x: nx, y: ny, width: nw, height: nh });
         return;
       }
@@ -197,7 +201,7 @@ export function useCameraZoneHandlers(
           const minY = Math.min(sy, tile.y);
           const w = Math.abs(tile.x - sx) + 1;
           const h = Math.abs(tile.y - sy) + 1;
-          if (w >= 2 && h >= 2) {
+          if (w >= 2 || h >= 2) {
             addCameraZone(minX, minY, w, h);
           }
         }
@@ -371,7 +375,7 @@ export function useCameraZoneHandlers(
         const minY = Math.min(sy, unclTile.y);
         const w = Math.abs(unclTile.x - sx) + 1;
         const h = Math.abs(unclTile.y - sy) + 1;
-        if (w >= 2 && h >= 2) {
+        if (w >= 2 || h >= 2) {
           addCameraZone(minX, minY, w, h);
         }
       }

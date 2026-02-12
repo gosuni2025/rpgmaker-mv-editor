@@ -132,9 +132,15 @@ export function moveObjectsOp(get: GetFn, set: SetFn, objectIds: number[], dx: n
 // Camera zone operations
 // ============================================================
 
+// 카메라존 최소 크기 = 화면 타일 수 (816/48=17, 624/48=13)
+const MIN_CAMERA_ZONE_WIDTH = Math.ceil(816 / 48);
+const MIN_CAMERA_ZONE_HEIGHT = Math.ceil(624 / 48);
+
 export function addCameraZoneOp(get: GetFn, set: SetFn, x: number, y: number, width: number, height: number) {
   const { currentMap, currentMapId, undoStack, selectedCameraZoneId } = get();
   if (!currentMap || !currentMapId) return;
+  width = Math.max(width, MIN_CAMERA_ZONE_WIDTH);
+  height = Math.max(height, MIN_CAMERA_ZONE_HEIGHT);
   const oldZones = currentMap.cameraZones || [];
   const zones = [...oldZones];
   const newId = zones.length > 0 ? Math.max(...zones.map(z => z.id)) + 1 : 1;
@@ -168,6 +174,8 @@ export function addCameraZoneOp(get: GetFn, set: SetFn, x: number, y: number, wi
 export function updateCameraZoneOp(get: GetFn, set: SetFn, id: number, updates: Partial<CameraZone>) {
   const { currentMap, currentMapId, undoStack, selectedCameraZoneId } = get();
   if (!currentMap || !currentMapId || !currentMap.cameraZones) return;
+  if (updates.width !== undefined) updates.width = Math.max(updates.width, MIN_CAMERA_ZONE_WIDTH);
+  if (updates.height !== undefined) updates.height = Math.max(updates.height, MIN_CAMERA_ZONE_HEIGHT);
   const oldZones = currentMap.cameraZones;
   const zones = oldZones.map(z => z.id === id ? { ...z, ...updates } : z);
   const historyEntry: CameraZoneHistoryEntry = {
