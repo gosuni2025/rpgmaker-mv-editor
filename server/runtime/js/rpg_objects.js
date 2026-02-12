@@ -6040,6 +6040,40 @@ Game_Map.prototype.update = function(sceneActive) {
     this.updateEvents();
     this.updateVehicles();
     this.updateParallax();
+    this.updateCameraZoneDetection();
+};
+
+Game_Map.prototype.updateCameraZoneDetection = function() {
+    var zones = $dataMap && $dataMap.cameraZones;
+    if (!zones || zones.length === 0) return;
+    var player = $gamePlayer;
+    if (!player) return;
+    var px = player.x;
+    var py = player.y;
+    var currentZone = null;
+    var bestPriority = -Infinity;
+    for (var i = 0; i < zones.length; i++) {
+        var z = zones[i];
+        if (!z.enabled) continue;
+        if (px >= z.x && px < z.x + z.width && py >= z.y && py < z.y + z.height) {
+            if (z.priority > bestPriority) {
+                bestPriority = z.priority;
+                currentZone = z;
+            }
+        }
+    }
+    var prevId = this._currentCameraZoneId || 0;
+    var newId = currentZone ? currentZone.id : 0;
+    if (newId !== prevId) {
+        if (currentZone) {
+            console.log('[CameraZone] 진입: "' + currentZone.name + '" (id=' + currentZone.id +
+                ', rect=' + currentZone.x + ',' + currentZone.y + ' ' + currentZone.width + 'x' + currentZone.height +
+                ', zoom=' + currentZone.zoom + ', tilt=' + currentZone.tilt + ', yaw=' + currentZone.yaw + ')');
+        } else {
+            console.log('[CameraZone] 이탈: 존 밖으로 나감');
+        }
+        this._currentCameraZoneId = newId;
+    }
 };
 
 Game_Map.prototype.updateScroll = function() {
