@@ -6236,12 +6236,12 @@ Game_Map.prototype.updateCameraZone = function() {
     if (!this._czDebugCount) this._czDebugCount = 0;
     this._czDebugCount++;
     if (this._czDebugCount % 30 === 0) {
-        console.log('[CZ] dispX=' + oldDisplayX.toFixed(2) + ' preClamp=' + preClampX.toFixed(2) +
-            ' target=' + targetX.toFixed(2) + ' final=' + this._cameraZoneTargetX.toFixed(2) +
-            ' newDispX=' + this._displayX.toFixed(2) +
-            ' margin=' + marginX.toFixed(2) +
+        console.log('[CZ] camWorld=' + camWorld.x.toFixed(2) + ',' + camWorld.y.toFixed(2) +
+            ' disp=' + oldDisplayX.toFixed(2) + ',' + oldDisplayY.toFixed(2) +
+            ' preClamp=' + preClampX.toFixed(2) + ',' + preClampY.toFixed(2) +
+            ' target=' + targetX.toFixed(2) + ',' + targetY.toFixed(2) +
             ' zone=' + this._activeCameraZoneId +
-            ' lerping=' + !!this._cameraZoneLerping);
+            ' lerp=' + !!this._cameraZoneLerping);
     }
 };
 
