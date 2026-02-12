@@ -5874,6 +5874,7 @@ Game_Map.prototype.scrollDown = function(distance) {
             this.height() - this.screenTileY());
         this._parallaxY += this._displayY - lastY;
     }
+    this._preventScrollBeyondZone();
 };
 
 Game_Map.prototype.scrollLeft = function(distance) {
@@ -5888,6 +5889,7 @@ Game_Map.prototype.scrollLeft = function(distance) {
         this._displayX = Math.max(this._displayX - distance, 0);
         this._parallaxX += this._displayX - lastX;
     }
+    this._preventScrollBeyondZone();
 };
 
 Game_Map.prototype.scrollRight = function(distance) {
@@ -5903,6 +5905,7 @@ Game_Map.prototype.scrollRight = function(distance) {
             this.width() - this.screenTileX());
         this._parallaxX += this._displayX - lastX;
     }
+    this._preventScrollBeyondZone();
 };
 
 Game_Map.prototype.scrollUp = function(distance) {
@@ -5917,6 +5920,7 @@ Game_Map.prototype.scrollUp = function(distance) {
         this._displayY = Math.max(this._displayY - distance, 0);
         this._parallaxY += this._displayY - lastY;
     }
+    this._preventScrollBeyondZone();
 };
 
 Game_Map.prototype.isValid = function(x, y) {
@@ -6210,6 +6214,39 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
     this._parallaxY += newY - this._displayY;
     this._displayX = newX;
     this._displayY = newY;
+};
+
+// scroll 시 존 범위 밖으로 더 벗어나지 않도록 제한 (밖→안 복귀는 lerp가 담당)
+Game_Map.prototype._preventScrollBeyondZone = function() {
+    var union = this._getUnionBounds();
+    if (!union) return;
+
+    var screenW = this.screenTileX();
+    var screenH = this.screenTileY();
+
+    if (union.width >= screenW) {
+        var minX = union.x;
+        var maxX = union.x + union.width - screenW;
+        if (this._displayX < minX) {
+            this._parallaxX += minX - this._displayX;
+            this._displayX = minX;
+        } else if (this._displayX > maxX) {
+            this._parallaxX += maxX - this._displayX;
+            this._displayX = maxX;
+        }
+    }
+
+    if (union.height >= screenH) {
+        var minY = union.y;
+        var maxY = union.y + union.height - screenH;
+        if (this._displayY < minY) {
+            this._parallaxY += minY - this._displayY;
+            this._displayY = minY;
+        } else if (this._displayY > maxY) {
+            this._parallaxY += maxY - this._displayY;
+            this._displayY = maxY;
+        }
+    }
 };
 
 // 합집합 범위로 즉시 clamp (맵 초기 로드 등 특수 상황용)
