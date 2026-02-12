@@ -4,6 +4,7 @@ import useEditorStore from '../store/useEditorStore';
 import apiClient from '../api/client';
 import type { L10nConfig, CSVRow, Category, StatsData, UndoEntry, FilterMode } from './localizationTypes';
 import { LANGUAGE_NAMES, getCsvPath, formatTs, getStatus } from './localizationTypes';
+import './LocalizationDialog.css';
 
 function HelpButton({ text }: { text: string }) {
   const [show, setShow] = useState(false);

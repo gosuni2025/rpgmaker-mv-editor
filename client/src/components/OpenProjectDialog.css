@@ -1,0 +1,150 @@
+/* Open Project Dialog */
+.open-project-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 600px;
+  height: 500px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.opd-tabs {
+  display: flex;
+  border-bottom: 1px solid #555;
+  background: #333;
+}
+
+.opd-tab {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 12px;
+  border: none;
+  background: transparent;
+  color: #999;
+  border-bottom: 2px solid transparent;
+}
+
+.opd-tab:hover {
+  color: #ddd;
+}
+
+.opd-tab.active {
+  color: #fff;
+  border-bottom-color: #2675bf;
+}
+
+.opd-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.opd-path-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #333;
+  border-bottom: 1px solid #444;
+}
+
+.opd-nav-btn {
+  background: #4a4a4a;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ddd;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.opd-nav-btn:hover:not(:disabled) {
+  background: #555;
+}
+
+.opd-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.opd-path-text {
+  flex: 1;
+  font-size: 12px;
+  color: #bbb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #2b2b2b;
+  padding: 4px 8px;
+  border-radius: 3px;
+  border: 1px solid #555;
+}
+
+.opd-dir-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.opd-dir-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.opd-dir-item:hover {
+  background: #444;
+}
+
+.opd-dir-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.opd-loading,
+.opd-empty {
+  padding: 16px;
+  text-align: center;
+  color: #666;
+  font-size: 13px;
+}
+
+.opd-error {
+  padding: 12px;
+  color: #e55;
+  font-size: 12px;
+}
+
+.opd-project-badge {
+  padding: 8px 12px;
+  background: #1a3a1a;
+  color: #6c6;
+  font-size: 12px;
+  border-top: 1px solid #2a4a2a;
+}
+
+.opd-recent-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.opd-recent-name {
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.opd-recent-path {
+  font-size: 11px;
+  color: #888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

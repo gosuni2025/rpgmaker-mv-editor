@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import ImagePicker from '../common/ImagePicker';
+import './MapPropertiesDialog.css';
 
 interface TilesetEntry {
   id: number;

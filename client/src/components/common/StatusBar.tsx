@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
+import './StatusBar.css';
 
 export default function StatusBar() {
   const { t } = useTranslation();

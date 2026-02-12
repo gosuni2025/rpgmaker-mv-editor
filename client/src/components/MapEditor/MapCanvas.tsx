@@ -11,6 +11,7 @@ import { useEventSelectionOverlays, useLightSelectionOverlays, useObjectSelectio
 import { useSelectionRectOverlay, usePastePreviewOverlay } from './useSelectionOverlays';
 import { useTileCursorPreview } from './useTileCursorPreview';
 import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview } from './useDragPreviewSync';
+import './MapCanvas.css';
 
 
 export default function MapCanvas() {

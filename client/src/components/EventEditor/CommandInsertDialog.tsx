@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fuzzyMatch } from '../../utils/fuzzySearch';
+import '../MapEditor/MapCanvas.css';
 
 interface CommandInsertDialogProps {
   onSelect: (code: number) => void;

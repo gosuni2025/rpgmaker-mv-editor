@@ -2,6 +2,7 @@ import React from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
 import { DEFAULT_EDITOR_LIGHTS } from '../../types/rpgMakerMV';
+import './InspectorPanel.css';
 
 export default function LightInspector() {
   const currentMap = useEditorStore((s) => s.currentMap);

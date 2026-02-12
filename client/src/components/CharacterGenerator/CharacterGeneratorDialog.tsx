@@ -2,6 +2,7 @@ import React from 'react';
 import type { Gender, OutputType } from './types';
 import { GENDER_LABELS, OUTPUT_LABELS, EXPORT_TYPE_LABELS } from './types';
 import { useCharacterGenerator } from './useCharacterGenerator';
+import './CharacterGeneratorDialog.css';
 
 export default function CharacterGeneratorDialog() {
   const {

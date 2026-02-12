@@ -4,6 +4,7 @@ import type { Animation, AnimationTiming, AudioFile } from '../../types/rpgMaker
 import ImagePicker from '../common/ImagePicker';
 import AudioPicker from '../common/AudioPicker';
 import AnimationPreview from './AnimationPreview';
+import './AnimationPreview.css';
 
 interface AnimationsTabProps {
   data: (Animation | null)[] | undefined;

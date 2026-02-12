@@ -4,6 +4,7 @@ import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent, EventPage, EventConditions, EventImage, EventCommand, MoveRoute, MapData } from '../../types/rpgMakerMV';
 import EventCommandEditor from './EventCommandEditor';
 import ImagePicker from '../common/ImagePicker';
+import './EventEditor.css';
 
 interface EventDetailProps {
   eventId: number;

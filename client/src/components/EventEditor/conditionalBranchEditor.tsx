@@ -4,6 +4,7 @@ import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import { selectStyle } from './messageEditors';
 import { DataListPicker } from './controlEditors';
+import './ConditionalBranchEditor.css';
 
 interface NamedItem { id: number; name: string }
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../api/client';
+import './OpenProjectDialog.css';
 
 const RECENT_KEY = 'rpg-editor-recent-projects';
 

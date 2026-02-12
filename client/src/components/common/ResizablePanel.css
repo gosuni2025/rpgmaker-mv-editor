@@ -1,0 +1,26 @@
+/* ResizablePanel */
+.resizable-panel {
+  position: relative;
+  display: flex;
+}
+
+.resizable-panel-content {
+  overflow: hidden;
+  flex: 1;
+}
+
+.resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+  background: #2675bf;
+}

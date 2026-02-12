@@ -1,0 +1,27 @@
+/* 조건 분기 에디터 탭 */
+.cond-branch-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 8px;
+}
+.cond-branch-tab {
+  padding: 4px 16px;
+  font-size: 13px;
+  color: #aaa;
+  background: #333;
+  border: 1px solid #555;
+  border-bottom: none;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+  margin-right: -1px;
+}
+.cond-branch-tab.active {
+  color: #fff;
+  background: #2b2b2b;
+  border-bottom: 1px solid #2b2b2b;
+  position: relative;
+  z-index: 1;
+}
+.cond-branch-tab:hover:not(.active) {
+  background: #3a3a3a;
+}

@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { MapInfo } from '../../types/rpgMakerMV';
 import MapPropertiesDialog from '../MapEditor/MapPropertiesDialog';
+import './Sidebar.css';
+import './MapTree.css';
 
 interface TreeNodeData extends MapInfo {
   children: TreeNodeData[];

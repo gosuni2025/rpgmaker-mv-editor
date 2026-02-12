@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent, MapData } from '../../types/rpgMakerMV';
+import './EventEditor.css';
 
 interface ContextMenu {
   x: number;

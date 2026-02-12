@@ -1,0 +1,157 @@
+/* Event Editor Dialog */
+.event-editor-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 80vw;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+
+.event-editor-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.event-pages-bar {
+  display: flex;
+  gap: 2px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #555;
+  background: #333;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.event-page-tab {
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #444;
+}
+
+.event-page-tab.active {
+  background: #2675bf;
+  border-color: #2675bf;
+}
+
+.event-page-left {
+  width: 280px;
+  min-width: 280px;
+  overflow-y: auto;
+  padding: 8px;
+  border-right: 1px solid #555;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-page-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.event-commands-list {
+  flex: 1;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 12px;
+  padding: 4px;
+  background: #2b2b2b;
+}
+
+.event-command-row {
+  padding: 2px 4px;
+  cursor: pointer;
+  white-space: pre-wrap;
+  border-bottom: 1px solid #333;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.event-command-row.dragging {
+  opacity: 0.4;
+}
+
+.event-command-row:hover {
+  background: #383838;
+}
+
+.event-command-row.selected {
+  background: #2675bf;
+}
+
+.event-command-row.group-highlight {
+  background: #1e3a5f;
+}
+
+.event-command-row.group-member {
+  border-left: 2px solid #2675bf;
+  border-right: 2px solid #2675bf;
+}
+
+.event-command-row.group-first {
+  border-top: 2px solid #2675bf;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
+
+.event-command-row.group-last {
+  border-bottom: 2px solid #2675bf;
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: #666;
+  font-size: 11px;
+  width: 18px;
+  flex-shrink: 0;
+  text-align: center;
+  user-select: none;
+  letter-spacing: -1px;
+  line-height: 1;
+  padding: 2px 0;
+}
+
+.drag-handle:hover {
+  color: #aaa;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.event-command-drop-indicator {
+  height: 2px;
+  background: #4ea6f5;
+  margin: 0 4px;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.event-commands-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  border-top: 1px solid #555;
+  background: #333;
+  align-items: center;
+}
+
+.event-commands-toolbar-sep {
+  width: 1px;
+  height: 16px;
+  background: #555;
+  margin: 0 2px;
+  flex-shrink: 0;
+}

@@ -17,6 +17,7 @@ import CommonEventsTab from './CommonEventsTab';
 import SystemTab from './SystemTab';
 import TypesTab from './TypesTab';
 import TermsTab from './TermsTab';
+import './DatabaseDialog.css';
 
 interface Tab {
   key: string;

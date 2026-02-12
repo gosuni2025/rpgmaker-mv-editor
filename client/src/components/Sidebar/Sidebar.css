@@ -1,0 +1,52 @@
+/* Sidebar */
+.sidebar {
+  grid-area: sidebar;
+  background: #313335;
+  border-right: 1px solid #222;
+  overflow: hidden;
+  display: flex;
+  min-width: 0;
+}
+
+.sidebar-content {
+  overflow-y: auto;
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-split {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sidebar-top {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.sidebar-bottom {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.sidebar-split-handle {
+  flex-shrink: 0;
+  height: 4px;
+  cursor: row-resize;
+  background: #222;
+}
+
+.sidebar-split-handle:hover {
+  background: #2675bf;
+}
+
+.sidebar-header {
+  padding: 6px 8px;
+  font-weight: bold;
+  font-size: 12px;
+  color: #bbb;
+  border-bottom: 1px solid #222;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next';
 import type { Animation } from '../../types/rpgMakerMV';
 import apiClient from '../../api/client';
+import './AnimationPreview.css';
 
 // 대상 이미지 선택 팝업
 function TargetPickerPopup({ enemyList, value, onSelect, onClose }: {

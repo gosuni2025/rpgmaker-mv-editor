@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Trait } from '../../types/rpgMakerMV';
+import './TraitsEditor.css';
 
 function getValueDisplay(code: number, value: number): string {
   if ([11, 12, 13, 21, 22, 23].includes(code)) return `${Math.round(value * 100)}%`;

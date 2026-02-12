@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import './ResizablePanel.css';
 
 interface ResizablePanelProps {
   children: React.ReactNode;

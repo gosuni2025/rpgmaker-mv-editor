@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import './IconPicker.css';
 
 interface IconPickerProps {
   value: number;

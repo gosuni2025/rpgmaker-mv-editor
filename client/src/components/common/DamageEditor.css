@@ -1,0 +1,32 @@
+/* Damage Editor */
+.damage-editor {
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 8px;
+  background: #353535;
+}
+
+.damage-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.damage-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.damage-editor select,
+.damage-editor input[type="text"],
+.damage-editor input[type="number"] {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 12px;
+}

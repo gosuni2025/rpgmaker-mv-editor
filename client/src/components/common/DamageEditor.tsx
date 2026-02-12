@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Damage } from '../../types/rpgMakerMV';
+import './DamageEditor.css';
 
 interface DamageEditorProps {
   damage: Damage;

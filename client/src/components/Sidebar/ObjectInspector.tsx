@@ -1,6 +1,7 @@
 import React from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
+import './InspectorPanel.css';
 
 export default function ObjectInspector() {
   const currentMap = useEditorStore((s) => s.currentMap);

@@ -6,6 +6,8 @@ import {
 } from '../../utils/tileHelper';
 import { buildAutotileEntries } from '../../utils/autotileEntries';
 import { loadTilesetImages } from '../../utils/tilesetImageLoader';
+import './RegionPalette.css';
+import './InspectorPanel.css';
 
 type PaletteTab = 'A' | 'B' | 'C' | 'D' | 'E' | 'R';
 const TABS: PaletteTab[] = ['A', 'B', 'C', 'D', 'E', 'R'];

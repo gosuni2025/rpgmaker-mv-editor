@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import useEditorStore from '../../store/useEditorStore';
+import './CameraZoneListPanel.css';
 
 function computeContentBounds(map: { width: number; height: number; data: number[] }) {
   const { width, height, data } = map;

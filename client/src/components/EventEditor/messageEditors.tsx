@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
+import './ShowChoicesEditor.css';
 
 export const selectStyle = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 } as const;
 

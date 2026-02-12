@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import apiClient from '../../api/client';
 import type { AudioFile } from '../../types/rpgMakerMV';
+import './AudioPicker.css';
 
 interface AudioPickerProps {
   type: 'bgm' | 'bgs' | 'me' | 'se';

@@ -1,0 +1,41 @@
+/* Map Tree */
+.map-tree {
+  padding: 2px 0;
+}
+
+.map-tree-node {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.map-tree-node:hover {
+  background: #3c3f41;
+}
+
+.map-tree-node.selected {
+  background: #2675bf;
+}
+
+.map-tree-toggle {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.map-tree-label {
+  margin-left: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-tree-root {
+  font-weight: bold;
+}
