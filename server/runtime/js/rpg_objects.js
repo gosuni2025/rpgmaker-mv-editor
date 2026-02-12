@@ -6088,8 +6088,6 @@ Game_Map.prototype.updateCameraZones = function() {
     var prevZoneId = this._activeCameraZone ? this._activeCameraZone.id : null;
     var newZoneId = activeZone ? activeZone.id : null;
     if (prevZoneId !== newZoneId) {
-        // 전환 중 scroll 범위를 이전+현재 존 합집합으로 확장
-        this._scrollBoundsZones = (this._overlappingZones || []).concat(overlappingZones);
         this._activeCameraZone = activeZone;
         var target = activeZone || this._defaultCamera;
         var speed = activeZone ? activeZone.transitionSpeed : 1.0;
@@ -6140,12 +6138,7 @@ Game_Map.prototype.updateCameraZones = function() {
     }
 
     // 스크롤 위치는 항상 lerp로 부드럽게 이동
-    var scrollDone = this.lerpDisplayToActiveZone();
-
-    // zoom/tilt/yaw 전환과 스크롤 lerp 모두 완료되면 확장 범위 해제
-    if (!this._cameraTransition && scrollDone) {
-        this._scrollBoundsZones = null;
-    }
+    this.lerpDisplayToActiveZone();
 };
 
 // 겹치는 존들의 합집합(union) 바운딩 박스 계산
@@ -6189,10 +6182,10 @@ Game_Map.prototype._getUnionClampTarget = function() {
     return { x: targetX, y: targetY };
 };
 
-// 스크롤 위치를 항상 lerp로 부드럽게 존 범위로 이동. 완료 시 true 반환
+// 스크롤 위치를 항상 lerp로 부드럽게 존 범위로 이동
 Game_Map.prototype.lerpDisplayToActiveZone = function() {
     var target = this._getUnionClampTarget();
-    if (!target) return true;
+    if (!target) return;
 
     var dx = target.x - this._displayX;
     var dy = target.y - this._displayY;
@@ -6207,7 +6200,7 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
             this._parallaxY += target.y - this._displayY;
             this._displayY = target.y;
         }
-        return true;
+        return;
     }
 
     // 활성 존의 transitionSpeed 사용, 없으면 기본값
@@ -6220,56 +6213,32 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
     this._parallaxY += newY - this._displayY;
     this._displayX = newX;
     this._displayY = newY;
+};
+
+// 카메라 화면 영역이 어떤 존에라도 겹치는지 확인
+Game_Map.prototype._isDisplayInAnyZone = function() {
+    if (!this._cameraZones) return false;
+    var screenW = this.screenTileX();
+    var screenH = this.screenTileY();
+    var camL = this._displayX;
+    var camT = this._displayY;
+    var camR = camL + screenW;
+    var camB = camT + screenH;
+    for (var i = 0; i < this._cameraZones.length; i++) {
+        var z = this._cameraZones[i];
+        if (!z.enabled) continue;
+        // AABB 겹침 검사
+        if (camL < z.x + z.width && camR > z.x && camT < z.y + z.height && camB > z.y) {
+            return true;
+        }
+    }
     return false;
 };
 
-// scroll 제한에 사용할 바운딩 박스 (전환 중이면 이전+현재 존 합집합)
-Game_Map.prototype._getScrollBounds = function() {
-    var zones = this._scrollBoundsZones || this._overlappingZones;
-    if (!zones || zones.length === 0) return null;
-    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (var i = 0; i < zones.length; i++) {
-        var z = zones[i];
-        if (z.x < minX) minX = z.x;
-        if (z.y < minY) minY = z.y;
-        if (z.x + z.width > maxX) maxX = z.x + z.width;
-        if (z.y + z.height > maxY) maxY = z.y + z.height;
-    }
-    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-};
-
-// scroll 시 존 범위 밖으로 더 벗어나지 않도록 제한 (밖→안 복귀는 lerp가 담당)
-// 전환 중에는 이전+현재 존 합집합 범위를 사용하여 전환 중 카메라 점프 방지
+// scroll 시 카메라가 모든 존 밖으로 나가면 즉시 clamp, 어딘가 존 안이면 lerp에 맡김
 Game_Map.prototype._preventScrollBeyondZone = function() {
-    var union = this._getScrollBounds();
-    if (!union) return;
-
-    var screenW = this.screenTileX();
-    var screenH = this.screenTileY();
-
-    if (union.width >= screenW) {
-        var minX = union.x;
-        var maxX = union.x + union.width - screenW;
-        if (this._displayX < minX) {
-            this._parallaxX += minX - this._displayX;
-            this._displayX = minX;
-        } else if (this._displayX > maxX) {
-            this._parallaxX += maxX - this._displayX;
-            this._displayX = maxX;
-        }
-    }
-
-    if (union.height >= screenH) {
-        var minY = union.y;
-        var maxY = union.y + union.height - screenH;
-        if (this._displayY < minY) {
-            this._parallaxY += minY - this._displayY;
-            this._displayY = minY;
-        } else if (this._displayY > maxY) {
-            this._parallaxY += maxY - this._displayY;
-            this._displayY = maxY;
-        }
-    }
+    if (this._isDisplayInAnyZone()) return;
+    this.clampDisplayToActiveZone();
 };
 
 // 합집합 범위로 즉시 clamp (맵 초기 로드 등 특수 상황용)
