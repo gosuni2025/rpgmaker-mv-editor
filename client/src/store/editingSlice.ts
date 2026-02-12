@@ -1,6 +1,7 @@
 import type { MapObject, CameraZone } from '../types/rpgMakerMV';
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
 import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry } from './types';
+import { EDIT_MODE_STORAGE_KEY } from './types';
 import { recalcAutotiles } from './editingHelpers';
 import { undoOperation, redoOperation } from './undoRedoOperations';
 import {
@@ -290,6 +291,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone') => {
     const state = get();
     const updates: Partial<EditorState> = { editMode: mode };
+    localStorage.setItem(EDIT_MODE_STORAGE_KEY, mode);
     if (mode !== 'map') {
       updates.selectionStart = null;
       updates.selectionEnd = null;

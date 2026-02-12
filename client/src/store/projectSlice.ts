@@ -1,7 +1,7 @@
 import apiClient from '../api/client';
 import type { MapInfo, MapData, TilesetData, SystemData } from '../types/rpgMakerMV';
 import type { EditorState, SliceCreator, PlayerStartHistoryEntry } from './types';
-import { PROJECT_STORAGE_KEY, MAP_STORAGE_KEY } from './types';
+import { PROJECT_STORAGE_KEY, MAP_STORAGE_KEY, EDIT_MODE_STORAGE_KEY } from './types';
 
 export const projectSlice: SliceCreator<Pick<EditorState,
   'projectPath' | 'projectName' | 'maps' | 'currentMapId' | 'currentMap' | 'tilesetInfo' |
@@ -66,6 +66,7 @@ export const projectSlice: SliceCreator<Pick<EditorState,
     });
     localStorage.removeItem(PROJECT_STORAGE_KEY);
     localStorage.removeItem(MAP_STORAGE_KEY);
+    localStorage.removeItem(EDIT_MODE_STORAGE_KEY);
   },
 
   restoreLastProject: async () => {
@@ -79,6 +80,10 @@ export const projectSlice: SliceCreator<Pick<EditorState,
           if (!isNaN(mapId) && mapId > 0) {
             await get().selectMap(mapId);
           }
+        }
+        const savedMode = localStorage.getItem(EDIT_MODE_STORAGE_KEY);
+        if (savedMode && ['map', 'event', 'light', 'object', 'cameraZone'].includes(savedMode)) {
+          get().setEditMode(savedMode as EditorState['editMode']);
         }
       } catch {
         localStorage.removeItem(PROJECT_STORAGE_KEY);

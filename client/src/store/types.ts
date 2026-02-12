@@ -2,6 +2,7 @@ import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, Edito
 
 export const PROJECT_STORAGE_KEY = 'rpg-editor-current-project';
 export const MAP_STORAGE_KEY = 'rpg-editor-current-map';
+export const EDIT_MODE_STORAGE_KEY = 'rpg-editor-edit-mode';
 export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4];
 export const DEFAULT_MAX_UNDO = 100;
 
