@@ -174,18 +174,18 @@ export default function CameraZoneInspector() {
           <div className="light-inspector-section">
             <div className="light-inspector-title">위치</div>
             <div className="light-inspector-row">
-              <DragLabel label="X" value={selectedZone.x} step={1} min={0} max={mapWidth - 1}
-                onChange={(v) => updateCameraZone(selectedZone.id, { x: Math.max(0, Math.min(mapWidth - 1, Math.round(v))) })} />
-              <input type="number" className="light-inspector-input" min={0} max={mapWidth - 1}
+              <DragLabel label="X" value={selectedZone.x} step={1} min={-999} max={mapWidth + 999}
+                onChange={(v) => updateCameraZone(selectedZone.id, { x: Math.round(v) })} />
+              <input type="number" className="light-inspector-input"
                 value={selectedZone.x}
-                onChange={(e) => updateCameraZone(selectedZone.id, { x: Math.max(0, Math.min(mapWidth - 1, parseInt(e.target.value) || 0)) })} />
+                onChange={(e) => updateCameraZone(selectedZone.id, { x: parseInt(e.target.value) || 0 })} />
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="Y" value={selectedZone.y} step={1} min={0} max={mapHeight - 1}
-                onChange={(v) => updateCameraZone(selectedZone.id, { y: Math.max(0, Math.min(mapHeight - 1, Math.round(v))) })} />
-              <input type="number" className="light-inspector-input" min={0} max={mapHeight - 1}
+              <DragLabel label="Y" value={selectedZone.y} step={1} min={-999} max={mapHeight + 999}
+                onChange={(v) => updateCameraZone(selectedZone.id, { y: Math.round(v) })} />
+              <input type="number" className="light-inspector-input"
                 value={selectedZone.y}
-                onChange={(e) => updateCameraZone(selectedZone.id, { y: Math.max(0, Math.min(mapHeight - 1, parseInt(e.target.value) || 0)) })} />
+                onChange={(e) => updateCameraZone(selectedZone.id, { y: parseInt(e.target.value) || 0 })} />
             </div>
             <div className="light-inspector-row" style={{ marginTop: 2 }}>
               <span className="light-inspector-label" style={{ color: '#777', fontSize: 10 }}>끝 좌표</span>
@@ -199,18 +199,18 @@ export default function CameraZoneInspector() {
           <div className="light-inspector-section">
             <div className="light-inspector-title">크기</div>
             <div className="light-inspector-row">
-              <DragLabel label="W" value={selectedZone.width} step={1} min={1} max={mapWidth}
-                onChange={(v) => updateCameraZone(selectedZone.id, { width: Math.max(1, Math.min(mapWidth, Math.round(v))) })} />
-              <input type="number" className="light-inspector-input" min={1} max={mapWidth}
+              <DragLabel label="W" value={selectedZone.width} step={1} min={1} max={mapWidth * 3}
+                onChange={(v) => updateCameraZone(selectedZone.id, { width: Math.max(1, Math.round(v)) })} />
+              <input type="number" className="light-inspector-input" min={1}
                 value={selectedZone.width}
-                onChange={(e) => updateCameraZone(selectedZone.id, { width: Math.max(1, Math.min(mapWidth, parseInt(e.target.value) || 1)) })} />
+                onChange={(e) => updateCameraZone(selectedZone.id, { width: Math.max(1, parseInt(e.target.value) || 1) })} />
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="H" value={selectedZone.height} step={1} min={1} max={mapHeight}
-                onChange={(v) => updateCameraZone(selectedZone.id, { height: Math.max(1, Math.min(mapHeight, Math.round(v))) })} />
-              <input type="number" className="light-inspector-input" min={1} max={mapHeight}
+              <DragLabel label="H" value={selectedZone.height} step={1} min={1} max={mapHeight * 3}
+                onChange={(v) => updateCameraZone(selectedZone.id, { height: Math.max(1, Math.round(v)) })} />
+              <input type="number" className="light-inspector-input" min={1}
                 value={selectedZone.height}
-                onChange={(e) => updateCameraZone(selectedZone.id, { height: Math.max(1, Math.min(mapHeight, parseInt(e.target.value) || 1)) })} />
+                onChange={(e) => updateCameraZone(selectedZone.id, { height: Math.max(1, parseInt(e.target.value) || 1) })} />
             </div>
             <div className="light-inspector-row" style={{ marginTop: 2 }}>
               <span className="light-inspector-label" style={{ color: '#777', fontSize: 10 }}>픽셀</span>

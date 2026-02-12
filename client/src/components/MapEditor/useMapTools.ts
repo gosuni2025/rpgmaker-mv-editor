@@ -11,7 +11,7 @@ declare const Mode3D: any;
 export type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | null;
 
 export interface MapToolsResult {
-  canvasToTile: (e: React.MouseEvent<HTMLElement>) => { x: number; y: number } | null;
+  canvasToTile: (e: React.MouseEvent<HTMLElement>, unclamped?: boolean) => { x: number; y: number } | null;
   canvasToSubTile: (e: React.MouseEvent<HTMLElement>) => { x: number; y: number; subX: number; subY: number } | null;
   eyedropTile: (tileX: number, tileY: number) => void;
   placeAutotileAt: (x: number, y: number, z: number, tileId: number, data: number[], width: number, height: number, changes: TileChange[], updates: { x: number; y: number; z: number; tileId: number }[]) => void;
@@ -57,7 +57,7 @@ export function useMapTools(
   // =========================================================================
   // Coordinate conversion
   // =========================================================================
-  const canvasToTile = useCallback((e: React.MouseEvent<HTMLElement>) => {
+  const canvasToTile = useCallback((e: React.MouseEvent<HTMLElement>, unclamped = false) => {
     const canvas = webglCanvasRef.current;
     if (!canvas) return null;
     const container = canvas.parentElement;
@@ -72,7 +72,7 @@ export function useMapTools(
         const tileX = Math.floor(world.x / TILE_SIZE_PX);
         const tileY = Math.floor(world.y / TILE_SIZE_PX);
         if (!currentMap) return null;
-        if (tileX < 0 || tileX >= currentMap.width || tileY < 0 || tileY >= currentMap.height) return null;
+        if (!unclamped && (tileX < 0 || tileX >= currentMap.width || tileY < 0 || tileY >= currentMap.height)) return null;
         return { x: tileX, y: tileY };
       }
       return null;

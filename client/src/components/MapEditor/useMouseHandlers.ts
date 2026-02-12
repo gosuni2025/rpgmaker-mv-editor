@@ -789,12 +789,15 @@ export function useMouseHandlers(
         }
       }
 
+      // Camera zone resize/drag/create: use unclamped tile to allow extending beyond map bounds
+      const unclampedTile = (isResizingCameraZone.current || isDraggingCameraZone.current || isCreatingCameraZone.current) ? (canvasToTile(e, true) ?? tile) : null;
+
       // Camera zone resize
-      if (isResizingCameraZone.current && tile && resizeCameraZoneOriginal.current && resizeCameraZoneStart.current) {
+      if (isResizingCameraZone.current && unclampedTile && resizeCameraZoneOriginal.current && resizeCameraZoneStart.current) {
         const orig = resizeCameraZoneOriginal.current;
         const edge = resizeCameraZoneEdge.current!;
-        const dx = tile.x - resizeCameraZoneStart.current.x;
-        const dy = tile.y - resizeCameraZoneStart.current.y;
+        const dx = unclampedTile.x - resizeCameraZoneStart.current.x;
+        const dy = unclampedTile.y - resizeCameraZoneStart.current.y;
         let nx = orig.x, ny = orig.y, nw = orig.width, nh = orig.height;
         if (edge.includes('w')) { nx = orig.x + dx; nw = orig.width - dx; }
         if (edge.includes('e')) { nw = orig.width + dx; }
@@ -807,11 +810,11 @@ export function useMouseHandlers(
       }
 
       // Camera zone dragging
-      if (isDraggingCameraZone.current && tile && dragCameraZoneOrigin.current) {
+      if (isDraggingCameraZone.current && unclampedTile && dragCameraZoneOrigin.current) {
         const zone = currentMap?.cameraZones?.find(z => z.id === draggedCameraZoneId.current);
         if (zone) {
-          const dx = tile.x - dragCameraZoneOrigin.current.x;
-          const dy = tile.y - dragCameraZoneOrigin.current.y;
+          const dx = unclampedTile.x - dragCameraZoneOrigin.current.x;
+          const dy = unclampedTile.y - dragCameraZoneOrigin.current.y;
           if (dx !== 0 || dy !== 0) {
             setCameraZoneDragPreview({ x: zone.x + dx, y: zone.y + dy, width: zone.width, height: zone.height });
           } else {
@@ -822,13 +825,13 @@ export function useMouseHandlers(
       }
 
       // Camera zone creation drag
-      if (isCreatingCameraZone.current && tile && createZoneStart.current) {
+      if (isCreatingCameraZone.current && unclampedTile && createZoneStart.current) {
         const sx = createZoneStart.current.x;
         const sy = createZoneStart.current.y;
-        const minX = Math.min(sx, tile.x);
-        const minY = Math.min(sy, tile.y);
-        const maxX = Math.max(sx, tile.x);
-        const maxY = Math.max(sy, tile.y);
+        const minX = Math.min(sx, unclampedTile.x);
+        const minY = Math.min(sy, unclampedTile.y);
+        const maxX = Math.max(sx, unclampedTile.x);
+        const maxY = Math.max(sy, unclampedTile.y);
         setCameraZoneDragPreview({ x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 });
         return;
       }
