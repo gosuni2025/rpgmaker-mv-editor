@@ -151,3 +151,14 @@
   display: flex;
   gap: 6px;
 }
+
+.vs-picker-btn {
+  text-align: left;
+  font-family: monospace;
+  font-size: 12px;
+  padding: 4px 8px;
+  min-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

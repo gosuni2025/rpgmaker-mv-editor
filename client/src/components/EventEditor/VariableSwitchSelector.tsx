@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
-import { selectStyle } from './messageEditors';
 import './VariableSwitchSelector.css';
 
 const GROUP_SIZE = 20;
@@ -169,8 +168,8 @@ export function VariableSwitchSelector({ type, value, onChange, onClose, title }
   }, []);
 
   return (
-    <div className="vs-selector-overlay" onClick={onClose}>
-      <div className="vs-selector-dialog" onClick={e => e.stopPropagation()}>
+    <div className="vs-selector-overlay">
+      <div className="vs-selector-dialog">
         <div className="vs-selector-header">{title || defaultTitle}</div>
         <div className="vs-selector-body">
           {/* 좌측: 그룹 리스트 */}
@@ -246,7 +245,7 @@ export function getVarSwitchLabel(id: number, items: string[]): string {
 
 /**
  * 인라인 변수/스위치 선택 버튼
- * 읽기전용 텍스트 필드 + ... 버튼으로 구성. 클릭하면 VariableSwitchSelector 팝업이 열림.
+ * 하나의 버튼으로 라벨을 표시하고, 클릭하면 VariableSwitchSelector 팝업이 열림.
  */
 export function VariableSwitchPicker({ type, value, onChange, disabled, style }: {
   type: 'variable' | 'switch';
@@ -262,21 +261,12 @@ export function VariableSwitchPicker({ type, value, onChange, disabled, style }:
 
   return (
     <>
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, ...style }}>
-        <input
-          type="text"
-          readOnly
-          value={label}
-          style={{ ...selectStyle, flex: 1, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1, minWidth: 100 }}
-          onClick={() => !disabled && setShowSelector(true)}
-        />
-        <button
-          className="db-btn"
-          style={{ padding: '4px 8px', opacity: disabled ? 0.5 : 1 }}
-          disabled={disabled}
-          onClick={() => setShowSelector(true)}
-        >...</button>
-      </div>
+      <button
+        className="db-btn vs-picker-btn"
+        style={{ opacity: disabled ? 0.5 : 1, ...style }}
+        disabled={disabled}
+        onClick={() => setShowSelector(true)}
+      >{label}</button>
       {showSelector && (
         <VariableSwitchSelector
           type={type}
