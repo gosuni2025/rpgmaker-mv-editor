@@ -5620,8 +5620,9 @@ Game_Map.prototype.setDisplayPos = function(x, y) {
         this._displayY = endY < 0 ? endY / 2 : y.clamp(0, endY);
         this._parallaxY = this._displayY;
     }
-    // 카메라존 lerp 상태 리셋
+    // 카메라존 상태 리셋
     this._cameraZoneTargetX = undefined;
+    this._czIntendedX = undefined;
 };
 
 Game_Map.prototype.parallaxOx = function() {
@@ -6155,34 +6156,42 @@ Game_Map.prototype.updateCameraZone = function() {
     this._cameraWorldX = camWorld.x;
     this._cameraWorldY = camWorld.y;
 
-    // 마진 = 화면 타일 수의 절반 (2D/3D 공통)
-    var marginX = halfScreenX;
-    var marginY = halfScreenY;
-
-    // 스크롤이 원하는 카메라 중심 (존 클램핑 전)
-    var targetX = this._displayX + halfScreenX;
-    var targetY = this._displayY + halfScreenY;
-    var preClampX = targetX;
-    var preClampY = targetY;
-
-    // 초기화 (맵 전환 시)
-    if (this._cameraZoneTargetX === undefined) {
-        this._cameraZoneTargetX = targetX;
-        this._cameraZoneTargetY = targetY;
+    // _czIntendedX/Y: 존 클램핑 없이 스크롤이 원래 의도한 카메라 중심
+    // 매 프레임 displayX의 변화량(스크롤 delta)을 누적
+    if (this._czIntendedX === undefined) {
+        this._czIntendedX = this._displayX + halfScreenX;
+        this._czIntendedY = this._displayY + halfScreenY;
+        this._czPrevDisplayX = this._displayX;
+        this._czPrevDisplayY = this._displayY;
         this._activeCameraZoneId = null;
-        var startZone = this.findCameraZoneAt(targetX, targetY);
+        this._cameraZoneTargetX = this._czIntendedX;
+        this._cameraZoneTargetY = this._czIntendedY;
+        var startZone = this.findCameraZoneAt(this._czIntendedX, this._czIntendedY);
         if (startZone) this._activeCameraZoneId = startZone.id;
     }
 
-    // 존 전환 판정: 클램핑 전 타겟 기준 (클램핑으로 갇혀도 전환 감지 가능)
-    var cameraZone = this.findCameraZoneAt(targetX, targetY);
+    // 스크롤 delta = 현재 displayX - 이전 프레임에서 우리가 설정한 displayX
+    // (updateScroll이 displayX를 변경한 만큼)
+    var scrollDeltaX = this._displayX - this._czPrevDisplayX;
+    var scrollDeltaY = this._displayY - this._czPrevDisplayY;
+    this._czIntendedX += scrollDeltaX;
+    this._czIntendedY += scrollDeltaY;
+
+    // 마진 = 화면 타일 수의 절반
+    var marginX = halfScreenX;
+    var marginY = halfScreenY;
+
+    // 존 전환 판정: intended(클램핑 전) 기준
+    var cameraZone = this.findCameraZoneAt(this._czIntendedX, this._czIntendedY);
     if (cameraZone) {
         this._activeCameraZoneId = cameraZone.id;
     } else {
         this._activeCameraZoneId = null;
     }
 
-    // 활성 존이 있으면 경계에서만 클램핑
+    // 클램핑
+    var targetX = this._czIntendedX;
+    var targetY = this._czIntendedY;
     if (this._activeCameraZoneId != null) {
         var activeZone = this.getCameraZoneById(this._activeCameraZoneId);
         if (activeZone) {
@@ -6197,7 +6206,7 @@ Game_Map.prototype.updateCameraZone = function() {
         }
     }
 
-    // 존 전환 시에만 lerp, 같은 존 내에서는 즉시 반영
+    // 존 전환 시에만 lerp
     var prevZoneId = this._prevCameraZoneId;
     if (prevZoneId !== this._activeCameraZoneId && this._activeCameraZoneId != null) {
         this._cameraZoneLerping = true;
@@ -6232,14 +6241,17 @@ Game_Map.prototype.updateCameraZone = function() {
     this._parallaxX += this._displayX - oldDisplayX;
     this._parallaxY += this._displayY - oldDisplayY;
 
+    // 다음 프레임에서 스크롤 delta 계산용
+    this._czPrevDisplayX = this._displayX;
+    this._czPrevDisplayY = this._displayY;
+
     // 디버그 로그 (매 30프레임)
     if (!this._czDebugCount) this._czDebugCount = 0;
     this._czDebugCount++;
     if (this._czDebugCount % 30 === 0) {
-        console.log('[CZ] camWorld=' + camWorld.x.toFixed(2) + ',' + camWorld.y.toFixed(2) +
-            ' disp=' + oldDisplayX.toFixed(2) + ',' + oldDisplayY.toFixed(2) +
-            ' preClamp=' + preClampX.toFixed(2) + ',' + preClampY.toFixed(2) +
+        console.log('[CZ] intended=' + this._czIntendedX.toFixed(2) + ',' + this._czIntendedY.toFixed(2) +
             ' target=' + targetX.toFixed(2) + ',' + targetY.toFixed(2) +
+            ' delta=' + scrollDeltaX.toFixed(3) + ',' + scrollDeltaY.toFixed(3) +
             ' zone=' + this._activeCameraZoneId +
             ' lerp=' + !!this._cameraZoneLerping);
     }
