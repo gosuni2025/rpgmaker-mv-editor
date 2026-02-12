@@ -6069,21 +6069,24 @@ Game_Map.prototype.updateCameraZones = function() {
     var px = player.x;
     var py = player.y;
 
-    // 플레이어 위치에 해당하는 활성 존 찾기 (enabled + priority 높은 순)
+    // 플레이어가 속한 모든 존 수집 + priority 최고인 존 찾기
+    var overlappingZones = [];
     var activeZone = null;
     var bestPriority = -Infinity;
     for (var i = 0; i < this._cameraZones.length; i++) {
         var z = this._cameraZones[i];
         if (!z.enabled) continue;
         if (px >= z.x && px < z.x + z.width && py >= z.y && py < z.y + z.height) {
+            overlappingZones.push(z);
             if (z.priority > bestPriority) {
                 bestPriority = z.priority;
                 activeZone = z;
             }
         }
     }
+    this._overlappingZones = overlappingZones;
 
-    // 존이 바뀌었으면 전환 시작
+    // 존이 바뀌었으면 전환 시작 (카메라 설정은 priority 최고인 존 기준)
     var prevZoneId = this._activeCameraZone ? this._activeCameraZone.id : null;
     var newZoneId = activeZone ? activeZone.id : null;
     if (prevZoneId !== newZoneId) {
@@ -6129,7 +6132,7 @@ Game_Map.prototype.updateCameraZones = function() {
 
         // 스크롤 위치도 부드럽게 전환 (존 전환 중)
         if (t.scrollTransitioning) {
-            var scrollDone = this._lerpDisplayToActiveZone(lerpFactor);
+            var scrollDone = this._lerpDisplayToUnionBounds(lerpFactor);
             if (scrollDone) {
                 t.scrollTransitioning = false;
             }
@@ -6150,39 +6153,56 @@ Game_Map.prototype.updateCameraZones = function() {
     }
 };
 
-// 존 범위 내 목표 위치를 계산
-Game_Map.prototype._getZoneClampTarget = function(zone) {
-    if (!zone) return null;
+// 겹치는 존들의 합집합(union) 바운딩 박스 계산
+Game_Map.prototype._getUnionBounds = function() {
+    var zones = this._overlappingZones;
+    if (!zones || zones.length === 0) return null;
+
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < zones.length; i++) {
+        var z = zones[i];
+        if (z.x < minX) minX = z.x;
+        if (z.y < minY) minY = z.y;
+        if (z.x + z.width > maxX) maxX = z.x + z.width;
+        if (z.y + z.height > maxY) maxY = z.y + z.height;
+    }
+
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+};
+
+// 합집합 바운딩 박스 기준으로 clamp 목표 좌표 계산
+Game_Map.prototype._getUnionClampTarget = function() {
+    var union = this._getUnionBounds();
+    if (!union) return null;
+
     var screenW = this.screenTileX();
     var screenH = this.screenTileY();
     var targetX, targetY;
 
-    if (zone.width >= screenW) {
-        targetX = Math.max(zone.x, Math.min(zone.x + zone.width - screenW, this._displayX));
+    if (union.width >= screenW) {
+        targetX = Math.max(union.x, Math.min(union.x + union.width - screenW, this._displayX));
     } else {
-        targetX = zone.x + (zone.width - screenW) / 2;
+        targetX = union.x + (union.width - screenW) / 2;
     }
 
-    if (zone.height >= screenH) {
-        targetY = Math.max(zone.y, Math.min(zone.y + zone.height - screenH, this._displayY));
+    if (union.height >= screenH) {
+        targetY = Math.max(union.y, Math.min(union.y + union.height - screenH, this._displayY));
     } else {
-        targetY = zone.y + (zone.height - screenH) / 2;
+        targetY = union.y + (union.height - screenH) / 2;
     }
 
     return { x: targetX, y: targetY };
 };
 
-// 스크롤 위치를 부드럽게 존 범위로 보간. 완료 시 true 반환
-Game_Map.prototype._lerpDisplayToActiveZone = function(lerpFactor) {
-    var zone = this._activeCameraZone;
-    var target = this._getZoneClampTarget(zone);
+// 스크롤 위치를 부드럽게 합집합 범위로 보간. 완료 시 true 반환
+Game_Map.prototype._lerpDisplayToUnionBounds = function(lerpFactor) {
+    var target = this._getUnionClampTarget();
     if (!target) return true;
 
     var dx = target.x - this._displayX;
     var dy = target.y - this._displayY;
 
     if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) {
-        // 충분히 가까우면 스냅
         this._parallaxX += target.x - this._displayX;
         this._parallaxY += target.y - this._displayY;
         this._displayX = target.x;
@@ -6199,11 +6219,9 @@ Game_Map.prototype._lerpDisplayToActiveZone = function(lerpFactor) {
     return false;
 };
 
+// 합집합 범위로 하드 clamp
 Game_Map.prototype.clampDisplayToActiveZone = function() {
-    var zone = this._activeCameraZone;
-    if (!zone) return;
-
-    var target = this._getZoneClampTarget(zone);
+    var target = this._getUnionClampTarget();
     if (!target) return;
 
     if (Math.abs(target.x - this._displayX) > 0.001) {
