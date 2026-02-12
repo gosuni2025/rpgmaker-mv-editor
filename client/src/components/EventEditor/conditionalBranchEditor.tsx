@@ -251,6 +251,7 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
   );
 
   const renderTab2 = () => {
+    const isActive = condType === 4;
     const actorSubTypes: [number, string][] = [
       [0, '파티에 있다'], [1, '이름'], [2, '직업'],
       [3, '스킬'], [4, '무기'], [5, '방어구'], [6, '스테이트'],
@@ -269,33 +270,38 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={rowStyle}>
-          <span style={{ color: '#aaa', fontSize: 13, minWidth: 50 }}>액터:</span>
+          <label style={radioStyle}>
+            <input type="radio" name="cb-type2" checked={isActive} onChange={() => switchCondType(4)} />
+            액터
+          </label>
           <input type="text" readOnly value={getLabel(actorId, actors)}
-            style={{ ...selectStyle, flex: 1, cursor: 'pointer' }}
-            onClick={() => setShowPicker('actor')} />
-          <button className="db-btn" style={{ padding: '4px 8px' }}
-            onClick={() => setShowPicker('actor')}>...</button>
+            style={{ ...selectStyle, flex: 1, cursor: 'pointer', ...disabledOpacity(isActive) }}
+            onClick={() => isActive && setShowPicker('actor')} />
+          <button className="db-btn" style={{ padding: '4px 8px', ...disabledOpacity(isActive) }}
+            disabled={!isActive} onClick={() => setShowPicker('actor')}>...</button>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginLeft: 20 }}>
           {actorSubTypes.map(([val, label]) => (
             <div key={val} style={rowStyle}>
-              <label style={radioStyle}>
+              <label style={{ ...radioStyle, ...disabledOpacity(isActive) }}>
                 <input type="radio" name="cb-actor-sub" checked={actorSubType === val}
-                  onChange={() => { setActorSubType(val); if (val === 0) setActorParam(0); }} />
+                  onChange={() => { setActorSubType(val); if (val === 0) setActorParam(0); }}
+                  disabled={!isActive} />
                 {label}
               </label>
               {val === 1 && actorSubType === 1 && (
                 <input type="text" value={actorParam as string}
                   onChange={e => setActorParam(e.target.value)}
-                  style={{ ...selectStyle, flex: 1 }} />
+                  disabled={!isActive}
+                  style={{ ...selectStyle, flex: 1, ...disabledOpacity(isActive) }} />
               )}
               {val >= 2 && actorSubType === val && (
                 <>
                   <input type="text" readOnly value={getLabel(actorParam as number, getParamList())}
-                    style={{ ...selectStyle, flex: 1, cursor: 'pointer' }}
-                    onClick={() => setShowPicker('actor-param')} />
-                  <button className="db-btn" style={{ padding: '4px 8px' }}
-                    onClick={() => setShowPicker('actor-param')}>...</button>
+                    style={{ ...selectStyle, flex: 1, cursor: 'pointer', ...disabledOpacity(isActive) }}
+                    onClick={() => isActive && setShowPicker('actor-param')} />
+                  <button className="db-btn" style={{ padding: '4px 8px', ...disabledOpacity(isActive) }}
+                    disabled={!isActive} onClick={() => setShowPicker('actor-param')}>...</button>
                 </>
               )}
             </div>
@@ -487,13 +493,10 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
     </div>
   );
 
-  // 탭 전환 시 condType 동기화
+  // 탭 전환 시 condType을 변경하지 않음 (탭은 단순히 UI 뷰 전환)
+  // RPG Maker MV 원본: 전체 다이얼로그에서 하나의 라디오만 선택됨
   const handleTabChange = (newTab: number) => {
     setTab(newTab);
-    // 현재 condType이 해당 탭에 속하지 않으면 기본값으로 변경
-    if (getTabForType(condType) !== newTab) {
-      setCondType(getDefaultTypeForTab(newTab));
-    }
   };
 
   // 액터 파라미터 목록 (피커용)
