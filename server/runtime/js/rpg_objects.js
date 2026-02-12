@@ -6189,7 +6189,7 @@ Game_Map.prototype.updateCameraZone = function() {
     var targetX = this._displayX + halfScreenX;
     var targetY = this._displayY + halfScreenY;
 
-    // 활성 존이 있으면 타겟 클램핑
+    // 활성 존이 있으면 경계에서만 클램핑
     if (this._activeCameraZoneId != null) {
         var activeZone = this.getCameraZoneById(this._activeCameraZoneId);
         if (activeZone) {
@@ -6204,14 +6204,34 @@ Game_Map.prototype.updateCameraZone = function() {
         }
     }
 
-    // lerp
-    var speed = 0.1;
-    if (this._activeCameraZoneId != null) {
-        var az = this.getCameraZoneById(this._activeCameraZoneId);
-        if (az && az.transitionSpeed) speed = 0.1 * az.transitionSpeed;
+    // 존 전환 시에만 lerp, 같은 존 내에서는 즉시 반영
+    var prevZoneId = this._prevCameraZoneId;
+    if (prevZoneId !== this._activeCameraZoneId && this._activeCameraZoneId != null) {
+        // 존이 바뀜 → lerp 시작
+        this._cameraZoneLerping = true;
     }
-    this._cameraZoneTargetX += (targetX - this._cameraZoneTargetX) * speed;
-    this._cameraZoneTargetY += (targetY - this._cameraZoneTargetY) * speed;
+    this._prevCameraZoneId = this._activeCameraZoneId;
+
+    if (this._cameraZoneLerping) {
+        var speed = 0.1;
+        if (this._activeCameraZoneId != null) {
+            var az = this.getCameraZoneById(this._activeCameraZoneId);
+            if (az && az.transitionSpeed) speed = 0.1 * az.transitionSpeed;
+        }
+        this._cameraZoneTargetX += (targetX - this._cameraZoneTargetX) * speed;
+        this._cameraZoneTargetY += (targetY - this._cameraZoneTargetY) * speed;
+        // lerp 완료 판정
+        var dx = Math.abs(targetX - this._cameraZoneTargetX);
+        var dy = Math.abs(targetY - this._cameraZoneTargetY);
+        if (dx < 0.01 && dy < 0.01) {
+            this._cameraZoneTargetX = targetX;
+            this._cameraZoneTargetY = targetY;
+            this._cameraZoneLerping = false;
+        }
+    } else {
+        this._cameraZoneTargetX = targetX;
+        this._cameraZoneTargetY = targetY;
+    }
 
     // displayX/displayY 역계산 + parallax 동기화
     var oldDisplayX = this._displayX;
