@@ -5604,12 +5604,8 @@ Game_Map.prototype.setupBattleback = function() {
 };
 
 Game_Map.prototype.setDisplayPos = function(x, y) {
-    var hasCZ = this._hasCameraZones();
     if (this.isLoopHorizontal()) {
         this._displayX = x.mod(this.width());
-        this._parallaxX = x;
-    } else if (hasCZ) {
-        this._displayX = x;
         this._parallaxX = x;
     } else {
         var endX = this.width() - this.screenTileX();
@@ -5618,9 +5614,6 @@ Game_Map.prototype.setDisplayPos = function(x, y) {
     }
     if (this.isLoopVertical()) {
         this._displayY = y.mod(this.height());
-        this._parallaxY = y;
-    } else if (hasCZ) {
-        this._displayY = y;
         this._parallaxY = y;
     } else {
         var endY = this.height() - this.screenTileY();
@@ -5855,11 +5848,6 @@ Game_Map.prototype.eventIdXy = function(x, y) {
     return list.length === 0 ? 0 : list[0].eventId();
 };
 
-Game_Map.prototype._hasCameraZones = function() {
-    var zones = $dataMap && $dataMap.cameraZones;
-    return zones && zones.length > 0;
-};
-
 Game_Map.prototype.scrollDown = function(distance) {
     if (this.isLoopVertical()) {
         this._displayY += distance;
@@ -5869,12 +5857,8 @@ Game_Map.prototype.scrollDown = function(distance) {
         }
     } else if (this.height() >= this.screenTileY()) {
         var lastY = this._displayY;
-        if (this._hasCameraZones()) {
-            this._displayY += distance;
-        } else {
-            this._displayY = Math.min(this._displayY + distance,
-                this.height() - this.screenTileY());
-        }
+        this._displayY = Math.min(this._displayY + distance,
+            this.height() - this.screenTileY());
         this._parallaxY += this._displayY - lastY;
     }
 };
@@ -5888,11 +5872,7 @@ Game_Map.prototype.scrollLeft = function(distance) {
         }
     } else if (this.width() >= this.screenTileX()) {
         var lastX = this._displayX;
-        if (this._hasCameraZones()) {
-            this._displayX -= distance;
-        } else {
-            this._displayX = Math.max(this._displayX - distance, 0);
-        }
+        this._displayX = Math.max(this._displayX - distance, 0);
         this._parallaxX += this._displayX - lastX;
     }
 };
@@ -5906,12 +5886,8 @@ Game_Map.prototype.scrollRight = function(distance) {
         }
     } else if (this.width() >= this.screenTileX()) {
         var lastX = this._displayX;
-        if (this._hasCameraZones()) {
-            this._displayX += distance;
-        } else {
-            this._displayX = Math.min(this._displayX + distance,
-                this.width() - this.screenTileX());
-        }
+        this._displayX = Math.min(this._displayX + distance,
+            this.width() - this.screenTileX());
         this._parallaxX += this._displayX - lastX;
     }
 };
@@ -5925,11 +5901,7 @@ Game_Map.prototype.scrollUp = function(distance) {
         }
     } else if (this.height() >= this.screenTileY()) {
         var lastY = this._displayY;
-        if (this._hasCameraZones()) {
-            this._displayY -= distance;
-        } else {
-            this._displayY = Math.max(this._displayY - distance, 0);
-        }
+        this._displayY = Math.max(this._displayY - distance, 0);
         this._parallaxY += this._displayY - lastY;
     }
 };
@@ -6156,98 +6128,74 @@ Game_Map.prototype.getCameraZoneById = function(id) {
     return null;
 };
 
-Game_Map.prototype.updateCameraZone = function() {
+Game_Map.prototype.cameraZoneDisplayBounds = function() {
     var zones = $dataMap && $dataMap.cameraZones;
-    if (!zones || zones.length === 0) return;
+    if (!zones || zones.length === 0) return null;
+    var playerX = $gamePlayer ? $gamePlayer._realX : this._displayX + this.screenTileX() / 2;
+    var playerY = $gamePlayer ? $gamePlayer._realY : this._displayY + this.screenTileY() / 2;
+    var zone = this.findCameraZoneAt(playerX, playerY);
+    if (!zone) return null;
+    // display 좌표 기준의 min/max
+    var minX = zone.x;
+    var maxX = zone.x + zone.width - this.screenTileX();
+    var minY = zone.y;
+    var maxY = zone.y + zone.height - this.screenTileY();
+    // 존이 화면보다 작으면 중앙 고정
+    if (minX > maxX) { minX = maxX = zone.x + (zone.width - this.screenTileX()) / 2; }
+    if (minY > maxY) { minY = maxY = zone.y + (zone.height - this.screenTileY()) / 2; }
+    return { zone: zone, minX: minX, maxX: maxX, minY: minY, maxY: maxY };
+};
 
-    var halfScreenX = this.screenTileX() / 2;
-    var halfScreenY = this.screenTileY() / 2;
-
-    // 초기화
-    if (this._cameraZoneTargetX === undefined) {
-        this._cameraZoneTargetX = this._displayX + halfScreenX;
-        this._cameraZoneTargetY = this._displayY + halfScreenY;
+Game_Map.prototype.updateCameraZone = function() {
+    var bounds = this.cameraZoneDisplayBounds();
+    if (!bounds) {
         this._activeCameraZoneId = null;
         this._prevCameraZoneId = null;
         this._cameraZoneLerping = false;
+        return;
     }
 
-    // 존 전환 판정: 플레이어 위치 기준
-    var playerX = $gamePlayer ? $gamePlayer._realX : this._displayX + halfScreenX;
-    var playerY = $gamePlayer ? $gamePlayer._realY : this._displayY + halfScreenY;
-    var cameraZone = this.findCameraZoneAt(playerX, playerY);
-    this._activeCameraZoneId = cameraZone ? cameraZone.id : null;
+    this._activeCameraZoneId = bounds.zone.id;
 
-    // 카메라 중심 타겟 계산: 활성 존이 있으면 존 경계로, 없으면 맵 경계로 클램핑
-    var targetX = playerX;
-    var targetY = playerY;
-
-    if (this._activeCameraZoneId != null) {
-        // 활성 존 경계로 클램핑 (맵 경계 무시 - 존이 카메라 범위를 정의)
-        var activeZone = this.getCameraZoneById(this._activeCameraZoneId);
-        if (activeZone) {
-            var zMinX = activeZone.x + halfScreenX;
-            var zMaxX = activeZone.x + activeZone.width - halfScreenX;
-            var zMinY = activeZone.y + halfScreenY;
-            var zMaxY = activeZone.y + activeZone.height - halfScreenY;
-            if (zMinX > zMaxX) { zMinX = zMaxX = activeZone.x + activeZone.width / 2; }
-            if (zMinY > zMaxY) { zMinY = zMaxY = activeZone.y + activeZone.height / 2; }
-            targetX = targetX.clamp(zMinX, zMaxX);
-            targetY = targetY.clamp(zMinY, zMaxY);
-        }
-    } else {
-        // 존 밖: 맵 경계 클램핑 (기본 동작)
-        if (!this.isLoopHorizontal()) {
-            var endX = this.width() - this.screenTileX();
-            if (endX < 0) {
-                targetX = this.width() / 2;
-            } else {
-                targetX = targetX.clamp(halfScreenX, endX + halfScreenX);
-            }
-        }
-        if (!this.isLoopVertical()) {
-            var endY = this.height() - this.screenTileY();
-            if (endY < 0) {
-                targetY = this.height() / 2;
-            } else {
-                targetY = targetY.clamp(halfScreenY, endY + halfScreenY);
-            }
-        }
-    }
+    // 존 경계로 클램핑된 목표 display 좌표
+    var targetDX = this._displayX.clamp(bounds.minX, bounds.maxX);
+    var targetDY = this._displayY.clamp(bounds.minY, bounds.maxY);
 
     // 존 전환 시 lerp 시작
-    if (this._prevCameraZoneId !== this._activeCameraZoneId && this._activeCameraZoneId != null) {
+    if (this._prevCameraZoneId !== this._activeCameraZoneId) {
         this._cameraZoneLerping = true;
+        this._cameraZoneLerpDX = this._displayX;
+        this._cameraZoneLerpDY = this._displayY;
     }
     this._prevCameraZoneId = this._activeCameraZoneId;
 
+    var newDX, newDY;
     if (this._cameraZoneLerping) {
         var speed = 0.1;
-        if (this._activeCameraZoneId != null) {
-            var az = this.getCameraZoneById(this._activeCameraZoneId);
-            if (az && az.transitionSpeed) speed = 0.1 * az.transitionSpeed;
-        }
-        this._cameraZoneTargetX += (targetX - this._cameraZoneTargetX) * speed;
-        this._cameraZoneTargetY += (targetY - this._cameraZoneTargetY) * speed;
-        var dx = Math.abs(targetX - this._cameraZoneTargetX);
-        var dy = Math.abs(targetY - this._cameraZoneTargetY);
+        if (bounds.zone.transitionSpeed) speed = 0.1 * bounds.zone.transitionSpeed;
+        this._cameraZoneLerpDX += (targetDX - this._cameraZoneLerpDX) * speed;
+        this._cameraZoneLerpDY += (targetDY - this._cameraZoneLerpDY) * speed;
+        var dx = Math.abs(targetDX - this._cameraZoneLerpDX);
+        var dy = Math.abs(targetDY - this._cameraZoneLerpDY);
         if (dx < 0.01 && dy < 0.01) {
-            this._cameraZoneTargetX = targetX;
-            this._cameraZoneTargetY = targetY;
+            this._cameraZoneLerpDX = targetDX;
+            this._cameraZoneLerpDY = targetDY;
             this._cameraZoneLerping = false;
         }
+        newDX = this._cameraZoneLerpDX;
+        newDY = this._cameraZoneLerpDY;
     } else {
-        this._cameraZoneTargetX = targetX;
-        this._cameraZoneTargetY = targetY;
+        newDX = targetDX;
+        newDY = targetDY;
     }
 
     // displayX/displayY 보정 + parallax 동기화
-    var oldDisplayX = this._displayX;
-    var oldDisplayY = this._displayY;
-    this._displayX = this._cameraZoneTargetX - halfScreenX;
-    this._displayY = this._cameraZoneTargetY - halfScreenY;
-    this._parallaxX += this._displayX - oldDisplayX;
-    this._parallaxY += this._displayY - oldDisplayY;
+    if (newDX !== this._displayX || newDY !== this._displayY) {
+        this._parallaxX += newDX - this._displayX;
+        this._parallaxY += newDY - this._displayY;
+        this._displayX = newDX;
+        this._displayY = newDY;
+    }
 };
 
 Game_Map.prototype.changeTileset = function(tilesetId) {
