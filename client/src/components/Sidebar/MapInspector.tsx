@@ -3,6 +3,7 @@ import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import ImagePicker from '../common/ImagePicker';
 import AudioPicker from '../common/AudioPicker';
+import BattlebackPicker from '../common/BattlebackPicker';
 import type { AudioFile } from '../../types/rpgMakerMV';
 import './InspectorPanel.css';
 
@@ -117,7 +118,7 @@ export default function MapInspector() {
     <div className="light-inspector">
       {/* Map Info */}
       <div className="light-inspector-section">
-        <div className="light-inspector-title">맵 정보</div>
+        <div className="light-inspector-title">일반 설정</div>
         <div className="light-inspector-row">
           <span className="light-inspector-label">이름</span>
           {editingName ? (
@@ -140,7 +141,7 @@ export default function MapInspector() {
           )}
         </div>
         <div className="light-inspector-row">
-          <span className="light-inspector-label">표시 이름</span>
+          <span className="light-inspector-label">이름 표시</span>
           <input
             type="text"
             className="light-inspector-input"
@@ -157,7 +158,7 @@ export default function MapInspector() {
 
       {/* Tileset */}
       <div className="light-inspector-section">
-        <div className="light-inspector-title">타일셋</div>
+        <div className="light-inspector-title">타일셋:</div>
         <select
           className="map-inspector-select"
           value={currentMap.tilesetId}
@@ -171,22 +172,19 @@ export default function MapInspector() {
 
       {/* Map Properties */}
       <div className="light-inspector-section">
-        <div className="light-inspector-title">맵 설정</div>
-        <div className="light-inspector-row">
-          <span className="light-inspector-label">스크롤</span>
-          <select
-            className="map-inspector-select"
-            value={currentMap.scrollType ?? 0}
-            onChange={(e) => updateMapField('scrollType', Number(e.target.value))}
-          >
-            <option value={0}>스크롤 없음</option>
-            <option value={1}>좌우 루프</option>
-            <option value={2}>상하 루프</option>
-            <option value={3}>양방향 루프</option>
-          </select>
-        </div>
-        <div className="light-inspector-row">
-          <span className="light-inspector-label">전투 빈도</span>
+        <div className="light-inspector-title">스크롤 유형:</div>
+        <select
+          className="map-inspector-select"
+          value={currentMap.scrollType ?? 0}
+          onChange={(e) => updateMapField('scrollType', Number(e.target.value))}
+        >
+          <option value={0}>루프하지 않음</option>
+          <option value={1}>좌우 루프</option>
+          <option value={2}>상하 루프</option>
+          <option value={3}>양방향 루프</option>
+        </select>
+        <div className="light-inspector-row" style={{ marginTop: 8 }}>
+          <span className="light-inspector-label" style={{ width: 'auto' }}>적 출현까지 걸음 횟수</span>
           <input
             type="number"
             className="light-inspector-input"
@@ -203,13 +201,37 @@ export default function MapInspector() {
         </label>
       </div>
 
+      {/* Battleback */}
+      <div className="light-inspector-section">
+        <div className="light-inspector-title">전투 배경</div>
+        <label className="map-inspector-checkbox">
+          <input type="checkbox" checked={!!currentMap.specifyBattleback}
+            onChange={(e) => updateMapField('specifyBattleback', e.target.checked)} />
+          <span>전투 배경 지정</span>
+        </label>
+        {currentMap.specifyBattleback && (
+          <div style={{ marginTop: 4 }}>
+            <BattlebackPicker
+              value1={currentMap.battleback1Name || ''}
+              value2={currentMap.battleback2Name || ''}
+              onChange={(name1, name2) => {
+                const cm = useEditorStore.getState().currentMap;
+                if (!cm) return;
+                useEditorStore.setState({
+                  currentMap: { ...cm, battleback1Name: name1, battleback2Name: name2 },
+                });
+              }}
+            />
+          </div>
+        )}
+      </div>
+
       {/* BGM / BGS */}
       <div className="light-inspector-section">
-        <div className="light-inspector-title">자동 재생</div>
         <label className="map-inspector-checkbox">
           <input type="checkbox" checked={!!currentMap.autoplayBgm}
             onChange={(e) => updateMapField('autoplayBgm', e.target.checked)} />
-          <span>BGM</span>
+          <span>BGM 자동재생</span>
         </label>
         {currentMap.autoplayBgm && (
           <div style={{ marginLeft: 16 }}>
@@ -223,7 +245,7 @@ export default function MapInspector() {
         <label className="map-inspector-checkbox">
           <input type="checkbox" checked={!!currentMap.autoplayBgs}
             onChange={(e) => updateMapField('autoplayBgs', e.target.checked)} />
-          <span>BGS</span>
+          <span>BGS 자동재생</span>
         </label>
         {currentMap.autoplayBgs && (
           <div style={{ marginLeft: 16 }}>
