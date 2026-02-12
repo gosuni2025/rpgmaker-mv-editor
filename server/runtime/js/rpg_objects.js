@@ -5620,6 +5620,7 @@ Game_Map.prototype.setDisplayPos = function(x, y) {
         this._displayY = endY < 0 ? endY / 2 : y.clamp(0, endY);
         this._parallaxY = this._displayY;
     }
+    this.clampDisplayToZone();
 };
 
 Game_Map.prototype.parallaxOx = function() {
@@ -6041,6 +6042,7 @@ Game_Map.prototype.update = function(sceneActive) {
     this.updateVehicles();
     this.updateParallax();
     this.updateCameraZoneDetection();
+    this.clampDisplayToZone();
 };
 
 Game_Map.prototype.updateCameraZoneDetection = function() {
@@ -6051,6 +6053,12 @@ Game_Map.prototype.updateCameraZoneDetection = function() {
     var px = player.x;
     var py = player.y;
     if (!this._insideCameraZoneIds) this._insideCameraZoneIds = {};
+    this._czDebugCounter = (this._czDebugCounter || 0) + 1;
+    var shouldDebug = (this._czDebugCounter % 60 === 1);
+    if (shouldDebug) {
+        var ids = Object.keys(this._insideCameraZoneIds);
+        console.log('[CameraZone] debug: player(' + px + ',' + py + ') insideZones=[' + ids.join(',') + '] totalZones=' + zones.length);
+    }
     for (var i = 0; i < zones.length; i++) {
         var z = zones[i];
         if (!z.enabled) continue;
@@ -6065,6 +6073,94 @@ Game_Map.prototype.updateCameraZoneDetection = function() {
             console.log('[CameraZone] 이탈: "' + z.name + '" (id=' + z.id + ')');
             delete this._insideCameraZoneIds[z.id];
         }
+    }
+};
+
+Game_Map.prototype.getActiveCameraZone = function() {
+    var zones = $dataMap && $dataMap.cameraZones;
+    if (!zones || zones.length === 0) return null;
+    if (!this._insideCameraZoneIds) return null;
+    var best = null;
+    for (var i = 0; i < zones.length; i++) {
+        var z = zones[i];
+        if (!z.enabled) continue;
+        if (!this._insideCameraZoneIds[z.id]) continue;
+        if (!best || z.priority > best.priority) {
+            best = z;
+        }
+    }
+    return best;
+};
+
+Game_Map.prototype.clampDisplayToZone = function() {
+    if (!ConfigManager.mode3d || !Mode3D._active || !Mode3D._perspCamera) return;
+    var zone = this.getActiveCameraZone();
+    if (!zone) return;
+    if (this.isLoopHorizontal() || this.isLoopVertical()) return;
+
+    var bounds = Mode3D.getFrustumWorldBounds();
+    if (!bounds) return;
+
+    var tw = this.tileWidth();  // 48
+    // 프러스텀 바운드를 타일 단위로 변환
+    var fMinX = bounds.minX / tw;
+    var fMaxX = bounds.maxX / tw;
+    var fMinY = bounds.minY / tw;
+    var fMaxY = bounds.maxY / tw;
+
+    // 존 경계 (타일 단위)
+    var zx = zone.x;
+    var zy = zone.y;
+    var zr = zone.x + zone.width;
+    var zb = zone.y + zone.height;
+
+    // 프러스텀 폭/높이 (타일 단위)
+    var frustumW = fMaxX - fMinX;
+    var frustumH = fMaxY - fMinY;
+
+    var clampMinX, clampMaxX, clampMinY, clampMaxY;
+
+    if (frustumW >= zone.width) {
+        // 존이 프러스텀보다 작으면 → 존 중앙에 고정
+        var centerX = zx + zone.width / 2 - (fMinX + fMaxX) / 2;
+        clampMinX = clampMaxX = centerX;
+    } else {
+        // displayX + fMinX >= zx  →  displayX >= zx - fMinX
+        // displayX + fMaxX <= zr  →  displayX <= zr - fMaxX
+        clampMinX = zx - fMinX;
+        clampMaxX = zr - fMaxX;
+    }
+
+    if (frustumH >= zone.height) {
+        var centerY = zy + zone.height / 2 - (fMinY + fMaxY) / 2;
+        clampMinY = clampMaxY = centerY;
+    } else {
+        clampMinY = zy - fMinY;
+        clampMaxY = zb - fMaxY;
+    }
+
+    var newX = this._displayX.clamp(clampMinX, clampMaxX);
+    var newY = this._displayY.clamp(clampMinY, clampMaxY);
+
+    // 디버그 로그 (60프레임마다)
+    this._czClampDebug = (this._czClampDebug || 0) + 1;
+    if (this._czClampDebug % 60 === 1) {
+        console.log('[CameraZone] clamp: zone="' + zone.name +
+            '" frustum(' + fMinX.toFixed(1) + '~' + fMaxX.toFixed(1) +
+            ', ' + fMinY.toFixed(1) + '~' + fMaxY.toFixed(1) + ')' +
+            ' clampX(' + clampMinX.toFixed(1) + '~' + clampMaxX.toFixed(1) + ')' +
+            ' clampY(' + clampMinY.toFixed(1) + '~' + clampMaxY.toFixed(1) + ')' +
+            ' display(' + this._displayX.toFixed(1) + ',' + this._displayY.toFixed(1) + ')' +
+            ' → (' + newX.toFixed(1) + ',' + newY.toFixed(1) + ')');
+    }
+
+    if (newX !== this._displayX) {
+        this._parallaxX += newX - this._displayX;
+        this._displayX = newX;
+    }
+    if (newY !== this._displayY) {
+        this._parallaxY += newY - this._displayY;
+        this._displayY = newY;
     }
 };
 

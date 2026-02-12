@@ -191,6 +191,73 @@
     };
 
     //=========================================================================
+    // 프러스텀 월드 바운드 계산
+    // 카메라 프러스텀 8꼭짓점의 월드 좌표 X,Y 범위 반환 (픽셀 단위)
+    // 카메라 존 클램핑에 사용
+    //=========================================================================
+
+    Mode3D._frustumBoundsCache = null;
+    Mode3D._frustumBoundsCacheTilt = -1;
+    Mode3D._frustumBoundsCacheYaw = -1;
+    Mode3D._frustumBoundsCacheW = -1;
+    Mode3D._frustumBoundsCacheH = -1;
+
+    Mode3D.getFrustumWorldBounds = function() {
+        var camera = this._perspCamera;
+        if (!camera) return null;
+
+        var w = Graphics.width;
+        var h = Graphics.height;
+        var tilt = this._tiltRad;
+        var yaw = this._yawRad || 0;
+
+        // 캐시: tilt, yaw, 화면 크기가 같으면 재사용
+        if (this._frustumBoundsCache &&
+            this._frustumBoundsCacheTilt === tilt &&
+            this._frustumBoundsCacheYaw === yaw &&
+            this._frustumBoundsCacheW === w &&
+            this._frustumBoundsCacheH === h) {
+            return this._frustumBoundsCache;
+        }
+
+        // matrixWorld 최신화
+        camera.updateMatrixWorld(true);
+
+        var invProj = camera.projectionMatrixInverse;
+        var matWorld = camera.matrixWorld;
+
+        // NDC 꼭짓점 8개 (near z=-1, far z=1)
+        var ndcCorners = [
+            [-1, -1, -1], [ 1, -1, -1], [-1,  1, -1], [ 1,  1, -1],
+            [-1, -1,  1], [ 1, -1,  1], [-1,  1,  1], [ 1,  1,  1]
+        ];
+
+        var minX = Infinity, maxX = -Infinity;
+        var minY = Infinity, maxY = -Infinity;
+        var v = new THREE.Vector3();
+
+        for (var i = 0; i < 8; i++) {
+            var c = ndcCorners[i];
+            v.set(c[0], c[1], c[2]);
+            v.applyMatrix4(invProj);
+            v.applyMatrix4(matWorld);
+            // X, Y가 맵 좌표 (Z는 높이축, 무시)
+            if (v.x < minX) minX = v.x;
+            if (v.x > maxX) maxX = v.x;
+            if (v.y < minY) minY = v.y;
+            if (v.y > maxY) maxY = v.y;
+        }
+
+        var bounds = { minX: minX, maxX: maxX, minY: minY, maxY: maxY };
+        this._frustumBoundsCache = bounds;
+        this._frustumBoundsCacheTilt = tilt;
+        this._frustumBoundsCacheYaw = yaw;
+        this._frustumBoundsCacheW = w;
+        this._frustumBoundsCacheH = h;
+        return bounds;
+    };
+
+    //=========================================================================
     // 텍스처 crispy - NearestFilter + anisotropy=1 강제
     //=========================================================================
 
