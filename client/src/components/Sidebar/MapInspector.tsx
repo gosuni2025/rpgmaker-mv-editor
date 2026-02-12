@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import ImagePicker from '../common/ImagePicker';
+import AudioPicker from '../common/AudioPicker';
+import type { AudioFile } from '../../types/rpgMakerMV';
 import './InspectorPanel.css';
 
 interface TilesetEntry { id: number; name: string; }
@@ -210,10 +212,12 @@ export default function MapInspector() {
           <span>BGM</span>
         </label>
         {currentMap.autoplayBgm && (
-          <div className="light-inspector-row" style={{ marginLeft: 16 }}>
-            <input type="text" className="light-inspector-input" style={{ flex: 1 }}
-              value={currentMap.bgm?.name || ''} placeholder="BGM 파일"
-              onChange={(e) => updateNestedField('bgm', 'name', e.target.value)} />
+          <div style={{ marginLeft: 16 }}>
+            <AudioPicker
+              type="bgm"
+              value={currentMap.bgm || { name: '', volume: 90, pitch: 100, pan: 0 }}
+              onChange={(audio: AudioFile) => updateMapField('bgm', audio)}
+            />
           </div>
         )}
         <label className="map-inspector-checkbox">
@@ -222,10 +226,12 @@ export default function MapInspector() {
           <span>BGS</span>
         </label>
         {currentMap.autoplayBgs && (
-          <div className="light-inspector-row" style={{ marginLeft: 16 }}>
-            <input type="text" className="light-inspector-input" style={{ flex: 1 }}
-              value={currentMap.bgs?.name || ''} placeholder="BGS 파일"
-              onChange={(e) => updateNestedField('bgs', 'name', e.target.value)} />
+          <div style={{ marginLeft: 16 }}>
+            <AudioPicker
+              type="bgs"
+              value={currentMap.bgs || { name: '', volume: 90, pitch: 100, pan: 0 }}
+              onChange={(audio: AudioFile) => updateMapField('bgs', audio)}
+            />
           </div>
         )}
       </div>
