@@ -6094,7 +6094,8 @@ Game_Map.prototype.updateCameraZones = function() {
             targetZoom: target.zoom,
             targetTilt: target.tilt,
             targetYaw: target.yaw,
-            speed: speed
+            speed: speed,
+            scrollTransitioning: true
         };
     }
 
@@ -6126,55 +6127,92 @@ Game_Map.prototype.updateCameraZones = function() {
             Mode3D._yawRad = newYaw * Math.PI / 180;
         }
 
+        // 스크롤 위치도 부드럽게 전환 (존 전환 중)
+        if (t.scrollTransitioning) {
+            var scrollDone = this._lerpDisplayToActiveZone(lerpFactor);
+            if (scrollDone) {
+                t.scrollTransitioning = false;
+            }
+        }
+
         // 모두 목표에 도달했으면 전환 완료
         var zoomDone = !$gameScreen || Math.abs($gameScreen.zoomScale() - t.targetZoom) < 0.001;
         var tiltDone = !Mode3D || !Mode3D._active || Math.abs(Mode3D._tiltDeg - t.targetTilt) < 0.1;
         var yawDone = !Mode3D || !Mode3D._active || Math.abs(Mode3D._yawDeg - t.targetYaw) < 0.1;
-        if (zoomDone && tiltDone && yawDone) {
+        if (zoomDone && tiltDone && yawDone && !t.scrollTransitioning) {
             this._cameraTransition = null;
         }
     }
 
-    // 카메라 스크롤 제한: 활성 존 범위 밖으로 카메라가 나가지 못하게
-    this.clampDisplayToActiveZone();
+    // 전환 완료 후에는 하드 clamp (플레이어 이동 중 존 밖으로 나가지 않도록)
+    if (!this._cameraTransition) {
+        this.clampDisplayToActiveZone();
+    }
+};
+
+// 존 범위 내 목표 위치를 계산
+Game_Map.prototype._getZoneClampTarget = function(zone) {
+    if (!zone) return null;
+    var screenW = this.screenTileX();
+    var screenH = this.screenTileY();
+    var targetX, targetY;
+
+    if (zone.width >= screenW) {
+        targetX = Math.max(zone.x, Math.min(zone.x + zone.width - screenW, this._displayX));
+    } else {
+        targetX = zone.x + (zone.width - screenW) / 2;
+    }
+
+    if (zone.height >= screenH) {
+        targetY = Math.max(zone.y, Math.min(zone.y + zone.height - screenH, this._displayY));
+    } else {
+        targetY = zone.y + (zone.height - screenH) / 2;
+    }
+
+    return { x: targetX, y: targetY };
+};
+
+// 스크롤 위치를 부드럽게 존 범위로 보간. 완료 시 true 반환
+Game_Map.prototype._lerpDisplayToActiveZone = function(lerpFactor) {
+    var zone = this._activeCameraZone;
+    var target = this._getZoneClampTarget(zone);
+    if (!target) return true;
+
+    var dx = target.x - this._displayX;
+    var dy = target.y - this._displayY;
+
+    if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) {
+        // 충분히 가까우면 스냅
+        this._parallaxX += target.x - this._displayX;
+        this._parallaxY += target.y - this._displayY;
+        this._displayX = target.x;
+        this._displayY = target.y;
+        return true;
+    }
+
+    var newX = this._displayX + dx * lerpFactor;
+    var newY = this._displayY + dy * lerpFactor;
+    this._parallaxX += newX - this._displayX;
+    this._parallaxY += newY - this._displayY;
+    this._displayX = newX;
+    this._displayY = newY;
+    return false;
 };
 
 Game_Map.prototype.clampDisplayToActiveZone = function() {
     var zone = this._activeCameraZone;
     if (!zone) return;
 
-    var screenW = this.screenTileX();
-    var screenH = this.screenTileY();
+    var target = this._getZoneClampTarget(zone);
+    if (!target) return;
 
-    // 존 크기가 화면보다 큰 경우: 존 범위 내로 clamp
-    // 존 크기가 화면보다 작은 경우: 존 중앙에 카메라 고정
-    var minX, maxX, minY, maxY;
-
-    if (zone.width >= screenW) {
-        minX = zone.x;
-        maxX = zone.x + zone.width - screenW;
-    } else {
-        // 존이 화면보다 작으면 존 중앙에 고정
-        minX = maxX = zone.x + (zone.width - screenW) / 2;
+    if (Math.abs(target.x - this._displayX) > 0.001) {
+        this._parallaxX += target.x - this._displayX;
+        this._displayX = target.x;
     }
-
-    if (zone.height >= screenH) {
-        minY = zone.y;
-        maxY = zone.y + zone.height - screenH;
-    } else {
-        minY = maxY = zone.y + (zone.height - screenH) / 2;
-    }
-
-    var clampedX = Math.max(minX, Math.min(maxX, this._displayX));
-    var clampedY = Math.max(minY, Math.min(maxY, this._displayY));
-
-    if (clampedX !== this._displayX) {
-        this._parallaxX += clampedX - this._displayX;
-        this._displayX = clampedX;
-    }
-    if (clampedY !== this._displayY) {
-        this._parallaxY += clampedY - this._displayY;
-        this._displayY = clampedY;
+    if (Math.abs(target.y - this._displayY) > 0.001) {
+        this._parallaxY += target.y - this._displayY;
+        this._displayY = target.y;
     }
 };
 
