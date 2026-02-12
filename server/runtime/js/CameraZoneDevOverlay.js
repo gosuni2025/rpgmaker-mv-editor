@@ -82,27 +82,28 @@
             lines.push('</div>');
         }
 
-        // Active zone
-        var activeId = $gameMap._activeCameraZoneId;
+        // Active zones (union)
+        var activeIds = $gameMap._activeCameraZoneIds || [];
         lines.push('<div style="border-top:1px solid rgba(0,255,255,0.2);padding-top:3px;margin-top:2px">');
-        lines.push('<b>Active Zone:</b> ' + (activeId != null ? '#' + activeId : '<span style="color:#666">none</span>'));
-        if (activeId != null) {
-            var az = $gameMap.getCameraZoneById(activeId);
+        lines.push('<b>Active Zones:</b> ' + (activeIds.length > 0 ? activeIds.map(function(id) { return '#' + id; }).join(', ') : '<span style="color:#666">none</span>'));
+        for (var ai = 0; ai < activeIds.length; ai++) {
+            var az = $gameMap.getCameraZoneById(activeIds[ai]);
             if (az) {
                 lines.push('<div style="padding-left:8px;color:#8ff">');
                 lines.push(az.name + ' (' + az.x + ',' + az.y + ' ' + az.width + 'x' + az.height + ')');
-                lines.push('<br>priority:' + az.priority + ' speed:' + az.transitionSpeed);
                 lines.push('</div>');
             }
         }
         lines.push('</div>');
 
         // All zones
+        var activeIdSet = {};
+        for (var ai = 0; ai < activeIds.length; ai++) activeIdSet[activeIds[ai]] = true;
         lines.push('<div style="border-top:1px solid rgba(0,255,255,0.2);padding-top:3px;margin-top:4px">');
         lines.push('<b>All Zones (' + zones.length + '):</b>');
         for (var i = 0; i < zones.length; i++) {
             var z = zones[i];
-            var isActive = z.id === activeId;
+            var isActive = !!activeIdSet[z.id];
             var color = isActive ? '#0ff' : (z.enabled ? '#8aa' : '#555');
             lines.push('<div style="color:' + color + ';padding-left:8px;' + (isActive ? 'font-weight:bold;' : '') + '">');
             lines.push('#' + z.id + ' ' + z.name);

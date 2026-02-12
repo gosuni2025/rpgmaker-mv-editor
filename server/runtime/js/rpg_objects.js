@@ -6128,18 +6128,18 @@ Game_Map.prototype.updateParallax = function() {
 
 // === Camera Zone ===
 
-Game_Map.prototype.findCameraZoneAt = function(tx, ty) {
+Game_Map.prototype.findCameraZonesAt = function(tx, ty) {
     var zones = $dataMap && $dataMap.cameraZones;
-    if (!zones) return null;
-    var best = null;
+    if (!zones) return [];
+    var result = [];
     for (var i = 0; i < zones.length; i++) {
         var z = zones[i];
         if (!z.enabled) continue;
         if (tx >= z.x && tx < z.x + z.width && ty >= z.y && ty < z.y + z.height) {
-            if (!best || z.priority > best.priority) best = z;
+            result.push(z);
         }
     }
-    return best;
+    return result;
 };
 
 Game_Map.prototype.getCameraZoneById = function(id) {
@@ -6172,28 +6172,39 @@ Game_Map.prototype.updateCameraZone = function() {
         this._cameraZoneLerping = false;
     }
 
-    // 존 전환 판정: 플레이어 위치 기준
+    // 존 판정: 플레이어 위치 기준, 겹치는 모든 존의 합집합
     var playerX = $gamePlayer ? $gamePlayer._realX : this._displayX + halfScreenX;
     var playerY = $gamePlayer ? $gamePlayer._realY : this._displayY + halfScreenY;
-    var cameraZone = this.findCameraZoneAt(playerX, playerY);
-    this._activeCameraZoneId = cameraZone ? cameraZone.id : null;
+    var activeZones = this.findCameraZonesAt(playerX, playerY);
+    var activeZoneIds = [];
+    for (var i = 0; i < activeZones.length; i++) activeZoneIds.push(activeZones[i].id);
+    activeZoneIds.sort();
+    this._activeCameraZoneId = activeZoneIds.length > 0 ? activeZoneIds[0] : null;
+    this._activeCameraZoneIds = activeZoneIds;
 
-    // 카메라 중심 타겟: 플레이어 위치를 존 경계 또는 맵 경계로 클램핑
+    // 카메라 중심 타겟: 플레이어 위치를 존 합집합 경계 또는 맵 경계로 클램핑
     var targetX = playerX;
     var targetY = playerY;
 
-    if (this._activeCameraZoneId != null) {
-        var activeZone = this.getCameraZoneById(this._activeCameraZoneId);
-        if (activeZone) {
-            var zMinX = activeZone.x + halfScreenX;
-            var zMaxX = activeZone.x + activeZone.width - halfScreenX;
-            var zMinY = activeZone.y + halfScreenY;
-            var zMaxY = activeZone.y + activeZone.height - halfScreenY;
-            if (zMinX > zMaxX) { zMinX = zMaxX = activeZone.x + activeZone.width / 2; }
-            if (zMinY > zMaxY) { zMinY = zMaxY = activeZone.y + activeZone.height / 2; }
-            targetX = targetX.clamp(zMinX, zMaxX);
-            targetY = targetY.clamp(zMinY, zMaxY);
+    if (activeZones.length > 0) {
+        // 합집합: 모든 존의 카메라 이동 가능 범위를 합쳐서 가장 넓은 범위 사용
+        var unionMinX = Infinity, unionMaxX = -Infinity;
+        var unionMinY = Infinity, unionMaxY = -Infinity;
+        for (var i = 0; i < activeZones.length; i++) {
+            var z = activeZones[i];
+            var zMinX = z.x + halfScreenX;
+            var zMaxX = z.x + z.width - halfScreenX;
+            var zMinY = z.y + halfScreenY;
+            var zMaxY = z.y + z.height - halfScreenY;
+            if (zMinX > zMaxX) { zMinX = zMaxX = z.x + z.width / 2; }
+            if (zMinY > zMaxY) { zMinY = zMaxY = z.y + z.height / 2; }
+            unionMinX = Math.min(unionMinX, zMinX);
+            unionMaxX = Math.max(unionMaxX, zMaxX);
+            unionMinY = Math.min(unionMinY, zMinY);
+            unionMaxY = Math.max(unionMaxY, zMaxY);
         }
+        targetX = targetX.clamp(unionMinX, unionMaxX);
+        targetY = targetY.clamp(unionMinY, unionMaxY);
     } else {
         // 존 밖: 맵 경계 클램핑
         if (!this.isLoopHorizontal()) {
@@ -6215,16 +6226,27 @@ Game_Map.prototype.updateCameraZone = function() {
     }
 
     // 존 전환 시 lerp 시작
-    if (this._prevCameraZoneId !== this._activeCameraZoneId && this._activeCameraZoneId != null) {
+    var prevIds = this._prevCameraZoneIds || [];
+    var idsChanged = activeZoneIds.length !== prevIds.length;
+    if (!idsChanged) {
+        for (var i = 0; i < activeZoneIds.length; i++) {
+            if (activeZoneIds[i] !== prevIds[i]) { idsChanged = true; break; }
+        }
+    }
+    if (idsChanged && activeZoneIds.length > 0) {
         this._cameraZoneLerping = true;
     }
-    this._prevCameraZoneId = this._activeCameraZoneId;
+    this._prevCameraZoneIds = activeZoneIds;
 
     if (this._cameraZoneLerping) {
         var speed = 0.1;
-        if (this._activeCameraZoneId != null) {
-            var az = this.getCameraZoneById(this._activeCameraZoneId);
-            if (az && az.transitionSpeed) speed = 0.1 * az.transitionSpeed;
+        if (activeZones.length > 0) {
+            // 가장 높은 transitionSpeed 사용
+            var maxSpeed = activeZones[0].transitionSpeed || 1;
+            for (var i = 1; i < activeZones.length; i++) {
+                if (activeZones[i].transitionSpeed > maxSpeed) maxSpeed = activeZones[i].transitionSpeed;
+            }
+            speed = 0.1 * maxSpeed;
         }
         this._cameraZoneTargetX += (targetX - this._cameraZoneTargetX) * speed;
         this._cameraZoneTargetY += (targetY - this._cameraZoneTargetY) * speed;
