@@ -1,0 +1,208 @@
+/* ============================
+   Move Route Dialog
+   ============================ */
+
+.move-route-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.move-route-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 780px;
+  max-width: 90vw;
+  height: 520px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.move-route-titlebar {
+  background: #2b2b2b;
+  color: #ddd;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 6px 12px;
+  border-bottom: 1px solid #555;
+  border-radius: 4px 4px 0 0;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.move-route-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 좌측: 이동 명령 리스트 */
+.move-route-left {
+  width: 280px;
+  min-width: 220px;
+  border-right: 1px solid #555;
+  display: flex;
+  flex-direction: column;
+}
+
+.move-route-list {
+  flex: 1;
+  overflow-y: auto;
+  background: #2b2b2b;
+  font-family: monospace;
+  font-size: 12px;
+  padding: 2px;
+}
+
+.move-route-list-item {
+  padding: 2px 6px;
+  color: #ddd;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.move-route-list-item:hover {
+  background: #383838;
+}
+
+.move-route-list-item.selected {
+  background: #2675bf;
+  color: #fff;
+}
+
+/* 우측: 명령 버튼 그리드 + 옵션 */
+.move-route-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.move-route-commands-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.move-route-cmd-btn {
+  padding: 3px 2px;
+  font-size: 10.5px;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #444;
+  color: #ccc;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  min-height: 24px;
+}
+
+.move-route-cmd-btn:hover {
+  background: #555;
+  color: #fff;
+}
+
+.move-route-cmd-btn:active {
+  background: #2675bf;
+}
+
+/* 옵션 */
+.move-route-options {
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 6px 8px;
+  margin: 0;
+}
+
+.move-route-options legend {
+  font-size: 12px;
+  color: #ccc;
+  padding: 0 4px;
+  font-weight: normal;
+}
+
+/* 푸터 */
+.move-route-footer {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #555;
+  background: #3c3c3c;
+  border-radius: 0 0 4px 4px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+/* 파라미터 입력 다이얼로그 */
+.move-route-param-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+}
+
+.move-route-param-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  min-width: 280px;
+  max-width: 420px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.move-route-param-title {
+  background: #2b2b2b;
+  color: #ddd;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 6px 12px;
+  border-bottom: 1px solid #555;
+  border-radius: 4px 4px 0 0;
+}
+
+.move-route-param-row {
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: #ccc;
+  font-size: 12px;
+}
+
+.move-route-param-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.move-route-param-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #555;
+}

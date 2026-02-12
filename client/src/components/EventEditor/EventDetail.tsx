@@ -4,6 +4,7 @@ import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent, EventPage, EventConditions, EventImage, EventCommand, MoveRoute, MapData } from '../../types/rpgMakerMV';
 import EventCommandEditor from './EventCommandEditor';
 import ImagePicker from '../common/ImagePicker';
+import MoveRouteDialog from './MoveRouteDialog';
 import './EventEditor.css';
 
 interface EventDetailProps {
@@ -42,6 +43,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
 
   const [editEvent, setEditEvent] = useState<RPGEvent>(() => event ? JSON.parse(JSON.stringify(event)) : null!);
   const [activePage, setActivePage] = useState(0);
+  const [showMoveRoute, setShowMoveRoute] = useState(false);
 
   const MOVE_TYPES = useMemo(() => [
     t('eventDetail.moveTypes.0'), t('eventDetail.moveTypes.1'), t('eventDetail.moveTypes.2'), t('eventDetail.moveTypes.3'),
@@ -297,6 +299,12 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                       {MOVE_TYPES.map((label, i) => <option key={i} value={i}>{label}</option>)}
                     </select>
                   </div>
+                  {page.moveType === 3 && (
+                    <div className="event-editor-form-row">
+                      <span className="event-editor-form-label"></span>
+                      <button className="db-btn" onClick={() => setShowMoveRoute(true)}>{t('eventDetail.route')}</button>
+                    </div>
+                  )}
                   <div className="event-editor-form-row">
                     <span className="event-editor-form-label">{t('fields.speed')}:</span>
                     <select value={page.moveSpeed - 1} onChange={(e) => updatePage(activePage, { moveSpeed: Number(e.target.value) + 1 })} className="event-editor-select">
@@ -368,6 +376,17 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
           <button className="db-btn" onClick={onClose}>{t('common.cancel')}</button>
           <button className="db-btn" onClick={handleApply}>{t('common.apply', '적용')}</button>
         </div>
+
+        {showMoveRoute && page && (
+          <MoveRouteDialog
+            moveRoute={page.moveRoute}
+            onOk={(route) => {
+              updatePage(activePage, { moveRoute: route });
+              setShowMoveRoute(false);
+            }}
+            onCancel={() => setShowMoveRoute(false)}
+          />
+        )}
       </div>
     </div>
   );
