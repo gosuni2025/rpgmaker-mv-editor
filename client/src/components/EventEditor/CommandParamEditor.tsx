@@ -48,7 +48,7 @@ function getCommandName(code: number): string {
     201: 'Transfer Player', 230: 'Wait',
     241: 'Play BGM', 242: 'Fadeout BGM', 245: 'Play BGS', 246: 'Fadeout BGS',
     249: 'Play ME', 250: 'Play SE',
-    301: 'Battle Processing', 311: 'Change HP', 312: 'Change MP',
+    301: 'Battle Processing', 311: 'HP 증감', 312: 'Change MP',
     314: 'Change State', 315: 'Recover All', 316: 'Change EXP', 317: 'Change Level',
     321: 'Change Name', 325: 'Change Nickname',
     355: 'Script', 356: 'Plugin Command',
@@ -96,6 +96,7 @@ function getEditorContent(
     case 242: return <SingleNumberEditor p={p} onOk={onOk} onCancel={onCancel} label="Fadeout Duration (seconds)" />;
     case 246: return <SingleNumberEditor p={p} onOk={onOk} onCancel={onCancel} label="Fadeout Duration (seconds)" />;
     case 129: return <ChangePartyMemberEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 311: return <ChangeHPEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 321: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="Name" />;
     case 325: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="Nickname" />;
     default: return null;
