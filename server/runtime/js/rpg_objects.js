@@ -6066,70 +6066,60 @@ Game_Map.prototype.update = function(sceneActive) {
 Game_Map.prototype.updateCameraZones = function() {
     if (!this._cameraZones || this._cameraZones.length === 0) return;
 
-    // 1) 카메라 좌표 기반 존 판정
+    // ── 1. 카메라 3D 좌표 기반 존 in/out 판정 ──
+    // 카메라 중심 타일 좌표 = display 좌상단 + 화면 반
     var screenW = this.screenTileX();
     var screenH = this.screenTileY();
-    var cx = this._displayX + screenW / 2;
-    var cy = this._displayY + screenH / 2;
+    var camTileX = this._displayX + screenW / 2;
+    var camTileY = this._displayY + screenH / 2;
 
-    var cameraZones = [];
-    var cameraActiveZone = null;
+    // 카메라 중심이 속한 존들 수집
+    var overlappingZones = [];
+    var activeZone = null;
     var bestPriority = -Infinity;
     for (var i = 0; i < this._cameraZones.length; i++) {
         var z = this._cameraZones[i];
         if (!z.enabled) continue;
-        if (cx >= z.x && cx < z.x + z.width && cy >= z.y && cy < z.y + z.height) {
-            cameraZones.push(z);
+        if (camTileX >= z.x && camTileX < z.x + z.width &&
+            camTileY >= z.y && camTileY < z.y + z.height) {
+            overlappingZones.push(z);
             if (z.priority > bestPriority) {
                 bestPriority = z.priority;
-                cameraActiveZone = z;
+                activeZone = z;
             }
         }
     }
 
-    // 2) 플레이어가 속한 존 확인 (존 전환 트리거용)
-    var px = $gamePlayer.x;
-    var py = $gamePlayer.y;
-    var playerZone = null;
-    var playerBestPriority = -Infinity;
-    for (var i = 0; i < this._cameraZones.length; i++) {
-        var z = this._cameraZones[i];
-        if (!z.enabled) continue;
-        if (px >= z.x && px < z.x + z.width && py >= z.y && py < z.y + z.height) {
-            if (z.priority > playerBestPriority) {
-                playerBestPriority = z.priority;
-                playerZone = z;
-            }
+    // ── 2. 존 전환 판정 ──
+    if (!activeZone) {
+        // 카메라가 어떤 존에도 없음 (존 전환 중 일시적 상태)
+        // → 이전 active 존 유지, lerp로 해당 존 범위로 보정
+        if (!this._cameraScrollLerping) {
+            this._cameraScrollLerping = true;
         }
-    }
-
-    // 3) active 존 결정: 카메라가 존 안에 있으면 그 존, 아니면 플레이어 존으로 전환
-    var activeZone = cameraActiveZone || playerZone;
-    var overlappingZones = cameraZones.length > 0 ? cameraZones : (playerZone ? [playerZone] : []);
-
-    // 존이 바뀌었으면 전환 시작
-    var prevZoneId = this._activeCameraZone ? this._activeCameraZone.id : null;
-    var newZoneId = activeZone ? activeZone.id : null;
-    if (prevZoneId !== newZoneId) {
-        this._activeCameraZone = activeZone;
-        this._cameraScrollLerping = true;
-        var target = activeZone || this._defaultCamera;
-        var speed = activeZone ? activeZone.transitionSpeed : 1.0;
-        this._cameraTransition = {
-            targetZoom: target.zoom,
-            targetTilt: target.tilt,
-            targetYaw: target.yaw,
-            speed: speed
-        };
+    } else {
+        var prevZoneId = this._activeCameraZone ? this._activeCameraZone.id : null;
+        var newZoneId = activeZone.id;
+        if (prevZoneId !== newZoneId) {
+            // 새 존 진입 → 전환 시작
+            this._activeCameraZone = activeZone;
+            this._cameraScrollLerping = true;
+            var speed = activeZone.transitionSpeed || 1.0;
+            this._cameraTransition = {
+                targetZoom: activeZone.zoom,
+                targetTilt: activeZone.tilt,
+                targetYaw: activeZone.yaw,
+                speed: speed
+            };
+        }
     }
     this._overlappingZones = overlappingZones;
 
-    // 전환 애니메이션 (zoom, tilt, yaw)
+    // ── 3. 전환 애니메이션 (zoom, tilt, yaw) ──
     if (this._cameraTransition) {
         var t = this._cameraTransition;
-        var lerpFactor = Math.min(1.0, t.speed * 0.05); // 프레임당 보간 비율
+        var lerpFactor = Math.min(1.0, t.speed * 0.05);
 
-        // Zoom
         if ($gameScreen) {
             var curZoom = $gameScreen.zoomScale();
             var newZoom = curZoom + (t.targetZoom - curZoom) * lerpFactor;
@@ -6137,7 +6127,6 @@ Game_Map.prototype.updateCameraZones = function() {
             $gameScreen.setZoom(0, 0, newZoom);
         }
 
-        // Tilt & Yaw (3D 모드)
         if (window.Mode3D && Mode3D._active) {
             var curTilt = Mode3D._tiltDeg;
             var newTilt = curTilt + (t.targetTilt - curTilt) * lerpFactor;
@@ -6152,7 +6141,6 @@ Game_Map.prototype.updateCameraZones = function() {
             Mode3D._yawRad = newYaw * Math.PI / 180;
         }
 
-        // 모두 목표에 도달했으면 전환 완료
         var zoomDone = !$gameScreen || Math.abs($gameScreen.zoomScale() - t.targetZoom) < 0.001;
         var tiltDone = !Mode3D || !Mode3D._active || Math.abs(Mode3D._tiltDeg - t.targetTilt) < 0.1;
         var yawDone = !Mode3D || !Mode3D._active || Math.abs(Mode3D._yawDeg - t.targetYaw) < 0.1;
@@ -6161,10 +6149,13 @@ Game_Map.prototype.updateCameraZones = function() {
         }
     }
 
-    // 스크롤 위치는 항상 lerp로 부드럽게 이동
+    // ── 4. 스크롤 위치 보정 ──
+    // lerp: 활성 존 범위 내로 부드럽게 이동 (존 전환 중일 때만)
     this.lerpDisplayToActiveZone();
+    // clamp: 전체 존 union 밖으로는 절대 나갈 수 없음
+    this.clampDisplayToActiveZone();
 
-    // 디버그 표시
+    // ── 5. 디버그 표시 ──
     this._updateCameraZoneDebugText(overlappingZones);
 };
 
@@ -6226,51 +6217,68 @@ Game_Map.prototype._updateCameraZoneDebugText = function(zones) {
     this._cameraZoneDebugWrapper.style.display = '';
 };
 
-// 겹치는 존들의 합집합(union) 바운딩 박스 계산
-Game_Map.prototype._getUnionBounds = function() {
-    var zones = this._overlappingZones;
+// 맵의 전체 enabled 존들의 합집합(union) 바운딩 박스 계산
+// 카메라가 맵 내 어떤 존이든 벗어나지 못하도록 전체 존 기준
+Game_Map.prototype._getAllZonesUnionBounds = function() {
+    var zones = this._cameraZones;
     if (!zones || zones.length === 0) return null;
 
     var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    var found = false;
     for (var i = 0; i < zones.length; i++) {
         var z = zones[i];
+        if (!z.enabled) continue;
+        found = true;
         if (z.x < minX) minX = z.x;
         if (z.y < minY) minY = z.y;
         if (z.x + z.width > maxX) maxX = z.x + z.width;
         if (z.y + z.height > maxY) maxY = z.y + z.height;
     }
+    if (!found) return null;
 
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 };
 
-// 합집합 바운딩 박스 기준으로 clamp 목표 좌표 계산
-Game_Map.prototype._getUnionClampTarget = function() {
-    var union = this._getUnionBounds();
-    if (!union) return null;
+// 활성 존의 바운딩 박스 (lerp 목표용)
+Game_Map.prototype._getActiveZoneBounds = function() {
+    var zone = this._activeCameraZone;
+    if (!zone) return null;
+    return { x: zone.x, y: zone.y, width: zone.width, height: zone.height };
+};
+
+// 바운딩 박스 기준으로 display clamp 목표 좌표 계산 (공통 헬퍼)
+Game_Map.prototype._calcClampTarget = function(bounds) {
+    if (!bounds) return null;
 
     var screenW = this.screenTileX();
     var screenH = this.screenTileY();
     var targetX, targetY;
 
-    if (union.width >= screenW) {
-        targetX = Math.max(union.x, Math.min(union.x + union.width - screenW, this._displayX));
+    if (bounds.width >= screenW) {
+        targetX = Math.max(bounds.x, Math.min(bounds.x + bounds.width - screenW, this._displayX));
     } else {
-        targetX = union.x + (union.width - screenW) / 2;
+        targetX = bounds.x + (bounds.width - screenW) / 2;
     }
 
-    if (union.height >= screenH) {
-        targetY = Math.max(union.y, Math.min(union.y + union.height - screenH, this._displayY));
+    if (bounds.height >= screenH) {
+        targetY = Math.max(bounds.y, Math.min(bounds.y + bounds.height - screenH, this._displayY));
     } else {
-        targetY = union.y + (union.height - screenH) / 2;
+        targetY = bounds.y + (bounds.height - screenH) / 2;
     }
 
     return { x: targetX, y: targetY };
 };
 
-// 스크롤 위치를 항상 lerp로 부드럽게 존 범위로 이동
+// 활성 존 범위 내로 lerp 이동 (존 전환 시 카메라가 잠시 존 밖에 있을 때 사용)
 Game_Map.prototype.lerpDisplayToActiveZone = function() {
-    var target = this._getUnionClampTarget();
-    if (!target) return;
+    if (!this._cameraScrollLerping) return;
+
+    // 활성 존 기준으로 lerp 목표 계산
+    var target = this._calcClampTarget(this._getActiveZoneBounds());
+    if (!target) {
+        this._cameraScrollLerping = false;
+        return;
+    }
 
     var dx = target.x - this._displayX;
     var dy = target.y - this._displayY;
@@ -6301,10 +6309,10 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
     this._displayY = newY;
 };
 
-// 합집합 범위로 즉시 clamp (존 전환 lerp 중에는 skip)
+// 전체 존 union 범위로 즉시 clamp (카메라가 어떤 존이든 벗어나지 못하게)
+// 존 전환 lerp 중에도 전체 존 union 범위는 적용 (개별 존 밖은 허용하되 전체 밖은 불허)
 Game_Map.prototype.clampDisplayToActiveZone = function() {
-    if (this._cameraScrollLerping) return;
-    var target = this._getUnionClampTarget();
+    var target = this._calcClampTarget(this._getAllZonesUnionBounds());
     if (!target) return;
 
     if (Math.abs(target.x - this._displayX) > 0.001) {
