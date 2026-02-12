@@ -2,11 +2,13 @@
 .resizable-panel {
   position: relative;
   display: flex;
+  height: 100%;
 }
 
 .resizable-panel-content {
   overflow: hidden;
   flex: 1;
+  height: 100%;
 }
 
 .resize-handle {
