@@ -154,6 +154,7 @@ export function useThreeRenderer(
         parallaxLoopY: currentMap.parallaxLoopY || false,
         parallaxSx: currentMap.parallaxSx || 0,
         parallaxSy: currentMap.parallaxSy || 0,
+        skyBackground: currentMap.skyBackground || null,
       };
 
       w.$gameMap.setup(currentMapId);
@@ -382,6 +383,13 @@ export function useThreeRenderer(
             syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
           }
           requestRender();
+        }
+        if (state.currentMap?.skyBackground !== prevState.currentMap?.skyBackground) {
+          w.$dataMap.skyBackground = state.currentMap?.skyBackground || null;
+          if (w._skyBoxApplySettings) {
+            w._skyBoxApplySettings(state.currentMap?.skyBackground);
+          }
+          requestRender(5);
         }
       });
 
