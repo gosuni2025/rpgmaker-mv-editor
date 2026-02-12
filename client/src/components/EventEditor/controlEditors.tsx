@@ -2,42 +2,80 @@ import React, { useState, useMemo } from 'react';
 import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 
-/** 스위치/변수 목록에서 선택하는 팝업 */
+const GROUP_SIZE = 20;
+
+/** 스위치/변수/아이템 등 목록에서 선택하는 2패널 팝업 */
 export function DataListPicker({ items, value, onChange, onClose, title }: {
   items: string[]; value: number; onChange: (id: number) => void; onClose: () => void; title?: string;
 }) {
-  const [selected, setSelected] = useState(value);
-  const [filter, setFilter] = useState('');
-  const filtered = useMemo(() => {
-    const result: { id: number; name: string }[] = [];
-    for (let i = 1; i < items.length; i++) {
-      const label = `${String(i).padStart(4, '0')}: ${items[i] || ''}`;
-      if (!filter || label.toLowerCase().includes(filter.toLowerCase())) {
-        result.push({ id: i, name: label });
-      }
+  const totalCount = items.length - 1; // items[0]은 null
+  const groups = useMemo(() => {
+    const result: { label: string; startId: number; endId: number }[] = [];
+    for (let start = 1; start <= totalCount; start += GROUP_SIZE) {
+      const end = Math.min(start + GROUP_SIZE - 1, totalCount);
+      result.push({
+        label: `[ ${String(start).padStart(4, '0')} - ${String(end).padStart(4, '0')} ]`,
+        startId: start,
+        endId: end,
+      });
     }
     return result;
-  }, [items, filter]);
+  }, [totalCount]);
+
+  // 현재 선택된 값이 속한 그룹을 초기 그룹으로
+  const initGroupIdx = Math.max(0, Math.floor((value - 1) / GROUP_SIZE));
+  const [selectedGroup, setSelectedGroup] = useState(initGroupIdx);
+  const [selected, setSelected] = useState(value);
+
+  const currentGroup = groups[selectedGroup];
+  const groupItems = useMemo(() => {
+    if (!currentGroup) return [];
+    const result: { id: number; label: string }[] = [];
+    for (let i = currentGroup.startId; i <= currentGroup.endId; i++) {
+      result.push({ id: i, label: `${String(i).padStart(4, '0')} ${items[i] || ''}` });
+    }
+    return result;
+  }, [currentGroup, items]);
+
+  const categoryName = title?.replace(' 선택', '') || title || '';
+
   return (
     <div className="modal-overlay" style={{ zIndex: 10001 }}>
-      <div className="image-picker-dialog" style={{ width: 320, maxHeight: '60vh' }}>
-        <div className="image-picker-header">{title || '선택'}</div>
-        <div style={{ padding: '8px 12px' }}>
-          <input
-            type="text" placeholder="검색..." value={filter} onChange={e => setFilter(e.target.value)}
-            style={{ ...selectStyle, width: '100%', boxSizing: 'border-box' }} autoFocus
-          />
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto', maxHeight: 300, padding: '0 12px' }}>
-          {filtered.map(item => (
-            <div
-              key={item.id}
-              style={{ padding: '3px 6px', cursor: 'pointer', fontSize: 13, color: '#ddd',
-                background: item.id === selected ? '#2675bf' : 'transparent', borderRadius: 2 }}
-              onClick={() => setSelected(item.id)}
-              onDoubleClick={() => { onChange(item.id); onClose(); }}
-            >{item.name}</div>
-          ))}
+      <div className="image-picker-dialog" style={{ width: 500, maxHeight: '70vh' }}>
+        <div className="image-picker-header">{title || '대상 선택'}</div>
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 300 }}>
+          {/* 왼쪽 패널: 카테고리 + 범위 그룹 */}
+          <div style={{ width: 170, borderRight: '1px solid #444', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+            {/* 카테고리명 */}
+            <div style={{ padding: '6px 8px', fontSize: 14, fontWeight: 'bold', color: '#fff', borderBottom: '1px solid #444' }}>
+              {categoryName}
+            </div>
+            {/* 범위 그룹 */}
+            {groups.map((g, idx) => (
+              <div
+                key={g.startId}
+                style={{
+                  padding: '4px 8px', cursor: 'pointer', fontSize: 12, color: '#ccc',
+                  background: idx === selectedGroup ? '#2675bf' : 'transparent',
+                }}
+                onClick={() => setSelectedGroup(idx)}
+              >{g.label}</div>
+            ))}
+          </div>
+          {/* 오른쪽 패널: 아이템 목록 */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+            {groupItems.map(item => (
+              <div
+                key={item.id}
+                style={{
+                  padding: '3px 8px', cursor: 'pointer', fontSize: 13, color: '#ddd',
+                  background: item.id === selected ? '#2675bf' : 'transparent',
+                }}
+                onClick={() => setSelected(item.id)}
+                onDoubleClick={() => { onChange(item.id); onClose(); }}
+              >{item.label}</div>
+            ))}
+          </div>
         </div>
         <div className="image-picker-footer">
           <button className="db-btn" onClick={() => { onChange(selected); onClose(); }}>OK</button>
