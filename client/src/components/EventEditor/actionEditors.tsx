@@ -105,9 +105,8 @@ export function ChangeItemEditor({ p, onOk, onCancel, label, showIncludeEquip }:
       {/* 아이템 선택 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>{fieldLabel}</span>
-        <input type="text" readOnly value={itemLabel}
-          style={{ ...selectStyle, width: '100%', cursor: 'pointer', boxSizing: 'border-box' }}
-          onClick={() => setShowPicker(true)} />
+        <button className="db-btn" onClick={() => setShowPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{itemLabel}</button>
       </div>
 
       {/* 조작 */}
@@ -276,9 +275,8 @@ export function ChangePartyMemberEditor({ p, onOk, onCancel }: { p: unknown[]; o
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <input type="text" readOnly value={getLabel(actorId, actors)}
-          style={{ ...selectStyle, width: '100%', cursor: 'pointer', boxSizing: 'border-box' }}
-          onClick={() => setShowPicker(true)} />
+        <button className="db-btn" onClick={() => setShowPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
       </div>
 
       <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
@@ -342,9 +340,9 @@ export function ChangeHPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (par
               <input type="radio" name="hp-actor" checked={actorType === 0} onChange={() => setActorType(0)} />
               고정
             </label>
-            <input type="text" readOnly value={getLabel(actorId, actorNames)}
-              style={{ ...selectStyle, flex: 1, cursor: actorType === 0 ? 'pointer' : 'default', opacity: actorType === 0 ? 1 : 0.5 }}
-              onClick={() => actorType === 0 && setShowActorPicker(true)} />
+            <button className="db-btn" onClick={() => actorType === 0 && setShowActorPicker(true)}
+              disabled={actorType !== 0}
+              style={{ flex: 1, textAlign: 'left', padding: '4px 8px', fontSize: 13, opacity: actorType === 0 ? 1 : 0.5 }}>{getLabel(actorId, actorNames)}</button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={radioStyle}>
@@ -423,9 +421,8 @@ export function ChangeNameEditor({ p, onOk, onCancel, label }: { p: unknown[]; o
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <input type="text" readOnly value={getLabel(actorId, actors)}
-          style={{ ...selectStyle, width: '100%', cursor: 'pointer', boxSizing: 'border-box' }}
-          onClick={() => setShowPicker(true)} />
+        <button className="db-btn" onClick={() => setShowPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
       </div>
       <label style={{ fontSize: 12, color: '#aaa' }}>
         {label}
