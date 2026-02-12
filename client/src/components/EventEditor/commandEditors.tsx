@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import type { EventCommand, AudioFile } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
 import ImagePicker from '../common/ImagePicker';
+import useEditorStore from '../../store/useEditorStore';
 
 export const DEFAULT_AUDIO: AudioFile = { name: '', pan: 0, pitch: 100, volume: 90 };
 
@@ -55,43 +56,27 @@ export function ShowTextEditor({ p, onOk, onCancel, existingLines }: { p: unknow
   );
 }
 
-export function TextEditor({ p, onOk, onCancel, followCode, label, showSpeed, existingLines }: {
+export function TextEditor({ p, onOk, onCancel, followCode, label, existingLines }: {
   p: unknown[]; onOk: (params: unknown[], extra?: EventCommand[]) => void; onCancel: () => void;
-  followCode: number; label: string; showSpeed?: boolean; existingLines?: string[];
+  followCode: number; label: string; existingLines?: string[];
 }) {
   const [text, setText] = useState<string>(() => {
     if (existingLines && existingLines.length > 0) {
-      // 첫 번째 라인은 메인 커맨드의 p[0] (showSpeed가 아닌 경우)
-      if (!showSpeed && p[0]) return [p[0] as string, ...existingLines].join('\n');
+      if (p[0]) return [p[0] as string, ...existingLines].join('\n');
       return existingLines.join('\n');
     }
     return (p[0] as string) || '';
   });
-  const [speed, setSpeed] = useState<number>(showSpeed ? ((p[0] as number) || 2) : 2);
 
   const handleOk = () => {
     const lines = text.split('\n');
     const firstLine = lines[0] || '';
     const extra: EventCommand[] = lines.slice(1).map(line => ({ code: followCode, indent: 0, parameters: [line] }));
-    if (showSpeed) {
-      onOk([speed, false], [{ code: followCode === 405 ? 405 : followCode, indent: 0, parameters: [text] }, ...extra.slice(0, 0)]);
-      // For scrolling text: param is [speed, noFast]
-      const scrollLines = text.split('\n');
-      const scrollExtra: EventCommand[] = scrollLines.map(line => ({ code: 405, indent: 0, parameters: [line] }));
-      onOk([speed, false], scrollExtra);
-    } else {
-      onOk([firstLine], extra);
-    }
+    onOk([firstLine], extra);
   };
 
   return (
     <>
-      {showSpeed && (
-        <label style={{ fontSize: 12, color: '#aaa' }}>
-          Speed
-          <input type="number" value={speed} onChange={e => setSpeed(Number(e.target.value))} min={1} max={8} style={{ ...selectStyle, width: 60 }} />
-        </label>
-      )}
       <label style={{ fontSize: 12, color: '#aaa' }}>
         {label}
         <textarea value={text} onChange={e => setText(e.target.value)} rows={8}
@@ -100,6 +85,52 @@ export function TextEditor({ p, onOk, onCancel, followCode, label, showSpeed, ex
       <div className="image-picker-footer">
         <button className="db-btn" onClick={handleOk}>OK</button>
         <button className="db-btn" onClick={onCancel}>Cancel</button>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Show Scrolling Text Editor (Command 105)
+ * RPG Maker MV 파라미터: [speed, noFastForward]
+ * - speed: 스크롤 속도 (1~8, 기본 2)
+ * - noFastForward: 빨리 돌리기 없음 (boolean)
+ * 후속 커맨드 405: 텍스트 라인들
+ */
+export function ScrollingTextEditor({ p, onOk, onCancel, existingLines }: {
+  p: unknown[]; onOk: (params: unknown[], extra?: EventCommand[]) => void; onCancel: () => void;
+  existingLines?: string[];
+}) {
+  const [speed, setSpeed] = useState<number>((p[0] as number) || 2);
+  const [noFastForward, setNoFastForward] = useState<boolean>((p[1] as boolean) || false);
+  const [text, setText] = useState<string>(existingLines?.join('\n') || '');
+
+  const handleOk = () => {
+    const lines = text.split('\n');
+    const extra: EventCommand[] = lines.map(line => ({ code: 405, indent: 0, parameters: [line] }));
+    onOk([speed, noFastForward], extra);
+  };
+
+  return (
+    <>
+      <label style={{ fontSize: 12, color: '#aaa' }}>
+        텍스트:
+        <textarea value={text} onChange={e => setText(e.target.value)} rows={8}
+          style={{ ...selectStyle, width: '100%', resize: 'vertical', fontFamily: 'monospace' }} />
+      </label>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+        <label style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 4 }}>
+          속도:
+          <input type="number" value={speed} onChange={e => setSpeed(Math.max(1, Math.min(8, Number(e.target.value))))} min={1} max={8} style={{ ...selectStyle, width: 60 }} />
+        </label>
+        <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <input type="checkbox" checked={noFastForward} onChange={e => setNoFastForward(e.target.checked)} />
+          빨리 돌리기 없음
+        </label>
+      </div>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={handleOk}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
     </>
   );
@@ -248,22 +279,26 @@ export function ControlSelfSwitchEditor({ p, onOk, onCancel }: { p: unknown[]; o
   const [value, setValue] = useState<number>((p[1] as number) || 0);
   return (
     <>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        Self Switch
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>셀프 스위치</legend>
         <select value={switchCh} onChange={e => setSwitchCh(e.target.value)} style={selectStyle}>
           {['A', 'B', 'C', 'D'].map(ch => <option key={ch} value={ch}>{ch}</option>)}
         </select>
-      </label>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        Value
-        <select value={value} onChange={e => setValue(Number(e.target.value))} style={selectStyle}>
-          <option value={0}>ON</option>
-          <option value={1}>OFF</option>
-        </select>
-      </label>
+      </fieldset>
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>조작</legend>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="radio" name="self-switch-op" checked={value === 0} onChange={() => setValue(0)} /> ON
+          </label>
+          <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="radio" name="self-switch-op" checked={value === 1} onChange={() => setValue(1)} /> OFF
+          </label>
+        </div>
+      </fieldset>
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => onOk([switchCh, value])}>OK</button>
-        <button className="db-btn" onClick={onCancel}>Cancel</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
     </>
   );
@@ -271,25 +306,42 @@ export function ControlSelfSwitchEditor({ p, onOk, onCancel }: { p: unknown[]; o
 
 export function ControlTimerEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [operation, setOperation] = useState<number>((p[0] as number) || 0);
-  const [seconds, setSeconds] = useState<number>((p[1] as number) || 60);
+  const totalSec = (p[1] as number) || 60;
+  const [minutes, setMinutes] = useState<number>(Math.floor(totalSec / 60));
+  const [seconds, setSeconds] = useState<number>(totalSec % 60);
+
+  const handleOk = () => {
+    const total = minutes * 60 + seconds;
+    onOk(operation === 0 ? [operation, total] : [operation, 0]);
+  };
+
   return (
     <>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        Operation
-        <select value={operation} onChange={e => setOperation(Number(e.target.value))} style={selectStyle}>
-          <option value={0}>Start</option>
-          <option value={1}>Stop</option>
-        </select>
-      </label>
-      {operation === 0 && (
-        <label style={{ fontSize: 12, color: '#aaa' }}>
-          Seconds
-          <input type="number" value={seconds} onChange={e => setSeconds(Number(e.target.value))} min={1} style={{ ...selectStyle, width: 100 }} />
-        </label>
-      )}
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>조작</legend>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="radio" name="timer-op" checked={operation === 0} onChange={() => setOperation(0)} /> 시작
+          </label>
+          <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="radio" name="timer-op" checked={operation === 1} onChange={() => setOperation(1)} /> 정지
+          </label>
+        </div>
+      </fieldset>
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0, opacity: operation === 0 ? 1 : 0.5 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>시간</legend>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input type="number" value={minutes} onChange={e => setMinutes(Math.max(0, Math.min(99, Number(e.target.value))))}
+            min={0} max={99} disabled={operation === 1} style={{ ...selectStyle, width: 70 }} />
+          <span style={{ fontSize: 13, color: '#ddd' }}>분</span>
+          <input type="number" value={seconds} onChange={e => setSeconds(Math.max(0, Math.min(59, Number(e.target.value))))}
+            min={0} max={59} disabled={operation === 1} style={{ ...selectStyle, width: 70 }} />
+          <span style={{ fontSize: 13, color: '#ddd' }}>초</span>
+        </div>
+      </fieldset>
       <div className="image-picker-footer">
-        <button className="db-btn" onClick={() => onOk(operation === 0 ? [operation, seconds] : [operation])}>OK</button>
-        <button className="db-btn" onClick={onCancel}>Cancel</button>
+        <button className="db-btn" onClick={handleOk}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
     </>
   );
