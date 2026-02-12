@@ -11,7 +11,7 @@ import {
 import {
   addObjectOp, updateObjectOp, deleteObjectOp,
   copyObjectsOp, pasteObjectsOp, deleteObjectsOp, moveObjectsOp,
-  addCameraZoneOp, updateCameraZoneOp, deleteCameraZoneOp,
+  addCameraZoneOp, updateCameraZoneOp, deleteCameraZoneOp, deleteCameraZonesOp, moveCameraZonesOp,
 } from './objectOperations';
 
 export const editingSlice: SliceCreator<Pick<EditorState,
@@ -19,7 +19,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'currentLayer' | 'clipboard' | 'cursorTileX' | 'cursorTileY' | 'selectionStart' | 'selectionEnd' | 'isPasting' | 'pastePreviewPos' |
   'selectedEventId' | 'selectedEventIds' | 'eventSelectionStart' | 'eventSelectionEnd' | 'isEventPasting' | 'eventPastePreviewPos' |
   'selectedObjectId' | 'selectedObjectIds' | 'objectSelectionStart' | 'objectSelectionEnd' | 'isObjectPasting' | 'objectPastePreviewPos' |
-  'selectedCameraZoneId' | 'undoStack' | 'redoStack' |
+  'selectedCameraZoneId' | 'selectedCameraZoneIds' | 'undoStack' | 'redoStack' |
   'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' |
   'copyTiles' | 'cutTiles' | 'pasteTiles' | 'deleteTiles' | 'moveTiles' |
   'copyEvent' | 'cutEvent' | 'pasteEvent' | 'deleteEvent' |
@@ -27,7 +27,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'setSelectedEventIds' | 'setEventSelectionStart' | 'setEventSelectionEnd' | 'setIsEventPasting' | 'setEventPastePreviewPos' | 'clearEventSelection' |
   'setSelectedObjectId' | 'setSelectedObjectIds' | 'setObjectSelectionStart' | 'setObjectSelectionEnd' | 'setIsObjectPasting' | 'setObjectPastePreviewPos' | 'clearObjectSelection' |
   'addObject' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' |
-  'setSelectedCameraZoneId' | 'addCameraZone' | 'updateCameraZone' | 'deleteCameraZone' |
+  'setSelectedCameraZoneId' | 'setSelectedCameraZoneIds' | 'addCameraZone' | 'updateCameraZone' | 'deleteCameraZone' | 'deleteCameraZones' | 'moveCameraZones' |
   'setEditMode' | 'setSelectedTool' | 'setSelectedTileId' | 'setSelectedTiles' |
   'setCurrentLayer' | 'setCursorTile' | 'setSelection' | 'setIsPasting' | 'setPastePreviewPos' | 'clearSelection' | 'setSelectedEventId'
 >> = (set, get) => ({
@@ -58,6 +58,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   isObjectPasting: false,
   objectPastePreviewPos: null,
   selectedCameraZoneId: null,
+  selectedCameraZoneIds: [],
   undoStack: [],
   redoStack: [],
 
@@ -325,9 +326,12 @@ export const editingSlice: SliceCreator<Pick<EditorState,
 
   // Camera zone operations (delegated)
   setSelectedCameraZoneId: (id: number | null) => set({ selectedCameraZoneId: id }),
+  setSelectedCameraZoneIds: (ids: number[]) => set({ selectedCameraZoneIds: ids }),
   addCameraZone: (x: number, y: number, width: number, height: number) => addCameraZoneOp(get, set, x, y, width, height),
   updateCameraZone: (id: number, updates: Partial<CameraZone>) => updateCameraZoneOp(get, set, id, updates),
   deleteCameraZone: (id: number) => deleteCameraZoneOp(get, set, id),
+  deleteCameraZones: (ids: number[]) => deleteCameraZonesOp(get, set, ids),
+  moveCameraZones: (ids: number[], dx: number, dy: number) => moveCameraZonesOp(get, set, ids, dx, dy),
 
   // UI setters
   setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone') => {
@@ -380,6 +384,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     }
     if (mode !== 'cameraZone') {
       updates.selectedCameraZoneId = null;
+      updates.selectedCameraZoneIds = [];
     }
     set(updates);
   },

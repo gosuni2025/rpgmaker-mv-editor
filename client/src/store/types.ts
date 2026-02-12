@@ -67,6 +67,7 @@ export interface CameraZoneHistoryEntry {
   oldZones: CameraZone[];
   newZones: CameraZone[];
   oldSelectedCameraZoneId: number | null;
+  oldSelectedCameraZoneIds: number[];
 }
 
 export interface EventHistoryEntry {
@@ -169,6 +170,7 @@ export interface EditorState {
 
   // Camera zone editor
   selectedCameraZoneId: number | null;
+  selectedCameraZoneIds: number[];
 
   // 3D / Lighting
   mode3d: boolean;
@@ -275,9 +277,12 @@ export interface EditorState {
 
   // Actions - Camera Zone
   setSelectedCameraZoneId: (id: number | null) => void;
+  setSelectedCameraZoneIds: (ids: number[]) => void;
   addCameraZone: (x: number, y: number, width: number, height: number) => void;
   updateCameraZone: (id: number, updates: Partial<CameraZone>) => void;
   deleteCameraZone: (id: number) => void;
+  deleteCameraZones: (ids: number[]) => void;
+  moveCameraZones: (ids: number[], dx: number, dy: number) => void;
 
   // Actions - UI
   setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone') => void;

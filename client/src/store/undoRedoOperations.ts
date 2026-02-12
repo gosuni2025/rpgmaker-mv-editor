@@ -87,10 +87,12 @@ export function undoOperation(get: GetFn, set: SetFn) {
       mapId: currentMapId, type: 'cameraZone',
       oldZones: cze.newZones, newZones: cze.oldZones,
       oldSelectedCameraZoneId: get().selectedCameraZoneId,
+      oldSelectedCameraZoneIds: get().selectedCameraZoneIds,
     };
     set({
       currentMap: { ...currentMap, cameraZones: cze.oldZones },
       selectedCameraZoneId: cze.oldSelectedCameraZoneId,
+      selectedCameraZoneIds: cze.oldSelectedCameraZoneIds ?? [],
       undoStack: undoStack.slice(0, -1),
       redoStack: [...get().redoStack, redoEntry],
     });
@@ -238,10 +240,12 @@ export function redoOperation(get: GetFn, set: SetFn) {
       mapId: currentMapId, type: 'cameraZone',
       oldZones: cze.newZones, newZones: cze.oldZones,
       oldSelectedCameraZoneId: get().selectedCameraZoneId,
+      oldSelectedCameraZoneIds: get().selectedCameraZoneIds,
     };
     set({
       currentMap: { ...currentMap, cameraZones: cze.oldZones },
       selectedCameraZoneId: cze.oldSelectedCameraZoneId,
+      selectedCameraZoneIds: cze.oldSelectedCameraZoneIds ?? [],
       redoStack: redoStack.slice(0, -1),
       undoStack: [...get().undoStack, undoEntry],
     });

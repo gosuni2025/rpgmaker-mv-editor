@@ -73,6 +73,12 @@ export function useKeyboardShortcuts(
   const setObjectPastePreviewPos = useEditorStore((s) => s.setObjectPastePreviewPos);
   const clearObjectSelection = useEditorStore((s) => s.clearObjectSelection);
 
+  // Camera zone multi-select
+  const selectedCameraZoneId = useEditorStore((s) => s.selectedCameraZoneId);
+  const selectedCameraZoneIds = useEditorStore((s) => s.selectedCameraZoneIds);
+  const deleteCameraZone = useEditorStore((s) => s.deleteCameraZone);
+  const deleteCameraZones = useEditorStore((s) => s.deleteCameraZones);
+
   // Alt key state for eyedropper cursor
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Alt') setAltPressed(true); };
@@ -170,11 +176,22 @@ export function useKeyboardShortcuts(
         } else if (selectedEventId != null) {
           deleteEvent(selectedEventId);
         }
+        return;
+      }
+      if (editMode === 'cameraZone') {
+        if (selectedCameraZoneIds.length > 0) {
+          deleteCameraZones(selectedCameraZoneIds);
+          showToast(`카메라 영역 ${selectedCameraZoneIds.length}개 삭제됨`);
+        } else if (selectedCameraZoneId != null) {
+          deleteCameraZone(selectedCameraZoneId);
+          showToast('카메라 영역 삭제됨');
+        }
+        return;
       }
     };
     window.addEventListener('editor-delete', handleDelete);
     return () => window.removeEventListener('editor-delete', handleDelete);
-  }, [editMode, selectedEventId, deleteEvent, lightEditMode, selectedLightId, selectedLightIds, deletePointLight, deleteLights, setSelectedLightId, selectedObjectId, selectedObjectIds, deleteObject, deleteObjects, selectionStart, selectionEnd, deleteTiles, clearSelection, showToast]);
+  }, [editMode, selectedEventId, deleteEvent, lightEditMode, selectedLightId, selectedLightIds, deletePointLight, deleteLights, setSelectedLightId, selectedObjectId, selectedObjectIds, deleteObject, deleteObjects, selectionStart, selectionEnd, deleteTiles, clearSelection, showToast, selectedCameraZoneId, selectedCameraZoneIds, deleteCameraZone, deleteCameraZones]);
 
   // Handle Copy/Cut/Paste for events, lights, objects, and tile selection
   useEffect(() => {

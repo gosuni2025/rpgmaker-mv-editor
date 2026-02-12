@@ -12,8 +12,9 @@ export interface CameraZoneHandlersResult {
   isCreatingCameraZone: React.MutableRefObject<boolean>;
   isResizingCameraZone: React.MutableRefObject<boolean>;
   cameraZoneDragPreview: { x: number; y: number; width: number; height: number } | null;
+  cameraZoneMultiDragDelta: { dx: number; dy: number } | null;
   cameraZoneCursor: string | null;
-  handleCameraZoneMouseDown: (tile: { x: number; y: number } | null, unclampedTile: { x: number; y: number }) => boolean;
+  handleCameraZoneMouseDown: (tile: { x: number; y: number } | null, unclampedTile: { x: number; y: number }, e: React.MouseEvent<HTMLElement>) => boolean;
   handleCameraZoneMouseMove: (tile: { x: number; y: number } | null, e: React.MouseEvent<HTMLElement>, canvasToTile: MapToolsResult['canvasToTile']) => boolean;
   handleCameraZoneMouseUp: (e: React.MouseEvent<HTMLElement>) => boolean;
   handleCameraZoneMouseLeave: () => boolean;
@@ -24,10 +25,12 @@ export function useCameraZoneHandlers(
 ): CameraZoneHandlersResult {
   const currentMap = useEditorStore((s) => s.currentMap);
   const setSelectedCameraZoneId = useEditorStore((s) => s.setSelectedCameraZoneId);
+  const setSelectedCameraZoneIds = useEditorStore((s) => s.setSelectedCameraZoneIds);
   const addCameraZone = useEditorStore((s) => s.addCameraZone);
   const updateCameraZone = useEditorStore((s) => s.updateCameraZone);
+  const moveCameraZones = useEditorStore((s) => s.moveCameraZones);
 
-  // Camera zone drag state
+  // Camera zone drag state (single zone)
   const isDraggingCameraZone = useRef(false);
   const draggedCameraZoneId = useRef<number | null>(null);
   const dragCameraZoneOrigin = useRef<{ x: number; y: number } | null>(null);
@@ -47,6 +50,11 @@ export function useCameraZoneHandlers(
   const resizeCameraZoneOriginal = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   const resizeCameraZoneStart = useRef<{ x: number; y: number } | null>(null);
   const [cameraZoneCursor, setCameraZoneCursor] = useState<string | null>(null);
+
+  // Multi-drag state
+  const isDraggingMultiCameraZones = useRef(false);
+  const multiCameraZoneDragOrigin = useRef<{ x: number; y: number } | null>(null);
+  const [cameraZoneMultiDragDelta, setCameraZoneMultiDragDelta] = useState<{ dx: number; dy: number } | null>(null);
 
   // Camera zone edge detection helper
   const detectCameraZoneEdge = useCallback((tile: { x: number; y: number }, zone: { x: number; y: number; width: number; height: number }): string | null => {
@@ -126,17 +134,29 @@ export function useCameraZoneHandlers(
         return;
       }
 
+      // Multi-drag
+      if (isDraggingMultiCameraZones.current && multiCameraZoneDragOrigin.current) {
+        const dx = tile.x - multiCameraZoneDragOrigin.current.x;
+        const dy = tile.y - multiCameraZoneDragOrigin.current.y;
+        if (dx !== 0 || dy !== 0) {
+          setCameraZoneMultiDragDelta({ dx, dy });
+        } else {
+          setCameraZoneMultiDragDelta(null);
+        }
+        return;
+      }
+
+      // Single drag → convert to multi-drag
       if (isDraggingCameraZone.current && dragCameraZoneOrigin.current) {
-        const map = useEditorStore.getState().currentMap;
-        const zone = map?.cameraZones?.find(z => z.id === draggedCameraZoneId.current);
-        if (zone) {
-          const dx = tile.x - dragCameraZoneOrigin.current.x;
-          const dy = tile.y - dragCameraZoneOrigin.current.y;
-          if (dx !== 0 || dy !== 0) {
-            setCameraZoneDragPreview({ x: zone.x + dx, y: zone.y + dy, width: zone.width, height: zone.height });
-          } else {
-            setCameraZoneDragPreview(null);
-          }
+        if (tile.x !== dragCameraZoneOrigin.current.x || tile.y !== dragCameraZoneOrigin.current.y) {
+          isDraggingCameraZone.current = false;
+          isDraggingMultiCameraZones.current = true;
+          multiCameraZoneDragOrigin.current = dragCameraZoneOrigin.current;
+          dragCameraZoneOrigin.current = null;
+          const dx = tile.x - multiCameraZoneDragOrigin.current!.x;
+          const dy = tile.y - multiCameraZoneDragOrigin.current!.y;
+          setCameraZoneMultiDragDelta({ dx, dy });
+          setCameraZoneDragPreview(null);
         }
         return;
       }
@@ -180,11 +200,25 @@ export function useCameraZoneHandlers(
         return;
       }
 
-      if (isDraggingCameraZone.current && draggedCameraZoneId.current != null) {
-        const preview = cameraZoneDragPreviewRef.current;
-        if (preview) {
-          updateCameraZone(draggedCameraZoneId.current, { x: preview.x, y: preview.y });
+      // Multi-drag commit
+      if (isDraggingMultiCameraZones.current) {
+        if (tile && multiCameraZoneDragOrigin.current) {
+          const dx = tile.x - multiCameraZoneDragOrigin.current.x;
+          const dy = tile.y - multiCameraZoneDragOrigin.current.y;
+          const state = useEditorStore.getState();
+          if (dx !== 0 || dy !== 0) {
+            moveCameraZones(state.selectedCameraZoneIds, dx, dy);
+          }
         }
+        isDraggingMultiCameraZones.current = false;
+        multiCameraZoneDragOrigin.current = null;
+        setCameraZoneMultiDragDelta(null);
+        stopCapture();
+        return;
+      }
+
+      // Single drag (mouseUp without move)
+      if (isDraggingCameraZone.current && draggedCameraZoneId.current != null) {
         isDraggingCameraZone.current = false;
         draggedCameraZoneId.current = null;
         dragCameraZoneOrigin.current = null;
@@ -218,19 +252,22 @@ export function useCameraZoneHandlers(
     window.addEventListener('pointermove', handleWindowPointerMove);
     window.addEventListener('pointerup', handleWindowPointerUp);
     cameraZoneWindowCleanup.current = stopCapture;
-  }, [clientToTileUnclamped, setCameraZoneDragPreview, updateCameraZone, addCameraZone]);
+  }, [clientToTileUnclamped, setCameraZoneDragPreview, updateCameraZone, addCameraZone, moveCameraZones]);
 
   // Cleanup window listeners on unmount
   useEffect(() => {
     return () => { cameraZoneWindowCleanup.current?.(); };
   }, []);
 
-  const handleCameraZoneMouseDown = useCallback((tile: { x: number; y: number } | null, unclampedTile: { x: number; y: number }): boolean => {
+  const handleCameraZoneMouseDown = useCallback((tile: { x: number; y: number } | null, unclampedTile: { x: number; y: number }, e: React.MouseEvent<HTMLElement>): boolean => {
     const zones = currentMap?.cameraZones || [];
-    const selectedZoneId = useEditorStore.getState().selectedCameraZoneId;
+    const state = useEditorStore.getState();
+    const selectedZoneId = state.selectedCameraZoneId;
+    const curIds = state.selectedCameraZoneIds;
     const selectedZone = selectedZoneId != null ? zones.find(z => z.id === selectedZoneId) : null;
 
-    if (selectedZone) {
+    // Resize edge detection (only for single-selected zone, not during multi-select)
+    if (selectedZone && curIds.length <= 1) {
       const edge = detectCameraZoneEdge(unclampedTile, selectedZone);
       if (edge) {
         isResizingCameraZone.current = true;
@@ -248,25 +285,51 @@ export function useCameraZoneHandlers(
       unclampedTile.x >= z.x && unclampedTile.x < z.x + z.width &&
       unclampedTile.y >= z.y && unclampedTile.y < z.y + z.height
     );
+
     if (hitZone) {
-      setSelectedCameraZoneId(hitZone.id);
-      isDraggingCameraZone.current = true;
-      draggedCameraZoneId.current = hitZone.id;
-      dragCameraZoneOrigin.current = { x: unclampedTile.x, y: unclampedTile.y };
-      setCameraZoneDragPreview(null);
-      startCameraZoneWindowCapture();
+      if (e.shiftKey) {
+        // Shift+click: toggle selection
+        if (curIds.includes(hitZone.id)) {
+          const newIds = curIds.filter(id => id !== hitZone.id);
+          setSelectedCameraZoneIds(newIds);
+          setSelectedCameraZoneId(newIds.length > 0 ? newIds[newIds.length - 1] : null);
+        } else {
+          const newIds = [...curIds, hitZone.id];
+          setSelectedCameraZoneIds(newIds);
+          setSelectedCameraZoneId(hitZone.id);
+        }
+      } else if (curIds.includes(hitZone.id)) {
+        // Already selected → prepare multi-drag
+        isDraggingMultiCameraZones.current = true;
+        multiCameraZoneDragOrigin.current = { x: unclampedTile.x, y: unclampedTile.y };
+        setCameraZoneMultiDragDelta(null);
+        startCameraZoneWindowCapture();
+      } else {
+        // New single selection → prepare single drag (converts to multi on move)
+        setSelectedCameraZoneIds([hitZone.id]);
+        setSelectedCameraZoneId(hitZone.id);
+        isDraggingCameraZone.current = true;
+        draggedCameraZoneId.current = hitZone.id;
+        dragCameraZoneOrigin.current = { x: unclampedTile.x, y: unclampedTile.y };
+        setCameraZoneDragPreview(null);
+        startCameraZoneWindowCapture();
+      }
     } else {
-      setSelectedCameraZoneId(null);
+      // Click on empty space
+      if (!e.shiftKey) {
+        setSelectedCameraZoneIds([]);
+        setSelectedCameraZoneId(null);
+      }
       isCreatingCameraZone.current = true;
       createZoneStart.current = unclampedTile;
       setCameraZoneDragPreview({ x: unclampedTile.x, y: unclampedTile.y, width: 1, height: 1 });
       startCameraZoneWindowCapture();
     }
     return true;
-  }, [currentMap, detectCameraZoneEdge, setCameraZoneDragPreview, startCameraZoneWindowCapture, setSelectedCameraZoneId]);
+  }, [currentMap, detectCameraZoneEdge, setCameraZoneDragPreview, startCameraZoneWindowCapture, setSelectedCameraZoneId, setSelectedCameraZoneIds]);
 
   const handleCameraZoneMouseMove = useCallback((tile: { x: number; y: number } | null, e: React.MouseEvent<HTMLElement>, canvasToTile: MapToolsResult['canvasToTile']): boolean => {
-    const unclampedTile = (isResizingCameraZone.current || isDraggingCameraZone.current || isCreatingCameraZone.current) ? (canvasToTile(e, true) ?? tile) : null;
+    const unclampedTile = (isResizingCameraZone.current || isDraggingCameraZone.current || isDraggingMultiCameraZones.current || isCreatingCameraZone.current) ? (canvasToTile(e, true) ?? tile) : null;
 
     // Camera zone resize
     if (isResizingCameraZone.current && unclampedTile && resizeCameraZoneOriginal.current && resizeCameraZoneStart.current) {
@@ -285,17 +348,29 @@ export function useCameraZoneHandlers(
       return true;
     }
 
-    // Camera zone dragging
+    // Multi-drag
+    if (isDraggingMultiCameraZones.current && unclampedTile && multiCameraZoneDragOrigin.current) {
+      const dx = unclampedTile.x - multiCameraZoneDragOrigin.current.x;
+      const dy = unclampedTile.y - multiCameraZoneDragOrigin.current.y;
+      if (dx !== 0 || dy !== 0) {
+        setCameraZoneMultiDragDelta({ dx, dy });
+      } else {
+        setCameraZoneMultiDragDelta(null);
+      }
+      return true;
+    }
+
+    // Single drag → convert to multi-drag on move
     if (isDraggingCameraZone.current && unclampedTile && dragCameraZoneOrigin.current) {
-      const zone = currentMap?.cameraZones?.find(z => z.id === draggedCameraZoneId.current);
-      if (zone) {
-        const dx = unclampedTile.x - dragCameraZoneOrigin.current.x;
-        const dy = unclampedTile.y - dragCameraZoneOrigin.current.y;
-        if (dx !== 0 || dy !== 0) {
-          setCameraZoneDragPreview({ x: zone.x + dx, y: zone.y + dy, width: zone.width, height: zone.height });
-        } else {
-          setCameraZoneDragPreview(null);
-        }
+      if (unclampedTile.x !== dragCameraZoneOrigin.current.x || unclampedTile.y !== dragCameraZoneOrigin.current.y) {
+        isDraggingCameraZone.current = false;
+        isDraggingMultiCameraZones.current = true;
+        multiCameraZoneDragOrigin.current = dragCameraZoneOrigin.current;
+        dragCameraZoneOrigin.current = null;
+        const dx = unclampedTile.x - multiCameraZoneDragOrigin.current!.x;
+        const dy = unclampedTile.y - multiCameraZoneDragOrigin.current!.y;
+        setCameraZoneMultiDragDelta({ dx, dy });
+        setCameraZoneDragPreview(null);
       }
       return true;
     }
@@ -313,13 +388,14 @@ export function useCameraZoneHandlers(
     }
 
     // Camera zone hover cursor
-    if (!isDraggingCameraZone.current && !isCreatingCameraZone.current && !isResizingCameraZone.current) {
+    if (!isDraggingCameraZone.current && !isDraggingMultiCameraZones.current && !isCreatingCameraZone.current && !isResizingCameraZone.current) {
       const hoverTileUnclamped = canvasToTile(e, true) ?? tile;
       if (hoverTileUnclamped) {
-        const selectedZoneId = useEditorStore.getState().selectedCameraZoneId;
+        const state = useEditorStore.getState();
+        const selectedZoneId = state.selectedCameraZoneId;
         const zones = currentMap?.cameraZones || [];
         const selectedZone = selectedZoneId != null ? zones.find(z => z.id === selectedZoneId) : null;
-        if (selectedZone) {
+        if (selectedZone && state.selectedCameraZoneIds.length <= 1) {
           const edge = detectCameraZoneEdge(hoverTileUnclamped, selectedZone);
           setCameraZoneCursor(edge ? edgeToCursorStyle(edge) : null);
         } else {
@@ -351,12 +427,26 @@ export function useCameraZoneHandlers(
       return true;
     }
 
-    // Camera zone drag commit
-    if (isDraggingCameraZone.current && draggedCameraZoneId.current != null) {
-      const preview = cameraZoneDragPreviewRef.current;
-      if (preview) {
-        updateCameraZone(draggedCameraZoneId.current, { x: preview.x, y: preview.y });
+    // Multi-drag commit
+    if (isDraggingMultiCameraZones.current) {
+      const tile = clientToTileUnclamped(e.clientX, e.clientY);
+      if (tile && multiCameraZoneDragOrigin.current) {
+        const dx = tile.x - multiCameraZoneDragOrigin.current.x;
+        const dy = tile.y - multiCameraZoneDragOrigin.current.y;
+        const state = useEditorStore.getState();
+        if (dx !== 0 || dy !== 0) {
+          moveCameraZones(state.selectedCameraZoneIds, dx, dy);
+        }
       }
+      isDraggingMultiCameraZones.current = false;
+      multiCameraZoneDragOrigin.current = null;
+      setCameraZoneMultiDragDelta(null);
+      cameraZoneWindowCleanup.current?.();
+      return true;
+    }
+
+    // Single drag (mouseUp without move)
+    if (isDraggingCameraZone.current && draggedCameraZoneId.current != null) {
       isDraggingCameraZone.current = false;
       draggedCameraZoneId.current = null;
       dragCameraZoneOrigin.current = null;
@@ -387,11 +477,11 @@ export function useCameraZoneHandlers(
     }
 
     return false;
-  }, [clientToTileUnclamped, updateCameraZone, addCameraZone, setCameraZoneDragPreview]);
+  }, [clientToTileUnclamped, updateCameraZone, addCameraZone, moveCameraZones, setCameraZoneDragPreview]);
 
   const handleCameraZoneMouseLeave = useCallback((): boolean => {
     // Camera zone drag/resize/create: don't cancel on mouse leave, window events will handle it
-    if (isResizingCameraZone.current || isDraggingCameraZone.current || isCreatingCameraZone.current) {
+    if (isResizingCameraZone.current || isDraggingCameraZone.current || isDraggingMultiCameraZones.current || isCreatingCameraZone.current) {
       return true;
     }
     return false;
@@ -399,7 +489,7 @@ export function useCameraZoneHandlers(
 
   return {
     isDraggingCameraZone, isCreatingCameraZone, isResizingCameraZone,
-    cameraZoneDragPreview, cameraZoneCursor,
+    cameraZoneDragPreview, cameraZoneMultiDragDelta, cameraZoneCursor,
     handleCameraZoneMouseDown, handleCameraZoneMouseMove,
     handleCameraZoneMouseUp, handleCameraZoneMouseLeave,
   };

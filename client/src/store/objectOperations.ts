@@ -137,7 +137,7 @@ const MIN_CAMERA_ZONE_WIDTH = Math.ceil(816 / 48);
 const MIN_CAMERA_ZONE_HEIGHT = Math.ceil(624 / 48);
 
 export function addCameraZoneOp(get: GetFn, set: SetFn, x: number, y: number, width: number, height: number) {
-  const { currentMap, currentMapId, undoStack, selectedCameraZoneId } = get();
+  const { currentMap, currentMapId, undoStack, selectedCameraZoneId, selectedCameraZoneIds } = get();
   if (!currentMap || !currentMapId) return;
   width = Math.max(width, MIN_CAMERA_ZONE_WIDTH);
   height = Math.max(height, MIN_CAMERA_ZONE_HEIGHT);
@@ -165,19 +165,21 @@ export function addCameraZoneOp(get: GetFn, set: SetFn, x: number, y: number, wi
     mapId: currentMapId, type: 'cameraZone',
     oldZones: oldZones, newZones: zones,
     oldSelectedCameraZoneId: selectedCameraZoneId,
+    oldSelectedCameraZoneIds: selectedCameraZoneIds,
   };
   const newStack = [...undoStack, historyEntry];
   if (newStack.length > get().maxUndo) newStack.shift();
   set({
     currentMap: { ...currentMap, cameraZones: zones },
     selectedCameraZoneId: newId,
+    selectedCameraZoneIds: [newId],
     undoStack: newStack,
     redoStack: [],
   });
 }
 
 export function updateCameraZoneOp(get: GetFn, set: SetFn, id: number, updates: Partial<CameraZone>) {
-  const { currentMap, currentMapId, undoStack, selectedCameraZoneId } = get();
+  const { currentMap, currentMapId, undoStack, selectedCameraZoneId, selectedCameraZoneIds } = get();
   if (!currentMap || !currentMapId || !currentMap.cameraZones) return;
   if (updates.width !== undefined) updates.width = Math.max(updates.width, MIN_CAMERA_ZONE_WIDTH);
   if (updates.height !== undefined) updates.height = Math.max(updates.height, MIN_CAMERA_ZONE_HEIGHT);
@@ -187,6 +189,7 @@ export function updateCameraZoneOp(get: GetFn, set: SetFn, id: number, updates: 
     mapId: currentMapId, type: 'cameraZone',
     oldZones, newZones: zones,
     oldSelectedCameraZoneId: selectedCameraZoneId,
+    oldSelectedCameraZoneIds: selectedCameraZoneIds,
   };
   const newStack = [...undoStack, historyEntry];
   if (newStack.length > get().maxUndo) newStack.shift();
@@ -198,7 +201,7 @@ export function updateCameraZoneOp(get: GetFn, set: SetFn, id: number, updates: 
 }
 
 export function deleteCameraZoneOp(get: GetFn, set: SetFn, id: number) {
-  const { currentMap, currentMapId, undoStack, selectedCameraZoneId } = get();
+  const { currentMap, currentMapId, undoStack, selectedCameraZoneId, selectedCameraZoneIds } = get();
   if (!currentMap || !currentMapId || !currentMap.cameraZones) return;
   const oldZones = currentMap.cameraZones;
   const zones = oldZones.filter(z => z.id !== id);
@@ -206,12 +209,59 @@ export function deleteCameraZoneOp(get: GetFn, set: SetFn, id: number) {
     mapId: currentMapId, type: 'cameraZone',
     oldZones, newZones: zones,
     oldSelectedCameraZoneId: selectedCameraZoneId,
+    oldSelectedCameraZoneIds: selectedCameraZoneIds,
   };
   const newStack = [...undoStack, historyEntry];
   if (newStack.length > get().maxUndo) newStack.shift();
   set({
     currentMap: { ...currentMap, cameraZones: zones },
     selectedCameraZoneId: selectedCameraZoneId === id ? null : selectedCameraZoneId,
+    selectedCameraZoneIds: selectedCameraZoneIds.filter(i => i !== id),
+    undoStack: newStack,
+    redoStack: [],
+  });
+}
+
+export function deleteCameraZonesOp(get: GetFn, set: SetFn, ids: number[]) {
+  const { currentMap, currentMapId, undoStack, selectedCameraZoneId, selectedCameraZoneIds } = get();
+  if (!currentMap || !currentMapId || !currentMap.cameraZones || ids.length === 0) return;
+  const idSet = new Set(ids);
+  const oldZones = currentMap.cameraZones;
+  const zones = oldZones.filter(z => !idSet.has(z.id));
+  const historyEntry: CameraZoneHistoryEntry = {
+    mapId: currentMapId, type: 'cameraZone',
+    oldZones, newZones: zones,
+    oldSelectedCameraZoneId: selectedCameraZoneId,
+    oldSelectedCameraZoneIds: selectedCameraZoneIds,
+  };
+  const newStack = [...undoStack, historyEntry];
+  if (newStack.length > get().maxUndo) newStack.shift();
+  set({
+    currentMap: { ...currentMap, cameraZones: zones },
+    selectedCameraZoneId: null,
+    selectedCameraZoneIds: [],
+    undoStack: newStack,
+    redoStack: [],
+  });
+}
+
+export function moveCameraZonesOp(get: GetFn, set: SetFn, ids: number[], dx: number, dy: number) {
+  const { currentMap, currentMapId, undoStack, selectedCameraZoneId, selectedCameraZoneIds } = get();
+  if (!currentMap || !currentMapId || !currentMap.cameraZones || ids.length === 0) return;
+  if (dx === 0 && dy === 0) return;
+  const idSet = new Set(ids);
+  const oldZones = currentMap.cameraZones;
+  const zones = oldZones.map(z => idSet.has(z.id) ? { ...z, x: z.x + dx, y: z.y + dy } : z);
+  const historyEntry: CameraZoneHistoryEntry = {
+    mapId: currentMapId, type: 'cameraZone',
+    oldZones, newZones: zones,
+    oldSelectedCameraZoneId: selectedCameraZoneId,
+    oldSelectedCameraZoneIds: selectedCameraZoneIds,
+  };
+  const newStack = [...undoStack, historyEntry];
+  if (newStack.length > get().maxUndo) newStack.shift();
+  set({
+    currentMap: { ...currentMap, cameraZones: zones },
     undoStack: newStack,
     redoStack: [],
   });

@@ -29,6 +29,7 @@ export interface MouseHandlersResult {
   lightDragPreview: { x: number; y: number } | null;
   objectDragPreview: { x: number; y: number } | null;
   cameraZoneDragPreview: { x: number; y: number; width: number; height: number } | null;
+  cameraZoneMultiDragDelta: { dx: number; dy: number } | null;
   hoverTile: { x: number; y: number } | null;
   eventCtxMenu: { x: number; y: number; tileX: number; tileY: number; eventId: number | null } | null;
   editingEventId: number | null;
@@ -115,7 +116,7 @@ export function useMouseHandlers(
       if (e.button === 0 && editMode === 'cameraZone') {
         const unclampedTile = canvasToTile(e, true) ?? tile;
         if (unclampedTile) {
-          cameraZone.handleCameraZoneMouseDown(tile, unclampedTile);
+          cameraZone.handleCameraZoneMouseDown(tile, unclampedTile, e);
           return;
         }
       }
@@ -441,6 +442,7 @@ export function useMouseHandlers(
     isCreatingCameraZone: cameraZone.isCreatingCameraZone,
     isResizingCameraZone: cameraZone.isResizingCameraZone,
     cameraZoneDragPreview: cameraZone.cameraZoneDragPreview,
+    cameraZoneMultiDragDelta: cameraZone.cameraZoneMultiDragDelta,
     cameraZoneCursor: cameraZone.cameraZoneCursor,
     playerStartDragPos: event.playerStartDragPos,
   };

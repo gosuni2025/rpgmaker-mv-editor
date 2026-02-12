@@ -40,6 +40,7 @@ export default function MapCanvas() {
   const copyEvent = useEditorStore((s) => s.copyEvent);
   const deleteEvent = useEditorStore((s) => s.deleteEvent);
   const selectedCameraZoneId = useEditorStore((s) => s.selectedCameraZoneId);
+  const selectedCameraZoneIds = useEditorStore((s) => s.selectedCameraZoneIds);
   const selectedEventIds = useEditorStore((s) => s.selectedEventIds);
   const copyEvents = useEditorStore((s) => s.copyEvents);
   const deleteEvents = useEditorStore((s) => s.deleteEvents);
@@ -63,7 +64,7 @@ export default function MapCanvas() {
     handleDoubleClick, handleContextMenu, createNewEvent,
     resizePreview, resizeCursor, eventMultiDragDelta,
     lightMultiDragDelta, objectMultiDragDelta,
-    lightDragPreview, objectDragPreview, cameraZoneDragPreview, hoverTile,
+    lightDragPreview, objectDragPreview, cameraZoneDragPreview, cameraZoneMultiDragDelta, hoverTile,
     eventCtxMenu, editingEventId, setEditingEventId,
     closeEventCtxMenu,
     isDraggingLight, isDraggingObject, draggedObjectId,
@@ -220,11 +221,12 @@ export default function MapCanvas() {
         />
         {/* Camera Zone HTML overlays */}
         {editMode === 'cameraZone' && currentMap?.cameraZones && currentMap.cameraZones.map((zone) => {
-          const zx = zone.x * TILE_SIZE_PX;
-          const zy = zone.y * TILE_SIZE_PX;
+          const isSelected = selectedCameraZoneIds.includes(zone.id);
+          const isDragged = isSelected && cameraZoneMultiDragDelta;
+          const zx = (zone.x + (isDragged ? cameraZoneMultiDragDelta.dx : 0)) * TILE_SIZE_PX;
+          const zy = (zone.y + (isDragged ? cameraZoneMultiDragDelta.dy : 0)) * TILE_SIZE_PX;
           const zw = zone.width * TILE_SIZE_PX;
           const zh = zone.height * TILE_SIZE_PX;
-          const isSelected = zone.id === selectedCameraZoneId;
           return (
             <React.Fragment key={zone.id}>
               <div style={{

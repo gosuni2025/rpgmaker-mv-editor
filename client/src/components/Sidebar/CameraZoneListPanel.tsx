@@ -25,10 +25,13 @@ function computeContentBounds(map: { width: number; height: number; data: number
 export default function CameraZoneListPanel() {
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedCameraZoneId = useEditorStore((s) => s.selectedCameraZoneId);
+  const selectedCameraZoneIds = useEditorStore((s) => s.selectedCameraZoneIds);
   const setSelectedCameraZoneId = useEditorStore((s) => s.setSelectedCameraZoneId);
+  const setSelectedCameraZoneIds = useEditorStore((s) => s.setSelectedCameraZoneIds);
   const addCameraZone = useEditorStore((s) => s.addCameraZone);
   const updateCameraZone = useEditorStore((s) => s.updateCameraZone);
   const deleteCameraZone = useEditorStore((s) => s.deleteCameraZone);
+  const deleteCameraZones = useEditorStore((s) => s.deleteCameraZones);
 
   const zones = currentMap?.cameraZones;
   const selectedZone = selectedCameraZoneId != null && zones
@@ -48,6 +51,39 @@ export default function CameraZoneListPanel() {
       updateCameraZone(selectedZone.id, bounds);
     } else {
       addCameraZone(bounds.x, bounds.y, bounds.width, bounds.height);
+    }
+  };
+
+  const handleItemClick = (zoneId: number, e: React.MouseEvent) => {
+    if (e.shiftKey) {
+      // Shift+click: toggle selection
+      if (selectedCameraZoneIds.includes(zoneId)) {
+        const newIds = selectedCameraZoneIds.filter(id => id !== zoneId);
+        setSelectedCameraZoneIds(newIds);
+        setSelectedCameraZoneId(newIds.length > 0 ? newIds[newIds.length - 1] : null);
+      } else {
+        const newIds = [...selectedCameraZoneIds, zoneId];
+        setSelectedCameraZoneIds(newIds);
+        setSelectedCameraZoneId(zoneId);
+      }
+    } else {
+      // Normal click: toggle single or select
+      if (selectedCameraZoneIds.length === 1 && selectedCameraZoneIds[0] === zoneId) {
+        setSelectedCameraZoneIds([]);
+        setSelectedCameraZoneId(null);
+      } else {
+        setSelectedCameraZoneIds([zoneId]);
+        setSelectedCameraZoneId(zoneId);
+      }
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedCameraZoneIds.length > 1) {
+      deleteCameraZones(selectedCameraZoneIds);
+    } else if (selectedZone) {
+      deleteCameraZone(selectedZone.id);
+      setSelectedCameraZoneId(null);
     }
   };
 
@@ -81,10 +117,10 @@ export default function CameraZoneListPanel() {
       {/* Zone List */}
       <div className="light-palette-section-title" style={{ marginTop: 6 }}>
         카메라 영역 목록
-        {selectedZone && (
+        {selectedCameraZoneIds.length > 0 && (
           <span
             style={{ float: 'right', cursor: 'pointer', color: '#8cf', fontWeight: 'normal', fontSize: 10 }}
-            onClick={() => setSelectedCameraZoneId(null)}
+            onClick={() => { setSelectedCameraZoneIds([]); setSelectedCameraZoneId(null); }}
           >
             선택 해제
           </span>
@@ -95,8 +131,8 @@ export default function CameraZoneListPanel() {
           zones.map((z) => (
             <div
               key={z.id}
-              className={`camera-zone-list-item${z.id === selectedCameraZoneId ? ' selected' : ''}${!z.enabled ? ' disabled' : ''}`}
-              onClick={() => setSelectedCameraZoneId(z.id === selectedCameraZoneId ? null : z.id)}
+              className={`camera-zone-list-item${selectedCameraZoneIds.includes(z.id) ? ' selected' : ''}${!z.enabled ? ' disabled' : ''}`}
+              onClick={(e) => handleItemClick(z.id, e)}
             >
               <span className="camera-zone-list-item-name">
                 #{z.id} {z.name}
@@ -114,16 +150,13 @@ export default function CameraZoneListPanel() {
       </div>
 
       {/* Selected zone quick actions */}
-      {selectedZone && (
+      {selectedCameraZoneIds.length > 0 && (
         <div className="camera-zone-list-actions">
           <button
             className="camera-zone-action-btn delete"
-            onClick={() => {
-              deleteCameraZone(selectedZone.id);
-              setSelectedCameraZoneId(null);
-            }}
+            onClick={handleDeleteSelected}
           >
-            선택 영역 삭제
+            {selectedCameraZoneIds.length > 1 ? `선택 영역 ${selectedCameraZoneIds.length}개 삭제` : '선택 영역 삭제'}
           </button>
         </div>
       )}
