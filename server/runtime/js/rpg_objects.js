@@ -5444,20 +5444,6 @@ Game_Map.prototype.setup = function(mapId) {
     this.setupParallax();
     this.setupBattleback();
     this._needsRefresh = false;
-    this.setupCameraZones();
-};
-
-Game_Map.prototype.setupCameraZones = function() {
-    this._cameraZones = $dataMap.cameraZones || [];
-    this._activeCameraZone = null;
-    this._cameraTransition = null;
-    this._cameraScrollLerping = false;
-    this._defaultCamera = { zoom: 1.0, tilt: 60, yaw: 0 };
-    // Mode3D 현재 상태를 기본값으로 저장
-    if (window.Mode3D && Mode3D._active) {
-        this._defaultCamera.tilt = Mode3D._tiltDeg;
-        this._defaultCamera.yaw = Mode3D._yawDeg;
-    }
 };
 
 Game_Map.prototype.isEventRunning = function() {
@@ -5634,8 +5620,6 @@ Game_Map.prototype.setDisplayPos = function(x, y) {
         this._displayY = endY < 0 ? endY / 2 : y.clamp(0, endY);
         this._parallaxY = this._displayY;
     }
-    // 활성 카메라 존이 있으면 존 범위로 추가 제한
-    this.clampDisplayToAllZonesUnion();
 };
 
 Game_Map.prototype.parallaxOx = function() {
@@ -5875,7 +5859,6 @@ Game_Map.prototype.scrollDown = function(distance) {
             this.height() - this.screenTileY());
         this._parallaxY += this._displayY - lastY;
     }
-    this.clampDisplayToAllZonesUnion();
 };
 
 Game_Map.prototype.scrollLeft = function(distance) {
@@ -5890,7 +5873,6 @@ Game_Map.prototype.scrollLeft = function(distance) {
         this._displayX = Math.max(this._displayX - distance, 0);
         this._parallaxX += this._displayX - lastX;
     }
-    this.clampDisplayToAllZonesUnion();
 };
 
 Game_Map.prototype.scrollRight = function(distance) {
@@ -5906,7 +5888,6 @@ Game_Map.prototype.scrollRight = function(distance) {
             this.width() - this.screenTileX());
         this._parallaxX += this._displayX - lastX;
     }
-    this.clampDisplayToAllZonesUnion();
 };
 
 Game_Map.prototype.scrollUp = function(distance) {
@@ -5921,7 +5902,6 @@ Game_Map.prototype.scrollUp = function(distance) {
         this._displayY = Math.max(this._displayY - distance, 0);
         this._parallaxY += this._displayY - lastY;
     }
-    this.clampDisplayToAllZonesUnion();
 };
 
 Game_Map.prototype.isValid = function(x, y) {
@@ -6060,375 +6040,6 @@ Game_Map.prototype.update = function(sceneActive) {
     this.updateEvents();
     this.updateVehicles();
     this.updateParallax();
-    this.updateCameraZones();
-};
-
-Game_Map.prototype.updateCameraZones = function() {
-    if (!this._cameraZones || this._cameraZones.length === 0) return;
-
-    // ── 1. 플레이어 위치 기반 활성 존 전환 트리거 ──
-    var px = $gamePlayer.x;
-    var py = $gamePlayer.y;
-
-    // 플레이어가 속한 존들 수집
-    var playerZones = [];
-    var bestZone = null;
-    var bestPriority = -Infinity;
-    for (var i = 0; i < this._cameraZones.length; i++) {
-        var z = this._cameraZones[i];
-        if (!z.enabled) continue;
-        if (px >= z.x && px < z.x + z.width &&
-            py >= z.y && py < z.y + z.height) {
-            playerZones.push(z);
-            if (z.priority > bestPriority) {
-                bestPriority = z.priority;
-                bestZone = z;
-            }
-        }
-    }
-
-    // ── 2. 존 전환 판정 (플레이어 기준) ──
-    if (bestZone) {
-        var prevZoneId = this._activeCameraZone ? this._activeCameraZone.id : null;
-        var newZoneId = bestZone.id;
-        if (prevZoneId !== newZoneId) {
-            var isFirstZone = (prevZoneId === null);
-            this._activeCameraZone = bestZone;
-            if (isFirstZone) {
-                // 첫 존 진입 (맵 초기화): 즉시 snap, lerp 없음
-                this._cameraScrollLerping = false;
-                this.snapDisplayToActiveZone();
-                // 카메라 파라미터도 즉시 적용
-                if ($gameScreen) {
-                    $gameScreen.setZoom(0, 0, bestZone.zoom);
-                }
-                if (window.Mode3D && Mode3D._active) {
-                    Mode3D._tiltDeg = bestZone.tilt;
-                    Mode3D._tiltRad = bestZone.tilt * Math.PI / 180;
-                    Mode3D._yawDeg = bestZone.yaw;
-                    Mode3D._yawRad = bestZone.yaw * Math.PI / 180;
-                }
-            } else {
-                // 존 전환: lerp로 부드럽게 이동
-                this._cameraScrollLerping = true;
-                var speed = bestZone.transitionSpeed || 1.0;
-                this._cameraTransition = {
-                    targetZoom: bestZone.zoom,
-                    targetTilt: bestZone.tilt,
-                    targetYaw: bestZone.yaw,
-                    speed: speed
-                };
-            }
-        }
-    }
-    // 플레이어가 어떤 존에도 없으면 활성 존 유지 (변경 없음)
-
-    // ── 3. 전환 애니메이션 (zoom, tilt, yaw) ──
-    if (this._cameraTransition) {
-        var t = this._cameraTransition;
-        var lerpFactor = Math.min(1.0, t.speed * 0.05);
-
-        if ($gameScreen) {
-            var curZoom = $gameScreen.zoomScale();
-            var newZoom = curZoom + (t.targetZoom - curZoom) * lerpFactor;
-            if (Math.abs(newZoom - t.targetZoom) < 0.001) newZoom = t.targetZoom;
-            $gameScreen.setZoom(0, 0, newZoom);
-        }
-
-        if (window.Mode3D && Mode3D._active) {
-            var curTilt = Mode3D._tiltDeg;
-            var newTilt = curTilt + (t.targetTilt - curTilt) * lerpFactor;
-            if (Math.abs(newTilt - t.targetTilt) < 0.1) newTilt = t.targetTilt;
-            Mode3D._tiltDeg = newTilt;
-            Mode3D._tiltRad = newTilt * Math.PI / 180;
-
-            var curYaw = Mode3D._yawDeg;
-            var newYaw = curYaw + (t.targetYaw - curYaw) * lerpFactor;
-            if (Math.abs(newYaw - t.targetYaw) < 0.1) newYaw = t.targetYaw;
-            Mode3D._yawDeg = newYaw;
-            Mode3D._yawRad = newYaw * Math.PI / 180;
-        }
-
-        var zoomDone = !$gameScreen || Math.abs($gameScreen.zoomScale() - t.targetZoom) < 0.001;
-        var tiltDone = !Mode3D || !Mode3D._active || Math.abs(Mode3D._tiltDeg - t.targetTilt) < 0.1;
-        var yawDone = !Mode3D || !Mode3D._active || Math.abs(Mode3D._yawDeg - t.targetYaw) < 0.1;
-        if (zoomDone && tiltDone && yawDone) {
-            this._cameraTransition = null;
-        }
-    }
-
-    // ── 4. 스크롤 위치 보정 ──
-    // lerp: 활성 존 범위 내로 부드럽게 이동 (존 전환 시)
-    this.lerpDisplayToActiveZone();
-    // clamp: 전체 존 union 밖으로는 절대 나갈 수 없음 (hard limit)
-    this.clampDisplayToAllZonesUnion();
-
-    // ── 5. 디버그 표시 ──
-    this._updateCameraZoneDebugText(playerZones);
-};
-
-Game_Map.prototype._updateCameraZoneDebugText = function(zones) {
-    var isDev = /[?&]dev=true/.test(window.location.search);
-    if (!$gameTemp || (!$gameTemp.isPlaytest() && !isDev)) {
-        if (this._cameraZoneDebugWrapper) {
-            this._cameraZoneDebugWrapper.style.display = 'none';
-        }
-        return;
-    }
-    if (!this._cameraZoneDebugEl) {
-        var PANEL_ID = 'cameraZoneDebug';
-
-        var wrapper = document.createElement('div');
-        wrapper.style.cssText = 'position:fixed;top:8px;left:8px;z-index:9999;' +
-            'background:rgba(0,0,0,0.6);padding:4px 8px;pointer-events:auto;user-select:none;border-radius:4px;';
-
-        // Title bar for drag
-        var titleBar = document.createElement('div');
-        titleBar.style.cssText = 'color:#ffcc88;font:bold 12px monospace;margin-bottom:2px;display:flex;align-items:center;';
-        var titleText = document.createElement('span');
-        titleText.textContent = 'Camera Zones';
-        titleText.style.cssText = 'flex:1;';
-        titleBar.appendChild(titleText);
-        wrapper.appendChild(titleBar);
-
-        var el = document.createElement('div');
-        el.style.cssText = 'color:#0f0;font:bold 14px monospace;white-space:pre;';
-        wrapper.appendChild(el);
-
-        document.body.appendChild(wrapper);
-        this._cameraZoneDebugEl = el;
-        this._cameraZoneDebugWrapper = wrapper;
-
-        // Apply DevPanelUtils (draggable + collapse + localStorage)
-        if (window.DevPanelUtils) {
-            this._cameraZoneDebugCtrl = DevPanelUtils.makeDraggablePanel(wrapper, PANEL_ID, {
-                titleBar: titleBar,
-                bodyEl: el,
-                defaultPosition: 'top-left'
-            });
-        }
-    }
-    var names = [];
-    for (var i = 0; i < zones.length; i++) {
-        names.push(zones[i].name || ('Zone' + zones[i].id));
-    }
-    var active = this._activeCameraZone;
-    var activeName = active ? (active.name || ('Zone' + active.id)) : 'none';
-    var lerping = this._cameraScrollLerping ? ' [lerping]' : '';
-    var camInfo = '';
-    if (window.Mode3D && Mode3D._active && Mode3D._perspCamera) {
-        var fb = Mode3D.getFrustumTileBounds(
-            this._displayX, this._displayY,
-            this.tileWidth(), this.tileHeight()
-        );
-        if (fb) {
-            camInfo = 'Frustum: ' + fb.minTX.toFixed(2) + ', ' + fb.minTY.toFixed(2) +
-                ' ~ ' + fb.maxTX.toFixed(2) + ', ' + fb.maxTY.toFixed(2);
-        }
-    } else {
-        var screenW = this.screenTileX();
-        var screenH = this.screenTileY();
-        camInfo = 'CamView: ' + this._displayX.toFixed(2) + ', ' + this._displayY.toFixed(2) +
-            ' ~ ' + (this._displayX + screenW).toFixed(2) + ', ' + (this._displayY + screenH).toFixed(2);
-    }
-    this._cameraZoneDebugEl.textContent =
-        'PlayerZones: ' + (names.length > 0 ? names.join(', ') : 'none') +
-        '\nActive: ' + activeName + lerping +
-        '\nPlayer: ' + $gamePlayer.x + ', ' + $gamePlayer.y +
-        '\n' + camInfo;
-    this._cameraZoneDebugWrapper.style.display = '';
-};
-
-// 맵의 전체 enabled 존들의 합집합(union) 바운딩 박스 계산
-// 카메라가 맵 내 어떤 존이든 벗어나지 못하도록 전체 존 기준
-Game_Map.prototype._getAllZonesUnionBounds = function() {
-    var zones = this._cameraZones;
-    if (!zones || zones.length === 0) return null;
-
-    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    var found = false;
-    for (var i = 0; i < zones.length; i++) {
-        var z = zones[i];
-        if (!z.enabled) continue;
-        found = true;
-        if (z.x < minX) minX = z.x;
-        if (z.y < minY) minY = z.y;
-        if (z.x + z.width > maxX) maxX = z.x + z.width;
-        if (z.y + z.height > maxY) maxY = z.y + z.height;
-    }
-    if (!found) return null;
-
-    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-};
-
-// 활성 존의 바운딩 박스 (lerp 목표용)
-Game_Map.prototype._getActiveZoneBounds = function() {
-    var zone = this._activeCameraZone;
-    if (!zone) return null;
-    return { x: zone.x, y: zone.y, width: zone.width, height: zone.height };
-};
-
-// 바운딩 박스 기준으로 display clamp 목표 좌표 계산 (공통 헬퍼)
-// 3D 모드: frustum 마진을 반영하여 displayXY 범위 계산
-// 2D 모드: displayX/Y + screenTileX/Y 기준으로 클램핑
-Game_Map.prototype._calcClampTarget = function(bounds) {
-    if (!bounds) return null;
-
-    var targetX = this._displayX;
-    var targetY = this._displayY;
-
-    // 로그 스로틀 (60프레임마다 1번)
-    this._clampLogCounter = (this._clampLogCounter || 0) + 1;
-    var shouldLog = (this._clampLogCounter % 60 === 0);
-
-    // 3D 모드: frustum 마진 기반 클램핑
-    // frustum 마진 = frustum이 display 사각형에 비해 각 방향으로 얼마나 더 보이는지
-    // 이 마진은 tilt/yaw/fov에만 의존, displayXY와 무관 (고정값)
-    if (window.Mode3D && Mode3D._active && Mode3D._perspCamera) {
-        var margins = Mode3D.getFrustumMargins(this.tileWidth(), this.tileHeight());
-        if (margins) {
-            // frustum이 보이는 전체 크기 (타일 단위)
-            var viewW = margins.left + this.screenTileX() + margins.right;
-            var viewH = margins.top + this.screenTileY() + margins.bottom;
-
-            // displayXY 허용 범위:
-            // frustum 좌측 끝 = displayX - margins.left >= bounds.x
-            //   → displayX >= bounds.x + margins.left
-            // frustum 우측 끝 = displayX + screenTileX + margins.right <= bounds.x + bounds.width
-            //   → displayX <= bounds.x + bounds.width - screenTileX - margins.right
-            var screenW = this.screenTileX();
-            var screenH = this.screenTileY();
-
-            if (bounds.width >= viewW) {
-                var minDX = bounds.x + margins.left;
-                var maxDX = bounds.x + bounds.width - screenW - margins.right;
-                targetX = Math.max(minDX, Math.min(maxDX, this._displayX));
-            } else {
-                // 존이 뷰보다 작으면 중앙 정렬
-                targetX = bounds.x + bounds.width / 2 - screenW / 2;
-            }
-
-            if (bounds.height >= viewH) {
-                var minDY = bounds.y + margins.top;
-                var maxDY = bounds.y + bounds.height - screenH - margins.bottom;
-                targetY = Math.max(minDY, Math.min(maxDY, this._displayY));
-            } else {
-                targetY = bounds.y + bounds.height / 2 - screenH / 2;
-            }
-
-            if (shouldLog) {
-                console.log('[CameraZone] 3D _calcClampTarget',
-                    '\n  bounds:', JSON.stringify(bounds),
-                    '\n  margins:', JSON.stringify({l: margins.left.toFixed(2), r: margins.right.toFixed(2), t: margins.top.toFixed(2), b: margins.bottom.toFixed(2)}),
-                    '\n  viewSize:', viewW.toFixed(2), 'x', viewH.toFixed(2),
-                    '\n  displayXY:', this._displayX.toFixed(2), this._displayY.toFixed(2),
-                    '\n  targetXY:', targetX.toFixed(2), targetY.toFixed(2)
-                );
-            }
-
-            return { x: targetX, y: targetY };
-        }
-    }
-
-    // 2D 모드 (또는 3D 마진 계산 실패 시 폴백)
-    var screenW = this.screenTileX();
-    var screenH = this.screenTileY();
-
-    if (bounds.width >= screenW) {
-        targetX = Math.max(bounds.x, Math.min(bounds.x + bounds.width - screenW, this._displayX));
-    } else {
-        targetX = bounds.x + (bounds.width - screenW) / 2;
-    }
-
-    if (bounds.height >= screenH) {
-        targetY = Math.max(bounds.y, Math.min(bounds.y + bounds.height - screenH, this._displayY));
-    } else {
-        targetY = bounds.y + (bounds.height - screenH) / 2;
-    }
-
-    return { x: targetX, y: targetY };
-};
-
-// 활성 존 범위 내로 lerp 이동 (존 전환 시 카메라가 잠시 존 밖에 있을 때 사용)
-Game_Map.prototype.lerpDisplayToActiveZone = function() {
-    if (!this._cameraScrollLerping) return;
-
-    // 활성 존 기준으로 lerp 목표 계산
-    var target = this._calcClampTarget(this._getActiveZoneBounds());
-    if (!target) {
-        this._cameraScrollLerping = false;
-        return;
-    }
-
-    var dx = target.x - this._displayX;
-    var dy = target.y - this._displayY;
-
-    // 이미 목표에 충분히 가까우면 스냅 + lerp 완료
-    if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) {
-        if (Math.abs(dx) > 0.001) {
-            this._parallaxX += target.x - this._displayX;
-            this._displayX = target.x;
-        }
-        if (Math.abs(dy) > 0.001) {
-            this._parallaxY += target.y - this._displayY;
-            this._displayY = target.y;
-        }
-        this._cameraScrollLerping = false;
-        return;
-    }
-
-    // 활성 존의 transitionSpeed 사용, 없으면 기본값
-    var speed = this._activeCameraZone ? this._activeCameraZone.transitionSpeed : 1.0;
-    var lerpFactor = Math.min(1.0, speed * 0.05);
-
-    var newX = this._displayX + dx * lerpFactor;
-    var newY = this._displayY + dy * lerpFactor;
-    this._parallaxX += newX - this._displayX;
-    this._parallaxY += newY - this._displayY;
-    this._displayX = newX;
-    this._displayY = newY;
-};
-
-// 전체 존 union 범위로 즉시 clamp (카메라가 어떤 존이든 벗어나지 못하게)
-// 존 전환 lerp 중에도 전체 존 union 범위는 적용 (개별 존 밖은 허용하되 전체 밖은 불허)
-Game_Map.prototype.clampDisplayToAllZonesUnion = function() {
-    var bounds = this._getAllZonesUnionBounds();
-    var target = this._calcClampTarget(bounds);
-    if (!target) return;
-
-    var dx = Math.abs(target.x - this._displayX);
-    var dy = Math.abs(target.y - this._displayY);
-    if (dx > 0.001 || dy > 0.001) {
-        this._clampUnionLogCounter = (this._clampUnionLogCounter || 0) + 1;
-        if (this._clampUnionLogCounter % 30 === 1) {
-            console.log('[CameraZone] clampUnion CORRECTING',
-                '\n  unionBounds:', JSON.stringify(bounds),
-                '\n  displayXY:', this._displayX.toFixed(3), this._displayY.toFixed(3),
-                '\n  targetXY:', target.x.toFixed(3), target.y.toFixed(3),
-                '\n  delta:', (target.x - this._displayX).toFixed(4), (target.y - this._displayY).toFixed(4)
-            );
-        }
-    }
-
-    if (dx > 0.001) {
-        this._parallaxX += target.x - this._displayX;
-        this._displayX = target.x;
-    }
-    if (dy > 0.001) {
-        this._parallaxY += target.y - this._displayY;
-        this._displayY = target.y;
-    }
-};
-
-// 활성 존 범위로 즉시 snap (맵 초기화 시 사용, lerp 없이)
-Game_Map.prototype.snapDisplayToActiveZone = function() {
-    var target = this._calcClampTarget(this._getActiveZoneBounds());
-    if (!target) return;
-
-    this._parallaxX += target.x - this._displayX;
-    this._parallaxY += target.y - this._displayY;
-    this._displayX = target.x;
-    this._displayY = target.y;
 };
 
 Game_Map.prototype.updateScroll = function() {
