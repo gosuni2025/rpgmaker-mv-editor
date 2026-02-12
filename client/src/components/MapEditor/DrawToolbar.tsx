@@ -35,6 +35,7 @@ export default function DrawToolbar() {
   const shadowLight = useEditorStore((s) => s.shadowLight);
   const setMode3d = useEditorStore((s) => s.setMode3d);
   const setShadowLight = useEditorStore((s) => s.setShadowLight);
+  const showToast = useEditorStore((s) => s.showToast);
   const [showGrid, setShowGrid] = React.useState(true);
 
   return (
@@ -135,10 +136,12 @@ export default function DrawToolbar() {
       {/* Grid toggle */}
       <button
         onClick={() => {
-          setShowGrid(!showGrid);
+          const next = !showGrid;
+          setShowGrid(next);
           window.dispatchEvent(
-            new CustomEvent('editor-toggle-grid', { detail: !showGrid })
+            new CustomEvent('editor-toggle-grid', { detail: next })
           );
+          showToast(`격자 ${next ? 'ON' : 'OFF'}`);
         }}
         style={{ ...styles.btn, ...(showGrid ? styles.btnActive : {}) }}
       >

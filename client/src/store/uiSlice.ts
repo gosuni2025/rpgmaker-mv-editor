@@ -80,16 +80,19 @@ export const uiSlice: SliceCreator<Pick<EditorState,
     const ConfigManager = (window as any).ConfigManager;
     if (ConfigManager) ConfigManager.mode3d = enabled;
     set({ mode3d: enabled });
+    get().showToast(`3D ${enabled ? 'ON' : 'OFF'}`);
   },
   setShadowLight: (enabled: boolean) => {
     const ConfigManager = (window as any).ConfigManager;
     if (ConfigManager) ConfigManager.shadowLight = enabled;
     set({ shadowLight: enabled });
+    get().showToast(`조명 ${enabled ? 'ON' : 'OFF'}`);
   },
   setDepthOfField: (enabled: boolean) => {
     const ConfigManager = (window as any).ConfigManager;
     if (ConfigManager) ConfigManager.depthOfField = enabled;
     set({ depthOfField: enabled });
+    get().showToast(`피사계 심도 ${enabled ? 'ON' : 'OFF'}`);
   },
 
   setPaletteTab: (tab: 'A' | 'B' | 'C' | 'D' | 'E' | 'R') => set({ paletteTab: tab }),

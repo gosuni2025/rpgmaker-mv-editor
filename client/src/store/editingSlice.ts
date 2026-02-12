@@ -292,6 +292,10 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     const state = get();
     const updates: Partial<EditorState> = { editMode: mode };
     localStorage.setItem(EDIT_MODE_STORAGE_KEY, mode);
+    const modeNames: Record<string, string> = { map: '맵', event: '이벤트', light: '조명', object: '오브젝트', cameraZone: '카메라' };
+    if (state.editMode !== mode) {
+      state.showToast(`${modeNames[mode]} 모드`);
+    }
     if (mode !== 'map') {
       updates.selectionStart = null;
       updates.selectionEnd = null;
@@ -338,12 +342,17 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     set(updates);
   },
   setSelectedTool: (tool: string) => {
+    const state = get();
     const updates: Partial<EditorState> = { selectedTool: tool };
     if (tool !== 'select') {
       updates.selectionStart = null;
       updates.selectionEnd = null;
       updates.isPasting = false;
       updates.pastePreviewPos = null;
+    }
+    const toolNames: Record<string, string> = { select: '선택', pen: '연필', rectangle: '직사각형', ellipse: '타원', fill: '채우기', eraser: '지우개', shadow: '그림자' };
+    if (state.selectedTool !== tool && toolNames[tool]) {
+      state.showToast(toolNames[tool]);
     }
     set(updates);
   },
