@@ -105,9 +105,10 @@ export default function MapCanvas() {
   const parallaxShow = currentMap?.parallaxShow ?? false;
   const mapPxW = (currentMap?.width || 0) * TILE_SIZE_PX;
   const mapPxH = (currentMap?.height || 0) * TILE_SIZE_PX;
+  const MAP_PADDING = TILE_SIZE_PX * 2; // 2 tiles padding around map for resize handles
 
   const extendedSize = useMemo(() => {
-    if (editMode !== 'cameraZone') return { width: mapPxW, height: mapPxH };
+    if (editMode !== 'cameraZone') return { width: mapPxW + MAP_PADDING, height: mapPxH + MAP_PADDING };
     let maxRight = mapPxW;
     let maxBottom = mapPxH;
     const zones = currentMap?.cameraZones;
@@ -125,7 +126,7 @@ export default function MapCanvas() {
       if (r > maxRight) maxRight = r;
       if (b > maxBottom) maxBottom = b;
     }
-    return { width: maxRight, height: maxBottom };
+    return { width: maxRight + MAP_PADDING, height: maxBottom + MAP_PADDING };
   }, [editMode, currentMap?.cameraZones, cameraZoneDragPreview, mapPxW, mapPxH]);
 
   const eyedropperCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.54 3.54 1.41 1.41L16.25 6.8l.88.88-5.66 5.66-1.41-1.41-2.12 2.12a3 3 0 000 4.24l.71.71a3 3 0 004.24 0l2.12-2.12-1.41-1.41 5.66-5.66.88.88 1.41-1.41-3.54-3.54a1 1 0 000-1.41z' fill='white' stroke='black' stroke-width='0.5'/%3E%3C/svg%3E") 2 22, crosshair`;

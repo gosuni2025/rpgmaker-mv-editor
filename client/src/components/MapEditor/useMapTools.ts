@@ -30,7 +30,7 @@ export interface MapToolsResult {
   getCanvasPx: (e: React.MouseEvent<HTMLElement>) => { x: number; y: number } | null;
 }
 
-const EDGE_THRESHOLD = 16;
+const EDGE_THRESHOLD = 32;
 
 export function useMapTools(
   webglCanvasRef: React.RefObject<HTMLCanvasElement | null>,
@@ -176,10 +176,11 @@ export function useMapTools(
     const mapH = currentMap.height * TILE_SIZE_PX;
     const t = EDGE_THRESHOLD;
 
-    const nearN = py >= 0 && py <= t;
-    const nearS = py >= mapH - t && py <= mapH;
-    const nearW = px >= 0 && px <= t;
-    const nearE = px >= mapW - t && px <= mapW;
+    // Detect near edges including outside the map boundary (for expansion)
+    const nearN = py >= -t && py <= t;
+    const nearS = py >= mapH - t && py <= mapH + t;
+    const nearW = px >= -t && px <= t;
+    const nearE = px >= mapW - t && px <= mapW + t;
 
     if (nearN && nearW) return 'nw';
     if (nearN && nearE) return 'ne';

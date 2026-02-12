@@ -177,6 +177,19 @@ export default function DrawToolbar() {
 
       <div style={{ flex: 1 }} />
 
+      <button
+        onClick={() => {
+          const mapId = useEditorStore.getState().currentMapId || 1;
+          saveCurrentMap().then(() => {
+            window.open(`/game/index.html?dev=true&startMapId=${mapId}`, '_blank');
+          });
+        }}
+        style={styles.playBtn}
+        title="Ctrl+Shift+R"
+      >
+        ▶ {t('menu.playtestCurrentMap')}
+      </button>
+
       <button onClick={saveCurrentMap} style={styles.saveBtn}>
         {t('toolbar.save')}
       </button>
@@ -242,6 +255,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     minWidth: 40,
     textAlign: 'center' as const,
+  },
+  playBtn: {
+    background: '#2ea043',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 3,
+    padding: '4px 12px',
+    cursor: 'pointer',
+    fontSize: 12,
+    marginRight: 4,
   },
   saveBtn: {
     background: '#0078d4',

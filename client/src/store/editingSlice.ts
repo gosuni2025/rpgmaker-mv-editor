@@ -113,6 +113,24 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     const nh = Math.max(1, Math.min(256, newHeight));
     const newData = resizeMapData(oldData, oldW, oldH, nw, nh, offsetX, offsetY);
     const newEvents = resizeEvents(oldEvents, nw, nh, offsetX, offsetY);
+
+    // Offset lights, objects, camera zones
+    const updates: Record<string, unknown> = { width: nw, height: nh, data: newData, events: newEvents };
+    if (offsetX !== 0 || offsetY !== 0) {
+      if (currentMap.editorLights?.points) {
+        updates.editorLights = {
+          ...currentMap.editorLights,
+          points: currentMap.editorLights.points.map(p => ({ ...p, x: p.x + offsetX, y: p.y + offsetY })),
+        };
+      }
+      if (currentMap.objects) {
+        updates.objects = currentMap.objects.map((o: MapObject) => ({ ...o, x: o.x + offsetX, y: o.y + offsetY }));
+      }
+      if (currentMap.cameraZones) {
+        updates.cameraZones = currentMap.cameraZones.map((z: CameraZone) => ({ ...z, x: z.x + offsetX, y: z.y + offsetY }));
+      }
+    }
+
     const historyEntry: ResizeHistoryEntry = {
       mapId: currentMapId,
       type: 'resize',
@@ -122,7 +140,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     const newStack = [...undoStack, historyEntry];
     if (newStack.length > get().maxUndo) newStack.shift();
     set({
-      currentMap: { ...currentMap, width: nw, height: nh, data: newData, events: newEvents },
+      currentMap: { ...currentMap, ...updates },
       undoStack: newStack,
       redoStack: [],
     });

@@ -11,25 +11,31 @@ export default function MapInspector() {
   const mapInfo = currentMapId != null ? maps.find(m => m && m.id === currentMapId) : null;
   const mapName = mapInfo?.name ?? '';
 
-  // Local width/height for editing
-  const [editWidth, setEditWidth] = useState(currentMap?.width ?? 17);
-  const [editHeight, setEditHeight] = useState(currentMap?.height ?? 13);
+  // Expand amounts for each direction
+  const [addLeft, setAddLeft] = useState(0);
+  const [addTop, setAddTop] = useState(0);
+  const [addRight, setAddRight] = useState(0);
+  const [addBottom, setAddBottom] = useState(0);
 
-  // Sync when map changes
+  // Reset when map changes
   useEffect(() => {
-    if (currentMap) {
-      setEditWidth(currentMap.width);
-      setEditHeight(currentMap.height);
-    }
-  }, [currentMap?.width, currentMap?.height, currentMapId]);
+    setAddLeft(0);
+    setAddTop(0);
+    setAddRight(0);
+    setAddBottom(0);
+  }, [currentMapId]);
 
   const handleApplyResize = useCallback(() => {
     if (!currentMap) return;
-    const newW = Math.max(1, Math.min(256, editWidth));
-    const newH = Math.max(1, Math.min(256, editHeight));
-    if (newW === currentMap.width && newH === currentMap.height) return;
-    resizeMap(newW, newH, 0, 0);
-  }, [currentMap, editWidth, editHeight, resizeMap]);
+    if (addLeft === 0 && addTop === 0 && addRight === 0 && addBottom === 0) return;
+    const newW = Math.max(1, Math.min(256, currentMap.width + addLeft + addRight));
+    const newH = Math.max(1, Math.min(256, currentMap.height + addTop + addBottom));
+    resizeMap(newW, newH, addLeft, addTop);
+    setAddLeft(0);
+    setAddTop(0);
+    setAddRight(0);
+    setAddBottom(0);
+  }, [currentMap, addLeft, addTop, addRight, addBottom, resizeMap]);
 
   if (!currentMap) {
     return (
@@ -39,7 +45,9 @@ export default function MapInspector() {
     );
   }
 
-  const sizeChanged = editWidth !== currentMap.width || editHeight !== currentMap.height;
+  const hasChange = addLeft !== 0 || addTop !== 0 || addRight !== 0 || addBottom !== 0;
+  const newW = Math.max(1, Math.min(256, currentMap.width + addLeft + addRight));
+  const newH = Math.max(1, Math.min(256, currentMap.height + addTop + addBottom));
 
   return (
     <div className="light-inspector">
@@ -58,51 +66,90 @@ export default function MapInspector() {
           <span className="light-inspector-label">타일셋</span>
           <span style={{ fontSize: 12, color: '#ddd' }}>{currentMap.tilesetId}</span>
         </div>
+        <div className="light-inspector-row">
+          <span className="light-inspector-label">크기</span>
+          <span style={{ fontSize: 12, color: '#ddd' }}>{currentMap.width} x {currentMap.height}</span>
+        </div>
       </div>
 
-      {/* Map Size */}
+      {/* Map Size Adjust */}
       <div className="light-inspector-section">
-        <div className="light-inspector-title">맵 크기</div>
-        <div className="light-inspector-row">
-          <span className="light-inspector-label">너비</span>
-          <input
-            type="number"
-            className="light-inspector-input"
-            style={{ width: 60 }}
-            min={1}
-            max={256}
-            value={editWidth}
-            onChange={(e) => setEditWidth(Math.max(1, Math.min(256, Number(e.target.value) || 1)))}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleApplyResize(); }}
-          />
+        <div className="light-inspector-title">맵 크기 조절</div>
+
+        {/* Visual grid: top / left-center-right / bottom */}
+        <div className="map-resize-grid">
+          {/* Top row */}
+          <div className="map-resize-row">
+            <div className="map-resize-cell" />
+            <div className="map-resize-cell center">
+              <label className="map-resize-label">위</label>
+              <input
+                type="number"
+                className="map-resize-input"
+                value={addTop}
+                onChange={(e) => setAddTop(Number(e.target.value) || 0)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleApplyResize(); }}
+              />
+            </div>
+            <div className="map-resize-cell" />
+          </div>
+
+          {/* Middle row */}
+          <div className="map-resize-row">
+            <div className="map-resize-cell center">
+              <label className="map-resize-label">좌</label>
+              <input
+                type="number"
+                className="map-resize-input"
+                value={addLeft}
+                onChange={(e) => setAddLeft(Number(e.target.value) || 0)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleApplyResize(); }}
+              />
+            </div>
+            <div className="map-resize-cell center map-resize-center">
+              {hasChange ? (
+                <span className="map-resize-preview">{newW} x {newH}</span>
+              ) : (
+                <span className="map-resize-current">{currentMap.width} x {currentMap.height}</span>
+              )}
+            </div>
+            <div className="map-resize-cell center">
+              <label className="map-resize-label">우</label>
+              <input
+                type="number"
+                className="map-resize-input"
+                value={addRight}
+                onChange={(e) => setAddRight(Number(e.target.value) || 0)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleApplyResize(); }}
+              />
+            </div>
+          </div>
+
+          {/* Bottom row */}
+          <div className="map-resize-row">
+            <div className="map-resize-cell" />
+            <div className="map-resize-cell center">
+              <label className="map-resize-label">아래</label>
+              <input
+                type="number"
+                className="map-resize-input"
+                value={addBottom}
+                onChange={(e) => setAddBottom(Number(e.target.value) || 0)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleApplyResize(); }}
+              />
+            </div>
+            <div className="map-resize-cell" />
+          </div>
         </div>
-        <div className="light-inspector-row">
-          <span className="light-inspector-label">높이</span>
-          <input
-            type="number"
-            className="light-inspector-input"
-            style={{ width: 60 }}
-            min={1}
-            max={256}
-            value={editHeight}
-            onChange={(e) => setEditHeight(Math.max(1, Math.min(256, Number(e.target.value) || 1)))}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleApplyResize(); }}
-          />
-        </div>
-        {sizeChanged && (
-          <div style={{ marginTop: 6, display: 'flex', gap: 4 }}>
-            <button
-              className="map-inspector-apply-btn"
-              onClick={handleApplyResize}
-            >
-              적용 ({currentMap.width}x{currentMap.height} → {editWidth}x{editHeight})
+
+        {hasChange && (
+          <div style={{ marginTop: 8, display: 'flex', gap: 4 }}>
+            <button className="map-inspector-apply-btn" onClick={handleApplyResize}>
+              적용 ({currentMap.width}x{currentMap.height} → {newW}x{newH})
             </button>
             <button
               className="map-inspector-cancel-btn"
-              onClick={() => {
-                setEditWidth(currentMap.width);
-                setEditHeight(currentMap.height);
-              }}
+              onClick={() => { setAddLeft(0); setAddTop(0); setAddRight(0); setAddBottom(0); }}
             >
               취소
             </button>
