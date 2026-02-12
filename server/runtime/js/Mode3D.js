@@ -587,6 +587,21 @@
         // screenToWorld 캐시 초기화 (네 번 호출했으므로)
         this._lastScreenToWorld = null;
 
+        // 로그 (스로틀)
+        this._frustumLogCounter = (this._frustumLogCounter || 0) + 1;
+        var shouldLog = (this._frustumLogCounter % 120 === 1);
+        if (shouldLog) {
+            console.log('[Mode3D] getFrustumTileBounds',
+                '\n  displayXY:', displayX.toFixed(2), displayY.toFixed(2),
+                '\n  screenSize:', w, 'x', h,
+                '\n  tilt:', this._tiltDeg.toFixed(1), 'yaw:', this._yawDeg.toFixed(1),
+                '\n  corners(px):', JSON.stringify(corners.map(function(c) {
+                    return c ? {x: c.x.toFixed(1), y: c.y.toFixed(1)} : null;
+                })),
+                '\n  camPos:', camera.position.x.toFixed(1), camera.position.y.toFixed(1), camera.position.z.toFixed(1)
+            );
+        }
+
         var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (var i = 0; i < corners.length; i++) {
             if (!corners[i]) return null;
@@ -597,6 +612,13 @@
             if (ty < minY) minY = ty;
             if (tx > maxX) maxX = tx;
             if (ty > maxY) maxY = ty;
+        }
+
+        if (shouldLog) {
+            console.log('[Mode3D] frustum tile result:',
+                'min:', minX.toFixed(2), minY.toFixed(2),
+                'max:', maxX.toFixed(2), maxY.toFixed(2)
+            );
         }
 
         return { minTX: minX, minTY: minY, maxTX: maxX, maxTY: maxY };

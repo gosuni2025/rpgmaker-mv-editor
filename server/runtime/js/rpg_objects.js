@@ -6277,6 +6277,10 @@ Game_Map.prototype._calcClampTarget = function(bounds) {
     var targetX = this._displayX;
     var targetY = this._displayY;
 
+    // 로그 스로틀 (60프레임마다 1번)
+    this._clampLogCounter = (this._clampLogCounter || 0) + 1;
+    var shouldLog = (this._clampLogCounter % 60 === 0);
+
     // 3D 모드: frustum 투영 영역 기준 클램핑
     if (window.Mode3D && Mode3D._active && Mode3D._perspCamera) {
         var fb = Mode3D.getFrustumTileBounds(
@@ -6287,17 +6291,23 @@ Game_Map.prototype._calcClampTarget = function(bounds) {
             var viewW = fb.maxTX - fb.minTX;
             var viewH = fb.maxTY - fb.minTY;
 
+            if (shouldLog) {
+                console.log('[CameraZone] 3D _calcClampTarget',
+                    '\n  bounds:', JSON.stringify(bounds),
+                    '\n  frustum:', JSON.stringify({minTX: fb.minTX.toFixed(2), minTY: fb.minTY.toFixed(2), maxTX: fb.maxTX.toFixed(2), maxTY: fb.maxTY.toFixed(2)}),
+                    '\n  viewSize:', viewW.toFixed(2), 'x', viewH.toFixed(2),
+                    '\n  displayXY:', this._displayX.toFixed(2), this._displayY.toFixed(2)
+                );
+            }
+
             if (bounds.width >= viewW) {
-                // frustum 좌측이 존 좌측보다 왼쪽이면 → 오른쪽으로 밀기
                 if (fb.minTX < bounds.x) {
                     targetX += bounds.x - fb.minTX;
                 }
-                // frustum 우측이 존 우측보다 오른쪽이면 → 왼쪽으로 밀기
                 else if (fb.maxTX > bounds.x + bounds.width) {
                     targetX -= fb.maxTX - (bounds.x + bounds.width);
                 }
             } else {
-                // 존이 뷰보다 작으면 중앙 정렬
                 var centerX = bounds.x + bounds.width / 2;
                 var viewCenterX = (fb.minTX + fb.maxTX) / 2;
                 targetX += centerX - viewCenterX;
@@ -6316,7 +6326,17 @@ Game_Map.prototype._calcClampTarget = function(bounds) {
                 targetY += centerY - viewCenterY;
             }
 
+            if (shouldLog && (Math.abs(targetX - this._displayX) > 0.001 || Math.abs(targetY - this._displayY) > 0.001)) {
+                console.log('[CameraZone] 3D clamp APPLIED',
+                    '\n  before:', this._displayX.toFixed(2), this._displayY.toFixed(2),
+                    '\n  after:', targetX.toFixed(2), targetY.toFixed(2),
+                    '\n  delta:', (targetX - this._displayX).toFixed(4), (targetY - this._displayY).toFixed(4)
+                );
+            }
+
             return { x: targetX, y: targetY };
+        } else if (shouldLog) {
+            console.log('[CameraZone] 3D getFrustumTileBounds returned null');
         }
     }
 
@@ -6382,14 +6402,29 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
 // 전체 존 union 범위로 즉시 clamp (카메라가 어떤 존이든 벗어나지 못하게)
 // 존 전환 lerp 중에도 전체 존 union 범위는 적용 (개별 존 밖은 허용하되 전체 밖은 불허)
 Game_Map.prototype.clampDisplayToAllZonesUnion = function() {
-    var target = this._calcClampTarget(this._getAllZonesUnionBounds());
+    var bounds = this._getAllZonesUnionBounds();
+    var target = this._calcClampTarget(bounds);
     if (!target) return;
 
-    if (Math.abs(target.x - this._displayX) > 0.001) {
+    var dx = Math.abs(target.x - this._displayX);
+    var dy = Math.abs(target.y - this._displayY);
+    if (dx > 0.001 || dy > 0.001) {
+        this._clampUnionLogCounter = (this._clampUnionLogCounter || 0) + 1;
+        if (this._clampUnionLogCounter % 30 === 1) {
+            console.log('[CameraZone] clampUnion CORRECTING',
+                '\n  unionBounds:', JSON.stringify(bounds),
+                '\n  displayXY:', this._displayX.toFixed(3), this._displayY.toFixed(3),
+                '\n  targetXY:', target.x.toFixed(3), target.y.toFixed(3),
+                '\n  delta:', (target.x - this._displayX).toFixed(4), (target.y - this._displayY).toFixed(4)
+            );
+        }
+    }
+
+    if (dx > 0.001) {
         this._parallaxX += target.x - this._displayX;
         this._displayX = target.x;
     }
-    if (Math.abs(target.y - this._displayY) > 0.001) {
+    if (dy > 0.001) {
         this._parallaxY += target.y - this._displayY;
         this._displayY = target.y;
     }
