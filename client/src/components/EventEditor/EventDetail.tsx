@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent, EventPage, EventConditions, EventImage, EventCommand, MoveRoute, MapData } from '../../types/rpgMakerMV';
@@ -167,11 +167,41 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
 
   const padId = (id: number) => String(id).padStart(3, '0');
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const [dialogPos, setDialogPos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  const handleTitleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const el = dialogRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: rect.left, origY: rect.top };
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      const dx = ev.clientX - dragRef.current.startX;
+      const dy = ev.clientY - dragRef.current.startY;
+      setDialogPos({ x: dragRef.current.origX + dx, y: dragRef.current.origY + dy });
+    };
+    const handleMouseUp = () => {
+      dragRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, []);
+
+  const dialogStyle: React.CSSProperties = dialogPos
+    ? { position: 'fixed', left: dialogPos.x, top: dialogPos.y, margin: 0 }
+    : {};
+
   return (
-    <div className="db-dialog-overlay">
-      <div className="event-editor-dialog">
+    <div className="db-dialog-overlay" style={dialogPos ? { alignItems: 'flex-start', justifyContent: 'flex-start' } : undefined}>
+      <div className="event-editor-dialog" ref={dialogRef} style={dialogStyle}>
         {/* Title bar */}
-        <div className="event-editor-titlebar">
+        <div className="event-editor-titlebar" onMouseDown={handleTitleMouseDown} style={{ cursor: 'move' }}>
           ID:{padId(editEvent.id)} - {t('eventDetail.title', '이벤트 에디터')}
         </div>
 
