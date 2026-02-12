@@ -8,13 +8,6 @@
   justify-content: center;
 }
 
-.map-editor-area {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-}
-
 .main-placeholder {
   text-align: center;
   color: #666;

@@ -158,6 +158,12 @@ export default function App() {
         </ResizablePanel>
       </div>
 
+      {currentMap && (
+        <div className="toolbar-area">
+          <DrawToolbar />
+        </div>
+      )}
+
       <div className="main-area">
         {!projectPath ? (
           <div className="main-placeholder">
@@ -169,10 +175,7 @@ export default function App() {
             <p>맵을 선택해주세요</p>
           </div>
         ) : (
-          <div className="map-editor-area">
-            <DrawToolbar />
-            <MapCanvas />
-          </div>
+          <MapCanvas />
         )}
       </div>
 
