@@ -314,72 +314,74 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
             <input type="radio" name="cb-type3" checked={condType === 5} onChange={() => switchCondType(5)} />
             적
           </label>
-          <span style={{ color: '#aaa', fontSize: 12 }}>#</span>
-          <input type="number" value={enemyIndex + 1}
-            onChange={e => setEnemyIndex(Math.max(0, Number(e.target.value) - 1))}
-            min={1} disabled={condType !== 5}
-            style={{ ...selectStyle, width: 60, ...disabledOpacity(condType === 5) }} />
+          <select value={enemyIndex}
+            onChange={e => setEnemyIndex(Number(e.target.value))}
+            disabled={condType !== 5}
+            style={{ ...selectStyle, width: 160, ...disabledOpacity(condType === 5) }}>
+            {Array.from({ length: 8 }, (_, i) => (
+              <option key={i} value={i}>#{i + 1} ?</option>
+            ))}
+          </select>
         </div>
-        {condType === 5 && (
-          <div style={{ marginLeft: 40, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={radioStyle}>
-              <input type="radio" name="cb-enemy-sub" checked={enemySubType === 0}
-                onChange={() => setEnemySubType(0)} />
-              출현하고 있다
+        <div style={{ marginLeft: 100, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <label style={{ ...radioStyle, ...disabledOpacity(condType === 5) }}>
+            <input type="radio" name="cb-enemy-sub" checked={enemySubType === 0}
+              onChange={() => setEnemySubType(0)} disabled={condType !== 5} />
+            나타남
+          </label>
+          <div style={rowStyle}>
+            <label style={{ ...radioStyle, ...disabledOpacity(condType === 5) }}>
+              <input type="radio" name="cb-enemy-sub" checked={enemySubType === 1}
+                onChange={() => setEnemySubType(1)} disabled={condType !== 5} />
+              스탯
             </label>
-            <div style={rowStyle}>
-              <label style={radioStyle}>
-                <input type="radio" name="cb-enemy-sub" checked={enemySubType === 1}
-                  onChange={() => setEnemySubType(1)} />
-                스테이트
-              </label>
-              {enemySubType === 1 && (
-                <>
-                  <input type="text" readOnly value={getLabel(enemyStateId, states)}
-                    style={{ ...selectStyle, flex: 1, cursor: 'pointer' }}
-                    onClick={() => setShowPicker('enemy-state')} />
-                  <button className="db-btn" style={{ padding: '4px 8px' }}
-                    onClick={() => setShowPicker('enemy-state')}>...</button>
-                </>
-              )}
-            </div>
+            <input type="text" readOnly value={getLabel(enemyStateId, states)}
+              style={{ ...selectStyle, flex: 1, cursor: 'pointer', ...disabledOpacity(condType === 5 && enemySubType === 1) }}
+              onClick={() => condType === 5 && enemySubType === 1 && setShowPicker('enemy-state')} />
+            <button className="db-btn" style={{ padding: '4px 8px', ...disabledOpacity(condType === 5 && enemySubType === 1) }}
+              disabled={condType !== 5 || enemySubType !== 1} onClick={() => setShowPicker('enemy-state')}>...</button>
           </div>
-        )}
+        </div>
       </div>
 
       {/* 캐릭터 */}
-      <div style={rowStyle}>
-        <label style={radioStyle}>
-          <input type="radio" name="cb-type3" checked={condType === 6} onChange={() => switchCondType(6)} />
-          캐릭터
-        </label>
-        <select value={charId} onChange={e => setCharId(Number(e.target.value))}
-          disabled={condType !== 6} style={{ ...selectStyle, width: 130, ...disabledOpacity(condType === 6) }}>
-          <option value={-1}>플레이어</option>
-          <option value={0}>이 이벤트</option>
-        </select>
-        <span style={{ color: '#aaa', fontSize: 13 }}>방향:</span>
-        <select value={charDir} onChange={e => setCharDir(Number(e.target.value))}
-          disabled={condType !== 6} style={{ ...selectStyle, width: 80, ...disabledOpacity(condType === 6) }}>
-          <option value={2}>하</option>
-          <option value={4}>좌</option>
-          <option value={6}>우</option>
-          <option value={8}>상</option>
-        </select>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={rowStyle}>
+          <label style={radioStyle}>
+            <input type="radio" name="cb-type3" checked={condType === 6} onChange={() => switchCondType(6)} />
+            캐릭터
+          </label>
+          <select value={charId} onChange={e => setCharId(Number(e.target.value))}
+            disabled={condType !== 6} style={{ ...selectStyle, width: 160, ...disabledOpacity(condType === 6) }}>
+            <option value={-1}>플레이어</option>
+            <option value={0}>이 이벤트</option>
+          </select>
+        </div>
+        <div style={{ marginLeft: 100, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ color: '#ddd', fontSize: 13, ...disabledOpacity(condType === 6) }}>마주하고 있음</span>
+          <select value={charDir} onChange={e => setCharDir(Number(e.target.value))}
+            disabled={condType !== 6} style={{ ...selectStyle, width: 80, ...disabledOpacity(condType === 6) }}>
+            <option value={2}>아래</option>
+            <option value={4}>왼쪽</option>
+            <option value={6}>오른쪽</option>
+            <option value={8}>위</option>
+          </select>
+        </div>
       </div>
 
-      {/* 탈것 */}
+      {/* 차량 */}
       <div style={rowStyle}>
         <label style={radioStyle}>
           <input type="radio" name="cb-type3" checked={condType === 13} onChange={() => switchCondType(13)} />
-          탈것
+          차량
         </label>
         <select value={vehicleId} onChange={e => setVehicleId(Number(e.target.value))}
           disabled={condType !== 13} style={{ ...selectStyle, width: 120, ...disabledOpacity(condType === 13) }}>
-          <option value={0}>소형선</option>
+          <option value={0}>보트</option>
           <option value={1}>대형선</option>
           <option value={2}>비행선</option>
         </select>
+        <span style={{ color: '#ddd', fontSize: 13, ...disabledOpacity(condType === 13) }}>운행되었습니다</span>
       </div>
     </div>
   );

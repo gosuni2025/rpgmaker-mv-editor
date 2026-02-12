@@ -605,13 +605,13 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       case 5: { // 적
         const sub = params[2] as number;
         return sub === 0
-          ? `적 #${(params[1] as number) + 1} 출현하고 있다`
-          : `적 #${(params[1] as number) + 1} 스테이트 ${params[3]}`;
+          ? `적 #${(params[1] as number) + 1} 나타남`
+          : `적 #${(params[1] as number) + 1} 스탯 ${fmtId(params[3] as number)}`;
       }
       case 6: { // 캐릭터
-        const dirs: Record<number, string> = { 2: '하', 4: '좌', 6: '우', 8: '상' };
+        const dirs: Record<number, string> = { 2: '아래', 4: '왼쪽', 6: '오른쪽', 8: '위' };
         const charLabel = (params[1] as number) === -1 ? '플레이어' : (params[1] as number) === 0 ? '이 이벤트' : `이벤트 ${params[1]}`;
-        return `${charLabel} 방향 ${dirs[params[2] as number] || params[2]}`;
+        return `${charLabel} 마주하고 있음 ${dirs[params[2] as number] || params[2]}`;
       }
       case 7: { // 소지금
         const goldOps = ['≥', '≤', '<'];
@@ -623,8 +623,8 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       case 11: return `버튼 [${params[1]}] 눌려있다`;
       case 12: return `스크립트: ${params[1]}`;
       case 13: {
-        const vehicles = ['소형선', '대형선', '비행선'];
-        return `${vehicles[params[1] as number] || '탈것'} 탑승 중`;
+        const vehicles = ['보트', '대형선', '비행선'];
+        return `${vehicles[params[1] as number] || '차량'} 운행되었습니다`;
       }
       default: return JSON.stringify(params);
     }
