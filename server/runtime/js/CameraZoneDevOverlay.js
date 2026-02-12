@@ -175,6 +175,12 @@
             html += row('Lerp Target', round2($gameMap._cameraZoneTargetX) + ', ' + round2($gameMap._cameraZoneTargetY), '#f8f');
         }
 
+        // 3D 카메라 raw position
+        if (typeof Mode3D !== 'undefined' && Mode3D._active && Mode3D._perspCamera) {
+            var cp = Mode3D._perspCamera.position;
+            html += row('Cam Raw', round2(cp.x) + ', ' + round2(cp.y) + ', ' + round2(cp.z), '#fa0');
+        }
+
         if ($gameMap._cameraWorldX !== undefined) {
             html += row('Cam World', round2($gameMap._cameraWorldX) + ', ' + round2($gameMap._cameraWorldY), '#fa0');
             var cwZone = $gameMap.findCameraZoneAt($gameMap._cameraWorldX, $gameMap._cameraWorldY);
