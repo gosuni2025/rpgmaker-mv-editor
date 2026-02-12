@@ -6066,13 +6066,11 @@ Game_Map.prototype.update = function(sceneActive) {
 Game_Map.prototype.updateCameraZones = function() {
     if (!this._cameraZones || this._cameraZones.length === 0) return;
 
-    // 카메라가 바라보는 지점의 타일 좌표로 존 판정
-    // 3D 모드: 카메라 lookAt 타겟 = 화면 중심 픽셀 → 타일 좌표
-    // 2D 모드: displayX/Y가 화면 좌상단이므로 중심 = display + screen/2
-    var screenW = this.screenTileX();
-    var screenH = this.screenTileY();
-    var cx = this._displayX + screenW / 2;
-    var cy = this._displayY + screenH / 2;
+    // 존 판정: 플레이어 위치 기반
+    // 카메라는 clamp되어 존 밖으로 못 나가므로, 카메라 좌표로는 존 전환이 불가능.
+    // 플레이어가 새 존에 들어가면 active 존이 바뀌고, 카메라가 lerp로 따라감.
+    var px = $gamePlayer.x;
+    var py = $gamePlayer.y;
 
     var overlappingZones = [];
     var activeZone = null;
@@ -6080,7 +6078,7 @@ Game_Map.prototype.updateCameraZones = function() {
     for (var i = 0; i < this._cameraZones.length; i++) {
         var z = this._cameraZones[i];
         if (!z.enabled) continue;
-        if (cx >= z.x && cx < z.x + z.width && cy >= z.y && cy < z.y + z.height) {
+        if (px >= z.x && px < z.x + z.width && py >= z.y && py < z.y + z.height) {
             overlappingZones.push(z);
             if (z.priority > bestPriority) {
                 bestPriority = z.priority;
@@ -6197,17 +6195,11 @@ Game_Map.prototype._updateCameraZoneDebugText = function(zones) {
     var active = this._activeCameraZone;
     var activeName = active ? (active.name || ('Zone' + active.id)) : 'none';
     var lerping = this._cameraScrollLerping ? ' [lerping]' : '';
-    var camInfo = 'Display: ' + this._displayX.toFixed(2) + ', ' + this._displayY.toFixed(2);
-    if (window.Mode3D && Mode3D._active && Mode3D._perspCamera) {
-        var cp = Mode3D._perspCamera.position;
-        camInfo += '\n3D Cam: ' + cp.x.toFixed(0) + ', ' + cp.y.toFixed(0) + ', ' + cp.z.toFixed(0);
-        var tw = this.tileWidth(), th = this.tileHeight();
-        camInfo += '\nCamTile: ' + (this._displayX + cp.x / tw).toFixed(2) + ', ' + (this._displayY + cp.y / th).toFixed(2);
-    }
     this._cameraZoneDebugEl.textContent =
         'Zones: ' + (names.length > 0 ? names.join(', ') : 'none') +
         '\nActive: ' + activeName + lerping +
-        '\n' + camInfo;
+        '\nPlayer: ' + $gamePlayer.x + ', ' + $gamePlayer.y +
+        '\nDisplay: ' + this._displayX.toFixed(2) + ', ' + this._displayY.toFixed(2);
     this._cameraZoneDebugWrapper.style.display = '';
 };
 
