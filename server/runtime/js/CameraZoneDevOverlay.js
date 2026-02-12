@@ -99,6 +99,11 @@
             info.camera.lerpTargetY = round2($gameMap._cameraZoneTargetY);
         }
 
+        if ($gameMap._cameraWorldX !== undefined) {
+            info.camera.worldX = round2($gameMap._cameraWorldX);
+            info.camera.worldY = round2($gameMap._cameraWorldY);
+        }
+
         var zoneId = $gameMap._activeCameraZoneId;
         if (zoneId != null) {
             var zone = $gameMap.getCameraZoneById(zoneId);
@@ -168,6 +173,13 @@
 
         if ($gameMap._cameraZoneTargetX !== undefined) {
             html += row('Lerp Target', round2($gameMap._cameraZoneTargetX) + ', ' + round2($gameMap._cameraZoneTargetY), '#f8f');
+        }
+
+        if ($gameMap._cameraWorldX !== undefined) {
+            html += row('Cam World', round2($gameMap._cameraWorldX) + ', ' + round2($gameMap._cameraWorldY), '#fa0');
+            var cwZone = $gameMap.findCameraZoneAt($gameMap._cameraWorldX, $gameMap._cameraWorldY);
+            var cwText = cwZone ? '#' + cwZone.id + (cwZone.name ? ' "' + cwZone.name + '"' : '') : 'none';
+            html += row('Cam Zone', cwText, cwZone ? '#4fc3f7' : '#666');
         }
 
         // Active zone

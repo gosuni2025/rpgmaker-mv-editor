@@ -6126,6 +6126,24 @@ Game_Map.prototype.getCameraZoneById = function(id) {
     return null;
 };
 
+// 카메라 객체의 월드 위치를 맵 타일 좌표로 변환
+Game_Map.prototype.getCameraWorldTile = function() {
+    var tw = this.tileWidth();
+    var th = this.tileHeight();
+    if (typeof Mode3D !== 'undefined' && Mode3D._active && Mode3D._perspCamera) {
+        var cam = Mode3D._perspCamera;
+        return {
+            x: cam.position.x / tw,
+            y: cam.position.y / th
+        };
+    }
+    // 2D: 카메라 = 화면 중심
+    return {
+        x: this._displayX + this.screenTileX() / 2,
+        y: this._displayY + this.screenTileY() / 2
+    };
+};
+
 Game_Map.prototype.updateCameraZone = function() {
     var zones = $dataMap && $dataMap.cameraZones;
     if (!zones || zones.length === 0) return;
@@ -6133,21 +6151,27 @@ Game_Map.prototype.updateCameraZone = function() {
     var halfScreenX = this.screenTileX() / 2;
     var halfScreenY = this.screenTileY() / 2;
 
-    // 카메라 중심 타일 좌표 (스크롤 후 값)
-    var centerX = this._displayX + halfScreenX;
-    var centerY = this._displayY + halfScreenY;
+    // 카메라 객체의 실제 월드 타일 좌표
+    var camWorld = this.getCameraWorldTile();
+    this._cameraWorldX = camWorld.x;
+    this._cameraWorldY = camWorld.y;
 
     // 초기화 (맵 전환 시)
     if (this._cameraZoneTargetX === undefined) {
-        this._cameraZoneTargetX = centerX;
-        this._cameraZoneTargetY = centerY;
+        this._cameraZoneTargetX = this._displayX + halfScreenX;
+        this._cameraZoneTargetY = this._displayY + halfScreenY;
         this._activeCameraZoneId = null;
-        var startZone = this.findCameraZoneAt(centerX, centerY);
+        var startZone = this.findCameraZoneAt(camWorld.x, camWorld.y);
         if (startZone) this._activeCameraZoneId = startZone.id;
     }
 
-    var targetX = centerX;
-    var targetY = centerY;
+    // 존 전환 판정: 카메라 객체의 월드 위치 기준
+    var cameraZone = this.findCameraZoneAt(camWorld.x, camWorld.y);
+    if (cameraZone) {
+        this._activeCameraZoneId = cameraZone.id;
+    } else {
+        this._activeCameraZoneId = null;
+    }
 
     // 프러스텀 마진 계산 (3D 모드 시)
     var marginX = halfScreenX;
@@ -6162,32 +6186,22 @@ Game_Map.prototype.updateCameraZone = function() {
         }
     }
 
-    // 존 체크: 현재 lerp 위치 기준
-    var currentZone = this.findCameraZoneAt(this._cameraZoneTargetX, this._cameraZoneTargetY);
-    if (currentZone) {
-        this._activeCameraZoneId = currentZone.id;
-    }
+    // 스크롤이 원하는 카메라 중심 (존 클램핑 전)
+    var targetX = this._displayX + halfScreenX;
+    var targetY = this._displayY + halfScreenY;
 
     // 활성 존이 있으면 타겟 클램핑
     if (this._activeCameraZoneId != null) {
         var activeZone = this.getCameraZoneById(this._activeCameraZoneId);
         if (activeZone) {
-            var targetZone = this.findCameraZoneAt(targetX, targetY);
-            if (targetZone && targetZone.id !== activeZone.id) {
-                // 다른 존으로 전환
-                this._activeCameraZoneId = targetZone.id;
-            } else if (!targetZone) {
-                // 존 밖으로 나가려 함 → 클램핑
-                var zMinX = activeZone.x + marginX;
-                var zMaxX = activeZone.x + activeZone.width - marginX;
-                var zMinY = activeZone.y + marginY;
-                var zMaxY = activeZone.y + activeZone.height - marginY;
-                // 존이 프러스텀보다 작으면 중앙 고정
-                if (zMinX > zMaxX) { zMinX = zMaxX = activeZone.x + activeZone.width / 2; }
-                if (zMinY > zMaxY) { zMinY = zMaxY = activeZone.y + activeZone.height / 2; }
-                targetX = targetX.clamp(zMinX, zMaxX);
-                targetY = targetY.clamp(zMinY, zMaxY);
-            }
+            var zMinX = activeZone.x + marginX;
+            var zMaxX = activeZone.x + activeZone.width - marginX;
+            var zMinY = activeZone.y + marginY;
+            var zMaxY = activeZone.y + activeZone.height - marginY;
+            if (zMinX > zMaxX) { zMinX = zMaxX = activeZone.x + activeZone.width / 2; }
+            if (zMinY > zMaxY) { zMinY = zMaxY = activeZone.y + activeZone.height / 2; }
+            targetX = targetX.clamp(zMinX, zMaxX);
+            targetY = targetY.clamp(zMinY, zMaxY);
         }
     }
 
