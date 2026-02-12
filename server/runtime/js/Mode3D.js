@@ -625,70 +625,97 @@
     };
 
     //=========================================================================
-    // frustum 마진 계산: frustum이 display 사각형에 비해 각 방향으로 얼마나 더 보이는지
-    // tilt/yaw/fov에만 의존, displayXY와 무관 (고정값)
+    // frustum 마진 계산: 3D 카메라가 display 사각형에 비해 각 방향으로 얼마나 더 보이는지
+    // _positionCamera의 기하학에서 해석적으로 계산 (tilt/yaw/fov에만 의존)
     // 반환: { left, right, top, bottom } (타일 단위, 양수 = 더 보임)
     //=========================================================================
     Mode3D.getFrustumMargins = function(tileWidth, tileHeight) {
         var camera = this._perspCamera;
         if (!camera) return null;
 
-        camera.updateMatrixWorld(true);
-
         var w = Graphics.width;
         var h = Graphics.height;
-        var screenTileX = w / tileWidth;
-        var screenTileY = h / tileHeight;
+        var screenTileX = w / tileWidth;    // 17
+        var screenTileY = h / tileHeight;   // 13
+        var tilt = this._tiltRad;
+        var yaw = this._yawRad || 0;
+        var cx = w / 2;   // 화면 중심 (px)
+        var cy = h / 2;
 
-        // display=(0,0)에서 frustum 가시 영역 계산
-        var samplePoints = [
-            [0, 0], [w, 0], [0, h], [w, h],
-            [w/2, 0], [0, h/2], [w, h/2], [w/2, h],
-            [0, h*0.25], [w, h*0.25],
-            [0, h*0.1], [w, h*0.1],
-            [w*0.25, h], [w*0.75, h],
-        ];
-
-        var minTX = Infinity, minTY = Infinity, maxTX = -Infinity, maxTY = -Infinity;
-        var validCount = 0;
-        for (var i = 0; i < samplePoints.length; i++) {
-            var pt = this._screenToWorldSafe(samplePoints[i][0], samplePoints[i][1]);
-            if (!pt) continue;
-            validCount++;
-            var tx = pt.x / tileWidth;
-            var ty = pt.y / tileHeight;
-            if (tx < minTX) minTX = tx;
-            if (ty < minTY) minTY = ty;
-            if (tx > maxTX) maxTX = tx;
-            if (ty > maxTY) maxTY = ty;
+        // tilt=0이면 2D와 동일, 마진 없음
+        if (tilt < 0.01) {
+            return { left: 0, right: 0, top: 0, bottom: 0 };
         }
 
+        // 카메라가 (cx, cy, 0)을 lookAt.
+        // 화면 중심 = 항상 타일 (displayX + screenTileX/2, displayY + screenTileY/2)
+        // → 화면 중심 기준 마진만 구하면 됨
+        //
+        // 화면 네 꼭짓점의 Z=0 교점에서 화면 중심까지의 **타일 단위 오프셋**:
+        //   screenToWorld(sx, sy) → (wx, wy) 픽셀
+        //   타일 오프셋 = (wx - cx) / tileWidth, (wy - cy) / tileHeight
+        //
+        // 2D에서:  (0,0) → (0,0) 픽셀 → 오프셋 (-cx/tw, -cy/th) = (-8.5, -6.5)
+        //          (w,h) → (w,h) 픽셀 → 오프셋 (+8.5, +6.5)
+        //
+        // 3D에서: 오프셋이 tilt에 의해 달라짐 → 그 차이가 마진
+
+        camera.updateMatrixWorld(true);
+
+        // 화면 네 꼭짓점 + 중간점 샘플 (유효한 것만 사용)
+        var samples = [
+            [0, h], [w, h],           // 하단 좌, 우
+            [0, h*0.75], [w, h*0.75], // 중하 좌, 우
+            [0, h*0.5], [w, h*0.5],   // 중간 좌, 우
+            [w/2, h], [w/2, 0],       // 하단 중, 상단 중
+        ];
+
+        // 각 샘플의 타일 오프셋 (화면 중심 기준)
+        var minOX = Infinity, maxOX = -Infinity;
+        var minOY = Infinity, maxOY = -Infinity;
+        var validCount = 0;
+        for (var i = 0; i < samples.length; i++) {
+            var pt = this._screenToWorldSafe(samples[i][0], samples[i][1]);
+            if (!pt) continue;
+            validCount++;
+            var ox = (pt.x - cx) / tileWidth;
+            var oy = (pt.y - cy) / tileHeight;
+            if (ox < minOX) minOX = ox;
+            if (ox > maxOX) maxOX = ox;
+            if (oy < minOY) minOY = oy;
+            if (oy > maxOY) maxOY = oy;
+        }
         this._lastScreenToWorld = null;
 
         if (validCount < 2) return null;
 
-        // 마진 = frustum이 display 사각형(0~screenTileX, 0~screenTileY)을 넘는 양
-        var marginLeft  = Math.max(0, -minTX);
-        var marginRight = Math.max(0, maxTX - screenTileX);
-        var marginTop   = Math.max(0, -minTY);
-        var marginBottom= Math.max(0, maxTY - screenTileY);
+        // 2D에서의 오프셋: -screenTileX/2 ~ +screenTileX/2, -screenTileY/2 ~ +screenTileY/2
+        var halfSX = screenTileX / 2;
+        var halfSY = screenTileY / 2;
+
+        // 마진 = 3D 오프셋이 2D 오프셋보다 더 넘어간 양
+        var marginLeft   = Math.max(0, -halfSX - minOX);   // 3D 좌측이 2D 좌측보다 더 왼쪽
+        var marginRight  = Math.max(0, maxOX - halfSX);     // 3D 우측이 2D 우측보다 더 오른쪽
+        var marginTop    = Math.max(0, -halfSY - minOY);    // 3D 상단이 2D 상단보다 더 위
+        var marginBottom = Math.max(0, maxOY - halfSY);     // 3D 하단이 2D 하단보다 더 아래
 
         this._frustumLogCounter = (this._frustumLogCounter || 0) + 1;
         if (this._frustumLogCounter % 120 === 1) {
             console.log('[Mode3D] getFrustumMargins',
                 '\n  tilt:', this._tiltDeg.toFixed(1), 'yaw:', this._yawDeg.toFixed(1),
                 '\n  screenTile:', screenTileX.toFixed(1), 'x', screenTileY.toFixed(1),
-                '\n  frustumTile:', minTX.toFixed(2), minTY.toFixed(2), '~', maxTX.toFixed(2), maxTY.toFixed(2),
+                '\n  3D offsets: X[', minOX.toFixed(2), '~', maxOX.toFixed(2), '] Y[', minOY.toFixed(2), '~', maxOY.toFixed(2), ']',
+                '\n  2D offsets: X[', (-halfSX).toFixed(2), '~', halfSX.toFixed(2), '] Y[', (-halfSY).toFixed(2), '~', halfSY.toFixed(2), ']',
                 '\n  margins: L', marginLeft.toFixed(2), 'R', marginRight.toFixed(2),
                 'T', marginTop.toFixed(2), 'B', marginBottom.toFixed(2),
-                '\n  validSamples:', validCount, '/', samplePoints.length
+                '\n  validSamples:', validCount
             );
         }
 
         return { left: marginLeft, right: marginRight, top: marginTop, bottom: marginBottom };
     };
 
-    // screenToWorld의 안전한 버전: t <= 0 (카메라 뒤쪽 교점) 제외
+    // screenToWorld의 안전한 버전: t <= 0 (카메라 뒤쪽 교점) 및 far plane 너머 제외
     Mode3D._screenToWorldSafe = function(screenX, screenY) {
         var camera = this._perspCamera;
         if (!camera) return null;
@@ -713,6 +740,8 @@
         var t = -near.z / dir.z;
         // t <= 0이면 카메라 뒤쪽이므로 무효
         if (t <= 0) return null;
+        // far plane 너머의 교점도 무효 (매우 먼 곳의 기하학적 교점 필터링)
+        if (t > camera.far * 2) return null;
 
         return {
             x: near.x + t * dir.x,
