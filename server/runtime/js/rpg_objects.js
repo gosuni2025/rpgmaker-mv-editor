@@ -6145,14 +6145,35 @@ Game_Map.prototype.updateCameraZone = function() {
     }
 
     // 존 전환 판정: 플레이어 위치 기준
-    var lookX = $gamePlayer ? $gamePlayer._realX : this._displayX + halfScreenX;
-    var lookY = $gamePlayer ? $gamePlayer._realY : this._displayY + halfScreenY;
-    var cameraZone = this.findCameraZoneAt(lookX, lookY);
+    var playerX = $gamePlayer ? $gamePlayer._realX : this._displayX + halfScreenX;
+    var playerY = $gamePlayer ? $gamePlayer._realY : this._displayY + halfScreenY;
+    var cameraZone = this.findCameraZoneAt(playerX, playerY);
     this._activeCameraZoneId = cameraZone ? cameraZone.id : null;
 
-    // 스크롤이 원하는 카메라 중심
-    var targetX = this._displayX + halfScreenX;
-    var targetY = this._displayY + halfScreenY;
+    // 플레이어를 중심으로 한 이상적 카메라 중심 (카메라존 보정 전의 원래 원하는 위치)
+    var idealX = playerX;
+    var idealY = playerY;
+
+    // 맵 경계 클램핑 (비루프 맵)
+    if (!this.isLoopHorizontal()) {
+        var endX = this.width() - this.screenTileX();
+        if (endX < 0) {
+            idealX = this.width() / 2;
+        } else {
+            idealX = idealX.clamp(halfScreenX, endX + halfScreenX);
+        }
+    }
+    if (!this.isLoopVertical()) {
+        var endY = this.height() - this.screenTileY();
+        if (endY < 0) {
+            idealY = this.height() / 2;
+        } else {
+            idealY = idealY.clamp(halfScreenY, endY + halfScreenY);
+        }
+    }
+
+    var targetX = idealX;
+    var targetY = idealY;
 
     // 활성 존이 있으면 클램핑
     if (this._activeCameraZoneId != null) {
