@@ -6066,9 +6066,11 @@ Game_Map.prototype.update = function(sceneActive) {
 Game_Map.prototype.updateCameraZones = function() {
     if (!this._cameraZones || this._cameraZones.length === 0) return;
 
-    // 카메라 위치(_displayX/Y)가 속한 존 수집
-    var dx = this._displayX;
-    var dy = this._displayY;
+    // 카메라 화면 영역과 겹치는 존 모두 수집 (AABB)
+    var screenW = this.screenTileX();
+    var screenH = this.screenTileY();
+    var camL = this._displayX, camT = this._displayY;
+    var camR = camL + screenW, camB = camT + screenH;
 
     var overlappingZones = [];
     var activeZone = null;
@@ -6076,7 +6078,7 @@ Game_Map.prototype.updateCameraZones = function() {
     for (var i = 0; i < this._cameraZones.length; i++) {
         var z = this._cameraZones[i];
         if (!z.enabled) continue;
-        if (dx >= z.x && dx < z.x + z.width && dy >= z.y && dy < z.y + z.height) {
+        if (camL < z.x + z.width && camR > z.x && camT < z.y + z.height && camB > z.y) {
             overlappingZones.push(z);
             if (z.priority > bestPriority) {
                 bestPriority = z.priority;
