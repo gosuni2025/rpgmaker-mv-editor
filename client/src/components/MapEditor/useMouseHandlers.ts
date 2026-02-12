@@ -995,17 +995,19 @@ export function useMouseHandlers(
         return;
       }
 
-      // Camera zone hover cursor
-      if (editMode === 'cameraZone' && tile && !isDraggingCameraZone.current && !isCreatingCameraZone.current && !isResizingCameraZone.current) {
-        const selectedZoneId = useEditorStore.getState().selectedCameraZoneId;
-        const zones = currentMap?.cameraZones || [];
-        const selectedZone = selectedZoneId != null ? zones.find(z => z.id === selectedZoneId) : null;
-        if (selectedZone) {
-          const edge = detectCameraZoneEdge(tile, selectedZone);
-
-          setCameraZoneCursor(edge ? edgeToCursorStyle(edge) : null);
-        } else {
-          setCameraZoneCursor(null);
+      // Camera zone hover cursor (맵 밖 가장자리에서도 커서 표시를 위해 unclamped 사용)
+      if (editMode === 'cameraZone' && !isDraggingCameraZone.current && !isCreatingCameraZone.current && !isResizingCameraZone.current) {
+        const hoverTileUnclamped = canvasToTile(e, true) ?? tile;
+        if (hoverTileUnclamped) {
+          const selectedZoneId = useEditorStore.getState().selectedCameraZoneId;
+          const zones = currentMap?.cameraZones || [];
+          const selectedZone = selectedZoneId != null ? zones.find(z => z.id === selectedZoneId) : null;
+          if (selectedZone) {
+            const edge = detectCameraZoneEdge(hoverTileUnclamped, selectedZone);
+            setCameraZoneCursor(edge ? edgeToCursorStyle(edge) : null);
+          } else {
+            setCameraZoneCursor(null);
+          }
         }
       }
 
