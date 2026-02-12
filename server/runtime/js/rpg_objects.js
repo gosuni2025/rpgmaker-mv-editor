@@ -6148,7 +6148,8 @@ Game_Map.prototype.updateCameraZones = function() {
 };
 
 Game_Map.prototype._updateCameraZoneDebugText = function(zones) {
-    if (!$gameTemp || !$gameTemp.isPlaytest()) {
+    var isDev = /[?&]dev=true/.test(window.location.search);
+    if (!$gameTemp || (!$gameTemp.isPlaytest() && !isDev)) {
         if (this._cameraZoneDebugWrapper) {
             this._cameraZoneDebugWrapper.style.display = 'none';
         }
