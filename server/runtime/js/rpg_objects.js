@@ -6150,33 +6150,12 @@ Game_Map.prototype.updateCameraZone = function() {
     var cameraZone = this.findCameraZoneAt(playerX, playerY);
     this._activeCameraZoneId = cameraZone ? cameraZone.id : null;
 
-    // 플레이어를 중심으로 한 이상적 카메라 중심 (카메라존 보정 전의 원래 원하는 위치)
-    var idealX = playerX;
-    var idealY = playerY;
+    // 카메라 중심 타겟 계산: 활성 존이 있으면 존 경계로, 없으면 맵 경계로 클램핑
+    var targetX = playerX;
+    var targetY = playerY;
 
-    // 맵 경계 클램핑 (비루프 맵)
-    if (!this.isLoopHorizontal()) {
-        var endX = this.width() - this.screenTileX();
-        if (endX < 0) {
-            idealX = this.width() / 2;
-        } else {
-            idealX = idealX.clamp(halfScreenX, endX + halfScreenX);
-        }
-    }
-    if (!this.isLoopVertical()) {
-        var endY = this.height() - this.screenTileY();
-        if (endY < 0) {
-            idealY = this.height() / 2;
-        } else {
-            idealY = idealY.clamp(halfScreenY, endY + halfScreenY);
-        }
-    }
-
-    var targetX = idealX;
-    var targetY = idealY;
-
-    // 활성 존이 있으면 클램핑
     if (this._activeCameraZoneId != null) {
+        // 활성 존 경계로 클램핑 (맵 경계 무시 - 존이 카메라 범위를 정의)
         var activeZone = this.getCameraZoneById(this._activeCameraZoneId);
         if (activeZone) {
             var zMinX = activeZone.x + halfScreenX;
@@ -6187,6 +6166,24 @@ Game_Map.prototype.updateCameraZone = function() {
             if (zMinY > zMaxY) { zMinY = zMaxY = activeZone.y + activeZone.height / 2; }
             targetX = targetX.clamp(zMinX, zMaxX);
             targetY = targetY.clamp(zMinY, zMaxY);
+        }
+    } else {
+        // 존 밖: 맵 경계 클램핑 (기본 동작)
+        if (!this.isLoopHorizontal()) {
+            var endX = this.width() - this.screenTileX();
+            if (endX < 0) {
+                targetX = this.width() / 2;
+            } else {
+                targetX = targetX.clamp(halfScreenX, endX + halfScreenX);
+            }
+        }
+        if (!this.isLoopVertical()) {
+            var endY = this.height() - this.screenTileY();
+            if (endY < 0) {
+                targetY = this.height() / 2;
+            } else {
+                targetY = targetY.clamp(halfScreenY, endY + halfScreenY);
+            }
         }
     }
 
