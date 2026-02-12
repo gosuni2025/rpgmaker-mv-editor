@@ -487,6 +487,33 @@ export function ChangeNameEditor({ p, onOk, onCancel, label }: { p: unknown[]; o
 }
 
 /**
+ * Input Number Editor (Command 103)
+ * RPG Maker MV 파라미터: [variableId, maxDigits]
+ * - variableId: 결과를 저장할 변수 ID
+ * - maxDigits: 최대 자릿수 (1~8)
+ */
+export function InputNumberEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [variableId, setVariableId] = useState<number>((p[0] as number) || 1);
+  const [maxDigits, setMaxDigits] = useState<number>((p[1] as number) || 1);
+  return (
+    <>
+      <label style={{ fontSize: 12, color: '#aaa' }}>
+        변수:
+        <input type="number" value={variableId} onChange={e => setVariableId(Math.max(1, Number(e.target.value)))} min={1} style={{ ...selectStyle, width: 120 }} />
+      </label>
+      <label style={{ fontSize: 12, color: '#aaa' }}>
+        자리수:
+        <input type="number" value={maxDigits} onChange={e => setMaxDigits(Math.max(1, Math.min(8, Number(e.target.value))))} min={1} max={8} style={{ ...selectStyle, width: 80 }} />
+      </label>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([variableId, maxDigits])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}
+
+/**
  * Show Choices Editor (Command 102)
  * RPG Maker MV 파라미터: [choices[], cancelType, defaultType, positionType, background]
  * - choices: string[] (최대 6개)
