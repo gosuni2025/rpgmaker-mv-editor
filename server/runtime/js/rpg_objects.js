@@ -6142,6 +6142,37 @@ Game_Map.prototype.updateCameraZones = function() {
 
     // 스크롤 위치는 항상 lerp로 부드럽게 이동
     this.lerpDisplayToActiveZone();
+
+    // 디버그 표시
+    this._updateCameraZoneDebugText(overlappingZones);
+};
+
+Game_Map.prototype._updateCameraZoneDebugText = function(zones) {
+    if (!$gameTemp || !$gameTemp.isPlaytest()) {
+        if (this._cameraZoneDebugEl) {
+            this._cameraZoneDebugEl.style.display = 'none';
+        }
+        return;
+    }
+    if (!this._cameraZoneDebugEl) {
+        var el = document.createElement('div');
+        el.style.cssText = 'position:fixed;top:8px;left:8px;color:#0f0;font:bold 14px monospace;' +
+            'background:rgba(0,0,0,0.6);padding:4px 8px;pointer-events:none;z-index:9999;white-space:pre';
+        document.body.appendChild(el);
+        this._cameraZoneDebugEl = el;
+    }
+    var names = [];
+    for (var i = 0; i < zones.length; i++) {
+        names.push(zones[i].name || ('Zone' + zones[i].id));
+    }
+    var active = this._activeCameraZone;
+    var activeName = active ? (active.name || ('Zone' + active.id)) : 'none';
+    var lerping = this._cameraScrollLerping ? ' [lerping]' : '';
+    this._cameraZoneDebugEl.textContent =
+        'Zones: ' + (names.length > 0 ? names.join(', ') : 'none') +
+        '\nActive: ' + activeName + lerping +
+        '\nDisplay: ' + this._displayX.toFixed(2) + ', ' + this._displayY.toFixed(2);
+    this._cameraZoneDebugEl.style.display = '';
 };
 
 // 겹치는 존들의 합집합(union) 바운딩 박스 계산
