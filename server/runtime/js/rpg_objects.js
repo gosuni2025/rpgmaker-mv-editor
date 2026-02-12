@@ -5622,7 +5622,6 @@ Game_Map.prototype.setDisplayPos = function(x, y) {
     }
     // 카메라존 상태 리셋
     this._cameraZoneTargetX = undefined;
-    this._czIntendedX = undefined;
 };
 
 Game_Map.prototype.parallaxOx = function() {
@@ -6156,42 +6155,33 @@ Game_Map.prototype.updateCameraZone = function() {
     this._cameraWorldX = camWorld.x;
     this._cameraWorldY = camWorld.y;
 
-    // _czIntendedX/Y: 존 클램핑 없이 스크롤이 원래 의도한 카메라 중심
-    // 매 프레임 displayX의 변화량(스크롤 delta)을 누적
-    if (this._czIntendedX === undefined) {
-        this._czIntendedX = this._displayX + halfScreenX;
-        this._czIntendedY = this._displayY + halfScreenY;
-        this._czPrevDisplayX = this._displayX;
-        this._czPrevDisplayY = this._displayY;
+    // 초기화
+    if (this._cameraZoneTargetX === undefined) {
+        this._cameraZoneTargetX = this._displayX + halfScreenX;
+        this._cameraZoneTargetY = this._displayY + halfScreenY;
         this._activeCameraZoneId = null;
-        this._cameraZoneTargetX = this._czIntendedX;
-        this._cameraZoneTargetY = this._czIntendedY;
-        var startZone = this.findCameraZoneAt(this._czIntendedX, this._czIntendedY);
-        if (startZone) this._activeCameraZoneId = startZone.id;
     }
 
-    // 스크롤 delta = 현재 displayX - 이전 프레임에서 우리가 설정한 displayX
-    // (updateScroll이 displayX를 변경한 만큼)
-    var scrollDeltaX = this._displayX - this._czPrevDisplayX;
-    var scrollDeltaY = this._displayY - this._czPrevDisplayY;
-    this._czIntendedX += scrollDeltaX;
-    this._czIntendedY += scrollDeltaY;
-
-    // 마진 = 화면 타일 수의 절반
-    var marginX = halfScreenX;
-    var marginY = halfScreenY;
-
-    // 존 전환 판정: intended(클램핑 전) 기준
-    var cameraZone = this.findCameraZoneAt(this._czIntendedX, this._czIntendedY);
+    // 존 전환 판정: 카메라가 따라가는 대상(플레이어) 위치 기준
+    // 카메라 클램핑과 독립적으로 동작
+    var lookX = $gamePlayer ? $gamePlayer._realX : this._displayX + halfScreenX;
+    var lookY = $gamePlayer ? $gamePlayer._realY : this._displayY + halfScreenY;
+    var cameraZone = this.findCameraZoneAt(lookX, lookY);
     if (cameraZone) {
         this._activeCameraZoneId = cameraZone.id;
     } else {
         this._activeCameraZoneId = null;
     }
 
-    // 클램핑
-    var targetX = this._czIntendedX;
-    var targetY = this._czIntendedY;
+    // 마진 = 화면 타일 수의 절반
+    var marginX = halfScreenX;
+    var marginY = halfScreenY;
+
+    // 스크롤이 원하는 카메라 중심
+    var targetX = this._displayX + halfScreenX;
+    var targetY = this._displayY + halfScreenY;
+
+    // 활성 존이 있으면 클램핑
     if (this._activeCameraZoneId != null) {
         var activeZone = this.getCameraZoneById(this._activeCameraZoneId);
         if (activeZone) {
@@ -6233,7 +6223,7 @@ Game_Map.prototype.updateCameraZone = function() {
         this._cameraZoneTargetY = targetY;
     }
 
-    // displayX/displayY 역계산 + parallax 동기화
+    // displayX/displayY 보정 + parallax 동기화
     var oldDisplayX = this._displayX;
     var oldDisplayY = this._displayY;
     this._displayX = this._cameraZoneTargetX - halfScreenX;
@@ -6241,17 +6231,12 @@ Game_Map.prototype.updateCameraZone = function() {
     this._parallaxX += this._displayX - oldDisplayX;
     this._parallaxY += this._displayY - oldDisplayY;
 
-    // 다음 프레임에서 스크롤 delta 계산용
-    this._czPrevDisplayX = this._displayX;
-    this._czPrevDisplayY = this._displayY;
-
     // 디버그 로그 (매 30프레임)
     if (!this._czDebugCount) this._czDebugCount = 0;
     this._czDebugCount++;
     if (this._czDebugCount % 30 === 0) {
-        console.log('[CZ] intended=' + this._czIntendedX.toFixed(2) + ',' + this._czIntendedY.toFixed(2) +
+        console.log('[CZ] look=' + lookX.toFixed(2) + ',' + lookY.toFixed(2) +
             ' target=' + targetX.toFixed(2) + ',' + targetY.toFixed(2) +
-            ' delta=' + scrollDeltaX.toFixed(3) + ',' + scrollDeltaY.toFixed(3) +
             ' zone=' + this._activeCameraZoneId +
             ' lerp=' + !!this._cameraZoneLerping);
     }
