@@ -10,36 +10,49 @@ export function ChangeGoldEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (p
   const [operation, setOperation] = useState<number>((p[0] as number) || 0);
   const [operandType, setOperandType] = useState<number>((p[1] as number) || 0);
   const [operand, setOperand] = useState<number>((p[2] as number) || 0);
+
+  const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
+
   return (
     <>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        Operation
-        <select value={operation} onChange={e => setOperation(Number(e.target.value))} style={selectStyle}>
-          <option value={0}>Increase</option>
-          <option value={1}>Decrease</option>
-        </select>
-      </label>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        Operand
-        <select value={operandType} onChange={e => setOperandType(Number(e.target.value))} style={selectStyle}>
-          <option value={0}>Constant</option>
-          <option value={1}>Variable</option>
-        </select>
-      </label>
-      {operandType === 0 ? (
-        <label style={{ fontSize: 12, color: '#aaa' }}>
-          Amount
-          <input type="number" value={operand} onChange={e => setOperand(Number(e.target.value))} min={0} style={{ ...selectStyle, width: 120 }} />
-        </label>
-      ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aaa' }}>
-          <span>Variable</span>
-          <VariableSwitchPicker type="variable" value={operand || 1} onChange={setOperand} style={{ flex: 1 }} />
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>조작</legend>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <label style={radioStyle}>
+            <input type="radio" name="gold-op" checked={operation === 0} onChange={() => setOperation(0)} />
+            증가
+          </label>
+          <label style={radioStyle}>
+            <input type="radio" name="gold-op" checked={operation === 1} onChange={() => setOperation(1)} />
+            감소
+          </label>
         </div>
-      )}
+      </fieldset>
+
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>피연산자</legend>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={radioStyle}>
+              <input type="radio" name="gold-operand" checked={operandType === 0} onChange={() => setOperandType(0)} />
+              상수
+            </label>
+            <input type="number" value={operandType === 0 ? operand : 0} onChange={e => setOperand(Number(e.target.value))}
+              min={0} disabled={operandType !== 0} style={{ ...selectStyle, width: 120, opacity: operandType === 0 ? 1 : 0.5 }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={radioStyle}>
+              <input type="radio" name="gold-operand" checked={operandType === 1} onChange={() => setOperandType(1)} />
+              변수
+            </label>
+            <VariableSwitchPicker type="variable" value={operandType === 1 ? (operand || 1) : 1} onChange={setOperand} disabled={operandType !== 1} style={{ flex: 1 }} />
+          </div>
+        </div>
+      </fieldset>
+
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => onOk([operation, operandType, operand])}>OK</button>
-        <button className="db-btn" onClick={onCancel}>Cancel</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
     </>
   );

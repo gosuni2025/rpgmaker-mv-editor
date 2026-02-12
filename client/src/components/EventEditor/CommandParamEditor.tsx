@@ -43,7 +43,7 @@ function getCommandName(code: number): string {
     105: '텍스트의 스크롤 표시', 108: 'Comment', 111: '조건 분기',
     117: 'Common Event', 118: 'Label', 119: 'Jump to Label',
     121: '스위치 조작', 122: '변수 조작', 123: 'Control Self Switch',
-    124: '타이머 조작', 125: 'Change Gold', 126: 'Change Items',
+    124: '타이머 조작', 125: '소지 금액 증감', 126: 'Change Items',
     127: 'Change Weapons', 128: 'Change Armors', 129: 'Change Party Member',
     201: 'Transfer Player', 230: 'Wait',
     241: 'Play BGM', 242: 'Fadeout BGM', 245: 'Play BGS', 246: 'Fadeout BGS',
