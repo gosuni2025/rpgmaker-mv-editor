@@ -6084,12 +6084,12 @@ Game_Map.prototype.updateCameraZones = function() {
             }
         }
     }
-    this._overlappingZones = overlappingZones;
-
     // 존이 바뀌었으면 전환 시작 (카메라 설정은 priority 최고인 존 기준)
     var prevZoneId = this._activeCameraZone ? this._activeCameraZone.id : null;
     var newZoneId = activeZone ? activeZone.id : null;
     if (prevZoneId !== newZoneId) {
+        // 전환 중 scroll 범위를 이전+현재 존 합집합으로 확장
+        this._scrollBoundsZones = (this._overlappingZones || []).concat(overlappingZones);
         this._activeCameraZone = activeZone;
         var target = activeZone || this._defaultCamera;
         var speed = activeZone ? activeZone.transitionSpeed : 1.0;
@@ -6100,6 +6100,7 @@ Game_Map.prototype.updateCameraZones = function() {
             speed: speed
         };
     }
+    this._overlappingZones = overlappingZones;
 
     // 전환 애니메이션 (zoom, tilt, yaw)
     if (this._cameraTransition) {
@@ -6139,7 +6140,12 @@ Game_Map.prototype.updateCameraZones = function() {
     }
 
     // 스크롤 위치는 항상 lerp로 부드럽게 이동
-    this.lerpDisplayToActiveZone();
+    var scrollDone = this.lerpDisplayToActiveZone();
+
+    // zoom/tilt/yaw 전환과 스크롤 lerp 모두 완료되면 확장 범위 해제
+    if (!this._cameraTransition && scrollDone) {
+        this._scrollBoundsZones = null;
+    }
 };
 
 // 겹치는 존들의 합집합(union) 바운딩 박스 계산
@@ -6183,10 +6189,10 @@ Game_Map.prototype._getUnionClampTarget = function() {
     return { x: targetX, y: targetY };
 };
 
-// 스크롤 위치를 항상 lerp로 부드럽게 존 범위로 이동
+// 스크롤 위치를 항상 lerp로 부드럽게 존 범위로 이동. 완료 시 true 반환
 Game_Map.prototype.lerpDisplayToActiveZone = function() {
     var target = this._getUnionClampTarget();
-    if (!target) return;
+    if (!target) return true;
 
     var dx = target.x - this._displayX;
     var dy = target.y - this._displayY;
@@ -6201,7 +6207,7 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
             this._parallaxY += target.y - this._displayY;
             this._displayY = target.y;
         }
-        return;
+        return true;
     }
 
     // 활성 존의 transitionSpeed 사용, 없으면 기본값
@@ -6214,11 +6220,28 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
     this._parallaxY += newY - this._displayY;
     this._displayX = newX;
     this._displayY = newY;
+    return false;
+};
+
+// scroll 제한에 사용할 바운딩 박스 (전환 중이면 이전+현재 존 합집합)
+Game_Map.prototype._getScrollBounds = function() {
+    var zones = this._scrollBoundsZones || this._overlappingZones;
+    if (!zones || zones.length === 0) return null;
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < zones.length; i++) {
+        var z = zones[i];
+        if (z.x < minX) minX = z.x;
+        if (z.y < minY) minY = z.y;
+        if (z.x + z.width > maxX) maxX = z.x + z.width;
+        if (z.y + z.height > maxY) maxY = z.y + z.height;
+    }
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 };
 
 // scroll 시 존 범위 밖으로 더 벗어나지 않도록 제한 (밖→안 복귀는 lerp가 담당)
+// 전환 중에는 이전+현재 존 합집합 범위를 사용하여 전환 중 카메라 점프 방지
 Game_Map.prototype._preventScrollBeyondZone = function() {
-    var union = this._getUnionBounds();
+    var union = this._getScrollBounds();
     if (!union) return;
 
     var screenW = this.screenTileX();
