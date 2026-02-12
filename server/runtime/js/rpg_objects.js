@@ -6066,27 +6066,48 @@ Game_Map.prototype.update = function(sceneActive) {
 Game_Map.prototype.updateCameraZones = function() {
     if (!this._cameraZones || this._cameraZones.length === 0) return;
 
-    // 존 판정: 플레이어 위치 기반
-    // 카메라는 clamp되어 존 밖으로 못 나가므로, 카메라 좌표로는 존 전환이 불가능.
-    // 플레이어가 새 존에 들어가면 active 존이 바뀌고, 카메라가 lerp로 따라감.
-    var px = $gamePlayer.x;
-    var py = $gamePlayer.y;
+    // 1) 카메라 좌표 기반 존 판정
+    var screenW = this.screenTileX();
+    var screenH = this.screenTileY();
+    var cx = this._displayX + screenW / 2;
+    var cy = this._displayY + screenH / 2;
 
-    var overlappingZones = [];
-    var activeZone = null;
+    var cameraZones = [];
+    var cameraActiveZone = null;
     var bestPriority = -Infinity;
     for (var i = 0; i < this._cameraZones.length; i++) {
         var z = this._cameraZones[i];
         if (!z.enabled) continue;
-        if (px >= z.x && px < z.x + z.width && py >= z.y && py < z.y + z.height) {
-            overlappingZones.push(z);
+        if (cx >= z.x && cx < z.x + z.width && cy >= z.y && cy < z.y + z.height) {
+            cameraZones.push(z);
             if (z.priority > bestPriority) {
                 bestPriority = z.priority;
-                activeZone = z;
+                cameraActiveZone = z;
             }
         }
     }
-    // 존이 바뀌었으면 전환 시작 (카메라 설정은 priority 최고인 존 기준)
+
+    // 2) 플레이어가 속한 존 확인 (존 전환 트리거용)
+    var px = $gamePlayer.x;
+    var py = $gamePlayer.y;
+    var playerZone = null;
+    var playerBestPriority = -Infinity;
+    for (var i = 0; i < this._cameraZones.length; i++) {
+        var z = this._cameraZones[i];
+        if (!z.enabled) continue;
+        if (px >= z.x && px < z.x + z.width && py >= z.y && py < z.y + z.height) {
+            if (z.priority > playerBestPriority) {
+                playerBestPriority = z.priority;
+                playerZone = z;
+            }
+        }
+    }
+
+    // 3) active 존 결정: 카메라가 존 안에 있으면 그 존, 아니면 플레이어 존으로 전환
+    var activeZone = cameraActiveZone || playerZone;
+    var overlappingZones = cameraZones.length > 0 ? cameraZones : (playerZone ? [playerZone] : []);
+
+    // 존이 바뀌었으면 전환 시작
     var prevZoneId = this._activeCameraZone ? this._activeCameraZone.id : null;
     var newZoneId = activeZone ? activeZone.id : null;
     if (prevZoneId !== newZoneId) {
@@ -6195,11 +6216,13 @@ Game_Map.prototype._updateCameraZoneDebugText = function(zones) {
     var active = this._activeCameraZone;
     var activeName = active ? (active.name || ('Zone' + active.id)) : 'none';
     var lerping = this._cameraScrollLerping ? ' [lerping]' : '';
+    var screenW = this.screenTileX();
+    var screenH = this.screenTileY();
     this._cameraZoneDebugEl.textContent =
         'Zones: ' + (names.length > 0 ? names.join(', ') : 'none') +
         '\nActive: ' + activeName + lerping +
         '\nPlayer: ' + $gamePlayer.x + ', ' + $gamePlayer.y +
-        '\nDisplay: ' + this._displayX.toFixed(2) + ', ' + this._displayY.toFixed(2);
+        '\nCamCenter: ' + (this._displayX + screenW / 2).toFixed(2) + ', ' + (this._displayY + screenH / 2).toFixed(2);
     this._cameraZoneDebugWrapper.style.display = '';
 };
 
