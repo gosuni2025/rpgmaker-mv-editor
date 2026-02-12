@@ -2,55 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
 import apiClient from '../api/client';
-
-interface L10nConfig {
-  sourceLanguage: string;
-  languages: string[];
-  initialized?: boolean;
-}
-
-interface CSVRow {
-  [key: string]: string;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  type: string;
-}
-
-interface CategoryStats {
-  id: string;
-  name: string;
-  total: number;
-  translated: Record<string, number>;
-  outdated: Record<string, number>;
-}
-
-interface StatsData {
-  categories: CategoryStats[];
-  total: { total: number; translated: Record<string, number>; outdated: Record<string, number> };
-}
-
-const LANGUAGE_NAMES: Record<string, string> = {
-  ko: '한국어', en: 'English', ja: '日本語', zh: '中文', fr: 'Français',
-  de: 'Deutsch', es: 'Español', pt: 'Português', ru: 'Русский', it: 'Italiano',
-};
-
-function getCsvPath(categoryId: string): string {
-  if (categoryId === 'terms') return 'terms.csv';
-  if (categoryId === 'common_events') return 'common_events.csv';
-  return categoryId + '.csv';
-}
-
-type FilterMode = 'all' | 'untranslated' | 'outdated' | 'deleted';
-
-function formatTs(ts: string | undefined): string {
-  if (!ts || ts === '0') return '-';
-  const d = new Date(parseInt(ts, 10) * 1000);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+import type { L10nConfig, CSVRow, Category, StatsData, UndoEntry, FilterMode } from './localizationTypes';
+import { LANGUAGE_NAMES, getCsvPath, formatTs, getStatus } from './localizationTypes';
 
 function HelpButton({ text }: { text: string }) {
   const [show, setShow] = useState(false);
@@ -70,16 +23,6 @@ function HelpButton({ text }: { text: string }) {
       )}
     </span>
   );
-}
-
-interface UndoEntry {
-  csvPath: string;
-  key: string;
-  lang: string;
-  oldText: string;
-  newText: string;
-  oldTs: string;
-  newTs: string;
 }
 
 export default function LocalizationDialog() {
@@ -333,14 +276,6 @@ export default function LocalizationDialog() {
   };
 
   const targetLangs = config ? config.languages.filter(l => l !== config.sourceLanguage) : [];
-
-  const getStatus = (row: CSVRow, lang: string): 'translated' | 'outdated' | 'untranslated' => {
-    const langTs = parseInt(row[lang + '_ts'] || '0', 10);
-    const ts = parseInt(row.ts || '0', 10);
-    if (!row[lang] || !row[lang].trim() || langTs === 0) return 'untranslated';
-    if (ts > langTs) return 'outdated';
-    return 'translated';
-  };
 
   const filteredRows = rows.filter(row => {
     const isDeleted = row.deleted === '1';
