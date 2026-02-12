@@ -313,10 +313,14 @@ export function ChangePartyMemberEditor({ p, onOk, onCancel }: { p: unknown[]; o
 }
 
 /**
- * HP 증감 (Change HP, code 311)
- * params: [actorType, actorId, operation, operandType, operand, allowKnockout]
+ * HP/MP/TP 증감 공용 에디터
+ * HP(311): params: [actorType, actorId, operation, operandType, operand, allowKnockout]
+ * MP(312)/TP(326): params: [actorType, actorId, operation, operandType, operand]
  */
-export function ChangeHPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+function ActorStatChangeEditor({ p, onOk, onCancel, radioPrefix, showAllowKnockout }: {
+  p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void;
+  radioPrefix: string; showAllowKnockout?: boolean;
+}) {
   const [actorType, setActorType] = useState<number>((p[0] as number) || 0);
   const [actorId, setActorId] = useState<number>((p[1] as number) || 1);
   const [operation, setOperation] = useState<number>((p[2] as number) || 0);
@@ -337,7 +341,7 @@ export function ChangeHPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (par
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={radioStyle}>
-              <input type="radio" name="hp-actor" checked={actorType === 0} onChange={() => setActorType(0)} />
+              <input type="radio" name={`${radioPrefix}-actor`} checked={actorType === 0} onChange={() => setActorType(0)} />
               고정
             </label>
             <button className="db-btn" onClick={() => actorType === 0 && setShowActorPicker(true)}
@@ -346,7 +350,7 @@ export function ChangeHPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (par
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={radioStyle}>
-              <input type="radio" name="hp-actor" checked={actorType === 1} onChange={() => setActorType(1)} />
+              <input type="radio" name={`${radioPrefix}-actor`} checked={actorType === 1} onChange={() => setActorType(1)} />
               변수
             </label>
             <VariableSwitchPicker type="variable" value={actorType === 1 ? (actorId || 1) : 1}
@@ -360,11 +364,11 @@ export function ChangeHPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (par
         <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>조작</legend>
         <div style={{ display: 'flex', gap: 16 }}>
           <label style={radioStyle}>
-            <input type="radio" name="hp-op" checked={operation === 0} onChange={() => setOperation(0)} />
+            <input type="radio" name={`${radioPrefix}-op`} checked={operation === 0} onChange={() => setOperation(0)} />
             증가
           </label>
           <label style={radioStyle}>
-            <input type="radio" name="hp-op" checked={operation === 1} onChange={() => setOperation(1)} />
+            <input type="radio" name={`${radioPrefix}-op`} checked={operation === 1} onChange={() => setOperation(1)} />
             감소
           </label>
         </div>
@@ -376,7 +380,7 @@ export function ChangeHPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (par
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={radioStyle}>
-              <input type="radio" name="hp-operand" checked={operandType === 0} onChange={() => setOperandType(0)} />
+              <input type="radio" name={`${radioPrefix}-operand`} checked={operandType === 0} onChange={() => setOperandType(0)} />
               상수
             </label>
             <input type="number" value={operandType === 0 ? operand : 0} onChange={e => setOperand(Number(e.target.value))}
@@ -384,7 +388,7 @@ export function ChangeHPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (par
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={radioStyle}>
-              <input type="radio" name="hp-operand" checked={operandType === 1} onChange={() => setOperandType(1)} />
+              <input type="radio" name={`${radioPrefix}-operand`} checked={operandType === 1} onChange={() => setOperandType(1)} />
               변수
             </label>
             <VariableSwitchPicker type="variable" value={operandType === 1 ? (operand || 1) : 1}
@@ -393,14 +397,19 @@ export function ChangeHPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (par
         </div>
       </fieldset>
 
-      {/* 전투 불능 상태를 허용 */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#ddd', cursor: 'pointer' }}>
-        <input type="checkbox" checked={allowKnockout} onChange={e => setAllowKnockout(e.target.checked)} />
-        전투 불능 상태를 허용
-      </label>
+      {showAllowKnockout && (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#ddd', cursor: 'pointer' }}>
+          <input type="checkbox" checked={allowKnockout} onChange={e => setAllowKnockout(e.target.checked)} />
+          전투 불능 상태를 허용
+        </label>
+      )}
 
       <div className="image-picker-footer">
-        <button className="db-btn" onClick={() => onOk([actorType, actorId, operation, operandType, operand, allowKnockout])}>OK</button>
+        <button className="db-btn" onClick={() => {
+          const params: unknown[] = [actorType, actorId, operation, operandType, operand];
+          if (showAllowKnockout) params.push(allowKnockout);
+          onOk(params);
+        }}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
 
@@ -410,6 +419,18 @@ export function ChangeHPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (par
       )}
     </>
   );
+}
+
+export function ChangeHPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  return <ActorStatChangeEditor p={p} onOk={onOk} onCancel={onCancel} radioPrefix="hp" showAllowKnockout />;
+}
+
+export function ChangeMPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  return <ActorStatChangeEditor p={p} onOk={onOk} onCancel={onCancel} radioPrefix="mp" />;
+}
+
+export function ChangeTPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  return <ActorStatChangeEditor p={p} onOk={onOk} onCancel={onCancel} radioPrefix="tp" />;
 }
 
 export function ChangeNameEditor({ p, onOk, onCancel, label }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; label: string }) {
