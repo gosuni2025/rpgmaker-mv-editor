@@ -77,9 +77,9 @@ export function ChangeGoldEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (p
 }
 
 const ITEM_ENDPOINTS: Record<string, { endpoint: string; title: string; fieldLabel: string }> = {
-  'Item': { endpoint: 'Items', title: '아이템 선택', fieldLabel: '아이템:' },
-  'Weapon': { endpoint: 'Weapons', title: '무기 선택', fieldLabel: '무기:' },
-  'Armor': { endpoint: 'Armors', title: '방어구 선택', fieldLabel: '방어구:' },
+  'Item': { endpoint: 'items', title: '아이템 선택', fieldLabel: '아이템:' },
+  'Weapon': { endpoint: 'weapons', title: '무기 선택', fieldLabel: '무기:' },
+  'Armor': { endpoint: 'armors', title: '방어구 선택', fieldLabel: '방어구:' },
 };
 
 export function ChangeItemEditor({ p, onOk, onCancel, label, showIncludeEquip }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; label: string; showIncludeEquip?: boolean }) {
@@ -332,7 +332,7 @@ export function ChangeHPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (par
   const [allowKnockout, setAllowKnockout] = useState<boolean>((p[5] as boolean) ?? false);
   const [showActorPicker, setShowActorPicker] = useState(false);
 
-  const actorNames = useDbNames('Actors');
+  const actorNames = useDbNames('actors');
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
 
