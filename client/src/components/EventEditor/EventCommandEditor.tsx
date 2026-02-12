@@ -235,7 +235,16 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
     const newCommands = [...commands];
     if (code === 111) {
-      newCommands.splice(insertAt, 0, newCmd, { code: 0, indent: indent + 1, parameters: [] }, { code: 412, indent, parameters: [] });
+      const wantElse = extraCommands?.some(ec => ec.code === 411);
+      if (wantElse) {
+        newCommands.splice(insertAt, 0, newCmd,
+          { code: 0, indent: indent + 1, parameters: [] },
+          { code: 411, indent, parameters: [] },
+          { code: 0, indent: indent + 1, parameters: [] },
+          { code: 412, indent, parameters: [] });
+      } else {
+        newCommands.splice(insertAt, 0, newCmd, { code: 0, indent: indent + 1, parameters: [] }, { code: 412, indent, parameters: [] });
+      }
     } else if (code === 112) {
       newCommands.splice(insertAt, 0, newCmd, { code: 0, indent: indent + 1, parameters: [] }, { code: 413, indent, parameters: [] });
     } else if (code === 102 && extraCommands && extraCommands.length > 0) {
@@ -281,6 +290,39 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     const newCommands = [...commands];
     const cmd = newCommands[index];
     newCommands[index] = { ...cmd, parameters: params };
+
+    // 조건 분기(111) Else 추가/제거 특별 처리
+    if (cmd.code === 111 && extra) {
+      const wantElse = extra.some(ec => ec.code === 411);
+      // 현재 Else(411)가 있는지 확인
+      let hasExistingElse = false;
+      let elseIndex = -1;
+      let blockEndIndex = -1;
+      const baseIndent = cmd.indent;
+      for (let i = index + 1; i < newCommands.length; i++) {
+        if (newCommands[i].code === 411 && newCommands[i].indent === baseIndent) {
+          hasExistingElse = true;
+          elseIndex = i;
+        }
+        if (newCommands[i].code === 412 && newCommands[i].indent === baseIndent) {
+          blockEndIndex = i;
+          break;
+        }
+      }
+      if (wantElse && !hasExistingElse && blockEndIndex >= 0) {
+        // Else 블록 추가 (412 바로 앞에)
+        newCommands.splice(blockEndIndex, 0,
+          { code: 411, indent: baseIndent, parameters: [] },
+          { code: 0, indent: baseIndent + 1, parameters: [] },
+        );
+      } else if (!wantElse && hasExistingElse && elseIndex >= 0 && blockEndIndex >= 0) {
+        // Else 블록 제거 (411부터 412 직전까지)
+        newCommands.splice(elseIndex, blockEndIndex - elseIndex);
+      }
+      changeWithHistory(newCommands);
+      setEditingIndex(null);
+      return;
+    }
 
     // 후속 라인(continuation) 교체: 기존 후속 라인 제거 후 새 extra 삽입
     if (extra) {
@@ -520,12 +562,87 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
   const formatSwitchId = (id: number) => `#${String(id).padStart(4, '0')}`;
 
+  const formatConditionalBranch = (params: unknown[]): string => {
+    const condType = params[0] as number;
+    const fmtId = (id: number) => String(id).padStart(4, '0');
+    const compOps = ['=', '≥', '≤', '>', '<', '≠'];
+    switch (condType) {
+      case 0: { // 스위치
+        const id = params[1] as number;
+        const name = systemData?.switches?.[id];
+        return `스위치 ${fmtId(id)}${name ? ' ' + name : ''} == ${(params[2] as number) === 0 ? 'ON' : 'OFF'}`;
+      }
+      case 1: { // 변수
+        const id = params[1] as number;
+        const name = systemData?.variables?.[id];
+        const op = compOps[params[4] as number] || '=';
+        const operandType = params[2] as number;
+        let operand: string;
+        if (operandType === 0) {
+          operand = String(params[3] as number);
+        } else {
+          const vid = params[3] as number;
+          const vname = systemData?.variables?.[vid];
+          operand = `변수 ${fmtId(vid)}${vname ? ' ' + vname : ''}`;
+        }
+        return `변수 ${fmtId(id)}${name ? ' ' + name : ''} ${op} ${operand}`;
+      }
+      case 2: // 셀프 스위치
+        return `셀프 스위치 ${params[1]} == ${(params[2] as number) === 0 ? 'ON' : 'OFF'}`;
+      case 3: { // 타이머
+        const sec = params[1] as number;
+        const min = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `타이머 ${(params[2] as number) === 0 ? '≥' : '≤'} ${min}분 ${s}초`;
+      }
+      case 4: { // 액터
+        const subType = params[2] as number;
+        const subLabels = ['파티에 있다', '이름이', '직업이', '스킬을', '무기를', '방어구를', '스테이트가'];
+        const label = subLabels[subType] || '';
+        const param = subType === 0 ? '' : ` ${params[3]}`;
+        return `액터 ${fmtId(params[1] as number)} ${label}${param}`;
+      }
+      case 5: { // 적
+        const sub = params[2] as number;
+        return sub === 0
+          ? `적 #${(params[1] as number) + 1} 출현하고 있다`
+          : `적 #${(params[1] as number) + 1} 스테이트 ${params[3]}`;
+      }
+      case 6: { // 캐릭터
+        const dirs: Record<number, string> = { 2: '하', 4: '좌', 6: '우', 8: '상' };
+        const charLabel = (params[1] as number) === -1 ? '플레이어' : (params[1] as number) === 0 ? '이 이벤트' : `이벤트 ${params[1]}`;
+        return `${charLabel} 방향 ${dirs[params[2] as number] || params[2]}`;
+      }
+      case 7: { // 소지금
+        const goldOps = ['≥', '≤', '<'];
+        return `소지금 ${goldOps[params[2] as number] || '≥'} ${params[1]}`;
+      }
+      case 8: return `아이템 ${fmtId(params[1] as number)} 소지`;
+      case 9: return `무기 ${fmtId(params[1] as number)} 소지${params[2] ? ' (장비 포함)' : ''}`;
+      case 10: return `방어구 ${fmtId(params[1] as number)} 소지${params[2] ? ' (장비 포함)' : ''}`;
+      case 11: return `버튼 [${params[1]}] 눌려있다`;
+      case 12: return `스크립트: ${params[1]}`;
+      case 13: {
+        const vehicles = ['소형선', '대형선', '비행선'];
+        return `${vehicles[params[1] as number] || '탈것'} 탑승 중`;
+      }
+      default: return JSON.stringify(params);
+    }
+  };
+
   const getCommandDisplay = (cmd: EventCommand): string => {
     const code = cmd.code;
     if (code === 0) return '';
     const displayKey = `eventCommands.display.${code}`;
     const desc = t(displayKey);
     let text = desc !== displayKey ? desc : `@${code}`;
+
+    // 조건 분기 전용 포맷
+    if (code === 111 && cmd.parameters && cmd.parameters.length >= 2) {
+      return text + ': ' + formatConditionalBranch(cmd.parameters);
+    }
+    if (code === 411) return '그 밖의 경우';
+    if (code === 412) return '분기 종료';
 
     // 스위치 조작 전용 포맷
     if (code === 121 && cmd.parameters && cmd.parameters.length >= 3) {
@@ -659,12 +776,25 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
             else break;
           }
         }
+        // 조건 분기(111) 편집 시 Else 존재 여부 확인
+        let editHasElse: boolean | undefined;
+        if (editCmd.code === 111) {
+          editHasElse = false;
+          for (let i = editingIndex + 1; i < commands.length; i++) {
+            if (commands[i].code === 411 && commands[i].indent === editCmd.indent) {
+              editHasElse = true;
+              break;
+            }
+            if (commands[i].code === 412 && commands[i].indent === editCmd.indent) break;
+          }
+        }
         return (
           <CommandParamEditor
             key={editingIndex}
             code={editCmd.code}
             command={editCmd}
             followCommands={follows}
+            hasElse={editHasElse}
             onOk={(params, extra) => updateCommandParams(editingIndex, params, extra)}
             onCancel={() => setEditingIndex(null)}
           />
