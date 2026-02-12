@@ -5633,6 +5633,8 @@ Game_Map.prototype.setDisplayPos = function(x, y) {
         this._displayY = endY < 0 ? endY / 2 : y.clamp(0, endY);
         this._parallaxY = this._displayY;
     }
+    // 활성 카메라 존이 있으면 존 범위로 추가 제한
+    this.clampDisplayToActiveZone();
 };
 
 Game_Map.prototype.parallaxOx = function() {
@@ -5872,6 +5874,7 @@ Game_Map.prototype.scrollDown = function(distance) {
             this.height() - this.screenTileY());
         this._parallaxY += this._displayY - lastY;
     }
+    this.clampDisplayToActiveZone();
 };
 
 Game_Map.prototype.scrollLeft = function(distance) {
@@ -5886,6 +5889,7 @@ Game_Map.prototype.scrollLeft = function(distance) {
         this._displayX = Math.max(this._displayX - distance, 0);
         this._parallaxX += this._displayX - lastX;
     }
+    this.clampDisplayToActiveZone();
 };
 
 Game_Map.prototype.scrollRight = function(distance) {
@@ -5901,6 +5905,7 @@ Game_Map.prototype.scrollRight = function(distance) {
             this.width() - this.screenTileX());
         this._parallaxX += this._displayX - lastX;
     }
+    this.clampDisplayToActiveZone();
 };
 
 Game_Map.prototype.scrollUp = function(distance) {
@@ -5915,6 +5920,7 @@ Game_Map.prototype.scrollUp = function(distance) {
         this._displayY = Math.max(this._displayY - distance, 0);
         this._parallaxY += this._displayY - lastY;
     }
+    this.clampDisplayToActiveZone();
 };
 
 Game_Map.prototype.isValid = function(x, y) {
@@ -6127,6 +6133,48 @@ Game_Map.prototype.updateCameraZones = function() {
         if (zoomDone && tiltDone && yawDone) {
             this._cameraTransition = null;
         }
+    }
+
+    // 카메라 스크롤 제한: 활성 존 범위 밖으로 카메라가 나가지 못하게
+    this.clampDisplayToActiveZone();
+};
+
+Game_Map.prototype.clampDisplayToActiveZone = function() {
+    var zone = this._activeCameraZone;
+    if (!zone) return;
+
+    var screenW = this.screenTileX();
+    var screenH = this.screenTileY();
+
+    // 존 크기가 화면보다 큰 경우: 존 범위 내로 clamp
+    // 존 크기가 화면보다 작은 경우: 존 중앙에 카메라 고정
+    var minX, maxX, minY, maxY;
+
+    if (zone.width >= screenW) {
+        minX = zone.x;
+        maxX = zone.x + zone.width - screenW;
+    } else {
+        // 존이 화면보다 작으면 존 중앙에 고정
+        minX = maxX = zone.x + (zone.width - screenW) / 2;
+    }
+
+    if (zone.height >= screenH) {
+        minY = zone.y;
+        maxY = zone.y + zone.height - screenH;
+    } else {
+        minY = maxY = zone.y + (zone.height - screenH) / 2;
+    }
+
+    var clampedX = Math.max(minX, Math.min(maxX, this._displayX));
+    var clampedY = Math.max(minY, Math.min(maxY, this._displayY));
+
+    if (clampedX !== this._displayX) {
+        this._parallaxX += clampedX - this._displayX;
+        this._displayX = clampedX;
+    }
+    if (clampedY !== this._displayY) {
+        this._parallaxY += clampedY - this._displayY;
+        this._displayY = clampedY;
     }
 };
 
