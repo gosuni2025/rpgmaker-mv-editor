@@ -5,27 +5,29 @@ import {
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, AudioEditor,
   ChangePartyMemberEditor, ChangeNameEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor,
-  ScrollingTextEditor,
+  ScrollingTextEditor, ConditionalBranchEditor,
 } from './commandEditors';
 
 interface CommandParamEditorProps {
   code: number;
   command?: EventCommand;
   followCommands?: EventCommand[];
+  hasElse?: boolean;
   onOk: (params: unknown[], extraCommands?: EventCommand[]) => void;
   onCancel: () => void;
 }
 
-export default function CommandParamEditor({ code, command, followCommands, onOk, onCancel }: CommandParamEditorProps) {
+export default function CommandParamEditor({ code, command, followCommands, hasElse, onOk, onCancel }: CommandParamEditorProps) {
   const p = command?.parameters || [];
-  const content = getEditorContent(code, p, followCommands || [], onOk, onCancel);
+  const content = getEditorContent(code, p, followCommands || [], onOk, onCancel, hasElse);
   if (!content) {
     onOk(p);
     return null;
   }
+  const dialogWidth = code === 102 ? 560 : code === 111 ? 540 : 480;
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: code === 102 ? 560 : 480, maxHeight: '70vh' }}>
+      <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: dialogWidth, maxHeight: '70vh' }}>
         <div className="image-picker-header">{getCommandName(code)}</div>
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {content}
@@ -38,7 +40,7 @@ export default function CommandParamEditor({ code, command, followCommands, onOk
 function getCommandName(code: number): string {
   const names: Record<number, string> = {
     101: 'Show Text', 102: 'Show Choices', 103: 'Input Number', 104: 'Select Item',
-    105: '텍스트의 스크롤 표시', 108: 'Comment', 111: 'Conditional Branch',
+    105: '텍스트의 스크롤 표시', 108: 'Comment', 111: '조건 분기',
     117: 'Common Event', 118: 'Label', 119: 'Jump to Label',
     121: '스위치 조작', 122: '변수 조작', 123: 'Control Self Switch',
     124: '타이머 조작', 125: 'Change Gold', 126: 'Change Items',
@@ -57,13 +59,15 @@ function getCommandName(code: number): string {
 function getEditorContent(
   code: number, p: unknown[], followCommands: EventCommand[],
   onOk: (params: unknown[], extraCommands?: EventCommand[]) => void,
-  onCancel: () => void
+  onCancel: () => void,
+  hasElse?: boolean,
 ): React.ReactNode | null {
   // 후속 라인 텍스트 추출 헬퍼
   const followText = (followCode: number) =>
     followCommands.filter(c => c.code === followCode).map(c => c.parameters[0] as string);
 
   switch (code) {
+    case 111: return <ConditionalBranchEditor p={p} onOk={onOk} onCancel={onCancel} hasElse={hasElse} />;
     case 102: return <ShowChoicesEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 103: return <InputNumberEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 104: return <SelectItemEditor p={p} onOk={onOk} onCancel={onCancel} />;
