@@ -6066,11 +6066,9 @@ Game_Map.prototype.update = function(sceneActive) {
 Game_Map.prototype.updateCameraZones = function() {
     if (!this._cameraZones || this._cameraZones.length === 0) return;
 
-    // 카메라 화면 영역과 겹치는 존 모두 수집 (AABB)
-    var screenW = this.screenTileX();
-    var screenH = this.screenTileY();
-    var camL = this._displayX, camT = this._displayY;
-    var camR = camL + screenW, camB = camT + screenH;
+    // 플레이어 위치가 존 사각형 안에 있는지로 판정
+    var px = $gamePlayer.x;
+    var py = $gamePlayer.y;
 
     var overlappingZones = [];
     var activeZone = null;
@@ -6078,7 +6076,7 @@ Game_Map.prototype.updateCameraZones = function() {
     for (var i = 0; i < this._cameraZones.length; i++) {
         var z = this._cameraZones[i];
         if (!z.enabled) continue;
-        if (camL < z.x + z.width && camR > z.x && camT < z.y + z.height && camB > z.y) {
+        if (px >= z.x && px < z.x + z.width && py >= z.y && py < z.y + z.height) {
             overlappingZones.push(z);
             if (z.priority > bestPriority) {
                 bestPriority = z.priority;
