@@ -6188,6 +6188,8 @@ Game_Map.prototype.updateCameraZone = function() {
     // 스크롤이 원하는 카메라 중심 (존 클램핑 전)
     var targetX = this._displayX + halfScreenX;
     var targetY = this._displayY + halfScreenY;
+    var preClampX = targetX;
+    var preClampY = targetY;
 
     // 활성 존이 있으면 경계에서만 클램핑
     if (this._activeCameraZoneId != null) {
@@ -6207,7 +6209,6 @@ Game_Map.prototype.updateCameraZone = function() {
     // 존 전환 시에만 lerp, 같은 존 내에서는 즉시 반영
     var prevZoneId = this._prevCameraZoneId;
     if (prevZoneId !== this._activeCameraZoneId && this._activeCameraZoneId != null) {
-        // 존이 바뀜 → lerp 시작
         this._cameraZoneLerping = true;
     }
     this._prevCameraZoneId = this._activeCameraZoneId;
@@ -6220,7 +6221,6 @@ Game_Map.prototype.updateCameraZone = function() {
         }
         this._cameraZoneTargetX += (targetX - this._cameraZoneTargetX) * speed;
         this._cameraZoneTargetY += (targetY - this._cameraZoneTargetY) * speed;
-        // lerp 완료 판정
         var dx = Math.abs(targetX - this._cameraZoneTargetX);
         var dy = Math.abs(targetY - this._cameraZoneTargetY);
         if (dx < 0.01 && dy < 0.01) {
@@ -6240,6 +6240,18 @@ Game_Map.prototype.updateCameraZone = function() {
     this._displayY = this._cameraZoneTargetY - halfScreenY;
     this._parallaxX += this._displayX - oldDisplayX;
     this._parallaxY += this._displayY - oldDisplayY;
+
+    // 디버그 로그 (매 30프레임)
+    if (!this._czDebugCount) this._czDebugCount = 0;
+    this._czDebugCount++;
+    if (this._czDebugCount % 30 === 0) {
+        console.log('[CZ] dispX=' + oldDisplayX.toFixed(2) + ' preClamp=' + preClampX.toFixed(2) +
+            ' target=' + targetX.toFixed(2) + ' final=' + this._cameraZoneTargetX.toFixed(2) +
+            ' newDispX=' + this._displayX.toFixed(2) +
+            ' margin=' + marginX.toFixed(2) +
+            ' zone=' + this._activeCameraZoneId +
+            ' lerping=' + !!this._cameraZoneLerping);
+    }
 };
 
 Game_Map.prototype.changeTileset = function(tilesetId) {
