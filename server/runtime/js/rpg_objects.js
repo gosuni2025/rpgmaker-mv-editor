@@ -6073,18 +6073,19 @@ Game_Map.prototype.update = function(sceneActive) {
 Game_Map.prototype.updateCameraZones = function() {
     if (!this._cameraZones || this._cameraZones.length === 0) return;
 
-    // 카메라 화면 중심 좌표 기준으로 존 판정
-    var cx = this._displayX + this.screenTileX() / 2;
-    var cy = this._displayY + this.screenTileY() / 2;
+    // 카메라 화면 영역과 겹치는 존 수집 (AABB)
+    var screenW = this.screenTileX();
+    var screenH = this.screenTileY();
+    var camL = this._displayX, camT = this._displayY;
+    var camR = camL + screenW, camB = camT + screenH;
 
-    // 카메라가 속한 모든 존 수집 + priority 최고인 존 찾기
     var overlappingZones = [];
     var activeZone = null;
     var bestPriority = -Infinity;
     for (var i = 0; i < this._cameraZones.length; i++) {
         var z = this._cameraZones[i];
         if (!z.enabled) continue;
-        if (cx >= z.x && cx < z.x + z.width && cy >= z.y && cy < z.y + z.height) {
+        if (camL < z.x + z.width && camR > z.x && camT < z.y + z.height && camB > z.y) {
             overlappingZones.push(z);
             if (z.priority > bestPriority) {
                 bestPriority = z.priority;
