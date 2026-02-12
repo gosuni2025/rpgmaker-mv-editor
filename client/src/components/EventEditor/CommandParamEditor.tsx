@@ -40,7 +40,7 @@ function getCommandName(code: number): string {
     101: 'Show Text', 102: 'Show Choices', 103: 'Input Number', 104: 'Select Item',
     105: '텍스트의 스크롤 표시', 108: 'Comment', 111: 'Conditional Branch',
     117: 'Common Event', 118: 'Label', 119: 'Jump to Label',
-    121: '스위치 조작', 122: 'Control Variables', 123: 'Control Self Switch',
+    121: '스위치 조작', 122: '변수 조작', 123: 'Control Self Switch',
     124: '타이머 조작', 125: 'Change Gold', 126: 'Change Items',
     127: 'Change Weapons', 128: 'Change Armors', 129: 'Change Party Member',
     201: 'Transfer Player', 230: 'Wait',

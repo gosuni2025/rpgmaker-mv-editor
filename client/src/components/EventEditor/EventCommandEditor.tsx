@@ -4,6 +4,7 @@ import type { EventCommand } from '../../types/rpgMakerMV';
 import CommandParamEditor from './CommandParamEditor';
 import TranslateButton from '../common/TranslateButton';
 import { fuzzyMatch } from '../../utils/fuzzySearch';
+import useEditorStore from '../../store/useEditorStore';
 
 export interface EventCommandContext {
   mapId?: number;
@@ -165,6 +166,7 @@ let commandClipboard: EventCommand[] = [];
 
 export default function EventCommandEditor({ commands, onChange, context }: EventCommandEditorProps) {
   const { t } = useTranslation();
+  const systemData = useEditorStore(s => s.systemData);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [lastClickedIndex, setLastClickedIndex] = useState(-1);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -749,12 +751,29 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     return ranges[ranges.length - 1][1] < commands.length - 2;
   }, [commands, selectedIndices]);
 
+  const formatSwitchId = (id: number) => `#${String(id).padStart(4, '0')}`;
+
   const getCommandDisplay = (cmd: EventCommand): string => {
     const code = cmd.code;
     if (code === 0) return '';
     const displayKey = `eventCommands.display.${code}`;
     const desc = t(displayKey);
     let text = desc !== displayKey ? desc : `@${code}`;
+
+    // 스위치 조작 전용 포맷
+    if (code === 121 && cmd.parameters && cmd.parameters.length >= 3) {
+      const startId = cmd.parameters[0] as number;
+      const endId = cmd.parameters[1] as number;
+      const op = cmd.parameters[2] as number === 0 ? 'ON' : 'OFF';
+      if (startId === endId) {
+        const name = systemData?.switches?.[startId];
+        text += `: ${formatSwitchId(startId)}${name ? ' ' + name : ''} = ${op}`;
+      } else {
+        text += `: ${formatSwitchId(startId)}..${formatSwitchId(endId)} = ${op}`;
+      }
+      return text;
+    }
+
     if (cmd.parameters && cmd.parameters.length > 0) {
       const params = cmd.parameters.map(p => typeof p === 'string' ? p : JSON.stringify(p)).join(', ');
       if (params.length > 60) {
