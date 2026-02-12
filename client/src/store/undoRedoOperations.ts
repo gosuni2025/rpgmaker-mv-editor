@@ -39,6 +39,9 @@ export function undoOperation(get: GetFn, set: SetFn) {
       stateUpdates.systemData = { ...systemData, startX: re.oldStartX, startY: re.oldStartY };
     }
     set(stateUpdates);
+    if (stateUpdates.systemData) {
+      apiClient.put('/database/system', stateUpdates.systemData).catch(() => {});
+    }
     showToast(`실행 취소 (맵 크기 ${re.oldWidth}x${re.oldHeight})`);
     return;
   }
@@ -192,6 +195,9 @@ export function redoOperation(get: GetFn, set: SetFn) {
       stateUpdates.systemData = { ...systemData, startX: re.oldStartX, startY: re.oldStartY };
     }
     set(stateUpdates);
+    if (stateUpdates.systemData) {
+      apiClient.put('/database/system', stateUpdates.systemData).catch(() => {});
+    }
     showToast(`다시 실행 (맵 크기 ${re.oldWidth}x${re.oldHeight})`);
     return;
   }

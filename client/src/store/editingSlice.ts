@@ -169,6 +169,10 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       redoStack: [],
       ...stateUpdates,
     });
+    // Persist systemData change to server
+    if (stateUpdates.systemData) {
+      apiClient.put('/database/system', stateUpdates.systemData).catch(() => {});
+    }
     showToast(`맵 크기 변경 ${oldW}x${oldH} → ${nw}x${nh}`);
   },
 
