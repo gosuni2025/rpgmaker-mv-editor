@@ -78,6 +78,8 @@ interface UndoEntry {
   lang: string;
   oldText: string;
   newText: string;
+  oldTs: string;
+  newTs: string;
 }
 
 export default function LocalizationDialog() {
@@ -213,23 +215,25 @@ export default function LocalizationDialog() {
     const csvPath = getCsvPath(selectedCategory);
     const oldRow = rows.find(r => r.key === editCell.key);
     const oldText = oldRow ? (oldRow[editCell.lang] || '') : '';
+    const oldTs = oldRow ? (oldRow[editCell.lang + '_ts'] || '0') : '0';
     if (oldText === editValue) { setEditCell(null); return; }
     await apiClient.put('/localization/entry', {
       csvPath, key: editCell.key, lang: editCell.lang, text: editValue,
     });
-    setUndoStack(prev => [...prev, { csvPath, key: editCell.key, lang: editCell.lang, oldText, newText: editValue }]);
+    const newTs = String(Math.floor(Date.now() / 1000));
+    setUndoStack(prev => [...prev, { csvPath, key: editCell.key, lang: editCell.lang, oldText, newText: editValue, oldTs, newTs }]);
     setRedoStack([]);
     setRows(prev => prev.map(r =>
-      r.key === editCell.key ? { ...r, [editCell.lang]: editValue, [editCell.lang + '_ts']: String(Math.floor(Date.now() / 1000)) } : r
+      r.key === editCell.key ? { ...r, [editCell.lang]: editValue, [editCell.lang + '_ts']: newTs } : r
     ));
     setEditCell(null);
     loadStats();
   };
 
-  const applyUndoRedo = useCallback(async (entry: UndoEntry, text: string) => {
-    await apiClient.put('/localization/entry', { csvPath: entry.csvPath, key: entry.key, lang: entry.lang, text });
+  const applyUndoRedo = useCallback(async (entry: UndoEntry, text: string, ts: string) => {
+    await apiClient.put('/localization/entry', { csvPath: entry.csvPath, key: entry.key, lang: entry.lang, text, ts });
     setRows(prev => prev.map(r =>
-      r.key === entry.key ? { ...r, [entry.lang]: text, [entry.lang + '_ts']: String(Math.floor(Date.now() / 1000)) } : r
+      r.key === entry.key ? { ...r, [entry.lang]: text, [entry.lang + '_ts']: ts } : r
     ));
     loadStats();
   }, [loadStats]);
@@ -239,7 +243,7 @@ export default function LocalizationDialog() {
     const entry = undoStack[undoStack.length - 1];
     setUndoStack(prev => prev.slice(0, -1));
     setRedoStack(prev => [...prev, entry]);
-    await applyUndoRedo(entry, entry.oldText);
+    await applyUndoRedo(entry, entry.oldText, entry.oldTs);
   }, [undoStack, applyUndoRedo]);
 
   const handleRedo = useCallback(async () => {
@@ -247,7 +251,7 @@ export default function LocalizationDialog() {
     const entry = redoStack[redoStack.length - 1];
     setRedoStack(prev => prev.slice(0, -1));
     setUndoStack(prev => [...prev, entry]);
-    await applyUndoRedo(entry, entry.newText);
+    await applyUndoRedo(entry, entry.newText, entry.newTs);
   }, [redoStack, applyUndoRedo]);
 
   useEffect(() => {
@@ -281,12 +285,14 @@ export default function LocalizationDialog() {
       for (const lang of targetLangs) {
         const oldText = row[lang] || '';
         if (oldText === srcVal) continue;
+        const oldTs = row[lang + '_ts'] || '0';
+        const newTs = String(Math.floor(Date.now() / 1000));
         await apiClient.put('/localization/entry', { csvPath, key, lang, text: srcVal });
-        newUndoEntries.push({ csvPath, key, lang, oldText, newText: srcVal });
+        newUndoEntries.push({ csvPath, key, lang, oldText, newText: srcVal, oldTs, newTs });
         updatedRows[rowIdx] = {
           ...updatedRows[rowIdx],
           [lang]: srcVal,
-          [lang + '_ts']: String(Math.floor(Date.now() / 1000)),
+          [lang + '_ts']: newTs,
         };
       }
     }

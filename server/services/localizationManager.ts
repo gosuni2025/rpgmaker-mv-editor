@@ -535,15 +535,14 @@ export function getCategories(): { id: string; name: string; type: string }[] {
 
 // --- Single entry update ---
 
-export function updateEntry(csvPath: string, key: string, lang: string, text: string): void {
+export function updateEntry(csvPath: string, key: string, lang: string, text: string, ts?: string): void {
   const config = getConfig();
   if (!config) throw new Error('Localization not initialized');
   const rows = readCSVFile(csvPath);
   const row = rows.find(r => r.key === key);
   if (!row) throw new Error(`Key not found: ${key}`);
-  const now = String(Math.floor(Date.now() / 1000));
   row[lang] = text;
-  row[lang + '_ts'] = now;
+  row[lang + '_ts'] = ts || String(Math.floor(Date.now() / 1000));
   writeCSVFile(csvPath, rows, config);
 }
 

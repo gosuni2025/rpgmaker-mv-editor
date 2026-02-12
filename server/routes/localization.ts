@@ -62,8 +62,8 @@ router.put('/csv/*', (req: Request, res: Response) => {
 // PUT /api/localization/entry — update single entry
 router.put('/entry', (req: Request, res: Response) => {
   try {
-    const { csvPath, key, lang, text } = req.body;
-    l10n.updateEntry(csvPath, key, lang, text);
+    const { csvPath, key, lang, text, ts } = req.body;
+    l10n.updateEntry(csvPath, key, lang, text, ts);
     res.json({ success: true });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
