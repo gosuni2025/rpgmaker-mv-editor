@@ -2,9 +2,13 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import CommandParamEditor from './CommandParamEditor';
+import CommandInsertDialog from './CommandInsertDialog';
 import TranslateButton from '../common/TranslateButton';
-import { fuzzyMatch } from '../../utils/fuzzySearch';
 import useEditorStore from '../../store/useEditorStore';
+import {
+  NO_PARAM_CODES, CONTINUATION_CODES, BLOCK_END_CODES, CHILD_TO_PARENT,
+  HAS_PARAM_EDITOR, getCommandGroupRange, expandSelectionToGroups, isValidDropTarget,
+} from './commandConstants';
 
 export interface EventCommandContext {
   mapId?: number;
@@ -20,146 +24,7 @@ interface EventCommandEditorProps {
   context?: EventCommandContext;
 }
 
-// Commands that have no parameters and can be inserted directly
-const NO_PARAM_CODES = new Set([112, 113, 115, 206, 221, 222, 243, 244, 251, 351, 352, 353, 354]);
-
-// 단순 연속형: 주 명령어 뒤에 바로 따라오는 부속 코드
-const CONTINUATION_CODES: Record<number, number> = {
-  101: 401,  // Show Text → 텍스트 줄
-  105: 405,  // Show Scrolling Text → 텍스트 줄
-  108: 408,  // Comment → 주석 줄
-  355: 655,  // Script → 스크립트 줄
-  302: 605,  // Shop Processing → 상점 아이템 줄
-};
-
-// 블록 구조형: 주 명령어 ~ 종료 마커까지 (같은 indent)
-const BLOCK_END_CODES: Record<number, number[]> = {
-  111: [412],       // Conditional Branch → End (411 Else는 중간)
-  112: [413],       // Loop → Repeat Above
-  102: [404],       // Show Choices → End
-  301: [604],       // Battle Processing → End (601 Win, 602 Escape, 603 Lose)
-};
-
-// 부속 코드 → 주 명령어 매핑 (부속 코드 클릭 시 그룹의 주 명령어를 찾기 위함)
-const CHILD_TO_PARENT: Record<number, number[]> = {
-  401: [101], 405: [105], 408: [108], 655: [355], 605: [302],
-  402: [102], 403: [102], 404: [102],
-  411: [111], 412: [111],
-  413: [112],
-  601: [301], 602: [301], 603: [301], 604: [301],
-};
-
-/**
- * 주어진 인덱스의 명령어가 속한 그룹의 시작~끝 범위를 반환.
- * [start, end] (inclusive)
- */
-function getCommandGroupRange(commands: EventCommand[], index: number): [number, number] {
-  if (index < 0 || index >= commands.length) return [index, index];
-  const cmd = commands[index];
-
-  // 부속 코드를 선택한 경우: 부모(주 명령어)를 위쪽으로 찾아가서 그 그룹 전체를 반환
-  if (CHILD_TO_PARENT[cmd.code]) {
-    const parentCodes = CHILD_TO_PARENT[cmd.code];
-    // 단순 연속형 부속 코드(401, 405, 408, 655, 605)는 해당 줄만 삭제
-    const isContinuation = [401, 405, 408, 655, 605].includes(cmd.code);
-    if (isContinuation) {
-      return [index, index];
-    }
-    // 블록 구조형 부속 코드(402, 411, 412, 413 등)는 부모를 찾아 전체 블록 삭제
-    for (let i = index - 1; i >= 0; i--) {
-      if (parentCodes.includes(commands[i].code) && commands[i].indent === cmd.indent) {
-        return getCommandGroupRange(commands, i);
-      }
-    }
-    // 부모를 못 찾으면 해당 줄만
-    return [index, index];
-  }
-
-  // 단순 연속형 주 명령어: 바로 뒤 부속 코드들까지 포함
-  const contCode = CONTINUATION_CODES[cmd.code];
-  if (contCode !== undefined) {
-    let end = index;
-    for (let i = index + 1; i < commands.length; i++) {
-      if (commands[i].code === contCode) {
-        end = i;
-      } else {
-        break;
-      }
-    }
-    return [index, end];
-  }
-
-  // 블록 구조형 주 명령어: 같은 indent의 종료 마커까지
-  const endCodes = BLOCK_END_CODES[cmd.code];
-  if (endCodes) {
-    const baseIndent = cmd.indent;
-    let depth = 0;
-    for (let i = index + 1; i < commands.length; i++) {
-      const c = commands[i];
-      // 같은 종류의 블록이 중첩될 수 있으므로 depth 추적
-      if (c.code === cmd.code && c.indent === baseIndent) {
-        depth++;
-      }
-      if (endCodes.includes(c.code) && c.indent === baseIndent) {
-        if (depth === 0) {
-          return [index, i];
-        }
-        depth--;
-      }
-    }
-    // 종료 마커를 못 찾으면 주 명령어만
-    return [index, index];
-  }
-
-  // 일반 명령어: 해당 줄만
-  return [index, index];
-}
-
-// Commands that need a parameter editor
-const HAS_PARAM_EDITOR = new Set([
-  101, 102, 103, 104, 105, 108, 117, 118, 119, 121, 122, 123, 124, 125, 126, 127, 128, 129,
-  201, 230, 241, 242, 245, 246, 249, 250, 321, 325, 355, 356,
-]);
-
 const MAX_UNDO = 100;
-
-// 드래그 중인 그룹이 이동할 수 없는 위치인지 판별 (블록 내부 부속 코드 사이로 끼어드는 것 방지)
-function isValidDropTarget(commands: EventCommand[], targetIndex: number, dragStart: number, dragEnd: number): boolean {
-  // 마지막 빈 명령어(code 0) 뒤로는 이동 불가
-  if (targetIndex >= commands.length) return false;
-  // 자기 자신 범위 안으로 이동하는 건 무의미
-  if (targetIndex >= dragStart && targetIndex <= dragEnd + 1) return true;
-  return true;
-}
-
-/**
- * 선택된 인덱스들을 그룹 단위로 확장.
- * 각 선택된 인덱스의 그룹 범위를 구해서 연속 범위들의 배열로 반환.
- */
-function expandSelectionToGroups(commands: EventCommand[], indices: Set<number>): [number, number][] {
-  if (indices.size === 0) return [];
-  const expanded = new Set<number>();
-  for (const idx of indices) {
-    const [start, end] = getCommandGroupRange(commands, idx);
-    for (let i = start; i <= end; i++) expanded.add(i);
-  }
-  // 연속 범위로 병합
-  const sorted = [...expanded].sort((a, b) => a - b);
-  const ranges: [number, number][] = [];
-  let rangeStart = sorted[0];
-  let rangeEnd = sorted[0];
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i] === rangeEnd + 1) {
-      rangeEnd = sorted[i];
-    } else {
-      ranges.push([rangeStart, rangeEnd]);
-      rangeStart = sorted[i];
-      rangeEnd = sorted[i];
-    }
-  }
-  ranges.push([rangeStart, rangeEnd]);
-  return ranges;
-}
 
 // 내부 클립보드 (컴포넌트 외부에 두어 리렌더 없이 유지)
 let commandClipboard: EventCommand[] = [];
@@ -170,8 +35,6 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [lastClickedIndex, setLastClickedIndex] = useState(-1);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [commandFilter, setCommandFilter] = useState('');
-  const commandFilterRef = useRef<HTMLInputElement>(null);
   const [pendingCode, setPendingCode] = useState<number | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [hasClipboard, setHasClipboard] = useState(commandClipboard.length > 0);
@@ -185,102 +48,6 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
   const undoStack = useRef<EventCommand[][]>([]);
   const redoStack = useRef<EventCommand[][]>([]);
-
-  const COMMAND_CATEGORIES = useMemo(() => ({
-    [t('eventCommands.categories.tab1Messages')]: [
-      { code: 101, name: t('eventCommands.commands.101') },
-      { code: 102, name: t('eventCommands.commands.102') },
-      { code: 103, name: t('eventCommands.commands.103') },
-      { code: 104, name: t('eventCommands.commands.104') },
-      { code: 105, name: t('eventCommands.commands.105') },
-    ],
-    [t('eventCommands.categories.tab1FlowControl')]: [
-      { code: 111, name: t('eventCommands.commands.111') },
-      { code: 112, name: t('eventCommands.commands.112') },
-      { code: 113, name: t('eventCommands.commands.113') },
-      { code: 115, name: t('eventCommands.commands.115') },
-      { code: 117, name: t('eventCommands.commands.117') },
-      { code: 118, name: t('eventCommands.commands.118') },
-      { code: 119, name: t('eventCommands.commands.119') },
-      { code: 108, name: t('eventCommands.commands.108') },
-    ],
-    [t('eventCommands.categories.tab1GameProgression')]: [
-      { code: 121, name: t('eventCommands.commands.121') },
-      { code: 122, name: t('eventCommands.commands.122') },
-      { code: 123, name: t('eventCommands.commands.123') },
-      { code: 124, name: t('eventCommands.commands.124') },
-    ],
-    [t('eventCommands.categories.tab2Party')]: [
-      { code: 125, name: t('eventCommands.commands.125') },
-      { code: 126, name: t('eventCommands.commands.126') },
-      { code: 127, name: t('eventCommands.commands.127') },
-      { code: 128, name: t('eventCommands.commands.128') },
-      { code: 129, name: t('eventCommands.commands.129') },
-    ],
-    [t('eventCommands.categories.tab2Actor')]: [
-      { code: 311, name: t('eventCommands.commands.311') },
-      { code: 312, name: t('eventCommands.commands.312') },
-      { code: 313, name: t('eventCommands.commands.313') },
-      { code: 314, name: t('eventCommands.commands.314') },
-      { code: 315, name: t('eventCommands.commands.315') },
-      { code: 316, name: t('eventCommands.commands.316') },
-      { code: 317, name: t('eventCommands.commands.317') },
-      { code: 318, name: t('eventCommands.commands.318') },
-      { code: 319, name: t('eventCommands.commands.319') },
-      { code: 320, name: t('eventCommands.commands.320') },
-      { code: 321, name: t('eventCommands.commands.321') },
-      { code: 322, name: t('eventCommands.commands.322') },
-    ],
-    [t('eventCommands.categories.tab2Movement')]: [
-      { code: 201, name: t('eventCommands.commands.201') },
-      { code: 202, name: t('eventCommands.commands.202') },
-      { code: 203, name: t('eventCommands.commands.203') },
-      { code: 204, name: t('eventCommands.commands.204') },
-      { code: 205, name: t('eventCommands.commands.205') },
-      { code: 206, name: t('eventCommands.commands.206') },
-    ],
-    [t('eventCommands.categories.tab3Screen')]: [
-      { code: 221, name: t('eventCommands.commands.221') },
-      { code: 222, name: t('eventCommands.commands.222') },
-      { code: 223, name: t('eventCommands.commands.223') },
-      { code: 224, name: t('eventCommands.commands.224') },
-      { code: 225, name: t('eventCommands.commands.225') },
-      { code: 230, name: t('eventCommands.commands.230') },
-    ],
-    [t('eventCommands.categories.tab3PictureWeather')]: [
-      { code: 231, name: t('eventCommands.commands.231') },
-      { code: 232, name: t('eventCommands.commands.232') },
-      { code: 233, name: t('eventCommands.commands.233') },
-      { code: 234, name: t('eventCommands.commands.234') },
-      { code: 235, name: t('eventCommands.commands.235') },
-      { code: 236, name: t('eventCommands.commands.236') },
-    ],
-    [t('eventCommands.categories.tab3AudioVideo')]: [
-      { code: 241, name: t('eventCommands.commands.241') },
-      { code: 242, name: t('eventCommands.commands.242') },
-      { code: 243, name: t('eventCommands.commands.243') },
-      { code: 244, name: t('eventCommands.commands.244') },
-      { code: 245, name: t('eventCommands.commands.245') },
-      { code: 246, name: t('eventCommands.commands.246') },
-      { code: 249, name: t('eventCommands.commands.249') },
-      { code: 250, name: t('eventCommands.commands.250') },
-      { code: 251, name: t('eventCommands.commands.251') },
-      { code: 261, name: t('eventCommands.commands.261') },
-    ],
-    [t('eventCommands.categories.tab3SceneControl')]: [
-      { code: 301, name: t('eventCommands.commands.301') },
-      { code: 302, name: t('eventCommands.commands.302') },
-      { code: 303, name: t('eventCommands.commands.303') },
-      { code: 351, name: t('eventCommands.commands.351') },
-      { code: 352, name: t('eventCommands.commands.352') },
-      { code: 353, name: t('eventCommands.commands.353') },
-      { code: 354, name: t('eventCommands.commands.354') },
-    ],
-    [t('eventCommands.categories.tab3Advanced')]: [
-      { code: 355, name: t('eventCommands.commands.355') },
-      { code: 356, name: t('eventCommands.commands.356') },
-    ],
-  }), [t]);
 
   // 단일 선택 편의: 선택된 항목 중 가장 작은 인덱스 (삽입 위치 등에 사용)
   const primaryIndex = useMemo(() => {
@@ -865,55 +632,10 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       </div>
 
       {showAddDialog && (
-        <div className="modal-overlay" onClick={() => { setShowAddDialog(false); setCommandFilter(''); }}>
-          <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: 'calc(100vw - 40px)', height: 'calc(100vh - 40px)' }}>
-            <div className="image-picker-header">{t('eventCommands.insertCommand')}</div>
-            <div className="command-filter-box">
-              <input
-                ref={commandFilterRef}
-                type="text"
-                className="command-filter-input"
-                placeholder={t('eventCommands.filterPlaceholder')}
-                value={commandFilter}
-                onChange={e => setCommandFilter(e.target.value)}
-                autoFocus
-              />
-              {commandFilter && (
-                <button className="command-filter-clear" onClick={() => { setCommandFilter(''); commandFilterRef.current?.focus(); }}>×</button>
-              )}
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
-              {(() => {
-                const filtered = Object.entries(COMMAND_CATEGORIES).map(([category, cmds]) => {
-                  const matched = cmds.filter(c => fuzzyMatch(c.name, commandFilter) || fuzzyMatch(category, commandFilter));
-                  return { category, matched };
-                }).filter(g => g.matched.length > 0);
-                if (filtered.length === 0) {
-                  return <div style={{ padding: 16, textAlign: 'center', color: '#888' }}>{t('eventCommands.noResults')}</div>;
-                }
-                return filtered.map(({ category, matched }) => (
-                  <div key={category}>
-                    <div style={{ fontWeight: 'bold', fontSize: 12, color: '#4ea6f5', padding: '8px 8px 4px', borderBottom: '1px solid #444', background: '#333' }}>{category}</div>
-                    <div className="insert-command-grid">
-                      {matched.map(c => (
-                        <div
-                          key={c.code}
-                          className="insert-command-item"
-                          onClick={() => handleCommandSelect(c.code)}
-                        >
-                          {c.name}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
-            <div className="image-picker-footer">
-              <button className="db-btn" onClick={() => { setShowAddDialog(false); setCommandFilter(''); }}>{t('common.cancel')}</button>
-            </div>
-          </div>
-        </div>
+        <CommandInsertDialog
+          onSelect={handleCommandSelect}
+          onCancel={() => setShowAddDialog(false)}
+        />
       )}
 
       {/* Parameter editor for new commands */}
