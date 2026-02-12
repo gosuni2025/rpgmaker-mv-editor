@@ -376,8 +376,11 @@ export function useThreeRenderer(
         if (state.depthOfField !== prevState.depthOfField) {
           requestRender();
         }
-        if (state.shadowLight && state.currentMap?.editorLights !== prevState.currentMap?.editorLights) {
-          syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
+        if (state.currentMap?.editorLights !== prevState.currentMap?.editorLights) {
+          w.$dataMap.editorLights = state.currentMap?.editorLights;
+          if (state.shadowLight) {
+            syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
+          }
           requestRender();
         }
       });
