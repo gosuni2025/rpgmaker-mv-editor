@@ -6050,29 +6050,21 @@ Game_Map.prototype.updateCameraZoneDetection = function() {
     if (!player) return;
     var px = player.x;
     var py = player.y;
-    var currentZone = null;
-    var bestPriority = -Infinity;
+    if (!this._insideCameraZoneIds) this._insideCameraZoneIds = {};
     for (var i = 0; i < zones.length; i++) {
         var z = zones[i];
         if (!z.enabled) continue;
-        if (px >= z.x && px < z.x + z.width && py >= z.y && py < z.y + z.height) {
-            if (z.priority > bestPriority) {
-                bestPriority = z.priority;
-                currentZone = z;
-            }
+        var inside = px >= z.x && px < z.x + z.width && py >= z.y && py < z.y + z.height;
+        var wasInside = !!this._insideCameraZoneIds[z.id];
+        if (inside && !wasInside) {
+            console.log('[CameraZone] 진입: "' + z.name + '" (id=' + z.id +
+                ', rect=' + z.x + ',' + z.y + ' ' + z.width + 'x' + z.height +
+                ', zoom=' + z.zoom + ', tilt=' + z.tilt + ', yaw=' + z.yaw + ')');
+            this._insideCameraZoneIds[z.id] = true;
+        } else if (!inside && wasInside) {
+            console.log('[CameraZone] 이탈: "' + z.name + '" (id=' + z.id + ')');
+            delete this._insideCameraZoneIds[z.id];
         }
-    }
-    var prevId = this._currentCameraZoneId || 0;
-    var newId = currentZone ? currentZone.id : 0;
-    if (newId !== prevId) {
-        if (currentZone) {
-            console.log('[CameraZone] 진입: "' + currentZone.name + '" (id=' + currentZone.id +
-                ', rect=' + currentZone.x + ',' + currentZone.y + ' ' + currentZone.width + 'x' + currentZone.height +
-                ', zoom=' + currentZone.zoom + ', tilt=' + currentZone.tilt + ', yaw=' + currentZone.yaw + ')');
-        } else {
-            console.log('[CameraZone] 이탈: 존 밖으로 나감');
-        }
-        this._currentCameraZoneId = newId;
     }
 };
 
