@@ -228,3 +228,33 @@
 .passability-cell:hover {
   border-color: #aaa;
 }
+
+/* Map Inspector */
+.map-inspector-apply-btn {
+  background: #2675bf;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  flex: 1;
+}
+
+.map-inspector-apply-btn:hover {
+  background: #3085cf;
+}
+
+.map-inspector-cancel-btn {
+  background: #555;
+  color: #ccc;
+  border: none;
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.map-inspector-cancel-btn:hover {
+  background: #666;
+}

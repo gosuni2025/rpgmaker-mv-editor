@@ -30,6 +30,7 @@ import LightInspector from './components/Sidebar/LightInspector';
 import ObjectInspector from './components/Sidebar/ObjectInspector';
 import CameraZoneInspector from './components/Sidebar/CameraZoneInspector';
 import CameraZoneListPanel from './components/Sidebar/CameraZoneListPanel';
+import MapInspector from './components/Sidebar/MapInspector';
 import useFileWatcher from './hooks/useFileWatcher';
 
 function SidebarSplit({ editMode }: { editMode: string }) {
@@ -148,7 +149,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app-layout${(lightEditMode || editMode === 'object' || editMode === 'cameraZone') ? ' with-inspector' : ''}`}>
+    <div className={`app-layout${currentMap ? ' with-inspector' : ''}`}>
       <MenuBar />
 
       <div className="sidebar">
@@ -175,9 +176,12 @@ export default function App() {
         )}
       </div>
 
-      {(lightEditMode || editMode === 'object' || editMode === 'cameraZone') && (
+      {currentMap && (
         <div className="inspector-area">
-          {editMode === 'object' ? <ObjectInspector /> : editMode === 'cameraZone' ? <CameraZoneInspector /> : <LightInspector />}
+          {editMode === 'object' ? <ObjectInspector />
+            : editMode === 'cameraZone' ? <CameraZoneInspector />
+            : lightEditMode ? <LightInspector />
+            : <MapInspector />}
         </div>
       )}
 
