@@ -181,10 +181,12 @@ export default function App() {
 
       {currentMap && (
         <div className="inspector-area">
-          {editMode === 'object' ? <ObjectInspector />
-            : editMode === 'cameraZone' ? <CameraZoneInspector />
-            : lightEditMode ? <LightInspector />
-            : <MapInspector />}
+          <ResizablePanel defaultWidth={280} minWidth={200} maxWidth={500} side="left">
+            {editMode === 'object' ? <ObjectInspector />
+              : editMode === 'cameraZone' ? <CameraZoneInspector />
+              : lightEditMode ? <LightInspector />
+              : <MapInspector />}
+          </ResizablePanel>
         </div>
       )}
 

@@ -33,6 +33,7 @@ export interface MapData {
   parallaxSx: number;
   parallaxSy: number;
   scrollType: number;
+  disableDashing: boolean;
   specifyBattleback: boolean;
   battleback1Name: string;
   battleback2Name: string;

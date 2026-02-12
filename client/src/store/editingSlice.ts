@@ -105,7 +105,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   redo: () => redoOperation(get, set),
 
   resizeMap: (newWidth: number, newHeight: number, offsetX: number, offsetY: number) => {
-    const { currentMap, currentMapId, undoStack, showToast } = get();
+    const { currentMap, currentMapId, undoStack, systemData, showToast } = get();
     if (!currentMap || !currentMapId) return;
     const { width: oldW, height: oldH, data: oldData, events: oldEvents } = currentMap;
     if (newWidth === oldW && newHeight === oldH && offsetX === 0 && offsetY === 0) return;
@@ -114,8 +114,16 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     const newData = resizeMapData(oldData, oldW, oldH, nw, nh, offsetX, offsetY);
     const newEvents = resizeEvents(oldEvents, nw, nh, offsetX, offsetY);
 
-    // Offset lights, objects, camera zones
+    // Save old state for undo
+    const oldEditorLights = currentMap.editorLights;
+    const oldObjects = currentMap.objects;
+    const oldCameraZones = currentMap.cameraZones;
+    const oldStartX = systemData?.startX;
+    const oldStartY = systemData?.startY;
+
+    // Offset lights, objects, camera zones, start position
     const updates: Record<string, unknown> = { width: nw, height: nh, data: newData, events: newEvents };
+    const stateUpdates: Partial<EditorState> = {};
     if (offsetX !== 0 || offsetY !== 0) {
       if (currentMap.editorLights?.points) {
         updates.editorLights = {
@@ -129,13 +137,28 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       if (currentMap.cameraZones) {
         updates.cameraZones = currentMap.cameraZones.map((z: CameraZone) => ({ ...z, x: z.x + offsetX, y: z.y + offsetY }));
       }
+      // Offset player start position if on this map
+      if (systemData && systemData.startMapId === currentMapId) {
+        stateUpdates.systemData = {
+          ...systemData,
+          startX: systemData.startX + offsetX,
+          startY: systemData.startY + offsetY,
+        };
+      }
     }
 
     const historyEntry: ResizeHistoryEntry = {
       mapId: currentMapId,
       type: 'resize',
       oldWidth: oldW, oldHeight: oldH, oldData, oldEvents,
+      oldEditorLights, oldObjects, oldCameraZones,
+      oldStartX, oldStartY,
       newWidth: nw, newHeight: nh, newData, newEvents,
+      newEditorLights: (updates.editorLights ?? currentMap.editorLights) as any,
+      newObjects: (updates.objects ?? currentMap.objects) as any,
+      newCameraZones: (updates.cameraZones ?? currentMap.cameraZones) as any,
+      newStartX: stateUpdates.systemData?.startX ?? systemData?.startX,
+      newStartY: stateUpdates.systemData?.startY ?? systemData?.startY,
     };
     const newStack = [...undoStack, historyEntry];
     if (newStack.length > get().maxUndo) newStack.shift();
@@ -143,6 +166,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       currentMap: { ...currentMap, ...updates },
       undoStack: newStack,
       redoStack: [],
+      ...stateUpdates,
     });
     showToast(`맵 크기 변경 ${oldW}x${oldH} → ${nw}x${nh}`);
   },

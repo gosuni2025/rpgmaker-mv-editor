@@ -39,7 +39,7 @@ input, textarea, [contenteditable="true"] {
     "sidebar main inspector"
     "statusbar statusbar statusbar";
   grid-template-rows: 28px auto 1fr 24px;
-  grid-template-columns: auto 1fr 280px;
+  grid-template-columns: auto 1fr auto;
 }
 
 .toolbar-area {

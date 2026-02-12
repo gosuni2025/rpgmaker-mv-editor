@@ -27,10 +27,20 @@ export interface ResizeHistoryEntry {
   oldHeight: number;
   oldData: number[];
   oldEvents: (RPGEvent | null)[];
+  oldEditorLights?: EditorLights;
+  oldObjects?: MapObject[];
+  oldCameraZones?: CameraZone[];
+  oldStartX?: number;
+  oldStartY?: number;
   newWidth: number;
   newHeight: number;
   newData: number[];
   newEvents: (RPGEvent | null)[];
+  newEditorLights?: EditorLights;
+  newObjects?: MapObject[];
+  newCameraZones?: CameraZone[];
+  newStartX?: number;
+  newStartY?: number;
 }
 
 export interface ObjectHistoryEntry {

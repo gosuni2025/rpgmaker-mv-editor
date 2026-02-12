@@ -16,13 +16,29 @@ export function undoOperation(get: GetFn, set: SetFn) {
       mapId: currentMapId,
       type: 'resize',
       oldWidth: re.newWidth, oldHeight: re.newHeight, oldData: re.newData, oldEvents: re.newEvents,
+      oldEditorLights: re.newEditorLights, oldObjects: re.newObjects, oldCameraZones: re.newCameraZones,
+      oldStartX: re.newStartX, oldStartY: re.newStartY,
       newWidth: re.oldWidth, newHeight: re.oldHeight, newData: re.oldData, newEvents: re.oldEvents,
+      newEditorLights: re.oldEditorLights, newObjects: re.oldObjects, newCameraZones: re.oldCameraZones,
+      newStartX: re.oldStartX, newStartY: re.oldStartY,
     };
-    set({
-      currentMap: { ...currentMap, width: re.oldWidth, height: re.oldHeight, data: re.oldData, events: re.oldEvents },
+    const mapUpdates: Record<string, unknown> = {
+      width: re.oldWidth, height: re.oldHeight, data: re.oldData, events: re.oldEvents,
+    };
+    if (re.oldEditorLights !== undefined) mapUpdates.editorLights = re.oldEditorLights;
+    if (re.oldObjects !== undefined) mapUpdates.objects = re.oldObjects;
+    if (re.oldCameraZones !== undefined) mapUpdates.cameraZones = re.oldCameraZones;
+    const stateUpdates: Partial<EditorState> = {
+      currentMap: { ...currentMap, ...mapUpdates } as any,
       undoStack: undoStack.slice(0, -1),
       redoStack: [...get().redoStack, redoEntry],
-    });
+    };
+    // Restore player start position
+    const { systemData } = get();
+    if (systemData && re.oldStartX !== undefined && re.oldStartY !== undefined && systemData.startMapId === currentMapId) {
+      stateUpdates.systemData = { ...systemData, startX: re.oldStartX, startY: re.oldStartY };
+    }
+    set(stateUpdates);
     showToast(`실행 취소 (맵 크기 ${re.oldWidth}x${re.oldHeight})`);
     return;
   }
@@ -151,13 +167,29 @@ export function redoOperation(get: GetFn, set: SetFn) {
       mapId: currentMapId,
       type: 'resize',
       oldWidth: re.newWidth, oldHeight: re.newHeight, oldData: re.newData, oldEvents: re.newEvents,
+      oldEditorLights: re.newEditorLights, oldObjects: re.newObjects, oldCameraZones: re.newCameraZones,
+      oldStartX: re.newStartX, oldStartY: re.newStartY,
       newWidth: re.oldWidth, newHeight: re.oldHeight, newData: re.oldData, newEvents: re.oldEvents,
+      newEditorLights: re.oldEditorLights, newObjects: re.oldObjects, newCameraZones: re.oldCameraZones,
+      newStartX: re.oldStartX, newStartY: re.oldStartY,
     };
-    set({
-      currentMap: { ...currentMap, width: re.oldWidth, height: re.oldHeight, data: re.oldData, events: re.oldEvents },
+    const mapUpdates: Record<string, unknown> = {
+      width: re.oldWidth, height: re.oldHeight, data: re.oldData, events: re.oldEvents,
+    };
+    if (re.oldEditorLights !== undefined) mapUpdates.editorLights = re.oldEditorLights;
+    if (re.oldObjects !== undefined) mapUpdates.objects = re.oldObjects;
+    if (re.oldCameraZones !== undefined) mapUpdates.cameraZones = re.oldCameraZones;
+    const stateUpdates: Partial<EditorState> = {
+      currentMap: { ...currentMap, ...mapUpdates } as any,
       redoStack: redoStack.slice(0, -1),
       undoStack: [...get().undoStack, undoEntry],
-    });
+    };
+    // Restore player start position
+    const { systemData } = get();
+    if (systemData && re.oldStartX !== undefined && re.oldStartY !== undefined && systemData.startMapId === currentMapId) {
+      stateUpdates.systemData = { ...systemData, startX: re.oldStartX, startY: re.oldStartY };
+    }
+    set(stateUpdates);
     showToast(`다시 실행 (맵 크기 ${re.oldWidth}x${re.oldHeight})`);
     return;
   }

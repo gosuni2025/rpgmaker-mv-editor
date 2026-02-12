@@ -321,3 +321,48 @@
   color: #4af;
   font-weight: bold;
 }
+
+.map-inspector-select {
+  width: 100%;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+}
+
+.map-inspector-select:focus {
+  border-color: #2675bf;
+  outline: none;
+}
+
+.map-inspector-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #ccc;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+
+.map-inspector-checkbox input[type="checkbox"] {
+  accent-color: #2675bf;
+}
+
+.map-inspector-textarea {
+  width: 100%;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 6px;
+  color: #ddd;
+  font-size: 12px;
+  resize: vertical;
+}
+
+.map-inspector-textarea:focus {
+  border-color: #2675bf;
+  outline: none;
+}
