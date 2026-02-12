@@ -217,7 +217,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
           <div className="event-editor-body">
             {/* Left panel */}
             <div className="event-editor-left">
-              {/* Conditions */}
+              {/* Row 1: Conditions (full width) */}
               <fieldset className="event-editor-fieldset">
                 <legend>{t('fields.conditions')}</legend>
                 <div className="event-editor-condition-row">
@@ -268,49 +268,49 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                 </div>
               </fieldset>
 
-              {/* Image */}
-              <fieldset className="event-editor-fieldset">
-                <legend>{t('eventDetail.image')}</legend>
-                <ImagePicker
-                  type="characters"
-                  value={page.image.characterName || ''}
-                  onChange={(name) => updateImage({ characterName: name })}
-                  index={page.image.characterIndex}
-                  onIndexChange={(idx) => updateImage({ characterIndex: idx })}
-                  direction={page.image.direction}
-                  onDirectionChange={(dir) => updateImage({ direction: dir })}
-                  pattern={page.image.pattern}
-                  onPatternChange={(pat) => updateImage({ pattern: pat })}
-                />
-              </fieldset>
+              {/* Row 2: Image (left) + Autonomous Movement (right) */}
+              <div className="event-editor-hrow">
+                <fieldset className="event-editor-fieldset event-editor-fieldset-half">
+                  <legend>{t('eventDetail.image')}</legend>
+                  <ImagePicker
+                    type="characters"
+                    value={page.image.characterName || ''}
+                    onChange={(name) => updateImage({ characterName: name })}
+                    index={page.image.characterIndex}
+                    onIndexChange={(idx) => updateImage({ characterIndex: idx })}
+                    direction={page.image.direction}
+                    onDirectionChange={(dir) => updateImage({ direction: dir })}
+                    pattern={page.image.pattern}
+                    onPatternChange={(pat) => updateImage({ pattern: pat })}
+                  />
+                </fieldset>
+                <fieldset className="event-editor-fieldset event-editor-fieldset-half">
+                  <legend>{t('eventDetail.autonomousMovement')}</legend>
+                  <div className="event-editor-form-row">
+                    <span className="event-editor-form-label">{t('eventDetail.type')}:</span>
+                    <select value={page.moveType} onChange={(e) => updatePage(activePage, { moveType: Number(e.target.value) })} className="event-editor-select">
+                      {MOVE_TYPES.map((label, i) => <option key={i} value={i}>{label}</option>)}
+                    </select>
+                  </div>
+                  <div className="event-editor-form-row">
+                    <span className="event-editor-form-label">{t('fields.speed')}:</span>
+                    <select value={page.moveSpeed - 1} onChange={(e) => updatePage(activePage, { moveSpeed: Number(e.target.value) + 1 })} className="event-editor-select">
+                      {MOVE_SPEEDS.map((label, i) => <option key={i} value={i}>{label}</option>)}
+                    </select>
+                  </div>
+                  <div className="event-editor-form-row">
+                    <span className="event-editor-form-label">{t('eventDetail.frequency')}:</span>
+                    <select value={page.moveFrequency - 1} onChange={(e) => updatePage(activePage, { moveFrequency: Number(e.target.value) + 1 })} className="event-editor-select">
+                      {MOVE_FREQS.map((label, i) => <option key={i} value={i}>{label}</option>)}
+                    </select>
+                  </div>
+                </fieldset>
+              </div>
 
-              {/* Autonomous Movement */}
-              <fieldset className="event-editor-fieldset">
-                <legend>{t('eventDetail.autonomousMovement')}</legend>
-                <div className="event-editor-form-row">
-                  <span className="event-editor-form-label">{t('eventDetail.type')}:</span>
-                  <select value={page.moveType} onChange={(e) => updatePage(activePage, { moveType: Number(e.target.value) })} className="event-editor-select">
-                    {MOVE_TYPES.map((label, i) => <option key={i} value={i}>{label}</option>)}
-                  </select>
-                </div>
-                <div className="event-editor-form-row">
-                  <span className="event-editor-form-label">{t('fields.speed')}:</span>
-                  <select value={page.moveSpeed - 1} onChange={(e) => updatePage(activePage, { moveSpeed: Number(e.target.value) + 1 })} className="event-editor-select">
-                    {MOVE_SPEEDS.map((label, i) => <option key={i} value={i}>{label}</option>)}
-                  </select>
-                </div>
-                <div className="event-editor-form-row">
-                  <span className="event-editor-form-label">{t('eventDetail.frequency')}:</span>
-                  <select value={page.moveFrequency - 1} onChange={(e) => updatePage(activePage, { moveFrequency: Number(e.target.value) + 1 })} className="event-editor-select">
-                    {MOVE_FREQS.map((label, i) => <option key={i} value={i}>{label}</option>)}
-                  </select>
-                </div>
-              </fieldset>
-
-              {/* Options */}
-              <fieldset className="event-editor-fieldset">
-                <legend>{t('eventDetail.options')}</legend>
-                <div className="event-editor-options-grid">
+              {/* Row 3: Options (left) + Priority (right) */}
+              <div className="event-editor-hrow">
+                <fieldset className="event-editor-fieldset event-editor-fieldset-half">
+                  <legend>{t('eventDetail.options')}</legend>
                   <label className="event-editor-checkbox">
                     <input type="checkbox" checked={page.walkAnime} onChange={(e) => updatePage(activePage, { walkAnime: e.target.checked })} />
                     {t('eventDetail.walkingAnimation')}
@@ -327,24 +327,22 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                     <input type="checkbox" checked={page.through} onChange={(e) => updatePage(activePage, { through: e.target.checked })} />
                     {t('eventDetail.through')}
                   </label>
-                </div>
-              </fieldset>
-
-              {/* Priority & Trigger - side by side like original */}
-              <div className="event-editor-bottom-row">
+                </fieldset>
                 <fieldset className="event-editor-fieldset event-editor-fieldset-half">
-                  <legend>{t('eventDetail.priority', '우선도')}</legend>
+                  <legend>{t('eventDetail.priority', '우선권')}</legend>
                   <select value={page.priorityType} onChange={(e) => updatePage(activePage, { priorityType: Number(e.target.value) })} className="event-editor-select" style={{ width: '100%' }}>
                     {PRIORITY_TYPES.map((label, i) => <option key={i} value={i}>{label}</option>)}
                   </select>
                 </fieldset>
-                <fieldset className="event-editor-fieldset event-editor-fieldset-half">
-                  <legend>{t('eventDetail.trigger', '트리거')}</legend>
-                  <select value={page.trigger} onChange={(e) => updatePage(activePage, { trigger: Number(e.target.value) })} className="event-editor-select" style={{ width: '100%' }}>
-                    {TRIGGER_TYPES.map((label, i) => <option key={i} value={i}>{label}</option>)}
-                  </select>
-                </fieldset>
               </div>
+
+              {/* Row 4: Trigger (full width) */}
+              <fieldset className="event-editor-fieldset">
+                <legend>{t('eventDetail.trigger', '발동')}</legend>
+                <select value={page.trigger} onChange={(e) => updatePage(activePage, { trigger: Number(e.target.value) })} className="event-editor-select" style={{ width: '100%' }}>
+                  {TRIGGER_TYPES.map((label, i) => <option key={i} value={i}>{label}</option>)}
+                </select>
+              </fieldset>
             </div>
 
             {/* Right panel - Event commands */}
