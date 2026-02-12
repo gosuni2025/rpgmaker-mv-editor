@@ -4,7 +4,7 @@ import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, AudioEditor,
-  ChangePartyMemberEditor, ChangeNameEditor, ShowChoicesEditor, InputNumberEditor,
+  ChangePartyMemberEditor, ChangeNameEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor,
 } from './commandEditors';
 
 interface CommandParamEditorProps {
@@ -65,6 +65,7 @@ function getEditorContent(
   switch (code) {
     case 102: return <ShowChoicesEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 103: return <InputNumberEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 104: return <SelectItemEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 101: return <ShowTextEditor p={p} onOk={onOk} onCancel={onCancel} existingLines={followText(401)} />;
     case 108: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={408} label="Comment" existingLines={followText(408)} />;
     case 355: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={655} label="Script" existingLines={followText(655)} />;

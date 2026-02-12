@@ -514,6 +514,38 @@ export function InputNumberEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
 }
 
 /**
+ * Select Item Editor (Command 104)
+ * RPG Maker MV 파라미터: [variableId, itemType]
+ * - variableId: 선택된 아이템 ID를 저장할 변수 ID
+ * - itemType: 아이템 유형 (1: 상비 아이템, 2: 핵심 아이템, 3: 숨겨진 아이템 A, 4: 숨겨진 아이템 B)
+ */
+export function SelectItemEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [variableId, setVariableId] = useState<number>((p[0] as number) || 1);
+  const [itemType, setItemType] = useState<number>((p[1] as number) || 1);
+  return (
+    <>
+      <label style={{ fontSize: 12, color: '#aaa' }}>
+        변수:
+        <input type="number" value={variableId} onChange={e => setVariableId(Math.max(1, Number(e.target.value)))} min={1} style={{ ...selectStyle, width: 120 }} />
+      </label>
+      <label style={{ fontSize: 12, color: '#aaa' }}>
+        아이템 유형:
+        <select value={itemType} onChange={e => setItemType(Number(e.target.value))} style={{ ...selectStyle, width: 180 }}>
+          <option value={1}>상비 아이템</option>
+          <option value={2}>핵심 아이템</option>
+          <option value={3}>숨겨진 아이템 A</option>
+          <option value={4}>숨겨진 아이템 B</option>
+        </select>
+      </label>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([variableId, itemType])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}
+
+/**
  * Show Choices Editor (Command 102)
  * RPG Maker MV 파라미터: [choices[], cancelType, defaultType, positionType, background]
  * - choices: string[] (최대 6개)

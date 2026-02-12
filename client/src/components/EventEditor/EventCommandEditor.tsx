@@ -116,7 +116,7 @@ function getCommandGroupRange(commands: EventCommand[], index: number): [number,
 
 // Commands that need a parameter editor
 const HAS_PARAM_EDITOR = new Set([
-  101, 102, 103, 105, 108, 117, 118, 119, 121, 122, 123, 124, 125, 126, 127, 128, 129,
+  101, 102, 103, 104, 105, 108, 117, 118, 119, 121, 122, 123, 124, 125, 126, 127, 128, 129,
   201, 230, 241, 242, 245, 246, 249, 250, 321, 325, 355, 356,
 ]);
 
