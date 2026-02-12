@@ -451,3 +451,28 @@
   border-radius: 3px;
   letter-spacing: 0.5px;
 }
+
+/* Sky help popup */
+.sky-help-popup {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: #2a2a3a;
+  border: 1px solid #6a3fb5;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #ccc;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.sky-help-popup strong {
+  color: #b89aed;
+}
+
+.sky-help-popup code {
+  background: #3a3a4a;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 10px;
+  color: #aad;
+}
