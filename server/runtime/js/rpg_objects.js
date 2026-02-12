@@ -6269,7 +6269,7 @@ Game_Map.prototype._getActiveZoneBounds = function() {
 };
 
 // 바운딩 박스 기준으로 display clamp 목표 좌표 계산 (공통 헬퍼)
-// 3D 모드: frustum이 Z=0 평면에 투영된 영역 기준으로 클램핑
+// 3D 모드: frustum 마진을 반영하여 displayXY 범위 계산
 // 2D 모드: displayX/Y + screenTileX/Y 기준으로 클램핑
 Game_Map.prototype._calcClampTarget = function(bounds) {
     if (!bounds) return null;
@@ -6281,66 +6281,56 @@ Game_Map.prototype._calcClampTarget = function(bounds) {
     this._clampLogCounter = (this._clampLogCounter || 0) + 1;
     var shouldLog = (this._clampLogCounter % 60 === 0);
 
-    // 3D 모드: frustum 투영 영역 기준 클램핑
+    // 3D 모드: frustum 마진 기반 클램핑
+    // frustum 마진 = frustum이 display 사각형에 비해 각 방향으로 얼마나 더 보이는지
+    // 이 마진은 tilt/yaw/fov에만 의존, displayXY와 무관 (고정값)
     if (window.Mode3D && Mode3D._active && Mode3D._perspCamera) {
-        var fb = Mode3D.getFrustumTileBounds(
-            this._displayX, this._displayY,
-            this.tileWidth(), this.tileHeight()
-        );
-        if (fb) {
-            var viewW = fb.maxTX - fb.minTX;
-            var viewH = fb.maxTY - fb.minTY;
+        var margins = Mode3D.getFrustumMargins(this.tileWidth(), this.tileHeight());
+        if (margins) {
+            // frustum이 보이는 전체 크기 (타일 단위)
+            var viewW = margins.left + this.screenTileX() + margins.right;
+            var viewH = margins.top + this.screenTileY() + margins.bottom;
+
+            // displayXY 허용 범위:
+            // frustum 좌측 끝 = displayX - margins.left >= bounds.x
+            //   → displayX >= bounds.x + margins.left
+            // frustum 우측 끝 = displayX + screenTileX + margins.right <= bounds.x + bounds.width
+            //   → displayX <= bounds.x + bounds.width - screenTileX - margins.right
+            var screenW = this.screenTileX();
+            var screenH = this.screenTileY();
+
+            if (bounds.width >= viewW) {
+                var minDX = bounds.x + margins.left;
+                var maxDX = bounds.x + bounds.width - screenW - margins.right;
+                targetX = Math.max(minDX, Math.min(maxDX, this._displayX));
+            } else {
+                // 존이 뷰보다 작으면 중앙 정렬
+                targetX = bounds.x + bounds.width / 2 - screenW / 2;
+            }
+
+            if (bounds.height >= viewH) {
+                var minDY = bounds.y + margins.top;
+                var maxDY = bounds.y + bounds.height - screenH - margins.bottom;
+                targetY = Math.max(minDY, Math.min(maxDY, this._displayY));
+            } else {
+                targetY = bounds.y + bounds.height / 2 - screenH / 2;
+            }
 
             if (shouldLog) {
                 console.log('[CameraZone] 3D _calcClampTarget',
                     '\n  bounds:', JSON.stringify(bounds),
-                    '\n  frustum:', JSON.stringify({minTX: fb.minTX.toFixed(2), minTY: fb.minTY.toFixed(2), maxTX: fb.maxTX.toFixed(2), maxTY: fb.maxTY.toFixed(2)}),
+                    '\n  margins:', JSON.stringify({l: margins.left.toFixed(2), r: margins.right.toFixed(2), t: margins.top.toFixed(2), b: margins.bottom.toFixed(2)}),
                     '\n  viewSize:', viewW.toFixed(2), 'x', viewH.toFixed(2),
-                    '\n  displayXY:', this._displayX.toFixed(2), this._displayY.toFixed(2)
-                );
-            }
-
-            if (bounds.width >= viewW) {
-                if (fb.minTX < bounds.x) {
-                    targetX += bounds.x - fb.minTX;
-                }
-                else if (fb.maxTX > bounds.x + bounds.width) {
-                    targetX -= fb.maxTX - (bounds.x + bounds.width);
-                }
-            } else {
-                var centerX = bounds.x + bounds.width / 2;
-                var viewCenterX = (fb.minTX + fb.maxTX) / 2;
-                targetX += centerX - viewCenterX;
-            }
-
-            if (bounds.height >= viewH) {
-                if (fb.minTY < bounds.y) {
-                    targetY += bounds.y - fb.minTY;
-                }
-                else if (fb.maxTY > bounds.y + bounds.height) {
-                    targetY -= fb.maxTY - (bounds.y + bounds.height);
-                }
-            } else {
-                var centerY = bounds.y + bounds.height / 2;
-                var viewCenterY = (fb.minTY + fb.maxTY) / 2;
-                targetY += centerY - viewCenterY;
-            }
-
-            if (shouldLog && (Math.abs(targetX - this._displayX) > 0.001 || Math.abs(targetY - this._displayY) > 0.001)) {
-                console.log('[CameraZone] 3D clamp APPLIED',
-                    '\n  before:', this._displayX.toFixed(2), this._displayY.toFixed(2),
-                    '\n  after:', targetX.toFixed(2), targetY.toFixed(2),
-                    '\n  delta:', (targetX - this._displayX).toFixed(4), (targetY - this._displayY).toFixed(4)
+                    '\n  displayXY:', this._displayX.toFixed(2), this._displayY.toFixed(2),
+                    '\n  targetXY:', targetX.toFixed(2), targetY.toFixed(2)
                 );
             }
 
             return { x: targetX, y: targetY };
-        } else if (shouldLog) {
-            console.log('[CameraZone] 3D getFrustumTileBounds returned null');
         }
     }
 
-    // 2D 모드: 기존 로직
+    // 2D 모드 (또는 3D 마진 계산 실패 시 폴백)
     var screenW = this.screenTileX();
     var screenH = this.screenTileY();
 

@@ -624,6 +624,70 @@
         return { minTX: minX, minTY: minY, maxTX: maxX, maxTY: maxY };
     };
 
+    //=========================================================================
+    // frustum 마진 계산: frustum이 display 사각형에 비해 각 방향으로 얼마나 더 보이는지
+    // tilt/yaw/fov에만 의존, displayXY와 무관 (고정값)
+    // 반환: { left, right, top, bottom } (타일 단위, 양수 = 더 보임)
+    //=========================================================================
+    Mode3D.getFrustumMargins = function(tileWidth, tileHeight) {
+        var camera = this._perspCamera;
+        if (!camera) return null;
+
+        camera.updateMatrixWorld(true);
+
+        var w = Graphics.width;
+        var h = Graphics.height;
+        var screenTileX = w / tileWidth;
+        var screenTileY = h / tileHeight;
+
+        // display=(0,0)에서 frustum 가시 영역 계산
+        var samplePoints = [
+            [0, 0], [w, 0], [0, h], [w, h],
+            [w/2, 0], [0, h/2], [w, h/2], [w/2, h],
+            [0, h*0.25], [w, h*0.25],
+            [0, h*0.1], [w, h*0.1],
+            [w*0.25, h], [w*0.75, h],
+        ];
+
+        var minTX = Infinity, minTY = Infinity, maxTX = -Infinity, maxTY = -Infinity;
+        var validCount = 0;
+        for (var i = 0; i < samplePoints.length; i++) {
+            var pt = this._screenToWorldSafe(samplePoints[i][0], samplePoints[i][1]);
+            if (!pt) continue;
+            validCount++;
+            var tx = pt.x / tileWidth;
+            var ty = pt.y / tileHeight;
+            if (tx < minTX) minTX = tx;
+            if (ty < minTY) minTY = ty;
+            if (tx > maxTX) maxTX = tx;
+            if (ty > maxTY) maxTY = ty;
+        }
+
+        this._lastScreenToWorld = null;
+
+        if (validCount < 2) return null;
+
+        // 마진 = frustum이 display 사각형(0~screenTileX, 0~screenTileY)을 넘는 양
+        var marginLeft  = Math.max(0, -minTX);
+        var marginRight = Math.max(0, maxTX - screenTileX);
+        var marginTop   = Math.max(0, -minTY);
+        var marginBottom= Math.max(0, maxTY - screenTileY);
+
+        this._frustumLogCounter = (this._frustumLogCounter || 0) + 1;
+        if (this._frustumLogCounter % 120 === 1) {
+            console.log('[Mode3D] getFrustumMargins',
+                '\n  tilt:', this._tiltDeg.toFixed(1), 'yaw:', this._yawDeg.toFixed(1),
+                '\n  screenTile:', screenTileX.toFixed(1), 'x', screenTileY.toFixed(1),
+                '\n  frustumTile:', minTX.toFixed(2), minTY.toFixed(2), '~', maxTX.toFixed(2), maxTY.toFixed(2),
+                '\n  margins: L', marginLeft.toFixed(2), 'R', marginRight.toFixed(2),
+                'T', marginTop.toFixed(2), 'B', marginBottom.toFixed(2),
+                '\n  validSamples:', validCount, '/', samplePoints.length
+            );
+        }
+
+        return { left: marginLeft, right: marginRight, top: marginTop, bottom: marginBottom };
+    };
+
     // screenToWorld의 안전한 버전: t <= 0 (카메라 뒤쪽 교점) 제외
     Mode3D._screenToWorldSafe = function(screenX, screenY) {
         var camera = this._perspCamera;
