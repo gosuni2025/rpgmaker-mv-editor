@@ -41,16 +41,17 @@ interface Waypoint {
   y: number;
 }
 
-// MoveCommand 코드 → 방향 dx/dy 매핑
+// Game_Character.ROUTE_MOVE_* 코드 → 방향 dx/dy 매핑
+// 1=DOWN, 2=LEFT, 3=RIGHT, 4=UP, 5=LOWER_L, 6=LOWER_R, 7=UPPER_L, 8=UPPER_R
 const DIRECTION_MAP: Record<number, [number, number]> = {
-  1: [-1, 1],   // 좌하
-  2: [0, 1],    // 하
-  3: [1, 1],    // 우하
-  4: [-1, 0],   // 좌
-  6: [1, 0],    // 우
-  7: [-1, -1],  // 좌상
-  8: [0, -1],   // 상
-  9: [1, -1],   // 우상
+  1: [0, 1],    // ROUTE_MOVE_DOWN
+  2: [-1, 0],   // ROUTE_MOVE_LEFT
+  3: [1, 0],    // ROUTE_MOVE_RIGHT
+  4: [0, -1],   // ROUTE_MOVE_UP
+  5: [-1, 1],   // ROUTE_MOVE_LOWER_L
+  6: [1, 1],    // ROUTE_MOVE_LOWER_R
+  7: [-1, -1],  // ROUTE_MOVE_UPPER_L
+  8: [1, -1],   // ROUTE_MOVE_UPPER_R
 };
 
 function computeMoveRoutePath(startX: number, startY: number, moveRoute: MoveRoute): Waypoint[] {
@@ -62,7 +63,7 @@ function computeMoveRoutePath(startX: number, startY: number, moveRoute: MoveRou
     const code = cmd.code;
     if (code === 0) continue; // end
 
-    // 코드 1~4, 6~9: 방향 이동
+    // 코드 1~8: 방향 이동
     if (DIRECTION_MAP[code]) {
       const [dx, dy] = DIRECTION_MAP[code];
       cx += dx;
@@ -71,8 +72,8 @@ function computeMoveRoutePath(startX: number, startY: number, moveRoute: MoveRou
       continue;
     }
 
-    // 코드 5: 랜덤 이동 - 위치 예측 불가, 중단
-    if (code === 5) break;
+    // 코드 9~13: 랜덤/플레이어방향/전진/후퇴 - 위치 예측 불가, 중단
+    if (code >= 9 && code <= 13) break;
 
     // 코드 14: 점프
     if (code === 14 && cmd.parameters) {
