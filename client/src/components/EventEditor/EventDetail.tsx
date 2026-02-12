@@ -136,6 +136,11 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
     setActivePage(Math.min(activePage, pages.length - 1));
   };
 
+  const clearPage = () => {
+    const pages = editEvent.pages.map((p: EventPage, i: number) => i === activePage ? getDefaultPage() : p);
+    updateEvent({ pages });
+  };
+
   const handleOk = () => {
     if (!currentMap) return;
     const events = [...(currentMap.events || [])];
@@ -208,6 +213,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
             <button className="event-editor-page-btn" onClick={addPage}>{t('eventDetail.newPage', '새로 만들기')}</button>
             <button className="event-editor-page-btn" onClick={copyPage}>{t('common.copy')}</button>
             <button className="event-editor-page-btn" onClick={deletePage} disabled={editEvent.pages.length <= 1}>{t('common.delete')}</button>
+            <button className="event-editor-page-btn event-editor-clear-page" onClick={clearPage}>{t('eventDetail.clearPage', '이벤트 페이지 비우기')}</button>
           </div>
         </div>
 
