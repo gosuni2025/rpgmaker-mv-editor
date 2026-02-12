@@ -430,6 +430,48 @@ export function useMouseHandlers(
       }
 
       const tile = canvasToTile(e);
+      // 카메라 존 모드에서는 맵 밖 좌표도 허용 (unclamped)
+      if (editMode === 'cameraZone') {
+        const unclampedTile = canvasToTile(e, true) ?? tile;
+        if (unclampedTile) {
+          const zones = currentMap?.cameraZones || [];
+          const selectedZoneId = useEditorStore.getState().selectedCameraZoneId;
+          const selectedZone = selectedZoneId != null ? zones.find(z => z.id === selectedZoneId) : null;
+
+          if (selectedZone) {
+            const edge = detectCameraZoneEdge(unclampedTile, selectedZone);
+            if (edge) {
+              isResizingCameraZone.current = true;
+              resizeCameraZoneId.current = selectedZone.id;
+              resizeCameraZoneEdge.current = edge;
+              resizeCameraZoneOriginal.current = { x: selectedZone.x, y: selectedZone.y, width: selectedZone.width, height: selectedZone.height };
+              resizeCameraZoneStart.current = { x: unclampedTile.x, y: unclampedTile.y };
+              setCameraZoneDragPreview({ x: selectedZone.x, y: selectedZone.y, width: selectedZone.width, height: selectedZone.height });
+              startCameraZoneWindowCapture();
+              return;
+            }
+          }
+          const hitZone = zones.find(z =>
+            unclampedTile.x >= z.x && unclampedTile.x < z.x + z.width &&
+            unclampedTile.y >= z.y && unclampedTile.y < z.y + z.height
+          );
+          if (hitZone) {
+            setSelectedCameraZoneId(hitZone.id);
+            isDraggingCameraZone.current = true;
+            draggedCameraZoneId.current = hitZone.id;
+            dragCameraZoneOrigin.current = { x: unclampedTile.x, y: unclampedTile.y };
+            setCameraZoneDragPreview(null);
+            startCameraZoneWindowCapture();
+          } else {
+            setSelectedCameraZoneId(null);
+            isCreatingCameraZone.current = true;
+            createZoneStart.current = unclampedTile;
+            setCameraZoneDragPreview({ x: unclampedTile.x, y: unclampedTile.y, width: 1, height: 1 });
+            startCameraZoneWindowCapture();
+          }
+          return;
+        }
+      }
       if (!tile) return;
 
       // Alt+Click: 스포이드 (eyedropper)
@@ -602,48 +644,6 @@ export function useMouseHandlers(
           lightSelDragStart.current = tile;
           setLightSelectionStart(tile);
           setLightSelectionEnd(tile);
-        }
-        return;
-      }
-
-      if (editMode === 'cameraZone') {
-        const zones = currentMap?.cameraZones || [];
-        // 가장자리 리사이즈 감지 (선택된 존에 대해)
-        const selectedZoneId = useEditorStore.getState().selectedCameraZoneId;
-        const selectedZone = selectedZoneId != null ? zones.find(z => z.id === selectedZoneId) : null;
-
-        if (selectedZone) {
-          const edge = detectCameraZoneEdge(tile, selectedZone);
-
-          if (edge) {
-            isResizingCameraZone.current = true;
-            resizeCameraZoneId.current = selectedZone.id;
-            resizeCameraZoneEdge.current = edge;
-            resizeCameraZoneOriginal.current = { x: selectedZone.x, y: selectedZone.y, width: selectedZone.width, height: selectedZone.height };
-            resizeCameraZoneStart.current = { x: tile.x, y: tile.y };
-            setCameraZoneDragPreview({ x: selectedZone.x, y: selectedZone.y, width: selectedZone.width, height: selectedZone.height });
-            startCameraZoneWindowCapture();
-            return;
-          }
-        }
-        const hitZone = zones.find(z =>
-          tile.x >= z.x && tile.x < z.x + z.width &&
-          tile.y >= z.y && tile.y < z.y + z.height
-        );
-        if (hitZone) {
-          setSelectedCameraZoneId(hitZone.id);
-          isDraggingCameraZone.current = true;
-          draggedCameraZoneId.current = hitZone.id;
-          dragCameraZoneOrigin.current = { x: tile.x, y: tile.y };
-          setCameraZoneDragPreview(null);
-          startCameraZoneWindowCapture();
-        } else {
-          // 빈 영역: 새 존 생성 드래그 시작
-          setSelectedCameraZoneId(null);
-          isCreatingCameraZone.current = true;
-          createZoneStart.current = tile;
-          setCameraZoneDragPreview({ x: tile.x, y: tile.y, width: 1, height: 1 });
-          startCameraZoneWindowCapture();
         }
         return;
       }

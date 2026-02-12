@@ -114,25 +114,6 @@
     };
 
     //=========================================================================
-    // Tilemap._readMapData 오버라이드
-    // 3D 모드에서 맵 바깥 좌표를 가장자리로 클램핑하여
-    // perspective 뷰의 빈 공간을 가장자리 타일로 채움
-    //=========================================================================
-
-    var _Tilemap_readMapData = Tilemap.prototype._readMapData;
-    Tilemap.prototype._readMapData = function(x, y, z) {
-        if (ConfigManager.mode3d && this._mapData) {
-            var w = this._mapWidth;
-            var h = this._mapHeight;
-            if (w > 0 && h > 0) {
-                if (!this.horizontalWrap) x = Math.max(0, Math.min(x, w - 1));
-                if (!this.verticalWrap) y = Math.max(0, Math.min(y, h - 1));
-            }
-        }
-        return _Tilemap_readMapData.call(this, x, y, z);
-    };
-
-    //=========================================================================
     // Spriteset_Map 참조 저장
     //=========================================================================
 
