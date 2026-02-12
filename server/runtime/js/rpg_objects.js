@@ -5620,7 +5620,6 @@ Game_Map.prototype.setDisplayPos = function(x, y) {
         this._displayY = endY < 0 ? endY / 2 : y.clamp(0, endY);
         this._parallaxY = this._displayY;
     }
-    this.clampDisplayToZone();
 };
 
 Game_Map.prototype.parallaxOx = function() {
