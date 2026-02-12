@@ -8,6 +8,7 @@ import { useThreeRenderer } from './useThreeRenderer';
 import { useMapTools } from './useMapTools';
 import { useMouseHandlers } from './useMouseHandlers';
 import { useEventSelectionOverlays, useLightSelectionOverlays, useObjectSelectionOverlays } from './useEntitySelectionOverlays';
+import { useMoveRouteOverlay } from './useMoveRouteOverlay';
 import { useSelectionRectOverlay, usePastePreviewOverlay } from './useSelectionOverlays';
 import { useTileCursorPreview } from './useTileCursorPreview';
 import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview } from './useDragPreviewSync';
@@ -92,6 +93,7 @@ export default function MapCanvas() {
   useEventSelectionOverlays(overlayRefs, rendererReady);
   useLightSelectionOverlays(overlayRefs, rendererReady);
   useObjectSelectionOverlays(overlayRefs, rendererReady);
+  useMoveRouteOverlay(overlayRefs, hoverTile, rendererReady);
 
   // Tile cursor preview
   useTileCursorPreview(overlayRefs, hoverTile, rendererReady);
