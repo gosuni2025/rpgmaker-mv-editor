@@ -8,7 +8,6 @@ import { useThreeRenderer, type DragPreviewInfo } from './useThreeRenderer';
 import { useMapTools } from './useMapTools';
 import { useMouseHandlers } from './useMouseHandlers';
 
-console.log('[MapCanvas] MODULE LOADED', Date.now());
 
 export default function MapCanvas() {
   // DOM refs
@@ -242,15 +241,13 @@ export default function MapCanvas() {
   }, [dragPreviews, rendererReady]);
 
   // =========================================================================
-  // Camera Zone overlays (카메라 영역 오버레이)
+  // Camera Zone overlays cleanup (Three.js → HTML로 이동, 기존 메시 정리만)
   // =========================================================================
   React.useEffect(() => {
     const rObj = rendererObjRef.current;
     if (!rObj) return;
-    const THREE = (window as any).THREE;
-    if (!THREE) return;
 
-    // Dispose existing camera zone meshes
+    // Dispose existing camera zone meshes (Three.js → HTML 전환 시 정리)
     if (!(window as any)._editorCameraZoneMeshes) (window as any)._editorCameraZoneMeshes = [];
     const existing = (window as any)._editorCameraZoneMeshes as any[];
     for (const m of existing) {
@@ -261,137 +258,7 @@ export default function MapCanvas() {
     }
     existing.length = 0;
 
-    const zones = currentMap?.cameraZones;
-    const shouldShow = editMode === 'cameraZone';
-
-    if (shouldShow && zones) {
-      for (const zone of zones) {
-        const rw = zone.width * TILE_SIZE_PX;
-        const rh = zone.height * TILE_SIZE_PX;
-        const cx = zone.x * TILE_SIZE_PX + rw / 2;
-        const cy = zone.y * TILE_SIZE_PX + rh / 2;
-        const isSelected = zone.id === selectedCameraZoneId;
-        const fillColor = isSelected ? 0xff8800 : 0x2288ff;
-        const strokeColor = isSelected ? 0xffaa44 : 0x44aaff;
-
-        // Fill
-        const geom = new THREE.PlaneGeometry(rw, rh);
-        const mat = new THREE.MeshBasicMaterial({
-          color: fillColor, opacity: isSelected ? 0.25 : 0.15, transparent: true,
-          depthTest: false, side: THREE.DoubleSide,
-        });
-        const mesh = new THREE.Mesh(geom, mat);
-        mesh.position.set(cx, cy, 5);
-        mesh.renderOrder = 9990;
-        mesh.frustumCulled = false;
-        mesh.userData.editorGrid = true;
-        rObj.scene.add(mesh);
-        existing.push(mesh);
-
-        // Dashed border
-        const hw = rw / 2, hh = rh / 2;
-        const pts = [
-          new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
-          new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
-          new THREE.Vector3(-hw, -hh, 0),
-        ];
-        const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
-        const lineMat = new THREE.LineDashedMaterial({
-          color: strokeColor, depthTest: false, transparent: true,
-          opacity: 1.0, dashSize: 8, gapSize: 4,
-        });
-        const line = new THREE.Line(lineGeom, lineMat);
-        line.computeLineDistances();
-        line.position.set(cx, cy, 5.2);
-        line.renderOrder = 9991;
-        line.frustumCulled = false;
-        line.userData.editorGrid = true;
-        rObj.scene.add(line);
-        existing.push(line);
-
-        // Name label
-        if (zone.name) {
-          const fontSize = 14;
-          const labelCanvas = document.createElement('canvas');
-          const lctx = labelCanvas.getContext('2d')!;
-          lctx.font = `bold ${fontSize}px sans-serif`;
-          const textW = lctx.measureText(zone.name).width;
-          const padX = 6, padY = 4;
-          labelCanvas.width = textW + padX * 2;
-          labelCanvas.height = fontSize + padY * 2;
-          lctx.font = `bold ${fontSize}px sans-serif`;
-          lctx.fillStyle = 'rgba(0,0,0,0.6)';
-          lctx.fillRect(0, 0, labelCanvas.width, labelCanvas.height);
-          lctx.fillStyle = isSelected ? '#ffaa44' : '#88ccff';
-          lctx.textBaseline = 'top';
-          lctx.fillText(zone.name, padX, padY);
-
-          const labelTex = new THREE.CanvasTexture(labelCanvas);
-          labelTex.magFilter = THREE.LinearFilter;
-          labelTex.minFilter = THREE.LinearFilter;
-          labelTex.flipY = false;
-
-          const labelGeom = new THREE.PlaneGeometry(labelCanvas.width, labelCanvas.height);
-          const labelMat = new THREE.MeshBasicMaterial({
-            map: labelTex, transparent: true, depthTest: false, side: THREE.DoubleSide,
-          });
-          const labelMesh = new THREE.Mesh(labelGeom, labelMat);
-          labelMesh.position.set(
-            cx - rw / 2 + labelCanvas.width / 2 + 4,
-            cy - rh / 2 + labelCanvas.height / 2 + 4,
-            5.3
-          );
-          labelMesh.renderOrder = 9992;
-          labelMesh.frustumCulled = false;
-          labelMesh.userData.editorGrid = true;
-          rObj.scene.add(labelMesh);
-          existing.push(labelMesh);
-        }
-      }
-    }
-
-    // Drag/creation preview
-    if (shouldShow && cameraZoneDragPreview) {
-      const rw = cameraZoneDragPreview.width * TILE_SIZE_PX;
-      const rh = cameraZoneDragPreview.height * TILE_SIZE_PX;
-      const cx = cameraZoneDragPreview.x * TILE_SIZE_PX + rw / 2;
-      const cy = cameraZoneDragPreview.y * TILE_SIZE_PX + rh / 2;
-
-      const geom = new THREE.PlaneGeometry(rw, rh);
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0x44ff88, opacity: 0.2, transparent: true,
-        depthTest: false, side: THREE.DoubleSide,
-      });
-      const mesh = new THREE.Mesh(geom, mat);
-      mesh.position.set(cx, cy, 5.5);
-      mesh.renderOrder = 9994;
-      mesh.frustumCulled = false;
-      mesh.userData.editorGrid = true;
-      rObj.scene.add(mesh);
-      existing.push(mesh);
-
-      const hw = rw / 2, hh = rh / 2;
-      const pts = [
-        new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
-        new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
-        new THREE.Vector3(-hw, -hh, 0),
-      ];
-      const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
-      const lineMat = new THREE.LineDashedMaterial({
-        color: 0x44ff88, depthTest: false, transparent: true,
-        opacity: 1.0, dashSize: 6, gapSize: 4,
-      });
-      const line = new THREE.Line(lineGeom, lineMat);
-      line.computeLineDistances();
-      line.position.set(cx, cy, 5.7);
-      line.renderOrder = 9995;
-      line.frustumCulled = false;
-      line.userData.editorGrid = true;
-      rObj.scene.add(line);
-      existing.push(line);
-    }
-
-    // Trigger render
+    // Trigger render to clear old meshes
     if (!renderRequestedRef.current) {
       renderRequestedRef.current = true;
       requestAnimationFrame(() => {
@@ -401,7 +268,7 @@ export default function MapCanvas() {
         if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
       });
     }
-  }, [currentMap?.cameraZones, selectedCameraZoneId, cameraZoneDragPreview, editMode, rendererReady]);
+  }, [editMode, rendererReady]);
 
   // =========================================================================
   // Selection rectangle overlay (선택 영역 오버레이)
@@ -1373,6 +1240,29 @@ export default function MapCanvas() {
   const mapPxW = (currentMap?.width || 0) * TILE_SIZE_PX;
   const mapPxH = (currentMap?.height || 0) * TILE_SIZE_PX;
 
+  // 카메라 존 모드일 때, 맵 밖으로 확장된 존을 위해 inner wrapper 최소 크기 계산
+  const extendedSize = useMemo(() => {
+    if (editMode !== 'cameraZone') return { width: mapPxW, height: mapPxH };
+    let maxRight = mapPxW;
+    let maxBottom = mapPxH;
+    const zones = currentMap?.cameraZones;
+    if (zones) {
+      for (const z of zones) {
+        const r = (z.x + z.width) * TILE_SIZE_PX;
+        const b = (z.y + z.height) * TILE_SIZE_PX;
+        if (r > maxRight) maxRight = r;
+        if (b > maxBottom) maxBottom = b;
+      }
+    }
+    if (cameraZoneDragPreview) {
+      const r = (cameraZoneDragPreview.x + cameraZoneDragPreview.width) * TILE_SIZE_PX;
+      const b = (cameraZoneDragPreview.y + cameraZoneDragPreview.height) * TILE_SIZE_PX;
+      if (r > maxRight) maxRight = r;
+      if (b > maxBottom) maxBottom = b;
+    }
+    return { width: maxRight, height: maxBottom };
+  }, [editMode, currentMap?.cameraZones, cameraZoneDragPreview, mapPxW, mapPxH]);
+
   const eyedropperCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.54 3.54 1.41 1.41L16.25 6.8l.88.88-5.66 5.66-1.41-1.41-2.12 2.12a3 3 0 000 4.24l.71.71a3 3 0 004.24 0l2.12-2.12-1.41-1.41 5.66-5.66.88.88 1.41-1.41-3.54-3.54a1 1 0 000-1.41z' fill='white' stroke='black' stroke-width='0.5'/%3E%3C/svg%3E") 2 22, crosshair`;
 
   const transparentColor = useEditorStore((s) => s.transparentColor);
@@ -1414,6 +1304,8 @@ export default function MapCanvas() {
         position: 'relative',
         transform: `scale(${zoomLevel})`,
         transformOrigin: '0 0',
+        minWidth: extendedSize.width,
+        minHeight: extendedSize.height,
       }}>
         {/* Map interior checkerboard background */}
         <div style={mapBgStyle} />
@@ -1460,6 +1352,60 @@ export default function MapCanvas() {
                 : 'crosshair'),
           }}
         />
+        {/* Camera Zone HTML overlays (맵 경계 밖까지 렌더링 가능) */}
+        {editMode === 'cameraZone' && currentMap?.cameraZones && currentMap.cameraZones.map((zone) => {
+          const zx = zone.x * TILE_SIZE_PX;
+          const zy = zone.y * TILE_SIZE_PX;
+          const zw = zone.width * TILE_SIZE_PX;
+          const zh = zone.height * TILE_SIZE_PX;
+          const isSelected = zone.id === selectedCameraZoneId;
+          return (
+            <React.Fragment key={zone.id}>
+              {/* Fill */}
+              <div style={{
+                position: 'absolute', left: zx, top: zy, width: zw, height: zh,
+                background: isSelected ? 'rgba(255,136,0,0.25)' : 'rgba(34,136,255,0.15)',
+                border: `2px dashed ${isSelected ? '#ffaa44' : '#44aaff'}`,
+                boxSizing: 'border-box',
+                pointerEvents: 'none',
+                zIndex: 2,
+              }} />
+              {/* Name label */}
+              {zone.name && (
+                <div style={{
+                  position: 'absolute',
+                  left: zx + 4,
+                  top: zy + 4,
+                  background: 'rgba(0,0,0,0.6)',
+                  color: isSelected ? '#ffaa44' : '#88ccff',
+                  fontSize: 14,
+                  fontWeight: 'bold',
+                  padding: '2px 6px',
+                  pointerEvents: 'none',
+                  zIndex: 2,
+                  whiteSpace: 'nowrap',
+                }}>
+                  {zone.name}
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+        {/* Camera Zone drag/creation preview */}
+        {editMode === 'cameraZone' && cameraZoneDragPreview && (
+          <div style={{
+            position: 'absolute',
+            left: cameraZoneDragPreview.x * TILE_SIZE_PX,
+            top: cameraZoneDragPreview.y * TILE_SIZE_PX,
+            width: cameraZoneDragPreview.width * TILE_SIZE_PX,
+            height: cameraZoneDragPreview.height * TILE_SIZE_PX,
+            background: 'rgba(68,255,136,0.2)',
+            border: '2px dashed #44ff88',
+            boxSizing: 'border-box',
+            pointerEvents: 'none',
+            zIndex: 2,
+          }} />
+        )}
         {/* Resize preview overlay */}
         {resizePreview && currentMap && (() => {
           const { dLeft, dTop, dRight, dBottom } = resizePreview;

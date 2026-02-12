@@ -287,6 +287,7 @@ export function useMouseHandlers(
 
     const handleWindowPointerMove = (e: PointerEvent) => {
       const tile = clientToTileUnclamped(e.clientX, e.clientY);
+
       if (!tile) return;
 
       // Camera zone resize
@@ -610,8 +611,10 @@ export function useMouseHandlers(
         // 가장자리 리사이즈 감지 (선택된 존에 대해)
         const selectedZoneId = useEditorStore.getState().selectedCameraZoneId;
         const selectedZone = selectedZoneId != null ? zones.find(z => z.id === selectedZoneId) : null;
+
         if (selectedZone) {
           const edge = detectCameraZoneEdge(tile, selectedZone);
+
           if (edge) {
             isResizingCameraZone.current = true;
             resizeCameraZoneId.current = selectedZone.id;
@@ -993,12 +996,13 @@ export function useMouseHandlers(
       }
 
       // Camera zone hover cursor
-      if (editMode === 'cameraZone' && tile && !isDraggingCameraZone.current && !isCreatingCameraZone.current) {
+      if (editMode === 'cameraZone' && tile && !isDraggingCameraZone.current && !isCreatingCameraZone.current && !isResizingCameraZone.current) {
         const selectedZoneId = useEditorStore.getState().selectedCameraZoneId;
         const zones = currentMap?.cameraZones || [];
         const selectedZone = selectedZoneId != null ? zones.find(z => z.id === selectedZoneId) : null;
         if (selectedZone) {
           const edge = detectCameraZoneEdge(tile, selectedZone);
+
           setCameraZoneCursor(edge ? edgeToCursorStyle(edge) : null);
         } else {
           setCameraZoneCursor(null);
@@ -1607,6 +1611,7 @@ export function useMouseHandlers(
       }
       // Camera zone drag/resize/create: don't cancel on mouse leave, window events will handle it
       if (isResizingCameraZone.current || isDraggingCameraZone.current || isCreatingCameraZone.current) {
+
         return;
       }
       // 선택 드래그 중이면 취소

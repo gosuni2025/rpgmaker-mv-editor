@@ -52,9 +52,8 @@
     Mode3D._billboardTargets = [];
     Mode3D._spriteset = null;
     Mode3D._perspCamera = null;
-    Mode3D._extraRows = 6;
-    Mode3D._extraCols = 4;
-
+    Mode3D._extraRows = 6;  // 에디터에서 참조
+    Mode3D._extraCols = 4;  // 에디터에서 참조
     window.Mode3D = Mode3D;
 
     //=========================================================================
@@ -83,29 +82,54 @@
     };
 
     //=========================================================================
-    // ShaderTilemap._paintAllTiles 오버라이드
-    // 3D 모드에서는 기울임으로 인해 더 넓은 영역이 보이므로
-    // 상하 여분 타일을 추가로 그림
+    // ShaderTilemap margin/size 확장
+    // 3D perspective에서 화면 가장자리가 매우 먼 월드 좌표를 보므로
+    // 타일맵의 margin을 대폭 늘려 더 넓은 영역의 타일을 렌더링
     //=========================================================================
 
-    var _ShaderTilemap_paintAllTiles = ShaderTilemap.prototype._paintAllTiles;
-    ShaderTilemap.prototype._paintAllTiles = function(startX, startY) {
-        if (!ConfigManager.mode3d) {
-            _ShaderTilemap_paintAllTiles.call(this, startX, startY);
-            return;
-        }
-        this.lowerZLayer.clear();
-        this.upperZLayer.clear();
-        // 3D 기울임 보정: 상하로 여분 타일, 좌우도 여분 컬럼 추가
-        var extraRows = Mode3D._extraRows;
-        var extraCols = Mode3D._extraCols || 0;
-        var tileCols = Math.ceil(this._width / this._tileWidth) + 1 + extraCols * 2;
-        var tileRows = Math.ceil(this._height / this._tileHeight) + 1 + extraRows * 2;
-        for (var y = -extraRows; y < tileRows - extraRows; y++) {
-            for (var x = -extraCols; x < tileCols - extraCols; x++) {
-                this._paintTiles(startX, startY, x, y);
+    var _3D_MARGIN = 48 * 40; // 40타일분의 여유 (1920px)
+
+    var _ShaderTilemap_updateTransform2 = ShaderTilemap.prototype.updateTransform;
+    ShaderTilemap.prototype.updateTransform = function() {
+        // 에디터 모드에서는 margin을 직접 관리하므로 건드리지 않음
+        if (!window.__editorMode) {
+            // 3D 모드 전환 시 margin 동적 조정
+            if (ConfigManager.mode3d) {
+                if (this._margin !== _3D_MARGIN) {
+                    this._margin = _3D_MARGIN;
+                    this._width = Graphics.width + this._margin * 2;
+                    this._height = Graphics.height + this._margin * 2;
+                    this._needsRepaint = true;
+                }
+            } else {
+                if (this._margin !== 20) {
+                    this._margin = 20;
+                    this._width = Graphics.width + this._margin * 2;
+                    this._height = Graphics.height + this._margin * 2;
+                    this._needsRepaint = true;
+                }
             }
         }
+        _ShaderTilemap_updateTransform2.call(this);
+    };
+
+    //=========================================================================
+    // Tilemap._readMapData 오버라이드
+    // 3D 모드에서 맵 바깥 좌표를 가장자리로 클램핑하여
+    // perspective 뷰의 빈 공간을 가장자리 타일로 채움
+    //=========================================================================
+
+    var _Tilemap_readMapData = Tilemap.prototype._readMapData;
+    Tilemap.prototype._readMapData = function(x, y, z) {
+        if (ConfigManager.mode3d && this._mapData) {
+            var w = this._mapWidth;
+            var h = this._mapHeight;
+            if (w > 0 && h > 0) {
+                if (!this.horizontalWrap) x = Math.max(0, Math.min(x, w - 1));
+                if (!this.verticalWrap) y = Math.max(0, Math.min(y, h - 1));
+            }
+        }
+        return _Tilemap_readMapData.call(this, x, y, z);
     };
 
     //=========================================================================
