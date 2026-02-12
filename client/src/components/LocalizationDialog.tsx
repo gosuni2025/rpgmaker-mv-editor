@@ -97,6 +97,7 @@ export default function LocalizationDialog() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [showTs, setShowTs] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const editRef = useRef<HTMLTextAreaElement>(null);
 
   // Undo/Redo stacks
@@ -164,6 +165,7 @@ export default function LocalizationDialog() {
 
   useEffect(() => {
     if (selectedCategory) loadCSV(selectedCategory);
+    setSelectedKeys(new Set());
   }, [selectedCategory, loadCSV]);
 
   const handleInit = async () => {
@@ -263,6 +265,57 @@ export default function LocalizationDialog() {
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
   }, [handleUndo, handleRedo]);
+
+  const handleCopySourceToTarget = async () => {
+    if (!config || !selectedCategory || selectedKeys.size === 0) return;
+    const csvPath = getCsvPath(selectedCategory);
+    const srcLang = config.sourceLanguage;
+    const newUndoEntries: UndoEntry[] = [];
+    const updatedRows = [...rows];
+    for (const key of selectedKeys) {
+      const rowIdx = updatedRows.findIndex(r => r.key === key);
+      if (rowIdx === -1) continue;
+      const row = updatedRows[rowIdx];
+      const srcVal = row[srcLang] || '';
+      if (!srcVal) continue;
+      for (const lang of targetLangs) {
+        const oldText = row[lang] || '';
+        if (oldText === srcVal) continue;
+        await apiClient.put('/localization/entry', { csvPath, key, lang, text: srcVal });
+        newUndoEntries.push({ csvPath, key, lang, oldText, newText: srcVal });
+        updatedRows[rowIdx] = {
+          ...updatedRows[rowIdx],
+          [lang]: srcVal,
+          [lang + '_ts']: String(Math.floor(Date.now() / 1000)),
+        };
+      }
+    }
+    if (newUndoEntries.length > 0) {
+      setRows(updatedRows);
+      setUndoStack(prev => [...prev, ...newUndoEntries]);
+      setRedoStack([]);
+      loadStats();
+      showToast(t('localization.copySourceDone', { count: selectedKeys.size }));
+    }
+    setSelectedKeys(new Set());
+  };
+
+  const toggleKey = (key: string) => {
+    setSelectedKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleAllKeys = () => {
+    if (selectedKeys.size === filteredRows.length) {
+      setSelectedKeys(new Set());
+    } else {
+      setSelectedKeys(new Set(filteredRows.map(r => r.key)));
+    }
+  };
 
   const handleCellKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -454,6 +507,15 @@ export default function LocalizationDialog() {
                 {t('localization.openFolder' as any)}
               </button>
               <HelpButton text={t('localization.helpOpenFolder' as any)} />
+              <button
+                className="db-btn"
+                onClick={handleCopySourceToTarget}
+                disabled={selectedKeys.size === 0}
+                title={t('localization.copySourceTooltip' as any)}
+              >
+                {t('localization.copySource' as any)}
+                {selectedKeys.size > 0 && ` (${selectedKeys.size})`}
+              </button>
               <label className="l10n-ts-toggle">
                 <input type="checkbox" checked={showTs} onChange={e => setShowTs(e.target.checked)} />
                 {t('localization.showTs' as any)}
@@ -499,6 +561,13 @@ export default function LocalizationDialog() {
                 <table className="l10n-table">
                   <thead>
                     <tr>
+                      <th className="l10n-col-check">
+                        <input
+                          type="checkbox"
+                          checked={filteredRows.length > 0 && selectedKeys.size === filteredRows.length}
+                          onChange={toggleAllKeys}
+                        />
+                      </th>
                       <th className="l10n-col-key">{t('localization.key')}</th>
                       {showTs && <th className="l10n-col-ts">ts</th>}
                       <th className="l10n-col-src">{LANGUAGE_NAMES[config.sourceLanguage] || config.sourceLanguage}</th>
@@ -514,6 +583,13 @@ export default function LocalizationDialog() {
                   <tbody>
                     {filteredRows.map(row => (
                       <tr key={row.key} className={row.deleted === '1' ? 'l10n-row-deleted' : ''}>
+                        <td className="l10n-col-check">
+                          <input
+                            type="checkbox"
+                            checked={selectedKeys.has(row.key)}
+                            onChange={() => toggleKey(row.key)}
+                          />
+                        </td>
                         <td className="l10n-col-key l10n-key-cell">{row.key}</td>
                         {showTs && <td className="l10n-col-ts">{formatTs(row.ts)}</td>}
                         <td className="l10n-col-src">{row[config.sourceLanguage]}</td>
@@ -548,7 +624,7 @@ export default function LocalizationDialog() {
                       </tr>
                     ))}
                     {filteredRows.length === 0 && (
-                      <tr><td colSpan={2 + targetLangs.length + (showTs ? 2 + targetLangs.length : 0)} className="l10n-empty">{t('localization.noData')}</td></tr>
+                      <tr><td colSpan={3 + targetLangs.length + (showTs ? 2 + targetLangs.length : 0)} className="l10n-empty">{t('localization.noData')}</td></tr>
                     )}
                   </tbody>
                 </table>

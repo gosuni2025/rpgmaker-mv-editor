@@ -743,6 +743,9 @@ const en = {
     openFolder: 'Open Folder',
     helpOpenFolder: 'Open the languages folder containing CSV files in the file manager.',
     showTs: 'Show TS',
+    copySource: 'Copy Source',
+    copySourceTooltip: 'Copy source language values to all target languages for selected entries',
+    copySourceDone: 'Copied source text for {{count}} entries',
   },
 };
 

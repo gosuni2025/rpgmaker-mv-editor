@@ -1054,6 +1054,9 @@ const ko = {
     openFolder: '폴더 열기',
     helpOpenFolder: 'CSV 파일이 저장된 languages 폴더를 파일 탐색기에서 엽니다.',
     showTs: 'TS 보기',
+    copySource: '원문 복사',
+    copySourceTooltip: '선택된 항목의 원본 언어 값을 모든 타겟 언어에 복사합니다',
+    copySourceDone: '{{count}}개 항목의 원문을 복사했습니다',
   },
 };
 

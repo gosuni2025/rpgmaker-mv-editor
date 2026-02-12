@@ -2622,6 +2622,14 @@ input, textarea, [contenteditable="true"] {
   vertical-align: top;
 }
 
+.l10n-col-check {
+  width: 30px;
+  min-width: 30px;
+  max-width: 30px;
+  text-align: center;
+  padding: 2px !important;
+}
+
 .l10n-col-key {
   width: 180px;
   min-width: 120px;
