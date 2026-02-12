@@ -4,7 +4,8 @@ import apiClient from '../../api/client';
 import ImagePicker from '../common/ImagePicker';
 import AudioPicker from '../common/AudioPicker';
 import BattlebackPicker from '../common/BattlebackPicker';
-import type { AudioFile } from '../../types/rpgMakerMV';
+import SkyBackgroundPicker from '../common/SkyBackgroundPicker';
+import type { AudioFile, SkyBackground } from '../../types/rpgMakerMV';
 import './InspectorPanel.css';
 
 interface TilesetEntry { id: number; name: string; }
@@ -257,36 +258,86 @@ export default function MapInspector() {
         )}
       </div>
 
-      {/* Parallax */}
+      {/* Parallax - standard MV */}
       <div className="light-inspector-section">
         <div className="light-inspector-title">먼 배경</div>
-        <div style={{ marginBottom: 4 }}>
-          <ImagePicker
-            type="parallaxes"
-            value={currentMap.parallaxName || ''}
-            onChange={(name) => updateMapField('parallaxName', name)}
-          />
+
+        {/* Background type selector */}
+        <div className="sky-type-selector">
+          <button
+            className={`sky-type-btn${(!currentMap.skyBackground || currentMap.skyBackground.type === 'parallax') ? ' active' : ''}`}
+            onClick={() => updateMapField('skyBackground', { ...currentMap.skyBackground, type: 'parallax' })}
+          >
+            Parallax
+          </button>
+          <button
+            className={`sky-type-btn sky-type-btn-ext${currentMap.skyBackground?.type === 'skysphere' ? ' active' : ''}`}
+            onClick={() => updateMapField('skyBackground', {
+              type: 'skysphere',
+              skyImage: currentMap.skyBackground?.skyImage || '',
+              rotationSpeed: currentMap.skyBackground?.rotationSpeed ?? 0,
+            })}
+          >
+            Sky Sphere
+          </button>
+          <span
+            className="sky-type-help"
+            title="Sky Sphere는 에디터 확장 기능입니다. 3D 모드에서 파노라마 이미지를 구체에 매핑하여 하늘 배경을 표현합니다. 이 데이터는 별도의 확장 파일(_ext.json)에 저장되며, RPG Maker MV 원본 에디터와 호환됩니다."
+          >
+            ?
+          </span>
         </div>
-        {currentMap.parallaxName && (
+
+        {/* Parallax mode (default MV) */}
+        {(!currentMap.skyBackground || currentMap.skyBackground.type === 'parallax') && (
           <>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <label className="map-inspector-checkbox">
-                <input type="checkbox" checked={!!currentMap.parallaxLoopX}
-                  onChange={(e) => updateMapField('parallaxLoopX', e.target.checked)} />
-                <span>가로 루프</span>
-              </label>
-              <label className="map-inspector-checkbox">
-                <input type="checkbox" checked={!!currentMap.parallaxLoopY}
-                  onChange={(e) => updateMapField('parallaxLoopY', e.target.checked)} />
-                <span>세로 루프</span>
-              </label>
+            <div style={{ marginBottom: 4, marginTop: 8 }}>
+              <ImagePicker
+                type="parallaxes"
+                value={currentMap.parallaxName || ''}
+                onChange={(name) => updateMapField('parallaxName', name)}
+              />
             </div>
-            <label className="map-inspector-checkbox">
-              <input type="checkbox" checked={currentMap.parallaxShow ?? false}
-                onChange={(e) => updateMapField('parallaxShow', e.target.checked)} />
-              <span>에디터에서 보여주기</span>
-            </label>
+            {currentMap.parallaxName && (
+              <>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <label className="map-inspector-checkbox">
+                    <input type="checkbox" checked={!!currentMap.parallaxLoopX}
+                      onChange={(e) => updateMapField('parallaxLoopX', e.target.checked)} />
+                    <span>가로 루프</span>
+                  </label>
+                  <label className="map-inspector-checkbox">
+                    <input type="checkbox" checked={!!currentMap.parallaxLoopY}
+                      onChange={(e) => updateMapField('parallaxLoopY', e.target.checked)} />
+                    <span>세로 루프</span>
+                  </label>
+                </div>
+                <label className="map-inspector-checkbox">
+                  <input type="checkbox" checked={currentMap.parallaxShow ?? false}
+                    onChange={(e) => updateMapField('parallaxShow', e.target.checked)} />
+                  <span>에디터에서 보여주기</span>
+                </label>
+              </>
+            )}
           </>
+        )}
+
+        {/* Sky Sphere mode (extension) */}
+        {currentMap.skyBackground?.type === 'skysphere' && (
+          <div className="sky-ext-section">
+            <div className="sky-ext-badge">EXT</div>
+            <SkyBackgroundPicker
+              value={currentMap.skyBackground.skyImage || ''}
+              rotationSpeed={currentMap.skyBackground.rotationSpeed ?? 0}
+              onChange={(image, speed) => {
+                updateMapField('skyBackground', {
+                  type: 'skysphere',
+                  skyImage: image,
+                  rotationSpeed: speed,
+                });
+              }}
+            />
+          </div>
         )}
       </div>
 

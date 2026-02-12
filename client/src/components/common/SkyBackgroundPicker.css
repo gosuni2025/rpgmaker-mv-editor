@@ -1,0 +1,130 @@
+/* Sky Background Picker */
+.sky-picker-thumb-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sky-picker-thumb-inline img {
+  width: 36px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.sky-picker-thumb-inline span {
+  font-size: 12px;
+  color: #ccc;
+}
+
+.sky-picker-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 6px;
+  width: 640px;
+  height: 520px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+
+.sky-picker-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  padding: 12px;
+  gap: 12px;
+}
+
+.sky-picker-grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  align-content: start;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #2b2b2b;
+  padding: 6px;
+}
+
+.sky-picker-thumb {
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #333;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sky-picker-thumb:hover {
+  border-color: #666;
+}
+
+.sky-picker-thumb.selected {
+  border-color: #2675bf;
+  box-shadow: 0 0 6px rgba(38,117,191,0.4);
+}
+
+.sky-picker-thumb img {
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  object-fit: cover;
+  display: block;
+}
+
+.sky-picker-thumb-name {
+  font-size: 9px;
+  color: #aaa;
+  padding: 2px 4px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.sky-picker-thumb-empty {
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #666;
+}
+
+/* Right side controls */
+.sky-picker-controls {
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sky-picker-preview-area {
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #000;
+  overflow: hidden;
+  aspect-ratio: 2 / 1;
+}
+
+.sky-picker-preview-area img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sky-picker-preview-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #555;
+}

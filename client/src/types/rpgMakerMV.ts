@@ -40,6 +40,13 @@ export interface MapData {
   editorLights?: EditorLights;
   objects?: MapObject[];
   cameraZones?: CameraZone[];
+  skyBackground?: SkyBackground;
+}
+
+export interface SkyBackground {
+  type: 'parallax' | 'skysphere';
+  skyImage?: string;
+  rotationSpeed?: number;
 }
 
 export interface RPGEvent {
