@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import { selectStyle } from './messageEditors';
+import { VariableSwitchSelector } from './VariableSwitchSelector';
 
 /** 스위치/변수 목록에서 선택하는 팝업 */
 export function DataListPicker({ items, value, onChange, onClose, title }: {
@@ -125,12 +126,11 @@ export function ControlSwitchesEditor({ p, onOk, onCancel }: { p: unknown[]; onO
       </div>
 
       {showPicker && (
-        <DataListPicker
-          items={switches}
+        <VariableSwitchSelector
+          type="switch"
           value={singleId}
           onChange={setSingleId}
           onClose={() => setShowPicker(false)}
-          title="스위치 선택"
         />
       )}
     </>
@@ -296,12 +296,11 @@ export function ControlVariablesEditor({ p, onOk, onCancel }: { p: unknown[]; on
       </div>
 
       {showVarPicker && (
-        <DataListPicker
-          items={variables}
+        <VariableSwitchSelector
+          type="variable"
           value={showVarPicker === 'single' ? singleId : varId}
           onChange={id => { if (showVarPicker === 'single') setSingleId(id); else setVarId(id); }}
           onClose={() => setShowVarPicker(null)}
-          title="변수 선택"
         />
       )}
     </>

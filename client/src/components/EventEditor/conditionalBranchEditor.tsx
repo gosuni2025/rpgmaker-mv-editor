@@ -4,6 +4,7 @@ import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import { selectStyle } from './messageEditors';
 import { DataListPicker } from './controlEditors';
+import { VariableSwitchSelector } from './VariableSwitchSelector';
 import './ConditionalBranchEditor.css';
 
 interface NamedItem { id: number; name: string }
@@ -553,16 +554,16 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
 
       {/* 피커들 */}
       {showPicker === 'switch' && (
-        <DataListPicker items={switches} value={switchId} onChange={setSwitchId}
-          onClose={() => setShowPicker(null)} title="스위치 선택" />
+        <VariableSwitchSelector type="switch" value={switchId} onChange={setSwitchId}
+          onClose={() => setShowPicker(null)} />
       )}
       {showPicker === 'variable' && (
-        <DataListPicker items={variables} value={varId} onChange={setVarId}
-          onClose={() => setShowPicker(null)} title="변수 선택" />
+        <VariableSwitchSelector type="variable" value={varId} onChange={setVarId}
+          onClose={() => setShowPicker(null)} />
       )}
       {showPicker === 'var-operand' && (
-        <DataListPicker items={variables} value={varOperand} onChange={v => setVarOperand(v)}
-          onClose={() => setShowPicker(null)} title="변수 선택" />
+        <VariableSwitchSelector type="variable" value={varOperand} onChange={v => setVarOperand(v)}
+          onClose={() => setShowPicker(null)} />
       )}
       {showPicker === 'actor' && (
         <DataListPicker items={actors} value={actorId} onChange={setActorId}
