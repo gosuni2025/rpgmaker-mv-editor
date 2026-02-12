@@ -5874,7 +5874,6 @@ Game_Map.prototype.scrollDown = function(distance) {
             this.height() - this.screenTileY());
         this._parallaxY += this._displayY - lastY;
     }
-    this.clampDisplayToActiveZone();
 };
 
 Game_Map.prototype.scrollLeft = function(distance) {
@@ -5889,7 +5888,6 @@ Game_Map.prototype.scrollLeft = function(distance) {
         this._displayX = Math.max(this._displayX - distance, 0);
         this._parallaxX += this._displayX - lastX;
     }
-    this.clampDisplayToActiveZone();
 };
 
 Game_Map.prototype.scrollRight = function(distance) {
@@ -5905,7 +5903,6 @@ Game_Map.prototype.scrollRight = function(distance) {
             this.width() - this.screenTileX());
         this._parallaxX += this._displayX - lastX;
     }
-    this.clampDisplayToActiveZone();
 };
 
 Game_Map.prototype.scrollUp = function(distance) {
@@ -5920,7 +5917,6 @@ Game_Map.prototype.scrollUp = function(distance) {
         this._displayY = Math.max(this._displayY - distance, 0);
         this._parallaxY += this._displayY - lastY;
     }
-    this.clampDisplayToActiveZone();
 };
 
 Game_Map.prototype.isValid = function(x, y) {
@@ -6097,12 +6093,11 @@ Game_Map.prototype.updateCameraZones = function() {
             targetZoom: target.zoom,
             targetTilt: target.tilt,
             targetYaw: target.yaw,
-            speed: speed,
-            scrollTransitioning: true
+            speed: speed
         };
     }
 
-    // 전환 애니메이션
+    // 전환 애니메이션 (zoom, tilt, yaw)
     if (this._cameraTransition) {
         var t = this._cameraTransition;
         var lerpFactor = Math.min(1.0, t.speed * 0.05); // 프레임당 보간 비율
@@ -6130,27 +6125,17 @@ Game_Map.prototype.updateCameraZones = function() {
             Mode3D._yawRad = newYaw * Math.PI / 180;
         }
 
-        // 스크롤 위치도 부드럽게 전환 (존 전환 중)
-        if (t.scrollTransitioning) {
-            var scrollDone = this._lerpDisplayToUnionBounds(lerpFactor);
-            if (scrollDone) {
-                t.scrollTransitioning = false;
-            }
-        }
-
         // 모두 목표에 도달했으면 전환 완료
         var zoomDone = !$gameScreen || Math.abs($gameScreen.zoomScale() - t.targetZoom) < 0.001;
         var tiltDone = !Mode3D || !Mode3D._active || Math.abs(Mode3D._tiltDeg - t.targetTilt) < 0.1;
         var yawDone = !Mode3D || !Mode3D._active || Math.abs(Mode3D._yawDeg - t.targetYaw) < 0.1;
-        if (zoomDone && tiltDone && yawDone && !t.scrollTransitioning) {
+        if (zoomDone && tiltDone && yawDone) {
             this._cameraTransition = null;
         }
     }
 
-    // 전환 완료 후에는 하드 clamp (플레이어 이동 중 존 밖으로 나가지 않도록)
-    if (!this._cameraTransition) {
-        this.clampDisplayToActiveZone();
-    }
+    // 스크롤 위치는 항상 lerp로 부드럽게 이동
+    this.lerpDisplayToActiveZone();
 };
 
 // 겹치는 존들의 합집합(union) 바운딩 박스 계산
@@ -6194,21 +6179,30 @@ Game_Map.prototype._getUnionClampTarget = function() {
     return { x: targetX, y: targetY };
 };
 
-// 스크롤 위치를 부드럽게 합집합 범위로 보간. 완료 시 true 반환
-Game_Map.prototype._lerpDisplayToUnionBounds = function(lerpFactor) {
+// 스크롤 위치를 항상 lerp로 부드럽게 존 범위로 이동
+Game_Map.prototype.lerpDisplayToActiveZone = function() {
     var target = this._getUnionClampTarget();
-    if (!target) return true;
+    if (!target) return;
 
     var dx = target.x - this._displayX;
     var dy = target.y - this._displayY;
 
+    // 이미 목표에 충분히 가까우면 스냅
     if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) {
-        this._parallaxX += target.x - this._displayX;
-        this._parallaxY += target.y - this._displayY;
-        this._displayX = target.x;
-        this._displayY = target.y;
-        return true;
+        if (Math.abs(dx) > 0.001) {
+            this._parallaxX += target.x - this._displayX;
+            this._displayX = target.x;
+        }
+        if (Math.abs(dy) > 0.001) {
+            this._parallaxY += target.y - this._displayY;
+            this._displayY = target.y;
+        }
+        return;
     }
+
+    // 활성 존의 transitionSpeed 사용, 없으면 기본값
+    var speed = this._activeCameraZone ? this._activeCameraZone.transitionSpeed : 1.0;
+    var lerpFactor = Math.min(1.0, speed * 0.05);
 
     var newX = this._displayX + dx * lerpFactor;
     var newY = this._displayY + dy * lerpFactor;
@@ -6216,10 +6210,9 @@ Game_Map.prototype._lerpDisplayToUnionBounds = function(lerpFactor) {
     this._parallaxY += newY - this._displayY;
     this._displayX = newX;
     this._displayY = newY;
-    return false;
 };
 
-// 합집합 범위로 하드 clamp
+// 합집합 범위로 즉시 clamp (맵 초기 로드 등 특수 상황용)
 Game_Map.prototype.clampDisplayToActiveZone = function() {
     var target = this._getUnionClampTarget();
     if (!target) return;
