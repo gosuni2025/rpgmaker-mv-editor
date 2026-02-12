@@ -6073,11 +6073,9 @@ Game_Map.prototype.update = function(sceneActive) {
 Game_Map.prototype.updateCameraZones = function() {
     if (!this._cameraZones || this._cameraZones.length === 0) return;
 
-    // 카메라 화면 영역과 겹치는 존 수집 (AABB)
-    var screenW = this.screenTileX();
-    var screenH = this.screenTileY();
-    var camL = this._displayX, camT = this._displayY;
-    var camR = camL + screenW, camB = camT + screenH;
+    // 카메라 위치(_displayX/Y)가 속한 존 수집
+    var dx = this._displayX;
+    var dy = this._displayY;
 
     var overlappingZones = [];
     var activeZone = null;
@@ -6085,7 +6083,7 @@ Game_Map.prototype.updateCameraZones = function() {
     for (var i = 0; i < this._cameraZones.length; i++) {
         var z = this._cameraZones[i];
         if (!z.enabled) continue;
-        if (camL < z.x + z.width && camR > z.x && camT < z.y + z.height && camB > z.y) {
+        if (dx >= z.x && dx < z.x + z.width && dy >= z.y && dy < z.y + z.height) {
             overlappingZones.push(z);
             if (z.priority > bestPriority) {
                 bestPriority = z.priority;
@@ -6224,17 +6222,15 @@ Game_Map.prototype.lerpDisplayToActiveZone = function() {
     this._displayY = newY;
 };
 
-// 카메라 화면이 어떤 존에라도 겹치는지 확인
+// 카메라 위치(_displayX/Y)가 어떤 존 안에라도 있는지 확인
 Game_Map.prototype._isDisplayInAnyZone = function() {
     if (!this._cameraZones || this._cameraZones.length === 0) return false;
-    var screenW = this.screenTileX();
-    var screenH = this.screenTileY();
-    var camL = this._displayX, camT = this._displayY;
-    var camR = camL + screenW, camB = camT + screenH;
+    var dx = this._displayX;
+    var dy = this._displayY;
     for (var i = 0; i < this._cameraZones.length; i++) {
         var z = this._cameraZones[i];
         if (!z.enabled) continue;
-        if (camL < z.x + z.width && camR > z.x && camT < z.y + z.height && camB > z.y) {
+        if (dx >= z.x && dx < z.x + z.width && dy >= z.y && dy < z.y + z.height) {
             return true;
         }
     }
