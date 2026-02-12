@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
+import { selectStyle } from './messageEditors';
 import './VariableSwitchSelector.css';
 
 const GROUP_SIZE = 20;
@@ -150,6 +151,23 @@ export function VariableSwitchSelector({ type, value, onChange, onClose, title }
 
   const defaultTitle = type === 'variable' ? '변수 셀렉터' : '스위치 셀렉터';
 
+  // 초기 마운트 시 선택된 아이템이 보이도록 스크롤
+  useEffect(() => {
+    if (itemListRef.current) {
+      const group = groups[activeGroup];
+      if (group) {
+        const indexInGroup = selected - group.start;
+        if (indexInGroup >= 0) {
+          const itemEl = itemListRef.current.children[indexInGroup] as HTMLElement;
+          if (itemEl) {
+            itemEl.scrollIntoView({ block: 'nearest' });
+          }
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="vs-selector-overlay" onClick={onClose}>
       <div className="vs-selector-dialog" onClick={e => e.stopPropagation()}>
@@ -217,5 +235,56 @@ export function VariableSwitchSelector({ type, value, onChange, onClose, title }
         </div>
       </div>
     </div>
+  );
+}
+
+/** ID → '0001: 이름' 형식으로 변환하는 유틸 */
+export function getVarSwitchLabel(id: number, items: string[]): string {
+  const name = items[id] || '';
+  return `${String(id).padStart(4, '0')}${name ? ': ' + name : ''}`;
+}
+
+/**
+ * 인라인 변수/스위치 선택 버튼
+ * 읽기전용 텍스트 필드 + ... 버튼으로 구성. 클릭하면 VariableSwitchSelector 팝업이 열림.
+ */
+export function VariableSwitchPicker({ type, value, onChange, disabled, style }: {
+  type: 'variable' | 'switch';
+  value: number;
+  onChange: (id: number) => void;
+  disabled?: boolean;
+  style?: React.CSSProperties;
+}) {
+  const [showSelector, setShowSelector] = useState(false);
+  const systemData = useEditorStore(s => s.systemData);
+  const items = type === 'variable' ? (systemData?.variables || []) : (systemData?.switches || []);
+  const label = getVarSwitchLabel(value, items);
+
+  return (
+    <>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, ...style }}>
+        <input
+          type="text"
+          readOnly
+          value={label}
+          style={{ ...selectStyle, flex: 1, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1, minWidth: 100 }}
+          onClick={() => !disabled && setShowSelector(true)}
+        />
+        <button
+          className="db-btn"
+          style={{ padding: '4px 8px', opacity: disabled ? 0.5 : 1 }}
+          disabled={disabled}
+          onClick={() => setShowSelector(true)}
+        >...</button>
+      </div>
+      {showSelector && (
+        <VariableSwitchSelector
+          type={type}
+          value={value}
+          onChange={onChange}
+          onClose={() => setShowSelector(false)}
+        />
+      )}
+    </>
   );
 }

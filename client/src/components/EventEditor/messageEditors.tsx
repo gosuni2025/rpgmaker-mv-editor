@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
+import { VariableSwitchPicker } from './VariableSwitchSelector';
 import './ShowChoicesEditor.css';
 
 export const selectStyle = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 } as const;
@@ -174,10 +175,10 @@ export function InputNumberEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
   const [maxDigits, setMaxDigits] = useState<number>((p[1] as number) || 1);
   return (
     <>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        변수:
-        <input type="number" value={variableId} onChange={e => setVariableId(Math.max(1, Number(e.target.value)))} min={1} style={{ ...selectStyle, width: 120 }} />
-      </label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aaa' }}>
+        <span>변수:</span>
+        <VariableSwitchPicker type="variable" value={variableId} onChange={setVariableId} style={{ flex: 1 }} />
+      </div>
       <label style={{ fontSize: 12, color: '#aaa' }}>
         자리수:
         <input type="number" value={maxDigits} onChange={e => setMaxDigits(Math.max(1, Math.min(8, Number(e.target.value))))} min={1} max={8} style={{ ...selectStyle, width: 80 }} />
@@ -199,10 +200,10 @@ export function SelectItemEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (p
   const [itemType, setItemType] = useState<number>((p[1] as number) || 1);
   return (
     <>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        변수:
-        <input type="number" value={variableId} onChange={e => setVariableId(Math.max(1, Number(e.target.value)))} min={1} style={{ ...selectStyle, width: 120 }} />
-      </label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aaa' }}>
+        <span>변수:</span>
+        <VariableSwitchPicker type="variable" value={variableId} onChange={setVariableId} style={{ flex: 1 }} />
+      </div>
       <label style={{ fontSize: 12, color: '#aaa' }}>
         아이템 유형:
         <select value={itemType} onChange={e => setItemType(Number(e.target.value))} style={{ ...selectStyle, width: 180 }}>

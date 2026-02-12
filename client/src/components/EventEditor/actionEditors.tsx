@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { AudioFile } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
 import { selectStyle } from './messageEditors';
+import { VariableSwitchPicker } from './VariableSwitchSelector';
 
 export const DEFAULT_AUDIO: AudioFile = { name: '', pan: 0, pitch: 100, volume: 90 };
 
@@ -25,10 +26,17 @@ export function ChangeGoldEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (p
           <option value={1}>Variable</option>
         </select>
       </label>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        {operandType === 0 ? 'Amount' : 'Variable ID'}
-        <input type="number" value={operand} onChange={e => setOperand(Number(e.target.value))} min={operandType === 1 ? 1 : 0} style={{ ...selectStyle, width: 120 }} />
-      </label>
+      {operandType === 0 ? (
+        <label style={{ fontSize: 12, color: '#aaa' }}>
+          Amount
+          <input type="number" value={operand} onChange={e => setOperand(Number(e.target.value))} min={0} style={{ ...selectStyle, width: 120 }} />
+        </label>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aaa' }}>
+          <span>Variable</span>
+          <VariableSwitchPicker type="variable" value={operand || 1} onChange={setOperand} style={{ flex: 1 }} />
+        </div>
+      )}
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => onOk([operation, operandType, operand])}>OK</button>
         <button className="db-btn" onClick={onCancel}>Cancel</button>
@@ -62,10 +70,17 @@ export function ChangeItemEditor({ p, onOk, onCancel, label }: { p: unknown[]; o
           <option value={1}>Variable</option>
         </select>
       </label>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        {operandType === 0 ? 'Amount' : 'Variable ID'}
-        <input type="number" value={operand} onChange={e => setOperand(Number(e.target.value))} min={operandType === 1 ? 1 : 0} style={{ ...selectStyle, width: 100 }} />
-      </label>
+      {operandType === 0 ? (
+        <label style={{ fontSize: 12, color: '#aaa' }}>
+          Amount
+          <input type="number" value={operand} onChange={e => setOperand(Number(e.target.value))} min={0} style={{ ...selectStyle, width: 100 }} />
+        </label>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aaa' }}>
+          <span>Variable</span>
+          <VariableSwitchPicker type="variable" value={operand || 1} onChange={setOperand} style={{ flex: 1 }} />
+        </div>
+      )}
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => onOk([itemId, operation, operandType, operand])}>OK</button>
         <button className="db-btn" onClick={onCancel}>Cancel</button>
@@ -90,20 +105,37 @@ export function TransferPlayerEditor({ p, onOk, onCancel }: { p: unknown[]; onOk
           <option value={1}>Variable</option>
         </select>
       </label>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <label style={{ fontSize: 12, color: '#aaa' }}>
-          {designationType === 0 ? 'Map ID' : 'Map Var ID'}
-          <input type="number" value={mapId} onChange={e => setMapId(Number(e.target.value))} min={1} style={{ ...selectStyle, width: 80 }} />
-        </label>
-        <label style={{ fontSize: 12, color: '#aaa' }}>
-          {designationType === 0 ? 'X' : 'X Var ID'}
-          <input type="number" value={x} onChange={e => setX(Number(e.target.value))} style={{ ...selectStyle, width: 60 }} />
-        </label>
-        <label style={{ fontSize: 12, color: '#aaa' }}>
-          {designationType === 0 ? 'Y' : 'Y Var ID'}
-          <input type="number" value={y} onChange={e => setY(Number(e.target.value))} style={{ ...selectStyle, width: 60 }} />
-        </label>
-      </div>
+      {designationType === 0 ? (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <label style={{ fontSize: 12, color: '#aaa' }}>
+            Map ID
+            <input type="number" value={mapId} onChange={e => setMapId(Number(e.target.value))} min={1} style={{ ...selectStyle, width: 80 }} />
+          </label>
+          <label style={{ fontSize: 12, color: '#aaa' }}>
+            X
+            <input type="number" value={x} onChange={e => setX(Number(e.target.value))} style={{ ...selectStyle, width: 60 }} />
+          </label>
+          <label style={{ fontSize: 12, color: '#aaa' }}>
+            Y
+            <input type="number" value={y} onChange={e => setY(Number(e.target.value))} style={{ ...selectStyle, width: 60 }} />
+          </label>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aaa' }}>
+            <span style={{ minWidth: 60 }}>Map Var</span>
+            <VariableSwitchPicker type="variable" value={mapId} onChange={setMapId} style={{ flex: 1 }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aaa' }}>
+            <span style={{ minWidth: 60 }}>X Var</span>
+            <VariableSwitchPicker type="variable" value={x} onChange={setX} style={{ flex: 1 }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aaa' }}>
+            <span style={{ minWidth: 60 }}>Y Var</span>
+            <VariableSwitchPicker type="variable" value={y} onChange={setY} style={{ flex: 1 }} />
+          </div>
+        </div>
+      )}
       <label style={{ fontSize: 12, color: '#aaa' }}>
         Direction
         <select value={direction} onChange={e => setDirection(Number(e.target.value))} style={selectStyle}>

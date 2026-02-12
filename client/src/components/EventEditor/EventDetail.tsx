@@ -5,6 +5,7 @@ import type { RPGEvent, EventPage, EventConditions, EventImage, EventCommand, Mo
 import EventCommandEditor from './EventCommandEditor';
 import ImagePicker from '../common/ImagePicker';
 import MoveRouteDialog from './MoveRouteDialog';
+import { VariableSwitchPicker } from './VariableSwitchSelector';
 import './EventEditor.css';
 
 interface EventDetailProps {
@@ -232,21 +233,21 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                     <input type="checkbox" checked={page.conditions.switch1Valid} onChange={(e) => updateConditions({ switch1Valid: e.target.checked })} />
                     {t('eventDetail.conditionSwitch1')}
                   </label>
-                  <input type="number" value={page.conditions.switch1Id} onChange={(e) => updateConditions({ switch1Id: Number(e.target.value) })} className="event-editor-input event-editor-input-sm" disabled={!page.conditions.switch1Valid} />
+                  <VariableSwitchPicker type="switch" value={page.conditions.switch1Id} onChange={(id) => updateConditions({ switch1Id: id })} disabled={!page.conditions.switch1Valid} style={{ flex: 1 }} />
                 </div>
                 <div className="event-editor-condition-row">
                   <label className="event-editor-cond-label">
                     <input type="checkbox" checked={page.conditions.switch2Valid} onChange={(e) => updateConditions({ switch2Valid: e.target.checked })} />
                     {t('eventDetail.conditionSwitch2')}
                   </label>
-                  <input type="number" value={page.conditions.switch2Id} onChange={(e) => updateConditions({ switch2Id: Number(e.target.value) })} className="event-editor-input event-editor-input-sm" disabled={!page.conditions.switch2Valid} />
+                  <VariableSwitchPicker type="switch" value={page.conditions.switch2Id} onChange={(id) => updateConditions({ switch2Id: id })} disabled={!page.conditions.switch2Valid} style={{ flex: 1 }} />
                 </div>
                 <div className="event-editor-condition-row">
                   <label className="event-editor-cond-label">
                     <input type="checkbox" checked={page.conditions.variableValid} onChange={(e) => updateConditions({ variableValid: e.target.checked })} />
                     {t('eventDetail.conditionVariable')}
                   </label>
-                  <input type="number" value={page.conditions.variableId} onChange={(e) => updateConditions({ variableId: Number(e.target.value) })} className="event-editor-input event-editor-input-sm" disabled={!page.conditions.variableValid} />
+                  <VariableSwitchPicker type="variable" value={page.conditions.variableId} onChange={(id) => updateConditions({ variableId: id })} disabled={!page.conditions.variableValid} style={{ flex: 1 }} />
                   <span className="event-editor-cond-op">&ge;</span>
                   <input type="number" value={page.conditions.variableValue} onChange={(e) => updateConditions({ variableValue: Number(e.target.value) })} className="event-editor-input event-editor-input-sm" disabled={!page.conditions.variableValid} />
                 </div>

@@ -1,10 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import type { EventCommand } from '../../types/rpgMakerMV';
-import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import { selectStyle } from './messageEditors';
 import { DataListPicker } from './controlEditors';
-import { VariableSwitchSelector } from './VariableSwitchSelector';
+import { VariableSwitchPicker } from './VariableSwitchSelector';
 import './ConditionalBranchEditor.css';
 
 interface NamedItem { id: number; name: string }
@@ -99,9 +98,6 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
   const [scriptText, setScriptText] = useState(condType === 12 ? ((p[1] as string) || '') : '');
 
   // 데이터 로드
-  const systemData = useEditorStore(s => s.systemData);
-  const switches = systemData?.switches || [];
-  const variables = systemData?.variables || [];
   const actors = useDbNames('actors');
   const classes = useDbNames('classes');
   const skills = useDbNames('skills');
@@ -156,11 +152,7 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
           <input type="radio" name="cb-type" checked={condType === 0} onChange={() => switchCondType(0)} />
           스위치
         </label>
-        <input type="text" readOnly value={getLabel(switchId, switches)}
-          style={{ ...selectStyle, flex: 1, cursor: 'pointer', ...disabledOpacity(condType === 0) }}
-          onClick={() => condType === 0 && setShowPicker('switch')} />
-        <button className="db-btn" style={{ padding: '4px 8px', ...disabledOpacity(condType === 0) }}
-          disabled={condType !== 0} onClick={() => setShowPicker('switch')}>...</button>
+        <VariableSwitchPicker type="switch" value={switchId} onChange={setSwitchId} disabled={condType !== 0} style={{ flex: 1 }} />
         <span style={{ color: '#aaa', fontSize: 13 }}>(은)는</span>
         <select value={switchValue} onChange={e => setSwitchValue(Number(e.target.value))}
           disabled={condType !== 0} style={{ ...selectStyle, ...disabledOpacity(condType === 0) }}>
@@ -176,11 +168,7 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
             <input type="radio" name="cb-type" checked={condType === 1} onChange={() => switchCondType(1)} />
             변수
           </label>
-          <input type="text" readOnly value={getLabel(varId, variables)}
-            style={{ ...selectStyle, flex: 1, cursor: 'pointer', ...disabledOpacity(condType === 1) }}
-            onClick={() => condType === 1 && setShowPicker('variable')} />
-          <button className="db-btn" style={{ padding: '4px 8px', ...disabledOpacity(condType === 1) }}
-            disabled={condType !== 1} onClick={() => setShowPicker('variable')}>...</button>
+          <VariableSwitchPicker type="variable" value={varId} onChange={setVarId} disabled={condType !== 1} style={{ flex: 1 }} />
           <select value={varCompare} onChange={e => setVarCompare(Number(e.target.value))}
             disabled={condType !== 1} style={{ ...selectStyle, width: 60, ...disabledOpacity(condType === 1) }}>
             {COMPARISON_OPS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -204,11 +192,8 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
                 onChange={() => setVarOperandType(1)} disabled={condType !== 1} />
               변수
             </label>
-            <input type="text" readOnly value={varOperandType === 1 ? getLabel(varOperand, variables) : ''}
-              style={{ ...selectStyle, flex: 1, cursor: 'pointer', ...disabledOpacity(condType === 1 && varOperandType === 1) }}
-              onClick={() => condType === 1 && varOperandType === 1 && setShowPicker('var-operand')} />
-            <button className="db-btn" style={{ padding: '4px 8px', ...disabledOpacity(condType === 1 && varOperandType === 1) }}
-              disabled={condType !== 1 || varOperandType !== 1} onClick={() => setShowPicker('var-operand')}>...</button>
+            <VariableSwitchPicker type="variable" value={varOperand} onChange={setVarOperand}
+              disabled={condType !== 1 || varOperandType !== 1} style={{ flex: 1 }} />
           </div>
         </div>
       </div>
@@ -553,18 +538,6 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
       </div>
 
       {/* 피커들 */}
-      {showPicker === 'switch' && (
-        <VariableSwitchSelector type="switch" value={switchId} onChange={setSwitchId}
-          onClose={() => setShowPicker(null)} />
-      )}
-      {showPicker === 'variable' && (
-        <VariableSwitchSelector type="variable" value={varId} onChange={setVarId}
-          onClose={() => setShowPicker(null)} />
-      )}
-      {showPicker === 'var-operand' && (
-        <VariableSwitchSelector type="variable" value={varOperand} onChange={v => setVarOperand(v)}
-          onClose={() => setShowPicker(null)} />
-      )}
       {showPicker === 'actor' && (
         <DataListPicker items={actors} value={actorId} onChange={setActorId}
           onClose={() => setShowPicker(null)} title="액터 선택" />

@@ -1,7 +1,6 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import useEditorStore from '../../store/useEditorStore';
+import React, { useState, useMemo } from 'react';
 import { selectStyle } from './messageEditors';
-import { VariableSwitchSelector } from './VariableSwitchSelector';
+import { VariableSwitchPicker } from './VariableSwitchSelector';
 
 /** 스위치/변수 목록에서 선택하는 팝업 */
 export function DataListPicker({ items, value, onChange, onClose, title }: {
@@ -57,14 +56,6 @@ export function ControlSwitchesEditor({ p, onOk, onCancel }: { p: unknown[]; onO
   const [rangeStart, setRangeStart] = useState<number>(initStart);
   const [rangeEnd, setRangeEnd] = useState<number>(initEnd);
   const [value, setValue] = useState<number>((p[2] as number) || 0);
-  const [showPicker, setShowPicker] = useState(false);
-  const systemData = useEditorStore(s => s.systemData);
-  const switches = systemData?.switches || [];
-
-  const getSwitchLabel = useCallback((id: number) => {
-    const name = switches[id] || '';
-    return `${String(id).padStart(4, '0')}${name ? ': ' + name : ''}`;
-  }, [switches]);
 
   const handleOk = () => {
     if (mode === 'single') {
@@ -85,24 +76,16 @@ export function ControlSwitchesEditor({ p, onOk, onCancel }: { p: unknown[]; onO
             <input type="radio" checked={mode === 'single'} onChange={() => setMode('single')} />
             단독
           </label>
-          <input
-            type="text" readOnly value={getSwitchLabel(singleId)}
-            style={{ ...selectStyle, flex: 1, cursor: 'pointer', opacity: mode === 'single' ? 1 : 0.5 }}
-            onClick={() => mode === 'single' && setShowPicker(true)}
-          />
-          <button className="db-btn" style={{ padding: '4px 8px', opacity: mode === 'single' ? 1 : 0.5 }}
-            disabled={mode !== 'single'} onClick={() => setShowPicker(true)}>...</button>
+          <VariableSwitchPicker type="switch" value={singleId} onChange={setSingleId} disabled={mode !== 'single'} style={{ flex: 1 }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#ddd', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             <input type="radio" checked={mode === 'range'} onChange={() => setMode('range')} />
             범위
           </label>
-          <input type="number" value={rangeStart} onChange={e => setRangeStart(Math.max(1, Number(e.target.value)))} min={1}
-            disabled={mode !== 'range'} style={{ ...selectStyle, width: 70, opacity: mode === 'range' ? 1 : 0.5 }} />
+          <VariableSwitchPicker type="switch" value={rangeStart} onChange={setRangeStart} disabled={mode !== 'range'} style={{ flex: 1 }} />
           <span style={{ color: '#aaa', fontSize: 13 }}>~</span>
-          <input type="number" value={rangeEnd} onChange={e => setRangeEnd(Math.max(1, Number(e.target.value)))} min={1}
-            disabled={mode !== 'range'} style={{ ...selectStyle, width: 70, opacity: mode === 'range' ? 1 : 0.5 }} />
+          <VariableSwitchPicker type="switch" value={rangeEnd} onChange={setRangeEnd} disabled={mode !== 'range'} style={{ flex: 1 }} />
         </div>
       </fieldset>
 
@@ -124,15 +107,6 @@ export function ControlSwitchesEditor({ p, onOk, onCancel }: { p: unknown[]; onO
         <button className="db-btn" onClick={handleOk}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
-
-      {showPicker && (
-        <VariableSwitchSelector
-          type="switch"
-          value={singleId}
-          onChange={setSingleId}
-          onClose={() => setShowPicker(false)}
-        />
-      )}
     </>
   );
 }
@@ -159,15 +133,6 @@ export function ControlVariablesEditor({ p, onOk, onCancel }: { p: unknown[]; on
   const [gdParam2, setGdParam2] = useState<number>(operandType === 3 ? ((p[6] as number) || 0) : 0);
   // 스크립트
   const [scriptText, setScriptText] = useState<string>(operandType === 4 ? ((p[4] as string) || '') : '');
-  // 변수 피커
-  const [showVarPicker, setShowVarPicker] = useState<'single' | 'operand' | null>(null);
-  const systemData = useEditorStore(s => s.systemData);
-  const variables = systemData?.variables || [];
-
-  const getVarLabel = useCallback((id: number) => {
-    const name = variables[id] || '';
-    return `${String(id).padStart(4, '0')}${name ? ': ' + name : ''}`;
-  }, [variables]);
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
 
@@ -194,22 +159,16 @@ export function ControlVariablesEditor({ p, onOk, onCancel }: { p: unknown[]; on
               <input type="radio" name="cv-var-mode" checked={varMode === 'single'} onChange={() => setVarMode('single')} />
               단독
             </label>
-            <input type="text" readOnly value={getVarLabel(singleId)}
-              style={{ ...selectStyle, flex: 1, cursor: 'pointer', opacity: varMode === 'single' ? 1 : 0.5 }}
-              onClick={() => varMode === 'single' && setShowVarPicker('single')} />
-            <button className="db-btn" style={{ padding: '4px 8px', opacity: varMode === 'single' ? 1 : 0.5 }}
-              disabled={varMode !== 'single'} onClick={() => setShowVarPicker('single')}>...</button>
+            <VariableSwitchPicker type="variable" value={singleId} onChange={setSingleId} disabled={varMode !== 'single'} style={{ flex: 1 }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ ...radioStyle, whiteSpace: 'nowrap' }}>
               <input type="radio" name="cv-var-mode" checked={varMode === 'range'} onChange={() => setVarMode('range')} />
               범위
             </label>
-            <input type="number" value={rangeStart} onChange={e => setRangeStart(Math.max(1, Number(e.target.value)))}
-              min={1} disabled={varMode !== 'range'} style={{ ...selectStyle, width: 80, opacity: varMode === 'range' ? 1 : 0.5 }} />
+            <VariableSwitchPicker type="variable" value={rangeStart} onChange={setRangeStart} disabled={varMode !== 'range'} style={{ flex: 1 }} />
             <span style={{ color: '#aaa', fontSize: 13 }}>~</span>
-            <input type="number" value={rangeEnd} onChange={e => setRangeEnd(Math.max(1, Number(e.target.value)))}
-              min={1} disabled={varMode !== 'range'} style={{ ...selectStyle, width: 80, opacity: varMode === 'range' ? 1 : 0.5 }} />
+            <VariableSwitchPicker type="variable" value={rangeEnd} onChange={setRangeEnd} disabled={varMode !== 'range'} style={{ flex: 1 }} />
           </div>
         </div>
       </fieldset>
@@ -246,11 +205,7 @@ export function ControlVariablesEditor({ p, onOk, onCancel }: { p: unknown[]; on
               <input type="radio" name="cv-operand" checked={operandType === 1} onChange={() => setOperandType(1)} />
               변수
             </label>
-            <input type="text" readOnly value={getVarLabel(varId)}
-              style={{ ...selectStyle, flex: 1, cursor: 'pointer', opacity: operandType === 1 ? 1 : 0.5 }}
-              onClick={() => operandType === 1 && setShowVarPicker('operand')} />
-            <button className="db-btn" style={{ padding: '4px 8px', opacity: operandType === 1 ? 1 : 0.5 }}
-              disabled={operandType !== 1} onClick={() => setShowVarPicker('operand')}>...</button>
+            <VariableSwitchPicker type="variable" value={varId} onChange={setVarId} disabled={operandType !== 1} style={{ flex: 1 }} />
           </div>
           {/* 랜덤 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -294,15 +249,6 @@ export function ControlVariablesEditor({ p, onOk, onCancel }: { p: unknown[]; on
         <button className="db-btn" onClick={handleOk}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
-
-      {showVarPicker && (
-        <VariableSwitchSelector
-          type="variable"
-          value={showVarPicker === 'single' ? singleId : varId}
-          onChange={id => { if (showVarPicker === 'single') setSingleId(id); else setVarId(id); }}
-          onClose={() => setShowVarPicker(null)}
-        />
-      )}
     </>
   );
 }
