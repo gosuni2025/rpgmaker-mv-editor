@@ -444,6 +444,11 @@ export interface CameraZone {
   transitionSpeed: number; // 전환 속도 (0.1~5.0, 기본 1.0)
   priority: number;  // 우선순위 (겹칠 때, 기본 0)
   enabled: boolean;
+  dofEnabled?: boolean;     // 이 존에서 DoF 활성화 여부 (undefined=글로벌 따름)
+  dofFocusY?: number;       // 0~1 (기본 0.55)
+  dofFocusRange?: number;   // 0~0.5 (기본 0.1)
+  dofMaxBlur?: number;      // 0~0.2 (기본 0.05)
+  dofBlurPower?: number;    // 0.5~5 (기본 1.5)
 }
 
 // Editor-only object data (stored as custom field in map JSON, ignored by RPG Maker MV)

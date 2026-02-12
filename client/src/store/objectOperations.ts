@@ -154,6 +154,11 @@ export function addCameraZoneOp(get: GetFn, set: SetFn, x: number, y: number, wi
     transitionSpeed: 1.0,
     priority: 0,
     enabled: true,
+    dofEnabled: false,
+    dofFocusY: 0.55,
+    dofFocusRange: 0.1,
+    dofMaxBlur: 0.05,
+    dofBlurPower: 1.5,
   };
   zones.push(newZone);
   const historyEntry: CameraZoneHistoryEntry = {

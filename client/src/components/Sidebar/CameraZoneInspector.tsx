@@ -187,6 +187,67 @@ export default function CameraZoneInspector() {
             </div>
           </div>
 
+          {/* DoF Settings */}
+          <div className="light-inspector-section">
+            <div className="light-inspector-title">DoF (피사계 심도)</div>
+            <div className="light-inspector-row">
+              <span className="light-inspector-label">DoF 활성화</span>
+              <input
+                type="checkbox"
+                checked={selectedZone.dofEnabled ?? false}
+                onChange={(e) => updateCameraZone(selectedZone.id, { dofEnabled: e.target.checked })}
+              />
+            </div>
+            {selectedZone.dofEnabled && (
+              <>
+                <div className="light-inspector-row">
+                  <DragLabel label="Focus Y" value={selectedZone.dofFocusY ?? 0.55} step={0.01} min={0} max={1}
+                    onChange={(v) => updateCameraZone(selectedZone.id, { dofFocusY: Math.round(v * 100) / 100 })} />
+                  <input type="range" className="light-inspector-slider" min={0} max={1} step={0.01}
+                    value={selectedZone.dofFocusY ?? 0.55}
+                    onChange={(e) => updateCameraZone(selectedZone.id, { dofFocusY: parseFloat(e.target.value) })} />
+                  <input type="number" className="light-inspector-input" min={0} max={1} step={0.01}
+                    style={{ width: 55 }}
+                    value={selectedZone.dofFocusY ?? 0.55}
+                    onChange={(e) => updateCameraZone(selectedZone.id, { dofFocusY: parseFloat(e.target.value) || 0.55 })} />
+                </div>
+                <div className="light-inspector-row">
+                  <DragLabel label="Range" value={selectedZone.dofFocusRange ?? 0.1} step={0.01} min={0} max={0.5}
+                    onChange={(v) => updateCameraZone(selectedZone.id, { dofFocusRange: Math.round(v * 100) / 100 })} />
+                  <input type="range" className="light-inspector-slider" min={0} max={0.5} step={0.01}
+                    value={selectedZone.dofFocusRange ?? 0.1}
+                    onChange={(e) => updateCameraZone(selectedZone.id, { dofFocusRange: parseFloat(e.target.value) })} />
+                  <input type="number" className="light-inspector-input" min={0} max={0.5} step={0.01}
+                    style={{ width: 55 }}
+                    value={selectedZone.dofFocusRange ?? 0.1}
+                    onChange={(e) => updateCameraZone(selectedZone.id, { dofFocusRange: parseFloat(e.target.value) || 0.1 })} />
+                </div>
+                <div className="light-inspector-row">
+                  <DragLabel label="Max Blur" value={selectedZone.dofMaxBlur ?? 0.05} step={0.005} min={0} max={0.2}
+                    onChange={(v) => updateCameraZone(selectedZone.id, { dofMaxBlur: Math.round(v * 1000) / 1000 })} />
+                  <input type="range" className="light-inspector-slider" min={0} max={0.2} step={0.005}
+                    value={selectedZone.dofMaxBlur ?? 0.05}
+                    onChange={(e) => updateCameraZone(selectedZone.id, { dofMaxBlur: parseFloat(e.target.value) })} />
+                  <input type="number" className="light-inspector-input" min={0} max={0.2} step={0.005}
+                    style={{ width: 55 }}
+                    value={selectedZone.dofMaxBlur ?? 0.05}
+                    onChange={(e) => updateCameraZone(selectedZone.id, { dofMaxBlur: parseFloat(e.target.value) || 0.05 })} />
+                </div>
+                <div className="light-inspector-row">
+                  <DragLabel label="Power" value={selectedZone.dofBlurPower ?? 1.5} step={0.1} min={0.5} max={5}
+                    onChange={(v) => updateCameraZone(selectedZone.id, { dofBlurPower: Math.round(v * 10) / 10 })} />
+                  <input type="range" className="light-inspector-slider" min={0.5} max={5} step={0.1}
+                    value={selectedZone.dofBlurPower ?? 1.5}
+                    onChange={(e) => updateCameraZone(selectedZone.id, { dofBlurPower: parseFloat(e.target.value) })} />
+                  <input type="number" className="light-inspector-input" min={0.5} max={5} step={0.1}
+                    style={{ width: 55 }}
+                    value={selectedZone.dofBlurPower ?? 1.5}
+                    onChange={(e) => updateCameraZone(selectedZone.id, { dofBlurPower: parseFloat(e.target.value) || 1.5 })} />
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Delete */}
           <button
             className="light-inspector-delete"

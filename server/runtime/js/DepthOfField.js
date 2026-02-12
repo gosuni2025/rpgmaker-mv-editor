@@ -507,14 +507,60 @@ DepthOfField._disposeComposer = function() {
         this._uiPass = null;
         this._lastStage = null;
     }
+    // lerp 상태 초기화
+    this._currentFocusY = null;
+    this._currentFocusRange = null;
+    this._currentMaxBlur = null;
+    this._currentBlurPower = null;
 };
+
+// 카메라존 DoF lerp 상태
+DepthOfField._currentFocusY = null;
+DepthOfField._currentFocusRange = null;
+DepthOfField._currentMaxBlur = null;
+DepthOfField._currentBlurPower = null;
 
 DepthOfField._updateUniforms = function() {
     if (!this._tiltShiftPass) return;
-    this._tiltShiftPass.uniforms.focusY.value = this.config.focusY;
-    this._tiltShiftPass.uniforms.focusRange.value = this.config.focusRange;
-    this._tiltShiftPass.uniforms.maxblur.value = this.config.maxblur;
-    this._tiltShiftPass.uniforms.blurPower.value = this.config.blurPower;
+
+    // 타겟 DoF 값 결정: 활성 카메라존 → 글로벌 config
+    var targetFocusY = this.config.focusY;
+    var targetFocusRange = this.config.focusRange;
+    var targetMaxBlur = this.config.maxblur;
+    var targetBlurPower = this.config.blurPower;
+    var transitionSpeed = 1.0;
+
+    if ($gameMap && $gameMap._activeCameraZoneId != null) {
+        var zone = $gameMap.getCameraZoneById($gameMap._activeCameraZoneId);
+        if (zone && zone.dofEnabled) {
+            targetFocusY = zone.dofFocusY != null ? zone.dofFocusY : this.config.focusY;
+            targetFocusRange = zone.dofFocusRange != null ? zone.dofFocusRange : this.config.focusRange;
+            targetMaxBlur = zone.dofMaxBlur != null ? zone.dofMaxBlur : this.config.maxblur;
+            targetBlurPower = zone.dofBlurPower != null ? zone.dofBlurPower : this.config.blurPower;
+        }
+        if (zone) transitionSpeed = zone.transitionSpeed || 1.0;
+    }
+
+    // 초기화 (최초 호출 시)
+    if (this._currentFocusY === null) {
+        this._currentFocusY = targetFocusY;
+        this._currentFocusRange = targetFocusRange;
+        this._currentMaxBlur = targetMaxBlur;
+        this._currentBlurPower = targetBlurPower;
+    }
+
+    // lerp로 부드럽게 전환
+    var lerpRate = 0.1 * transitionSpeed;
+    lerpRate = Math.min(lerpRate, 1.0);
+    this._currentFocusY += (targetFocusY - this._currentFocusY) * lerpRate;
+    this._currentFocusRange += (targetFocusRange - this._currentFocusRange) * lerpRate;
+    this._currentMaxBlur += (targetMaxBlur - this._currentMaxBlur) * lerpRate;
+    this._currentBlurPower += (targetBlurPower - this._currentBlurPower) * lerpRate;
+
+    this._tiltShiftPass.uniforms.focusY.value = this._currentFocusY;
+    this._tiltShiftPass.uniforms.focusRange.value = this._currentFocusRange;
+    this._tiltShiftPass.uniforms.maxblur.value = this._currentMaxBlur;
+    this._tiltShiftPass.uniforms.blurPower.value = this._currentBlurPower;
     this._tiltShiftPass.uniforms.aspect.value =
         Graphics.height / Graphics.width;
 };
