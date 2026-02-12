@@ -671,7 +671,6 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }} ref={containerRef} tabIndex={-1}>
-      <div className="db-form-section">{t('eventCommands.title')}</div>
       <div className="event-commands-list" ref={listRef}>
         {commands.map((cmd, i) => {
           const display = getCommandDisplay(cmd);

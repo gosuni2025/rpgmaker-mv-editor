@@ -513,7 +513,7 @@ const ko = {
 
   // === Event Commands ===
   eventCommands: {
-    title: '이벤트 커맨드',
+    title: '실행 내용',
     insertCommand: '커맨드 삽입',
     filterPlaceholder: '검색 (초성 검색 가능: ㅁㅈㅍㅅ → 문장 표시)',
     noResults: '검색 결과가 없습니다',
