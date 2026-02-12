@@ -168,33 +168,137 @@ export function SingleNumberEditor({ p, onOk, onCancel, label }: { p: unknown[];
   );
 }
 
+/** 스위치/변수 목록에서 선택하는 팝업 */
+export function DataListPicker({ items, value, onChange, onClose, title }: {
+  items: string[]; value: number; onChange: (id: number) => void; onClose: () => void; title?: string;
+}) {
+  const [selected, setSelected] = useState(value);
+  const [filter, setFilter] = useState('');
+  const filtered = useMemo(() => {
+    const result: { id: number; name: string }[] = [];
+    for (let i = 1; i < items.length; i++) {
+      const label = `${String(i).padStart(4, '0')}: ${items[i] || ''}`;
+      if (!filter || label.toLowerCase().includes(filter.toLowerCase())) {
+        result.push({ id: i, name: label });
+      }
+    }
+    return result;
+  }, [items, filter]);
+  return (
+    <div className="modal-overlay" style={{ zIndex: 10001 }} onClick={onClose}>
+      <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: 320, maxHeight: '60vh' }}>
+        <div className="image-picker-header">{title || '선택'}</div>
+        <div style={{ padding: '8px 12px' }}>
+          <input
+            type="text" placeholder="검색..." value={filter} onChange={e => setFilter(e.target.value)}
+            style={{ ...selectStyle, width: '100%', boxSizing: 'border-box' }} autoFocus
+          />
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', maxHeight: 300, padding: '0 12px' }}>
+          {filtered.map(item => (
+            <div
+              key={item.id}
+              style={{ padding: '3px 6px', cursor: 'pointer', fontSize: 13, color: '#ddd',
+                background: item.id === selected ? '#2675bf' : 'transparent', borderRadius: 2 }}
+              onClick={() => setSelected(item.id)}
+              onDoubleClick={() => { onChange(item.id); onClose(); }}
+            >{item.name}</div>
+          ))}
+        </div>
+        <div className="image-picker-footer">
+          <button className="db-btn" onClick={() => { onChange(selected); onClose(); }}>OK</button>
+          <button className="db-btn" onClick={onClose}>취소</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ControlSwitchesEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
-  const [startId, setStartId] = useState<number>((p[0] as number) || 1);
-  const [endId, setEndId] = useState<number>((p[1] as number) || 1);
+  const initStart = (p[0] as number) || 1;
+  const initEnd = (p[1] as number) || 1;
+  const [mode, setMode] = useState<'single' | 'range'>(initStart === initEnd ? 'single' : 'range');
+  const [singleId, setSingleId] = useState<number>(initStart);
+  const [rangeStart, setRangeStart] = useState<number>(initStart);
+  const [rangeEnd, setRangeEnd] = useState<number>(initEnd);
   const [value, setValue] = useState<number>((p[2] as number) || 0);
+  const [showPicker, setShowPicker] = useState(false);
+  const systemData = useEditorStore(s => s.systemData);
+  const switches = systemData?.switches || [];
+
+  const getSwitchLabel = useCallback((id: number) => {
+    const name = switches[id] || '';
+    return `${String(id).padStart(4, '0')}${name ? ': ' + name : ''}`;
+  }, [switches]);
+
+  const handleOk = () => {
+    if (mode === 'single') {
+      onOk([singleId, singleId, value]);
+    } else {
+      const s = Math.min(rangeStart, rangeEnd);
+      const e = Math.max(rangeStart, rangeEnd);
+      onOk([s, e, value]);
+    }
+  };
+
   return (
     <>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <label style={{ fontSize: 12, color: '#aaa' }}>
-          Start ID
-          <input type="number" value={startId} onChange={e => setStartId(Number(e.target.value))} min={1} style={{ ...selectStyle, width: 80 }} />
-        </label>
-        <label style={{ fontSize: 12, color: '#aaa' }}>
-          End ID
-          <input type="number" value={endId} onChange={e => setEndId(Number(e.target.value))} min={1} style={{ ...selectStyle, width: 80 }} />
-        </label>
-      </div>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        Operation
-        <select value={value} onChange={e => setValue(Number(e.target.value))} style={selectStyle}>
-          <option value={0}>ON</option>
-          <option value={1}>OFF</option>
-        </select>
-      </label>
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>스위치</legend>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#ddd', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <input type="radio" checked={mode === 'single'} onChange={() => setMode('single')} />
+            단독
+          </label>
+          <input
+            type="text" readOnly value={getSwitchLabel(singleId)}
+            style={{ ...selectStyle, flex: 1, cursor: 'pointer', opacity: mode === 'single' ? 1 : 0.5 }}
+            onClick={() => mode === 'single' && setShowPicker(true)}
+          />
+          <button className="db-btn" style={{ padding: '4px 8px', opacity: mode === 'single' ? 1 : 0.5 }}
+            disabled={mode !== 'single'} onClick={() => setShowPicker(true)}>...</button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#ddd', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <input type="radio" checked={mode === 'range'} onChange={() => setMode('range')} />
+            범위
+          </label>
+          <input type="number" value={rangeStart} onChange={e => setRangeStart(Math.max(1, Number(e.target.value)))} min={1}
+            disabled={mode !== 'range'} style={{ ...selectStyle, width: 70, opacity: mode === 'range' ? 1 : 0.5 }} />
+          <span style={{ color: '#aaa', fontSize: 13 }}>~</span>
+          <input type="number" value={rangeEnd} onChange={e => setRangeEnd(Math.max(1, Number(e.target.value)))} min={1}
+            disabled={mode !== 'range'} style={{ ...selectStyle, width: 70, opacity: mode === 'range' ? 1 : 0.5 }} />
+        </div>
+      </fieldset>
+
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>조작</legend>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#ddd', cursor: 'pointer' }}>
+            <input type="radio" checked={value === 0} onChange={() => setValue(0)} />
+            ON
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#ddd', cursor: 'pointer' }}>
+            <input type="radio" checked={value === 1} onChange={() => setValue(1)} />
+            OFF
+          </label>
+        </div>
+      </fieldset>
+
       <div className="image-picker-footer">
-        <button className="db-btn" onClick={() => onOk([startId, endId, value])}>OK</button>
-        <button className="db-btn" onClick={onCancel}>Cancel</button>
+        <button className="db-btn" onClick={handleOk}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
+
+      {showPicker && (
+        <DataListPicker
+          items={switches}
+          value={singleId}
+          onChange={setSingleId}
+          onClose={() => setShowPicker(false)}
+          title="스위치 선택"
+        />
+      )}
     </>
   );
 }
