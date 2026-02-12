@@ -4,7 +4,7 @@ import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, AudioEditor,
-  ChangePartyMemberEditor, ChangeNameEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor,
+  ChangePartyMemberEditor, ChangeNameEditor, ChangeHPEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor,
   ScrollingTextEditor, ConditionalBranchEditor,
 } from './commandEditors';
 
@@ -44,7 +44,7 @@ function getCommandName(code: number): string {
     117: 'Common Event', 118: 'Label', 119: 'Jump to Label',
     121: '스위치 조작', 122: '변수 조작', 123: 'Control Self Switch',
     124: '타이머 조작', 125: '소지 금액 증감', 126: '아이템 증감',
-    127: '무기 증감', 128: '방어구 증감', 129: '파티원 증감',
+    127: '무기 변경', 128: '방어구 변경', 129: '파티원 변경',
     201: 'Transfer Player', 230: 'Wait',
     241: 'Play BGM', 242: 'Fadeout BGM', 245: 'Play BGS', 246: 'Fadeout BGS',
     249: 'Play ME', 250: 'Play SE',
@@ -85,8 +85,8 @@ function getEditorContent(
     case 119: return <SingleTextEditor p={p} onOk={onOk} onCancel={onCancel} label="Label Name" />;
     case 125: return <ChangeGoldEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 126: return <ChangeItemEditor p={p} onOk={onOk} onCancel={onCancel} label="Item" />;
-    case 127: return <ChangeItemEditor p={p} onOk={onOk} onCancel={onCancel} label="Weapon" />;
-    case 128: return <ChangeItemEditor p={p} onOk={onOk} onCancel={onCancel} label="Armor" />;
+    case 127: return <ChangeItemEditor p={p} onOk={onOk} onCancel={onCancel} label="Weapon" showIncludeEquip />;
+    case 128: return <ChangeItemEditor p={p} onOk={onOk} onCancel={onCancel} label="Armor" showIncludeEquip />;
     case 201: return <TransferPlayerEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 230: return <SingleNumberEditor p={p} onOk={onOk} onCancel={onCancel} label="Wait (frames)" />;
     case 241: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgm" />;
