@@ -126,28 +126,30 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
   }, [allCommands, commandFilter, isFiltering]);
 
   const renderCategory = (label: string, codes: number[]) => (
-    <div key={label} style={{ marginBottom: 8 }}>
-      <div style={{ fontWeight: 'bold', fontSize: 12, color: '#aaa', padding: '4px 0 2px', marginBottom: 2 }}>{label}</div>
-      {codes.map(code => (
-        <div
-          key={code}
-          className="insert-command-item"
-          onClick={() => onSelect(code)}
-        >
-          {t(`eventCommands.commands.${code}`)}
-        </div>
-      ))}
+    <div key={label} className="cmd-insert-category">
+      <div className="cmd-insert-category-header">{label}</div>
+      <div className="cmd-insert-category-body">
+        {codes.map(code => (
+          <div
+            key={code}
+            className="insert-command-item"
+            onClick={() => onSelect(code)}
+          >
+            {t(`eventCommands.commands.${code}`)}
+          </div>
+        ))}
+      </div>
     </div>
   );
 
   const renderTab = (tabNum: number) => {
     const tab = TABS[tabNum as keyof typeof TABS];
     return (
-      <div style={{ display: 'flex', gap: 16, flex: 1, overflow: 'hidden' }}>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div className="cmd-insert-columns">
+        <div className="cmd-insert-column">
           {tab.left.map(cat => renderCategory(cat.label, cat.commands))}
         </div>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="cmd-insert-column">
           {tab.right.map(cat => renderCategory(cat.label, cat.commands))}
         </div>
       </div>
@@ -156,15 +158,14 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
 
   return (
     <div className="modal-overlay" onClick={() => onCancel()}>
-      <div className="image-picker-dialog" onClick={e => e.stopPropagation()} style={{ width: 520, height: 'calc(100vh - 80px)', maxHeight: 700 }}>
-        <div className="image-picker-header">{t('eventCommands.insertCommand')}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px' }}>
-          <div style={{ display: 'flex', gap: 2 }}>
+      <div className="cmd-insert-dialog" onClick={e => e.stopPropagation()}>
+        <div className="cmd-insert-title">{t('eventCommands.insertCommand')}</div>
+        <div className="cmd-insert-toolbar">
+          <div className="cmd-insert-tabs">
             {[1, 2, 3].map(n => (
               <button
                 key={n}
-                className={`db-btn${activeTab === n ? ' active' : ''}`}
-                style={{ minWidth: 32, padding: '2px 8px', fontSize: 13 }}
+                className={`cmd-insert-tab${activeTab === n ? ' active' : ''}`}
                 onClick={() => setActiveTab(n)}
               >
                 {n}
@@ -186,7 +187,7 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
             )}
           </div>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px', display: 'flex', flexDirection: 'column' }}>
+        <div className="cmd-insert-content">
           {isFiltering ? (
             filteredCommands.length === 0 ? (
               <div style={{ padding: 16, textAlign: 'center', color: '#888' }}>{t('eventCommands.noResults')}</div>
@@ -207,7 +208,7 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
             renderTab(activeTab)
           )}
         </div>
-        <div className="image-picker-footer">
+        <div className="cmd-insert-footer">
           <button className="db-btn" onClick={() => onCancel()}>{t('common.cancel')}</button>
         </div>
       </div>

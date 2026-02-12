@@ -96,14 +96,123 @@
   grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
 }
 
-.insert-command-item {
-  padding: 6px 16px;
-  cursor: pointer;
+/* Command Insert Dialog */
+.cmd-insert-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 6px;
+  width: 580px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+
+.cmd-insert-title {
+  padding: 8px 16px;
+  font-weight: bold;
   font-size: 13px;
+  border-bottom: 1px solid #555;
+  background: #333;
+  border-radius: 6px 6px 0 0;
+  text-align: center;
+}
+
+.cmd-insert-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid #444;
+}
+
+.cmd-insert-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.cmd-insert-tab {
+  min-width: 30px;
+  padding: 3px 10px;
+  font-size: 13px;
+  background: #555;
+  border: 1px solid #666;
+  border-radius: 3px;
+  color: #ccc;
+  cursor: pointer;
+}
+
+.cmd-insert-tab:hover {
+  background: #606060;
+}
+
+.cmd-insert-tab.active {
+  background: #2675bf;
+  border-color: #2675bf;
+  color: #fff;
+}
+
+.cmd-insert-content {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.cmd-insert-columns {
+  display: flex;
+  gap: 12px;
+}
+
+.cmd-insert-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cmd-insert-category {
+  border: 1px solid #555;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cmd-insert-category-header {
+  font-weight: bold;
+  font-size: 11px;
+  color: #bbb;
+  padding: 4px 8px;
+  background: #4a4a4a;
+  border-bottom: 1px solid #555;
+  letter-spacing: 0.5px;
+}
+
+.cmd-insert-category-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.insert-command-item {
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  border-bottom: 1px solid #3a3a3a;
+  color: #ddd;
+}
+
+.insert-command-item:last-child {
+  border-bottom: none;
 }
 
 .insert-command-item:hover {
   background: #2675bf;
+  color: #fff;
+}
+
+.cmd-insert-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #555;
 }
 
 .context-menu-item:hover {
