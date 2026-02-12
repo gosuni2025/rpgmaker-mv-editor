@@ -6126,10 +6126,7 @@ Game_Map.prototype.getCameraZoneById = function(id) {
     return null;
 };
 
-// 카메라 객체의 맵 타일 좌표를 계산
-// 3D: cam.position은 Spriteset 로컬 좌표 (cx+offX, cy+offY)
-//      타일맵 origin = displayX*tw → 맵 타일 = displayX + cam.pos / tw
-// 2D: 화면 중심 = displayX + screenTileX/2
+// 카메라의 맵 타일 좌표 (tilt 무시, x/z 사용)
 Game_Map.prototype.getCameraWorldTile = function() {
     var tw = this.tileWidth();
     var th = this.tileHeight();
@@ -6137,7 +6134,7 @@ Game_Map.prototype.getCameraWorldTile = function() {
         var cam = Mode3D._perspCamera;
         return {
             x: this._displayX + cam.position.x / tw,
-            y: this._displayY + cam.position.y / th
+            y: this._displayY + cam.position.z / th
         };
     }
     return {
