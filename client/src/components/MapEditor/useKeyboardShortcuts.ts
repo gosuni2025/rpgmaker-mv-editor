@@ -45,6 +45,7 @@ export function useKeyboardShortcuts(
   const cutTiles = useEditorStore((s) => s.cutTiles);
   const deleteTiles = useEditorStore((s) => s.deleteTiles);
   const selectedTool = useEditorStore((s) => s.selectedTool);
+  const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
   const setSelection = useEditorStore((s) => s.setSelection);
   const clearSelection = useEditorStore((s) => s.clearSelection);
   const isPasting = useEditorStore((s) => s.isPasting);
@@ -283,7 +284,10 @@ export function useKeyboardShortcuts(
   // Handle Select All (Cmd+A)
   useEffect(() => {
     const handleSelectAll = () => {
-      if (editMode === 'map' && selectedTool === 'select' && currentMap) {
+      if (editMode === 'map' && currentMap) {
+        if (selectedTool !== 'select') {
+          setSelectedTool('select');
+        }
         setSelection({ x: 0, y: 0 }, { x: currentMap.width - 1, y: currentMap.height - 1 });
         showToast('전체 선택');
       }
@@ -307,7 +311,7 @@ export function useKeyboardShortcuts(
     };
     window.addEventListener('editor-selectall', handleSelectAll);
     return () => window.removeEventListener('editor-selectall', handleSelectAll);
-  }, [editMode, selectedTool, currentMap, setSelection, showToast, lightEditMode]);
+  }, [editMode, selectedTool, setSelectedTool, currentMap, setSelection, showToast, lightEditMode]);
 
   // Handle Deselect (Cmd+D)
   useEffect(() => {
