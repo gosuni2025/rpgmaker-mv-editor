@@ -38,7 +38,6 @@ export default function MapCanvas() {
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const systemData = useEditorStore((s) => s.systemData);
   const setPlayerStartPosition = useEditorStore((s) => s.setPlayerStartPosition);
-  const transparentColor = useEditorStore((s) => s.transparentColor);
   const copyEvent = useEditorStore((s) => s.copyEvent);
   const deleteEvent = useEditorStore((s) => s.deleteEvent);
   const pasteEvent = useEditorStore((s) => s.pasteEvent);
@@ -1377,26 +1376,14 @@ export default function MapCanvas() {
   const eyedropperCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.54 3.54 1.41 1.41L16.25 6.8l.88.88-5.66 5.66-1.41-1.41-2.12 2.12a3 3 0 000 4.24l.71.71a3 3 0 004.24 0l2.12-2.12-1.41-1.41 5.66-5.66.88.88 1.41-1.41-3.54-3.54a1 1 0 000-1.41z' fill='white' stroke='black' stroke-width='0.5'/%3E%3C/svg%3E") 2 22, crosshair`;
 
   const containerStyle = useMemo(() => {
-    const { r, g, b } = transparentColor;
-    const c1 = `rgb(${r}, ${g}, ${b})`;
-    const dr = Math.max(0, r - 48), dg = Math.max(0, g - 48), db = Math.max(0, b - 48);
-    const c2 = `rgb(${dr}, ${dg}, ${db})`;
     return {
       flex: 1 as const,
       overflow: 'auto' as const,
-      backgroundColor: c1,
-      backgroundImage: `
-        linear-gradient(45deg, ${c2} 25%, transparent 25%),
-        linear-gradient(-45deg, ${c2} 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, ${c2} 75%),
-        linear-gradient(-45deg, transparent 75%, ${c2} 75%)
-      `,
-      backgroundSize: '16px 16px',
-      backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+      backgroundColor: '#1a1a1a',
       border: '1px solid #555',
       cursor: panning ? 'grabbing' : undefined,
     };
-  }, [transparentColor, panning]);
+  }, [panning]);
 
   return (
     <div ref={containerRef} style={containerStyle} onClick={closeEventCtxMenu}>

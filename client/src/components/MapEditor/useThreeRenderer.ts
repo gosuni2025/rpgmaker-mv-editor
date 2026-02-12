@@ -129,6 +129,7 @@ export function useThreeRenderer(
   const playerCharacterIndex = useEditorStore((s) => s.playerCharacterIndex);
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const selectedLightId = useEditorStore((s) => s.selectedLightId);
+  const transparentColor = useEditorStore((s) => s.transparentColor);
 
   // Track renderer readiness so overlay useEffects re-run after async setup
   const [rendererReady, setRendererReady] = useState(false);
@@ -141,6 +142,8 @@ export function useThreeRenderer(
   const lastMapDataRef = useRef<number[] | null>(null);
   const renderRequestedRef = useRef(false);
   const gridMeshRef = useRef<any>(null);
+  // Checkerboard background ref
+  const checkerMeshRef = useRef<any>(null);
   // Overlay refs
   const regionMeshesRef = useRef<any[]>([]);
   const objectMeshesRef = useRef<any[]>([]);
@@ -268,6 +271,40 @@ export function useThreeRenderer(
       }
       if (editorState.mode3d) {
         w.ConfigManager.mode3d = true;
+      }
+
+      // Create checkerboard background mesh (behind tilemap, shows for empty tiles inside map bounds)
+      {
+        const tc = editorState.transparentColor;
+        const checkSize = 8;
+        const texW = checkSize * 2;
+        const texH = checkSize * 2;
+        const checkerCanvas = document.createElement('canvas');
+        checkerCanvas.width = texW;
+        checkerCanvas.height = texH;
+        const ctx2 = checkerCanvas.getContext('2d')!;
+        const c1 = `rgb(${tc.r},${tc.g},${tc.b})`;
+        const dr = Math.max(0, tc.r - 48), dg = Math.max(0, tc.g - 48), db = Math.max(0, tc.b - 48);
+        const c2 = `rgb(${dr},${dg},${db})`;
+        ctx2.fillStyle = c1;
+        ctx2.fillRect(0, 0, texW, texH);
+        ctx2.fillStyle = c2;
+        ctx2.fillRect(0, 0, checkSize, checkSize);
+        ctx2.fillRect(checkSize, checkSize, checkSize, checkSize);
+        const checkerTex = new THREE.CanvasTexture(checkerCanvas);
+        checkerTex.wrapS = THREE.RepeatWrapping;
+        checkerTex.wrapT = THREE.RepeatWrapping;
+        checkerTex.repeat.set(mapPxW / texW, mapPxH / texH);
+        checkerTex.magFilter = THREE.NearestFilter;
+        checkerTex.minFilter = THREE.NearestFilter;
+        const checkerGeo = new THREE.PlaneGeometry(mapPxW, mapPxH);
+        const checkerMat = new THREE.MeshBasicMaterial({ map: checkerTex, depthTest: false, depthWrite: false });
+        const checkerMesh = new THREE.Mesh(checkerGeo, checkerMat);
+        checkerMesh.position.set(mapPxW / 2, mapPxH / 2, -1);
+        checkerMesh.renderOrder = -1;
+        checkerMesh.frustumCulled = false;
+        rendererObj.scene.add(checkerMesh);
+        checkerMeshRef.current = checkerMesh;
       }
 
       // Create grid mesh (used in both 2D and 3D)
@@ -491,6 +528,13 @@ export function useThreeRenderer(
           selectionMeshRef.current.material?.dispose();
           selectionMeshRef.current = null;
         }
+        if (checkerMeshRef.current) {
+          rendererObj.scene.remove(checkerMeshRef.current);
+          checkerMeshRef.current.geometry.dispose();
+          checkerMeshRef.current.material.map?.dispose();
+          checkerMeshRef.current.material.dispose();
+          checkerMeshRef.current = null;
+        }
         if (gridMeshRef.current) {
           rendererObj.scene.remove(gridMeshRef.current);
           gridMeshRef.current.geometry.dispose();
@@ -534,6 +578,41 @@ export function useThreeRenderer(
       }
     };
   }, [currentMap?.tilesetId, currentMap?.width, currentMap?.height, currentMapId, tilesetInfo]);
+
+  // Update checkerboard texture when transparentColor changes
+  useEffect(() => {
+    const mesh = checkerMeshRef.current;
+    if (!mesh) return;
+    const tc = transparentColor;
+    const checkSize = 8;
+    const texW = checkSize * 2;
+    const texH = checkSize * 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = texW;
+    canvas.height = texH;
+    const ctx = canvas.getContext('2d')!;
+    const c1 = `rgb(${tc.r},${tc.g},${tc.b})`;
+    const dr = Math.max(0, tc.r - 48), dg = Math.max(0, tc.g - 48), db = Math.max(0, tc.b - 48);
+    const c2 = `rgb(${dr},${dg},${db})`;
+    ctx.fillStyle = c1;
+    ctx.fillRect(0, 0, texW, texH);
+    ctx.fillStyle = c2;
+    ctx.fillRect(0, 0, checkSize, checkSize);
+    ctx.fillRect(checkSize, checkSize, checkSize, checkSize);
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+    const oldTex = mesh.material.map;
+    const newTex = new THREE.CanvasTexture(canvas);
+    newTex.wrapS = THREE.RepeatWrapping;
+    newTex.wrapT = THREE.RepeatWrapping;
+    newTex.repeat.copy(oldTex.repeat);
+    newTex.magFilter = THREE.NearestFilter;
+    newTex.minFilter = THREE.NearestFilter;
+    mesh.material.map = newTex;
+    mesh.material.needsUpdate = true;
+    oldTex?.dispose();
+    requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
+  }, [transparentColor, rendererReady]);
 
   // Sync grid mesh visibility
   useEffect(() => {
