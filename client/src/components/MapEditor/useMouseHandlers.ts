@@ -118,8 +118,8 @@ export function useMouseHandlers(
 
       const tile = canvasToTile(e);
 
-      // 카메라 존 모드
-      if (editMode === 'cameraZone') {
+      // 카메라 존 모드 (좌클릭만)
+      if (e.button === 0 && editMode === 'cameraZone') {
         const unclampedTile = canvasToTile(e, true) ?? tile;
         if (unclampedTile) {
           cameraZone.handleCameraZoneMouseDown(tile, unclampedTile);
