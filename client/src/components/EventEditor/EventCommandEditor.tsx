@@ -32,6 +32,7 @@ let commandClipboard: EventCommand[] = [];
 export default function EventCommandEditor({ commands, onChange, context }: EventCommandEditorProps) {
   const { t } = useTranslation();
   const systemData = useEditorStore(s => s.systemData);
+  const maps = useEditorStore(s => s.maps);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [lastClickedIndex, setLastClickedIndex] = useState(-1);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -643,6 +644,28 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     }
     if (code === 411) return t('eventCommands.display.411');
     if (code === 412) return t('eventCommands.display.412');
+
+    // 장소 이동 전용 포맷
+    if (code === 201 && cmd.parameters && cmd.parameters.length >= 4) {
+      const designationType = cmd.parameters[0] as number;
+      const dirLabels: Record<number, string> = { 0: '유지', 2: '아래', 4: '왼쪽', 6: '오른쪽', 8: '위' };
+      const fadeLabels: Record<number, string> = { 0: '검게', 1: '희게', 2: '없음' };
+      const dir = dirLabels[cmd.parameters[4] as number] || '유지';
+      const fade = fadeLabels[cmd.parameters[5] as number] || '검게';
+      if (designationType === 0) {
+        const mId = cmd.parameters[1] as number;
+        const mx = cmd.parameters[2] as number;
+        const my = cmd.parameters[3] as number;
+        const mapName = maps?.[mId]?.name || '';
+        text += `: ${mapName}(${mId},[${mx},${my}]), 방향:${dir}, 페이드:${fade}`;
+      } else {
+        const mVar = cmd.parameters[1] as number;
+        const xVar = cmd.parameters[2] as number;
+        const yVar = cmd.parameters[3] as number;
+        text += `: {맵:V[${mVar}],X:V[${xVar}],Y:V[${yVar}]}, 방향:${dir}, 페이드:${fade}`;
+      }
+      return text;
+    }
 
     // 스위치 조작 전용 포맷
     if (code === 121 && cmd.parameters && cmd.parameters.length >= 3) {
