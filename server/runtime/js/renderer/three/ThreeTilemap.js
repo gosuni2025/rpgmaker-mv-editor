@@ -534,16 +534,38 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
     var posArray = new Float32Array(vertCount * 3);
     var normalArray = new Float32Array(vertCount * 3);
     var uvArray = new Float32Array(vertCount * 2);
+    var uvBoundsArray = new Float32Array(vertCount * 4); // vec4(uMin, vMin, uMax, vMax)
 
     for (var ni = 0; ni < count; ni++) {
         var i = indices[ni];
         var srcOff = i * 12;
         var posOff = ni * 18;
         var uvOff = ni * 12;
+        var boundsOff = ni * 24; // 6 verts * 4 components
 
         var ax = (animOffsets[i * 2] || 0) * tileAnimX;
         var ay = (animOffsets[i * 2 + 1] || 0) * tileAnimY;
 
+        // 쿼드의 UV 바운드 계산 (6개 버텍스 중 min/max)
+        var uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+        for (var j = 0; j < 6; j++) {
+            var u = (data.uvs[srcOff + j * 2] + ax) / texW;
+            var v = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
+            uvArray[uvOff + j * 2] = u;
+            uvArray[uvOff + j * 2 + 1] = v;
+            if (u < uMin) uMin = u;
+            if (u > uMax) uMax = u;
+            if (v < vMin) vMin = v;
+            if (v > vMax) vMax = v;
+        }
+        // 텍셀 절반만큼 안쪽으로 수축하여 인접 타일 샘플링 방지
+        var halfTexelU = 0.5 / texW;
+        var halfTexelV = 0.5 / texH;
+        uMin += halfTexelU;
+        uMax -= halfTexelU;
+        vMin += halfTexelV;
+        vMax -= halfTexelV;
+        // 모든 버텍스에 동일한 바운드 할당
         for (var j = 0; j < 6; j++) {
             posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
             posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
@@ -553,8 +575,10 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
             normalArray[posOff + j * 3 + 1] = 0;
             normalArray[posOff + j * 3 + 2] = -1;
 
-            uvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
-            uvArray[uvOff + j * 2 + 1] = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
+            uvBoundsArray[boundsOff + j * 4]     = uMin;
+            uvBoundsArray[boundsOff + j * 4 + 1] = vMin;
+            uvBoundsArray[boundsOff + j * 4 + 2] = uMax;
+            uvBoundsArray[boundsOff + j * 4 + 3] = vMax;
         }
     }
 
@@ -590,6 +614,13 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
         } else {
             geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
         }
+        var boundsAttr = geometry.attributes.aUvBounds;
+        if (boundsAttr && boundsAttr.array.length === uvBoundsArray.length) {
+            boundsAttr.array.set(uvBoundsArray);
+            boundsAttr.needsUpdate = true;
+        } else {
+            geometry.setAttribute('aUvBounds', new THREE.BufferAttribute(uvBoundsArray, 4));
+        }
 
         // material 타입 전환 (ShadowLight 상태에 따라)
         var isPhong = mesh.material.isMeshPhongMaterial;
@@ -617,6 +648,7 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
         geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
         geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
         geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+        geometry.setAttribute('aUvBounds', new THREE.BufferAttribute(uvBoundsArray, 4));
 
         var material;
         texture.minFilter = THREE.NearestFilter;
@@ -766,6 +798,10 @@ ThreeTilemapRectLayer.prototype._updateAnimUVs = function(tileAnimX, tileAnimY) 
                 var meshKinds = wMesh.userData.a1Kinds || [];
                 var meshIsWF = wMesh.userData.isWaterfall;
                 var wUvArray = wUvAttr.array;
+                var wBoundsAttr = wMesh.geometry.attributes.aUvBounds;
+                var wBoundsArray = wBoundsAttr ? wBoundsAttr.array : null;
+                var halfTexelU = 0.5 / texW;
+                var halfTexelV = 0.5 / texH;
                 var wi = 0;
                 for (var i = 0; i < data.count; i++) {
                     var cAx = animOffsets[i * 2] || 0;
@@ -778,15 +814,34 @@ ThreeTilemapRectLayer.prototype._updateAnimUVs = function(tileAnimX, tileAnimY) 
 
                     var srcOff = i * 12;
                     var uvOff = wi * 12;
+                    var boundsOff = wi * 24;
                     var ax = cAx * tileAnimX;
                     var ay = cAy * tileAnimY;
+                    var uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
                     for (var j = 0; j < 6; j++) {
-                        wUvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
-                        wUvArray[uvOff + j * 2 + 1] = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
+                        var u = (data.uvs[srcOff + j * 2] + ax) / texW;
+                        var v = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
+                        wUvArray[uvOff + j * 2]     = u;
+                        wUvArray[uvOff + j * 2 + 1] = v;
+                        if (u < uMin) uMin = u;
+                        if (u > uMax) uMax = u;
+                        if (v < vMin) vMin = v;
+                        if (v > vMax) vMax = v;
+                    }
+                    if (wBoundsArray) {
+                        uMin += halfTexelU; uMax -= halfTexelU;
+                        vMin += halfTexelV; vMax -= halfTexelV;
+                        for (var j = 0; j < 6; j++) {
+                            wBoundsArray[boundsOff + j * 4]     = uMin;
+                            wBoundsArray[boundsOff + j * 4 + 1] = vMin;
+                            wBoundsArray[boundsOff + j * 4 + 2] = uMax;
+                            wBoundsArray[boundsOff + j * 4 + 3] = vMax;
+                        }
                     }
                     wi++;
                 }
                 wUvAttr.needsUpdate = true;
+                if (wBoundsAttr) wBoundsAttr.needsUpdate = true;
                 ThreeWaterShader.updateTime(wMesh, ThreeWaterShader._time);
             }
         }
