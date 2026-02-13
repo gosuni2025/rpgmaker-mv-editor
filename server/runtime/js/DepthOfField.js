@@ -610,7 +610,8 @@ _ThreeStrategy.render = function(rendererObj, stage) {
         if (stage.updateTransform) stage.updateTransform();
         this._syncHierarchy(rendererObj, stage);
 
-        // PerspectiveCamera 위치 갱신
+        // 카메라 존 파라미터(tilt/fov/yaw/zoom) lerp 업데이트 후 위치 갱신
+        Mode3D._updateCameraZoneParams();
         Mode3D._positionCamera(Mode3D._perspCamera, w, h);
         Mode3D._applyBillboards();
         Mode3D._enforceNearestFilter(scene);
