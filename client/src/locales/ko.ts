@@ -1070,6 +1070,17 @@ const ko = {
     gitWarningTitle: '백업 없이 진행',
     gitWarningMessage: 'Git 백업 없이 마이그레이션하면 기존 파일을 복구할 수 없습니다. Git을 설치하여 프로젝트를 관리하는 것을 강력히 권장합니다.',
     gitWarningProceed: '백업 없이 진행',
+    rollbackTitle: '마이그레이션 롤백',
+    rollbackDescription: '이전 Git 백업에서 js/ 폴더를 복원합니다.',
+    rollbackDate: '날짜',
+    rollbackHash: '커밋',
+    rollbackMessage: '메시지',
+    rollback: '롤백',
+    rollingBack: '롤백 중...',
+    rollbackConfirmTitle: '롤백 확인',
+    rollbackConfirmMessage: '선택한 백업으로 js/ 폴더를 복원합니다. 현재 js/ 파일들이 덮어씌워집니다. 계속하시겠습니까?',
+    rollbackConfirmProceed: '롤백 실행',
+    rollbackSuccess: '롤백이 완료되었습니다.',
   },
 
   // === Find Dialog ===

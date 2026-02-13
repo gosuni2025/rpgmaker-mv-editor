@@ -684,6 +684,17 @@ const en = {
     gitWarningTitle: 'Proceed without backup',
     gitWarningMessage: 'Migrating without Git backup means you cannot recover the original files. It is strongly recommended to install Git and manage your project with it.',
     gitWarningProceed: 'Proceed without backup',
+    rollbackTitle: 'Migration Rollback',
+    rollbackDescription: 'Restore js/ folder from a previous Git backup.',
+    rollbackDate: 'Date',
+    rollbackHash: 'Commit',
+    rollbackMessage: 'Message',
+    rollback: 'Rollback',
+    rollingBack: 'Rolling back...',
+    rollbackConfirmTitle: 'Confirm Rollback',
+    rollbackConfirmMessage: 'This will restore the js/ folder from the selected backup. Current js/ files will be overwritten. Continue?',
+    rollbackConfirmProceed: 'Proceed with Rollback',
+    rollbackSuccess: 'Rollback completed successfully.',
   },
 
   find: {

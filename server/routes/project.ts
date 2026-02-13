@@ -406,4 +406,75 @@ router.post('/migrate', (req: Request, res: Response) => {
   }
 });
 
+// List git backup commits for migration rollback
+router.get('/migration-backups', (req: Request, res: Response) => {
+  try {
+    if (!projectManager.isOpen()) {
+      return res.json({ backups: [] });
+    }
+    const projectRoot = projectManager.currentPath!;
+
+    // Check if it's a git repo
+    try {
+      execSync('git rev-parse --git-dir', { cwd: projectRoot, stdio: 'ignore' });
+    } catch {
+      return res.json({ backups: [] });
+    }
+
+    // Find backup commits
+    let output = '';
+    try {
+      output = execSync(
+        'git log --all --format="%H|%aI|%s" --grep="before runtime migration"',
+        { cwd: projectRoot, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
+      ).trim();
+    } catch {
+      return res.json({ backups: [] });
+    }
+
+    if (!output) {
+      return res.json({ backups: [] });
+    }
+
+    const backups = output.split('\n').map(line => {
+      const [hash, date, ...messageParts] = line.split('|');
+      return { hash, date, message: messageParts.join('|') };
+    });
+
+    res.json({ backups });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Rollback migration by restoring js/ from a backup commit
+router.post('/migration-rollback', (req: Request, res: Response) => {
+  try {
+    if (!projectManager.isOpen()) {
+      return res.status(404).json({ error: 'No project open' });
+    }
+
+    const { commitHash } = req.body;
+    if (!commitHash || !/^[0-9a-f]{7,40}$/i.test(commitHash)) {
+      return res.status(400).json({ error: 'Invalid commit hash' });
+    }
+
+    const projectRoot = projectManager.currentPath!;
+
+    // Verify commit exists
+    try {
+      execSync(`git cat-file -t ${commitHash}`, { cwd: projectRoot, stdio: 'ignore' });
+    } catch {
+      return res.status(400).json({ error: 'Commit not found' });
+    }
+
+    // Restore js/ folder from the backup commit
+    execSync(`git checkout ${commitHash} -- js/`, { cwd: projectRoot, stdio: 'ignore' });
+
+    res.json({ success: true });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 export default router;

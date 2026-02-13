@@ -17,6 +17,12 @@ interface MigrationCheckResult {
   gitAvailable: boolean;
 }
 
+interface MigrationBackup {
+  hash: string;
+  date: string;
+  message: string;
+}
+
 interface MigrationDialogProps {
   projectPath: string;
   onComplete: () => void;
@@ -49,6 +55,10 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
   const [gitAvailable, setGitAvailable] = useState(false);
   const [gitBackup, setGitBackup] = useState(true);
   const [showNoGitWarning, setShowNoGitWarning] = useState(false);
+  const [backups, setBackups] = useState<MigrationBackup[]>([]);
+  const [selectedBackup, setSelectedBackup] = useState('');
+  const [rollingBack, setRollingBack] = useState(false);
+  const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -66,6 +76,16 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
       }
     })();
   }, [projectPath]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.get<{ backups: MigrationBackup[] }>('/project/migration-backups');
+        setBackups(res.backups);
+        if (res.backups.length > 0) setSelectedBackup(res.backups[0].hash);
+      } catch { /* ignore */ }
+    })();
+  }, []);
 
   const changedFiles = files.filter(f => f.status !== 'same');
 
@@ -111,6 +131,30 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
     } catch (e) {
       setError((e as Error).message);
       setMigrating(false);
+    }
+  };
+
+  const refreshMigrationCheck = async () => {
+    try {
+      const res = await apiClient.get<MigrationCheckResult>(
+        `/project/migration-check?path=${encodeURIComponent(projectPath)}`
+      );
+      setFiles(res.files);
+      setSelected(new Set(res.files.filter(f => f.status !== 'same').map(f => f.file)));
+    } catch { /* ignore */ }
+  };
+
+  const doRollback = async () => {
+    setShowRollbackConfirm(false);
+    setRollingBack(true);
+    setError('');
+    try {
+      await apiClient.post('/project/migration-rollback', { commitHash: selectedBackup });
+      await refreshMigrationCheck();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setRollingBack(false);
     }
   };
 
@@ -203,6 +247,50 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
                   </p>
                 )}
               </div>
+              {backups.length > 0 && (
+                <div style={{ margin: '12px 0 0 0', padding: '10px', background: '#333', borderRadius: 3, border: '1px solid #555' }}>
+                  <div style={{ color: '#ddd', fontSize: 13, fontWeight: 'bold', marginBottom: 6 }}>
+                    {t('migration.rollbackTitle')}
+                  </div>
+                  <p style={{ color: '#aaa', fontSize: 12, margin: '0 0 8px 0' }}>
+                    {t('migration.rollbackDescription')}
+                  </p>
+                  <div style={{ border: '1px solid #555', borderRadius: 3, background: '#2b2b2b', maxHeight: 150, overflow: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid #555', background: '#333' }}>
+                          <th style={{ padding: '4px 8px', width: 30 }}></th>
+                          <th style={{ padding: '4px 8px', textAlign: 'left', color: '#aaa' }}>{t('migration.rollbackDate')}</th>
+                          <th style={{ padding: '4px 8px', textAlign: 'left', color: '#aaa', width: 80 }}>{t('migration.rollbackHash')}</th>
+                          <th style={{ padding: '4px 8px', textAlign: 'left', color: '#aaa' }}>{t('migration.rollbackMessage')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {backups.map(b => (
+                          <tr key={b.hash} style={{ borderBottom: '1px solid #444', cursor: 'pointer' }} onClick={() => setSelectedBackup(b.hash)}>
+                            <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                              <input type="radio" name="rollbackBackup" checked={selectedBackup === b.hash} onChange={() => setSelectedBackup(b.hash)} />
+                            </td>
+                            <td style={{ padding: '4px 8px', color: '#ddd', fontSize: 11 }}>{formatDate(b.date)}</td>
+                            <td style={{ padding: '4px 8px', color: '#8cf', fontFamily: 'monospace', fontSize: 11 }}>{b.hash.slice(0, 8)}</td>
+                            <td style={{ padding: '4px 8px', color: '#aaa' }}>{b.message}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ marginTop: 8, textAlign: 'right' }}>
+                    <button
+                      className="db-btn"
+                      onClick={() => setShowRollbackConfirm(true)}
+                      disabled={!selectedBackup || rollingBack}
+                      style={{ background: '#c44', borderColor: '#c44' }}
+                    >
+                      {rollingBack ? t('migration.rollingBack') : t('migration.rollback')}
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -240,6 +328,30 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
                 {t('migration.gitWarningProceed')}
               </button>
               <button className="db-btn" onClick={() => setShowNoGitWarning(false)}>
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showRollbackConfirm && (
+        <div className="db-dialog-overlay" style={{ zIndex: 10001 }}>
+          <div className="db-dialog" style={{ width: 420, height: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div className="db-dialog-header">{t('migration.rollbackConfirmTitle')}</div>
+            <div style={{ padding: '16px 20px' }}>
+              <p style={{ color: '#fc6', fontSize: 13, lineHeight: 1.6, margin: 0 }}>
+                {t('migration.rollbackConfirmMessage')}
+              </p>
+            </div>
+            <div className="db-dialog-footer">
+              <button
+                className="db-btn"
+                onClick={doRollback}
+                style={{ background: '#c44', borderColor: '#c44' }}
+              >
+                {t('migration.rollbackConfirmProceed')}
+              </button>
+              <button className="db-btn" onClick={() => setShowRollbackConfirm(false)}>
                 {t('common.cancel')}
               </button>
             </div>
