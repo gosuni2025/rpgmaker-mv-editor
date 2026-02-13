@@ -1,9 +1,9 @@
 //=============================================================================
-// ThreeWaterShader.js - 물 타일 커스텀 셰이더 (wave + foam + 투명도)
+// ThreeWaterShader.js - 물 타일 커스텀 셰이더 (wave + foam + 투명도 + 빛 반사)
 //=============================================================================
-// 물 타일(A1)에 물결 UV 왜곡, 해안선 거품, 물 아래 투명 효과 적용.
+// 물 타일(A1)에 물결 UV 왜곡, 버텍스 물결, 해안선 거품, 투명도, specular 반사.
 // ShadowLight 활성 시 onBeforeCompile로 Phong 셰이더에 주입,
-// 비활성 시 standalone ShaderMaterial 사용.
+// 비활성 시 standalone ShaderMaterial (자체 Phong 라이팅 포함) 사용.
 //=============================================================================
 
 var ThreeWaterShader = {};
@@ -14,23 +14,60 @@ ThreeWaterShader._time = 0;
 ThreeWaterShader._hasWaterMesh = false;
 
 //-----------------------------------------------------------------------------
+// 공통 GLSL 함수
+//-----------------------------------------------------------------------------
+
+// 물결 높이 함수 (vertex displacement + normal 계산에 공유)
+ThreeWaterShader._WAVE_FUNCTIONS = [
+    'uniform float uTime;',
+    'uniform float uVertexWaveHeight;',
+    'uniform float uVertexWaveFreq;',
+    'uniform float uVertexWaveSpeed;',
+    '',
+    'float waveHeight(vec2 wp, float time) {',
+    '    float h = sin(wp.x * uVertexWaveFreq + time * uVertexWaveSpeed) * 0.6;',
+    '    h += sin(wp.y * uVertexWaveFreq * 0.7 + time * uVertexWaveSpeed * 0.8) * 0.4;',
+    '    h += sin((wp.x + wp.y) * uVertexWaveFreq * 0.5 + time * uVertexWaveSpeed * 1.2) * 0.3;',
+    '    return h * uVertexWaveHeight;',
+    '}',
+    '',
+    '// wave의 편미분으로 법선 계산',
+    'vec3 waveNormal(vec2 wp, float time) {',
+    '    float eps = 0.5;',
+    '    float hC = waveHeight(wp, time);',
+    '    float hR = waveHeight(wp + vec2(eps, 0.0), time);',
+    '    float hU = waveHeight(wp + vec2(0.0, eps), time);',
+    '    vec3 tangentX = vec3(eps, 0.0, hR - hC);',
+    '    vec3 tangentY = vec3(0.0, eps, hU - hC);',
+    '    return normalize(cross(tangentX, tangentY));',
+    '}',
+].join('\n');
+
+//-----------------------------------------------------------------------------
 // GLSL 코드 조각 (onBeforeCompile용 - Phong material에 주입)
 //-----------------------------------------------------------------------------
 
-// Vertex shader에 추가할 declarations
 ThreeWaterShader.VERTEX_PARS = [
     'attribute float aFoamMask;',
     'varying float vFoamMask;',
     'varying vec2 vWorldPos;',
+    ThreeWaterShader._WAVE_FUNCTIONS,
 ].join('\n');
 
-// Vertex shader main에 추가할 코드
 ThreeWaterShader.VERTEX_MAIN = [
     'vFoamMask = aFoamMask;',
-    'vWorldPos = (modelMatrix * vec4(position, 1.0)).xy;',
+    'vec4 worldPos4 = modelMatrix * vec4(transformed, 1.0);',
+    'vWorldPos = worldPos4.xy;',
+    '// Vertex wave displacement (Z축)',
+    'float wH = waveHeight(worldPos4.xy, uTime);',
+    'transformed.z += wH;',
+    '',
+    '// Wave normal 계산 → Phong 라이팅에 반영',
+    'vec3 wN = waveNormal(worldPos4.xy, uTime);',
+    '// 카메라가 -Z를 보므로 normal도 -Z 기반으로 변환',
+    'objectNormal = vec3(wN.x, wN.y, -abs(wN.z));',
 ].join('\n');
 
-// Fragment shader에 추가할 declarations
 ThreeWaterShader.FRAGMENT_PARS = [
     'uniform float uTime;',
     'uniform float uWaveAmplitude;',
@@ -92,6 +129,7 @@ ThreeWaterShader.WATERFALL_FRAGMENT_MAIN = [
 
 //-----------------------------------------------------------------------------
 // Standalone ShaderMaterial (ShadowLight 비활성 시)
+// 자체 Phong 라이팅으로 specular 반사 지원
 //-----------------------------------------------------------------------------
 
 ThreeWaterShader._STANDALONE_VERTEX = [
@@ -99,12 +137,30 @@ ThreeWaterShader._STANDALONE_VERTEX = [
     'varying vec2 vUv;',
     'varying float vFoamMask;',
     'varying vec2 vWorldPos;',
+    'varying vec3 vNormalW;',
+    'varying vec3 vViewDir;',
+    '',
+    ThreeWaterShader._WAVE_FUNCTIONS,
     '',
     'void main() {',
     '    vUv = uv;',
     '    vFoamMask = aFoamMask;',
-    '    vWorldPos = (modelMatrix * vec4(position, 1.0)).xy;',
-    '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+    '    vec4 worldPos4 = modelMatrix * vec4(position, 1.0);',
+    '    vWorldPos = worldPos4.xy;',
+    '',
+    '    // Vertex wave displacement',
+    '    vec3 displaced = position;',
+    '    displaced.z += waveHeight(worldPos4.xy, uTime);',
+    '',
+    '    // Wave normal (world space)',
+    '    vec3 wN = waveNormal(worldPos4.xy, uTime);',
+    '    vNormalW = vec3(wN.x, wN.y, -abs(wN.z));',
+    '',
+    '    // View direction (카메라 → 정점)',
+    '    vec4 mvPos = modelViewMatrix * vec4(displaced, 1.0);',
+    '    vViewDir = normalize(-mvPos.xyz);',
+    '',
+    '    gl_Position = projectionMatrix * mvPos;',
     '}',
 ].join('\n');
 
@@ -117,9 +173,14 @@ ThreeWaterShader._STANDALONE_FRAGMENT_WATER = [
     'uniform vec3 uFoamColor;',
     'uniform float uFoamAlpha;',
     'uniform float uWaterAlpha;',
+    'uniform vec3 uSpecularColor;',
+    'uniform float uShininess;',
+    'uniform vec3 uLightDir;',
     'varying vec2 vUv;',
     'varying float vFoamMask;',
     'varying vec2 vWorldPos;',
+    'varying vec3 vNormalW;',
+    'varying vec3 vViewDir;',
     '',
     'vec2 waterWaveUV(vec2 uv, vec2 worldPos, float time) {',
     '    float waveX = sin(worldPos.y * uWaveFrequency + time * uWaveSpeed) * uWaveAmplitude;',
@@ -139,10 +200,21 @@ ThreeWaterShader._STANDALONE_FRAGMENT_WATER = [
     'void main() {',
     '    vec2 waveUV = waterWaveUV(vUv, vWorldPos, uTime);',
     '    vec4 color = texture2D(map, waveUV);',
+    '',
+    '    // Foam',
     '    if (vFoamMask > 0.5) {',
     '        float foam = foamPattern(vWorldPos, uTime);',
     '        color.rgb = mix(color.rgb, uFoamColor, foam * uFoamAlpha * vFoamMask);',
     '    }',
+    '',
+    '    // 간단한 Phong specular 반사',
+    '    vec3 N = normalize(vNormalW);',
+    '    vec3 L = normalize(uLightDir);',
+    '    vec3 V = normalize(vViewDir);',
+    '    vec3 R = reflect(-L, N);',
+    '    float spec = pow(max(dot(R, V), 0.0), uShininess);',
+    '    color.rgb += uSpecularColor * spec;',
+    '',
     '    color.a *= uWaterAlpha;',
     '    if (color.a < 0.01) discard;',
     '    gl_FragColor = color;',
@@ -158,26 +230,61 @@ ThreeWaterShader._STANDALONE_FRAGMENT_WATERFALL = [
     'uniform vec3 uFoamColor;',
     'uniform float uFoamAlpha;',
     'uniform float uWaterAlpha;',
+    'uniform vec3 uSpecularColor;',
+    'uniform float uShininess;',
+    'uniform vec3 uLightDir;',
     'varying vec2 vUv;',
     'varying float vFoamMask;',
     'varying vec2 vWorldPos;',
+    'varying vec3 vNormalW;',
+    'varying vec3 vViewDir;',
     '',
     'void main() {',
     '    float wfWaveX = sin(vWorldPos.y * 6.0 + uTime * 3.0) * 0.004;',
     '    float wfWaveY = cos(vWorldPos.x * 3.0 + uTime * 2.5) * 0.003;',
     '    vec2 wfUV = vUv + vec2(wfWaveX, wfWaveY);',
     '    vec4 color = texture2D(map, wfUV);',
+    '',
     '    if (vFoamMask > 0.5) {',
     '        float splash = sin(vWorldPos.y * 0.2 + uTime * 4.0) * 0.5 + 0.5;',
     '        splash *= cos(vWorldPos.x * 0.3 + uTime * 2.0) * 0.5 + 0.5;',
     '        splash = smoothstep(0.3, 0.7, splash);',
     '        color.rgb = mix(color.rgb, uFoamColor, splash * uFoamAlpha * 0.6);',
     '    }',
+    '',
+    '    // Specular',
+    '    vec3 N = normalize(vNormalW);',
+    '    vec3 L = normalize(uLightDir);',
+    '    vec3 V = normalize(vViewDir);',
+    '    vec3 R = reflect(-L, N);',
+    '    float spec = pow(max(dot(R, V), 0.0), uShininess);',
+    '    color.rgb += uSpecularColor * spec * 0.5;',
+    '',
     '    color.a *= min(uWaterAlpha + 0.1, 1.0);',
     '    if (color.a < 0.01) discard;',
     '    gl_FragColor = color;',
     '}',
 ].join('\n');
+
+//-----------------------------------------------------------------------------
+// Uniform 기본값
+//-----------------------------------------------------------------------------
+
+ThreeWaterShader.DEFAULT_UNIFORMS = {
+    uTime:              0.0,
+    uWaveAmplitude:     0.006,
+    uWaveFrequency:     4.0,
+    uWaveSpeed:         2.0,
+    uFoamColor:         [1.0, 1.0, 1.0],
+    uFoamAlpha:         0.55,
+    uWaterAlpha:        0.85,
+    uVertexWaveHeight:  3.0,    // 버텍스 물결 높이 (픽셀)
+    uVertexWaveFreq:    0.08,   // 버텍스 물결 주파수
+    uVertexWaveSpeed:   2.0,    // 버텍스 물결 속도
+    uSpecularColor:     [0.8, 0.9, 1.0],  // specular 반사 색상 (하늘빛)
+    uShininess:         32.0,   // specular 선명도
+    uLightDir:          [0.3, -0.5, -1.0], // 기본 조명 방향 (위에서 비스듬히)
+};
 
 //-----------------------------------------------------------------------------
 // Material 생성
@@ -190,17 +297,24 @@ ThreeWaterShader.createStandaloneMaterial = function(texture, isWaterfall) {
     var fragShader = isWaterfall ?
         this._STANDALONE_FRAGMENT_WATERFALL :
         this._STANDALONE_FRAGMENT_WATER;
+    var d = this.DEFAULT_UNIFORMS;
 
     var material = new THREE.ShaderMaterial({
         uniforms: {
-            map:             { value: texture || null },
-            uTime:           { value: 0.0 },
-            uWaveAmplitude:  { value: 0.006 },
-            uWaveFrequency:  { value: 4.0 },
-            uWaveSpeed:      { value: 2.0 },
-            uFoamColor:      { value: new THREE.Vector3(1.0, 1.0, 1.0) },
-            uFoamAlpha:      { value: 0.35 },
-            uWaterAlpha:     { value: 0.85 },
+            map:                { value: texture || null },
+            uTime:              { value: d.uTime },
+            uWaveAmplitude:     { value: d.uWaveAmplitude },
+            uWaveFrequency:     { value: d.uWaveFrequency },
+            uWaveSpeed:         { value: d.uWaveSpeed },
+            uFoamColor:         { value: new THREE.Vector3(d.uFoamColor[0], d.uFoamColor[1], d.uFoamColor[2]) },
+            uFoamAlpha:         { value: d.uFoamAlpha },
+            uWaterAlpha:        { value: d.uWaterAlpha },
+            uVertexWaveHeight:  { value: d.uVertexWaveHeight },
+            uVertexWaveFreq:    { value: d.uVertexWaveFreq },
+            uVertexWaveSpeed:   { value: d.uVertexWaveSpeed },
+            uSpecularColor:     { value: new THREE.Vector3(d.uSpecularColor[0], d.uSpecularColor[1], d.uSpecularColor[2]) },
+            uShininess:         { value: d.uShininess },
+            uLightDir:          { value: new THREE.Vector3(d.uLightDir[0], d.uLightDir[1], d.uLightDir[2]) },
         },
         vertexShader: this._STANDALONE_VERTEX,
         fragmentShader: fragShader,
@@ -218,15 +332,19 @@ ThreeWaterShader.createStandaloneMaterial = function(texture, isWaterfall) {
  */
 ThreeWaterShader.applyToPhongMaterial = function(material, isWaterfall) {
     var fragMain = isWaterfall ? this.WATERFALL_FRAGMENT_MAIN : this.FRAGMENT_MAIN;
+    var d = this.DEFAULT_UNIFORMS;
 
     material.userData.waterUniforms = {
-        uTime:           { value: 0.0 },
-        uWaveAmplitude:  { value: 0.006 },
-        uWaveFrequency:  { value: 4.0 },
-        uWaveSpeed:      { value: 2.0 },
-        uFoamColor:      { value: new THREE.Vector3(1.0, 1.0, 1.0) },
-        uFoamAlpha:      { value: 0.35 },
-        uWaterAlpha:     { value: 0.85 },
+        uTime:              { value: d.uTime },
+        uWaveAmplitude:     { value: d.uWaveAmplitude },
+        uWaveFrequency:     { value: d.uWaveFrequency },
+        uWaveSpeed:         { value: d.uWaveSpeed },
+        uFoamColor:         { value: new THREE.Vector3(d.uFoamColor[0], d.uFoamColor[1], d.uFoamColor[2]) },
+        uFoamAlpha:         { value: d.uFoamAlpha },
+        uWaterAlpha:        { value: d.uWaterAlpha },
+        uVertexWaveHeight:  { value: d.uVertexWaveHeight },
+        uVertexWaveFreq:    { value: d.uVertexWaveFreq },
+        uVertexWaveSpeed:   { value: d.uVertexWaveSpeed },
     };
 
     material.onBeforeCompile = function(shader) {
@@ -271,6 +389,20 @@ ThreeWaterShader.updateTime = function(mesh, time) {
         }
     } else if (mesh.material.userData && mesh.material.userData.waterUniforms) {
         mesh.material.userData.waterUniforms.uTime.value = time;
+    }
+};
+
+/**
+ * Standalone material의 조명 방향을 ShadowLight directionalLight에서 동기화
+ */
+ThreeWaterShader.syncLightDirection = function(mesh) {
+    if (!mesh || !mesh.material || !mesh.material.isShaderMaterial) return;
+    if (!mesh.material.uniforms || !mesh.material.uniforms.uLightDir) return;
+
+    // ShadowLight의 directionalLight가 있으면 그 방향을 사용
+    if (window.ShadowLight && window.ShadowLight._directionalLight) {
+        var pos = window.ShadowLight._directionalLight.position;
+        mesh.material.uniforms.uLightDir.value.set(pos.x, pos.y, pos.z).normalize();
     }
 };
 

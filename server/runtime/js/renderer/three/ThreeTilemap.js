@@ -581,7 +581,7 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
                 map: texture, transparent: true, depthTest: true, depthWrite: false,
                 side: THREE.DoubleSide,
                 emissive: new THREE.Color(0x000000),
-                specular: new THREE.Color(0x000000), shininess: 0,
+                specular: new THREE.Color(0xccddff), shininess: 30,
             });
             ThreeWaterShader.applyToPhongMaterial(mat, isWaterfall);
             mesh.material = mat;
@@ -611,7 +611,7 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
                 map: texture, transparent: true, depthTest: true, depthWrite: false,
                 side: THREE.DoubleSide,
                 emissive: new THREE.Color(0x000000),
-                specular: new THREE.Color(0x000000), shininess: 0,
+                specular: new THREE.Color(0xccddff), shininess: 30,
             });
             ThreeWaterShader.applyToPhongMaterial(material, isWaterfall);
         } else {
