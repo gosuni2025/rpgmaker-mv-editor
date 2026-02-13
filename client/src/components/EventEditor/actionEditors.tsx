@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { AudioFile } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
@@ -325,9 +325,12 @@ function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
   const [selectedX, setSelectedX] = useState(x);
   const [selectedY, setSelectedY] = useState(y);
   const [canvasScale, setCanvasScale] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [mapData, setMapData] = useState<any>(null);
-  const canvasRef = React.useRef<HTMLCanvasElement>(null);
-  const previewContainerRef = React.useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 });
 
   // 맵 목록 (트리를 flat list로 표시)
   const mapList = useMemo(() => {
@@ -363,22 +366,73 @@ function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
   );
   const { rendererReady } = useThreeRenderer(canvasRef, false, [], standaloneOpts);
 
-  // 렌더러 준비 후 자동 스케일링
+  // 렌더러 준비 후 자동 스케일링 (fit-to-container)
   useEffect(() => {
-    const canvas = canvasRef.current;
     const container = previewContainerRef.current;
-    if (!canvas || !container || !mapData || !rendererReady) return;
+    if (!container || !mapData || !rendererReady) return;
     const TILE_SIZE = 48;
     const mapPxW = mapData.width * TILE_SIZE;
     const mapPxH = mapData.height * TILE_SIZE;
     const scale = Math.min(container.clientWidth / mapPxW, container.clientHeight / mapPxH, 1);
-    canvas.style.width = `${mapPxW * scale}px`;
-    canvas.style.height = `${mapPxH * scale}px`;
     setCanvasScale(scale);
+    setPanOffset({ x: 0, y: 0 });
   }, [mapData, rendererReady]);
 
+  // 휠 확대/축소
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const container = previewContainerRef.current;
+    if (!container || !mapData) return;
+
+    const TILE_SIZE = 48;
+    const mapPxW = mapData.width * TILE_SIZE;
+    const mapPxH = mapData.height * TILE_SIZE;
+    const minScale = Math.min(container.clientWidth / mapPxW, container.clientHeight / mapPxH, 0.1);
+
+    // 컨테이너 내 마우스 위치
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    setCanvasScale(prev => {
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      const next = Math.max(minScale, Math.min(5, prev * factor));
+      const ratio = next / prev;
+
+      // 마우스 위치를 기준으로 팬 오프셋 조정 (줌 중심점 고정)
+      setPanOffset(p => ({
+        x: mouseX - ratio * (mouseX - p.x),
+        y: mouseY - ratio * (mouseY - p.y),
+      }));
+
+      return next;
+    });
+  }, [mapData]);
+
+  // 미들 클릭 팬 시작
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 1) return; // 미들 클릭만
+    e.preventDefault();
+    isPanningRef.current = true;
+    panStartRef.current = { x: e.clientX, y: e.clientY, offsetX: panOffset.x, offsetY: panOffset.y };
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!isPanningRef.current) return;
+      const dx = ev.clientX - panStartRef.current.x;
+      const dy = ev.clientY - panStartRef.current.y;
+      setPanOffset({ x: panStartRef.current.offsetX + dx, y: panStartRef.current.offsetY + dy });
+    };
+    const handleMouseUp = () => {
+      isPanningRef.current = false;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  }, [panOffset]);
+
   // 맵 캔버스 클릭 → 좌표 지정
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas || !mapData) return;
 
@@ -396,7 +450,34 @@ function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
       setSelectedX(tileX);
       setSelectedY(tileY);
     }
-  };
+  }, [mapData]);
+
+  // 캔버스 래퍼 스타일 (줌 + 팬)
+  const canvasWrapperStyle = useMemo((): React.CSSProperties => {
+    if (!mapData) return { position: 'relative', display: 'inline-block' };
+    const TILE_SIZE = 48;
+    const mapPxW = mapData.width * TILE_SIZE;
+    const mapPxH = mapData.height * TILE_SIZE;
+    return {
+      position: 'absolute',
+      left: panOffset.x,
+      top: panOffset.y,
+      width: mapPxW * canvasScale,
+      height: mapPxH * canvasScale,
+    };
+  }, [mapData, canvasScale, panOffset]);
+
+  // 캔버스 CSS 크기
+  const canvasStyle = useMemo((): React.CSSProperties => {
+    if (!mapData) return { cursor: 'crosshair', display: 'block' };
+    const TILE_SIZE = 48;
+    return {
+      cursor: 'crosshair',
+      display: 'block',
+      width: mapData.width * TILE_SIZE * canvasScale,
+      height: mapData.height * TILE_SIZE * canvasScale,
+    };
+  }, [mapData, canvasScale]);
 
   // 마커 오버레이 (선택한 좌표 표시)
   const markerStyle = useMemo((): React.CSSProperties | null => {
@@ -436,12 +517,14 @@ function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
               </div>
             ))}
           </div>
-          {/* 오른쪽: 맵 프리뷰 */}
+          {/* 오른쪽: 맵 프리뷰 (휠 줌, 미들 클릭 팬) */}
           <div ref={previewContainerRef}
-            style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1a1a', position: 'relative' }}>
-            <div style={{ position: 'relative', display: 'inline-block' }}>
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            style={{ flex: 1, overflow: 'hidden', background: '#1a1a1a', position: 'relative' }}>
+            <div style={canvasWrapperStyle}>
               <canvas ref={canvasRef} onClick={handleCanvasClick}
-                style={{ cursor: 'crosshair', display: 'block' }} />
+                style={canvasStyle} />
               {markerStyle && <div style={markerStyle} />}
             </div>
           </div>
