@@ -43,7 +43,24 @@
 .move-route-body {
   flex: 1;
   display: flex;
+  flex-wrap: wrap;
   overflow: hidden;
+}
+
+/* 캐릭터 선택 (이벤트 커맨드 205용) */
+.move-route-character-select {
+  width: 100%;
+  padding: 6px 12px;
+  border-bottom: 1px solid #555;
+  flex-shrink: 0;
+}
+
+.move-route-character-select label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ccc;
+  font-size: 12px;
 }
 
 /* 좌측: 이동 명령 리스트 */

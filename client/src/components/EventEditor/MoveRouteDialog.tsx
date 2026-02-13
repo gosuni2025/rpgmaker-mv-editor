@@ -8,6 +8,11 @@ interface MoveRouteDialogProps {
   moveRoute: MoveRoute;
   onOk: (route: MoveRoute) => void;
   onCancel: () => void;
+  /** 이벤트 커맨드 205용: 대상 캐릭터 ID (-1=플레이어, 0=이 이벤트, N=이벤트) */
+  characterId?: number;
+  onOkWithCharacter?: (characterId: number, route: MoveRoute) => void;
+  /** 현재 맵의 이벤트 목록 (캐릭터 선택 드롭다운용) */
+  mapEvents?: { id: number; name: string }[];
 }
 
 // 이동 명령 코드 (rpg_objects.js의 Game_Character.ROUTE_* 상수)
@@ -284,8 +289,9 @@ function ParamInputDialog({ code, initialParams, onOk, onCancel, t }: {
   }
 }
 
-export default function MoveRouteDialog({ moveRoute, onOk, onCancel }: MoveRouteDialogProps) {
+export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId, onOkWithCharacter, mapEvents }: MoveRouteDialogProps) {
   const { t } = useTranslation();
+  const [charId, setCharId] = useState(characterId ?? -1);
   const [commands, setCommands] = useState<MoveCommand[]>(() => {
     const cmds = [...moveRoute.list];
     // 마지막이 ROUTE_END(0)가 아니면 추가
@@ -299,6 +305,7 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel }: MoveRoute
   const [wait, setWait] = useState(moveRoute.wait);
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const [paramEdit, setParamEdit] = useState<{ code: number; params: unknown[]; editIdx?: number } | null>(null);
+  const showCharacterSelect = onOkWithCharacter !== undefined;
 
   const addCommand = useCallback((code: number) => {
     if (needsParams(code)) {
@@ -360,7 +367,12 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel }: MoveRoute
   }, [commands]);
 
   const handleOk = () => {
-    onOk({ list: commands, repeat, skippable, wait });
+    const route: MoveRoute = { list: commands, repeat, skippable, wait };
+    if (onOkWithCharacter) {
+      onOkWithCharacter(charId, route);
+    } else {
+      onOk(route);
+    }
   };
 
   return (
@@ -368,6 +380,25 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel }: MoveRoute
       <div className="move-route-dialog">
         <div className="move-route-titlebar">{t('moveRoute.title')}</div>
         <div className="move-route-body">
+          {/* 캐릭터 선택 (이벤트 커맨드 205용) */}
+          {showCharacterSelect && (
+            <div className="move-route-character-select">
+              <label>{t('moveRoute.character')}
+                <select
+                  value={charId}
+                  onChange={e => setCharId(Number(e.target.value))}
+                  className="event-editor-select"
+                  style={{ marginLeft: 8, flex: 1 }}
+                >
+                  <option value={-1}>{t('moveRoute.player')}</option>
+                  <option value={0}>{t('moveRoute.thisEvent')}</option>
+                  {mapEvents?.map(ev => (
+                    <option key={ev.id} value={ev.id}>{`${String(ev.id).padStart(3, '0')}: ${ev.name}`}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
           {/* 좌측: 이동 명령 리스트 */}
           <div className="move-route-left">
             <div className="move-route-list">

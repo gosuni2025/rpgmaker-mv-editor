@@ -641,6 +641,22 @@ const en = {
     right: 'Right',
   },
 
+  scrollMap: {
+    title: 'Scroll Map',
+    direction: 'Direction:',
+    distance: 'Distance:',
+    speed: 'Speed:',
+    directions: { 2: 'Down', 4: 'Left', 6: 'Right', 8: 'Up' },
+    speeds: {
+      1: '1: x8 Slower',
+      2: '2: x4 Slower',
+      3: '3: x2 Slower',
+      4: '4: Normal',
+      5: '5: x2 Faster',
+      6: '6: x4 Faster',
+    },
+  },
+
   animations: {
     targetSelect: 'Select Target',
     search: 'Search...',

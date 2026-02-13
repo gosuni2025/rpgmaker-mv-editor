@@ -1589,6 +1589,150 @@ export function SetEventLocationEditor({ p, onOk, onCancel }: { p: unknown[]; on
   );
 }
 
+/**
+ * 지도 스크롤 에디터 (코드 204)
+ * params: [direction, distance, speed]
+ * direction: 2=아래, 4=왼쪽, 6=오른쪽, 8=위
+ * distance: 타일 수
+ * speed: 1~6 (1=x8느리게, 2=x4느리게, 3=x2느리게, 4=보통, 5=x2빠르게, 6=x4빠르게)
+ */
+const SCROLL_DIRECTIONS = [
+  { value: 2, label: '아래' },
+  { value: 4, label: '왼쪽' },
+  { value: 6, label: '오른쪽' },
+  { value: 8, label: '위' },
+];
+
+const SCROLL_SPEEDS = [
+  { value: 1, label: '1: x8 느리게' },
+  { value: 2, label: '2: x4 느리게' },
+  { value: 3, label: '3: x2 느리게' },
+  { value: 4, label: '4: 보통' },
+  { value: 5, label: '5: x2 빠르게' },
+  { value: 6, label: '6: x4 빠르게' },
+];
+
+export function ScrollMapEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [direction, setDirection] = useState<number>((p[0] as number) || 2);
+  const [distance, setDistance] = useState<number>((p[1] as number) || 1);
+  const [speed, setSpeed] = useState<number>((p[2] as number) || 4);
+
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+          <span style={{ fontSize: 12, color: '#aaa' }}>방향:</span>
+          <select value={direction} onChange={e => setDirection(Number(e.target.value))} style={selectStyle}>
+            {SCROLL_DIRECTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+          <span style={{ fontSize: 12, color: '#aaa' }}>거리:</span>
+          <input type="number" value={distance} onChange={e => setDistance(Math.max(1, Number(e.target.value)))}
+            min={1} style={{ ...selectStyle, width: '100%' }} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>속도:</span>
+        <select value={speed} onChange={e => setSpeed(Number(e.target.value))} style={selectStyle}>
+          {SCROLL_SPEEDS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+      </div>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([direction, distance, speed])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}
+
+export function ToggleEditor({ p, onOk, onCancel, legend }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; legend: string }) {
+  const [value, setValue] = useState<number>((p[0] as number) ?? 0);
+  const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
+  return (
+    <>
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>{legend}</legend>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <label style={radioStyle}>
+            <input type="radio" name="toggle" checked={value === 0} onChange={() => setValue(0)} />
+            ON
+          </label>
+          <label style={radioStyle}>
+            <input type="radio" name="toggle" checked={value === 1} onChange={() => setValue(1)} />
+            OFF
+          </label>
+        </div>
+      </fieldset>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([value])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}
+
+export function ChangeTransparencyEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="투명 상태" />;
+}
+
+export function ShowAnimationEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [characterId, setCharacterId] = useState<number>((p[0] as number) ?? -1);
+  const [animationId, setAnimationId] = useState<number>((p[1] as number) || 1);
+  const [waitForCompletion, setWaitForCompletion] = useState<boolean>((p[2] as boolean) || false);
+  const [showAnimPicker, setShowAnimPicker] = useState(false);
+
+  const animNames = useDbNames('animations');
+  const currentMap = useEditorStore(s => s.currentMap);
+
+  const eventList = useMemo(() => {
+    const list: { id: number; name: string }[] = [
+      { id: -1, name: '플레이어' },
+      { id: 0, name: '해당 이벤트' },
+    ];
+    if (currentMap?.events) {
+      for (const ev of currentMap.events) {
+        if (ev && ev.id > 0) {
+          list.push({ id: ev.id, name: `EV${String(ev.id).padStart(3, '0')}` });
+        }
+      }
+    }
+    return list;
+  }, [currentMap]);
+
+  const animLabel = animationId > 0 && animNames[animationId]
+    ? `${String(animationId).padStart(4, '0')} ${animNames[animationId]}`
+    : `${String(animationId).padStart(4, '0')}`;
+
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>캐릭터:</span>
+        <select value={characterId} onChange={e => setCharacterId(Number(e.target.value))} style={selectStyle}>
+          {eventList.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+        </select>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>애니메이션:</span>
+        <button className="db-btn" onClick={() => setShowAnimPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{animLabel}</button>
+      </div>
+      <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+        <input type="checkbox" checked={waitForCompletion} onChange={e => setWaitForCompletion(e.target.checked)} />
+        완료까지 대기
+      </label>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([characterId, animationId, waitForCompletion])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+      {showAnimPicker && (
+        <DataListPicker items={animNames} value={animationId} onChange={setAnimationId}
+          onClose={() => setShowAnimPicker(false)} title="대상 선택" />
+      )}
+    </>
+  );
+}
+
 export function ChangeProfileEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [profile, setProfile] = useState<string>((p[1] as string) || '');
@@ -1615,6 +1759,79 @@ export function ChangeProfileEditor({ p, onOk, onCancel }: { p: unknown[]; onOk:
         <DataListPicker items={actors} value={actorId} onChange={setActorId}
           onClose={() => setShowPicker(false)} title="대상 선택" characterData={actorChars} />
       )}
+    </>
+  );
+}
+
+const BALLOON_ICONS = [
+  { value: 1, label: '느낌표' },
+  { value: 2, label: '물음표' },
+  { value: 3, label: '음표' },
+  { value: 4, label: '하트' },
+  { value: 5, label: '분노' },
+  { value: 6, label: '땀' },
+  { value: 7, label: '뒤죽박죽' },
+  { value: 8, label: '침묵' },
+  { value: 9, label: '전구' },
+  { value: 10, label: 'Zzz' },
+  { value: 11, label: '사용자 정의 1' },
+  { value: 12, label: '사용자 정의 2' },
+  { value: 13, label: '사용자 정의 3' },
+  { value: 14, label: '사용자 정의 4' },
+  { value: 15, label: '사용자 정의 5' },
+];
+
+/**
+ * 말풍선 아이콘 표시 에디터 (코드 213)
+ * params: [characterId, balloonId, waitForCompletion]
+ * characterId: -1=플레이어, 0=해당 이벤트, >0=이벤트 ID
+ * balloonId: 1~15
+ * waitForCompletion: boolean
+ */
+export function ShowBalloonIconEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [characterId, setCharacterId] = useState<number>((p[0] as number) ?? -1);
+  const [balloonId, setBalloonId] = useState<number>((p[1] as number) || 1);
+  const [waitForCompletion, setWaitForCompletion] = useState<boolean>((p[2] as boolean) ?? false);
+
+  const currentMap = useEditorStore(s => s.currentMap);
+
+  const eventList = useMemo(() => {
+    const list: { id: number; name: string }[] = [
+      { id: -1, name: '플레이어' },
+      { id: 0, name: '해당 이벤트' },
+    ];
+    if (currentMap?.events) {
+      for (const ev of currentMap.events) {
+        if (ev && ev.id > 0) {
+          list.push({ id: ev.id, name: `EV${String(ev.id).padStart(3, '0')}` });
+        }
+      }
+    }
+    return list;
+  }, [currentMap]);
+
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>캐릭터:</span>
+        <select value={characterId} onChange={e => setCharacterId(Number(e.target.value))} style={selectStyle}>
+          {eventList.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+        </select>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>말풍선 아이콘:</span>
+        <select value={balloonId} onChange={e => setBalloonId(Number(e.target.value))} style={selectStyle}>
+          {BALLOON_ICONS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+        </select>
+      </div>
+      <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+        <input type="checkbox" checked={waitForCompletion} onChange={e => setWaitForCompletion(e.target.checked)} />
+        완료까지 대기
+      </label>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([characterId, balloonId, waitForCompletion])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
     </>
   );
 }

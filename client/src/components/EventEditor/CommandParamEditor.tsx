@@ -4,7 +4,7 @@ import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor,
-  ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor,
+  ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeTransparencyEditor, ToggleEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor,
   ScrollingTextEditor, ConditionalBranchEditor,
 } from './commandEditors';
 
@@ -45,7 +45,8 @@ function getCommandName(code: number): string {
     121: '스위치 조작', 122: '변수 조작', 123: 'Control Self Switch',
     124: '타이머 조작', 125: '소지 금액 증감', 126: '아이템 증감',
     127: '무기 변경', 128: '방어구 변경', 129: '파티원 변경',
-    201: '장소 이동', 202: '탈 것 위치 설정', 230: 'Wait',
+    134: '저장 금지 변경', 135: '메뉴 금지 변경', 136: '조우 금지 변경', 137: '진형 금지 변경',
+    201: '장소 이동', 202: '탈 것 위치 설정', 204: '지도 스크롤', 211: '투명 상태 변경', 212: '애니메이션 표시', 230: 'Wait',
     241: 'Play BGM', 242: 'Fadeout BGM', 245: 'Play BGS', 246: 'Fadeout BGS',
     249: 'Play ME', 250: 'Play SE',
     301: 'Battle Processing', 303: '이름 입력 처리', 311: 'HP 증감', 312: 'MP 증감', 326: 'TP 증감',
@@ -90,6 +91,9 @@ function getEditorContent(
     case 201: return <TransferPlayerEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 202: return <SetVehicleLocationEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 203: return <SetEventLocationEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 204: return <ScrollMapEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 211: return <ChangeTransparencyEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 212: return <ShowAnimationEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 230: return <SingleNumberEditor p={p} onOk={onOk} onCancel={onCancel} label="Wait (frames)" />;
     case 241: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgm" />;
     case 245: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgs" />;
@@ -113,6 +117,10 @@ function getEditorContent(
     case 321: return <ChangeClassEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 324: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="닉네임:" />;
     case 325: return <ChangeProfileEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 134: return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="저장" />;
+    case 135: return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="메뉴" />;
+    case 136: return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="조우" />;
+    case 137: return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="대열로 보행" />;
     default: return null;
   }
 }

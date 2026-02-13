@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { EventCommand } from '../../types/rpgMakerMV';
+import type { EventCommand, MoveRoute } from '../../types/rpgMakerMV';
 import CommandParamEditor from './CommandParamEditor';
 import CommandInsertDialog from './CommandInsertDialog';
+import MoveRouteDialog from './MoveRouteDialog';
 import TranslateButton from '../common/TranslateButton';
 import useEditorStore from '../../store/useEditorStore';
 import {
@@ -40,6 +41,8 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
   const [pendingCode, setPendingCode] = useState<number | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [hasClipboard, setHasClipboard] = useState(commandClipboard.length > 0);
+  // 이동 루트 설정 (코드 205) 전용 상태
+  const [showMoveRoute, setShowMoveRoute] = useState<{ editing?: number; characterId: number; moveRoute: MoveRoute } | null>(null);
 
   // 드래그 상태
   const [dragGroupRange, setDragGroupRange] = useState<[number, number] | null>(null);
@@ -50,6 +53,14 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
   const undoStack = useRef<EventCommand[][]>([]);
   const redoStack = useRef<EventCommand[][]>([]);
+
+  // 현재 맵의 이벤트 목록 (이동 루트 설정의 캐릭터 선택용)
+  const mapEventList = useMemo(() => {
+    if (!currentMap?.events) return [];
+    return currentMap.events
+      .filter((e: any) => e != null)
+      .map((e: any) => ({ id: e.id, name: e.name || '' }));
+  }, [currentMap]);
 
   // 단일 선택 편의: 선택된 항목 중 가장 작은 인덱스 (삽입 위치 등에 사용)
   const primaryIndex = useMemo(() => {
@@ -145,7 +156,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // 모달 열려있으면 무시
-      if (showAddDialog || pendingCode !== null || editingIndex !== null) return;
+      if (showAddDialog || pendingCode !== null || editingIndex !== null || showMoveRoute !== null) return;
 
       if ((e.metaKey || e.ctrlKey) && e.key === 'c' && !e.shiftKey) {
         e.preventDefault();
@@ -184,7 +195,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
     container.addEventListener('keydown', handleKeyDown);
     return () => container.removeEventListener('keydown', handleKeyDown);
-  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, showAddDialog, pendingCode, editingIndex, selectedIndices, commands]);
+  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, showAddDialog, pendingCode, editingIndex, showMoveRoute, selectedIndices, commands]);
 
   // 그룹 하이라이트는 단일 선택 시에만
   const [groupStart, groupEnd] = useMemo(() => {
@@ -277,6 +288,13 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
   };
 
   const handleCommandSelect = (code: number) => {
+    if (code === 205) {
+      // 이동 루트 설정: MoveRouteDialog 열기
+      setShowAddDialog(false);
+      const defaultRoute: MoveRoute = { list: [{ code: 0 }], repeat: false, skippable: false, wait: true };
+      setShowMoveRoute({ characterId: -1, moveRoute: defaultRoute });
+      return;
+    }
     if (NO_PARAM_CODES.has(code)) {
       insertCommandWithParams(code, []);
     } else if (HAS_PARAM_EDITOR.has(code)) {
@@ -372,6 +390,13 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     const cmd = commands[index];
     if (cmd.code === 0) {
       setShowAddDialog(true);
+      return;
+    }
+    // 이동 루트 설정 (205) 더블클릭: MoveRouteDialog 열기
+    if (cmd.code === 205) {
+      const charId = (cmd.parameters?.[0] as number) ?? -1;
+      const route = (cmd.parameters?.[1] as MoveRoute) ?? { list: [{ code: 0 }], repeat: false, skippable: false, wait: true };
+      setShowMoveRoute({ editing: index, characterId: charId, moveRoute: route });
       return;
     }
     // For commands with param editors, open the editor
@@ -721,6 +746,39 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       return text;
     }
 
+    // 이동 루트 설정 전용 포맷
+    if (code === 205 && cmd.parameters && cmd.parameters.length >= 2) {
+      const charIdParam = cmd.parameters[0] as number;
+      const route = cmd.parameters[1] as MoveRoute;
+      let charName = t('moveRoute.thisEvent');
+      if (charIdParam === -1) charName = t('moveRoute.player');
+      else if (charIdParam > 0) {
+        const ev = currentMap?.events?.find((e: any) => e && e.id === charIdParam);
+        charName = ev ? `${String(charIdParam).padStart(3, '0')}:${(ev as any).name || ''}` : `이벤트 ${charIdParam}`;
+      }
+      text += `: ${charName}`;
+      if (route?.repeat) text += ` [${t('moveRoute.repeat')}]`;
+      if (route?.skippable) text += ` [${t('moveRoute.skippable')}]`;
+      if (route?.wait) text += ` [${t('moveRoute.wait')}]`;
+      return text;
+    }
+
+    // 애니메이션 표시 전용 포맷
+    if (code === 212 && cmd.parameters && cmd.parameters.length >= 2) {
+      const charIdParam = cmd.parameters[0] as number;
+      const animId = cmd.parameters[1] as number;
+      const wait = cmd.parameters[2] as boolean;
+      let charName = '해당 이벤트';
+      if (charIdParam === -1) charName = '플레이어';
+      else if (charIdParam > 0) {
+        const ev = currentMap?.events?.find((e: any) => e && e.id === charIdParam);
+        charName = ev ? `EV${String(charIdParam).padStart(3, '0')}` : `EV${String(charIdParam).padStart(3, '0')}`;
+      }
+      text += `: ${charName}, ${String(animId).padStart(4, '0')}`;
+      if (wait) text += ' (대기)';
+      return text;
+    }
+
     // 스위치 조작 전용 포맷
     if (code === 121 && cmd.parameters && cmd.parameters.length >= 3) {
       const startId = cmd.parameters[0] as number;
@@ -732,6 +790,12 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       } else {
         text += `: ${formatSwitchId(startId)}..${formatSwitchId(endId)} = ${op}`;
       }
+      return text;
+    }
+
+    // 투명 상태 변경 전용 포맷
+    if (code === 211 && cmd.parameters && cmd.parameters.length >= 1) {
+      text += `: ${cmd.parameters[0] === 0 ? 'ON' : 'OFF'}`;
       return text;
     }
 
@@ -878,6 +942,27 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
           />
         );
       })()}
+
+      {/* 이동 루트 설정 (코드 205) 다이얼로그 */}
+      {showMoveRoute && (
+        <MoveRouteDialog
+          moveRoute={showMoveRoute.moveRoute}
+          characterId={showMoveRoute.characterId}
+          mapEvents={mapEventList}
+          onOk={() => {}}
+          onOkWithCharacter={(charId, route) => {
+            if (showMoveRoute.editing !== undefined) {
+              // 기존 커맨드 편집
+              updateCommandParams(showMoveRoute.editing, [charId, route]);
+            } else {
+              // 새 커맨드 삽입
+              insertCommandWithParams(205, [charId, route]);
+            }
+            setShowMoveRoute(null);
+          }}
+          onCancel={() => setShowMoveRoute(null)}
+        />
+      )}
     </div>
   );
 }
