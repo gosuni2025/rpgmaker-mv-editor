@@ -35,6 +35,8 @@ interface MigrationFile {
   status: 'add' | 'update' | 'same';
   editorSize?: number;
   projectSize?: number;
+  editorMtime?: string;
+  projectMtime?: string;
 }
 
 const router = express.Router();
@@ -278,20 +280,24 @@ router.get('/migration-check', (req: Request, res: Response) => {
 
       const editorFile = path.join(runtimeJsDir, relFile);
       const projectFile = path.join(projectJsDir, relFile);
-      const editorSize = fs.statSync(editorFile).size;
+      const editorStat = fs.statSync(editorFile);
+      const editorSize = editorStat.size;
+      const editorMtime = editorStat.mtime.toISOString();
 
       if (!fs.existsSync(projectFile)) {
-        files.push({ file: `js/${relFile}`, status: 'add', editorSize });
+        files.push({ file: `js/${relFile}`, status: 'add', editorSize, editorMtime });
         needsMigration = true;
       } else {
-        const projectSize = fs.statSync(projectFile).size;
+        const projectStat = fs.statSync(projectFile);
+        const projectSize = projectStat.size;
+        const projectMtime = projectStat.mtime.toISOString();
         const editorHash = fileHash(editorFile);
         const projectHash = fileHash(projectFile);
         if (editorHash !== projectHash) {
-          files.push({ file: `js/${relFile}`, status: 'update', editorSize, projectSize });
+          files.push({ file: `js/${relFile}`, status: 'update', editorSize, projectSize, editorMtime, projectMtime });
           needsMigration = true;
         } else {
-          files.push({ file: `js/${relFile}`, status: 'same', editorSize, projectSize });
+          files.push({ file: `js/${relFile}`, status: 'same', editorSize, projectSize, editorMtime, projectMtime });
         }
       }
     }

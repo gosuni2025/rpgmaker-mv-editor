@@ -7,6 +7,8 @@ interface MigrationFile {
   status: 'add' | 'update' | 'same';
   editorSize?: number;
   projectSize?: number;
+  editorMtime?: string;
+  projectMtime?: string;
 }
 
 interface MigrationCheckResult {
@@ -24,6 +26,16 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${day} ${h}:${min}`;
 }
 
 export default function MigrationDialog({ projectPath, onComplete, onSkip }: MigrationDialogProps) {
@@ -64,7 +76,7 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
 
   return (
     <div className="db-dialog-overlay">
-      <div className="db-dialog" style={{ width: 600, height: 'auto', minHeight: 0, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="db-dialog" style={{ width: 800, height: 'auto', minHeight: 0, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
         <div className="db-dialog-header">{t('migration.title')}</div>
         <div style={{ padding: '16px 20px', flex: 1, overflow: 'auto' }}>
           {loading ? (
@@ -83,7 +95,9 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
                       <th style={{ padding: '6px 8px', textAlign: 'left', color: '#aaa' }}>{t('migration.file')}</th>
                       <th style={{ padding: '6px 8px', textAlign: 'center', color: '#aaa', width: 80 }}>{t('migration.status')}</th>
                       <th style={{ padding: '6px 8px', textAlign: 'right', color: '#aaa', width: 100 }}>{t('migration.editorSize')}</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'right', color: '#aaa', width: 120 }}>{t('migration.editorMtime')}</th>
                       <th style={{ padding: '6px 8px', textAlign: 'right', color: '#aaa', width: 100 }}>{t('migration.projectSize')}</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'right', color: '#aaa', width: 120 }}>{t('migration.projectMtime')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -100,8 +114,14 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
                         <td style={{ padding: '4px 8px', textAlign: 'right', color: '#aaa' }}>
                           {f.editorSize != null ? formatSize(f.editorSize) : '-'}
                         </td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right', color: '#aaa', fontSize: 11 }}>
+                          {f.editorMtime ? formatDate(f.editorMtime) : '-'}
+                        </td>
                         <td style={{ padding: '4px 8px', textAlign: 'right', color: '#aaa' }}>
                           {f.projectSize != null ? formatSize(f.projectSize) : '-'}
+                        </td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right', color: '#aaa', fontSize: 11 }}>
+                          {f.projectMtime ? formatDate(f.projectMtime) : '-'}
                         </td>
                       </tr>
                     ))}
