@@ -31,6 +31,7 @@ import ObjectInspector from './components/Sidebar/ObjectInspector';
 import CameraZoneInspector from './components/Sidebar/CameraZoneInspector';
 import CameraZoneListPanel from './components/Sidebar/CameraZoneListPanel';
 import MapInspector from './components/Sidebar/MapInspector';
+import EventInspector from './components/Sidebar/EventInspector';
 import useFileWatcher from './hooks/useFileWatcher';
 
 function SidebarSplit({ editMode }: { editMode: string }) {
@@ -191,7 +192,8 @@ export default function App() {
       {currentMap && (
         <div className="inspector-area">
           <ResizablePanel defaultWidth={280} minWidth={200} maxWidth={500} side="left">
-            {editMode === 'object' ? <ObjectInspector />
+            {editMode === 'event' ? <EventInspector />
+              : editMode === 'object' ? <ObjectInspector />
               : editMode === 'cameraZone' ? <CameraZoneInspector />
               : lightEditMode ? <LightInspector />
               : <MapInspector />}
