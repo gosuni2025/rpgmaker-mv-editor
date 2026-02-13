@@ -89,3 +89,32 @@ jobs:
           files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete old releases
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const currentTag = context.ref.replace('refs/tags/', '');
+            const { data: releases } = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            for (const release of releases) {
+              if (release.tag_name === currentTag) continue;
+              console.log(`Deleting release ${release.tag_name}`);
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.id,
+              });
+              try {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `tags/${release.tag_name}`,
+                });
+              } catch (e) {
+                console.log(`Tag ${release.tag_name} already deleted or not found`);
+              }
+            }
