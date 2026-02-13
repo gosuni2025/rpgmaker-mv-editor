@@ -932,6 +932,9 @@ const ko = {
     blendMode: '합성 방식:',
     blendModes: { 0: '통상', 1: '가산', 2: '곱하기' },
     script: '스크립트:',
+    character: '플레이어',
+    player: '플레이어',
+    thisEvent: '이 이벤트',
   },
 
   // === Map Properties ===
@@ -1020,6 +1023,22 @@ const ko = {
     down: '아래',
     left: '왼쪽',
     right: '오른쪽',
+  },
+
+  scrollMap: {
+    title: '지도 스크롤',
+    direction: '방향:',
+    distance: '거리:',
+    speed: '속도:',
+    directions: { 2: '아래', 4: '왼쪽', 6: '오른쪽', 8: '위' },
+    speeds: {
+      1: '1: x8 느리게',
+      2: '2: x4 느리게',
+      3: '3: x2 느리게',
+      4: '4: 보통',
+      5: '5: x2 빠르게',
+      6: '6: x4 빠르게',
+    },
   },
 
   // === Animations Tab ===
