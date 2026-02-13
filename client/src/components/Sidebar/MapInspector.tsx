@@ -450,24 +450,51 @@ function getDefaultForKind(kind: number): AnimTileShaderSettings {
   return DEFAULT_WATER_SETTINGS;
 }
 
-// A1 kind별 타일셋 이미지 내 위치 (48x48 타일 좌상단)
-// rpg_core.js의 Tilemap._drawAutotile 로직 기반
-function getA1KindImagePos(kind: number): { sx: number; sy: number } {
-  if (kind === 0) return { sx: 0, sy: 0 };
-  if (kind === 1) return { sx: 0, sy: 144 };
-  if (kind === 2) return { sx: 288, sy: 0 };
-  if (kind === 3) return { sx: 288, sy: 144 };
-  // kind 4~15: tx = kind % 8, ty = floor(kind/8)
-  const tx = kind % 8;
-  const ty = Math.floor(kind / 8);
-  const bx = Math.floor(tx / 4) * 8;
-  const by = ty * 6 + Math.floor(tx / 2) % 2 * 3;
-  // 짝수 kind: 수면 애니메이션 첫 프레임 (bx+0), 홀수: 폭포 (bx+6)
-  const finalBx = (kind % 2 === 0) ? bx : bx + 6;
-  return { sx: finalBx * 48, sy: by * 48 };
+// A1 kind별 "완전 내부" 타일 미리보기를 조합하여 그리기
+// rpg_core.js의 Tilemap._drawAutotile + FLOOR/WATERFALL_AUTOTILE_TABLE 기반
+// 수면 오토타일: shape 0 = [[2,4],[1,4],[2,3],[1,3]] (내부 패턴)
+// 폭포 오토타일: shape 3 = [[0,0],[3,0],[0,1],[3,1]] (내부 패턴)
+function drawA1KindIcon(ctx: CanvasRenderingContext2D, img: HTMLImageElement, kind: number) {
+  let bx: number, by: number;
+  const isWaterfall = kind >= 4 && kind % 2 === 1;
+
+  if (kind === 0) { bx = 0; by = 0; }
+  else if (kind === 1) { bx = 0; by = 3; }
+  else if (kind === 2) { bx = 6; by = 0; }
+  else if (kind === 3) { bx = 6; by = 3; }
+  else {
+    const tx = kind % 8;
+    const ty = Math.floor(kind / 8);
+    bx = Math.floor(tx / 4) * 8;
+    by = ty * 6 + Math.floor(tx / 2) % 2 * 3;
+    if (isWaterfall) bx += 6;
+  }
+
+  // 반타일 크기 = 24px, 아이콘 = 24x24 (반타일 12px로 축소)
+  const hw = 12; // 아이콘에서 반타일 크기
+  const sw = 24; // 소스에서 반타일 크기
+
+  // 내부 패턴의 반타일 4개 좌표 (qsx, qsy)
+  let quarters: [number, number][];
+  if (isWaterfall) {
+    // WATERFALL_AUTOTILE_TABLE[3] = [[0,0],[3,0],[0,1],[3,1]]
+    quarters = [[0, 0], [3, 0], [0, 1], [3, 1]];
+  } else {
+    // FLOOR_AUTOTILE_TABLE[0] = [[2,4],[1,4],[2,3],[1,3]]
+    quarters = [[2, 4], [1, 4], [2, 3], [1, 3]];
+  }
+
+  for (let i = 0; i < 4; i++) {
+    const [qsx, qsy] = quarters[i];
+    const srcX = (bx * 2 + qsx) * sw;
+    const srcY = (by * 2 + qsy) * sw;
+    const dx = (i % 2) * hw;
+    const dy = Math.floor(i / 2) * hw;
+    ctx.drawImage(img, srcX, srcY, sw, sw, dx, dy, hw, hw);
+  }
 }
 
-/** A1 타일셋에서 kind의 48x48 미리보기 캔버스 */
+/** A1 타일셋에서 kind의 내부 패턴 미리보기 캔버스 (24x24) */
 function A1KindIcon({ kind, tilesetNames }: { kind: number; tilesetNames?: string[] }) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
@@ -478,15 +505,11 @@ function A1KindIcon({ kind, tilesetNames }: { kind: number; tilesetNames?: strin
     if (!ctx) return;
     ctx.clearRect(0, 0, 24, 24);
 
-    // A1 타일셋 이미지 로드
     const a1Name = tilesetNames?.[0];
     if (!a1Name) return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const { sx, sy } = getA1KindImagePos(kind);
-      ctx.drawImage(img, sx, sy, 48, 48, 0, 0, 24, 24);
-    };
+    img.onload = () => drawA1KindIcon(ctx, img, kind);
     img.src = `/img/tilesets/${a1Name}.png`;
   }, [kind, tilesetNames]);
 
@@ -565,7 +588,7 @@ function AnimTileShaderSection({ currentMap, updateMapField }: {
                       onChange={(v) => updateKindSetting(kind, 'waveFrequency', v)} />
                     <AnimSlider label="물결 속도" value={s.waveSpeed} min={0} max={10} step={0.1}
                       onChange={(v) => updateKindSetting(kind, 'waveSpeed', v)} />
-                    <AnimSlider label="투명도" value={s.waterAlpha} min={0} max={1} step={0.05}
+                    <AnimSlider label="색상 밝기" value={s.waterAlpha} min={0} max={1} step={0.05}
                       onChange={(v) => updateKindSetting(kind, 'waterAlpha', v)} />
                     <AnimSlider label="반사 강도" value={s.specularStrength} min={0} max={3} step={0.1}
                       onChange={(v) => updateKindSetting(kind, 'specularStrength', v)} />
