@@ -1293,52 +1293,85 @@ ShadowLight._addLightsToScene = function(scene) {
         }
     }
 
-    // ?dev=true 디버그 모드: 디렉셔널 라이트 방향 화살표 시각화
+    // ?dev=true 디버그 모드: 디렉셔널 라이트를 3D 화살표로 시각화
+    // 라이트 position(먼 곳)에서 target(맵 중심)으로 향하는 굵은 화살표
     if (/[?&]dev=true/.test(window.location.search)) {
         this._debugLightArrows = this._debugLightArrows || [];
-        var arrowOrigin = new THREE.Vector3(vw2, vh2, 0);
-        var arrowLen = 300;
-        var headLen = 60;
-        var headWidth = 30;
+        var target3 = new THREE.Vector3(vw2, vh2, 0);
+
+        // 굵은 3D 화살표 생성 헬퍼 (CylinderGeometry 기반, WebGL linewidth 제한 우회)
+        function createThickArrow(from, to, color, shaftRadius, headRadius, headFrac) {
+            var group = new THREE.Group();
+            var dir = new THREE.Vector3().subVectors(to, from);
+            var totalLen = dir.length();
+            dir.normalize();
+            var shaftLen = totalLen * (1 - headFrac);
+            var headLen = totalLen * headFrac;
+            var mat = new THREE.MeshBasicMaterial({ color: color, depthTest: false, transparent: true, opacity: 0.85 });
+
+            // 샤프트 (실린더)
+            var shaftGeo = new THREE.CylinderGeometry(shaftRadius, shaftRadius, shaftLen, 8);
+            shaftGeo.translate(0, shaftLen / 2, 0);
+            var shaft = new THREE.Mesh(shaftGeo, mat);
+            group.add(shaft);
+
+            // 화살촉 (콘)
+            var coneGeo = new THREE.ConeGeometry(headRadius, headLen, 8);
+            coneGeo.translate(0, shaftLen + headLen / 2, 0);
+            var cone = new THREE.Mesh(coneGeo, mat);
+            group.add(cone);
+
+            // 방향 정렬: Y축(0,1,0) → dir
+            var quat = new THREE.Quaternion();
+            quat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+            group.quaternion.copy(quat);
+            group.position.copy(from);
+
+            group.traverse(function(child) { child.frustumCulled = false; });
+            group.renderOrder = 9999;
+            return group;
+        }
+
+        // 화살표 길이: 라이트 position → target 중간 구간 (너무 멀면 잘 안 보이므로 축소)
+        var arrowLen = 400; // 화살표 전체 길이
+        var shaftR = 6;
+        var headR = 18;
+        var headFraction = 0.25;
 
         // 메인 디렉셔널 라이트
         if (this._directionalLight && this._directionalLight.visible) {
-            var mainDir = new THREE.Vector3().copy(this._directionalLight.position).normalize().negate();
-            var mainArrow = new THREE.ArrowHelper(mainDir, arrowOrigin, arrowLen, 0xffff00, headLen, headWidth);
-            mainArrow.line.material.linewidth = 3;
-            mainArrow.frustumCulled = false;
-            mainArrow.line.frustumCulled = false;
-            mainArrow.cone.frustumCulled = false;
-            scene.add(mainArrow);
-            this._debugLightArrows.push(mainArrow);
-            console.log('[ShadowLight DEV] Main directional light - dir:', mainDir.toArray().map(function(v){return v.toFixed(3)}),
+            var lPos = this._directionalLight.position;
+            var lDir = new THREE.Vector3().subVectors(target3, lPos).normalize();
+            var arrowStart = new THREE.Vector3().copy(target3).addScaledVector(lDir, -arrowLen);
+            var arrow = createThickArrow(arrowStart, target3, 0xffff00, shaftR, headR, headFraction);
+            scene.add(arrow);
+            this._debugLightArrows.push(arrow);
+            console.log('[ShadowLight DEV] Main directional - pos:', lPos.toArray().map(function(v){return Math.round(v)}),
+                'dir:', lDir.toArray().map(function(v){return v.toFixed(3)}),
                 'color:', '#' + this._directionalLight.color.getHexString(),
                 'intensity:', this._directionalLight.intensity,
                 'castShadow:', this._directionalLight.castShadow);
         }
 
         // 추가 sunLights
-        var sunColors = [0xff4444, 0x44ff44, 0x4444ff, 0xff44ff];
+        var devColors = [0xff4444, 0x44ff44, 0x4444ff, 0xff44ff];
         for (var ai = 0; ai < this._sunLights.length; ai++) {
             var sLight = this._sunLights[ai];
-            var sDir = new THREE.Vector3().copy(sLight.position).normalize().negate();
-            var sColor = sunColors[ai % sunColors.length];
-            var sArrow = new THREE.ArrowHelper(sDir, arrowOrigin, arrowLen, sColor, headLen, headWidth);
-            sArrow.line.material.linewidth = 3;
-            sArrow.frustumCulled = false;
-            sArrow.line.frustumCulled = false;
-            sArrow.cone.frustumCulled = false;
+            var sPos = sLight.position;
+            var sDir2 = new THREE.Vector3().subVectors(target3, sPos).normalize();
+            var sStart = new THREE.Vector3().copy(target3).addScaledVector(sDir2, -arrowLen);
+            var sArrow = createThickArrow(sStart, target3, devColors[ai % devColors.length], shaftR, headR, headFraction);
             scene.add(sArrow);
             this._debugLightArrows.push(sArrow);
-            console.log('[ShadowLight DEV] Sun light[' + (ai+1) + '] - dir:', sDir.toArray().map(function(v){return v.toFixed(3)}),
+            console.log('[ShadowLight DEV] Sun light[' + (ai+1) + '] - pos:', sPos.toArray().map(function(v){return Math.round(v)}),
+                'dir:', sDir2.toArray().map(function(v){return v.toFixed(3)}),
                 'color:', '#' + sLight.color.getHexString(),
                 'intensity:', sLight.intensity,
                 'castShadow:', sLight.castShadow);
         }
 
-        // 데이터 로그
-        console.log('[ShadowLight DEV] editorLights:', el);
-        console.log('[ShadowLight DEV] skyBackground:', skyBg);
+        console.log('[ShadowLight DEV] editorLights:', JSON.parse(JSON.stringify(el || null)));
+        console.log('[ShadowLight DEV] skyBackground:', JSON.parse(JSON.stringify(skyBg || null)));
     }
 };
 
@@ -1434,8 +1467,12 @@ ShadowLight._removeLightsFromScene = function(scene) {
     // 디버그 화살표 제거
     if (this._debugLightArrows) {
         for (var i = 0; i < this._debugLightArrows.length; i++) {
-            scene.remove(this._debugLightArrows[i]);
-            this._debugLightArrows[i].dispose();
+            var grp = this._debugLightArrows[i];
+            scene.remove(grp);
+            grp.traverse(function(child) {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            });
         }
         this._debugLightArrows = [];
     }
