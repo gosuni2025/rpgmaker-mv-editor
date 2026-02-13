@@ -168,6 +168,27 @@ export function SingleNumberEditor({ p, onOk, onCancel, label, min, max }: { p: 
 }
 
 /**
+ * Wait Editor (Command 230)
+ * RPG Maker MV 파라미터: [duration(frames)]
+ */
+export function WaitEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [value, setValue] = useState<number>((p[0] as number) || 60);
+  return (
+    <>
+      <div style={{ fontSize: 12, color: '#aaa' }}>지속 시간</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+        <input type="number" value={value} min={1} max={999} onChange={e => setValue(Number(e.target.value))} style={{ ...selectStyle, width: 80 }} />
+        <span style={{ fontSize: 12, color: '#aaa' }}>프레임 (1/60 초)</span>
+      </div>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([value])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}
+
+/**
  * Input Number Editor (Command 103)
  * RPG Maker MV 파라미터: [variableId, maxDigits]
  */
