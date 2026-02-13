@@ -67,6 +67,11 @@ const en = {
     language: 'Language',
     options: 'Options...',
     localization: 'Localization...',
+    copyPath: 'Copy Project Path',
+    openVscode: 'Open in VSCode',
+    recentProjects: 'Recent Projects',
+    noRecentProjects: 'No recent projects',
+    projectNotFound: 'Project not found. Removing from list.',
   },
 
   options: {

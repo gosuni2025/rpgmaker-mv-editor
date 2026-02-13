@@ -221,6 +221,21 @@ router.post('/open-folder', (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+router.post('/open-vscode', (req: Request, res: Response) => {
+  if (!projectManager.isOpen()) {
+    return res.status(404).json({ error: 'No project open' });
+  }
+  exec(`code "${projectManager.currentPath}"`);
+  res.json({ success: true });
+});
+
+router.get('/check-path', (req: Request, res: Response) => {
+  const p = req.query.path as string;
+  if (!p) return res.status(400).json({ error: 'path is required' });
+  const exists = fs.existsSync(p) && fs.existsSync(path.join(p, 'data', 'System.json'));
+  res.json({ exists });
+});
+
 // Deploy project
 router.post('/deploy', (req: Request, res: Response) => {
   try {

@@ -5,7 +5,7 @@ import './OpenProjectDialog.css';
 
 const RECENT_KEY = 'rpg-editor-recent-projects';
 
-interface RecentProject {
+export interface RecentProject {
   path: string;
   name: string;
   time: number;
@@ -18,7 +18,7 @@ interface BrowseResult {
   isRpgProject: boolean;
 }
 
-function getRecentProjects(): RecentProject[] {
+export function getRecentProjects(): RecentProject[] {
   try {
     return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
   } catch {
@@ -30,6 +30,11 @@ export function addRecentProject(path: string, name: string): void {
   const recent = getRecentProjects().filter((p) => p.path !== path);
   recent.unshift({ path, name, time: Date.now() });
   localStorage.setItem(RECENT_KEY, JSON.stringify(recent.slice(0, 10)));
+}
+
+export function removeRecentProject(path: string): void {
+  const recent = getRecentProjects().filter((p) => p.path !== path);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
 }
 
 interface OpenProjectDialogProps {

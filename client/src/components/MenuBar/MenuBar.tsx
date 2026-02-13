@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import useEditorStore from '../../store/useEditorStore';
+import apiClient from '../../api/client';
+import { getRecentProjects, removeRecentProject } from '../OpenProjectDialog';
 import './MenuBar.css';
 
 interface MenuItem {
@@ -54,6 +56,15 @@ export default function MenuBar() {
   const redo = useEditorStore((s) => s.redo);
 
   const hasProject = !!projectPath;
+  const openProject = useEditorStore((s) => s.openProject);
+
+  const recentProjects = getRecentProjects().slice(0, 10);
+  const recentItems: MenuItem[] = recentProjects.length > 0
+    ? recentProjects.map((p) => ({
+        label: `${p.name || p.path.split('/').pop()} — ${p.path}`,
+        action: `recent:${p.path}`,
+      }))
+    : [{ label: t('menu.noRecentProjects'), disabled: () => true }];
 
   const menus: Menu[] = [
     {
@@ -63,10 +74,16 @@ export default function MenuBar() {
         { label: t('menu.openProject'), action: 'openProject' },
         { label: t('menu.closeProject'), action: 'closeProject', disabled: () => !hasProject },
         { type: 'separator' },
+        { label: t('menu.recentProjects'), children: recentItems },
+        { type: 'separator' },
         { label: t('common.save'), action: 'save', shortcut: 'Ctrl+S', disabled: () => !hasProject },
         { type: 'separator' },
         { label: t('menu.deploy'), action: 'deploy', disabled: () => !hasProject },
         { label: t('menu.migrate'), action: 'migrate', disabled: () => !hasProject },
+        { type: 'separator' },
+        { label: t('menu.openFolder'), action: 'openFolder', disabled: () => !hasProject },
+        { label: t('menu.copyPath'), action: 'copyPath', disabled: () => !hasProject },
+        { label: t('menu.openVscode'), action: 'openVscode', disabled: () => !hasProject },
         { type: 'separator' },
         { label: t('menu.options'), action: 'options' },
       ],
@@ -137,14 +154,24 @@ export default function MenuBar() {
       items: [
         { label: t('menu.playtestTitle'), action: 'playtestTitle', shortcut: 'Ctrl+R', disabled: () => !hasProject },
         { label: t('menu.playtestCurrentMap'), action: 'playtestCurrentMap', shortcut: 'Ctrl+Shift+R', disabled: () => !hasProject },
-        { type: 'separator' },
-        { label: t('menu.openFolder'), action: 'openFolder', disabled: () => !hasProject },
       ],
     },
   ];
 
   const handleAction = useCallback((action: string) => {
     setOpenMenu(null);
+    if (action.startsWith('recent:')) {
+      const recentPath = action.slice(7);
+      apiClient.get<{ exists: boolean }>(`/project/check-path?path=${encodeURIComponent(recentPath)}`).then(res => {
+        if (res.exists) {
+          openProject(recentPath);
+        } else {
+          removeRecentProject(recentPath);
+          alert(t('menu.projectNotFound'));
+        }
+      }).catch(() => {});
+      return;
+    }
     switch (action) {
       case 'newProject': setShowNewProjectDialog(true); break;
       case 'openProject': setShowOpenProjectDialog(true); break;
@@ -183,6 +210,8 @@ export default function MenuBar() {
         window.open(`/game/index.html?dev=true&startMapId=${mapId}`, '_blank');
       }); break;
       case 'openFolder': fetch('/api/project/open-folder', { method: 'POST' }); break;
+      case 'copyPath': if (projectPath) navigator.clipboard.writeText(projectPath); break;
+      case 'openVscode': fetch('/api/project/open-vscode', { method: 'POST' }); break;
       case 'selectAll': window.dispatchEvent(new CustomEvent('editor-selectall')); break;
       case 'deselect': window.dispatchEvent(new CustomEvent('editor-deselect')); break;
       case 'autotileDebug': window.dispatchEvent(new CustomEvent('editor-autotile-debug')); break;
@@ -194,7 +223,7 @@ export default function MenuBar() {
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
       setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
       setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog, setEditMode, setSelectedTool, zoomIn, zoomOut,
-      zoomActualSize, undo, redo]);
+      zoomActualSize, undo, redo, openProject, projectPath, t]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

@@ -69,6 +69,11 @@ const ko = {
     language: '언어',
     options: '옵션...',
     localization: '로컬라이제이션...',
+    copyPath: '프로젝트 경로 복사',
+    openVscode: 'VSCode로 열기',
+    recentProjects: '최근 프로젝트',
+    noRecentProjects: '최근 프로젝트 없음',
+    projectNotFound: '프로젝트를 찾을 수 없습니다. 목록에서 제거합니다.',
   },
 
   // === Options Dialog ===
