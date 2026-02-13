@@ -705,7 +705,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
                 {display ? (
                   (cmd.code === 108 || cmd.code === 408) ? <span style={{ color: '#4ec94e' }}>{display}</span> : display
                 ) : <span style={{ color: '#555' }}>&loz;</span>}
-                {context && [101, 102, 105, 321, 325].includes(cmd.code) && (() => {
+                {context && [101, 102, 105, 320, 324, 325].includes(cmd.code) && (() => {
                   const prefix = context.isCommonEvent
                     ? `ce${context.commonEventId}`
                     : `ev${context.eventId}.page${(context.pageIndex || 0) + 1}`;
@@ -720,7 +720,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
                     sourceText = lines.join('\n');
                   } else if (cmd.code === 102) {
                     sourceText = ((cmd.parameters[0] as string[]) || []).join(', ');
-                  } else if (cmd.code === 321 || cmd.code === 325) {
+                  } else if (cmd.code === 320 || cmd.code === 324 || cmd.code === 325) {
                     sourceText = (cmd.parameters[1] as string) || '';
                   }
                   return sourceText ? (

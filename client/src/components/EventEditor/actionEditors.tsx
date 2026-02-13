@@ -1026,3 +1026,74 @@ export function ChangeNameEditor({ p, onOk, onCancel, label }: { p: unknown[]; o
     </>
   );
 }
+
+/**
+ * 이름 입력 처리 에디터 (코드 303)
+ * params: [actorId, maxCharacters]
+ */
+export function NameInputEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
+  const [maxChars, setMaxChars] = useState<number>((p[1] as number) || 8);
+  const actors = useDbNames('actors');
+  const [showPicker, setShowPicker] = useState(false);
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <input type="text" readOnly value={getLabel(actorId, actors)}
+            style={{ ...selectStyle, flex: 1 }} />
+          <button className="db-btn" onClick={() => setShowPicker(true)}
+            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>최대 문자 수:</span>
+        <input type="number" value={maxChars} onChange={e => setMaxChars(Math.max(1, Math.min(16, Number(e.target.value))))}
+          min={1} max={16} style={{ ...selectStyle, width: 120 }} />
+      </div>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([actorId, maxChars])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+      {showPicker && (
+        <DataListPicker items={actors} value={actorId} onChange={setActorId}
+          onClose={() => setShowPicker(false)} title="대상 선택" />
+      )}
+    </>
+  );
+}
+
+export function ChangeProfileEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
+  const [profile, setProfile] = useState<string>((p[1] as string) || '');
+  const actors = useDbNames('actors');
+  const [showPicker, setShowPicker] = useState(false);
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <input type="text" readOnly value={getLabel(actorId, actors)}
+            style={{ ...selectStyle, flex: 1 }} />
+          <button className="db-btn" onClick={() => setShowPicker(true)}
+            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>프로필:</span>
+        <textarea value={profile} onChange={e => setProfile(e.target.value)}
+          rows={4}
+          style={{ ...selectStyle, width: '100%', resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.4' }} />
+      </div>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([actorId, profile])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+      {showPicker && (
+        <DataListPicker items={actors} value={actorId} onChange={setActorId}
+          onClose={() => setShowPicker(false)} title="대상 선택" />
+      )}
+    </>
+  );
+}
