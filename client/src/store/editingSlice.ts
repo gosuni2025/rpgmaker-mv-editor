@@ -138,13 +138,13 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       if (currentMap.cameraZones) {
         updates.cameraZones = currentMap.cameraZones.map((z: CameraZone) => ({ ...z, x: z.x + offsetX, y: z.y + offsetY }));
       }
-      // Offset player start position if on this map
-      if (systemData && systemData.startMapId === currentMapId) {
-        stateUpdates.systemData = {
-          ...systemData,
-          startX: systemData.startX + offsetX,
-          startY: systemData.startY + offsetY,
-        };
+    }
+    // Clamp player start position to new map bounds (offset + bounds check)
+    if (systemData && systemData.startMapId === currentMapId) {
+      const newSX = Math.max(0, Math.min(nw - 1, systemData.startX + offsetX));
+      const newSY = Math.max(0, Math.min(nh - 1, systemData.startY + offsetY));
+      if (newSX !== systemData.startX || newSY !== systemData.startY) {
+        stateUpdates.systemData = { ...systemData, startX: newSX, startY: newSY };
       }
     }
 
