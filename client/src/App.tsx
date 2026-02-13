@@ -109,6 +109,15 @@ export default function App() {
     restoreLastProject();
   }, [restoreLastProject]);
 
+  // 브라우저 기본 컨텍스트 메뉴 차단
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    document.addEventListener('contextmenu', handler);
+    return () => document.removeEventListener('contextmenu', handler);
+  }, []);
+
   useEffect(() => {
     const handler = () => setShowAutotileDebug(true);
     window.addEventListener('editor-autotile-debug', handler);
