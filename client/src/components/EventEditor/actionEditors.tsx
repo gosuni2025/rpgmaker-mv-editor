@@ -1857,6 +1857,191 @@ export function ShowBalloonIconEditor({ p, onOk, onCancel }: { p: unknown[]; onO
   );
 }
 
+// ─── 셰이더 프리뷰 컴포넌트 ───
+declare const THREE: any;
+declare const PictureShader: any;
+
+function ShaderPreviewCanvas({ imageName, shaderType, shaderParams, shaderEnabled }: {
+  imageName: string; shaderType: string; shaderParams: Record<string, number>; shaderEnabled: boolean;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const stateRef = useRef<{
+    renderer: any; scene: any; camera: any; mesh: any;
+    material: any; originalMaterial: any; texture: any;
+    animId: number; startTime: number; loadedImage: string;
+  } | null>(null);
+
+  // Three.js 씬 초기화
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof THREE === 'undefined') return;
+
+    const W = 280, H = 280;
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(W, H);
+    renderer.setClearColor(0x1a1a1a, 1);
+    el.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-W / 2, W / 2, H / 2, -H / 2, -1, 1);
+
+    const geo = new THREE.PlaneGeometry(1, 1);
+    const mat = new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.frustumCulled = false;
+    scene.add(mesh);
+
+    // 체커보드 배경
+    const checkerCanvas = document.createElement('canvas');
+    checkerCanvas.width = 256; checkerCanvas.height = 256;
+    const ctx = checkerCanvas.getContext('2d')!;
+    const cSize = 16;
+    for (let y = 0; y < 256; y += cSize) {
+      for (let x = 0; x < 256; x += cSize) {
+        ctx.fillStyle = ((x + y) / cSize) % 2 === 0 ? '#333' : '#444';
+        ctx.fillRect(x, y, cSize, cSize);
+      }
+    }
+    const checkerTex = new THREE.CanvasTexture(checkerCanvas);
+    checkerTex.wrapS = THREE.RepeatWrapping;
+    checkerTex.wrapT = THREE.RepeatWrapping;
+    const bgMat = new THREE.MeshBasicMaterial({ map: checkerTex, depthTest: false });
+    const bgMesh = new THREE.Mesh(new THREE.PlaneGeometry(W, H), bgMat);
+    bgMesh.position.z = -0.5;
+    bgMesh.frustumCulled = false;
+    scene.add(bgMesh);
+
+    stateRef.current = {
+      renderer, scene, camera, mesh,
+      material: mat, originalMaterial: mat, texture: null,
+      animId: 0, startTime: performance.now() / 1000, loadedImage: '',
+    };
+
+    const animate = () => {
+      const s = stateRef.current;
+      if (!s) return;
+      const time = performance.now() / 1000 - s.startTime;
+      if (s.material && s.material.uniforms && s.material.uniforms.uTime) {
+        s.material.uniforms.uTime.value = time;
+      }
+      // shake offset
+      if (s.material && s.material._shaderType === 'shake') {
+        const p = s.material._shaderParams || {};
+        const power = p.power ?? 5;
+        const speed = p.speed ?? 10;
+        const dir = p.direction ?? 2;
+        const t = time * speed;
+        let dx = 0, dy = 0;
+        if (dir === 0 || dir === 2) dx = (Math.sin(t * 7.13) + Math.sin(t * 5.71) * 0.5) * power;
+        if (dir === 1 || dir === 2) dy = (Math.sin(t * 6.47) + Math.sin(t * 4.93) * 0.5) * power;
+        s.mesh.position.x = dx;
+        s.mesh.position.y = -dy;
+      } else {
+        s.mesh.position.x = 0;
+        s.mesh.position.y = 0;
+      }
+      s.renderer.render(s.scene, s.camera);
+      s.animId = requestAnimationFrame(animate);
+    };
+    stateRef.current.animId = requestAnimationFrame(animate);
+
+    return () => {
+      const s = stateRef.current;
+      if (s) {
+        cancelAnimationFrame(s.animId);
+        s.renderer.dispose();
+        s.renderer.domElement.remove();
+        if (s.texture) s.texture.dispose();
+        if (s.material) s.material.dispose();
+        if (s.originalMaterial) s.originalMaterial.dispose();
+        stateRef.current = null;
+      }
+    };
+  }, []);
+
+  // 이미지 로드
+  useEffect(() => {
+    const s = stateRef.current;
+    if (!s || typeof THREE === 'undefined') return;
+    if (!imageName) {
+      s.mesh.visible = false;
+      s.loadedImage = '';
+      return;
+    }
+    if (s.loadedImage === imageName) return;
+    s.loadedImage = imageName;
+
+    const loader = new THREE.TextureLoader();
+    loader.load(`/img/pictures/${imageName}.png`, (tex: any) => {
+      if (!stateRef.current || stateRef.current.loadedImage !== imageName) {
+        tex.dispose();
+        return;
+      }
+      tex.magFilter = THREE.NearestFilter;
+      tex.minFilter = THREE.NearestFilter;
+      if (stateRef.current.texture) stateRef.current.texture.dispose();
+      stateRef.current.texture = tex;
+
+      const img = tex.image;
+      const W = 280, H = 280;
+      const scale = Math.min(W / img.width, H / img.height, 1);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      stateRef.current.mesh.geometry.dispose();
+      stateRef.current.mesh.geometry = new THREE.PlaneGeometry(w, h);
+      stateRef.current.mesh.visible = true;
+
+      // material에 텍스처 설정
+      const mat = stateRef.current.material;
+      if (mat.uniforms && mat.uniforms.map) {
+        mat.uniforms.map.value = tex;
+      } else {
+        mat.map = tex;
+        mat.needsUpdate = true;
+      }
+    });
+  }, [imageName]);
+
+  // 셰이더 변경
+  useEffect(() => {
+    const s = stateRef.current;
+    if (!s || typeof PictureShader === 'undefined' || typeof THREE === 'undefined') return;
+
+    if (!shaderEnabled) {
+      // 원래 material로 복원
+      if (s.material !== s.originalMaterial) {
+        s.material.dispose();
+        s.material = s.originalMaterial;
+        s.mesh.material = s.originalMaterial;
+        if (s.texture) {
+          s.originalMaterial.map = s.texture;
+          s.originalMaterial.needsUpdate = true;
+        }
+      }
+      s.mesh.position.x = 0;
+      s.mesh.position.y = 0;
+      return;
+    }
+
+    // 새 ShaderMaterial 생성
+    const newMat = PictureShader.createMaterial(shaderType, shaderParams, s.texture);
+    if (newMat) {
+      if (s.material && s.material !== s.originalMaterial) {
+        s.material.dispose();
+      }
+      s.material = newMat;
+      s.mesh.material = newMat;
+    }
+  }, [shaderEnabled, shaderType, shaderParams]);
+
+  return (
+    <div ref={containerRef} style={{
+      width: 280, height: 280, flexShrink: 0,
+      border: '1px solid #555', borderRadius: 4, overflow: 'hidden',
+    }} />
+  );
+}
+
 // ─── 셰이더 정의 ───
 interface ShaderParamDef {
   key: string;
@@ -2116,44 +2301,49 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
           </label>
         </legend>
         {shaderEnabled && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={labelStyle}>
-              이펙트:
-              <select value={shaderType} onChange={e => handleShaderTypeChange(e.target.value)} style={{ ...selectStyle, marginLeft: 4 }}>
-                {SHADER_DEFINITIONS.map(sd => (
-                  <option key={sd.type} value={sd.type}>{sd.label}</option>
-                ))}
-              </select>
-            </label>
-            {currentShaderDef && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
-                {currentShaderDef.params.map(pd => (
-                  <label key={pd.key} style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ minWidth: 80, flexShrink: 0 }}>{pd.label}:</span>
-                    {pd.type === 'select' && pd.options ? (
-                      <select value={shaderParams[pd.key] ?? pd.defaultValue}
-                        onChange={e => handleShaderParamChange(pd.key, Number(e.target.value))}
-                        style={{ ...selectStyle, flex: 1 }}>
-                        {pd.options.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <>
-                        <input type="range" min={pd.min} max={pd.max} step={pd.step}
-                          value={shaderParams[pd.key] ?? pd.defaultValue}
+          <div style={{ display: 'flex', gap: 12 }}>
+            {/* 프리뷰 */}
+            <ShaderPreviewCanvas imageName={imageName} shaderType={shaderType} shaderParams={shaderParams} shaderEnabled={shaderEnabled} />
+            {/* 파라미터 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 0 }}>
+              <label style={labelStyle}>
+                이펙트:
+                <select value={shaderType} onChange={e => handleShaderTypeChange(e.target.value)} style={{ ...selectStyle, marginLeft: 4 }}>
+                  {SHADER_DEFINITIONS.map(sd => (
+                    <option key={sd.type} value={sd.type}>{sd.label}</option>
+                  ))}
+                </select>
+              </label>
+              {currentShaderDef && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {currentShaderDef.params.map(pd => (
+                    <label key={pd.key} style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ minWidth: 80, flexShrink: 0 }}>{pd.label}:</span>
+                      {pd.type === 'select' && pd.options ? (
+                        <select value={shaderParams[pd.key] ?? pd.defaultValue}
                           onChange={e => handleShaderParamChange(pd.key, Number(e.target.value))}
-                          style={{ flex: 1 }} />
-                        <input type="number" min={pd.min} max={pd.max} step={pd.step}
-                          value={shaderParams[pd.key] ?? pd.defaultValue}
-                          onChange={e => handleShaderParamChange(pd.key, Number(e.target.value))}
-                          style={{ ...selectStyle, width: 55 }} />
-                      </>
-                    )}
-                  </label>
-                ))}
-              </div>
-            )}
+                          style={{ ...selectStyle, flex: 1 }}>
+                          {pd.options.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <>
+                          <input type="range" min={pd.min} max={pd.max} step={pd.step}
+                            value={shaderParams[pd.key] ?? pd.defaultValue}
+                            onChange={e => handleShaderParamChange(pd.key, Number(e.target.value))}
+                            style={{ flex: 1 }} />
+                          <input type="number" min={pd.min} max={pd.max} step={pd.step}
+                            value={shaderParams[pd.key] ?? pd.defaultValue}
+                            onChange={e => handleShaderParamChange(pd.key, Number(e.target.value))}
+                            style={{ ...selectStyle, width: 55 }} />
+                        </>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </fieldset>
