@@ -5781,9 +5781,11 @@ ShaderTilemap.prototype._drawAutotile = function(layer, tileId, dx, dy) {
             animX = 2;
             by = 3;
         } else if (kind === 2) {
+            animX = 2;  // 용암에도 셰이더 적용
             bx = 6;
             by = 0;
         } else if (kind === 3) {
+            animX = 2;  // 용암에도 셰이더 적용
             bx = 6;
             by = 3;
         } else {
@@ -5820,6 +5822,8 @@ ShaderTilemap.prototype._drawAutotile = function(layer, tileId, dx, dy) {
     var table = autotileTable[shape];
     var w1 = this._tileWidth / 2;
     var h1 = this._tileHeight / 2;
+    // A1 타일은 kind를 addRect에 전달 (kind별 셰이더 설정용)
+    var a1Kind = Tilemap.isTileA1(tileId) ? kind : -1;
     for (var i = 0; i < 4; i++) {
         var qsx = table[i][0];
         var qsy = table[i][1];
@@ -5836,10 +5840,10 @@ ShaderTilemap.prototype._drawAutotile = function(layer, tileId, dx, dy) {
             }
             var sx2 = (bx * 2 + qsx2) * w1;
             var sy2 = (by * 2 + qsy2) * h1;
-            layer.addRect(setNumber, sx2, sy2, dx1, dy1, w1, h1, animX, animY);
-            layer.addRect(setNumber, sx1, sy1, dx1, dy1+h1/2, w1, h1/2, animX, animY);
+            layer.addRect(setNumber, sx2, sy2, dx1, dy1, w1, h1, animX, animY, a1Kind);
+            layer.addRect(setNumber, sx1, sy1, dx1, dy1+h1/2, w1, h1/2, animX, animY, a1Kind);
         } else {
-            layer.addRect(setNumber, sx1, sy1, dx1, dy1, w1, h1, animX, animY);
+            layer.addRect(setNumber, sx1, sy1, dx1, dy1, w1, h1, animX, animY, a1Kind);
         }
     }
 };

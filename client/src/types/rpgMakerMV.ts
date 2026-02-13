@@ -41,7 +41,52 @@ export interface MapData {
   objects?: MapObject[];
   cameraZones?: CameraZone[];
   skyBackground?: SkyBackground;
+  animTileSettings?: Record<number, AnimTileShaderSettings>; // key = A1 kind (0~15)
 }
+
+export interface AnimTileShaderSettings {
+  enabled: boolean;
+  waveAmplitude: number;      // 물결 진폭 (0~0.05)
+  waveFrequency: number;      // 물결 주파수 (0~20)
+  waveSpeed: number;          // 물결 속도 (0~10)
+  waterAlpha: number;         // 투명도 (0~1)
+  specularStrength: number;   // 반사 강도 (0~3)
+  emissive: number;           // 자체 발광 강도 (0~2)
+  emissiveColor: string;      // 발광 색상 (#hex)
+}
+
+export const DEFAULT_WATER_SETTINGS: AnimTileShaderSettings = {
+  enabled: true,
+  waveAmplitude: 0.006,
+  waveFrequency: 4,
+  waveSpeed: 2,
+  waterAlpha: 0.85,
+  specularStrength: 0.8,
+  emissive: 0,
+  emissiveColor: '#ffffff',
+};
+
+export const DEFAULT_LAVA_SETTINGS: AnimTileShaderSettings = {
+  enabled: true,
+  waveAmplitude: 0.003,
+  waveFrequency: 2,
+  waveSpeed: 0.8,
+  waterAlpha: 1.0,
+  specularStrength: 0.3,
+  emissive: 0.5,
+  emissiveColor: '#ff4400',
+};
+
+export const DEFAULT_WATERFALL_SETTINGS: AnimTileShaderSettings = {
+  enabled: true,
+  waveAmplitude: 0.004,
+  waveFrequency: 6,
+  waveSpeed: 3,
+  waterAlpha: 0.95,
+  specularStrength: 0.4,
+  emissive: 0,
+  emissiveColor: '#ffffff',
+};
 
 export interface SkySunLight {
   position: [number, number];       // [u, v] (0~1) - equirectangular 이미지에서의 위치

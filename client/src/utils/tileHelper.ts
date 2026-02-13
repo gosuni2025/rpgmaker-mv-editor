@@ -563,5 +563,61 @@ export function debugAutotileAt(
   TILE_ID_A1, TILE_ID_A2, TILE_ID_A3, TILE_ID_A4, TILE_ID_A5, debugAutotileAt, getTileRenderInfo,
 };
 
+/**
+ * A1 kind 번호 → 한국어 이름 매핑
+ * A1 타일셋: kind 0~15 (물, 용암, 추가 물/폭포)
+ */
+const A1_KIND_NAMES: Record<number, string> = {
+  0: '물 1',
+  1: '물 2',
+  2: '용암 1',
+  3: '용암 2',
+  4: '물 3',
+  5: '폭포 1',
+  6: '물 4',
+  7: '폭포 2',
+  8: '물 5',
+  9: '폭포 3',
+  10: '물 6',
+  11: '폭포 4',
+  12: '물 7',
+  13: '폭포 5',
+  14: '물 8',
+  15: '폭포 6',
+};
+
+/**
+ * A1 kind의 기본 타입 ('water' | 'lava' | 'waterfall')
+ */
+export function getA1KindType(kind: number): 'water' | 'lava' | 'waterfall' {
+  if (kind === 2 || kind === 3) return 'lava';
+  if (kind >= 4 && kind % 2 === 1) return 'waterfall';
+  return 'water';
+}
+
+export function getA1KindName(kind: number): string {
+  return A1_KIND_NAMES[kind] || `A1 타일 ${kind}`;
+}
+
+/**
+ * 맵 데이터에서 사용 중인 A1 kind 목록 추출
+ */
+export function getUsedA1Kinds(data: number[], width: number, height: number): number[] {
+  const kindSet = new Set<number>();
+  const layer0Size = width * height;
+  // z=0, z=1 레이어만 확인 (A1은 주로 레이어 0에 배치)
+  for (let z = 0; z < 2; z++) {
+    const offset = z * layer0Size;
+    for (let i = 0; i < layer0Size; i++) {
+      const tileId = data[offset + i];
+      if (tileId >= TILE_ID_A1 && tileId < TILE_ID_A2) {
+        const kind = Math.floor((tileId - TILE_ID_A1) / 48);
+        kindSet.add(kind);
+      }
+    }
+  }
+  return Array.from(kindSet).sort((a, b) => a - b);
+}
+
 // Exports for tile ID constants
 export { TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1, TILE_ID_A2, TILE_ID_A3, TILE_ID_A4, TILE_ID_MAX };
