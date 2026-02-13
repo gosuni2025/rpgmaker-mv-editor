@@ -2510,11 +2510,11 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
                 <span style={{ ...labelStyle, minWidth: 16 }}>X:</span>
                 <select value={presetX} onChange={e => setPresetX(Number(e.target.value))}
                   style={{ ...selectStyle, width: 70 }}>
-                  <option value={1}>1/5</option>
-                  <option value={2}>2/5</option>
-                  <option value={3}>3/5</option>
-                  <option value={4}>4/5</option>
-                  <option value={5}>5/5</option>
+                  <option value={1}>0%</option>
+                  <option value={2}>25%</option>
+                  <option value={3}>50%</option>
+                  <option value={4}>75%</option>
+                  <option value={5}>100%</option>
                 </select>
                 <span style={{ ...labelStyle, marginLeft: 4 }}>+</span>
                 <input type="number" min={-9999} max={9999} value={presetOffsetX}
@@ -2525,11 +2525,11 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
                 <span style={{ ...labelStyle, minWidth: 16 }}>Y:</span>
                 <select value={presetY} onChange={e => setPresetY(Number(e.target.value))}
                   style={{ ...selectStyle, width: 70 }}>
-                  <option value={1}>1/5</option>
-                  <option value={2}>2/5</option>
-                  <option value={3}>3/5</option>
-                  <option value={4}>4/5</option>
-                  <option value={5}>5/5</option>
+                  <option value={1}>0%</option>
+                  <option value={2}>25%</option>
+                  <option value={3}>50%</option>
+                  <option value={4}>75%</option>
+                  <option value={5}>100%</option>
                 </select>
                 <span style={{ ...labelStyle, marginLeft: 4 }}>+</span>
                 <input type="number" min={-9999} max={9999} value={presetOffsetY}
