@@ -190,6 +190,16 @@ ThreeTilemapRectLayer.prototype._flush = function() {
     var tileAnimY = this._tileAnimY;
     var animChanged = (tileAnimX !== this._lastTileAnimX || tileAnimY !== this._lastTileAnimY);
 
+    // 물 메시 uTime은 매 프레임 갱신 (wave 연속 애니메이션)
+    if (typeof ThreeWaterShader !== 'undefined') {
+        for (var wk in this._meshes) {
+            var wm = this._meshes[wk];
+            if (wm && wm.userData && wm.userData.isWaterMesh) {
+                ThreeWaterShader.updateTime(wm, ThreeWaterShader._time);
+            }
+        }
+    }
+
     if (!this._needsRebuild && animChanged) {
         // 빠른 경로: 애니메이션 오프셋만 변경 → UV만 갱신
         this._lastTileAnimX = tileAnimX;
@@ -248,198 +258,451 @@ ThreeTilemapRectLayer.prototype._flush = function() {
             }
         }
 
-        // UV 정규화 + 애니메이션 적용
-        var vertCount = data.count * 6;
-        var posArray = new Float32Array(vertCount * 3);
-        var normalArray = new Float32Array(vertCount * 3);
-        var uvArray = new Float32Array(vertCount * 2);
+        // 물 rect와 일반 rect 분리
         var animOffsets = this._animData[setNumber] || [];
+        var hasWater = false;
+        var hasNormal = false;
 
-        for (var i = 0; i < data.count; i++) {
-            var srcOff = i * 12;
-            var posOff = i * 18; // 6 verts * 3 components
-            var uvOff = i * 12;  // 6 verts * 2 components
-
-            // 이 쿼드의 애니메이션 오프셋
-            var ax = (animOffsets[i * 2] || 0) * tileAnimX;
-            var ay = (animOffsets[i * 2 + 1] || 0) * tileAnimY;
-
-            for (var j = 0; j < 6; j++) {
-                // Position: x, y, z=0
-                posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
-                posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
-                posArray[posOff + j * 3 + 2] = 0;
-
-                // Normal: Z- (y-flip으로 카메라가 뒷면을 보므로 노멀도 반전)
-                normalArray[posOff + j * 3]     = 0;
-                normalArray[posOff + j * 3 + 1] = 0;
-                normalArray[posOff + j * 3 + 2] = -1;
-
-                if (!isShadow) {
-                    // UV: 픽셀→정규화, 애니메이션 오프셋 적용, flipY
-                    uvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
-                    uvArray[uvOff + j * 2 + 1] = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
+        if (!isShadow && sn === 0 && typeof ThreeWaterShader !== 'undefined') {
+            for (var ci = 0; ci < data.count; ci++) {
+                var cAnimX = animOffsets[ci * 2] || 0;
+                var cAnimY = animOffsets[ci * 2 + 1] || 0;
+                if (ThreeWaterShader.isWaterRect(cAnimX, cAnimY)) {
+                    hasWater = true;
+                } else {
+                    hasNormal = true;
                 }
             }
+        } else {
+            hasNormal = true;
         }
 
-        // BufferGeometry 빌드
-        var geometry;
-        var mesh = this._meshes[setNumber];
+        // --- 일반 타일 메시 빌드 ---
+        if (hasNormal) {
+            this._buildNormalMesh(setNumber, data, animOffsets, texture, texW, texH,
+                                  tileAnimX, tileAnimY, isShadow, hasWater);
+        }
 
-        // 현재 모드에 맞는 material 속성 결정
-        var needsPhong = !isShadow && (window.ShadowLight && window.ShadowLight._active);
+        // --- 물 타일 메시 빌드 ---
+        if (hasWater) {
+            this._buildWaterMesh(setNumber, data, animOffsets, texture, texW, texH,
+                                  tileAnimX, tileAnimY);
+        }
+    }
+};
 
-        if (mesh) {
-            // 기존 geometry의 attribute 데이터만 교체 (객체 재사용)
-            geometry = mesh.geometry;
-            var posAttr = geometry.attributes.position;
-            if (posAttr && posAttr.array.length === posArray.length) {
-                posAttr.array.set(posArray);
-                posAttr.needsUpdate = true;
-            } else {
-                geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+/**
+ * 일반(비물) 타일 메시 빌드
+ */
+ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, animOffsets,
+        texture, texW, texH, tileAnimX, tileAnimY, isShadow, hasWater) {
+    var sn = parseInt(setNumber);
+
+    // 물 rect를 제외한 일반 rect만 수집
+    var normalIndices = [];
+    if (hasWater) {
+        for (var ci = 0; ci < data.count; ci++) {
+            var cAnimX = animOffsets[ci * 2] || 0;
+            var cAnimY = animOffsets[ci * 2 + 1] || 0;
+            if (!ThreeWaterShader.isWaterRect(cAnimX, cAnimY)) {
+                normalIndices.push(ci);
             }
-            var normAttr = geometry.attributes.normal;
-            if (normAttr && normAttr.array.length === normalArray.length) {
-                normAttr.array.set(normalArray);
-                normAttr.needsUpdate = true;
-            } else {
-                geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
-            }
+        }
+    } else {
+        for (var ci = 0; ci < data.count; ci++) {
+            normalIndices.push(ci);
+        }
+    }
+
+    var normalCount = normalIndices.length;
+    if (normalCount === 0) return;
+
+    var vertCount = normalCount * 6;
+    var posArray = new Float32Array(vertCount * 3);
+    var normalArray = new Float32Array(vertCount * 3);
+    var uvArray = new Float32Array(vertCount * 2);
+
+    for (var ni = 0; ni < normalCount; ni++) {
+        var i = normalIndices[ni];
+        var srcOff = i * 12;
+        var posOff = ni * 18;
+        var uvOff = ni * 12;
+
+        var ax = (animOffsets[i * 2] || 0) * tileAnimX;
+        var ay = (animOffsets[i * 2 + 1] || 0) * tileAnimY;
+
+        for (var j = 0; j < 6; j++) {
+            posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
+            posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
+            posArray[posOff + j * 3 + 2] = 0;
+
+            normalArray[posOff + j * 3]     = 0;
+            normalArray[posOff + j * 3 + 1] = 0;
+            normalArray[posOff + j * 3 + 2] = -1;
+
             if (!isShadow) {
-                var uvAttr = geometry.attributes.uv;
-                if (uvAttr && uvAttr.array.length === uvArray.length) {
-                    uvAttr.array.set(uvArray);
-                    uvAttr.needsUpdate = true;
-                } else {
-                    geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
-                }
+                uvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
+                uvArray[uvOff + j * 2 + 1] = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
             }
+        }
+    }
 
-            // material 타입 전환: ShadowLight 상태에 따라 Phong↔Basic 교체
-            if (!isShadow) {
-                var isPhong = mesh.material.isMeshPhongMaterial;
-                if (needsPhong && !isPhong) {
-                    mesh.material.dispose();
-                    mesh.material = new THREE.MeshPhongMaterial({
-                        map: texture,
-                        transparent: true,
-                        depthTest: true,
-                        depthWrite: true,
-                        side: THREE.DoubleSide,
-                        emissive: new THREE.Color(0x000000),
-                        specular: new THREE.Color(0x000000),
-                        shininess: 0,
-                    });
-                    mesh.material.needsUpdate = true;
-                } else if (!needsPhong && isPhong) {
-                    mesh.material.dispose();
-                    mesh.material = new THREE.MeshBasicMaterial({
-                        map: texture,
-                        transparent: true,
-                        depthTest: false,
-                        depthWrite: false,
-                        side: THREE.DoubleSide,
-                    });
-                    mesh.material.needsUpdate = true;
-                } else {
-                    // Phong material이 아닌 경우 depthTest/depthWrite는 항상 false
-                    if (mesh.material.depthTest !== false) {
-                        mesh.material.depthTest = false;
-                        mesh.material.depthWrite = false;
-                        mesh.material.needsUpdate = true;
-                    }
-                }
-            }
+    var needsPhong = !isShadow && (window.ShadowLight && window.ShadowLight._active);
+    var mesh = this._meshes[setNumber];
 
-            mesh.visible = true;
+    if (mesh) {
+        var geometry = mesh.geometry;
+        var posAttr = geometry.attributes.position;
+        if (posAttr && posAttr.array.length === posArray.length) {
+            posAttr.array.set(posArray);
+            posAttr.needsUpdate = true;
         } else {
-            // 새 geometry + mesh 생성
-            geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        }
+        var normAttr = geometry.attributes.normal;
+        if (normAttr && normAttr.array.length === normalArray.length) {
+            normAttr.array.set(normalArray);
+            normAttr.needsUpdate = true;
+        } else {
             geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
-            if (!isShadow) {
+        }
+        if (!isShadow) {
+            var uvAttr = geometry.attributes.uv;
+            if (uvAttr && uvAttr.array.length === uvArray.length) {
+                uvAttr.array.set(uvArray);
+                uvAttr.needsUpdate = true;
+            } else {
                 geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
             }
-
-            var material;
-            if (isShadow) {
-                var sc = this._shadowColor;
-                material = new THREE.MeshBasicMaterial({
-                    color: new THREE.Color(sc[0], sc[1], sc[2]),
-                    transparent: true,
-                    opacity: sc[3],
-                    depthTest: false,
-                    depthWrite: false,
+        }
+        // material 타입 전환
+        if (!isShadow) {
+            var isPhong = mesh.material.isMeshPhongMaterial;
+            if (needsPhong && !isPhong) {
+                mesh.material.dispose();
+                mesh.material = new THREE.MeshPhongMaterial({
+                    map: texture, transparent: true, depthTest: true, depthWrite: true,
+                    side: THREE.DoubleSide,
+                    emissive: new THREE.Color(0x000000),
+                    specular: new THREE.Color(0x000000), shininess: 0,
+                });
+                mesh.material.needsUpdate = true;
+            } else if (!needsPhong && isPhong) {
+                mesh.material.dispose();
+                mesh.material = new THREE.MeshBasicMaterial({
+                    map: texture, transparent: true, depthTest: false, depthWrite: false,
                     side: THREE.DoubleSide,
                 });
-            } else {
-                // NearestFilter 강제
-                texture.minFilter = THREE.NearestFilter;
-                texture.magFilter = THREE.NearestFilter;
-                texture.generateMipmaps = false;
-                texture.anisotropy = 1;
-
-                // ShadowLight 활성 시 조명을 받을 수 있도록 MeshPhongMaterial 사용
-                // (MeshLambertMaterial은 per-vertex lighting이라 큰 메시에서 PointLight 효과가 안 보임)
-                if (needsPhong) {
-                    material = new THREE.MeshPhongMaterial({
-                        map: texture,
-                        transparent: true,
-                        depthTest: true,
-                        depthWrite: true,
-                        side: THREE.DoubleSide,
-                        emissive: new THREE.Color(0x000000),
-                        specular: new THREE.Color(0x000000),
-                        shininess: 0,
-                    });
-                    // 양면 라이팅은 editor-runtime-bootstrap.js에서 ShaderChunk 글로벌 패치로 적용됨
-                } else {
-                    material = new THREE.MeshBasicMaterial({
-                        map: texture,
-                        transparent: true,
-                        depthTest: false,
-                        depthWrite: false,
-                        side: THREE.DoubleSide,
-                    });
-                }
+                mesh.material.needsUpdate = true;
+            } else if (!needsPhong && mesh.material.depthTest !== false) {
+                mesh.material.depthTest = false;
+                mesh.material.depthWrite = false;
+                mesh.material.needsUpdate = true;
             }
-
-            mesh = new THREE.Mesh(geometry, material);
-            mesh.frustumCulled = false;
-            // ShadowLight 활성 시 그림자를 받을 수 있도록 설정
-            if (window.ShadowLight && window.ShadowLight._active && !isShadow) {
-                mesh.receiveShadow = true;
-                // upperZLayer(zIndex=4)의 오브젝트 타일은 그림자를 드리우도록 설정
-                var parentZLayer = this.parent && this.parent.parent;
-                if (parentZLayer && parentZLayer.z === 4) {
-                    mesh.castShadow = true;
-                    // 투명 영역이 그림자를 만들지 않도록 customDepthMaterial 설정
-                    if (texture) {
-                        mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
-                            depthPacking: THREE.RGBADepthPacking,
-                            map: texture,
-                            alphaTest: 0.5,
-                            side: THREE.DoubleSide,
-                        });
-                    }
-                }
-            }
-            this._meshes[setNumber] = mesh;
-            this._threeObj.add(mesh);
+        }
+        mesh.visible = true;
+    } else {
+        var geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
+        if (!isShadow) {
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
         }
 
-        // 텍스처 교체 (타일셋 로딩 완료 후 바뀔 수 있음)
-        if (!isShadow && mesh.material.map !== texture) {
+        var material;
+        if (isShadow) {
+            var sc = this._shadowColor;
+            material = new THREE.MeshBasicMaterial({
+                color: new THREE.Color(sc[0], sc[1], sc[2]),
+                transparent: true, opacity: sc[3],
+                depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+            });
+        } else {
             texture.minFilter = THREE.NearestFilter;
             texture.magFilter = THREE.NearestFilter;
             texture.generateMipmaps = false;
             texture.anisotropy = 1;
-            mesh.material.map = texture;
-            mesh.material.needsUpdate = true;
+            if (needsPhong) {
+                material = new THREE.MeshPhongMaterial({
+                    map: texture, transparent: true, depthTest: true, depthWrite: true,
+                    side: THREE.DoubleSide,
+                    emissive: new THREE.Color(0x000000),
+                    specular: new THREE.Color(0x000000), shininess: 0,
+                });
+            } else {
+                material = new THREE.MeshBasicMaterial({
+                    map: texture, transparent: true, depthTest: false, depthWrite: false,
+                    side: THREE.DoubleSide,
+                });
+            }
+        }
+
+        mesh = new THREE.Mesh(geometry, material);
+        mesh.frustumCulled = false;
+        if (window.ShadowLight && window.ShadowLight._active && !isShadow) {
+            mesh.receiveShadow = true;
+            var parentZLayer = this.parent && this.parent.parent;
+            if (parentZLayer && parentZLayer.z === 4) {
+                mesh.castShadow = true;
+                if (texture) {
+                    mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
+                        depthPacking: THREE.RGBADepthPacking,
+                        map: texture, alphaTest: 0.5, side: THREE.DoubleSide,
+                    });
+                }
+            }
+        }
+        this._meshes[setNumber] = mesh;
+        this._threeObj.add(mesh);
+    }
+
+    // 텍스처 교체 (타일셋 로딩 완료 후 바뀔 수 있음)
+    if (!isShadow && mesh.material.map !== texture) {
+        texture.minFilter = THREE.NearestFilter;
+        texture.magFilter = THREE.NearestFilter;
+        texture.generateMipmaps = false;
+        texture.anisotropy = 1;
+        mesh.material.map = texture;
+        mesh.material.needsUpdate = true;
+    }
+};
+
+/**
+ * 물 타일 메시 빌드 (wave + foam 셰이더 적용)
+ */
+ThreeTilemapRectLayer.prototype._buildWaterMesh = function(setNumber, data, animOffsets,
+        texture, texW, texH, tileAnimX, tileAnimY) {
+    // 물 rect와 폭포 rect 분리
+    var waterIndices = [];
+    var waterfallIndices = [];
+    for (var ci = 0; ci < data.count; ci++) {
+        var cAnimX = animOffsets[ci * 2] || 0;
+        var cAnimY = animOffsets[ci * 2 + 1] || 0;
+        if (ThreeWaterShader.isWaterfallRect(cAnimX, cAnimY)) {
+            waterfallIndices.push(ci);
+        } else if (ThreeWaterShader.isWaterRect(cAnimX, cAnimY)) {
+            waterIndices.push(ci);
         }
     }
+
+    // foam mask 계산을 위한 맵 데이터
+    var foamData = this._computeFoamMasks(data, animOffsets);
+
+    if (waterIndices.length > 0) {
+        this._buildWaterTypeMesh(setNumber + '_water', waterIndices, data, animOffsets,
+                                  texture, texW, texH, tileAnimX, tileAnimY, foamData, false);
+    }
+    if (waterfallIndices.length > 0) {
+        this._buildWaterTypeMesh(setNumber + '_waterfall', waterfallIndices, data, animOffsets,
+                                  texture, texW, texH, tileAnimX, tileAnimY, foamData, true);
+    }
+};
+
+/**
+ * 물/폭포 타일 메시 빌드 (공통)
+ */
+ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices, data, animOffsets,
+        texture, texW, texH, tileAnimX, tileAnimY, foamData, isWaterfall) {
+    var count = indices.length;
+    var vertCount = count * 6;
+    var posArray = new Float32Array(vertCount * 3);
+    var normalArray = new Float32Array(vertCount * 3);
+    var uvArray = new Float32Array(vertCount * 2);
+    var foamMaskArray = new Float32Array(vertCount);
+
+    for (var ni = 0; ni < count; ni++) {
+        var i = indices[ni];
+        var srcOff = i * 12;
+        var posOff = ni * 18;
+        var uvOff = ni * 12;
+        var foamOff = ni * 6;
+
+        var ax = (animOffsets[i * 2] || 0) * tileAnimX;
+        var ay = (animOffsets[i * 2 + 1] || 0) * tileAnimY;
+        var foam = foamData[i] || 0;
+
+        for (var j = 0; j < 6; j++) {
+            posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
+            posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
+            posArray[posOff + j * 3 + 2] = 0;
+
+            normalArray[posOff + j * 3]     = 0;
+            normalArray[posOff + j * 3 + 1] = 0;
+            normalArray[posOff + j * 3 + 2] = -1;
+
+            uvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
+            uvArray[uvOff + j * 2 + 1] = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
+
+            foamMaskArray[foamOff + j] = foam;
+        }
+    }
+
+    var needsPhong = (window.ShadowLight && window.ShadowLight._active);
+    var mesh = this._meshes[meshKey];
+
+    if (mesh) {
+        var geometry = mesh.geometry;
+        // geometry attribute 갱신
+        var posAttr = geometry.attributes.position;
+        if (posAttr && posAttr.array.length === posArray.length) {
+            posAttr.array.set(posArray);
+            posAttr.needsUpdate = true;
+        } else {
+            geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        }
+        var normAttr = geometry.attributes.normal;
+        if (normAttr && normAttr.array.length === normalArray.length) {
+            normAttr.array.set(normalArray);
+            normAttr.needsUpdate = true;
+        } else {
+            geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
+        }
+        var uvAttr = geometry.attributes.uv;
+        if (uvAttr && uvAttr.array.length === uvArray.length) {
+            uvAttr.array.set(uvArray);
+            uvAttr.needsUpdate = true;
+        } else {
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+        }
+        var foamAttr = geometry.attributes.aFoamMask;
+        if (foamAttr && foamAttr.array.length === foamMaskArray.length) {
+            foamAttr.array.set(foamMaskArray);
+            foamAttr.needsUpdate = true;
+        } else {
+            geometry.setAttribute('aFoamMask', new THREE.BufferAttribute(foamMaskArray, 1));
+        }
+
+        // material 타입 전환 (ShadowLight 상태에 따라)
+        var isPhong = mesh.material.isMeshPhongMaterial;
+        var isShader = mesh.material.isShaderMaterial;
+        if (needsPhong && !isPhong) {
+            mesh.material.dispose();
+            var mat = new THREE.MeshPhongMaterial({
+                map: texture, transparent: true, depthTest: true, depthWrite: false,
+                side: THREE.DoubleSide,
+                emissive: new THREE.Color(0x000000),
+                specular: new THREE.Color(0x000000), shininess: 0,
+            });
+            ThreeWaterShader.applyToPhongMaterial(mat, isWaterfall);
+            mesh.material = mat;
+            mesh.material.needsUpdate = true;
+        } else if (!needsPhong && (isPhong || !isShader)) {
+            mesh.material.dispose();
+            mesh.material = ThreeWaterShader.createStandaloneMaterial(texture, isWaterfall);
+            mesh.material.needsUpdate = true;
+        }
+
+        mesh.visible = true;
+    } else {
+        var geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
+        geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+        geometry.setAttribute('aFoamMask', new THREE.BufferAttribute(foamMaskArray, 1));
+
+        var material;
+        texture.minFilter = THREE.NearestFilter;
+        texture.magFilter = THREE.NearestFilter;
+        texture.generateMipmaps = false;
+        texture.anisotropy = 1;
+
+        if (needsPhong) {
+            material = new THREE.MeshPhongMaterial({
+                map: texture, transparent: true, depthTest: true, depthWrite: false,
+                side: THREE.DoubleSide,
+                emissive: new THREE.Color(0x000000),
+                specular: new THREE.Color(0x000000), shininess: 0,
+            });
+            ThreeWaterShader.applyToPhongMaterial(material, isWaterfall);
+        } else {
+            material = ThreeWaterShader.createStandaloneMaterial(texture, isWaterfall);
+        }
+
+        mesh = new THREE.Mesh(geometry, material);
+        mesh.frustumCulled = false;
+        mesh.renderOrder = -1;  // 물은 다른 타일보다 먼저 렌더 (투명도 때문)
+        if (window.ShadowLight && window.ShadowLight._active) {
+            mesh.receiveShadow = true;
+        }
+        this._meshes[meshKey] = mesh;
+        this._threeObj.add(mesh);
+    }
+
+    // 텍스처 교체
+    if (mesh.material.isShaderMaterial) {
+        if (mesh.material.uniforms.map && mesh.material.uniforms.map.value !== texture) {
+            mesh.material.uniforms.map.value = texture;
+            mesh.material.needsUpdate = true;
+        }
+    } else if (mesh.material.map !== texture) {
+        texture.minFilter = THREE.NearestFilter;
+        texture.magFilter = THREE.NearestFilter;
+        texture.generateMipmaps = false;
+        texture.anisotropy = 1;
+        mesh.material.map = texture;
+        mesh.material.needsUpdate = true;
+    }
+
+    // uTime uniform 업데이트
+    ThreeWaterShader.updateTime(mesh, ThreeWaterShader._time);
+    // 물 메시 키 저장 (renderLoop에서 time 업데이트용)
+    mesh.userData.isWaterMesh = true;
+    mesh.userData.isWaterfall = isWaterfall;
+    ThreeWaterShader._hasWaterMesh = true;
+};
+
+/**
+ * foam mask 계산: 각 물 rect의 world position에서 인접 타일이 물인지 확인
+ * @returns {Object} rectIndex → foam mask (0.0 or 1.0)
+ */
+ThreeTilemapRectLayer.prototype._computeFoamMasks = function(data, animOffsets) {
+    var foamData = {};
+    var tileW = 48;  // RPG Maker MV 표준 타일 크기
+
+    // 맵 데이터를 통해 인접 타일 확인
+    var tilemap = null;
+    // parent 체인: RectLayer → CompositeLayer → ZLayer → ShaderTilemap
+    if (this.parent && this.parent.parent && this.parent.parent.parent) {
+        tilemap = this.parent.parent.parent;
+    }
+
+    // 물 rect의 world position → tile grid 좌표 매핑
+    for (var i = 0; i < data.count; i++) {
+        var aX = animOffsets[i * 2] || 0;
+        var aY = animOffsets[i * 2 + 1] || 0;
+        if (!ThreeWaterShader.isWaterRect(aX, aY)) continue;
+
+        // rect의 왼쪽 위 pixel position에서 tile 좌표 계산
+        var px = data.positions[i * 12];       // first vertex x
+        var py = data.positions[i * 12 + 1];   // first vertex y
+
+        // 물 타일은 4개의 quarter-tile로 구성되므로, tile grid 좌표로 변환
+        var tileX = Math.floor(px / tileW);
+        var tileY = Math.floor(py / tileW);
+
+        var hasFoam = false;
+        if (tilemap && tilemap._readMapData) {
+            // 4방향 + 4대각선 인접 타일 확인
+            var dirs = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+            for (var d = 0; d < dirs.length; d++) {
+                var nx = tileX + dirs[d][0];
+                var ny = tileY + dirs[d][1];
+                // z=0 레이어의 타일 확인
+                var neighborTile = tilemap._readMapData(nx, ny, 0);
+                if (neighborTile === 0 || !Tilemap.isTileA1(neighborTile) || !Tilemap.isWaterTile(neighborTile)) {
+                    hasFoam = true;
+                    break;
+                }
+            }
+        } else {
+            // 맵 데이터 접근 불가 시 맵 경계의 rect에만 foam (보수적)
+            hasFoam = false;
+        }
+
+        foamData[i] = hasFoam ? 1.0 : 0.0;
+    }
+
+    return foamData;
 };
 
 /**
@@ -453,34 +716,107 @@ ThreeTilemapRectLayer.prototype._updateAnimUVs = function(tileAnimX, tileAnimY) 
         var sn = parseInt(setNumber);
         if (sn === -1) continue; // 그림자는 애니메이션 없음
 
-        var mesh = this._meshes[setNumber];
-        if (!mesh || !mesh.geometry) continue;
-
-        var uvAttr = mesh.geometry.attributes.uv;
-        if (!uvAttr) continue;
-
-        // 텍스처 크기 가져오기
-        var texture = mesh.material.map;
-        if (!texture || !texture.image) continue;
-        var texW = texture.image.width || 1;
-        var texH = texture.image.height || 1;
-
         var animOffsets = this._animData[setNumber] || [];
-        var uvArray = uvAttr.array;
 
-        for (var i = 0; i < data.count; i++) {
-            var srcOff = i * 12;
-            var uvOff = i * 12;
-            var ax = (animOffsets[i * 2] || 0) * tileAnimX;
-            var ay = (animOffsets[i * 2 + 1] || 0) * tileAnimY;
-
-            for (var j = 0; j < 6; j++) {
-                uvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
-                uvArray[uvOff + j * 2 + 1] = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
+        // 물 rect가 있는 경우 분리 처리
+        var hasWater = false;
+        if (sn === 0 && typeof ThreeWaterShader !== 'undefined') {
+            for (var ci = 0; ci < data.count; ci++) {
+                if (ThreeWaterShader.isWaterRect(animOffsets[ci * 2] || 0, animOffsets[ci * 2 + 1] || 0)) {
+                    hasWater = true;
+                    break;
+                }
             }
         }
 
-        uvAttr.needsUpdate = true;
+        // 텍스처 크기 가져오기 (일반 메시에서)
+        var texW = 1, texH = 1;
+        var normalMesh = this._meshes[setNumber];
+        if (normalMesh && normalMesh.material) {
+            var tex = normalMesh.material.map || (normalMesh.material.uniforms && normalMesh.material.uniforms.map && normalMesh.material.uniforms.map.value);
+            if (tex && tex.image) {
+                texW = tex.image.width || 1;
+                texH = tex.image.height || 1;
+            }
+        }
+
+        // 일반 메시 UV 업데이트
+        if (normalMesh && normalMesh.geometry) {
+            var uvAttr = normalMesh.geometry.attributes.uv;
+            if (uvAttr) {
+                var uvArray = uvAttr.array;
+                if (hasWater) {
+                    // 물 rect를 제외한 인덱스로 UV 갱신
+                    var ni = 0;
+                    for (var i = 0; i < data.count; i++) {
+                        if (ThreeWaterShader.isWaterRect(animOffsets[i * 2] || 0, animOffsets[i * 2 + 1] || 0)) continue;
+                        var srcOff = i * 12;
+                        var uvOff = ni * 12;
+                        var ax = (animOffsets[i * 2] || 0) * tileAnimX;
+                        var ay = (animOffsets[i * 2 + 1] || 0) * tileAnimY;
+                        for (var j = 0; j < 6; j++) {
+                            uvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
+                            uvArray[uvOff + j * 2 + 1] = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
+                        }
+                        ni++;
+                    }
+                } else {
+                    for (var i = 0; i < data.count; i++) {
+                        var srcOff = i * 12;
+                        var uvOff = i * 12;
+                        var ax = (animOffsets[i * 2] || 0) * tileAnimX;
+                        var ay = (animOffsets[i * 2 + 1] || 0) * tileAnimY;
+                        for (var j = 0; j < 6; j++) {
+                            uvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
+                            uvArray[uvOff + j * 2 + 1] = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
+                        }
+                    }
+                }
+                uvAttr.needsUpdate = true;
+            }
+        }
+
+        // 물 메시 UV 업데이트 (물/폭포 분리)
+        if (hasWater) {
+            var waterKeys = [setNumber + '_water', setNumber + '_waterfall'];
+            for (var wk = 0; wk < waterKeys.length; wk++) {
+                var wMesh = this._meshes[waterKeys[wk]];
+                if (!wMesh || !wMesh.geometry) continue;
+                var wUvAttr = wMesh.geometry.attributes.uv;
+                if (!wUvAttr) continue;
+
+                var wTex = wMesh.material.map || (wMesh.material.uniforms && wMesh.material.uniforms.map && wMesh.material.uniforms.map.value);
+                if (wTex && wTex.image) {
+                    texW = wTex.image.width || 1;
+                    texH = wTex.image.height || 1;
+                }
+
+                var isWF = waterKeys[wk].indexOf('waterfall') >= 0;
+                var wUvArray = wUvAttr.array;
+                var wi = 0;
+                for (var i = 0; i < data.count; i++) {
+                    var cAx = animOffsets[i * 2] || 0;
+                    var cAy = animOffsets[i * 2 + 1] || 0;
+                    var isThisWF = ThreeWaterShader.isWaterfallRect(cAx, cAy);
+                    var isThisWater = ThreeWaterShader.isWaterRect(cAx, cAy) && !isThisWF;
+                    if ((isWF && !isThisWF) || (!isWF && !isThisWater)) continue;
+
+                    var srcOff = i * 12;
+                    var uvOff = wi * 12;
+                    var ax = cAx * tileAnimX;
+                    var ay = cAy * tileAnimY;
+                    for (var j = 0; j < 6; j++) {
+                        wUvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
+                        wUvArray[uvOff + j * 2 + 1] = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
+                    }
+                    wi++;
+                }
+                wUvAttr.needsUpdate = true;
+
+                // uTime 업데이트
+                ThreeWaterShader.updateTime(wMesh, ThreeWaterShader._time);
+            }
+        }
     }
 };
 

@@ -18,6 +18,7 @@ declare const Graphics: any;
 declare const Mode3D: any;
 declare const ShadowLight: any;
 declare const Spriteset_Map: any;
+declare const ThreeWaterShader: any;
 
 export { requestRenderFrames } from './initGameGlobals';
 
@@ -293,6 +294,11 @@ export function useThreeRenderer(
           spriteset.update();
         } catch (_e) {}
 
+        // 물 셰이더 시간 업데이트 (wave/foam 애니메이션용)
+        if (typeof ThreeWaterShader !== 'undefined') {
+          ThreeWaterShader._time += 1 / 60;
+        }
+
         // 물 타일 애니메이션: animationFrame이 변경되었으면 repaint
         const tilemap = spriteset._tilemap;
         if (tilemap.animationFrame !== lastAnimFrame) {
@@ -300,8 +306,11 @@ export function useThreeRenderer(
           tilemap._needsRepaint = true;
         }
 
+        // 물 타일이 있는 맵이면 매 프레임 렌더 (wave 연속 애니메이션)
+        const hasWaterShader = typeof ThreeWaterShader !== 'undefined' && ThreeWaterShader._hasWaterMesh;
+
         // repaint가 필요한 경우에만 렌더링
-        if (tilemap._needsRepaint || renderRequestedRef.current) {
+        if (tilemap._needsRepaint || renderRequestedRef.current || hasWaterShader) {
           renderRequestedRef.current = false;
           renderOnce();
         }

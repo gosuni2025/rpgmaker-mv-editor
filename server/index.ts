@@ -117,6 +117,7 @@ export function createApp(options: AppOptions = {}) {
         <script type="text/javascript" src="js/renderer/three/ThreeSprite.js"></script>
         <script type="text/javascript" src="js/renderer/three/ThreeGraphicsNode.js"></script>
         <script type="text/javascript" src="js/renderer/three/ThreeTilemap.js"></script>
+        <script type="text/javascript" src="js/renderer/three/ThreeWaterShader.js"></script>
         <script type="text/javascript" src="js/renderer/three/ThreeFilters.js"></script>
         <script type="text/javascript" src="js/rpg_core.js"></script>
         <script type="text/javascript" src="js/rpg_managers.js"></script>

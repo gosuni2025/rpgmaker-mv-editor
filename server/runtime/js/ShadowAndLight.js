@@ -1386,33 +1386,42 @@ ShadowLight._updateCameraZoneAmbient = function() {
 ShadowLight._updateSunLightDirections = function() {
     if (!this._sunLightsData || !this._directionalLight) return;
 
-    // _isParallaxSky 메시에서 현재 Y축 회전값 읽기
+    // _isParallaxSky 메시의 quaternion에서 회전 변화량 추출
+    // 초기 상태: Euler(π/2, 0, 0) → 현재: Euler(π/2, skyRotY, 0)
+    // 변화량 = currentQuat * inverse(initialQuat) → direction에 적용
     var scene = this._findScene();
     if (!scene) return;
-    var skyRotY = 0;
+    var skyMesh = null;
     for (var i = 0; i < scene.children.length; i++) {
         if (scene.children[i]._isParallaxSky) {
-            skyRotY = scene.children[i].rotation.y;
+            skyMesh = scene.children[i];
             break;
         }
     }
+    if (!skyMesh) return;
 
-    // 회전값을 UV의 U 오프셋으로 변환
-    // SkyBox.js: rotation.y는 라디안, UV의 U는 0~1 (= 0~2π)
-    // rotation.y 증가 = 하늘이 시계방향 회전 = 태양 U가 감소
-    var uOffset = -skyRotY / (2 * Math.PI);
+    // 초기 quaternion 캐시 (rotation.x=π/2, y=0, z=0)
+    if (!this._skyInitQuat) {
+        this._skyInitQuat = new THREE.Quaternion();
+        this._skyInitQuat.setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0, 'XYZ'));
+    }
+
+    // 변화량 quaternion = current * inverse(initial)
+    var currentQuat = skyMesh.quaternion;
+    var invInitial = this._skyInitQuat.clone().invert();
+    var deltaQuat = new THREE.Quaternion().multiplyQuaternions(currentQuat, invInitial);
 
     for (var si = 0; si < this._sunLightsData.length; si++) {
         var sl = this._sunLightsData[si];
-        var rotatedU = sl.position[0] + uOffset;
-        // U를 0~1 범위로 wrap
-        rotatedU = rotatedU - Math.floor(rotatedU);
-        var dir = sunUVToDirection(rotatedU, sl.position[1]);
+        var dir = sunUVToDirection(sl.position[0], sl.position[1]);
+        // direction 벡터에 회전 변화량 적용
+        var dirVec = new THREE.Vector3(dir.x, dir.y, dir.z);
+        dirVec.applyQuaternion(deltaQuat);
 
         if (si === 0) {
-            this._directionalLight.position.set(-dir.x * 1000, -dir.y * 1000, -dir.z * 1000);
+            this._directionalLight.position.set(-dirVec.x * 1000, -dirVec.y * 1000, -dirVec.z * 1000);
         } else if (this._sunLights[si - 1]) {
-            this._sunLights[si - 1].position.set(-dir.x * 1000, -dir.y * 1000, -dir.z * 1000);
+            this._sunLights[si - 1].position.set(-dirVec.x * 1000, -dirVec.y * 1000, -dirVec.z * 1000);
         }
     }
 
