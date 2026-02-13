@@ -36,6 +36,16 @@ router.get('/sample-maps', (_req: Request, res: Response) => {
   }
 });
 
+/** 샘플 맵 상태 조회 */
+router.get('/sample-maps/status', (_req: Request, res: Response) => {
+  try {
+    const status = sampleMapExtractor.getStatus();
+    res.json(status);
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 /** 샘플 맵 데이터 가져오기 */
 router.get('/sample-maps/:id', (req: Request, res: Response) => {
   try {
@@ -48,6 +58,23 @@ router.get('/sample-maps/:id', (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Sample map not found' });
     }
     res.json(data);
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+/** 바이너리에서 샘플 맵 추출 */
+router.post('/sample-maps/extract', (req: Request, res: Response) => {
+  try {
+    const { binaryPath } = req.body;
+    if (!binaryPath || typeof binaryPath !== 'string') {
+      return res.status(400).json({ error: 'binaryPath is required' });
+    }
+    const result = sampleMapExtractor.extractAndSave(binaryPath);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+    res.json({ success: true, count: result.count });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

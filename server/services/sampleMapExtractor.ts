@@ -522,14 +522,58 @@ class SampleMapExtractor {
     return maps.get(mapId) || null;
   }
 
+  /** 바이너리에서 추출 후 sample-maps 디렉토리에 저장 */
+  extractAndSave(binaryPath: string): { success: boolean; count: number; error?: string } {
+    if (!fs.existsSync(binaryPath)) {
+      return { success: false, count: 0, error: '파일을 찾을 수 없습니다' };
+    }
+
+    const maps = this.extractFromBinary(binaryPath);
+    if (!maps || maps.size === 0) {
+      return { success: false, count: 0, error: '바이너리에서 샘플 맵을 추출할 수 없습니다' };
+    }
+
+    const sampleDir = path.join(__dirname, '..', 'sample-maps');
+    if (!fs.existsSync(sampleDir)) {
+      fs.mkdirSync(sampleDir, { recursive: true });
+    }
+
+    let count = 0;
+    for (const [mapNum, mapData] of maps) {
+      const filePath = path.join(sampleDir, `Map${String(mapNum).padStart(3, '0')}.json`);
+      try {
+        fs.writeFileSync(filePath, JSON.stringify(mapData));
+        count++;
+      } catch { /* skip */ }
+    }
+
+    // 캐시 갱신
+    this.cache = null;
+    this.extractAll();
+
+    return { success: true, count };
+  }
+
+  /** 상태 조회: 샘플 맵 사용 가능 여부 + 자동 탐지 경로 */
+  getStatus(): { available: boolean; count: number; detectedBinaryPath: string | null } {
+    const sampleDir = path.join(__dirname, '..', 'sample-maps');
+    let count = 0;
+    if (fs.existsSync(sampleDir)) {
+      for (let i = 1; i <= 104; i++) {
+        const filePath = path.join(sampleDir, `Map${String(i).padStart(3, '0')}.json`);
+        if (fs.existsSync(filePath)) count++;
+      }
+    }
+    return {
+      available: count > 0,
+      count,
+      detectedBinaryPath: this.findBinaryPath(),
+    };
+  }
+
   /** 캐시 초기화 */
   clearCache(): void {
     this.cache = null;
-  }
-
-  /** 바이너리 사용 가능 여부 */
-  isAvailable(): boolean {
-    return this.findBinaryPath() !== null;
   }
 }
 
