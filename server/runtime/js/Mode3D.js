@@ -432,6 +432,76 @@
                 if (stageObj) stageObj.visible = true;
             }
 
+            // --- Picture를 3D 공간에 배치 (screen→world 변환 + 빌보드) ---
+            var picContainer = Mode3D._spriteset._pictureContainer;
+            var picObj = picContainer && picContainer._threeObj;
+            var picSavedTransforms = [];
+            if (picContainer && picContainer.children && picObj) {
+                var cam = Mode3D._perspCamera;
+                cam.updateMatrixWorld(true);
+                var tiltRad = Mode3D._tiltRad;
+                var yawRad = Mode3D._yawRad || 0;
+                // _pictureContainer의 오프셋 (setFrame에서 설정된 x, y)
+                var containerOffX = picContainer._x || 0;
+                var containerOffY = picContainer._y || 0;
+
+                // screenToWorld 캐시를 무효화
+                Mode3D._lastScreenX = -1;
+                Mode3D._lastScreenY = -1;
+                Mode3D._lastScreenToWorld = null;
+
+                for (var pi = 0; pi < picContainer.children.length; pi++) {
+                    var picSprite = picContainer.children[pi];
+                    var picThree = picSprite._threeObj;
+                    if (!picThree || !picSprite._visible) continue;
+                    // 비트맵이 없는(빈) Picture 스프라이트는 건너뜀
+                    if (!picSprite._bitmap || !picSprite._bitmap.isReady()) continue;
+
+                    // 원래 transform 저장
+                    picSavedTransforms.push({
+                        obj: picThree,
+                        px: picThree.position.x,
+                        py: picThree.position.y,
+                        pz: picThree.position.z,
+                        rx: picThree.rotation.x,
+                        ry: picThree.rotation.y,
+                        rz: picThree.rotation.z,
+                        sx: picThree.scale.x,
+                        sy: picThree.scale.y
+                    });
+
+                    // Picture의 실제 screen 좌표 = container 오프셋 + sprite 로컬 좌표
+                    var screenX = containerOffX + picThree.position.x;
+                    var screenY = containerOffY + picThree.position.y;
+
+                    // screenToWorld 캐시 무효화 후 변환
+                    Mode3D._lastScreenX = -1;
+                    var worldPos = Mode3D.screenToWorld(screenX, screenY);
+                    if (worldPos) {
+                        picThree.position.x = worldPos.x;
+                        picThree.position.y = worldPos.y;
+                        picThree.position.z = 0.5; // 맵 위에 약간 띄움
+                    }
+
+                    // 빌보드 회전 (카메라를 향하도록)
+                    picThree.rotation.x = -tiltRad;
+                    picThree.rotation.y = yawRad;
+
+                    // 스케일 보정: 카메라 tilt로 인한 Y축 압축을 보상
+                    // tilt 시 Z=0 평면이 기울어져 보이므로 Y 방향 스케일을 cos(tilt)로 나눔
+                    picThree.scale.y /= Math.cos(tiltRad);
+                }
+
+                // _pictureContainer를 scene에 직접 배치 (부모 계층 무시)
+                picObj._savedParent = picObj.parent;
+                if (picObj.parent) picObj.parent.remove(picObj);
+                scene.add(picObj);
+                // container 자체의 transform 초기화 (child들이 이미 world 좌표)
+                picObj.position.set(0, 0, 0);
+                picObj.rotation.set(0, 0, 0);
+                picObj.scale.set(1, 1, 1);
+            }
+
             // --- Pass 1: PerspectiveCamera로 맵(Spriteset_Map)만 렌더 ---
             // Hide _blackScreen so parallax sky shows through map edges
             var blackScreenObj = Mode3D._spriteset._blackScreen &&
@@ -439,14 +509,6 @@
             var blackScreenWasVisible = blackScreenObj ? blackScreenObj.visible : false;
             if (skyMesh && blackScreenObj) {
                 blackScreenObj.visible = false;
-            }
-
-            // Picture 컨테이너를 Pass 1(3D)에서 제외 → Pass 2(2D)에서만 렌더
-            var picContainer = Mode3D._spriteset._pictureContainer;
-            var picObj = picContainer && picContainer._threeObj;
-            var picWasVisible = picObj ? picObj.visible : false;
-            if (picObj) {
-                picObj.visible = false;
             }
 
             var childVisibility = [];
@@ -487,6 +549,27 @@
                 blackScreenObj.visible = blackScreenWasVisible;
             }
 
+            // Picture: scene에서 제거하고 원래 부모로 복원, transform 복원
+            if (picObj) {
+                scene.remove(picObj);
+                if (picObj._savedParent) {
+                    picObj._savedParent.add(picObj);
+                }
+                // container transform 복원 (syncTransform이 다음 프레임에서 갱신)
+                picObj.position.set(containerOffX, containerOffY, 0);
+            }
+            for (var pi = 0; pi < picSavedTransforms.length; pi++) {
+                var saved = picSavedTransforms[pi];
+                saved.obj.position.x = saved.px;
+                saved.obj.position.y = saved.py;
+                saved.obj.position.z = saved.pz;
+                saved.obj.rotation.x = saved.rx;
+                saved.obj.rotation.y = saved.ry;
+                saved.obj.rotation.z = saved.rz;
+                saved.obj.scale.x = saved.sx;
+                saved.obj.scale.y = saved.sy;
+            }
+
             // Pass 2 prep: hide grid, restore other overlays
             for (var oi = 0; oi < gridVisibility.length; oi++) {
                 scene.children[gridVisibility[oi].idx].visible = false;
@@ -497,18 +580,10 @@
             }
 
             // --- Pass 2: OrthographicCamera로 UI 렌더 (합성) ---
-            // Picture를 spritesetObj에서 분리 → stageObj에 직접 배치 (2D 렌더)
-            if (picObj) {
-                spritesetObj.remove(picObj);
-                stageObj.add(picObj);
-                picObj.visible = picWasVisible;
-            }
-
             if (stageObj) {
                 for (var i = 0; i < stageObj.children.length; i++) {
                     var child = stageObj.children[i];
-                    if (child === picObj) continue;  // Picture는 이미 처리
-                    child.visible = childVisibility[i] !== undefined ? childVisibility[i] : child.visible;
+                    child.visible = childVisibility[i];
                     if (child === spritesetObj) {
                         child.visible = false;
                     }
@@ -517,13 +592,6 @@
 
             renderer.autoClear = false;
             renderer.render(scene, camera);
-
-            // Picture를 원래 spritesetObj로 복원
-            if (picObj) {
-                stageObj.remove(picObj);
-                spritesetObj.add(picObj);
-                picObj.visible = picWasVisible;
-            }
 
             // 가시성 복원
             if (stageObj) {
