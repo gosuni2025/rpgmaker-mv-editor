@@ -1038,8 +1038,13 @@ PictureShader.createMaterial = function(type, params, texture) {
         }
 
         // 최종 RT 결과를 출력 material에 적용
-        if (lastRT && this._outputMaterial) {
-            this._outputMaterial.map = lastRT.texture;
+        if (this._outputMaterial) {
+            if (lastRT) {
+                this._outputMaterial.map = lastRT.texture;
+            } else {
+                // shake만 있는 경우 등 모든 패스가 skip되면 원본 텍스처 사용
+                this._outputMaterial.map = sourceTexture;
+            }
             this._outputMaterial.opacity = this.worldAlpha;
             this._outputMaterial.needsUpdate = true;
         }
