@@ -90,7 +90,7 @@ const en = {
     steamPathPlaceholder: 'Leave empty for auto-detection',
     steamPathDetected: 'Auto-detected',
     steamPathClear: 'Reset (auto-detect)',
-    steamPathHelp: 'Path to RPG Maker MV Steam installation. Leave empty for auto-detection. Used for Character Generator, etc.',
+    steamPathHelp: 'Path to RPG Maker MV Steam installation. Leave empty for auto-detection.',
   },
 
   toolbar: {
