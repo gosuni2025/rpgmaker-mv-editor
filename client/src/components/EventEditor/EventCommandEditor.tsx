@@ -667,6 +667,26 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       return text;
     }
 
+    // 탈 것 위치 설정 전용 포맷
+    if (code === 202 && cmd.parameters && cmd.parameters.length >= 5) {
+      const vehicleNames = ['보트', '선박', '비행선'];
+      const vehicle = vehicleNames[cmd.parameters[0] as number] || '보트';
+      const designationType = cmd.parameters[1] as number;
+      if (designationType === 0) {
+        const mId = cmd.parameters[2] as number;
+        const mx = cmd.parameters[3] as number;
+        const my = cmd.parameters[4] as number;
+        const mapName = maps?.[mId]?.name || '';
+        text += `: ${vehicle}, ${mapName}(${mId},[${mx},${my}])`;
+      } else {
+        const mVar = cmd.parameters[2] as number;
+        const xVar = cmd.parameters[3] as number;
+        const yVar = cmd.parameters[4] as number;
+        text += `: ${vehicle}, {맵:V[${mVar}],X:V[${xVar}],Y:V[${yVar}]}`;
+      }
+      return text;
+    }
+
     // 스위치 조작 전용 포맷
     if (code === 121 && cmd.parameters && cmd.parameters.length >= 3) {
       const startId = cmd.parameters[0] as number;

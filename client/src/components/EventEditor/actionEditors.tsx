@@ -1370,6 +1370,96 @@ export function NameInputEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (pa
   );
 }
 
+/**
+ * 탈 것 위치 설정 에디터 (코드 202)
+ * params: [vehicleType, designationType, mapId, x, y]
+ * vehicleType: 0=보트, 1=선박, 2=비행선
+ * designationType: 0=직접 지정, 1=변수로 지정
+ */
+const VEHICLE_NAMES = ['보트', '선박', '비행선'];
+
+export function SetVehicleLocationEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [vehicleType, setVehicleType] = useState<number>((p[0] as number) || 0);
+  const [designationType, setDesignationType] = useState<number>((p[1] as number) || 0);
+  const [mapId, setMapId] = useState<number>((p[2] as number) || 1);
+  const [x, setX] = useState<number>((p[3] as number) || 0);
+  const [y, setY] = useState<number>((p[4] as number) || 0);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+
+  const maps = useEditorStore(s => s.maps);
+
+  const mapName = useMemo(() => {
+    if (!maps) return '';
+    const info = maps[mapId];
+    return info?.name || '';
+  }, [maps, mapId]);
+
+  const directLabel = `${mapName} ${mapId} (${x},${y})`;
+
+  const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
+
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>탈 것:</span>
+        <select value={vehicleType} onChange={e => setVehicleType(Number(e.target.value))} style={selectStyle}>
+          {VEHICLE_NAMES.map((name, i) => <option key={i} value={i}>{name}</option>)}
+        </select>
+      </div>
+
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>위치</legend>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* 직접 지정 */}
+          <label style={radioStyle}>
+            <input type="radio" name="vehicle-designation" checked={designationType === 0} onChange={() => setDesignationType(0)} />
+            직접 지정
+          </label>
+          <div style={{ paddingLeft: 20 }}>
+            <button className="db-btn" disabled={designationType !== 0}
+              onClick={() => setShowMapPicker(true)}
+              style={{ width: '100%', textAlign: 'left', padding: '4px 8px', fontSize: 13, opacity: designationType === 0 ? 1 : 0.5 }}>
+              {directLabel}
+            </button>
+          </div>
+
+          {/* 변수로 지정 */}
+          <label style={radioStyle}>
+            <input type="radio" name="vehicle-designation" checked={designationType === 1} onChange={() => setDesignationType(1)} />
+            변수로 지정
+          </label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 20, opacity: designationType === 1 ? 1 : 0.5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: '#aaa', minWidth: 24 }}>ID:</span>
+              <VariableSwitchPicker type="variable" value={designationType === 1 ? (mapId || 1) : 1} onChange={setMapId} disabled={designationType !== 1} style={{ flex: 1 }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: '#aaa', minWidth: 24 }}>X:</span>
+              <VariableSwitchPicker type="variable" value={designationType === 1 ? (x || 1) : 1} onChange={setX} disabled={designationType !== 1} style={{ flex: 1 }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: '#aaa', minWidth: 24 }}>Y:</span>
+              <VariableSwitchPicker type="variable" value={designationType === 1 ? (y || 1) : 1} onChange={setY} disabled={designationType !== 1} style={{ flex: 1 }} />
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([vehicleType, designationType, mapId, x, y])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+
+      {showMapPicker && createPortal(
+        <MapLocationPicker mapId={mapId} x={x} y={y}
+          onOk={(newMapId, newX, newY) => { setMapId(newMapId); setX(newX); setY(newY); setShowMapPicker(false); }}
+          onCancel={() => setShowMapPicker(false)} />,
+        document.body
+      )}
+    </>
+  );
+}
+
 export function ChangeProfileEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [profile, setProfile] = useState<string>((p[1] as string) || '');
