@@ -355,6 +355,7 @@ export default function MapInspector() {
                     store.initEditorLights();
                   }
                   store.updateDirectionalLight({
+                    enabled: true,
                     direction,
                     color: first.color,
                     intensity: first.intensity,

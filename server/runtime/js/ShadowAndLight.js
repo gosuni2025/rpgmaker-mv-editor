@@ -1262,34 +1262,51 @@ ShadowLight._addLightsToScene = function(scene) {
     scene.add(this._playerSpotLight);
     scene.add(this._playerSpotTarget);
 
-    // skyBackground sunLights → 추가 디렉셔널 라이트
+    // skyBackground sunLights → 디렉셔널 라이트
+    // sunLights[0]은 에디터에서 editorLights.directional에 매핑하지만,
+    // enabled가 false로 저장될 수 있으므로 런타임에서는 sunLights 데이터를 직접 사용한다.
+    // sunLights가 있으면 모든 항목(i=0부터)을 디렉셔널 라이트로 생성하고,
+    // sunLights[0]은 기존 _directionalLight를 덮어쓴다.
     this._sunLights = [];
     var skyBg = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.skyBackground : null;
     if (skyBg && skyBg.sunLights && skyBg.sunLights.length > 0) {
-        // sunLights[0]은 editorLights.directional에 매핑됨 (에디터에서 처리)
-        // sunLights[1+]을 추가 디렉셔널 라이트로 생성
-        for (var si = 1; si < skyBg.sunLights.length; si++) {
+        for (var si = 0; si < skyBg.sunLights.length; si++) {
             var sl = skyBg.sunLights[si];
             var sunDir = sunUVToDirection(sl.position[0], sl.position[1]);
             var sunColor = parseInt(sl.color.replace('#', ''), 16);
-            var sunLight = new THREE.DirectionalLight(sunColor, sl.intensity);
-            sunLight.position.set(-sunDir.x * 1000, -sunDir.y * 1000, -sunDir.z * 1000);
-            sunLight.castShadow = sl.castShadow !== false;
-            var sunMapSize = sl.shadowMapSize || 2048;
-            sunLight.shadow.mapSize.width = sunMapSize;
-            sunLight.shadow.mapSize.height = sunMapSize;
-            sunLight.shadow.camera.left = -halfSize;
-            sunLight.shadow.camera.right = halfSize;
-            sunLight.shadow.camera.top = halfSize;
-            sunLight.shadow.camera.bottom = -halfSize;
-            sunLight.shadow.camera.near = 1;
-            sunLight.shadow.camera.far = 5000;
-            sunLight.shadow.bias = sl.shadowBias != null ? sl.shadowBias : -0.001;
-            sunLight.shadow.radius = this.config.shadowRadius;
-            sunLight.target.position.set(vw2, vh2, 0);
-            scene.add(sunLight);
-            scene.add(sunLight.target);
-            this._sunLights.push(sunLight);
+
+            if (si === 0) {
+                // sunLights[0] → 기존 메인 디렉셔널 라이트를 활성화 & 덮어쓰기
+                this._directionalLight.color.setHex(sunColor);
+                this._directionalLight.intensity = sl.intensity;
+                this._directionalLight.position.set(-sunDir.x * 1000, -sunDir.y * 1000, -sunDir.z * 1000);
+                this._directionalLight.castShadow = sl.castShadow !== false;
+                this._directionalLight.visible = true;
+                var mapSize0 = sl.shadowMapSize || 2048;
+                this._directionalLight.shadow.mapSize.width = mapSize0;
+                this._directionalLight.shadow.mapSize.height = mapSize0;
+                this._directionalLight.shadow.bias = sl.shadowBias != null ? sl.shadowBias : -0.001;
+            } else {
+                // sunLights[1+] → 추가 디렉셔널 라이트 생성
+                var sunLight = new THREE.DirectionalLight(sunColor, sl.intensity);
+                sunLight.position.set(-sunDir.x * 1000, -sunDir.y * 1000, -sunDir.z * 1000);
+                sunLight.castShadow = sl.castShadow !== false;
+                var sunMapSize = sl.shadowMapSize || 2048;
+                sunLight.shadow.mapSize.width = sunMapSize;
+                sunLight.shadow.mapSize.height = sunMapSize;
+                sunLight.shadow.camera.left = -halfSize;
+                sunLight.shadow.camera.right = halfSize;
+                sunLight.shadow.camera.top = halfSize;
+                sunLight.shadow.camera.bottom = -halfSize;
+                sunLight.shadow.camera.near = 1;
+                sunLight.shadow.camera.far = 5000;
+                sunLight.shadow.bias = sl.shadowBias != null ? sl.shadowBias : -0.001;
+                sunLight.shadow.radius = this.config.shadowRadius;
+                sunLight.target.position.set(vw2, vh2, 0);
+                scene.add(sunLight);
+                scene.add(sunLight.target);
+                this._sunLights.push(sunLight);
+            }
         }
     }
 
