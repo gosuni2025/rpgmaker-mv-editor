@@ -313,7 +313,7 @@ export function TransferPlayerEditor({ p, onOk, onCancel }: { p: unknown[]; onOk
   );
 }
 
-/** 맵 위치 선택 다이얼로그 */
+/** 맵 위치 선택 다이얼로그 - 왼쪽 맵 목록 + 오른쪽 2D 맵 프리뷰 */
 function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
   mapId: number; x: number; y: number;
   onOk: (mapId: number, x: number, y: number) => void;
@@ -323,6 +323,11 @@ function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
   const [selectedMapId, setSelectedMapId] = useState(mapId);
   const [selectedX, setSelectedX] = useState(x);
   const [selectedY, setSelectedY] = useState(y);
+  const [canvasScale, setCanvasScale] = useState(1);
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const previewContainerRef = React.useRef<HTMLDivElement>(null);
+  const rendererRef = React.useRef<any>(null);
+  const mapDataRef = React.useRef<any>(null);
 
   // 맵 목록 (트리를 flat list로 표시)
   const mapList = useMemo(() => {
@@ -341,12 +346,214 @@ function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
     return result;
   }, [maps]);
 
+  // 맵 데이터 로드 + Spriteset_Map 렌더링
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !selectedMapId) return;
+    const w = window as any;
+    if (!w._editorRuntimeReady) return;
+
+    let disposed = false;
+    let animFrameId: number | null = null;
+
+    // 기존 메인 에디터의 $dataMap/$gameMap 백업
+    const backupDataMap = w.$dataMap;
+    const backupMapId = w.$gameMap?._mapId;
+    const backupDisplayX = w.$gameMap?._displayX;
+    const backupDisplayY = w.$gameMap?._displayY;
+
+    const setup = async () => {
+      try {
+        const mapData = await apiClient.get<any>(`/maps/${selectedMapId}`);
+        if (disposed) return;
+        mapDataRef.current = mapData;
+
+        const TILE_SIZE = 48;
+        const mapPxW = mapData.width * TILE_SIZE;
+        const mapPxH = mapData.height * TILE_SIZE;
+
+        canvas.width = mapPxW;
+        canvas.height = mapPxH;
+
+        const THREE = w.THREE;
+
+        // 기존 렌더러 정리
+        if (rendererRef.current) {
+          rendererRef.current.renderer.dispose();
+        }
+
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true, preserveDrawingBuffer: true });
+        renderer.setSize(mapPxW, mapPxH, false);
+        renderer.setClearColor(0x000000, 0);
+        renderer.sortObjects = true;
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.OrthographicCamera(0, mapPxW, 0, mapPxH, -10000, 10000);
+        camera.position.z = 100;
+
+        const rendererObj = {
+          renderer, scene, camera,
+          _width: mapPxW, _height: mapPxH,
+          view: renderer.domElement,
+          gl: renderer.getContext(),
+          textureGC: { maxIdle: 3600, run: () => {} },
+          plugins: {},
+          _drawOrderCounter: 0,
+        };
+        rendererRef.current = rendererObj;
+
+        // 임시로 $dataMap/$gameMap 설정
+        const backupGraphicsW = w.Graphics._width;
+        const backupGraphicsH = w.Graphics._height;
+        w.Graphics._width = mapPxW;
+        w.Graphics._height = mapPxH;
+        w.Graphics.width = mapPxW;
+        w.Graphics.height = mapPxH;
+        w.Graphics.boxWidth = mapPxW;
+        w.Graphics.boxHeight = mapPxH;
+
+        w.$dataMap = {
+          ...mapData,
+          data: [...mapData.data],
+          events: mapData.events || [],
+          parallaxName: '',
+          parallaxShow: false,
+        };
+        w.$gameMap.setup(selectedMapId);
+        w.$gameMap._displayX = 0;
+        w.$gameMap._displayY = 0;
+        w.$gamePlayer.setTransparent(true);
+
+        // ShadowLight 비활성 상태로 설정 (프리뷰에서는 불필요)
+        const backupSL = w.ShadowLight?._scene;
+        if (w.ShadowLight) w.ShadowLight._scene = scene;
+
+        const stage = new w.ThreeContainer();
+        const spriteset = new w.Spriteset_Map();
+        if (spriteset._blackScreen) spriteset._blackScreen.opacity = 0;
+        if (spriteset._fadeSprite) spriteset._fadeSprite.opacity = 0;
+
+        if (spriteset._tilemap) {
+          spriteset._tilemap._margin = 0;
+          spriteset._tilemap._width = mapPxW;
+          spriteset._tilemap._height = mapPxH;
+          spriteset._tilemap._needsRepaint = true;
+        }
+
+        stage.addChild(spriteset);
+        scene.add(stage._threeObj);
+
+        // Graphics 복원 (메인 에디터 영향 방지)
+        w.Graphics._width = backupGraphicsW;
+        w.Graphics._height = backupGraphicsH;
+        w.Graphics.width = backupGraphicsW;
+        w.Graphics.height = backupGraphicsH;
+        w.Graphics.boxWidth = backupGraphicsW;
+        w.Graphics.boxHeight = backupGraphicsH;
+
+        let frameCount = 0;
+        function animLoop() {
+          if (disposed) return;
+          animFrameId = requestAnimationFrame(animLoop);
+          if (!spriteset._tilemap || !spriteset._tilemap.isReady()) return;
+          if (frameCount < 10) {
+            spriteset._tilemap._needsRepaint = true;
+            frameCount++;
+          }
+          try { spriteset.update(); } catch (_) {}
+          const strategy = w.RendererStrategy.getStrategy();
+          strategy.render(rendererObj, stage);
+        }
+        animLoop();
+
+        // 자동 스케일링
+        if (previewContainerRef.current) {
+          const containerW = previewContainerRef.current.clientWidth;
+          const containerH = previewContainerRef.current.clientHeight;
+          const scale = Math.min(containerW / mapPxW, containerH / mapPxH, 1);
+          canvas.style.width = `${mapPxW * scale}px`;
+          canvas.style.height = `${mapPxH * scale}px`;
+          setCanvasScale(scale);
+        }
+      } catch (e) {
+        console.warn('[MapLocationPicker] Failed to load map:', e);
+      }
+    };
+
+    setup();
+
+    return () => {
+      disposed = true;
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      if (rendererRef.current) {
+        rendererRef.current.renderer.dispose();
+        rendererRef.current = null;
+      }
+      // 기존 메인 에디터 상태 복원
+      if (backupDataMap) {
+        w.$dataMap = backupDataMap;
+        if (w.$gameMap && backupMapId != null) {
+          w.$gameMap.setup(backupMapId);
+          w.$gameMap._displayX = backupDisplayX ?? 0;
+          w.$gameMap._displayY = backupDisplayY ?? 0;
+        }
+        // 메인 에디터의 Spriteset_Map 타일맵 repaint 요청
+        if (w._editorSpriteset?._tilemap) {
+          w._editorSpriteset._tilemap._mapData = backupDataMap.data;
+          w._editorSpriteset._tilemap._needsRepaint = true;
+        }
+      }
+    };
+  }, [selectedMapId]);
+
+  // 맵 캔버스 클릭 → 좌표 지정
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    const mapData = mapDataRef.current;
+    if (!canvas || !mapData) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const px = (e.clientX - rect.left) * scaleX;
+    const py = (e.clientY - rect.top) * scaleY;
+
+    const TILE_SIZE = 48;
+    const tileX = Math.floor(px / TILE_SIZE);
+    const tileY = Math.floor(py / TILE_SIZE);
+
+    if (tileX >= 0 && tileX < mapData.width && tileY >= 0 && tileY < mapData.height) {
+      setSelectedX(tileX);
+      setSelectedY(tileY);
+    }
+  };
+
+  // 마커 오버레이 (선택한 좌표 표시)
+  const markerStyle = useMemo((): React.CSSProperties | null => {
+    const mapData = mapDataRef.current;
+    if (!mapData || !canvasScale) return null;
+    const TILE_SIZE = 48;
+    const s = canvasScale;
+    return {
+      position: 'absolute',
+      left: selectedX * TILE_SIZE * s,
+      top: selectedY * TILE_SIZE * s,
+      width: TILE_SIZE * s,
+      height: TILE_SIZE * s,
+      border: '2px solid #ff0',
+      background: 'rgba(255, 255, 0, 0.3)',
+      pointerEvents: 'none',
+      boxSizing: 'border-box',
+    };
+  }, [selectedX, selectedY, canvasScale]);
+
   return (
     <div className="modal-overlay" style={{ zIndex: 10001 }}>
-      <div className="image-picker-dialog" style={{ width: 480, maxHeight: '70vh' }}>
+      <div className="image-picker-dialog" style={{ width: '80vw', maxWidth: 900, height: '70vh', maxHeight: 600 }}>
         <div className="image-picker-header">맵 선택</div>
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 250 }}>
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          {/* 왼쪽: 맵 목록 */}
+          <div style={{ width: 180, minWidth: 180, borderRight: '1px solid #444', overflowY: 'auto' }}>
             {mapList.map(m => (
               <div key={m.id} style={{
                 padding: '3px 8px', paddingLeft: 8 + m.indent * 16,
@@ -355,14 +562,22 @@ function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}
                 onClick={() => setSelectedMapId(m.id)}
-                onDoubleClick={() => onOk(m.id, selectedX, selectedY)}
               >
                 {String(m.id).padStart(3, '0')}: {m.name}
               </div>
             ))}
           </div>
+          {/* 오른쪽: 맵 프리뷰 */}
+          <div ref={previewContainerRef}
+            style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1a1a', position: 'relative' }}>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <canvas ref={canvasRef} onClick={handleCanvasClick}
+                style={{ cursor: 'crosshair', display: 'block' }} />
+              {markerStyle && <div style={markerStyle} />}
+            </div>
+          </div>
         </div>
-        {/* 좌표 입력 */}
+        {/* 하단: 좌표 + 버튼 */}
         <div style={{ padding: '8px 12px', borderTop: '1px solid #444', display: 'flex', alignItems: 'center', gap: 12 }}>
           <label style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 4 }}>
             X:
@@ -374,8 +589,7 @@ function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
             <input type="number" value={selectedY} onChange={e => setSelectedY(Number(e.target.value))}
               min={0} style={{ ...selectStyle, width: 60 }} />
           </label>
-        </div>
-        <div className="image-picker-footer">
+          <div style={{ flex: 1 }} />
           <button className="db-btn" onClick={() => onOk(selectedMapId, selectedX, selectedY)}>OK</button>
           <button className="db-btn" onClick={onCancel}>취소</button>
         </div>
