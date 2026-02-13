@@ -4,7 +4,7 @@ import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor,
-  ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeTransparencyEditor, ToggleEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor, ShowBalloonIconEditor,
+  ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor, ShowBalloonIconEditor,
   ScrollingTextEditor, ConditionalBranchEditor,
 } from './commandEditors';
 
@@ -118,10 +118,10 @@ function getEditorContent(
     case 321: return <ChangeClassEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 324: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="닉네임:" />;
     case 325: return <ChangeProfileEditor p={p} onOk={onOk} onCancel={onCancel} />;
-    case 134: return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="저장" />;
-    case 135: return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="메뉴" />;
-    case 136: return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="조우" />;
-    case 137: return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="대열로 보행" />;
+    case 134: return <ChangeSaveAccessEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 135: return <ChangeMenuAccessEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 136: return <ChangeEncounterEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 137: return <ChangeFormationAccessEditor p={p} onOk={onOk} onCancel={onCancel} />;
     default: return null;
   }
 }
