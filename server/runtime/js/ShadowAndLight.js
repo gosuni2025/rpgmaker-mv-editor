@@ -1502,14 +1502,59 @@ ShadowLight._showLightArrows = function() {
     var arrowLen = 400;
     var colors = [0xffff00, 0xff4444, 0x44ff44, 0x4444ff, 0xff44ff];
 
-    // _sunLights (스카이 태양 광원) 기준으로 화살표 생성
-    for (var i = 0; i < this._sunLights.length; i++) {
-        var sPos = this._sunLights[i].position;
-        var sDir = new THREE.Vector3().subVectors(target3, sPos).normalize();
-        var sStart = new THREE.Vector3().copy(target3).addScaledVector(sDir, -arrowLen);
-        var arrow = this._createThickArrow(sStart, target3, colors[i % colors.length]);
+    // 씬의 모든 DirectionalLight를 찾아서 화살표 + 라벨 표시
+    var allDirLights = [];
+    scene.traverse(function(obj) {
+        if (obj.isDirectionalLight) {
+            var label = '???';
+            if (obj === ShadowLight._directionalLight) {
+                label = 'editorLights.directional (enabled=' + obj.visible + ')';
+            } else {
+                var idx = ShadowLight._sunLights.indexOf(obj);
+                if (idx >= 0) {
+                    label = 'sunLights[' + idx + ']';
+                } else {
+                    label = 'unknown DirectionalLight';
+                }
+            }
+            allDirLights.push({ light: obj, label: label });
+        }
+    });
+
+    for (var i = 0; i < allDirLights.length; i++) {
+        var entry = allDirLights[i];
+        var lPos = entry.light.position;
+        var lDir = new THREE.Vector3().subVectors(target3, lPos).normalize();
+        var start = new THREE.Vector3().copy(target3).addScaledVector(lDir, -arrowLen);
+        var arrow = this._createThickArrow(start, target3, colors[i % colors.length]);
         scene.add(arrow);
         this._debugLightArrows.push(arrow);
+
+        // 텍스트 라벨 (캔버스 텍스처 → PlaneGeometry)
+        var canvas = document.createElement('canvas');
+        canvas.width = 512; canvas.height = 64;
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(0, 0, 512, 64);
+        ctx.fillStyle = '#' + (colors[i % colors.length]).toString(16).padStart(6, '0');
+        ctx.font = 'bold 28px monospace';
+        ctx.fillText(entry.label, 8, 42);
+        var tex = new THREE.CanvasTexture(canvas);
+        var labelMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide });
+        var labelGeo = new THREE.PlaneGeometry(200, 25);
+        var labelMesh = new THREE.Mesh(labelGeo, labelMat);
+        labelMesh.position.copy(start).addScaledVector(lDir, -30);
+        labelMesh.frustumCulled = false;
+        labelMesh.renderOrder = 10000;
+        // 카메라를 향하도록 빌보드 설정은 매 프레임 필요하므로 일단 고정
+        labelMesh.lookAt(labelMesh.position.x, labelMesh.position.y, labelMesh.position.z + 100);
+        scene.add(labelMesh);
+        this._debugLightArrows.push(labelMesh);
+
+        console.log('[ShadowLight] Arrow #' + i + ':', entry.label,
+            '| visible:', entry.light.visible,
+            '| intensity:', entry.light.intensity,
+            '| pos:', lPos.toArray().map(function(v){return Math.round(v)}));
     }
 };
 
