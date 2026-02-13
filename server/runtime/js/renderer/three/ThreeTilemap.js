@@ -272,10 +272,14 @@ ThreeTilemapRectLayer.prototype._flush = function() {
         var hasNormal = false;
 
         if (!isShadow && sn === 0 && typeof ThreeWaterShader !== 'undefined') {
+            var kindArr = this._kindData[setNumber] || [];
             for (var ci = 0; ci < data.count; ci++) {
                 var cAnimX = animOffsets[ci * 2] || 0;
                 var cAnimY = animOffsets[ci * 2 + 1] || 0;
-                if (ThreeWaterShader.isWaterRect(cAnimX, cAnimY)) {
+                var ck = kindArr[ci] != null ? kindArr[ci] : -1;
+                // enabled=false인 kind는 일반 타일로 취급
+                if (ThreeWaterShader.isWaterRect(cAnimX, cAnimY) &&
+                    (ck < 0 || ThreeWaterShader.isKindEnabled(ck))) {
                     hasWater = true;
                 } else {
                     hasNormal = true;
@@ -306,13 +310,18 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
         texture, texW, texH, tileAnimX, tileAnimY, isShadow, hasWater) {
     var sn = parseInt(setNumber);
 
-    // 물 rect를 제외한 일반 rect만 수집
+    // 물 rect를 제외한 일반 rect만 수집 (enabled=false인 kind는 일반으로 포함)
     var normalIndices = [];
     if (hasWater) {
+        var kindArr = this._kindData[setNumber] || [];
         for (var ci = 0; ci < data.count; ci++) {
             var cAnimX = animOffsets[ci * 2] || 0;
             var cAnimY = animOffsets[ci * 2 + 1] || 0;
-            if (!ThreeWaterShader.isWaterRect(cAnimX, cAnimY)) {
+            var ck = kindArr[ci] != null ? kindArr[ci] : -1;
+            if (ThreeWaterShader.isWaterRect(cAnimX, cAnimY) &&
+                (ck < 0 || ThreeWaterShader.isKindEnabled(ck))) {
+                // 활성화된 물 rect → 물 메시에서 처리 → 스킵
+            } else {
                 normalIndices.push(ci);
             }
         }
@@ -489,8 +498,11 @@ ThreeTilemapRectLayer.prototype._buildWaterMesh = function(setNumber, data, anim
         var cAnimY = animOffsets[ci * 2 + 1] || 0;
         if (!ThreeWaterShader.isWaterRect(cAnimX, cAnimY)) continue;
 
-        var isWaterfall = ThreeWaterShader.isWaterfallRect(cAnimX, cAnimY);
+        // enabled=false인 kind는 물 셰이더 제외 (일반 메시로 렌더)
         var kind = kindArr[ci] != null ? kindArr[ci] : -1;
+        if (kind >= 0 && !ThreeWaterShader.isKindEnabled(kind)) continue;
+
+        var isWaterfall = ThreeWaterShader.isWaterfallRect(cAnimX, cAnimY);
         var groupKey = (isWaterfall ? 'wf' : 'w') + '_' + kind;
 
         if (!kindGroups[groupKey]) {
@@ -671,9 +683,12 @@ ThreeTilemapRectLayer.prototype._updateAnimUVs = function(tileAnimX, tileAnimY) 
 
         // 물 rect가 있는 경우 분리 처리
         var hasWater = false;
+        var kindArr = this._kindData[setNumber] || [];
         if (sn === 0 && typeof ThreeWaterShader !== 'undefined') {
             for (var ci = 0; ci < data.count; ci++) {
-                if (ThreeWaterShader.isWaterRect(animOffsets[ci * 2] || 0, animOffsets[ci * 2 + 1] || 0)) {
+                var ck = kindArr[ci] != null ? kindArr[ci] : -1;
+                if (ThreeWaterShader.isWaterRect(animOffsets[ci * 2] || 0, animOffsets[ci * 2 + 1] || 0) &&
+                    (ck < 0 || ThreeWaterShader.isKindEnabled(ck))) {
                     hasWater = true;
                     break;
                 }
@@ -697,10 +712,12 @@ ThreeTilemapRectLayer.prototype._updateAnimUVs = function(tileAnimX, tileAnimY) 
             if (uvAttr) {
                 var uvArray = uvAttr.array;
                 if (hasWater) {
-                    // 물 rect를 제외한 인덱스로 UV 갱신
+                    // 물 rect를 제외한 인덱스로 UV 갱신 (enabled=false인 kind는 일반으로 포함)
                     var ni = 0;
                     for (var i = 0; i < data.count; i++) {
-                        if (ThreeWaterShader.isWaterRect(animOffsets[i * 2] || 0, animOffsets[i * 2 + 1] || 0)) continue;
+                        var cka = kindArr[i] != null ? kindArr[i] : -1;
+                        if (ThreeWaterShader.isWaterRect(animOffsets[i * 2] || 0, animOffsets[i * 2 + 1] || 0) &&
+                            (cka < 0 || ThreeWaterShader.isKindEnabled(cka))) continue;
                         var srcOff = i * 12;
                         var uvOff = ni * 12;
                         var ax = (animOffsets[i * 2] || 0) * tileAnimX;
