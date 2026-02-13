@@ -7,6 +7,7 @@ import BattlebackPicker from '../common/BattlebackPicker';
 import SkyBackgroundPicker from '../common/SkyBackgroundPicker';
 import type { AudioFile, SkyBackground, SkySunLight, AnimTileShaderSettings } from '../../types/rpgMakerMV';
 import { sunUVToDirection, DEFAULT_WATER_SETTINGS, DEFAULT_LAVA_SETTINGS, DEFAULT_WATERFALL_SETTINGS } from '../../types/rpgMakerMV';
+import { getA1KindName, getA1KindType, getUsedA1Kinds } from '../../utils/tileHelper';
 import './InspectorPanel.css';
 
 interface TilesetEntry { id: number; name: string; }
@@ -442,40 +443,99 @@ export default function MapInspector() {
 
 // --- 애니메이션 타일 셰이더 섹션 ---
 
-const ANIM_TILE_TYPES: { key: string; name: string; default: AnimTileShaderSettings }[] = [
-  { key: 'water', name: '물', default: DEFAULT_WATER_SETTINGS },
-  { key: 'lava', name: '용암', default: DEFAULT_LAVA_SETTINGS },
-  { key: 'waterfall', name: '폭포', default: DEFAULT_WATERFALL_SETTINGS },
-];
+function getDefaultForKind(kind: number): AnimTileShaderSettings {
+  const type = getA1KindType(kind);
+  if (type === 'lava') return DEFAULT_LAVA_SETTINGS;
+  if (type === 'waterfall') return DEFAULT_WATERFALL_SETTINGS;
+  return DEFAULT_WATER_SETTINGS;
+}
+
+// A1 kind별 타일셋 이미지 내 위치 (48x48 타일 좌상단)
+// rpg_core.js의 Tilemap._drawAutotile 로직 기반
+function getA1KindImagePos(kind: number): { sx: number; sy: number } {
+  if (kind === 0) return { sx: 0, sy: 0 };
+  if (kind === 1) return { sx: 0, sy: 144 };
+  if (kind === 2) return { sx: 288, sy: 0 };
+  if (kind === 3) return { sx: 288, sy: 144 };
+  // kind 4~15: tx = kind % 8, ty = floor(kind/8)
+  const tx = kind % 8;
+  const ty = Math.floor(kind / 8);
+  const bx = Math.floor(tx / 4) * 8;
+  const by = ty * 6 + Math.floor(tx / 2) % 2 * 3;
+  // 짝수 kind: 수면 애니메이션 첫 프레임 (bx+0), 홀수: 폭포 (bx+6)
+  const finalBx = (kind % 2 === 0) ? bx : bx + 6;
+  return { sx: finalBx * 48, sy: by * 48 };
+}
+
+/** A1 타일셋에서 kind의 48x48 미리보기 캔버스 */
+function A1KindIcon({ kind, tilesetNames }: { kind: number; tilesetNames?: string[] }) {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, 24, 24);
+
+    // A1 타일셋 이미지 로드
+    const a1Name = tilesetNames?.[0];
+    if (!a1Name) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const { sx, sy } = getA1KindImagePos(kind);
+      ctx.drawImage(img, sx, sy, 48, 48, 0, 0, 24, 24);
+    };
+    img.src = `/img/tilesets/${a1Name}.png`;
+  }, [kind, tilesetNames]);
+
+  return <canvas ref={canvasRef} width={24} height={24} style={{ width: 24, height: 24, imageRendering: 'pixelated', flexShrink: 0 }} />;
+}
 
 function AnimTileShaderSection({ currentMap, updateMapField }: {
   currentMap: any;
   updateMapField: (field: string, value: unknown) => void;
 }) {
-  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
+  const [expandedKinds, setExpandedKinds] = useState<Set<number>>(new Set());
 
-  const settings: Record<string, AnimTileShaderSettings> = currentMap.animTileSettings || {};
+  const settings: Record<number, AnimTileShaderSettings> = currentMap.animTileSettings || {};
+  const usedKinds = useMemo(() =>
+    getUsedA1Kinds(currentMap.data || [], currentMap.width || 0, currentMap.height || 0),
+    [currentMap.data, currentMap.width, currentMap.height]
+  );
 
-  const toggleExpand = (type: string) => {
-    setExpandedTypes(prev => {
+  const toggleExpand = (kind: number) => {
+    setExpandedKinds(prev => {
       const next = new Set(prev);
-      if (next.has(type)) next.delete(type); else next.add(type);
+      if (next.has(kind)) next.delete(kind); else next.add(kind);
       return next;
     });
   };
 
-  const updateTypeSetting = (type: string, field: keyof AnimTileShaderSettings, value: unknown) => {
-    const def = ANIM_TILE_TYPES.find(t => t.key === type)?.default || DEFAULT_WATER_SETTINGS;
-    const current = settings[type] || def;
-    const updated = { ...settings, [type]: { ...current, [field]: value } };
+  const updateKindSetting = (kind: number, field: keyof AnimTileShaderSettings, value: unknown) => {
+    const current = settings[kind] || getDefaultForKind(kind);
+    const updated = { ...settings, [kind]: { ...current, [field]: value } };
     updateMapField('animTileSettings', updated);
   };
 
-  const resetType = (type: string) => {
+  const resetKind = (kind: number) => {
     const updated = { ...settings };
-    delete updated[type];
+    delete updated[kind];
     updateMapField('animTileSettings', Object.keys(updated).length > 0 ? updated : undefined);
   };
+
+  if (usedKinds.length === 0) {
+    return (
+      <div className="light-inspector-section">
+        <div className="light-inspector-title">
+          애니메이션 타일 셰이더
+          <span className="sky-ext-badge" style={{ marginLeft: 6 }}>EXT</span>
+        </div>
+        <div style={{ color: '#666', fontSize: 11, padding: '4px 0' }}>이 맵에 A1 타일이 없습니다</div>
+      </div>
+    );
+  }
 
   return (
     <div className="light-inspector-section">
@@ -483,52 +543,54 @@ function AnimTileShaderSection({ currentMap, updateMapField }: {
         애니메이션 타일 셰이더
         <span className="sky-ext-badge" style={{ marginLeft: 6 }}>EXT</span>
       </div>
-      {ANIM_TILE_TYPES.map(({ key: type, name, default: def }) => {
-        const s = settings[type] || def;
-        const expanded = expandedTypes.has(type);
-        const hasCustom = !!settings[type];
+      {usedKinds.map(kind => {
+        const s = settings[kind] || getDefaultForKind(kind);
+        const expanded = expandedKinds.has(kind);
+        const kindType = getA1KindType(kind);
+        const hasCustom = !!settings[kind];
         return (
-          <div key={type} className="anim-tile-kind-panel">
+          <div key={kind} className="anim-tile-kind-panel">
             <div
               className="anim-tile-kind-header"
-              onClick={() => toggleExpand(type)}
+              onClick={() => toggleExpand(kind)}
             >
-              <span className="anim-tile-kind-arrow">{expanded ? '▼' : '▶'}</span>
-              <span className="anim-tile-kind-name">{name}</span>
-              <span className={`anim-tile-kind-type anim-tile-kind-type-${type}`}>{type}</span>
-              {hasCustom && <span className="anim-tile-kind-custom" title="커스텀 설정 적용됨">•</span>}
+              <span className="anim-tile-kind-arrow">{expanded ? '\u25BC' : '\u25B6'}</span>
+              <A1KindIcon kind={kind} tilesetNames={currentMap.tilesetNames} />
+              <span className="anim-tile-kind-name">{getA1KindName(kind)}</span>
+              <span className={`anim-tile-kind-type anim-tile-kind-type-${kindType}`}>{kindType}</span>
+              {hasCustom && <span className="anim-tile-kind-custom" title="커스텀 설정 적용됨">{'\u2022'}</span>}
             </div>
             {expanded && (
               <div className="anim-tile-kind-body">
                 <label className="map-inspector-checkbox">
                   <input type="checkbox" checked={s.enabled !== false}
-                    onChange={(e) => updateTypeSetting(type, 'enabled', e.target.checked)} />
+                    onChange={(e) => updateKindSetting(kind, 'enabled', e.target.checked)} />
                   <span>셰이더 적용</span>
                 </label>
                 {s.enabled !== false && (
                   <>
                     <AnimSlider label="물결 진폭" value={s.waveAmplitude} min={0} max={0.05} step={0.001}
-                      onChange={(v) => updateTypeSetting(type, 'waveAmplitude', v)} />
+                      onChange={(v) => updateKindSetting(kind, 'waveAmplitude', v)} />
                     <AnimSlider label="물결 주파수" value={s.waveFrequency} min={0} max={20} step={0.5}
-                      onChange={(v) => updateTypeSetting(type, 'waveFrequency', v)} />
+                      onChange={(v) => updateKindSetting(kind, 'waveFrequency', v)} />
                     <AnimSlider label="물결 속도" value={s.waveSpeed} min={0} max={10} step={0.1}
-                      onChange={(v) => updateTypeSetting(type, 'waveSpeed', v)} />
+                      onChange={(v) => updateKindSetting(kind, 'waveSpeed', v)} />
                     <AnimSlider label="투명도" value={s.waterAlpha} min={0} max={1} step={0.05}
-                      onChange={(v) => updateTypeSetting(type, 'waterAlpha', v)} />
+                      onChange={(v) => updateKindSetting(kind, 'waterAlpha', v)} />
                     <AnimSlider label="반사 강도" value={s.specularStrength} min={0} max={3} step={0.1}
-                      onChange={(v) => updateTypeSetting(type, 'specularStrength', v)} />
+                      onChange={(v) => updateKindSetting(kind, 'specularStrength', v)} />
                     <AnimSlider label="발광 강도" value={s.emissive} min={0} max={2} step={0.05}
-                      onChange={(v) => updateTypeSetting(type, 'emissive', v)} />
+                      onChange={(v) => updateKindSetting(kind, 'emissive', v)} />
                     {s.emissive > 0 && (
                       <div className="light-inspector-row">
                         <span className="light-inspector-label">발광 색상</span>
                         <input type="color" value={s.emissiveColor || '#ffffff'}
-                          onChange={(e) => updateTypeSetting(type, 'emissiveColor', e.target.value)}
+                          onChange={(e) => updateKindSetting(kind, 'emissiveColor', e.target.value)}
                           style={{ width: 32, height: 20, padding: 0, border: '1px solid #555' }} />
                       </div>
                     )}
                     {hasCustom && (
-                      <button className="anim-tile-reset-btn" onClick={() => resetType(type)}>
+                      <button className="anim-tile-reset-btn" onClick={() => resetKind(kind)}>
                         기본값 복원
                       </button>
                     )}
