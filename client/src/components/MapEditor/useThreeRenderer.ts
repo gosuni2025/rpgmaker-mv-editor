@@ -294,16 +294,17 @@ export function useThreeRenderer(
           spriteset.update();
         } catch (_e) {}
 
-        // 물 셰이더 시간 업데이트 (wave/foam 애니메이션용)
-        if (typeof ThreeWaterShader !== 'undefined') {
-          ThreeWaterShader._time += 1 / 60;
-        }
-
         // 물 타일 애니메이션: animationFrame이 변경되었으면 repaint
         const tilemap = spriteset._tilemap;
         if (tilemap.animationFrame !== lastAnimFrame) {
           lastAnimFrame = tilemap.animationFrame;
           tilemap._needsRepaint = true;
+        }
+
+        // 물 셰이더 시간 업데이트 + 물 메시 uTime 갱신
+        if (typeof ThreeWaterShader !== 'undefined') {
+          ThreeWaterShader._time += 1 / 60;
+          ThreeWaterShader.updateAllWaterMeshes(tilemap, ThreeWaterShader._time);
         }
 
         // 물 타일이 있는 맵이면 매 프레임 렌더 (wave 연속 애니메이션)

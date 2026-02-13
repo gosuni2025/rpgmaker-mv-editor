@@ -104,7 +104,7 @@ ThreeWaterShader.FRAGMENT_MAIN = [
     '    vec4 waveTexColor = texture2D(map, waveUV);',
     '    diffuseColor = waveTexColor;',
     '}',
-    'if (vFoamMask > 0.5) {',
+    'if (vFoamMask > 0.01) {',
     '    float foam = foamPattern(vWorldPos, uTime);',
     '    diffuseColor.rgb = mix(diffuseColor.rgb, uFoamColor, foam * uFoamAlpha * vFoamMask);',
     '}',
@@ -120,7 +120,7 @@ ThreeWaterShader.WATERFALL_FRAGMENT_MAIN = [
     '    vec4 wfTexColor = texture2D(map, wfUV);',
     '    diffuseColor = wfTexColor;',
     '}',
-    'if (vFoamMask > 0.5) {',
+    'if (vFoamMask > 0.01) {',
     '    float splash = sin(vWorldPos.y * 0.2 + uTime * 4.0) * 0.5 + 0.5;',
     '    splash *= cos(vWorldPos.x * 0.3 + uTime * 2.0) * 0.5 + 0.5;',
     '    splash = smoothstep(0.3, 0.7, splash);',
@@ -207,7 +207,7 @@ ThreeWaterShader._STANDALONE_FRAGMENT_WATER = [
     '    vec4 color = texture2D(map, waveUV);',
     '',
     '    // Foam',
-    '    if (vFoamMask > 0.5) {',
+    '    if (vFoamMask > 0.01) {',
     '        float foam = foamPattern(vWorldPos, uTime);',
     '        color.rgb = mix(color.rgb, uFoamColor, foam * uFoamAlpha * vFoamMask);',
     '    }',
@@ -250,7 +250,7 @@ ThreeWaterShader._STANDALONE_FRAGMENT_WATERFALL = [
     '    vec2 wfUV = vUv + vec2(wfWaveX, wfWaveY);',
     '    vec4 color = texture2D(map, wfUV);',
     '',
-    '    if (vFoamMask > 0.5) {',
+    '    if (vFoamMask > 0.01) {',
     '        float splash = sin(vWorldPos.y * 0.2 + uTime * 4.0) * 0.5 + 0.5;',
     '        splash *= cos(vWorldPos.x * 0.3 + uTime * 2.0) * 0.5 + 0.5;',
     '        splash = smoothstep(0.3, 0.7, splash);',
@@ -408,6 +408,35 @@ ThreeWaterShader.syncLightDirection = function(mesh) {
     if (window.ShadowLight && window.ShadowLight._directionalLight) {
         var pos = window.ShadowLight._directionalLight.position;
         mesh.material.uniforms.uLightDir.value.set(pos.x, pos.y, pos.z).normalize();
+    }
+};
+
+/**
+ * tilemap의 모든 물 메시의 uTime uniform을 일괄 갱신
+ * useThreeRenderer의 렌더 루프에서 매 프레임 호출
+ */
+ThreeWaterShader.updateAllWaterMeshes = function(tilemap, time) {
+    if (!tilemap) return;
+    this._hasWaterMesh = false;
+    // ShaderTilemap → ZLayer(children) → CompositeLayer(children) → RectLayer(children)
+    var zLayers = tilemap.children || [];
+    for (var zi = 0; zi < zLayers.length; zi++) {
+        var composites = zLayers[zi].children || [];
+        for (var ci = 0; ci < composites.length; ci++) {
+            var rectLayers = composites[ci].children || [];
+            for (var ri = 0; ri < rectLayers.length; ri++) {
+                var rl = rectLayers[ri];
+                if (!rl._meshes) continue;
+                for (var key in rl._meshes) {
+                    var mesh = rl._meshes[key];
+                    if (mesh && mesh.userData && mesh.userData.isWaterMesh) {
+                        this.updateTime(mesh, time);
+                        this.syncLightDirection(mesh);
+                        this._hasWaterMesh = true;
+                    }
+                }
+            }
+        }
     }
 };
 

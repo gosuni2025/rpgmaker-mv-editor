@@ -5548,6 +5548,11 @@ ShaderTilemap.prototype.updateTransform = function() {
     // Three.js 백엔드: renderWebGL/renderCanvas가 호출되지 않으므로
     // updateTransform에서 tileAnim을 RectLayer에 직접 전파
     this._updateTileAnimForThree();
+    // 물 셰이더 시간 갱신 (매 프레임)
+    if (typeof ThreeWaterShader !== 'undefined') {
+        ThreeWaterShader._time += 1 / 60;
+        ThreeWaterShader.updateAllWaterMeshes(this, ThreeWaterShader._time);
+    }
     this._sortChildren();
     ThreeContainer.prototype.updateTransform.call(this);
 };
