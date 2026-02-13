@@ -659,11 +659,21 @@ function UIRenderPass(scene, camera, spriteset, stage) {
     this.enabled = true;
     this.needsSwap = false;
     this.renderToScreen = true;
+
+    // readBuffer(맵+bloom+tiltshift 결과)를 화면에 복사하기 위한 copy material
+    this._copyMaterial = new THREE.ShaderMaterial({
+        uniforms: { tDiffuse: { value: null } },
+        vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: 'uniform sampler2D tDiffuse; varying vec2 vUv; void main() { gl_FragColor = texture2D(tDiffuse, vUv); }',
+        depthTest: false,
+        depthWrite: false
+    });
+    this._copyQuad = new FullScreenQuad(this._copyMaterial);
 }
 
 UIRenderPass.prototype.setSize = function() {};
 
-UIRenderPass.prototype.render = function(renderer /*, writeBuffer, readBuffer */) {
+UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
     var scene = this.scene;
     var stageObj = this.stage ? this.stage._threeObj : null;
     if (!stageObj) return;
@@ -719,10 +729,15 @@ UIRenderPass.prototype.render = function(renderer /*, writeBuffer, readBuffer */
         }
     }
 
-    // 블러된 맵 위에 UI를 합성 (clear 하지 않음)
+    // readBuffer(맵+bloom+tiltshift 결과)를 화면에 복사
     var prevAutoClear = renderer.autoClear;
-    renderer.autoClear = false;
     renderer.setRenderTarget(null);
+    renderer.autoClear = true;
+    this._copyMaterial.uniforms.tDiffuse.value = readBuffer.texture;
+    this._copyQuad.render(renderer);
+
+    // 블러된 맵 위에 UI를 합성 (clear 하지 않음)
+    renderer.autoClear = false;
     renderer.render(scene, this.camera);
     renderer.autoClear = prevAutoClear;
 
