@@ -342,6 +342,169 @@
     };
 
     //=========================================================================
+    // 애니메이션 빌보드: 3D 모드에서 Sprite_Animation을 2D HUD로 렌더
+    // 대상 캐릭터의 3D 월드 좌표를 화면 좌표로 투영한 뒤,
+    // 애니메이션 스프라이트를 stageObj(2D)에 배치하여 빌보드 효과 구현
+    //=========================================================================
+
+    /**
+     * tilemap 자식에서 Sprite_Animation 인스턴스를 모두 수집
+     */
+    Mode3D._collectAnimationSprites = function() {
+        var results = [];
+        var spriteset = this._spriteset;
+        if (!spriteset || !spriteset._tilemap) return results;
+        var tilemap = spriteset._tilemap;
+        var children = tilemap.children;
+        for (var i = 0; i < children.length; i++) {
+            if (children[i] instanceof Sprite_Animation) {
+                results.push(children[i]);
+            }
+        }
+        return results;
+    };
+
+    /**
+     * 3D 월드 좌표(x,y)를 화면 좌표(px)로 투영
+     * worldX, worldY: OrthographicCamera 공간의 픽셀 좌표 (= ThreeJS 2D 공간)
+     * 반환: { x: screenX, y: screenY } (픽셀 단위, 화면 좌측 상단 기준)
+     */
+    Mode3D.worldToScreen = function(worldX, worldY) {
+        var camera = this._perspCamera;
+        if (!camera) return null;
+
+        camera.updateMatrixWorld(true);
+
+        // 월드 좌표 (z=0 평면)
+        var v = new THREE.Vector3(worldX, worldY, 0);
+
+        // 투영 (클립 공간 → NDC)
+        v.applyMatrix4(camera.matrixWorldInverse);
+        v.applyMatrix4(camera.projectionMatrix);
+
+        // NDC (-1~1) → 화면 좌표
+        // Y는 projectionMatrix에서 이미 반전되어 있으므로 추가 반전 불필요
+        var w = Graphics.width;
+        var h = Graphics.height;
+        var sx = (v.x + 1) / 2 * w;
+        var sy = (v.y + 1) / 2 * h;
+
+        return { x: sx, y: sy };
+    };
+
+    /**
+     * 애니메이션 스프라이트를 3D 맵에서 숨기고 정보를 보존
+     * Pass 1 직전에 호출
+     * 반환: 복원에 필요한 정보 배열
+     */
+    Mode3D._hideAnimationsForPass1 = function() {
+        var anims = this._collectAnimationSprites();
+        var info = [];
+        for (var i = 0; i < anims.length; i++) {
+            var anim = anims[i];
+            var threeObj = anim._threeObj;
+            if (threeObj) {
+                info.push({
+                    sprite: anim,
+                    wasVisible: threeObj.visible,
+                    parent: anim.parent,
+                    target: anim._target
+                });
+                threeObj.visible = false;
+            }
+        }
+        return info;
+    };
+
+    /**
+     * 애니메이션 스프라이트를 2D HUD로 렌더하기 위해 stageObj로 이동
+     * Pass 2 직전에 호출
+     * animInfo: _hideAnimationsForPass1의 반환값
+     * stageObj: stage._threeObj
+     */
+    Mode3D._moveAnimationsToHUD = function(animInfo, stageObj) {
+        for (var i = 0; i < animInfo.length; i++) {
+            var entry = animInfo[i];
+            var anim = entry.sprite;
+            var threeObj = anim._threeObj;
+            if (!threeObj) continue;
+
+            // 타겟의 화면 좌표 계산
+            var target = entry.target;
+            var screenPos = null;
+            if (target && target._threeObj) {
+                // 타겟의 절대 월드 좌표 가져오기
+                target._threeObj.updateWorldMatrix(true, false);
+                var worldPos = new THREE.Vector3();
+                worldPos.setFromMatrixPosition(target._threeObj.matrixWorld);
+                screenPos = this.worldToScreen(worldPos.x, worldPos.y);
+            }
+
+            if (screenPos) {
+                // tilemap에서 제거, stageObj에 추가
+                var parentObj = threeObj.parent;
+                if (parentObj) parentObj.remove(threeObj);
+                stageObj.add(threeObj);
+
+                // 화면 좌표에 배치
+                // 애니메이션의 원래 position offset (위/중심/아래) 적용
+                var offsetY = 0;
+                if (anim._animation && target) {
+                    var pos = anim._animation.position;
+                    if (pos === 0) {
+                        offsetY = -(target.height || 0);
+                    } else if (pos === 1) {
+                        offsetY = -(target.height || 0) / 2;
+                    }
+                    // pos === 2: 아래 (offset 0)
+                    // pos === 3: 화면 중심 (별도 처리)
+                }
+
+                if (anim._animation && anim._animation.position === 3) {
+                    // 화면 중심에 표시
+                    threeObj.position.set(
+                        Graphics.width / 2,
+                        Graphics.height / 2,
+                        threeObj.position.z
+                    );
+                } else {
+                    threeObj.position.set(
+                        screenPos.x,
+                        screenPos.y + offsetY,
+                        threeObj.position.z
+                    );
+                }
+                threeObj.visible = entry.wasVisible;
+
+                entry._movedToStage = true;
+                entry._prevParent = parentObj;
+            }
+        }
+    };
+
+    /**
+     * 애니메이션 스프라이트를 원래 위치로 복원
+     * Pass 2 후에 호출
+     */
+    Mode3D._restoreAnimations = function(animInfo) {
+        for (var i = 0; i < animInfo.length; i++) {
+            var entry = animInfo[i];
+            var anim = entry.sprite;
+            var threeObj = anim._threeObj;
+            if (!threeObj) continue;
+
+            if (entry._movedToStage && entry._prevParent) {
+                // stageObj에서 제거, 원래 부모로 복원
+                var currentParent = threeObj.parent;
+                if (currentParent) currentParent.remove(threeObj);
+                entry._prevParent.add(threeObj);
+            }
+
+            threeObj.visible = entry.wasVisible;
+        }
+    };
+
+    //=========================================================================
     // ThreeRendererStrategy.render 오버라이드
     // 3D 모드: 2-pass 렌더링 (SSAA 없음, 직접 렌더)
     //   1) PerspectiveCamera로 Spriteset_Map (맵+캐릭터) 렌더
@@ -438,6 +601,8 @@
             var picObj = picContainer && picContainer._threeObj;
             var picWasVisible = picObj ? picObj.visible : false;
             if (picObj) picObj.visible = false;
+            // 애니메이션 스프라이트를 Pass 1에서 숨김 (Pass 2에서 2D HUD로 렌더)
+            var animInfo = Mode3D._hideAnimationsForPass1();
             // Hide _blackScreen so parallax sky shows through map edges
             var blackScreenObj = Mode3D._spriteset._blackScreen &&
                                  Mode3D._spriteset._blackScreen._threeObj;
@@ -500,6 +665,8 @@
                 stageObj.add(picObj);
                 picObj.visible = picWasVisible;
             }
+            // 애니메이션을 stageObj로 이동 (2D HUD로 렌더)
+            Mode3D._moveAnimationsToHUD(animInfo, stageObj);
 
             if (stageObj) {
                 for (var i = 0; i < stageObj.children.length; i++) {
@@ -522,6 +689,8 @@
                 spritesetObj.add(picObj);
                 picObj.visible = picWasVisible;
             }
+            // 애니메이션을 원래 위치로 복원
+            Mode3D._restoreAnimations(animInfo);
 
             // 가시성 복원
             if (stageObj) {

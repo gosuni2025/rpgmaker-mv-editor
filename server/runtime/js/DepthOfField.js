@@ -325,6 +325,10 @@ MapRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuffer, 
     var picObj = picContainer && picContainer._threeObj;
     var picWasVisible = picObj ? picObj.visible : false;
     if (picObj) picObj.visible = false;
+    // 애니메이션 스프라이트를 Pass 1에서 숨김 (UIRenderPass에서 2D HUD로 렌더)
+    var animInfo = Mode3D._hideAnimationsForPass1();
+    // MapRenderPass에서 수집한 animInfo를 UIRenderPass에서 사용하기 위해 저장
+    this._animInfo = animInfo;
 
     var blackScreenObj = this.spriteset._blackScreen &&
                          this.spriteset._blackScreen._threeObj;
@@ -435,6 +439,22 @@ UIRenderPass.prototype.render = function(renderer /*, writeBuffer, readBuffer */
         picObj.visible = picWasVisible;
     }
 
+    // 애니메이션을 stageObj로 이동 (2D HUD로 렌더)
+    // MapRenderPass에서 저장한 animInfo를 가져옴
+    var mapRenderPass = null;
+    if (DepthOfField._composer) {
+        for (var pi = 0; pi < DepthOfField._composer.passes.length; pi++) {
+            if (DepthOfField._composer.passes[pi]._animInfo) {
+                mapRenderPass = DepthOfField._composer.passes[pi];
+                break;
+            }
+        }
+    }
+    var animInfo = mapRenderPass ? mapRenderPass._animInfo : null;
+    if (animInfo) {
+        Mode3D._moveAnimationsToHUD(animInfo, stageObj);
+    }
+
     // spriteset(맵)을 숨기고 UI만 표시
     var childVisibility = [];
     for (var i = 0; i < stageObj.children.length; i++) {
@@ -471,6 +491,12 @@ UIRenderPass.prototype.render = function(renderer /*, writeBuffer, readBuffer */
         stageObj.remove(picObj);
         spritesetObj.add(picObj);
         picObj.visible = picWasVisible;
+    }
+
+    // 애니메이션을 원래 위치로 복원
+    if (animInfo) {
+        Mode3D._restoreAnimations(animInfo);
+        if (mapRenderPass) mapRenderPass._animInfo = null;
     }
 
     // 가시성 복원
