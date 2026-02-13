@@ -218,11 +218,27 @@ export function useThreeRenderer(
       // _activateShadowLight → _findScene()이 새 씬을 찾을 수 있음
       ShadowLight._scene = rendererObj.scene;
 
+      // standalone 모드: 조명/3D 플러그인 비활성화 (프리뷰에 불필요)
+      let backupShadowLight: boolean | undefined;
+      let backupMode3d: boolean | undefined;
+      if (standalone && w.ConfigManager) {
+        backupShadowLight = w.ConfigManager.shadowLight;
+        backupMode3d = w.ConfigManager.mode3d;
+        w.ConfigManager.shadowLight = false;
+        w.ConfigManager.mode3d = false;
+      }
+
       const stage = new ThreeContainer();
       stageRef.current = stage;
 
       const spriteset = new Spriteset_Map();
       spritesetRef.current = spriteset;
+
+      // standalone 모드: 조명/3D 설정 복원
+      if (standalone && w.ConfigManager) {
+        w.ConfigManager.shadowLight = backupShadowLight;
+        w.ConfigManager.mode3d = backupMode3d;
+      }
       if (!standalone) {
         w._editorSpriteset = spriteset;
       }
