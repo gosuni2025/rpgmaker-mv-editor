@@ -22,6 +22,12 @@ declare const ThreeWaterShader: any;
 
 export { requestRenderFrames } from './initGameGlobals';
 
+export interface StandaloneMapOptions {
+  mapId: number;
+  mapData: any;
+  simple?: boolean; // true면 오버레이/스토어 구독 생략
+}
+
 export interface ThreeRendererRefs {
   rendererObjRef: React.MutableRefObject<any>;
   tilemapRef: React.MutableRefObject<any>;
@@ -52,11 +58,12 @@ export function useThreeRenderer(
   webglCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   showGrid: boolean,
   dragPreviews: DragPreviewInfo[],
+  standalone?: StandaloneMapOptions,
 ): ThreeRendererRefs {
-  const currentMap = useEditorStore((s) => s.currentMap);
-  const tilesetInfo = useEditorStore((s) => s.tilesetInfo);
-  const mode3d = useEditorStore((s) => s.mode3d);
-  const currentMapId = useEditorStore((s) => s.currentMapId);
+  const currentMap = useEditorStore((s) => standalone ? null : s.currentMap);
+  const tilesetInfo = useEditorStore((s) => standalone ? null : s.tilesetInfo);
+  const mode3d = useEditorStore((s) => standalone ? false : s.mode3d);
+  const currentMapId = useEditorStore((s) => standalone ? null : s.currentMapId);
 
   // Track renderer readiness so overlay useEffects re-run after async setup
   // Using a counter instead of boolean to ensure re-render even when cleanup(false)
@@ -86,22 +93,46 @@ export function useThreeRenderer(
   // =========================================================================
   // Spriteset_Map 기반 Three.js 렌더링 setup & render loop
   // =========================================================================
+  // standalone 모드에서 사용할 실제 맵 데이터/ID
+  const effectiveMap = standalone ? standalone.mapData : currentMap;
+  const effectiveMapId = standalone ? standalone.mapId : currentMapId;
+
   useEffect(() => {
     const canvas = webglCanvasRef.current;
-    if (!canvas || !currentMap || !(window as any)._editorRuntimeReady) return;
-    if (!currentMapId) return;
+    if (!canvas || !effectiveMap || !(window as any)._editorRuntimeReady) return;
+    if (!effectiveMapId) return;
 
     let disposed = false;
     let animFrameId: number | null = null;
+
+    // standalone 모드: 글로벌 상태 백업
+    const w = window as any;
+    let backupDataMap: any;
+    let backupMapId: number | undefined;
+    let backupDisplayX: number | undefined;
+    let backupDisplayY: number | undefined;
+    let backupGraphicsW: number | undefined;
+    let backupGraphicsH: number | undefined;
+    if (standalone) {
+      backupDataMap = w.$dataMap;
+      backupMapId = w.$gameMap?._mapId;
+      backupDisplayX = w.$gameMap?._displayX;
+      backupDisplayY = w.$gameMap?._displayY;
+    }
 
     const setup = async () => {
       await initGameGlobals();
       if (disposed) return;
 
-      const w = window as any;
-      const { width, height, data } = currentMap;
+      const { width, height, data } = effectiveMap;
       const mapPxW = width * TILE_SIZE_PX;
       const mapPxH = height * TILE_SIZE_PX;
+
+      // standalone 모드: Graphics 백업 후 임시 설정
+      if (standalone) {
+        backupGraphicsW = Graphics._width;
+        backupGraphicsH = Graphics._height;
+      }
 
       Graphics._width = mapPxW;
       Graphics._height = mapPxH;
@@ -110,8 +141,10 @@ export function useThreeRenderer(
       Graphics.boxWidth = mapPxW;
       Graphics.boxHeight = mapPxH;
 
-      canvas.style.width = '';
-      canvas.style.height = '';
+      if (!standalone) {
+        canvas.style.width = '';
+        canvas.style.height = '';
+      }
       canvas.width = mapPxW;
       canvas.height = mapPxH;
 
@@ -127,8 +160,10 @@ export function useThreeRenderer(
       renderer.setSize(mapPxW, mapPxH, false);
       renderer.setClearColor(0x000000, 0);
       renderer.sortObjects = true;
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      if (!standalone) {
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      }
       const scene = new THREE.Scene();
       const camera = new THREE.OrthographicCamera(0, mapPxW, 0, mapPxH, -10000, 10000);
       camera.position.z = 100;
@@ -142,26 +177,39 @@ export function useThreeRenderer(
         _drawOrderCounter: 0,
       };
       rendererObjRef.current = rendererObj;
-      w._editorRendererObj = rendererObj;
+      if (!standalone) {
+        w._editorRendererObj = rendererObj;
+      }
 
-      w.$dataMap = {
-        ...currentMap,
-        data: [...data],
-        tilesetId: currentMap.tilesetId,
-        width,
-        height,
-        scrollType: currentMap.scrollType || 0,
-        events: currentMap.events || [],
-        parallaxName: currentMap.parallaxName || '',
-        parallaxShow: currentMap.parallaxShow || false,
-        parallaxLoopX: currentMap.parallaxLoopX || false,
-        parallaxLoopY: currentMap.parallaxLoopY || false,
-        parallaxSx: currentMap.parallaxSx || 0,
-        parallaxSy: currentMap.parallaxSy || 0,
-        skyBackground: currentMap.skyBackground || null,
-      };
+      if (standalone) {
+        // standalone 모드: 간소화된 $dataMap 설정
+        w.$dataMap = {
+          ...effectiveMap,
+          data: [...data],
+          events: effectiveMap.events || [],
+          parallaxName: '',
+          parallaxShow: false,
+        };
+      } else {
+        w.$dataMap = {
+          ...effectiveMap,
+          data: [...data],
+          tilesetId: effectiveMap.tilesetId,
+          width,
+          height,
+          scrollType: effectiveMap.scrollType || 0,
+          events: effectiveMap.events || [],
+          parallaxName: effectiveMap.parallaxName || '',
+          parallaxShow: effectiveMap.parallaxShow || false,
+          parallaxLoopX: effectiveMap.parallaxLoopX || false,
+          parallaxLoopY: effectiveMap.parallaxLoopY || false,
+          parallaxSx: effectiveMap.parallaxSx || 0,
+          parallaxSy: effectiveMap.parallaxSy || 0,
+          skyBackground: effectiveMap.skyBackground || null,
+        };
+      }
 
-      w.$gameMap.setup(currentMapId);
+      w.$gameMap.setup(effectiveMapId);
       w.$gameMap._displayX = 0;
       w.$gameMap._displayY = 0;
       w.$gamePlayer.setTransparent(true);
@@ -175,7 +223,9 @@ export function useThreeRenderer(
 
       const spriteset = new Spriteset_Map();
       spritesetRef.current = spriteset;
-      w._editorSpriteset = spriteset;
+      if (!standalone) {
+        w._editorSpriteset = spriteset;
+      }
 
       if (spriteset._blackScreen) spriteset._blackScreen.opacity = 0;
       if (spriteset._fadeSprite) spriteset._fadeSprite.opacity = 0;
@@ -193,21 +243,33 @@ export function useThreeRenderer(
       stage.addChild(spriteset);
       rendererObj.scene.add(stage._threeObj);
 
-      const editorState = useEditorStore.getState();
-      // 플러그인이 ConfigManager 값을 덮어쓸 수 있으므로, 런타임의 실제 값을 UI 상태에 동기화
-      const runtimeShadowLight = !!w.ConfigManager?.shadowLight;
-      const runtimeMode3d = !!w.ConfigManager?.mode3d;
-      if (runtimeShadowLight !== editorState.shadowLight) {
-        useEditorStore.setState({ shadowLight: runtimeShadowLight });
+      // standalone 모드: Graphics 즉시 복원 (메인 에디터 영향 방지)
+      if (standalone && backupGraphicsW != null) {
+        Graphics._width = backupGraphicsW;
+        Graphics._height = backupGraphicsH!;
+        Graphics.width = backupGraphicsW;
+        Graphics.height = backupGraphicsH!;
+        Graphics.boxWidth = backupGraphicsW;
+        Graphics.boxHeight = backupGraphicsH!;
       }
-      if (runtimeMode3d !== editorState.mode3d) {
-        useEditorStore.setState({ mode3d: runtimeMode3d });
-      }
-      if (runtimeShadowLight) {
-        syncEditorLightsToScene(rendererObj.scene, editorState.currentMap?.editorLights, runtimeMode3d);
-      }
-      if (runtimeMode3d) {
-        w.ConfigManager.mode3d = true;
+
+      if (!standalone) {
+        const editorState = useEditorStore.getState();
+        // 플러그인이 ConfigManager 값을 덮어쓸 수 있으므로, 런타임의 실제 값을 UI 상태에 동기화
+        const runtimeShadowLight = !!w.ConfigManager?.shadowLight;
+        const runtimeMode3d = !!w.ConfigManager?.mode3d;
+        if (runtimeShadowLight !== editorState.shadowLight) {
+          useEditorStore.setState({ shadowLight: runtimeShadowLight });
+        }
+        if (runtimeMode3d !== editorState.mode3d) {
+          useEditorStore.setState({ mode3d: runtimeMode3d });
+        }
+        if (runtimeShadowLight) {
+          syncEditorLightsToScene(rendererObj.scene, editorState.currentMap?.editorLights, runtimeMode3d);
+        }
+        if (runtimeMode3d) {
+          w.ConfigManager.mode3d = true;
+        }
       }
 
       // Create grid mesh (used in both 2D and 3D)
@@ -240,16 +302,19 @@ export function useThreeRenderer(
       // --- 렌더 루프 ---
       function renderOnce() {
         if (!rendererObjRef.current || disposed) return;
-        const latestMap = useEditorStore.getState().currentMap;
-        if (latestMap && (latestMap.width * TILE_SIZE_PX !== mapPxW || latestMap.height * TILE_SIZE_PX !== mapPxH)) return;
 
-        if (latestMap && latestMap.data !== lastMapDataRef.current) {
-          w.$dataMap.data = [...latestMap.data];
-          if (spriteset._tilemap) {
-            spriteset._tilemap._mapData = w.$dataMap.data;
-            spriteset._tilemap._needsRepaint = true;
+        if (!standalone) {
+          const latestMap = useEditorStore.getState().currentMap;
+          if (latestMap && (latestMap.width * TILE_SIZE_PX !== mapPxW || latestMap.height * TILE_SIZE_PX !== mapPxH)) return;
+
+          if (latestMap && latestMap.data !== lastMapDataRef.current) {
+            w.$dataMap.data = [...latestMap.data];
+            if (spriteset._tilemap) {
+              spriteset._tilemap._mapData = w.$dataMap.data;
+              spriteset._tilemap._needsRepaint = true;
+            }
+            lastMapDataRef.current = latestMap.data;
           }
-          lastMapDataRef.current = latestMap.data;
         }
 
         const strategy = RendererStrategy.getStrategy();
@@ -275,6 +340,14 @@ export function useThreeRenderer(
         if (initFrameCount < 10) {
           spriteset._tilemap._needsRepaint = true;
           initFrameCount++;
+        }
+
+        if (standalone) {
+          // standalone 모드: 간소화된 렌더 루프 (spriteset.update + render만)
+          try { spriteset.update(); } catch (_e) {}
+          const strategy = RendererStrategy.getStrategy();
+          strategy.render(rendererObj, stage);
+          return;
         }
 
         // ShadowLight 초기화 대기
@@ -333,7 +406,8 @@ export function useThreeRenderer(
       rendererReadyRef.current += 1;
       setRendererReady(rendererReadyRef.current);
 
-      const unsubscribe = useEditorStore.subscribe((state, prevState) => {
+      // standalone 모드에서는 스토어 구독 불필요
+      const unsubscribe = standalone ? () => {} : useEditorStore.subscribe((state, prevState) => {
         if (state.currentMap !== prevState.currentMap) {
           if (state.currentMap && prevState.currentMap &&
               state.currentMap.events !== prevState.currentMap.events) {
@@ -439,55 +513,60 @@ export function useThreeRenderer(
         // cancelAnimationFrame이 doFrame 실행을 막으면 renderRequestedRef가 true로 남아
         // 새 setup의 requestRender가 영원히 스킵되는 버그 방지
         renderRequestedRef.current = false;
-        disposeSceneObjects(rendererObj.scene, regionMeshesRef.current);
-        regionMeshesRef.current = [];
-        disposeSceneObjects(rendererObj.scene, startPosMeshesRef.current);
-        startPosMeshesRef.current = [];
-        disposeSceneObjects(rendererObj.scene, eventOverlayMeshesRef.current);
-        eventOverlayMeshesRef.current = [];
-        disposeSceneObjects(rendererObj.scene, dragPreviewMeshesRef.current);
-        dragPreviewMeshesRef.current = [];
-        disposeSceneObjects(rendererObj.scene, toolPreviewMeshesRef.current);
-        toolPreviewMeshesRef.current = [];
-        disposeSceneObjects(rendererObj.scene, lightOverlayMeshesRef.current);
-        lightOverlayMeshesRef.current = [];
-        // MapCanvas에서 관리하는 글로벌 메시 배열도 정리
-        const w = window as any;
-        for (const key of ['_editorSelectionMeshes', '_editorDragMeshes']) {
-          const arr = w[key] as any[] | undefined;
-          if (arr) {
-            for (const m of arr) {
-              rendererObj.scene.remove(m);
-              m.geometry?.dispose();
-              m.material?.dispose();
+
+        if (!standalone) {
+          disposeSceneObjects(rendererObj.scene, regionMeshesRef.current);
+          regionMeshesRef.current = [];
+          disposeSceneObjects(rendererObj.scene, startPosMeshesRef.current);
+          startPosMeshesRef.current = [];
+          disposeSceneObjects(rendererObj.scene, eventOverlayMeshesRef.current);
+          eventOverlayMeshesRef.current = [];
+          disposeSceneObjects(rendererObj.scene, dragPreviewMeshesRef.current);
+          dragPreviewMeshesRef.current = [];
+          disposeSceneObjects(rendererObj.scene, toolPreviewMeshesRef.current);
+          toolPreviewMeshesRef.current = [];
+          disposeSceneObjects(rendererObj.scene, lightOverlayMeshesRef.current);
+          lightOverlayMeshesRef.current = [];
+          // MapCanvas에서 관리하는 글로벌 메시 배열도 정리
+          for (const key of ['_editorSelectionMeshes', '_editorDragMeshes']) {
+            const arr = w[key] as any[] | undefined;
+            if (arr) {
+              for (const m of arr) {
+                rendererObj.scene.remove(m);
+                m.geometry?.dispose();
+                m.material?.dispose();
+              }
+              arr.length = 0;
             }
-            arr.length = 0;
+          }
+          if (cursorMeshRef.current) {
+            rendererObj.scene.remove(cursorMeshRef.current);
+            cursorMeshRef.current.geometry?.dispose();
+            cursorMeshRef.current.material?.dispose();
+            cursorMeshRef.current = null;
+          }
+          if (selectionMeshRef.current) {
+            rendererObj.scene.remove(selectionMeshRef.current);
+            selectionMeshRef.current.geometry?.dispose();
+            selectionMeshRef.current.material?.dispose();
+            selectionMeshRef.current = null;
           }
         }
-        if (cursorMeshRef.current) {
-          rendererObj.scene.remove(cursorMeshRef.current);
-          cursorMeshRef.current.geometry?.dispose();
-          cursorMeshRef.current.material?.dispose();
-          cursorMeshRef.current = null;
-        }
-        if (selectionMeshRef.current) {
-          rendererObj.scene.remove(selectionMeshRef.current);
-          selectionMeshRef.current.geometry?.dispose();
-          selectionMeshRef.current.material?.dispose();
-          selectionMeshRef.current = null;
-        }
+
         if (gridMeshRef.current) {
           rendererObj.scene.remove(gridMeshRef.current);
           gridMeshRef.current.geometry.dispose();
           gridMeshRef.current.material.dispose();
           gridMeshRef.current = null;
         }
-        if (ShadowLight._active) {
-          ShadowLight._removeLightsFromScene(rendererObj.scene);
-          ShadowLight._active = false;
+        if (!standalone) {
+          if (ShadowLight._active) {
+            ShadowLight._removeLightsFromScene(rendererObj.scene);
+            ShadowLight._active = false;
+          }
+          Mode3D._spriteset = null;
+          Mode3D._perspCamera = null;
         }
-        Mode3D._spriteset = null;
-        Mode3D._perspCamera = null;
         if (rendererObj && rendererObj.renderer) {
           const gl = rendererObj.renderer.getContext();
           if (gl) {
@@ -501,6 +580,20 @@ export function useThreeRenderer(
         if (canvas) {
           canvas.style.width = '';
           canvas.style.height = '';
+        }
+        // standalone 모드: 글로벌 상태 복원
+        if (standalone && backupDataMap) {
+          w.$dataMap = backupDataMap;
+          if (w.$gameMap && backupMapId != null) {
+            w.$gameMap.setup(backupMapId);
+            w.$gameMap._displayX = backupDisplayX ?? 0;
+            w.$gameMap._displayY = backupDisplayY ?? 0;
+          }
+          // 메인 에디터의 Spriteset_Map 타일맵 repaint 요청
+          if (w._editorSpriteset?._tilemap) {
+            w._editorSpriteset._tilemap._mapData = backupDataMap.data;
+            w._editorSpriteset._tilemap._needsRepaint = true;
+          }
         }
         rendererObjRef.current = null;
         tilemapRef.current = null;
@@ -518,7 +611,11 @@ export function useThreeRenderer(
         (rendererObjRef as any)._cleanup();
       }
     };
-  }, [currentMap?.tilesetId, currentMap?.width, currentMap?.height, currentMapId, tilesetInfo]);
+  }, [standalone ? standalone.mapId : currentMap?.tilesetId,
+      standalone ? standalone.mapData : currentMap?.width,
+      standalone ? null : currentMap?.height,
+      standalone ? null : currentMapId,
+      standalone ? null : tilesetInfo]);
 
   // Sync grid mesh visibility
   useEffect(() => {
@@ -541,12 +638,13 @@ export function useThreeRenderer(
     lightOverlayMeshesRef,
   }), []);
 
-  // Delegated overlay hooks
-  useRegionOverlay(overlayRefs, rendererReady);
-  usePlayerStartOverlay(overlayRefs, rendererReady);
-  useEventOverlay(overlayRefs, rendererReady);
-  useDragPreviewOverlay(overlayRefs, dragPreviews);
-  useLightOverlay(overlayRefs, rendererReady);
+  // Delegated overlay hooks (standalone 모드에서는 스킵)
+  const skipOverlays = !!standalone;
+  useRegionOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
+  usePlayerStartOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
+  useEventOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
+  useDragPreviewOverlay(overlayRefs, skipOverlays ? [] : dragPreviews);
+  useLightOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
 
   return {
     rendererObjRef, tilemapRef, stageRef, spritesetRef, gridMeshRef,
