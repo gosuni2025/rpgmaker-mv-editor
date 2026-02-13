@@ -596,6 +596,19 @@ const en = {
     renameMap: 'Rename Map',
     deleteMap: 'Delete',
     confirmDelete: 'Delete map {{id}}?',
+    loadSampleMap: 'Load...',
+  },
+
+  sampleMap: {
+    title: 'Sample Maps',
+    all: 'All',
+    loading: 'Loading sample maps...',
+    noMaps: 'No sample maps available',
+    size: 'Size',
+    tilesetId: 'Tileset ID',
+    warning: 'Map {{id}} data will be overwritten with the selected sample map.',
+    applied: 'Sample map "{{name}}" applied',
+    applying: 'Applying...',
   },
 
   animations: {

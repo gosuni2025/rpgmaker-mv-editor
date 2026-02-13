@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import projectManager from '../services/projectManager';
 import * as l10n from '../services/localizationManager';
+import sampleMapExtractor from '../services/sampleMapExtractor';
 
 const router = express.Router();
 
@@ -14,6 +15,38 @@ const STRIP_ONLY_FIELDS = ['tilesetNames'];
 router.get('/', (req: Request, res: Response) => {
   try {
     const data = projectManager.readJSON('MapInfos.json');
+    res.json(data);
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// ── 샘플 맵 (로딩) API ── (NOTE: /:id 와일드카드보다 앞에 정의해야 함)
+
+/** 샘플 맵 목록 */
+router.get('/sample-maps', (_req: Request, res: Response) => {
+  try {
+    const list = sampleMapExtractor.getMapList();
+    if (!list) {
+      return res.status(404).json({ error: 'RPG Maker MV binary not found' });
+    }
+    res.json(list);
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+/** 샘플 맵 데이터 가져오기 */
+router.get('/sample-maps/:id', (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id) || id < 1 || id > 104) {
+      return res.status(400).json({ error: 'Invalid sample map id' });
+    }
+    const data = sampleMapExtractor.getMapData(id);
+    if (!data) {
+      return res.status(404).json({ error: 'Sample map not found' });
+    }
     res.json(data);
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });

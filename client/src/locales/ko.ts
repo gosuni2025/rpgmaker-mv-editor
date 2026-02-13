@@ -977,6 +977,19 @@ const ko = {
     renameMap: '맵 이름 변경',
     deleteMap: '삭제',
     confirmDelete: '맵 {{id}}을(를) 삭제하시겠습니까?',
+    loadSampleMap: '로딩...',
+  },
+
+  sampleMap: {
+    title: '샘플 맵',
+    all: '전체',
+    loading: '샘플 맵 로딩 중...',
+    noMaps: '샘플 맵이 없습니다',
+    size: '크기',
+    tilesetId: '타일셋 ID',
+    warning: '맵 {{id}}의 데이터가 선택한 샘플 맵으로 덮어씌워집니다.',
+    applied: '샘플 맵 "{{name}}"이(가) 적용되었습니다',
+    applying: '적용 중...',
   },
 
   // === Animations Tab ===
