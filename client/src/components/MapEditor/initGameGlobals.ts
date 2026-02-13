@@ -6,26 +6,13 @@ declare const DataManager: any;
 
 /** Request a render frame (shared helper for all overlay effects) */
 export function requestRenderFrames(
-  rendererObjRef: React.MutableRefObject<any>,
-  stageRef: React.MutableRefObject<any>,
+  _rendererObjRef: React.MutableRefObject<any>,
+  _stageRef: React.MutableRefObject<any>,
   renderRequestedRef: React.MutableRefObject<boolean>,
-  frames = 1,
+  _frames = 1,
 ) {
-  if (renderRequestedRef.current) return;
+  // 연속 animationLoop가 돌고 있으므로 플래그만 설정
   renderRequestedRef.current = true;
-  let remaining = frames;
-  function doFrame() {
-    renderRequestedRef.current = false;
-    if (!rendererObjRef.current || !stageRef.current) return;
-    const strategy = (window as any).RendererStrategy?.getStrategy();
-    if (strategy) strategy.render(rendererObjRef.current, stageRef.current);
-    remaining--;
-    if (remaining > 0) {
-      renderRequestedRef.current = true;
-      requestAnimationFrame(doFrame);
-    }
-  }
-  requestAnimationFrame(doFrame);
 }
 
 /** 게임 런타임 전역 데이터($data*, $game*) 초기화 */

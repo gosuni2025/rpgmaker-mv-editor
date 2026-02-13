@@ -251,56 +251,62 @@ export function useThreeRenderer(
           lastMapDataRef.current = latestMap.data;
         }
 
-        try {
-          spriteset.update();
-        } catch (_e) {
-          // update 중 에러는 무시
-        }
-
         const strategy = RendererStrategy.getStrategy();
         strategy.render(rendererObj, stage);
       }
 
-      function requestRender(frames = 1) {
-        if (renderRequestedRef.current) return;
+      function requestRender(_frames = 1) {
+        // 연속 animationLoop가 돌고 있으므로 플래그만 설정
         renderRequestedRef.current = true;
-        let remaining = frames;
-        function doFrame() {
-          renderRequestedRef.current = false;
-          renderOnce();
-          remaining--;
-          if (remaining > 0 && !disposed) {
-            renderRequestedRef.current = true;
-            animFrameId = requestAnimationFrame(doFrame);
-          }
-        }
-        animFrameId = requestAnimationFrame(doFrame);
       }
 
       let initFrameCount = 0;
       let shadowSynced = false;
-      function waitAndRender() {
+      let lastAnimFrame = -1;
+      function animationLoop() {
         if (disposed) return;
-        if (spriteset._tilemap && spriteset._tilemap.isReady()) {
+        animFrameId = requestAnimationFrame(animationLoop);
+
+        if (!spriteset._tilemap || !spriteset._tilemap.isReady()) return;
+
+        // 초기 프레임: 타일맵 강제 repaint
+        if (initFrameCount < 10) {
           spriteset._tilemap._needsRepaint = true;
-          renderOnce();
           initFrameCount++;
-          const _SL = w.ShadowLight;
-          const shadowPending = _SL && w.ConfigManager?.shadowLight && !_SL._active;
-          // ShadowLight가 활성화된 직후 에디터 라이트 동기화
-          if (!shadowSynced && _SL && _SL._active && w.ConfigManager?.shadowLight) {
-            shadowSynced = true;
-            const es = useEditorStore.getState();
-            syncEditorLightsToScene(rendererObj.scene, es.currentMap?.editorLights, es.mode3d);
-          }
-          if (initFrameCount < 10 || (shadowPending && initFrameCount < 60)) {
-            animFrameId = requestAnimationFrame(waitAndRender);
-          }
-        } else {
-          animFrameId = requestAnimationFrame(waitAndRender);
+        }
+
+        // ShadowLight 초기화 대기
+        const _SL = w.ShadowLight;
+        const shadowPending = _SL && w.ConfigManager?.shadowLight && !_SL._active;
+        if (shadowPending && initFrameCount < 60) {
+          spriteset._tilemap._needsRepaint = true;
+          initFrameCount++;
+        }
+        if (!shadowSynced && _SL && _SL._active && w.ConfigManager?.shadowLight) {
+          shadowSynced = true;
+          const es = useEditorStore.getState();
+          syncEditorLightsToScene(rendererObj.scene, es.currentMap?.editorLights, es.mode3d);
+        }
+
+        // spriteset.update()로 Tilemap.animationCount 증가
+        try {
+          spriteset.update();
+        } catch (_e) {}
+
+        // 물 타일 애니메이션: animationFrame이 변경되었으면 repaint
+        const tilemap = spriteset._tilemap;
+        if (tilemap.animationFrame !== lastAnimFrame) {
+          lastAnimFrame = tilemap.animationFrame;
+          tilemap._needsRepaint = true;
+        }
+
+        // repaint가 필요한 경우에만 렌더링
+        if (tilemap._needsRepaint || renderRequestedRef.current) {
+          renderRequestedRef.current = false;
+          renderOnce();
         }
       }
-      waitAndRender();
+      animationLoop();
       rendererReadyRef.current += 1;
       setRendererReady(rendererReadyRef.current);
 
