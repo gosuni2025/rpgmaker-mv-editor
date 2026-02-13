@@ -10,6 +10,8 @@ var PictureShader = {};
 
 // 전역 시간 (매 프레임 업데이트)
 PictureShader._time = 0;
+// Three.js 렌더러 참조 (멀티패스용)
+PictureShader._renderer = null;
 
 //=============================================================================
 // 공통 Vertex Shader
@@ -524,7 +526,8 @@ PictureShader.createMaterial = function(type, params, texture) {
         _Game_Screen_showPicture.call(this, pictureId, name, origin, x, y,
                                        scaleX, scaleY, opacity, blendMode);
         // shaderData가 전달되면 해당 picture에 설정
-        if (shaderData && shaderData.enabled) {
+        // 배열 또는 단일 객체 모두 지원
+        if (shaderData) {
             var realPictureId = this.realPictureId(pictureId);
             var picture = this._pictures[realPictureId];
             if (picture) {
@@ -572,17 +575,22 @@ PictureShader.createMaterial = function(type, params, texture) {
 })();
 
 //=============================================================================
-// Sprite_Picture 확장
+// Sprite_Picture 확장 (멀티패스 셰이더 체이닝)
 //=============================================================================
 
 (function() {
     var _Sprite_Picture_initialize = Sprite_Picture.prototype.initialize;
     Sprite_Picture.prototype.initialize = function(pictureId) {
-        this._shaderMaterial = null;
-        this._shaderType = null;
+        // 멀티패스용 필드
+        this._shaderPasses = [];       // [{material, type, params}]
+        this._shaderRTs = [];          // [WebGLRenderTarget]
+        this._shaderKey = '';          // 현재 셰이더 조합 키
         this._originalMaterial = null;
         this._shakeOffsetX = 0;
         this._shakeOffsetY = 0;
+        this._rtScene = null;
+        this._rtCamera = null;
+        this._rtQuad = null;
         _Sprite_Picture_initialize.call(this, pictureId);
     };
 
@@ -593,10 +601,32 @@ PictureShader.createMaterial = function(type, params, texture) {
     };
 
     /**
-     * 셰이더 업데이트:
-     * - Game_Picture의 shaderData를 확인
-     * - 변경되면 ShaderMaterial 생성/교체 또는 복원
-     * - 매 프레임 uTime 업데이트, 텍스처·opacity 동기화
+     * shaderData를 배열로 정규화한다.
+     * 단일 객체 {type,enabled,params}이면 배열로 감싸고,
+     * 배열이면 enabled인 것만 필터링한다.
+     */
+    Sprite_Picture.prototype._normalizeShaderData = function(shaderData) {
+        if (!shaderData) return [];
+        // 배열 형태
+        if (Array.isArray(shaderData)) {
+            return shaderData.filter(function(s) { return s && s.enabled; });
+        }
+        // 단일 객체 (하위 호환)
+        if (shaderData.enabled) {
+            return [shaderData];
+        }
+        return [];
+    };
+
+    /**
+     * 셰이더 조합의 고유 키를 생성한다. (변경 감지용)
+     */
+    Sprite_Picture.prototype._makeShaderKey = function(passes) {
+        return passes.map(function(s) { return s.type; }).join('+');
+    };
+
+    /**
+     * 셰이더 업데이트 (멀티패스)
      */
     Sprite_Picture.prototype.updateShader = function() {
         var picture = this.picture();
@@ -606,90 +636,183 @@ PictureShader.createMaterial = function(type, params, texture) {
         }
 
         var shaderData = picture.shaderData();
+        var passes = this._normalizeShaderData(shaderData);
 
-        // 셰이더가 없거나 비활성이면 원래 material로 복원
-        if (!shaderData || !shaderData.enabled) {
+        // 셰이더가 없으면 복원
+        if (passes.length === 0) {
             this._restoreOriginalMaterial();
             return;
         }
 
-        var type = shaderData.type;
-        var params = shaderData.params || {};
-
-        // 셰이더 타입이 변경되었으면 새로 생성
-        if (this._shaderType !== type) {
-            this._applyShaderMaterial(type, params);
+        // 셰이더 조합이 변경되었으면 재생성
+        var key = this._makeShaderKey(passes);
+        if (this._shaderKey !== key) {
+            this._applyShaderPasses(passes);
+            this._shaderKey = key;
         }
 
-        // ShaderMaterial이 있으면 매 프레임 업데이트
-        if (this._shaderMaterial) {
-            var u = this._shaderMaterial.uniforms;
+        // 매 프레임: 멀티패스 렌더링 실행
+        this._executeMultipass(passes);
 
-            // 시간 업데이트
-            if (u.uTime) {
-                u.uTime.value = PictureShader._time;
-            }
-
-            // 텍스처 동기화: ThreeSprite의 _threeTexture를 사용
-            if (u.map && this._threeTexture) {
-                u.map.value = this._threeTexture;
-            }
-
-            // opacity 동기화
-            if (u.opacity) {
-                u.opacity.value = this.worldAlpha;
-            }
-
-            // Shake: JS 레벨 position offset
-            if (type === 'shake') {
-                var p = shaderData.params || {};
+        // Shake offset 계산 (shake 셰이더가 포함되어 있으면)
+        this._shakeOffsetX = 0;
+        this._shakeOffsetY = 0;
+        for (var i = 0; i < passes.length; i++) {
+            if (passes[i].type === 'shake') {
+                var p = passes[i].params || {};
                 var power = (p.power !== undefined) ? p.power : 5;
                 var speed = (p.speed !== undefined) ? p.speed : 10;
                 var dir   = (p.direction !== undefined) ? p.direction : 2;
                 var t = PictureShader._time * speed;
-                var dx = 0, dy = 0;
-                if (dir === 0 || dir === 2) { // horizontal
-                    dx = (Math.sin(t * 7.13) + Math.sin(t * 5.71) * 0.5) * power;
+                if (dir === 0 || dir === 2) {
+                    this._shakeOffsetX += (Math.sin(t * 7.13) + Math.sin(t * 5.71) * 0.5) * power;
                 }
-                if (dir === 1 || dir === 2) { // vertical
-                    dy = (Math.sin(t * 6.47) + Math.sin(t * 4.93) * 0.5) * power;
+                if (dir === 1 || dir === 2) {
+                    this._shakeOffsetY += (Math.sin(t * 6.47) + Math.sin(t * 4.93) * 0.5) * power;
                 }
-                this._shakeOffsetX = dx;
-                this._shakeOffsetY = dy;
-            } else {
-                this._shakeOffsetX = 0;
-                this._shakeOffsetY = 0;
             }
         }
     };
 
     /**
-     * ShaderMaterial을 적용한다.
+     * 멀티패스 셰이더 Material과 RenderTarget을 생성한다.
      */
-    Sprite_Picture.prototype._applyShaderMaterial = function(type, params) {
+    Sprite_Picture.prototype._applyShaderPasses = function(passes) {
         // 원래 material 백업
         if (!this._originalMaterial && this._material) {
             this._originalMaterial = this._material;
         }
 
-        // 기존 셰이더 material 정리
-        if (this._shaderMaterial) {
-            this._shaderMaterial.dispose();
-            this._shaderMaterial = null;
+        // 기존 패스 정리
+        this._disposeShaderPasses();
+
+        // 공유 렌더 씬/카메라 (lazy init)
+        if (!this._rtScene) {
+            this._rtScene = new THREE.Scene();
+            this._rtCamera = new THREE.OrthographicCamera(-0.5, 0.5, 0.5, -0.5, -1, 1);
+            var geo = new THREE.PlaneGeometry(1, 1);
+            this._rtQuad = new THREE.Mesh(geo, null);
+            this._rtQuad.frustumCulled = false;
+            this._rtScene.add(this._rtQuad);
         }
 
-        var texture = this._threeTexture || (this._material && this._material.map) || null;
-        var material = PictureShader.createMaterial(type, params, texture);
+        // RT 크기: 텍스처 크기 또는 기본값
+        var tex = this._threeTexture || (this._material && this._material.map);
+        var rtW = 256, rtH = 256;
+        if (tex && tex.image) {
+            rtW = tex.image.width || 256;
+            rtH = tex.image.height || 256;
+        }
 
-        if (material) {
-            this._shaderMaterial = material;
-            this._shaderType = type;
-            this._material = material;
-            if (this._threeObj) {
-                this._threeObj.material = material;
+        // 각 패스별 Material + RT 생성
+        for (var i = 0; i < passes.length; i++) {
+            var s = passes[i];
+            // shake는 JS 레벨 처리이므로 Material 패스 불필요, 건너뜀
+            if (s.type === 'shake') {
+                this._shaderPasses.push({ material: null, type: s.type, params: s.params });
+                this._shaderRTs.push(null);
+                continue;
             }
-            // blendMode 동기화
-            this._updateBlendMode();
+            var mat = PictureShader.createMaterial(s.type, s.params || {}, null);
+            this._shaderPasses.push({ material: mat, type: s.type, params: s.params });
+            // 마지막 패스가 아니면 RT 필요 (중간 결과물 저장)
+            // 마지막 패스도 RT에 렌더링 후 최종 material에 적용
+            var rt = new THREE.WebGLRenderTarget(rtW, rtH, {
+                minFilter: THREE.NearestFilter,
+                magFilter: THREE.NearestFilter,
+                format: THREE.RGBAFormat,
+            });
+            this._shaderRTs.push(rt);
+        }
+
+        // 최종 출력용 MeshBasicMaterial (마지막 RT의 결과를 mesh에 표시)
+        var outputMat = new THREE.MeshBasicMaterial({
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+        });
+        this._outputMaterial = outputMat;
+        this._material = outputMat;
+        if (this._threeObj) {
+            this._threeObj.material = outputMat;
+        }
+        this._updateBlendMode();
+    };
+
+    /**
+     * 매 프레임 멀티패스 렌더링을 실행한다.
+     */
+    Sprite_Picture.prototype._executeMultipass = function(passes) {
+        if (this._shaderPasses.length === 0) return;
+
+        // Three.js 렌더러 가져오기
+        var renderer = PictureShader._renderer;
+        if (!renderer) return;
+
+        var sourceTexture = this._threeTexture || (this._originalMaterial && this._originalMaterial.map);
+        if (!sourceTexture) return;
+
+        var currentInput = sourceTexture;
+        var lastRT = null;
+
+        for (var i = 0; i < this._shaderPasses.length; i++) {
+            var pass = this._shaderPasses[i];
+            var rt = this._shaderRTs[i];
+
+            // shake는 JS 레벨 처리, 패스 건너뜀
+            if (pass.type === 'shake' || !pass.material) continue;
+
+            var mat = pass.material;
+            var u = mat.uniforms;
+
+            // 시간 업데이트
+            if (u.uTime) u.uTime.value = PictureShader._time;
+            // 입력 텍스처 설정
+            if (u.map) u.map.value = currentInput;
+            // opacity는 마지막 패스에서만 적용
+            if (u.opacity) u.opacity.value = 1.0;
+
+            // RT에 렌더링
+            this._rtQuad.material = mat;
+            var prevRT = renderer.getRenderTarget();
+            renderer.setRenderTarget(rt);
+            renderer.render(this._rtScene, this._rtCamera);
+            renderer.setRenderTarget(prevRT);
+
+            // 다음 패스의 입력으로 사용
+            currentInput = rt.texture;
+            lastRT = rt;
+        }
+
+        // 최종 RT 결과를 출력 material에 적용
+        if (lastRT && this._outputMaterial) {
+            this._outputMaterial.map = lastRT.texture;
+            this._outputMaterial.opacity = this.worldAlpha;
+            this._outputMaterial.needsUpdate = true;
+        }
+    };
+
+    /**
+     * 셰이더 패스를 모두 정리한다.
+     */
+    Sprite_Picture.prototype._disposeShaderPasses = function() {
+        for (var i = 0; i < this._shaderPasses.length; i++) {
+            if (this._shaderPasses[i].material) {
+                this._shaderPasses[i].material.dispose();
+            }
+        }
+        for (var j = 0; j < this._shaderRTs.length; j++) {
+            if (this._shaderRTs[j]) {
+                this._shaderRTs[j].dispose();
+            }
+        }
+        this._shaderPasses = [];
+        this._shaderRTs = [];
+        this._shaderKey = '';
+        if (this._outputMaterial) {
+            this._outputMaterial.dispose();
+            this._outputMaterial = null;
         }
     };
 
@@ -697,10 +820,8 @@ PictureShader.createMaterial = function(type, params, texture) {
      * 원래 MeshBasicMaterial로 복원한다.
      */
     Sprite_Picture.prototype._restoreOriginalMaterial = function() {
-        if (this._shaderMaterial) {
-            this._shaderMaterial.dispose();
-            this._shaderMaterial = null;
-            this._shaderType = null;
+        if (this._shaderPasses.length > 0 || this._outputMaterial) {
+            this._disposeShaderPasses();
             this._shakeOffsetX = 0;
             this._shakeOffsetY = 0;
 
@@ -710,7 +831,6 @@ PictureShader.createMaterial = function(type, params, texture) {
                     this._threeObj.material = this._originalMaterial;
                 }
                 this._originalMaterial = null;
-                // 텍스처 재동기화
                 this._updateTexture();
                 this._updateBlendMode();
             }
@@ -737,5 +857,9 @@ PictureShader.createMaterial = function(type, params, texture) {
     Spriteset_Base.prototype.update = function() {
         _Spriteset_Base_update.call(this);
         PictureShader._time += 1 / 60;
+        // Three.js 렌더러 참조 캐싱
+        if (!PictureShader._renderer && Graphics._renderer && Graphics._renderer.renderer) {
+            PictureShader._renderer = Graphics._renderer.renderer;
+        }
     };
 })();
