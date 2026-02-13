@@ -216,7 +216,7 @@ export function useThreeRenderer(
 
       // animTileSettings 초기화 (맵 로드 시)
       if (typeof ThreeWaterShader !== 'undefined') {
-        ThreeWaterShader.setAllTypeSettings(effectiveMap.animTileSettings || {});
+        ThreeWaterShader.setAllKindSettings(effectiveMap.animTileSettings || {});
       }
 
       // ShadowLight._scene을 Spriteset_Map 생성 전에 설정해야
@@ -523,7 +523,7 @@ export function useThreeRenderer(
         }
         if (state.currentMap?.animTileSettings !== prevState.currentMap?.animTileSettings) {
           if (typeof ThreeWaterShader !== 'undefined') {
-            ThreeWaterShader.setAllTypeSettings(state.currentMap?.animTileSettings || {});
+            ThreeWaterShader.setAllKindSettings(state.currentMap?.animTileSettings || {});
             // 메시 재빌드 (uniform 반영)
             if (spriteset._tilemap) spriteset._tilemap._needsRepaint = true;
           }
