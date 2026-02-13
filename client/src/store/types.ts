@@ -235,6 +235,7 @@ export interface EditorState {
   undo: () => void;
   redo: () => void;
   resizeMap: (newWidth: number, newHeight: number, offsetX: number, offsetY: number) => void;
+  shiftMap: (dx: number, dy: number) => void;
 
   // Actions - Clipboard
   copyTiles: (x1: number, y1: number, x2: number, y2: number) => void;

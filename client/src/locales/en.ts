@@ -611,6 +611,31 @@ const en = {
     applying: 'Applying...',
   },
 
+  mapCtx: {
+    editMode: 'Edit...',
+    space: 'Space',
+    newEvent: 'New...',
+    loadSampleMap: 'Load...',
+    copy: 'Copy',
+    paste: 'Paste',
+    delete: 'Delete',
+    find: 'Find...',
+    shift: 'Shift...',
+    saveAsImage: 'Save as Image...',
+    imageSaved: 'Image saved',
+    imageSaveFailed: 'Image save failed',
+  },
+
+  shiftMap: {
+    title: 'Shift',
+    direction: 'Direction',
+    distance: 'Distance',
+    up: 'Up',
+    down: 'Down',
+    left: 'Left',
+    right: 'Right',
+  },
+
   animations: {
     targetSelect: 'Select Target',
     search: 'Search...',
