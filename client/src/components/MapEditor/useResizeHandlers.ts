@@ -28,15 +28,40 @@ export function useResizeHandlers(
   }, []);
   const [resizeCursor, setResizeCursor] = useState<string | null>(null);
 
-  const handleResizeMove = useCallback((e: MouseEvent) => {
+  // 최신 값을 ref로 유지
+  const zoomLevelRef = useRef(zoomLevel);
+  zoomLevelRef.current = zoomLevel;
+  const resizeMapRef = useRef(resizeMap);
+  resizeMapRef.current = resizeMap;
+
+  // ref를 통해 최신 로직을 참조하는 안정적인 이벤트 핸들러
+  const moveImpl = useRef<(e: MouseEvent) => void>(() => {});
+  const upImpl = useRef<() => void>(() => {});
+  const keyDownImpl = useRef<(e: KeyboardEvent) => void>(() => {});
+
+  // 한 번만 생성되는 안정적인 래퍼 함수 (addEventListener/removeEventListener에서 동일 참조 보장)
+  const [stableHandlers] = useState(() => ({
+    move: (e: MouseEvent) => moveImpl.current(e),
+    up: () => upImpl.current(),
+    keyDown: (e: KeyboardEvent) => keyDownImpl.current(e),
+  }));
+
+  const cleanup = useCallback(() => {
+    window.removeEventListener('mousemove', stableHandlers.move);
+    window.removeEventListener('mouseup', stableHandlers.up);
+    window.removeEventListener('keydown', stableHandlers.keyDown);
+  }, [stableHandlers]);
+
+  // mousemove 구현
+  moveImpl.current = (e: MouseEvent) => {
     if (!isResizing.current || !resizeEdge.current) return;
     const canvas = webglCanvasRef.current;
     if (!canvas) return;
     const container = canvas.parentElement;
     if (!container) return;
     const rect = container.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / zoomLevel;
-    const py = (e.clientY - rect.top) / zoomLevel;
+    const px = (e.clientX - rect.left) / zoomLevelRef.current;
+    const py = (e.clientY - rect.top) / zoomLevelRef.current;
     const dx = px - resizeStartPx.current.x;
     const dy = py - resizeStartPx.current.y;
     const edge = resizeEdge.current;
@@ -56,15 +81,15 @@ export function useResizeHandlers(
     if (newW > 256) { if (dRight !== 0) dRight = 256 - origW + dLeft; else dLeft = origW + dRight - 256; }
     if (newH > 256) { if (dBottom !== 0) dBottom = 256 - origH + dTop; else dTop = origH + dBottom - 256; }
     updateResizePreview({ dLeft, dTop, dRight, dBottom });
-  }, [zoomLevel, updateResizePreview]);
+  };
 
-  const handleResizeUp = useCallback(() => {
+  // mouseup 구현: 리사이즈 확정
+  upImpl.current = () => {
     if (!isResizing.current) return;
+    const preview = resizePreviewRef.current;
     isResizing.current = false;
     resizeEdge.current = null;
-    window.removeEventListener('mousemove', handleResizeMove);
-    window.removeEventListener('mouseup', handleResizeUp);
-    const preview = resizePreviewRef.current;
+    cleanup();
     if (preview) {
       const { dLeft, dTop, dRight, dBottom } = preview;
       if (dLeft !== 0 || dTop !== 0 || dRight !== 0 || dBottom !== 0) {
@@ -72,18 +97,27 @@ export function useResizeHandlers(
         const origH = resizeOrigSize.current.h;
         const newW = origW + dRight - dLeft;
         const newH = origH + dBottom - dTop;
-        resizeMap(newW, newH, -dLeft, -dTop);
+        resizeMapRef.current(newW, newH, -dLeft, -dTop);
       }
     }
     updateResizePreview(null);
-  }, [handleResizeMove, resizeMap, updateResizePreview]);
+  };
+
+  // keydown 구현: ESC로 리사이즈 취소
+  keyDownImpl.current = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && isResizing.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      isResizing.current = false;
+      resizeEdge.current = null;
+      cleanup();
+      updateResizePreview(null);
+    }
+  };
 
   useEffect(() => {
-    return () => {
-      window.removeEventListener('mousemove', handleResizeMove);
-      window.removeEventListener('mouseup', handleResizeUp);
-    };
-  }, [handleResizeMove, handleResizeUp]);
+    return () => cleanup();
+  }, [cleanup]);
 
   const startResize = useCallback((edge: ResizeEdge, px: { x: number; y: number }, mapSize: { w: number; h: number }) => {
     if (!edge) return;
@@ -92,9 +126,10 @@ export function useResizeHandlers(
     resizeStartPx.current = px;
     resizeOrigSize.current = mapSize;
     updateResizePreview({ dLeft: 0, dTop: 0, dRight: 0, dBottom: 0 });
-    window.addEventListener('mousemove', handleResizeMove);
-    window.addEventListener('mouseup', handleResizeUp);
-  }, [handleResizeMove, handleResizeUp, updateResizePreview]);
+    window.addEventListener('mousemove', stableHandlers.move);
+    window.addEventListener('mouseup', stableHandlers.up);
+    window.addEventListener('keydown', stableHandlers.keyDown);
+  }, [stableHandlers, updateResizePreview]);
 
   return {
     isResizing,

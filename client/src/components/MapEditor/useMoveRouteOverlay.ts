@@ -110,7 +110,7 @@ interface OverlayRefs {
 export function useMoveRouteOverlay(
   refs: OverlayRefs,
   hoverTile: { x: number; y: number } | null,
-  rendererReady: boolean,
+  rendererReady: number,
 ) {
   const editMode = useEditorStore((s) => s.editMode);
   const selectedEventIds = useEditorStore((s) => s.selectedEventIds);

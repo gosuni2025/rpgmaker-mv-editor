@@ -87,7 +87,7 @@ export function useDragPreviews(
 export function useDragPreviewMeshSync(
   refs: SyncRefs,
   dragPreviews: DragPreviewInfo[],
-  rendererReady: boolean,
+  rendererReady: number,
 ) {
   React.useEffect(() => {
     const rObj = refs.rendererObjRef.current;
@@ -163,7 +163,7 @@ export function useDragPreviewMeshSync(
  */
 export function useCameraZoneMeshCleanup(
   refs: SyncRefs,
-  rendererReady: boolean,
+  rendererReady: number,
 ) {
   const editMode = useEditorStore((s) => s.editMode);
 
@@ -191,7 +191,7 @@ export function useCameraZoneMeshCleanup(
 export function usePlayerStartDragPreview(
   refs: SyncRefs,
   playerStartDragPos: { x: number; y: number } | null,
-  rendererReady: boolean,
+  rendererReady: number,
 ) {
   const systemData = useEditorStore((s) => s.systemData);
   const currentMapId = useEditorStore((s) => s.currentMapId);

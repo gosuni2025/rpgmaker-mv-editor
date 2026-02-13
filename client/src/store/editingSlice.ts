@@ -1,5 +1,6 @@
 import type { MapObject, CameraZone } from '../types/rpgMakerMV';
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
+import apiClient from '../api/client';
 import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry } from './types';
 import { EDIT_MODE_STORAGE_KEY } from './types';
 import { recalcAutotiles } from './editingHelpers';

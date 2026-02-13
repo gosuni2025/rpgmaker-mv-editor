@@ -17,7 +17,7 @@ interface OverlayRefs {
 }
 
 /** Region overlay (Three.js meshes) */
-export function useRegionOverlay(refs: OverlayRefs, rendererReady: boolean) {
+export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
   const currentMap = useEditorStore((s) => s.currentMap);
   const currentLayer = useEditorStore((s) => s.currentLayer);
   const mode3d = useEditorStore((s) => s.mode3d);
@@ -92,7 +92,7 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: boolean) {
 }
 
 /** Player start position overlay (blue border + character image) */
-export function usePlayerStartOverlay(refs: OverlayRefs, rendererReady: boolean) {
+export function usePlayerStartOverlay(refs: OverlayRefs, rendererReady: number) {
   const systemData = useEditorStore((s) => s.systemData);
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const playerCharacterName = useEditorStore((s) => s.playerCharacterName);
@@ -227,7 +227,7 @@ export function usePlayerStartOverlay(refs: OverlayRefs, rendererReady: boolean)
 }
 
 /** Event overlay (border + name) in event edit mode */
-export function useEventOverlay(refs: OverlayRefs, rendererReady: boolean) {
+export function useEventOverlay(refs: OverlayRefs, rendererReady: number) {
   const editMode = useEditorStore((s) => s.editMode);
   const currentMap = useEditorStore((s) => s.currentMap);
 
@@ -430,7 +430,7 @@ export function useDragPreviewOverlay(refs: OverlayRefs, dragPreviews: DragPrevi
 }
 
 /** Light edit overlay (range circle, selection highlight, ground dot) */
-export function useLightOverlay(refs: OverlayRefs, rendererReady: boolean) {
+export function useLightOverlay(refs: OverlayRefs, rendererReady: number) {
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const selectedLightId = useEditorStore((s) => s.selectedLightId);
   const currentMap = useEditorStore((s) => s.currentMap);

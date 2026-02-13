@@ -28,7 +28,7 @@ function triggerRender(
 /**
  * Selection rectangle overlay (선택 영역 오버레이)
  */
-export function useSelectionRectOverlay(refs: OverlayRefs, rendererReady: boolean) {
+export function useSelectionRectOverlay(refs: OverlayRefs, rendererReady: number) {
   const selectionStart = useEditorStore((s) => s.selectionStart);
   const selectionEnd = useEditorStore((s) => s.selectionEnd);
 
@@ -102,7 +102,7 @@ export function useSelectionRectOverlay(refs: OverlayRefs, rendererReady: boolea
 /**
  * Paste preview overlay (붙여넣기 프리뷰 텍스처 + 메시)
  */
-export function usePastePreviewOverlay(refs: OverlayRefs, rendererReady: boolean) {
+export function usePastePreviewOverlay(refs: OverlayRefs, rendererReady: number) {
   const clipboard = useEditorStore((s) => s.clipboard);
   const isPasting = useEditorStore((s) => s.isPasting);
   const pastePreviewPos = useEditorStore((s) => s.pastePreviewPos);

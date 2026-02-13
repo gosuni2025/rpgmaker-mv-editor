@@ -36,7 +36,7 @@ export interface ThreeRendererRefs {
   dragPreviewMeshesRef: React.MutableRefObject<any[]>;
   toolPreviewMeshesRef: React.MutableRefObject<any[]>;
   startPosMeshesRef: React.MutableRefObject<any[]>;
-  rendererReady: boolean;
+  rendererReady: number;
 }
 
 export interface DragPreviewInfo {
@@ -58,7 +58,10 @@ export function useThreeRenderer(
   const currentMapId = useEditorStore((s) => s.currentMapId);
 
   // Track renderer readiness so overlay useEffects re-run after async setup
-  const [rendererReady, setRendererReady] = useState(false);
+  // Using a counter instead of boolean to ensure re-render even when cleanup(false)
+  // and setup(true) are batched by React into the same render cycle.
+  const [rendererReady, setRendererReady] = useState(0);
+  const rendererReadyRef = useRef(0);
 
   // Three.js renderer refs
   const rendererObjRef = useRef<any>(null);
@@ -298,7 +301,8 @@ export function useThreeRenderer(
         }
       }
       waitAndRender();
-      setRendererReady(true);
+      rendererReadyRef.current += 1;
+      setRendererReady(rendererReadyRef.current);
 
       const unsubscribe = useEditorStore.subscribe((state, prevState) => {
         if (state.currentMap !== prevState.currentMap) {
@@ -474,7 +478,7 @@ export function useThreeRenderer(
     setup();
 
     return () => {
-      setRendererReady(false);
+      setRendererReady(0);
       if ((rendererObjRef as any)._cleanup) {
         (rendererObjRef as any)._cleanup();
       }

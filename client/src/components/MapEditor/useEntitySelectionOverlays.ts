@@ -189,7 +189,7 @@ interface OverlayRefs {
 /**
  * Event selection overlays (선택된 이벤트 하이라이트 + 드래그 선택 영역 + 붙여넣기 프리뷰)
  */
-export function useEventSelectionOverlays(refs: OverlayRefs, rendererReady: boolean) {
+export function useEventSelectionOverlays(refs: OverlayRefs, rendererReady: number) {
   const editMode = useEditorStore((s) => s.editMode);
   const selectedEventIds = useEditorStore((s) => s.selectedEventIds);
   const eventSelectionStart = useEditorStore((s) => s.eventSelectionStart);
@@ -247,7 +247,7 @@ export function useEventSelectionOverlays(refs: OverlayRefs, rendererReady: bool
 /**
  * Light selection overlays (선택된 라이트 하이라이트 + 드래그 선택 영역 + 붙여넣기 프리뷰)
  */
-export function useLightSelectionOverlays(refs: OverlayRefs, rendererReady: boolean) {
+export function useLightSelectionOverlays(refs: OverlayRefs, rendererReady: number) {
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const selectedLightIds = useEditorStore((s) => s.selectedLightIds);
   const lightSelectionStart = useEditorStore((s) => s.lightSelectionStart);
@@ -302,7 +302,7 @@ export function useLightSelectionOverlays(refs: OverlayRefs, rendererReady: bool
 /**
  * Object selection overlays (선택된 오브젝트 하이라이트 + 드래그 선택 영역 + 붙여넣기 프리뷰)
  */
-export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: boolean) {
+export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: number) {
   const editMode = useEditorStore((s) => s.editMode);
   const selectedObjectIds = useEditorStore((s) => s.selectedObjectIds);
   const objectSelectionStart = useEditorStore((s) => s.objectSelectionStart);
