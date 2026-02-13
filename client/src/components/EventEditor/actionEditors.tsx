@@ -3,7 +3,7 @@ import type { AudioFile } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
 import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
-import { DataListPicker } from './controlEditors';
+import { DataListPicker, IconSprite } from './controlEditors';
 import apiClient from '../../api/client';
 
 interface NamedItem { id: number; name: string; iconIndex?: number }
@@ -802,8 +802,9 @@ export function RecoverAllEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (p
 }
 
 /** 인덱스 0부터 시작하는 DataListPicker (전체 파티 등 0번 항목 포함) */
-function DataListPickerWithZero({ items, value, onChange, onClose, title }: {
+function DataListPickerWithZero({ items, value, onChange, onClose, title, iconIndices }: {
   items: string[]; value: number; onChange: (id: number) => void; onClose: () => void; title?: string;
+  iconIndices?: (number | undefined)[];
 }) {
   const GROUP_SIZE = 20;
   const totalCount = items.length;
@@ -848,12 +849,19 @@ function DataListPickerWithZero({ items, value, onChange, onClose, title }: {
             ))}
           </div>
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-            {groupItems.map(item => (
-              <div key={item.id} style={{
-                padding: '3px 8px', cursor: 'pointer', fontSize: 12, color: '#ddd',
-                background: item.id === selected ? '#2675bf' : 'transparent',
-              }} onClick={() => setSelected(item.id)} onDoubleClick={() => { onChange(item.id); onClose(); }}>{item.label}</div>
-            ))}
+            {groupItems.map(item => {
+              const iconIdx = iconIndices?.[item.id];
+              return (
+                <div key={item.id} style={{
+                  padding: '3px 8px', cursor: 'pointer', fontSize: 12, color: '#ddd',
+                  background: item.id === selected ? '#2675bf' : 'transparent',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                }} onClick={() => setSelected(item.id)} onDoubleClick={() => { onChange(item.id); onClose(); }}>
+                  {iconIdx != null && iconIdx > 0 && <IconSprite iconIndex={iconIdx} />}
+                  <span>{item.label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
         <div className="image-picker-footer">
@@ -923,8 +931,8 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onO
   const [showItemPicker, setShowItemPicker] = useState(false);
 
   const actors = useDbNames('actors');
-  const weapons = useDbNames('weapons');
-  const armors = useDbNames('armors');
+  const { names: weapons, iconIndices: weaponIcons } = useDbNamesWithIcons('weapons');
+  const { names: armors, iconIndices: armorIcons } = useDbNamesWithIcons('armors');
 
   const EQUIP_TYPES = [
     { id: 1, label: '무기' },
@@ -950,6 +958,10 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onO
     }
     return list;
   }, [isWeapon, weapons, armors]);
+
+  const filteredIcons = useMemo(() => {
+    return isWeapon ? weaponIcons : armorIcons;
+  }, [isWeapon, weaponIcons, armorIcons]);
 
   const itemLabel = itemId === 0
     ? '없음'
@@ -994,7 +1006,7 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onO
       )}
       {showItemPicker && (
         <DataListPickerWithZero items={filteredItems} value={itemId} onChange={setItemId}
-          onClose={() => setShowItemPicker(false)} title="장비 아이템 선택" />
+          onClose={() => setShowItemPicker(false)} title="장비 아이템 선택" iconIndices={filteredIcons} />
       )}
     </>
   );

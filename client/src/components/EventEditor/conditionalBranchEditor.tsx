@@ -6,7 +6,7 @@ import { DataListPicker } from './controlEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import './ConditionalBranchEditor.css';
 
-interface NamedItem { id: number; name: string }
+interface NamedItem { id: number; name: string; iconIndex?: number }
 
 /** 데이터베이스에서 {id, name}[] 로드 */
 function useDbNames(endpoint: string): string[] {
@@ -21,6 +21,26 @@ function useDbNames(endpoint: string): string[] {
     }).catch(() => {});
   }, [endpoint]);
   return items;
+}
+
+function useDbNamesWithIcons(endpoint: string): { names: string[]; iconIndices: (number | undefined)[] } {
+  const [names, setNames] = useState<string[]>([]);
+  const [iconIndices, setIconIndices] = useState<(number | undefined)[]>([]);
+  useEffect(() => {
+    apiClient.get<(NamedItem | null)[]>(`/database/${endpoint}`).then(data => {
+      const nameArr: string[] = [];
+      const iconArr: (number | undefined)[] = [];
+      for (const item of data) {
+        if (item) {
+          nameArr[item.id] = item.name || '';
+          iconArr[item.id] = item.iconIndex;
+        }
+      }
+      setNames(nameArr);
+      setIconIndices(iconArr);
+    }).catch(() => {});
+  }, [endpoint]);
+  return { names, iconIndices };
 }
 
 const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
@@ -100,11 +120,11 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
   // 데이터 로드
   const actors = useDbNames('actors');
   const classes = useDbNames('classes');
-  const skills = useDbNames('skills');
-  const items = useDbNames('items');
-  const weapons = useDbNames('weapons');
-  const armors = useDbNames('armors');
-  const states = useDbNames('states');
+  const { names: skills, iconIndices: skillIcons } = useDbNamesWithIcons('skills');
+  const { names: items, iconIndices: itemIcons } = useDbNamesWithIcons('items');
+  const { names: weapons, iconIndices: weaponIcons } = useDbNamesWithIcons('weapons');
+  const { names: armors, iconIndices: armorIcons } = useDbNamesWithIcons('armors');
+  const { names: states, iconIndices: stateIcons } = useDbNamesWithIcons('states');
 
   const [showPicker, setShowPicker] = useState<string | null>(null);
 
@@ -497,6 +517,15 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
       default: return [];
     }
   };
+  const getActorParamIcons = (): (number | undefined)[] | undefined => {
+    switch (actorSubType) {
+      case 3: return skillIcons;
+      case 4: return weaponIcons;
+      case 5: return armorIcons;
+      case 6: return stateIcons;
+      default: return undefined;
+    }
+  };
   const getActorParamTitle = (): string => {
     switch (actorSubType) {
       case 2: return '직업 선택';
@@ -545,23 +574,23 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
       {showPicker === 'actor-param' && (
         <DataListPicker items={getActorParamList()} value={actorParam as number}
           onChange={v => setActorParam(v)}
-          onClose={() => setShowPicker(null)} title={getActorParamTitle()} />
+          onClose={() => setShowPicker(null)} title={getActorParamTitle()} iconIndices={getActorParamIcons()} />
       )}
       {showPicker === 'enemy-state' && (
         <DataListPicker items={states} value={enemyStateId} onChange={setEnemyStateId}
-          onClose={() => setShowPicker(null)} title="스테이트 선택" />
+          onClose={() => setShowPicker(null)} title="스테이트 선택" iconIndices={stateIcons} />
       )}
       {showPicker === 'item' && (
         <DataListPicker items={items} value={itemId} onChange={setItemId}
-          onClose={() => setShowPicker(null)} title="아이템 선택" />
+          onClose={() => setShowPicker(null)} title="아이템 선택" iconIndices={itemIcons} />
       )}
       {showPicker === 'weapon' && (
         <DataListPicker items={weapons} value={weaponId} onChange={setWeaponId}
-          onClose={() => setShowPicker(null)} title="무기 선택" />
+          onClose={() => setShowPicker(null)} title="무기 선택" iconIndices={weaponIcons} />
       )}
       {showPicker === 'armor' && (
         <DataListPicker items={armors} value={armorId} onChange={setArmorId}
-          onClose={() => setShowPicker(null)} title="방어구 선택" />
+          onClose={() => setShowPicker(null)} title="방어구 선택" iconIndices={armorIcons} />
       )}
     </>
   );

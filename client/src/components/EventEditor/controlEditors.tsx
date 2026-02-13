@@ -27,7 +27,7 @@ function loadIconSheet(cb: (img: HTMLImageElement) => void) {
 }
 
 /** 아이콘을 캔버스에 그리는 작은 컴포넌트 */
-function IconSprite({ iconIndex }: { iconIndex: number }) {
+export function IconSprite({ iconIndex }: { iconIndex: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [sheet, setSheet] = useState<HTMLImageElement | null>(_iconSheetCache);
 
