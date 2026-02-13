@@ -3,10 +3,10 @@ import type { AudioFile } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
 import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
-import { DataListPicker, IconSprite } from './controlEditors';
+import { DataListPicker, IconSprite, CharacterSprite, type CharacterInfo } from './controlEditors';
 import apiClient from '../../api/client';
 
-interface NamedItem { id: number; name: string; iconIndex?: number }
+interface NamedItem { id: number; name: string; iconIndex?: number; characterName?: string; characterIndex?: number }
 
 function useDbNames(endpoint: string): string[] {
   const [items, setItems] = useState<string[]>([]);
@@ -41,6 +41,29 @@ function useDbNamesWithIcons(endpoint: string): { names: string[]; iconIndices: 
     }).catch(() => {});
   }, [endpoint]);
   return { names, iconIndices };
+}
+
+/** 액터 이름과 캐릭터 정보를 함께 가져오는 훅 */
+function useActorData(): { names: string[]; characterData: (CharacterInfo | undefined)[] } {
+  const [names, setNames] = useState<string[]>([]);
+  const [characterData, setCharacterData] = useState<(CharacterInfo | undefined)[]>([]);
+  useEffect(() => {
+    apiClient.get<(NamedItem | null)[]>('/database/actors').then(data => {
+      const nameArr: string[] = [];
+      const charArr: (CharacterInfo | undefined)[] = [];
+      for (const item of data) {
+        if (item) {
+          nameArr[item.id] = item.name || '';
+          if (item.characterName) {
+            charArr[item.id] = { characterName: item.characterName, characterIndex: item.characterIndex ?? 0 };
+          }
+        }
+      }
+      setNames(nameArr);
+      setCharacterData(charArr);
+    }).catch(() => {});
+  }, []);
+  return { names, characterData };
 }
 
 export const DEFAULT_AUDIO: AudioFile = { name: '', pan: 0, pitch: 100, volume: 90 };
@@ -287,7 +310,7 @@ export function ChangePartyMemberEditor({ p, onOk, onCancel }: { p: unknown[]; o
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [operation, setOperation] = useState<number>((p[1] as number) || 0);
   const [initialize, setInitialize] = useState<boolean>((p[2] as boolean) ?? true);
-  const actors = useDbNames('actors');
+  const { names: actors, characterData: actorChars } = useActorData();
   const [showPicker, setShowPicker] = useState(false);
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
@@ -327,7 +350,7 @@ export function ChangePartyMemberEditor({ p, onOk, onCancel }: { p: unknown[]; o
 
       {showPicker && (
         <DataListPicker items={actors} value={actorId} onChange={setActorId}
-          onClose={() => setShowPicker(false)} title="대상 선택" />
+          onClose={() => setShowPicker(false)} title="대상 선택" characterData={actorChars} />
       )}
     </>
   );
@@ -350,7 +373,7 @@ function ActorStatChangeEditor({ p, onOk, onCancel, radioPrefix, showAllowKnocko
   const [allowKnockout, setAllowKnockout] = useState<boolean>((p[5] as boolean) ?? false);
   const [showActorPicker, setShowActorPicker] = useState(false);
 
-  const actorNames = useDbNames('actors');
+  const { names: actorNames, characterData: actorChars } = useActorData();
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
 
@@ -443,7 +466,7 @@ function ActorStatChangeEditor({ p, onOk, onCancel, radioPrefix, showAllowKnocko
 
       {showActorPicker && (
         <DataListPicker items={actorNames} value={actorId} onChange={setActorId}
-          onClose={() => setShowActorPicker(false)} title="액터 선택" />
+          onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
       )}
     </>
   );
@@ -484,7 +507,7 @@ export function ChangeParameterEditor({ p, onOk, onCancel }: { p: unknown[]; onO
   const [operand, setOperand] = useState<number>((p[5] as number) || 1);
   const [showActorPicker, setShowActorPicker] = useState(false);
 
-  const actorNames = useDbNames('actors');
+  const { names: actorNames, characterData: actorChars } = useActorData();
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
 
@@ -568,7 +591,7 @@ export function ChangeParameterEditor({ p, onOk, onCancel }: { p: unknown[]; onO
 
       {showActorPicker && (
         <DataListPicker items={actorNames} value={actorId} onChange={setActorId}
-          onClose={() => setShowActorPicker(false)} title="액터 선택" />
+          onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
       )}
     </>
   );
@@ -586,7 +609,7 @@ export function ChangeStateEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
   const [showActorPicker, setShowActorPicker] = useState(false);
   const [showStatePicker, setShowStatePicker] = useState(false);
 
-  const actorNames = useDbNames('actors');
+  const { names: actorNames, characterData: actorChars } = useActorData();
   const { names: stateNames, iconIndices: stateIcons } = useDbNamesWithIcons('states');
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
@@ -646,7 +669,7 @@ export function ChangeStateEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
 
       {showActorPicker && (
         <DataListPicker items={actorNames} value={actorId} onChange={setActorId}
-          onClose={() => setShowActorPicker(false)} title="액터 선택" />
+          onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
       )}
       {showStatePicker && (
         <DataListPicker items={stateNames} value={stateId} onChange={setStateId}
@@ -668,7 +691,7 @@ export function ChangeSkillEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
   const [showActorPicker, setShowActorPicker] = useState(false);
   const [showSkillPicker, setShowSkillPicker] = useState(false);
 
-  const actorNames = useDbNames('actors');
+  const { names: actorNames, characterData: actorChars } = useActorData();
   const { names: skillNames, iconIndices: skillIcons } = useDbNamesWithIcons('skills');
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
@@ -728,7 +751,7 @@ export function ChangeSkillEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
 
       {showActorPicker && (
         <DataListPicker items={actorNames} value={actorId} onChange={setActorId}
-          onClose={() => setShowActorPicker(false)} title="액터 선택" />
+          onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
       )}
       {showSkillPicker && (
         <DataListPicker items={skillNames} value={skillId} onChange={setSkillId}
@@ -749,7 +772,7 @@ export function RecoverAllEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (p
   const [actorId, setActorId] = useState<number>((p[1] as number) || 0);
   const [showActorPicker, setShowActorPicker] = useState(false);
 
-  const actorNames = useDbNames('actors');
+  const { names: actorNames, characterData: actorChars } = useActorData();
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
 
@@ -795,16 +818,17 @@ export function RecoverAllEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (p
 
       {showActorPicker && (
         <DataListPickerWithZero items={actorListWithAll} value={actorId} onChange={setActorId}
-          onClose={() => setShowActorPicker(false)} title="액터 선택" />
+          onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
       )}
     </>
   );
 }
 
 /** 인덱스 0부터 시작하는 DataListPicker (전체 파티 등 0번 항목 포함) */
-function DataListPickerWithZero({ items, value, onChange, onClose, title, iconIndices }: {
+function DataListPickerWithZero({ items, value, onChange, onClose, title, iconIndices, characterData }: {
   items: string[]; value: number; onChange: (id: number) => void; onClose: () => void; title?: string;
   iconIndices?: (number | undefined)[];
+  characterData?: (CharacterInfo | undefined)[];
 }) {
   const GROUP_SIZE = 20;
   const totalCount = items.length;
@@ -851,6 +875,7 @@ function DataListPickerWithZero({ items, value, onChange, onClose, title, iconIn
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
             {groupItems.map(item => {
               const iconIdx = iconIndices?.[item.id];
+              const charInfo = characterData?.[item.id];
               return (
                 <div key={item.id} style={{
                   padding: '3px 8px', cursor: 'pointer', fontSize: 12, color: '#ddd',
@@ -858,6 +883,7 @@ function DataListPickerWithZero({ items, value, onChange, onClose, title, iconIn
                   display: 'flex', alignItems: 'center', gap: 4,
                 }} onClick={() => setSelected(item.id)} onDoubleClick={() => { onChange(item.id); onClose(); }}>
                   {iconIdx != null && iconIdx > 0 && <IconSprite iconIndex={iconIdx} />}
+                  {charInfo?.characterName && <CharacterSprite {...charInfo} />}
                   <span>{item.label}</span>
                 </div>
               );
@@ -881,7 +907,7 @@ export function ChangeClassEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [classId, setClassId] = useState<number>((p[1] as number) || 1);
   const [keepLevel, setKeepLevel] = useState<boolean>((p[2] as boolean) || false);
-  const actors = useDbNames('actors');
+  const { names: actors, characterData: actorChars } = useActorData();
   const classes = useDbNames('classes');
   const [showActorPicker, setShowActorPicker] = useState(false);
   const [showClassPicker, setShowClassPicker] = useState(false);
@@ -907,7 +933,7 @@ export function ChangeClassEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
       </div>
       {showActorPicker && (
         <DataListPicker items={actors} value={actorId} onChange={setActorId}
-          onClose={() => setShowActorPicker(false)} title="대상 선택" />
+          onClose={() => setShowActorPicker(false)} title="대상 선택" characterData={actorChars} />
       )}
       {showClassPicker && (
         <DataListPicker items={classes} value={classId} onChange={setClassId}
@@ -930,7 +956,7 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onO
   const [showActorPicker, setShowActorPicker] = useState(false);
   const [showItemPicker, setShowItemPicker] = useState(false);
 
-  const actors = useDbNames('actors');
+  const { names: actors, characterData: actorChars } = useActorData();
   const { names: weapons, iconIndices: weaponIcons } = useDbNamesWithIcons('weapons');
   const { names: armors, iconIndices: armorIcons } = useDbNamesWithIcons('armors');
 
@@ -1002,7 +1028,7 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onO
 
       {showActorPicker && (
         <DataListPicker items={actors} value={actorId} onChange={setActorId}
-          onClose={() => setShowActorPicker(false)} title="액터 선택" />
+          onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
       )}
       {showItemPicker && (
         <DataListPickerWithZero items={filteredItems} value={itemId} onChange={setItemId}
@@ -1015,7 +1041,7 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onO
 export function ChangeNameEditor({ p, onOk, onCancel, label }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; label: string }) {
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [name, setName] = useState<string>((p[1] as string) || '');
-  const actors = useDbNames('actors');
+  const { names: actors, characterData: actorChars } = useActorData();
   const [showPicker, setShowPicker] = useState(false);
   return (
     <>
@@ -1034,7 +1060,7 @@ export function ChangeNameEditor({ p, onOk, onCancel, label }: { p: unknown[]; o
       </div>
       {showPicker && (
         <DataListPicker items={actors} value={actorId} onChange={setActorId}
-          onClose={() => setShowPicker(false)} title="대상 선택" />
+          onClose={() => setShowPicker(false)} title="대상 선택" characterData={actorChars} />
       )}
     </>
   );
@@ -1047,7 +1073,7 @@ export function ChangeNameEditor({ p, onOk, onCancel, label }: { p: unknown[]; o
 export function NameInputEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [maxChars, setMaxChars] = useState<number>((p[1] as number) || 8);
-  const actors = useDbNames('actors');
+  const { names: actors, characterData: actorChars } = useActorData();
   const [showPicker, setShowPicker] = useState(false);
   return (
     <>
@@ -1067,7 +1093,7 @@ export function NameInputEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (pa
       </div>
       {showPicker && (
         <DataListPicker items={actors} value={actorId} onChange={setActorId}
-          onClose={() => setShowPicker(false)} title="대상 선택" />
+          onClose={() => setShowPicker(false)} title="대상 선택" characterData={actorChars} />
       )}
     </>
   );
@@ -1076,7 +1102,7 @@ export function NameInputEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (pa
 export function ChangeProfileEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [profile, setProfile] = useState<string>((p[1] as string) || '');
-  const actors = useDbNames('actors');
+  const { names: actors, characterData: actorChars } = useActorData();
   const [showPicker, setShowPicker] = useState(false);
   return (
     <>
@@ -1097,7 +1123,7 @@ export function ChangeProfileEditor({ p, onOk, onCancel }: { p: unknown[]; onOk:
       </div>
       {showPicker && (
         <DataListPicker items={actors} value={actorId} onChange={setActorId}
-          onClose={() => setShowPicker(false)} title="대상 선택" />
+          onClose={() => setShowPicker(false)} title="대상 선택" characterData={actorChars} />
       )}
     </>
   );

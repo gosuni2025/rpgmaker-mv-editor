@@ -2,11 +2,11 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import apiClient from '../../api/client';
 import { selectStyle } from './messageEditors';
-import { DataListPicker } from './controlEditors';
+import { DataListPicker, type CharacterInfo } from './controlEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import './ConditionalBranchEditor.css';
 
-interface NamedItem { id: number; name: string; iconIndex?: number }
+interface NamedItem { id: number; name: string; iconIndex?: number; characterName?: string; characterIndex?: number }
 
 /** 데이터베이스에서 {id, name}[] 로드 */
 function useDbNames(endpoint: string): string[] {
@@ -41,6 +41,28 @@ function useDbNamesWithIcons(endpoint: string): { names: string[]; iconIndices: 
     }).catch(() => {});
   }, [endpoint]);
   return { names, iconIndices };
+}
+
+function useActorData(): { names: string[]; characterData: (CharacterInfo | undefined)[] } {
+  const [names, setNames] = useState<string[]>([]);
+  const [characterData, setCharacterData] = useState<(CharacterInfo | undefined)[]>([]);
+  useEffect(() => {
+    apiClient.get<(NamedItem | null)[]>('/database/actors').then(data => {
+      const nameArr: string[] = [];
+      const charArr: (CharacterInfo | undefined)[] = [];
+      for (const item of data) {
+        if (item) {
+          nameArr[item.id] = item.name || '';
+          if (item.characterName) {
+            charArr[item.id] = { characterName: item.characterName, characterIndex: item.characterIndex ?? 0 };
+          }
+        }
+      }
+      setNames(nameArr);
+      setCharacterData(charArr);
+    }).catch(() => {});
+  }, []);
+  return { names, characterData };
 }
 
 const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
@@ -118,7 +140,7 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
   const [scriptText, setScriptText] = useState(condType === 12 ? ((p[1] as string) || '') : '');
 
   // 데이터 로드
-  const actors = useDbNames('actors');
+  const { names: actors, characterData: actorChars } = useActorData();
   const classes = useDbNames('classes');
   const { names: skills, iconIndices: skillIcons } = useDbNamesWithIcons('skills');
   const { names: items, iconIndices: itemIcons } = useDbNamesWithIcons('items');
@@ -569,7 +591,7 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
       {/* 피커들 */}
       {showPicker === 'actor' && (
         <DataListPicker items={actors} value={actorId} onChange={setActorId}
-          onClose={() => setShowPicker(null)} title="액터 선택" />
+          onClose={() => setShowPicker(null)} title="액터 선택" characterData={actorChars} />
       )}
       {showPicker === 'actor-param' && (
         <DataListPicker items={getActorParamList()} value={actorParam as number}

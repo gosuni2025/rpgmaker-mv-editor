@@ -26,6 +26,72 @@ function loadIconSheet(cb: (img: HTMLImageElement) => void) {
   };
 }
 
+export interface CharacterInfo {
+  characterName: string;
+  characterIndex: number;
+}
+
+/** 캐릭터 이미지를 로드하고 캐시 */
+const _charImageCache = new Map<string, HTMLImageElement>();
+const _charImageLoading = new Map<string, ((img: HTMLImageElement) => void)[]>();
+
+function loadCharImage(name: string, cb: (img: HTMLImageElement) => void) {
+  if (!name) return;
+  const cached = _charImageCache.get(name);
+  if (cached) { cb(cached); return; }
+  const existing = _charImageLoading.get(name);
+  if (existing) { existing.push(cb); return; }
+  _charImageLoading.set(name, [cb]);
+  const img = new Image();
+  img.src = `/api/resources/img_characters/${name}.png`;
+  img.onload = () => {
+    _charImageCache.set(name, img);
+    _charImageLoading.get(name)?.forEach(fn => fn(img));
+    _charImageLoading.delete(name);
+  };
+}
+
+/** 캐릭터 스프라이트의 정면 1프레임을 표시하는 컴포넌트 */
+export function CharacterSprite({ characterName, characterIndex }: CharacterInfo) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [img, setImg] = useState<HTMLImageElement | null>(_charImageCache.get(characterName) || null);
+
+  useEffect(() => {
+    if (!characterName) return;
+    if (!img || img.src.indexOf(characterName) === -1) {
+      const cached = _charImageCache.get(characterName);
+      if (cached) { setImg(cached); return; }
+      loadCharImage(characterName, setImg);
+    }
+  }, [characterName]);
+
+  useEffect(() => {
+    if (!img || !canvasRef.current || !characterName) return;
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+    // RPG Maker MV 캐릭터 시트: 4열 x 2행, 각 캐릭터 3패턴 x 4방향
+    const isBig = characterName.startsWith('$');
+    const pw = img.width / (isBig ? 3 : 12);
+    const ph = img.height / (isBig ? 4 : 8);
+    const col = isBig ? 0 : characterIndex % 4;
+    const row = isBig ? 0 : Math.floor(characterIndex / 4);
+    // 정면(아래 방향=0행) 가운데 패턴(1)
+    const sx = (col * 3 + 1) * pw;
+    const sy = row * 4 * ph;
+    ctx.clearRect(0, 0, pw, ph);
+    canvasRef.current.width = pw;
+    canvasRef.current.height = ph;
+    ctx.drawImage(img, sx, sy, pw, ph, 0, 0, pw, ph);
+  }, [img, characterName, characterIndex]);
+
+  if (!characterName) return null;
+
+  return (
+    <canvas ref={canvasRef} width={48} height={48}
+      style={{ width: ICON_DISPLAY_SIZE, height: ICON_DISPLAY_SIZE, imageRendering: 'pixelated', flexShrink: 0 }} />
+  );
+}
+
 /** 아이콘을 캔버스에 그리는 작은 컴포넌트 */
 export function IconSprite({ iconIndex }: { iconIndex: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -52,9 +118,10 @@ export function IconSprite({ iconIndex }: { iconIndex: number }) {
 }
 
 /** 스위치/변수/아이템 등 목록에서 선택하는 2패널 팝업 */
-export function DataListPicker({ items, value, onChange, onClose, title, iconIndices }: {
+export function DataListPicker({ items, value, onChange, onClose, title, iconIndices, characterData }: {
   items: string[]; value: number; onChange: (id: number) => void; onClose: () => void; title?: string;
   iconIndices?: (number | undefined)[];
+  characterData?: (CharacterInfo | undefined)[];
 }) {
   const totalCount = items.length - 1; // items[0]은 null
   const groups = useMemo(() => {
@@ -114,6 +181,7 @@ export function DataListPicker({ items, value, onChange, onClose, title, iconInd
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
             {groupItems.map(item => {
               const iconIdx = iconIndices?.[item.id];
+              const charInfo = characterData?.[item.id];
               return (
                 <div
                   key={item.id}
@@ -126,6 +194,7 @@ export function DataListPicker({ items, value, onChange, onClose, title, iconInd
                   onDoubleClick={() => { onChange(item.id); onClose(); }}
                 >
                   {iconIdx != null && iconIdx > 0 && <IconSprite iconIndex={iconIdx} />}
+                  {charInfo?.characterName && <CharacterSprite {...charInfo} />}
                   <span>{item.label}</span>
                 </div>
               );
