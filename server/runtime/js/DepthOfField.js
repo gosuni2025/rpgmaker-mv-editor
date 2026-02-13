@@ -57,6 +57,13 @@ DepthOfField.config = {
     blurPower: 1.5      // 블러 증가 커브 (1=선형, 2=이차, 부드러운 전환)
 };
 
+DepthOfField.bloomConfig = {
+    threshold: 0.5,     // 밝기 추출 임계값 (0~1, 낮을수록 더 많은 부분이 bloom)
+    strength: 0.8,      // bloom 합성 강도 (0~2)
+    radius: 1.0,        // 블러 반경 배율
+    downscale: 4        // 블러 텍스처 축소 비율 (높을수록 넓게 번지고 가벼움)
+};
+
 //=============================================================================
 // Tilt-Shift Shader (화면 Y좌표 기반 DoF)
 //=============================================================================
@@ -410,6 +417,239 @@ TiltShiftPass.prototype.dispose = function() {
     this.fsQuad.dispose();
 };
 
+// --- BloomPass (밝은 부분 추출 → 가우시안 블러 → 원본 합성) ---
+var BloomShader = {
+    // 밝기 추출 셰이더
+    brightnessExtract: {
+        uniforms: {
+            tColor:    { value: null },
+            threshold: { value: 0.7 }
+        },
+        vertexShader: [
+            'varying vec2 vUv;',
+            'void main() {',
+            '    vUv = uv;',
+            '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+            '}'
+        ].join('\n'),
+        fragmentShader: [
+            'uniform sampler2D tColor;',
+            'uniform float threshold;',
+            'varying vec2 vUv;',
+            'void main() {',
+            '    vec4 color = texture2D(tColor, vUv);',
+            '    float brightness = dot(color.rgb, vec3(0.299, 0.587, 0.114));',
+            '    float soft = clamp(brightness - threshold + 0.5, 0.0, 1.0);',
+            '    soft = soft * soft * (3.0 - 2.0 * soft);',  // smoothstep-like
+            '    float contrib = max(0.0, brightness - threshold) * soft;',
+            '    gl_FragColor = vec4(color.rgb * contrib, 1.0);',
+            '}'
+        ].join('\n')
+    },
+    // 가우시안 블러 셰이더 (1D, 방향 지정)
+    gaussianBlur: {
+        uniforms: {
+            tColor:    { value: null },
+            direction: { value: new THREE.Vector2(1.0, 0.0) },
+            resolution: { value: new THREE.Vector2(512, 512) }
+        },
+        vertexShader: [
+            'varying vec2 vUv;',
+            'void main() {',
+            '    vUv = uv;',
+            '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+            '}'
+        ].join('\n'),
+        fragmentShader: [
+            'uniform sampler2D tColor;',
+            'uniform vec2 direction;',
+            'uniform vec2 resolution;',
+            'varying vec2 vUv;',
+            'void main() {',
+            '    vec2 off1 = vec2(1.411764705882353) * direction / resolution;',
+            '    vec2 off2 = vec2(3.2941176470588234) * direction / resolution;',
+            '    vec2 off3 = vec2(5.176470588235294) * direction / resolution;',
+            '    vec4 color = texture2D(tColor, vUv) * 0.1964825501511404;',
+            '    color += texture2D(tColor, vUv + off1) * 0.2969069646728344;',
+            '    color += texture2D(tColor, vUv - off1) * 0.2969069646728344;',
+            '    color += texture2D(tColor, vUv + off2) * 0.09447039785044732;',
+            '    color += texture2D(tColor, vUv - off2) * 0.09447039785044732;',
+            '    color += texture2D(tColor, vUv + off3) * 0.010381362401148057;',
+            '    color += texture2D(tColor, vUv - off3) * 0.010381362401148057;',
+            '    gl_FragColor = color;',
+            '}'
+        ].join('\n')
+    },
+    // 합성 셰이더 (원본 + bloom)
+    composite: {
+        uniforms: {
+            tColor:    { value: null },
+            tBloom:    { value: null },
+            strength:  { value: 0.5 }
+        },
+        vertexShader: [
+            'varying vec2 vUv;',
+            'void main() {',
+            '    vUv = uv;',
+            '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+            '}'
+        ].join('\n'),
+        fragmentShader: [
+            'uniform sampler2D tColor;',
+            'uniform sampler2D tBloom;',
+            'uniform float strength;',
+            'varying vec2 vUv;',
+            'void main() {',
+            '    vec4 original = texture2D(tColor, vUv);',
+            '    vec4 bloom = texture2D(tBloom, vUv);',
+            '    gl_FragColor = original + bloom * strength;',
+            '    gl_FragColor.a = original.a;',
+            '}'
+        ].join('\n')
+    }
+};
+
+function BloomPass(params) {
+    this.enabled = true;
+    this.needsSwap = true;
+    this.renderToScreen = false;
+
+    params = params || {};
+    this._threshold = params.threshold !== undefined ? params.threshold : 0.7;
+    this._strength = params.strength !== undefined ? params.strength : 0.5;
+    this._radius = params.radius !== undefined ? params.radius : 1.0;
+    this._downscale = params.downscale !== undefined ? params.downscale : 4;
+
+    // 밝기 추출 material
+    this._extractUniforms = THREE.UniformsUtils.clone(BloomShader.brightnessExtract.uniforms);
+    this._extractUniforms.threshold.value = this._threshold;
+    this._extractMaterial = new THREE.ShaderMaterial({
+        uniforms: this._extractUniforms,
+        vertexShader: BloomShader.brightnessExtract.vertexShader,
+        fragmentShader: BloomShader.brightnessExtract.fragmentShader
+    });
+
+    // 블러 materials (수평/수직)
+    this._blurHUniforms = THREE.UniformsUtils.clone(BloomShader.gaussianBlur.uniforms);
+    this._blurHUniforms.direction.value.set(this._radius, 0.0);
+    this._blurHMaterial = new THREE.ShaderMaterial({
+        uniforms: this._blurHUniforms,
+        vertexShader: BloomShader.gaussianBlur.vertexShader,
+        fragmentShader: BloomShader.gaussianBlur.fragmentShader
+    });
+
+    this._blurVUniforms = THREE.UniformsUtils.clone(BloomShader.gaussianBlur.uniforms);
+    this._blurVUniforms.direction.value.set(0.0, this._radius);
+    this._blurVMaterial = new THREE.ShaderMaterial({
+        uniforms: this._blurVUniforms,
+        vertexShader: BloomShader.gaussianBlur.vertexShader,
+        fragmentShader: BloomShader.gaussianBlur.fragmentShader
+    });
+
+    // 합성 material
+    this._compositeUniforms = THREE.UniformsUtils.clone(BloomShader.composite.uniforms);
+    this._compositeUniforms.strength.value = this._strength;
+    this._compositeMaterial = new THREE.ShaderMaterial({
+        uniforms: this._compositeUniforms,
+        vertexShader: BloomShader.composite.vertexShader,
+        fragmentShader: BloomShader.composite.fragmentShader
+    });
+
+    this._fsQuad = new FullScreenQuad(null);
+
+    // 축소 렌더 타겟 (setSize에서 생성)
+    this._bloomRT1 = null;
+    this._bloomRT2 = null;
+    this._width = 0;
+    this._height = 0;
+}
+
+BloomPass.prototype.setSize = function(width, height) {
+    var bw = Math.max(1, Math.floor(width / this._downscale));
+    var bh = Math.max(1, Math.floor(height / this._downscale));
+    if (this._width === bw && this._height === bh) return;
+    this._width = bw;
+    this._height = bh;
+    var params = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat };
+    if (this._bloomRT1) this._bloomRT1.dispose();
+    if (this._bloomRT2) this._bloomRT2.dispose();
+    this._bloomRT1 = new THREE.WebGLRenderTarget(bw, bh, params);
+    this._bloomRT2 = new THREE.WebGLRenderTarget(bw, bh, params);
+    this._blurHUniforms.resolution.value.set(bw, bh);
+    this._blurVUniforms.resolution.value.set(bw, bh);
+};
+
+BloomPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
+    // 축소 RT가 없으면 초기화
+    if (!this._bloomRT1) {
+        var sz = readBuffer ? new THREE.Vector2(readBuffer.width, readBuffer.height) : renderer.getSize(new THREE.Vector2());
+        this.setSize(sz.x, sz.y);
+    }
+
+    // 1단계: 밝기 추출 (원본 → bloomRT1)
+    this._extractUniforms.tColor.value = readBuffer.texture;
+    this._extractUniforms.threshold.value = this._threshold;
+    this._fsQuad.material = this._extractMaterial;
+    renderer.setRenderTarget(this._bloomRT1);
+    renderer.clear();
+    this._fsQuad.render(renderer);
+
+    // 2단계: 수평 블러 (bloomRT1 → bloomRT2)
+    this._blurHUniforms.tColor.value = this._bloomRT1.texture;
+    this._blurHUniforms.direction.value.set(this._radius, 0.0);
+    this._fsQuad.material = this._blurHMaterial;
+    renderer.setRenderTarget(this._bloomRT2);
+    renderer.clear();
+    this._fsQuad.render(renderer);
+
+    // 3단계: 수직 블러 (bloomRT2 → bloomRT1)
+    this._blurVUniforms.tColor.value = this._bloomRT2.texture;
+    this._blurVUniforms.direction.value.set(0.0, this._radius);
+    this._fsQuad.material = this._blurVMaterial;
+    renderer.setRenderTarget(this._bloomRT1);
+    renderer.clear();
+    this._fsQuad.render(renderer);
+
+    // 추가 블러 반복 (더 넓은 bloom)
+    for (var i = 0; i < 2; i++) {
+        this._blurHUniforms.tColor.value = this._bloomRT1.texture;
+        this._fsQuad.material = this._blurHMaterial;
+        renderer.setRenderTarget(this._bloomRT2);
+        renderer.clear();
+        this._fsQuad.render(renderer);
+
+        this._blurVUniforms.tColor.value = this._bloomRT2.texture;
+        this._fsQuad.material = this._blurVMaterial;
+        renderer.setRenderTarget(this._bloomRT1);
+        renderer.clear();
+        this._fsQuad.render(renderer);
+    }
+
+    // 4단계: 합성 (원본 + bloom → writeBuffer 또는 화면)
+    this._compositeUniforms.tColor.value = readBuffer.texture;
+    this._compositeUniforms.tBloom.value = this._bloomRT1.texture;
+    this._compositeUniforms.strength.value = this._strength;
+    this._fsQuad.material = this._compositeMaterial;
+
+    if (this.renderToScreen) {
+        renderer.setRenderTarget(null);
+    } else {
+        renderer.setRenderTarget(writeBuffer);
+        renderer.clear();
+    }
+    this._fsQuad.render(renderer);
+};
+
+BloomPass.prototype.dispose = function() {
+    this._extractMaterial.dispose();
+    this._blurHMaterial.dispose();
+    this._blurVMaterial.dispose();
+    this._compositeMaterial.dispose();
+    this._fsQuad.dispose();
+    if (this._bloomRT1) this._bloomRT1.dispose();
+    if (this._bloomRT2) this._bloomRT2.dispose();
+};
+
 // --- UIRenderPass (블러 후 UI를 선명하게 합성) ---
 function UIRenderPass(scene, camera, spriteset, stage) {
     this.scene = scene;
@@ -537,6 +777,15 @@ DepthOfField._createComposer = function(rendererObj, stage) {
     );
     composer.addPass(renderPass);
 
+    // BloomPass - 물/용암 emissive에서 빛이 번지는 효과
+    var bloomPass = new BloomPass({
+        threshold: this.bloomConfig.threshold,
+        strength: this.bloomConfig.strength,
+        radius: this.bloomConfig.radius,
+        downscale: this.bloomConfig.downscale
+    });
+    composer.addPass(bloomPass);
+
     // TiltShiftPass (화면 Y좌표 기반 DoF) - 맵에만 블러
     var tiltShiftPass = new TiltShiftPass({
         focusY: this.config.focusY,
@@ -553,6 +802,7 @@ DepthOfField._createComposer = function(rendererObj, stage) {
 
     this._composer = composer;
     this._tiltShiftPass = tiltShiftPass;
+    this._bloomPass = bloomPass;
     this._renderPass = renderPass;
     this._uiPass = uiPass;
     this._lastStage = stage;
@@ -563,6 +813,7 @@ DepthOfField._disposeComposer = function() {
         this._composer.dispose();
         this._composer = null;
         this._tiltShiftPass = null;
+        this._bloomPass = null;
         this._renderPass = null;
         this._uiPass = null;
         this._lastStage = null;
@@ -623,6 +874,15 @@ DepthOfField._updateUniforms = function() {
     this._tiltShiftPass.uniforms.blurPower.value = this._currentBlurPower;
     this._tiltShiftPass.uniforms.aspect.value =
         Graphics.height / Graphics.width;
+
+    // Bloom uniform 실시간 갱신
+    if (this._bloomPass) {
+        this._bloomPass._threshold = this.bloomConfig.threshold;
+        this._bloomPass._strength = this.bloomConfig.strength;
+        this._bloomPass._radius = this.bloomConfig.radius;
+        this._bloomPass._blurHUniforms.direction.value.set(this.bloomConfig.radius, 0.0);
+        this._bloomPass._blurVUniforms.direction.value.set(0.0, this.bloomConfig.radius);
+    }
 };
 
 //=============================================================================
