@@ -300,7 +300,171 @@ PictureShader._FRAGMENT_RAINBOW = [
     '}',
 ].join('\n');
 
-// 10. Hologram (홀로그램)
+// 10. Outline (외곽선)
+// 이미지 알파 경계를 감지하여 발광 외곽선을 그린다.
+PictureShader._FRAGMENT_OUTLINE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uThickness;',
+    'uniform vec3 uColor;',
+    'uniform float uIntensity;',
+    'uniform float uPulseSpeed;',
+    'uniform float uPulseMin;',
+    'uniform float uPulseMax;',
+    'varying vec2 vUv;',
+    '',
+    'void main() {',
+    '    vec4 color = texture2D(map, vUv);',
+    '    vec2 texSize = vec2(textureSize(map, 0));',
+    '    vec2 pixelSize = 1.0 / texSize;',
+    '',
+    '    // 주변 알파 샘플링으로 외곽 감지',
+    '    float maxAlpha = 0.0;',
+    '    float thickness = uThickness;',
+    '    for (float a = 0.0; a < 6.2832; a += 0.7854) {',
+    '        vec2 offset = vec2(cos(a), sin(a)) * pixelSize * thickness;',
+    '        maxAlpha = max(maxAlpha, texture2D(map, vUv + offset).a);',
+    '    }',
+    '',
+    '    // 외곽선 = 주변에 불투명 픽셀이 있지만 현재 픽셀은 투명한 영역',
+    '    float outline = maxAlpha * (1.0 - color.a);',
+    '',
+    '    // 펄스 애니메이션',
+    '    float pulse = uIntensity;',
+    '    if (uPulseSpeed > 0.0) {',
+    '        float t = 0.5 + 0.5 * sin(uTime * uPulseSpeed);',
+    '        pulse = mix(uPulseMin, uPulseMax, t);',
+    '    }',
+    '',
+    '    // 외곽선 발광 색상을 원본에 합성',
+    '    vec3 outlineColor = uColor * pulse;',
+    '    color.rgb = mix(color.rgb, outlineColor, outline);',
+    '    color.a = max(color.a, outline * pulse) * opacity;',
+    '    gl_FragColor = color;',
+    '}',
+].join('\n');
+
+// 11. Fire Aura (불꽃 오라)
+// 이미지 외곽에서 노이즈 기반의 불규칙한 불꽃이 타오르는 효과.
+// 슈퍼 사이언 같은 에너지 오라를 표현한다.
+PictureShader._FRAGMENT_FIRE_AURA = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uRadius;',
+    'uniform float uIntensity;',
+    'uniform float uSpeed;',
+    'uniform float uNoiseScale;',
+    'uniform vec3 uInnerColor;',
+    'uniform vec3 uOuterColor;',
+    'uniform float uTurbulence;',
+    'uniform float uFlameHeight;',
+    'varying vec2 vUv;',
+    '',
+    '// 2D 심플렉스 유사 노이즈',
+    'float hash(vec2 p) {',
+    '    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);',
+    '}',
+    '',
+    'float noise(vec2 p) {',
+    '    vec2 i = floor(p);',
+    '    vec2 f = fract(p);',
+    '    float a = hash(i);',
+    '    float b = hash(i + vec2(1.0, 0.0));',
+    '    float c = hash(i + vec2(0.0, 1.0));',
+    '    float d = hash(i + vec2(1.0, 1.0));',
+    '    vec2 u = f * f * (3.0 - 2.0 * f);',
+    '    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;',
+    '}',
+    '',
+    'float fbm(vec2 p) {',
+    '    float v = 0.0;',
+    '    float a = 0.5;',
+    '    vec2 shift = vec2(100.0);',
+    '    for (int i = 0; i < 5; i++) {',
+    '        v += a * noise(p);',
+    '        p = p * 2.0 + shift;',
+    '        a *= 0.5;',
+    '    }',
+    '    return v;',
+    '}',
+    '',
+    'void main() {',
+    '    vec4 color = texture2D(map, vUv);',
+    '    vec2 texSize = vec2(textureSize(map, 0));',
+    '    vec2 pixelSize = 1.0 / texSize;',
+    '',
+    '    // 주변 알파 최대값으로 원본 마스크(거리장 근사) 생성',
+    '    float radius = uRadius;',
+    '    float maxAlpha = 0.0;',
+    '    float distFromEdge = 999.0;',
+    '',
+    '    // 외곽으로부터의 거리 추정',
+    '    for (float r = 1.0; r <= 20.0; r += 1.0) {',
+    '        if (r > radius) break;',
+    '        float found = 0.0;',
+    '        for (float a = 0.0; a < 6.2832; a += 0.3927) {',
+    '            vec2 offset = vec2(cos(a), sin(a)) * pixelSize * r;',
+    '            float sAlpha = texture2D(map, vUv + offset).a;',
+    '            found = max(found, sAlpha);',
+    '        }',
+    '        if (found > 0.5 && color.a < 0.5) {',
+    '            distFromEdge = min(distFromEdge, r);',
+    '        }',
+    '    }',
+    '',
+    '    // 현재 픽셀이 투명하고 근처에 불투명 경계가 있으면 불꽃 생성',
+    '    float aura = 0.0;',
+    '    if (color.a < 0.5 && distFromEdge < radius) {',
+    '        // 노이즈 기반 불꽃 형태',
+    '        float t = uTime * uSpeed;',
+    '        vec2 noiseCoord = vUv * uNoiseScale;',
+    '',
+    '        // 위로 솟아오르는 불꽃 효과 (Y 방향 오프셋)',
+    '        noiseCoord.y -= t * uFlameHeight;',
+    '',
+    '        // 난류로 불규칙한 형태',
+    '        float n = fbm(noiseCoord + vec2(t * 0.3, t * 0.1) * uTurbulence);',
+    '        float n2 = fbm(noiseCoord * 1.5 + vec2(-t * 0.2, t * 0.15) * uTurbulence);',
+    '        float combined = (n + n2) * 0.5;',
+    '',
+    '        // 거리에 따른 감쇄',
+    '        float distFade = 1.0 - (distFromEdge / radius);',
+    '        distFade = pow(distFade, 0.8);',
+    '',
+    '        // 노이즈로 불규칙한 경계 (디졸브)',
+    '        aura = distFade * combined * uIntensity;',
+    '        aura = smoothstep(0.1, 0.6, aura);',
+    '    }',
+    '',
+    '    // 원본 이미지 경계에도 얇은 발광',
+    '    if (color.a > 0.5) {',
+    '        float edgeDist = 999.0;',
+    '        for (float a = 0.0; a < 6.2832; a += 0.7854) {',
+    '            vec2 offset = vec2(cos(a), sin(a)) * pixelSize * 2.0;',
+    '            if (texture2D(map, vUv + offset).a < 0.5) {',
+    '                edgeDist = 1.0;',
+    '                break;',
+    '            }',
+    '        }',
+    '        if (edgeDist < 2.0) {',
+    '            aura = max(aura, 0.4 * uIntensity);',
+    '        }',
+    '    }',
+    '',
+    '    // 내부/외부 색상 보간',
+    '    float gradientT = clamp(distFromEdge / radius, 0.0, 1.0);',
+    '    vec3 flameColor = mix(uInnerColor, uOuterColor, gradientT);',
+    '',
+    '    // 합성',
+    '    color.rgb = mix(color.rgb, flameColor, aura * (1.0 - color.a) + aura * 0.3 * color.a);',
+    '    color.a = max(color.a, aura) * opacity;',
+    '    gl_FragColor = color;',
+    '}',
+].join('\n');
+
+// 12. Hologram (홀로그램)
 PictureShader._FRAGMENT_HOLOGRAM = [
     'uniform sampler2D map;',
     'uniform float opacity;',
@@ -359,6 +523,8 @@ PictureShader._FRAGMENT_SHADERS = {
     'blur':      PictureShader._FRAGMENT_BLUR,
     'rainbow':   PictureShader._FRAGMENT_RAINBOW,
     'hologram':  PictureShader._FRAGMENT_HOLOGRAM,
+    'outline':   PictureShader._FRAGMENT_OUTLINE,
+    'fireAura':  PictureShader._FRAGMENT_FIRE_AURA,
 };
 
 //=============================================================================
@@ -376,6 +542,8 @@ PictureShader._DEFAULT_PARAMS = {
     'blur':      { strength: 4, pulseSpeed: 2, minStrength: 0, maxStrength: 8 },
     'rainbow':   { speed: 1, saturation: 0.5, brightness: 0.1 },
     'hologram':  { scanlineSpacing: 4, scanlineAlpha: 0.3, flickerSpeed: 5, flickerIntensity: 0.2, rgbShift: 2, tintR: 0.5, tintG: 0.8, tintB: 1 },
+    'outline':   { thickness: 3, colorR: 1, colorG: 0.9, colorB: 0.2, intensity: 1.5, pulseSpeed: 2, pulseMin: 0.8, pulseMax: 2.0 },
+    'fireAura':  { radius: 12, intensity: 1.2, speed: 1.5, noiseScale: 8, innerColorR: 1, innerColorG: 0.9, innerColorB: 0.3, outerColorR: 1, outerColorG: 0.3, outerColorB: 0, turbulence: 1.5, flameHeight: 1.0 },
 };
 
 //=============================================================================
@@ -462,6 +630,24 @@ PictureShader.createMaterial = function(type, params, texture) {
             uniforms.uFlickerIntensity = { value: p.flickerIntensity };
             uniforms.uRgbShift         = { value: p.rgbShift };
             uniforms.uTint             = { value: new THREE.Vector3(p.tintR, p.tintG, p.tintB) };
+            break;
+        case 'outline':
+            uniforms.uThickness  = { value: p.thickness };
+            uniforms.uColor      = { value: new THREE.Vector3(p.colorR, p.colorG, p.colorB) };
+            uniforms.uIntensity  = { value: p.intensity };
+            uniforms.uPulseSpeed = { value: p.pulseSpeed };
+            uniforms.uPulseMin   = { value: p.pulseMin };
+            uniforms.uPulseMax   = { value: p.pulseMax };
+            break;
+        case 'fireAura':
+            uniforms.uRadius      = { value: p.radius };
+            uniforms.uIntensity   = { value: p.intensity };
+            uniforms.uSpeed       = { value: p.speed };
+            uniforms.uNoiseScale  = { value: p.noiseScale };
+            uniforms.uInnerColor  = { value: new THREE.Vector3(p.innerColorR, p.innerColorG, p.innerColorB) };
+            uniforms.uOuterColor  = { value: new THREE.Vector3(p.outerColorR, p.outerColorG, p.outerColorB) };
+            uniforms.uTurbulence  = { value: p.turbulence };
+            uniforms.uFlameHeight = { value: p.flameHeight };
             break;
     }
 
