@@ -47,7 +47,7 @@ export default function MapCanvas() {
   const pasteEvents = useEditorStore((s) => s.pasteEvents);
 
   // Compose hooks
-  const { showGrid, altPressed, panning } = useKeyboardShortcuts(containerRef);
+  const { showGrid, altPressed, panning, spacePressed } = useKeyboardShortcuts(containerRef);
 
   const {
     rendererObjRef, tilemapRef, stageRef, renderRequestedRef, toolPreviewMeshesRef,
@@ -138,8 +138,8 @@ export default function MapCanvas() {
     overflow: 'auto' as const,
     backgroundColor: '#1a1a1a',
     border: '1px solid #555',
-    cursor: panning ? 'grabbing' : undefined,
-  }), [panning]);
+    cursor: panning ? 'grabbing' : spacePressed ? 'grab' : undefined,
+  }), [panning, spacePressed]);
 
   const mapBgStyle = useMemo(() => {
     const { r, g, b } = transparentColor;
@@ -205,6 +205,7 @@ export default function MapCanvas() {
             position: 'relative',
             zIndex: 1,
             cursor: panning ? 'grabbing'
+              : spacePressed ? 'grab'
               : altPressed && editMode === 'map' ? eyedropperCursor
               : cameraZoneCursor
               || resizeCursor
