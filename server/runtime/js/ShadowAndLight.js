@@ -1177,6 +1177,7 @@ ShadowLight._addLightsToScene = function(scene) {
     scene.add(this._ambientLight);
 
     // DirectionalLight - 태양/달빛 (그림자 방향 결정)
+    var dirEnabled = el ? (el.directional.enabled === true) : true;
     var dirColor = el ? parseInt(el.directional.color.replace('#', ''), 16) : this.config.directionalColor;
     var dirIntensity = el ? el.directional.intensity : this.config.directionalIntensity;
     // config에 동기화
@@ -1184,7 +1185,8 @@ ShadowLight._addLightsToScene = function(scene) {
         this.config.directionalColor = dirColor;
         this.config.directionalIntensity = dirIntensity;
     }
-    this._directionalLight = new THREE.DirectionalLight(dirColor, dirIntensity);
+    this._directionalLight = new THREE.DirectionalLight(dirColor, dirEnabled ? dirIntensity : 0);
+    this._directionalLight.visible = dirEnabled;
     // 위치는 방향의 반대 (광원이 오는 방향)
     var dir;
     if (el && el.directional.direction) {
@@ -1195,7 +1197,7 @@ ShadowLight._addLightsToScene = function(scene) {
     this._directionalLight.position.set(-dir.x * 1000, -dir.y * 1000, -dir.z * 1000);
 
     // Shadow Map 설정
-    this._directionalLight.castShadow = true;
+    this._directionalLight.castShadow = dirEnabled;
     this._directionalLight.shadow.mapSize.width = 2048;
     this._directionalLight.shadow.mapSize.height = 2048;
     // OrthographicCamera 범위: 화면 좌표계 전체를 커버
