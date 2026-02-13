@@ -3,7 +3,7 @@ import path from 'path';
 import zlib from 'zlib';
 
 /**
- * RPG Maker MV 바이너리에서 샘플 맵 데이터를 추출하는 서비스
+ * RPG Maker MV 바이너리에서 샘플 맵 데이터를 런타임에 추출하는 서비스
  *
  * RPG Maker MV는 Qt 기반 에디터로, 샘플 맵이 바이너리 내 Qt 리소스로 내장되어 있음.
  * Qt 리소스 형식: tree table + name table + data table
@@ -11,12 +11,6 @@ import zlib from 'zlib';
  * - tree entry: name_offset(4, BE) + flags(2, BE) + country(2) + lang(2) + data_offset(4, BE)
  * - data entry: total_size(4, BE) + [uncomp_size(4, BE) + zlib_data] or raw_data
  */
-
-interface SampleMap {
-  name: string;
-  category: 'Fantasy' | 'Cyberpunk';
-  data: Record<string, unknown>;
-}
 
 // 맵 이름 목록 (QML Dialog_MapLoader에서 추출)
 const MAP_NAMES: Array<{ name: string; category: 'Fantasy' | 'Cyberpunk' }> = [
@@ -150,7 +144,8 @@ function readUInt16BE(buf: Buffer, offset: number): number {
 }
 
 class SampleMapExtractor {
-  private cache: Map<number, Record<string, unknown>> | null = null;
+  private mapCache: Map<number, Record<string, unknown>> | null = null;
+  private previewCache: Map<number, Buffer> | null = null;
   private binaryPath: string | null = null;
 
   /** macOS에서 RPG Maker MV 바이너리 경로 찾기 */
@@ -164,9 +159,15 @@ class SampleMapExtractor {
     return null;
   }
 
+  /** 바이너리 경로 설정 */
+  setBinaryPath(p: string): void {
+    this.binaryPath = p;
+    this.mapCache = null;
+    this.previewCache = null;
+  }
+
   /** Qt 리소스 구조 찾기: tree_base, name_base, data_base */
   private findResourceStructure(buf: Buffer): { treeBase: number; nameBase: number; dataBase: number } | null {
-    // 1. 'maps' 문자열을 UTF-16 BE로 검색하여 name table 위치 찾기
     const mapsUtf16 = Buffer.from([0x00, 0x6d, 0x00, 0x61, 0x00, 0x70, 0x00, 0x73]); // 'maps'
     let nameBase = -1;
     let mapsOffset = -1;
@@ -174,7 +175,6 @@ class SampleMapExtractor {
     for (let i = 9000000; i < Math.min(buf.length, 10000000); i++) {
       if (buf[i] === 0x00 && buf[i + 1] === 0x6d &&
           buf.compare(mapsUtf16, 0, 8, i, i + 8) === 0) {
-        // name entry: len(2) + hash(4) + data
         const nameStart = i - 6;
         const len = readUInt16BE(buf, nameStart);
         if (len === 4) {
@@ -189,15 +189,13 @@ class SampleMapExtractor {
 
     if (mapsOffset === -1) return null;
 
-    // name_base 찾기: 'maps' 앞에 있는 '1' 엔트리
-    // 'maps' 앞으로 스캔하여 name table 시작점 찾기
     for (let i = mapsOffset - 100; i < mapsOffset; i++) {
       const len = readUInt16BE(buf, i);
       if (len === 1) {
         const hash = readUInt32BE(buf, i + 2);
         if (hash === qtHash('1')) {
           const char = readUInt16BE(buf, i + 6);
-          if (char === 0x0031) { // '1'
+          if (char === 0x0031) {
             nameBase = i;
             break;
           }
@@ -207,14 +205,11 @@ class SampleMapExtractor {
 
     if (nameBase === -1) return null;
 
-    // 2. tree_base 찾기: name_base 앞에서 root entry 검색
-    // root entry: name_off=0(4) + flags=2(2) + count=1(4) + first_child=1(4) = 14 bytes
     const rootPattern = Buffer.from([0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1]);
     let treeBase = -1;
 
     for (let i = nameBase - 10000; i < nameBase; i++) {
       if (buf.compare(rootPattern, 0, 14, i, i + 14) === 0) {
-        // Verify child[1] entry
         const child1 = i + 14;
         const childNameOff = readUInt32BE(buf, child1);
         const childFlags = readUInt16BE(buf, child1 + 4);
@@ -230,18 +225,10 @@ class SampleMapExtractor {
 
     if (treeBase === -1) return null;
 
-    // 3. data_base 찾기: name_base 뒤에 데이터 블록 시작
-    // data entries는 name table 끝 이후에 시작
-    // name table은 약 6000 bytes
     const dataSearchStart = nameBase + 5000;
     let dataBase = -1;
 
-    // Map099.json의 data_offset(가장 작은 값들 중 하나)으로 data_base 추정
-    // name_off for Map099.json을 찾고, tree에서 data_offset 확인 후 실제 데이터 위치로 역산
     const map099hash = qtHash('Map099.json');
-    const hashBytes = Buffer.alloc(4);
-    hashBytes.writeUInt32BE(map099hash);
-
     let map099nameOff = -1;
     for (let i = nameBase; i < nameBase + 6000; i++) {
       if (buf.readUInt32BE(i) === map099hash) {
@@ -258,21 +245,16 @@ class SampleMapExtractor {
     }
 
     if (map099nameOff !== -1) {
-      // tree에서 해당 name_offset을 가진 entry 찾기
       for (let idx = 2; idx < 210; idx++) {
         const toff = treeBase + idx * 14;
         if (readUInt32BE(buf, toff) === map099nameOff) {
           const flags = readUInt16BE(buf, toff + 4);
           if (!(flags & 0x02)) {
             const dataOff = readUInt32BE(buf, toff + 10);
-            // data_base + dataOff = 실제 데이터 시작 위치
-            // 실제 데이터에서 zlib magic 검색
             for (let search = dataSearchStart; search < dataSearchStart + 200000; search++) {
               if (buf[search] === 0x78 && (buf[search + 1] === 0x9c || buf[search + 1] === 0x01 || buf[search + 1] === 0xda)) {
-                // size(4) + uncomp(4) + zlib 패턴 확인
                 const testBase = search - 8 - dataOff;
                 if (testBase > 0) {
-                  // 검증: 이 base로 다른 알려진 맵도 찾을 수 있는지
                   const testPos = testBase + dataOff;
                   const totalSize = readUInt32BE(buf, testPos);
                   if (totalSize > 100 && totalSize < 100000) {
@@ -299,40 +281,21 @@ class SampleMapExtractor {
     return { treeBase, nameBase, dataBase };
   }
 
-  /** 사전 추출된 샘플 맵 파일에서 로드 */
-  extractAll(): Map<number, Record<string, unknown>> | null {
-    if (this.cache) return this.cache;
+  /** 바이너리에서 모든 샘플 맵 + 프리뷰 PNG 추출 (메모리 캐시) */
+  private extractFromBinary(): boolean {
+    const binPath = this.binaryPath || this.findBinaryPath();
+    if (!binPath) return false;
+    this.binaryPath = binPath;
 
-    const sampleDir = path.join(__dirname, '..', 'sample-maps');
-    if (!fs.existsSync(sampleDir)) return null;
-
-    const maps = new Map<number, Record<string, unknown>>();
-    for (let i = 1; i <= 104; i++) {
-      const filePath = path.join(sampleDir, `Map${String(i).padStart(3, '0')}.json`);
-      try {
-        const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-        maps.set(i, data);
-      } catch { /* skip missing files */ }
-    }
-
-    if (maps.size > 0) {
-      this.cache = maps;
-      return maps;
-    }
-    return null;
-  }
-
-  /** 바이너리에서 추출 (현재 미사용 - 사전 추출 파일 사용) */
-  private extractFromBinary(binPath: string): Map<number, Record<string, unknown>> | null {
     let buf: Buffer;
     try {
       buf = fs.readFileSync(binPath);
     } catch {
-      return null;
+      return false;
     }
 
     const structure = this.findResourceStructure(buf);
-    if (!structure) return null;
+    if (!structure) return false;
 
     const { treeBase, nameBase, dataBase } = structure;
 
@@ -361,17 +324,16 @@ class SampleMapExtractor {
     const doffToIdx = new Map<number, number>();
     seqEntries.forEach((e, i) => doffToIdx.set(e.doff, i));
 
-    // 각 맵 추출
     const maps = new Map<number, Record<string, unknown>>();
+    const previews = new Map<number, Buffer>();
 
     for (let mapNum = 1; mapNum <= 104; mapNum++) {
       const mapFileName = `Map${String(mapNum).padStart(3, '0')}.json`;
+      const pngFileName = `Map${String(mapNum).padStart(3, '0')}.png`;
 
-      // name table에서 hash로 찾기
       const nameOffset = this.findNameOffset(buf, nameBase, mapFileName);
       if (nameOffset === null) continue;
 
-      // tree에서 data_offset 찾기
       const dataOffset = this.findDataOffset(buf, treeBase, nameOffset);
 
       if (dataOffset !== null) {
@@ -381,55 +343,52 @@ class SampleMapExtractor {
         if (raw[0] !== 0x89) {
           // JSON 데이터
           try {
-            const mapData = JSON.parse(raw.toString('utf-8'));
-            maps.set(mapNum, mapData);
-            continue;
-          } catch { /* fall through */ }
-        }
-
-        // tree가 PNG를 가리킴 → 인접 entry에서 JSON 찾기
-        const idx = doffToIdx.get(dataOffset);
-        if (idx !== undefined) {
-          for (const adj of [1, -1, 2, -2]) {
-            const adjIdx = idx + adj;
-            if (adjIdx >= 0 && adjIdx < seqEntries.length && seqEntries[adjIdx].type === 'json') {
-              try {
-                const adjRaw = this.readResourceAt(buf, seqEntries[adjIdx].absPos);
-                const mapData = JSON.parse(adjRaw.toString('utf-8'));
-                maps.set(mapNum, mapData);
-                break;
-              } catch { /* ignore */ }
+            maps.set(mapNum, JSON.parse(raw.toString('utf-8')));
+          } catch { /* ignore */ }
+        } else {
+          // tree가 PNG를 가리킴 → 인접 entry에서 JSON 찾기
+          const idx = doffToIdx.get(dataOffset);
+          if (idx !== undefined) {
+            for (const adj of [1, -1, 2, -2]) {
+              const adjIdx = idx + adj;
+              if (adjIdx >= 0 && adjIdx < seqEntries.length && seqEntries[adjIdx].type === 'json') {
+                try {
+                  const adjRaw = this.readResourceAt(buf, seqEntries[adjIdx].absPos);
+                  maps.set(mapNum, JSON.parse(adjRaw.toString('utf-8')));
+                  break;
+                } catch { /* ignore */ }
+              }
             }
           }
         }
-      } else {
-        // tree에 없는 경우 (Map029 등) - 미할당 JSON 찾기
-        const assignedDoffs = new Set<number>();
-        for (const [, entry] of maps) {
-          // 이미 할당된 것들은 스킵
-        }
-        // sequential에서 미할당 JSON 찾기
-        for (const entry of seqEntries) {
-          if (entry.type === 'json' && !this.isAssignedOffset(buf, treeBase, nameBase, entry.doff, maps.size)) {
-            try {
-              const raw = this.readResourceAt(buf, entry.absPos);
-              const mapData = JSON.parse(raw.toString('utf-8'));
-              maps.set(mapNum, mapData);
-              break;
-            } catch { /* ignore */ }
+      }
+
+      // PNG 프리뷰 추출
+      const pngNameOffset = this.findNameOffset(buf, nameBase, pngFileName);
+      if (pngNameOffset !== null) {
+        const pngDataOffset = this.findDataOffset(buf, treeBase, pngNameOffset);
+        if (pngDataOffset !== null) {
+          const pngAbsPos = dataBase + pngDataOffset;
+          const pngRaw = this.readResourceAt(buf, pngAbsPos);
+          if (pngRaw[0] === 0x89 && pngRaw[1] === 0x50) {
+            previews.set(mapNum, Buffer.from(pngRaw));
           }
         }
       }
     }
 
-    return maps;
+    if (maps.size > 0) {
+      this.mapCache = maps;
+      this.previewCache = previews;
+      return true;
+    }
+    return false;
   }
 
   /** 데이터 엔트리 읽기 (압축/비압축 자동 감지) */
   private readResourceAt(buf: Buffer, absPos: number): Buffer {
     const totalSize = readUInt32BE(buf, absPos);
 
-    // 압축 여부 확인: offset+8에 zlib magic
     if (totalSize > 8 && absPos + 8 < buf.length) {
       const magic = buf[absPos + 8];
       const next = buf[absPos + 9];
@@ -443,7 +402,7 @@ class SampleMapExtractor {
     return buf.subarray(absPos + 4, absPos + 4 + totalSize);
   }
 
-  /** name table에서 이름의 name_offset 찾기 (hash 기반) */
+  /** name table에서 이름의 name_offset 찾기 */
   private findNameOffset(buf: Buffer, nameBase: number, name: string): number | null {
     const hash = qtHash(name);
 
@@ -483,23 +442,16 @@ class SampleMapExtractor {
     return null;
   }
 
-  /** 특정 data_offset이 다른 맵에 의해 이미 사용되었는지 확인 (Map029 처리용) */
-  private isAssignedOffset(buf: Buffer, treeBase: number, nameBase: number, doff: number, _currentCount: number): boolean {
-    // tree의 모든 file entry에서 이 doff를 참조하는지, 또는 인접한 entry로 사용되는지 확인
-    for (let idx = 2; idx < 210; idx++) {
-      const toff = treeBase + idx * 14;
-      const flags = readUInt16BE(buf, toff + 4);
-      if (flags & 0x02) continue;
-      const tdo = readUInt32BE(buf, toff + 10);
-      if (tdo === doff) return true;
-    }
-    return false;
+  /** 캐시 확보 (필요 시 바이너리에서 추출) */
+  private ensureCache(): boolean {
+    if (this.mapCache) return true;
+    return this.extractFromBinary();
   }
 
   /** 맵 목록 반환 */
   getMapList(): Array<{ id: number; name: string; category: string; width?: number; height?: number; tilesetId?: number }> | null {
-    const maps = this.extractAll();
-    if (!maps) return null;
+    if (!this.ensureCache()) return null;
+    const maps = this.mapCache!;
 
     return MAP_NAMES.map((info, index) => {
       const mapNum = index + 1;
@@ -517,63 +469,30 @@ class SampleMapExtractor {
 
   /** 특정 맵 데이터 반환 */
   getMapData(mapId: number): Record<string, unknown> | null {
-    const maps = this.extractAll();
-    if (!maps) return null;
-    return maps.get(mapId) || null;
+    if (!this.ensureCache()) return null;
+    return this.mapCache!.get(mapId) || null;
   }
 
-  /** 바이너리에서 추출 후 sample-maps 디렉토리에 저장 */
-  extractAndSave(binaryPath: string): { success: boolean; count: number; error?: string } {
-    if (!fs.existsSync(binaryPath)) {
-      return { success: false, count: 0, error: '파일을 찾을 수 없습니다' };
-    }
-
-    const maps = this.extractFromBinary(binaryPath);
-    if (!maps || maps.size === 0) {
-      return { success: false, count: 0, error: '바이너리에서 샘플 맵을 추출할 수 없습니다' };
-    }
-
-    const sampleDir = path.join(__dirname, '..', 'sample-maps');
-    if (!fs.existsSync(sampleDir)) {
-      fs.mkdirSync(sampleDir, { recursive: true });
-    }
-
-    let count = 0;
-    for (const [mapNum, mapData] of maps) {
-      const filePath = path.join(sampleDir, `Map${String(mapNum).padStart(3, '0')}.json`);
-      try {
-        fs.writeFileSync(filePath, JSON.stringify(mapData));
-        count++;
-      } catch { /* skip */ }
-    }
-
-    // 캐시 갱신
-    this.cache = null;
-    this.extractAll();
-
-    return { success: true, count };
+  /** 특정 맵 프리뷰 PNG 반환 */
+  getPreview(mapId: number): Buffer | null {
+    if (!this.ensureCache()) return null;
+    return this.previewCache?.get(mapId) || null;
   }
 
-  /** 상태 조회: 샘플 맵 사용 가능 여부 + 자동 탐지 경로 */
+  /** 상태 조회 */
   getStatus(): { available: boolean; count: number; detectedBinaryPath: string | null } {
-    const sampleDir = path.join(__dirname, '..', 'sample-maps');
-    let count = 0;
-    if (fs.existsSync(sampleDir)) {
-      for (let i = 1; i <= 104; i++) {
-        const filePath = path.join(sampleDir, `Map${String(i).padStart(3, '0')}.json`);
-        if (fs.existsSync(filePath)) count++;
-      }
-    }
+    const available = this.ensureCache();
     return {
-      available: count > 0,
-      count,
-      detectedBinaryPath: this.findBinaryPath(),
+      available,
+      count: available ? this.mapCache!.size : 0,
+      detectedBinaryPath: this.binaryPath || this.findBinaryPath(),
     };
   }
 
   /** 캐시 초기화 */
   clearCache(): void {
-    this.cache = null;
+    this.mapCache = null;
+    this.previewCache = null;
   }
 }
 

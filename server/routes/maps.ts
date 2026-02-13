@@ -46,6 +46,24 @@ router.get('/sample-maps/status', (_req: Request, res: Response) => {
   }
 });
 
+/** 샘플 맵 프리뷰 이미지 (바이너리에서 추출) */
+router.get('/sample-maps/:id/preview', (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id) || id < 1 || id > 104) {
+      return res.status(400).json({ error: 'Invalid sample map id' });
+    }
+    const preview = sampleMapExtractor.getPreview(id);
+    if (!preview) {
+      return res.status(404).json({ error: 'Preview not found' });
+    }
+    res.set('Content-Type', 'image/png');
+    res.send(preview);
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 /** 샘플 맵 데이터 가져오기 */
 router.get('/sample-maps/:id', (req: Request, res: Response) => {
   try {
@@ -63,18 +81,19 @@ router.get('/sample-maps/:id', (req: Request, res: Response) => {
   }
 });
 
-/** 바이너리에서 샘플 맵 추출 */
-router.post('/sample-maps/extract', (req: Request, res: Response) => {
+/** 바이너리 경로 설정 후 재로드 */
+router.post('/sample-maps/set-binary-path', (req: Request, res: Response) => {
   try {
     const { binaryPath } = req.body;
     if (!binaryPath || typeof binaryPath !== 'string') {
       return res.status(400).json({ error: 'binaryPath is required' });
     }
-    const result = sampleMapExtractor.extractAndSave(binaryPath);
-    if (!result.success) {
-      return res.status(400).json({ error: result.error });
+    sampleMapExtractor.setBinaryPath(binaryPath);
+    const status = sampleMapExtractor.getStatus();
+    if (!status.available) {
+      return res.status(400).json({ error: 'Failed to extract maps from the specified binary' });
     }
-    res.json({ success: true, count: result.count });
+    res.json({ success: true, count: status.count });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

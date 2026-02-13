@@ -19,12 +19,13 @@ interface SampleMapStatus {
 }
 
 interface Props {
-  mapId: number;
+  parentId?: number;
   onClose: () => void;
 }
 
-export default function SampleMapDialog({ mapId, onClose }: Props) {
+export default function SampleMapDialog({ parentId = 0, onClose }: Props) {
   const { t } = useTranslation();
+  const createMap = useEditorStore((s) => s.createMap);
   const selectMap = useEditorStore((s) => s.selectMap);
   const showToast = useEditorStore((s) => s.showToast);
   const [maps, setMaps] = useState<SampleMapInfo[]>([]);
@@ -47,12 +48,10 @@ export default function SampleMapDialog({ mapId, onClose }: Props) {
       setLoading(true);
       setError('');
       try {
-        // 먼저 status 확인
         const status = await apiClient.get<SampleMapStatus>('/maps/sample-maps/status');
         if (cancelled) return;
 
         if (!status.available) {
-          // 샘플 맵 파일 없음 → 설정 UI 표시
           setNeedsSetup(true);
           if (status.detectedBinaryPath) {
             setBinaryPath(status.detectedBinaryPath);
@@ -61,7 +60,6 @@ export default function SampleMapDialog({ mapId, onClose }: Props) {
           return;
         }
 
-        // 샘플 맵 로드
         const list = await apiClient.get<SampleMapInfo[]>('/maps/sample-maps');
         if (!cancelled) {
           setMaps(list);
@@ -83,13 +81,26 @@ export default function SampleMapDialog({ mapId, onClose }: Props) {
   const selectedMap = maps.find(m => m.id === selectedId);
 
   const handleApply = async () => {
-    if (!selectedId) return;
+    if (!selectedId || !selectedMap) return;
     setApplying(true);
     try {
+      // 1. 새 맵 생성
+      const newMapId = await createMap({
+        name: selectedMap.name,
+        width: selectedMap.width,
+        height: selectedMap.height,
+        tilesetId: selectedMap.tilesetId,
+        parentId,
+      });
+      if (!newMapId) throw new Error('Failed to create map');
+
+      // 2. 샘플 데이터로 덮어쓰기
       const sampleData = await apiClient.get<Record<string, unknown>>(`/maps/sample-maps/${selectedId}`);
-      await apiClient.put(`/maps/${mapId}`, sampleData);
-      await selectMap(mapId);
-      showToast(t('sampleMap.applied', { name: selectedMap?.name || '' }));
+      await apiClient.put(`/maps/${newMapId}`, sampleData);
+
+      // 3. 새 맵으로 이동
+      await selectMap(newMapId);
+      showToast(t('sampleMap.applied', { name: selectedMap.name }));
       onClose();
     } catch (e) {
       setError((e as Error).message);
@@ -103,8 +114,7 @@ export default function SampleMapDialog({ mapId, onClose }: Props) {
     setExtracting(true);
     setExtractError('');
     try {
-      await apiClient.post('/maps/sample-maps/extract', { binaryPath: binaryPath.trim() });
-      // 추출 성공 → 맵 로드
+      await apiClient.post('/maps/sample-maps/set-binary-path', { binaryPath: binaryPath.trim() });
       setNeedsSetup(false);
       setLoading(true);
       const list = await apiClient.get<SampleMapInfo[]>('/maps/sample-maps');
@@ -215,18 +225,40 @@ export default function SampleMapDialog({ mapId, onClose }: Props) {
               )}
             </div>
 
-            {/* 맵 정보 */}
+            {/* 맵 정보 + 프리뷰 */}
             <div style={{ flex: 1, padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {selectedMap && (
                 <>
                   <div style={{ fontSize: 14, fontWeight: 'bold', color: '#ddd' }}>{selectedMap.name}</div>
                   <div style={{ fontSize: 12, color: '#999' }}>{selectedMap.category}</div>
-                  <div style={{ fontSize: 12, color: '#aaa', marginTop: 8 }}>
-                    <div>{t('sampleMap.size')}: {selectedMap.width} x {selectedMap.height}</div>
-                    <div>{t('sampleMap.tilesetId')}: {selectedMap.tilesetId}</div>
+                  {/* 프리뷰 이미지 */}
+                  <div style={{
+                    flex: 1,
+                    marginTop: 8,
+                    background: '#1a1a1a',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <img
+                      src={`/api/maps/sample-maps/${selectedMap.id}/preview`}
+                      alt={selectedMap.name}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        objectFit: 'contain',
+                        imageRendering: 'pixelated',
+                      }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
                   </div>
-                  <div style={{ marginTop: 16, padding: 8, background: '#2a2a2a', borderRadius: 4, fontSize: 11, color: '#c90' }}>
-                    {t('sampleMap.warning', { id: mapId })}
+                  <div style={{ fontSize: 12, color: '#aaa' }}>
+                    <span>{t('sampleMap.size')}: {selectedMap.width} x {selectedMap.height}</span>
+                    <span style={{ marginLeft: 12 }}>{t('sampleMap.tilesetId')}: {selectedMap.tilesetId}</span>
                   </div>
                 </>
               )}

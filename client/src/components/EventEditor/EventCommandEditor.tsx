@@ -33,6 +33,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
   const { t } = useTranslation();
   const systemData = useEditorStore(s => s.systemData);
   const maps = useEditorStore(s => s.maps);
+  const currentMap = useEditorStore(s => s.currentMap);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [lastClickedIndex, setLastClickedIndex] = useState(-1);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -683,6 +684,39 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
         const xVar = cmd.parameters[3] as number;
         const yVar = cmd.parameters[4] as number;
         text += `: ${vehicle}, {맵:V[${mVar}],X:V[${xVar}],Y:V[${yVar}]}`;
+      }
+      return text;
+    }
+
+    // 이벤트 위치 설정 전용 포맷
+    if (code === 203 && cmd.parameters && cmd.parameters.length >= 5) {
+      const eventIdParam = cmd.parameters[0] as number;
+      const designationType = cmd.parameters[1] as number;
+      const dirLabels: Record<number, string> = { 0: '유지', 2: '아래', 4: '왼쪽', 6: '오른쪽', 8: '위' };
+      const dir = dirLabels[cmd.parameters[4] as number] || '유지';
+      let eventName = '해당 이벤트';
+      if (eventIdParam === -1) eventName = '플레이어';
+      else if (eventIdParam > 0) {
+        const ev = currentMap?.events?.find((e: any) => e && e.id === eventIdParam);
+        eventName = ev ? `${String(eventIdParam).padStart(3, '0')}:${(ev as any).name || ''}` : `이벤트 ${eventIdParam}`;
+      }
+      if (designationType === 0) {
+        const px = cmd.parameters[2] as number;
+        const py = cmd.parameters[3] as number;
+        text += `: ${eventName}, (${px},${py}), 방향:${dir}`;
+      } else if (designationType === 1) {
+        const xVar = cmd.parameters[2] as number;
+        const yVar = cmd.parameters[3] as number;
+        text += `: ${eventName}, {X:V[${xVar}],Y:V[${yVar}]}, 방향:${dir}`;
+      } else {
+        const exchId = cmd.parameters[2] as number;
+        let exchName = '해당 이벤트';
+        if (exchId === -1) exchName = '플레이어';
+        else if (exchId > 0) {
+          const ev = currentMap?.events?.find((e: any) => e && e.id === exchId);
+          exchName = ev ? `${String(exchId).padStart(3, '0')}:${(ev as any).name || ''}` : `이벤트 ${exchId}`;
+        }
+        text += `: ${eventName}, 교환:${exchName}, 방향:${dir}`;
       }
       return text;
     }
