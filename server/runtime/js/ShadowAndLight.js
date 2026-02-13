@@ -1262,13 +1262,11 @@ ShadowLight._addLightsToScene = function(scene) {
     scene.add(this._playerSpotLight);
     scene.add(this._playerSpotTarget);
 
-    // skyBackground sunLights → 디렉셔널 라이트
-    // sunLights[0]은 에디터에서 editorLights.directional에 매핑하지만,
-    // enabled가 false로 저장될 수 있으므로 런타임에서는 sunLights 데이터를 직접 사용한다.
-    // sunLights가 있으면 모든 항목(i=0부터)을 디렉셔널 라이트로 생성하고,
-    // sunLights[0]은 기존 _directionalLight를 덮어쓴다.
+    // skyBackground sunLights → 별도 디렉셔널 라이트로 생성
+    // editorLights.directional(메인 디렉셔널)과는 별개.
+    // sunLights는 모두 새 DirectionalLight로 만들고 스카이 회전에 따라 회전.
     this._sunLights = [];
-    this._sunLightsData = null; // 원본 UV 데이터 보관 (매 프레임 회전 적용용)
+    this._sunLightsData = null;
     var skyBg = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.skyBackground : null;
     if (skyBg && skyBg.sunLights && skyBg.sunLights.length > 0) {
         this._sunLightsData = skyBg.sunLights;
@@ -1276,39 +1274,24 @@ ShadowLight._addLightsToScene = function(scene) {
             var sl = skyBg.sunLights[si];
             var sunDir = sunUVToDirection(sl.position[0], sl.position[1]);
             var sunColor = parseInt(sl.color.replace('#', ''), 16);
-
-            if (si === 0) {
-                // sunLights[0] → 기존 메인 디렉셔널 라이트를 활성화 & 덮어쓰기
-                this._directionalLight.color.setHex(sunColor);
-                this._directionalLight.intensity = sl.intensity;
-                this._directionalLight.position.set(-sunDir.x * 1000, -sunDir.y * 1000, -sunDir.z * 1000);
-                this._directionalLight.castShadow = sl.castShadow !== false;
-                this._directionalLight.visible = true;
-                var mapSize0 = sl.shadowMapSize || 2048;
-                this._directionalLight.shadow.mapSize.width = mapSize0;
-                this._directionalLight.shadow.mapSize.height = mapSize0;
-                this._directionalLight.shadow.bias = sl.shadowBias != null ? sl.shadowBias : -0.001;
-            } else {
-                // sunLights[1+] → 추가 디렉셔널 라이트 생성
-                var sunLight = new THREE.DirectionalLight(sunColor, sl.intensity);
-                sunLight.position.set(-sunDir.x * 1000, -sunDir.y * 1000, -sunDir.z * 1000);
-                sunLight.castShadow = sl.castShadow !== false;
-                var sunMapSize = sl.shadowMapSize || 2048;
-                sunLight.shadow.mapSize.width = sunMapSize;
-                sunLight.shadow.mapSize.height = sunMapSize;
-                sunLight.shadow.camera.left = -halfSize;
-                sunLight.shadow.camera.right = halfSize;
-                sunLight.shadow.camera.top = halfSize;
-                sunLight.shadow.camera.bottom = -halfSize;
-                sunLight.shadow.camera.near = 1;
-                sunLight.shadow.camera.far = 5000;
-                sunLight.shadow.bias = sl.shadowBias != null ? sl.shadowBias : -0.001;
-                sunLight.shadow.radius = this.config.shadowRadius;
-                sunLight.target.position.set(vw2, vh2, 0);
-                scene.add(sunLight);
-                scene.add(sunLight.target);
-                this._sunLights.push(sunLight);
-            }
+            var sunLight = new THREE.DirectionalLight(sunColor, sl.intensity);
+            sunLight.position.set(-sunDir.x * 1000, -sunDir.y * 1000, -sunDir.z * 1000);
+            sunLight.castShadow = sl.castShadow !== false;
+            var sunMapSize = sl.shadowMapSize || 2048;
+            sunLight.shadow.mapSize.width = sunMapSize;
+            sunLight.shadow.mapSize.height = sunMapSize;
+            sunLight.shadow.camera.left = -halfSize;
+            sunLight.shadow.camera.right = halfSize;
+            sunLight.shadow.camera.top = halfSize;
+            sunLight.shadow.camera.bottom = -halfSize;
+            sunLight.shadow.camera.near = 1;
+            sunLight.shadow.camera.far = 5000;
+            sunLight.shadow.bias = sl.shadowBias != null ? sl.shadowBias : -0.001;
+            sunLight.shadow.radius = this.config.shadowRadius;
+            sunLight.target.position.set(vw2, vh2, 0);
+            scene.add(sunLight);
+            scene.add(sunLight.target);
+            this._sunLights.push(sunLight);
         }
     }
 
@@ -1411,52 +1394,32 @@ ShadowLight._updateSunLightDirections = function() {
     var invInitial = this._skyInitQuat.clone().invert();
     var deltaQuat = new THREE.Quaternion().multiplyQuaternions(invInitial, currentQuat);
 
+    // _sunLights 배열과 1:1 대응 (메인 디렉셔널은 건드리지 않음)
     for (var si = 0; si < this._sunLightsData.length; si++) {
+        if (!this._sunLights[si]) continue;
         var sl = this._sunLightsData[si];
         var dir = sunUVToDirection(sl.position[0], sl.position[1]);
-        // direction 벡터에 회전 변화량 적용
         var dirVec = new THREE.Vector3(dir.x, dir.y, dir.z);
         dirVec.applyQuaternion(deltaQuat);
-
-        if (si === 0) {
-            this._directionalLight.position.set(-dirVec.x * 1000, -dirVec.y * 1000, -dirVec.z * 1000);
-        } else if (this._sunLights[si - 1]) {
-            this._sunLights[si - 1].position.set(-dirVec.x * 1000, -dirVec.y * 1000, -dirVec.z * 1000);
-        }
+        this._sunLights[si].position.set(-dirVec.x * 1000, -dirVec.y * 1000, -dirVec.z * 1000);
     }
 
-    // 디버그 화살표도 업데이트
+    // 디버그 화살표도 업데이트 (_sunLights와 1:1)
     if (this._debugLightArrowsVisible && this._debugLightArrows && this._debugLightArrows.length > 0) {
         var vw2 = (typeof Graphics !== 'undefined' ? Graphics._width : 816) / 2;
         var vh2 = (typeof Graphics !== 'undefined' ? Graphics._height : 624) / 2;
         var target3 = new THREE.Vector3(vw2, vh2, 0);
         var arrowLen = 400;
-        var arrowIdx = 0;
 
-        // 메인 디렉셔널
-        if (this._directionalLight && this._directionalLight.visible && arrowIdx < this._debugLightArrows.length) {
-            var lPos = this._directionalLight.position;
-            var lDir = new THREE.Vector3().subVectors(target3, lPos).normalize();
-            var arrowStart = new THREE.Vector3().copy(target3).addScaledVector(lDir, -arrowLen);
-            var grp = this._debugLightArrows[arrowIdx];
-            var quat = new THREE.Quaternion();
-            quat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), lDir);
-            grp.quaternion.copy(quat);
-            grp.position.copy(arrowStart);
-            arrowIdx++;
-        }
-
-        // 추가 sunLights
-        for (var ai = 0; ai < this._sunLights.length && arrowIdx < this._debugLightArrows.length; ai++) {
+        for (var ai = 0; ai < this._sunLights.length && ai < this._debugLightArrows.length; ai++) {
             var sPos = this._sunLights[ai].position;
             var sDir = new THREE.Vector3().subVectors(target3, sPos).normalize();
             var sStart = new THREE.Vector3().copy(target3).addScaledVector(sDir, -arrowLen);
-            var sGrp = this._debugLightArrows[arrowIdx];
+            var sGrp = this._debugLightArrows[ai];
             var sQuat = new THREE.Quaternion();
             sQuat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), sDir);
             sGrp.quaternion.copy(sQuat);
             sGrp.position.copy(sStart);
-            arrowIdx++;
         }
     }
 };
@@ -1537,26 +1500,16 @@ ShadowLight._showLightArrows = function() {
     var vh2 = (typeof Graphics !== 'undefined' ? Graphics._height : 624) / 2;
     var target3 = new THREE.Vector3(vw2, vh2, 0);
     var arrowLen = 400;
+    var colors = [0xffff00, 0xff4444, 0x44ff44, 0x4444ff, 0xff44ff];
 
-    // 메인 디렉셔널
-    if (this._directionalLight && this._directionalLight.visible) {
-        var lPos = this._directionalLight.position;
-        var lDir = new THREE.Vector3().subVectors(target3, lPos).normalize();
-        var start = new THREE.Vector3().copy(target3).addScaledVector(lDir, -arrowLen);
-        var arrow = this._createThickArrow(start, target3, 0xffff00);
-        scene.add(arrow);
-        this._debugLightArrows.push(arrow);
-    }
-
-    // 추가 sunLights
-    var colors = [0xff4444, 0x44ff44, 0x4444ff, 0xff44ff];
+    // _sunLights (스카이 태양 광원) 기준으로 화살표 생성
     for (var i = 0; i < this._sunLights.length; i++) {
         var sPos = this._sunLights[i].position;
         var sDir = new THREE.Vector3().subVectors(target3, sPos).normalize();
         var sStart = new THREE.Vector3().copy(target3).addScaledVector(sDir, -arrowLen);
-        var sArrow = this._createThickArrow(sStart, target3, colors[i % colors.length]);
-        scene.add(sArrow);
-        this._debugLightArrows.push(sArrow);
+        var arrow = this._createThickArrow(sStart, target3, colors[i % colors.length]);
+        scene.add(arrow);
+        this._debugLightArrows.push(arrow);
     }
 };
 
