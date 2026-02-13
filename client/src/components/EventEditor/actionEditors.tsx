@@ -2449,49 +2449,52 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
               <input type="radio" name="picture-pos-type" checked={positionType === 0} onChange={() => setPositionType(0)} />
               직접 지정
             </label>
-            <div style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4, opacity: positionType === 0 ? 1 : 0.5 }}>
+            {positionType === 0 && (
+            <div style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ ...labelStyle, minWidth: 16 }}>X:</span>
-                <input type="number" min={-9999} max={9999} value={positionType === 0 ? posX : 0}
-                  onChange={e => setPosX(Number(e.target.value))}
-                  disabled={positionType !== 0} style={inputStyle} />
+                <input type="number" min={-9999} max={9999} value={posX}
+                  onChange={e => setPosX(Number(e.target.value))} style={inputStyle} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ ...labelStyle, minWidth: 16 }}>Y:</span>
-                <input type="number" min={-9999} max={9999} value={positionType === 0 ? posY : 0}
-                  onChange={e => setPosY(Number(e.target.value))}
-                  disabled={positionType !== 0} style={inputStyle} />
+                <input type="number" min={-9999} max={9999} value={posY}
+                  onChange={e => setPosY(Number(e.target.value))} style={inputStyle} />
               </div>
             </div>
+            )}
 
             {/* 변수로 지정 */}
             <label style={radioStyle}>
               <input type="radio" name="picture-pos-type" checked={positionType === 1} onChange={() => setPositionType(1)} />
               변수로 지정
             </label>
-            <div style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4, opacity: positionType === 1 ? 1 : 0.5 }}>
+            {positionType === 1 && (
+            <div style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ ...labelStyle, minWidth: 16 }}>X:</span>
-                <VariableSwitchPicker type="variable" value={positionType === 1 ? (posX || 1) : 1}
-                  onChange={setPosX} disabled={positionType !== 1} style={{ flex: 1 }} />
+                <VariableSwitchPicker type="variable" value={posX || 1}
+                  onChange={setPosX} style={{ flex: 1 }} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ ...labelStyle, minWidth: 16 }}>Y:</span>
-                <VariableSwitchPicker type="variable" value={positionType === 1 ? (posY || 1) : 1}
-                  onChange={setPosY} disabled={positionType !== 1} style={{ flex: 1 }} />
+                <VariableSwitchPicker type="variable" value={posY || 1}
+                  onChange={setPosY} style={{ flex: 1 }} />
               </div>
             </div>
+            )}
 
             {/* 프리셋 지정 */}
             <label style={radioStyle}>
               <input type="radio" name="picture-pos-type" checked={positionType === 2} onChange={() => setPositionType(2)} />
               프리셋 지정
             </label>
-            <div style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4, opacity: positionType === 2 ? 1 : 0.5 }}>
+            {positionType === 2 && (
+            <div style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ ...labelStyle, minWidth: 16 }}>X:</span>
                 <select value={presetX} onChange={e => setPresetX(Number(e.target.value))}
-                  disabled={positionType !== 2} style={{ ...selectStyle, width: 70 }}>
+                  style={{ ...selectStyle, width: 70 }}>
                   <option value={1}>1/5</option>
                   <option value={2}>2/5</option>
                   <option value={3}>3/5</option>
@@ -2501,12 +2504,12 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
                 <span style={{ ...labelStyle, marginLeft: 4 }}>+</span>
                 <input type="number" min={-9999} max={9999} value={presetOffsetX}
                   onChange={e => setPresetOffsetX(Number(e.target.value))}
-                  disabled={positionType !== 2} style={{ ...selectStyle, width: 60 }} />
+                  style={{ ...selectStyle, width: 60 }} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ ...labelStyle, minWidth: 16 }}>Y:</span>
                 <select value={presetY} onChange={e => setPresetY(Number(e.target.value))}
-                  disabled={positionType !== 2} style={{ ...selectStyle, width: 70 }}>
+                  style={{ ...selectStyle, width: 70 }}>
                   <option value={1}>1/5</option>
                   <option value={2}>2/5</option>
                   <option value={3}>3/5</option>
@@ -2516,9 +2519,10 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
                 <span style={{ ...labelStyle, marginLeft: 4 }}>+</span>
                 <input type="number" min={-9999} max={9999} value={presetOffsetY}
                   onChange={e => setPresetOffsetY(Number(e.target.value))}
-                  disabled={positionType !== 2} style={{ ...selectStyle, width: 60 }} />
+                  style={{ ...selectStyle, width: 60 }} />
               </div>
             </div>
+            )}
           </div>
         </fieldset>
 

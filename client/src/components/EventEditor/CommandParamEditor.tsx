@@ -27,9 +27,9 @@ export default function CommandParamEditor({ code, command, followCommands, hasE
   const dialogWidth = code === 102 ? 560 : code === 111 ? 540 : code === 231 ? 720 : code === 234 ? 520 : 480;
   return (
     <div className="modal-overlay">
-      <div className="image-picker-dialog" style={{ width: dialogWidth, maxHeight: code === 231 ? 'none' : '70vh' }}>
+      <div className="image-picker-dialog" style={{ width: dialogWidth, maxHeight: '90vh' }}>
         <div className="image-picker-header">{getCommandName(code)}</div>
-        <div style={{ flex: 1, overflowY: code === 231 ? 'visible' : 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {content}
         </div>
       </div>
