@@ -5,7 +5,7 @@ import {
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor,
   ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor, ShowBalloonIconEditor,
-  ScrollingTextEditor, ConditionalBranchEditor, ShowPictureEditor,
+  ScrollingTextEditor, ConditionalBranchEditor, ShowPictureEditor, RotatePictureEditor,
 } from './commandEditors';
 
 interface CommandParamEditorProps {
@@ -46,7 +46,7 @@ function getCommandName(code: number): string {
     124: '타이머 조작', 125: '소지 금액 증감', 126: '아이템 증감',
     127: '무기 변경', 128: '방어구 변경', 129: '파티원 변경',
     134: '저장 금지 변경', 135: '메뉴 금지 변경', 136: '조우 금지 변경', 137: '진형 금지 변경',
-    201: '장소 이동', 202: '탈 것 위치 설정', 204: '지도 스크롤', 211: '투명 상태 변경', 212: '애니메이션 표시', 213: '말풍선 아이콘 표시', 216: '대열 보행 변경', 230: 'Wait', 231: '그림 표시',
+    201: '장소 이동', 202: '탈 것 위치 설정', 204: '지도 스크롤', 211: '투명 상태 변경', 212: '애니메이션 표시', 213: '말풍선 아이콘 표시', 216: '대열 보행 변경', 230: 'Wait', 231: '그림 표시', 233: '그림 회전', 235: '그림 제거',
     241: 'Play BGM', 242: 'Fadeout BGM', 245: 'Play BGS', 246: 'Fadeout BGS',
     249: 'Play ME', 250: 'Play SE',
     301: 'Battle Processing', 303: '이름 입력 처리', 311: 'HP 증감', 312: 'MP 증감', 326: 'TP 증감',
@@ -97,6 +97,8 @@ function getEditorContent(
     case 213: return <ShowBalloonIconEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 230: return <SingleNumberEditor p={p} onOk={onOk} onCancel={onCancel} label="Wait (frames)" />;
     case 231: return <ShowPictureEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 233: return <RotatePictureEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 235: return <SingleNumberEditor p={p} onOk={onOk} onCancel={onCancel} label="번호" min={1} max={100} />;
     case 241: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgm" />;
     case 245: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgs" />;
     case 249: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="me" />;
