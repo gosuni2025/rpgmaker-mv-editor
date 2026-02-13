@@ -120,19 +120,6 @@ const MAP_NAMES: Array<{ name: string; category: 'Fantasy' | 'Cyberpunk' }> = [
   { name: 'Hospital', category: 'Cyberpunk' },
 ];
 
-/** Qt 리소스 이름 해시 함수 */
-function qtHash(name: string): number {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) {
-    h = ((h << 4) + name.charCodeAt(i)) >>> 0;
-    const g = h & 0xf0000000;
-    h ^= g >>> 23;
-    h &= ~g;
-    h = h >>> 0;
-  }
-  return h;
-}
-
 /** Big-endian uint32 읽기 */
 function readUInt32BE(buf: Buffer, offset: number): number {
   return buf.readUInt32BE(offset);
@@ -141,6 +128,30 @@ function readUInt32BE(buf: Buffer, offset: number): number {
 /** Big-endian uint16 읽기 */
 function readUInt16BE(buf: Buffer, offset: number): number {
   return buf.readUInt16BE(offset);
+}
+
+/** UTF-16BE로 인코딩된 이름을 바이너리에서 검색 */
+function findUtf16BE(buf: Buffer, name: string, start: number, end: number): number {
+  const nameBE = Buffer.alloc(name.length * 2);
+  for (let i = 0; i < name.length; i++) nameBE.writeUInt16BE(name.charCodeAt(i), i * 2);
+  for (let i = start; i < Math.min(end, buf.length - nameBE.length); i++) {
+    if (buf.compare(nameBE, 0, nameBE.length, i, i + nameBE.length) === 0) {
+      const ns = i - 6;
+      if (buf.readUInt16BE(ns) === name.length) return ns;
+    }
+  }
+  return -1;
+}
+
+/** name table에서 이름 읽기 */
+function readNameAt(buf: Buffer, nameBase: number, nameOff: number): string | null {
+  const abs = nameBase + nameOff;
+  if (abs + 6 >= buf.length) return null;
+  const len = buf.readUInt16BE(abs);
+  if (len < 1 || len > 30 || abs + 6 + len * 2 > buf.length) return null;
+  const nb = Buffer.from(buf.subarray(abs + 6, abs + 6 + len * 2));
+  for (let j = 0; j < nb.length; j += 2) { const t = nb[j]; nb[j] = nb[j + 1]; nb[j + 1] = t; }
+  return nb.toString('utf16le');
 }
 
 class SampleMapExtractor {
@@ -168,114 +179,103 @@ class SampleMapExtractor {
 
   /** Qt 리소스 구조 찾기: tree_base, name_base, data_base */
   private findResourceStructure(buf: Buffer): { treeBase: number; nameBase: number; dataBase: number } | null {
-    const mapsUtf16 = Buffer.from([0x00, 0x6d, 0x00, 0x61, 0x00, 0x70, 0x00, 0x73]); // 'maps'
-    let nameBase = -1;
-    let mapsOffset = -1;
+    // Step 1: 'Map001.json' UTF-16BE 검색으로 name table 영역 특정
+    const map001pos = findUtf16BE(buf, 'Map001.json', 9000000, 10000000);
+    if (map001pos === -1) return null;
 
-    for (let i = 9000000; i < Math.min(buf.length, 10000000); i++) {
-      if (buf[i] === 0x00 && buf[i + 1] === 0x6d &&
-          buf.compare(mapsUtf16, 0, 8, i, i + 8) === 0) {
-        const nameStart = i - 6;
-        const len = readUInt16BE(buf, nameStart);
-        if (len === 4) {
-          const hash = readUInt32BE(buf, nameStart + 2);
-          if (hash === qtHash('maps')) {
-            mapsOffset = nameStart;
-            break;
-          }
-        }
-      }
-    }
-
-    if (mapsOffset === -1) return null;
-
-    for (let i = mapsOffset - 100; i < mapsOffset; i++) {
-      const len = readUInt16BE(buf, i);
-      if (len === 1) {
-        const hash = readUInt32BE(buf, i + 2);
-        if (hash === qtHash('1')) {
-          const char = readUInt16BE(buf, i + 6);
-          if (char === 0x0031) {
-            nameBase = i;
-            break;
-          }
-        }
-      }
-    }
-
-    if (nameBase === -1) return null;
-
-    const rootPattern = Buffer.from([0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1]);
+    // Step 2: treeBase 찾기 - root directory entry 패턴 검색
+    // root: nameOff=0(4) + flags=0x02(2) + childCount=1(4) + childOffset=1(4) = 14 bytes
+    // child[1]: nameOff=0(4) + flags=0x02(2) + childCount=208(4) + childOffset=2(4)
     let treeBase = -1;
-
-    for (let i = nameBase - 10000; i < nameBase; i++) {
-      if (buf.compare(rootPattern, 0, 14, i, i + 14) === 0) {
-        const child1 = i + 14;
-        const childNameOff = readUInt32BE(buf, child1);
-        const childFlags = readUInt16BE(buf, child1 + 4);
-        if (childNameOff === 0 && childFlags === 2) {
-          const childCount = readUInt32BE(buf, child1 + 6);
-          if (childCount > 100 && childCount < 300) {
-            treeBase = i;
-            break;
+    for (let i = map001pos - 10000; i < map001pos; i++) {
+      if (buf.readUInt32BE(i) === 0 && buf.readUInt16BE(i + 4) === 2) {
+        const cc = buf.readUInt32BE(i + 6);
+        const co = buf.readUInt32BE(i + 10);
+        if (cc === 1 && co === 1) {
+          // Verify next entry is also a directory with ~208 children
+          const next = i + 14;
+          if (buf.readUInt16BE(next + 4) === 2) {
+            const cc2 = buf.readUInt32BE(next + 6);
+            if (cc2 >= 200 && cc2 <= 220) {
+              treeBase = i;
+              break;
+            }
           }
         }
       }
     }
-
     if (treeBase === -1) return null;
 
-    const dataSearchStart = nameBase + 5000;
-    let dataBase = -1;
-
-    const map099hash = qtHash('Map099.json');
-    let map099nameOff = -1;
-    for (let i = nameBase; i < nameBase + 6000; i++) {
-      if (buf.readUInt32BE(i) === map099hash) {
-        const ns = i - 2;
-        const nl = readUInt16BE(buf, ns);
-        if (nl === 11) {
-          const name = buf.subarray(ns + 6, ns + 6 + nl * 2).swap16().toString('utf16le');
-          if (name === 'Map099.json') {
-            map099nameOff = ns - nameBase;
-            break;
-          }
-        }
+    // Step 3: nameBase 브루트포스 - tree 엔트리들의 nameOff가 알려진 이름을 가리키도록
+    // 모든 Map###.json/png name entry 위치 수집
+    const knownNames = new Set<number>();
+    for (let mapNum = 1; mapNum <= 104; mapNum++) {
+      for (const ext of ['json', 'png']) {
+        const pos = findUtf16BE(buf, `Map${String(mapNum).padStart(3, '0')}.${ext}`, map001pos - 5000, map001pos + 8000);
+        if (pos !== -1) knownNames.add(pos);
       }
     }
 
-    if (map099nameOff !== -1) {
+    let nameBase = -1;
+    let bestCount = 0;
+    for (let nb = map001pos - 5000; nb <= map001pos; nb++) {
+      let count = 0;
       for (let idx = 2; idx < 210; idx++) {
-        const toff = treeBase + idx * 14;
-        if (readUInt32BE(buf, toff) === map099nameOff) {
-          const flags = readUInt16BE(buf, toff + 4);
-          if (!(flags & 0x02)) {
-            const dataOff = readUInt32BE(buf, toff + 10);
-            for (let search = dataSearchStart; search < dataSearchStart + 200000; search++) {
-              if (buf[search] === 0x78 && (buf[search + 1] === 0x9c || buf[search + 1] === 0x01 || buf[search + 1] === 0xda)) {
-                const testBase = search - 8 - dataOff;
-                if (testBase > 0) {
-                  const testPos = testBase + dataOff;
-                  const totalSize = readUInt32BE(buf, testPos);
-                  if (totalSize > 100 && totalSize < 100000) {
-                    try {
-                      const decompressed = zlib.inflateSync(buf.subarray(testPos + 8, testPos + 8 + totalSize));
-                      const text = decompressed.toString('utf-8');
-                      if (text.includes('"tilesetId"')) {
-                        dataBase = testBase;
-                        break;
-                      }
-                    } catch { /* ignore */ }
-                  }
-                }
-              }
-            }
-            break;
-          }
-        }
+        const nameOff = buf.readUInt32BE(treeBase + idx * 14);
+        if (knownNames.has(nb + nameOff)) count++;
+      }
+      if (count > bestCount) {
+        bestCount = count;
+        nameBase = nb;
+        if (count >= 208) break;
       }
     }
+    if (nameBase === -1 || bestCount < 100) return null;
 
+    // Step 4: dataBase 찾기 - Map099.json의 dataOff 사용
+    // Map099.json은 가장 작은 dataOff를 가지므로 dataBase 검색 범위가 좁음
+    const map099pos = findUtf16BE(buf, 'Map099.json', nameBase, nameBase + 8000);
+    if (map099pos === -1) return null;
+    const map099nameOff = map099pos - nameBase;
+
+    let map099dataOff = -1;
+    for (let idx = 2; idx < 210; idx++) {
+      if (buf.readUInt32BE(treeBase + idx * 14) === map099nameOff) {
+        map099dataOff = buf.readUInt32BE(treeBase + idx * 14 + 10);
+        break;
+      }
+    }
+    if (map099dataOff === -1) return null;
+
+    let dataBase = -1;
+    for (let db = nameBase; db < nameBase + 500000; db += 4) {
+      const absPos = db + map099dataOff;
+      if (absPos + 12 >= buf.length) continue;
+      const totalSize = buf.readUInt32BE(absPos);
+      if (totalSize < 50 || totalSize > 500000) continue;
+      if (buf[absPos + 8] !== 0x78) continue;
+      try {
+        const dec = zlib.inflateSync(buf.subarray(absPos + 8, absPos + 8 + totalSize));
+        if (dec.toString('utf-8').includes('"tilesetId"')) {
+          // 다른 파일로 교차 검증
+          let verified = 0;
+          for (let idx = 2; idx < 210 && verified < 5; idx++) {
+            const doff = buf.readUInt32BE(treeBase + idx * 14 + 10);
+            const abs2 = db + doff;
+            if (abs2 + 12 >= buf.length) continue;
+            const ts2 = buf.readUInt32BE(abs2);
+            if (ts2 < 50 || ts2 > 500000) continue;
+            if (buf[abs2 + 8] === 0x78) {
+              try {
+                const d2 = zlib.inflateSync(buf.subarray(abs2 + 8, abs2 + 8 + ts2));
+                if (d2.toString('utf-8').includes('"tilesetId"')) verified++;
+              } catch { /* ignore */ }
+            }
+          }
+          if (verified >= 3) { dataBase = db; break; }
+        }
+      } catch { /* ignore */ }
+    }
     if (dataBase === -1) return null;
 
     return { treeBase, nameBase, dataBase };
@@ -404,28 +404,8 @@ class SampleMapExtractor {
 
   /** name table에서 이름의 name_offset 찾기 */
   private findNameOffset(buf: Buffer, nameBase: number, name: string): number | null {
-    const hash = qtHash(name);
-
-    for (let i = nameBase; i < nameBase + 6000; i++) {
-      if (i + 4 <= buf.length && buf.readUInt32BE(i) === hash) {
-        const nameStart = i - 2;
-        const nameLen = readUInt16BE(buf, nameStart);
-        if (nameLen === name.length) {
-          const nameBuf = buf.subarray(nameStart + 6, nameStart + 6 + nameLen * 2);
-          const swapped = Buffer.from(nameBuf);
-          for (let j = 0; j < swapped.length; j += 2) {
-            const tmp = swapped[j];
-            swapped[j] = swapped[j + 1];
-            swapped[j + 1] = tmp;
-          }
-          const storedName = swapped.toString('utf16le');
-          if (storedName === name) {
-            return nameStart - nameBase;
-          }
-        }
-      }
-    }
-    return null;
+    const pos = findUtf16BE(buf, name, nameBase, nameBase + 8000);
+    return pos !== -1 ? pos - nameBase : null;
   }
 
   /** tree에서 name_offset에 해당하는 data_offset 찾기 */
