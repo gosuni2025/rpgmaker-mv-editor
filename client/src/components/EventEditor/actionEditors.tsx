@@ -1692,6 +1692,10 @@ export function ChangeFormationAccessEditor({ p, onOk, onCancel }: { p: unknown[
   return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="대열로 보행" />;
 }
 
+export function ChangePlayerFollowersEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="대열로 보행" />;
+}
+
 export function ShowAnimationEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [characterId, setCharacterId] = useState<number>((p[0] as number) ?? -1);
   const [animationId, setAnimationId] = useState<number>((p[1] as number) || 1);
