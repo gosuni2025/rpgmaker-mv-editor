@@ -1,12 +1,60 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 
 const GROUP_SIZE = 20;
+const ICON_SIZE = 32;
+const ICON_DISPLAY_SIZE = 20;
+const ICONS_PER_ROW = 16;
+
+/** 아이콘 시트를 로드하고 캐시하는 모듈 레벨 변수 */
+let _iconSheetCache: HTMLImageElement | null = null;
+let _iconSheetLoading = false;
+const _iconSheetCallbacks: ((img: HTMLImageElement) => void)[] = [];
+
+function loadIconSheet(cb: (img: HTMLImageElement) => void) {
+  if (_iconSheetCache) { cb(_iconSheetCache); return; }
+  _iconSheetCallbacks.push(cb);
+  if (_iconSheetLoading) return;
+  _iconSheetLoading = true;
+  const img = new Image();
+  img.src = '/api/resources/img_system/IconSet.png';
+  img.onload = () => {
+    _iconSheetCache = img;
+    _iconSheetCallbacks.forEach(fn => fn(img));
+    _iconSheetCallbacks.length = 0;
+  };
+}
+
+/** 아이콘을 캔버스에 그리는 작은 컴포넌트 */
+function IconSprite({ iconIndex }: { iconIndex: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [sheet, setSheet] = useState<HTMLImageElement | null>(_iconSheetCache);
+
+  useEffect(() => {
+    if (!sheet) loadIconSheet(setSheet);
+  }, []);
+
+  useEffect(() => {
+    if (!sheet || !canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, ICON_SIZE, ICON_SIZE);
+    const sx = (iconIndex % ICONS_PER_ROW) * ICON_SIZE;
+    const sy = Math.floor(iconIndex / ICONS_PER_ROW) * ICON_SIZE;
+    ctx.drawImage(sheet, sx, sy, ICON_SIZE, ICON_SIZE, 0, 0, ICON_SIZE, ICON_SIZE);
+  }, [sheet, iconIndex]);
+
+  return (
+    <canvas ref={canvasRef} width={ICON_SIZE} height={ICON_SIZE}
+      style={{ width: ICON_DISPLAY_SIZE, height: ICON_DISPLAY_SIZE, imageRendering: 'pixelated', flexShrink: 0 }} />
+  );
+}
 
 /** 스위치/변수/아이템 등 목록에서 선택하는 2패널 팝업 */
-export function DataListPicker({ items, value, onChange, onClose, title }: {
+export function DataListPicker({ items, value, onChange, onClose, title, iconIndices }: {
   items: string[]; value: number; onChange: (id: number) => void; onClose: () => void; title?: string;
+  iconIndices?: (number | undefined)[];
 }) {
   const totalCount = items.length - 1; // items[0]은 null
   const groups = useMemo(() => {
@@ -64,17 +112,24 @@ export function DataListPicker({ items, value, onChange, onClose, title }: {
           </div>
           {/* 오른쪽 패널: 아이템 목록 */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-            {groupItems.map(item => (
-              <div
-                key={item.id}
-                style={{
-                  padding: '3px 8px', cursor: 'pointer', fontSize: 13, color: '#ddd',
-                  background: item.id === selected ? '#2675bf' : 'transparent',
-                }}
-                onClick={() => setSelected(item.id)}
-                onDoubleClick={() => { onChange(item.id); onClose(); }}
-              >{item.label}</div>
-            ))}
+            {groupItems.map(item => {
+              const iconIdx = iconIndices?.[item.id];
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    padding: '3px 8px', cursor: 'pointer', fontSize: 13, color: '#ddd',
+                    background: item.id === selected ? '#2675bf' : 'transparent',
+                    display: 'flex', alignItems: 'center', gap: 4,
+                  }}
+                  onClick={() => setSelected(item.id)}
+                  onDoubleClick={() => { onChange(item.id); onClose(); }}
+                >
+                  {iconIdx != null && iconIdx > 0 && <IconSprite iconIndex={iconIdx} />}
+                  <span>{item.label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
         <div className="image-picker-footer">

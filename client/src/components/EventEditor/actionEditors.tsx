@@ -6,7 +6,7 @@ import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { DataListPicker } from './controlEditors';
 import apiClient from '../../api/client';
 
-interface NamedItem { id: number; name: string }
+interface NamedItem { id: number; name: string; iconIndex?: number }
 
 function useDbNames(endpoint: string): string[] {
   const [items, setItems] = useState<string[]>([]);
@@ -20,6 +20,27 @@ function useDbNames(endpoint: string): string[] {
     }).catch(() => {});
   }, [endpoint]);
   return items;
+}
+
+/** 이름과 아이콘 인덱스를 함께 가져오는 훅 */
+function useDbNamesWithIcons(endpoint: string): { names: string[]; iconIndices: (number | undefined)[] } {
+  const [names, setNames] = useState<string[]>([]);
+  const [iconIndices, setIconIndices] = useState<(number | undefined)[]>([]);
+  useEffect(() => {
+    apiClient.get<(NamedItem | null)[]>(`/database/${endpoint}`).then(data => {
+      const nameArr: string[] = [];
+      const iconArr: (number | undefined)[] = [];
+      for (const item of data) {
+        if (item) {
+          nameArr[item.id] = item.name || '';
+          iconArr[item.id] = item.iconIndex;
+        }
+      }
+      setNames(nameArr);
+      setIconIndices(iconArr);
+    }).catch(() => {});
+  }, [endpoint]);
+  return { names, iconIndices };
 }
 
 export const DEFAULT_AUDIO: AudioFile = { name: '', pan: 0, pitch: 100, volume: 90 };
@@ -91,7 +112,7 @@ export function ChangeItemEditor({ p, onOk, onCancel, label, showIncludeEquip }:
   const [showPicker, setShowPicker] = useState(false);
 
   const { endpoint, title, fieldLabel } = ITEM_ENDPOINTS[label] || ITEM_ENDPOINTS['Item'];
-  const dbNames = useDbNames(endpoint);
+  const { names: dbNames, iconIndices } = useDbNamesWithIcons(endpoint);
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
   const radioName = `change-${label.toLowerCase()}`;
@@ -164,7 +185,7 @@ export function ChangeItemEditor({ p, onOk, onCancel, label, showIncludeEquip }:
 
       {showPicker && (
         <DataListPicker items={dbNames} value={itemId} onChange={setItemId}
-          onClose={() => setShowPicker(false)} title={title} />
+          onClose={() => setShowPicker(false)} title={title} iconIndices={iconIndices} />
       )}
     </>
   );
@@ -566,7 +587,7 @@ export function ChangeStateEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
   const [showStatePicker, setShowStatePicker] = useState(false);
 
   const actorNames = useDbNames('actors');
-  const stateNames = useDbNames('states');
+  const { names: stateNames, iconIndices: stateIcons } = useDbNamesWithIcons('states');
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
 
@@ -629,7 +650,7 @@ export function ChangeStateEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
       )}
       {showStatePicker && (
         <DataListPicker items={stateNames} value={stateId} onChange={setStateId}
-          onClose={() => setShowStatePicker(false)} title="대상 선택" />
+          onClose={() => setShowStatePicker(false)} title="대상 선택" iconIndices={stateIcons} />
       )}
     </>
   );
@@ -648,7 +669,7 @@ export function ChangeSkillEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
   const [showSkillPicker, setShowSkillPicker] = useState(false);
 
   const actorNames = useDbNames('actors');
-  const skillNames = useDbNames('skills');
+  const { names: skillNames, iconIndices: skillIcons } = useDbNamesWithIcons('skills');
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
 
@@ -711,7 +732,7 @@ export function ChangeSkillEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
       )}
       {showSkillPicker && (
         <DataListPicker items={skillNames} value={skillId} onChange={setSkillId}
-          onClose={() => setShowSkillPicker(false)} title="대상 선택" />
+          onClose={() => setShowSkillPicker(false)} title="대상 선택" iconIndices={skillIcons} />
       )}
     </>
   );
