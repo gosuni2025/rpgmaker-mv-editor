@@ -1292,6 +1292,54 @@ ShadowLight._addLightsToScene = function(scene) {
             this._sunLights.push(sunLight);
         }
     }
+
+    // ?dev=true 디버그 모드: 디렉셔널 라이트 방향 화살표 시각화
+    if (/[?&]dev=true/.test(window.location.search)) {
+        this._debugLightArrows = this._debugLightArrows || [];
+        var arrowOrigin = new THREE.Vector3(vw2, vh2, 0);
+        var arrowLen = 300;
+        var headLen = 60;
+        var headWidth = 30;
+
+        // 메인 디렉셔널 라이트
+        if (this._directionalLight && this._directionalLight.visible) {
+            var mainDir = new THREE.Vector3().copy(this._directionalLight.position).normalize().negate();
+            var mainArrow = new THREE.ArrowHelper(mainDir, arrowOrigin, arrowLen, 0xffff00, headLen, headWidth);
+            mainArrow.line.material.linewidth = 3;
+            mainArrow.frustumCulled = false;
+            mainArrow.line.frustumCulled = false;
+            mainArrow.cone.frustumCulled = false;
+            scene.add(mainArrow);
+            this._debugLightArrows.push(mainArrow);
+            console.log('[ShadowLight DEV] Main directional light - dir:', mainDir.toArray().map(function(v){return v.toFixed(3)}),
+                'color:', '#' + this._directionalLight.color.getHexString(),
+                'intensity:', this._directionalLight.intensity,
+                'castShadow:', this._directionalLight.castShadow);
+        }
+
+        // 추가 sunLights
+        var sunColors = [0xff4444, 0x44ff44, 0x4444ff, 0xff44ff];
+        for (var ai = 0; ai < this._sunLights.length; ai++) {
+            var sLight = this._sunLights[ai];
+            var sDir = new THREE.Vector3().copy(sLight.position).normalize().negate();
+            var sColor = sunColors[ai % sunColors.length];
+            var sArrow = new THREE.ArrowHelper(sDir, arrowOrigin, arrowLen, sColor, headLen, headWidth);
+            sArrow.line.material.linewidth = 3;
+            sArrow.frustumCulled = false;
+            sArrow.line.frustumCulled = false;
+            sArrow.cone.frustumCulled = false;
+            scene.add(sArrow);
+            this._debugLightArrows.push(sArrow);
+            console.log('[ShadowLight DEV] Sun light[' + (ai+1) + '] - dir:', sDir.toArray().map(function(v){return v.toFixed(3)}),
+                'color:', '#' + sLight.color.getHexString(),
+                'intensity:', sLight.intensity,
+                'castShadow:', sLight.castShadow);
+        }
+
+        // 데이터 로그
+        console.log('[ShadowLight DEV] editorLights:', el);
+        console.log('[ShadowLight DEV] skyBackground:', skyBg);
+    }
 };
 
 //=============================================================================
@@ -1382,6 +1430,14 @@ ShadowLight._removeLightsFromScene = function(scene) {
             scene.remove(this._sunLights[i]);
         }
         this._sunLights = [];
+    }
+    // 디버그 화살표 제거
+    if (this._debugLightArrows) {
+        for (var i = 0; i < this._debugLightArrows.length; i++) {
+            scene.remove(this._debugLightArrows[i]);
+            this._debugLightArrows[i].dispose();
+        }
+        this._debugLightArrows = [];
     }
     // 포인트 라이트 제거
     for (var i = 0; i < this._pointLights.length; i++) {
