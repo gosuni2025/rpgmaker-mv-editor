@@ -1863,8 +1863,8 @@ declare const PictureShader: any;
 
 interface ShaderEntry { type: string; enabled: boolean; params: Record<string, number> }
 
-function ShaderPreviewCanvas({ imageName, shaderList }: {
-  imageName: string; shaderList: ShaderEntry[];
+function ShaderPreviewCanvas({ imageName, shaderList, size = 280 }: {
+  imageName: string; shaderList: ShaderEntry[]; size?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<{
@@ -1873,7 +1873,7 @@ function ShaderPreviewCanvas({ imageName, shaderList }: {
     materials: any[]; renderTargets: any[]; outputMaterial: any;
     fullscreenQuad: any; fullscreenScene: any;
     animId: number; startTime: number; loadedImage: string;
-    hasShake: boolean;
+    hasShake: boolean; canvasSize: number;
   } | null>(null);
 
   // Three.js 씬 초기화
@@ -1881,7 +1881,7 @@ function ShaderPreviewCanvas({ imageName, shaderList }: {
     const el = containerRef.current;
     if (!el || typeof THREE === 'undefined') return;
 
-    const W = 280, H = 280;
+    const W = size, H = size;
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(W, H);
     renderer.setClearColor(0x1a1a1a, 1);
@@ -1930,7 +1930,7 @@ function ShaderPreviewCanvas({ imageName, shaderList }: {
       materials: [], renderTargets: [], outputMaterial: mat,
       fullscreenQuad: fsQuad, fullscreenScene: fsScene,
       animId: 0, startTime: performance.now() / 1000, loadedImage: '',
-      hasShake: false,
+      hasShake: false, canvasSize: W,
     };
 
     const fsCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
@@ -2022,8 +2022,8 @@ function ShaderPreviewCanvas({ imageName, shaderList }: {
       stateRef.current.texture = tex;
 
       const img = tex.image;
-      const W = 280, H = 280;
-      const scale = Math.min(W / img.width, H / img.height, 1);
+      const CS = stateRef.current.canvasSize;
+      const scale = Math.min(CS / img.width, CS / img.height, 1);
       const w = img.width * scale;
       const h = img.height * scale;
       stateRef.current.mesh.geometry.dispose();
@@ -2069,12 +2069,12 @@ function ShaderPreviewCanvas({ imageName, shaderList }: {
     }
 
     // 멀티패스 셋업
-    const W = 280, H = 280;
+    const CS = s.canvasSize;
     for (const entry of renderPasses) {
       const mat = PictureShader.createMaterial(entry.type, entry.params, s.texture);
       if (mat) {
         s.materials.push(mat);
-        const rt = new THREE.WebGLRenderTarget(W, H, {
+        const rt = new THREE.WebGLRenderTarget(CS, CS, {
           minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
           format: THREE.RGBAFormat,
         });
@@ -2090,7 +2090,7 @@ function ShaderPreviewCanvas({ imageName, shaderList }: {
 
   return (
     <div ref={containerRef} style={{
-      width: 280, height: 280, flexShrink: 0,
+      width: size, height: size, flexShrink: 0,
       border: '1px solid #555', borderRadius: 4, overflow: 'hidden',
     }} />
   );
@@ -2213,39 +2213,14 @@ const SHADER_DEFINITIONS: ShaderDef[] = [
   ]},
 ];
 
-// ─── 그림 표시 (Show Picture, code 231) ───
-// parameters: [번호, 이미지명, 원점, 위치지정방식, X, Y, 넓이%, 높이%, 불투명도, 합성방법, 셰이더데이터?]
-export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
-  const [pictureNumber, setPictureNumber] = useState<number>((p[0] as number) || 1);
-  const [imageName, setImageName] = useState<string>((p[1] as string) || '');
-  const [origin, setOrigin] = useState<number>((p[2] as number) || 0);
-  const [positionType, setPositionType] = useState<number>((p[3] as number) || 0);
-  const [posX, setPosX] = useState<number>((p[4] as number) || 0);
-  const [posY, setPosY] = useState<number>((p[5] as number) || 0);
-  const [scaleWidth, setScaleWidth] = useState<number>((p[6] as number) ?? 100);
-  const [scaleHeight, setScaleHeight] = useState<number>((p[7] as number) ?? 100);
-  const [opacity, setOpacity] = useState<number>((p[8] as number) ?? 255);
-  const [blendMode, setBlendMode] = useState<number>((p[9] as number) || 0);
-
-  // 프리셋 위치 데이터 초기화
-  const existingPreset = p[11] as { presetX: number; presetY: number; offsetX: number; offsetY: number } | null;
-  const [presetX, setPresetX] = useState<number>(existingPreset?.presetX ?? 3);
-  const [presetY, setPresetY] = useState<number>(existingPreset?.presetY ?? 3);
-  const [presetOffsetX, setPresetOffsetX] = useState<number>(existingPreset?.offsetX ?? 0);
-  const [presetOffsetY, setPresetOffsetY] = useState<number>(existingPreset?.offsetY ?? 0);
-
-  // 셰이더 데이터 초기화 (배열 지원)
-  const initShaderList = (): ShaderEntry[] => {
-    const raw = p[10];
-    if (!raw) return [];
-    // 배열 형태
-    if (Array.isArray(raw)) return (raw as ShaderEntry[]).map(s => ({ ...s, params: { ...s.params } }));
-    // 단일 객체 (하위 호환)
-    const single = raw as ShaderEntry;
-    if (single.enabled) return [{ ...single, params: { ...single.params } }];
-    return [];
-  };
-  const [shaderList, setShaderList] = useState<ShaderEntry[]>(initShaderList);
+// ─── 셰이더 에디터 다이얼로그 (전체화면) ───
+function ShaderEditorDialog({ imageName, shaderList: initialList, onOk, onCancel }: {
+  imageName: string;
+  shaderList: ShaderEntry[];
+  onOk: (shaderList: ShaderEntry[]) => void;
+  onCancel: () => void;
+}) {
+  const [shaderList, setShaderList] = useState<ShaderEntry[]>(initialList.map(s => ({ ...s, params: { ...s.params } })));
   const [selectedShaderIdx, setSelectedShaderIdx] = useState<number>(0);
 
   const addShader = () => {
@@ -2285,6 +2260,146 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
 
   const selectedShader = shaderList[selectedShaderIdx];
   const selectedShaderDef = selectedShader ? SHADER_DEFINITIONS.find(d => d.type === selectedShader.type) : null;
+  const labelStyle: React.CSSProperties = { fontSize: 13, color: '#aaa' };
+
+  return createPortal(
+    <div className="modal-overlay" style={{ zIndex: 10001 }}>
+      <div className="image-picker-dialog" style={{ width: '90vw', maxWidth: 1200, height: '85vh', maxHeight: 900, display: 'flex', flexDirection: 'column' }}>
+        <div className="image-picker-header">셰이더 이펙트 설정</div>
+        <div style={{ flex: 1, overflow: 'hidden', padding: 16, display: 'flex', gap: 16 }}>
+          {/* 좌측: 프리뷰 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+            <ShaderPreviewCanvas imageName={imageName} shaderList={shaderList} size={480} />
+          </div>
+          {/* 우측: 셰이더 리스트 + 파라미터 */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, overflow: 'hidden' }}>
+            {/* 셰이더 리스트 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14, color: '#ddd', flex: 1 }}>이펙트 목록</span>
+              <button className="db-btn" onClick={addShader}>추가</button>
+            </div>
+            <div style={{
+              border: '1px solid #444', borderRadius: 4, background: '#1e1e1e',
+              minHeight: 80, maxHeight: 200, overflowY: 'auto', flexShrink: 0,
+            }}>
+              {shaderList.length === 0 && (
+                <div style={{ color: '#666', fontSize: 13, padding: '20px 12px', textAlign: 'center' }}>
+                  셰이더 없음 - 추가 버튼으로 이펙트를 추가하세요
+                </div>
+              )}
+              {shaderList.map((entry, idx) => {
+                const def = SHADER_DEFINITIONS.find(d => d.type === entry.type);
+                return (
+                  <div key={idx}
+                    onClick={() => setSelectedShaderIdx(idx)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '6px 10px', cursor: 'pointer', fontSize: 13,
+                      background: idx === selectedShaderIdx ? '#2675bf' : 'transparent',
+                      color: idx === selectedShaderIdx ? '#fff' : '#ccc',
+                    }}>
+                    <span style={{ flex: 1 }}>{idx + 1}. {def?.label ?? entry.type}</span>
+                    <button className="db-btn" style={{ fontSize: 11, padding: '1px 6px' }}
+                      onClick={e => { e.stopPropagation(); moveShader(idx, -1); }}
+                      disabled={idx === 0} title="위로">▲</button>
+                    <button className="db-btn" style={{ fontSize: 11, padding: '1px 6px' }}
+                      onClick={e => { e.stopPropagation(); moveShader(idx, 1); }}
+                      disabled={idx === shaderList.length - 1} title="아래로">▼</button>
+                    <button className="db-btn" style={{ fontSize: 11, padding: '1px 6px', color: '#f88' }}
+                      onClick={e => { e.stopPropagation(); removeShader(idx); }}
+                      title="삭제">✕</button>
+                  </div>
+                );
+              })}
+            </div>
+            {/* 선택된 셰이더 파라미터 */}
+            {selectedShader && selectedShaderDef && (
+              <div style={{ flex: 1, overflowY: 'auto', borderTop: '1px solid #444', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ ...labelStyle, fontSize: 14 }}>
+                  타입:
+                  <select value={selectedShader.type}
+                    onChange={e => updateShaderType(selectedShaderIdx, e.target.value)}
+                    style={{ ...selectStyle, marginLeft: 8, fontSize: 13 }}>
+                    {SHADER_DEFINITIONS.map(sd => (
+                      <option key={sd.type} value={sd.type}>{sd.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px' }}>
+                  {selectedShaderDef.params.map(pd => (
+                    <label key={pd.key} style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ minWidth: 90, flexShrink: 0 }}>{pd.label}:</span>
+                      {pd.type === 'select' && pd.options ? (
+                        <select value={selectedShader.params[pd.key] ?? pd.defaultValue}
+                          onChange={e => updateShaderParam(selectedShaderIdx, pd.key, Number(e.target.value))}
+                          style={{ ...selectStyle, flex: 1 }}>
+                          {pd.options.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <>
+                          <input type="range" min={pd.min} max={pd.max} step={pd.step}
+                            value={selectedShader.params[pd.key] ?? pd.defaultValue}
+                            onChange={e => updateShaderParam(selectedShaderIdx, pd.key, Number(e.target.value))}
+                            style={{ flex: 1 }} />
+                          <input type="number" min={pd.min} max={pd.max} step={pd.step}
+                            value={selectedShader.params[pd.key] ?? pd.defaultValue}
+                            onChange={e => updateShaderParam(selectedShaderIdx, pd.key, Number(e.target.value))}
+                            style={{ ...selectStyle, width: 60 }} />
+                        </>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="image-picker-footer">
+          <button className="db-btn" onClick={() => onOk(shaderList)}>OK</button>
+          <button className="db-btn" onClick={onCancel}>취소</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── 그림 표시 (Show Picture, code 231) ───
+// parameters: [번호, 이미지명, 원점, 위치지정방식, X, Y, 넓이%, 높이%, 불투명도, 합성방법, 셰이더데이터?]
+export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [pictureNumber, setPictureNumber] = useState<number>((p[0] as number) || 1);
+  const [imageName, setImageName] = useState<string>((p[1] as string) || '');
+  const [origin, setOrigin] = useState<number>((p[2] as number) || 0);
+  const [positionType, setPositionType] = useState<number>((p[3] as number) || 0);
+  const [posX, setPosX] = useState<number>((p[4] as number) || 0);
+  const [posY, setPosY] = useState<number>((p[5] as number) || 0);
+  const [scaleWidth, setScaleWidth] = useState<number>((p[6] as number) ?? 100);
+  const [scaleHeight, setScaleHeight] = useState<number>((p[7] as number) ?? 100);
+  const [opacity, setOpacity] = useState<number>((p[8] as number) ?? 255);
+  const [blendMode, setBlendMode] = useState<number>((p[9] as number) || 0);
+
+  // 프리셋 위치 데이터 초기화
+  const existingPreset = p[11] as { presetX: number; presetY: number; offsetX: number; offsetY: number } | null;
+  const [presetX, setPresetX] = useState<number>(existingPreset?.presetX ?? 3);
+  const [presetY, setPresetY] = useState<number>(existingPreset?.presetY ?? 3);
+  const [presetOffsetX, setPresetOffsetX] = useState<number>(existingPreset?.offsetX ?? 0);
+  const [presetOffsetY, setPresetOffsetY] = useState<number>(existingPreset?.offsetY ?? 0);
+
+  // 셰이더 데이터 초기화 (배열 지원)
+  const initShaderList = (): ShaderEntry[] => {
+    const raw = p[10];
+    if (!raw) return [];
+    // 배열 형태
+    if (Array.isArray(raw)) return (raw as ShaderEntry[]).map(s => ({ ...s, params: { ...s.params } }));
+    // 단일 객체 (하위 호환)
+    const single = raw as ShaderEntry;
+    if (single.enabled) return [{ ...single, params: { ...single.params } }];
+    return [];
+  };
+  const [shaderList, setShaderList] = useState<ShaderEntry[]>(initShaderList);
+  const [showShaderDialog, setShowShaderDialog] = useState(false);
 
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
   const labelStyle: React.CSSProperties = { fontSize: 12, color: '#aaa' };
@@ -2448,94 +2563,29 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
       {/* 셰이더 이펙트 */}
       <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
         <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>셰이더 이펙트</legend>
-        <div style={{ display: 'flex', gap: 12 }}>
-          {/* 프리뷰 */}
-          <ShaderPreviewCanvas imageName={imageName} shaderList={shaderList} />
-          {/* 셰이더 리스트 + 파라미터 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 0 }}>
-            {/* 셰이더 리스트 헤더 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ ...labelStyle, flex: 1 }}>이펙트 목록:</span>
-              <button className="db-btn" style={{ fontSize: 11, padding: '1px 6px' }} onClick={addShader}>추가</button>
-            </div>
-            {/* 셰이더 리스트 */}
-            <div style={{
-              border: '1px solid #444', borderRadius: 3, background: '#1e1e1e',
-              minHeight: 60, maxHeight: 120, overflowY: 'auto',
-            }}>
-              {shaderList.length === 0 && (
-                <div style={{ color: '#666', fontSize: 11, padding: '12px 8px', textAlign: 'center' }}>
-                  셰이더 없음 (추가 버튼으로 이펙트를 추가하세요)
-                </div>
-              )}
-              {shaderList.map((entry, idx) => {
-                const def = SHADER_DEFINITIONS.find(d => d.type === entry.type);
-                return (
-                  <div key={idx}
-                    onClick={() => setSelectedShaderIdx(idx)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 4,
-                      padding: '3px 6px', cursor: 'pointer', fontSize: 12,
-                      background: idx === selectedShaderIdx ? '#2675bf' : 'transparent',
-                      color: idx === selectedShaderIdx ? '#fff' : '#ccc',
-                    }}>
-                    <span style={{ flex: 1 }}>{idx + 1}. {def?.label ?? entry.type}</span>
-                    <button className="db-btn" style={{ fontSize: 10, padding: '0 3px', lineHeight: '16px' }}
-                      onClick={e => { e.stopPropagation(); moveShader(idx, -1); }}
-                      disabled={idx === 0} title="위로">▲</button>
-                    <button className="db-btn" style={{ fontSize: 10, padding: '0 3px', lineHeight: '16px' }}
-                      onClick={e => { e.stopPropagation(); moveShader(idx, 1); }}
-                      disabled={idx === shaderList.length - 1} title="아래로">▼</button>
-                    <button className="db-btn" style={{ fontSize: 10, padding: '0 3px', lineHeight: '16px', color: '#f88' }}
-                      onClick={e => { e.stopPropagation(); removeShader(idx); }}
-                      title="삭제">✕</button>
-                  </div>
-                );
-              })}
-            </div>
-            {/* 선택된 셰이더 파라미터 */}
-            {selectedShader && selectedShaderDef && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, borderTop: '1px solid #444', paddingTop: 6 }}>
-                <label style={labelStyle}>
-                  타입:
-                  <select value={selectedShader.type}
-                    onChange={e => updateShaderType(selectedShaderIdx, e.target.value)}
-                    style={{ ...selectStyle, marginLeft: 4 }}>
-                    {SHADER_DEFINITIONS.map(sd => (
-                      <option key={sd.type} value={sd.type}>{sd.label}</option>
-                    ))}
-                  </select>
-                </label>
-                {selectedShaderDef.params.map(pd => (
-                  <label key={pd.key} style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ minWidth: 80, flexShrink: 0 }}>{pd.label}:</span>
-                    {pd.type === 'select' && pd.options ? (
-                      <select value={selectedShader.params[pd.key] ?? pd.defaultValue}
-                        onChange={e => updateShaderParam(selectedShaderIdx, pd.key, Number(e.target.value))}
-                        style={{ ...selectStyle, flex: 1 }}>
-                        {pd.options.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <>
-                        <input type="range" min={pd.min} max={pd.max} step={pd.step}
-                          value={selectedShader.params[pd.key] ?? pd.defaultValue}
-                          onChange={e => updateShaderParam(selectedShaderIdx, pd.key, Number(e.target.value))}
-                          style={{ flex: 1 }} />
-                        <input type="number" min={pd.min} max={pd.max} step={pd.step}
-                          value={selectedShader.params[pd.key] ?? pd.defaultValue}
-                          onChange={e => updateShaderParam(selectedShaderIdx, pd.key, Number(e.target.value))}
-                          style={{ ...selectStyle, width: 55 }} />
-                      </>
-                    )}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button className="db-btn" onClick={() => setShowShaderDialog(true)}>
+            셰이더 설정...
+          </button>
+          <span style={{ fontSize: 12, color: shaderList.length > 0 ? '#7cb3ff' : '#666' }}>
+            {shaderList.length > 0
+              ? shaderList.map(s => SHADER_DEFINITIONS.find(d => d.type === s.type)?.label ?? s.type).join(' + ')
+              : '없음'}
+          </span>
+          {shaderList.length > 0 && (
+            <button className="db-btn" style={{ fontSize: 11, padding: '1px 6px', color: '#f88' }}
+              onClick={() => setShaderList([])}>초기화</button>
+          )}
         </div>
       </fieldset>
+      {showShaderDialog && (
+        <ShaderEditorDialog
+          imageName={imageName}
+          shaderList={shaderList}
+          onOk={(list) => { setShaderList(list); setShowShaderDialog(false); }}
+          onCancel={() => setShowShaderDialog(false)}
+        />
+      )}
 
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => {
