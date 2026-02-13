@@ -755,6 +755,81 @@ UIRenderPass.prototype.render = function(renderer /*, writeBuffer, readBuffer */
 
 UIRenderPass.prototype.dispose = function() {};
 
+// --- Simple2DRenderPass (2D 모드용: 기존 렌더를 writeBuffer에 캡처) ---
+function Simple2DRenderPass(prevRender, strategy) {
+    this.enabled = true;
+    this.needsSwap = true;
+    this.clear = true;
+    this._prevRender = prevRender;
+    this._strategy = strategy;
+}
+
+Simple2DRenderPass.prototype.setSize = function() {};
+
+Simple2DRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuffer, deltaTime, maskActive */) {
+    var rendererObj = this._rendererObj;
+    var stage = this._stage;
+    if (!rendererObj || !stage) return;
+
+    // _prevRender (Mode3D render)는 2D 모드에서 renderer.render(scene, camera) 호출
+    // setRenderTarget(writeBuffer)를 미리 설정하면 그쪽에 렌더됨
+    // 하지만 _prevRender 내부에서 setRenderTarget(null)이 호출될 수 있으므로
+    // null → writeBuffer로 리다이렉트
+    var origSetRT = renderer.setRenderTarget.bind(renderer);
+    var wb = writeBuffer;
+    renderer.setRenderTarget = function(target) {
+        origSetRT(target === null ? wb : target);
+    };
+
+    renderer.setRenderTarget(writeBuffer);
+    if (this.clear) renderer.clear();
+
+    this._prevRender.call(this._strategy, rendererObj, stage);
+
+    renderer.setRenderTarget = origSetRT;
+};
+
+Simple2DRenderPass.prototype.dispose = function() {};
+
+// --- CopyToScreenPass (readBuffer를 화면에 복사) ---
+function CopyToScreenPass() {
+    this.enabled = true;
+    this.needsSwap = false;
+    this.renderToScreen = true;
+
+    this._material = new THREE.ShaderMaterial({
+        uniforms: { tColor: { value: null } },
+        vertexShader: [
+            'varying vec2 vUv;',
+            'void main() {',
+            '    vUv = uv;',
+            '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+            '}'
+        ].join('\n'),
+        fragmentShader: [
+            'uniform sampler2D tColor;',
+            'varying vec2 vUv;',
+            'void main() {',
+            '    gl_FragColor = texture2D(tColor, vUv);',
+            '}'
+        ].join('\n')
+    });
+    this._fsQuad = new FullScreenQuad(this._material);
+}
+
+CopyToScreenPass.prototype.setSize = function() {};
+
+CopyToScreenPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
+    this._material.uniforms.tColor.value = readBuffer.texture;
+    renderer.setRenderTarget(null);
+    this._fsQuad.render(renderer);
+};
+
+CopyToScreenPass.prototype.dispose = function() {
+    this._material.dispose();
+    this._fsQuad.dispose();
+};
+
 //=============================================================================
 // DepthOfField - Composer 생성/파괴
 //=============================================================================
@@ -786,6 +861,9 @@ DepthOfField._createComposer = function(rendererObj, stage) {
     });
     composer.addPass(bloomPass);
 
+    // PostProcessEffects 패스들 생성 및 추가
+    var ppPasses = DepthOfField._createPPPasses(composer);
+
     // TiltShiftPass (화면 Y좌표 기반 DoF) - 맵에만 블러
     var tiltShiftPass = new TiltShiftPass({
         focusY: this.config.focusY,
@@ -805,7 +883,144 @@ DepthOfField._createComposer = function(rendererObj, stage) {
     this._bloomPass = bloomPass;
     this._renderPass = renderPass;
     this._uiPass = uiPass;
+    this._ppPasses = ppPasses;
     this._lastStage = stage;
+    this._composerMode = '3d';
+};
+
+DepthOfField._createComposer2D = function(rendererObj, stage) {
+    if (this._composer) this._disposeComposer();
+
+    var renderer = rendererObj.renderer;
+    var w = rendererObj._width;
+    var h = rendererObj._height;
+
+    var composer = new SimpleEffectComposer(renderer);
+    composer.setSize(w, h);
+
+    // Simple2DRenderPass: 기존 2D 렌더를 텍스처에 캡처
+    var renderPass = new Simple2DRenderPass(_prevRender, _ThreeStrategy);
+    composer.addPass(renderPass);
+
+    // BloomPass
+    var bloomPass = new BloomPass({
+        threshold: this.bloomConfig.threshold,
+        strength: this.bloomConfig.strength,
+        radius: this.bloomConfig.radius,
+        downscale: this.bloomConfig.downscale
+    });
+    composer.addPass(bloomPass);
+
+    // PostProcessEffects 패스들 생성 및 추가
+    var ppPasses = DepthOfField._createPPPasses(composer);
+
+    // CopyToScreen - 최종 출력
+    var copyPass = new CopyToScreenPass();
+    composer.addPass(copyPass);
+
+    this._composer = composer;
+    this._tiltShiftPass = null;
+    this._bloomPass = bloomPass;
+    this._renderPass = null;
+    this._uiPass = null;
+    this._2dRenderPass = renderPass;
+    this._ppPasses = ppPasses;
+    this._copyToScreenPass = copyPass;
+    this._lastStage = stage;
+    this._composerMode = '2d';
+};
+
+// PostProcessEffects 패스 일괄 생성 헬퍼
+DepthOfField._createPPPasses = function(composer) {
+    var ppPasses = {};
+    if (window.PostProcessEffects) {
+        var PPE = window.PostProcessEffects;
+        var list = PPE.EFFECT_LIST;
+        for (var i = 0; i < list.length; i++) {
+            var entry = list[i];
+            var pass = PPE[entry.create]();
+            pass.enabled = false;
+            composer.addPass(pass);
+            ppPasses[entry.key] = pass;
+        }
+    }
+    return ppPasses;
+};
+
+// 에디터에서 postProcessConfig를 받아 패스 활성/비활성 + 파라미터 적용
+DepthOfField.applyPostProcessConfig = function(config) {
+    if (!this._ppPasses) return;
+    var PPE = window.PostProcessEffects;
+    if (!PPE) return;
+
+    var anyEnabled = false;
+    for (var key in this._ppPasses) {
+        var pass = this._ppPasses[key];
+        var effectCfg = config && config[key];
+        if (effectCfg && effectCfg.enabled) {
+            pass.enabled = true;
+            anyEnabled = true;
+            // 파라미터 적용
+            var params = PPE.EFFECT_PARAMS[key];
+            if (params) {
+                for (var pi = 0; pi < params.length; pi++) {
+                    var p = params[pi];
+                    var val = effectCfg[p.key];
+                    if (val != null) {
+                        PPE.applyParam(key, pass, p.key, val);
+                    }
+                }
+            }
+        } else {
+            pass.enabled = false;
+        }
+    }
+
+    // filmGrain, waveDistortion: uTime 업데이트 필요
+    this._ppNeedsTimeUpdate = anyEnabled;
+
+    // 3D: renderToScreen 재조정
+    this._updateRenderToScreen();
+};
+
+// renderToScreen 플래그를 올바르게 재조정
+DepthOfField._updateRenderToScreen = function() {
+    if (!this._composer) return;
+    var passes = this._composer.passes;
+    // 마지막으로 활성화된 "화면 출력" 패스를 찾아 renderToScreen 설정
+    // UIRenderPass(3D) 또는 CopyToScreenPass(2D)가 항상 마지막
+    // 그 사이의 PP 패스들은 needsSwap=true로 ping-pong
+
+    // bloom의 renderToScreen을 false로 (PP 패스가 뒤에 올 수 있으므로)
+    if (this._bloomPass) {
+        this._bloomPass.renderToScreen = false;
+    }
+
+    if (this._composerMode === '3d') {
+        // 3D: TiltShift/UIPass가 최종 출력
+        // TiltShift는 DoF 활성 시에만 renderToScreen
+        var isDoF = ConfigManager.depthOfField;
+
+        // PP 패스 중 마지막으로 활성화된 것을 찾기
+        var lastEnabledPP = null;
+        for (var key in this._ppPasses) {
+            if (this._ppPasses[key].enabled) lastEnabledPP = this._ppPasses[key];
+        }
+
+        if (this._tiltShiftPass) {
+            // DoF가 활성이면 tiltShift가 PP보다 앞에 있으므로 renderToScreen 아님
+            // PP 패스들은 bloom → PP → tiltShift → UI 순서
+            // 실제로 패스 순서: render → bloom → [PP passes] → tiltShift → UI
+            this._tiltShiftPass.renderToScreen = false;
+            this._tiltShiftPass.enabled = isDoF;
+        }
+        // UI pass가 항상 최종 출력 (renderToScreen=true, needsSwap=false)
+    } else if (this._composerMode === '2d') {
+        // 2D: CopyToScreenPass가 최종 출력
+        if (this._copyToScreenPass) {
+            this._copyToScreenPass.renderToScreen = true;
+        }
+    }
 };
 
 DepthOfField._disposeComposer = function() {
@@ -816,7 +1031,12 @@ DepthOfField._disposeComposer = function() {
         this._bloomPass = null;
         this._renderPass = null;
         this._uiPass = null;
+        this._2dRenderPass = null;
+        this._ppPasses = null;
+        this._copyToScreenPass = null;
+        this._ppNeedsTimeUpdate = false;
         this._lastStage = null;
+        this._composerMode = null;
     }
     // lerp 상태 초기화
     this._currentFocusY = null;
@@ -899,9 +1119,9 @@ _ThreeStrategy.render = function(rendererObj, stage) {
     var is3D = ConfigManager.mode3d && Mode3D._spriteset;
 
     if (is3D) {
-        // 3D 모드에서는 항상 composer 사용 (bloom 등 후처리)
-        // Composer가 없거나 stage가 바뀌면 재생성
-        if (!DepthOfField._composer || DepthOfField._lastStage !== stage) {
+        // 3D 모드에서는 3D composer 사용 (bloom + DoF 등 후처리)
+        // Composer가 없거나 모드가 다르거나 stage가 바뀌면 재생성
+        if (!DepthOfField._composer || DepthOfField._composerMode !== '3d' || DepthOfField._lastStage !== stage) {
             var w = rendererObj._width;
             var h = rendererObj._height;
             if (!Mode3D._perspCamera) {
@@ -910,14 +1130,15 @@ _ThreeStrategy.render = function(rendererObj, stage) {
             DepthOfField._createComposer(rendererObj, stage);
         }
 
-        // DoF(TiltShift)는 설정에 따라 활성/비활성
-        var isDoF = ConfigManager.depthOfField;
-        if (DepthOfField._tiltShiftPass) {
-            DepthOfField._tiltShiftPass.enabled = isDoF;
-        }
-        // DoF 비활성 시 bloom이 화면에 직접 출력, 활성 시 TiltShift가 출력
-        if (DepthOfField._bloomPass) {
-            DepthOfField._bloomPass.renderToScreen = !isDoF;
+        // DoF(TiltShift)는 설정에 따라 활성/비활성 + renderToScreen 재조정
+        DepthOfField._updateRenderToScreen();
+
+        // PP 패스 시간 업데이트 (filmGrain, waveDistortion 등)
+        if (DepthOfField._ppNeedsTimeUpdate && DepthOfField._ppPasses) {
+            var ppTime = (typeof ThreeWaterShader !== 'undefined') ? ThreeWaterShader._time : (Date.now() / 1000);
+            var pp = DepthOfField._ppPasses;
+            if (pp.filmGrain && pp.filmGrain.enabled) pp.filmGrain.uniforms.uTime.value = ppTime;
+            if (pp.waveDistortion && pp.waveDistortion.enabled) pp.waveDistortion.uniforms.uTime.value = ppTime;
         }
 
         var scene = rendererObj.scene;
@@ -981,11 +1202,41 @@ _ThreeStrategy.render = function(rendererObj, stage) {
         renderer.shadowMap.autoUpdate = prevShadowAutoUpdate;
         Mode3D._active = true;
     } else {
-        // 2D 모드 → 기존 렌더 경로
-        if (DepthOfField._composer) {
-            DepthOfField._disposeComposer();
+        // 2D 모드 → bloom만 적용하는 2D composer 사용
+        if (!DepthOfField._composer || DepthOfField._composerMode !== '2d' || DepthOfField._lastStage !== stage) {
+            DepthOfField._createComposer2D(rendererObj, stage);
         }
-        _prevRender.call(this, rendererObj, stage);
+
+        // 2D RenderPass에 최신 참조 전달
+        DepthOfField._2dRenderPass._rendererObj = rendererObj;
+        DepthOfField._2dRenderPass._stage = stage;
+
+        // renderToScreen 재조정
+        DepthOfField._updateRenderToScreen();
+
+        // bloom uniform 갱신
+        DepthOfField._updateUniforms();
+
+        // PP 패스 시간 업데이트
+        if (DepthOfField._ppNeedsTimeUpdate && DepthOfField._ppPasses) {
+            var ppTime = (typeof ThreeWaterShader !== 'undefined') ? ThreeWaterShader._time : (Date.now() / 1000);
+            var pp = DepthOfField._ppPasses;
+            if (pp.filmGrain && pp.filmGrain.enabled) pp.filmGrain.uniforms.uTime.value = ppTime;
+            if (pp.waveDistortion && pp.waveDistortion.enabled) pp.waveDistortion.uniforms.uTime.value = ppTime;
+        }
+
+        // Composer 크기 동기화
+        var w = rendererObj._width;
+        var h = rendererObj._height;
+        var composerNeedsResize = (
+            DepthOfField._composer.renderTarget1.width !== w ||
+            DepthOfField._composer.renderTarget1.height !== h
+        );
+        if (composerNeedsResize) {
+            DepthOfField._composer.setSize(w, h);
+        }
+
+        DepthOfField._composer.render();
     }
 };
 
@@ -999,19 +1250,11 @@ Spriteset_Map.prototype.update = function() {
 
     // 3D 모드이면 Debug UI 표시 (DoF ON/OFF와 무관)
     var shouldShowDebug = ConfigManager.mode3d;
-    var shouldBeActive = ConfigManager.mode3d && ConfigManager.depthOfField;
 
     if (shouldShowDebug && !DepthOfField._debugSection) {
         DepthOfField._createDebugUI();
     } else if (!shouldShowDebug && DepthOfField._debugSection) {
         DepthOfField._removeDebugUI();
-    }
-
-    if (shouldBeActive && !DepthOfField._active) {
-        DepthOfField._active = true;
-    } else if (!shouldBeActive && DepthOfField._active) {
-        DepthOfField._active = false;
-        DepthOfField._disposeComposer();
     }
 };
 
