@@ -47,7 +47,7 @@ export default function MapCanvas() {
   const pasteEvents = useEditorStore((s) => s.pasteEvents);
 
   // Compose hooks
-  const { showGrid, altPressed, panning, spacePressed } = useKeyboardShortcuts(containerRef);
+  const { showGrid, altPressed, panning, spacePressed, spacePressedRef } = useKeyboardShortcuts(containerRef);
 
   const {
     rendererObjRef, tilemapRef, stageRef, renderRequestedRef, toolPreviewMeshesRef,
@@ -70,7 +70,7 @@ export default function MapCanvas() {
     isDraggingLight, isDraggingObject, draggedObjectId,
     resizeOrigSize, cameraZoneCursor,
     playerStartDragPos,
-  } = useMouseHandlers(webglCanvasRef, tools, pendingChanges);
+  } = useMouseHandlers(webglCanvasRef, tools, pendingChanges, spacePressedRef);
 
   // Overlay refs shared by sub-hooks
   const overlayRefs = useMemo(() => ({ rendererObjRef, stageRef, renderRequestedRef, tilemapRef }), [rendererObjRef, stageRef, renderRequestedRef, tilemapRef]);

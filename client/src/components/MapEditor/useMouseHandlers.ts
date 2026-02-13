@@ -55,6 +55,7 @@ export function useMouseHandlers(
   webglCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   tools: MapToolsResult,
   pendingChanges: React.MutableRefObject<TileChange[]>,
+  spacePressedRef?: React.MutableRefObject<boolean>,
 ): MouseHandlersResult {
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedTool = useEditorStore((s) => s.selectedTool);
@@ -96,6 +97,8 @@ export function useMouseHandlers(
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
       if ((window as any)._probeDebugActive) return;
+      // 스페이스 패닝 중이면 캔버스 이벤트 무시
+      if (spacePressedRef?.current && e.button === 0) return;
 
       // Map boundary resize: start resize if on edge
       if (e.button === 0 && editMode === 'map' && !mode3d) {
@@ -218,6 +221,8 @@ export function useMouseHandlers(
         return;
       }
       if (isResizing.current) return;
+      // 스페이스 패닝 중이면 캔버스 이벤트 무시
+      if (spacePressedRef?.current) return;
 
 
       if (editMode === 'map' && !mode3d && !isDrawing.current && !event.isDraggingEvent.current && !light.isDraggingLight.current) {

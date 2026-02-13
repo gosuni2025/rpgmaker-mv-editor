@@ -6,6 +6,7 @@ interface KeyboardShortcutsResult {
   altPressed: boolean;
   panning: boolean;
   spacePressed: boolean;
+  spacePressedRef: React.MutableRefObject<boolean>;
 }
 
 export function useKeyboardShortcuts(
@@ -463,5 +464,5 @@ export function useKeyboardShortcuts(
     return () => window.removeEventListener('editor-escape', handleEscape);
   }, [isPasting, isEventPasting, isLightPasting, isObjectPasting, selectionStart, selectionEnd, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection, setIsLightPasting, setLightPastePreviewPos, clearLightSelection, setIsObjectPasting, setObjectPastePreviewPos, clearObjectSelection]);
 
-  return { showGrid, altPressed, panning, spacePressed };
+  return { showGrid, altPressed, panning, spacePressed, spacePressedRef };
 }
