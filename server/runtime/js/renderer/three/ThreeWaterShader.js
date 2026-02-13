@@ -84,28 +84,40 @@ ThreeWaterShader.FRAGMENT_MAIN = [
     'diffuseColor.a *= uWaterAlpha;',
 ].join('\n');
 
-// normal 수정 (#include <normal_fragment_maps> 뒤에 삽입)
+// specular-only 추가 (#include <output_fragment> 앞에 삽입)
+// wave normal은 specular에만 사용, diffuse normal은 건드리지 않음
 // 해변 경계에서 wave normal 감쇠: 주변 텍셀 alpha로 경계 감지
-ThreeWaterShader.NORMAL_OVERRIDE = [
+ThreeWaterShader.SPECULAR_INJECT = [
     '{',
     '    vec3 waveN = computeWaveNormal(vWorldPos, uTime, uWaveFrequency, uWaveSpeed);',
     '',
     '    // 주변 텍셀 alpha 샘플링으로 해변 경계 감지',
     '    vec2 texSize = vec2(textureSize(map, 0));',
     '    vec2 texel = 1.0 / texSize;',
-    '    float edgeDist = 6.0;',  // 샘플 간격 (texel 단위)
+    '    float edgeDist = 6.0;',
     '    float a0 = texture2D(map, vUv + vec2(-texel.x * edgeDist, 0.0)).a;',
     '    float a1 = texture2D(map, vUv + vec2( texel.x * edgeDist, 0.0)).a;',
     '    float a2 = texture2D(map, vUv + vec2(0.0, -texel.y * edgeDist)).a;',
     '    float a3 = texture2D(map, vUv + vec2(0.0,  texel.y * edgeDist)).a;',
     '    float minAlpha = min(min(a0, a1), min(a2, a3));',
-    '    // alpha가 낮은 곳 = 해변 경계 → wave 감쇠',
     '    float shoreFade = smoothstep(0.0, 0.8, minAlpha);',
     '',
-    '    // wave normal과 flat normal을 shoreFade로 블렌딩',
+    '    // wave normal → specular 계산 (diffuse에는 영향 없음)',
     '    vec3 flatN = vec3(0.0, 0.0, 1.0);',
     '    vec3 blendedN = normalize(mix(flatN, waveN, shoreFade));',
-    '    normal = normalize(vNormalMat * blendedN);',
+    '    vec3 specN = normalize(vNormalMat * blendedN);',
+    '    vec3 viewDir = normalize(vViewPosition);',
+    '',
+    '    // Blinn-Phong specular (directionalLight만 사용)',
+    '    #if NUM_DIR_LIGHTS > 0',
+    '    for (int i = 0; i < NUM_DIR_LIGHTS; i++) {',
+    '        vec3 dirLightDir = directionalLights[i].direction;',
+    '        vec3 halfDir = normalize(dirLightDir + viewDir);',
+    '        float specAngle = max(dot(specN, halfDir), 0.0);',
+    '        float specVal = pow(specAngle, 64.0) * uSpecularStrength * shoreFade;',
+    '        gl_FragColor.rgb += directionalLights[i].color * specVal;',
+    '    }',
+    '    #endif',
     '}',
 ].join('\n');
 
@@ -121,11 +133,21 @@ ThreeWaterShader.WATERFALL_FRAGMENT_MAIN = [
     'diffuseColor.a *= min(uWaterAlpha + 0.1, 1.0);',
 ].join('\n');
 
-// 폭포 normal 수정 (미세 변동)
-ThreeWaterShader.WATERFALL_NORMAL_OVERRIDE = [
+// 폭포 specular-only 추가
+ThreeWaterShader.WATERFALL_SPECULAR_INJECT = [
     '{',
     '    vec3 wfN = computeWaveNormal(vWorldPos, uTime, 6.0, 3.0);',
-    '    normal = normalize(vNormalMat * wfN);',
+    '    vec3 specN = normalize(vNormalMat * wfN);',
+    '    vec3 viewDir = normalize(vViewPosition);',
+    '    #if NUM_DIR_LIGHTS > 0',
+    '    for (int i = 0; i < NUM_DIR_LIGHTS; i++) {',
+    '        vec3 dirLightDir = directionalLights[i].direction;',
+    '        vec3 halfDir = normalize(dirLightDir + viewDir);',
+    '        float specAngle = max(dot(specN, halfDir), 0.0);',
+    '        float specVal = pow(specAngle, 64.0) * uSpecularStrength * 0.5;',
+    '        gl_FragColor.rgb += directionalLights[i].color * specVal;',
+    '    }',
+    '    #endif',
     '}',
 ].join('\n');
 
@@ -308,7 +330,7 @@ ThreeWaterShader.createStandaloneMaterial = function(texture, isWaterfall) {
  */
 ThreeWaterShader.applyToPhongMaterial = function(material, isWaterfall) {
     var fragMain = isWaterfall ? this.WATERFALL_FRAGMENT_MAIN : this.FRAGMENT_MAIN;
-    var normalOverride = isWaterfall ? this.WATERFALL_NORMAL_OVERRIDE : this.NORMAL_OVERRIDE;
+    var specularInject = isWaterfall ? this.WATERFALL_SPECULAR_INJECT : this.SPECULAR_INJECT;
     var d = this.DEFAULT_UNIFORMS;
 
     material.userData.waterUniforms = {
@@ -345,10 +367,10 @@ ThreeWaterShader.applyToPhongMaterial = function(material, isWaterfall) {
             '#include <map_fragment>',
             '#include <map_fragment>\n' + fragMain
         );
-        // Wave normal 주입 → Phong specular가 이 normal을 자동으로 사용
+        // Wave specular를 output_fragment 뒤에 추가 (diffuse normal은 건드리지 않음)
         shader.fragmentShader = shader.fragmentShader.replace(
-            '#include <normal_fragment_maps>',
-            '#include <normal_fragment_maps>\n' + normalOverride
+            '#include <output_fragment>',
+            '#include <output_fragment>\n' + specularInject
         );
     };
 
