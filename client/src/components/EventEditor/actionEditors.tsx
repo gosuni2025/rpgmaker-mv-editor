@@ -5,6 +5,7 @@ import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { DataListPicker, IconSprite, CharacterSprite, type CharacterInfo } from './controlEditors';
 import apiClient from '../../api/client';
+import useEditorStore from '../../store/useEditorStore';
 
 interface NamedItem { id: number; name: string; iconIndex?: number; characterName?: string; characterIndex?: number }
 
@@ -221,69 +222,164 @@ export function TransferPlayerEditor({ p, onOk, onCancel }: { p: unknown[]; onOk
   const [y, setY] = useState<number>((p[3] as number) || 0);
   const [direction, setDirection] = useState<number>((p[4] as number) || 0);
   const [fadeType, setFadeType] = useState<number>((p[5] as number) || 0);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+
+  const maps = useEditorStore(s => s.maps);
+
+  const mapName = useMemo(() => {
+    if (!maps) return '';
+    const info = maps[mapId];
+    return info?.name || '';
+  }, [maps, mapId]);
+
+  const directLabel = `${mapName} ${mapId} (${x},${y})`;
+
+  const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
+
   return (
     <>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        Designation
-        <select value={designationType} onChange={e => setDesignationType(Number(e.target.value))} style={selectStyle}>
-          <option value={0}>Direct</option>
-          <option value={1}>Variable</option>
-        </select>
-      </label>
-      {designationType === 0 ? (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <label style={{ fontSize: 12, color: '#aaa' }}>
-            Map ID
-            <input type="number" value={mapId} onChange={e => setMapId(Number(e.target.value))} min={1} style={{ ...selectStyle, width: 80 }} />
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>위치</legend>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* 직접 지정 */}
+          <label style={radioStyle}>
+            <input type="radio" name="transfer-designation" checked={designationType === 0} onChange={() => setDesignationType(0)} />
+            직접 지정
           </label>
-          <label style={{ fontSize: 12, color: '#aaa' }}>
-            X
-            <input type="number" value={x} onChange={e => setX(Number(e.target.value))} style={{ ...selectStyle, width: 60 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingLeft: 20 }}>
+            <input type="text" readOnly value={directLabel}
+              style={{ ...selectStyle, flex: 1, cursor: 'default', opacity: designationType === 0 ? 1 : 0.5 }} />
+            <button className="db-btn" disabled={designationType !== 0}
+              onClick={() => setShowMapPicker(true)}
+              style={{ padding: '4px 8px', minWidth: 28, opacity: designationType === 0 ? 1 : 0.5 }}>...</button>
+          </div>
+
+          {/* 변수로 지정 */}
+          <label style={radioStyle}>
+            <input type="radio" name="transfer-designation" checked={designationType === 1} onChange={() => setDesignationType(1)} />
+            변수로 지정
           </label>
-          <label style={{ fontSize: 12, color: '#aaa' }}>
-            Y
-            <input type="number" value={y} onChange={e => setY(Number(e.target.value))} style={{ ...selectStyle, width: 60 }} />
-          </label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 20, opacity: designationType === 1 ? 1 : 0.5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: '#aaa', minWidth: 24 }}>ID:</span>
+              <VariableSwitchPicker type="variable" value={designationType === 1 ? (mapId || 1) : 1} onChange={setMapId} disabled={designationType !== 1} style={{ flex: 1 }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: '#aaa', minWidth: 24 }}>X:</span>
+              <VariableSwitchPicker type="variable" value={designationType === 1 ? (x || 1) : 1} onChange={setX} disabled={designationType !== 1} style={{ flex: 1 }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: '#aaa', minWidth: 24 }}>Y:</span>
+              <VariableSwitchPicker type="variable" value={designationType === 1 ? (y || 1) : 1} onChange={setY} disabled={designationType !== 1} style={{ flex: 1 }} />
+            </div>
+          </div>
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aaa' }}>
-            <span style={{ minWidth: 60 }}>Map Var</span>
-            <VariableSwitchPicker type="variable" value={mapId} onChange={setMapId} style={{ flex: 1 }} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aaa' }}>
-            <span style={{ minWidth: 60 }}>X Var</span>
-            <VariableSwitchPicker type="variable" value={x} onChange={setX} style={{ flex: 1 }} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#aaa' }}>
-            <span style={{ minWidth: 60 }}>Y Var</span>
-            <VariableSwitchPicker type="variable" value={y} onChange={setY} style={{ flex: 1 }} />
-          </div>
-        </div>
-      )}
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        Direction
-        <select value={direction} onChange={e => setDirection(Number(e.target.value))} style={selectStyle}>
-          <option value={0}>Retain</option>
-          <option value={2}>Down</option>
-          <option value={4}>Left</option>
-          <option value={6}>Right</option>
-          <option value={8}>Up</option>
-        </select>
-      </label>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        Fade Type
-        <select value={fadeType} onChange={e => setFadeType(Number(e.target.value))} style={selectStyle}>
-          <option value={0}>Black</option>
-          <option value={1}>White</option>
-          <option value={2}>None</option>
-        </select>
-      </label>
+      </fieldset>
+
+      <div style={{ display: 'flex', gap: 16 }}>
+        <label style={{ fontSize: 12, color: '#aaa', flex: 1 }}>
+          방향:
+          <select value={direction} onChange={e => setDirection(Number(e.target.value))} style={{ ...selectStyle, width: '100%' }}>
+            <option value={0}>유지</option>
+            <option value={2}>아래</option>
+            <option value={4}>왼쪽</option>
+            <option value={6}>오른쪽</option>
+            <option value={8}>위</option>
+          </select>
+        </label>
+        <label style={{ fontSize: 12, color: '#aaa', flex: 1 }}>
+          페이드:
+          <select value={fadeType} onChange={e => setFadeType(Number(e.target.value))} style={{ ...selectStyle, width: '100%' }}>
+            <option value={0}>검게</option>
+            <option value={1}>희게</option>
+            <option value={2}>없음</option>
+          </select>
+        </label>
+      </div>
+
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => onOk([designationType, mapId, x, y, direction, fadeType])}>OK</button>
-        <button className="db-btn" onClick={onCancel}>Cancel</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
+
+      {showMapPicker && (
+        <MapLocationPicker mapId={mapId} x={x} y={y}
+          onOk={(newMapId, newX, newY) => { setMapId(newMapId); setX(newX); setY(newY); setShowMapPicker(false); }}
+          onCancel={() => setShowMapPicker(false)} />
+      )}
     </>
+  );
+}
+
+/** 맵 위치 선택 다이얼로그 */
+function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
+  mapId: number; x: number; y: number;
+  onOk: (mapId: number, x: number, y: number) => void;
+  onCancel: () => void;
+}) {
+  const maps = useEditorStore(s => s.maps);
+  const [selectedMapId, setSelectedMapId] = useState(mapId);
+  const [selectedX, setSelectedX] = useState(x);
+  const [selectedY, setSelectedY] = useState(y);
+
+  // 맵 목록 (트리를 flat list로 표시)
+  const mapList = useMemo(() => {
+    if (!maps) return [];
+    const result: { id: number; name: string; indent: number }[] = [];
+    const buildTree = (parentId: number, indent: number) => {
+      const children = maps
+        .filter((m): m is NonNullable<typeof m> => m != null && m.parentId === parentId)
+        .sort((a, b) => a.order - b.order);
+      for (const child of children) {
+        result.push({ id: child.id, name: child.name, indent });
+        buildTree(child.id, indent + 1);
+      }
+    };
+    buildTree(0, 0);
+    return result;
+  }, [maps]);
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 10001 }}>
+      <div className="image-picker-dialog" style={{ width: 480, maxHeight: '70vh' }}>
+        <div className="image-picker-header">맵 선택</div>
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 250 }}>
+          {/* 맵 목록 */}
+          <div style={{ flex: 1, overflowY: 'auto', borderRight: '1px solid #444' }}>
+            {mapList.map(m => (
+              <div key={m.id} style={{
+                padding: '3px 8px', paddingLeft: 8 + m.indent * 16,
+                cursor: 'pointer', fontSize: 12, color: '#ddd',
+                background: m.id === selectedMapId ? '#2675bf' : 'transparent',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}
+                onClick={() => setSelectedMapId(m.id)}
+                onDoubleClick={() => onOk(m.id, selectedX, selectedY)}
+              >
+                {String(m.id).padStart(3, '0')}: {m.name}
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* 좌표 입력 */}
+        <div style={{ padding: '8px 12px', borderTop: '1px solid #444', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <label style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 4 }}>
+            X:
+            <input type="number" value={selectedX} onChange={e => setSelectedX(Number(e.target.value))}
+              min={0} style={{ ...selectStyle, width: 60 }} />
+          </label>
+          <label style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 4 }}>
+            Y:
+            <input type="number" value={selectedY} onChange={e => setSelectedY(Number(e.target.value))}
+              min={0} style={{ ...selectStyle, width: 60 }} />
+          </label>
+        </div>
+        <div className="image-picker-footer">
+          <button className="db-btn" onClick={() => onOk(selectedMapId, selectedX, selectedY)}>OK</button>
+          <button className="db-btn" onClick={onCancel}>취소</button>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -45,7 +45,7 @@ function getCommandName(code: number): string {
     121: '스위치 조작', 122: '변수 조작', 123: 'Control Self Switch',
     124: '타이머 조작', 125: '소지 금액 증감', 126: '아이템 증감',
     127: '무기 변경', 128: '방어구 변경', 129: '파티원 변경',
-    201: 'Transfer Player', 230: 'Wait',
+    201: '장소 이동', 230: 'Wait',
     241: 'Play BGM', 242: 'Fadeout BGM', 245: 'Play BGS', 246: 'Fadeout BGS',
     249: 'Play ME', 250: 'Play SE',
     301: 'Battle Processing', 303: '이름 입력 처리', 311: 'HP 증감', 312: 'MP 증감', 326: 'TP 증감',
