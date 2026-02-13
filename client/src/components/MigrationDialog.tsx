@@ -41,6 +41,7 @@ function formatDate(iso: string): string {
 export default function MigrationDialog({ projectPath, onComplete, onSkip }: MigrationDialogProps) {
   const { t } = useTranslation();
   const [files, setFiles] = useState<MigrationFile[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [migrating, setMigrating] = useState(false);
   const [error, setError] = useState('');
@@ -52,6 +53,7 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
           `/project/migration-check?path=${encodeURIComponent(projectPath)}`
         );
         setFiles(res.files);
+        setSelected(new Set(res.files.filter(f => f.status !== 'same').map(f => f.file)));
       } catch (e) {
         setError((e as Error).message);
       } finally {
@@ -62,11 +64,28 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
 
   const changedFiles = files.filter(f => f.status !== 'same');
 
+  const toggleFile = (file: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(file)) next.delete(file);
+      else next.add(file);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selected.size === changedFiles.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(changedFiles.map(f => f.file)));
+    }
+  };
+
   const handleMigrate = async () => {
     setMigrating(true);
     setError('');
     try {
-      await apiClient.post('/project/migrate', {});
+      await apiClient.post('/project/migrate', { files: Array.from(selected) });
       onComplete();
     } catch (e) {
       setError((e as Error).message);
@@ -92,6 +111,13 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid #555', background: '#333' }}>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', color: '#aaa', width: 30 }}>
+                        <input
+                          type="checkbox"
+                          checked={changedFiles.length > 0 && selected.size === changedFiles.length}
+                          onChange={toggleAll}
+                        />
+                      </th>
                       <th style={{ padding: '6px 8px', textAlign: 'left', color: '#aaa' }}>{t('migration.file')}</th>
                       <th style={{ padding: '6px 8px', textAlign: 'center', color: '#aaa', width: 80 }}>{t('migration.status')}</th>
                       <th style={{ padding: '6px 8px', textAlign: 'right', color: '#aaa', width: 100 }}>{t('migration.editorSize')}</th>
@@ -103,6 +129,15 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
                   <tbody>
                     {files.map(f => (
                       <tr key={f.file} style={{ borderBottom: '1px solid #444' }}>
+                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                          {f.status !== 'same' ? (
+                            <input
+                              type="checkbox"
+                              checked={selected.has(f.file)}
+                              onChange={() => toggleFile(f.file)}
+                            />
+                          ) : null}
+                        </td>
                         <td style={{ padding: '4px 8px', color: f.status === 'same' ? '#888' : '#ddd' }}>
                           {f.file}
                         </td>
@@ -129,7 +164,7 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
                 </table>
               </div>
               <p style={{ color: '#999', fontSize: 11, margin: '8px 0 0 0' }}>
-                {t('migration.summary', { changed: changedFiles.length, total: files.length })}
+                {t('migration.summary', { changed: selected.size, total: files.length })}
               </p>
             </>
           )}
@@ -139,7 +174,7 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
             <button
               className="db-btn"
               onClick={handleMigrate}
-              disabled={migrating || changedFiles.length === 0}
+              disabled={migrating || selected.size === 0}
               style={{ background: '#0078d4', borderColor: '#0078d4' }}
             >
               {migrating ? t('migration.migrating') : t('migration.migrate')}

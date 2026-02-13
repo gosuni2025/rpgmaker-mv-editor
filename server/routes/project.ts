@@ -323,24 +323,43 @@ router.post('/migrate', (req: Request, res: Response) => {
 
     const runtimeJsDir = path.join(runtimePath, 'js');
     const projectJsDir = path.join(projectManager.currentPath!, 'js');
-    const runtimeFiles = collectFiles(runtimeJsDir, runtimeJsDir);
+    const selectedFiles: string[] | undefined = req.body.files;
 
     const copied: string[] = [];
-    for (const relFile of runtimeFiles) {
-      if (relFile === 'plugins.js' || relFile.startsWith('plugins/') || relFile.startsWith('plugins\\')) continue;
 
-      const src = path.join(runtimeJsDir, relFile);
-      const dest = path.join(projectJsDir, relFile);
+    if (selectedFiles && selectedFiles.length > 0) {
+      // Copy only selected files
+      for (const file of selectedFiles) {
+        // file is like "js/rpg_core.js" – strip the leading "js/"
+        const relFile = file.replace(/^js\//, '');
+        if (relFile === 'plugins.js' || relFile.startsWith('plugins/') || relFile.startsWith('plugins\\')) continue;
 
-      // Check if different
-      if (fs.existsSync(dest)) {
-        if (fileHash(src) === fileHash(dest)) continue;
+        const src = path.join(runtimeJsDir, relFile);
+        const dest = path.join(projectJsDir, relFile);
+
+        if (!fs.existsSync(src)) continue;
+
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.copyFileSync(src, dest);
+        copied.push(`js/${relFile}`);
       }
+    } else {
+      // Legacy: copy all changed files
+      const runtimeFiles = collectFiles(runtimeJsDir, runtimeJsDir);
+      for (const relFile of runtimeFiles) {
+        if (relFile === 'plugins.js' || relFile.startsWith('plugins/') || relFile.startsWith('plugins\\')) continue;
 
-      // Ensure target directory exists
-      fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.copyFileSync(src, dest);
-      copied.push(`js/${relFile}`);
+        const src = path.join(runtimeJsDir, relFile);
+        const dest = path.join(projectJsDir, relFile);
+
+        if (fs.existsSync(dest)) {
+          if (fileHash(src) === fileHash(dest)) continue;
+        }
+
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.copyFileSync(src, dest);
+        copied.push(`js/${relFile}`);
+      }
     }
 
     res.json({ success: true, copied });
