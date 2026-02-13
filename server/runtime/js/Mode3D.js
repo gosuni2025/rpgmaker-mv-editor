@@ -504,10 +504,11 @@
             if (stageObj) {
                 for (var i = 0; i < stageObj.children.length; i++) {
                     var child = stageObj.children[i];
-                    if (child === picObj) continue; // picObj는 이미 visible 설정됨
-                    child.visible = childVisibility[i] !== undefined ? childVisibility[i] : child.visible;
+                    if (child === picObj) continue; // picObj는 새로 추가됨, visible 이미 설정
                     if (child === spritesetObj) {
                         child.visible = false;
+                    } else if (i < childVisibility.length) {
+                        child.visible = childVisibility[i];
                     }
                 }
             }
@@ -519,15 +520,15 @@
             if (picObj) {
                 stageObj.remove(picObj);
                 spritesetObj.add(picObj);
+                picObj.visible = picWasVisible;
             }
 
             // 가시성 복원
             if (stageObj) {
-                for (var i = 0; i < stageObj.children.length; i++) {
+                for (var i = 0; i < childVisibility.length; i++) {
                     stageObj.children[i].visible = childVisibility[i];
                 }
             }
-            if (picObj) picObj.visible = picWasVisible;
             // Restore grid visibility after Pass 2
             for (var oi = 0; oi < gridVisibility.length; oi++) {
                 scene.children[gridVisibility[oi].idx].visible =
