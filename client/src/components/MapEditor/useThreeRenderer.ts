@@ -209,6 +209,12 @@ export function useThreeRenderer(
       if (runtimeMode3d) {
         w.ConfigManager.mode3d = true;
       }
+      // 2D 모드에서 스카이 스피어 숨기기
+      if (!runtimeMode3d) {
+        rendererObj.scene.traverse((obj: any) => {
+          if (obj._isParallaxSky) obj.visible = false;
+        });
+      }
 
       // Create grid mesh (used in both 2D and 3D)
       const gridVertices: number[] = [];
@@ -375,6 +381,10 @@ export function useThreeRenderer(
           if (!state.mode3d) {
             Mode3D._perspCamera = null;
           }
+          // 2D 모드에서 스카이 스피어 숨기기
+          rendererObj.scene.traverse((obj: any) => {
+            if (obj._isParallaxSky) obj.visible = state.mode3d;
+          });
           if (state.shadowLight && state.currentMap?.editorLights) {
             syncEditorLightsToScene(rendererObj.scene, state.currentMap.editorLights, state.mode3d);
           }
