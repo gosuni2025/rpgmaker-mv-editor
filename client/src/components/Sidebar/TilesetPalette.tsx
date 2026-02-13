@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
+import apiClient from '../../api/client';
 import {
   TILE_SIZE_PX, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E,
   getTileRenderInfo,
@@ -467,6 +468,13 @@ export default function TilesetPalette() {
               {tab}
             </div>
           ))}
+          <div
+            style={styles.openFolderBtn}
+            title="타일셋 폴더 열기"
+            onClick={() => { apiClient.post('/resources/img_tilesets/open-folder', {}).catch(() => {}); }}
+          >
+            📂
+          </div>
         </div>
         <div style={styles.scrollArea}>
           {activeTab === 'R' ? (
@@ -531,6 +539,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tabDisabled: {
     color: '#555',
+  },
+  openFolderBtn: {
+    marginLeft: 'auto',
+    padding: '3px 6px',
+    fontSize: 12,
+    cursor: 'pointer',
+    userSelect: 'none',
+    opacity: 0.7,
   },
   scrollArea: {
     flex: 1,
