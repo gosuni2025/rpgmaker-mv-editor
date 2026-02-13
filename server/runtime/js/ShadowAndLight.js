@@ -1406,10 +1406,10 @@ ShadowLight._updateSunLightDirections = function() {
         this._skyInitQuat.setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0, 'XYZ'));
     }
 
-    // 변화량 quaternion = current * inverse(initial)
+    // 변화량 quaternion = inverse(initial) * current
     var currentQuat = skyMesh.quaternion;
     var invInitial = this._skyInitQuat.clone().invert();
-    var deltaQuat = new THREE.Quaternion().multiplyQuaternions(currentQuat, invInitial);
+    var deltaQuat = new THREE.Quaternion().multiplyQuaternions(invInitial, currentQuat);
 
     for (var si = 0; si < this._sunLightsData.length; si++) {
         var sl = this._sunLightsData[si];
