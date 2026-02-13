@@ -1676,6 +1676,22 @@ export function ChangeTransparencyEditor({ p, onOk, onCancel }: { p: unknown[]; 
   return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="투명 상태" />;
 }
 
+export function ChangeSaveAccessEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="저장" />;
+}
+
+export function ChangeMenuAccessEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="메뉴" />;
+}
+
+export function ChangeEncounterEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="조우" />;
+}
+
+export function ChangeFormationAccessEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="대열로 보행" />;
+}
+
 export function ShowAnimationEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [characterId, setCharacterId] = useState<number>((p[0] as number) ?? -1);
   const [animationId, setAnimationId] = useState<number>((p[1] as number) || 1);
