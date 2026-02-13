@@ -299,14 +299,31 @@ class SampleMapExtractor {
     return { treeBase, nameBase, dataBase };
   }
 
-  /** 바이너리에서 모든 샘플 맵 추출 */
+  /** 사전 추출된 샘플 맵 파일에서 로드 */
   extractAll(): Map<number, Record<string, unknown>> | null {
     if (this.cache) return this.cache;
 
-    const binPath = this.binaryPath || this.findBinaryPath();
-    if (!binPath) return null;
-    this.binaryPath = binPath;
+    const sampleDir = path.join(__dirname, '..', 'sample-maps');
+    if (!fs.existsSync(sampleDir)) return null;
 
+    const maps = new Map<number, Record<string, unknown>>();
+    for (let i = 1; i <= 104; i++) {
+      const filePath = path.join(sampleDir, `Map${String(i).padStart(3, '0')}.json`);
+      try {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        maps.set(i, data);
+      } catch { /* skip missing files */ }
+    }
+
+    if (maps.size > 0) {
+      this.cache = maps;
+      return maps;
+    }
+    return null;
+  }
+
+  /** 바이너리에서 추출 (현재 미사용 - 사전 추출 파일 사용) */
+  private extractFromBinary(binPath: string): Map<number, Record<string, unknown>> | null {
     let buf: Buffer;
     try {
       buf = fs.readFileSync(binPath);
@@ -405,7 +422,6 @@ class SampleMapExtractor {
       }
     }
 
-    this.cache = maps;
     return maps;
   }
 
