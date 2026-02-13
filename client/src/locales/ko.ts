@@ -990,6 +990,12 @@ const ko = {
     warning: '맵 {{id}}의 데이터가 선택한 샘플 맵으로 덮어씌워집니다.',
     applied: '샘플 맵 "{{name}}"이(가) 적용되었습니다',
     applying: '적용 중...',
+    setupDesc: '샘플 맵 데이터가 없습니다. RPG Maker MV 실행 파일 경로를 지정하면 샘플 맵을 추출할 수 있습니다.',
+    setupHint: 'macOS: ~/Library/Application Support/Steam/steamapps/common/RPG Maker MV/RPG Maker MV.app/Contents/MacOS/RPG Maker MV',
+    pathPlaceholder: 'RPG Maker MV 실행 파일 경로...',
+    extract: '추출',
+    extracting: '추출 중...',
+    extractSuccess: '샘플 맵 추출 완료',
   },
 
   mapCtx: {

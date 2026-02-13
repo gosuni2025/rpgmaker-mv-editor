@@ -609,6 +609,12 @@ const en = {
     warning: 'Map {{id}} data will be overwritten with the selected sample map.',
     applied: 'Sample map "{{name}}" applied',
     applying: 'Applying...',
+    setupDesc: 'No sample map data found. Specify the RPG Maker MV executable path to extract sample maps.',
+    setupHint: 'macOS: ~/Library/Application Support/Steam/steamapps/common/RPG Maker MV/RPG Maker MV.app/Contents/MacOS/RPG Maker MV',
+    pathPlaceholder: 'RPG Maker MV executable path...',
+    extract: 'Extract',
+    extracting: 'Extracting...',
+    extractSuccess: 'Sample maps extracted successfully',
   },
 
   mapCtx: {
