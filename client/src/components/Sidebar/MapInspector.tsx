@@ -6,6 +6,7 @@ import AudioPicker from '../common/AudioPicker';
 import BattlebackPicker from '../common/BattlebackPicker';
 import SkyBackgroundPicker from '../common/SkyBackgroundPicker';
 import type { AudioFile, SkyBackground } from '../../types/rpgMakerMV';
+import { sunUVToDirection } from '../../types/rpgMakerMV';
 import './InspectorPanel.css';
 
 interface TilesetEntry { id: number; name: string; }
@@ -337,12 +338,22 @@ export default function MapInspector() {
             <SkyBackgroundPicker
               value={currentMap.skyBackground.skyImage || ''}
               rotationSpeed={currentMap.skyBackground.rotationSpeed ?? 0}
-              onChange={(image, speed) => {
+              sunPosition={currentMap.skyBackground.sunPosition}
+              onChange={(image, speed, sunPos) => {
                 updateMapField('skyBackground', {
                   type: 'skysphere',
                   skyImage: image,
                   rotationSpeed: speed,
+                  sunPosition: sunPos ?? undefined,
                 });
+                if (sunPos) {
+                  const direction = sunUVToDirection(sunPos[0], sunPos[1]);
+                  const store = useEditorStore.getState();
+                  if (!store.currentMap?.editorLights) {
+                    store.initEditorLights();
+                  }
+                  store.updateDirectionalLight({ direction });
+                }
               }}
             />
           </div>

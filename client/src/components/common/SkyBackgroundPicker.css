@@ -105,6 +105,7 @@
 }
 
 .sky-picker-preview-area {
+  position: relative;
   border: 1px solid #555;
   border-radius: 3px;
   background: #000;
@@ -112,11 +113,17 @@
   aspect-ratio: 2 / 1;
 }
 
+.sky-picker-preview-clickable {
+  cursor: crosshair;
+}
+
 .sky-picker-preview-area img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  user-select: none;
+  pointer-events: none;
 }
 
 .sky-picker-preview-empty {
@@ -127,4 +134,79 @@
   justify-content: center;
   font-size: 11px;
   color: #555;
+}
+
+/* 태양 마커 */
+.sky-picker-sun-marker {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid #ffcc00;
+  background: rgba(255, 204, 0, 0.3);
+  box-shadow: 0 0 8px rgba(255, 204, 0, 0.6), inset 0 0 4px rgba(255, 204, 0, 0.4);
+  pointer-events: none;
+}
+
+.sky-picker-sun-marker::before,
+.sky-picker-sun-marker::after {
+  content: '';
+  position: absolute;
+  background: #ffcc00;
+}
+
+.sky-picker-sun-marker::before {
+  width: 2px;
+  height: 22px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.sky-picker-sun-marker::after {
+  width: 22px;
+  height: 2px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* 태양 광원 섹션 */
+.sky-picker-sun-section {
+  margin-top: 8px;
+}
+
+.sky-picker-sun-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.sky-picker-sun-title {
+  font-size: 11px;
+  color: #ffcc00;
+  font-weight: bold;
+}
+
+.sky-picker-sun-clear {
+  font-size: 10px;
+  color: #999;
+  background: none;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
+.sky-picker-sun-clear:hover {
+  color: #fff;
+  border-color: #888;
+}
+
+.sky-picker-sun-hint {
+  font-size: 10px;
+  color: #888;
+  line-height: 1.4;
 }

@@ -47,6 +47,18 @@ export interface SkyBackground {
   type: 'parallax' | 'skysphere';
   skyImage?: string;
   rotationSpeed?: number;
+  sunPosition?: [number, number];  // [u, v] (0~1) - equirectangular 이미지에서의 태양 위치
+}
+
+/** equirectangular UV 좌표를 디렉셔널 라이트 방향 벡터로 변환 */
+export function sunUVToDirection(u: number, v: number): [number, number, number] {
+  const phi = u * 2 * Math.PI;
+  const theta = v * Math.PI;
+  // SkyBox.js에서 rotation.x = π/2 적용 → Y/Z 축 교환
+  const x = -(Math.sin(theta) * Math.sin(phi));
+  const y = Math.cos(theta);
+  const z = -(Math.sin(theta) * Math.cos(phi));
+  return [x, y, z];
 }
 
 export interface RPGEvent {
