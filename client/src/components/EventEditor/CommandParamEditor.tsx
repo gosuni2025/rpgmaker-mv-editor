@@ -24,7 +24,7 @@ export default function CommandParamEditor({ code, command, followCommands, hasE
     onOk(p);
     return null;
   }
-  const dialogWidth = code === 102 ? 560 : code === 111 ? 540 : (code === 231 || code === 234) ? 520 : 480;
+  const dialogWidth = code === 102 ? 560 : code === 111 ? 540 : code === 231 ? 620 : code === 234 ? 520 : 480;
   return (
     <div className="modal-overlay">
       <div className="image-picker-dialog" style={{ width: dialogWidth, maxHeight: '70vh' }}>
