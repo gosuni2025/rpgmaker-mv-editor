@@ -863,14 +863,22 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       const bm = cmd.parameters[9] as number;
       if (bm !== 0) text += `, ${blendLabels[bm] || ''}`;
       // 셰이더 이펙트 표시
-      const shaderData = cmd.parameters[10] as { type: string; enabled: boolean } | null;
-      if (shaderData && shaderData.enabled) {
-        const shaderLabels: Record<string, string> = {
-          wave: '물결', glitch: '글리치', dissolve: '디졸브', glow: '발광',
-          chromatic: '색수차', pixelate: '픽셀화', shake: '흔들림', blur: '흐림',
-          rainbow: '무지개', hologram: '홀로그램',
-        };
-        text += `, [${shaderLabels[shaderData.type] || shaderData.type}]`;
+      const shaderLabels: Record<string, string> = {
+        wave: '물결', glitch: '글리치', dissolve: '디졸브', glow: '발광',
+        chromatic: '색수차', pixelate: '픽셀화', shake: '흔들림', blur: '흐림',
+        rainbow: '무지개', hologram: '홀로그램',
+      };
+      const shaderRaw = cmd.parameters[10];
+      if (shaderRaw) {
+        if (Array.isArray(shaderRaw)) {
+          const names = (shaderRaw as { type: string; enabled: boolean }[])
+            .filter(s => s.enabled)
+            .map(s => shaderLabels[s.type] || s.type);
+          if (names.length > 0) text += `, [${names.join('+')}]`;
+        } else {
+          const single = shaderRaw as { type: string; enabled: boolean };
+          if (single.enabled) text += `, [${shaderLabels[single.type] || single.type}]`;
+        }
       }
       return text;
     }
