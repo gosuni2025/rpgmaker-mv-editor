@@ -3,7 +3,7 @@ import type { EventCommand } from '../../types/rpgMakerMV';
 import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
-  ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, AudioEditor,
+  ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, AudioEditor,
   ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor,
   ScrollingTextEditor, ConditionalBranchEditor,
 } from './commandEditors';
@@ -45,7 +45,7 @@ function getCommandName(code: number): string {
     121: '스위치 조작', 122: '변수 조작', 123: 'Control Self Switch',
     124: '타이머 조작', 125: '소지 금액 증감', 126: '아이템 증감',
     127: '무기 변경', 128: '방어구 변경', 129: '파티원 변경',
-    201: '장소 이동', 230: 'Wait',
+    201: '장소 이동', 202: '탈 것 위치 설정', 230: 'Wait',
     241: 'Play BGM', 242: 'Fadeout BGM', 245: 'Play BGS', 246: 'Fadeout BGS',
     249: 'Play ME', 250: 'Play SE',
     301: 'Battle Processing', 303: '이름 입력 처리', 311: 'HP 증감', 312: 'MP 증감', 326: 'TP 증감',
@@ -88,6 +88,7 @@ function getEditorContent(
     case 127: return <ChangeItemEditor p={p} onOk={onOk} onCancel={onCancel} label="Weapon" showIncludeEquip />;
     case 128: return <ChangeItemEditor p={p} onOk={onOk} onCancel={onCancel} label="Armor" showIncludeEquip />;
     case 201: return <TransferPlayerEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 202: return <SetVehicleLocationEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 230: return <SingleNumberEditor p={p} onOk={onOk} onCancel={onCancel} label="Wait (frames)" />;
     case 241: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgm" />;
     case 245: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgs" />;
