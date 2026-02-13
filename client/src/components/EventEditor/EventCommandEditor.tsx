@@ -847,9 +847,11 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
         if (preset) {
           const oxStr = preset.offsetX ? (preset.offsetX > 0 ? `+${preset.offsetX}` : `${preset.offsetX}`) : '';
           const oyStr = preset.offsetY ? (preset.offsetY > 0 ? `+${preset.offsetY}` : `${preset.offsetY}`) : '';
-          posStr = `(${preset.presetX}/5${oxStr}, ${preset.presetY}/5${oyStr})`;
+          const pctX = (preset.presetX - 1) * 25;
+          const pctY = (preset.presetY - 1) * 25;
+          posStr = `(${pctX}%${oxStr}, ${pctY}%${oyStr})`;
         } else {
-          posStr = '(3/5, 3/5)';
+          posStr = '(50%, 50%)';
         }
       } else {
         posStr = posType === 0 ? `(${px},${py})` : `(V[${px}],V[${py}])`;

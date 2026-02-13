@@ -811,8 +811,8 @@ PictureShader.createMaterial = function(type, params, texture) {
             var py = (preset.presetY !== undefined) ? preset.presetY : 3;
             var ox = (preset.offsetX !== undefined) ? preset.offsetX : 0;
             var oy = (preset.offsetY !== undefined) ? preset.offsetY : 0;
-            x = Math.round(sw * px / 5) + ox;
-            y = Math.round(sh * py / 5) + oy;
+            x = Math.round(sw * (px - 1) / 4) + ox;
+            y = Math.round(sh * (py - 1) / 4) + oy;
         } else {
             x = this._params[4];
             y = this._params[5];
