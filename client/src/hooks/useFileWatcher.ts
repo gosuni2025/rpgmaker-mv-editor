@@ -67,6 +67,7 @@ export default function useFileWatcher() {
 
 async function handleFileChanged(filename: string) {
   const store = useEditorStore.getState();
+  const { showToast } = store;
   console.log(`[FileWatcher] 외부 파일 변경 감지: ${filename}`);
 
   try {
@@ -93,6 +94,7 @@ async function handleFileChanged(filename: string) {
           useEditorStore.setState({ currentMap: map, undoStack: [], redoStack: [] });
         }
         console.log(`[FileWatcher] 맵 ${mapId} 리로드 완료`);
+        showToast(`맵 ${mapId} 데이터 갱신됨`);
       }
       return;
     }
@@ -102,6 +104,7 @@ async function handleFileChanged(filename: string) {
       const maps = await apiClient.get<(MapInfo | null)[]>('/maps');
       useEditorStore.setState({ maps });
       console.log('[FileWatcher] 맵 목록 리로드 완료');
+      showToast('맵 목록 갱신됨');
       return;
     }
 
@@ -110,6 +113,7 @@ async function handleFileChanged(filename: string) {
       const sys = await apiClient.get<SystemData>('/database/system');
       useEditorStore.setState({ systemData: sys });
       console.log('[FileWatcher] 시스템 데이터 리로드 완료');
+      showToast('시스템 데이터 갱신됨');
       return;
     }
 
@@ -122,12 +126,15 @@ async function handleFileChanged(filename: string) {
         useEditorStore.setState({ currentMap: map, tilesetInfo });
       }
       console.log('[FileWatcher] 타일셋 리로드 완료');
+      showToast('타일셋 데이터 갱신됨');
       return;
     }
 
     // 기타 DB 파일 (Actors, Items 등) - 열려있는 다이얼로그가 있으면 알림
     // DB 다이얼로그는 자체적으로 데이터를 로드하므로, 변경 이벤트만 발행
     window.dispatchEvent(new CustomEvent('fileChanged', { detail: { file: filename } }));
+    const label = filename.replace('.json', '');
+    showToast(`${label} 데이터 갱신됨`);
   } catch (err) {
     console.error(`[FileWatcher] ${filename} 리로드 실패:`, err);
   }
