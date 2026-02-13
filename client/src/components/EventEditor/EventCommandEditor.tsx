@@ -853,6 +853,37 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       return text;
     }
 
+    // 그림 이동 전용 포맷
+    if (code === 232 && cmd.parameters && cmd.parameters.length >= 12) {
+      const num = cmd.parameters[0] as number;
+      const originLabels: Record<number, string> = { 0: '왼쪽 위', 1: '중앙' };
+      const blendLabels: Record<number, string> = { 0: '일반', 1: '추가 합성', 2: '곱하기', 3: '스크린' };
+      const posType = cmd.parameters[3] as number;
+      const px = cmd.parameters[4] as number;
+      const py = cmd.parameters[5] as number;
+      const posStr = posType === 0 ? `(${px},${py})` : `(V[${px}],V[${py}])`;
+      text += `: #${num}, ${originLabels[cmd.parameters[2] as number] || ''}, ${posStr}`;
+      const sw = cmd.parameters[6] as number;
+      const sh = cmd.parameters[7] as number;
+      if (sw !== 100 || sh !== 100) text += `, ${sw}%x${sh}%`;
+      const op = cmd.parameters[8] as number;
+      if (op !== 255) text += `, 불투명도:${op}`;
+      const bm = cmd.parameters[9] as number;
+      if (bm !== 0) text += `, ${blendLabels[bm] || ''}`;
+      const dur = cmd.parameters[10] as number;
+      text += `, ${dur}프레임`;
+      if (cmd.parameters[11]) text += `, 완료까지 대기`;
+      return text;
+    }
+
+    // 그림 회전 전용 포맷
+    if (code === 233 && cmd.parameters && cmd.parameters.length >= 2) {
+      const num = cmd.parameters[0] as number;
+      const speed = cmd.parameters[1] as number;
+      text += `: #${num}, 속도 ${speed}`;
+      return text;
+    }
+
     // 그림 제거
     if (code === 235 && cmd.parameters && cmd.parameters.length >= 1) {
       text += `: #${cmd.parameters[0]}`;
