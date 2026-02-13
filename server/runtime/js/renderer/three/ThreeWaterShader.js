@@ -77,47 +77,50 @@ ThreeWaterShader.FRAGMENT_PARS = [
 // 물 타일용 fragment 로직 (#include <map_fragment> 뒤에 삽입)
 ThreeWaterShader.FRAGMENT_MAIN = [
     '{',
-    '    vec2 waveUV = waterWaveUV(vUv, vWorldPos, uTime);',
+    '    // 주변 텍셀 alpha 최솟값으로 해변 경계 감지 → wave 왜곡 감쇠',
+    '    vec2 texSize = vec2(textureSize(map, 0));',
+    '    vec2 texel = 1.0 / texSize;',
+    '    float edgeDist = 8.0;',
+    '    float a0 = texture2D(map, vUv + vec2(-texel.x * edgeDist, 0.0)).a;',
+    '    float a1 = texture2D(map, vUv + vec2( texel.x * edgeDist, 0.0)).a;',
+    '    float a2 = texture2D(map, vUv + vec2(0.0, -texel.y * edgeDist)).a;',
+    '    float a3 = texture2D(map, vUv + vec2(0.0,  texel.y * edgeDist)).a;',
+    '    float minAlpha = min(min(a0, a1), min(a2, a3));',
+    '    float waveFade = smoothstep(0.0, 1.0, minAlpha);',
+    '    vec2 waveOffset = waterWaveUV(vUv, vWorldPos, uTime) - vUv;',
+    '    vec2 waveUV = vUv + waveOffset * waveFade;',
     '    vec4 waveTexColor = texture2D(map, waveUV);',
     '    diffuseColor = waveTexColor;',
     '}',
     'diffuseColor.a *= uWaterAlpha;',
 ].join('\n');
 
-// specular-only 추가 (#include <output_fragment> 앞에 삽입)
+// specular-only 추가 (#include <output_fragment> 뒤에 삽입)
 // wave normal은 specular에만 사용, diffuse normal은 건드리지 않음
 // 해변 경계에서 wave normal 감쇠: 주변 텍셀 alpha로 경계 감지
 ThreeWaterShader.SPECULAR_INJECT = [
     '{',
-    '    vec3 waveN = computeWaveNormal(vWorldPos, uTime, uWaveFrequency, uWaveSpeed);',
+    '    // 현재 픽셀 alpha로 해변 경계 감지 (반투명 = 해변)',
+    '    float curAlpha = gl_FragColor.a;',
+    '    float shoreFade = smoothstep(0.3, 0.95, curAlpha);',
     '',
-    '    // 주변 텍셀 alpha 샘플링으로 해변 경계 감지',
-    '    vec2 texSize = vec2(textureSize(map, 0));',
-    '    vec2 texel = 1.0 / texSize;',
-    '    float edgeDist = 6.0;',
-    '    float a0 = texture2D(map, vUv + vec2(-texel.x * edgeDist, 0.0)).a;',
-    '    float a1 = texture2D(map, vUv + vec2( texel.x * edgeDist, 0.0)).a;',
-    '    float a2 = texture2D(map, vUv + vec2(0.0, -texel.y * edgeDist)).a;',
-    '    float a3 = texture2D(map, vUv + vec2(0.0,  texel.y * edgeDist)).a;',
-    '    float minAlpha = min(min(a0, a1), min(a2, a3));',
-    '    float shoreFade = smoothstep(0.0, 0.8, minAlpha);',
+    '    if (shoreFade > 0.01) {',
+    '        vec3 waveN = computeWaveNormal(vWorldPos, uTime, uWaveFrequency, uWaveSpeed);',
+    '        vec3 flatN = vec3(0.0, 0.0, 1.0);',
+    '        vec3 blendedN = normalize(mix(flatN, waveN, shoreFade));',
+    '        vec3 specN = normalize(vNormalMat * blendedN);',
+    '        vec3 viewDir = normalize(vViewPosition);',
     '',
-    '    // wave normal → specular 계산 (diffuse에는 영향 없음)',
-    '    vec3 flatN = vec3(0.0, 0.0, 1.0);',
-    '    vec3 blendedN = normalize(mix(flatN, waveN, shoreFade));',
-    '    vec3 specN = normalize(vNormalMat * blendedN);',
-    '    vec3 viewDir = normalize(vViewPosition);',
-    '',
-    '    // Blinn-Phong specular (directionalLight만 사용)',
-    '    #if NUM_DIR_LIGHTS > 0',
-    '    for (int i = 0; i < NUM_DIR_LIGHTS; i++) {',
-    '        vec3 dirLightDir = directionalLights[i].direction;',
-    '        vec3 halfDir = normalize(dirLightDir + viewDir);',
-    '        float specAngle = max(dot(specN, halfDir), 0.0);',
-    '        float specVal = pow(specAngle, 64.0) * uSpecularStrength * shoreFade;',
-    '        gl_FragColor.rgb += directionalLights[i].color * specVal;',
+    '        #if NUM_DIR_LIGHTS > 0',
+    '        for (int i = 0; i < NUM_DIR_LIGHTS; i++) {',
+    '            vec3 dirLightDir = directionalLights[i].direction;',
+    '            vec3 halfDir = normalize(dirLightDir + viewDir);',
+    '            float specAngle = max(dot(specN, halfDir), 0.0);',
+    '            float specVal = pow(specAngle, 64.0) * uSpecularStrength * shoreFade;',
+    '            gl_FragColor.rgb += directionalLights[i].color * specVal;',
+    '        }',
+    '        #endif',
     '    }',
-    '    #endif',
     '}',
 ].join('\n');
 
@@ -195,21 +198,23 @@ ThreeWaterShader._STANDALONE_FRAGMENT_WATER = [
     ThreeWaterShader._WAVE_NORMAL_GLSL,
     '',
     'void main() {',
-    '    vec2 waveUV = waterWaveUV(vUv, vWorldPos, uTime);',
-    '    vec4 color = texture2D(map, waveUV);',
-    '    color.a *= uWaterAlpha;',
-    '    if (color.a < 0.01) discard;',
-    '',
-    '    // 해변 경계 감쇠: 주변 텍셀 alpha로 경계 감지',
+    '    // 주변 텍셀 alpha 최솟값으로 해변 경계 감지 → wave 왜곡 감쇠',
     '    vec2 texSize = vec2(textureSize(map, 0));',
     '    vec2 texel = 1.0 / texSize;',
-    '    float edgeDist = 6.0;',
+    '    float edgeDist = 8.0;',
     '    float a0 = texture2D(map, vUv + vec2(-texel.x * edgeDist, 0.0)).a;',
     '    float a1 = texture2D(map, vUv + vec2( texel.x * edgeDist, 0.0)).a;',
     '    float a2 = texture2D(map, vUv + vec2(0.0, -texel.y * edgeDist)).a;',
     '    float a3 = texture2D(map, vUv + vec2(0.0,  texel.y * edgeDist)).a;',
     '    float minAlpha = min(min(a0, a1), min(a2, a3));',
-    '    float shoreFade = smoothstep(0.0, 0.8, minAlpha);',
+    '    float waveFade = smoothstep(0.0, 1.0, minAlpha);',
+    '    vec2 waveOffset = waterWaveUV(vUv, vWorldPos, uTime) - vUv;',
+    '    vec2 waveUV = vUv + waveOffset * waveFade;',
+    '    vec4 color = texture2D(map, waveUV);',
+    '    color.a *= uWaterAlpha;',
+    '    if (color.a < 0.01) discard;',
+    '',
+    '    float shoreFade = waveFade;',
     '',
     '    // Fragment-only specular: Blinn-Phong (해변에서 감쇠)',
     '    vec3 waveN = computeWaveNormal(vWorldPos, uTime, uWaveFrequency, uWaveSpeed);',
@@ -343,12 +348,9 @@ ThreeWaterShader.applyToPhongMaterial = function(material, isWaterfall) {
     };
 
     material.onBeforeCompile = function(shader) {
-        // Uniforms 주입
         for (var key in material.userData.waterUniforms) {
             shader.uniforms[key] = material.userData.waterUniforms[key];
         }
-
-        // Vertex shader 수정
         shader.vertexShader = shader.vertexShader.replace(
             '#include <common>',
             '#include <common>\n' + ThreeWaterShader.VERTEX_PARS
@@ -357,8 +359,6 @@ ThreeWaterShader.applyToPhongMaterial = function(material, isWaterfall) {
             '#include <begin_vertex>',
             '#include <begin_vertex>\n' + ThreeWaterShader.VERTEX_MAIN
         );
-
-        // Fragment shader 수정
         shader.fragmentShader = shader.fragmentShader.replace(
             '#include <common>',
             '#include <common>\n' + ThreeWaterShader.FRAGMENT_PARS
@@ -367,7 +367,6 @@ ThreeWaterShader.applyToPhongMaterial = function(material, isWaterfall) {
             '#include <map_fragment>',
             '#include <map_fragment>\n' + fragMain
         );
-        // Wave specular를 output_fragment 뒤에 추가 (diffuse normal은 건드리지 않음)
         shader.fragmentShader = shader.fragmentShader.replace(
             '#include <output_fragment>',
             '#include <output_fragment>\n' + specularInject

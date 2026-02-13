@@ -605,9 +605,7 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
         mesh = new THREE.Mesh(geometry, material);
         mesh.frustumCulled = false;
         mesh.renderOrder = -1;  // 물은 다른 타일보다 먼저 렌더 (투명도 때문)
-        if (window.ShadowLight && window.ShadowLight._active) {
-            mesh.receiveShadow = true;
-        }
+        // 물 타일은 receiveShadow 비활성 (shadow acne로 검은 구멍 아티팩트 방지)
         this._meshes[meshKey] = mesh;
         this._threeObj.add(mesh);
     }
