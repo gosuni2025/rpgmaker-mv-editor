@@ -3,7 +3,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import path from 'path';
 import os from 'os';
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 import projectManager from '../services/projectManager';
 import fileWatcher from '../services/fileWatcher';
 
@@ -308,7 +308,14 @@ router.get('/migration-check', (req: Request, res: Response) => {
       return order[a.status] - order[b.status];
     });
 
-    res.json({ needsMigration, files });
+    // Check if git is available
+    let gitAvailable = false;
+    try {
+      execSync('git --version', { stdio: 'ignore' });
+      gitAvailable = true;
+    } catch { /* git not installed */ }
+
+    res.json({ needsMigration, files, gitAvailable });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }
@@ -321,9 +328,40 @@ router.post('/migrate', (req: Request, res: Response) => {
       return res.status(404).json({ error: 'No project open' });
     }
 
+    const projectRoot = projectManager.currentPath!;
     const runtimeJsDir = path.join(runtimePath, 'js');
-    const projectJsDir = path.join(projectManager.currentPath!, 'js');
+    const projectJsDir = path.join(projectRoot, 'js');
     const selectedFiles: string[] | undefined = req.body.files;
+    const gitBackup: boolean = req.body.gitBackup === true;
+
+    // Git backup: commit current state before migration
+    if (gitBackup) {
+      try {
+        // Init repo if not already a git repo
+        try {
+          execSync('git rev-parse --git-dir', { cwd: projectRoot, stdio: 'ignore' });
+        } catch {
+          execSync('git init', { cwd: projectRoot, stdio: 'ignore' });
+        }
+        execSync('git add -A', { cwd: projectRoot, stdio: 'ignore' });
+        // Check if there's anything to commit
+        try {
+          execSync('git diff --cached --quiet', { cwd: projectRoot, stdio: 'ignore' });
+          // No changes staged - check if there are any commits at all
+          try {
+            execSync('git rev-parse HEAD', { cwd: projectRoot, stdio: 'ignore' });
+          } catch {
+            // No commits yet, create initial commit
+            execSync('git commit -m "Initial commit (before runtime migration)"', { cwd: projectRoot, stdio: 'ignore' });
+          }
+        } catch {
+          // There are staged changes, commit them
+          execSync('git commit -m "Backup before runtime migration"', { cwd: projectRoot, stdio: 'ignore' });
+        }
+      } catch (gitErr) {
+        return res.status(500).json({ error: `Git backup failed: ${(gitErr as Error).message}` });
+      }
+    }
 
     const copied: string[] = [];
 

@@ -679,6 +679,11 @@ const en = {
     summary: 'To change: {{changed}} / Total {{total}}',
     migrate: 'Migrate',
     migrating: 'Migrating...',
+    gitBackup: 'Backup with Git before migration',
+    gitNotAvailable: 'Git is not installed. Install Git to enable automatic backup before migration.',
+    gitWarningTitle: 'Proceed without backup',
+    gitWarningMessage: 'Migrating without Git backup means you cannot recover the original files. It is strongly recommended to install Git and manage your project with it.',
+    gitWarningProceed: 'Proceed without backup',
   },
 
   find: {

@@ -14,6 +14,7 @@ interface MigrationFile {
 interface MigrationCheckResult {
   needsMigration: boolean;
   files: MigrationFile[];
+  gitAvailable: boolean;
 }
 
 interface MigrationDialogProps {
@@ -45,6 +46,9 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
   const [loading, setLoading] = useState(true);
   const [migrating, setMigrating] = useState(false);
   const [error, setError] = useState('');
+  const [gitAvailable, setGitAvailable] = useState(false);
+  const [gitBackup, setGitBackup] = useState(true);
+  const [showNoGitWarning, setShowNoGitWarning] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -54,6 +58,7 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
         );
         setFiles(res.files);
         setSelected(new Set(res.files.filter(f => f.status !== 'same').map(f => f.file)));
+        setGitAvailable(res.gitAvailable);
       } catch (e) {
         setError((e as Error).message);
       } finally {
@@ -81,11 +86,27 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
     }
   };
 
-  const handleMigrate = async () => {
+  const handleMigrateClick = () => {
+    if (!gitBackup && !gitAvailable) {
+      setShowNoGitWarning(true);
+      return;
+    }
+    if (!gitBackup) {
+      setShowNoGitWarning(true);
+      return;
+    }
+    doMigrate();
+  };
+
+  const doMigrate = async () => {
+    setShowNoGitWarning(false);
     setMigrating(true);
     setError('');
     try {
-      await apiClient.post('/project/migrate', { files: Array.from(selected) });
+      await apiClient.post('/project/migrate', {
+        files: Array.from(selected),
+        gitBackup: gitBackup && gitAvailable,
+      });
       onComplete();
     } catch (e) {
       setError((e as Error).message);
@@ -166,6 +187,22 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
               <p style={{ color: '#999', fontSize: 11, margin: '8px 0 0 0' }}>
                 {t('migration.summary', { changed: selected.size, total: files.length })}
               </p>
+              <div style={{ margin: '12px 0 0 0', padding: '8px 10px', background: '#333', borderRadius: 3, border: '1px solid #555' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#ddd', fontSize: 13, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={gitBackup}
+                    onChange={e => setGitBackup(e.target.checked)}
+                    disabled={!gitAvailable}
+                  />
+                  {t('migration.gitBackup')}
+                </label>
+                {!gitAvailable && (
+                  <p style={{ color: '#e88', fontSize: 11, margin: '4px 0 0 22px' }}>
+                    {t('migration.gitNotAvailable')}
+                  </p>
+                )}
+              </div>
             </>
           )}
         </div>
@@ -173,8 +210,8 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
           {!loading && !error && (
             <button
               className="db-btn"
-              onClick={handleMigrate}
-              disabled={migrating || selected.size === 0}
+              onClick={handleMigrateClick}
+              disabled={migrating || selected.size === 0 || (gitBackup && !gitAvailable)}
               style={{ background: '#0078d4', borderColor: '#0078d4' }}
             >
               {migrating ? t('migration.migrating') : t('migration.migrate')}
@@ -185,6 +222,30 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
           </button>
         </div>
       </div>
+      {showNoGitWarning && (
+        <div className="db-dialog-overlay" style={{ zIndex: 10001 }}>
+          <div className="db-dialog" style={{ width: 420, height: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div className="db-dialog-header">{t('migration.gitWarningTitle')}</div>
+            <div style={{ padding: '16px 20px' }}>
+              <p style={{ color: '#fc6', fontSize: 13, lineHeight: 1.6, margin: 0 }}>
+                {t('migration.gitWarningMessage')}
+              </p>
+            </div>
+            <div className="db-dialog-footer">
+              <button
+                className="db-btn"
+                onClick={doMigrate}
+                style={{ background: '#c44', borderColor: '#c44' }}
+              >
+                {t('migration.gitWarningProceed')}
+              </button>
+              <button className="db-btn" onClick={() => setShowNoGitWarning(false)}>
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

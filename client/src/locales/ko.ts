@@ -1065,6 +1065,11 @@ const ko = {
     summary: '변경 대상: {{changed}}개 / 전체 {{total}}개',
     migrate: '마이그레이션',
     migrating: '마이그레이션 중...',
+    gitBackup: 'Git으로 마이그레이션 전 백업',
+    gitNotAvailable: 'Git이 설치되어 있지 않아 백업을 사용할 수 없습니다. Git을 설치하면 마이그레이션 전 자동 백업이 가능합니다.',
+    gitWarningTitle: '백업 없이 진행',
+    gitWarningMessage: 'Git 백업 없이 마이그레이션하면 기존 파일을 복구할 수 없습니다. Git을 설치하여 프로젝트를 관리하는 것을 강력히 권장합니다.',
+    gitWarningProceed: '백업 없이 진행',
   },
 
   // === Find Dialog ===
