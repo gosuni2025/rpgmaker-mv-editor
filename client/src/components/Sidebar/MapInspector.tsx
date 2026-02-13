@@ -500,10 +500,11 @@ function AnimTileShaderSection({ currentMap, updateMapField }: {
   const [expandedKinds, setExpandedKinds] = useState<Set<number>>(new Set());
 
   const settings: Record<number, AnimTileShaderSettings> = currentMap.animTileSettings || {};
-  const usedKinds = useMemo(() =>
-    getUsedA1Kinds(currentMap.data || [], currentMap.width || 0, currentMap.height || 0),
-    [currentMap.data, currentMap.width, currentMap.height]
-  );
+  const usedKindSet = useMemo(() => {
+    const kinds = getUsedA1Kinds(currentMap.data || [], currentMap.width || 0, currentMap.height || 0);
+    return new Set(kinds);
+  }, [currentMap.data, currentMap.width, currentMap.height]);
+  const ALL_KINDS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15];
 
   const toggleExpand = (kind: number) => {
     setExpandedKinds(prev => {
@@ -525,38 +526,27 @@ function AnimTileShaderSection({ currentMap, updateMapField }: {
     updateMapField('animTileSettings', Object.keys(updated).length > 0 ? updated : undefined);
   };
 
-  if (usedKinds.length === 0) {
-    return (
-      <div className="light-inspector-section">
-        <div className="light-inspector-title">
-          애니메이션 타일 셰이더
-          <span className="sky-ext-badge" style={{ marginLeft: 6 }}>EXT</span>
-        </div>
-        <div style={{ color: '#666', fontSize: 11, padding: '4px 0' }}>이 맵에 A1 타일이 없습니다</div>
-      </div>
-    );
-  }
-
   return (
     <div className="light-inspector-section">
       <div className="light-inspector-title">
         애니메이션 타일 셰이더
         <span className="sky-ext-badge" style={{ marginLeft: 6 }}>EXT</span>
       </div>
-      {usedKinds.map(kind => {
+      {ALL_KINDS.map(kind => {
         const s = settings[kind] || getDefaultForKind(kind);
         const expanded = expandedKinds.has(kind);
         const kindType = getA1KindType(kind);
         const hasCustom = !!settings[kind];
+        const isUsed = usedKindSet.has(kind);
         return (
-          <div key={kind} className="anim-tile-kind-panel">
+          <div key={kind} className={`anim-tile-kind-panel${!isUsed ? ' anim-tile-kind-unused' : ''}`}>
             <div
               className="anim-tile-kind-header"
               onClick={() => toggleExpand(kind)}
             >
               <span className="anim-tile-kind-arrow">{expanded ? '\u25BC' : '\u25B6'}</span>
               <A1KindIcon kind={kind} tilesetNames={currentMap.tilesetNames} />
-              <span className="anim-tile-kind-name">{getA1KindName(kind)}</span>
+              <span className="anim-tile-kind-name">{getA1KindName(kind)}{!isUsed && <span className="anim-tile-unused-tag">(미사용)</span>}</span>
               <span className={`anim-tile-kind-type anim-tile-kind-type-${kindType}`}>{kindType}</span>
               {hasCustom && <span className="anim-tile-kind-custom" title="커스텀 설정 적용됨">{'\u2022'}</span>}
             </div>
@@ -661,7 +651,19 @@ function PostProcessSection() {
   const updatePostProcessEffect = useEditorStore((s) => s.updatePostProcessEffect);
   const [expandedEffects, setExpandedEffects] = useState<Set<string>>(new Set());
 
-  const effectList = useMemo(() => getEffectList(), []);
+  const [effectList, setEffectList] = useState<PPEffectEntry[]>(() => getEffectList());
+  useEffect(() => {
+    if (effectList.length > 0) return;
+    // PostProcessEffects 런타임이 아직 로드되지 않았을 수 있으므로 재시도
+    const timer = setInterval(() => {
+      const list = getEffectList();
+      if (list.length > 0) {
+        setEffectList(list);
+        clearInterval(timer);
+      }
+    }, 500);
+    return () => clearInterval(timer);
+  }, [effectList.length]);
 
   const toggleExpand = useCallback((key: string) => {
     setExpandedEffects(prev => {

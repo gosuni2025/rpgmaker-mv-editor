@@ -671,6 +671,17 @@
   color: #ddd;
 }
 
+/* Anim Tile - unused kind */
+.anim-tile-kind-panel.anim-tile-kind-unused {
+  opacity: 0.5;
+}
+
+.anim-tile-unused-tag {
+  font-size: 9px;
+  color: #777;
+  margin-left: 4px;
+}
+
 /* --- Post Processing Section --- */
 .pp-enabled-count {
   display: inline-flex;
