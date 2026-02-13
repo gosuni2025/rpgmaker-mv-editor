@@ -94,6 +94,9 @@ PictureShader._FRAGMENT_DISSOLVE = [
     'uniform float uEdgeWidth;',
     'uniform vec3 uEdgeColor;',
     'uniform float uNoiseScale;',
+    'uniform float uAnimSpeed;',
+    'uniform float uThresholdMin;',
+    'uniform float uThresholdMax;',
     'varying vec2 vUv;',
     '',
     'float random(vec2 st) {',
@@ -114,8 +117,13 @@ PictureShader._FRAGMENT_DISSOLVE = [
     'void main() {',
     '    vec4 color = texture2D(map, vUv);',
     '    float n = noise(vUv * uNoiseScale);',
-    '    float edge = smoothstep(uThreshold - uEdgeWidth, uThreshold, n);',
-    '    float edgeGlow = smoothstep(uThreshold, uThreshold + uEdgeWidth, n);',
+    '    float thresh = uThreshold;',
+    '    if (uAnimSpeed > 0.0) {',
+    '        float t = 0.5 + 0.5 * sin(uTime * uAnimSpeed);',
+    '        thresh = mix(uThresholdMin, uThresholdMax, t);',
+    '    }',
+    '    float edge = smoothstep(thresh - uEdgeWidth, thresh, n);',
+    '    float edgeGlow = smoothstep(thresh, thresh + uEdgeWidth, n);',
     '    color.rgb = mix(uEdgeColor, color.rgb, edgeGlow);',
     '    color.a *= edge * opacity;',
     '    gl_FragColor = color;',
@@ -358,12 +366,12 @@ PictureShader._FRAGMENT_SHADERS = {
 PictureShader._DEFAULT_PARAMS = {
     'wave':      { amplitude: 10, frequency: 5, speed: 2, direction: 0 },
     'glitch':    { intensity: 0.3, rgbShift: 5, lineSpeed: 3, blockSize: 8 },
-    'dissolve':  { threshold: 0.5, edgeWidth: 0.05, edgeColorR: 1, edgeColorG: 0.5, edgeColorB: 0, noiseScale: 10 },
+    'dissolve':  { threshold: 0.5, edgeWidth: 0.05, edgeColorR: 1, edgeColorG: 0.5, edgeColorB: 0, noiseScale: 10, animSpeed: 1, thresholdMin: 0, thresholdMax: 1 },
     'glow':      { intensity: 1, radius: 4, colorR: 1, colorG: 1, colorB: 1, pulseSpeed: 2 },
-    'chromatic': { offset: 3, angle: 0, pulseSpeed: 0 },
-    'pixelate':  { size: 8, pulseSpeed: 0, minSize: 2, maxSize: 16 },
+    'chromatic': { offset: 3, angle: 0, pulseSpeed: 2 },
+    'pixelate':  { size: 8, pulseSpeed: 2, minSize: 2, maxSize: 16 },
     'shake':     { power: 5, speed: 10, direction: 2 },
-    'blur':      { strength: 4, pulseSpeed: 0, minStrength: 0, maxStrength: 8 },
+    'blur':      { strength: 4, pulseSpeed: 2, minStrength: 0, maxStrength: 8 },
     'rainbow':   { speed: 1, saturation: 0.5, brightness: 0.1 },
     'hologram':  { scanlineSpacing: 4, scanlineAlpha: 0.3, flickerSpeed: 5, flickerIntensity: 0.2, rgbShift: 2, tintR: 0.5, tintG: 0.8, tintB: 1 },
 };
@@ -406,10 +414,13 @@ PictureShader.createMaterial = function(type, params, texture) {
             uniforms.uBlockSize  = { value: p.blockSize };
             break;
         case 'dissolve':
-            uniforms.uThreshold  = { value: p.threshold };
-            uniforms.uEdgeWidth  = { value: p.edgeWidth };
-            uniforms.uEdgeColor  = { value: new THREE.Vector3(p.edgeColorR, p.edgeColorG, p.edgeColorB) };
-            uniforms.uNoiseScale = { value: p.noiseScale };
+            uniforms.uThreshold     = { value: p.threshold };
+            uniforms.uEdgeWidth     = { value: p.edgeWidth };
+            uniforms.uEdgeColor     = { value: new THREE.Vector3(p.edgeColorR, p.edgeColorG, p.edgeColorB) };
+            uniforms.uNoiseScale    = { value: p.noiseScale };
+            uniforms.uAnimSpeed     = { value: p.animSpeed };
+            uniforms.uThresholdMin  = { value: p.thresholdMin };
+            uniforms.uThresholdMax  = { value: p.thresholdMax };
             break;
         case 'glow':
             uniforms.uIntensity  = { value: p.intensity };

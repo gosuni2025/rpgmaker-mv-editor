@@ -2076,7 +2076,10 @@ const SHADER_DEFINITIONS: ShaderDef[] = [
     { key: 'blockSize', label: '블록 크기', min: 1, max: 50, step: 1, defaultValue: 8 },
   ]},
   { type: 'dissolve', label: '디졸브', params: [
-    { key: 'threshold', label: '임계값', min: 0, max: 1, step: 0.01, defaultValue: 0.5 },
+    { key: 'animSpeed', label: '애니 속도', min: 0, max: 10, step: 0.1, defaultValue: 1 },
+    { key: 'thresholdMin', label: '임계값 최소', min: 0, max: 1, step: 0.01, defaultValue: 0 },
+    { key: 'thresholdMax', label: '임계값 최대', min: 0, max: 1, step: 0.01, defaultValue: 1 },
+    { key: 'threshold', label: '임계값 (고정)', min: 0, max: 1, step: 0.01, defaultValue: 0.5 },
     { key: 'edgeWidth', label: '경계 넓이', min: 0, max: 0.2, step: 0.01, defaultValue: 0.05 },
     { key: 'edgeColorR', label: '경계색 R', min: 0, max: 1, step: 0.01, defaultValue: 1 },
     { key: 'edgeColorG', label: '경계색 G', min: 0, max: 1, step: 0.01, defaultValue: 0.5 },
@@ -2094,11 +2097,11 @@ const SHADER_DEFINITIONS: ShaderDef[] = [
   { type: 'chromatic', label: '색수차', params: [
     { key: 'offset', label: '오프셋', min: 0, max: 20, step: 1, defaultValue: 3 },
     { key: 'angle', label: '각도', min: 0, max: 360, step: 1, defaultValue: 0 },
-    { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 0 },
+    { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 2 },
   ]},
   { type: 'pixelate', label: '픽셀화', params: [
-    { key: 'size', label: '크기', min: 1, max: 64, step: 1, defaultValue: 8 },
-    { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 0 },
+    { key: 'size', label: '크기 (고정)', min: 1, max: 64, step: 1, defaultValue: 8 },
+    { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 2 },
     { key: 'minSize', label: '최소 크기', min: 1, max: 64, step: 1, defaultValue: 2 },
     { key: 'maxSize', label: '최대 크기', min: 1, max: 64, step: 1, defaultValue: 16 },
   ]},
@@ -2110,8 +2113,8 @@ const SHADER_DEFINITIONS: ShaderDef[] = [
     ]},
   ]},
   { type: 'blur', label: '흐림', params: [
-    { key: 'strength', label: '강도', min: 0, max: 20, step: 1, defaultValue: 4 },
-    { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 0 },
+    { key: 'strength', label: '강도 (고정)', min: 0, max: 20, step: 1, defaultValue: 4 },
+    { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 2 },
     { key: 'minStrength', label: '최소 강도', min: 0, max: 20, step: 1, defaultValue: 0 },
     { key: 'maxStrength', label: '최대 강도', min: 0, max: 20, step: 1, defaultValue: 8 },
   ]},
