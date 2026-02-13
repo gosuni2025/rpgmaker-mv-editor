@@ -209,12 +209,6 @@ export function useThreeRenderer(
       if (runtimeMode3d) {
         w.ConfigManager.mode3d = true;
       }
-      // 2D 모드에서 스카이 스피어 숨기기
-      if (!runtimeMode3d) {
-        rendererObj.scene.traverse((obj: any) => {
-          if (obj._isParallaxSky) obj.visible = false;
-        });
-      }
 
       // Create grid mesh (used in both 2D and 3D)
       const gridVertices: number[] = [];
@@ -270,6 +264,7 @@ export function useThreeRenderer(
       let initFrameCount = 0;
       let shadowSynced = false;
       let lastAnimFrame = -1;
+      let skySphereRef: any = null;
       function animationLoop() {
         if (disposed) return;
         animFrameId = requestAnimationFrame(animationLoop);
@@ -294,6 +289,17 @@ export function useThreeRenderer(
           const es = useEditorStore.getState();
           syncEditorLightsToScene(rendererObj.scene, es.currentMap?.editorLights, es.mode3d);
         }
+
+        // 2D 모드에서 스카이 스피어 숨기기 (비동기 로딩 후 추가될 수 있으므로 렌더 루프에서 체크)
+        const curMode3d = !!w.ConfigManager?.mode3d;
+        if (!skySphereRef || !skySphereRef.parent) {
+          // 아직 캐시 안 됐거나 씬에서 제거됐으면 다시 찾기
+          skySphereRef = null;
+          rendererObj.scene.traverse((obj: any) => {
+            if (obj._isParallaxSky) skySphereRef = obj;
+          });
+        }
+        if (skySphereRef) skySphereRef.visible = curMode3d;
 
         // spriteset.update()로 Tilemap.animationCount 증가
         try {
@@ -381,10 +387,8 @@ export function useThreeRenderer(
           if (!state.mode3d) {
             Mode3D._perspCamera = null;
           }
-          // 2D 모드에서 스카이 스피어 숨기기
-          rendererObj.scene.traverse((obj: any) => {
-            if (obj._isParallaxSky) obj.visible = state.mode3d;
-          });
+          // skySphereRef 캐시 무효화 (렌더 루프에서 재탐색)
+          skySphereRef = null;
           if (state.shadowLight && state.currentMap?.editorLights) {
             syncEditorLightsToScene(rendererObj.scene, state.currentMap.editorLights, state.mode3d);
           }
