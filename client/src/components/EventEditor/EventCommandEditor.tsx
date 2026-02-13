@@ -826,6 +826,12 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       return text;
     }
 
+    // 대열 보행 변경 포맷
+    if (code === 216 && cmd.parameters && cmd.parameters.length >= 1) {
+      text += `: ${cmd.parameters[0] === 0 ? 'ON' : 'OFF'}`;
+      return text;
+    }
+
     if (cmd.parameters && cmd.parameters.length > 0) {
       const params = cmd.parameters.map(p => typeof p === 'string' ? p : JSON.stringify(p)).join(', ');
       if (params.length > 60) {
