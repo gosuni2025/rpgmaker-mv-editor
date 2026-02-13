@@ -320,6 +320,12 @@ MapRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuffer, 
     renderer.shadowMap.needsUpdate = true;
 
     // Pass 1: PerspectiveCamera - 맵(Spriteset_Map)만
+    // Picture는 Pass 1에서 숨기고 UIRenderPass(2D)에서 렌더
+    var picContainer = this.spriteset._pictureContainer;
+    var picObj = picContainer && picContainer._threeObj;
+    var picWasVisible = picObj ? picObj.visible : false;
+    if (picObj) picObj.visible = false;
+
     var blackScreenObj = this.spriteset._blackScreen &&
                          this.spriteset._blackScreen._threeObj;
     var blackScreenWasVisible = blackScreenObj ? blackScreenObj.visible : false;
@@ -344,6 +350,8 @@ MapRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuffer, 
     if (blackScreenObj) {
         blackScreenObj.visible = blackScreenWasVisible;
     }
+    // Picture 가시성 복원
+    if (picObj) picObj.visible = picWasVisible;
 
     // 가시성 복원 (UI는 UIRenderPass에서 별도 렌더)
     if (stageObj) {
@@ -416,12 +424,29 @@ UIRenderPass.prototype.render = function(renderer /*, writeBuffer, readBuffer */
     var stageObj = this.stage ? this.stage._threeObj : null;
     if (!stageObj) return;
 
-    // spriteset(맵)을 숨기고 UI만 표시
+    // Picture를 spritesetObj에서 stageObj로 옮겨서 2D 렌더
     var spritesetObj = this.spriteset._threeObj;
+    var picContainer = this.spriteset._pictureContainer;
+    var picObj = picContainer && picContainer._threeObj;
+    var picWasVisible = picObj ? picObj.visible : false;
+    if (picObj) {
+        spritesetObj.remove(picObj);
+        stageObj.add(picObj);
+        picObj.visible = picWasVisible;
+    }
+
+    // spriteset(맵)을 숨기고 UI만 표시
     var childVisibility = [];
     for (var i = 0; i < stageObj.children.length; i++) {
-        childVisibility.push(stageObj.children[i].visible);
-        stageObj.children[i].visible = (stageObj.children[i] !== spritesetObj) && childVisibility[i];
+        var child = stageObj.children[i];
+        childVisibility.push(child.visible);
+        if (child === spritesetObj) {
+            child.visible = false;
+        } else if (child === picObj) {
+            // picObj는 이미 visible 설정됨, 그대로 유지
+        } else {
+            child.visible = childVisibility[i];
+        }
     }
 
     // 하늘도 숨김
@@ -441,9 +466,18 @@ UIRenderPass.prototype.render = function(renderer /*, writeBuffer, readBuffer */
     renderer.render(scene, this.camera);
     renderer.autoClear = prevAutoClear;
 
+    // Picture를 원래 spritesetObj로 복원
+    if (picObj) {
+        stageObj.remove(picObj);
+        spritesetObj.add(picObj);
+        picObj.visible = picWasVisible;
+    }
+
     // 가시성 복원
     for (var i = 0; i < stageObj.children.length; i++) {
-        stageObj.children[i].visible = childVisibility[i];
+        if (i < childVisibility.length) {
+            stageObj.children[i].visible = childVisibility[i];
+        }
     }
     for (var si = 0; si < scene.children.length; si++) {
         if (scene.children[si]._isParallaxSky) {
