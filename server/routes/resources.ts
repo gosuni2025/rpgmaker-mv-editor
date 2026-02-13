@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
 import multer from 'multer';
 import projectManager from '../services/projectManager';
 
@@ -74,6 +75,22 @@ router.post('/:type', upload.single('file'), (req: Request<{ type: string }>, re
       return res.status(400).json({ error: 'No file uploaded' });
     }
     res.json({ success: true, filename: req.file.originalname });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Open resource folder in file manager
+router.post('/:type/open-folder', (req: Request<{ type: string }>, res: Response) => {
+  try {
+    const dirPath = resolveResourceDir(req.params.type);
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+    const cmd = process.platform === 'darwin' ? 'open'
+      : process.platform === 'win32' ? 'explorer' : 'xdg-open';
+    exec(`${cmd} "${dirPath}"`);
+    res.json({ success: true });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

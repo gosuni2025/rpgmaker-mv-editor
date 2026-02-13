@@ -300,6 +300,9 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
               </div>
             </div>
             <div className="image-picker-footer">
+              <button className="db-btn" onClick={() => {
+                apiClient.post(`/resources/${type}/open-folder`, {}).catch(() => {});
+              }} title="폴더 열기" style={{ marginRight: 'auto' }}>폴더 열기</button>
               <button className="db-btn" onClick={handleOk}>OK</button>
               <button className="db-btn" onClick={() => setOpen(false)}>Cancel</button>
             </div>
