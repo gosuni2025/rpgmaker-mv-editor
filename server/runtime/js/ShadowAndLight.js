@@ -1156,6 +1156,18 @@ ShadowLight._revertTilemapMaterials = function(tilemap) {
 };
 
 //=============================================================================
+// skyBackground.sunLights UV → 방향 벡터 변환
+//=============================================================================
+function sunUVToDirection(u, v) {
+    var phi = u * 2 * Math.PI;
+    var theta = v * Math.PI;
+    var x = -(Math.sin(theta) * Math.sin(phi));
+    var y = Math.cos(theta);
+    var z = -(Math.sin(theta) * Math.cos(phi));
+    return { x: x, y: y, z: z };
+}
+
+//=============================================================================
 // Scene에 조명 추가/제거
 //=============================================================================
 
@@ -1249,6 +1261,37 @@ ShadowLight._addLightsToScene = function(scene) {
 
     scene.add(this._playerSpotLight);
     scene.add(this._playerSpotTarget);
+
+    // skyBackground sunLights → 추가 디렉셔널 라이트
+    this._sunLights = [];
+    var skyBg = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.skyBackground : null;
+    if (skyBg && skyBg.sunLights && skyBg.sunLights.length > 0) {
+        // sunLights[0]은 editorLights.directional에 매핑됨 (에디터에서 처리)
+        // sunLights[1+]을 추가 디렉셔널 라이트로 생성
+        for (var si = 1; si < skyBg.sunLights.length; si++) {
+            var sl = skyBg.sunLights[si];
+            var sunDir = sunUVToDirection(sl.position[0], sl.position[1]);
+            var sunColor = parseInt(sl.color.replace('#', ''), 16);
+            var sunLight = new THREE.DirectionalLight(sunColor, sl.intensity);
+            sunLight.position.set(-sunDir.x * 1000, -sunDir.y * 1000, -sunDir.z * 1000);
+            sunLight.castShadow = sl.castShadow !== false;
+            var sunMapSize = sl.shadowMapSize || 2048;
+            sunLight.shadow.mapSize.width = sunMapSize;
+            sunLight.shadow.mapSize.height = sunMapSize;
+            sunLight.shadow.camera.left = -halfSize;
+            sunLight.shadow.camera.right = halfSize;
+            sunLight.shadow.camera.top = halfSize;
+            sunLight.shadow.camera.bottom = -halfSize;
+            sunLight.shadow.camera.near = 1;
+            sunLight.shadow.camera.far = 5000;
+            sunLight.shadow.bias = sl.shadowBias != null ? sl.shadowBias : -0.001;
+            sunLight.shadow.radius = this.config.shadowRadius;
+            sunLight.target.position.set(vw2, vh2, 0);
+            scene.add(sunLight);
+            scene.add(sunLight.target);
+            this._sunLights.push(sunLight);
+        }
+    }
 };
 
 //=============================================================================
@@ -1331,6 +1374,14 @@ ShadowLight._removeLightsFromScene = function(scene) {
         scene.remove(this._playerSpotLight);
         this._playerSpotLight = null;
         this._playerSpotTarget = null;
+    }
+    // sunLights 제거
+    if (this._sunLights) {
+        for (var i = 0; i < this._sunLights.length; i++) {
+            scene.remove(this._sunLights[i].target);
+            scene.remove(this._sunLights[i]);
+        }
+        this._sunLights = [];
     }
     // 포인트 라이트 제거
     for (var i = 0; i < this._pointLights.length; i++) {
