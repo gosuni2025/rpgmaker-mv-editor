@@ -441,6 +441,14 @@
                 blackScreenObj.visible = false;
             }
 
+            // Picture 컨테이너를 Pass 1(3D)에서 제외 → Pass 2(2D)에서만 렌더
+            var picContainer = Mode3D._spriteset._pictureContainer;
+            var picObj = picContainer && picContainer._threeObj;
+            var picWasVisible = picObj ? picObj.visible : false;
+            if (picObj) {
+                picObj.visible = false;
+            }
+
             var childVisibility = [];
             if (stageObj) {
                 for (var i = 0; i < stageObj.children.length; i++) {
@@ -489,10 +497,18 @@
             }
 
             // --- Pass 2: OrthographicCamera로 UI 렌더 (합성) ---
+            // Picture를 spritesetObj에서 분리 → stageObj에 직접 배치 (2D 렌더)
+            if (picObj) {
+                spritesetObj.remove(picObj);
+                stageObj.add(picObj);
+                picObj.visible = picWasVisible;
+            }
+
             if (stageObj) {
                 for (var i = 0; i < stageObj.children.length; i++) {
                     var child = stageObj.children[i];
-                    child.visible = childVisibility[i];
+                    if (child === picObj) continue;  // Picture는 이미 처리
+                    child.visible = childVisibility[i] !== undefined ? childVisibility[i] : child.visible;
                     if (child === spritesetObj) {
                         child.visible = false;
                     }
@@ -501,6 +517,13 @@
 
             renderer.autoClear = false;
             renderer.render(scene, camera);
+
+            // Picture를 원래 spritesetObj로 복원
+            if (picObj) {
+                stageObj.remove(picObj);
+                spritesetObj.add(picObj);
+                picObj.visible = picWasVisible;
+            }
 
             // 가시성 복원
             if (stageObj) {
