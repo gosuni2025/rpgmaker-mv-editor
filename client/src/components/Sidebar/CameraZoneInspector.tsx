@@ -1,7 +1,35 @@
-import React from 'react';
+import React, { useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
 import './InspectorPanel.css';
+
+function HelpButton({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span style={{ position: 'relative', display: 'inline-block', marginLeft: 4 }}>
+      <button
+        style={{
+          width: 16, height: 16, borderRadius: '50%', border: '1px solid #666',
+          background: '#383838', color: '#aaa', fontSize: 10, lineHeight: '14px',
+          padding: 0, cursor: 'pointer', verticalAlign: 'middle',
+        }}
+        onClick={() => setShow(!show)}
+        onBlur={() => setShow(false)}
+        title={text}
+      >?</button>
+      {show && (
+        <div style={{
+          position: 'absolute', left: 20, top: -4, zIndex: 100,
+          background: '#333', border: '1px solid #555', borderRadius: 4,
+          padding: '6px 10px', fontSize: 11, color: '#ccc', whiteSpace: 'pre-line',
+          minWidth: 180, maxWidth: 260, boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+        }}>
+          {text}
+        </div>
+      )}
+    </span>
+  );
+}
 
 export default function CameraZoneInspector() {
   const currentMap = useEditorStore((s) => s.currentMap);
@@ -143,6 +171,7 @@ export default function CameraZoneInspector() {
             <div className="light-inspector-row">
               <DragLabel label="Tilt" value={selectedZone.tilt} step={1} min={20} max={85}
                 onChange={(v) => updateCameraZone(selectedZone.id, { tilt: Math.round(v) })} />
+              <HelpButton text="카메라가 내려다보는 각도입니다.\n90°에 가까울수록 위에서 수직으로 내려다보고,\n작을수록 수평에 가깝게 비스듬히 봅니다.\n기본값: 60°" />
               <input type="range" className="light-inspector-slider" min={20} max={85} step={1}
                 value={selectedZone.tilt}
                 onChange={(e) => updateCameraZone(selectedZone.id, { tilt: parseInt(e.target.value) })} />
@@ -150,6 +179,18 @@ export default function CameraZoneInspector() {
                 style={{ width: 55 }}
                 value={selectedZone.tilt}
                 onChange={(e) => updateCameraZone(selectedZone.id, { tilt: parseInt(e.target.value) || 60 })} />
+            </div>
+            <div className="light-inspector-row">
+              <DragLabel label="Fov" value={selectedZone.fov ?? 60} step={1} min={30} max={120}
+                onChange={(v) => updateCameraZone(selectedZone.id, { fov: Math.round(v) })} />
+              <HelpButton text="카메라 시야각(Field of View)입니다.\n값이 클수록 화면에 더 넓은 영역이 보이며\n원근감이 강해집니다.\n값이 작으면 망원 효과로 납작해 보입니다.\n기본값: 60°" />
+              <input type="range" className="light-inspector-slider" min={30} max={120} step={1}
+                value={selectedZone.fov ?? 60}
+                onChange={(e) => updateCameraZone(selectedZone.id, { fov: parseInt(e.target.value) })} />
+              <input type="number" className="light-inspector-input" min={30} max={120} step={1}
+                style={{ width: 55 }}
+                value={selectedZone.fov ?? 60}
+                onChange={(e) => updateCameraZone(selectedZone.id, { fov: parseInt(e.target.value) || 60 })} />
             </div>
             <div className="light-inspector-row">
               <DragLabel label="Yaw" value={selectedZone.yaw} step={1} min={-180} max={180}

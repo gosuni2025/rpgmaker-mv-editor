@@ -379,6 +379,7 @@
                 Mode3D._perspCamera = Mode3D._createPerspCamera(w, h);
             }
 
+            Mode3D._updateCameraZoneParams();
             Mode3D._positionCamera(Mode3D._perspCamera, w, h);
             Mode3D._applyBillboards();
             Mode3D._enforceNearestFilter(scene);
@@ -661,6 +662,61 @@
             }
         }
         return _Game_Map_canvasToMapY.call(this, y);
+    };
+
+    //=========================================================================
+    // 카메라 존 → tilt / fov lerp 보간
+    // 매 프레임 렌더 직전에 호출하여 Mode3D._tiltDeg, camera.fov를
+    // 활성 카메라 존의 값으로 부드럽게 전환
+    //=========================================================================
+
+    Mode3D._currentTilt = null;   // lerp 중인 현재 tilt
+    Mode3D._currentFov = null;    // lerp 중인 현재 fov
+
+    Mode3D._updateCameraZoneParams = function() {
+        if (!this._perspCamera) return;
+        if (window.__editorMode) return; // 에디터에서는 적용하지 않음
+
+        // 타겟 값 결정: 활성 카메라존 → 글로벌 기본값
+        var targetTilt = 60;  // 글로벌 기본
+        var targetFov = 60;
+        var transitionSpeed = 1.0;
+
+        if ($gameMap && $gameMap._activeCameraZoneId != null) {
+            var zone = $gameMap.getCameraZoneById($gameMap._activeCameraZoneId);
+            if (zone) {
+                targetTilt = zone.tilt != null ? zone.tilt : 60;
+                targetFov = zone.fov != null ? zone.fov : 60;
+                transitionSpeed = zone.transitionSpeed || 1.0;
+            }
+        }
+
+        // 초기화 (최초 호출 시)
+        if (this._currentTilt === null) {
+            this._currentTilt = targetTilt;
+            this._currentFov = targetFov;
+        }
+
+        // lerp로 부드럽게 전환
+        var lerpRate = 0.1 * transitionSpeed;
+        lerpRate = Math.min(lerpRate, 1.0);
+
+        this._currentTilt += (targetTilt - this._currentTilt) * lerpRate;
+        this._currentFov += (targetFov - this._currentFov) * lerpRate;
+
+        // 수렴 체크 (0.01 이하면 스냅)
+        if (Math.abs(targetTilt - this._currentTilt) < 0.01) this._currentTilt = targetTilt;
+        if (Math.abs(targetFov - this._currentFov) < 0.01) this._currentFov = targetFov;
+
+        // Mode3D 전역에 반영
+        this._tiltDeg = this._currentTilt;
+        this._tiltRad = this._currentTilt * Math.PI / 180;
+
+        // PerspectiveCamera fov 업데이트
+        if (this._perspCamera.fov !== this._currentFov) {
+            this._perspCamera.fov = this._currentFov;
+            this._perspCamera.updateProjectionMatrix();
+        }
     };
 
 })();

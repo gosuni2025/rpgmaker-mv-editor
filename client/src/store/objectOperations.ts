@@ -151,6 +151,7 @@ export function addCameraZoneOp(get: GetFn, set: SetFn, x: number, y: number, wi
     zoom: 1.0,
     tilt: 60,
     yaw: 0,
+    fov: 60,
     transitionSpeed: 1.0,
     priority: 0,
     enabled: true,

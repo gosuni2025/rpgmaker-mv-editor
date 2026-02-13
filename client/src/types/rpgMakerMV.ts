@@ -449,6 +449,7 @@ export interface CameraZone {
   zoom: number;    // 카메라 줌 (0.5~3.0, 기본 1.0)
   tilt: number;    // 3D 틸트 각도 (20~85, 기본 60)
   yaw: number;     // 3D yaw 각도 (기본 0)
+  fov: number;     // 카메라 시야각 (30~120, 기본 60)
   transitionSpeed: number; // 전환 속도 (0.1~5.0, 기본 1.0)
   priority: number;  // 우선순위 (겹칠 때, 기본 0)
   enabled: boolean;
