@@ -1,31 +1,28 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import useEditorStore from '../store/useEditorStore';
 import apiClient from '../api/client';
 import type { MapData, TilesetData, SystemData, MapInfo } from '../types/rpgMakerMV';
 
+/** API 서버의 WebSocket URL을 결정 */
+function getWsUrl(): string {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.hostname;
+  // Vite dev 서버(5173)에서는 API 서버(3001)로 직접 연결
+  const port = window.location.port === '5173' ? '3001' : window.location.port;
+  return `${protocol}//${host}:${port}`;
+}
+
 /** 서버 WebSocket에 연결하여 외부 파일 변경을 감지하고 자동 리로드 */
 export default function useFileWatcher() {
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const projectPath = useEditorStore((s) => s.projectPath);
-
   useEffect(() => {
-    if (!projectPath) {
-      // 프로젝트가 닫혀있으면 연결하지 않음
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      return;
-    }
+    let disposed = false;
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
     function connect() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.hostname;
-      // Vite dev에서는 API가 3001 포트로 프록시됨
-      const port = (import.meta as unknown as { env: { DEV: boolean } }).env.DEV ? '3001' : window.location.port;
-      const ws = new WebSocket(`${protocol}//${host}:${port}`);
-      wsRef.current = ws;
+      if (disposed) return;
+      const url = getWsUrl();
+      ws = new WebSocket(url);
 
       ws.onopen = () => {
         console.log('[FileWatcher] WebSocket 연결됨');
@@ -43,26 +40,29 @@ export default function useFileWatcher() {
       };
 
       ws.onclose = () => {
+        if (disposed) return;
         console.log('[FileWatcher] WebSocket 연결 끊김, 3초 후 재연결...');
-        wsRef.current = null;
-        reconnectTimer.current = setTimeout(connect, 3000);
+        ws = null;
+        reconnectTimer = setTimeout(connect, 3000);
       };
 
       ws.onerror = () => {
-        ws.close();
+        ws?.close();
       };
     }
 
     connect();
 
     return () => {
-      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
+      disposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+        ws = null;
       }
     };
-  }, [projectPath]);
+  }, []);
 }
 
 async function handleFileChanged(filename: string) {
