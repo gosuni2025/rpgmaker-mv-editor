@@ -1161,10 +1161,12 @@ ShadowLight._revertTilemapMaterials = function(tilemap) {
 function sunUVToDirection(u, v) {
     var phi = u * 2 * Math.PI;
     var theta = v * Math.PI;
-    var x = -(Math.sin(theta) * Math.sin(phi));
-    var y = Math.cos(theta);
-    var z = -(Math.sin(theta) * Math.cos(phi));
-    return { x: x, y: y, z: z };
+    // SphereGeometry 로컬 좌표
+    var lx = -Math.cos(phi) * Math.sin(theta);
+    var ly =  Math.cos(theta);
+    var lz =  Math.sin(phi) * Math.sin(theta);
+    // SkyBox.js rotation.x = PI/2 적용: (lx, ly, lz) → (lx, -lz, ly)
+    return { x: lx, y: -lz, z: ly };
 }
 
 //=============================================================================
@@ -1408,7 +1410,7 @@ ShadowLight._updateSunLightDirections = function() {
         this._sunLights[si].position.set(-dirVec.x * 1000, -dirVec.y * 1000, -dirVec.z * 1000);
     }
 
-    // 디버그 화살표도 업데이트 (_sunLights와 1:1)
+    // 디버그 화살표 + 라벨 업데이트 (_sunLights와 1:1)
     if (this._debugLightArrowsVisible && this._debugLightArrows && this._debugLightArrows.length > 0) {
         var vw2 = (typeof Graphics !== 'undefined' ? Graphics._width : 816) / 2;
         var vh2 = (typeof Graphics !== 'undefined' ? Graphics._height : 624) / 2;
@@ -1419,11 +1421,16 @@ ShadowLight._updateSunLightDirections = function() {
             var sPos = this._sunLights[ai].position;
             var sDir = new THREE.Vector3().subVectors(target3, sPos).normalize();
             var sStart = new THREE.Vector3().copy(target3).addScaledVector(sDir, -arrowLen);
+            // 화살표 위치/회전
             var sGrp = this._debugLightArrows[ai];
             var sQuat = new THREE.Quaternion();
             sQuat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), sDir);
             sGrp.quaternion.copy(sQuat);
             sGrp.position.copy(sStart);
+            // 라벨 위치
+            if (this._debugLightLabels && this._debugLightLabels[ai]) {
+                this._debugLightLabels[ai].position.copy(sStart).addScaledVector(sDir, -30);
+            }
         }
     }
 };
@@ -1497,7 +1504,8 @@ ShadowLight._showLightArrows = function() {
     this._removeLightArrows();
     var scene = this._findScene();
     if (!scene) return;
-    this._debugLightArrows = [];
+    this._debugLightArrows = [];     // 화살표 Group만 (sunLights와 1:1)
+    this._debugLightLabels = [];     // 라벨 Mesh들 (제거용)
     this._debugLightArrowsVisible = true;
 
     var vw2 = (typeof Graphics !== 'undefined' ? Graphics._width : 816) / 2;
@@ -1506,34 +1514,18 @@ ShadowLight._showLightArrows = function() {
     var arrowLen = 400;
     var colors = [0xffff00, 0xff4444, 0x44ff44, 0x4444ff, 0xff44ff];
 
-    // 씬의 모든 DirectionalLight를 찾아서 화살표 + 라벨 표시
-    var allDirLights = [];
-    scene.traverse(function(obj) {
-        if (obj.isDirectionalLight && obj.visible) {
-            var label = '???';
-            if (obj === ShadowLight._directionalLight) {
-                label = 'editorLights.directional (enabled=' + obj.visible + ')';
-            } else {
-                var idx = ShadowLight._sunLights.indexOf(obj);
-                if (idx >= 0) {
-                    label = 'sunLights[' + idx + ']';
-                } else {
-                    label = 'unknown DirectionalLight';
-                }
-            }
-            allDirLights.push({ light: obj, label: label });
-        }
-    });
-
-    for (var i = 0; i < allDirLights.length; i++) {
-        var entry = allDirLights[i];
-        var lPos = entry.light.position;
+    // sunLights만 화살표 표시 (메인 디렉셔널은 sunLights 있을 때 비활성)
+    for (var i = 0; i < this._sunLights.length; i++) {
+        var light = this._sunLights[i];
+        var label = 'sunLights[' + i + ']';
+        var lPos = light.position;
         var lDir = new THREE.Vector3().subVectors(target3, lPos).normalize();
         var start = new THREE.Vector3().copy(target3).addScaledVector(lDir, -arrowLen);
         var arrow = this._createThickArrow(start, target3, colors[i % colors.length]);
         scene.add(arrow);
-        // 텍스트 라벨 (캔버스 텍스처 → PlaneGeometry)
-        // Mode3D Y-반전 보정: ctx.scale(1,-1) + translate
+        this._debugLightArrows.push(arrow);
+
+        // 텍스트 라벨 (Mode3D Y-반전 보정)
         var canvas = document.createElement('canvas');
         canvas.width = 512; canvas.height = 64;
         var ctx = canvas.getContext('2d');
@@ -1544,7 +1536,7 @@ ShadowLight._showLightArrows = function() {
         ctx.fillRect(0, 0, 512, 64);
         ctx.fillStyle = '#' + (colors[i % colors.length]).toString(16).padStart(6, '0');
         ctx.font = 'bold 28px monospace';
-        ctx.fillText(entry.label, 8, 42);
+        ctx.fillText(label, 8, 42);
         ctx.restore();
         var tex = new THREE.CanvasTexture(canvas);
         var labelMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide });
@@ -1555,27 +1547,36 @@ ShadowLight._showLightArrows = function() {
         labelMesh.renderOrder = 10000;
         labelMesh.lookAt(labelMesh.position.x, labelMesh.position.y, labelMesh.position.z - 100);
         scene.add(labelMesh);
-        this._debugLightArrows.push(labelMesh);
+        this._debugLightLabels.push(labelMesh);
 
-        console.log('[ShadowLight] Arrow #' + i + ':', entry.label,
-            '| visible:', entry.light.visible,
-            '| intensity:', entry.light.intensity,
+        console.log('[ShadowLight] Arrow #' + i + ':', label,
+            '| visible:', light.visible,
+            '| intensity:', light.intensity,
             '| pos:', lPos.toArray().map(function(v){return Math.round(v)}));
     }
 };
 
 ShadowLight._removeLightArrows = function() {
     var scene = this._findScene();
-    if (!scene || !this._debugLightArrows) return;
-    for (var i = 0; i < this._debugLightArrows.length; i++) {
-        var grp = this._debugLightArrows[i];
+    if (!scene) return;
+    var dispose = function(grp) {
         scene.remove(grp);
         grp.traverse(function(child) {
             if (child.geometry) child.geometry.dispose();
-            if (child.material) child.material.dispose();
+            if (child.material) {
+                if (child.material.map) child.material.map.dispose();
+                child.material.dispose();
+            }
         });
+    };
+    if (this._debugLightArrows) {
+        for (var i = 0; i < this._debugLightArrows.length; i++) dispose(this._debugLightArrows[i]);
+    }
+    if (this._debugLightLabels) {
+        for (var j = 0; j < this._debugLightLabels.length; j++) dispose(this._debugLightLabels[j]);
     }
     this._debugLightArrows = [];
+    this._debugLightLabels = [];
     this._debugLightArrowsVisible = false;
 };
 
