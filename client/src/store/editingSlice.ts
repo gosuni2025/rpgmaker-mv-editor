@@ -21,7 +21,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'selectedEventId' | 'selectedEventIds' | 'eventSelectionStart' | 'eventSelectionEnd' | 'isEventPasting' | 'eventPastePreviewPos' |
   'selectedObjectId' | 'selectedObjectIds' | 'objectSelectionStart' | 'objectSelectionEnd' | 'isObjectPasting' | 'objectPastePreviewPos' |
   'selectedCameraZoneId' | 'selectedCameraZoneIds' | 'undoStack' | 'redoStack' |
-  'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' |
+  'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' | 'shiftMap' |
   'copyTiles' | 'cutTiles' | 'pasteTiles' | 'deleteTiles' | 'moveTiles' |
   'copyEvent' | 'cutEvent' | 'pasteEvent' | 'deleteEvent' |
   'copyEvents' | 'pasteEvents' | 'deleteEvents' | 'moveEvents' |
@@ -175,6 +175,53 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       apiClient.put('/database/system', stateUpdates.systemData).catch(() => {});
     }
     showToast(`맵 크기 변경 ${oldW}x${oldH} → ${nw}x${nh}`);
+  },
+
+  shiftMap: (dx: number, dy: number) => {
+    const { currentMap, currentMapId, undoStack, showToast } = get();
+    if (!currentMap || !currentMapId) return;
+    if (dx === 0 && dy === 0) return;
+    const { width: w, height: h, data: oldData } = currentMap;
+    const newData = new Array(oldData.length).fill(0);
+    for (let z = 0; z < 6; z++) {
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const srcX = x - dx;
+          const srcY = y - dy;
+          if (srcX >= 0 && srcX < w && srcY >= 0 && srcY < h) {
+            newData[(z * h + y) * w + x] = oldData[(z * h + srcY) * w + srcX];
+          }
+        }
+      }
+    }
+    // 이벤트도 시프트
+    const oldEvents = currentMap.events;
+    const newEvents = oldEvents ? oldEvents.map(ev => {
+      if (!ev || ev.id === 0) return ev;
+      const nx = ev.x + dx;
+      const ny = ev.y + dy;
+      if (nx < 0 || nx >= w || ny < 0 || ny >= h) return null;
+      return { ...ev, x: nx, y: ny };
+    }) : oldEvents;
+
+    const historyEntry: ResizeHistoryEntry = {
+      mapId: currentMapId,
+      type: 'resize',
+      oldWidth: w, oldHeight: h, oldData, oldEvents,
+      oldEditorLights: currentMap.editorLights, oldObjects: currentMap.objects, oldCameraZones: currentMap.cameraZones,
+      oldStartX: undefined, oldStartY: undefined,
+      newWidth: w, newHeight: h, newData, newEvents,
+      newEditorLights: currentMap.editorLights, newObjects: currentMap.objects, newCameraZones: currentMap.cameraZones,
+      newStartX: undefined, newStartY: undefined,
+    };
+    const newStack = [...undoStack, historyEntry];
+    if (newStack.length > get().maxUndo) newStack.shift();
+    set({
+      currentMap: { ...currentMap, data: newData, events: newEvents },
+      undoStack: newStack,
+      redoStack: [],
+    });
+    showToast(`맵 시프트 (${dx}, ${dy})`);
   },
 
   // Clipboard - tiles

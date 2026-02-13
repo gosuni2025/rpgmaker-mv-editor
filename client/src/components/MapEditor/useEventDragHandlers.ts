@@ -11,6 +11,13 @@ export interface EventContextMenu {
   eventId: number | null;
 }
 
+export interface MapContextMenu {
+  x: number;
+  y: number;
+  tileX: number;
+  tileY: number;
+}
+
 export interface EventDragHandlersResult {
   isDraggingEvent: React.MutableRefObject<boolean>;
   isSelectingEvents: React.MutableRefObject<boolean>;
@@ -18,9 +25,11 @@ export interface EventDragHandlersResult {
   eventMultiDragDelta: { dx: number; dy: number } | null;
   playerStartDragPos: { x: number; y: number } | null;
   eventCtxMenu: EventContextMenu | null;
+  mapCtxMenu: MapContextMenu | null;
   editingEventId: number | null;
   setEditingEventId: (id: number | null) => void;
   closeEventCtxMenu: () => void;
+  closeMapCtxMenu: () => void;
   createNewEvent: (x: number, y: number) => void;
   handleEventMouseDown: (tile: { x: number; y: number }, e: React.MouseEvent<HTMLElement>) => boolean;
   handleEventMouseMove: (tile: { x: number; y: number } | null) => boolean;
@@ -369,6 +378,9 @@ export function useEventDragHandlers(): EventDragHandlersResult {
     }
   }, [editMode, currentMap, setSelectedEventId, createNewEvent]);
 
+  const [mapCtxMenu, setMapCtxMenu] = useState<MapContextMenu | null>(null);
+  const closeMapCtxMenu = useCallback(() => setMapCtxMenu(null), []);
+
   const handleContextMenu = useCallback((e: React.MouseEvent<HTMLElement>, canvasToTile: MapToolsResult['canvasToTile']) => {
     e.preventDefault();
     if (editMode === 'event') {
@@ -390,6 +402,15 @@ export function useEventDragHandlers(): EventDragHandlersResult {
         tileY: tile.y,
         eventId: ev ? ev.id : null,
       });
+    } else if (editMode === 'map') {
+      const tile = canvasToTile(e);
+      if (!tile) return;
+      setMapCtxMenu({
+        x: e.clientX,
+        y: e.clientY,
+        tileX: tile.x,
+        tileY: tile.y,
+      });
     }
   }, [editMode, currentMap, setIsEventPasting, setEventPastePreviewPos]);
 
@@ -398,8 +419,8 @@ export function useEventDragHandlers(): EventDragHandlersResult {
   return {
     isDraggingEvent, isSelectingEvents,
     dragPreview, eventMultiDragDelta, playerStartDragPos,
-    eventCtxMenu, editingEventId, setEditingEventId,
-    closeEventCtxMenu, createNewEvent,
+    eventCtxMenu, mapCtxMenu, editingEventId, setEditingEventId,
+    closeEventCtxMenu, closeMapCtxMenu, createNewEvent,
     handleEventMouseDown, handleEventMouseMove,
     handleEventMouseUp, handleEventMouseLeave,
     handleEventPastePreview,

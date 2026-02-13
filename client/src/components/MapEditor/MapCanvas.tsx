@@ -1,8 +1,11 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
 import EventDetail from '../EventEditor/EventDetail';
+import ShiftMapDialog from './ShiftMapDialog';
+import SampleMapDialog from '../SampleMapDialog';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { useThreeRenderer } from './useThreeRenderer';
 import { useMapTools } from './useMapTools';
@@ -16,6 +19,8 @@ import './MapCanvas.css';
 
 
 export default function MapCanvas() {
+  const { t } = useTranslation();
+
   // DOM refs
   const containerRef = useRef<HTMLDivElement>(null);
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,6 +50,12 @@ export default function MapCanvas() {
   const copyEvents = useEditorStore((s) => s.copyEvents);
   const deleteEvents = useEditorStore((s) => s.deleteEvents);
   const pasteEvents = useEditorStore((s) => s.pasteEvents);
+  const setEditMode = useEditorStore((s) => s.setEditMode);
+  const setShowFindDialog = useEditorStore((s) => s.setShowFindDialog);
+  const copyTiles = useEditorStore((s) => s.copyTiles);
+  const pasteTiles = useEditorStore((s) => s.pasteTiles);
+  const deleteTiles = useEditorStore((s) => s.deleteTiles);
+  const showToast = useEditorStore((s) => s.showToast);
 
   // Compose hooks
   const { showGrid, altPressed, panning } = useKeyboardShortcuts(containerRef);
@@ -65,8 +76,8 @@ export default function MapCanvas() {
     resizePreview, resizeCursor, eventMultiDragDelta,
     lightMultiDragDelta, objectMultiDragDelta,
     lightDragPreview, objectDragPreview, cameraZoneDragPreview, cameraZoneMultiDragDelta, hoverTile,
-    eventCtxMenu, editingEventId, setEditingEventId,
-    closeEventCtxMenu,
+    eventCtxMenu, mapCtxMenu, editingEventId, setEditingEventId,
+    closeEventCtxMenu, closeMapCtxMenu,
     isDraggingLight, isDraggingObject, draggedObjectId,
     resizeOrigSize, cameraZoneCursor,
     playerStartDragPos,
@@ -98,6 +109,38 @@ export default function MapCanvas() {
 
   // Tile cursor preview
   useTileCursorPreview(overlayRefs, hoverTile, rendererReady);
+
+  // 이미지로 저장
+  const handleSaveAsImage = useCallback(() => {
+    const canvas = webglCanvasRef.current;
+    if (!canvas) return;
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      const mapName = currentMapId ? `Map${String(currentMapId).padStart(3, '0')}` : 'map';
+      link.download = `${mapName}.png`;
+      link.href = dataUrl;
+      link.click();
+      showToast(t('mapCtx.imageSaved'));
+    } catch {
+      showToast(t('mapCtx.imageSaveFailed'));
+    }
+  }, [currentMapId, showToast, t]);
+
+  // 시프트 / 샘플맵 다이얼로그 상태
+  const [showShiftDialog, setShowShiftDialog] = useState(false);
+  const [showSampleMapDialog, setShowSampleMapDialog] = useState(false);
+
+  useEffect(() => {
+    const onShift = () => setShowShiftDialog(true);
+    const onLoadSample = () => setShowSampleMapDialog(true);
+    window.addEventListener('editor-shift-map', onShift);
+    window.addEventListener('editor-load-sample-map', onLoadSample);
+    return () => {
+      window.removeEventListener('editor-shift-map', onShift);
+      window.removeEventListener('editor-load-sample-map', onLoadSample);
+    };
+  }, []);
 
   // =========================================================================
   // Render
@@ -166,7 +209,7 @@ export default function MapCanvas() {
   }, [transparentColor, mapPxW, mapPxH]);
 
   return (
-    <div ref={containerRef} style={containerStyle} onClick={closeEventCtxMenu}>
+    <div ref={containerRef} style={containerStyle} onClick={() => { closeEventCtxMenu(); closeMapCtxMenu(); }}>
       <div style={{
         position: 'relative',
         transform: `scale(${zoomLevel})`,
@@ -318,6 +361,80 @@ export default function MapCanvas() {
         })()}
       </div>
 
+      {mapCtxMenu && (
+        <div className="context-menu" style={{ left: mapCtxMenu.x, top: mapCtxMenu.y }} onClick={e => e.stopPropagation()}>
+          <div className="context-menu-item" onClick={() => { closeMapCtxMenu(); setEditMode('event'); }}>
+            {t('mapCtx.editMode')}
+            <span className="context-menu-shortcut">{t('mapCtx.space')}</span>
+          </div>
+          <div className="context-menu-separator" />
+          <div className="context-menu-item" onClick={() => { closeMapCtxMenu(); createNewEvent(mapCtxMenu.tileX, mapCtxMenu.tileY); setEditMode('event'); }}>
+            {t('mapCtx.newEvent')}
+          </div>
+          <div className="context-menu-item" onClick={() => { closeMapCtxMenu(); window.dispatchEvent(new CustomEvent('editor-load-sample-map')); }}>
+            {t('mapCtx.loadSampleMap')}
+          </div>
+          <div className="context-menu-separator" />
+          {selectionStart && selectionEnd ? (
+            <>
+              <div className="context-menu-item" onClick={() => {
+                copyTiles(Math.min(selectionStart.x, selectionEnd.x), Math.min(selectionStart.y, selectionEnd.y),
+                  Math.max(selectionStart.x, selectionEnd.x), Math.max(selectionStart.y, selectionEnd.y));
+                closeMapCtxMenu();
+              }}>
+                {t('mapCtx.copy')}
+                <span className="context-menu-shortcut">⌘C</span>
+              </div>
+              <div className={`context-menu-item${!clipboard || clipboard.type !== 'tiles' ? ' disabled' : ''}`} onClick={() => {
+                if (clipboard?.type === 'tiles') {
+                  pasteTiles(Math.min(selectionStart.x, selectionEnd.x), Math.min(selectionStart.y, selectionEnd.y));
+                }
+                closeMapCtxMenu();
+              }}>
+                {t('mapCtx.paste')}
+                <span className="context-menu-shortcut">⌘V</span>
+              </div>
+              <div className="context-menu-item" onClick={() => {
+                deleteTiles(Math.min(selectionStart.x, selectionEnd.x), Math.min(selectionStart.y, selectionEnd.y),
+                  Math.max(selectionStart.x, selectionEnd.x), Math.max(selectionStart.y, selectionEnd.y));
+                closeMapCtxMenu();
+              }}>
+                {t('mapCtx.delete')}
+                <span className="context-menu-shortcut">⌫</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="context-menu-item disabled">
+                {t('mapCtx.copy')}
+                <span className="context-menu-shortcut">⌘C</span>
+              </div>
+              <div className="context-menu-item disabled">
+                {t('mapCtx.paste')}
+                <span className="context-menu-shortcut">⌘V</span>
+              </div>
+              <div className="context-menu-item disabled">
+                {t('mapCtx.delete')}
+                <span className="context-menu-shortcut">⌫</span>
+              </div>
+            </>
+          )}
+          <div className="context-menu-separator" />
+          <div className="context-menu-item" onClick={() => { closeMapCtxMenu(); setShowFindDialog(true); }}>
+            {t('mapCtx.find')}
+            <span className="context-menu-shortcut">⌘F</span>
+          </div>
+          <div className="context-menu-separator" />
+          <div className="context-menu-item" onClick={() => { closeMapCtxMenu(); window.dispatchEvent(new CustomEvent('editor-shift-map')); }}>
+            {t('mapCtx.shift')}
+            <span className="context-menu-shortcut">⌘T</span>
+          </div>
+          <div className="context-menu-item" onClick={() => { closeMapCtxMenu(); handleSaveAsImage(); }}>
+            {t('mapCtx.saveAsImage')}
+          </div>
+        </div>
+      )}
+
       {eventCtxMenu && (
         <div className="context-menu" style={{ left: eventCtxMenu.x, top: eventCtxMenu.y }} onClick={e => e.stopPropagation()}>
           {eventCtxMenu.eventId == null && (
@@ -351,6 +468,14 @@ export default function MapCanvas() {
 
       {editingEventId != null && (
         <EventDetail eventId={editingEventId} onClose={() => setEditingEventId(null)} />
+      )}
+
+      {showShiftDialog && (
+        <ShiftMapDialog onClose={() => setShowShiftDialog(false)} />
+      )}
+
+      {showSampleMapDialog && currentMapId && (
+        <SampleMapDialog mapId={currentMapId} onClose={() => setShowSampleMapDialog(false)} />
       )}
     </div>
   );

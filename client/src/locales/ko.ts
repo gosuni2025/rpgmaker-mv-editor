@@ -992,6 +992,31 @@ const ko = {
     applying: '적용 중...',
   },
 
+  mapCtx: {
+    editMode: '편집...',
+    space: '스페이스',
+    newEvent: '신규...',
+    loadSampleMap: '로딩...',
+    copy: '복사',
+    paste: '붙여넣기',
+    delete: '삭제',
+    find: '찾기...',
+    shift: '시프트...',
+    saveAsImage: '이미지로 저장...',
+    imageSaved: '이미지 저장 완료',
+    imageSaveFailed: '이미지 저장 실패',
+  },
+
+  shiftMap: {
+    title: '시프트',
+    direction: '방향',
+    distance: '거리',
+    up: '위',
+    down: '아래',
+    left: '왼쪽',
+    right: '오른쪽',
+  },
+
   // === Animations Tab ===
   animations: {
     targetSelect: '대상 선택',
