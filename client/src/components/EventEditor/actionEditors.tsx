@@ -860,21 +860,13 @@ export function ChangeClassEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <input type="text" readOnly value={getLabel(actorId, actors)}
-            style={{ ...selectStyle, flex: 1 }} />
-          <button className="db-btn" onClick={() => setShowActorPicker(true)}
-            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
-        </div>
+        <button className="db-btn" onClick={() => setShowActorPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>직업:</span>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <input type="text" readOnly value={getLabel(classId, classes)}
-            style={{ ...selectStyle, flex: 1 }} />
-          <button className="db-btn" onClick={() => setShowClassPicker(true)}
-            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
-        </div>
+        <button className="db-btn" onClick={() => setShowClassPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(classId, classes)}</button>
       </div>
       <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
         <input type="checkbox" checked={keepLevel} onChange={e => setKeepLevel(e.target.checked)} />
@@ -951,12 +943,8 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onO
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <input type="text" readOnly value={getLabel(actorId, actors)}
-            style={{ ...selectStyle, flex: 1 }} />
-          <button className="db-btn" onClick={() => setShowActorPicker(true)}
-            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
-        </div>
+        <button className="db-btn" onClick={() => setShowActorPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -970,12 +958,8 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onO
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>장비 아이템:</span>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <input type="text" readOnly value={itemLabel}
-            style={{ ...selectStyle, flex: 1 }} />
-          <button className="db-btn" onClick={() => setShowItemPicker(true)}
-            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
-        </div>
+        <button className="db-btn" onClick={() => setShowItemPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{itemLabel}</button>
       </div>
 
       <div className="image-picker-footer">
@@ -1004,12 +988,8 @@ export function ChangeNameEditor({ p, onOk, onCancel, label }: { p: unknown[]; o
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <input type="text" readOnly value={getLabel(actorId, actors)}
-            style={{ ...selectStyle, flex: 1 }} />
-          <button className="db-btn" onClick={() => setShowPicker(true)}
-            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
-        </div>
+        <button className="db-btn" onClick={() => setShowPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>{label}</span>
@@ -1040,12 +1020,8 @@ export function NameInputEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (pa
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <input type="text" readOnly value={getLabel(actorId, actors)}
-            style={{ ...selectStyle, flex: 1 }} />
-          <button className="db-btn" onClick={() => setShowPicker(true)}
-            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
-        </div>
+        <button className="db-btn" onClick={() => setShowPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>최대 문자 수:</span>
@@ -1073,12 +1049,8 @@ export function ChangeProfileEditor({ p, onOk, onCancel }: { p: unknown[]; onOk:
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <input type="text" readOnly value={getLabel(actorId, actors)}
-            style={{ ...selectStyle, flex: 1 }} />
-          <button className="db-btn" onClick={() => setShowPicker(true)}
-            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
-        </div>
+        <button className="db-btn" onClick={() => setShowPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>프로필:</span>
