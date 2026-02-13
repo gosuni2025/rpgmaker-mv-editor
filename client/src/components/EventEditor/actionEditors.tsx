@@ -1857,8 +1857,98 @@ export function ShowBalloonIconEditor({ p, onOk, onCancel }: { p: unknown[]; onO
   );
 }
 
+// ─── 셰이더 정의 ───
+interface ShaderParamDef {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  defaultValue: number;
+  type?: 'slider' | 'select';
+  options?: { value: number; label: string }[];
+}
+
+interface ShaderDef {
+  type: string;
+  label: string;
+  params: ShaderParamDef[];
+}
+
+const SHADER_DEFINITIONS: ShaderDef[] = [
+  { type: 'wave', label: '물결', params: [
+    { key: 'amplitude', label: '진폭', min: 0, max: 50, step: 1, defaultValue: 10 },
+    { key: 'frequency', label: '빈도', min: 0.1, max: 20, step: 0.1, defaultValue: 5 },
+    { key: 'speed', label: '속도', min: 0.1, max: 10, step: 0.1, defaultValue: 2 },
+    { key: 'direction', label: '방향', min: 0, max: 2, step: 1, defaultValue: 0, type: 'select', options: [
+      { value: 0, label: '수평' }, { value: 1, label: '수직' }, { value: 2, label: '양방향' }
+    ]},
+  ]},
+  { type: 'glitch', label: '글리치', params: [
+    { key: 'intensity', label: '강도', min: 0, max: 1, step: 0.01, defaultValue: 0.3 },
+    { key: 'rgbShift', label: 'RGB 쉬프트', min: 0, max: 30, step: 1, defaultValue: 5 },
+    { key: 'lineSpeed', label: '라인 속도', min: 0.1, max: 10, step: 0.1, defaultValue: 3 },
+    { key: 'blockSize', label: '블록 크기', min: 1, max: 50, step: 1, defaultValue: 8 },
+  ]},
+  { type: 'dissolve', label: '디졸브', params: [
+    { key: 'threshold', label: '임계값', min: 0, max: 1, step: 0.01, defaultValue: 0.5 },
+    { key: 'edgeWidth', label: '경계 넓이', min: 0, max: 0.2, step: 0.01, defaultValue: 0.05 },
+    { key: 'edgeColorR', label: '경계색 R', min: 0, max: 1, step: 0.01, defaultValue: 1 },
+    { key: 'edgeColorG', label: '경계색 G', min: 0, max: 1, step: 0.01, defaultValue: 0.5 },
+    { key: 'edgeColorB', label: '경계색 B', min: 0, max: 1, step: 0.01, defaultValue: 0 },
+    { key: 'noiseScale', label: '노이즈 크기', min: 1, max: 50, step: 1, defaultValue: 10 },
+  ]},
+  { type: 'glow', label: '발광', params: [
+    { key: 'intensity', label: '강도', min: 0, max: 3, step: 0.1, defaultValue: 1 },
+    { key: 'radius', label: '반경', min: 0, max: 20, step: 1, defaultValue: 4 },
+    { key: 'colorR', label: '색상 R', min: 0, max: 1, step: 0.01, defaultValue: 1 },
+    { key: 'colorG', label: '색상 G', min: 0, max: 1, step: 0.01, defaultValue: 1 },
+    { key: 'colorB', label: '색상 B', min: 0, max: 1, step: 0.01, defaultValue: 1 },
+    { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 2 },
+  ]},
+  { type: 'chromatic', label: '색수차', params: [
+    { key: 'offset', label: '오프셋', min: 0, max: 20, step: 1, defaultValue: 3 },
+    { key: 'angle', label: '각도', min: 0, max: 360, step: 1, defaultValue: 0 },
+    { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 0 },
+  ]},
+  { type: 'pixelate', label: '픽셀화', params: [
+    { key: 'size', label: '크기', min: 1, max: 64, step: 1, defaultValue: 8 },
+    { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 0 },
+    { key: 'minSize', label: '최소 크기', min: 1, max: 64, step: 1, defaultValue: 2 },
+    { key: 'maxSize', label: '최대 크기', min: 1, max: 64, step: 1, defaultValue: 16 },
+  ]},
+  { type: 'shake', label: '흔들림', params: [
+    { key: 'power', label: '파워', min: 0, max: 50, step: 1, defaultValue: 5 },
+    { key: 'speed', label: '속도', min: 0.1, max: 30, step: 0.1, defaultValue: 10 },
+    { key: 'direction', label: '방향', min: 0, max: 2, step: 1, defaultValue: 2, type: 'select', options: [
+      { value: 0, label: '수평' }, { value: 1, label: '수직' }, { value: 2, label: '양방향' }
+    ]},
+  ]},
+  { type: 'blur', label: '흐림', params: [
+    { key: 'strength', label: '강도', min: 0, max: 20, step: 1, defaultValue: 4 },
+    { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 0 },
+    { key: 'minStrength', label: '최소 강도', min: 0, max: 20, step: 1, defaultValue: 0 },
+    { key: 'maxStrength', label: '최대 강도', min: 0, max: 20, step: 1, defaultValue: 8 },
+  ]},
+  { type: 'rainbow', label: '무지개', params: [
+    { key: 'speed', label: '속도', min: 0.1, max: 10, step: 0.1, defaultValue: 1 },
+    { key: 'saturation', label: '채도', min: 0, max: 2, step: 0.01, defaultValue: 0.5 },
+    { key: 'brightness', label: '밝기', min: 0, max: 2, step: 0.01, defaultValue: 0.1 },
+  ]},
+  { type: 'hologram', label: '홀로그램', params: [
+    { key: 'scanlineSpacing', label: '스캔라인 간격', min: 1, max: 20, step: 1, defaultValue: 4 },
+    { key: 'scanlineAlpha', label: '스캔라인 투명도', min: 0, max: 1, step: 0.01, defaultValue: 0.3 },
+    { key: 'flickerSpeed', label: '깜빡임 속도', min: 0, max: 20, step: 1, defaultValue: 5 },
+    { key: 'flickerIntensity', label: '깜빡임 강도', min: 0, max: 1, step: 0.01, defaultValue: 0.2 },
+    { key: 'rgbShift', label: 'RGB 쉬프트', min: 0, max: 10, step: 1, defaultValue: 2 },
+    { key: 'tintR', label: '틴트 R', min: 0, max: 1, step: 0.01, defaultValue: 0.5 },
+    { key: 'tintG', label: '틴트 G', min: 0, max: 1, step: 0.01, defaultValue: 0.8 },
+    { key: 'tintB', label: '틴트 B', min: 0, max: 1, step: 0.01, defaultValue: 1 },
+  ]},
+];
+
 // ─── 그림 표시 (Show Picture, code 231) ───
-// parameters: [번호, 이미지명, 원점, 위치지정방식, X, Y, 넓이%, 높이%, 불투명도, 합성방법]
+// parameters: [번호, 이미지명, 원점, 위치지정방식, X, Y, 넓이%, 높이%, 불투명도, 합성방법, 셰이더데이터?]
 export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [pictureNumber, setPictureNumber] = useState<number>((p[0] as number) || 1);
   const [imageName, setImageName] = useState<string>((p[1] as string) || '');
@@ -1871,9 +1961,34 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
   const [opacity, setOpacity] = useState<number>((p[8] as number) ?? 255);
   const [blendMode, setBlendMode] = useState<number>((p[9] as number) || 0);
 
+  // 셰이더 데이터 초기화
+  const existingShader = p[10] as { type: string; enabled: boolean; params: Record<string, number> } | null;
+  const [shaderEnabled, setShaderEnabled] = useState<boolean>(existingShader?.enabled ?? false);
+  const [shaderType, setShaderType] = useState<string>(existingShader?.type ?? 'wave');
+  const [shaderParams, setShaderParams] = useState<Record<string, number>>(() => {
+    if (existingShader?.params) return { ...existingShader.params };
+    const def = SHADER_DEFINITIONS.find(d => d.type === (existingShader?.type ?? 'wave'));
+    const params: Record<string, number> = {};
+    def?.params.forEach(pd => { params[pd.key] = pd.defaultValue; });
+    return params;
+  });
+
+  const handleShaderTypeChange = (newType: string) => {
+    setShaderType(newType);
+    const def = SHADER_DEFINITIONS.find(d => d.type === newType);
+    const params: Record<string, number> = {};
+    def?.params.forEach(pd => { params[pd.key] = pd.defaultValue; });
+    setShaderParams(params);
+  };
+
+  const handleShaderParamChange = (key: string, value: number) => {
+    setShaderParams(prev => ({ ...prev, [key]: value }));
+  };
+
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
   const labelStyle: React.CSSProperties = { fontSize: 12, color: '#aaa' };
   const inputStyle: React.CSSProperties = { ...selectStyle, width: 80 };
+  const currentShaderDef = SHADER_DEFINITIONS.find(d => d.type === shaderType);
 
   return (
     <>
@@ -1992,8 +2107,62 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
         </div>
       </div>
 
+      {/* 셰이더 이펙트 */}
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="checkbox" checked={shaderEnabled} onChange={e => setShaderEnabled(e.target.checked)} />
+            <span style={{ color: shaderEnabled ? '#ddd' : '#aaa' }}>셰이더 이펙트</span>
+          </label>
+        </legend>
+        {shaderEnabled && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={labelStyle}>
+              이펙트:
+              <select value={shaderType} onChange={e => handleShaderTypeChange(e.target.value)} style={{ ...selectStyle, marginLeft: 4 }}>
+                {SHADER_DEFINITIONS.map(sd => (
+                  <option key={sd.type} value={sd.type}>{sd.label}</option>
+                ))}
+              </select>
+            </label>
+            {currentShaderDef && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
+                {currentShaderDef.params.map(pd => (
+                  <label key={pd.key} style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ minWidth: 80, flexShrink: 0 }}>{pd.label}:</span>
+                    {pd.type === 'select' && pd.options ? (
+                      <select value={shaderParams[pd.key] ?? pd.defaultValue}
+                        onChange={e => handleShaderParamChange(pd.key, Number(e.target.value))}
+                        style={{ ...selectStyle, flex: 1 }}>
+                        {pd.options.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <>
+                        <input type="range" min={pd.min} max={pd.max} step={pd.step}
+                          value={shaderParams[pd.key] ?? pd.defaultValue}
+                          onChange={e => handleShaderParamChange(pd.key, Number(e.target.value))}
+                          style={{ flex: 1 }} />
+                        <input type="number" min={pd.min} max={pd.max} step={pd.step}
+                          value={shaderParams[pd.key] ?? pd.defaultValue}
+                          onChange={e => handleShaderParamChange(pd.key, Number(e.target.value))}
+                          style={{ ...selectStyle, width: 55 }} />
+                      </>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </fieldset>
+
       <div className="image-picker-footer">
-        <button className="db-btn" onClick={() => onOk([pictureNumber, imageName, origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode])}>OK</button>
+        <button className="db-btn" onClick={() => {
+          const shaderData = shaderEnabled ? { type: shaderType, enabled: true, params: { ...shaderParams } } : null;
+          onOk([pictureNumber, imageName, origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode, shaderData]);
+        }}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
     </>
