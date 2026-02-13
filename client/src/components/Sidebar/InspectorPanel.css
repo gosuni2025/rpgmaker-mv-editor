@@ -3,7 +3,7 @@
   grid-area: inspector;
   background: #313335;
   border-left: 1px solid #222;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 /* Light Palette (in TilesetPalette L tab) */
@@ -89,6 +89,9 @@
 /* Light Inspector */
 .light-inspector {
   padding: 10px;
+  overflow-y: auto;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .light-inspector-section {
