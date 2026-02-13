@@ -884,6 +884,16 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       return text;
     }
 
+    // 그림의 색조 변경
+    if (code === 234 && cmd.parameters && cmd.parameters.length >= 4) {
+      const num = cmd.parameters[0] as number;
+      const tone = cmd.parameters[1] as number[];
+      const dur = cmd.parameters[2] as number;
+      text += `: #${num}, (${tone[0]},${tone[1]},${tone[2]},${tone[3]}), ${dur}프레임`;
+      if (cmd.parameters[3]) text += `, 완료까지 대기`;
+      return text;
+    }
+
     // 그림 제거
     if (code === 235 && cmd.parameters && cmd.parameters.length >= 1) {
       text += `: #${cmd.parameters[0]}`;
