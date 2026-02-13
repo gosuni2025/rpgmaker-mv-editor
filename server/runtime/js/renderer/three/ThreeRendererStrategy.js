@@ -92,8 +92,12 @@
                 run: function() {}
             },
 
-            // PIXI compat: plugins stub
-            plugins: {},
+            // PIXI compat: plugins stub (tileAnim used by ShaderTilemap._hackRenderer)
+            plugins: {
+                tilemap: {
+                    tileAnim: [0, 0]
+                }
+            },
 
             // Draw order counter (incremented per-object per frame)
             _drawOrderCounter: 0

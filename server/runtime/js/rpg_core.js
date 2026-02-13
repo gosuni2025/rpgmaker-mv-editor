@@ -5469,8 +5469,10 @@ ShaderTilemap.prototype.constructor = ShaderTilemap;
 ShaderTilemap.prototype._hackRenderer = function(renderer) {
     var af = this.animationFrame % 4;
     if (af==3) af = 1;
-    renderer.plugins.tilemap.tileAnim[0] = af * this._tileWidth;
-    renderer.plugins.tilemap.tileAnim[1] = (this.animationFrame % 3) * this._tileHeight;
+    if (renderer.plugins && renderer.plugins.tilemap) {
+        renderer.plugins.tilemap.tileAnim[0] = af * this._tileWidth;
+        renderer.plugins.tilemap.tileAnim[1] = (this.animationFrame % 3) * this._tileHeight;
+    }
     return renderer;
 };
 
@@ -5543,8 +5545,35 @@ ShaderTilemap.prototype.updateTransform = function() {
         this._paintAllTiles(startX, startY);
         this._needsRepaint = false;
     }
+    // Three.js 백엔드: renderWebGL/renderCanvas가 호출되지 않으므로
+    // updateTransform에서 tileAnim을 RectLayer에 직접 전파
+    this._updateTileAnimForThree();
     this._sortChildren();
     ThreeContainer.prototype.updateTransform.call(this);
+};
+
+/**
+ * Three.js 백엔드용: 물 타일 애니메이션 오프셋을 RectLayer에 전파
+ * (PIXI에서는 _hackRenderer → renderer.plugins.tilemap.tileAnim으로 처리)
+ */
+ShaderTilemap.prototype._updateTileAnimForThree = function() {
+    var af = this.animationFrame % 4;
+    if (af === 3) af = 1;
+    var tileAnimX = af * this._tileWidth;
+    var tileAnimY = (this.animationFrame % 3) * this._tileHeight;
+    var layers = [this.lowerLayer, this.upperLayer];
+    for (var i = 0; i < layers.length; i++) {
+        var layer = layers[i];
+        if (layer && layer.children) {
+            for (var j = 0; j < layer.children.length; j++) {
+                var rect = layer.children[j];
+                if (rect && rect._tileAnimX !== undefined) {
+                    rect._tileAnimX = tileAnimX;
+                    rect._tileAnimY = tileAnimY;
+                }
+            }
+        }
+    }
 };
 
 /**

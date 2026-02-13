@@ -47,9 +47,12 @@ function ThreeTilemapRectLayer() {
     this._needsRebuild = false;
     this._shadowColor = new Float32Array([0, 0, 0, 0.5]);
 
-    // 애니메이션 오프셋 (부모 ShaderTilemap에서 읽음)
+    // 애니메이션 오프셋 (ShaderTilemap._hackRenderer에서 설정)
     this._tileAnimX = 0;
     this._tileAnimY = 0;
+    // 이전 프레임의 애니메이션 값 (변경 감지용)
+    this._lastTileAnimX = 0;
+    this._lastTileAnimY = 0;
 
     // animOffset 데이터 (setNumber별)
     this._animData = {};   // { setNumber: [] }  animX, animY per rect
@@ -183,20 +186,22 @@ ThreeTilemapRectLayer.prototype.addRect = function(setNumber, u, v, x, y, w, h, 
  * 축적된 쿼드 데이터로 Three.js 메시 빌드
  */
 ThreeTilemapRectLayer.prototype._flush = function() {
+    var tileAnimX = this._tileAnimX;
+    var tileAnimY = this._tileAnimY;
+    var animChanged = (tileAnimX !== this._lastTileAnimX || tileAnimY !== this._lastTileAnimY);
+
+    if (!this._needsRebuild && animChanged) {
+        // 빠른 경로: 애니메이션 오프셋만 변경 → UV만 갱신
+        this._lastTileAnimX = tileAnimX;
+        this._lastTileAnimY = tileAnimY;
+        this._updateAnimUVs(tileAnimX, tileAnimY);
+        return;
+    }
+
     if (!this._needsRebuild) return;
     this._needsRebuild = false;
-
-    // 부모에서 애니메이션 오프셋 가져오기
-    var tileAnimX = 0, tileAnimY = 0;
-    var p = this.parent;
-    while (p) {
-        if (p._tileAnimX !== undefined) {
-            tileAnimX = p._tileAnimX;
-            tileAnimY = p._tileAnimY;
-            break;
-        }
-        p = p.parent;
-    }
+    this._lastTileAnimX = tileAnimX;
+    this._lastTileAnimY = tileAnimY;
 
     // 기존 메시 숨기기
     for (var key in this._meshes) {
@@ -434,6 +439,48 @@ ThreeTilemapRectLayer.prototype._flush = function() {
             mesh.material.map = texture;
             mesh.material.needsUpdate = true;
         }
+    }
+};
+
+/**
+ * 애니메이션 오프셋 변경 시 UV attribute만 갱신 (전체 재빌드 없이)
+ */
+ThreeTilemapRectLayer.prototype._updateAnimUVs = function(tileAnimX, tileAnimY) {
+    for (var setNumber in this._rectData) {
+        var data = this._rectData[setNumber];
+        if (data.count === 0) continue;
+
+        var sn = parseInt(setNumber);
+        if (sn === -1) continue; // 그림자는 애니메이션 없음
+
+        var mesh = this._meshes[setNumber];
+        if (!mesh || !mesh.geometry) continue;
+
+        var uvAttr = mesh.geometry.attributes.uv;
+        if (!uvAttr) continue;
+
+        // 텍스처 크기 가져오기
+        var texture = mesh.material.map;
+        if (!texture || !texture.image) continue;
+        var texW = texture.image.width || 1;
+        var texH = texture.image.height || 1;
+
+        var animOffsets = this._animData[setNumber] || [];
+        var uvArray = uvAttr.array;
+
+        for (var i = 0; i < data.count; i++) {
+            var srcOff = i * 12;
+            var uvOff = i * 12;
+            var ax = (animOffsets[i * 2] || 0) * tileAnimX;
+            var ay = (animOffsets[i * 2 + 1] || 0) * tileAnimY;
+
+            for (var j = 0; j < 6; j++) {
+                uvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
+                uvArray[uvOff + j * 2 + 1] = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
+            }
+        }
+
+        uvAttr.needsUpdate = true;
     }
 };
 
