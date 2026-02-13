@@ -24,12 +24,12 @@ function loadTransparentColor(): { r: number; g: number; b: number } {
 }
 
 export const uiSlice: SliceCreator<Pick<EditorState,
-  'zoomLevel' | 'mode3d' | 'shadowLight' | 'depthOfField' | 'paletteTab' | 'toastMessage' |
+  'zoomLevel' | 'mode3d' | 'shadowLight' | 'depthOfField' | 'paletteTab' | 'toastMessage' | 'toastPersistent' |
   'transparentColor' | 'maxUndo' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
-  'showToast' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
+  'showToast' | 'dismissToast' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'setMode3d' | 'setShadowLight' | 'setDepthOfField' | 'setPaletteTab' |
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
@@ -42,6 +42,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   depthOfField: false,
   paletteTab: 'A',
   toastMessage: null,
+  toastPersistent: false,
   transparentColor: loadTransparentColor(),
   maxUndo: loadMaxUndo(),
 
@@ -58,9 +59,14 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   showOptionsDialog: false,
   showLocalizationDialog: false,
 
-  showToast: (message: string) => {
-    set({ toastMessage: message });
-    setTimeout(() => set({ toastMessage: null }), 2000);
+  showToast: (message: string, persistent?: boolean) => {
+    set({ toastMessage: message, toastPersistent: !!persistent });
+    if (!persistent) {
+      setTimeout(() => set({ toastMessage: null, toastPersistent: false }), 2000);
+    }
+  },
+  dismissToast: () => {
+    set({ toastMessage: null, toastPersistent: false });
   },
 
   setZoomLevel: (level: number) => set({ zoomLevel: level }),
