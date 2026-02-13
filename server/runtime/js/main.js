@@ -4,6 +4,10 @@
 
 PluginManager.setup($plugins);
 
-window.onload = function() {
+if (document.readyState === 'complete') {
     SceneManager.run(Scene_Boot);
-};
+} else {
+    window.addEventListener('load', function() {
+        SceneManager.run(Scene_Boot);
+    });
+}
