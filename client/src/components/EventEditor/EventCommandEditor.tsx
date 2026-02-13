@@ -916,12 +916,42 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       return text;
     }
 
+    // 화면 흔들리기
+    if (code === 225 && cmd.parameters && cmd.parameters.length >= 4) {
+      const power = cmd.parameters[0] as number;
+      const speed = cmd.parameters[1] as number;
+      const dur = cmd.parameters[2] as number;
+      text += `: 강도 ${power}, 속도 ${speed}, ${dur}프레임`;
+      if (cmd.parameters[3]) text += `, 완료까지 대기`;
+      return text;
+    }
+
+    // 화면의 색조 변경
+    if (code === 223 && cmd.parameters && cmd.parameters.length >= 3) {
+      const tone = cmd.parameters[0] as number[];
+      const dur = cmd.parameters[1] as number;
+      text += `: (${tone[0]},${tone[1]},${tone[2]},${tone[3]}), ${dur}프레임`;
+      if (cmd.parameters[2]) text += `, 완료까지 대기`;
+      return text;
+    }
+
     // 그림의 색조 변경
     if (code === 234 && cmd.parameters && cmd.parameters.length >= 4) {
       const num = cmd.parameters[0] as number;
       const tone = cmd.parameters[1] as number[];
       const dur = cmd.parameters[2] as number;
       text += `: #${num}, (${tone[0]},${tone[1]},${tone[2]},${tone[3]}), ${dur}프레임`;
+      if (cmd.parameters[3]) text += `, 완료까지 대기`;
+      return text;
+    }
+
+    // 날씨 효과 설정
+    if (code === 236 && cmd.parameters && cmd.parameters.length >= 4) {
+      const weatherNames = ['없음', '비', '폭풍', '눈'];
+      const type = cmd.parameters[0] as number;
+      const power = cmd.parameters[1] as number;
+      const dur = cmd.parameters[2] as number;
+      text += `: ${weatherNames[type] || '없음'}, 강도 ${power}, ${dur}프레임`;
       if (cmd.parameters[3]) text += `, 완료까지 대기`;
       return text;
     }
