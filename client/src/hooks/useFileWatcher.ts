@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import useEditorStore from '../store/useEditorStore';
 import apiClient from '../api/client';
-import type { MapData, TilesetData, SystemData, MapInfo } from '../types/rpgMakerMV';
+import type { MapData, TilesetData, SystemData, MapInfo, RPGEvent } from '../types/rpgMakerMV';
 
 /** API 서버의 WebSocket URL을 결정 */
 function getWsUrl(): string {
@@ -95,7 +95,7 @@ async function handleFileChanged(filename: string) {
           useEditorStore.setState({ currentMap: map, undoStack: [], redoStack: [] });
         }
         console.log(`[FileWatcher] 맵 ${mapId} 리로드 완료`);
-        showToast(buildMapDiffMessage(mapId, oldMap, map));
+        showToast(buildMapDiffMessage(mapId, oldMap, map), true);
       }
       return;
     }
@@ -106,7 +106,7 @@ async function handleFileChanged(filename: string) {
       const maps = await apiClient.get<(MapInfo | null)[]>('/maps');
       useEditorStore.setState({ maps });
       console.log('[FileWatcher] 맵 목록 리로드 완료');
-      showToast(buildMapInfosDiffMessage(oldMaps, maps));
+      showToast(buildMapInfosDiffMessage(oldMaps, maps), true);
       return;
     }
 
@@ -116,7 +116,7 @@ async function handleFileChanged(filename: string) {
       const sys = await apiClient.get<SystemData>('/database/system');
       useEditorStore.setState({ systemData: sys });
       console.log('[FileWatcher] 시스템 데이터 리로드 완료');
-      showToast(buildSystemDiffMessage(oldSys, sys));
+      showToast(buildSystemDiffMessage(oldSys, sys), true);
       return;
     }
 
@@ -130,7 +130,7 @@ async function handleFileChanged(filename: string) {
         useEditorStore.setState({ currentMap: map, tilesetInfo });
       }
       console.log('[FileWatcher] 타일셋 리로드 완료');
-      showToast(buildTilesetDiffMessage(oldTilesetInfo, tilesetInfo));
+      showToast(buildTilesetDiffMessage(oldTilesetInfo, tilesetInfo), true);
       return;
     }
 
@@ -138,7 +138,7 @@ async function handleFileChanged(filename: string) {
     // DB 다이얼로그는 자체적으로 데이터를 로드하므로, 변경 이벤트만 발행
     window.dispatchEvent(new CustomEvent('fileChanged', { detail: { file: filename } }));
     const label = filename.replace('.json', '');
-    showToast(`${label} 데이터 갱신됨`);
+    showToast(`${label} 데이터 갱신됨`, true);
   } catch (err) {
     console.error(`[FileWatcher] ${filename} 리로드 실패:`, err);
   }
@@ -185,29 +185,27 @@ function buildMapDiffMessage(mapId: number, oldMap: MapData | null, newMap: MapD
   }
 
   // 이벤트 비교
-  const oldEvents = new Map<number, { name: string; json: string }>();
-  const newEvents = new Map<number, { name: string; json: string }>();
-  for (const ev of oldMap.events) {
-    if (ev) oldEvents.set(ev.id, { name: ev.name, json: JSON.stringify(ev) });
-  }
-  for (const ev of newMap.events) {
-    if (ev) newEvents.set(ev.id, { name: ev.name, json: JSON.stringify(ev) });
-  }
+  const oldEvMap = new Map<number, RPGEvent>();
+  const newEvMap = new Map<number, RPGEvent>();
+  for (const ev of oldMap.events) { if (ev) oldEvMap.set(ev.id, ev); }
+  for (const ev of newMap.events) { if (ev) newEvMap.set(ev.id, ev); }
 
-  const added: string[] = [];
-  const removed: string[] = [];
-  const modified: string[] = [];
-  for (const [id, info] of newEvents) {
-    const old = oldEvents.get(id);
-    if (!old) added.push(info.name || `EV${String(id).padStart(3, '0')}`);
-    else if (old.json !== info.json) modified.push(info.name || `EV${String(id).padStart(3, '0')}`);
+  for (const [id, newEv] of newEvMap) {
+    const oldEv = oldEvMap.get(id);
+    const label = newEv.name || `EV${String(id).padStart(3, '0')}`;
+    if (!oldEv) {
+      lines.push(`이벤트 추가: ${label}`);
+    } else if (JSON.stringify(oldEv) !== JSON.stringify(newEv)) {
+      const details = diffEvent(oldEv, newEv);
+      lines.push(`이벤트 수정: ${label} (${details})`);
+    }
   }
-  for (const [id, info] of oldEvents) {
-    if (!newEvents.has(id)) removed.push(info.name || `EV${String(id).padStart(3, '0')}`);
+  for (const [id, oldEv] of oldEvMap) {
+    if (!newEvMap.has(id)) {
+      const label = oldEv.name || `EV${String(id).padStart(3, '0')}`;
+      lines.push(`이벤트 삭제: ${label}`);
+    }
   }
-  if (modified.length > 0) lines.push(`이벤트 수정: ${modified.join(', ')}`);
-  if (added.length > 0) lines.push(`이벤트 추가: ${added.join(', ')}`);
-  if (removed.length > 0) lines.push(`이벤트 삭제: ${removed.join(', ')}`);
 
   return formatDiffLines(header, lines);
 }
@@ -279,4 +277,51 @@ function buildTilesetDiffMessage(oldTs: TilesetData | null | undefined, newTs: T
   }
 
   return formatDiffLines(header, lines);
+}
+
+/** 이벤트 두 개를 비교하여 변경된 부분을 짧은 문자열로 반환 */
+function diffEvent(oldEv: RPGEvent, newEv: RPGEvent): string {
+  const parts: string[] = [];
+  if (oldEv.name !== newEv.name) parts.push(`이름 '${oldEv.name}'→'${newEv.name}'`);
+  if (oldEv.x !== newEv.x || oldEv.y !== newEv.y) parts.push(`위치 (${oldEv.x},${oldEv.y})→(${newEv.x},${newEv.y})`);
+  if (oldEv.note !== newEv.note) parts.push('노트');
+
+  const oldPages = oldEv.pages.length;
+  const newPages = newEv.pages.length;
+  if (oldPages !== newPages) {
+    parts.push(`페이지 ${oldPages}→${newPages}`);
+  } else {
+    // 각 페이지별 상세 비교
+    for (let i = 0; i < newPages; i++) {
+      const op = oldEv.pages[i];
+      const np = newEv.pages[i];
+      if (JSON.stringify(op) === JSON.stringify(np)) continue;
+
+      const pageParts: string[] = [];
+      if (JSON.stringify(op.conditions) !== JSON.stringify(np.conditions)) pageParts.push('조건');
+      if (JSON.stringify(op.image) !== JSON.stringify(np.image)) pageParts.push('이미지');
+      if (op.trigger !== np.trigger) pageParts.push('트리거');
+      if (op.moveType !== np.moveType || op.moveSpeed !== np.moveSpeed || op.moveFrequency !== np.moveFrequency) pageParts.push('이동');
+      if (JSON.stringify(op.moveRoute) !== JSON.stringify(np.moveRoute)) pageParts.push('이동루트');
+      if (op.priorityType !== np.priorityType) pageParts.push('우선순위');
+      if (op.directionFix !== np.directionFix || op.stepAnime !== np.stepAnime || op.walkAnime !== np.walkAnime || op.through !== np.through) pageParts.push('옵션');
+
+      // 커맨드 비교
+      const oldCmds = op.list;
+      const newCmds = np.list;
+      if (JSON.stringify(oldCmds) !== JSON.stringify(newCmds)) {
+        const diff = Math.abs(newCmds.length - oldCmds.length);
+        if (newCmds.length > oldCmds.length) pageParts.push(`커맨드 +${diff}`);
+        else if (newCmds.length < oldCmds.length) pageParts.push(`커맨드 -${diff}`);
+        else pageParts.push('커맨드 수정');
+      }
+
+      if (pageParts.length > 0) {
+        const pageLabel = newPages > 1 ? `p${i + 1}:` : '';
+        parts.push(`${pageLabel}${pageParts.join(',')}`);
+      }
+    }
+  }
+
+  return parts.length > 0 ? parts.join(', ') : '내용 변경';
 }

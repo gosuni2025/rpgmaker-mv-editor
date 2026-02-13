@@ -195,7 +195,9 @@ export interface EditorState {
 
   // Toast
   toastMessage: string | null;
-  showToast: (message: string) => void;
+  toastPersistent: boolean;
+  showToast: (message: string, persistent?: boolean) => void;
+  dismissToast: () => void;
 
   // Options
   transparentColor: { r: number; g: number; b: number };
