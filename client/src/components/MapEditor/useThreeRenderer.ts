@@ -301,10 +301,11 @@ export function useThreeRenderer(
           tilemap._needsRepaint = true;
         }
 
-        // 물 셰이더 시간 업데이트 + 물 메시 uTime 갱신
+        // 물 셰이더 시간 업데이트 + 물 메시 uTime 갱신 + 라이트 방향 동기화
         if (typeof ThreeWaterShader !== 'undefined') {
           ThreeWaterShader._time += 1 / 60;
           ThreeWaterShader.updateAllWaterMeshes(tilemap, ThreeWaterShader._time);
+          ThreeWaterShader.syncLightDirection(tilemap);
         }
 
         // 물 타일이 있는 맵이면 매 프레임 렌더 (wave 연속 애니메이션)
