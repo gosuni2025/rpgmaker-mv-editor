@@ -43,7 +43,9 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
     dl.color.set(ed.color);
     dl.intensity = dirEnabled ? ed.intensity : 0;
     const d = ed.direction;
-    dl.position.set(-d[0] * 1000, -d[1] * 1000, -d[2] * 1000);
+    // target 기준으로 position 설정
+    const tgt = dl.target.position;
+    dl.position.set(tgt.x - d[0] * 1000, tgt.y - d[1] * 1000, tgt.z - d[2] * 1000);
     if (ed.castShadow !== undefined) dl.castShadow = dirEnabled && ed.castShadow !== false;
     if (ed.shadowMapSize !== undefined) {
       dl.shadow.mapSize.width = ed.shadowMapSize;
@@ -158,11 +160,16 @@ export function syncSunLightsToScene(scene: any, sunLights: SkySunLight[] | unde
 
   // 2번째 이후 태양 광원을 추가 DirectionalLight로 생성
   // (1번째는 editorLights.directional에 매핑됨)
+  const w = window as any;
+  const vw2 = (w.Graphics?._width || 816) / 2;
+  const vh2 = (w.Graphics?._height || 624) / 2;
   for (let i = 1; i < sunLights.length; i++) {
     const sl = sunLights[i];
     const dir = sunUVToDirection(sl.position[0], sl.position[1]);
     const light = new THREE.DirectionalLight(sl.color, sl.intensity);
-    light.position.set(-dir[0] * 1000, -dir[1] * 1000, -dir[2] * 1000);
+    // target 기준으로 position 설정
+    light.target.position.set(vw2, vh2, 0);
+    light.position.set(vw2 - dir[0] * 1000, vh2 - dir[1] * 1000, -dir[2] * 1000);
     light.castShadow = sl.castShadow !== false;
     if (sl.shadowMapSize) {
       light.shadow.mapSize.width = sl.shadowMapSize;

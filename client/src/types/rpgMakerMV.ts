@@ -70,12 +70,13 @@ export interface SkyBackground {
 }
 
 /** equirectangular UV 좌표를 디렉셔널 라이트 방향 벡터로 변환
- *  SkyBox.js: SphereGeometry + rotation.x=PI/2 + texture.flipY=false 기준 */
+ *  SkyBox.js: SphereGeometry + DoubleSide + flipY=false + rotation.x=PI/2 기준
+ *  반환값: 태양이 있는 방향 (단위 벡터) */
 export function sunUVToDirection(u: number, v: number): [number, number, number] {
   const phi = u * 2 * Math.PI;
   const theta = v * Math.PI;
-  // SphereGeometry 로컬 좌표
-  const lx = -Math.cos(phi) * Math.sin(theta);
+  // SphereGeometry 로컬 좌표 (DoubleSide 내부 좌우반전 보상: -cos → +cos)
+  const lx =  Math.cos(phi) * Math.sin(theta);
   const ly =  Math.cos(theta);
   const lz =  Math.sin(phi) * Math.sin(theta);
   // SkyBox.js rotation.x = PI/2 적용: (lx, ly, lz) → (lx, -lz, ly)

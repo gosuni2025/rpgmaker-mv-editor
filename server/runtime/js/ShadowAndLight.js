@@ -1161,8 +1161,8 @@ ShadowLight._revertTilemapMaterials = function(tilemap) {
 function sunUVToDirection(u, v) {
     var phi = u * 2 * Math.PI;
     var theta = v * Math.PI;
-    // SphereGeometry 로컬 좌표
-    var lx = -Math.cos(phi) * Math.sin(theta);
+    // SphereGeometry 로컬 좌표 (DoubleSide 내부 좌우반전 보상: -cos → +cos)
+    var lx =  Math.cos(phi) * Math.sin(theta);
     var ly =  Math.cos(theta);
     var lz =  Math.sin(phi) * Math.sin(theta);
     // SkyBox.js rotation.x = PI/2 적용: (lx, ly, lz) → (lx, -lz, ly)
@@ -1281,7 +1281,13 @@ ShadowLight._addLightsToScene = function(scene) {
             var sunDir = sunUVToDirection(sl.position[0], sl.position[1]);
             var sunColor = parseInt(sl.color.replace('#', ''), 16);
             var sunLight = new THREE.DirectionalLight(sunColor, sl.intensity);
-            sunLight.position.set(-sunDir.x * 1000, -sunDir.y * 1000, -sunDir.z * 1000);
+            // target 기준으로 position 설정: position = target - dir * distance
+            sunLight.target.position.set(vw2, vh2, 0);
+            sunLight.position.set(
+                vw2 - sunDir.x * 1000,
+                vh2 - sunDir.y * 1000,
+                0   - sunDir.z * 1000
+            );
             sunLight.castShadow = sl.castShadow !== false;
             var sunMapSize = sl.shadowMapSize || 2048;
             sunLight.shadow.mapSize.width = sunMapSize;
@@ -1294,7 +1300,6 @@ ShadowLight._addLightsToScene = function(scene) {
             sunLight.shadow.camera.far = 5000;
             sunLight.shadow.bias = sl.shadowBias != null ? sl.shadowBias : -0.001;
             sunLight.shadow.radius = this.config.shadowRadius;
-            sunLight.target.position.set(vw2, vh2, 0);
             scene.add(sunLight);
             scene.add(sunLight.target);
             this._sunLights.push(sunLight);
@@ -1400,6 +1405,12 @@ ShadowLight._updateSunLightDirections = function() {
     var invInitial = this._skyInitQuat.clone().invert();
     var deltaQuat = new THREE.Quaternion().multiplyQuaternions(invInitial, currentQuat);
 
+    // sunLights target을 화면 중심에 추적 (메인 디렉셔널과 동일)
+    var vw = (typeof Graphics !== 'undefined' ? Graphics._width : 816);
+    var vh = (typeof Graphics !== 'undefined' ? Graphics._height : 624);
+    var cx = vw / 2;
+    var cy = vh / 2;
+
     // _sunLights 배열과 1:1 대응 (메인 디렉셔널은 건드리지 않음)
     for (var si = 0; si < this._sunLightsData.length; si++) {
         if (!this._sunLights[si]) continue;
@@ -1407,7 +1418,14 @@ ShadowLight._updateSunLightDirections = function() {
         var dir = sunUVToDirection(sl.position[0], sl.position[1]);
         var dirVec = new THREE.Vector3(dir.x, dir.y, dir.z);
         dirVec.applyQuaternion(deltaQuat);
-        this._sunLights[si].position.set(-dirVec.x * 1000, -dirVec.y * 1000, -dirVec.z * 1000);
+        // target 추적 + target 기준으로 position 설정
+        this._sunLights[si].target.position.set(cx, cy, 0);
+        this._sunLights[si].target.updateMatrixWorld();
+        this._sunLights[si].position.set(
+            cx - dirVec.x * 1000,
+            cy - dirVec.y * 1000,
+            -dirVec.z * 1000
+        );
     }
 
     // 디버그 화살표 + 라벨 업데이트 (_sunLights와 1:1)
