@@ -53,11 +53,13 @@ ThreeWaterShader._WAVE_NORMAL_GLSL = [
 ThreeWaterShader.VERTEX_PARS = [
     'uniform float uTime;',
     'varying vec2 vWorldPos;',
+    'varying mat3 vNormalMat;',
 ].join('\n');
 
 ThreeWaterShader.VERTEX_MAIN = [
     'vec4 worldPos4 = modelMatrix * vec4(transformed, 1.0);',
     'vWorldPos = worldPos4.xy;',
+    'vNormalMat = normalMatrix;',
 ].join('\n');
 
 ThreeWaterShader.FRAGMENT_PARS = [
@@ -68,6 +70,7 @@ ThreeWaterShader.FRAGMENT_PARS = [
     'uniform float uWaterAlpha;',
     'uniform float uSpecularStrength;',
     'varying vec2 vWorldPos;',
+    'varying mat3 vNormalMat;',
     '',
     'vec2 waterWaveUV(vec2 uv, vec2 worldPos, float time) {',
     '    float waveX = sin(worldPos.y * uWaveFrequency + time * uWaveSpeed) * uWaveAmplitude;',
@@ -92,8 +95,8 @@ ThreeWaterShader.FRAGMENT_MAIN = [
 ThreeWaterShader.NORMAL_OVERRIDE = [
     '{',
     '    vec3 waveN = computeWaveNormal(vWorldPos, uTime, uWaveFrequency, uWaveSpeed);',
-    '    // Phong에서 normal은 view space → wave normal도 view space로 변환',
-    '    normal = normalize(normalMatrix * waveN);',
+    '    // vertex에서 전달받은 normalMatrix로 wave normal을 view space로 변환',
+    '    normal = normalize(vNormalMat * waveN);',
     '}',
 ].join('\n');
 
@@ -113,7 +116,7 @@ ThreeWaterShader.WATERFALL_FRAGMENT_MAIN = [
 ThreeWaterShader.WATERFALL_NORMAL_OVERRIDE = [
     '{',
     '    vec3 wfN = computeWaveNormal(vWorldPos, uTime, 6.0, 3.0);',
-    '    normal = normalize(normalMatrix * wfN);',
+    '    normal = normalize(vNormalMat * wfN);',
     '}',
 ].join('\n');
 
