@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { MapInfo } from '../../types/rpgMakerMV';
 import MapPropertiesDialog from '../MapEditor/MapPropertiesDialog';
+import SampleMapDialog from '../SampleMapDialog';
 import './Sidebar.css';
 import './MapTree.css';
 
@@ -109,6 +110,7 @@ export default function MapTree() {
   const [editName, setEditName] = useState('');
   const [mapPropsId, setMapPropsId] = useState<number | null>(null);
   const [mapPropsName, setMapPropsName] = useState('');
+  const [sampleMapTargetId, setSampleMapTargetId] = useState<number | null>(null);
 
   const tree = useMemo(() => buildTree(maps), [maps]);
 
@@ -158,6 +160,12 @@ export default function MapTree() {
     }
     closeContextMenu();
   }, [contextMenu, maps, closeContextMenu]);
+
+  const handleLoadSampleMap = useCallback(() => {
+    if (!contextMenu || contextMenu.mapId <= 0) return;
+    setSampleMapTargetId(contextMenu.mapId);
+    closeContextMenu();
+  }, [contextMenu, closeContextMenu]);
 
   const handleDeleteMap = useCallback(async () => {
     if (!contextMenu) return;
@@ -249,11 +257,19 @@ export default function MapTree() {
         />
       )}
 
+      {sampleMapTargetId !== null && (
+        <SampleMapDialog
+          mapId={sampleMapTargetId}
+          onClose={() => setSampleMapTargetId(null)}
+        />
+      )}
+
       {contextMenu && (
         <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={e => e.stopPropagation()}>
           <div className="context-menu-item" onClick={handleNewMap}>{t('mapTree.newMap')}</div>
           {contextMenu.mapId > 0 && (
             <>
+              <div className="context-menu-item" onClick={handleLoadSampleMap}>{t('mapTree.loadSampleMap')}</div>
               <div className="context-menu-item" onClick={handleMapProperties}>{t('mapTree.mapProperties')}</div>
               <div className="context-menu-item" onClick={handleEditMap}>{t('mapTree.editMapName')}</div>
               <div className="context-menu-separator" />
