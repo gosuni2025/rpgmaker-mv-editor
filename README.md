@@ -2,13 +2,20 @@
 
 A web-based editor for RPG Maker MV projects, reimplemented as a modern desktop application.
 
+## Download
+
+**[Download Latest Release](https://github.com/painh/rpgmaker-mv-editor/releases/latest)**
+
+| Platform | File |
+|----------|------|
+| macOS (Apple Silicon) | `.dmg` |
+| macOS (Intel) | `.dmg` |
+| Windows | `.exe` (installer) / `.zip` |
+| Linux | `.AppImage` / `.zip` |
+
 ## Prerequisites
 
 - **RPG Maker MV** is required. This editor works with RPG Maker MV project files and depends on its runtime assets.
-
-## Download
-
-Pre-built binaries for macOS, Windows, and Linux are available on the [Releases](../../releases) page.
 
 ## Development
 
