@@ -62,6 +62,16 @@ ThreeWaterShader.getUniformsForKind = function(kind) {
 };
 
 /**
+ * kind의 셰이더 활성화 여부 확인
+ * 설정이 없으면 기본 활성, enabled=false면 비활성
+ */
+ThreeWaterShader.isKindEnabled = function(kind) {
+    var s = this._kindSettings[kind];
+    if (s && s.enabled === false) return false;
+    return true;
+};
+
+/**
  * hex 색상을 [r,g,b] (0~1)로 변환
  */
 ThreeWaterShader._hexToVec3 = function(hex) {
