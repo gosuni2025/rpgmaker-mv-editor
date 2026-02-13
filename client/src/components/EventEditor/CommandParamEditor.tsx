@@ -4,7 +4,7 @@ import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, AudioEditor,
-  ChangePartyMemberEditor, ChangeNameEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, RecoverAllEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor,
+  ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor,
   ScrollingTextEditor, ConditionalBranchEditor,
 } from './commandEditors';
 
@@ -50,7 +50,7 @@ function getCommandName(code: number): string {
     249: 'Play ME', 250: 'Play SE',
     301: 'Battle Processing', 311: 'HP 증감', 312: 'MP 증감', 326: 'TP 증감',
     313: '스테이트 변경', 314: '전체 회복', 315: 'EXP 증감', 316: '레벨 증감', 317: '능력치 증감',
-    321: '이름 변경', 325: '닉네임 변경',
+    321: '직업 변경', 324: '이름 변경', 325: '닉네임 변경',
     355: 'Script', 356: 'Plugin Command',
   };
   return names[code] || `Command ${code}`;
@@ -102,8 +102,9 @@ function getEditorContent(
     case 314: return <RecoverAllEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 315: return <ChangeEXPEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 316: return <ChangeLevelEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 317: return <ChangeParameterEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 326: return <ChangeTPEditor p={p} onOk={onOk} onCancel={onCancel} />;
-    case 321: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="이름:" />;
+    case 321: return <ChangeClassEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 325: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="닉네임:" />;
     default: return null;
   }

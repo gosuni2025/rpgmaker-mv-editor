@@ -636,6 +636,88 @@ export function ChangeStateEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
 }
 
 /**
+ * 스킬 증감 에디터 (코드 318)
+ * params: [actorType, actorId, operation, skillId]
+ */
+export function ChangeSkillEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [actorType, setActorType] = useState<number>((p[0] as number) || 0);
+  const [actorId, setActorId] = useState<number>((p[1] as number) || 1);
+  const [operation, setOperation] = useState<number>((p[2] as number) || 0);
+  const [skillId, setSkillId] = useState<number>((p[3] as number) || 1);
+  const [showActorPicker, setShowActorPicker] = useState(false);
+  const [showSkillPicker, setShowSkillPicker] = useState(false);
+
+  const actorNames = useDbNames('actors');
+  const skillNames = useDbNames('skills');
+
+  const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
+
+  return (
+    <>
+      {/* 액터 */}
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>액터</legend>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={radioStyle}>
+              <input type="radio" name="skill-actor" checked={actorType === 0} onChange={() => setActorType(0)} />
+              고정
+            </label>
+            <button className="db-btn" onClick={() => actorType === 0 && setShowActorPicker(true)}
+              disabled={actorType !== 0}
+              style={{ flex: 1, textAlign: 'left', padding: '4px 8px', fontSize: 13, opacity: actorType === 0 ? 1 : 0.5 }}>{getLabel(actorId, actorNames)}</button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={radioStyle}>
+              <input type="radio" name="skill-actor" checked={actorType === 1} onChange={() => setActorType(1)} />
+              변수
+            </label>
+            <VariableSwitchPicker type="variable" value={actorType === 1 ? (actorId || 1) : 1}
+              onChange={v => setActorId(v)} disabled={actorType !== 1} style={{ flex: 1 }} />
+          </div>
+        </div>
+      </fieldset>
+
+      {/* 조작 */}
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>조작</legend>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <label style={radioStyle}>
+            <input type="radio" name="skill-op" checked={operation === 0} onChange={() => setOperation(0)} />
+            배우다
+          </label>
+          <label style={radioStyle}>
+            <input type="radio" name="skill-op" checked={operation === 1} onChange={() => setOperation(1)} />
+            까먹다
+          </label>
+        </div>
+      </fieldset>
+
+      {/* 스킬 선택 */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>스킬:</span>
+        <button className="db-btn" onClick={() => setShowSkillPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(skillId, skillNames)}</button>
+      </div>
+
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([actorType, actorId, operation, skillId])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+
+      {showActorPicker && (
+        <DataListPicker items={actorNames} value={actorId} onChange={setActorId}
+          onClose={() => setShowActorPicker(false)} title="액터 선택" />
+      )}
+      {showSkillPicker && (
+        <DataListPicker items={skillNames} value={skillId} onChange={setSkillId}
+          onClose={() => setShowSkillPicker(false)} title="대상 선택" />
+      )}
+    </>
+  );
+}
+
+/**
  * 모두 회복 에디터 (코드 314)
  * params: [actorType, actorId]
  * actorType: 0=고정, 1=변수
@@ -759,6 +841,157 @@ function DataListPickerWithZero({ items, value, onChange, onClose, title }: {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * 직업 변경 에디터 (코드 321)
+ * params: [actorId, classId, keepLevel]
+ */
+export function ChangeClassEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
+  const [classId, setClassId] = useState<number>((p[1] as number) || 1);
+  const [keepLevel, setKeepLevel] = useState<boolean>((p[2] as boolean) || false);
+  const actors = useDbNames('actors');
+  const classes = useDbNames('classes');
+  const [showActorPicker, setShowActorPicker] = useState(false);
+  const [showClassPicker, setShowClassPicker] = useState(false);
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <input type="text" readOnly value={getLabel(actorId, actors)}
+            style={{ ...selectStyle, flex: 1 }} />
+          <button className="db-btn" onClick={() => setShowActorPicker(true)}
+            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>직업:</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <input type="text" readOnly value={getLabel(classId, classes)}
+            style={{ ...selectStyle, flex: 1 }} />
+          <button className="db-btn" onClick={() => setShowClassPicker(true)}
+            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
+        </div>
+      </div>
+      <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+        <input type="checkbox" checked={keepLevel} onChange={e => setKeepLevel(e.target.checked)} />
+        레벨 저장
+      </label>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([actorId, classId, keepLevel])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+      {showActorPicker && (
+        <DataListPicker items={actors} value={actorId} onChange={setActorId}
+          onClose={() => setShowActorPicker(false)} title="대상 선택" />
+      )}
+      {showClassPicker && (
+        <DataListPicker items={classes} value={classId} onChange={setClassId}
+          onClose={() => setShowClassPicker(false)} title="대상 선택" />
+      )}
+    </>
+  );
+}
+
+/**
+ * 장비 변경 에디터 (코드 319)
+ * params: [actorId, etypeId, itemId]
+ * etypeId: 1=무기, 2=방패, 3=머리, 4=몸, 5=액세서리
+ * itemId: 0=없음, etypeId===1이면 무기ID, 그 외 방어구ID
+ */
+export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
+  const [etypeId, setEtypeId] = useState<number>((p[1] as number) || 1);
+  const [itemId, setItemId] = useState<number>((p[2] as number) || 0);
+  const [showActorPicker, setShowActorPicker] = useState(false);
+  const [showItemPicker, setShowItemPicker] = useState(false);
+
+  const actors = useDbNames('actors');
+  const weapons = useDbNames('weapons');
+  const armors = useDbNames('armors');
+
+  const EQUIP_TYPES = [
+    { id: 1, label: '무기' },
+    { id: 2, label: '방패' },
+    { id: 3, label: '머리' },
+    { id: 4, label: '몸' },
+    { id: 5, label: '액세서리' },
+  ];
+
+  const isWeapon = etypeId === 1;
+
+  // 장비 아이템 목록 (0번 = 없음)
+  const filteredItems = useMemo(() => {
+    const list: string[] = ['없음'];
+    if (isWeapon) {
+      for (let i = 1; i < weapons.length; i++) {
+        list[i] = weapons[i] || '';
+      }
+    } else {
+      for (let i = 1; i < armors.length; i++) {
+        list[i] = armors[i] || '';
+      }
+    }
+    return list;
+  }, [isWeapon, weapons, armors]);
+
+  const itemLabel = itemId === 0
+    ? '없음'
+    : getLabel(itemId, isWeapon ? weapons : armors);
+
+  const handleEtypeChange = (newEtype: number) => {
+    setEtypeId(newEtype);
+    setItemId(0);
+  };
+
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <input type="text" readOnly value={getLabel(actorId, actors)}
+            style={{ ...selectStyle, flex: 1 }} />
+          <button className="db-btn" onClick={() => setShowActorPicker(true)}
+            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>장비 유형:</span>
+        <select value={etypeId} onChange={e => handleEtypeChange(Number(e.target.value))} style={selectStyle}>
+          {EQUIP_TYPES.map(et => (
+            <option key={et.id} value={et.id}>{et.label}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>장비 아이템:</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <input type="text" readOnly value={itemLabel}
+            style={{ ...selectStyle, flex: 1 }} />
+          <button className="db-btn" onClick={() => setShowItemPicker(true)}
+            style={{ padding: '4px 8px', fontSize: 13, minWidth: 32 }}>...</button>
+        </div>
+      </div>
+
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([actorId, etypeId, itemId])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+
+      {showActorPicker && (
+        <DataListPicker items={actors} value={actorId} onChange={setActorId}
+          onClose={() => setShowActorPicker(false)} title="액터 선택" />
+      )}
+      {showItemPicker && (
+        <DataListPickerWithZero items={filteredItems} value={itemId} onChange={setItemId}
+          onClose={() => setShowItemPicker(false)} title="장비 아이템 선택" />
+      )}
+    </>
   );
 }
 
