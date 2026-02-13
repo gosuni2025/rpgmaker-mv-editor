@@ -524,6 +524,7 @@ export interface EditorAmbientLight {
 }
 
 export interface EditorDirectionalLight {
+  enabled?: boolean;
   color: string;
   intensity: number;
   direction: [number, number, number];
@@ -570,7 +571,7 @@ export interface EditorLights {
 
 export const DEFAULT_EDITOR_LIGHTS: EditorLights = {
   ambient: { color: '#667788', intensity: 0.4 },
-  directional: { color: '#fff8ee', intensity: 0.1, direction: [-1, -1, -2], castShadow: true, shadowMapSize: 2048, shadowBias: -0.001, shadowNear: 1, shadowFar: 5000 },
+  directional: { enabled: false, color: '#fff8ee', intensity: 0.1, direction: [-1, -1, -2], castShadow: true, shadowMapSize: 2048, shadowBias: -0.001, shadowNear: 1, shadowFar: 5000 },
   points: [],
   playerLight: { color: '#a25f06', intensity: 0.8, distance: 200, z: 40 },
   spotLight: { enabled: true, color: '#ffeedd', intensity: 0.8, distance: 250, angle: 0.60, penumbra: 0.9, z: 120, shadowMapSize: 2048, targetDistance: 70 },

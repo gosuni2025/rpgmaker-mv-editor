@@ -91,6 +91,11 @@ export default function LightInspector() {
           <div className="light-inspector-section">
             <div className="light-inspector-title">디렉셔널 라이트</div>
             <div className="light-inspector-row">
+              <span className="light-inspector-label">적용</span>
+              <input type="checkbox" checked={dir.enabled === true}
+                onChange={(e) => updateDirectionalLight({ enabled: e.target.checked })} />
+            </div>
+            <div className="light-inspector-row">
               <span className="light-inspector-label">색상</span>
               <input
                 type="color"

@@ -38,11 +38,13 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
   if (ShadowLight._directionalLight) {
     const dl = ShadowLight._directionalLight;
     const ed = editorLights.directional;
+    const dirEnabled = ed.enabled === true;
+    dl.visible = dirEnabled;
     dl.color.set(ed.color);
-    dl.intensity = ed.intensity;
+    dl.intensity = dirEnabled ? ed.intensity : 0;
     const d = ed.direction;
     dl.position.set(-d[0] * 1000, -d[1] * 1000, -d[2] * 1000);
-    if (ed.castShadow !== undefined) dl.castShadow = ed.castShadow;
+    if (ed.castShadow !== undefined) dl.castShadow = dirEnabled && ed.castShadow !== false;
     if (ed.shadowMapSize !== undefined) {
       dl.shadow.mapSize.width = ed.shadowMapSize;
       dl.shadow.mapSize.height = ed.shadowMapSize;
