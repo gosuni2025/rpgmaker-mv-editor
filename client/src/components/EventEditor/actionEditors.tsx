@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import type { AudioFile } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
 import { selectStyle } from './messageEditors';
@@ -246,12 +247,12 @@ export function TransferPlayerEditor({ p, onOk, onCancel }: { p: unknown[]; onOk
             <input type="radio" name="transfer-designation" checked={designationType === 0} onChange={() => setDesignationType(0)} />
             직접 지정
           </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingLeft: 20 }}>
-            <input type="text" readOnly value={directLabel}
-              style={{ ...selectStyle, flex: 1, cursor: 'default', opacity: designationType === 0 ? 1 : 0.5 }} />
+          <div style={{ paddingLeft: 20 }}>
             <button className="db-btn" disabled={designationType !== 0}
               onClick={() => setShowMapPicker(true)}
-              style={{ padding: '4px 8px', minWidth: 28, opacity: designationType === 0 ? 1 : 0.5 }}>...</button>
+              style={{ width: '100%', textAlign: 'left', padding: '4px 8px', fontSize: 13, opacity: designationType === 0 ? 1 : 0.5 }}>
+              {directLabel}
+            </button>
           </div>
 
           {/* 변수로 지정 */}
@@ -302,10 +303,11 @@ export function TransferPlayerEditor({ p, onOk, onCancel }: { p: unknown[]; onOk
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
 
-      {showMapPicker && (
+      {showMapPicker && createPortal(
         <MapLocationPicker mapId={mapId} x={x} y={y}
           onOk={(newMapId, newX, newY) => { setMapId(newMapId); setX(newX); setY(newY); setShowMapPicker(false); }}
-          onCancel={() => setShowMapPicker(false)} />
+          onCancel={() => setShowMapPicker(false)} />,
+        document.body
       )}
     </>
   );
@@ -344,8 +346,7 @@ function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
       <div className="image-picker-dialog" style={{ width: 480, maxHeight: '70vh' }}>
         <div className="image-picker-header">맵 선택</div>
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 250 }}>
-          {/* 맵 목록 */}
-          <div style={{ flex: 1, overflowY: 'auto', borderRight: '1px solid #444' }}>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
             {mapList.map(m => (
               <div key={m.id} style={{
                 padding: '3px 8px', paddingLeft: 8 + m.indent * 16,
