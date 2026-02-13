@@ -54,20 +54,23 @@ function loadCharImage(name: string, cb: (img: HTMLImageElement) => void) {
 /** 캐릭터 스프라이트의 정면 1프레임을 표시하는 컴포넌트 */
 export function CharacterSprite({ characterName, characterIndex }: CharacterInfo) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [img, setImg] = useState<HTMLImageElement | null>(_charImageCache.get(characterName) || null);
+  const [img, setImg] = useState<HTMLImageElement | null>(() => _charImageCache.get(characterName) || null);
+  const drawnRef = useRef(false);
 
   useEffect(() => {
+    drawnRef.current = false;
     if (!characterName) return;
-    if (!img || img.src.indexOf(characterName) === -1) {
-      const cached = _charImageCache.get(characterName);
-      if (cached) { setImg(cached); return; }
-      loadCharImage(characterName, setImg);
-    }
+    const cached = _charImageCache.get(characterName);
+    if (cached) { setImg(cached); return; }
+    loadCharImage(characterName, (loadedImg) => {
+      setImg(loadedImg);
+    });
   }, [characterName]);
 
   useEffect(() => {
-    if (!img || !canvasRef.current || !characterName) return;
-    const ctx = canvasRef.current.getContext('2d');
+    if (!img || !canvasRef.current || !characterName || drawnRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
     // RPG Maker MV 캐릭터 시트: 4열 x 2행, 각 캐릭터 3패턴 x 4방향
     const isBig = characterName.startsWith('$');
@@ -78,10 +81,10 @@ export function CharacterSprite({ characterName, characterIndex }: CharacterInfo
     // 정면(아래 방향=0행) 가운데 패턴(1)
     const sx = (col * 3 + 1) * pw;
     const sy = row * 4 * ph;
-    ctx.clearRect(0, 0, pw, ph);
-    canvasRef.current.width = pw;
-    canvasRef.current.height = ph;
+    canvas.width = pw;
+    canvas.height = ph;
     ctx.drawImage(img, sx, sy, pw, ph, 0, 0, pw, ph);
+    drawnRef.current = true;
   }, [img, characterName, characterIndex]);
 
   if (!characterName) return null;
