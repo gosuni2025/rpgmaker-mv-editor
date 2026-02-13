@@ -670,3 +670,25 @@
   background: #4c4f51;
   color: #ddd;
 }
+
+/* --- Post Processing Section --- */
+.pp-enabled-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #2675bf;
+  color: #fff;
+  font-size: 9px;
+  font-weight: bold;
+}
+
+.pp-effect-active-dot {
+  color: #4a9;
+  font-size: 16px;
+  line-height: 1;
+  margin-left: auto;
+}

@@ -507,6 +507,13 @@ export function useThreeRenderer(
         if (state.depthOfField !== prevState.depthOfField) {
           requestRender();
         }
+        if (state.postProcessConfig !== prevState.postProcessConfig) {
+          const DOF = (window as any).DepthOfField;
+          if (DOF && DOF.applyPostProcessConfig) {
+            DOF.applyPostProcessConfig(state.postProcessConfig);
+          }
+          requestRender();
+        }
         if (state.currentMap?.editorLights !== prevState.currentMap?.editorLights) {
           w.$dataMap.editorLights = state.currentMap?.editorLights;
           if (state.shadowLight) {
