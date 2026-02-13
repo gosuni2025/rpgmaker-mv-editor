@@ -4,7 +4,7 @@ import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, AudioEditor,
-  ChangePartyMemberEditor, ChangeNameEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor,
+  ChangePartyMemberEditor, ChangeNameEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, RecoverAllEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor,
   ScrollingTextEditor, ConditionalBranchEditor,
 } from './commandEditors';
 
@@ -49,8 +49,8 @@ function getCommandName(code: number): string {
     241: 'Play BGM', 242: 'Fadeout BGM', 245: 'Play BGS', 246: 'Fadeout BGS',
     249: 'Play ME', 250: 'Play SE',
     301: 'Battle Processing', 311: 'HP 증감', 312: 'MP 증감', 326: 'TP 증감',
-    314: 'Change State', 315: 'Recover All', 316: 'Change EXP', 317: 'Change Level',
-    321: 'Change Name', 325: 'Change Nickname',
+    313: '스테이트 변경', 314: '전체 회복', 315: 'EXP 증감', 316: '레벨 증감', 317: '능력치 증감',
+    321: '이름 변경', 325: '닉네임 변경',
     355: 'Script', 356: 'Plugin Command',
   };
   return names[code] || `Command ${code}`;
@@ -98,9 +98,13 @@ function getEditorContent(
     case 129: return <ChangePartyMemberEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 311: return <ChangeHPEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 312: return <ChangeMPEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 313: return <ChangeStateEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 314: return <RecoverAllEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 315: return <ChangeEXPEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 316: return <ChangeLevelEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 326: return <ChangeTPEditor p={p} onOk={onOk} onCancel={onCancel} />;
-    case 321: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="Name" />;
-    case 325: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="Nickname" />;
+    case 321: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="이름:" />;
+    case 325: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="닉네임:" />;
     default: return null;
   }
 }
