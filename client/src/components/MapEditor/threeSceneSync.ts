@@ -1,5 +1,6 @@
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
-import type { EditorLights } from '../../types/rpgMakerMV';
+import type { EditorLights, SkySunLight } from '../../types/rpgMakerMV';
+import { sunUVToDirection } from '../../types/rpgMakerMV';
 import { createLightMarkerSprite, createLightStemLine } from './threeSpriteFactory';
 
 // Runtime globals (loaded via index.html script tags)
@@ -135,5 +136,41 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
       scene.add(stem);
       ShadowLight._editorLightMarkers.push(stem);
     }
+  }
+}
+
+/** Sync sky sun lights (additional directional lights from skyBackground.sunLights) */
+export function syncSunLightsToScene(scene: any, sunLights: SkySunLight[] | undefined) {
+  const THREE = (window as any).THREE;
+  if (!THREE) return;
+
+  // 기존 추가 sun directional lights 제거
+  if (!ShadowLight._editorSunLights) ShadowLight._editorSunLights = [];
+  for (const light of ShadowLight._editorSunLights) {
+    if (light.target) scene.remove(light.target);
+    scene.remove(light);
+  }
+  ShadowLight._editorSunLights = [];
+
+  if (!sunLights || sunLights.length < 2) return;
+
+  // 2번째 이후 태양 광원을 추가 DirectionalLight로 생성
+  // (1번째는 editorLights.directional에 매핑됨)
+  for (let i = 1; i < sunLights.length; i++) {
+    const sl = sunLights[i];
+    const dir = sunUVToDirection(sl.position[0], sl.position[1]);
+    const light = new THREE.DirectionalLight(sl.color, sl.intensity);
+    light.position.set(-dir[0] * 1000, -dir[1] * 1000, -dir[2] * 1000);
+    light.castShadow = sl.castShadow !== false;
+    if (sl.shadowMapSize) {
+      light.shadow.mapSize.width = sl.shadowMapSize;
+      light.shadow.mapSize.height = sl.shadowMapSize;
+    }
+    if (sl.shadowBias !== undefined) light.shadow.bias = sl.shadowBias;
+    light.shadow.camera.near = 1;
+    light.shadow.camera.far = 5000;
+    scene.add(light);
+    scene.add(light.target);
+    ShadowLight._editorSunLights.push(light);
   }
 }

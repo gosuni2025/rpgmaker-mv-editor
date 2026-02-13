@@ -43,11 +43,30 @@ export interface MapData {
   skyBackground?: SkyBackground;
 }
 
+export interface SkySunLight {
+  position: [number, number];       // [u, v] (0~1) - equirectangular 이미지에서의 위치
+  color: string;                    // 색상 (#hex)
+  intensity: number;                // 강도 (0~3)
+  castShadow?: boolean;             // 그림자 (기본 true)
+  shadowMapSize?: number;           // 그림자맵 해상도 (기본 2048)
+  shadowBias?: number;              // 그림자 바이어스 (기본 -0.001)
+}
+
+export const DEFAULT_SKY_SUN_LIGHT: SkySunLight = {
+  position: [0.25, 0.35],
+  color: '#fff8ee',
+  intensity: 0.8,
+  castShadow: true,
+  shadowMapSize: 2048,
+  shadowBias: -0.001,
+};
+
 export interface SkyBackground {
   type: 'parallax' | 'skysphere';
   skyImage?: string;
   rotationSpeed?: number;
-  sunPosition?: [number, number];  // [u, v] (0~1) - equirectangular 이미지에서의 태양 위치
+  sunPosition?: [number, number];   // deprecated: sunLights로 대체
+  sunLights?: SkySunLight[];        // 태양 광원 배열
 }
 
 /** equirectangular UV 좌표를 디렉셔널 라이트 방향 벡터로 변환 */

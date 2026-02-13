@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
-import { syncEditorLightsToScene, disposeSceneObjects } from './threeSceneSync';
+import { syncEditorLightsToScene, syncSunLightsToScene, disposeSceneObjects } from './threeSceneSync';
 import { initGameGlobals, requestRenderFrames } from './initGameGlobals';
 import {
   useRegionOverlay,
@@ -392,6 +392,10 @@ export function useThreeRenderer(
           w.$dataMap.skyBackground = state.currentMap?.skyBackground || null;
           if (w._skyBoxApplySettings) {
             w._skyBoxApplySettings(state.currentMap?.skyBackground);
+          }
+          // 추가 sun directional lights 동기화
+          if (state.shadowLight) {
+            syncSunLightsToScene(rendererObj.scene, state.currentMap?.skyBackground?.sunLights);
           }
           requestRender(5);
         }

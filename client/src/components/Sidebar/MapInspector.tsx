@@ -5,7 +5,7 @@ import ImagePicker from '../common/ImagePicker';
 import AudioPicker from '../common/AudioPicker';
 import BattlebackPicker from '../common/BattlebackPicker';
 import SkyBackgroundPicker from '../common/SkyBackgroundPicker';
-import type { AudioFile, SkyBackground } from '../../types/rpgMakerMV';
+import type { AudioFile, SkyBackground, SkySunLight } from '../../types/rpgMakerMV';
 import { sunUVToDirection } from '../../types/rpgMakerMV';
 import './InspectorPanel.css';
 
@@ -338,22 +338,32 @@ export default function MapInspector() {
             <SkyBackgroundPicker
               value={currentMap.skyBackground.skyImage || ''}
               rotationSpeed={currentMap.skyBackground.rotationSpeed ?? 0}
-              sunPosition={currentMap.skyBackground.sunPosition}
-              onChange={(image, speed, sunPos) => {
+              sunLights={currentMap.skyBackground.sunLights}
+              onChange={(image, speed, sunLights) => {
                 updateMapField('skyBackground', {
                   type: 'skysphere',
                   skyImage: image,
                   rotationSpeed: speed,
-                  sunPosition: sunPos ?? undefined,
+                  sunLights: sunLights.length > 0 ? sunLights : undefined,
                 });
-                if (sunPos) {
-                  const direction = sunUVToDirection(sunPos[0], sunPos[1]);
+                // 첫 번째 태양 광원을 기본 디렉셔널 라이트에 적용
+                if (sunLights.length > 0) {
+                  const first = sunLights[0];
+                  const direction = sunUVToDirection(first.position[0], first.position[1]);
                   const store = useEditorStore.getState();
                   if (!store.currentMap?.editorLights) {
                     store.initEditorLights();
                   }
-                  store.updateDirectionalLight({ direction });
+                  store.updateDirectionalLight({
+                    direction,
+                    color: first.color,
+                    intensity: first.intensity,
+                    castShadow: first.castShadow,
+                    shadowMapSize: first.shadowMapSize,
+                    shadowBias: first.shadowBias,
+                  });
                 }
+                // 추가 태양 광원은 skyBackground.sunLights에 저장 → threeSceneSync에서 처리
               }}
             />
           </div>

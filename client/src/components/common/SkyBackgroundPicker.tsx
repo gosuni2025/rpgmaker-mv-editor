@@ -1,34 +1,38 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import apiClient from '../../api/client';
+import type { SkySunLight } from '../../types/rpgMakerMV';
+import { DEFAULT_SKY_SUN_LIGHT } from '../../types/rpgMakerMV';
 import './SkyBackgroundPicker.css';
 
 interface SkyBackgroundPickerProps {
   value: string;
   rotationSpeed: number;
-  sunPosition?: [number, number] | null;
-  onChange: (image: string, rotationSpeed: number, sunPosition?: [number, number] | null) => void;
+  sunLights?: SkySunLight[];
+  onChange: (image: string, rotationSpeed: number, sunLights: SkySunLight[]) => void;
 }
 
-export default function SkyBackgroundPicker({ value, rotationSpeed, sunPosition, onChange }: SkyBackgroundPickerProps) {
+export default function SkyBackgroundPicker({ value, rotationSpeed, sunLights, onChange }: SkyBackgroundPickerProps) {
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<string[]>([]);
   const [selected, setSelected] = useState(value);
   const [speed, setSpeed] = useState(rotationSpeed);
-  const [sunPos, setSunPos] = useState<[number, number] | null>(sunPosition ?? null);
+  const [lights, setLights] = useState<SkySunLight[]>(sunLights ?? []);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     setSelected(value);
     setSpeed(rotationSpeed);
-    setSunPos(sunPosition ?? null);
+    setLights(sunLights ?? []);
+    setSelectedIdx(sunLights && sunLights.length > 0 ? 0 : null);
     apiClient.get<string[]>('/resources/img_skybox').then(setFiles).catch(() => setFiles([]));
   }, [open]);
 
   const pngs = files.filter(f => /\.png$/i.test(f));
 
   const handleOk = () => {
-    onChange(selected, speed, sunPos);
+    onChange(selected, speed, lights);
     setOpen(false);
   };
 
@@ -41,12 +45,44 @@ export default function SkyBackgroundPicker({ value, rotationSpeed, sunPosition,
     const rect = e.currentTarget.getBoundingClientRect();
     const u = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const v = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-    setSunPos([u, v]);
-  }, [selected]);
 
-  const handleClearSun = () => {
-    setSunPos(null);
+    if (selectedIdx !== null && selectedIdx < lights.length) {
+      // 선택된 광원의 위치 이동
+      const updated = lights.map((l, i) =>
+        i === selectedIdx ? { ...l, position: [u, v] as [number, number] } : l
+      );
+      setLights(updated);
+    } else {
+      // 새 광원 추가
+      const newLight: SkySunLight = { ...DEFAULT_SKY_SUN_LIGHT, position: [u, v] };
+      const updated = [...lights, newLight];
+      setLights(updated);
+      setSelectedIdx(updated.length - 1);
+    }
+  }, [selected, selectedIdx, lights]);
+
+  const handleAddLight = () => {
+    const newLight: SkySunLight = { ...DEFAULT_SKY_SUN_LIGHT };
+    const updated = [...lights, newLight];
+    setLights(updated);
+    setSelectedIdx(updated.length - 1);
   };
+
+  const handleRemoveLight = (idx: number) => {
+    const updated = lights.filter((_, i) => i !== idx);
+    setLights(updated);
+    if (selectedIdx === idx) {
+      setSelectedIdx(updated.length > 0 ? Math.min(idx, updated.length - 1) : null);
+    } else if (selectedIdx !== null && selectedIdx > idx) {
+      setSelectedIdx(selectedIdx - 1);
+    }
+  };
+
+  const updateLight = (idx: number, updates: Partial<SkySunLight>) => {
+    setLights(lights.map((l, i) => i === idx ? { ...l, ...updates } : l));
+  };
+
+  const sel = selectedIdx !== null && selectedIdx < lights.length ? lights[selectedIdx] : null;
 
   return (
     <div className="sky-picker">
@@ -84,6 +120,7 @@ export default function SkyBackgroundPicker({ value, rotationSpeed, sunPosition,
                 ))}
               </div>
               <div className="sky-picker-controls">
+                {/* 미리보기 + 태양 마커 */}
                 <div
                   ref={previewRef}
                   className={`sky-picker-preview-area${selected ? ' sky-picker-preview-clickable' : ''}`}
@@ -92,31 +129,107 @@ export default function SkyBackgroundPicker({ value, rotationSpeed, sunPosition,
                   {selected ? (
                     <>
                       <img src={`/api/resources/img_skybox/${selected}`} alt={selected} draggable={false} />
-                      {sunPos && (
+                      {lights.map((light, i) => (
                         <div
-                          className="sky-picker-sun-marker"
-                          style={{ left: `${sunPos[0] * 100}%`, top: `${sunPos[1] * 100}%` }}
+                          key={i}
+                          className={`sky-picker-sun-marker${i === selectedIdx ? ' active' : ''}`}
+                          style={{
+                            left: `${light.position[0] * 100}%`,
+                            top: `${light.position[1] * 100}%`,
+                            borderColor: light.color,
+                            background: `${light.color}44`,
+                            boxShadow: i === selectedIdx
+                              ? `0 0 10px ${light.color}, inset 0 0 4px ${light.color}66`
+                              : `0 0 4px ${light.color}88`,
+                          }}
+                          onClick={(e) => { e.stopPropagation(); setSelectedIdx(i); }}
                         />
-                      )}
+                      ))}
                     </>
                   ) : (
                     <div className="sky-picker-preview-empty">미리보기 없음</div>
                   )}
                 </div>
-                {/* 태양 광원 위치 */}
+
+                {/* 태양 광원 목록 */}
                 <div className="sky-picker-sun-section">
                   <div className="sky-picker-sun-header">
-                    <span className="sky-picker-sun-title">태양 광원 위치</span>
-                    {sunPos && (
-                      <button className="sky-picker-sun-clear" onClick={handleClearSun}>초기화</button>
-                    )}
+                    <span className="sky-picker-sun-title">태양 광원</span>
+                    <button className="sky-picker-sun-add" onClick={handleAddLight}>+ 추가</button>
                   </div>
-                  <div className="sky-picker-sun-hint">
-                    {sunPos
-                      ? `U: ${sunPos[0].toFixed(2)}, V: ${sunPos[1].toFixed(2)} — 미리보기 클릭으로 변경`
-                      : '미리보기 이미지를 클릭하여 태양 위치를 지정하세요'}
-                  </div>
+                  {lights.length === 0 && (
+                    <div className="sky-picker-sun-hint">
+                      미리보기 이미지를 클릭하거나 추가 버튼으로 태양 광원을 생성하세요
+                    </div>
+                  )}
+                  {lights.length > 0 && (
+                    <div className="sky-picker-sun-list">
+                      {lights.map((light, i) => (
+                        <div
+                          key={i}
+                          className={`sky-picker-sun-item${i === selectedIdx ? ' selected' : ''}`}
+                          onClick={() => setSelectedIdx(i)}
+                        >
+                          <input
+                            type="color"
+                            className="sky-picker-sun-color"
+                            value={light.color}
+                            onChange={(e) => updateLight(i, { color: e.target.value })}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <span className="sky-picker-sun-item-label">광원 {i + 1}</span>
+                          <span className="sky-picker-sun-item-uv">
+                            ({light.position[0].toFixed(2)}, {light.position[1].toFixed(2)})
+                          </span>
+                          <button
+                            className="sky-picker-sun-remove"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveLight(i); }}
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 선택된 광원 상세 설정 */}
+                  {sel && selectedIdx !== null && (
+                    <div className="sky-picker-sun-detail">
+                      <div className="sky-picker-sun-detail-row">
+                        <span>강도</span>
+                        <input type="range" min={0} max={3} step={0.05} value={sel.intensity}
+                          onChange={(e) => updateLight(selectedIdx, { intensity: Number(e.target.value) })} />
+                        <input type="number" min={0} max={3} step={0.05} value={sel.intensity}
+                          className="sky-picker-sun-num"
+                          onChange={(e) => updateLight(selectedIdx, { intensity: Number(e.target.value) })} />
+                      </div>
+                      <div className="sky-picker-sun-detail-row">
+                        <span>그림자</span>
+                        <label className="sky-picker-sun-checkbox">
+                          <input type="checkbox" checked={sel.castShadow !== false}
+                            onChange={(e) => updateLight(selectedIdx, { castShadow: e.target.checked })} />
+                        </label>
+                      </div>
+                      <div className="sky-picker-sun-detail-row">
+                        <span>그림자맵</span>
+                        <select className="sky-picker-sun-select"
+                          value={sel.shadowMapSize ?? 2048}
+                          onChange={(e) => updateLight(selectedIdx, { shadowMapSize: parseInt(e.target.value) })}>
+                          <option value={512}>512</option>
+                          <option value={1024}>1024</option>
+                          <option value={2048}>2048</option>
+                          <option value={4096}>4096</option>
+                        </select>
+                      </div>
+                      <div className="sky-picker-sun-detail-row">
+                        <span>바이어스</span>
+                        <input type="number" step={0.0001} min={-0.01} max={0.01}
+                          className="sky-picker-sun-num wide"
+                          value={sel.shadowBias ?? -0.001}
+                          onChange={(e) => updateLight(selectedIdx, { shadowBias: Number(e.target.value) })} />
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <div className="audio-picker-slider-group" style={{ marginTop: 8 }}>
                   <span className="audio-picker-slider-title">회전 속도</span>
                   <input type="range" min={-5} max={5} step={0.1} value={speed}

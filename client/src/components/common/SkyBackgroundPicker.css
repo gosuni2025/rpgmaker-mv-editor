@@ -22,7 +22,7 @@
   border: 1px solid #555;
   border-radius: 6px;
   width: 640px;
-  height: 520px;
+  max-height: 620px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px rgba(0,0,0,0.6);
@@ -99,9 +99,10 @@
 
 /* Right side controls */
 .sky-picker-controls {
-  width: 220px;
+  width: 240px;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .sky-picker-preview-area {
@@ -111,6 +112,7 @@
   background: #000;
   overflow: hidden;
   aspect-ratio: 2 / 1;
+  flex-shrink: 0;
 }
 
 .sky-picker-preview-clickable {
@@ -139,37 +141,49 @@
 /* 태양 마커 */
 .sky-picker-sun-marker {
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   border: 2px solid #ffcc00;
   background: rgba(255, 204, 0, 0.3);
-  box-shadow: 0 0 8px rgba(255, 204, 0, 0.6), inset 0 0 4px rgba(255, 204, 0, 0.4);
-  pointer-events: none;
+  box-shadow: 0 0 6px rgba(255, 204, 0, 0.5);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: width 0.1s, height 0.1s;
+}
+
+.sky-picker-sun-marker.active {
+  width: 18px;
+  height: 18px;
 }
 
 .sky-picker-sun-marker::before,
 .sky-picker-sun-marker::after {
   content: '';
   position: absolute;
-  background: #ffcc00;
 }
 
 .sky-picker-sun-marker::before {
-  width: 2px;
-  height: 22px;
+  width: 1px;
+  height: 20px;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+  background: inherit;
+  border: none;
+  background: currentColor;
+  opacity: 0.6;
 }
 
 .sky-picker-sun-marker::after {
-  width: 22px;
-  height: 2px;
+  width: 20px;
+  height: 1px;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+  background: currentColor;
+  opacity: 0.6;
 }
 
 /* 태양 광원 섹션 */
@@ -181,7 +195,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .sky-picker-sun-title {
@@ -190,17 +204,17 @@
   font-weight: bold;
 }
 
-.sky-picker-sun-clear {
+.sky-picker-sun-add {
   font-size: 10px;
-  color: #999;
+  color: #aaa;
   background: none;
   border: 1px solid #555;
   border-radius: 3px;
-  padding: 1px 6px;
+  padding: 1px 8px;
   cursor: pointer;
 }
 
-.sky-picker-sun-clear:hover {
+.sky-picker-sun-add:hover {
   color: #fff;
   border-color: #888;
 }
@@ -209,4 +223,134 @@
   font-size: 10px;
   color: #888;
   line-height: 1.4;
+}
+
+/* 광원 목록 */
+.sky-picker-sun-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 72px;
+  overflow-y: auto;
+}
+
+.sky-picker-sun-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  color: #bbb;
+  border: 1px solid transparent;
+}
+
+.sky-picker-sun-item:hover {
+  background: #444;
+}
+
+.sky-picker-sun-item.selected {
+  background: #3a3a3a;
+  border-color: #666;
+}
+
+.sky-picker-sun-color {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid #555;
+  border-radius: 2px;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.sky-picker-sun-item-label {
+  flex-shrink: 0;
+  color: #ccc;
+}
+
+.sky-picker-sun-item-uv {
+  flex: 1;
+  text-align: right;
+  color: #777;
+  font-size: 9px;
+}
+
+.sky-picker-sun-remove {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.sky-picker-sun-remove:hover {
+  color: #ff6666;
+}
+
+/* 광원 상세 설정 */
+.sky-picker-sun-detail {
+  margin-top: 4px;
+  padding: 6px;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 3px;
+}
+
+.sky-picker-sun-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 3px;
+  font-size: 10px;
+  color: #bbb;
+}
+
+.sky-picker-sun-detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.sky-picker-sun-detail-row > span:first-child {
+  min-width: 40px;
+  flex-shrink: 0;
+}
+
+.sky-picker-sun-detail-row input[type="range"] {
+  flex: 1;
+  height: 12px;
+  accent-color: #ffcc00;
+}
+
+.sky-picker-sun-num {
+  width: 48px;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 2px;
+  color: #ccc;
+  font-size: 10px;
+  padding: 1px 4px;
+  text-align: right;
+}
+
+.sky-picker-sun-num.wide {
+  width: 72px;
+}
+
+.sky-picker-sun-checkbox {
+  display: flex;
+  align-items: center;
+}
+
+.sky-picker-sun-select {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 2px;
+  color: #ccc;
+  font-size: 10px;
+  padding: 1px 4px;
 }
