@@ -7,7 +7,6 @@ import BattlebackPicker from '../common/BattlebackPicker';
 import SkyBackgroundPicker from '../common/SkyBackgroundPicker';
 import type { AudioFile, SkyBackground, SkySunLight, AnimTileShaderSettings } from '../../types/rpgMakerMV';
 import { sunUVToDirection, DEFAULT_WATER_SETTINGS, DEFAULT_LAVA_SETTINGS, DEFAULT_WATERFALL_SETTINGS } from '../../types/rpgMakerMV';
-import { getA1KindName, getA1KindType, getUsedA1Kinds } from '../../utils/tileHelper';
 import './InspectorPanel.css';
 
 interface TilesetEntry { id: number; name: string; }
@@ -443,45 +442,38 @@ export default function MapInspector() {
 
 // --- 애니메이션 타일 셰이더 섹션 ---
 
-function getDefaultForKind(kind: number): AnimTileShaderSettings {
-  const t = getA1KindType(kind);
-  if (t === 'lava') return DEFAULT_LAVA_SETTINGS;
-  if (t === 'waterfall') return DEFAULT_WATERFALL_SETTINGS;
-  return DEFAULT_WATER_SETTINGS;
-}
+const ANIM_TILE_TYPES: { key: string; name: string; default: AnimTileShaderSettings }[] = [
+  { key: 'water', name: '물', default: DEFAULT_WATER_SETTINGS },
+  { key: 'lava', name: '용암', default: DEFAULT_LAVA_SETTINGS },
+  { key: 'waterfall', name: '폭포', default: DEFAULT_WATERFALL_SETTINGS },
+];
 
 function AnimTileShaderSection({ currentMap, updateMapField }: {
   currentMap: any;
   updateMapField: (field: string, value: unknown) => void;
 }) {
-  const [expandedKinds, setExpandedKinds] = useState<Set<number>>(new Set());
+  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
 
-  const usedKinds = useMemo(() => {
-    if (!currentMap?.data || !currentMap.width || !currentMap.height) return [];
-    return getUsedA1Kinds(currentMap.data, currentMap.width, currentMap.height);
-  }, [currentMap?.data, currentMap?.width, currentMap?.height]);
+  const settings: Record<string, AnimTileShaderSettings> = currentMap.animTileSettings || {};
 
-  if (usedKinds.length === 0) return null;
-
-  const settings: Record<number, AnimTileShaderSettings> = currentMap.animTileSettings || {};
-
-  const toggleExpand = (kind: number) => {
-    setExpandedKinds(prev => {
+  const toggleExpand = (type: string) => {
+    setExpandedTypes(prev => {
       const next = new Set(prev);
-      if (next.has(kind)) next.delete(kind); else next.add(kind);
+      if (next.has(type)) next.delete(type); else next.add(type);
       return next;
     });
   };
 
-  const updateKindSetting = (kind: number, field: keyof AnimTileShaderSettings, value: unknown) => {
-    const current = settings[kind] || getDefaultForKind(kind);
-    const updated = { ...settings, [kind]: { ...current, [field]: value } };
+  const updateTypeSetting = (type: string, field: keyof AnimTileShaderSettings, value: unknown) => {
+    const def = ANIM_TILE_TYPES.find(t => t.key === type)?.default || DEFAULT_WATER_SETTINGS;
+    const current = settings[type] || def;
+    const updated = { ...settings, [type]: { ...current, [field]: value } };
     updateMapField('animTileSettings', updated);
   };
 
-  const resetKind = (kind: number) => {
+  const resetType = (type: string) => {
     const updated = { ...settings };
-    delete updated[kind];
+    delete updated[type];
     updateMapField('animTileSettings', Object.keys(updated).length > 0 ? updated : undefined);
   };
 
@@ -491,53 +483,52 @@ function AnimTileShaderSection({ currentMap, updateMapField }: {
         애니메이션 타일 셰이더
         <span className="sky-ext-badge" style={{ marginLeft: 6 }}>EXT</span>
       </div>
-      {usedKinds.map(kind => {
-        const s = settings[kind] || getDefaultForKind(kind);
-        const expanded = expandedKinds.has(kind);
-        const kindType = getA1KindType(kind);
-        const hasCustom = !!settings[kind];
+      {ANIM_TILE_TYPES.map(({ key: type, name, default: def }) => {
+        const s = settings[type] || def;
+        const expanded = expandedTypes.has(type);
+        const hasCustom = !!settings[type];
         return (
-          <div key={kind} className="anim-tile-kind-panel">
+          <div key={type} className="anim-tile-kind-panel">
             <div
               className="anim-tile-kind-header"
-              onClick={() => toggleExpand(kind)}
+              onClick={() => toggleExpand(type)}
             >
-              <span className="anim-tile-kind-arrow">{expanded ? '\u25BC' : '\u25B6'}</span>
-              <span className="anim-tile-kind-name">{getA1KindName(kind)}</span>
-              <span className={`anim-tile-kind-type anim-tile-kind-type-${kindType}`}>{kindType}</span>
-              {hasCustom && <span className="anim-tile-kind-custom" title="커스텀 설정 적용됨">\u2022</span>}
+              <span className="anim-tile-kind-arrow">{expanded ? '▼' : '▶'}</span>
+              <span className="anim-tile-kind-name">{name}</span>
+              <span className={`anim-tile-kind-type anim-tile-kind-type-${type}`}>{type}</span>
+              {hasCustom && <span className="anim-tile-kind-custom" title="커스텀 설정 적용됨">•</span>}
             </div>
             {expanded && (
               <div className="anim-tile-kind-body">
                 <label className="map-inspector-checkbox">
                   <input type="checkbox" checked={s.enabled !== false}
-                    onChange={(e) => updateKindSetting(kind, 'enabled', e.target.checked)} />
+                    onChange={(e) => updateTypeSetting(type, 'enabled', e.target.checked)} />
                   <span>셰이더 적용</span>
                 </label>
                 {s.enabled !== false && (
                   <>
                     <AnimSlider label="물결 진폭" value={s.waveAmplitude} min={0} max={0.05} step={0.001}
-                      onChange={(v) => updateKindSetting(kind, 'waveAmplitude', v)} />
+                      onChange={(v) => updateTypeSetting(type, 'waveAmplitude', v)} />
                     <AnimSlider label="물결 주파수" value={s.waveFrequency} min={0} max={20} step={0.5}
-                      onChange={(v) => updateKindSetting(kind, 'waveFrequency', v)} />
+                      onChange={(v) => updateTypeSetting(type, 'waveFrequency', v)} />
                     <AnimSlider label="물결 속도" value={s.waveSpeed} min={0} max={10} step={0.1}
-                      onChange={(v) => updateKindSetting(kind, 'waveSpeed', v)} />
+                      onChange={(v) => updateTypeSetting(type, 'waveSpeed', v)} />
                     <AnimSlider label="투명도" value={s.waterAlpha} min={0} max={1} step={0.05}
-                      onChange={(v) => updateKindSetting(kind, 'waterAlpha', v)} />
+                      onChange={(v) => updateTypeSetting(type, 'waterAlpha', v)} />
                     <AnimSlider label="반사 강도" value={s.specularStrength} min={0} max={3} step={0.1}
-                      onChange={(v) => updateKindSetting(kind, 'specularStrength', v)} />
+                      onChange={(v) => updateTypeSetting(type, 'specularStrength', v)} />
                     <AnimSlider label="발광 강도" value={s.emissive} min={0} max={2} step={0.05}
-                      onChange={(v) => updateKindSetting(kind, 'emissive', v)} />
+                      onChange={(v) => updateTypeSetting(type, 'emissive', v)} />
                     {s.emissive > 0 && (
                       <div className="light-inspector-row">
                         <span className="light-inspector-label">발광 색상</span>
                         <input type="color" value={s.emissiveColor || '#ffffff'}
-                          onChange={(e) => updateKindSetting(kind, 'emissiveColor', e.target.value)}
+                          onChange={(e) => updateTypeSetting(type, 'emissiveColor', e.target.value)}
                           style={{ width: 32, height: 20, padding: 0, border: '1px solid #555' }} />
                       </div>
                     )}
                     {hasCustom && (
-                      <button className="anim-tile-reset-btn" onClick={() => resetKind(kind)}>
+                      <button className="anim-tile-reset-btn" onClick={() => resetType(type)}>
                         기본값 복원
                       </button>
                     )}

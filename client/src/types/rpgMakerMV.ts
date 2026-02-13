@@ -41,7 +41,7 @@ export interface MapData {
   objects?: MapObject[];
   cameraZones?: CameraZone[];
   skyBackground?: SkyBackground;
-  animTileSettings?: Record<number, AnimTileShaderSettings>; // key = A1 kind (0~15)
+  animTileSettings?: Record<string, AnimTileShaderSettings>; // key = 'water' | 'lava' | 'waterfall'
 }
 
 export interface AnimTileShaderSettings {

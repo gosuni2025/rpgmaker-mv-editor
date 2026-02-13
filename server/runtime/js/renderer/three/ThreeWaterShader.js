@@ -12,41 +12,41 @@ var ThreeWaterShader = {};
 ThreeWaterShader._time = 0;
 // 물 메시가 존재하는지 여부 (연속 렌더 판단용)
 ThreeWaterShader._hasWaterMesh = false;
-// kind별 셰이더 설정 (에디터 인스펙터에서 설정)
-ThreeWaterShader._kindSettings = {};
+// 타입별 셰이더 설정 (에디터 인스펙터에서 설정)
+// key: 'water' | 'lava' | 'waterfall'
+ThreeWaterShader._typeSettings = {};
 
-/**
- * kind별 셰이더 설정 저장
- * @param {number} kind - A1 kind (0~15)
- * @param {Object} settings - AnimTileShaderSettings와 동일한 구조
- */
-ThreeWaterShader.setKindSettings = function(kind, settings) {
-    this._kindSettings[kind] = settings;
+// kind(0~15) → type 매핑
+// water: 0,1,4,6,8,10,12,14 / lava: 2,3 / waterfall: 5,7,9,11,13,15
+ThreeWaterShader._KIND_TO_TYPE = {
+    0: 'water', 1: 'water', 2: 'lava', 3: 'lava',
+    4: 'water', 5: 'waterfall', 6: 'water', 7: 'waterfall',
+    8: 'water', 9: 'waterfall', 10: 'water', 11: 'waterfall',
+    12: 'water', 13: 'waterfall', 14: 'water', 15: 'waterfall'
 };
 
 /**
- * kind별 셰이더 설정 조회
- * @param {number} kind - A1 kind (0~15)
- * @returns {Object|null}
+ * kind → type 변환
  */
-ThreeWaterShader.getKindSettings = function(kind) {
-    return this._kindSettings[kind] || null;
+ThreeWaterShader.kindToType = function(kind) {
+    return this._KIND_TO_TYPE[kind] || 'water';
 };
 
 /**
- * 모든 kind 설정 일괄 적용
- * @param {Object} allSettings - Record<number, AnimTileShaderSettings>
+ * 모든 타입 설정 일괄 적용
+ * @param {Object} allSettings - Record<string, AnimTileShaderSettings>
  */
-ThreeWaterShader.setAllKindSettings = function(allSettings) {
-    this._kindSettings = allSettings || {};
+ThreeWaterShader.setAllTypeSettings = function(allSettings) {
+    this._typeSettings = allSettings || {};
 };
 
 /**
  * kind에 해당하는 uniform 값 반환
- * 에디터 설정이 없으면 타입별 기본값 사용
+ * kind를 type으로 변환 후 해당 type의 설정 사용
  */
 ThreeWaterShader.getUniformsForKind = function(kind) {
-    var s = this._kindSettings[kind];
+    var type = this.kindToType(kind);
+    var s = this._typeSettings[type];
     if (s) {
         return {
             uWaveAmplitude: s.waveAmplitude,
@@ -63,10 +63,11 @@ ThreeWaterShader.getUniformsForKind = function(kind) {
 
 /**
  * kind의 셰이더 활성화 여부 확인
- * 설정이 없으면 기본 활성, enabled=false면 비활성
+ * kind를 type으로 변환 후 해당 type의 enabled 체크
  */
 ThreeWaterShader.isKindEnabled = function(kind) {
-    var s = this._kindSettings[kind];
+    var type = this.kindToType(kind);
+    var s = this._typeSettings[type];
     if (s && s.enabled === false) return false;
     return true;
 };
