@@ -1999,3 +1999,198 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
     </>
   );
 }
+
+// ─── 그림 이동 (Move Picture, code 232) ───
+// parameters: [번호, (unused), 원점, 위치지정방식, X, Y, 넓이%, 높이%, 불투명도, 합성방법, 지속시간, 완료까지대기]
+export function MovePictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [pictureNumber, setPictureNumber] = useState<number>((p[0] as number) || 1);
+  const [origin, setOrigin] = useState<number>((p[2] as number) || 0);
+  const [positionType, setPositionType] = useState<number>((p[3] as number) || 0);
+  const [posX, setPosX] = useState<number>((p[4] as number) || 0);
+  const [posY, setPosY] = useState<number>((p[5] as number) || 0);
+  const [scaleWidth, setScaleWidth] = useState<number>((p[6] as number) ?? 100);
+  const [scaleHeight, setScaleHeight] = useState<number>((p[7] as number) ?? 100);
+  const [opacity, setOpacity] = useState<number>((p[8] as number) ?? 255);
+  const [blendMode, setBlendMode] = useState<number>((p[9] as number) || 0);
+  const [duration, setDuration] = useState<number>((p[10] as number) ?? 60);
+  const [waitForCompletion, setWaitForCompletion] = useState<boolean>(p[11] !== undefined ? !!p[11] : true);
+
+  const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
+  const labelStyle: React.CSSProperties = { fontSize: 12, color: '#aaa' };
+  const inputStyle: React.CSSProperties = { ...selectStyle, width: 80 };
+
+  return (
+    <>
+      {/* 그림 */}
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>그림</legend>
+        <label style={labelStyle}>
+          번호:
+          <input type="number" min={1} max={100} value={pictureNumber}
+            onChange={e => setPictureNumber(Math.max(1, Math.min(100, Number(e.target.value))))}
+            style={{ ...selectStyle, width: 60, marginLeft: 4 }} />
+        </label>
+      </fieldset>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        {/* 위치 */}
+        <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0, flex: 1 }}>
+          <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>위치</legend>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={labelStyle}>
+              원점:
+              <select value={origin} onChange={e => setOrigin(Number(e.target.value))} style={{ ...selectStyle, marginLeft: 4 }}>
+                <option value={0}>왼쪽 위</option>
+                <option value={1}>중앙</option>
+              </select>
+            </label>
+
+            {/* 직접 지정 */}
+            <label style={radioStyle}>
+              <input type="radio" name="movepic-pos-type" checked={positionType === 0} onChange={() => setPositionType(0)} />
+              직접 지정
+            </label>
+            <div style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4, opacity: positionType === 0 ? 1 : 0.5 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ ...labelStyle, minWidth: 16 }}>X:</span>
+                <input type="number" min={-9999} max={9999} value={positionType === 0 ? posX : 0}
+                  onChange={e => setPosX(Number(e.target.value))}
+                  disabled={positionType !== 0} style={inputStyle} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ ...labelStyle, minWidth: 16 }}>Y:</span>
+                <input type="number" min={-9999} max={9999} value={positionType === 0 ? posY : 0}
+                  onChange={e => setPosY(Number(e.target.value))}
+                  disabled={positionType !== 0} style={inputStyle} />
+              </div>
+            </div>
+
+            {/* 변수로 지정 */}
+            <label style={radioStyle}>
+              <input type="radio" name="movepic-pos-type" checked={positionType === 1} onChange={() => setPositionType(1)} />
+              변수로 지정
+            </label>
+            <div style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4, opacity: positionType === 1 ? 1 : 0.5 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ ...labelStyle, minWidth: 16 }}>X:</span>
+                <VariableSwitchPicker type="variable" value={positionType === 1 ? (posX || 1) : 1}
+                  onChange={setPosX} disabled={positionType !== 1} style={{ flex: 1 }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ ...labelStyle, minWidth: 16 }}>Y:</span>
+                <VariableSwitchPicker type="variable" value={positionType === 1 ? (posY || 1) : 1}
+                  onChange={setPosY} disabled={positionType !== 1} style={{ flex: 1 }} />
+              </div>
+            </div>
+          </div>
+        </fieldset>
+
+        {/* 배율 + 합성 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+            <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>배율</legend>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={labelStyle}>
+                넓이:
+                <input type="number" min={0} max={2000} value={scaleWidth}
+                  onChange={e => setScaleWidth(Number(e.target.value))}
+                  style={{ ...selectStyle, width: 70, marginLeft: 4 }} />
+                <span style={{ marginLeft: 2, color: '#aaa', fontSize: 12 }}>%</span>
+              </label>
+              <label style={labelStyle}>
+                높이:
+                <input type="number" min={0} max={2000} value={scaleHeight}
+                  onChange={e => setScaleHeight(Number(e.target.value))}
+                  style={{ ...selectStyle, width: 70, marginLeft: 4 }} />
+                <span style={{ marginLeft: 2, color: '#aaa', fontSize: 12 }}>%</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+            <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>합성</legend>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={labelStyle}>
+                불투명도:
+                <input type="number" min={0} max={255} value={opacity}
+                  onChange={e => setOpacity(Math.max(0, Math.min(255, Number(e.target.value))))}
+                  style={{ ...selectStyle, width: 60, marginLeft: 4 }} />
+              </label>
+              <label style={labelStyle}>
+                합성 방법:
+                <select value={blendMode} onChange={e => setBlendMode(Number(e.target.value))} style={{ ...selectStyle, marginLeft: 4 }}>
+                  <option value={0}>일반</option>
+                  <option value={1}>추가 합성</option>
+                  <option value={2}>곱하기</option>
+                  <option value={3}>스크린</option>
+                </select>
+              </label>
+            </div>
+          </fieldset>
+        </div>
+      </div>
+
+      {/* 지속 시간 */}
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>지속 시간</legend>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input type="number" min={1} max={999} value={duration}
+            onChange={e => setDuration(Math.max(1, Math.min(999, Number(e.target.value))))}
+            style={{ ...selectStyle, width: 60 }} />
+          <span style={{ fontSize: 12, color: '#aaa' }}>프레임 (1/60 초)</span>
+          <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', marginLeft: 16 }}>
+            <input type="checkbox" checked={waitForCompletion} onChange={e => setWaitForCompletion(e.target.checked)} />
+            완료까지 대기
+          </label>
+        </div>
+      </fieldset>
+
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([pictureNumber, '', origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode, duration, waitForCompletion])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}
+
+// ─── 그림 회전 (Rotate Picture, code 233) ───
+// parameters: [번호, 속도]
+export function RotatePictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [pictureNumber, setPictureNumber] = useState<number>((p[0] as number) || 1);
+  const [speed, setSpeed] = useState<number>((p[1] as number) || 0);
+
+  const labelStyle: React.CSSProperties = { fontSize: 12, color: '#aaa' };
+
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {/* 그림 */}
+        <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+          <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>그림</legend>
+          <label style={labelStyle}>
+            번호:
+            <input type="number" min={1} max={100} value={pictureNumber}
+              onChange={e => setPictureNumber(Math.max(1, Math.min(100, Number(e.target.value))))}
+              style={{ ...selectStyle, width: 60, marginLeft: 4 }} />
+          </label>
+        </fieldset>
+
+        {/* 회전 */}
+        <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+          <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>회전</legend>
+          <label style={labelStyle}>
+            속도:
+            <input type="number" min={-90} max={90} value={speed}
+              onChange={e => setSpeed(Number(e.target.value))}
+              style={{ ...selectStyle, width: 60, marginLeft: 4 }} />
+          </label>
+        </fieldset>
+      </div>
+
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([pictureNumber, speed])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}

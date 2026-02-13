@@ -150,13 +150,14 @@ export function SingleTextEditor({ p, onOk, onCancel, label }: { p: unknown[]; o
   );
 }
 
-export function SingleNumberEditor({ p, onOk, onCancel, label }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; label: string }) {
-  const [value, setValue] = useState<number>((p[0] as number) || 0);
+export function SingleNumberEditor({ p, onOk, onCancel, label, min, max }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; label: string; min?: number; max?: number }) {
+  const defaultVal = (p[0] as number) || (min != null ? min : 0);
+  const [value, setValue] = useState<number>(defaultVal);
   return (
     <>
       <label style={{ fontSize: 12, color: '#aaa' }}>
         {label}
-        <input type="number" value={value} onChange={e => setValue(Number(e.target.value))} style={{ ...selectStyle, width: 120 }} />
+        <input type="number" value={value} min={min} max={max} onChange={e => setValue(Number(e.target.value))} style={{ ...selectStyle, width: 120 }} />
       </label>
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => onOk([value])}>OK</button>

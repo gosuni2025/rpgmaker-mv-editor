@@ -853,6 +853,12 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       return text;
     }
 
+    // 그림 제거
+    if (code === 235 && cmd.parameters && cmd.parameters.length >= 1) {
+      text += `: #${cmd.parameters[0]}`;
+      return text;
+    }
+
     if (cmd.parameters && cmd.parameters.length > 0) {
       const params = cmd.parameters.map(p => typeof p === 'string' ? p : JSON.stringify(p)).join(', ');
       if (params.length > 60) {
