@@ -1,0 +1,53 @@
+appId: com.rpgmaker-mv.editor
+productName: RPG Maker MV Editor
+copyright: Copyright © 2024
+
+directories:
+  output: release
+
+files:
+  - dist-electron/**/*
+  - server/dist/**/*
+  - server/runtime/**/*
+  - server/node_modules/**/*
+  - client/dist/**/*
+  - "!**/node_modules/.cache"
+
+asar: true
+asarUnpack:
+  - server/runtime/**/*
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  category: Development
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64

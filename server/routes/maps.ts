@@ -65,7 +65,7 @@ router.put('/:id', (req: Request, res: Response) => {
     try {
       const config = l10n.getConfig();
       if (config) {
-        const { diff } = l10n.syncMapCSV(parseInt(req.params.id, 10));
+        const { diff } = l10n.syncMapCSV(parseInt(req.params.id as string, 10));
         if (diff.added.length || diff.modified.length || diff.deleted.length) {
           l10nDiff = diff;
         }
@@ -140,7 +140,7 @@ router.post('/', (req: Request, res: Response) => {
 // Delete map
 router.delete('/:id', (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     const mapInfos = projectManager.readJSON('MapInfos.json') as (null | { id: number })[];
 
     if (!mapInfos[id]) {

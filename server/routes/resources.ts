@@ -21,7 +21,7 @@ function resolveResourceDir(type: string): string {
 const upload = multer({
   storage: multer.diskStorage({
     destination: (req, _file, cb) => {
-      const dirPath = resolveResourceDir(req.params.type);
+      const dirPath = resolveResourceDir(req.params.type as string);
       fs.mkdirSync(dirPath, { recursive: true });
       cb(null, dirPath);
     },

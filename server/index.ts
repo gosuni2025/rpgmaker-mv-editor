@@ -17,61 +17,65 @@ import eventsRoutes from './routes/events';
 import generatorRoutes from './routes/generator';
 import localizationRoutes from './routes/localization';
 
-const app = express();
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+export interface AppOptions {
+  runtimePath?: string;
+  clientDistPath?: string;
+}
 
-// Playtest: serve game in new window
-const runtimePath = path.join(__dirname, 'runtime');
+export function createApp(options: AppOptions = {}) {
+  const resolvedRuntimePath = options.runtimePath || path.join(__dirname, 'runtime');
 
-// /game/save/* - 게임 세이브 파일 저장/로드 API (config, global, save files)
-const validSaveFile = (name: string) => /^[\w.-]+\.rpgsave(\.bak)?$/.test(name);
+  const app = express();
+  app.use(cors());
+  app.use(express.json({ limit: '50mb' }));
 
-app.get('/game/save/:filename', (req, res) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project open');
-  if (!validSaveFile(req.params.filename)) return res.status(400).send('Invalid filename');
-  const filePath = path.join(projectManager.currentPath!, 'save', req.params.filename);
-  if (!fs.existsSync(filePath)) return res.type('text/plain').send('');
-  res.type('text/plain').send(fs.readFileSync(filePath, 'utf8'));
-});
+  // /game/save/* - 게임 세이브 파일 저장/로드 API (config, global, save files)
+  const validSaveFile = (name: string) => /^[\w.-]+\.rpgsave(\.bak)?$/.test(name);
 
-app.put('/game/save/:filename', express.text({ limit: '10mb' }), (req, res) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project open');
-  if (!validSaveFile(req.params.filename)) return res.status(400).send('Invalid filename');
-  const saveDir = path.join(projectManager.currentPath!, 'save');
-  if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true });
-  fs.writeFileSync(path.join(saveDir, req.params.filename), req.body, 'utf8');
-  res.json({ ok: true });
-});
+  app.get('/game/save/:filename', (req, res) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project open');
+    if (!validSaveFile(req.params.filename)) return res.status(400).send('Invalid filename');
+    const filePath = path.join(projectManager.currentPath!, 'save', req.params.filename);
+    if (!fs.existsSync(filePath)) return res.type('text/plain').send('');
+    res.type('text/plain').send(fs.readFileSync(filePath, 'utf8'));
+  });
 
-app.delete('/game/save/:filename', (req, res) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project open');
-  if (!validSaveFile(req.params.filename)) return res.status(400).send('Invalid filename');
-  const filePath = path.join(projectManager.currentPath!, 'save', req.params.filename);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  res.json({ ok: true });
-});
+  app.put('/game/save/:filename', express.text({ limit: '10mb' }), (req, res) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project open');
+    if (!validSaveFile(req.params.filename)) return res.status(400).send('Invalid filename');
+    const saveDir = path.join(projectManager.currentPath!, 'save');
+    if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true });
+    fs.writeFileSync(path.join(saveDir, req.params.filename), req.body, 'utf8');
+    res.json({ ok: true });
+  });
 
-app.get('/game/save-exists/:filename', (req, res) => {
-  if (!projectManager.isOpen()) return res.json({ exists: false });
-  if (!validSaveFile(req.params.filename)) return res.json({ exists: false });
-  const filePath = path.join(projectManager.currentPath!, 'save', req.params.filename);
-  res.json({ exists: fs.existsSync(filePath) });
-});
+  app.delete('/game/save/:filename', (req, res) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project open');
+    if (!validSaveFile(req.params.filename)) return res.status(400).send('Invalid filename');
+    const filePath = path.join(projectManager.currentPath!, 'save', req.params.filename);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    res.json({ ok: true });
+  });
 
-// /game/index.html - 동적 생성 (내장 런타임 JS + 프로젝트 플러그인)
-// plugins.js만 로드하면 PluginManager.setup()이 main.js에서 개별 플러그인을 동적 로드함
-app.get('/game/index.html', (req, res) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project open');
+  app.get('/game/save-exists/:filename', (req, res) => {
+    if (!projectManager.isOpen()) return res.json({ exists: false });
+    if (!validSaveFile(req.params.filename)) return res.json({ exists: false });
+    const filePath = path.join(projectManager.currentPath!, 'save', req.params.filename);
+    res.json({ exists: fs.existsSync(filePath) });
+  });
 
-  const title = path.basename(projectManager.currentPath!);
-  const isDev = req.query.dev === 'true';
-  const startMapId = req.query.startMapId ? parseInt(req.query.startMapId as string, 10) : 0;
-  const hasStartPos = req.query.startX !== undefined && req.query.startY !== undefined;
-  const startX = req.query.startX ? parseInt(req.query.startX as string, 10) : 0;
-  const startY = req.query.startY ? parseInt(req.query.startY as string, 10) : 0;
-  const devScript = isDev ? '\n        <script type="text/javascript" src="js/ThreeDevOverlay.js"></script>\n        <script type="text/javascript" src="js/CameraZoneDevOverlay.js"></script>' : '';
-  const startMapScript = startMapId > 0 ? `
+  // /game/index.html - 동적 생성 (내장 런타임 JS + 프로젝트 플러그인)
+  app.get('/game/index.html', (req, res) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project open');
+
+    const title = path.basename(projectManager.currentPath!);
+    const isDev = req.query.dev === 'true';
+    const startMapId = req.query.startMapId ? parseInt(req.query.startMapId as string, 10) : 0;
+    const hasStartPos = req.query.startX !== undefined && req.query.startY !== undefined;
+    const startX = req.query.startX ? parseInt(req.query.startX as string, 10) : 0;
+    const startY = req.query.startY ? parseInt(req.query.startY as string, 10) : 0;
+    const devScript = isDev ? '\n        <script type="text/javascript" src="js/ThreeDevOverlay.js"></script>\n        <script type="text/javascript" src="js/CameraZoneDevOverlay.js"></script>' : '';
+    const startMapScript = startMapId > 0 ? `
         <script type="text/javascript">
         // 현재 맵에서 테스트: 타이틀 스킵하고 지정 맵에서 시작
         (function() {
@@ -88,7 +92,7 @@ app.get('/game/index.html', (req, res) => {
             };
         })();
         </script>` : '';
-  const html = `<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html>
     <head>
         <meta charset="UTF-8">
@@ -208,105 +212,126 @@ app.get('/game/index.html', (req, res) => {
         <script type="text/javascript" src="js/main.js"></script>
     </body>
 </html>`;
-  res.type('html').send(html);
-});
+    res.type('html').send(html);
+  });
 
-// /game/js/* - 런타임 JS 코드 (내장)
-// 플러그인 관련은 프로젝트에서 서빙
-app.use('/game/js/plugins', (req, res, next) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project');
-  express.static(path.join(projectManager.currentPath!, 'js', 'plugins'))(req, res, next);
-});
-app.get('/game/js/plugins.js', (req, res) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project');
-  res.sendFile(path.join(projectManager.currentPath!, 'js', 'plugins.js'));
-});
-// 나머지 JS는 내장 런타임
-app.use('/game/js', express.static(path.join(runtimePath, 'js')));
+  // /game/js/* - 런타임 JS 코드 (내장)
+  app.use('/game/js/plugins', (req, res, next) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project');
+    express.static(path.join(projectManager.currentPath!, 'js', 'plugins'))(req, res, next);
+  });
+  app.get('/game/js/plugins.js', (req, res) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project');
+    res.sendFile(path.join(projectManager.currentPath!, 'js', 'plugins.js'));
+  });
+  app.use('/game/js', express.static(path.join(resolvedRuntimePath, 'js')));
 
-// /game/fonts, /game/icon - 내장 런타임
-app.use('/game/fonts', express.static(path.join(runtimePath, 'fonts')));
-app.use('/game/icon', express.static(path.join(runtimePath, 'icon')));
+  // /game/fonts, /game/icon - 내장 런타임
+  app.use('/game/fonts', express.static(path.join(resolvedRuntimePath, 'fonts')));
+  app.use('/game/icon', express.static(path.join(resolvedRuntimePath, 'icon')));
 
-// /game/data - 맵 파일은 ext 병합, 나머지는 정적 서빙
-const mapFilePattern = /^\/Map(\d{3})\.json$/;
-app.use('/game/data', (req, res, next) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project');
-  res.set('Cache-Control', 'no-store');
-  const match = req.path.match(mapFilePattern);
-  if (match) {
-    try {
-      const mapFile = `Map${match[1]}.json`;
-      const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
-      const ext = projectManager.readExtJSON(mapFile);
-      res.json({ ...data, ...ext });
-    } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return res.status(404).send('Not found');
-      return res.status(500).send((err as Error).message);
+  // /game/data - 맵 파일은 ext 병합, 나머지는 정적 서빙
+  const mapFilePattern = /^\/Map(\d{3})\.json$/;
+  app.use('/game/data', (req, res, next) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project');
+    res.set('Cache-Control', 'no-store');
+    const match = req.path.match(mapFilePattern);
+    if (match) {
+      try {
+        const mapFile = `Map${match[1]}.json`;
+        const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
+        const ext = projectManager.readExtJSON(mapFile);
+        res.json({ ...data, ...ext });
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return res.status(404).send('Not found');
+        return res.status(500).send((err as Error).message);
+      }
+      return;
     }
-    return;
-  }
-  express.static(path.join(projectManager.currentPath!, 'data'))(req, res, next);
-});
-app.use('/game/img', (req, res, next) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project');
-  express.static(path.join(projectManager.currentPath!, 'img'))(req, res, next);
-});
-app.use('/game/audio', (req, res, next) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project');
-  express.static(path.join(projectManager.currentPath!, 'audio'))(req, res, next);
-});
-app.use('/game/movies', (req, res, next) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project');
-  express.static(path.join(projectManager.currentPath!, 'movies'))(req, res, next);
-});
+    express.static(path.join(projectManager.currentPath!, 'data'))(req, res, next);
+  });
+  app.use('/game/img', (req, res, next) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project');
+    express.static(path.join(projectManager.currentPath!, 'img'))(req, res, next);
+  });
+  app.use('/game/audio', (req, res, next) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project');
+    express.static(path.join(projectManager.currentPath!, 'audio'))(req, res, next);
+  });
+  app.use('/game/movies', (req, res, next) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project');
+    express.static(path.join(projectManager.currentPath!, 'movies'))(req, res, next);
+  });
 
-// 에디터 런타임용: 프로젝트 img/, data/, plugins/ 직접 서빙 (ImageManager.loadBitmap이 사용)
-app.use('/img', (req, res, next) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project');
-  express.static(path.join(projectManager.currentPath!, 'img'))(req, res, next);
-});
-app.use('/data', (req, res, next) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project');
-  res.set('Cache-Control', 'no-store');
-  const match = req.path.match(mapFilePattern);
-  if (match) {
-    try {
-      const mapFile = `Map${match[1]}.json`;
-      const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
-      const ext = projectManager.readExtJSON(mapFile);
-      res.json({ ...data, ...ext });
-    } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return res.status(404).send('Not found');
-      return res.status(500).send((err as Error).message);
+  // 에디터 런타임용: 프로젝트 img/, data/, plugins/ 직접 서빙
+  app.use('/img', (req, res, next) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project');
+    express.static(path.join(projectManager.currentPath!, 'img'))(req, res, next);
+  });
+  app.use('/data', (req, res, next) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project');
+    res.set('Cache-Control', 'no-store');
+    const match = req.path.match(mapFilePattern);
+    if (match) {
+      try {
+        const mapFile = `Map${match[1]}.json`;
+        const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
+        const ext = projectManager.readExtJSON(mapFile);
+        res.json({ ...data, ...ext });
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return res.status(404).send('Not found');
+        return res.status(500).send((err as Error).message);
+      }
+      return;
     }
-    return;
+    express.static(path.join(projectManager.currentPath!, 'data'))(req, res, next);
+  });
+  app.use('/plugins', (req, res, next) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project');
+    express.static(path.join(projectManager.currentPath!, 'js', 'plugins'))(req, res, next);
+  });
+
+  app.use('/api/project', projectRoutes);
+  app.use('/api/maps', mapsRoutes);
+  app.use('/api/database', databaseRoutes);
+  app.use('/api/resources', resourcesRoutes);
+  app.use('/api/audio', audioRoutes);
+  app.use('/api/plugins', pluginsRoutes);
+  app.use('/api/events', eventsRoutes);
+  app.use('/api/generator', generatorRoutes);
+  app.use('/api/localization', localizationRoutes);
+
+  // Electron 패키징 시 클라이언트 정적 파일 서빙
+  if (options.clientDistPath) {
+    app.use(express.static(options.clientDistPath));
+    app.get('*', (req, res) => {
+      if (!req.path.startsWith('/api/') && !req.path.startsWith('/game/') &&
+          !req.path.startsWith('/img/') && !req.path.startsWith('/data/') &&
+          !req.path.startsWith('/plugins/')) {
+        res.sendFile(path.join(options.clientDistPath!, 'index.html'));
+      }
+    });
   }
-  express.static(path.join(projectManager.currentPath!, 'data'))(req, res, next);
-});
-app.use('/plugins', (req, res, next) => {
-  if (!projectManager.isOpen()) return res.status(404).send('No project');
-  express.static(path.join(projectManager.currentPath!, 'js', 'plugins'))(req, res, next);
-});
 
-app.use('/api/project', projectRoutes);
-app.use('/api/maps', mapsRoutes);
-app.use('/api/database', databaseRoutes);
-app.use('/api/resources', resourcesRoutes);
-app.use('/api/audio', audioRoutes);
-app.use('/api/plugins', pluginsRoutes);
-app.use('/api/events', eventsRoutes);
-app.use('/api/generator', generatorRoutes);
-app.use('/api/localization', localizationRoutes);
+  return app;
+}
 
-const server = http.createServer(app);
+export function attachWebSocket(server: http.Server) {
+  const wss = new WebSocketServer({ server });
+  wss.on('connection', (ws: WebSocket) => {
+    fileWatcher.addClient(ws);
+  });
+  return wss;
+}
 
-const wss = new WebSocketServer({ server });
-wss.on('connection', (ws: WebSocket) => {
-  fileWatcher.addClient(ws);
-});
+// dev 모드 직접 실행 시
+if (require.main === module) {
+  const app = createApp();
+  const server = http.createServer(app);
+  attachWebSocket(server);
 
-const PORT = 3001;
-server.listen(PORT, () => {
-  console.log(`Editor server listening on port ${PORT}`);
-});
+  const PORT = 3001;
+  server.listen(PORT, () => {
+    console.log(`Editor server listening on port ${PORT}`);
+  });
+}

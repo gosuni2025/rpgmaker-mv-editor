@@ -213,7 +213,9 @@ router.post('/open-folder', (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {
     return res.status(404).json({ error: 'No project open' });
   }
-  exec(`open "${projectManager.currentPath}"`);
+  const cmd = process.platform === 'darwin' ? 'open'
+    : process.platform === 'win32' ? 'explorer' : 'xdg-open';
+  exec(`${cmd} "${projectManager.currentPath}"`);
   res.json({ success: true });
 });
 

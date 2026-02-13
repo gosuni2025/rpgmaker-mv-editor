@@ -1,65 +1,55 @@
-# RPG Maker MV Web Editor
+# RPG Maker MV Editor
 
-RPG Maker MV 에디터를 웹 브라우저에서 사용할 수 있도록 재구현한 프로젝트입니다.
+A web-based editor for RPG Maker MV projects, reimplemented as a modern desktop application.
 
-## 기술 스택
+## Prerequisites
 
-- **Client**: React 18 + TypeScript + Vite + Zustand
-- **Server**: Express + TypeScript (tsx)
-- **통신**: REST API + WebSocket (파일 변경 감지)
+- **RPG Maker MV** is required. This editor works with RPG Maker MV project files and depends on its runtime assets.
 
-## 실행 방법
+## Download
 
-### 사전 요구사항
+Pre-built binaries for macOS, Windows, and Linux are available on the [Releases](../../releases) page.
 
-- Node.js 18+
+## Development
+
+### Requirements
+
+- Node.js 20+
 - npm
 
-### 설치
+### Setup
 
 ```bash
-# 루트 의존성 설치
+# Install dependencies
 npm install
+cd server && npm install
+cd ../client && npm install
+cd ..
 
-# 서버 의존성 설치
-cd server && npm install && cd ..
-
-# 클라이언트 의존성 설치
-cd client && npm install && cd ..
-```
-
-### 개발 서버 실행
-
-```bash
+# Run in development mode (server:3001 + client:5173)
 npm run dev
 ```
 
-서버(port 3001)와 클라이언트(port 5173)가 동시에 실행됩니다.
+### Build
 
-브라우저에서 http://localhost:5173 으로 접속하면 에디터를 사용할 수 있습니다.
+```bash
+# Build all (client + server + electron)
+npm run build
 
-## AI 연동 (외부 파일 변경 감지)
+# Package as desktop app
+npm run dist
+```
 
-이 에디터의 핵심 목적은 **AI(Claude 등)가 RPG Maker MV 프로젝트 데이터를 직접 수정했을 때, 에디터에 실시간으로 반영**되는 것입니다.
+## Architecture
 
-원본 RPG Maker MV 에디터는 외부에서 파일이 변경되어도 감지하지 못하지만, 이 웹 에디터는 WebSocket 기반 파일 감시를 통해 자동으로 리로드합니다.
+- **Client**: React 18 + TypeScript + Vite + Zustand
+- **Server**: Express + TypeScript
+- **Desktop**: Electron (bundles client + server into a single app)
 
-### 동작 방식
+### AI Integration
 
-1. 서버가 프로젝트 `data/` 디렉토리의 JSON 파일 변경을 감시 (`fs.watch`)
-2. 외부 변경 감지 시 WebSocket으로 클라이언트에 `fileChanged` 메시지 전송
-3. 클라이언트가 변경된 파일 종류에 따라 자동 리로드
+The editor watches the project `data/` directory for external file changes via WebSocket. When an AI tool (or any external process) modifies project JSON files, the editor automatically reloads the affected data in real-time.
 
-### 리로드 대상
+## License
 
-| 파일 | 동작 |
-|------|------|
-| `MapXXX.json` | 현재 열린 맵이면 맵 데이터 리로드 |
-| `MapInfos.json` | 맵 트리 리로드 |
-| `System.json` | 시스템 데이터 리로드 |
-| `Tilesets.json` | 타일셋 정보 리로드 |
-| 기타 DB 파일 | `window` `fileChanged` 이벤트 발행 |
-
-### 자체 저장 구분
-
-에디터 자체에서 저장한 경우(`Ctrl+S` 등)는 리로드하지 않습니다. 서버의 `markApiWrite`로 API를 통한 저장을 기록하고, 2초 내 변경은 외부 변경이 아닌 것으로 판단합니다.
+[MIT](LICENSE)
