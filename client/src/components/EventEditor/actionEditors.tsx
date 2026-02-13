@@ -378,36 +378,45 @@ function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
     setPanOffset({ x: 0, y: 0 });
   }, [mapData, rendererReady]);
 
-  // 휠 확대/축소
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
+  // 휠 확대/축소 (native event listener로 passive: false 설정)
+  const mapDataRef = useRef(mapData);
+  mapDataRef.current = mapData;
+
+  useEffect(() => {
     const container = previewContainerRef.current;
-    if (!container || !mapData) return;
+    if (!container) return;
 
-    const TILE_SIZE = 48;
-    const mapPxW = mapData.width * TILE_SIZE;
-    const mapPxH = mapData.height * TILE_SIZE;
-    const minScale = Math.min(container.clientWidth / mapPxW, container.clientHeight / mapPxH, 0.1);
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const md = mapDataRef.current;
+      if (!md) return;
 
-    // 컨테이너 내 마우스 위치
-    const rect = container.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+      const TILE_SIZE = 48;
+      const mapPxW = md.width * TILE_SIZE;
+      const mapPxH = md.height * TILE_SIZE;
+      const minScale = Math.min(container.clientWidth / mapPxW, container.clientHeight / mapPxH, 0.1);
 
-    setCanvasScale(prev => {
-      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-      const next = Math.max(minScale, Math.min(5, prev * factor));
-      const ratio = next / prev;
+      const rect = container.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
 
-      // 마우스 위치를 기준으로 팬 오프셋 조정 (줌 중심점 고정)
-      setPanOffset(p => ({
-        x: mouseX - ratio * (mouseX - p.x),
-        y: mouseY - ratio * (mouseY - p.y),
-      }));
+      setCanvasScale(prev => {
+        const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+        const next = Math.max(minScale, Math.min(5, prev * factor));
+        const ratio = next / prev;
 
-      return next;
-    });
-  }, [mapData]);
+        setPanOffset(p => ({
+          x: mouseX - ratio * (mouseX - p.x),
+          y: mouseY - ratio * (mouseY - p.y),
+        }));
+
+        return next;
+      });
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, []);
 
   // 미들 클릭 팬 시작
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -499,7 +508,7 @@ function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
 
   return (
     <div className="modal-overlay" style={{ zIndex: 10001 }}>
-      <div className="image-picker-dialog" style={{ width: '80vw', maxWidth: 900, height: '70vh', maxHeight: 600 }}>
+      <div className="image-picker-dialog" style={{ width: '90vw', maxWidth: 1200, height: '85vh', maxHeight: 900 }}>
         <div className="image-picker-header">맵 선택</div>
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* 왼쪽: 맵 목록 */}
@@ -519,7 +528,6 @@ function MapLocationPicker({ mapId, x, y, onOk, onCancel }: {
           </div>
           {/* 오른쪽: 맵 프리뷰 (휠 줌, 미들 클릭 팬) */}
           <div ref={previewContainerRef}
-            onWheel={handleWheel}
             onMouseDown={handleMouseDown}
             style={{ flex: 1, overflow: 'hidden', background: '#1a1a1a', position: 'relative' }}>
             <div style={canvasWrapperStyle}>
