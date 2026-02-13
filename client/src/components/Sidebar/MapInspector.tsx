@@ -370,6 +370,9 @@ export default function MapInspector() {
         updateMapField={updateMapField}
       />
 
+      {/* Post Processing Effects */}
+      <PostProcessSection />
+
       {/* Map Size Adjust */}
       <div className="light-inspector-section">
         <div className="light-inspector-title">맵 크기 조절</div>
@@ -562,6 +565,167 @@ function AnimSlider({ label, value, min, max, step, onChange }: {
       <input type="number" min={min} max={max} step={step} value={value}
         className="anim-tile-slider-value"
         onChange={(e) => onChange(Number(e.target.value))} />
+    </div>
+  );
+}
+
+// --- 포스트 프로세싱 인스펙터 섹션 ---
+
+interface PPEffectEntry {
+  key: string;
+  name: string;
+}
+
+interface PPParamDef {
+  key: string;
+  label: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  default: any;
+  type?: string;
+  options?: { v: number; l: string }[];
+}
+
+function getEffectList(): PPEffectEntry[] {
+  const w = window as any;
+  if (w.PostProcessEffects?.EFFECT_LIST) {
+    return w.PostProcessEffects.EFFECT_LIST.map((e: any) => ({ key: e.key, name: e.name }));
+  }
+  return [];
+}
+
+function getEffectParams(key: string): PPParamDef[] {
+  const w = window as any;
+  if (w.PostProcessEffects?.EFFECT_PARAMS?.[key]) {
+    return w.PostProcessEffects.EFFECT_PARAMS[key];
+  }
+  return [];
+}
+
+function PostProcessSection() {
+  const postProcessConfig = useEditorStore((s) => s.postProcessConfig);
+  const updatePostProcessEffect = useEditorStore((s) => s.updatePostProcessEffect);
+  const [expandedEffects, setExpandedEffects] = useState<Set<string>>(new Set());
+
+  const effectList = useMemo(() => getEffectList(), []);
+
+  const toggleExpand = useCallback((key: string) => {
+    setExpandedEffects(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const handleToggleEffect = useCallback((key: string, enabled: boolean) => {
+    updatePostProcessEffect(key, { enabled });
+  }, [updatePostProcessEffect]);
+
+  const handleParamChange = useCallback((effectKey: string, paramKey: string, value: any) => {
+    updatePostProcessEffect(effectKey, { [paramKey]: value });
+  }, [updatePostProcessEffect]);
+
+  const handleResetEffect = useCallback((key: string) => {
+    const params = getEffectParams(key);
+    const defaults: Record<string, any> = { enabled: false };
+    for (const p of params) {
+      defaults[p.key] = p.default;
+    }
+    updatePostProcessEffect(key, defaults);
+  }, [updatePostProcessEffect]);
+
+  const enabledCount = useMemo(() => {
+    return Object.values(postProcessConfig).filter(c => c?.enabled).length;
+  }, [postProcessConfig]);
+
+  if (effectList.length === 0) return null;
+
+  return (
+    <div className="light-inspector-section">
+      <div className="light-inspector-title">
+        포스트 프로세싱
+        {enabledCount > 0 && (
+          <span className="pp-enabled-count">{enabledCount}</span>
+        )}
+      </div>
+      {effectList.map(effect => {
+        const config = postProcessConfig[effect.key] || { enabled: false };
+        const expanded = expandedEffects.has(effect.key);
+        const params = getEffectParams(effect.key);
+        return (
+          <div key={effect.key} className="anim-tile-kind-panel">
+            <div className="anim-tile-kind-header" onClick={() => toggleExpand(effect.key)}>
+              <span className="anim-tile-kind-arrow">{expanded ? '\u25BC' : '\u25B6'}</span>
+              <span className="anim-tile-kind-name">{effect.name}</span>
+              {config.enabled && <span className="pp-effect-active-dot" title="활성">{'\u2022'}</span>}
+            </div>
+            {expanded && (
+              <div className="anim-tile-kind-body">
+                <label className="map-inspector-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={!!config.enabled}
+                    onChange={(e) => handleToggleEffect(effect.key, e.target.checked)}
+                  />
+                  <span>활성화</span>
+                </label>
+                {config.enabled && params.map(p => {
+                  if (p.type === 'select' && p.options) {
+                    const val = config[p.key] ?? p.default;
+                    return (
+                      <div key={p.key} className="anim-tile-slider-row">
+                        <span className="anim-tile-slider-label">{p.label}</span>
+                        <select
+                          className="map-inspector-select"
+                          style={{ flex: 1 }}
+                          value={val}
+                          onChange={(e) => handleParamChange(effect.key, p.key, Number(e.target.value))}
+                        >
+                          {p.options.map(o => (
+                            <option key={o.v} value={o.v}>{o.l}</option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  }
+                  if (p.type === 'color') {
+                    const val = config[p.key] ?? p.default;
+                    return (
+                      <div key={p.key} className="light-inspector-row">
+                        <span className="light-inspector-label">{p.label}</span>
+                        <input
+                          type="color"
+                          value={val}
+                          onChange={(e) => handleParamChange(effect.key, p.key, e.target.value)}
+                          style={{ width: 32, height: 20, padding: 0, border: '1px solid #555' }}
+                        />
+                      </div>
+                    );
+                  }
+                  const val = config[p.key] ?? p.default;
+                  return (
+                    <AnimSlider
+                      key={p.key}
+                      label={p.label}
+                      value={val}
+                      min={p.min ?? 0}
+                      max={p.max ?? 1}
+                      step={p.step ?? 0.01}
+                      onChange={(v) => handleParamChange(effect.key, p.key, v)}
+                    />
+                  );
+                })}
+                {config.enabled && (
+                  <button className="anim-tile-reset-btn" onClick={() => handleResetEffect(effect.key)}>
+                    초기화
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

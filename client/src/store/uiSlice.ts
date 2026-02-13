@@ -30,6 +30,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
   'showToast' | 'dismissToast' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
+  'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
   'setMode3d' | 'setShadowLight' | 'setDepthOfField' | 'setPaletteTab' |
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
@@ -40,6 +41,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   mode3d: false,
   shadowLight: false,
   depthOfField: false,
+  postProcessConfig: {},
   paletteTab: 'A',
   toastMessage: null,
   toastPersistent: false,
@@ -99,6 +101,13 @@ export const uiSlice: SliceCreator<Pick<EditorState,
     if (ConfigManager) ConfigManager.depthOfField = enabled;
     set({ depthOfField: enabled });
     get().showToast(`피사계 심도 ${enabled ? 'ON' : 'OFF'}`);
+  },
+
+  setPostProcessConfig: (config) => set({ postProcessConfig: config }),
+  updatePostProcessEffect: (effectKey, params) => {
+    const prev = get().postProcessConfig;
+    const prevEffect = prev[effectKey] || { enabled: false };
+    set({ postProcessConfig: { ...prev, [effectKey]: { ...prevEffect, ...params } } });
   },
 
   setPaletteTab: (tab: 'A' | 'B' | 'C' | 'D' | 'E' | 'R') => set({ paletteTab: tab }),
