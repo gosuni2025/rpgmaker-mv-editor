@@ -641,8 +641,8 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     if (code === 111 && cmd.parameters && cmd.parameters.length >= 2) {
       return text + ': ' + formatConditionalBranch(cmd.parameters);
     }
-    if (code === 411) return '그 밖의 경우';
-    if (code === 412) return '분기 종료';
+    if (code === 411) return t('eventCommands.display.411');
+    if (code === 412) return t('eventCommands.display.412');
 
     // 스위치 조작 전용 포맷
     if (code === 121 && cmd.parameters && cmd.parameters.length >= 3) {
