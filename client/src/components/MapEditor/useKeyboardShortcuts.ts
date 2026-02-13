@@ -5,8 +5,6 @@ interface KeyboardShortcutsResult {
   showGrid: boolean;
   altPressed: boolean;
   panning: boolean;
-  spacePressed: boolean;
-  spacePressedRef: React.MutableRefObject<boolean>;
 }
 
 export function useKeyboardShortcuts(
@@ -81,36 +79,10 @@ export function useKeyboardShortcuts(
   const deleteCameraZone = useEditorStore((s) => s.deleteCameraZone);
   const deleteCameraZones = useEditorStore((s) => s.deleteCameraZones);
 
-  // Alt key & Space key state
-  const [spacePressed, setSpacePressed] = useState(false);
-  const spacePressedRef = useRef(false);
-  const isSpacePanning = useRef(false);
-
+  // Alt key state for eyedropper cursor
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') setAltPressed(true);
-      if (e.code === 'Space' && !e.repeat) {
-        // input/textarea 등에서는 스페이스 패닝 비활성화
-        const tag = (e.target as HTMLElement)?.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-        e.preventDefault();
-        spacePressedRef.current = true;
-        setSpacePressed(true);
-      }
-    };
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') setAltPressed(false);
-      if (e.code === 'Space') {
-        spacePressedRef.current = false;
-        setSpacePressed(false);
-        // 스페이스 떼면 패닝도 종료
-        if (isSpacePanning.current) {
-          isSpacePanning.current = false;
-          isPanning.current = false;
-          setPanning(false);
-        }
-      }
-    };
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Alt') setAltPressed(true); };
+    const onKeyUp = (e: KeyboardEvent) => { if (e.key === 'Alt') setAltPressed(false); };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     return () => {
@@ -130,24 +102,13 @@ export function useKeyboardShortcuts(
     };
     el.addEventListener('wheel', handleWheel, { passive: false });
 
-    // 미들 클릭 패닝 + 스페이스+좌클릭 패닝
+    // 미들 클릭 패닝
     const handlePanStart = (e: MouseEvent) => {
-      if (e.button === 1) {
-        // 미들 클릭
-        e.preventDefault();
-        isPanning.current = true;
-        isSpacePanning.current = false;
-        setPanning(true);
-        panStart.current = { x: e.clientX, y: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop };
-      } else if (e.button === 0 && spacePressedRef.current) {
-        // 스페이스 + 좌클릭
-        e.preventDefault();
-        e.stopPropagation();
-        isPanning.current = true;
-        isSpacePanning.current = true;
-        setPanning(true);
-        panStart.current = { x: e.clientX, y: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop };
-      }
+      if (e.button !== 1) return;
+      e.preventDefault();
+      isPanning.current = true;
+      setPanning(true);
+      panStart.current = { x: e.clientX, y: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop };
     };
     const handlePanMove = (e: MouseEvent) => {
       if (!isPanning.current) return;
@@ -155,12 +116,9 @@ export function useKeyboardShortcuts(
       el.scrollTop = panStart.current.scrollTop - (e.clientY - panStart.current.y);
     };
     const handlePanEnd = (e: MouseEvent) => {
-      if (!isPanning.current) return;
-      if (e.button === 1 || (e.button === 0 && isSpacePanning.current)) {
-        isPanning.current = false;
-        isSpacePanning.current = false;
-        setPanning(false);
-      }
+      if (e.button !== 1 || !isPanning.current) return;
+      isPanning.current = false;
+      setPanning(false);
     };
 
     el.addEventListener('mousedown', handlePanStart);
@@ -464,5 +422,5 @@ export function useKeyboardShortcuts(
     return () => window.removeEventListener('editor-escape', handleEscape);
   }, [isPasting, isEventPasting, isLightPasting, isObjectPasting, selectionStart, selectionEnd, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection, setIsLightPasting, setLightPastePreviewPos, clearLightSelection, setIsObjectPasting, setObjectPastePreviewPos, clearObjectSelection]);
 
-  return { showGrid, altPressed, panning, spacePressed, spacePressedRef };
+  return { showGrid, altPressed, panning };
 }

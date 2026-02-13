@@ -47,7 +47,7 @@ export default function MapCanvas() {
   const pasteEvents = useEditorStore((s) => s.pasteEvents);
 
   // Compose hooks
-  const { showGrid, altPressed, panning, spacePressed, spacePressedRef } = useKeyboardShortcuts(containerRef);
+  const { showGrid, altPressed, panning } = useKeyboardShortcuts(containerRef);
 
   const {
     rendererObjRef, tilemapRef, stageRef, renderRequestedRef, toolPreviewMeshesRef,
@@ -70,7 +70,7 @@ export default function MapCanvas() {
     isDraggingLight, isDraggingObject, draggedObjectId,
     resizeOrigSize, cameraZoneCursor,
     playerStartDragPos,
-  } = useMouseHandlers(webglCanvasRef, tools, pendingChanges, spacePressedRef);
+  } = useMouseHandlers(webglCanvasRef, tools, pendingChanges);
 
   // Overlay refs shared by sub-hooks
   const overlayRefs = useMemo(() => ({ rendererObjRef, stageRef, renderRequestedRef, tilemapRef }), [rendererObjRef, stageRef, renderRequestedRef, tilemapRef]);
@@ -138,8 +138,8 @@ export default function MapCanvas() {
     overflow: 'auto' as const,
     backgroundColor: '#1a1a1a',
     border: '1px solid #555',
-    cursor: panning ? 'grabbing' : spacePressed ? 'grab' : undefined,
-  }), [panning, spacePressed]);
+    cursor: panning ? 'grabbing' : undefined,
+  }), [panning]);
 
   const mapBgStyle = useMemo(() => {
     const { r, g, b } = transparentColor;
@@ -205,7 +205,6 @@ export default function MapCanvas() {
             position: 'relative',
             zIndex: 1,
             cursor: panning ? 'grabbing'
-              : spacePressed ? 'grab'
               : altPressed && editMode === 'map' ? eyedropperCursor
               : cameraZoneCursor
               || resizeCursor
