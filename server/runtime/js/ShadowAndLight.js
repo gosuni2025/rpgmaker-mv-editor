@@ -1312,86 +1312,6 @@ ShadowLight._addLightsToScene = function(scene) {
         }
     }
 
-    // ?dev=true 디버그 모드: 디렉셔널 라이트를 3D 화살표로 시각화
-    // 라이트 position(먼 곳)에서 target(맵 중심)으로 향하는 굵은 화살표
-    if (/[?&]dev=true/.test(window.location.search)) {
-        this._debugLightArrows = this._debugLightArrows || [];
-        var target3 = new THREE.Vector3(vw2, vh2, 0);
-
-        // 굵은 3D 화살표 생성 헬퍼 (CylinderGeometry 기반, WebGL linewidth 제한 우회)
-        function createThickArrow(from, to, color, shaftRadius, headRadius, headFrac) {
-            var group = new THREE.Group();
-            var dir = new THREE.Vector3().subVectors(to, from);
-            var totalLen = dir.length();
-            dir.normalize();
-            var shaftLen = totalLen * (1 - headFrac);
-            var headLen = totalLen * headFrac;
-            var mat = new THREE.MeshBasicMaterial({ color: color, depthTest: false, transparent: true, opacity: 0.85 });
-
-            // 샤프트 (실린더)
-            var shaftGeo = new THREE.CylinderGeometry(shaftRadius, shaftRadius, shaftLen, 8);
-            shaftGeo.translate(0, shaftLen / 2, 0);
-            var shaft = new THREE.Mesh(shaftGeo, mat);
-            group.add(shaft);
-
-            // 화살촉 (콘)
-            var coneGeo = new THREE.ConeGeometry(headRadius, headLen, 8);
-            coneGeo.translate(0, shaftLen + headLen / 2, 0);
-            var cone = new THREE.Mesh(coneGeo, mat);
-            group.add(cone);
-
-            // 방향 정렬: Y축(0,1,0) → dir
-            var quat = new THREE.Quaternion();
-            quat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-            group.quaternion.copy(quat);
-            group.position.copy(from);
-
-            group.traverse(function(child) { child.frustumCulled = false; });
-            group.renderOrder = 9999;
-            return group;
-        }
-
-        // 화살표 길이: 라이트 position → target 중간 구간 (너무 멀면 잘 안 보이므로 축소)
-        var arrowLen = 400; // 화살표 전체 길이
-        var shaftR = 6;
-        var headR = 18;
-        var headFraction = 0.25;
-
-        // 메인 디렉셔널 라이트
-        if (this._directionalLight && this._directionalLight.visible) {
-            var lPos = this._directionalLight.position;
-            var lDir = new THREE.Vector3().subVectors(target3, lPos).normalize();
-            var arrowStart = new THREE.Vector3().copy(target3).addScaledVector(lDir, -arrowLen);
-            var arrow = createThickArrow(arrowStart, target3, 0xffff00, shaftR, headR, headFraction);
-            scene.add(arrow);
-            this._debugLightArrows.push(arrow);
-            console.log('[ShadowLight DEV] Main directional - pos:', lPos.toArray().map(function(v){return Math.round(v)}),
-                'dir:', lDir.toArray().map(function(v){return v.toFixed(3)}),
-                'color:', '#' + this._directionalLight.color.getHexString(),
-                'intensity:', this._directionalLight.intensity,
-                'castShadow:', this._directionalLight.castShadow);
-        }
-
-        // 추가 sunLights
-        var devColors = [0xff4444, 0x44ff44, 0x4444ff, 0xff44ff];
-        for (var ai = 0; ai < this._sunLights.length; ai++) {
-            var sLight = this._sunLights[ai];
-            var sPos = sLight.position;
-            var sDir2 = new THREE.Vector3().subVectors(target3, sPos).normalize();
-            var sStart = new THREE.Vector3().copy(target3).addScaledVector(sDir2, -arrowLen);
-            var sArrow = createThickArrow(sStart, target3, devColors[ai % devColors.length], shaftR, headR, headFraction);
-            scene.add(sArrow);
-            this._debugLightArrows.push(sArrow);
-            console.log('[ShadowLight DEV] Sun light[' + (ai+1) + '] - pos:', sPos.toArray().map(function(v){return Math.round(v)}),
-                'dir:', sDir2.toArray().map(function(v){return v.toFixed(3)}),
-                'color:', '#' + sLight.color.getHexString(),
-                'intensity:', sLight.intensity,
-                'castShadow:', sLight.castShadow);
-        }
-
-        console.log('[ShadowLight DEV] editorLights:', JSON.parse(JSON.stringify(el || null)));
-        console.log('[ShadowLight DEV] skyBackground:', JSON.parse(JSON.stringify(skyBg || null)));
-    }
 };
 
 //=============================================================================
@@ -1497,7 +1417,7 @@ ShadowLight._updateSunLightDirections = function() {
     }
 
     // 디버그 화살표도 업데이트
-    if (this._debugLightArrows && this._debugLightArrows.length > 0) {
+    if (this._debugLightArrowsVisible && this._debugLightArrows && this._debugLightArrows.length > 0) {
         var vw2 = (typeof Graphics !== 'undefined' ? Graphics._width : 816) / 2;
         var vh2 = (typeof Graphics !== 'undefined' ? Graphics._height : 624) / 2;
         var target3 = new THREE.Vector3(vw2, vh2, 0);
@@ -1558,17 +1478,7 @@ ShadowLight._removeLightsFromScene = function(scene) {
         this._sunLights = [];
     }
     // 디버그 화살표 제거
-    if (this._debugLightArrows) {
-        for (var i = 0; i < this._debugLightArrows.length; i++) {
-            var grp = this._debugLightArrows[i];
-            scene.remove(grp);
-            grp.traverse(function(child) {
-                if (child.geometry) child.geometry.dispose();
-                if (child.material) child.material.dispose();
-            });
-        }
-        this._debugLightArrows = [];
-    }
+    this._removeLightArrows();
     // 포인트 라이트 제거
     for (var i = 0; i < this._pointLights.length; i++) {
         if (this._pointLights[i].parent) {
@@ -1576,6 +1486,84 @@ ShadowLight._removeLightsFromScene = function(scene) {
         }
     }
     this._pointLights = [];
+};
+
+//=============================================================================
+// 광원 방향 디버그 화살표 생성/제거 (디버그 패널에서 토글)
+//=============================================================================
+ShadowLight._createThickArrow = function(from, to, color) {
+    var group = new THREE.Group();
+    var dir = new THREE.Vector3().subVectors(to, from);
+    var totalLen = dir.length();
+    dir.normalize();
+    var shaftLen = totalLen * 0.75;
+    var headLen = totalLen * 0.25;
+    var mat = new THREE.MeshBasicMaterial({ color: color, depthTest: false, transparent: true, opacity: 0.85 });
+
+    var shaftGeo = new THREE.CylinderGeometry(6, 6, shaftLen, 8);
+    shaftGeo.translate(0, shaftLen / 2, 0);
+    group.add(new THREE.Mesh(shaftGeo, mat));
+
+    var coneGeo = new THREE.ConeGeometry(18, headLen, 8);
+    coneGeo.translate(0, shaftLen + headLen / 2, 0);
+    group.add(new THREE.Mesh(coneGeo, mat));
+
+    var quat = new THREE.Quaternion();
+    quat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    group.quaternion.copy(quat);
+    group.position.copy(from);
+    group.traverse(function(child) { child.frustumCulled = false; });
+    group.renderOrder = 9999;
+    return group;
+};
+
+ShadowLight._showLightArrows = function() {
+    this._removeLightArrows();
+    var scene = this._findScene();
+    if (!scene) return;
+    this._debugLightArrows = [];
+    this._debugLightArrowsVisible = true;
+
+    var vw2 = (typeof Graphics !== 'undefined' ? Graphics._width : 816) / 2;
+    var vh2 = (typeof Graphics !== 'undefined' ? Graphics._height : 624) / 2;
+    var target3 = new THREE.Vector3(vw2, vh2, 0);
+    var arrowLen = 400;
+
+    // 메인 디렉셔널
+    if (this._directionalLight && this._directionalLight.visible) {
+        var lPos = this._directionalLight.position;
+        var lDir = new THREE.Vector3().subVectors(target3, lPos).normalize();
+        var start = new THREE.Vector3().copy(target3).addScaledVector(lDir, -arrowLen);
+        var arrow = this._createThickArrow(start, target3, 0xffff00);
+        scene.add(arrow);
+        this._debugLightArrows.push(arrow);
+    }
+
+    // 추가 sunLights
+    var colors = [0xff4444, 0x44ff44, 0x4444ff, 0xff44ff];
+    for (var i = 0; i < this._sunLights.length; i++) {
+        var sPos = this._sunLights[i].position;
+        var sDir = new THREE.Vector3().subVectors(target3, sPos).normalize();
+        var sStart = new THREE.Vector3().copy(target3).addScaledVector(sDir, -arrowLen);
+        var sArrow = this._createThickArrow(sStart, target3, colors[i % colors.length]);
+        scene.add(sArrow);
+        this._debugLightArrows.push(sArrow);
+    }
+};
+
+ShadowLight._removeLightArrows = function() {
+    var scene = this._findScene();
+    if (!scene || !this._debugLightArrows) return;
+    for (var i = 0; i < this._debugLightArrows.length; i++) {
+        var grp = this._debugLightArrows[i];
+        scene.remove(grp);
+        grp.traverse(function(child) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        });
+    }
+    this._debugLightArrows = [];
+    this._debugLightArrowsVisible = false;
 };
 
 //=============================================================================
@@ -2795,6 +2783,33 @@ ShadowLight._createDebugUI = function() {
         });
 
         skyBody.appendChild(rotRow);
+    })();
+
+    // 광원 방향 화살표 토글
+    (function() {
+        var arrowRow = document.createElement('div');
+        arrowRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:4px;';
+
+        var arrowCb = document.createElement('input');
+        arrowCb.type = 'checkbox';
+        arrowCb.checked = false;
+        arrowCb.style.cssText = 'accent-color:#ffb74d;margin:0;';
+        arrowRow.appendChild(arrowCb);
+
+        var arrowLabel = document.createElement('span');
+        arrowLabel.textContent = '광원 방향 화살표';
+        arrowLabel.style.cssText = 'color:#ccc;font-size:11px;';
+        arrowRow.appendChild(arrowLabel);
+
+        arrowCb.addEventListener('change', function() {
+            if (arrowCb.checked) {
+                ShadowLight._showLightArrows();
+            } else {
+                ShadowLight._removeLightArrows();
+            }
+        });
+
+        skyBody.appendChild(arrowRow);
     })();
 
     // DoF 섹션 삽입 포인트 (DepthOfField가 여기에 섹션을 추가함)
