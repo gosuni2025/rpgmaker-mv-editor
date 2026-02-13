@@ -474,8 +474,8 @@ export default function MapCanvas() {
         <ShiftMapDialog onClose={() => setShowShiftDialog(false)} />
       )}
 
-      {showSampleMapDialog && currentMapId && (
-        <SampleMapDialog mapId={currentMapId} onClose={() => setShowSampleMapDialog(false)} />
+      {showSampleMapDialog && (
+        <SampleMapDialog onClose={() => setShowSampleMapDialog(false)} />
       )}
     </div>
   );

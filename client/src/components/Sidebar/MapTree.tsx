@@ -259,7 +259,7 @@ export default function MapTree() {
 
       {sampleMapTargetId !== null && (
         <SampleMapDialog
-          mapId={sampleMapTargetId}
+          parentId={sampleMapTargetId}
           onClose={() => setSampleMapTargetId(null)}
         />
       )}

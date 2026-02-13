@@ -3,7 +3,7 @@ import type { EventCommand } from '../../types/rpgMakerMV';
 import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
-  ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, AudioEditor,
+  ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor,
   ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor,
   ScrollingTextEditor, ConditionalBranchEditor,
 } from './commandEditors';
@@ -89,6 +89,7 @@ function getEditorContent(
     case 128: return <ChangeItemEditor p={p} onOk={onOk} onCancel={onCancel} label="Armor" showIncludeEquip />;
     case 201: return <TransferPlayerEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 202: return <SetVehicleLocationEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 203: return <SetEventLocationEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 230: return <SingleNumberEditor p={p} onOk={onOk} onCancel={onCancel} label="Wait (frames)" />;
     case 241: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgm" />;
     case 245: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgs" />;
