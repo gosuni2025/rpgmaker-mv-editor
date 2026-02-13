@@ -832,6 +832,15 @@ DepthOfField._currentMaxBlur = null;
 DepthOfField._currentBlurPower = null;
 
 DepthOfField._updateUniforms = function() {
+    // Bloom uniform 실시간 갱신 (DoF 비활성이어도 bloom은 동작)
+    if (this._bloomPass) {
+        this._bloomPass._threshold = this.bloomConfig.threshold;
+        this._bloomPass._strength = this.bloomConfig.strength;
+        this._bloomPass._radius = this.bloomConfig.radius;
+        this._bloomPass._blurHUniforms.direction.value.set(this.bloomConfig.radius, 0.0);
+        this._bloomPass._blurVUniforms.direction.value.set(0.0, this.bloomConfig.radius);
+    }
+
     if (!this._tiltShiftPass) return;
 
     // 타겟 DoF 값 결정: 활성 카메라존 → 글로벌 config
@@ -874,15 +883,6 @@ DepthOfField._updateUniforms = function() {
     this._tiltShiftPass.uniforms.blurPower.value = this._currentBlurPower;
     this._tiltShiftPass.uniforms.aspect.value =
         Graphics.height / Graphics.width;
-
-    // Bloom uniform 실시간 갱신
-    if (this._bloomPass) {
-        this._bloomPass._threshold = this.bloomConfig.threshold;
-        this._bloomPass._strength = this.bloomConfig.strength;
-        this._bloomPass._radius = this.bloomConfig.radius;
-        this._bloomPass._blurHUniforms.direction.value.set(this.bloomConfig.radius, 0.0);
-        this._bloomPass._blurVUniforms.direction.value.set(0.0, this.bloomConfig.radius);
-    }
 };
 
 //=============================================================================
@@ -897,18 +897,27 @@ _ThreeStrategy.render = function(rendererObj, stage) {
     if (!rendererObj || !stage) return;
 
     var is3D = ConfigManager.mode3d && Mode3D._spriteset;
-    var isDoF = is3D && ConfigManager.depthOfField;
 
-    if (isDoF) {
+    if (is3D) {
+        // 3D 모드에서는 항상 composer 사용 (bloom 등 후처리)
         // Composer가 없거나 stage가 바뀌면 재생성
         if (!DepthOfField._composer || DepthOfField._lastStage !== stage) {
-            // 먼저 기존 Mode3D 준비 작업을 해야 함
             var w = rendererObj._width;
             var h = rendererObj._height;
             if (!Mode3D._perspCamera) {
                 Mode3D._perspCamera = Mode3D._createPerspCamera(w, h);
             }
             DepthOfField._createComposer(rendererObj, stage);
+        }
+
+        // DoF(TiltShift)는 설정에 따라 활성/비활성
+        var isDoF = ConfigManager.depthOfField;
+        if (DepthOfField._tiltShiftPass) {
+            DepthOfField._tiltShiftPass.enabled = isDoF;
+        }
+        // DoF 비활성 시 bloom이 화면에 직접 출력, 활성 시 TiltShift가 출력
+        if (DepthOfField._bloomPass) {
+            DepthOfField._bloomPass.renderToScreen = !isDoF;
         }
 
         var scene = rendererObj.scene;
@@ -972,7 +981,7 @@ _ThreeStrategy.render = function(rendererObj, stage) {
         renderer.shadowMap.autoUpdate = prevShadowAutoUpdate;
         Mode3D._active = true;
     } else {
-        // DoF 비활성 → 기존 렌더 경로
+        // 2D 모드 → 기존 렌더 경로
         if (DepthOfField._composer) {
             DepthOfField._disposeComposer();
         }
