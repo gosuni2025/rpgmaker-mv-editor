@@ -1,62 +1,62 @@
 # RPG Maker MV Editor
 
-A web-based editor for RPG Maker MV projects, reimplemented as a modern desktop application.
+RPG Maker MV 프로젝트를 웹 기반으로 편집할 수 있는 데스크톱 에디터입니다.
 
-## Download
+## 다운로드
 
-**[Download Latest Release](https://github.com/painh/rpgmaker-mv-editor/releases/latest)**
+**[최신 버전 다운로드](https://github.com/painh/rpgmaker-mv-editor/releases/latest)**
 
-| Platform | File |
-|----------|------|
+| 플랫폼 | 파일 |
+|--------|------|
 | macOS (Apple Silicon) | `.dmg` |
 | macOS (Intel) | `.dmg` |
-| Windows | `.exe` (installer) / `.zip` |
+| Windows | `.exe` (설치 프로그램) / `.zip` |
 | Linux | `.AppImage` / `.zip` |
 
-## Prerequisites
+## 사전 요구사항
 
-- **RPG Maker MV** is required. This editor works with RPG Maker MV project files and depends on its runtime assets.
+- **RPG Maker MV**가 필요합니다. 이 에디터는 RPG Maker MV 프로젝트 파일을 편집하며, 런타임 에셋에 의존합니다.
 
-## Development
+## 개발
 
-### Requirements
+### 요구사항
 
 - Node.js 20+
 - npm
 
-### Setup
+### 설치 및 실행
 
 ```bash
-# Install dependencies
+# 의존성 설치
 npm install
 cd server && npm install
 cd ../client && npm install
 cd ..
 
-# Run in development mode (server:3001 + client:5173)
+# 개발 모드 실행 (서버:3001 + 클라이언트:5173)
 npm run dev
 ```
 
-### Build
+### 빌드
 
 ```bash
-# Build all (client + server + electron)
+# 전체 빌드 (클라이언트 + 서버 + Electron)
 npm run build
 
-# Package as desktop app
+# 데스크톱 앱 패키징
 npm run dist
 ```
 
-## Architecture
+## 아키텍처
 
-- **Client**: React 18 + TypeScript + Vite + Zustand
-- **Server**: Express + TypeScript
-- **Desktop**: Electron (bundles client + server into a single app)
+- **클라이언트**: React 18 + TypeScript + Vite + Zustand
+- **서버**: Express + TypeScript
+- **데스크톱**: Electron (클라이언트 + 서버를 하나의 앱으로 번들링)
 
-### AI Integration
+### AI 연동
 
-The editor watches the project `data/` directory for external file changes via WebSocket. When an AI tool (or any external process) modifies project JSON files, the editor automatically reloads the affected data in real-time.
+에디터는 프로젝트 `data/` 디렉터리의 외부 파일 변경을 WebSocket으로 감시합니다. AI 도구(또는 외부 프로세스)가 프로젝트 JSON 파일을 수정하면, 에디터가 변경된 데이터를 자동으로 실시간 리로드합니다.
 
-## License
+## 라이선스
 
 [MIT](LICENSE)
