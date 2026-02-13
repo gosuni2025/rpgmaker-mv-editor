@@ -1268,8 +1268,10 @@ ShadowLight._addLightsToScene = function(scene) {
     // sunLights가 있으면 모든 항목(i=0부터)을 디렉셔널 라이트로 생성하고,
     // sunLights[0]은 기존 _directionalLight를 덮어쓴다.
     this._sunLights = [];
+    this._sunLightsData = null; // 원본 UV 데이터 보관 (매 프레임 회전 적용용)
     var skyBg = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.skyBackground : null;
     if (skyBg && skyBg.sunLights && skyBg.sunLights.length > 0) {
+        this._sunLightsData = skyBg.sunLights;
         for (var si = 0; si < skyBg.sunLights.length; si++) {
             var sl = skyBg.sunLights[si];
             var sunDir = sunUVToDirection(sl.position[0], sl.position[1]);
@@ -1454,6 +1456,80 @@ ShadowLight._updateCameraZoneAmbient = function() {
     // 적용
     this._ambientLight.intensity = this._currentAmbientIntensity;
     this._ambientLight.color.setRGB(this._currentAmbientR, this._currentAmbientG, this._currentAmbientB);
+};
+
+//=============================================================================
+// 매 프레임 sunLights 방향 업데이트 (스카이 스피어 회전 반영)
+// SkyBox.js 플러그인이 _skyMesh.rotation.y를 매 프레임 누적시키므로,
+// sunLights의 UV 좌표에 해당 회전을 적용하여 디렉셔널 라이트 방향을 갱신한다.
+//=============================================================================
+ShadowLight._updateSunLightDirections = function() {
+    if (!this._sunLightsData || !this._directionalLight) return;
+
+    // _isParallaxSky 메시에서 현재 Y축 회전값 읽기
+    var scene = this._findScene();
+    if (!scene) return;
+    var skyRotY = 0;
+    for (var i = 0; i < scene.children.length; i++) {
+        if (scene.children[i]._isParallaxSky) {
+            skyRotY = scene.children[i].rotation.y;
+            break;
+        }
+    }
+
+    // 회전값을 UV의 U 오프셋으로 변환
+    // SkyBox.js: rotation.y는 라디안, UV의 U는 0~1 (= 0~2π)
+    // rotation.y 증가 = 하늘이 시계방향 회전 = 태양 U가 감소
+    var uOffset = -skyRotY / (2 * Math.PI);
+
+    for (var si = 0; si < this._sunLightsData.length; si++) {
+        var sl = this._sunLightsData[si];
+        var rotatedU = sl.position[0] + uOffset;
+        // U를 0~1 범위로 wrap
+        rotatedU = rotatedU - Math.floor(rotatedU);
+        var dir = sunUVToDirection(rotatedU, sl.position[1]);
+
+        if (si === 0) {
+            this._directionalLight.position.set(-dir.x * 1000, -dir.y * 1000, -dir.z * 1000);
+        } else if (this._sunLights[si - 1]) {
+            this._sunLights[si - 1].position.set(-dir.x * 1000, -dir.y * 1000, -dir.z * 1000);
+        }
+    }
+
+    // 디버그 화살표도 업데이트
+    if (this._debugLightArrows && this._debugLightArrows.length > 0) {
+        var vw2 = (typeof Graphics !== 'undefined' ? Graphics._width : 816) / 2;
+        var vh2 = (typeof Graphics !== 'undefined' ? Graphics._height : 624) / 2;
+        var target3 = new THREE.Vector3(vw2, vh2, 0);
+        var arrowLen = 400;
+        var arrowIdx = 0;
+
+        // 메인 디렉셔널
+        if (this._directionalLight && this._directionalLight.visible && arrowIdx < this._debugLightArrows.length) {
+            var lPos = this._directionalLight.position;
+            var lDir = new THREE.Vector3().subVectors(target3, lPos).normalize();
+            var arrowStart = new THREE.Vector3().copy(target3).addScaledVector(lDir, -arrowLen);
+            var grp = this._debugLightArrows[arrowIdx];
+            var quat = new THREE.Quaternion();
+            quat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), lDir);
+            grp.quaternion.copy(quat);
+            grp.position.copy(arrowStart);
+            arrowIdx++;
+        }
+
+        // 추가 sunLights
+        for (var ai = 0; ai < this._sunLights.length && arrowIdx < this._debugLightArrows.length; ai++) {
+            var sPos = this._sunLights[ai].position;
+            var sDir = new THREE.Vector3().subVectors(target3, sPos).normalize();
+            var sStart = new THREE.Vector3().copy(target3).addScaledVector(sDir, -arrowLen);
+            var sGrp = this._debugLightArrows[arrowIdx];
+            var sQuat = new THREE.Quaternion();
+            sQuat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), sDir);
+            sGrp.quaternion.copy(sQuat);
+            sGrp.position.copy(sStart);
+            arrowIdx++;
+        }
+    }
 };
 
 ShadowLight._removeLightsFromScene = function(scene) {
@@ -1740,6 +1816,9 @@ Spriteset_Map.prototype._updateShadowLight = function() {
 
     // 카메라 존 환경광 lerp 보간
     ShadowLight._updateCameraZoneAmbient();
+
+    // sunLights 방향을 스카이 스피어 회전에 동기화
+    ShadowLight._updateSunLightDirections();
 };
 
 Spriteset_Map.prototype._activateShadowLight = function() {
