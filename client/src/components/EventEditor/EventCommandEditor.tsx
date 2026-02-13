@@ -779,6 +779,27 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       return text;
     }
 
+    // 말풍선 아이콘 표시 전용 포맷
+    if (code === 213 && cmd.parameters && cmd.parameters.length >= 2) {
+      const charIdParam = cmd.parameters[0] as number;
+      const balloonId = cmd.parameters[1] as number;
+      const wait = cmd.parameters[2] as boolean;
+      const balloonNames: Record<number, string> = {
+        1: '느낌표', 2: '물음표', 3: '음표', 4: '하트', 5: '분노',
+        6: '땀', 7: '뒤죽박죽', 8: '침묵', 9: '전구', 10: 'Zzz',
+        11: '사용자 정의 1', 12: '사용자 정의 2', 13: '사용자 정의 3', 14: '사용자 정의 4', 15: '사용자 정의 5',
+      };
+      let charName = '해당 이벤트';
+      if (charIdParam === -1) charName = '플레이어';
+      else if (charIdParam > 0) {
+        const ev = currentMap?.events?.find((e: any) => e && e.id === charIdParam);
+        charName = ev ? `EV${String(charIdParam).padStart(3, '0')}` : `EV${String(charIdParam).padStart(3, '0')}`;
+      }
+      text += `: ${charName}, ${balloonNames[balloonId] || `말풍선 ${balloonId}`}`;
+      if (wait) text += ' (대기)';
+      return text;
+    }
+
     // 스위치 조작 전용 포맷
     if (code === 121 && cmd.parameters && cmd.parameters.length >= 3) {
       const startId = cmd.parameters[0] as number;
@@ -795,6 +816,12 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
     // 투명 상태 변경 전용 포맷
     if (code === 211 && cmd.parameters && cmd.parameters.length >= 1) {
+      text += `: ${cmd.parameters[0] === 0 ? 'ON' : 'OFF'}`;
+      return text;
+    }
+
+    // 저장/메뉴/조우/진형 금지 변경 포맷
+    if ((code >= 134 && code <= 137) && cmd.parameters && cmd.parameters.length >= 1) {
       text += `: ${cmd.parameters[0] === 0 ? 'ON' : 'OFF'}`;
       return text;
     }
