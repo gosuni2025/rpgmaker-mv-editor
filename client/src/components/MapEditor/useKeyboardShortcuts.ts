@@ -96,6 +96,8 @@ export function useKeyboardShortcuts(
     const el = containerRef.current;
     if (!el) return;
     const handleWheel = (e: WheelEvent) => {
+      // 모달 다이얼로그 위에서의 wheel 이벤트는 무시 (줌 방지)
+      if ((e.target as HTMLElement).closest?.('.db-dialog-overlay')) return;
       e.preventDefault();
       if (e.deltaY < 0) zoomIn();
       else if (e.deltaY > 0) zoomOut();
