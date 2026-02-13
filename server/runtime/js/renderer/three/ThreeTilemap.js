@@ -468,7 +468,7 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
 };
 
 /**
- * 물 타일 메시 빌드 (wave + foam 셰이더 적용)
+ * 물 타일 메시 빌드 (wave UV 왜곡 셰이더 적용)
  */
 ThreeTilemapRectLayer.prototype._buildWaterMesh = function(setNumber, data, animOffsets,
         texture, texW, texH, tileAnimX, tileAnimY) {
@@ -485,16 +485,13 @@ ThreeTilemapRectLayer.prototype._buildWaterMesh = function(setNumber, data, anim
         }
     }
 
-    // foam mask 계산을 위한 맵 데이터
-    var foamData = this._computeFoamMasks(data, animOffsets);
-
     if (waterIndices.length > 0) {
         this._buildWaterTypeMesh(setNumber + '_water', waterIndices, data, animOffsets,
-                                  texture, texW, texH, tileAnimX, tileAnimY, foamData, false);
+                                  texture, texW, texH, tileAnimX, tileAnimY, false);
     }
     if (waterfallIndices.length > 0) {
         this._buildWaterTypeMesh(setNumber + '_waterfall', waterfallIndices, data, animOffsets,
-                                  texture, texW, texH, tileAnimX, tileAnimY, foamData, true);
+                                  texture, texW, texH, tileAnimX, tileAnimY, true);
     }
 };
 
@@ -502,46 +499,25 @@ ThreeTilemapRectLayer.prototype._buildWaterMesh = function(setNumber, data, anim
  * 물/폭포 타일 메시 빌드 (공통)
  */
 ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices, data, animOffsets,
-        texture, texW, texH, tileAnimX, tileAnimY, foamData, isWaterfall) {
+        texture, texW, texH, tileAnimX, tileAnimY, isWaterfall) {
     var count = indices.length;
     var vertCount = count * 6;
     var posArray = new Float32Array(vertCount * 3);
     var normalArray = new Float32Array(vertCount * 3);
     var uvArray = new Float32Array(vertCount * 2);
-    var foamMaskArray = new Float32Array(vertCount);
 
-    var tileW = 48;
     for (var ni = 0; ni < count; ni++) {
         var i = indices[ni];
         var srcOff = i * 12;
         var posOff = ni * 18;
         var uvOff = ni * 12;
-        var foamOff = ni * 6;
 
         var ax = (animOffsets[i * 2] || 0) * tileAnimX;
         var ay = (animOffsets[i * 2 + 1] || 0) * tileAnimY;
-        var fInfo = foamData[i] || { foam: 0 };
-
-        // rect의 바운딩 박스 계산 (꼭짓점에서 min/max)
-        var rectMinX = Infinity, rectMinY = Infinity;
-        var rectMaxX = -Infinity, rectMaxY = -Infinity;
-        for (var j = 0; j < 6; j++) {
-            var vx = data.positions[srcOff + j * 2];
-            var vy = data.positions[srcOff + j * 2 + 1];
-            if (vx < rectMinX) rectMinX = vx;
-            if (vx > rectMaxX) rectMaxX = vx;
-            if (vy < rectMinY) rectMinY = vy;
-            if (vy > rectMaxY) rectMaxY = vy;
-        }
-        // 타일 좌상단 기준 (48x48 타일)
-        var tilePx = Math.floor(rectMinX / tileW) * tileW;
-        var tilePy = Math.floor(rectMinY / tileW) * tileW;
 
         for (var j = 0; j < 6; j++) {
-            var vx = data.positions[srcOff + j * 2];
-            var vy = data.positions[srcOff + j * 2 + 1];
-            posArray[posOff + j * 3]     = vx;
-            posArray[posOff + j * 3 + 1] = vy;
+            posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
+            posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
             posArray[posOff + j * 3 + 2] = 0;
 
             normalArray[posOff + j * 3]     = 0;
@@ -550,28 +526,6 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
 
             uvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
             uvArray[uvOff + j * 2 + 1] = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
-
-            // per-vertex foam mask 계산 (거리 기반 연속 그래디언트)
-            // 타일 내 위치 비율(0~1)과 해안 방향 거리를 조합
-            var vertFoam = 0;
-            if (fInfo.foam) {
-                // 꼭짓점의 타일 내 상대 위치 (0.0 = 좌/상 경계, 1.0 = 우/하 경계)
-                var relX = (vx - tilePx) / tileW;  // 0~1
-                var relY = (vy - tilePy) / tileW;  // 0~1
-                relX = Math.max(0, Math.min(1, relX));
-                relY = Math.max(0, Math.min(1, relY));
-
-                // 각 방향: 해안에 가까운 쪽 vertex일수록 높은 값
-                // distLeft > 0이면 왼쪽에 해안 → relX가 작을수록 해안에 가까움
-                var foamL = fInfo.distLeft * (1.0 - relX);
-                var foamR = fInfo.distRight * relX;
-                var foamT = fInfo.distTop * (1.0 - relY);
-                var foamB = fInfo.distBottom * relY;
-
-                // 4방향 중 최대값 사용
-                vertFoam = Math.max(foamL, foamR, foamT, foamB);
-            }
-            foamMaskArray[foamOff + j] = vertFoam;
         }
     }
 
@@ -602,13 +556,6 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
         } else {
             geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
         }
-        var foamAttr = geometry.attributes.aFoamMask;
-        if (foamAttr && foamAttr.array.length === foamMaskArray.length) {
-            foamAttr.array.set(foamMaskArray);
-            foamAttr.needsUpdate = true;
-        } else {
-            geometry.setAttribute('aFoamMask', new THREE.BufferAttribute(foamMaskArray, 1));
-        }
 
         // material 타입 전환 (ShadowLight 상태에 따라)
         var isPhong = mesh.material.isMeshPhongMaterial;
@@ -619,7 +566,7 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
                 map: texture, transparent: true, depthTest: true, depthWrite: false,
                 side: THREE.DoubleSide,
                 emissive: new THREE.Color(0x000000),
-                specular: new THREE.Color(0xffffff), shininess: 64,
+                specular: new THREE.Color(0x000000), shininess: 0,
             });
             ThreeWaterShader.applyToPhongMaterial(mat, isWaterfall);
             mesh.material = mat;
@@ -636,7 +583,6 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
         geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
         geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
         geometry.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
-        geometry.setAttribute('aFoamMask', new THREE.BufferAttribute(foamMaskArray, 1));
 
         var material;
         texture.minFilter = THREE.NearestFilter;
@@ -649,7 +595,7 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
                 map: texture, transparent: true, depthTest: true, depthWrite: false,
                 side: THREE.DoubleSide,
                 emissive: new THREE.Color(0x000000),
-                specular: new THREE.Color(0xffffff), shininess: 64,
+                specular: new THREE.Color(0x000000), shininess: 0,
             });
             ThreeWaterShader.applyToPhongMaterial(material, isWaterfall);
         } else {
@@ -687,67 +633,6 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
     mesh.userData.isWaterMesh = true;
     mesh.userData.isWaterfall = isWaterfall;
     ThreeWaterShader._hasWaterMesh = true;
-};
-
-/**
- * foam mask 계산: 각 물 rect에 대해 4방향 해안까지 거리 기반 그래디언트 반환
- * distLeft/distRight/distTop/distBottom: 0 = 해안 없음, 1.0 = 바로 옆
- */
-ThreeTilemapRectLayer.prototype._computeFoamMasks = function(data, animOffsets) {
-    var foamData = {};
-    var tileW = 48;
-    var SEARCH_DIST = 3; // 해안으로부터 감쇠 적용할 타일 거리
-
-    var tilemap = null;
-    if (this.parent && this.parent.parent && this.parent.parent.parent) {
-        tilemap = this.parent.parent.parent;
-    }
-
-    function isNonWater(tile) {
-        return tile === 0 || !Tilemap.isTileA1(tile) || !Tilemap.isWaterTile(tile);
-    }
-
-    // 방향별로 비물 타일까지의 거리 (1 = 바로 옆, 0 = 범위 내 없음)
-    function distToShore(tm, tx, ty, dx, dy) {
-        for (var d = 1; d <= SEARCH_DIST; d++) {
-            var tile = tm._readMapData(tx + dx * d, ty + dy * d, 0);
-            if (isNonWater(tile)) return d;
-        }
-        return 0;
-    }
-
-    for (var i = 0; i < data.count; i++) {
-        var aX = animOffsets[i * 2] || 0;
-        var aY = animOffsets[i * 2 + 1] || 0;
-        if (!ThreeWaterShader.isWaterRect(aX, aY)) continue;
-
-        var px = data.positions[i * 12];
-        var py = data.positions[i * 12 + 1];
-        var tileX = Math.floor(px / tileW);
-        var tileY = Math.floor(py / tileW);
-
-        var info = { foam: 0, distLeft: 0, distRight: 0, distTop: 0, distBottom: 0 };
-        if (tilemap && tilemap._readMapData) {
-            var dL = distToShore(tilemap, tileX, tileY, -1, 0);
-            var dR = distToShore(tilemap, tileX, tileY, 1, 0);
-            var dT = distToShore(tilemap, tileX, tileY, 0, -1);
-            var dB = distToShore(tilemap, tileX, tileY, 0, 1);
-
-            // 거리를 0~1로 변환 (1.0 = 바로 옆, 점점 감소, 0 = 해안 없음)
-            if (dL > 0) info.distLeft = 1.0 - (dL - 1) / SEARCH_DIST;
-            if (dR > 0) info.distRight = 1.0 - (dR - 1) / SEARCH_DIST;
-            if (dT > 0) info.distTop = 1.0 - (dT - 1) / SEARCH_DIST;
-            if (dB > 0) info.distBottom = 1.0 - (dB - 1) / SEARCH_DIST;
-
-            if (info.distLeft > 0 || info.distRight > 0 || info.distTop > 0 || info.distBottom > 0) {
-                info.foam = 1;
-            }
-        }
-
-        foamData[i] = info;
-    }
-
-    return foamData;
 };
 
 /**
