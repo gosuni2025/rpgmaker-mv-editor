@@ -531,12 +531,25 @@ PictureShader.createMaterial = function(type, params, texture) {
     var _Game_Interpreter_command231 = Game_Interpreter.prototype.command231;
     Game_Interpreter.prototype.command231 = function() {
         var x, y;
-        if (this._params[3] === 0) {
+        if (this._params[3] === 0) {          // 직접 지정
             x = this._params[4];
             y = this._params[5];
-        } else {
+        } else if (this._params[3] === 1) {   // 변수로 지정
             x = $gameVariables.value(this._params[4]);
             y = $gameVariables.value(this._params[5]);
+        } else if (this._params[3] === 2) {   // 프리셋 지정
+            var preset = this._params[11] || {};
+            var sw = Graphics.boxWidth || 816;
+            var sh = Graphics.boxHeight || 624;
+            var px = (preset.presetX !== undefined) ? preset.presetX : 3;
+            var py = (preset.presetY !== undefined) ? preset.presetY : 3;
+            var ox = (preset.offsetX !== undefined) ? preset.offsetX : 0;
+            var oy = (preset.offsetY !== undefined) ? preset.offsetY : 0;
+            x = Math.round(sw * px / 5) + ox;
+            y = Math.round(sh * py / 5) + oy;
+        } else {
+            x = this._params[4];
+            y = this._params[5];
         }
         // parameters[10]에 셰이더 데이터가 있으면 전달
         var shaderData = this._params[10] || null;
