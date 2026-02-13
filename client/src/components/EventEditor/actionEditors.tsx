@@ -1887,12 +1887,10 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
               onChange={e => setPictureNumber(Math.max(1, Math.min(100, Number(e.target.value))))}
               style={{ ...selectStyle, width: 60, marginLeft: 4 }} />
           </label>
-          <label style={{ ...labelStyle, flex: 1 }}>
-            이미지:
-            <div style={{ display: 'inline-block', marginLeft: 4 }}>
-              <ImagePicker type="pictures" value={imageName} onChange={setImageName} />
-            </div>
-          </label>
+          <div style={{ ...labelStyle, flex: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>이미지:</span>
+            <ImagePicker type="pictures" value={imageName} onChange={setImageName} />
+          </div>
         </div>
       </fieldset>
 
