@@ -2187,6 +2187,30 @@ const SHADER_DEFINITIONS: ShaderDef[] = [
     { key: 'tintG', label: '틴트 G', min: 0, max: 1, step: 0.01, defaultValue: 0.8 },
     { key: 'tintB', label: '틴트 B', min: 0, max: 1, step: 0.01, defaultValue: 1 },
   ]},
+  { type: 'outline', label: '외곽선', params: [
+    { key: 'thickness', label: '두께', min: 1, max: 10, step: 1, defaultValue: 3 },
+    { key: 'colorR', label: '색상 R', min: 0, max: 1, step: 0.01, defaultValue: 1 },
+    { key: 'colorG', label: '색상 G', min: 0, max: 1, step: 0.01, defaultValue: 0.9 },
+    { key: 'colorB', label: '색상 B', min: 0, max: 1, step: 0.01, defaultValue: 0.2 },
+    { key: 'intensity', label: '강도', min: 0, max: 3, step: 0.1, defaultValue: 1.5 },
+    { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 2 },
+    { key: 'pulseMin', label: '펄스 최소', min: 0, max: 3, step: 0.1, defaultValue: 0.8 },
+    { key: 'pulseMax', label: '펄스 최대', min: 0, max: 3, step: 0.1, defaultValue: 2.0 },
+  ]},
+  { type: 'fireAura', label: '불꽃 오라', params: [
+    { key: 'radius', label: '반경', min: 1, max: 20, step: 1, defaultValue: 12 },
+    { key: 'intensity', label: '강도', min: 0, max: 3, step: 0.1, defaultValue: 1.2 },
+    { key: 'speed', label: '속도', min: 0.1, max: 5, step: 0.1, defaultValue: 1.5 },
+    { key: 'noiseScale', label: '노이즈 크기', min: 1, max: 30, step: 1, defaultValue: 8 },
+    { key: 'innerColorR', label: '안쪽 색 R', min: 0, max: 1, step: 0.01, defaultValue: 1 },
+    { key: 'innerColorG', label: '안쪽 색 G', min: 0, max: 1, step: 0.01, defaultValue: 0.9 },
+    { key: 'innerColorB', label: '안쪽 색 B', min: 0, max: 1, step: 0.01, defaultValue: 0.3 },
+    { key: 'outerColorR', label: '바깥 색 R', min: 0, max: 1, step: 0.01, defaultValue: 1 },
+    { key: 'outerColorG', label: '바깥 색 G', min: 0, max: 1, step: 0.01, defaultValue: 0.3 },
+    { key: 'outerColorB', label: '바깥 색 B', min: 0, max: 1, step: 0.01, defaultValue: 0 },
+    { key: 'turbulence', label: '난류', min: 0, max: 5, step: 0.1, defaultValue: 1.5 },
+    { key: 'flameHeight', label: '불꽃 높이', min: 0, max: 3, step: 0.1, defaultValue: 1.0 },
+  ]},
 ];
 
 // ─── 그림 표시 (Show Picture, code 231) ───

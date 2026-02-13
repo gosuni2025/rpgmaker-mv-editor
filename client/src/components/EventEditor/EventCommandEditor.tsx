@@ -866,7 +866,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       const shaderLabels: Record<string, string> = {
         wave: '물결', glitch: '글리치', dissolve: '디졸브', glow: '발광',
         chromatic: '색수차', pixelate: '픽셀화', shake: '흔들림', blur: '흐림',
-        rainbow: '무지개', hologram: '홀로그램',
+        rainbow: '무지개', hologram: '홀로그램', outline: '외곽선', fireAura: '불꽃 오라',
       };
       const shaderRaw = cmd.parameters[10];
       if (shaderRaw) {
