@@ -86,6 +86,11 @@ const en = {
     ui: 'UI',
     theme: 'Theme:',
     dark: 'Dark',
+    steamPath: 'RPG Maker MV Install Path (Steam)',
+    steamPathPlaceholder: 'Leave empty for auto-detection',
+    steamPathDetected: 'Auto-detected',
+    steamPathClear: 'Reset (auto-detect)',
+    steamPathHelp: 'Path to RPG Maker MV Steam installation. Leave empty for auto-detection. Used for Character Generator, etc.',
   },
 
   toolbar: {

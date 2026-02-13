@@ -2,38 +2,25 @@ import express, { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import projectManager from '../services/projectManager';
+import settingsManager from '../services/settingsManager';
 
 const router = express.Router();
 
-// 기본 Steam 설치 경로 후보들
-const STEAM_GENERATOR_PATHS = [
-  path.join(process.env.HOME || '', 'Library/Application Support/Steam/steamapps/common/RPG Maker MV/RPG Maker MV.app/Contents/MacOS/Generator'),
-  path.join(process.env.HOME || '', 'Library/Application Support/Steam/steamapps/common/RPG Maker MV/Generator'),
-  path.join(process.env.HOME || '', '.steam/steam/steamapps/common/RPG Maker MV/Generator'),
-  'C:\\Program Files (x86)\\Steam\\steamapps\\common\\RPG Maker MV\\Generator',
-  'C:\\Program Files\\Steam\\steamapps\\common\\RPG Maker MV\\Generator',
-];
-
-// 사용자 지정 경로 (런타임에 설정 가능)
+// 사용자 지정 경로 (런타임에 설정 가능, 세션 단위)
 let customGeneratorPath: string | null = null;
 
 const VALID_GENDERS = ['Male', 'Female', 'Kid'];
 const VALID_OUTPUT_TYPES = ['Face', 'TV', 'SV', 'TVD'];
 
 function findSteamGeneratorPath(): string | null {
-  for (const p of STEAM_GENERATOR_PATHS) {
-    if (fs.existsSync(p) && fs.existsSync(path.join(p, 'gradients.png'))) {
-      return p;
-    }
-  }
-  return null;
+  return settingsManager.getGeneratorPath();
 }
 
 function isValidGeneratorPath(p: string): boolean {
   return fs.existsSync(p) && fs.existsSync(path.join(p, 'gradients.png'));
 }
 
-// Generator 경로 결정: 1) 프로젝트 내 generator/ 2) 사용자 지정 3) Steam 자동 탐색
+// Generator 경로 결정: 1) 프로젝트 내 generator/ 2) 사용자 지정 3) settings 기반 Steam 탐색
 function getGeneratorPath(): string | null {
   if (projectManager.isOpen()) {
     const projectGen = path.join(projectManager.currentPath!, 'generator');

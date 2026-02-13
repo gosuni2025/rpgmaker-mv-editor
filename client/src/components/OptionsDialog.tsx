@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import useEditorStore from '../store/useEditorStore';
+import apiClient from '../api/client';
+
+interface SettingsResponse {
+  steamPath: string;
+  detectedSteamPath: string | null;
+}
 
 export default function OptionsDialog() {
   const { t } = useTranslation();
@@ -14,14 +20,31 @@ export default function OptionsDialog() {
   const [localColor, setLocalColor] = useState(transparentColor);
   const [localLang, setLocalLang] = useState(i18n.language);
   const [localMaxUndo, setLocalMaxUndo] = useState(maxUndo);
+  const [localSteamPath, setLocalSteamPath] = useState('');
+  const [detectedSteamPath, setDetectedSteamPath] = useState<string | null>(null);
 
-  const handleOK = () => {
+  useEffect(() => {
+    apiClient.get<SettingsResponse>('/settings').then((data) => {
+      setLocalSteamPath(data.steamPath || '');
+      setDetectedSteamPath(data.detectedSteamPath);
+    }).catch(() => {});
+  }, []);
+
+  const applySettings = async () => {
     setTransparentColor(localColor);
     setMaxUndo(localMaxUndo);
     if (localLang !== i18n.language) {
       i18n.changeLanguage(localLang);
       localStorage.setItem('editor-lang', localLang);
     }
+    try {
+      const result = await apiClient.put<SettingsResponse>('/settings', { steamPath: localSteamPath });
+      setDetectedSteamPath(result.detectedSteamPath);
+    } catch {}
+  };
+
+  const handleOK = async () => {
+    await applySettings();
     setShowOptionsDialog(false);
   };
 
@@ -30,12 +53,7 @@ export default function OptionsDialog() {
   };
 
   const handleApply = () => {
-    setTransparentColor(localColor);
-    setMaxUndo(localMaxUndo);
-    if (localLang !== i18n.language) {
-      i18n.changeLanguage(localLang);
-      localStorage.setItem('editor-lang', localLang);
-    }
+    applySettings();
   };
 
   const checkerPreview = (color: { r: number; g: number; b: number }) => {
@@ -60,9 +78,42 @@ export default function OptionsDialog() {
 
   return (
     <div className="db-dialog-overlay">
-      <div className="db-dialog" style={{ width: 480, height: 'auto' }}>
+      <div className="db-dialog" style={{ width: 520, height: 'auto' }}>
         <div className="db-dialog-header">{t('options.title')}</div>
         <div className="db-dialog-body" style={{ flexDirection: 'column', overflowY: 'auto', padding: 16, gap: 16 }}>
+          {/* RPG Maker MV Steam Path */}
+          <div className="db-form-section">{t('options.steamPath')}</div>
+          <div className="db-form" style={{ gap: 8 }}>
+            <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <input
+                type="text"
+                value={localSteamPath}
+                onChange={(e) => setLocalSteamPath(e.target.value)}
+                placeholder={detectedSteamPath || t('options.steamPathPlaceholder')}
+                style={{ flex: 1 }}
+              />
+            </label>
+            {detectedSteamPath && !localSteamPath && (
+              <div style={{ color: '#8c8', fontSize: 12 }}>
+                {t('options.steamPathDetected')}: {detectedSteamPath}
+              </div>
+            )}
+            {localSteamPath && (
+              <div style={{ fontSize: 12 }}>
+                <button
+                  className="db-btn"
+                  style={{ padding: '2px 8px', fontSize: 11 }}
+                  onClick={() => setLocalSteamPath('')}
+                >
+                  {t('options.steamPathClear')}
+                </button>
+              </div>
+            )}
+            <div style={{ color: '#999', fontSize: 11 }}>
+              {t('options.steamPathHelp')}
+            </div>
+          </div>
+
           {/* Transparent Color */}
           <div className="db-form-section">{t('options.transparentColor')}</div>
           <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>

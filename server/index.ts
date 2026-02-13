@@ -16,6 +16,7 @@ import pluginsRoutes from './routes/plugins';
 import eventsRoutes from './routes/events';
 import generatorRoutes from './routes/generator';
 import localizationRoutes from './routes/localization';
+import settingsRoutes from './routes/settings';
 
 export interface AppOptions {
   runtimePath?: string;
@@ -301,6 +302,7 @@ export function createApp(options: AppOptions = {}) {
   app.use('/api/events', eventsRoutes);
   app.use('/api/generator', generatorRoutes);
   app.use('/api/localization', localizationRoutes);
+  app.use('/api/settings', settingsRoutes);
 
   // Electron 패키징 시 클라이언트 정적 파일 서빙
   if (options.clientDistPath) {

@@ -89,6 +89,11 @@ const ko = {
     ui: 'UI',
     theme: '테마:',
     dark: '다크',
+    steamPath: 'RPG Maker MV 설치 경로 (Steam)',
+    steamPathPlaceholder: '비워두면 자동 탐색',
+    steamPathDetected: '자동 감지됨',
+    steamPathClear: '초기화 (자동 탐색)',
+    steamPathHelp: 'RPG Maker MV가 설치된 Steam 경로를 지정합니다. 비워두면 자동으로 탐색합니다. 캐릭터 생성 등에서 사용됩니다.',
   },
 
   // === Toolbar ===
