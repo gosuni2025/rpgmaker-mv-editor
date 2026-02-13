@@ -88,6 +88,7 @@ PictureShader._FRAGMENT_GLITCH = [
 ].join('\n');
 
 // 3. Dissolve (디졸브)
+// animMode: 0=왕복(oscillate), 1=원웨이(one-way, min→max 후 정지)
 PictureShader._FRAGMENT_DISSOLVE = [
     'uniform sampler2D map;',
     'uniform float opacity;',
@@ -97,6 +98,7 @@ PictureShader._FRAGMENT_DISSOLVE = [
     'uniform vec3 uEdgeColor;',
     'uniform float uNoiseScale;',
     'uniform float uAnimSpeed;',
+    'uniform float uAnimMode;',
     'uniform float uThresholdMin;',
     'uniform float uThresholdMax;',
     'varying vec2 vUv;',
@@ -121,7 +123,12 @@ PictureShader._FRAGMENT_DISSOLVE = [
     '    float n = noise(vUv * uNoiseScale);',
     '    float thresh = uThreshold;',
     '    if (uAnimSpeed > 0.0) {',
-    '        float t = 0.5 + 0.5 * sin(uTime * uAnimSpeed);',
+    '        float t;',
+    '        if (uAnimMode < 0.5) {',
+    '            t = 0.5 + 0.5 * sin(uTime * uAnimSpeed);',
+    '        } else {',
+    '            t = clamp(uTime * uAnimSpeed * 0.5, 0.0, 1.0);',
+    '        }',
     '        thresh = mix(uThresholdMin, uThresholdMax, t);',
     '    }',
     '    float edge = smoothstep(thresh - uEdgeWidth, thresh, n);',
@@ -133,6 +140,7 @@ PictureShader._FRAGMENT_DISSOLVE = [
 ].join('\n');
 
 // 4. Glow (발광)
+// animMode: 0=왕복(oscillate), 1=원웨이(one-way, 0→max 후 정지)
 PictureShader._FRAGMENT_GLOW = [
     'uniform sampler2D map;',
     'uniform float opacity;',
@@ -141,12 +149,17 @@ PictureShader._FRAGMENT_GLOW = [
     'uniform float uRadius;',
     'uniform vec3 uColor;',
     'uniform float uPulseSpeed;',
+    'uniform float uAnimMode;',
     'varying vec2 vUv;',
     'void main() {',
     '    vec4 color = texture2D(map, vUv);',
     '    float pulse = 1.0;',
     '    if (uPulseSpeed > 0.0) {',
-    '        pulse = 0.5 + 0.5 * sin(uTime * uPulseSpeed);',
+    '        if (uAnimMode < 0.5) {',
+    '            pulse = 0.5 + 0.5 * sin(uTime * uPulseSpeed);',
+    '        } else {',
+    '            pulse = clamp(uTime * uPulseSpeed * 0.5, 0.0, 1.0);',
+    '        }',
     '    }',
     '    float r = uRadius / 1000.0;',
     '    vec4 glow = vec4(0.0);',
@@ -167,6 +180,7 @@ PictureShader._FRAGMENT_GLOW = [
 ].join('\n');
 
 // 5. Chromatic Aberration (색수차)
+// animMode: 0=왕복(oscillate), 1=원웨이(one-way, 0→max 후 정지)
 PictureShader._FRAGMENT_CHROMATIC = [
     'uniform sampler2D map;',
     'uniform float opacity;',
@@ -174,11 +188,16 @@ PictureShader._FRAGMENT_CHROMATIC = [
     'uniform float uOffset;',
     'uniform float uAngle;',
     'uniform float uPulseSpeed;',
+    'uniform float uAnimMode;',
     'varying vec2 vUv;',
     'void main() {',
     '    float pulse = 1.0;',
     '    if (uPulseSpeed > 0.0) {',
-    '        pulse = 0.5 + 0.5 * sin(uTime * uPulseSpeed);',
+    '        if (uAnimMode < 0.5) {',
+    '            pulse = 0.5 + 0.5 * sin(uTime * uPulseSpeed);',
+    '        } else {',
+    '            pulse = clamp(uTime * uPulseSpeed * 0.5, 0.0, 1.0);',
+    '        }',
     '    }',
     '    float off = uOffset / 1000.0 * pulse;',
     '    float a = uAngle * 3.14159265 / 180.0;',
@@ -194,19 +213,26 @@ PictureShader._FRAGMENT_CHROMATIC = [
 ].join('\n');
 
 // 6. Pixelate (픽셀화)
+// animMode: 0=왕복(oscillate), 1=원웨이(one-way, min→max 후 정지)
 PictureShader._FRAGMENT_PIXELATE = [
     'uniform sampler2D map;',
     'uniform float opacity;',
     'uniform float uTime;',
     'uniform float uSize;',
     'uniform float uPulseSpeed;',
+    'uniform float uAnimMode;',
     'uniform float uMinSize;',
     'uniform float uMaxSize;',
     'varying vec2 vUv;',
     'void main() {',
     '    float size = uSize;',
     '    if (uPulseSpeed > 0.0) {',
-    '        float t = 0.5 + 0.5 * sin(uTime * uPulseSpeed);',
+    '        float t;',
+    '        if (uAnimMode < 0.5) {',
+    '            t = 0.5 + 0.5 * sin(uTime * uPulseSpeed);',
+    '        } else {',
+    '            t = clamp(uTime * uPulseSpeed * 0.5, 0.0, 1.0);',
+    '        }',
     '        size = mix(uMinSize, uMaxSize, t);',
     '    }',
     '    vec2 texSize = vec2(textureSize(map, 0));',
@@ -231,19 +257,26 @@ PictureShader._FRAGMENT_SHAKE = [
 ].join('\n');
 
 // 8. Blur (흐림)
+// animMode: 0=왕복(oscillate), 1=원웨이(one-way, min→max 후 정지)
 PictureShader._FRAGMENT_BLUR = [
     'uniform sampler2D map;',
     'uniform float opacity;',
     'uniform float uTime;',
     'uniform float uStrength;',
     'uniform float uPulseSpeed;',
+    'uniform float uAnimMode;',
     'uniform float uMinStrength;',
     'uniform float uMaxStrength;',
     'varying vec2 vUv;',
     'void main() {',
     '    float strength = uStrength;',
     '    if (uPulseSpeed > 0.0) {',
-    '        float t = 0.5 + 0.5 * sin(uTime * uPulseSpeed);',
+    '        float t;',
+    '        if (uAnimMode < 0.5) {',
+    '            t = 0.5 + 0.5 * sin(uTime * uPulseSpeed);',
+    '        } else {',
+    '            t = clamp(uTime * uPulseSpeed * 0.5, 0.0, 1.0);',
+    '        }',
     '        strength = mix(uMinStrength, uMaxStrength, t);',
     '    }',
     '    float r = strength / 1000.0;',
@@ -559,12 +592,12 @@ PictureShader._FRAGMENT_SHADERS = {
 PictureShader._DEFAULT_PARAMS = {
     'wave':      { amplitude: 10, frequency: 5, speed: 2, direction: 0 },
     'glitch':    { intensity: 0.3, rgbShift: 5, lineSpeed: 3, blockSize: 8 },
-    'dissolve':  { threshold: 0.5, edgeWidth: 0.05, edgeColorR: 1, edgeColorG: 0.5, edgeColorB: 0, noiseScale: 10, animSpeed: 1, thresholdMin: 0, thresholdMax: 1 },
-    'glow':      { intensity: 1, radius: 4, colorR: 1, colorG: 1, colorB: 1, pulseSpeed: 2 },
-    'chromatic': { offset: 3, angle: 0, pulseSpeed: 2 },
-    'pixelate':  { size: 8, pulseSpeed: 2, minSize: 2, maxSize: 16 },
+    'dissolve':  { threshold: 0.5, edgeWidth: 0.05, edgeColorR: 1, edgeColorG: 0.5, edgeColorB: 0, noiseScale: 10, animSpeed: 1, animMode: 0, thresholdMin: 0, thresholdMax: 1 },
+    'glow':      { intensity: 1, radius: 4, colorR: 1, colorG: 1, colorB: 1, pulseSpeed: 2, animMode: 0 },
+    'chromatic': { offset: 3, angle: 0, pulseSpeed: 2, animMode: 0 },
+    'pixelate':  { size: 8, pulseSpeed: 2, animMode: 0, minSize: 2, maxSize: 16 },
     'shake':     { power: 5, speed: 10, direction: 2 },
-    'blur':      { strength: 4, pulseSpeed: 2, minStrength: 0, maxStrength: 8 },
+    'blur':      { strength: 4, pulseSpeed: 2, animMode: 0, minStrength: 0, maxStrength: 8 },
     'rainbow':   { speed: 1, saturation: 0.5, brightness: 0.1 },
     'hologram':  { scanlineSpacing: 4, scanlineAlpha: 0.3, flickerSpeed: 5, flickerIntensity: 0.2, rgbShift: 2, tintR: 0.5, tintG: 0.8, tintB: 1 },
     'outline':   { thickness: 3, colorR: 1, colorG: 0.9, colorB: 0.2, intensity: 1.5, animMode: 0, animSpeed: 2, animMin: 0.8, animMax: 2.0 },
@@ -614,6 +647,7 @@ PictureShader.createMaterial = function(type, params, texture) {
             uniforms.uEdgeColor     = { value: new THREE.Vector3(p.edgeColorR, p.edgeColorG, p.edgeColorB) };
             uniforms.uNoiseScale    = { value: p.noiseScale };
             uniforms.uAnimSpeed     = { value: p.animSpeed };
+            uniforms.uAnimMode      = { value: p.animMode };
             uniforms.uThresholdMin  = { value: p.thresholdMin };
             uniforms.uThresholdMax  = { value: p.thresholdMax };
             break;
@@ -622,15 +656,18 @@ PictureShader.createMaterial = function(type, params, texture) {
             uniforms.uRadius     = { value: p.radius };
             uniforms.uColor      = { value: new THREE.Vector3(p.colorR, p.colorG, p.colorB) };
             uniforms.uPulseSpeed = { value: p.pulseSpeed };
+            uniforms.uAnimMode   = { value: p.animMode };
             break;
         case 'chromatic':
             uniforms.uOffset     = { value: p.offset };
             uniforms.uAngle      = { value: p.angle };
             uniforms.uPulseSpeed = { value: p.pulseSpeed };
+            uniforms.uAnimMode   = { value: p.animMode };
             break;
         case 'pixelate':
             uniforms.uSize       = { value: p.size };
             uniforms.uPulseSpeed = { value: p.pulseSpeed };
+            uniforms.uAnimMode   = { value: p.animMode };
             uniforms.uMinSize    = { value: p.minSize };
             uniforms.uMaxSize    = { value: p.maxSize };
             break;
@@ -640,6 +677,7 @@ PictureShader.createMaterial = function(type, params, texture) {
         case 'blur':
             uniforms.uStrength     = { value: p.strength };
             uniforms.uPulseSpeed   = { value: p.pulseSpeed };
+            uniforms.uAnimMode     = { value: p.animMode };
             uniforms.uMinStrength  = { value: p.minStrength };
             uniforms.uMaxStrength  = { value: p.maxStrength };
             break;

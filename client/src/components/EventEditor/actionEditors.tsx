@@ -2130,6 +2130,9 @@ const SHADER_DEFINITIONS: ShaderDef[] = [
     { key: 'blockSize', label: '블록 크기', min: 1, max: 50, step: 1, defaultValue: 8 },
   ]},
   { type: 'dissolve', label: '디졸브', params: [
+    { key: 'animMode', label: '애니 모드', min: 0, max: 1, step: 1, defaultValue: 0, type: 'select', options: [
+      { value: 0, label: '왕복' }, { value: 1, label: '원웨이' }
+    ]},
     { key: 'animSpeed', label: '애니 속도', min: 0, max: 10, step: 0.1, defaultValue: 1 },
     { key: 'thresholdMin', label: '임계값 최소', min: 0, max: 1, step: 0.01, defaultValue: 0 },
     { key: 'thresholdMax', label: '임계값 최대', min: 0, max: 1, step: 0.01, defaultValue: 1 },
@@ -2147,15 +2150,24 @@ const SHADER_DEFINITIONS: ShaderDef[] = [
     { key: 'colorG', label: '색상 G', min: 0, max: 1, step: 0.01, defaultValue: 1 },
     { key: 'colorB', label: '색상 B', min: 0, max: 1, step: 0.01, defaultValue: 1 },
     { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 2 },
+    { key: 'animMode', label: '애니 모드', min: 0, max: 1, step: 1, defaultValue: 0, type: 'select', options: [
+      { value: 0, label: '왕복' }, { value: 1, label: '원웨이' }
+    ]},
   ]},
   { type: 'chromatic', label: '색수차', params: [
     { key: 'offset', label: '오프셋', min: 0, max: 20, step: 1, defaultValue: 3 },
     { key: 'angle', label: '각도', min: 0, max: 360, step: 1, defaultValue: 0 },
     { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 2 },
+    { key: 'animMode', label: '애니 모드', min: 0, max: 1, step: 1, defaultValue: 0, type: 'select', options: [
+      { value: 0, label: '왕복' }, { value: 1, label: '원웨이' }
+    ]},
   ]},
   { type: 'pixelate', label: '픽셀화', params: [
     { key: 'size', label: '크기 (고정)', min: 1, max: 64, step: 1, defaultValue: 8 },
     { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 2 },
+    { key: 'animMode', label: '애니 모드', min: 0, max: 1, step: 1, defaultValue: 0, type: 'select', options: [
+      { value: 0, label: '왕복' }, { value: 1, label: '원웨이' }
+    ]},
     { key: 'minSize', label: '최소 크기', min: 1, max: 64, step: 1, defaultValue: 2 },
     { key: 'maxSize', label: '최대 크기', min: 1, max: 64, step: 1, defaultValue: 16 },
   ]},
@@ -2169,6 +2181,9 @@ const SHADER_DEFINITIONS: ShaderDef[] = [
   { type: 'blur', label: '흐림', params: [
     { key: 'strength', label: '강도 (고정)', min: 0, max: 20, step: 1, defaultValue: 4 },
     { key: 'pulseSpeed', label: '펄스 속도', min: 0, max: 10, step: 0.1, defaultValue: 2 },
+    { key: 'animMode', label: '애니 모드', min: 0, max: 1, step: 1, defaultValue: 0, type: 'select', options: [
+      { value: 0, label: '왕복' }, { value: 1, label: '원웨이' }
+    ]},
     { key: 'minStrength', label: '최소 강도', min: 0, max: 20, step: 1, defaultValue: 0 },
     { key: 'maxStrength', label: '최대 강도', min: 0, max: 20, step: 1, defaultValue: 8 },
   ]},
