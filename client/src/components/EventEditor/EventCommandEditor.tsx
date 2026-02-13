@@ -841,7 +841,19 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       const posType = cmd.parameters[3] as number;
       const px = cmd.parameters[4] as number;
       const py = cmd.parameters[5] as number;
-      const posStr = posType === 0 ? `(${px},${py})` : `(V[${px}],V[${py}])`;
+      let posStr: string;
+      if (posType === 2) {
+        const preset = cmd.parameters[11] as { presetX: number; presetY: number; offsetX: number; offsetY: number } | null;
+        if (preset) {
+          const oxStr = preset.offsetX ? (preset.offsetX > 0 ? `+${preset.offsetX}` : `${preset.offsetX}`) : '';
+          const oyStr = preset.offsetY ? (preset.offsetY > 0 ? `+${preset.offsetY}` : `${preset.offsetY}`) : '';
+          posStr = `(${preset.presetX}/5${oxStr}, ${preset.presetY}/5${oyStr})`;
+        } else {
+          posStr = '(3/5, 3/5)';
+        }
+      } else {
+        posStr = posType === 0 ? `(${px},${py})` : `(V[${px}],V[${py}])`;
+      }
       text += `: #${num}, ${img || '(없음)'}, ${originLabels[cmd.parameters[2] as number] || ''}, ${posStr}`;
       const sw = cmd.parameters[6] as number;
       const sh = cmd.parameters[7] as number;

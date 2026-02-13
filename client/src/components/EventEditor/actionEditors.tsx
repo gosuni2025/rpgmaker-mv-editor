@@ -2146,6 +2146,13 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
   const [opacity, setOpacity] = useState<number>((p[8] as number) ?? 255);
   const [blendMode, setBlendMode] = useState<number>((p[9] as number) || 0);
 
+  // 프리셋 위치 데이터 초기화
+  const existingPreset = p[11] as { presetX: number; presetY: number; offsetX: number; offsetY: number } | null;
+  const [presetX, setPresetX] = useState<number>(existingPreset?.presetX ?? 3);
+  const [presetY, setPresetY] = useState<number>(existingPreset?.presetY ?? 3);
+  const [presetOffsetX, setPresetOffsetX] = useState<number>(existingPreset?.offsetX ?? 0);
+  const [presetOffsetY, setPresetOffsetY] = useState<number>(existingPreset?.offsetY ?? 0);
+
   // 셰이더 데이터 초기화
   const existingShader = p[10] as { type: string; enabled: boolean; params: Record<string, number> } | null;
   const [shaderEnabled, setShaderEnabled] = useState<boolean>(existingShader?.enabled ?? false);
@@ -2242,6 +2249,44 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
                 <span style={{ ...labelStyle, minWidth: 16 }}>Y:</span>
                 <VariableSwitchPicker type="variable" value={positionType === 1 ? (posY || 1) : 1}
                   onChange={setPosY} disabled={positionType !== 1} style={{ flex: 1 }} />
+              </div>
+            </div>
+
+            {/* 프리셋 지정 */}
+            <label style={radioStyle}>
+              <input type="radio" name="picture-pos-type" checked={positionType === 2} onChange={() => setPositionType(2)} />
+              프리셋 지정
+            </label>
+            <div style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4, opacity: positionType === 2 ? 1 : 0.5 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ ...labelStyle, minWidth: 16 }}>X:</span>
+                <select value={presetX} onChange={e => setPresetX(Number(e.target.value))}
+                  disabled={positionType !== 2} style={{ ...selectStyle, width: 70 }}>
+                  <option value={1}>1/5</option>
+                  <option value={2}>2/5</option>
+                  <option value={3}>3/5</option>
+                  <option value={4}>4/5</option>
+                  <option value={5}>5/5</option>
+                </select>
+                <span style={{ ...labelStyle, marginLeft: 4 }}>+</span>
+                <input type="number" min={-9999} max={9999} value={presetOffsetX}
+                  onChange={e => setPresetOffsetX(Number(e.target.value))}
+                  disabled={positionType !== 2} style={{ ...selectStyle, width: 60 }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ ...labelStyle, minWidth: 16 }}>Y:</span>
+                <select value={presetY} onChange={e => setPresetY(Number(e.target.value))}
+                  disabled={positionType !== 2} style={{ ...selectStyle, width: 70 }}>
+                  <option value={1}>1/5</option>
+                  <option value={2}>2/5</option>
+                  <option value={3}>3/5</option>
+                  <option value={4}>4/5</option>
+                  <option value={5}>5/5</option>
+                </select>
+                <span style={{ ...labelStyle, marginLeft: 4 }}>+</span>
+                <input type="number" min={-9999} max={9999} value={presetOffsetY}
+                  onChange={e => setPresetOffsetY(Number(e.target.value))}
+                  disabled={positionType !== 2} style={{ ...selectStyle, width: 60 }} />
               </div>
             </div>
           </div>
@@ -2351,7 +2396,8 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => {
           const shaderData = shaderEnabled ? { type: shaderType, enabled: true, params: { ...shaderParams } } : null;
-          onOk([pictureNumber, imageName, origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode, shaderData]);
+          const presetData = positionType === 2 ? { presetX, presetY, offsetX: presetOffsetX, offsetY: presetOffsetY } : null;
+          onOk([pictureNumber, imageName, origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode, shaderData, presetData]);
         }}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
