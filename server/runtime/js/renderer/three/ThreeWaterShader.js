@@ -12,6 +12,64 @@ var ThreeWaterShader = {};
 ThreeWaterShader._time = 0;
 // 물 메시가 존재하는지 여부 (연속 렌더 판단용)
 ThreeWaterShader._hasWaterMesh = false;
+// kind별 셰이더 설정 (에디터 인스펙터에서 설정)
+ThreeWaterShader._kindSettings = {};
+
+/**
+ * kind별 셰이더 설정 저장
+ * @param {number} kind - A1 kind (0~15)
+ * @param {Object} settings - AnimTileShaderSettings와 동일한 구조
+ */
+ThreeWaterShader.setKindSettings = function(kind, settings) {
+    this._kindSettings[kind] = settings;
+};
+
+/**
+ * kind별 셰이더 설정 조회
+ * @param {number} kind - A1 kind (0~15)
+ * @returns {Object|null}
+ */
+ThreeWaterShader.getKindSettings = function(kind) {
+    return this._kindSettings[kind] || null;
+};
+
+/**
+ * 모든 kind 설정 일괄 적용
+ * @param {Object} allSettings - Record<number, AnimTileShaderSettings>
+ */
+ThreeWaterShader.setAllKindSettings = function(allSettings) {
+    this._kindSettings = allSettings || {};
+};
+
+/**
+ * kind에 해당하는 uniform 값 반환
+ * 에디터 설정이 없으면 타입별 기본값 사용
+ */
+ThreeWaterShader.getUniformsForKind = function(kind) {
+    var s = this._kindSettings[kind];
+    if (s) {
+        return {
+            uWaveAmplitude: s.waveAmplitude,
+            uWaveFrequency: s.waveFrequency,
+            uWaveSpeed: s.waveSpeed,
+            uWaterAlpha: s.waterAlpha,
+            uSpecularStrength: s.specularStrength,
+            uEmissive: s.emissive || 0,
+            uEmissiveColor: this._hexToVec3(s.emissiveColor || '#ffffff'),
+        };
+    }
+    return null;
+};
+
+/**
+ * hex 색상을 [r,g,b] (0~1)로 변환
+ */
+ThreeWaterShader._hexToVec3 = function(hex) {
+    var r = parseInt(hex.slice(1, 3), 16) / 255;
+    var g = parseInt(hex.slice(3, 5), 16) / 255;
+    var b = parseInt(hex.slice(5, 7), 16) / 255;
+    return [r, g, b];
+};
 
 //-----------------------------------------------------------------------------
 // 공통 GLSL: procedural wave normal 생성 함수
@@ -62,6 +120,8 @@ ThreeWaterShader.FRAGMENT_PARS = [
     'uniform float uWaveSpeed;',
     'uniform float uWaterAlpha;',
     'uniform float uSpecularStrength;',
+    'uniform float uEmissive;',
+    'uniform vec3 uEmissiveColor;',
     'varying vec2 vWorldPos;',
     'varying mat3 vNormalMat;',
     '',
@@ -93,6 +153,9 @@ ThreeWaterShader.FRAGMENT_MAIN = [
     '    diffuseColor = waveTexColor;',
     '}',
     'diffuseColor.a *= uWaterAlpha;',
+    'if (uEmissive > 0.0) {',
+    '    diffuseColor.rgb += uEmissiveColor * uEmissive * diffuseColor.a;',
+    '}',
 ].join('\n');
 
 // specular-only 추가 (#include <output_fragment> 뒤에 삽입)
@@ -134,6 +197,9 @@ ThreeWaterShader.WATERFALL_FRAGMENT_MAIN = [
     '    diffuseColor = wfTexColor;',
     '}',
     'diffuseColor.a *= min(uWaterAlpha + 0.1, 1.0);',
+    'if (uEmissive > 0.0) {',
+    '    diffuseColor.rgb += uEmissiveColor * uEmissive * diffuseColor.a;',
+    '}',
 ].join('\n');
 
 // 폭포 specular-only 추가
@@ -185,6 +251,8 @@ ThreeWaterShader._STANDALONE_FRAGMENT_WATER = [
     'uniform float uShininess;',
     'uniform vec3 uSpecularColor;',
     'uniform vec3 uLightDir;',
+    'uniform float uEmissive;',
+    'uniform vec3 uEmissiveColor;',
     'varying vec2 vUv;',
     'varying vec2 vWorldPos;',
     'varying vec3 vViewDir;',
@@ -226,6 +294,10 @@ ThreeWaterShader._STANDALONE_FRAGMENT_WATER = [
     '    float spec = pow(max(dot(N, H), 0.0), uShininess);',
     '    color.rgb += uSpecularColor * spec * uSpecularStrength * shoreFade;',
     '',
+    '    if (uEmissive > 0.0) {',
+    '        color.rgb += uEmissiveColor * uEmissive * color.a;',
+    '    }',
+    '',
     '    gl_FragColor = color;',
     '}',
 ].join('\n');
@@ -238,6 +310,8 @@ ThreeWaterShader._STANDALONE_FRAGMENT_WATERFALL = [
     'uniform float uShininess;',
     'uniform vec3 uSpecularColor;',
     'uniform vec3 uLightDir;',
+    'uniform float uEmissive;',
+    'uniform vec3 uEmissiveColor;',
     'varying vec2 vUv;',
     'varying vec2 vWorldPos;',
     'varying vec3 vViewDir;',
@@ -273,6 +347,10 @@ ThreeWaterShader._STANDALONE_FRAGMENT_WATERFALL = [
     '    float spec = pow(max(dot(N, H), 0.0), uShininess);',
     '    color.rgb += uSpecularColor * spec * uSpecularStrength * 0.5 * shoreFade;',
     '',
+    '    if (uEmissive > 0.0) {',
+    '        color.rgb += uEmissiveColor * uEmissive * color.a;',
+    '    }',
+    '',
     '    gl_FragColor = color;',
     '}',
 ].join('\n');
@@ -291,6 +369,8 @@ ThreeWaterShader.DEFAULT_UNIFORMS = {
     uShininess:         64.0,
     uSpecularColor:     [1.0, 1.0, 1.0],
     uLightDir:          [0.0, 0.0, 1.0],
+    uEmissive:          0.0,
+    uEmissiveColor:     [1.0, 1.0, 1.0],
 };
 
 //-----------------------------------------------------------------------------
@@ -300,24 +380,31 @@ ThreeWaterShader.DEFAULT_UNIFORMS = {
 /**
  * 물 타일용 ShaderMaterial 생성 (ShadowLight 비활성 시)
  */
-ThreeWaterShader.createStandaloneMaterial = function(texture, isWaterfall) {
+ThreeWaterShader.createStandaloneMaterial = function(texture, isWaterfall, kindSettings) {
     var fragShader = isWaterfall ?
         this._STANDALONE_FRAGMENT_WATERFALL :
         this._STANDALONE_FRAGMENT_WATER;
     var d = this.DEFAULT_UNIFORMS;
+    var ks = kindSettings || {};
 
     var material = new THREE.ShaderMaterial({
         uniforms: {
             map:                { value: texture || null },
             uTime:              { value: d.uTime },
-            uWaveAmplitude:     { value: d.uWaveAmplitude },
-            uWaveFrequency:     { value: d.uWaveFrequency },
-            uWaveSpeed:         { value: d.uWaveSpeed },
-            uWaterAlpha:        { value: d.uWaterAlpha },
-            uSpecularStrength:  { value: d.uSpecularStrength },
+            uWaveAmplitude:     { value: ks.uWaveAmplitude != null ? ks.uWaveAmplitude : d.uWaveAmplitude },
+            uWaveFrequency:     { value: ks.uWaveFrequency != null ? ks.uWaveFrequency : d.uWaveFrequency },
+            uWaveSpeed:         { value: ks.uWaveSpeed != null ? ks.uWaveSpeed : d.uWaveSpeed },
+            uWaterAlpha:        { value: ks.uWaterAlpha != null ? ks.uWaterAlpha : d.uWaterAlpha },
+            uSpecularStrength:  { value: ks.uSpecularStrength != null ? ks.uSpecularStrength : d.uSpecularStrength },
             uShininess:         { value: d.uShininess },
             uSpecularColor:     { value: new THREE.Vector3(d.uSpecularColor[0], d.uSpecularColor[1], d.uSpecularColor[2]) },
             uLightDir:          { value: new THREE.Vector3(d.uLightDir[0], d.uLightDir[1], d.uLightDir[2]) },
+            uEmissive:          { value: ks.uEmissive != null ? ks.uEmissive : d.uEmissive },
+            uEmissiveColor:     { value: new THREE.Vector3(
+                ks.uEmissiveColor ? ks.uEmissiveColor[0] : d.uEmissiveColor[0],
+                ks.uEmissiveColor ? ks.uEmissiveColor[1] : d.uEmissiveColor[1],
+                ks.uEmissiveColor ? ks.uEmissiveColor[2] : d.uEmissiveColor[2]
+            ) },
         },
         vertexShader: this._STANDALONE_VERTEX,
         fragmentShader: fragShader,
@@ -333,18 +420,25 @@ ThreeWaterShader.createStandaloneMaterial = function(texture, isWaterfall) {
 /**
  * Phong material에 물 셰이더 주입 (ShadowLight 활성 시)
  */
-ThreeWaterShader.applyToPhongMaterial = function(material, isWaterfall) {
+ThreeWaterShader.applyToPhongMaterial = function(material, isWaterfall, kindSettings) {
     var fragMain = isWaterfall ? this.WATERFALL_FRAGMENT_MAIN : this.FRAGMENT_MAIN;
     var specularInject = isWaterfall ? this.WATERFALL_SPECULAR_INJECT : this.SPECULAR_INJECT;
     var d = this.DEFAULT_UNIFORMS;
+    var ks = kindSettings || {};
 
     material.userData.waterUniforms = {
         uTime:              { value: d.uTime },
-        uWaveAmplitude:     { value: d.uWaveAmplitude },
-        uWaveFrequency:     { value: d.uWaveFrequency },
-        uWaveSpeed:         { value: d.uWaveSpeed },
-        uWaterAlpha:        { value: d.uWaterAlpha },
-        uSpecularStrength:  { value: d.uSpecularStrength },
+        uWaveAmplitude:     { value: ks.uWaveAmplitude != null ? ks.uWaveAmplitude : d.uWaveAmplitude },
+        uWaveFrequency:     { value: ks.uWaveFrequency != null ? ks.uWaveFrequency : d.uWaveFrequency },
+        uWaveSpeed:         { value: ks.uWaveSpeed != null ? ks.uWaveSpeed : d.uWaveSpeed },
+        uWaterAlpha:        { value: ks.uWaterAlpha != null ? ks.uWaterAlpha : d.uWaterAlpha },
+        uSpecularStrength:  { value: ks.uSpecularStrength != null ? ks.uSpecularStrength : d.uSpecularStrength },
+        uEmissive:          { value: ks.uEmissive != null ? ks.uEmissive : d.uEmissive },
+        uEmissiveColor:     { value: new THREE.Vector3(
+            ks.uEmissiveColor ? ks.uEmissiveColor[0] : d.uEmissiveColor[0],
+            ks.uEmissiveColor ? ks.uEmissiveColor[1] : d.uEmissiveColor[1],
+            ks.uEmissiveColor ? ks.uEmissiveColor[2] : d.uEmissiveColor[2]
+        ) },
     };
 
     material.onBeforeCompile = function(shader) {
@@ -412,10 +506,46 @@ ThreeWaterShader.updateAllWaterMeshes = function(tilemap, time) {
                     if (mesh && mesh.userData && mesh.userData.isWaterMesh) {
                         this.updateTime(mesh, time);
                         this._hasWaterMesh = true;
+                        // kind별 설정 실시간 동기화
+                        if (mesh.userData.a1Kinds && mesh.userData.a1Kinds.length > 0) {
+                            this._syncKindUniforms(mesh);
+                        }
                     }
                 }
             }
         }
+    }
+};
+
+/**
+ * 메시의 kind 설정을 uniform에 반영
+ */
+ThreeWaterShader._syncKindUniforms = function(mesh) {
+    var kinds = mesh.userData.a1Kinds;
+    if (!kinds || kinds.length === 0) return;
+    // 여러 kind가 섞여 있으면 첫 번째 kind의 설정 사용
+    var primaryKind = kinds[0];
+    var ks = this.getUniformsForKind(primaryKind);
+    if (!ks) return;
+
+    if (mesh.material.isShaderMaterial && mesh.material.uniforms) {
+        var u = mesh.material.uniforms;
+        if (u.uWaveAmplitude) u.uWaveAmplitude.value = ks.uWaveAmplitude;
+        if (u.uWaveFrequency) u.uWaveFrequency.value = ks.uWaveFrequency;
+        if (u.uWaveSpeed) u.uWaveSpeed.value = ks.uWaveSpeed;
+        if (u.uWaterAlpha) u.uWaterAlpha.value = ks.uWaterAlpha;
+        if (u.uSpecularStrength) u.uSpecularStrength.value = ks.uSpecularStrength;
+        if (u.uEmissive) u.uEmissive.value = ks.uEmissive;
+        if (u.uEmissiveColor) u.uEmissiveColor.value.set(ks.uEmissiveColor[0], ks.uEmissiveColor[1], ks.uEmissiveColor[2]);
+    } else if (mesh.material.userData && mesh.material.userData.waterUniforms) {
+        var wu = mesh.material.userData.waterUniforms;
+        if (wu.uWaveAmplitude) wu.uWaveAmplitude.value = ks.uWaveAmplitude;
+        if (wu.uWaveFrequency) wu.uWaveFrequency.value = ks.uWaveFrequency;
+        if (wu.uWaveSpeed) wu.uWaveSpeed.value = ks.uWaveSpeed;
+        if (wu.uWaterAlpha) wu.uWaterAlpha.value = ks.uWaterAlpha;
+        if (wu.uSpecularStrength) wu.uSpecularStrength.value = ks.uSpecularStrength;
+        if (wu.uEmissive) wu.uEmissive.value = ks.uEmissive;
+        if (wu.uEmissiveColor) wu.uEmissiveColor.value.set(ks.uEmissiveColor[0], ks.uEmissiveColor[1], ks.uEmissiveColor[2]);
     }
 };
 

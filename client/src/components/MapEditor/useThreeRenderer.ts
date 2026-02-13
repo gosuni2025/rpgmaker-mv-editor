@@ -214,6 +214,11 @@ export function useThreeRenderer(
       w.$gameMap._displayY = 0;
       w.$gamePlayer.setTransparent(true);
 
+      // animTileSettings 초기화 (맵 로드 시)
+      if (typeof ThreeWaterShader !== 'undefined') {
+        ThreeWaterShader.setAllKindSettings(effectiveMap.animTileSettings || {});
+      }
+
       // ShadowLight._scene을 Spriteset_Map 생성 전에 설정해야
       // _activateShadowLight → _findScene()이 새 씬을 찾을 수 있음
       ShadowLight._scene = rendererObj.scene;
@@ -508,6 +513,14 @@ export function useThreeRenderer(
             syncEditorLightsToScene(rendererObj.scene, state.currentMap?.editorLights, state.mode3d);
           }
           requestRender();
+        }
+        if (state.currentMap?.animTileSettings !== prevState.currentMap?.animTileSettings) {
+          if (typeof ThreeWaterShader !== 'undefined') {
+            ThreeWaterShader.setAllKindSettings(state.currentMap?.animTileSettings || {});
+            // 메시 재빌드 (uniform 반영)
+            if (spriteset._tilemap) spriteset._tilemap._needsRepaint = true;
+          }
+          requestRender(3);
         }
         if (state.currentMap?.skyBackground !== prevState.currentMap?.skyBackground) {
           w.$dataMap.skyBackground = state.currentMap?.skyBackground || null;
