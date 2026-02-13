@@ -1,8 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
 import { DEFAULT_EDITOR_LIGHTS } from '../../types/rpgMakerMV';
 import './InspectorPanel.css';
+
+function HelpButton({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span style={{ position: 'relative', display: 'inline-block', marginLeft: 4 }}>
+      <button
+        style={{
+          width: 16, height: 16, borderRadius: '50%', border: '1px solid #666',
+          background: '#383838', color: '#aaa', fontSize: 10, lineHeight: '14px',
+          padding: 0, cursor: 'pointer', verticalAlign: 'middle',
+        }}
+        onClick={() => setShow(!show)}
+        onBlur={() => setShow(false)}
+        title={text}
+      >?</button>
+      {show && (
+        <div style={{
+          position: 'absolute', left: 20, top: -4, zIndex: 100,
+          background: '#333', border: '1px solid #555', borderRadius: 4,
+          padding: '6px 10px', fontSize: 11, color: '#ccc', whiteSpace: 'pre-line',
+          minWidth: 180, maxWidth: 260, boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+        }}>
+          {text}
+        </div>
+      )}
+    </span>
+  );
+}
 
 export default function LightInspector() {
   const currentMap = useEditorStore((s) => s.currentMap);
@@ -34,7 +62,10 @@ export default function LightInspector() {
       {/* Ambient Light */}
       {selectedLightType === 'ambient' && (
         <div className="light-inspector-section">
-          <div className="light-inspector-title">앰비언트 라이트</div>
+          <div className="light-inspector-title">
+            앰비언트 라이트
+            <HelpButton text={"글로벌 환경광 설정입니다.\n맵 전체에 기본 적용되며,\n카메라 존에 환경광이 설정된 경우\n해당 존 내에서는 존의 값이 우선 적용됩니다."} />
+          </div>
           <div className="light-inspector-row">
             <span className="light-inspector-label">색상</span>
             <input

@@ -453,6 +453,8 @@ export interface CameraZone {
   transitionSpeed: number; // 전환 속도 (0.1~5.0, 기본 1.0)
   priority: number;  // 우선순위 (겹칠 때, 기본 0)
   enabled: boolean;
+  ambientIntensity?: number;  // 환경광 강도 (0~3, 기본: 글로벌 값 사용)
+  ambientColor?: string;      // 환경광 색상 (#hex, 기본: 글로벌 값 사용)
   dofEnabled?: boolean;     // 이 존에서 DoF 활성화 여부 (undefined=글로벌 따름)
   dofFocusY?: number;       // 0~1 (기본 0.55)
   dofFocusRange?: number;   // 0~0.5 (기본 0.1)

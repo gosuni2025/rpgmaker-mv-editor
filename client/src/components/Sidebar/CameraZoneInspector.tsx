@@ -289,6 +289,52 @@ export default function CameraZoneInspector() {
             )}
           </div>
 
+          {/* Ambient Light Override */}
+          <div className="light-inspector-section">
+            <div className="light-inspector-title">
+              환경광
+              <HelpButton text={"이 카메라 존에 진입할 때 적용할 환경광입니다.\n활성화하면 글로벌 환경광 대신 이 값을 사용합니다.\n존 간 이동 시 부드럽게 보간됩니다.\n\n카메라 존 바깥의 환경광은\n라이트 에디트 모드에서 설정하세요."} />
+            </div>
+            <div className="light-inspector-row">
+              <span className="light-inspector-label">환경광 설정</span>
+              <input
+                type="checkbox"
+                checked={selectedZone.ambientIntensity != null}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    updateCameraZone(selectedZone.id, { ambientIntensity: 0.3, ambientColor: '#667788' });
+                  } else {
+                    updateCameraZone(selectedZone.id, { ambientIntensity: undefined, ambientColor: undefined });
+                  }
+                }}
+              />
+            </div>
+            {selectedZone.ambientIntensity != null && (
+              <>
+                <div className="light-inspector-row">
+                  <span className="light-inspector-label">색상</span>
+                  <input
+                    type="color"
+                    className="light-inspector-color"
+                    value={selectedZone.ambientColor ?? '#667788'}
+                    onChange={(e) => updateCameraZone(selectedZone.id, { ambientColor: e.target.value })}
+                  />
+                </div>
+                <div className="light-inspector-row">
+                  <DragLabel label="강도" value={selectedZone.ambientIntensity} step={0.05} min={0} max={3}
+                    onChange={(v) => updateCameraZone(selectedZone.id, { ambientIntensity: Math.round(v * 100) / 100 })} />
+                  <input type="range" className="light-inspector-slider" min={0} max={3} step={0.05}
+                    value={selectedZone.ambientIntensity}
+                    onChange={(e) => updateCameraZone(selectedZone.id, { ambientIntensity: parseFloat(e.target.value) })} />
+                  <input type="number" className="light-inspector-input" min={0} max={3} step={0.05}
+                    style={{ width: 55 }}
+                    value={selectedZone.ambientIntensity}
+                    onChange={(e) => updateCameraZone(selectedZone.id, { ambientIntensity: parseFloat(e.target.value) || 0 })} />
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Delete */}
           <button
             className="light-inspector-delete"

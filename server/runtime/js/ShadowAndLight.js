@@ -1249,6 +1249,70 @@ ShadowLight._addLightsToScene = function(scene) {
     scene.add(this._playerSpotTarget);
 };
 
+//=============================================================================
+// 카메라 존 환경광 lerp 보간
+// 매 프레임 호출하여 _ambientLight의 intensity/color를
+// 활성 카메라 존의 값으로 부드럽게 전환
+//=============================================================================
+
+ShadowLight._currentAmbientIntensity = null;
+ShadowLight._currentAmbientR = null;
+ShadowLight._currentAmbientG = null;
+ShadowLight._currentAmbientB = null;
+
+ShadowLight._updateCameraZoneAmbient = function() {
+    if (!this._ambientLight) return;
+    if (window.__editorMode) return;
+
+    // 타겟 값 결정: 활성 카메라존 → 글로벌 config
+    var targetIntensity = this.config.ambientIntensity;
+    var targetR = ((this.config.ambientColor >> 16) & 0xFF) / 255;
+    var targetG = ((this.config.ambientColor >> 8) & 0xFF) / 255;
+    var targetB = (this.config.ambientColor & 0xFF) / 255;
+    var transitionSpeed = 1.0;
+
+    if ($gameMap && $gameMap._activeCameraZoneId != null) {
+        var zone = $gameMap.getCameraZoneById($gameMap._activeCameraZoneId);
+        if (zone && zone.ambientIntensity != null) {
+            targetIntensity = zone.ambientIntensity;
+            if (zone.ambientColor) {
+                var hex = parseInt(zone.ambientColor.replace('#', ''), 16);
+                targetR = ((hex >> 16) & 0xFF) / 255;
+                targetG = ((hex >> 8) & 0xFF) / 255;
+                targetB = (hex & 0xFF) / 255;
+            }
+        }
+        if (zone) transitionSpeed = zone.transitionSpeed || 1.0;
+    }
+
+    // 초기화 (최초 호출 시)
+    if (this._currentAmbientIntensity === null) {
+        this._currentAmbientIntensity = targetIntensity;
+        this._currentAmbientR = targetR;
+        this._currentAmbientG = targetG;
+        this._currentAmbientB = targetB;
+    }
+
+    // lerp로 부드럽게 전환
+    var lerpRate = 0.1 * transitionSpeed;
+    lerpRate = Math.min(lerpRate, 1.0);
+
+    this._currentAmbientIntensity += (targetIntensity - this._currentAmbientIntensity) * lerpRate;
+    this._currentAmbientR += (targetR - this._currentAmbientR) * lerpRate;
+    this._currentAmbientG += (targetG - this._currentAmbientG) * lerpRate;
+    this._currentAmbientB += (targetB - this._currentAmbientB) * lerpRate;
+
+    // 수렴 체크
+    if (Math.abs(targetIntensity - this._currentAmbientIntensity) < 0.001) this._currentAmbientIntensity = targetIntensity;
+    if (Math.abs(targetR - this._currentAmbientR) < 0.001) this._currentAmbientR = targetR;
+    if (Math.abs(targetG - this._currentAmbientG) < 0.001) this._currentAmbientG = targetG;
+    if (Math.abs(targetB - this._currentAmbientB) < 0.001) this._currentAmbientB = targetB;
+
+    // 적용
+    this._ambientLight.intensity = this._currentAmbientIntensity;
+    this._ambientLight.color.setRGB(this._currentAmbientR, this._currentAmbientG, this._currentAmbientB);
+};
+
 ShadowLight._removeLightsFromScene = function(scene) {
     if (this._ambientLight) {
         scene.remove(this._ambientLight);
@@ -1510,6 +1574,9 @@ Spriteset_Map.prototype._updateShadowLight = function() {
     ShadowLight._updateProxyBoxLighting(this._characterSprites);
     // 오브젝트 스프라이트에도 적용 (container + 자식 tileSprite)
     ShadowLight._updateProxyBoxLighting(this._objectSprites, true);
+
+    // 카메라 존 환경광 lerp 보간
+    ShadowLight._updateCameraZoneAmbient();
 };
 
 Spriteset_Map.prototype._activateShadowLight = function() {
