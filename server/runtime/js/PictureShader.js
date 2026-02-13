@@ -566,23 +566,843 @@ PictureShader._FRAGMENT_HOLOGRAM = [
     '}',
 ].join('\n');
 
+// 13. Greyscale (그레이스케일)
+PictureShader._FRAGMENT_GREYSCALE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uLuminosity;',
+    'uniform float uBlend;',
+    'uniform vec3 uTintColor;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    float lum = 0.3 * col.r + 0.59 * col.g + 0.11 * col.b;',
+    '    lum = clamp(lum + uLuminosity, 0.0, 1.0);',
+    '    col.rgb = mix(col.rgb, vec3(lum) * uTintColor, uBlend);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 14. Negative (네거티브)
+PictureShader._FRAGMENT_NEGATIVE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uAmount;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    col.rgb = mix(col.rgb, 1.0 - col.rgb, uAmount);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 15. HitEffect (피격 플래시)
+PictureShader._FRAGMENT_HITEFFECT = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform vec3 uColor;',
+    'uniform float uGlow;',
+    'uniform float uBlend;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    col.rgb = mix(col.rgb, uColor * uGlow, uBlend);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 16. Shine (광택)
+PictureShader._FRAGMENT_SHINE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform vec3 uColor;',
+    'uniform float uLocation;',
+    'uniform float uRotate;',
+    'uniform float uWidth;',
+    'uniform float uGlow;',
+    'uniform float uSpeed;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    vec2 uv = vUv;',
+    '    float cosA = cos(uRotate);',
+    '    float sinA = sin(uRotate);',
+    '    uv -= 0.5;',
+    '    uv = vec2(uv.x * cosA - uv.y * sinA, uv.x * sinA + uv.y * cosA);',
+    '    uv += 0.5;',
+    '    float loc = uSpeed > 0.0 ? fract(uTime * uSpeed * 0.1) : uLocation;',
+    '    float proj = (uv.x + uv.y) / 2.0;',
+    '    float w = 1.0 - abs(proj - loc) / uWidth;',
+    '    float mask = max(sign(proj - (loc - uWidth)), 0.0) * max(sign((loc + uWidth) - proj), 0.0);',
+    '    col.rgb += col.a * w * uGlow * mask * uColor;',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 17. Flicker (깜빡임)
+PictureShader._FRAGMENT_FLICKER = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uPercent;',
+    'uniform float uFreq;',
+    'uniform float uAlpha;',
+    'varying vec2 vUv;',
+    'float rand(vec2 s) { return fract(sin(dot(s, vec2(12.9898,78.233)))*43758.5453); }',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    float flick = step(fract(0.05 + uTime * uFreq), 1.0 - uPercent);',
+    '    col.a *= clamp(col.a * flick + uAlpha, 0.0, 1.0);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 18. Posterize (포스터화)
+PictureShader._FRAGMENT_POSTERIZE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uNumColors;',
+    'uniform float uGamma;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    col.rgb = pow(col.rgb, vec3(uGamma)) * uNumColors;',
+    '    col.rgb = floor(col.rgb) / uNumColors;',
+    '    col.rgb = pow(col.rgb, vec3(1.0 / uGamma));',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 19. Gradient (그래디언트)
+PictureShader._FRAGMENT_GRADIENT = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uBlend;',
+    'uniform vec4 uTopLeft;',
+    'uniform vec4 uTopRight;',
+    'uniform vec4 uBotLeft;',
+    'uniform vec4 uBotRight;',
+    'uniform float uBoostX;',
+    'uniform float uBoostY;',
+    'uniform float uRadial;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    vec4 grad;',
+    '    if (uRadial > 0.5) {',
+    '        float d = 1.0 - length(vUv - 0.5) * 2.0;',
+    '        d = clamp(d * uBoostX, 0.0, 1.0);',
+    '        grad = mix(uTopLeft, uBotLeft, d);',
+    '    } else {',
+    '        float fx = clamp(pow(vUv.x, uBoostX), 0.0, 1.0);',
+    '        grad = mix(mix(uBotLeft, uBotRight, fx), mix(uTopLeft, uTopRight, fx), clamp(pow(vUv.y, uBoostY), 0.0, 1.0));',
+    '    }',
+    '    grad = mix(col, grad, uBlend);',
+    '    col.rgb = grad.rgb * col.a;',
+    '    col.a *= grad.a * opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 20. ColorSwap (색상 스왑)
+PictureShader._FRAGMENT_COLORSWAP = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform vec3 uRedNew;',
+    'uniform vec3 uGreenNew;',
+    'uniform vec3 uBlueNew;',
+    'uniform float uRedLum;',
+    'uniform float uGreenLum;',
+    'uniform float uBlueLum;',
+    'uniform float uBlend;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    float lum = 0.3 * col.r + 0.59 * col.g + 0.11 * col.b;',
+    '    vec3 swapped = col.r * mix(uRedNew, vec3(lum), uRedLum)',
+    '                 + col.g * mix(uGreenNew, vec3(lum), uGreenLum)',
+    '                 + col.b * mix(uBlueNew, vec3(lum), uBlueLum);',
+    '    col.rgb = mix(col.rgb, swapped, uBlend);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 21. HSV (HSV 색상 시프트)
+PictureShader._FRAGMENT_HSV = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uHsvShift;',
+    'uniform float uHsvSaturation;',
+    'uniform float uHsvBright;',
+    'varying vec2 vUv;',
+    'vec3 rgb2hsv(vec3 c) {',
+    '    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);',
+    '    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));',
+    '    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));',
+    '    float d = q.x - min(q.w, q.y);',
+    '    float e = 1.0e-10;',
+    '    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);',
+    '}',
+    'vec3 hsv2rgb(vec3 c) {',
+    '    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);',
+    '    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);',
+    '    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);',
+    '}',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    vec3 hsv = rgb2hsv(col.rgb);',
+    '    hsv.x = fract(hsv.x + uHsvShift);',
+    '    hsv.y = clamp(hsv.y + uHsvSaturation, 0.0, 2.0);',
+    '    hsv.z = clamp(hsv.z + uHsvBright, 0.0, 2.0);',
+    '    col.rgb = hsv2rgb(hsv);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 22. ChangeColor (색상 변경)
+PictureShader._FRAGMENT_CHANGECOLOR = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform vec3 uTarget1;',
+    'uniform vec3 uNew1;',
+    'uniform float uTolerance1;',
+    'uniform float uLuminosity;',
+    'uniform vec3 uTarget2;',
+    'uniform vec3 uNew2;',
+    'uniform float uTolerance2;',
+    'uniform float uEnable2;',
+    'uniform vec3 uTarget3;',
+    'uniform vec3 uNew3;',
+    'uniform float uTolerance3;',
+    'uniform float uEnable3;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    vec3 curr = clamp(col.rgb, 0.0, 1.0);',
+    '    float lum = 0.3*curr.r + 0.59*curr.g + 0.11*curr.b;',
+    '    lum = clamp(lum + uLuminosity, 0.0, 1.0);',
+    '    vec3 dif = abs(curr - uTarget1);',
+    '    float m = max(sign(1.0 - clamp(dif.x+dif.y+dif.z, 0.0, 1.0) - uTolerance1), 0.0);',
+    '    col.rgb = mix(col.rgb, vec3(lum)*uNew1, m);',
+    '    if (uEnable2 > 0.5) {',
+    '        dif = abs(curr - uTarget2);',
+    '        m = max(sign(1.0 - clamp(dif.x+dif.y+dif.z, 0.0, 1.0) - uTolerance2), 0.0);',
+    '        col.rgb = mix(col.rgb, vec3(lum)*uNew2, m);',
+    '    }',
+    '    if (uEnable3 > 0.5) {',
+    '        dif = abs(curr - uTarget3);',
+    '        m = max(sign(1.0 - clamp(dif.x+dif.y+dif.z, 0.0, 1.0) - uTolerance3), 0.0);',
+    '        col.rgb = mix(col.rgb, vec3(lum)*uNew3, m);',
+    '    }',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 23. Contrast (명도/대비)
+PictureShader._FRAGMENT_CONTRAST = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uContrast;',
+    'uniform float uBrightness;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    col.rgb = (col.rgb - 0.5) * uContrast + 0.5 + uBrightness;',
+    '    col.rgb = clamp(col.rgb, 0.0, 1.0);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 24. MotionBlur (모션 블러)
+PictureShader._FRAGMENT_MOTIONBLUR = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uAngle;',
+    'uniform float uDist;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    float a = uAngle * 3.14159265;',
+    '    float d = uDist * 0.005;',
+    '    vec2 dir = vec2(cos(a), sin(a)) * d;',
+    '    vec4 col = texture2D(map, vUv);',
+    '    col.rgb += texture2D(map, vUv + dir).rgb;',
+    '    col.rgb += texture2D(map, vUv + dir * 2.0).rgb;',
+    '    col.rgb += texture2D(map, vUv + dir * 3.0).rgb;',
+    '    col.rgb += texture2D(map, vUv + dir * 4.0).rgb;',
+    '    col.rgb += texture2D(map, vUv - dir).rgb;',
+    '    col.rgb += texture2D(map, vUv - dir * 2.0).rgb;',
+    '    col.rgb += texture2D(map, vUv - dir * 3.0).rgb;',
+    '    col.rgb += texture2D(map, vUv - dir * 4.0).rgb;',
+    '    col.rgb /= 9.0;',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 25. Ghost (고스트)
+PictureShader._FRAGMENT_GHOST = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uColorBoost;',
+    'uniform float uTransparency;',
+    'uniform float uBlend;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    float lum = 0.3*col.r + 0.59*col.g + 0.11*col.b;',
+    '    vec4 ghost;',
+    '    ghost.a = clamp(lum - uTransparency, 0.0, 1.0) * col.a;',
+    '    ghost.rgb = col.rgb * (lum + uColorBoost);',
+    '    col = mix(col, ghost, uBlend);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 26. Shadow (드롭 섀도우)
+PictureShader._FRAGMENT_SHADOW = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uShadowX;',
+    'uniform float uShadowY;',
+    'uniform float uShadowAlpha;',
+    'uniform vec3 uShadowColor;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    float shadowA = texture2D(map, vUv + vec2(uShadowX, uShadowY)).a;',
+    '    col.rgb *= 1.0 - ((shadowA - col.a) * (1.0 - col.a));',
+    '    col.rgb += (uShadowColor * shadowA) * (1.0 - col.a);',
+    '    col.a = max(shadowA * uShadowAlpha, col.a);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 27. Doodle (손그림)
+PictureShader._FRAGMENT_DOODLE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uAmount;',
+    'uniform float uSpeed;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec2 uv = vUv;',
+    '    float t = floor(uTime * 20.0 * uSpeed / uSpeed) * uSpeed;',
+    '    vec2 d;',
+    '    d.x = sin((uv.x * uAmount + t) * 4.0);',
+    '    d.y = cos((uv.y * uAmount + t) * 4.0);',
+    '    uv = mix(uv, uv + d, 0.0005 * uAmount);',
+    '    vec4 col = texture2D(map, uv);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 28. Warp (워프)
+PictureShader._FRAGMENT_WARP = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uStrength;',
+    'uniform float uSpeed;',
+    'uniform float uScale;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    float tau = 6.283185307;',
+    '    float xW = uTime * uSpeed + vUv.x * tau / uScale;',
+    '    float yW = uTime * uSpeed + vUv.y * tau / uScale;',
+    '    vec2 warp = vec2(sin(xW), sin(yW)) * uStrength;',
+    '    vec4 col = texture2D(map, vUv + warp);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 29. Twist (트위스트)
+PictureShader._FRAGMENT_TWIST = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uAmount;',
+    'uniform float uPosX;',
+    'uniform float uPosY;',
+    'uniform float uRadius;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec2 center = vec2(uPosX, uPosY);',
+    '    vec2 d = vUv - center;',
+    '    float dist = length(d);',
+    '    float pct = (uRadius - dist) / uRadius;',
+    '    float theta = pct * pct * 2.0 * sin(uAmount) * 8.0;',
+    '    float beta = step(dist, uRadius);',
+    '    float s = sin(theta); float c = cos(theta);',
+    '    vec2 twisted = vec2(d.x*c - d.y*s, d.x*s + d.y*c) * beta + d * (1.0 - beta);',
+    '    twisted += center;',
+    '    vec4 col = texture2D(map, twisted);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 30. RoundWave (원형 파동)
+PictureShader._FRAGMENT_ROUNDWAVE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uStrength;',
+    'uniform float uSpeed;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec2 d = vec2(0.5 - vUv.x, 0.5 - vUv.y);',
+    '    float ripple = -length(d);',
+    '    vec2 offset = sin((ripple + uTime * uSpeed * 0.1) / 0.015) * (uStrength * 0.1);',
+    '    vec4 col = texture2D(map, vUv + offset);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 31. Fisheye (어안 렌즈)
+PictureShader._FRAGMENT_FISHEYE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uAmount;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec2 center = vec2(0.5, 0.5);',
+    '    float bind = length(center);',
+    '    vec2 dF = vUv - center;',
+    '    float dFlen = length(dF);',
+    '    float fishInt = (3.14159265 / bind) * (uAmount + 0.001);',
+    '    vec2 uv = center + (dF / max(0.0001, dFlen)) * tan(dFlen * fishInt) * bind / tan(bind * fishInt);',
+    '    vec4 col = texture2D(map, uv);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 32. Pinch (핀치)
+PictureShader._FRAGMENT_PINCH = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uAmount;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec2 center = vec2(0.5, 0.5);',
+    '    vec2 dP = vUv - center;',
+    '    float pinchInt = (3.14159265 / length(center)) * (-uAmount + 0.001);',
+    '    vec2 uv = center + normalize(dP) * atan(length(dP) * -pinchInt * 10.0) * 0.5 / atan(-pinchInt * 5.0);',
+    '    vec4 col = texture2D(map, uv);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 33. Overlay (오버레이 색상)
+PictureShader._FRAGMENT_OVERLAY = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform vec3 uOverlayColor;',
+    'uniform float uOverlayGlow;',
+    'uniform float uBlend;',
+    'uniform float uMultiply;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    vec3 overlayCol = uOverlayColor * uOverlayGlow;',
+    '    if (uMultiply > 0.5) {',
+    '        col.rgb = mix(col.rgb, col.rgb * overlayCol, uBlend);',
+    '    } else {',
+    '        col.rgb += overlayCol * uBlend * col.a;',
+    '    }',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 34. AlphaCutoff (알파 컷오프)
+PictureShader._FRAGMENT_ALPHACUTOFF = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uCutoff;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    col.a = step(uCutoff, col.a) * col.a;',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 35. AlphaRound (알파 반올림)
+PictureShader._FRAGMENT_ALPHAROUND = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    col.a = floor(col.a + 0.5);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 36. Wind (바람 흔들림) - 버텍스 기반을 UV 왜곡으로 구현
+PictureShader._FRAGMENT_WIND = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uSpeed;',
+    'uniform float uWind;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec2 uv = vUv;',
+    '    float sway = sin(uTime * uSpeed + vUv.y * 3.0) * uWind * 0.01;',
+    '    uv.x += sway * vUv.y;',
+    '    vec4 col = texture2D(map, uv);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 37. TextureScroll (텍스처 스크롤)
+PictureShader._FRAGMENT_TEXTURESCROLL = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uSpeedX;',
+    'uniform float uSpeedY;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec2 uv = vUv;',
+    '    uv.x = fract(uv.x + uTime * uSpeedX);',
+    '    uv.y = fract(uv.y + uTime * uSpeedY);',
+    '    vec4 col = texture2D(map, uv);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 38. ZoomUV (UV 줌)
+PictureShader._FRAGMENT_ZOOMUV = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uZoom;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec2 uv = (vUv - 0.5) * uZoom + 0.5;',
+    '    vec4 col = texture2D(map, uv);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 39. RotateUV (UV 회전)
+PictureShader._FRAGMENT_ROTATEUV = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uAngle;',
+    'uniform float uSpeed;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    float a = uAngle + uTime * uSpeed;',
+    '    vec2 uv = vUv - 0.5;',
+    '    float c = cos(a); float s = sin(a);',
+    '    uv = vec2(uv.x*c - uv.y*s, uv.x*s + uv.y*c) + 0.5;',
+    '    vec4 col = texture2D(map, uv);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 40. PolarUV (극좌표 변환)
+PictureShader._FRAGMENT_POLARUV = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec2 d = vUv - 0.5;',
+    '    float r = length(d) * 2.0;',
+    '    float theta = atan(d.y, d.x) / 6.2831853 + 0.5;',
+    '    vec4 col = texture2D(map, vec2(theta, r));',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 41. OffsetUV (UV 오프셋)
+PictureShader._FRAGMENT_OFFSETUV = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uOffsetX;',
+    'uniform float uOffsetY;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv + vec2(uOffsetX, uOffsetY));',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 42. Clipping (사각형 클리핑)
+PictureShader._FRAGMENT_CLIPPING = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uLeft;',
+    'uniform float uRight;',
+    'uniform float uUp;',
+    'uniform float uDown;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    float mask = step(uLeft, vUv.x) * step(vUv.x, 1.0 - uRight)',
+    '              * step(uDown, vUv.y) * step(vUv.y, 1.0 - uUp);',
+    '    col.a *= mask * opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 43. RadialClipping (방사형 클리핑)
+PictureShader._FRAGMENT_RADIALCLIPPING = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uStartAngle;',
+    'uniform float uClip;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    vec2 d = vUv - 0.5;',
+    '    float angle = atan(d.y, d.x) / 6.2831853 + 0.5;',
+    '    angle = fract(angle - uStartAngle / 360.0);',
+    '    col.a *= step(angle, uClip) * opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 44. InnerOutline (내부 아웃라인)
+PictureShader._FRAGMENT_INNEROUTLINE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform vec3 uColor;',
+    'uniform float uWidth;',
+    'uniform float uAlpha;',
+    'uniform float uOnlyOutline;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    vec2 texSize = vec2(textureSize(map, 0));',
+    '    vec2 pxSize = 1.0 / texSize;',
+    '    float minA = 1.0;',
+    '    for (float a = 0.0; a < 6.2832; a += 0.7854) {',
+    '        vec2 off = vec2(cos(a), sin(a)) * pxSize * uWidth;',
+    '        minA = min(minA, texture2D(map, vUv + off).a);',
+    '    }',
+    '    float inner = col.a * (1.0 - minA);',
+    '    if (uOnlyOutline > 0.5) {',
+    '        col.rgb = uColor * inner;',
+    '        col.a = inner * uAlpha;',
+    '    } else {',
+    '        col.rgb = mix(col.rgb, uColor, inner * uAlpha);',
+    '    }',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 45. AlphaOutline (알파 기반 아웃라인)
+PictureShader._FRAGMENT_ALPHAOUTLINE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform vec3 uColor;',
+    'uniform float uGlow;',
+    'uniform float uPower;',
+    'uniform float uMinAlpha;',
+    'uniform float uBlend;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    float edge = smoothstep(uMinAlpha, uMinAlpha + uPower, col.a) * (1.0 - smoothstep(1.0 - uPower, 1.0, col.a));',
+    '    vec3 outlineCol = uColor * uGlow;',
+    '    col.rgb = mix(col.rgb, outlineCol, edge * uBlend);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 46. Distort (왜곡 - 노이즈 기반)
+PictureShader._FRAGMENT_DISTORT = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uAmount;',
+    'uniform float uSpeedX;',
+    'uniform float uSpeedY;',
+    'uniform float uScale;',
+    'varying vec2 vUv;',
+    'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }',
+    'float noise(vec2 p) {',
+    '    vec2 i = floor(p); vec2 f = fract(p);',
+    '    float a = hash(i); float b = hash(i+vec2(1,0));',
+    '    float c = hash(i+vec2(0,1)); float d = hash(i+vec2(1,1));',
+    '    vec2 u = f*f*(3.0-2.0*f);',
+    '    return mix(a,b,u.x)+(c-a)*u.y*(1.0-u.x)+(d-b)*u.x*u.y;',
+    '}',
+    'void main() {',
+    '    vec2 distUv = vUv * uScale;',
+    '    distUv.x += uTime * uSpeedX;',
+    '    distUv.y += uTime * uSpeedY;',
+    '    float nx = noise(distUv);',
+    '    float ny = noise(distUv + 100.0);',
+    '    vec2 offset = (vec2(nx, ny) - 0.5) * uAmount * 0.1;',
+    '    vec4 col = texture2D(map, vUv + offset);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 47. ColorRamp (컬러 램프 - 그래디언트 기반)
+PictureShader._FRAGMENT_COLORRAMP = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uBlend;',
+    'uniform float uLuminosity;',
+    'uniform vec3 uColorDark;',
+    'uniform vec3 uColorMid;',
+    'uniform vec3 uColorLight;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    float lum = 0.3*col.r + 0.59*col.g + 0.11*col.b;',
+    '    lum = clamp(lum + uLuminosity, 0.0, 1.0);',
+    '    vec3 ramp = lum < 0.5 ? mix(uColorDark, uColorMid, lum*2.0) : mix(uColorMid, uColorLight, (lum-0.5)*2.0);',
+    '    col.rgb = mix(col.rgb, ramp, uBlend);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// 48. OnlyOutline (외곽선만 표시)
+PictureShader._FRAGMENT_ONLYOUTLINE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform vec3 uColor;',
+    'uniform float uThickness;',
+    'uniform float uGlow;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    vec2 texSize = vec2(textureSize(map, 0));',
+    '    vec2 pxSize = 1.0 / texSize;',
+    '    float maxA = 0.0;',
+    '    for (float a = 0.0; a < 6.2832; a += 0.7854) {',
+    '        vec2 off = vec2(cos(a), sin(a)) * pxSize * uThickness;',
+    '        maxA = max(maxA, texture2D(map, vUv + off).a);',
+    '    }',
+    '    float outl = maxA * (1.0 - col.a);',
+    '    gl_FragColor = vec4(uColor * uGlow, outl * opacity);',
+    '}',
+].join('\n');
+
+// 49. Gradient2Col (2색 그래디언트)
+// gradient와 동일한 셰이더 재사용 (topRight=topLeft, botRight=botLeft)
+PictureShader._FRAGMENT_GRADIENT2COL = PictureShader._FRAGMENT_GRADIENT;
+
+// 50. RadialGradient (방사형 그래디언트)
+// gradient와 동일한 셰이더 재사용 (uRadial=1)
+PictureShader._FRAGMENT_RADIALGRADIENT = PictureShader._FRAGMENT_GRADIENT;
+
+// 51. Distort (왜곡 텍스처) - 위의 noise 기반 distort와 같은 셰이더 재사용
+
+// 52. ShakeUV (UV 떨림) - shake와 유사하지만 UV 레벨
+PictureShader._FRAGMENT_SHAKEUV = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uSpeed;',
+    'uniform float uShakeX;',
+    'uniform float uShakeY;',
+    'varying vec2 vUv;',
+    'float rand(vec2 s) { return fract(sin(dot(s, vec2(12.9898,78.233)))*43758.5453); }',
+    'void main() {',
+    '    float t = floor(uTime * uSpeed * 10.0);',
+    '    float rx = (rand(vec2(t, 0.0)) - 0.5) * 2.0 * uShakeX * 0.01;',
+    '    float ry = (rand(vec2(0.0, t)) - 0.5) * 2.0 * uShakeY * 0.01;',
+    '    vec4 col = texture2D(map, vUv + vec2(rx, ry));',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
 //=============================================================================
 // 셰이더 타입별 fragment shader 매핑
 //=============================================================================
 
 PictureShader._FRAGMENT_SHADERS = {
-    'wave':      PictureShader._FRAGMENT_WAVE,
-    'glitch':    PictureShader._FRAGMENT_GLITCH,
-    'dissolve':  PictureShader._FRAGMENT_DISSOLVE,
-    'glow':      PictureShader._FRAGMENT_GLOW,
-    'chromatic': PictureShader._FRAGMENT_CHROMATIC,
-    'pixelate':  PictureShader._FRAGMENT_PIXELATE,
-    'shake':     PictureShader._FRAGMENT_SHAKE,
-    'blur':      PictureShader._FRAGMENT_BLUR,
-    'rainbow':   PictureShader._FRAGMENT_RAINBOW,
-    'hologram':  PictureShader._FRAGMENT_HOLOGRAM,
-    'outline':   PictureShader._FRAGMENT_OUTLINE,
-    'fireAura':  PictureShader._FRAGMENT_FIRE_AURA,
+    'wave':           PictureShader._FRAGMENT_WAVE,
+    'glitch':         PictureShader._FRAGMENT_GLITCH,
+    'dissolve':       PictureShader._FRAGMENT_DISSOLVE,
+    'glow':           PictureShader._FRAGMENT_GLOW,
+    'chromatic':      PictureShader._FRAGMENT_CHROMATIC,
+    'pixelate':       PictureShader._FRAGMENT_PIXELATE,
+    'shake':          PictureShader._FRAGMENT_SHAKE,
+    'blur':           PictureShader._FRAGMENT_BLUR,
+    'rainbow':        PictureShader._FRAGMENT_RAINBOW,
+    'hologram':       PictureShader._FRAGMENT_HOLOGRAM,
+    'outline':        PictureShader._FRAGMENT_OUTLINE,
+    'fireAura':       PictureShader._FRAGMENT_FIRE_AURA,
+    'greyscale':      PictureShader._FRAGMENT_GREYSCALE,
+    'negative':       PictureShader._FRAGMENT_NEGATIVE,
+    'hitEffect':      PictureShader._FRAGMENT_HITEFFECT,
+    'shine':          PictureShader._FRAGMENT_SHINE,
+    'flicker':        PictureShader._FRAGMENT_FLICKER,
+    'posterize':      PictureShader._FRAGMENT_POSTERIZE,
+    'gradient':       PictureShader._FRAGMENT_GRADIENT,
+    'colorSwap':      PictureShader._FRAGMENT_COLORSWAP,
+    'hsv':            PictureShader._FRAGMENT_HSV,
+    'changeColor':    PictureShader._FRAGMENT_CHANGECOLOR,
+    'contrast':       PictureShader._FRAGMENT_CONTRAST,
+    'motionBlur':     PictureShader._FRAGMENT_MOTIONBLUR,
+    'ghost':          PictureShader._FRAGMENT_GHOST,
+    'shadow':         PictureShader._FRAGMENT_SHADOW,
+    'doodle':         PictureShader._FRAGMENT_DOODLE,
+    'warp':           PictureShader._FRAGMENT_WARP,
+    'twist':          PictureShader._FRAGMENT_TWIST,
+    'roundWave':      PictureShader._FRAGMENT_ROUNDWAVE,
+    'fisheye':        PictureShader._FRAGMENT_FISHEYE,
+    'pinch':          PictureShader._FRAGMENT_PINCH,
+    'overlay':        PictureShader._FRAGMENT_OVERLAY,
+    'alphaCutoff':    PictureShader._FRAGMENT_ALPHACUTOFF,
+    'alphaRound':     PictureShader._FRAGMENT_ALPHAROUND,
+    'wind':           PictureShader._FRAGMENT_WIND,
+    'textureScroll':  PictureShader._FRAGMENT_TEXTURESCROLL,
+    'zoomUV':         PictureShader._FRAGMENT_ZOOMUV,
+    'rotateUV':       PictureShader._FRAGMENT_ROTATEUV,
+    'polarUV':        PictureShader._FRAGMENT_POLARUV,
+    'offsetUV':       PictureShader._FRAGMENT_OFFSETUV,
+    'clipping':       PictureShader._FRAGMENT_CLIPPING,
+    'radialClipping': PictureShader._FRAGMENT_RADIALCLIPPING,
+    'innerOutline':   PictureShader._FRAGMENT_INNEROUTLINE,
+    'alphaOutline':   PictureShader._FRAGMENT_ALPHAOUTLINE,
+    'distort':        PictureShader._FRAGMENT_DISTORT,
+    'colorRamp':      PictureShader._FRAGMENT_COLORRAMP,
+    'onlyOutline':    PictureShader._FRAGMENT_ONLYOUTLINE,
+    'gradient2col':   PictureShader._FRAGMENT_GRADIENT2COL,
+    'radialGradient': PictureShader._FRAGMENT_RADIALGRADIENT,
+    'shakeUV':        PictureShader._FRAGMENT_SHAKEUV,
 };
 
 //=============================================================================
@@ -602,10 +1422,108 @@ PictureShader._DEFAULT_PARAMS = {
     'hologram':  { scanlineSpacing: 4, scanlineAlpha: 0.3, flickerSpeed: 5, flickerIntensity: 0.2, rgbShift: 2, tintR: 0.5, tintG: 0.8, tintB: 1 },
     'outline':   { thickness: 3, colorR: 1, colorG: 0.9, colorB: 0.2, intensity: 1.5, animMode: 0, animSpeed: 2, animMin: 0.8, animMax: 2.0 },
     'fireAura':  { radius: 12, intensity: 1.2, speed: 1.5, noiseScale: 8, innerColorR: 1, innerColorG: 0.9, innerColorB: 0.3, outerColorR: 1, outerColorG: 0.3, outerColorB: 0, turbulence: 1.5, flameHeight: 1.0, animMode: 0, animSpeed: 1 },
+    'greyscale': { luminosity: 0, blend: 1, tintR: 1, tintG: 1, tintB: 1 },
+    'negative':  { amount: 1 },
+    'hitEffect': { colorR: 1, colorG: 1, colorB: 1, glow: 5, blend: 1 },
+    'shine':     { colorR: 1, colorG: 1, colorB: 1, location: 0.5, rotate: 0, width: 0.1, glowAmount: 1, speed: 1 },
+    'flicker':   { percent: 0.05, freq: 0.2, alpha: 0 },
+    'posterize': { numColors: 8, gamma: 0.75 },
+    'gradient':  { blend: 1, topLeftR: 1, topLeftG: 0, topLeftB: 0, topLeftA: 1, topRightR: 1, topRightG: 1, topRightB: 0, topRightA: 1, botLeftR: 0, botLeftG: 0, botLeftB: 1, botLeftA: 1, botRightR: 0, botRightG: 1, botRightB: 0, botRightA: 1, boostX: 1.2, boostY: 1.2, radial: 0 },
+    'colorSwap': { redNewR: 1, redNewG: 0, redNewB: 0, greenNewR: 0, greenNewG: 1, greenNewB: 0, blueNewR: 0, blueNewG: 0, blueNewB: 1, redLum: 0, greenLum: 0, blueLum: 0, blend: 1 },
+    'hsv':       { hsvShift: 0, hsvSaturation: 0, hsvBright: 0 },
+    'changeColor': { target1R: 1, target1G: 0, target1B: 0, new1R: 1, new1G: 1, new1B: 0, tolerance1: 0.25, luminosity: 0, target2R: 0, target2G: 1, target2B: 0, new2R: 0, new2G: 0, new2B: 1, tolerance2: 0.25, enable2: 0, target3R: 0, target3G: 0, target3B: 1, new3R: 1, new3G: 0, new3B: 1, tolerance3: 0.25, enable3: 0 },
+    'contrast':  { contrast: 1, brightness: 0 },
+    'motionBlur': { angle: 0.1, dist: 1.25 },
+    'ghost':     { colorBoost: 1, transparency: 0, blend: 1 },
+    'shadow':    { shadowX: 0.1, shadowY: -0.05, shadowAlpha: 0.5, shadowColorR: 0, shadowColorG: 0, shadowColorB: 0 },
+    'doodle':    { amount: 10, speed: 5 },
+    'warp':      { strength: 0.025, speed: 8, scale: 0.5 },
+    'twist':     { amount: 1, posX: 0.5, posY: 0.5, radius: 0.75 },
+    'roundWave': { strength: 0.7, speed: 2 },
+    'fisheye':   { amount: 0.35 },
+    'pinch':     { amount: 0.35 },
+    'overlay':   { overlayColorR: 1, overlayColorG: 1, overlayColorB: 1, overlayGlow: 1, blend: 0.5, multiply: 0 },
+    'alphaCutoff': { cutoff: 0.5 },
+    'alphaRound': {},
+    'wind':      { speed: 2, wind: 5 },
+    'textureScroll': { speedX: 0.25, speedY: 0 },
+    'zoomUV':    { zoom: 1 },
+    'rotateUV':  { angle: 0, speed: 0 },
+    'polarUV':   {},
+    'offsetUV':  { offsetX: 0, offsetY: 0 },
+    'clipping':  { left: 0, right: 0, up: 0, down: 0 },
+    'radialClipping': { startAngle: 0, clip: 1 },
+    'innerOutline': { colorR: 1, colorG: 1, colorB: 1, width: 2, alpha: 1, onlyOutline: 0 },
+    'alphaOutline': { colorR: 1, colorG: 0.5, colorB: 0, glow: 1, power: 0.3, minAlpha: 0.1, blend: 1 },
+    'distort':   { amount: 0.5, speedX: 0.5, speedY: 0.3, scale: 5 },
+    'colorRamp': { blend: 1, luminosity: 0, colorDarkR: 0, colorDarkG: 0, colorDarkB: 0.3, colorMidR: 0.5, colorMidG: 0.2, colorMidB: 0.5, colorLightR: 1, colorLightG: 0.9, colorLightB: 0.7 },
+    'onlyOutline': { colorR: 1, colorG: 1, colorB: 1, thickness: 2, glow: 1 },
+    'gradient2col': { blend: 1, topLeftR: 1, topLeftG: 0, topLeftB: 0, topLeftA: 1, topRightR: 1, topRightG: 0, topRightB: 0, topRightA: 1, botLeftR: 0, botLeftG: 0, botLeftB: 1, botLeftA: 1, botRightR: 0, botRightG: 0, botRightB: 1, botRightA: 1, boostX: 1.2, boostY: 1.2, radial: 0 },
+    'radialGradient': { blend: 1, topLeftR: 1, topLeftG: 0, topLeftB: 0, topLeftA: 1, topRightR: 1, topRightG: 0, topRightB: 0, topRightA: 1, botLeftR: 0, botLeftG: 0, botLeftB: 1, botLeftA: 1, botRightR: 0, botRightG: 0, botRightB: 1, botRightA: 1, boostX: 1.2, boostY: 1.2, radial: 1 },
+    'shakeUV':   { speed: 5, shakeX: 5, shakeY: 5 },
 };
 
 //=============================================================================
-// ShaderMaterial 생성
+// 셰이더 타입별 uniform 매핑 정의 (데이터 기반)
+// 'p' = 파라미터 이름, 'u' = uniform 이름, 'vec3' = [r,g,b] → THREE.Vector3, 'vec4' = [r,g,b,a] → THREE.Vector4
+//=============================================================================
+
+PictureShader._UNIFORM_MAP = {
+    'wave':      [ ['amplitude','uAmplitude'], ['frequency','uFrequency'], ['speed','uSpeed'], ['direction','uDirection'] ],
+    'glitch':    [ ['intensity','uIntensity'], ['rgbShift','uRgbShift'], ['lineSpeed','uLineSpeed'], ['blockSize','uBlockSize'] ],
+    'dissolve':  [ ['threshold','uThreshold'], ['edgeWidth','uEdgeWidth'], {u:'uEdgeColor',vec3:['edgeColorR','edgeColorG','edgeColorB']}, ['noiseScale','uNoiseScale'], ['animSpeed','uAnimSpeed'], ['animMode','uAnimMode'], ['thresholdMin','uThresholdMin'], ['thresholdMax','uThresholdMax'] ],
+    'glow':      [ ['intensity','uIntensity'], ['radius','uRadius'], {u:'uColor',vec3:['colorR','colorG','colorB']}, ['pulseSpeed','uPulseSpeed'], ['animMode','uAnimMode'] ],
+    'chromatic': [ ['offset','uOffset'], ['angle','uAngle'], ['pulseSpeed','uPulseSpeed'], ['animMode','uAnimMode'] ],
+    'pixelate':  [ ['size','uSize'], ['pulseSpeed','uPulseSpeed'], ['animMode','uAnimMode'], ['minSize','uMinSize'], ['maxSize','uMaxSize'] ],
+    'shake':     [],
+    'blur':      [ ['strength','uStrength'], ['pulseSpeed','uPulseSpeed'], ['animMode','uAnimMode'], ['minStrength','uMinStrength'], ['maxStrength','uMaxStrength'] ],
+    'rainbow':   [ ['speed','uSpeed'], ['saturation','uSaturation'], ['brightness','uBrightness'] ],
+    'hologram':  [ ['scanlineSpacing','uScanlineSpacing'], ['scanlineAlpha','uScanlineAlpha'], ['flickerSpeed','uFlickerSpeed'], ['flickerIntensity','uFlickerIntensity'], ['rgbShift','uRgbShift'], {u:'uTint',vec3:['tintR','tintG','tintB']} ],
+    'outline':   [ ['thickness','uThickness'], {u:'uColor',vec3:['colorR','colorG','colorB']}, ['intensity','uIntensity'], ['animMode','uAnimMode'], ['animSpeed','uAnimSpeed'], ['animMin','uAnimMin'], ['animMax','uAnimMax'] ],
+    'fireAura':  [ ['radius','uRadius'], ['intensity','uIntensity'], ['speed','uSpeed'], ['noiseScale','uNoiseScale'], {u:'uInnerColor',vec3:['innerColorR','innerColorG','innerColorB']}, {u:'uOuterColor',vec3:['outerColorR','outerColorG','outerColorB']}, ['turbulence','uTurbulence'], ['flameHeight','uFlameHeight'], ['animMode','uAnimMode'], ['animSpeed','uAnimSpeed'] ],
+    'greyscale': [ ['luminosity','uLuminosity'], ['blend','uBlend'], {u:'uTintColor',vec3:['tintR','tintG','tintB']} ],
+    'negative':  [ ['amount','uAmount'] ],
+    'hitEffect': [ {u:'uColor',vec3:['colorR','colorG','colorB']}, ['glow','uGlow'], ['blend','uBlend'] ],
+    'shine':     [ {u:'uColor',vec3:['colorR','colorG','colorB']}, ['location','uLocation'], ['rotate','uRotate'], ['width','uWidth'], ['glowAmount','uGlow'], ['speed','uSpeed'] ],
+    'flicker':   [ ['percent','uPercent'], ['freq','uFreq'], ['alpha','uAlpha'] ],
+    'posterize': [ ['numColors','uNumColors'], ['gamma','uGamma'] ],
+    'gradient':  [ ['blend','uBlend'], {u:'uTopLeft',vec4:['topLeftR','topLeftG','topLeftB','topLeftA']}, {u:'uTopRight',vec4:['topRightR','topRightG','topRightB','topRightA']}, {u:'uBotLeft',vec4:['botLeftR','botLeftG','botLeftB','botLeftA']}, {u:'uBotRight',vec4:['botRightR','botRightG','botRightB','botRightA']}, ['boostX','uBoostX'], ['boostY','uBoostY'], ['radial','uRadial'] ],
+    'colorSwap': [ {u:'uRedNew',vec3:['redNewR','redNewG','redNewB']}, {u:'uGreenNew',vec3:['greenNewR','greenNewG','greenNewB']}, {u:'uBlueNew',vec3:['blueNewR','blueNewG','blueNewB']}, ['redLum','uRedLum'], ['greenLum','uGreenLum'], ['blueLum','uBlueLum'], ['blend','uBlend'] ],
+    'hsv':       [ ['hsvShift','uHsvShift'], ['hsvSaturation','uHsvSaturation'], ['hsvBright','uHsvBright'] ],
+    'changeColor': [ {u:'uTarget1',vec3:['target1R','target1G','target1B']}, {u:'uNew1',vec3:['new1R','new1G','new1B']}, ['tolerance1','uTolerance1'], ['luminosity','uLuminosity'], {u:'uTarget2',vec3:['target2R','target2G','target2B']}, {u:'uNew2',vec3:['new2R','new2G','new2B']}, ['tolerance2','uTolerance2'], ['enable2','uEnable2'], {u:'uTarget3',vec3:['target3R','target3G','target3B']}, {u:'uNew3',vec3:['new3R','new3G','new3B']}, ['tolerance3','uTolerance3'], ['enable3','uEnable3'] ],
+    'contrast':  [ ['contrast','uContrast'], ['brightness','uBrightness'] ],
+    'motionBlur': [ ['angle','uAngle'], ['dist','uDist'] ],
+    'ghost':     [ ['colorBoost','uColorBoost'], ['transparency','uTransparency'], ['blend','uBlend'] ],
+    'shadow':    [ ['shadowX','uShadowX'], ['shadowY','uShadowY'], ['shadowAlpha','uShadowAlpha'], {u:'uShadowColor',vec3:['shadowColorR','shadowColorG','shadowColorB']} ],
+    'doodle':    [ ['amount','uAmount'], ['speed','uSpeed'] ],
+    'warp':      [ ['strength','uStrength'], ['speed','uSpeed'], ['scale','uScale'] ],
+    'twist':     [ ['amount','uAmount'], ['posX','uPosX'], ['posY','uPosY'], ['radius','uRadius'] ],
+    'roundWave': [ ['strength','uStrength'], ['speed','uSpeed'] ],
+    'fisheye':   [ ['amount','uAmount'] ],
+    'pinch':     [ ['amount','uAmount'] ],
+    'overlay':   [ {u:'uOverlayColor',vec3:['overlayColorR','overlayColorG','overlayColorB']}, ['overlayGlow','uOverlayGlow'], ['blend','uBlend'], ['multiply','uMultiply'] ],
+    'alphaCutoff': [ ['cutoff','uCutoff'] ],
+    'alphaRound': [],
+    'wind':      [ ['speed','uSpeed'], ['wind','uWind'] ],
+    'textureScroll': [ ['speedX','uSpeedX'], ['speedY','uSpeedY'] ],
+    'zoomUV':    [ ['zoom','uZoom'] ],
+    'rotateUV':  [ ['angle','uAngle'], ['speed','uSpeed'] ],
+    'polarUV':   [],
+    'offsetUV':  [ ['offsetX','uOffsetX'], ['offsetY','uOffsetY'] ],
+    'clipping':  [ ['left','uLeft'], ['right','uRight'], ['up','uUp'], ['down','uDown'] ],
+    'radialClipping': [ ['startAngle','uStartAngle'], ['clip','uClip'] ],
+    'innerOutline': [ {u:'uColor',vec3:['colorR','colorG','colorB']}, ['width','uWidth'], ['alpha','uAlpha'], ['onlyOutline','uOnlyOutline'] ],
+    'alphaOutline': [ {u:'uColor',vec3:['colorR','colorG','colorB']}, ['glow','uGlow'], ['power','uPower'], ['minAlpha','uMinAlpha'], ['blend','uBlend'] ],
+    'distort':   [ ['amount','uAmount'], ['speedX','uSpeedX'], ['speedY','uSpeedY'], ['scale','uScale'] ],
+    'colorRamp': [ ['blend','uBlend'], ['luminosity','uLuminosity'], {u:'uColorDark',vec3:['colorDarkR','colorDarkG','colorDarkB']}, {u:'uColorMid',vec3:['colorMidR','colorMidG','colorMidB']}, {u:'uColorLight',vec3:['colorLightR','colorLightG','colorLightB']} ],
+    'onlyOutline': [ {u:'uColor',vec3:['colorR','colorG','colorB']}, ['thickness','uThickness'], ['glow','uGlow'] ],
+    'gradient2col': 'gradient',
+    'radialGradient': 'gradient',
+    'shakeUV':   [ ['speed','uSpeed'], ['shakeX','uShakeX'], ['shakeY','uShakeY'] ],
+};
+
+//=============================================================================
+// ShaderMaterial 생성 (데이터 기반)
 //=============================================================================
 
 PictureShader.createMaterial = function(type, params, texture) {
@@ -614,7 +1532,6 @@ PictureShader.createMaterial = function(type, params, texture) {
 
     var defaults = this._DEFAULT_PARAMS[type] || {};
     var p = {};
-    // defaults를 기반으로, params로 오버라이드
     var keys = Object.keys(defaults);
     for (var i = 0; i < keys.length; i++) {
         var k = keys[i];
@@ -627,94 +1544,22 @@ PictureShader.createMaterial = function(type, params, texture) {
         uTime:   { value: 0.0 },
     };
 
-    // 타입별 uniform 추가
-    switch (type) {
-        case 'wave':
-            uniforms.uAmplitude  = { value: p.amplitude };
-            uniforms.uFrequency  = { value: p.frequency };
-            uniforms.uSpeed      = { value: p.speed };
-            uniforms.uDirection  = { value: p.direction };
-            break;
-        case 'glitch':
-            uniforms.uIntensity  = { value: p.intensity };
-            uniforms.uRgbShift   = { value: p.rgbShift };
-            uniforms.uLineSpeed  = { value: p.lineSpeed };
-            uniforms.uBlockSize  = { value: p.blockSize };
-            break;
-        case 'dissolve':
-            uniforms.uThreshold     = { value: p.threshold };
-            uniforms.uEdgeWidth     = { value: p.edgeWidth };
-            uniforms.uEdgeColor     = { value: new THREE.Vector3(p.edgeColorR, p.edgeColorG, p.edgeColorB) };
-            uniforms.uNoiseScale    = { value: p.noiseScale };
-            uniforms.uAnimSpeed     = { value: p.animSpeed };
-            uniforms.uAnimMode      = { value: p.animMode };
-            uniforms.uThresholdMin  = { value: p.thresholdMin };
-            uniforms.uThresholdMax  = { value: p.thresholdMax };
-            break;
-        case 'glow':
-            uniforms.uIntensity  = { value: p.intensity };
-            uniforms.uRadius     = { value: p.radius };
-            uniforms.uColor      = { value: new THREE.Vector3(p.colorR, p.colorG, p.colorB) };
-            uniforms.uPulseSpeed = { value: p.pulseSpeed };
-            uniforms.uAnimMode   = { value: p.animMode };
-            break;
-        case 'chromatic':
-            uniforms.uOffset     = { value: p.offset };
-            uniforms.uAngle      = { value: p.angle };
-            uniforms.uPulseSpeed = { value: p.pulseSpeed };
-            uniforms.uAnimMode   = { value: p.animMode };
-            break;
-        case 'pixelate':
-            uniforms.uSize       = { value: p.size };
-            uniforms.uPulseSpeed = { value: p.pulseSpeed };
-            uniforms.uAnimMode   = { value: p.animMode };
-            uniforms.uMinSize    = { value: p.minSize };
-            uniforms.uMaxSize    = { value: p.maxSize };
-            break;
-        case 'shake':
-            // shake는 JS 레벨 처리, fragment는 패스스루
-            break;
-        case 'blur':
-            uniforms.uStrength     = { value: p.strength };
-            uniforms.uPulseSpeed   = { value: p.pulseSpeed };
-            uniforms.uAnimMode     = { value: p.animMode };
-            uniforms.uMinStrength  = { value: p.minStrength };
-            uniforms.uMaxStrength  = { value: p.maxStrength };
-            break;
-        case 'rainbow':
-            uniforms.uSpeed      = { value: p.speed };
-            uniforms.uSaturation = { value: p.saturation };
-            uniforms.uBrightness = { value: p.brightness };
-            break;
-        case 'hologram':
-            uniforms.uScanlineSpacing  = { value: p.scanlineSpacing };
-            uniforms.uScanlineAlpha    = { value: p.scanlineAlpha };
-            uniforms.uFlickerSpeed     = { value: p.flickerSpeed };
-            uniforms.uFlickerIntensity = { value: p.flickerIntensity };
-            uniforms.uRgbShift         = { value: p.rgbShift };
-            uniforms.uTint             = { value: new THREE.Vector3(p.tintR, p.tintG, p.tintB) };
-            break;
-        case 'outline':
-            uniforms.uThickness  = { value: p.thickness };
-            uniforms.uColor      = { value: new THREE.Vector3(p.colorR, p.colorG, p.colorB) };
-            uniforms.uIntensity  = { value: p.intensity };
-            uniforms.uAnimMode   = { value: p.animMode };
-            uniforms.uAnimSpeed  = { value: p.animSpeed };
-            uniforms.uAnimMin    = { value: p.animMin };
-            uniforms.uAnimMax    = { value: p.animMax };
-            break;
-        case 'fireAura':
-            uniforms.uRadius      = { value: p.radius };
-            uniforms.uIntensity   = { value: p.intensity };
-            uniforms.uSpeed       = { value: p.speed };
-            uniforms.uNoiseScale  = { value: p.noiseScale };
-            uniforms.uInnerColor  = { value: new THREE.Vector3(p.innerColorR, p.innerColorG, p.innerColorB) };
-            uniforms.uOuterColor  = { value: new THREE.Vector3(p.outerColorR, p.outerColorG, p.outerColorB) };
-            uniforms.uTurbulence  = { value: p.turbulence };
-            uniforms.uFlameHeight = { value: p.flameHeight };
-            uniforms.uAnimMode    = { value: p.animMode };
-            uniforms.uAnimSpeed   = { value: p.animSpeed };
-            break;
+    // 데이터 기반 uniform 매핑
+    var mapping = this._UNIFORM_MAP[type];
+    // 문자열이면 다른 타입의 매핑을 참조
+    if (typeof mapping === 'string') mapping = this._UNIFORM_MAP[mapping];
+    if (mapping) {
+        for (var j = 0; j < mapping.length; j++) {
+            var m = mapping[j];
+            if (Array.isArray(m)) {
+                // [paramKey, uniformName]
+                uniforms[m[1]] = { value: p[m[0]] };
+            } else if (m.vec3) {
+                uniforms[m.u] = { value: new THREE.Vector3(p[m.vec3[0]], p[m.vec3[1]], p[m.vec3[2]]) };
+            } else if (m.vec4) {
+                uniforms[m.u] = { value: new THREE.Vector4(p[m.vec4[0]], p[m.vec4[1]], p[m.vec4[2]], p[m.vec4[3]]) };
+            }
+        }
     }
 
     var material = new THREE.ShaderMaterial({
