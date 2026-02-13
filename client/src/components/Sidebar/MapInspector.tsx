@@ -346,25 +346,6 @@ export default function MapInspector() {
                   rotationSpeed: speed,
                   sunLights: sunLights.length > 0 ? sunLights : undefined,
                 });
-                // 첫 번째 태양 광원을 기본 디렉셔널 라이트에 적용
-                if (sunLights.length > 0) {
-                  const first = sunLights[0];
-                  const direction = sunUVToDirection(first.position[0], first.position[1]);
-                  const store = useEditorStore.getState();
-                  if (!store.currentMap?.editorLights) {
-                    store.initEditorLights();
-                  }
-                  store.updateDirectionalLight({
-                    enabled: true,
-                    direction,
-                    color: first.color,
-                    intensity: first.intensity,
-                    castShadow: first.castShadow,
-                    shadowMapSize: first.shadowMapSize,
-                    shadowBias: first.shadowBias,
-                  });
-                }
-                // 추가 태양 광원은 skyBackground.sunLights에 저장 → threeSceneSync에서 처리
               }}
             />
           </div>

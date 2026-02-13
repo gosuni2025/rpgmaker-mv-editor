@@ -551,26 +551,25 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
             uvArray[uvOff + j * 2]     = (data.uvs[srcOff + j * 2] + ax) / texW;
             uvArray[uvOff + j * 2 + 1] = 1.0 - (data.uvs[srcOff + j * 2 + 1] + ay) / texH;
 
-            // per-vertex foam mask 계산
-            // 꼭짓점이 타일의 어느 변에 있는지에 따라 감쇠
+            // per-vertex foam mask 계산 (거리 기반 연속 그래디언트)
+            // 타일 내 위치 비율(0~1)과 해안 방향 거리를 조합
             var vertFoam = 0;
             if (fInfo.foam) {
-                // 꼭짓점이 타일 경계에 있는지 확인
-                var atLeft = (vx <= tilePx + 0.5);
-                var atRight = (vx >= tilePx + tileW - 0.5);
-                var atTop = (vy <= tilePy + 0.5);
-                var atBottom = (vy >= tilePy + tileW - 0.5);
+                // 꼭짓점의 타일 내 상대 위치 (0.0 = 좌/상 경계, 1.0 = 우/하 경계)
+                var relX = (vx - tilePx) / tileW;  // 0~1
+                var relY = (vy - tilePy) / tileW;  // 0~1
+                relX = Math.max(0, Math.min(1, relX));
+                relY = Math.max(0, Math.min(1, relY));
 
-                // 각 변/꼭짓점에서 인접 방향의 비물 타일이 있으면 foam
-                if (atLeft && fInfo.left) vertFoam = 1.0;
-                if (atRight && fInfo.right) vertFoam = 1.0;
-                if (atTop && fInfo.top) vertFoam = 1.0;
-                if (atBottom && fInfo.bottom) vertFoam = 1.0;
-                // 대각선 꼭짓점
-                if (atLeft && atTop && fInfo.tl) vertFoam = 1.0;
-                if (atRight && atTop && fInfo.tr) vertFoam = 1.0;
-                if (atLeft && atBottom && fInfo.bl) vertFoam = 1.0;
-                if (atRight && atBottom && fInfo.br) vertFoam = 1.0;
+                // 각 방향: 해안에 가까운 쪽 vertex일수록 높은 값
+                // distLeft > 0이면 왼쪽에 해안 → relX가 작을수록 해안에 가까움
+                var foamL = fInfo.distLeft * (1.0 - relX);
+                var foamR = fInfo.distRight * relX;
+                var foamT = fInfo.distTop * (1.0 - relY);
+                var foamB = fInfo.distBottom * relY;
+
+                // 4방향 중 최대값 사용
+                vertFoam = Math.max(foamL, foamR, foamT, foamB);
             }
             foamMaskArray[foamOff + j] = vertFoam;
         }
@@ -620,7 +619,7 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
                 map: texture, transparent: true, depthTest: true, depthWrite: false,
                 side: THREE.DoubleSide,
                 emissive: new THREE.Color(0x000000),
-                specular: new THREE.Color(0xccddff), shininess: 30,
+                specular: new THREE.Color(0xffffff), shininess: 64,
             });
             ThreeWaterShader.applyToPhongMaterial(mat, isWaterfall);
             mesh.material = mat;
@@ -650,7 +649,7 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
                 map: texture, transparent: true, depthTest: true, depthWrite: false,
                 side: THREE.DoubleSide,
                 emissive: new THREE.Color(0x000000),
-                specular: new THREE.Color(0xccddff), shininess: 30,
+                specular: new THREE.Color(0xffffff), shininess: 64,
             });
             ThreeWaterShader.applyToPhongMaterial(material, isWaterfall);
         } else {
@@ -691,17 +690,15 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
 };
 
 /**
- * foam mask 계산: 각 물 rect의 world position에서 인접 타일이 물인지 확인
- * per-vertex foam을 위해 방향별 인접 정보 반환
- * @returns {Object} rectIndex → { foam: 0|1, left: bool, right: bool, top: bool, bottom: bool }
+ * foam mask 계산: 각 물 rect에 대해 4방향 해안까지 거리 기반 그래디언트 반환
+ * distLeft/distRight/distTop/distBottom: 0 = 해안 없음, 1.0 = 바로 옆
  */
 ThreeTilemapRectLayer.prototype._computeFoamMasks = function(data, animOffsets) {
     var foamData = {};
-    var tileW = 48;  // RPG Maker MV 표준 타일 크기
+    var tileW = 48;
+    var SEARCH_DIST = 3; // 해안으로부터 감쇠 적용할 타일 거리
 
-    // 맵 데이터를 통해 인접 타일 확인
     var tilemap = null;
-    // parent 체인: RectLayer → CompositeLayer → ZLayer → ShaderTilemap
     if (this.parent && this.parent.parent && this.parent.parent.parent) {
         tilemap = this.parent.parent.parent;
     }
@@ -710,44 +707,39 @@ ThreeTilemapRectLayer.prototype._computeFoamMasks = function(data, animOffsets) 
         return tile === 0 || !Tilemap.isTileA1(tile) || !Tilemap.isWaterTile(tile);
     }
 
-    // 물 rect의 world position → tile grid 좌표 매핑
+    // 방향별로 비물 타일까지의 거리 (1 = 바로 옆, 0 = 범위 내 없음)
+    function distToShore(tm, tx, ty, dx, dy) {
+        for (var d = 1; d <= SEARCH_DIST; d++) {
+            var tile = tm._readMapData(tx + dx * d, ty + dy * d, 0);
+            if (isNonWater(tile)) return d;
+        }
+        return 0;
+    }
+
     for (var i = 0; i < data.count; i++) {
         var aX = animOffsets[i * 2] || 0;
         var aY = animOffsets[i * 2 + 1] || 0;
         if (!ThreeWaterShader.isWaterRect(aX, aY)) continue;
 
-        // rect의 왼쪽 위 pixel position에서 tile 좌표 계산
-        var px = data.positions[i * 12];       // first vertex x
-        var py = data.positions[i * 12 + 1];   // first vertex y
-
+        var px = data.positions[i * 12];
+        var py = data.positions[i * 12 + 1];
         var tileX = Math.floor(px / tileW);
         var tileY = Math.floor(py / tileW);
 
-        var info = { foam: 0, left: false, right: false, top: false, bottom: false };
+        var info = { foam: 0, distLeft: 0, distRight: 0, distTop: 0, distBottom: 0 };
         if (tilemap && tilemap._readMapData) {
-            // 4방향 인접 타일 확인
-            var leftTile = tilemap._readMapData(tileX - 1, tileY, 0);
-            var rightTile = tilemap._readMapData(tileX + 1, tileY, 0);
-            var topTile = tilemap._readMapData(tileX, tileY - 1, 0);
-            var bottomTile = tilemap._readMapData(tileX, tileY + 1, 0);
-            // 대각선도 확인
-            var tlTile = tilemap._readMapData(tileX - 1, tileY - 1, 0);
-            var trTile = tilemap._readMapData(tileX + 1, tileY - 1, 0);
-            var blTile = tilemap._readMapData(tileX - 1, tileY + 1, 0);
-            var brTile = tilemap._readMapData(tileX + 1, tileY + 1, 0);
+            var dL = distToShore(tilemap, tileX, tileY, -1, 0);
+            var dR = distToShore(tilemap, tileX, tileY, 1, 0);
+            var dT = distToShore(tilemap, tileX, tileY, 0, -1);
+            var dB = distToShore(tilemap, tileX, tileY, 0, 1);
 
-            info.left = isNonWater(leftTile);
-            info.right = isNonWater(rightTile);
-            info.top = isNonWater(topTile);
-            info.bottom = isNonWater(bottomTile);
-            // 대각선: 꼭짓점에 영향
-            info.tl = isNonWater(tlTile);
-            info.tr = isNonWater(trTile);
-            info.bl = isNonWater(blTile);
-            info.br = isNonWater(brTile);
+            // 거리를 0~1로 변환 (1.0 = 바로 옆, 점점 감소, 0 = 해안 없음)
+            if (dL > 0) info.distLeft = 1.0 - (dL - 1) / SEARCH_DIST;
+            if (dR > 0) info.distRight = 1.0 - (dR - 1) / SEARCH_DIST;
+            if (dT > 0) info.distTop = 1.0 - (dT - 1) / SEARCH_DIST;
+            if (dB > 0) info.distBottom = 1.0 - (dB - 1) / SEARCH_DIST;
 
-            if (info.left || info.right || info.top || info.bottom ||
-                info.tl || info.tr || info.bl || info.br) {
+            if (info.distLeft > 0 || info.distRight > 0 || info.distTop > 0 || info.distBottom > 0) {
                 info.foam = 1;
             }
         }

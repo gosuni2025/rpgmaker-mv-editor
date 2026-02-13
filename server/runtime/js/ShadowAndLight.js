@@ -1269,6 +1269,10 @@ ShadowLight._addLightsToScene = function(scene) {
     this._sunLightsData = null;
     var skyBg = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.skyBackground : null;
     if (skyBg && skyBg.sunLights && skyBg.sunLights.length > 0) {
+        // sunLights가 있으면 메인 디렉셔널을 비활성화 (중복 방지)
+        if (this._directionalLight) {
+            this._directionalLight.visible = false;
+        }
         this._sunLightsData = skyBg.sunLights;
         for (var si = 0; si < skyBg.sunLights.length; si++) {
             var sl = skyBg.sunLights[si];
@@ -1505,7 +1509,7 @@ ShadowLight._showLightArrows = function() {
     // 씬의 모든 DirectionalLight를 찾아서 화살표 + 라벨 표시
     var allDirLights = [];
     scene.traverse(function(obj) {
-        if (obj.isDirectionalLight) {
+        if (obj.isDirectionalLight && obj.visible) {
             var label = '???';
             if (obj === ShadowLight._directionalLight) {
                 label = 'editorLights.directional (enabled=' + obj.visible + ')';
@@ -1528,17 +1532,20 @@ ShadowLight._showLightArrows = function() {
         var start = new THREE.Vector3().copy(target3).addScaledVector(lDir, -arrowLen);
         var arrow = this._createThickArrow(start, target3, colors[i % colors.length]);
         scene.add(arrow);
-        this._debugLightArrows.push(arrow);
-
         // 텍스트 라벨 (캔버스 텍스처 → PlaneGeometry)
+        // Mode3D Y-반전 보정: ctx.scale(1,-1) + translate
         var canvas = document.createElement('canvas');
         canvas.width = 512; canvas.height = 64;
         var ctx = canvas.getContext('2d');
+        ctx.save();
+        ctx.translate(0, canvas.height);
+        ctx.scale(1, -1);
         ctx.fillStyle = 'rgba(0,0,0,0.7)';
         ctx.fillRect(0, 0, 512, 64);
         ctx.fillStyle = '#' + (colors[i % colors.length]).toString(16).padStart(6, '0');
         ctx.font = 'bold 28px monospace';
         ctx.fillText(entry.label, 8, 42);
+        ctx.restore();
         var tex = new THREE.CanvasTexture(canvas);
         var labelMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide });
         var labelGeo = new THREE.PlaneGeometry(200, 25);
@@ -1546,8 +1553,7 @@ ShadowLight._showLightArrows = function() {
         labelMesh.position.copy(start).addScaledVector(lDir, -30);
         labelMesh.frustumCulled = false;
         labelMesh.renderOrder = 10000;
-        // 카메라를 향하도록 빌보드 설정은 매 프레임 필요하므로 일단 고정
-        labelMesh.lookAt(labelMesh.position.x, labelMesh.position.y, labelMesh.position.z + 100);
+        labelMesh.lookAt(labelMesh.position.x, labelMesh.position.y, labelMesh.position.z - 100);
         scene.add(labelMesh);
         this._debugLightArrows.push(labelMesh);
 
