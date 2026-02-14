@@ -2,7 +2,7 @@
 // FogOfWar.js - Fog of War 시스템 (런타임 + 에디터)
 //=============================================================================
 // 3단계 시야: 미탐험(검은색) → 탐험완료(반투명) → 현재 시야(투명)
-// PostProcess 파이프라인에 FogOfWarPass를 삽입하여 2D/3D 모두 지원
+// 맵 바닥면(Z=3.5)에 PlaneGeometry 메쉬를 배치하여 3D 카메라 원근/회전 자동 반영
 //
 // 의존: THREE (global), PostProcess.js, $gameMap, $gamePlayer
 //=============================================================================
@@ -28,6 +28,7 @@ FogOfWar._unexploredAlpha = 1.0;   // 미탐험 불투명도
 FogOfWar._exploredAlpha = 0.6;     // 탐험완료 불투명도
 FogOfWar._prevPlayerX = -1;
 FogOfWar._prevPlayerY = -1;
+FogOfWar._fogMesh = null;          // 3D 메쉬
 
 //=============================================================================
 // 초기화 / 해제
@@ -65,6 +66,7 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
 };
 
 FogOfWar.dispose = function() {
+    this._disposeMesh();
     if (this._fogTexture) {
         this._fogTexture.dispose();
         this._fogTexture = null;
@@ -200,171 +202,135 @@ FogOfWar.revealRect = function(x, y, w, h) {
 };
 
 //=============================================================================
-// FogOfWar 셰이더
+// 3D 메쉬 기반 FOW
 //=============================================================================
 
-var FogOfWarShader = {
-    uniforms: {
-        tColor:           { value: null },
-        tFog:             { value: null },
-        mapSize:          { value: new THREE.Vector2(1, 1) },
-        displayOrigin:    { value: new THREE.Vector2(0, 0) },
-        screenSize:       { value: new THREE.Vector2(816, 624) },
-        tileSize:         { value: 48.0 },
-        fogColor:         { value: new THREE.Vector3(0, 0, 0) },
-        unexploredAlpha:  { value: 1.0 },
-        exploredAlpha:    { value: 0.6 }
-    },
-    vertexShader: [
-        'varying vec2 vUv;',
-        'void main() {',
-        '    vUv = uv;',
-        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
-        '}'
-    ].join('\n'),
-    fragmentShader: [
-        'varying vec2 vUv;',
-        '',
-        'uniform sampler2D tColor;',
-        'uniform sampler2D tFog;',
-        'uniform vec2 mapSize;',
-        'uniform vec2 displayOrigin;',
-        'uniform vec2 screenSize;',
-        'uniform float tileSize;',
-        'uniform vec3 fogColor;',
-        'uniform float unexploredAlpha;',
-        'uniform float exploredAlpha;',
-        '',
-        'void main() {',
-        '    vec4 color = texture2D(tColor, vUv);',
-        '',
-        '    // 화면 UV -> 맵 타일 좌표 변환',
-        '    vec2 screenPx = vUv * screenSize;',
-        '    vec2 mapPx = screenPx + displayOrigin;',
-        '    vec2 tileCoord = mapPx / tileSize;',
-        '    vec2 fogUv = tileCoord / mapSize;',
-        '',
-        '    // 맵 범위 밖은 완전 불투명 안개',
-        '    if (fogUv.x < 0.0 || fogUv.x > 1.0 || fogUv.y < 0.0 || fogUv.y > 1.0) {',
-        '        gl_FragColor = vec4(fogColor, 1.0);',
-        '        return;',
-        '    }',
-        '',
-        '    // fog 텍스처 샘플링 (LinearFilter로 자동 보간)',
-        '    vec4 fogSample = texture2D(tFog, fogUv);',
-        '    float visibility = fogSample.r;',
-        '    float explored = fogSample.g;',
-        '',
-        '    // 안개 강도 계산',
-        '    float fogAlpha;',
-        '    if (visibility > 0.01) {',
-        '        fogAlpha = mix(exploredAlpha, 0.0, visibility);',
-        '    } else if (explored > 0.5) {',
-        '        fogAlpha = exploredAlpha;',
-        '    } else {',
-        '        fogAlpha = unexploredAlpha;',
-        '    }',
-        '',
-        '    gl_FragColor = mix(color, vec4(fogColor, 1.0), fogAlpha);',
-        '}'
-    ].join('\n')
-};
-
-window.FogOfWarShader = FogOfWarShader;
-
-//=============================================================================
-// PostProcess 통합 - FogOfWarPass
-//=============================================================================
-
-FogOfWar.createPass = function() {
+FogOfWar._createMesh = function() {
+    if (this._fogMesh) this._disposeMesh();
     if (!this._fogTexture) return null;
 
-    var pass = new ShaderPass(FogOfWarShader);
-    pass.uniforms.tFog.value = this._fogTexture;
-    pass.uniforms.mapSize.value.set(this._mapWidth, this._mapHeight);
-    pass.uniforms.fogColor.value.set(this._fogColor.r, this._fogColor.g, this._fogColor.b);
-    pass.uniforms.unexploredAlpha.value = this._unexploredAlpha;
-    pass.uniforms.exploredAlpha.value = this._exploredAlpha;
+    var totalW = this._mapWidth * 48;
+    var totalH = this._mapHeight * 48;
 
-    return pass;
+    var material = new THREE.ShaderMaterial({
+        uniforms: {
+            tFog:            { value: this._fogTexture },
+            fogColor:        { value: new THREE.Vector3(this._fogColor.r, this._fogColor.g, this._fogColor.b) },
+            unexploredAlpha: { value: this._unexploredAlpha },
+            exploredAlpha:   { value: this._exploredAlpha }
+        },
+        vertexShader: [
+            'varying vec2 vUv;',
+            'void main() {',
+            '    vUv = uv;',
+            '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+            '}'
+        ].join('\n'),
+        fragmentShader: [
+            'varying vec2 vUv;',
+            'uniform sampler2D tFog;',
+            'uniform vec3 fogColor;',
+            'uniform float unexploredAlpha;',
+            'uniform float exploredAlpha;',
+            '',
+            'void main() {',
+            '    vec4 fogSample = texture2D(tFog, vUv);',
+            '    float visibility = fogSample.r;',
+            '    float explored = fogSample.g;',
+            '',
+            '    float fogAlpha;',
+            '    if (visibility > 0.01) {',
+            '        fogAlpha = mix(exploredAlpha, 0.0, visibility);',
+            '    } else if (explored > 0.5) {',
+            '        fogAlpha = exploredAlpha;',
+            '    } else {',
+            '        fogAlpha = unexploredAlpha;',
+            '    }',
+            '',
+            '    gl_FragColor = vec4(fogColor, fogAlpha);',
+            '}'
+        ].join('\n'),
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide
+    });
+
+    var geometry = new THREE.PlaneGeometry(totalW, totalH);
+    var mesh = new THREE.Mesh(geometry, material);
+    mesh.renderOrder = 9990;
+    mesh.frustumCulled = false;
+
+    this._fogMesh = mesh;
+    return mesh;
 };
 
-FogOfWar.updatePassUniforms = function(pass) {
-    if (!pass || !this._active) return;
+FogOfWar._disposeMesh = function() {
+    if (this._fogMesh) {
+        if (this._fogMesh.parent) {
+            this._fogMesh.parent.remove(this._fogMesh);
+        }
+        this._fogMesh.geometry.dispose();
+        this._fogMesh.material.dispose();
+        this._fogMesh = null;
+    }
+};
 
-    // displayOrigin 갱신
+FogOfWar._updateMeshPosition = function() {
+    if (!this._fogMesh || !this._active) return;
+
+    var totalW = this._mapWidth * 48;
+    var totalH = this._mapHeight * 48;
+
+    // 맵 스크롤 오프셋
+    var ox = 0, oy = 0;
     if (typeof $gameMap !== 'undefined' && $gameMap) {
-        var dx = $gameMap.displayX() * 48;
-        var dy = $gameMap.displayY() * 48;
-        pass.uniforms.displayOrigin.value.set(dx, dy);
+        ox = $gameMap.displayX() * 48;
+        oy = $gameMap.displayY() * 48;
     }
 
-    // screenSize 갱신
-    if (typeof Graphics !== 'undefined') {
-        pass.uniforms.screenSize.value.set(Graphics.width, Graphics.height);
-    }
+    this._fogMesh.position.set(totalW / 2 - ox, totalH / 2 - oy, 3.5);
+};
 
-    // fog 텍스처 참조 갱신
-    pass.uniforms.tFog.value = this._fogTexture;
-    pass.uniforms.fogColor.value.set(this._fogColor.r, this._fogColor.g, this._fogColor.b);
-    pass.uniforms.unexploredAlpha.value = this._unexploredAlpha;
-    pass.uniforms.exploredAlpha.value = this._exploredAlpha;
+FogOfWar._updateMeshUniforms = function() {
+    if (!this._fogMesh || !this._active) return;
+
+    var u = this._fogMesh.material.uniforms;
+    u.tFog.value = this._fogTexture;
+    u.fogColor.value.set(this._fogColor.r, this._fogColor.g, this._fogColor.b);
+    u.unexploredAlpha.value = this._unexploredAlpha;
+    u.exploredAlpha.value = this._exploredAlpha;
 };
 
 //=============================================================================
-// PostProcess 후킹 - composer에 FogOfWarPass 삽입
+// PostProcess 후킹 - 3D 메쉬 통합
 //=============================================================================
-
-// ShaderPass 참조 (PostProcess.js에서 정의)
-// 이 파일이 PostProcess.js 뒤에 로드되므로 사용 가능
-
-// NOTE: _createComposer / _createComposer2D 후킹 불필요
-// _createComposer() 내부에서 _applyMapSettings()를 호출하고,
-// _applyMapSettings 후킹에서 FogOfWar.setup() + _insertFogOfWarPass()를 수행함.
-
-PostProcess._insertFogOfWarPass = function() {
-    // 에디터 모드에서는 PostProcess FOW 패스를 삽입하지 않음 (오버레이 메쉬로 미리보기)
-    if (window._editorRuntimeReady) {
-        this._fogOfWarPass = null;
-        return;
-    }
-    if (!FogOfWar._active || !FogOfWar._fogTexture) {
-        this._fogOfWarPass = null;
-        return;
-    }
-
-    var pass = FogOfWar.createPass();
-    if (!pass) {
-        this._fogOfWarPass = null;
-        return;
-    }
-
-    // Bloom 직후, PP 패스들 앞에 삽입
-    // 패스 순서: RenderPass(0) → BloomPass(1) → [FogOfWarPass] → PP패스들 → TiltShift/UIPass
-    var insertIdx = 2; // BloomPass 다음
-    this._composer.passes.splice(insertIdx, 0, pass);
-    this._fogOfWarPass = pass;
-
-    this._updateRenderToScreen();
-};
-
-var _PostProcess_disposeComposer = PostProcess._disposeComposer;
-PostProcess._disposeComposer = function() {
-    _PostProcess_disposeComposer.call(this);
-    this._fogOfWarPass = null;
-};
 
 // _updateUniforms에 FOW 업데이트 추가
 var _PostProcess_updateUniforms = PostProcess._updateUniforms;
 PostProcess._updateUniforms = function() {
     _PostProcess_updateUniforms.call(this);
 
-    if (this._fogOfWarPass && FogOfWar._active) {
+    if (!FogOfWar._active) return;
+
+    // 메쉬가 아직 생성되지 않았으면 scene에 lazy 추가
+    if (!FogOfWar._fogMesh && FogOfWar._fogTexture) {
+        var scene = this._renderPass ? this._renderPass.scene : null;
+        if (scene) {
+            var mesh = FogOfWar._createMesh();
+            if (mesh) {
+                scene.add(mesh);
+            }
+        }
+    }
+
+    if (FogOfWar._fogMesh) {
         // 플레이어 가시성 갱신
         if (typeof $gamePlayer !== 'undefined' && $gamePlayer) {
             FogOfWar.updateVisibility($gamePlayer.x, $gamePlayer.y);
         }
-        FogOfWar.updatePassUniforms(this._fogOfWarPass);
+        FogOfWar._updateMeshPosition();
+        FogOfWar._updateMeshUniforms();
     }
 };
 
@@ -384,20 +350,9 @@ PostProcess._applyMapSettings = function() {
     var fow = $dataMap.fogOfWar;
     if (fow && fow.enabled) {
         FogOfWar.setup($dataMap.width, $dataMap.height, fow);
-        // 이미 composer가 있으면 패스 재삽입
-        if (this._composer && !this._fogOfWarPass) {
-            this._insertFogOfWarPass();
-        }
+        // 메쉬 생성은 _updateUniforms에서 lazy하게 수행 (scene 참조 보장)
     } else {
         FogOfWar.dispose();
-        // 기존 패스 제거
-        if (this._fogOfWarPass && this._composer) {
-            var idx = this._composer.passes.indexOf(this._fogOfWarPass);
-            if (idx >= 0) this._composer.passes.splice(idx, 1);
-            this._fogOfWarPass.dispose();
-            this._fogOfWarPass = null;
-            this._updateRenderToScreen();
-        }
     }
 };
 
@@ -414,17 +369,10 @@ if (typeof Game_Interpreter !== 'undefined') {
             if (sub === 'Enable') {
                 if (!FogOfWar._active && $dataMap) {
                     FogOfWar.setup($dataMap.width, $dataMap.height, $dataMap.fogOfWar || {});
-                    if (PostProcess._composer) PostProcess._insertFogOfWarPass();
+                    // 메쉬 생성은 _updateUniforms에서 lazy하게 수행
                 }
             } else if (sub === 'Disable') {
                 FogOfWar.dispose();
-                if (PostProcess._fogOfWarPass && PostProcess._composer) {
-                    var idx = PostProcess._composer.passes.indexOf(PostProcess._fogOfWarPass);
-                    if (idx >= 0) PostProcess._composer.passes.splice(idx, 1);
-                    PostProcess._fogOfWarPass.dispose();
-                    PostProcess._fogOfWarPass = null;
-                    PostProcess._updateRenderToScreen();
-                }
             } else if (sub === 'Radius') {
                 FogOfWar._radius = parseInt(args[1]) || 5;
                 FogOfWar._prevPlayerX = -1; // 강제 재계산

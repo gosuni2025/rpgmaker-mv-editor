@@ -600,8 +600,7 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
     FogOfWarMod.updateVisibilityAt(startX, startY);
 
     // ShaderMaterial로 전체 맵 위에 fog 오버레이
-    const FogOfWarShader = (window as any).FogOfWarShader;
-    if (!FogOfWarShader || !FogOfWarMod._fogTexture) return;
+    if (!FogOfWarMod._fogTexture) return;
 
     const totalW = mapWidth * TILE_SIZE_PX;
     const totalH = mapHeight * TILE_SIZE_PX;
