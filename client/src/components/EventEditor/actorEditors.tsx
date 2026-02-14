@@ -3,7 +3,7 @@ import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { DataListPicker } from './dataListPicker';
 import { useDbNames, useDbNamesWithIcons, useActorData, getLabel, DataListPickerWithZero, type CharacterInfo } from './actionEditorUtils';
-import { ImageSelectDialog, ImagePreviewThumb } from './imageSelectDialog';
+import ImagePicker from '../common/ImagePicker';
 import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
 
@@ -12,7 +12,6 @@ type EditorProps = { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: 
 const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
 const fieldsetStyle: React.CSSProperties = { border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 };
 const legendStyle: React.CSSProperties = { fontSize: 12, color: '#aaa', padding: '0 4px' };
-const thumbBoxStyle: React.CSSProperties = { cursor: 'pointer', border: '1px solid #555', padding: 2, background: '#1a1a1a' };
 
 /* ─── 공통 컴포넌트 ─── */
 
@@ -432,7 +431,6 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: EditorProps) {
   const [faceName, setFaceName] = useState<string>((p[3] as string) || '');
   const [faceIndex, setFaceIndex] = useState<number>((p[4] as number) || 0);
   const [battlerName, setBattlerName] = useState<string>((p[5] as string) || '');
-  const [imageDialog, setImageDialog] = useState<'faces' | 'characters' | 'sv_actors' | null>(null);
   const [initialized, setInitialized] = useState(!isNew);
 
   const { names: actors, characterData: actorChars, imageData } = useActorFullData();
@@ -460,34 +458,27 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: EditorProps) {
     applyActorImages(newId);
   };
 
-  const IMAGE_SLOTS = [
-    { type: 'faces' as const, label: '얼굴:', name: faceName, index: faceIndex },
-    { type: 'characters' as const, label: '캐릭터:', name: characterName, index: characterIndex },
-    { type: 'sv_actors' as const, label: '[SV] 전투 캐릭터:', name: battlerName, index: 0 },
-  ];
-
-  const handleImageOk = (type: string, name: string, idx: number) => {
-    if (type === 'faces') { setFaceName(name); setFaceIndex(idx); }
-    else if (type === 'characters') { setCharacterName(name); setCharacterIndex(idx); }
-    else { setBattlerName(name); }
-    setImageDialog(null);
-  };
-
   return (
     <>
       <ActorDirectPicker actorId={actorId} onChange={handleActorChange} actorNames={actors} actorChars={actorChars} title="액터 선택" />
 
       <fieldset style={fieldsetStyle}>
         <legend style={legendStyle}>이미지</legend>
-        <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
-          {IMAGE_SLOTS.map(slot => (
-            <div key={slot.type} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              <span style={{ fontSize: 11, color: '#aaa' }}>{slot.label}</span>
-              <div onClick={() => setImageDialog(slot.type)} style={thumbBoxStyle}>
-                <ImagePreviewThumb type={slot.type} name={slot.name} index={slot.index} size={80} />
-              </div>
-            </div>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div>
+            <span style={{ fontSize: 12, color: '#aaa' }}>얼굴:</span>
+            <ImagePicker type="faces" value={faceName} onChange={setFaceName}
+              index={faceIndex} onIndexChange={setFaceIndex} />
+          </div>
+          <div>
+            <span style={{ fontSize: 12, color: '#aaa' }}>캐릭터:</span>
+            <ImagePicker type="characters" value={characterName} onChange={setCharacterName}
+              index={characterIndex} onIndexChange={setCharacterIndex} />
+          </div>
+          <div>
+            <span style={{ fontSize: 12, color: '#aaa' }}>[SV] 전투 캐릭터:</span>
+            <ImagePicker type="sv_actors" value={battlerName} onChange={setBattlerName} />
+          </div>
         </div>
       </fieldset>
 
@@ -495,14 +486,6 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: EditorProps) {
         <button className="db-btn" onClick={() => onOk([actorId, characterName, characterIndex, faceName, faceIndex, battlerName])}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
-
-      {imageDialog && (
-        <ImageSelectDialog type={imageDialog}
-          value={IMAGE_SLOTS.find(s => s.type === imageDialog)!.name}
-          index={IMAGE_SLOTS.find(s => s.type === imageDialog)!.index}
-          onOk={(name, idx) => handleImageOk(imageDialog, name, idx)}
-          onCancel={() => setImageDialog(null)} />
-      )}
     </>
   );
 }
@@ -528,7 +511,6 @@ export function ChangeVehicleImageEditor({ p, onOk, onCancel }: EditorProps) {
   const [vehicleType, setVehicleType] = useState<number>(initType);
   const [imageName, setImageName] = useState<string>(initImage.name);
   const [imageIndex, setImageIndex] = useState<number>(initImage.index);
-  const [showImageDialog, setShowImageDialog] = useState(false);
 
   const VEHICLES = [
     { id: 0, label: '보트' },
@@ -554,24 +536,14 @@ export function ChangeVehicleImageEditor({ p, onOk, onCancel }: EditorProps) {
 
       <fieldset style={fieldsetStyle}>
         <legend style={legendStyle}>이미지</legend>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div onClick={() => setShowImageDialog(true)} style={thumbBoxStyle}>
-            <ImagePreviewThumb type="characters" name={imageName} index={imageIndex} size={80} />
-          </div>
-          <span style={{ fontSize: 12, color: '#aaa' }}>{imageName || '(없음)'}{imageName ? ` [${imageIndex}]` : ''}</span>
-        </div>
+        <ImagePicker type="characters" value={imageName} onChange={setImageName}
+          index={imageIndex} onIndexChange={setImageIndex} />
       </fieldset>
 
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => onOk([vehicleType, imageName, imageIndex])}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
-
-      {showImageDialog && (
-        <ImageSelectDialog type="characters" value={imageName} index={imageIndex}
-          onOk={(name, idx) => { setImageName(name); setImageIndex(idx); setShowImageDialog(false); }}
-          onCancel={() => setShowImageDialog(false)} />
-      )}
     </>
   );
 }
