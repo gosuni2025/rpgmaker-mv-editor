@@ -1057,14 +1057,10 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
     this._copyMaterial.uniforms.tDiffuse.value = readBuffer.texture;
     this._copyQuad.render(renderer);
 
-    // 블러된 맵 위에 UI를 합성 (clear 하지 않음)
+    // FOW를 bloom 후, UI 전에 합성 — bloom을 가리지 않으면서 UI 아래에 렌더
     renderer.autoClear = false;
-    renderer.render(scene, this.camera);
-
-    // FOW를 최종 합성 — bloom/postprocess 이후에 렌더하여 bloom을 가리지 않게 함
     if (fowMesh && fowWasVisible && this.perspCamera) {
         fowMesh.visible = true;
-        // scene의 FOW만 보이게, 나머지(stageObj, sky 등) 숨김
         var sceneChildVis = [];
         for (var sci = 0; sci < scene.children.length; sci++) {
             sceneChildVis.push(scene.children[sci].visible);
@@ -1076,6 +1072,9 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
         }
         fowMesh.visible = false;
     }
+
+    // 블러된 맵 + FOW 위에 UI를 합성 (clear 하지 않음)
+    renderer.render(scene, this.camera);
 
     renderer.autoClear = prevAutoClear;
 
@@ -1311,15 +1310,10 @@ Simple2DUIRenderPass.prototype.render = function(renderer, writeBuffer, readBuff
         }
     }
 
-    // UI 렌더 (블룸 맵 위에 합성)
+    // FOW를 bloom 후, UI 전에 합성
     renderer.autoClear = false;
-    renderer.render(scene, camera);
-
-    // FOW를 최종 합성 — bloom 후에 렌더
     if (fowMesh2d && fowWasVisible2d) {
         fowMesh2d.visible = true;
-        // FOW만 보이게, 나머지 숨김
-        if (stageObj) stageObj.visible = false;
         var skyVis2d = [];
         for (var sci = 0; sci < scene.children.length; sci++) {
             skyVis2d.push(scene.children[sci].visible);
@@ -1329,9 +1323,11 @@ Simple2DUIRenderPass.prototype.render = function(renderer, writeBuffer, readBuff
         for (var sci = 0; sci < scene.children.length; sci++) {
             scene.children[sci].visible = skyVis2d[sci];
         }
-        if (stageObj) stageObj.visible = true;
         fowMesh2d.visible = false;
     }
+
+    // UI 렌더 (블룸 맵 + FOW 위에 합성)
+    renderer.render(scene, camera);
 
     // FOW 메쉬 가시성 복원
     if (fowMesh2d) fowMesh2d.visible = fowWasVisible2d;
