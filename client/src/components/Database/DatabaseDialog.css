@@ -232,6 +232,7 @@
   gap: 6px;
   overflow-y: auto;
   min-width: 0;
+  padding-right: 8px;
 }
 
 .db-system-column label {
@@ -424,6 +425,28 @@
 .db-system-vehicle-row > div {
   flex: 1;
   min-width: 0;
+}
+
+/* Start position row */
+.db-system-start-pos-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.db-system-start-pos-label {
+  min-width: 50px;
+  flex-shrink: 0;
+  color: #aaa;
+}
+
+.db-system-start-pos-btn {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* DB Buttons */

@@ -4,6 +4,8 @@ import type { SystemData, AudioFile, Vehicle, AttackMotion } from '../../types/r
 import AudioPicker from '../common/AudioPicker';
 import ImagePicker from '../common/ImagePicker';
 import apiClient from '../../api/client';
+import useEditorStore from '../../store/useEditorStore';
+import { MapLocationPicker } from '../EventEditor/MapLocationPicker';
 
 interface SystemTabProps {
   data: SystemData | undefined;
@@ -23,6 +25,8 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
   const MOTION_TYPES = Array.from({length: 3}, (_, i) => t('system.motionTypes.' + i));
   const VEHICLE_LABELS: Record<string, string> = { boat: t('system.vehicles.boat'), ship: t('system.vehicles.ship'), airship: t('system.vehicles.airship') };
   const [actorsList, setActorsList] = useState<RefItem[]>([]);
+  const maps = useEditorStore(s => s.maps);
+  const [locationPicker, setLocationPicker] = useState<{ key: 'player' | 'boat' | 'ship' | 'airship' } | null>(null);
 
   useEffect(() => {
     apiClient.get<(RefItem | null)[]>('/database/actors').then(d => setActorsList(d.filter(Boolean) as RefItem[])).catch(() => {});
@@ -93,6 +97,32 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
     handleChange('magicSkills', skills);
   };
 
+  const getMapName = (mapId: number) => {
+    if (!mapId) return t('common.none');
+    const m = maps?.find(mi => mi && mi.id === mapId);
+    return m ? `${String(mapId).padStart(3, '0')}: ${m.name}` : `${String(mapId).padStart(3, '0')}`;
+  };
+
+  const getLocationLabel = (mapId: number, posX: number, posY: number) => {
+    if (!mapId) return t('common.none');
+    return `${getMapName(mapId)} (${posX}, ${posY})`;
+  };
+
+  const getStartPos = (key: 'player' | 'boat' | 'ship' | 'airship') => {
+    if (key === 'player') return { mapId: data.startMapId || 0, x: data.startX || 0, y: data.startY || 0 };
+    const v = getVehicle(key);
+    return { mapId: v.startMapId || 0, x: v.startX || 0, y: v.startY || 0 };
+  };
+
+  const handleLocationOk = (key: 'player' | 'boat' | 'ship' | 'airship', mapId: number, posX: number, posY: number) => {
+    if (key === 'player') {
+      onChange({ ...data, startMapId: mapId, startX: posX, startY: posY });
+    } else {
+      handleChange(key as keyof SystemData, { ...getVehicle(key), startMapId: mapId, startX: posX, startY: posY });
+    }
+    setLocationPicker(null);
+  };
+
   const tone = data.windowTone || [0, 0, 0, 0];
   const toneLabels = ['R', 'G', 'B', 'Gray'];
 
@@ -155,23 +185,16 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
 
         {/* 시작 위치 */}
         <div className="db-system-section">{t('system.startPosition')}</div>
-        <label style={{ color: '#bbb', fontSize: 11 }}>{t('system.player')}</label>
-        <div className="db-system-row">
-          <label>{t('system.map')} <input type="number" value={data.startMapId || 0} onChange={(e) => handleChange('startMapId', Number(e.target.value))} /></label>
-          <label>X <input type="number" value={data.startX || 0} onChange={(e) => handleChange('startX', Number(e.target.value))} /></label>
-          <label>Y <input type="number" value={data.startY || 0} onChange={(e) => handleChange('startY', Number(e.target.value))} /></label>
-        </div>
-        {(['boat', 'ship', 'airship'] as const).map((key) => {
-          const v = getVehicle(key);
+        {(['player', 'boat', 'ship', 'airship'] as const).map((key) => {
+          const pos = getStartPos(key);
+          const label = key === 'player' ? t('system.player') : VEHICLE_LABELS[key];
           return (
-            <React.Fragment key={key}>
-              <label style={{ color: '#bbb', fontSize: 11 }}>{VEHICLE_LABELS[key]}</label>
-              <div className="db-system-row">
-                <label>{t('system.map')} <input type="number" value={v.startMapId || 0} onChange={(e) => updateVehicle(key, 'startMapId', Number(e.target.value))} /></label>
-                <label>X <input type="number" value={v.startX || 0} onChange={(e) => updateVehicle(key, 'startX', Number(e.target.value))} /></label>
-                <label>Y <input type="number" value={v.startY || 0} onChange={(e) => updateVehicle(key, 'startY', Number(e.target.value))} /></label>
-              </div>
-            </React.Fragment>
+            <div key={key} className="db-system-start-pos-row">
+              <span className="db-system-start-pos-label">{label}</span>
+              <button className="db-btn-small db-system-start-pos-btn" onClick={() => setLocationPicker({ key })}>
+                {getLocationLabel(pos.mapId, pos.x, pos.y)}
+              </button>
+            </div>
           );
         })}
       </div>
@@ -316,6 +339,19 @@ export default function SystemTab({ data, onChange }: SystemTabProps) {
           </label>
         ))}
       </div>
+
+      {locationPicker && (() => {
+        const pos = getStartPos(locationPicker.key);
+        return (
+          <MapLocationPicker
+            mapId={pos.mapId}
+            x={pos.x}
+            y={pos.y}
+            onOk={(mId, px, py) => handleLocationOk(locationPicker.key, mId, px, py)}
+            onCancel={() => setLocationPicker(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
