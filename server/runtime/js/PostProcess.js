@@ -684,10 +684,9 @@ BloomPass.prototype._updateEmissiveTexture = function(width, height) {
             var r = parseInt(color.substr(1, 2), 16) / 255;
             var g = parseInt(color.substr(3, 2), 16) / 255;
             var b = parseInt(color.substr(5, 2), 16) / 255;
-            // 3D 셰이더에서는 diffuseColor.rgb += emissiveColor * emissive * alpha
-            // 2D에서는 텍스처 밝기를 모르므로, emissive 값 그대로를 사용하되
-            // 블룸 threshold(0.5) 대비 적절한 기여만 하도록 조절
-            var intensity = s.emissive * 0.3;
+            // emissive 값을 bloom 오버레이 강도로 사용
+            // 텍스처 자체는 밝게 하지 않고 bloom에서만 빛이 퍼지도록 함
+            var intensity = s.emissive;
 
             ctx.fillStyle = 'rgba(' +
                 Math.round(r * intensity * 255) + ',' +
@@ -710,13 +709,8 @@ BloomPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
         this.setSize(sz.x, sz.y);
     }
 
-    // 2D emissive 오버레이 업데이트 (3D 모드에서는 셰이더에서 처리되므로 스킵)
-    var is3D = (typeof ConfigManager !== 'undefined' && ConfigManager.mode3d) ||
-               (typeof Mode3D !== 'undefined' && Mode3D._active);
-    var hasEmissive = false;
-    if (!is3D) {
-        hasEmissive = this._updateEmissiveTexture(readBuffer.width, readBuffer.height);
-    }
+    // emissive 오버레이 업데이트 (bloom에서만 사용, 텍스처 자체는 변경하지 않음)
+    var hasEmissive = this._updateEmissiveTexture(readBuffer.width, readBuffer.height);
 
     // 1단계: 밝기 추출 (원본 + emissive → bloomRT1)
     this._extractUniforms.tColor.value = readBuffer.texture;

@@ -174,9 +174,6 @@ ThreeWaterShader.FRAGMENT_MAIN = [
     '    diffuseColor = waveTexColor;',
     '}',
     'diffuseColor.rgb *= uWaterAlpha;',
-    'if (uEmissive > 0.0) {',
-    '    diffuseColor.rgb += uEmissiveColor * uEmissive * diffuseColor.a;',
-    '}',
 ].join('\n');
 
 // specular-only 추가 (#include <output_fragment> 뒤에 삽입)
@@ -218,9 +215,6 @@ ThreeWaterShader.WATERFALL_FRAGMENT_MAIN = [
     '    diffuseColor = wfTexColor;',
     '}',
     'diffuseColor.rgb *= min(uWaterAlpha + 0.1, 1.0);',
-    'if (uEmissive > 0.0) {',
-    '    diffuseColor.rgb += uEmissiveColor * uEmissive * diffuseColor.a;',
-    '}',
 ].join('\n');
 
 // 폭포 specular-only 추가
@@ -319,10 +313,6 @@ ThreeWaterShader._STANDALONE_FRAGMENT_WATER = [
     '    float spec = pow(max(dot(N, H), 0.0), uShininess);',
     '    color.rgb += uSpecularColor * spec * uSpecularStrength * shoreFade;',
     '',
-    '    if (uEmissive > 0.0) {',
-    '        color.rgb += uEmissiveColor * uEmissive * color.a;',
-    '    }',
-    '',
     '    gl_FragColor = color;',
     '}',
 ].join('\n');
@@ -372,10 +362,6 @@ ThreeWaterShader._STANDALONE_FRAGMENT_WATERFALL = [
     '    vec3 H = normalize(L + V);',
     '    float spec = pow(max(dot(N, H), 0.0), uShininess);',
     '    color.rgb += uSpecularColor * spec * uSpecularStrength * 0.5 * shoreFade;',
-    '',
-    '    if (uEmissive > 0.0) {',
-    '        color.rgb += uEmissiveColor * uEmissive * color.a;',
-    '    }',
     '',
     '    gl_FragColor = color;',
     '}',
