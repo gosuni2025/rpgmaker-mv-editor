@@ -331,6 +331,11 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
 };
 
 PostProcess._insertFogOfWarPass = function() {
+    // 에디터 모드에서는 PostProcess FOW 패스를 삽입하지 않음 (오버레이 메쉬로 미리보기)
+    if (window._editorRuntimeReady) {
+        this._fogOfWarPass = null;
+        return;
+    }
     if (!FogOfWar._active || !FogOfWar._fogTexture) {
         this._fogOfWarPass = null;
         return;
@@ -378,6 +383,9 @@ PostProcess._updateUniforms = function() {
 var _PostProcess_applyMapSettings = PostProcess._applyMapSettings;
 PostProcess._applyMapSettings = function() {
     _PostProcess_applyMapSettings.call(this);
+
+    // 에디터 모드에서는 런타임 FOW를 적용하지 않음 (오버레이 메쉬로 미리보기)
+    if (window._editorRuntimeReady) return;
 
     if (!$dataMap) return;
 
