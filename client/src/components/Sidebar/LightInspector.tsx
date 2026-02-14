@@ -76,9 +76,9 @@ export default function LightInspector() {
             />
           </div>
           <div className="light-inspector-row">
-            <DragLabel label="강도" value={editorLights.ambient.intensity} step={0.05} min={0} max={3}
+            <DragLabel label="강도" value={editorLights.ambient.intensity} step={0.05} min={0} max={10}
               onChange={(v) => updateAmbientLight({ intensity: v })} />
-            <input type="number" className="light-inspector-input" min={0} max={3} step={0.05}
+            <input type="number" className="light-inspector-input" step={0.05}
               value={editorLights.ambient.intensity}
               onChange={(e) => updateAmbientLight({ intensity: parseFloat(e.target.value) || 0 })} />
           </div>
@@ -105,9 +105,9 @@ export default function LightInspector() {
               />
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="강도" value={dir.intensity} step={0.05} min={0} max={3}
+              <DragLabel label="강도" value={dir.intensity} step={0.05} min={0} max={10}
                 onChange={(v) => updateDirectionalLight({ intensity: v })} />
-              <input type="number" className="light-inspector-input" min={0} max={3} step={0.05}
+              <input type="number" className="light-inspector-input" step={0.05}
                 value={dir.intensity}
                 onChange={(e) => updateDirectionalLight({ intensity: parseFloat(e.target.value) || 0 })} />
             </div>
@@ -155,14 +155,14 @@ export default function LightInspector() {
             <div className="light-inspector-row">
               <DragLabel label="Near" value={dir.shadowNear ?? 1} step={1} min={0.1} max={100}
                 onChange={(v) => updateDirectionalLight({ shadowNear: v })} />
-              <input type="number" className="light-inspector-input" step={1} min={0.1} max={100}
+              <input type="number" className="light-inspector-input" step={1}
                 value={dir.shadowNear ?? 1}
                 onChange={(e) => updateDirectionalLight({ shadowNear: parseFloat(e.target.value) || 1 })} />
             </div>
             <div className="light-inspector-row">
               <DragLabel label="Far" value={dir.shadowFar ?? 5000} step={100} min={100} max={20000}
                 onChange={(v) => updateDirectionalLight({ shadowFar: v })} />
-              <input type="number" className="light-inspector-input" step={100} min={100} max={20000}
+              <input type="number" className="light-inspector-input" step={100}
                 value={dir.shadowFar ?? 5000}
                 onChange={(e) => updateDirectionalLight({ shadowFar: parseFloat(e.target.value) || 5000 })} />
             </div>
@@ -180,14 +180,14 @@ export default function LightInspector() {
             <div className="light-inspector-row">
               <DragLabel label="불투명도" value={shadow.opacity} step={0.05} min={0} max={1}
                 onChange={(v) => updateShadowSettings({ opacity: v })} />
-              <input type="number" className="light-inspector-input" min={0} max={1} step={0.05}
+              <input type="number" className="light-inspector-input" step={0.05}
                 value={shadow.opacity}
                 onChange={(e) => updateShadowSettings({ opacity: parseFloat(e.target.value) || 0 })} />
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="오프셋" value={shadow.offsetScale} step={0.1} min={0} max={3}
+              <DragLabel label="오프셋" value={shadow.offsetScale} step={0.1} min={0} max={10}
                 onChange={(v) => updateShadowSettings({ offsetScale: v })} />
-              <input type="number" className="light-inspector-input" min={0} max={3} step={0.1}
+              <input type="number" className="light-inspector-input" step={0.1}
                 value={shadow.offsetScale}
                 onChange={(e) => updateShadowSettings({ offsetScale: parseFloat(e.target.value) || 0 })} />
             </div>
@@ -208,23 +208,23 @@ export default function LightInspector() {
                 onChange={(e) => updatePlayerLight({ color: e.target.value })} />
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="강도" value={playerLight.intensity} step={0.1} min={0} max={5}
+              <DragLabel label="강도" value={playerLight.intensity} step={0.1} min={0} max={10}
                 onChange={(v) => updatePlayerLight({ intensity: v })} />
-              <input type="number" className="light-inspector-input" min={0} max={5} step={0.1}
+              <input type="number" className="light-inspector-input" step={0.1}
                 value={playerLight.intensity}
                 onChange={(e) => updatePlayerLight({ intensity: parseFloat(e.target.value) || 0 })} />
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="거리" value={playerLight.distance} step={10} min={50} max={2000}
+              <DragLabel label="거리" value={playerLight.distance} step={10} min={50} max={5000}
                 onChange={(v) => updatePlayerLight({ distance: Math.round(v) })} />
-              <input type="number" className="light-inspector-input" min={50} max={2000} step={10}
+              <input type="number" className="light-inspector-input" step={10}
                 value={playerLight.distance}
                 onChange={(e) => updatePlayerLight({ distance: parseFloat(e.target.value) || 200 })} />
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="Z (높이)" value={playerLight.z} step={1} min={0} max={500}
+              <DragLabel label="Z (높이)" value={playerLight.z} step={1} min={0} max={1000}
                 onChange={(v) => updatePlayerLight({ z: Math.round(v) })} />
-              <input type="number" className="light-inspector-input" min={0} max={500} step={1}
+              <input type="number" className="light-inspector-input" step={1}
                 value={playerLight.z}
                 onChange={(e) => updatePlayerLight({ z: parseFloat(e.target.value) || 40 })} />
             </div>
@@ -245,37 +245,37 @@ export default function LightInspector() {
                 onChange={(e) => updateSpotLight({ color: e.target.value })} />
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="강도" value={spotLight.intensity} step={0.1} min={0} max={10}
+              <DragLabel label="강도" value={spotLight.intensity} step={0.1} min={0} max={20}
                 onChange={(v) => updateSpotLight({ intensity: v })} />
-              <input type="number" className="light-inspector-input" min={0} max={10} step={0.1}
+              <input type="number" className="light-inspector-input" step={0.1}
                 value={spotLight.intensity}
                 onChange={(e) => updateSpotLight({ intensity: parseFloat(e.target.value) || 0 })} />
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="거리" value={spotLight.distance} step={10} min={50} max={1000}
+              <DragLabel label="거리" value={spotLight.distance} step={10} min={50} max={5000}
                 onChange={(v) => updateSpotLight({ distance: Math.round(v) })} />
-              <input type="number" className="light-inspector-input" min={50} max={1000} step={10}
+              <input type="number" className="light-inspector-input" step={10}
                 value={spotLight.distance}
                 onChange={(e) => updateSpotLight({ distance: parseFloat(e.target.value) || 250 })} />
             </div>
             <div className="light-inspector-row">
               <DragLabel label="각도" value={spotLight.angle} step={0.05} min={0.1} max={1.5}
                 onChange={(v) => updateSpotLight({ angle: v })} />
-              <input type="number" className="light-inspector-input" min={0.1} max={1.5} step={0.05}
+              <input type="number" className="light-inspector-input" step={0.05}
                 value={spotLight.angle}
                 onChange={(e) => updateSpotLight({ angle: parseFloat(e.target.value) || 0.6 })} />
             </div>
             <div className="light-inspector-row">
               <DragLabel label="페넘브라" value={spotLight.penumbra} step={0.05} min={0} max={1}
                 onChange={(v) => updateSpotLight({ penumbra: v })} />
-              <input type="number" className="light-inspector-input" min={0} max={1} step={0.05}
+              <input type="number" className="light-inspector-input" step={0.05}
                 value={spotLight.penumbra}
                 onChange={(e) => updateSpotLight({ penumbra: parseFloat(e.target.value) || 0 })} />
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="Z (높이)" value={spotLight.z} step={10} min={10} max={500}
+              <DragLabel label="Z (높이)" value={spotLight.z} step={10} min={10} max={1000}
                 onChange={(v) => updateSpotLight({ z: Math.round(v) })} />
-              <input type="number" className="light-inspector-input" min={10} max={500} step={10}
+              <input type="number" className="light-inspector-input" step={10}
                 value={spotLight.z}
                 onChange={(e) => updateSpotLight({ z: parseFloat(e.target.value) || 120 })} />
             </div>
@@ -292,9 +292,9 @@ export default function LightInspector() {
               </select>
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="타겟거리" value={spotLight.targetDistance} step={10} min={30} max={500}
+              <DragLabel label="타겟거리" value={spotLight.targetDistance} step={10} min={30} max={1000}
                 onChange={(v) => updateSpotLight({ targetDistance: Math.round(v) })} />
-              <input type="number" className="light-inspector-input" min={30} max={500} step={10}
+              <input type="number" className="light-inspector-input" step={10}
                 value={spotLight.targetDistance}
                 onChange={(e) => updateSpotLight({ targetDistance: parseFloat(e.target.value) || 70 })} />
             </div>
@@ -319,9 +319,9 @@ export default function LightInspector() {
                   onChange={(e) => updatePointLight(selectedPoint.id, { y: parseInt(e.target.value) || 0 })} />
               </div>
               <div className="light-inspector-row">
-                <DragLabel label="Z (높이)" value={selectedPoint.z} step={1} min={0} max={200}
+                <DragLabel label="Z (높이)" value={selectedPoint.z} step={1} min={0} max={1000}
                   onChange={(v) => updatePointLight(selectedPoint.id, { z: Math.round(v) })} />
-                <input type="number" className="light-inspector-input" min={0} max={200} step={1}
+                <input type="number" className="light-inspector-input" step={1}
                   value={selectedPoint.z}
                   onChange={(e) => updatePointLight(selectedPoint.id, { z: parseFloat(e.target.value) || 0 })} />
               </div>
@@ -335,16 +335,16 @@ export default function LightInspector() {
                 />
               </div>
               <div className="light-inspector-row">
-                <DragLabel label="강도" value={selectedPoint.intensity} step={0.1} min={0} max={5}
+                <DragLabel label="강도" value={selectedPoint.intensity} step={0.1} min={0} max={10}
                   onChange={(v) => updatePointLight(selectedPoint.id, { intensity: v })} />
-                <input type="number" className="light-inspector-input" min={0} max={5} step={0.1}
+                <input type="number" className="light-inspector-input" step={0.1}
                   value={selectedPoint.intensity}
                   onChange={(e) => updatePointLight(selectedPoint.id, { intensity: parseFloat(e.target.value) || 0 })} />
               </div>
               <div className="light-inspector-row">
-                <DragLabel label="거리" value={selectedPoint.distance} step={10} min={50} max={2000}
+                <DragLabel label="거리" value={selectedPoint.distance} step={10} min={50} max={5000}
                   onChange={(v) => updatePointLight(selectedPoint.id, { distance: Math.round(v) })} />
-                <input type="number" className="light-inspector-input" min={50} max={2000} step={10}
+                <input type="number" className="light-inspector-input" step={10}
                   value={selectedPoint.distance}
                   onChange={(e) => updatePointLight(selectedPoint.id, { distance: parseFloat(e.target.value) || 150 })} />
               </div>
