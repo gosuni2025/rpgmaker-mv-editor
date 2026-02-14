@@ -79,6 +79,13 @@ const ko = {
   // === Options Dialog ===
   options: {
     title: '옵션',
+    search: '검색...',
+    categories: {
+      general: '일반',
+      appearance: '외관',
+      mapEditor: '맵 에디터',
+      paths: '경로',
+    },
     transparentColor: '투명 색깔',
     red: '빨강:',
     green: '초록:',

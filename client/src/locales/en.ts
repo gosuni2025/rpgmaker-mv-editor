@@ -76,6 +76,13 @@ const en = {
 
   options: {
     title: 'Options',
+    search: 'Search...',
+    categories: {
+      general: 'General',
+      appearance: 'Appearance',
+      mapEditor: 'Map Editor',
+      paths: 'Paths',
+    },
     transparentColor: 'Transparent Color',
     red: 'Red:',
     green: 'Green:',
