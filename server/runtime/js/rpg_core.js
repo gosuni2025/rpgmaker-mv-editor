@@ -3038,12 +3038,8 @@ Input.keyMapper = {
     39: 'right',    // right arrow
     40: 'down',     // down arrow
     45: 'escape',   // insert
-    65: 'left',     // A
-    68: 'right',    // D
-    69: 'pagedown', // E
     81: 'pageup',   // Q
-    83: 'down',     // S
-    87: 'up',       // W
+    87: 'pagedown', // W
     88: 'escape',   // X
     90: 'ok',       // Z
     96: 'escape',   // numpad 0
@@ -5781,11 +5777,9 @@ ShaderTilemap.prototype._drawAutotile = function(layer, tileId, dx, dy) {
             animX = 2;
             by = 3;
         } else if (kind === 2) {
-            animX = 2;  // 용암에도 셰이더 적용
             bx = 6;
             by = 0;
         } else if (kind === 3) {
-            animX = 2;  // 용암에도 셰이더 적용
             bx = 6;
             by = 3;
         } else {
