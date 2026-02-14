@@ -30,6 +30,28 @@ const MAX_UNDO = 100;
 // 내부 클립보드 (컴포넌트 외부에 두어 리렌더 없이 유지)
 let commandClipboard: EventCommand[] = [];
 
+// OS 클립보드 식별용 래퍼
+const CLIPBOARD_MARKER = 'RPGMV_EVENT_COMMANDS';
+interface ClipboardPayload {
+  _type: typeof CLIPBOARD_MARKER;
+  commands: EventCommand[];
+}
+
+function writeCommandsToClipboard(cmds: EventCommand[]) {
+  const payload: ClipboardPayload = { _type: CLIPBOARD_MARKER, commands: cmds };
+  navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).catch(() => {});
+}
+
+function parseClipboardText(text: string): EventCommand[] | null {
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && parsed._type === CLIPBOARD_MARKER && Array.isArray(parsed.commands)) {
+      return parsed.commands;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
 export default function EventCommandEditor({ commands, onChange, context }: EventCommandEditorProps) {
   const { t } = useTranslation();
   const systemData = useEditorStore(s => s.systemData);
@@ -125,16 +147,17 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     }
     commandClipboard = copied;
     setHasClipboard(true);
+    writeCommandsToClipboard(copied);
   }, [commands, selectedIndices]);
 
-  const pasteAtSelection = useCallback(() => {
-    if (commandClipboard.length === 0) return;
+  const doPaste = useCallback((source: EventCommand[]) => {
+    if (source.length === 0) return;
     const insertAt = primaryIndex >= 0 ? primaryIndex : commands.length - 1;
     const baseIndent = commands[insertAt]?.indent || 0;
     // 클립보드 커맨드의 indent를 삽입 위치 기준으로 보정
-    const clipMinIndent = Math.min(...commandClipboard.map(c => c.indent));
+    const clipMinIndent = Math.min(...source.map(c => c.indent));
     const indentDelta = baseIndent - clipMinIndent;
-    const adjusted = commandClipboard.map(c => ({
+    const adjusted = source.map(c => ({
       ...c,
       indent: c.indent + indentDelta,
       parameters: JSON.parse(JSON.stringify(c.parameters)),
@@ -148,6 +171,23 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     setSelectedIndices(newSelection);
     setLastClickedIndex(insertAt);
   }, [commands, primaryIndex, changeWithHistory]);
+
+  const pasteAtSelection = useCallback(async () => {
+    // OS 클립보드에서 먼저 시도
+    try {
+      const text = await navigator.clipboard.readText();
+      const parsed = parseClipboardText(text);
+      if (parsed && parsed.length > 0) {
+        // OS 클립보드 데이터를 내부 클립보드에도 동기화
+        commandClipboard = parsed;
+        setHasClipboard(true);
+        doPaste(parsed);
+        return;
+      }
+    } catch { /* 권한 거부 등 */ }
+    // OS 클립보드 실패 시 내부 클립보드 사용
+    doPaste(commandClipboard);
+  }, [doPaste]);
 
   // 커맨드 목록 내부에서만 Cmd+C/V 처리 (이벤트 커맨드 에디터에 포커스 있을 때)
   useEffect(() => {
