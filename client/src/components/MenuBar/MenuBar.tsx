@@ -227,9 +227,10 @@ export default function MenuBar() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 다이얼로그/모달 내부에서 발생한 키 이벤트는 맵 단축키로 처리하지 않음
+      // 다이얼로그/모달이 열려있으면 맵 편집 단축키를 차단
       const target = e.target as HTMLElement;
-      const inDialog = target.closest('.db-dialog-overlay');
+      const inDialog = target.closest('.db-dialog-overlay, .modal-overlay, .vs-selector-overlay, .move-route-overlay, .move-route-param-overlay, .l10n-popup-overlay')
+        || document.querySelector('.db-dialog-overlay, .modal-overlay, .vs-selector-overlay, .move-route-overlay, .move-route-param-overlay, .l10n-popup-overlay');
       const ctrl = e.ctrlKey || e.metaKey;
       // 전역 단축키 (다이얼로그 안에서도 동작)
       if (ctrl && e.key === 's') { e.preventDefault(); handleAction('save'); }
