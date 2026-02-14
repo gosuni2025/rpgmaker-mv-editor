@@ -2460,22 +2460,35 @@ Spriteset_Map.prototype.updateParallax = function() {
     if (this._parallaxName && !this._parallaxSkyMesh && !this._parallaxSkyPending) {
         this._updateParallaxSkyPlane();
     }
-    // 3D 모드: parallax sky mesh를 카메라 look-at 방향에 수직으로 배치
-    var is3D = this._parallaxSkyMesh && window.Mode3D && Mode3D._perspCamera;
+    // ConfigManager.mode3d를 기준으로 3D 모드 판단 (카메라 존재 여부만으로는 전환 시 불일치 발생)
+    var mode3dEnabled = window.ConfigManager && ConfigManager.mode3d;
+    var is3D = mode3dEnabled && this._parallaxSkyMesh && window.Mode3D && Mode3D._perspCamera;
     if (is3D) {
         var cam = Mode3D._perspCamera;
+        // 3D 전환 시 sky mesh 크기가 현재 카메라에 맞는지 확인하고, 부족하면 재생성
+        var expectedFar = cam.far * 0.8;
+        if (!this._parallaxSkyFov || this._parallaxSkyFov !== cam.fov ||
+            !this._parallaxSkyFar || Math.abs(this._parallaxSkyFar - expectedFar) > 1) {
+            this._updateParallaxSkyPlane();
+        }
+        // sky mesh를 카메라 look-at 방향에 수직으로 배치
         var mesh = this._parallaxSkyMesh;
-        // 카메라 look direction (로컬 -Z → 월드)
-        var dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
-        // far plane의 80% 거리에 배치
-        var farDist = cam.far * 0.8;
-        mesh.position.copy(cam.position).addScaledVector(dir, farDist);
-        // 카메라를 정면으로 바라보도록 회전
-        mesh.lookAt(cam.position);
+        if (mesh) {
+            // 카메라 look direction (로컬 -Z → 월드)
+            var dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+            // far plane의 80% 거리에 배치
+            var farDist = cam.far * 0.8;
+            mesh.position.copy(cam.position).addScaledVector(dir, farDist);
+            // 카메라를 정면으로 바라보도록 회전
+            mesh.lookAt(cam.position);
+        }
     }
-    // 3D 모드에서 2D parallax TilingSprite 숨기기 (화면 덮힘 방지)
+    // 2D parallax TilingSprite visibility 제어
+    // - 에디터 모드: HTML DIV로 패러럴 표시하므로 TilingSprite는 항상 숨김
+    // - 3D 모드: sky mesh가 대신 렌더되므로 TilingSprite 숨김
+    // - 2D 게임 모드: TilingSprite 표시
     if (this._parallax._threeObj) {
-        this._parallax._threeObj.visible = !is3D;
+        this._parallax._threeObj.visible = !is3D && !window.__editorMode;
     }
     if (this._parallax.bitmap) {
         this._parallax.origin.x = $gameMap.parallaxOx();
@@ -2502,6 +2515,8 @@ Spriteset_Map.prototype._updateParallaxSkyPlane = function() {
         this._parallaxSkyMesh = null;
     }
     this._parallaxSkyPending = false;
+    this._parallaxSkyFov = null;
+    this._parallaxSkyFar = null;
 
     if (!this._parallaxName) return;
 
@@ -2521,16 +2536,16 @@ Spriteset_Map.prototype._updateParallaxSkyPlane = function() {
         // 충분히 큰 plane (카메라 far 거리에서 시야를 덮을 크기)
         // far * 0.8 거리에서 FOV 기준 필요 크기 계산
         var farDist = 5000; // 기본값
+        var fov = 60; // 기본 FOV
         if (window.Mode3D && Mode3D._perspCamera) {
             farDist = Mode3D._perspCamera.far * 0.8;
+            fov = Mode3D._perspCamera.fov;
         }
-        var fovRad = (60 * Math.PI / 180); // 기본 FOV 60도
-        if (window.Mode3D && Mode3D._perspCamera) {
-            fovRad = Mode3D._perspCamera.fov * Math.PI / 180;
-        }
-        var planeH = 2 * farDist * Math.tan(fovRad / 2) * 1.5;
+        var fovRad = fov * Math.PI / 180;
+        // 카메라 pitch에 의한 시야 확장을 커버하기 위해 2배 여유
+        var planeH = 2 * farDist * Math.tan(fovRad / 2) * 2.0;
         var aspect = Graphics.width / Graphics.height;
-        var planeW = planeH * aspect * 1.5;
+        var planeW = planeH * aspect * 2.0;
 
         var geometry = new THREE.PlaneGeometry(planeW, planeH);
 
@@ -2564,6 +2579,8 @@ Spriteset_Map.prototype._updateParallaxSkyPlane = function() {
         mesh.visible = false;  // Hidden by default; Mode3D render controls visibility
         rendObj.scene.add(mesh);
         self._parallaxSkyMesh = mesh;
+        self._parallaxSkyFov = fov;  // FOV 기록 (전환 시 재생성 판단용)
+        self._parallaxSkyFar = farDist;  // far 거리 기록
     };
 
     if (bitmap.isReady()) {
