@@ -231,7 +231,7 @@ export function AnimSlider({ label, value, min, max, step, onChange }: {
       <input type="range" min={min} max={max} step={step} value={value}
         className="anim-tile-slider"
         onChange={(e) => onChange(Number(e.target.value))} />
-      <input type="number" min={min} max={max} step={step} value={value}
+      <input type="number" step={step} value={value}
         className="anim-tile-slider-value"
         onChange={(e) => onChange(Number(e.target.value))} />
     </div>
