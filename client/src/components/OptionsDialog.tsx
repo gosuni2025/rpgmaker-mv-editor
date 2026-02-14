@@ -313,6 +313,43 @@ export default function OptionsDialog() {
               <div style={{ color: '#999', fontSize: 11 }}>
                 {t('options.steamPathHelp')}
               </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                <button
+                  className="db-btn"
+                  style={{ padding: '3px 8px', fontSize: 11 }}
+                  onClick={() => apiClient.post('/settings/open-folder', {}).catch(() => {})}
+                >
+                  {t('options.steamOpenFolder')}
+                </button>
+                <button
+                  className="db-btn"
+                  style={{ padding: '3px 8px', fontSize: 11 }}
+                  onClick={() => setLocalSteamPath('C:\\Program Files (x86)\\Steam\\steamapps\\common\\RPG Maker MV')}
+                >
+                  {t('options.steamFillWindows')}
+                </button>
+                <button
+                  className="db-btn"
+                  style={{ padding: '3px 8px', fontSize: 11 }}
+                  onClick={() => setLocalSteamPath('~/Library/Application Support/Steam/steamapps/common/RPG Maker MV')}
+                >
+                  {t('options.steamFillMac')}
+                </button>
+                <button
+                  className="db-btn"
+                  style={{ padding: '3px 8px', fontSize: 11 }}
+                  onClick={() => setLocalSteamPath('~/.steam/steam/steamapps/common/RPG Maker MV')}
+                >
+                  {t('options.steamFillLinux')}
+                </button>
+                <button
+                  className="db-btn"
+                  style={{ padding: '3px 8px', fontSize: 11 }}
+                  onClick={() => window.open('/api/settings', '_blank')}
+                >
+                  {t('options.steamOpenSettings')}
+                </button>
+              </div>
             </div>
           </>
         );
