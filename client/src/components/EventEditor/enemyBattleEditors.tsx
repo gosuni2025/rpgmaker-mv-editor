@@ -117,6 +117,30 @@ export function ChangeEnemyTPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk:
 }
 
 /**
+ * 적 캐릭터의 완전 회복 에디터 (코드 334)
+ * params: [enemyIndex]
+ */
+export function EnemyRecoverAllEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [enemyIndex, setEnemyIndex] = useState<number>((p[0] as number) ?? -1);
+
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>적 캐릭터:</span>
+        <select value={enemyIndex} onChange={e => setEnemyIndex(Number(e.target.value))}
+          style={{ ...selectStyle, flex: 1 }}>
+          {ENEMY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+        </select>
+      </div>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([enemyIndex])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}
+
+/**
  * 적 스테이트 변경 에디터 (코드 333)
  * params: [enemyIndex, operation(0=추가/1=해제), stateId]
  */

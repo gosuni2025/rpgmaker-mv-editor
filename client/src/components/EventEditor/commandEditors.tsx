@@ -14,4 +14,4 @@ export { AudioEditor, VehicleBGMEditor, MovieEditor, FadeoutEditor, ToggleEditor
 export { ConditionalBranchEditor } from './conditionalBranchEditor';
 export { BattleProcessingEditor } from './battleProcessingEditor';
 export { ShopProcessingEditor } from './shopProcessingEditor';
-export { ChangeEnemyHPEditor, ChangeEnemyMPEditor, ChangeEnemyTPEditor, ChangeEnemyStateEditor } from './enemyBattleEditors';
+export { ChangeEnemyHPEditor, ChangeEnemyMPEditor, ChangeEnemyTPEditor, ChangeEnemyStateEditor, EnemyRecoverAllEditor } from './enemyBattleEditors';
