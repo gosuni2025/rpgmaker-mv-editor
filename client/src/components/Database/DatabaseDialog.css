@@ -335,10 +335,12 @@
 /* Attack motions list */
 .db-system-motions-list {
   max-height: 180px;
+  min-height: 0;
   overflow-y: auto;
   border: 1px solid #444;
   border-radius: 3px;
   background: #2b2b2b;
+  flex-shrink: 0;
 }
 
 .db-system-motion-row {
