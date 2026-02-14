@@ -164,9 +164,9 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
 
   return (
     <div className="audio-picker">
-      <div className="audio-picker-preview" onClick={() => setOpen(true)}>
-        <span>{displayName}</span>
-        {value.name && <span className="audio-picker-info">Vol:{value.volume} Pitch:{value.pitch}</span>}
+      <div className="audio-picker-preview">
+        <input type="text" className="audio-picker-name-input" value={displayName} readOnly onClick={() => setOpen(true)} />
+        <button className="audio-picker-browse-btn" onClick={() => setOpen(true)}>...</button>
       </div>
       {open && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) handleCancel(); }}>
