@@ -810,7 +810,12 @@ PostProcess._updateUniforms = function() {
 
     // 메쉬가 아직 생성되지 않았으면 scene에 lazy 추가
     if (!FogOfWar._fogGroup && FogOfWar._fogTexture) {
-        var scene = this._renderPass ? this._renderPass.scene : null;
+        var scene = null;
+        if (this._renderPass) {
+            scene = this._renderPass.scene;
+        } else if (PostProcess._2dRenderPass && PostProcess._2dRenderPass._rendererObj) {
+            scene = PostProcess._2dRenderPass._rendererObj.scene;
+        }
         if (scene) {
             var mesh = FogOfWar._createMesh();
             if (mesh) {
