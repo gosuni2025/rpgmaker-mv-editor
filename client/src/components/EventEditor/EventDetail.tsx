@@ -198,7 +198,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
     : {};
 
   return (
-    <div className="db-dialog-overlay" style={dialogPos ? { alignItems: 'flex-start', justifyContent: 'flex-start' } : undefined}>
+    <div className="db-dialog-overlay" style={dialogPos ? { alignItems: 'flex-start', justifyContent: 'flex-start' } : undefined} onKeyDown={(e) => e.stopPropagation()}>
       <div className="event-editor-dialog" ref={dialogRef} style={dialogStyle}>
         {/* Title bar */}
         <div className="event-editor-titlebar" onMouseDown={handleTitleMouseDown} style={{ cursor: 'move' }}>
