@@ -11,6 +11,7 @@ import {
   useEventOverlay,
   useDragPreviewOverlay,
   useLightOverlay,
+  useFogOfWarOverlay,
 } from './useRendererOverlays';
 
 export { requestRenderFrames } from './initGameGlobals';
@@ -82,6 +83,7 @@ export function useThreeRenderer(
   const dragPreviewMeshesRef = useRef<any[]>([]);
   const toolPreviewMeshesRef = useRef<any[]>([]);
   const lightOverlayMeshesRef = useRef<any[]>([]);
+  const fogOfWarMeshRef = useRef<any>(null);
 
   // =========================================================================
   // Spriteset_Map 기반 Three.js 렌더링 setup & render loop
@@ -188,6 +190,7 @@ export function useThreeRenderer(
     eventOverlayMeshesRef,
     dragPreviewMeshesRef,
     lightOverlayMeshesRef,
+    fogOfWarMeshRef,
   }), []);
 
   // Delegated overlay hooks (standalone 모드에서는 스킵)
@@ -197,6 +200,7 @@ export function useThreeRenderer(
   useEventOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   useDragPreviewOverlay(overlayRefs, skipOverlays ? [] : dragPreviews);
   useLightOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
+  useFogOfWarOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
 
   return {
     rendererObjRef, tilemapRef, stageRef, spritesetRef, gridMeshRef,
