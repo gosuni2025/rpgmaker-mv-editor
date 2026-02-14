@@ -601,21 +601,35 @@ function BloomPass(params) {
     this._emissiveTexture.minFilter = THREE.LinearFilter;
     this._emissiveTexture.magFilter = THREE.LinearFilter;
     this._emissiveDirty = true;
+
+    // 3D emissive 렌더링용 씬 & 렌더 타겟
+    this._emissive3DScene = new THREE.Scene();
+    this._emissive3DScene.background = new THREE.Color(0x000000);
+    this._emissiveRT = null;  // setSize에서 생성
+    this._emissiveMeshPool = [];  // 재사용 메쉬 풀
+    this._emissiveMeshCount = 0;  // 현재 사용 중인 메쉬 수
+    this._emissiveGeometry = new THREE.PlaneGeometry(48, 48);  // 타일 1개 크기
 }
 
 BloomPass.prototype.setSize = function(width, height) {
     var bw = Math.max(1, Math.floor(width / this._downscale));
     var bh = Math.max(1, Math.floor(height / this._downscale));
-    if (this._width === bw && this._height === bh) return;
-    this._width = bw;
-    this._height = bh;
     var params = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat };
-    if (this._bloomRT1) this._bloomRT1.dispose();
-    if (this._bloomRT2) this._bloomRT2.dispose();
-    this._bloomRT1 = new THREE.WebGLRenderTarget(bw, bh, params);
-    this._bloomRT2 = new THREE.WebGLRenderTarget(bw, bh, params);
-    this._blurHUniforms.resolution.value.set(bw, bh);
-    this._blurVUniforms.resolution.value.set(bw, bh);
+    if (this._width !== bw || this._height !== bh) {
+        this._width = bw;
+        this._height = bh;
+        if (this._bloomRT1) this._bloomRT1.dispose();
+        if (this._bloomRT2) this._bloomRT2.dispose();
+        this._bloomRT1 = new THREE.WebGLRenderTarget(bw, bh, params);
+        this._bloomRT2 = new THREE.WebGLRenderTarget(bw, bh, params);
+        this._blurHUniforms.resolution.value.set(bw, bh);
+        this._blurVUniforms.resolution.value.set(bw, bh);
+    }
+    // 3D emissive 렌더 타겟 (원본 해상도)
+    if (!this._emissiveRT || this._emissiveRT.width !== width || this._emissiveRT.height !== height) {
+        if (this._emissiveRT) this._emissiveRT.dispose();
+        this._emissiveRT = new THREE.WebGLRenderTarget(width, height, params);
+    }
 };
 
 BloomPass.prototype._updateEmissiveTexture = function(width, height) {
@@ -702,6 +716,118 @@ BloomPass.prototype._updateEmissiveTexture = function(width, height) {
     return drawn;
 };
 
+// 3D emissive 렌더링: PerspectiveCamera로 emissive 타일을 렌더 타겟에 렌더
+BloomPass.prototype._updateEmissiveTexture3D = function(renderer, width, height) {
+    // emissive 설정 수집
+    var settings = null;
+    if (typeof ThreeWaterShader !== 'undefined') {
+        settings = ThreeWaterShader._kindSettings;
+        if ((!settings || Object.keys(settings).length === 0) &&
+            typeof $dataMap !== 'undefined' && $dataMap && $dataMap.animTileSettings) {
+            settings = $dataMap.animTileSettings;
+        }
+    }
+    if (!settings) return false;
+
+    var emissiveKinds = {};
+    var hasAny = false;
+    for (var k in settings) {
+        if (settings[k] && settings[k].emissive > 0) {
+            emissiveKinds[k] = settings[k];
+            hasAny = true;
+        }
+    }
+    if (!hasAny) return false;
+
+    var gameMap = typeof $gameMap !== 'undefined' ? $gameMap : null;
+    var dataMap = typeof $dataMap !== 'undefined' ? $dataMap : null;
+    if (!gameMap || !dataMap || !dataMap.data) return false;
+
+    var tw = 48, th = 48;
+    var mapW = dataMap.width, mapH = dataMap.height;
+    var displayX = gameMap._displayX, displayY = gameMap._displayY;
+    var screenTilesX = Math.ceil(width / tw) + 2;
+    var screenTilesY = Math.ceil(height / th) + 2;
+    var startTileX = Math.floor(displayX);
+    var startTileY = Math.floor(displayY);
+    // displayX/Y 서브 타일 오프셋 (tilemap과 동일한 좌표계)
+    var offsetFracX = (displayX - startTileX) * tw;
+    var offsetFracY = (displayY - startTileY) * th;
+
+    // 메쉬 재사용 카운터 리셋
+    this._emissiveMeshCount = 0;
+    var drawn = false;
+
+    for (var dy = -1; dy < screenTilesY; dy++) {
+        for (var dx = -1; dx < screenTilesX; dx++) {
+            var mx = (startTileX + dx) % mapW;
+            var my = (startTileY + dy) % mapH;
+            if (mx < 0) mx += mapW;
+            if (my < 0) my += mapH;
+
+            var tileId = dataMap.data[(0 * mapH + my) * mapW + mx];
+            if (tileId < 2048 || tileId >= 2816) continue;
+
+            var kind = Math.floor((tileId - 2048) / 48);
+            var s = emissiveKinds[kind];
+            if (!s) continue;
+
+            // 스크린 픽셀 좌표 (tilemap 렌더링과 동일한 좌표계)
+            // dx * tw - offsetFracX는 화면상의 타일 위치
+            var wx = dx * tw - offsetFracX + tw / 2;
+            var wy = dy * th - offsetFracY + th / 2;
+
+            var color = s.emissiveColor || '#ffffff';
+            var r = parseInt(color.substr(1, 2), 16) / 255;
+            var g = parseInt(color.substr(3, 2), 16) / 255;
+            var b = parseInt(color.substr(5, 2), 16) / 255;
+            var intensity = s.emissive;
+
+            // 메쉬 풀에서 가져오거나 새로 생성
+            var mesh;
+            if (this._emissiveMeshCount < this._emissiveMeshPool.length) {
+                mesh = this._emissiveMeshPool[this._emissiveMeshCount];
+                mesh.visible = true;
+            } else {
+                var mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                mesh = new THREE.Mesh(this._emissiveGeometry, mat);
+                mesh.frustumCulled = false;
+                this._emissive3DScene.add(mesh);
+                this._emissiveMeshPool.push(mesh);
+            }
+
+            mesh.material.color.setRGB(r * intensity, g * intensity, b * intensity);
+            mesh.position.set(wx, wy, 0);
+            mesh.rotation.set(0, 0, 0);
+            this._emissiveMeshCount++;
+            drawn = true;
+        }
+    }
+
+    // 사용되지 않는 메쉬 숨기기
+    for (var i = this._emissiveMeshCount; i < this._emissiveMeshPool.length; i++) {
+        this._emissiveMeshPool[i].visible = false;
+    }
+
+    if (!drawn) return false;
+
+    // PerspectiveCamera로 emissive 씬 렌더링
+    if (!this._emissiveRT) return false;
+    var perspCamera = Mode3D._perspCamera;
+    if (!perspCamera) return false;
+
+    var prevTarget = renderer.getRenderTarget();
+    var prevAutoClear = renderer.autoClear;
+    renderer.setRenderTarget(this._emissiveRT);
+    renderer.autoClear = true;
+    renderer.clear();
+    renderer.render(this._emissive3DScene, perspCamera);
+    renderer.setRenderTarget(prevTarget);
+    renderer.autoClear = prevAutoClear;
+
+    return true;
+};
+
 BloomPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
     // 축소 RT가 없으면 초기화
     if (!this._bloomRT1) {
@@ -709,12 +835,24 @@ BloomPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
         this.setSize(sz.x, sz.y);
     }
 
-    // emissive 오버레이 업데이트 (bloom에서만 사용, 텍스처 자체는 변경하지 않음)
-    var hasEmissive = this._updateEmissiveTexture(readBuffer.width, readBuffer.height);
+    // emissive 오버레이 업데이트
+    // 3D 모드: PerspectiveCamera로 렌더 → 카메라 회전 반영
+    // 2D 모드: 기존 2D 캔버스 방식
+    var hasEmissive;
+    var is3D = typeof Mode3D !== 'undefined' && Mode3D._active;
+    if (is3D) {
+        hasEmissive = this._updateEmissiveTexture3D(renderer, readBuffer.width, readBuffer.height);
+    } else {
+        hasEmissive = this._updateEmissiveTexture(readBuffer.width, readBuffer.height);
+    }
 
     // 1단계: 밝기 추출 (원본 + emissive → bloomRT1)
     this._extractUniforms.tColor.value = readBuffer.texture;
-    this._extractUniforms.tEmissive.value = hasEmissive ? this._emissiveTexture : null;
+    var emissiveTex = null;
+    if (hasEmissive) {
+        emissiveTex = is3D ? this._emissiveRT.texture : this._emissiveTexture;
+    }
+    this._extractUniforms.tEmissive.value = emissiveTex;
     this._extractUniforms.threshold.value = this._threshold;
     this._fsQuad.material = this._extractMaterial;
     renderer.setRenderTarget(this._bloomRT1);
@@ -776,6 +914,11 @@ BloomPass.prototype.dispose = function() {
     if (this._bloomRT1) this._bloomRT1.dispose();
     if (this._bloomRT2) this._bloomRT2.dispose();
     if (this._emissiveTexture) this._emissiveTexture.dispose();
+    if (this._emissiveRT) this._emissiveRT.dispose();
+    if (this._emissiveGeometry) this._emissiveGeometry.dispose();
+    for (var i = 0; i < this._emissiveMeshPool.length; i++) {
+        this._emissiveMeshPool[i].material.dispose();
+    }
 };
 
 // --- UIRenderPass (블러 후 UI를 선명하게 합성) ---
