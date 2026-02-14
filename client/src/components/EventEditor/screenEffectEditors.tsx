@@ -95,6 +95,95 @@ export function TintScreenEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (p
   );
 }
 
+// ─── 창 색깔 변경 (Change Window Color, code 138) ───
+// parameters: [[R,G,B]]  범위: -255 ~ 255
+export function ChangeWindowColorEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const color = (p[0] as number[] | undefined) || [0, 0, 0];
+  const [red, setRed] = useState<number>(color[0] || 0);
+  const [green, setGreen] = useState<number>(color[1] || 0);
+  const [blue, setBlue] = useState<number>(color[2] || 0);
+
+  const labelStyle: React.CSSProperties = { fontSize: 12, color: '#aaa' };
+  const sliderRowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8 };
+
+  return (
+    <>
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>창 색깔</legend>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+            <div style={sliderRowStyle}>
+              <span style={{ ...labelStyle, minWidth: 40 }}>빨강:</span>
+              <input type="range" min={-255} max={255} value={red}
+                onChange={e => setRed(Number(e.target.value))} style={{ flex: 1 }} />
+              <input type="number" min={-255} max={255} value={red}
+                onChange={e => setRed(Math.max(-255, Math.min(255, Number(e.target.value))))}
+                style={{ ...selectStyle, width: 60 }} />
+            </div>
+            <div style={sliderRowStyle}>
+              <span style={{ ...labelStyle, minWidth: 40 }}>초록:</span>
+              <input type="range" min={-255} max={255} value={green}
+                onChange={e => setGreen(Number(e.target.value))} style={{ flex: 1 }} />
+              <input type="number" min={-255} max={255} value={green}
+                onChange={e => setGreen(Math.max(-255, Math.min(255, Number(e.target.value))))}
+                style={{ ...selectStyle, width: 60 }} />
+            </div>
+            <div style={sliderRowStyle}>
+              <span style={{ ...labelStyle, minWidth: 40 }}>파랑:</span>
+              <input type="range" min={-255} max={255} value={blue}
+                onChange={e => setBlue(Number(e.target.value))} style={{ flex: 1 }} />
+              <input type="number" min={-255} max={255} value={blue}
+                onChange={e => setBlue(Math.max(-255, Math.min(255, Number(e.target.value))))}
+                style={{ ...selectStyle, width: 60 }} />
+            </div>
+          </div>
+          <WindowColorPreview r={red} g={green} b={blue} />
+        </div>
+      </fieldset>
+
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([[red, green, blue]])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}
+
+function WindowColorPreview({ r, g, b }: { r: number; g: number; b: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // RPG Maker MV 윈도우 기본 색상(짙은 파란/남색)에 색조 오프셋 적용
+    const baseR = 0, baseG = 0, baseB = 64;
+    const winR = Math.max(0, Math.min(255, baseR + r));
+    const winG = Math.max(0, Math.min(255, baseG + g));
+    const winB = Math.max(0, Math.min(255, baseB + b));
+
+    // 윈도우 배경 그리기
+    ctx.fillStyle = `rgba(${winR}, ${winG}, ${winB}, 0.85)`;
+    ctx.fillRect(0, 0, w, h);
+
+    // 테두리
+    ctx.strokeStyle = `rgb(${Math.min(255, winR + 80)}, ${Math.min(255, winG + 80)}, ${Math.min(255, winB + 80)})`;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, w - 2, h - 2);
+
+    // 샘플 텍스트
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Sample Text', w / 2, h / 2 + 4);
+  }, [r, g, b]);
+
+  return <canvas ref={canvasRef} width={120} height={120} style={{ borderRadius: 4, border: '1px solid #555' }} />;
+}
+
 // ─── 화면의 플래시 (Flash Screen, code 224) ───
 // parameters: [[R,G,B,A(진한정도)], 지속시간, 완료까지대기]
 export function FlashScreenEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
