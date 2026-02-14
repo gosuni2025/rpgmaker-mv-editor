@@ -17,6 +17,108 @@
     var ThreeRendererStrategy = {};
 
     // -----------------------------------------------------------------------
+    // Color Matrix post-processing (for ToneFilter)
+    // -----------------------------------------------------------------------
+
+    var _colorMatrixShader = null;
+    var _colorMatrixScene = null;
+    var _colorMatrixCamera = null;
+    var _colorMatrixQuad = null;
+
+    /**
+     * Lazily creates the color matrix post-processing resources.
+     * Uses a fullscreen quad with a custom ShaderMaterial that applies
+     * a 4x5 color matrix transformation.
+     */
+    function _ensureColorMatrixPass(rendererObj) {
+        if (_colorMatrixScene) return;
+
+        // Fullscreen quad scene + orthographic camera
+        _colorMatrixScene = new THREE.Scene();
+        _colorMatrixCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        _colorMatrixShader = new THREE.ShaderMaterial({
+            uniforms: {
+                tDiffuse: { value: null },
+                colorMatrix: { value: new Float32Array(20) }
+            },
+            vertexShader: [
+                'varying vec2 vUv;',
+                'void main() {',
+                '    vUv = uv;',
+                '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+                '}'
+            ].join('\n'),
+            fragmentShader: [
+                'uniform sampler2D tDiffuse;',
+                'uniform float colorMatrix[20];',
+                'varying vec2 vUv;',
+                'void main() {',
+                '    vec4 c = texture2D(tDiffuse, vUv);',
+                '    vec4 result;',
+                '    result.r = colorMatrix[0]*c.r + colorMatrix[1]*c.g + colorMatrix[2]*c.b + colorMatrix[3]*c.a + colorMatrix[4];',
+                '    result.g = colorMatrix[5]*c.r + colorMatrix[6]*c.g + colorMatrix[7]*c.b + colorMatrix[8]*c.a + colorMatrix[9];',
+                '    result.b = colorMatrix[10]*c.r + colorMatrix[11]*c.g + colorMatrix[12]*c.b + colorMatrix[13]*c.a + colorMatrix[14];',
+                '    result.a = colorMatrix[15]*c.r + colorMatrix[16]*c.g + colorMatrix[17]*c.b + colorMatrix[18]*c.a + colorMatrix[19];',
+                '    gl_FragColor = result;',
+                '}'
+            ].join('\n'),
+            depthTest: false,
+            depthWrite: false
+        });
+
+        var geom = new THREE.PlaneGeometry(2, 2);
+        _colorMatrixQuad = new THREE.Mesh(geom, _colorMatrixShader);
+        _colorMatrixQuad.frustumCulled = false;
+        _colorMatrixScene.add(_colorMatrixQuad);
+    }
+
+    /**
+     * Identity color matrix for comparison.
+     */
+    var _identityMatrix = [
+        1, 0, 0, 0, 0,
+        0, 1, 0, 0, 0,
+        0, 0, 1, 0, 0,
+        0, 0, 0, 1, 0
+    ];
+
+    /**
+     * Checks if a color matrix is identity (no-op).
+     */
+    function _isIdentityMatrix(m) {
+        for (var i = 0; i < 20; i++) {
+            if (Math.abs(m[i] - _identityMatrix[i]) > 0.001) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Finds the first active ColorMatrixFilter in the stage hierarchy.
+     * Returns the matrix array or null if no filter or identity.
+     */
+    function _findColorMatrixFilter(node) {
+        if (node._filters) {
+            for (var i = 0; i < node._filters.length; i++) {
+                var f = node._filters[i];
+                if (f && f._matrix && f.enabled !== false) {
+                    if (!_isIdentityMatrix(f._matrix)) {
+                        return f._matrix;
+                    }
+                }
+            }
+        }
+        var children = node.children;
+        if (children) {
+            for (var i = 0; i < children.length; i++) {
+                var result = _findColorMatrixFilter(children[i]);
+                if (result) return result;
+            }
+        }
+        return null;
+    }
+
+    // -----------------------------------------------------------------------
     // Renderer creation
     // -----------------------------------------------------------------------
 
@@ -258,6 +360,12 @@
         camera.top = 0;
         camera.bottom = height;
         camera.updateProjectionMatrix();
+
+        // Invalidate color matrix render target so it gets recreated at new size
+        if (rendererObj._colorMatrixRT) {
+            rendererObj._colorMatrixRT.dispose();
+            rendererObj._colorMatrixRT = null;
+        }
     };
 
     // -----------------------------------------------------------------------
@@ -434,5 +542,67 @@
     // -----------------------------------------------------------------------
 
     RendererStrategy.register('threejs', ThreeRendererStrategy);
+
+    // -----------------------------------------------------------------------
+    // Color Matrix post-processing wrapper for RendererStrategy.render
+    // Applied AFTER any backend-specific render (including Mode3D multi-pass
+    // and PostProcess composer). Intercepts setRenderTarget(null) to redirect
+    // final output to an offscreen buffer, then applies color matrix shader.
+    // -----------------------------------------------------------------------
+
+    var _origRSRender = RendererStrategy.render;
+    RendererStrategy.render = function(rendererObj, stage) {
+        if (!rendererObj || !stage || !rendererObj.renderer) {
+            _origRSRender.call(this, rendererObj, stage);
+            return;
+        }
+
+        // Check for color matrix filters (ToneFilter / Tint Screen)
+        var colorMatrix = _findColorMatrixFilter(stage);
+
+        if (colorMatrix) {
+            _ensureColorMatrixPass(rendererObj);
+
+            var w = rendererObj._width;
+            var h = rendererObj._height;
+            var renderer = rendererObj.renderer;
+
+            // Create or reuse render target
+            if (!rendererObj._colorMatrixRT ||
+                rendererObj._colorMatrixRT.width !== w ||
+                rendererObj._colorMatrixRT.height !== h) {
+                if (rendererObj._colorMatrixRT) rendererObj._colorMatrixRT.dispose();
+                rendererObj._colorMatrixRT = new THREE.WebGLRenderTarget(w, h, {
+                    minFilter: THREE.LinearFilter,
+                    magFilter: THREE.LinearFilter,
+                    format: THREE.RGBAFormat
+                });
+            }
+
+            // Intercept setRenderTarget(null) so that the final output goes
+            // to our offscreen buffer instead of the screen. This works with
+            // PostProcess/Mode3D which internally call setRenderTarget(null)
+            // for the final compositing pass.
+            var rt = rendererObj._colorMatrixRT;
+            var origSetRT = renderer.setRenderTarget.bind(renderer);
+            renderer.setRenderTarget = function(target) {
+                origSetRT(target === null ? rt : target);
+            };
+
+            // Call original render (may include Mode3D + PostProcess)
+            _origRSRender.call(this, rendererObj, stage);
+
+            // Restore original setRenderTarget
+            renderer.setRenderTarget = origSetRT;
+
+            // Apply color matrix post-processing to screen
+            renderer.setRenderTarget(null);
+            _colorMatrixShader.uniforms.tDiffuse.value = rt.texture;
+            _colorMatrixShader.uniforms.colorMatrix.value.set(colorMatrix);
+            renderer.render(_colorMatrixScene, _colorMatrixCamera);
+        } else {
+            _origRSRender.call(this, rendererObj, stage);
+        }
+    };
 
 })();
