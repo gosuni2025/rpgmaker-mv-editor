@@ -270,6 +270,15 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
     return text;
   }
 
+  // 먼 배경 변경 포맷
+  if (code === 284 && cmd.parameters && cmd.parameters.length >= 1) {
+    const parallaxName = cmd.parameters[0] as string;
+    if (parallaxName) {
+      text += `: ${parallaxName}`;
+    }
+    return text;
+  }
+
   // 그림 표시 전용 포맷
   if (code === 231 && cmd.parameters && cmd.parameters.length >= 10) {
     const num = cmd.parameters[0] as number;

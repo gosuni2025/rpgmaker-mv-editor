@@ -473,3 +473,130 @@ export function ChangeBattleBackEditor({ p, onOk, onCancel }: { p: unknown[]; on
     </>
   );
 }
+
+/**
+ * 먼 배경 변경 에디터 (코드 284)
+ * params: [name, loopX, loopY, sx, sy]
+ */
+export function ChangeParallaxEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [name, setName] = useState<string>((p[0] as string) || '');
+  const [loopX, setLoopX] = useState<boolean>((p[1] as boolean) || false);
+  const [loopY, setLoopY] = useState<boolean>((p[2] as boolean) || false);
+  const [sx, setSx] = useState<number>((p[3] as number) || 0);
+  const [sy, setSy] = useState<number>((p[4] as number) || 0);
+  const [showPicker, setShowPicker] = useState(false);
+  const [files, setFiles] = useState<string[]>([]);
+  const [sel, setSel] = useState('');
+  const [previewSrc, setPreviewSrc] = useState<string>('');
+
+  const openPicker = () => {
+    setSel(name);
+    setShowPicker(true);
+    apiClient.get<string[]>('/resources/parallaxes').then(f => {
+      setFiles(f);
+    }).catch(() => setFiles([]));
+  };
+
+  const names = [...new Set(files.map(f => f.replace(/\.png$/i, '')))];
+
+  useEffect(() => {
+    if (!showPicker) return;
+    if (sel) {
+      setPreviewSrc(`/api/resources/parallaxes/${sel}.png`);
+    } else {
+      setPreviewSrc('');
+    }
+  }, [sel, showPicker]);
+
+  const handlePickerOk = () => {
+    setName(sel);
+    setShowPicker(false);
+  };
+
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '4px 0' }}>
+        <div style={{ fontWeight: 'bold', fontSize: 13, color: '#ddd' }}>먼 배경</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>이미지:</span>
+          <input type="text" readOnly value={name || ''}
+            style={{ ...selectStyle, flex: 1, cursor: 'pointer' }}
+            onClick={openPicker} />
+          <button className="db-btn" onClick={openPicker}
+            style={{ padding: '2px 8px', fontSize: 13 }}>...</button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#ddd' }}>
+            <input type="checkbox" checked={loopX} onChange={e => setLoopX(e.target.checked)} />
+            가로로 루프
+          </label>
+        </div>
+        {loopX && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 20 }}>
+            <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>스크롤:</span>
+            <input type="number" value={sx} min={-32} max={32}
+              onChange={e => setSx(Number(e.target.value))}
+              style={{ ...selectStyle, width: 70 }} />
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#ddd' }}>
+            <input type="checkbox" checked={loopY} onChange={e => setLoopY(e.target.checked)} />
+            세로로 루프
+          </label>
+        </div>
+        {loopY && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 20 }}>
+            <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>스크롤:</span>
+            <input type="number" value={sy} min={-32} max={32}
+              onChange={e => setSy(Number(e.target.value))}
+              style={{ ...selectStyle, width: 70 }} />
+          </div>
+        )}
+      </div>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([name, loopX, loopY, loopX ? sx : 0, loopY ? sy : 0])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+      {showPicker && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowPicker(false); }}>
+          <div className="battleback-picker-dialog">
+            <div className="audio-picker-header">이미지 선택</div>
+            <div className="battleback-picker-body">
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 180, maxWidth: 220 }}>
+                <div className="audio-picker-list" style={{ flex: 1 }}>
+                  <div
+                    className={`audio-picker-item${sel === '' ? ' selected' : ''}`}
+                    onClick={() => setSel('')}
+                  >
+                    (없음)
+                  </div>
+                  {names.map(n => (
+                    <div
+                      key={n}
+                      className={`audio-picker-item${sel === n ? ' selected' : ''}`}
+                      onClick={() => setSel(n)}
+                    >
+                      {n}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="battleback-picker-preview" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {previewSrc ? (
+                  <img src={previewSrc} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', imageRendering: 'pixelated' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', background: '#000' }} />
+                )}
+              </div>
+            </div>
+            <div className="audio-picker-footer">
+              <button className="db-btn" onClick={handlePickerOk}>OK</button>
+              <button className="db-btn" onClick={() => setShowPicker(false)}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
