@@ -146,9 +146,9 @@ export function PostProcessSection({ currentMap, updateMapField, ExtBadge }: {
               <>
                 <AnimSlider label="밝기 임계값" value={bloom.threshold} min={0} max={1} step={0.05}
                   onChange={(v) => updateBloom('threshold', v)} />
-                <AnimSlider label="강도" value={bloom.strength} min={0} max={3} step={0.05}
+                <AnimSlider label="강도" value={bloom.strength} min={0} max={10} step={0.05}
                   onChange={(v) => updateBloom('strength', v)} />
-                <AnimSlider label="블러 반경" value={bloom.radius} min={0} max={3} step={0.1}
+                <AnimSlider label="블러 반경" value={bloom.radius} min={0} max={10} step={0.1}
                   onChange={(v) => updateBloom('radius', v)} />
                 <AnimSlider label="다운스케일" value={bloom.downscale} min={1} max={8} step={1}
                   onChange={(v) => updateBloom('downscale', v)} />
