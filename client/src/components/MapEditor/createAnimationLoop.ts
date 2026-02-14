@@ -83,9 +83,9 @@ export function createAnimationLoop(params: {
       syncEditorLightsToScene(rendererObj.scene, es.currentMap?.editorLights, es.mode3d);
     }
 
-    // 2D 모드에서 스카이 스피어 숨기기 (비동기 로딩 후 추가될 수 있으므로 렌더 루프에서 체크)
+    // Sky mesh는 render pass에서 visibility를 제어하므로, 기본 상태는 항상 숨김으로 유지
+    // (비동기 로딩 후 추가될 수 있으므로 렌더 루프에서 체크)
     const curMode3d = !!w.ConfigManager?.mode3d;
-    // mode3d 변경 시 skySphereRef 캐시 무효화
     if (curMode3d !== lastMode3d) {
       skySphereRef = null;
       lastMode3d = curMode3d;
@@ -96,7 +96,7 @@ export function createAnimationLoop(params: {
         if (obj._isParallaxSky) skySphereRef = obj;
       });
     }
-    if (skySphereRef) skySphereRef.visible = curMode3d;
+    if (skySphereRef) skySphereRef.visible = false;
 
     // spriteset.update()로 Tilemap.animationCount 증가
     try {
@@ -121,9 +121,11 @@ export function createAnimationLoop(params: {
     const hasWaterShader = typeof ThreeWaterShader !== 'undefined' && ThreeWaterShader._hasWaterMesh;
     // 날씨가 활성화된 경우 매 프레임 렌더 (파티클 애니메이션)
     const hasWeather = w.$gameScreen && w.$gameScreen.weatherType() !== 'none';
+    // 패럴랙스 루프가 활성화된 경우 매 프레임 렌더 (스크롤 애니메이션)
+    const hasParallaxLoop = w.$gameMap && (w.$gameMap._parallaxLoopX || w.$gameMap._parallaxLoopY);
 
     // repaint가 필요한 경우에만 렌더링
-    if (tilemap._needsRepaint || renderRequestedRef.current || hasWaterShader || hasWeather) {
+    if (tilemap._needsRepaint || renderRequestedRef.current || hasWaterShader || hasWeather || hasParallaxLoop) {
       renderRequestedRef.current = false;
       renderOnce();
     }
