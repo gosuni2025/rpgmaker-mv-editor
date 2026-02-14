@@ -429,8 +429,11 @@ ThreeSprite.prototype.syncTransform = function() {
     obj.scale.x = this._scaleX;
     obj.scale.y = this._scaleY;
 
-    // Rotation (around Z for 2D). Negate for CW vs CCW convention.
-    obj.rotation.z = -this._rotation;
+    // Rotation (around Z for 2D).
+    // Y-down camera (top=0, bottom=height) naturally flips the visual rotation
+    // direction, making Three.js CCW appear as CW on screen — matching PIXI's
+    // CW convention. So we use the rotation value as-is (no negation).
+    obj.rotation.z = this._rotation;
 
     // Encode frame dimensions and anchor into geometry vertices directly.
     // PlaneGeometry(1,1) has vertices at -0.5..0.5. We replace them with
