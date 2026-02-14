@@ -109,12 +109,19 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
           e.preventDefault();
           deleteSelected();
         }
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        if (primaryIndex >= 0 && primaryIndex < commands.length) {
+          handleDoubleClick(primaryIndex);
+        } else {
+          setShowAddDialog(true);
+        }
       }
     };
 
     container.addEventListener('keydown', handleKeyDown);
     return () => container.removeEventListener('keydown', handleKeyDown);
-  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, showAddDialog, pendingCode, editingIndex, showMoveRoute, selectedIndices, commands, setSelectedIndices]);
+  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, showAddDialog, pendingCode, editingIndex, showMoveRoute, selectedIndices, commands, setSelectedIndices, primaryIndex]);
 
   const insertCommandWithParams = (code: number, params: unknown[], extraCommands?: EventCommand[]) => {
     const insertAt = primaryIndex >= 0 ? primaryIndex : commands.length - 1;
