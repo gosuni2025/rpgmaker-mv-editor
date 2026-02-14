@@ -441,6 +441,35 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
     return text;
   }
 
+  // 액터 이미지 변경 (code 322): params=[actorId, charName, charIdx, faceName, faceIdx, battlerName]
+  if (code === 322 && cmd.parameters && cmd.parameters.length >= 6) {
+    const actorId = cmd.parameters[0] as number;
+    const charName = cmd.parameters[1] as string;
+    const faceName = cmd.parameters[3] as string;
+    const battlerName = cmd.parameters[5] as string;
+    text += `: ${String(actorId).padStart(4, '0')}`;
+    const imgs: string[] = [];
+    if (faceName) imgs.push(`얼굴:${faceName}`);
+    if (charName) imgs.push(`캐릭터:${charName}`);
+    if (battlerName) imgs.push(`SV:${battlerName}`);
+    if (imgs.length > 0) text += `, ${imgs.join(', ')}`;
+    return text;
+  }
+
+  // 탈 것 이미지 변경 (code 323): params=[vehicleType, imageName, imageIndex]
+  if (code === 323 && cmd.parameters && cmd.parameters.length >= 3) {
+    const vehicleNames = ['보트', '선박', '비행선'];
+    const vehicle = cmd.parameters[0] as number;
+    const imgName = cmd.parameters[1] as string;
+    text += `: ${vehicleNames[vehicle] || '?'}`;
+    if (imgName) {
+      text += `, ${imgName}[${cmd.parameters[2]}]`;
+    } else {
+      text += `, (없음)`;
+    }
+    return text;
+  }
+
   // 오디오 관련 커맨드 (BGM/BGS/ME/SE 재생, 전투BGM/승리ME/패배ME 변경)
   if ([132, 133, 139, 241, 245, 249, 250].includes(code) && cmd.parameters && cmd.parameters.length >= 1) {
     const audio = cmd.parameters[0] as { name: string; volume: number; pitch: number; pan: number } | null;

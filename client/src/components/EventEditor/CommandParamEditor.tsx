@@ -4,7 +4,7 @@ import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor, VehicleBGMEditor, MovieEditor, FadeoutEditor,
-  ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor, ShowBalloonIconEditor,
+  ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeActorImagesEditor, ChangeVehicleImageEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor, ShowBalloonIconEditor,
   ScrollingTextEditor, ConditionalBranchEditor, ShowPictureEditor, MovePictureEditor, RotatePictureEditor, TintPictureEditor, TintScreenEditor, FlashScreenEditor, ShakeScreenEditor, SetWeatherEffectEditor, ChangeWindowColorEditor,
   BattleProcessingEditor,
   ShopProcessingEditor,
@@ -54,7 +54,7 @@ function getCommandName(code: number): string {
     249: 'ME 재생', 250: 'SE 재생', 261: '무비 재생',
     301: '전투 처리', 302: '상점의 처리', 303: '이름 입력 처리', 311: 'HP 증감', 312: 'MP 증감', 326: 'TP 증감',
     313: '스테이트 변경', 314: '전체 회복', 315: 'EXP 증감', 316: '레벨 증감', 317: '능력치 증감',
-    318: '스킬 증감', 319: '장비 변경', 320: '이름 변경', 321: '직업 변경', 324: '닉네임 변경', 325: '프로필 변경',
+    318: '스킬 증감', 319: '장비 변경', 320: '이름 변경', 321: '직업 변경', 322: '액터 이미지 변경', 323: '탈 것 이미지 변경', 324: '닉네임 변경', 325: '프로필 변경',
     355: 'Script', 356: 'Plugin Command',
   };
   return names[code] || `Command ${code}`;
@@ -132,6 +132,8 @@ function getEditorContent(
     case 320: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="이름:" />;
     case 321: return <ChangeClassEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 324: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="닉네임:" />;
+    case 322: return <ChangeActorImagesEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 323: return <ChangeVehicleImageEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 325: return <ChangeProfileEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 132: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgm" />;
     case 133: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="me" />;
