@@ -628,12 +628,13 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
     rendererObj.scene.add(group);
     refs.fogOfWarMeshRef.current = group;
 
-    // 에디터에서 볼류메트릭 셰이더의 카메라 좌표를 가짜로 설정
-    // OrthographicCamera 위에서 내려다보는 것처럼: 맵 중앙 위 높은 곳
+    // 에디터에서 볼류메트릭 셰이더의 카메라 좌표를 설정
+    // OrthographicCamera → isOrtho 모드 사용
     const fogMesh = group.children[0];
     if (fogMesh?.material?.uniforms) {
       const u = fogMesh.material.uniforms;
-      u.cameraWorldPos.value.set(totalW / 2, totalH / 2, FogOfWarMod._fogHeight + 100);
+      u.cameraWorldPos.value.set(0, 0, FogOfWarMod._fogHeight + 100);
+      u.isOrtho.value = 1.0;
       u.scrollOffset.value.set(0, 0);
       // 에디터에서는 플레이어 위치 = 시작 위치
       u.playerPixelPos.value.set((startX + 0.5) * TILE_SIZE_PX, (startY + 0.5) * TILE_SIZE_PX);
@@ -653,11 +654,8 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
       if (fogMesh?.material?.uniforms) {
         const u = fogMesh.material.uniforms;
         u.uTime.value = FogOfWarMod._time;
-        // 에디터 카메라 위치 추적 (OrthographicCamera의 position)
-        const cam = rendererObj.camera;
-        if (cam) {
-          u.cameraWorldPos.value.set(cam.position.x, cam.position.y, FogOfWarMod._fogHeight + 100);
-        }
+        // isOrtho 모드: cameraWorldPos.z만 의미 있음 (xy는 vWorldPos에서 가져옴)
+        u.cameraWorldPos.value.set(0, 0, FogOfWarMod._fogHeight + 100);
       }
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       animId = requestAnimationFrame(animate);
