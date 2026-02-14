@@ -167,6 +167,45 @@ export function EnemyAppearEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
 }
 
 /**
+ * 적 캐릭터의 변신 에디터 (코드 336)
+ * params: [enemyIndex, enemyId]
+ */
+export function EnemyTransformEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [enemyIndex, setEnemyIndex] = useState<number>((p[0] as number) || 0);
+  const [enemyId, setEnemyId] = useState<number>((p[1] as number) || 1);
+  const [showEnemyPicker, setShowEnemyPicker] = useState(false);
+
+  const { names: enemyNames } = useDbNamesWithIcons('enemies');
+
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>적 캐릭터:</span>
+        <select value={enemyIndex} onChange={e => setEnemyIndex(Number(e.target.value))}
+          style={{ ...selectStyle, flex: 1 }}>
+          {ENEMY_OPTIONS_INDIVIDUAL.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+        </select>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>~(으)로 변신:</span>
+        <button className="db-btn" style={{ flex: 1, textAlign: 'left' }}
+          onClick={() => setShowEnemyPicker(true)}>
+          {getLabel(enemyId, enemyNames)}
+        </button>
+      </div>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([enemyIndex, enemyId])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+      {showEnemyPicker && (
+        <DataListPicker items={enemyNames} value={enemyId} onChange={setEnemyId}
+          onClose={() => setShowEnemyPicker(false)} title="적 캐릭터" />
+      )}
+    </>
+  );
+}
+
+/**
  * 적 스테이트 변경 에디터 (코드 333)
  * params: [enemyIndex, operation(0=추가/1=해제), stateId]
  */
