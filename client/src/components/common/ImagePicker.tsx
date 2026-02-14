@@ -299,7 +299,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
                 ) : null}
               </div>
             </div>
-            <div style={{ color: '#999', fontSize: '0.85em', padding: '4px 12px' }}>PNG 파일(.png)만 인식됩니다. 이미지를 추가하려면 폴더에 PNG 파일을 넣어주세요.</div>
+            <div style={{ color: '#8bc34a', fontSize: '0.85em', padding: '4px 12px' }}>PNG 파일(.png)만 인식됩니다. 이미지를 추가하려면 폴더에 PNG 파일을 넣어주세요.</div>
             <div className="image-picker-footer">
               <button className="db-btn" onClick={() => {
                 apiClient.post(`/resources/${type}/open-folder`, {}).catch(() => {});
