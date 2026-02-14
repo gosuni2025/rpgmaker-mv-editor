@@ -789,7 +789,7 @@ BloomPass.prototype._updateEmissiveTexture3D = function(renderer, width, height)
                 mesh = this._emissiveMeshPool[this._emissiveMeshCount];
                 mesh.visible = true;
             } else {
-                var mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                var mat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
                 mesh = new THREE.Mesh(this._emissiveGeometry, mat);
                 mesh.frustumCulled = false;
                 this._emissive3DScene.add(mesh);
@@ -839,19 +839,18 @@ BloomPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
     // 3D 모드: PerspectiveCamera로 렌더 → 카메라 회전 반영
     // 2D 모드: 기존 2D 캔버스 방식
     var hasEmissive;
+    var emissiveTex = null;
     var is3D = typeof Mode3D !== 'undefined' && Mode3D._active;
     if (is3D) {
         hasEmissive = this._updateEmissiveTexture3D(renderer, readBuffer.width, readBuffer.height);
+        if (hasEmissive) emissiveTex = this._emissiveRT.texture;
     } else {
         hasEmissive = this._updateEmissiveTexture(readBuffer.width, readBuffer.height);
+        if (hasEmissive) emissiveTex = this._emissiveTexture;
     }
 
     // 1단계: 밝기 추출 (원본 + emissive → bloomRT1)
     this._extractUniforms.tColor.value = readBuffer.texture;
-    var emissiveTex = null;
-    if (hasEmissive) {
-        emissiveTex = is3D ? this._emissiveRT.texture : this._emissiveTexture;
-    }
     this._extractUniforms.tEmissive.value = emissiveTex;
     this._extractUniforms.threshold.value = this._threshold;
     this._fsQuad.material = this._extractMaterial;
@@ -1428,6 +1427,11 @@ PostProcess.applyPostProcessConfig = function(config) {
     // filmGrain, waveDistortion: uTime 업데이트 필요
     this._ppNeedsTimeUpdate = anyEnabled;
 
+    // godRays base lightPos 갱신 플래그
+    if (this._ppPasses.godRays) {
+        this._ppPasses.godRays._baseDirty = true;
+    }
+
     // 3D: renderToScreen 재조정
     this._updateRenderToScreen();
 };
@@ -1510,6 +1514,9 @@ PostProcess._updateUniforms = function() {
         this._bloomPass._blurVUniforms.direction.value.set(0.0, this.bloomConfig.radius);
     }
 
+    // GodRays lightPos를 카메라 yaw에 따라 회전
+    this._updateGodRaysLightPos();
+
     if (!this._tiltShiftPass) return;
 
     // 타겟 DoF 값 결정: 활성 카메라존 → 글로벌 config
@@ -1552,6 +1559,31 @@ PostProcess._updateUniforms = function() {
     this._tiltShiftPass.uniforms.blurPower.value = this._currentBlurPower;
     this._tiltShiftPass.uniforms.aspect.value =
         Graphics.height / Graphics.width;
+};
+
+PostProcess._updateGodRaysLightPos = function() {
+    if (!this._ppPasses || !this._ppPasses.godRays || !this._ppPasses.godRays.enabled) return;
+    var yaw = (typeof Mode3D !== 'undefined') ? (Mode3D._yawRad || 0) : 0;
+
+    var pass = this._ppPasses.godRays;
+
+    // 원본 lightPos가 변경되었으면 base 갱신 (맵 전환 등)
+    if (pass._baseLightPosX == null || pass._baseDirty) {
+        pass._baseLightPosX = pass.uniforms.uLightPos.value.x;
+        pass._baseLightPosY = pass.uniforms.uLightPos.value.y;
+        pass._baseDirty = false;
+    }
+
+    if (yaw === 0) return;
+
+    // 화면 중심(0.5, 0.5) 기준으로 yaw만큼 회전
+    var cx = 0.5, cy = 0.5;
+    var dx = pass._baseLightPosX - cx;
+    var dy = pass._baseLightPosY - cy;
+    var cosY = Math.cos(-yaw);
+    var sinY = Math.sin(-yaw);
+    pass.uniforms.uLightPos.value.x = cx + dx * cosY - dy * sinY;
+    pass.uniforms.uLightPos.value.y = cy + dx * sinY + dy * cosY;
 };
 
 //=============================================================================
