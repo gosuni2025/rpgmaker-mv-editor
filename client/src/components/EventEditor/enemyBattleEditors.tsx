@@ -3,6 +3,7 @@ import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { useDbNamesWithIcons, getLabel } from './actionEditorUtils';
 import { DataListPicker } from './dataListPicker';
+import AnimationPickerDialog from './AnimationPickerDialog';
 
 const ENEMY_OPTIONS_ALL = [
   { value: -1, label: '전체 적 군단' },
@@ -242,8 +243,8 @@ export function ShowBattleAnimationEditor({ p, onOk, onCancel }: { p: unknown[];
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
       {showAnimPicker && (
-        <DataListPicker items={animNames} value={animationId} onChange={setAnimationId}
-          onClose={() => setShowAnimPicker(false)} title="애니메이션" />
+        <AnimationPickerDialog value={animationId} onChange={setAnimationId}
+          onClose={() => setShowAnimPicker(false)} />
       )}
     </>
   );

@@ -8,6 +8,7 @@ import { selectStyle } from './messageEditors';
 import { DataListPicker } from './dataListPicker';
 import useEditorStore from '../../store/useEditorStore';
 import { useDbNames, DEFAULT_AUDIO } from './actionEditorUtils';
+import AnimationPickerDialog from './AnimationPickerDialog';
 import '../common/BattlebackPicker.css';
 
 export function AudioEditor({ p, onOk, onCancel, type }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; type: 'bgm' | 'bgs' | 'me' | 'se' }) {
@@ -243,8 +244,8 @@ export function ShowAnimationEditor({ p, onOk, onCancel }: { p: unknown[]; onOk:
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
       {showAnimPicker && (
-        <DataListPicker items={animNames} value={animationId} onChange={setAnimationId}
-          onClose={() => setShowAnimPicker(false)} title="대상 선택" />
+        <AnimationPickerDialog value={animationId} onChange={setAnimationId}
+          onClose={() => setShowAnimPicker(false)} />
       )}
     </>
   );
