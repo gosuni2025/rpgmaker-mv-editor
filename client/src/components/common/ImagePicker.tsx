@@ -252,7 +252,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
       {open && (
         <div className="modal-overlay">
           <div className="image-picker-dialog">
-            <div className="image-picker-header">Select {type}</div>
+            <div className="image-picker-header">Select {type} <span style={{ fontSize: '0.85em', color: '#999', fontWeight: 'normal' }}>(*.png)</span></div>
             <div className="image-picker-body">
               <div className="image-picker-list">
                 <div
