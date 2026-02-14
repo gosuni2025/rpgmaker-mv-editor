@@ -9,6 +9,7 @@ import {
   BattleProcessingEditor,
   ShopProcessingEditor,
   ChangeBattleBackEditor,
+  ChangeParallaxEditor,
 } from './commandEditors';
 
 interface CommandParamEditorProps {
@@ -149,6 +150,7 @@ function getEditorContent(
     case 281: return <ChangeMapNameDisplayEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 282: return <ChangeTilesetEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 283: return <ChangeBattleBackEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 284: return <ChangeParallaxEditor p={p} onOk={onOk} onCancel={onCancel} />;
     default: return null;
   }
 }
