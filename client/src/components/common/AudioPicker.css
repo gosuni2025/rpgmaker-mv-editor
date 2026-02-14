@@ -6,7 +6,7 @@
   font-size: 12px;
 }
 
-.audio-picker-name-input {
+.audio-picker-name-text {
   flex: 1;
   padding: 4px 8px;
   background: #2b2b2b;
@@ -16,9 +16,12 @@
   font-size: 12px;
   cursor: pointer;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.audio-picker-name-input:hover {
+.audio-picker-name-text:hover {
   border-color: #2675bf;
 }
 
