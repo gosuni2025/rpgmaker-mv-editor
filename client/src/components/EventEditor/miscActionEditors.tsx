@@ -3,7 +3,7 @@ import type { AudioFile } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
 import MoviePicker from '../common/MoviePicker';
 import { selectStyle } from './messageEditors';
-import { DataListPicker } from './controlEditors';
+import { DataListPicker } from './dataListPicker';
 import useEditorStore from '../../store/useEditorStore';
 import { useDbNames, DEFAULT_AUDIO } from './actionEditorUtils';
 

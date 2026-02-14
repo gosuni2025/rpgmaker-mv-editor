@@ -1,6 +1,7 @@
 // Re-export all command editors from split modules
 export { selectStyle, ShowTextEditor, TextEditor, ScrollingTextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor, InputNumberEditor, SelectItemEditor, ShowChoicesEditor } from './messageEditors';
-export { DataListPicker, ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor } from './controlEditors';
+export { ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor } from './controlEditors';
+export { DataListPicker } from './dataListPicker';
 export { VariableSwitchSelector } from './VariableSwitchSelector';
 export { DEFAULT_AUDIO } from './actionEditorUtils';
 export { ChangeGoldEditor, ChangeItemEditor, ChangePartyMemberEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeParameterEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor } from './partyActorEditors';

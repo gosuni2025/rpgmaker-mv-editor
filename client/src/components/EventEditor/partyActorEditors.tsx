@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
-import { DataListPicker, type CharacterInfo } from './controlEditors';
+import { DataListPicker, type CharacterInfo } from './dataListPicker';
 import { useDbNames, useDbNamesWithIcons, useActorData, getLabel, DataListPickerWithZero } from './actionEditorUtils';
 
 export function ChangeGoldEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
