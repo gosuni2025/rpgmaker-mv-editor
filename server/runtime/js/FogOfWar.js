@@ -2,7 +2,7 @@
 // FogOfWar.js - Fog of War 시스템 (런타임 + 에디터)
 //=============================================================================
 // 3단계 시야: 미탐험(검은색) → 탐험완료(반투명) → 현재 시야(투명)
-// 볼륨감 있는 안개: 다층 평면 + 안개벽 + 파티클 + 디졸브 노이즈
+// 레이마칭 볼류메트릭 fog: 단일 메쉬에서 fragment shader로 3D 볼륨 안개 렌더링
 //
 // 의존: THREE (global), PostProcess.js, $gameMap, $gamePlayer
 //=============================================================================
@@ -28,20 +28,40 @@ FogOfWar._unexploredAlpha = 1.0;   // 미탐험 불투명도
 FogOfWar._exploredAlpha = 0.6;     // 탐험완료 불투명도
 FogOfWar._prevPlayerX = -1;
 FogOfWar._prevPlayerY = -1;
-FogOfWar._fogMesh = null;          // 하위 호환: _fogGroup의 참조
-FogOfWar._fogGroup = null;         // THREE.Group (다층 평면 + 벽 + 파티클)
-FogOfWar._fogLayers = [];          // 다층 평면 메쉬 배열
-FogOfWar._wallMesh = null;         // 안개벽 InstancedMesh
-FogOfWar._particleSystem = null;   // 파티클 THREE.Points
+FogOfWar._fogMesh = null;          // 하위 호환
+FogOfWar._fogGroup = null;         // THREE.Group (_isFogOfWar 마커)
 FogOfWar._time = 0;                // 셰이더 uTime
 
 //=============================================================================
-// 셰이더 코드
+// 셰이더 코드 — 레이마칭 볼류메트릭 fog
 //=============================================================================
 
-// 공통 노이즈 함수 (GLSL 삽입)
-var NOISE_GLSL = [
-    '// Value noise (hash-based, no texture needed)',
+var VOL_FOG_VERT = [
+    'varying vec3 vWorldPos;',
+    'void main() {',
+    '    vec4 worldPos = modelMatrix * vec4(position, 1.0);',
+    '    vWorldPos = worldPos.xyz;',
+    '    gl_Position = projectionMatrix * viewMatrix * worldPos;',
+    '}'
+].join('\n');
+
+var VOL_FOG_FRAG = [
+    'precision highp float;',
+    '',
+    'varying vec3 vWorldPos;',
+    '',
+    'uniform sampler2D tFog;',
+    'uniform vec3 fogColor;',
+    'uniform float unexploredAlpha;',
+    'uniform float exploredAlpha;',
+    'uniform float uTime;',
+    'uniform vec2 mapSize;',       // 맵 크기 (타일 단위)
+    'uniform vec3 cameraWorldPos;', // 카메라 월드 좌표
+    'uniform float fogHeight;',     // fog 볼륨 최대 높이 (픽셀)
+    'uniform vec2 mapPixelSize;',   // 맵 크기 (픽셀 단위)
+    'uniform vec2 scrollOffset;',   // 맵 스크롤 오프셋 (픽셀)
+    '',
+    '// --- 노이즈 함수 ---',
     'vec2 _hash22(vec2 p) {',
     '    p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));',
     '    return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);',
@@ -56,188 +76,151 @@ var NOISE_GLSL = [
     '    float d = dot(_hash22(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0));',
     '    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);',
     '}',
-    'float fbm2(vec2 p) {',
+    'float fbm3(vec2 p) {',
     '    float v = 0.0;',
-    '    v += 0.5 * _valueNoise(p); p *= 2.01;',
-    '    v += 0.25 * _valueNoise(p);',
+    '    float amp = 0.5;',
+    '    for (int i = 0; i < 3; i++) {',
+    '        v += amp * _valueNoise(p);',
+    '        p *= 2.03;',
+    '        amp *= 0.5;',
+    '    }',
     '    return v;',
     '}',
-    ''
-].join('\n');
-
-// 다층 평면 vertex shader
-var FOG_LAYER_VERT = [
-    'uniform float uvScale;',
-    'uniform vec4 uvRemap;',  // xy = scale, zw = offset
-    'varying vec2 vUv;',
-    'varying vec2 vRawUv;',   // 리매핑된 UV (맵 바깥 판별용)
-    'void main() {',
-    '    // 평면 UV(0~1)를 맵 영역 UV로 리매핑',
-    '    vRawUv = (uv - uvRemap.zw) / uvRemap.xy;',
-    '    vUv = 0.5 + (vRawUv - 0.5) * uvScale;',
-    '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
-    '}'
-].join('\n');
-
-// 다층 평면 fragment shader (디졸브 노이즈 포함)
-var FOG_LAYER_FRAG = [
-    'varying vec2 vUv;',
-    'varying vec2 vRawUv;',
-    'uniform sampler2D tFog;',
-    'uniform vec3 fogColor;',
-    'uniform float unexploredAlpha;',
-    'uniform float exploredAlpha;',
-    'uniform float alphaMultiplier;',
-    'uniform float uTime;',
-    'uniform vec2 mapSize;',
-    'uniform float noiseStrength;',
-    'uniform float edgeExpand;',
-    'uniform float noiseOffset;',
     '',
-    NOISE_GLSL,
+    '// --- FOW 밀도 샘플 ---',
+    '// xy 좌표(픽셀)에서 FOW 밀도 반환 (0=투명, 1=불투명)',
+    'float sampleFogDensity(vec2 worldXY) {',
+    '    // worldXY는 카메라 중심 기준 좌표 → 맵 좌표로 변환',
+    '    // 그룹 위치가 (totalW/2 - ox, totalH/2 - oy)이므로',
+    '    // 맵 좌표 = worldXY - 그룹위치 + totalW/2 = worldXY + scrollOffset',
+    '    vec2 mapXY = worldXY + scrollOffset;',
+    '    vec2 uv = mapXY / mapPixelSize;',
     '',
-    'void main() {',
-    '    // 맵 영역 밖 거리 계산 (패딩 영역에서의 페이드)',
-    '    float dLeft  = max(0.0, -vRawUv.x);',
-    '    float dRight = max(0.0, vRawUv.x - 1.0);',
-    '    float dTop   = max(0.0, -vRawUv.y);',
-    '    float dBot   = max(0.0, vRawUv.y - 1.0);',
-    '    float outsideDist = max(max(dLeft, dRight), max(dTop, dBot));',
+    '    // 맵 바깥: 미탐험 취급, 거리 기반 페이드',
+    '    float dL = max(0.0, -uv.x);',
+    '    float dR = max(0.0, uv.x - 1.0);',
+    '    float dT = max(0.0, -uv.y);',
+    '    float dB = max(0.0, uv.y - 1.0);',
+    '    float outsideDist = max(max(dL, dR), max(dT, dB));',
     '',
     '    float visibility = 0.0;',
     '    float explored = 0.0;',
     '    if (outsideDist < 0.001) {',
-    '        vec4 fogSample = texture2D(tFog, vUv);',
-    '        visibility = fogSample.r;',
-    '        explored = fogSample.g;',
+    '        vec4 s = texture2D(tFog, uv);',
+    '        visibility = s.r;',
+    '        explored = s.g;',
     '    }',
     '',
-    '    float fogAlpha;',
+    '    // 순수 fog 밀도: 0=완전 투명, 1=완전 불투명',
+    '    // visibility가 높을수록 밀도가 낮음',
+    '    float fogDensity;',
     '    if (visibility > 0.01) {',
-    '        fogAlpha = mix(exploredAlpha, 0.0, visibility);',
+    '        fogDensity = 1.0 - visibility;', // 시야 반비례
     '    } else if (explored > 0.5) {',
-    '        fogAlpha = exploredAlpha;',
+    '        fogDensity = exploredAlpha;',     // 탐험완료: 중간 밀도
     '    } else {',
-    '        fogAlpha = unexploredAlpha;',
+    '        fogDensity = 1.0;',               // 미탐험: 최대 밀도
     '    }',
     '',
-    '    // 맵 바깥으로 갈수록 안개가 서서히 사라짐 (패딩 영역 페이드)',
+    '    // 맵 바깥 페이드',
     '    if (outsideDist > 0.001) {',
-    '        float fadeDist = outsideDist * mapSize.x * 0.5;',  // 맵 크기 비례
-    '        fogAlpha *= 1.0 - smoothstep(0.0, 1.0, fadeDist);',
+    '        float fadeDist = outsideDist * mapSize.x * 0.5;',
+    '        fogDensity *= 1.0 - smoothstep(0.0, 1.0, fadeDist);',
     '    }',
     '',
-    '    // 디졸브 노이즈: 경계를 들쭉날쭉하게 + 레이어별 차별화',
-    '    vec2 noiseUV = vRawUv * mapSize * 0.12 + vec2(noiseOffset) + uTime * 0.02;',
-    '    float noise = fbm2(noiseUV);',
+    '    return fogDensity;',
+    '}',
     '',
-    '    // 경계 확장',
-    '    fogAlpha = fogAlpha + edgeExpand * (1.0 - visibility);',
-    '    fogAlpha = clamp(fogAlpha, 0.0, 1.0);',
-    '',
-    '    // 모든 경계 영역(시야 경계 + 맵 끝 경계)에 노이즈 적용',
-    '    float edgeFactor = smoothstep(0.0, 0.4, fogAlpha) * (1.0 - smoothstep(0.6, 1.0, fogAlpha));',
-    '    // 맵 바깥 페이드 영역에서도 강하게 적용',
-    '    edgeFactor = max(edgeFactor, outsideDist > 0.001 ? 0.8 : 0.0);',
-    '    fogAlpha += noise * noiseStrength * edgeFactor;',
-    '    fogAlpha = clamp(fogAlpha, 0.0, 1.0);',
-    '',
-    '    fogAlpha *= alphaMultiplier;',
-    '    if (fogAlpha < 0.001) discard;',
-    '    gl_FragColor = vec4(fogColor, fogAlpha);',
-    '}'
-].join('\n');
-
-// 안개벽 vertex shader
-var WALL_VERT = [
-    'attribute float aWallAlpha;',
-    'varying float vWallAlpha;',
-    'varying vec2 vWallUv;',
+    '// --- 메인 레이마칭 ---',
     'void main() {',
-    '    vWallUv = uv;',
-    '    vWallAlpha = aWallAlpha;',
-    '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
-    '}'
-].join('\n');
-
-// 안개벽 fragment shader
-var WALL_FRAG = [
-    'uniform vec3 fogColor;',
-    'uniform float unexploredAlpha;',
-    'uniform float uTime;',
-    'varying float vWallAlpha;',
-    'varying vec2 vWallUv;',
+    '    vec3 rayOrigin = cameraWorldPos;',
+    '    vec3 rayDir = normalize(vWorldPos - cameraWorldPos);',
     '',
-    NOISE_GLSL,
+    '    // fog 볼륨: Z = 0 ~ fogHeight',
+    '    float tMin = 0.0;',
+    '    float tMax = 0.0;',
     '',
-    'void main() {',
-    '    // 아래쪽 불투명, 위로 갈수록 페이드아웃',
-    '    float heightFade = 1.0 - vWallUv.y;',
-    '    heightFade = heightFade * heightFade;',
+    '    // ray와 Z=0, Z=fogHeight 평면의 교점 계산',
+    '    if (abs(rayDir.z) < 0.0001) {',
+    '        // ray가 거의 수평 — Z가 볼륨 안에 있으면 전체 통과',
+    '        if (rayOrigin.z >= 0.0 && rayOrigin.z <= fogHeight) {',
+    '            tMin = 0.0;',
+    '            // 맵 크기 기반 최대 거리',
+    '            tMax = length(mapPixelSize) * 2.0;',
+    '        } else {',
+    '            discard;',
+    '        }',
+    '    } else {',
+    '        float t0 = (0.0 - rayOrigin.z) / rayDir.z;',       // Z=0 교점
+    '        float t1 = (fogHeight - rayOrigin.z) / rayDir.z;',  // Z=fogHeight 교점
+    '        tMin = min(t0, t1);',
+    '        tMax = max(t0, t1);',
+    '        tMin = max(tMin, 0.0);', // 카메라 뒤 클립
+    '        if (tMin >= tMax) discard;',
+    '    }',
     '',
-    '    // 미세 wave',
-    '    float wave = sin(vWallUv.x * 6.2832 + uTime * 0.5) * 0.05;',
-    '    heightFade = clamp(heightFade + wave, 0.0, 1.0);',
+    '    // 레이마칭 파라미터',
+    '    const int MAX_STEPS = 32;',
+    '    float stepSize = (tMax - tMin) / float(MAX_STEPS);',
     '',
-    '    float alpha = unexploredAlpha * heightFade * vWallAlpha;',
-    '    if (alpha < 0.001) discard;',
-    '    gl_FragColor = vec4(fogColor, alpha);',
-    '}'
-].join('\n');
-
-// 파티클 vertex shader
-var PARTICLE_VERT = [
-    'attribute float aSize;',
-    'attribute float aAlpha;',
-    'attribute float aPhase;',
-    'uniform float uTime;',
-    'varying float vAlpha;',
-    'void main() {',
-    '    vAlpha = aAlpha * (0.5 + 0.5 * sin(uTime * 0.8 + aPhase));',
-    '    vec3 pos = position;',
-    '    pos.x += sin(uTime * 0.3 + aPhase) * 8.0;',
-    '    pos.y += cos(uTime * 0.2 + aPhase * 1.3) * 6.0;',
-    '    pos.z += sin(uTime * 0.15 + aPhase * 0.7) * 4.0;',
-    '    vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);',
-    '    gl_PointSize = aSize * (300.0 / -mvPos.z);',
-    '    gl_Position = projectionMatrix * mvPos;',
-    '}'
-].join('\n');
-
-// 파티클 fragment shader
-var PARTICLE_FRAG = [
-    'uniform vec3 fogColor;',
-    'varying float vAlpha;',
-    'void main() {',
-    '    vec2 uv = gl_PointCoord * 2.0 - 1.0;',
-    '    float d = dot(uv, uv);',
-    '    if (d > 1.0) discard;',
-    '    float softMask = 1.0 - d;',
-    '    softMask *= softMask;',
-    '    float alpha = vAlpha * softMask;',
-    '    if (alpha < 0.001) discard;',
-    '    gl_FragColor = vec4(fogColor, alpha);',
+    '    // Front-to-back 컴포지팅',
+    '    float accumulatedAlpha = 0.0;',
+    '    float t = tMin;',
+    '',
+    '    for (int i = 0; i < MAX_STEPS; i++) {',
+    '        if (accumulatedAlpha > 0.97) break;',
+    '',
+    '        vec3 samplePos = rayOrigin + rayDir * t;',
+    '',
+    '        // FOW 밀도 (XY 평면)',
+    '        float baseDensity = sampleFogDensity(samplePos.xy);',
+    '',
+    '        // 시야 내부는 투명하게: 밀도가 낮은 곳을 급격히 0으로',
+    '        baseDensity = smoothstep(0.4, 0.8, baseDensity);',
+    '',
+    '        // 높이 기반 밀도 프로파일:',
+    '        // FOW 밀도에 비례하는 유효 높이 — 경계는 높게, 미탐험은 꽉 차게',
+    '        float heightNorm = clamp(samplePos.z / fogHeight, 0.0, 1.0);',
+    '        float effectiveHeight = fogHeight * clamp(baseDensity * 1.5, 0.0, 1.0);',
+    '        float heightNormEff = (effectiveHeight > 1.0) ? clamp(samplePos.z / effectiveHeight, 0.0, 1.0) : 1.0;',
+    '        float heightFalloff = 1.0 - heightNormEff;', // 선형 감쇠
+    '        heightFalloff = heightFalloff * heightFalloff;', // 제곱으로 바닥에 더 집중
+    '',
+    '        // 3D 노이즈로 불규칙한 밀도 변화',
+    '        vec2 noiseCoord = samplePos.xy * 0.004 + vec2(uTime * 0.02, uTime * 0.015);',
+    '        noiseCoord += vec2(heightNorm * 5.0);', // 높이에 따라 노이즈 패턴 변화
+    '        float noise = fbm3(noiseCoord);',
+    '',
+    '        // 경계 영역(0.2~0.8) 노이즈 증폭: 들쭉날쭉한 경계감',
+    '        float edgeFactor = smoothstep(0.0, 0.3, baseDensity) * (1.0 - smoothstep(0.7, 1.0, baseDensity));',
+    '        float noiseAmp = mix(0.3, 0.8, edgeFactor);',
+    '',
+    '        // 최종 밀도',
+    '        float density = baseDensity * heightFalloff * (1.0 + noise * noiseAmp);',
+    '        density = clamp(density, 0.0, 1.0);',
+    '',
+    '        // Beer-Lambert 흡수',
+    '        float absorption = density * stepSize * 0.012;',
+    '',
+    '        // Front-to-back: 남은 투명도만큼 누적',
+    '        accumulatedAlpha += (1.0 - accumulatedAlpha) * absorption;',
+    '',
+    '        t += stepSize;',
+    '    }',
+    '',
+    '    accumulatedAlpha = clamp(accumulatedAlpha, 0.0, 1.0);',
+    '    if (accumulatedAlpha < 0.001) discard;',
+    '',
+    '    gl_FragColor = vec4(fogColor, accumulatedAlpha);',
     '}'
 ].join('\n');
 
 //=============================================================================
-// 레이어 설정
+// 설정 상수
 //=============================================================================
 
-var LAYER_CONFIG = [
-    // 바닥: 메인 fog, 약한 노이즈, 경계 원본
-    { localZ: 3.0, alphaMultiplier: 1.0,  uvScale: 1.0,  noiseStrength: 0.3,  edgeExpand: 0.0,  noiseOffset: 0.0 },
-    // 중간: fog 경계가 시야 안쪽으로 침범 → 카메라 가까운 쪽에서 층 보임
-    { localZ: 8.0, alphaMultiplier: 0.5,  uvScale: 0.88, noiseStrength: 0.6,  edgeExpand: 0.05, noiseOffset: 17.3 },
-    // 상단: fog가 시야 안쪽으로 크게 침범, 강한 노이즈 → 뚜렷한 층
-    { localZ: 16.0, alphaMultiplier: 0.4, uvScale: 0.75, noiseStrength: 0.9,  edgeExpand: 0.1,  noiseOffset: 41.7 }
-];
-
-var WALL_HEIGHT = 192;  // 안개벽 높이 (픽셀, 4타일) — FOW 레이어 위로 솟아야 보임
-var MAX_WALLS = 4096;   // 최대 안개벽 인스턴스 수
-var PARTICLE_DENSITY = 0.5;  // 타일당 파티클 수
-var MAX_PARTICLES = 8192;
-var FOG_PADDING = 960;  // 맵 바깥으로 확장하는 패딩 (20타일, 각 변)
+var FOG_HEIGHT = 300;    // fog 볼륨 최대 높이 (픽셀)
+var FOG_PADDING = 960;   // 맵 바깥으로 확장하는 패딩 (20타일, 각 변)
 
 //=============================================================================
 // 초기화 / 해제
@@ -345,8 +328,6 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
     }
 
     this._updateTexture();
-    this._updateWalls();
-    this._updateParticles();
 };
 
 // 에디터 미리보기용: 특정 좌표 기준 가시성
@@ -385,8 +366,6 @@ FogOfWar.revealAll = function() {
         this._exploredData[i] = 1;
     }
     this._updateTexture();
-    this._updateWalls();
-    this._updateParticles();
 };
 
 FogOfWar.hideAll = function() {
@@ -398,8 +377,6 @@ FogOfWar.hideAll = function() {
     this._prevPlayerX = -1;
     this._prevPlayerY = -1;
     this._updateTexture();
-    this._updateWalls();
-    this._updateParticles();
 };
 
 FogOfWar.revealRect = function(x, y, w, h) {
@@ -416,12 +393,10 @@ FogOfWar.revealRect = function(x, y, w, h) {
         }
     }
     this._updateTexture();
-    this._updateWalls();
-    this._updateParticles();
 };
 
 //=============================================================================
-// 3D 메쉬 기반 FOW — 볼륨감 있는 안개
+// 3D 메쉬 — 볼류메트릭 fog (단일 평면 + 레이마칭 셰이더)
 //=============================================================================
 
 FogOfWar._createMesh = function() {
@@ -437,265 +412,47 @@ FogOfWar._createMesh = function() {
     group.renderOrder = 9990;
     group.frustumCulled = false;
 
-    // --- 다층 평면 x3 ---
-    // 상위 레이어일수록 더 큰 패딩으로 맵 바깥에도 안개를 깔아 스카이박스와의 경계를 부드럽게
-    this._fogLayers = [];
-    for (var li = 0; li < LAYER_CONFIG.length; li++) {
-        var cfg = LAYER_CONFIG[li];
-        var layerPadding = FOG_PADDING * (1 + li);  // 상위 레이어 = 더 큰 패딩
-        var planeW = totalW + layerPadding * 2;
-        var planeH = totalH + layerPadding * 2;
-        // UV 스케일: 평면이 맵보다 크므로 UV를 맵 영역에 맞추고 바깥은 clamp(검은색=미탐험)
-        var uvScaleW = totalW / planeW;
-        var uvScaleH = totalH / planeH;
+    // 큰 평면 (맵 + 패딩): fog 볼륨의 "바닥"으로 사용
+    // 셰이더가 레이마칭을 하므로 Z 위치는 fog 볼륨 꼭대기(fogHeight)에 배치
+    // → 카메라에서 이 평면을 볼 때 fragment shader가 ray를 아래로 마칭
+    var planeW = totalW + FOG_PADDING * 2;
+    var planeH = totalH + FOG_PADDING * 2;
 
-        var material = new THREE.ShaderMaterial({
-            uniforms: {
-                tFog:            { value: this._fogTexture },
-                fogColor:        { value: fogColorVec.clone() },
-                unexploredAlpha: { value: this._unexploredAlpha },
-                exploredAlpha:   { value: this._exploredAlpha },
-                alphaMultiplier: { value: cfg.alphaMultiplier },
-                uvScale:         { value: cfg.uvScale },
-                uTime:           { value: 0 },
-                mapSize:         { value: new THREE.Vector2(this._mapWidth, this._mapHeight) },
-                noiseStrength:   { value: cfg.noiseStrength },
-                edgeExpand:      { value: cfg.edgeExpand },
-                noiseOffset:     { value: cfg.noiseOffset },
-                uvRemap:         { value: new THREE.Vector4(uvScaleW, uvScaleH, (1.0 - uvScaleW) * 0.5, (1.0 - uvScaleH) * 0.5) }
-            },
-            vertexShader: FOG_LAYER_VERT,
-            fragmentShader: FOG_LAYER_FRAG,
-            transparent: true,
-            depthTest: false,
-            depthWrite: false,
-            side: THREE.DoubleSide
-        });
-        var geometry = new THREE.PlaneGeometry(planeW, planeH);
-        var mesh = new THREE.Mesh(geometry, material);
-        mesh.position.z = cfg.localZ;
-        mesh.renderOrder = 9990 + li;
-        mesh.frustumCulled = false;
-        group.add(mesh);
-        this._fogLayers.push(mesh);
-    }
-
-    // --- 안개벽 (InstancedMesh) ---
-    this._createWallMesh(group, totalW, totalH, fogColorVec);
-
-    // --- 파티클 시스템 ---
-    this._createParticleSystem(group, fogColorVec);
-
-    this._fogGroup = group;
-    this._fogMesh = group;  // 하위 호환
-
-    return group;
-};
-
-FogOfWar._createWallMesh = function(group, totalW, totalH, fogColorVec) {
-    var wallGeo = new THREE.PlaneGeometry(48, WALL_HEIGHT);
-    var wallMat = new THREE.ShaderMaterial({
+    var material = new THREE.ShaderMaterial({
         uniforms: {
-            fogColor:        { value: fogColorVec.clone() },
+            tFog:            { value: this._fogTexture },
+            fogColor:        { value: fogColorVec },
             unexploredAlpha: { value: this._unexploredAlpha },
-            uTime:           { value: 0 }
+            exploredAlpha:   { value: this._exploredAlpha },
+            uTime:           { value: 0 },
+            mapSize:         { value: new THREE.Vector2(this._mapWidth, this._mapHeight) },
+            cameraWorldPos:  { value: new THREE.Vector3(0, 0, 0) },
+            fogHeight:       { value: FOG_HEIGHT },
+            mapPixelSize:    { value: new THREE.Vector2(totalW, totalH) },
+            scrollOffset:    { value: new THREE.Vector2(0, 0) }
         },
-        vertexShader: WALL_VERT,
-        fragmentShader: WALL_FRAG,
+        vertexShader: VOL_FOG_VERT,
+        fragmentShader: VOL_FOG_FRAG,
         transparent: true,
         depthTest: false,
         depthWrite: false,
         side: THREE.DoubleSide
     });
 
-    var wallMesh = new THREE.InstancedMesh(wallGeo, wallMat, MAX_WALLS);
-    wallMesh.count = 0;
-    wallMesh.renderOrder = 9994;
-    wallMesh.frustumCulled = false;
+    var geometry = new THREE.PlaneGeometry(planeW, planeH);
+    var mesh = new THREE.Mesh(geometry, material);
+    // 평면을 Z=0(바닥)에 배치 — 카메라가 위에서 아래를 내려다보므로 바닥 평면이 보임
+    // 레이마칭 셰이더가 ray-volume intersection으로 Z=0~fogHeight 볼륨 전체를 통과
+    mesh.position.z = 0;
+    mesh.renderOrder = 9990;
+    mesh.frustumCulled = false;
 
-    // 인스턴스별 알파 속성
-    var alphas = new Float32Array(MAX_WALLS);
-    wallGeo.setAttribute('aWallAlpha', new THREE.InstancedBufferAttribute(alphas, 1));
+    group.add(mesh);
 
-    group.add(wallMesh);
-    this._wallMesh = wallMesh;
-};
+    this._fogGroup = group;
+    this._fogMesh = group;  // 하위 호환
 
-FogOfWar._createParticleSystem = function(group, fogColorVec) {
-    var maxP = MAX_PARTICLES;
-    var positions = new Float32Array(maxP * 3);
-    var sizes = new Float32Array(maxP);
-    var alphas = new Float32Array(maxP);
-    var phases = new Float32Array(maxP);
-
-    var bufGeo = new THREE.BufferGeometry();
-    bufGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    bufGeo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
-    bufGeo.setAttribute('aAlpha', new THREE.BufferAttribute(alphas, 1));
-    bufGeo.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
-
-    var particleMat = new THREE.ShaderMaterial({
-        uniforms: {
-            fogColor: { value: fogColorVec.clone() },
-            uTime:    { value: 0 }
-        },
-        vertexShader: PARTICLE_VERT,
-        fragmentShader: PARTICLE_FRAG,
-        transparent: true,
-        depthTest: false,
-        depthWrite: false
-    });
-
-    var points = new THREE.Points(bufGeo, particleMat);
-    points.renderOrder = 9995;
-    points.frustumCulled = false;
-
-    group.add(points);
-    this._particleSystem = points;
-    this._particleCount = 0;
-};
-
-//=============================================================================
-// 안개벽 갱신
-//=============================================================================
-
-FogOfWar._updateWalls = function() {
-    if (!this._wallMesh || !this._exploredData) return;
-
-    var w = this._mapWidth;
-    var h = this._mapHeight;
-    var totalW = w * 48;
-    var totalH = h * 48;
-    var halfW = totalW / 2;
-    var halfH = totalH / 2;
-    var explored = this._exploredData;
-    var vis = this._visibilityData;
-    var count = 0;
-    var dummy = new THREE.Object3D();
-    var alphaAttr = this._wallMesh.geometry.getAttribute('aWallAlpha');
-
-    // 탐험된 타일에서 미탐험 타일 방향으로 벽 배치
-    // 방향: [dx, dy, rotY]
-    var dirs = [
-        [0, -1, 0],           // 북 (위쪽 변)
-        [0, 1, Math.PI],      // 남 (아래쪽 변)
-        [-1, 0, Math.PI / 2], // 서 (왼쪽 변)
-        [1, 0, -Math.PI / 2]  // 동 (오른쪽 변)
-    ];
-
-    for (var ty = 0; ty < h && count < MAX_WALLS; ty++) {
-        for (var tx = 0; tx < w && count < MAX_WALLS; tx++) {
-            var idx = ty * w + tx;
-            // 미탐험 타일만
-            if (explored[idx] !== 0) continue;
-
-            for (var di = 0; di < 4; di++) {
-                if (count >= MAX_WALLS) break;
-                var nx = tx + dirs[di][0];
-                var ny = ty + dirs[di][1];
-                // 인접 타일이 맵 밖이면 스킵
-                if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
-                var nIdx = ny * w + nx;
-                // 인접 타일이 탐험됨 → 이 변에 벽 배치
-                if (explored[nIdx] === 0) continue;
-
-                // 벽 위치: 타일 경계 중앙 (그룹 로컬 좌표로 변환)
-                // 벽 bottom을 Z=3 (바닥 레이어)에서 시작, 위로 WALL_HEIGHT만큼
-                var wallX = tx * 48 + 24 + dirs[di][0] * 24 - halfW;
-                var wallY = ty * 48 + 24 + dirs[di][1] * 24 - halfH;
-                var wallZ = 3.0 + WALL_HEIGHT / 2;
-
-                dummy.position.set(wallX, wallY, wallZ);
-                dummy.rotation.set(0, dirs[di][2], 0);
-                dummy.updateMatrix();
-
-                this._wallMesh.setMatrixAt(count, dummy.matrix);
-                // 인접 타일의 가시성에 따라 벽 알파 조절
-                alphaAttr.array[count] = Math.max(0.3, 1.0 - vis[nIdx] * 0.7);
-                count++;
-            }
-        }
-    }
-
-    this._wallMesh.count = count;
-    this._wallMesh.instanceMatrix.needsUpdate = true;
-    alphaAttr.needsUpdate = true;
-};
-
-//=============================================================================
-// 파티클 갱신
-//=============================================================================
-
-FogOfWar._updateParticles = function() {
-    if (!this._particleSystem || !this._exploredData) return;
-
-    var w = this._mapWidth;
-    var h = this._mapHeight;
-    var halfW = (w * 48) / 2;
-    var halfH = (h * 48) / 2;
-    var explored = this._exploredData;
-    var posAttr = this._particleSystem.geometry.getAttribute('position');
-    var sizeAttr = this._particleSystem.geometry.getAttribute('aSize');
-    var alphaAttr = this._particleSystem.geometry.getAttribute('aAlpha');
-    var phaseAttr = this._particleSystem.geometry.getAttribute('aPhase');
-    var count = 0;
-
-    // 간단한 pseudo-random (seedable)
-    var seed = 12345;
-    function rand() {
-        seed = (seed * 16807 + 0) % 2147483647;
-        return seed / 2147483647;
-    }
-
-    // 경계 타일 감지: 미탐험이거나, 탐험됐지만 인접 미탐험이 있는 타일
-    for (var ty = 0; ty < h && count < MAX_PARTICLES; ty++) {
-        for (var tx = 0; tx < w && count < MAX_PARTICLES; tx++) {
-            var idx = ty * w + tx;
-            var isUnexplored = (explored[idx] === 0);
-            var isBorder = false;
-            if (!isUnexplored) {
-                // 탐험된 타일 중 인접에 미탐험이 있으면 경계
-                if (tx > 0 && explored[idx - 1] === 0) isBorder = true;
-                else if (tx < w - 1 && explored[idx + 1] === 0) isBorder = true;
-                else if (ty > 0 && explored[idx - w] === 0) isBorder = true;
-                else if (ty < h - 1 && explored[idx + w] === 0) isBorder = true;
-            }
-            if (!isUnexplored && !isBorder) continue;
-
-            // 밀도: 경계 타일은 높은 밀도, 미탐험은 낮은 밀도
-            seed = tx * 73856093 + ty * 19349663;  // 타일별 고정 시드
-            var density = isBorder ? 0.8 : PARTICLE_DENSITY;
-            if (rand() > density) continue;
-
-            var px = tx * 48 + rand() * 48 - halfW;
-            var py = ty * 48 + rand() * 48 - halfH;
-            // Z를 높게: FOW 레이어 위(8~20)에 부유
-            var pz = 6.0 + rand() * 14.0;
-
-            posAttr.array[count * 3] = px;
-            posAttr.array[count * 3 + 1] = py;
-            posAttr.array[count * 3 + 2] = pz;
-            // 파티클 크기 확대
-            sizeAttr.array[count] = 16 + rand() * 32;
-            alphaAttr.array[count] = isBorder ? (0.1 + rand() * 0.15) : (0.05 + rand() * 0.15);
-            phaseAttr.array[count] = rand() * Math.PI * 2;
-            count++;
-        }
-    }
-
-    // 사용하지 않는 파티클 숨기기
-    for (var i = count; i < this._particleCount; i++) {
-        alphaAttr.array[i] = 0;
-    }
-
-    this._particleCount = count;
-    posAttr.needsUpdate = true;
-    sizeAttr.needsUpdate = true;
-    alphaAttr.needsUpdate = true;
-    phaseAttr.needsUpdate = true;
-
-    // drawRange 설정
-    this._particleSystem.geometry.setDrawRange(0, count);
+    return group;
 };
 
 //=============================================================================
@@ -707,17 +464,12 @@ FogOfWar._disposeMesh = function() {
         if (this._fogGroup.parent) {
             this._fogGroup.parent.remove(this._fogGroup);
         }
-        // 자식 메쉬/재질/지오메트리 정리
         this._fogGroup.traverse(function(child) {
             if (child.geometry) child.geometry.dispose();
             if (child.material) child.material.dispose();
         });
         this._fogGroup = null;
         this._fogMesh = null;
-        this._fogLayers = [];
-        this._wallMesh = null;
-        this._particleSystem = null;
-        this._particleCount = 0;
     }
 };
 
@@ -738,49 +490,46 @@ FogOfWar._updateMeshPosition = function() {
         oy = $gameMap.displayY() * 48;
     }
 
-    // 그룹 전체 이동 (각 레이어의 Z는 그룹 내 로컬 좌표)
+    // 그룹 위치: 맵 중앙 - 스크롤 오프셋
     this._fogGroup.position.set(totalW / 2 - ox, totalH / 2 - oy, 0);
 };
 
 FogOfWar._updateMeshUniforms = function() {
     if (!this._fogGroup || !this._active) return;
 
-    // 시간 업데이트
     this._time += 1.0 / 60.0;
 
     var fogColorVec = new THREE.Vector3(this._fogColor.r, this._fogColor.g, this._fogColor.b);
 
-    // 다층 평면 유니폼
-    for (var li = 0; li < this._fogLayers.length; li++) {
-        var u = this._fogLayers[li].material.uniforms;
-        u.tFog.value = this._fogTexture;
-        u.fogColor.value.copy(fogColorVec);
-        u.unexploredAlpha.value = this._unexploredAlpha;
-        u.exploredAlpha.value = this._exploredAlpha;
-        u.uTime.value = this._time;
+    // 단일 메쉬의 유니폼 갱신
+    var fogMesh = this._fogGroup.children[0];
+    if (!fogMesh) return;
+
+    var u = fogMesh.material.uniforms;
+    u.tFog.value = this._fogTexture;
+    u.fogColor.value.copy(fogColorVec);
+    u.unexploredAlpha.value = this._unexploredAlpha;
+    u.exploredAlpha.value = this._exploredAlpha;
+    u.uTime.value = this._time;
+
+    // 카메라 월드 좌표 업데이트
+    if (typeof Mode3D !== 'undefined' && Mode3D._perspCamera) {
+        u.cameraWorldPos.value.copy(Mode3D._perspCamera.position);
     }
 
-    // 안개벽 유니폼
-    if (this._wallMesh) {
-        var wu = this._wallMesh.material.uniforms;
-        wu.fogColor.value.copy(fogColorVec);
-        wu.unexploredAlpha.value = this._unexploredAlpha;
-        wu.uTime.value = this._time;
+    // 스크롤 오프셋 업데이트
+    var ox = 0, oy = 0;
+    if (typeof $gameMap !== 'undefined' && $gameMap) {
+        ox = $gameMap.displayX() * 48;
+        oy = $gameMap.displayY() * 48;
     }
-
-    // 파티클 유니폼
-    if (this._particleSystem) {
-        var pu = this._particleSystem.material.uniforms;
-        pu.fogColor.value.copy(fogColorVec);
-        pu.uTime.value = this._time;
-    }
+    u.scrollOffset.value.set(ox, oy);
 };
 
 //=============================================================================
 // PostProcess 후킹 - 3D 메쉬 통합
 //=============================================================================
 
-// _updateUniforms에 FOW 업데이트 추가
 var _PostProcess_updateUniforms = PostProcess._updateUniforms;
 PostProcess._updateUniforms = function() {
     _PostProcess_updateUniforms.call(this);
@@ -824,7 +573,6 @@ PostProcess._applyMapSettings = function() {
     var fow = $dataMap.fogOfWar;
     if (fow && fow.enabled) {
         FogOfWar.setup($dataMap.width, $dataMap.height, fow);
-        // 메쉬 생성은 _updateUniforms에서 lazy하게 수행 (scene 참조 보장)
     } else {
         FogOfWar.dispose();
     }
@@ -843,13 +591,12 @@ if (typeof Game_Interpreter !== 'undefined') {
             if (sub === 'Enable') {
                 if (!FogOfWar._active && $dataMap) {
                     FogOfWar.setup($dataMap.width, $dataMap.height, $dataMap.fogOfWar || {});
-                    // 메쉬 생성은 _updateUniforms에서 lazy하게 수행
                 }
             } else if (sub === 'Disable') {
                 FogOfWar.dispose();
             } else if (sub === 'Radius') {
                 FogOfWar._radius = parseInt(args[1]) || 5;
-                FogOfWar._prevPlayerX = -1; // 강제 재계산
+                FogOfWar._prevPlayerX = -1;
             } else if (sub === 'RevealAll') {
                 FogOfWar.revealAll();
             } else if (sub === 'HideAll') {
