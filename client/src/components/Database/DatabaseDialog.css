@@ -232,7 +232,23 @@
   gap: 6px;
   overflow-y: auto;
   min-width: 0;
-  scrollbar-gutter: stable;
+}
+
+.db-system-column::-webkit-scrollbar {
+  width: 6px;
+}
+
+.db-system-column::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.db-system-column::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 3px;
+}
+
+.db-system-column::-webkit-scrollbar-thumb:hover {
+  background: #777;
 }
 
 .db-system-column label {
