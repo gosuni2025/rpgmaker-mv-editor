@@ -1019,13 +1019,19 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
         }
     }
 
-    // 하늘도 숨김
+    // 하늘, FOW 메쉬 숨김 (UIRenderPass는 2D OrthographicCamera이므로)
     var skyWasVisible = false;
+    var fowWasVisible = false;
+    var fowMesh = null;
     for (var si = 0; si < scene.children.length; si++) {
         if (scene.children[si]._isParallaxSky) {
             skyWasVisible = scene.children[si].visible;
             scene.children[si].visible = false;
-            break;
+        }
+        if (scene.children[si]._isFogOfWar) {
+            fowMesh = scene.children[si];
+            fowWasVisible = fowMesh.visible;
+            fowMesh.visible = false;
         }
     }
 
@@ -1081,7 +1087,9 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
     for (var si = 0; si < scene.children.length; si++) {
         if (scene.children[si]._isParallaxSky) {
             scene.children[si].visible = skyWasVisible;
-            break;
+        }
+        if (scene.children[si]._isFogOfWar) {
+            scene.children[si].visible = fowWasVisible;
         }
     }
 };
@@ -1243,9 +1251,23 @@ Simple2DUIRenderPass.prototype.render = function(renderer, writeBuffer, readBuff
         flashObj.visible = true;
     }
 
+    // FOW 메쉬 숨김 (2D UI 패스에서 중복 렌더 방지)
+    var fowMesh2d = null, fowWasVisible2d = false;
+    for (var si = 0; si < scene.children.length; si++) {
+        if (scene.children[si]._isFogOfWar) {
+            fowMesh2d = scene.children[si];
+            fowWasVisible2d = fowMesh2d.visible;
+            fowMesh2d.visible = false;
+            break;
+        }
+    }
+
     // UI 렌더 (블룸 맵 위에 합성)
     renderer.autoClear = false;
     renderer.render(scene, camera);
+
+    // FOW 메쉬 가시성 복원
+    if (fowMesh2d) fowMesh2d.visible = fowWasVisible2d;
 
     // 복원: Picture, Fade, Flash를 spritesetObj로 되돌림
     if (picObj && picObj.parent === stageObj) {

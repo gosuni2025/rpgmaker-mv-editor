@@ -260,6 +260,7 @@ FogOfWar._createMesh = function() {
     var mesh = new THREE.Mesh(geometry, material);
     mesh.renderOrder = 9990;
     mesh.frustumCulled = false;
+    mesh._isFogOfWar = true;  // UIRenderPass에서 숨기기 위한 마커
 
     this._fogMesh = mesh;
     return mesh;
