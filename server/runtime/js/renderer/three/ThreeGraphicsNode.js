@@ -187,6 +187,7 @@ ThreeGraphicsNode.prototype.drawRect = function(x, y, width, height) {
     // Configure the material
     mesh.material.color.setHex(this._fillColor);
     mesh.material.opacity = this._fillAlpha;
+    mesh._baseOpacity = this._fillAlpha; // Store base opacity for syncTransform
     mesh.material.transparent = true;
     mesh.material.depthTest = false;
     mesh.material.depthWrite = false;
@@ -350,9 +351,10 @@ ThreeGraphicsNode.prototype.syncTransform = function() {
     obj.rotation.z = -this._rotation;
     obj.visible = this._visible;
 
-    // Update alpha on all meshes
+    // Update alpha on all meshes (use stored base opacity to avoid cumulative multiplication)
     for (var i = 0; i < this._activeMeshCount; i++) {
-        this._meshes[i].material.opacity = this._meshes[i].material.opacity * this.worldAlpha;
+        var baseOpacity = this._meshes[i]._baseOpacity !== undefined ? this._meshes[i]._baseOpacity : 1;
+        this._meshes[i].material.opacity = baseOpacity * this.worldAlpha;
     }
 };
 
