@@ -419,10 +419,11 @@ TiltShiftPass.prototype.dispose = function() {
 
 // --- BloomPass (밝은 부분 추출 → 가우시안 블러 → 원본 합성) ---
 var BloomShader = {
-    // 밝기 추출 셰이더
+    // 밝기 추출 셰이더 (emissive 텍스처를 추가 입력으로 받아 블룸에 기여)
     brightnessExtract: {
         uniforms: {
             tColor:    { value: null },
+            tEmissive: { value: null },
             threshold: { value: 0.7 }
         },
         vertexShader: [
@@ -434,11 +435,14 @@ var BloomShader = {
         ].join('\n'),
         fragmentShader: [
             'uniform sampler2D tColor;',
+            'uniform sampler2D tEmissive;',
             'uniform float threshold;',
             'varying vec2 vUv;',
             'void main() {',
             '    vec4 color = texture2D(tColor, vUv);',
-            '    float brightness = dot(color.rgb, vec3(0.299, 0.587, 0.114));',
+            '    vec4 emis = texture2D(tEmissive, vUv);',
+            '    float emissiveBias = dot(emis.rgb, vec3(0.299, 0.587, 0.114));',
+            '    float brightness = dot(color.rgb, vec3(0.299, 0.587, 0.114)) + emissiveBias;',
             '    float soft = clamp(brightness - threshold + 0.5, 0.0, 1.0);',
             '    soft = soft * soft * (3.0 - 2.0 * soft);',  // smoothstep-like
             '    float contrib = max(0.0, brightness - threshold) * soft;',
@@ -562,6 +566,14 @@ function BloomPass(params) {
     this._bloomRT2 = null;
     this._width = 0;
     this._height = 0;
+
+    // 2D emissive 오버레이용 캔버스 & 텍스처
+    this._emissiveCanvas = document.createElement('canvas');
+    this._emissiveCtx = this._emissiveCanvas.getContext('2d');
+    this._emissiveTexture = new THREE.CanvasTexture(this._emissiveCanvas);
+    this._emissiveTexture.minFilter = THREE.LinearFilter;
+    this._emissiveTexture.magFilter = THREE.LinearFilter;
+    this._emissiveDirty = true;
 }
 
 BloomPass.prototype.setSize = function(width, height) {
@@ -579,6 +591,91 @@ BloomPass.prototype.setSize = function(width, height) {
     this._blurVUniforms.resolution.value.set(bw, bh);
 };
 
+BloomPass.prototype._updateEmissiveTexture = function(width, height) {
+    // 2D emissive 오버레이: emissive가 있는 A1 타일에 발광색을 캔버스에 그림
+    var canvas = this._emissiveCanvas;
+    var ctx = this._emissiveCtx;
+    if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+    }
+    ctx.clearRect(0, 0, width, height);
+
+    // emissive 설정 수집
+    var settings = null;
+    if (typeof ThreeWaterShader !== 'undefined') {
+        settings = ThreeWaterShader._kindSettings;
+        if ((!settings || Object.keys(settings).length === 0) &&
+            typeof $dataMap !== 'undefined' && $dataMap && $dataMap.animTileSettings) {
+            settings = $dataMap.animTileSettings;
+        }
+    }
+    if (!settings) return false;
+
+    var emissiveKinds = {};
+    var hasAny = false;
+    for (var k in settings) {
+        if (settings[k] && settings[k].emissive > 0) {
+            emissiveKinds[k] = settings[k];
+            hasAny = true;
+        }
+    }
+    if (!hasAny) return false;
+
+    var gameMap = typeof $gameMap !== 'undefined' ? $gameMap : null;
+    var dataMap = typeof $dataMap !== 'undefined' ? $dataMap : null;
+    if (!gameMap || !dataMap || !dataMap.data) return false;
+
+    var tw = 48, th = 48;
+    var mapW = dataMap.width, mapH = dataMap.height;
+    var displayX = gameMap._displayX, displayY = gameMap._displayY;
+    var screenTilesX = Math.ceil(width / tw) + 2;
+    var screenTilesY = Math.ceil(height / th) + 2;
+    var startTileX = Math.floor(displayX);
+    var startTileY = Math.floor(displayY);
+    var offsetX = -(displayX - startTileX) * tw;
+    var offsetY = -(displayY - startTileY) * th;
+
+    var drawn = false;
+    for (var dy = -1; dy < screenTilesY; dy++) {
+        for (var dx = -1; dx < screenTilesX; dx++) {
+            var mx = (startTileX + dx) % mapW;
+            var my = (startTileY + dy) % mapH;
+            if (mx < 0) mx += mapW;
+            if (my < 0) my += mapH;
+
+            var tileId = dataMap.data[(0 * mapH + my) * mapW + mx];
+            if (tileId < 2048 || tileId >= 2816) continue;
+
+            var kind = Math.floor((tileId - 2048) / 48);
+            var s = emissiveKinds[kind];
+            if (!s) continue;
+
+            var sx = offsetX + dx * tw;
+            var sy = offsetY + dy * th;
+            var color = s.emissiveColor || '#ffffff';
+            var r = parseInt(color.substr(1, 2), 16) / 255;
+            var g = parseInt(color.substr(3, 2), 16) / 255;
+            var b = parseInt(color.substr(5, 2), 16) / 255;
+            // 3D 셰이더에서는 diffuseColor.rgb += emissiveColor * emissive * alpha
+            // 2D에서는 텍스처 밝기를 모르므로, emissive 값 그대로를 사용하되
+            // 블룸 threshold(0.5) 대비 적절한 기여만 하도록 조절
+            var intensity = s.emissive * 0.3;
+
+            ctx.fillStyle = 'rgba(' +
+                Math.round(r * intensity * 255) + ',' +
+                Math.round(g * intensity * 255) + ',' +
+                Math.round(b * intensity * 255) + ', 1)';
+            ctx.fillRect(sx, sy, tw, th);
+            drawn = true;
+        }
+    }
+    if (drawn) {
+        this._emissiveTexture.needsUpdate = true;
+    }
+    return drawn;
+};
+
 BloomPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
     // 축소 RT가 없으면 초기화
     if (!this._bloomRT1) {
@@ -586,8 +683,17 @@ BloomPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
         this.setSize(sz.x, sz.y);
     }
 
-    // 1단계: 밝기 추출 (원본 → bloomRT1)
+    // 2D emissive 오버레이 업데이트 (3D 모드에서는 셰이더에서 처리되므로 스킵)
+    var is3D = (typeof ConfigManager !== 'undefined' && ConfigManager.mode3d) ||
+               (typeof Mode3D !== 'undefined' && Mode3D._active);
+    var hasEmissive = false;
+    if (!is3D) {
+        hasEmissive = this._updateEmissiveTexture(readBuffer.width, readBuffer.height);
+    }
+
+    // 1단계: 밝기 추출 (원본 + emissive → bloomRT1)
     this._extractUniforms.tColor.value = readBuffer.texture;
+    this._extractUniforms.tEmissive.value = hasEmissive ? this._emissiveTexture : null;
     this._extractUniforms.threshold.value = this._threshold;
     this._fsQuad.material = this._extractMaterial;
     renderer.setRenderTarget(this._bloomRT1);
@@ -648,6 +754,7 @@ BloomPass.prototype.dispose = function() {
     this._fsQuad.dispose();
     if (this._bloomRT1) this._bloomRT1.dispose();
     if (this._bloomRT2) this._bloomRT2.dispose();
+    if (this._emissiveTexture) this._emissiveTexture.dispose();
 };
 
 // --- UIRenderPass (블러 후 UI를 선명하게 합성) ---
@@ -1270,6 +1377,50 @@ Spriteset_Map.prototype.update = function() {
         DepthOfField._createDebugUI();
     } else if (!shouldShowDebug && DepthOfField._debugSection) {
         DepthOfField._removeDebugUI();
+    }
+};
+
+//=============================================================================
+// Scene_Map.onMapLoaded - 맵 데이터에서 bloomConfig, postProcessConfig 로드
+//=============================================================================
+
+var _Scene_Map_onMapLoaded_dof = Scene_Map.prototype.onMapLoaded;
+Scene_Map.prototype.onMapLoaded = function() {
+    _Scene_Map_onMapLoaded_dof.call(this);
+    DepthOfField._applyMapSettings();
+};
+
+DepthOfField._applyMapSettings = function() {
+    if (!$dataMap) return;
+
+    // bloomConfig 적용
+    var bc = $dataMap.bloomConfig;
+    if (bc) {
+        this.bloomConfig.threshold = bc.threshold != null ? bc.threshold : 0.5;
+        this.bloomConfig.strength = bc.strength != null ? bc.strength : 0.8;
+        this.bloomConfig.radius = bc.radius != null ? bc.radius : 1.0;
+        this.bloomConfig.downscale = bc.downscale != null ? bc.downscale : 4;
+        if (this._bloomPass) {
+            this._bloomPass.enabled = bc.enabled !== false;
+        }
+    } else {
+        // 기본값 복원
+        this.bloomConfig.threshold = 0.5;
+        this.bloomConfig.strength = 0.8;
+        this.bloomConfig.radius = 1.0;
+        this.bloomConfig.downscale = 4;
+        if (this._bloomPass) {
+            this._bloomPass.enabled = true;
+        }
+    }
+
+    // postProcessConfig 적용
+    var ppc = $dataMap.postProcessConfig;
+    if (ppc) {
+        this.applyPostProcessConfig(ppc);
+    } else {
+        // 모든 PP 패스 비활성화
+        this.applyPostProcessConfig({});
     }
 };
 

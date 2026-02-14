@@ -101,6 +101,8 @@ export const projectSlice: SliceCreator<Pick<EditorState,
     set({ currentMapId: mapId, undoStack: [], redoStack: [] });
     localStorage.setItem(MAP_STORAGE_KEY, String(mapId));
     const map = await apiClient.get<MapData>(`/maps/${mapId}`);
+    // 맵 데이터에서 postProcessConfig 로드
+    set({ postProcessConfig: map.postProcessConfig || {} });
     if (map.tilesetId) {
       try {
         const tilesets = await apiClient.get<(TilesetData | null)[]>('/database/tilesets');
