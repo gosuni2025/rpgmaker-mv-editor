@@ -263,7 +263,17 @@ export function createApp(options: AppOptions = {}) {
   });
   app.use('/game/movies', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
-    express.static(path.join(projectManager.currentPath!, 'movies'))(req, res, next);
+    const moviesDir = path.join(projectManager.currentPath!, 'movies');
+    // .webm/.mp4 폴백: 요청된 확장자 파일이 없으면 다른 확장자로 시도
+    const reqPath = path.join(moviesDir, req.path);
+    const ext = path.extname(reqPath).toLowerCase();
+    if (ext === '.webm' || ext === '.mp4') {
+      const altExt = ext === '.webm' ? '.mp4' : '.webm';
+      if (!fs.existsSync(reqPath) && fs.existsSync(reqPath.replace(ext, altExt))) {
+        req.url = req.url.replace(ext, altExt);
+      }
+    }
+    express.static(moviesDir)(req, res, next);
   });
 
   // 에디터 런타임용: 프로젝트 img/, data/, plugins/ 직접 서빙
