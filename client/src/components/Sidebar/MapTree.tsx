@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { MapInfo } from '../../types/rpgMakerMV';
+import apiClient from '../../api/client';
 import MapPropertiesDialog from '../MapEditor/MapPropertiesDialog';
 import SampleMapDialog from '../SampleMapDialog';
 import './Sidebar.css';
@@ -210,6 +211,13 @@ export default function MapTree() {
       >
         <span className="map-tree-toggle">{rootCollapsed ? '▶' : '▼'}</span>
         <span className="map-tree-label">{projectName || t('mapTree.project')}</span>
+        <span
+          className="map-tree-folder-btn"
+          title={t('menu.openFolder')}
+          onClick={(e) => { e.stopPropagation(); apiClient.post('/project/open-folder', { subfolder: 'data' }).catch(() => {}); }}
+        >
+          📂
+        </span>
       </div>
       {!rootCollapsed && tree.map((node) => (
         <TreeNode

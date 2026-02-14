@@ -39,3 +39,15 @@
 .map-tree-root {
   font-weight: bold;
 }
+
+.map-tree-folder-btn {
+  margin-left: auto;
+  padding: 0 4px;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.map-tree-folder-btn:hover {
+  opacity: 1;
+}
