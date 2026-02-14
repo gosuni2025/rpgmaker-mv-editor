@@ -252,7 +252,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
       {open && (
         <div className="modal-overlay">
           <div className="image-picker-dialog">
-            <div className="image-picker-header">Select {type} <span style={{ fontSize: '0.85em', color: '#999', fontWeight: 'normal' }}>(*.png)</span></div>
+            <div className="image-picker-header">Select {type}</div>
             <div className="image-picker-body">
               <div className="image-picker-list">
                 <div
@@ -302,7 +302,8 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
             <div className="image-picker-footer">
               <button className="db-btn" onClick={() => {
                 apiClient.post(`/resources/${type}/open-folder`, {}).catch(() => {});
-              }} title="폴더 열기" style={{ marginRight: 'auto' }}>폴더 열기</button>
+              }} title="폴더 열기">폴더 열기</button>
+              <span style={{ color: '#999', fontSize: '0.85em', marginRight: 'auto' }}>PNG 파일(.png)만 인식됩니다. 이미지를 추가하려면 폴더에 PNG 파일을 넣어주세요.</span>
               <button className="db-btn" onClick={handleOk}>OK</button>
               <button className="db-btn" onClick={() => setOpen(false)}>Cancel</button>
             </div>
