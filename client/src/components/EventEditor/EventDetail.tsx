@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
+import useEscClose from '../../hooks/useEscClose';
 import type { RPGEvent, EventPage, EventConditions, EventImage, EventCommand, MoveRoute, MapData } from '../../types/rpgMakerMV';
 import EventCommandEditor from './EventCommandEditor';
 import ImagePicker from '../common/ImagePicker';
@@ -38,6 +39,7 @@ function getDefaultPage(): EventPage {
 
 export default function EventDetail({ eventId, onClose }: EventDetailProps) {
   const { t } = useTranslation();
+  useEscClose(onClose);
   const currentMap = useEditorStore((s) => s.currentMap);
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const event = currentMap?.events?.find((e) => e && e.id === eventId) as RPGEvent | undefined;
