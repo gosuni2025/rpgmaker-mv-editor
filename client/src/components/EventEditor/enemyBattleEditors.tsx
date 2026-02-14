@@ -206,6 +206,50 @@ export function EnemyTransformEditor({ p, onOk, onCancel }: { p: unknown[]; onOk
 }
 
 /**
+ * 전투 애니메이션 표시 에디터 (코드 337)
+ * params: [enemyIndex, animationId, targetAll]
+ */
+export function ShowBattleAnimationEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [enemyIndex, setEnemyIndex] = useState<number>((p[0] as number) || 0);
+  const [animationId, setAnimationId] = useState<number>((p[1] as number) || 1);
+  const [targetAll, setTargetAll] = useState<boolean>((p[2] as boolean) ?? false);
+  const [showAnimPicker, setShowAnimPicker] = useState(false);
+
+  const { names: animNames } = useDbNamesWithIcons('animations');
+
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>적 캐릭터:</span>
+        <select value={enemyIndex} onChange={e => setEnemyIndex(Number(e.target.value))}
+          style={{ ...selectStyle, flex: 1 }}>
+          {ENEMY_OPTIONS_INDIVIDUAL.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+        </select>
+      </div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#ddd', cursor: 'pointer' }}>
+        <input type="checkbox" checked={targetAll} onChange={e => setTargetAll(e.target.checked)} />
+        적 군단 전체를 대상으로 한다?
+      </label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>애니메이션:</span>
+        <button className="db-btn" style={{ flex: 1, textAlign: 'left' }}
+          onClick={() => setShowAnimPicker(true)}>
+          {getLabel(animationId, animNames)}
+        </button>
+      </div>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([enemyIndex, animationId, targetAll])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+      {showAnimPicker && (
+        <DataListPicker items={animNames} value={animationId} onChange={setAnimationId}
+          onClose={() => setShowAnimPicker(false)} title="애니메이션" />
+      )}
+    </>
+  );
+}
+
+/**
  * 적 스테이트 변경 에디터 (코드 333)
  * params: [enemyIndex, operation(0=추가/1=해제), stateId]
  */
