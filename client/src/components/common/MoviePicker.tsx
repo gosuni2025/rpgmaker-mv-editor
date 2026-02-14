@@ -65,7 +65,7 @@ export default function MoviePicker({ value, onChange, inline }: MoviePickerProp
         <div className="audio-picker-play-btns">
           <button className="audio-picker-btn" onClick={openFolder}>폴더 열기</button>
         </div>
-        <div style={{ fontSize: 11, color: '#888' }}>
+        <div style={{ fontSize: 11, color: '#6a9f3a' }}>
           지원 형식: mp4, webm
         </div>
       </div>
