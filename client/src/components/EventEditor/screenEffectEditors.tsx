@@ -276,14 +276,14 @@ export function ShakeScreenEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
 // parameters: [type, power, duration, waitForCompletion]
 // type: 0=없음, 1=비, 2=폭풍, 3=눈
 const WEATHER_TYPES = [
-  { value: 0, label: '없음' },
-  { value: 1, label: '비' },
-  { value: 2, label: '폭풍' },
-  { value: 3, label: '눈' },
+  { value: 'none', label: '없음' },
+  { value: 'rain', label: '비' },
+  { value: 'storm', label: '폭풍' },
+  { value: 'snow', label: '눈' },
 ];
 
 export function SetWeatherEffectEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
-  const [type, setType] = useState<number>((p[0] as number) ?? 0);
+  const [type, setType] = useState<string>((p[0] as string) ?? 'none');
   const [power, setPower] = useState<number>((p[1] as number) ?? 5);
   const [duration, setDuration] = useState<number>((p[2] as number) ?? 60);
   const [waitForCompletion, setWaitForCompletion] = useState<boolean>((p[3] as boolean) ?? true);
@@ -299,7 +299,7 @@ export function SetWeatherEffectEditor({ p, onOk, onCancel }: { p: unknown[]; on
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={sliderRowStyle}>
             <span style={{ ...labelStyle, minWidth: 40 }}>유형:</span>
-            <select value={type} onChange={e => setType(Number(e.target.value))} style={{ ...selectStyle, flex: 1 }}>
+            <select value={type} onChange={e => setType(e.target.value)} style={{ ...selectStyle, flex: 1 }}>
               {WEATHER_TYPES.map(w => (
                 <option key={w.value} value={w.value}>{w.label}</option>
               ))}

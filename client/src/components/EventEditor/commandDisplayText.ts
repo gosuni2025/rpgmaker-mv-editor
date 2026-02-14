@@ -369,11 +369,11 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
 
   // 날씨 효과 설정
   if (code === 236 && cmd.parameters && cmd.parameters.length >= 4) {
-    const weatherNames = ['없음', '비', '폭풍', '눈'];
-    const type = cmd.parameters[0] as number;
+    const weatherNameMap: Record<string, string> = { none: '없음', rain: '비', storm: '폭풍', snow: '눈' };
+    const type = cmd.parameters[0] as string;
     const power = cmd.parameters[1] as number;
     const dur = cmd.parameters[2] as number;
-    text += `: ${weatherNames[type] || '없음'}, 강도 ${power}, ${dur}프레임`;
+    text += `: ${weatherNameMap[type] || type}, 강도 ${power}, ${dur}프레임`;
     if (cmd.parameters[3]) text += `, 완료까지 대기`;
     return text;
   }
