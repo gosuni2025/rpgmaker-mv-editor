@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import useEditorStore from '../store/useEditorStore';
+import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 import './OptionsDialog.css';
 
@@ -27,6 +28,7 @@ export default function OptionsDialog() {
   const zoomStep = useEditorStore((s) => s.zoomStep);
   const setZoomStep = useEditorStore((s) => s.setZoomStep);
   const setShowOptionsDialog = useEditorStore((s) => s.setShowOptionsDialog);
+  useEscClose(useCallback(() => setShowOptionsDialog(false), [setShowOptionsDialog]));
 
   const [localColor, setLocalColor] = useState(transparentColor);
   const [localLang, setLocalLang] = useState(i18n.language);

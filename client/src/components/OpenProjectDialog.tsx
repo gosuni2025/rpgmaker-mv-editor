@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../api/client';
+import useEscClose from '../hooks/useEscClose';
 import './OpenProjectDialog.css';
 
 const RECENT_KEY = 'rpg-editor-recent-projects';
@@ -44,6 +45,7 @@ interface OpenProjectDialogProps {
 
 export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialogProps) {
   const { t } = useTranslation();
+  useEscClose(onClose);
   const [currentPath, setCurrentPath] = useState('');
   const [dirs, setDirs] = useState<string[]>([]);
   const [parentPath, setParentPath] = useState('');

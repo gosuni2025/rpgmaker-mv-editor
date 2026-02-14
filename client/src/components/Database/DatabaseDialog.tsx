@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
+import useEscClose from '../../hooks/useEscClose';
 import apiClient from '../../api/client';
 import ActorsTab from './ActorsTab';
 import ClassesTab from './ClassesTab';
@@ -66,6 +67,7 @@ export default function DatabaseDialog() {
   const { t } = useTranslation();
   const setShowDatabaseDialog = useEditorStore((s) => s.setShowDatabaseDialog);
   const showToast = useEditorStore((s) => s.showToast);
+  useEscClose(useCallback(() => setShowDatabaseDialog(false), [setShowDatabaseDialog]));
   const [activeTab, setActiveTab] = useState('actors');
   const [tabData, setTabData] = useState<Record<string, unknown>>({});
   const [dirty, setDirty] = useState<Record<string, boolean>>({});

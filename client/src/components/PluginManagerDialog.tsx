@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
+import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 
 interface PluginParam {
@@ -30,6 +31,7 @@ interface PluginsResponse {
 export default function PluginManagerDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowPluginManagerDialog);
+  useEscClose(useCallback(() => setShow(false), [setShow]));
   const [plugins, setPlugins] = useState<PluginEntry[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(true);

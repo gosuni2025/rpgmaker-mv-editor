@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import apiClient from '../../api/client';
 import type { Animation } from '../../types/rpgMakerMV';
 import AnimationPreview from '../Database/AnimationPreview';
+import useEscClose from '../../hooks/useEscClose';
 
 const GROUP_SIZE = 20;
 
@@ -14,6 +15,7 @@ export default function AnimationPickerDialog({ value, onChange, onClose }: {
   onChange: (id: number) => void;
   onClose: () => void;
 }) {
+  useEscClose(onClose);
   const [animations, setAnimations] = useState<(Animation | null)[]>([]);
   const [selected, setSelected] = useState(value);
 

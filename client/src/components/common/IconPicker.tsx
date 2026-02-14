@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import useEscClose from '../../hooks/useEscClose';
 import './IconPicker.css';
 
 interface IconPickerProps {
@@ -11,6 +12,7 @@ const ICONS_PER_ROW = 16;
 
 export default function IconPicker({ value, onChange }: IconPickerProps) {
   const [open, setOpen] = useState(false);
+  useEscClose(useCallback(() => { if (open) setOpen(false); }, [open]));
   const [iconSheet, setIconSheet] = useState<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);

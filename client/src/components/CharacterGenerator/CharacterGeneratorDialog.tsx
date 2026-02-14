@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import type { Gender, OutputType } from './types';
 import { GENDER_LABELS, OUTPUT_LABELS, EXPORT_TYPE_LABELS } from './types';
 import { useCharacterGenerator } from './useCharacterGenerator';
+import useEscClose from '../../hooks/useEscClose';
 import './CharacterGeneratorDialog.css';
 
 export default function CharacterGeneratorDialog() {
@@ -21,6 +22,11 @@ export default function CharacterGeneratorDialog() {
     openExportModal, doExport, handleCopyToProject,
     handleClose, handleSetCustomPath,
   } = useCharacterGenerator();
+
+  useEscClose(useCallback(() => {
+    if (exportModal) setExportModal(null);
+    else handleClose();
+  }, [exportModal, handleClose]));
 
   // Generator 리소스 미사용 가능 상태
   if (genStatus && !genStatus.available) {

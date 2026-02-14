@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 
 interface MigrationFile {
@@ -59,6 +60,12 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
   const [selectedBackup, setSelectedBackup] = useState('');
   const [rollingBack, setRollingBack] = useState(false);
   const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
+
+  useEscClose(useCallback(() => {
+    if (showRollbackConfirm) setShowRollbackConfirm(false);
+    else if (showNoGitWarning) setShowNoGitWarning(false);
+    else onSkip();
+  }, [showRollbackConfirm, showNoGitWarning, onSkip]));
 
   useEffect(() => {
     (async () => {

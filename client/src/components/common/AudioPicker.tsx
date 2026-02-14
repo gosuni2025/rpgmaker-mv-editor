@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import apiClient from '../../api/client';
 import type { AudioFile } from '../../types/rpgMakerMV';
+import useEscClose from '../../hooks/useEscClose';
 import './AudioPicker.css';
 
 interface AudioPickerProps {
@@ -13,6 +14,7 @@ interface AudioPickerProps {
 
 export default function AudioPicker({ type, value, onChange, inline }: AudioPickerProps) {
   const [open, setOpen] = useState(false);
+  useEscClose(useCallback(() => { if (open && !inline) setOpen(false); }, [open, inline]));
   const [files, setFiles] = useState<string[]>([]);
   const [selected, setSelected] = useState(value.name);
   const [volume, setVolume] = useState(value.volume);

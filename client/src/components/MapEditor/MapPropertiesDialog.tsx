@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import ImagePicker from '../common/ImagePicker';
+import useEscClose from '../../hooks/useEscClose';
 import './MapPropertiesDialog.css';
 
 interface TilesetEntry {
@@ -67,6 +68,7 @@ interface Props {
 
 export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) {
   const { t } = useTranslation();
+  useEscClose(onClose);
   const currentMap = useEditorStore((s) => s.currentMap);
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const selectMap = useEditorStore((s) => s.selectMap);

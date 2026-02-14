@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
+import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 
 type SearchType = 'name' | 'switch' | 'variable';
@@ -16,6 +17,7 @@ interface SearchResult {
 export default function EventSearchDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowEventSearchDialog);
+  useEscClose(useCallback(() => setShow(false), [setShow]));
   const selectMap = useEditorStore((s) => s.selectMap);
   const setSelectedEventId = useEditorStore((s) => s.setSelectedEventId);
   const setEditMode = useEditorStore((s) => s.setEditMode);

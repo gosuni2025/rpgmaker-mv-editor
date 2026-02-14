@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
+import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 
 const RESOURCE_FOLDERS = [
@@ -31,6 +32,7 @@ interface ResourceFile {
 export default function ResourceManagerDialog() {
   const { t } = useTranslation();
   const setShowResourceManagerDialog = useEditorStore((s) => s.setShowResourceManagerDialog);
+  useEscClose(useCallback(() => setShowResourceManagerDialog(false), [setShowResourceManagerDialog]));
   const [selectedFolder, setSelectedFolder] = useState(RESOURCE_FOLDERS[0]);
   const [files, setFiles] = useState<ResourceFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
