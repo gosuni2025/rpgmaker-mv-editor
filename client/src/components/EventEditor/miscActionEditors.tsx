@@ -142,7 +142,7 @@ export function ChangeMenuAccessEditor({ p, onOk, onCancel }: { p: unknown[]; on
 }
 
 export function ChangeEncounterEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
-  return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="조우" />;
+  return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="대결" />;
 }
 
 export function ChangeFormationAccessEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
