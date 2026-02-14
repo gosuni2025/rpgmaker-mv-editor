@@ -5,6 +5,9 @@ export const MAP_STORAGE_KEY = 'rpg-editor-current-map';
 export const EDIT_MODE_STORAGE_KEY = 'rpg-editor-edit-mode';
 export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4];
 export const DEFAULT_MAX_UNDO = 100;
+export const DEFAULT_ZOOM_STEP = 10; // percent
+export const MIN_ZOOM = 0.1;
+export const MAX_ZOOM = 8;
 
 export interface TileChange {
   x: number;
@@ -207,6 +210,7 @@ export interface EditorState {
   // Options
   transparentColor: { r: number; g: number; b: number };
   maxUndo: number;
+  zoomStep: number; // percent (e.g. 10 = 10%)
 
   // UI dialogs
   showOpenProjectDialog: boolean;
@@ -357,6 +361,7 @@ export interface EditorState {
   setShowLocalizationDialog: (show: boolean) => void;
   setTransparentColor: (color: { r: number; g: number; b: number }) => void;
   setMaxUndo: (max: number) => void;
+  setZoomStep: (step: number) => void;
 }
 
 export type SliceCreator<T> = (

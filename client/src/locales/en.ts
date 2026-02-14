@@ -91,6 +91,8 @@ const en = {
     steamPathDetected: 'Auto-detected',
     steamPathClear: 'Reset (auto-detect)',
     steamPathHelp: 'Path to RPG Maker MV Steam installation. Leave empty for auto-detection.',
+    zoomStep: 'Zoom Settings',
+    zoomStepPercent: 'Zoom Step:',
   },
 
   toolbar: {
