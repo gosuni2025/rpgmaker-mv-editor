@@ -264,7 +264,7 @@ export default function StatusBar() {
           onClick={handleMemClick}
           title="클릭하여 메모리 그래프 표시"
         >
-          메모리: {formatBytes(latest.used)}
+          메모리: {formatBytes(latest.used)} / {formatBytes(latest.total)}
           {delta !== 0 && (
             <span className={delta > 0 ? 'mem-delta-up' : 'mem-delta-down'}>
               {' '}{formatBytesDelta(delta)}
