@@ -97,7 +97,7 @@ export function CondBranchTab3({
           <select value={vehicleId} onChange={e => setVehicleId(Number(e.target.value))}
             disabled={condType !== 13} style={{ ...selectStyle, width: 120, ...disabledOpacity(condType === 13) }}>
             <option value={0}>보트</option>
-            <option value={1}>대형선</option>
+            <option value={1}>선박</option>
             <option value={2}>비행선</option>
           </select>
           <span style={{ color: '#ddd', fontSize: 13, ...disabledOpacity(condType === 13) }}>운행되었습니다</span>

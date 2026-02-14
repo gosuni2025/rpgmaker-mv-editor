@@ -2,22 +2,39 @@
 .audio-picker-preview {
   display: flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border: 1px solid #555;
-  border-radius: 3px;
-  background: #2b2b2b;
+  gap: 4px;
   font-size: 12px;
 }
 
-.audio-picker-preview:hover {
+.audio-picker-name-input {
+  flex: 1;
+  padding: 4px 8px;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ddd;
+  font-size: 12px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.audio-picker-name-input:hover {
   border-color: #2675bf;
 }
 
-.audio-picker-info {
-  color: #888;
-  font-size: 11px;
+.audio-picker-browse-btn {
+  padding: 4px 10px;
+  background: #4a4a4a;
+  color: #ddd;
+  border: 1px solid #555;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.audio-picker-browse-btn:hover {
+  background: #555;
 }
 
 .audio-picker-dialog {

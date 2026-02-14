@@ -72,7 +72,7 @@ function formatConditionalBranch(params: unknown[], ctx: CommandDisplayContext):
     case 11: return `버튼 [${params[1]}] 눌려있다`;
     case 12: return `스크립트: ${params[1]}`;
     case 13: {
-      const vehicles = ['보트', '대형선', '비행선'];
+      const vehicles = ['보트', '선박', '비행선'];
       return `${vehicles[params[1] as number] || '차량'} 운행되었습니다`;
     }
     default: return JSON.stringify(params);
@@ -429,7 +429,7 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
 
   // 탈 것 BGM 변경 (code 140): params[0]=vehicle, params[1]=audio
   if (code === 140 && cmd.parameters && cmd.parameters.length >= 2) {
-    const vehicleNames = ['소형선', '대형선', '비공정'];
+    const vehicleNames = ['보트', '선박', '비행선'];
     const vehicle = cmd.parameters[0] as number;
     const audio = cmd.parameters[1] as { name: string; volume: number; pitch: number; pan: number } | null;
     text += `: ${vehicleNames[vehicle] || '?'}`;
