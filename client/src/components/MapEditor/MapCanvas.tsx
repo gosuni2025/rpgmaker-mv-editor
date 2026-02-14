@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
+import apiClient from '../../api/client';
 import EventDetail from '../EventEditor/EventDetail';
 import ShiftMapDialog from './ShiftMapDialog';
 import SampleMapDialog from '../SampleMapDialog';
@@ -209,6 +210,21 @@ export default function MapCanvas() {
   }, [transparentColor, mapPxW, mapPxH]);
 
   return (
+    <>
+    {(editMode === 'map' || editMode === 'event') && (
+      <div className="map-panel-header">
+        <span className="map-panel-header-title">
+          {currentMapId ? `Map${String(currentMapId).padStart(3, '0')}` : ''}
+        </span>
+        <div
+          className="map-panel-header-folder-btn"
+          title={t('menu.openFolder')}
+          onClick={() => apiClient.post('/project/open-folder', { subfolder: 'data' }).catch(() => {})}
+        >
+          📂
+        </div>
+      </div>
+    )}
     <div ref={containerRef} style={containerStyle} onClick={() => { closeEventCtxMenu(); closeMapCtxMenu(); }}>
       <div style={{
         position: 'relative',
@@ -478,6 +494,7 @@ export default function MapCanvas() {
         <SampleMapDialog onClose={() => setShowSampleMapDialog(false)} />
       )}
     </div>
+    </>
   );
 }
 

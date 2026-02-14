@@ -1,7 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
-import apiClient from '../../api/client';
 
 interface Tool {
   id: string;
@@ -203,16 +202,6 @@ export default function DrawToolbar() {
       </div>
 
       <div style={{ flex: 1 }} />
-
-      {(editMode === 'map' || editMode === 'event') && (
-        <button
-          onClick={() => apiClient.post('/project/open-folder', { subfolder: 'data' }).catch(() => {})}
-          style={styles.btn}
-          title={t('menu.openFolder')}
-        >
-          📂 {t('menu.openFolder')}
-        </button>
-      )}
 
       <button onClick={saveCurrentMap} style={styles.saveBtn}>
         {t('toolbar.save')}

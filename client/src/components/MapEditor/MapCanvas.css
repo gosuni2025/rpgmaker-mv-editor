@@ -8,6 +8,35 @@
   flex-direction: column;
 }
 
+/* Map panel header */
+.map-panel-header {
+  display: flex;
+  align-items: center;
+  background: #2a2a2a;
+  border-bottom: 1px solid #444;
+  padding: 0 8px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.map-panel-header-title {
+  font-size: 11px;
+  color: #aaa;
+}
+
+.map-panel-header-folder-btn {
+  margin-left: auto;
+  padding: 2px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.7;
+}
+
+.map-panel-header-folder-btn:hover {
+  opacity: 1;
+}
+
 .main-placeholder {
   text-align: center;
   color: #666;
