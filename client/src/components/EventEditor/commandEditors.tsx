@@ -10,7 +10,7 @@ export { ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeClassEdit
 export { TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, ScrollMapEditor } from './movementEditors';
 export { ShowPictureEditor, MovePictureEditor, RotatePictureEditor, TintPictureEditor } from './pictureEditors';
 export { TintScreenEditor, FlashScreenEditor, ShakeScreenEditor, SetWeatherEffectEditor, ChangeWindowColorEditor } from './screenEffectEditors';
-export { AudioEditor, VehicleBGMEditor, MovieEditor, FadeoutEditor, ToggleEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ShowAnimationEditor, ShowBalloonIconEditor } from './miscActionEditors';
+export { AudioEditor, VehicleBGMEditor, MovieEditor, FadeoutEditor, ToggleEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeMapNameDisplayEditor, ChangeTilesetEditor, ShowAnimationEditor, ShowBalloonIconEditor, ChangeBattleBackEditor } from './miscActionEditors';
 export { ConditionalBranchEditor } from './conditionalBranchEditor';
 export { BattleProcessingEditor } from './battleProcessingEditor';
 export { ShopProcessingEditor } from './shopProcessingEditor';

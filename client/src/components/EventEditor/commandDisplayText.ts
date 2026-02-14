@@ -254,6 +254,22 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
     return text;
   }
 
+  // 지도명 표시 변경 포맷
+  if (code === 281 && cmd.parameters && cmd.parameters.length >= 1) {
+    text += `: ${cmd.parameters[0] === 0 ? 'ON' : 'OFF'}`;
+    return text;
+  }
+
+  // 전투 배경 변경 포맷
+  if (code === 283 && cmd.parameters && cmd.parameters.length >= 2) {
+    const bb1 = cmd.parameters[0] as string;
+    const bb2 = cmd.parameters[1] as string;
+    if (bb1 || bb2) {
+      text += `: ${bb1 || '(없음)'} & ${bb2 || '(없음)'}`;
+    }
+    return text;
+  }
+
   // 그림 표시 전용 포맷
   if (code === 231 && cmd.parameters && cmd.parameters.length >= 10) {
     const num = cmd.parameters[0] as number;
@@ -476,6 +492,13 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
     if (tone) {
       text += `: (${tone[0]}, ${tone[1]}, ${tone[2]})`;
     }
+    return text;
+  }
+
+  // 타일셋 변경 (code 282): params=[tilesetId]
+  if (code === 282 && cmd.parameters && cmd.parameters.length >= 1) {
+    const tilesetId = cmd.parameters[0] as number;
+    text += `: ${String(tilesetId).padStart(4, '0')}`;
     return text;
   }
 
