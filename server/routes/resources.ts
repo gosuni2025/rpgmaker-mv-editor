@@ -10,13 +10,18 @@ const router = express.Router();
 // Resolve resource type (e.g. "img_faces" → "img/faces", "audio_bgm" → "audio/bgm")
 // Also handles legacy bare names: "faces" → "img/faces", "tilesets" → "img/tilesets"
 function resolveResourceDir(type: string): string {
+  // 먼저 원본 이름 그대로 시도 (sv_actors 등 밑줄이 폴더명의 일부인 경우)
+  const rawPath = path.join(projectManager.currentPath!, type);
+  if (fs.existsSync(rawPath)) return rawPath;
+  const rawImgPath = path.join(projectManager.currentPath!, 'img', type);
+  if (fs.existsSync(rawImgPath)) return rawImgPath;
+  // _를 /로 치환하여 시도 (img_faces → img/faces)
   const subPath = type.replace(/_/g, '/');
   const fullPath = path.join(projectManager.currentPath!, subPath);
   if (fs.existsSync(fullPath)) return fullPath;
-  // Fallback: try prepending img/
   const imgPath = path.join(projectManager.currentPath!, 'img', subPath);
   if (fs.existsSync(imgPath)) return imgPath;
-  return fullPath; // Return original (will 404 naturally)
+  return rawImgPath; // Return img/type path (will 404 naturally)
 }
 
 const upload = multer({
