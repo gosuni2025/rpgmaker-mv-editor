@@ -62,9 +62,9 @@ var VERT = [
 PostProcessEffects.VignetteShader = {
     uniforms: {
         tColor:    { value: null },
-        uIntensity: { value: 0.4 },
-        uSoftness:  { value: 0.4 },
-        uRadius:    { value: 0.7 },
+        uIntensity: { value: 0.5 },
+        uSoftness:  { value: 0.3 },
+        uRadius:    { value: 0.4 },
         uColor:     { value: new THREE.Vector3(0.0, 0.0, 0.0) }
     },
     vertexShader: VERT,
@@ -93,6 +93,12 @@ PostProcessEffects.createVignettePass = function(params) {
         if (params.intensity != null) pass.uniforms.uIntensity.value = params.intensity;
         if (params.softness != null) pass.uniforms.uSoftness.value = params.softness;
         if (params.radius != null) pass.uniforms.uRadius.value = params.radius;
+        if (params.color != null && typeof params.color === 'string' && params.color[0] === '#') {
+            var r = parseInt(params.color.substr(1,2),16)/255;
+            var g = parseInt(params.color.substr(3,2),16)/255;
+            var b = parseInt(params.color.substr(5,2),16)/255;
+            pass.uniforms.uColor.value.set(r, g, b);
+        }
     }
     return pass;
 };
@@ -761,9 +767,10 @@ PostProcessEffects.EFFECT_LIST = [
 // 이펙트별 파라미터 정의 (에디터 인스펙터용)
 PostProcessEffects.EFFECT_PARAMS = {
     vignette: [
-        { key: 'intensity', label: '강도',    min: 0, max: 2,   step: 0.05, default: 0.4 },
-        { key: 'softness',  label: '부드러움', min: 0, max: 1,   step: 0.05, default: 0.4 },
-        { key: 'radius',    label: '반경',    min: 0, max: 1.5, step: 0.05, default: 0.7 }
+        { key: 'intensity', label: '강도',    min: 0, max: 2,   step: 0.05, default: 0.5 },
+        { key: 'softness',  label: '부드러움', min: 0, max: 0.5, step: 0.05, default: 0.3 },
+        { key: 'radius',    label: '반경',    min: 0, max: 0.7, step: 0.05, default: 0.4 },
+        { key: 'color',     label: '색상',    type: 'color', default: '#000000' }
     ],
     colorGrading: [
         { key: 'brightness',  label: '밝기',    min: -0.5, max: 0.5, step: 0.01, default: 0 },
@@ -840,7 +847,7 @@ PostProcessEffects.EFFECT_PARAMS = {
 // uniform 이름 ↔ 파라미터 키 매핑
 //=============================================================================
 PostProcessEffects._UNIFORM_MAP = {
-    vignette:     { intensity: 'uIntensity', softness: 'uSoftness', radius: 'uRadius' },
+    vignette:     { intensity: 'uIntensity', softness: 'uSoftness', radius: 'uRadius', color: 'uColor' },
     colorGrading: { brightness: 'uBrightness', contrast: 'uContrast', saturation: 'uSaturation',
                     temperature: 'uTemperature', tint: 'uTint', gamma: 'uGamma' },
     chromatic:    { strength: 'uStrength', radial: 'uRadial' },
