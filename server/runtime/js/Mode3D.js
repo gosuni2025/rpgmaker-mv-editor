@@ -601,6 +601,20 @@
             var picObj = picContainer && picContainer._threeObj;
             var picWasVisible = picObj ? picObj.visible : false;
             if (picObj) picObj.visible = false;
+            // ScreenSprite(fade/flash)는 Pass 1에서 숨기고 Pass 2(2D)에서 렌더
+            var fadeSprite = Mode3D._spriteset._fadeSprite;
+            var fadeObj = fadeSprite && fadeSprite._threeObj;
+            var fadeWasVisible = fadeObj ? fadeObj.visible : false;
+            if (fadeObj) fadeObj.visible = false;
+            var flashSprite = Mode3D._spriteset._flashSprite;
+            var flashObj = flashSprite && flashSprite._threeObj;
+            var flashWasVisible = flashObj ? flashObj.visible : false;
+            if (flashObj) flashObj.visible = false;
+            // Weather를 Pass 1에서 숨기고 Pass 2(2D)에서 렌더
+            var weatherContainer = Mode3D._spriteset._weather;
+            var weatherObj = weatherContainer && weatherContainer._threeObj;
+            var weatherWasVisible = weatherObj ? weatherObj.visible : false;
+            if (weatherObj) weatherObj.visible = false;
             // 애니메이션 스프라이트를 Pass 1에서 숨김 (Pass 2에서 2D HUD로 렌더)
             var animInfo = Mode3D._hideAnimationsForPass1();
             // Hide _blackScreen so parallax sky shows through map edges
@@ -665,13 +679,30 @@
                 stageObj.add(picObj);
                 picObj.visible = picWasVisible;
             }
+            // ScreenSprite(fade/flash)를 spritesetObj에서 stageObj로 옮겨서 2D 렌더
+            if (fadeObj) {
+                spritesetObj.remove(fadeObj);
+                stageObj.add(fadeObj);
+                fadeObj.visible = fadeWasVisible;
+            }
+            if (flashObj) {
+                spritesetObj.remove(flashObj);
+                stageObj.add(flashObj);
+                flashObj.visible = flashWasVisible;
+            }
+            // Weather를 spritesetObj에서 stageObj로 옮겨서 2D 렌더
+            if (weatherObj) {
+                spritesetObj.remove(weatherObj);
+                stageObj.add(weatherObj);
+                weatherObj.visible = weatherWasVisible;
+            }
             // 애니메이션을 stageObj로 이동 (2D HUD로 렌더)
             Mode3D._moveAnimationsToHUD(animInfo, stageObj);
 
             if (stageObj) {
                 for (var i = 0; i < stageObj.children.length; i++) {
                     var child = stageObj.children[i];
-                    if (child === picObj) continue; // picObj는 새로 추가됨, visible 이미 설정
+                    if (child === picObj || child === fadeObj || child === flashObj || child === weatherObj) continue; // 새로 추가됨, visible 이미 설정
                     if (child === spritesetObj) {
                         child.visible = false;
                     } else if (i < childVisibility.length) {
@@ -688,6 +719,23 @@
                 stageObj.remove(picObj);
                 spritesetObj.add(picObj);
                 picObj.visible = picWasVisible;
+            }
+            // ScreenSprite(fade/flash)를 원래 spritesetObj로 복원
+            if (fadeObj) {
+                stageObj.remove(fadeObj);
+                spritesetObj.add(fadeObj);
+                fadeObj.visible = fadeWasVisible;
+            }
+            if (flashObj) {
+                stageObj.remove(flashObj);
+                spritesetObj.add(flashObj);
+                flashObj.visible = flashWasVisible;
+            }
+            // Weather를 원래 spritesetObj로 복원
+            if (weatherObj) {
+                stageObj.remove(weatherObj);
+                spritesetObj.add(weatherObj);
+                weatherObj.visible = weatherWasVisible;
             }
             // 애니메이션을 원래 위치로 복원
             Mode3D._restoreAnimations(animInfo);

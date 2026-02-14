@@ -31,6 +31,8 @@ interface MapProps {
   battleback1Name: string;
   battleback2Name: string;
   disableDashing: boolean;
+  weatherType: number;
+  weatherPower: number;
   note: string;
 }
 
@@ -108,6 +110,8 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
         battleback1Name: mapData.battleback1Name,
         battleback2Name: mapData.battleback2Name,
         disableDashing: mapData.disableDashing,
+        weatherType: mapData.weatherType ?? 0,
+        weatherPower: mapData.weatherPower ?? 0,
         note: mapData.note,
       };
       const res = await apiClient.put<{ success: boolean; l10nDiff?: { added: string[]; modified: string[]; deleted: string[] } }>(`/maps/${mapId}`, merged);
@@ -287,6 +291,30 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
                 onChange={e => updateField('parallaxShow', e.target.checked)} />
               <span>{t('mapProperties.showInEditor')}</span>
             </label>
+          </div>
+
+          {/* Weather */}
+          <div className="db-form-section">{t('mapProperties.weather')}</div>
+          <div className="db-form" style={{ gap: 8, flex: 'none' }}>
+            <label>
+              <span>{t('mapProperties.weatherType')}</span>
+              <select value={mapData.weatherType ?? 0} onChange={e => updateField('weatherType', Number(e.target.value))}>
+                <option value={0}>{t('mapProperties.weatherTypes.0')}</option>
+                <option value={1}>{t('mapProperties.weatherTypes.1')}</option>
+                <option value={2}>{t('mapProperties.weatherTypes.2')}</option>
+                <option value={3}>{t('mapProperties.weatherTypes.3')}</option>
+              </select>
+            </label>
+            {(mapData.weatherType ?? 0) > 0 && (
+              <label>
+                <span>{t('mapProperties.weatherPower')}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="range" min={1} max={9} value={mapData.weatherPower || 5}
+                    onChange={e => updateField('weatherPower', Number(e.target.value))} style={{ flex: 1 }} />
+                  <span style={{ minWidth: 20, textAlign: 'center', color: '#ccc' }}>{mapData.weatherPower || 5}</span>
+                </div>
+              </label>
+            )}
           </div>
 
           {/* Note */}

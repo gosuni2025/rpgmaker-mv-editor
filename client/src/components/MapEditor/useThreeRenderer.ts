@@ -219,6 +219,14 @@ export function useThreeRenderer(
         ThreeWaterShader.setAllKindSettings(effectiveMap.animTileSettings || {});
       }
 
+      // 날씨 초기화 (맵 로드 시)
+      {
+        const wt = effectiveMap.weatherType ?? 0;
+        const wp = effectiveMap.weatherPower ?? 0;
+        const weatherNames = ['none', 'rain', 'storm', 'snow'];
+        w.$gameScreen.changeWeather(weatherNames[wt] || 'none', wp, 0);
+      }
+
       // bloomConfig 초기화 (맵 로드 시)
       const DOF = (window as any).PostProcess;
       if (DOF) {
@@ -429,9 +437,11 @@ export function useThreeRenderer(
 
         // 물 타일이 있는 맵이면 매 프레임 렌더 (wave 연속 애니메이션)
         const hasWaterShader = typeof ThreeWaterShader !== 'undefined' && ThreeWaterShader._hasWaterMesh;
+        // 날씨가 활성화된 경우 매 프레임 렌더 (파티클 애니메이션)
+        const hasWeather = w.$gameScreen && w.$gameScreen.weatherType() !== 'none';
 
         // repaint가 필요한 경우에만 렌더링
-        if (tilemap._needsRepaint || renderRequestedRef.current || hasWaterShader) {
+        if (tilemap._needsRepaint || renderRequestedRef.current || hasWaterShader || hasWeather) {
           renderRequestedRef.current = false;
           renderOnce();
         }
@@ -556,6 +566,14 @@ export function useThreeRenderer(
             }
           }
           requestRender();
+        }
+        if (state.currentMap?.weatherType !== prevState.currentMap?.weatherType ||
+            state.currentMap?.weatherPower !== prevState.currentMap?.weatherPower) {
+          const wt = state.currentMap?.weatherType ?? 0;
+          const wp = state.currentMap?.weatherPower ?? 0;
+          const weatherNames = ['none', 'rain', 'storm', 'snow'];
+          w.$gameScreen.changeWeather(weatherNames[wt] || 'none', wp, 0);
+          requestRender(3);
         }
         if (state.currentMap?.skyBackground !== prevState.currentMap?.skyBackground) {
           w.$dataMap.skyBackground = state.currentMap?.skyBackground || null;

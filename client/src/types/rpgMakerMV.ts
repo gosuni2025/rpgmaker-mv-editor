@@ -44,6 +44,8 @@ export interface MapData {
   animTileSettings?: Record<number, AnimTileShaderSettings>; // key = kind (0~15)
   bloomConfig?: BloomConfig;
   postProcessConfig?: Record<string, { enabled: boolean; [key: string]: any }>;
+  weatherType?: number;   // 0=없음, 1=비, 2=폭풍, 3=눈
+  weatherPower?: number;  // 1~9
 }
 
 export interface BloomConfig {
