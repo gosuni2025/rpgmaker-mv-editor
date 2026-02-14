@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import type { AudioFile } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
+import MoviePicker from '../common/MoviePicker';
 import ImagePicker from '../common/ImagePicker';
 import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
@@ -568,6 +569,19 @@ export function AudioEditor({ p, onOk, onCancel, type }: { p: unknown[]; onOk: (
       <AudioPicker type={type} value={audio} onChange={setAudio} inline />
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => onOk([audio])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}
+
+export function MovieEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [name, setName] = useState<string>((p[0] as string) || '');
+  return (
+    <>
+      <MoviePicker value={name} onChange={setName} inline />
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([name])}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
     </>

@@ -3,7 +3,7 @@ import type { EventCommand } from '../../types/rpgMakerMV';
 import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
-  ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor, FadeoutEditor,
+  ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor, MovieEditor, FadeoutEditor,
   ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor, ShowBalloonIconEditor,
   ScrollingTextEditor, ConditionalBranchEditor, ShowPictureEditor, MovePictureEditor, RotatePictureEditor, TintPictureEditor, TintScreenEditor, FlashScreenEditor, ShakeScreenEditor, SetWeatherEffectEditor,
 } from './commandEditors';
@@ -48,7 +48,7 @@ function getCommandName(code: number): string {
     134: '저장 금지 변경', 135: '메뉴 금지 변경', 136: '조우 금지 변경', 137: '진형 금지 변경',
     201: '장소 이동', 202: '탈 것 위치 설정', 204: '지도 스크롤', 211: '투명 상태 변경', 212: '애니메이션 표시', 213: '말풍선 아이콘 표시', 216: '대열 보행 변경', 223: '화면의 색조 변경', 224: '화면의 플래쉬', 225: '화면 흔들리기', 230: '대기', 231: '그림 표시', 233: '그림 회전', 234: '그림의 색조 변경', 235: '그림 제거', 236: '날씨 효과 설정',
     241: 'BGM 재생', 242: 'BGM 페이드아웃', 245: 'BGS 재생', 246: 'BGS 페이드아웃',
-    249: 'ME 재생', 250: 'SE 재생',
+    249: 'ME 재생', 250: 'SE 재생', 261: '무비 재생',
     301: 'Battle Processing', 303: '이름 입력 처리', 311: 'HP 증감', 312: 'MP 증감', 326: 'TP 증감',
     313: '스테이트 변경', 314: '전체 회복', 315: 'EXP 증감', 316: '레벨 증감', 317: '능력치 증감',
     318: '스킬 증감', 319: '장비 변경', 320: '이름 변경', 321: '직업 변경', 324: '닉네임 변경', 325: '프로필 변경',
@@ -111,6 +111,7 @@ function getEditorContent(
     case 250: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="se" />;
     case 242: return <FadeoutEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 246: return <FadeoutEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 261: return <MovieEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 129: return <ChangePartyMemberEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 311: return <ChangeHPEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 312: return <ChangeMPEditor p={p} onOk={onOk} onCancel={onCancel} />;
