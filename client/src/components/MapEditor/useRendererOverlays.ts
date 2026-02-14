@@ -18,13 +18,26 @@ interface OverlayRefs {
 
 /** Region overlay (Three.js meshes) */
 export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
-  const currentMap = useEditorStore((s) => s.currentMap);
   const currentLayer = useEditorStore((s) => s.currentLayer);
-  const mode3d = useEditorStore((s) => s.mode3d);
+  const mapWidth = useEditorStore((s) => s.currentMap?.width ?? 0);
+  const mapHeight = useEditorStore((s) => s.currentMap?.height ?? 0);
+  // Region data만 추출해서 해시 — data 배열 전체 참조 변경에 반응하지 않도록
+  const regionHash = useEditorStore((s) => {
+    if (!s.currentMap || s.currentLayer !== 5) return '';
+    const { width, height, data } = s.currentMap;
+    const parts: string[] = [];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const regionId = data[(5 * height + y) * width + x];
+        if (regionId !== 0) parts.push(`${x},${y},${regionId}`);
+      }
+    }
+    return parts.join(';');
+  });
 
   useEffect(() => {
     const rendererObj = refs.rendererObjRef.current;
-    if (!rendererObj || !currentMap) return;
+    if (!rendererObj) return;
     const THREE = (window as any).THREE;
     if (!THREE) return;
 
@@ -37,24 +50,30 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
     }
     refs.regionMeshesRef.current = [];
 
-    if (currentLayer !== 5) {
+    if (currentLayer !== 5 || !regionHash) {
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       return;
     }
 
+    // 공유 지오메트리 — 모든 리전 타일에 같은 크기 사용
+    const sharedGeom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
+    const sharedLabelGeom = new THREE.PlaneGeometry(TILE_SIZE_PX * 0.6, TILE_SIZE_PX * 0.6);
+
+    const currentMap = useEditorStore.getState().currentMap;
+    if (!currentMap) return;
     const { width, height, data } = currentMap;
+
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const regionId = data[(5 * height + y) * width + x];
         if (regionId === 0) continue;
         const hue = (regionId * 137) % 360;
         const color = new THREE.Color(`hsl(${hue}, 60%, 40%)`);
-        // Region fill quad
-        const geom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
+        // Region fill quad (공유 지오메트리)
         const mat = new THREE.MeshBasicMaterial({
           color, opacity: 0.5, transparent: true, depthTest: false, side: THREE.DoubleSide,
         });
-        const mesh = new THREE.Mesh(geom, mat);
+        const mesh = new THREE.Mesh(sharedGeom, mat);
         mesh.position.set(x * TILE_SIZE_PX + TILE_SIZE_PX / 2, y * TILE_SIZE_PX + TILE_SIZE_PX / 2, 4);
         mesh.renderOrder = 9998;
         mesh.frustumCulled = false;
@@ -74,11 +93,10 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
         ctx.shadowBlur = 3;
         ctx.fillText(String(regionId), 24, 24);
         const tex = new THREE.CanvasTexture(cvs);
-        const labelGeom = new THREE.PlaneGeometry(TILE_SIZE_PX * 0.6, TILE_SIZE_PX * 0.6);
         const labelMat = new THREE.MeshBasicMaterial({
           map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
         });
-        const labelMesh = new THREE.Mesh(labelGeom, labelMat);
+        const labelMesh = new THREE.Mesh(sharedLabelGeom, labelMat);
         labelMesh.position.set(x * TILE_SIZE_PX + TILE_SIZE_PX / 2, y * TILE_SIZE_PX + TILE_SIZE_PX / 2, 4.5);
         labelMesh.renderOrder = 9999;
         labelMesh.frustumCulled = false;
@@ -88,7 +106,7 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
       }
     }
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
-  }, [currentMap, currentLayer, mode3d, rendererReady]);
+  }, [regionHash, currentLayer, mapWidth, mapHeight, rendererReady]);
 }
 
 /** Player start position overlay (blue border + character image) */
@@ -229,7 +247,8 @@ export function usePlayerStartOverlay(refs: OverlayRefs, rendererReady: number) 
 /** Event overlay (border + name) in event edit mode */
 export function useEventOverlay(refs: OverlayRefs, rendererReady: number) {
   const editMode = useEditorStore((s) => s.editMode);
-  const currentMap = useEditorStore((s) => s.currentMap);
+  // 이벤트 배열 참조만 추적 (currentMap 전체가 아닌)
+  const events = useEditorStore((s) => s.currentMap?.events ?? null);
 
   useEffect(() => {
     const spriteset = refs.spritesetRef.current;
@@ -247,7 +266,7 @@ export function useEventOverlay(refs: OverlayRefs, rendererReady: number) {
     }
     refs.eventOverlayMeshesRef.current = [];
 
-    if (editMode !== 'event' || !currentMap?.events || !spriteset?._characterSprites) {
+    if (editMode !== 'event' || !events || !spriteset?._characterSprites) {
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       return;
     }
@@ -260,8 +279,6 @@ export function useEventOverlay(refs: OverlayRefs, rendererReady: number) {
         eventSpriteMap.set(cs._character._eventId, cs);
       }
     }
-
-    const events = currentMap.events;
     for (let i = 1; i < events.length; i++) {
       const ev = events[i];
       if (!ev) continue;
@@ -355,7 +372,7 @@ export function useEventOverlay(refs: OverlayRefs, rendererReady: number) {
     }
 
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
-  }, [editMode, currentMap?.events, rendererReady]);
+  }, [editMode, events, rendererReady]);
 }
 
 /** Drag preview overlay (event/light/object drag) */
@@ -433,7 +450,8 @@ export function useDragPreviewOverlay(refs: OverlayRefs, dragPreviews: DragPrevi
 export function useLightOverlay(refs: OverlayRefs, rendererReady: number) {
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const selectedLightId = useEditorStore((s) => s.selectedLightId);
-  const currentMap = useEditorStore((s) => s.currentMap);
+  // editorLights.points 배열 참조만 추적
+  const lightPoints = useEditorStore((s) => s.currentMap?.editorLights?.points ?? null);
 
   useEffect(() => {
     const rendererObj = refs.rendererObjRef.current;
@@ -449,12 +467,12 @@ export function useLightOverlay(refs: OverlayRefs, rendererReady: number) {
     }
     refs.lightOverlayMeshesRef.current = [];
 
-    if (!lightEditMode || !currentMap?.editorLights?.points) {
+    if (!lightEditMode || !lightPoints) {
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       return;
     }
 
-    const points = currentMap.editorLights.points;
+    const points = lightPoints;
     for (const pl of points) {
       const px = pl.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
       const py = pl.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
@@ -535,5 +553,5 @@ export function useLightOverlay(refs: OverlayRefs, rendererReady: number) {
     }
 
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
-  }, [lightEditMode, selectedLightId, currentMap?.editorLights]);
+  }, [lightEditMode, selectedLightId, lightPoints]);
 }
