@@ -151,6 +151,16 @@ export function ChangeWindowColorEditor({ p, onOk, onCancel }: { p: unknown[]; o
 
 function WindowColorPreview({ r, g, b }: { r: number; g: number; b: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const skinRef = useRef<HTMLImageElement | null>(null);
+  const [skinLoaded, setSkinLoaded] = useState(false);
+
+  // Window.png 스킨 로드
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => { skinRef.current = img; setSkinLoaded(true); };
+    img.onerror = () => setSkinLoaded(false);
+    img.src = '/img/system/Window.png';
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -158,28 +168,34 @@ function WindowColorPreview({ r, g, b }: { r: number; g: number; b: number }) {
     const ctx = canvas.getContext('2d')!;
     const w = canvas.width;
     const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
 
-    // RPG Maker MV 윈도우 기본 색상(짙은 파란/남색)에 색조 오프셋 적용
-    const baseR = 0, baseG = 0, baseB = 64;
-    const winR = Math.max(0, Math.min(255, baseR + r));
-    const winG = Math.max(0, Math.min(255, baseG + g));
-    const winB = Math.max(0, Math.min(255, baseB + b));
-
-    // 윈도우 배경 그리기
-    ctx.fillStyle = `rgba(${winR}, ${winG}, ${winB}, 0.85)`;
-    ctx.fillRect(0, 0, w, h);
-
-    // 테두리
-    ctx.strokeStyle = `rgb(${Math.min(255, winR + 80)}, ${Math.min(255, winG + 80)}, ${Math.min(255, winB + 80)})`;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(1, 1, w - 2, h - 2);
-
-    // 샘플 텍스트
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '13px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Sample Text', w / 2, h / 2 + 4);
-  }, [r, g, b]);
+    const skin = skinRef.current;
+    if (skin && skinLoaded) {
+      // Window.png 배경 영역(0,0,96,96)을 캔버스에 그린 뒤 tone 적용
+      // 1단계: 배경1(stretch) + 배경2(tile) 합성
+      const p = 96;
+      ctx.drawImage(skin, 0, 0, p, p, 0, 0, w, h);
+      for (let y = 0; y < h; y += p) {
+        for (let x = 0; x < w; x += p) {
+          ctx.drawImage(skin, 0, p, p, p, x, y, p, p);
+        }
+      }
+      // 2단계: adjustTone - 각 픽셀 RGB에 오프셋 적용
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.max(0, Math.min(255, data[i] + r));
+        data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + g));
+        data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + b));
+      }
+      ctx.putImageData(imgData, 0, 0);
+    } else {
+      // 스킨 미로드 시 단색 대체
+      ctx.fillStyle = `rgb(${Math.max(0, Math.min(255, 50 + r))}, ${Math.max(0, Math.min(255, 50 + g))}, ${Math.max(0, Math.min(255, 80 + b))})`;
+      ctx.fillRect(0, 0, w, h);
+    }
+  }, [r, g, b, skinLoaded]);
 
   return <canvas ref={canvasRef} width={120} height={120} style={{ borderRadius: 4, border: '1px solid #555' }} />;
 }
