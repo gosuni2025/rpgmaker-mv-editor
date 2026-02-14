@@ -76,6 +76,11 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       .map((e: any) => ({ id: e.id, name: e.name || '' }));
   }, [currentMap]);
 
+  // 마운트 시 자동 포커스
+  useEffect(() => {
+    containerRef.current?.focus();
+  }, []);
+
   // 키보드 핸들러
   useEffect(() => {
     const container = containerRef.current;
@@ -122,6 +127,34 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     container.addEventListener('keydown', handleKeyDown);
     return () => container.removeEventListener('keydown', handleKeyDown);
   }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, showAddDialog, pendingCode, editingIndex, showMoveRoute, selectedIndices, commands, setSelectedIndices, primaryIndex]);
+
+  // 컨테이너에 포커스가 없어도 스페이스 키로 명령어 추가/편집 가능하게
+  useEffect(() => {
+    if (showAddDialog || pendingCode !== null || editingIndex !== null || showMoveRoute !== null) return;
+
+    const handleGlobalSpace = (e: KeyboardEvent) => {
+      if (e.key !== ' ') return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
+      if (containerRef.current?.contains(e.target as Node)) return; // 이미 container에서 처리됨
+      e.preventDefault();
+      containerRef.current?.focus();
+      if (primaryIndex >= 0 && primaryIndex < commands.length) {
+        const cmd = commands[primaryIndex];
+        if (cmd.code === 0) {
+          setShowAddDialog(true);
+        } else {
+          // 포커스를 컨테이너로 옮기고, 더블클릭 동작은 container keydown에서 처리
+          handleDoubleClick(primaryIndex);
+        }
+      } else {
+        setShowAddDialog(true);
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalSpace);
+    return () => document.removeEventListener('keydown', handleGlobalSpace);
+  }, [showAddDialog, pendingCode, editingIndex, showMoveRoute, primaryIndex, commands]);
 
   const insertCommandWithParams = (code: number, params: unknown[], extraCommands?: EventCommand[]) => {
     const insertAt = primaryIndex >= 0 ? primaryIndex : commands.length - 1;
@@ -369,7 +402,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }} ref={containerRef} tabIndex={-1}>
-      <div className="event-commands-list" ref={listRef}>
+      <div className="event-commands-list" ref={listRef} onClick={() => containerRef.current?.focus()}>
         {commands.map((cmd, i) => {
           const draggable = isDraggable(i);
           const isDragging = dragGroupRange !== null && i >= dragGroupRange[0] && i <= dragGroupRange[1];
