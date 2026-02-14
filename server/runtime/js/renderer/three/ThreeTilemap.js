@@ -289,16 +289,16 @@ ThreeTilemapRectLayer.prototype._flush = function() {
             hasNormal = true;
         }
 
-        // --- 일반 타일 메시 빌드 ---
-        if (hasNormal) {
-            this._buildNormalMesh(setNumber, data, animOffsets, texture, texW, texH,
-                                  tileAnimX, tileAnimY, isShadow, hasWater);
-        }
-
-        // --- 물 타일 메시 빌드 ---
+        // --- 물 타일 메시 빌드 (일반 메시보다 먼저 → 낮은 renderOrder) ---
         if (hasWater) {
             this._buildWaterMesh(setNumber, data, animOffsets, texture, texW, texH,
                                   tileAnimX, tileAnimY);
+        }
+
+        // --- 일반 타일 메시 빌드 (물 메시 위에 렌더링) ---
+        if (hasNormal) {
+            this._buildNormalMesh(setNumber, data, animOffsets, texture, texW, texH,
+                                  tileAnimX, tileAnimY, isShadow, hasWater);
         }
     }
 };

@@ -308,11 +308,17 @@
             }
             // For Groups, traverse their direct THREE children that are meshes
             // (e.g., internal meshes of ThreeGraphicsNode)
+            // Water meshes render before normal meshes so decoration tiles overlay correctly
             if (node._threeObj.isGroup) {
                 var threeChildren = node._threeObj.children;
+                // 물 메시를 먼저, 일반 메시를 나중에 renderOrder 할당
                 for (var t = 0; t < threeChildren.length; t++) {
-                    if (threeChildren[t].isMesh && !threeChildren[t]._wrapper) {
-                        // This is an internal mesh (not a wrapper child)
+                    if (threeChildren[t].isMesh && !threeChildren[t]._wrapper && threeChildren[t].userData && threeChildren[t].userData.isWaterMesh) {
+                        threeChildren[t].renderOrder = rendererObj._drawOrderCounter++;
+                    }
+                }
+                for (var t = 0; t < threeChildren.length; t++) {
+                    if (threeChildren[t].isMesh && !threeChildren[t]._wrapper && !(threeChildren[t].userData && threeChildren[t].userData.isWaterMesh)) {
                         threeChildren[t].renderOrder = rendererObj._drawOrderCounter++;
                     }
                 }
