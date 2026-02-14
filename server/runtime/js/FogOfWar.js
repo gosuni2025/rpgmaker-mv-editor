@@ -93,6 +93,7 @@ var VOL_FOG_FRAG = [
     'uniform vec3 lightPositions[8];',   // xyz (맵 로컬 좌표 픽셀)
     'uniform vec3 lightColors[8];',      // rgb (0~1)
     'uniform float lightDistances[8];',  // 영향 거리 (픽셀)
+    'uniform float isOrtho;',            // 1.0: OrthographicCamera, 0.0: PerspectiveCamera
     '',
     '// --- 노이즈 함수 ---',
     'vec2 _hash22(vec2 p) {',
@@ -145,8 +146,16 @@ var VOL_FOG_FRAG = [
     '',
     '// --- 메인 레이마칭 ---',
     'void main() {',
-    '    vec3 rayOrigin = cameraWorldPos;',
-    '    vec3 rayDir = normalize(vWorldPos - cameraWorldPos);',
+    '    vec3 rayOrigin;',
+    '    vec3 rayDir;',
+    '    if (isOrtho > 0.5) {',
+    '        // Orthographic: ray는 수직 아래, origin은 픽셀의 XY + 카메라 높이',
+    '        rayOrigin = vec3(vWorldPos.xy, cameraWorldPos.z);',
+    '        rayDir = vec3(0.0, 0.0, -1.0);',
+    '    } else {',
+    '        rayOrigin = cameraWorldPos;',
+    '        rayDir = normalize(vWorldPos - cameraWorldPos);',
+    '    }',
     '',
     '    float tMin = 0.0; float tMax = 0.0;',
     '    if (abs(rayDir.z) < 0.0001) {',
@@ -444,15 +453,20 @@ FogOfWar._buildBlockMap = function() {
     var blockMap = this._blockMap;
     for (var i = 0; i < blockMap.length; i++) blockMap[i] = 0;
 
-    // $gameMap.checkPassage를 사용하여 통행불가 타일 감지
+    // 타일 레이어만으로 통행불가 타일 감지 (이벤트 제외 - _events 미초기화 방지)
     if (typeof $gameMap !== 'undefined' && $gameMap && $gameMap.tilesetFlags) {
         var flags = $gameMap.tilesetFlags();
         for (var ty = 0; ty < h; ty++) {
             for (var tx = 0; tx < w; tx++) {
-                // checkPassage(x, y, 0x0f) === false → 모든 방향 통행 불가 = 벽
-                if (!$gameMap.checkPassage(tx, ty, 0x0f)) {
-                    blockMap[ty * w + tx] = 1;
+                // layeredTiles: 타일 레이어만 (이벤트 제외)
+                var tiles = $gameMap.layeredTiles(tx, ty);
+                var blocked = false;
+                for (var ti = 0; ti < tiles.length; ti++) {
+                    var flag = flags[tiles[ti]];
+                    if ((flag & 0x10) !== 0) continue; // 통행에 영향 없는 타일
+                    if ((flag & 0x0f) === 0x0f) { blocked = true; break; } // 모든 방향 불가
                 }
+                if (blocked) blockMap[ty * w + tx] = 1;
             }
         }
     }
@@ -612,6 +626,7 @@ FogOfWar._createMesh = function() {
             playerPixelPos:  { value: new THREE.Vector2(0, 0) },
             lightScatterOn:  { value: this._lightScattering ? 1.0 : 0.0 },
             lightScatterIntensity: { value: this._lightScatterIntensity },
+            isOrtho:         { value: 0.0 },
             numLights:       { value: 0 },
             lightPositions:  { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
             lightColors:     { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
@@ -711,19 +726,14 @@ FogOfWar._updateMeshUniforms = function() {
     u.lightScatterOn.value = this._lightScattering ? 1.0 : 0.0;
     u.lightScatterIntensity.value = this._lightScatterIntensity;
 
-    // 카메라 월드 좌표 업데이트
+    // 카메라 월드 좌표 및 isOrtho 업데이트
     if (typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active) {
         u.cameraWorldPos.value.copy(Mode3D._perspCamera.position);
+        u.isOrtho.value = 0.0;
     } else {
-        // 2D 모드: 맵 중앙 위에서 직교로 내려다보는 가상 카메라
-        var totalW = this._mapWidth * 48;
-        var totalH = this._mapHeight * 48;
-        var camOx = 0, camOy = 0;
-        if (typeof $gameMap !== 'undefined' && $gameMap) {
-            camOx = $gameMap.displayX() * 48;
-            camOy = $gameMap.displayY() * 48;
-        }
-        u.cameraWorldPos.value.set(totalW / 2 - camOx, totalH / 2 - camOy, this._fogHeight + 100);
+        // 2D 모드: OrthographicCamera → isOrtho 셰이더 분기 사용
+        u.cameraWorldPos.value.set(0, 0, this._fogHeight + 100);
+        u.isOrtho.value = 1.0;
     }
 
     // 스크롤 오프셋 업데이트
