@@ -1384,11 +1384,13 @@ Spriteset_Map.prototype.update = function() {
 // Scene_Map.onMapLoaded - 맵 데이터에서 bloomConfig, postProcessConfig 로드
 //=============================================================================
 
-var _Scene_Map_onMapLoaded_dof = Scene_Map.prototype.onMapLoaded;
-Scene_Map.prototype.onMapLoaded = function() {
-    _Scene_Map_onMapLoaded_dof.call(this);
-    DepthOfField._applyMapSettings();
-};
+if (typeof Scene_Map !== 'undefined') {
+    var _Scene_Map_onMapLoaded_dof = Scene_Map.prototype.onMapLoaded;
+    Scene_Map.prototype.onMapLoaded = function() {
+        _Scene_Map_onMapLoaded_dof.call(this);
+        DepthOfField._applyMapSettings();
+    };
+}
 
 DepthOfField._applyMapSettings = function() {
     if (!$dataMap) return;
