@@ -663,5 +663,18 @@ export function isGroundDecorationTile(tileId: number): boolean {
   return isA1DecorationTile(tileId) || isA2DecorationTile(tileId);
 }
 
+/**
+ * A1 decoration 타일이 z=0에 자동으로 깔아야 하는 바닥 타일의 kind를 반환.
+ * RPG Maker MV 도움말: Block B(kind 1), C(kind 2,3)의 투명 부분은
+ * Block A(kind 0)가 자동으로 채운다.
+ * 해당하지 않으면 -1 반환.
+ */
+export function getAutoBaseKind(tileId: number): number {
+  if (!isTileA1(tileId)) return -1;
+  const kind = getAutotileKind(tileId);
+  if (kind === 1 || kind === 2 || kind === 3) return 0; // kind 0 = Water A
+  return -1;
+}
+
 // Exports for tile ID constants
 export { TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1, TILE_ID_A2, TILE_ID_A3, TILE_ID_A4, TILE_ID_MAX };
