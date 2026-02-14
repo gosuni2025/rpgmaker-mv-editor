@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import apiClient from '../../api/client';
-import { IconSprite, CharacterSprite, type CharacterInfo } from './controlEditors';
+import { IconSprite, CharacterSprite, type CharacterInfo } from './dataListPicker';
 import type { AudioFile } from '../../types/rpgMakerMV';
 
 export type { CharacterInfo };

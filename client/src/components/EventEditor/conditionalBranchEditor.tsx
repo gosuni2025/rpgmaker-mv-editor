@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import apiClient from '../../api/client';
 import { selectStyle } from './messageEditors';
-import { DataListPicker, type CharacterInfo } from './controlEditors';
+import { DataListPicker, type CharacterInfo } from './dataListPicker';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import './ConditionalBranchEditor.css';
 
