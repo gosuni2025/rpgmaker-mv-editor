@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { DataListPicker } from './dataListPicker';
 import { useDbNames, useDbNamesWithIcons, useActorData, getLabel, DataListPickerWithZero, type CharacterInfo } from './actionEditorUtils';
+import { ImageSelectDialog, ImagePreviewThumb } from './imageSelectDialog';
 import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
 
@@ -11,6 +12,7 @@ type EditorProps = { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: 
 const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
 const fieldsetStyle: React.CSSProperties = { border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 };
 const legendStyle: React.CSSProperties = { fontSize: 12, color: '#aaa', padding: '0 4px' };
+const thumbBoxStyle: React.CSSProperties = { cursor: 'pointer', border: '1px solid #555', padding: 2, background: '#1a1a1a' };
 
 /* ─── 공통 컴포넌트 ─── */
 
@@ -376,191 +378,7 @@ export function ChangeProfileEditor({ p, onOk, onCancel }: EditorProps) {
   );
 }
 
-/* ─── 이미지 선택 서브 다이얼로그 ─── */
-
-function ImageSelectDialog({ type, value, index, onOk, onCancel }: {
-  type: 'faces' | 'characters' | 'sv_actors';
-  value: string;
-  index: number;
-  onOk: (name: string, index: number) => void;
-  onCancel: () => void;
-}) {
-  const [files, setFiles] = useState<string[]>([]);
-  const [selected, setSelected] = useState(value);
-  const [selectedIndex, setSelectedIndex] = useState(index);
-  const listRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    apiClient.get<string[]>(`/resources/${type}`).then(setFiles).catch(() => setFiles([]));
-  }, [type]);
-
-  useEffect(() => {
-    if (files.length > 0 && listRef.current) {
-      const items = listRef.current.querySelectorAll('.image-picker-item');
-      const idx = selected ? files.findIndex(f => f.replace(/\.png$/i, '') === selected) : -1;
-      const targetIdx = idx + 1;
-      if (items[targetIdx]) {
-        items[targetIdx].scrollIntoView({ block: 'nearest' });
-      }
-    }
-  }, [files]);
-
-  const getImgUrl = (name: string) => `/api/resources/${type}/${name}.png`;
-  const typeLabel = type === 'faces' ? '얼굴' : type === 'characters' ? '캐릭터' : '[SV] 전투 캐릭터';
-
-  const getCellLayout = () => {
-    if (type === 'faces') return { cols: 4, rows: 2, total: 8 };
-    if (type === 'characters') return { cols: 4, rows: 2, total: 8 };
-    return { cols: 1, rows: 1, total: 1 };
-  };
-  const layout = getCellLayout();
-
-  return (
-    <div className="modal-overlay" style={{ zIndex: 10001 }}>
-      <div className="image-picker-dialog" style={{ width: 520, maxHeight: '80vh' }}>
-        <div className="image-picker-header">이미지 선택 - {typeLabel}</div>
-        <div className="image-picker-body">
-          <div className="image-picker-list" ref={listRef}>
-            <div className={`image-picker-item${selected === '' ? ' selected' : ''}`}
-              onClick={() => { setSelected(''); setSelectedIndex(0); }}>(없음)</div>
-            {files.map(f => {
-              const name = f.replace(/\.png$/i, '');
-              return (
-                <div key={f}
-                  className={`image-picker-item${selected === name ? ' selected' : ''}`}
-                  onClick={() => { setSelected(name); setSelectedIndex(0); }}
-                >{name}</div>
-              );
-            })}
-          </div>
-          <div className="image-picker-preview-area">
-            {selected && layout.total > 1 ? (
-              <ImageCellSelector
-                imgSrc={getImgUrl(selected)}
-                fileName={selected}
-                cellCount={layout.total}
-                cols={layout.cols}
-                selectedIndex={selectedIndex}
-                onSelect={setSelectedIndex}
-              />
-            ) : selected ? (
-              <img src={getImgUrl(selected)} alt={selected}
-                style={{ maxWidth: '100%', maxHeight: 300, imageRendering: 'pixelated' }}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-            ) : null}
-          </div>
-        </div>
-        <div className="image-picker-footer">
-          <button className="db-btn" onClick={() => {
-            apiClient.post(`/resources/${type}/open-folder`, {}).catch(() => {});
-          }} style={{ marginRight: 'auto' }}>폴더 열기</button>
-          <button className="db-btn" onClick={() => onOk(selected, selectedIndex)}>OK</button>
-          <button className="db-btn" onClick={onCancel}>취소</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ImageCellSelector({ imgSrc, fileName, cellCount, cols, selectedIndex, onSelect }: {
-  imgSrc: string;
-  fileName: string;
-  cellCount: number;
-  cols: number;
-  selectedIndex: number;
-  onSelect: (index: number) => void;
-}) {
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => { setLoaded(false); }, [imgSrc]);
-
-  const isSingle = fileName.startsWith('$');
-  const charCols = isSingle ? 1 : 4;
-  const charRows = isSingle ? 1 : 2;
-
-  return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
-      <img src={imgSrc} style={{ display: 'block', imageRendering: 'pixelated', maxWidth: '100%' }}
-        draggable={false} onLoad={() => setLoaded(true)} />
-      {loaded && (
-        <div style={{
-          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-          display: 'grid',
-          gridTemplateColumns: `repeat(${charCols}, 1fr)`,
-          gridTemplateRows: `repeat(${charRows}, 1fr)`,
-        }}>
-          {Array.from({ length: cellCount }, (_, i) => (
-            <div key={i} onClick={() => onSelect(i)}
-              style={{
-                cursor: 'pointer',
-                border: i === selectedIndex ? '2px solid #2675bf' : '1px solid rgba(255,255,255,0.05)',
-                background: i === selectedIndex ? 'rgba(38,117,191,0.25)' : 'transparent',
-                boxSizing: 'border-box',
-              }}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ImagePreviewThumb({ type, name, index, size }: {
-  type: 'faces' | 'characters' | 'sv_actors';
-  name: string;
-  index: number;
-  size: number;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    if (!name) return;
-    const img = new Image();
-    img.onload = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d')!;
-      if (type === 'faces') {
-        const cw = img.naturalWidth / 4;
-        const ch = img.naturalHeight / 2;
-        const col = index % 4;
-        const row = Math.floor(index / 4);
-        canvas.width = cw;
-        canvas.height = ch;
-        ctx.drawImage(img, col * cw, row * ch, cw, ch, 0, 0, cw, ch);
-      } else if (type === 'characters') {
-        const isSingle = name.startsWith('$');
-        const totalCols = isSingle ? 3 : 12;
-        const totalRows = isSingle ? 4 : 8;
-        const charCols = isSingle ? 1 : 4;
-        const patterns = 3;
-        const dirs = 4;
-        const fw = img.naturalWidth / totalCols;
-        const fh = img.naturalHeight / totalRows;
-        const charCol = index % charCols;
-        const charRow = Math.floor(index / charCols);
-        const sx = (charCol * patterns + 1) * fw;
-        const sy = (charRow * dirs + 0) * fh;
-        canvas.width = fw;
-        canvas.height = fh;
-        ctx.drawImage(img, sx, sy, fw, fh, 0, 0, fw, fh);
-      } else {
-        const fw = img.naturalWidth / 9;
-        const fh = img.naturalHeight / 6;
-        canvas.width = fw;
-        canvas.height = fh;
-        ctx.drawImage(img, 0, 0, fw, fh, 0, 0, fw, fh);
-      }
-    };
-    img.src = `/api/resources/${type}/${name}.png`;
-  }, [type, name, index]);
-
-  if (!name) {
-    return <div style={{ width: size, height: size, background: '#333', border: '1px solid #555', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ color: '#888', fontSize: 11 }}>(없음)</span>
-    </div>;
-  }
-  return <canvas ref={canvasRef} style={{ maxWidth: size, maxHeight: size, imageRendering: 'pixelated', background: 'repeating-conic-gradient(#444 0% 25%, #555 0% 50%) 50% / 16px 16px' }} />;
-}
+/* ─── 이미지 에디터 ─── */
 
 interface ActorImageInfo {
   faceName: string;
@@ -642,7 +460,18 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: EditorProps) {
     applyActorImages(newId);
   };
 
-  const thumbSize = 80;
+  const IMAGE_SLOTS = [
+    { type: 'faces' as const, label: '얼굴:', name: faceName, index: faceIndex },
+    { type: 'characters' as const, label: '캐릭터:', name: characterName, index: characterIndex },
+    { type: 'sv_actors' as const, label: '[SV] 전투 캐릭터:', name: battlerName, index: 0 },
+  ];
+
+  const handleImageOk = (type: string, name: string, idx: number) => {
+    if (type === 'faces') { setFaceName(name); setFaceIndex(idx); }
+    else if (type === 'characters') { setCharacterName(name); setCharacterIndex(idx); }
+    else { setBattlerName(name); }
+    setImageDialog(null);
+  };
 
   return (
     <>
@@ -651,27 +480,14 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: EditorProps) {
       <fieldset style={fieldsetStyle}>
         <legend style={legendStyle}>이미지</legend>
         <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 11, color: '#aaa' }}>얼굴:</span>
-            <div onClick={() => setImageDialog('faces')}
-              style={{ cursor: 'pointer', border: '1px solid #555', padding: 2, background: '#1a1a1a' }}>
-              <ImagePreviewThumb type="faces" name={faceName} index={faceIndex} size={thumbSize} />
+          {IMAGE_SLOTS.map(slot => (
+            <div key={slot.type} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 11, color: '#aaa' }}>{slot.label}</span>
+              <div onClick={() => setImageDialog(slot.type)} style={thumbBoxStyle}>
+                <ImagePreviewThumb type={slot.type} name={slot.name} index={slot.index} size={80} />
+              </div>
             </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 11, color: '#aaa' }}>캐릭터:</span>
-            <div onClick={() => setImageDialog('characters')}
-              style={{ cursor: 'pointer', border: '1px solid #555', padding: 2, background: '#1a1a1a' }}>
-              <ImagePreviewThumb type="characters" name={characterName} index={characterIndex} size={thumbSize} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 11, color: '#aaa' }}>[SV] 전투 캐릭터:</span>
-            <div onClick={() => setImageDialog('sv_actors')}
-              style={{ cursor: 'pointer', border: '1px solid #555', padding: 2, background: '#1a1a1a' }}>
-              <ImagePreviewThumb type="sv_actors" name={battlerName} index={0} size={thumbSize} />
-            </div>
-          </div>
+          ))}
         </div>
       </fieldset>
 
@@ -680,19 +496,11 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: EditorProps) {
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
 
-      {imageDialog === 'faces' && (
-        <ImageSelectDialog type="faces" value={faceName} index={faceIndex}
-          onOk={(name, idx) => { setFaceName(name); setFaceIndex(idx); setImageDialog(null); }}
-          onCancel={() => setImageDialog(null)} />
-      )}
-      {imageDialog === 'characters' && (
-        <ImageSelectDialog type="characters" value={characterName} index={characterIndex}
-          onOk={(name, idx) => { setCharacterName(name); setCharacterIndex(idx); setImageDialog(null); }}
-          onCancel={() => setImageDialog(null)} />
-      )}
-      {imageDialog === 'sv_actors' && (
-        <ImageSelectDialog type="sv_actors" value={battlerName} index={0}
-          onOk={(name) => { setBattlerName(name); setImageDialog(null); }}
+      {imageDialog && (
+        <ImageSelectDialog type={imageDialog}
+          value={IMAGE_SLOTS.find(s => s.type === imageDialog)!.name}
+          index={IMAGE_SLOTS.find(s => s.type === imageDialog)!.index}
+          onOk={(name, idx) => handleImageOk(imageDialog, name, idx)}
           onCancel={() => setImageDialog(null)} />
       )}
     </>
@@ -747,8 +555,7 @@ export function ChangeVehicleImageEditor({ p, onOk, onCancel }: EditorProps) {
       <fieldset style={fieldsetStyle}>
         <legend style={legendStyle}>이미지</legend>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div onClick={() => setShowImageDialog(true)}
-            style={{ cursor: 'pointer', border: '1px solid #555', padding: 2, background: '#1a1a1a' }}>
+          <div onClick={() => setShowImageDialog(true)} style={thumbBoxStyle}>
             <ImagePreviewThumb type="characters" name={imageName} index={imageIndex} size={80} />
           </div>
           <span style={{ fontSize: 12, color: '#aaa' }}>{imageName || '(없음)'}{imageName ? ` [${imageIndex}]` : ''}</span>
