@@ -1307,6 +1307,10 @@ PostProcess._createComposer = function(rendererObj, stage) {
         radius: this.bloomConfig.radius,
         downscale: this.bloomConfig.downscale
     });
+    // $dataMap.bloomConfig.enabled 반영 (composer 재생성 시에도 설정 유지)
+    if ($dataMap && $dataMap.bloomConfig) {
+        bloomPass.enabled = $dataMap.bloomConfig.enabled !== false;
+    }
     composer.addPass(bloomPass);
 
     // PostProcessEffects 패스들 생성 및 추가
@@ -1334,6 +1338,9 @@ PostProcess._createComposer = function(rendererObj, stage) {
     this._ppPasses = ppPasses;
     this._lastStage = stage;
     this._composerMode = '3d';
+
+    // composer 재생성 후 맵별 설정 재적용
+    this._applyMapSettings();
 };
 
 PostProcess._createComposer2D = function(rendererObj, stage) {
@@ -1357,6 +1364,10 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
         radius: this.bloomConfig.radius,
         downscale: this.bloomConfig.downscale
     });
+    // $dataMap.bloomConfig.enabled 반영 (composer 재생성 시에도 설정 유지)
+    if ($dataMap && $dataMap.bloomConfig) {
+        bloomPass.enabled = $dataMap.bloomConfig.enabled !== false;
+    }
     composer.addPass(bloomPass);
 
     // PostProcessEffects 패스들 생성 및 추가
@@ -1376,6 +1387,9 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
     this._ppPasses = ppPasses;
     this._lastStage = stage;
     this._composerMode = '2d';
+
+    // composer 재생성 후 맵별 설정 재적용
+    this._applyMapSettings();
 };
 
 // PostProcessEffects 패스 일괄 생성 헬퍼
@@ -1562,7 +1576,9 @@ PostProcess._updateUniforms = function() {
 };
 
 PostProcess._updateGodRaysLightPos = function() {
-    if (!this._ppPasses || !this._ppPasses.godRays || !this._ppPasses.godRays.enabled) return;
+    if (!this._ppPasses || !this._ppPasses.godRays || !this._ppPasses.godRays.enabled) {
+        return;
+    }
     var yaw = (typeof Mode3D !== 'undefined') ? (Mode3D._yawRad || 0) : 0;
 
     var pass = this._ppPasses.godRays;
