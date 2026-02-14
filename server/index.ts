@@ -93,6 +93,7 @@ export function createApp(options: AppOptions = {}) {
             };
         })();
         </script>` : '';
+    const cacheBust = `?v=${Date.now()}`;
     const html = `<!DOCTYPE html>
 <html>
     <head>
@@ -110,18 +111,18 @@ export function createApp(options: AppOptions = {}) {
         <script type="text/javascript" src="js/libs/fpsmeter.js"></script>
         <script type="text/javascript" src="js/libs/lz-string.js"></script>
         <script type="text/javascript" src="js/libs/iphone-inline-video.browser.js"></script>
-        <script type="text/javascript" src="js/renderer/RendererFactory.js"></script>
-        <script type="text/javascript" src="js/renderer/RendererStrategy.js"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeRendererFactory.js"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeRendererStrategy.js"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeContainer.js"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeSprite.js"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeGraphicsNode.js"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeTilemap.js"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeWaterShader.js"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeFilters.js"></script>
-        <script type="text/javascript" src="js/rpg_core.js"></script>
-        <script type="text/javascript" src="js/rpg_managers.js"></script>
+        <script type="text/javascript" src="js/renderer/RendererFactory.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/renderer/RendererStrategy.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/renderer/three/ThreeRendererFactory.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/renderer/three/ThreeRendererStrategy.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/renderer/three/ThreeContainer.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/renderer/three/ThreeSprite.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/renderer/three/ThreeGraphicsNode.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/renderer/three/ThreeTilemap.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/renderer/three/ThreeWaterShader.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/renderer/three/ThreeFilters.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/rpg_core.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/rpg_managers.js${cacheBust}"></script>
         <script type="text/javascript">
         // StorageManager override: 서버 API를 통해 프로젝트 save/ 폴더에 저장
         (function() {
@@ -202,18 +203,18 @@ export function createApp(options: AppOptions = {}) {
             };
         })();
         </script>
-        <script type="text/javascript" src="js/DevPanelUtils.js"></script>
-        <script type="text/javascript" src="js/rpg_objects.js"></script>
-        <script type="text/javascript" src="js/rpg_scenes.js"></script>
-        <script type="text/javascript" src="js/rpg_sprites.js"></script>
-        <script type="text/javascript" src="js/rpg_windows.js"></script>
-        <script type="text/javascript" src="js/Mode3D.js"></script>
-        <script type="text/javascript" src="js/ShadowAndLight.js"></script>
-        <script type="text/javascript" src="js/PostProcessEffects.js"></script>
-        <script type="text/javascript" src="js/PostProcess.js"></script>
-        <script type="text/javascript" src="js/PictureShader.js"></script>
+        <script type="text/javascript" src="js/DevPanelUtils.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/rpg_objects.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/rpg_scenes.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/rpg_sprites.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/rpg_windows.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/Mode3D.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/ShadowAndLight.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/PostProcessEffects.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/PostProcess.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/PictureShader.js${cacheBust}"></script>
         <script type="text/javascript" src="js/plugins.js"></script>${devScript}${startMapScript}
-        <script type="text/javascript" src="js/main.js"></script>
+        <script type="text/javascript" src="js/main.js${cacheBust}"></script>
     </body>
 </html>`;
     res.type('html').send(html);
@@ -228,7 +229,10 @@ export function createApp(options: AppOptions = {}) {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
     res.sendFile(path.join(projectManager.currentPath!, 'js', 'plugins.js'));
   });
-  app.use('/game/js', express.static(path.join(resolvedRuntimePath, 'js')));
+  app.use('/game/js', (req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  }, express.static(path.join(resolvedRuntimePath, 'js')));
 
   // /game/fonts, /game/icon - 내장 런타임
   app.use('/game/fonts', express.static(path.join(resolvedRuntimePath, 'fonts')));

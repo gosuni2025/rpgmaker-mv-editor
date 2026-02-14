@@ -336,6 +336,20 @@ MapRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuffer, 
     var picObj = picContainer && picContainer._threeObj;
     var picWasVisible = picObj ? picObj.visible : false;
     if (picObj) picObj.visible = false;
+    // ScreenSprite(fade/flash)는 Pass 1에서 숨기고 UIRenderPass에서 별도 렌더
+    var fadeSprite = this.spriteset._fadeSprite;
+    var fadeObj = fadeSprite && fadeSprite._threeObj;
+    var fadeWasVisible = fadeObj ? fadeObj.visible : false;
+    if (fadeObj) fadeObj.visible = false;
+    var flashSprite = this.spriteset._flashSprite;
+    var flashObj = flashSprite && flashSprite._threeObj;
+    var flashWasVisible = flashObj ? flashObj.visible : false;
+    if (flashObj) flashObj.visible = false;
+    // 날씨도 Pass 1에서 숨기고 UIRenderPass에서 렌더
+    var weatherSprite = this.spriteset._weather;
+    var weatherObj = weatherSprite && weatherSprite._threeObj;
+    var weatherWasVisible = weatherObj ? weatherObj.visible : false;
+    if (weatherObj) weatherObj.visible = false;
     // 애니메이션 스프라이트를 Pass 1에서 숨김 (UIRenderPass에서 2D HUD로 렌더)
     var animInfo = Mode3D._hideAnimationsForPass1();
     // MapRenderPass에서 수집한 animInfo를 UIRenderPass에서 사용하기 위해 저장
@@ -367,6 +381,10 @@ MapRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuffer, 
     }
     // Picture 가시성 복원
     if (picObj) picObj.visible = picWasVisible;
+    // fade/flash/weather 가시성 복원
+    if (fadeObj) fadeObj.visible = fadeWasVisible;
+    if (flashObj) flashObj.visible = flashWasVisible;
+    if (weatherObj) weatherObj.visible = weatherWasVisible;
 
     // 가시성 복원 (UI는 UIRenderPass에서 별도 렌더)
     if (stageObj) {
@@ -375,6 +393,11 @@ MapRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuffer, 
         }
     }
     renderer.autoClear = true;
+
+    // fade/flash/weather info를 UIRenderPass에 전달
+    this._fadeInfo = { fadeObj: fadeObj, fadeWasVisible: fadeWasVisible, fadeSprite: fadeSprite,
+                       flashObj: flashObj, flashWasVisible: flashWasVisible, flashSprite: flashSprite,
+                       weatherObj: weatherObj, weatherWasVisible: weatherWasVisible, weatherSprite: weatherSprite };
 };
 
 MapRenderPass.prototype.dispose = function() {};
@@ -800,6 +823,36 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
         picObj.visible = picWasVisible;
     }
 
+    // fade/flash/weather를 spritesetObj에서 stageObj로 옮겨서 2D 렌더
+    var mapRenderPassForFade = null;
+    if (PostProcess._composer) {
+        for (var fi = 0; fi < PostProcess._composer.passes.length; fi++) {
+            if (PostProcess._composer.passes[fi]._fadeInfo) {
+                mapRenderPassForFade = PostProcess._composer.passes[fi];
+                break;
+            }
+        }
+    }
+    var fadeInfo = mapRenderPassForFade ? mapRenderPassForFade._fadeInfo : null;
+    var fadeObj = fadeInfo ? fadeInfo.fadeObj : null;
+    var flashObj = fadeInfo ? fadeInfo.flashObj : null;
+    var weatherObj = fadeInfo ? fadeInfo.weatherObj : null;
+    if (fadeObj && fadeInfo.fadeWasVisible && fadeInfo.fadeSprite.alpha > 0) {
+        spritesetObj.remove(fadeObj);
+        stageObj.add(fadeObj);
+        fadeObj.visible = true;
+    }
+    if (flashObj && fadeInfo.flashWasVisible && fadeInfo.flashSprite.alpha > 0) {
+        spritesetObj.remove(flashObj);
+        stageObj.add(flashObj);
+        flashObj.visible = true;
+    }
+    if (weatherObj && fadeInfo.weatherWasVisible) {
+        spritesetObj.remove(weatherObj);
+        stageObj.add(weatherObj);
+        weatherObj.visible = true;
+    }
+
     // 애니메이션을 stageObj로 이동 (2D HUD로 렌더)
     // MapRenderPass에서 저장한 animInfo를 가져옴
     var mapRenderPass = null;
@@ -858,6 +911,24 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
         spritesetObj.add(picObj);
         picObj.visible = picWasVisible;
     }
+
+    // fade/flash/weather를 원래 spritesetObj로 복원
+    if (fadeObj && fadeObj.parent === stageObj) {
+        stageObj.remove(fadeObj);
+        spritesetObj.add(fadeObj);
+        fadeObj.visible = fadeInfo.fadeWasVisible;
+    }
+    if (flashObj && flashObj.parent === stageObj) {
+        stageObj.remove(flashObj);
+        spritesetObj.add(flashObj);
+        flashObj.visible = fadeInfo.flashWasVisible;
+    }
+    if (weatherObj && weatherObj.parent === stageObj) {
+        stageObj.remove(weatherObj);
+        spritesetObj.add(weatherObj);
+        weatherObj.visible = fadeInfo.weatherWasVisible;
+    }
+    if (mapRenderPassForFade) mapRenderPassForFade._fadeInfo = null;
 
     // 애니메이션을 원래 위치로 복원
     if (animInfo) {
