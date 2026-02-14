@@ -470,6 +470,15 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
     return text;
   }
 
+  // 창 색깔 변경 (code 138): params=[[R,G,B]]
+  if (code === 138 && cmd.parameters && cmd.parameters.length >= 1) {
+    const tone = cmd.parameters[0] as number[];
+    if (tone) {
+      text += `: (${tone[0]}, ${tone[1]}, ${tone[2]})`;
+    }
+    return text;
+  }
+
   // 오디오 관련 커맨드 (BGM/BGS/ME/SE 재생, 전투BGM/승리ME/패배ME 변경)
   if ([132, 133, 139, 241, 245, 249, 250].includes(code) && cmd.parameters && cmd.parameters.length >= 1) {
     const audio = cmd.parameters[0] as { name: string; volume: number; pitch: number; pan: number } | null;
