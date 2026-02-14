@@ -150,6 +150,12 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
         { code: 0, indent: indent + 1, parameters: [] },
         { code: 404, indent, parameters: [] },
       );
+    } else if (code === 301 && extraCommands && extraCommands.length > 0) {
+      const extras = extraCommands.map(ec => ({
+        ...ec,
+        indent: ec.indent === 0 ? indent : indent + ec.indent,
+      }));
+      newCommands.splice(insertAt, 0, newCmd, ...extras);
     } else if (extraCommands && extraCommands.length > 0) {
       const extras = extraCommands.map(ec => ({ ...ec, indent }));
       newCommands.splice(insertAt, 0, newCmd, ...extras);
@@ -182,6 +188,79 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     const newCommands = [...commands];
     const cmd = newCommands[index];
     newCommands[index] = { ...cmd, parameters: params };
+
+    // 전투 처리 (301) - 도망/패배 분기 추가/제거
+    if (cmd.code === 301 && extra) {
+      const wantEscape = extra.some(ec => ec.code === 602);
+      const wantLose = extra.some(ec => ec.code === 603);
+      const baseIndent = cmd.indent;
+      let blockEndIndex = -1;
+      let hasEscape = false, escapeIndex = -1;
+      let hasLose = false, loseIndex = -1;
+
+      for (let i = index + 1; i < newCommands.length; i++) {
+        if (newCommands[i].indent !== baseIndent) continue;
+        if (newCommands[i].code === 602) { hasEscape = true; escapeIndex = i; }
+        if (newCommands[i].code === 603) { hasLose = true; loseIndex = i; }
+        if (newCommands[i].code === 604) { blockEndIndex = i; break; }
+      }
+
+      if (blockEndIndex >= 0) {
+        // 패배 분기 추가/제거 (먼저 처리 - 인덱스가 뒤쪽이므로)
+        if (wantLose && !hasLose) {
+          newCommands.splice(blockEndIndex, 0,
+            { code: 603, indent: baseIndent, parameters: [] },
+            { code: 0, indent: baseIndent + 1, parameters: [] },
+          );
+          blockEndIndex += 2;
+        } else if (!wantLose && hasLose && loseIndex >= 0) {
+          // 패배 분기와 그 내부 커맨드 삭제 (603 ~ 604 직전까지)
+          let loseEnd = blockEndIndex;
+          // 패배 분기 뒤에 604가 바로 오는지, 아니면 그 사이에 커맨드가 있는지
+          for (let i = loseIndex + 1; i < newCommands.length; i++) {
+            if (newCommands[i].code === 604 && newCommands[i].indent === baseIndent) {
+              loseEnd = i;
+              break;
+            }
+          }
+          newCommands.splice(loseIndex, loseEnd - loseIndex);
+          blockEndIndex -= (loseEnd - loseIndex);
+          // escapeIndex 조정
+          if (escapeIndex > loseIndex) escapeIndex -= (loseEnd - loseIndex);
+        }
+
+        // 도망 분기 추가/제거
+        // 도망 분기는 604 직전에 삽입 (패배 분기가 있으면 그 앞에)
+        if (wantEscape && !hasEscape) {
+          // 603 앞 또는 604 앞에 삽입
+          let insertBefore = blockEndIndex;
+          for (let i = index + 1; i < newCommands.length; i++) {
+            if ((newCommands[i].code === 603 || newCommands[i].code === 604) && newCommands[i].indent === baseIndent) {
+              insertBefore = i;
+              break;
+            }
+          }
+          newCommands.splice(insertBefore, 0,
+            { code: 602, indent: baseIndent, parameters: [] },
+            { code: 0, indent: baseIndent + 1, parameters: [] },
+          );
+        } else if (!wantEscape && hasEscape && escapeIndex >= 0) {
+          // 도망 분기와 그 내부 커맨드 삭제
+          let escapeEnd = escapeIndex + 1;
+          for (let i = escapeIndex + 1; i < newCommands.length; i++) {
+            if ((newCommands[i].code === 603 || newCommands[i].code === 604) && newCommands[i].indent === baseIndent) {
+              escapeEnd = i;
+              break;
+            }
+          }
+          newCommands.splice(escapeIndex, escapeEnd - escapeIndex);
+        }
+      }
+
+      changeWithHistory(newCommands);
+      setEditingIndex(null);
+      return;
+    }
 
     if (cmd.code === 111 && extra) {
       const wantElse = extra.some(ec => ec.code === 411);

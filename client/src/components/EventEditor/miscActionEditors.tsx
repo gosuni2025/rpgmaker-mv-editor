@@ -21,6 +21,33 @@ export function AudioEditor({ p, onOk, onCancel, type }: { p: unknown[]; onOk: (
   );
 }
 
+const VEHICLE_OPTIONS = [
+  { value: 0, label: '소형선' },
+  { value: 1, label: '대형선' },
+  { value: 2, label: '비공정' },
+];
+
+export function VehicleBGMEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [vehicle, setVehicle] = useState<number>((p[0] as number) ?? 0);
+  const audioParam = (p[1] as AudioFile) || { ...DEFAULT_AUDIO };
+  const [audio, setAudio] = useState<AudioFile>(audioParam);
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>탈 것:</span>
+        <select value={vehicle} onChange={e => setVehicle(Number(e.target.value))} style={selectStyle}>
+          {VEHICLE_OPTIONS.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+        </select>
+      </div>
+      <AudioPicker type="bgm" value={audio} onChange={setAudio} inline />
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([vehicle, audio])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}
+
 export function MovieEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [name, setName] = useState<string>((p[0] as string) || '');
   return (

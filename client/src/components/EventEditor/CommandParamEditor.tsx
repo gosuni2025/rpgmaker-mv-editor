@@ -3,9 +3,11 @@ import type { EventCommand } from '../../types/rpgMakerMV';
 import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
-  ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor, MovieEditor, FadeoutEditor,
+  ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor, VehicleBGMEditor, MovieEditor, FadeoutEditor,
   ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor, ShowBalloonIconEditor,
   ScrollingTextEditor, ConditionalBranchEditor, ShowPictureEditor, MovePictureEditor, RotatePictureEditor, TintPictureEditor, TintScreenEditor, FlashScreenEditor, ShakeScreenEditor, SetWeatherEffectEditor,
+  BattleProcessingEditor,
+  ShopProcessingEditor,
 } from './commandEditors';
 
 interface CommandParamEditorProps {
@@ -45,11 +47,12 @@ function getCommandName(code: number): string {
     121: '스위치 조작', 122: '변수 조작', 123: 'Control Self Switch',
     124: '타이머 조작', 125: '소지 금액 증감', 126: '아이템 증감',
     127: '무기 변경', 128: '방어구 변경', 129: '파티원 변경',
+    132: '전투 BGM 변경', 133: '승리 ME 변경', 139: '패배 ME 변경', 140: '탈 것 BGM 변경',
     134: '저장 금지 변경', 135: '메뉴 금지 변경', 136: '조우 금지 변경', 137: '진형 금지 변경',
     201: '장소 이동', 202: '탈 것 위치 설정', 204: '지도 스크롤', 211: '투명 상태 변경', 212: '애니메이션 표시', 213: '말풍선 아이콘 표시', 216: '대열 보행 변경', 223: '화면의 색조 변경', 224: '화면의 플래쉬', 225: '화면 흔들리기', 230: '대기', 231: '그림 표시', 233: '그림 회전', 234: '그림의 색조 변경', 235: '그림 제거', 236: '날씨 효과 설정',
     241: 'BGM 재생', 242: 'BGM 페이드아웃', 245: 'BGS 재생', 246: 'BGS 페이드아웃',
     249: 'ME 재생', 250: 'SE 재생', 261: '무비 재생',
-    301: 'Battle Processing', 303: '이름 입력 처리', 311: 'HP 증감', 312: 'MP 증감', 326: 'TP 증감',
+    301: '전투 처리', 302: '상점의 처리', 303: '이름 입력 처리', 311: 'HP 증감', 312: 'MP 증감', 326: 'TP 증감',
     313: '스테이트 변경', 314: '전체 회복', 315: 'EXP 증감', 316: '레벨 증감', 317: '능력치 증감',
     318: '스킬 증감', 319: '장비 변경', 320: '이름 변경', 321: '직업 변경', 324: '닉네임 변경', 325: '프로필 변경',
     355: 'Script', 356: 'Plugin Command',
@@ -123,11 +126,17 @@ function getEditorContent(
     case 318: return <ChangeSkillEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 319: return <ChangeEquipmentEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 326: return <ChangeTPEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 301: return <BattleProcessingEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 302: return <ShopProcessingEditor p={p} followCommands={followCommands} onOk={onOk} onCancel={onCancel} />;
     case 303: return <NameInputEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 320: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="이름:" />;
     case 321: return <ChangeClassEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 324: return <ChangeNameEditor p={p} onOk={onOk} onCancel={onCancel} label="닉네임:" />;
     case 325: return <ChangeProfileEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 132: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgm" />;
+    case 133: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="me" />;
+    case 139: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="me" />;
+    case 140: return <VehicleBGMEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 134: return <ChangeSaveAccessEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 135: return <ChangeMenuAccessEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 136: return <ChangeEncounterEditor p={p} onOk={onOk} onCancel={onCancel} />;
