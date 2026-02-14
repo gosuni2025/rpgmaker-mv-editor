@@ -8,9 +8,11 @@ interface CommandInsertDialogProps {
   onCancel: () => void;
 }
 
+let lastActiveTab = 1;
+
 export default function CommandInsertDialog({ onSelect, onCancel }: CommandInsertDialogProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState(1);
+  const [activeTab, setActiveTab] = useState(lastActiveTab);
   const [commandFilter, setCommandFilter] = useState('');
   const commandFilterRef = useRef<HTMLInputElement>(null);
 
@@ -166,7 +168,7 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
               <button
                 key={n}
                 className={`cmd-insert-tab${activeTab === n ? ' active' : ''}`}
-                onClick={() => setActiveTab(n)}
+                onClick={() => { setActiveTab(n); lastActiveTab = n; }}
               >
                 {n}
               </button>
