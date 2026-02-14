@@ -244,7 +244,7 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
 
   // 저장/메뉴/조우/진형 금지 변경 포맷
   if ((code >= 134 && code <= 137) && cmd.parameters && cmd.parameters.length >= 1) {
-    text += `: ${cmd.parameters[0] === 0 ? 'ON' : 'OFF'}`;
+    text += `: ${cmd.parameters[0] === 0 ? '불가' : '가능'}`;
     return text;
   }
 

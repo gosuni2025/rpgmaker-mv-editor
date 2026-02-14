@@ -82,8 +82,9 @@ export function FadeoutEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (para
   );
 }
 
-export function ToggleEditor({ p, onOk, onCancel, legend }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; legend: string }) {
+export function ToggleEditor({ p, onOk, onCancel, legend, labels }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; legend: string; labels?: [string, string] }) {
   const [value, setValue] = useState<number>((p[0] as number) ?? 0);
+  const [label0, label1] = labels ?? ['불가', '가능'];
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
   return (
     <>
@@ -92,11 +93,11 @@ export function ToggleEditor({ p, onOk, onCancel, legend }: { p: unknown[]; onOk
         <div style={{ display: 'flex', gap: 16 }}>
           <label style={radioStyle}>
             <input type="radio" name="toggle" checked={value === 0} onChange={() => setValue(0)} />
-            ON
+            {label0}
           </label>
           <label style={radioStyle}>
             <input type="radio" name="toggle" checked={value === 1} onChange={() => setValue(1)} />
-            OFF
+            {label1}
           </label>
         </div>
       </fieldset>
@@ -109,7 +110,7 @@ export function ToggleEditor({ p, onOk, onCancel, legend }: { p: unknown[]; onOk
 }
 
 export function ChangeTransparencyEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
-  return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="투명 상태" />;
+  return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="투명 상태" labels={['ON', 'OFF']} />;
 }
 
 export function ChangeSaveAccessEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
