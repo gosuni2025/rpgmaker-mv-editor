@@ -16,6 +16,12 @@ interface FogOfWarConfig {
   fogColor: string;
   unexploredAlpha: number;
   exploredAlpha: number;
+  fogHeight?: number;
+  lineOfSight?: boolean;
+  absorption?: number;
+  visibilityBrightness?: number;
+  edgeAnimation?: boolean;
+  edgeAnimationSpeed?: number;
 }
 
 interface MapProps {

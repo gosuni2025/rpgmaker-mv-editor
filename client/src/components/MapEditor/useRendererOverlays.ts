@@ -664,5 +664,5 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
     refs.fogOfWarMeshRef.current = mesh;
 
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
-  }, [rendererReady, mapWidth, mapHeight, disableFow, fogOfWar?.enabled, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha]);
+  }, [rendererReady, mapWidth, mapHeight, disableFow, fogOfWar?.enabled, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha, fogOfWar?.fogHeight, fogOfWar?.lineOfSight, fogOfWar?.absorption, fogOfWar?.visibilityBrightness, fogOfWar?.edgeAnimation, fogOfWar?.edgeAnimationSpeed]);
 }

@@ -31,6 +31,12 @@ FogOfWar._prevPlayerY = -1;
 FogOfWar._fogMesh = null;          // 하위 호환
 FogOfWar._fogGroup = null;         // THREE.Group (_isFogOfWar 마커)
 FogOfWar._time = 0;                // 셰이더 uTime
+FogOfWar._fogHeight = 300;         // fog 볼륨 높이 (픽셀)
+FogOfWar._lineOfSight = true;      // Line of Sight 활성화
+FogOfWar._absorption = 0.012;      // Beer-Lambert 흡수율
+FogOfWar._visibilityBrightness = 0.0; // 시야 내부 밝기 보정 (0=기본, 양수=더 밝게)
+FogOfWar._edgeAnimation = true;    // 경계 애니메이션 활성화
+FogOfWar._edgeAnimationSpeed = 1.0; // 경계 애니메이션 속도 배율
 
 //=============================================================================
 // 셰이더 코드 — 레이마칭 볼류메트릭 fog
@@ -60,6 +66,10 @@ var VOL_FOG_FRAG = [
     'uniform float fogHeight;',     // fog 볼륨 최대 높이 (픽셀)
     'uniform vec2 mapPixelSize;',   // 맵 크기 (픽셀 단위)
     'uniform vec2 scrollOffset;',   // 맵 스크롤 오프셋 (픽셀)
+    'uniform float absorption;',     // Beer-Lambert 흡수율
+    'uniform float visibilityBrightness;', // 시야 내부 밝기 보정
+    'uniform float edgeAnimOn;',     // 경계 애니메이션 on/off (0 or 1)
+    'uniform float edgeAnimSpeed;',  // 경계 애니메이션 속도 배율
     '',
     '// --- 노이즈 함수 ---',
     'vec2 _hash22(vec2 p) {',
@@ -115,8 +125,9 @@ var VOL_FOG_FRAG = [
     '    float fogDensity;',
     '    if (visibility > 0.01) {',
     '        // 시야 내부: 중심(vis=1)→0, 경계(vis→0)→exploredAlpha',
-    '        // 시야 경계가 탐험 영역보다 어둡지 않도록 exploredAlpha로 cap',
-    '        fogDensity = exploredAlpha * (1.0 - visibility);',
+    '        // visibilityBrightness로 시야 내부를 더 밝게 만들 수 있음',
+    '        float adjustedVis = clamp(visibility + visibilityBrightness * visibility, 0.0, 1.0);',
+    '        fogDensity = exploredAlpha * (1.0 - adjustedVis);',
     '    } else if (explored > 0.5) {',
     '        fogDensity = exploredAlpha;',
     '    } else {',
@@ -178,10 +189,11 @@ var VOL_FOG_FRAG = [
     '',
     '        // 경계 애니메이션: 시야 경계에 시간 기반 노이즈로 출렁임 추가',
     '        // baseDensity가 경계 영역(0.1~0.5)일 때 노이즈로 밀도 변동',
-    '        float edgeWave = _valueNoise(samplePos.xy * 0.015 + vec2(uTime * 0.08, uTime * 0.06));',
-    '        edgeWave += 0.5 * _valueNoise(samplePos.xy * 0.03 + vec2(-uTime * 0.05, uTime * 0.04));',
+    '        float timeS = uTime * edgeAnimSpeed;',
+    '        float edgeWave = _valueNoise(samplePos.xy * 0.015 + vec2(timeS * 0.08, timeS * 0.06));',
+    '        edgeWave += 0.5 * _valueNoise(samplePos.xy * 0.03 + vec2(-timeS * 0.05, timeS * 0.04));',
     '        float edgeMask = smoothstep(0.0, 0.15, baseDensity) * (1.0 - smoothstep(0.4, 0.7, baseDensity));',
-    '        baseDensity += edgeWave * 0.2 * edgeMask;',
+    '        baseDensity += edgeWave * 0.2 * edgeMask * edgeAnimOn;',
     '        baseDensity = clamp(baseDensity, 0.0, 1.0);',
     '',
     '        // 시야 내부는 투명하게: 밀도가 낮은 곳을 급격히 0으로',
@@ -205,10 +217,10 @@ var VOL_FOG_FRAG = [
     '        density = clamp(density, 0.0, 1.0);',
     '',
     '        // Beer-Lambert 흡수',
-    '        float absorption = density * stepSize * 0.012;',
+    '        float absorb = density * stepSize * absorption;',
     '',
     '        // Front-to-back: 남은 투명도만큼 누적',
-    '        accumulatedAlpha += (1.0 - accumulatedAlpha) * absorption;',
+    '        accumulatedAlpha += (1.0 - accumulatedAlpha) * absorb;',
     '',
     '        t += stepSize;',
     '    }',
@@ -224,7 +236,6 @@ var VOL_FOG_FRAG = [
 // 설정 상수
 //=============================================================================
 
-var FOG_HEIGHT = 300;    // fog 볼륨 최대 높이 (픽셀)
 var FOG_PADDING = 960;   // 맵 바깥으로 확장하는 패딩 (20타일, 각 변)
 
 //=============================================================================
@@ -244,6 +255,12 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
         }
         this._unexploredAlpha = config.unexploredAlpha != null ? config.unexploredAlpha : 1.0;
         this._exploredAlpha = config.exploredAlpha != null ? config.exploredAlpha : 0.6;
+        this._fogHeight = config.fogHeight != null ? config.fogHeight : 300;
+        this._lineOfSight = config.lineOfSight != null ? config.lineOfSight : true;
+        this._absorption = config.absorption != null ? config.absorption : 0.012;
+        this._visibilityBrightness = config.visibilityBrightness != null ? config.visibilityBrightness : 0.0;
+        this._edgeAnimation = config.edgeAnimation != null ? config.edgeAnimation : true;
+        this._edgeAnimationSpeed = config.edgeAnimationSpeed != null ? config.edgeAnimationSpeed : 1.0;
     }
 
     // 가시성 / 탐험 버퍼
@@ -311,7 +328,7 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
     var explored = this._exploredData;
 
     // 장애물 맵 캐시 (통행불가 타일 = 시야 차단)
-    this._buildBlockMap();
+    if (this._lineOfSight) this._buildBlockMap();
 
     // 가시성 초기화
     for (var i = 0; i < vis.length; i++) vis[i] = 0;
@@ -329,7 +346,7 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
             var distSq = dx * dx + dy * dy;
             if (distSq <= radiusSq) {
                 // Line of Sight 체크: 플레이어→타일 경로에 벽이 있으면 차단
-                if (!this._hasLineOfSight(playerTileX, playerTileY, tx, ty)) continue;
+                if (this._lineOfSight && !this._hasLineOfSight(playerTileX, playerTileY, tx, ty)) continue;
 
                 var idx = ty * w + tx;
                 var dist = Math.sqrt(distSq);
@@ -515,9 +532,13 @@ FogOfWar._createMesh = function() {
             uTime:           { value: 0 },
             mapSize:         { value: new THREE.Vector2(this._mapWidth, this._mapHeight) },
             cameraWorldPos:  { value: new THREE.Vector3(0, 0, 0) },
-            fogHeight:       { value: FOG_HEIGHT },
+            fogHeight:       { value: this._fogHeight },
             mapPixelSize:    { value: new THREE.Vector2(totalW, totalH) },
-            scrollOffset:    { value: new THREE.Vector2(0, 0) }
+            scrollOffset:    { value: new THREE.Vector2(0, 0) },
+            absorption:      { value: this._absorption },
+            visibilityBrightness: { value: this._visibilityBrightness },
+            edgeAnimOn:      { value: this._edgeAnimation ? 1.0 : 0.0 },
+            edgeAnimSpeed:   { value: this._edgeAnimationSpeed }
         },
         vertexShader: VOL_FOG_VERT,
         fragmentShader: VOL_FOG_FRAG,
@@ -599,6 +620,11 @@ FogOfWar._updateMeshUniforms = function() {
     u.unexploredAlpha.value = this._unexploredAlpha;
     u.exploredAlpha.value = this._exploredAlpha;
     u.uTime.value = this._time;
+    u.fogHeight.value = this._fogHeight;
+    u.absorption.value = this._absorption;
+    u.visibilityBrightness.value = this._visibilityBrightness;
+    u.edgeAnimOn.value = this._edgeAnimation ? 1.0 : 0.0;
+    u.edgeAnimSpeed.value = this._edgeAnimationSpeed;
 
     // 카메라 월드 좌표 업데이트
     if (typeof Mode3D !== 'undefined' && Mode3D._perspCamera) {
