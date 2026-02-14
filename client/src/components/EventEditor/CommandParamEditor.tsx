@@ -10,6 +10,7 @@ import {
   ShopProcessingEditor,
   ChangeBattleBackEditor,
   ChangeParallaxEditor,
+  GetLocationInfoEditor,
 } from './commandEditors';
 
 interface CommandParamEditorProps {
@@ -54,6 +55,7 @@ function getCommandName(code: number): string {
     201: '장소 이동', 202: '탈 것 위치 설정', 204: '지도 스크롤', 211: '투명 상태 변경', 212: '애니메이션 표시', 213: '말풍선 아이콘 표시', 216: '대열 보행 변경', 223: '화면의 색조 변경', 224: '화면의 플래쉬', 225: '화면 흔들리기', 230: '대기', 231: '그림 표시', 233: '그림 회전', 234: '그림의 색조 변경', 235: '그림 제거', 236: '날씨 효과 설정',
     241: 'BGM 재생', 242: 'BGM 페이드아웃', 245: 'BGS 재생', 246: 'BGS 페이드아웃',
     249: 'ME 재생', 250: 'SE 재생', 261: '무비 재생', 281: '지도명 표시 변경', 282: '타일셋 변경', 283: '전투 배경 변경',
+    285: '지정 위치의 정보 획득',
     301: '전투 처리', 302: '상점의 처리', 303: '이름 입력 처리', 311: 'HP 증감', 312: 'MP 증감', 326: 'TP 증감',
     313: '스테이트 변경', 314: '전체 회복', 315: 'EXP 증감', 316: '레벨 증감', 317: '능력치 증감',
     318: '스킬 증감', 319: '장비 변경', 320: '이름 변경', 321: '직업 변경', 322: '액터 이미지 변경', 323: '탈 것 이미지 변경', 324: '닉네임 변경', 325: '프로필 변경',
@@ -151,6 +153,7 @@ function getEditorContent(
     case 282: return <ChangeTilesetEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 283: return <ChangeBattleBackEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 284: return <ChangeParallaxEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 285: return <GetLocationInfoEditor p={p} onOk={onOk} onCancel={onCancel} />;
     default: return null;
   }
 }

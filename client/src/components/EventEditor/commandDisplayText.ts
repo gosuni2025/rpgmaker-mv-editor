@@ -270,6 +270,27 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
     return text;
   }
 
+  // 지정 위치의 정보 획득 포맷 (code 285)
+  // params: [variableId, infoType, designationType, x, y]
+  if (code === 285 && cmd.parameters && cmd.parameters.length >= 5) {
+    const variableId = cmd.parameters[0] as number;
+    const infoType = cmd.parameters[1] as number;
+    const designationType = cmd.parameters[2] as number;
+    const px = cmd.parameters[3] as number;
+    const py = cmd.parameters[4] as number;
+    const infoNames = ['지형 태그', '이벤트 ID', '타일 ID(레이어1)', '타일 ID(레이어2)', '타일 ID(레이어3)', '타일 ID(레이어4)', '지역 ID'];
+    const varLabel = `#${String(variableId).padStart(4, '0')}`;
+    const infoLabel = infoNames[infoType] || '?';
+    let locLabel: string;
+    if (designationType === 0) {
+      locLabel = `(${px},${py})`;
+    } else {
+      locLabel = `(#${String(px).padStart(4, '0')}, #${String(py).padStart(4, '0')})`;
+    }
+    text += `: ${varLabel}, ${infoLabel}, ${locLabel}`;
+    return text;
+  }
+
   // 먼 배경 변경 포맷
   if (code === 284 && cmd.parameters && cmd.parameters.length >= 1) {
     const parallaxName = cmd.parameters[0] as string;

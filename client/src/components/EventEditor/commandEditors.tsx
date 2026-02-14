@@ -7,7 +7,7 @@ export { DEFAULT_AUDIO } from './actionEditorUtils';
 export { ChangeGoldEditor, ChangeItemEditor, ChangePartyMemberEditor } from './partyEditors';
 export { ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeParameterEditor } from './actorStatEditors';
 export { ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeActorImagesEditor, ChangeVehicleImageEditor } from './actorEditors';
-export { TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, ScrollMapEditor } from './movementEditors';
+export { TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, ScrollMapEditor, GetLocationInfoEditor } from './movementEditors';
 export { ShowPictureEditor, MovePictureEditor, RotatePictureEditor, TintPictureEditor } from './pictureEditors';
 export { TintScreenEditor, FlashScreenEditor, ShakeScreenEditor, SetWeatherEffectEditor, ChangeWindowColorEditor } from './screenEffectEditors';
 export { AudioEditor, VehicleBGMEditor, MovieEditor, FadeoutEditor, ToggleEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeMapNameDisplayEditor, ChangeTilesetEditor, ShowAnimationEditor, ShowBalloonIconEditor, ChangeBattleBackEditor, ChangeParallaxEditor } from './miscActionEditors';
