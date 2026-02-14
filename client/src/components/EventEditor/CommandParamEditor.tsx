@@ -5,7 +5,7 @@ import {
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor, VehicleBGMEditor, MovieEditor, FadeoutEditor,
   ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor, ShowBalloonIconEditor,
-  ScrollingTextEditor, ConditionalBranchEditor, ShowPictureEditor, MovePictureEditor, RotatePictureEditor, TintPictureEditor, TintScreenEditor, FlashScreenEditor, ShakeScreenEditor, SetWeatherEffectEditor,
+  ScrollingTextEditor, ConditionalBranchEditor, ShowPictureEditor, MovePictureEditor, RotatePictureEditor, TintPictureEditor, TintScreenEditor, FlashScreenEditor, ShakeScreenEditor, SetWeatherEffectEditor, ChangeWindowColorEditor,
   BattleProcessingEditor,
   ShopProcessingEditor,
 } from './commandEditors';
@@ -26,7 +26,7 @@ export default function CommandParamEditor({ code, command, followCommands, hasE
     onOk(p);
     return null;
   }
-  const dialogWidth = code === 102 ? 560 : code === 111 ? 540 : code === 231 ? 720 : (code === 223 || code === 224 || code === 234) ? 520 : 480;
+  const dialogWidth = code === 102 ? 560 : code === 111 ? 540 : code === 231 ? 720 : (code === 223 || code === 224 || code === 234 || code === 138) ? 520 : code === 140 ? 320 : 480;
   return (
     <div className="modal-overlay">
       <div className="image-picker-dialog" style={{ width: dialogWidth, maxHeight: '90vh' }}>
@@ -48,7 +48,7 @@ function getCommandName(code: number): string {
     124: '타이머 조작', 125: '소지 금액 증감', 126: '아이템 증감',
     127: '무기 변경', 128: '방어구 변경', 129: '파티원 변경',
     132: '전투 BGM 변경', 133: '승리 ME 변경', 139: '패배 ME 변경', 140: '탈 것 BGM 변경',
-    134: '저장 금지 변경', 135: '메뉴 금지 변경', 136: '조우 금지 변경', 137: '진형 금지 변경',
+    134: '저장 금지 변경', 135: '메뉴 금지 변경', 136: '조우 금지 변경', 137: '진형 금지 변경', 138: '창 색깔 변경',
     201: '장소 이동', 202: '탈 것 위치 설정', 204: '지도 스크롤', 211: '투명 상태 변경', 212: '애니메이션 표시', 213: '말풍선 아이콘 표시', 216: '대열 보행 변경', 223: '화면의 색조 변경', 224: '화면의 플래쉬', 225: '화면 흔들리기', 230: '대기', 231: '그림 표시', 233: '그림 회전', 234: '그림의 색조 변경', 235: '그림 제거', 236: '날씨 효과 설정',
     241: 'BGM 재생', 242: 'BGM 페이드아웃', 245: 'BGS 재생', 246: 'BGS 페이드아웃',
     249: 'ME 재생', 250: 'SE 재생', 261: '무비 재생',
@@ -141,6 +141,7 @@ function getEditorContent(
     case 135: return <ChangeMenuAccessEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 136: return <ChangeEncounterEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 137: return <ChangeFormationAccessEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 138: return <ChangeWindowColorEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 216: return <ChangePlayerFollowersEditor p={p} onOk={onOk} onCancel={onCancel} />;
     default: return null;
   }
