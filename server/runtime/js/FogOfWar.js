@@ -318,17 +318,9 @@ FogOfWar.updatePassUniforms = function(pass) {
 // ShaderPass 참조 (PostProcess.js에서 정의)
 // 이 파일이 PostProcess.js 뒤에 로드되므로 사용 가능
 
-var _PostProcess_createComposer = PostProcess._createComposer;
-PostProcess._createComposer = function(rendererObj, stage) {
-    _PostProcess_createComposer.call(this, rendererObj, stage);
-    this._insertFogOfWarPass();
-};
-
-var _PostProcess_createComposer2D = PostProcess._createComposer2D;
-PostProcess._createComposer2D = function(rendererObj, stage) {
-    _PostProcess_createComposer2D.call(this, rendererObj, stage);
-    this._insertFogOfWarPass();
-};
+// NOTE: _createComposer / _createComposer2D 후킹 불필요
+// _createComposer() 내부에서 _applyMapSettings()를 호출하고,
+// _applyMapSettings 후킹에서 FogOfWar.setup() + _insertFogOfWarPass()를 수행함.
 
 PostProcess._insertFogOfWarPass = function() {
     // 에디터 모드에서는 PostProcess FOW 패스를 삽입하지 않음 (오버레이 메쉬로 미리보기)
