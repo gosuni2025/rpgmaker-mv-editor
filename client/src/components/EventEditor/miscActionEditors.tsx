@@ -22,9 +22,9 @@ export function AudioEditor({ p, onOk, onCancel, type }: { p: unknown[]; onOk: (
 }
 
 const VEHICLE_OPTIONS = [
-  { value: 0, label: '소형선' },
-  { value: 1, label: '대형선' },
-  { value: 2, label: '비공정' },
+  { value: 0, label: '보트' },
+  { value: 1, label: '선박' },
+  { value: 2, label: '비행선' },
 ];
 
 export function VehicleBGMEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
@@ -33,13 +33,16 @@ export function VehicleBGMEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (p
   const [audio, setAudio] = useState<AudioFile>(audioParam);
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 12, color: '#aaa' }}>탈 것:</span>
-        <select value={vehicle} onChange={e => setVehicle(Number(e.target.value))} style={selectStyle}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+        <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>탈 것:</span>
+        <select value={vehicle} onChange={e => setVehicle(Number(e.target.value))} style={{ ...selectStyle, flex: 1 }}>
           {VEHICLE_OPTIONS.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
         </select>
       </div>
-      <AudioPicker type="bgm" value={audio} onChange={setAudio} inline />
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+        <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>BGM:</span>
+        <AudioPicker type="bgm" value={audio} onChange={setAudio} />
+      </div>
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => onOk([vehicle, audio])}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
@@ -126,7 +129,7 @@ export function ChangeEncounterEditor({ p, onOk, onCancel }: { p: unknown[]; onO
 }
 
 export function ChangeFormationAccessEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
-  return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="대열로 보행" />;
+  return <ToggleEditor p={p} onOk={onOk} onCancel={onCancel} legend="정렬" />;
 }
 
 export function ChangePlayerFollowersEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
