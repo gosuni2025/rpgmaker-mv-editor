@@ -1,8 +1,9 @@
 import type { EditorState, SliceCreator } from './types';
-import { ZOOM_LEVELS, DEFAULT_MAX_UNDO } from './types';
+import { DEFAULT_MAX_UNDO, DEFAULT_ZOOM_STEP, MIN_ZOOM, MAX_ZOOM } from './types';
 
 const TRANSPARENT_COLOR_KEY = 'rpg-editor-transparent-color';
 const MAX_UNDO_KEY = 'rpg-editor-max-undo';
+const ZOOM_STEP_KEY = 'rpg-editor-zoom-step';
 
 function loadMaxUndo(): number {
   try {
@@ -15,6 +16,17 @@ function loadMaxUndo(): number {
   return DEFAULT_MAX_UNDO;
 }
 
+function loadZoomStep(): number {
+  try {
+    const saved = localStorage.getItem(ZOOM_STEP_KEY);
+    if (saved) {
+      const val = Number(saved);
+      if (val >= 1 && val <= 100) return val;
+    }
+  } catch {}
+  return DEFAULT_ZOOM_STEP;
+}
+
 function loadTransparentColor(): { r: number; g: number; b: number } {
   try {
     const saved = localStorage.getItem(TRANSPARENT_COLOR_KEY);
@@ -25,7 +37,7 @@ function loadTransparentColor(): { r: number; g: number; b: number } {
 
 export const uiSlice: SliceCreator<Pick<EditorState,
   'zoomLevel' | 'mode3d' | 'shadowLight' | 'depthOfField' | 'paletteTab' | 'toastMessage' | 'toastPersistent' |
-  'transparentColor' | 'maxUndo' |
+  'transparentColor' | 'maxUndo' | 'zoomStep' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
@@ -35,7 +47,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
   'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' | 'setShowLocalizationDialog' |
-  'setTransparentColor' | 'setMaxUndo'
+  'setTransparentColor' | 'setMaxUndo' | 'setZoomStep'
 >> = (set, get) => ({
   zoomLevel: 1,
   mode3d: false,
@@ -47,6 +59,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   toastPersistent: false,
   transparentColor: loadTransparentColor(),
   maxUndo: loadMaxUndo(),
+  zoomStep: loadZoomStep(),
 
   showOpenProjectDialog: false,
   showNewProjectDialog: false,
@@ -73,14 +86,16 @@ export const uiSlice: SliceCreator<Pick<EditorState,
 
   setZoomLevel: (level: number) => set({ zoomLevel: level }),
   zoomIn: () => {
-    const { zoomLevel } = get();
-    const idx = ZOOM_LEVELS.indexOf(zoomLevel);
-    if (idx < ZOOM_LEVELS.length - 1) set({ zoomLevel: ZOOM_LEVELS[idx + 1] });
+    const { zoomLevel, zoomStep } = get();
+    const step = zoomStep / 100;
+    const newZoom = Math.min(MAX_ZOOM, Math.round((zoomLevel + step) * 100) / 100);
+    set({ zoomLevel: newZoom });
   },
   zoomOut: () => {
-    const { zoomLevel } = get();
-    const idx = ZOOM_LEVELS.indexOf(zoomLevel);
-    if (idx > 0) set({ zoomLevel: ZOOM_LEVELS[idx - 1] });
+    const { zoomLevel, zoomStep } = get();
+    const step = zoomStep / 100;
+    const newZoom = Math.max(MIN_ZOOM, Math.round((zoomLevel - step) * 100) / 100);
+    set({ zoomLevel: newZoom });
   },
   zoomActualSize: () => set({ zoomLevel: 1 }),
 
@@ -132,5 +147,10 @@ export const uiSlice: SliceCreator<Pick<EditorState,
     const clamped = Math.max(1, Math.min(999, max));
     localStorage.setItem(MAX_UNDO_KEY, String(clamped));
     set({ maxUndo: clamped });
+  },
+  setZoomStep: (step: number) => {
+    const clamped = Math.max(1, Math.min(100, step));
+    localStorage.setItem(ZOOM_STEP_KEY, String(clamped));
+    set({ zoomStep: clamped });
   },
 });

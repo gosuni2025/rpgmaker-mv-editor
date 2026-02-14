@@ -15,11 +15,14 @@ export default function OptionsDialog() {
   const setTransparentColor = useEditorStore((s) => s.setTransparentColor);
   const maxUndo = useEditorStore((s) => s.maxUndo);
   const setMaxUndo = useEditorStore((s) => s.setMaxUndo);
+  const zoomStep = useEditorStore((s) => s.zoomStep);
+  const setZoomStep = useEditorStore((s) => s.setZoomStep);
   const setShowOptionsDialog = useEditorStore((s) => s.setShowOptionsDialog);
 
   const [localColor, setLocalColor] = useState(transparentColor);
   const [localLang, setLocalLang] = useState(i18n.language);
   const [localMaxUndo, setLocalMaxUndo] = useState(maxUndo);
+  const [localZoomStep, setLocalZoomStep] = useState(zoomStep);
   const [localSteamPath, setLocalSteamPath] = useState('');
   const [detectedSteamPath, setDetectedSteamPath] = useState<string | null>(null);
 
@@ -33,6 +36,7 @@ export default function OptionsDialog() {
   const applySettings = async () => {
     setTransparentColor(localColor);
     setMaxUndo(localMaxUndo);
+    setZoomStep(localZoomStep);
     if (localLang !== i18n.language) {
       i18n.changeLanguage(localLang);
       localStorage.setItem('editor-lang', localLang);
@@ -192,6 +196,23 @@ export default function OptionsDialog() {
                 onChange={(e) => setLocalMaxUndo(Math.max(1, Math.min(999, Number(e.target.value) || 1)))}
                 style={{ width: 80 }}
               />
+            </label>
+          </div>
+
+          {/* Zoom Step */}
+          <div className="db-form-section">{t('options.zoomStep')}</div>
+          <div className="db-form" style={{ gap: 8 }}>
+            <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <span>{t('options.zoomStepPercent')}</span>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={localZoomStep}
+                onChange={(e) => setLocalZoomStep(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+                style={{ width: 80 }}
+              />
+              <span>%</span>
             </label>
           </div>
 

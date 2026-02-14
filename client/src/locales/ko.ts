@@ -94,6 +94,8 @@ const ko = {
     steamPathDetected: '자동 감지됨',
     steamPathClear: '초기화 (자동 탐색)',
     steamPathHelp: 'RPG Maker MV가 설치된 Steam 경로를 지정합니다. 비워두면 자동으로 탐색합니다.',
+    zoomStep: '줌 설정',
+    zoomStepPercent: '줌 스텝:',
   },
 
   // === Toolbar ===
