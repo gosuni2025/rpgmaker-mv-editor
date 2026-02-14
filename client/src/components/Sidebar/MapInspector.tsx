@@ -370,14 +370,11 @@ export default function MapInspector() {
         updateMapField={updateMapField}
       />
 
-      {/* Bloom Settings */}
-      <BloomSection
+      {/* Post Processing Effects (블룸 포함) */}
+      <PostProcessSection
         currentMap={currentMap}
         updateMapField={updateMapField}
       />
-
-      {/* Post Processing Effects */}
-      <PostProcessSection />
 
       {/* Map Size Adjust */}
       <div className="light-inspector-section">
@@ -683,80 +680,7 @@ function AnimSlider({ label, value, min, max, step, onChange }: {
   );
 }
 
-// --- 블룸 설정 섹션 ---
-
-function BloomSection({ currentMap, updateMapField }: {
-  currentMap: any;
-  updateMapField: (field: string, value: unknown) => void;
-}) {
-  const bloom: BloomConfig = currentMap.bloomConfig || DEFAULT_BLOOM_CONFIG;
-
-  const updateBloom = useCallback((field: keyof BloomConfig, value: unknown) => {
-    const updated = { ...bloom, [field]: value };
-    updateMapField('bloomConfig', updated);
-    // 런타임에 즉시 반영
-    const DOF = (window as any).DepthOfField;
-    if (DOF) {
-      DOF.bloomConfig.threshold = updated.threshold;
-      DOF.bloomConfig.strength = updated.strength;
-      DOF.bloomConfig.radius = updated.radius;
-      DOF.bloomConfig.downscale = updated.downscale;
-      if (DOF._bloomPass) {
-        DOF._bloomPass.enabled = updated.enabled;
-      }
-    }
-  }, [bloom, updateMapField]);
-
-  const handleReset = useCallback(() => {
-    updateMapField('bloomConfig', undefined);
-    const DOF = (window as any).DepthOfField;
-    if (DOF) {
-      DOF.bloomConfig.threshold = DEFAULT_BLOOM_CONFIG.threshold;
-      DOF.bloomConfig.strength = DEFAULT_BLOOM_CONFIG.strength;
-      DOF.bloomConfig.radius = DEFAULT_BLOOM_CONFIG.radius;
-      DOF.bloomConfig.downscale = DEFAULT_BLOOM_CONFIG.downscale;
-      if (DOF._bloomPass) {
-        DOF._bloomPass.enabled = DEFAULT_BLOOM_CONFIG.enabled;
-      }
-    }
-  }, [updateMapField]);
-
-  return (
-    <div className="light-inspector-section">
-      <div className="light-inspector-title">
-        블룸
-        <span className="sky-ext-badge" style={{ marginLeft: 6 }}>EXT</span>
-      </div>
-      <label className="map-inspector-checkbox">
-        <input
-          type="checkbox"
-          checked={bloom.enabled !== false}
-          onChange={(e) => updateBloom('enabled', e.target.checked)}
-        />
-        <span>블룸 활성화</span>
-      </label>
-      {bloom.enabled !== false && (
-        <>
-          <AnimSlider label="밝기 임계값" value={bloom.threshold} min={0} max={1} step={0.05}
-            onChange={(v) => updateBloom('threshold', v)} />
-          <AnimSlider label="강도" value={bloom.strength} min={0} max={3} step={0.05}
-            onChange={(v) => updateBloom('strength', v)} />
-          <AnimSlider label="블러 반경" value={bloom.radius} min={0} max={3} step={0.1}
-            onChange={(v) => updateBloom('radius', v)} />
-          <AnimSlider label="다운스케일" value={bloom.downscale} min={1} max={8} step={1}
-            onChange={(v) => updateBloom('downscale', v)} />
-          {currentMap.bloomConfig && (
-            <button className="anim-tile-reset-btn" onClick={handleReset}>
-              기본값 복원
-            </button>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// --- 포스트 프로세싱 인스펙터 섹션 ---
+// --- 포스트 프로세싱 인스펙터 섹션 (블룸 포함) ---
 
 interface PPEffectEntry {
   key: string;
@@ -790,7 +714,10 @@ function getEffectParams(key: string): PPParamDef[] {
   return [];
 }
 
-function PostProcessSection() {
+function PostProcessSection({ currentMap, updateMapField }: {
+  currentMap: any;
+  updateMapField: (field: string, value: unknown) => void;
+}) {
   const postProcessConfig = useEditorStore((s) => s.postProcessConfig);
   const updatePostProcessEffect = useEditorStore((s) => s.updatePostProcessEffect);
   const [expandedEffects, setExpandedEffects] = useState<Set<string>>(new Set());
@@ -798,7 +725,6 @@ function PostProcessSection() {
   const [effectList, setEffectList] = useState<PPEffectEntry[]>(() => getEffectList());
   useEffect(() => {
     if (effectList.length > 0) return;
-    // PostProcessEffects 런타임이 아직 로드되지 않았을 수 있으므로 재시도
     const timer = setInterval(() => {
       const list = getEffectList();
       if (list.length > 0) {
@@ -834,20 +760,86 @@ function PostProcessSection() {
     updatePostProcessEffect(key, defaults);
   }, [updatePostProcessEffect]);
 
-  const enabledCount = useMemo(() => {
-    return Object.values(postProcessConfig).filter(c => c?.enabled).length;
-  }, [postProcessConfig]);
+  // 블룸
+  const bloom: BloomConfig = currentMap.bloomConfig || DEFAULT_BLOOM_CONFIG;
 
-  if (effectList.length === 0) return null;
+  const updateBloom = useCallback((field: keyof BloomConfig, value: unknown) => {
+    const cur: BloomConfig = useEditorStore.getState().currentMap?.bloomConfig || DEFAULT_BLOOM_CONFIG;
+    const updated = { ...cur, [field]: value };
+    updateMapField('bloomConfig', updated);
+    const DOF = (window as any).DepthOfField;
+    if (DOF) {
+      DOF.bloomConfig.threshold = updated.threshold;
+      DOF.bloomConfig.strength = updated.strength;
+      DOF.bloomConfig.radius = updated.radius;
+      DOF.bloomConfig.downscale = updated.downscale;
+      if (DOF._bloomPass) DOF._bloomPass.enabled = updated.enabled;
+    }
+  }, [updateMapField]);
+
+  const handleBloomReset = useCallback(() => {
+    updateMapField('bloomConfig', undefined);
+    const DOF = (window as any).DepthOfField;
+    if (DOF) {
+      DOF.bloomConfig.threshold = DEFAULT_BLOOM_CONFIG.threshold;
+      DOF.bloomConfig.strength = DEFAULT_BLOOM_CONFIG.strength;
+      DOF.bloomConfig.radius = DEFAULT_BLOOM_CONFIG.radius;
+      DOF.bloomConfig.downscale = DEFAULT_BLOOM_CONFIG.downscale;
+      if (DOF._bloomPass) DOF._bloomPass.enabled = DEFAULT_BLOOM_CONFIG.enabled;
+    }
+  }, [updateMapField]);
+
+  const enabledCount = useMemo(() => {
+    let count = Object.values(postProcessConfig).filter(c => c?.enabled).length;
+    if (bloom.enabled !== false) count++;
+    return count;
+  }, [postProcessConfig, bloom.enabled]);
 
   return (
     <div className="light-inspector-section">
       <div className="light-inspector-title">
         포스트 프로세싱
+        <span className="sky-ext-badge" style={{ marginLeft: 6 }}>EXT</span>
         {enabledCount > 0 && (
           <span className="pp-enabled-count">{enabledCount}</span>
         )}
       </div>
+
+      {/* 블룸 */}
+      <div className="anim-tile-kind-panel">
+        <div className="anim-tile-kind-header" onClick={() => toggleExpand('__bloom__')}>
+          <span className="anim-tile-kind-arrow">{expandedEffects.has('__bloom__') ? '\u25BC' : '\u25B6'}</span>
+          <span className="anim-tile-kind-name">블룸</span>
+          {bloom.enabled !== false && <span className="pp-effect-active-dot" title="활성">{'\u2022'}</span>}
+        </div>
+        {expandedEffects.has('__bloom__') && (
+          <div className="anim-tile-kind-body">
+            <label className="map-inspector-checkbox">
+              <input type="checkbox" checked={bloom.enabled !== false}
+                onChange={(e) => updateBloom('enabled', e.target.checked)} />
+              <span>활성화</span>
+            </label>
+            {bloom.enabled !== false && (
+              <>
+                <AnimSlider label="밝기 임계값" value={bloom.threshold} min={0} max={1} step={0.05}
+                  onChange={(v) => updateBloom('threshold', v)} />
+                <AnimSlider label="강도" value={bloom.strength} min={0} max={3} step={0.05}
+                  onChange={(v) => updateBloom('strength', v)} />
+                <AnimSlider label="블러 반경" value={bloom.radius} min={0} max={3} step={0.1}
+                  onChange={(v) => updateBloom('radius', v)} />
+                <AnimSlider label="다운스케일" value={bloom.downscale} min={1} max={8} step={1}
+                  onChange={(v) => updateBloom('downscale', v)} />
+                {currentMap.bloomConfig && (
+                  <button className="anim-tile-reset-btn" onClick={handleBloomReset}>
+                    초기화
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
       {effectList.map(effect => {
         const config = postProcessConfig[effect.key] || { enabled: false };
         const expanded = expandedEffects.has(effect.key);
