@@ -24,7 +24,6 @@ export default function MapCanvas() {
   // DOM refs
   const containerRef = useRef<HTMLDivElement>(null);
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
-  const parallaxDivRef = useRef<HTMLDivElement>(null);
 
   // Shared refs for drawing state
   const pendingChanges = useRef<TileChange[]>([]);
@@ -145,8 +144,6 @@ export default function MapCanvas() {
   // =========================================================================
   // Render
   // =========================================================================
-  const parallaxName = currentMap?.parallaxName || '';
-  const parallaxShow = currentMap?.parallaxShow ?? false;
   const mapPxW = (currentMap?.width || 0) * TILE_SIZE_PX;
   const mapPxH = (currentMap?.height || 0) * TILE_SIZE_PX;
   const MAP_PADDING = TILE_SIZE_PX * 2; // 2 tiles padding around map for resize handles
@@ -219,22 +216,6 @@ export default function MapCanvas() {
       }}>
         {/* Map interior checkerboard background */}
         <div style={mapBgStyle} />
-        {parallaxName && parallaxShow && (
-          <div
-            ref={parallaxDivRef}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: mapPxW,
-              height: mapPxH,
-              backgroundImage: `url(/api/resources/parallaxes/${parallaxName}.png)`,
-              backgroundRepeat: 'repeat',
-              backgroundSize: 'auto',
-              zIndex: 0,
-            }}
-          />
-        )}
         <canvas
           ref={webglCanvasRef}
           onMouseDown={handleMouseDown}

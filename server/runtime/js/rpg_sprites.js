@@ -2481,14 +2481,30 @@ Spriteset_Map.prototype.updateParallax = function() {
             mesh.position.copy(cam.position).addScaledVector(dir, farDist);
             // 카메라를 정면으로 바라보도록 회전
             mesh.lookAt(cam.position);
+            // 패럴랙스 스크롤 오프셋을 sky mesh 텍스처에 적용
+            if (mesh.material && mesh.material.map) {
+                var tex = mesh.material.map;
+                var texW = tex.image ? tex.image.width : 1;
+                var texH = tex.image ? tex.image.height : 1;
+                if (texW > 0 && texH > 0) {
+                    tex.offset.set(
+                        -($gameMap.parallaxOx() / texW) || 0,
+                        ($gameMap.parallaxOy() / texH) || 0
+                    );
+                }
+            }
         }
     }
     // 2D parallax TilingSprite visibility 제어
-    // - 에디터 모드: HTML DIV로 패러럴 표시하므로 TilingSprite는 항상 숨김
     // - 3D 모드: sky mesh가 대신 렌더되므로 TilingSprite 숨김
-    // - 2D 게임 모드: TilingSprite 표시
+    // - 에디터 모드: parallaxShow 플래그에 따라 표시 여부 결정
+    // - 게임 모드: 항상 표시
+    var showParallax = !is3D;
+    if (showParallax && window.__editorMode && $dataMap) {
+        showParallax = !!$dataMap.parallaxShow;
+    }
     if (this._parallax._threeObj) {
-        this._parallax._threeObj.visible = !is3D && !window.__editorMode;
+        this._parallax._threeObj.visible = showParallax;
     }
     if (this._parallax.bitmap) {
         this._parallax.origin.x = $gameMap.parallaxOx();
