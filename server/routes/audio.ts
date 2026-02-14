@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
 import multer from 'multer';
 import projectManager from '../services/projectManager';
 
@@ -37,6 +38,22 @@ router.get('/:type/:name', (req: Request, res: Response) => {
     const filePath = path.join(projectManager.getAudioPath(), req.params.type as string, req.params.name as string);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
     res.sendFile(filePath);
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Open audio folder in file manager
+router.post('/:type/open-folder', (req: Request, res: Response) => {
+  try {
+    const dirPath = path.join(projectManager.getAudioPath(), req.params.type as string);
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+    const cmd = process.platform === 'darwin' ? 'open'
+      : process.platform === 'win32' ? 'explorer' : 'xdg-open';
+    exec(`${cmd} "${dirPath}"`);
+    res.json({ success: true });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

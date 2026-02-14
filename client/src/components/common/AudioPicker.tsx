@@ -120,6 +120,9 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
         <div className="audio-picker-play-btns">
           <button className="audio-picker-btn" onClick={() => play()}>재생</button>
           <button className="audio-picker-btn" onClick={stop}>정지</button>
+          <button className="audio-picker-btn" style={{ marginLeft: 'auto' }} onClick={() => {
+            apiClient.post(`/audio/${type}/open-folder`, {}).catch(() => {});
+          }}>폴더 열기</button>
         </div>
 
         <div className="audio-picker-slider-group">
