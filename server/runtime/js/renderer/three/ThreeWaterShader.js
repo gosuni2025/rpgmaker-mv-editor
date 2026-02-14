@@ -43,10 +43,14 @@ ThreeWaterShader.setAllKindSettings = function(allSettings) {
 
 /**
  * kind에 해당하는 uniform 값 반환
- * 에디터 설정이 없으면 null 반환 (기본값 사용)
+ * _kindSettings → $dataMap.animTileSettings 순으로 fallback
+ * 둘 다 없으면 null 반환 (기본값 사용)
  */
 ThreeWaterShader.getUniformsForKind = function(kind) {
     var s = this._kindSettings[kind];
+    if (!s && typeof $dataMap !== 'undefined' && $dataMap && $dataMap.animTileSettings) {
+        s = $dataMap.animTileSettings[kind];
+    }
     if (s) {
         return {
             uWaveAmplitude: s.waveAmplitude,
@@ -67,6 +71,9 @@ ThreeWaterShader.getUniformsForKind = function(kind) {
  */
 ThreeWaterShader.isKindEnabled = function(kind) {
     var s = this._kindSettings[kind];
+    if (!s && typeof $dataMap !== 'undefined' && $dataMap && $dataMap.animTileSettings) {
+        s = $dataMap.animTileSettings[kind];
+    }
     if (s && s.enabled === false) return false;
     return true;
 };

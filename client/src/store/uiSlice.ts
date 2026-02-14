@@ -118,11 +118,20 @@ export const uiSlice: SliceCreator<Pick<EditorState,
     get().showToast(`피사계 심도 ${enabled ? 'ON' : 'OFF'}`);
   },
 
-  setPostProcessConfig: (config) => set({ postProcessConfig: config }),
+  setPostProcessConfig: (config) => {
+    set({ postProcessConfig: config });
+    // 맵 데이터에도 반영
+    const cm = get().currentMap;
+    if (cm) set({ currentMap: { ...cm, postProcessConfig: config } });
+  },
   updatePostProcessEffect: (effectKey, params) => {
     const prev = get().postProcessConfig;
     const prevEffect = prev[effectKey] || { enabled: false };
-    set({ postProcessConfig: { ...prev, [effectKey]: { ...prevEffect, ...params } } });
+    const newConfig = { ...prev, [effectKey]: { ...prevEffect, ...params } };
+    set({ postProcessConfig: newConfig });
+    // 맵 데이터에도 반영
+    const cm = get().currentMap;
+    if (cm) set({ currentMap: { ...cm, postProcessConfig: newConfig } });
   },
 
   setPaletteTab: (tab: 'A' | 'B' | 'C' | 'D' | 'E' | 'R') => set({ paletteTab: tab }),

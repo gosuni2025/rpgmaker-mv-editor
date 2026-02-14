@@ -180,7 +180,7 @@ export interface EditorState {
   shadowLight: boolean;
   depthOfField: boolean;
 
-  // Post-processing preview config (에디터 프리뷰용, 맵 데이터에 저장 안 됨)
+  // Post-processing config (맵 데이터에 저장됨)
   postProcessConfig: Record<string, { enabled: boolean; [key: string]: any }>;
   setPostProcessConfig: (config: Record<string, { enabled: boolean; [key: string]: any }>) => void;
   updatePostProcessEffect: (effectKey: string, params: { enabled?: boolean; [key: string]: any }) => void;

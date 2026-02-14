@@ -219,6 +219,19 @@ export function useThreeRenderer(
         ThreeWaterShader.setAllKindSettings(effectiveMap.animTileSettings || {});
       }
 
+      // bloomConfig 초기화 (맵 로드 시)
+      const DOF = (window as any).DepthOfField;
+      if (DOF) {
+        const bc = effectiveMap.bloomConfig;
+        DOF.bloomConfig.threshold = bc?.threshold ?? 0.5;
+        DOF.bloomConfig.strength = bc?.strength ?? 0.8;
+        DOF.bloomConfig.radius = bc?.radius ?? 1.0;
+        DOF.bloomConfig.downscale = bc?.downscale ?? 4;
+        if (DOF._bloomPass) {
+          DOF._bloomPass.enabled = bc ? bc.enabled !== false : true;
+        }
+      }
+
       // ShadowLight._scene을 Spriteset_Map 생성 전에 설정해야
       // _activateShadowLight → _findScene()이 새 씬을 찾을 수 있음
       ShadowLight._scene = rendererObj.scene;
@@ -528,6 +541,21 @@ export function useThreeRenderer(
             if (spriteset._tilemap) spriteset._tilemap._needsRepaint = true;
           }
           requestRender(3);
+        }
+        if (state.currentMap?.bloomConfig !== prevState.currentMap?.bloomConfig) {
+          const DOF = (window as any).DepthOfField;
+          if (DOF) {
+            const bc = state.currentMap?.bloomConfig;
+            const def = { enabled: true, threshold: 0.5, strength: 0.8, radius: 1.0, downscale: 4 };
+            DOF.bloomConfig.threshold = bc?.threshold ?? def.threshold;
+            DOF.bloomConfig.strength = bc?.strength ?? def.strength;
+            DOF.bloomConfig.radius = bc?.radius ?? def.radius;
+            DOF.bloomConfig.downscale = bc?.downscale ?? def.downscale;
+            if (DOF._bloomPass) {
+              DOF._bloomPass.enabled = bc ? bc.enabled !== false : true;
+            }
+          }
+          requestRender();
         }
         if (state.currentMap?.skyBackground !== prevState.currentMap?.skyBackground) {
           w.$dataMap.skyBackground = state.currentMap?.skyBackground || null;

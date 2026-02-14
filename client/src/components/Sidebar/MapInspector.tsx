@@ -5,8 +5,8 @@ import ImagePicker from '../common/ImagePicker';
 import AudioPicker from '../common/AudioPicker';
 import BattlebackPicker from '../common/BattlebackPicker';
 import SkyBackgroundPicker from '../common/SkyBackgroundPicker';
-import type { AudioFile, SkyBackground, SkySunLight, AnimTileShaderSettings } from '../../types/rpgMakerMV';
-import { sunUVToDirection, DEFAULT_WATER_SETTINGS, DEFAULT_WATERFALL_SETTINGS } from '../../types/rpgMakerMV';
+import type { AudioFile, SkyBackground, SkySunLight, AnimTileShaderSettings, BloomConfig } from '../../types/rpgMakerMV';
+import { sunUVToDirection, DEFAULT_WATER_SETTINGS, DEFAULT_WATERFALL_SETTINGS, DEFAULT_BLOOM_CONFIG } from '../../types/rpgMakerMV';
 import { getA1KindName, getA1KindType, getUsedA1Kinds } from '../../utils/tileHelper';
 import './InspectorPanel.css';
 
@@ -370,6 +370,12 @@ export default function MapInspector() {
         updateMapField={updateMapField}
       />
 
+      {/* Bloom Settings */}
+      <BloomSection
+        currentMap={currentMap}
+        updateMapField={updateMapField}
+      />
+
       {/* Post Processing Effects */}
       <PostProcessSection />
 
@@ -673,6 +679,79 @@ function AnimSlider({ label, value, min, max, step, onChange }: {
       <input type="number" min={min} max={max} step={step} value={value}
         className="anim-tile-slider-value"
         onChange={(e) => onChange(Number(e.target.value))} />
+    </div>
+  );
+}
+
+// --- 블룸 설정 섹션 ---
+
+function BloomSection({ currentMap, updateMapField }: {
+  currentMap: any;
+  updateMapField: (field: string, value: unknown) => void;
+}) {
+  const bloom: BloomConfig = currentMap.bloomConfig || DEFAULT_BLOOM_CONFIG;
+
+  const updateBloom = useCallback((field: keyof BloomConfig, value: unknown) => {
+    const updated = { ...bloom, [field]: value };
+    updateMapField('bloomConfig', updated);
+    // 런타임에 즉시 반영
+    const DOF = (window as any).DepthOfField;
+    if (DOF) {
+      DOF.bloomConfig.threshold = updated.threshold;
+      DOF.bloomConfig.strength = updated.strength;
+      DOF.bloomConfig.radius = updated.radius;
+      DOF.bloomConfig.downscale = updated.downscale;
+      if (DOF._bloomPass) {
+        DOF._bloomPass.enabled = updated.enabled;
+      }
+    }
+  }, [bloom, updateMapField]);
+
+  const handleReset = useCallback(() => {
+    updateMapField('bloomConfig', undefined);
+    const DOF = (window as any).DepthOfField;
+    if (DOF) {
+      DOF.bloomConfig.threshold = DEFAULT_BLOOM_CONFIG.threshold;
+      DOF.bloomConfig.strength = DEFAULT_BLOOM_CONFIG.strength;
+      DOF.bloomConfig.radius = DEFAULT_BLOOM_CONFIG.radius;
+      DOF.bloomConfig.downscale = DEFAULT_BLOOM_CONFIG.downscale;
+      if (DOF._bloomPass) {
+        DOF._bloomPass.enabled = DEFAULT_BLOOM_CONFIG.enabled;
+      }
+    }
+  }, [updateMapField]);
+
+  return (
+    <div className="light-inspector-section">
+      <div className="light-inspector-title">
+        블룸
+        <span className="sky-ext-badge" style={{ marginLeft: 6 }}>EXT</span>
+      </div>
+      <label className="map-inspector-checkbox">
+        <input
+          type="checkbox"
+          checked={bloom.enabled !== false}
+          onChange={(e) => updateBloom('enabled', e.target.checked)}
+        />
+        <span>블룸 활성화</span>
+      </label>
+      {bloom.enabled !== false && (
+        <>
+          <AnimSlider label="밝기 임계값" value={bloom.threshold} min={0} max={1} step={0.05}
+            onChange={(v) => updateBloom('threshold', v)} />
+          <AnimSlider label="강도" value={bloom.strength} min={0} max={3} step={0.05}
+            onChange={(v) => updateBloom('strength', v)} />
+          <AnimSlider label="블러 반경" value={bloom.radius} min={0} max={3} step={0.1}
+            onChange={(v) => updateBloom('radius', v)} />
+          <AnimSlider label="다운스케일" value={bloom.downscale} min={1} max={8} step={1}
+            onChange={(v) => updateBloom('downscale', v)} />
+          {currentMap.bloomConfig && (
+            <button className="anim-tile-reset-btn" onClick={handleReset}>
+              기본값 복원
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }

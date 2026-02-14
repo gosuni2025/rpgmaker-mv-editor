@@ -42,7 +42,25 @@ export interface MapData {
   cameraZones?: CameraZone[];
   skyBackground?: SkyBackground;
   animTileSettings?: Record<number, AnimTileShaderSettings>; // key = kind (0~15)
+  bloomConfig?: BloomConfig;
+  postProcessConfig?: Record<string, { enabled: boolean; [key: string]: any }>;
 }
+
+export interface BloomConfig {
+  enabled: boolean;
+  threshold: number;    // 밝기 추출 임계값 (0~1)
+  strength: number;     // bloom 합성 강도 (0~2)
+  radius: number;       // 블러 반경 배율 (0~3)
+  downscale: number;    // 블러 텍스처 축소 비율 (1~8)
+}
+
+export const DEFAULT_BLOOM_CONFIG: BloomConfig = {
+  enabled: true,
+  threshold: 0.5,
+  strength: 0.8,
+  radius: 1.0,
+  downscale: 4,
+};
 
 export interface AnimTileShaderSettings {
   enabled: boolean;
