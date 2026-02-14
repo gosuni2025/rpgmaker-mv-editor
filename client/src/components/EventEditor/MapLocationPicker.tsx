@@ -5,11 +5,12 @@ import useEditorStore from '../../store/useEditorStore';
 import { useThreeRenderer } from '../MapEditor/useThreeRenderer';
 
 /** 맵 위치 선택 다이얼로그 - 왼쪽 맵 목록 + 오른쪽 2D 맵 프리뷰 */
-export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap }: {
+export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, eventMarker }: {
   mapId: number; x: number; y: number;
   onOk: (mapId: number, x: number, y: number) => void;
   onCancel: () => void;
   fixedMap?: boolean;
+  eventMarker?: { x: number; y: number; label: string };
 }) {
   const maps = useEditorStore(s => s.maps);
   const [selectedMapId, setSelectedMapId] = useState(mapId);
@@ -197,6 +198,24 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap }: {
     };
   }, [selectedX, selectedY, canvasScale, mapData]);
 
+  // 이벤트 위치 마커 오버레이
+  const eventMarkerStyle = useMemo((): React.CSSProperties | null => {
+    if (!eventMarker || !mapData || !canvasScale) return null;
+    const TILE_SIZE = 48;
+    const s = canvasScale;
+    return {
+      position: 'absolute',
+      left: eventMarker.x * TILE_SIZE * s,
+      top: eventMarker.y * TILE_SIZE * s,
+      width: TILE_SIZE * s,
+      height: TILE_SIZE * s,
+      border: '2px solid #4af',
+      background: 'rgba(68, 170, 255, 0.25)',
+      pointerEvents: 'none',
+      boxSizing: 'border-box',
+    };
+  }, [eventMarker, canvasScale, mapData]);
+
   return (
     <div className="modal-overlay" style={{ zIndex: 10001 }}>
       <div className="image-picker-dialog" style={{ width: '90vw', maxWidth: 1200, height: '85vh', maxHeight: 900 }}>
@@ -225,6 +244,15 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap }: {
               <canvas ref={canvasRef} onClick={handleCanvasClick}
                 style={canvasStyle} />
               {markerStyle && <div style={markerStyle} />}
+              {eventMarkerStyle && eventMarker && (
+                <div style={eventMarkerStyle}>
+                  <span style={{
+                    position: 'absolute', top: -18, left: 0, whiteSpace: 'nowrap',
+                    fontSize: 11, color: '#4af', textShadow: '0 0 3px #000, 0 0 3px #000',
+                    pointerEvents: 'none',
+                  }}>{eventMarker.label}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
