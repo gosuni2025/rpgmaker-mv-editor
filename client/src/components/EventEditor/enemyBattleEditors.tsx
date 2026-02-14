@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
-import { useDbNamesWithIcons, getLabel } from './actionEditorUtils';
+import { useDbNamesWithIcons, useActorData, getLabel } from './actionEditorUtils';
 import { DataListPicker } from './dataListPicker';
 import AnimationPickerDialog from './AnimationPickerDialog';
 
@@ -245,6 +245,107 @@ export function ShowBattleAnimationEditor({ p, onOk, onCancel }: { p: unknown[];
       {showAnimPicker && (
         <AnimationPickerDialog value={animationId} onChange={setAnimationId}
           onClose={() => setShowAnimPicker(false)} />
+      )}
+    </>
+  );
+}
+
+const TARGET_OPTIONS = [
+  { value: -2, label: '마지막 표적' },
+  { value: -1, label: '랜덤' },
+  { value: 0, label: '인덱스 1' },
+  { value: 1, label: '인덱스 2' },
+  { value: 2, label: '인덱스 3' },
+  { value: 3, label: '인덱스 4' },
+  { value: 4, label: '인덱스 5' },
+  { value: 5, label: '인덱스 6' },
+  { value: 6, label: '인덱스 7' },
+  { value: 7, label: '인덱스 8' },
+];
+
+/**
+ * 전투 행위 강제 에디터 (코드 339)
+ * params: [subjectType(0=적/1=액터), subjectIndex, skillId, targetIndex]
+ */
+export function ForceActionEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [subjectType, setSubjectType] = useState<number>((p[0] as number) || 0);
+  const [subjectIndex, setSubjectIndex] = useState<number>((p[1] as number) || 0);
+  const [skillId, setSkillId] = useState<number>((p[2] as number) || 1);
+  const [targetIndex, setTargetIndex] = useState<number>((p[3] as number) ?? -2);
+  const [showSkillPicker, setShowSkillPicker] = useState(false);
+  const [showActorPicker, setShowActorPicker] = useState(false);
+
+  const { names: skillNames, iconIndices: skillIcons } = useDbNamesWithIcons('skills');
+  const { names: actorNames, characterData: actorChars } = useActorData();
+
+  const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
+
+  return (
+    <>
+      {/* 행동 주체 */}
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>행동 주체</legend>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={radioStyle}>
+              <input type="radio" name="force-subject" checked={subjectType === 0} onChange={() => { setSubjectType(0); setSubjectIndex(0); }} />
+              적 캐릭터
+            </label>
+            <select value={subjectType === 0 ? subjectIndex : 0}
+              onChange={e => setSubjectIndex(Number(e.target.value))}
+              disabled={subjectType !== 0}
+              style={{ ...selectStyle, flex: 1, opacity: subjectType === 0 ? 1 : 0.5 }}>
+              {ENEMY_OPTIONS_INDIVIDUAL.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            </select>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={radioStyle}>
+              <input type="radio" name="force-subject" checked={subjectType === 1} onChange={() => { setSubjectType(1); setSubjectIndex(1); }} />
+              액터
+            </label>
+            <button className="db-btn"
+              onClick={() => subjectType === 1 && setShowActorPicker(true)}
+              disabled={subjectType !== 1}
+              style={{ flex: 1, textAlign: 'left', padding: '4px 8px', fontSize: 13, opacity: subjectType === 1 ? 1 : 0.5 }}>
+              {subjectType === 1 ? getLabel(subjectIndex, actorNames) : ''}
+            </button>
+          </div>
+        </div>
+      </fieldset>
+
+      {/* 전투 행동 */}
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>전투 행동</legend>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>스킬:</span>
+            <button className="db-btn" style={{ flex: 1, textAlign: 'left' }}
+              onClick={() => setShowSkillPicker(true)}>
+              {getLabel(skillId, skillNames)}
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>대상:</span>
+            <select value={targetIndex} onChange={e => setTargetIndex(Number(e.target.value))}
+              style={{ ...selectStyle, flex: 1 }}>
+              {TARGET_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            </select>
+          </div>
+        </div>
+      </fieldset>
+
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([subjectType, subjectIndex, skillId, targetIndex])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+
+      {showSkillPicker && (
+        <DataListPicker items={skillNames} value={skillId} onChange={setSkillId}
+          onClose={() => setShowSkillPicker(false)} title="스킬" iconIndices={skillIcons} />
+      )}
+      {showActorPicker && (
+        <DataListPicker items={actorNames} value={subjectIndex} onChange={setSubjectIndex}
+          onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
       )}
     </>
   );

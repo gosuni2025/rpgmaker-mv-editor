@@ -19,6 +19,7 @@ import {
   EnemyAppearEditor,
   EnemyTransformEditor,
   ShowBattleAnimationEditor,
+  ForceActionEditor,
 } from './commandEditors';
 
 interface CommandParamEditorProps {
@@ -67,7 +68,7 @@ function getCommandName(code: number): string {
     301: '전투 처리', 302: '상점의 처리', 303: '이름 입력 처리', 311: 'HP 증감', 312: 'MP 증감', 326: 'TP 증감',
     313: '스테이트 변경', 314: '전체 회복', 315: 'EXP 증감', 316: '레벨 증감', 317: '능력치 증감',
     318: '스킬 증감', 319: '장비 변경', 320: '이름 변경', 321: '직업 변경', 322: '액터 이미지 변경', 323: '탈 것 이미지 변경', 324: '닉네임 변경', 325: '프로필 변경',
-    331: '적 HP 변경', 332: '적 MP 변경', 333: '적 스테이트의 변경', 334: '적 캐릭터의 완전 회복', 335: '적 캐릭터의 출현', 336: '적 캐릭터의 변신', 337: '전투 애니메이션 표시', 342: '적 TP 변경',
+    331: '적 HP 변경', 332: '적 MP 변경', 333: '적 스테이트의 변경', 334: '적 캐릭터의 완전 회복', 335: '적 캐릭터의 출현', 336: '적 캐릭터의 변신', 337: '전투 애니메이션 표시', 339: '전투 행위 강제', 342: '적 TP 변경',
     355: 'Script', 356: 'Plugin Command',
   };
   return names[code] || `Command ${code}`;
@@ -170,6 +171,7 @@ function getEditorContent(
     case 335: return <EnemyAppearEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 336: return <EnemyTransformEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 337: return <ShowBattleAnimationEditor p={p} onOk={onOk} onCancel={onCancel} />;
+    case 339: return <ForceActionEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 342: return <ChangeEnemyTPEditor p={p} onOk={onOk} onCancel={onCancel} />;
     default: return null;
   }
