@@ -4,7 +4,7 @@ import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { useDbNamesWithIcons, getLabel } from './actionEditorUtils';
 import { DataListPicker } from './dataListPicker';
 
-const ENEMY_OPTIONS = [
+const ENEMY_OPTIONS_ALL = [
   { value: -1, label: '전체 적 군단' },
   { value: 0, label: '#1?' },
   { value: 1, label: '#2?' },
@@ -15,6 +15,8 @@ const ENEMY_OPTIONS = [
   { value: 6, label: '#7?' },
   { value: 7, label: '#8?' },
 ];
+
+const ENEMY_OPTIONS_INDIVIDUAL = ENEMY_OPTIONS_ALL.filter(opt => opt.value >= 0);
 
 /**
  * 적 HP/MP/TP 변경 공용 에디터
@@ -40,7 +42,7 @@ function EnemyStatChangeEditor({ p, onOk, onCancel, radioPrefix, showAllowKnocko
         <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>적 캐릭터:</span>
         <select value={enemyIndex} onChange={e => setEnemyIndex(Number(e.target.value))}
           style={{ ...selectStyle, flex: 1 }}>
-          {ENEMY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          {ENEMY_OPTIONS_ALL.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
         </select>
       </div>
 
@@ -129,7 +131,31 @@ export function EnemyRecoverAllEditor({ p, onOk, onCancel }: { p: unknown[]; onO
         <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>적 캐릭터:</span>
         <select value={enemyIndex} onChange={e => setEnemyIndex(Number(e.target.value))}
           style={{ ...selectStyle, flex: 1 }}>
-          {ENEMY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          {ENEMY_OPTIONS_ALL.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+        </select>
+      </div>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([enemyIndex])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}
+
+/**
+ * 적 캐릭터의 출현 에디터 (코드 335)
+ * params: [enemyIndex]
+ */
+export function EnemyAppearEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [enemyIndex, setEnemyIndex] = useState<number>((p[0] as number) || 0);
+
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>적 캐릭터:</span>
+        <select value={enemyIndex} onChange={e => setEnemyIndex(Number(e.target.value))}
+          style={{ ...selectStyle, flex: 1 }}>
+          {ENEMY_OPTIONS_INDIVIDUAL.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
         </select>
       </div>
       <div className="image-picker-footer">
@@ -161,7 +187,7 @@ export function ChangeEnemyStateEditor({ p, onOk, onCancel }: { p: unknown[]; on
         <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>적 캐릭터:</span>
         <select value={enemyIndex} onChange={e => setEnemyIndex(Number(e.target.value))}
           style={{ ...selectStyle, flex: 1 }}>
-          {ENEMY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          {ENEMY_OPTIONS_ALL.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
         </select>
       </div>
 
