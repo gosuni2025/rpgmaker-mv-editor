@@ -624,5 +624,44 @@ export function getUsedA1Kinds(data: number[], width: number, height: number): n
   return Array.from(kindSet).sort((a, b) => a - b);
 }
 
+/**
+ * A1 타일 중 "장식(decoration)" 타일인지 판별.
+ * RPG Maker MV A1 블록 구조:
+ *   kind 0: Block A (바다) — 기본 바닥
+ *   kind 1: Block B (깊은 바다) — Block A 위에 겹침
+ *   kind 2: Block C-1 (장식1) — Block A 위에 겹침
+ *   kind 3: Block C-2 (장식2) — Block A 위에 겹침
+ *   kind 4+짝수: Block D (물) — 기본 바닥
+ *   kind 4+홀수: Block E (폭포) — 기본 바닥
+ *
+ * kind 1, 2, 3은 z=0의 바닥 타일 위에 z=1로 배치되어야 한다.
+ */
+export function isA1DecorationTile(tileId: number): boolean {
+  if (!isTileA1(tileId)) return false;
+  const kind = getAutotileKind(tileId);
+  return kind === 1 || kind === 2 || kind === 3;
+}
+
+/**
+ * A2 타일 중 "장식(decoration)" 타일인지 판별.
+ * RPG Maker MV 도움말 (01_07_01.html):
+ *   A2의 왼쪽 4개(열 0~3) = Base
+ *   A2의 오른쪽 4개(열 4~7) = Decoration
+ * Decoration은 Base 위(z=1)에 배치된다.
+ */
+export function isA2DecorationTile(tileId: number): boolean {
+  if (!isTileA2(tileId)) return false;
+  const kind = getAutotileKind(tileId);
+  const col = kind % 8; // 0~7 (A2는 8열)
+  return col >= 4;
+}
+
+/**
+ * A 탭 타일 중 z=1(decoration 레이어)에 배치해야 하는 타일인지 판별.
+ */
+export function isGroundDecorationTile(tileId: number): boolean {
+  return isA1DecorationTile(tileId) || isA2DecorationTile(tileId);
+}
+
 // Exports for tile ID constants
 export { TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1, TILE_ID_A2, TILE_ID_A3, TILE_ID_A4, TILE_ID_MAX };

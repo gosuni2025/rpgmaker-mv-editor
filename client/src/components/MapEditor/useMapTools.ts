@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
-import { posToTile, TILE_SIZE_PX, isAutotile, getAutotileKindExported, makeAutotileId, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1 } from '../../utils/tileHelper';
+import { posToTile, TILE_SIZE_PX, isAutotile, getAutotileKindExported, makeAutotileId, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1, isGroundDecorationTile } from '../../utils/tileHelper';
 import { placeAutotileAtPure, floodFillRegion, floodFillTile, batchPlaceWithAutotilePure, getRectanglePositions, getEllipsePositions } from './mapToolAlgorithms';
 import { useDrawingOverlay } from './useDrawingOverlay';
 import type { DrawingOverlayRefs } from './useDrawingOverlay';
@@ -157,7 +157,8 @@ export function useMapTools(
     showToast(`스포이드: 탭=${tab} 타일=${rawTileId}→${pickedTileId} 레이어=${pickedLayer}`);
     setPaletteTab(tab);
     setSelectedTileId(pickedTileId);
-    setCurrentLayer(tab === 'A' ? 0 : 1);
+    // A 탭: decoration 타일은 z=1, 기본 타일은 z=0
+    setCurrentLayer(tab === 'A' ? (isGroundDecorationTile(pickedTileId) ? 1 : 0) : 1);
   }, [setPaletteTab, setSelectedTileId, setCurrentLayer, showToast]);
 
   // =========================================================================

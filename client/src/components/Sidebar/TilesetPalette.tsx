@@ -3,7 +3,7 @@ import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import {
   TILE_SIZE_PX, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E,
-  getTileRenderInfo,
+  getTileRenderInfo, isGroundDecorationTile,
 } from '../../utils/tileHelper';
 import { buildAutotileEntries } from '../../utils/autotileEntries';
 import { loadTilesetImages } from '../../utils/tilesetImageLoader';
@@ -306,7 +306,15 @@ export default function TilesetPalette() {
       const w = maxCol - minCol + 1;
       const h = maxRow - minRow + 1;
 
-      const layer = activeTab === 'A' ? 0 : 1;
+      // A 탭: 기본 z=0, decoration 타일이면 z=1
+      // B~E 탭: z=1
+      let layer: number;
+      if (activeTab === 'A') {
+        const topLeftTileId = getTileIdForCell(minCol, minRow);
+        layer = isGroundDecorationTile(topLeftTileId) ? 1 : 0;
+      } else {
+        layer = 1;
+      }
       setCurrentLayer(layer);
 
       if (w === 1 && h === 1) {
