@@ -1,4 +1,5 @@
 import React from 'react';
+import useEscClose from '../../hooks/useEscClose';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor,
@@ -32,6 +33,7 @@ interface CommandParamEditorProps {
 }
 
 export default function CommandParamEditor({ code, command, followCommands, hasElse, onOk, onCancel }: CommandParamEditorProps) {
+  useEscClose(onCancel);
   const p = command?.parameters || [];
   const content = getEditorContent(code, p, followCommands || [], onOk, onCancel, hasElse);
   if (!content) {
