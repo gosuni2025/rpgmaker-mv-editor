@@ -87,3 +87,48 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* 진단 리포트 섹션 */
+.memory-log-section {
+  border-top: 1px solid #444;
+  display: flex;
+  flex-direction: column;
+}
+
+.memory-log-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 10px;
+  background: #2b2b2b;
+  font-size: 11px;
+  color: #ccc;
+}
+.memory-log-toolbar button {
+  background: #3c3f41;
+  border: 1px solid #555;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+.memory-log-toolbar button:hover {
+  background: #4a4d50;
+  color: #fff;
+}
+
+.memory-log-textarea {
+  width: 100%;
+  height: 260px;
+  background: #111;
+  color: #b5cea8;
+  border: none;
+  padding: 8px 10px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
