@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../api/client';
 import useEditorStore from '../store/useEditorStore';
+import useEscClose from '../hooks/useEscClose';
 
 interface SampleMapInfo {
   id: number;
@@ -25,6 +26,7 @@ interface Props {
 
 export default function SampleMapDialog({ parentId = 0, onClose }: Props) {
   const { t } = useTranslation();
+  useEscClose(onClose);
   const createMap = useEditorStore((s) => s.createMap);
   const selectMap = useEditorStore((s) => s.selectMap);
   const showToast = useEditorStore((s) => s.showToast);

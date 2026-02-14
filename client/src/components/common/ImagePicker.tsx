@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import apiClient from '../../api/client';
+import useEscClose from '../../hooks/useEscClose';
 import './ImagePicker.css';
 
 interface ImagePickerProps {
@@ -195,6 +196,7 @@ function getCellCount(type: string) {
 
 export default function ImagePicker({ type, value, onChange, index, onIndexChange, direction, onDirectionChange, pattern, onPatternChange }: ImagePickerProps) {
   const [open, setOpen] = useState(false);
+  useEscClose(useCallback(() => { if (open) setOpen(false); }, [open]));
   const [files, setFiles] = useState<string[]>([]);
   const [selected, setSelected] = useState(value);
   const [selectedIndex, setSelectedIndex] = useState(index ?? 0);

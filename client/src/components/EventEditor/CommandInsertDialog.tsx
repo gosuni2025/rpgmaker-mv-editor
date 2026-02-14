@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fuzzyMatch } from '../../utils/fuzzySearch';
+import useEscClose from '../../hooks/useEscClose';
 import '../MapEditor/MapCanvas.css';
 
 interface CommandInsertDialogProps {
@@ -12,6 +13,7 @@ let lastActiveTab = 1;
 
 export default function CommandInsertDialog({ onSelect, onCancel }: CommandInsertDialogProps) {
   const { t } = useTranslation();
+  useEscClose(onCancel);
   const [activeTab, setActiveTab] = useState(lastActiveTab);
   const [commandFilter, setCommandFilter] = useState('');
   const commandFilterRef = useRef<HTMLInputElement>(null);

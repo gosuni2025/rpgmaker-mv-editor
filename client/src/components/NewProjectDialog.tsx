@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
+import useEscClose from '../hooks/useEscClose';
 
 export default function NewProjectDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowNewProjectDialog);
+  useEscClose(useCallback(() => setShow(false), [setShow]));
 
   return (
     <div className="db-dialog-overlay">

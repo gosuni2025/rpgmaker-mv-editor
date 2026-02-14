@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
+import useEscClose from '../../hooks/useEscClose';
 import './VariableSwitchSelector.css';
 
 const GROUP_SIZE = 20;
@@ -15,6 +16,7 @@ interface VariableSwitchSelectorProps {
 }
 
 export function VariableSwitchSelector({ type, value, onChange, onClose, title }: VariableSwitchSelectorProps) {
+  useEscClose(onClose);
   const systemData = useEditorStore(s => s.systemData);
   const items = type === 'variable' ? (systemData?.variables || []) : (systemData?.switches || []);
 

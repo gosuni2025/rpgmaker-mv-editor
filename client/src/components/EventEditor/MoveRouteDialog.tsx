@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MoveRoute, MoveCommand } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
+import useEscClose from '../../hooks/useEscClose';
 import './MoveRouteDialog.css';
 
 interface MoveRouteDialogProps {
@@ -305,6 +306,10 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId
   const [wait, setWait] = useState(moveRoute.wait);
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const [paramEdit, setParamEdit] = useState<{ code: number; params: unknown[]; editIdx?: number } | null>(null);
+  useEscClose(useCallback(() => {
+    if (paramEdit) setParamEdit(null);
+    else onCancel();
+  }, [paramEdit, onCancel]));
   const showCharacterSelect = onOkWithCharacter !== undefined;
 
   const addCommand = useCallback((code: number) => {

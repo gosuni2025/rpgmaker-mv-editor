@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../store/useEditorStore';
+import useEscClose from '../hooks/useEscClose';
 import {
   getTileRenderInfo, TILE_SIZE_PX, makeAutotileId,
   getAutotileBlockInfo, getShapeNeighbors,
@@ -18,6 +19,7 @@ const HALF = TILE_SIZE_PX / 2;
 const AUTOTILE_ENTRIES = buildAutotileEntries();
 
 export default function AutotileDebugDialog({ open, onClose }: Props) {
+  useEscClose(useCallback(() => { if (open) onClose(); }, [open, onClose]));
   const currentMap = useEditorStore((s) => s.currentMap);
   const [tilesetImages, setTilesetImages] = useState<Record<number, HTMLImageElement>>({});
   const [selectedKind, setSelectedKind] = useState<number | null>(null);

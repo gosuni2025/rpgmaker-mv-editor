@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import apiClient from '../../api/client';
 import type { SkySunLight } from '../../types/rpgMakerMV';
 import { DEFAULT_SKY_SUN_LIGHT } from '../../types/rpgMakerMV';
+import useEscClose from '../../hooks/useEscClose';
 import './SkyBackgroundPicker.css';
 
 interface SkyBackgroundPickerProps {
@@ -13,6 +14,7 @@ interface SkyBackgroundPickerProps {
 
 export default function SkyBackgroundPicker({ value, rotationSpeed, sunLights, onChange }: SkyBackgroundPickerProps) {
   const [open, setOpen] = useState(false);
+  useEscClose(useCallback(() => { if (open) setOpen(false); }, [open]));
   const [files, setFiles] = useState<string[]>([]);
   const [selected, setSelected] = useState(value);
   const [speed, setSpeed] = useState(rotationSpeed);

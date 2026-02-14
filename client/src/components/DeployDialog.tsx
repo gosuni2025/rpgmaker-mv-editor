@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
+import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 
 type Platform = 'web' | 'windows' | 'macos';
@@ -8,6 +9,7 @@ type Platform = 'web' | 'windows' | 'macos';
 export default function DeployDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowDeployDialog);
+  useEscClose(useCallback(() => setShow(false), [setShow]));
   const projectPath = useEditorStore((s) => s.projectPath);
   const [platform, setPlatform] = useState<Platform>('web');
   const [excludeUnused, setExcludeUnused] = useState(true);

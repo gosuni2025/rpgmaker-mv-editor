@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import apiClient from '../../api/client';
+import useEscClose from '../../hooks/useEscClose';
 import './BattlebackPicker.css';
 
 interface BattlebackPickerProps {
@@ -10,6 +11,7 @@ interface BattlebackPickerProps {
 
 export default function BattlebackPicker({ value1, value2, onChange }: BattlebackPickerProps) {
   const [open, setOpen] = useState(false);
+  useEscClose(useCallback(() => { if (open) setOpen(false); }, [open]));
   const [files1, setFiles1] = useState<string[]>([]);
   const [files2, setFiles2] = useState<string[]>([]);
   const [selected1, setSelected1] = useState(value1);

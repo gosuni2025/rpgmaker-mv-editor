@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
+import useEscClose from '../../hooks/useEscClose';
 
 interface Props {
   onClose: () => void;
@@ -8,6 +9,7 @@ interface Props {
 
 export default function ShiftMapDialog({ onClose }: Props) {
   const { t } = useTranslation();
+  useEscClose(onClose);
   const shiftMap = useEditorStore((s) => s.shiftMap);
   const currentMap = useEditorStore((s) => s.currentMap);
   const [direction, setDirection] = useState<'up' | 'down' | 'left' | 'right'>('down');

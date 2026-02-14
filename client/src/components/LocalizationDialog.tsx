@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
+import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 import type { L10nConfig, CSVRow, Category, StatsData, UndoEntry, FilterMode } from './localizationTypes';
 import { LANGUAGE_NAMES, getCsvPath, formatTs, getStatus } from './localizationTypes';
@@ -29,6 +30,7 @@ function HelpButton({ text }: { text: string }) {
 export default function LocalizationDialog() {
   const { t } = useTranslation();
   const setShowLocalizationDialog = useEditorStore((s) => s.setShowLocalizationDialog);
+  useEscClose(useCallback(() => setShowLocalizationDialog(false), [setShowLocalizationDialog]));
   const showToast = useEditorStore((s) => s.showToast);
 
   const [config, setConfig] = useState<L10nConfig | null>(null);
