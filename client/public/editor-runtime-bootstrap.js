@@ -322,4 +322,40 @@ if (typeof THREE !== 'undefined' && THREE.ShaderChunk) {
     }
 }
 
+// --- ImageManager 캐시 주기적 정리 ---
+// 에디터에서는 SceneManager가 스텁이므로 CacheMap.update()가 호출되지 않음.
+// 주기적으로 호출하여 TTL 만료된 캐시 엔트리를 정리하고, ImageCache의 limit도 강화.
+(function() {
+    var cacheCleanupStarted = false;
+    function startCacheCleanup() {
+        if (cacheCleanupStarted) return;
+        if (!window.ImageManager || !window.ImageManager.cache) return;
+        cacheCleanupStarted = true;
+
+        // ImageCache limit을 5MB로 낮춤 (기본 10MB)
+        if (window.ImageCache) {
+            window.ImageCache.limit = 5 * 1000 * 1000;
+        }
+
+        setInterval(function() {
+            // CacheMap TTL 체크
+            if (window.ImageManager.cache && window.ImageManager.cache.update) {
+                window.ImageManager.cache.update(1, 1);
+            }
+            // ImageCache truncate
+            if (window.ImageManager._imageCache && window.ImageManager._imageCache._truncateCache) {
+                window.ImageManager._imageCache._truncateCache();
+            }
+        }, 30000); // 30초마다
+        console.log('[Editor] ImageManager cache cleanup started (30s interval, 5MB limit)');
+    }
+    // 런타임 로드 후 시작되도록 지연
+    var checkInterval = setInterval(function() {
+        if (window.ImageManager && window.ImageManager.cache) {
+            clearInterval(checkInterval);
+            startCacheCleanup();
+        }
+    }, 1000);
+})();
+
 console.log('[Editor] Runtime bootstrap globals initialized');

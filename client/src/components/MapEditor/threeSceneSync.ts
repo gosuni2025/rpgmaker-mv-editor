@@ -104,6 +104,7 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
   if (!ShadowLight._editorPointLights) ShadowLight._editorPointLights = [];
   for (const light of ShadowLight._editorPointLights) {
     scene.remove(light);
+    light.dispose();
   }
   ShadowLight._editorPointLights = [];
 
@@ -153,6 +154,7 @@ export function syncSunLightsToScene(scene: any, sunLights: SkySunLight[] | unde
   for (const light of ShadowLight._editorSunLights) {
     if (light.target) scene.remove(light.target);
     scene.remove(light);
+    light.dispose();
   }
   ShadowLight._editorSunLights = [];
 

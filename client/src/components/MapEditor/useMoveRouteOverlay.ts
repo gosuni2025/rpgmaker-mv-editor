@@ -270,7 +270,8 @@ export function useMoveRouteOverlay(
 ) {
   const editMode = useEditorStore((s) => s.editMode);
   const selectedEventIds = useEditorStore((s) => s.selectedEventIds);
-  const currentMap = useEditorStore((s) => s.currentMap);
+  // events 배열 참조만 추적 (currentMap 전체가 아닌)
+  const events = useEditorStore((s) => s.currentMap?.events ?? null);
 
   // 인스펙터에서 오는 경로 가시성 변경 감지
   const [routeVersion, setRouteVersion] = React.useState(0);
@@ -288,7 +289,7 @@ export function useMoveRouteOverlay(
 
     const meshes = disposeMeshes(rObj.scene, GLOBAL_KEY);
 
-    if (editMode !== 'event' || !currentMap?.events) {
+    if (editMode !== 'event' || !events) {
       triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
       return;
     }
@@ -318,7 +319,7 @@ export function useMoveRouteOverlay(
           }
         } else if (entry.characterId != null && entry.characterId > 0) {
           // 다른 이벤트 위치
-          const otherEv = currentMap.events.find(e => e && e.id === entry.characterId);
+          const otherEv = events.find(e => e && e.id === entry.characterId);
           if (otherEv) {
             startX = otherEv.x;
             startY = otherEv.y;
@@ -337,12 +338,12 @@ export function useMoveRouteOverlay(
     let targetEvent: any = null;
 
     if (selectedEventIds.length === 1) {
-      const ev = currentMap.events.find(e => e && e.id === selectedEventIds[0]);
+      const ev = events.find(e => e && e.id === selectedEventIds[0]);
       if (ev) targetEvent = ev;
     }
 
     if (!targetEvent && (selectedEventIds.length === 0 || selectedEventIds.length > 1) && hoverTile) {
-      targetEvent = currentMap.events.find(
+      targetEvent = events.find(
         e => e && e.x === hoverTile.x && e.y === hoverTile.y
       );
     }
@@ -362,5 +363,5 @@ export function useMoveRouteOverlay(
     renderRoute(THREE, rObj.scene, meshes, path, page.moveRoute, '#ff8800', 0);
 
     triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
-  }, [editMode, selectedEventIds, currentMap?.events, hoverTile, rendererReady, routeVersion]);
+  }, [editMode, selectedEventIds, events, hoverTile, rendererReady, routeVersion]);
 }

@@ -37,9 +37,10 @@ export function createAnimationLoop(params: {
       if (latestMap && (latestMap.width * TILE_SIZE_PX !== mapPxW || latestMap.height * TILE_SIZE_PX !== mapPxH)) return;
 
       if (latestMap && latestMap.data !== lastMapDataRef.current) {
-        w.$dataMap.data = [...latestMap.data];
+        // tilemap의 _mapData를 직접 참조로 교체 (불필요한 배열 복사 제거)
+        w.$dataMap.data = latestMap.data;
         if (spriteset._tilemap) {
-          spriteset._tilemap._mapData = w.$dataMap.data;
+          spriteset._tilemap._mapData = latestMap.data;
           spriteset._tilemap._needsRepaint = true;
         }
         lastMapDataRef.current = latestMap.data;
