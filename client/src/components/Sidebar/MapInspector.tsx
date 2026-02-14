@@ -593,7 +593,7 @@ function AnimTileShaderSection({ currentMap, updateMapField }: {
             title="이름 언어 전환"
             onClick={(e) => { e.stopPropagation(); setLangIndex(i => (i + 1) % langCount); }}
           >
-            {langIndex + 1}/{langCount}
+            언어 : {langIndex + 1}/{langCount}
           </button>
         )}
       </div>
