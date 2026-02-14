@@ -209,7 +209,8 @@ export function createApp(options: AppOptions = {}) {
         <script type="text/javascript" src="js/rpg_windows.js"></script>
         <script type="text/javascript" src="js/Mode3D.js"></script>
         <script type="text/javascript" src="js/ShadowAndLight.js"></script>
-        <script type="text/javascript" src="js/DepthOfField.js"></script>
+        <script type="text/javascript" src="js/PostProcessEffects.js"></script>
+        <script type="text/javascript" src="js/PostProcess.js"></script>
         <script type="text/javascript" src="js/PictureShader.js"></script>
         <script type="text/javascript" src="js/plugins.js"></script>${devScript}${startMapScript}
         <script type="text/javascript" src="js/main.js"></script>
