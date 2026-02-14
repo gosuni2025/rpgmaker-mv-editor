@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { DataListPicker } from './dataListPicker';
-import { useDbNames, useDbNamesWithIcons, useActorData, getLabel, DataListPickerWithZero } from './actionEditorUtils';
+import { useDbNames, useDbNamesWithIcons, useActorData, getLabel, DataListPickerWithZero, type CharacterInfo } from './actionEditorUtils';
 import apiClient from '../../api/client';
 
 /**
@@ -537,6 +537,9 @@ function ImageSelectDialog({ type, value, index, onOk, onCancel }: {
           </div>
         </div>
         <div className="image-picker-footer">
+          <button className="db-btn" onClick={() => {
+            apiClient.post(`/resources/${type}/open-folder`, {}).catch(() => {});
+          }} style={{ marginRight: 'auto' }}>폴더 열기</button>
           <button className="db-btn" onClick={() => onOk(selected, selectedIndex)}>OK</button>
           <button className="db-btn" onClick={onCancel}>취소</button>
         </div>
@@ -647,11 +650,52 @@ function ImagePreviewThumb({ type, name, index, size }: {
   return <canvas ref={canvasRef} style={{ maxWidth: size, maxHeight: size, imageRendering: 'pixelated', background: 'repeating-conic-gradient(#444 0% 25%, #555 0% 50%) 50% / 16px 16px' }} />;
 }
 
+interface ActorImageInfo {
+  faceName: string;
+  faceIndex: number;
+  characterName: string;
+  characterIndex: number;
+  battlerName: string;
+}
+
+function useActorFullData(): { names: string[]; characterData: (CharacterInfo | undefined)[]; imageData: (ActorImageInfo | undefined)[] } {
+  const [names, setNames] = useState<string[]>([]);
+  const [characterData, setCharacterData] = useState<(CharacterInfo | undefined)[]>([]);
+  const [imageData, setImageData] = useState<(ActorImageInfo | undefined)[]>([]);
+  useEffect(() => {
+    apiClient.get<(any | null)[]>('/database/actors').then(data => {
+      const nameArr: string[] = [];
+      const charArr: (CharacterInfo | undefined)[] = [];
+      const imgArr: (ActorImageInfo | undefined)[] = [];
+      for (const item of data) {
+        if (item) {
+          nameArr[item.id] = item.name || '';
+          if (item.characterName) {
+            charArr[item.id] = { characterName: item.characterName, characterIndex: item.characterIndex ?? 0 };
+          }
+          imgArr[item.id] = {
+            faceName: item.faceName || '',
+            faceIndex: item.faceIndex ?? 0,
+            characterName: item.characterName || '',
+            characterIndex: item.characterIndex ?? 0,
+            battlerName: item.battlerName || '',
+          };
+        }
+      }
+      setNames(nameArr);
+      setCharacterData(charArr);
+      setImageData(imgArr);
+    }).catch(() => {});
+  }, []);
+  return { names, characterData, imageData };
+}
+
 /**
  * 액터 이미지 변경 에디터 (코드 322)
  * params: [actorId, characterName, characterIndex, faceName, faceIndex, battlerName]
  */
 export function ChangeActorImagesEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const isNew = p.length === 0;
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [characterName, setCharacterName] = useState<string>((p[1] as string) || '');
   const [characterIndex, setCharacterIndex] = useState<number>((p[2] as number) || 0);
@@ -660,8 +704,34 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: { p: unknown[]; o
   const [battlerName, setBattlerName] = useState<string>((p[5] as string) || '');
   const [showActorPicker, setShowActorPicker] = useState(false);
   const [imageDialog, setImageDialog] = useState<'faces' | 'characters' | 'sv_actors' | null>(null);
+  const [initialized, setInitialized] = useState(!isNew);
 
-  const { names: actors, characterData: actorChars } = useActorData();
+  const { names: actors, characterData: actorChars, imageData } = useActorFullData();
+
+  // 새 삽입 시 또는 액터 변경 시 액터의 기본 이미지로 채우기
+  const applyActorImages = (id: number) => {
+    const img = imageData[id];
+    if (img) {
+      setFaceName(img.faceName);
+      setFaceIndex(img.faceIndex);
+      setCharacterName(img.characterName);
+      setCharacterIndex(img.characterIndex);
+      setBattlerName(img.battlerName);
+    }
+  };
+
+  // 새 삽입 시 데이터 로드 후 기본 액터 이미지 적용
+  useEffect(() => {
+    if (!initialized && imageData.length > 0) {
+      applyActorImages(actorId);
+      setInitialized(true);
+    }
+  }, [imageData, initialized]);
+
+  const handleActorChange = (newId: number) => {
+    setActorId(newId);
+    applyActorImages(newId);
+  };
 
   const thumbSize = 80;
 
@@ -706,7 +776,7 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: { p: unknown[]; o
       </div>
 
       {showActorPicker && (
-        <DataListPicker items={actors} value={actorId} onChange={setActorId}
+        <DataListPicker items={actors} value={actorId} onChange={handleActorChange}
           onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
       )}
       {imageDialog === 'faces' && (
