@@ -554,6 +554,79 @@ export default function MapInspector() {
                   </span>
                 </div>
               )}
+
+              {/* 높이 그라데이션 */}
+              <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={fow.heightGradient !== false}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, heightGradient: e.target.checked })} />
+                <span>높이 색상 그라데이션</span>
+              </label>
+              {fow.heightGradient !== false && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>상단 색상</span>
+                  <input type="color" value={fow.fogColorTop ?? '#262633'}
+                    onChange={(e) => updateMapField('fogOfWar', { ...fow, fogColorTop: e.target.value })}
+                    style={{ width: 28, height: 20, padding: 0, border: '1px solid #555', background: 'none', cursor: 'pointer' }} />
+                  <span style={{ fontSize: 11, color: '#888' }}>{fow.fogColorTop ?? '#262633'}</span>
+                </div>
+              )}
+
+              {/* God Ray */}
+              <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={fow.godRay !== false}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, godRay: e.target.checked })} />
+                <span>경계 빛줄기 (God Ray)</span>
+              </label>
+              {fow.godRay !== false && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>빛줄기 강도</span>
+                  <input type="range" min={0} max={100} step={5}
+                    value={Math.round((fow.godRayIntensity ?? 0.4) * 100)}
+                    onChange={(e) => updateMapField('fogOfWar', { ...fow, godRayIntensity: Number(e.target.value) / 100 })}
+                    style={{ flex: 1 }} />
+                  <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                    {Math.round((fow.godRayIntensity ?? 0.4) * 100)}%
+                  </span>
+                </div>
+              )}
+
+              {/* 소용돌이 */}
+              <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={fow.vortex !== false}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, vortex: e.target.checked })} />
+                <span>안개 소용돌이</span>
+              </label>
+              {fow.vortex !== false && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>소용돌이 속도</span>
+                  <input type="range" min={10} max={300} step={10}
+                    value={Math.round((fow.vortexSpeed ?? 1.0) * 100)}
+                    onChange={(e) => updateMapField('fogOfWar', { ...fow, vortexSpeed: Number(e.target.value) / 100 })}
+                    style={{ flex: 1 }} />
+                  <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                    {((fow.vortexSpeed ?? 1.0) * 100).toFixed(0)}%
+                  </span>
+                </div>
+              )}
+
+              {/* 라이트 산란 */}
+              <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={fow.lightScattering !== false}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, lightScattering: e.target.checked })} />
+                <span>라이트 산란</span>
+              </label>
+              {fow.lightScattering !== false && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>산란 강도</span>
+                  <input type="range" min={0} max={200} step={10}
+                    value={Math.round((fow.lightScatterIntensity ?? 1.0) * 100)}
+                    onChange={(e) => updateMapField('fogOfWar', { ...fow, lightScatterIntensity: Number(e.target.value) / 100 })}
+                    style={{ flex: 1 }} />
+                  <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                    {((fow.lightScatterIntensity ?? 1.0) * 100).toFixed(0)}%
+                  </span>
+                </div>
+              )}
             </>
           );
         })()}
