@@ -2460,6 +2460,23 @@ Spriteset_Map.prototype.updateParallax = function() {
     if (this._parallaxName && !this._parallaxSkyMesh && !this._parallaxSkyPending) {
         this._updateParallaxSkyPlane();
     }
+    // 3D 모드: parallax sky mesh를 카메라 look-at 방향에 수직으로 배치
+    var is3D = this._parallaxSkyMesh && window.Mode3D && Mode3D._perspCamera;
+    if (is3D) {
+        var cam = Mode3D._perspCamera;
+        var mesh = this._parallaxSkyMesh;
+        // 카메라 look direction (로컬 -Z → 월드)
+        var dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+        // far plane의 80% 거리에 배치
+        var farDist = cam.far * 0.8;
+        mesh.position.copy(cam.position).addScaledVector(dir, farDist);
+        // 카메라를 정면으로 바라보도록 회전
+        mesh.lookAt(cam.position);
+    }
+    // 3D 모드에서 2D parallax TilingSprite 숨기기 (화면 덮힘 방지)
+    if (this._parallax._threeObj) {
+        this._parallax._threeObj.visible = !is3D;
+    }
     if (this._parallax.bitmap) {
         this._parallax.origin.x = $gameMap.parallaxOx();
         this._parallax.origin.y = $gameMap.parallaxOy();
@@ -2501,20 +2518,21 @@ Spriteset_Map.prototype._updateParallaxSkyPlane = function() {
         // 이미 다른 경로로 mesh가 생성된 경우 중복 방지
         if (self._parallaxSkyMesh) return;
 
-        // Create a large plane (4x screen size) centered on the map
-        var mapW = $gameMap.width() * $gameMap.tileWidth();
-        var mapH = $gameMap.height() * $gameMap.tileHeight();
-        var planeW = Math.max(mapW, Graphics.width) * 4;
-        var planeH = Math.max(mapH, Graphics.height) * 4;
+        // 충분히 큰 plane (카메라 far 거리에서 시야를 덮을 크기)
+        // far * 0.8 거리에서 FOV 기준 필요 크기 계산
+        var farDist = 5000; // 기본값
+        if (window.Mode3D && Mode3D._perspCamera) {
+            farDist = Mode3D._perspCamera.far * 0.8;
+        }
+        var fovRad = (60 * Math.PI / 180); // 기본 FOV 60도
+        if (window.Mode3D && Mode3D._perspCamera) {
+            fovRad = Mode3D._perspCamera.fov * Math.PI / 180;
+        }
+        var planeH = 2 * farDist * Math.tan(fovRad / 2) * 1.5;
+        var aspect = Graphics.width / Graphics.height;
+        var planeW = planeH * aspect * 1.5;
 
         var geometry = new THREE.PlaneGeometry(planeW, planeH);
-        // Adjust vertices for Y-down coordinate system (matching camera setup)
-        var posAttr = geometry.attributes.position;
-        for (var i = 0; i < posAttr.count; i++) {
-            posAttr.setX(i, posAttr.getX(i) + mapW / 2);
-            posAttr.setY(i, posAttr.getY(i) + mapH / 2);
-        }
-        posAttr.needsUpdate = true;
 
         // Create texture from bitmap
         var canvas = bitmap._canvas || bitmap._image;
@@ -2542,7 +2560,7 @@ Spriteset_Map.prototype._updateParallaxSkyPlane = function() {
 
         var mesh = new THREE.Mesh(geometry, material);
         mesh._isParallaxSky = true;  // Tag for Mode3D render pass
-        mesh.position.z = -100;
+        mesh.frustumCulled = false;
         mesh.visible = false;  // Hidden by default; Mode3D render controls visibility
         rendObj.scene.add(mesh);
         self._parallaxSkyMesh = mesh;
