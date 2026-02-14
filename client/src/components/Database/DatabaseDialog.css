@@ -232,7 +232,7 @@
   gap: 6px;
   overflow-y: auto;
   min-width: 0;
-  padding-right: 8px;
+  scrollbar-gutter: stable;
 }
 
 .db-system-column label {
