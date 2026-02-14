@@ -140,6 +140,40 @@ export function createStoreSubscription(params: {
       requestRender();
     }
 
+    // 패럴랙스 설정 변경 시 런타임 동기화
+    if (state.currentMap && prevState.currentMap && (
+        state.currentMap.parallaxName !== prevState.currentMap.parallaxName ||
+        state.currentMap.parallaxLoopX !== prevState.currentMap.parallaxLoopX ||
+        state.currentMap.parallaxLoopY !== prevState.currentMap.parallaxLoopY ||
+        state.currentMap.parallaxSx !== prevState.currentMap.parallaxSx ||
+        state.currentMap.parallaxSy !== prevState.currentMap.parallaxSy ||
+        state.currentMap.parallaxShow !== prevState.currentMap.parallaxShow)) {
+      const cm = state.currentMap;
+      w.$dataMap.parallaxName = cm.parallaxName || '';
+      w.$dataMap.parallaxLoopX = cm.parallaxLoopX || false;
+      w.$dataMap.parallaxLoopY = cm.parallaxLoopY || false;
+      w.$dataMap.parallaxSx = cm.parallaxSx || 0;
+      w.$dataMap.parallaxSy = cm.parallaxSy || 0;
+      w.$dataMap.parallaxShow = cm.parallaxShow || false;
+      if (w.$gameMap) {
+        w.$gameMap._parallaxName = cm.parallaxName || '';
+        w.$gameMap._parallaxLoopX = cm.parallaxLoopX || false;
+        w.$gameMap._parallaxLoopY = cm.parallaxLoopY || false;
+        w.$gameMap._parallaxSx = cm.parallaxSx || 0;
+        w.$gameMap._parallaxSy = cm.parallaxSy || 0;
+        w.$gameMap._parallaxShow = cm.parallaxShow || false;
+        // 패럴랙스 이미지 변경 시 스프라이트셋에서 재로드
+        if (cm.parallaxName !== prevState.currentMap.parallaxName) {
+          w.$gameMap._parallaxZero = w.ImageManager.isZeroParallax(cm.parallaxName);
+          if (spriteset._parallax) {
+            spriteset._parallax.bitmap = cm.parallaxName
+              ? w.ImageManager.loadParallax(cm.parallaxName) : null;
+          }
+        }
+      }
+      requestRender();
+    }
+
     if (state.currentMap?.skyBackground !== prevState.currentMap?.skyBackground) {
       w.$dataMap.skyBackground = state.currentMap?.skyBackground || null;
       if (w._skyBoxApplySettings) {

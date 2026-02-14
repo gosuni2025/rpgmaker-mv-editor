@@ -368,6 +368,30 @@ export default function MapInspector() {
                     <span>세로 루프</span>
                   </label>
                 </div>
+                {currentMap.parallaxLoopX && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    <span style={{ fontSize: 12, color: '#aaa', minWidth: 60 }}>가로 속도</span>
+                    <input type="range" min={-32} max={32} step={1}
+                      value={currentMap.parallaxSx || 0}
+                      onChange={(e) => updateMapField('parallaxSx', Number(e.target.value))}
+                      style={{ flex: 1 }} />
+                    <span style={{ fontSize: 11, color: '#aaa', minWidth: 24, textAlign: 'right' }}>
+                      {currentMap.parallaxSx || 0}
+                    </span>
+                  </div>
+                )}
+                {currentMap.parallaxLoopY && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    <span style={{ fontSize: 12, color: '#aaa', minWidth: 60 }}>세로 속도</span>
+                    <input type="range" min={-32} max={32} step={1}
+                      value={currentMap.parallaxSy || 0}
+                      onChange={(e) => updateMapField('parallaxSy', Number(e.target.value))}
+                      style={{ flex: 1 }} />
+                    <span style={{ fontSize: 11, color: '#aaa', minWidth: 24, textAlign: 'right' }}>
+                      {currentMap.parallaxSy || 0}
+                    </span>
+                  </div>
+                )}
                 <label className="map-inspector-checkbox">
                   <input type="checkbox" checked={currentMap.parallaxShow ?? false}
                     onChange={(e) => updateMapField('parallaxShow', e.target.checked)} />
