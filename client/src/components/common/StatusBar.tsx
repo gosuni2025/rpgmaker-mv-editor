@@ -46,10 +46,222 @@ function formatBytesDelta(bytes: number): string {
   return sign + (bytes / (1024 * 1024)).toFixed(2) + ' MB';
 }
 
+/* ── 메모리 진단 리포트 생성 ── */
+function generateMemoryReport(): string {
+  const w = window as any;
+  const perf = performance as any;
+  const lines: string[] = [];
+  const ts = new Date().toISOString();
+
+  lines.push(`=== Memory Diagnostic Report ===`);
+  lines.push(`Time: ${ts}`);
+  lines.push('');
+
+  // 1. JS Heap
+  if (perf.memory) {
+    lines.push(`[JS Heap]`);
+    lines.push(`  Used:  ${formatBytes(perf.memory.usedJSHeapSize)}`);
+    lines.push(`  Total: ${formatBytes(perf.memory.totalJSHeapSize)}`);
+    lines.push(`  Limit: ${formatBytes(perf.memory.jsHeapSizeLimit)}`);
+    lines.push('');
+  }
+
+  // 2. 추세
+  if (memHistory.length > 1) {
+    const first = memHistory[0];
+    const last = memHistory[memHistory.length - 1];
+    const elapsed = ((last.time - first.time) / 1000).toFixed(0);
+    const delta = last.used - first.used;
+    const rate = delta / ((last.time - first.time) / 1000);
+    lines.push(`[Trend] ${elapsed}s 추적`);
+    lines.push(`  시작: ${formatBytes(first.used)} -> 현재: ${formatBytes(last.used)}`);
+    lines.push(`  변화: ${formatBytesDelta(delta)}  (${formatBytesDelta(rate)}/s)`);
+    const idx30 = Math.max(0, memHistory.length - 31);
+    const d30 = last.used - memHistory[idx30].used;
+    lines.push(`  최근 30s: ${formatBytesDelta(d30)}`);
+    lines.push('');
+  }
+
+  // 3. Three.js 씬 오브젝트
+  // rendererObj를 글로벌에서 찾기
+  let scene: any = null;
+  try {
+    const storeState = (w.__editorStore as any)?.getState?.();
+    // rendererObjRef는 직접 접근 불가하므로, _editorSpriteset parent 체인으로 scene 찾기
+    if (w._editorSpriteset?._tilemap?.parent) {
+      let node = w._editorSpriteset._tilemap;
+      while (node.parent) node = node.parent;
+      // ThreeContainer의 scene 속성
+      if (node._scene) scene = node._scene;
+    }
+  } catch {}
+  // fallback: 글로벌 RendererStrategy에서 scene 찾기
+  if (!scene && w.RendererStrategy?.getStrategy) {
+    try {
+      const strategy = w.RendererStrategy.getStrategy();
+      if (strategy?._rendererObj?.scene) scene = strategy._rendererObj.scene;
+    } catch {}
+  }
+
+  if (scene) {
+    const counts: Record<string, number> = {};
+    let totalObjects = 0;
+    scene.traverse((obj: any) => {
+      totalObjects++;
+      const type = obj.constructor?.name || obj.type || 'Unknown';
+      counts[type] = (counts[type] || 0) + 1;
+    });
+    lines.push(`[Three.js Scene]`);
+    lines.push(`  총 오브젝트: ${totalObjects}`);
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    for (const [type, count] of sorted.slice(0, 15)) {
+      lines.push(`  ${type}: ${count}`);
+    }
+    let editorCount = 0;
+    scene.traverse((obj: any) => { if (obj.userData?.editorGrid) editorCount++; });
+    lines.push(`  에디터 오버레이(editorGrid): ${editorCount}`);
+    let geomCount = 0, matCount = 0, texCount = 0;
+    scene.traverse((obj: any) => {
+      if (obj.geometry) geomCount++;
+      if (obj.material) {
+        matCount++;
+        if (obj.material.map) texCount++;
+      }
+    });
+    lines.push(`  Geometry: ${geomCount}, Material: ${matCount}, Texture(map): ${texCount}`);
+    lines.push('');
+  } else {
+    lines.push(`[Three.js Scene] 접근 불가`);
+    lines.push('');
+  }
+
+  // 4. WebGL 리소스 (renderer.info)
+  try {
+    const strategy = w.RendererStrategy?.getStrategy?.();
+    const renderer = strategy?._rendererObj?.renderer;
+    if (renderer?.info) {
+      const info = renderer.info;
+      lines.push(`[WebGL Renderer Info]`);
+      lines.push(`  Geometries: ${info.memory?.geometries ?? '?'}`);
+      lines.push(`  Textures: ${info.memory?.textures ?? '?'}`);
+      lines.push(`  Programs: ${info.programs?.length ?? '?'}`);
+      lines.push(`  Render calls: ${info.render?.calls ?? '?'}`);
+      lines.push(`  Triangles: ${info.render?.triangles ?? '?'}`);
+      lines.push('');
+    }
+  } catch {}
+
+  // 5. ImageManager 캐시
+  if (w.ImageManager) {
+    lines.push(`[ImageManager Cache]`);
+    if (w.ImageManager._imageCache?._items) {
+      const items = w.ImageManager._imageCache._items;
+      const keys = Object.keys(items);
+      let totalPixels = 0;
+      const entries: string[] = [];
+      for (const key of keys) {
+        const bmp = items[key]?.bitmap;
+        if (bmp) {
+          const pixels = (bmp.width || 0) * (bmp.height || 0);
+          totalPixels += pixels;
+          entries.push(`    ${key} (${bmp.width}x${bmp.height} = ${formatBytes(pixels * 4)})`);
+        }
+      }
+      lines.push(`  ImageCache 항목: ${keys.length}개, ~${formatBytes(totalPixels * 4)}`);
+      if (w.ImageCache?.limit) {
+        lines.push(`  ImageCache limit: ${formatBytes(w.ImageCache.limit * 4)}`);
+      }
+      for (const e of entries) lines.push(e);
+    }
+    if (w.ImageManager.cache?._inner) {
+      const cacheKeys = Object.keys(w.ImageManager.cache._inner);
+      lines.push(`  CacheMap 항목: ${cacheKeys.length}개`);
+    }
+    lines.push('');
+  }
+
+  // 6. 글로벌 에디터 메시 배열
+  lines.push(`[Editor Global Arrays]`);
+  for (const key of ['_editorSelectionMeshes', '_editorDragMeshes', '_editorMoveRouteMeshes']) {
+    const arr = w[key] as any[];
+    lines.push(`  ${key}: ${arr?.length ?? 0}개`);
+  }
+  lines.push('');
+
+  // 7. ShadowLight
+  if (w.ShadowLight) {
+    lines.push(`[ShadowLight]`);
+    lines.push(`  _active: ${w.ShadowLight._active}`);
+    lines.push(`  _editorPointLights: ${w.ShadowLight._editorPointLights?.length ?? 0}개`);
+    lines.push(`  _editorLightMarkers: ${w.ShadowLight._editorLightMarkers?.length ?? 0}개`);
+    lines.push(`  _editorSunLights: ${w.ShadowLight._editorSunLights?.length ?? 0}개`);
+    lines.push('');
+  }
+
+  // 8. Spriteset
+  const spriteset = w._editorSpriteset;
+  if (spriteset) {
+    lines.push(`[Spriteset_Map]`);
+    lines.push(`  _characterSprites: ${spriteset._characterSprites?.length ?? 0}개`);
+    lines.push(`  _objectSprites: ${spriteset._objectSprites?.length ?? 0}개`);
+    if (spriteset._tilemap) {
+      const tm = spriteset._tilemap;
+      lines.push(`  Tilemap children: ${tm.children?.length ?? 0}개`);
+      lines.push(`  Tilemap bitmaps: ${tm.bitmaps?.length ?? 0}개`);
+    }
+    lines.push('');
+  }
+
+  // 9. $dataMap
+  if (w.$dataMap) {
+    lines.push(`[Map Data]`);
+    lines.push(`  data length: ${w.$dataMap.data?.length ?? 0}`);
+    lines.push(`  events: ${w.$dataMap.events?.length ?? 0}개`);
+    lines.push(`  width: ${w.$dataMap.width}, height: ${w.$dataMap.height}`);
+    lines.push('');
+  }
+
+  // 10. Zustand 스토어
+  const store = useEditorStore.getState() as any;
+  if (store) {
+    lines.push(`[Zustand Store]`);
+    const mapData = store.currentMap?.data;
+    if (mapData) {
+      lines.push(`  currentMap.data: ${mapData.length}개 (~${formatBytes(mapData.length * 8)})`);
+    }
+    lines.push(`  undoStack: ${store.undoStack?.length ?? 0}개`);
+    lines.push(`  redoStack: ${store.redoStack?.length ?? 0}개`);
+    if (store.undoStack?.length > 0) {
+      let undoChanges = 0;
+      for (const entry of store.undoStack) {
+        if (entry.changes) undoChanges += entry.changes.length;
+      }
+      lines.push(`  undoStack 총 changes: ${undoChanges}개`);
+    }
+    lines.push('');
+  }
+
+  // 11. 히스토리 CSV
+  lines.push(`[History CSV (최근 60s)]`);
+  lines.push(`  sec, used_mb, total_mb`);
+  const recent = Math.max(0, memHistory.length - 61);
+  const ref = memHistory.length > 0 ? memHistory[memHistory.length - 1].time : 0;
+  for (let i = recent; i < memHistory.length; i++) {
+    const s = memHistory[i];
+    lines.push(`  ${((s.time - ref) / 1000).toFixed(0)}, ${(s.used / 1048576).toFixed(2)}, ${(s.total / 1048576).toFixed(2)}`);
+  }
+
+  return lines.join('\n');
+}
+
 /* ── 메모리 그래프 팝업 ── */
 function MemoryGraph({ onClose }: { onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [, setTick] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const logRef = useRef<HTMLTextAreaElement>(null);
+  const [showLog, setShowLog] = useState(false);
+  const [logText, setLogText] = useState('');
 
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), SAMPLE_INTERVAL);
@@ -77,7 +289,6 @@ function MemoryGraph({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    // 범위 계산
     let minUsed = Infinity, maxUsed = 0;
     let minTotal = Infinity, maxTotal = 0;
     for (const s of samples) {
@@ -87,7 +298,6 @@ function MemoryGraph({ onClose }: { onClose: () => void }) {
       if (s.total > maxTotal) maxTotal = s.total;
     }
 
-    // 전체 범위 (total 기준으로 Y축 스케일)
     const yMin = Math.min(minUsed, minTotal) * 0.95;
     const yMax = Math.max(maxUsed, maxTotal) * 1.05;
     const yRange = yMax - yMin || 1;
@@ -96,11 +306,9 @@ function MemoryGraph({ onClose }: { onClose: () => void }) {
     const gw = w - pad.left - pad.right;
     const gh = h - pad.top - pad.bottom;
 
-    // 배경
     ctx.fillStyle = '#1e1e1e';
     ctx.fillRect(0, 0, w, h);
 
-    // Y축 눈금
     ctx.strokeStyle = '#333';
     ctx.fillStyle = '#888';
     ctx.font = '10px monospace';
@@ -116,7 +324,6 @@ function MemoryGraph({ onClose }: { onClose: () => void }) {
       ctx.fillText(formatBytes(val), pad.left - 4, y + 3);
     }
 
-    // X축 시간 눈금
     ctx.textAlign = 'center';
     const tStart = samples[0].time;
     const tEnd = samples[samples.length - 1].time;
@@ -129,31 +336,26 @@ function MemoryGraph({ onClose }: { onClose: () => void }) {
       ctx.fillText(sec + 's', x, h - pad.bottom + 16);
     }
 
-    // total 선 (반투명)
     ctx.beginPath();
     ctx.strokeStyle = 'rgba(100,100,255,0.4)';
     ctx.lineWidth = 1;
     for (let i = 0; i < samples.length; i++) {
       const x = pad.left + (gw * (samples[i].time - tStart)) / tRange;
       const y = pad.top + gh - (gh * (samples[i].total - yMin)) / yRange;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
 
-    // used 선 (메인)
     ctx.beginPath();
     ctx.strokeStyle = '#4fc3f7';
     ctx.lineWidth = 2;
     for (let i = 0; i < samples.length; i++) {
       const x = pad.left + (gw * (samples[i].time - tStart)) / tRange;
       const y = pad.top + gh - (gh * (samples[i].used - yMin)) / yRange;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
 
-    // used 영역 채우기
     const lastX = pad.left + (gw * (samples[samples.length - 1].time - tStart)) / tRange;
     ctx.lineTo(lastX, pad.top + gh);
     ctx.lineTo(pad.left, pad.top + gh);
@@ -161,7 +363,6 @@ function MemoryGraph({ onClose }: { onClose: () => void }) {
     ctx.fillStyle = 'rgba(79,195,247,0.1)';
     ctx.fill();
 
-    // 범례
     ctx.font = '11px monospace';
     ctx.textAlign = 'left';
     ctx.fillStyle = '#4fc3f7';
@@ -169,7 +370,6 @@ function MemoryGraph({ onClose }: { onClose: () => void }) {
     ctx.fillStyle = 'rgba(100,100,255,0.7)';
     ctx.fillText('● Total Heap', pad.left + 120, 14);
 
-    // 현재 값 & 변화량
     const cur = samples[samples.length - 1];
     const prev30 = samples[Math.max(0, samples.length - 31)];
     const delta = cur.used - prev30.used;
@@ -183,11 +383,31 @@ function MemoryGraph({ onClose }: { onClose: () => void }) {
     ctx.fillText(`Δ30s: ${deltaStr}`, w - pad.right, 26);
   });
 
+  const handleSnapshot = useCallback(() => {
+    const report = generateMemoryReport();
+    setLogText(report);
+    setShowLog(true);
+    setCopied(false);
+  }, []);
+
+  const handleCopy = useCallback(() => {
+    if (logRef.current) {
+      logRef.current.select();
+      navigator.clipboard.writeText(logRef.current.value).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  }, []);
+
   return (
-    <div className="memory-graph-popup">
+    <div className="memory-graph-popup" style={showLog ? { width: 640 } : undefined}>
       <div className="memory-graph-header">
         <span>JS Heap 메모리 모니터</span>
-        <button onClick={onClose}>✕</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={handleSnapshot} title="진단 리포트 생성">리포트</button>
+          <button onClick={onClose}>✕</button>
+        </div>
       </div>
       <canvas ref={canvasRef} className="memory-graph-canvas" />
       <div className="memory-graph-footer">
@@ -207,6 +427,25 @@ function MemoryGraph({ onClose }: { onClose: () => void }) {
           );
         })()}
       </div>
+      {showLog && (
+        <div className="memory-log-section">
+          <div className="memory-log-toolbar">
+            <span>진단 리포트</span>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={handleCopy}>{copied ? '복사됨!' : '복사'}</button>
+              <button onClick={handleSnapshot}>새로고침</button>
+              <button onClick={() => setShowLog(false)}>닫기</button>
+            </div>
+          </div>
+          <textarea
+            ref={logRef}
+            className="memory-log-textarea"
+            value={logText}
+            readOnly
+            spellCheck={false}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -223,7 +462,6 @@ export default function StatusBar() {
   const [showGraph, setShowGraph] = useState(false);
   const [, setTick] = useState(0);
 
-  // 샘플러 시작 & 주기적 갱신
   useEffect(() => {
     startSampler();
     const id = setInterval(() => setTick((t) => t + 1), SAMPLE_INTERVAL);
