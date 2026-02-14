@@ -105,6 +105,8 @@
   padding-bottom: 4px;
   border-bottom: 1px solid #444;
   margin-bottom: 8px;
+  display: flex;
+  align-items: center;
 }
 
 .light-inspector-row {
@@ -443,9 +445,6 @@
 }
 
 .sky-ext-badge {
-  position: absolute;
-  top: -8px;
-  right: 8px;
   background: linear-gradient(135deg, #6a3fb5, #3f6ab5);
   color: #fff;
   font-size: 9px;
@@ -453,6 +452,44 @@
   padding: 1px 6px;
   border-radius: 3px;
   letter-spacing: 0.5px;
+}
+
+.sky-ext-badge-inline {
+  margin-left: 6px;
+}
+
+.sky-ext-section > .sky-ext-badge {
+  position: absolute;
+  top: -8px;
+  right: 8px;
+}
+
+.ext-badge-popup {
+  width: 230px;
+  padding: 10px 12px;
+  background: #2a2a3a;
+  border: 1px solid #6a3fb5;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: normal;
+  color: #ccc;
+  line-height: 1.5;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  white-space: normal;
+  letter-spacing: 0;
+}
+
+.ext-badge-popup strong {
+  color: #b89aed;
+}
+
+.ext-badge-popup code {
+  background: #3a3a4a;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 10px;
+  color: #aad;
 }
 
 /* Sky help popup */
