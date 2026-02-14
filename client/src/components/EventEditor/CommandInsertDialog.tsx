@@ -92,7 +92,7 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
         },
         {
           label: t('eventCommands.categories.tab3Battle'),
-          commands: [331, 332, 333, 334, 335, 336, 337, 338, 339, 340],
+          commands: [331, 332, 342, 333, 334, 335, 336, 337, 339, 340],
         },
         {
           label: t('eventCommands.categories.tab3Advanced'),
