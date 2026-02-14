@@ -560,6 +560,7 @@ export function useLightOverlay(refs: OverlayRefs, rendererReady: number) {
 export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.MutableRefObject<any> }, rendererReady: number) {
   const mapWidth = useEditorStore((s) => s.currentMap?.width ?? 0);
   const mapHeight = useEditorStore((s) => s.currentMap?.height ?? 0);
+  const disableFow = useEditorStore((s) => s.disableFow);
   const fogOfWar = useEditorStore((s) => {
     const map = s.currentMap as any;
     return map?.fogOfWar;
@@ -580,7 +581,7 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
       refs.fogOfWarMeshRef.current = null;
     }
 
-    if (!fogOfWar?.enabled || mapWidth <= 0 || mapHeight <= 0) {
+    if (disableFow || !fogOfWar?.enabled || mapWidth <= 0 || mapHeight <= 0) {
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       return;
     }
@@ -664,5 +665,5 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
     refs.fogOfWarMeshRef.current = mesh;
 
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
-  }, [rendererReady, mapWidth, mapHeight, fogOfWar?.enabled, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha]);
+  }, [rendererReady, mapWidth, mapHeight, disableFow, fogOfWar?.enabled, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha]);
 }

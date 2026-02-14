@@ -33,8 +33,10 @@ export default function DrawToolbar() {
   const saveCurrentMap = useEditorStore((s) => s.saveCurrentMap);
   const mode3d = useEditorStore((s) => s.mode3d);
   const shadowLight = useEditorStore((s) => s.shadowLight);
+  const disableFow = useEditorStore((s) => s.disableFow);
   const setMode3d = useEditorStore((s) => s.setMode3d);
   const setShadowLight = useEditorStore((s) => s.setShadowLight);
+  const setDisableFow = useEditorStore((s) => s.setDisableFow);
   const showToast = useEditorStore((s) => s.showToast);
   const setShowDatabaseDialog = useEditorStore((s) => s.setShowDatabaseDialog);
   const setShowPluginManagerDialog = useEditorStore((s) => s.setShowPluginManagerDialog);
@@ -168,6 +170,12 @@ export default function DrawToolbar() {
           style={{ ...styles.btn, ...(shadowLight ? styles.btnActive : {}) }}
         >
           {t('toolbar.lighting')}
+        </button>
+        <button
+          onClick={() => setDisableFow(!disableFow)}
+          style={{ ...styles.btn, ...(!disableFow ? styles.btnActive : {}) }}
+        >
+          FOW
         </button>
       </div>
 

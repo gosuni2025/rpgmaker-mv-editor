@@ -36,14 +36,14 @@ function loadTransparentColor(): { r: number; g: number; b: number } {
 }
 
 export const uiSlice: SliceCreator<Pick<EditorState,
-  'zoomLevel' | 'mode3d' | 'shadowLight' | 'paletteTab' | 'toastMessage' | 'toastPersistent' |
+  'zoomLevel' | 'mode3d' | 'shadowLight' | 'disableFow' | 'paletteTab' | 'toastMessage' | 'toastPersistent' |
   'transparentColor' | 'maxUndo' | 'zoomStep' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
   'showToast' | 'dismissToast' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
-  'setMode3d' | 'setShadowLight' | 'setPaletteTab' |
+  'setMode3d' | 'setShadowLight' | 'setDisableFow' | 'setPaletteTab' |
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
   'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' | 'setShowLocalizationDialog' |
@@ -52,6 +52,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   zoomLevel: 1,
   mode3d: false,
   shadowLight: false,
+  disableFow: true,
   postProcessConfig: {},
   paletteTab: 'A',
   toastMessage: null,
@@ -109,6 +110,10 @@ export const uiSlice: SliceCreator<Pick<EditorState,
     if (ConfigManager) ConfigManager.shadowLight = enabled;
     set({ shadowLight: enabled });
     get().showToast(`조명 ${enabled ? 'ON' : 'OFF'}`);
+  },
+  setDisableFow: (disabled: boolean) => {
+    set({ disableFow: disabled });
+    get().showToast(`FOW ${disabled ? 'OFF' : 'ON'}`);
   },
   setPostProcessConfig: (config) => {
     set({ postProcessConfig: config });
