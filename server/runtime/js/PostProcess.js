@@ -331,6 +331,18 @@ MapRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuffer, 
     renderer.shadowMap.needsUpdate = true;
 
     // Pass 1: PerspectiveCamera - 맵(Spriteset_Map)만
+    // FOW 메쉬를 숨김 — bloom/postprocess 전에 렌더되면 탐험영역의 bloom이 약해짐
+    // UIRenderPass에서 FOW를 최종 합성함
+    var fowGroup = null, fowGroupWasVisible = false;
+    for (var fi = 0; fi < scene.children.length; fi++) {
+        if (scene.children[fi]._isFogOfWar) {
+            fowGroup = scene.children[fi];
+            fowGroupWasVisible = fowGroup.visible;
+            fowGroup.visible = false;
+            break;
+        }
+    }
+
     // Picture는 Pass 1에서 숨기고 UIRenderPass(2D)에서 렌더
     var picContainer = this.spriteset._pictureContainer;
     var picObj = picContainer && picContainer._threeObj;
@@ -379,6 +391,8 @@ MapRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuffer, 
     if (blackScreenObj) {
         blackScreenObj.visible = blackScreenWasVisible;
     }
+    // FOW 가시성 복원
+    if (fowGroup) fowGroup.visible = fowGroupWasVisible;
     // Picture 가시성 복원
     if (picObj) picObj.visible = picWasVisible;
     // fade/flash/weather 가시성 복원
@@ -921,11 +935,12 @@ BloomPass.prototype.dispose = function() {
 };
 
 // --- UIRenderPass (블러 후 UI를 선명하게 합성) ---
-function UIRenderPass(scene, camera, spriteset, stage) {
+function UIRenderPass(scene, camera, spriteset, stage, perspCamera) {
     this.scene = scene;
     this.camera = camera;
     this.spriteset = spriteset;
     this.stage = stage;
+    this.perspCamera = perspCamera;
     this.enabled = true;
     this.needsSwap = false;
     this.renderToScreen = true;
@@ -1045,6 +1060,23 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
     // 블러된 맵 위에 UI를 합성 (clear 하지 않음)
     renderer.autoClear = false;
     renderer.render(scene, this.camera);
+
+    // FOW를 최종 합성 — bloom/postprocess 이후에 렌더하여 bloom을 가리지 않게 함
+    if (fowMesh && fowWasVisible && this.perspCamera) {
+        fowMesh.visible = true;
+        // scene의 FOW만 보이게, 나머지(stageObj, sky 등) 숨김
+        var sceneChildVis = [];
+        for (var sci = 0; sci < scene.children.length; sci++) {
+            sceneChildVis.push(scene.children[sci].visible);
+            scene.children[sci].visible = !!scene.children[sci]._isFogOfWar;
+        }
+        renderer.render(scene, this.perspCamera);
+        for (var sci = 0; sci < scene.children.length; sci++) {
+            scene.children[sci].visible = sceneChildVis[sci];
+        }
+        fowMesh.visible = false;
+    }
+
     renderer.autoClear = prevAutoClear;
 
     // Picture를 원래 spritesetObj로 복원
@@ -1150,12 +1182,29 @@ Simple2DRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuf
         origSetRT(target === null ? wb : target);
     };
 
+    // FOW 메쉬 숨김 (bloom 전에 렌더되지 않도록)
+    var scene2d = rendererObj.scene;
+    var fowMesh2dRender = null, fowWasVisible2dRender = false;
+    if (scene2d) {
+        for (var fi = 0; fi < scene2d.children.length; fi++) {
+            if (scene2d.children[fi]._isFogOfWar) {
+                fowMesh2dRender = scene2d.children[fi];
+                fowWasVisible2dRender = fowMesh2dRender.visible;
+                fowMesh2dRender.visible = false;
+                break;
+            }
+        }
+    }
+
     renderer.setRenderTarget(writeBuffer);
     if (this.clear) renderer.clear();
 
     this._prevRender.call(this._strategy, rendererObj, stage);
 
     renderer.setRenderTarget = origSetRT;
+
+    // FOW 가시성 복원
+    if (fowMesh2dRender) fowMesh2dRender.visible = fowWasVisible2dRender;
 
     // UI 가시성 복원
     if (uiInfo) {
@@ -1266,6 +1315,24 @@ Simple2DUIRenderPass.prototype.render = function(renderer, writeBuffer, readBuff
     renderer.autoClear = false;
     renderer.render(scene, camera);
 
+    // FOW를 최종 합성 — bloom 후에 렌더
+    if (fowMesh2d && fowWasVisible2d) {
+        fowMesh2d.visible = true;
+        // FOW만 보이게, 나머지 숨김
+        if (stageObj) stageObj.visible = false;
+        var skyVis2d = [];
+        for (var sci = 0; sci < scene.children.length; sci++) {
+            skyVis2d.push(scene.children[sci].visible);
+            scene.children[sci].visible = !!scene.children[sci]._isFogOfWar;
+        }
+        renderer.render(scene, camera);
+        for (var sci = 0; sci < scene.children.length; sci++) {
+            scene.children[sci].visible = skyVis2d[sci];
+        }
+        if (stageObj) stageObj.visible = true;
+        fowMesh2d.visible = false;
+    }
+
     // FOW 메쉬 가시성 복원
     if (fowMesh2d) fowMesh2d.visible = fowWasVisible2d;
 
@@ -1349,7 +1416,7 @@ PostProcess._createComposer = function(rendererObj, stage) {
     composer.addPass(tiltShiftPass);
 
     // UIRenderPass - 블러된 맵 위에 UI를 선명하게 합성
-    var uiPass = new UIRenderPass(scene, camera, Mode3D._spriteset, stage);
+    var uiPass = new UIRenderPass(scene, camera, Mode3D._spriteset, stage, Mode3D._perspCamera);
     composer.addPass(uiPass);
 
     this._composer = composer;
