@@ -37,6 +37,15 @@ FogOfWar._absorption = 0.012;      // Beer-Lambert 흡수율
 FogOfWar._visibilityBrightness = 0.0; // 시야 내부 밝기 보정 (0=기본, 양수=더 밝게)
 FogOfWar._edgeAnimation = true;    // 경계 애니메이션 활성화
 FogOfWar._edgeAnimationSpeed = 1.0; // 경계 애니메이션 속도 배율
+FogOfWar._fogColorTop = { r: 0.15, g: 0.15, b: 0.2 }; // 안개 상단 색상
+FogOfWar._heightGradient = true;   // 높이 그라데이션 활성화
+FogOfWar._godRay = true;           // God ray (경계 라이트 림) 활성화
+FogOfWar._godRayIntensity = 0.4;   // God ray 강도
+FogOfWar._vortex = true;           // 소용돌이 활성화
+FogOfWar._vortexSpeed = 1.0;       // 소용돌이 속도
+FogOfWar._lightScattering = true;  // 라이트 산란 활성화
+FogOfWar._lightScatterIntensity = 1.0; // 라이트 산란 강도
+FogOfWar._playerPos = new (typeof THREE !== 'undefined' ? THREE.Vector2 : Object)(0, 0); // 플레이어 타일 좌표
 
 //=============================================================================
 // 셰이더 코드 — 레이마칭 볼류메트릭 fog
@@ -58,18 +67,32 @@ var VOL_FOG_FRAG = [
     '',
     'uniform sampler2D tFog;',
     'uniform vec3 fogColor;',
+    'uniform vec3 fogColorTop;',         // 안개 상단 색상 (높이 그라데이션)
     'uniform float unexploredAlpha;',
     'uniform float exploredAlpha;',
     'uniform float uTime;',
-    'uniform vec2 mapSize;',       // 맵 크기 (타일 단위)
-    'uniform vec3 cameraWorldPos;', // 카메라 월드 좌표
-    'uniform float fogHeight;',     // fog 볼륨 최대 높이 (픽셀)
-    'uniform vec2 mapPixelSize;',   // 맵 크기 (픽셀 단위)
-    'uniform vec2 scrollOffset;',   // 맵 스크롤 오프셋 (픽셀)
-    'uniform float absorption;',     // Beer-Lambert 흡수율
-    'uniform float visibilityBrightness;', // 시야 내부 밝기 보정
-    'uniform float edgeAnimOn;',     // 경계 애니메이션 on/off (0 or 1)
-    'uniform float edgeAnimSpeed;',  // 경계 애니메이션 속도 배율
+    'uniform vec2 mapSize;',
+    'uniform vec3 cameraWorldPos;',
+    'uniform float fogHeight;',
+    'uniform vec2 mapPixelSize;',
+    'uniform vec2 scrollOffset;',
+    'uniform float absorption;',
+    'uniform float visibilityBrightness;',
+    'uniform float edgeAnimOn;',
+    'uniform float edgeAnimSpeed;',
+    'uniform float heightGradientOn;',   // 높이 그라데이션 on/off
+    'uniform float godRayOn;',           // God ray on/off
+    'uniform float godRayIntensity;',    // God ray 강도
+    'uniform float vortexOn;',           // 소용돌이 on/off
+    'uniform float vortexSpeed;',        // 소용돌이 속도
+    'uniform vec2 playerPixelPos;',      // 플레이어 월드 픽셀 좌표
+    // 라이트 산란: 최대 8개 포인트 라이트
+    'uniform float lightScatterOn;',
+    'uniform float lightScatterIntensity;',
+    'uniform int numLights;',
+    'uniform vec3 lightPositions[8];',   // xyz (맵 로컬 좌표 픽셀)
+    'uniform vec3 lightColors[8];',      // rgb (0~1)
+    'uniform float lightDistances[8];',  // 영향 거리 (픽셀)
     '',
     '// --- 노이즈 함수 ---',
     'vec2 _hash22(vec2 p) {',
@@ -87,45 +110,25 @@ var VOL_FOG_FRAG = [
     '    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);',
     '}',
     'float fbm3(vec2 p) {',
-    '    float v = 0.0;',
-    '    float amp = 0.5;',
-    '    for (int i = 0; i < 3; i++) {',
-    '        v += amp * _valueNoise(p);',
-    '        p *= 2.03;',
-    '        amp *= 0.5;',
-    '    }',
+    '    float v = 0.0; float amp = 0.5;',
+    '    for (int i = 0; i < 3; i++) { v += amp * _valueNoise(p); p *= 2.03; amp *= 0.5; }',
     '    return v;',
     '}',
     '',
-    '// --- FOW 밀도 샘플 ---',
-    '// xy 좌표(픽셀)에서 FOW 밀도 반환 (0=투명, 1=불투명)',
-    'float sampleFogDensity(vec2 worldXY) {',
-    '    // worldXY는 카메라 중심 기준 좌표 → 맵 좌표로 변환',
-    '    // 그룹 위치가 (totalW/2 - ox, totalH/2 - oy)이므로',
-    '    // 맵 좌표 = worldXY - 그룹위치 + totalW/2 = worldXY + scrollOffset',
+    '// --- FOW 밀도 + 가시성 샘플 ---',
+    'vec3 sampleFogInfo(vec2 worldXY) {',
     '    vec2 mapXY = worldXY + scrollOffset;',
     '    vec2 uv = mapXY / mapPixelSize;',
-    '',
-    '    // 맵 바깥: 미탐험 취급, 거리 기반 페이드',
-    '    float dL = max(0.0, -uv.x);',
-    '    float dR = max(0.0, uv.x - 1.0);',
-    '    float dT = max(0.0, -uv.y);',
-    '    float dB = max(0.0, uv.y - 1.0);',
+    '    float dL = max(0.0, -uv.x); float dR = max(0.0, uv.x - 1.0);',
+    '    float dT = max(0.0, -uv.y); float dB = max(0.0, uv.y - 1.0);',
     '    float outsideDist = max(max(dL, dR), max(dT, dB));',
-    '',
-    '    float visibility = 0.0;',
-    '    float explored = 0.0;',
+    '    float visibility = 0.0; float explored = 0.0;',
     '    if (outsideDist < 0.001) {',
     '        vec4 s = texture2D(tFog, uv);',
-    '        visibility = s.r;',
-    '        explored = s.g;',
+    '        visibility = s.r; explored = s.g;',
     '    }',
-    '',
-    '    // 순수 fog 밀도: 0=완전 투명, 1=완전 불투명',
     '    float fogDensity;',
     '    if (visibility > 0.01) {',
-    '        // 시야 내부: 중심(vis=1)→0, 경계(vis→0)→exploredAlpha',
-    '        // visibilityBrightness로 시야 내부를 더 밝게 만들 수 있음',
     '        float adjustedVis = clamp(visibility + visibilityBrightness * visibility, 0.0, 1.0);',
     '        fogDensity = exploredAlpha * (1.0 - adjustedVis);',
     '    } else if (explored > 0.5) {',
@@ -133,14 +136,11 @@ var VOL_FOG_FRAG = [
     '    } else {',
     '        fogDensity = 1.0;',
     '    }',
-    '',
-    '    // 맵 바깥 페이드',
     '    if (outsideDist > 0.001) {',
     '        float fadeDist = outsideDist * mapSize.x * 0.5;',
     '        fogDensity *= 1.0 - smoothstep(0.0, 1.0, fadeDist);',
     '    }',
-    '',
-    '    return fogDensity;',
+    '    return vec3(fogDensity, visibility, explored);',
     '}',
     '',
     '// --- 메인 레이마칭 ---',
@@ -148,50 +148,60 @@ var VOL_FOG_FRAG = [
     '    vec3 rayOrigin = cameraWorldPos;',
     '    vec3 rayDir = normalize(vWorldPos - cameraWorldPos);',
     '',
-    '    // fog 볼륨: Z = 0 ~ fogHeight',
-    '    float tMin = 0.0;',
-    '    float tMax = 0.0;',
-    '',
-    '    // ray와 Z=0, Z=fogHeight 평면의 교점 계산',
+    '    float tMin = 0.0; float tMax = 0.0;',
     '    if (abs(rayDir.z) < 0.0001) {',
-    '        // ray가 거의 수평 — Z가 볼륨 안에 있으면 전체 통과',
     '        if (rayOrigin.z >= 0.0 && rayOrigin.z <= fogHeight) {',
-    '            tMin = 0.0;',
-    '            // 맵 크기 기반 최대 거리',
-    '            tMax = length(mapPixelSize) * 2.0;',
-    '        } else {',
-    '            discard;',
-    '        }',
+    '            tMin = 0.0; tMax = length(mapPixelSize) * 2.0;',
+    '        } else { discard; }',
     '    } else {',
-    '        float t0 = (0.0 - rayOrigin.z) / rayDir.z;',       // Z=0 교점
-    '        float t1 = (fogHeight - rayOrigin.z) / rayDir.z;',  // Z=fogHeight 교점
-    '        tMin = min(t0, t1);',
-    '        tMax = max(t0, t1);',
-    '        tMin = max(tMin, 0.0);', // 카메라 뒤 클립
+    '        float t0 = (0.0 - rayOrigin.z) / rayDir.z;',
+    '        float t1 = (fogHeight - rayOrigin.z) / rayDir.z;',
+    '        tMin = min(t0, t1); tMax = max(t0, t1);',
+    '        tMin = max(tMin, 0.0);',
     '        if (tMin >= tMax) discard;',
     '    }',
     '',
-    '    // 레이마칭 파라미터',
     '    const int MAX_STEPS = 48;',
     '    float stepSize = (tMax - tMin) / float(MAX_STEPS);',
-    '',
-    '    // 디더링: 시작 오프셋을 픽셀마다 랜덤하게 → 밴딩 제거',
     '    float dither = fract(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)) * 43758.5453);',
     '',
-    '    // Front-to-back 컴포지팅',
-    '    float accumulatedAlpha = 0.0;',
+    '    // 누적 변수',
+    '    vec3 accColor = vec3(0.0);',    // 누적 색상 (fog + light scattering)
+    '    float accAlpha = 0.0;',
     '    float t = tMin + stepSize * dither;',
     '',
     '    for (int i = 0; i < MAX_STEPS; i++) {',
-    '        if (accumulatedAlpha > 0.97) break;',
-    '',
+    '        if (accAlpha > 0.97) break;',
     '        vec3 samplePos = rayOrigin + rayDir * t;',
+    '        float heightNorm = clamp(samplePos.z / fogHeight, 0.0, 1.0);',
     '',
-    '        // FOW 밀도 (XY 평면)',
-    '        float baseDensity = sampleFogDensity(samplePos.xy);',
+    '        // FOW 밀도 + 가시성',
+    '        vec3 fogInfo = sampleFogInfo(samplePos.xy);',
+    '        float baseDensity = fogInfo.x;',
+    '        float visibility = fogInfo.y;',
     '',
-    '        // 경계 애니메이션: 시야 경계에 시간 기반 노이즈로 출렁임 추가',
-    '        // baseDensity가 경계 영역(0.1~0.5)일 때 노이즈로 밀도 변동',
+    '        // === 소용돌이(vortex) ===',
+    '        // 플레이어 위치 기준 극좌표로 회전하는 노이즈',
+    '        if (vortexOn > 0.5) {',
+    '            vec2 mapXY = samplePos.xy + scrollOffset;',
+    '            vec2 toPlayer = mapXY - playerPixelPos;',
+    '            float dist = length(toPlayer);',
+    '            float angle = atan(toPlayer.y, toPlayer.x);',
+    '            float vt = uTime * vortexSpeed;',
+    '            // 거리에 따라 회전량 변경 (가까울수록 빠르게)',
+    '            float rotAmount = vt * 0.3 / (1.0 + dist * 0.003);',
+    '            vec2 rotatedUV = vec2(',
+    '                cos(angle + rotAmount) * dist,',
+    '                sin(angle + rotAmount) * dist',
+    '            ) * 0.005;',
+    '            float vortexNoise = _valueNoise(rotatedUV + vec2(heightNorm * 3.0));',
+    '            // 경계 영역에서만 소용돌이 적용',
+    '            float vortexMask = smoothstep(0.05, 0.2, baseDensity) * (1.0 - smoothstep(0.5, 0.8, baseDensity));',
+    '            baseDensity += vortexNoise * 0.15 * vortexMask;',
+    '            baseDensity = clamp(baseDensity, 0.0, 1.0);',
+    '        }',
+    '',
+    '        // === 경계 애니메이션 ===',
     '        float timeS = uTime * edgeAnimSpeed;',
     '        float edgeWave = _valueNoise(samplePos.xy * 0.015 + vec2(timeS * 0.08, timeS * 0.06));',
     '        edgeWave += 0.5 * _valueNoise(samplePos.xy * 0.03 + vec2(-timeS * 0.05, timeS * 0.04));',
@@ -199,36 +209,80 @@ var VOL_FOG_FRAG = [
     '        baseDensity += edgeWave * 0.2 * edgeMask * edgeAnimOn;',
     '        baseDensity = clamp(baseDensity, 0.0, 1.0);',
     '',
-    '        // 시야 내부는 투명하게: 밀도가 낮은 곳을 급격히 0으로',
     '        baseDensity = smoothstep(0.15, 0.55, baseDensity);',
     '',
-    '        // 높이 기반 밀도 프로파일:',
-    '        // 단순 지수 감쇠 — 바닥(Z=0)에서 최대, 높아질수록 감소',
-    '        float heightNorm = clamp(samplePos.z / fogHeight, 0.0, 1.0);',
+    '        // 높이 감쇠',
     '        float heightFalloff = exp(-heightNorm * 3.0);',
     '',
-    '        // 3D 노이즈로 불규칙한 밀도 변화',
+    '        // 3D 볼륨 노이즈',
     '        vec2 noiseCoord = samplePos.xy * 0.004 + vec2(uTime * 0.02, uTime * 0.015);',
     '        noiseCoord += vec2(heightNorm * 5.0);',
     '        float noise = fbm3(noiseCoord);',
     '',
-    '        // 최종 밀도',
     '        float density = baseDensity * heightFalloff * (1.0 + noise * 0.5);',
     '        density = clamp(density, 0.0, 1.0);',
     '',
+    '        // === 높이 그라데이션 색상 ===',
+    '        vec3 stepColor = (heightGradientOn > 0.5)',
+    '            ? mix(fogColor, fogColorTop, heightNorm)',
+    '            : fogColor;',
+    '',
+    '        // === God ray (시야 경계 라이트 림) ===',
+    '        if (godRayOn > 0.5 && visibility > 0.01 && visibility < 0.8) {',
+    '            // 시야 경계에서 플레이어 방향으로 방사형 빛줄기',
+    '            vec2 mapXY = samplePos.xy + scrollOffset;',
+    '            vec2 toPlayer = normalize(playerPixelPos - mapXY);',
+    '            float rayAngle = atan(toPlayer.y, toPlayer.x);',
+    '            // 방사형 노이즈로 빛줄기 패턴',
+    '            float rayNoise = _valueNoise(vec2(rayAngle * 3.0, uTime * 0.1));',
+    '            rayNoise = max(0.0, rayNoise);',
+    '            // 경계 영역에서만 빛줄기 (중심~경계 사이)',
+    '            float edgeFactor = smoothstep(0.0, 0.3, visibility) * (1.0 - smoothstep(0.3, 0.8, visibility));',
+    '            float godRayContrib = rayNoise * edgeFactor * godRayIntensity * (1.0 - heightNorm);',
+    '            // 밝은 색으로 빛줄기 추가',
+    '            stepColor += vec3(0.8, 0.7, 0.5) * godRayContrib;',
+    '        }',
+    '',
+    '        // === 라이트 산란 ===',
+    '        if (lightScatterOn > 0.5 && density > 0.01) {',
+    '            vec2 mapXY = samplePos.xy + scrollOffset;',
+    '            vec3 scatterLight = vec3(0.0);',
+    '            for (int li = 0; li < 8; li++) {',
+    '                if (li >= numLights) break;',
+    '                vec3 lp = lightPositions[li];',
+    '                float dist = length(mapXY - lp.xy);',
+    '                float zDist = abs(samplePos.z - lp.z);',
+    '                float totalDist = sqrt(dist * dist + zDist * zDist);',
+    '                float atten = 1.0 - smoothstep(0.0, lightDistances[li], totalDist);',
+    '                atten *= atten;', // quadratic falloff
+    '                scatterLight += lightColors[li] * atten;',
+    '            }',
+    '            // Mie-like forward scattering: density가 높을수록 산란 강해짐',
+    '            stepColor += scatterLight * lightScatterIntensity * density * 2.0;',
+    '        }',
+    '',
+    '        // === 시야 내부 밝기 (ambient glow) ===',
+    '        if (visibilityBrightness > 0.01 && visibility > 0.3) {',
+    '            // 시야 내부에 은은한 밝은 빛 추가 (fog 색상에 additive)',
+    '            float glowFactor = visibility * visibilityBrightness * (1.0 - heightNorm * 0.5);',
+    '            stepColor += vec3(0.15, 0.12, 0.08) * glowFactor;',
+    '        }',
+    '',
     '        // Beer-Lambert 흡수',
     '        float absorb = density * stepSize * absorption;',
-    '',
-    '        // Front-to-back: 남은 투명도만큼 누적',
-    '        accumulatedAlpha += (1.0 - accumulatedAlpha) * absorb;',
+    '        // Front-to-back: 색상도 함께 누적',
+    '        accColor += (1.0 - accAlpha) * absorb * stepColor;',
+    '        accAlpha += (1.0 - accAlpha) * absorb;',
     '',
     '        t += stepSize;',
     '    }',
     '',
-    '    accumulatedAlpha = clamp(accumulatedAlpha, 0.0, 1.0);',
-    '    if (accumulatedAlpha < 0.001) discard;',
+    '    accAlpha = clamp(accAlpha, 0.0, 1.0);',
+    '    if (accAlpha < 0.001) discard;',
     '',
-    '    gl_FragColor = vec4(fogColor, accumulatedAlpha);',
+    '    // 최종 색상 정규화',
+    '    vec3 finalColor = (accAlpha > 0.001) ? accColor / accAlpha : fogColor;',
+    '    gl_FragColor = vec4(finalColor, accAlpha);',
     '}'
 ].join('\n');
 
@@ -261,6 +315,16 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
         this._visibilityBrightness = config.visibilityBrightness != null ? config.visibilityBrightness : 0.0;
         this._edgeAnimation = config.edgeAnimation != null ? config.edgeAnimation : true;
         this._edgeAnimationSpeed = config.edgeAnimationSpeed != null ? config.edgeAnimationSpeed : 1.0;
+        if (config.fogColorTop) {
+            this._fogColorTop = this._parseColor(config.fogColorTop);
+        }
+        this._heightGradient = config.heightGradient != null ? config.heightGradient : true;
+        this._godRay = config.godRay != null ? config.godRay : true;
+        this._godRayIntensity = config.godRayIntensity != null ? config.godRayIntensity : 0.4;
+        this._vortex = config.vortex != null ? config.vortex : true;
+        this._vortexSpeed = config.vortexSpeed != null ? config.vortexSpeed : 1.0;
+        this._lightScattering = config.lightScattering != null ? config.lightScattering : true;
+        this._lightScatterIntensity = config.lightScatterIntensity != null ? config.lightScatterIntensity : 1.0;
     }
 
     // 가시성 / 탐험 버퍼
@@ -538,7 +602,20 @@ FogOfWar._createMesh = function() {
             absorption:      { value: this._absorption },
             visibilityBrightness: { value: this._visibilityBrightness },
             edgeAnimOn:      { value: this._edgeAnimation ? 1.0 : 0.0 },
-            edgeAnimSpeed:   { value: this._edgeAnimationSpeed }
+            edgeAnimSpeed:   { value: this._edgeAnimationSpeed },
+            fogColorTop:     { value: new THREE.Vector3(this._fogColorTop.r, this._fogColorTop.g, this._fogColorTop.b) },
+            heightGradientOn:{ value: this._heightGradient ? 1.0 : 0.0 },
+            godRayOn:        { value: this._godRay ? 1.0 : 0.0 },
+            godRayIntensity: { value: this._godRayIntensity },
+            vortexOn:        { value: this._vortex ? 1.0 : 0.0 },
+            vortexSpeed:     { value: this._vortexSpeed },
+            playerPixelPos:  { value: new THREE.Vector2(0, 0) },
+            lightScatterOn:  { value: this._lightScattering ? 1.0 : 0.0 },
+            lightScatterIntensity: { value: this._lightScatterIntensity },
+            numLights:       { value: 0 },
+            lightPositions:  { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
+            lightColors:     { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
+            lightDistances:  { value: [0, 0, 0, 0, 0, 0, 0, 0] }
         },
         vertexShader: VOL_FOG_VERT,
         fragmentShader: VOL_FOG_FRAG,
@@ -625,6 +702,14 @@ FogOfWar._updateMeshUniforms = function() {
     u.visibilityBrightness.value = this._visibilityBrightness;
     u.edgeAnimOn.value = this._edgeAnimation ? 1.0 : 0.0;
     u.edgeAnimSpeed.value = this._edgeAnimationSpeed;
+    u.fogColorTop.value.set(this._fogColorTop.r, this._fogColorTop.g, this._fogColorTop.b);
+    u.heightGradientOn.value = this._heightGradient ? 1.0 : 0.0;
+    u.godRayOn.value = this._godRay ? 1.0 : 0.0;
+    u.godRayIntensity.value = this._godRayIntensity;
+    u.vortexOn.value = this._vortex ? 1.0 : 0.0;
+    u.vortexSpeed.value = this._vortexSpeed;
+    u.lightScatterOn.value = this._lightScattering ? 1.0 : 0.0;
+    u.lightScatterIntensity.value = this._lightScatterIntensity;
 
     // 카메라 월드 좌표 업데이트
     if (typeof Mode3D !== 'undefined' && Mode3D._perspCamera) {
@@ -638,6 +723,69 @@ FogOfWar._updateMeshUniforms = function() {
         oy = $gameMap.displayY() * 48;
     }
     u.scrollOffset.value.set(ox, oy);
+
+    // 플레이어 픽셀 좌표 업데이트
+    if (typeof $gamePlayer !== 'undefined' && $gamePlayer) {
+        u.playerPixelPos.value.set(
+            ($gamePlayer._realX + 0.5) * 48,
+            ($gamePlayer._realY + 0.5) * 48
+        );
+    }
+
+    // 라이트 산란: $dataMap.editorLights.points에서 포인트 라이트 수집
+    this._updateLightUniforms(u);
+};
+
+FogOfWar._updateLightUniforms = function(u) {
+    if (!this._lightScattering) {
+        u.numLights.value = 0;
+        return;
+    }
+
+    var lights = [];
+    // $dataMap.editorLights.points에서 포인트 라이트 수집
+    if (typeof $dataMap !== 'undefined' && $dataMap && $dataMap.editorLights && $dataMap.editorLights.points) {
+        var pts = $dataMap.editorLights.points;
+        for (var i = 0; i < pts.length && lights.length < 8; i++) {
+            var p = pts[i];
+            if (!p) continue;
+            var c = this._parseColor(p.color || '#ffffff');
+            lights.push({
+                x: (p.x + 0.5) * 48,
+                y: (p.y + 0.5) * 48,
+                z: p.z || 40,
+                r: c.r, g: c.g, b: c.b,
+                intensity: p.intensity || 1.0,
+                distance: p.distance || 200
+            });
+        }
+    }
+
+    // 플레이어 라이트 추가 (editorLights.playerLight)
+    if (typeof $dataMap !== 'undefined' && $dataMap && $dataMap.editorLights && $dataMap.editorLights.playerLight) {
+        var pl = $dataMap.editorLights.playerLight;
+        if (lights.length < 8 && typeof $gamePlayer !== 'undefined' && $gamePlayer) {
+            var pc = this._parseColor(pl.color || '#a25f06');
+            lights.push({
+                x: ($gamePlayer._realX + 0.5) * 48,
+                y: ($gamePlayer._realY + 0.5) * 48,
+                z: pl.z || 40,
+                r: pc.r, g: pc.g, b: pc.b,
+                intensity: pl.intensity || 0.8,
+                distance: pl.distance || 200
+            });
+        }
+    }
+
+    u.numLights.value = lights.length;
+    for (var i = 0; i < 8; i++) {
+        if (i < lights.length) {
+            var l = lights[i];
+            u.lightPositions.value[i].set(l.x, l.y, l.z);
+            u.lightColors.value[i].set(l.r * l.intensity, l.g * l.intensity, l.b * l.intensity);
+            u.lightDistances.value[i] = l.distance;
+        }
+    }
 };
 
 //=============================================================================

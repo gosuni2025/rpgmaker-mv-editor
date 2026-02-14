@@ -22,6 +22,14 @@ interface FogOfWarConfig {
   visibilityBrightness?: number;
   edgeAnimation?: boolean;
   edgeAnimationSpeed?: number;
+  fogColorTop?: string;
+  heightGradient?: boolean;
+  godRay?: boolean;
+  godRayIntensity?: number;
+  vortex?: boolean;
+  vortexSpeed?: number;
+  lightScattering?: boolean;
+  lightScatterIntensity?: number;
 }
 
 interface MapProps {
