@@ -10,6 +10,14 @@ interface TilesetEntry {
   name: string;
 }
 
+interface FogOfWarConfig {
+  enabled: boolean;
+  radius: number;
+  fogColor: string;
+  unexploredAlpha: number;
+  exploredAlpha: number;
+}
+
 interface MapProps {
   displayName: string;
   tilesetId: number;
@@ -34,6 +42,7 @@ interface MapProps {
   weatherType: number;
   weatherPower: number;
   note: string;
+  fogOfWar?: FogOfWarConfig;
 }
 
 interface Props {
@@ -113,6 +122,7 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
         weatherType: mapData.weatherType ?? 0,
         weatherPower: mapData.weatherPower ?? 0,
         note: mapData.note,
+        fogOfWar: mapData.fogOfWar,
       };
       const res = await apiClient.put<{ success: boolean; l10nDiff?: { added: string[]; modified: string[]; deleted: string[] } }>(`/maps/${mapId}`, merged);
       if (res.l10nDiff) {
@@ -314,6 +324,59 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
                   <span style={{ minWidth: 20, textAlign: 'center', color: '#ccc' }}>{mapData.weatherPower || 5}</span>
                 </div>
               </label>
+            )}
+          </div>
+
+          {/* Fog of War */}
+          <div className="db-form-section">Fog of War</div>
+          <div className="db-form" style={{ gap: 8, flex: 'none' }}>
+            <label className="db-checkbox-row">
+              <input type="checkbox" checked={mapData.fogOfWar?.enabled ?? false}
+                onChange={e => updateField('fogOfWar', {
+                  ...(mapData.fogOfWar || { enabled: false, radius: 5, fogColor: '#000000', unexploredAlpha: 1.0, exploredAlpha: 0.6 }),
+                  enabled: e.target.checked,
+                })} />
+              <span>활성화</span>
+            </label>
+            {mapData.fogOfWar?.enabled && (
+              <>
+                <label>
+                  <span>시야 반경 (타일)</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={1} max={20} value={mapData.fogOfWar.radius ?? 5}
+                      onChange={e => updateField('fogOfWar', { ...mapData.fogOfWar!, radius: Number(e.target.value) })}
+                      style={{ flex: 1 }} />
+                    <span style={{ minWidth: 20, textAlign: 'center', color: '#ccc' }}>{mapData.fogOfWar.radius ?? 5}</span>
+                  </div>
+                </label>
+                <label>
+                  <span>안개 색상</span>
+                  <input type="color" value={mapData.fogOfWar.fogColor ?? '#000000'}
+                    onChange={e => updateField('fogOfWar', { ...mapData.fogOfWar!, fogColor: e.target.value })} />
+                </label>
+                <label>
+                  <span>미탐험 불투명도</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={0} max={100} value={Math.round((mapData.fogOfWar.unexploredAlpha ?? 1.0) * 100)}
+                      onChange={e => updateField('fogOfWar', { ...mapData.fogOfWar!, unexploredAlpha: Number(e.target.value) / 100 })}
+                      style={{ flex: 1 }} />
+                    <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>
+                      {Math.round((mapData.fogOfWar.unexploredAlpha ?? 1.0) * 100)}%
+                    </span>
+                  </div>
+                </label>
+                <label>
+                  <span>탐험완료 불투명도</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={0} max={100} value={Math.round((mapData.fogOfWar.exploredAlpha ?? 0.6) * 100)}
+                      onChange={e => updateField('fogOfWar', { ...mapData.fogOfWar!, exploredAlpha: Number(e.target.value) / 100 })}
+                      style={{ flex: 1 }} />
+                    <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>
+                      {Math.round((mapData.fogOfWar.exploredAlpha ?? 0.6) * 100)}%
+                    </span>
+                  </div>
+                </label>
+              </>
             )}
           </div>
 

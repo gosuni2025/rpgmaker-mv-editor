@@ -555,3 +555,114 @@ export function useLightOverlay(refs: OverlayRefs, rendererReady: number) {
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
   }, [lightEditMode, selectedLightId, lightPoints]);
 }
+
+/** Fog of War 에디터 미리보기 오버레이 */
+export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.MutableRefObject<any> }, rendererReady: number) {
+  const mapWidth = useEditorStore((s) => s.currentMap?.width ?? 0);
+  const mapHeight = useEditorStore((s) => s.currentMap?.height ?? 0);
+  const fogOfWar = useEditorStore((s) => {
+    const map = s.currentMap as any;
+    return map?.fogOfWar;
+  });
+
+  useEffect(() => {
+    const rendererObj = refs.rendererObjRef.current;
+    if (!rendererObj) return;
+    const THREE = (window as any).THREE;
+    const FogOfWarMod = (window as any).FogOfWar;
+    if (!THREE || !FogOfWarMod) return;
+
+    // 기존 메쉬 제거
+    if (refs.fogOfWarMeshRef.current) {
+      rendererObj.scene.remove(refs.fogOfWarMeshRef.current);
+      refs.fogOfWarMeshRef.current.geometry?.dispose();
+      refs.fogOfWarMeshRef.current.material?.dispose();
+      refs.fogOfWarMeshRef.current = null;
+    }
+
+    if (!fogOfWar?.enabled || mapWidth <= 0 || mapHeight <= 0) {
+      requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+      return;
+    }
+
+    // FogOfWar 셋업 (에디터 미리보기용)
+    FogOfWarMod.setup(mapWidth, mapHeight, fogOfWar);
+
+    // 플레이어 시작 위치 또는 맵 중앙 기준
+    const $dataSystem = (window as any).$dataSystem;
+    let startX = Math.floor(mapWidth / 2);
+    let startY = Math.floor(mapHeight / 2);
+    if ($dataSystem) {
+      startX = $dataSystem.startX ?? startX;
+      startY = $dataSystem.startY ?? startY;
+    }
+    FogOfWarMod.updateVisibilityAt(startX, startY);
+
+    // ShaderMaterial로 전체 맵 위에 fog 오버레이
+    const FogOfWarShader = (window as any).FogOfWarShader;
+    if (!FogOfWarShader || !FogOfWarMod._fogTexture) return;
+
+    const totalW = mapWidth * TILE_SIZE_PX;
+    const totalH = mapHeight * TILE_SIZE_PX;
+
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        tFog: { value: FogOfWarMod._fogTexture },
+        mapSize: { value: new THREE.Vector2(mapWidth, mapHeight) },
+        fogColor: { value: new THREE.Vector3(
+          FogOfWarMod._fogColor.r,
+          FogOfWarMod._fogColor.g,
+          FogOfWarMod._fogColor.b
+        )},
+        unexploredAlpha: { value: FogOfWarMod._unexploredAlpha },
+        exploredAlpha: { value: FogOfWarMod._exploredAlpha },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        uniform sampler2D tFog;
+        uniform vec2 mapSize;
+        uniform vec3 fogColor;
+        uniform float unexploredAlpha;
+        uniform float exploredAlpha;
+
+        void main() {
+          vec4 fogSample = texture2D(tFog, vUv);
+          float visibility = fogSample.r;
+          float explored = fogSample.g;
+
+          float fogAlpha;
+          if (visibility > 0.01) {
+            fogAlpha = mix(exploredAlpha, 0.0, visibility);
+          } else if (explored > 0.5) {
+            fogAlpha = exploredAlpha;
+          } else {
+            fogAlpha = unexploredAlpha;
+          }
+
+          gl_FragColor = vec4(fogColor, fogAlpha);
+        }
+      `,
+      transparent: true,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    });
+
+    const geometry = new THREE.PlaneGeometry(totalW, totalH);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(totalW / 2, totalH / 2, 3.5);
+    mesh.renderOrder = 9990;
+    mesh.frustumCulled = false;
+    mesh.userData.editorGrid = true;
+    rendererObj.scene.add(mesh);
+    refs.fogOfWarMeshRef.current = mesh;
+
+    requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+  }, [rendererReady, mapWidth, mapHeight, fogOfWar?.enabled, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha]);
+}
