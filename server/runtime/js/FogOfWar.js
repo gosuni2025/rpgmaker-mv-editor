@@ -112,14 +112,15 @@ var VOL_FOG_FRAG = [
     '    }',
     '',
     '    // 순수 fog 밀도: 0=완전 투명, 1=완전 불투명',
-    '    // visibility가 높을수록 밀도가 낮음',
     '    float fogDensity;',
     '    if (visibility > 0.01) {',
-    '        fogDensity = 1.0 - visibility;', // 시야 반비례
+    '        // 시야 내부: 중심(vis=1)→0, 경계(vis→0)→exploredAlpha',
+    '        // 시야 경계가 탐험 영역보다 어둡지 않도록 exploredAlpha로 cap',
+    '        fogDensity = exploredAlpha * (1.0 - visibility);',
     '    } else if (explored > 0.5) {',
-    '        fogDensity = exploredAlpha;',     // 탐험완료: 중간 밀도
+    '        fogDensity = exploredAlpha;',
     '    } else {',
-    '        fogDensity = 1.0;',               // 미탐험: 최대 밀도
+    '        fogDensity = 1.0;',
     '    }',
     '',
     '    // 맵 바깥 페이드',
@@ -175,28 +176,32 @@ var VOL_FOG_FRAG = [
     '        // FOW 밀도 (XY 평면)',
     '        float baseDensity = sampleFogDensity(samplePos.xy);',
     '',
+    '        // 경계 애니메이션: 시야 경계에 시간 기반 노이즈로 출렁임 추가',
+    '        // baseDensity가 경계 영역(0.1~0.5)일 때 노이즈로 밀도 변동',
+    '        float edgeWave = _valueNoise(samplePos.xy * 0.015 + vec2(uTime * 0.08, uTime * 0.06));',
+    '        edgeWave += 0.5 * _valueNoise(samplePos.xy * 0.03 + vec2(-uTime * 0.05, uTime * 0.04));',
+    '        float edgeMask = smoothstep(0.0, 0.15, baseDensity) * (1.0 - smoothstep(0.4, 0.7, baseDensity));',
+    '        baseDensity += edgeWave * 0.2 * edgeMask;',
+    '        baseDensity = clamp(baseDensity, 0.0, 1.0);',
+    '',
     '        // 시야 내부는 투명하게: 밀도가 낮은 곳을 급격히 0으로',
-    '        baseDensity = smoothstep(0.4, 0.8, baseDensity);',
+    '        baseDensity = smoothstep(0.15, 0.55, baseDensity);',
     '',
     '        // 높이 기반 밀도 프로파일:',
     '        // FOW 밀도에 비례하는 유효 높이 — 경계는 높게, 미탐험은 꽉 차게',
     '        float heightNorm = clamp(samplePos.z / fogHeight, 0.0, 1.0);',
     '        float effectiveHeight = fogHeight * clamp(baseDensity * 1.5, 0.0, 1.0);',
     '        float heightNormEff = (effectiveHeight > 1.0) ? clamp(samplePos.z / effectiveHeight, 0.0, 1.0) : 1.0;',
-    '        float heightFalloff = 1.0 - heightNormEff;', // 선형 감쇠
-    '        heightFalloff = heightFalloff * heightFalloff;', // 제곱으로 바닥에 더 집중
+    '        float heightFalloff = 1.0 - heightNormEff;',
+    '        heightFalloff = heightFalloff * heightFalloff;',
     '',
     '        // 3D 노이즈로 불규칙한 밀도 변화',
     '        vec2 noiseCoord = samplePos.xy * 0.004 + vec2(uTime * 0.02, uTime * 0.015);',
-    '        noiseCoord += vec2(heightNorm * 5.0);', // 높이에 따라 노이즈 패턴 변화
+    '        noiseCoord += vec2(heightNorm * 5.0);',
     '        float noise = fbm3(noiseCoord);',
     '',
-    '        // 경계 영역(0.2~0.8) 노이즈 증폭: 들쭉날쭉한 경계감',
-    '        float edgeFactor = smoothstep(0.0, 0.3, baseDensity) * (1.0 - smoothstep(0.7, 1.0, baseDensity));',
-    '        float noiseAmp = mix(0.3, 0.8, edgeFactor);',
-    '',
     '        // 최종 밀도',
-    '        float density = baseDensity * heightFalloff * (1.0 + noise * noiseAmp);',
+    '        float density = baseDensity * heightFalloff * (1.0 + noise * 0.5);',
     '        density = clamp(density, 0.0, 1.0);',
     '',
     '        // Beer-Lambert 흡수',
@@ -256,6 +261,7 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
     this._prevPlayerX = -1;
     this._prevPlayerY = -1;
     this._time = 0;
+    this._blockMapDirty = true;
 };
 
 FogOfWar.dispose = function() {
@@ -266,6 +272,8 @@ FogOfWar.dispose = function() {
     }
     this._visibilityData = null;
     this._exploredData = null;
+    this._blockMap = null;
+    this._blockMapDirty = true;
     this._active = false;
     this._prevPlayerX = -1;
     this._prevPlayerY = -1;
@@ -302,6 +310,9 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
     var vis = this._visibilityData;
     var explored = this._exploredData;
 
+    // 장애물 맵 캐시 (통행불가 타일 = 시야 차단)
+    this._buildBlockMap();
+
     // 가시성 초기화
     for (var i = 0; i < vis.length; i++) vis[i] = 0;
 
@@ -317,8 +328,10 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
             var dy = ty - playerTileY;
             var distSq = dx * dx + dy * dy;
             if (distSq <= radiusSq) {
+                // Line of Sight 체크: 플레이어→타일 경로에 벽이 있으면 차단
+                if (!this._hasLineOfSight(playerTileX, playerTileY, tx, ty)) continue;
+
                 var idx = ty * w + tx;
-                // 부드러운 경계: 거리에 따라 0~1
                 var dist = Math.sqrt(distSq);
                 var t = dist / radius;
                 vis[idx] = 1.0 - t * t; // quadratic falloff
@@ -328,6 +341,81 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
     }
 
     this._updateTexture();
+};
+
+//=============================================================================
+// Line of Sight — 장애물 맵 + Bresenham 라인 캐스팅
+//=============================================================================
+
+FogOfWar._blockMap = null;     // Uint8Array — 장애물 맵 (0=통과 가능, 1=차단)
+FogOfWar._blockMapDirty = true;
+
+// 장애물 맵 구축: 통행 불가 타일을 시야 차단 장애물로 등록
+FogOfWar._buildBlockMap = function() {
+    if (!this._blockMapDirty && this._blockMap) return;
+
+    var w = this._mapWidth;
+    var h = this._mapHeight;
+    if (!this._blockMap || this._blockMap.length !== w * h) {
+        this._blockMap = new Uint8Array(w * h);
+    }
+
+    var blockMap = this._blockMap;
+    for (var i = 0; i < blockMap.length; i++) blockMap[i] = 0;
+
+    // $gameMap.checkPassage를 사용하여 통행불가 타일 감지
+    if (typeof $gameMap !== 'undefined' && $gameMap && $gameMap.tilesetFlags) {
+        var flags = $gameMap.tilesetFlags();
+        for (var ty = 0; ty < h; ty++) {
+            for (var tx = 0; tx < w; tx++) {
+                // checkPassage(x, y, 0x0f) === false → 모든 방향 통행 불가 = 벽
+                if (!$gameMap.checkPassage(tx, ty, 0x0f)) {
+                    blockMap[ty * w + tx] = 1;
+                }
+            }
+        }
+    }
+
+    this._blockMapDirty = false;
+};
+
+// Bresenham 라인: (x0,y0) → (x1,y1) 경로에 장애물이 있으면 false
+// 시작점과 끝점은 검사하지 않음 (플레이어가 벽 안에 있거나, 벽 자체를 볼 수 있어야 함)
+FogOfWar._hasLineOfSight = function(x0, y0, x1, y1) {
+    if (!this._blockMap) return true;
+
+    var w = this._mapWidth;
+    var blockMap = this._blockMap;
+
+    var dx = Math.abs(x1 - x0);
+    var dy = Math.abs(y1 - y0);
+    var sx = x0 < x1 ? 1 : -1;
+    var sy = y0 < y1 ? 1 : -1;
+    var err = dx - dy;
+
+    var cx = x0, cy = y0;
+
+    while (cx !== x1 || cy !== y1) {
+        var e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            cx += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            cy += sy;
+        }
+
+        // 끝점에 도달하면 중단 (끝점의 벽은 보이게)
+        if (cx === x1 && cy === y1) break;
+
+        // 경로상의 타일이 벽이면 차단
+        if (cx >= 0 && cx < w && cy >= 0 && cy < this._mapHeight) {
+            if (blockMap[cy * w + cx] === 1) return false;
+        }
+    }
+
+    return true;
 };
 
 // 에디터 미리보기용: 특정 좌표 기준 가시성
