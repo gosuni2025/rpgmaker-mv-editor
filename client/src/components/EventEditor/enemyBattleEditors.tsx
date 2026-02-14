@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
+import { useDbNamesWithIcons, getLabel } from './actionEditorUtils';
+import { DataListPicker } from './dataListPicker';
 
 const ENEMY_OPTIONS = [
   { value: -1, label: '전체 적 군단' },
@@ -112,4 +114,66 @@ export function ChangeEnemyMPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk:
 /** 적 TP 변경 (코드 342) */
 export function ChangeEnemyTPEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   return <EnemyStatChangeEditor p={p} onOk={onOk} onCancel={onCancel} radioPrefix="enemy-tp" />;
+}
+
+/**
+ * 적 스테이트 변경 에디터 (코드 333)
+ * params: [enemyIndex, operation(0=추가/1=해제), stateId]
+ */
+export function ChangeEnemyStateEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [enemyIndex, setEnemyIndex] = useState<number>((p[0] as number) ?? -1);
+  const [operation, setOperation] = useState<number>((p[1] as number) || 0);
+  const [stateId, setStateId] = useState<number>((p[2] as number) || 1);
+  const [showStatePicker, setShowStatePicker] = useState(false);
+
+  const { names: stateNames, iconIndices: stateIcons } = useDbNamesWithIcons('states');
+
+  const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
+
+  return (
+    <>
+      {/* 적 캐릭터 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>적 캐릭터:</span>
+        <select value={enemyIndex} onChange={e => setEnemyIndex(Number(e.target.value))}
+          style={{ ...selectStyle, flex: 1 }}>
+          {ENEMY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+        </select>
+      </div>
+
+      {/* 조작 */}
+      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>조작</legend>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <label style={radioStyle}>
+            <input type="radio" name="enemy-state-op" checked={operation === 0} onChange={() => setOperation(0)} />
+            추가
+          </label>
+          <label style={radioStyle}>
+            <input type="radio" name="enemy-state-op" checked={operation === 1} onChange={() => setOperation(1)} />
+            해제
+          </label>
+        </div>
+      </fieldset>
+
+      {/* 스테이트 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>스테이트:</span>
+        <button className="db-btn" style={{ flex: 1, textAlign: 'left' }}
+          onClick={() => setShowStatePicker(true)}>
+          {getLabel(stateId, stateNames)}
+        </button>
+      </div>
+
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([enemyIndex, operation, stateId])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+
+      {showStatePicker && (
+        <DataListPicker items={stateNames} value={stateId} onChange={setStateId}
+          onClose={() => setShowStatePicker(false)} title="스테이트" iconIndices={stateIcons} />
+      )}
+    </>
+  );
 }
