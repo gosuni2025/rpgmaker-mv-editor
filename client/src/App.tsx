@@ -121,6 +121,20 @@ export default function App() {
     return () => document.removeEventListener('contextmenu', handler);
   }, []);
 
+  // 다이얼로그 오버레이 내부 키 이벤트가 뒤쪽 맵 에디터(window 레벨 리스너)로 전파되지 않도록 차단
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.db-dialog-overlay')) return;
+      // Ctrl/Meta 조합, F1~F12 등 전역 단축키는 MenuBar에서 처리하므로 통과
+      if (e.ctrlKey || e.metaKey || e.key.startsWith('F') && e.key.length <= 3) return;
+      e.stopPropagation();
+    };
+    // document bubble phase: window 리스너(MenuBar, useKeyboardShortcuts)보다 먼저 실행됨
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
   useEffect(() => {
     const handler = () => setShowAutotileDebug(true);
     window.addEventListener('editor-autotile-debug', handler);
