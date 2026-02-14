@@ -2456,6 +2456,10 @@ Spriteset_Map.prototype.updateParallax = function() {
         // Update Three.js parallax sky plane
         this._updateParallaxSkyPlane();
     }
+    // Retry: parallax sky plane이 아직 생성되지 않았고, 대기중도 아니면 재시도
+    if (this._parallaxName && !this._parallaxSkyMesh && !this._parallaxSkyPending) {
+        this._updateParallaxSkyPlane();
+    }
     if (this._parallax.bitmap) {
         this._parallax.origin.x = $gameMap.parallaxOx();
         this._parallax.origin.y = $gameMap.parallaxOy();
@@ -2480,6 +2484,7 @@ Spriteset_Map.prototype._updateParallaxSkyPlane = function() {
         this._parallaxSkyMesh.material.dispose();
         this._parallaxSkyMesh = null;
     }
+    this._parallaxSkyPending = false;
 
     if (!this._parallaxName) return;
 
@@ -2487,10 +2492,14 @@ Spriteset_Map.prototype._updateParallaxSkyPlane = function() {
     var self = this;
 
     var createMesh = function() {
+        self._parallaxSkyPending = false;
         if (!bitmap.isReady()) return;
 
         var THREE = window.THREE;
         if (!THREE) return;
+
+        // 이미 다른 경로로 mesh가 생성된 경우 중복 방지
+        if (self._parallaxSkyMesh) return;
 
         // Create a large plane (4x screen size) centered on the map
         var mapW = $gameMap.width() * $gameMap.tileWidth();
@@ -2528,17 +2537,21 @@ Spriteset_Map.prototype._updateParallaxSkyPlane = function() {
             depthWrite: false,
         });
 
+        var rendObj = Graphics._renderer;
+        if (!rendObj || !rendObj.scene) return;
+
         var mesh = new THREE.Mesh(geometry, material);
         mesh._isParallaxSky = true;  // Tag for Mode3D render pass
         mesh.position.z = -100;
         mesh.visible = false;  // Hidden by default; Mode3D render controls visibility
-        rendererObj.scene.add(mesh);
+        rendObj.scene.add(mesh);
         self._parallaxSkyMesh = mesh;
     };
 
     if (bitmap.isReady()) {
         createMesh();
     } else {
+        this._parallaxSkyPending = true;
         bitmap.addLoadListener(createMesh);
     }
 };
