@@ -982,6 +982,15 @@ const ko = {
     scrollX: '스크롤 X',
     scrollY: '스크롤 Y',
     showInEditor: '에디터에 표시',
+    weather: '날씨 효과',
+    weatherType: '유형',
+    weatherPower: '강도',
+    weatherTypes: {
+      0: '없음',
+      1: '비',
+      2: '폭풍',
+      3: '눈',
+    },
   },
 
   // === Map Tree ===

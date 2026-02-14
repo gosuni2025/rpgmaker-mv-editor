@@ -599,6 +599,15 @@ const en = {
     scrollX: 'Scroll X',
     scrollY: 'Scroll Y',
     showInEditor: 'Show in Editor',
+    weather: 'Weather Effect',
+    weatherType: 'Type',
+    weatherPower: 'Power',
+    weatherTypes: {
+      0: 'None',
+      1: 'Rain',
+      2: 'Storm',
+      3: 'Snow',
+    },
   },
 
   mapTree: {
