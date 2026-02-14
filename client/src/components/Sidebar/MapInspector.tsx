@@ -515,11 +515,33 @@ function A1KindIcon({ kind, tilesetNames }: { kind: number; tilesetNames?: strin
   return <canvas ref={canvasRef} width={24} height={24} style={{ width: 24, height: 24, imageRendering: 'pixelated', flexShrink: 0 }} />;
 }
 
+/** A1 txt 파일에서 kind별 이름 파싱 (kind 0~15, 구분자 '|'로 다국어 분리) */
+function useA1KindNames(tilesetNames?: string[]): { names: string[][] | null; langCount: number } {
+  const [names, setNames] = useState<string[][] | null>(null);
+  const a1Name = tilesetNames?.[0];
+
+  useEffect(() => {
+    if (!a1Name) { setNames(null); return; }
+    fetch(`/img/tilesets/${a1Name}.txt`)
+      .then(r => r.ok ? r.text() : null)
+      .then(text => {
+        if (!text) { setNames(null); return; }
+        const lines = text.split('\n').filter(l => l.trim().length > 0);
+        setNames(lines.map(l => l.split('|').map(s => s.trim())));
+      })
+      .catch(() => setNames(null));
+  }, [a1Name]);
+
+  const langCount = names && names.length > 0 ? names[0].length : 0;
+  return { names, langCount };
+}
+
 function AnimTileShaderSection({ currentMap, updateMapField }: {
   currentMap: any;
   updateMapField: (field: string, value: unknown) => void;
 }) {
   const [expandedKinds, setExpandedKinds] = useState<Set<number>>(new Set());
+  const [langIndex, setLangIndex] = useState(0);
 
   const settings: Record<number, AnimTileShaderSettings> = currentMap.animTileSettings || {};
   const usedKindSet = useMemo(() => {
@@ -528,6 +550,17 @@ function AnimTileShaderSection({ currentMap, updateMapField }: {
   }, [currentMap.data, currentMap.width, currentMap.height]);
   // kind 2,3은 정적 오토타일 (애니메이션 없음) → 셰이더 대상 제외
   const ALL_KINDS = [0,1,4,5,6,7,8,9,10,11,12,13,14,15];
+
+  const { names: a1Names, langCount } = useA1KindNames(currentMap.tilesetNames);
+
+  const getKindDisplayName = useCallback((kind: number): string => {
+    if (a1Names && kind < a1Names.length) {
+      const entry = a1Names[kind];
+      const li = Math.min(langIndex, entry.length - 1);
+      if (entry[li]) return entry[li];
+    }
+    return getA1KindName(kind);
+  }, [a1Names, langIndex]);
 
   const toggleExpand = (kind: number) => {
     setExpandedKinds(prev => {
@@ -554,6 +587,15 @@ function AnimTileShaderSection({ currentMap, updateMapField }: {
       <div className="light-inspector-title">
         애니메이션 타일 셰이더
         <span className="sky-ext-badge" style={{ marginLeft: 6 }}>EXT</span>
+        {langCount > 1 && (
+          <button
+            className="anim-tile-lang-btn"
+            title="이름 언어 전환"
+            onClick={(e) => { e.stopPropagation(); setLangIndex(i => (i + 1) % langCount); }}
+          >
+            {langIndex + 1}/{langCount}
+          </button>
+        )}
       </div>
       {ALL_KINDS.map(kind => {
         const s = settings[kind] || getDefaultForKind(kind);
@@ -569,7 +611,7 @@ function AnimTileShaderSection({ currentMap, updateMapField }: {
             >
               <span className="anim-tile-kind-arrow">{expanded ? '\u25BC' : '\u25B6'}</span>
               <A1KindIcon kind={kind} tilesetNames={currentMap.tilesetNames} />
-              <span className="anim-tile-kind-name">{getA1KindName(kind)}{!isUsed && <span className="anim-tile-unused-tag">(미사용)</span>}</span>
+              <span className="anim-tile-kind-name">{getKindDisplayName(kind)}{!isUsed && <span className="anim-tile-unused-tag">(미사용)</span>}</span>
               <span className={`anim-tile-kind-type anim-tile-kind-type-${kindType}`}>{kindType}</span>
               {hasCustom && <span className="anim-tile-kind-custom" title="커스텀 설정 적용됨">{'\u2022'}</span>}
             </div>

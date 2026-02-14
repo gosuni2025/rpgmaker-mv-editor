@@ -604,6 +604,22 @@
   line-height: 1;
 }
 
+.anim-tile-lang-btn {
+  margin-left: auto;
+  padding: 0 5px;
+  font-size: 9px;
+  color: #aaa;
+  background: #3c3f41;
+  border: 1px solid #555;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 16px;
+}
+.anim-tile-lang-btn:hover {
+  background: #4a4d50;
+  color: #ddd;
+}
+
 .anim-tile-kind-body {
   padding: 6px 8px;
   background: #2d2d2d;
