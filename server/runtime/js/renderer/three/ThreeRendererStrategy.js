@@ -454,7 +454,7 @@
             this._syncHierarchy(rendererObj, stage);
         }
 
-        // Render to the render target (3D 2-pass or 2D single-pass)
+        // Render to the render target (3D 3-pass or 2D single-pass)
         renderer.setRenderTarget(renderTarget);
         var is3D = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d &&
             typeof Mode3D !== 'undefined' && Mode3D._spriteset && Mode3D._perspCamera;
@@ -467,8 +467,27 @@
             renderer.shadowMap.autoUpdate = false;
             renderer.shadowMap.needsUpdate = true;
 
-            // Pass 1: PerspectiveCamera로 맵만 렌더
+            // Find parallax sky mesh in scene
+            var skyMesh = null;
             var stageObj = stage._threeObj;
+            for (var si = 0; si < scene.children.length; si++) {
+                if (scene.children[si]._isParallaxSky) {
+                    skyMesh = scene.children[si];
+                    break;
+                }
+            }
+
+            // --- Pass 0: Sky background (PerspectiveCamera) ---
+            if (skyMesh) {
+                if (stageObj) stageObj.visible = false;
+                skyMesh.visible = true;
+                renderer.autoClear = true;
+                renderer.render(scene, Mode3D._perspCamera);
+                skyMesh.visible = false;
+                if (stageObj) stageObj.visible = true;
+            }
+
+            // --- Pass 1: PerspectiveCamera로 맵만 렌더 ---
             var childVis = [];
             if (stageObj) {
                 for (var ci = 0; ci < stageObj.children.length; ci++) {
@@ -479,10 +498,10 @@
                     stageObj.children[ci].visible = (stageObj.children[ci] === spritesetObj);
                 }
             }
-            renderer.autoClear = true;
+            renderer.autoClear = !skyMesh;  // sky를 그렸으면 clear 안 함
             renderer.render(scene, Mode3D._perspCamera);
 
-            // Pass 2: OrthographicCamera로 UI 합성
+            // --- Pass 2: OrthographicCamera로 UI 합성 ---
             if (stageObj) {
                 for (var ci = 0; ci < stageObj.children.length; ci++) {
                     var child = stageObj.children[ci];
