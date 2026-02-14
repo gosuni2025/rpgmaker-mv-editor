@@ -220,7 +220,7 @@ export function useThreeRenderer(
       }
 
       // bloomConfig 초기화 (맵 로드 시)
-      const DOF = (window as any).DepthOfField;
+      const DOF = (window as any).PostProcess;
       if (DOF) {
         const bc = effectiveMap.bloomConfig;
         DOF.bloomConfig.threshold = bc?.threshold ?? 0.5;
@@ -521,7 +521,7 @@ export function useThreeRenderer(
           requestRender();
         }
         if (state.postProcessConfig !== prevState.postProcessConfig) {
-          const DOF = (window as any).DepthOfField;
+          const DOF = (window as any).PostProcess;
           if (DOF && DOF.applyPostProcessConfig) {
             DOF.applyPostProcessConfig(state.postProcessConfig);
           }
@@ -543,7 +543,7 @@ export function useThreeRenderer(
           requestRender(3);
         }
         if (state.currentMap?.bloomConfig !== prevState.currentMap?.bloomConfig) {
-          const DOF = (window as any).DepthOfField;
+          const DOF = (window as any).PostProcess;
           if (DOF) {
             const bc = state.currentMap?.bloomConfig;
             const def = { enabled: true, threshold: 0.5, strength: 0.8, radius: 1.0, downscale: 4 };

@@ -42,25 +42,26 @@ Window_Options.prototype.addGeneralOptions = function() {
 };
 
 //=============================================================================
-// DepthOfField 시스템 관리
+// PostProcess 시스템 관리
 //=============================================================================
 
-var DepthOfField = {};
-DepthOfField._active = false;
-DepthOfField._composer = null;
-DepthOfField._tiltShiftPass = null;
-DepthOfField._debugSection = null;
+var PostProcess = {};
+PostProcess._active = false;
+PostProcess._composer = null;
+PostProcess._tiltShiftPass = null;
+PostProcess._debugSection = null;
 
-window.DepthOfField = DepthOfField;
+window.PostProcess = PostProcess;
+window.DepthOfField = PostProcess; // 하위호환
 
-DepthOfField.config = {
+PostProcess.config = {
     focusY: 0.55,       // 포커스 중심 Y위치 (0=상단, 1=하단), 캐릭터 약간 아래
     focusRange: 0.1,    // 선명 영역 반폭
     maxblur: 0.05,      // 최대 블러
     blurPower: 1.5      // 블러 증가 커브 (1=선형, 2=이차, 부드러운 전환)
 };
 
-DepthOfField.bloomConfig = {
+PostProcess.bloomConfig = {
     threshold: 0.5,     // 밝기 추출 임계값 (0~1, 낮을수록 더 많은 부분이 bloom)
     strength: 0.8,      // bloom 합성 강도 (0~2)
     radius: 1.0,        // 블러 반경 배율
@@ -802,10 +803,10 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
     // 애니메이션을 stageObj로 이동 (2D HUD로 렌더)
     // MapRenderPass에서 저장한 animInfo를 가져옴
     var mapRenderPass = null;
-    if (DepthOfField._composer) {
-        for (var pi = 0; pi < DepthOfField._composer.passes.length; pi++) {
-            if (DepthOfField._composer.passes[pi]._animInfo) {
-                mapRenderPass = DepthOfField._composer.passes[pi];
+    if (PostProcess._composer) {
+        for (var pi = 0; pi < PostProcess._composer.passes.length; pi++) {
+            if (PostProcess._composer.passes[pi]._animInfo) {
+                mapRenderPass = PostProcess._composer.passes[pi];
                 break;
             }
         }
@@ -956,10 +957,10 @@ CopyToScreenPass.prototype.dispose = function() {
 };
 
 //=============================================================================
-// DepthOfField - Composer 생성/파괴
+// PostProcess - Composer 생성/파괴
 //=============================================================================
 
-DepthOfField._createComposer = function(rendererObj, stage) {
+PostProcess._createComposer = function(rendererObj, stage) {
     if (this._composer) this._disposeComposer();
 
     var renderer = rendererObj.renderer;
@@ -987,7 +988,7 @@ DepthOfField._createComposer = function(rendererObj, stage) {
     composer.addPass(bloomPass);
 
     // PostProcessEffects 패스들 생성 및 추가
-    var ppPasses = DepthOfField._createPPPasses(composer);
+    var ppPasses = PostProcess._createPPPasses(composer);
 
     // TiltShiftPass (화면 Y좌표 기반 DoF) - 맵에만 블러
     var tiltShiftPass = new TiltShiftPass({
@@ -1013,7 +1014,7 @@ DepthOfField._createComposer = function(rendererObj, stage) {
     this._composerMode = '3d';
 };
 
-DepthOfField._createComposer2D = function(rendererObj, stage) {
+PostProcess._createComposer2D = function(rendererObj, stage) {
     if (this._composer) this._disposeComposer();
 
     var renderer = rendererObj.renderer;
@@ -1037,7 +1038,7 @@ DepthOfField._createComposer2D = function(rendererObj, stage) {
     composer.addPass(bloomPass);
 
     // PostProcessEffects 패스들 생성 및 추가
-    var ppPasses = DepthOfField._createPPPasses(composer);
+    var ppPasses = PostProcess._createPPPasses(composer);
 
     // CopyToScreen - 최종 출력
     var copyPass = new CopyToScreenPass();
@@ -1056,7 +1057,7 @@ DepthOfField._createComposer2D = function(rendererObj, stage) {
 };
 
 // PostProcessEffects 패스 일괄 생성 헬퍼
-DepthOfField._createPPPasses = function(composer) {
+PostProcess._createPPPasses = function(composer) {
     var ppPasses = {};
     if (window.PostProcessEffects) {
         var PPE = window.PostProcessEffects;
@@ -1073,7 +1074,7 @@ DepthOfField._createPPPasses = function(composer) {
 };
 
 // 에디터에서 postProcessConfig를 받아 패스 활성/비활성 + 파라미터 적용
-DepthOfField.applyPostProcessConfig = function(config) {
+PostProcess.applyPostProcessConfig = function(config) {
     if (!this._ppPasses) return;
     var PPE = window.PostProcessEffects;
     if (!PPE) return;
@@ -1109,7 +1110,7 @@ DepthOfField.applyPostProcessConfig = function(config) {
 };
 
 // renderToScreen 플래그를 올바르게 재조정
-DepthOfField._updateRenderToScreen = function() {
+PostProcess._updateRenderToScreen = function() {
     if (!this._composer) return;
     var passes = this._composer.passes;
     // 마지막으로 활성화된 "화면 출력" 패스를 찾아 renderToScreen 설정
@@ -1148,7 +1149,7 @@ DepthOfField._updateRenderToScreen = function() {
     }
 };
 
-DepthOfField._disposeComposer = function() {
+PostProcess._disposeComposer = function() {
     if (this._composer) {
         this._composer.dispose();
         this._composer = null;
@@ -1171,12 +1172,12 @@ DepthOfField._disposeComposer = function() {
 };
 
 // 카메라존 DoF lerp 상태
-DepthOfField._currentFocusY = null;
-DepthOfField._currentFocusRange = null;
-DepthOfField._currentMaxBlur = null;
-DepthOfField._currentBlurPower = null;
+PostProcess._currentFocusY = null;
+PostProcess._currentFocusRange = null;
+PostProcess._currentMaxBlur = null;
+PostProcess._currentBlurPower = null;
 
-DepthOfField._updateUniforms = function() {
+PostProcess._updateUniforms = function() {
     // Bloom uniform 실시간 갱신 (DoF 비활성이어도 bloom은 동작)
     if (this._bloomPass) {
         this._bloomPass._threshold = this.bloomConfig.threshold;
@@ -1246,22 +1247,22 @@ _ThreeStrategy.render = function(rendererObj, stage) {
     if (is3D) {
         // 3D 모드에서는 3D composer 사용 (bloom + DoF 등 후처리)
         // Composer가 없거나 모드가 다르거나 stage가 바뀌면 재생성
-        if (!DepthOfField._composer || DepthOfField._composerMode !== '3d' || DepthOfField._lastStage !== stage) {
+        if (!PostProcess._composer || PostProcess._composerMode !== '3d' || PostProcess._lastStage !== stage) {
             var w = rendererObj._width;
             var h = rendererObj._height;
             if (!Mode3D._perspCamera) {
                 Mode3D._perspCamera = Mode3D._createPerspCamera(w, h);
             }
-            DepthOfField._createComposer(rendererObj, stage);
+            PostProcess._createComposer(rendererObj, stage);
         }
 
         // DoF(TiltShift)는 설정에 따라 활성/비활성 + renderToScreen 재조정
-        DepthOfField._updateRenderToScreen();
+        PostProcess._updateRenderToScreen();
 
         // PP 패스 시간 업데이트 (filmGrain, waveDistortion 등)
-        if (DepthOfField._ppNeedsTimeUpdate && DepthOfField._ppPasses) {
+        if (PostProcess._ppNeedsTimeUpdate && PostProcess._ppPasses) {
             var ppTime = (typeof ThreeWaterShader !== 'undefined') ? ThreeWaterShader._time : (Date.now() / 1000);
-            var pp = DepthOfField._ppPasses;
+            var pp = PostProcess._ppPasses;
             if (pp.filmGrain && pp.filmGrain.enabled) pp.filmGrain.uniforms.uTime.value = ppTime;
             if (pp.waveDistortion && pp.waveDistortion.enabled) pp.waveDistortion.uniforms.uTime.value = ppTime;
         }
@@ -1292,28 +1293,28 @@ _ThreeStrategy.render = function(rendererObj, stage) {
         Mode3D._enforceNearestFilter(scene);
 
         // RenderPass에 최신 참조 반영
-        DepthOfField._renderPass.perspCamera = Mode3D._perspCamera;
-        DepthOfField._renderPass.spriteset = Mode3D._spriteset;
-        DepthOfField._renderPass.stage = stage;
-        DepthOfField._renderPass.scene = scene;
-        DepthOfField._renderPass.camera = camera;
+        PostProcess._renderPass.perspCamera = Mode3D._perspCamera;
+        PostProcess._renderPass.spriteset = Mode3D._spriteset;
+        PostProcess._renderPass.stage = stage;
+        PostProcess._renderPass.scene = scene;
+        PostProcess._renderPass.camera = camera;
 
         // UIRenderPass에 최신 참조 반영
-        DepthOfField._uiPass.spriteset = Mode3D._spriteset;
-        DepthOfField._uiPass.stage = stage;
-        DepthOfField._uiPass.scene = scene;
-        DepthOfField._uiPass.camera = camera;
+        PostProcess._uiPass.spriteset = Mode3D._spriteset;
+        PostProcess._uiPass.stage = stage;
+        PostProcess._uiPass.scene = scene;
+        PostProcess._uiPass.camera = camera;
 
         // uniform 갱신
-        DepthOfField._updateUniforms();
+        PostProcess._updateUniforms();
 
         // Composer 크기 동기화
         var composerNeedsResize = (
-            DepthOfField._composer.renderTarget1.width !== w ||
-            DepthOfField._composer.renderTarget1.height !== h
+            PostProcess._composer.renderTarget1.width !== w ||
+            PostProcess._composer.renderTarget1.height !== h
         );
         if (composerNeedsResize) {
-            DepthOfField._composer.setSize(w, h);
+            PostProcess._composer.setSize(w, h);
         }
 
         // Shadow Map: multi-pass 렌더링에서 shadow map은 MapRenderPass의
@@ -1322,30 +1323,30 @@ _ThreeStrategy.render = function(rendererObj, stage) {
         renderer.shadowMap.autoUpdate = false;
 
         // 렌더!
-        DepthOfField._composer.render();
+        PostProcess._composer.render();
 
         renderer.shadowMap.autoUpdate = prevShadowAutoUpdate;
         Mode3D._active = true;
     } else {
         // 2D 모드 → bloom만 적용하는 2D composer 사용
-        if (!DepthOfField._composer || DepthOfField._composerMode !== '2d' || DepthOfField._lastStage !== stage) {
-            DepthOfField._createComposer2D(rendererObj, stage);
+        if (!PostProcess._composer || PostProcess._composerMode !== '2d' || PostProcess._lastStage !== stage) {
+            PostProcess._createComposer2D(rendererObj, stage);
         }
 
         // 2D RenderPass에 최신 참조 전달
-        DepthOfField._2dRenderPass._rendererObj = rendererObj;
-        DepthOfField._2dRenderPass._stage = stage;
+        PostProcess._2dRenderPass._rendererObj = rendererObj;
+        PostProcess._2dRenderPass._stage = stage;
 
         // renderToScreen 재조정
-        DepthOfField._updateRenderToScreen();
+        PostProcess._updateRenderToScreen();
 
         // bloom uniform 갱신
-        DepthOfField._updateUniforms();
+        PostProcess._updateUniforms();
 
         // PP 패스 시간 업데이트
-        if (DepthOfField._ppNeedsTimeUpdate && DepthOfField._ppPasses) {
+        if (PostProcess._ppNeedsTimeUpdate && PostProcess._ppPasses) {
             var ppTime = (typeof ThreeWaterShader !== 'undefined') ? ThreeWaterShader._time : (Date.now() / 1000);
-            var pp = DepthOfField._ppPasses;
+            var pp = PostProcess._ppPasses;
             if (pp.filmGrain && pp.filmGrain.enabled) pp.filmGrain.uniforms.uTime.value = ppTime;
             if (pp.waveDistortion && pp.waveDistortion.enabled) pp.waveDistortion.uniforms.uTime.value = ppTime;
         }
@@ -1354,14 +1355,14 @@ _ThreeStrategy.render = function(rendererObj, stage) {
         var w = rendererObj._width;
         var h = rendererObj._height;
         var composerNeedsResize = (
-            DepthOfField._composer.renderTarget1.width !== w ||
-            DepthOfField._composer.renderTarget1.height !== h
+            PostProcess._composer.renderTarget1.width !== w ||
+            PostProcess._composer.renderTarget1.height !== h
         );
         if (composerNeedsResize) {
-            DepthOfField._composer.setSize(w, h);
+            PostProcess._composer.setSize(w, h);
         }
 
-        DepthOfField._composer.render();
+        PostProcess._composer.render();
     }
 };
 
@@ -1376,10 +1377,10 @@ Spriteset_Map.prototype.update = function() {
     // 3D 모드이면 Debug UI 표시 (DoF ON/OFF와 무관)
     var shouldShowDebug = ConfigManager.mode3d;
 
-    if (shouldShowDebug && !DepthOfField._debugSection) {
-        DepthOfField._createDebugUI();
-    } else if (!shouldShowDebug && DepthOfField._debugSection) {
-        DepthOfField._removeDebugUI();
+    if (shouldShowDebug && !PostProcess._debugSection) {
+        PostProcess._createDebugUI();
+    } else if (!shouldShowDebug && PostProcess._debugSection) {
+        PostProcess._removeDebugUI();
     }
 };
 
@@ -1391,11 +1392,11 @@ if (typeof Scene_Map !== 'undefined') {
     var _Scene_Map_onMapLoaded_dof = Scene_Map.prototype.onMapLoaded;
     Scene_Map.prototype.onMapLoaded = function() {
         _Scene_Map_onMapLoaded_dof.call(this);
-        DepthOfField._applyMapSettings();
+        PostProcess._applyMapSettings();
     };
 }
 
-DepthOfField._applyMapSettings = function() {
+PostProcess._applyMapSettings = function() {
     if (!$dataMap) return;
 
     // bloomConfig 적용
@@ -1433,7 +1434,7 @@ DepthOfField._applyMapSettings = function() {
 // Debug UI - ShadowLight Debug 패턴과 동일한 스타일
 //=============================================================================
 
-DepthOfField._createDebugUI = function() {
+PostProcess._createDebugUI = function() {
     if (this._debugSection) return;
 
     // ShadowLight 패널의 DoF 컨테이너에 삽입
@@ -1560,7 +1561,7 @@ DepthOfField._createDebugUI = function() {
     this._debugSection = wrapper;
 };
 
-DepthOfField._removeDebugUI = function() {
+PostProcess._removeDebugUI = function() {
     if (this._debugSection) {
         this._debugSection.remove();
         this._debugSection = null;
@@ -1575,20 +1576,20 @@ var _Game_Interpreter_pluginCommand_dof = Game_Interpreter.prototype.pluginComma
 Game_Interpreter.prototype.pluginCommand = function(command, args) {
     _Game_Interpreter_pluginCommand_dof.call(this, command, args);
 
-    if (command === 'DoF' || command === 'DepthOfField') {
+    if (command === 'DoF' || command === 'DepthOfField' || command === 'PostProcess') {
         if (args[0] === 'on') ConfigManager.depthOfField = true;
         if (args[0] === 'off') ConfigManager.depthOfField = false;
         if (args[0] === 'focusY' && args[1]) {
-            DepthOfField.config.focusY = parseFloat(args[1]);
+            PostProcess.config.focusY = parseFloat(args[1]);
         }
         if (args[0] === 'focusRange' && args[1]) {
-            DepthOfField.config.focusRange = parseFloat(args[1]);
+            PostProcess.config.focusRange = parseFloat(args[1]);
         }
         if (args[0] === 'maxblur' && args[1]) {
-            DepthOfField.config.maxblur = parseFloat(args[1]);
+            PostProcess.config.maxblur = parseFloat(args[1]);
         }
         if (args[0] === 'blurPower' && args[1]) {
-            DepthOfField.config.blurPower = parseFloat(args[1]);
+            PostProcess.config.blurPower = parseFloat(args[1]);
         }
     }
 };

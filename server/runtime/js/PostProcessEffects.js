@@ -11,7 +11,7 @@
 var PostProcessEffects = {};
 window.PostProcessEffects = PostProcessEffects;
 
-// DepthOfField.js에서 공유하는 유틸리티 (전역에서 참조)
+// PostProcess.js에서 공유하는 유틸리티 (전역에서 참조)
 // ShaderPass 패턴과 동일하게 구현
 function createPass(shader) {
     var pass = {};
