@@ -448,6 +448,65 @@ export default function MapInspector() {
         ExtBadge={ExtBadge}
       />
 
+      {/* Fog of War */}
+      <div className="light-inspector-section">
+        <div className="light-inspector-title">
+          Fog of War <ExtBadge inline />
+        </div>
+        <label className="map-inspector-checkbox">
+          <input type="checkbox" checked={!!(currentMap as any).fogOfWar?.enabled}
+            onChange={(e) => {
+              const prev = (currentMap as any).fogOfWar || { enabled: false, radius: 5, fogColor: '#000000', unexploredAlpha: 1.0, exploredAlpha: 0.6 };
+              updateMapField('fogOfWar', { ...prev, enabled: e.target.checked });
+            }} />
+          <span>활성화</span>
+        </label>
+        {(currentMap as any).fogOfWar?.enabled && (() => {
+          const fow = (currentMap as any).fogOfWar;
+          return (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>시야 반경</span>
+                <input type="range" min={1} max={20} step={1}
+                  value={fow.radius ?? 5}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, radius: Number(e.target.value) })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 24, textAlign: 'right' }}>
+                  {fow.radius ?? 5}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>안개 색상</span>
+                <input type="color" value={fow.fogColor ?? '#000000'}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, fogColor: e.target.value })}
+                  style={{ width: 28, height: 20, padding: 0, border: '1px solid #555', background: 'none', cursor: 'pointer' }} />
+                <span style={{ fontSize: 11, color: '#888' }}>{fow.fogColor ?? '#000000'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>미탐험</span>
+                <input type="range" min={0} max={100} step={1}
+                  value={Math.round((fow.unexploredAlpha ?? 1.0) * 100)}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, unexploredAlpha: Number(e.target.value) / 100 })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                  {Math.round((fow.unexploredAlpha ?? 1.0) * 100)}%
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>탐험완료</span>
+                <input type="range" min={0} max={100} step={1}
+                  value={Math.round((fow.exploredAlpha ?? 0.6) * 100)}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, exploredAlpha: Number(e.target.value) / 100 })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                  {Math.round((fow.exploredAlpha ?? 0.6) * 100)}%
+                </span>
+              </div>
+            </>
+          );
+        })()}
+      </div>
+
       {/* Map Size Adjust */}
       <div className="light-inspector-section">
         <div className="light-inspector-title">맵 크기 조절</div>
