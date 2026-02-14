@@ -46,6 +46,7 @@
   overflow: hidden;
   padding: 12px;
   gap: 12px;
+  min-height: 320px;
 }
 
 /* File list */
