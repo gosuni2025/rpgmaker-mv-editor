@@ -2519,12 +2519,22 @@ Spriteset_Map.prototype._updateParallaxSkyPlane = function() {
     var rendererObj = Graphics._renderer;
     if (!rendererObj || !rendererObj.scene) return;
 
-    // Remove existing sky plane
+    // Remove existing sky plane (현재 인스턴스 + scene에 남은 이전 인스턴스의 것)
     if (this._parallaxSkyMesh) {
         rendererObj.scene.remove(this._parallaxSkyMesh);
         this._parallaxSkyMesh.geometry.dispose();
         this._parallaxSkyMesh.material.dispose();
         this._parallaxSkyMesh = null;
+    }
+    // Scene 전환 시 이전 Spriteset의 sky mesh가 scene에 남아있을 수 있으므로 모두 제거
+    var staleSkies = [];
+    rendererObj.scene.children.forEach(function(child) {
+        if (child._isParallaxSky) staleSkies.push(child);
+    });
+    for (var i = 0; i < staleSkies.length; i++) {
+        rendererObj.scene.remove(staleSkies[i]);
+        if (staleSkies[i].geometry) staleSkies[i].geometry.dispose();
+        if (staleSkies[i].material) staleSkies[i].material.dispose();
     }
     this._parallaxSkyPending = false;
     this._parallaxSkyFov = null;
