@@ -565,10 +565,31 @@ export function AudioEditor({ p, onOk, onCancel, type }: { p: unknown[]; onOk: (
   const [audio, setAudio] = useState<AudioFile>(audioParam);
   return (
     <>
-      <AudioPicker type={type} value={audio} onChange={setAudio} />
+      <AudioPicker type={type} value={audio} onChange={setAudio} inline />
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => onOk([audio])}>OK</button>
-        <button className="db-btn" onClick={onCancel}>Cancel</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+    </>
+  );
+}
+
+export function FadeoutEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const [duration, setDuration] = useState<number>((p[0] as number) || 10);
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>지속 시간</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input type="number" value={duration} min={1} max={999}
+            onChange={e => setDuration(Number(e.target.value))}
+            style={{ ...selectStyle, width: 80 }} />
+          <span style={{ fontSize: 13, color: '#ddd' }}>초</span>
+        </div>
+      </div>
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([duration])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
     </>
   );
