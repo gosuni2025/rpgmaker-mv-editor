@@ -6,229 +6,197 @@ import { useDbNames, useDbNamesWithIcons, useActorData, getLabel, DataListPicker
 import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
 
+type EditorProps = { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void };
+
+const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
+const fieldsetStyle: React.CSSProperties = { border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 };
+const legendStyle: React.CSSProperties = { fontSize: 12, color: '#aaa', padding: '0 4px' };
+
+/* ─── 공통 컴포넌트 ─── */
+
+/** 고정/변수 액터 선택 fieldset */
+function ActorFixedVarFieldset({
+  radioName, actorType, onActorTypeChange, actorId, onActorIdChange,
+  actorNames, actorChars, buttonLabel, pickerItems, useZeroPicker,
+}: {
+  radioName: string;
+  actorType: number;
+  onActorTypeChange: (v: number) => void;
+  actorId: number;
+  onActorIdChange: (v: number) => void;
+  actorNames: string[];
+  actorChars?: (CharacterInfo | undefined)[];
+  buttonLabel?: string;
+  pickerItems?: string[];
+  useZeroPicker?: boolean;
+}) {
+  const [showPicker, setShowPicker] = useState(false);
+  const label = buttonLabel ?? getLabel(actorId, actorNames);
+  const items = pickerItems ?? actorNames;
+  const Picker = useZeroPicker ? DataListPickerWithZero : DataListPicker;
+
+  return (
+    <>
+      <fieldset style={fieldsetStyle}>
+        <legend style={legendStyle}>액터</legend>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={radioStyle}>
+              <input type="radio" name={radioName} checked={actorType === 0} onChange={() => onActorTypeChange(0)} />
+              고정
+            </label>
+            <button className="db-btn" onClick={() => actorType === 0 && setShowPicker(true)}
+              disabled={actorType !== 0}
+              style={{ flex: 1, textAlign: 'left', padding: '4px 8px', fontSize: 13, opacity: actorType === 0 ? 1 : 0.5 }}>{label}</button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={radioStyle}>
+              <input type="radio" name={radioName} checked={actorType === 1} onChange={() => onActorTypeChange(1)} />
+              변수
+            </label>
+            <VariableSwitchPicker type="variable" value={actorType === 1 ? (actorId || 1) : 1}
+              onChange={v => onActorIdChange(v)} disabled={actorType !== 1} style={{ flex: 1 }} />
+          </div>
+        </div>
+      </fieldset>
+      {showPicker && (
+        <Picker items={items} value={actorId} onChange={onActorIdChange}
+          onClose={() => setShowPicker(false)} title="액터 선택" characterData={actorChars} />
+      )}
+    </>
+  );
+}
+
+/** 단순 액터 선택 (라벨 + 버튼 + 피커 다이얼로그) */
+function ActorDirectPicker({ actorId, onChange, actorNames, actorChars, title }: {
+  actorId: number;
+  onChange: (id: number) => void;
+  actorNames: string[];
+  actorChars?: (CharacterInfo | undefined)[];
+  title?: string;
+}) {
+  const [showPicker, setShowPicker] = useState(false);
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
+        <button className="db-btn" onClick={() => setShowPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actorNames)}</button>
+      </div>
+      {showPicker && (
+        <DataListPicker items={actorNames} value={actorId} onChange={onChange}
+          onClose={() => setShowPicker(false)} title={title || '대상 선택'} characterData={actorChars} />
+      )}
+    </>
+  );
+}
+
+/* ─── 액터 + 조작 + 대상 패턴 (ChangeState, ChangeSkill) ─── */
+
+function ActorOperationTargetEditor({
+  p, onOk, onCancel, radioPrefix, operationLabels, targetDbType, targetLabel,
+}: EditorProps & {
+  radioPrefix: string;
+  operationLabels: [string, string];
+  targetDbType: string;
+  targetLabel: string;
+}) {
+  const [actorType, setActorType] = useState<number>((p[0] as number) || 0);
+  const [actorId, setActorId] = useState<number>((p[1] as number) || 1);
+  const [operation, setOperation] = useState<number>((p[2] as number) || 0);
+  const [targetId, setTargetId] = useState<number>((p[3] as number) || 1);
+  const [showTargetPicker, setShowTargetPicker] = useState(false);
+
+  const { names: actorNames, characterData: actorChars } = useActorData();
+  const { names: targetNames, iconIndices: targetIcons } = useDbNamesWithIcons(targetDbType);
+
+  return (
+    <>
+      <ActorFixedVarFieldset
+        radioName={`${radioPrefix}-actor`}
+        actorType={actorType} onActorTypeChange={setActorType}
+        actorId={actorId} onActorIdChange={setActorId}
+        actorNames={actorNames} actorChars={actorChars}
+      />
+
+      <fieldset style={fieldsetStyle}>
+        <legend style={legendStyle}>조작</legend>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <label style={radioStyle}>
+            <input type="radio" name={`${radioPrefix}-op`} checked={operation === 0} onChange={() => setOperation(0)} />
+            {operationLabels[0]}
+          </label>
+          <label style={radioStyle}>
+            <input type="radio" name={`${radioPrefix}-op`} checked={operation === 1} onChange={() => setOperation(1)} />
+            {operationLabels[1]}
+          </label>
+        </div>
+      </fieldset>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>{targetLabel}:</span>
+        <button className="db-btn" onClick={() => setShowTargetPicker(true)}
+          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(targetId, targetNames)}</button>
+      </div>
+
+      <div className="image-picker-footer">
+        <button className="db-btn" onClick={() => onOk([actorType, actorId, operation, targetId])}>OK</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
+      </div>
+
+      {showTargetPicker && (
+        <DataListPicker items={targetNames} value={targetId} onChange={setTargetId}
+          onClose={() => setShowTargetPicker(false)} title="대상 선택" iconIndices={targetIcons} />
+      )}
+    </>
+  );
+}
+
+/* ─── 에디터 컴포넌트 ─── */
+
 /**
  * 스테이트 변경 에디터 (코드 313)
  * params: [actorType, actorId, operation, stateId]
  */
-export function ChangeStateEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
-  const [actorType, setActorType] = useState<number>((p[0] as number) || 0);
-  const [actorId, setActorId] = useState<number>((p[1] as number) || 1);
-  const [operation, setOperation] = useState<number>((p[2] as number) || 0);
-  const [stateId, setStateId] = useState<number>((p[3] as number) || 1);
-  const [showActorPicker, setShowActorPicker] = useState(false);
-  const [showStatePicker, setShowStatePicker] = useState(false);
-
-  const { names: actorNames, characterData: actorChars } = useActorData();
-  const { names: stateNames, iconIndices: stateIcons } = useDbNamesWithIcons('states');
-
-  const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
-
-  return (
-    <>
-      {/* 액터 */}
-      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
-        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>액터</legend>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={radioStyle}>
-              <input type="radio" name="state-actor" checked={actorType === 0} onChange={() => setActorType(0)} />
-              고정
-            </label>
-            <button className="db-btn" onClick={() => actorType === 0 && setShowActorPicker(true)}
-              disabled={actorType !== 0}
-              style={{ flex: 1, textAlign: 'left', padding: '4px 8px', fontSize: 13, opacity: actorType === 0 ? 1 : 0.5 }}>{getLabel(actorId, actorNames)}</button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={radioStyle}>
-              <input type="radio" name="state-actor" checked={actorType === 1} onChange={() => setActorType(1)} />
-              변수
-            </label>
-            <VariableSwitchPicker type="variable" value={actorType === 1 ? (actorId || 1) : 1}
-              onChange={v => setActorId(v)} disabled={actorType !== 1} style={{ flex: 1 }} />
-          </div>
-        </div>
-      </fieldset>
-
-      {/* 조작 */}
-      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
-        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>조작</legend>
-        <div style={{ display: 'flex', gap: 16 }}>
-          <label style={radioStyle}>
-            <input type="radio" name="state-op" checked={operation === 0} onChange={() => setOperation(0)} />
-            추가
-          </label>
-          <label style={radioStyle}>
-            <input type="radio" name="state-op" checked={operation === 1} onChange={() => setOperation(1)} />
-            해제
-          </label>
-        </div>
-      </fieldset>
-
-      {/* 스탯 선택 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 12, color: '#aaa' }}>스탯:</span>
-        <button className="db-btn" onClick={() => setShowStatePicker(true)}
-          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(stateId, stateNames)}</button>
-      </div>
-
-      <div className="image-picker-footer">
-        <button className="db-btn" onClick={() => onOk([actorType, actorId, operation, stateId])}>OK</button>
-        <button className="db-btn" onClick={onCancel}>취소</button>
-      </div>
-
-      {showActorPicker && (
-        <DataListPicker items={actorNames} value={actorId} onChange={setActorId}
-          onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
-      )}
-      {showStatePicker && (
-        <DataListPicker items={stateNames} value={stateId} onChange={setStateId}
-          onClose={() => setShowStatePicker(false)} title="대상 선택" iconIndices={stateIcons} />
-      )}
-    </>
-  );
+export function ChangeStateEditor(props: EditorProps) {
+  return <ActorOperationTargetEditor {...props}
+    radioPrefix="state" operationLabels={['추가', '해제']} targetDbType="states" targetLabel="스탯" />;
 }
 
 /**
  * 스킬 증감 에디터 (코드 318)
  * params: [actorType, actorId, operation, skillId]
  */
-export function ChangeSkillEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
-  const [actorType, setActorType] = useState<number>((p[0] as number) || 0);
-  const [actorId, setActorId] = useState<number>((p[1] as number) || 1);
-  const [operation, setOperation] = useState<number>((p[2] as number) || 0);
-  const [skillId, setSkillId] = useState<number>((p[3] as number) || 1);
-  const [showActorPicker, setShowActorPicker] = useState(false);
-  const [showSkillPicker, setShowSkillPicker] = useState(false);
-
-  const { names: actorNames, characterData: actorChars } = useActorData();
-  const { names: skillNames, iconIndices: skillIcons } = useDbNamesWithIcons('skills');
-
-  const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
-
-  return (
-    <>
-      {/* 액터 */}
-      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
-        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>액터</legend>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={radioStyle}>
-              <input type="radio" name="skill-actor" checked={actorType === 0} onChange={() => setActorType(0)} />
-              고정
-            </label>
-            <button className="db-btn" onClick={() => actorType === 0 && setShowActorPicker(true)}
-              disabled={actorType !== 0}
-              style={{ flex: 1, textAlign: 'left', padding: '4px 8px', fontSize: 13, opacity: actorType === 0 ? 1 : 0.5 }}>{getLabel(actorId, actorNames)}</button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={radioStyle}>
-              <input type="radio" name="skill-actor" checked={actorType === 1} onChange={() => setActorType(1)} />
-              변수
-            </label>
-            <VariableSwitchPicker type="variable" value={actorType === 1 ? (actorId || 1) : 1}
-              onChange={v => setActorId(v)} disabled={actorType !== 1} style={{ flex: 1 }} />
-          </div>
-        </div>
-      </fieldset>
-
-      {/* 조작 */}
-      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
-        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>조작</legend>
-        <div style={{ display: 'flex', gap: 16 }}>
-          <label style={radioStyle}>
-            <input type="radio" name="skill-op" checked={operation === 0} onChange={() => setOperation(0)} />
-            배우다
-          </label>
-          <label style={radioStyle}>
-            <input type="radio" name="skill-op" checked={operation === 1} onChange={() => setOperation(1)} />
-            까먹다
-          </label>
-        </div>
-      </fieldset>
-
-      {/* 스킬 선택 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 12, color: '#aaa' }}>스킬:</span>
-        <button className="db-btn" onClick={() => setShowSkillPicker(true)}
-          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(skillId, skillNames)}</button>
-      </div>
-
-      <div className="image-picker-footer">
-        <button className="db-btn" onClick={() => onOk([actorType, actorId, operation, skillId])}>OK</button>
-        <button className="db-btn" onClick={onCancel}>취소</button>
-      </div>
-
-      {showActorPicker && (
-        <DataListPicker items={actorNames} value={actorId} onChange={setActorId}
-          onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
-      )}
-      {showSkillPicker && (
-        <DataListPicker items={skillNames} value={skillId} onChange={setSkillId}
-          onClose={() => setShowSkillPicker(false)} title="대상 선택" iconIndices={skillIcons} />
-      )}
-    </>
-  );
+export function ChangeSkillEditor(props: EditorProps) {
+  return <ActorOperationTargetEditor {...props}
+    radioPrefix="skill" operationLabels={['배우다', '까먹다']} targetDbType="skills" targetLabel="스킬" />;
 }
 
 /**
  * 모두 회복 에디터 (코드 314)
  * params: [actorType, actorId]
- * actorType: 0=고정, 1=변수
- * actorId: 고정 시 0=전체 파티, 1~N=특정 액터 / 변수 시 변수 ID
  */
-export function RecoverAllEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+export function RecoverAllEditor({ p, onOk, onCancel }: EditorProps) {
   const [actorType, setActorType] = useState<number>((p[0] as number) || 0);
   const [actorId, setActorId] = useState<number>((p[1] as number) || 0);
-  const [showActorPicker, setShowActorPicker] = useState(false);
-
   const { names: actorNames, characterData: actorChars } = useActorData();
 
-  const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
-
-  const actorLabel = actorId === 0
-    ? '0000 전체 파티'
-    : getLabel(actorId, actorNames);
-
-  // "전체 파티"를 인덱스 0에 포함하는 목록 생성
-  const actorListWithAll = useMemo(() => {
-    const list = ['전체 파티', ...actorNames.slice(1)];
-    return list;
-  }, [actorNames]);
+  const actorLabel = actorId === 0 ? '0000 전체 파티' : getLabel(actorId, actorNames);
+  const actorListWithAll = useMemo(() => ['전체 파티', ...actorNames.slice(1)], [actorNames]);
 
   return (
     <>
-      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
-        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>액터</legend>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={radioStyle}>
-              <input type="radio" name="recover-actor" checked={actorType === 0} onChange={() => setActorType(0)} />
-              고정
-            </label>
-            <button className="db-btn" onClick={() => actorType === 0 && setShowActorPicker(true)}
-              disabled={actorType !== 0}
-              style={{ flex: 1, textAlign: 'left', padding: '4px 8px', fontSize: 13, opacity: actorType === 0 ? 1 : 0.5 }}>{actorLabel}</button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={radioStyle}>
-              <input type="radio" name="recover-actor" checked={actorType === 1} onChange={() => setActorType(1)} />
-              변수
-            </label>
-            <VariableSwitchPicker type="variable" value={actorType === 1 ? (actorId || 1) : 1}
-              onChange={v => setActorId(v)} disabled={actorType !== 1} style={{ flex: 1 }} />
-          </div>
-        </div>
-      </fieldset>
-
+      <ActorFixedVarFieldset
+        radioName="recover-actor"
+        actorType={actorType} onActorTypeChange={setActorType}
+        actorId={actorId} onActorIdChange={setActorId}
+        actorNames={actorNames} actorChars={actorChars}
+        buttonLabel={actorLabel} pickerItems={actorListWithAll} useZeroPicker
+      />
       <div className="image-picker-footer">
         <button className="db-btn" onClick={() => onOk([actorType, actorId])}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
-
-      {showActorPicker && (
-        <DataListPickerWithZero items={actorListWithAll} value={actorId} onChange={setActorId}
-          onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
-      )}
     </>
   );
 }
@@ -237,21 +205,16 @@ export function RecoverAllEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (p
  * 직업 변경 에디터 (코드 321)
  * params: [actorId, classId, keepLevel]
  */
-export function ChangeClassEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+export function ChangeClassEditor({ p, onOk, onCancel }: EditorProps) {
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [classId, setClassId] = useState<number>((p[1] as number) || 1);
   const [keepLevel, setKeepLevel] = useState<boolean>((p[2] as boolean) || false);
   const { names: actors, characterData: actorChars } = useActorData();
   const classes = useDbNames('classes');
-  const [showActorPicker, setShowActorPicker] = useState(false);
   const [showClassPicker, setShowClassPicker] = useState(false);
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <button className="db-btn" onClick={() => setShowActorPicker(true)}
-          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
-      </div>
+      <ActorDirectPicker actorId={actorId} onChange={setActorId} actorNames={actors} actorChars={actorChars} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>직업:</span>
         <button className="db-btn" onClick={() => setShowClassPicker(true)}
@@ -265,10 +228,6 @@ export function ChangeClassEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
         <button className="db-btn" onClick={() => onOk([actorId, classId, keepLevel])}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
-      {showActorPicker && (
-        <DataListPicker items={actors} value={actorId} onChange={setActorId}
-          onClose={() => setShowActorPicker(false)} title="대상 선택" characterData={actorChars} />
-      )}
       {showClassPicker && (
         <DataListPicker items={classes} value={classId} onChange={setClassId}
           onClose={() => setShowClassPicker(false)} title="대상 선택" />
@@ -280,14 +239,11 @@ export function ChangeClassEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
 /**
  * 장비 변경 에디터 (코드 319)
  * params: [actorId, etypeId, itemId]
- * etypeId: 1=무기, 2=방패, 3=머리, 4=몸, 5=액세서리
- * itemId: 0=없음, etypeId===1이면 무기ID, 그 외 방어구ID
  */
-export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+export function ChangeEquipmentEditor({ p, onOk, onCancel }: EditorProps) {
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [etypeId, setEtypeId] = useState<number>((p[1] as number) || 1);
   const [itemId, setItemId] = useState<number>((p[2] as number) || 0);
-  const [showActorPicker, setShowActorPicker] = useState(false);
   const [showItemPicker, setShowItemPicker] = useState(false);
 
   const { names: actors, characterData: actorChars } = useActorData();
@@ -304,24 +260,16 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onO
 
   const isWeapon = etypeId === 1;
 
-  // 장비 아이템 목록 (0번 = 없음)
   const filteredItems = useMemo(() => {
+    const source = isWeapon ? weapons : armors;
     const list: string[] = ['없음'];
-    if (isWeapon) {
-      for (let i = 1; i < weapons.length; i++) {
-        list[i] = weapons[i] || '';
-      }
-    } else {
-      for (let i = 1; i < armors.length; i++) {
-        list[i] = armors[i] || '';
-      }
+    for (let i = 1; i < source.length; i++) {
+      list[i] = source[i] || '';
     }
     return list;
   }, [isWeapon, weapons, armors]);
 
-  const filteredIcons = useMemo(() => {
-    return isWeapon ? weaponIcons : armorIcons;
-  }, [isWeapon, weaponIcons, armorIcons]);
+  const filteredIcons = isWeapon ? weaponIcons : armorIcons;
 
   const itemLabel = itemId === 0
     ? '없음'
@@ -334,11 +282,7 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onO
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <button className="db-btn" onClick={() => setShowActorPicker(true)}
-          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
-      </div>
+      <ActorDirectPicker actorId={actorId} onChange={setActorId} actorNames={actors} actorChars={actorChars} title="액터 선택" />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>장비 유형:</span>
@@ -360,10 +304,6 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onO
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
 
-      {showActorPicker && (
-        <DataListPicker items={actors} value={actorId} onChange={setActorId}
-          onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
-      )}
       {showItemPicker && (
         <DataListPickerWithZero items={filteredItems} value={itemId} onChange={setItemId}
           onClose={() => setShowItemPicker(false)} title="장비 아이템 선택" iconIndices={filteredIcons} />
@@ -372,18 +312,13 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: { p: unknown[]; onO
   );
 }
 
-export function ChangeNameEditor({ p, onOk, onCancel, label }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; label: string }) {
+export function ChangeNameEditor({ p, onOk, onCancel, label }: EditorProps & { label: string }) {
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [name, setName] = useState<string>((p[1] as string) || '');
   const { names: actors, characterData: actorChars } = useActorData();
-  const [showPicker, setShowPicker] = useState(false);
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <button className="db-btn" onClick={() => setShowPicker(true)}
-          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
-      </div>
+      <ActorDirectPicker actorId={actorId} onChange={setActorId} actorNames={actors} actorChars={actorChars} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>{label}</span>
         <input type="text" value={name} onChange={e => setName(e.target.value)} style={{ ...selectStyle, width: '100%' }} />
@@ -392,10 +327,6 @@ export function ChangeNameEditor({ p, onOk, onCancel, label }: { p: unknown[]; o
         <button className="db-btn" onClick={() => onOk([actorId, name])}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
-      {showPicker && (
-        <DataListPicker items={actors} value={actorId} onChange={setActorId}
-          onClose={() => setShowPicker(false)} title="대상 선택" characterData={actorChars} />
-      )}
     </>
   );
 }
@@ -404,18 +335,13 @@ export function ChangeNameEditor({ p, onOk, onCancel, label }: { p: unknown[]; o
  * 이름 입력 처리 에디터 (코드 303)
  * params: [actorId, maxCharacters]
  */
-export function NameInputEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+export function NameInputEditor({ p, onOk, onCancel }: EditorProps) {
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [maxChars, setMaxChars] = useState<number>((p[1] as number) || 8);
   const { names: actors, characterData: actorChars } = useActorData();
-  const [showPicker, setShowPicker] = useState(false);
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <button className="db-btn" onClick={() => setShowPicker(true)}
-          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
-      </div>
+      <ActorDirectPicker actorId={actorId} onChange={setActorId} actorNames={actors} actorChars={actorChars} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>최대 문자 수:</span>
         <input type="number" value={maxChars} onChange={e => setMaxChars(Math.max(1, Math.min(16, Number(e.target.value))))}
@@ -425,26 +351,17 @@ export function NameInputEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (pa
         <button className="db-btn" onClick={() => onOk([actorId, maxChars])}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
-      {showPicker && (
-        <DataListPicker items={actors} value={actorId} onChange={setActorId}
-          onClose={() => setShowPicker(false)} title="대상 선택" characterData={actorChars} />
-      )}
     </>
   );
 }
 
-export function ChangeProfileEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+export function ChangeProfileEditor({ p, onOk, onCancel }: EditorProps) {
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [profile, setProfile] = useState<string>((p[1] as string) || '');
   const { names: actors, characterData: actorChars } = useActorData();
-  const [showPicker, setShowPicker] = useState(false);
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <button className="db-btn" onClick={() => setShowPicker(true)}
-          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
-      </div>
+      <ActorDirectPicker actorId={actorId} onChange={setActorId} actorNames={actors} actorChars={actorChars} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ fontSize: 12, color: '#aaa' }}>프로필:</span>
         <textarea value={profile} onChange={e => setProfile(e.target.value)}
@@ -455,10 +372,6 @@ export function ChangeProfileEditor({ p, onOk, onCancel }: { p: unknown[]; onOk:
         <button className="db-btn" onClick={() => onOk([actorId, profile])}>OK</button>
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
-      {showPicker && (
-        <DataListPicker items={actors} value={actorId} onChange={setActorId}
-          onClose={() => setShowPicker(false)} title="대상 선택" characterData={actorChars} />
-      )}
     </>
   );
 }
@@ -561,8 +474,6 @@ function ImageCellSelector({ imgSrc, fileName, cellCount, cols, selectedIndex, o
   useEffect(() => { setLoaded(false); }, [imgSrc]);
 
   const isSingle = fileName.startsWith('$');
-  // characters: 한 캐릭터 = 3패턴x4방향, 시트에 4x2 캐릭터
-  // $ 접두사면 단일 캐릭터 (3x4 시트)
   const charCols = isSingle ? 1 : 4;
   const charRows = isSingle ? 1 : 2;
 
@@ -618,11 +529,11 @@ function ImagePreviewThumb({ type, name, index, size }: {
         ctx.drawImage(img, col * cw, row * ch, cw, ch, 0, 0, cw, ch);
       } else if (type === 'characters') {
         const isSingle = name.startsWith('$');
+        const totalCols = isSingle ? 3 : 12;
+        const totalRows = isSingle ? 4 : 8;
         const charCols = isSingle ? 1 : 4;
         const patterns = 3;
         const dirs = 4;
-        const totalCols = isSingle ? 3 : 12;
-        const totalRows = isSingle ? 4 : 8;
         const fw = img.naturalWidth / totalCols;
         const fh = img.naturalHeight / totalRows;
         const charCol = index % charCols;
@@ -695,7 +606,7 @@ function useActorFullData(): { names: string[]; characterData: (CharacterInfo | 
  * 액터 이미지 변경 에디터 (코드 322)
  * params: [actorId, characterName, characterIndex, faceName, faceIndex, battlerName]
  */
-export function ChangeActorImagesEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+export function ChangeActorImagesEditor({ p, onOk, onCancel }: EditorProps) {
   const isNew = p.length === 0;
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [characterName, setCharacterName] = useState<string>((p[1] as string) || '');
@@ -703,13 +614,11 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: { p: unknown[]; o
   const [faceName, setFaceName] = useState<string>((p[3] as string) || '');
   const [faceIndex, setFaceIndex] = useState<number>((p[4] as number) || 0);
   const [battlerName, setBattlerName] = useState<string>((p[5] as string) || '');
-  const [showActorPicker, setShowActorPicker] = useState(false);
   const [imageDialog, setImageDialog] = useState<'faces' | 'characters' | 'sv_actors' | null>(null);
   const [initialized, setInitialized] = useState(!isNew);
 
   const { names: actors, characterData: actorChars, imageData } = useActorFullData();
 
-  // 새 삽입 시 또는 액터 변경 시 액터의 기본 이미지로 채우기
   const applyActorImages = (id: number) => {
     const img = imageData[id];
     if (img) {
@@ -721,7 +630,6 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: { p: unknown[]; o
     }
   };
 
-  // 새 삽입 시 데이터 로드 후 기본 액터 이미지 적용
   useEffect(() => {
     if (!initialized && imageData.length > 0) {
       applyActorImages(actorId);
@@ -738,14 +646,10 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: { p: unknown[]; o
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span style={{ fontSize: 12, color: '#aaa' }}>액터:</span>
-        <button className="db-btn" onClick={() => setShowActorPicker(true)}
-          style={{ textAlign: 'left', padding: '4px 8px', fontSize: 13 }}>{getLabel(actorId, actors)}</button>
-      </div>
+      <ActorDirectPicker actorId={actorId} onChange={handleActorChange} actorNames={actors} actorChars={actorChars} title="액터 선택" />
 
-      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
-        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>이미지</legend>
+      <fieldset style={fieldsetStyle}>
+        <legend style={legendStyle}>이미지</legend>
         <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <span style={{ fontSize: 11, color: '#aaa' }}>얼굴:</span>
@@ -776,10 +680,6 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: { p: unknown[]; o
         <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
 
-      {showActorPicker && (
-        <DataListPicker items={actors} value={actorId} onChange={handleActorChange}
-          onClose={() => setShowActorPicker(false)} title="액터 선택" characterData={actorChars} />
-      )}
       {imageDialog === 'faces' && (
         <ImageSelectDialog type="faces" value={faceName} index={faceIndex}
           onOk={(name, idx) => { setFaceName(name); setFaceIndex(idx); setImageDialog(null); }}
@@ -803,7 +703,7 @@ export function ChangeActorImagesEditor({ p, onOk, onCancel }: { p: unknown[]; o
  * 탈 것 이미지 변경 에디터 (코드 323)
  * params: [vehicleType, imageName, imageIndex]
  */
-export function ChangeVehicleImageEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+export function ChangeVehicleImageEditor({ p, onOk, onCancel }: EditorProps) {
   const systemData = useEditorStore(s => s.systemData);
   const VEHICLE_KEYS = ['boat', 'ship', 'airship'] as const;
 
@@ -813,7 +713,6 @@ export function ChangeVehicleImageEditor({ p, onOk, onCancel }: { p: unknown[]; 
     return { name: v?.characterName || '', index: v?.characterIndex ?? 0 };
   };
 
-  // 초기값: 파라미터가 있으면 사용, 없으면 System.json의 탈 것 이미지
   const initType = (p[0] as number) || 0;
   const hasParams = !!(p[1] as string);
   const initImage = hasParams ? { name: p[1] as string, index: (p[2] as number) || 0 } : getVehicleImage(initType);
@@ -845,8 +744,8 @@ export function ChangeVehicleImageEditor({ p, onOk, onCancel }: { p: unknown[]; 
         </select>
       </div>
 
-      <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
-        <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>이미지</legend>
+      <fieldset style={fieldsetStyle}>
+        <legend style={legendStyle}>이미지</legend>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div onClick={() => setShowImageDialog(true)}
             style={{ cursor: 'pointer', border: '1px solid #555', padding: 2, background: '#1a1a1a' }}>
