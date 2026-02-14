@@ -378,9 +378,77 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
     return text;
   }
 
+  // 전투 처리 전용 포맷
+  if (code === 301 && cmd.parameters && cmd.parameters.length >= 2) {
+    const designationType = cmd.parameters[0] as number;
+    if (designationType === 0) {
+      const troopId = cmd.parameters[1] as number;
+      text += `: ${String(troopId).padStart(4, '0')}`;
+    } else if (designationType === 1) {
+      const varId = cmd.parameters[1] as number;
+      const varName = ctx.systemData?.variables?.[varId];
+      text += `: #${String(varId).padStart(4, '0')}${varName ? ' ' + varName : ''}`;
+    } else {
+      text += `: 랜덤 대결과 동일`;
+    }
+    if (cmd.parameters[2]) text += `, 도망 가능`;
+    if (cmd.parameters[3]) text += `, 패배 가능`;
+    return text;
+  }
+
+  // 상점의 처리 전용 포맷
+  if (code === 302 && cmd.parameters && cmd.parameters.length >= 2) {
+    const typeLabels = ['아이템', '무기', '방어구'];
+    const itemType = cmd.parameters[0] as number;
+    const itemId = cmd.parameters[1] as number;
+    const priceType = cmd.parameters[2] as number;
+    const price = cmd.parameters[3] as number;
+    text += `: [${typeLabels[itemType] || '?'}] ${String(itemId).padStart(4, '0')}`;
+    if (priceType === 1) text += ` (${price}G)`;
+    if (cmd.parameters[4]) text += ` [구매 한정]`;
+    return text;
+  }
+
+  // 상점 상품 행 (code 605)
+  if (code === 605 && cmd.parameters && cmd.parameters.length >= 2) {
+    const typeLabels = ['아이템', '무기', '방어구'];
+    const itemType = cmd.parameters[0] as number;
+    const itemId = cmd.parameters[1] as number;
+    const priceType = cmd.parameters[2] as number;
+    const price = cmd.parameters[3] as number;
+    text = `       : [${typeLabels[itemType] || '?'}] ${String(itemId).padStart(4, '0')}`;
+    if (priceType === 1) text += ` (${price}G)`;
+    return text;
+  }
+
   // 그림 제거
   if (code === 235 && cmd.parameters && cmd.parameters.length >= 1) {
     text += `: #${cmd.parameters[0]}`;
+    return text;
+  }
+
+  // 탈 것 BGM 변경 (code 140): params[0]=vehicle, params[1]=audio
+  if (code === 140 && cmd.parameters && cmd.parameters.length >= 2) {
+    const vehicleNames = ['소형선', '대형선', '비공정'];
+    const vehicle = cmd.parameters[0] as number;
+    const audio = cmd.parameters[1] as { name: string; volume: number; pitch: number; pan: number } | null;
+    text += `: ${vehicleNames[vehicle] || '?'}`;
+    if (audio && audio.name) {
+      text += `, ${audio.name} (${audio.volume}, ${audio.pitch}, ${audio.pan})`;
+    } else {
+      text += `, (없음)`;
+    }
+    return text;
+  }
+
+  // 오디오 관련 커맨드 (BGM/BGS/ME/SE 재생, 전투BGM/승리ME/패배ME 변경)
+  if ([132, 133, 139, 241, 245, 249, 250].includes(code) && cmd.parameters && cmd.parameters.length >= 1) {
+    const audio = cmd.parameters[0] as { name: string; volume: number; pitch: number; pan: number } | null;
+    if (audio && audio.name) {
+      text += `: ${audio.name} (${audio.volume}, ${audio.pitch}, ${audio.pan})`;
+    } else {
+      text += `: (없음)`;
+    }
     return text;
   }
 
