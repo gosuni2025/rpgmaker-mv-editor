@@ -712,8 +712,18 @@ FogOfWar._updateMeshUniforms = function() {
     u.lightScatterIntensity.value = this._lightScatterIntensity;
 
     // 카메라 월드 좌표 업데이트
-    if (typeof Mode3D !== 'undefined' && Mode3D._perspCamera) {
+    if (typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active) {
         u.cameraWorldPos.value.copy(Mode3D._perspCamera.position);
+    } else {
+        // 2D 모드: 맵 중앙 위에서 직교로 내려다보는 가상 카메라
+        var totalW = this._mapWidth * 48;
+        var totalH = this._mapHeight * 48;
+        var camOx = 0, camOy = 0;
+        if (typeof $gameMap !== 'undefined' && $gameMap) {
+            camOx = $gameMap.displayX() * 48;
+            camOy = $gameMap.displayY() * 48;
+        }
+        u.cameraWorldPos.value.set(totalW / 2 - camOx, totalH / 2 - camOy, this._fogHeight + 100);
     }
 
     // 스크롤 오프셋 업데이트
