@@ -27,15 +27,32 @@ const VEHICLE_OPTIONS = [
   { value: 2, label: '비행선' },
 ];
 
+const VEHICLE_KEYS = ['boat', 'ship', 'airship'] as const;
+
 export function VehicleBGMEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
+  const systemData = useEditorStore(s => s.systemData);
+  const getVehicleBgm = (id: number): AudioFile => {
+    const key = VEHICLE_KEYS[id];
+    if (systemData && key && systemData[key]) {
+      return { ...systemData[key].bgm };
+    }
+    return { ...DEFAULT_AUDIO };
+  };
+
   const [vehicle, setVehicle] = useState<number>((p[0] as number) ?? 0);
-  const audioParam = (p[1] as AudioFile) || { ...DEFAULT_AUDIO };
+  const audioParam = (p[1] as AudioFile) || getVehicleBgm((p[0] as number) ?? 0);
   const [audio, setAudio] = useState<AudioFile>(audioParam);
+
+  const handleVehicleChange = (id: number) => {
+    setVehicle(id);
+    setAudio(getVehicleBgm(id));
+  };
+
   return (
     <>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontSize: 13, color: '#ddd', whiteSpace: 'nowrap' }}>탈 것:</span>
-        <select value={vehicle} onChange={e => setVehicle(Number(e.target.value))} style={{ ...selectStyle, flex: 1 }}>
+        <select value={vehicle} onChange={e => handleVehicleChange(Number(e.target.value))} style={{ ...selectStyle, flex: 1 }}>
           {VEHICLE_OPTIONS.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
         </select>
       </div>

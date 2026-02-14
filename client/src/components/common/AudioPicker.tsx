@@ -165,7 +165,7 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
   return (
     <div className="audio-picker">
       <div className="audio-picker-preview">
-        <input type="text" className="audio-picker-name-input" value={displayName} readOnly onClick={() => setOpen(true)} />
+        <span className="audio-picker-name-text" onClick={() => setOpen(true)}>{displayName}</span>
         <button className="audio-picker-browse-btn" onClick={() => setOpen(true)}>...</button>
       </div>
       {open && (
