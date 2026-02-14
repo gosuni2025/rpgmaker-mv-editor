@@ -1176,8 +1176,30 @@ function sunUVToDirection(u, v) {
 ShadowLight._addLightsToScene = function(scene) {
     if (this._ambientLight) return; // 이미 추가됨
 
+    // localStorage에서 인스펙터 config 복구 (사용자가 마지막으로 조절한 값)
+    var CONFIG_STORAGE_KEY = 'devPanel_mapInspector_config';
+    try {
+        var savedConfig = localStorage.getItem(CONFIG_STORAGE_KEY);
+        if (savedConfig) {
+            var parsed = JSON.parse(savedConfig);
+            for (var k in parsed) {
+                if (parsed.hasOwnProperty(k) && this.config.hasOwnProperty(k)) {
+                    // lightDirection은 THREE.Vector3로 복원
+                    if (k === 'lightDirection' && parsed[k] && typeof parsed[k] === 'object') {
+                        var d = parsed[k];
+                        this.config[k] = new THREE.Vector3(d.x || 0, d.y || 0, d.z || 0);
+                    } else {
+                        this.config[k] = parsed[k];
+                    }
+                }
+            }
+        }
+    } catch (e) {}
+
     // editorLights 맵별 설정 (에디터에서 저장한 커스텀 데이터)
-    var el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+    // 주의: localStorage 값이 있으면 그것을 우선 사용 (위에서 이미 복구됨)
+    // editorLights는 localStorage가 없을 때의 폴백으로만 적용
+    var el = (!savedConfig && typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
 
     // AmbientLight - 전체적인 환경광
     var ambColor = el ? parseInt(el.ambient.color.replace('#', ''), 16) : this.config.ambientColor;
@@ -1238,6 +1260,28 @@ ShadowLight._addLightsToScene = function(scene) {
     // target을 scene에 추가해야 DirectionalLight 방향이 올바르게 동작
     scene.add(this._directionalLight);
     scene.add(this._directionalLight.target);
+
+    // editorLights에서 playerLight config 동기화
+    if (el && el.playerLight) {
+        var pl = el.playerLight;
+        if (pl.color) this.config.playerLightColor = parseInt(pl.color.replace('#', ''), 16);
+        if (pl.intensity != null) this.config.playerLightIntensity = pl.intensity;
+        if (pl.distance != null) this.config.playerLightDistance = pl.distance;
+        if (pl.z != null) this.config.playerLightZ = pl.z;
+    }
+    // editorLights에서 spotLight config 동기화
+    if (el && el.spotLight) {
+        var sl = el.spotLight;
+        if (sl.enabled != null) this.config.spotLightEnabled = sl.enabled;
+        if (sl.color) this.config.spotLightColor = parseInt(sl.color.replace('#', ''), 16);
+        if (sl.intensity != null) this.config.spotLightIntensity = sl.intensity;
+        if (sl.distance != null) this.config.spotLightDistance = sl.distance;
+        if (sl.angle != null) this.config.spotLightAngle = sl.angle;
+        if (sl.penumbra != null) this.config.spotLightPenumbra = sl.penumbra;
+        if (sl.z != null) this.config.spotLightZ = sl.z;
+        if (sl.shadowMapSize != null) this.config.spotLightShadowMapSize = sl.shadowMapSize;
+        if (sl.targetDistance != null) this.config.spotLightTargetDistance = sl.targetDistance;
+    }
 
     // SpotLight - 플레이어 방향성 그림자 (항상 생성, visible로 제어)
     this._playerSpotLight = new THREE.SpotLight(
@@ -2148,6 +2192,7 @@ ShadowLight._createDebugUI = function() {
 
     var PANEL_ID = 'mapInspector';
     var SECTION_STORAGE_KEY = 'devPanel_mapInspector_sections';
+    var CONFIG_STORAGE_KEY = 'devPanel_mapInspector_config';
 
     // Load/save section collapsed states
     var sectionStates = {};
@@ -2159,6 +2204,12 @@ ShadowLight._createDebugUI = function() {
         try { localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify(sectionStates)); } catch (e) {}
     }
 
+    // config 변경 시 localStorage에 저장 (새로고침 후 복구용)
+    var self = this;
+    function saveConfigToStorage() {
+        try { localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(self.config)); } catch (e) {}
+    }
+
     var panel = document.createElement('div');
     panel.id = 'sl-debug-panel';
     panel.style.cssText = 'position:fixed;top:10px;right:10px;z-index:99999;background:rgba(0,0,0,0.85);color:#eee;font:12px monospace;padding:10px;border-radius:6px;min-width:220px;pointer-events:auto;';
@@ -2168,7 +2219,6 @@ ShadowLight._createDebugUI = function() {
     title.style.cssText = 'font-weight:bold;margin-bottom:8px;color:#ffcc88;display:flex;align-items:center;';
     panel.appendChild(title);
 
-    var self = this;
     var sectionStyle = 'border-top:1px solid #444;padding-top:6px;margin-top:6px;';
 
     // 정수 색상값을 #rrggbb 문자열로 변환하는 헬퍼
@@ -2241,6 +2291,7 @@ ShadowLight._createDebugUI = function() {
                     self._playerSpotLight.shadow.radius = v;
                 }
             }
+            saveConfigToStorage();
         });
 
         row.appendChild(lbl);
@@ -2299,6 +2350,7 @@ ShadowLight._createDebugUI = function() {
                     });
                 }
             }
+            saveConfigToStorage();
         });
 
         row.appendChild(lbl);
@@ -2475,6 +2527,7 @@ ShadowLight._createDebugUI = function() {
                 var dir = self.config.lightDirection;
                 self._directionalLight.position.set(-dir.x * 1000, -dir.y * 1000, -dir.z * 1000);
             }
+            saveConfigToStorage();
         });
         dirRow.appendChild(dirLbl);
         dirRow.appendChild(dirSlider);
@@ -2521,6 +2574,7 @@ ShadowLight._createDebugUI = function() {
             self._directionalLight.shadow.mapSize.height = sz;
             self._directionalLight.shadow.map = null; // 다시 생성되도록
         }
+        saveConfigToStorage();
     });
     smapRow.appendChild(smapLbl);
     smapRow.appendChild(smapSelect);
@@ -2582,6 +2636,7 @@ ShadowLight._createDebugUI = function() {
         if (self._playerSpotLight) {
             self._playerSpotLight.visible = spotCheck.checked;
         }
+        saveConfigToStorage();
     });
     spotRow.appendChild(spotLbl);
     spotRow.appendChild(spotCheck);
@@ -2618,6 +2673,7 @@ ShadowLight._createDebugUI = function() {
             self._playerSpotLight.shadow.mapSize.height = sz;
             self._playerSpotLight.shadow.map = null;
         }
+        saveConfigToStorage();
     });
     spotSmapRow.appendChild(spotSmapLbl);
     spotSmapRow.appendChild(spotSmapSelect);
