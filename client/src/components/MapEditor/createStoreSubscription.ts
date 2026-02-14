@@ -91,10 +91,6 @@ export function createStoreSubscription(params: {
       requestRender();
     }
 
-    if (state.depthOfField !== prevState.depthOfField) {
-      requestRender();
-    }
-
     if (state.postProcessConfig !== prevState.postProcessConfig) {
       const DOF = (window as any).PostProcess;
       if (DOF && DOF.applyPostProcessConfig) {

@@ -36,14 +36,14 @@ function loadTransparentColor(): { r: number; g: number; b: number } {
 }
 
 export const uiSlice: SliceCreator<Pick<EditorState,
-  'zoomLevel' | 'mode3d' | 'shadowLight' | 'depthOfField' | 'paletteTab' | 'toastMessage' | 'toastPersistent' |
+  'zoomLevel' | 'mode3d' | 'shadowLight' | 'paletteTab' | 'toastMessage' | 'toastPersistent' |
   'transparentColor' | 'maxUndo' | 'zoomStep' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
   'showToast' | 'dismissToast' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
-  'setMode3d' | 'setShadowLight' | 'setDepthOfField' | 'setPaletteTab' |
+  'setMode3d' | 'setShadowLight' | 'setPaletteTab' |
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
   'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' | 'setShowLocalizationDialog' |
@@ -52,7 +52,6 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   zoomLevel: 1,
   mode3d: false,
   shadowLight: false,
-  depthOfField: false,
   postProcessConfig: {},
   paletteTab: 'A',
   toastMessage: null,
@@ -111,13 +110,6 @@ export const uiSlice: SliceCreator<Pick<EditorState,
     set({ shadowLight: enabled });
     get().showToast(`조명 ${enabled ? 'ON' : 'OFF'}`);
   },
-  setDepthOfField: (enabled: boolean) => {
-    const ConfigManager = (window as any).ConfigManager;
-    if (ConfigManager) ConfigManager.depthOfField = enabled;
-    set({ depthOfField: enabled });
-    get().showToast(`피사계 심도 ${enabled ? 'ON' : 'OFF'}`);
-  },
-
   setPostProcessConfig: (config) => {
     set({ postProcessConfig: config });
     // 맵 데이터에도 반영

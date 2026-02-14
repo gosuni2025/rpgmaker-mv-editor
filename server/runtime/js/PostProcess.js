@@ -52,7 +52,6 @@ PostProcess._tiltShiftPass = null;
 PostProcess._debugSection = null;
 
 window.PostProcess = PostProcess;
-window.DepthOfField = PostProcess; // 하위호환
 
 PostProcess.config = {
     focusY: 0.55,       // 포커스 중심 Y위치 (0=상단, 1=하단), 캐릭터 약간 아래
