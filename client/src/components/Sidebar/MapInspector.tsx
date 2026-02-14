@@ -12,6 +12,52 @@ import './InspectorPanel.css';
 
 interface TilesetEntry { id: number; name: string; }
 
+function ExtBadge({ inline }: { inline?: boolean }) {
+  const [show, setShow] = useState(false);
+  const ref = React.useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!show && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: Math.max(8, rect.right - 230) });
+    }
+    setShow(!show);
+  }, [show]);
+
+  useEffect(() => {
+    if (!show) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setShow(false);
+    };
+    // requestAnimationFrame으로 지연 등록하여 현재 클릭 이벤트에 의한 즉시 닫힘 방지
+    const raf = requestAnimationFrame(() => {
+      document.addEventListener('mousedown', handleOutside);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('mousedown', handleOutside);
+    };
+  }, [show]);
+
+  return (
+    <span ref={ref} className={`sky-ext-badge${inline ? ' sky-ext-badge-inline' : ''}`}
+      onClick={handleClick}
+      style={{ cursor: 'pointer' }}
+    >
+      EXT
+      {show && pos && (
+        <div className="ext-badge-popup" style={{ position: 'fixed', top: pos.top, left: pos.left }}
+          onClick={(e) => e.stopPropagation()}>
+          <strong>EXT</strong> (Extension) 표시가 있는 항목은 에디터 확장 기능입니다.<br /><br />
+          이 데이터는 별도의 확장 파일(<code>_ext.json</code>)에 저장되므로 RPG Maker MV 원본 에디터와의 호환성에 영향을 주지 않습니다.
+        </div>
+      )}
+    </span>
+  );
+}
+
 export default function MapInspector() {
   const currentMap = useEditorStore((s) => s.currentMap);
   const currentMapId = useEditorStore((s) => s.currentMapId);
@@ -335,7 +381,7 @@ export default function MapInspector() {
         {/* Sky Sphere mode (extension) */}
         {currentMap.skyBackground?.type === 'skysphere' && (
           <div className="sky-ext-section">
-            <div className="sky-ext-badge">EXT</div>
+            <ExtBadge />
             <SkyBackgroundPicker
               value={currentMap.skyBackground.skyImage || ''}
               rotationSpeed={currentMap.skyBackground.rotationSpeed ?? 0}
@@ -589,7 +635,7 @@ function AnimTileShaderSection({ currentMap, updateMapField }: {
     <div className="light-inspector-section">
       <div className="light-inspector-title">
         애니메이션 타일 셰이더
-        <span className="sky-ext-badge" style={{ marginLeft: 6 }}>EXT</span>
+        <ExtBadge inline />
         {langCount > 1 && (
           <button
             className="anim-tile-lang-btn"
@@ -767,7 +813,7 @@ function PostProcessSection({ currentMap, updateMapField }: {
     const cur: BloomConfig = useEditorStore.getState().currentMap?.bloomConfig || DEFAULT_BLOOM_CONFIG;
     const updated = { ...cur, [field]: value };
     updateMapField('bloomConfig', updated);
-    const DOF = (window as any).DepthOfField;
+    const DOF = (window as any).PostProcess;
     if (DOF) {
       DOF.bloomConfig.threshold = updated.threshold;
       DOF.bloomConfig.strength = updated.strength;
@@ -779,7 +825,7 @@ function PostProcessSection({ currentMap, updateMapField }: {
 
   const handleBloomReset = useCallback(() => {
     updateMapField('bloomConfig', undefined);
-    const DOF = (window as any).DepthOfField;
+    const DOF = (window as any).PostProcess;
     if (DOF) {
       DOF.bloomConfig.threshold = DEFAULT_BLOOM_CONFIG.threshold;
       DOF.bloomConfig.strength = DEFAULT_BLOOM_CONFIG.strength;
@@ -799,7 +845,7 @@ function PostProcessSection({ currentMap, updateMapField }: {
     <div className="light-inspector-section">
       <div className="light-inspector-title">
         포스트 프로세싱
-        <span className="sky-ext-badge" style={{ marginLeft: 6 }}>EXT</span>
+        <ExtBadge inline />
         {enabledCount > 0 && (
           <span className="pp-enabled-count">{enabledCount}</span>
         )}
