@@ -588,9 +588,9 @@
   color: #6ab8e0;
 }
 
-.anim-tile-kind-type-lava {
-  background: #6a2a1a;
-  color: #e08050;
+.anim-tile-kind-type-static {
+  background: #3a3a2a;
+  color: #a0a080;
 }
 
 .anim-tile-kind-type-waterfall {

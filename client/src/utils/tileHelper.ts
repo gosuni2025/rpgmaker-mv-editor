@@ -565,32 +565,37 @@ export function debugAutotileAt(
 
 /**
  * A1 kind 번호 → 한국어 이름 매핑
- * A1 타일셋: kind 0~15 (물, 용암, 추가 물/폭포)
+ * A1 타일셋: kind 0~15
+ * kind 0,1: 바다/물 (애니메이션)
+ * kind 2,3: 장식 오토타일 (정적, 애니메이션 없음)
+ * kind 4+짝수: 물 (애니메이션)
+ * kind 4+홀수: 폭포 (애니메이션)
  */
 const A1_KIND_NAMES: Record<number, string> = {
-  0: '물 1',
-  1: '물 2',
-  2: '용암 1',
-  3: '용암 2',
-  4: '물 3',
+  0: '바다 1',
+  1: '바다 2',
+  2: '장식 1',
+  3: '장식 2',
+  4: '물 1',
   5: '폭포 1',
-  6: '물 4',
+  6: '물 2',
   7: '폭포 2',
-  8: '물 5',
+  8: '물 3',
   9: '폭포 3',
-  10: '물 6',
+  10: '물 4',
   11: '폭포 4',
-  12: '물 7',
+  12: '물 5',
   13: '폭포 5',
-  14: '물 8',
+  14: '물 6',
   15: '폭포 6',
 };
 
 /**
- * A1 kind의 기본 타입 ('water' | 'lava' | 'waterfall')
+ * A1 kind의 기본 타입 ('water' | 'static' | 'waterfall')
+ * kind 2,3: 정적 오토타일 (RPG Maker MV 원본에서도 animX/animY 없음)
  */
-export function getA1KindType(kind: number): 'water' | 'lava' | 'waterfall' {
-  if (kind === 2 || kind === 3) return 'lava';
+export function getA1KindType(kind: number): 'water' | 'static' | 'waterfall' {
+  if (kind === 2 || kind === 3) return 'static';
   if (kind >= 4 && kind % 2 === 1) return 'waterfall';
   return 'water';
 }

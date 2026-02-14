@@ -6,7 +6,7 @@ import AudioPicker from '../common/AudioPicker';
 import BattlebackPicker from '../common/BattlebackPicker';
 import SkyBackgroundPicker from '../common/SkyBackgroundPicker';
 import type { AudioFile, SkyBackground, SkySunLight, AnimTileShaderSettings } from '../../types/rpgMakerMV';
-import { sunUVToDirection, DEFAULT_WATER_SETTINGS, DEFAULT_LAVA_SETTINGS, DEFAULT_WATERFALL_SETTINGS } from '../../types/rpgMakerMV';
+import { sunUVToDirection, DEFAULT_WATER_SETTINGS, DEFAULT_WATERFALL_SETTINGS } from '../../types/rpgMakerMV';
 import { getA1KindName, getA1KindType, getUsedA1Kinds } from '../../utils/tileHelper';
 import './InspectorPanel.css';
 
@@ -445,7 +445,6 @@ export default function MapInspector() {
 
 function getDefaultForKind(kind: number): AnimTileShaderSettings {
   const type = getA1KindType(kind);
-  if (type === 'lava') return DEFAULT_LAVA_SETTINGS;
   if (type === 'waterfall') return DEFAULT_WATERFALL_SETTINGS;
   return DEFAULT_WATER_SETTINGS;
 }
@@ -527,7 +526,8 @@ function AnimTileShaderSection({ currentMap, updateMapField }: {
     const kinds = getUsedA1Kinds(currentMap.data || [], currentMap.width || 0, currentMap.height || 0);
     return new Set(kinds);
   }, [currentMap.data, currentMap.width, currentMap.height]);
-  const ALL_KINDS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15];
+  // kind 2,3은 정적 오토타일 (애니메이션 없음) → 셰이더 대상 제외
+  const ALL_KINDS = [0,1,4,5,6,7,8,9,10,11,12,13,14,15];
 
   const toggleExpand = (kind: number) => {
     setExpandedKinds(prev => {
