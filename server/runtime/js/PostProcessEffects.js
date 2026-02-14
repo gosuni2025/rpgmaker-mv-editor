@@ -1,9 +1,9 @@
 //=============================================================================
 // PostProcessEffects.js - 추가 포스트 프로세싱 이펙트 모음
 //=============================================================================
-// DepthOfField.js의 SimpleEffectComposer에 삽입할 수 있는 ShaderPass 기반 이펙트.
+// PostProcess.js의 SimpleEffectComposer에 삽입할 수 있는 ShaderPass 기반 이펙트.
 // 각 이펙트는 PostProcessEffects.XXX 로 접근 가능.
-// 의존: THREE (global), DepthOfField (ShaderPass, FullScreenQuad)
+// 의존: THREE (global)
 //=============================================================================
 
 (function() {

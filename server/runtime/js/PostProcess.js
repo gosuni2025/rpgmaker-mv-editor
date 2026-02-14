@@ -1,14 +1,17 @@
 //=============================================================================
-// DepthOfField.js - Tilt-Shift DoF Post-processing (옥토패스 트래블러 스타일)
+// PostProcess.js - 포스트 프로세싱 파이프라인 (Bloom, DoF, PP Effects)
 //=============================================================================
-// 3D 모드에서 화면 Y좌표 기반 Tilt-Shift DoF 효과를 적용합니다.
-// - 화면 상단(원경): 블러 → 포커스 영역(캐릭터): 선명 → 화면 하단(근경): 블러
-// - EffectComposer / RenderPass / TiltShiftPass를 내장 (Three.js r128 호환)
-// - Mode3D._perspCamera가 활성화된 경우에만 동작
-// - 게임 옵션에서 ON/OFF 가능
-// - 개발 모드에서 Debug UI로 파라미터 실시간 조절
+// 포스트 프로세싱 전체를 관리합니다:
+// - SimpleEffectComposer: 커스텀 이펙트 컴포저 (ping-pong 렌더 타겟)
+// - BloomPass: 밝은 부분 추출 → 가우시안 블러 → 원본 합성 (2D/3D emissive 지원)
+// - TiltShiftPass: 화면 Y좌표 기반 Tilt-Shift DoF (피사계 심도)
+// - MapRenderPass / UIRenderPass: 3D 맵/UI 분리 렌더링
+// - Simple2DRenderPass / CopyToScreenPass: 2D 모드 렌더링
+// - PostProcessEffects 패스 관리 및 맵별 설정 로드
+// - 개발 모드 Debug UI
 //
 // 의존: THREE (global), Mode3D, ConfigManager, Graphics, Spriteset_Map
+// 선택적 의존: PostProcessEffects.js, Scene_Map (런타임 게임 플레이어)
 //=============================================================================
 
 (function() {

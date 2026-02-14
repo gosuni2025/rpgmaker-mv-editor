@@ -2844,7 +2844,7 @@ ShadowLight._createDebugUI = function() {
         skyBody.appendChild(arrowRow);
     })();
 
-    // DoF 섹션 삽입 포인트 (DepthOfField가 여기에 섹션을 추가함)
+    // DoF 섹션 삽입 포인트 (PostProcess.js가 여기에 섹션을 추가함)
     var dofContainer = document.createElement('div');
     dofContainer.id = 'sl-debug-dof-container';
     panel.appendChild(dofContainer);
