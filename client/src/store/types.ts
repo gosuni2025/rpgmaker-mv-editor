@@ -178,6 +178,7 @@ export interface EditorState {
   // 3D / Lighting
   mode3d: boolean;
   shadowLight: boolean;
+  disableFow: boolean;
   // Post-processing config (맵 데이터에 저장됨)
   postProcessConfig: Record<string, { enabled: boolean; [key: string]: any }>;
   setPostProcessConfig: (config: Record<string, { enabled: boolean; [key: string]: any }>) => void;
@@ -312,6 +313,7 @@ export interface EditorState {
   setSelectedEventId: (id: number | null) => void;
   setMode3d: (enabled: boolean) => void;
   setShadowLight: (enabled: boolean) => void;
+  setDisableFow: (disabled: boolean) => void;
   // Actions - Palette
   setPaletteTab: (tab: 'A' | 'B' | 'C' | 'D' | 'E' | 'R') => void;
 
