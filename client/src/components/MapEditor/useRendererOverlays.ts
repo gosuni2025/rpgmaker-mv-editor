@@ -573,12 +573,26 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
     const FogOfWarMod = (window as any).FogOfWar;
     if (!THREE || !FogOfWarMod) return;
 
-    // 기존 메쉬 제거
+    // 기존 메쉬/그룹 제거
     if (refs.fogOfWarMeshRef.current) {
       rendererObj.scene.remove(refs.fogOfWarMeshRef.current);
-      refs.fogOfWarMeshRef.current.geometry?.dispose();
-      refs.fogOfWarMeshRef.current.material?.dispose();
+      const prev = refs.fogOfWarMeshRef.current;
+      if (prev.traverse) {
+        prev.traverse((child: any) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+        });
+      } else {
+        prev.geometry?.dispose();
+        prev.material?.dispose();
+      }
       refs.fogOfWarMeshRef.current = null;
+    }
+    // FogOfWar 내부 그룹 참조도 정리
+    const FogOfWarCleanup = (window as any).FogOfWar;
+    if (FogOfWarCleanup) {
+      FogOfWarCleanup._fogGroup = null;
+      FogOfWarCleanup._fogMesh = null;
     }
 
     if (disableFow || !fogOfWar?.enabled || mapWidth <= 0 || mapHeight <= 0) {
@@ -599,70 +613,59 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
     }
     FogOfWarMod.updateVisibilityAt(startX, startY);
 
-    // ShaderMaterial로 전체 맵 위에 fog 오버레이
+    // 볼류메트릭 메쉬 생성 (런타임과 동일한 셰이더)
     if (!FogOfWarMod._fogTexture) return;
 
     const totalW = mapWidth * TILE_SIZE_PX;
     const totalH = mapHeight * TILE_SIZE_PX;
 
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        tFog: { value: FogOfWarMod._fogTexture },
-        mapSize: { value: new THREE.Vector2(mapWidth, mapHeight) },
-        fogColor: { value: new THREE.Vector3(
-          FogOfWarMod._fogColor.r,
-          FogOfWarMod._fogColor.g,
-          FogOfWarMod._fogColor.b
-        )},
-        unexploredAlpha: { value: FogOfWarMod._unexploredAlpha },
-        exploredAlpha: { value: FogOfWarMod._exploredAlpha },
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    const group = FogOfWarMod._createMesh();
+    if (!group) return;
+
+    // 에디터 2D 뷰용: 그룹 위치를 맵 중앙에 배치
+    group.position.set(totalW / 2, totalH / 2, 0);
+    group.userData.editorGrid = true;
+    rendererObj.scene.add(group);
+    refs.fogOfWarMeshRef.current = group;
+
+    // 에디터에서 볼류메트릭 셰이더의 카메라 좌표를 가짜로 설정
+    // OrthographicCamera 위에서 내려다보는 것처럼: 맵 중앙 위 높은 곳
+    const fogMesh = group.children[0];
+    if (fogMesh?.material?.uniforms) {
+      const u = fogMesh.material.uniforms;
+      u.cameraWorldPos.value.set(totalW / 2, totalH / 2, FogOfWarMod._fogHeight + 100);
+      u.scrollOffset.value.set(0, 0);
+      // 에디터에서는 플레이어 위치 = 시작 위치
+      u.playerPixelPos.value.set((startX + 0.5) * TILE_SIZE_PX, (startY + 0.5) * TILE_SIZE_PX);
+    }
+
+    // 에디터용 라이트 산란 데이터 설정
+    const currentMap = (window as any).$dataMap;
+    if (fogMesh?.material?.uniforms && currentMap?.editorLights?.points) {
+      FogOfWarMod._updateLightUniforms(fogMesh.material.uniforms);
+    }
+
+    // 애니메이션 루프: uTime과 카메라 좌표 매 프레임 갱신
+    let animId = 0;
+    const animate = () => {
+      if (!refs.fogOfWarMeshRef.current || refs.fogOfWarMeshRef.current !== group) return;
+      FogOfWarMod._time += 1.0 / 60.0;
+      if (fogMesh?.material?.uniforms) {
+        const u = fogMesh.material.uniforms;
+        u.uTime.value = FogOfWarMod._time;
+        // 에디터 카메라 위치 추적 (OrthographicCamera의 position)
+        const cam = rendererObj.camera;
+        if (cam) {
+          u.cameraWorldPos.value.set(cam.position.x, cam.position.y, FogOfWarMod._fogHeight + 100);
         }
-      `,
-      fragmentShader: `
-        varying vec2 vUv;
-        uniform sampler2D tFog;
-        uniform vec2 mapSize;
-        uniform vec3 fogColor;
-        uniform float unexploredAlpha;
-        uniform float exploredAlpha;
+      }
+      requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+      animId = requestAnimationFrame(animate);
+    };
+    animId = requestAnimationFrame(animate);
 
-        void main() {
-          vec4 fogSample = texture2D(tFog, vUv);
-          float visibility = fogSample.r;
-          float explored = fogSample.g;
-
-          float fogAlpha;
-          if (visibility > 0.01) {
-            fogAlpha = mix(exploredAlpha, 0.0, visibility);
-          } else if (explored > 0.5) {
-            fogAlpha = exploredAlpha;
-          } else {
-            fogAlpha = unexploredAlpha;
-          }
-
-          gl_FragColor = vec4(fogColor, fogAlpha);
-        }
-      `,
-      transparent: true,
-      depthTest: false,
-      side: THREE.DoubleSide,
-    });
-
-    const geometry = new THREE.PlaneGeometry(totalW, totalH);
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(totalW / 2, totalH / 2, 3.5);
-    mesh.renderOrder = 9990;
-    mesh.frustumCulled = false;
-    mesh.userData.editorGrid = true;
-    rendererObj.scene.add(mesh);
-    refs.fogOfWarMeshRef.current = mesh;
-
-    requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+    return () => {
+      cancelAnimationFrame(animId);
+    };
   }, [rendererReady, mapWidth, mapHeight, disableFow, fogOfWar?.enabled, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha, fogOfWar?.fogHeight, fogOfWar?.lineOfSight, fogOfWar?.absorption, fogOfWar?.visibilityBrightness, fogOfWar?.edgeAnimation, fogOfWar?.edgeAnimationSpeed, fogOfWar?.fogColorTop, fogOfWar?.heightGradient, fogOfWar?.godRay, fogOfWar?.godRayIntensity, fogOfWar?.vortex, fogOfWar?.vortexSpeed, fogOfWar?.lightScattering, fogOfWar?.lightScatterIntensity]);
 }
