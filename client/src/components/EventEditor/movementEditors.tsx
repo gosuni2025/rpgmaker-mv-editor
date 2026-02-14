@@ -33,6 +33,16 @@ export function GetLocationInfoEditor({ p, onOk, onCancel }: { p: unknown[]; onO
   const [showMapPicker, setShowMapPicker] = useState(false);
 
   const currentMapId = useEditorStore(s => s.currentMapId);
+  const currentMap = useEditorStore(s => s.currentMap);
+  const selectedEventId = useEditorStore(s => s.selectedEventId);
+
+  // 현재 이벤트의 위치 정보
+  const eventMarker = useMemo(() => {
+    if (!currentMap?.events || !selectedEventId) return undefined;
+    const ev = currentMap.events[selectedEventId];
+    if (!ev) return undefined;
+    return { x: ev.x, y: ev.y, label: `현재 이벤트` };
+  }, [currentMap, selectedEventId]);
 
   const directLabel = `현재 지도 (${x},${y})`;
 
@@ -93,6 +103,7 @@ export function GetLocationInfoEditor({ p, onOk, onCancel }: { p: unknown[]; onO
 
       {showMapPicker && currentMapId && createPortal(
         <MapLocationPicker mapId={currentMapId} x={x} y={y} fixedMap
+          eventMarker={eventMarker}
           onOk={(_mapId, newX, newY) => { setX(newX); setY(newY); setShowMapPicker(false); }}
           onCancel={() => setShowMapPicker(false)} />,
         document.body
