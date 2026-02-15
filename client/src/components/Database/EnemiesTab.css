@@ -1,0 +1,330 @@
+/* EnemiesTab - 3 column layout like RPG Maker MV */
+.enemies-columns {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.enemies-col {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 8px 10px;
+  gap: 6px;
+}
+
+.enemies-col-left {
+  flex: 1.2;
+  border-right: 1px solid #555;
+  min-width: 0;
+}
+
+.enemies-col-center {
+  flex: 1;
+  border-right: 1px solid #555;
+  min-width: 0;
+}
+
+.enemies-col-right {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Section titles */
+.enemies-section-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #bbb;
+  padding: 4px 0;
+  border-bottom: 1px solid #555;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* General layout: image left, params right */
+.enemies-general-layout {
+  display: flex;
+  gap: 10px;
+}
+
+.enemies-general-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+  max-width: 180px;
+}
+
+.enemies-general-right {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Params 2-column grid */
+.enemies-params-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+}
+
+/* Label styles */
+.enemies-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.enemies-param-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 11px;
+  color: #aaa;
+}
+
+.enemies-param-label span {
+  font-size: 11px;
+}
+
+/* Input styles */
+.enemies-input {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.enemies-input:focus {
+  border-color: #2675bf;
+}
+
+.enemies-input-num {
+  width: 100%;
+}
+
+.enemies-select {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.enemies-select:focus {
+  border-color: #2675bf;
+}
+
+/* Rewards row */
+.enemies-rewards-row {
+  display: flex;
+  gap: 8px;
+}
+
+.enemies-rewards-row > label {
+  flex: 1;
+}
+
+/* Drop items table */
+.enemies-drop-table {
+  border: 1px solid #444;
+  border-radius: 3px;
+  background: #2b2b2b;
+  overflow: hidden;
+}
+
+.enemies-drop-row {
+  display: flex;
+  align-items: center;
+  padding: 3px 6px;
+  font-size: 12px;
+  color: #ddd;
+  border-bottom: 1px solid #333;
+  cursor: pointer;
+  min-height: 22px;
+}
+
+.enemies-drop-row:last-child {
+  border-bottom: none;
+}
+
+.enemies-drop-row:hover {
+  background: #383838;
+}
+
+.enemies-drop-kind {
+  min-width: 50px;
+  color: #aaa;
+  flex-shrink: 0;
+}
+
+.enemies-drop-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enemies-drop-prob {
+  min-width: 40px;
+  text-align: right;
+  color: #888;
+  flex-shrink: 0;
+}
+
+.enemies-drop-empty {
+  min-height: 22px;
+}
+
+/* Action patterns table */
+.enemies-action-table {
+  border: 1px solid #444;
+  border-radius: 3px;
+  background: #2b2b2b;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.enemies-action-header {
+  display: flex;
+  background: #333;
+  border-bottom: 1px solid #444;
+  font-size: 11px;
+  font-weight: bold;
+  color: #aaa;
+  padding: 3px 0;
+  flex-shrink: 0;
+}
+
+.enemies-action-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.enemies-action-row {
+  display: flex;
+  font-size: 12px;
+  color: #ddd;
+  padding: 2px 0;
+  cursor: pointer;
+  border-bottom: 1px solid #333;
+}
+
+.enemies-action-row:hover {
+  background: #383838;
+}
+
+.enemies-action-row.selected {
+  background: #2675bf;
+  color: #fff;
+}
+
+.enemies-action-col-skill {
+  flex: 2;
+  padding: 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.enemies-action-col-cond {
+  flex: 1;
+  padding: 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enemies-action-col-rating {
+  width: 30px;
+  min-width: 30px;
+  padding: 0 6px;
+  text-align: center;
+}
+
+/* Action edit panel */
+.enemies-action-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #444;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.enemies-action-edit-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* Note area */
+.enemies-note {
+  flex: 1;
+  min-height: 80px;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 6px;
+  color: #ddd;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  resize: none;
+}
+
+.enemies-note:focus {
+  border-color: #2675bf;
+}
+
+/* Drop item edit dialog */
+.enemies-drop-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 340px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.enemies-drop-dialog-title {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: bold;
+  border-bottom: 1px solid #555;
+  background: #333;
+  border-radius: 4px 4px 0 0;
+}
+
+.enemies-drop-dialog-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.enemies-drop-dialog-footer {
+  padding: 8px 12px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #555;
+}

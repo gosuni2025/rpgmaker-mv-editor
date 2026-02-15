@@ -6,6 +6,7 @@ import TraitsEditor from '../common/TraitsEditor';
 import TranslateButton from '../common/TranslateButton';
 import { DataListPicker, IconSprite } from '../EventEditor/dataListPicker';
 import apiClient from '../../api/client';
+import './EnemiesTab.css';
 
 interface EnemiesTabProps {
   data: (Enemy | null)[] | undefined;
@@ -13,7 +14,6 @@ interface EnemiesTabProps {
 }
 
 interface RefItem { id: number; name: string; iconIndex?: number }
-const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
   const { t } = useTranslation();
@@ -23,6 +23,9 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
   const [items, setItems] = useState<RefItem[]>([]);
   const [weapons, setWeapons] = useState<RefItem[]>([]);
   const [armors, setArmors] = useState<RefItem[]>([]);
+  const [selectedActionIndex, setSelectedActionIndex] = useState<number>(-1);
+  const [skillPickerOpen, setSkillPickerOpen] = useState(false);
+  const [dropItemPickerIndex, setDropItemPickerIndex] = useState<number | null>(null);
 
   const PARAM_NAMES = [t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'), t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck')];
 
@@ -49,8 +52,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
     5: t('conditionType.partyLevel'),
     6: t('conditionType.switch'),
   };
-
-  const [skillPickerIndex, setSkillPickerIndex] = useState<number | null>(null);
 
   useEffect(() => {
     apiClient.get<({ id: number; name: string; iconIndex?: number } | null)[]>('/database/skills').then(d => {
@@ -84,16 +85,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
     handleFieldChange('dropItems', dropItems);
   };
 
-  const addDropItem = () => {
-    const dropItems = [...(selectedItem?.dropItems || []), { kind: 0, dataId: 1, denominator: 1 }];
-    handleFieldChange('dropItems', dropItems);
-  };
-
-  const removeDropItem = (index: number) => {
-    const dropItems = (selectedItem?.dropItems || []).filter((_: unknown, i: number) => i !== index);
-    handleFieldChange('dropItems', dropItems);
-  };
-
   const handleActionChange = (index: number, field: keyof EnemyAction, value: number) => {
     const actions = [...(selectedItem?.actions || [])];
     actions[index] = { ...actions[index], [field]: value };
@@ -105,11 +96,13 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
       conditionParam1: 0, conditionParam2: 0, conditionType: 0, rating: 5, skillId: 1,
     }];
     handleFieldChange('actions', actions);
+    setSelectedActionIndex(actions.length - 1);
   };
 
   const removeAction = (index: number) => {
     const actions = (selectedItem?.actions || []).filter((_: unknown, i: number) => i !== index);
     handleFieldChange('actions', actions);
+    if (selectedActionIndex >= actions.length) setSelectedActionIndex(actions.length - 1);
   };
 
   const addNewEnemy = () => {
@@ -138,8 +131,20 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
     setSelectedId(newEnemy.id);
   };
 
+  const getDropItemLabel = (drop: DropItem): string => {
+    if (drop.kind === 0) return t('common.none');
+    const list = drop.kind === 1 ? items : drop.kind === 2 ? weapons : armors;
+    const found = list.find(it => it.id === drop.dataId);
+    return found ? found.name : t('common.none');
+  };
+
+  const currentAction = selectedItem && selectedActionIndex >= 0 && selectedActionIndex < (selectedItem.actions || []).length
+    ? (selectedItem.actions || [])[selectedActionIndex]
+    : null;
+
   return (
     <div className="db-tab-layout">
+      {/* 목록 패널 */}
       <div className="db-list">
         <div className="db-list-header">
           <button className="db-btn-small" onClick={addNewEnemy}>+</button>
@@ -154,182 +159,292 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
           </div>
         ))}
       </div>
-      <div className="db-form">
-        {selectedItem && (
-          <>
-            <label>
-              {t('common.name')}
-              <div style={{display:'flex',gap:4,alignItems:'center'}}>
-                <input
-                  type="text"
-                  value={selectedItem.name || ''}
-                  onChange={(e) => handleFieldChange('name', e.target.value)}
-                  style={{flex:1}}
+
+      {selectedItem && (
+        <div className="enemies-columns">
+          {/* 왼쪽 패널: 일반 설정 */}
+          <div className="enemies-col enemies-col-left">
+            <div className="enemies-section-title">{t('fields.generalSettings') || '일반 설정'}</div>
+
+            <div className="enemies-general-layout">
+              <div className="enemies-general-left">
+                <label className="enemies-label">
+                  {t('common.name')}:
+                  <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                    <input
+                      type="text"
+                      value={selectedItem.name || ''}
+                      onChange={(e) => handleFieldChange('name', e.target.value)}
+                      className="enemies-input"
+                      style={{flex:1}}
+                    />
+                    <TranslateButton csvPath="database/enemies.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
+                  </div>
+                </label>
+                <div className="enemies-label">{t('fields.battlerImage') || '이미지'}:</div>
+                <ImagePicker
+                  type="enemies"
+                  value={selectedItem.battlerName || ''}
+                  onChange={(name) => handleFieldChange('battlerName', name)}
                 />
-                <TranslateButton csvPath="database/enemies.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
               </div>
-            </label>
 
-            <div className="db-form-section">{t('fields.battlerImage')}</div>
-            <ImagePicker
-              type="enemies"
-              value={selectedItem.battlerName || ''}
-              onChange={(name) => handleFieldChange('battlerName', name)}
-            />
-            <label>
-              {t('fields.battlerHue')}
-              <input
-                type="number"
-                min={0}
-                max={360}
-                value={selectedItem.battlerHue || 0}
-                onChange={(e) => handleFieldChange('battlerHue', Number(e.target.value))}
-              />
-            </label>
-
-            <div className="db-form-section">{t('fields.parameters')}</div>
-            {PARAM_NAMES.map((name, i) => (
-              <label key={i}>
-                {name}
-                <input
-                  type="number"
-                  value={selectedItem.params?.[i] ?? 0}
-                  onChange={(e) => handleParamChange(i, Number(e.target.value))}
-                />
-              </label>
-            ))}
-
-            <label>
-              {t('fields.exp')}
-              <input
-                type="number"
-                value={selectedItem.exp || 0}
-                onChange={(e) => handleFieldChange('exp', Number(e.target.value))}
-              />
-            </label>
-            <label>
-              {t('fields.gold')}
-              <input
-                type="number"
-                value={selectedItem.gold || 0}
-                onChange={(e) => handleFieldChange('gold', Number(e.target.value))}
-              />
-            </label>
-
-            <div className="db-form-section">
-              {t('fields.dropItems')}
-              <button className="db-btn-small" onClick={addDropItem}>+</button>
-            </div>
-            {(selectedItem.dropItems || []).map((drop: DropItem, i: number) => (
-              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <label style={{ flex: 1 }}>
-                  {t('fields.kind')}
-                  <select
-                    value={drop.kind}
-                    onChange={(e) => handleDropItemChange(i, 'kind', Number(e.target.value))}
-                    style={{ background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' }}
-                  >
-                    {Object.entries(DROP_KIND_LABELS).map(([val, label]) => (
-                      <option key={val} value={val}>{label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label style={{ flex: 1 }}>
-                  {t('fields.item')}
-                  <select value={drop.dataId} onChange={(e) => handleDropItemChange(i, 'dataId', Number(e.target.value))} style={selectStyle}>
-                    <option value={0}>{t('common.none')}</option>
-                    {(drop.kind === 1 ? items : drop.kind === 2 ? weapons : drop.kind === 3 ? armors : []).map(it =>
-                      <option key={it.id} value={it.id}>{it.name}</option>
-                    )}
-                  </select>
-                </label>
-                <label style={{ flex: 1 }}>
-                  {t('fields.probability')}
-                  <input type="number" value={drop.denominator} min={1} onChange={(e) => handleDropItemChange(i, 'denominator', Number(e.target.value))} />
-                </label>
-                <button className="db-btn-small" onClick={() => removeDropItem(i)}>-</button>
-              </div>
-            ))}
-
-            <div className="db-form-section">
-              {t('fields.actionPatterns')}
-              <button className="db-btn-small" onClick={addAction}>+</button>
-            </div>
-            {(selectedItem.actions || []).map((action: EnemyAction, i: number) => {
-              const actionSkill = skills.find(s => s.id === action.skillId);
-              const actionSkillLabel = actionSkill ? `${String(action.skillId).padStart(4, '0')}: ${actionSkill.name}` : action.skillId === 0 ? t('common.none') : String(action.skillId);
-              return (
-              <div key={i} style={{ border: '1px solid #444', borderRadius: 4, padding: 8, marginBottom: 8 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
-                  <label style={{ flex: 2 }}>
-                    {t('fields.skill')}
-                    <button className="db-picker-btn" onClick={() => setSkillPickerIndex(i)}>
-                      {actionSkill?.iconIndex != null && actionSkill.iconIndex > 0 && <IconSprite iconIndex={actionSkill.iconIndex} />}
-                      <span>{actionSkillLabel}</span>
-                    </button>
+              <div className="enemies-general-right">
+                {/* 파라미터 2열 배치: HP/MP, 공격/방어, 마공/마방, 민첩/운 */}
+                <div className="enemies-params-grid">
+                  <label className="enemies-param-label">
+                    <span>{t('params.maxHP')}:</span>
+                    <input type="number" value={selectedItem.params?.[0] ?? 0} min={1} max={999999}
+                      onChange={(e) => handleParamChange(0, Number(e.target.value))} className="enemies-input enemies-input-num" />
                   </label>
-                  <label style={{ flex: 1 }}>
-                    {t('fields.rating')}
-                    <input type="number" value={action.rating} min={1} max={9} onChange={(e) => handleActionChange(i, 'rating', Number(e.target.value))} />
+                  <label className="enemies-param-label">
+                    <span>{t('params.maxMP')}:</span>
+                    <input type="number" value={selectedItem.params?.[1] ?? 0} min={0} max={9999}
+                      onChange={(e) => handleParamChange(1, Number(e.target.value))} className="enemies-input enemies-input-num" />
                   </label>
-                  <button className="db-btn-small" onClick={() => removeAction(i)}>-</button>
+                  <label className="enemies-param-label">
+                    <span>{t('params.attack')}:</span>
+                    <input type="number" value={selectedItem.params?.[2] ?? 0} min={1} max={999}
+                      onChange={(e) => handleParamChange(2, Number(e.target.value))} className="enemies-input enemies-input-num" />
+                  </label>
+                  <label className="enemies-param-label">
+                    <span>{t('params.defense')}:</span>
+                    <input type="number" value={selectedItem.params?.[3] ?? 0} min={1} max={999}
+                      onChange={(e) => handleParamChange(3, Number(e.target.value))} className="enemies-input enemies-input-num" />
+                  </label>
+                  <label className="enemies-param-label">
+                    <span>{t('params.mAttack')}:</span>
+                    <input type="number" value={selectedItem.params?.[4] ?? 0} min={1} max={999}
+                      onChange={(e) => handleParamChange(4, Number(e.target.value))} className="enemies-input enemies-input-num" />
+                  </label>
+                  <label className="enemies-param-label">
+                    <span>{t('params.mDefense')}:</span>
+                    <input type="number" value={selectedItem.params?.[5] ?? 0} min={1} max={999}
+                      onChange={(e) => handleParamChange(5, Number(e.target.value))} className="enemies-input enemies-input-num" />
+                  </label>
+                  <label className="enemies-param-label">
+                    <span>{t('params.agility')}:</span>
+                    <input type="number" value={selectedItem.params?.[6] ?? 0} min={1} max={999}
+                      onChange={(e) => handleParamChange(6, Number(e.target.value))} className="enemies-input enemies-input-num" />
+                  </label>
+                  <label className="enemies-param-label">
+                    <span>{t('params.luck')}:</span>
+                    <input type="number" value={selectedItem.params?.[7] ?? 0} min={1} max={999}
+                      onChange={(e) => handleParamChange(7, Number(e.target.value))} className="enemies-input enemies-input-num" />
+                  </label>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <label style={{ flex: 1 }}>
-                    {t('fields.condition')}
-                    <select
-                      value={action.conditionType}
-                      onChange={(e) => handleActionChange(i, 'conditionType', Number(e.target.value))}
-                      style={{ background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' }}
+              </div>
+            </div>
+
+            {/* 보상 */}
+            <div className="enemies-section-title">{t('fields.rewards') || '보상'}</div>
+            <div className="enemies-rewards-row">
+              <label className="enemies-param-label">
+                <span>EXP:</span>
+                <input type="number" value={selectedItem.exp || 0} min={0} max={9999999}
+                  onChange={(e) => handleFieldChange('exp', Number(e.target.value))} className="enemies-input enemies-input-num" />
+              </label>
+              <label className="enemies-param-label">
+                <span>{t('fields.gold') || 'Gold'}:</span>
+                <input type="number" value={selectedItem.gold || 0} min={0} max={9999999}
+                  onChange={(e) => handleFieldChange('gold', Number(e.target.value))} className="enemies-input enemies-input-num" />
+              </label>
+            </div>
+
+            {/* 드롭 아이템 */}
+            <div className="enemies-section-title">{t('fields.dropItems') || '드롭 아이템'}</div>
+            <div className="enemies-drop-table">
+              {(selectedItem.dropItems || []).map((drop: DropItem, i: number) => (
+                <div key={i} className="enemies-drop-row" onDoubleClick={() => setDropItemPickerIndex(i)}>
+                  <span className="enemies-drop-kind">{DROP_KIND_LABELS[drop.kind] || ''}</span>
+                  <span className="enemies-drop-name">{getDropItemLabel(drop)}</span>
+                  <span className="enemies-drop-prob">1/{drop.denominator}</span>
+                </div>
+              ))}
+              {(selectedItem.dropItems || []).length === 0 && (
+                <>
+                  <div className="enemies-drop-row enemies-drop-empty" />
+                  <div className="enemies-drop-row enemies-drop-empty" />
+                  <div className="enemies-drop-row enemies-drop-empty" />
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* 가운데 패널: 행동 패턴 */}
+          <div className="enemies-col enemies-col-center">
+            <div className="enemies-section-title">
+              {t('fields.actionPatterns') || '행동 패턴'}
+              <div style={{marginLeft:'auto',display:'flex',gap:4}}>
+                <button className="db-btn-small" onClick={addAction}>+</button>
+                <button className="db-btn-small" onClick={() => selectedActionIndex >= 0 && removeAction(selectedActionIndex)}
+                  disabled={selectedActionIndex < 0}>-</button>
+              </div>
+            </div>
+            <div className="enemies-action-table">
+              <div className="enemies-action-header">
+                <span className="enemies-action-col-skill">{t('fields.skill') || '스킬'}</span>
+                <span className="enemies-action-col-cond">{t('fields.condition') || '조건'}</span>
+                <span className="enemies-action-col-rating">{t('fields.rating') || 'R'}</span>
+              </div>
+              <div className="enemies-action-body">
+                {(selectedItem.actions || []).map((action: EnemyAction, i: number) => {
+                  const sk = skills.find(s => s.id === action.skillId);
+                  const skLabel = sk ? sk.name : String(action.skillId);
+                  const condLabel = CONDITION_TYPE_LABELS[action.conditionType] || '';
+                  return (
+                    <div key={i}
+                      className={`enemies-action-row${i === selectedActionIndex ? ' selected' : ''}`}
+                      onClick={() => setSelectedActionIndex(i)}
                     >
+                      <span className="enemies-action-col-skill">
+                        {sk?.iconIndex != null && sk.iconIndex > 0 && <IconSprite iconIndex={sk.iconIndex} />}
+                        {skLabel}
+                      </span>
+                      <span className="enemies-action-col-cond">{condLabel}</span>
+                      <span className="enemies-action-col-rating">{action.rating}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 선택된 행동 패턴 편집 */}
+            {currentAction && (
+              <div className="enemies-action-edit">
+                <label className="enemies-label">
+                  {t('fields.skill') || '스킬'}:
+                  <button className="db-picker-btn" onClick={() => setSkillPickerOpen(true)}>
+                    {(() => {
+                      const sk = skills.find(s => s.id === currentAction.skillId);
+                      return <>
+                        {sk?.iconIndex != null && sk.iconIndex > 0 && <IconSprite iconIndex={sk.iconIndex} />}
+                        <span>{sk ? `${String(currentAction.skillId).padStart(4, '0')}: ${sk.name}` : String(currentAction.skillId)}</span>
+                      </>;
+                    })()}
+                  </button>
+                </label>
+                <div className="enemies-action-edit-row">
+                  <label className="enemies-label" style={{flex:1}}>
+                    {t('fields.condition') || '조건'}:
+                    <select value={currentAction.conditionType}
+                      onChange={(e) => handleActionChange(selectedActionIndex, 'conditionType', Number(e.target.value))}
+                      className="enemies-select">
                       {Object.entries(CONDITION_TYPE_LABELS).map(([val, label]) => (
                         <option key={val} value={val}>{label}</option>
                       ))}
                     </select>
                   </label>
-                  <label style={{ flex: 1 }}>
-                    {t('fields.param1')}
-                    <input type="number" value={action.conditionParam1} onChange={(e) => handleActionChange(i, 'conditionParam1', Number(e.target.value))} />
-                  </label>
-                  <label style={{ flex: 1 }}>
-                    {t('fields.param2')}
-                    <input type="number" value={action.conditionParam2} onChange={(e) => handleActionChange(i, 'conditionParam2', Number(e.target.value))} />
+                  <label className="enemies-label" style={{flex:1}}>
+                    {t('fields.rating') || '레이팅'}:
+                    <input type="number" value={currentAction.rating} min={1} max={9}
+                      onChange={(e) => handleActionChange(selectedActionIndex, 'rating', Number(e.target.value))}
+                      className="enemies-input enemies-input-num" />
                   </label>
                 </div>
+                {currentAction.conditionType !== 0 && (
+                  <div className="enemies-action-edit-row">
+                    <label className="enemies-label" style={{flex:1}}>
+                      {currentAction.conditionType === 1 ? 'A:' : currentAction.conditionType <= 3 ? '%:' : ''}
+                      <input type="number" value={currentAction.conditionParam1}
+                        onChange={(e) => handleActionChange(selectedActionIndex, 'conditionParam1', Number(e.target.value))}
+                        className="enemies-input enemies-input-num" />
+                    </label>
+                    {(currentAction.conditionType >= 1 && currentAction.conditionType <= 3) && (
+                      <label className="enemies-label" style={{flex:1}}>
+                        {currentAction.conditionType === 1 ? 'B:' : '~'}
+                        <input type="number" value={currentAction.conditionParam2}
+                          onChange={(e) => handleActionChange(selectedActionIndex, 'conditionParam2', Number(e.target.value))}
+                          className="enemies-input enemies-input-num" />
+                      </label>
+                    )}
+                  </div>
+                )}
               </div>
-              );
-            })}
+            )}
+          </div>
 
-            <div className="db-form-section">{t('fields.traits')}</div>
+          {/* 오른쪽 패널: 특성 + 메모 */}
+          <div className="enemies-col enemies-col-right">
+            <div className="enemies-section-title">{t('fields.traits') || '특성'}</div>
             <TraitsEditor
               traits={selectedItem.traits || []}
               onChange={(traits) => handleFieldChange('traits', traits)}
             />
 
-            <label>
-              {t('common.note')}
-              <textarea
-                value={selectedItem.note || ''}
-                onChange={(e) => handleFieldChange('note', e.target.value)}
-                rows={3}
-              />
-            </label>
-          </>
-        )}
-      </div>
+            <div className="enemies-section-title">{t('common.note') || '메모'}</div>
+            <textarea
+              value={selectedItem.note || ''}
+              onChange={(e) => handleFieldChange('note', e.target.value)}
+              className="enemies-note"
+            />
+          </div>
+        </div>
+      )}
 
-      {skillPickerIndex !== null && selectedItem && (
+      {/* 스킬 선택 피커 */}
+      {skillPickerOpen && selectedItem && currentAction && (
         <DataListPicker
           items={skillNames}
-          value={(selectedItem.actions || [])[skillPickerIndex]?.skillId ?? 0}
+          value={currentAction.skillId}
           onChange={(id) => {
-            handleActionChange(skillPickerIndex, 'skillId', id);
+            handleActionChange(selectedActionIndex, 'skillId', id);
           }}
-          onClose={() => setSkillPickerIndex(null)}
+          onClose={() => setSkillPickerOpen(false)}
           title={t('fields.skill') + ' 선택'}
           iconIndices={skillIcons}
         />
       )}
+
+      {/* 드롭 아이템 편집 다이얼로그 */}
+      {dropItemPickerIndex !== null && selectedItem && (() => {
+        const drop = (selectedItem.dropItems || [])[dropItemPickerIndex];
+        if (!drop) return null;
+        return (
+          <div className="db-dialog-overlay" onClick={() => setDropItemPickerIndex(null)}>
+            <div className="enemies-drop-dialog" onClick={e => e.stopPropagation()}>
+              <div className="enemies-drop-dialog-title">{t('fields.dropItems') || '드롭 아이템'}</div>
+              <div className="enemies-drop-dialog-body">
+                <label className="enemies-label">
+                  {t('fields.kind') || '종류'}:
+                  <select value={drop.kind}
+                    onChange={(e) => handleDropItemChange(dropItemPickerIndex, 'kind', Number(e.target.value))}
+                    className="enemies-select">
+                    {Object.entries(DROP_KIND_LABELS).map(([val, label]) => (
+                      <option key={val} value={val}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+                {drop.kind > 0 && (
+                  <label className="enemies-label">
+                    {t('fields.item') || '아이템'}:
+                    <select value={drop.dataId}
+                      onChange={(e) => handleDropItemChange(dropItemPickerIndex, 'dataId', Number(e.target.value))}
+                      className="enemies-select">
+                      <option value={0}>{t('common.none')}</option>
+                      {(drop.kind === 1 ? items : drop.kind === 2 ? weapons : armors).map(it =>
+                        <option key={it.id} value={it.id}>{it.name}</option>
+                      )}
+                    </select>
+                  </label>
+                )}
+                <label className="enemies-label">
+                  {t('fields.probability') || '확률'}:
+                  <div style={{display:'flex',alignItems:'center',gap:4}}>
+                    <span>1 /</span>
+                    <input type="number" value={drop.denominator} min={1} max={1000}
+                      onChange={(e) => handleDropItemChange(dropItemPickerIndex, 'denominator', Number(e.target.value))}
+                      className="enemies-input enemies-input-num" />
+                  </div>
+                </label>
+              </div>
+              <div className="enemies-drop-dialog-footer">
+                <button className="db-btn" onClick={() => setDropItemPickerIndex(null)}>OK</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
