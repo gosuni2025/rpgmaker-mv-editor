@@ -465,6 +465,8 @@ export default function MapInspector() {
           const fow = (currentMap as any).fogOfWar;
           return (
             <>
+              {/* ── 공통 ── */}
+              <div style={{ color: '#aaa', fontSize: 10, marginTop: 6, borderBottom: '1px solid #444', paddingBottom: 2 }}>공통</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>시야 반경</span>
                 <input type="range" min={1} max={20} step={1}
@@ -502,6 +504,97 @@ export default function MapInspector() {
                   {Math.round((fow.exploredAlpha ?? 0.6) * 100)}%
                 </span>
               </div>
+              <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={fow.lineOfSight !== false}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, lineOfSight: e.target.checked })} />
+                <span>시야 차단 (Line of Sight)</span>
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>전환 속도</span>
+                <input type="range" min={1} max={20} step={0.5}
+                  value={fow.fogTransitionSpeed ?? 5.0}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, fogTransitionSpeed: Number(e.target.value) })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                  {fow.fogTransitionSpeed ?? 5.0}
+                </span>
+              </div>
+
+              {/* ── 2D 셰이더 ── */}
+              <div style={{ color: '#6af', fontSize: 10, marginTop: 10, borderBottom: '1px solid #444', paddingBottom: 2 }}>2D 셰이더</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>촉수 길이</span>
+                <input type="range" min={0} max={40} step={1}
+                  value={Math.round((fow.dissolveStrength ?? 2.0) * 10)}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, dissolveStrength: Number(e.target.value) / 10 })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                  {(fow.dissolveStrength ?? 2.0).toFixed(1)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>페이드 범위</span>
+                <input type="range" min={5} max={100} step={5}
+                  value={Math.round((fow.fadeSmoothness ?? 0.3) * 100)}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, fadeSmoothness: Number(e.target.value) / 100 })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                  {(fow.fadeSmoothness ?? 0.3).toFixed(2)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>날카로움</span>
+                <input type="range" min={10} max={60} step={1}
+                  value={Math.round((fow.tentacleSharpness ?? 3.0) * 10)}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, tentacleSharpness: Number(e.target.value) / 10 })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                  {(fow.tentacleSharpness ?? 3.0).toFixed(1)}
+                </span>
+              </div>
+              <label className="map-inspector-checkbox" style={{ marginTop: 2 }}>
+                <input type="checkbox" checked={fow.edgeAnimation !== false}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, edgeAnimation: e.target.checked })} />
+                <span>경계 애니메이션</span>
+              </label>
+              {fow.edgeAnimation !== false && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>애니 속도</span>
+                  <input type="range" min={10} max={300} step={10}
+                    value={Math.round((fow.edgeAnimationSpeed ?? 1.0) * 100)}
+                    onChange={(e) => updateMapField('fogOfWar', { ...fow, edgeAnimationSpeed: Number(e.target.value) / 100 })}
+                    style={{ flex: 1 }} />
+                  <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                    {((fow.edgeAnimationSpeed ?? 1.0) * 100).toFixed(0)}%
+                  </span>
+                </div>
+              )}
+
+              {/* ── 촉수 타이밍 ── */}
+              <div style={{ color: '#af6', fontSize: 10, marginTop: 10, borderBottom: '1px solid #444', paddingBottom: 2 }}>촉수 타이밍</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>삭제 시간</span>
+                <input type="range" min={1} max={50} step={1}
+                  value={Math.round((fow.tentacleFadeDuration ?? 1.0) * 10)}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, tentacleFadeDuration: Number(e.target.value) / 10 })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                  {(fow.tentacleFadeDuration ?? 1.0).toFixed(1)}s
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>생성 시간</span>
+                <input type="range" min={1} max={50} step={1}
+                  value={Math.round((fow.tentacleGrowDuration ?? 0.5) * 10)}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, tentacleGrowDuration: Number(e.target.value) / 10 })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                  {(fow.tentacleGrowDuration ?? 0.5).toFixed(1)}s
+                </span>
+              </div>
+
+              {/* ── 3D 볼류메트릭 ── */}
+              <div style={{ color: '#f8a', fontSize: 10, marginTop: 10, borderBottom: '1px solid #444', paddingBottom: 2 }}>3D 볼류메트릭</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>시야 밝기</span>
                 <input type="range" min={0} max={100} step={1}
@@ -532,28 +625,6 @@ export default function MapInspector() {
                   {(fow.absorption ?? 0.012).toFixed(3)}
                 </span>
               </div>
-              <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
-                <input type="checkbox" checked={fow.lineOfSight !== false}
-                  onChange={(e) => updateMapField('fogOfWar', { ...fow, lineOfSight: e.target.checked })} />
-                <span>시야 차단 (Line of Sight)</span>
-              </label>
-              <label className="map-inspector-checkbox" style={{ marginTop: 2 }}>
-                <input type="checkbox" checked={fow.edgeAnimation !== false}
-                  onChange={(e) => updateMapField('fogOfWar', { ...fow, edgeAnimation: e.target.checked })} />
-                <span>경계 애니메이션</span>
-              </label>
-              {fow.edgeAnimation !== false && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>애니 속도</span>
-                  <input type="range" min={10} max={300} step={10}
-                    value={Math.round((fow.edgeAnimationSpeed ?? 1.0) * 100)}
-                    onChange={(e) => updateMapField('fogOfWar', { ...fow, edgeAnimationSpeed: Number(e.target.value) / 100 })}
-                    style={{ flex: 1 }} />
-                  <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
-                    {((fow.edgeAnimationSpeed ?? 1.0) * 100).toFixed(0)}%
-                  </span>
-                </div>
-              )}
 
               {/* 높이 그라데이션 */}
               <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
