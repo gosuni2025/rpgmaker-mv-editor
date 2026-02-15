@@ -1326,8 +1326,6 @@ var VOL_LIGHT_FRAG = [
     '            baseDensity = clamp(baseDensity, 0.0, 1.0);',
     '        }',
     '',
-    '        baseDensity = smoothstep(0.05, 0.4, baseDensity);',
-    '',
     '        float heightFalloff = 1.0 - heightNorm * heightNorm;',
     '        float noise = valueNoise(samplePos.xy * 0.004 + vec2(uTime * 0.02 + heightNorm * 5.0, uTime * 0.015));',
     '',
