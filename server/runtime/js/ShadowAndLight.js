@@ -2059,13 +2059,14 @@ Spriteset_Map.prototype._updatePointLights = function() {
     }
 
     // SpotLight 위치/방향 업데이트
-    if (ShadowLight._playerSpotLight && ShadowLight.config.spotLightEnabled && playerWp &&
+    // 디버그 우선 OFF면 맵 데이터(editorLights)에서 값 사용
+    var slEl = (!ShadowLight._debugSpotLightOverride && typeof $dataMap !== 'undefined' && $dataMap && $dataMap.editorLights && $dataMap.editorLights.spotLight) ? $dataMap.editorLights.spotLight : null;
+    var spotEnabled = slEl && slEl.enabled != null ? slEl.enabled : ShadowLight.config.spotLightEnabled;
+    if (ShadowLight._playerSpotLight && spotEnabled && playerWp &&
         $gamePlayer && !$gamePlayer.isTransparent()) {
         var spot = ShadowLight._playerSpotLight;
         spot.visible = true;
         var cfg = ShadowLight.config;
-        // 디버그 우선 OFF면 맵 데이터(editorLights)에서 값 사용
-        var slEl = (!ShadowLight._debugSpotLightOverride && typeof $dataMap !== 'undefined' && $dataMap && $dataMap.editorLights && $dataMap.editorLights.spotLight) ? $dataMap.editorLights.spotLight : null;
         spot.color.setHex(slEl && slEl.color ? parseInt(slEl.color.replace('#', ''), 16) : cfg.spotLightColor);
         spot.intensity = slEl && slEl.intensity != null ? slEl.intensity : cfg.spotLightIntensity;
         spot.distance = slEl && slEl.distance != null ? slEl.distance : cfg.spotLightDistance;
@@ -2090,7 +2091,7 @@ Spriteset_Map.prototype._updatePointLights = function() {
     }
 
     // SpotLight가 비활성이면 숨기기
-    if (ShadowLight._playerSpotLight && (!ShadowLight.config.spotLightEnabled || !playerWp)) {
+    if (ShadowLight._playerSpotLight && (!spotEnabled || !playerWp)) {
         ShadowLight._playerSpotLight.visible = false;
     }
 
