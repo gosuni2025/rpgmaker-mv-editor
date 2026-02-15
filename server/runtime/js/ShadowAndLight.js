@@ -2044,17 +2044,15 @@ Spriteset_Map.prototype._updatePointLights = function() {
         if (playerSprite) {
             playerWp = ShadowLight._getWrapperWorldPos(playerSprite);
         }
-        if (!$gamePlayer.isTransparent() && playerWp) {
+        // 디버그 우선 OFF → 플레이어 라이트 비활성, ON → 패널(config) 값 사용
+        if (!$gamePlayer.isTransparent() && playerWp && ShadowLight._debugPlayerLightOverride) {
             var light = ShadowLight._getPointLight();
-            // 디버그 우선 OFF면 맵 데이터(editorLights)에서 값 사용
             var plCfg = ShadowLight.config;
-            var plEl = (!ShadowLight._debugPlayerLightOverride && typeof $dataMap !== 'undefined' && $dataMap && $dataMap.editorLights && $dataMap.editorLights.playerLight) ? $dataMap.editorLights.playerLight : null;
-            light.color.setHex(plEl && plEl.color ? parseInt(plEl.color.replace('#', ''), 16) : plCfg.playerLightColor);
-            light.intensity = plEl && plEl.intensity != null ? plEl.intensity : plCfg.playerLightIntensity;
-            light.distance = plEl && plEl.distance != null ? plEl.distance : plCfg.playerLightDistance;
+            light.color.setHex(plCfg.playerLightColor);
+            light.intensity = plCfg.playerLightIntensity;
+            light.distance = plCfg.playerLightDistance;
             light.decay = ShadowLight._debugDecay !== undefined ? ShadowLight._debugDecay : 0;
-            var plZ = plEl && plEl.z != null ? plEl.z : plCfg.playerLightZ;
-            light.position.set(playerWp.x, playerWp.y - 24, plZ);
+            light.position.set(playerWp.x, playerWp.y - 24, plCfg.playerLightZ);
         }
     }
 
@@ -2704,7 +2702,7 @@ ShadowLight._createDebugUI = function() {
     playerOverrideRow.appendChild(playerOverrideLbl);
     playerOverrideRow.appendChild(playerOverrideCheck);
     var playerOverrideHint = document.createElement('span');
-    playerOverrideHint.textContent = 'ON: 패널 값 사용';
+    playerOverrideHint.textContent = 'ON: 활성화';
     playerOverrideHint.style.cssText = 'font-size:10px;color:#888;';
     playerOverrideRow.appendChild(playerOverrideHint);
     playerBody.appendChild(playerOverrideRow);
