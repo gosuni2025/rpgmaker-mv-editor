@@ -145,6 +145,8 @@ var VOL_FOG_FRAG = [
     '}',
     '',
     '// --- 2D 전용 fog 렌더링 (isOrtho) ---',
+    '// 시야 경계에서 투명(0) → 어두운색(fogColor)으로의 부드러운 알파 그라데이션',
+    '// + 디졸브 노이즈 애니메이션으로 유기적 경계면 형성',
     'void render2D() {',
     '    vec2 mapXY = vWorldPos.xy + scrollOffset;',
     '    vec2 uv = mapXY / mapPixelSize;',
@@ -160,7 +162,7 @@ var VOL_FOG_FRAG = [
     '        visibility = s.r; explored = s.g; nearVis = s.b;',
     '    }',
     '',
-    '    // --- 디졸브 노이즈 ---',
+    '    // --- 디졸브 노이즈 (경계면 애니메이션) ---',
     '    float timeS = uTime * edgeAnimSpeed;',
     '    float dissolveNoise = fbm3(mapXY * 0.008 + vec2(timeS * 0.06, timeS * 0.04));',
     '    dissolveNoise += 0.5 * _valueNoise(mapXY * 0.02 + vec2(-timeS * 0.08, timeS * 0.05));',
@@ -168,24 +170,28 @@ var VOL_FOG_FRAG = [
     '    dissolveNoise *= 0.57;',
     '    float dn = edgeAnimOn * dissolveNoise;',
     '',
-    '    // blurVis(B채널) - visibility(R채널)의 차이 = 경계 영역',
-    '    // 경계: blurVis > 0 && visibility ≈ 0 → 시야 바로 바깥 1~2타일',
-    '    float edgeGrad = max(nearVis - visibility, 0.0);', // 경계에서만 양수
+    '    // 연속 그라데이션 값: visibility + blurVis(B채널)를 결합하여',
+    '    // 시야 중심(1.0) → 시야 가장자리(작은 vis) → 경계(nearVis만) → 시야 밖(0)',
+    '    // 까지 하나의 연속 값으로 표현',
+    '    float combined = max(visibility, nearVis * 0.6);',
     '',
     '    // 최종 fog alpha',
     '    float fogAlpha;',
-    '    if (visibility > 0.01) {',
-    '        // 시야 내: 원본 vis + 디졸브',
-    '        float dv = sqrt(visibility) + dn * 0.45;',
-    '        dv = max(dv, 0.0);',
-    '        float visFactor = smoothstep(0.0, 0.6, dv);',
-    '        visFactor = clamp(visFactor + visibilityBrightness * visibility, 0.0, 1.0);',
-    '        fogAlpha = mix(exploredAlpha, 0.0, visFactor);',
-    '    } else if (edgeGrad > 0.01) {',
-    '        // 시야 경계 (vis=0이지만 블러가 스며든 영역): 그라데이션 + 디졸브',
-    '        float eg = smoothstep(0.0, 0.5, edgeGrad) + dn * 0.4;',
-    '        eg = clamp(eg, 0.0, 1.0);',
-    '        fogAlpha = mix(exploredAlpha, exploredAlpha * 0.3, eg);',
+    '    if (combined > 0.01) {',
+    '        // 시야 안~경계: 연속 그라데이션',
+    '        // combined가 클수록 투명, 작을수록 불투명',
+    '        float grad = sqrt(combined);',
+    '',
+    '        // 디졸브: 경계 영역(0.1~0.7)에서만 강하게 적용',
+    '        float edgeness = smoothstep(0.0, 0.15, combined) * (1.0 - smoothstep(0.5, 0.85, combined));',
+    '        grad += dn * 0.5 * edgeness;',
+    '        grad = clamp(grad, 0.0, 1.0);',
+    '',
+    '        // 밝기 보정',
+    '        grad = clamp(grad + visibilityBrightness * visibility, 0.0, 1.0);',
+    '',
+    '        // 투명(0) ← grad=1 … fogAlpha=exploredAlpha ← grad=0',
+    '        fogAlpha = exploredAlpha * (1.0 - grad);',
     '    } else if (explored > 0.01) {',
     '        // 탐험완료↔미탐험 경계',
     '        float explFade = smoothstep(0.0, 1.0, explored);',
@@ -523,22 +529,22 @@ FogOfWar._computeEdgeData = function() {
     }
     var blur = this._blurData;
 
-    // 단순 max-spread: 2패스, 각 패스에서 인접 타일의 최대값 전파
-    // vis 복사 → 1패스 spread → 2패스 spread
+    // max-spread: 3패스, 각 패스에서 인접 타일의 최대값 전파 (감쇠 0.55)
+    // → 약 3타일 확산으로 경계 그라데이션이 더 부드러움
     for (var i = 0; i < size; i++) blur[i] = vis[i];
 
-    for (var pass = 0; pass < 2; pass++) {
+    for (var pass = 0; pass < 3; pass++) {
         // 임시 복사
         var src = new Float32Array(blur);
         for (var y = 0; y < h; y++) {
             for (var x = 0; x < w; x++) {
                 var idx = y * w + x;
                 var v = src[idx];
-                // 4방향 인접 max, 감쇠 적용
-                if (x > 0)     v = Math.max(v, src[idx - 1] * 0.5);
-                if (x < w - 1) v = Math.max(v, src[idx + 1] * 0.5);
-                if (y > 0)     v = Math.max(v, src[idx - w] * 0.5);
-                if (y < h - 1) v = Math.max(v, src[idx + w] * 0.5);
+                // 4방향 인접 max, 감쇠 적용 (0.55로 더 먼 확산)
+                if (x > 0)     v = Math.max(v, src[idx - 1] * 0.55);
+                if (x < w - 1) v = Math.max(v, src[idx + 1] * 0.55);
+                if (y > 0)     v = Math.max(v, src[idx - w] * 0.55);
+                if (y < h - 1) v = Math.max(v, src[idx + w] * 0.55);
                 blur[idx] = v;
             }
         }
