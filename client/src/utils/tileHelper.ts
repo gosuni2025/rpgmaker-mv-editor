@@ -676,5 +676,13 @@ export function getAutoBaseKind(tileId: number): number {
   return -1;
 }
 
+/**
+ * B/C/D/E 타일인지 확인 (tileId 1~1535, A5 미만의 일반 타일)
+ * RPG Maker MV에서 이들은 "upper layer" 타일로, z=1/z=2에 자동 배치됨.
+ */
+export function isUpperLayerTile(tileId: number): boolean {
+  return tileId > 0 && tileId < TILE_ID_A5;
+}
+
 // Exports for tile ID constants
 export { TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1, TILE_ID_A2, TILE_ID_A3, TILE_ID_A4, TILE_ID_MAX };
