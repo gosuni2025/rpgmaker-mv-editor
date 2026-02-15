@@ -239,12 +239,20 @@ export function createApp(options: AppOptions = {}) {
   app.use('/game/fonts', express.static(path.join(resolvedRuntimePath, 'fonts')));
   app.use('/game/icon', express.static(path.join(resolvedRuntimePath, 'icon')));
 
-  // /game/data - 맵 파일은 ext 병합, 나머지는 정적 서빙
+  // /game/data - 맵 파일은 ext 병합, Test_ prefix는 원본으로 리다이렉트, 나머지는 정적 서빙
   const mapFilePattern = /^\/Map(\d{3})\.json$/;
+  const testPrefixPattern = /^\/Test_(.+)$/;
   app.use('/game/data', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
     res.set('Cache-Control', 'no-store');
-    const match = req.path.match(mapFilePattern);
+    // 전투 테스트: Test_ prefix 파일 요청을 원본 파일로 리다이렉트
+    const urlPath = req.url.split('?')[0];
+    const testMatch = urlPath.match(testPrefixPattern);
+    if (testMatch) {
+      req.url = req.url.replace(/\/Test_/, '/');
+    }
+    const effectivePath = req.url.split('?')[0];
+    const match = effectivePath.match(mapFilePattern);
     if (match) {
       try {
         const mapFile = `Map${match[1]}.json`;

@@ -312,6 +312,12 @@ export interface AttackMotion {
   weaponImageId: number;
 }
 
+export interface TestBattler {
+  actorId: number;
+  level: number;
+  equips: number[];  // [무기ID, 방패ID, 머리ID, 몸ID, 액세서리ID]
+}
+
 export interface SystemData {
   gameTitle: string;
   currencyUnit: string;
@@ -353,7 +359,7 @@ export interface SystemData {
   optTransparent: boolean;
   sounds: AudioFile[];
   terms: unknown;
-  testBattlers: unknown[];
+  testBattlers: TestBattler[];
   testTroopId: number;
   versionId: number;
   battleback1Name: string;

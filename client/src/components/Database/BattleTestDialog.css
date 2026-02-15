@@ -1,0 +1,189 @@
+/* BattleTestDialog - 전투 테스트 파티원 설정 다이얼로그 */
+
+.battle-test-dialog {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 640px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.battle-test-dialog-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #ddd;
+  padding: 8px 12px;
+  border-bottom: 1px solid #555;
+  background: #333;
+  border-radius: 4px 4px 0 0;
+}
+
+/* 탭 1~4 */
+.battle-test-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 12px 0;
+  border-bottom: 1px solid #555;
+}
+
+.battle-test-tab {
+  padding: 4px 16px;
+  font-size: 12px;
+  color: #aaa;
+  background: #333;
+  border: 1px solid #555;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.battle-test-tab:hover {
+  background: #3a3a3a;
+  color: #ddd;
+}
+
+.battle-test-tab.active {
+  background: #2b2b2b;
+  color: #fff;
+  border-color: #555;
+  border-bottom: 1px solid #2b2b2b;
+}
+
+/* 본문: 좌측(액터/장비) + 우측(스탯) */
+.battle-test-body {
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.battle-test-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.battle-test-right {
+  width: 160px;
+  flex-shrink: 0;
+}
+
+/* 행 */
+.battle-test-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.battle-test-row label {
+  font-size: 12px;
+  color: #bbb;
+  white-space: nowrap;
+  min-width: 40px;
+}
+
+.battle-test-row select,
+.battle-test-row input[type="number"] {
+  background: #1e1e1e;
+  border: 1px solid #555;
+  color: #ddd;
+  padding: 3px 6px;
+  font-size: 12px;
+  border-radius: 2px;
+}
+
+.battle-test-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.battle-test-row input[type="number"] {
+  width: 60px;
+}
+
+/* 장비 테이블 */
+.battle-test-equip-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.battle-test-equip-table th {
+  background: #333;
+  color: #aaa;
+  padding: 4px 6px;
+  text-align: left;
+  border: 1px solid #555;
+  font-weight: normal;
+}
+
+.battle-test-equip-table td {
+  padding: 2px 4px;
+  border: 1px solid #444;
+}
+
+.battle-test-equip-type {
+  color: #999;
+  white-space: nowrap;
+  width: 70px;
+}
+
+.battle-test-equip-table select {
+  width: 100%;
+  background: #1e1e1e;
+  border: 1px solid #555;
+  color: #ddd;
+  padding: 2px 4px;
+  font-size: 12px;
+  border-radius: 2px;
+}
+
+/* 스테이터스 */
+.battle-test-status-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #bbb;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #555;
+  margin-bottom: 6px;
+}
+
+.battle-test-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.battle-test-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+.battle-test-status-label {
+  color: #999;
+}
+
+.battle-test-status-value {
+  color: #ddd;
+  font-weight: bold;
+  min-width: 50px;
+  text-align: right;
+}
+
+/* 하단 버튼 */
+.battle-test-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid #555;
+}

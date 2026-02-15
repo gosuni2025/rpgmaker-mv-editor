@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Troop, TroopMember, TroopPage, TroopConditions } from '../../types/rpgMakerMV';
 import EventCommandEditor from '../EventEditor/EventCommandEditor';
 import DatabaseList from './DatabaseList';
+import BattleTestDialog from './BattleTestDialog';
 import apiClient from '../../api/client';
 import './TroopsTab.css';
 
@@ -56,6 +57,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
   const [bb2Files, setBb2Files] = useState<string[]>([]);
   const [editBb1, setEditBb1] = useState('');
   const [editBb2, setEditBb2] = useState('');
+  const [battleTestOpen, setBattleTestOpen] = useState(false);
 
   const selectedItem = data?.find((item) => item && item.id === selectedId);
 
@@ -391,7 +393,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
             </div>
             <button className="db-btn-small" onClick={autoName}>{t('troops.autoName')}</button>
             <button className="db-btn-small" onClick={openBgDialog}>{t('troops.changeBG')}</button>
-            <button className="db-btn-small" onClick={() => {}}>{t('troops.battleTest')}</button>
+            <button className="db-btn-small" onClick={() => setBattleTestOpen(true)}>{t('troops.battleTest')}</button>
           </div>
 
           {/* ===== 배치 뷰: 미리보기 | 버튼 | 적 목록 ===== */}
@@ -653,6 +655,13 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
             </div>
           </div>
         </div>
+      )}
+      {/* 전투 테스트 다이얼로그 */}
+      {battleTestOpen && selectedItem && (
+        <BattleTestDialog
+          troopId={selectedItem.id}
+          onClose={() => setBattleTestOpen(false)}
+        />
       )}
     </div>
   );

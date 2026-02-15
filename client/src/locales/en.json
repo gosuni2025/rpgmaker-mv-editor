@@ -1269,6 +1269,24 @@
     "eventPageClear": "Clear Event\nPage",
     "eventPageDelete": "Delete Event\nPage"
   },
+  "battleTest": {
+    "title": "Battle Test",
+    "actor": "Actor",
+    "level": "Level",
+    "initialize": "Initialize",
+    "equipType": "Type",
+    "equipItem": "Equipment",
+    "status": "Status",
+    "maxHP": "Max HP",
+    "maxMP": "Max MP",
+    "attack": "Attack",
+    "defense": "Defense",
+    "mAttack": "M.Attack",
+    "mDefense": "M.Defense",
+    "agility": "Agility",
+    "luck": "Luck",
+    "none": "(None)"
+  },
   "localization": {
     "title": "Localization Manager",
     "init": "Confirm",

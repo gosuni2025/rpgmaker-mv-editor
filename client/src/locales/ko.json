@@ -1357,6 +1357,24 @@
     "eventPageClear": "이벤트 페이지\n비우기",
     "eventPageDelete": "이벤트 페이지\n삭제"
   },
+  "battleTest": {
+    "title": "전투 테스트",
+    "actor": "액터",
+    "level": "레벨",
+    "initialize": "초기화",
+    "equipType": "유형",
+    "equipItem": "장비 아이템",
+    "status": "스테이터스",
+    "maxHP": "최대HP",
+    "maxMP": "최대MP",
+    "attack": "공격력",
+    "defense": "방어력",
+    "mAttack": "마법공격력",
+    "mDefense": "마법방어력",
+    "agility": "민첩성",
+    "luck": "운",
+    "none": "(없음)"
+  },
   "localization": {
     "title": "로컬라이제이션 매니저",
     "init": "확인",
