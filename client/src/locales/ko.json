@@ -145,7 +145,7 @@
       "armors": "방어구",
       "enemies": "적",
       "troops": "적 그룹",
-      "states": "스테이트",
+      "states": "스탯",
       "animations": "애니메이션",
       "tilesets": "타일셋",
       "commonEvents": "커먼 이벤트",
@@ -164,6 +164,7 @@
     "msgPreset3": " %1 쓰다!"
   },
   "fields": {
+    "generalSettings": "일반 설정",
     "nickname": "별명",
     "class": "직업",
     "initialLevel": "초기 레벨",

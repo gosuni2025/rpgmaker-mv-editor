@@ -1,0 +1,132 @@
+/* StatesTab - RPG Maker MV 원본 레이아웃
+   스탯 목록 | 일반설정 + 해제조건 + 메시지 (세로) | 특성 + 메모 (세로) */
+
+/* 목록 오른쪽 메인 영역: 가운데+오른쪽 2칼럼 */
+.states-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 가운데: 일반설정 + 해제조건 + 메시지 세로 쌓기 */
+.states-center {
+  flex: 1.5;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 8px 10px;
+  gap: 6px;
+  border-right: 1px solid #555;
+  min-width: 0;
+}
+
+/* 오른쪽: 특성 + 메모 세로 쌓기 */
+.states-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 8px 10px;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Section titles */
+.states-section-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #bbb;
+  padding: 4px 0;
+  border-bottom: 1px solid #555;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Label styles */
+.states-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+/* Checkbox label */
+.states-checkbox-label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.states-checkbox-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+}
+
+/* Input styles */
+.states-input {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.states-input:focus {
+  border-color: #2675bf;
+}
+
+.states-select {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.states-select:focus {
+  border-color: #2675bf;
+}
+
+/* Inline row (e.g. min/max turns) */
+.states-inline-row {
+  display: flex;
+  gap: 8px;
+}
+
+.states-inline-row > .states-label {
+  flex: 1;
+}
+
+/* Note area */
+.states-note {
+  flex: 1;
+  min-height: 80px;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 6px;
+  color: #ddd;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  resize: none;
+}
+
+.states-note:focus {
+  border-color: #2675bf;
+}
