@@ -135,24 +135,22 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
   };
 
   // 멤버 자동 배치 - RPG Maker MV 원본처럼 전체 멤버 재배치
-  // 원본 패턴: 오른쪽→왼쪽으로 삼각형 형태, y는 지그재그로 깊이감
+  // 좌표계: 816x624 (PREVIEW_W x PREVIEW_H), anchor bottom-center
+  // 원본 데이터 기준: y≈436, x는 화면 중앙 부근에 균등 분배
   const repositionMembers = (members: TroopMember[]) => {
     const n = members.length;
     if (n === 0) return members;
-    if (n === 1) {
-      return [{ ...members[0], x: 220, y: 326 }];
-    }
-    // x: 오른쪽(~350)에서 왼쪽(~150)으로 분배
-    const xRight = 350;
-    const xLeft = 150;
-    const xSpacing = (xRight - xLeft) / (n - 1);
-    // y: 기준 ~340, 지그재그로 ±40 변동
-    const baseY = 340;
-    const ySwing = 40;
+    // y: 화면 하단 70% 지점 (624 * 0.7 ≈ 436)
+    const y = Math.round(PREVIEW_H * 0.7);
+    // x: 화면 중앙 부근에 균등 분배 (전체 멤버 수 + 1로 나눠서 배치)
+    const totalSpan = Math.min(PREVIEW_W * 0.5, 100 * n);
+    const xCenter = Math.round(PREVIEW_W / 2);
+    const xStart = xCenter - Math.round(totalSpan / 2);
+    const xSpacing = n > 1 ? totalSpan / (n - 1) : 0;
     return members.map((m, i) => ({
       ...m,
-      x: Math.round(xRight - xSpacing * i),
-      y: Math.round(baseY + (i % 2 === 0 ? -ySwing / 2 : ySwing / 2)),
+      x: Math.round(xStart + xSpacing * i),
+      y,
     }));
   };
 
