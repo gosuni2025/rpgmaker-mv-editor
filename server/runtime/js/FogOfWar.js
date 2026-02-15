@@ -186,19 +186,18 @@ var VOL_FOG_FRAG = [
     '        float eRU = sampleExplNearestFog(uv + vec2( texel.x, -texel.y), texel);',
     '        float eLD = sampleExplNearestFog(uv + vec2(-texel.x,  texel.y), texel);',
     '        float eRD = sampleExplNearestFog(uv + vec2( texel.x,  texel.y), texel);',
-    '        // 보간 중 explored가 중간값일 수 있으므로 넓은 임계값 사용',
-    '        bool hasUnexpl = (eL < 0.95 || eR < 0.95 || eU < 0.95 || eD < 0.95',
-    '                       || eLU < 0.95 || eRU < 0.95 || eLD < 0.95 || eRD < 0.95);',
-    '        bool hasExpl   = (eL > 0.05 || eR > 0.05 || eU > 0.05 || eD > 0.05',
-    '                       || eLU > 0.05 || eRU > 0.05 || eLD > 0.05 || eRD > 0.05);',
+    '        bool hasUnexpl = (eL < 0.5 || eR < 0.5 || eU < 0.5 || eD < 0.5',
+    '                       || eLU < 0.5 || eRU < 0.5 || eLD < 0.5 || eRD < 0.5);',
+    '        bool hasExpl   = (eL > 0.5 || eR > 0.5 || eU > 0.5 || eD > 0.5',
+    '                       || eLU > 0.5 || eRU > 0.5 || eLD > 0.5 || eRD > 0.5);',
     '        // 탐험 타일인데 인접에 미탐험 있음 → 경계',
     '        if (myE > 0.5 && hasUnexpl) discard;',
     '        // 미탐험 타일인데 인접에 탐험 있음 → 경계',
     '        if (myE < 0.5 && hasExpl) discard;',
     '    }',
     '',
-    '    // 시야 밖: explored 보간값으로 부드럽게 전환',
-    '    float fogAlpha = mix(unexploredAlpha, exploredAlpha, explored);',
+    '    // 시야 밖: 탐험 여부에 따라 알파 결정',
+    '    float fogAlpha = (explored > 0.5) ? exploredAlpha : unexploredAlpha;',
     '    // visibility 보간값으로 부드럽게 투명 전환',
     '    fogAlpha *= (1.0 - visibility);',
     '',
@@ -659,15 +658,8 @@ FogOfWar._lerpDisplay = function(dt) {
             dVis[i] = newV;
             changed = true;
         }
-        // explored 보간 (0→1 방향만, 한번 탐험하면 되돌리지 않음)
-        var targetE = expl[i];
-        var curE = dExpl[i];
-        if (curE < targetE) {
-            var newE = curE + (targetE - curE) * alpha;
-            if (newE > 0.995) newE = targetE;
-            dExpl[i] = newE;
-            changed = true;
-        }
+        // explored는 즉시 반영 (경계 판정에 이산값 필요)
+        dExpl[i] = expl[i];
     }
     return changed;
 };
