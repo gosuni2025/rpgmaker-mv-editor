@@ -300,6 +300,16 @@
         });
     }
 
+    // FogOfWar.setup() 후킹: setup이 config 값으로 초기화한 뒤
+    // localStorage에 저장된 디버그 패널 값을 다시 덮어씀
+    var _origSetup = FOW.setup;
+    FOW.setup = function() {
+        _origSetup.apply(this, arguments);
+        if (panel) {
+            loadFromStorage();
+        }
+    };
+
     // DOMContentLoaded 후 생성
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', createPanel);
