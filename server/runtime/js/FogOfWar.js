@@ -511,7 +511,6 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
 //=============================================================================
 
 FogOfWar._blurData = null;
-FogOfWar._blurTmp = null;
 
 FogOfWar._computeEdgeData = function() {
     var w = this._mapWidth;
@@ -521,48 +520,29 @@ FogOfWar._computeEdgeData = function() {
 
     if (!this._blurData || this._blurData.length !== size) {
         this._blurData = new Float32Array(size);
-        this._blurTmp = new Float32Array(size);
     }
     var blur = this._blurData;
-    var tmp = this._blurTmp;
 
-    // vis 복사
-    for (var i = 0; i < size; i++) tmp[i] = vis[i];
+    // 단순 max-spread: 2패스, 각 패스에서 인접 타일의 최대값 전파
+    // vis 복사 → 1패스 spread → 2패스 spread
+    for (var i = 0; i < size; i++) blur[i] = vis[i];
 
-    // 2패스 box blur (반경 2타일) — 수평 → 수직
-    var R = 2;
-    var kern = 2 * R + 1;
-
-    // 수평 블러 → blur
-    for (var y = 0; y < h; y++) {
-        var sum = 0;
-        for (var x = 0; x < Math.min(R, w); x++) sum += tmp[y * w + x];
-        for (var x = 0; x < w; x++) {
-            var rx = x + R;
-            if (rx < w) sum += tmp[y * w + rx];
-            var lx = x - R - 1;
-            if (lx >= 0) sum -= tmp[y * w + lx];
-            var cnt = Math.min(rx, w - 1) - Math.max(x - R, 0) + 1;
-            blur[y * w + x] = sum / cnt;
-        }
-    }
-
-    // 수직 블러 → tmp (결과)
-    for (var x = 0; x < w; x++) {
-        var sum = 0;
-        for (var y = 0; y < Math.min(R, h); y++) sum += blur[y * w + x];
+    for (var pass = 0; pass < 2; pass++) {
+        // 임시 복사
+        var src = new Float32Array(blur);
         for (var y = 0; y < h; y++) {
-            var ry = y + R;
-            if (ry < h) sum += blur[ry * w + x];
-            var ly = y - R - 1;
-            if (ly >= 0) sum -= blur[ly * w + x];
-            var cnt = Math.min(ry, h - 1) - Math.max(y - R, 0) + 1;
-            tmp[y * w + x] = sum / cnt;
+            for (var x = 0; x < w; x++) {
+                var idx = y * w + x;
+                var v = src[idx];
+                // 4방향 인접 max, 감쇠 적용
+                if (x > 0)     v = Math.max(v, src[idx - 1] * 0.5);
+                if (x < w - 1) v = Math.max(v, src[idx + 1] * 0.5);
+                if (y > 0)     v = Math.max(v, src[idx - w] * 0.5);
+                if (y < h - 1) v = Math.max(v, src[idx + w] * 0.5);
+                blur[idx] = v;
+            }
         }
     }
-
-    // 결과를 blurData에 저장 (vis보다 넓게 퍼진 값)
-    for (var i = 0; i < size; i++) blur[i] = tmp[i];
 };
 
 //=============================================================================
