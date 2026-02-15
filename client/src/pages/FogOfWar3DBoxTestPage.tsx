@@ -407,11 +407,11 @@ export default function FogOfWar3DBoxTestPage() {
     // 촉수 메쉬 유니폼도 동기화
     if (FogOfWar3D._tentacleMesh) {
       const tu = FogOfWar3D._tentacleMesh.material.uniforms;
-      if (tu.dissolveStrength) tu.dissolveStrength.value = dissolveStrength;
-      if (tu.tentacleSharpness) tu.tentacleSharpness.value = tentacleSharpness;
       if (tu.unexploredAlpha) tu.unexploredAlpha.value = unexploredAlpha;
       if (tu.edgeAnimSpeed) tu.edgeAnimSpeed.value = edgeAnimSpeed;
       if (tu.heightGradientOn) tu.heightGradientOn.value = heightGradient ? 1.0 : 0.0;
+      if (tu.fogHeight) tu.fogHeight.value = fogHeight;
+      if (tu.tentacleMaxLength) tu.tentacleMaxLength.value = fogHeight * 0.6;
     }
   }, [heightFalloff, dissolveStrength, tentacleSharpness, fadeSmoothness, exploredAlpha, unexploredAlpha, edgeAnimation, edgeAnimSpeed, heightGradient]);
 
