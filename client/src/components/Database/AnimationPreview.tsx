@@ -164,8 +164,19 @@ const AnimationPreview = React.forwardRef<
     rt.animSprite = animSprite;
     rt.playing = true;
 
-    const tick = () => {
+    const FRAME_DURATION = 1000 / 60; // 60fps 고정
+    let lastTime = 0;
+
+    const tick = (timestamp: number) => {
       if (!rt.playing || rtRef.current !== rt) return;
+
+      // 60fps 프레임 제한: 원본 RPG Maker MV와 동일한 속도로 재생
+      const elapsed = timestamp - lastTime;
+      if (elapsed < FRAME_DURATION) {
+        rt.animFrameId = requestAnimationFrame(tick);
+        return;
+      }
+      lastTime = timestamp - (elapsed % FRAME_DURATION);
 
       try {
         animSprite.update();
@@ -249,7 +260,7 @@ const AnimationPreview = React.forwardRef<
     targetSprite.anchor.x = 0.5;
     targetSprite.anchor.y = 1;
     targetSprite.x = CANVAS_W / 2;
-    targetSprite.y = CANVAS_H * 3 / 4;
+    targetSprite.y = CANVAS_H / 2;
     stage.addChild(targetSprite);
 
     rtRef.current = {
