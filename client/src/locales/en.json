@@ -1013,6 +1013,7 @@
     "play": "▶ Play",
     "stop": "■ Stop",
     "frame": "frame",
+    "frames": "Frames",
     "image1": "Image 1",
     "image2": "Image 2",
     "hue": "Hue",
@@ -1023,7 +1024,14 @@
       "2": "Feet",
       "3": "Screen"
     },
+    "generalSettings": "General Settings",
+    "seAndFlashTiming": "SE and Flash Timing",
     "timing": "Timing",
+    "timingNo": "No.",
+    "timingSe": "SE",
+    "timingFlash": "Flash",
+    "timingCondition": "Condition",
+    "timingFrameAt": "Frame(s)",
     "flashScope": "Flash Scope",
     "flashScopes": {
       "0": "None",
@@ -1032,7 +1040,17 @@
       "3": "Hide Target"
     },
     "duration": "Duration",
-    "flashColor": "Flash Color (RGBA)"
+    "flashColor": "Flash Color (RGBA)",
+    "targetChange": "Change Target...",
+    "allFrameCopy": "Paste to All Frames",
+    "batchSettings": "Batch Settings...",
+    "deleteFrame": "Delete",
+    "noSe": "(None)",
+    "noFlash": "(None)",
+    "flashFormat": "Target({{r}},{{g}},{{b}},{{a}}), {{d}} frame(s)",
+    "screenFlashFormat": "Screen({{r}},{{g}},{{b}},{{a}}), {{d}} frame(s)",
+    "hideTarget": "Hide Target",
+    "seFormat": "{{name}}"
   },
   "system": {
     "initialParty": "Initial Party",

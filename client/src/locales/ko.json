@@ -144,7 +144,7 @@
       "weapons": "무기",
       "armors": "방어구",
       "enemies": "적",
-      "troops": "적 그룹",
+      "troops": "적 군단",
       "states": "스탯",
       "animations": "애니메이션",
       "tilesets": "타일셋",
@@ -1101,6 +1101,7 @@
     "play": "▶ 재생",
     "stop": "■ 정지",
     "frame": "프레임",
+    "frames": "프레임",
     "image1": "이미지 1",
     "image2": "이미지 2",
     "hue": "색조",
@@ -1111,7 +1112,14 @@
       "2": "발 밑",
       "3": "화면"
     },
+    "generalSettings": "일반 설정",
+    "seAndFlashTiming": "SE 와 Flash 타이밍",
     "timing": "타이밍",
+    "timingNo": "번호",
+    "timingSe": "SE",
+    "timingFlash": "플래시",
+    "timingCondition": "조건",
+    "timingFrameAt": "프레임들",
     "flashScope": "플래시 범위",
     "flashScopes": {
       "0": "없음",
@@ -1120,7 +1128,17 @@
       "3": "대상 제거"
     },
     "duration": "지속시간",
-    "flashColor": "플래시 색상 (RGBA)"
+    "flashColor": "플래시 색상 (RGBA)",
+    "targetChange": "대상 변경...",
+    "allFrameCopy": "전 프레임 붙여넣기",
+    "batchSettings": "일괄 설정...",
+    "deleteFrame": "삭제",
+    "noSe": "(없음)",
+    "noFlash": "(없음)",
+    "flashFormat": "대상({{r}},{{g}},{{b}},{{a}}), {{d}}프레임들",
+    "screenFlashFormat": "화면({{r}},{{g}},{{b}},{{a}}), {{d}}프레임들",
+    "hideTarget": "대상 제거",
+    "seFormat": "{{name}}"
   },
   "system": {
     "initialParty": "초기 파티",

@@ -134,14 +134,16 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     handleFieldChange('name', parts.join(', '));
   };
 
-  // 멤버 추가 (선택된 적을 추가)
+  // 멤버 추가 (선택된 적을 추가) - 런타임 기반 위치 계산
   const addSelectedEnemy = () => {
     if (!selectedItem || (selectedItem.members || []).length >= 8) return;
     const members = [...(selectedItem.members || [])];
     const count = members.length;
-    const spacing = PREVIEW_W / (count + 2);
-    const x = Math.round(spacing * (count + 1));
-    members.push({ enemyId: selectedEnemyId, x: Math.min(x, PREVIEW_W - 50), y: Math.round(PREVIEW_H * 0.7), hidden: false });
+    // RPG Maker MV 런타임 기준: 화면 중앙 부근에 균등 배치, y는 화면 하단 2/3 지점
+    const spacing = Math.round(PREVIEW_W / (count + 2));
+    const x = Math.max(50, Math.min(PREVIEW_W - 50, Math.round(spacing * (count + 1))));
+    const y = Math.round(PREVIEW_H * 0.7);
+    members.push({ enemyId: selectedEnemyId, x, y, hidden: false });
     handleFieldChange('members', members);
   };
 
@@ -161,12 +163,12 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     setSelectedMemberIdx(-1);
   };
 
-  // 정렬
+  // 정렬 - 런타임 기준 y=436(PREVIEW_H*0.7) 균등 배치
   const alignMembers = () => {
     const members = [...(selectedItem?.members || [])];
     if (members.length === 0) return;
-    const spacing = PREVIEW_W / (members.length + 1);
-    const y = Math.round(PREVIEW_H * 0.75);
+    const spacing = Math.round(PREVIEW_W / (members.length + 1));
+    const y = Math.round(PREVIEW_H * 0.7);
     for (let i = 0; i < members.length; i++) {
       members[i] = { ...members[i], x: Math.round(spacing * (i + 1)), y };
     }
@@ -400,6 +402,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
                 const scaleX = rect ? rect.width / PREVIEW_W : 1;
                 const scaleY = rect ? rect.height / PREVIEW_H : 1;
                 const scale = Math.min(scaleX, scaleY);
+                // CSS transform: translate(-50%, -100%)로 anchor bottom-center 적용됨
                 return (
                   <img
                     key={i}
@@ -450,9 +453,10 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
                       if ((selectedItem.members || []).length < 8) {
                         const members = [...(selectedItem.members || [])];
                         const count = members.length;
-                        const spacing = PREVIEW_W / (count + 2);
-                        const x = Math.round(spacing * (count + 1));
-                        members.push({ enemyId: en.id, x: Math.min(x, PREVIEW_W - 50), y: Math.round(PREVIEW_H * 0.7), hidden: false });
+                        const spacing = Math.round(PREVIEW_W / (count + 2));
+                        const x = Math.max(50, Math.min(PREVIEW_W - 50, Math.round(spacing * (count + 1))));
+                        const y = Math.round(PREVIEW_H * 0.7);
+                        members.push({ enemyId: en.id, x, y, hidden: false });
                         handleFieldChange('members', members);
                       }
                     }}
