@@ -170,6 +170,9 @@ export default function FogOfWar3DBoxTestPage() {
     });
     if (mesh) scene.add(mesh);
 
+    // 촉수 메쉬 생성
+    FogOfWar3D._createTentacles(scene);
+
     // orbit camera 초기화
     const orbit = orbitRef.current;
     orbit.center = new THREE.Vector3(
@@ -276,9 +279,10 @@ export default function FogOfWar3DBoxTestPage() {
         FogOfWar._updateTexture();
       }
 
-      // FogOfWar3D 유니폼 갱신
+      // FogOfWar3D 유니폼 갱신 + 촉수 갱신
       if (FogOfWar3D._active) {
         FogOfWar3D._updateUniforms(dt);
+        FogOfWar3D._refreshTentaclesIfNeeded(scene);
       }
 
       renderer.render(scene, camera);
@@ -386,7 +390,7 @@ export default function FogOfWar3DBoxTestPage() {
     }
   }, [radius, lineOfSight]);
 
-  // FogOfWar3D 유니폼 직접 업데이트
+  // FogOfWar3D 유니폼 직접 업데이트 (박스 + 촉수 메쉬)
   useEffect(() => {
     if (!FogOfWar3D._instancedMesh) return;
     const u = FogOfWar3D._instancedMesh.material.uniforms;
@@ -399,6 +403,16 @@ export default function FogOfWar3DBoxTestPage() {
     if (u.edgeAnimOn) u.edgeAnimOn.value = edgeAnimation ? 1.0 : 0.0;
     if (u.edgeAnimSpeed) u.edgeAnimSpeed.value = edgeAnimSpeed;
     if (u.heightGradientOn) u.heightGradientOn.value = heightGradient ? 1.0 : 0.0;
+
+    // 촉수 메쉬 유니폼도 동기화
+    if (FogOfWar3D._tentacleMesh) {
+      const tu = FogOfWar3D._tentacleMesh.material.uniforms;
+      if (tu.dissolveStrength) tu.dissolveStrength.value = dissolveStrength;
+      if (tu.tentacleSharpness) tu.tentacleSharpness.value = tentacleSharpness;
+      if (tu.unexploredAlpha) tu.unexploredAlpha.value = unexploredAlpha;
+      if (tu.edgeAnimSpeed) tu.edgeAnimSpeed.value = edgeAnimSpeed;
+      if (tu.heightGradientOn) tu.heightGradientOn.value = heightGradient ? 1.0 : 0.0;
+    }
   }, [heightFalloff, dissolveStrength, tentacleSharpness, fadeSmoothness, exploredAlpha, unexploredAlpha, edgeAnimation, edgeAnimSpeed, heightGradient]);
 
   // fogHeight 변경 시 메쉬 재생성
