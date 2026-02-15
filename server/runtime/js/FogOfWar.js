@@ -758,18 +758,17 @@ var EDGE_DISSOLVE_FRAG = [
     '    // minDist 0(미탐험 가장자리)~1(반대편) → t 1(불투명)~0(투명)',
     '    float t = 1.0 - clamp(minDist / nearVisWeight, 0.0, 1.0);',
     '',
-    '    // 디졸브 노이즈',
+    '    // 디졸브 노이즈: t에 직접 가감하여 경계 형태를 불규칙하게',
     '    float timeS = uTime * edgeAnimSpeed;',
-    '    float dn1 = fbm3(mapXY * 0.012 + vec2(timeS * 0.07, timeS * 0.05));',
-    '    float dn2 = _valueNoise(mapXY * 0.025 + vec2(-timeS * 0.09, timeS * 0.06));',
-    '    float dn3 = _valueNoise(mapXY * 0.06 + vec2(timeS * 0.15, -timeS * 0.08));',
-    '    float dissolve = (dn1 + dn2 * 0.5 + dn3 * 0.25) * 0.57;',
+    '    float dn1 = fbm3(mapXY * 0.02 + vec2(timeS * 0.07, timeS * 0.05));',
+    '    float dn2 = _valueNoise(mapXY * 0.04 + vec2(-timeS * 0.09, timeS * 0.06));',
+    '    float dn3 = _valueNoise(mapXY * 0.08 + vec2(timeS * 0.15, -timeS * 0.08));',
+    '    float dissolve = dn1 * 0.5 + dn2 * 0.3 + dn3 * 0.2;',
     '    float dn = edgeAnimOn * dissolve * dissolveStrength;',
     '',
-    '    float edgeVal = t + dn;',
-    '    edgeVal = clamp(edgeVal, 0.0, 1.0);',
+    '    float edgeVal = clamp(t + dn, 0.0, 1.0);',
     '',
-    '    // t가 클수록(미탐험에 가까움) 불투명',
+    '    // edgeVal 클수록(미탐험에 가까움) 불투명',
     '    float baseAlpha = (explored > 0.5) ? exploredAlpha : unexploredAlpha;',
     '    float alpha = baseAlpha * smoothstep(0.0, fadeSmoothness, edgeVal);',
     '',
@@ -827,8 +826,8 @@ FogOfWar._createMesh = function() {
             lightScatterOn:  { value: this._lightScattering ? 1.0 : 0.0 },
             lightScatterIntensity: { value: this._lightScatterIntensity },
             isOrtho:         { value: 0.0 },
-            dissolveStrength:{ value: 0.25 },
-            fadeSmoothness:  { value: 0.7 },
+            dissolveStrength:{ value: 0.8 },
+            fadeSmoothness:  { value: 0.5 },
             nearVisWeight:   { value: 0.7 },
             numLights:       { value: 0 },
             lightPositions:  { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
@@ -866,8 +865,8 @@ FogOfWar._createMesh = function() {
             scrollOffset:    { value: material.uniforms.scrollOffset.value },
             edgeAnimOn:      { value: this._edgeAnimation ? 1.0 : 0.0 },
             edgeAnimSpeed:   { value: this._edgeAnimationSpeed },
-            dissolveStrength:{ value: 0.25 },
-            fadeSmoothness:  { value: 0.7 },
+            dissolveStrength:{ value: 0.8 },
+            fadeSmoothness:  { value: 0.5 },
             nearVisWeight:   { value: 0.7 }
         },
         vertexShader: VOL_FOG_VERT,
@@ -967,8 +966,8 @@ FogOfWar._updateMeshUniforms = function() {
 
     // 셰이더 디버그 오버라이드
     var so = this._shaderOverrides || {};
-    u.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 0.25;
-    u.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.7;
+    u.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 0.8;
+    u.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.5;
     u.nearVisWeight.value = so.nearVisWeight != null ? so.nearVisWeight : 0.7;
 
     // 카메라 월드 좌표 및 isOrtho 업데이트
@@ -1005,8 +1004,8 @@ FogOfWar._updateMeshUniforms = function() {
         eu.uTime.value = this._time;
         eu.edgeAnimOn.value = this._edgeAnimation ? 1.0 : 0.0;
         eu.edgeAnimSpeed.value = this._edgeAnimationSpeed;
-        eu.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 0.25;
-        eu.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.7;
+        eu.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 0.8;
+        eu.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.5;
         eu.nearVisWeight.value = so.nearVisWeight != null ? so.nearVisWeight : 0.7;
         // scrollOffset는 fog 메시와 같은 참조를 공유
     }
