@@ -337,7 +337,7 @@ FogOfWar3D._disposeMesh = function() {
 FogOfWar3D._tentacleMesh = null;
 FogOfWar3D._tentacleEdges = null;  // 현재 경계 엣지 캐시
 
-// 촉수 버텍스 셰이더: 정점을 outward 방향으로 노이즈만큼 밀어냄
+// 촉수 버텍스 셰이더: 노이즈로 아지랑이처럼 피어오르는 유기적 형태
 var TENTACLE_VERT = [
     'attribute float aDepth;',       // 0=박스면(밀착), 1=촉수끝(최대돌출)
     'attribute vec2 aOutward;',      // 바깥 방향 (정규화된 XY)
@@ -378,22 +378,40 @@ var TENTACLE_VERT = [
     '',
     'void main() {',
     '    float timeS = uTime * edgeAnimSpeed;',
-    '    // 2D 노이즈: (벽면 수평좌표, Z높이) → 촉수 돌출량',
+    '    float heightNorm = clamp(aZCoord / fogHeight, 0.0, 1.0);',
+    '',
+    '    // --- 아지랑이 형태: 높이에 따라 점점 퍼지고 흔들림 ---',
+    '',
+    '    // 1) 주 돌출량 노이즈 (outward 방향)',
     '    vec2 noiseCoord = vec2(aWallCoord / 8.0, aZCoord / 12.0);',
     '    float n1 = fbm3(noiseCoord * 1.0 + vec2(timeS * 0.3, timeS * 0.2));',
     '    float n2 = _valueNoise(noiseCoord * 2.5 + vec2(-timeS * 0.4, 17.0));',
     '    float n3 = _valueNoise(noiseCoord * 5.0 + vec2(timeS * 0.5, -31.0));',
     '    float noise = clamp(n1 * 0.5 + n2 * 0.3 + n3 * 0.2 + 0.5, 0.0, 1.0);',
     '',
-    '    // 촉수 돌출량: noise^sharpness * strength * maxDisplace',
-    '    float tentDisp = pow(noise, tentacleSharpness) * dissolveStrength * tentacleMaxDisplace;',
+    '    // 돌출 강도: 높이에 따라 포물선으로 커짐 (바닥~중간은 작고, 위로 갈수록 크게)',
+    '    float heightCurve = smoothstep(0.0, 0.3, heightNorm) * (0.5 + 0.5 * heightNorm);',
+    '    float tentDisp = pow(noise, tentacleSharpness) * dissolveStrength * tentacleMaxDisplace * heightCurve;',
+    '',
+    '    // 2) 옆 방향(tangent) 흔들림: 촉수가 좌우로 일렁이는 효과',
+    '    float swayNoise = fbm3(vec2(aWallCoord / 6.0 + timeS * 0.15, aZCoord / 10.0 + timeS * 0.08));',
+    '    float swayAmount = swayNoise * tentacleMaxDisplace * 0.6 * heightNorm * heightNorm * aDepth;',
+    '',
+    '    // tangent 방향: outward에 수직 (2D 회전 90도)',
+    '    vec2 tangent = vec2(-aOutward.y, aOutward.x);',
+    '',
+    '    // 3) Z축 흔들림: 위로 피어오르는 아지랑이 효과',
+    '    float zWaveNoise = _valueNoise(vec2(aWallCoord / 5.0 - timeS * 0.12, aZCoord / 8.0 + timeS * 0.25));',
+    '    float zDisplace = zWaveNoise * tentacleMaxDisplace * 0.4 * heightNorm * aDepth;',
     '',
     '    // depth별: 0(박스면)은 변형 없음, 1(촉수끝)은 최대',
     '    float displace = aDepth * tentDisp;',
     '',
-    '    // outward(XY) 방향으로만 밀어내기',
+    '    // 최종 변위: outward + tangent 흔들림 + Z 흔들림',
     '    vec3 displaced = position;',
     '    displaced.xy += aOutward * displace;',
+    '    displaced.xy += tangent * swayAmount;',
+    '    displaced.z += zDisplace;',
     '',
     '    vDepth = aDepth;',
     '    vAlpha = 1.0 - aDepth;',
@@ -404,7 +422,7 @@ var TENTACLE_VERT = [
     '}'
 ].join('\n');
 
-// 촉수 프래그먼트 셰이더: fog 색상 + 높이별 알파 페이드
+// 촉수 프래그먼트 셰이더: fog 색상 + 높이별/깊이별 알파 페이드
 var TENTACLE_FRAG = [
     'precision highp float;',
     '',
@@ -421,8 +439,11 @@ var TENTACLE_FRAG = [
     'void main() {',
     '    if (vAlpha < 0.01) discard;',
     '    vec3 color = heightGradientOn > 0.5 ? mix(fogColor, fogColorTop, vHeightNorm) : fogColor;',
-    '    // 끝(depth=1)으로 갈수록 페이드아웃',
-    '    float alpha = unexploredAlpha * pow(vAlpha, 1.5);',
+    '    // 깊이 페이드 (끝으로 갈수록 투명) + 높이 페이드 (꼭대기에서 사라짐)',
+    '    float depthFade = pow(vAlpha, 1.2);',
+    '    float topFade = 1.0 - smoothstep(0.7, 1.0, vHeightNorm);',
+    '    float alpha = unexploredAlpha * depthFade * mix(1.0, topFade, 0.6);',
+    '    if (alpha < 0.01) discard;',
     '    gl_FragColor = vec4(color, alpha);',
     '}'
 ].join('\n');
@@ -460,8 +481,8 @@ FogOfWar3D._buildTentacleMesh = function(edges) {
 
     var tileSize = 48;
     var fogHeight = this._fogHeight;
-    var wSegs = 6;   // 벽면 수평 세그먼트 수 (타일 1개 너비를 6등분)
-    var zSegs = 12;  // 높이(Z) 세그먼트 수
+    var wSegs = 8;   // 벽면 수평 세그먼트 수 (타일 1개 너비를 8등분, 좌우 흔들림 해상도)
+    var zSegs = 16;  // 높이(Z) 세그먼트 수 (높이별 곡선 해상도)
     var dSegs = 4;   // 깊이(돌출) 세그먼트 수
 
     // 각 엣지: (wSegs+1) × (zSegs+1) × (dSegs+1) 정점
@@ -644,7 +665,7 @@ FogOfWar3D._createTentacles = function(scene) {
     var fogColorTop = fogOfWar._fogColorTop;
 
     var so = fogOfWar._shaderOverrides || {};
-    var tentacleMaxDisplace = 24;  // 촉수 최대 돌출 거리 (px)
+    var tentacleMaxDisplace = 32;  // 촉수 최대 돌출 거리 (px)
 
     var material = new THREE.ShaderMaterial({
         uniforms: {
@@ -746,7 +767,7 @@ FogOfWar3D._refreshTentaclesIfNeeded = function(scene) {
                     dissolveStrength:   { value: so.dissolveStrength != null ? so.dissolveStrength : 4.0 },
                     tentacleSharpness:  { value: so.tentacleSharpness != null ? so.tentacleSharpness : 1.8 },
                     fogHeight:          { value: this._fogHeight },
-                    tentacleMaxDisplace: { value: 24 },
+                    tentacleMaxDisplace: { value: 32 },
                     fogColor:           { value: new THREE.Vector3(fogColor.r, fogColor.g, fogColor.b) },
                     fogColorTop:        { value: new THREE.Vector3(fogColorTop.r, fogColorTop.g, fogColorTop.b) },
                     unexploredAlpha:    { value: fogOfWar._unexploredAlpha },
