@@ -148,10 +148,17 @@ var VOL_FOG_FRAG = [
     '    return vec3(fogDensity, visibility, explored);',
     '}',
     '',
-    '// NEAREST explored 샘플링 (render2D에서 경계 판정용)',
+    '// NEAREST 샘플링 (render2D에서 경계 판정용)',
     'float sampleExplNearestFog(vec2 uv, vec2 texel) {',
     '    vec2 snapped = (floor(uv / texel) + 0.5) * texel;',
     '    return texture2D(tFog, snapped).g;',
+    '}',
+    'float sampleFadeNearestFog(vec2 uv, vec2 texel) {',
+    '    vec2 snapped = (floor(uv / texel) + 0.5) * texel;',
+    '    return texture2D(tFog, snapped).b;',
+    '}',
+    'bool isBorderFog(vec2 uv, vec2 texel) {',
+    '    return sampleExplNearestFog(uv, texel) < 0.5 || sampleFadeNearestFog(uv, texel) > 0.01;',
     '}',
     '',
     '// --- 2D 전용 fog 렌더링 (isOrtho) ---',
@@ -180,19 +187,19 @@ var VOL_FOG_FRAG = [
     '        float myE = sampleExplNearestFog(uv, texel);',
     '',
     '        if (myE > 0.5) {',
-    '            // 탐험 타일: 4타일 범위 내(8방향)에 미탐험이 있으면 discard (촉수 영역)',
-    '            bool nearUnexpl = false;',
+    '            // 탐험 타일: 4타일 범위 내(8방향)에 경계(미탐험 or fade중)가 있으면 discard',
+    '            bool nearBorder = false;',
     '            for (float r = 1.0; r <= 4.0; r += 1.0) {',
-    '                if (sampleExplNearestFog(uv + vec2(-texel.x * r, 0.0), texel) < 0.5) nearUnexpl = true;',
-    '                if (sampleExplNearestFog(uv + vec2( texel.x * r, 0.0), texel) < 0.5) nearUnexpl = true;',
-    '                if (sampleExplNearestFog(uv + vec2(0.0, -texel.y * r), texel) < 0.5) nearUnexpl = true;',
-    '                if (sampleExplNearestFog(uv + vec2(0.0,  texel.y * r), texel) < 0.5) nearUnexpl = true;',
-    '                if (sampleExplNearestFog(uv + vec2(-texel.x * r, -texel.y * r), texel) < 0.5) nearUnexpl = true;',
-    '                if (sampleExplNearestFog(uv + vec2( texel.x * r, -texel.y * r), texel) < 0.5) nearUnexpl = true;',
-    '                if (sampleExplNearestFog(uv + vec2(-texel.x * r,  texel.y * r), texel) < 0.5) nearUnexpl = true;',
-    '                if (sampleExplNearestFog(uv + vec2( texel.x * r,  texel.y * r), texel) < 0.5) nearUnexpl = true;',
+    '                if (isBorderFog(uv + vec2(-texel.x * r, 0.0), texel)) nearBorder = true;',
+    '                if (isBorderFog(uv + vec2( texel.x * r, 0.0), texel)) nearBorder = true;',
+    '                if (isBorderFog(uv + vec2(0.0, -texel.y * r), texel)) nearBorder = true;',
+    '                if (isBorderFog(uv + vec2(0.0,  texel.y * r), texel)) nearBorder = true;',
+    '                if (isBorderFog(uv + vec2(-texel.x * r, -texel.y * r), texel)) nearBorder = true;',
+    '                if (isBorderFog(uv + vec2( texel.x * r, -texel.y * r), texel)) nearBorder = true;',
+    '                if (isBorderFog(uv + vec2(-texel.x * r,  texel.y * r), texel)) nearBorder = true;',
+    '                if (isBorderFog(uv + vec2( texel.x * r,  texel.y * r), texel)) nearBorder = true;',
     '            }',
-    '            if (nearUnexpl) discard;',
+    '            if (nearBorder) discard;',
     '        } else {',
     '            // 미탐험 타일: 인접 1타일(8방향)에 탐험 있으면 경계 → discard',
     '            float eL  = sampleExplNearestFog(uv + vec2(-texel.x, 0.0), texel);',
@@ -418,8 +425,9 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
     // 표시용 버퍼 (lerp로 부드럽게 전환)
     this._displayVis = new Float32Array(size);
     this._displayExpl = new Float32Array(size);
+    this._tentacleFade = new Float32Array(size); // 촉수 페이드 (1=촉수 유지, 0=촉수 사라짐)
     this._fogTransitionSpeed = 5.0;  // 초당 전환 속도 (높을수록 빠름)
-    this._tentacleFadeSpeed = 2.0;   // 촉수 페이드 속도 (explored 보간, 높을수록 빠름)
+    this._tentacleFadeSpeed = 1.0;   // 촉수 페이드 속도 (낮을수록 천천히 사라짐)
 
     // fog 텍스처: RG 채널 (R=visibility, G=explored)
     var texData = new Uint8Array(size * 4);
@@ -445,6 +453,7 @@ FogOfWar.dispose = function() {
     this._exploredData = null;
     this._displayVis = null;
     this._displayExpl = null;
+    this._tentacleFade = null;
     this._blockMap = null;
     this._blockMapDirty = true;
     this._active = false;
@@ -655,8 +664,10 @@ FogOfWar._lerpDisplay = function(dt) {
     var expl = this._exploredData;
     var dVis = this._displayVis;
     var dExpl = this._displayExpl;
+    var fade = this._tentacleFade;
     var speed = this._fogTransitionSpeed;
     var alpha = 1.0 - Math.exp(-speed * dt);  // 지수 감쇄 보간
+    var fadeDecay = this._tentacleFadeSpeed * dt; // 선형 감쇄
     var size = this._mapWidth * this._mapHeight;
     var changed = false;
 
@@ -671,20 +682,19 @@ FogOfWar._lerpDisplay = function(dt) {
             dVis[i] = newV;
             changed = true;
         }
-        // explored 보간: 0→1 전환 시 부드럽게 (촉수가 스르륵 사라짐)
-        var targetE = expl[i];
-        var curE = dExpl[i];
-        if (curE !== targetE) {
-            if (targetE > curE) {
-                // 미탐험→탐험: 부드럽게 전환
-                var alphaE = 1.0 - Math.exp(-this._tentacleFadeSpeed * dt);
-                var newE = curE + (targetE - curE) * alphaE;
-                if (newE > 0.995) newE = targetE;
-                dExpl[i] = newE;
-            } else {
-                // 탐험→미탐험(hideAll): 즉시
-                dExpl[i] = targetE;
+        // explored는 즉시 반영
+        if (dExpl[i] !== expl[i]) {
+            // 미탐험→탐험 전환: tentacleFade를 1.0으로 설정 (촉수 유지 시작)
+            if (expl[i] > dExpl[i]) {
+                fade[i] = 1.0;
             }
+            dExpl[i] = expl[i];
+            changed = true;
+        }
+        // tentacleFade 감쇄: 1.0 → 0.0
+        if (fade[i] > 0.0) {
+            fade[i] -= fadeDecay;
+            if (fade[i] < 0.005) fade[i] = 0.0;
             changed = true;
         }
     }
@@ -700,13 +710,13 @@ FogOfWar._updateTexture = function() {
     var vis = this._displayVis || this._visibilityData;
     var explored = this._displayExpl || this._exploredData;
 
-    var blur = this._blurData;
+    var fade = this._tentacleFade;
 
     for (var i = 0; i < w * h; i++) {
         var pi = i * 4;
         data[pi + 0] = Math.round(vis[i] * 255);     // R = visibility (보간됨)
-        data[pi + 1] = Math.round(explored[i] * 255); // G = explored (보간됨)
-        data[pi + 2] = blur ? Math.round(Math.min(blur[i], 1.0) * 255) : 0; // B = 블러된 vis
+        data[pi + 1] = Math.round(explored[i] * 255); // G = explored
+        data[pi + 2] = fade ? Math.round(fade[i] * 255) : 0; // B = tentacle fade
         data[pi + 3] = 255;
     }
 
@@ -723,6 +733,12 @@ FogOfWar._syncDisplay = function() {
     this._displayVis.set(this._visibilityData);
     for (var i = 0; i < this._exploredData.length; i++) {
         this._displayExpl[i] = this._exploredData[i];
+    }
+    // tentacleFade도 리셋
+    if (this._tentacleFade) {
+        for (var i = 0; i < this._tentacleFade.length; i++) {
+            this._tentacleFade[i] = 0;
+        }
     }
 };
 
@@ -817,6 +833,21 @@ var EDGE_DISSOLVE_FRAG = [
     '    vec2 snapped = (floor(uv / texel) + 0.5) * texel;',
     '    return texture2D(tFog, snapped).g;',
     '}',
+    '// B채널: tentacle fade (1=촉수 유지, 0=촉수 사라짐)',
+    'float sampleFadeNearest(vec2 uv, vec2 texel) {',
+    '    vec2 snapped = (floor(uv / texel) + 0.5) * texel;',
+    '    return texture2D(tFog, snapped).b;',
+    '}',
+    '// 경계 판정: 미탐험이거나 tentacleFade 중인 타일',
+    'bool isBorder(vec2 uv, vec2 texel) {',
+    '    return sampleExplNearest(uv, texel) < 0.5 || sampleFadeNearest(uv, texel) > 0.01;',
+    '}',
+    '// 경계 타일의 fade 값 (미탐험=1.0, 최근탐험=fade값)',
+    'float borderFade(vec2 uv, vec2 texel) {',
+    '    float e = sampleExplNearest(uv, texel);',
+    '    if (e < 0.5) return 1.0;',
+    '    return sampleFadeNearest(uv, texel);',
+    '}',
     '',
     'void main() {',
     '    vec2 mapXY = vWorldPos.xy + scrollOffset;',
@@ -828,6 +859,7 @@ var EDGE_DISSOLVE_FRAG = [
     '',
     '    // 현재 타일의 explored 상태',
     '    float myExpl = sampleExplNearest(uv, texel);',
+    '    float myFade = sampleFadeNearest(uv, texel);',
     '',
     '    // 미탐험 타일: 인접에 탐험이 있으면 경계 → unexploredAlpha로 채움',
     '    if (myExpl < 0.5) {',
@@ -849,38 +881,43 @@ var EDGE_DISSOLVE_FRAG = [
     '    // 타일 내 위치',
     '    vec2 tp = fract(uv * mapSize);',
     '',
-    '    // 가장 가까운 미탐험 타일까지의 거리 (8방향 × 4타일 탐색)',
+    '    // 가장 가까운 경계(미탐험 or fade중) 타일까지의 거리 + 해당 타일의 fade값',
     '    float distToBorder = 99.0;',
+    '    float maxFade = 0.0;',
     '    bool foundBorder = false;',
-    '    float diag = 1.414;',  // sqrt(2) for diagonal distance
+    '    float diag = 1.414;',
     '    for (float r = 1.0; r <= 4.0; r += 1.0) {',
-    '        float eL = sampleExplNearest(uv + vec2(-texel.x * r, 0.0), texel);',
-    '        float eR = sampleExplNearest(uv + vec2( texel.x * r, 0.0), texel);',
-    '        float eU = sampleExplNearest(uv + vec2(0.0, -texel.y * r), texel);',
-    '        float eD = sampleExplNearest(uv + vec2(0.0,  texel.y * r), texel);',
-    '        if (eL < 0.5) { distToBorder = min(distToBorder, (r - 1.0) + tp.x); foundBorder = true; }',
-    '        if (eR < 0.5) { distToBorder = min(distToBorder, (r - 1.0) + (1.0 - tp.x)); foundBorder = true; }',
-    '        if (eU < 0.5) { distToBorder = min(distToBorder, (r - 1.0) + tp.y); foundBorder = true; }',
-    '        if (eD < 0.5) { distToBorder = min(distToBorder, (r - 1.0) + (1.0 - tp.y)); foundBorder = true; }',
+    '        vec2 uvL = uv + vec2(-texel.x * r, 0.0);',
+    '        vec2 uvR = uv + vec2( texel.x * r, 0.0);',
+    '        vec2 uvU = uv + vec2(0.0, -texel.y * r);',
+    '        vec2 uvD = uv + vec2(0.0,  texel.y * r);',
+    '        if (isBorder(uvL, texel)) { float d = (r - 1.0) + tp.x; if (d < distToBorder) { distToBorder = d; maxFade = borderFade(uvL, texel); } foundBorder = true; }',
+    '        if (isBorder(uvR, texel)) { float d = (r - 1.0) + (1.0 - tp.x); if (d < distToBorder) { distToBorder = d; maxFade = borderFade(uvR, texel); } foundBorder = true; }',
+    '        if (isBorder(uvU, texel)) { float d = (r - 1.0) + tp.y; if (d < distToBorder) { distToBorder = d; maxFade = borderFade(uvU, texel); } foundBorder = true; }',
+    '        if (isBorder(uvD, texel)) { float d = (r - 1.0) + (1.0 - tp.y); if (d < distToBorder) { distToBorder = d; maxFade = borderFade(uvD, texel); } foundBorder = true; }',
     '        // 대각선',
-    '        float eLU = sampleExplNearest(uv + vec2(-texel.x * r, -texel.y * r), texel);',
-    '        float eRU = sampleExplNearest(uv + vec2( texel.x * r, -texel.y * r), texel);',
-    '        float eLD = sampleExplNearest(uv + vec2(-texel.x * r,  texel.y * r), texel);',
-    '        float eRD = sampleExplNearest(uv + vec2( texel.x * r,  texel.y * r), texel);',
-    '        float dDiag = (r - 1.0) * diag + min(tp.x, tp.y);',
-    '        if (eLU < 0.5) { distToBorder = min(distToBorder, (r - 1.0) * diag + length(tp)); foundBorder = true; }',
-    '        if (eRU < 0.5) { distToBorder = min(distToBorder, (r - 1.0) * diag + length(vec2(1.0 - tp.x, tp.y))); foundBorder = true; }',
-    '        if (eLD < 0.5) { distToBorder = min(distToBorder, (r - 1.0) * diag + length(vec2(tp.x, 1.0 - tp.y))); foundBorder = true; }',
-    '        if (eRD < 0.5) { distToBorder = min(distToBorder, (r - 1.0) * diag + length(vec2(1.0 - tp.x, 1.0 - tp.y))); foundBorder = true; }',
+    '        vec2 uvLU = uv + vec2(-texel.x * r, -texel.y * r);',
+    '        vec2 uvRU = uv + vec2( texel.x * r, -texel.y * r);',
+    '        vec2 uvLD = uv + vec2(-texel.x * r,  texel.y * r);',
+    '        vec2 uvRD = uv + vec2( texel.x * r,  texel.y * r);',
+    '        if (isBorder(uvLU, texel)) { float d = (r - 1.0) * diag + length(tp); if (d < distToBorder) { distToBorder = d; maxFade = borderFade(uvLU, texel); } foundBorder = true; }',
+    '        if (isBorder(uvRU, texel)) { float d = (r - 1.0) * diag + length(vec2(1.0 - tp.x, tp.y)); if (d < distToBorder) { distToBorder = d; maxFade = borderFade(uvRU, texel); } foundBorder = true; }',
+    '        if (isBorder(uvLD, texel)) { float d = (r - 1.0) * diag + length(vec2(tp.x, 1.0 - tp.y)); if (d < distToBorder) { distToBorder = d; maxFade = borderFade(uvLD, texel); } foundBorder = true; }',
+    '        if (isBorder(uvRD, texel)) { float d = (r - 1.0) * diag + length(vec2(1.0 - tp.x, 1.0 - tp.y)); if (d < distToBorder) { distToBorder = d; maxFade = borderFade(uvRD, texel); } foundBorder = true; }',
     '    }',
     '',
-    '    if (!foundBorder) discard;',
+    '    if (!foundBorder) {',
+    '        // 경계를 못 찾았지만 현재 타일이 fade중이면 exploredAlpha로 채움',
+    '        if (myFade > 0.01) {',
+    '            gl_FragColor = vec4(fogColor, exploredAlpha * myFade);',
+    '            return;',
+    '        }',
+    '        discard;',
+    '    }',
     '',
     '    float timeS = uTime * edgeAnimSpeed;',
     '',
     '    // 촉수 노이즈: mapXY를 2D 노이즈 좌표로 직접 사용',
-    '    // 방향 무관하게 자연스러운 촉수 생성',
-    '    // dissolveStrength = 최대 촉수 길이 (타일 단위)',
     '    float n1 = fbm3(mapXY * 0.025 + vec2(timeS * 0.06, timeS * 0.04));',
     '    float n2 = _valueNoise(mapXY * 0.07 + vec2(-timeS * 0.08, timeS * 0.05));',
     '    float n3 = _valueNoise(mapXY * 0.15 + vec2(timeS * 0.12, -timeS * 0.07));',
@@ -888,7 +925,8 @@ var EDGE_DISSOLVE_FRAG = [
     '',
     '    // noise를 0~1로 정규화 후 pow로 뾰족하게: 높은 값만 긴 촉수',
     '    float nNorm = clamp(noise + 0.5, 0.0, 1.0);',
-    '    float tentacleLength = pow(nNorm, tentacleSharpness) * dissolveStrength;',
+    '    // maxFade: 가장 가까운 경계의 fade값 (미탐험=1.0, fade중=0~1)',
+    '    float tentacleLength = pow(nNorm, tentacleSharpness) * dissolveStrength * maxFade;',
     '',
     '    // 촉수 안에 있는지 판정',
     '    float inTentacle = tentacleLength - distToBorder;',
@@ -900,8 +938,8 @@ var EDGE_DISSOLVE_FRAG = [
     '        alpha *= smoothstep(0.0, 0.25, nNorm);',
     '        alpha *= unexploredAlpha;',
     '    } else {',
-    '        // 촉수 밖이지만 경계 근처: exploredAlpha로 채움',
-    '        alpha = exploredAlpha;',
+    '        // 촉수 밖이지만 경계 근처: exploredAlpha로 채움 (fade 반영)',
+    '        alpha = exploredAlpha * maxFade;',
     '    }',
     '',
     '    if (alpha < 0.001) discard;',
