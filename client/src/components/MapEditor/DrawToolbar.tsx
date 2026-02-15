@@ -2,30 +2,37 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 
-interface Tool {
+interface ToolItem {
   id: string;
   labelKey: string;
   shortcut?: string;
 }
 
-const tools: Tool[] = [
+// 모드: 서로 배타적인 그리기 모드
+const drawModes: ToolItem[] = [
   { id: 'select', labelKey: 'toolbar.select', shortcut: 'M' },
   { id: 'pen', labelKey: 'toolbar.pencil', shortcut: 'P' },
+  { id: 'eraser', labelKey: 'toolbar.eraser', shortcut: 'E' },
+  { id: 'shadow', labelKey: 'toolbar.shadow' },
+];
+
+// 형태: pen/eraser 모드에서 사용하는 그리기 형태
+const drawShapes: ToolItem[] = [
+  { id: 'freehand', labelKey: 'toolbar.freehand' },
   { id: 'rectangle', labelKey: 'toolbar.rectangle' },
   { id: 'ellipse', labelKey: 'toolbar.ellipse' },
-  { id: 'fill', labelKey: 'toolbar.fill', shortcut: 'B' },
-  { id: 'shadow', labelKey: 'toolbar.shadow' },
+  { id: 'fill', labelKey: 'toolbar.fill' },
 ];
 
 export default function DrawToolbar() {
   const { t } = useTranslation();
   const selectedTool = useEditorStore((s) => s.selectedTool);
-  const eraserMode = useEditorStore((s) => s.eraserMode);
+  const drawShape = useEditorStore((s) => s.drawShape);
   const currentLayer = useEditorStore((s) => s.currentLayer);
   const editMode = useEditorStore((s) => s.editMode);
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
-  const setEraserMode = useEditorStore((s) => s.setEraserMode);
+  const setDrawShape = useEditorStore((s) => s.setDrawShape);
   const setCurrentLayer = useEditorStore((s) => s.setCurrentLayer);
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const zoomIn = useEditorStore((s) => s.zoomIn);
@@ -104,38 +111,44 @@ export default function DrawToolbar() {
 
       <div style={styles.separator} />
 
-      {/* Drawing tools */}
+      {/* Drawing modes: select / pen / eraser / shadow */}
       <div style={styles.group}>
-        {tools.map((tool) => (
+        {drawModes.map((mode) => (
           <button
-            key={tool.id}
-            onClick={() => setSelectedTool(tool.id)}
+            key={mode.id}
+            onClick={() => setSelectedTool(mode.id)}
             style={{
               ...styles.btn,
-              ...(selectedTool === tool.id && !eraserMode ? styles.btnActive : {}),
+              ...(selectedTool === mode.id ? (mode.id === 'eraser' ? styles.btnEraserActive : styles.btnActive) : {}),
               ...(editMode !== 'map' ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
             }}
-            title={tool.shortcut || undefined}
+            title={mode.shortcut || undefined}
           >
-            {t(tool.labelKey)}{tool.shortcut && <span style={styles.shortcut}>{tool.shortcut}</span>}
+            {t(mode.labelKey)}{mode.shortcut && <span style={styles.shortcut}>{mode.shortcut}</span>}
           </button>
         ))}
       </div>
 
       <div style={styles.separator} />
 
-      {/* Eraser toggle */}
-      <button
-        onClick={() => setEraserMode(!eraserMode)}
-        style={{
-          ...styles.btn,
-          ...(eraserMode ? styles.btnEraserActive : {}),
-          ...(editMode !== 'map' ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
-        }}
-        title="E"
-      >
-        {t('toolbar.eraser')}<span style={styles.shortcut}>E</span>
-      </button>
+      {/* Draw shapes: freehand / rectangle / ellipse / fill */}
+      <div style={styles.group}>
+        {drawShapes.map((shape) => (
+          <button
+            key={shape.id}
+            onClick={() => setDrawShape(shape.id)}
+            style={{
+              ...styles.btn,
+              ...(drawShape === shape.id ? styles.btnActive : {}),
+              ...(editMode !== 'map' || selectedTool === 'select' || selectedTool === 'shadow'
+                ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
+            }}
+            title={shape.shortcut || undefined}
+          >
+            {t(shape.labelKey)}{shape.shortcut && <span style={styles.shortcut}>{shape.shortcut}</span>}
+          </button>
+        ))}
+      </div>
 
       <div style={styles.separator} />
 

@@ -16,7 +16,7 @@ import {
 } from './objectOperations';
 
 export const editingSlice: SliceCreator<Pick<EditorState,
-  'editMode' | 'selectedTool' | 'eraserMode' | 'selectedTileId' | 'selectedTiles' | 'selectedTilesWidth' | 'selectedTilesHeight' |
+  'editMode' | 'selectedTool' | 'drawShape' | 'selectedTileId' | 'selectedTiles' | 'selectedTilesWidth' | 'selectedTilesHeight' |
   'currentLayer' | 'clipboard' | 'cursorTileX' | 'cursorTileY' | 'selectionStart' | 'selectionEnd' | 'isPasting' | 'pastePreviewPos' |
   'selectedEventId' | 'selectedEventIds' | 'eventSelectionStart' | 'eventSelectionEnd' | 'isEventPasting' | 'eventPastePreviewPos' |
   'selectedObjectId' | 'selectedObjectIds' | 'objectSelectionStart' | 'objectSelectionEnd' | 'isObjectPasting' | 'objectPastePreviewPos' |
@@ -29,12 +29,12 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'setSelectedObjectId' | 'setSelectedObjectIds' | 'setObjectSelectionStart' | 'setObjectSelectionEnd' | 'setIsObjectPasting' | 'setObjectPastePreviewPos' | 'clearObjectSelection' |
   'addObject' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' |
   'setSelectedCameraZoneId' | 'setSelectedCameraZoneIds' | 'addCameraZone' | 'updateCameraZone' | 'deleteCameraZone' | 'deleteCameraZones' | 'moveCameraZones' |
-  'setEditMode' | 'setSelectedTool' | 'setEraserMode' | 'setSelectedTileId' | 'setSelectedTiles' |
+  'setEditMode' | 'setSelectedTool' | 'setDrawShape' | 'setSelectedTileId' | 'setSelectedTiles' |
   'setCurrentLayer' | 'setCursorTile' | 'setSelection' | 'setIsPasting' | 'setPastePreviewPos' | 'clearSelection' | 'setSelectedEventId'
 >> = (set, get) => ({
   editMode: 'map',
   selectedTool: 'pen',
-  eraserMode: false,
+  drawShape: 'freehand',
   selectedTileId: 0,
   selectedTiles: null,
   selectedTilesWidth: 1,
@@ -443,6 +443,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   },
   setSelectedTool: (tool: string) => {
     const state = get();
+    if (state.selectedTool === tool) return;
     const updates: Partial<EditorState> = { selectedTool: tool };
     if (tool !== 'select') {
       updates.selectionStart = null;
@@ -450,30 +451,20 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       updates.isPasting = false;
       updates.pastePreviewPos = null;
     }
-    // eraser 도구 선택 시 eraserMode로 변환
-    if (tool === 'eraser') {
-      const wasEraser = state.eraserMode;
-      updates.selectedTool = state.selectedTool === 'select' ? 'pen' : state.selectedTool;
-      updates.eraserMode = !wasEraser;
-      state.showToast(!wasEraser ? '지우개 ON' : '지우개 OFF');
-      set(updates);
-      return;
-    }
-    // 일반 도구 선택 시 eraserMode 해제
-    if (state.eraserMode) {
-      updates.eraserMode = false;
-    }
-    const toolNames: Record<string, string> = { select: '선택', pen: '연필', rectangle: '직사각형', ellipse: '타원', fill: '채우기', shadow: '그림자' };
-    if (state.selectedTool !== tool && toolNames[tool]) {
+    const toolNames: Record<string, string> = { select: '선택', pen: '연필', eraser: '지우개', shadow: '그림자' };
+    if (toolNames[tool]) {
       state.showToast(toolNames[tool]);
     }
     set(updates);
   },
-  setEraserMode: (enabled: boolean) => {
+  setDrawShape: (shape: string) => {
     const state = get();
-    if (state.eraserMode === enabled) return;
-    set({ eraserMode: enabled });
-    state.showToast(enabled ? '지우개 ON' : '지우개 OFF');
+    if (state.drawShape === shape) return;
+    set({ drawShape: shape });
+    const shapeNames: Record<string, string> = { freehand: '자유', rectangle: '직사각형', ellipse: '타원', fill: '채우기' };
+    if (shapeNames[shape]) {
+      state.showToast(shapeNames[shape]);
+    }
   },
   setSelectedTileId: (id: number) => set({ selectedTileId: id, selectedTiles: null, selectedTilesWidth: 1, selectedTilesHeight: 1 }),
   setSelectedTiles: (tiles: number[][] | null, width: number, height: number) => set({ selectedTiles: tiles, selectedTilesWidth: width, selectedTilesHeight: height }),

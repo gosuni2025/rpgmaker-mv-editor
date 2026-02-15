@@ -44,7 +44,7 @@ export function useMapTools(
 ): MapToolsResult {
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedTool = useEditorStore((s) => s.selectedTool);
-  const eraserMode = useEditorStore((s) => s.eraserMode);
+  const drawShape = useEditorStore((s) => s.drawShape);
   const selectedTileId = useEditorStore((s) => s.selectedTileId);
   const currentLayer = useEditorStore((s) => s.currentLayer);
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
@@ -59,7 +59,7 @@ export function useMapTools(
 
   // Drawing overlay (Three.js preview meshes)
   const overlayRefs: DrawingOverlayRefs = { toolPreviewMeshesRef, rendererObjRef, stageRef, renderRequestedRef };
-  const { drawOverlayPreview, clearOverlay } = useDrawingOverlay(selectedTool, overlayRefs);
+  const { drawOverlayPreview, clearOverlay } = useDrawingOverlay(drawShape, overlayRefs);
 
   // =========================================================================
   // Coordinate conversion
@@ -231,7 +231,7 @@ export function useMapTools(
       const { width, height } = latestMap;
       const z = currentLayer;
       const data = [...latestMap.data];
-      const tileId = useEditorStore.getState().eraserMode ? 0 : selectedTileId;
+      const tileId = useEditorStore.getState().selectedTool === 'eraser' ? 0 : selectedTileId;
 
       if (z === 5) {
         const { changes, updates } = floodFillRegion(data, width, height, startX, startY, z, tileId);
@@ -323,7 +323,7 @@ export function useMapTools(
       const isMulti = sTiles && (stW > 1 || stH > 1);
 
       if (currentLayer === 5) {
-        if (selectedTool === 'fill') {
+        if (drawShape === 'fill') {
           floodFill(x, y);
           return;
         }
@@ -348,14 +348,15 @@ export function useMapTools(
         const z = 5;
         const idx = (z * latestMap.height + y) * latestMap.width + x;
         const oldTileId = latestMap.data[idx];
-        const newTileId = eraserMode ? 0 : selectedTileId;
+        const isEraser = selectedTool === 'eraser';
+        const newTileId = isEraser ? 0 : selectedTileId;
         if (oldTileId === newTileId) return;
         pendingChanges.current.push({ x, y, z, oldTileId, newTileId });
         updateMapTiles([{ x, y, z, tileId: newTileId }]);
         return;
       }
 
-      if (eraserMode) {
+      if (selectedTool === 'eraser') {
         // B/C/D/E 레이어(currentLayer=1): z=2→z=1 순서로 upper 타일 제거
         if (currentLayer === 1) {
           const placements = resolveUpperLayerErase(x, y, latestMap.data, latestMap.width, latestMap.height);
@@ -466,18 +467,18 @@ export function useMapTools(
             }
           }
         }
-      } else if (selectedTool === 'fill') {
+      } else if (drawShape === 'fill') {
         floodFill(x, y);
       }
     },
-    [selectedTool, eraserMode, selectedTileId, currentLayer, updateMapTiles, placeAutotileAt]
+    [selectedTool, drawShape, selectedTileId, currentLayer, updateMapTiles, placeAutotileAt]
   );
 
   const drawRectangle = useCallback(
     (start: { x: number; y: number }, end: { x: number; y: number }) => {
       const latestMap = useEditorStore.getState().currentMap;
       if (!latestMap) return;
-      const tileId = useEditorStore.getState().eraserMode ? 0 : selectedTileId;
+      const tileId = useEditorStore.getState().selectedTool === 'eraser' ? 0 : selectedTileId;
       const positions = getRectanglePositions(start, end, latestMap.width, latestMap.height);
       batchPlaceWithAutotile(positions, tileId);
     },
@@ -488,7 +489,7 @@ export function useMapTools(
     (start: { x: number; y: number }, end: { x: number; y: number }) => {
       const latestMap = useEditorStore.getState().currentMap;
       if (!latestMap) return;
-      const tileId = useEditorStore.getState().eraserMode ? 0 : selectedTileId;
+      const tileId = useEditorStore.getState().selectedTool === 'eraser' ? 0 : selectedTileId;
       const positions = getEllipsePositions(start, end, latestMap.width, latestMap.height);
       batchPlaceWithAutotile(positions, tileId);
     },

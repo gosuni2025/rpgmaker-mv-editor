@@ -58,6 +58,7 @@ export function useMouseHandlers(
 ): MouseHandlersResult {
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedTool = useEditorStore((s) => s.selectedTool);
+  const drawShape = useEditorStore((s) => s.drawShape);
   const currentLayer = useEditorStore((s) => s.currentLayer);
   const editMode = useEditorStore((s) => s.editMode);
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
@@ -200,13 +201,13 @@ export function useMouseHandlers(
         if (sub) {
           applyShadow(sub.x, sub.y, sub.subX, sub.subY, true);
         }
-      } else if (selectedTool === 'rectangle' || selectedTool === 'ellipse') {
+      } else if (drawShape === 'rectangle' || drawShape === 'ellipse') {
         dragStart.current = tile;
       } else {
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, editMode, currentMap, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, mode3d, detectEdge, getCanvasPx, startResize, eyedropTile, clearSelection, selection, light, object, event, cameraZone]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, drawShape, editMode, currentMap, currentLayer, pushUndo, updateMapTiles, lightEditMode, selectedLightType, mode3d, detectEdge, getCanvasPx, startResize, eyedropTile, clearSelection, selection, light, object, event, cameraZone]
   );
 
   const handleMouseMove = useCallback(
@@ -294,7 +295,7 @@ export function useMouseHandlers(
 
       if (!isDrawing.current || !tile) return;
 
-      if (selectedTool === 'rectangle' || selectedTool === 'ellipse') {
+      if (drawShape === 'rectangle' || drawShape === 'ellipse') {
         if (dragStart.current) {
           drawOverlayPreview(dragStart.current, tile);
         }
@@ -311,11 +312,11 @@ export function useMouseHandlers(
 
       if (lastTile.current && tile.x === lastTile.current.x && tile.y === lastTile.current.y) return;
       lastTile.current = tile;
-      if (selectedTool === 'pen') {
+      if (selectedTool === 'pen' || selectedTool === 'eraser') {
         placeTileWithUndo(tile);
       }
     },
-    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, setCursorTile, drawOverlayPreview, detectEdge, editMode, mode3d, currentLayer, updateMapTiles, selection, light, object, event, cameraZone, lightEditMode, edgeToCursor, setResizeCursor, getCanvasPx]
+    [canvasToTile, canvasToSubTile, placeTileWithUndo, applyShadow, selectedTool, drawShape, setCursorTile, drawOverlayPreview, detectEdge, editMode, mode3d, currentLayer, updateMapTiles, selection, light, object, event, cameraZone, lightEditMode, edgeToCursor, setResizeCursor, getCanvasPx]
   );
 
   const handleMouseUp = useCallback(
@@ -357,10 +358,10 @@ export function useMouseHandlers(
 
       // Drawing
       if (isDrawing.current) {
-        if (selectedTool === 'rectangle' && dragStart.current) {
+        if (drawShape === 'rectangle' && dragStart.current) {
           if (tile) drawRectangle(dragStart.current, tile);
           clearOverlay();
-        } else if (selectedTool === 'ellipse' && dragStart.current) {
+        } else if (drawShape === 'ellipse' && dragStart.current) {
           if (tile) drawEllipse(dragStart.current, tile);
           clearOverlay();
         } else if (pendingChanges.current.length > 0) {
@@ -372,7 +373,7 @@ export function useMouseHandlers(
       dragStart.current = null;
       pendingChanges.current = [];
     },
-    [selectedTool, canvasToTile, drawRectangle, drawEllipse, clearOverlay, pushUndo, editMode, selection, light, object, event, cameraZone]
+    [drawShape, canvasToTile, drawRectangle, drawEllipse, clearOverlay, pushUndo, editMode, selection, light, object, event, cameraZone]
   );
 
   const handleDoubleClick = useCallback(
