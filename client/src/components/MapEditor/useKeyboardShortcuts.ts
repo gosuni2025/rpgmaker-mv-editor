@@ -3,6 +3,7 @@ import useEditorStore from '../../store/useEditorStore';
 
 interface KeyboardShortcutsResult {
   showGrid: boolean;
+  showTileId: boolean;
   altPressed: boolean;
   panning: boolean;
 }
@@ -12,6 +13,7 @@ export function useKeyboardShortcuts(
 ): KeyboardShortcutsResult {
   const [altPressed, setAltPressed] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
+  const [showTileId, setShowTileId] = useState(false);
   const [panning, setPanning] = useState(false);
   const isPanning = useRef(false);
   const panStart = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number }>({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
@@ -140,6 +142,13 @@ export function useKeyboardShortcuts(
     const handler = (e: Event) => setShowGrid((e as CustomEvent<boolean>).detail);
     window.addEventListener('editor-toggle-grid', handler);
     return () => window.removeEventListener('editor-toggle-grid', handler);
+  }, []);
+
+  // Tile ID debug toggle
+  useEffect(() => {
+    const handler = (e: Event) => setShowTileId((e as CustomEvent<boolean>).detail);
+    window.addEventListener('editor-toggle-tileid', handler);
+    return () => window.removeEventListener('editor-toggle-tileid', handler);
   }, []);
 
   // Handle Delete key for events, lights, objects, and tile selection
@@ -424,5 +433,5 @@ export function useKeyboardShortcuts(
     return () => window.removeEventListener('editor-escape', handleEscape);
   }, [isPasting, isEventPasting, isLightPasting, isObjectPasting, selectionStart, selectionEnd, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection, setIsLightPasting, setLightPastePreviewPos, clearLightSelection, setIsObjectPasting, setObjectPastePreviewPos, clearObjectSelection]);
 
-  return { showGrid, altPressed, panning };
+  return { showGrid, showTileId, altPressed, panning };
 }

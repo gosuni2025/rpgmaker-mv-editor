@@ -44,6 +44,7 @@ export default function DrawToolbar() {
   const setShowEventSearchDialog = useEditorStore((s) => s.setShowEventSearchDialog);
   const setShowResourceManagerDialog = useEditorStore((s) => s.setShowResourceManagerDialog);
   const [showGrid, setShowGrid] = React.useState(true);
+  const [showTileId, setShowTileId] = React.useState(false);
 
   return (
     <div style={styles.toolbar}>
@@ -153,6 +154,22 @@ export default function DrawToolbar() {
         style={{ ...styles.btn, ...(showGrid ? styles.btnActive : {}) }}
       >
         {t('toolbar.grid')}
+      </button>
+
+      {/* Tile ID debug toggle */}
+      <button
+        onClick={() => {
+          const next = !showTileId;
+          setShowTileId(next);
+          window.dispatchEvent(
+            new CustomEvent('editor-toggle-tileid', { detail: next })
+          );
+          showToast(`타일 ID ${next ? 'ON' : 'OFF'}`);
+        }}
+        style={{ ...styles.btn, ...(showTileId ? styles.btnActive : {}) }}
+        title={t('toolbar.tileIdDebug')}
+      >
+        {t('toolbar.tileIdDebug')}
       </button>
 
       <div style={styles.separator} />

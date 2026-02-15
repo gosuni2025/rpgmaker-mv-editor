@@ -120,6 +120,7 @@
     "shadow": "그림자",
     "layer": "레이어",
     "grid": "격자",
+    "tileIdDebug": "타일ID",
     "lighting": "조명",
     "zoomOut": "축소",
     "zoomIn": "확대",
