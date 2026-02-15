@@ -331,7 +331,7 @@ var VOL_FOG_FRAG = [
     '            rayNoise = max(0.0, rayNoise);',
     '            float edgeFactor = smoothstep(0.0, 0.3, visibility) * (1.0 - smoothstep(0.3, 0.8, visibility));',
     '            float godRayContrib = rayNoise * edgeFactor * godRayIntensity * (1.0 - heightNorm);',
-    '            stepColor += vec3(0.8, 0.7, 0.5) * godRayContrib;',
+    '            stepColor += (fogColor + vec3(0.8, 0.7, 0.5)) * 0.5 * godRayContrib;',
     '        }',
     '',
     '        // === 라이트 산란 ===',
@@ -354,7 +354,7 @@ var VOL_FOG_FRAG = [
     '        // === 시야 내부 밝기 ===',
     '        if (visibilityBrightness > 0.01 && visibility > 0.3) {',
     '            float glowFactor = visibility * visibilityBrightness * (1.0 - heightNorm * 0.5);',
-    '            stepColor += vec3(0.15, 0.12, 0.08) * glowFactor;',
+    '            stepColor += (fogColor * 0.3 + vec3(0.05, 0.04, 0.03)) * glowFactor;',
     '        }',
     '',
     '        float absorb = density * stepSize * absorption;',
@@ -640,7 +640,8 @@ FogOfWar._buildBlockMap = function() {
 };
 
 // Bresenham 라인: (x0,y0) → (x1,y1) 경로에 장애물이 있으면 false
-// 시작점과 끝점은 검사하지 않음 (플레이어가 벽 안에 있거나, 벽 자체를 볼 수 있어야 함)
+// 시작점은 검사하지 않음 (플레이어가 벽 안에 있을 수 있음)
+// 끝점이 벽이면: 벽 자체는 보이지만, 그 뒤(=끝점이 벽 뒤 타일)는 차단
 FogOfWar._hasLineOfSight = function(x0, y0, x1, y1) {
     if (!this._blockMap) return true;
 
@@ -654,6 +655,7 @@ FogOfWar._hasLineOfSight = function(x0, y0, x1, y1) {
     var err = dx - dy;
 
     var cx = x0, cy = y0;
+    var hitWall = false; // 경로에서 벽을 만났는지
 
     while (cx !== x1 || cy !== y1) {
         var e2 = 2 * err;
@@ -666,13 +668,18 @@ FogOfWar._hasLineOfSight = function(x0, y0, x1, y1) {
             cy += sy;
         }
 
-        // 끝점에 도달하면 중단 (끝점의 벽은 보이게)
-        if (cx === x1 && cy === y1) break;
-
         // 경로상의 타일이 벽이면 차단
         if (cx >= 0 && cx < w && cy >= 0 && cy < this._mapHeight) {
-            if (blockMap[cy * w + cx] === 1) return false;
+            if (blockMap[cy * w + cx] === 1) {
+                // 끝점이 벽 자체: 벽은 보이므로 true 반환
+                if (cx === x1 && cy === y1) return true;
+                // 경로 중간에 벽: 차단
+                return false;
+            }
         }
+
+        // 끝점에 도달
+        if (cx === x1 && cy === y1) break;
     }
 
     return true;

@@ -1,5 +1,5 @@
 //=============================================================================
-// FogOfWarDevPanel.js - FOW 디버그 패널 (런타임, 2D 전용)
+// FogOfWarDevPanel.js - FOW 디버그 패널 (런타임, 2D + 3D)
 //=============================================================================
 // URL에 ?dev=true 시 활성화
 // FOW 셰이더 파라미터를 실시간으로 조절 가능
@@ -37,8 +37,22 @@
         { key: 'tentacleGrowDuration', label: 'Grow Duration',   min: 0.1,  max: 5.0,  step: 0.1,  def: 0.5 },
     ];
 
+    // ── 3D 볼류메트릭 파라미터 ──
+    var PARAMS_3D = [
+        { key: 'fogHeight',            label: 'Fog Height',       min: 50,   max: 1000, step: 10,   def: 300 },
+        { key: 'absorption',           label: 'Absorption',       min: 0.001,max: 0.1,  step: 0.001,def: 0.012 },
+        { key: 'visibilityBrightness', label: 'Vis Brightness',   min: 0,    max: 1,    step: 0.05, def: 0.0 },
+        { key: 'heightGradient',       label: 'Height Gradient',  min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
+        { key: 'godRay',               label: 'God Ray',          min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
+        { key: 'godRayIntensity',      label: 'GodRay Intensity', min: 0,    max: 2,    step: 0.1,  def: 0.4 },
+        { key: 'vortex',               label: 'Vortex',           min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
+        { key: 'vortexSpeed',          label: 'Vortex Speed',     min: 0,    max: 5,    step: 0.1,  def: 1.0 },
+        { key: 'lightScattering',      label: 'Light Scatter',    min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
+        { key: 'lightScatterIntensity',label: 'Scatter Intensity',min: 0,    max: 3,    step: 0.1,  def: 1.0 },
+    ];
+
     // 모든 파라미터 합치기 (슬라이더 생성/리셋용)
-    var ALL_PARAMS = COMMON_PARAMS.concat(PARAMS_2D_SHADER).concat(PARAMS_TENTACLE);
+    var ALL_PARAMS = COMMON_PARAMS.concat(PARAMS_2D_SHADER).concat(PARAMS_TENTACLE).concat(PARAMS_3D);
 
     // 내부 키 → FogOfWar 프로퍼티 이름 매핑 (shader가 아닌 것만)
     var KEY_MAP = {
@@ -51,6 +65,17 @@
         edgeAnimationSpeed: '_edgeAnimationSpeed',
         tentacleFadeDuration: '_tentacleFadeDuration',
         tentacleGrowDuration: '_tentacleGrowDuration',
+        // 3D
+        fogHeight: '_fogHeight',
+        absorption: '_absorption',
+        visibilityBrightness: '_visibilityBrightness',
+        heightGradient: '_heightGradient',
+        godRay: '_godRay',
+        godRayIntensity: '_godRayIntensity',
+        vortex: '_vortex',
+        vortexSpeed: '_vortexSpeed',
+        lightScattering: '_lightScattering',
+        lightScatterIntensity: '_lightScatterIntensity',
     };
 
     // 셰이더 오버라이드 저장소
@@ -79,6 +104,7 @@
             }
         });
         data.fogColor = colorToHex(FOW._fogColor);
+        data.fogColorTop = colorToHex(FOW._fogColorTop);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
     }
 
@@ -98,6 +124,10 @@
         if (data.fogColor) {
             FOW._fogColor = FOW._parseColor(data.fogColor);
             updateSlider('fogColor', data.fogColor);
+        }
+        if (data.fogColorTop) {
+            FOW._fogColorTop = FOW._parseColor(data.fogColorTop);
+            updateSlider('fogColorTop', data.fogColorTop);
         }
     }
 
@@ -121,6 +151,21 @@
             lineOfSight: FOW._lineOfSight,
             edgeAnimation: FOW._edgeAnimation,
             edgeAnimationSpeed: FOW._edgeAnimationSpeed,
+            fogTransitionSpeed: FOW._fogTransitionSpeed,
+            tentacleFadeDuration: FOW._tentacleFadeDuration,
+            tentacleGrowDuration: FOW._tentacleGrowDuration,
+            // 3D
+            fogHeight: FOW._fogHeight,
+            absorption: FOW._absorption,
+            visibilityBrightness: FOW._visibilityBrightness,
+            fogColorTop: colorToHex(FOW._fogColorTop),
+            heightGradient: FOW._heightGradient,
+            godRay: FOW._godRay,
+            godRayIntensity: FOW._godRayIntensity,
+            vortex: FOW._vortex,
+            vortexSpeed: FOW._vortexSpeed,
+            lightScattering: FOW._lightScattering,
+            lightScatterIntensity: FOW._lightScatterIntensity,
         };
         // 2D 셰이더 오버라이드 값 추가
         if (FOW._shaderOverrides) {
@@ -161,7 +206,7 @@
         var titleBar = document.createElement('div');
         titleBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;';
         var titleText = document.createElement('span');
-        titleText.textContent = 'FOW Debug (2D)';
+        titleText.textContent = 'FOW Debug';
         titleText.style.cssText = 'font-size:12px;font-weight:bold;color:#f80;flex:1;';
         titleBar.appendChild(titleText);
         panel.appendChild(titleBar);
@@ -202,6 +247,28 @@
         // --- 촉수 타이밍 ---
         addSection(body, '── Tentacle Timing ──', '#af6');
         addParamRows(body, PARAMS_TENTACLE, applyParam);
+
+        // --- 3D 볼류메트릭 ---
+        addSection(body, '── 3D Volumetric ──', '#f8a');
+        // fogColorTop 색상 피커
+        var fogColorTopRow = document.createElement('div');
+        fogColorTopRow.style.cssText = 'margin:2px 0;display:flex;align-items:center;gap:4px;';
+        var fogColorTopLabel = document.createElement('span');
+        fogColorTopLabel.textContent = 'Fog Color Top';
+        fogColorTopLabel.style.cssText = 'flex:0 0 100px;font-size:10px;color:#aaa;';
+        fogColorTopRow.appendChild(fogColorTopLabel);
+        var fogColorTopInput = document.createElement('input');
+        fogColorTopInput.type = 'color';
+        fogColorTopInput.value = colorToHex(FOW._fogColorTop);
+        fogColorTopInput.style.cssText = 'flex:1;height:20px;cursor:pointer;background:transparent;border:1px solid #555;';
+        fogColorTopInput.addEventListener('input', function() {
+            FOW._fogColorTop = FOW._parseColor(fogColorTopInput.value);
+            saveToStorage();
+        });
+        fogColorTopRow.appendChild(fogColorTopInput);
+        body.appendChild(fogColorTopRow);
+        sliderEls['fogColorTop'] = { slider: fogColorTopInput, valueEl: null, type: 'color' };
+        addParamRows(body, PARAMS_3D, applyParam);
 
         // 버튼 컨테이너
         var btnRow = document.createElement('div');
@@ -439,6 +506,7 @@
             }
         });
         updateSlider('fogColor', colorToHex(FOW._fogColor));
+        updateSlider('fogColorTop', colorToHex(FOW._fogColorTop));
     }
 
     // FogOfWar.setup() 후킹: setup이 config 값으로 초기화한 뒤
