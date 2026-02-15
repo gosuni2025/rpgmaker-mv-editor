@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Effect } from '../../types/rpgMakerMV';
 import apiClient from '../../api/client';
+import { DataListPicker, IconSprite } from '../EventEditor/dataListPicker';
 import './EffectsEditor.css';
 
 interface EffectsEditorProps {
@@ -9,9 +10,11 @@ interface EffectsEditorProps {
   onChange: (effects: Effect[]) => void;
 }
 
-interface RefItem { id: number; name: string }
+interface RefItem { id: number; name: string; iconIndex?: number }
 
 type EffectTab = 'recovery' | 'state' | 'param' | 'other';
+
+type PickerTarget = 'state21' | 'state22' | 'skill' | 'commonEvent';
 
 const PARAM_NAMES_KEYS = [
   'params.maxHP', 'params.maxMP', 'params.attack', 'params.defense',
@@ -32,12 +35,17 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
   const [states, setStates] = useState<(RefItem | null)[]>([]);
   const [skills, setSkills] = useState<(RefItem | null)[]>([]);
   const [commonEvents, setCommonEvents] = useState<(RefItem | null)[]>([]);
+  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
 
   const PARAM_NAMES = useMemo(() => PARAM_NAMES_KEYS.map(k => t(k)), [t]);
 
   useEffect(() => {
-    apiClient.get<(RefItem | null)[]>('/database/states').then(d => setStates(d)).catch(() => {});
-    apiClient.get<(RefItem | null)[]>('/database/skills').then(d => setSkills(d)).catch(() => {});
+    apiClient.get<({ id: number; name: string; iconIndex?: number } | null)[]>('/database/states').then(d => {
+      setStates(d.map(s => s ? { id: s.id, name: s.name, iconIndex: s.iconIndex } : null));
+    }).catch(() => {});
+    apiClient.get<({ id: number; name: string; iconIndex?: number } | null)[]>('/database/skills').then(d => {
+      setSkills(d.map(s => s ? { id: s.id, name: s.name, iconIndex: s.iconIndex } : null));
+    }).catch(() => {});
     apiClient.get<(RefItem | null)[]>('/database/commonevents').then(d => setCommonEvents(d)).catch(() => {});
   }, []);
 
@@ -180,6 +188,64 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
     </div>
   );
 
+  const getStateLabel = (id: number) => {
+    if (id === 0) return t('common.normalAttack');
+    const st = states.find(s => s && s.id === id);
+    return st ? `${String(id).padStart(4, '0')}: ${st.name}` : String(id);
+  };
+
+  const getSkillLabel = (id: number) => {
+    if (id === 0) return t('common.none');
+    const sk = skills.find(s => s && s.id === id);
+    return sk ? `${String(id).padStart(4, '0')}: ${sk.name}` : String(id);
+  };
+
+  const getCELabel = (id: number) => {
+    if (id === 0) return t('common.none');
+    const ce = commonEvents.find(c => c && c.id === id);
+    return ce ? `${String(id).padStart(4, '0')}: ${ce.name}` : String(id);
+  };
+
+  const getStateIconIndex = (id: number) => {
+    const st = states.find(s => s && s.id === id);
+    return st?.iconIndex;
+  };
+
+  const getSkillIconIndex = (id: number) => {
+    const sk = skills.find(s => s && s.id === id);
+    return sk?.iconIndex;
+  };
+
+  const stateNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const s of states) { if (s) arr[s.id] = s.name; }
+    return arr;
+  }, [states]);
+
+  const stateIcons = useMemo(() => {
+    const arr: (number | undefined)[] = [];
+    for (const s of states) { if (s) arr[s.id] = s.iconIndex; }
+    return arr;
+  }, [states]);
+
+  const skillNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const s of skills) { if (s) arr[s.id] = s.name; }
+    return arr;
+  }, [skills]);
+
+  const skillIcons = useMemo(() => {
+    const arr: (number | undefined)[] = [];
+    for (const s of skills) { if (s) arr[s.id] = s.iconIndex; }
+    return arr;
+  }, [skills]);
+
+  const ceNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const c of commonEvents) { if (c) arr[c.id] = c.name; }
+    return arr;
+  }, [commonEvents]);
+
   const renderStateTab = () => (
     <div className="eff-tab-content">
       {/* 스테이트 부여 */}
@@ -190,12 +256,10 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
         </label>
         {formCode === 21 && (
           <div className="eff-fields">
-            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-              <option value={0}>{t('common.normalAttack')}</option>
-              {states.filter(Boolean).map(s => (
-                <option key={s!.id} value={s!.id}>{String(s!.id).padStart(4, '0')}: {s!.name}</option>
-              ))}
-            </select>
+            <button className="eff-picker-btn" onClick={() => setPickerTarget('state21')}>
+              {formDataId > 0 && getStateIconIndex(formDataId) != null && getStateIconIndex(formDataId)! > 0 && <IconSprite iconIndex={getStateIconIndex(formDataId)!} />}
+              <span>{getStateLabel(formDataId)}</span>
+            </button>
             <div className="eff-field-group">
               <input type="number" value={Math.round(formValue1 * 100)} onChange={e => setFormValue1(Number(e.target.value) / 100)} min={0} max={1000} />
               <span className="eff-unit">%</span>
@@ -211,11 +275,10 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
         </label>
         {formCode === 22 && (
           <div className="eff-fields">
-            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-              {states.filter(Boolean).map(s => (
-                <option key={s!.id} value={s!.id}>{String(s!.id).padStart(4, '0')}: {s!.name}</option>
-              ))}
-            </select>
+            <button className="eff-picker-btn" onClick={() => setPickerTarget('state22')}>
+              {formDataId > 0 && getStateIconIndex(formDataId) != null && getStateIconIndex(formDataId)! > 0 && <IconSprite iconIndex={getStateIconIndex(formDataId)!} />}
+              <span>{getStateLabel(formDataId)}</span>
+            </button>
             <div className="eff-field-group">
               <input type="number" value={Math.round(formValue1 * 100)} onChange={e => setFormValue1(Number(e.target.value) / 100)} min={0} max={100} />
               <span className="eff-unit">%</span>
@@ -336,12 +399,10 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
         </label>
         {formCode === 43 && (
           <div className="eff-fields">
-            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-              <option value={0}>{t('common.none')}</option>
-              {skills.filter(Boolean).map(s => (
-                <option key={s!.id} value={s!.id}>{String(s!.id).padStart(4, '0')}: {s!.name}</option>
-              ))}
-            </select>
+            <button className="eff-picker-btn" onClick={() => setPickerTarget('skill')}>
+              {formDataId > 0 && getSkillIconIndex(formDataId) != null && getSkillIconIndex(formDataId)! > 0 && <IconSprite iconIndex={getSkillIconIndex(formDataId)!} />}
+              <span>{getSkillLabel(formDataId)}</span>
+            </button>
           </div>
         )}
       </div>
@@ -353,12 +414,9 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
         </label>
         {formCode === 44 && (
           <div className="eff-fields">
-            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-              <option value={0}>{t('common.none')}</option>
-              {commonEvents.filter(Boolean).map(ce => (
-                <option key={ce!.id} value={ce!.id}>{String(ce!.id).padStart(4, '0')}: {ce!.name}</option>
-              ))}
-            </select>
+            <button className="eff-picker-btn" onClick={() => setPickerTarget('commonEvent')}>
+              <span>{getCELabel(formDataId)}</span>
+            </button>
           </div>
         )}
       </div>
@@ -417,6 +475,38 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
             </div>
           </div>
         </div>
+      )}
+
+      {pickerTarget && (pickerTarget === 'state21' || pickerTarget === 'state22') && (
+        <DataListPicker
+          items={stateNames}
+          value={formDataId}
+          onChange={(id) => setFormDataId(id)}
+          onClose={() => setPickerTarget(null)}
+          title={t('effects.codes.' + (pickerTarget === 'state21' ? '21' : '22')) + ' 선택'}
+          iconIndices={stateIcons}
+        />
+      )}
+
+      {pickerTarget === 'skill' && (
+        <DataListPicker
+          items={skillNames}
+          value={formDataId}
+          onChange={(id) => setFormDataId(id)}
+          onClose={() => setPickerTarget(null)}
+          title={t('effects.codes.43') + ' 선택'}
+          iconIndices={skillIcons}
+        />
+      )}
+
+      {pickerTarget === 'commonEvent' && (
+        <DataListPicker
+          items={ceNames}
+          value={formDataId}
+          onChange={(id) => setFormDataId(id)}
+          onClose={() => setPickerTarget(null)}
+          title={t('effects.codes.44') + ' 선택'}
+        />
       )}
     </div>
   );

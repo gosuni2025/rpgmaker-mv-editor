@@ -565,6 +565,30 @@
   background: #555;
 }
 
+/* Picker button (select replacement with popup) */
+.db-picker-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-picker-btn:hover {
+  border-color: #2675bf;
+  background: #333;
+}
+
 .db-loading,
 .db-placeholder {
   display: flex;

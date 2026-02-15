@@ -230,6 +230,34 @@
   flex-shrink: 0;
 }
 
+/* Picker button (replaces select) */
+.eff-picker-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 8px;
+  color: #ddd;
+  font-size: 12px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.eff-picker-btn:hover {
+  border-color: #2675bf;
+  background: #333;
+}
+
+.eff-picker-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Dialog footer */
 .effects-dialog-footer {
   display: flex;

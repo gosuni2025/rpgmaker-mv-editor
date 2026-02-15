@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Enemy, DropItem, EnemyAction } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import TraitsEditor from '../common/TraitsEditor';
 import TranslateButton from '../common/TranslateButton';
+import { DataListPicker, IconSprite } from '../EventEditor/dataListPicker';
 import apiClient from '../../api/client';
 
 interface EnemiesTabProps {
@@ -11,7 +12,7 @@ interface EnemiesTabProps {
   onChange: (data: (Enemy | null)[]) => void;
 }
 
-interface RefItem { id: number; name: string }
+interface RefItem { id: number; name: string; iconIndex?: number }
 const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 
 export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
@@ -25,6 +26,18 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
 
   const PARAM_NAMES = [t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'), t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck')];
 
+  const skillNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const s of skills) arr[s.id] = s.name;
+    return arr;
+  }, [skills]);
+
+  const skillIcons = useMemo(() => {
+    const arr: (number | undefined)[] = [];
+    for (const s of skills) arr[s.id] = s.iconIndex;
+    return arr;
+  }, [skills]);
+
   const DROP_KIND_LABELS: Record<number, string> = { 0: t('dropKind.none'), 1: t('dropKind.item'), 2: t('dropKind.weapon'), 3: t('dropKind.armor') };
 
   const CONDITION_TYPE_LABELS: Record<number, string> = {
@@ -37,8 +50,12 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
     6: t('conditionType.switch'),
   };
 
+  const [skillPickerIndex, setSkillPickerIndex] = useState<number | null>(null);
+
   useEffect(() => {
-    apiClient.get<(RefItem | null)[]>('/database/skills').then(d => setSkills(d.filter(Boolean) as RefItem[])).catch(() => {});
+    apiClient.get<({ id: number; name: string; iconIndex?: number } | null)[]>('/database/skills').then(d => {
+      setSkills(d.filter(Boolean).map(s => ({ id: s!.id, name: s!.name, iconIndex: s!.iconIndex })) as RefItem[]);
+    }).catch(() => {});
     apiClient.get<(RefItem | null)[]>('/database/items').then(d => setItems(d.filter(Boolean) as RefItem[])).catch(() => {});
     apiClient.get<(RefItem | null)[]>('/database/weapons').then(d => setWeapons(d.filter(Boolean) as RefItem[])).catch(() => {});
     apiClient.get<(RefItem | null)[]>('/database/armors').then(d => setArmors(d.filter(Boolean) as RefItem[])).catch(() => {});
@@ -238,15 +255,18 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
               {t('fields.actionPatterns')}
               <button className="db-btn-small" onClick={addAction}>+</button>
             </div>
-            {(selectedItem.actions || []).map((action: EnemyAction, i: number) => (
+            {(selectedItem.actions || []).map((action: EnemyAction, i: number) => {
+              const actionSkill = skills.find(s => s.id === action.skillId);
+              const actionSkillLabel = actionSkill ? `${String(action.skillId).padStart(4, '0')}: ${actionSkill.name}` : action.skillId === 0 ? t('common.none') : String(action.skillId);
+              return (
               <div key={i} style={{ border: '1px solid #444', borderRadius: 4, padding: 8, marginBottom: 8 }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
                   <label style={{ flex: 2 }}>
                     {t('fields.skill')}
-                    <select value={action.skillId} onChange={(e) => handleActionChange(i, 'skillId', Number(e.target.value))} style={selectStyle}>
-                      <option value={0}>{t('common.none')}</option>
-                      {skills.map(s => <option key={s.id} value={s.id}>{String(s.id).padStart(4, '0')}: {s.name}</option>)}
-                    </select>
+                    <button className="db-picker-btn" onClick={() => setSkillPickerIndex(i)}>
+                      {actionSkill?.iconIndex != null && actionSkill.iconIndex > 0 && <IconSprite iconIndex={actionSkill.iconIndex} />}
+                      <span>{actionSkillLabel}</span>
+                    </button>
                   </label>
                   <label style={{ flex: 1 }}>
                     {t('fields.rating')}
@@ -277,7 +297,8 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
                   </label>
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             <div className="db-form-section">{t('fields.traits')}</div>
             <TraitsEditor
@@ -296,6 +317,19 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
           </>
         )}
       </div>
+
+      {skillPickerIndex !== null && selectedItem && (
+        <DataListPicker
+          items={skillNames}
+          value={(selectedItem.actions || [])[skillPickerIndex]?.skillId ?? 0}
+          onChange={(id) => {
+            handleActionChange(skillPickerIndex, 'skillId', id);
+          }}
+          onClose={() => setSkillPickerIndex(null)}
+          title={t('fields.skill') + ' 선택'}
+          iconIndices={skillIcons}
+        />
+      )}
     </div>
   );
 }

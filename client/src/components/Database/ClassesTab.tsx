@@ -146,15 +146,15 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
-  const [skills, setSkills] = useState<{ id: number; name: string }[]>([]);
+  const [skills, setSkills] = useState<{ id: number; name: string; iconIndex?: number }[]>([]);
   const [showParamCurve, setShowParamCurve] = useState<number | null>(null); // null=closed, number=initial tab index
   const [showExpCurve, setShowExpCurve] = useState(false);
   const [editingLearning, setEditingLearning] = useState<{ index: number; learning: Learning } | null>(null);
   const [selectedLearningIdx, setSelectedLearningIdx] = useState(-1);
 
   useEffect(() => {
-    apiClient.get<({ id: number; name: string } | null)[]>('/database/skills').then(d => {
-      setSkills((d.filter(Boolean) as { id: number; name: string }[]));
+    apiClient.get<({ id: number; name: string; iconIndex?: number } | null)[]>('/database/skills').then(d => {
+      setSkills((d.filter(Boolean) as { id: number; name: string; iconIndex?: number }[]).map(s => ({ id: s.id, name: s.name, iconIndex: s.iconIndex })));
     }).catch(() => {});
   }, []);
 
