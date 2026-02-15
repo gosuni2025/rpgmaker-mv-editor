@@ -75,7 +75,7 @@ export function createApp(options: AppOptions = {}) {
     const hasStartPos = req.query.startX !== undefined && req.query.startY !== undefined;
     const startX = req.query.startX ? parseInt(req.query.startX as string, 10) : 0;
     const startY = req.query.startY ? parseInt(req.query.startY as string, 10) : 0;
-    const devScript = isDev ? '\n        <script type="text/javascript" src="js/ThreeDevOverlay.js"></script>\n        <script type="text/javascript" src="js/CameraZoneDevOverlay.js"></script>\n        <script type="text/javascript" src="js/FogOfWarDevPanel.js"></script>\n        <script type="text/javascript" src="js/MemoryDevPanel.js"></script>' : '';
+    const devScript = isDev ? '\n        <script type="text/javascript" src="js/ThreeDevOverlay.js"></script>\n        <script type="text/javascript" src="js/CameraZoneDevOverlay.js"></script>\n        <script type="text/javascript" src="js/FogOfWarDevPanel.js"></script>\n        <script type="text/javascript" src="js/MemoryDevPanel.js"></script>\n        <script type="text/javascript" src="js/TileIdDevOverlay.js"></script>' : '';
     const startMapScript = startMapId > 0 ? `
         <script type="text/javascript">
         // 현재 맵에서 테스트: 타이틀 스킵하고 지정 맵에서 시작
