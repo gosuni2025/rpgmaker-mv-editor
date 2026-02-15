@@ -39,8 +39,6 @@
         { key: 'dissolveStrength',   label: 'Dissolve Strength', min: 0,    max: 1.0,  step: 0.01, def: 0.25 },
         { key: 'fadeSmoothness',     label: 'Fade Smoothness',   min: 0.1,  max: 2.0,  step: 0.05, def: 0.7 },
         { key: 'nearVisWeight',      label: 'NearVis Weight',    min: 0,    max: 1.0,  step: 0.05, def: 0.7 },
-        { key: 'spreadPasses',       label: 'Spread Passes',     min: 1,    max: 8,    step: 1,    def: 4 },
-        { key: 'spreadDecay',        label: 'Spread Decay',      min: 0.3,  max: 0.9,  step: 0.05, def: 0.6 },
     ];
 
     // 내부 키 → FogOfWar 프로퍼티 이름 매핑
@@ -135,10 +133,6 @@
         SHADER_PARAMS.forEach(function(p) {
             var row = createSliderRow(p, function(val) {
                 FOW._shaderOverrides[p.key] = val;
-                // spreadPasses/spreadDecay 변경 시 재계산
-                if (p.key === 'spreadPasses' || p.key === 'spreadDecay') {
-                    FOW._prevPlayerX = -1;
-                }
             });
             body.appendChild(row);
         });
