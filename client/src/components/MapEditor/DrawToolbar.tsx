@@ -5,28 +5,26 @@ import useEditorStore from '../../store/useEditorStore';
 interface Tool {
   id: string;
   labelKey: string;
+  shortcut?: string;
 }
 
 const tools: Tool[] = [
-  { id: 'select', labelKey: 'toolbar.select' },
-  { id: 'pen', labelKey: 'toolbar.pencil' },
+  { id: 'select', labelKey: 'toolbar.select', shortcut: 'M' },
+  { id: 'pen', labelKey: 'toolbar.pencil', shortcut: 'P' },
   { id: 'rectangle', labelKey: 'toolbar.rectangle' },
   { id: 'ellipse', labelKey: 'toolbar.ellipse' },
-  { id: 'fill', labelKey: 'toolbar.fill' },
-  { id: 'eraser', labelKey: 'toolbar.eraser' },
+  { id: 'fill', labelKey: 'toolbar.fill', shortcut: 'B' },
   { id: 'shadow', labelKey: 'toolbar.shadow' },
 ];
-
-const layers = [0, 1, 2, 3];
 
 export default function DrawToolbar() {
   const { t } = useTranslation();
   const selectedTool = useEditorStore((s) => s.selectedTool);
-  const currentLayer = useEditorStore((s) => s.currentLayer);
+  const eraserMode = useEditorStore((s) => s.eraserMode);
   const editMode = useEditorStore((s) => s.editMode);
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
-  const setCurrentLayer = useEditorStore((s) => s.setCurrentLayer);
+  const setEraserMode = useEditorStore((s) => s.setEraserMode);
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const zoomIn = useEditorStore((s) => s.zoomIn);
   const zoomOut = useEditorStore((s) => s.zoomOut);
@@ -112,32 +110,30 @@ export default function DrawToolbar() {
             onClick={() => setSelectedTool(tool.id)}
             style={{
               ...styles.btn,
-              ...(selectedTool === tool.id ? styles.btnActive : {}),
+              ...(selectedTool === tool.id && !eraserMode ? styles.btnActive : {}),
               ...(editMode !== 'map' ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
             }}
+            title={tool.shortcut || undefined}
           >
-            {t(tool.labelKey)}
+            {t(tool.labelKey)}{tool.shortcut && <span style={styles.shortcut}>{tool.shortcut}</span>}
           </button>
         ))}
       </div>
 
       <div style={styles.separator} />
 
-      {/* Layer selector */}
-      <div style={styles.group}>
-        <span style={styles.label}>{t('toolbar.layer')}:</span>
-        <select
-          value={currentLayer}
-          onChange={(e) => setCurrentLayer(Number(e.target.value))}
-          style={styles.select}
-        >
-          {layers.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Eraser toggle */}
+      <button
+        onClick={() => setEraserMode(!eraserMode)}
+        style={{
+          ...styles.btn,
+          ...(eraserMode ? styles.btnEraserActive : {}),
+          ...(editMode !== 'map' ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
+        }}
+        title="E"
+      >
+        {t('toolbar.eraser')}<span style={styles.shortcut}>E</span>
+      </button>
 
       <div style={styles.separator} />
 
@@ -277,24 +273,16 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#fff',
     borderColor: '#0078d4',
   },
+  btnEraserActive: {
+    background: '#d43a0e',
+    color: '#fff',
+    borderColor: '#d43a0e',
+  },
   separator: {
     width: 1,
     height: 20,
     background: '#555',
     margin: '0 6px',
-  },
-  label: {
-    color: '#aaa',
-    fontSize: 12,
-    marginRight: 4,
-  },
-  select: {
-    background: '#3a3a3a',
-    color: '#ccc',
-    border: '1px solid #555',
-    borderRadius: 3,
-    padding: '2px 4px',
-    fontSize: 12,
   },
   shortcut: {
     color: '#888',

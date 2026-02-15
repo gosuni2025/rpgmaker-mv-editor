@@ -49,6 +49,7 @@ export default function MenuBar() {
   const setShowLocalizationDialog = useEditorStore((s) => s.setShowLocalizationDialog);
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
+  const setEraserMode = useEditorStore((s) => s.setEraserMode);
   const zoomIn = useEditorStore((s) => s.zoomIn);
   const zoomOut = useEditorStore((s) => s.zoomOut);
   const zoomActualSize = useEditorStore((s) => s.zoomActualSize);
@@ -192,10 +193,12 @@ export default function MenuBar() {
       case 'modeLight': setEditMode('light'); break;
       case 'modeObject': setEditMode('object'); break;
       case 'modeCameraZone': setEditMode('cameraZone'); break;
+      case 'toolSelect': setSelectedTool('select'); break;
       case 'toolPen': setSelectedTool('pen'); break;
       case 'toolRectangle': setSelectedTool('rectangle'); break;
       case 'toolEllipse': setSelectedTool('ellipse'); break;
       case 'toolFill': setSelectedTool('fill'); break;
+      case 'toolEraser': setEraserMode(!useEditorStore.getState().eraserMode); break;
       case 'toolShadow': setSelectedTool('shadow'); break;
       case 'zoomIn': zoomIn(); break;
       case 'zoomOut': zoomOut(); break;
@@ -230,7 +233,7 @@ export default function MenuBar() {
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
       setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
-      setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog, setEditMode, setSelectedTool, zoomIn, zoomOut,
+      setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog, setEditMode, setSelectedTool, setEraserMode, zoomIn, zoomOut,
       zoomActualSize, undo, redo, openProject, projectPath, t]);
 
   useEffect(() => {
@@ -265,6 +268,18 @@ export default function MenuBar() {
       else if (ctrl && e.key === 'd') { e.preventDefault(); handleAction('deselect'); }
       else if (e.key === 'Delete') { handleAction('delete'); }
       else if (e.key === 'Escape') { window.dispatchEvent(new CustomEvent('editor-escape')); }
+      // 도구 단축키 (Ctrl/Meta 없이, 텍스트 입력 중이 아닐 때)
+      else if (!ctrl && !e.shiftKey && !e.altKey) {
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if ((e.target as HTMLElement).isContentEditable) return;
+        switch (e.key.toLowerCase()) {
+          case 'e': e.preventDefault(); handleAction('toolEraser'); break;
+          case 'p': e.preventDefault(); handleAction('toolPen'); break;
+          case 'b': e.preventDefault(); handleAction('toolFill'); break;
+          case 'm': e.preventDefault(); handleAction('toolSelect'); break;
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
