@@ -17,20 +17,17 @@ interface FogOfWarConfig {
   fogColor: string;
   unexploredAlpha: number;
   exploredAlpha: number;
-  fogHeight?: number;
   lineOfSight?: boolean;
-  absorption?: number;
-  visibilityBrightness?: number;
+  fogTransitionSpeed?: number;
+  // 2D 셰이더
+  dissolveStrength?: number;
+  fadeSmoothness?: number;
+  tentacleSharpness?: number;
   edgeAnimation?: boolean;
   edgeAnimationSpeed?: number;
-  fogColorTop?: string;
-  heightGradient?: boolean;
-  godRay?: boolean;
-  godRayIntensity?: number;
-  vortex?: boolean;
-  vortexSpeed?: number;
-  lightScattering?: boolean;
-  lightScatterIntensity?: number;
+  // 촉수 타이밍
+  tentacleFadeDuration?: number;
+  tentacleGrowDuration?: number;
 }
 
 interface MapProps {
@@ -354,46 +351,148 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
                 })} />
               <span>활성화</span>
             </label>
-            {mapData.fogOfWar?.enabled && (
+            {mapData.fogOfWar?.enabled && (() => {
+              const fow = mapData.fogOfWar!;
+              const u = (patch: Partial<FogOfWarConfig>) => updateField('fogOfWar', { ...fow, ...patch });
+              return (
               <>
+                {/* 공통 */}
                 <label>
                   <span>시야 반경 (타일)</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input type="range" min={1} max={20} value={mapData.fogOfWar.radius ?? 5}
-                      onChange={e => updateField('fogOfWar', { ...mapData.fogOfWar!, radius: Number(e.target.value) })}
-                      style={{ flex: 1 }} />
-                    <span style={{ minWidth: 20, textAlign: 'center', color: '#ccc' }}>{mapData.fogOfWar.radius ?? 5}</span>
+                    <input type="range" min={1} max={30} value={fow.radius ?? 5}
+                      onChange={e => u({ radius: Number(e.target.value) })} style={{ flex: 1 }} />
+                    <span style={{ minWidth: 20, textAlign: 'center', color: '#ccc' }}>{fow.radius ?? 5}</span>
                   </div>
                 </label>
                 <label>
                   <span>안개 색상</span>
-                  <input type="color" value={mapData.fogOfWar.fogColor ?? '#000000'}
-                    onChange={e => updateField('fogOfWar', { ...mapData.fogOfWar!, fogColor: e.target.value })} />
+                  <input type="color" value={fow.fogColor ?? '#000000'}
+                    onChange={e => u({ fogColor: e.target.value })} />
                 </label>
                 <label>
                   <span>미탐험 불투명도</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input type="range" min={0} max={100} value={Math.round((mapData.fogOfWar.unexploredAlpha ?? 1.0) * 100)}
-                      onChange={e => updateField('fogOfWar', { ...mapData.fogOfWar!, unexploredAlpha: Number(e.target.value) / 100 })}
-                      style={{ flex: 1 }} />
+                    <input type="range" min={0} max={100} value={Math.round((fow.unexploredAlpha ?? 1.0) * 100)}
+                      onChange={e => u({ unexploredAlpha: Number(e.target.value) / 100 })} style={{ flex: 1 }} />
                     <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>
-                      {Math.round((mapData.fogOfWar.unexploredAlpha ?? 1.0) * 100)}%
+                      {Math.round((fow.unexploredAlpha ?? 1.0) * 100)}%
                     </span>
                   </div>
                 </label>
                 <label>
                   <span>탐험완료 불투명도</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input type="range" min={0} max={100} value={Math.round((mapData.fogOfWar.exploredAlpha ?? 0.6) * 100)}
-                      onChange={e => updateField('fogOfWar', { ...mapData.fogOfWar!, exploredAlpha: Number(e.target.value) / 100 })}
-                      style={{ flex: 1 }} />
+                    <input type="range" min={0} max={100} value={Math.round((fow.exploredAlpha ?? 0.6) * 100)}
+                      onChange={e => u({ exploredAlpha: Number(e.target.value) / 100 })} style={{ flex: 1 }} />
                     <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>
-                      {Math.round((mapData.fogOfWar.exploredAlpha ?? 0.6) * 100)}%
+                      {Math.round((fow.exploredAlpha ?? 0.6) * 100)}%
                     </span>
                   </div>
                 </label>
+                <label className="db-checkbox-row">
+                  <input type="checkbox" checked={fow.lineOfSight ?? true}
+                    onChange={e => u({ lineOfSight: e.target.checked })} />
+                  <span>시선 차단 (Line of Sight)</span>
+                </label>
+                <label>
+                  <span>전환 속도</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={1} max={20} step={0.5} value={fow.fogTransitionSpeed ?? 5.0}
+                      onChange={e => u({ fogTransitionSpeed: Number(e.target.value) })} style={{ flex: 1 }} />
+                    <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>{fow.fogTransitionSpeed ?? 5.0}</span>
+                  </div>
+                </label>
+
+                {/* 2D 셰이더 */}
+                <div style={{ color: '#6af', fontSize: 11, marginTop: 8 }}>2D 셰이더</div>
+                <label>
+                  <span>촉수 길이</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={0} max={4} step={0.1} value={fow.dissolveStrength ?? 2.0}
+                      onChange={e => u({ dissolveStrength: Number(e.target.value) })} style={{ flex: 1 }} />
+                    <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>{fow.dissolveStrength ?? 2.0}</span>
+                  </div>
+                </label>
+                <label>
+                  <span>페이드 범위</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={0.05} max={1} step={0.05} value={fow.fadeSmoothness ?? 0.3}
+                      onChange={e => u({ fadeSmoothness: Number(e.target.value) })} style={{ flex: 1 }} />
+                    <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>{fow.fadeSmoothness ?? 0.3}</span>
+                  </div>
+                </label>
+                <label>
+                  <span>촉수 날카로움</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={1} max={6} step={0.1} value={fow.tentacleSharpness ?? 3.0}
+                      onChange={e => u({ tentacleSharpness: Number(e.target.value) })} style={{ flex: 1 }} />
+                    <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>{fow.tentacleSharpness ?? 3.0}</span>
+                  </div>
+                </label>
+                <label className="db-checkbox-row">
+                  <input type="checkbox" checked={fow.edgeAnimation ?? true}
+                    onChange={e => u({ edgeAnimation: e.target.checked })} />
+                  <span>경계 애니메이션</span>
+                </label>
+                {(fow.edgeAnimation ?? true) && (
+                  <label>
+                    <span>애니메이션 속도</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input type="range" min={0} max={5} step={0.1} value={fow.edgeAnimationSpeed ?? 1.0}
+                        onChange={e => u({ edgeAnimationSpeed: Number(e.target.value) })} style={{ flex: 1 }} />
+                      <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>{fow.edgeAnimationSpeed ?? 1.0}</span>
+                    </div>
+                  </label>
+                )}
+
+                {/* 촉수 타이밍 */}
+                <div style={{ color: '#af6', fontSize: 11, marginTop: 8 }}>촉수 타이밍</div>
+                <label>
+                  <span>삭제 시간 (초)</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={0.1} max={5} step={0.1} value={fow.tentacleFadeDuration ?? 1.0}
+                      onChange={e => u({ tentacleFadeDuration: Number(e.target.value) })} style={{ flex: 1 }} />
+                    <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>{fow.tentacleFadeDuration ?? 1.0}</span>
+                  </div>
+                </label>
+                <label>
+                  <span>생성 시간 (초)</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={0.1} max={5} step={0.1} value={fow.tentacleGrowDuration ?? 0.5}
+                      onChange={e => u({ tentacleGrowDuration: Number(e.target.value) })} style={{ flex: 1 }} />
+                    <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>{fow.tentacleGrowDuration ?? 0.5}</span>
+                  </div>
+                </label>
+
+                {/* 붙여넣기 버튼 */}
+                <button className="db-btn" style={{ marginTop: 8, width: '100%' }}
+                  onClick={async () => {
+                    try {
+                      const text = await navigator.clipboard.readText();
+                      const parsed = JSON.parse(text) as Partial<FogOfWarConfig>;
+                      if (typeof parsed !== 'object' || parsed === null) return;
+                      const merged = { ...fow };
+                      const keys: (keyof FogOfWarConfig)[] = [
+                        'radius', 'fogColor', 'unexploredAlpha', 'exploredAlpha',
+                        'lineOfSight', 'fogTransitionSpeed',
+                        'dissolveStrength', 'fadeSmoothness', 'tentacleSharpness',
+                        'edgeAnimation', 'edgeAnimationSpeed',
+                        'tentacleFadeDuration', 'tentacleGrowDuration',
+                      ];
+                      for (const k of keys) {
+                        if (parsed[k] !== undefined) (merged as Record<string, unknown>)[k] = parsed[k];
+                      }
+                      updateField('fogOfWar', merged);
+                    } catch {
+                      // 클립보드 읽기 실패 또는 JSON 파싱 실패
+                    }
+                  }}>
+                  클립보드에서 붙여넣기
+                </button>
               </>
-            )}
+              );
+            })()}
           </div>
 
           {/* Note */}

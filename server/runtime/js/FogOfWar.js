@@ -415,6 +415,22 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
         this._vortexSpeed = config.vortexSpeed != null ? config.vortexSpeed : 1.0;
         this._lightScattering = config.lightScattering != null ? config.lightScattering : true;
         this._lightScatterIntensity = config.lightScatterIntensity != null ? config.lightScatterIntensity : 1.0;
+        this._fogTransitionSpeed = config.fogTransitionSpeed != null ? config.fogTransitionSpeed : 5.0;
+        this._tentacleFadeDuration = config.tentacleFadeDuration != null ? config.tentacleFadeDuration : 1.0;
+        this._tentacleGrowDuration = config.tentacleGrowDuration != null ? config.tentacleGrowDuration : 0.5;
+        // 2D 셰이더 파라미터를 _shaderOverrides로 적용
+        if (config.dissolveStrength != null) {
+            this._shaderOverrides = this._shaderOverrides || {};
+            this._shaderOverrides.dissolveStrength = config.dissolveStrength;
+        }
+        if (config.fadeSmoothness != null) {
+            this._shaderOverrides = this._shaderOverrides || {};
+            this._shaderOverrides.fadeSmoothness = config.fadeSmoothness;
+        }
+        if (config.tentacleSharpness != null) {
+            this._shaderOverrides = this._shaderOverrides || {};
+            this._shaderOverrides.tentacleSharpness = config.tentacleSharpness;
+        }
     }
 
     // 가시성 / 탐험 버퍼 (목표값 — 즉시 갱신)
@@ -428,9 +444,9 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
     this._tentacleFade = new Float32Array(size); // 사라짐 페이드 (1→0: 촉수 사라짐)
     this._growFade = new Float32Array(size);     // 생성 페이드 (0→1: 촉수 자라남)
     this._borderState = new Uint8Array(size);    // 이전 프레임의 경계 상태 (0/1)
-    this._fogTransitionSpeed = 5.0;  // 초당 전환 속도 (높을수록 빠름)
-    this._tentacleFadeDuration = 1.0; // 촉수 삭제 완료까지 시간 (초)
-    this._tentacleGrowDuration = 0.5; // 촉수 생성 완료까지 시간 (초)
+    if (!this._fogTransitionSpeed) this._fogTransitionSpeed = 5.0;
+    if (!this._tentacleFadeDuration) this._tentacleFadeDuration = 1.0;
+    if (!this._tentacleGrowDuration) this._tentacleGrowDuration = 0.5;
 
     // fog 텍스처: RG 채널 (R=visibility, G=explored)
     var texData = new Uint8Array(size * 4);
