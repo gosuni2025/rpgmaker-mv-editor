@@ -25,7 +25,7 @@ export default function FogOfWar3DBoxTestPage() {
   const orbitRef = useRef({
     center: null as any,
     theta: 0,
-    phi: Math.PI / 5,
+    phi: Math.PI / 3,
     distance: 600,
     isDragging: false,
     dragButton: -1,
@@ -178,7 +178,7 @@ export default function FogOfWar3DBoxTestPage() {
       0
     );
     orbit.theta = 0;
-    orbit.phi = Math.PI / 5;
+    orbit.phi = Math.PI / 3;
     orbit.distance = 600;
 
     const updateCamera = () => {
