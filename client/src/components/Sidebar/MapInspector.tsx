@@ -475,7 +475,7 @@ export default function MapInspector() {
                   style={{ flex: 1 }}
                 >
                   <option value="2d">2D (기본)</option>
-                  <option value="3d">3D 박스</option>
+                  <option value="3dbox">3D 박스</option>
                   <option value="volumetric">볼류메트릭</option>
                 </select>
               </div>
@@ -609,7 +609,7 @@ export default function MapInspector() {
               </div>
 
               {/* ── 3D 박스 ── */}
-              {fow.fogMode === '3d' && (
+              {fow.fogMode === '3dbox' && (
                 <>
                   <div style={{ color: '#8cf', fontSize: 10, marginTop: 10, borderBottom: '1px solid #444', paddingBottom: 2 }}>3D 박스</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>

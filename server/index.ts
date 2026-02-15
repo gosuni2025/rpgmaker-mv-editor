@@ -214,6 +214,7 @@ export function createApp(options: AppOptions = {}) {
         <script type="text/javascript" src="js/PostProcess.js${cacheBust}"></script>
         <script type="text/javascript" src="js/PictureShader.js${cacheBust}"></script>
         <script type="text/javascript" src="js/FogOfWar.js${cacheBust}"></script>
+        <script type="text/javascript" src="js/FogOfWar3D.js${cacheBust}"></script>
         <script type="text/javascript" src="js/plugins.js"></script>${devScript}${startMapScript}
         <script type="text/javascript" src="js/main.js${cacheBust}"></script>
     </body>
