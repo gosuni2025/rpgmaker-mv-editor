@@ -130,16 +130,19 @@ export function createApp(options: AppOptions = {}) {
             var totalH = mapH * tileSize;
 
             // Three.js 렌더러 생성
-            var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            window._testRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            var renderer = window._testRenderer;
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setClearColor(0x222222, 1);
             document.body.appendChild(renderer.domElement);
 
-            var scene = new THREE.Scene();
+            window._testScene = new THREE.Scene();
+            var scene = window._testScene;
 
             // 카메라: PerspectiveCamera (3D 박스를 확인하기 위해)
-            var camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+            window._testCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+            var camera = window._testCamera;
             camera.position.set(totalW / 2, totalH / 2, Math.max(totalW, totalH) * 1.2);
             camera.lookAt(totalW / 2, totalH / 2, 0);
 
@@ -522,6 +525,10 @@ export function createApp(options: AppOptions = {}) {
       return;
     }
     express.static(path.join(projectManager.currentPath!, 'data'))(req, res, next);
+  });
+  app.use('/audio', (req, res, next) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project');
+    express.static(path.join(projectManager.currentPath!, 'audio'))(req, res, next);
   });
   app.use('/plugins', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
