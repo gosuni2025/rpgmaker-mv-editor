@@ -1,15 +1,132 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Animation, AnimationTiming, AudioFile } from '../../types/rpgMakerMV';
-import ImagePicker from '../common/ImagePicker';
+import apiClient from '../../api/client';
 import AudioPicker from '../common/AudioPicker';
 import AnimationPreview from './AnimationPreview';
+import type { AnimationPreviewHandle } from './AnimationPreview';
 import DatabaseList from './DatabaseList';
 import './AnimationsTab.css';
 import './AnimationPreview.css';
 
 // 마지막으로 사용된 애니메이션 이미지를 기억하기 위한 모듈 변수
 let lastUsedAnimation1Name: string | null = null;
+
+// 이미지 선택 팝업
+function ImageSelectPopup({ type, value, hue, onSelect, onClose }: {
+  type: 'animations';
+  value: string;
+  hue: number;
+  onSelect: (name: string, hue: number) => void;
+  onClose: () => void;
+}) {
+  const [files, setFiles] = useState<string[]>([]);
+  const [selected, setSelected] = useState(value);
+  const [selectedHue, setSelectedHue] = useState(hue);
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    apiClient.get<string[]>(`/resources/${type}`).then(setFiles).catch(() => setFiles([]));
+  }, [type]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div className="modal-overlay">
+      <div className="anim-img-popup" ref={popupRef}>
+        <div className="anim-img-popup-header">이미지 선택</div>
+        <div className="anim-img-popup-body">
+          <div className="anim-img-popup-list">
+            <div
+              className={`anim-img-popup-item${selected === '' ? ' selected' : ''}`}
+              onClick={() => setSelected('')}
+            >(None)</div>
+            {files.map(f => {
+              const name = f.replace(/\.png$/i, '');
+              return (
+                <div
+                  key={f}
+                  className={`anim-img-popup-item${selected === name ? ' selected' : ''}`}
+                  onClick={() => setSelected(name)}
+                >{name}</div>
+              );
+            })}
+          </div>
+          <div className="anim-img-popup-preview">
+            {selected && (
+              <img
+                src={`/api/resources/${type}/${selected}.png`}
+                alt={selected}
+                style={{ maxWidth: '100%', maxHeight: 260, imageRendering: 'pixelated' }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            )}
+          </div>
+        </div>
+        <div className="anim-img-popup-hue">
+          <label>
+            색조
+            <input type="range" min={0} max={360} value={selectedHue} onChange={(e) => setSelectedHue(Number(e.target.value))} />
+            <span>{selectedHue}</span>
+          </label>
+        </div>
+        <div className="anim-img-popup-footer">
+          <button className="db-btn" onClick={() => { onSelect(selected, selectedHue); onClose(); }}>OK</button>
+          <button className="db-btn" onClick={onClose}>취소</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 최대 프레임 팝업
+function MaxFrameDialog({ value, onConfirm, onClose }: {
+  value: number;
+  onConfirm: (v: number) => void;
+  onClose: () => void;
+}) {
+  const [count, setCount] = useState(value);
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'Enter') { onConfirm(count); onClose(); }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose, onConfirm, count]);
+
+  return (
+    <div className="modal-overlay">
+      <div className="anim-maxframe-dialog" ref={popupRef}>
+        <div className="anim-maxframe-header">최대 프레임</div>
+        <div className="anim-maxframe-body">
+          <label>
+            갯수:
+            <input type="number" min={1} max={999} value={count} onChange={(e) => setCount(Number(e.target.value))} autoFocus />
+          </label>
+        </div>
+        <div className="anim-maxframe-footer">
+          <button className="db-btn" onClick={() => { onConfirm(count); onClose(); }}>OK</button>
+          <button className="db-btn" onClick={onClose}>취소</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface AnimationsTabProps {
   data: (Animation | null)[] | undefined;
@@ -22,14 +139,18 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const [selectedTimingIdx, setSelectedTimingIdx] = useState<number>(-1);
   const [selectedFrameIdx, setSelectedFrameIdx] = useState(0);
+  const [showImg1Popup, setShowImg1Popup] = useState(false);
+  const [showImg2Popup, setShowImg2Popup] = useState(false);
+  const [showMaxFrameDialog, setShowMaxFrameDialog] = useState(false);
+  const [targetImageName, setTargetImageName] = useState('Dragon');
+  const previewRef = useRef<AnimationPreviewHandle>(null);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
   const initRef = useRef(false);
 
-  // 처음 열 때 마지막 사용 이미지 추적: 데이터에서 이미지가 있는 마지막 애니메이션을 찾아 저장
+  // 처음 열 때 마지막 사용 이미지 추적
   useEffect(() => {
     if (initRef.current || !data) return;
     initRef.current = true;
-    // 데이터에서 animation1Name이 있는 항목 중 가장 마지막 것을 찾기
     const items = data.filter(Boolean) as Animation[];
     for (let i = items.length - 1; i >= 0; i--) {
       if (items[i].animation1Name) {
@@ -44,7 +165,6 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     const newData = data.map((item) => {
       if (item && item.id === selectedId) {
         const updated = { ...item, [field]: value };
-        // 이미지 변경 시 추적
         if (field === 'animation1Name' && typeof value === 'string' && value) {
           lastUsedAnimation1Name = value;
         }
@@ -55,10 +175,36 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     onChange(newData);
   };
 
+  const handleMultiFieldChange = (fields: Partial<Animation>) => {
+    if (!data) return;
+    const newData = data.map((item) => {
+      if (item && item.id === selectedId) {
+        const updated = { ...item, ...fields };
+        if ('animation1Name' in fields && typeof fields.animation1Name === 'string' && fields.animation1Name) {
+          lastUsedAnimation1Name = fields.animation1Name;
+        }
+        return updated;
+      }
+      return item;
+    });
+    onChange(newData);
+  };
+
+  const handleMaxFrameChange = (newMax: number) => {
+    if (!selectedItem || newMax < 1) return;
+    const frames = [...(selectedItem.frames || [])];
+    if (newMax > frames.length) {
+      while (frames.length < newMax) frames.push([]);
+    } else {
+      frames.length = newMax;
+    }
+    handleFieldChange('frames', frames);
+    if (selectedFrameIdx >= newMax) setSelectedFrameIdx(newMax - 1);
+  };
+
   const handleAddNew = useCallback(() => {
     if (!data) return;
     const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
-    // 기본 이미지: 마지막 사용 이미지 또는 Dragon
     const defaultImage = lastUsedAnimation1Name || 'Dragon';
     const newAnim: Animation = {
       id: maxId + 1, name: '', animation1Name: defaultImage, animation1Hue: 0,
@@ -94,7 +240,7 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     newData[newId] = {
       ...source, id: newId,
       frames: source.frames.map(f => f.map(c => [...c])),
-      timings: source.timings.map(t => ({ ...t, flashColor: [...(t.flashColor || [255, 255, 255, 170])], se: { ...(t.se || { name: '', pan: 0, pitch: 100, volume: 90 }) } })),
+      timings: source.timings.map(ti => ({ ...ti, flashColor: [...(ti.flashColor || [255, 255, 255, 170])], se: { ...(ti.se || { name: '', pan: 0, pitch: 100, volume: 90 }) } })),
     };
     onChange(newData);
     setSelectedId(newId);
@@ -133,26 +279,17 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     setSelectedTimingIdx(-1);
   };
 
-  // 타이밍 정보를 텍스트로 표시
   const getTimingSeText = (timing: AnimationTiming): string => {
-    if (timing.se && timing.se.name) {
-      return timing.se.name;
-    }
+    if (timing.se && timing.se.name) return timing.se.name;
     return t('animations.noSe');
   };
 
   const getTimingFlashText = (timing: AnimationTiming): string => {
-    if (timing.flashScope === 3) {
-      return t('animations.hideTarget');
-    }
-    if (timing.flashScope === 0 || (!timing.flashColor && timing.flashScope !== 3)) {
-      return t('animations.noFlash');
-    }
+    if (timing.flashScope === 3) return t('animations.hideTarget');
+    if (timing.flashScope === 0 || (!timing.flashColor && timing.flashScope !== 3)) return t('animations.noFlash');
     const c = timing.flashColor || [255, 255, 255, 170];
     const d = timing.flashDuration || 0;
-    if (timing.flashScope === 2) {
-      return `화면(${c[0]},${c[1]},${c[2]},${c[3]}), ${d}프레임들`;
-    }
+    if (timing.flashScope === 2) return `화면(${c[0]},${c[1]},${c[2]},${c[3]}), ${d}프레임들`;
     return `대상(${c[0]},${c[1]},${c[2]},${c[3]}), ${d}프레임들`;
   };
 
@@ -172,66 +309,45 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
       <div className="db-form anim-form-layout">
         {selectedItem && (
           <>
-            {/* 상단: 일반 설정 + SE와 Flash 타이밍 */}
+            {/* ===== 상단: 일반 설정 + SE와 Flash 타이밍 ===== */}
             <div className="anim-upper-section">
-              {/* 왼쪽: 일반 설정 */}
-              <div className="anim-general-settings">
-                <div className="db-form-section">{t('animations.generalSettings')}</div>
-                <label>
-                  {t('common.name')}
-                  <input type="text" value={selectedItem.name || ''} onChange={(e) => handleFieldChange('name', e.target.value)} />
-                </label>
+              {/* 왼쪽: 일반 설정 (테두리 박스) */}
+              <fieldset className="anim-fieldset anim-general-settings">
+                <legend>{t('animations.generalSettings')}</legend>
+                <div className="anim-field-row">
+                  <label className="anim-field-label">{t('common.name')}:</label>
+                  <input type="text" className="anim-field-input" value={selectedItem.name || ''} onChange={(e) => handleFieldChange('name', e.target.value)} />
+                </div>
 
-                <div className="anim-image-row">
-                  <div className="anim-image-col">
-                    <label>{t('animations.image1')}</label>
-                    <ImagePicker
-                      type="animations"
-                      value={selectedItem.animation1Name || ''}
-                      onChange={(n) => handleFieldChange('animation1Name', n)}
-                    />
-                    <label className="anim-hue-label">
-                      {t('animations.hue')}
-                      <div className="db-slider-row">
-                        <input type="range" min={0} max={360} value={selectedItem.animation1Hue || 0} onChange={(e) => handleFieldChange('animation1Hue', Number(e.target.value))} />
-                        <span className="db-slider-value">{selectedItem.animation1Hue || 0}</span>
-                      </div>
-                    </label>
+                <div className="anim-field-row">
+                  <label className="anim-field-label">{t('animations.image1')}:</label>
+                  <div className="anim-img-btn-row">
+                    <input type="text" className="anim-field-input" value={selectedItem.animation1Name || '(None)'} readOnly />
+                    <button className="db-btn-small" onClick={() => setShowImg1Popup(true)}>...</button>
                   </div>
-                  <div className="anim-image-col">
-                    <label>{t('animations.image2')}</label>
-                    <ImagePicker
-                      type="animations"
-                      value={selectedItem.animation2Name || ''}
-                      onChange={(n) => handleFieldChange('animation2Name', n)}
-                    />
-                    <label className="anim-hue-label">
-                      {t('animations.hue')}
-                      <div className="db-slider-row">
-                        <input type="range" min={0} max={360} value={selectedItem.animation2Hue || 0} onChange={(e) => handleFieldChange('animation2Hue', Number(e.target.value))} />
-                        <span className="db-slider-value">{selectedItem.animation2Hue || 0}</span>
-                      </div>
-                    </label>
+                </div>
+                <div className="anim-field-row">
+                  <label className="anim-field-label">{t('animations.image2')}:</label>
+                  <div className="anim-img-btn-row">
+                    <input type="text" className="anim-field-input" value={selectedItem.animation2Name || '(None)'} readOnly />
+                    <button className="db-btn-small" onClick={() => setShowImg2Popup(true)}>...</button>
                   </div>
                 </div>
 
-                <label>
-                  {t('animations.position')}
-                  <select value={selectedItem.position || 0} onChange={(e) => handleFieldChange('position', Number(e.target.value))}>
+                <div className="anim-field-row">
+                  <label className="anim-field-label">{t('animations.position')}:</label>
+                  <select className="anim-field-select" value={selectedItem.position || 0} onChange={(e) => handleFieldChange('position', Number(e.target.value))}>
                     {POSITION_OPTIONS.map((name, i) => <option key={i} value={i}>{name}</option>)}
                   </select>
-                </label>
-              </div>
-
-              {/* 오른쪽: SE와 Flash 타이밍 테이블 */}
-              <div className="anim-timing-section">
-                <div className="db-form-section">
-                  {t('animations.seAndFlashTiming')}
-                  <div className="anim-timing-buttons">
-                    <button className="db-btn-small" onClick={addTiming}>+</button>
-                    <button className="db-btn-small" onClick={() => selectedTimingIdx >= 0 && removeTiming(selectedTimingIdx)} disabled={selectedTimingIdx < 0}>-</button>
-                  </div>
+                  <label className="anim-field-label" style={{ marginLeft: 12 }}>최대 프레임:</label>
+                  <input type="text" className="anim-maxframe-input" value={totalFrames} readOnly />
+                  <button className="db-btn-small" onClick={() => setShowMaxFrameDialog(true)}>...</button>
                 </div>
+              </fieldset>
+
+              {/* 오른쪽: SE와 Flash 타이밍 (테두리 박스) */}
+              <fieldset className="anim-fieldset anim-timing-section">
+                <legend>{t('animations.seAndFlashTiming')}</legend>
                 <div className="anim-timing-table-wrapper">
                   <table className="anim-timing-table">
                     <thead>
@@ -239,7 +355,6 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                         <th className="anim-timing-col-no">{t('animations.timingNo')}</th>
                         <th className="anim-timing-col-se">{t('animations.timingSe')}</th>
                         <th className="anim-timing-col-flash">{t('animations.timingFlash')}</th>
-                        <th className="anim-timing-col-frame">{t('animations.timingFrameAt')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -248,11 +363,11 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                           key={i}
                           className={selectedTimingIdx === i ? 'selected' : ''}
                           onClick={() => setSelectedTimingIdx(i)}
+                          onDoubleClick={() => setSelectedTimingIdx(i)}
                         >
                           <td className="anim-timing-col-no">#{String(i + 1).padStart(3, '0')}</td>
                           <td className="anim-timing-col-se">{getTimingSeText(timing)}</td>
-                          <td className="anim-timing-col-flash">{getTimingFlashText(timing)}</td>
-                          <td className="anim-timing-col-frame">{timing.frame}프레임들</td>
+                          <td className="anim-timing-col-flash">{getTimingFlashText(timing)}, {timing.frame}프레임들</td>
                         </tr>
                       ))}
                     </tbody>
@@ -280,6 +395,8 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                         {t('animations.duration')}
                         <input type="number" min={0} value={selectedItem.timings[selectedTimingIdx].flashDuration || 0} onChange={(e) => handleTimingChange(selectedTimingIdx, 'flashDuration', Number(e.target.value))} style={{ width: 50 }} />
                       </label>
+                      <button className="db-btn-small" style={{ marginLeft: 'auto' }} onClick={addTiming}>+</button>
+                      <button className="db-btn-small" onClick={() => removeTiming(selectedTimingIdx)}>-</button>
                     </div>
                     <div className="anim-timing-edit-row">
                       <label style={{ flex: 1 }}>
@@ -300,12 +417,18 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                     </div>
                   </div>
                 )}
-              </div>
+                {/* 타이밍이 없거나 선택 안 됐을 때 +/- 버튼 */}
+                {(selectedTimingIdx < 0 || !selectedItem.timings || !selectedItem.timings[selectedTimingIdx]) && (
+                  <div className="anim-timing-edit-row" style={{ padding: '4px 0' }}>
+                    <button className="db-btn-small" style={{ marginLeft: 'auto' }} onClick={addTiming}>+</button>
+                  </div>
+                )}
+              </fieldset>
             </div>
 
-            {/* 하단: 프레임 */}
-            <div className="anim-lower-section">
-              <div className="db-form-section">{t('animations.frames')}</div>
+            {/* ===== 하단: 프레임 (테두리 박스) ===== */}
+            <fieldset className="anim-fieldset anim-lower-section">
+              <legend>{t('animations.frames')}</legend>
               <div className="anim-frame-area">
                 {/* 왼쪽: 프레임 목록 */}
                 <div className="anim-frame-list">
@@ -323,12 +446,65 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                   )}
                 </div>
 
-                {/* 오른쪽: 애니메이션 미리보기 */}
+                {/* 가운데: 미리보기 캔버스 */}
                 <div className="anim-frame-preview">
-                  <AnimationPreview animation={selectedItem} initialFrame={selectedFrameIdx} />
+                  <AnimationPreview ref={previewRef} animation={selectedItem} initialFrame={selectedFrameIdx} targetImageName={targetImageName} />
+                </div>
+
+                {/* 오른쪽: 버튼 */}
+                <div className="anim-frame-buttons">
+                  <button className="anim-frame-btn" onClick={() => {
+                    // 대상 변경: 간단히 prompt로 처리 (추후 팝업으로 교체 가능)
+                    const name = window.prompt('대상 이미지 이름 (예: Dragon, Bat)', targetImageName);
+                    if (name !== null) setTargetImageName(name || 'Dragon');
+                  }}>대상 변경...</button>
+                  <button className="anim-frame-btn">전 프레임 붙이기</button>
+                  <button className="anim-frame-btn">보완...</button>
+                  <button className="anim-frame-btn">일괄 설정...</button>
+                  <button className="anim-frame-btn">시프트...</button>
+                  <button className="anim-frame-btn anim-frame-btn-play" onClick={() => previewRef.current?.play()}>재생</button>
                 </div>
               </div>
-            </div>
+
+              {/* 하단: 셀 팔레트 (이미지1의 스프라이트 시트) */}
+              <div className="anim-cell-palette">
+                {selectedItem.animation1Name && (
+                  <img
+                    src={`/api/resources/animations/${selectedItem.animation1Name}.png`}
+                    alt="Cell palette"
+                    className="anim-cell-palette-img"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                )}
+              </div>
+            </fieldset>
+
+            {/* ===== 팝업들 ===== */}
+            {showImg1Popup && (
+              <ImageSelectPopup
+                type="animations"
+                value={selectedItem.animation1Name || ''}
+                hue={selectedItem.animation1Hue || 0}
+                onSelect={(name, hue) => handleMultiFieldChange({ animation1Name: name, animation1Hue: hue })}
+                onClose={() => setShowImg1Popup(false)}
+              />
+            )}
+            {showImg2Popup && (
+              <ImageSelectPopup
+                type="animations"
+                value={selectedItem.animation2Name || ''}
+                hue={selectedItem.animation2Hue || 0}
+                onSelect={(name, hue) => handleMultiFieldChange({ animation2Name: name, animation2Hue: hue })}
+                onClose={() => setShowImg2Popup(false)}
+              />
+            )}
+            {showMaxFrameDialog && (
+              <MaxFrameDialog
+                value={totalFrames}
+                onConfirm={handleMaxFrameChange}
+                onClose={() => setShowMaxFrameDialog(false)}
+              />
+            )}
           </>
         )}
       </div>

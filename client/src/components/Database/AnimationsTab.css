@@ -6,39 +6,79 @@
   gap: 8px;
 }
 
-/* 상단 영역: 일반 설정 + SE/Flash 타이밍 */
+/* ===== Fieldset 공통 (테두리 박스) ===== */
+.anim-fieldset {
+  border: 1px solid #666;
+  border-radius: 3px;
+  padding: 8px 10px;
+  margin: 0;
+}
+
+.anim-fieldset legend {
+  font-size: 12px;
+  font-weight: bold;
+  color: #ccc;
+  padding: 0 6px;
+}
+
+/* ===== 상단 영역: 일반 설정 + SE/Flash 타이밍 ===== */
 .anim-upper-section {
   display: flex;
-  gap: 16px;
-  align-items: flex-start;
+  gap: 8px;
+  align-items: stretch;
 }
 
 /* 일반 설정 패널 */
 .anim-general-settings {
   display: flex;
   flex-direction: column;
+  gap: 5px;
+  min-width: 320px;
+  max-width: 380px;
+}
+
+/* 필드 행 */
+.anim-field-row {
+  display: flex;
+  align-items: center;
   gap: 6px;
-  min-width: 280px;
-  max-width: 320px;
 }
 
-.anim-image-row {
-  display: flex;
-  gap: 12px;
+.anim-field-label {
+  font-size: 12px;
+  color: #aaa;
+  white-space: nowrap;
+  min-width: 52px;
 }
 
-.anim-image-col {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.anim-field-input {
   flex: 1;
+  min-width: 0;
 }
 
-.anim-hue-label {
-  font-size: 11px;
+.anim-field-select {
+  min-width: 80px;
 }
 
-/* SE와 Flash 타이밍 섹션 */
+.anim-img-btn-row {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+}
+
+.anim-img-btn-row .anim-field-input {
+  cursor: pointer;
+  background: #2b2b2b;
+}
+
+.anim-maxframe-input {
+  width: 50px;
+  text-align: center;
+  background: #2b2b2b;
+}
+
+/* ===== SE와 Flash 타이밍 섹션 ===== */
 .anim-timing-section {
   flex: 1;
   min-width: 0;
@@ -47,25 +87,14 @@
   gap: 4px;
 }
 
-.anim-timing-section .db-form-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.anim-timing-buttons {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-}
-
 /* 타이밍 테이블 */
 .anim-timing-table-wrapper {
   border: 1px solid #555;
   border-radius: 3px;
   overflow-y: auto;
-  max-height: 140px;
+  max-height: 120px;
   background: #2b2b2b;
+  flex: 1;
 }
 
 .anim-timing-table {
@@ -82,7 +111,7 @@
 }
 
 .anim-timing-table th {
-  padding: 4px 8px;
+  padding: 3px 8px;
   text-align: left;
   font-weight: normal;
   color: #aaa;
@@ -91,7 +120,7 @@
 }
 
 .anim-timing-table td {
-  padding: 3px 8px;
+  padding: 2px 8px;
   border-bottom: 1px solid #3a3a3a;
   white-space: nowrap;
   overflow: hidden;
@@ -111,28 +140,15 @@
   color: #fff;
 }
 
-.anim-timing-col-no {
-  width: 60px;
-}
-
-.anim-timing-col-se {
-  width: 100px;
-}
-
-.anim-timing-col-flash {
-  /* flex */
-}
-
-.anim-timing-col-frame {
-  width: 80px;
-}
+.anim-timing-col-no { width: 55px; }
+.anim-timing-col-se { width: 90px; }
 
 /* 타이밍 편집 영역 */
 .anim-timing-edit {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px;
+  gap: 5px;
+  padding: 6px 8px;
   background: #333;
   border: 1px solid #555;
   border-radius: 3px;
@@ -141,7 +157,7 @@
 
 .anim-timing-edit-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
 }
@@ -162,7 +178,7 @@
   width: 45px;
 }
 
-/* 하단: 프레임 영역 */
+/* ===== 하단: 프레임 영역 ===== */
 .anim-lower-section {
   flex: 1;
   min-height: 0;
@@ -172,15 +188,15 @@
 
 .anim-frame-area {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex: 1;
   min-height: 0;
 }
 
 /* 프레임 목록 */
 .anim-frame-list {
-  width: 80px;
-  min-width: 80px;
+  width: 70px;
+  min-width: 70px;
   overflow-y: auto;
   border: 1px solid #555;
   border-radius: 3px;
@@ -188,7 +204,7 @@
 }
 
 .anim-frame-item {
-  padding: 3px 8px;
+  padding: 2px 6px;
   font-size: 12px;
   cursor: pointer;
   color: #ccc;
@@ -204,7 +220,7 @@
 }
 
 .anim-frame-empty {
-  padding: 3px 8px;
+  padding: 2px 6px;
   font-size: 12px;
   color: #888;
 }
@@ -215,4 +231,186 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* 프레임 우측 버튼 */
+.anim-frame-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 110px;
+}
+
+.anim-frame-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  background: #3c3c3c;
+  border: 1px solid #666;
+  border-radius: 3px;
+  color: #ddd;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.anim-frame-btn:hover {
+  background: #4a4a4a;
+  border-color: #888;
+}
+
+.anim-frame-btn:active {
+  background: #2675bf;
+}
+
+.anim-frame-btn-play {
+  margin-top: auto;
+}
+
+/* 셀 팔레트 */
+.anim-cell-palette {
+  margin-top: 6px;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #2b2b2b;
+  min-height: 48px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+}
+
+.anim-cell-palette-img {
+  height: 48px;
+  image-rendering: pixelated;
+}
+
+/* ===== 이미지 선택 팝업 ===== */
+.anim-img-popup {
+  background: #3c3f41;
+  border: 1px solid #555;
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  width: 560px;
+  max-height: 480px;
+  display: flex;
+  flex-direction: column;
+}
+
+.anim-img-popup-header {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: bold;
+  border-bottom: 1px solid #555;
+}
+
+.anim-img-popup-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.anim-img-popup-list {
+  width: 180px;
+  overflow-y: auto;
+  border-right: 1px solid #555;
+  background: #353535;
+}
+
+.anim-img-popup-item {
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #ccc;
+}
+
+.anim-img-popup-item:hover {
+  background: #3a3a3a;
+}
+
+.anim-img-popup-item.selected {
+  background: #2675bf;
+  color: #fff;
+}
+
+.anim-img-popup-preview {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  overflow: auto;
+}
+
+.anim-img-popup-hue {
+  padding: 6px 12px;
+  border-top: 1px solid #555;
+}
+
+.anim-img-popup-hue label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.anim-img-popup-hue input[type="range"] {
+  flex: 1;
+}
+
+.anim-img-popup-hue span {
+  min-width: 30px;
+  text-align: right;
+}
+
+.anim-img-popup-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #555;
+}
+
+/* ===== 최대 프레임 다이얼로그 ===== */
+.anim-maxframe-dialog {
+  background: #3c3f41;
+  border: 1px solid #555;
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  width: 260px;
+}
+
+.anim-maxframe-header {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: bold;
+  border-bottom: 1px solid #555;
+  text-align: center;
+}
+
+.anim-maxframe-body {
+  padding: 16px;
+}
+
+.anim-maxframe-body label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.anim-maxframe-body input {
+  flex: 1;
+  text-align: center;
+}
+
+.anim-maxframe-footer {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid #555;
 }
