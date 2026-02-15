@@ -9,33 +9,40 @@ const TILE_SIZE = 48;
 const MAP_W = 15;
 const MAP_H = 12;
 
-function generateTestHeightMap(w: number, h: number, preset: string): Float32Array {
-  const hm = new Float32Array(w * h);
+/** blockMap 생성: 1=통행불가(시야차단), 0=통행가능 */
+function generateBlockMap(w: number, h: number, preset: string): Uint8Array {
+  const bm = new Uint8Array(w * h);
   if (preset === 'castle') {
-    for (let x = 1; x < w - 1; x++) { hm[1 * w + x] = 3; hm[(h - 2) * w + x] = 3; }
-    for (let y = 1; y < h - 1; y++) { hm[y * w + 1] = 3; hm[y * w + (w - 2)] = 3; }
-    for (let y = 1; y < h - 4; y++) hm[y * w + 7] = 2;
-    hm[4 * w + 7] = 0; hm[1 * w + 5] = 0; hm[(h - 2) * w + 5] = 0;
-    hm[4 * w + 4] = 4; hm[4 * w + 10] = 4;
+    // 외벽
+    for (let x = 1; x < w - 1; x++) { bm[1 * w + x] = 1; bm[(h - 2) * w + x] = 1; }
+    for (let y = 1; y < h - 1; y++) { bm[y * w + 1] = 1; bm[y * w + (w - 2)] = 1; }
+    // 내벽
+    for (let y = 1; y < h - 4; y++) bm[y * w + 7] = 1;
+    // 문
+    bm[4 * w + 7] = 0; bm[1 * w + 5] = 0; bm[(h - 2) * w + 5] = 0;
+    // 기둥
+    bm[4 * w + 4] = 1; bm[4 * w + 10] = 1;
   } else if (preset === 'canyon') {
+    // 상하 벽
     for (let y = 0; y < h; y++) {
-      if (y <= 1 || y >= h - 2) { for (let x = 0; x < w; x++) hm[y * w + x] = 4; }
+      if (y <= 1 || y >= h - 2) { for (let x = 0; x < w; x++) bm[y * w + x] = 1; }
     }
-    for (let y = 0; y < h; y++) { if (y < 4 || y > 6) hm[y * w + 7] = 3; }
-    hm[5 * w + 3] = 1; hm[5 * w + 4] = 1;
+    // 중앙 벽 (통로 있음)
+    for (let y = 0; y < h; y++) { if (y < 4 || y > 6) bm[y * w + 7] = 1; }
   } else {
-    const S: number[][] = [
-      [3,2,2,2,1], [7,2,1,4,2], [10,1,2,2,3], [12,5,1,1,4],
-      [3,6,4,1,1], [3,9,1,2,3], [9,7,3,3,2.5],
+    // mixed: 여러 벽 블록
+    const walls: [number, number, number, number][] = [
+      [3,2,2,2], [7,2,1,4], [10,1,2,2], [12,5,1,1],
+      [3,6,4,1], [3,9,1,2], [9,7,3,3],
     ];
-    for (const [sx,sy,sw,sh,ht] of S)
+    for (const [sx,sy,sw,sh] of walls)
       for (let dy = 0; dy < sh; dy++)
         for (let dx = 0; dx < sw; dx++) {
           const px = sx + dx, py = sy + dy;
-          if (px < w && py < h) hm[py * w + px] = ht;
+          if (px < w && py < h) bm[py * w + px] = 1;
         }
   }
-  return hm;
+  return bm;
 }
 
 export default function LoS3DTestPage() {
@@ -48,10 +55,8 @@ export default function LoS3DTestPage() {
   const lastTimeRef = useRef(0);
   const playerRef = useRef({ x: 6, y: 5 });
   const markerRef = useRef<any>(null);
-  const heightMapRef = useRef<Float32Array | null>(null);
-  // 디버그 오버레이 (가시/차단 색상 표시)
+  const blockMapRef = useRef<Uint8Array | null>(null);
   const debugMeshRef = useRef<any>(null);
-  // hover
   const hoverRef = useRef<any>(null);
   const hoverTileRef = useRef({ x: -1, y: -1 });
 
@@ -63,14 +68,11 @@ export default function LoS3DTestPage() {
   const [preset, setPreset] = useState('mixed');
   const [radius, setRadius] = useState(8);
   const [lineOfSight, setLineOfSight] = useState(true);
-  const [lineOfSight3D, setLineOfSight3D] = useState(true);
-  const [eyeHeight, setEyeHeight] = useState(1.5);
   const [showDebug, setShowDebug] = useState(true);
   const [playerPos, setPlayerPos] = useState({ x: 6, y: 5 });
   const [hoverInfo, setHoverInfo] = useState('');
   const [infoText, setInfoText] = useState('Loading...');
 
-  // debug 오버레이 색상 갱신
   const refreshDebugOverlay = useCallback(() => {
     if (!FogOfWar._active || !debugMeshRef.current) return;
     const vis = FogOfWar._visibilityData;
@@ -109,10 +111,8 @@ export default function LoS3DTestPage() {
     colors.needsUpdate = true;
   }, [showDebug, radius]);
 
-  // 디버그 오버레이 메쉬 생성 (초기화 시 1회)
   const createDebugMesh = useCallback((scene: any) => {
     const tileCount = MAP_W * MAP_H;
-    const hm = heightMapRef.current;
     const positions = new Float32Array(tileCount * 6 * 3);
     const colors = new Float32Array(tileCount * 6 * 4);
     for (let y = 0; y < MAP_H; y++) {
@@ -120,8 +120,7 @@ export default function LoS3DTestPage() {
         const idx = y * MAP_W + x;
         const cx = (x + 0.5) * TILE_SIZE, cy = (y + 0.5) * TILE_SIZE;
         const s = TILE_SIZE * 0.35;
-        const tileH = hm ? hm[idx] : 0;
-        const z = tileH > 0 ? tileH * TILE_SIZE * 0.5 + 2 : 2;
+        const z = 2;
         const base = idx * 18;
         positions[base]   = cx-s; positions[base+1] = cy-s; positions[base+2] = z;
         positions[base+3] = cx+s; positions[base+4] = cy-s; positions[base+5] = z;
@@ -152,8 +151,8 @@ export default function LoS3DTestPage() {
     playerRef.current = { x: startX, y: startY };
     setPlayerPos({ x: startX, y: startY });
 
-    const heightMap = generateTestHeightMap(MAP_W, MAP_H, preset);
-    heightMapRef.current = heightMap;
+    const blockMap = generateBlockMap(MAP_W, MAP_H, preset);
+    blockMapRef.current = blockMap;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     const container = canvasRef.current;
@@ -191,18 +190,32 @@ export default function LoS3DTestPage() {
       ]), gridMat));
     }
 
+    // 벽 타일 표시 (바닥에 색상으로)
+    const wallMat = new THREE.MeshBasicMaterial({ color: 0x664444, side: THREE.DoubleSide });
+    for (let y = 0; y < MAP_H; y++) {
+      for (let x = 0; x < MAP_W; x++) {
+        if (!blockMap[y * MAP_W + x]) continue;
+        const wall = new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE - 1, TILE_SIZE - 1), wallMat);
+        wall.position.set((x + 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE, 0);
+        scene.add(wall);
+      }
+    }
+
     // 조명
     scene.add(new THREE.AmbientLight(0x888888));
     const dl = new THREE.DirectionalLight(0xffffff, 0.6);
     dl.position.set(totalW, totalH, 400);
     scene.add(dl);
 
-    // FogOfWar 초기화
+    // FogOfWar 초기화 (2D LoS만)
     FogOfWar.setup(MAP_W, MAP_H, {
-      radius, lineOfSight, lineOfSight3D, eyeHeight,
+      radius, lineOfSight,
       exploredAlpha: 0.6, unexploredAlpha: 1.0, edgeAnimation: true,
     });
-    FogOfWar.setCustomHeightMap(heightMap);
+    // blockMap 직접 설정
+    for (let i = 0; i < MAP_W * MAP_H; i++) {
+      FogOfWar._blockMap[i] = blockMap[i];
+    }
     FogOfWar._prevPlayerX = -1;
     FogOfWar.updateVisibilityAt(startX, startY);
     if (FogOfWar._syncDisplay) FogOfWar._syncDisplay();
@@ -212,36 +225,22 @@ export default function LoS3DTestPage() {
     createDebugMesh(scene);
 
     // 플레이어 마커
-    const mg = new THREE.Group();
-    mg.add(new THREE.Mesh(
+    const marker = new THREE.Mesh(
       new THREE.CircleGeometry(TILE_SIZE * 0.3, 16),
       new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide })
-    ));
-    mg.children[0].position.z = 1;
-    const eyeH = eyeHeight * TILE_SIZE * 0.5;
-    const bar = new THREE.Mesh(
-      new THREE.CylinderGeometry(2, 2, eyeH, 8),
-      new THREE.MeshBasicMaterial({ color: 0x00ff00 })
     );
-    bar.rotation.x = Math.PI / 2; bar.position.z = eyeH / 2;
-    mg.add(bar);
-    const eye = new THREE.Mesh(
-      new THREE.SphereGeometry(5, 8, 8),
-      new THREE.MeshBasicMaterial({ color: 0xffff00 })
-    );
-    eye.position.z = eyeH;
-    mg.add(eye);
-    mg.position.set((startX + 0.5) * TILE_SIZE, (startY + 0.5) * TILE_SIZE, 0);
-    scene.add(mg);
-    markerRef.current = mg;
+    marker.position.set((startX + 0.5) * TILE_SIZE, (startY + 0.5) * TILE_SIZE, 1);
+    scene.add(marker);
+    markerRef.current = marker;
 
     // hover 하이라이트 메쉬
-    const hoverGeo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
-    const hoverMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff, transparent: true, opacity: 0.2,
-      side: THREE.DoubleSide, depthTest: false,
-    });
-    const hoverMesh = new THREE.Mesh(hoverGeo, hoverMat);
+    const hoverMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff, transparent: true, opacity: 0.2,
+        side: THREE.DoubleSide, depthTest: false,
+      })
+    );
     hoverMesh.visible = false;
     hoverMesh.renderOrder = 300;
     scene.add(hoverMesh);
@@ -264,14 +263,12 @@ export default function LoS3DTestPage() {
     };
     updateCamera();
 
-    // mouse controls
     const onMouseDown = (e: MouseEvent) => {
       orbit.isDragging = true; orbit.dragButton = e.button;
       orbit.lastMouse = { x: e.clientX, y: e.clientY };
     };
     const onMouseUp = () => { orbit.isDragging = false; };
     const onMouseMove = (e: MouseEvent) => {
-      // hover 처리
       const rr = renderer.domElement.getBoundingClientRect();
       const mouse = new THREE.Vector2(
         ((e.clientX - rr.left) / rr.width) * 2 - 1,
@@ -286,19 +283,15 @@ export default function LoS3DTestPage() {
           if (tx !== hoverTileRef.current.x || ty !== hoverTileRef.current.y) {
             hoverTileRef.current = { x: tx, y: ty };
             if (hoverRef.current) {
-              const hm = heightMapRef.current;
-              const tH = hm ? hm[ty * MAP_W + tx] : 0;
-              const z = tH > 0 ? tH * TILE_SIZE * 0.5 + 3 : 3;
-              hoverRef.current.position.set((tx + 0.5) * TILE_SIZE, (ty + 0.5) * TILE_SIZE, z);
+              hoverRef.current.position.set((tx + 0.5) * TILE_SIZE, (ty + 0.5) * TILE_SIZE, 3);
               hoverRef.current.visible = true;
             }
             const idx = ty * MAP_W + tx;
-            const hm = heightMapRef.current;
-            const tH = hm ? hm[idx] : 0;
+            const blocked = blockMap[idx] ? '벽' : '바닥';
             const vis = FogOfWar._visibilityData;
             const v = vis ? vis[idx] : 0;
             const visStr = v > 0.9 ? '보임' : v > 0.01 ? `부분(${v.toFixed(2)})` : '차단';
-            setHoverInfo(`(${tx},${ty}) h=${tH} ${visStr}`);
+            setHoverInfo(`(${tx},${ty}) ${blocked} ${visStr}`);
           }
         } else {
           if (hoverRef.current) hoverRef.current.visible = false;
@@ -306,7 +299,6 @@ export default function LoS3DTestPage() {
         }
       }
 
-      // orbit drag
       if (!orbit.isDragging) return;
       const dx = e.clientX - orbit.lastMouse.x, dy = e.clientY - orbit.lastMouse.y;
       orbit.lastMouse = { x: e.clientX, y: e.clientY };
@@ -336,10 +328,10 @@ export default function LoS3DTestPage() {
       const pt = new THREE.Vector3();
       if (rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,0,1), 0), pt)) {
         const nx = Math.floor(pt.x / TILE_SIZE), ny = Math.floor(pt.y / TILE_SIZE);
-        if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && heightMap[ny * MAP_W + nx] <= 0) {
+        if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && !blockMap[ny * MAP_W + nx]) {
           playerRef.current = { x: nx, y: ny }; setPlayerPos({ x: nx, y: ny });
           FogOfWar.updateVisibilityAt(nx, ny);
-          mg.position.set((nx + 0.5) * TILE_SIZE, (ny + 0.5) * TILE_SIZE, 0);
+          marker.position.set((nx + 0.5) * TILE_SIZE, (ny + 0.5) * TILE_SIZE, 1);
         }
       }
     };
@@ -354,14 +346,12 @@ export default function LoS3DTestPage() {
 
     setInfoText(`(${MAP_W}x${MAP_H}) WASD | 더블클릭:텔레포트 | 좌드래그:회전 | 우드래그:팬`);
 
-    // 렌더 루프
     lastTimeRef.current = performance.now();
     const animate = () => {
       const now = performance.now();
       const dt = Math.min((now - lastTimeRef.current) / 1000, 0.1);
       lastTimeRef.current = now;
 
-      // FogOfWar 시간 업데이트
       if (FogOfWar._active && FogOfWar._lerpDisplay) {
         FogOfWar._lerpDisplay(dt);
         FogOfWar._computeEdgeData(dt);
@@ -405,7 +395,6 @@ export default function LoS3DTestPage() {
     };
   }, [initScene]);
 
-  // 초기 디버그 오버레이
   useEffect(() => {
     if (debugMeshRef.current && FogOfWar._active) refreshDebugOverlay();
   }, [preset, refreshDebugOverlay]);
@@ -414,9 +403,9 @@ export default function LoS3DTestPage() {
     const nx = Math.max(0, Math.min(MAP_W - 1, playerRef.current.x + dx));
     const ny = Math.max(0, Math.min(MAP_H - 1, playerRef.current.y + dy));
     if (nx === playerRef.current.x && ny === playerRef.current.y) return;
-    if (heightMapRef.current && heightMapRef.current[ny * MAP_W + nx] > 0) return;
+    if (blockMapRef.current && blockMapRef.current[ny * MAP_W + nx]) return;
     playerRef.current = { x: nx, y: ny }; setPlayerPos({ x: nx, y: ny });
-    if (markerRef.current) markerRef.current.position.set((nx + 0.5) * TILE_SIZE, (ny + 0.5) * TILE_SIZE, 0);
+    if (markerRef.current) markerRef.current.position.set((nx + 0.5) * TILE_SIZE, (ny + 0.5) * TILE_SIZE, 1);
     FogOfWar.updateVisibilityAt(nx, ny);
     refreshDebugOverlay();
   }, [refreshDebugOverlay]);
@@ -435,28 +424,15 @@ export default function LoS3DTestPage() {
     return () => window.removeEventListener('keydown', h);
   }, [movePlayer]);
 
-  // 파라미터 변경 시
   useEffect(() => {
     if (!FogOfWar._active) return;
     FogOfWar._radius = radius;
     FogOfWar._lineOfSight = lineOfSight;
-    FogOfWar._lineOfSight3D = lineOfSight3D;
-    FogOfWar._eyeHeight = eyeHeight;
     FogOfWar._prevPlayerX = -1;
     FogOfWar.updateVisibilityAt(playerRef.current.x, playerRef.current.y);
     refreshDebugOverlay();
-  }, [radius, lineOfSight, lineOfSight3D, eyeHeight, refreshDebugOverlay]);
+  }, [radius, lineOfSight, refreshDebugOverlay]);
 
-  // 눈높이 마커
-  useEffect(() => {
-    if (!markerRef.current) return;
-    const g = markerRef.current;
-    const eH = eyeHeight * TILE_SIZE * 0.5;
-    if (g.children[1]) { g.children[1].scale.y = eyeHeight / 1.5; g.children[1].position.z = eH / 2; }
-    if (g.children[2]) g.children[2].position.z = eH;
-  }, [eyeHeight]);
-
-  // 디버그 토글
   useEffect(() => { refreshDebugOverlay(); }, [showDebug, refreshDebugOverlay]);
 
   const handleReset = useCallback(() => {
@@ -517,14 +493,7 @@ export default function LoS3DTestPage() {
             </label>
             <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <input type="checkbox" checked={lineOfSight} onChange={e => setLineOfSight(e.target.checked)} />
-              가시선 (2D LoS)
-            </label>
-            <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <input type="checkbox" checked={lineOfSight3D} onChange={e => setLineOfSight3D(e.target.checked)} />
-              3D 높이 기반 LoS
-            </label>
-            <label>눈 높이: {eyeHeight.toFixed(1)} 타일
-              <input type="range" min={0.5} max={5} step={0.1} value={eyeHeight} onChange={e => setEyeHeight(+e.target.value)} />
+              가시선 (Line of Sight)
             </label>
           </div>
 
@@ -535,9 +504,8 @@ export default function LoS3DTestPage() {
               LoS 디버그 (초록/빨강)
             </label>
             <div className="fow-info" style={{ fontSize: 11, lineHeight: 1.4 }}>
-              초록=보임 | 노랑=부분 | 빨강=차단<br/>
-              노란 구=눈 높이 | 흰 사각=hover<br/>
-              블록 위 숫자=타일 높이
+              초록=보임 | 빨강=차단 | 갈색=벽 타일<br/>
+              흰 사각=hover
             </div>
           </div>
         </div>
