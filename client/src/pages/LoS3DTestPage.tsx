@@ -197,41 +197,6 @@ export default function LoS3DTestPage() {
     dl.position.set(totalW, totalH, 400);
     scene.add(dl);
 
-    // 벽 블록 + 높이 라벨
-    const hColors: Record<number, number> = {
-      1: 0x9B8B6B, 2: 0x6B7B8B, 2.5: 0x5B6B7B, 3: 0x7B6B5B, 4: 0x5B4B3B
-    };
-    for (let y = 0; y < MAP_H; y++) {
-      for (let x = 0; x < MAP_W; x++) {
-        const tH = heightMap[y * MAP_W + x];
-        if (tH <= 0) continue;
-        const bH = tH * TILE_SIZE * 0.5;
-        let bestK = 2, bestD = 99;
-        for (const k of Object.keys(hColors)) {
-          const d = Math.abs(parseFloat(k) - tH);
-          if (d < bestD) { bestD = d; bestK = parseFloat(k); }
-        }
-        const block = new THREE.Mesh(
-          new THREE.BoxGeometry(TILE_SIZE - 2, TILE_SIZE - 2, bH),
-          new THREE.MeshLambertMaterial({ color: hColors[bestK] || 0x6B7B8B })
-        );
-        block.position.set((x + 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE, bH / 2);
-        scene.add(block);
-
-        const c = document.createElement('canvas');
-        c.width = 48; c.height = 24;
-        const ctx = c.getContext('2d')!;
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 16px monospace';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(String(tH), 24, 12);
-        const sp = new THREE.Sprite(new THREE.SpriteMaterial({
-          map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
-        sp.position.set((x + 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE, bH + 10);
-        sp.scale.set(24, 12, 1);
-        scene.add(sp);
-      }
-    }
-
     // FogOfWar 초기화
     FogOfWar.setup(MAP_W, MAP_H, {
       radius, lineOfSight, lineOfSight3D, eyeHeight,
