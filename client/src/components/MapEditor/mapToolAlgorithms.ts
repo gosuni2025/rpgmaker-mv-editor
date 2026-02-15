@@ -222,8 +222,8 @@ export function floodFillTile(
 
   if (filledPositions.length === 0) return { changes: [], updates: [] };
 
-  // B/C/D/E 타일 자동 레이어 관리 (어떤 레이어에서든 z=1/z=2에 배치)
-  if (isUpperLayerTile(selectedTileId) || (z === 1 && selectedTileId === 0)) {
+  // B/C/D/E 타일 자동 레이어 관리
+  if (z === 1 && (isUpperLayerTile(selectedTileId) || selectedTileId === 0)) {
     const changes: TileChange[] = [];
     const updates: { x: number; y: number; z: number; tileId: number }[] = [];
     for (const { x, y } of filledPositions) {
@@ -280,10 +280,10 @@ export function batchPlaceWithAutotilePure(
     return { changes, updates };
   }
 
-  // B/C/D/E 타일 자동 레이어 관리 (어떤 레이어에서든 z=1/z=2에 배치)
-  {
+  // B/C/D/E 타일 자동 레이어 관리 (z=1에서 upper 타일)
+  if (z === 1) {
     const firstTile = getTileForPos(positions[0].x, positions[0].y);
-    if (isUpperLayerTile(firstTile) || (z === 1 && firstTile === 0)) {
+    if (isUpperLayerTile(firstTile) || firstTile === 0) {
       const changes: TileChange[] = [];
       const updates: { x: number; y: number; z: number; tileId: number }[] = [];
       for (const { x, y } of positions) {

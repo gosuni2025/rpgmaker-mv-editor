@@ -348,10 +348,14 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
         var ax = (animOffsets[i * 2] || 0) * tileAnimX;
         var ay = (animOffsets[i * 2 + 1] || 0) * tileAnimY;
 
+        // setNumber별 미세 z 오프셋: 높은 setNumber일수록 카메라에 가깝게
+        // depth test(LESS)에서 나중에 그려야 할 타일이 앞에 위치하도록
+        var zOffset = (sn + 2) * 0.01;  // sn=-1(shadow)→0.01, sn=0→0.02, ..., sn=8→0.10
+
         for (var j = 0; j < 6; j++) {
             posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
             posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
-            posArray[posOff + j * 3 + 2] = 0;
+            posArray[posOff + j * 3 + 2] = zOffset;
 
             normalArray[posOff + j * 3]     = 0;
             normalArray[posOff + j * 3 + 1] = 0;
@@ -566,10 +570,11 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
         vMin += halfTexelV;
         vMax -= halfTexelV;
         // 모든 버텍스에 동일한 바운드 할당
+        // 물 타일은 z=0.005 (일반 타일 sn=0 의 0.02보다 뒤)
         for (var j = 0; j < 6; j++) {
             posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
             posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
-            posArray[posOff + j * 3 + 2] = 0;
+            posArray[posOff + j * 3 + 2] = 0.005;
 
             normalArray[posOff + j * 3]     = 0;
             normalArray[posOff + j * 3 + 1] = 0;
