@@ -4,7 +4,6 @@ import './FogOfWarTestPage.css';
 
 declare const THREE: any;
 declare const FogOfWar: any;
-declare const FogOfWar3D: any;
 
 const TILE_SIZE = 48;
 const MAP_W = 15;
@@ -67,8 +66,6 @@ export default function LoS3DTestPage() {
   const [lineOfSight3D, setLineOfSight3D] = useState(true);
   const [eyeHeight, setEyeHeight] = useState(1.5);
   const [showDebug, setShowDebug] = useState(true);
-  const [fogHeight, setFogHeight] = useState(144);
-  const [heightFalloff, setHeightFalloff] = useState(1.5);
   const [playerPos, setPlayerPos] = useState({ x: 6, y: 5 });
   const [hoverInfo, setHoverInfo] = useState('');
   const [infoText, setInfoText] = useState('Loading...');
@@ -246,16 +243,6 @@ export default function LoS3DTestPage() {
     if (FogOfWar._syncDisplay) FogOfWar._syncDisplay();
     if (FogOfWar._updateTexture) FogOfWar._updateTexture();
 
-    // FogOfWar3D 박스 메쉬
-    const fog3dMesh = FogOfWar3D._createMesh(MAP_W, MAP_H, {
-      fogHeight3D: fogHeight,
-      heightFalloff,
-    });
-    if (fog3dMesh) scene.add(fog3dMesh);
-
-    // FogOfWar3D 촉수 메쉬
-    FogOfWar3D._createTentacles(scene);
-
     // 디버그 오버레이 메쉬
     createDebugMesh(scene);
 
@@ -416,12 +403,6 @@ export default function LoS3DTestPage() {
         FogOfWar._updateTexture();
       }
 
-      // FogOfWar3D 유니폼 갱신 + 촉수 갱신
-      if (FogOfWar3D._active) {
-        FogOfWar3D._updateUniforms(dt);
-        FogOfWar3D._refreshTentaclesIfNeeded(scene);
-      }
-
       renderer.render(scene, camera);
       rafRef.current = requestAnimationFrame(animate);
     };
@@ -455,7 +436,6 @@ export default function LoS3DTestPage() {
       debugMeshRef.current = null;
       hoverRef.current = null;
       if (rendererRef.current) { rendererRef.current.dispose(); rendererRef.current = null; }
-      FogOfWar3D._disposeMesh();
       FogOfWar.dispose();
     };
   }, [initScene]);
@@ -513,31 +493,6 @@ export default function LoS3DTestPage() {
 
   // 디버그 토글
   useEffect(() => { refreshDebugOverlay(); }, [showDebug, refreshDebugOverlay]);
-
-  // FogOfWar3D fogHeight 변경 시 메쉬 재생성
-  useEffect(() => {
-    if (!FogOfWar3D._active || !sceneRef.current) return;
-    const scene = sceneRef.current;
-    FogOfWar3D._disposeMesh();
-    const mesh = FogOfWar3D._createMesh(MAP_W, MAP_H, {
-      fogHeight3D: fogHeight,
-      heightFalloff,
-    });
-    if (mesh) scene.add(mesh);
-  }, [fogHeight]);
-
-  // FogOfWar3D 유니폼 업데이트
-  useEffect(() => {
-    if (!FogOfWar3D._instancedMesh) return;
-    const u = FogOfWar3D._instancedMesh.material.uniforms;
-    if (u.heightFalloff) u.heightFalloff.value = heightFalloff;
-    if (u.heightGradientOn) u.heightGradientOn.value = 1.0;
-    if (FogOfWar3D._tentacleMesh) {
-      const tu = FogOfWar3D._tentacleMesh.material.uniforms;
-      if (tu.fogHeight) tu.fogHeight.value = fogHeight;
-      if (tu.tentacleMaxLength) tu.tentacleMaxLength.value = fogHeight * 0.6;
-    }
-  }, [heightFalloff, fogHeight]);
 
   const handleReset = useCallback(() => {
     if (!FogOfWar._active) return;
@@ -605,16 +560,6 @@ export default function LoS3DTestPage() {
             </label>
             <label>눈 높이: {eyeHeight.toFixed(1)} 타일
               <input type="range" min={0.5} max={5} step={0.1} value={eyeHeight} onChange={e => setEyeHeight(+e.target.value)} />
-            </label>
-          </div>
-
-          <div className="fow-control-group">
-            <h3>3D 안개</h3>
-            <label>fogHeight: {fogHeight}
-              <input type="range" min={48} max={480} step={24} value={fogHeight} onChange={e => setFogHeight(+e.target.value)} />
-            </label>
-            <label>heightFalloff: {heightFalloff.toFixed(1)}
-              <input type="range" min={0.1} max={5} step={0.1} value={heightFalloff} onChange={e => setHeightFalloff(+e.target.value)} />
             </label>
           </div>
 
