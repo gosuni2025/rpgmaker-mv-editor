@@ -361,4 +361,82 @@ FogOfWar3D._updateUniforms = function(dt) {
     u.scrollOffset.value.set(ox, oy);
 };
 
+//=============================================================================
+// 런타임 후킹 - fogMode='3d'일 때 볼류메트릭 대신 3D 박스 사용
+//=============================================================================
+
+FogOfWar3D._lastTime = 0;
+
+// 현재 맵의 fogMode 조회
+FogOfWar3D._getFogMode = function() {
+    if (typeof $dataMap !== 'undefined' && $dataMap && $dataMap.fogOfWar) {
+        return $dataMap.fogOfWar.fogMode || '';
+    }
+    return '';
+};
+
+// 에디터 모드에서는 에디터 오버레이 훅이 처리하므로 런타임 후킹 불필요
+if (!window._editorRuntimeReady) {
+
+    var FOW = window.FogOfWar;
+
+    // FogOfWar._createMesh 래핑: fogMode='3d'면 볼류메트릭 생성을 차단
+    if (FOW && FOW._createMesh) {
+        var _origCreateMesh = FOW._createMesh;
+        FOW._createMesh = function() {
+            if (FogOfWar3D._getFogMode() === '3d') {
+                // 볼류메트릭 생성 차단
+                return null;
+            }
+            return _origCreateMesh.apply(this, arguments);
+        };
+    }
+
+    // FogOfWar.dispose 래핑: 3D 박스 메쉬도 함께 정리
+    if (FOW && FOW.dispose) {
+        var _origDispose = FOW.dispose;
+        FOW.dispose = function() {
+            FogOfWar3D._disposeMesh();
+            return _origDispose.apply(this, arguments);
+        };
+    }
+
+    // PostProcess._updateUniforms 후킹: 3D 박스 메쉬 생성 및 매 프레임 갱신
+    if (typeof PostProcess !== 'undefined') {
+        var _FogOfWar3D_origUpdateUniforms = PostProcess._updateUniforms;
+        PostProcess._updateUniforms = function() {
+            _FogOfWar3D_origUpdateUniforms.call(this);
+
+            if (!FOW || !FOW._active) return;
+            if (FogOfWar3D._getFogMode() !== '3d') {
+                // 3D 박스 모드 아님: 메쉬가 있으면 제거
+                if (FogOfWar3D._active) FogOfWar3D._disposeMesh();
+                return;
+            }
+
+            // 3D 박스 메쉬 lazy 생성
+            if (!FogOfWar3D._instancedMesh && FOW._fogTexture) {
+                var scene = null;
+                if (this._renderPass) {
+                    scene = this._renderPass.scene;
+                } else if (PostProcess._2dRenderPass && PostProcess._2dRenderPass._rendererObj) {
+                    scene = PostProcess._2dRenderPass._rendererObj.scene;
+                }
+                if (scene) {
+                    var mesh = FogOfWar3D._createMesh(FOW._mapWidth, FOW._mapHeight, $dataMap.fogOfWar);
+                    if (mesh) scene.add(mesh);
+                }
+            }
+
+            // 매 프레임 유니폼 갱신
+            if (FogOfWar3D._active) {
+                var now = performance.now() / 1000;
+                var dt = FogOfWar3D._lastTime > 0 ? Math.min(now - FogOfWar3D._lastTime, 0.1) : 0.016;
+                FogOfWar3D._lastTime = now;
+                FogOfWar3D._updateUniforms(dt);
+            }
+        };
+    }
+}
+
 })();
