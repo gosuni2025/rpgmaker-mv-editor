@@ -12,8 +12,6 @@ interface WeaponsTabProps {
   onChange: (data: (Weapon | null)[]) => void;
 }
 
-const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
-
 export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
@@ -58,17 +56,9 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
     const maxId = existingItems.length > 0 ? Math.max(...existingItems.map((i) => i.id)) : 0;
     const newId = maxId + 1;
     const newWeapon: Weapon = {
-      id: newId,
-      name: '',
-      iconIndex: 0,
-      description: '',
-      wtypeId: 0,
-      etypeId: 1,
-      params: [0, 0, 0, 0, 0, 0, 0, 0],
-      price: 0,
-      animationId: 0,
-      traits: [],
-      note: '',
+      id: newId, name: '', iconIndex: 0, description: '',
+      wtypeId: 0, etypeId: 1, params: [0, 0, 0, 0, 0, 0, 0, 0],
+      price: 0, animationId: 0, traits: [], note: '',
     };
     onChange([...data, newWeapon]);
     setSelectedId(newId);
@@ -76,6 +66,7 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
 
   return (
     <div className="db-tab-layout">
+      {/* 좌측: 무기 목록 */}
       <div className="db-list">
         <div className="db-list-header">
           <span>{t('database.tabs.weapons')}</span>
@@ -91,64 +82,74 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
           </div>
         ))}
       </div>
-      <div className="db-form">
-        {selectedItem && (
-          <>
-            <label>
-              {t('common.name')}
-              <div style={{display:'flex',gap:4,alignItems:'center'}}>
-                <input
-                  type="text"
-                  value={selectedItem.name || ''}
-                  onChange={(e) => handleFieldChange('name', e.target.value)}
-                  style={{flex:1}}
-                />
-                <TranslateButton csvPath="database/weapons.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
-              </div>
-            </label>
 
-            <div className="db-form-row">
-              <span className="db-form-label">{t('common.icon')}</span>
-              <IconPicker
-                value={selectedItem.iconIndex || 0}
-                onChange={(v) => handleFieldChange('iconIndex', v)}
-              />
+      {/* 중앙 + 우측: 2컬럼 폼 */}
+      {selectedItem && (
+        <div className="db-form-columns">
+          {/* 중앙 컬럼: 일반 설정 + 능력치 변화량 */}
+          <div className="db-form-col">
+            <div className="db-form-section" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+              {t('skills.generalSettings')}
             </div>
 
+            {/* 이름 + 아이콘 */}
+            <div className="db-form-row">
+              <label style={{ flex: 2 }}>
+                {t('common.name')}
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={selectedItem.name || ''}
+                    onChange={(e) => handleFieldChange('name', e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <TranslateButton csvPath="database/weapons.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
+                </div>
+              </label>
+              <div className="db-form-field-label" style={{ flex: 0, minWidth: 'fit-content' }}>
+                {t('common.icon')}
+                <IconPicker
+                  value={selectedItem.iconIndex || 0}
+                  onChange={(v) => handleFieldChange('iconIndex', v)}
+                />
+              </div>
+            </div>
+
+            {/* 설명 */}
             <label>
               {t('common.description')}
-              <div style={{display:'flex',gap:4,alignItems:'start'}}>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'start' }}>
                 <textarea
                   value={selectedItem.description || ''}
                   onChange={(e) => handleFieldChange('description', e.target.value)}
                   rows={2}
-                  style={{flex:1}}
+                  style={{ flex: 1 }}
                 />
                 <TranslateButton csvPath="database/weapons.csv" entryKey={`${selectedItem.id}.description`} sourceText={selectedItem.description || ''} />
               </div>
             </label>
-            <label>
-              {t('fields.weaponType')}
-              <select value={selectedItem.wtypeId || 0} onChange={(e) => handleFieldChange('wtypeId', Number(e.target.value))} style={selectStyle}>
-                {weaponTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
-                {weaponTypes.length === 0 && <option value={selectedItem.wtypeId || 0}>{selectedItem.wtypeId}</option>}
-              </select>
-            </label>
-            <label>
-              {t('fields.equipType')}
-              <select value={selectedItem.etypeId || 0} onChange={(e) => handleFieldChange('etypeId', Number(e.target.value))} style={selectStyle}>
-                {equipTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
-                {equipTypes.length === 0 && <option value={selectedItem.etypeId || 0}>{selectedItem.etypeId}</option>}
-              </select>
-            </label>
-            <label>
-              {t('common.price')}
-              <input
-                type="number"
-                value={selectedItem.price || 0}
-                onChange={(e) => handleFieldChange('price', Number(e.target.value))}
-              />
-            </label>
+
+            {/* 무기 유형 / 가격 */}
+            <div className="db-form-row">
+              <label>
+                {t('fields.weaponType')}
+                <select value={selectedItem.wtypeId || 0} onChange={(e) => handleFieldChange('wtypeId', Number(e.target.value))}>
+                  {weaponTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
+                  {weaponTypes.length === 0 && <option value={selectedItem.wtypeId || 0}>{selectedItem.wtypeId}</option>}
+                </select>
+              </label>
+              <label>
+                {t('common.price')}
+                <input
+                  type="number"
+                  value={selectedItem.price || 0}
+                  onChange={(e) => handleFieldChange('price', Number(e.target.value))}
+                  min={0}
+                />
+              </label>
+            </div>
+
+            {/* 애니메이션 */}
             <label>
               {t('common.animation')}
               <button className="db-picker-btn" onClick={() => setShowAnimPicker(true)}>
@@ -158,34 +159,49 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
               </button>
             </label>
 
+            {/* 능력치 변화량 */}
             <div className="db-form-section">{t('fields.parameters')}</div>
-            {PARAM_NAMES.map((name, i) => (
-              <label key={i}>
-                {name}
-                <input
-                  type="number"
-                  value={selectedItem.params?.[i] ?? 0}
-                  onChange={(e) => handleParamChange(i, Number(e.target.value))}
-                />
-              </label>
-            ))}
+
+            <div className="db-form-row">
+              <label>{PARAM_NAMES[0]}<input type="number" value={selectedItem.params?.[0] ?? 0} onChange={(e) => handleParamChange(0, Number(e.target.value))} /></label>
+              <label>{PARAM_NAMES[2]}<input type="number" value={selectedItem.params?.[2] ?? 0} onChange={(e) => handleParamChange(2, Number(e.target.value))} /></label>
+              <label>{PARAM_NAMES[4]}<input type="number" value={selectedItem.params?.[4] ?? 0} onChange={(e) => handleParamChange(4, Number(e.target.value))} /></label>
+              <label>{PARAM_NAMES[6]}<input type="number" value={selectedItem.params?.[6] ?? 0} onChange={(e) => handleParamChange(6, Number(e.target.value))} /></label>
+            </div>
+            <div className="db-form-row">
+              <label>{PARAM_NAMES[1]}<input type="number" value={selectedItem.params?.[1] ?? 0} onChange={(e) => handleParamChange(1, Number(e.target.value))} /></label>
+              <label>{PARAM_NAMES[3]}<input type="number" value={selectedItem.params?.[3] ?? 0} onChange={(e) => handleParamChange(3, Number(e.target.value))} /></label>
+              <label>{PARAM_NAMES[5]}<input type="number" value={selectedItem.params?.[5] ?? 0} onChange={(e) => handleParamChange(5, Number(e.target.value))} /></label>
+              <label>{PARAM_NAMES[7]}<input type="number" value={selectedItem.params?.[7] ?? 0} onChange={(e) => handleParamChange(7, Number(e.target.value))} /></label>
+            </div>
+          </div>
+
+          {/* 우측 컬럼: 특성 + 메모 */}
+          <div className="db-form-col">
+            <div className="db-form-section" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+              {t('fields.traits')}
+            </div>
 
             <TraitsEditor
               traits={selectedItem.traits || []}
               onChange={(traits: Trait[]) => handleFieldChange('traits', traits)}
             />
 
-            <label>
-              {t('common.note')}
-              <textarea
-                value={selectedItem.note || ''}
-                onChange={(e) => handleFieldChange('note', e.target.value)}
-                rows={3}
-              />
-            </label>
-          </>
-        )}
-      </div>
+            <div className="db-form-section">{t('common.note')}</div>
+
+            <textarea
+              value={selectedItem.note || ''}
+              onChange={(e) => handleFieldChange('note', e.target.value)}
+              rows={5}
+              style={{
+                background: '#2b2b2b', border: '1px solid #555', borderRadius: 3,
+                padding: '4px 8px', color: '#ddd', fontSize: 13, fontFamily: 'inherit',
+                outline: 'none', resize: 'vertical', flex: 1, minHeight: 60,
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {showAnimPicker && selectedItem && (
         <AnimationPickerDialog
