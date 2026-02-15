@@ -370,12 +370,22 @@
   margin: 0;
 }
 
-.enemies-drop-item-select {
+.enemies-drop-item-display {
   flex: 1;
   min-width: 0;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-height: 20px;
 }
 
-.enemies-drop-item-select:disabled {
+.enemies-drop-item-display.disabled {
   opacity: 0.4;
 }
 
