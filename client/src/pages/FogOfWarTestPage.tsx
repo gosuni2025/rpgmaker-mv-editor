@@ -25,6 +25,8 @@ export default function FogOfWarTestPage() {
   const [fadeSmoothness, setFadeSmoothness] = useState(0.3);
   const [tentacleSharpness, setTentacleSharpness] = useState(3.0);
   const [tentacleFadeSpeed, setTentacleFadeSpeed] = useState(1.0);
+  const [tentacleGrowSpeed, setTentacleGrowSpeed] = useState(2.0);
+  const [fogTransitionSpeed, setFogTransitionSpeed] = useState(5.0);
   const [exploredAlpha, setExploredAlpha] = useState(0.6);
   const [unexploredAlpha, setUnexploredAlpha] = useState(1.0);
   const [playerPos, setPlayerPos] = useState({ x: 10, y: 7 });
@@ -243,8 +245,10 @@ export default function FogOfWarTestPage() {
   useEffect(() => {
     if (FogOfWar._active) {
       FogOfWar._tentacleFadeSpeed = tentacleFadeSpeed;
+      FogOfWar._tentacleGrowSpeed = tentacleGrowSpeed;
+      FogOfWar._fogTransitionSpeed = fogTransitionSpeed;
     }
-  }, [tentacleFadeSpeed]);
+  }, [tentacleFadeSpeed, tentacleGrowSpeed, fogTransitionSpeed]);
 
   useEffect(() => {
     if (FogOfWar._active) {
@@ -333,12 +337,26 @@ export default function FogOfWarTestPage() {
           </div>
 
           <div className="fow-control-group">
-            <h3>페이드</h3>
+            <h3>타이머 (생성/삭제)</h3>
             <label>
-              tentacleFadeSpeed: {tentacleFadeSpeed.toFixed(1)}
-              <input type="range" min={0.1} max={5} step={0.1} value={tentacleFadeSpeed}
+              삭제 속도 (tentacleFadeSpeed): {tentacleFadeSpeed.toFixed(1)}
+              <input type="range" min={0.1} max={10} step={0.1} value={tentacleFadeSpeed}
                 onChange={(e) => setTentacleFadeSpeed(Number(e.target.value))} />
             </label>
+            <label>
+              생성 속도 (tentacleGrowSpeed): {tentacleGrowSpeed.toFixed(1)}
+              <input type="range" min={0.1} max={10} step={0.1} value={tentacleGrowSpeed}
+                onChange={(e) => setTentacleGrowSpeed(Number(e.target.value))} />
+            </label>
+            <label>
+              시야 전환 속도 (fogTransitionSpeed): {fogTransitionSpeed.toFixed(1)}
+              <input type="range" min={0.5} max={20} step={0.5} value={fogTransitionSpeed}
+                onChange={(e) => setFogTransitionSpeed(Number(e.target.value))} />
+            </label>
+          </div>
+
+          <div className="fow-control-group">
+            <h3>알파</h3>
             <label>
               exploredAlpha: {exploredAlpha.toFixed(2)}
               <input type="range" min={0} max={1} step={0.05} value={exploredAlpha}
