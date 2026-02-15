@@ -1236,6 +1236,20 @@
     "complete": "Deployment complete!",
     "pathRequired": "Please select an output path"
   },
+  "troops": {
+    "generalSettings": "General Settings",
+    "autoName": "Auto-name",
+    "battleTest": "Battle Test",
+    "addMember": "Add",
+    "removeMember": "Remove",
+    "clearAll": "Clear All",
+    "align": "Align",
+    "appearHalfway": "Appear Halfway",
+    "newPage": "New Page",
+    "copyPage": "Copy Page",
+    "clearPage": "Clear Page",
+    "deletePage": "Delete"
+  },
   "localization": {
     "title": "Localization Manager",
     "init": "Confirm",

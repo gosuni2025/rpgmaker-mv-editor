@@ -1321,6 +1321,20 @@
     "complete": "배포 완료!",
     "pathRequired": "출력 경로를 선택해주세요"
   },
+  "troops": {
+    "generalSettings": "일반 설정",
+    "autoName": "이름 자동 작성",
+    "battleTest": "전투 테스트",
+    "addMember": "추가",
+    "removeMember": "제거",
+    "clearAll": "모두 해제",
+    "align": "정렬",
+    "appearHalfway": "도중에 출현",
+    "newPage": "새로 만들기",
+    "copyPage": "복사하기",
+    "clearPage": "비우기",
+    "deletePage": "삭제"
+  },
   "localization": {
     "title": "로컬라이제이션 매니저",
     "init": "확인",
