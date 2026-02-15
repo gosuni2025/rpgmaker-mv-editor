@@ -28,12 +28,10 @@ export default function DrawToolbar() {
   const { t } = useTranslation();
   const selectedTool = useEditorStore((s) => s.selectedTool);
   const drawShape = useEditorStore((s) => s.drawShape);
-  const currentLayer = useEditorStore((s) => s.currentLayer);
   const editMode = useEditorStore((s) => s.editMode);
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
   const setDrawShape = useEditorStore((s) => s.setDrawShape);
-  const setCurrentLayer = useEditorStore((s) => s.setCurrentLayer);
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const zoomIn = useEditorStore((s) => s.zoomIn);
   const zoomOut = useEditorStore((s) => s.zoomOut);
@@ -148,24 +146,6 @@ export default function DrawToolbar() {
             {t(shape.labelKey)}{shape.shortcut && <span style={styles.shortcut}>{shape.shortcut}</span>}
           </button>
         ))}
-      </div>
-
-      <div style={styles.separator} />
-
-      {/* Layer selector */}
-      <div style={styles.group}>
-        <span style={styles.label}>{t('toolbar.layer')}:</span>
-        <select
-          value={currentLayer}
-          onChange={(e) => setCurrentLayer(Number(e.target.value))}
-          style={styles.select}
-        >
-          {[0, 1, 2, 3].map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
       </div>
 
       <div style={styles.separator} />
@@ -316,19 +296,6 @@ const styles: Record<string, React.CSSProperties> = {
     height: 20,
     background: '#555',
     margin: '0 6px',
-  },
-  label: {
-    color: '#aaa',
-    fontSize: 12,
-    marginRight: 4,
-  },
-  select: {
-    background: '#3a3a3a',
-    color: '#ccc',
-    border: '1px solid #555',
-    borderRadius: 3,
-    padding: '2px 4px',
-    fontSize: 12,
   },
   shortcut: {
     color: '#888',
