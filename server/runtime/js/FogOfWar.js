@@ -515,25 +515,23 @@ FogOfWar._computeEdgeData = function() {
     }
     var blur = this._blurData;
 
-    // max-spread: 확산 패스 수와 감쇠율 (_shaderOverrides에서 디버그 조절 가능)
-    var so = this._shaderOverrides || {};
-    var passes = so.spreadPasses != null ? Math.round(so.spreadPasses) : 4;
-    var decay = so.spreadDecay != null ? so.spreadDecay : 0.6;
-
-    for (var i = 0; i < size; i++) blur[i] = vis[i];
-
-    for (var pass = 0; pass < passes; pass++) {
-        var src = new Float32Array(blur);
-        for (var y = 0; y < h; y++) {
-            for (var x = 0; x < w; x++) {
-                var idx = y * w + x;
-                var v = src[idx];
-                if (x > 0)     v = Math.max(v, src[idx - 1] * decay);
-                if (x < w - 1) v = Math.max(v, src[idx + 1] * decay);
-                if (y > 0)     v = Math.max(v, src[idx - w] * decay);
-                if (y < h - 1) v = Math.max(v, src[idx + w] * decay);
-                blur[idx] = v;
+    // 경계 타일 판정: vis=0인 타일 중 인접 4방향에 vis>0인 타일이 있으면 경계
+    // B채널에는 인접 최대 vis 값을 기록 (1타일 폭만)
+    for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+            var idx = y * w + x;
+            if (vis[idx] > 0) {
+                // 시야 안 타일: B채널 불필요 (render2D에서 discard됨)
+                blur[idx] = 0;
+                continue;
             }
+            // vis=0 타일: 인접 4방향의 최대 vis 확인
+            var maxNeighbor = 0;
+            if (x > 0)     maxNeighbor = Math.max(maxNeighbor, vis[idx - 1]);
+            if (x < w - 1) maxNeighbor = Math.max(maxNeighbor, vis[idx + 1]);
+            if (y > 0)     maxNeighbor = Math.max(maxNeighbor, vis[idx - w]);
+            if (y < h - 1) maxNeighbor = Math.max(maxNeighbor, vis[idx + w]);
+            blur[idx] = maxNeighbor;
         }
     }
 };
