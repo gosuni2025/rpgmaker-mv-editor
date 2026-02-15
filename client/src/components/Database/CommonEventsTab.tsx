@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CommonEvent, EventCommand } from '../../types/rpgMakerMV';
 import EventCommandEditor from '../EventEditor/EventCommandEditor';
+import DatabaseList from './DatabaseList';
 
 interface CommonEventsTabProps {
   data: (CommonEvent | null)[] | undefined;
@@ -29,7 +30,7 @@ export default function CommonEventsTab({ data, onChange }: CommonEventsTabProps
     handleFieldChange('list', commands);
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = useCallback(() => {
     if (!data) return;
     const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
     const newId = maxId + 1;
@@ -43,22 +44,58 @@ export default function CommonEventsTab({ data, onChange }: CommonEventsTabProps
     const newData = [...data, newItem];
     onChange(newData);
     setSelectedId(newId);
-  };
+  }, [data, onChange]);
+
+  const handleDelete = useCallback((id: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as CommonEvent[];
+    if (items.length <= 1) return;
+    const newData = data.filter((item) => !item || item.id !== id);
+    onChange(newData);
+    if (id === selectedId) {
+      const remaining = newData.filter(Boolean) as CommonEvent[];
+      if (remaining.length > 0) setSelectedId(remaining[0].id);
+    }
+  }, [data, onChange, selectedId]);
+
+  const handleDuplicate = useCallback((id: number) => {
+    if (!data) return;
+    const source = data.find((item) => item && item.id === id);
+    if (!source) return;
+    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
+    const newId = maxId + 1;
+    const newData = [...data, { ...source, id: newId, list: source.list.map(c => ({ ...c, parameters: [...c.parameters] })) }];
+    onChange(newData);
+    setSelectedId(newId);
+  }, [data, onChange]);
+
+  const handleReorder = useCallback((fromId: number, toId: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as CommonEvent[];
+    const fromIdx = items.findIndex(item => item.id === fromId);
+    if (fromIdx < 0) return;
+    const [moved] = items.splice(fromIdx, 1);
+    if (toId === -1) {
+      items.push(moved);
+    } else {
+      const toIdx = items.findIndex(item => item.id === toId);
+      if (toIdx < 0) items.push(moved);
+      else items.splice(toIdx, 0, moved);
+    }
+    onChange([null, ...items]);
+  }, [data, onChange]);
 
   return (
     <div className="db-tab-layout">
-      <div className="db-list">
-        {data?.filter(Boolean).map((item) => (
-          <div
-            key={item!.id}
-            className={`db-list-item${item!.id === selectedId ? ' selected' : ''}`}
-            onClick={() => setSelectedId(item!.id)}
-          >
-            {String(item!.id).padStart(4, '0')}: {item!.name}
-          </div>
-        ))}
-        <button className="db-btn-small" style={{ margin: '4px 8px', width: 'calc(100% - 16px)' }} onClick={handleAddNew}>+ {t('common.add')}</button>
-      </div>
+      <DatabaseList
+        items={data}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onAdd={handleAddNew}
+        onDelete={handleDelete}
+        onDuplicate={handleDuplicate}
+        onReorder={handleReorder}
+      />
       <div className="db-form">
         {selectedItem && (
           <>
