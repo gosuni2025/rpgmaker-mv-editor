@@ -1,0 +1,97 @@
+/* Learning Dialog */
+.learning-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.learning-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 420px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.learning-dialog-header {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: bold;
+  border-bottom: 1px solid #555;
+  background: #333;
+  border-radius: 4px 4px 0 0;
+}
+
+.learning-dialog-body {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.learning-dialog-section {
+  font-size: 12px;
+  font-weight: bold;
+  color: #bbb;
+}
+
+.learning-dialog-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.learning-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.learning-dialog-input,
+.learning-dialog-select,
+.learning-dialog-textarea {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.learning-dialog-input:focus,
+.learning-dialog-select:focus,
+.learning-dialog-textarea:focus {
+  border-color: #2675bf;
+}
+
+.learning-dialog-level {
+  width: 70px;
+}
+
+.learning-dialog-select {
+  width: 100%;
+}
+
+.learning-dialog-textarea {
+  resize: vertical;
+}
+
+.learning-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 16px;
+  border-top: 1px solid #555;
+  background: #333;
+  border-radius: 0 0 4px 4px;
+}
