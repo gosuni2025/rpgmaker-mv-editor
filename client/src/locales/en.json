@@ -153,6 +153,9 @@
       "terms": "Terms"
     }
   },
+  "skills": {
+    "generalSettings": "General Settings"
+  },
   "fields": {
     "nickname": "Nickname",
     "class": "Class",
@@ -186,6 +189,9 @@
     "repeats": "Repeats",
     "tpGain": "TP Gain",
     "invocation": "Invocation",
+    "message": "Message",
+    "userName": "User Name",
+    "damage": "Damage",
     "message1": "Message 1",
     "message2": "Message 2",
     "requiredWeaponTypes": "Required Weapon Types",
