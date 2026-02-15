@@ -169,7 +169,8 @@
   min-width: 0;
 }
 
-.db-form-columns label {
+.db-form-columns label,
+.db-form-columns .db-form-field-label {
   display: flex;
   flex-direction: column;
   gap: 2px;
