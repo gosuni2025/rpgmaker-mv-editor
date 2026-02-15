@@ -18,6 +18,9 @@ export default function LandingPage() {
         <button className="landing-btn" onClick={() => navigate('/fogtest3d')}>
           FogOfWar 3D Box 테스트
         </button>
+        <button className="landing-btn" onClick={() => navigate('/los3d')}>
+          3D Line of Sight 테스트
+        </button>
       </div>
     </div>
   );
