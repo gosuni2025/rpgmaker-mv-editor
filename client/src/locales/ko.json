@@ -388,6 +388,16 @@
   "traits": {
     "title": "특성",
     "noTraits": "특성 없음",
+    "tabRate": "비율",
+    "tabParam": "능력치",
+    "tabAttack": "공격",
+    "tabSkill": "스킬",
+    "tabEquip": "장착",
+    "tabOther": "기타",
+    "slotTypes": {
+      "0": "일반",
+      "1": "이중 장비"
+    },
     "codes": {
       "11": "속성 유효도",
       "12": "약체 유효도",
