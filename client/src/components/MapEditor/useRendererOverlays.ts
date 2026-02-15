@@ -659,7 +659,7 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
         const so = FogOfWarMod._shaderOverrides || {};
         if (u.dissolveStrength) u.dissolveStrength.value = so.dissolveStrength ?? 2.0;
         if (u.fadeSmoothness) u.fadeSmoothness.value = so.fadeSmoothness ?? 0.3;
-        if (u.nearVisWeight) u.nearVisWeight.value = so.nearVisWeight ?? 0.7;
+        if (u.tentacleSharpness) u.tentacleSharpness.value = so.tentacleSharpness ?? 3.0;
       }
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       animId = requestAnimationFrame(animate);
