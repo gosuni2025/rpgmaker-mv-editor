@@ -43,6 +43,14 @@
   gap: 8px;
 }
 
+/* 2열 그리드 (일반설정, 해제조건) */
+.states-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  align-items: start;
+}
+
 /* Label styles */
 .states-label {
   display: flex;
@@ -102,14 +110,35 @@
   border-color: #2675bf;
 }
 
-/* Inline row (e.g. min/max turns) */
-.states-inline-row {
+/* 턴 범위 (min ~ max) */
+.states-turns-row {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 4px;
 }
 
-.states-inline-row > .states-label {
+.states-turns-row .states-input {
   flex: 1;
+}
+
+.states-tilde {
+  color: #aaa;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* 메시지 그리드: 라벨 | 입력 */
+.states-msg-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.states-msg-label {
+  font-size: 12px;
+  color: #aaa;
+  white-space: nowrap;
 }
 
 /* Note area */

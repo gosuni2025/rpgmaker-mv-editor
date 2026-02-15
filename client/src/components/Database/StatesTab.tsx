@@ -139,56 +139,57 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
           <div className="states-center">
             <div className="states-section-title">{t('fields.generalSettings')}</div>
 
-            <label className="states-label">
-              {t('common.name')}
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            {/* 일반설정 2열 그리드 */}
+            <div className="states-grid-2col">
+              <label className="states-label">
+                {t('common.name')}
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <input
+                    className="states-input"
+                    type="text"
+                    value={selectedItem.name || ''}
+                    onChange={(e) => handleFieldChange('name', e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
+                </div>
+              </label>
+
+              <label className="states-label">
+                {t('common.icon')}
+                <IconPicker
+                  value={selectedItem.iconIndex || 0}
+                  onChange={(idx) => handleFieldChange('iconIndex', idx)}
+                />
+              </label>
+
+              <label className="states-label">
+                {t('fields.restriction')}
+                <select
+                  className="states-select"
+                  value={selectedItem.restriction || 0}
+                  onChange={(e) => handleFieldChange('restriction', Number(e.target.value))}
+                >
+                  <option value={0}>{t('restriction.none')}</option>
+                  <option value={1}>{t('restriction.attackEnemy')}</option>
+                  <option value={2}>{t('restriction.attackAnyone')}</option>
+                  <option value={3}>{t('restriction.attackAlly')}</option>
+                  <option value={4}>{t('restriction.cannotMove')}</option>
+                </select>
+              </label>
+
+              <label className="states-label">
+                {t('fields.priority')}
                 <input
                   className="states-input"
-                  type="text"
-                  value={selectedItem.name || ''}
-                  onChange={(e) => handleFieldChange('name', e.target.value)}
-                  style={{ flex: 1 }}
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={selectedItem.priority || 0}
+                  onChange={(e) => handleFieldChange('priority', Number(e.target.value))}
                 />
-                <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
-              </div>
-            </label>
+              </label>
 
-            <label className="states-label">
-              {t('common.icon')}
-              <IconPicker
-                value={selectedItem.iconIndex || 0}
-                onChange={(idx) => handleFieldChange('iconIndex', idx)}
-              />
-            </label>
-
-            <label className="states-label">
-              {t('fields.restriction')}
-              <select
-                className="states-select"
-                value={selectedItem.restriction || 0}
-                onChange={(e) => handleFieldChange('restriction', Number(e.target.value))}
-              >
-                <option value={0}>{t('restriction.none')}</option>
-                <option value={1}>{t('restriction.attackEnemy')}</option>
-                <option value={2}>{t('restriction.attackAnyone')}</option>
-                <option value={3}>{t('restriction.attackAlly')}</option>
-                <option value={4}>{t('restriction.cannotMove')}</option>
-              </select>
-            </label>
-
-            <label className="states-label">
-              {t('fields.priority')}
-              <input
-                className="states-input"
-                type="number"
-                min={0}
-                max={100}
-                value={selectedItem.priority || 0}
-                onChange={(e) => handleFieldChange('priority', Number(e.target.value))}
-              />
-            </label>
-
-            <div className="states-inline-row">
               <label className="states-label">
                 {t('fields.svMotion')}
                 <select
@@ -201,6 +202,7 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
                   ))}
                 </select>
               </label>
+
               <label className="states-label">
                 {t('fields.svOverlay')}
                 <select
@@ -215,106 +217,112 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               </label>
             </div>
 
-            {/* 해제 조건 */}
+            {/* 해제 조건 2열 그리드 */}
             <div className="states-section-title">{t('fields.removalConditions')}</div>
 
-            <label className="states-checkbox-label">
-              <input
-                type="checkbox"
-                checked={selectedItem.removeAtBattleEnd ?? false}
-                onChange={(e) => handleFieldChange('removeAtBattleEnd', e.target.checked)}
-              />
-              {t('fields.removeAtBattleEnd')}
-            </label>
-
-            <label className="states-checkbox-label">
-              <input
-                type="checkbox"
-                checked={selectedItem.removeByRestriction ?? false}
-                onChange={(e) => handleFieldChange('removeByRestriction', e.target.checked)}
-              />
-              {t('fields.removeByRestriction')}
-            </label>
-
-            <label className="states-label">
-              {t('fields.autoRemovalTiming')}
-              <select
-                className="states-select"
-                value={selectedItem.autoRemovalTiming || 0}
-                onChange={(e) => handleFieldChange('autoRemovalTiming', Number(e.target.value))}
-              >
-                <option value={0}>{t('autoRemoval.none')}</option>
-                <option value={1}>{t('autoRemoval.actionEnd')}</option>
-                <option value={2}>{t('autoRemoval.turnEnd')}</option>
-              </select>
-            </label>
-
-            <div className="states-inline-row">
-              <label className="states-label">
-                {t('fields.minTurns')}
+            <div className="states-grid-2col">
+              <label className="states-checkbox-label">
                 <input
-                  className="states-input"
-                  type="number"
-                  value={selectedItem.minTurns || 0}
-                  onChange={(e) => handleFieldChange('minTurns', Number(e.target.value))}
+                  type="checkbox"
+                  checked={selectedItem.removeAtBattleEnd ?? false}
+                  onChange={(e) => handleFieldChange('removeAtBattleEnd', e.target.checked)}
                 />
+                {t('fields.removeAtBattleEnd')}
               </label>
-              <label className="states-label">
-                {t('fields.maxTurns')}
+
+              <label className="states-checkbox-label">
                 <input
-                  className="states-input"
-                  type="number"
-                  value={selectedItem.maxTurns || 0}
-                  onChange={(e) => handleFieldChange('maxTurns', Number(e.target.value))}
+                  type="checkbox"
+                  checked={selectedItem.removeByRestriction ?? false}
+                  onChange={(e) => handleFieldChange('removeByRestriction', e.target.checked)}
                 />
+                {t('fields.removeByRestriction')}
               </label>
+
+              <label className="states-label">
+                {t('fields.autoRemovalTiming')}
+                <select
+                  className="states-select"
+                  value={selectedItem.autoRemovalTiming || 0}
+                  onChange={(e) => handleFieldChange('autoRemovalTiming', Number(e.target.value))}
+                >
+                  <option value={0}>{t('autoRemoval.none')}</option>
+                  <option value={1}>{t('autoRemoval.actionEnd')}</option>
+                  <option value={2}>{t('autoRemoval.turnEnd')}</option>
+                </select>
+              </label>
+
+              <div className="states-label">
+                {t('fields.durationTurns')}
+                <div className="states-turns-row">
+                  <input
+                    className="states-input"
+                    type="number"
+                    value={selectedItem.minTurns || 0}
+                    onChange={(e) => handleFieldChange('minTurns', Number(e.target.value))}
+                  />
+                  <span className="states-tilde">~</span>
+                  <input
+                    className="states-input"
+                    type="number"
+                    value={selectedItem.maxTurns || 0}
+                    onChange={(e) => handleFieldChange('maxTurns', Number(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              <label className="states-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={selectedItem.removeByDamage ?? false}
+                  onChange={(e) => handleFieldChange('removeByDamage', e.target.checked)}
+                />
+                {t('fields.removeByDamage')}
+              </label>
+
+              <div className="states-label">
+                {t('fields.chanceByDamage')}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <input
+                    className="states-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={selectedItem.chanceByDamage || 0}
+                    onChange={(e) => handleFieldChange('chanceByDamage', Number(e.target.value))}
+                  />
+                  <span style={{ color: '#aaa', fontSize: 12 }}>%</span>
+                </div>
+              </div>
+
+              <label className="states-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={selectedItem.removeByWalking ?? false}
+                  onChange={(e) => handleFieldChange('removeByWalking', e.target.checked)}
+                />
+                {t('fields.removeByWalking')}
+              </label>
+
+              <div className="states-label">
+                {t('fields.stepsToRemove')}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <input
+                    className="states-input"
+                    type="number"
+                    value={selectedItem.stepsToRemove || 0}
+                    onChange={(e) => handleFieldChange('stepsToRemove', Number(e.target.value))}
+                  />
+                  <span style={{ color: '#aaa', fontSize: 12 }}>{t('fields.steps')}</span>
+                </div>
+              </div>
             </div>
-
-            <label className="states-checkbox-label">
-              <input
-                type="checkbox"
-                checked={selectedItem.removeByDamage ?? false}
-                onChange={(e) => handleFieldChange('removeByDamage', e.target.checked)}
-              />
-              {t('fields.removeByDamage')}
-            </label>
-
-            <label className="states-label">
-              {t('fields.chanceByDamage')}
-              <input
-                className="states-input"
-                type="number"
-                min={0}
-                max={100}
-                value={selectedItem.chanceByDamage || 0}
-                onChange={(e) => handleFieldChange('chanceByDamage', Number(e.target.value))}
-              />
-            </label>
-
-            <label className="states-checkbox-label">
-              <input
-                type="checkbox"
-                checked={selectedItem.removeByWalking ?? false}
-                onChange={(e) => handleFieldChange('removeByWalking', e.target.checked)}
-              />
-              {t('fields.removeByWalking')}
-            </label>
-
-            <label className="states-label">
-              {t('fields.stepsToRemove')}
-              <input
-                className="states-input"
-                type="number"
-                value={selectedItem.stepsToRemove || 0}
-                onChange={(e) => handleFieldChange('stepsToRemove', Number(e.target.value))}
-              />
-            </label>
 
             {/* 메시지 */}
             <div className="states-section-title">{t('fields.messages')}</div>
 
-            <label className="states-label">
-              {t('fields.message1Actor')}
+            <div className="states-msg-grid">
+              <span className="states-msg-label">{t('fields.message1Actor')}</span>
               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <input
                   className="states-input"
@@ -325,10 +333,8 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
                 />
                 <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.message1`} sourceText={selectedItem.message1 || ''} />
               </div>
-            </label>
 
-            <label className="states-label">
-              {t('fields.message2Enemy')}
+              <span className="states-msg-label">{t('fields.message2Enemy')}</span>
               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <input
                   className="states-input"
@@ -339,10 +345,8 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
                 />
                 <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.message2`} sourceText={selectedItem.message2 || ''} />
               </div>
-            </label>
 
-            <label className="states-label">
-              {t('fields.message3Persist')}
+              <span className="states-msg-label">{t('fields.message3Persist')}</span>
               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <input
                   className="states-input"
@@ -353,10 +357,8 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
                 />
                 <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.message3`} sourceText={selectedItem.message3 || ''} />
               </div>
-            </label>
 
-            <label className="states-label">
-              {t('fields.message4Remove')}
+              <span className="states-msg-label">{t('fields.message4Remove')}</span>
               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <input
                   className="states-input"
@@ -367,7 +369,7 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
                 />
                 <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.message4`} sourceText={selectedItem.message4 || ''} />
               </div>
-            </label>
+            </div>
           </div>
 
           {/* 오른쪽 패널: 특성 + 메모 */}
