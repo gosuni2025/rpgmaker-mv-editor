@@ -2059,28 +2059,26 @@ Spriteset_Map.prototype._updatePointLights = function() {
     }
 
     // SpotLight 위치/방향 업데이트
-    // 디버그 우선 OFF면 맵 데이터(editorLights)에서 값 사용
-    var slEl = (!ShadowLight._debugSpotLightOverride && typeof $dataMap !== 'undefined' && $dataMap && $dataMap.editorLights && $dataMap.editorLights.spotLight) ? $dataMap.editorLights.spotLight : null;
-    var spotEnabled = slEl && slEl.enabled != null ? slEl.enabled : ShadowLight.config.spotLightEnabled;
+    // 디버그 우선 OFF → 스포트라이트 비활성, ON → 패널(config) 값 사용
+    var spotEnabled = ShadowLight._debugSpotLightOverride;
     if (ShadowLight._playerSpotLight && spotEnabled && playerWp &&
         $gamePlayer && !$gamePlayer.isTransparent()) {
         var spot = ShadowLight._playerSpotLight;
         spot.visible = true;
         var cfg = ShadowLight.config;
-        spot.color.setHex(slEl && slEl.color ? parseInt(slEl.color.replace('#', ''), 16) : cfg.spotLightColor);
-        spot.intensity = slEl && slEl.intensity != null ? slEl.intensity : cfg.spotLightIntensity;
-        spot.distance = slEl && slEl.distance != null ? slEl.distance : cfg.spotLightDistance;
-        spot.angle = slEl && slEl.angle != null ? slEl.angle : cfg.spotLightAngle;
-        spot.penumbra = slEl && slEl.penumbra != null ? slEl.penumbra : cfg.spotLightPenumbra;
+        spot.color.setHex(cfg.spotLightColor);
+        spot.intensity = cfg.spotLightIntensity;
+        spot.distance = cfg.spotLightDistance;
+        spot.angle = cfg.spotLightAngle;
+        spot.penumbra = cfg.spotLightPenumbra;
         spot.decay = ShadowLight._debugDecay !== undefined ? ShadowLight._debugDecay : 0;
 
         // SpotLight를 플레이어 위치 위에 배치
-        var spotZ = slEl && slEl.z != null ? slEl.z : cfg.spotLightZ;
-        spot.position.set(playerWp.x, playerWp.y - 24, spotZ);
+        spot.position.set(playerWp.x, playerWp.y - 24, cfg.spotLightZ);
 
         // target을 플레이어가 바라보는 방향으로 설정
         var dir = $gamePlayer.direction();
-        var spotTDist = slEl && slEl.targetDistance != null ? slEl.targetDistance : cfg.spotLightTargetDistance;
+        var spotTDist = cfg.spotLightTargetDistance;
         var off = ShadowLight._directionToOffset(dir, spotTDist);
         ShadowLight._playerSpotTarget.position.set(
             playerWp.x + off.x,
@@ -2760,7 +2758,7 @@ ShadowLight._createDebugUI = function() {
     spotOverrideRow.appendChild(spotOverrideLbl);
     spotOverrideRow.appendChild(spotOverrideCheck);
     var spotOverrideHint = document.createElement('span');
-    spotOverrideHint.textContent = 'ON: 패널 값 사용';
+    spotOverrideHint.textContent = 'ON: 활성화';
     spotOverrideHint.style.cssText = 'font-size:10px;color:#888;';
     spotOverrideRow.appendChild(spotOverrideHint);
     spotBody.appendChild(spotOverrideRow);
