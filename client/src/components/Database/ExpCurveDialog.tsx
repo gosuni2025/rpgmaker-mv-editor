@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import useEscClose from '../../hooks/useEscClose';
 import './ExpCurveDialog.css';
 
 interface ExpCurveDialogProps {
@@ -25,6 +26,7 @@ const EXP_PARAM_KEYS = ['baseValue', 'extraValue', 'accelerationA', 'acceleratio
 
 export default function ExpCurveDialog({ expParams: initial, onConfirm, onCancel }: ExpCurveDialogProps) {
   const { t } = useTranslation();
+  useEscClose(onCancel);
   const [expParams, setExpParams] = useState<number[]>([...initial]);
   const [viewMode, setViewMode] = useState<'next' | 'total'>('next');
 
