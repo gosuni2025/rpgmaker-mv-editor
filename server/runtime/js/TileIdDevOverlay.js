@@ -111,19 +111,35 @@
         return SceneManager._scene._spriteset._tilemap;
     }
 
+    // Proxy object with Tilemap.prototype methods (not ShaderTilemap)
+    // to use bltImage-based drawing instead of addRect
+    var tileDrawProxy = null;
+    function ensureTileDrawProxy() {
+        if (tileDrawProxy) return;
+        tileDrawProxy = Object.create(Tilemap.prototype);
+        tileDrawProxy._tileWidth = TILE_SIZE;
+        tileDrawProxy._tileHeight = TILE_SIZE;
+        tileDrawProxy.flags = [];
+        tileDrawProxy.animationFrame = 0;
+    }
+
     function drawTileOnCanvas(ctx, tileId, dx, dy, tileW, tileH) {
         if (!tileId || tileId === 0) return;
         var tilemap = getTilemap();
         if (!tilemap) return;
 
-        // Use a temporary bitmap to leverage Tilemap's _drawTile
+        ensureTileDrawProxy();
+        // Copy bitmaps and flags from the real tilemap
+        tileDrawProxy.bitmaps = tilemap.bitmaps;
+        tileDrawProxy.flags = tilemap.flags;
+        tileDrawProxy.animationFrame = tilemap.animationFrame || 0;
+
         if (!tmpBitmap) {
             tmpBitmap = new Bitmap(TILE_SIZE, TILE_SIZE);
         }
         tmpBitmap.clear();
-        // Tilemap._drawTile expects bitmap as first arg (Tilemap.prototype version)
-        Tilemap.prototype._drawTile.call(tilemap, tmpBitmap, tileId, 0, 0);
-        // Copy from tmp bitmap canvas to our ctx
+        // Use Tilemap.prototype._drawTile (bltImage-based, not ShaderTilemap's addRect)
+        Tilemap.prototype._drawTile.call(tileDrawProxy, tmpBitmap, tileId, 0, 0);
         if (tmpBitmap.canvas && tmpBitmap.canvas.width > 0) {
             ctx.drawImage(tmpBitmap.canvas, 0, 0, TILE_SIZE, TILE_SIZE, dx, dy, tileW, tileH);
         }
