@@ -612,21 +612,27 @@ FogOfWar._buildBlockMap = function() {
     var blockMap = this._blockMap;
     for (var i = 0; i < blockMap.length; i++) blockMap[i] = 0;
 
-    // 타일 레이어만으로 통행불가 타일 감지 (이벤트 제외 - _events 미초기화 방지)
-    if (typeof $gameMap !== 'undefined' && $gameMap && $gameMap.tilesetFlags) {
-        var flags = $gameMap.tilesetFlags();
-        for (var ty = 0; ty < h; ty++) {
-            for (var tx = 0; tx < w; tx++) {
-                // layeredTiles: 타일 레이어만 (이벤트 제외)
-                var tiles = $gameMap.layeredTiles(tx, ty);
-                var blocked = false;
-                for (var ti = 0; ti < tiles.length; ti++) {
-                    var flag = flags[tiles[ti]];
-                    if ((flag & 0x10) !== 0) continue; // 통행에 영향 없는 타일
-                    if ((flag & 0x0f) === 0x0f) { blocked = true; break; } // 모든 방향 불가
-                }
-                if (blocked) blockMap[ty * w + tx] = 1;
+    // 타일셋 데이터가 아직 로드되지 않았으면 dirty 유지 (다음 프레임에 재시도)
+    if (typeof $gameMap === 'undefined' || !$gameMap || !$gameMap.tilesetFlags) {
+        return; // _blockMapDirty 유지
+    }
+    var flags = $gameMap.tilesetFlags();
+    if (!flags || flags.length === 0) {
+        return; // 타일셋 플래그가 아직 없으면 dirty 유지
+    }
+
+    for (var ty = 0; ty < h; ty++) {
+        for (var tx = 0; tx < w; tx++) {
+            // layeredTiles: 타일 레이어만 (이벤트 제외)
+            var tiles = $gameMap.layeredTiles(tx, ty);
+            var blocked = false;
+            for (var ti = 0; ti < tiles.length; ti++) {
+                var flag = flags[tiles[ti]];
+                if (flag === undefined) continue;
+                if ((flag & 0x10) !== 0) continue; // 통행에 영향 없는 타일
+                if ((flag & 0x0f) === 0x0f) { blocked = true; break; } // 모든 방향 불가
             }
+            if (blocked) blockMap[ty * w + tx] = 1;
         }
     }
 
