@@ -33,6 +33,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
   // Object paint state
   const isPaintingObject = useRef(false);
   const paintedTilesRef = useRef<Set<string>>(new Set());
+  const lastPaintTile = useRef<{ x: number; y: number } | null>(null);
 
   // Object drag state
   const isDraggingObject = useRef(false);
@@ -103,6 +104,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
         // 빈 공간 클릭: 펜 칠하기 시작
         isPaintingObject.current = true;
         paintedTilesRef.current = new Set([`${tile.x},${tile.y}`]);
+        lastPaintTile.current = { x: tile.x, y: tile.y };
         setObjectPaintTiles(new Set([`${tile.x},${tile.y}`]));
       }
     }
@@ -110,13 +112,37 @@ export function useObjectHandlers(): ObjectHandlersResult {
   }, [currentMap, pasteObjects, setIsObjectPasting, setObjectPastePreviewPos, setSelectedObjectId, setSelectedObjectIds, setObjectSelectionStart, setObjectSelectionEnd, setObjectPaintTiles]);
 
   const handleObjectMouseMove = useCallback((tile: { x: number; y: number } | null): boolean => {
-    // Object paint
+    // Object paint (Bresenham 보간으로 빈틈 없이 칠하기)
     if (isPaintingObject.current && tile) {
-      const key = `${tile.x},${tile.y}`;
-      if (!paintedTilesRef.current.has(key)) {
-        paintedTilesRef.current.add(key);
-        setObjectPaintTiles(new Set(paintedTilesRef.current));
+      let changed = false;
+      const prev = lastPaintTile.current;
+      if (prev && (prev.x !== tile.x || prev.y !== tile.y)) {
+        // Bresenham line between prev and tile
+        let x0 = prev.x, y0 = prev.y;
+        const x1 = tile.x, y1 = tile.y;
+        const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+        let err = dx + dy;
+        while (true) {
+          const k = `${x0},${y0}`;
+          if (!paintedTilesRef.current.has(k)) {
+            paintedTilesRef.current.add(k);
+            changed = true;
+          }
+          if (x0 === x1 && y0 === y1) break;
+          const e2 = 2 * err;
+          if (e2 >= dy) { err += dy; x0 += sx; }
+          if (e2 <= dx) { err += dx; y0 += sy; }
+        }
+      } else {
+        const key = `${tile.x},${tile.y}`;
+        if (!paintedTilesRef.current.has(key)) {
+          paintedTilesRef.current.add(key);
+          changed = true;
+        }
       }
+      lastPaintTile.current = { x: tile.x, y: tile.y };
+      if (changed) setObjectPaintTiles(new Set(paintedTilesRef.current));
       return true;
     }
 
@@ -194,6 +220,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
     // Object paint commit
     if (isPaintingObject.current) {
       isPaintingObject.current = false;
+      lastPaintTile.current = null;
       const painted = paintedTilesRef.current;
       paintedTilesRef.current = new Set();
       setObjectPaintTiles(null);
@@ -264,6 +291,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
     }
     if (isPaintingObject.current) {
       isPaintingObject.current = false;
+      lastPaintTile.current = null;
       paintedTilesRef.current = new Set();
       setObjectPaintTiles(null);
     }
