@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Item, Damage, Effect } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
@@ -6,6 +6,7 @@ import DamageEditor from '../common/DamageEditor';
 import TranslateButton from '../common/TranslateButton';
 import EffectsEditor from '../common/EffectsEditor';
 import AnimationPickerDialog from '../EventEditor/AnimationPickerDialog';
+import DatabaseList from './DatabaseList';
 import apiClient from '../../api/client';
 
 interface ItemsTabProps {
@@ -76,7 +77,7 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
     onChange(newData);
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = useCallback(() => {
     if (!data) return;
     const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
     const newItem: Item = {
@@ -91,26 +92,61 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
     newData[maxId + 1] = newItem;
     onChange(newData);
     setSelectedId(maxId + 1);
-  };
+  }, [data, onChange]);
+
+  const handleDelete = useCallback((id: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Item[];
+    if (items.length <= 1) return;
+    const newData = data.filter((item) => !item || item.id !== id);
+    onChange(newData);
+    if (id === selectedId) {
+      const remaining = newData.filter(Boolean) as Item[];
+      if (remaining.length > 0) setSelectedId(remaining[0].id);
+    }
+  }, [data, onChange, selectedId]);
+
+  const handleDuplicate = useCallback((id: number) => {
+    if (!data) return;
+    const source = data.find((item) => item && item.id === id);
+    if (!source) return;
+    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
+    const newId = maxId + 1;
+    const newData = [...data];
+    while (newData.length <= newId) newData.push(null);
+    newData[newId] = { ...source, id: newId, damage: { ...source.damage }, effects: source.effects.map(e => ({ ...e })) };
+    onChange(newData);
+    setSelectedId(newId);
+  }, [data, onChange]);
+
+  const handleReorder = useCallback((fromId: number, toId: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Item[];
+    const fromIdx = items.findIndex(item => item.id === fromId);
+    if (fromIdx < 0) return;
+    const [moved] = items.splice(fromIdx, 1);
+    if (toId === -1) {
+      items.push(moved);
+    } else {
+      const toIdx = items.findIndex(item => item.id === toId);
+      if (toIdx < 0) items.push(moved);
+      else items.splice(toIdx, 0, moved);
+    }
+    onChange([null, ...items]);
+  }, [data, onChange]);
 
   return (
     <div className="db-tab-layout">
-      {/* 좌측: 아이템 목록 */}
-      <div className="db-list">
-        <div className="db-list-header">
-          <span>{t('database.tabs.items')}</span>
-          <button className="db-btn-small" onClick={handleAddNew}>+</button>
-        </div>
-        {data?.filter(Boolean).map((item) => (
-          <div
-            key={item!.id}
-            className={`db-list-item${item!.id === selectedId ? ' selected' : ''}`}
-            onClick={() => setSelectedId(item!.id)}
-          >
-            {String(item!.id).padStart(4, '0')}: {item!.name}
-          </div>
-        ))}
-      </div>
+      <DatabaseList
+        items={data}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onAdd={handleAddNew}
+        onDelete={handleDelete}
+        onDuplicate={handleDuplicate}
+        onReorder={handleReorder}
+        title={t('database.tabs.items')}
+      />
 
       {/* 중앙 + 우측: 2컬럼 폼 */}
       {selectedItem && (

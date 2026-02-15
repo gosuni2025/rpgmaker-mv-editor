@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Enemy, DropItem, EnemyAction } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import TraitsEditor from '../common/TraitsEditor';
 import TranslateButton from '../common/TranslateButton';
 import { DataListPicker, IconSprite } from '../EventEditor/dataListPicker';
+import DatabaseList from './DatabaseList';
 import apiClient from '../../api/client';
 import './EnemiesTab.css';
 
@@ -122,7 +123,7 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
     if (selectedActionIndex >= actions.length) setSelectedActionIndex(actions.length - 1);
   };
 
-  const addNewEnemy = () => {
+  const addNewEnemy = useCallback(() => {
     if (!data) return;
     const existing = data.filter(Boolean) as Enemy[];
     const maxId = existing.length > 0 ? Math.max(...existing.map(e => e.id)) : 0;
@@ -146,7 +147,54 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
     const newData = [...data, newEnemy];
     onChange(newData);
     setSelectedId(newEnemy.id);
-  };
+  }, [data, onChange]);
+
+  const handleDeleteEnemy = useCallback((id: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Enemy[];
+    if (items.length <= 1) return;
+    const newData = data.filter((item) => !item || item.id !== id);
+    onChange(newData);
+    if (id === selectedId) {
+      const remaining = newData.filter(Boolean) as Enemy[];
+      if (remaining.length > 0) setSelectedId(remaining[0].id);
+    }
+  }, [data, onChange, selectedId]);
+
+  const handleDuplicate = useCallback((id: number) => {
+    if (!data) return;
+    const source = data.find((item) => item && item.id === id);
+    if (!source) return;
+    const existing = data.filter(Boolean) as Enemy[];
+    const maxId = existing.length > 0 ? Math.max(...existing.map(e => e.id)) : 0;
+    const newId = maxId + 1;
+    const newData = [...data, {
+      ...source,
+      id: newId,
+      params: [...source.params],
+      dropItems: source.dropItems.map(d => ({ ...d })),
+      actions: source.actions.map(a => ({ ...a })),
+      traits: source.traits.map(t => ({ ...t })),
+    }];
+    onChange(newData);
+    setSelectedId(newId);
+  }, [data, onChange]);
+
+  const handleReorder = useCallback((fromId: number, toId: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Enemy[];
+    const fromIdx = items.findIndex(item => item.id === fromId);
+    if (fromIdx < 0) return;
+    const [moved] = items.splice(fromIdx, 1);
+    if (toId === -1) {
+      items.push(moved);
+    } else {
+      const toIdx = items.findIndex(item => item.id === toId);
+      if (toIdx < 0) items.push(moved);
+      else items.splice(toIdx, 0, moved);
+    }
+    onChange([null, ...items]);
+  }, [data, onChange]);
 
   const getDropItemLabel = (drop: DropItem): string => {
     if (drop.kind === 0) return t('common.none');
@@ -161,21 +209,15 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
 
   return (
     <div className="db-tab-layout">
-      {/* 적들 목록 */}
-      <div className="db-list">
-        <div className="db-list-header">
-          <button className="db-btn-small" onClick={addNewEnemy}>+</button>
-        </div>
-        {data?.filter(Boolean).map((item) => (
-          <div
-            key={item!.id}
-            className={`db-list-item${item!.id === selectedId ? ' selected' : ''}`}
-            onClick={() => setSelectedId(item!.id)}
-          >
-            {String(item!.id).padStart(4, '0')}: {item!.name}
-          </div>
-        ))}
-      </div>
+      <DatabaseList
+        items={data}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onAdd={addNewEnemy}
+        onDelete={handleDeleteEnemy}
+        onDuplicate={handleDuplicate}
+        onReorder={handleReorder}
+      />
 
       {selectedItem && (
         <div className="enemies-main">
