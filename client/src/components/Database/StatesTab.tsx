@@ -5,6 +5,7 @@ import IconPicker from '../common/IconPicker';
 import TraitsEditor from '../common/TraitsEditor';
 import TranslateButton from '../common/TranslateButton';
 import DatabaseList from './DatabaseList';
+import './StatesTab.css';
 
 interface StatesTabProps {
   data: (State | null)[] | undefined;
@@ -131,34 +132,41 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
         onDuplicate={handleDuplicate}
         onReorder={handleReorder}
       />
-      <div className="db-form">
-        {selectedItem && (
-          <>
-            <label>
+
+      {selectedItem && (
+        <div className="states-main">
+          {/* 가운데 패널: 일반설정 + 해제조건 + 메시지 */}
+          <div className="states-center">
+            <div className="states-section-title">{t('fields.generalSettings')}</div>
+
+            <label className="states-label">
               {t('common.name')}
-              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <input
+                  className="states-input"
                   type="text"
                   value={selectedItem.name || ''}
                   onChange={(e) => handleFieldChange('name', e.target.value)}
-                  style={{flex:1}}
+                  style={{ flex: 1 }}
                 />
                 <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
               </div>
             </label>
 
-            <div className="db-form-section">{t('common.icon')}</div>
-            <IconPicker
-              value={selectedItem.iconIndex || 0}
-              onChange={(idx) => handleFieldChange('iconIndex', idx)}
-            />
+            <label className="states-label">
+              {t('common.icon')}
+              <IconPicker
+                value={selectedItem.iconIndex || 0}
+                onChange={(idx) => handleFieldChange('iconIndex', idx)}
+              />
+            </label>
 
-            <label>
+            <label className="states-label">
               {t('fields.restriction')}
               <select
+                className="states-select"
                 value={selectedItem.restriction || 0}
                 onChange={(e) => handleFieldChange('restriction', Number(e.target.value))}
-                style={{ background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 }}
               >
                 <option value={0}>{t('restriction.none')}</option>
                 <option value={1}>{t('restriction.attackEnemy')}</option>
@@ -167,9 +175,11 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
                 <option value={4}>{t('restriction.cannotMove')}</option>
               </select>
             </label>
-            <label>
+
+            <label className="states-label">
               {t('fields.priority')}
               <input
+                className="states-input"
                 type="number"
                 min={0}
                 max={100}
@@ -178,8 +188,37 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               />
             </label>
 
-            <div className="db-form-section">{t('fields.removalConditions')}</div>
-            <label className="db-checkbox-label">
+            <div className="states-inline-row">
+              <label className="states-label">
+                {t('fields.svMotion')}
+                <select
+                  className="states-select"
+                  value={selectedItem.motion || 0}
+                  onChange={(e) => handleFieldChange('motion', Number(e.target.value))}
+                >
+                  {Object.entries(SV_MOTION_LABELS).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="states-label">
+                {t('fields.svOverlay')}
+                <select
+                  className="states-select"
+                  value={selectedItem.overlay || 0}
+                  onChange={(e) => handleFieldChange('overlay', Number(e.target.value))}
+                >
+                  {Object.entries(SV_OVERLAY_LABELS).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {/* 해제 조건 */}
+            <div className="states-section-title">{t('fields.removalConditions')}</div>
+
+            <label className="states-checkbox-label">
               <input
                 type="checkbox"
                 checked={selectedItem.removeAtBattleEnd ?? false}
@@ -187,7 +226,8 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               />
               {t('fields.removeAtBattleEnd')}
             </label>
-            <label className="db-checkbox-label">
+
+            <label className="states-checkbox-label">
               <input
                 type="checkbox"
                 checked={selectedItem.removeByRestriction ?? false}
@@ -195,37 +235,42 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               />
               {t('fields.removeByRestriction')}
             </label>
-            <label>
+
+            <label className="states-label">
               {t('fields.autoRemovalTiming')}
               <select
+                className="states-select"
                 value={selectedItem.autoRemovalTiming || 0}
                 onChange={(e) => handleFieldChange('autoRemovalTiming', Number(e.target.value))}
-                style={{ background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 }}
               >
                 <option value={0}>{t('autoRemoval.none')}</option>
                 <option value={1}>{t('autoRemoval.actionEnd')}</option>
                 <option value={2}>{t('autoRemoval.turnEnd')}</option>
               </select>
             </label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <label style={{ flex: 1 }}>
+
+            <div className="states-inline-row">
+              <label className="states-label">
                 {t('fields.minTurns')}
                 <input
+                  className="states-input"
                   type="number"
                   value={selectedItem.minTurns || 0}
                   onChange={(e) => handleFieldChange('minTurns', Number(e.target.value))}
                 />
               </label>
-              <label style={{ flex: 1 }}>
+              <label className="states-label">
                 {t('fields.maxTurns')}
                 <input
+                  className="states-input"
                   type="number"
                   value={selectedItem.maxTurns || 0}
                   onChange={(e) => handleFieldChange('maxTurns', Number(e.target.value))}
                 />
               </label>
             </div>
-            <label className="db-checkbox-label">
+
+            <label className="states-checkbox-label">
               <input
                 type="checkbox"
                 checked={selectedItem.removeByDamage ?? false}
@@ -233,9 +278,11 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               />
               {t('fields.removeByDamage')}
             </label>
-            <label>
+
+            <label className="states-label">
               {t('fields.chanceByDamage')}
               <input
+                className="states-input"
                 type="number"
                 min={0}
                 max={100}
@@ -243,7 +290,8 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
                 onChange={(e) => handleFieldChange('chanceByDamage', Number(e.target.value))}
               />
             </label>
-            <label className="db-checkbox-label">
+
+            <label className="states-checkbox-label">
               <input
                 type="checkbox"
                 checked={selectedItem.removeByWalking ?? false}
@@ -251,108 +299,94 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
               />
               {t('fields.removeByWalking')}
             </label>
-            <label>
+
+            <label className="states-label">
               {t('fields.stepsToRemove')}
               <input
+                className="states-input"
                 type="number"
                 value={selectedItem.stepsToRemove || 0}
                 onChange={(e) => handleFieldChange('stepsToRemove', Number(e.target.value))}
               />
             </label>
 
-            <div className="db-form-section">{t('fields.svSideView')}</div>
-            <label>
-              {t('fields.svMotion')}
-              <select
-                value={selectedItem.motion || 0}
-                onChange={(e) => handleFieldChange('motion', Number(e.target.value))}
-                style={{ background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 }}
-              >
-                {Object.entries(SV_MOTION_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {t('fields.svOverlay')}
-              <select
-                value={selectedItem.overlay || 0}
-                onChange={(e) => handleFieldChange('overlay', Number(e.target.value))}
-                style={{ background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 }}
-              >
-                {Object.entries(SV_OVERLAY_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
-              </select>
-            </label>
+            {/* 메시지 */}
+            <div className="states-section-title">{t('fields.messages')}</div>
 
-            <div className="db-form-section">{t('fields.messages')}</div>
-            <label>
+            <label className="states-label">
               {t('fields.message1Actor')}
-              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <input
+                  className="states-input"
                   type="text"
                   value={selectedItem.message1 || ''}
                   onChange={(e) => handleFieldChange('message1', e.target.value)}
-                  style={{flex:1}}
+                  style={{ flex: 1 }}
                 />
                 <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.message1`} sourceText={selectedItem.message1 || ''} />
               </div>
             </label>
-            <label>
+
+            <label className="states-label">
               {t('fields.message2Enemy')}
-              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <input
+                  className="states-input"
                   type="text"
                   value={selectedItem.message2 || ''}
                   onChange={(e) => handleFieldChange('message2', e.target.value)}
-                  style={{flex:1}}
+                  style={{ flex: 1 }}
                 />
                 <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.message2`} sourceText={selectedItem.message2 || ''} />
               </div>
             </label>
-            <label>
+
+            <label className="states-label">
               {t('fields.message3Persist')}
-              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <input
+                  className="states-input"
                   type="text"
                   value={selectedItem.message3 || ''}
                   onChange={(e) => handleFieldChange('message3', e.target.value)}
-                  style={{flex:1}}
+                  style={{ flex: 1 }}
                 />
                 <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.message3`} sourceText={selectedItem.message3 || ''} />
               </div>
             </label>
-            <label>
+
+            <label className="states-label">
               {t('fields.message4Remove')}
-              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <input
+                  className="states-input"
                   type="text"
                   value={selectedItem.message4 || ''}
                   onChange={(e) => handleFieldChange('message4', e.target.value)}
-                  style={{flex:1}}
+                  style={{ flex: 1 }}
                 />
                 <TranslateButton csvPath="database/states.csv" entryKey={`${selectedItem.id}.message4`} sourceText={selectedItem.message4 || ''} />
               </div>
             </label>
+          </div>
 
-            <div className="db-form-section">{t('fields.traits')}</div>
+          {/* 오른쪽 패널: 특성 + 메모 */}
+          <div className="states-right">
+            <div className="states-section-title">{t('fields.traits')}</div>
             <TraitsEditor
               traits={selectedItem.traits || []}
               onChange={(traits) => handleFieldChange('traits', traits)}
             />
 
-            <label>
-              {t('common.note')}
-              <textarea
-                value={selectedItem.note || ''}
-                onChange={(e) => handleFieldChange('note', e.target.value)}
-                rows={3}
-              />
-            </label>
-          </>
-        )}
-      </div>
+            <div className="states-section-title">{t('common.note')}</div>
+            <textarea
+              className="states-note"
+              value={selectedItem.note || ''}
+              onChange={(e) => handleFieldChange('note', e.target.value)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
