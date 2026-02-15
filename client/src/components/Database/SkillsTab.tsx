@@ -287,7 +287,8 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
               </label>
               <label>
                 {t('common.animation')}
-                <select value={selectedItem.animationId || 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))}>
+                <select value={selectedItem.animationId ?? 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))}>
+                  <option value={-1}>{t('common.normalAttack')}</option>
                   <option value={0}>{t('common.none')}</option>
                   {animations.map(a => <option key={a.id} value={a.id}>{String(a.id).padStart(4, '0')}: {a.name}</option>)}
                 </select>
@@ -321,6 +322,21 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
                 <TranslateButton csvPath="database/skills.csv" entryKey={`${selectedItem.id}.message2`} sourceText={selectedItem.message2 || ''} />
               </div>
             </label>
+
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  className="db-btn-small"
+                  onClick={() => {
+                    handleFieldChange('message1', t(`skills.msgPreset${n}`));
+                    handleFieldChange('message2', '');
+                  }}
+                >
+                  {t(`skills.msgPreset${n}Label`)}
+                </button>
+              ))}
+            </div>
 
             {/* 필요한 무기 섹션 */}
             <div className="db-form-section">{t('fields.requiredWeaponTypes')}</div>

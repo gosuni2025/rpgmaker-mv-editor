@@ -16,6 +16,7 @@
     "description": "Description",
     "price": "Price",
     "animation": "Animation",
+    "normalAttack": "Normal Attack",
     "new": "New",
     "del": "Del",
     "copy": "Copy",
@@ -154,7 +155,13 @@
     }
   },
   "skills": {
-    "generalSettings": "General Settings"
+    "generalSettings": "General Settings",
+    "msgPreset1Label": "\"casts\"",
+    "msgPreset1": " casts %1!",
+    "msgPreset2Label": "\"does\"",
+    "msgPreset2": " does %1!",
+    "msgPreset3Label": "\"uses\"",
+    "msgPreset3": " uses %1!"
   },
   "fields": {
     "nickname": "Nickname",
