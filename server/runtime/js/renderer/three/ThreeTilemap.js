@@ -58,6 +58,9 @@ function ThreeTilemapRectLayer() {
     this._animData = {};   // { setNumber: [] }  animX, animY per rect
     // A1 kind 데이터 (setNumber별)
     this._kindData = {};   // { setNumber: [] }  kind per rect (-1 = not A1)
+    // 그리기 z 레이어 데이터 (setNumber별)
+    this._drawZData = {};  // { setNumber: [] }  z layer per rect (0~3)
+    this._currentDrawZ = 0;
 }
 
 Object.defineProperties(ThreeTilemapRectLayer.prototype, {
@@ -108,6 +111,9 @@ ThreeTilemapRectLayer.prototype.clear = function() {
     for (var key in this._kindData) {
         this._kindData[key].length = 0;
     }
+    for (var key in this._drawZData) {
+        this._drawZData[key].length = 0;
+    }
     this._needsRebuild = true;
 };
 
@@ -133,6 +139,7 @@ ThreeTilemapRectLayer.prototype.addRect = function(setNumber, u, v, x, y, w, h, 
         };
         this._animData[setNumber] = [];
         this._kindData[setNumber] = [];
+        this._drawZData[setNumber] = [];
     }
 
     var data = this._rectData[setNumber];
@@ -185,6 +192,8 @@ ThreeTilemapRectLayer.prototype.addRect = function(setNumber, u, v, x, y, w, h, 
     this._animData[setNumber].push(animX || 0, animY || 0);
     // A1 kind 정보 (-1 = A1이 아님)
     this._kindData[setNumber].push(a1Kind != null ? a1Kind : -1);
+    // 그리기 z 레이어 (0~3, _paintTiles에서 설정)
+    this._drawZData[setNumber].push(this._currentDrawZ || 0);
 
     data.count++;
     this._needsRebuild = true;
@@ -348,9 +357,10 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
         var ax = (animOffsets[i * 2] || 0) * tileAnimX;
         var ay = (animOffsets[i * 2 + 1] || 0) * tileAnimY;
 
-        // setNumber별 미세 z 오프셋: 높은 setNumber일수록 카메라에 가깝게
-        // depth test(LESS)에서 나중에 그려야 할 타일이 앞에 위치하도록
-        var zOffset = (sn + 2) * 0.01;  // sn=-1(shadow)→0.01, sn=0→0.02, ..., sn=8→0.10
+        // 그리기 z 레이어 기반 z 오프셋: z=0→0.00, z=1→0.01, z=2→0.02, z=3→0.03
+        var drawZArr = this._drawZData[setNumber] || [];
+        var drawZ = drawZArr[i] || 0;
+        var zOffset = drawZ * 0.01;
 
         for (var j = 0; j < 6; j++) {
             posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
@@ -403,6 +413,7 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
                 mesh.material.dispose();
                 mesh.material = new THREE.MeshPhongMaterial({
                     map: texture, transparent: true, depthTest: true, depthWrite: true,
+                    depthFunc: THREE.LessEqualDepth,
                     side: THREE.DoubleSide,
                     emissive: new THREE.Color(0x000000),
                     specular: new THREE.Color(0x000000), shininess: 0,
@@ -446,6 +457,7 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
             if (needsPhong) {
                 material = new THREE.MeshPhongMaterial({
                     map: texture, transparent: true, depthTest: true, depthWrite: true,
+                    depthFunc: THREE.LessEqualDepth,
                     side: THREE.DoubleSide,
                     emissive: new THREE.Color(0x000000),
                     specular: new THREE.Color(0x000000), shininess: 0,
@@ -521,7 +533,7 @@ ThreeTilemapRectLayer.prototype._buildWaterMesh = function(setNumber, data, anim
     for (var gk in kindGroups) {
         var group = kindGroups[gk];
         if (group.indices.length > 0) {
-            this._buildWaterTypeMesh(setNumber + '_' + gk, group.indices, data, animOffsets,
+            this._buildWaterTypeMesh(setNumber, setNumber + '_' + gk, group.indices, data, animOffsets,
                                       texture, texW, texH, tileAnimX, tileAnimY,
                                       group.isWaterfall, group.kinds);
         }
@@ -531,7 +543,7 @@ ThreeTilemapRectLayer.prototype._buildWaterMesh = function(setNumber, data, anim
 /**
  * 물/폭포 타일 메시 빌드 (공통)
  */
-ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices, data, animOffsets,
+ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(setNumber, meshKey, indices, data, animOffsets,
         texture, texW, texH, tileAnimX, tileAnimY, isWaterfall, a1Kinds) {
     var count = indices.length;
     var vertCount = count * 6;
@@ -570,11 +582,14 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
         vMin += halfTexelV;
         vMax -= halfTexelV;
         // 모든 버텍스에 동일한 바운드 할당
-        // 물 타일은 z=0.005 (일반 타일 sn=0 의 0.02보다 뒤)
+        // 물 타일은 drawZ 기반 z 오프셋 적용
+        var drawZArr = this._drawZData[setNumber] || [];
+        var drawZ = drawZArr[i] || 0;
+        var zOffset = drawZ * 0.01;
         for (var j = 0; j < 6; j++) {
             posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
             posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
-            posArray[posOff + j * 3 + 2] = 0.005;
+            posArray[posOff + j * 3 + 2] = zOffset;
 
             normalArray[posOff + j * 3]     = 0;
             normalArray[posOff + j * 3 + 1] = 0;
@@ -634,6 +649,7 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
             mesh.material.dispose();
             var mat = new THREE.MeshPhongMaterial({
                 map: texture, transparent: true, depthTest: true, depthWrite: false,
+                depthFunc: THREE.LessEqualDepth,
                 side: THREE.DoubleSide,
                 emissive: new THREE.Color(0x000000),
                 specular: new THREE.Color(0x000000), shininess: 0,
@@ -664,6 +680,7 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(meshKey, indices,
         if (needsPhong) {
             material = new THREE.MeshPhongMaterial({
                 map: texture, transparent: true, depthTest: true, depthWrite: false,
+                depthFunc: THREE.LessEqualDepth,
                 side: THREE.DoubleSide,
                 emissive: new THREE.Color(0x000000),
                 specular: new THREE.Color(0x000000), shininess: 0,
