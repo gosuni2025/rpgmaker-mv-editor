@@ -16,6 +16,8 @@ export default function IconPicker({ value, onChange }: IconPickerProps) {
   const [iconSheet, setIconSheet] = useState<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [scale, setScale] = useState(2);
 
   useEffect(() => {
     const img = new Image();
@@ -33,29 +35,60 @@ export default function IconPicker({ value, onChange }: IconPickerProps) {
     ctx.drawImage(iconSheet, sx, sy, ICON_SIZE, ICON_SIZE, 0, 0, ICON_SIZE, ICON_SIZE);
   }, [iconSheet, value]);
 
-  useEffect(() => {
-    if (!open || !iconSheet || !canvasRef.current) return;
+  const drawSheet = useCallback(() => {
+    if (!iconSheet || !canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
-    canvasRef.current.width = iconSheet.width;
-    canvasRef.current.height = iconSheet.height;
-    ctx.drawImage(iconSheet, 0, 0);
+    const w = iconSheet.width * scale;
+    const h = iconSheet.height * scale;
+    canvasRef.current.width = w;
+    canvasRef.current.height = h;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(iconSheet, 0, 0, w, h);
+
+    const cellSize = ICON_SIZE * scale;
+
     // Highlight selected
-    const sx = (value % ICONS_PER_ROW) * ICON_SIZE;
-    const sy = Math.floor(value / ICONS_PER_ROW) * ICON_SIZE;
+    const sx = (value % ICONS_PER_ROW) * cellSize;
+    const sy = Math.floor(value / ICONS_PER_ROW) * cellSize;
     ctx.strokeStyle = '#2675bf';
     ctx.lineWidth = 2;
-    ctx.strokeRect(sx, sy, ICON_SIZE, ICON_SIZE);
-  }, [open, iconSheet, value]);
+    ctx.strokeRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+
+    // Highlight hover
+    if (hoverIdx !== null && hoverIdx !== value) {
+      const hx = (hoverIdx % ICONS_PER_ROW) * cellSize;
+      const hy = Math.floor(hoverIdx / ICONS_PER_ROW) * cellSize;
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(hx + 1, hy + 1, cellSize - 2, cellSize - 2);
+    }
+  }, [iconSheet, value, scale, hoverIdx]);
+
+  useEffect(() => {
+    if (open) drawSheet();
+  }, [open, drawSheet]);
+
+  const getIdxFromEvent = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cellSize = ICON_SIZE * scale;
+    const x = Math.floor((e.clientX - rect.left) / cellSize);
+    const y = Math.floor((e.clientY - rect.top) / cellSize);
+    return y * ICONS_PER_ROW + x;
+  };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.floor((e.clientX - rect.left) / ICON_SIZE);
-    const y = Math.floor((e.clientY - rect.top) / ICON_SIZE);
-    const idx = y * ICONS_PER_ROW + x;
+    const idx = getIdxFromEvent(e);
     onChange(idx);
     setOpen(false);
   };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const idx = getIdxFromEvent(e);
+    setHoverIdx(idx);
+  };
+
+  const displayIdx = hoverIdx !== null ? hoverIdx : value;
 
   return (
     <div className="icon-picker">
@@ -64,12 +97,22 @@ export default function IconPicker({ value, onChange }: IconPickerProps) {
         <span>#{value}</span>
       </div>
       {open && (
-        <div className="icon-picker-popup">
-          <canvas
-            ref={canvasRef}
-            onClick={handleCanvasClick}
-            style={{ cursor: 'pointer' }}
-          />
+        <div className="icon-picker-overlay" onClick={() => setOpen(false)}>
+          <div className="icon-picker-dialog" onClick={e => e.stopPropagation()}>
+            <div className="icon-picker-dialog-header">
+              <span>아이콘 선택 #{displayIdx}</span>
+              <button className="db-dialog-close" onClick={() => setOpen(false)}>&times;</button>
+            </div>
+            <div className="icon-picker-dialog-body">
+              <canvas
+                ref={canvasRef}
+                onClick={handleCanvasClick}
+                onMouseMove={handleMouseMove}
+                onMouseLeave={() => setHoverIdx(null)}
+                style={{ cursor: 'pointer' }}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
