@@ -112,6 +112,59 @@
         });
     }
 
+    // RGB {r,g,b} (0~1) → '#rrggbb' 변환
+    function colorToHex(c) {
+        if (!c) return '#000000';
+        var r = Math.round((c.r || 0) * 255);
+        var g = Math.round((c.g || 0) * 255);
+        var b = Math.round((c.b || 0) * 255);
+        return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    // 현재 FOW 상태 → FogOfWarConfig 객체 생성
+    function buildConfigObject() {
+        var config = {
+            enabled: true,
+            radius: FOW._radius,
+            fogColor: colorToHex(FOW._fogColor),
+            unexploredAlpha: FOW._unexploredAlpha,
+            exploredAlpha: FOW._exploredAlpha,
+            lineOfSight: FOW._lineOfSight,
+            edgeAnimation: FOW._edgeAnimation,
+            edgeAnimationSpeed: FOW._edgeAnimationSpeed,
+            lightScattering: FOW._lightScattering,
+            lightScatterIntensity: FOW._lightScatterIntensity,
+            fogHeight: FOW._fogHeight,
+            absorption: FOW._absorption,
+            visibilityBrightness: FOW._visibilityBrightness,
+            fogColorTop: colorToHex(FOW._fogColorTop),
+            heightGradient: FOW._heightGradient,
+            godRay: FOW._godRay,
+            godRayIntensity: FOW._godRayIntensity,
+            vortex: FOW._vortex,
+            vortexSpeed: FOW._vortexSpeed,
+        };
+        // 2D 셰이더 오버라이드 값 추가
+        if (FOW._shaderOverrides) {
+            PARAMS_2D.forEach(function(p) {
+                if (p.shader && FOW._shaderOverrides[p.key] !== undefined) {
+                    config[p.key] = FOW._shaderOverrides[p.key];
+                }
+            });
+        }
+        return config;
+    }
+
+    function showCopyFeedback(btn, success) {
+        var orig = btn.textContent;
+        btn.textContent = success ? 'Copied!' : 'Failed';
+        btn.style.background = success ? '#264' : '#644';
+        setTimeout(function() {
+            btn.textContent = orig;
+            btn.style.background = '#345';
+        }, 1200);
+    }
+
     function createPanel() {
         panel = document.createElement('div');
         panel.id = 'fow-dev-panel';
@@ -151,10 +204,14 @@
         addSection(body, '── 3D Only ──', '#fa6');
         addParamRows(body, PARAMS_3D, applyParam);
 
+        // 버튼 컨테이너
+        var btnRow = document.createElement('div');
+        btnRow.style.cssText = 'margin-top:8px;display:flex;gap:4px;';
+
         // Reset 버튼
         var resetBtn = document.createElement('button');
         resetBtn.textContent = 'Reset All';
-        resetBtn.style.cssText = 'margin-top:8px;padding:2px 8px;background:#444;color:#ccc;border:1px solid #666;font:10px monospace;cursor:pointer;border-radius:2px;width:100%;';
+        resetBtn.style.cssText = 'flex:1;padding:2px 8px;background:#444;color:#ccc;border:1px solid #666;font:10px monospace;cursor:pointer;border-radius:2px;';
         resetBtn.addEventListener('click', function() {
             ALL_PARAMS.forEach(function(p) {
                 if (p.shader) {
@@ -170,7 +227,36 @@
             FOW._prevPlayerX = -1;
             saveToStorage();
         });
-        body.appendChild(resetBtn);
+        btnRow.appendChild(resetBtn);
+
+        // Copy Values 버튼
+        var copyBtn = document.createElement('button');
+        copyBtn.textContent = 'Copy Values';
+        copyBtn.style.cssText = 'flex:1;padding:2px 8px;background:#345;color:#ccc;border:1px solid #668;font:10px monospace;cursor:pointer;border-radius:2px;';
+        copyBtn.addEventListener('click', function() {
+            var config = buildConfigObject();
+            var json = JSON.stringify(config, null, 2);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(json).then(function() {
+                    showCopyFeedback(copyBtn, true);
+                }, function() {
+                    showCopyFeedback(copyBtn, false);
+                });
+            } else {
+                // fallback
+                var ta = document.createElement('textarea');
+                ta.value = json;
+                ta.style.cssText = 'position:fixed;left:-9999px;';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); showCopyFeedback(copyBtn, true); }
+                catch(e) { showCopyFeedback(copyBtn, false); }
+                document.body.removeChild(ta);
+            }
+        });
+        btnRow.appendChild(copyBtn);
+
+        body.appendChild(btnRow);
 
         panel.appendChild(body);
         document.body.appendChild(panel);
