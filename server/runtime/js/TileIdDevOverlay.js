@@ -343,7 +343,7 @@
         }
 
         // Copy hint at bottom
-        ctx.font = '10px monospace';
+        ctx.font = 'bold 30px monospace';
         ctx.fillStyle = '#666';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
