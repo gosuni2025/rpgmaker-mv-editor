@@ -281,16 +281,16 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
               </label>
             </div>
 
-            {/* 대미지 */}
+          </div>
+
+          {/* 우측 컬럼: 손상 + 사용 효과 + 메모 */}
+          <div className="db-form-col">
             <DamageEditor
               damage={selectedItem.damage || { ...DEFAULT_DAMAGE }}
               onChange={(damage) => handleFieldChange('damage', damage)}
             />
-          </div>
 
-          {/* 우측 컬럼: 사용 효과 + 메모 */}
-          <div className="db-form-col">
-            <div className="db-form-section" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+            <div className="db-form-section">
               {t('fields.effects')}
             </div>
 
