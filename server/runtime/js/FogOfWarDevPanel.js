@@ -78,6 +78,7 @@
                 }
             }
         });
+        data.fogColor = colorToHex(FOW._fogColor);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
     }
 
@@ -94,6 +95,10 @@
             applyParam(p, val);
             updateSlider(p.key, val);
         });
+        if (data.fogColor) {
+            FOW._fogColor = FOW._parseColor(data.fogColor);
+            updateSlider('fogColor', data.fogColor);
+        }
     }
 
     // RGB {r,g,b} (0~1) → '#rrggbb' 변환
@@ -165,6 +170,27 @@
         var body = document.createElement('div');
         body.id = 'fow-dev-body';
 
+        // --- 안개 색상 ---
+        addSection(body, '── Color ──');
+        var fogColorRow = document.createElement('div');
+        fogColorRow.style.cssText = 'margin:2px 0;display:flex;align-items:center;gap:4px;';
+        var fogColorLabel = document.createElement('span');
+        fogColorLabel.textContent = 'Fog Color';
+        fogColorLabel.style.cssText = 'flex:0 0 100px;font-size:10px;color:#aaa;';
+        fogColorRow.appendChild(fogColorLabel);
+        var fogColorInput = document.createElement('input');
+        fogColorInput.type = 'color';
+        fogColorInput.value = colorToHex(FOW._fogColor);
+        fogColorInput.style.cssText = 'flex:1;height:20px;cursor:pointer;background:transparent;border:1px solid #555;';
+        fogColorInput.addEventListener('input', function() {
+            var c = FOW._parseColor(fogColorInput.value);
+            FOW._fogColor = c;
+            saveToStorage();
+        });
+        fogColorRow.appendChild(fogColorInput);
+        body.appendChild(fogColorRow);
+        sliderEls['fogColor'] = { slider: fogColorInput, valueEl: null, type: 'color' };
+
         // --- 공통 파라미터 ---
         addSection(body, '── Common ──');
         addParamRows(body, COMMON_PARAMS, applyParam);
@@ -230,6 +256,38 @@
         btnRow.appendChild(copyBtn);
 
         body.appendChild(btnRow);
+
+        // 디버그: BlockMap 확인 버튼
+        var debugRow = document.createElement('div');
+        debugRow.style.cssText = 'margin-top:4px;display:flex;gap:4px;';
+        var blockMapBtn = document.createElement('button');
+        blockMapBtn.textContent = 'Log BlockMap';
+        blockMapBtn.style.cssText = 'flex:1;padding:2px 8px;background:#533;color:#ccc;border:1px solid #866;font:10px monospace;cursor:pointer;border-radius:2px;';
+        blockMapBtn.addEventListener('click', function() {
+            FOW._buildBlockMap();
+            var bm = FOW._blockMap;
+            var w = FOW._mapWidth;
+            var h = FOW._mapHeight;
+            var blocked = 0;
+            if (bm) {
+                for (var i = 0; i < bm.length; i++) if (bm[i]) blocked++;
+            }
+            console.log('[FOW] BlockMap: ' + w + 'x' + h + ', blocked=' + blocked + '/' + (w * h) +
+                        ', LoS=' + FOW._lineOfSight + ', dirty=' + FOW._blockMapDirty);
+            if (bm && w > 0 && h > 0) {
+                var lines = [];
+                for (var y = 0; y < Math.min(h, 40); y++) {
+                    var line = '';
+                    for (var x = 0; x < Math.min(w, 60); x++) {
+                        line += bm[y * w + x] ? '#' : '.';
+                    }
+                    lines.push(line);
+                }
+                console.log('[FOW] BlockMap visual:\n' + lines.join('\n'));
+            }
+        });
+        debugRow.appendChild(blockMapBtn);
+        body.appendChild(debugRow);
 
         panel.appendChild(body);
         document.body.appendChild(panel);
@@ -333,7 +391,9 @@
     function updateSlider(key, val) {
         var el = sliderEls[key];
         if (!el) return;
-        if (el.type === 'bool') {
+        if (el.type === 'color') {
+            el.slider.value = val;
+        } else if (el.type === 'bool') {
             el.slider.checked = !!val;
         } else {
             el.slider.value = val;
@@ -357,6 +417,7 @@
                 }
             }
         });
+        updateSlider('fogColor', colorToHex(FOW._fogColor));
     }
 
     // FogOfWar.setup() 후킹: setup이 config 값으로 초기화한 뒤
