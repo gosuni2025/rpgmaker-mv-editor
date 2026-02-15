@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import useEscClose from '../../hooks/useEscClose';
 import './ParamCurveDialog.css';
 
 interface ParamCurveDialogProps {
@@ -58,6 +59,8 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     initialParams.map(arr => [...arr])
   );
   const [growthType, setGrowthType] = useState(0.5);
+
+  useEscClose(onCancel);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDragging = useRef(false);
