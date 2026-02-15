@@ -24,27 +24,51 @@
   gap: 8px;
 }
 
-/* 일반 설정 상단: 이름 + 버튼들 */
+/* 일반 설정 상단: 이름 + 버튼들 한 줄 */
 .troops-general-header {
   display: flex;
-  gap: 8px;
-  align-items: flex-end;
-}
-
-.troops-general-header label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: 6px;
+  align-items: center;
   font-size: 12px;
   color: #aaa;
-  flex: 1;
 }
 
-/* 배치 뷰: 배경 + 적 스프라이트 + 멤버 목록 */
+.troops-general-header .troops-name-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.troops-general-header .troops-name-label input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Input styles */
+.troops-input {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.troops-input:focus {
+  border-color: #2675bf;
+}
+
+/* 배치 뷰: 배경 + 적 스프라이트 + 적 전체 목록 */
 .troops-placement-row {
   display: flex;
   gap: 8px;
-  min-height: 200px;
+  min-height: 180px;
+  max-height: 260px;
 }
 
 /* 전투 미리보기 캔버스 영역 */
@@ -55,9 +79,9 @@
   border: 1px solid #444;
   border-radius: 3px;
   overflow: hidden;
-  min-height: 200px;
   cursor: default;
   user-select: none;
+  aspect-ratio: 544 / 416;
 }
 
 .troops-preview-bg {
@@ -86,25 +110,26 @@
   opacity: 0.4;
 }
 
-/* 멤버 목록 (우측) */
-.troops-member-panel {
+/* 우측 패널: 전체 적 목록 + 네비게이션 + 버튼들 */
+.troops-enemy-panel {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 180px;
-  max-width: 200px;
+  min-width: 160px;
+  max-width: 180px;
 }
 
-.troops-member-list {
+/* 전체 적 리스트 (스크롤) */
+.troops-enemy-list {
   flex: 1;
   border: 1px solid #444;
   border-radius: 3px;
   background: #2b2b2b;
   overflow-y: auto;
-  min-height: 100px;
+  min-height: 80px;
 }
 
-.troops-member-item {
+.troops-enemy-item {
   padding: 3px 6px;
   font-size: 12px;
   color: #ddd;
@@ -115,44 +140,32 @@
   white-space: nowrap;
 }
 
-.troops-member-item:last-child {
+.troops-enemy-item:last-child {
   border-bottom: none;
 }
 
-.troops-member-item:hover {
+.troops-enemy-item:hover {
   background: #383838;
 }
 
-.troops-member-item.selected {
+.troops-enemy-item.selected {
   background: #2675bf;
   color: #fff;
 }
 
-.troops-member-buttons {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-/* 적 선택 드롭다운 + 추가 */
-.troops-enemy-add-row {
+/* < > 네비게이션 + 모두해제 + 정렬 */
+.troops-nav-row {
   display: flex;
   gap: 4px;
   align-items: center;
 }
 
-.troops-enemy-add-row select {
-  flex: 1;
-  background: #2b2b2b;
-  border: 1px solid #555;
-  border-radius: 3px;
-  padding: 3px 6px;
-  color: #ddd;
-  font-size: 12px;
-  min-width: 0;
+.troops-member-buttons {
+  display: flex;
+  gap: 4px;
 }
 
-/* 전투 이벤트 영역 */
+/* ======================== 전투 이벤트 영역 ======================== */
 .troops-battle-events {
   flex: 1;
   display: flex;
@@ -162,13 +175,62 @@
   overflow: hidden;
 }
 
-/* 페이지 탭 바 */
+/* 전투이벤트: 좌측 페이지 관리 버튼 + 우측 본문(탭+조건+커맨드) */
+.troops-events-layout {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 좌측 페이지 관리 버튼 세로 스택 */
+.troops-page-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.troops-page-action-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  background: #383838;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ccc;
+  cursor: pointer;
+  white-space: pre-line;
+  text-align: left;
+  line-height: 1.3;
+}
+
+.troops-page-action-btn:hover {
+  background: #444;
+}
+
+.troops-page-action-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 우측 본문: 페이지 탭 + 조건/범위 + 이벤트 커맨드 세로 쌓기 */
+.troops-events-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 페이지 탭 바 (상단) */
 .troops-page-tabs {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   align-items: center;
   flex-shrink: 0;
-  flex-wrap: wrap;
 }
 
 .troops-page-tab {
@@ -176,7 +238,8 @@
   font-size: 12px;
   background: #383838;
   border: 1px solid #555;
-  border-radius: 3px;
+  border-bottom: none;
+  border-radius: 3px 3px 0 0;
   color: #aaa;
   cursor: pointer;
 }
@@ -191,102 +254,31 @@
   color: #fff;
 }
 
-/* 이벤트 페이지 편집 영역 */
-.troops-page-content {
-  flex: 1;
+/* 조건 + 범위 한 줄 */
+.troops-condition-span-line {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-/* 페이지 버튼 그룹 (이벤트 페이지/새로 만들기/복사하기 등) */
-.troops-page-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* 조건 + 범위 가로 배치 */
-.troops-conditions-span-row {
-  display: flex;
-  gap: 10px;
+  gap: 12px;
+  align-items: center;
+  font-size: 12px;
+  color: #aaa;
+  flex-shrink: 0;
   flex-wrap: wrap;
 }
 
-.troops-conditions-box {
-  flex: 1;
-  min-width: 250px;
-}
-
-.troops-span-box {
-  min-width: 120px;
-}
-
-.troops-condition-row {
+.troops-condition-span-line label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #aaa;
-  padding: 2px 0;
+  gap: 4px;
+  white-space: nowrap;
 }
 
-.troops-condition-row input[type="checkbox"] {
-  margin: 0;
-}
-
-.troops-condition-row input[type="number"],
-.troops-condition-row select {
+.troops-condition-span-line select {
   background: #2b2b2b;
   border: 1px solid #555;
   border-radius: 3px;
-  padding: 2px 4px;
+  padding: 2px 6px;
   color: #ddd;
   font-size: 12px;
-}
-
-.troops-condition-row input[type="number"] {
-  width: 45px;
-}
-
-.troops-condition-row select {
-  min-width: 80px;
-}
-
-.troops-condition-row input:disabled,
-.troops-condition-row select:disabled {
-  opacity: 0.4;
-}
-
-/* 범위 셀렉트 */
-.troops-span-select {
-  background: #2b2b2b;
-  border: 1px solid #555;
-  border-radius: 3px;
-  padding: 3px 6px;
-  color: #ddd;
-  font-size: 12px;
-  width: 100%;
-}
-
-/* Input styles */
-.troops-input {
-  background: #2b2b2b;
-  border: 1px solid #555;
-  border-radius: 3px;
-  padding: 3px 6px;
-  color: #ddd;
-  font-size: 12px;
-  font-family: inherit;
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.troops-input:focus {
-  border-color: #2675bf;
 }
 
 /* 이벤트 커맨드 에디터 wrapper */
@@ -296,4 +288,76 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* 조건 편집 다이얼로그 */
+.troops-cond-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 420px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.troops-cond-dialog-title {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: bold;
+  border-bottom: 1px solid #555;
+  background: #333;
+  border-radius: 4px 4px 0 0;
+  text-align: center;
+}
+
+.troops-cond-dialog-body {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.troops-cond-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #aaa;
+  padding: 2px 0;
+}
+
+.troops-cond-row input[type="checkbox"] {
+  margin: 0;
+}
+
+.troops-cond-row input[type="number"] {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 2px 4px;
+  color: #ddd;
+  font-size: 12px;
+  width: 45px;
+}
+
+.troops-cond-row select {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 2px 4px;
+  color: #ddd;
+  font-size: 12px;
+  min-width: 80px;
+}
+
+.troops-cond-row input:disabled,
+.troops-cond-row select:disabled {
+  opacity: 0.4;
+}
+
+.troops-cond-dialog-footer {
+  padding: 8px 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #555;
 }
