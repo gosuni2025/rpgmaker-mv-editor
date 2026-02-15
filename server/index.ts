@@ -65,6 +65,215 @@ export function createApp(options: AppOptions = {}) {
     res.json({ exists: fs.existsSync(filePath) });
   });
 
+  // /game/fogtest.html - FogOfWar3D 격리 테스트 씬
+  app.get('/game/fogtest.html', (req, res) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project open');
+    const mapId = req.query.map ? parseInt(req.query.map as string, 10) : 1;
+    const mapStr = String(mapId).padStart(3, '0');
+    const cacheBust = `?v=${Date.now()}`;
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>FogOfWar3D Test - Map${mapStr}</title>
+    <style>
+        body { margin:0; background:#000; overflow:hidden; }
+        #info { position:fixed; top:10px; left:10px; color:#0f0; font:12px monospace; z-index:9999; background:rgba(0,0,0,0.7); padding:8px; border-radius:4px; }
+    </style>
+</head>
+<body>
+    <div id="info">Loading...</div>
+    <script src="js/libs/three.min.js"></script>
+    <script src="js/renderer/RendererFactory.js${cacheBust}"></script>
+    <script src="js/renderer/RendererStrategy.js${cacheBust}"></script>
+    <script src="js/renderer/three/ThreeRendererFactory.js${cacheBust}"></script>
+    <script src="js/renderer/three/ThreeRendererStrategy.js${cacheBust}"></script>
+    <script src="js/renderer/three/ThreeContainer.js${cacheBust}"></script>
+    <script src="js/renderer/three/ThreeSprite.js${cacheBust}"></script>
+    <script src="js/renderer/three/ThreeGraphicsNode.js${cacheBust}"></script>
+    <script src="js/renderer/three/ThreeTilemap.js${cacheBust}"></script>
+    <script src="js/renderer/three/ThreeWaterShader.js${cacheBust}"></script>
+    <script src="js/renderer/three/ThreeFilters.js${cacheBust}"></script>
+    <script src="js/rpg_core.js${cacheBust}"></script>
+    <script src="js/rpg_managers.js${cacheBust}"></script>
+    <script src="js/rpg_objects.js${cacheBust}"></script>
+    <script src="js/rpg_scenes.js${cacheBust}"></script>
+    <script src="js/rpg_sprites.js${cacheBust}"></script>
+    <script src="js/rpg_windows.js${cacheBust}"></script>
+    <script src="js/Mode3D.js${cacheBust}"></script>
+    <script src="js/ShadowAndLight.js${cacheBust}"></script>
+    <script src="js/PostProcessEffects.js${cacheBust}"></script>
+    <script src="js/PostProcess.js${cacheBust}"></script>
+    <script src="js/PictureShader.js${cacheBust}"></script>
+    <script src="js/FogOfWar.js${cacheBust}"></script>
+    <script src="js/FogOfWar3D.js${cacheBust}"></script>
+    <script src="js/DevPanelUtils.js${cacheBust}"></script>
+    <script src="js/FogOfWarDevPanel.js${cacheBust}"></script>
+    <script>
+    (function() {
+        var info = document.getElementById('info');
+        var mapId = ${mapId};
+        var mapFile = 'Map' + String(mapId).padStart(3, '0') + '.json';
+
+        info.textContent = 'Fetching ' + mapFile + '...';
+
+        // 맵 데이터 로드
+        fetch('/game/data/' + mapFile).then(function(r) { return r.json(); }).then(function(mapData) {
+            info.textContent = 'Map loaded: ' + mapData.width + 'x' + mapData.height;
+
+            var fow = mapData.fogOfWar || {};
+            var fogMode = fow.fogMode || '2d';
+            var mapW = mapData.width;
+            var mapH = mapData.height;
+            var tileSize = 48;
+            var totalW = mapW * tileSize;
+            var totalH = mapH * tileSize;
+
+            // Three.js 렌더러 생성
+            var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x222222, 1);
+            document.body.appendChild(renderer.domElement);
+
+            var scene = new THREE.Scene();
+
+            // 카메라: PerspectiveCamera (3D 박스를 확인하기 위해)
+            var camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+            camera.position.set(totalW / 2, totalH / 2, Math.max(totalW, totalH) * 1.2);
+            camera.lookAt(totalW / 2, totalH / 2, 0);
+
+            // 바닥 그리드 (맵 영역 시각화)
+            var gridGeo = new THREE.PlaneGeometry(totalW, totalH);
+            var gridMat = new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide });
+            var gridMesh = new THREE.Mesh(gridGeo, gridMat);
+            gridMesh.position.set(totalW / 2, totalH / 2, -1);
+            scene.add(gridMesh);
+
+            // 타일 격자선
+            var gridLineMat = new THREE.LineBasicMaterial({ color: 0x444444 });
+            for (var x = 0; x <= mapW; x++) {
+                var pts = [new THREE.Vector3(x * tileSize, 0, 0), new THREE.Vector3(x * tileSize, totalH, 0)];
+                var geo = new THREE.BufferGeometry().setFromPoints(pts);
+                scene.add(new THREE.Line(geo, gridLineMat));
+            }
+            for (var y = 0; y <= mapH; y++) {
+                var pts = [new THREE.Vector3(0, y * tileSize, 0), new THREE.Vector3(totalW, y * tileSize, 0)];
+                var geo = new THREE.BufferGeometry().setFromPoints(pts);
+                scene.add(new THREE.Line(geo, gridLineMat));
+            }
+
+            // FogOfWar 가시성 데이터 초기화
+            FogOfWar.setup(mapW, mapH, fow);
+
+            // 시작 위치 기준 가시성 계산
+            var startX = Math.floor(mapW / 2);
+            var startY = Math.floor(mapH / 2);
+            fetch('/game/data/System.json').then(function(r) { return r.json(); }).then(function(sys) {
+                startX = sys.startX || startX;
+                startY = sys.startY || startY;
+            }).catch(function() {}).finally(function() {
+                FogOfWar._prevPlayerX = -1;
+                FogOfWar._prevPlayerY = -1;
+                FogOfWar.updateVisibilityAt(startX, startY);
+                FogOfWar._syncDisplay();
+                FogOfWar._updateTexture();
+
+                info.textContent = 'fogMode=' + fogMode + ' | map=' + mapW + 'x' + mapH + ' | start=(' + startX + ',' + startY + ')';
+
+                // 시작 위치 마커
+                var markerGeo = new THREE.CircleGeometry(tileSize * 0.3, 16);
+                var markerMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+                var marker = new THREE.Mesh(markerGeo, markerMat);
+                marker.position.set((startX + 0.5) * tileSize, (startY + 0.5) * tileSize, 2);
+                scene.add(marker);
+
+                // 3D 박스 FOW 메쉬 생성
+                if (fogMode === '3dbox') {
+                    var mesh = FogOfWar3D._createMesh(mapW, mapH, fow);
+                    if (mesh) {
+                        scene.add(mesh);
+                        info.textContent += ' | 3D Box mesh created (' + (mapW * mapH) + ' instances)';
+                    } else {
+                        info.textContent += ' | ERROR: FogOfWar3D._createMesh returned null';
+                    }
+                } else if (fogMode === 'volumetric' || fogMode === '2d' || fogMode === '') {
+                    var group = FogOfWar._createMesh();
+                    if (group) {
+                        group.position.set(totalW / 2, totalH / 2, 0);
+                        scene.add(group);
+                        info.textContent += ' | Volumetric mesh created';
+                    }
+                }
+
+                // 마우스 회전 컨트롤
+                var isDragging = false;
+                var lastMouse = { x: 0, y: 0 };
+                var spherical = { theta: 0, phi: Math.PI / 4 };
+                var distance = camera.position.distanceTo(new THREE.Vector3(totalW / 2, totalH / 2, 0));
+                var center = new THREE.Vector3(totalW / 2, totalH / 2, 0);
+
+                function updateCamera() {
+                    var x = distance * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+                    var y = distance * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+                    var z = distance * Math.cos(spherical.phi);
+                    camera.position.set(center.x + x, center.y + y, center.z + z);
+                    camera.lookAt(center);
+                }
+
+                renderer.domElement.addEventListener('mousedown', function(e) {
+                    isDragging = true;
+                    lastMouse.x = e.clientX;
+                    lastMouse.y = e.clientY;
+                });
+                window.addEventListener('mouseup', function() { isDragging = false; });
+                window.addEventListener('mousemove', function(e) {
+                    if (!isDragging) return;
+                    var dx = e.clientX - lastMouse.x;
+                    var dy = e.clientY - lastMouse.y;
+                    spherical.theta -= dx * 0.005;
+                    spherical.phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.01, spherical.phi - dy * 0.005));
+                    lastMouse.x = e.clientX;
+                    lastMouse.y = e.clientY;
+                    updateCamera();
+                });
+                renderer.domElement.addEventListener('wheel', function(e) {
+                    distance = Math.max(100, Math.min(10000, distance + e.deltaY * 2));
+                    updateCamera();
+                });
+                updateCamera();
+
+                // 렌더 루프
+                function animate() {
+                    requestAnimationFrame(animate);
+                    if (FogOfWar3D._active) {
+                        FogOfWar3D._updateUniforms(1.0 / 60.0);
+                    }
+                    if (FogOfWar._fogGroup) {
+                        FogOfWar._time += 1.0 / 60.0;
+                        var fogMeshChild = FogOfWar._fogGroup.children[0];
+                        if (fogMeshChild && fogMeshChild.material && fogMeshChild.material.uniforms) {
+                            fogMeshChild.material.uniforms.uTime.value = FogOfWar._time;
+                        }
+                    }
+                    renderer.render(scene, camera);
+                }
+                animate();
+            });
+        }).catch(function(err) {
+            info.textContent = 'ERROR: ' + err.message;
+        });
+
+        window.addEventListener('resize', function() {
+            // resize는 렌더러 생성 후에만
+        });
+    })();
+    </script>
+</body>
+</html>`;
+    res.type('html').send(html);
+  });
+
   // /game/index.html - 동적 생성 (내장 런타임 JS + 프로젝트 플러그인)
   app.get('/game/index.html', (req, res) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project open');
