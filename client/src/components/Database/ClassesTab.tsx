@@ -227,11 +227,12 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
           </div>
         ))}
       </div>
-      <div className="db-form">
+      <div className="db-form-columns">
         {selectedItem && (
           <>
-            <div className="db-form-row">
-              <label style={{ flex: 1 }}>
+            {/* 왼쪽 컬럼: 이름, 경험치 곡선, 능력치 곡선 */}
+            <div className="db-form-col">
+              <label>
                 {t('common.name')}
                 <div style={{display:'flex',gap:4,alignItems:'center'}}>
                   <input
@@ -250,80 +251,84 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
                   onClick={() => setShowExpCurve(true)}
                   title={t('paramCurve.clickToEdit', '클릭하여 편집')}
                 >
+                  <ExpMiniGraph expParams={selectedItem.expParams || [30, 20, 30, 30]} />
                   <span className="classes-exp-mini-values">[{(selectedItem.expParams || [30, 20, 30, 30]).join(', ')}]</span>
                 </div>
               </label>
+
+              <div className="db-form-section">{t('fields.paramCurves')}</div>
+              <div className="classes-param-grid">
+                {selectedItem.params && PARAM_NAMES.map((name, i) => (
+                  <div
+                    key={i}
+                    className="classes-param-mini-wrap"
+                    onClick={() => setShowParamCurve(i)}
+                    title={t('paramCurve.clickToEdit', '클릭하여 편집')}
+                  >
+                    <SingleParamGraph
+                      values={selectedItem.params[i] || []}
+                      color={PARAM_COLORS[i]}
+                      label={name}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="db-form-section">{t('fields.paramCurves')}</div>
-            <div className="classes-param-grid">
-              {selectedItem.params && PARAM_NAMES.map((name, i) => (
-                <div
-                  key={i}
-                  className="classes-param-mini-wrap"
-                  onClick={() => setShowParamCurve(i)}
-                  title={t('paramCurve.clickToEdit', '클릭하여 편집')}
-                >
-                  <SingleParamGraph
-                    values={selectedItem.params[i] || []}
-                    color={PARAM_COLORS[i]}
-                    label={name}
-                  />
+            {/* 오른쪽 컬럼: 습득 스킬, 특성, 메모 */}
+            <div className="db-form-col">
+              <div className="db-form-section" style={{ borderTop: 'none', paddingTop: 0, marginTop: 0 }}>
+                {t('fields.learnings')}
+                <button className="db-btn-small" onClick={() => {
+                  addLearning();
+                  const newIdx = (selectedItem.learnings || []).length;
+                  setEditingLearning({ index: newIdx, learning: { level: 1, skillId: 1, note: '' } });
+                }}>+</button>
+                <button className="db-btn-small" onClick={() => {
+                  if (selectedLearningIdx >= 0) removeLearning(selectedLearningIdx);
+                  setSelectedLearningIdx(-1);
+                }}>-</button>
+              </div>
+              <div className="classes-learnings-table">
+                <div className="classes-learnings-header">
+                  <span className="classes-learnings-col-lv">{t('fields.level')}</span>
+                  <span className="classes-learnings-col-skill">{t('fields.skill')}</span>
+                  <span className="classes-learnings-col-note">{t('common.note')}</span>
                 </div>
-              ))}
-            </div>
-
-            <div className="db-form-section">
-              {t('fields.learnings')}
-              <button className="db-btn-small" onClick={() => {
-                addLearning();
-                const newIdx = (selectedItem.learnings || []).length;
-                setEditingLearning({ index: newIdx, learning: { level: 1, skillId: 1, note: '' } });
-              }}>+</button>
-              <button className="db-btn-small" onClick={() => {
-                if (selectedLearningIdx >= 0) removeLearning(selectedLearningIdx);
-                setSelectedLearningIdx(-1);
-              }}>-</button>
-            </div>
-            <div className="classes-learnings-table">
-              <div className="classes-learnings-header">
-                <span className="classes-learnings-col-lv">{t('fields.level')}</span>
-                <span className="classes-learnings-col-skill">{t('fields.skill')}</span>
-                <span className="classes-learnings-col-note">{t('common.note')}</span>
+                <div className="classes-learnings-body">
+                  {(selectedItem.learnings || []).map((l, i) => {
+                    const skillName = skills.find(s => s.id === l.skillId)?.name || '';
+                    return (
+                      <div
+                        key={i}
+                        className={`classes-learnings-row${i === selectedLearningIdx ? ' selected' : ''}`}
+                        onClick={() => setSelectedLearningIdx(i)}
+                        onDoubleClick={() => setEditingLearning({ index: i, learning: { ...l } })}
+                      >
+                        <span className="classes-learnings-col-lv">Lv {l.level}</span>
+                        <span className="classes-learnings-col-skill">{String(l.skillId).padStart(4, '0')} {skillName}</span>
+                        <span className="classes-learnings-col-note">{l.note || ''}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="classes-learnings-body">
-                {(selectedItem.learnings || []).map((l, i) => {
-                  const skillName = skills.find(s => s.id === l.skillId)?.name || '';
-                  return (
-                    <div
-                      key={i}
-                      className={`classes-learnings-row${i === selectedLearningIdx ? ' selected' : ''}`}
-                      onClick={() => setSelectedLearningIdx(i)}
-                      onDoubleClick={() => setEditingLearning({ index: i, learning: { ...l } })}
-                    >
-                      <span className="classes-learnings-col-lv">Lv {l.level}</span>
-                      <span className="classes-learnings-col-skill">{String(l.skillId).padStart(4, '0')} {skillName}</span>
-                      <span className="classes-learnings-col-note">{l.note || ''}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
 
-            <div className="db-form-section">{t('fields.traits')}</div>
-            <TraitsEditor
-              traits={selectedItem.traits || []}
-              onChange={(traits) => handleFieldChange('traits', traits)}
-            />
-
-            <label>
-              {t('common.note')}
-              <textarea
-                value={selectedItem.note || ''}
-                onChange={(e) => handleFieldChange('note', e.target.value)}
-                rows={3}
+              <div className="db-form-section">{t('fields.traits')}</div>
+              <TraitsEditor
+                traits={selectedItem.traits || []}
+                onChange={(traits) => handleFieldChange('traits', traits)}
               />
-            </label>
+
+              <label>
+                {t('common.note')}
+                <textarea
+                  value={selectedItem.note || ''}
+                  onChange={(e) => handleFieldChange('note', e.target.value)}
+                  rows={3}
+                />
+              </label>
+            </div>
           </>
         )}
       </div>
