@@ -45,6 +45,7 @@ FogOfWar._vortex = true;           // 소용돌이 활성화
 FogOfWar._vortexSpeed = 1.0;       // 소용돌이 속도
 FogOfWar._lightScattering = true;  // 라이트 산란 활성화
 FogOfWar._lightScatterIntensity = 1.0; // 라이트 산란 강도
+FogOfWar._fogMode = '2d';             // fog 렌더링 모드: '2d' | '3dvolume'
 FogOfWar._playerPos = new (typeof THREE !== 'undefined' ? THREE.Vector2 : Object)(0, 0); // 플레이어 타일 좌표
 
 //=============================================================================
@@ -392,6 +393,7 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
     this._active = true;
 
     if (config) {
+        this._fogMode = config.fogMode || '2d';
         this._radius = config.radius != null ? config.radius : 5;
         if (config.fogColor) {
             var c = this._parseColor(config.fogColor);
@@ -465,6 +467,10 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
 };
 
 FogOfWar.dispose = function() {
+    // 3D Volume 모드 정리
+    if (window.FogOfWar3DVolume && window.FogOfWar3DVolume._active) {
+        window.FogOfWar3DVolume.dispose();
+    }
     this._disposeMesh();
     if (this._fogTexture) {
         this._fogTexture.dispose();
@@ -1524,6 +1530,80 @@ PostProcess._updateUniforms = function() {
 
     if (!FogOfWar._active) return;
 
+    // 3D Volume 모드: FogOfWar3DVolume으로 렌더링 위임
+    if (FogOfWar._fogMode === '3dvolume' && window.FogOfWar3DVolume) {
+        var Vol = window.FogOfWar3DVolume;
+
+        // 플레이어 가시성 갱신
+        if (typeof $gamePlayer !== 'undefined' && $gamePlayer) {
+            FogOfWar.updateVisibility($gamePlayer.x, $gamePlayer.y);
+        }
+
+        // 표시 버퍼 보간 + 텍스처 업데이트
+        var now3d = performance.now() / 1000;
+        var dt3d = FogOfWar._lastTime > 0 ? Math.min(now3d - FogOfWar._lastTime, 0.1) : 0.016;
+        FogOfWar._lastTime = now3d;
+        var texChanged = FogOfWar._lerpDisplay(dt3d) || FogOfWar._fogTexture.needsUpdate;
+        if (texChanged) {
+            FogOfWar._computeEdgeData();
+            FogOfWar._updateTexture();
+            Vol.markDirty();
+        }
+
+        // FogOfWar3DVolume lazy 초기화
+        if (!Vol._active && FogOfWar._fogTexture) {
+            var rendererObj = null;
+            if (this._renderPass) {
+                rendererObj = this._renderPass._rendererObj || this._renderPass;
+            } else if (PostProcess._2dRenderPass) {
+                rendererObj = PostProcess._2dRenderPass._rendererObj || PostProcess._2dRenderPass;
+            }
+            if (rendererObj && rendererObj.renderer) {
+                var ren = rendererObj.renderer;
+                var sz = ren.getSize(new THREE.Vector2());
+                var fogRgb = FogOfWar._fogColor;
+                var topRgb = FogOfWar._fogColorTop;
+                Vol.setup(FogOfWar._mapWidth, FogOfWar._mapHeight, sz.x, sz.y, {
+                    resolution: $dataMap && $dataMap.fogOfWar ? ($dataMap.fogOfWar.volumeResolution || 4) : 4,
+                    fogHeight: FogOfWar._fogHeight,
+                    absorption: FogOfWar._absorption,
+                    fogColor: fogRgb,
+                    fogColorTop: FogOfWar._heightGradient ? topRgb : fogRgb,
+                });
+            }
+        }
+
+        // FogOfWar3DVolume 렌더링 (2-pass: 저해상도 RT + 업샘플)
+        if (Vol._active) {
+            // fogHeight 등 파라미터 동기화
+            Vol._fogHeight = FogOfWar._fogHeight;
+            Vol._absorption = FogOfWar._absorption;
+
+            var rendererObj2 = null;
+            if (this._renderPass) {
+                rendererObj2 = this._renderPass._rendererObj || this._renderPass;
+            } else if (PostProcess._2dRenderPass) {
+                rendererObj2 = PostProcess._2dRenderPass._rendererObj || PostProcess._2dRenderPass;
+            }
+            if (rendererObj2 && rendererObj2.renderer) {
+                var camera = null;
+                var is3D = typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active;
+                if (is3D) {
+                    camera = Mode3D._perspCamera;
+                } else if (rendererObj2.camera) {
+                    camera = rendererObj2.camera;
+                }
+                if (camera) {
+                    Vol.render(rendererObj2.renderer, camera, dt3d);
+                }
+            }
+        }
+
+        FogOfWar._updateLosDebug();
+        return;
+    }
+
+    // 기본 모드 (2d): 기존 FogOfWar 메쉬 사용
     // 메쉬가 아직 생성되지 않았으면 scene에 lazy 추가
     if (!FogOfWar._fogGroup && FogOfWar._fogTexture) {
         var scene = null;

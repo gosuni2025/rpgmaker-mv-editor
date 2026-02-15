@@ -5670,11 +5670,15 @@ ShaderTilemap.prototype._paintTiles = function(startX, startY, x, y) {
     var lowerLayer = this.lowerLayer.children[0];
     var upperLayer = this.upperLayer.children[0];
 
+    lowerLayer._currentDrawZ = 0;
+    upperLayer._currentDrawZ = 0;
     if (this._isHigherTile(tileId0)) {
         this._drawTile(upperLayer, tileId0, dx, dy);
     } else {
         this._drawTile(lowerLayer, tileId0, dx, dy);
     }
+    lowerLayer._currentDrawZ = 1;
+    upperLayer._currentDrawZ = 1;
     if (this._isHigherTile(tileId1)) {
         this._drawTile(upperLayer, tileId1, dx, dy);
     } else {
@@ -5689,14 +5693,22 @@ ShaderTilemap.prototype._paintTiles = function(startX, startY, x, y) {
     }
 
     if (this._isOverpassPosition(mx, my)) {
+        lowerLayer._currentDrawZ = 2;
+        upperLayer._currentDrawZ = 2;
         this._drawTile(upperLayer, tileId2, dx, dy);
+        lowerLayer._currentDrawZ = 3;
+        upperLayer._currentDrawZ = 3;
         this._drawTile(upperLayer, tileId3, dx, dy);
     } else {
+        lowerLayer._currentDrawZ = 2;
+        upperLayer._currentDrawZ = 2;
         if (this._isHigherTile(tileId2)) {
             this._drawTile(upperLayer, tileId2, dx, dy);
         } else {
             this._drawTile(lowerLayer, tileId2, dx, dy);
         }
+        lowerLayer._currentDrawZ = 3;
+        upperLayer._currentDrawZ = 3;
         if (this._isHigherTile(tileId3)) {
             this._drawTile(upperLayer, tileId3, dx, dy);
         } else {

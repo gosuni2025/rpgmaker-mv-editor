@@ -12,7 +12,7 @@ import {
   useDragPreviewOverlay,
   useLightOverlay,
   useFogOfWarOverlay,
-  useFogOfWar3DOverlay,
+  useFogOfWar3DVolumeOverlay,
   useTileIdDebugOverlay,
 } from './useRendererOverlays';
 
@@ -87,7 +87,6 @@ export function useThreeRenderer(
   const toolPreviewMeshesRef = useRef<any[]>([]);
   const lightOverlayMeshesRef = useRef<any[]>([]);
   const fogOfWarMeshRef = useRef<any>(null);
-  const fogOfWar3DMeshRef = useRef<any>(null);
   const tileIdDebugMeshesRef = useRef<any[]>([]);
 
   // =========================================================================
@@ -196,7 +195,6 @@ export function useThreeRenderer(
     dragPreviewMeshesRef,
     lightOverlayMeshesRef,
     fogOfWarMeshRef,
-    fogOfWar3DMeshRef,
     tileIdDebugMeshesRef,
   }), []);
 
@@ -208,7 +206,7 @@ export function useThreeRenderer(
   useDragPreviewOverlay(overlayRefs, skipOverlays ? [] : dragPreviews);
   useLightOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   useFogOfWarOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
-  useFogOfWar3DOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
+  useFogOfWar3DVolumeOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   useTileIdDebugOverlay(overlayRefs, skipOverlays ? false : !!showTileId, skipOverlays ? 0 : rendererReady);
 
   return {

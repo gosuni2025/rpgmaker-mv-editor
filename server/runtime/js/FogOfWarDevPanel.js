@@ -221,8 +221,8 @@
         function updateModeBadge() {
             var mode = '2D';
             var color = '#4a9';
-            if (window.FogOfWar3D && window.FogOfWar3D._active) {
-                mode = '3D Box';
+            if (window.FogOfWar3DVolume && window.FogOfWar3DVolume._active) {
+                mode = '3D Vol';
                 color = '#f6a';
             } else if (window.Mode3D && window.Mode3D._active) {
                 mode = '3D Vol';

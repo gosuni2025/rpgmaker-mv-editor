@@ -595,7 +595,7 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
       FogOfWarCleanup._fogMesh = null;
     }
 
-    if (disableFow || !fogOfWar?.enabled || mapWidth <= 0 || mapHeight <= 0 || fogOfWar?.fogMode === '3dbox') {
+    if (disableFow || !fogOfWar?.enabled || mapWidth <= 0 || mapHeight <= 0 || fogOfWar?.fogMode === '3dvolume') {
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       return;
     }
@@ -672,8 +672,8 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
   }, [rendererReady, mapWidth, mapHeight, disableFow, fogOfWar?.enabled, fogOfWar?.fogMode, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha, fogOfWar?.fogHeight, fogOfWar?.lineOfSight, fogOfWar?.absorption, fogOfWar?.visibilityBrightness, fogOfWar?.edgeAnimation, fogOfWar?.edgeAnimationSpeed, fogOfWar?.fogColorTop, fogOfWar?.heightGradient, fogOfWar?.godRay, fogOfWar?.godRayIntensity, fogOfWar?.vortex, fogOfWar?.vortexSpeed, fogOfWar?.lightScattering, fogOfWar?.lightScatterIntensity]);
 }
 
-/** Fog of War 3D (InstancedMesh 박스) 에디터 미리보기 오버레이 */
-export function useFogOfWar3DOverlay(refs: OverlayRefs & { fogOfWar3DMeshRef: React.MutableRefObject<any> }, rendererReady: number) {
+/** Fog of War 3D Volume (저해상도 RT ray-march + bilateral 업샘플링) 에디터 미리보기 오버레이 */
+export function useFogOfWar3DVolumeOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.MutableRefObject<any> }, rendererReady: number) {
   const mapWidth = useEditorStore((s) => s.currentMap?.width ?? 0);
   const mapHeight = useEditorStore((s) => s.currentMap?.height ?? 0);
   const disableFow = useEditorStore((s) => s.disableFow);
@@ -685,19 +685,14 @@ export function useFogOfWar3DOverlay(refs: OverlayRefs & { fogOfWar3DMeshRef: Re
   useEffect(() => {
     const rendererObj = refs.rendererObjRef.current;
     if (!rendererObj) return;
-    const THREE = (window as any).THREE;
     const FogOfWarMod = (window as any).FogOfWar;
-    const FogOfWar3DMod = (window as any).FogOfWar3D;
-    if (!THREE || !FogOfWarMod || !FogOfWar3DMod) return;
+    const FogOfWar3DVolumeMod = (window as any).FogOfWar3DVolume;
+    if (!FogOfWarMod || !FogOfWar3DVolumeMod) return;
 
-    // 기존 3D 메쉬 제거
-    if (refs.fogOfWar3DMeshRef.current) {
-      rendererObj.scene.remove(refs.fogOfWar3DMeshRef.current);
-      FogOfWar3DMod._disposeMesh();
-      refs.fogOfWar3DMeshRef.current = null;
-    }
+    // 기존 3D Volume 정리
+    FogOfWar3DVolumeMod.dispose();
 
-    if (disableFow || !fogOfWar?.enabled || fogOfWar?.fogMode !== '3dbox' || mapWidth <= 0 || mapHeight <= 0) {
+    if (disableFow || !fogOfWar?.enabled || fogOfWar?.fogMode !== '3dvolume' || mapWidth <= 0 || mapHeight <= 0) {
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       return;
     }
@@ -705,7 +700,7 @@ export function useFogOfWar3DOverlay(refs: OverlayRefs & { fogOfWar3DMeshRef: Re
     // FogOfWar 가시성 데이터 셋업 (공통)
     FogOfWarMod.setup(mapWidth, mapHeight, fogOfWar);
 
-    // 플레이어 시작 위치 또는 맵 중앙 기준
+    // 플레이어 시작 위치
     const $dataSystem = (window as any).$dataSystem;
     let startX = Math.floor(mapWidth / 2);
     let startY = Math.floor(mapHeight / 2);
@@ -717,19 +712,48 @@ export function useFogOfWar3DOverlay(refs: OverlayRefs & { fogOfWar3DMeshRef: Re
 
     if (!FogOfWarMod._fogTexture) return;
 
-    // FogOfWar3D InstancedMesh 생성
-    const mesh = FogOfWar3DMod._createMesh(mapWidth, mapHeight, fogOfWar);
-    if (!mesh) return;
+    // fogColor hex → {r, g, b} 0~1
+    const hexToRgb = (hex: string) => {
+      const c = parseInt(hex.replace('#', ''), 16);
+      return { r: ((c >> 16) & 0xff) / 255, g: ((c >> 8) & 0xff) / 255, b: (c & 0xff) / 255 };
+    };
+    const fogColorRgb = hexToRgb(fogOfWar.fogColor ?? '#000000');
+    const fogColorTopRgb = (fogOfWar.heightGradient !== false)
+      ? hexToRgb(fogOfWar.fogColorTop ?? '#1a1a26')
+      : fogColorRgb;
 
-    mesh.userData.editorGrid = true;
-    rendererObj.scene.add(mesh);
-    refs.fogOfWar3DMeshRef.current = mesh;
+    // 렌더러 크기 가져오기
+    const renderer = rendererObj.renderer;
+    const size = renderer.getSize(new (window as any).THREE.Vector2());
 
-    // 애니메이션 루프
+    // FogOfWar3DVolume 초기화
+    FogOfWar3DVolumeMod.setup(mapWidth, mapHeight, size.x, size.y, {
+      resolution: fogOfWar.volumeResolution ?? 4,
+      fogHeight: fogOfWar.fogHeight ?? 200,
+      absorption: fogOfWar.absorption ?? 0.018,
+      fogColor: fogColorRgb,
+      fogColorTop: fogColorTopRgb,
+    });
+
+    // 기존 렌더 루프에 fog 합성을 삽입하기 위해
+    // rendererObj의 afterRender 콜백을 사용 (또는 자체 rAF 루프)
     let animId = 0;
     const animate = () => {
-      if (!refs.fogOfWar3DMeshRef.current || refs.fogOfWar3DMeshRef.current !== mesh) return;
-      FogOfWar3DMod._updateUniforms(1.0 / 60.0);
+      if (!FogOfWar3DVolumeMod._active) return;
+
+      // FogOfWar 보간
+      if (FogOfWarMod._active) {
+        FogOfWarMod._lerpDisplay(1.0 / 60.0);
+        FogOfWarMod._computeEdgeData(1.0 / 60.0);
+        FogOfWarMod._updateTexture();
+      }
+
+      // 3D Volume fog 렌더 (메인 씬 위에 합성)
+      const camera = rendererObj.camera;
+      if (camera) {
+        FogOfWar3DVolumeMod.render(renderer, camera, 1.0 / 60.0);
+      }
+
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       animId = requestAnimationFrame(animate);
     };
@@ -737,8 +761,9 @@ export function useFogOfWar3DOverlay(refs: OverlayRefs & { fogOfWar3DMeshRef: Re
 
     return () => {
       cancelAnimationFrame(animId);
+      FogOfWar3DVolumeMod.dispose();
     };
-  }, [rendererReady, mapWidth, mapHeight, disableFow, fogOfWar?.enabled, fogOfWar?.fogMode, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha, fogOfWar?.fogHeight3D, fogOfWar?.heightFalloff, fogOfWar?.lineOfSight, fogOfWar?.edgeAnimation, fogOfWar?.edgeAnimationSpeed, fogOfWar?.fogColorTop, fogOfWar?.heightGradient, fogOfWar?.dissolveStrength, fogOfWar?.tentacleSharpness]);
+  }, [rendererReady, mapWidth, mapHeight, disableFow, fogOfWar?.enabled, fogOfWar?.fogMode, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha, fogOfWar?.fogHeight, fogOfWar?.lineOfSight, fogOfWar?.absorption, fogOfWar?.edgeAnimation, fogOfWar?.edgeAnimationSpeed, fogOfWar?.fogColorTop, fogOfWar?.heightGradient, fogOfWar?.volumeResolution]);
 }
 
 /** 타일 시트명 + 번호를 반환 (예: "A2 #5", "B #23") */
