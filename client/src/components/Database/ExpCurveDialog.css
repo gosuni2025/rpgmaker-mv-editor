@@ -1,0 +1,150 @@
+/* EXP Curve Dialog */
+.exp-curve-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.exp-curve-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 640px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.exp-curve-header {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: bold;
+  border-bottom: 1px solid #555;
+  background: #333;
+  border-radius: 4px 4px 0 0;
+}
+
+.exp-curve-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 8px 12px;
+  gap: 8px;
+}
+
+/* View mode tabs */
+.exp-curve-view-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #555;
+  flex-shrink: 0;
+}
+
+.exp-curve-view-tab {
+  padding: 6px 16px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  color: #aaa;
+  border-bottom: 3px solid transparent;
+}
+
+.exp-curve-view-tab:hover {
+  color: #ddd;
+  background: #444;
+}
+
+.exp-curve-view-tab.active {
+  color: #fff;
+  border-bottom-color: #4fc3f7;
+}
+
+/* Value table */
+.exp-curve-table {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid #444;
+  border-radius: 3px;
+  background: #1e1e1e;
+  padding: 6px;
+}
+
+.exp-curve-table-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.exp-curve-table-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 4px;
+}
+
+.exp-curve-table-lv {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+  min-width: 28px;
+  font-family: monospace;
+}
+
+.exp-curve-table-val {
+  font-size: 11px;
+  color: #4fc3f7;
+  font-family: monospace;
+  text-align: right;
+  flex: 1;
+}
+
+/* Param controls */
+.exp-curve-params {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.exp-curve-param {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.exp-curve-param-input {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 13px;
+  outline: none;
+}
+
+.exp-curve-param-input:focus {
+  border-color: #2675bf;
+}
+
+/* Footer */
+.exp-curve-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 16px;
+  border-top: 1px solid #555;
+  background: #333;
+  border-radius: 0 0 4px 4px;
+}

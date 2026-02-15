@@ -5,6 +5,70 @@ import TraitsEditor from '../common/TraitsEditor';
 import apiClient from '../../api/client';
 import TranslateButton from '../common/TranslateButton';
 import ParamCurveDialog from './ParamCurveDialog';
+import ExpCurveDialog from './ExpCurveDialog';
+
+const PARAM_COLORS = ['#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8', '#4dd0e1', '#fff176', '#a1887f'];
+
+// Single param mini graph (one per parameter)
+function SingleParamGraph({ values, color, label }: { values: number[]; color: string; label: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const W = canvas.width, H = canvas.height;
+
+    // Background
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, W, H);
+
+    if (!values || values.length === 0) return;
+
+    let maxVal = 0;
+    for (const v of values) {
+      if (v > maxVal) maxVal = v;
+    }
+    if (maxVal === 0) maxVal = 1;
+
+    const padL = 4, padR = 4, padT = 4, padB = 4;
+    const gW = W - padL - padR;
+    const gH = H - padT - padB;
+
+    // Fill under curve
+    ctx.fillStyle = color + '50';
+    ctx.beginPath();
+    ctx.moveTo(padL, padT + gH);
+    for (let i = 0; i < values.length; i++) {
+      const x = padL + (i / (values.length - 1)) * gW;
+      const y = padT + gH - (values[i] / maxVal) * gH;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(padL + gW, padT + gH);
+    ctx.closePath();
+    ctx.fill();
+
+    // Curve line
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i < values.length; i++) {
+      const x = padL + (i / (values.length - 1)) * gW;
+      const y = padT + gH - (values[i] / maxVal) * gH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }, [values, color]);
+
+  return (
+    <div className="classes-param-mini">
+      <div className="classes-param-mini-label" style={{ color }}>{label}</div>
+      <canvas ref={canvasRef} width={140} height={60} className="classes-param-mini-canvas" />
+    </div>
+  );
+}
 
 // RPG Maker MV EXP formula: rpg_objects.js line 3524
 function expForLevel(level: number, expParams: number[]): number {
@@ -18,7 +82,8 @@ function expForLevel(level: number, expParams: number[]): number {
   );
 }
 
-function ExpCurveGraph({ expParams }: { expParams: number[] }) {
+// EXP mini graph for the main classes tab
+function ExpMiniGraph({ expParams }: { expParams: number[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -29,7 +94,6 @@ function ExpCurveGraph({ expParams }: { expParams: number[] }) {
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(0, 0, W, H);
 
-    // Compute EXP values for levels 1-99
     const values: number[] = [];
     let maxVal = 0;
     for (let lv = 1; lv <= 99; lv++) {
@@ -39,115 +103,35 @@ function ExpCurveGraph({ expParams }: { expParams: number[] }) {
     }
     if (maxVal === 0) maxVal = 1;
 
-    // Draw axes
-    ctx.strokeStyle = '#555';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(30, 5);
-    ctx.lineTo(30, H - 20);
-    ctx.lineTo(W - 5, H - 20);
-    ctx.stroke();
+    const padL = 4, padR = 4, padT = 4, padB = 4;
+    const gW = W - padL - padR;
+    const gH = H - padT - padB;
 
-    // Draw curve
+    ctx.fillStyle = '#4fc3f750';
+    ctx.beginPath();
+    ctx.moveTo(padL, padT + gH);
+    for (let i = 0; i < 98; i++) {
+      const x = padL + (i / 97) * gW;
+      const y = padT + gH - (values[i] / maxVal) * gH;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(padL + gW, padT + gH);
+    ctx.closePath();
+    ctx.fill();
+
     ctx.strokeStyle = '#4fc3f7';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     for (let i = 0; i < 98; i++) {
-      const x = 30 + (i / 97) * (W - 40);
-      const y = (H - 25) - (values[i] / maxVal) * (H - 35);
+      const x = padL + (i / 97) * gW;
+      const y = padT + gH - (values[i] / maxVal) * gH;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
-
-    // Labels
-    ctx.fillStyle = '#999';
-    ctx.font = '9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Lv1', 30, H - 8);
-    ctx.fillText('Lv99', W - 10, H - 8);
-    ctx.textAlign = 'right';
-    ctx.fillText(String(maxVal), 28, 14);
-    ctx.fillText('0', 28, H - 22);
   }, [expParams]);
 
-  return <canvas ref={canvasRef} width={280} height={120} style={{ border: '1px solid #444', borderRadius: 3, marginBottom: 8 }} />;
-}
-
-function ParamCurveGraph({ params, paramNames }: { params: number[][]; paramNames: string[] }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const COLORS = ['#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8', '#4dd0e1', '#fff176', '#a1887f'];
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const W = canvas.width, H = canvas.height;
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(0, 0, W, H);
-
-    if (!params || params.length === 0) return;
-
-    // Find global max across all param arrays
-    let maxVal = 0;
-    for (const arr of params) {
-      if (!arr) continue;
-      for (const v of arr) {
-        if (v > maxVal) maxVal = v;
-      }
-    }
-    if (maxVal === 0) maxVal = 1;
-
-    // Draw axes
-    ctx.strokeStyle = '#555';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(35, 5);
-    ctx.lineTo(35, H - 30);
-    ctx.lineTo(W - 5, H - 30);
-    ctx.stroke();
-
-    // Draw each parameter curve
-    for (let p = 0; p < Math.min(params.length, 8); p++) {
-      const arr = params[p];
-      if (!arr || arr.length === 0) continue;
-      ctx.strokeStyle = COLORS[p];
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      const len = arr.length;
-      for (let i = 0; i < len; i++) {
-        const x = 35 + (i / (len - 1)) * (W - 45);
-        const y = (H - 35) - (arr[i] / maxVal) * (H - 45);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-    }
-
-    // Legend
-    ctx.font = '8px sans-serif';
-    for (let p = 0; p < Math.min(params.length, 8); p++) {
-      ctx.fillStyle = COLORS[p];
-      const lx = 40 + (p % 4) * 65;
-      const ly = H - 18 + Math.floor(p / 4) * 10;
-      ctx.fillRect(lx, ly - 5, 6, 6);
-      ctx.fillStyle = '#ccc';
-      ctx.textAlign = 'left';
-      ctx.fillText(paramNames[p] || `P${p}`, lx + 8, ly);
-    }
-
-    // Axis labels
-    ctx.fillStyle = '#999';
-    ctx.font = '9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Lv1', 35, H - 20);
-    ctx.fillText('Lv99', W - 10, H - 20);
-    ctx.textAlign = 'right';
-    ctx.fillText(String(maxVal), 33, 14);
-  }, [params, paramNames]);
-
-  return <canvas ref={canvasRef} width={280} height={160} style={{ border: '1px solid #444', borderRadius: 3, marginBottom: 8 }} />;
+  return <canvas ref={canvasRef} width={140} height={60} className="classes-param-mini-canvas" />;
 }
 
 interface ClassesTabProps {
@@ -162,7 +146,8 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
   const [skills, setSkills] = useState<{ id: number; name: string }[]>([]);
-  const [showParamCurve, setShowParamCurve] = useState(false);
+  const [showParamCurve, setShowParamCurve] = useState<number | null>(null); // null=closed, number=initial tab index
+  const [showExpCurve, setShowExpCurve] = useState(false);
 
   useEffect(() => {
     apiClient.get<({ id: number; name: string } | null)[]>('/database/skills').then(d => {
@@ -221,7 +206,6 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
     setSelectedId(newClass.id);
   };
 
-  const EXP_PARAM_LABELS = [t('expParams.baseValue'), t('expParams.extraValue'), t('expParams.accelerationA'), t('expParams.accelerationB')];
   const PARAM_NAMES = [t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'), t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck')];
 
   return (
@@ -243,45 +227,48 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
       <div className="db-form">
         {selectedItem && (
           <>
-            <label>
-              {t('common.name')}
-              <div style={{display:'flex',gap:4,alignItems:'center'}}>
-                <input
-                  type="text"
-                  value={selectedItem.name || ''}
-                  onChange={(e) => handleFieldChange('name', e.target.value)}
-                  style={{flex:1}}
-                />
-                <TranslateButton csvPath="database/classes.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
-              </div>
-            </label>
-
-            <div className="db-form-section">{t('fields.expCurve')}</div>
-            <ExpCurveGraph expParams={selectedItem.expParams || [30, 20, 30, 30]} />
-            {(selectedItem.expParams || []).map((val: number, i: number) => (
-              <label key={i}>
-                {EXP_PARAM_LABELS[i] || `Param ${i + 1}`}
-                <input
-                  type="number"
-                  value={val}
-                  onChange={(e) => {
-                    const expParams = [...(selectedItem.expParams || [])];
-                    expParams[i] = Number(e.target.value);
-                    handleFieldChange('expParams', expParams);
-                  }}
-                />
+            <div className="db-form-row">
+              <label style={{ flex: 1 }}>
+                {t('common.name')}
+                <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                  <input
+                    type="text"
+                    value={selectedItem.name || ''}
+                    onChange={(e) => handleFieldChange('name', e.target.value)}
+                    style={{flex:1}}
+                  />
+                  <TranslateButton csvPath="database/classes.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
+                </div>
               </label>
-            ))}
+              <label>
+                {t('fields.expCurve')}
+                <div
+                  className="classes-exp-mini-wrap"
+                  onClick={() => setShowExpCurve(true)}
+                  title={t('paramCurve.clickToEdit', '클릭하여 편집')}
+                >
+                  <span className="classes-exp-mini-values">[{(selectedItem.expParams || [30, 20, 30, 30]).join(', ')}]</span>
+                </div>
+              </label>
+            </div>
 
             <div className="db-form-section">{t('fields.paramCurves')}</div>
-            {selectedItem.params && selectedItem.params.length > 0 && (
-              <div onClick={() => setShowParamCurve(true)} style={{ cursor: 'pointer' }} title={t('paramCurve.clickToEdit', '클릭하여 편집')}>
-                <ParamCurveGraph params={selectedItem.params} paramNames={PARAM_NAMES} />
-              </div>
-            )}
-            <button className="db-btn" onClick={() => setShowParamCurve(true)} style={{ alignSelf: 'flex-start' }}>
-              {t('paramCurve.editCurves', '능력치 곡선 편집...')}
-            </button>
+            <div className="classes-param-grid">
+              {selectedItem.params && PARAM_NAMES.map((name, i) => (
+                <div
+                  key={i}
+                  className="classes-param-mini-wrap"
+                  onClick={() => setShowParamCurve(i)}
+                  title={t('paramCurve.clickToEdit', '클릭하여 편집')}
+                >
+                  <SingleParamGraph
+                    values={selectedItem.params[i] || []}
+                    color={PARAM_COLORS[i]}
+                    label={name}
+                  />
+                </div>
+              ))}
+            </div>
 
             <div className="db-form-section">
               {t('fields.learnings')}
@@ -329,14 +316,25 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
           </>
         )}
       </div>
-      {showParamCurve && selectedItem && (
+      {showParamCurve !== null && selectedItem && (
         <ParamCurveDialog
           params={selectedItem.params || Array.from({ length: 8 }, () => new Array(99).fill(0))}
+          initialTab={showParamCurve}
           onConfirm={(newParams) => {
             handleFieldChange('params', newParams);
-            setShowParamCurve(false);
+            setShowParamCurve(null);
           }}
-          onCancel={() => setShowParamCurve(false)}
+          onCancel={() => setShowParamCurve(null)}
+        />
+      )}
+      {showExpCurve && selectedItem && (
+        <ExpCurveDialog
+          expParams={selectedItem.expParams || [30, 20, 30, 30]}
+          onConfirm={(newExpParams) => {
+            handleFieldChange('expParams', newExpParams);
+            setShowExpCurve(false);
+          }}
+          onCancel={() => setShowExpCurve(false)}
         />
       )}
     </div>
