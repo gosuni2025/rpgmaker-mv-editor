@@ -28,6 +28,18 @@ interface FogOfWarConfig {
   // 촉수 타이밍
   tentacleFadeDuration?: number;
   tentacleGrowDuration?: number;
+  // 3D 볼류메트릭
+  fogHeight?: number;
+  absorption?: number;
+  visibilityBrightness?: number;
+  fogColorTop?: string;
+  heightGradient?: boolean;
+  godRay?: boolean;
+  godRayIntensity?: number;
+  vortex?: boolean;
+  vortexSpeed?: number;
+  lightScattering?: boolean;
+  lightScatterIntensity?: number;
 }
 
 interface MapProps {
@@ -465,6 +477,88 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
                   </div>
                 </label>
 
+                {/* 3D 볼류메트릭 */}
+                <div style={{ color: '#f8a', fontSize: 11, marginTop: 8 }}>3D 볼류메트릭</div>
+                <label>
+                  <span>안개 높이</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={50} max={1000} step={10} value={fow.fogHeight ?? 300}
+                      onChange={e => u({ fogHeight: Number(e.target.value) })} style={{ flex: 1 }} />
+                    <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>{fow.fogHeight ?? 300}</span>
+                  </div>
+                </label>
+                <label>
+                  <span>흡수율</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={0.001} max={0.1} step={0.001} value={fow.absorption ?? 0.012}
+                      onChange={e => u({ absorption: Number(e.target.value) })} style={{ flex: 1 }} />
+                    <span style={{ minWidth: 40, textAlign: 'center', color: '#ccc' }}>{(fow.absorption ?? 0.012).toFixed(3)}</span>
+                  </div>
+                </label>
+                <label>
+                  <span>시야 밝기 보정</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="range" min={0} max={1} step={0.05} value={fow.visibilityBrightness ?? 0.0}
+                      onChange={e => u({ visibilityBrightness: Number(e.target.value) })} style={{ flex: 1 }} />
+                    <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>{fow.visibilityBrightness ?? 0.0}</span>
+                  </div>
+                </label>
+                <label>
+                  <span>상단 안개 색상</span>
+                  <input type="color" value={fow.fogColorTop ?? '#262633'}
+                    onChange={e => u({ fogColorTop: e.target.value })} />
+                </label>
+                <label className="db-checkbox-row">
+                  <input type="checkbox" checked={fow.heightGradient ?? true}
+                    onChange={e => u({ heightGradient: e.target.checked })} />
+                  <span>높이 그라데이션</span>
+                </label>
+                <label className="db-checkbox-row">
+                  <input type="checkbox" checked={fow.godRay ?? true}
+                    onChange={e => u({ godRay: e.target.checked })} />
+                  <span>God Ray</span>
+                </label>
+                {(fow.godRay ?? true) && (
+                  <label>
+                    <span>God Ray 강도</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input type="range" min={0} max={2} step={0.1} value={fow.godRayIntensity ?? 0.4}
+                        onChange={e => u({ godRayIntensity: Number(e.target.value) })} style={{ flex: 1 }} />
+                      <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>{fow.godRayIntensity ?? 0.4}</span>
+                    </div>
+                  </label>
+                )}
+                <label className="db-checkbox-row">
+                  <input type="checkbox" checked={fow.vortex ?? true}
+                    onChange={e => u({ vortex: e.target.checked })} />
+                  <span>소용돌이</span>
+                </label>
+                {(fow.vortex ?? true) && (
+                  <label>
+                    <span>소용돌이 속도</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input type="range" min={0} max={5} step={0.1} value={fow.vortexSpeed ?? 1.0}
+                        onChange={e => u({ vortexSpeed: Number(e.target.value) })} style={{ flex: 1 }} />
+                      <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>{fow.vortexSpeed ?? 1.0}</span>
+                    </div>
+                  </label>
+                )}
+                <label className="db-checkbox-row">
+                  <input type="checkbox" checked={fow.lightScattering ?? true}
+                    onChange={e => u({ lightScattering: e.target.checked })} />
+                  <span>라이트 산란</span>
+                </label>
+                {(fow.lightScattering ?? true) && (
+                  <label>
+                    <span>산란 강도</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input type="range" min={0} max={3} step={0.1} value={fow.lightScatterIntensity ?? 1.0}
+                        onChange={e => u({ lightScatterIntensity: Number(e.target.value) })} style={{ flex: 1 }} />
+                      <span style={{ minWidth: 30, textAlign: 'center', color: '#ccc' }}>{fow.lightScatterIntensity ?? 1.0}</span>
+                    </div>
+                  </label>
+                )}
+
                 {/* 붙여넣기 버튼 */}
                 <button className="db-btn" style={{ marginTop: 8, width: '100%' }}
                   onClick={async () => {
@@ -479,6 +573,11 @@ export default function MapPropertiesDialog({ mapId, mapName, onClose }: Props) 
                         'dissolveStrength', 'fadeSmoothness', 'tentacleSharpness',
                         'edgeAnimation', 'edgeAnimationSpeed',
                         'tentacleFadeDuration', 'tentacleGrowDuration',
+                        'fogHeight', 'absorption', 'visibilityBrightness',
+                        'fogColorTop', 'heightGradient',
+                        'godRay', 'godRayIntensity',
+                        'vortex', 'vortexSpeed',
+                        'lightScattering', 'lightScatterIntensity',
                       ];
                       for (const k of keys) {
                         if (parsed[k] !== undefined) (merged as Record<string, unknown>)[k] = parsed[k];
