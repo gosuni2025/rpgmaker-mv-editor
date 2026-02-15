@@ -25,8 +25,6 @@ FogOfWar3D._time = 0;
 //=============================================================================
 
 var BOX_FOG_VERT = [
-    'attribute float instanceAlpha;',  // per-instance alpha (unused for now, kept for future)
-    '',
     'varying float vHeightNorm;',
     'varying vec2 vTileUV;',
     'varying vec3 vWorldPos;',
@@ -139,11 +137,11 @@ var BOX_FOG_FRAG = [
     '',
     '    if (baseAlpha < 0.001) discard;',
     '',
-    '    // 4. 높이 감쇠: 위로 갈수록 투명',
+    '    // 4. 높이 감쇠',
     '    float hFade = exp(-vHeightNorm * heightFalloff);',
     '    baseAlpha *= hFade;',
     '',
-    '    // 5. 경계 촉수 효과 (윗면에서 들쭉날쭉한 실루엣)',
+    '    // 5. 경계 촉수 효과 (3D에서만 — 윗면에서 들쭉날쭉한 실루엣)',
     '    vec2 texel = 1.0 / mapSize;',
     '    float myExpl = sampleExplNearest(vTileUV);',
     '',
