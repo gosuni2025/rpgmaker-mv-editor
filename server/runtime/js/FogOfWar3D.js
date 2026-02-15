@@ -355,6 +355,9 @@ var TENTACLE_VERT = [
     'uniform float edgeAnimSpeed;',
     'uniform float fogHeight;',
     'uniform float tentacleMaxLength;',
+    'uniform sampler2D tFog;',       // fog 텍스처 (R=vis, G=expl, B=fade, A=grow)
+    'uniform vec2 mapSize;',
+    'uniform float tileSize;',
     '',
     '// --- 노이즈 함수 ---',
     'vec2 _hash22(vec2 p) {',
@@ -380,6 +383,17 @@ var TENTACLE_VERT = [
     '    float timeS = uTime * edgeAnimSpeed;',
     '    float t = aHeightT;',
     '',
+    '    // fog 텍스처에서 해당 타일의 grow/fade 값 샘플링',
+    '    vec2 tileUV = aSeedPos.xy / (mapSize * tileSize);',
+    '    vec2 texel = 1.0 / mapSize;',
+    '    vec2 snappedUV = (floor(tileUV / texel) + 0.5) * texel;',
+    '    vec4 fogSample = texture2D(tFog, snappedUV);',
+    '    float growFade = fogSample.a;',     // 0→1 성장 (새 경계)
+    '    float tentFade = fogSample.b;',     // 1→0 감쇄 (탐험 전환)
+    '',
+    '    // 촉수 길이 스케일: grow로 자라남, fade로 줄어듦',
+    '    float lenScale = growFade * (1.0 - tentFade);',
+    '',
     '    // 노이즈 시드: 시작점 위치 기반',
     '    vec2 seed = aSeedPos.xy / 48.0 + vec2(aSeedPos.z / 100.0);',
     '',
@@ -399,10 +413,13 @@ var TENTACLE_VERT = [
     '    float cH2 = _valueNoise(seed * 3.0 + vec2(t * 4.0 - 5.0, timeS * 0.12));',
     '    float off2 = (cL2 * 0.7 + cH2 * 0.3) * t * t * tentacleMaxLength * 0.7;',
     '',
+    '    // 스케일 적용된 실제 길이',
+    '    float effectiveLen = aTentacleLen * lenScale;',
+    '',
     '    // 주 진행 방향 위치',
-    '    vec3 pos = aSeedPos + outDir * t * aTentacleLen;',
-    '    // 수직 방향 휘어짐 적용',
-    '    pos += perp1 * off1 + perp2 * off2;',
+    '    vec3 pos = aSeedPos + outDir * t * effectiveLen;',
+    '    // 수직 방향 휘어짐 적용 (길이에 비례하여 줄어듦)',
+    '    pos += (perp1 * off1 + perp2 * off2) * lenScale;',
     '',
     '    // 리본 폭: 시작에서 넓고 끝에서 좁아짐 (시드 기반 굵기 변화)',
     '    float widthSeed = fract(sin(dot(seed, vec2(12.9898, 78.233))) * 43758.5453);',
@@ -413,7 +430,7 @@ var TENTACLE_VERT = [
     '    pos += perp1 * aRibbonSide * ribbonWidth;',
     '',
     '    vHeightT = t;',
-    '    vAlpha = 1.0 - t;',
+    '    vAlpha = (1.0 - t) * lenScale;',
     '    vWorldPos = pos;',
     '    vHeightNorm = clamp(pos.z / (fogHeight + tentacleMaxLength), 0.0, 1.0);',
     '',
@@ -608,6 +625,9 @@ FogOfWar3D._createTentacleMaterial = function() {
             edgeAnimSpeed:      { value: fogOfWar._edgeAnimationSpeed },
             fogHeight:          { value: this._fogHeight },
             tentacleMaxLength:  { value: this._fogHeight * 0.6 },
+            tFog:               { value: fogOfWar._fogTexture },
+            mapSize:            { value: new THREE.Vector2(this._mapWidth, this._mapHeight) },
+            tileSize:           { value: 48 },
             fogColor:           { value: new THREE.Vector3(fogColor.r, fogColor.g, fogColor.b) },
             fogColorTop:        { value: new THREE.Vector3(fogColorTop.r, fogColorTop.g, fogColorTop.b) },
             unexploredAlpha:    { value: fogOfWar._unexploredAlpha },
@@ -666,6 +686,7 @@ FogOfWar3D._updateTentacleUniforms = function() {
     u.edgeAnimSpeed.value = fogOfWar._edgeAnimationSpeed;
     u.fogHeight.value = this._fogHeight;
     u.tentacleMaxLength.value = this._fogHeight * 0.6;
+    if (fogOfWar._fogTexture) u.tFog.value = fogOfWar._fogTexture;
     u.fogColor.value.set(fogOfWar._fogColor.r, fogOfWar._fogColor.g, fogOfWar._fogColor.b);
     u.fogColorTop.value.set(fogOfWar._fogColorTop.r, fogOfWar._fogColorTop.g, fogOfWar._fogColorTop.b);
     u.unexploredAlpha.value = fogOfWar._unexploredAlpha;
