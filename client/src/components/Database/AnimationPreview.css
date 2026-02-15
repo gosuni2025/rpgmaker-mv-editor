@@ -1,24 +1,4 @@
 /* Animation Preview */
-.anim-form-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.anim-top-section {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.anim-settings-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 200px;
-  max-width: 240px;
-}
-
 .anim-preview-container {
   display: flex;
   flex-direction: column;

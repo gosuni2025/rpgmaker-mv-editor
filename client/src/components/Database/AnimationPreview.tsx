@@ -71,7 +71,7 @@ function TargetPickerPopup({ enemyList, value, onSelect, onClose }: {
 }
 
 // 애니메이션 프리뷰 캔버스
-export default function AnimationPreview({ animation }: { animation: Animation | undefined }) {
+export default function AnimationPreview({ animation, initialFrame }: { animation: Animation | undefined; initialFrame?: number }) {
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [targetImage, setTargetImage] = useState<string>('');
@@ -311,6 +311,15 @@ export default function AnimationPreview({ animation }: { animation: Animation |
     stopAnimation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animation?.id]);
+
+  // initialFrame prop 변경 시 프레임 이동
+  useEffect(() => {
+    if (initialFrame !== undefined && !playing) {
+      setCurrentFrame(initialFrame);
+      drawFrame(initialFrame);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFrame]);
 
   const totalFrames = animation?.frames?.length || 0;
 
