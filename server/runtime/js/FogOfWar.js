@@ -154,43 +154,41 @@ var VOL_FOG_FRAG = [
     '    float dT = max(0.0, -uv.y); float dB = max(0.0, uv.y - 1.0);',
     '    float outsideDist = max(max(dL, dR), max(dT, dB));',
     '',
-    '    float visibility = 0.0; float explored = 0.0;',
+    '    float visibility = 0.0; float explored = 0.0; float nearVis = 0.0;',
     '    if (outsideDist < 0.001) {',
     '        vec4 s = texture2D(tFog, uv);',
-    '        visibility = s.r; explored = s.g;',
+    '        visibility = s.r; explored = s.g; nearVis = s.b;',
     '    }',
     '',
-    '    // --- 디졸브 경계: 경계 근처에서만 노이즈로 불규칙하게 ---',
+    '    // --- 디졸브 노이즈 ---',
     '    float timeS = uTime * edgeAnimSpeed;',
-    '',
-    '    // 다중 옥타브 노이즈',
     '    float dissolveNoise = fbm3(mapXY * 0.008 + vec2(timeS * 0.06, timeS * 0.04));',
     '    dissolveNoise += 0.5 * _valueNoise(mapXY * 0.02 + vec2(-timeS * 0.08, timeS * 0.05));',
     '    dissolveNoise += 0.25 * _valueNoise(mapXY * 0.05 + vec2(timeS * 0.12, -timeS * 0.07));',
-    '    dissolveNoise *= 0.57;', // normalize to ~[-0.5, 0.5] range
-    '',
+    '    dissolveNoise *= 0.57;',
     '    float dn = edgeAnimOn * dissolveNoise;',
     '',
-    '    // 디졸브 경계: sqrt(visibility)로 가장자리 값을 끌어올린 뒤 노이즈 변조',
-    '    // sqrt: quadratic falloff의 가장자리 작은 값을 넓게 펼침',
-    '    float spreadVis = (visibility > 0.001) ? sqrt(visibility) : 0.0;',
+    '    // 통합 시야값: 직접 시야 + 인접 시야(B채널, 벽 뒤 경계)',
+    '    // visibility > 0이면 직접 시야 사용, 아니면 nearVis로 경계 그라데이션',
+    '    float combined = max(visibility, nearVis * 0.4);',
+    '    float spreadVis = (combined > 0.001) ? sqrt(combined) : 0.0;',
     '    float dissolvedVis = spreadVis + dn * 0.45;',
-    '    dissolvedVis = (visibility > 0.001) ? max(dissolvedVis, 0.0) : 0.0;',
+    '    dissolvedVis = (combined > 0.001) ? max(dissolvedVis, 0.0) : 0.0;',
     '',
-    '    // 최종 fog alpha: smoothstep으로 부드러운 알파 그라데이션',
+    '    // 최종 fog alpha',
     '    float fogAlpha;',
     '    if (dissolvedVis > 0.001) {',
     '        float visFactor = smoothstep(0.0, 0.6, dissolvedVis);',
     '        visFactor = clamp(visFactor + visibilityBrightness * dissolvedVis, 0.0, 1.0);',
     '        fogAlpha = mix(exploredAlpha, 0.0, visFactor);',
     '    } else if (explored > 0.01) {',
-    '        // 탐험완료↔미탐험 경계: 부드러운 보간',
+    '        // 탐험완료↔미탐험 경계',
     '        float explFade = smoothstep(0.0, 1.0, explored);',
     '        fogAlpha = mix(unexploredAlpha, exploredAlpha, explFade);',
     '        float explEdge = explored * (1.0 - explored) * 4.0;',
     '        fogAlpha += dn * 0.12 * explEdge;',
     '    } else {',
-    '        // 미탐험: 완전 불투명 (디졸브 없음)',
+    '        // 미탐험: 완전 불투명',
     '        fogAlpha = unexploredAlpha;',
     '    }',
     '',
@@ -497,7 +495,51 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
         }
     }
 
+    // 시야 인접도 계산: vis=0인 타일 중 인접에 vis>0이 있으면 경계
+    this._computeEdgeData();
+
     this._updateTexture();
+};
+
+//=============================================================================
+// 시야 경계 데이터: vis=0 타일의 인접 가시성을 B채널에 기록
+//=============================================================================
+
+FogOfWar._edgeData = null;
+
+FogOfWar._computeEdgeData = function() {
+    var w = this._mapWidth;
+    var h = this._mapHeight;
+    var vis = this._visibilityData;
+
+    if (!this._edgeData || this._edgeData.length !== w * h) {
+        this._edgeData = new Float32Array(w * h);
+    }
+    var edge = this._edgeData;
+
+    for (var i = 0; i < edge.length; i++) edge[i] = 0;
+
+    for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+            var idx = y * w + x;
+            if (vis[idx] > 0.01) continue; // 이미 보이는 타일은 스킵
+
+            // 인접 4방향 + 대각선 4방향의 vis 최대값
+            var maxNear = 0;
+            for (var dy = -1; dy <= 1; dy++) {
+                for (var dx = -1; dx <= 1; dx++) {
+                    if (dx === 0 && dy === 0) continue;
+                    var nx = x + dx;
+                    var ny = y + dy;
+                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                        var nv = vis[ny * w + nx];
+                        if (nv > maxNear) maxNear = nv;
+                    }
+                }
+            }
+            edge[idx] = maxNear;
+        }
+    }
 };
 
 //=============================================================================
@@ -594,11 +636,13 @@ FogOfWar._updateTexture = function() {
     var vis = this._visibilityData;
     var explored = this._exploredData;
 
+    var edge = this._edgeData;
+
     for (var i = 0; i < w * h; i++) {
         var pi = i * 4;
         data[pi + 0] = Math.round(vis[i] * 255);     // R = visibility
         data[pi + 1] = explored[i] * 255;              // G = explored
-        data[pi + 2] = 0;
+        data[pi + 2] = edge ? Math.round(edge[i] * 255) : 0; // B = 시야 인접도
         data[pi + 3] = 255;
     }
 
