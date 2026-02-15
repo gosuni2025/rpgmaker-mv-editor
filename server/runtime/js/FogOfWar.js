@@ -429,7 +429,8 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
     this._growFade = new Float32Array(size);     // 생성 페이드 (0→1: 촉수 자라남)
     this._borderState = new Uint8Array(size);    // 이전 프레임의 경계 상태 (0/1)
     this._fogTransitionSpeed = 5.0;  // 초당 전환 속도 (높을수록 빠름)
-    this._tentacleFadeSpeed = 1.0;   // 촉수 페이드 속도 (지수 감쇄, 낮을수록 천천히)
+    this._tentacleFadeSpeed = 1.0;   // 촉수 사라짐 속도 (지수 감쇄, 낮을수록 천천히)
+    this._tentacleGrowSpeed = 2.0;   // 촉수 생성 속도 (지수 감쇄, 낮을수록 천천히)
 
     // fog 텍스처: RG 채널 (R=visibility, G=explored)
     var texData = new Uint8Array(size * 4);
@@ -674,7 +675,7 @@ FogOfWar._lerpDisplay = function(dt) {
     var speed = this._fogTransitionSpeed;
     var alpha = 1.0 - Math.exp(-speed * dt);  // 지수 감쇄 보간
     var fadeAlpha = 1.0 - Math.exp(-this._tentacleFadeSpeed * dt); // 지수 감쇄
-    var growAlpha = 1.0 - Math.exp(-2.0 * dt); // grow 속도 (사라짐보다 빠르게)
+    var growAlpha = 1.0 - Math.exp(-this._tentacleGrowSpeed * dt); // grow 속도
     var w = this._mapWidth;
     var h = this._mapHeight;
     var size = w * h;
