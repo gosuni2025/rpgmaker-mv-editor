@@ -153,6 +153,9 @@
       "terms": "용어"
     }
   },
+  "skills": {
+    "generalSettings": "일반 설정"
+  },
   "fields": {
     "nickname": "별명",
     "class": "직업",
@@ -186,6 +189,9 @@
     "repeats": "반복 횟수",
     "tpGain": "TP 획득",
     "invocation": "발동",
+    "message": "메시지",
+    "userName": "사용자명",
+    "damage": "손상",
     "message1": "메시지 1",
     "message2": "메시지 2",
     "requiredWeaponTypes": "필요 무기 타입",
