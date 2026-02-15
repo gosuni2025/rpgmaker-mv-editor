@@ -425,7 +425,9 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
     // 표시용 버퍼 (lerp로 부드럽게 전환)
     this._displayVis = new Float32Array(size);
     this._displayExpl = new Float32Array(size);
-    this._tentacleFade = new Float32Array(size); // 촉수 페이드 (1=촉수 유지, 0=촉수 사라짐)
+    this._tentacleFade = new Float32Array(size); // 사라짐 페이드 (1→0: 촉수 사라짐)
+    this._growFade = new Float32Array(size);     // 생성 페이드 (0→1: 촉수 자라남)
+    this._borderState = new Uint8Array(size);    // 이전 프레임의 경계 상태 (0/1)
     this._fogTransitionSpeed = 5.0;  // 초당 전환 속도 (높을수록 빠름)
     this._tentacleFadeSpeed = 1.0;   // 촉수 페이드 속도 (지수 감쇄, 낮을수록 천천히)
 
@@ -454,6 +456,8 @@ FogOfWar.dispose = function() {
     this._displayVis = null;
     this._displayExpl = null;
     this._tentacleFade = null;
+    this._growFade = null;
+    this._borderState = null;
     this._blockMap = null;
     this._blockMapDirty = true;
     this._active = false;
@@ -665,10 +669,15 @@ FogOfWar._lerpDisplay = function(dt) {
     var dVis = this._displayVis;
     var dExpl = this._displayExpl;
     var fade = this._tentacleFade;
+    var grow = this._growFade;
+    var borderState = this._borderState;
     var speed = this._fogTransitionSpeed;
     var alpha = 1.0 - Math.exp(-speed * dt);  // 지수 감쇄 보간
     var fadeAlpha = 1.0 - Math.exp(-this._tentacleFadeSpeed * dt); // 지수 감쇄
-    var size = this._mapWidth * this._mapHeight;
+    var growAlpha = 1.0 - Math.exp(-2.0 * dt); // grow 속도 (사라짐보다 빠르게)
+    var w = this._mapWidth;
+    var h = this._mapHeight;
+    var size = w * h;
     var changed = false;
 
     for (var i = 0; i < size; i++) {
@@ -677,27 +686,66 @@ FogOfWar._lerpDisplay = function(dt) {
         var curV = dVis[i];
         if (curV !== targetV) {
             var newV = curV + (targetV - curV) * alpha;
-            // 충분히 가까우면 스냅
             if (Math.abs(newV - targetV) < 0.005) newV = targetV;
             dVis[i] = newV;
             changed = true;
         }
         // explored는 즉시 반영
         if (dExpl[i] !== expl[i]) {
-            // 미탐험→탐험 전환: tentacleFade를 1.0으로 설정 (촉수 유지 시작)
+            // 미탐험→탐험 전환: tentacleFade를 1.0으로 설정
             if (expl[i] > dExpl[i]) {
                 fade[i] = 1.0;
             }
             dExpl[i] = expl[i];
             changed = true;
         }
-        // tentacleFade 감쇄: 1.0 → 0.0 (지수 감쇄)
+        // tentacleFade 감쇄: 1.0 → 0.0
         if (fade[i] > 0.0) {
             fade[i] *= (1.0 - fadeAlpha);
             if (fade[i] < 0.005) fade[i] = 0.0;
             changed = true;
         }
+        // growFade 증가: 0.0 → 1.0
+        if (grow[i] < 1.0) {
+            grow[i] += (1.0 - grow[i]) * growAlpha;
+            if (grow[i] > 0.995) grow[i] = 1.0;
+            changed = true;
+        }
     }
+
+    // 경계 상태 갱신: 미탐험 타일이 새로 경계가 되면 growFade=0 시작
+    for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+            var idx = y * w + x;
+            if (expl[idx] > 0) {
+                // 탐험된 타일은 경계 아님
+                borderState[idx] = 0;
+                continue;
+            }
+            // 미탐험 타일: 인접 8방향에 탐험이 있으면 경계
+            var isBorder = false;
+            if (x > 0 && expl[idx - 1] > 0) isBorder = true;
+            else if (x < w - 1 && expl[idx + 1] > 0) isBorder = true;
+            else if (y > 0 && expl[idx - w] > 0) isBorder = true;
+            else if (y < h - 1 && expl[idx + w] > 0) isBorder = true;
+            else if (x > 0 && y > 0 && expl[idx - w - 1] > 0) isBorder = true;
+            else if (x < w - 1 && y > 0 && expl[idx - w + 1] > 0) isBorder = true;
+            else if (x > 0 && y < h - 1 && expl[idx + w - 1] > 0) isBorder = true;
+            else if (x < w - 1 && y < h - 1 && expl[idx + w + 1] > 0) isBorder = true;
+
+            if (isBorder) {
+                if (borderState[idx] === 0) {
+                    // 새로 경계가 됨 → growFade를 0으로 리셋 (서서히 1로 증가)
+                    grow[idx] = 0.0;
+                    changed = true;
+                }
+                borderState[idx] = 1;
+            } else {
+                borderState[idx] = 0;
+            }
+        }
+    }
+
     return changed;
 };
 
@@ -711,13 +759,14 @@ FogOfWar._updateTexture = function() {
     var explored = this._displayExpl || this._exploredData;
 
     var fade = this._tentacleFade;
+    var grow = this._growFade;
 
     for (var i = 0; i < w * h; i++) {
         var pi = i * 4;
         data[pi + 0] = Math.round(vis[i] * 255);     // R = visibility (보간됨)
         data[pi + 1] = Math.round(explored[i] * 255); // G = explored
-        data[pi + 2] = fade ? Math.round(fade[i] * 255) : 0; // B = tentacle fade
-        data[pi + 3] = 255;
+        data[pi + 2] = fade ? Math.round(fade[i] * 255) : 0; // B = tentacle fade (사라짐)
+        data[pi + 3] = grow ? Math.round(grow[i] * 255) : 255; // A = grow fade (생성)
     }
 
     this._fogTexture.needsUpdate = true;
@@ -734,10 +783,20 @@ FogOfWar._syncDisplay = function() {
     for (var i = 0; i < this._exploredData.length; i++) {
         this._displayExpl[i] = this._exploredData[i];
     }
-    // tentacleFade도 리셋
+    // fade 버퍼 리셋
     if (this._tentacleFade) {
         for (var i = 0; i < this._tentacleFade.length; i++) {
             this._tentacleFade[i] = 0;
+        }
+    }
+    if (this._growFade) {
+        for (var i = 0; i < this._growFade.length; i++) {
+            this._growFade[i] = 1.0; // 즉시 완전 표시
+        }
+    }
+    if (this._borderState) {
+        for (var i = 0; i < this._borderState.length; i++) {
+            this._borderState[i] = 0;
         }
     }
 };
@@ -842,13 +901,20 @@ var EDGE_DISSOLVE_FRAG = [
     '    vec2 snapped = (floor(uv / texel) + 0.5) * texel;',
     '    return texture2D(tFog, snapped).b;',
     '}',
+    '// A채널: grow fade — nearest (미탐험 타일의 생성 페이드)',
+    'float sampleGrowNearest(vec2 uv, vec2 texel) {',
+    '    vec2 snapped = (floor(uv / texel) + 0.5) * texel;',
+    '    return texture2D(tFog, snapped).a;',
+    '}',
     '// 경계 판정: 미탐험이거나 tentacleFade 중인 타일',
     'bool isBorder(vec2 uv, vec2 texel) {',
     '    return sampleExplNearest(uv, texel) < 0.5 || sampleFadeNearest(uv, texel) > 0.01;',
     '}',
-    '// 경계 타일의 fade값 (미탐험=1.0, fade중=0~1)',
+    '// 경계 타일의 fade값',
+    '// 미탐험: growFade (0→1, 생성 시 서서히 증가)',
+    '// fade 중(사라짐): tentacleFade (1→0, 서서히 감소)',
     'float borderFade(vec2 uv, vec2 texel) {',
-    '    if (sampleExplNearest(uv, texel) < 0.5) return 1.0;',
+    '    if (sampleExplNearest(uv, texel) < 0.5) return sampleGrowNearest(uv, texel);',
     '    return sampleFadeNearest(uv, texel);',
     '}',
     '',
