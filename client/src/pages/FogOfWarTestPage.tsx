@@ -100,15 +100,32 @@ export default function FogOfWarTestPage() {
     FogOfWar._tentacleFadeDuration = fadeDuration;
     FogOfWar._tentacleGrowDuration = growDuration;
 
-    // 그로우 페이드를 전부 1로 초기화 (이미 있는 타일)
-    if (FogOfWar._growFade) {
-      for (let i = 0; i < FogOfWar._growFade.length; i++) {
-        FogOfWar._growFade[i] = 1.0;
-      }
-    }
-
     // 초기 visibility
     FogOfWar.updateVisibility(playerRef.current.x, playerRef.current.y);
+
+    // 초기 상태를 즉시 완료 상태로 설정 (타이머가 흘러가지 않도록)
+    const size = MAP_W * MAP_H;
+    for (let i = 0; i < size; i++) {
+      FogOfWar._displayVis[i] = FogOfWar._visibilityData[i];
+      FogOfWar._displayExpl[i] = FogOfWar._exploredData[i];
+      FogOfWar._tentacleFade[i] = 0;  // 삭제 완료
+      FogOfWar._growFade[i] = 1;      // 생성 완료
+      FogOfWar._borderState[i] = 0;
+    }
+    // 경계 상태를 현재 상태로 반영
+    for (let y = 0; y < MAP_H; y++) {
+      for (let x = 0; x < MAP_W; x++) {
+        const idx = y * MAP_W + x;
+        if (FogOfWar._exploredData[idx] > 0) continue;
+        let isBorder = false;
+        if (x > 0 && FogOfWar._exploredData[idx - 1] > 0) isBorder = true;
+        else if (x < MAP_W - 1 && FogOfWar._exploredData[idx + 1] > 0) isBorder = true;
+        else if (y > 0 && FogOfWar._exploredData[idx - MAP_W] > 0) isBorder = true;
+        else if (y < MAP_H - 1 && FogOfWar._exploredData[idx + MAP_W] > 0) isBorder = true;
+        if (isBorder) FogOfWar._borderState[idx] = 1;
+      }
+    }
+    FogOfWar._updateTexture();
 
     // FOW 메시 생성 - _createMesh 호출
     const fogGroup = FogOfWar._createMesh();
