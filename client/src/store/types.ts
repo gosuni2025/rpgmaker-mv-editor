@@ -129,6 +129,7 @@ export interface EditorState {
 
   // Drawing tools
   selectedTool: string;
+  eraserMode: boolean;
   selectedTileId: number;
   selectedTiles: number[][] | null;
   selectedTilesWidth: number;
@@ -298,6 +299,7 @@ export interface EditorState {
   // Actions - UI
   setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone') => void;
   setSelectedTool: (tool: string) => void;
+  setEraserMode: (enabled: boolean) => void;
   setSelectedTileId: (id: number) => void;
   setSelectedTiles: (tiles: number[][] | null, width: number, height: number) => void;
   setCurrentLayer: (layer: number) => void;

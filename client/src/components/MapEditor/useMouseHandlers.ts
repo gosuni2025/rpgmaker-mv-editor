@@ -311,7 +311,7 @@ export function useMouseHandlers(
 
       if (lastTile.current && tile.x === lastTile.current.x && tile.y === lastTile.current.y) return;
       lastTile.current = tile;
-      if (selectedTool === 'pen' || selectedTool === 'eraser') {
+      if (selectedTool === 'pen') {
         placeTileWithUndo(tile);
       }
     },

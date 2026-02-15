@@ -44,6 +44,7 @@ export function useMapTools(
 ): MapToolsResult {
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedTool = useEditorStore((s) => s.selectedTool);
+  const eraserMode = useEditorStore((s) => s.eraserMode);
   const selectedTileId = useEditorStore((s) => s.selectedTileId);
   const currentLayer = useEditorStore((s) => s.currentLayer);
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
@@ -230,9 +231,10 @@ export function useMapTools(
       const { width, height } = latestMap;
       const z = currentLayer;
       const data = [...latestMap.data];
+      const tileId = useEditorStore.getState().eraserMode ? 0 : selectedTileId;
 
       if (z === 5) {
-        const { changes, updates } = floodFillRegion(data, width, height, startX, startY, z, selectedTileId);
+        const { changes, updates } = floodFillRegion(data, width, height, startX, startY, z, tileId);
         if (updates.length > 0) {
           updateMapTiles(updates);
           pushUndo(changes);
@@ -240,7 +242,7 @@ export function useMapTools(
         return;
       }
 
-      const { changes, updates } = floodFillTile(data, latestMap.data, width, height, startX, startY, z, selectedTileId);
+      const { changes, updates } = floodFillTile(data, latestMap.data, width, height, startX, startY, z, tileId);
       if (updates.length > 0) {
         updateMapTiles(updates);
         pushUndo(changes);
@@ -346,14 +348,14 @@ export function useMapTools(
         const z = 5;
         const idx = (z * latestMap.height + y) * latestMap.width + x;
         const oldTileId = latestMap.data[idx];
-        const newTileId = selectedTool === 'eraser' ? 0 : selectedTileId;
+        const newTileId = eraserMode ? 0 : selectedTileId;
         if (oldTileId === newTileId) return;
         pendingChanges.current.push({ x, y, z, oldTileId, newTileId });
         updateMapTiles([{ x, y, z, tileId: newTileId }]);
         return;
       }
 
-      if (selectedTool === 'eraser') {
+      if (eraserMode) {
         // B/C/D/E 레이어(currentLayer=1): z=2→z=1 순서로 upper 타일 제거
         if (currentLayer === 1) {
           const placements = resolveUpperLayerErase(x, y, latestMap.data, latestMap.width, latestMap.height);
@@ -468,15 +470,16 @@ export function useMapTools(
         floodFill(x, y);
       }
     },
-    [selectedTool, selectedTileId, currentLayer, updateMapTiles, placeAutotileAt]
+    [selectedTool, eraserMode, selectedTileId, currentLayer, updateMapTiles, placeAutotileAt]
   );
 
   const drawRectangle = useCallback(
     (start: { x: number; y: number }, end: { x: number; y: number }) => {
       const latestMap = useEditorStore.getState().currentMap;
       if (!latestMap) return;
+      const tileId = useEditorStore.getState().eraserMode ? 0 : selectedTileId;
       const positions = getRectanglePositions(start, end, latestMap.width, latestMap.height);
-      batchPlaceWithAutotile(positions, selectedTileId);
+      batchPlaceWithAutotile(positions, tileId);
     },
     [selectedTileId, batchPlaceWithAutotile]
   );
@@ -485,8 +488,9 @@ export function useMapTools(
     (start: { x: number; y: number }, end: { x: number; y: number }) => {
       const latestMap = useEditorStore.getState().currentMap;
       if (!latestMap) return;
+      const tileId = useEditorStore.getState().eraserMode ? 0 : selectedTileId;
       const positions = getEllipsePositions(start, end, latestMap.width, latestMap.height);
-      batchPlaceWithAutotile(positions, selectedTileId);
+      batchPlaceWithAutotile(positions, tileId);
     },
     [selectedTileId, batchPlaceWithAutotile]
   );
