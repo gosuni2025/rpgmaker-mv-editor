@@ -42,8 +42,8 @@ export default function FogOfWar3DBoxTestPage() {
   const [growDuration, setGrowDuration] = useState(0.5);
   const [fogHeight, setFogHeight] = useState(144);
   const [heightFalloff, setHeightFalloff] = useState(1.5);
-  const [dissolveStrength, setDissolveStrength] = useState(2.0);
-  const [tentacleSharpness, setTentacleSharpness] = useState(3.0);
+  const [dissolveStrength, setDissolveStrength] = useState(4.0);
+  const [tentacleSharpness, setTentacleSharpness] = useState(1.8);
   const [fadeSmoothness, setFadeSmoothness] = useState(0.3);
   const [edgeAnimation, setEdgeAnimation] = useState(true);
   const [edgeAnimSpeed, setEdgeAnimSpeed] = useState(1.0);

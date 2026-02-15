@@ -171,8 +171,7 @@ var BOX_FOG_FRAG = [
     '            float gf = sampleGrowNearest(vTileUV);',
     '',
     '            if (isSideFace) {',
-    '                // --- 옆면: 경계 방향에 해당하는 면에만 촉수 ---',
-    '                // 이 면이 탐험 영역 쪽을 바라보는지 확인',
+    '                // --- 옆면: 경계 방향 면에서만 촉수 ---',
     '                bool facingExplored = false;',
     '                if (vNormal.x < -0.5 && eL > 0.5) facingExplored = true;',
     '                if (vNormal.x >  0.5 && eR > 0.5) facingExplored = true;',
@@ -180,39 +179,26 @@ var BOX_FOG_FRAG = [
     '                if (vNormal.y >  0.5 && eD > 0.5) facingExplored = true;',
     '',
     '                if (facingExplored) {',
-    '                    // 옆면의 수평 좌표: normal 방향에 따라 다름',
-    '                    // normal.x != 0 → Y축과 Z축이 면의 좌표',
-    '                    // normal.y != 0 → X축과 Z축이 면의 좌표',
-    '                    float wallU;',
+    '                    // 이 면은 탐험 영역을 바라봄 → 촉수 실루엣',
+    '                    float wallCoord;',
     '                    if (abs(vNormal.x) > 0.5) {',
-    '                        wallU = vLocalPos.y + 0.5;',   // 0~1 범위
+    '                        wallCoord = vWorldPos.y + scrollOffset.y;',
     '                    } else {',
-    '                        wallU = vLocalPos.x + 0.5;',   // 0~1 범위
+    '                        wallCoord = vWorldPos.x + scrollOffset.x;',
     '                    }',
-    '',
-    '                    // 월드 좌표 기반 노이즈 (옆면 수평위치 + 높이 기반)',
-    '                    vec2 wallWorld;',
-    '                    if (abs(vNormal.x) > 0.5) {',
-    '                        wallWorld = vec2(vWorldPos.y, vWorldZ) + scrollOffset;',
-    '                    } else {',
-    '                        wallWorld = vec2(vWorldPos.x, vWorldZ) + scrollOffset;',
-    '                    }',
-    '                    float nN = tentacleNoise(wallWorld);',
+    '                    float nN = tentacleNoise(vec2(wallCoord, wallCoord * 0.7 + 31.7));',
     '                    float tH = pow(nN, tentacleSharpness) * dissolveStrength * tileSize / fogHeight * gf;',
-    '',
-    '                    // 촉수 cutoff: 꼭대기에서 아래로 뻗어나옴',
-    '                    float cutoff = 1.0 - tH;',
-    '                    if (heightNorm > cutoff) discard;',
+    '                    // 촉수: 꼭대기에서 아래로 뻗어나옴, cutoff 위는 discard',
+    '                    if (heightNorm > 1.0 - tH) discard;',
     '                }',
-    '                // 경계 방향 아닌 옆면: fog 본체 → 그대로 렌더',
+    '                // 경계 방향 아닌 옆면: fog 본체 (discard 안 함)',
     '',
     '            } else if (isTopFace) {',
-    '                // --- 윗면: 기존 로직 ---',
+    '                // --- 윗면: 노이즈로 촉수 실루엣 ---',
     '                vec2 worldXY = vWorldPos.xy + scrollOffset;',
     '                float nN = tentacleNoise(worldXY);',
     '                float tH = pow(nN, tentacleSharpness) * dissolveStrength * tileSize / fogHeight * gf;',
-    '                float cutoff = 1.0 - tH;',
-    '                if (heightNorm > cutoff) discard;',
+    '                if (heightNorm > 1.0 - tH) discard;',
     '            }',
     '            // 바닥면: 항상 렌더',
     '',
@@ -242,16 +228,16 @@ var BOX_FOG_FRAG = [
     '                if (vNormal.y >  0.5 && eD < 0.5) facingUnexplored = true;',
     '',
     '                if (facingUnexplored && tf > 0.001) {',
-    '                    vec2 wallWorld;',
+    '                    float wallCoord;',
     '                    if (abs(vNormal.x) > 0.5) {',
-    '                        wallWorld = vec2(vWorldPos.y, vWorldZ) + scrollOffset;',
+    '                        wallCoord = vWorldPos.y + scrollOffset.y;',
     '                    } else {',
-    '                        wallWorld = vec2(vWorldPos.x, vWorldZ) + scrollOffset;',
+    '                        wallCoord = vWorldPos.x + scrollOffset.x;',
     '                    }',
-    '                    float nN = tentacleNoise(wallWorld);',
+    '                    float nN = tentacleNoise(vec2(wallCoord, wallCoord * 0.7 + 31.7));',
     '                    float tH = pow(nN, tentacleSharpness) * dissolveStrength * tileSize / fogHeight * tf;',
     '',
-    '                    // 바닥에서 솟아오르는 촉수',
+    '                    // 바닥에서 솟아오르는 촉수: 0 ~ tH 범위만 렌더',
     '                    if (heightNorm < tH) {',
     '                        vec3 color = heightGradientOn > 0.5 ? mix(fogColor, fogColorTop, heightNorm) : fogColor;',
     '                        gl_FragColor = vec4(color, unexploredAlpha);',
@@ -306,9 +292,9 @@ FogOfWar3D._createMesh = function(mapWidth, mapHeight, config) {
     var fogHeight = config && config.fogHeight3D != null ? config.fogHeight3D : this._fogHeight;
     var heightFalloff = config && config.heightFalloff != null ? config.heightFalloff : 1.5;
     var dissolveStrength = (fogOfWar._shaderOverrides && fogOfWar._shaderOverrides.dissolveStrength != null)
-        ? fogOfWar._shaderOverrides.dissolveStrength : 2.0;
+        ? fogOfWar._shaderOverrides.dissolveStrength : 4.0;
     var tentacleSharpness = (fogOfWar._shaderOverrides && fogOfWar._shaderOverrides.tentacleSharpness != null)
-        ? fogOfWar._shaderOverrides.tentacleSharpness : 3.0;
+        ? fogOfWar._shaderOverrides.tentacleSharpness : 1.8;
 
     this._fogHeight = fogHeight;
 
@@ -418,8 +404,8 @@ FogOfWar3D._updateUniforms = function(dt) {
 
     // 셰이더 오버라이드
     var so = fogOfWar._shaderOverrides || {};
-    u.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 2.0;
-    u.tentacleSharpness.value = so.tentacleSharpness != null ? so.tentacleSharpness : 3.0;
+    u.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 4.0;
+    u.tentacleSharpness.value = so.tentacleSharpness != null ? so.tentacleSharpness : 1.8;
     u.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.3;
 
     // 스크롤 오프셋
