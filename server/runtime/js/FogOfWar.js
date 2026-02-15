@@ -94,6 +94,10 @@ var VOL_FOG_FRAG = [
     'uniform vec3 lightColors[8];',      // rgb (0~1)
     'uniform float lightDistances[8];',  // 영향 거리 (픽셀)
     'uniform float isOrtho;',            // 1.0: OrthographicCamera, 0.0: PerspectiveCamera
+    '// 2D FOW 디버그 조절용',
+    'uniform float dissolveStrength;',    // 디졸브 노이즈 강도
+    'uniform float fadeSmoothness;',      // 알파 페이드 smoothstep 범위
+    'uniform float nearVisWeight;',       // nearVis(B채널) 가중치
     '',
     '// --- 노이즈 함수 ---',
     'vec2 _hash22(vec2 p) {',
@@ -145,8 +149,8 @@ var VOL_FOG_FRAG = [
     '}',
     '',
     '// --- 2D 전용 fog 렌더링 (isOrtho) ---',
-    '// 시야 경계에서 투명(0) → 어두운색(fogColor)으로의 부드러운 알파 그라데이션',
-    '// + 디졸브 노이즈 애니메이션으로 유기적 경계면 형성',
+    '// 플레이어에서 멀어질수록 fog 투명도가 점점 짙어지는 연속 알파 그라데이션',
+    '// 디졸브 노이즈로 경계 모양 자체를 불규칙하게 변형 + 애니메이션',
     'void render2D() {',
     '    vec2 mapXY = vWorldPos.xy + scrollOffset;',
     '    vec2 uv = mapXY / mapPixelSize;',
@@ -162,44 +166,34 @@ var VOL_FOG_FRAG = [
     '        visibility = s.r; explored = s.g; nearVis = s.b;',
     '    }',
     '',
-    '    // --- 디졸브 노이즈 (경계면 애니메이션) ---',
+    '    // --- 디졸브 노이즈 ---',
+    '    // 여러 주파수를 합산하여 유기적이고 불규칙한 패턴 생성',
     '    float timeS = uTime * edgeAnimSpeed;',
-    '    float dissolveNoise = fbm3(mapXY * 0.008 + vec2(timeS * 0.06, timeS * 0.04));',
-    '    dissolveNoise += 0.5 * _valueNoise(mapXY * 0.02 + vec2(-timeS * 0.08, timeS * 0.05));',
-    '    dissolveNoise += 0.25 * _valueNoise(mapXY * 0.05 + vec2(timeS * 0.12, -timeS * 0.07));',
-    '    dissolveNoise *= 0.57;',
-    '    float dn = edgeAnimOn * dissolveNoise;',
+    '    float dn1 = fbm3(mapXY * 0.012 + vec2(timeS * 0.07, timeS * 0.05));',
+    '    float dn2 = _valueNoise(mapXY * 0.025 + vec2(-timeS * 0.09, timeS * 0.06));',
+    '    float dn3 = _valueNoise(mapXY * 0.06 + vec2(timeS * 0.15, -timeS * 0.08));',
+    '    float dissolve = (dn1 + dn2 * 0.5 + dn3 * 0.25) * 0.57;',
+    '    float dn = edgeAnimOn * dissolve;',
     '',
-    '    // 연속 그라데이션 값: visibility + blurVis(B채널)를 결합하여',
-    '    // 시야 중심(1.0) → 시야 가장자리(작은 vis) → 경계(nearVis만) → 시야 밖(0)',
-    '    // 까지 하나의 연속 값으로 표현',
-    '    float combined = max(visibility, nearVis * 0.6);',
+    '    // visibility와 blurVis를 결합하여 연속 그라데이션 값 생성',
+    '    // nearVis(B채널)는 시야 밖까지 확산된 값으로, 경계 영역을 넓게 만듦',
+    '    float combined = max(visibility, nearVis * nearVisWeight);',
     '',
-    '    // 최종 fog alpha',
+    '    // 디졸브로 combined 값 자체를 변조 → 경계 모양이 불규칙해짐',
+    '    combined += dn * dissolveStrength;',
+    '    combined = max(combined, 0.0);',
+    '',
+    '    // 최종 fog alpha: combined에서 부드러운 알파 그라데이션',
     '    float fogAlpha;',
-    '    if (combined > 0.01) {',
-    '        // 시야 안~경계: 연속 그라데이션',
-    '        // combined가 클수록 투명, 작을수록 불투명',
-    '        float grad = sqrt(combined);',
-    '',
-    '        // 디졸브: 경계 영역(0.1~0.7)에서만 강하게 적용',
-    '        float edgeness = smoothstep(0.0, 0.15, combined) * (1.0 - smoothstep(0.5, 0.85, combined));',
-    '        grad += dn * 0.5 * edgeness;',
-    '        grad = clamp(grad, 0.0, 1.0);',
-    '',
-    '        // 밝기 보정',
-    '        grad = clamp(grad + visibilityBrightness * visibility, 0.0, 1.0);',
-    '',
-    '        // 투명(0) ← grad=1 … fogAlpha=exploredAlpha ← grad=0',
-    '        fogAlpha = exploredAlpha * (1.0 - grad);',
+    '    if (combined > 0.005) {',
+    '        float fade = smoothstep(0.0, fadeSmoothness, combined);',
+    '        fade = clamp(fade + visibilityBrightness * visibility, 0.0, 1.0);',
+    '        fogAlpha = exploredAlpha * (1.0 - fade);',
     '    } else if (explored > 0.01) {',
     '        // 탐험완료↔미탐험 경계',
     '        float explFade = smoothstep(0.0, 1.0, explored);',
     '        fogAlpha = mix(unexploredAlpha, exploredAlpha, explFade);',
-    '        float explEdge = explored * (1.0 - explored) * 4.0;',
-    '        fogAlpha += dn * 0.12 * explEdge;',
     '    } else {',
-    '        // 미탐험: 완전 불투명',
     '        fogAlpha = unexploredAlpha;',
     '    }',
     '',
@@ -212,15 +206,10 @@ var VOL_FOG_FRAG = [
     '    fogAlpha = clamp(fogAlpha, 0.0, 1.0);',
     '    if (fogAlpha < 0.001) discard;',
     '',
-    '    // --- 색상 계산 ---',
+    '    // --- 색상 ---',
     '    vec3 color = fogColor;',
     '',
-    '    // 경계 영역 미묘한 색상 변화',
-    '    float edgeMask = smoothstep(0.0, 0.15, fogAlpha) * (1.0 - smoothstep(0.6, 0.95, fogAlpha));',
-    '    float edgeNoise = _valueNoise(mapXY * 0.01 + vec2(timeS * 0.03, -timeS * 0.02));',
-    '    color += vec3(0.03, 0.02, 0.05) * edgeMask * (0.5 + edgeNoise * 0.5);',
-    '',
-    '    // 라이트 산란 (2D 버전: XY 거리만)',
+    '    // 라이트 산란 (2D: XY 거리만)',
     '    if (lightScatterOn > 0.5 && fogAlpha > 0.05) {',
     '        vec3 scatterLight = vec3(0.0);',
     '        for (int li = 0; li < 8; li++) {',
@@ -500,7 +489,7 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
                 var idx = ty * w + tx;
                 var dist = Math.sqrt(distSq);
                 var t = dist / radius;
-                vis[idx] = 1.0 - t * t; // quadratic falloff
+                vis[idx] = Math.max(1.0 - t, 0.0); // linear falloff (넓은 경계 그라데이션)
                 explored[idx] = 1;
             }
         }
@@ -529,22 +518,23 @@ FogOfWar._computeEdgeData = function() {
     }
     var blur = this._blurData;
 
-    // max-spread: 3패스, 각 패스에서 인접 타일의 최대값 전파 (감쇠 0.55)
-    // → 약 3타일 확산으로 경계 그라데이션이 더 부드러움
+    // max-spread: 확산 패스 수와 감쇠율 (_shaderOverrides에서 디버그 조절 가능)
+    var so = this._shaderOverrides || {};
+    var passes = so.spreadPasses != null ? Math.round(so.spreadPasses) : 4;
+    var decay = so.spreadDecay != null ? so.spreadDecay : 0.6;
+
     for (var i = 0; i < size; i++) blur[i] = vis[i];
 
-    for (var pass = 0; pass < 3; pass++) {
-        // 임시 복사
+    for (var pass = 0; pass < passes; pass++) {
         var src = new Float32Array(blur);
         for (var y = 0; y < h; y++) {
             for (var x = 0; x < w; x++) {
                 var idx = y * w + x;
                 var v = src[idx];
-                // 4방향 인접 max, 감쇠 적용 (0.55로 더 먼 확산)
-                if (x > 0)     v = Math.max(v, src[idx - 1] * 0.55);
-                if (x < w - 1) v = Math.max(v, src[idx + 1] * 0.55);
-                if (y > 0)     v = Math.max(v, src[idx - w] * 0.55);
-                if (y < h - 1) v = Math.max(v, src[idx + w] * 0.55);
+                if (x > 0)     v = Math.max(v, src[idx - 1] * decay);
+                if (x < w - 1) v = Math.max(v, src[idx + 1] * decay);
+                if (y > 0)     v = Math.max(v, src[idx - w] * decay);
+                if (y < h - 1) v = Math.max(v, src[idx + w] * decay);
                 blur[idx] = v;
             }
         }
@@ -747,6 +737,9 @@ FogOfWar._createMesh = function() {
             lightScatterOn:  { value: this._lightScattering ? 1.0 : 0.0 },
             lightScatterIntensity: { value: this._lightScatterIntensity },
             isOrtho:         { value: 0.0 },
+            dissolveStrength:{ value: 0.25 },
+            fadeSmoothness:  { value: 0.7 },
+            nearVisWeight:   { value: 0.7 },
             numLights:       { value: 0 },
             lightPositions:  { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
             lightColors:     { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
@@ -845,6 +838,12 @@ FogOfWar._updateMeshUniforms = function() {
     u.vortexSpeed.value = this._vortexSpeed;
     u.lightScatterOn.value = this._lightScattering ? 1.0 : 0.0;
     u.lightScatterIntensity.value = this._lightScatterIntensity;
+
+    // 셰이더 디버그 오버라이드
+    var so = this._shaderOverrides || {};
+    u.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 0.25;
+    u.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.7;
+    u.nearVisWeight.value = so.nearVisWeight != null ? so.nearVisWeight : 0.7;
 
     // 카메라 월드 좌표 및 isOrtho 업데이트
     if (typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active) {
