@@ -30,6 +30,7 @@ export default function MenuBar() {
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const editMode = useEditorStore((s) => s.editMode);
   const selectedTool = useEditorStore((s) => s.selectedTool);
+  const drawShape = useEditorStore((s) => s.drawShape);
   const undoStack = useEditorStore((s) => s.undoStack);
   const redoStack = useEditorStore((s) => s.redoStack);
 
@@ -49,7 +50,7 @@ export default function MenuBar() {
   const setShowLocalizationDialog = useEditorStore((s) => s.setShowLocalizationDialog);
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
-  const setEraserMode = useEditorStore((s) => s.setEraserMode);
+  const setDrawShape = useEditorStore((s) => s.setDrawShape);
   const zoomIn = useEditorStore((s) => s.zoomIn);
   const zoomOut = useEditorStore((s) => s.zoomOut);
   const zoomActualSize = useEditorStore((s) => s.zoomActualSize);
@@ -121,10 +122,12 @@ export default function MenuBar() {
       label: t('menu.draw'),
       items: [
         { label: t('menu.pencil'), action: 'toolPen', checked: () => selectedTool === 'pen' },
-        { label: t('menu.rectangle'), action: 'toolRectangle', checked: () => selectedTool === 'rectangle' },
-        { label: t('menu.ellipse'), action: 'toolEllipse', checked: () => selectedTool === 'ellipse' },
-        { label: t('menu.fill'), action: 'toolFill', checked: () => selectedTool === 'fill' },
+        { label: t('menu.eraser'), action: 'toolEraser', checked: () => selectedTool === 'eraser' },
         { label: t('menu.shadow'), action: 'toolShadow', checked: () => selectedTool === 'shadow' },
+        { type: 'separator' } as any,
+        { label: t('menu.rectangle'), action: 'toolRectangle', checked: () => drawShape === 'rectangle' },
+        { label: t('menu.ellipse'), action: 'toolEllipse', checked: () => drawShape === 'ellipse' },
+        { label: t('menu.fill'), action: 'toolFill', checked: () => drawShape === 'fill' },
       ],
     },
     {
@@ -195,10 +198,10 @@ export default function MenuBar() {
       case 'modeCameraZone': setEditMode('cameraZone'); break;
       case 'toolSelect': setSelectedTool('select'); break;
       case 'toolPen': setSelectedTool('pen'); break;
-      case 'toolRectangle': setSelectedTool('rectangle'); break;
-      case 'toolEllipse': setSelectedTool('ellipse'); break;
-      case 'toolFill': setSelectedTool('fill'); break;
-      case 'toolEraser': setEraserMode(!useEditorStore.getState().eraserMode); break;
+      case 'toolEraser': setSelectedTool('eraser'); break;
+      case 'toolRectangle': setDrawShape('rectangle'); break;
+      case 'toolEllipse': setDrawShape('ellipse'); break;
+      case 'toolFill': setDrawShape('fill'); break;
       case 'toolShadow': setSelectedTool('shadow'); break;
       case 'zoomIn': zoomIn(); break;
       case 'zoomOut': zoomOut(); break;
@@ -233,7 +236,7 @@ export default function MenuBar() {
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
       setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
-      setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog, setEditMode, setSelectedTool, setEraserMode, zoomIn, zoomOut,
+      setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog, setEditMode, setSelectedTool, setDrawShape, zoomIn, zoomOut,
       zoomActualSize, undo, redo, openProject, projectPath, t]);
 
   useEffect(() => {

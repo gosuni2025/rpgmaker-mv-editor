@@ -128,8 +128,8 @@ export interface EditorState {
   editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone';
 
   // Drawing tools
-  selectedTool: string;
-  eraserMode: boolean;
+  selectedTool: string;  // 'select' | 'pen' | 'eraser' | 'shadow'
+  drawShape: string;     // 'freehand' | 'rectangle' | 'ellipse' | 'fill'
   selectedTileId: number;
   selectedTiles: number[][] | null;
   selectedTilesWidth: number;
@@ -299,7 +299,7 @@ export interface EditorState {
   // Actions - UI
   setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone') => void;
   setSelectedTool: (tool: string) => void;
-  setEraserMode: (enabled: boolean) => void;
+  setDrawShape: (shape: string) => void;
   setSelectedTileId: (id: number) => void;
   setSelectedTiles: (tiles: number[][] | null, width: number, height: number) => void;
   setCurrentLayer: (layer: number) => void;
