@@ -30,8 +30,8 @@
     var PARAMS_2D = [
         { key: 'dissolveStrength',   label: 'Tentacle Len',      min: 0,    max: 4.0,  step: 0.1,  def: 2.0,  shader: true },
         { key: 'fadeSmoothness',     label: 'Fade Range',        min: 0.05, max: 1.0,  step: 0.05, def: 0.3,  shader: true },
-        { key: 'nearVisWeight',      label: 'Edge Width',        min: 0.1,  max: 3.0,  step: 0.05, def: 0.7,  shader: true },
-        { key: 'edgeOffset',         label: 'Edge Offset',       min: 0,    max: 1.5,  step: 0.05, def: 0.5,  shader: true },
+        { key: 'tentacleSharpness',  label: 'Sharpness',         min: 1.0,  max: 6.0,  step: 0.1,  def: 3.0,  shader: true },
+        { key: 'tentacleFadeSpeed',  label: 'Fade Speed',        min: 0.5,  max: 10.0, step: 0.5,  def: 2.0 },
     ];
 
     // ── 3D 전용 파라미터 ──
@@ -64,6 +64,7 @@
         vortex: '_vortex',
         vortexSpeed: '_vortexSpeed',
         fogTransitionSpeed: '_fogTransitionSpeed',
+        tentacleFadeSpeed: '_tentacleFadeSpeed',
         absorption: '_absorption',
         fogHeight: '_fogHeight',
     };

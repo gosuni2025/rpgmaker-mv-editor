@@ -97,7 +97,7 @@ var VOL_FOG_FRAG = [
     '// 2D FOW 디버그 조절용',
     'uniform float dissolveStrength;',    // 디졸브 노이즈 강도
     'uniform float fadeSmoothness;',      // 알파 페이드 smoothstep 범위
-    'uniform float nearVisWeight;',       // nearVis(B채널) 가중치
+    'uniform float tentacleSharpness;',    // pow 지수 (높을수록 뾰족한 촉수)
     '',
     '// --- 노이즈 함수 ---',
     'vec2 _hash22(vec2 p) {',
@@ -419,6 +419,7 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
     this._displayVis = new Float32Array(size);
     this._displayExpl = new Float32Array(size);
     this._fogTransitionSpeed = 5.0;  // 초당 전환 속도 (높을수록 빠름)
+    this._tentacleFadeSpeed = 2.0;   // 촉수 페이드 속도 (explored 보간, 높을수록 빠름)
 
     // fog 텍스처: RG 채널 (R=visibility, G=explored)
     var texData = new Uint8Array(size * 4);
@@ -670,8 +671,22 @@ FogOfWar._lerpDisplay = function(dt) {
             dVis[i] = newV;
             changed = true;
         }
-        // explored는 즉시 반영 (경계 판정에 이산값 필요)
-        dExpl[i] = expl[i];
+        // explored 보간: 0→1 전환 시 부드럽게 (촉수가 스르륵 사라짐)
+        var targetE = expl[i];
+        var curE = dExpl[i];
+        if (curE !== targetE) {
+            if (targetE > curE) {
+                // 미탐험→탐험: 부드럽게 전환
+                var alphaE = 1.0 - Math.exp(-this._tentacleFadeSpeed * dt);
+                var newE = curE + (targetE - curE) * alphaE;
+                if (newE > 0.995) newE = targetE;
+                dExpl[i] = newE;
+            } else {
+                // 탐험→미탐험(hideAll): 즉시
+                dExpl[i] = targetE;
+            }
+            changed = true;
+        }
     }
     return changed;
 };
@@ -769,8 +784,7 @@ var EDGE_DISSOLVE_FRAG = [
     'uniform float edgeAnimSpeed;',
     'uniform float dissolveStrength;',
     'uniform float fadeSmoothness;',
-    'uniform float nearVisWeight;',
-    'uniform float edgeOffset;',       // 경계 위치 오프셋 (0=시야 가장자리, 양수=바깥으로)
+    'uniform float tentacleSharpness;', // pow 지수 (높을수록 뾰족한 촉수)
     'uniform float exploredAlpha;',
     'uniform float unexploredAlpha;',
     '',
@@ -874,7 +888,7 @@ var EDGE_DISSOLVE_FRAG = [
     '',
     '    // noise를 0~1로 정규화 후 pow로 뾰족하게: 높은 값만 긴 촉수',
     '    float nNorm = clamp(noise + 0.5, 0.0, 1.0);',
-    '    float tentacleLength = pow(nNorm, 3.0) * dissolveStrength;',
+    '    float tentacleLength = pow(nNorm, tentacleSharpness) * dissolveStrength;',
     '',
     '    // 촉수 안에 있는지 판정',
     '    float inTentacle = tentacleLength - distToBorder;',
@@ -946,7 +960,7 @@ FogOfWar._createMesh = function() {
             isOrtho:         { value: 0.0 },
             dissolveStrength:{ value: 2.0 },
             fadeSmoothness:  { value: 0.3 },
-            nearVisWeight:   { value: 0.7 },
+            tentacleSharpness:{ value: 3.0 },
             numLights:       { value: 0 },
             lightPositions:  { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
             lightColors:     { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
@@ -983,10 +997,9 @@ FogOfWar._createMesh = function() {
             scrollOffset:    { value: material.uniforms.scrollOffset.value },
             edgeAnimOn:      { value: this._edgeAnimation ? 1.0 : 0.0 },
             edgeAnimSpeed:   { value: this._edgeAnimationSpeed },
-            dissolveStrength:{ value: 2.0 },
-            fadeSmoothness:  { value: 0.3 },
-            nearVisWeight:   { value: 0.7 },
-            edgeOffset:      { value: 0.5 }
+            dissolveStrength:   { value: 2.0 },
+            fadeSmoothness:     { value: 0.3 },
+            tentacleSharpness:  { value: 3.0 }
         },
         vertexShader: VOL_FOG_VERT,
         fragmentShader: EDGE_DISSOLVE_FRAG,
@@ -1087,7 +1100,7 @@ FogOfWar._updateMeshUniforms = function() {
     var so = this._shaderOverrides || {};
     u.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 2.0;
     u.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.3;
-    u.nearVisWeight.value = so.nearVisWeight != null ? so.nearVisWeight : 0.7;
+    u.tentacleSharpness.value = so.tentacleSharpness != null ? so.tentacleSharpness : 3.0;
 
     // 카메라 월드 좌표 및 isOrtho 업데이트
     var is3D = typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active;
@@ -1125,8 +1138,7 @@ FogOfWar._updateMeshUniforms = function() {
         eu.edgeAnimSpeed.value = this._edgeAnimationSpeed;
         eu.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 2.0;
         eu.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.3;
-        eu.nearVisWeight.value = so.nearVisWeight != null ? so.nearVisWeight : 0.7;
-        eu.edgeOffset.value = so.edgeOffset != null ? so.edgeOffset : 0.5;
+        eu.tentacleSharpness.value = so.tentacleSharpness != null ? so.tentacleSharpness : 3.0;
         // scrollOffset는 fog 메시와 같은 참조를 공유
     }
 
