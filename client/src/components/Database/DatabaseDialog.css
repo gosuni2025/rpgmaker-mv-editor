@@ -152,6 +152,61 @@
   color: #fff;
 }
 
+.db-list-item.dragging {
+  opacity: 0.4;
+}
+
+.db-list-item.drag-over-above {
+  box-shadow: inset 0 2px 0 0 #4fc3f7;
+}
+
+.db-list-item.drag-over-below {
+  box-shadow: inset 0 -2px 0 0 #4fc3f7;
+}
+
+.db-list-context-menu {
+  position: fixed;
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  min-width: 100px;
+  padding: 4px 0;
+}
+
+.db-list-context-menu-item {
+  padding: 6px 16px;
+  font-size: 12px;
+  color: #ddd;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.db-list-context-menu-item:hover {
+  background: #2675bf;
+  color: #fff;
+}
+
+.db-list-context-menu-item.disabled {
+  color: #666;
+  cursor: default;
+}
+
+.db-list-context-menu-item.disabled:hover {
+  background: transparent;
+  color: #666;
+}
+
+.db-btn-small:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.db-btn-small:disabled:hover {
+  background: #4a4a4a;
+}
+
 /* DB Form - two column layout */
 .db-form-columns {
   flex: 1;

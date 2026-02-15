@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RPGClass, Learning } from '../../types/rpgMakerMV';
 import TraitsEditor from '../common/TraitsEditor';
+import DatabaseList from './DatabaseList';
 import apiClient from '../../api/client';
 import TranslateButton from '../common/TranslateButton';
 import ParamCurveDialog from './ParamCurveDialog';
@@ -186,7 +187,7 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
     handleFieldChange('learnings', learnings);
   };
 
-  const addNewClass = () => {
+  const addNewClass = useCallback(() => {
     if (!data) return;
     const existing = data.filter(Boolean) as RPGClass[];
     const maxId = existing.length > 0 ? Math.max(...existing.map(c => c.id)) : 0;
@@ -207,26 +208,61 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
     const newData = [...data, newClass];
     onChange(newData);
     setSelectedId(newClass.id);
-  };
+  }, [data, onChange]);
+
+  const handleDeleteClass = useCallback((id: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as RPGClass[];
+    if (items.length <= 1) return;
+    const newData = data.filter((item) => !item || item.id !== id);
+    onChange(newData);
+    if (id === selectedId) {
+      const remaining = newData.filter(Boolean) as RPGClass[];
+      if (remaining.length > 0) setSelectedId(remaining[0].id);
+    }
+  }, [data, onChange, selectedId]);
+
+  const handleDuplicate = useCallback((id: number) => {
+    if (!data) return;
+    const source = data.find((item) => item && item.id === id);
+    if (!source) return;
+    const existing = data.filter(Boolean) as RPGClass[];
+    const maxId = existing.length > 0 ? Math.max(...existing.map(c => c.id)) : 0;
+    const newId = maxId + 1;
+    const newData = [...data, { ...source, id: newId, params: source.params.map(p => [...p]), learnings: source.learnings.map(l => ({ ...l })), traits: source.traits.map(t => ({ ...t })) }];
+    onChange(newData);
+    setSelectedId(newId);
+  }, [data, onChange]);
+
+  const handleReorder = useCallback((fromId: number, toId: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as RPGClass[];
+    const fromIdx = items.findIndex(item => item.id === fromId);
+    if (fromIdx < 0) return;
+    const [moved] = items.splice(fromIdx, 1);
+    if (toId === -1) {
+      items.push(moved);
+    } else {
+      const toIdx = items.findIndex(item => item.id === toId);
+      if (toIdx < 0) items.push(moved);
+      else items.splice(toIdx, 0, moved);
+    }
+    onChange([null, ...items]);
+  }, [data, onChange]);
 
   const PARAM_NAMES = [t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'), t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck')];
 
   return (
     <div className="db-tab-layout">
-      <div className="db-list">
-        <div className="db-list-header">
-          <button className="db-btn-small" onClick={addNewClass}>+</button>
-        </div>
-        {data?.filter(Boolean).map((item) => (
-          <div
-            key={item!.id}
-            className={`db-list-item${item!.id === selectedId ? ' selected' : ''}`}
-            onClick={() => setSelectedId(item!.id)}
-          >
-            {String(item!.id).padStart(4, '0')}: {item!.name}
-          </div>
-        ))}
-      </div>
+      <DatabaseList
+        items={data}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onAdd={addNewClass}
+        onDelete={handleDeleteClass}
+        onDuplicate={handleDuplicate}
+        onReorder={handleReorder}
+      />
       <div className="db-form-columns">
         {selectedItem && (
           <>

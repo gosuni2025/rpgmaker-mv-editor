@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Actor, Trait } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import TraitsEditor from '../common/TraitsEditor';
 import TranslateButton from '../common/TranslateButton';
+import DatabaseList from './DatabaseList';
 import apiClient from '../../api/client';
 
 interface ActorsTabProps {
@@ -68,44 +69,65 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
     handleFieldChange('equips', equips);
   };
 
-  const handleAddActor = () => {
+  const handleAddActor = useCallback(() => {
     if (!data) return;
     const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
     const newId = maxId + 1;
     const newData = [...data, createNewActor(newId)];
     onChange(newData);
     setSelectedId(newId);
-  };
+  }, [data, onChange]);
 
-  const handleDeleteActor = () => {
-    if (!data || !selectedItem) return;
+  const handleDeleteActor = useCallback((id: number) => {
+    if (!data) return;
     const items = data.filter(Boolean) as Actor[];
     if (items.length <= 1) return;
-    const newData = data.filter((item) => !item || item.id !== selectedId);
+    const newData = data.filter((item) => !item || item.id !== id);
     onChange(newData);
     const remaining = newData.filter(Boolean) as Actor[];
-    if (remaining.length > 0) {
+    if (remaining.length > 0 && id === selectedId) {
       setSelectedId(remaining[0].id);
     }
-  };
+  }, [data, onChange, selectedId]);
+
+  const handleDuplicate = useCallback((id: number) => {
+    if (!data) return;
+    const source = data.find((item) => item && item.id === id);
+    if (!source) return;
+    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
+    const newId = maxId + 1;
+    const newData = [...data, { ...source, id: newId }];
+    onChange(newData);
+    setSelectedId(newId);
+  }, [data, onChange]);
+
+  const handleReorder = useCallback((fromId: number, toId: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Actor[];
+    const fromIdx = items.findIndex(item => item.id === fromId);
+    if (fromIdx < 0) return;
+    const [moved] = items.splice(fromIdx, 1);
+    if (toId === -1) {
+      items.push(moved);
+    } else {
+      const toIdx = items.findIndex(item => item.id === toId);
+      if (toIdx < 0) items.push(moved);
+      else items.splice(toIdx, 0, moved);
+    }
+    onChange([null, ...items]);
+  }, [data, onChange]);
 
   return (
     <div className="db-tab-layout">
-      <div className="db-list">
-        <div className="db-list-header">
-          <button className="db-btn-small" onClick={handleAddActor} title="Add Actor">+</button>
-          <button className="db-btn-small" onClick={handleDeleteActor} title="Delete Actor">-</button>
-        </div>
-        {data?.filter(Boolean).map((item) => (
-          <div
-            key={item!.id}
-            className={`db-list-item${item!.id === selectedId ? ' selected' : ''}`}
-            onClick={() => setSelectedId(item!.id)}
-          >
-            {String(item!.id).padStart(4, '0')}: {item!.name}
-          </div>
-        ))}
-      </div>
+      <DatabaseList
+        items={data}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onAdd={handleAddActor}
+        onDelete={handleDeleteActor}
+        onDuplicate={handleDuplicate}
+        onReorder={handleReorder}
+      />
       <div className="db-form-columns">
         {selectedItem && (
           <>

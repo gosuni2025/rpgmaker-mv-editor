@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Armor, Trait } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import TraitsEditor from '../common/TraitsEditor';
 import TranslateButton from '../common/TranslateButton';
+import DatabaseList from './DatabaseList';
 import apiClient from '../../api/client';
 
 interface ArmorsTabProps {
@@ -44,7 +45,7 @@ export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
     handleFieldChange('params', params);
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = useCallback(() => {
     if (!data) return;
     const existingItems = data.filter(Boolean) as Armor[];
     const maxId = existingItems.length > 0 ? Math.max(...existingItems.map((i) => i.id)) : 0;
@@ -56,26 +57,59 @@ export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
     };
     onChange([...data, newArmor]);
     setSelectedId(newId);
-  };
+  }, [data, onChange]);
+
+  const handleDelete = useCallback((id: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Armor[];
+    if (items.length <= 1) return;
+    const newData = data.filter((item) => !item || item.id !== id);
+    onChange(newData);
+    if (id === selectedId) {
+      const remaining = newData.filter(Boolean) as Armor[];
+      if (remaining.length > 0) setSelectedId(remaining[0].id);
+    }
+  }, [data, onChange, selectedId]);
+
+  const handleDuplicate = useCallback((id: number) => {
+    if (!data) return;
+    const source = data.find((item) => item && item.id === id);
+    if (!source) return;
+    const existingItems = data.filter(Boolean) as Armor[];
+    const maxId = existingItems.length > 0 ? Math.max(...existingItems.map((i) => i.id)) : 0;
+    const newId = maxId + 1;
+    onChange([...data, { ...source, id: newId, params: [...source.params], traits: source.traits.map(t => ({ ...t })) }]);
+    setSelectedId(newId);
+  }, [data, onChange]);
+
+  const handleReorder = useCallback((fromId: number, toId: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Armor[];
+    const fromIdx = items.findIndex(item => item.id === fromId);
+    if (fromIdx < 0) return;
+    const [moved] = items.splice(fromIdx, 1);
+    if (toId === -1) {
+      items.push(moved);
+    } else {
+      const toIdx = items.findIndex(item => item.id === toId);
+      if (toIdx < 0) items.push(moved);
+      else items.splice(toIdx, 0, moved);
+    }
+    onChange([null, ...items]);
+  }, [data, onChange]);
 
   return (
     <div className="db-tab-layout">
-      {/* 좌측: 방어구 목록 */}
-      <div className="db-list">
-        <div className="db-list-header">
-          <span>{t('database.tabs.armors')}</span>
-          <button className="db-btn-small" onClick={handleAddNew}>+</button>
-        </div>
-        {data?.filter(Boolean).map((item) => (
-          <div
-            key={item!.id}
-            className={`db-list-item${item!.id === selectedId ? ' selected' : ''}`}
-            onClick={() => setSelectedId(item!.id)}
-          >
-            {String(item!.id).padStart(4, '0')}: {item!.name}
-          </div>
-        ))}
-      </div>
+      <DatabaseList
+        items={data}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onAdd={handleAddNew}
+        onDelete={handleDelete}
+        onDuplicate={handleDuplicate}
+        onReorder={handleReorder}
+        title={t('database.tabs.armors')}
+      />
 
       {/* 중앙 + 우측: 2컬럼 폼 */}
       {selectedItem && (
