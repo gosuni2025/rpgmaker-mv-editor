@@ -643,9 +643,9 @@
 .classes-exp-mini-wrap {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 4px;
   background: #2b2b2b;
   border: 1px solid #555;
   border-radius: 3px;
@@ -654,6 +654,12 @@
 
 .classes-exp-mini-wrap:hover {
   border-color: #2675bf;
+}
+
+.classes-exp-mini-wrap canvas {
+  width: 80px;
+  height: 40px;
+  border-radius: 2px;
 }
 
 .classes-exp-mini-values {
