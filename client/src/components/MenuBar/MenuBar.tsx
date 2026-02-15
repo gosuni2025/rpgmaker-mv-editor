@@ -152,8 +152,8 @@ export default function MenuBar() {
     {
       label: t('menu.game'),
       items: [
-        { label: t('menu.playtestTitle'), action: 'playtestTitle', shortcut: 'Ctrl+R', disabled: () => !hasProject },
-        { label: t('menu.playtestCurrentMap'), action: 'playtestCurrentMap', shortcut: 'Ctrl+Shift+R', disabled: () => !hasProject },
+        { label: t('menu.playtestTitle'), action: 'playtestTitle', shortcut: 'Ctrl+Shift+R', disabled: () => !hasProject },
+        { label: t('menu.playtestCurrentMap'), action: 'playtestCurrentMap', shortcut: 'Ctrl+R', disabled: () => !hasProject },
       ],
     },
   ];
@@ -240,8 +240,8 @@ export default function MenuBar() {
       else if (e.key === 'F8') { e.preventDefault(); handleAction('modeObject'); }
       else if (e.key === 'F9') { e.preventDefault(); handleAction('modeCameraZone'); }
       else if (e.key === 'F10') { e.preventDefault(); handleAction('database'); }
-      else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'r') { e.preventDefault(); handleAction('playtestCurrentMap'); }
-      else if (ctrl && e.key === 'r') { e.preventDefault(); handleAction('playtestTitle'); }
+      else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'r') { e.preventDefault(); handleAction('playtestTitle'); }
+      else if (ctrl && e.key === 'r') { e.preventDefault(); handleAction('playtestCurrentMap'); }
       // 다이얼로그 내부에서는 편집 단축키를 맵에 전파하지 않음
       else if (inDialog) return;
       else if (ctrl && e.key === 'z') { e.preventDefault(); handleAction('undo'); }
