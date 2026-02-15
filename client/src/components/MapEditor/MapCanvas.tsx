@@ -18,6 +18,19 @@ import { useTileCursorPreview } from './useTileCursorPreview';
 import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview } from './useDragPreviewSync';
 import './MapCanvas.css';
 
+/** 컨텍스트 메뉴가 화면 밖으로 벗어나지 않도록 위치를 보정하는 ref callback */
+function clampMenuRef(el: HTMLDivElement | null) {
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  if (rect.bottom > vh) {
+    el.style.top = `${Math.max(0, vh - rect.height - 4)}px`;
+  }
+  if (rect.right > vw) {
+    el.style.left = `${Math.max(0, vw - rect.width - 4)}px`;
+  }
+}
 
 export default function MapCanvas() {
   const { t } = useTranslation();
@@ -348,7 +361,7 @@ export default function MapCanvas() {
       </div>
 
       {mapCtxMenu && (
-        <div className="context-menu" style={{ left: mapCtxMenu.x, top: mapCtxMenu.y }} onClick={e => e.stopPropagation()}>
+        <div ref={clampMenuRef} className="context-menu" style={{ left: mapCtxMenu.x, top: mapCtxMenu.y }} onClick={e => e.stopPropagation()}>
           <div className="context-menu-item" onClick={() => { closeMapCtxMenu(); setEditMode('event'); }}>
             {t('mapCtx.editMode')}
             <span className="context-menu-shortcut">{t('mapCtx.space')}</span>
@@ -426,7 +439,7 @@ export default function MapCanvas() {
         const isMulti = hasEvent && selectedEventIds.length > 1 && selectedEventIds.includes(eventCtxMenu.eventId!);
         const hasPaste = clipboard?.type === 'event' || clipboard?.type === 'events';
         return (
-          <div className="context-menu" style={{ left: eventCtxMenu.x, top: eventCtxMenu.y }} onClick={e => e.stopPropagation()}>
+          <div ref={clampMenuRef} className="context-menu" style={{ left: eventCtxMenu.x, top: eventCtxMenu.y }} onClick={e => e.stopPropagation()}>
             {/* 편집/신규 */}
             {hasEvent ? (
               <div className="context-menu-item" onClick={() => { setEditingEventId(eventCtxMenu.eventId!); closeEventCtxMenu(); }}>
