@@ -657,8 +657,8 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
         u.cameraWorldPos.value.set(0, 0, FogOfWarMod._fogHeight + 100);
         // 셰이더 디버그 오버라이드 (런타임 DevPanel에서 조절한 값 반영)
         const so = FogOfWarMod._shaderOverrides || {};
-        if (u.dissolveStrength) u.dissolveStrength.value = so.dissolveStrength ?? 0.25;
-        if (u.fadeSmoothness) u.fadeSmoothness.value = so.fadeSmoothness ?? 0.7;
+        if (u.dissolveStrength) u.dissolveStrength.value = so.dissolveStrength ?? 2.0;
+        if (u.fadeSmoothness) u.fadeSmoothness.value = so.fadeSmoothness ?? 0.3;
         if (u.nearVisWeight) u.nearVisWeight.value = so.nearVisWeight ?? 0.7;
       }
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
