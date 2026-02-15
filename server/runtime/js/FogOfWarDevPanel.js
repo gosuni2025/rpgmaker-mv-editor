@@ -7,7 +7,7 @@
 //=============================================================================
 
 (function() {
-    if (!(new URLSearchParams(window.location.search)).has('dev')) return;
+    if (!(new URLSearchParams(window.location.search)).has('dev') && !window._forceDevPanel) return;
 
     var PANEL_ID = 'fogOfWarDevPanel';
     var panel = null;
