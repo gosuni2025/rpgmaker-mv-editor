@@ -216,6 +216,8 @@
     "gold": "Gold",
     "rewards": "Rewards",
     "dropItems": "Drop Items",
+    "dropItemDrop": "Item Drop",
+    "dropRate": "Drop Rate",
     "kind": "Kind",
     "item": "Item",
     "probability": "1/N",

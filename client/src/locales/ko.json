@@ -216,6 +216,8 @@
     "gold": "골드",
     "rewards": "보상",
     "dropItems": "드롭 아이템",
+    "dropItemDrop": "아이템 드롭",
+    "dropRate": "출현율",
     "kind": "종류",
     "item": "아이템",
     "probability": "확률 (1/N)",
