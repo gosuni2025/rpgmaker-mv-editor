@@ -13,6 +13,7 @@ import {
   useLightOverlay,
   useFogOfWarOverlay,
   useFogOfWar3DOverlay,
+  useTileIdDebugOverlay,
 } from './useRendererOverlays';
 
 export { requestRenderFrames } from './initGameGlobals';
@@ -54,6 +55,7 @@ export function useThreeRenderer(
   showGrid: boolean,
   dragPreviews: DragPreviewInfo[],
   standalone?: StandaloneMapOptions,
+  showTileId?: boolean,
 ): ThreeRendererRefs {
   const currentMap = useEditorStore((s) => standalone ? null : s.currentMap);
   const tilesetInfo = useEditorStore((s) => standalone ? null : s.tilesetInfo);
@@ -86,6 +88,7 @@ export function useThreeRenderer(
   const lightOverlayMeshesRef = useRef<any[]>([]);
   const fogOfWarMeshRef = useRef<any>(null);
   const fogOfWar3DMeshRef = useRef<any>(null);
+  const tileIdDebugMeshesRef = useRef<any[]>([]);
 
   // =========================================================================
   // Spriteset_Map 기반 Three.js 렌더링 setup & render loop
@@ -194,6 +197,7 @@ export function useThreeRenderer(
     lightOverlayMeshesRef,
     fogOfWarMeshRef,
     fogOfWar3DMeshRef,
+    tileIdDebugMeshesRef,
   }), []);
 
   // Delegated overlay hooks (standalone 모드에서는 스킵)
@@ -205,6 +209,7 @@ export function useThreeRenderer(
   useLightOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   useFogOfWarOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   useFogOfWar3DOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
+  useTileIdDebugOverlay(overlayRefs, skipOverlays ? false : !!showTileId, skipOverlays ? 0 : rendererReady);
 
   return {
     rendererObjRef, tilemapRef, stageRef, spritesetRef, gridMeshRef,

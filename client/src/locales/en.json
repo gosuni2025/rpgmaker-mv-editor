@@ -120,6 +120,7 @@
     "shadow": "Shadow",
     "layer": "Layer",
     "grid": "Grid",
+    "tileIdDebug": "TileID",
     "lighting": "Lighting",
     "zoomOut": "Zoom Out",
     "zoomIn": "Zoom In",

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import useEditorStore from '../../store/useEditorStore';
-import { TILE_SIZE_PX } from '../../utils/tileHelper';
+import { TILE_SIZE_PX, isTileA1, isTileA2, isTileA3, isTileA4, isTileA5, isAutotile, TILE_ID_A1 } from '../../utils/tileHelper';
 import { requestRenderFrames } from './initGameGlobals';
 import type { DragPreviewInfo } from './useThreeRenderer';
 
@@ -739,4 +739,150 @@ export function useFogOfWar3DOverlay(refs: OverlayRefs & { fogOfWar3DMeshRef: Re
       cancelAnimationFrame(animId);
     };
   }, [rendererReady, mapWidth, mapHeight, disableFow, fogOfWar?.enabled, fogOfWar?.fogMode, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha, fogOfWar?.fogHeight3D, fogOfWar?.heightFalloff, fogOfWar?.lineOfSight, fogOfWar?.edgeAnimation, fogOfWar?.edgeAnimationSpeed, fogOfWar?.fogColorTop, fogOfWar?.heightGradient, fogOfWar?.dissolveStrength, fogOfWar?.tentacleSharpness]);
+}
+
+/** 타일 시트명 + 번호를 반환 (예: "A2 #5", "B #23") */
+function describeTileId(tileId: number): string {
+  if (tileId === 0) return '';
+  if (isTileA1(tileId)) {
+    const kind = Math.floor((tileId - TILE_ID_A1) / 48);
+    const shape = (tileId - TILE_ID_A1) % 48;
+    return `A1\nk${kind} s${shape}`;
+  }
+  if (isTileA2(tileId)) {
+    const kind = Math.floor((tileId - 2816) / 48);
+    const shape = (tileId - 2816) % 48;
+    return `A2\nk${kind} s${shape}`;
+  }
+  if (isTileA3(tileId)) {
+    const kind = Math.floor((tileId - 4352) / 48);
+    const shape = (tileId - 4352) % 48;
+    return `A3\nk${kind} s${shape}`;
+  }
+  if (isTileA4(tileId)) {
+    const kind = Math.floor((tileId - 5888) / 48);
+    const shape = (tileId - 5888) % 48;
+    return `A4\nk${kind} s${shape}`;
+  }
+  if (isTileA5(tileId)) {
+    const idx = tileId - 1536;
+    return `A5\n#${idx}`;
+  }
+  // B/C/D/E tiles
+  if (tileId < 256) return `B\n#${tileId}`;
+  if (tileId < 512) return `C\n#${tileId - 256}`;
+  if (tileId < 768) return `D\n#${tileId - 512}`;
+  if (tileId < 1024) return `E\n#${tileId - 768}`;
+  return `#${tileId}`;
+}
+
+/** 레이어별 색상 */
+const LAYER_COLORS = ['#4fc3f7', '#81c784', '#ffb74d', '#f06292'];
+
+/** Tile ID 디버그 오버레이 — 그리드 위에 각 타일의 시트명과 번호 표시 */
+export function useTileIdDebugOverlay(
+  refs: OverlayRefs & { tileIdDebugMeshesRef: React.MutableRefObject<any[]> },
+  showTileId: boolean,
+  rendererReady: number,
+) {
+  const mapWidth = useEditorStore((s) => s.currentMap?.width ?? 0);
+  const mapHeight = useEditorStore((s) => s.currentMap?.height ?? 0);
+  // 맵 데이터 변경 추적을 위한 간단한 해시 (data 참조 변경으로)
+  const mapData = useEditorStore((s) => s.currentMap?.data ?? null);
+
+  useEffect(() => {
+    const rendererObj = refs.rendererObjRef.current;
+    if (!rendererObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    // 기존 메시 제거
+    for (const m of refs.tileIdDebugMeshesRef.current) {
+      rendererObj.scene.remove(m);
+      m.geometry?.dispose();
+      if (m.material?.map) m.material.map.dispose();
+      m.material?.dispose();
+    }
+    refs.tileIdDebugMeshesRef.current = [];
+
+    if (!showTileId || !mapData || mapWidth <= 0 || mapHeight <= 0) {
+      requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+      return;
+    }
+
+    // 공유 지오메트리
+    const sharedGeom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
+
+    for (let y = 0; y < mapHeight; y++) {
+      for (let x = 0; x < mapWidth; x++) {
+        // 레이어 0~3의 타일 정보 수집
+        const lines: { text: string; color: string }[] = [];
+        for (let z = 0; z < 4; z++) {
+          const idx = (z * mapHeight + y) * mapWidth + x;
+          const tileId = mapData[idx];
+          if (!tileId || tileId === 0) continue;
+          const desc = describeTileId(tileId);
+          if (desc) {
+            lines.push({ text: `L${z}:${desc.replace('\n', ' ')}`, color: LAYER_COLORS[z] });
+          }
+        }
+        if (lines.length === 0) continue;
+
+        // Canvas에 다중 레이어 정보 렌더링
+        const cvsW = 128;
+        const cvsH = 128;
+        const cvs = document.createElement('canvas');
+        cvs.width = cvsW;
+        cvs.height = cvsH;
+        const ctx = cvs.getContext('2d')!;
+        ctx.clearRect(0, 0, cvsW, cvsH);
+
+        // 반투명 배경
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath();
+        const r = 6;
+        const bx = 4, by = 4, bw = cvsW - 8, bh = cvsH - 8;
+        ctx.moveTo(bx + r, by);
+        ctx.arcTo(bx + bw, by, bx + bw, by + bh, r);
+        ctx.arcTo(bx + bw, by + bh, bx, by + bh, r);
+        ctx.arcTo(bx, by + bh, bx, by, r);
+        ctx.arcTo(bx, by, bx + bw, by, r);
+        ctx.fill();
+
+        const fontSize = lines.length <= 2 ? 22 : lines.length <= 3 ? 18 : 15;
+        ctx.font = `bold ${fontSize}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000';
+        ctx.shadowBlur = 2;
+
+        const totalH = lines.length * (fontSize + 4);
+        const startY = (cvsH - totalH) / 2 + (fontSize + 4) / 2;
+
+        for (let i = 0; i < lines.length; i++) {
+          ctx.fillStyle = lines[i].color;
+          ctx.fillText(lines[i].text, cvsW / 2, startY + i * (fontSize + 4), cvsW - 12);
+        }
+
+        const tex = new THREE.CanvasTexture(cvs);
+        tex.minFilter = THREE.LinearFilter;
+        const mat = new THREE.MeshBasicMaterial({
+          map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
+        });
+        const mesh = new THREE.Mesh(sharedGeom, mat);
+        mesh.position.set(
+          x * TILE_SIZE_PX + TILE_SIZE_PX / 2,
+          y * TILE_SIZE_PX + TILE_SIZE_PX / 2,
+          4.8,
+        );
+        mesh.renderOrder = 9997;
+        mesh.frustumCulled = false;
+        mesh.userData.editorGrid = true;
+        rendererObj.scene.add(mesh);
+        refs.tileIdDebugMeshesRef.current.push(mesh);
+      }
+    }
+
+    requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+  }, [showTileId, mapData, mapWidth, mapHeight, rendererReady]);
 }
