@@ -85,17 +85,17 @@ export function addObjectFromTilesOp(get: GetFn, set: SetFn, paintedTiles: Set<s
   // 외곽선(칠한 타일) + 내부 채우기
   const filledTiles = fillInterior(paintedTiles, minX, minY, w, h);
 
-  // tileIds[row][col] 배열 생성 (row 0 = 상단)
-  const tileIds: number[][] = [];
+  // tileIds[row][col][layer] 배열 생성 (row 0 = 상단, layer 0~3)
+  const tileIds: number[][][] = [];
   for (let row = 0; row < h; row++) {
-    const rowArr: number[] = [];
+    const rowArr: number[][] = [];
     for (let col = 0; col < w; col++) {
       const tx = minX + col;
       const ty = minY + row;
       if (filledTiles.has(`${tx},${ty}`)) {
-        rowArr.push(readMapTile(data, mapW, mapH, tx, ty));
+        rowArr.push(readMapTileLayers(data, mapW, mapH, tx, ty));
       } else {
-        rowArr.push(0);
+        rowArr.push([0, 0, 0, 0]);
       }
     }
     tileIds.push(rowArr);
@@ -126,13 +126,18 @@ export function addObjectFromTilesOp(get: GetFn, set: SetFn, paintedTiles: Set<s
   pushObjectUndoEntry(get, set, oldObjects, objects);
 }
 
-/** 맵에서 타일 ID 읽기 (z=3→0 탐색) */
-function readMapTile(data: number[], mapW: number, mapH: number, tx: number, ty: number): number {
-  for (let z = 3; z >= 0; z--) {
-    const idx = (z * mapH + ty) * mapW + tx;
-    if (data[idx] !== 0) return data[idx];
+/** 맵에서 모든 레이어의 타일 ID 읽기 (z=0~3) */
+function readMapTileLayers(data: number[], mapW: number, mapH: number, tx: number, ty: number): number[] {
+  const layers: number[] = [];
+  for (let z = 0; z < 4; z++) {
+    layers.push(data[(z * mapH + ty) * mapW + tx]);
   }
-  return 0;
+  return layers;
+}
+
+/** 타일 레이어 배열이 비어있는지 확인 (모두 0) */
+function isEmptyTileLayers(layers: number[]): boolean {
+  return layers.every(t => t === 0);
 }
 
 /**
@@ -153,7 +158,9 @@ export function expandObjectTilesOp(get: GetFn, set: SetFn, objectId: number, pa
   const objTopY = obj.y - obj.height + 1;
   for (let row = 0; row < obj.height; row++) {
     for (let col = 0; col < obj.width; col++) {
-      if (obj.tileIds[row]?.[col] && obj.tileIds[row][col] !== 0) {
+      const cell = obj.tileIds[row]?.[col];
+      const hasContent = Array.isArray(cell) ? !isEmptyTileLayers(cell) : (cell !== 0 && cell != null);
+      if (hasContent) {
         existingTiles.add(`${obj.x + col},${objTopY + row}`);
       }
     }
@@ -189,22 +196,22 @@ export function expandObjectTilesOp(get: GetFn, set: SetFn, objectId: number, pa
   const w = maxX - minX + 1, h = maxY - minY + 1;
 
   // 새 tileIds 생성
-  const tileIds: number[][] = [];
+  const tileIds: number[][][] = [];
   for (let row = 0; row < h; row++) {
-    const rowArr: number[] = [];
+    const rowArr: number[][] = [];
     for (let col = 0; col < w; col++) {
       const tx = minX + col, ty = minY + row;
       const key = `${tx},${ty}`;
       if (merged.has(key)) {
-        // 기존 오브젝트에 있던 타일은 기존 tileId 유지, 새 타일은 맵에서 읽기
         if (existingTiles.has(key)) {
           const oldRow = ty - objTopY, oldCol = tx - obj.x;
-          rowArr.push(obj.tileIds[oldRow]?.[oldCol] ?? 0);
+          const cell = obj.tileIds[oldRow]?.[oldCol];
+          rowArr.push(Array.isArray(cell) ? [...cell] : [cell ?? 0, 0, 0, 0]);
         } else {
-          rowArr.push(readMapTile(data, mapW, mapH, tx, ty));
+          rowArr.push(readMapTileLayers(data, mapW, mapH, tx, ty));
         }
       } else {
-        rowArr.push(0);
+        rowArr.push([0, 0, 0, 0]);
       }
     }
     tileIds.push(rowArr);
@@ -238,7 +245,9 @@ export function shrinkObjectTilesOp(get: GetFn, set: SetFn, objectId: number, re
   const remaining = new Set<string>();
   for (let row = 0; row < obj.height; row++) {
     for (let col = 0; col < obj.width; col++) {
-      if (obj.tileIds[row]?.[col] && obj.tileIds[row][col] !== 0) {
+      const cell = obj.tileIds[row]?.[col];
+      const hasContent = Array.isArray(cell) ? !isEmptyTileLayers(cell) : (cell !== 0 && cell != null);
+      if (hasContent) {
         const key = `${obj.x + col},${objTopY + row}`;
         if (!removeTiles.has(key)) remaining.add(key);
       }
@@ -269,17 +278,18 @@ export function shrinkObjectTilesOp(get: GetFn, set: SetFn, objectId: number, re
   }
   const w = maxX - minX + 1, h = maxY - minY + 1;
 
-  // 새 tileIds 생성 (기존 tileId 유지)
-  const tileIds: number[][] = [];
+  // 새 tileIds 생성 (기존 tileId 유지, number[][][])
+  const tileIds: number[][][] = [];
   for (let row = 0; row < h; row++) {
-    const rowArr: number[] = [];
+    const rowArr: number[][] = [];
     for (let col = 0; col < w; col++) {
       const tx = minX + col, ty = minY + row;
       if (remaining.has(`${tx},${ty}`)) {
         const oldRow = ty - objTopY, oldCol = tx - obj.x;
-        rowArr.push(obj.tileIds[oldRow]?.[oldCol] ?? 0);
+        const cell = obj.tileIds[oldRow]?.[oldCol];
+        rowArr.push(Array.isArray(cell) ? [...cell] : [cell ?? 0, 0, 0, 0]);
       } else {
-        rowArr.push(0);
+        rowArr.push([0, 0, 0, 0]);
       }
     }
     tileIds.push(rowArr);
@@ -302,14 +312,14 @@ export function addObjectOp(get: GetFn, set: SetFn, x: number, y: number) {
   const oldObjects = currentMap.objects || [];
   const objects = [...oldObjects];
   const newId = objects.length > 0 ? Math.max(...objects.map(o => o.id)) + 1 : 1;
-  let tileIds: number[][];
+  let tileIds: number[][][];
   let w: number, h: number;
   if (selectedTiles && selectedTilesWidth > 0 && selectedTilesHeight > 0) {
-    tileIds = selectedTiles.map(row => [...row]);
+    tileIds = selectedTiles.map(row => row.map(t => [t, 0, 0, 0]));
     w = selectedTilesWidth;
     h = selectedTilesHeight;
   } else {
-    tileIds = [[selectedTileId]];
+    tileIds = [[[selectedTileId, 0, 0, 0]]];
     w = 1;
     h = 1;
   }

@@ -2363,23 +2363,28 @@ Spriteset_Map.prototype.createMapObjects = function() {
 
         for (var row = 0; row < obj.height; row++) {
             for (var col = 0; col < obj.width; col++) {
-                var tileIds = obj.tileIds[row];
-                if (!tileIds) continue;
-                var tileId = tileIds[col];
-                if (!tileId || tileId === 0) continue;
+                var tileRow = obj.tileIds[row];
+                if (!tileRow) continue;
+                var cell = tileRow[col];
+                // cell: number[] (layered) or number (legacy)
+                var layers = Array.isArray(cell) ? cell : [cell];
+                for (var li = 0; li < layers.length; li++) {
+                    var tileId = layers[li];
+                    if (!tileId || tileId === 0) continue;
 
-                var setNumber = 5 + Math.floor(tileId / 256);
-                var tilesetName = tileset.tilesetNames[setNumber];
-                if (!tilesetName) continue;
+                    var setNumber = 5 + Math.floor(tileId / 256);
+                    var tilesetName = tileset.tilesetNames[setNumber];
+                    if (!tilesetName) continue;
 
-                var tileSprite = new Sprite();
-                tileSprite.bitmap = ImageManager.loadTileset(tilesetName);
-                var sx = (Math.floor(tileId / 128) % 2 * 8 + tileId % 8) * tw;
-                var sy = Math.floor(tileId % 256 / 8) % 16 * th;
-                tileSprite.setFrame(sx, sy, tw, th);
-                tileSprite.x = col * tw;
-                tileSprite.y = (row - obj.height) * th;
-                container.addChild(tileSprite);
+                    var tileSprite = new Sprite();
+                    tileSprite.bitmap = ImageManager.loadTileset(tilesetName);
+                    var sx = (Math.floor(tileId / 128) % 2 * 8 + tileId % 8) * tw;
+                    var sy = Math.floor(tileId % 256 / 8) % 16 * th;
+                    tileSprite.setFrame(sx, sy, tw, th);
+                    tileSprite.x = col * tw;
+                    tileSprite.y = (row - obj.height) * th;
+                    container.addChild(tileSprite);
+                }
             }
         }
 
