@@ -155,7 +155,8 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
             </label>
             <label>
               {t('common.animation')}
-              <select value={selectedItem.animationId || 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))} style={selectStyle}>
+              <select value={selectedItem.animationId ?? 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))} style={selectStyle}>
+                <option value={-1}>{t('common.normalAttack')}</option>
                 <option value={0}>{t('common.none')}</option>
                 {animations.map(a => <option key={a.id} value={a.id}>{String(a.id).padStart(4, '0')}: {a.name}</option>)}
               </select>

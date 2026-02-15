@@ -16,6 +16,7 @@
     "description": "설명",
     "price": "가격",
     "animation": "애니메이션",
+    "normalAttack": "보통 공격",
     "new": "신규",
     "del": "삭제",
     "copy": "복사",
@@ -154,7 +155,13 @@
     }
   },
   "skills": {
-    "generalSettings": "일반 설정"
+    "generalSettings": "일반 설정",
+    "msgPreset1Label": "「얻다」",
+    "msgPreset1": " %1 얻다!",
+    "msgPreset2Label": "「빼앗다」",
+    "msgPreset2": " %1 빼앗다!",
+    "msgPreset3Label": "「쓰다」",
+    "msgPreset3": " %1 쓰다!"
   },
   "fields": {
     "nickname": "별명",
