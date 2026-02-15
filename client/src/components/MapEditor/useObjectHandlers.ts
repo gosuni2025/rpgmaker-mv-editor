@@ -28,10 +28,14 @@ export function useObjectHandlers(): ObjectHandlersResult {
   const setObjectPastePreviewPos = useEditorStore((s) => s.setObjectPastePreviewPos);
   const pasteObjects = useEditorStore((s) => s.pasteObjects);
   const addObjectFromTiles = useEditorStore((s) => s.addObjectFromTiles);
+  const expandObjectTiles = useEditorStore((s) => s.expandObjectTiles);
+  const shrinkObjectTiles = useEditorStore((s) => s.shrinkObjectTiles);
   const setObjectPaintTiles = useEditorStore((s) => s.setObjectPaintTiles);
 
   // Object paint state
   const isPaintingObject = useRef(false);
+  const paintModeRef = useRef<'add' | 'remove'>('add'); // 'add'=새 오브젝트/확장, 'remove'=축소
+  const paintTargetIdRef = useRef<number | null>(null); // expand/shrink 대상 오브젝트 ID
   const paintedTilesRef = useRef<Set<string>>(new Set());
   const lastPaintTile = useRef<{ x: number; y: number } | null>(null);
 
@@ -61,10 +65,34 @@ export function useObjectHandlers(): ObjectHandlersResult {
     }
 
     const objects = currentMap?.objects || [];
-    const hitObj = objects.find(o =>
-      tile.x >= o.x && tile.x < o.x + o.width &&
-      tile.y >= o.y - o.height + 1 && tile.y <= o.y
-    );
+    // tileIds 기반 hit 판정 (0인 빈 타일은 히트하지 않음)
+    const hitObj = objects.find(o => {
+      if (tile.x < o.x || tile.x >= o.x + o.width) return false;
+      const topY = o.y - o.height + 1;
+      if (tile.y < topY || tile.y > o.y) return false;
+      // tileIds가 있으면 해당 셀이 0이 아닌지 확인
+      if (o.tileIds) {
+        const row = tile.y - topY, col = tile.x - o.x;
+        return o.tileIds[row]?.[col] !== 0;
+      }
+      return true;
+    });
+
+    // Alt+드래그: 선택된 오브젝트에서 타일 제거
+    if (e.altKey && state.selectedObjectIds.length === 1) {
+      const targetId = state.selectedObjectIds[0];
+      const targetObj = objects.find(o => o.id === targetId);
+      if (targetObj) {
+        isPaintingObject.current = true;
+        paintModeRef.current = 'remove';
+        paintTargetIdRef.current = targetId;
+        paintedTilesRef.current = new Set([`${tile.x},${tile.y}`]);
+        lastPaintTile.current = { x: tile.x, y: tile.y };
+        setObjectPaintTiles(new Set([`${tile.x},${tile.y}`]));
+        return true;
+      }
+    }
+
     if (hitObj) {
       const curIds = state.selectedObjectIds;
       if (e.metaKey || e.ctrlKey) {
@@ -90,12 +118,12 @@ export function useObjectHandlers(): ObjectHandlersResult {
         setObjectDragPreview(null);
       }
     } else {
-      if (!(e.metaKey || e.ctrlKey)) {
-        setSelectedObjectIds([]);
-        setSelectedObjectId(null);
-      }
       if (e.shiftKey) {
         // Shift+클릭: 영역 선택
+        if (!(e.metaKey || e.ctrlKey)) {
+          setSelectedObjectIds([]);
+          setSelectedObjectId(null);
+        }
         isSelectingObjects.current = true;
         objectSelDragStart.current = tile;
         setObjectSelectionStart(tile);
@@ -103,6 +131,16 @@ export function useObjectHandlers(): ObjectHandlersResult {
       } else {
         // 빈 공간 클릭: 펜 칠하기 시작
         isPaintingObject.current = true;
+        // 선택된 오브젝트가 1개이면 expand 모드, 아니면 새 오브젝트 생성
+        if (state.selectedObjectIds.length === 1) {
+          paintModeRef.current = 'add';
+          paintTargetIdRef.current = state.selectedObjectIds[0];
+        } else {
+          paintModeRef.current = 'add';
+          paintTargetIdRef.current = null;
+          setSelectedObjectIds([]);
+          setSelectedObjectId(null);
+        }
         paintedTilesRef.current = new Set([`${tile.x},${tile.y}`]);
         lastPaintTile.current = { x: tile.x, y: tile.y };
         setObjectPaintTiles(new Set([`${tile.x},${tile.y}`]));
@@ -222,14 +260,30 @@ export function useObjectHandlers(): ObjectHandlersResult {
       isPaintingObject.current = false;
       lastPaintTile.current = null;
       const painted = paintedTilesRef.current;
+      const mode = paintModeRef.current;
+      const targetId = paintTargetIdRef.current;
       paintedTilesRef.current = new Set();
+      paintTargetIdRef.current = null;
       setObjectPaintTiles(null);
-      if (painted.size <= 1 && tile) {
-        // 단일 클릭: 기존처럼 addObject
-        addObject(tile.x, tile.y);
-      } else if (painted.size > 1) {
-        // 다중 타일: addObjectFromTiles
-        addObjectFromTiles(painted);
+
+      if (mode === 'remove' && targetId != null) {
+        // 축소 모드
+        if (painted.size > 0) shrinkObjectTiles(targetId, painted);
+      } else if (targetId != null) {
+        // 확장 모드 (선택된 오브젝트에 추가)
+        if (painted.size <= 1 && tile) {
+          // 단일 클릭도 확장으로 처리
+          expandObjectTiles(targetId, painted.size > 0 ? painted : new Set([`${tile.x},${tile.y}`]));
+        } else if (painted.size > 1) {
+          expandObjectTiles(targetId, painted);
+        }
+      } else {
+        // 새 오브젝트 생성
+        if (painted.size <= 1 && tile) {
+          addObject(tile.x, tile.y);
+        } else if (painted.size > 1) {
+          addObjectFromTiles(painted);
+        }
       }
       return true;
     }
@@ -275,7 +329,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
     }
 
     return false;
-  }, [currentMap, addObject, addObjectFromTiles, moveObjects, setSelectedObjectId, setSelectedObjectIds, setObjectSelectionStart, setObjectSelectionEnd, setObjectPaintTiles]);
+  }, [currentMap, addObject, addObjectFromTiles, expandObjectTiles, shrinkObjectTiles, moveObjects, setSelectedObjectId, setSelectedObjectIds, setObjectSelectionStart, setObjectSelectionEnd, setObjectPaintTiles]);
 
   const handleObjectMouseLeave = useCallback(() => {
     if (isDraggingMultiObjects.current) {
@@ -292,6 +346,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
     if (isPaintingObject.current) {
       isPaintingObject.current = false;
       lastPaintTile.current = null;
+      paintTargetIdRef.current = null;
       paintedTilesRef.current = new Set();
       setObjectPaintTiles(null);
     }
