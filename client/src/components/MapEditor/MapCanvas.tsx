@@ -159,6 +159,19 @@ export default function MapCanvas() {
     };
   }, []);
 
+  // 컨텍스트 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!eventCtxMenu && !mapCtxMenu) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.context-menu')) return;
+      closeEventCtxMenu();
+      closeMapCtxMenu();
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [eventCtxMenu, mapCtxMenu, closeEventCtxMenu, closeMapCtxMenu]);
+
   // =========================================================================
   // Render
   // =========================================================================
@@ -224,7 +237,7 @@ export default function MapCanvas() {
   }, [transparentColor, mapPxW, mapPxH]);
 
   return (
-    <div ref={containerRef} style={containerStyle} onClick={() => { closeEventCtxMenu(); closeMapCtxMenu(); }}>
+    <div ref={containerRef} style={containerStyle}>
       <div style={{
         position: 'relative',
         transform: `scale(${zoomLevel})`,
