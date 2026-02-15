@@ -1,5 +1,5 @@
 //=============================================================================
-// FogOfWarDevPanel.js - FOW 디버그 패널 (런타임)
+// FogOfWarDevPanel.js - FOW 디버그 패널 (런타임, 2D 전용)
 //=============================================================================
 // URL에 ?dev=true 시 활성화
 // FOW 셰이더 파라미터를 실시간으로 조절 가능
@@ -13,67 +13,51 @@
     var panel = null;
     var panelCtrl = null;
 
-    // ── 공통 파라미터 (2D & 3D) ──
+    // ── 공통 파라미터 ──
     var COMMON_PARAMS = [
         { key: 'radius',             label: 'Radius',            min: 1,    max: 30,   step: 1,    def: 5 },
         { key: 'exploredAlpha',      label: 'Explored Alpha',    min: 0,    max: 1,    step: 0.05, def: 0.6 },
         { key: 'unexploredAlpha',    label: 'Unexplored Alpha',  min: 0,    max: 1,    step: 0.05, def: 1.0 },
         { key: 'lineOfSight',        label: 'Line of Sight',     min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
-        { key: 'edgeAnimation',      label: 'Edge Animation',    min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
-        { key: 'edgeAnimationSpeed', label: 'Edge Anim Speed',   min: 0,    max: 5,    step: 0.1,  def: 1.0 },
-        { key: 'lightScattering',    label: 'Light Scatter',     min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
-        { key: 'lightScatterIntensity', label: 'Scatter Intensity', min: 0, max: 3,    step: 0.1,  def: 1.0 },
-        { key: 'fogTransitionSpeed',  label: 'Transition Spd',   min: 1,    max: 20,   step: 0.5,  def: 5.0 },
+        { key: 'fogTransitionSpeed', label: 'Transition Spd',    min: 1,    max: 20,   step: 0.5,  def: 5.0 },
     ];
 
-    // ── 2D 전용 파라미터 ──
-    var PARAMS_2D = [
+    // ── 2D 셰이더 파라미터 ──
+    var PARAMS_2D_SHADER = [
         { key: 'dissolveStrength',   label: 'Tentacle Len',      min: 0,    max: 4.0,  step: 0.1,  def: 2.0,  shader: true },
         { key: 'fadeSmoothness',     label: 'Fade Range',        min: 0.05, max: 1.0,  step: 0.05, def: 0.3,  shader: true },
         { key: 'tentacleSharpness',  label: 'Sharpness',         min: 1.0,  max: 6.0,  step: 0.1,  def: 3.0,  shader: true },
-        { key: 'tentacleFadeSpeed',  label: 'Fade Speed',        min: 0.1,  max: 5.0,  step: 0.1,  def: 1.0 },
+        { key: 'edgeAnimation',      label: 'Edge Animation',    min: 0,    max: 1,    step: 1,    def: 1,    type: 'bool' },
+        { key: 'edgeAnimationSpeed', label: 'Edge Anim Speed',   min: 0,    max: 5,    step: 0.1,  def: 1.0 },
     ];
 
-    // ── 3D 전용 파라미터 ──
-    var PARAMS_3D = [
-        { key: 'visibilityBrightness', label: 'Vis Brightness',  min: 0,    max: 1,    step: 0.05, def: 0.0 },
-        { key: 'godRay',             label: 'God Ray',           min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
-        { key: 'godRayIntensity',    label: 'God Ray Intensity', min: 0,    max: 2,    step: 0.05, def: 0.4 },
-        { key: 'vortex',             label: 'Vortex',            min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
-        { key: 'vortexSpeed',        label: 'Vortex Speed',      min: 0,    max: 5,    step: 0.1,  def: 1.0 },
-        { key: 'absorption',         label: 'Absorption',        min: 0,    max: 0.1,  step: 0.001, def: 0.012 },
-        { key: 'fogHeight',          label: 'Fog Height',        min: 50,   max: 1000, step: 10,   def: 300 },
+    // ── 촉수 타이밍 파라미터 ──
+    var PARAMS_TENTACLE = [
+        { key: 'tentacleFadeDuration', label: 'Fade Duration',   min: 0.1,  max: 5.0,  step: 0.1,  def: 1.0 },
+        { key: 'tentacleGrowDuration', label: 'Grow Duration',   min: 0.1,  max: 5.0,  step: 0.1,  def: 0.5 },
     ];
 
     // 모든 파라미터 합치기 (슬라이더 생성/리셋용)
-    var ALL_PARAMS = COMMON_PARAMS.concat(PARAMS_2D).concat(PARAMS_3D);
+    var ALL_PARAMS = COMMON_PARAMS.concat(PARAMS_2D_SHADER).concat(PARAMS_TENTACLE);
 
     // 내부 키 → FogOfWar 프로퍼티 이름 매핑 (shader가 아닌 것만)
     var KEY_MAP = {
         radius: '_radius',
         exploredAlpha: '_exploredAlpha',
         unexploredAlpha: '_unexploredAlpha',
-        visibilityBrightness: '_visibilityBrightness',
-        edgeAnimationSpeed: '_edgeAnimationSpeed',
         lineOfSight: '_lineOfSight',
-        edgeAnimation: '_edgeAnimation',
-        lightScattering: '_lightScattering',
-        lightScatterIntensity: '_lightScatterIntensity',
-        godRay: '_godRay',
-        godRayIntensity: '_godRayIntensity',
-        vortex: '_vortex',
-        vortexSpeed: '_vortexSpeed',
         fogTransitionSpeed: '_fogTransitionSpeed',
-        tentacleFadeSpeed: '_tentacleFadeSpeed',
-        absorption: '_absorption',
-        fogHeight: '_fogHeight',
+        edgeAnimation: '_edgeAnimation',
+        edgeAnimationSpeed: '_edgeAnimationSpeed',
+        tentacleFadeDuration: '_tentacleFadeDuration',
+        tentacleGrowDuration: '_tentacleGrowDuration',
     };
 
     // 셰이더 오버라이드 저장소
     if (!window.FogOfWar) return;
     var FOW = window.FogOfWar;
     FOW._shaderOverrides = FOW._shaderOverrides || {};
-    PARAMS_2D.forEach(function(p) {
+    PARAMS_2D_SHADER.forEach(function(p) {
         if (p.shader && FOW._shaderOverrides[p.key] === undefined) {
             FOW._shaderOverrides[p.key] = p.def;
         }
@@ -132,21 +116,10 @@
             lineOfSight: FOW._lineOfSight,
             edgeAnimation: FOW._edgeAnimation,
             edgeAnimationSpeed: FOW._edgeAnimationSpeed,
-            lightScattering: FOW._lightScattering,
-            lightScatterIntensity: FOW._lightScatterIntensity,
-            fogHeight: FOW._fogHeight,
-            absorption: FOW._absorption,
-            visibilityBrightness: FOW._visibilityBrightness,
-            fogColorTop: colorToHex(FOW._fogColorTop),
-            heightGradient: FOW._heightGradient,
-            godRay: FOW._godRay,
-            godRayIntensity: FOW._godRayIntensity,
-            vortex: FOW._vortex,
-            vortexSpeed: FOW._vortexSpeed,
         };
         // 2D 셰이더 오버라이드 값 추가
         if (FOW._shaderOverrides) {
-            PARAMS_2D.forEach(function(p) {
+            PARAMS_2D_SHADER.forEach(function(p) {
                 if (p.shader && FOW._shaderOverrides[p.key] !== undefined) {
                     config[p.key] = FOW._shaderOverrides[p.key];
                 }
@@ -183,7 +156,7 @@
         var titleBar = document.createElement('div');
         titleBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;';
         var titleText = document.createElement('span');
-        titleText.textContent = 'FOW Debug';
+        titleText.textContent = 'FOW Debug (2D)';
         titleText.style.cssText = 'font-size:12px;font-weight:bold;color:#f80;flex:1;';
         titleBar.appendChild(titleText);
         panel.appendChild(titleBar);
@@ -193,16 +166,16 @@
         body.id = 'fow-dev-body';
 
         // --- 공통 파라미터 ---
-        addSection(body, '── Common (2D & 3D) ──');
+        addSection(body, '── Common ──');
         addParamRows(body, COMMON_PARAMS, applyParam);
 
-        // --- 2D 전용 ---
-        addSection(body, '── 2D Only ──', '#6af');
-        addParamRows(body, PARAMS_2D, applyParam);
+        // --- 2D 셰이더 ---
+        addSection(body, '── 2D Shader ──', '#6af');
+        addParamRows(body, PARAMS_2D_SHADER, applyParam);
 
-        // --- 3D 전용 ---
-        addSection(body, '── 3D Only ──', '#fa6');
-        addParamRows(body, PARAMS_3D, applyParam);
+        // --- 촉수 타이밍 ---
+        addSection(body, '── Tentacle Timing ──', '#af6');
+        addParamRows(body, PARAMS_TENTACLE, applyParam);
 
         // 버튼 컨테이너
         var btnRow = document.createElement('div');
