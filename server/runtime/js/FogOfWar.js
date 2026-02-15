@@ -427,7 +427,7 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
     this._displayExpl = new Float32Array(size);
     this._tentacleFade = new Float32Array(size); // 촉수 페이드 (1=촉수 유지, 0=촉수 사라짐)
     this._fogTransitionSpeed = 5.0;  // 초당 전환 속도 (높을수록 빠름)
-    this._tentacleFadeSpeed = 0.3;   // 촉수 페이드 속도 (낮을수록 천천히 사라짐, ~3초)
+    this._tentacleFadeSpeed = 0.5;   // 촉수 페이드 속도 (지수 감쇄, 낮을수록 천천히)
 
     // fog 텍스처: RG 채널 (R=visibility, G=explored)
     var texData = new Uint8Array(size * 4);
@@ -667,7 +667,7 @@ FogOfWar._lerpDisplay = function(dt) {
     var fade = this._tentacleFade;
     var speed = this._fogTransitionSpeed;
     var alpha = 1.0 - Math.exp(-speed * dt);  // 지수 감쇄 보간
-    var fadeDecay = this._tentacleFadeSpeed * dt; // 선형 감쇄
+    var fadeAlpha = 1.0 - Math.exp(-this._tentacleFadeSpeed * dt); // 지수 감쇄
     var size = this._mapWidth * this._mapHeight;
     var changed = false;
 
@@ -691,9 +691,9 @@ FogOfWar._lerpDisplay = function(dt) {
             dExpl[i] = expl[i];
             changed = true;
         }
-        // tentacleFade 감쇄: 1.0 → 0.0
+        // tentacleFade 감쇄: 1.0 → 0.0 (지수 감쇄)
         if (fade[i] > 0.0) {
-            fade[i] -= fadeDecay;
+            fade[i] *= (1.0 - fadeAlpha);
             if (fade[i] < 0.005) fade[i] = 0.0;
             changed = true;
         }
@@ -914,7 +914,9 @@ var EDGE_DISSOLVE_FRAG = [
     '    if (!foundBorder) discard;',
     '',
     '    // fadeFactor: 실제 미탐험 경계면 1.0, fade중인 경계만 있으면 bilinear fade',
-    '    float fadeFactor = foundRealBorder ? 1.0 : sampleFadeBilinear(uv);',
+    '    float rawFade = foundRealBorder ? 1.0 : sampleFadeBilinear(uv);',
+    '    // pow로 초반부터 촉수가 빠르게 줄어들도록 (rawFade=0.5 → fadeFactor≈0.125)',
+    '    float fadeFactor = rawFade * rawFade * rawFade;',
     '',
     '    float timeS = uTime * edgeAnimSpeed;',
     '',
@@ -926,7 +928,7 @@ var EDGE_DISSOLVE_FRAG = [
     '',
     '    // noise를 0~1로 정규화 후 pow로 뾰족하게: 높은 값만 긴 촉수',
     '    float nNorm = clamp(noise + 0.5, 0.0, 1.0);',
-    '    // fadeFactor로 촉수 길이 스케일 (bilinear → 부드러운 소멸)',
+    '    // fadeFactor로 촉수 길이 + 투명도 스케일 (부드러운 소멸)',
     '    float tentacleLength = pow(nNorm, tentacleSharpness) * dissolveStrength * fadeFactor;',
     '',
     '    // 촉수 안에 있는지 판정',
@@ -938,12 +940,14 @@ var EDGE_DISSOLVE_FRAG = [
     '        alpha = smoothstep(0.0, fadeSmoothness, inTentacle);',
     '        alpha *= smoothstep(0.0, 0.25, nNorm);',
     '        alpha *= unexploredAlpha;',
+    '        // fade중이면 투명도도 함께 줄어듦',
+    '        if (!foundRealBorder) alpha *= rawFade;',
     '    } else if (foundBorder) {',
     '        // 촉수 밖이지만 경계 근처: exploredAlpha로 채움',
     '        alpha = exploredAlpha;',
     '    } else {',
     '        // 경계 없이 fade만 남은 영역',
-    '        alpha = exploredAlpha * fadeFactor;',
+    '        alpha = exploredAlpha * rawFade;',
     '    }',
     '',
     '    if (alpha < 0.001) discard;',
