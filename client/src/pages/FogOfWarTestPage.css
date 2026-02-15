@@ -1,0 +1,150 @@
+.fow-test-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #1e1e1e;
+  color: #ddd;
+}
+
+.fow-test-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: #2b2b2b;
+  border-bottom: 1px solid #444;
+}
+
+.fow-back-btn {
+  padding: 4px 12px;
+  background: #444;
+  color: #ddd;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.fow-back-btn:hover {
+  background: #555;
+}
+
+.fow-test-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.fow-test-hint {
+  margin-left: auto;
+  font-size: 12px;
+  color: #888;
+}
+
+.fow-test-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.fow-test-canvas {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+  overflow: hidden;
+}
+
+.fow-test-canvas canvas {
+  image-rendering: pixelated;
+}
+
+.fow-test-controls {
+  width: 280px;
+  padding: 12px;
+  background: #2b2b2b;
+  border-left: 1px solid #444;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fow-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fow-control-group h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #aaa;
+  border-bottom: 1px solid #444;
+  padding-bottom: 4px;
+}
+
+.fow-control-group label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #bbb;
+}
+
+.fow-control-group input[type="range"] {
+  width: 100%;
+  accent-color: #2675bf;
+}
+
+.fow-info {
+  font-size: 12px;
+  color: #999;
+}
+
+.fow-dpad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.fow-dpad div {
+  display: flex;
+  gap: 2px;
+}
+
+.fow-dpad button {
+  width: 36px;
+  height: 36px;
+  background: #444;
+  color: #ddd;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fow-dpad button:hover {
+  background: #555;
+}
+
+.fow-reset-btn {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: #8b4444;
+  color: #ddd;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.fow-reset-btn:hover {
+  background: #a05555;
+}
