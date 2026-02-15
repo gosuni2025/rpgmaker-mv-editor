@@ -46,7 +46,6 @@ FogOfWar._vortexSpeed = 1.0;       // 소용돌이 속도
 FogOfWar._lightScattering = true;  // 라이트 산란 활성화
 FogOfWar._lightScatterIntensity = 1.0; // 라이트 산란 강도
 FogOfWar._fogMode = '2d';             // fog 렌더링 모드: '2d' | '3dvolume'
-FogOfWar._lastDt = 0.016;             // 마지막 프레임 dt (3D Volume 렌더용)
 FogOfWar._playerPos = new (typeof THREE !== 'undefined' ? THREE.Vector2 : Object)(0, 0); // 플레이어 타일 좌표
 
 //=============================================================================
@@ -1222,12 +1221,138 @@ var EDGE_DISSOLVE_FRAG = [
 ].join('\n');
 
 //=============================================================================
+// 경량 3D Volume 셰이더 (8스텝, 단일 노이즈, god ray/vortex 없음)
+//=============================================================================
+
+var VOL_LIGHT_FRAG = [
+    'precision mediump float;',
+    'varying vec3 vWorldPos;',
+    '',
+    'uniform sampler2D tFog;',
+    'uniform vec3 fogColor;',
+    'uniform vec3 fogColorTop;',
+    'uniform float unexploredAlpha;',
+    'uniform float exploredAlpha;',
+    'uniform float fogHeight;',
+    'uniform float absorption;',
+    'uniform float uTime;',
+    'uniform vec2 mapSize;',
+    'uniform vec2 mapPixelSize;',
+    'uniform vec2 scrollOffset;',
+    'uniform vec3 cameraWorldPos;',
+    'uniform float edgeAnimOn;',
+    'uniform float edgeAnimSpeed;',
+    'uniform float isOrtho;',
+    '',
+    'float hash(vec2 p) {',
+    '    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);',
+    '}',
+    'float valueNoise(vec2 p) {',
+    '    vec2 i = floor(p);',
+    '    vec2 f = fract(p);',
+    '    f = f * f * (3.0 - 2.0 * f);',
+    '    float a = hash(i);',
+    '    float b = hash(i + vec2(1.0, 0.0));',
+    '    float c = hash(i + vec2(0.0, 1.0));',
+    '    float d = hash(i + vec2(1.0, 1.0));',
+    '    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);',
+    '}',
+    '',
+    'vec2 sampleFogDensity(vec2 worldXY) {',
+    '    vec2 mapXY = worldXY + scrollOffset;',
+    '    vec2 uv = mapXY / mapPixelSize;',
+    '    if (uv.x < -0.01 || uv.x > 1.01 || uv.y < -0.01 || uv.y > 1.01) return vec2(0.0);',
+    '    vec4 s = texture2D(tFog, clamp(uv, 0.0, 1.0));',
+    '    float visibility = s.r;',
+    '    float explored = s.g;',
+    '    float fogDensity;',
+    '    if (visibility > 0.5) {',
+    '        fogDensity = 0.0;',
+    '    } else if (visibility > 0.01) {',
+    '        fogDensity = smoothstep(0.5, 0.0, visibility);',
+    '    } else if (explored > 0.5) {',
+    '        fogDensity = exploredAlpha;',
+    '    } else {',
+    '        fogDensity = unexploredAlpha;',
+    '    }',
+    '    return vec2(fogDensity, visibility);',
+    '}',
+    '',
+    'void main() {',
+    '    vec3 rayOrigin = cameraWorldPos;',
+    '    vec3 rayDir;',
+    '    if (isOrtho > 0.5) {',
+    '        rayDir = vec3(0.0, 0.0, -1.0);',
+    '        rayOrigin = vec3(vWorldPos.xy, fogHeight + 100.0);',
+    '    } else {',
+    '        rayDir = normalize(vWorldPos - cameraWorldPos);',
+    '    }',
+    '',
+    '    float invDirZ = 1.0 / (abs(rayDir.z) < 0.0001 ? -0.0001 : rayDir.z);',
+    '    float t0 = -rayOrigin.z * invDirZ;',
+    '    float t1 = (fogHeight - rayOrigin.z) * invDirZ;',
+    '    float tMin = max(min(t0, t1), 0.0);',
+    '    float tMax = max(t0, t1);',
+    '    if (tMin >= tMax) discard;',
+    '    tMax = min(tMax, tMin + fogHeight * 3.0);',
+    '',
+    '    float stepSize = (tMax - tMin) / 8.0;',
+    '    float dither = fract(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)) * 43758.5453);',
+    '',
+    '    vec3 accColor = vec3(0.0);',
+    '    float accAlpha = 0.0;',
+    '    float t = tMin + stepSize * dither;',
+    '',
+    '    for (int i = 0; i < 8; i++) {',
+    '        if (accAlpha > 0.95) break;',
+    '        vec3 samplePos = rayOrigin + rayDir * t;',
+    '        float heightNorm = clamp(samplePos.z / fogHeight, 0.0, 1.0);',
+    '',
+    '        vec2 fogInfo = sampleFogDensity(samplePos.xy);',
+    '        float baseDensity = fogInfo.x;',
+    '',
+    '        if (edgeAnimOn > 0.5 && baseDensity > 0.01 && baseDensity < 0.95) {',
+    '            float timeS = uTime * edgeAnimSpeed;',
+    '            float edgeWave = valueNoise(samplePos.xy * 0.015 + vec2(timeS * 0.08, timeS * 0.06));',
+    '            baseDensity += edgeWave * 0.2 * smoothstep(0.0, 0.15, baseDensity) * (1.0 - smoothstep(0.4, 0.7, baseDensity));',
+    '            baseDensity = clamp(baseDensity, 0.0, 1.0);',
+    '        }',
+    '',
+    '        baseDensity = smoothstep(0.05, 0.4, baseDensity);',
+    '',
+    '        float heightFalloff = 1.0 - heightNorm * heightNorm;',
+    '        float noise = valueNoise(samplePos.xy * 0.004 + vec2(uTime * 0.02 + heightNorm * 5.0, uTime * 0.015));',
+    '',
+    '        float density = baseDensity * heightFalloff * (0.8 + noise * 0.4);',
+    '',
+    '        float absorb = density * stepSize * absorption;',
+    '        vec3 stepColor = mix(fogColor, fogColorTop, heightNorm);',
+    '        accColor += (1.0 - accAlpha) * absorb * stepColor;',
+    '        accAlpha += (1.0 - accAlpha) * absorb;',
+    '',
+    '        t += stepSize;',
+    '    }',
+    '',
+    '    accAlpha = clamp(accAlpha, 0.0, 1.0);',
+    '    if (accAlpha < 0.001) discard;',
+    '',
+    '    vec3 finalColor = accColor / max(accAlpha, 0.001);',
+    '    gl_FragColor = vec4(finalColor, accAlpha);',
+    '}'
+].join('\n');
+
+//=============================================================================
 // 3D 메쉬 — 볼류메트릭 fog (단일 평면 + 레이마칭 셰이더)
 //=============================================================================
 
 FogOfWar._createMesh = function() {
     if (this._fogGroup) this._disposeMesh();
     if (!this._fogTexture) return null;
+
+    // 3D Volume 모드: 경량 셰이더 메시 사용
+    if (this._fogMode === '3dvolume') {
+        return this._createMeshVolume();
+    }
 
     var totalW = this._mapWidth * 48;
     var totalH = this._mapHeight * 48;
@@ -1360,6 +1485,70 @@ FogOfWar._disposeMesh = function() {
 };
 
 //=============================================================================
+// 3D Volume 모드 전용 메쉬 생성 (경량 8스텝 레이마칭)
+//=============================================================================
+
+FogOfWar._createMeshVolume = function() {
+    if (this._fogGroup) this._disposeMesh();
+    if (!this._fogTexture) return null;
+
+    var totalW = this._mapWidth * 48;
+    var totalH = this._mapHeight * 48;
+    var fogColorVec = new THREE.Vector3(this._fogColor.r, this._fogColor.g, this._fogColor.b);
+    var fogColorTopVec = this._heightGradient
+        ? new THREE.Vector3(this._fogColorTop.r, this._fogColorTop.g, this._fogColorTop.b)
+        : fogColorVec.clone();
+
+    var group = new THREE.Group();
+    group._isFogOfWar = true;
+    group.renderOrder = 9990;
+    group.frustumCulled = false;
+
+    var planeW = totalW + FOG_PADDING * 2;
+    var planeH = totalH + FOG_PADDING * 2;
+
+    var material = new THREE.ShaderMaterial({
+        uniforms: {
+            tFog:            { value: this._fogTexture },
+            fogColor:        { value: fogColorVec },
+            fogColorTop:     { value: fogColorTopVec },
+            unexploredAlpha: { value: this._unexploredAlpha },
+            exploredAlpha:   { value: this._exploredAlpha },
+            uTime:           { value: 0 },
+            mapSize:         { value: new THREE.Vector2(this._mapWidth, this._mapHeight) },
+            cameraWorldPos:  { value: new THREE.Vector3(0, 0, 0) },
+            fogHeight:       { value: this._fogHeight },
+            mapPixelSize:    { value: new THREE.Vector2(totalW, totalH) },
+            scrollOffset:    { value: new THREE.Vector2(0, 0) },
+            absorption:      { value: this._absorption },
+            edgeAnimOn:      { value: this._edgeAnimation ? 1.0 : 0.0 },
+            edgeAnimSpeed:   { value: this._edgeAnimationSpeed },
+            isOrtho:         { value: 0.0 }
+        },
+        vertexShader: VOL_FOG_VERT,
+        fragmentShader: VOL_LIGHT_FRAG,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide
+    });
+
+    var geometry = new THREE.PlaneGeometry(planeW, planeH);
+    var mesh = new THREE.Mesh(geometry, material);
+    mesh.position.z = 0;
+    mesh.renderOrder = 9990;
+    mesh.frustumCulled = false;
+
+    group.add(mesh);
+
+    this._fogGroup = group;
+    this._fogMesh = group;
+    this._edgeMesh = null;  // 3dvolume 모드는 경계 디졸브 메시 없음
+
+    return group;
+};
+
+//=============================================================================
 // 매 프레임 위치/유니폼 갱신
 //=============================================================================
 
@@ -1399,23 +1588,32 @@ FogOfWar._updateMeshUniforms = function() {
     u.uTime.value = this._time;
     u.fogHeight.value = this._fogHeight;
     u.absorption.value = this._absorption;
-    u.visibilityBrightness.value = this._visibilityBrightness;
     u.edgeAnimOn.value = this._edgeAnimation ? 1.0 : 0.0;
     u.edgeAnimSpeed.value = this._edgeAnimationSpeed;
-    u.fogColorTop.value.set(this._fogColorTop.r, this._fogColorTop.g, this._fogColorTop.b);
-    u.heightGradientOn.value = this._heightGradient ? 1.0 : 0.0;
-    u.godRayOn.value = this._godRay ? 1.0 : 0.0;
-    u.godRayIntensity.value = this._godRayIntensity;
-    u.vortexOn.value = this._vortex ? 1.0 : 0.0;
-    u.vortexSpeed.value = this._vortexSpeed;
-    u.lightScatterOn.value = this._lightScattering ? 1.0 : 0.0;
-    u.lightScatterIntensity.value = this._lightScatterIntensity;
 
-    // 셰이더 디버그 오버라이드
-    var so = this._shaderOverrides || {};
-    u.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 2.0;
-    u.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.3;
-    u.tentacleSharpness.value = so.tentacleSharpness != null ? so.tentacleSharpness : 3.0;
+    // 3dvolume 모드는 경량 셰이더 — 추가 유니폼이 다름
+    if (this._fogMode === '3dvolume') {
+        if (u.fogColorTop) {
+            var topC = this._heightGradient ? this._fogColorTop : this._fogColor;
+            u.fogColorTop.value.set(topC.r, topC.g, topC.b);
+        }
+    } else {
+        if (u.visibilityBrightness) u.visibilityBrightness.value = this._visibilityBrightness;
+        u.fogColorTop.value.set(this._fogColorTop.r, this._fogColorTop.g, this._fogColorTop.b);
+        if (u.heightGradientOn) u.heightGradientOn.value = this._heightGradient ? 1.0 : 0.0;
+        if (u.godRayOn) u.godRayOn.value = this._godRay ? 1.0 : 0.0;
+        if (u.godRayIntensity) u.godRayIntensity.value = this._godRayIntensity;
+        if (u.vortexOn) u.vortexOn.value = this._vortex ? 1.0 : 0.0;
+        if (u.vortexSpeed) u.vortexSpeed.value = this._vortexSpeed;
+        if (u.lightScatterOn) u.lightScatterOn.value = this._lightScattering ? 1.0 : 0.0;
+        if (u.lightScatterIntensity) u.lightScatterIntensity.value = this._lightScatterIntensity;
+
+        // 셰이더 디버그 오버라이드
+        var so = this._shaderOverrides || {};
+        if (u.dissolveStrength) u.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 2.0;
+        if (u.fadeSmoothness) u.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.3;
+        if (u.tentacleSharpness) u.tentacleSharpness.value = so.tentacleSharpness != null ? so.tentacleSharpness : 3.0;
+    }
 
     // 카메라 월드 좌표 및 isOrtho 업데이트
     var is3D = typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active;
@@ -1531,62 +1729,6 @@ PostProcess._updateUniforms = function() {
 
     if (!FogOfWar._active) return;
 
-    // 3D Volume 모드: FogOfWar3DVolume으로 렌더링 위임
-    // (실제 렌더는 Spriteset_Map.prototype.update 후킹에서 composer.render() 이후에 수행)
-    if (FogOfWar._fogMode === '3dvolume' && window.FogOfWar3DVolume) {
-        var Vol = window.FogOfWar3DVolume;
-
-        // 플레이어 가시성 갱신
-        if (typeof $gamePlayer !== 'undefined' && $gamePlayer) {
-            FogOfWar.updateVisibility($gamePlayer.x, $gamePlayer.y);
-        }
-
-        // 표시 버퍼 보간 + 텍스처 업데이트
-        var now3d = performance.now() / 1000;
-        var dt3d = FogOfWar._lastTime > 0 ? Math.min(now3d - FogOfWar._lastTime, 0.1) : 0.016;
-        FogOfWar._lastTime = now3d;
-        FogOfWar._lastDt = dt3d;
-        var texChanged = FogOfWar._lerpDisplay(dt3d) || FogOfWar._fogTexture.needsUpdate;
-        if (texChanged) {
-            FogOfWar._computeEdgeData();
-            FogOfWar._updateTexture();
-            Vol.markDirty();
-        }
-
-        // FogOfWar3DVolume lazy 초기화
-        if (!Vol._active && FogOfWar._fogTexture) {
-            var rendererObj = null;
-            if (PostProcess._renderPass) {
-                rendererObj = PostProcess._renderPass._rendererObj || PostProcess._renderPass;
-            } else if (PostProcess._2dRenderPass) {
-                rendererObj = PostProcess._2dRenderPass._rendererObj || PostProcess._2dRenderPass;
-            }
-            if (rendererObj && rendererObj.renderer) {
-                var ren = rendererObj.renderer;
-                var sz = ren.getSize(new THREE.Vector2());
-                var fogRgb = FogOfWar._fogColor;
-                var topRgb = FogOfWar._fogColorTop;
-                Vol.setup(FogOfWar._mapWidth, FogOfWar._mapHeight, sz.x, sz.y, {
-                    resolution: $dataMap && $dataMap.fogOfWar ? ($dataMap.fogOfWar.volumeResolution || 4) : 4,
-                    fogHeight: FogOfWar._fogHeight,
-                    absorption: FogOfWar._absorption,
-                    fogColor: fogRgb,
-                    fogColorTop: FogOfWar._heightGradient ? topRgb : fogRgb,
-                });
-            }
-        }
-
-        // 파라미터 동기화 (렌더는 별도에서)
-        if (Vol._active) {
-            Vol._fogHeight = FogOfWar._fogHeight;
-            Vol._absorption = FogOfWar._absorption;
-        }
-
-        FogOfWar._updateLosDebug();
-        return;
-    }
-
-    // 기본 모드 (2d): 기존 FogOfWar 메쉬 사용
     // 메쉬가 아직 생성되지 않았으면 scene에 lazy 추가
     if (!FogOfWar._fogGroup && FogOfWar._fogTexture) {
         var scene = null;
@@ -1782,44 +1924,5 @@ FogOfWar._updateLosDebug = function() {
         this._losDebugMesh.visible = true;
     }
 };
-
-//=============================================================================
-// Spriteset_Map.prototype.update 후킹 — composer 렌더 이후에 3D Volume fog 합성
-// (PostProcess가 Spriteset_Map.prototype.update를 감싸서 _composer.render()를 호출,
-//  FogOfWar.js는 그 이후에 로드되므로 체인 최상단에서 후킹 가능)
-//=============================================================================
-
-if (typeof Spriteset_Map !== 'undefined') {
-    var _Spriteset_Map_update_fogVol = Spriteset_Map.prototype.update;
-    Spriteset_Map.prototype.update = function() {
-        _Spriteset_Map_update_fogVol.call(this);
-
-        // composer.render() 완료 후 — FogOfWar3DVolume 합성
-        if (FogOfWar._active && FogOfWar._fogMode === '3dvolume' && window.FogOfWar3DVolume) {
-            var Vol = window.FogOfWar3DVolume;
-            if (!Vol._active) return;
-
-            var rendererObj = null;
-            if (PostProcess._renderPass) {
-                rendererObj = PostProcess._renderPass._rendererObj || PostProcess._renderPass;
-            } else if (PostProcess._2dRenderPass) {
-                rendererObj = PostProcess._2dRenderPass._rendererObj || PostProcess._2dRenderPass;
-            }
-            if (!rendererObj || !rendererObj.renderer) return;
-
-            var camera = null;
-            var is3D = typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active;
-            if (is3D) {
-                camera = Mode3D._perspCamera;
-            } else if (rendererObj.camera) {
-                camera = rendererObj.camera;
-            }
-            if (!camera) return;
-
-            var dt = FogOfWar._lastDt || (1.0 / 60.0);
-            Vol.render(rendererObj.renderer, camera, dt);
-        }
-    };
-}
 
 })();
