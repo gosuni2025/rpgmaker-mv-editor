@@ -57,6 +57,7 @@ export default function MenuBar() {
 
   const hasProject = !!projectPath;
   const openProject = useEditorStore((s) => s.openProject);
+  const [showTileIdOverlay, setShowTileIdOverlay] = useState(false);
 
   const recentProjects = getRecentProjects().slice(0, 10);
   const recentItems: MenuItem[] = recentProjects.length > 0
@@ -147,6 +148,7 @@ export default function MenuBar() {
         { label: t('menu.localization'), action: 'localization', disabled: () => !hasProject },
         { type: 'separator' },
         { label: t('menu.autotileDebug'), action: 'autotileDebug', disabled: () => !hasProject },
+        { label: t('menu.tileIdDebug'), action: 'tileIdDebug', checked: () => showTileIdOverlay, disabled: () => !hasProject },
       ],
     },
     {
@@ -215,6 +217,12 @@ export default function MenuBar() {
       case 'selectAll': window.dispatchEvent(new CustomEvent('editor-selectall')); break;
       case 'deselect': window.dispatchEvent(new CustomEvent('editor-deselect')); break;
       case 'autotileDebug': window.dispatchEvent(new CustomEvent('editor-autotile-debug')); break;
+      case 'tileIdDebug': {
+        const next = !showTileIdOverlay;
+        setShowTileIdOverlay(next);
+        window.dispatchEvent(new CustomEvent('editor-toggle-tileid', { detail: next }));
+        break;
+      }
       case 'migrate': window.dispatchEvent(new CustomEvent('editor-migrate')); break;
       case 'options': setShowOptionsDialog(true); break;
       case 'localization': setShowLocalizationDialog(true); break;

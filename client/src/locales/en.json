@@ -60,6 +60,7 @@
     "characterGenerator": "Character Generator...",
     "resourceManager": "Resource Manager...",
     "autotileDebug": "Autotile Debug...",
+    "tileIdDebug": "Tile ID Overlay",
     "playtestTitle": "Playtest from Title",
     "playtestCurrentMap": "Playtest Current Map",
     "openFolder": "Open Folder",
