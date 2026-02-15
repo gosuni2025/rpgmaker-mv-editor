@@ -25,14 +25,14 @@ const emptyConditions: TroopConditions = {
 
 function conditionSummary(c: TroopConditions, t: (k: string) => string, actors: { id: number; name: string }[]): string {
   const parts: string[] = [];
-  if (c.turnValid) parts.push(`${t('fields.turn')} ${c.turnA}+${c.turnB}x`);
+  if (c.turnEnding) parts.push(t('fields.turnEnd'));
+  if (c.turnValid) parts.push(`${t('fields.turn')} ${c.turnA}+${c.turnB}*X`);
   if (c.enemyValid) parts.push(`${t('fields.enemyNum')} #${c.enemyIndex} HP≤${c.enemyHp}%`);
   if (c.actorValid) {
     const a = actors.find(ac => ac.id === c.actorId);
     parts.push(`${a?.name || t('fields.actor')} HP≤${c.actorHp}%`);
   }
   if (c.switchValid) parts.push(`${t('fields.switch')} ${c.switchId}`);
-  if (c.turnEnding) parts.push(t('fields.turnEnd'));
   return parts.length > 0 ? parts.join(', ') : t('troops.noCondition');
 }
 
@@ -544,6 +544,11 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
             <div className="troops-cond-dialog-title">{t('fields.conditions')}</div>
             <div className="troops-cond-dialog-body">
               <div className="troops-cond-row">
+                <input type="checkbox" checked={editingCond.turnEnding}
+                  onChange={(e) => setEditingCond(c => ({ ...c, turnEnding: e.target.checked }))} />
+                <span>{t('fields.turnEnd')}</span>
+              </div>
+              <div className="troops-cond-row">
                 <input type="checkbox" checked={editingCond.turnValid}
                   onChange={(e) => setEditingCond(c => ({ ...c, turnValid: e.target.checked }))} />
                 <span>{t('fields.turn')}</span>
@@ -552,7 +557,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
                 <span>+</span>
                 <input type="number" value={editingCond.turnB} disabled={!editingCond.turnValid}
                   onChange={(e) => setEditingCond(c => ({ ...c, turnB: Number(e.target.value) }))} />
-                <span>x</span>
+                <span>* X</span>
               </div>
               <div className="troops-cond-row">
                 <input type="checkbox" checked={editingCond.enemyValid}
@@ -584,11 +589,6 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
                 <span>{t('fields.switch')}</span>
                 <input type="number" value={editingCond.switchId} style={{ width: 60 }} disabled={!editingCond.switchValid}
                   onChange={(e) => setEditingCond(c => ({ ...c, switchId: Number(e.target.value) }))} />
-              </div>
-              <div className="troops-cond-row">
-                <input type="checkbox" checked={editingCond.turnEnding}
-                  onChange={(e) => setEditingCond(c => ({ ...c, turnEnding: e.target.checked }))} />
-                <span>{t('fields.turnEnd')}</span>
               </div>
             </div>
             <div className="troops-cond-dialog-footer">
