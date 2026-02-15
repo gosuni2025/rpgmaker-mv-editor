@@ -87,21 +87,20 @@ const AnimationPreview = React.forwardRef<
     const frame = anim.frames[frameIdx];
     if (!frame) { renderOnce(); return; }
 
-    // 대상 위치에 따른 앵커 계산
-    const targetBitmap = rt.targetSprite.bitmap;
-    let anchorY = CANVAS_H / 2;
-    if (targetBitmap && targetBitmap.isReady()) {
-      const th = targetBitmap.height;
-      const ty = (CANVAS_H - th) / 2;
-      if (anim.position === 0) anchorY = ty;
-      else if (anim.position === 1) anchorY = ty + th / 2;
-      else if (anim.position === 2) anchorY = ty + th;
-      else anchorY = CANVAS_H / 2;
-    }
+    // Sprite_Animation.updatePosition과 동일한 위치 계산
+    // target: anchor.y=1 (발밑 기준), y=CANVAS_H*3/4
+    const targetY = rt.targetSprite.y;
+    const targetH = rt.targetSprite.height || 0;
+    let anchorX = rt.targetSprite.x;
+    let anchorY = targetY;
+    if (anim.position === 0) anchorY = targetY - targetH;
+    else if (anim.position === 1) anchorY = targetY - targetH / 2;
+    else if (anim.position === 2) anchorY = targetY;
+    else { anchorX = CANVAS_W / 2; anchorY = CANVAS_H / 2; }
 
     // 임시 컨테이너에 셀 스프라이트 생성
     const container = new ThreeContainer();
-    container.x = CANVAS_W / 2;
+    container.x = anchorX;
     container.y = anchorY;
 
     const bitmap1 = anim.animation1Name
@@ -244,11 +243,13 @@ const AnimationPreview = React.forwardRef<
     stage.addChild(new Sprite(bgBitmap));
 
     // 대상 배틀러 (Sprite_Base: setBlendColor/show/hide 지원)
+    // anchor.y=1 (발밑 기준) — 원본 Sprite_Battler와 동일
+    // Sprite_Animation.updatePosition이 target.height를 빼서 위치 계산하므로 필수
     const targetSprite = new Sprite_Base();
     targetSprite.anchor.x = 0.5;
-    targetSprite.anchor.y = 0.5;
+    targetSprite.anchor.y = 1;
     targetSprite.x = CANVAS_W / 2;
-    targetSprite.y = CANVAS_H / 2;
+    targetSprite.y = CANVAS_H * 3 / 4;
     stage.addChild(targetSprite);
 
     rtRef.current = {
