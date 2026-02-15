@@ -149,8 +149,7 @@ var VOL_FOG_FRAG = [
     '}',
     '',
     '// --- 2D 전용 fog 렌더링 (isOrtho) ---',
-    '// 보간된 visibility 기반 픽셀 레벨 경계',
-    '// visibility가 높을수록 투명, 0이면 불투명, 경계에서 디졸브',
+    '// 시야 안: 투명, 시야 밖: 불투명. 디졸브는 별도 경계 메시가 담당.',
     'void render2D() {',
     '    vec2 mapXY = vWorldPos.xy + scrollOffset;',
     '    vec2 uv = mapXY / mapPixelSize;',
@@ -160,41 +159,17 @@ var VOL_FOG_FRAG = [
     '    float dT = max(0.0, -uv.y); float dB = max(0.0, uv.y - 1.0);',
     '    float outsideDist = max(max(dL, dR), max(dT, dB));',
     '',
-    '    // LinearFilter 텍스처: 타일 경계에서 자동 bilinear 보간',
     '    float visibility = 0.0; float explored = 0.0;',
     '    if (outsideDist < 0.001) {',
     '        vec4 s = texture2D(tFog, uv);',
     '        visibility = s.r; explored = s.g;',
     '    }',
     '',
-    '    // visibility가 충분히 높으면 완전 투명',
-    '    if (visibility > nearVisWeight) discard;',
+    '    // 시야 안: 완전 투명',
+    '    if (visibility > 0.01) discard;',
     '',
-    '    // --- fog alpha ---',
-    '    float fogAlpha;',
-    '    float baseAlpha = (explored > 0.5) ? exploredAlpha : unexploredAlpha;',
-    '',
-    '    if (visibility > 0.005) {',
-    '        // 경계 영역: visibility 0~nearVisWeight → 불투명~투명',
-    '        float t = visibility / nearVisWeight;',
-    '',
-    '        // 디졸브 노이즈로 경계를 불규칙하게',
-    '        float timeS = uTime * edgeAnimSpeed;',
-    '        float dn1 = fbm3(mapXY * 0.012 + vec2(timeS * 0.07, timeS * 0.05));',
-    '        float dn2 = _valueNoise(mapXY * 0.025 + vec2(-timeS * 0.09, timeS * 0.06));',
-    '        float dn3 = _valueNoise(mapXY * 0.06 + vec2(timeS * 0.15, -timeS * 0.08));',
-    '        float dissolve = (dn1 + dn2 * 0.5 + dn3 * 0.25) * 0.57;',
-    '        float dn = edgeAnimOn * dissolve * dissolveStrength;',
-    '',
-    '        float edgeVal = t + dn;',
-    '        edgeVal = clamp(edgeVal, 0.0, 1.0);',
-    '',
-    '        float fade = smoothstep(0.0, fadeSmoothness, edgeVal);',
-    '        fogAlpha = baseAlpha * (1.0 - fade);',
-    '    } else {',
-    '        // vis=0: 완전한 미탐험/탐험 영역',
-    '        fogAlpha = baseAlpha;',
-    '    }',
+    '    // 시야 밖: 불투명',
+    '    float fogAlpha = (explored > 0.5) ? exploredAlpha : unexploredAlpha;',
     '',
     '    // 맵 바깥 페이드아웃',
     '    if (outsideDist > 0.001) {',
@@ -205,10 +180,9 @@ var VOL_FOG_FRAG = [
     '    fogAlpha = clamp(fogAlpha, 0.0, 1.0);',
     '    if (fogAlpha < 0.001) discard;',
     '',
-    '    // --- 색상 ---',
     '    vec3 color = fogColor;',
     '',
-    '    // 라이트 산란 (2D: XY 거리만)',
+    '    // 라이트 산란',
     '    if (lightScatterOn > 0.5 && fogAlpha > 0.05) {',
     '        vec3 scatterLight = vec3(0.0);',
     '        for (int li = 0; li < 8; li++) {',
@@ -684,6 +658,92 @@ FogOfWar.revealRect = function(x, y, w, h) {
 };
 
 //=============================================================================
+// 2D 경계 디졸브 셰이더 — fog 메시 위에 덮어서 경계면 디졸브 처리
+// 시야 안(vis>0)에서 미탐험 방향으로 fogColor가 불투명해짐 + 디졸브
+//=============================================================================
+
+var EDGE_DISSOLVE_FRAG = [
+    'precision highp float;',
+    'varying vec3 vWorldPos;',
+    '',
+    'uniform sampler2D tFog;',
+    'uniform vec3 fogColor;',
+    'uniform float uTime;',
+    'uniform vec2 mapSize;',
+    'uniform vec2 mapPixelSize;',
+    'uniform vec2 scrollOffset;',
+    'uniform float edgeAnimOn;',
+    'uniform float edgeAnimSpeed;',
+    'uniform float dissolveStrength;',
+    'uniform float fadeSmoothness;',
+    'uniform float nearVisWeight;',
+    'uniform float exploredAlpha;',
+    'uniform float unexploredAlpha;',
+    '',
+    // 노이즈 함수 (fog 셰이더와 동일)
+    'vec2 _hash22(vec2 p) {',
+    '    p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));',
+    '    return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);',
+    '}',
+    'float _valueNoise(vec2 p) {',
+    '    vec2 i = floor(p); vec2 f = fract(p);',
+    '    vec2 u = f * f * (3.0 - 2.0 * f);',
+    '    float a = dot(_hash22(i), f);',
+    '    float b = dot(_hash22(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0));',
+    '    float c = dot(_hash22(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0));',
+    '    float d = dot(_hash22(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0));',
+    '    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);',
+    '}',
+    'float fbm3(vec2 p) {',
+    '    float v = 0.0; float amp = 0.5;',
+    '    for (int i = 0; i < 3; i++) { v += amp * _valueNoise(p); p *= 2.03; amp *= 0.5; }',
+    '    return v;',
+    '}',
+    '',
+    'void main() {',
+    '    vec2 mapXY = vWorldPos.xy + scrollOffset;',
+    '    vec2 uv = mapXY / mapPixelSize;',
+    '',
+    '    // 맵 바깥: 아무것도 그리지 않음',
+    '    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;',
+    '',
+    '    // 현재 픽셀의 보간된 visibility (LinearFilter)',
+    '    vec4 s = texture2D(tFog, uv);',
+    '    float vis = s.r;',
+    '    float explored = s.g;',
+    '',
+    '    // 시야 밖(vis=0): fog 메시가 이미 처리 → discard',
+    '    if (vis < 0.005) discard;',
+    '',
+    '    // 시야 안쪽 깊은 곳: 디졸브 불필요 → discard',
+    '    if (vis > nearVisWeight) discard;',
+    '',
+    '    // vis 0~nearVisWeight → t 0~1 (시야 안쪽으로 갈수록 1)',
+    '    float t = vis / nearVisWeight;',
+    '',
+    '    // 디졸브 노이즈: 경계 형태를 불규칙하게',
+    '    float timeS = uTime * edgeAnimSpeed;',
+    '    float dn1 = fbm3(mapXY * 0.012 + vec2(timeS * 0.07, timeS * 0.05));',
+    '    float dn2 = _valueNoise(mapXY * 0.025 + vec2(-timeS * 0.09, timeS * 0.06));',
+    '    float dn3 = _valueNoise(mapXY * 0.06 + vec2(timeS * 0.15, -timeS * 0.08));',
+    '    float dissolve = (dn1 + dn2 * 0.5 + dn3 * 0.25) * 0.57;',
+    '    float dn = edgeAnimOn * dissolve * dissolveStrength;',
+    '',
+    '    // t가 작을수록(미탐험에 가까울수록) 불투명',
+    '    // t가 클수록(시야 안쪽) 투명',
+    '    float edgeVal = t + dn;',
+    '    edgeVal = clamp(edgeVal, 0.0, 1.0);',
+    '',
+    '    float fade = smoothstep(0.0, fadeSmoothness, edgeVal);',
+    '    float baseAlpha = (explored > 0.5) ? exploredAlpha : unexploredAlpha;',
+    '    float alpha = baseAlpha * (1.0 - fade);',
+    '',
+    '    if (alpha < 0.001) discard;',
+    '    gl_FragColor = vec4(fogColor, alpha);',
+    '}'
+].join('\n');
+
+//=============================================================================
 // 3D 메쉬 — 볼류메트릭 fog (단일 평면 + 레이마칭 셰이더)
 //=============================================================================
 
@@ -758,8 +818,43 @@ FogOfWar._createMesh = function() {
 
     group.add(mesh);
 
+    // --- 2D 경계 디졸브 메시 (fog 위에 덮음) ---
+    var edgeMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            tFog:            { value: this._fogTexture },
+            fogColor:        { value: fogColorVec },
+            exploredAlpha:   { value: this._exploredAlpha },
+            unexploredAlpha: { value: this._unexploredAlpha },
+            uTime:           { value: 0 },
+            mapSize:         { value: material.uniforms.mapSize.value },
+            mapPixelSize:    { value: material.uniforms.mapPixelSize.value },
+            scrollOffset:    { value: material.uniforms.scrollOffset.value },
+            edgeAnimOn:      { value: this._edgeAnimation ? 1.0 : 0.0 },
+            edgeAnimSpeed:   { value: this._edgeAnimationSpeed },
+            dissolveStrength:{ value: 0.25 },
+            fadeSmoothness:  { value: 0.7 },
+            nearVisWeight:   { value: 0.7 }
+        },
+        vertexShader: VOL_FOG_VERT,
+        fragmentShader: EDGE_DISSOLVE_FRAG,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide
+    });
+
+    var edgeGeometry = new THREE.PlaneGeometry(planeW, planeH);
+    var edgeMesh = new THREE.Mesh(edgeGeometry, edgeMaterial);
+    edgeMesh.position.z = 0.1;  // fog 바로 위
+    edgeMesh.renderOrder = 9991; // fog(9990)보다 나중에 렌더
+    edgeMesh.frustumCulled = false;
+    edgeMesh._isEdgeDissolve = true;
+
+    group.add(edgeMesh);
+
     this._fogGroup = group;
     this._fogMesh = group;  // 하위 호환
+    this._edgeMesh = edgeMesh;
 
     return group;
 };
@@ -779,6 +874,7 @@ FogOfWar._disposeMesh = function() {
         });
         this._fogGroup = null;
         this._fogMesh = null;
+        this._edgeMesh = null;
     }
 };
 
@@ -841,13 +937,19 @@ FogOfWar._updateMeshUniforms = function() {
     u.nearVisWeight.value = so.nearVisWeight != null ? so.nearVisWeight : 0.7;
 
     // 카메라 월드 좌표 및 isOrtho 업데이트
-    if (typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active) {
+    var is3D = typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active;
+    if (is3D) {
         u.cameraWorldPos.value.copy(Mode3D._perspCamera.position);
         u.isOrtho.value = 0.0;
     } else {
         // 2D 모드: OrthographicCamera → isOrtho 셰이더 분기 사용
         u.cameraWorldPos.value.set(0, 0, this._fogHeight + 100);
         u.isOrtho.value = 1.0;
+    }
+
+    // 경계 디졸브 메시: 2D 모드에서만 표시
+    if (this._edgeMesh) {
+        this._edgeMesh.visible = !is3D;
     }
 
     // 스크롤 오프셋 업데이트
@@ -857,6 +959,22 @@ FogOfWar._updateMeshUniforms = function() {
         oy = $gameMap.displayY() * 48;
     }
     u.scrollOffset.value.set(ox, oy);
+
+    // 경계 디졸브 메시 uniform 갱신
+    if (this._edgeMesh && this._edgeMesh.material) {
+        var eu = this._edgeMesh.material.uniforms;
+        eu.tFog.value = this._fogTexture;
+        eu.fogColor.value.copy(fogColorVec);
+        eu.exploredAlpha.value = this._exploredAlpha;
+        eu.unexploredAlpha.value = this._unexploredAlpha;
+        eu.uTime.value = this._time;
+        eu.edgeAnimOn.value = this._edgeAnimation ? 1.0 : 0.0;
+        eu.edgeAnimSpeed.value = this._edgeAnimationSpeed;
+        eu.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 0.25;
+        eu.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.7;
+        eu.nearVisWeight.value = so.nearVisWeight != null ? so.nearVisWeight : 0.7;
+        // scrollOffset는 fog 메시와 같은 참조를 공유
+    }
 
     // 플레이어 픽셀 좌표 업데이트
     if (typeof $gamePlayer !== 'undefined' && $gamePlayer) {
