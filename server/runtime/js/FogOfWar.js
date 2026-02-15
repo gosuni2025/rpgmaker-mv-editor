@@ -1626,9 +1626,9 @@ FogOfWar._updateMeshUniforms = function() {
         u.isOrtho.value = 1.0;
     }
 
-    // 경계 디졸브 메시: 2D 모드에서만 표시
+    // 경계 디졸브 메시: 2D 모드에서만 표시 (3dvolume 모드에서도 숨김)
     if (this._edgeMesh) {
-        this._edgeMesh.visible = !is3D;
+        this._edgeMesh.visible = !is3D && this._fogMode !== '3dvolume';
     }
 
     // 스크롤 오프셋 업데이트
@@ -1639,32 +1639,34 @@ FogOfWar._updateMeshUniforms = function() {
     }
     u.scrollOffset.value.set(ox, oy);
 
-    // 경계 디졸브 메시 uniform 갱신
-    if (this._edgeMesh && this._edgeMesh.material) {
-        var eu = this._edgeMesh.material.uniforms;
-        eu.tFog.value = this._fogTexture;
-        eu.fogColor.value.copy(fogColorVec);
-        eu.exploredAlpha.value = this._exploredAlpha;
-        eu.unexploredAlpha.value = this._unexploredAlpha;
-        eu.uTime.value = this._time;
-        eu.edgeAnimOn.value = this._edgeAnimation ? 1.0 : 0.0;
-        eu.edgeAnimSpeed.value = this._edgeAnimationSpeed;
-        eu.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 2.0;
-        eu.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.3;
-        eu.tentacleSharpness.value = so.tentacleSharpness != null ? so.tentacleSharpness : 3.0;
-        // scrollOffset는 fog 메시와 같은 참조를 공유
-    }
+    // 3dvolume 모드는 경계 디졸브/플레이어 좌표/라이트 산란 없음
+    if (this._fogMode !== '3dvolume') {
+        // 경계 디졸브 메시 uniform 갱신
+        if (this._edgeMesh && this._edgeMesh.material) {
+            var eu = this._edgeMesh.material.uniforms;
+            eu.tFog.value = this._fogTexture;
+            eu.fogColor.value.copy(fogColorVec);
+            eu.exploredAlpha.value = this._exploredAlpha;
+            eu.unexploredAlpha.value = this._unexploredAlpha;
+            eu.uTime.value = this._time;
+            eu.edgeAnimOn.value = this._edgeAnimation ? 1.0 : 0.0;
+            eu.edgeAnimSpeed.value = this._edgeAnimationSpeed;
+            eu.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 2.0;
+            eu.fadeSmoothness.value = so.fadeSmoothness != null ? so.fadeSmoothness : 0.3;
+            eu.tentacleSharpness.value = so.tentacleSharpness != null ? so.tentacleSharpness : 3.0;
+        }
 
-    // 플레이어 픽셀 좌표 업데이트
-    if (typeof $gamePlayer !== 'undefined' && $gamePlayer) {
-        u.playerPixelPos.value.set(
-            ($gamePlayer._realX + 0.5) * 48,
-            ($gamePlayer._realY + 0.5) * 48
-        );
-    }
+        // 플레이어 픽셀 좌표 업데이트
+        if (typeof $gamePlayer !== 'undefined' && $gamePlayer) {
+            u.playerPixelPos.value.set(
+                ($gamePlayer._realX + 0.5) * 48,
+                ($gamePlayer._realY + 0.5) * 48
+            );
+        }
 
-    // 라이트 산란: $dataMap.editorLights.points에서 포인트 라이트 수집
-    this._updateLightUniforms(u);
+        // 라이트 산란: $dataMap.editorLights.points에서 포인트 라이트 수집
+        this._updateLightUniforms(u);
+    }
 };
 
 FogOfWar._updateLightUniforms = function(u) {
