@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import useEscClose from '../../hooks/useEscClose';
@@ -63,6 +63,12 @@ const TAB_COMPONENTS: Record<string, TabComponentType> = {
   terms: TermsTab as TabComponentType,
 };
 
+const MAX_HISTORY = 50;
+
+function getDataKey(tabKey: string) {
+  return (tabKey === 'types' || tabKey === 'terms') ? 'system' : tabKey;
+}
+
 export default function DatabaseDialog() {
   const { t } = useTranslation();
   const setShowDatabaseDialog = useEditorStore((s) => s.setShowDatabaseDialog);
@@ -73,10 +79,13 @@ export default function DatabaseDialog() {
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
 
+  // Undo/Redo history per dataKey
+  const undoStacks = useRef<Record<string, unknown[]>>({});
+  const redoStacks = useRef<Record<string, unknown[]>>({});
+
   const loadTabData = useCallback(async (tabKey: string) => {
-    // Types and Terms tabs use system data
-    const apiKey = (tabKey === 'types' || tabKey === 'terms') ? 'system' : tabKey;
-    const dataKey = (tabKey === 'types' || tabKey === 'terms') ? 'system' : tabKey;
+    const apiKey = getDataKey(tabKey);
+    const dataKey = getDataKey(tabKey);
     if (tabData[dataKey] !== undefined) return;
     setLoading(true);
     try {
@@ -94,10 +103,74 @@ export default function DatabaseDialog() {
   }, [activeTab, loadTabData]);
 
   const handleDataChange = useCallback((tabKey: string, newData: unknown) => {
-    const dataKey = (tabKey === 'types' || tabKey === 'terms') ? 'system' : tabKey;
-    setTabData((prev) => ({ ...prev, [dataKey]: newData }));
+    const dataKey = getDataKey(tabKey);
+    setTabData((prev) => {
+      const oldData = prev[dataKey];
+      if (oldData !== undefined) {
+        const stack = undoStacks.current[dataKey] || [];
+        stack.push(oldData);
+        if (stack.length > MAX_HISTORY) stack.shift();
+        undoStacks.current[dataKey] = stack;
+      }
+      // Clear redo on new change
+      redoStacks.current[dataKey] = [];
+      return { ...prev, [dataKey]: newData };
+    });
     setDirty((prev) => ({ ...prev, [dataKey]: true }));
   }, []);
+
+  const undo = useCallback(() => {
+    const dataKey = getDataKey(activeTab);
+    const stack = undoStacks.current[dataKey];
+    if (!stack || stack.length === 0) return;
+    const prev = stack.pop()!;
+    setTabData((current) => {
+      const currentData = current[dataKey];
+      if (currentData !== undefined) {
+        const rStack = redoStacks.current[dataKey] || [];
+        rStack.push(currentData);
+        redoStacks.current[dataKey] = rStack;
+      }
+      return { ...current, [dataKey]: prev };
+    });
+    setDirty((prev) => ({ ...prev, [dataKey]: true }));
+  }, [activeTab]);
+
+  const redo = useCallback(() => {
+    const dataKey = getDataKey(activeTab);
+    const rStack = redoStacks.current[dataKey];
+    if (!rStack || rStack.length === 0) return;
+    const next = rStack.pop()!;
+    setTabData((current) => {
+      const currentData = current[dataKey];
+      if (currentData !== undefined) {
+        const uStack = undoStacks.current[dataKey] || [];
+        uStack.push(currentData);
+        undoStacks.current[dataKey] = uStack;
+      }
+      return { ...current, [dataKey]: next };
+    });
+    setDirty((prev) => ({ ...prev, [dataKey]: true }));
+  }, [activeTab]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.includes('Mac');
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      if (!mod) return;
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        undo();
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault();
+        e.stopPropagation();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [undo, redo]);
 
   const saveAll = useCallback(async () => {
     const dirtyKeys = Object.keys(dirty).filter((k) => dirty[k]);
@@ -140,7 +213,7 @@ export default function DatabaseDialog() {
   };
 
   const TabComponent = TAB_COMPONENTS[activeTab];
-  const activeDataKey = (activeTab === 'types' || activeTab === 'terms') ? 'system' : activeTab;
+  const activeDataKey = getDataKey(activeTab);
 
   return (
     <div className="db-dialog-overlay">
