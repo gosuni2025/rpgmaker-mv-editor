@@ -735,8 +735,8 @@ FogOfWar._lerpDisplay = function(dt) {
 
             if (isBorder) {
                 if (borderState[idx] === 0) {
-                    // 새로 경계가 됨 → growFade를 0으로 리셋 (서서히 1로 증가)
-                    grow[idx] = 0.0;
+                    // 새로 경계가 됨 → growFade를 0.5로 시작 (촉수 절반 크기부터 표시)
+                    grow[idx] = 0.5;
                     changed = true;
                 }
                 borderState[idx] = 1;
