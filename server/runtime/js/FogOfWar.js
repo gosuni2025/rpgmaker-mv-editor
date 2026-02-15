@@ -168,18 +168,18 @@ var VOL_FOG_FRAG = [
     '    dissolveNoise *= 0.57;',
     '    float dn = edgeAnimOn * dissolveNoise;',
     '',
-    '    // 통합 시야값: 직접 시야 + 인접 시야(B채널, 벽 뒤 경계)',
-    '    // visibility > 0이면 직접 시야 사용, 아니면 nearVis로 경계 그라데이션',
-    '    float combined = max(visibility, nearVis * 0.4);',
-    '    float spreadVis = (combined > 0.001) ? sqrt(combined) : 0.0;',
-    '    float dissolvedVis = spreadVis + dn * 0.45;',
-    '    dissolvedVis = (combined > 0.001) ? max(dissolvedVis, 0.0) : 0.0;',
+    '    // B채널: 블러된 vis (2타일 반경 확산) — 모든 경계에서 부드러운 전환',
+    '    // nearVis는 원본 vis 주변까지 값이 퍼져 있으므로 경계가 부드러움',
+    '    float blurVis = nearVis;',
+    '    float dissolvedBlur = blurVis + dn * 0.3;',
+    '    dissolvedBlur = max(dissolvedBlur, 0.0);',
     '',
     '    // 최종 fog alpha',
     '    float fogAlpha;',
-    '    if (dissolvedVis > 0.001) {',
-    '        float visFactor = smoothstep(0.0, 0.6, dissolvedVis);',
-    '        visFactor = clamp(visFactor + visibilityBrightness * dissolvedVis, 0.0, 1.0);',
+    '    if (dissolvedBlur > 0.001) {',
+    '        // 블러된 vis 기반: 모든 경계에서 자연스러운 그라데이션',
+    '        float visFactor = smoothstep(0.0, 0.7, dissolvedBlur);',
+    '        visFactor = clamp(visFactor + visibilityBrightness * blurVis, 0.0, 1.0);',
     '        fogAlpha = mix(exploredAlpha, 0.0, visFactor);',
     '    } else if (explored > 0.01) {',
     '        // 탐험완료↔미탐험 경계',
@@ -502,44 +502,62 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
 };
 
 //=============================================================================
-// 시야 경계 데이터: vis=0 타일의 인접 가시성을 B채널에 기록
+// 시야 블러 데이터: vis를 확산시켜 B채널에 기록 (경계 그라데이션용)
 //=============================================================================
 
-FogOfWar._edgeData = null;
+FogOfWar._blurData = null;
+FogOfWar._blurTmp = null;
 
 FogOfWar._computeEdgeData = function() {
     var w = this._mapWidth;
     var h = this._mapHeight;
     var vis = this._visibilityData;
+    var size = w * h;
 
-    if (!this._edgeData || this._edgeData.length !== w * h) {
-        this._edgeData = new Float32Array(w * h);
+    if (!this._blurData || this._blurData.length !== size) {
+        this._blurData = new Float32Array(size);
+        this._blurTmp = new Float32Array(size);
     }
-    var edge = this._edgeData;
+    var blur = this._blurData;
+    var tmp = this._blurTmp;
 
-    for (var i = 0; i < edge.length; i++) edge[i] = 0;
+    // vis 복사
+    for (var i = 0; i < size; i++) tmp[i] = vis[i];
 
+    // 2패스 box blur (반경 2타일) — 수평 → 수직
+    var R = 2;
+    var kern = 2 * R + 1;
+
+    // 수평 블러 → blur
     for (var y = 0; y < h; y++) {
+        var sum = 0;
+        for (var x = 0; x < Math.min(R, w); x++) sum += tmp[y * w + x];
         for (var x = 0; x < w; x++) {
-            var idx = y * w + x;
-            if (vis[idx] > 0.01) continue; // 이미 보이는 타일은 스킵
-
-            // 인접 4방향 + 대각선 4방향의 vis 최대값
-            var maxNear = 0;
-            for (var dy = -1; dy <= 1; dy++) {
-                for (var dx = -1; dx <= 1; dx++) {
-                    if (dx === 0 && dy === 0) continue;
-                    var nx = x + dx;
-                    var ny = y + dy;
-                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-                        var nv = vis[ny * w + nx];
-                        if (nv > maxNear) maxNear = nv;
-                    }
-                }
-            }
-            edge[idx] = maxNear;
+            var rx = x + R;
+            if (rx < w) sum += tmp[y * w + rx];
+            var lx = x - R - 1;
+            if (lx >= 0) sum -= tmp[y * w + lx];
+            var cnt = Math.min(rx, w - 1) - Math.max(x - R, 0) + 1;
+            blur[y * w + x] = sum / cnt;
         }
     }
+
+    // 수직 블러 → tmp (결과)
+    for (var x = 0; x < w; x++) {
+        var sum = 0;
+        for (var y = 0; y < Math.min(R, h); y++) sum += blur[y * w + x];
+        for (var y = 0; y < h; y++) {
+            var ry = y + R;
+            if (ry < h) sum += blur[ry * w + x];
+            var ly = y - R - 1;
+            if (ly >= 0) sum -= blur[ly * w + x];
+            var cnt = Math.min(ry, h - 1) - Math.max(y - R, 0) + 1;
+            tmp[y * w + x] = sum / cnt;
+        }
+    }
+
+    // 결과를 blurData에 저장 (vis보다 넓게 퍼진 값)
+    for (var i = 0; i < size; i++) blur[i] = tmp[i];
 };
 
 //=============================================================================
@@ -636,13 +654,13 @@ FogOfWar._updateTexture = function() {
     var vis = this._visibilityData;
     var explored = this._exploredData;
 
-    var edge = this._edgeData;
+    var blur = this._blurData;
 
     for (var i = 0; i < w * h; i++) {
         var pi = i * 4;
-        data[pi + 0] = Math.round(vis[i] * 255);     // R = visibility
+        data[pi + 0] = Math.round(vis[i] * 255);     // R = visibility (원본)
         data[pi + 1] = explored[i] * 255;              // G = explored
-        data[pi + 2] = edge ? Math.round(edge[i] * 255) : 0; // B = 시야 인접도
+        data[pi + 2] = blur ? Math.round(Math.min(blur[i], 1.0) * 255) : 0; // B = 블러된 vis
         data[pi + 3] = 255;
     }
 
