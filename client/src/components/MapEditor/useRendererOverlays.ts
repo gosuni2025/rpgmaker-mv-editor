@@ -654,8 +654,12 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
       if (fogMesh?.material?.uniforms) {
         const u = fogMesh.material.uniforms;
         u.uTime.value = FogOfWarMod._time;
-        // isOrtho 모드: cameraWorldPos.z만 의미 있음 (xy는 vWorldPos에서 가져옴)
         u.cameraWorldPos.value.set(0, 0, FogOfWarMod._fogHeight + 100);
+        // 셰이더 디버그 오버라이드 (런타임 DevPanel에서 조절한 값 반영)
+        const so = FogOfWarMod._shaderOverrides || {};
+        if (u.dissolveStrength) u.dissolveStrength.value = so.dissolveStrength ?? 0.25;
+        if (u.fadeSmoothness) u.fadeSmoothness.value = so.fadeSmoothness ?? 0.7;
+        if (u.nearVisWeight) u.nearVisWeight.value = so.nearVisWeight ?? 0.7;
       }
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       animId = requestAnimationFrame(animate);
