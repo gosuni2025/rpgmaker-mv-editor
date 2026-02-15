@@ -78,6 +78,9 @@ export default function LightInspector() {
           <div className="light-inspector-row">
             <DragLabel label="강도" value={editorLights.ambient.intensity} step={0.05} min={0} max={10}
               onChange={(v) => updateAmbientLight({ intensity: v })} />
+            <input type="range" className="light-inspector-slider" min={0} max={3} step={0.05}
+              value={editorLights.ambient.intensity}
+              onChange={(e) => updateAmbientLight({ intensity: parseFloat(e.target.value) })} />
             <input type="number" className="light-inspector-input" step={0.05}
               value={editorLights.ambient.intensity}
               onChange={(e) => updateAmbientLight({ intensity: parseFloat(e.target.value) || 0 })} />
