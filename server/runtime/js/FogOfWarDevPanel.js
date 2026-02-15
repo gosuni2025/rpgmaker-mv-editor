@@ -77,6 +77,37 @@
     });
 
     var sliderEls = {}; // key → { slider, valueEl }
+    var STORAGE_KEY = 'fowDevPanel';
+
+    function saveToStorage() {
+        var data = {};
+        ALL_PARAMS.forEach(function(p) {
+            if (p.shader) {
+                data[p.key] = FOW._shaderOverrides[p.key];
+            } else {
+                var prop = KEY_MAP[p.key];
+                if (prop && FOW[prop] !== undefined) {
+                    data[p.key] = p.type === 'bool' ? (FOW[prop] ? 1 : 0) : FOW[prop];
+                }
+            }
+        });
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+    }
+
+    function loadFromStorage() {
+        var raw;
+        try { raw = localStorage.getItem(STORAGE_KEY); } catch(e) { return; }
+        if (!raw) return;
+        var data;
+        try { data = JSON.parse(raw); } catch(e) { return; }
+
+        ALL_PARAMS.forEach(function(p) {
+            if (data[p.key] === undefined) return;
+            var val = data[p.key];
+            applyParam(p, val);
+            updateSlider(p.key, val);
+        });
+    }
 
     function createPanel() {
         panel = document.createElement('div');
@@ -134,6 +165,7 @@
                 updateSlider(p.key, p.def);
             });
             FOW._prevPlayerX = -1;
+            saveToStorage();
         });
         body.appendChild(resetBtn);
 
@@ -150,8 +182,9 @@
             });
         }
 
-        // 초기값 동기화
+        // 초기값 동기화 후 로컬스토리지에서 복원
         syncFromFOW();
+        loadFromStorage();
     }
 
     function addSection(parent, text, color) {
@@ -184,6 +217,7 @@
                 }
             }
         }
+        saveToStorage();
     }
 
     function createSliderRow(param, onChange) {
