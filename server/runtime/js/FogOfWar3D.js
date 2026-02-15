@@ -331,30 +331,29 @@ FogOfWar3D._disposeMesh = function() {
 };
 
 //=============================================================================
-// 촉수 메쉬 시스템 - 박스 외곽 엣지에서 바깥으로 뻗어나오는 촉수
+// 촉수 메쉬 시스템 - 윗면 경계에서 위로 솟아오르는 개별 촉수 줄기(strand)
 //=============================================================================
 
 FogOfWar3D._tentacleMesh = null;
 FogOfWar3D._tentacleEdges = null;  // 현재 경계 엣지 캐시
 
-// 촉수 버텍스 셰이더: 노이즈로 아지랑이처럼 피어오르는 유기적 형태
+// 촉수 버텍스 셰이더: 각 줄기가 노이즈로 유기적으로 휘어지는 리본
 var TENTACLE_VERT = [
-    'attribute float aDepth;',       // 0=박스면(밀착), 1=촉수끝(최대돌출)
-    'attribute vec2 aOutward;',      // 바깥 방향 (정규화된 XY)
-    'attribute float aWallCoord;',   // 벽면 수평 좌표 (노이즈 시드)
-    'attribute float aZCoord;',      // 이 정점의 Z 좌표 (0~fogHeight, 노이즈 시드)
+    'attribute float aHeightT;',     // 0=바닥(박스 꼭대기), 1=촉수 끝
+    'attribute float aRibbonSide;',  // -1=왼쪽, +1=오른쪽 (리본 폭)
+    'attribute vec2 aSeedXY;',       // 촉수 시작점 월드 XY (노이즈 시드)
+    'attribute float aBaseZ;',       // 시작 Z (fogHeight)
+    'attribute float aTentacleHeight;', // 이 촉수의 높이
     '',
-    'varying float vDepth;',
+    'varying float vHeightT;',
     'varying float vAlpha;',
     'varying vec3 vWorldPos;',
-    'varying float vHeightNorm;',    // Z/fogHeight (그라데이션용)
+    'varying float vHeightNorm;',
     '',
     'uniform float uTime;',
     'uniform float edgeAnimSpeed;',
-    'uniform float dissolveStrength;',
-    'uniform float tentacleSharpness;',
     'uniform float fogHeight;',
-    'uniform float tentacleMaxDisplace;',
+    'uniform float tentacleMaxLength;',
     '',
     '// --- 노이즈 함수 ---',
     'vec2 _hash22(vec2 p) {',
@@ -378,55 +377,56 @@ var TENTACLE_VERT = [
     '',
     'void main() {',
     '    float timeS = uTime * edgeAnimSpeed;',
-    '    float heightNorm = clamp(aZCoord / fogHeight, 0.0, 1.0);',
+    '    float t = aHeightT;',  // 0~1 along strand
     '',
-    '    // --- 아지랑이 형태: 높이에 따라 점점 퍼지고 흔들림 ---',
+    '    // 촉수 줄기의 XY 오프셋: 높이에 따라 점점 크게 휘어짐',
+    '    // 저주파(큰 곡선) + 고주파(잔물결) 조합',
+    '    vec2 seed = aSeedXY / 48.0;',  // 타일 단위로 정규화
     '',
-    '    // 1) 주 돌출량 노이즈 (outward 방향)',
-    '    vec2 noiseCoord = vec2(aWallCoord / 8.0, aZCoord / 12.0);',
-    '    float n1 = fbm3(noiseCoord * 1.0 + vec2(timeS * 0.3, timeS * 0.2));',
-    '    float n2 = _valueNoise(noiseCoord * 2.5 + vec2(-timeS * 0.4, 17.0));',
-    '    float n3 = _valueNoise(noiseCoord * 5.0 + vec2(timeS * 0.5, -31.0));',
-    '    float noise = clamp(n1 * 0.5 + n2 * 0.3 + n3 * 0.2 + 0.5, 0.0, 1.0);',
+    '    // X방향 휘어짐',
+    '    float curveLowX = fbm3(seed * 1.5 + vec2(timeS * 0.08, t * 2.0));',
+    '    float curveHighX = _valueNoise(seed * 3.0 + vec2(-timeS * 0.15, t * 4.0 + 7.0));',
+    '    float offsetX = (curveLowX * 0.7 + curveHighX * 0.3) * t * t * tentacleMaxLength * 0.8;',
     '',
-    '    // 돌출 강도: 높이에 따라 포물선으로 커짐 (바닥~중간은 작고, 위로 갈수록 크게)',
-    '    float heightCurve = smoothstep(0.0, 0.3, heightNorm) * (0.5 + 0.5 * heightNorm);',
-    '    float tentDisp = pow(noise, tentacleSharpness) * dissolveStrength * tentacleMaxDisplace * heightCurve;',
+    '    // Y방향 휘어짐 (다른 시드)',
+    '    float curveLowY = fbm3(seed * 1.5 + vec2(t * 2.0 + 13.0, timeS * 0.1));',
+    '    float curveHighY = _valueNoise(seed * 3.0 + vec2(t * 4.0 - 5.0, timeS * 0.12));',
+    '    float offsetY = (curveLowY * 0.7 + curveHighY * 0.3) * t * t * tentacleMaxLength * 0.8;',
     '',
-    '    // 2) 옆 방향(tangent) 흔들림: 촉수가 좌우로 일렁이는 효과',
-    '    float swayNoise = fbm3(vec2(aWallCoord / 6.0 + timeS * 0.15, aZCoord / 10.0 + timeS * 0.08));',
-    '    float swayAmount = swayNoise * tentacleMaxDisplace * 0.6 * heightNorm * heightNorm * aDepth;',
+    '    // Z = 위로 솟아오름 (바닥=aBaseZ, 끝=aBaseZ+tentacleHeight)',
+    '    float z = aBaseZ + t * aTentacleHeight;',
     '',
-    '    // tangent 방향: outward에 수직 (2D 회전 90도)',
-    '    vec2 tangent = vec2(-aOutward.y, aOutward.x);',
+    '    // 리본 폭: 바닥에서 넓고 끝에서 좁아짐',
+    '    float ribbonWidth = mix(6.0, 0.5, t * t);',
     '',
-    '    // 3) Z축 흔들림: 위로 피어오르는 아지랑이 효과',
-    '    float zWaveNoise = _valueNoise(vec2(aWallCoord / 5.0 - timeS * 0.12, aZCoord / 8.0 + timeS * 0.25));',
-    '    float zDisplace = zWaveNoise * tentacleMaxDisplace * 0.4 * heightNorm * aDepth;',
+    '    // 리본 측면 방향: 줄기 접선에 수직인 방향 (근사)',
+    '    // 접선 = d(offset)/dt 의 수직 → 간단히 90도 회전',
+    '    float dOx = curveLowX + curveHighX * 0.5;',
+    '    float dOy = curveLowY + curveHighY * 0.5;',
+    '    float len = max(length(vec2(dOx, dOy)), 0.01);',
+    '    vec2 normal2d = vec2(-dOy, dOx) / len;',
     '',
-    '    // depth별: 0(박스면)은 변형 없음, 1(촉수끝)은 최대',
-    '    float displace = aDepth * tentDisp;',
+    '    // 최종 위치',
+    '    vec3 pos = vec3(',
+    '        aSeedXY.x + offsetX + aRibbonSide * normal2d.x * ribbonWidth,',
+    '        aSeedXY.y + offsetY + aRibbonSide * normal2d.y * ribbonWidth,',
+    '        z',
+    '    );',
     '',
-    '    // 최종 변위: outward + tangent 흔들림 + Z 흔들림',
-    '    vec3 displaced = position;',
-    '    displaced.xy += aOutward * displace;',
-    '    displaced.xy += tangent * swayAmount;',
-    '    displaced.z += zDisplace;',
+    '    vHeightT = t;',
+    '    vAlpha = 1.0 - t;',
+    '    vWorldPos = pos;',
+    '    vHeightNorm = clamp(z / (fogHeight + tentacleMaxLength), 0.0, 1.0);',
     '',
-    '    vDepth = aDepth;',
-    '    vAlpha = 1.0 - aDepth;',
-    '    vWorldPos = displaced;',
-    '    vHeightNorm = clamp(aZCoord / fogHeight, 0.0, 1.0);',
-    '',
-    '    gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);',
+    '    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);',
     '}'
 ].join('\n');
 
-// 촉수 프래그먼트 셰이더: fog 색상 + 높이별/깊이별 알파 페이드
+// 촉수 프래그먼트 셰이더
 var TENTACLE_FRAG = [
     'precision highp float;',
     '',
-    'varying float vDepth;',
+    'varying float vHeightT;',
     'varying float vAlpha;',
     'varying vec3 vWorldPos;',
     'varying float vHeightNorm;',
@@ -437,244 +437,152 @@ var TENTACLE_FRAG = [
     'uniform float heightGradientOn;',
     '',
     'void main() {',
-    '    if (vAlpha < 0.01) discard;',
-    '    vec3 color = heightGradientOn > 0.5 ? mix(fogColor, fogColorTop, vHeightNorm) : fogColor;',
-    '    // 깊이 페이드 (끝으로 갈수록 투명) + 높이 페이드 (꼭대기에서 사라짐)',
-    '    float depthFade = pow(vAlpha, 1.2);',
-    '    float topFade = 1.0 - smoothstep(0.7, 1.0, vHeightNorm);',
-    '    float alpha = unexploredAlpha * depthFade * mix(1.0, topFade, 0.6);',
+    '    float alpha = unexploredAlpha * pow(vAlpha, 1.5);',
     '    if (alpha < 0.01) discard;',
+    '    vec3 color = heightGradientOn > 0.5 ? mix(fogColor, fogColorTop, vHeightNorm) : fogColor;',
     '    gl_FragColor = vec4(color, alpha);',
     '}'
 ].join('\n');
 
-// 경계 엣지 탐지: fog 텍스처에서 미탐험↔탐험 경계를 찾아 엣지 목록 반환
-// 반환: [{tx, ty, dir}] — dir: 0=+X, 1=-X, 2=+Y, 3=-Y (탐험된 쪽 방향)
-FogOfWar3D._detectBorderEdges = function() {
+// 경계 타일 탐지: 미탐험 타일 중 인접에 탐험된 타일이 있는 것
+// 반환: [{tx, ty}] (중복 없음)
+FogOfWar3D._detectBorderTiles = function() {
     var fow = window.FogOfWar;
     if (!fow || !fow._exploredData) return [];
 
     var w = this._mapWidth;
     var h = this._mapHeight;
-    var explored = fow._exploredData;  // Uint8Array[w*h]
-    var edges = [];
+    var explored = fow._exploredData;
+    var tiles = [];
 
     for (var ty = 0; ty < h; ty++) {
         for (var tx = 0; tx < w; tx++) {
             var idx = ty * w + tx;
-            if (explored[idx]) continue;  // 탐험된 타일은 건너뜀
+            if (explored[idx]) continue;
 
-            // 미탐험 타일의 인접 탐험 타일 방향
-            if (tx + 1 < w && explored[idx + 1])    edges.push({tx: tx, ty: ty, dir: 0});  // +X
-            if (tx - 1 >= 0 && explored[idx - 1])   edges.push({tx: tx, ty: ty, dir: 1});  // -X
-            if (ty + 1 < h && explored[idx + w])     edges.push({tx: tx, ty: ty, dir: 2});  // +Y
-            if (ty - 1 >= 0 && explored[idx - w])    edges.push({tx: tx, ty: ty, dir: 3});  // -Y
+            // 4방향 중 하나라도 탐험되었으면 경계
+            if ((tx + 1 < w && explored[idx + 1]) ||
+                (tx - 1 >= 0 && explored[idx - 1]) ||
+                (ty + 1 < h && explored[idx + w]) ||
+                (ty - 1 >= 0 && explored[idx - w])) {
+                tiles.push({tx: tx, ty: ty});
+            }
         }
     }
-    return edges;
+    return tiles;
 };
 
-// 촉수 메쉬 생성: 각 경계 엣지의 옆면에 3D 격자(벽면수평 × 높이 × 돌출깊이) 배치
-// 벽면 수평(wSegs)을 세분화하여 타일 너비를 따라 노이즈 변화 생성
-FogOfWar3D._buildTentacleMesh = function(edges) {
-    if (edges.length === 0) return null;
+// 촉수 줄기(strand) 리본 메쉬 빌드
+// 각 경계 타일 위에 여러 촉수 줄기를 배치
+FogOfWar3D._buildTentacleMesh = function(borderTiles) {
+    if (borderTiles.length === 0) return null;
 
     var tileSize = 48;
     var fogHeight = this._fogHeight;
-    var wSegs = 8;   // 벽면 수평 세그먼트 수 (타일 1개 너비를 8등분, 좌우 흔들림 해상도)
-    var zSegs = 16;  // 높이(Z) 세그먼트 수 (높이별 곡선 해상도)
-    var dSegs = 4;   // 깊이(돌출) 세그먼트 수
+    var strandsPerTile = 5;   // 타일당 촉수 수
+    var segsPerStrand = 12;   // 높이 세그먼트 수
 
-    // 각 엣지: (wSegs+1) × (zSegs+1) × (dSegs+1) 정점
-    var vertsPerEdge = (wSegs + 1) * (zSegs + 1) * (dSegs + 1);
-    // 각 셀: wSegs × zSegs × dSegs 큐보이드, 각 큐보이드의 면은...
-    // 실제로는 벽면(w×z) × 깊이(d) 형태의 볼륨
-    // 삼각형: 각 (w,z) 셀의 depth 방향 face + 각 (w,d) 셀의 z 방향 face + 각 (z,d) 셀의 w 방향 face
-    // → 너무 복잡. 대신 벽면(w×z) 격자를 depth별로 복제하는 방식 유지
-    // 인접 depth 레이어 간 연결은 vertex shader에서 displace로 처리되므로,
-    // 실제 렌더할 면은 가장 바깥 면(depth 방향에서 보이는 면)
-    // → 간단하게: 각 depth 슬라이스마다 (w×z) quad strip 생성
-    // 하지만 양면 렌더링이므로, (w×z×d) 격자로 만들고 모든 face 렌더
+    // 각 줄기: (segsPerStrand+1) * 2 정점 (좌/우 리본), segsPerStrand * 2 삼각형
+    var vertsPerStrand = (segsPerStrand + 1) * 2;
+    var trisPerStrand = segsPerStrand * 2;
+    var totalStrands = borderTiles.length * strandsPerTile;
+    var totalVerts = totalStrands * vertsPerStrand;
+    var totalTris = totalStrands * trisPerStrand;
 
-    // 간소화: 벽면 수평×높이 격자를 depth 방향으로 확장
-    // 삼각형 수: wSegs*zSegs*2 면 × (dSegs+1)... 아니, 3D 격자의 모든 면을 만드는건 과하다
-    // 대신: (w × z) 격자를 각 depth 레벨로 만들되, 인접 depth 간 연결
-    // → 총 삼각형 = (wSegs * zSegs * dSegs) * 2 (w-z 면만, depth 방향)
-    //              + (wSegs * dSegs * zSegs) * 2 가 아니라...
-    //
-    // 가장 단순하고 효과적인 방식: 벽면(w×z) 평면을 depth별로 만들어 연결
-    // 각 (wi, zi) 칸에서 depth 방향의 quad strip
-    // 삼각형 수: z-d면(w방향) + w-d면(z방향) + w-z면(d방향, 바깥면만)
-    var trisPerEdge = wSegs * (zSegs * dSegs * 2)    // z-d 면 (촉수 옆 프로파일)
-                    + zSegs * (wSegs * dSegs * 2)     // w-d 면 (촉수 상하 캡)
-                    + wSegs * zSegs * 2;               // w-z 면 (최외곽 d=dSegs, 촉수 바깥면)
-    var totalVerts = edges.length * vertsPerEdge;
-    var totalTris = edges.length * trisPerEdge;
-
-    var positions = new Float32Array(totalVerts * 3);
-    var aDepth = new Float32Array(totalVerts);
-    var aOutward = new Float32Array(totalVerts * 2);
-    var aWallCoord = new Float32Array(totalVerts);
-    var aZCoord = new Float32Array(totalVerts);
+    var positions = new Float32Array(totalVerts * 3);   // 더미, 셰이더에서 덮어씀
+    var aHeightT = new Float32Array(totalVerts);
+    var aRibbonSide = new Float32Array(totalVerts);
+    var aSeedXY = new Float32Array(totalVerts * 2);
+    var aBaseZ = new Float32Array(totalVerts);
+    var aTentacleHeight = new Float32Array(totalVerts);
     var indices = new Uint32Array(totalTris * 3);
 
     var vi = 0;
     var ii = 0;
 
-    var DIR_OUTWARD = [
-        [1, 0],   // dir=0 (+X): 면은 Y축 방향으로 뻗음
-        [-1, 0],  // dir=1 (-X): 면은 Y축 방향으로 뻗음
-        [0, 1],   // dir=2 (+Y): 면은 X축 방향으로 뻗음
-        [0, -1]   // dir=3 (-Y): 면은 X축 방향으로 뻗음
-    ];
+    // 간단한 해시 함수 (결정적 랜덤)
+    function hash(a, b) {
+        var h = (a * 73856093) ^ (b * 19349663);
+        h = ((h >> 16) ^ h) * 0x45d9f3b;
+        h = ((h >> 16) ^ h) * 0x45d9f3b;
+        h = (h >> 16) ^ h;
+        return (h & 0x7fffffff) / 0x7fffffff;
+    }
 
-    // 벽면 탄젠트 (수평 방향): outward에 수직인 방향
-    var DIR_TANGENT = [
-        [0, 1],   // dir=0 (+X): 벽면은 Y 방향
-        [0, 1],   // dir=1 (-X): 벽면은 Y 방향
-        [1, 0],   // dir=2 (+Y): 벽면은 X 방향
-        [1, 0]    // dir=3 (-Y): 벽면은 X 방향
-    ];
+    for (var ti = 0; ti < borderTiles.length; ti++) {
+        var tile = borderTiles[ti];
+        var tileCX = tile.tx * tileSize + tileSize / 2;
+        var tileCY = tile.ty * tileSize + tileSize / 2;
 
-    for (var e = 0; e < edges.length; e++) {
-        var edge = edges[e];
-        var tileLeft = edge.tx * tileSize;
-        var tileBottom = edge.ty * tileSize;
-        var outX = DIR_OUTWARD[edge.dir][0];
-        var outY = DIR_OUTWARD[edge.dir][1];
-        var tanX = DIR_TANGENT[edge.dir][0];
-        var tanY = DIR_TANGENT[edge.dir][1];
+        for (var si = 0; si < strandsPerTile; si++) {
+            // 촉수 시작점: 타일 내 랜덤 위치
+            var r1 = hash(tile.tx * 7 + si * 31, tile.ty * 13 + si * 47);
+            var r2 = hash(tile.tx * 17 + si * 53, tile.ty * 23 + si * 61);
+            var r3 = hash(tile.tx * 37 + si * 71, tile.ty * 43 + si * 83);
+            var seedX = tile.tx * tileSize + r1 * tileSize;
+            var seedY = tile.ty * tileSize + r2 * tileSize;
+            var tentH = fogHeight * (0.3 + r3 * 0.7);  // 촉수 높이: fogHeight의 30~100%
 
-        // 박스 면의 시작점 (벽면의 왼쪽/아래 끝)
-        // +X면: x = tileRight, y = tileBottom ~ tileTop
-        // -X면: x = tileLeft, y = tileBottom ~ tileTop
-        // +Y면: y = tileTop, x = tileLeft ~ tileRight
-        // -Y면: y = tileBottom, x = tileLeft ~ tileRight
-        var startX, startY;
-        if (edge.dir === 0) { startX = tileLeft + tileSize; startY = tileBottom; }
-        else if (edge.dir === 1) { startX = tileLeft; startY = tileBottom; }
-        else if (edge.dir === 2) { startX = tileLeft; startY = tileBottom + tileSize; }
-        else { startX = tileLeft; startY = tileBottom; }
+            var baseVi = vi;
 
-        var baseVi = vi;
-
-        // 정점 생성: w × z × d 격자
-        for (var wi = 0; wi <= wSegs; wi++) {
-            var wNorm = wi / wSegs;
-            // 벽면 수평 위치 (탄젠트 방향으로 이동)
-            var wallX = startX + tanX * wNorm * tileSize;
-            var wallY = startY + tanY * wNorm * tileSize;
-            // wallCoord: 실제 월드 좌표 (노이즈 시드)
-            var wCoord = (edge.dir === 0 || edge.dir === 1) ? wallY : wallX;
-
-            for (var zi = 0; zi <= zSegs; zi++) {
-                var zVal = (zi / zSegs) * fogHeight;
-
-                for (var di = 0; di <= dSegs; di++) {
-                    var dNorm = di / dSegs;
+            // 정점 생성: 높이 세그먼트 × 좌우 2
+            for (var hi = 0; hi <= segsPerStrand; hi++) {
+                var t = hi / segsPerStrand;
+                for (var side = 0; side < 2; side++) {
+                    var ribbonS = side === 0 ? -1.0 : 1.0;
 
                     var vIdx = vi * 3;
-                    positions[vIdx] = wallX;
-                    positions[vIdx + 1] = wallY;
-                    positions[vIdx + 2] = zVal;
+                    // 더미 position (셰이더에서 덮어씀)
+                    positions[vIdx] = seedX;
+                    positions[vIdx + 1] = seedY;
+                    positions[vIdx + 2] = fogHeight + t * tentH;
 
-                    aDepth[vi] = dNorm;
-                    aOutward[vi * 2] = outX;
-                    aOutward[vi * 2 + 1] = outY;
-                    aWallCoord[vi] = wCoord;
-                    aZCoord[vi] = zVal;
+                    aHeightT[vi] = t;
+                    aRibbonSide[vi] = ribbonS;
+                    aSeedXY[vi * 2] = seedX;
+                    aSeedXY[vi * 2 + 1] = seedY;
+                    aBaseZ[vi] = fogHeight;
+                    aTentacleHeight[vi] = tentH;
 
                     vi++;
                 }
             }
-        }
 
-        // 인덱스 생성: 3종류의 면
-        var stride_w = (zSegs + 1) * (dSegs + 1);
-        var stride_z = (dSegs + 1);
-
-        // helper: 정점 인덱스 계산
-        // v(wi, zi, di) = baseVi + wi*stride_w + zi*stride_z + di
-
-        // 1) z-d 면: 벽면 수평 방향(w)에서 보이는 촉수 프로파일
-        //    각 wi 슬라이스에서 (zi, di) 격자의 quad
-        for (var wi = 0; wi < wSegs; wi++) {
-            for (var zi = 0; zi < zSegs; zi++) {
-                for (var di = 0; di < dSegs; di++) {
-                    var a = baseVi + wi * stride_w + zi * stride_z + di;
-                    var b = a + 1;              // di+1
-                    var c = a + stride_z;       // zi+1
-                    var d = c + 1;              // zi+1, di+1
-                    indices[ii++] = a; indices[ii++] = c; indices[ii++] = b;
-                    indices[ii++] = b; indices[ii++] = c; indices[ii++] = d;
-                }
-            }
-        }
-
-        // 2) w-d 면: 높이(z) 방향에서 보이는 촉수 상하 캡
-        //    각 zi 슬라이스에서 (wi, di) 격자의 quad
-        for (var zi = 0; zi < zSegs; zi++) {
-            for (var wi = 0; wi < wSegs; wi++) {
-                for (var di = 0; di < dSegs; di++) {
-                    var a = baseVi + wi * stride_w + zi * stride_z + di;
-                    var b = a + 1;                  // di+1
-                    var c = a + stride_w;            // wi+1
-                    var d = c + 1;                   // wi+1, di+1
-                    indices[ii++] = a; indices[ii++] = c; indices[ii++] = b;
-                    indices[ii++] = b; indices[ii++] = c; indices[ii++] = d;
-                }
-            }
-        }
-
-        // 3) w-z 면 (최외곽 d=dSegs만): 촉수 바깥 표면
-        var di_outer = dSegs;
-        for (var wi = 0; wi < wSegs; wi++) {
-            for (var zi = 0; zi < zSegs; zi++) {
-                var a = baseVi + wi * stride_w + zi * stride_z + di_outer;
-                var b = a + stride_z;            // zi+1
-                var c = a + stride_w;            // wi+1
-                var d = c + stride_z;            // wi+1, zi+1
-                indices[ii++] = a; indices[ii++] = b; indices[ii++] = c;
-                indices[ii++] = c; indices[ii++] = b; indices[ii++] = d;
+            // 인덱스: 삼각형 스트립 (좌-우 쌍으로)
+            for (var hi = 0; hi < segsPerStrand; hi++) {
+                var v0 = baseVi + hi * 2;      // 현재 높이 왼쪽
+                var v1 = v0 + 1;               // 현재 높이 오른쪽
+                var v2 = v0 + 2;               // 다음 높이 왼쪽
+                var v3 = v0 + 3;               // 다음 높이 오른쪽
+                indices[ii++] = v0; indices[ii++] = v2; indices[ii++] = v1;
+                indices[ii++] = v1; indices[ii++] = v2; indices[ii++] = v3;
             }
         }
     }
 
     var geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions.subarray(0, vi * 3), 3));
-    geometry.setAttribute('aDepth', new THREE.BufferAttribute(aDepth.subarray(0, vi), 1));
-    geometry.setAttribute('aOutward', new THREE.BufferAttribute(aOutward.subarray(0, vi * 2), 2));
-    geometry.setAttribute('aWallCoord', new THREE.BufferAttribute(aWallCoord.subarray(0, vi), 1));
-    geometry.setAttribute('aZCoord', new THREE.BufferAttribute(aZCoord.subarray(0, vi), 1));
+    geometry.setAttribute('aHeightT', new THREE.BufferAttribute(aHeightT.subarray(0, vi), 1));
+    geometry.setAttribute('aRibbonSide', new THREE.BufferAttribute(aRibbonSide.subarray(0, vi), 1));
+    geometry.setAttribute('aSeedXY', new THREE.BufferAttribute(aSeedXY.subarray(0, vi * 2), 2));
+    geometry.setAttribute('aBaseZ', new THREE.BufferAttribute(aBaseZ.subarray(0, vi), 1));
+    geometry.setAttribute('aTentacleHeight', new THREE.BufferAttribute(aTentacleHeight.subarray(0, vi), 1));
     geometry.setIndex(new THREE.BufferAttribute(indices.subarray(0, ii), 1));
 
     return geometry;
 };
 
-FogOfWar3D._createTentacles = function(scene) {
-    this._disposeTentacles();
-
-    var edges = this._detectBorderEdges();
-    if (edges.length === 0) return;
-
-    var geometry = this._buildTentacleMesh(edges);
-    if (!geometry) return;
-
+FogOfWar3D._createTentacleMaterial = function() {
     var fogOfWar = window.FogOfWar;
     var fogColor = fogOfWar._fogColor;
     var fogColorTop = fogOfWar._fogColorTop;
 
-    var so = fogOfWar._shaderOverrides || {};
-    var tentacleMaxDisplace = 32;  // 촉수 최대 돌출 거리 (px)
-
-    var material = new THREE.ShaderMaterial({
+    return new THREE.ShaderMaterial({
         uniforms: {
             uTime:              { value: this._time },
             edgeAnimSpeed:      { value: fogOfWar._edgeAnimationSpeed },
-            dissolveStrength:   { value: so.dissolveStrength != null ? so.dissolveStrength : 4.0 },
-            tentacleSharpness:  { value: so.tentacleSharpness != null ? so.tentacleSharpness : 1.8 },
             fogHeight:          { value: this._fogHeight },
-            tentacleMaxDisplace: { value: tentacleMaxDisplace },
+            tentacleMaxLength:  { value: this._fogHeight * 0.6 },
             fogColor:           { value: new THREE.Vector3(fogColor.r, fogColor.g, fogColor.b) },
             fogColorTop:        { value: new THREE.Vector3(fogColorTop.r, fogColorTop.g, fogColorTop.b) },
             unexploredAlpha:    { value: fogOfWar._unexploredAlpha },
@@ -687,6 +595,18 @@ FogOfWar3D._createTentacles = function(scene) {
         depthWrite: false,
         side: THREE.DoubleSide
     });
+};
+
+FogOfWar3D._createTentacles = function(scene) {
+    this._disposeTentacles();
+
+    var borderTiles = this._detectBorderTiles();
+    if (borderTiles.length === 0) return;
+
+    var geometry = this._buildTentacleMesh(borderTiles);
+    if (!geometry) return;
+
+    var material = this._createTentacleMaterial();
 
     var mesh = new THREE.Mesh(geometry, material);
     mesh.frustumCulled = false;
@@ -694,7 +614,7 @@ FogOfWar3D._createTentacles = function(scene) {
     mesh._isFogOfWar3DTentacle = true;
 
     this._tentacleMesh = mesh;
-    this._tentacleEdges = edges;
+    this._tentacleEdges = borderTiles;
     scene.add(mesh);
 };
 
@@ -719,30 +639,26 @@ FogOfWar3D._updateTentacleUniforms = function() {
     var u = this._tentacleMesh.material.uniforms;
     u.uTime.value = this._time;
     u.edgeAnimSpeed.value = fogOfWar._edgeAnimationSpeed;
+    u.fogHeight.value = this._fogHeight;
+    u.tentacleMaxLength.value = this._fogHeight * 0.6;
     u.fogColor.value.set(fogOfWar._fogColor.r, fogOfWar._fogColor.g, fogOfWar._fogColor.b);
     u.fogColorTop.value.set(fogOfWar._fogColorTop.r, fogOfWar._fogColorTop.g, fogOfWar._fogColorTop.b);
     u.unexploredAlpha.value = fogOfWar._unexploredAlpha;
     u.heightGradientOn.value = fogOfWar._heightGradient ? 1.0 : 0.0;
-
-    var so = fogOfWar._shaderOverrides || {};
-    u.dissolveStrength.value = so.dissolveStrength != null ? so.dissolveStrength : 4.0;
-    u.tentacleSharpness.value = so.tentacleSharpness != null ? so.tentacleSharpness : 1.8;
 };
 
 // 경계가 변했는지 확인하고 메쉬 재생성
 FogOfWar3D._refreshTentaclesIfNeeded = function(scene) {
-    var newEdges = this._detectBorderEdges();
-    var oldEdges = this._tentacleEdges;
+    var newTiles = this._detectBorderTiles();
+    var oldTiles = this._tentacleEdges;
 
-    // 간단 비교: 엣지 수가 다르면 재생성
-    var needRebuild = !oldEdges || newEdges.length !== oldEdges.length;
+    // 간단 비교
+    var needRebuild = !oldTiles || newTiles.length !== oldTiles.length;
 
-    if (!needRebuild && oldEdges) {
-        // 내용 비교
-        for (var i = 0; i < newEdges.length; i++) {
-            if (newEdges[i].tx !== oldEdges[i].tx ||
-                newEdges[i].ty !== oldEdges[i].ty ||
-                newEdges[i].dir !== oldEdges[i].dir) {
+    if (!needRebuild && oldTiles) {
+        for (var i = 0; i < newTiles.length; i++) {
+            if (newTiles[i].tx !== oldTiles[i].tx ||
+                newTiles[i].ty !== oldTiles[i].ty) {
                 needRebuild = true;
                 break;
             }
@@ -751,35 +667,11 @@ FogOfWar3D._refreshTentaclesIfNeeded = function(scene) {
 
     if (needRebuild) {
         this._disposeTentacles();
-        if (newEdges.length > 0) {
-            var geometry = this._buildTentacleMesh(newEdges);
+        if (newTiles.length > 0) {
+            var geometry = this._buildTentacleMesh(newTiles);
             if (!geometry) return;
 
-            var fogOfWar = window.FogOfWar;
-            var fogColor = fogOfWar._fogColor;
-            var fogColorTop = fogOfWar._fogColorTop;
-            var so = fogOfWar._shaderOverrides || {};
-
-            var material = new THREE.ShaderMaterial({
-                uniforms: {
-                    uTime:              { value: this._time },
-                    edgeAnimSpeed:      { value: fogOfWar._edgeAnimationSpeed },
-                    dissolveStrength:   { value: so.dissolveStrength != null ? so.dissolveStrength : 4.0 },
-                    tentacleSharpness:  { value: so.tentacleSharpness != null ? so.tentacleSharpness : 1.8 },
-                    fogHeight:          { value: this._fogHeight },
-                    tentacleMaxDisplace: { value: 32 },
-                    fogColor:           { value: new THREE.Vector3(fogColor.r, fogColor.g, fogColor.b) },
-                    fogColorTop:        { value: new THREE.Vector3(fogColorTop.r, fogColorTop.g, fogColorTop.b) },
-                    unexploredAlpha:    { value: fogOfWar._unexploredAlpha },
-                    heightGradientOn:   { value: fogOfWar._heightGradient ? 1.0 : 0.0 }
-                },
-                vertexShader: TENTACLE_VERT,
-                fragmentShader: TENTACLE_FRAG,
-                transparent: true,
-                depthTest: true,
-                depthWrite: false,
-                side: THREE.DoubleSide
-            });
+            var material = this._createTentacleMaterial();
 
             var mesh = new THREE.Mesh(geometry, material);
             mesh.frustumCulled = false;
@@ -787,7 +679,7 @@ FogOfWar3D._refreshTentaclesIfNeeded = function(scene) {
             mesh._isFogOfWar3DTentacle = true;
 
             this._tentacleMesh = mesh;
-            this._tentacleEdges = newEdges;
+            this._tentacleEdges = newTiles;
             scene.add(mesh);
         }
     }
