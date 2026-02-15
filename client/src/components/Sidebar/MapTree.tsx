@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { MapInfo } from '../../types/rpgMakerMV';
@@ -133,6 +133,18 @@ export default function MapTree() {
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
+  // 컨텍스트 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!contextMenu) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.context-menu')) return;
+      closeContextMenu();
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [contextMenu, closeContextMenu]);
+
   const handleNewMap = useCallback(async () => {
     const parentId = contextMenu?.mapId || 0;
     closeContextMenu();
@@ -203,7 +215,7 @@ export default function MapTree() {
   }
 
   return (
-    <div className="map-tree" onClick={closeContextMenu}>
+    <div className="map-tree">
       <div
         className="map-tree-node map-tree-root"
         onClick={() => setRootCollapsed(!rootCollapsed)}
