@@ -367,10 +367,16 @@ FogOfWar3D._updateUniforms = function(dt) {
 
 FogOfWar3D._lastTime = 0;
 
-// 현재 맵의 fogMode 조회
+var VALID_FOG_MODES = { '': true, '2d': true, '3dbox': true, 'volumetric': true };
+
+// 현재 맵의 fogMode 조회 (유효하지 않은 값이면 에러)
 FogOfWar3D._getFogMode = function() {
     if (typeof $dataMap !== 'undefined' && $dataMap && $dataMap.fogOfWar) {
-        return $dataMap.fogOfWar.fogMode || '';
+        var mode = $dataMap.fogOfWar.fogMode || '';
+        if (!VALID_FOG_MODES[mode]) {
+            console.error('[FogOfWar3D] Unknown fogMode: "' + mode + '". Valid: 2d, 3dbox, volumetric');
+        }
+        return mode;
     }
     return '';
 };
@@ -408,7 +414,7 @@ if (!window._editorRuntimeReady) {
             _FogOfWar3D_origUpdateUniforms.call(this);
 
             if (!FOW || !FOW._active) return;
-            if (FogOfWar3D._getFogMode() !== '3d') {
+            if (FogOfWar3D._getFogMode() !== '3dbox') {
                 // 3D 박스 모드 아님: 메쉬가 있으면 제거
                 if (FogOfWar3D._active) FogOfWar3D._disposeMesh();
                 return;
