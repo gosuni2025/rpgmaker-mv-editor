@@ -1204,8 +1204,11 @@ ShadowLight._addLightsToScene = function(scene) {
     var directionalOverride = false;
     try { ambientOverride = localStorage.getItem('devPanel_ambientOverride') === 'true'; } catch (e) {}
     try { directionalOverride = localStorage.getItem('devPanel_directionalOverride') === 'true'; } catch (e) {}
+    var playerLightOverride = false;
+    try { playerLightOverride = localStorage.getItem('devPanel_playerLightOverride') === 'true'; } catch (e) {}
     this._debugAmbientOverride = ambientOverride;
     this._debugDirectionalOverride = directionalOverride;
+    this._debugPlayerLightOverride = playerLightOverride;
 
     // AmbientLight - 전체적인 환경광
     // 디버그 우선 ON → localStorage config, OFF → 맵 데이터(editorLights)
@@ -1271,8 +1274,8 @@ ShadowLight._addLightsToScene = function(scene) {
     scene.add(this._directionalLight);
     scene.add(this._directionalLight.target);
 
-    // editorLights에서 playerLight config 동기화
-    if (el && el.playerLight) {
+    // editorLights에서 playerLight config 동기화 (디버그 우선 OFF일 때만)
+    if (el && el.playerLight && !playerLightOverride) {
         var pl = el.playerLight;
         if (pl.color) this.config.playerLightColor = parseInt(pl.color.replace('#', ''), 16);
         if (pl.intensity != null) this.config.playerLightIntensity = pl.intensity;
@@ -2040,11 +2043,15 @@ Spriteset_Map.prototype._updatePointLights = function() {
         }
         if (!$gamePlayer.isTransparent() && playerWp) {
             var light = ShadowLight._getPointLight();
-            light.color.setHex(ShadowLight.config.playerLightColor);
-            light.intensity = ShadowLight.config.playerLightIntensity;
-            light.distance = ShadowLight.config.playerLightDistance;
+            // 디버그 우선 OFF면 맵 데이터(editorLights)에서 값 사용
+            var plCfg = ShadowLight.config;
+            var plEl = (!ShadowLight._debugPlayerLightOverride && typeof $dataMap !== 'undefined' && $dataMap && $dataMap.editorLights && $dataMap.editorLights.playerLight) ? $dataMap.editorLights.playerLight : null;
+            light.color.setHex(plEl && plEl.color ? parseInt(plEl.color.replace('#', ''), 16) : plCfg.playerLightColor);
+            light.intensity = plEl && plEl.intensity != null ? plEl.intensity : plCfg.playerLightIntensity;
+            light.distance = plEl && plEl.distance != null ? plEl.distance : plCfg.playerLightDistance;
             light.decay = ShadowLight._debugDecay !== undefined ? ShadowLight._debugDecay : 0;
-            light.position.set(playerWp.x, playerWp.y - 24, ShadowLight.config.playerLightZ);
+            var plZ = plEl && plEl.z != null ? plEl.z : plCfg.playerLightZ;
+            light.position.set(playerWp.x, playerWp.y - 24, plZ);
         }
     }
 
@@ -2672,6 +2679,30 @@ ShadowLight._createDebugUI = function() {
 
     // ── 플레이어 라이트 섹션 ──
     var playerBody = createSection(panel, '플레이어 라이트', '#ffcc66', false);
+
+    // 디버그 패널 우선 적용 체크박스 (플레이어 라이트)
+    var PLAYER_OVERRIDE_KEY = 'devPanel_playerLightOverride';
+    var playerOverrideRow = document.createElement('div');
+    playerOverrideRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+    var playerOverrideLbl = document.createElement('span');
+    playerOverrideLbl.textContent = '디버그 우선';
+    playerOverrideLbl.style.cssText = 'width:70px;font-size:11px;color:#f8a;';
+    var playerOverrideCheck = document.createElement('input');
+    playerOverrideCheck.type = 'checkbox';
+    try { playerOverrideCheck.checked = localStorage.getItem(PLAYER_OVERRIDE_KEY) === 'true'; } catch (e) {}
+    self._debugPlayerLightOverride = playerOverrideCheck.checked;
+    playerOverrideCheck.addEventListener('change', function() {
+        self._debugPlayerLightOverride = playerOverrideCheck.checked;
+        try { localStorage.setItem(PLAYER_OVERRIDE_KEY, playerOverrideCheck.checked ? 'true' : 'false'); } catch (e) {}
+    });
+    playerOverrideRow.appendChild(playerOverrideLbl);
+    playerOverrideRow.appendChild(playerOverrideCheck);
+    var playerOverrideHint = document.createElement('span');
+    playerOverrideHint.textContent = 'ON: 패널 값 사용';
+    playerOverrideHint.style.cssText = 'font-size:10px;color:#888;';
+    playerOverrideRow.appendChild(playerOverrideHint);
+    playerBody.appendChild(playerOverrideRow);
+
     addSliderRow(playerBody, { label: 'Intensity', key: 'playerLightIntensity', min: 0, max: 5, step: 0.1 });
     addSliderRow(playerBody, { label: 'Distance', key: 'playerLightDistance', min: 50, max: 2000, step: 50 });
     addSliderRow(playerBody, { label: 'Light Z', key: 'playerLightZ', min: 0, max: 500, step: 10 });
