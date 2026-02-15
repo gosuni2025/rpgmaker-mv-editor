@@ -13,35 +13,40 @@
     var panel = null;
     var panelCtrl = null;
 
-    // 조절 가능한 파라미터 정의
-    // { key, label, min, max, step, default, type }
-    var PARAMS = [
+    // ── 공통 파라미터 (2D & 3D) ──
+    var COMMON_PARAMS = [
         { key: 'radius',             label: 'Radius',            min: 1,    max: 30,   step: 1,    def: 5 },
         { key: 'exploredAlpha',      label: 'Explored Alpha',    min: 0,    max: 1,    step: 0.05, def: 0.6 },
         { key: 'unexploredAlpha',    label: 'Unexplored Alpha',  min: 0,    max: 1,    step: 0.05, def: 1.0 },
-        { key: 'visibilityBrightness', label: 'Vis Brightness',  min: 0,    max: 1,    step: 0.05, def: 0.0 },
-        { key: 'edgeAnimationSpeed', label: 'Edge Anim Speed',   min: 0,    max: 5,    step: 0.1,  def: 1.0 },
         { key: 'lineOfSight',        label: 'Line of Sight',     min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
         { key: 'edgeAnimation',      label: 'Edge Animation',    min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
+        { key: 'edgeAnimationSpeed', label: 'Edge Anim Speed',   min: 0,    max: 5,    step: 0.1,  def: 1.0 },
         { key: 'lightScattering',    label: 'Light Scatter',     min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
         { key: 'lightScatterIntensity', label: 'Scatter Intensity', min: 0, max: 3,    step: 0.1,  def: 1.0 },
+    ];
+
+    // ── 2D 전용 파라미터 ──
+    var PARAMS_2D = [
+        { key: 'dissolveStrength',   label: 'Dissolve Strength', min: 0,    max: 1.0,  step: 0.01, def: 0.25, shader: true },
+        { key: 'fadeSmoothness',     label: 'Fade Smoothness',   min: 0.1,  max: 2.0,  step: 0.05, def: 0.7,  shader: true },
+        { key: 'nearVisWeight',      label: 'NearVis Weight',    min: 0,    max: 1.0,  step: 0.05, def: 0.7,  shader: true },
+    ];
+
+    // ── 3D 전용 파라미터 ──
+    var PARAMS_3D = [
+        { key: 'visibilityBrightness', label: 'Vis Brightness',  min: 0,    max: 1,    step: 0.05, def: 0.0 },
         { key: 'godRay',             label: 'God Ray',           min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
         { key: 'godRayIntensity',    label: 'God Ray Intensity', min: 0,    max: 2,    step: 0.05, def: 0.4 },
         { key: 'vortex',             label: 'Vortex',            min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
         { key: 'vortexSpeed',        label: 'Vortex Speed',      min: 0,    max: 5,    step: 0.1,  def: 1.0 },
-        { key: 'absorption',         label: 'Absorption (3D)',   min: 0,    max: 0.1,  step: 0.001, def: 0.012 },
-        { key: 'fogHeight',          label: 'Fog Height (3D)',   min: 50,   max: 1000, step: 10,   def: 300 },
+        { key: 'absorption',         label: 'Absorption',        min: 0,    max: 0.1,  step: 0.001, def: 0.012 },
+        { key: 'fogHeight',          label: 'Fog Height',        min: 50,   max: 1000, step: 10,   def: 300 },
     ];
 
-    // 셰이더 전용 파라미터 (FogOfWar 프로퍼티가 아닌, 셰이더 내부 상수를 오버라이드)
-    // 이 값들은 _shaderOverrides 객체에 저장되어 셰이더 uniform으로 전달
-    var SHADER_PARAMS = [
-        { key: 'dissolveStrength',   label: 'Dissolve Strength', min: 0,    max: 1.0,  step: 0.01, def: 0.25 },
-        { key: 'fadeSmoothness',     label: 'Fade Smoothness',   min: 0.1,  max: 2.0,  step: 0.05, def: 0.7 },
-        { key: 'nearVisWeight',      label: 'NearVis Weight',    min: 0,    max: 1.0,  step: 0.05, def: 0.7 },
-    ];
+    // 모든 파라미터 합치기 (슬라이더 생성/리셋용)
+    var ALL_PARAMS = COMMON_PARAMS.concat(PARAMS_2D).concat(PARAMS_3D);
 
-    // 내부 키 → FogOfWar 프로퍼티 이름 매핑
+    // 내부 키 → FogOfWar 프로퍼티 이름 매핑 (shader가 아닌 것만)
     var KEY_MAP = {
         radius: '_radius',
         exploredAlpha: '_exploredAlpha',
@@ -64,12 +69,11 @@
     if (!window.FogOfWar) return;
     var FOW = window.FogOfWar;
     FOW._shaderOverrides = FOW._shaderOverrides || {};
-    for (var i = 0; i < SHADER_PARAMS.length; i++) {
-        var sp = SHADER_PARAMS[i];
-        if (FOW._shaderOverrides[sp.key] === undefined) {
-            FOW._shaderOverrides[sp.key] = sp.def;
+    PARAMS_2D.forEach(function(p) {
+        if (p.shader && FOW._shaderOverrides[p.key] === undefined) {
+            FOW._shaderOverrides[p.key] = p.def;
         }
-    }
+    });
 
     var sliderEls = {}; // key → { slider, valueEl }
 
@@ -100,57 +104,32 @@
         var body = document.createElement('div');
         body.id = 'fow-dev-body';
 
-        // --- 기본 파라미터 ---
-        var sectionTitle1 = document.createElement('div');
-        sectionTitle1.textContent = '── FOW Parameters ──';
-        sectionTitle1.style.cssText = 'color:#888;font-size:10px;margin:4px 0 2px;';
-        body.appendChild(sectionTitle1);
+        // --- 공통 파라미터 ---
+        addSection(body, '── Common (2D & 3D) ──');
+        addParamRows(body, COMMON_PARAMS, applyParam);
 
-        PARAMS.forEach(function(p) {
-            var row = createSliderRow(p, function(val) {
-                var prop = KEY_MAP[p.key];
-                if (prop) {
-                    if (p.type === 'bool') {
-                        FOW[prop] = !!val;
-                    } else {
-                        FOW[prop] = val;
-                    }
-                    // radius 변경 시 재계산
-                    if (p.key === 'radius' || p.key === 'lineOfSight') {
-                        FOW._prevPlayerX = -1; // 강제 재계산
-                    }
-                }
-            });
-            body.appendChild(row);
-        });
+        // --- 2D 전용 ---
+        addSection(body, '── 2D Only ──', '#6af');
+        addParamRows(body, PARAMS_2D, applyParam);
 
-        // --- 셰이더 파라미터 ---
-        var sectionTitle2 = document.createElement('div');
-        sectionTitle2.textContent = '── Shader Params ──';
-        sectionTitle2.style.cssText = 'color:#888;font-size:10px;margin:8px 0 2px;';
-        body.appendChild(sectionTitle2);
-
-        SHADER_PARAMS.forEach(function(p) {
-            var row = createSliderRow(p, function(val) {
-                FOW._shaderOverrides[p.key] = val;
-            });
-            body.appendChild(row);
-        });
+        // --- 3D 전용 ---
+        addSection(body, '── 3D Only ──', '#fa6');
+        addParamRows(body, PARAMS_3D, applyParam);
 
         // Reset 버튼
         var resetBtn = document.createElement('button');
         resetBtn.textContent = 'Reset All';
         resetBtn.style.cssText = 'margin-top:8px;padding:2px 8px;background:#444;color:#ccc;border:1px solid #666;font:10px monospace;cursor:pointer;border-radius:2px;width:100%;';
         resetBtn.addEventListener('click', function() {
-            PARAMS.forEach(function(p) {
-                var prop = KEY_MAP[p.key];
-                if (prop) {
-                    FOW[prop] = p.type === 'bool' ? !!p.def : p.def;
+            ALL_PARAMS.forEach(function(p) {
+                if (p.shader) {
+                    FOW._shaderOverrides[p.key] = p.def;
+                } else {
+                    var prop = KEY_MAP[p.key];
+                    if (prop) {
+                        FOW[prop] = p.type === 'bool' ? !!p.def : p.def;
+                    }
                 }
-                updateSlider(p.key, p.def);
-            });
-            SHADER_PARAMS.forEach(function(p) {
-                FOW._shaderOverrides[p.key] = p.def;
                 updateSlider(p.key, p.def);
             });
             FOW._prevPlayerX = -1;
@@ -172,6 +151,38 @@
 
         // 초기값 동기화
         syncFromFOW();
+    }
+
+    function addSection(parent, text, color) {
+        var el = document.createElement('div');
+        el.textContent = text;
+        el.style.cssText = 'color:' + (color || '#888') + ';font-size:10px;margin:8px 0 2px;';
+        parent.appendChild(el);
+    }
+
+    function addParamRows(parent, params, onChange) {
+        params.forEach(function(p) {
+            var row = createSliderRow(p, function(val) { onChange(p, val); });
+            parent.appendChild(row);
+        });
+    }
+
+    function applyParam(p, val) {
+        if (p.shader) {
+            FOW._shaderOverrides[p.key] = val;
+        } else {
+            var prop = KEY_MAP[p.key];
+            if (prop) {
+                if (p.type === 'bool') {
+                    FOW[prop] = !!val;
+                } else {
+                    FOW[prop] = val;
+                }
+                if (p.key === 'radius' || p.key === 'lineOfSight') {
+                    FOW._prevPlayerX = -1;
+                }
+            }
+        }
     }
 
     function createSliderRow(param, onChange) {
@@ -236,16 +247,17 @@
     }
 
     function syncFromFOW() {
-        PARAMS.forEach(function(p) {
-            var prop = KEY_MAP[p.key];
-            if (prop && FOW[prop] !== undefined) {
-                var val = p.type === 'bool' ? (FOW[prop] ? 1 : 0) : FOW[prop];
-                updateSlider(p.key, val);
-            }
-        });
-        SHADER_PARAMS.forEach(function(p) {
-            if (FOW._shaderOverrides && FOW._shaderOverrides[p.key] !== undefined) {
-                updateSlider(p.key, FOW._shaderOverrides[p.key]);
+        ALL_PARAMS.forEach(function(p) {
+            if (p.shader) {
+                if (FOW._shaderOverrides && FOW._shaderOverrides[p.key] !== undefined) {
+                    updateSlider(p.key, FOW._shaderOverrides[p.key]);
+                }
+            } else {
+                var prop = KEY_MAP[p.key];
+                if (prop && FOW[prop] !== undefined) {
+                    var val = p.type === 'bool' ? (FOW[prop] ? 1 : 0) : FOW[prop];
+                    updateSlider(p.key, val);
+                }
             }
         });
     }
