@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Animation, AnimationTiming, AudioFile } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import AudioPicker from '../common/AudioPicker';
 import AnimationPreview from './AnimationPreview';
+import DatabaseList from './DatabaseList';
 import './AnimationPreview.css';
 
 interface AnimationsTabProps {
@@ -28,7 +29,7 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     onChange(newData);
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = useCallback(() => {
     if (!data) return;
     const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
     const newAnim: Animation = {
@@ -40,7 +41,52 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     newData[maxId + 1] = newAnim;
     onChange(newData);
     setSelectedId(maxId + 1);
-  };
+  }, [data, onChange]);
+
+  const handleDelete = useCallback((id: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Animation[];
+    if (items.length <= 1) return;
+    const newData = data.filter((item) => !item || item.id !== id);
+    onChange(newData);
+    if (id === selectedId) {
+      const remaining = newData.filter(Boolean) as Animation[];
+      if (remaining.length > 0) setSelectedId(remaining[0].id);
+    }
+  }, [data, onChange, selectedId]);
+
+  const handleDuplicate = useCallback((id: number) => {
+    if (!data) return;
+    const source = data.find((item) => item && item.id === id);
+    if (!source) return;
+    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
+    const newId = maxId + 1;
+    const newData = [...data];
+    while (newData.length <= newId) newData.push(null);
+    newData[newId] = {
+      ...source, id: newId,
+      frames: source.frames.map(f => f.map(c => [...c])),
+      timings: source.timings.map(t => ({ ...t, flashColor: [...(t.flashColor || [255, 255, 255, 170])], se: { ...(t.se || { name: '', pan: 0, pitch: 100, volume: 90 }) } })),
+    };
+    onChange(newData);
+    setSelectedId(newId);
+  }, [data, onChange]);
+
+  const handleReorder = useCallback((fromId: number, toId: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Animation[];
+    const fromIdx = items.findIndex(item => item.id === fromId);
+    if (fromIdx < 0) return;
+    const [moved] = items.splice(fromIdx, 1);
+    if (toId === -1) {
+      items.push(moved);
+    } else {
+      const toIdx = items.findIndex(item => item.id === toId);
+      if (toIdx < 0) items.push(moved);
+      else items.splice(toIdx, 0, moved);
+    }
+    onChange([null, ...items]);
+  }, [data, onChange]);
 
   const handleTimingChange = (index: number, field: keyof AnimationTiming, value: unknown) => {
     const timings = [...(selectedItem?.timings || [])];
@@ -59,20 +105,15 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
 
   return (
     <div className="db-tab-layout">
-      <div className="db-list">
-        <div className="db-list-header">
-          <button className="db-btn-small" onClick={handleAddNew}>+</button>
-        </div>
-        {data?.filter(Boolean).map((item) => (
-          <div
-            key={item!.id}
-            className={`db-list-item${item!.id === selectedId ? ' selected' : ''}`}
-            onClick={() => setSelectedId(item!.id)}
-          >
-            {String(item!.id).padStart(4, '0')}: {item!.name}
-          </div>
-        ))}
-      </div>
+      <DatabaseList
+        items={data}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onAdd={handleAddNew}
+        onDelete={handleDelete}
+        onDuplicate={handleDuplicate}
+        onReorder={handleReorder}
+      />
       <div className="db-form anim-form-layout">
         {selectedItem && (
           <>

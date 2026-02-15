@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Troop, TroopMember, TroopPage, EventCommand } from '../../types/rpgMakerMV';
 import EventCommandEditor from '../EventEditor/EventCommandEditor';
+import DatabaseList from './DatabaseList';
 import apiClient from '../../api/client';
 
 interface TroopsTabProps {
@@ -81,7 +82,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     setActivePage(Math.min(activePage, pages.length - 2));
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = useCallback(() => {
     if (!data) return;
     const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
     const newTroop: Troop = {
@@ -93,26 +94,71 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     newData[maxId + 1] = newTroop;
     onChange(newData);
     setSelectedId(maxId + 1);
-  };
+  }, [data, onChange]);
+
+  const handleDelete = useCallback((id: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Troop[];
+    if (items.length <= 1) return;
+    const newData = data.filter((item) => !item || item.id !== id);
+    onChange(newData);
+    if (id === selectedId) {
+      const remaining = newData.filter(Boolean) as Troop[];
+      if (remaining.length > 0) setSelectedId(remaining[0].id);
+    }
+  }, [data, onChange, selectedId]);
+
+  const handleDuplicate = useCallback((id: number) => {
+    if (!data) return;
+    const source = data.find((item) => item && item.id === id);
+    if (!source) return;
+    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
+    const newId = maxId + 1;
+    const newData = [...data];
+    while (newData.length <= newId) newData.push(null);
+    newData[newId] = {
+      ...source, id: newId,
+      members: source.members.map(m => ({ ...m })),
+      pages: source.pages.map(p => ({ ...p, conditions: { ...p.conditions }, list: p.list.map(c => ({ ...c, parameters: [...c.parameters] })) })),
+    };
+    onChange(newData);
+    setSelectedId(newId);
+  }, [data, onChange]);
+
+  const handleReorder = useCallback((fromId: number, toId: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Troop[];
+    const fromIdx = items.findIndex(item => item.id === fromId);
+    if (fromIdx < 0) return;
+    const [moved] = items.splice(fromIdx, 1);
+    if (toId === -1) {
+      items.push(moved);
+    } else {
+      const toIdx = items.findIndex(item => item.id === toId);
+      if (toIdx < 0) items.push(moved);
+      else items.splice(toIdx, 0, moved);
+    }
+    onChange([null, ...items]);
+  }, [data, onChange]);
+
+  const handleSelect = useCallback((id: number) => {
+    setSelectedId(id);
+    setActivePage(0);
+  }, []);
 
   const page = selectedItem?.pages?.[activePage];
 
   return (
     <div className="db-tab-layout">
-      <div className="db-list">
-        <div className="db-list-header">
-          <button className="db-btn-small" onClick={handleAddNew}>+</button>
-        </div>
-        {data?.filter(Boolean).map((item) => (
-          <div
-            key={item!.id}
-            className={`db-list-item${item!.id === selectedId ? ' selected' : ''}`}
-            onClick={() => { setSelectedId(item!.id); setActivePage(0); }}
-          >
-            {String(item!.id).padStart(4, '0')}: {item!.name}
-          </div>
-        ))}
-      </div>
+      <DatabaseList
+        items={data}
+        selectedId={selectedId}
+        onSelect={handleSelect}
+        onAdd={handleAddNew}
+        onDelete={handleDelete}
+        onDuplicate={handleDuplicate}
+        onReorder={handleReorder}
+      />
       <div className="db-form">
         {selectedItem && (
           <>
