@@ -396,10 +396,15 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
         this._lightScatterIntensity = config.lightScatterIntensity != null ? config.lightScatterIntensity : 1.0;
     }
 
-    // 가시성 / 탐험 버퍼
+    // 가시성 / 탐험 버퍼 (목표값 — 즉시 갱신)
     var size = mapWidth * mapHeight;
     this._visibilityData = new Float32Array(size);
     this._exploredData = new Uint8Array(size);
+
+    // 표시용 버퍼 (lerp로 부드럽게 전환)
+    this._displayVis = new Float32Array(size);
+    this._displayExpl = new Float32Array(size);
+    this._fogTransitionSpeed = 5.0;  // 초당 전환 속도 (높을수록 빠름)
 
     // fog 텍스처: RG 채널 (R=visibility, G=explored)
     var texData = new Uint8Array(size * 4);
@@ -411,6 +416,7 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
     this._prevPlayerX = -1;
     this._prevPlayerY = -1;
     this._time = 0;
+    this._lastTime = 0;
     this._blockMapDirty = true;
 };
 
@@ -422,12 +428,15 @@ FogOfWar.dispose = function() {
     }
     this._visibilityData = null;
     this._exploredData = null;
+    this._displayVis = null;
+    this._displayExpl = null;
     this._blockMap = null;
     this._blockMapDirty = true;
     this._active = false;
     this._prevPlayerX = -1;
     this._prevPlayerY = -1;
     this._time = 0;
+    this._lastTime = 0;
 };
 
 FogOfWar._parseColor = function(hex) {
@@ -493,7 +502,7 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
     // 시야 인접도 계산: vis=0인 타일 중 인접에 vis>0이 있으면 경계
     this._computeEdgeData();
 
-    this._updateTexture();
+    // 텍스처는 _lerpDisplay()에서 매 프레임 갱신
 };
 
 //=============================================================================
@@ -623,21 +632,58 @@ FogOfWar.updateVisibilityAt = function(tileX, tileY) {
     this.updateVisibility(tileX, tileY);
 };
 
+// 매 프레임 호출: 표시 버퍼를 목표값으로 부드럽게 보간
+FogOfWar._lerpDisplay = function(dt) {
+    if (!this._displayVis || !this._visibilityData) return false;
+
+    var vis = this._visibilityData;
+    var expl = this._exploredData;
+    var dVis = this._displayVis;
+    var dExpl = this._displayExpl;
+    var speed = this._fogTransitionSpeed;
+    var alpha = 1.0 - Math.exp(-speed * dt);  // 지수 감쇄 보간
+    var size = this._mapWidth * this._mapHeight;
+    var changed = false;
+
+    for (var i = 0; i < size; i++) {
+        // visibility 보간
+        var targetV = vis[i];
+        var curV = dVis[i];
+        if (curV !== targetV) {
+            var newV = curV + (targetV - curV) * alpha;
+            // 충분히 가까우면 스냅
+            if (Math.abs(newV - targetV) < 0.005) newV = targetV;
+            dVis[i] = newV;
+            changed = true;
+        }
+        // explored 보간 (0→1 방향만, 한번 탐험하면 되돌리지 않음)
+        var targetE = expl[i];
+        var curE = dExpl[i];
+        if (curE < targetE) {
+            var newE = curE + (targetE - curE) * alpha;
+            if (newE > 0.995) newE = targetE;
+            dExpl[i] = newE;
+            changed = true;
+        }
+    }
+    return changed;
+};
+
 FogOfWar._updateTexture = function() {
     if (!this._fogTexture) return;
 
     var data = this._fogTexture.image.data;
     var w = this._mapWidth;
     var h = this._mapHeight;
-    var vis = this._visibilityData;
-    var explored = this._exploredData;
+    var vis = this._displayVis || this._visibilityData;
+    var explored = this._displayExpl || this._exploredData;
 
     var blur = this._blurData;
 
     for (var i = 0; i < w * h; i++) {
         var pi = i * 4;
-        data[pi + 0] = Math.round(vis[i] * 255);     // R = visibility (원본)
-        data[pi + 1] = explored[i] * 255;              // G = explored
+        data[pi + 0] = Math.round(vis[i] * 255);     // R = visibility (보간됨)
+        data[pi + 1] = Math.round(explored[i] * 255); // G = explored (보간됨)
         data[pi + 2] = blur ? Math.round(Math.min(blur[i], 1.0) * 255) : 0; // B = 블러된 vis
         data[pi + 3] = 255;
     }
@@ -649,12 +695,22 @@ FogOfWar._updateTexture = function() {
 // 전체 공개 / 전체 숨김
 //=============================================================================
 
+// 표시 버퍼를 목표값에 즉시 동기화 (revealAll/hideAll 등 즉시 효과용)
+FogOfWar._syncDisplay = function() {
+    if (!this._displayVis || !this._visibilityData) return;
+    this._displayVis.set(this._visibilityData);
+    for (var i = 0; i < this._exploredData.length; i++) {
+        this._displayExpl[i] = this._exploredData[i];
+    }
+};
+
 FogOfWar.revealAll = function() {
     if (!this._visibilityData) return;
     for (var i = 0; i < this._visibilityData.length; i++) {
         this._visibilityData[i] = 1.0;
         this._exploredData[i] = 1;
     }
+    this._syncDisplay();
     this._updateTexture();
 };
 
@@ -664,6 +720,7 @@ FogOfWar.hideAll = function() {
         this._visibilityData[i] = 0;
         this._exploredData[i] = 0;
     }
+    this._syncDisplay();
     this._prevPlayerX = -1;
     this._prevPlayerY = -1;
     this._updateTexture();
@@ -682,6 +739,7 @@ FogOfWar.revealRect = function(x, y, w, h) {
             }
         }
     }
+    this._syncDisplay();
     this._updateTexture();
 };
 
@@ -1203,6 +1261,15 @@ PostProcess._updateUniforms = function() {
         if (typeof $gamePlayer !== 'undefined' && $gamePlayer) {
             FogOfWar.updateVisibility($gamePlayer.x, $gamePlayer.y);
         }
+
+        // 표시 버퍼를 목표값으로 부드럽게 보간
+        var now = performance.now() / 1000;
+        var dt = FogOfWar._lastTime > 0 ? Math.min(now - FogOfWar._lastTime, 0.1) : 0.016;
+        FogOfWar._lastTime = now;
+        if (FogOfWar._lerpDisplay(dt) || FogOfWar._fogTexture.needsUpdate) {
+            FogOfWar._updateTexture();
+        }
+
         FogOfWar._updateMeshPosition();
         FogOfWar._updateMeshUniforms();
     }
