@@ -9,6 +9,78 @@ type GetFn = () => EditorState;
 // Object operations
 // ============================================================
 
+export function addObjectFromTilesOp(get: GetFn, set: SetFn, paintedTiles: Set<string>) {
+  const { currentMap, currentMapId } = get();
+  if (!currentMap || !currentMapId || paintedTiles.size === 0) return;
+  const oldObjects = currentMap.objects || [];
+
+  // 바운딩 박스 계산
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const key of paintedTiles) {
+    const [sx, sy] = key.split(',');
+    const tx = parseInt(sx), ty = parseInt(sy);
+    if (tx < minX) minX = tx;
+    if (ty < minY) minY = ty;
+    if (tx > maxX) maxX = tx;
+    if (ty > maxY) maxY = ty;
+  }
+
+  const w = maxX - minX + 1;
+  const h = maxY - minY + 1;
+  const mapW = currentMap.width;
+  const mapH = currentMap.height;
+  const data = currentMap.data;
+
+  // tileIds[row][col] 배열 생성 (row 0 = 상단)
+  const tileIds: number[][] = [];
+  for (let row = 0; row < h; row++) {
+    const rowArr: number[] = [];
+    for (let col = 0; col < w; col++) {
+      const tx = minX + col;
+      const ty = minY + row;
+      if (paintedTiles.has(`${tx},${ty}`)) {
+        // z=3(상층)부터 z=0(하층)까지 탐색하여 가장 위 비어있지 않은 타일 선택
+        let tid = 0;
+        for (let z = 3; z >= 0; z--) {
+          const idx = (z * mapH + ty) * mapW + tx;
+          if (data[idx] !== 0) {
+            tid = data[idx];
+            break;
+          }
+        }
+        rowArr.push(tid);
+      } else {
+        rowArr.push(0);
+      }
+    }
+    tileIds.push(rowArr);
+  }
+
+  // passability 배열 생성 (하단 행만 불통, 나머지 통행)
+  const passability: boolean[][] = [];
+  for (let row = 0; row < h; row++) {
+    passability.push(Array(w).fill(row < h - 1));
+  }
+
+  const objects = [...oldObjects];
+  const newId = objects.length > 0 ? Math.max(...objects.map(o => o.id)) + 1 : 1;
+  // y = maxY (하단 기준점)
+  const newObj: MapObject = {
+    id: newId,
+    name: `OBJ${newId}`,
+    x: minX,
+    y: maxY,
+    tileIds,
+    width: w,
+    height: h,
+    zHeight: 0,
+    passability,
+  };
+  objects.push(newObj);
+  set({ currentMap: { ...currentMap, objects }, selectedObjectId: newId, selectedObjectIds: [newId] });
+  pushObjectUndoEntry(get, set, oldObjects, objects);
+}
+
 export function addObjectOp(get: GetFn, set: SetFn, x: number, y: number) {
   const { currentMap, currentMapId, selectedTiles, selectedTilesWidth, selectedTilesHeight, selectedTileId } = get();
   if (!currentMap || !currentMapId) return;

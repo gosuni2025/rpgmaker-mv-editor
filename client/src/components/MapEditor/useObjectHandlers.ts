@@ -5,6 +5,7 @@ export interface ObjectHandlersResult {
   isDraggingObject: React.MutableRefObject<boolean>;
   draggedObjectId: React.MutableRefObject<number | null>;
   isSelectingObjects: React.MutableRefObject<boolean>;
+  isPaintingObject: React.MutableRefObject<boolean>;
   objectDragPreview: { x: number; y: number } | null;
   objectMultiDragDelta: { dx: number; dy: number } | null;
   handleObjectMouseDown: (tile: { x: number; y: number }, e: React.MouseEvent<HTMLElement>) => boolean;
@@ -26,6 +27,12 @@ export function useObjectHandlers(): ObjectHandlersResult {
   const setIsObjectPasting = useEditorStore((s) => s.setIsObjectPasting);
   const setObjectPastePreviewPos = useEditorStore((s) => s.setObjectPastePreviewPos);
   const pasteObjects = useEditorStore((s) => s.pasteObjects);
+  const addObjectFromTiles = useEditorStore((s) => s.addObjectFromTiles);
+  const setObjectPaintTiles = useEditorStore((s) => s.setObjectPaintTiles);
+
+  // Object paint state
+  const isPaintingObject = useRef(false);
+  const paintedTilesRef = useRef<Set<string>>(new Set());
 
   // Object drag state
   const isDraggingObject = useRef(false);
@@ -86,15 +93,33 @@ export function useObjectHandlers(): ObjectHandlersResult {
         setSelectedObjectIds([]);
         setSelectedObjectId(null);
       }
-      isSelectingObjects.current = true;
-      objectSelDragStart.current = tile;
-      setObjectSelectionStart(tile);
-      setObjectSelectionEnd(tile);
+      if (e.shiftKey) {
+        // Shift+클릭: 영역 선택
+        isSelectingObjects.current = true;
+        objectSelDragStart.current = tile;
+        setObjectSelectionStart(tile);
+        setObjectSelectionEnd(tile);
+      } else {
+        // 빈 공간 클릭: 펜 칠하기 시작
+        isPaintingObject.current = true;
+        paintedTilesRef.current = new Set([`${tile.x},${tile.y}`]);
+        setObjectPaintTiles(new Set([`${tile.x},${tile.y}`]));
+      }
     }
     return true;
-  }, [currentMap, pasteObjects, setIsObjectPasting, setObjectPastePreviewPos, setSelectedObjectId, setSelectedObjectIds, setObjectSelectionStart, setObjectSelectionEnd]);
+  }, [currentMap, pasteObjects, setIsObjectPasting, setObjectPastePreviewPos, setSelectedObjectId, setSelectedObjectIds, setObjectSelectionStart, setObjectSelectionEnd, setObjectPaintTiles]);
 
   const handleObjectMouseMove = useCallback((tile: { x: number; y: number } | null): boolean => {
+    // Object paint
+    if (isPaintingObject.current && tile) {
+      const key = `${tile.x},${tile.y}`;
+      if (!paintedTilesRef.current.has(key)) {
+        paintedTilesRef.current.add(key);
+        setObjectPaintTiles(new Set(paintedTilesRef.current));
+      }
+      return true;
+    }
+
     // Object multi-drag
     if (isDraggingMultiObjects.current && tile && multiObjectDragOrigin.current) {
       const dx = tile.x - multiObjectDragOrigin.current.x;
@@ -129,7 +154,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
     }
 
     return false;
-  }, [setObjectSelectionEnd]);
+  }, [setObjectSelectionEnd, setObjectPaintTiles]);
 
   const handleObjectPastePreview = useCallback((tile: { x: number; y: number }): boolean => {
     const state = useEditorStore.getState();
@@ -163,6 +188,22 @@ export function useObjectHandlers(): ObjectHandlersResult {
       draggedObjectId.current = null;
       dragObjectOrigin.current = null;
       setObjectDragPreview(null);
+      return true;
+    }
+
+    // Object paint commit
+    if (isPaintingObject.current) {
+      isPaintingObject.current = false;
+      const painted = paintedTilesRef.current;
+      paintedTilesRef.current = new Set();
+      setObjectPaintTiles(null);
+      if (painted.size <= 1 && tile) {
+        // 단일 클릭: 기존처럼 addObject
+        addObject(tile.x, tile.y);
+      } else if (painted.size > 1) {
+        // 다중 타일: addObjectFromTiles
+        addObjectFromTiles(painted);
+      }
       return true;
     }
 
@@ -207,7 +248,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
     }
 
     return false;
-  }, [currentMap, addObject, moveObjects, setSelectedObjectId, setSelectedObjectIds, setObjectSelectionStart, setObjectSelectionEnd]);
+  }, [currentMap, addObject, addObjectFromTiles, moveObjects, setSelectedObjectId, setSelectedObjectIds, setObjectSelectionStart, setObjectSelectionEnd, setObjectPaintTiles]);
 
   const handleObjectMouseLeave = useCallback(() => {
     if (isDraggingMultiObjects.current) {
@@ -221,10 +262,15 @@ export function useObjectHandlers(): ObjectHandlersResult {
       setObjectSelectionStart(null);
       setObjectSelectionEnd(null);
     }
-  }, [setObjectSelectionStart, setObjectSelectionEnd]);
+    if (isPaintingObject.current) {
+      isPaintingObject.current = false;
+      paintedTilesRef.current = new Set();
+      setObjectPaintTiles(null);
+    }
+  }, [setObjectSelectionStart, setObjectSelectionEnd, setObjectPaintTiles]);
 
   return {
-    isDraggingObject, draggedObjectId, isSelectingObjects,
+    isDraggingObject, draggedObjectId, isSelectingObjects, isPaintingObject,
     objectDragPreview, objectMultiDragDelta,
     handleObjectMouseDown, handleObjectMouseMove,
     handleObjectMouseUp, handleObjectMouseLeave,

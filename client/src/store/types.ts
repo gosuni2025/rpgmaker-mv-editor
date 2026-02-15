@@ -279,7 +279,10 @@ export interface EditorState {
   setIsObjectPasting: (isPasting: boolean) => void;
   setObjectPastePreviewPos: (pos: { x: number; y: number } | null) => void;
   clearObjectSelection: () => void;
+  objectPaintTiles: Set<string> | null;
+  setObjectPaintTiles: (tiles: Set<string> | null) => void;
   addObject: (x: number, y: number) => void;
+  addObjectFromTiles: (paintedTiles: Set<string>) => void;
   updateObject: (id: number, updates: Partial<MapObject>) => void;
   deleteObject: (id: number) => void;
   copyObjects: (objectIds: number[]) => void;
