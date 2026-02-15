@@ -7,7 +7,7 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   'projectPath' | 'projectName' | 'maps' | 'currentMapId' | 'currentMap' | 'tilesetInfo' |
   'systemData' | 'playerCharacterName' | 'playerCharacterIndex' | 'parseErrors' |
   'openProject' | 'closeProject' | 'restoreLastProject' | 'loadMaps' | 'selectMap' |
-  'saveCurrentMap' | 'createMap' | 'deleteMap' | 'updateMapInfos' | 'setPlayerStartPosition'
+  'saveCurrentMap' | 'createMap' | 'deleteMap' | 'updateMapInfos' | 'setPlayerStartPosition' | 'setVehicleStartPosition'
 >> = (set, get) => ({
   projectPath: null,
   projectName: null,
@@ -181,6 +181,23 @@ export const projectSlice: SliceCreator<Pick<EditorState,
       showToast(`시작 위치 설정: 맵 ${mapId} (${x}, ${y})`);
     } catch {
       showToast('시작 위치 저장 실패');
+    }
+  },
+
+  setVehicleStartPosition: async (vehicle: 'boat' | 'ship' | 'airship', mapId: number, x: number, y: number) => {
+    const { systemData, showToast } = get();
+    if (!systemData) return;
+    const v = systemData[vehicle];
+    if (v.startMapId === mapId && v.startX === x && v.startY === y) return;
+    const updatedVehicle = { ...v, startMapId: mapId, startX: x, startY: y };
+    const updated = { ...systemData, [vehicle]: updatedVehicle };
+    const vehicleNames: Record<string, string> = { boat: '보트', ship: '선박', airship: '비행선' };
+    try {
+      await apiClient.put('/database/system', updated);
+      set({ systemData: updated });
+      showToast(`${vehicleNames[vehicle]} 시작 위치 설정: 맵 ${mapId} (${x}, ${y})`);
+    } catch {
+      showToast(`${vehicleNames[vehicle]} 시작 위치 저장 실패`);
     }
   },
 });
