@@ -381,7 +381,7 @@ var VOL_FOG_FRAG = [
 // 설정 상수
 //=============================================================================
 
-var FOG_PADDING = 960;   // 맵 바깥으로 확장하는 패딩 (20타일, 각 변)
+var FOG_PADDING = 2400;  // 맵 바깥으로 확장하는 패딩 (50타일, 각 변)
 
 //=============================================================================
 // 초기화 / 해제
@@ -1269,19 +1269,11 @@ var VOL_LIGHT_FRAG = [
     '        vec4 s = texture2D(tFog, uv);',
     '        visibility = s.r; explored = s.g;',
     '    }',
-    '    float fogDensity;',
-    '    if (visibility > 0.5) {',
-    '        fogDensity = 0.0;',
-    '    } else if (visibility > 0.01) {',
-    '        fogDensity = smoothstep(0.5, 0.0, visibility);',
-    '    } else if (explored > 0.5) {',
-    '        fogDensity = exploredAlpha;',
-    '    } else {',
-    '        fogDensity = unexploredAlpha;',
-    '    }',
+    '    float baseDensity = mix(unexploredAlpha, exploredAlpha, explored);',
+    '    float fogDensity = baseDensity * (1.0 - smoothstep(0.0, 0.6, visibility));',
     '    if (outsideDist > 0.001) {',
-    '        float fadeDist = outsideDist * mapSize.x * 0.5;',
-    '        fogDensity *= 1.0 - smoothstep(0.0, 1.0, fadeDist);',
+    '        float fadePixels = outsideDist * mapPixelSize.x;',
+    '        fogDensity *= 1.0 - smoothstep(0.0, 2400.0, fadePixels);',
     '    }',
     '    return vec2(fogDensity, visibility);',
     '}',
@@ -1343,7 +1335,8 @@ var VOL_LIGHT_FRAG = [
     '    if (accAlpha < 0.001) discard;',
     '',
     '    vec3 finalColor = accColor / max(accAlpha, 0.001);',
-    '    gl_FragColor = vec4(finalColor, accAlpha);',
+    '    float outDither = (fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)) * 52.9829189) - 0.5) / 128.0;',
+    '    gl_FragColor = vec4(finalColor + outDither, accAlpha + outDither);',
     '}'
 ].join('\n');
 
