@@ -70,11 +70,11 @@
   flex-shrink: 0;
 }
 
-/* 전투 미리보기 캔버스 영역 - 고정 크기 */
+/* 전투 미리보기 캔버스 영역 - 고정 크기 (816:624 비율) */
 .troops-preview-area {
   position: relative;
-  width: 320px;
-  height: 245px;
+  width: 340px;
+  height: 260px;
   background: #1a1a1a;
   border: 1px solid #444;
   border-radius: 3px;
@@ -363,4 +363,57 @@
   justify-content: flex-end;
   gap: 8px;
   border-top: 1px solid #555;
+}
+
+/* 전투 배경 변경 다이얼로그 */
+.troops-bg-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 700px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.troops-bg-dialog-body {
+  padding: 12px;
+  display: flex;
+  gap: 8px;
+  height: 320px;
+}
+
+.troops-bg-list-col {
+  display: flex;
+  flex-direction: column;
+  width: 170px;
+  flex-shrink: 0;
+}
+
+.troops-bg-list-header {
+  font-size: 11px;
+  color: #888;
+  padding: 2px 4px;
+  border-bottom: 1px solid #555;
+}
+
+.troops-bg-list {
+  flex: 1;
+  border: 1px solid #444;
+  border-radius: 3px;
+  background: #2b2b2b;
+  overflow-y: auto;
+}
+
+.troops-bg-preview {
+  flex: 1;
+  position: relative;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.troops-bg-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }

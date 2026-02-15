@@ -13,8 +13,8 @@ interface TroopsTabProps {
 
 interface EnemyRef { id: number; name: string; battlerName?: string }
 
-const PREVIEW_W = 544;
-const PREVIEW_H = 416;
+const PREVIEW_W = 816;
+const PREVIEW_H = 624;
 
 const emptyConditions: TroopConditions = {
   actorHp: 0, actorId: 1, actorValid: false,
@@ -51,6 +51,11 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
   const [dragging, setDragging] = useState<{ memberIdx: number; offsetX: number; offsetY: number } | null>(null);
   const [condDialogOpen, setCondDialogOpen] = useState(false);
   const [editingCond, setEditingCond] = useState<TroopConditions>({ ...emptyConditions });
+  const [bgDialogOpen, setBgDialogOpen] = useState(false);
+  const [bb1Files, setBb1Files] = useState<string[]>([]);
+  const [bb2Files, setBb2Files] = useState<string[]>([]);
+  const [editBb1, setEditBb1] = useState('');
+  const [editBb2, setEditBb2] = useState('');
 
   const selectedItem = data?.find((item) => item && item.id === selectedId);
 
@@ -262,6 +267,21 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     setCondDialogOpen(false);
   };
 
+  // 전투 배경 변경 다이얼로그
+  const openBgDialog = () => {
+    setEditBb1(battleback1);
+    setEditBb2(battleback2);
+    apiClient.get<string[]>('/resources/battlebacks1').then(f => setBb1Files(f.map(n => n.replace(/\.png$/i, '')))).catch(() => {});
+    apiClient.get<string[]>('/resources/battlebacks2').then(f => setBb2Files(f.map(n => n.replace(/\.png$/i, '')))).catch(() => {});
+    setBgDialogOpen(true);
+  };
+
+  const saveBgDialog = () => {
+    setBattleback1(editBb1);
+    setBattleback2(editBb2);
+    setBgDialogOpen(false);
+  };
+
   // DatabaseList 핸들러
   const handleAddNew = useCallback(() => {
     if (!data) return;
@@ -356,7 +376,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
               />
             </div>
             <button className="db-btn-small" onClick={autoName}>{t('troops.autoName')}</button>
-            <button className="db-btn-small" onClick={() => {}}>{t('troops.changeBG')}</button>
+            <button className="db-btn-small" onClick={openBgDialog}>{t('troops.changeBG')}</button>
             <button className="db-btn-small" onClick={() => {}}>{t('troops.battleTest')}</button>
           </div>
 
@@ -377,6 +397,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
                 const rect = previewRef.current?.getBoundingClientRect();
                 const scaleX = rect ? rect.width / PREVIEW_W : 1;
                 const scaleY = rect ? rect.height / PREVIEW_H : 1;
+                const scale = Math.min(scaleX, scaleY);
                 return (
                   <img
                     key={i}
@@ -385,6 +406,8 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
                     style={{
                       left: member.x * scaleX,
                       top: member.y * scaleY,
+                      width: img.naturalWidth * scale,
+                      height: img.naturalHeight * scale,
                       zIndex: 2 + i,
                     }}
                     onMouseDown={(e) => { setSelectedMemberIdx(i); handlePreviewMouseDown(e, i); }}
@@ -566,6 +589,52 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
             <div className="troops-cond-dialog-footer">
               <button className="db-btn" onClick={saveCondDialog}>{t('common.ok')}</button>
               <button className="db-btn" onClick={() => setCondDialogOpen(false)}>{t('common.cancel')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 전투 배경 변경 다이얼로그 */}
+      {bgDialogOpen && (
+        <div className="db-dialog-overlay" onClick={() => setBgDialogOpen(false)}>
+          <div className="troops-bg-dialog" onClick={e => e.stopPropagation()}>
+            <div className="troops-cond-dialog-title">{t('troops.changeBG')}</div>
+            <div className="troops-bg-dialog-body">
+              <div className="troops-bg-list-col">
+                <div className="troops-bg-list-header">battlebacks1</div>
+                <div className="troops-bg-list">
+                  {bb1Files.map(name => (
+                    <div
+                      key={name}
+                      className={`troops-enemy-item${name === editBb1 ? ' selected' : ''}`}
+                      onClick={() => setEditBb1(name)}
+                    >
+                      {name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="troops-bg-list-col">
+                <div className="troops-bg-list-header">battlebacks2</div>
+                <div className="troops-bg-list">
+                  {bb2Files.map(name => (
+                    <div
+                      key={name}
+                      className={`troops-enemy-item${name === editBb2 ? ' selected' : ''}`}
+                      onClick={() => setEditBb2(name)}
+                    >
+                      {name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="troops-bg-preview">
+                {editBb1 && <img src={`/img/battlebacks1/${editBb1}.png`} alt="" className="troops-bg-preview-img" />}
+                {editBb2 && <img src={`/img/battlebacks2/${editBb2}.png`} alt="" className="troops-bg-preview-img" style={{ position: 'absolute', top: 0, left: 0 }} />}
+              </div>
+            </div>
+            <div className="troops-cond-dialog-footer">
+              <button className="db-btn" onClick={saveBgDialog}>{t('common.ok')}</button>
+              <button className="db-btn" onClick={() => setBgDialogOpen(false)}>{t('common.cancel')}</button>
             </div>
           </div>
         </div>
