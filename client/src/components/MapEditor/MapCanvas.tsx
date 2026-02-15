@@ -18,6 +18,20 @@ import { useTileCursorPreview } from './useTileCursorPreview';
 import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview } from './useDragPreviewSync';
 import './MapCanvas.css';
 
+/** 컨텍스트 메뉴가 화면 밖으로 벗어나지 않도록 위치를 보정하는 ref callback */
+function clampMenuRef(el: HTMLDivElement | null) {
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  if (rect.bottom > vh) {
+    el.style.top = `${Math.max(0, vh - rect.height - 4)}px`;
+  }
+  if (rect.right > vw) {
+    el.style.left = `${Math.max(0, vw - rect.width - 4)}px`;
+  }
+}
+
 export default function MapCanvas() {
   const { t } = useTranslation();
 
@@ -35,13 +49,23 @@ export default function MapCanvas() {
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
   const editMode = useEditorStore((s) => s.editMode);
   const selectedTool = useEditorStore((s) => s.selectedTool);
+  const clipboard = useEditorStore((s) => s.clipboard);
   const selectionStart = useEditorStore((s) => s.selectionStart);
   const selectionEnd = useEditorStore((s) => s.selectionEnd);
   const isPasting = useEditorStore((s) => s.isPasting);
   const currentMapId = useEditorStore((s) => s.currentMapId);
+  const setPlayerStartPosition = useEditorStore((s) => s.setPlayerStartPosition);
+  const copyEvent = useEditorStore((s) => s.copyEvent);
+  const cutEvent = useEditorStore((s) => s.cutEvent);
+  const deleteEvent = useEditorStore((s) => s.deleteEvent);
+  const setVehicleStartPosition = useEditorStore((s) => s.setVehicleStartPosition);
   const selectedCameraZoneId = useEditorStore((s) => s.selectedCameraZoneId);
   const selectedCameraZoneIds = useEditorStore((s) => s.selectedCameraZoneIds);
-  const showToast = useEditorStore((s) => s.showToast);
+  const selectedEventIds = useEditorStore((s) => s.selectedEventIds);
+  const copyEvents = useEditorStore((s) => s.copyEvents);
+  const deleteEvents = useEditorStore((s) => s.deleteEvents);
+  const pasteEvents = useEditorStore((s) => s.pasteEvents);
+  const setShowFindDialog = useEditorStore((s) => s.setShowFindDialog);
 
   // Compose hooks
   const { showGrid, showTileId, altPressed, panning } = useKeyboardShortcuts(containerRef);
@@ -58,11 +82,12 @@ export default function MapCanvas() {
 
   const {
     handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave,
-    handleDoubleClick, handleContextMenu,
+    handleDoubleClick, handleContextMenu, createNewEvent,
     resizePreview, resizeCursor, eventMultiDragDelta,
     lightMultiDragDelta, objectMultiDragDelta,
     lightDragPreview, objectDragPreview, cameraZoneDragPreview, cameraZoneMultiDragDelta, hoverTile,
-    editingEventId, setEditingEventId,
+    eventCtxMenu, editingEventId, setEditingEventId,
+    closeEventCtxMenu,
     isDraggingLight, isDraggingObject, draggedObjectId,
     resizeOrigSize, cameraZoneCursor,
     playerStartDragPos,
@@ -95,22 +120,17 @@ export default function MapCanvas() {
   // Tile cursor preview
   useTileCursorPreview(overlayRefs, hoverTile, rendererReady);
 
-  // 이미지로 저장
-  const handleSaveAsImage = useCallback(() => {
-    const canvas = webglCanvasRef.current;
-    if (!canvas) return;
-    try {
-      const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      const mapName = currentMapId ? `Map${String(currentMapId).padStart(3, '0')}` : 'map';
-      link.download = `${mapName}.png`;
-      link.href = dataUrl;
-      link.click();
-      showToast(t('mapCtx.imageSaved'));
-    } catch {
-      showToast(t('mapCtx.imageSaveFailed'));
-    }
-  }, [currentMapId, showToast, t]);
+  // 이벤트 컨텍스트 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!eventCtxMenu) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.context-menu')) return;
+      closeEventCtxMenu();
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [eventCtxMenu, closeEventCtxMenu]);
 
   // 시프트 / 샘플맵 / 이벤트 간단 작성 다이얼로그 상태
   const [showShiftDialog, setShowShiftDialog] = useState(false);
@@ -329,6 +349,122 @@ export default function MapCanvas() {
           );
         })()}
       </div>
+
+      {eventCtxMenu && (() => {
+        const hasEvent = eventCtxMenu.eventId != null;
+        const isMulti = hasEvent && selectedEventIds.length > 1 && selectedEventIds.includes(eventCtxMenu.eventId!);
+        const hasPaste = clipboard?.type === 'event' || clipboard?.type === 'events';
+        return (
+          <div ref={clampMenuRef} className="context-menu" style={{ left: eventCtxMenu.x, top: eventCtxMenu.y }} onClick={e => e.stopPropagation()}>
+            {hasEvent ? (
+              <div className="context-menu-item" onClick={() => { setEditingEventId(eventCtxMenu.eventId!); closeEventCtxMenu(); }}>
+                {t('eventCtx.edit')}
+                <span className="context-menu-shortcut">Enter</span>
+              </div>
+            ) : (
+              <div className="context-menu-item" onClick={() => { createNewEvent(eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); }}>
+                {t('eventCtx.new')}
+                <span className="context-menu-shortcut">Enter</span>
+              </div>
+            )}
+            <div className="context-menu-separator" />
+
+            {isMulti ? (
+              <>
+                <div className="context-menu-item" onClick={() => { for (const id of selectedEventIds) cutEvent(id); closeEventCtxMenu(); }}>
+                  {t('eventCtx.cut')} ({t('eventCtx.items', { count: selectedEventIds.length })})
+                  <span className="context-menu-shortcut">⌘X</span>
+                </div>
+                <div className="context-menu-item" onClick={() => { copyEvents(selectedEventIds); closeEventCtxMenu(); }}>
+                  {t('eventCtx.copy')} ({t('eventCtx.items', { count: selectedEventIds.length })})
+                  <span className="context-menu-shortcut">⌘C</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={`context-menu-item${hasEvent ? '' : ' disabled'}`} onClick={() => { if (hasEvent) { cutEvent(eventCtxMenu.eventId!); closeEventCtxMenu(); } }}>
+                  {t('eventCtx.cut')}
+                  <span className="context-menu-shortcut">⌘X</span>
+                </div>
+                <div className={`context-menu-item${hasEvent ? '' : ' disabled'}`} onClick={() => { if (hasEvent) { copyEvent(eventCtxMenu.eventId!); closeEventCtxMenu(); } }}>
+                  {t('eventCtx.copy')}
+                  <span className="context-menu-shortcut">⌘C</span>
+                </div>
+              </>
+            )}
+            <div className={`context-menu-item${hasPaste ? '' : ' disabled'}`} onClick={() => { if (hasPaste) { pasteEvents(eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); } }}>
+              {t('eventCtx.paste')}
+              <span className="context-menu-shortcut">⌘V</span>
+            </div>
+            {isMulti ? (
+              <div className="context-menu-item" onClick={() => { deleteEvents(selectedEventIds); closeEventCtxMenu(); }}>
+                {t('eventCtx.delete')} ({t('eventCtx.items', { count: selectedEventIds.length })})
+                <span className="context-menu-shortcut">⌫</span>
+              </div>
+            ) : (
+              <div className={`context-menu-item${hasEvent ? '' : ' disabled'}`} onClick={() => { if (hasEvent) { deleteEvent(eventCtxMenu.eventId!); closeEventCtxMenu(); } }}>
+                {t('eventCtx.delete')}
+                <span className="context-menu-shortcut">⌫</span>
+              </div>
+            )}
+            <div className="context-menu-separator" />
+
+            <div className="context-menu-item" onClick={() => { closeEventCtxMenu(); setShowFindDialog(true); }}>
+              {t('eventCtx.find')}
+              <span className="context-menu-shortcut">⌘F</span>
+            </div>
+            <div className="context-menu-item" onClick={() => { closeEventCtxMenu(); setShowFindDialog(true); }}>
+              {t('eventCtx.findNext')}
+              <span className="context-menu-shortcut">⌘G</span>
+            </div>
+            <div className="context-menu-item" onClick={() => { closeEventCtxMenu(); setShowFindDialog(true); }}>
+              {t('eventCtx.findPrev')}
+              <span className="context-menu-shortcut">⌥⌘G</span>
+            </div>
+            <div className="context-menu-separator" />
+
+            <div className="context-menu-item has-submenu">
+              {t('eventCtx.quickEvent')}
+              <div className="context-submenu">
+                <div className="context-menu-item" onClick={() => { setQuickEventPos({ x: eventCtxMenu.tileX, y: eventCtxMenu.tileY }); setQuickEventType('transfer'); closeEventCtxMenu(); }}>
+                  {t('eventCtx.quickTransfer')}
+                  <span className="context-menu-shortcut">⌘1</span>
+                </div>
+                <div className="context-menu-item" onClick={() => { setQuickEventPos({ x: eventCtxMenu.tileX, y: eventCtxMenu.tileY }); setQuickEventType('door'); closeEventCtxMenu(); }}>
+                  {t('eventCtx.quickDoor')}
+                  <span className="context-menu-shortcut">⌘2</span>
+                </div>
+                <div className="context-menu-item" onClick={() => { setQuickEventPos({ x: eventCtxMenu.tileX, y: eventCtxMenu.tileY }); setQuickEventType('treasure'); closeEventCtxMenu(); }}>
+                  {t('eventCtx.quickTreasure')}
+                  <span className="context-menu-shortcut">⌘3</span>
+                </div>
+                <div className="context-menu-item" onClick={() => { setQuickEventPos({ x: eventCtxMenu.tileX, y: eventCtxMenu.tileY }); setQuickEventType('inn'); closeEventCtxMenu(); }}>
+                  {t('eventCtx.quickInn')}
+                  <span className="context-menu-shortcut">⌘4</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="context-menu-item has-submenu">
+              {t('eventCtx.startPosition')}
+              <div className="context-submenu">
+                <div className="context-menu-item" onClick={() => { if (currentMapId) setPlayerStartPosition(currentMapId, eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); }}>
+                  {t('eventCtx.player')}
+                </div>
+                <div className="context-menu-item" onClick={() => { if (currentMapId) setVehicleStartPosition('boat', currentMapId, eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); }}>
+                  {t('eventCtx.boat')}
+                </div>
+                <div className="context-menu-item" onClick={() => { if (currentMapId) setVehicleStartPosition('ship', currentMapId, eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); }}>
+                  {t('eventCtx.ship')}
+                </div>
+                <div className="context-menu-item" onClick={() => { if (currentMapId) setVehicleStartPosition('airship', currentMapId, eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); }}>
+                  {t('eventCtx.airship')}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {editingEventId != null && (
         <EventDetail eventId={editingEventId} onClose={() => setEditingEventId(null)} />

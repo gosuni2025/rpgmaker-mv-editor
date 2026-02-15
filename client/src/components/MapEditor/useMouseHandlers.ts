@@ -10,7 +10,7 @@ import { useObjectHandlers } from './useObjectHandlers';
 import { useEventDragHandlers } from './useEventDragHandlers';
 import { useSelectionHandlers } from './useSelectionHandlers';
 
-export type { EventContextMenu, MapContextMenu } from './useEventDragHandlers';
+export type { EventContextMenu } from './useEventDragHandlers';
 
 export interface MouseHandlersResult {
   handleMouseDown: (e: React.MouseEvent<HTMLElement>) => void;
@@ -32,11 +32,9 @@ export interface MouseHandlersResult {
   cameraZoneMultiDragDelta: { dx: number; dy: number } | null;
   hoverTile: { x: number; y: number } | null;
   eventCtxMenu: { x: number; y: number; tileX: number; tileY: number; eventId: number | null } | null;
-  mapCtxMenu: { x: number; y: number; tileX: number; tileY: number } | null;
   editingEventId: number | null;
   setEditingEventId: (id: number | null) => void;
   closeEventCtxMenu: () => void;
-  closeMapCtxMenu: () => void;
   isDraggingEvent: React.MutableRefObject<boolean>;
   isDraggingLight: React.MutableRefObject<boolean>;
   isDraggingObject: React.MutableRefObject<boolean>;
@@ -429,11 +427,9 @@ export function useMouseHandlers(
     objectDragPreview: object.objectDragPreview,
     hoverTile,
     eventCtxMenu: event.eventCtxMenu,
-    mapCtxMenu: event.mapCtxMenu,
     editingEventId: event.editingEventId,
     setEditingEventId: event.setEditingEventId,
     closeEventCtxMenu: event.closeEventCtxMenu,
-    closeMapCtxMenu: event.closeMapCtxMenu,
     isDraggingEvent: event.isDraggingEvent,
     isDraggingLight: light.isDraggingLight,
     isDraggingObject: object.isDraggingObject,
