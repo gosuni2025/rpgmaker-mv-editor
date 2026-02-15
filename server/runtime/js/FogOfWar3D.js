@@ -362,7 +362,7 @@ FogOfWar3D._updateUniforms = function(dt) {
 };
 
 //=============================================================================
-// 런타임 후킹 - fogMode='3d'일 때 볼류메트릭 대신 3D 박스 사용
+// 런타임 후킹 - fogMode='3dbox'일 때 볼류메트릭 대신 3D 박스 사용
 //=============================================================================
 
 FogOfWar3D._lastTime = 0;
@@ -380,11 +380,11 @@ if (!window._editorRuntimeReady) {
 
     var FOW = window.FogOfWar;
 
-    // FogOfWar._createMesh 래핑: fogMode='3d'면 볼류메트릭 생성을 차단
+    // FogOfWar._createMesh 래핑: fogMode='3dbox'면 볼류메트릭 생성을 차단
     if (FOW && FOW._createMesh) {
         var _origCreateMesh = FOW._createMesh;
         FOW._createMesh = function() {
-            if (FogOfWar3D._getFogMode() === '3d') {
+            if (FogOfWar3D._getFogMode() === '3dbox') {
                 // 볼류메트릭 생성 차단
                 return null;
             }

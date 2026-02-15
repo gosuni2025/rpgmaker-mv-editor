@@ -595,7 +595,7 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
       FogOfWarCleanup._fogMesh = null;
     }
 
-    if (disableFow || !fogOfWar?.enabled || mapWidth <= 0 || mapHeight <= 0 || fogOfWar?.fogMode === '3d') {
+    if (disableFow || !fogOfWar?.enabled || mapWidth <= 0 || mapHeight <= 0 || fogOfWar?.fogMode === '3dbox') {
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       return;
     }
@@ -697,7 +697,7 @@ export function useFogOfWar3DOverlay(refs: OverlayRefs & { fogOfWar3DMeshRef: Re
       refs.fogOfWar3DMeshRef.current = null;
     }
 
-    if (disableFow || !fogOfWar?.enabled || fogOfWar?.fogMode !== '3d' || mapWidth <= 0 || mapHeight <= 0) {
+    if (disableFow || !fogOfWar?.enabled || fogOfWar?.fogMode !== '3dbox' || mapWidth <= 0 || mapHeight <= 0) {
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       return;
     }
