@@ -10,7 +10,7 @@ import {
   copyEventsOp, pasteEventsOp, deleteEventsOp, moveEventsOp,
 } from './eventOperations';
 import {
-  addObjectOp, updateObjectOp, deleteObjectOp,
+  addObjectOp, addObjectFromTilesOp, updateObjectOp, deleteObjectOp,
   copyObjectsOp, pasteObjectsOp, deleteObjectsOp, moveObjectsOp,
   addCameraZoneOp, updateCameraZoneOp, deleteCameraZoneOp, deleteCameraZonesOp, moveCameraZonesOp,
 } from './objectOperations';
@@ -27,7 +27,8 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'copyEvents' | 'pasteEvents' | 'deleteEvents' | 'moveEvents' |
   'setSelectedEventIds' | 'setEventSelectionStart' | 'setEventSelectionEnd' | 'setIsEventPasting' | 'setEventPastePreviewPos' | 'clearEventSelection' |
   'setSelectedObjectId' | 'setSelectedObjectIds' | 'setObjectSelectionStart' | 'setObjectSelectionEnd' | 'setIsObjectPasting' | 'setObjectPastePreviewPos' | 'clearObjectSelection' |
-  'addObject' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' |
+  'objectPaintTiles' | 'setObjectPaintTiles' |
+  'addObject' | 'addObjectFromTiles' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' |
   'setSelectedCameraZoneId' | 'setSelectedCameraZoneIds' | 'addCameraZone' | 'updateCameraZone' | 'deleteCameraZone' | 'deleteCameraZones' | 'moveCameraZones' |
   'setEditMode' | 'setSelectedTool' | 'setDrawShape' | 'setSelectedTileId' | 'setSelectedTiles' |
   'setCurrentLayer' | 'setCursorTile' | 'setSelection' | 'setIsPasting' | 'setPastePreviewPos' | 'clearSelection' | 'setSelectedEventId'
@@ -59,6 +60,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   objectSelectionEnd: null,
   isObjectPasting: false,
   objectPastePreviewPos: null,
+  objectPaintTiles: null,
   selectedCameraZoneId: null,
   selectedCameraZoneIds: [],
   undoStack: [],
@@ -369,7 +371,9 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   setObjectPastePreviewPos: (pos) => set({ objectPastePreviewPos: pos }),
   clearObjectSelection: () => set({ objectSelectionStart: null, objectSelectionEnd: null, selectedObjectIds: [], selectedObjectId: null, isObjectPasting: false, objectPastePreviewPos: null }),
 
+  setObjectPaintTiles: (tiles: Set<string> | null) => set({ objectPaintTiles: tiles }),
   addObject: (x: number, y: number) => addObjectOp(get, set, x, y),
+  addObjectFromTiles: (paintedTiles: Set<string>) => addObjectFromTilesOp(get, set, paintedTiles),
   updateObject: (id: number, updates: Partial<MapObject>) => updateObjectOp(get, set, id, updates),
   deleteObject: (id: number) => deleteObjectOp(get, set, id),
   copyObjects: (objectIds: number[]) => copyObjectsOp(get, set, objectIds),

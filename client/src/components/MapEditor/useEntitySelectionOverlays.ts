@@ -311,6 +311,7 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
   const objectPastePreviewPos = useEditorStore((s) => s.objectPastePreviewPos);
   const clipboard = useEditorStore((s) => s.clipboard);
   const currentMap = useEditorStore((s) => s.currentMap);
+  const objectPaintTiles = useEditorStore((s) => s.objectPaintTiles);
 
   React.useEffect(() => {
     const rObj = refs.rendererObjRef.current;
@@ -357,6 +358,17 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
       }
     }
 
+    // 4. 오브젝트 펜 칠하기 프리뷰
+    if (isObjMode && objectPaintTiles && objectPaintTiles.size > 0) {
+      for (const key of objectPaintTiles) {
+        const [sx, sy] = key.split(',');
+        const tx = parseInt(sx), ty = parseInt(sy);
+        const cx = tx * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+        const cy = ty * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+        createHighlightMesh(THREE, rObj.scene, meshes, cx, cy, TILE_SIZE_PX, TILE_SIZE_PX, 0x44ff88, 0x44ff88, 6.0, 6.3, 10002, 10003);
+      }
+    }
+
     triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
-  }, [editMode, selectedObjectIds, objectSelectionStart, objectSelectionEnd, isObjectPasting, objectPastePreviewPos, clipboard, currentMap?.objects, rendererReady]);
+  }, [editMode, selectedObjectIds, objectSelectionStart, objectSelectionEnd, isObjectPasting, objectPastePreviewPos, clipboard, currentMap?.objects, objectPaintTiles, rendererReady]);
 }
