@@ -106,136 +106,142 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
           </div>
         ))}
       </div>
-      <div className="db-form">
+      <div className="db-form-columns">
         {selectedItem && (
           <>
-            <label>
-              {t('common.name')}
-              <div style={{display:'flex',gap:4,alignItems:'center'}}>
-                <input
-                  type="text"
-                  value={selectedItem.name || ''}
-                  onChange={(e) => handleFieldChange('name', e.target.value)}
-                  style={{flex:1}}
-                />
-                <TranslateButton csvPath="database/actors.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
+            <div className="db-form-col">
+              <label>
+                {t('common.name')}
+                <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                  <input
+                    type="text"
+                    value={selectedItem.name || ''}
+                    onChange={(e) => handleFieldChange('name', e.target.value)}
+                    style={{flex:1}}
+                  />
+                  <TranslateButton csvPath="database/actors.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
+                </div>
+              </label>
+              <label>
+                {t('fields.nickname')}
+                <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                  <input
+                    type="text"
+                    value={selectedItem.nickname || ''}
+                    onChange={(e) => handleFieldChange('nickname', e.target.value)}
+                    style={{flex:1}}
+                  />
+                  <TranslateButton csvPath="database/actors.csv" entryKey={`${selectedItem.id}.nickname`} sourceText={selectedItem.nickname || ''} />
+                </div>
+              </label>
+              <label>
+                {t('fields.class')}
+                <select
+                  value={selectedItem.classId || 0}
+                  onChange={(e) => handleFieldChange('classId', Number(e.target.value))}
+                  style={selectStyle}
+                >
+                  <option value={0}>{t('common.none')}</option>
+                  {classes.map(c => <option key={c.id} value={c.id}>{String(c.id).padStart(4, '0')}: {c.name}</option>)}
+                </select>
+              </label>
+              <div className="db-form-row">
+                <label>
+                  {t('fields.initialLevel')}
+                  <input
+                    type="number"
+                    value={selectedItem.initialLevel || 1}
+                    onChange={(e) => handleFieldChange('initialLevel', Number(e.target.value))}
+                  />
+                </label>
+                <label>
+                  {t('fields.maxLevel')}
+                  <input
+                    type="number"
+                    value={selectedItem.maxLevel || 99}
+                    onChange={(e) => handleFieldChange('maxLevel', Number(e.target.value))}
+                  />
+                </label>
               </div>
-            </label>
-            <label>
-              {t('fields.nickname')}
-              <div style={{display:'flex',gap:4,alignItems:'center'}}>
-                <input
-                  type="text"
-                  value={selectedItem.nickname || ''}
-                  onChange={(e) => handleFieldChange('nickname', e.target.value)}
-                  style={{flex:1}}
-                />
-                <TranslateButton csvPath="database/actors.csv" entryKey={`${selectedItem.id}.nickname`} sourceText={selectedItem.nickname || ''} />
-              </div>
-            </label>
-            <label>
-              {t('fields.class')}
-              <select
-                value={selectedItem.classId || 0}
-                onChange={(e) => handleFieldChange('classId', Number(e.target.value))}
-                style={selectStyle}
-              >
-                <option value={0}>{t('common.none')}</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{String(c.id).padStart(4, '0')}: {c.name}</option>)}
-              </select>
-            </label>
-            <label>
-              {t('fields.initialLevel')}
-              <input
-                type="number"
-                value={selectedItem.initialLevel || 1}
-                onChange={(e) => handleFieldChange('initialLevel', Number(e.target.value))}
-              />
-            </label>
-            <label>
-              {t('fields.maxLevel')}
-              <input
-                type="number"
-                value={selectedItem.maxLevel || 99}
-                onChange={(e) => handleFieldChange('maxLevel', Number(e.target.value))}
-              />
-            </label>
-            <label>
-              {t('fields.profile')}
-              <div style={{display:'flex',gap:4,alignItems:'start'}}>
-                <textarea
-                  value={selectedItem.profile || ''}
-                  onChange={(e) => handleFieldChange('profile', e.target.value)}
-                  rows={3}
-                  style={{flex:1}}
-                />
-                <TranslateButton csvPath="database/actors.csv" entryKey={`${selectedItem.id}.profile`} sourceText={selectedItem.profile || ''} />
-              </div>
-            </label>
+              <label>
+                {t('fields.profile')}
+                <div style={{display:'flex',gap:4,alignItems:'start'}}>
+                  <textarea
+                    value={selectedItem.profile || ''}
+                    onChange={(e) => handleFieldChange('profile', e.target.value)}
+                    rows={3}
+                    style={{flex:1}}
+                  />
+                  <TranslateButton csvPath="database/actors.csv" entryKey={`${selectedItem.id}.profile`} sourceText={selectedItem.profile || ''} />
+                </div>
+              </label>
 
-            <div className="db-form-section">{t('fields.images')}</div>
-            <label>
-              {t('fields.face')}
-              <ImagePicker
-                type="faces"
-                value={selectedItem.faceName || ''}
-                onChange={(name) => handleFieldChange('faceName', name)}
-                index={selectedItem.faceIndex ?? 0}
-                onIndexChange={(index) => handleFieldChange('faceIndex', index)}
-              />
-            </label>
-            <label>
-              {t('fields.character')}
-              <ImagePicker
-                type="characters"
-                value={selectedItem.characterName || ''}
-                onChange={(name) => handleFieldChange('characterName', name)}
-                index={selectedItem.characterIndex ?? 0}
-                onIndexChange={(index) => handleFieldChange('characterIndex', index)}
-              />
-            </label>
-            <label>
-              {t('fields.battlerSV')}
-              <ImagePicker
-                type="sv_actors"
-                value={selectedItem.battlerName || ''}
-                onChange={(name) => handleFieldChange('battlerName', name)}
-              />
-            </label>
-
-            <div className="db-form-section">{t('fields.initialEquipment')}</div>
-            <div className="db-equip-row">
-              {EQUIP_SLOT_NAMES.map((name, i) => {
-                const list = i === 0 ? weapons : armors;
-                return (
-                  <label key={i} className="db-equip-slot">
-                    {name}
-                    <select
-                      value={selectedItem.equips?.[i] ?? 0}
-                      onChange={(e) => handleEquipChange(i, Number(e.target.value))}
-                      style={selectStyle}
-                    >
-                      <option value={0}>{t('common.none')}</option>
-                      {list.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                    </select>
-                  </label>
-                );
-              })}
+              <div className="db-form-section">{t('fields.images')}</div>
+              <label>
+                {t('fields.face')}
+                <ImagePicker
+                  type="faces"
+                  value={selectedItem.faceName || ''}
+                  onChange={(name) => handleFieldChange('faceName', name)}
+                  index={selectedItem.faceIndex ?? 0}
+                  onIndexChange={(index) => handleFieldChange('faceIndex', index)}
+                />
+              </label>
+              <label>
+                {t('fields.character')}
+                <ImagePicker
+                  type="characters"
+                  value={selectedItem.characterName || ''}
+                  onChange={(name) => handleFieldChange('characterName', name)}
+                  index={selectedItem.characterIndex ?? 0}
+                  onIndexChange={(index) => handleFieldChange('characterIndex', index)}
+                />
+              </label>
+              <label>
+                {t('fields.battlerSV')}
+                <ImagePicker
+                  type="sv_actors"
+                  value={selectedItem.battlerName || ''}
+                  onChange={(name) => handleFieldChange('battlerName', name)}
+                />
+              </label>
             </div>
 
-            <TraitsEditor
-              traits={selectedItem.traits || []}
-              onChange={(traits: Trait[]) => handleFieldChange('traits', traits)}
-            />
+            <div className="db-form-col">
+              <div className="db-form-section" style={{borderTop:'none',marginTop:0,paddingTop:0}}>{t('fields.initialEquipment')}</div>
+              <div className="db-equip-row">
+                {EQUIP_SLOT_NAMES.map((name, i) => {
+                  const list = i === 0 ? weapons : armors;
+                  return (
+                    <label key={i} className="db-equip-slot">
+                      {name}
+                      <select
+                        value={selectedItem.equips?.[i] ?? 0}
+                        onChange={(e) => handleEquipChange(i, Number(e.target.value))}
+                        style={selectStyle}
+                      >
+                        <option value={0}>{t('common.none')}</option>
+                        {list.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                      </select>
+                    </label>
+                  );
+                })}
+              </div>
 
-            <label>
-              {t('common.note')}
-              <textarea
-                value={selectedItem.note || ''}
-                onChange={(e) => handleFieldChange('note', e.target.value)}
-                rows={4}
+              <TraitsEditor
+                traits={selectedItem.traits || []}
+                onChange={(traits: Trait[]) => handleFieldChange('traits', traits)}
               />
-            </label>
+
+              <label>
+                {t('common.note')}
+                <textarea
+                  value={selectedItem.note || ''}
+                  onChange={(e) => handleFieldChange('note', e.target.value)}
+                  rows={4}
+                />
+              </label>
+            </div>
           </>
         )}
       </div>
