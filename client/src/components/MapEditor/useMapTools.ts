@@ -393,8 +393,8 @@ export function useMapTools(
               const tx = x + col, ty = y + row;
               if (tx < 0 || tx >= latestMap.width || ty < 0 || ty >= latestMap.height) continue;
               const tid = sTiles[row][col];
-              // B/C/D/E 타일 → 자동 레이어 관리
-              if (currentLayer === 1 && isUpperLayerTile(tid)) {
+              // B/C/D/E 타일 → 자동 레이어 관리 (어떤 레이어에서든 z=1/z=2에 배치)
+              if (isUpperLayerTile(tid)) {
                 const placements = resolveUpperLayerPlacement(tx, ty, tid, data, latestMap.width, latestMap.height);
                 for (const p of placements) {
                   const pidx = (p.z * latestMap.height + p.y) * latestMap.width + p.x;
@@ -415,8 +415,8 @@ export function useMapTools(
             updateMapTiles(updates);
           }
         } else {
-          // B/C/D/E 타일 → 자동 레이어 관리
-          if (currentLayer === 1 && isUpperLayerTile(selectedTileId)) {
+          // B/C/D/E 타일 → 자동 레이어 관리 (어떤 레이어에서든 z=1/z=2에 배치)
+          if (isUpperLayerTile(selectedTileId)) {
             const placements = resolveUpperLayerPlacement(x, y, selectedTileId, latestMap.data, latestMap.width, latestMap.height);
             if (placements.length > 0) {
               const changes: TileChange[] = [];
