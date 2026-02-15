@@ -30,6 +30,7 @@
         { key: 'dissolveStrength',   label: 'Dissolve Amt',      min: 0,    max: 3.0,  step: 0.05, def: 0.8,  shader: true },
         { key: 'fadeSmoothness',     label: 'Fade Range',        min: 0.05, max: 1.0,  step: 0.05, def: 0.5,  shader: true },
         { key: 'nearVisWeight',      label: 'Edge Width',        min: 0.1,  max: 1.5,  step: 0.05, def: 0.7,  shader: true },
+        { key: 'edgeOffset',         label: 'Edge Offset',       min: 0,    max: 1.5,  step: 0.05, def: 0.5,  shader: true },
     ];
 
     // ── 3D 전용 파라미터 ──
