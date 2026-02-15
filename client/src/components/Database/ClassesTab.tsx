@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { RPGClass } from '../../types/rpgMakerMV';
+import type { RPGClass, Learning } from '../../types/rpgMakerMV';
 import TraitsEditor from '../common/TraitsEditor';
 import apiClient from '../../api/client';
 import TranslateButton from '../common/TranslateButton';
 import ParamCurveDialog from './ParamCurveDialog';
 import ExpCurveDialog from './ExpCurveDialog';
+import LearningDialog from './LearningDialog';
 
 const PARAM_COLORS = ['#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8', '#4dd0e1', '#fff176', '#a1887f'];
 
@@ -148,6 +149,8 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
   const [skills, setSkills] = useState<{ id: number; name: string }[]>([]);
   const [showParamCurve, setShowParamCurve] = useState<number | null>(null); // null=closed, number=initial tab index
   const [showExpCurve, setShowExpCurve] = useState(false);
+  const [editingLearning, setEditingLearning] = useState<{ index: number; learning: Learning } | null>(null);
+  const [selectedLearningIdx, setSelectedLearningIdx] = useState(-1);
 
   useEffect(() => {
     apiClient.get<({ id: number; name: string } | null)[]>('/database/skills').then(d => {
@@ -272,32 +275,40 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
 
             <div className="db-form-section">
               {t('fields.learnings')}
-              <button className="db-btn-small" onClick={addLearning}>+</button>
+              <button className="db-btn-small" onClick={() => {
+                addLearning();
+                const newIdx = (selectedItem.learnings || []).length;
+                setEditingLearning({ index: newIdx, learning: { level: 1, skillId: 1, note: '' } });
+              }}>+</button>
+              <button className="db-btn-small" onClick={() => {
+                if (selectedLearningIdx >= 0) removeLearning(selectedLearningIdx);
+                setSelectedLearningIdx(-1);
+              }}>-</button>
             </div>
-            {(selectedItem.learnings || []).map((l, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <label style={{ flex: 1 }}>
-                  {t('fields.level')}
-                  <input
-                    type="number"
-                    value={l.level}
-                    onChange={(e) => handleLearningChange(i, 'level', Number(e.target.value))}
-                  />
-                </label>
-                <label style={{ flex: 2 }}>
-                  {t('fields.skill')}
-                  <select
-                    value={l.skillId}
-                    onChange={(e) => handleLearningChange(i, 'skillId', Number(e.target.value))}
-                    style={selectStyle}
-                  >
-                    <option value={0}>{t('common.none')}</option>
-                    {skills.map(s => <option key={s.id} value={s.id}>{String(s.id).padStart(4, '0')}: {s.name}</option>)}
-                  </select>
-                </label>
-                <button className="db-btn-small" onClick={() => removeLearning(i)}>-</button>
+            <div className="classes-learnings-table">
+              <div className="classes-learnings-header">
+                <span className="classes-learnings-col-lv">{t('fields.level')}</span>
+                <span className="classes-learnings-col-skill">{t('fields.skill')}</span>
+                <span className="classes-learnings-col-note">{t('common.note')}</span>
               </div>
-            ))}
+              <div className="classes-learnings-body">
+                {(selectedItem.learnings || []).map((l, i) => {
+                  const skillName = skills.find(s => s.id === l.skillId)?.name || '';
+                  return (
+                    <div
+                      key={i}
+                      className={`classes-learnings-row${i === selectedLearningIdx ? ' selected' : ''}`}
+                      onClick={() => setSelectedLearningIdx(i)}
+                      onDoubleClick={() => setEditingLearning({ index: i, learning: { ...l } })}
+                    >
+                      <span className="classes-learnings-col-lv">Lv {l.level}</span>
+                      <span className="classes-learnings-col-skill">{String(l.skillId).padStart(4, '0')} {skillName}</span>
+                      <span className="classes-learnings-col-note">{l.note || ''}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
             <div className="db-form-section">{t('fields.traits')}</div>
             <TraitsEditor
@@ -335,6 +346,19 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
             setShowExpCurve(false);
           }}
           onCancel={() => setShowExpCurve(false)}
+        />
+      )}
+      {editingLearning !== null && (
+        <LearningDialog
+          learning={editingLearning.learning}
+          skills={skills}
+          onConfirm={(updated) => {
+            const learnings = [...(selectedItem?.learnings || [])];
+            learnings[editingLearning.index] = updated;
+            handleFieldChange('learnings', learnings);
+            setEditingLearning(null);
+          }}
+          onCancel={() => setEditingLearning(null)}
         />
       )}
     </div>
