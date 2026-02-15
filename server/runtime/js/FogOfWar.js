@@ -401,6 +401,8 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
         this._exploredAlpha = config.exploredAlpha != null ? config.exploredAlpha : 0.6;
         this._fogHeight = config.fogHeight != null ? config.fogHeight : 300;
         this._lineOfSight = config.lineOfSight != null ? config.lineOfSight : true;
+        this._lineOfSight3D = config.lineOfSight3D != null ? config.lineOfSight3D : false;
+        this._eyeHeight = config.eyeHeight != null ? config.eyeHeight : 1.5;
         this._absorption = config.absorption != null ? config.absorption : 0.012;
         this._visibilityBrightness = config.visibilityBrightness != null ? config.visibilityBrightness : 0.0;
         this._edgeAnimation = config.edgeAnimation != null ? config.edgeAnimation : true;
@@ -477,6 +479,8 @@ FogOfWar.dispose = function() {
     this._borderState = null;
     this._blockMap = null;
     this._blockMapDirty = true;
+    this._heightMap = null;
+    this._customHeightMap = false;
     this._active = false;
     this._prevPlayerX = -1;
     this._prevPlayerY = -1;
@@ -515,7 +519,10 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
     var explored = this._exploredData;
 
     // 장애물 맵 캐시 (통행불가 타일 = 시야 차단)
-    if (this._lineOfSight) this._buildBlockMap();
+    if (this._lineOfSight) {
+        this._buildBlockMap();
+        if (this._lineOfSight3D) this._buildHeightMap();
+    }
 
     // 가시성 초기화
     for (var i = 0; i < vis.length; i++) vis[i] = 0;
@@ -532,8 +539,14 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
             var dy = ty - playerTileY;
             var distSq = dx * dx + dy * dy;
             if (distSq <= radiusSq) {
-                // Line of Sight 체크: 플레이어→타일 경로에 벽이 있으면 차단
-                if (this._lineOfSight && !this._hasLineOfSight(playerTileX, playerTileY, tx, ty)) continue;
+                // Line of Sight 체크
+                if (this._lineOfSight) {
+                    if (this._lineOfSight3D) {
+                        if (!this._hasLineOfSight3D(playerTileX, playerTileY, tx, ty)) continue;
+                    } else {
+                        if (!this._hasLineOfSight(playerTileX, playerTileY, tx, ty)) continue;
+                    }
+                }
 
                 var idx = ty * w + tx;
                 var dist = Math.sqrt(distSq);
@@ -598,6 +611,9 @@ FogOfWar._computeEdgeData = function() {
 
 FogOfWar._blockMap = null;     // Uint8Array — 장애물 맵 (0=통과 가능, 1=차단)
 FogOfWar._blockMapDirty = true;
+FogOfWar._heightMap = null;    // Float32Array — 타일별 높이 (0=바닥, 1~N=벽 높이)
+FogOfWar._eyeHeight = 1.5;    // 플레이어 눈높이 (타일 단위)
+FogOfWar._lineOfSight3D = false; // 3D LoS 활성화 여부
 
 // 장애물 맵 구축: 통행 불가 타일을 시야 차단 장애물로 등록
 FogOfWar._buildBlockMap = function() {
@@ -637,6 +653,165 @@ FogOfWar._buildBlockMap = function() {
     }
 
     this._blockMapDirty = false;
+};
+
+//=============================================================================
+// 높이맵 구축: 타일 유형에 따라 높이를 자동 부여
+//=============================================================================
+
+FogOfWar._buildHeightMap = function() {
+    var w = this._mapWidth;
+    var h = this._mapHeight;
+    if (!this._heightMap || this._heightMap.length !== w * h) {
+        this._heightMap = new Float32Array(w * h);
+    }
+    var heightMap = this._heightMap;
+
+    // 외부에서 커스텀 높이맵을 제공한 경우 그대로 사용
+    if (this._customHeightMap) return;
+
+    for (var i = 0; i < heightMap.length; i++) heightMap[i] = 0;
+
+    // $gameMap이 없으면 blockMap 기반 폴백
+    if (typeof $gameMap === 'undefined' || !$gameMap || !$gameMap.tilesetFlags) {
+        if (this._blockMap) {
+            for (var i = 0; i < heightMap.length; i++) {
+                heightMap[i] = this._blockMap[i] ? 2.0 : 0.0;
+            }
+        }
+        return;
+    }
+
+    var flags = $gameMap.tilesetFlags();
+    if (!flags || flags.length === 0) {
+        if (this._blockMap) {
+            for (var i = 0; i < heightMap.length; i++) {
+                heightMap[i] = this._blockMap[i] ? 2.0 : 0.0;
+            }
+        }
+        return;
+    }
+
+    for (var ty = 0; ty < h; ty++) {
+        for (var tx = 0; tx < w; tx++) {
+            var tiles = $gameMap.layeredTiles(tx, ty);
+            var maxH = 0;
+            for (var ti = 0; ti < tiles.length; ti++) {
+                var tileId = tiles[ti];
+                if (tileId === 0) continue;
+                var flag = flags[tileId];
+                if (flag === undefined) continue;
+                if ((flag & 0x10) !== 0) continue; // 통행 영향 없음
+
+                // 타일 유형별 높이 결정
+                var tileH = 0;
+                if ((flag & 0x0f) === 0x0f) {
+                    // 모든 방향 통행 불가 = 벽
+                    if (tileId >= 4352 && tileId < 5888) {
+                        tileH = 3.0; // A3: 건물 외벽 (높음)
+                    } else if (tileId >= 5888 && tileId < 8192) {
+                        tileH = 2.5; // A4: 건물 벽/지형
+                    } else {
+                        tileH = 2.0; // 기타 벽
+                    }
+                } else if ((flag & 0x0f) !== 0) {
+                    // 일부 방향만 통행 불가 = 낮은 장애물 (울타리 등)
+                    tileH = 1.0;
+                }
+                maxH = Math.max(maxH, tileH);
+            }
+            heightMap[ty * w + tx] = maxH;
+        }
+    }
+};
+
+// 커스텀 높이맵 설정 (테스트용)
+FogOfWar.setCustomHeightMap = function(heightMapArray) {
+    var w = this._mapWidth;
+    var h = this._mapHeight;
+    if (!this._heightMap || this._heightMap.length !== w * h) {
+        this._heightMap = new Float32Array(w * h);
+    }
+    for (var i = 0; i < Math.min(heightMapArray.length, w * h); i++) {
+        this._heightMap[i] = heightMapArray[i];
+    }
+    this._customHeightMap = true;
+    // blockMap도 동기화 (높이 > 0이면 blocked)
+    if (!this._blockMap || this._blockMap.length !== w * h) {
+        this._blockMap = new Uint8Array(w * h);
+    }
+    for (var i = 0; i < w * h; i++) {
+        this._blockMap[i] = this._heightMap[i] > 0 ? 1 : 0;
+    }
+};
+
+//=============================================================================
+// 3D Line of Sight — 높이맵 기반 레이캐스팅
+// 플레이어 눈높이에서 타겟 타일까지 시선을 추적, 중간 타일의 높이가
+// 시선 직선보다 높으면 차단
+//=============================================================================
+
+FogOfWar._hasLineOfSight3D = function(x0, y0, x1, y1) {
+    if (!this._heightMap) return this._hasLineOfSight(x0, y0, x1, y1);
+
+    var w = this._mapWidth;
+    var heightMap = this._heightMap;
+    var eyeH = this._eyeHeight;
+
+    // 시작점 높이: 플레이어 발밑 타일 높이 + 눈높이
+    var startH = eyeH; // 플레이어는 바닥에 서있다고 가정 (높이 0 타일)
+
+    // 끝점 높이: 타겟 타일의 높이 (벽이면 꼭대기를 볼 수 있음)
+    var targetTileH = 0;
+    if (x1 >= 0 && x1 < w && y1 >= 0 && y1 < this._mapHeight) {
+        targetTileH = heightMap[y1 * w + x1];
+    }
+    // 타겟이 벽이면 벽의 중간 높이를 목표로 (벽 자체는 보임)
+    var endH = targetTileH > 0 ? targetTileH * 0.5 : 0;
+
+    // Bresenham 라인을 따라가며 3D 시선 체크
+    var dx = Math.abs(x1 - x0);
+    var dy = Math.abs(y1 - y0);
+    var sx = x0 < x1 ? 1 : -1;
+    var sy = y0 < y1 ? 1 : -1;
+    var err = dx - dy;
+
+    var cx = x0, cy = y0;
+    var totalDist = Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+    if (totalDist < 0.001) return true;
+
+    while (cx !== x1 || cy !== y1) {
+        var e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            cx += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            cy += sy;
+        }
+
+        if (cx < 0 || cx >= w || cy < 0 || cy >= this._mapHeight) continue;
+
+        // 끝점 도달
+        if (cx === x1 && cy === y1) {
+            // 타겟이 벽이면: 벽 자체는 보인다
+            return true;
+        }
+
+        // 현재 위치까지의 거리 비율로 시선 높이 계산 (선형 보간)
+        var curDist = Math.sqrt((cx - x0) * (cx - x0) + (cy - y0) * (cy - y0));
+        var t = curDist / totalDist;
+        var lineH = startH + (endH - startH) * t; // 시선의 높이
+
+        // 이 타일의 높이가 시선보다 높으면 차단
+        var tileH = heightMap[cy * w + cx];
+        if (tileH > lineH) {
+            return false;
+        }
+    }
+
+    return true;
 };
 
 // Bresenham 라인: (x0,y0) → (x1,y1) 경로에 장애물이 있으면 false
