@@ -9,6 +9,57 @@ type GetFn = () => EditorState;
 // Object operations
 // ============================================================
 
+/**
+ * 칠한 타일(외곽선)을 기반으로 내부를 채운 타일 영역을 계산.
+ * 바운딩 박스+1 패딩 영역에서 외부를 flood fill하고,
+ * flood fill에 닿지 않은 비-외곽선 타일을 내부로 판정.
+ */
+function fillInterior(paintedTiles: Set<string>, minX: number, minY: number, w: number, h: number): Set<string> {
+  // 패딩 1칸 추가 (외부 flood fill 시작점 확보)
+  const pw = w + 2, ph = h + 2;
+  // grid: 0=빈칸, 1=외곽선(칠한 타일)
+  const grid = new Uint8Array(pw * ph);
+  for (const key of paintedTiles) {
+    const [sx, sy] = key.split(',');
+    const lx = parseInt(sx) - minX + 1; // +1 for padding
+    const ly = parseInt(sy) - minY + 1;
+    grid[ly * pw + lx] = 1;
+  }
+
+  // 외부 flood fill (0,0에서 시작, 외곽선=벽)
+  const visited = new Uint8Array(pw * ph);
+  const stack: number[] = [0]; // index into grid
+  visited[0] = 1;
+  while (stack.length > 0) {
+    const idx = stack.pop()!;
+    const cx = idx % pw, cy = (idx - cx) / pw;
+    const neighbors = [
+      cy > 0 ? idx - pw : -1,
+      cy < ph - 1 ? idx + pw : -1,
+      cx > 0 ? idx - 1 : -1,
+      cx < pw - 1 ? idx + 1 : -1,
+    ];
+    for (const ni of neighbors) {
+      if (ni >= 0 && !visited[ni] && grid[ni] === 0) {
+        visited[ni] = 1;
+        stack.push(ni);
+      }
+    }
+  }
+
+  // 외곽선 + 내부(flood fill에 닿지 않은 빈칸) = 최종 타일 영역
+  const filled = new Set(paintedTiles);
+  for (let ly = 1; ly <= h; ly++) {
+    for (let lx = 1; lx <= w; lx++) {
+      const gi = ly * pw + lx;
+      if (grid[gi] === 0 && !visited[gi]) {
+        filled.add(`${minX + lx - 1},${minY + ly - 1}`);
+      }
+    }
+  }
+  return filled;
+}
+
 export function addObjectFromTilesOp(get: GetFn, set: SetFn, paintedTiles: Set<string>) {
   const { currentMap, currentMapId } = get();
   if (!currentMap || !currentMapId || paintedTiles.size === 0) return;
@@ -31,6 +82,9 @@ export function addObjectFromTilesOp(get: GetFn, set: SetFn, paintedTiles: Set<s
   const mapH = currentMap.height;
   const data = currentMap.data;
 
+  // 외곽선(칠한 타일) + 내부 채우기
+  const filledTiles = fillInterior(paintedTiles, minX, minY, w, h);
+
   // tileIds[row][col] 배열 생성 (row 0 = 상단)
   const tileIds: number[][] = [];
   for (let row = 0; row < h; row++) {
@@ -38,7 +92,7 @@ export function addObjectFromTilesOp(get: GetFn, set: SetFn, paintedTiles: Set<s
     for (let col = 0; col < w; col++) {
       const tx = minX + col;
       const ty = minY + row;
-      if (paintedTiles.has(`${tx},${ty}`)) {
+      if (filledTiles.has(`${tx},${ty}`)) {
         // z=3(상층)부터 z=0(하층)까지 탐색하여 가장 위 비어있지 않은 타일 선택
         let tid = 0;
         for (let z = 3; z >= 0; z--) {
