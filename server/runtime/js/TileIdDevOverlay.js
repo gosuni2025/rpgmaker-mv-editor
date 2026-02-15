@@ -2,8 +2,8 @@
 // TileIdDevOverlay.js - Tile ID debug overlay for playtest
 //=============================================================================
 // Activated when URL contains ?dev=true
-// Shows grid lines + tile info tooltip on mouse hover
-// Uses a separate HTML canvas overlay (no 3D scene dependency)
+// Shows grid lines in THREE.js scene + tile info tooltip on mouse hover
+// Toggle via dev panel checkbox
 //=============================================================================
 
 (function() {
@@ -22,13 +22,14 @@
 
     // State
     var enabled = false;
+    var gridMesh = null;
+    var hoverMesh = null;
+    var hoverCanvas = null;
+    var hoverCtx = null;
+    var hoverTexture = null;
     var lastMapId = null;
     var panel = null;
     var panelCtrl = null;
-
-    // Overlay canvas
-    var overlayCanvas = null;
-    var overlayCtx = null;
 
     // Hover state
     var hoverTileX = -1;
@@ -38,6 +39,10 @@
 
     // Layer colors
     var LAYER_CSS = ['#4fc3f7', '#81c784', '#ffb74d', '#f06292'];
+
+    // Hover label covers 3x3 tiles for readability
+    var LABEL_TILE_SPAN = 3;
+    var LABEL_SIZE = TILE_SIZE * LABEL_TILE_SPAN;
 
     function describeTileId(tileId) {
         if (tileId === 0) return '';
@@ -71,38 +76,194 @@
         return '#' + tileId;
     }
 
-    // ---- Overlay canvas (sits above game canvases) ----
-    function ensureOverlayCanvas() {
-        if (overlayCanvas) return;
-        overlayCanvas = document.createElement('canvas');
-        overlayCanvas.id = 'TileIdOverlayCanvas';
-        overlayCanvas.style.cssText = [
-            'position:absolute', 'top:0', 'left:0',
-            'z-index:5',  // above UpperCanvas(3) but below UI panels(99998)
-            'pointer-events:none',  // let clicks through
-            'image-rendering:pixelated'
-        ].join(';');
-        document.body.appendChild(overlayCanvas);
-        overlayCtx = overlayCanvas.getContext('2d');
-        resizeOverlayCanvas();
-    }
-
-    function resizeOverlayCanvas() {
-        if (!overlayCanvas) return;
-        var w = Graphics.width;
-        var h = Graphics.height;
-        overlayCanvas.width = w;
-        overlayCanvas.height = h;
-        // Match game canvas position
-        Graphics._centerElement(overlayCanvas);
-    }
-
-    function removeOverlayCanvas() {
-        if (overlayCanvas && overlayCanvas.parentNode) {
-            overlayCanvas.parentNode.removeChild(overlayCanvas);
+    function getScene() {
+        if (typeof PostProcess !== 'undefined' && PostProcess._renderPass) {
+            return PostProcess._renderPass.scene;
         }
-        overlayCanvas = null;
-        overlayCtx = null;
+        if (typeof PostProcess !== 'undefined' && PostProcess._2dRenderPass && PostProcess._2dRenderPass._rendererObj) {
+            return PostProcess._2dRenderPass._rendererObj.scene;
+        }
+        return null;
+    }
+
+    // ---- Grid mesh (world-space, position updated each frame for scroll) ----
+    function createGrid(mapW, mapH) {
+        var THREE = window.THREE;
+        if (!THREE) return null;
+
+        var totalW = mapW * TILE_SIZE;
+        var totalH = mapH * TILE_SIZE;
+        var vertices = [];
+
+        for (var x = 0; x <= mapW; x++) {
+            vertices.push(x * TILE_SIZE, 0, 0);
+            vertices.push(x * TILE_SIZE, totalH, 0);
+        }
+        for (var y = 0; y <= mapH; y++) {
+            vertices.push(0, y * TILE_SIZE, 0);
+            vertices.push(totalW, y * TILE_SIZE, 0);
+        }
+
+        var geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        var mat = new THREE.LineBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.3,
+            depthTest: false
+        });
+        var lines = new THREE.LineSegments(geom, mat);
+        lines.renderOrder = 9990;
+        lines.position.z = 5;
+        lines.frustumCulled = false;
+        lines.userData._tileIdOverlay = true;
+        return lines;
+    }
+
+    // ---- Hover label mesh (single, reused) ----
+    function ensureHoverMesh() {
+        var THREE = window.THREE;
+        if (!THREE || hoverMesh) return;
+
+        var cvsSize = 256;
+        hoverCanvas = document.createElement('canvas');
+        hoverCanvas.width = cvsSize;
+        hoverCanvas.height = cvsSize;
+        hoverCtx = hoverCanvas.getContext('2d');
+
+        hoverTexture = new THREE.CanvasTexture(hoverCanvas);
+        hoverTexture.minFilter = THREE.LinearFilter;
+
+        var geom = new THREE.PlaneGeometry(LABEL_SIZE, LABEL_SIZE);
+        var mat = new THREE.MeshBasicMaterial({
+            map: hoverTexture,
+            transparent: true,
+            depthTest: false,
+            side: THREE.DoubleSide
+        });
+        hoverMesh = new THREE.Mesh(geom, mat);
+        hoverMesh.renderOrder = 9992;
+        hoverMesh.frustumCulled = false;
+        hoverMesh.userData._tileIdOverlay = true;
+        hoverMesh.visible = false;
+    }
+
+    function updateHoverLabel(tileX, tileY) {
+        if (!$gameMap || !$dataMap) return;
+        var mapW = $gameMap.width();
+        var mapH = $gameMap.height();
+        var data = $gameMap.data();
+        if (!data || data.length === 0) return;
+
+        if (tileX < 0 || tileX >= mapW || tileY < 0 || tileY >= mapH) {
+            if (hoverMesh) hoverMesh.visible = false;
+            return;
+        }
+
+        ensureHoverMesh();
+        if (!hoverMesh) return;
+
+        // Gather tile info
+        var lines = [];
+        lines.push({ text: '(' + tileX + ', ' + tileY + ')', color: '#fff' });
+
+        for (var z = 0; z < 4; z++) {
+            var idx = (z * mapH + tileY) * mapW + tileX;
+            var tileId = data[idx];
+            if (!tileId || tileId === 0) continue;
+            var desc = describeTileId(tileId);
+            if (desc) {
+                lines.push({ text: 'L' + z + ': ' + desc, color: LAYER_CSS[z] });
+            }
+        }
+
+        var region = $gameMap.regionId(tileX, tileY);
+        if (region > 0) {
+            lines.push({ text: 'Region: ' + region, color: '#ff8a80' });
+        }
+
+        if (lines.length <= 1) {
+            lines.push({ text: '(empty)', color: '#666' });
+        }
+
+        // Draw on canvas (with Y-flip for Mode3D)
+        var cvs = hoverCanvas;
+        var ctx = hoverCtx;
+        var cvsW = cvs.width;
+        var cvsH = cvs.height;
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, cvsW, cvsH);
+
+        var is3D = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d &&
+                   typeof Mode3D !== 'undefined' && Mode3D._active;
+        if (is3D) {
+            ctx.translate(0, cvsH);
+            ctx.scale(1, -1);
+        }
+
+        // Background
+        ctx.fillStyle = 'rgba(0,0,0,0.8)';
+        var r = 12, bx = 6, by = 6, bw = cvsW - 12, bh = cvsH - 12;
+        ctx.beginPath();
+        ctx.moveTo(bx + r, by);
+        ctx.arcTo(bx + bw, by, bx + bw, by + bh, r);
+        ctx.arcTo(bx + bw, by + bh, bx, by + bh, r);
+        ctx.arcTo(bx, by + bh, bx, by, r);
+        ctx.arcTo(bx, by, bx + bw, by, r);
+        ctx.fill();
+
+        // Border
+        ctx.strokeStyle = 'rgba(79,195,247,0.5)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        var fontSize = lines.length <= 3 ? 30 : lines.length <= 5 ? 24 : 20;
+        ctx.font = 'bold ' + fontSize + 'px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000';
+        ctx.shadowBlur = 4;
+
+        var lineHeight = fontSize + 6;
+        var totalTextH = lines.length * lineHeight;
+        var startY = (cvsH - totalTextH) / 2 + lineHeight / 2;
+
+        for (var i = 0; i < lines.length; i++) {
+            ctx.fillStyle = lines[i].color;
+            ctx.fillText(lines[i].text, cvsW / 2, startY + i * lineHeight, cvsW - 20);
+        }
+
+        ctx.restore();
+        hoverTexture.needsUpdate = true;
+
+        // Position in world space (tile center)
+        // Note: scroll offset is NOT applied here — it's applied via updateScrollPosition()
+        hoverMesh.position.set(
+            tileX * TILE_SIZE + TILE_SIZE / 2,
+            tileY * TILE_SIZE + TILE_SIZE / 2,
+            6
+        );
+        hoverMesh.visible = true;
+    }
+
+    // ---- Scroll: offset grid & hover mesh to match camera scroll ----
+    function updateScrollPosition() {
+        if (!$gameMap) return;
+        var ox = -$gameMap.displayX() * TILE_SIZE;
+        var oy = -$gameMap.displayY() * TILE_SIZE;
+
+        if (gridMesh) {
+            gridMesh.position.x = ox;
+            gridMesh.position.y = oy;
+        }
+        if (hoverMesh && hoverMesh.visible) {
+            // hoverMesh position is set in world coords (tileX*48+24, tileY*48+24)
+            // Apply same scroll offset
+            hoverMesh.position.x = hoverTileX * TILE_SIZE + TILE_SIZE / 2 + ox;
+            hoverMesh.position.y = hoverTileY * TILE_SIZE + TILE_SIZE / 2 + oy;
+        }
     }
 
     // ---- Screen-to-tile conversion ----
@@ -131,207 +292,110 @@
         }
     }
 
-    // ---- Draw grid + hover label on 2D overlay canvas ----
-    function drawOverlay() {
-        if (!overlayCtx || !$gameMap || !$dataMap) return;
-
-        var w = overlayCanvas.width;
-        var h = overlayCanvas.height;
-        overlayCtx.clearRect(0, 0, w, h);
-
-        if (!enabled) return;
-
-        var mapW = $gameMap.width();
-        var mapH = $gameMap.height();
-        var tw = $gameMap.tileWidth();
-        var th = $gameMap.tileHeight();
-        var dx = $gameMap.displayX();
-        var dy = $gameMap.displayY();
-
-        // Pixel offset for scrolling
-        var offsetX = -dx * tw;
-        var offsetY = -dy * th;
-
-        // ---- Grid lines ----
-        overlayCtx.strokeStyle = 'rgba(255,255,255,0.25)';
-        overlayCtx.lineWidth = 1;
-        overlayCtx.beginPath();
-
-        // Vertical lines
-        for (var tx = 0; tx <= mapW; tx++) {
-            var sx = Math.round(tx * tw + offsetX);
-            if (sx < -1 || sx > w + 1) continue;
-            overlayCtx.moveTo(sx + 0.5, Math.max(0, offsetY));
-            overlayCtx.lineTo(sx + 0.5, Math.min(h, mapH * th + offsetY));
-        }
-        // Horizontal lines
-        for (var ty = 0; ty <= mapH; ty++) {
-            var sy = Math.round(ty * th + offsetY);
-            if (sy < -1 || sy > h + 1) continue;
-            overlayCtx.moveTo(Math.max(0, offsetX), sy + 0.5);
-            overlayCtx.lineTo(Math.min(w, mapW * tw + offsetX), sy + 0.5);
-        }
-        overlayCtx.stroke();
-
-        // ---- Hover highlight + label ----
-        if (hoverTileX < 0 || hoverTileY < 0) return;
-        if (hoverTileX >= mapW || hoverTileY >= mapH) return;
-
-        var hx = Math.round(hoverTileX * tw + offsetX);
-        var hy = Math.round(hoverTileY * th + offsetY);
-
-        // Highlight hovered tile
-        overlayCtx.fillStyle = 'rgba(79,195,247,0.2)';
-        overlayCtx.fillRect(hx, hy, tw, th);
-        overlayCtx.strokeStyle = '#4fc3f7';
-        overlayCtx.lineWidth = 2;
-        overlayCtx.strokeRect(hx + 1, hy + 1, tw - 2, th - 2);
-
-        // Gather tile info
-        var data = $gameMap.data();
-        if (!data || data.length === 0) return;
-
-        var lines = [];
-        // Coordinate
-        lines.push({ text: '(' + hoverTileX + ', ' + hoverTileY + ')', color: '#fff' });
-
-        for (var z = 0; z < 4; z++) {
-            var idx = (z * mapH + hoverTileY) * mapW + hoverTileX;
-            var tileId = data[idx];
-            if (!tileId || tileId === 0) continue;
-            var desc = describeTileId(tileId);
-            if (desc) {
-                lines.push({ text: 'L' + z + ': ' + desc, color: LAYER_CSS[z] });
-            }
-        }
-
-        // Region
-        var region = $gameMap.regionId(hoverTileX, hoverTileY);
-        if (region > 0) {
-            lines.push({ text: 'Region: ' + region, color: '#ff8a80' });
-        }
-
-        if (lines.length <= 1) {
-            lines.push({ text: '(empty)', color: '#666' });
-        }
-
-        // ---- Draw tooltip box ----
-        var fontSize = 14;
-        var lineH = fontSize + 4;
-        var padding = 8;
-        overlayCtx.font = 'bold ' + fontSize + 'px monospace';
-
-        // Measure max text width
-        var maxTextW = 0;
-        for (var i = 0; i < lines.length; i++) {
-            var m = overlayCtx.measureText(lines[i].text);
-            if (m.width > maxTextW) maxTextW = m.width;
-        }
-
-        var boxW = maxTextW + padding * 2;
-        var boxH = lines.length * lineH + padding * 2;
-
-        // Position: prefer right-bottom of the tile, but clamp to screen
-        var bx = hx + tw + 4;
-        var by = hy;
-        if (bx + boxW > w) bx = hx - boxW - 4;
-        if (by + boxH > h) by = h - boxH;
-        if (bx < 0) bx = 0;
-        if (by < 0) by = 0;
-
-        // Background
-        overlayCtx.fillStyle = 'rgba(0,0,0,0.8)';
-        var r = 6;
-        overlayCtx.beginPath();
-        overlayCtx.moveTo(bx + r, by);
-        overlayCtx.arcTo(bx + boxW, by, bx + boxW, by + boxH, r);
-        overlayCtx.arcTo(bx + boxW, by + boxH, bx, by + boxH, r);
-        overlayCtx.arcTo(bx, by + boxH, bx, by, r);
-        overlayCtx.arcTo(bx, by, bx + boxW, by, r);
-        overlayCtx.fill();
-
-        // Border
-        overlayCtx.strokeStyle = 'rgba(79,195,247,0.5)';
-        overlayCtx.lineWidth = 1;
-        overlayCtx.stroke();
-
-        // Text
-        overlayCtx.textAlign = 'left';
-        overlayCtx.textBaseline = 'top';
-        overlayCtx.shadowColor = '#000';
-        overlayCtx.shadowBlur = 2;
-
-        for (var i = 0; i < lines.length; i++) {
-            overlayCtx.fillStyle = lines[i].color;
-            overlayCtx.fillText(lines[i].text, bx + padding, by + padding + i * lineH);
-        }
-        overlayCtx.shadowBlur = 0;
-    }
-
-    // ---- Mouse tracking ----
+    // ---- Mouse tracking (document level to bypass UpperCanvas) ----
     var mouseListenerAttached = false;
     function attachMouseListener() {
         if (mouseListenerAttached) return;
 
-        // Listen on document to catch mouse over any layer
         document.addEventListener('mousemove', function(e) {
             if (!enabled) return;
-
-            // Get game canvas bounding rect to translate coordinates
             var gc = document.querySelector('#GameCanvas');
             if (!gc) return;
             var rect = gc.getBoundingClientRect();
             var sx = e.clientX - rect.left;
             var sy = e.clientY - rect.top;
 
-            // Out of bounds
             if (sx < 0 || sy < 0 || sx >= rect.width || sy >= rect.height) {
                 mouseScreenX = -1;
                 mouseScreenY = -1;
-                hoverTileX = -1;
-                hoverTileY = -1;
                 return;
             }
 
-            // Scale to game resolution (canvas might be CSS-scaled)
+            // Scale to game resolution (CSS-scaled canvas)
             var scaleX = Graphics.width / rect.width;
             var scaleY = Graphics.height / rect.height;
             mouseScreenX = sx * scaleX;
             mouseScreenY = sy * scaleY;
-
-            var tile = screenToTile(mouseScreenX, mouseScreenY);
-            if (tile) {
-                hoverTileX = tile.x;
-                hoverTileY = tile.y;
-            } else {
-                hoverTileX = -1;
-                hoverTileY = -1;
-            }
         });
 
         document.addEventListener('mouseleave', function() {
             mouseScreenX = -1;
             mouseScreenY = -1;
-            hoverTileX = -1;
-            hoverTileY = -1;
         });
 
         mouseListenerAttached = true;
     }
 
-    // ---- Enable / Disable ----
-    function onEnable() {
-        ensureOverlayCanvas();
-        attachMouseListener();
-        lastMapId = $gameMap ? $gameMap.mapId() : null;
+    // ---- Overlay management ----
+    function removeOverlay() {
+        var scene = getScene();
+        if (!scene) return;
+
+        if (gridMesh) {
+            scene.remove(gridMesh);
+            if (gridMesh.geometry) gridMesh.geometry.dispose();
+            if (gridMesh.material) gridMesh.material.dispose();
+            gridMesh = null;
+        }
+        if (hoverMesh) {
+            scene.remove(hoverMesh);
+            if (hoverMesh.geometry) hoverMesh.geometry.dispose();
+            if (hoverMesh.material) hoverMesh.material.dispose();
+            if (hoverTexture) hoverTexture.dispose();
+            hoverMesh = null;
+            hoverCanvas = null;
+            hoverCtx = null;
+            hoverTexture = null;
+        }
     }
 
-    function onDisable() {
-        if (overlayCtx) {
-            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        }
+    function buildOverlay() {
+        removeOverlay();
+        if (!enabled) return;
+        if (!$gameMap || !$dataMap) return;
+
+        var scene = getScene();
+        if (!scene) return;
+
+        var mapW = $gameMap.width();
+        var mapH = $gameMap.height();
+
+        gridMesh = createGrid(mapW, mapH);
+        if (gridMesh) scene.add(gridMesh);
+
+        ensureHoverMesh();
+        if (hoverMesh) scene.add(hoverMesh);
+
+        lastMapId = $gameMap.mapId();
         hoverTileX = -1;
         hoverTileY = -1;
+
+        attachMouseListener();
+    }
+
+    function updateHover() {
+        if (!enabled) return;
+
+        if (mouseScreenX < 0 || mouseScreenY < 0) {
+            if (hoverMesh) hoverMesh.visible = false;
+            hoverTileX = -1;
+            hoverTileY = -1;
+            return;
+        }
+
+        var tile = screenToTile(mouseScreenX, mouseScreenY);
+        if (!tile) {
+            if (hoverMesh) hoverMesh.visible = false;
+            hoverTileX = -1;
+            hoverTileY = -1;
+            return;
+        }
+
+        if (tile.x !== hoverTileX || tile.y !== hoverTileY) {
+            hoverTileX = tile.x;
+            hoverTileY = tile.y;
+            updateHoverLabel(tile.x, tile.y);
+        }
     }
 
     // ---- Dev Panel UI ----
@@ -354,7 +418,6 @@
 
         var bodyEl = document.createElement('div');
 
-        // Enable checkbox
         var label = document.createElement('label');
         label.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;padding:2px 0;';
         var cb = document.createElement('input');
@@ -363,9 +426,9 @@
         cb.addEventListener('change', function() {
             enabled = cb.checked;
             if (enabled) {
-                onEnable();
+                buildOverlay();
             } else {
-                onDisable();
+                removeOverlay();
             }
             if (panelCtrl) {
                 panelCtrl.setExtra({ enabled: enabled });
@@ -375,7 +438,6 @@
         label.appendChild(document.createTextNode('격자 + 타일 ID (호버)'));
         bodyEl.appendChild(label);
 
-        // Info text
         var info = document.createElement('div');
         info.style.cssText = 'color:#888;font-size:10px;margin-top:4px;';
         info.innerHTML = [
@@ -397,12 +459,10 @@
             defaultCollapsed: false
         });
 
-        // Restore state
         var extra = panelCtrl.getExtra();
         if (extra && extra.enabled) {
             enabled = true;
             cb.checked = true;
-            onEnable();
         }
     }
 
@@ -412,7 +472,6 @@
         _Scene_Map_start.call(this);
         if (!panel) createPanel();
         lastMapId = null;
-        if (enabled) onEnable();
     };
 
     var _Scene_Map_update = Scene_Map.prototype.update;
@@ -420,18 +479,14 @@
         _Scene_Map_update.call(this);
         if (!enabled) return;
 
-        // Resize canvas if needed
-        if (overlayCanvas &&
-            (overlayCanvas.width !== Graphics.width || overlayCanvas.height !== Graphics.height)) {
-            resizeOverlayCanvas();
-        }
-
-        // Map changed
         if ($gameMap && $gameMap.mapId() !== lastMapId) {
-            lastMapId = $gameMap.mapId();
+            buildOverlay();
         }
 
-        // Redraw every frame (grid scrolls with map)
-        drawOverlay();
+        // Update scroll offset for grid & hover mesh
+        updateScrollPosition();
+
+        // Update hover from mouse position
+        updateHover();
     };
 })();
