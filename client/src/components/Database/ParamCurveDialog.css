@@ -125,6 +125,13 @@
   margin-left: 8px;
 }
 
+.param-curve-interpolate {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
 /* Growth type slider */
 .param-curve-growth {
   display: flex;
@@ -202,7 +209,7 @@
   border: 1px solid #444;
   border-radius: 2px;
   padding: 2px 4px;
-  color: #4fc3f7;
+  color: #ddd;
   font-size: 11px;
   font-family: monospace;
   text-align: right;
