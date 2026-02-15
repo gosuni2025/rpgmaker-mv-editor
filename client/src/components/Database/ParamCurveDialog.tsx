@@ -37,6 +37,85 @@ function generateCurve(lv1: number, lv99: number, growthType: number): number[] 
   return arr;
 }
 
+// Cubic spline interpolation between anchor points
+function cubicSplineInterpolate(anchors: { idx: number; val: number }[], totalLen: number, maxVal: number): number[] {
+  const result = new Array(totalLen);
+  if (anchors.length === 0) return result.fill(0);
+  if (anchors.length === 1) return result.fill(anchors[0].val);
+
+  // Sort anchors by index
+  anchors.sort((a, b) => a.idx - b.idx);
+
+  // For segments before first anchor and after last anchor, just keep existing values
+  // We'll only interpolate between first and last anchor
+
+  const n = anchors.length;
+
+  // Build cubic spline (natural spline)
+  const xs = anchors.map(a => a.idx);
+  const ys = anchors.map(a => a.val);
+
+  // Compute spline coefficients using tridiagonal algorithm
+  const h: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    h.push(xs[i + 1] - xs[i]);
+  }
+
+  // Set up tridiagonal system for second derivatives
+  const alpha: number[] = [0];
+  for (let i = 1; i < n - 1; i++) {
+    alpha.push(
+      (3 / h[i]) * (ys[i + 1] - ys[i]) - (3 / h[i - 1]) * (ys[i] - ys[i - 1])
+    );
+  }
+
+  const l: number[] = [1];
+  const mu: number[] = [0];
+  const z: number[] = [0];
+
+  for (let i = 1; i < n - 1; i++) {
+    l.push(2 * (xs[i + 1] - xs[i - 1]) - h[i - 1] * mu[i - 1]);
+    mu.push(h[i] / l[i]);
+    z.push((alpha[i] - h[i - 1] * z[i - 1]) / l[i]);
+  }
+
+  l.push(1);
+  z.push(0);
+
+  const c: number[] = new Array(n).fill(0);
+  const b: number[] = new Array(n - 1).fill(0);
+  const d: number[] = new Array(n - 1).fill(0);
+
+  for (let j = n - 2; j >= 0; j--) {
+    c[j] = z[j] - mu[j] * c[j + 1];
+    b[j] = (ys[j + 1] - ys[j]) / h[j] - h[j] * (c[j + 1] + 2 * c[j]) / 3;
+    d[j] = (c[j + 1] - c[j]) / (3 * h[j]);
+  }
+
+  // Evaluate spline at each integer point
+  for (let idx = 0; idx < totalLen; idx++) {
+    if (idx < xs[0]) {
+      result[idx] = ys[0];
+    } else if (idx > xs[n - 1]) {
+      result[idx] = ys[n - 1];
+    } else {
+      // Find the right segment
+      let seg = n - 2;
+      for (let i = 0; i < n - 1; i++) {
+        if (idx <= xs[i + 1]) {
+          seg = i;
+          break;
+        }
+      }
+      const dx = idx - xs[seg];
+      const val = ys[seg] + b[seg] * dx + c[seg] * dx * dx + d[seg] * dx * dx * dx;
+      result[idx] = Math.max(0, Math.min(maxVal, Math.round(val)));
+    }
+  }
+
+  return result;
+}
+
 // Preset parameter ranges for A~E presets
 // [lv1, lv99] for each param and preset level
 const PARAM_PRESETS: Record<string, number[][]> = {
@@ -60,6 +139,14 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
   );
   const [growthType, setGrowthType] = useState(0.5);
 
+  // Track initial values for color comparison
+  const initialParamsRef = useRef<number[][]>(initialParams.map(arr => [...arr]));
+
+  // Track manually modified (dragged) points per param for interpolation
+  const modifiedPointsRef = useRef<Set<number>[]>(
+    Array.from({ length: 8 }, () => new Set<number>())
+  );
+
   useEscClose(onCancel);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -79,6 +166,15 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
   }, []);
 
   const maxVal = getMaxForParam(activeTab);
+
+  // Value color: red=increase, blue=decrease, white=same
+  const getValueColor = useCallback((lv: number) => {
+    const cur = params[activeTab][lv - 1];
+    const orig = initialParamsRef.current[activeTab][lv - 1];
+    if (cur > orig) return '#e57373';
+    if (cur < orig) return '#64b5f6';
+    return '#ddd';
+  }, [params, activeTab]);
 
   // Draw graph
   const drawGraph = useCallback(() => {
@@ -152,9 +248,28 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     }
     ctx.stroke();
 
+    // Draw modified points (anchor markers)
+    const modSet = modifiedPointsRef.current[activeTab];
+    if (modSet.size > 0) {
+      for (const idx of modSet) {
+        const x = padL + (idx / 98) * gW;
+        const v = Math.max(0, Math.min(currentArr[idx], maxVal));
+        const y = padT + gH - (v / maxVal) * gH;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
     // Draw points (every 10 levels)
     for (let lv = 1; lv <= 99; lv += 10) {
       const i = lv - 1;
+      if (modSet.has(i)) continue; // already drawn as anchor
       const x = padL + (i / 98) * gW;
       const v = Math.max(0, Math.min(currentArr[i], maxVal));
       const y = padT + gH - (v / maxVal) * gH;
@@ -230,9 +345,11 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
   }, [maxVal]);
 
   const applyDragPoint = useCallback((lv: number, val: number) => {
+    const idx = lv - 1;
+    modifiedPointsRef.current[activeTab].add(idx);
     setParams(prev => {
       const newParams = prev.map(a => [...a]);
-      newParams[activeTab][lv - 1] = val;
+      newParams[activeTab][idx] = val;
       return newParams;
     });
   }, [activeTab]);
@@ -241,8 +358,10 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     setParams(prev => {
       const newParams = prev.map(a => [...a]);
       const arr = newParams[activeTab];
+      const modSet = modifiedPointsRef.current[activeTab];
       if (fromLv === toLv) {
         arr[toLv - 1] = toVal;
+        modSet.add(toLv - 1);
       } else {
         const fromVal = arr[fromLv - 1];
         const minLv = Math.min(fromLv, toLv);
@@ -250,6 +369,7 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
         for (let lv = minLv; lv <= maxLv; lv++) {
           const t = (lv - fromLv) / (toLv - fromLv);
           arr[lv - 1] = Math.round(fromVal + (toVal - fromVal) * t);
+          modSet.add(lv - 1);
         }
       }
       return newParams;
@@ -286,6 +406,7 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     const lv1 = currentArr[0];
     const lv99 = currentArr[98];
     const curve = generateCurve(lv1, lv99, growthType);
+    modifiedPointsRef.current[activeTab].clear();
     setParams(prev => {
       const newParams = prev.map(a => [...a]);
       newParams[activeTab] = curve;
@@ -298,11 +419,46 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     const key = PARAM_KEYS[activeTab];
     const preset = PARAM_PRESETS[key][presetIdx];
     const curve = generateCurve(preset[0], preset[1], 0.5);
+    modifiedPointsRef.current[activeTab].clear();
     setParams(prev => {
       const newParams = prev.map(a => [...a]);
       newParams[activeTab] = curve;
       return newParams;
     });
+  }, [activeTab]);
+
+  // Interpolation: smooth between modified anchor points using cubic spline
+  const handleInterpolate = useCallback(() => {
+    const modSet = modifiedPointsRef.current[activeTab];
+    if (modSet.size < 2) return; // need at least 2 anchor points
+
+    setParams(prev => {
+      const newParams = prev.map(a => [...a]);
+      const arr = newParams[activeTab];
+      const anchors = Array.from(modSet)
+        .sort((a, b) => a - b)
+        .map(idx => ({ idx, val: arr[idx] }));
+
+      const interpolated = cubicSplineInterpolate(anchors, 99, maxVal);
+
+      // Apply interpolated values only between first and last anchor
+      const firstIdx = anchors[0].idx;
+      const lastIdx = anchors[anchors.length - 1].idx;
+      for (let i = firstIdx; i <= lastIdx; i++) {
+        if (!modSet.has(i)) {
+          arr[i] = interpolated[i];
+        }
+      }
+
+      return newParams;
+    });
+  }, [activeTab, maxVal]);
+
+  // Clear modified points
+  const handleClearAnchors = useCallback(() => {
+    modifiedPointsRef.current[activeTab].clear();
+    // Force re-render
+    setParams(prev => prev.map(a => [...a]));
   }, [activeTab]);
 
   // Value editing
@@ -319,6 +475,8 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
   for (let start = 1; start <= 99; start += LEVELS_PER_COL) {
     columns.push({ startLv: start, endLv: Math.min(start + LEVELS_PER_COL - 1, 99) });
   }
+
+  const modCount = modifiedPointsRef.current[activeTab].size;
 
   return (
     <div className="param-curve-overlay" onMouseUp={handleMouseUp}>
@@ -375,6 +533,25 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
                 {t('paramCurve.generateCurve', '곡선 생성...')}
               </button>
             </div>
+            <div className="param-curve-interpolate">
+              <button
+                className="db-btn"
+                onClick={handleInterpolate}
+                disabled={modCount < 2}
+                title={t('paramCurve.interpolateDesc', '수정한 포인트를 기준으로 곡선 보간')}
+              >
+                {t('paramCurve.interpolate', '보간')} ({modCount})
+              </button>
+              {modCount > 0 && (
+                <button
+                  className="db-btn-small"
+                  onClick={handleClearAnchors}
+                  title={t('paramCurve.clearAnchors', '앵커 초기화')}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Growth type slider */}
@@ -416,6 +593,7 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
                       <input
                         type="number"
                         className="param-curve-table-input"
+                        style={{ color: getValueColor(lv) }}
                         value={currentArr[lv - 1]}
                         min={0}
                         max={maxVal}
