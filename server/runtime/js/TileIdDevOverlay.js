@@ -196,12 +196,11 @@
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, cvsW, cvsH);
 
-        var is3D = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d &&
-                   typeof Mode3D !== 'undefined' && Mode3D._active;
-        if (is3D) {
-            ctx.translate(0, cvsH);
-            ctx.scale(1, -1);
-        }
+        // Y-flip: THREE.js 렌더러의 OrthographicCamera가 top=0,bottom=height로
+        // Y-down 좌표계를 사용하고, 3D 모드에서도 m[5]=-m[5]로 Y 반전하므로
+        // CanvasTexture는 항상 뒤집어 그려야 함
+        ctx.translate(0, cvsH);
+        ctx.scale(1, -1);
 
         // Background
         ctx.fillStyle = 'rgba(0,0,0,0.8)';
