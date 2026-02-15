@@ -15,6 +15,9 @@ export default function LandingPage() {
         <button className="landing-btn" onClick={() => navigate('/fogofwar')}>
           Fog of War 테스트
         </button>
+        <button className="landing-btn" onClick={() => { window.location.href = '/game/fogtest.html?map=4&dev'; }}>
+          FogOfWar 3D Box 테스트
+        </button>
       </div>
     </div>
   );

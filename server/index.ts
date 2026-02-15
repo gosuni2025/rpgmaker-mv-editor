@@ -78,7 +78,7 @@ export function createApp(options: AppOptions = {}) {
     <title>FogOfWar3D Test - Map${mapStr}</title>
     <style>
         body { margin:0; background:#000; overflow:hidden; }
-        #info { position:fixed; top:10px; left:10px; color:#0f0; font:12px monospace; z-index:9999; background:rgba(0,0,0,0.7); padding:8px; border-radius:4px; }
+        #info { position:fixed; top:10px; left:10px; color:#0f0; font:12px monospace; z-index:9999; background:rgba(0,0,0,0.7); padding:8px; border-radius:4px; pointer-events:none; }
     </style>
 </head>
 <body>
@@ -117,10 +117,7 @@ export function createApp(options: AppOptions = {}) {
 
         info.textContent = 'Fetching ' + mapFile + '...';
 
-        // 맵 데이터 로드
         fetch('/game/data/' + mapFile).then(function(r) { return r.json(); }).then(function(mapData) {
-            info.textContent = 'Map loaded: ' + mapData.width + 'x' + mapData.height;
-
             var fow = mapData.fogOfWar || {};
             var fogMode = fow.fogMode || '2d';
             var mapW = mapData.width;
@@ -129,146 +126,197 @@ export function createApp(options: AppOptions = {}) {
             var totalW = mapW * tileSize;
             var totalH = mapH * tileSize;
 
-            // Three.js 렌더러 생성
+            // Three.js 렌더러
             window._testRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             var renderer = window._testRenderer;
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setClearColor(0x222222, 1);
+            renderer.setClearColor(0x1a2a3a, 1);
             document.body.appendChild(renderer.domElement);
 
             window._testScene = new THREE.Scene();
             var scene = window._testScene;
 
-            // 카메라: PerspectiveCamera (3D 박스를 확인하기 위해)
+            // PerspectiveCamera
             window._testCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
             var camera = window._testCamera;
-            camera.position.set(totalW / 2, totalH / 2, Math.max(totalW, totalH) * 1.2);
-            camera.lookAt(totalW / 2, totalH / 2, 0);
 
-            // 바닥 그리드 (맵 영역 시각화)
-            var gridGeo = new THREE.PlaneGeometry(totalW, totalH);
-            var gridMat = new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide });
-            var gridMesh = new THREE.Mesh(gridGeo, gridMat);
-            gridMesh.position.set(totalW / 2, totalH / 2, -1);
-            scene.add(gridMesh);
+            // 바닥
+            var floorMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(totalW, totalH),
+                new THREE.MeshBasicMaterial({ color: 0x2a4a2a, side: THREE.DoubleSide })
+            );
+            floorMesh.position.set(totalW / 2, totalH / 2, -1);
+            scene.add(floorMesh);
 
-            // 타일 격자선
-            var gridLineMat = new THREE.LineBasicMaterial({ color: 0x444444 });
+            // 격자선
+            var gridMat = new THREE.LineBasicMaterial({ color: 0x3a5a3a });
             for (var x = 0; x <= mapW; x++) {
-                var pts = [new THREE.Vector3(x * tileSize, 0, 0), new THREE.Vector3(x * tileSize, totalH, 0)];
-                var geo = new THREE.BufferGeometry().setFromPoints(pts);
-                scene.add(new THREE.Line(geo, gridLineMat));
+                scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(x * tileSize, 0, 0), new THREE.Vector3(x * tileSize, totalH, 0)
+                ]), gridMat));
             }
             for (var y = 0; y <= mapH; y++) {
-                var pts = [new THREE.Vector3(0, y * tileSize, 0), new THREE.Vector3(totalW, y * tileSize, 0)];
-                var geo = new THREE.BufferGeometry().setFromPoints(pts);
-                scene.add(new THREE.Line(geo, gridLineMat));
+                scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(0, y * tileSize, 0), new THREE.Vector3(totalW, y * tileSize, 0)
+                ]), gridMat));
             }
 
-            // FogOfWar 가시성 데이터 초기화
+            // FogOfWar 초기화
             FogOfWar.setup(mapW, mapH, fow);
 
-            // 시작 위치 기준 가시성 계산
-            var startX = Math.floor(mapW / 2);
-            var startY = Math.floor(mapH / 2);
+            var playerX = Math.floor(mapW / 2);
+            var playerY = Math.floor(mapH / 2);
             fetch('/game/data/System.json').then(function(r) { return r.json(); }).then(function(sys) {
-                startX = sys.startX || startX;
-                startY = sys.startY || startY;
+                playerX = sys.startX || playerX;
+                playerY = sys.startY || playerY;
             }).catch(function() {}).finally(function() {
                 FogOfWar._prevPlayerX = -1;
                 FogOfWar._prevPlayerY = -1;
-                FogOfWar.updateVisibilityAt(startX, startY);
+                FogOfWar.updateVisibilityAt(playerX, playerY);
                 FogOfWar._syncDisplay();
                 FogOfWar._updateTexture();
 
-                info.textContent = 'fogMode=' + fogMode + ' | map=' + mapW + 'x' + mapH + ' | start=(' + startX + ',' + startY + ')';
-
-                // 시작 위치 마커
-                var markerGeo = new THREE.CircleGeometry(tileSize * 0.3, 16);
-                var markerMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
-                var marker = new THREE.Mesh(markerGeo, markerMat);
-                marker.position.set((startX + 0.5) * tileSize, (startY + 0.5) * tileSize, 2);
+                // 플레이어 마커
+                var marker = new THREE.Mesh(
+                    new THREE.CircleGeometry(tileSize * 0.3, 16),
+                    new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide })
+                );
+                marker.position.set((playerX + 0.5) * tileSize, (playerY + 0.5) * tileSize, 2);
                 scene.add(marker);
 
-                // 3D 박스 FOW 메쉬 생성
+                // FOW 메쉬 생성
                 if (fogMode === '3dbox') {
                     var mesh = FogOfWar3D._createMesh(mapW, mapH, fow);
-                    if (mesh) {
-                        scene.add(mesh);
-                        info.textContent += ' | 3D Box mesh created (' + (mapW * mapH) + ' instances)';
-                    } else {
-                        info.textContent += ' | ERROR: FogOfWar3D._createMesh returned null';
-                    }
-                } else if (fogMode === 'volumetric' || fogMode === '2d' || fogMode === '') {
+                    if (mesh) scene.add(mesh);
+                } else {
                     var group = FogOfWar._createMesh();
-                    if (group) {
-                        group.position.set(totalW / 2, totalH / 2, 0);
-                        scene.add(group);
-                        info.textContent += ' | Volumetric mesh created';
-                    }
+                    if (group) { group.position.set(totalW / 2, totalH / 2, 0); scene.add(group); }
                 }
 
-                // 마우스 회전 컨트롤
-                var isDragging = false;
+                function updateInfo() {
+                    info.textContent = 'fogMode=' + fogMode + ' | ' + mapW + 'x' + mapH
+                        + ' | pos=(' + playerX + ',' + playerY + ') | WASD/방향키:이동 더블클릭:텔레포트';
+                }
+                updateInfo();
+
+                // --- orbit 카메라 ---
+                var orbitCenter = new THREE.Vector3((playerX + 0.5) * tileSize, (playerY + 0.5) * tileSize, 0);
+                var spherical = { theta: 0, phi: Math.PI / 5 };
+                var distance = 600;
+                var isDragging = false, dragButton = -1;
                 var lastMouse = { x: 0, y: 0 };
-                var spherical = { theta: 0, phi: Math.PI / 4 };
-                var distance = camera.position.distanceTo(new THREE.Vector3(totalW / 2, totalH / 2, 0));
-                var center = new THREE.Vector3(totalW / 2, totalH / 2, 0);
 
                 function updateCamera() {
-                    var x = distance * Math.sin(spherical.phi) * Math.cos(spherical.theta);
-                    var y = distance * Math.sin(spherical.phi) * Math.sin(spherical.theta);
-                    var z = distance * Math.cos(spherical.phi);
-                    camera.position.set(center.x + x, center.y + y, center.z + z);
-                    camera.lookAt(center);
+                    camera.position.set(
+                        orbitCenter.x + distance * Math.sin(spherical.phi) * Math.cos(spherical.theta),
+                        orbitCenter.y + distance * Math.sin(spherical.phi) * Math.sin(spherical.theta),
+                        orbitCenter.z + distance * Math.cos(spherical.phi)
+                    );
+                    camera.lookAt(orbitCenter);
                 }
+                updateCamera();
 
                 renderer.domElement.addEventListener('mousedown', function(e) {
-                    isDragging = true;
-                    lastMouse.x = e.clientX;
-                    lastMouse.y = e.clientY;
+                    isDragging = true; dragButton = e.button;
+                    lastMouse.x = e.clientX; lastMouse.y = e.clientY;
                 });
-                window.addEventListener('mouseup', function() { isDragging = false; });
+                window.addEventListener('mouseup', function() { isDragging = false; dragButton = -1; });
                 window.addEventListener('mousemove', function(e) {
                     if (!isDragging) return;
-                    var dx = e.clientX - lastMouse.x;
-                    var dy = e.clientY - lastMouse.y;
-                    spherical.theta -= dx * 0.005;
-                    spherical.phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.01, spherical.phi - dy * 0.005));
-                    lastMouse.x = e.clientX;
-                    lastMouse.y = e.clientY;
+                    var dx = e.clientX - lastMouse.x, dy = e.clientY - lastMouse.y;
+                    lastMouse.x = e.clientX; lastMouse.y = e.clientY;
+                    if (dragButton === 0) {
+                        spherical.theta -= dx * 0.005;
+                        spherical.phi = Math.max(0.05, Math.min(Math.PI / 2 - 0.01, spherical.phi - dy * 0.005));
+                    } else if (dragButton === 2) {
+                        var right = new THREE.Vector3(), up = new THREE.Vector3();
+                        camera.getWorldDirection(up);
+                        right.crossVectors(up, camera.up).normalize();
+                        up.crossVectors(right, up).normalize();
+                        var s = distance * 0.002;
+                        orbitCenter.add(right.multiplyScalar(-dx * s));
+                        orbitCenter.add(up.multiplyScalar(dy * s));
+                    }
                     updateCamera();
                 });
                 renderer.domElement.addEventListener('wheel', function(e) {
-                    distance = Math.max(100, Math.min(10000, distance + e.deltaY * 2));
+                    distance = Math.max(50, Math.min(10000, distance * (1 + e.deltaY * 0.001)));
                     updateCamera();
                 });
-                updateCamera();
+                renderer.domElement.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
-                // 렌더 루프
-                function animate() {
-                    requestAnimationFrame(animate);
-                    if (FogOfWar3D._active) {
-                        FogOfWar3D._updateUniforms(1.0 / 60.0);
-                    }
-                    if (FogOfWar._fogGroup) {
-                        FogOfWar._time += 1.0 / 60.0;
-                        var fogMeshChild = FogOfWar._fogGroup.children[0];
-                        if (fogMeshChild && fogMeshChild.material && fogMeshChild.material.uniforms) {
-                            fogMeshChild.material.uniforms.uTime.value = FogOfWar._time;
+                // --- 더블클릭: 텔레포트 ---
+                renderer.domElement.addEventListener('dblclick', function(e) {
+                    var rect = renderer.domElement.getBoundingClientRect();
+                    var mouse = new THREE.Vector2(
+                        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                        -((e.clientY - rect.top) / rect.height) * 2 + 1
+                    );
+                    var rc = new THREE.Raycaster();
+                    rc.setFromCamera(mouse, camera);
+                    var pt = new THREE.Vector3();
+                    if (rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,0,1), 0), pt)) {
+                        var nx = Math.floor(pt.x / tileSize), ny = Math.floor(pt.y / tileSize);
+                        if (nx >= 0 && nx < mapW && ny >= 0 && ny < mapH) {
+                            playerX = nx; playerY = ny;
+                            FogOfWar.updateVisibilityAt(playerX, playerY);
+                            marker.position.set((playerX + 0.5) * tileSize, (playerY + 0.5) * tileSize, 2);
+                            updateInfo();
                         }
                     }
+                });
+
+                // --- WASD / 방향키 이동 ---
+                window.addEventListener('keydown', function(e) {
+                    var moved = false;
+                    if (e.key === 'w' || e.key === 'ArrowUp')    { playerY = Math.max(0, playerY - 1); moved = true; }
+                    if (e.key === 's' || e.key === 'ArrowDown')  { playerY = Math.min(mapH - 1, playerY + 1); moved = true; }
+                    if (e.key === 'a' || e.key === 'ArrowLeft')  { playerX = Math.max(0, playerX - 1); moved = true; }
+                    if (e.key === 'd' || e.key === 'ArrowRight') { playerX = Math.min(mapW - 1, playerX + 1); moved = true; }
+                    if (moved) {
+                        FogOfWar.updateVisibilityAt(playerX, playerY);
+                        marker.position.set((playerX + 0.5) * tileSize, (playerY + 0.5) * tileSize, 2);
+                        updateInfo();
+                    }
+                });
+
+                // --- 렌더 루프 ---
+                var lastFrameTime = performance.now();
+                function animate() {
+                    requestAnimationFrame(animate);
+                    var now = performance.now();
+                    var dt = Math.min((now - lastFrameTime) / 1000, 0.1);
+                    lastFrameTime = now;
+
+                    // FogOfWar 시간 업데이트 (lerpDisplay + edgeData + texture)
+                    if (FogOfWar._active && FogOfWar._lerpDisplay) {
+                        FogOfWar._lerpDisplay(dt);
+                        FogOfWar._computeEdgeData(dt);
+                        FogOfWar._updateTexture();
+                    }
+
+                    if (FogOfWar3D._active) FogOfWar3D._updateUniforms(dt);
+
+                    if (FogOfWar._fogGroup) {
+                        FogOfWar._time += dt;
+                        var fc = FogOfWar._fogGroup.children[0];
+                        if (fc && fc.material && fc.material.uniforms) fc.material.uniforms.uTime.value = FogOfWar._time;
+                    }
+
                     renderer.render(scene, camera);
                 }
                 animate();
+
+                // resize
+                window.addEventListener('resize', function() {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                });
             });
         }).catch(function(err) {
             info.textContent = 'ERROR: ' + err.message;
-        });
-
-        window.addEventListener('resize', function() {
-            // resize는 렌더러 생성 후에만
         });
     })();
     </script>
