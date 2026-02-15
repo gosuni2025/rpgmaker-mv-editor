@@ -429,8 +429,8 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
     this._growFade = new Float32Array(size);     // 생성 페이드 (0→1: 촉수 자라남)
     this._borderState = new Uint8Array(size);    // 이전 프레임의 경계 상태 (0/1)
     this._fogTransitionSpeed = 5.0;  // 초당 전환 속도 (높을수록 빠름)
-    this._tentacleFadeSpeed = 1.0;   // 촉수 사라짐 속도 (지수 감쇄, 낮을수록 천천히)
-    this._tentacleGrowSpeed = 2.0;   // 촉수 생성 속도 (지수 감쇄, 낮을수록 천천히)
+    this._tentacleFadeDuration = 1.0; // 촉수 삭제 완료까지 시간 (초)
+    this._tentacleGrowDuration = 0.5; // 촉수 생성 완료까지 시간 (초)
 
     // fog 텍스처: RG 채널 (R=visibility, G=explored)
     var texData = new Uint8Array(size * 4);
@@ -674,8 +674,9 @@ FogOfWar._lerpDisplay = function(dt) {
     var borderState = this._borderState;
     var speed = this._fogTransitionSpeed;
     var alpha = 1.0 - Math.exp(-speed * dt);  // 지수 감쇄 보간
-    var fadeAlpha = 1.0 - Math.exp(-this._tentacleFadeSpeed * dt); // 지수 감쇄
-    var growAlpha = 1.0 - Math.exp(-this._tentacleGrowSpeed * dt); // grow 속도
+    // 시간 기반 선형 보간: dt / duration 만큼 진행
+    var fadeStep = this._tentacleFadeDuration > 0 ? dt / this._tentacleFadeDuration : 1.0;
+    var growStep = this._tentacleGrowDuration > 0 ? dt / this._tentacleGrowDuration : 1.0;
     var w = this._mapWidth;
     var h = this._mapHeight;
     var size = w * h;
@@ -700,16 +701,14 @@ FogOfWar._lerpDisplay = function(dt) {
             dExpl[i] = expl[i];
             changed = true;
         }
-        // tentacleFade 감쇄: 1.0 → 0.0
+        // tentacleFade: 1.0 → 0.0 (선형, duration 초에 걸쳐 완료)
         if (fade[i] > 0.0) {
-            fade[i] *= (1.0 - fadeAlpha);
-            if (fade[i] < 0.005) fade[i] = 0.0;
+            fade[i] = Math.max(0.0, fade[i] - fadeStep);
             changed = true;
         }
-        // growFade 증가: 0.0 → 1.0
+        // growFade: 0.0 → 1.0 (선형, duration 초에 걸쳐 완료)
         if (grow[i] < 1.0) {
-            grow[i] += (1.0 - grow[i]) * growAlpha;
-            if (grow[i] > 0.995) grow[i] = 1.0;
+            grow[i] = Math.min(1.0, grow[i] + growStep);
             changed = true;
         }
     }
