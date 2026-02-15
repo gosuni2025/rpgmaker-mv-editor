@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Damage } from '../../types/rpgMakerMV';
+import apiClient from '../../api/client';
 import './DamageEditor.css';
 
 interface DamageEditorProps {
@@ -10,11 +11,18 @@ interface DamageEditorProps {
 
 export default function DamageEditor({ damage, onChange }: DamageEditorProps) {
   const { t } = useTranslation();
+  const [elements, setElements] = useState<string[]>([]);
 
   const DAMAGE_TYPES = useMemo(() => [
     t('damage.types.0'), t('damage.types.1'), t('damage.types.2'), t('damage.types.3'),
     t('damage.types.4'), t('damage.types.5'), t('damage.types.6'),
   ], [t]);
+
+  useEffect(() => {
+    apiClient.get<{ elements?: string[] }>('/database/system').then(sys => {
+      if (sys.elements) setElements(sys.elements);
+    }).catch(() => {});
+  }, []);
 
   const update = (field: keyof Damage, value: unknown) => {
     onChange({ ...damage, [field]: value });
@@ -34,13 +42,13 @@ export default function DamageEditor({ damage, onChange }: DamageEditorProps) {
         </label>
         <label>
           {t('damage.element')}
-          <input
-            type="number"
-            value={damage.elementId}
-            onChange={e => update('elementId', Number(e.target.value))}
-            min={-1}
-            style={{ width: 60 }}
-          />
+          <select value={damage.elementId} onChange={e => update('elementId', Number(e.target.value))}>
+            <option value={-1}>{t('common.normalAttack')}</option>
+            <option value={0}>{t('common.none')}</option>
+            {elements.map((name, i) => i > 0 && name ? (
+              <option key={i} value={i}>{name}</option>
+            ) : null)}
+          </select>
         </label>
       </div>
       {damage.type !== 0 && (
