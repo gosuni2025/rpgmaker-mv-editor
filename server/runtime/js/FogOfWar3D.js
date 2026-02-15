@@ -564,7 +564,17 @@ FogOfWar3D._buildTentacleMesh = function(border) {
         }
     }
 
-    // --- 윗면 촉수: Z+ 방향 ---
+    // 방향 벡터에 랜덤 편향을 적용하는 헬퍼
+    // tilt: 최대 기울기 (0~1, 0.4 = 약 22도)
+    function tiltDir(ox, oy, oz, ra, rb, tilt) {
+        var dx = ox + (ra * 2 - 1) * tilt;
+        var dy = oy + (rb * 2 - 1) * tilt;
+        var dz = oz + ((ra + rb) * 0.5 - 0.25) * tilt;
+        var len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        return len > 0.001 ? [dx / len, dy / len, dz / len] : [ox, oy, oz];
+    }
+
+    // --- 윗면 촉수: Z+ 방향 (랜덤 기울기) ---
     for (var ti = 0; ti < tiles.length; ti++) {
         var tile = tiles[ti];
         for (var si = 0; si < topStrandsPerTile; si++) {
@@ -574,11 +584,12 @@ FogOfWar3D._buildTentacleMesh = function(border) {
             var sx = tile.tx * tileSize + r1 * tileSize;
             var sy = tile.ty * tileSize + r2 * tileSize;
             var tentLen = fogHeight * (0.2 + r3 * 0.6);
-            addStrand(sx, sy, fogHeight, 0, 0, 1, tentLen);
+            var dir = tiltDir(0, 0, 1, r1, r2, 0.5);
+            addStrand(sx, sy, fogHeight, dir[0], dir[1], dir[2], tentLen);
         }
     }
 
-    // --- 옆면 촉수: XY outward 방향 ---
+    // --- 옆면 촉수: XY outward 방향 (랜덤 기울기) ---
     var DIR_OUT = [[1,0], [-1,0], [0,1], [0,-1]];
     var DIR_TAN = [[0,1], [0,1], [1,0], [1,0]];
 
@@ -602,9 +613,10 @@ FogOfWar3D._buildTentacleMesh = function(border) {
             var rl = hash(edge.tx * 41 + si * 53 + edge.dir * 61, edge.ty * 47 + si * 71);
             var sx = wallBaseX + tanX * rw * tileSize;
             var sy = wallBaseY + tanY * rw * tileSize;
-            var sz = rz * fogHeight * 0.9;  // 벽면의 랜덤 높이
+            var sz = rz * fogHeight * 0.9;
             var tentLen = fogHeight * (0.15 + rl * 0.4);
-            addStrand(sx, sy, sz, outX, outY, 0, tentLen);
+            var dir = tiltDir(outX, outY, 0, rw, rz, 0.6);
+            addStrand(sx, sy, sz, dir[0], dir[1], dir[2], tentLen);
         }
     }
 
