@@ -442,13 +442,11 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
                         <span>{opt.label}</span>
                       </label>
                       {opt.kind > 0 && (
-                        <>
-                          <div className={`enemies-drop-item-display${!isSelected ? ' disabled' : ''}`}>
-                            {isSelected ? displayName : ''}
-                          </div>
-                          <button className="db-btn-small" disabled={!isSelected}
-                            onClick={() => setDropDataPickerKind(opt.kind)}>...</button>
-                        </>
+                        <button className={`enemies-drop-item-btn${!isSelected ? ' disabled' : ''}`}
+                          disabled={!isSelected}
+                          onClick={() => setDropDataPickerKind(opt.kind)}>
+                          {isSelected ? displayName : ''}
+                        </button>
                       )}
                     </div>
                   );
