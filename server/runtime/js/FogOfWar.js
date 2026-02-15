@@ -173,37 +173,43 @@ var VOL_FOG_FRAG = [
     '    // --- fog alpha ---',
     '    float fogAlpha;',
     '    if (nearVis > 0.005) {',
-    '        // ── 경계 타일: 인접 texel 샘플링으로 시야 방향 판정 ──',
+    '        // ── 경계 타일: 시야 타일 가장자리/모서리까지 최소 거리 ──',
     '        vec2 texel = 1.0 / mapSize;',
-    '        float vL = texture2D(tFog, uv + vec2(-texel.x, 0.0)).r;',
-    '        float vR = texture2D(tFog, uv + vec2( texel.x, 0.0)).r;',
-    '        float vU = texture2D(tFog, uv + vec2(0.0, -texel.y)).r;',
-    '        float vD = texture2D(tFog, uv + vec2(0.0,  texel.y)).r;',
-    '',
-    '        // 시야 방향 벡터: 시야가 있는 인접 타일 쪽을 가리킴',
-    '        vec2 visDir = vec2(vR - vL, vD - vU);',
-    '        float visDirLen = length(visDir);',
+    '        // 인접 8방향 시야 샘플링',
+    '        float vL  = texture2D(tFog, uv + vec2(-texel.x, 0.0)).r;',
+    '        float vR  = texture2D(tFog, uv + vec2( texel.x, 0.0)).r;',
+    '        float vU  = texture2D(tFog, uv + vec2(0.0, -texel.y)).r;',
+    '        float vD  = texture2D(tFog, uv + vec2(0.0,  texel.y)).r;',
+    '        float vLU = texture2D(tFog, uv + vec2(-texel.x, -texel.y)).r;',
+    '        float vRU = texture2D(tFog, uv + vec2( texel.x, -texel.y)).r;',
+    '        float vLD = texture2D(tFog, uv + vec2(-texel.x,  texel.y)).r;',
+    '        float vRD = texture2D(tFog, uv + vec2( texel.x,  texel.y)).r;',
     '',
     '        // 타일 내부 픽셀 위치 (0~1)',
-    '        vec2 tilePos = fract(uv * mapSize);',
-    '        // 타일 중심(0.5, 0.5) 기준 오프셋 (-0.5 ~ 0.5)',
-    '        vec2 fromCenter = tilePos - 0.5;',
+    '        vec2 tp = fract(uv * mapSize);',
     '',
-    '        // 시야 방향으로의 투영 거리 (-0.5 ~ 0.5)',
-    '        // 양수: 시야쪽, 음수: 미탐험쪽',
-    '        float projDist = 0.0;',
-    '        if (visDirLen > 0.001) {',
-    '            projDist = dot(fromCenter, visDir / visDirLen);',
-    '        }',
+    '        // 시야 타일 가장자리/모서리까지의 최소 거리',
+    '        // 4방향: 해당 변까지의 수직 거리',
+    '        // 대각선: 해당 꼭짓점까지의 유클리드 거리',
+    '        float minDist = 1.0;',
+    '        if (vL  > 0.01) minDist = min(minDist, tp.x);',
+    '        if (vR  > 0.01) minDist = min(minDist, 1.0 - tp.x);',
+    '        if (vU  > 0.01) minDist = min(minDist, tp.y);',
+    '        if (vD  > 0.01) minDist = min(minDist, 1.0 - tp.y);',
+    '        if (vLU > 0.01) minDist = min(minDist, length(tp));',
+    '        if (vRU > 0.01) minDist = min(minDist, length(vec2(1.0 - tp.x, tp.y)));',
+    '        if (vLD > 0.01) minDist = min(minDist, length(vec2(tp.x, 1.0 - tp.y)));',
+    '        if (vRD > 0.01) minDist = min(minDist, length(1.0 - tp));',
     '',
-    '        // 미탐험쪽(projDist <= 0): 불투명, 시야쪽(projDist > 0): 디졸브+알파',
-    '        if (projDist <= 0.0) {',
+    '        // 0.5 기준: 시야 가장자리(0) ~ 타일 중심(0.5)',
+    '        // 0.5 이상이면 미탐험쪽 → 불투명',
+    '        if (minDist >= 0.5) {',
     '            fogAlpha = (explored > 0.5) ? exploredAlpha : unexploredAlpha;',
     '        } else {',
-    '            // projDist 0~0.5를 0~1로 정규화',
-    '            float t = clamp(projDist * 2.0, 0.0, 1.0);',
+    '            // 0~0.5 → 1~0 (시야 가장자리일수록 투명)',
+    '            float t = 1.0 - minDist * 2.0;',
     '',
-    '            // 디졸브 노이즈로 경계 형태를 불규칙하게',
+    '            // 디졸브 노이즈',
     '            float timeS = uTime * edgeAnimSpeed;',
     '            float dn1 = fbm3(mapXY * 0.012 + vec2(timeS * 0.07, timeS * 0.05));',
     '            float dn2 = _valueNoise(mapXY * 0.025 + vec2(-timeS * 0.09, timeS * 0.06));',
@@ -211,7 +217,6 @@ var VOL_FOG_FRAG = [
     '            float dissolve = (dn1 + dn2 * 0.5 + dn3 * 0.25) * 0.57;',
     '            float dn = edgeAnimOn * dissolve * dissolveStrength;',
     '',
-    '            // t + 디졸브 → 불규칙한 알파 전환',
     '            float edgeVal = t * nearVisWeight + dn;',
     '            edgeVal = clamp(edgeVal, 0.0, 1.0);',
     '',
@@ -550,12 +555,16 @@ FogOfWar._computeEdgeData = function() {
                 blur[idx] = 0;
                 continue;
             }
-            // vis=0 타일: 인접 4방향의 최대 vis 확인
+            // vis=0 타일: 인접 8방향(4방향+대각선)의 최대 vis 확인
             var maxNeighbor = 0;
-            if (x > 0)     maxNeighbor = Math.max(maxNeighbor, vis[idx - 1]);
-            if (x < w - 1) maxNeighbor = Math.max(maxNeighbor, vis[idx + 1]);
-            if (y > 0)     maxNeighbor = Math.max(maxNeighbor, vis[idx - w]);
-            if (y < h - 1) maxNeighbor = Math.max(maxNeighbor, vis[idx + w]);
+            if (x > 0)                 maxNeighbor = Math.max(maxNeighbor, vis[idx - 1]);
+            if (x < w - 1)             maxNeighbor = Math.max(maxNeighbor, vis[idx + 1]);
+            if (y > 0)                 maxNeighbor = Math.max(maxNeighbor, vis[idx - w]);
+            if (y < h - 1)             maxNeighbor = Math.max(maxNeighbor, vis[idx + w]);
+            if (x > 0 && y > 0)       maxNeighbor = Math.max(maxNeighbor, vis[idx - w - 1]);
+            if (x < w-1 && y > 0)     maxNeighbor = Math.max(maxNeighbor, vis[idx - w + 1]);
+            if (x > 0 && y < h-1)     maxNeighbor = Math.max(maxNeighbor, vis[idx + w - 1]);
+            if (x < w-1 && y < h-1)   maxNeighbor = Math.max(maxNeighbor, vis[idx + w + 1]);
             blur[idx] = maxNeighbor;
         }
     }
