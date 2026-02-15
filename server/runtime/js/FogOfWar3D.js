@@ -404,8 +404,10 @@ var TENTACLE_VERT = [
     '    // 수직 방향 휘어짐 적용',
     '    pos += perp1 * off1 + perp2 * off2;',
     '',
-    '    // 리본 폭: 시작에서 넓고 끝에서 좁아짐',
-    '    float ribbonWidth = mix(5.0, 0.5, t * t);',
+    '    // 리본 폭: 시작에서 넓고 끝에서 좁아짐 (시드 기반 굵기 변화)',
+    '    float widthSeed = fract(sin(dot(seed, vec2(12.9898, 78.233))) * 43758.5453);',
+    '    float baseWidth = mix(2.0, 6.0, widthSeed);',
+    '    float ribbonWidth = mix(baseWidth, 0.3, t * t);',
     '',
     '    // 리본 측면 방향 (perp1 기준)',
     '    pos += perp1 * aRibbonSide * ribbonWidth;',
@@ -488,8 +490,8 @@ FogOfWar3D._buildTentacleMesh = function(border) {
 
     var tileSize = 48;
     var fogHeight = this._fogHeight;
-    var topStrandsPerTile = 8;    // 윗면: 타일당 촉수 수
-    var sideStrandsPerEdge = 6;   // 옆면: 엣지당 촉수 수
+    var topStrandsPerTile = 24;   // 윗면: 타일당 촉수 수
+    var sideStrandsPerEdge = 16;  // 옆면: 엣지당 촉수 수
     var segsPerStrand = 10;       // 높이 세그먼트 수
 
     var vertsPerStrand = (segsPerStrand + 1) * 2;
