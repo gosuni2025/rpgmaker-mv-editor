@@ -434,32 +434,90 @@
             mouseScreenY = -1;
         });
 
-        // Ctrl+C to copy tile info
+        // Ctrl+C / Cmd+C to copy tile info
         document.addEventListener('keydown', function(e) {
             if (!enabled) return;
-            if (e.ctrlKey && e.key === 'c' && lastCopyInfo && hoverTileX >= 0) {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C') && lastCopyInfo && hoverTileX >= 0) {
                 e.preventDefault();
-                navigator.clipboard.writeText(lastCopyInfo).then(function() {
-                    showCopyFeedback();
-                });
+                e.stopPropagation();
+                copyTileInfo();
             }
-        });
+        }, true); // capture phase to intercept before game input
 
         mouseListenerAttached = true;
     }
 
-    function showCopyFeedback() {
-        var toast = document.createElement('div');
-        toast.textContent = '타일 정보 복사됨!';
-        toast.style.cssText = [
-            'position:fixed', 'bottom:60px', 'left:50%', 'transform:translateX(-50%)',
-            'background:rgba(0,120,212,0.9)', 'color:#fff', 'padding:6px 16px',
-            'border-radius:4px', 'font:12px monospace', 'z-index:99999',
-            'pointer-events:none', 'transition:opacity 0.5s'
-        ].join(';');
-        document.body.appendChild(toast);
-        setTimeout(function() { toast.style.opacity = '0'; }, 1000);
-        setTimeout(function() { document.body.removeChild(toast); }, 1600);
+    // ---- Copy tile info & show feedback on hover label ----
+    var copyFeedbackTimer = null;
+
+    function copyTileInfo() {
+        if (!lastCopyInfo) return;
+        navigator.clipboard.writeText(lastCopyInfo).then(function() {
+            showCopyFeedbackOnLabel();
+        }).catch(function() {
+            // fallback: execCommand
+            var ta = document.createElement('textarea');
+            ta.value = lastCopyInfo;
+            ta.style.cssText = 'position:fixed;left:-9999px;';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showCopyFeedbackOnLabel();
+        });
+    }
+
+    function showCopyFeedbackOnLabel() {
+        if (!hoverCtx || !hoverCanvas || !hoverTexture || !hoverMesh) return;
+
+        var cvs = hoverCanvas;
+        var ctx = hoverCtx;
+        var cvsW = cvs.width;
+        var cvsH = cvs.height;
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, cvsW, cvsH);
+
+        // Y-flip
+        ctx.translate(0, cvsH);
+        ctx.scale(1, -1);
+
+        // Green background
+        var r = 12, bgx = 4, bgy = 4, bgw = cvsW - 8, bgh = cvsH - 8;
+        ctx.fillStyle = 'rgba(0,100,0,0.9)';
+        ctx.beginPath();
+        ctx.moveTo(bgx + r, bgy);
+        ctx.arcTo(bgx + bgw, bgy, bgx + bgw, bgy + bgh, r);
+        ctx.arcTo(bgx + bgw, bgy + bgh, bgx, bgy + bgh, r);
+        ctx.arcTo(bgx, bgy + bgh, bgx, bgy, r);
+        ctx.arcTo(bgx, bgy, bgx + bgw, bgy, r);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(129,199,132,0.7)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // "복사됨!" text centered
+        ctx.font = 'bold 28px monospace';
+        ctx.fillStyle = '#81c784';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000';
+        ctx.shadowBlur = 4;
+        ctx.fillText('복사됨!', cvsW / 2, cvsH / 2);
+
+        ctx.restore();
+        hoverTexture.needsUpdate = true;
+
+        // Restore normal label after delay
+        if (copyFeedbackTimer) clearTimeout(copyFeedbackTimer);
+        copyFeedbackTimer = setTimeout(function() {
+            copyFeedbackTimer = null;
+            if (hoverTileX >= 0 && hoverTileY >= 0) {
+                updateHoverLabel(hoverTileX, hoverTileY);
+            }
+        }, 800);
     }
 
     // ---- Overlay management ----
