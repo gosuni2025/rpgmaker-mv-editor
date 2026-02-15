@@ -175,8 +175,8 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
               <label>
                 {t('fields.skillType')}
                 <select value={selectedItem.stypeId || 0} onChange={(e) => handleFieldChange('stypeId', Number(e.target.value))}>
-                  {skillTypes.map((name, i) => name ? <option key={i} value={i}>{String(i).padStart(2, '0')}: {name}</option> : null)}
-                  {skillTypes.length === 0 && <option value={selectedItem.stypeId || 0}>{selectedItem.stypeId}</option>}
+                  <option value={0}>{t('common.none')}</option>
+                  {skillTypes.map((name, i) => i > 0 && name ? <option key={i} value={i}>{name}</option> : null)}
                 </select>
               </label>
               <label>
