@@ -138,6 +138,9 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     initialParams.map(arr => [...arr])
   );
   const [growthType, setGrowthType] = useState(0.5);
+  const [yScale, setYScale] = useState<'linear' | 'log'>('linear');
+  const [yZoomMin, setYZoomMin] = useState(0);
+  const [yZoomMax, setYZoomMax] = useState(1);
 
   // Track initial values for color comparison
   const initialParamsRef = useRef<number[][]>(initialParams.map(arr => [...arr]));
@@ -152,6 +155,18 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDragging = useRef(false);
   const lastDragLv = useRef(-1);
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ y: 0, yMin: 0, yMax: 0 });
+
+  // activeTab이나 yScale 변경 시 줌 리셋
+  const prevTabRef = useRef(activeTab);
+  const prevScaleRef = useRef(yScale);
+  if (prevTabRef.current !== activeTab || prevScaleRef.current !== yScale) {
+    prevTabRef.current = activeTab;
+    prevScaleRef.current = yScale;
+    setYZoomMin(0);
+    setYZoomMax(1);
+  }
 
   const PARAM_NAMES = PARAM_KEYS.map(k => t(`params.${k}`));
 
@@ -193,6 +208,34 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(0, 0, W, H);
 
+    // Y축 매핑 함수
+    const useLog = yScale === 'log';
+    const dataMin = Math.max(1, Math.min(...currentArr.filter(v => v > 0)));
+    const logMin = useLog ? Math.log10(dataMin) : 0;
+    const logMax = useLog ? Math.log10(maxVal) : maxVal;
+
+    const normalize = (v: number): number => {
+      if (useLog) {
+        const lv = Math.log10(Math.max(1, v));
+        return logMax > logMin ? (lv - logMin) / (logMax - logMin) : 0;
+      }
+      return v / maxVal;
+    };
+
+    const valToY = (v: number): number => {
+      const norm = normalize(v);
+      const viewRange = yZoomMax - yZoomMin;
+      const mapped = viewRange > 0 ? (norm - yZoomMin) / viewRange : 0;
+      return padT + gH - mapped * gH;
+    };
+
+    const denormalize = (norm: number): number => {
+      if (useLog) {
+        return Math.pow(10, logMin + norm * (logMax - logMin));
+      }
+      return norm * maxVal;
+    };
+
     // Grid lines
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1;
@@ -220,6 +263,12 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     ctx.lineTo(W - padR, padT + gH);
     ctx.stroke();
 
+    // Clip to graph area
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(padL, padT, gW, gH);
+    ctx.clip();
+
     // Fill under curve
     const color = PARAM_COLORS[activeTab];
     ctx.fillStyle = color + '40';
@@ -228,7 +277,7 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     for (let i = 0; i < 99; i++) {
       const x = padL + (i / 98) * gW;
       const v = Math.max(0, Math.min(currentArr[i], maxVal));
-      const y = padT + gH - (v / maxVal) * gH;
+      const y = valToY(v);
       ctx.lineTo(x, y);
     }
     ctx.lineTo(padL + gW, padT + gH);
@@ -242,7 +291,7 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     for (let i = 0; i < 99; i++) {
       const x = padL + (i / 98) * gW;
       const v = Math.max(0, Math.min(currentArr[i], maxVal));
-      const y = padT + gH - (v / maxVal) * gH;
+      const y = valToY(v);
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
@@ -254,7 +303,7 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
       for (const idx of modSet) {
         const x = padL + (idx / 98) * gW;
         const v = Math.max(0, Math.min(currentArr[idx], maxVal));
-        const y = padT + gH - (v / maxVal) * gH;
+        const y = valToY(v);
         ctx.fillStyle = '#fff';
         ctx.beginPath();
         ctx.arc(x, y, 5, 0, Math.PI * 2);
@@ -272,7 +321,7 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
       if (modSet.has(i)) continue; // already drawn as anchor
       const x = padL + (i / 98) * gW;
       const v = Math.max(0, Math.min(currentArr[i], maxVal));
-      const y = padT + gH - (v / maxVal) * gH;
+      const y = valToY(v);
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(x, y, 4, 0, Math.PI * 2);
@@ -281,6 +330,8 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
       ctx.lineWidth = 1;
       ctx.stroke();
     }
+
+    ctx.restore(); // unclip
 
     // Axis labels
     ctx.fillStyle = '#999';
@@ -292,13 +343,15 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     }
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    for (let i = 0; i <= 4; i++) {
-      const val = Math.round((i / 4) * maxVal);
-      const y = padT + gH - (i / 4) * gH;
-      ctx.fillText(String(val), padL - 5, y);
+    const labelCount = 5;
+    for (let i = 0; i <= labelCount; i++) {
+      const viewNorm = yZoomMin + (i / labelCount) * (yZoomMax - yZoomMin);
+      const val = Math.round(denormalize(viewNorm));
+      const y = padT + gH - (i / labelCount) * gH;
+      ctx.fillText(val.toLocaleString(), padL - 5, y);
     }
     ctx.textBaseline = 'alphabetic';
-  }, [currentArr, activeTab, maxVal]);
+  }, [currentArr, activeTab, maxVal, yScale, yZoomMin, yZoomMax]);
 
   useEffect(() => {
     drawGraph();
@@ -320,7 +373,7 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     return () => ro.disconnect();
   }, [drawGraph]);
 
-  // Mouse -> level/value mapping
+  // Mouse -> level/value mapping (줌 적용)
   const canvasToLvVal = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
@@ -336,13 +389,27 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     const gH = H - padT - padB;
 
     const lv = Math.round(((mx - padL) / gW) * 98) + 1;
-    const val = Math.round((1 - (my - padT) / gH) * maxVal);
+
+    // 줌/로그를 고려한 Y 역변환
+    const yRatio = 1 - (my - padT) / gH; // 0(하단)~1(상단)
+    const viewRange = yZoomMax - yZoomMin;
+    const norm = yZoomMin + yRatio * viewRange;
+
+    let val: number;
+    if (yScale === 'log') {
+      const dataMin = Math.max(1, Math.min(...currentArr.filter(v => v > 0)));
+      const logMin = Math.log10(dataMin);
+      const logMax = Math.log10(maxVal);
+      val = Math.round(Math.pow(10, logMin + norm * (logMax - logMin)));
+    } else {
+      val = Math.round(norm * maxVal);
+    }
 
     return {
       lv: Math.max(1, Math.min(99, lv)),
       val: Math.max(0, Math.min(maxVal, val))
     };
-  }, [maxVal]);
+  }, [maxVal, yScale, yZoomMin, yZoomMax, currentArr]);
 
   const applyDragPoint = useCallback((lv: number, val: number) => {
     const idx = lv - 1;
@@ -377,14 +444,43 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
   }, [activeTab]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (e.button === 1) {
+      // 중버튼: 패닝
+      e.preventDefault();
+      isPanningRef.current = true;
+      panStartRef.current = { y: e.clientY, yMin: yZoomMin, yMax: yZoomMax };
+      return;
+    }
+    if (e.button !== 0) return;
     const pt = canvasToLvVal(e);
     if (!pt) return;
     isDragging.current = true;
     lastDragLv.current = pt.lv;
     applyDragPoint(pt.lv, pt.val);
-  }, [canvasToLvVal, applyDragPoint]);
+  }, [canvasToLvVal, applyDragPoint, yZoomMin, yZoomMax]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // 패닝 처리
+    if (isPanningRef.current) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const padT = 15, padB = 30;
+      const gH = rect.height - (padT + padB) * (rect.height / canvas.height);
+      const dy = e.clientY - panStartRef.current.y;
+      const range = panStartRef.current.yMax - panStartRef.current.yMin;
+      const delta = (dy / gH) * range;
+      let newMin = panStartRef.current.yMin + delta;
+      let newMax = panStartRef.current.yMax + delta;
+      if (newMin < 0) { newMax -= newMin; newMin = 0; }
+      if (newMax > 1) { newMin -= (newMax - 1); newMax = 1; }
+      newMin = Math.max(0, newMin);
+      newMax = Math.min(1, newMax);
+      setYZoomMin(newMin);
+      setYZoomMax(newMax);
+      return;
+    }
+    // 값 편집 드래그
     if (!isDragging.current) return;
     const pt = canvasToLvVal(e);
     if (!pt) return;
@@ -399,6 +495,48 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
   const handleMouseUp = useCallback(() => {
     isDragging.current = false;
     lastDragLv.current = -1;
+    isPanningRef.current = false;
+  }, []);
+
+  // Mouse wheel zoom on Y axis
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const padT = 15, padB = 30;
+    const gH = canvas.height - padT - padB;
+    const mouseY = e.clientY - rect.top;
+    const canvasY = mouseY * (canvas.height / rect.height);
+    const yRatio = 1 - Math.max(0, Math.min(1, (canvasY - padT) / gH));
+
+    const zoomFactor = e.deltaY > 0 ? 1.15 : 1 / 1.15;
+    const curMin = yZoomMin;
+    const curMax = yZoomMax;
+    const range = curMax - curMin;
+    const newRange = Math.min(1, range * zoomFactor);
+    const pivot = curMin + yRatio * range;
+    let newMin = pivot - yRatio * newRange;
+    let newMax = pivot + (1 - yRatio) * newRange;
+    if (newMin < 0) { newMax -= newMin; newMin = 0; }
+    if (newMax > 1) { newMin -= (newMax - 1); newMax = 1; }
+    newMin = Math.max(0, newMin);
+    newMax = Math.min(1, newMax);
+    setYZoomMin(newMin);
+    setYZoomMax(newMax);
+  }, [yZoomMin, yZoomMax]);
+
+  // Non-passive wheel event to allow preventDefault
+  const wheelHandlerRef = useRef(handleWheel);
+  wheelHandlerRef.current = handleWheel;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      wheelHandlerRef.current(e as unknown as React.WheelEvent<HTMLCanvasElement>);
+    };
+    canvas.addEventListener('wheel', handler, { passive: false });
+    return () => canvas.removeEventListener('wheel', handler);
   }, []);
 
   // Generate curve
@@ -577,8 +715,34 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
+              onContextMenu={(e) => e.preventDefault()}
               style={{ width: '100%', height: '100%', cursor: 'crosshair' }}
             />
+            <div className="param-curve-graph-controls">
+              <button
+                className={`param-curve-scale-btn${yScale === 'linear' ? ' active' : ''}`}
+                onClick={() => setYScale('linear')}
+                title="Linear"
+              >
+                Lin
+              </button>
+              <button
+                className={`param-curve-scale-btn${yScale === 'log' ? ' active' : ''}`}
+                onClick={() => setYScale('log')}
+                title="Logarithmic"
+              >
+                Log
+              </button>
+              {(yZoomMin > 0.001 || yZoomMax < 0.999) && (
+                <button
+                  className="param-curve-scale-btn"
+                  onClick={() => { setYZoomMin(0); setYZoomMax(1); }}
+                  title={t('expCurve.resetZoom', '줌 리셋')}
+                >
+                  ↺
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Value table */}
