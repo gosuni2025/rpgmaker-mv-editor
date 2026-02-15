@@ -134,17 +134,34 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     handleFieldChange('name', parts.join(', '));
   };
 
-  // 멤버 추가 (선택된 적을 추가) - 런타임 기반 위치 계산
+  // 멤버 자동 배치 - RPG Maker MV 원본처럼 전체 멤버 재배치
+  // 원본 패턴: 오른쪽→왼쪽으로 삼각형 형태, y는 지그재그로 깊이감
+  const repositionMembers = (members: TroopMember[]) => {
+    const n = members.length;
+    if (n === 0) return members;
+    if (n === 1) {
+      return [{ ...members[0], x: 220, y: 326 }];
+    }
+    // x: 오른쪽(~350)에서 왼쪽(~150)으로 분배
+    const xRight = 350;
+    const xLeft = 150;
+    const xSpacing = (xRight - xLeft) / (n - 1);
+    // y: 기준 ~340, 지그재그로 ±40 변동
+    const baseY = 340;
+    const ySwing = 40;
+    return members.map((m, i) => ({
+      ...m,
+      x: Math.round(xRight - xSpacing * i),
+      y: Math.round(baseY + (i % 2 === 0 ? -ySwing / 2 : ySwing / 2)),
+    }));
+  };
+
+  // 멤버 추가 (선택된 적을 추가) - 추가 후 전체 재배치
   const addSelectedEnemy = () => {
     if (!selectedItem || (selectedItem.members || []).length >= 8) return;
     const members = [...(selectedItem.members || [])];
-    const count = members.length;
-    // RPG Maker MV 런타임 기준: 화면 중앙 부근에 균등 배치, y는 화면 하단 2/3 지점
-    const spacing = Math.round(PREVIEW_W / (count + 2));
-    const x = Math.max(50, Math.min(PREVIEW_W - 50, Math.round(spacing * (count + 1))));
-    const y = Math.round(PREVIEW_H * 0.7);
-    members.push({ enemyId: selectedEnemyId, x, y, hidden: false });
-    handleFieldChange('members', members);
+    members.push({ enemyId: selectedEnemyId, x: 0, y: 0, hidden: false });
+    handleFieldChange('members', repositionMembers(members));
   };
 
   // 선택된 멤버 제거
@@ -163,16 +180,11 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     setSelectedMemberIdx(-1);
   };
 
-  // 정렬 - 런타임 기준 y=436(PREVIEW_H*0.7) 균등 배치
+  // 정렬 - 전체 멤버 재배치
   const alignMembers = () => {
     const members = [...(selectedItem?.members || [])];
     if (members.length === 0) return;
-    const spacing = Math.round(PREVIEW_W / (members.length + 1));
-    const y = Math.round(PREVIEW_H * 0.7);
-    for (let i = 0; i < members.length; i++) {
-      members[i] = { ...members[i], x: Math.round(spacing * (i + 1)), y };
-    }
-    handleFieldChange('members', members);
+    handleFieldChange('members', repositionMembers(members));
   };
 
   // 미리보기 드래그
@@ -452,12 +464,8 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
                       setSelectedEnemyId(en.id);
                       if ((selectedItem.members || []).length < 8) {
                         const members = [...(selectedItem.members || [])];
-                        const count = members.length;
-                        const spacing = Math.round(PREVIEW_W / (count + 2));
-                        const x = Math.max(50, Math.min(PREVIEW_W - 50, Math.round(spacing * (count + 1))));
-                        const y = Math.round(PREVIEW_H * 0.7);
-                        members.push({ enemyId: en.id, x, y, hidden: false });
-                        handleFieldChange('members', members);
+                        members.push({ enemyId: en.id, x: 0, y: 0, hidden: false });
+                        handleFieldChange('members', repositionMembers(members));
                       }
                     }}
                   >
