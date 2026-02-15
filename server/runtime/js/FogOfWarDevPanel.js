@@ -23,6 +23,7 @@
         { key: 'edgeAnimationSpeed', label: 'Edge Anim Speed',   min: 0,    max: 5,    step: 0.1,  def: 1.0 },
         { key: 'lightScattering',    label: 'Light Scatter',     min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
         { key: 'lightScatterIntensity', label: 'Scatter Intensity', min: 0, max: 3,    step: 0.1,  def: 1.0 },
+        { key: 'fogTransitionSpeed',  label: 'Transition Spd',   min: 1,    max: 20,   step: 0.5,  def: 5.0 },
     ];
 
     // ── 2D 전용 파라미터 ──
@@ -62,6 +63,7 @@
         godRayIntensity: '_godRayIntensity',
         vortex: '_vortex',
         vortexSpeed: '_vortexSpeed',
+        fogTransitionSpeed: '_fogTransitionSpeed',
         absorption: '_absorption',
         fogHeight: '_fogHeight',
     };
