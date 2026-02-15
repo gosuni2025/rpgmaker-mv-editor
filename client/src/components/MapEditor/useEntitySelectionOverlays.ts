@@ -321,17 +321,19 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
 
     const meshes = disposeMeshes(rObj.scene, '_editorObjSelMeshes');
     const isObjMode = editMode === 'object';
+    const selectedSet = new Set(selectedObjectIds);
 
-    // 1. 선택된 오브젝트 하이라이트 (tileIds 기반 타일 단위)
-    if (isObjMode && selectedObjectIds.length > 0 && currentMap?.objects) {
-      for (const oid of selectedObjectIds) {
-        const obj = (currentMap.objects as any[]).find(o => o.id === oid);
+    // 0. 모든 오브젝트 영역 표시 (선택되지 않은 것 = 어두운 색, 선택된 것 = 밝은 색)
+    if (isObjMode && currentMap?.objects) {
+      for (const obj of currentMap.objects as any[]) {
         if (!obj) continue;
+        const isSelected = selectedSet.has(obj.id);
+        const fillColor = isSelected ? 0x44ff88 : 0x6688cc;
+        const strokeColor = isSelected ? 0x44ff88 : 0x6688cc;
         const ow = obj.width || 1;
         const oh = obj.height || 1;
         const tileIds = obj.tileIds;
         if (tileIds && tileIds.length > 0) {
-          // tileIds가 있으면 0이 아닌 셀만 하이라이트
           for (let row = 0; row < oh; row++) {
             for (let col = 0; col < ow; col++) {
               const cell = tileIds[row]?.[col];
@@ -343,17 +345,16 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
                 const ty = (obj.y - oh + 1) + row;
                 const cx = tx * TILE_SIZE_PX + TILE_SIZE_PX / 2;
                 const cy = ty * TILE_SIZE_PX + TILE_SIZE_PX / 2;
-                createHighlightMesh(THREE, rObj.scene, meshes, cx, cy, TILE_SIZE_PX, TILE_SIZE_PX, 0x44ff88, 0x44ff88, 5.5, 5.8, 9998, 9999);
+                createHighlightMesh(THREE, rObj.scene, meshes, cx, cy, TILE_SIZE_PX, TILE_SIZE_PX, fillColor, strokeColor, 5.5, 5.8, 9998, 9999);
               }
             }
           }
         } else {
-          // tileIds가 없으면 바운딩 박스 전체
           const rw = ow * TILE_SIZE_PX;
           const rh = oh * TILE_SIZE_PX;
           const cx = obj.x * TILE_SIZE_PX + rw / 2;
           const cy = (obj.y - oh + 1) * TILE_SIZE_PX + rh / 2;
-          createHighlightMesh(THREE, rObj.scene, meshes, cx, cy, rw, rh, 0x44ff88, 0x44ff88, 5.5, 5.8, 9998, 9999);
+          createHighlightMesh(THREE, rObj.scene, meshes, cx, cy, rw, rh, fillColor, strokeColor, 5.5, 5.8, 9998, 9999);
         }
       }
     }
