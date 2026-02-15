@@ -9,6 +9,8 @@ const MAP_W = 20;
 const MAP_H = 15;
 const TILE_SIZE = 48;
 
+type TestMode = 'live' | 'grow' | 'fade';
+
 export default function FogOfWarTestPage() {
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -18,6 +20,7 @@ export default function FogOfWarTestPage() {
   const rafRef = useRef<number>(0);
   const playerRef = useRef({ x: 10, y: 7 });
   const lastTimeRef = useRef(0);
+  const testModeRef = useRef<TestMode>('live');
 
   // 파라미터
   const [radius, setRadius] = useState(5);
@@ -29,6 +32,17 @@ export default function FogOfWarTestPage() {
   const [exploredAlpha, setExploredAlpha] = useState(0.6);
   const [unexploredAlpha, setUnexploredAlpha] = useState(1.0);
   const [playerPos, setPlayerPos] = useState({ x: 10, y: 7 });
+  const [testMode, setTestMode] = useState<TestMode>('live');
+  const [timeSlider, setTimeSlider] = useState(0); // 0~1, 테스트 모드용
+
+  // 스냅샷 저장용 ref (생성/삭제 모드 진입 시 캡처)
+  const snapshotRef = useRef<{
+    exploredData: Uint8Array;
+    visibilityData: Float32Array;
+    displayVis: Float32Array;
+    displayExpl: Float32Array;
+    borderState: Uint8Array;
+  } | null>(null);
 
   const initScene = useCallback(() => {
     if (!canvasRef.current || typeof THREE === 'undefined') return;
@@ -174,13 +188,15 @@ export default function FogOfWarTestPage() {
       const dt = Math.min((now - lastTimeRef.current) / 1000, 0.1);
       lastTimeRef.current = now;
 
-      // lerp + 텍스처 업데이트
-      const changed = FogOfWar._lerpDisplay(dt);
-      if (changed) {
-        FogOfWar._updateTexture();
+      // live 모드에서만 _lerpDisplay 실행
+      if (testModeRef.current === 'live') {
+        const changed = FogOfWar._lerpDisplay(dt);
+        if (changed) {
+          FogOfWar._updateTexture();
+        }
       }
 
-      // 시간 업데이트
+      // 시간 업데이트 (셰이더 애니메이션용)
       if (FogOfWar._fogGroup) {
         FogOfWar._time += dt;
         FogOfWar._fogGroup.children.forEach((child: any) => {
@@ -209,8 +225,10 @@ export default function FogOfWarTestPage() {
     };
   }, [initScene]);
 
-  // 플레이어 이동
+  // 플레이어 이동 (live 모드에서만)
   const movePlayer = useCallback((dx: number, dy: number) => {
+    if (testModeRef.current !== 'live') return;
+
     const nx = Math.max(0, Math.min(MAP_W - 1, playerRef.current.x + dx));
     const ny = Math.max(0, Math.min(MAP_H - 1, playerRef.current.y + dy));
     if (nx === playerRef.current.x && ny === playerRef.current.y) return;
@@ -267,9 +285,8 @@ export default function FogOfWarTestPage() {
   }, [fadeDuration, growDuration]);
 
   useEffect(() => {
-    if (FogOfWar._active) {
+    if (FogOfWar._active && testModeRef.current === 'live') {
       FogOfWar._radius = radius;
-      // 강제 재계산
       FogOfWar._prevPlayerX = -1;
       FogOfWar._prevPlayerY = -1;
       FogOfWar.updateVisibility(playerRef.current.x, playerRef.current.y);
@@ -279,7 +296,6 @@ export default function FogOfWarTestPage() {
   // 리셋
   const handleReset = useCallback(() => {
     if (!FogOfWar._active) return;
-    // explored와 display 초기화
     const size = MAP_W * MAP_H;
     for (let i = 0; i < size; i++) {
       FogOfWar._exploredData[i] = 0;
@@ -296,6 +312,178 @@ export default function FogOfWarTestPage() {
     FogOfWar._updateTexture();
   }, []);
 
+  // 현재 FOW 상태의 스냅샷을 캡처
+  const captureSnapshot = useCallback(() => {
+    if (!FogOfWar._active) return;
+    const size = MAP_W * MAP_H;
+    snapshotRef.current = {
+      exploredData: new Uint8Array(FogOfWar._exploredData),
+      visibilityData: new Float32Array(FogOfWar._visibilityData),
+      displayVis: new Float32Array(FogOfWar._displayVis),
+      displayExpl: new Float32Array(FogOfWar._displayExpl),
+      borderState: new Uint8Array(FogOfWar._borderState),
+    };
+  }, []);
+
+  // 경계 타일 인덱스를 구한다 (미탐험이면서 인접에 탐험이 있는 타일)
+  const getBorderIndices = useCallback(() => {
+    const indices: number[] = [];
+    const expl = FogOfWar._exploredData;
+    const w = MAP_W, h = MAP_H;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = y * w + x;
+        if (expl[idx] > 0) continue;
+        let isBorder = false;
+        if (x > 0 && expl[idx - 1] > 0) isBorder = true;
+        else if (x < w - 1 && expl[idx + 1] > 0) isBorder = true;
+        else if (y > 0 && expl[idx - w] > 0) isBorder = true;
+        else if (y < h - 1 && expl[idx + w] > 0) isBorder = true;
+        else if (x > 0 && y > 0 && expl[idx - w - 1] > 0) isBorder = true;
+        else if (x < w - 1 && y > 0 && expl[idx - w + 1] > 0) isBorder = true;
+        else if (x > 0 && y < h - 1 && expl[idx + w - 1] > 0) isBorder = true;
+        else if (x < w - 1 && y < h - 1 && expl[idx + w + 1] > 0) isBorder = true;
+        if (isBorder) indices.push(idx);
+      }
+    }
+    return indices;
+  }, []);
+
+  // 테스트 모드 전환
+  const switchTestMode = useCallback((mode: TestMode) => {
+    if (!FogOfWar._active) return;
+    testModeRef.current = mode;
+    setTestMode(mode);
+    setTimeSlider(0);
+
+    if (mode === 'live') {
+      // 스냅샷 복원 + 즉시 완료 상태로
+      if (snapshotRef.current) {
+        const snap = snapshotRef.current;
+        const size = MAP_W * MAP_H;
+        FogOfWar._exploredData.set(snap.exploredData);
+        FogOfWar._visibilityData.set(snap.visibilityData);
+        FogOfWar._displayVis.set(snap.displayVis);
+        FogOfWar._displayExpl.set(snap.displayExpl);
+        FogOfWar._borderState.set(snap.borderState);
+        for (let i = 0; i < size; i++) {
+          FogOfWar._tentacleFade[i] = 0;
+          FogOfWar._growFade[i] = 1;
+        }
+        FogOfWar._updateTexture();
+        snapshotRef.current = null;
+      }
+      return;
+    }
+
+    // 스냅샷 캡처
+    captureSnapshot();
+
+    const size = MAP_W * MAP_H;
+
+    if (mode === 'grow') {
+      // 생성 테스트: 경계 타일의 growFade를 0으로 (촉수 없는 상태)
+      // display 버퍼는 현재 완료 상태 유지
+      for (let i = 0; i < size; i++) {
+        FogOfWar._tentacleFade[i] = 0;
+        FogOfWar._growFade[i] = 0; // 모든 경계 타일이 t=0 상태
+        FogOfWar._borderState[i] = 0;
+      }
+      // 경계 상태 재계산
+      const borders = getBorderIndices();
+      for (const idx of borders) {
+        FogOfWar._borderState[idx] = 1;
+        FogOfWar._growFade[idx] = 0;
+      }
+      // 비경계 타일은 growFade=1 (정상)
+      for (let i = 0; i < size; i++) {
+        if (FogOfWar._borderState[i] === 0) {
+          FogOfWar._growFade[i] = 1;
+        }
+      }
+      FogOfWar._updateTexture();
+    } else if (mode === 'fade') {
+      // 삭제 테스트: 탐험된 경계 인접 타일의 tentacleFade를 1로 (촉수 완전한 상태)
+      // 경계 타일의 growFade는 1 (완성 상태)
+      for (let i = 0; i < size; i++) {
+        FogOfWar._tentacleFade[i] = 0;
+        FogOfWar._growFade[i] = 1;
+        FogOfWar._borderState[i] = 0;
+      }
+      const borders = getBorderIndices();
+      for (const idx of borders) {
+        FogOfWar._borderState[idx] = 1;
+      }
+      // 탐험 영역 중 경계 인접 타일에 tentacleFade=1 설정
+      const expl = FogOfWar._exploredData;
+      const w = MAP_W, h = MAP_H;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = y * w + x;
+          if (expl[idx] === 0) continue; // 미탐험은 건너뛰기
+          // 인접에 미탐험 경계가 있는 탐험 타일 = fade 대상
+          let nearBorder = false;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              const nx = x + dx, ny = y + dy;
+              if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+              if (FogOfWar._borderState[ny * w + nx] === 1) nearBorder = true;
+            }
+          }
+          if (nearBorder) {
+            FogOfWar._tentacleFade[idx] = 1;
+          }
+        }
+      }
+      FogOfWar._updateTexture();
+    }
+  }, [captureSnapshot, getBorderIndices]);
+
+  // 시간 슬라이더 변경 시 grow/fade 값 직접 세팅
+  useEffect(() => {
+    if (!FogOfWar._active || testMode === 'live') return;
+    const t = timeSlider; // 0~1
+
+    const size = MAP_W * MAP_H;
+
+    if (testMode === 'grow') {
+      // t=0: growFade=0 (촉수 없음), t=1: growFade=1 (촉수 완성)
+      const borders = getBorderIndices();
+      for (const idx of borders) {
+        FogOfWar._growFade[idx] = t;
+      }
+    } else if (testMode === 'fade') {
+      // t=0: tentacleFade=1 (촉수 완전), t=1: tentacleFade=0 (촉수 소멸)
+      for (let i = 0; i < size; i++) {
+        if (FogOfWar._tentacleFade[i] > 0 || (snapshotRef.current && t < 1)) {
+          // 초기에 fade=1이었던 타일만 조절
+        }
+      }
+      // 더 간단히: 스냅샷에서 fade가 설정된 타일들을 (1-t)로 세팅
+      const expl = FogOfWar._exploredData;
+      const w = MAP_W, h = MAP_H;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = y * w + x;
+          if (expl[idx] === 0) continue;
+          let nearBorder = false;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              const nx = x + dx, ny = y + dy;
+              if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+              if (FogOfWar._borderState[ny * w + nx] === 1) nearBorder = true;
+            }
+          }
+          FogOfWar._tentacleFade[idx] = nearBorder ? (1 - t) : 0;
+        }
+      }
+    }
+
+    FogOfWar._updateTexture();
+  }, [timeSlider, testMode, getBorderIndices]);
+
   return (
     <div className="fow-test-page">
       <div className="fow-test-header">
@@ -311,27 +499,87 @@ export default function FogOfWarTestPage() {
 
         <div className="fow-test-controls">
           <div className="fow-control-group">
-            <h3>플레이어</h3>
-            <div className="fow-info">위치: ({playerPos.x}, {playerPos.y})</div>
-            <div className="fow-dpad">
-              <button onClick={() => movePlayer(0, -1)}>▲</button>
-              <div>
-                <button onClick={() => movePlayer(-1, 0)}>◀</button>
-                <button onClick={() => movePlayer(1, 0)}>▶</button>
-              </div>
-              <button onClick={() => movePlayer(0, 1)}>▼</button>
+            <h3>테스트 모드</h3>
+            <div className="fow-mode-buttons">
+              <button
+                className={`fow-mode-btn ${testMode === 'live' ? 'active' : ''}`}
+                onClick={() => switchTestMode('live')}
+              >
+                실시간
+              </button>
+              <button
+                className={`fow-mode-btn ${testMode === 'grow' ? 'active' : ''}`}
+                onClick={() => switchTestMode('grow')}
+              >
+                생성 테스트
+              </button>
+              <button
+                className={`fow-mode-btn ${testMode === 'fade' ? 'active' : ''}`}
+                onClick={() => switchTestMode('fade')}
+              >
+                삭제 테스트
+              </button>
             </div>
-            <button className="fow-reset-btn" onClick={handleReset}>리셋 (FOW 초기화)</button>
           </div>
 
-          <div className="fow-control-group">
-            <h3>시야</h3>
-            <label>
-              반경: {radius}
-              <input type="range" min={1} max={10} step={1} value={radius}
-                onChange={(e) => setRadius(Number(e.target.value))} />
-            </label>
-          </div>
+          {testMode !== 'live' && (
+            <div className="fow-control-group">
+              <h3>
+                {testMode === 'grow' ? '생성 진행도' : '삭제 진행도'}
+              </h3>
+              <label>
+                t = {timeSlider.toFixed(2)}
+                <input type="range" min={0} max={1} step={0.01} value={timeSlider}
+                  onChange={(e) => setTimeSlider(Number(e.target.value))} />
+              </label>
+              <div className="fow-info">
+                {testMode === 'grow'
+                  ? '0 = 촉수 없음 → 1 = 촉수 완성'
+                  : '0 = 촉수 있음 → 1 = 촉수 소멸'}
+              </div>
+            </div>
+          )}
+
+          {testMode === 'live' && (
+            <>
+              <div className="fow-control-group">
+                <h3>플레이어</h3>
+                <div className="fow-info">위치: ({playerPos.x}, {playerPos.y})</div>
+                <div className="fow-dpad">
+                  <button onClick={() => movePlayer(0, -1)}>▲</button>
+                  <div>
+                    <button onClick={() => movePlayer(-1, 0)}>◀</button>
+                    <button onClick={() => movePlayer(1, 0)}>▶</button>
+                  </div>
+                  <button onClick={() => movePlayer(0, 1)}>▼</button>
+                </div>
+                <button className="fow-reset-btn" onClick={handleReset}>리셋 (FOW 초기화)</button>
+              </div>
+
+              <div className="fow-control-group">
+                <h3>시야</h3>
+                <label>
+                  반경: {radius}
+                  <input type="range" min={1} max={10} step={1} value={radius}
+                    onChange={(e) => setRadius(Number(e.target.value))} />
+                </label>
+              </div>
+
+              <div className="fow-control-group">
+                <h3>타이머 (생성/삭제)</h3>
+                <label>
+                  생성 시간: {growDuration.toFixed(1)}초
+                  <input type="range" min={0.1} max={5} step={0.1} value={growDuration}
+                    onChange={(e) => setGrowDuration(Number(e.target.value))} />
+                </label>
+                <label>
+                  삭제 시간: {fadeDuration.toFixed(1)}초
+                  <input type="range" min={0.1} max={5} step={0.1} value={fadeDuration}
+                    onChange={(e) => setFadeDuration(Number(e.target.value))} />
+                </label>
+              </div>
+            </>
+          )}
 
           <div className="fow-control-group">
             <h3>촉수 셰이더</h3>
@@ -349,20 +597,6 @@ export default function FogOfWarTestPage() {
               tentacleSharpness: {tentacleSharpness.toFixed(1)}
               <input type="range" min={1} max={8} step={0.5} value={tentacleSharpness}
                 onChange={(e) => setTentacleSharpness(Number(e.target.value))} />
-            </label>
-          </div>
-
-          <div className="fow-control-group">
-            <h3>타이머 (생성/삭제)</h3>
-            <label>
-              생성 시간: {growDuration.toFixed(1)}초
-              <input type="range" min={0.1} max={5} step={0.1} value={growDuration}
-                onChange={(e) => setGrowDuration(Number(e.target.value))} />
-            </label>
-            <label>
-              삭제 시간: {fadeDuration.toFixed(1)}초
-              <input type="range" min={0.1} max={5} step={0.1} value={fadeDuration}
-                onChange={(e) => setFadeDuration(Number(e.target.value))} />
             </label>
           </div>
 
