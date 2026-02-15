@@ -41,6 +41,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const [activePage, setActivePage] = useState(0);
   const [selectedEnemyId, setSelectedEnemyId] = useState(1);
+  const [selectedMemberIdx, setSelectedMemberIdx] = useState(-1);
   const [enemies, setEnemies] = useState<EnemyRef[]>([]);
   const [actors, setActors] = useState<{ id: number; name: string }[]>([]);
   const [enemyImages, setEnemyImages] = useState<Record<string, HTMLImageElement>>({});
@@ -137,9 +138,20 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     handleFieldChange('members', members);
   };
 
+  // 선택된 멤버 제거
+  const removeMember = () => {
+    if (!selectedItem || selectedMemberIdx < 0) return;
+    const members = [...(selectedItem.members || [])];
+    if (selectedMemberIdx >= members.length) return;
+    members.splice(selectedMemberIdx, 1);
+    handleFieldChange('members', members);
+    setSelectedMemberIdx(-1);
+  };
+
   // 전부 삭제
   const clearMembers = () => {
     handleFieldChange('members', []);
+    setSelectedMemberIdx(-1);
   };
 
   // 정렬
@@ -348,41 +360,57 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
             <button className="db-btn-small" onClick={() => {}}>{t('troops.battleTest')}</button>
           </div>
 
-          {/* ===== 배치 뷰: 미리보기 + 전체 적 목록 ===== */}
+          {/* ===== 배치 뷰: 좌측(미리보기+버튼) + 우측(적 목록) ===== */}
           <div className="troops-placement-row">
-            {/* 전투 미리보기 */}
-            <div className="troops-preview-area" ref={previewRef}>
-              {battleback1 && (
-                <img className="troops-preview-bg" src={`/img/battlebacks1/${battleback1}.png`} alt="" />
-              )}
-              {battleback2 && (
-                <img className="troops-preview-bg" src={`/img/battlebacks2/${battleback2}.png`} alt="" style={{ zIndex: 1 }} />
-              )}
-              {(selectedItem.members || []).map((member: TroopMember, i: number) => {
-                const battlerName = enemyBattlerMap[member.enemyId];
-                const img = battlerName ? enemyImages[battlerName] : null;
-                if (!img) return null;
-                const rect = previewRef.current?.getBoundingClientRect();
-                const scaleX = rect ? rect.width / PREVIEW_W : 1;
-                const scaleY = rect ? rect.height / PREVIEW_H : 1;
-                return (
-                  <img
-                    key={i}
-                    className={`troops-preview-enemy${member.hidden ? ' hidden-enemy' : ''}`}
-                    src={img.src}
-                    style={{
-                      left: member.x * scaleX,
-                      top: member.y * scaleY,
-                      zIndex: 2 + i,
-                    }}
-                    onMouseDown={(e) => handlePreviewMouseDown(e, i)}
-                    draggable={false}
-                  />
-                );
-              })}
+            {/* 좌측: 미리보기 + 버튼 */}
+            <div className="troops-preview-col">
+              <div className="troops-preview-area" ref={previewRef}>
+                {battleback1 && (
+                  <img className="troops-preview-bg" src={`/img/battlebacks1/${battleback1}.png`} alt="" />
+                )}
+                {battleback2 && (
+                  <img className="troops-preview-bg" src={`/img/battlebacks2/${battleback2}.png`} alt="" style={{ zIndex: 1 }} />
+                )}
+                {(selectedItem.members || []).map((member: TroopMember, i: number) => {
+                  const battlerName = enemyBattlerMap[member.enemyId];
+                  const img = battlerName ? enemyImages[battlerName] : null;
+                  if (!img) return null;
+                  const rect = previewRef.current?.getBoundingClientRect();
+                  const scaleX = rect ? rect.width / PREVIEW_W : 1;
+                  const scaleY = rect ? rect.height / PREVIEW_H : 1;
+                  return (
+                    <img
+                      key={i}
+                      className={`troops-preview-enemy${member.hidden ? ' hidden-enemy' : ''}${i === selectedMemberIdx ? ' selected' : ''}`}
+                      src={img.src}
+                      style={{
+                        left: member.x * scaleX,
+                        top: member.y * scaleY,
+                        zIndex: 2 + i,
+                      }}
+                      onMouseDown={(e) => { setSelectedMemberIdx(i); handlePreviewMouseDown(e, i); }}
+                      draggable={false}
+                    />
+                  );
+                })}
+              </div>
+              <div className="troops-preview-buttons">
+                <button className="db-btn-small" onClick={addSelectedEnemy} disabled={(selectedItem.members || []).length >= 8}>
+                  {t('troops.add')}
+                </button>
+                <button className="db-btn-small" onClick={removeMember} disabled={selectedMemberIdx < 0 || selectedMemberIdx >= (selectedItem.members || []).length}>
+                  {t('troops.remove')}
+                </button>
+                <button className="db-btn-small" onClick={clearMembers} disabled={(selectedItem.members || []).length === 0}>
+                  {t('troops.clearAll')}
+                </button>
+                <button className="db-btn-small" onClick={alignMembers} disabled={(selectedItem.members || []).length === 0}>
+                  {t('troops.align')}
+                </button>
+              </div>
             </div>
 
-            {/* 우측: 전체 적 목록 + 네비게이션 버튼 */}
+            {/* 우측: 전체 적 목록 */}
             <div className="troops-enemy-panel">
               <div className="troops-enemy-list">
                 {enemies.map(en => (
@@ -403,22 +431,6 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
                     {String(en.id).padStart(4, '0')} {en.name}
                   </div>
                 ))}
-              </div>
-              <div className="troops-nav-row">
-                <button className="db-btn-small" onClick={addSelectedEnemy} disabled={(selectedItem.members || []).length >= 8}>
-                  &lt;
-                </button>
-                <button className="db-btn-small" onClick={addSelectedEnemy} disabled={(selectedItem.members || []).length >= 8}>
-                  &gt;
-                </button>
-              </div>
-              <div className="troops-member-buttons">
-                <button className="db-btn-small" onClick={clearMembers} disabled={(selectedItem.members || []).length === 0}>
-                  {t('troops.clearAll')}
-                </button>
-                <button className="db-btn-small" onClick={alignMembers} disabled={(selectedItem.members || []).length === 0}>
-                  {t('troops.align')}
-                </button>
               </div>
             </div>
           </div>

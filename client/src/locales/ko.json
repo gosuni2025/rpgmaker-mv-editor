@@ -1326,6 +1326,8 @@
     "autoName": "이름 자동 작성",
     "changeBG": "전투 배경 변경",
     "battleTest": "전투 테스트",
+    "add": "추가",
+    "remove": "해제",
     "clearAll": "모두 해제",
     "align": "정렬",
     "noCondition": "실행하지 않습니다",
