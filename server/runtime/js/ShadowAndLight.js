@@ -2764,26 +2764,6 @@ ShadowLight._createDebugUI = function() {
     spotOverrideRow.appendChild(spotOverrideHint);
     spotBody.appendChild(spotOverrideRow);
 
-    // SpotLight ON/OFF 토글
-    var spotRow = document.createElement('div');
-    spotRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
-    var spotLbl = document.createElement('span');
-    spotLbl.textContent = 'Enabled';
-    spotLbl.style.cssText = 'width:70px;font-size:11px;';
-    var spotCheck = document.createElement('input');
-    spotCheck.type = 'checkbox';
-    spotCheck.checked = self.config.spotLightEnabled;
-    spotCheck.addEventListener('change', function() {
-        self.config.spotLightEnabled = spotCheck.checked;
-        if (self._playerSpotLight) {
-            self._playerSpotLight.visible = spotCheck.checked;
-        }
-        saveConfigToStorage();
-    });
-    spotRow.appendChild(spotLbl);
-    spotRow.appendChild(spotCheck);
-    spotBody.appendChild(spotRow);
-
     addSliderRow(spotBody, { label: 'Spot Int', key: 'spotLightIntensity', min: 0, max: 10, step: 0.1 });
     addSliderRow(spotBody, { label: 'Spot Dist', key: 'spotLightDistance', min: 50, max: 1000, step: 50 });
     addSliderRow(spotBody, { label: 'Spot Angle', key: 'spotLightAngle', min: 0.1, max: 1.5, step: 0.05 });
