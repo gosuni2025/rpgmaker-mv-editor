@@ -1206,9 +1206,12 @@ ShadowLight._addLightsToScene = function(scene) {
     try { directionalOverride = localStorage.getItem('devPanel_directionalOverride') === 'true'; } catch (e) {}
     var playerLightOverride = false;
     try { playerLightOverride = localStorage.getItem('devPanel_playerLightOverride') === 'true'; } catch (e) {}
+    var spotLightOverride = false;
+    try { spotLightOverride = localStorage.getItem('devPanel_spotLightOverride') === 'true'; } catch (e) {}
     this._debugAmbientOverride = ambientOverride;
     this._debugDirectionalOverride = directionalOverride;
     this._debugPlayerLightOverride = playerLightOverride;
+    this._debugSpotLightOverride = spotLightOverride;
 
     // AmbientLight - 전체적인 환경광
     // 디버그 우선 ON → localStorage config, OFF → 맵 데이터(editorLights)
@@ -1282,8 +1285,8 @@ ShadowLight._addLightsToScene = function(scene) {
         if (pl.distance != null) this.config.playerLightDistance = pl.distance;
         if (pl.z != null) this.config.playerLightZ = pl.z;
     }
-    // editorLights에서 spotLight config 동기화
-    if (el && el.spotLight) {
+    // editorLights에서 spotLight config 동기화 (디버그 우선 OFF일 때만)
+    if (el && el.spotLight && !spotLightOverride) {
         var sl = el.spotLight;
         if (sl.enabled != null) this.config.spotLightEnabled = sl.enabled;
         if (sl.color) this.config.spotLightColor = parseInt(sl.color.replace('#', ''), 16);
@@ -2061,19 +2064,23 @@ Spriteset_Map.prototype._updatePointLights = function() {
         var spot = ShadowLight._playerSpotLight;
         spot.visible = true;
         var cfg = ShadowLight.config;
-        spot.color.setHex(cfg.spotLightColor);
-        spot.intensity = cfg.spotLightIntensity;
-        spot.distance = cfg.spotLightDistance;
-        spot.angle = cfg.spotLightAngle;
-        spot.penumbra = cfg.spotLightPenumbra;
+        // 디버그 우선 OFF면 맵 데이터(editorLights)에서 값 사용
+        var slEl = (!ShadowLight._debugSpotLightOverride && typeof $dataMap !== 'undefined' && $dataMap && $dataMap.editorLights && $dataMap.editorLights.spotLight) ? $dataMap.editorLights.spotLight : null;
+        spot.color.setHex(slEl && slEl.color ? parseInt(slEl.color.replace('#', ''), 16) : cfg.spotLightColor);
+        spot.intensity = slEl && slEl.intensity != null ? slEl.intensity : cfg.spotLightIntensity;
+        spot.distance = slEl && slEl.distance != null ? slEl.distance : cfg.spotLightDistance;
+        spot.angle = slEl && slEl.angle != null ? slEl.angle : cfg.spotLightAngle;
+        spot.penumbra = slEl && slEl.penumbra != null ? slEl.penumbra : cfg.spotLightPenumbra;
         spot.decay = ShadowLight._debugDecay !== undefined ? ShadowLight._debugDecay : 0;
 
         // SpotLight를 플레이어 위치 위에 배치
-        spot.position.set(playerWp.x, playerWp.y - 24, cfg.spotLightZ);
+        var spotZ = slEl && slEl.z != null ? slEl.z : cfg.spotLightZ;
+        spot.position.set(playerWp.x, playerWp.y - 24, spotZ);
 
         // target을 플레이어가 바라보는 방향으로 설정
         var dir = $gamePlayer.direction();
-        var off = ShadowLight._directionToOffset(dir, cfg.spotLightTargetDistance);
+        var spotTDist = slEl && slEl.targetDistance != null ? slEl.targetDistance : cfg.spotLightTargetDistance;
+        var off = ShadowLight._directionToOffset(dir, spotTDist);
         ShadowLight._playerSpotTarget.position.set(
             playerWp.x + off.x,
             playerWp.y - 24 + off.y,
@@ -2733,6 +2740,29 @@ ShadowLight._createDebugUI = function() {
 
     // ── 스포트라이트 섹션 ──
     var spotBody = createSection(panel, '스포트라이트', '#ff9966', true);
+
+    // 디버그 패널 우선 적용 체크박스 (스포트라이트)
+    var SPOT_OVERRIDE_KEY = 'devPanel_spotLightOverride';
+    var spotOverrideRow = document.createElement('div');
+    spotOverrideRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+    var spotOverrideLbl = document.createElement('span');
+    spotOverrideLbl.textContent = '디버그 우선';
+    spotOverrideLbl.style.cssText = 'width:70px;font-size:11px;color:#f8a;';
+    var spotOverrideCheck = document.createElement('input');
+    spotOverrideCheck.type = 'checkbox';
+    try { spotOverrideCheck.checked = localStorage.getItem(SPOT_OVERRIDE_KEY) === 'true'; } catch (e) {}
+    self._debugSpotLightOverride = spotOverrideCheck.checked;
+    spotOverrideCheck.addEventListener('change', function() {
+        self._debugSpotLightOverride = spotOverrideCheck.checked;
+        try { localStorage.setItem(SPOT_OVERRIDE_KEY, spotOverrideCheck.checked ? 'true' : 'false'); } catch (e) {}
+    });
+    spotOverrideRow.appendChild(spotOverrideLbl);
+    spotOverrideRow.appendChild(spotOverrideCheck);
+    var spotOverrideHint = document.createElement('span');
+    spotOverrideHint.textContent = 'ON: 패널 값 사용';
+    spotOverrideHint.style.cssText = 'font-size:10px;color:#888;';
+    spotOverrideRow.appendChild(spotOverrideHint);
+    spotBody.appendChild(spotOverrideRow);
 
     // SpotLight ON/OFF 토글
     var spotRow = document.createElement('div');
