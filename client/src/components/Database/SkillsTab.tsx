@@ -5,6 +5,7 @@ import IconPicker from '../common/IconPicker';
 import DamageEditor from '../common/DamageEditor';
 import TranslateButton from '../common/TranslateButton';
 import EffectsEditor from '../common/EffectsEditor';
+import AnimationPickerDialog from '../EventEditor/AnimationPickerDialog';
 import apiClient from '../../api/client';
 
 interface SkillsTabProps {
@@ -23,6 +24,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
   const [skillTypes, setSkillTypes] = useState<string[]>([]);
   const [weaponTypes, setWeaponTypes] = useState<string[]>([]);
   const [animations, setAnimations] = useState<RefItem[]>([]);
+  const [showAnimPicker, setShowAnimPicker] = useState(false);
 
   const SCOPE_OPTIONS = [
     { value: 0, label: t('scope.none') },
@@ -287,11 +289,11 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
               </label>
               <label>
                 {t('common.animation')}
-                <select value={selectedItem.animationId ?? 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))}>
-                  <option value={-1}>{t('common.normalAttack')}</option>
-                  <option value={0}>{t('common.none')}</option>
-                  {animations.map(a => <option key={a.id} value={a.id}>{String(a.id).padStart(4, '0')}: {a.name}</option>)}
-                </select>
+                <button className="db-picker-btn" onClick={() => setShowAnimPicker(true)}>
+                  {selectedItem.animationId === -1 ? t('common.normalAttack') :
+                   selectedItem.animationId === 0 || selectedItem.animationId == null ? t('common.none') :
+                   `${String(selectedItem.animationId).padStart(4, '0')}: ${animations.find(a => a.id === selectedItem.animationId)?.name || ''}`}
+                </button>
               </label>
             </div>
 
@@ -399,6 +401,14 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             />
           </div>
         </div>
+      )}
+
+      {showAnimPicker && selectedItem && (
+        <AnimationPickerDialog
+          value={selectedItem.animationId ?? 0}
+          onChange={(id) => handleFieldChange('animationId', id)}
+          onClose={() => setShowAnimPicker(false)}
+        />
       )}
     </div>
   );

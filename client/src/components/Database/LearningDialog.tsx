@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Learning } from '../../types/rpgMakerMV';
 import useEscClose from '../../hooks/useEscClose';
+import { DataListPicker, IconSprite } from '../EventEditor/dataListPicker';
 import './LearningDialog.css';
 
 interface LearningDialogProps {
   learning: Learning;
-  skills: { id: number; name: string }[];
+  skills: { id: number; name: string; iconIndex?: number }[];
   onConfirm: (learning: Learning) => void;
   onCancel: () => void;
 }
@@ -17,6 +18,22 @@ export default function LearningDialog({ learning: initial, skills, onConfirm, o
   const [level, setLevel] = useState(initial.level);
   const [skillId, setSkillId] = useState(initial.skillId);
   const [note, setNote] = useState(initial.note || '');
+  const [showSkillPicker, setShowSkillPicker] = useState(false);
+
+  const skillNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const s of skills) arr[s.id] = s.name;
+    return arr;
+  }, [skills]);
+
+  const skillIcons = useMemo(() => {
+    const arr: (number | undefined)[] = [];
+    for (const s of skills) arr[s.id] = s.iconIndex;
+    return arr;
+  }, [skills]);
+
+  const currentSkill = skills.find(s => s.id === skillId);
+  const currentSkillLabel = currentSkill ? `${String(skillId).padStart(4, '0')}: ${currentSkill.name}` : t('common.none');
 
   const handleConfirm = () => {
     onConfirm({ level, skillId, note });
@@ -44,18 +61,10 @@ export default function LearningDialog({ learning: initial, skills, onConfirm, o
             </label>
             <label className="learning-dialog-field" style={{ flex: 1 }}>
               {t('fields.skill')}:
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                <select
-                  value={skillId}
-                  onChange={(e) => setSkillId(Number(e.target.value))}
-                  className="learning-dialog-select"
-                >
-                  <option value={0}>{t('common.none')}</option>
-                  {skills.map(s => (
-                    <option key={s.id} value={s.id}>{String(s.id).padStart(4, '0')} {s.name}</option>
-                  ))}
-                </select>
-              </div>
+              <button className="db-picker-btn" onClick={() => setShowSkillPicker(true)}>
+                {currentSkill?.iconIndex != null && currentSkill.iconIndex > 0 && <IconSprite iconIndex={currentSkill.iconIndex} />}
+                <span>{currentSkillLabel}</span>
+              </button>
             </label>
           </div>
           <label className="learning-dialog-field">
@@ -73,6 +82,17 @@ export default function LearningDialog({ learning: initial, skills, onConfirm, o
           <button className="db-btn" onClick={onCancel}>{t('common.cancel', '취소')}</button>
         </div>
       </div>
+
+      {showSkillPicker && (
+        <DataListPicker
+          items={skillNames}
+          value={skillId}
+          onChange={(id) => setSkillId(id)}
+          onClose={() => setShowSkillPicker(false)}
+          title={t('fields.skill') + ' 선택'}
+          iconIndices={skillIcons}
+        />
+      )}
     </div>
   );
 }

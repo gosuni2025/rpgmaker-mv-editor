@@ -4,6 +4,7 @@ import type { Weapon, Trait } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import TraitsEditor from '../common/TraitsEditor';
 import TranslateButton from '../common/TranslateButton';
+import AnimationPickerDialog from '../EventEditor/AnimationPickerDialog';
 import apiClient from '../../api/client';
 
 interface WeaponsTabProps {
@@ -20,6 +21,7 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
   const [weaponTypes, setWeaponTypes] = useState<string[]>([]);
   const [equipTypes, setEquipTypes] = useState<string[]>([]);
   const [animations, setAnimations] = useState<{ id: number; name: string }[]>([]);
+  const [showAnimPicker, setShowAnimPicker] = useState(false);
 
   const PARAM_NAMES = [t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'), t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck')];
 
@@ -149,11 +151,11 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
             </label>
             <label>
               {t('common.animation')}
-              <select value={selectedItem.animationId ?? 0} onChange={(e) => handleFieldChange('animationId', Number(e.target.value))} style={selectStyle}>
-                <option value={-1}>{t('common.normalAttack')}</option>
-                <option value={0}>{t('common.none')}</option>
-                {animations.map(a => <option key={a.id} value={a.id}>{String(a.id).padStart(4, '0')}: {a.name}</option>)}
-              </select>
+              <button className="db-picker-btn" onClick={() => setShowAnimPicker(true)}>
+                {selectedItem.animationId === -1 ? t('common.normalAttack') :
+                 selectedItem.animationId === 0 || selectedItem.animationId == null ? t('common.none') :
+                 `${String(selectedItem.animationId).padStart(4, '0')}: ${animations.find(a => a.id === selectedItem.animationId)?.name || ''}`}
+              </button>
             </label>
 
             <div className="db-form-section">{t('fields.parameters')}</div>
@@ -184,6 +186,14 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
           </>
         )}
       </div>
+
+      {showAnimPicker && selectedItem && (
+        <AnimationPickerDialog
+          value={selectedItem.animationId ?? 0}
+          onChange={(id) => handleFieldChange('animationId', id)}
+          onClose={() => setShowAnimPicker(false)}
+        />
+      )}
     </div>
   );
 }
