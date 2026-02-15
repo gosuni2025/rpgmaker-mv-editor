@@ -677,7 +677,7 @@ FogOfWar3D._buildTentacleMesh = function(border) {
         }
     }
 
-    // --- 안쪽 침투 촉수: 탐험된 경계 타일 위에서 Z+ 방향 (짧은 촉수) ---
+    // --- 안쪽 침투 촉수: 탐험된 경계 타일 윗면에서 아래로 드리워짐 ---
     for (var ti = 0; ti < innerTiles.length; ti++) {
         var tile = innerTiles[ti];
         for (var si = 0; si < innerStrandsPerTile; si++) {
@@ -686,9 +686,9 @@ FogOfWar3D._buildTentacleMesh = function(border) {
             var r3 = hash(tile.tx * 31 + si * 61 + 971, tile.ty * 37 + si * 67 + 967);
             var sx = tile.tx * tileSize + r1 * tileSize;
             var sy = tile.ty * tileSize + r2 * tileSize;
-            var tentLen = fogHeight * (0.1 + r3 * 0.35);  // 짧은 촉수
-            var dir = tiltDir(0, 0, 1, r1, r2, 0.6);
-            addStrand(sx, sy, 0, dir[0], dir[1], dir[2], tentLen);  // Z=0 (바닥)에서 시작
+            var tentLen = fogHeight * (0.15 + r3 * 0.4);
+            var dir = tiltDir(0, 0, -1, r1, r2, 0.5);  // Z- (아래) 방향
+            addStrand(sx, sy, fogHeight, dir[0], dir[1], dir[2], tentLen);  // 윗면에서 시작
         }
     }
 
