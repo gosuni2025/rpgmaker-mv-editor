@@ -348,7 +348,8 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         ctx.shadowBlur = 0;
-        ctx.fillText('Ctrl+C: 복사', cvsW / 2, cvsH - 8);
+        var isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        ctx.fillText((isMac ? '⌘' : 'Ctrl') + '+C: 복사', cvsW / 2, cvsH - 8);
 
         ctx.restore();
         hoverTexture.needsUpdate = true;
