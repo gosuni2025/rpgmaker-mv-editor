@@ -24,9 +24,8 @@ export default function FogOfWarTestPage() {
   const [dissolveStrength, setDissolveStrength] = useState(2.0);
   const [fadeSmoothness, setFadeSmoothness] = useState(0.3);
   const [tentacleSharpness, setTentacleSharpness] = useState(3.0);
-  const [tentacleFadeSpeed, setTentacleFadeSpeed] = useState(1.0);
-  const [tentacleGrowSpeed, setTentacleGrowSpeed] = useState(2.0);
-  const [fogTransitionSpeed, setFogTransitionSpeed] = useState(5.0);
+  const [fadeDuration, setFadeDuration] = useState(1.0);
+  const [growDuration, setGrowDuration] = useState(0.5);
   const [exploredAlpha, setExploredAlpha] = useState(0.6);
   const [unexploredAlpha, setUnexploredAlpha] = useState(1.0);
   const [playerPos, setPlayerPos] = useState({ x: 10, y: 7 });
@@ -98,7 +97,8 @@ export default function FogOfWarTestPage() {
       edgeAnimation: true,
       edgeAnimationSpeed: 1.0,
     });
-    FogOfWar._tentacleFadeSpeed = tentacleFadeSpeed;
+    FogOfWar._tentacleFadeDuration = fadeDuration;
+    FogOfWar._tentacleGrowDuration = growDuration;
 
     // 그로우 페이드를 전부 1로 초기화 (이미 있는 타일)
     if (FogOfWar._growFade) {
@@ -244,11 +244,10 @@ export default function FogOfWarTestPage() {
 
   useEffect(() => {
     if (FogOfWar._active) {
-      FogOfWar._tentacleFadeSpeed = tentacleFadeSpeed;
-      FogOfWar._tentacleGrowSpeed = tentacleGrowSpeed;
-      FogOfWar._fogTransitionSpeed = fogTransitionSpeed;
+      FogOfWar._tentacleFadeDuration = fadeDuration;
+      FogOfWar._tentacleGrowDuration = growDuration;
     }
-  }, [tentacleFadeSpeed, tentacleGrowSpeed, fogTransitionSpeed]);
+  }, [fadeDuration, growDuration]);
 
   useEffect(() => {
     if (FogOfWar._active) {
@@ -339,19 +338,14 @@ export default function FogOfWarTestPage() {
           <div className="fow-control-group">
             <h3>타이머 (생성/삭제)</h3>
             <label>
-              삭제 속도 (tentacleFadeSpeed): {tentacleFadeSpeed.toFixed(1)}
-              <input type="range" min={0.1} max={10} step={0.1} value={tentacleFadeSpeed}
-                onChange={(e) => setTentacleFadeSpeed(Number(e.target.value))} />
+              생성 시간: {growDuration.toFixed(1)}초
+              <input type="range" min={0.1} max={5} step={0.1} value={growDuration}
+                onChange={(e) => setGrowDuration(Number(e.target.value))} />
             </label>
             <label>
-              생성 속도 (tentacleGrowSpeed): {tentacleGrowSpeed.toFixed(1)}
-              <input type="range" min={0.1} max={10} step={0.1} value={tentacleGrowSpeed}
-                onChange={(e) => setTentacleGrowSpeed(Number(e.target.value))} />
-            </label>
-            <label>
-              시야 전환 속도 (fogTransitionSpeed): {fogTransitionSpeed.toFixed(1)}
-              <input type="range" min={0.5} max={20} step={0.5} value={fogTransitionSpeed}
-                onChange={(e) => setFogTransitionSpeed(Number(e.target.value))} />
+              삭제 시간: {fadeDuration.toFixed(1)}초
+              <input type="range" min={0.1} max={5} step={0.1} value={fadeDuration}
+                onChange={(e) => setFadeDuration(Number(e.target.value))} />
             </label>
           </div>
 
