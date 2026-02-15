@@ -46,6 +46,7 @@ FogOfWar._vortexSpeed = 1.0;       // 소용돌이 속도
 FogOfWar._lightScattering = true;  // 라이트 산란 활성화
 FogOfWar._lightScatterIntensity = 1.0; // 라이트 산란 강도
 FogOfWar._fogMode = '2d';             // fog 렌더링 모드: '2d' | '3dvolume'
+FogOfWar._lastDt = 0.016;             // 마지막 프레임 dt (3D Volume 렌더용)
 FogOfWar._playerPos = new (typeof THREE !== 'undefined' ? THREE.Vector2 : Object)(0, 0); // 플레이어 타일 좌표
 
 //=============================================================================
@@ -1531,6 +1532,7 @@ PostProcess._updateUniforms = function() {
     if (!FogOfWar._active) return;
 
     // 3D Volume 모드: FogOfWar3DVolume으로 렌더링 위임
+    // (실제 렌더는 Spriteset_Map.prototype.update 후킹에서 composer.render() 이후에 수행)
     if (FogOfWar._fogMode === '3dvolume' && window.FogOfWar3DVolume) {
         var Vol = window.FogOfWar3DVolume;
 
@@ -1543,6 +1545,7 @@ PostProcess._updateUniforms = function() {
         var now3d = performance.now() / 1000;
         var dt3d = FogOfWar._lastTime > 0 ? Math.min(now3d - FogOfWar._lastTime, 0.1) : 0.016;
         FogOfWar._lastTime = now3d;
+        FogOfWar._lastDt = dt3d;
         var texChanged = FogOfWar._lerpDisplay(dt3d) || FogOfWar._fogTexture.needsUpdate;
         if (texChanged) {
             FogOfWar._computeEdgeData();
@@ -1553,8 +1556,8 @@ PostProcess._updateUniforms = function() {
         // FogOfWar3DVolume lazy 초기화
         if (!Vol._active && FogOfWar._fogTexture) {
             var rendererObj = null;
-            if (this._renderPass) {
-                rendererObj = this._renderPass._rendererObj || this._renderPass;
+            if (PostProcess._renderPass) {
+                rendererObj = PostProcess._renderPass._rendererObj || PostProcess._renderPass;
             } else if (PostProcess._2dRenderPass) {
                 rendererObj = PostProcess._2dRenderPass._rendererObj || PostProcess._2dRenderPass;
             }
@@ -1573,30 +1576,10 @@ PostProcess._updateUniforms = function() {
             }
         }
 
-        // FogOfWar3DVolume 렌더링 (2-pass: 저해상도 RT + 업샘플)
+        // 파라미터 동기화 (렌더는 별도에서)
         if (Vol._active) {
-            // fogHeight 등 파라미터 동기화
             Vol._fogHeight = FogOfWar._fogHeight;
             Vol._absorption = FogOfWar._absorption;
-
-            var rendererObj2 = null;
-            if (this._renderPass) {
-                rendererObj2 = this._renderPass._rendererObj || this._renderPass;
-            } else if (PostProcess._2dRenderPass) {
-                rendererObj2 = PostProcess._2dRenderPass._rendererObj || PostProcess._2dRenderPass;
-            }
-            if (rendererObj2 && rendererObj2.renderer) {
-                var camera = null;
-                var is3D = typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active;
-                if (is3D) {
-                    camera = Mode3D._perspCamera;
-                } else if (rendererObj2.camera) {
-                    camera = rendererObj2.camera;
-                }
-                if (camera) {
-                    Vol.render(rendererObj2.renderer, camera, dt3d);
-                }
-            }
         }
 
         FogOfWar._updateLosDebug();
@@ -1799,5 +1782,44 @@ FogOfWar._updateLosDebug = function() {
         this._losDebugMesh.visible = true;
     }
 };
+
+//=============================================================================
+// Spriteset_Map.prototype.update 후킹 — composer 렌더 이후에 3D Volume fog 합성
+// (PostProcess가 Spriteset_Map.prototype.update를 감싸서 _composer.render()를 호출,
+//  FogOfWar.js는 그 이후에 로드되므로 체인 최상단에서 후킹 가능)
+//=============================================================================
+
+if (typeof Spriteset_Map !== 'undefined') {
+    var _Spriteset_Map_update_fogVol = Spriteset_Map.prototype.update;
+    Spriteset_Map.prototype.update = function() {
+        _Spriteset_Map_update_fogVol.call(this);
+
+        // composer.render() 완료 후 — FogOfWar3DVolume 합성
+        if (FogOfWar._active && FogOfWar._fogMode === '3dvolume' && window.FogOfWar3DVolume) {
+            var Vol = window.FogOfWar3DVolume;
+            if (!Vol._active) return;
+
+            var rendererObj = null;
+            if (PostProcess._renderPass) {
+                rendererObj = PostProcess._renderPass._rendererObj || PostProcess._renderPass;
+            } else if (PostProcess._2dRenderPass) {
+                rendererObj = PostProcess._2dRenderPass._rendererObj || PostProcess._2dRenderPass;
+            }
+            if (!rendererObj || !rendererObj.renderer) return;
+
+            var camera = null;
+            var is3D = typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active;
+            if (is3D) {
+                camera = Mode3D._perspCamera;
+            } else if (rendererObj.camera) {
+                camera = rendererObj.camera;
+            }
+            if (!camera) return;
+
+            var dt = FogOfWar._lastDt || (1.0 / 60.0);
+            Vol.render(rendererObj.renderer, camera, dt);
+        }
+    };
+}
 
 })();
