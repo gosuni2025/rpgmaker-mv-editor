@@ -595,7 +595,7 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
       FogOfWarCleanup._fogMesh = null;
     }
 
-    if (disableFow || !fogOfWar?.enabled || mapWidth <= 0 || mapHeight <= 0) {
+    if (disableFow || !fogOfWar?.enabled || mapWidth <= 0 || mapHeight <= 0 || fogOfWar?.fogMode === '3d') {
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       return;
     }
@@ -669,5 +669,74 @@ export function useFogOfWarOverlay(refs: OverlayRefs & { fogOfWarMeshRef: React.
     return () => {
       cancelAnimationFrame(animId);
     };
-  }, [rendererReady, mapWidth, mapHeight, disableFow, fogOfWar?.enabled, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha, fogOfWar?.fogHeight, fogOfWar?.lineOfSight, fogOfWar?.absorption, fogOfWar?.visibilityBrightness, fogOfWar?.edgeAnimation, fogOfWar?.edgeAnimationSpeed, fogOfWar?.fogColorTop, fogOfWar?.heightGradient, fogOfWar?.godRay, fogOfWar?.godRayIntensity, fogOfWar?.vortex, fogOfWar?.vortexSpeed, fogOfWar?.lightScattering, fogOfWar?.lightScatterIntensity]);
+  }, [rendererReady, mapWidth, mapHeight, disableFow, fogOfWar?.enabled, fogOfWar?.fogMode, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha, fogOfWar?.fogHeight, fogOfWar?.lineOfSight, fogOfWar?.absorption, fogOfWar?.visibilityBrightness, fogOfWar?.edgeAnimation, fogOfWar?.edgeAnimationSpeed, fogOfWar?.fogColorTop, fogOfWar?.heightGradient, fogOfWar?.godRay, fogOfWar?.godRayIntensity, fogOfWar?.vortex, fogOfWar?.vortexSpeed, fogOfWar?.lightScattering, fogOfWar?.lightScatterIntensity]);
+}
+
+/** Fog of War 3D (InstancedMesh 박스) 에디터 미리보기 오버레이 */
+export function useFogOfWar3DOverlay(refs: OverlayRefs & { fogOfWar3DMeshRef: React.MutableRefObject<any> }, rendererReady: number) {
+  const mapWidth = useEditorStore((s) => s.currentMap?.width ?? 0);
+  const mapHeight = useEditorStore((s) => s.currentMap?.height ?? 0);
+  const disableFow = useEditorStore((s) => s.disableFow);
+  const fogOfWar = useEditorStore((s) => {
+    const map = s.currentMap as any;
+    return map?.fogOfWar;
+  });
+
+  useEffect(() => {
+    const rendererObj = refs.rendererObjRef.current;
+    if (!rendererObj) return;
+    const THREE = (window as any).THREE;
+    const FogOfWarMod = (window as any).FogOfWar;
+    const FogOfWar3DMod = (window as any).FogOfWar3D;
+    if (!THREE || !FogOfWarMod || !FogOfWar3DMod) return;
+
+    // 기존 3D 메쉬 제거
+    if (refs.fogOfWar3DMeshRef.current) {
+      rendererObj.scene.remove(refs.fogOfWar3DMeshRef.current);
+      FogOfWar3DMod._disposeMesh();
+      refs.fogOfWar3DMeshRef.current = null;
+    }
+
+    if (disableFow || !fogOfWar?.enabled || fogOfWar?.fogMode !== '3d' || mapWidth <= 0 || mapHeight <= 0) {
+      requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+      return;
+    }
+
+    // FogOfWar 가시성 데이터 셋업 (공통)
+    FogOfWarMod.setup(mapWidth, mapHeight, fogOfWar);
+
+    // 플레이어 시작 위치 또는 맵 중앙 기준
+    const $dataSystem = (window as any).$dataSystem;
+    let startX = Math.floor(mapWidth / 2);
+    let startY = Math.floor(mapHeight / 2);
+    if ($dataSystem) {
+      startX = $dataSystem.startX ?? startX;
+      startY = $dataSystem.startY ?? startY;
+    }
+    FogOfWarMod.updateVisibilityAt(startX, startY);
+
+    if (!FogOfWarMod._fogTexture) return;
+
+    // FogOfWar3D InstancedMesh 생성
+    const mesh = FogOfWar3DMod._createMesh(mapWidth, mapHeight, fogOfWar);
+    if (!mesh) return;
+
+    mesh.userData.editorGrid = true;
+    rendererObj.scene.add(mesh);
+    refs.fogOfWar3DMeshRef.current = mesh;
+
+    // 애니메이션 루프
+    let animId = 0;
+    const animate = () => {
+      if (!refs.fogOfWar3DMeshRef.current || refs.fogOfWar3DMeshRef.current !== mesh) return;
+      FogOfWar3DMod._updateUniforms(1.0 / 60.0);
+      requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+      animId = requestAnimationFrame(animate);
+    };
+    animId = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animId);
+    };
+  }, [rendererReady, mapWidth, mapHeight, disableFow, fogOfWar?.enabled, fogOfWar?.fogMode, fogOfWar?.radius, fogOfWar?.fogColor, fogOfWar?.unexploredAlpha, fogOfWar?.exploredAlpha, fogOfWar?.fogHeight3D, fogOfWar?.heightFalloff, fogOfWar?.lineOfSight, fogOfWar?.edgeAnimation, fogOfWar?.edgeAnimationSpeed, fogOfWar?.fogColorTop, fogOfWar?.heightGradient, fogOfWar?.dissolveStrength, fogOfWar?.tentacleSharpness]);
 }

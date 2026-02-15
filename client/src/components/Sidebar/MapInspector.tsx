@@ -465,6 +465,21 @@ export default function MapInspector() {
           const fow = (currentMap as any).fogOfWar;
           return (
             <>
+              {/* ── 모드 선택 ── */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>렌더링 모드</span>
+                <select
+                  className="map-inspector-select"
+                  value={fow.fogMode ?? '2d'}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, fogMode: e.target.value })}
+                  style={{ flex: 1 }}
+                >
+                  <option value="2d">2D (기본)</option>
+                  <option value="3d">3D 박스</option>
+                  <option value="volumetric">볼류메트릭</option>
+                </select>
+              </div>
+
               {/* ── 공통 ── */}
               <div style={{ color: '#aaa', fontSize: 10, marginTop: 6, borderBottom: '1px solid #444', paddingBottom: 2 }}>공통</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
@@ -592,6 +607,33 @@ export default function MapInspector() {
                   {(fow.tentacleGrowDuration ?? 0.5).toFixed(1)}s
                 </span>
               </div>
+
+              {/* ── 3D 박스 ── */}
+              {fow.fogMode === '3d' && (
+                <>
+                  <div style={{ color: '#8cf', fontSize: 10, marginTop: 10, borderBottom: '1px solid #444', paddingBottom: 2 }}>3D 박스</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>박스 높이</span>
+                    <input type="range" min={48} max={480} step={12}
+                      value={fow.fogHeight3D ?? 144}
+                      onChange={(e) => updateMapField('fogOfWar', { ...fow, fogHeight3D: Number(e.target.value) })}
+                      style={{ flex: 1 }} />
+                    <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                      {fow.fogHeight3D ?? 144}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>높이 감쇠</span>
+                    <input type="range" min={5} max={100} step={5}
+                      value={Math.round((fow.heightFalloff ?? 3.0) * 10)}
+                      onChange={(e) => updateMapField('fogOfWar', { ...fow, heightFalloff: Number(e.target.value) / 10 })}
+                      style={{ flex: 1 }} />
+                    <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                      {(fow.heightFalloff ?? 3.0).toFixed(1)}
+                    </span>
+                  </div>
+                </>
+              )}
 
               {/* ── 3D 볼류메트릭 ── */}
               <div style={{ color: '#f8a', fontSize: 10, marginTop: 10, borderBottom: '1px solid #444', paddingBottom: 2 }}>3D 볼류메트릭</div>
