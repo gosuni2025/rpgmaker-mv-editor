@@ -27,8 +27,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
   const [skillPickerOpen, setSkillPickerOpen] = useState(false);
   const [dropItemPickerIndex, setDropItemPickerIndex] = useState<number | null>(null);
 
-  const PARAM_NAMES = [t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'), t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck')];
-
   const skillNames = useMemo(() => {
     const arr: string[] = [];
     for (const s of skills) arr[s.id] = s.name;
@@ -144,7 +142,7 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
 
   return (
     <div className="db-tab-layout">
-      {/* 목록 패널 */}
+      {/* 적들 목록 */}
       <div className="db-list">
         <div className="db-list-header">
           <button className="db-btn-small" onClick={addNewEnemy}>+</button>
@@ -161,12 +159,13 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
       </div>
 
       {selectedItem && (
-        <div className="enemies-columns">
-          {/* 왼쪽 패널: 일반 설정 */}
-          <div className="enemies-col enemies-col-left">
+        <div className="enemies-main">
+          {/* 가운데 패널: 일반설정 + 행동패턴 (세로 쌓기) */}
+          <div className="enemies-center">
+            {/* 일반 설정 */}
             <div className="enemies-section-title">{t('fields.generalSettings') || '일반 설정'}</div>
-
             <div className="enemies-general-layout">
+              {/* 왼쪽: 이름 + 이미지 */}
               <div className="enemies-general-left">
                 <label className="enemies-label">
                   {t('common.name')}:
@@ -189,8 +188,8 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
                 />
               </div>
 
+              {/* 오른쪽: 파라미터 2열 그리드 */}
               <div className="enemies-general-right">
-                {/* 파라미터 2열 배치: HP/MP, 공격/방어, 마공/마방, 민첩/운 */}
                 <div className="enemies-params-grid">
                   <label className="enemies-param-label">
                     <span>{t('params.maxHP')}:</span>
@@ -236,43 +235,43 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
               </div>
             </div>
 
-            {/* 보상 */}
-            <div className="enemies-section-title">{t('fields.rewards') || '보상'}</div>
-            <div className="enemies-rewards-row">
-              <label className="enemies-param-label">
-                <span>EXP:</span>
-                <input type="number" value={selectedItem.exp || 0} min={0} max={9999999}
-                  onChange={(e) => handleFieldChange('exp', Number(e.target.value))} className="enemies-input enemies-input-num" />
-              </label>
-              <label className="enemies-param-label">
-                <span>{t('fields.gold') || 'Gold'}:</span>
-                <input type="number" value={selectedItem.gold || 0} min={0} max={9999999}
-                  onChange={(e) => handleFieldChange('gold', Number(e.target.value))} className="enemies-input enemies-input-num" />
-              </label>
-            </div>
-
-            {/* 드롭 아이템 */}
-            <div className="enemies-section-title">{t('fields.dropItems') || '드롭 아이템'}</div>
-            <div className="enemies-drop-table">
-              {(selectedItem.dropItems || []).map((drop: DropItem, i: number) => (
-                <div key={i} className="enemies-drop-row" onDoubleClick={() => setDropItemPickerIndex(i)}>
-                  <span className="enemies-drop-kind">{DROP_KIND_LABELS[drop.kind] || ''}</span>
-                  <span className="enemies-drop-name">{getDropItemLabel(drop)}</span>
-                  <span className="enemies-drop-prob">1/{drop.denominator}</span>
+            {/* 보상 + 드롭 아이템 가로 배치 */}
+            <div className="enemies-reward-drop-row">
+              <div className="enemies-reward-section">
+                <div className="enemies-section-title">{t('fields.rewards') || '보상'}</div>
+                <label className="enemies-param-label">
+                  <span>EXP:</span>
+                  <input type="number" value={selectedItem.exp || 0} min={0} max={9999999}
+                    onChange={(e) => handleFieldChange('exp', Number(e.target.value))} className="enemies-input enemies-input-num" />
+                </label>
+                <label className="enemies-param-label">
+                  <span>{t('fields.gold') || 'Gold'}:</span>
+                  <input type="number" value={selectedItem.gold || 0} min={0} max={9999999}
+                    onChange={(e) => handleFieldChange('gold', Number(e.target.value))} className="enemies-input enemies-input-num" />
+                </label>
+              </div>
+              <div className="enemies-drop-section">
+                <div className="enemies-section-title">{t('fields.dropItems') || '드롭 아이템'}</div>
+                <div className="enemies-drop-table">
+                  {(selectedItem.dropItems || []).map((drop: DropItem, i: number) => (
+                    <div key={i} className="enemies-drop-row" onDoubleClick={() => setDropItemPickerIndex(i)}>
+                      <span className="enemies-drop-kind">{DROP_KIND_LABELS[drop.kind] || ''}</span>
+                      <span className="enemies-drop-name">{getDropItemLabel(drop)}</span>
+                      <span className="enemies-drop-prob">1/{drop.denominator}</span>
+                    </div>
+                  ))}
+                  {(selectedItem.dropItems || []).length === 0 && (
+                    <>
+                      <div className="enemies-drop-row enemies-drop-empty" />
+                      <div className="enemies-drop-row enemies-drop-empty" />
+                      <div className="enemies-drop-row enemies-drop-empty" />
+                    </>
+                  )}
                 </div>
-              ))}
-              {(selectedItem.dropItems || []).length === 0 && (
-                <>
-                  <div className="enemies-drop-row enemies-drop-empty" />
-                  <div className="enemies-drop-row enemies-drop-empty" />
-                  <div className="enemies-drop-row enemies-drop-empty" />
-                </>
-              )}
+              </div>
             </div>
-          </div>
 
-          {/* 가운데 패널: 행동 패턴 */}
-          <div className="enemies-col enemies-col-center">
+            {/* 행동 패턴 */}
             <div className="enemies-section-title">
               {t('fields.actionPatterns') || '행동 패턴'}
               <div style={{marginLeft:'auto',display:'flex',gap:4}}>
@@ -365,7 +364,7 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
           </div>
 
           {/* 오른쪽 패널: 특성 + 메모 */}
-          <div className="enemies-col enemies-col-right">
+          <div className="enemies-right">
             <div className="enemies-section-title">{t('fields.traits') || '특성'}</div>
             <TraitsEditor
               traits={selectedItem.traits || []}
@@ -400,46 +399,50 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
       {dropItemPickerIndex !== null && selectedItem && (() => {
         const drop = (selectedItem.dropItems || [])[dropItemPickerIndex];
         if (!drop) return null;
+        const kindOptions: { kind: number; label: string; list: RefItem[] }[] = [
+          { kind: 0, label: t('dropKind.none'), list: [] },
+          { kind: 1, label: t('dropKind.item'), list: items },
+          { kind: 2, label: t('dropKind.weapon'), list: weapons },
+          { kind: 3, label: t('dropKind.armor'), list: armors },
+        ];
         return (
           <div className="db-dialog-overlay" onClick={() => setDropItemPickerIndex(null)}>
             <div className="enemies-drop-dialog" onClick={e => e.stopPropagation()}>
-              <div className="enemies-drop-dialog-title">{t('fields.dropItems') || '드롭 아이템'}</div>
+              <div className="enemies-drop-dialog-title">{t('fields.dropItemDrop') || '아이템 드롭'}</div>
               <div className="enemies-drop-dialog-body">
-                <label className="enemies-label">
-                  {t('fields.kind') || '종류'}:
-                  <select value={drop.kind}
-                    onChange={(e) => handleDropItemChange(dropItemPickerIndex, 'kind', Number(e.target.value))}
-                    className="enemies-select">
-                    {Object.entries(DROP_KIND_LABELS).map(([val, label]) => (
-                      <option key={val} value={val}>{label}</option>
-                    ))}
-                  </select>
-                </label>
-                {drop.kind > 0 && (
-                  <label className="enemies-label">
-                    {t('fields.item') || '아이템'}:
-                    <select value={drop.dataId}
-                      onChange={(e) => handleDropItemChange(dropItemPickerIndex, 'dataId', Number(e.target.value))}
-                      className="enemies-select">
-                      <option value={0}>{t('common.none')}</option>
-                      {(drop.kind === 1 ? items : drop.kind === 2 ? weapons : armors).map(it =>
-                        <option key={it.id} value={it.id}>{it.name}</option>
-                      )}
-                    </select>
-                  </label>
-                )}
-                <label className="enemies-label">
-                  {t('fields.probability') || '확률'}:
-                  <div style={{display:'flex',alignItems:'center',gap:4}}>
-                    <span>1 /</span>
-                    <input type="number" value={drop.denominator} min={1} max={1000}
-                      onChange={(e) => handleDropItemChange(dropItemPickerIndex, 'denominator', Number(e.target.value))}
-                      className="enemies-input enemies-input-num" />
+                <div className="enemies-drop-dialog-section">{t('fields.dropItemDrop') || '아이템 드롭'}</div>
+                {kindOptions.map(opt => (
+                  <div key={opt.kind} className="enemies-drop-radio-row">
+                    <label className="enemies-drop-radio-label">
+                      <input type="radio" name="dropKind" checked={drop.kind === opt.kind}
+                        onChange={() => handleDropItemChange(dropItemPickerIndex, 'kind', opt.kind)} />
+                      <span>{opt.label}</span>
+                    </label>
+                    {opt.kind > 0 && (
+                      <select value={drop.kind === opt.kind ? drop.dataId : 0}
+                        disabled={drop.kind !== opt.kind}
+                        onChange={(e) => handleDropItemChange(dropItemPickerIndex, 'dataId', Number(e.target.value))}
+                        className="enemies-select enemies-drop-item-select">
+                        <option value={0}></option>
+                        {opt.list.map(it =>
+                          <option key={it.id} value={it.id}>{it.name}</option>
+                        )}
+                      </select>
+                    )}
                   </div>
-                </label>
+                ))}
+
+                <div className="enemies-drop-dialog-section">{t('fields.dropRate') || '출현율'}</div>
+                <div className="enemies-drop-rate-row">
+                  <span>1 /</span>
+                  <input type="number" value={drop.denominator} min={1} max={1000}
+                    onChange={(e) => handleDropItemChange(dropItemPickerIndex, 'denominator', Number(e.target.value))}
+                    className="enemies-input" style={{width:80}} />
+                </div>
               </div>
               <div className="enemies-drop-dialog-footer">
                 <button className="db-btn" onClick={() => setDropItemPickerIndex(null)}>OK</button>
+                <button className="db-btn" onClick={() => setDropItemPickerIndex(null)}>{t('common.cancel') || '취소'}</button>
               </div>
             </div>
           </div>
