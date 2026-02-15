@@ -1,0 +1,218 @@
+/* AnimationsTab Layout - RPG Maker MV 스타일 */
+
+.anim-form-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 상단 영역: 일반 설정 + SE/Flash 타이밍 */
+.anim-upper-section {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+/* 일반 설정 패널 */
+.anim-general-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 280px;
+  max-width: 320px;
+}
+
+.anim-image-row {
+  display: flex;
+  gap: 12px;
+}
+
+.anim-image-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.anim-hue-label {
+  font-size: 11px;
+}
+
+/* SE와 Flash 타이밍 섹션 */
+.anim-timing-section {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.anim-timing-section .db-form-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.anim-timing-buttons {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* 타이밍 테이블 */
+.anim-timing-table-wrapper {
+  border: 1px solid #555;
+  border-radius: 3px;
+  overflow-y: auto;
+  max-height: 140px;
+  background: #2b2b2b;
+}
+
+.anim-timing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.anim-timing-table thead {
+  position: sticky;
+  top: 0;
+  background: #383838;
+  z-index: 1;
+}
+
+.anim-timing-table th {
+  padding: 4px 8px;
+  text-align: left;
+  font-weight: normal;
+  color: #aaa;
+  border-bottom: 1px solid #555;
+  white-space: nowrap;
+}
+
+.anim-timing-table td {
+  padding: 3px 8px;
+  border-bottom: 1px solid #3a3a3a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.anim-timing-table tbody tr {
+  cursor: pointer;
+}
+
+.anim-timing-table tbody tr:hover {
+  background: #3a3a3a;
+}
+
+.anim-timing-table tbody tr.selected {
+  background: #2675bf;
+  color: #fff;
+}
+
+.anim-timing-col-no {
+  width: 60px;
+}
+
+.anim-timing-col-se {
+  width: 100px;
+}
+
+.anim-timing-col-flash {
+  /* flex */
+}
+
+.anim-timing-col-frame {
+  width: 80px;
+}
+
+/* 타이밍 편집 영역 */
+.anim-timing-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 3px;
+  margin-top: 4px;
+}
+
+.anim-timing-edit-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.anim-timing-edit-row label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.anim-flash-color-inputs {
+  display: flex;
+  gap: 3px;
+}
+
+.anim-flash-color-inputs input {
+  width: 45px;
+}
+
+/* 하단: 프레임 영역 */
+.anim-lower-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.anim-frame-area {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 프레임 목록 */
+.anim-frame-list {
+  width: 80px;
+  min-width: 80px;
+  overflow-y: auto;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #2b2b2b;
+}
+
+.anim-frame-item {
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #ccc;
+}
+
+.anim-frame-item:hover {
+  background: #3a3a3a;
+}
+
+.anim-frame-item.selected {
+  background: #2675bf;
+  color: #fff;
+}
+
+.anim-frame-empty {
+  padding: 3px 8px;
+  font-size: 12px;
+  color: #888;
+}
+
+/* 프레임 미리보기 */
+.anim-frame-preview {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
