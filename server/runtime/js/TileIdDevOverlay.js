@@ -31,11 +31,15 @@
     var panel = null;
     var panelCtrl = null;
 
+    // Temp bitmap for drawing tiles
+    var tmpBitmap = null;
+
     // Hover state
     var hoverTileX = -1;
     var hoverTileY = -1;
     var mouseScreenX = -1;
     var mouseScreenY = -1;
+    var lastCopyInfo = '';
 
     // Layer colors
     var LAYER_CSS = ['#4fc3f7', '#81c784', '#ffb74d', '#f06292'];
@@ -76,6 +80,21 @@
         return '#' + tileId;
     }
 
+    // Return tileset sheet name for a tileId
+    function getTilesetName(tileId) {
+        if (tileId === 0) return '';
+        var tileset = $dataTilesets[$gameMap.tilesetId()];
+        if (!tileset) return '';
+        var setNumber = -1;
+        if (Tilemap.isTileA1(tileId)) setNumber = 0;
+        else if (Tilemap.isTileA2(tileId)) setNumber = 1;
+        else if (Tilemap.isTileA3(tileId)) setNumber = 2;
+        else if (Tilemap.isTileA4(tileId)) setNumber = 3;
+        else if (Tilemap.isTileA5(tileId)) setNumber = 4;
+        else setNumber = 5 + Math.floor(tileId / 256);
+        return tileset.tilesetNames[setNumber] || '';
+    }
+
     function getScene() {
         if (typeof PostProcess !== 'undefined' && PostProcess._renderPass) {
             return PostProcess._renderPass.scene;
@@ -84,6 +103,30 @@
             return PostProcess._2dRenderPass._rendererObj.scene;
         }
         return null;
+    }
+
+    // ---- Draw tile image onto a 2D canvas context ----
+    function getTilemap() {
+        if (!SceneManager._scene || !SceneManager._scene._spriteset) return null;
+        return SceneManager._scene._spriteset._tilemap;
+    }
+
+    function drawTileOnCanvas(ctx, tileId, dx, dy, tileW, tileH) {
+        if (!tileId || tileId === 0) return;
+        var tilemap = getTilemap();
+        if (!tilemap) return;
+
+        // Use a temporary bitmap to leverage Tilemap's _drawTile
+        if (!tmpBitmap) {
+            tmpBitmap = new Bitmap(TILE_SIZE, TILE_SIZE);
+        }
+        tmpBitmap.clear();
+        // Tilemap._drawTile expects bitmap as first arg (Tilemap.prototype version)
+        Tilemap.prototype._drawTile.call(tilemap, tmpBitmap, tileId, 0, 0);
+        // Copy from tmp bitmap canvas to our ctx
+        if (tmpBitmap.canvas && tmpBitmap.canvas.width > 0) {
+            ctx.drawImage(tmpBitmap.canvas, 0, 0, TILE_SIZE, TILE_SIZE, dx, dy, tileW, tileH);
+        }
     }
 
     // ---- Grid mesh (world-space, position updated each frame for scroll) ----
@@ -167,9 +210,11 @@
         var lines = [];
         lines.push({ text: '(' + tileX + ', ' + tileY + ')', color: '#fff' });
 
+        var tileIds = [];
         for (var z = 0; z < 4; z++) {
             var idx = (z * mapH + tileY) * mapW + tileX;
             var tileId = data[idx];
+            tileIds.push(tileId);
             if (!tileId || tileId === 0) continue;
             var desc = describeTileId(tileId);
             if (desc) {
@@ -186,7 +231,21 @@
             lines.push({ text: '(empty)', color: '#666' });
         }
 
-        // Draw on canvas (with Y-flip for Mode3D)
+        // Build copy info string
+        var mapName = $dataMapInfos[$gameMap.mapId()] ? $dataMapInfos[$gameMap.mapId()].name : '';
+        var copyLines = [];
+        copyLines.push('Map: #' + $gameMap.mapId() + ' ' + mapName);
+        copyLines.push('Tile: (' + tileX + ', ' + tileY + ')');
+        for (var z = 0; z < 4; z++) {
+            if (tileIds[z] && tileIds[z] !== 0) {
+                var sheetName = getTilesetName(tileIds[z]);
+                copyLines.push('L' + z + ': ' + describeTileId(tileIds[z]) + ' (id=' + tileIds[z] + ')' + (sheetName ? ' [' + sheetName + ']' : ''));
+            }
+        }
+        if (region > 0) copyLines.push('Region: ' + region);
+        lastCopyInfo = copyLines.join('\n');
+
+        // Draw on canvas
         var cvs = hoverCanvas;
         var ctx = hoverCtx;
         var cvsW = cvs.width;
@@ -202,15 +261,21 @@
         ctx.translate(0, cvsH);
         ctx.scale(1, -1);
 
-        // Background
-        ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        var r = 12, bx = 6, by = 6, bw = cvsW - 12, bh = cvsH - 12;
+        // ---- Background: tile images ----
+        // Draw tile images as background (centered, scaled up)
+        var tileBgSize = 80; // tile preview size
+        var tileBgY = 10;
+        var tileBgX = (cvsW - tileBgSize) / 2;
+
+        // Dark background first
+        ctx.fillStyle = 'rgba(0,0,0,0.85)';
+        var r = 12, bgx = 4, bgy = 4, bgw = cvsW - 8, bgh = cvsH - 8;
         ctx.beginPath();
-        ctx.moveTo(bx + r, by);
-        ctx.arcTo(bx + bw, by, bx + bw, by + bh, r);
-        ctx.arcTo(bx + bw, by + bh, bx, by + bh, r);
-        ctx.arcTo(bx, by + bh, bx, by, r);
-        ctx.arcTo(bx, by, bx + bw, by, r);
+        ctx.moveTo(bgx + r, bgy);
+        ctx.arcTo(bgx + bgw, bgy, bgx + bgw, bgy + bgh, r);
+        ctx.arcTo(bgx + bgw, bgy + bgh, bgx, bgy + bgh, r);
+        ctx.arcTo(bgx, bgy + bgh, bgx, bgy, r);
+        ctx.arcTo(bgx, bgy, bgx + bgw, bgy, r);
         ctx.fill();
 
         // Border
@@ -218,27 +283,61 @@
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        var fontSize = lines.length <= 3 ? 30 : lines.length <= 5 ? 24 : 20;
+        // Draw tile images (all layers stacked)
+        // Checkerboard background for transparency
+        var cbSize = 8;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(tileBgX, tileBgY, tileBgSize, tileBgSize);
+        ctx.clip();
+        for (var cy = 0; cy < tileBgSize; cy += cbSize) {
+            for (var cx = 0; cx < tileBgSize; cx += cbSize) {
+                ctx.fillStyle = ((cx / cbSize + cy / cbSize) % 2 === 0) ? '#444' : '#333';
+                ctx.fillRect(tileBgX + cx, tileBgY + cy, cbSize, cbSize);
+            }
+        }
+        ctx.restore();
+
+        // Draw each layer's tile
+        for (var z = 0; z < 4; z++) {
+            if (tileIds[z] && tileIds[z] !== 0) {
+                drawTileOnCanvas(ctx, tileIds[z], tileBgX, tileBgY, tileBgSize, tileBgSize);
+            }
+        }
+
+        // Tile preview border
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(tileBgX, tileBgY, tileBgSize, tileBgSize);
+
+        // ---- Text info below tile preview ----
+        var textStartY = tileBgY + tileBgSize + 10;
+        var fontSize = lines.length <= 3 ? 22 : lines.length <= 5 ? 18 : 15;
         ctx.font = 'bold ' + fontSize + 'px monospace';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.textBaseline = 'top';
         ctx.shadowColor = '#000';
-        ctx.shadowBlur = 4;
+        ctx.shadowBlur = 3;
 
-        var lineHeight = fontSize + 6;
-        var totalTextH = lines.length * lineHeight;
-        var startY = (cvsH - totalTextH) / 2 + lineHeight / 2;
+        var lineHeight = fontSize + 4;
 
         for (var i = 0; i < lines.length; i++) {
             ctx.fillStyle = lines[i].color;
-            ctx.fillText(lines[i].text, cvsW / 2, startY + i * lineHeight, cvsW - 20);
+            ctx.fillText(lines[i].text, cvsW / 2, textStartY + i * lineHeight, cvsW - 16);
         }
+
+        // Copy hint at bottom
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#666';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.shadowBlur = 0;
+        ctx.fillText('Ctrl+C: 복사', cvsW / 2, cvsH - 8);
 
         ctx.restore();
         hoverTexture.needsUpdate = true;
 
         // Position in world space (tile center)
-        // Note: scroll offset is NOT applied here — it's applied via updateScrollPosition()
         hoverMesh.position.set(
             tileX * TILE_SIZE + TILE_SIZE / 2,
             tileY * TILE_SIZE + TILE_SIZE / 2,
@@ -258,8 +357,6 @@
             gridMesh.position.y = oy;
         }
         if (hoverMesh && hoverMesh.visible) {
-            // hoverMesh position is set in world coords (tileX*48+24, tileY*48+24)
-            // Apply same scroll offset
             hoverMesh.position.x = hoverTileX * TILE_SIZE + TILE_SIZE / 2 + ox;
             hoverMesh.position.y = hoverTileY * TILE_SIZE + TILE_SIZE / 2 + oy;
         }
@@ -310,7 +407,6 @@
                 return;
             }
 
-            // Scale to game resolution (CSS-scaled canvas)
             var scaleX = Graphics.width / rect.width;
             var scaleY = Graphics.height / rect.height;
             mouseScreenX = sx * scaleX;
@@ -322,7 +418,32 @@
             mouseScreenY = -1;
         });
 
+        // Ctrl+C to copy tile info
+        document.addEventListener('keydown', function(e) {
+            if (!enabled) return;
+            if (e.ctrlKey && e.key === 'c' && lastCopyInfo && hoverTileX >= 0) {
+                e.preventDefault();
+                navigator.clipboard.writeText(lastCopyInfo).then(function() {
+                    showCopyFeedback();
+                });
+            }
+        });
+
         mouseListenerAttached = true;
+    }
+
+    function showCopyFeedback() {
+        var toast = document.createElement('div');
+        toast.textContent = '타일 정보 복사됨!';
+        toast.style.cssText = [
+            'position:fixed', 'bottom:60px', 'left:50%', 'transform:translateX(-50%)',
+            'background:rgba(0,120,212,0.9)', 'color:#fff', 'padding:6px 16px',
+            'border-radius:4px', 'font:12px monospace', 'z-index:99999',
+            'pointer-events:none', 'transition:opacity 0.5s'
+        ].join(';');
+        document.body.appendChild(toast);
+        setTimeout(function() { toast.style.opacity = '0'; }, 1000);
+        setTimeout(function() { document.body.removeChild(toast); }, 1600);
     }
 
     // ---- Overlay management ----
@@ -444,7 +565,7 @@
             '<span style="color:#81c784">L1</span> ',
             '<span style="color:#ffb74d">L2</span> ',
             '<span style="color:#f06292">L3</span> ',
-            '= 레이어 | 마우스 올려서 확인'
+            '= 레이어 | 호버로 확인 | Ctrl+C 복사'
         ].join('');
         bodyEl.appendChild(info);
 
@@ -482,10 +603,7 @@
             buildOverlay();
         }
 
-        // Update scroll offset for grid & hover mesh
         updateScrollPosition();
-
-        // Update hover from mouse position
         updateHover();
     };
 })();
