@@ -289,6 +289,27 @@
         debugRow.appendChild(blockMapBtn);
         body.appendChild(debugRow);
 
+        // LoS 디버그 오버레이 토글
+        var losRow = document.createElement('div');
+        losRow.style.cssText = 'margin-top:4px;display:flex;align-items:center;gap:4px;';
+        var losCb = document.createElement('input');
+        losCb.type = 'checkbox';
+        losCb.checked = false;
+        losCb.style.cssText = 'margin:0;cursor:pointer;';
+        losCb.addEventListener('change', function() {
+            FOW.toggleLosDebug(losCb.checked);
+        });
+        losRow.appendChild(losCb);
+        var losLabel = document.createElement('span');
+        losLabel.textContent = 'LoS Debug Overlay';
+        losLabel.style.cssText = 'font-size:10px;color:#f66;cursor:pointer;';
+        losLabel.addEventListener('click', function() {
+            losCb.checked = !losCb.checked;
+            FOW.toggleLosDebug(losCb.checked);
+        });
+        losRow.appendChild(losLabel);
+        body.appendChild(losRow);
+
         panel.appendChild(body);
         document.body.appendChild(panel);
 
