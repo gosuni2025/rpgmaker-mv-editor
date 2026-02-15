@@ -164,6 +164,8 @@ var BOX_FOG_FRAG = [
     '    float eU = sampleExplNearest(vTileUV + vec2(0.0, -texel.y));',   // -Y 방향
     '    float eD = sampleExplNearest(vTileUV + vec2(0.0,  texel.y));',   // +Y 방향
     '',
+    '    vec2 worldXY = vWorldPos.xy + scrollOffset;',
+    '',
     '    if (myExpl < 0.5) {',
     '        // === 미탐험 타일 ===',
     '        bool border = (eL > 0.5 || eR > 0.5 || eU > 0.5 || eD > 0.5);',
@@ -172,13 +174,20 @@ var BOX_FOG_FRAG = [
     '            float gf = sampleGrowNearest(vTileUV);',
     '',
     '            if (isTopFace) {',
-    '                // --- 윗면: 노이즈로 촉수 실루엣 ---',
-    '                vec2 worldXY = vWorldPos.xy + scrollOffset;',
+    '                // --- 윗면: 노이즈로 경계 들쭉날쭉하게 ---',
     '                float nN = tentacleNoise(worldXY);',
     '                float tH = pow(nN, tentacleSharpness) * dissolveStrength * tileSize / fogHeight * gf;',
     '                if (heightNorm > 1.0 - tH) discard;',
+    '            } else if (isSideFace) {',
+    '                // --- 옆면 경계: 탐험된 인접 방향의 옆면을 노이즈로 침식 ---',
+    '                float nN = tentacleNoise(worldXY + vec2(vWorldZ * 0.5));',
+    '                float erode = pow(nN, 1.5) * 0.6;',
+    '                // 탐험된 방향의 옆면만 침식',
+    '                bool facingExplored = ',
+    '                    (vNormal.x > 0.5 && eR > 0.5) || (vNormal.x < -0.5 && eL > 0.5) ||',
+    '                    (vNormal.y > 0.5 && eD > 0.5) || (vNormal.y < -0.5 && eU > 0.5);',
+    '                if (facingExplored && erode > 0.3) discard;',
     '            }',
-    '            // 바닥면: 항상 렌더',
     '',
     '        } else if (!border) {',
     '            // 비경계 미탐험: heightFalloff로 상단 페이드',
@@ -198,14 +207,38 @@ var BOX_FOG_FRAG = [
     '            float tf = sampleFadeNearest(vTileUV);',
     '',
     '            if (isTopFace) {',
-    '                // --- 탐험 경계 윗면: 바닥에서 솟아오르는 촉수 ---',
-    '                vec2 worldXY = vWorldPos.xy + scrollOffset;',
+    '                // --- 탐험 경계 윗면: 노이즈 경계로 fog 침투 ---',
     '                float nN = tentacleNoise(worldXY);',
-    '                float tH = pow(nN, tentacleSharpness) * dissolveStrength * tileSize / fogHeight * tf;',
-    '                if (heightNorm < tH) {',
+    '                float tH = pow(nN, tentacleSharpness) * dissolveStrength * tileSize / fogHeight;',
+    '                // 미탐험 인접 방향에 가까운 부분만 fog 표시',
+    '                vec2 localPos = fract(vTileUV * mapSize);',  // 타일 내 0~1 위치
+    '                float edgeDist = 1.0;',
+    '                if (eL < 0.5) edgeDist = min(edgeDist, localPos.x);',
+    '                if (eR < 0.5) edgeDist = min(edgeDist, 1.0 - localPos.x);',
+    '                if (eU < 0.5) edgeDist = min(edgeDist, localPos.y);',
+    '                if (eD < 0.5) edgeDist = min(edgeDist, 1.0 - localPos.y);',
+    '                // 경계 근처에서 노이즈로 fog 침투',
+    '                float penetration = tH * (1.0 - smoothstep(0.0, 0.5, edgeDist));',
+    '                if (heightNorm < penetration) {',
     '                    vec3 color = heightGradientOn > 0.5 ? mix(fogColor, fogColorTop, heightNorm) : fogColor;',
-    '                    gl_FragColor = vec4(color, unexploredAlpha);',
+    '                    float fadeAlpha = unexploredAlpha * (1.0 - smoothstep(0.0, penetration, heightNorm));',
+    '                    gl_FragColor = vec4(color, fadeAlpha);',
     '                    return;',
+    '                }',
+    '            } else if (isSideFace) {',
+    '                // --- 탐험 경계 옆면: 미탐험 인접 방향의 벽면에 노이즈 fog ---',
+    '                bool facingUnexplored = ',
+    '                    (vNormal.x > 0.5 && eR < 0.5) || (vNormal.x < -0.5 && eL < 0.5) ||',
+    '                    (vNormal.y > 0.5 && eD < 0.5) || (vNormal.y < -0.5 && eU < 0.5);',
+    '                if (facingUnexplored) {',
+    '                    float nN = tentacleNoise(worldXY + vec2(vWorldZ * 0.5));',
+    '                    float sideH = pow(nN, 1.5) * 0.7;',
+    '                    if (heightNorm < sideH) {',
+    '                        vec3 color = heightGradientOn > 0.5 ? mix(fogColor, fogColorTop, heightNorm) : fogColor;',
+    '                        float sideAlpha = unexploredAlpha * (1.0 - heightNorm / sideH);',
+    '                        gl_FragColor = vec4(color, sideAlpha);',
+    '                        return;',
+    '                    }',
     '                }',
     '            }',
     '        }',
@@ -500,7 +533,29 @@ FogOfWar3D._detectBorder = function() {
             }
         }
     }
-    return { edges: edges, tiles: tiles };
+
+    // 탐험된 경계 타일도 수집 (안쪽 침투 촉수용)
+    var innerTiles = [];
+    var innerSet = {};
+    for (var ty = 0; ty < h; ty++) {
+        for (var tx = 0; tx < w; tx++) {
+            var idx = ty * w + tx;
+            if (!explored[idx]) continue;
+            // 인접에 미탐험 타일이 있으면 내부 경계
+            if ((tx + 1 < w && !explored[idx + 1]) ||
+                (tx - 1 >= 0 && !explored[idx - 1]) ||
+                (ty + 1 < h && !explored[idx + w]) ||
+                (ty - 1 >= 0 && !explored[idx - w])) {
+                var key = tx + ',' + ty;
+                if (!innerSet[key]) {
+                    innerSet[key] = true;
+                    innerTiles.push({tx:tx, ty:ty});
+                }
+            }
+        }
+    }
+
+    return { edges: edges, tiles: tiles, innerTiles: innerTiles };
 };
 
 // 촉수 줄기(strand) 리본 메쉬 빌드
@@ -509,17 +564,19 @@ FogOfWar3D._detectBorder = function() {
 FogOfWar3D._buildTentacleMesh = function(border) {
     var tiles = border.tiles;
     var edges = border.edges;
-    if (tiles.length === 0 && edges.length === 0) return null;
+    var innerTiles = border.innerTiles || [];
+    if (tiles.length === 0 && edges.length === 0 && innerTiles.length === 0) return null;
 
     var tileSize = 48;
     var fogHeight = this._fogHeight;
     var topStrandsPerTile = 24;   // 윗면: 타일당 촉수 수
     var sideStrandsPerEdge = 16;  // 옆면: 엣지당 촉수 수
+    var innerStrandsPerTile = 12; // 안쪽 침투: 타일당 촉수 수
     var segsPerStrand = 10;       // 높이 세그먼트 수
 
     var vertsPerStrand = (segsPerStrand + 1) * 2;
     var trisPerStrand = segsPerStrand * 2;
-    var totalStrands = tiles.length * topStrandsPerTile + edges.length * sideStrandsPerEdge;
+    var totalStrands = tiles.length * topStrandsPerTile + edges.length * sideStrandsPerEdge + innerTiles.length * innerStrandsPerTile;
     var totalVerts = totalStrands * vertsPerStrand;
     var totalTris = totalStrands * trisPerStrand;
 
@@ -620,6 +677,21 @@ FogOfWar3D._buildTentacleMesh = function(border) {
         }
     }
 
+    // --- 안쪽 침투 촉수: 탐험된 경계 타일 위에서 Z+ 방향 (짧은 촉수) ---
+    for (var ti = 0; ti < innerTiles.length; ti++) {
+        var tile = innerTiles[ti];
+        for (var si = 0; si < innerStrandsPerTile; si++) {
+            var r1 = hash(tile.tx * 13 + si * 37 + 997, tile.ty * 19 + si * 53 + 991);
+            var r2 = hash(tile.tx * 23 + si * 43 + 983, tile.ty * 29 + si * 59 + 977);
+            var r3 = hash(tile.tx * 31 + si * 61 + 971, tile.ty * 37 + si * 67 + 967);
+            var sx = tile.tx * tileSize + r1 * tileSize;
+            var sy = tile.ty * tileSize + r2 * tileSize;
+            var tentLen = fogHeight * (0.1 + r3 * 0.35);  // 짧은 촉수
+            var dir = tiltDir(0, 0, 1, r1, r2, 0.6);
+            addStrand(sx, sy, 0, dir[0], dir[1], dir[2], tentLen);  // Z=0 (바닥)에서 시작
+        }
+    }
+
     var geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions.subarray(0, vi * 3), 3));
     geometry.setAttribute('aHeightT', new THREE.BufferAttribute(aHeightT.subarray(0, vi), 1));
@@ -664,7 +736,7 @@ FogOfWar3D._createTentacles = function(scene) {
     this._disposeTentacles();
 
     var border = this._detectBorder();
-    if (border.tiles.length === 0 && border.edges.length === 0) return;
+    if (border.tiles.length === 0 && border.edges.length === 0 && border.innerTiles.length === 0) return;
 
     var geometry = this._buildTentacleMesh(border);
     if (!geometry) return;
@@ -732,7 +804,7 @@ FogOfWar3D._refreshTentaclesIfNeeded = function(scene) {
 
     if (needRebuild) {
         this._disposeTentacles();
-        if (newTiles.length > 0 || border.edges.length > 0) {
+        if (newTiles.length > 0 || border.edges.length > 0 || border.innerTiles.length > 0) {
             var geometry = this._buildTentacleMesh(border);
             if (!geometry) return;
 
