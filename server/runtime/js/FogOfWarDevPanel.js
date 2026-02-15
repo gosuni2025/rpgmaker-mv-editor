@@ -209,7 +209,31 @@
         titleText.textContent = 'FOW Debug';
         titleText.style.cssText = 'font-size:12px;font-weight:bold;color:#f80;flex:1;';
         titleBar.appendChild(titleText);
+
+        // FOW 모드 배지
+        var modeBadge = document.createElement('span');
+        modeBadge.id = 'fow-mode-badge';
+        modeBadge.style.cssText = 'font-size:10px;font-weight:bold;padding:1px 6px;border-radius:3px;margin-left:4px;';
+        titleBar.appendChild(modeBadge);
         panel.appendChild(titleBar);
+
+        // 모드 배지 갱신 함수
+        function updateModeBadge() {
+            var mode = '2D';
+            var color = '#4a9';
+            if (window.FogOfWar3D && window.FogOfWar3D._active) {
+                mode = '3D Box';
+                color = '#f6a';
+            } else if (window.Mode3D && window.Mode3D._active) {
+                mode = '3D Vol';
+                color = '#fa6';
+            }
+            modeBadge.textContent = mode;
+            modeBadge.style.background = color;
+            modeBadge.style.color = '#000';
+        }
+        updateModeBadge();
+        setInterval(updateModeBadge, 500);
 
         // 바디
         var body = document.createElement('div');
