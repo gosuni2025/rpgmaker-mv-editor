@@ -26,6 +26,7 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
   const [selectedActionIndex, setSelectedActionIndex] = useState<number>(-1);
   const [skillPickerOpen, setSkillPickerOpen] = useState(false);
   const [dropItemPickerIndex, setDropItemPickerIndex] = useState<number | null>(null);
+  const [dropDataPickerKind, setDropDataPickerKind] = useState<number | null>(null);
 
   const skillNames = useMemo(() => {
     const arr: string[] = [];
@@ -38,6 +39,24 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
     for (const s of skills) arr[s.id] = s.iconIndex;
     return arr;
   }, [skills]);
+
+  const itemNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const s of items) arr[s.id] = s.name;
+    return arr;
+  }, [items]);
+
+  const weaponNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const s of weapons) arr[s.id] = s.name;
+    return arr;
+  }, [weapons]);
+
+  const armorNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const s of armors) arr[s.id] = s.name;
+    return arr;
+  }, [armors]);
 
   const DROP_KIND_LABELS: Record<number, string> = { 0: t('dropKind.none'), 1: t('dropKind.item'), 2: t('dropKind.weapon'), 3: t('dropKind.armor') };
 
@@ -411,26 +430,29 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
               <div className="enemies-drop-dialog-title">{t('fields.dropItemDrop') || '아이템 드롭'}</div>
               <div className="enemies-drop-dialog-body">
                 <div className="enemies-drop-dialog-section">{t('fields.dropItemDrop') || '아이템 드롭'}</div>
-                {kindOptions.map(opt => (
-                  <div key={opt.kind} className="enemies-drop-radio-row">
-                    <label className="enemies-drop-radio-label">
-                      <input type="radio" name="dropKind" checked={drop.kind === opt.kind}
-                        onChange={() => handleDropItemChange(dropItemPickerIndex, 'kind', opt.kind)} />
-                      <span>{opt.label}</span>
-                    </label>
-                    {opt.kind > 0 && (
-                      <select value={drop.kind === opt.kind ? drop.dataId : 0}
-                        disabled={drop.kind !== opt.kind}
-                        onChange={(e) => handleDropItemChange(dropItemPickerIndex, 'dataId', Number(e.target.value))}
-                        className="enemies-select enemies-drop-item-select">
-                        <option value={0}></option>
-                        {opt.list.map(it =>
-                          <option key={it.id} value={it.id}>{it.name}</option>
-                        )}
-                      </select>
-                    )}
-                  </div>
-                ))}
+                {kindOptions.map(opt => {
+                  const isSelected = drop.kind === opt.kind;
+                  const selectedDataItem = isSelected ? opt.list.find(it => it.id === drop.dataId) : null;
+                  const displayName = selectedDataItem ? selectedDataItem.name : '';
+                  return (
+                    <div key={opt.kind} className="enemies-drop-radio-row">
+                      <label className="enemies-drop-radio-label">
+                        <input type="radio" name="dropKind" checked={isSelected}
+                          onChange={() => handleDropItemChange(dropItemPickerIndex, 'kind', opt.kind)} />
+                        <span>{opt.label}</span>
+                      </label>
+                      {opt.kind > 0 && (
+                        <>
+                          <div className={`enemies-drop-item-display${!isSelected ? ' disabled' : ''}`}>
+                            {isSelected ? displayName : ''}
+                          </div>
+                          <button className="db-btn-small" disabled={!isSelected}
+                            onClick={() => setDropDataPickerKind(opt.kind)}>...</button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
 
                 <div className="enemies-drop-dialog-section">{t('fields.dropRate') || '출현율'}</div>
                 <div className="enemies-drop-rate-row">
@@ -446,6 +468,25 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
               </div>
             </div>
           </div>
+        );
+      })()}
+
+      {/* 드롭 아이템 데이터 선택 피커 */}
+      {dropDataPickerKind !== null && dropItemPickerIndex !== null && selectedItem && (() => {
+        const drop = (selectedItem.dropItems || [])[dropItemPickerIndex];
+        if (!drop) return null;
+        const names = dropDataPickerKind === 1 ? itemNames : dropDataPickerKind === 2 ? weaponNames : armorNames;
+        const title = dropDataPickerKind === 1 ? t('dropKind.item') : dropDataPickerKind === 2 ? t('dropKind.weapon') : t('dropKind.armor');
+        return (
+          <DataListPicker
+            items={names}
+            value={drop.kind === dropDataPickerKind ? drop.dataId : 0}
+            onChange={(id) => {
+              handleDropItemChange(dropItemPickerIndex, 'dataId', id);
+            }}
+            onClose={() => setDropDataPickerKind(null)}
+            title={title + ' 선택'}
+          />
         );
       })()}
     </div>
