@@ -1,8 +1,8 @@
 import React, { useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
-import { posToTile, TILE_SIZE_PX, isAutotile, getAutotileKindExported, makeAutotileId, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1, isGroundDecorationTile } from '../../utils/tileHelper';
-import { placeAutotileAtPure, floodFillRegion, floodFillTile, batchPlaceWithAutotilePure, getRectanglePositions, getEllipsePositions } from './mapToolAlgorithms';
+import { posToTile, TILE_SIZE_PX, isAutotile, getAutotileKindExported, makeAutotileId, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1, isGroundDecorationTile, isUpperLayerTile } from '../../utils/tileHelper';
+import { placeAutotileAtPure, floodFillRegion, floodFillTile, batchPlaceWithAutotilePure, getRectanglePositions, getEllipsePositions, resolveUpperLayerPlacement, resolveUpperLayerErase } from './mapToolAlgorithms';
 import { useDrawingOverlay } from './useDrawingOverlay';
 import type { DrawingOverlayRefs } from './useDrawingOverlay';
 
@@ -354,13 +354,34 @@ export function useMapTools(
       }
 
       if (selectedTool === 'eraser') {
-        const changes: TileChange[] = [];
-        const updates: { x: number; y: number; z: number; tileId: number }[] = [];
-        const data = [...latestMap.data];
-        placeAutotileAt(x, y, currentLayer, 0, data, latestMap.width, latestMap.height, changes, updates);
-        if (updates.length > 0) {
-          pendingChanges.current.push(...changes);
-          updateMapTiles(updates);
+        // B/C/D/E 레이어(currentLayer=1): z=2→z=1 순서로 upper 타일 제거
+        if (currentLayer === 1) {
+          const placements = resolveUpperLayerErase(x, y, latestMap.data, latestMap.width, latestMap.height);
+          if (placements.length > 0) {
+            const changes: TileChange[] = [];
+            const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+            for (const p of placements) {
+              const idx = (p.z * latestMap.height + p.y) * latestMap.width + p.x;
+              const oldId = latestMap.data[idx];
+              if (oldId !== p.tileId) {
+                changes.push({ x: p.x, y: p.y, z: p.z, oldTileId: oldId, newTileId: p.tileId });
+                updates.push(p);
+              }
+            }
+            if (updates.length > 0) {
+              pendingChanges.current.push(...changes);
+              updateMapTiles(updates);
+            }
+          }
+        } else {
+          const changes: TileChange[] = [];
+          const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+          const data = [...latestMap.data];
+          placeAutotileAt(x, y, currentLayer, 0, data, latestMap.width, latestMap.height, changes, updates);
+          if (updates.length > 0) {
+            pendingChanges.current.push(...changes);
+            updateMapTiles(updates);
+          }
         }
       } else if (selectedTool === 'pen') {
         if (isMulti) {
@@ -371,7 +392,22 @@ export function useMapTools(
             for (let col = 0; col < stW; col++) {
               const tx = x + col, ty = y + row;
               if (tx < 0 || tx >= latestMap.width || ty < 0 || ty >= latestMap.height) continue;
-              placeAutotileAt(tx, ty, currentLayer, sTiles[row][col], data, latestMap.width, latestMap.height, changes, updates);
+              const tid = sTiles[row][col];
+              // B/C/D/E 타일 → 자동 레이어 관리
+              if (currentLayer === 1 && isUpperLayerTile(tid)) {
+                const placements = resolveUpperLayerPlacement(tx, ty, tid, data, latestMap.width, latestMap.height);
+                for (const p of placements) {
+                  const pidx = (p.z * latestMap.height + p.y) * latestMap.width + p.x;
+                  const oldId = data[pidx];
+                  if (oldId !== p.tileId) {
+                    data[pidx] = p.tileId;
+                    changes.push({ x: p.x, y: p.y, z: p.z, oldTileId: oldId, newTileId: p.tileId });
+                    updates.push(p);
+                  }
+                }
+              } else {
+                placeAutotileAt(tx, ty, currentLayer, tid, data, latestMap.width, latestMap.height, changes, updates);
+              }
             }
           }
           if (updates.length > 0) {
@@ -379,13 +415,53 @@ export function useMapTools(
             updateMapTiles(updates);
           }
         } else {
-          const changes: TileChange[] = [];
-          const updates: { x: number; y: number; z: number; tileId: number }[] = [];
-          const data = [...latestMap.data];
-          placeAutotileAt(x, y, currentLayer, selectedTileId, data, latestMap.width, latestMap.height, changes, updates);
-          if (updates.length > 0) {
-            pendingChanges.current.push(...changes);
-            updateMapTiles(updates);
+          // B/C/D/E 타일 → 자동 레이어 관리
+          if (currentLayer === 1 && isUpperLayerTile(selectedTileId)) {
+            const placements = resolveUpperLayerPlacement(x, y, selectedTileId, latestMap.data, latestMap.width, latestMap.height);
+            if (placements.length > 0) {
+              const changes: TileChange[] = [];
+              const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+              for (const p of placements) {
+                const idx = (p.z * latestMap.height + p.y) * latestMap.width + p.x;
+                const oldId = latestMap.data[idx];
+                if (oldId !== p.tileId) {
+                  changes.push({ x: p.x, y: p.y, z: p.z, oldTileId: oldId, newTileId: p.tileId });
+                  updates.push(p);
+                }
+              }
+              if (updates.length > 0) {
+                pendingChanges.current.push(...changes);
+                updateMapTiles(updates);
+              }
+            }
+          } else if (currentLayer === 1 && selectedTileId === 0) {
+            // B탭 투명 타일 → z=1, z=2 클리어
+            const placements = resolveUpperLayerPlacement(x, y, 0, latestMap.data, latestMap.width, latestMap.height);
+            if (placements.length > 0) {
+              const changes: TileChange[] = [];
+              const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+              for (const p of placements) {
+                const idx = (p.z * latestMap.height + p.y) * latestMap.width + p.x;
+                const oldId = latestMap.data[idx];
+                if (oldId !== p.tileId) {
+                  changes.push({ x: p.x, y: p.y, z: p.z, oldTileId: oldId, newTileId: p.tileId });
+                  updates.push(p);
+                }
+              }
+              if (updates.length > 0) {
+                pendingChanges.current.push(...changes);
+                updateMapTiles(updates);
+              }
+            }
+          } else {
+            const changes: TileChange[] = [];
+            const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+            const data = [...latestMap.data];
+            placeAutotileAt(x, y, currentLayer, selectedTileId, data, latestMap.width, latestMap.height, changes, updates);
+            if (updates.length > 0) {
+              pendingChanges.current.push(...changes);
+              updateMapTiles(updates);
+            }
           }
         }
       } else if (selectedTool === 'fill') {

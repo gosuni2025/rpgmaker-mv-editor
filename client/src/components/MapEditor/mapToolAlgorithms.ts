@@ -3,7 +3,7 @@
  * React 의존성 없이 데이터 배열만으로 동작
  */
 import type { TileChange } from '../../store/types';
-import { isAutotile, isTileA5, isTileA1, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition, getAutoBaseKind } from '../../utils/tileHelper';
+import { isAutotile, isTileA5, isTileA1, getAutotileKindExported, makeAutotileId, computeAutoShapeForPosition, getAutoBaseKind, isUpperLayerTile } from '../../utils/tileHelper';
 
 /**
  * A1 decoration 타일(kind 1,2,3)을 z=1에 배치할 때,
@@ -222,6 +222,27 @@ export function floodFillTile(
 
   if (filledPositions.length === 0) return { changes: [], updates: [] };
 
+  // B/C/D/E 타일 자동 레이어 관리
+  if (z === 1 && (isUpperLayerTile(selectedTileId) || selectedTileId === 0)) {
+    const changes: TileChange[] = [];
+    const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+    for (const { x, y } of filledPositions) {
+      const placements = resolveUpperLayerPlacement(x, y, selectedTileId, data, width, height);
+      for (const p of placements) {
+        const pidx = (p.z * height + p.y) * width + p.x;
+        const oldId = oldData[pidx];
+        if (data[pidx] !== p.tileId) {
+          data[pidx] = p.tileId;
+        }
+        if (oldId !== p.tileId) {
+          changes.push({ x: p.x, y: p.y, z: p.z, oldTileId: oldId, newTileId: p.tileId });
+          updates.push(p);
+        }
+      }
+    }
+    return { changes, updates };
+  }
+
   for (const { x, y } of filledPositions) {
     const idx = (z * height + y) * width + x;
     data[idx] = selectedTileId;
@@ -259,6 +280,35 @@ export function batchPlaceWithAutotilePure(
     return { changes, updates };
   }
 
+  // B/C/D/E 타일 자동 레이어 관리 (z=1에서 upper 타일)
+  if (z === 1) {
+    const firstTile = getTileForPos(positions[0].x, positions[0].y);
+    if (isUpperLayerTile(firstTile) || firstTile === 0) {
+      const changes: TileChange[] = [];
+      const updates: { x: number; y: number; z: number; tileId: number }[] = [];
+      for (const { x, y } of positions) {
+        const tid = getTileForPos(x, y);
+        if (isUpperLayerTile(tid) || tid === 0) {
+          const placements = tid === 0
+            ? resolveUpperLayerPlacement(x, y, 0, data, width, height)
+            : resolveUpperLayerPlacement(x, y, tid, data, width, height);
+          for (const p of placements) {
+            const pidx = (p.z * height + p.y) * width + p.x;
+            const oldId = oldData[pidx];
+            if (data[pidx] !== p.tileId) {
+              data[pidx] = p.tileId;
+            }
+            if (oldId !== p.tileId) {
+              changes.push({ x: p.x, y: p.y, z: p.z, oldTileId: oldId, newTileId: p.tileId });
+              updates.push(p);
+            }
+          }
+        }
+      }
+      return { changes, updates };
+    }
+  }
+
   // 일반 레이어 - 오토타일 재계산 포함
   for (const { x, y } of positions) {
     const idx = (z * height + y) * width + x;
@@ -271,6 +321,71 @@ export function batchPlaceWithAutotilePure(
   result.changes.push(...baseResult.changes);
   result.updates.push(...baseResult.updates);
   return result;
+}
+
+/**
+ * B/C/D/E 타일 배치 시 z=1/z=2 자동 레이어 관리.
+ * RPG Maker MV 원본 에디터 동작:
+ * - 투명 타일(tileId=0) → z=1, z=2 모두 클리어
+ * - z=1 비어있음 → z=1에 배치
+ * - z=1 차있고 z=2 비어있음 → z=2에 배치
+ * - 둘 다 차있음 → z=1←기존z=2, z=2←새타일 (z=2와 같으면 무시)
+ */
+export function resolveUpperLayerPlacement(
+  x: number, y: number, tileId: number,
+  data: number[], width: number, height: number,
+): { x: number; y: number; z: number; tileId: number }[] {
+  const idx1 = (1 * height + y) * width + x;
+  const idx2 = (2 * height + y) * width + x;
+  const z1 = data[idx1];
+  const z2 = data[idx2];
+  const z1Upper = isUpperLayerTile(z1);
+  const z2Upper = isUpperLayerTile(z2);
+
+  // 투명 타일 → z=1, z=2 모두 클리어
+  if (tileId === 0) {
+    const result: { x: number; y: number; z: number; tileId: number }[] = [];
+    if (z1Upper) result.push({ x, y, z: 1, tileId: 0 });
+    if (z2Upper) result.push({ x, y, z: 2, tileId: 0 });
+    return result;
+  }
+
+  // z=1 비어있음 (upper 타일 아님)
+  if (!z1Upper) {
+    return [{ x, y, z: 1, tileId }];
+  }
+
+  // z=1 차있고, z=2 비어있음
+  if (z1Upper && !z2Upper) {
+    // z=1과 같은 타일이면 무시
+    if (z1 === tileId) return [];
+    return [{ x, y, z: 2, tileId }];
+  }
+
+  // 둘 다 차있음 → z=1←기존z=2, z=2←새타일
+  if (z2 === tileId) return []; // z=2와 같으면 변경 없음
+  const result: { x: number; y: number; z: number; tileId: number }[] = [];
+  if (z1 !== z2) result.push({ x, y, z: 1, tileId: z2 });
+  result.push({ x, y, z: 2, tileId });
+  return result;
+}
+
+/**
+ * B/C/D/E 레이어 지우개: z=2에 upper 타일 있으면 z=2 클리어, 아니면 z=1 클리어.
+ */
+export function resolveUpperLayerErase(
+  x: number, y: number,
+  data: number[], width: number, height: number,
+): { x: number; y: number; z: number; tileId: number }[] {
+  const idx2 = (2 * height + y) * width + x;
+  if (isUpperLayerTile(data[idx2])) {
+    return [{ x, y, z: 2, tileId: 0 }];
+  }
+  const idx1 = (1 * height + y) * width + x;
+  if (isUpperLayerTile(data[idx1])) {
+    return [{ x, y, z: 1, tileId: 0 }];
+  }
+  return [];
 }
 
 /**
