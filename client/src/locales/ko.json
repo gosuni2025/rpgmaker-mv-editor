@@ -456,8 +456,16 @@
     }
   },
   "effects": {
-    "title": "효과",
+    "title": "사용 효과",
     "noEffects": "효과 없음",
+    "tabRecovery": "회복",
+    "tabState": "스테이트",
+    "tabParam": "능력치",
+    "tabOther": "기타",
+    "turns": "턴",
+    "value": "값",
+    "state": "스테이트",
+    "param": "능력치",
     "codes": {
       "11": "HP 회복",
       "12": "MP 회복",

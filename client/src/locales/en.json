@@ -456,8 +456,16 @@
     }
   },
   "effects": {
-    "title": "Effects",
+    "title": "Use Effects",
     "noEffects": "No effects",
+    "tabRecovery": "Recovery",
+    "tabState": "State",
+    "tabParam": "Param",
+    "tabOther": "Other",
+    "turns": "Turns",
+    "value": "Value",
+    "state": "State",
+    "param": "Param",
     "codes": {
       "11": "Recover HP",
       "12": "Recover MP",

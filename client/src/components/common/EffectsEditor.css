@@ -1,0 +1,222 @@
+/* Effects Editor - list display */
+.effects-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.effects-list {
+  border: 1px solid #444;
+  border-radius: 3px;
+  background: #2b2b2b;
+  min-height: 60px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.effects-list-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+  color: #ddd;
+  border-bottom: 1px solid #333;
+  cursor: pointer;
+}
+
+.effects-list-item:last-child {
+  border-bottom: none;
+}
+
+.effects-list-item:hover {
+  background: #383838;
+}
+
+.effects-list-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.effects-empty {
+  padding: 12px;
+  text-align: center;
+  color: #666;
+  font-size: 12px;
+}
+
+.effects-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+/* Effects Dialog Overlay */
+.effects-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.effects-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 420px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.effects-dialog-header {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: bold;
+  border-bottom: 1px solid #555;
+  background: #333;
+  border-radius: 4px 4px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Tabs */
+.effects-dialog-tabs {
+  display: flex;
+  border-bottom: 1px solid #555;
+  background: #353535;
+}
+
+.effects-dialog-tab {
+  flex: 1;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: #999;
+  font-size: 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.effects-dialog-tab:hover {
+  color: #ccc;
+  background: #3a3a3a;
+}
+
+.effects-dialog-tab.active {
+  color: #fff;
+  border-bottom-color: #2675bf;
+  background: #3c3c3c;
+}
+
+/* Dialog body */
+.effects-dialog-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.effects-dialog-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Category group */
+.effects-dialog-category {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.effects-dialog-category-title {
+  font-size: 11px;
+  color: #888;
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+/* Radio label */
+.effects-dialog-radio {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #ddd;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.effects-dialog-radio input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+/* Fields area */
+.effects-dialog-fields {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0 4px 22px;
+  align-items: flex-end;
+}
+
+.effects-dialog-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: #aaa;
+  flex: 1;
+}
+
+.effects-dialog-fields input[type="number"] {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.effects-dialog-fields input[type="number"]:focus {
+  border-color: #2675bf;
+}
+
+.effects-dialog-fields select {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.effects-dialog-fields select:focus {
+  border-color: #2675bf;
+}
+
+/* Dialog footer */
+.effects-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #555;
+  background: #333;
+  border-radius: 0 0 4px 4px;
+}
