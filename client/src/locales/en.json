@@ -1241,6 +1241,8 @@
     "autoName": "Auto-name",
     "changeBG": "Change BG",
     "battleTest": "Battle Test",
+    "add": "Add",
+    "remove": "Remove",
     "clearAll": "Clear All",
     "align": "Align",
     "noCondition": "Don't Run",
