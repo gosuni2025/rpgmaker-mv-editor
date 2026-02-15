@@ -4,6 +4,7 @@ import './ParamCurveDialog.css';
 
 interface ParamCurveDialogProps {
   params: number[][];  // 8 arrays of 99 values
+  initialTab?: number; // which tab to open initially (0-7)
   onConfirm: (params: number[][]) => void;
   onCancel: () => void;
 }
@@ -50,9 +51,9 @@ const PARAM_PRESETS: Record<string, number[][]> = {
 
 const LEVELS_PER_COL = 20;
 
-export default function ParamCurveDialog({ params: initialParams, onConfirm, onCancel }: ParamCurveDialogProps) {
+export default function ParamCurveDialog({ params: initialParams, initialTab = 0, onConfirm, onCancel }: ParamCurveDialogProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [params, setParams] = useState<number[][]>(() =>
     initialParams.map(arr => [...arr])
   );
