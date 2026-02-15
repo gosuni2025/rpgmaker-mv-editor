@@ -73,7 +73,8 @@ export function useObjectHandlers(): ObjectHandlersResult {
       // tileIds가 있으면 해당 셀이 0이 아닌지 확인
       if (o.tileIds) {
         const row = tile.y - topY, col = tile.x - o.x;
-        return o.tileIds[row]?.[col] !== 0;
+        const cell = o.tileIds[row]?.[col];
+        return Array.isArray(cell) ? cell.some(t => t !== 0) : (cell !== 0 && cell != null);
       }
       return true;
     });

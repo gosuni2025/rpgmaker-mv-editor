@@ -329,12 +329,16 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
         if (!obj) continue;
         const ow = obj.width || 1;
         const oh = obj.height || 1;
-        const tileIds: number[][] | undefined = obj.tileIds;
+        const tileIds = obj.tileIds;
         if (tileIds && tileIds.length > 0) {
           // tileIds가 있으면 0이 아닌 셀만 하이라이트
           for (let row = 0; row < oh; row++) {
             for (let col = 0; col < ow; col++) {
-              if (tileIds[row]?.[col] && tileIds[row][col] !== 0) {
+              const cell = tileIds[row]?.[col];
+              const hasContent = Array.isArray(cell)
+                ? cell.some((t: number) => t !== 0)
+                : (cell !== 0 && cell != null);
+              if (hasContent) {
                 const tx = obj.x + col;
                 const ty = (obj.y - oh + 1) + row;
                 const cx = tx * TILE_SIZE_PX + TILE_SIZE_PX / 2;
