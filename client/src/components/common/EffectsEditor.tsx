@@ -24,13 +24,11 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [tab, setTab] = useState<EffectTab>('recovery');
 
-  // Dialog form state
   const [formCode, setFormCode] = useState(11);
   const [formDataId, setFormDataId] = useState(0);
   const [formValue1, setFormValue1] = useState(0);
   const [formValue2, setFormValue2] = useState(0);
 
-  // Reference data
   const [states, setStates] = useState<(RefItem | null)[]>([]);
   const [skills, setSkills] = useState<(RefItem | null)[]>([]);
   const [commonEvents, setCommonEvents] = useState<(RefItem | null)[]>([]);
@@ -101,7 +99,7 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
       case 13: return `${codeName} ${eff.value1}`;
       case 21: {
         const st = states.find(s => s && s.id === eff.dataId);
-        return `${codeName} ${st ? st.name : eff.dataId} ${Math.round(eff.value1 * 100)}%`;
+        return `${codeName} ${eff.dataId === 0 ? t('common.normalAttack') : (st ? st.name : eff.dataId)} ${Math.round(eff.value1 * 100)}%`;
       }
       case 22: {
         const st = states.find(s => s && s.id === eff.dataId);
@@ -125,59 +123,57 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
     }
   };
 
-  // Tab content renderers
   const renderRecoveryTab = () => (
-    <div className="effects-dialog-tab-content">
-      <div className="effects-dialog-category">
-        <div className="effects-dialog-category-title">{t('effects.codes.11')}</div>
-        <label className="effects-dialog-radio">
+    <div className="eff-tab-content">
+      {/* HP 회복 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 11} onChange={() => switchCode(11)} />
-          {t('effects.codes.11')}
+          <span className="eff-radio-label">{t('effects.codes.11')}</span>
         </label>
         {formCode === 11 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <span>%</span>
-              <input type="number" value={Math.round(formValue1 * 100)} onChange={e => setFormValue1(Number(e.target.value) / 100)} />
-            </label>
-            <label>
-              <span>+</span>
+          <div className="eff-fields">
+            <div className="eff-field-group">
+              <input type="number" value={Math.round(formValue1 * 100)} onChange={e => setFormValue1(Number(e.target.value) / 100)} min={-100} max={100} />
+              <span className="eff-unit">%</span>
+            </div>
+            <span className="eff-separator">+</span>
+            <div className="eff-field-group">
               <input type="number" value={formValue2} onChange={e => setFormValue2(Number(e.target.value))} />
-            </label>
+            </div>
           </div>
         )}
       </div>
-      <div className="effects-dialog-category">
-        <div className="effects-dialog-category-title">{t('effects.codes.12')}</div>
-        <label className="effects-dialog-radio">
+      {/* MP 회복 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 12} onChange={() => switchCode(12)} />
-          {t('effects.codes.12')}
+          <span className="eff-radio-label">{t('effects.codes.12')}</span>
         </label>
         {formCode === 12 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <span>%</span>
-              <input type="number" value={Math.round(formValue1 * 100)} onChange={e => setFormValue1(Number(e.target.value) / 100)} />
-            </label>
-            <label>
-              <span>+</span>
+          <div className="eff-fields">
+            <div className="eff-field-group">
+              <input type="number" value={Math.round(formValue1 * 100)} onChange={e => setFormValue1(Number(e.target.value) / 100)} min={-100} max={100} />
+              <span className="eff-unit">%</span>
+            </div>
+            <span className="eff-separator">+</span>
+            <div className="eff-field-group">
               <input type="number" value={formValue2} onChange={e => setFormValue2(Number(e.target.value))} />
-            </label>
+            </div>
           </div>
         )}
       </div>
-      <div className="effects-dialog-category">
-        <div className="effects-dialog-category-title">{t('effects.codes.13')}</div>
-        <label className="effects-dialog-radio">
+      {/* TP 획득 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 13} onChange={() => switchCode(13)} />
-          {t('effects.codes.13')}
+          <span className="eff-radio-label">{t('effects.codes.13')}</span>
         </label>
         {formCode === 13 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <span>{t('effects.value')}</span>
-              <input type="number" value={formValue1} onChange={e => setFormValue1(Number(e.target.value))} />
-            </label>
+          <div className="eff-fields">
+            <div className="eff-field-group">
+              <input type="number" value={formValue1} onChange={e => setFormValue1(Number(e.target.value))} min={0} max={100} />
+            </div>
           </div>
         )}
       </div>
@@ -185,49 +181,45 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
   );
 
   const renderStateTab = () => (
-    <div className="effects-dialog-tab-content">
-      <div className="effects-dialog-category">
-        <label className="effects-dialog-radio">
+    <div className="eff-tab-content">
+      {/* 스테이트 부여 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 21} onChange={() => switchCode(21)} />
-          {t('effects.codes.21')}
+          <span className="eff-radio-label">{t('effects.codes.21')}</span>
         </label>
         {formCode === 21 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <span>{t('effects.state')}</span>
-              <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-                <option value={0}>{t('common.normalAttack')}</option>
-                {states.filter(Boolean).map(s => (
-                  <option key={s!.id} value={s!.id}>{String(s!.id).padStart(4, '0')}: {s!.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>%</span>
-              <input type="number" value={Math.round(formValue1 * 100)} onChange={e => setFormValue1(Number(e.target.value) / 100)} min={0} max={100} />
-            </label>
+          <div className="eff-fields">
+            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
+              <option value={0}>{t('common.normalAttack')}</option>
+              {states.filter(Boolean).map(s => (
+                <option key={s!.id} value={s!.id}>{String(s!.id).padStart(4, '0')}: {s!.name}</option>
+              ))}
+            </select>
+            <div className="eff-field-group">
+              <input type="number" value={Math.round(formValue1 * 100)} onChange={e => setFormValue1(Number(e.target.value) / 100)} min={0} max={1000} />
+              <span className="eff-unit">%</span>
+            </div>
           </div>
         )}
       </div>
-      <div className="effects-dialog-category">
-        <label className="effects-dialog-radio">
+      {/* 스테이트 해제 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 22} onChange={() => switchCode(22)} />
-          {t('effects.codes.22')}
+          <span className="eff-radio-label">{t('effects.codes.22')}</span>
         </label>
         {formCode === 22 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <span>{t('effects.state')}</span>
-              <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-                {states.filter(Boolean).map(s => (
-                  <option key={s!.id} value={s!.id}>{String(s!.id).padStart(4, '0')}: {s!.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>%</span>
+          <div className="eff-fields">
+            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
+              {states.filter(Boolean).map(s => (
+                <option key={s!.id} value={s!.id}>{String(s!.id).padStart(4, '0')}: {s!.name}</option>
+              ))}
+            </select>
+            <div className="eff-field-group">
               <input type="number" value={Math.round(formValue1 * 100)} onChange={e => setFormValue1(Number(e.target.value) / 100)} min={0} max={100} />
-            </label>
+              <span className="eff-unit">%</span>
+            </div>
           </div>
         )}
       </div>
@@ -235,76 +227,68 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
   );
 
   const renderParamTab = () => (
-    <div className="effects-dialog-tab-content">
-      <div className="effects-dialog-category">
-        <label className="effects-dialog-radio">
+    <div className="eff-tab-content">
+      {/* 버프 부여 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 31} onChange={() => switchCode(31)} />
-          {t('effects.codes.31')}
+          <span className="eff-radio-label">{t('effects.codes.31')}</span>
         </label>
         {formCode === 31 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <span>{t('effects.param')}</span>
-              <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-                {PARAM_NAMES.map((name, i) => <option key={i} value={i}>{name}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>{t('effects.turns')}</span>
-              <input type="number" value={formValue1} onChange={e => setFormValue1(Number(e.target.value))} min={1} />
-            </label>
+          <div className="eff-fields">
+            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
+              {PARAM_NAMES.map((name, i) => <option key={i} value={i}>{name}</option>)}
+            </select>
+            <div className="eff-field-group">
+              <input type="number" value={formValue1} onChange={e => setFormValue1(Number(e.target.value))} min={1} max={1000} />
+              <span className="eff-unit">{t('effects.turns')}</span>
+            </div>
           </div>
         )}
       </div>
-      <div className="effects-dialog-category">
-        <label className="effects-dialog-radio">
+      {/* 디버프 부여 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 32} onChange={() => switchCode(32)} />
-          {t('effects.codes.32')}
+          <span className="eff-radio-label">{t('effects.codes.32')}</span>
         </label>
         {formCode === 32 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <span>{t('effects.param')}</span>
-              <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-                {PARAM_NAMES.map((name, i) => <option key={i} value={i}>{name}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>{t('effects.turns')}</span>
-              <input type="number" value={formValue1} onChange={e => setFormValue1(Number(e.target.value))} min={1} />
-            </label>
+          <div className="eff-fields">
+            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
+              {PARAM_NAMES.map((name, i) => <option key={i} value={i}>{name}</option>)}
+            </select>
+            <div className="eff-field-group">
+              <input type="number" value={formValue1} onChange={e => setFormValue1(Number(e.target.value))} min={1} max={1000} />
+              <span className="eff-unit">{t('effects.turns')}</span>
+            </div>
           </div>
         )}
       </div>
-      <div className="effects-dialog-category">
-        <label className="effects-dialog-radio">
+      {/* 버프 해제 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 33} onChange={() => switchCode(33)} />
-          {t('effects.codes.33')}
+          <span className="eff-radio-label">{t('effects.codes.33')}</span>
         </label>
         {formCode === 33 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <span>{t('effects.param')}</span>
-              <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-                {PARAM_NAMES.map((name, i) => <option key={i} value={i}>{name}</option>)}
-              </select>
-            </label>
+          <div className="eff-fields">
+            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
+              {PARAM_NAMES.map((name, i) => <option key={i} value={i}>{name}</option>)}
+            </select>
           </div>
         )}
       </div>
-      <div className="effects-dialog-category">
-        <label className="effects-dialog-radio">
+      {/* 디버프 해제 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 34} onChange={() => switchCode(34)} />
-          {t('effects.codes.34')}
+          <span className="eff-radio-label">{t('effects.codes.34')}</span>
         </label>
         {formCode === 34 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <span>{t('effects.param')}</span>
-              <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-                {PARAM_NAMES.map((name, i) => <option key={i} value={i}>{name}</option>)}
-              </select>
-            </label>
+          <div className="eff-fields">
+            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
+              {PARAM_NAMES.map((name, i) => <option key={i} value={i}>{name}</option>)}
+            </select>
           </div>
         )}
       </div>
@@ -312,75 +296,69 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
   );
 
   const renderOtherTab = () => (
-    <div className="effects-dialog-tab-content">
-      <div className="effects-dialog-category">
-        <label className="effects-dialog-radio">
+    <div className="eff-tab-content">
+      {/* 특수 효과 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 41} onChange={() => switchCode(41)} />
-          {t('effects.codes.41')}
+          <span className="eff-radio-label">{t('effects.codes.41')}</span>
         </label>
         {formCode === 41 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-                <option value={0}>{t('effects.specialEffects.0')}</option>
-              </select>
-            </label>
+          <div className="eff-fields">
+            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
+              <option value={0}>{t('effects.specialEffects.0')}</option>
+            </select>
           </div>
         )}
       </div>
-      <div className="effects-dialog-category">
-        <label className="effects-dialog-radio">
+      {/* 성장 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 42} onChange={() => switchCode(42)} />
-          {t('effects.codes.42')}
+          <span className="eff-radio-label">{t('effects.codes.42')}</span>
         </label>
         {formCode === 42 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <span>{t('effects.param')}</span>
-              <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-                {PARAM_NAMES.map((name, i) => <option key={i} value={i}>{name}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>{t('effects.value')}</span>
-              <input type="number" value={formValue1} onChange={e => setFormValue1(Number(e.target.value))} />
-            </label>
+          <div className="eff-fields">
+            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
+              {PARAM_NAMES.map((name, i) => <option key={i} value={i}>{name}</option>)}
+            </select>
+            <div className="eff-field-group">
+              <input type="number" value={formValue1} onChange={e => setFormValue1(Number(e.target.value))} min={1} max={1000} />
+            </div>
           </div>
         )}
       </div>
-      <div className="effects-dialog-category">
-        <label className="effects-dialog-radio">
+      {/* 스킬 습득 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 43} onChange={() => switchCode(43)} />
-          {t('effects.codes.43')}
+          <span className="eff-radio-label">{t('effects.codes.43')}</span>
         </label>
         {formCode === 43 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-                <option value={0}>{t('common.none')}</option>
-                {skills.filter(Boolean).map(s => (
-                  <option key={s!.id} value={s!.id}>{String(s!.id).padStart(4, '0')}: {s!.name}</option>
-                ))}
-              </select>
-            </label>
+          <div className="eff-fields">
+            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
+              <option value={0}>{t('common.none')}</option>
+              {skills.filter(Boolean).map(s => (
+                <option key={s!.id} value={s!.id}>{String(s!.id).padStart(4, '0')}: {s!.name}</option>
+              ))}
+            </select>
           </div>
         )}
       </div>
-      <div className="effects-dialog-category">
-        <label className="effects-dialog-radio">
+      {/* 커먼 이벤트 */}
+      <div className="eff-item">
+        <label className="eff-radio">
           <input type="radio" name="effectCode" checked={formCode === 44} onChange={() => switchCode(44)} />
-          {t('effects.codes.44')}
+          <span className="eff-radio-label">{t('effects.codes.44')}</span>
         </label>
         {formCode === 44 && (
-          <div className="effects-dialog-fields">
-            <label>
-              <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
-                <option value={0}>{t('common.none')}</option>
-                {commonEvents.filter(Boolean).map(ce => (
-                  <option key={ce!.id} value={ce!.id}>{String(ce!.id).padStart(4, '0')}: {ce!.name}</option>
-                ))}
-              </select>
-            </label>
+          <div className="eff-fields">
+            <select value={formDataId} onChange={e => setFormDataId(Number(e.target.value))}>
+              <option value={0}>{t('common.none')}</option>
+              {commonEvents.filter(Boolean).map(ce => (
+                <option key={ce!.id} value={ce!.id}>{String(ce!.id).padStart(4, '0')}: {ce!.name}</option>
+              ))}
+            </select>
           </div>
         )}
       </div>
@@ -417,13 +395,13 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
               <button className="db-dialog-close" onClick={() => setDialogOpen(false)}>&times;</button>
             </div>
             <div className="effects-dialog-tabs">
-              {TABS.map(t => (
+              {TABS.map(tb => (
                 <button
-                  key={t.key}
-                  className={`effects-dialog-tab${tab === t.key ? ' active' : ''}`}
-                  onClick={() => setTab(t.key)}
+                  key={tb.key}
+                  className={`effects-dialog-tab${tab === tb.key ? ' active' : ''}`}
+                  onClick={() => setTab(tb.key)}
                 >
-                  {t.label}
+                  {tb.label}
                 </button>
               ))}
             </div>
