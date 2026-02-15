@@ -488,48 +488,10 @@ FogOfWar.updateVisibility = function(playerTileX, playerTileY) {
         }
     }
 
-    // 대각선 돌출 제거: 상하좌우에 explored 이웃이 없는 타일 제거
-    this._removeDiagonalSpurs();
-
     // 시야 인접도 계산: vis=0인 타일 중 인접에 vis>0이 있으면 경계
     this._computeEdgeData();
 
     this._updateTexture();
-};
-
-//=============================================================================
-// 대각선 돌출 제거: 상하좌우(cardinal)에 explored 이웃이 없는 타일 제거
-// 대각선으로만 연결된 뾰족한 돌출은 시각적으로 어색하고 경계 셰이더 적용이 안 됨
-//=============================================================================
-
-FogOfWar._removeDiagonalSpurs = function() {
-    var w = this._mapWidth;
-    var h = this._mapHeight;
-    var explored = this._exploredData;
-
-    // 대각선 연결을 사각형화: 대각선으로 explored가 연결되면
-    // 빈 cardinal 이웃을 explored로 채워서 사각형 형태로 만듦
-    // (x,y)와 (x+1,y+1) 둘 다 explored인데 (x+1,y)나 (x,y+1)이 미탐험이면 채움
-    for (var y = 0; y < h - 1; y++) {
-        for (var x = 0; x < w - 1; x++) {
-            var idx = y * w + x;
-            var e00 = explored[idx];
-            var e10 = explored[idx + 1];
-            var e01 = explored[idx + w];
-            var e11 = explored[idx + w + 1];
-
-            // 대각선 쌍 (0,0)-(1,1) 연결인데 (1,0)이나 (0,1)이 빔
-            if (e00 && e11 && (!e10 || !e01)) {
-                explored[idx + 1] = 1;     // (x+1, y)
-                explored[idx + w] = 1;     // (x, y+1)
-            }
-            // 대각선 쌍 (1,0)-(0,1) 연결인데 (0,0)이나 (1,1)이 빔
-            if (e10 && e01 && (!e00 || !e11)) {
-                explored[idx] = 1;         // (x, y)
-                explored[idx + w + 1] = 1; // (x+1, y+1)
-            }
-        }
-    }
 };
 
 //=============================================================================
@@ -814,10 +776,11 @@ var EDGE_DISSOLVE_FRAG = [
     '        if (eR  < 0.5) minD = min(minD, 1.0 - tp.x);',
     '        if (eU  < 0.5) minD = min(minD, tp.y);',
     '        if (eD  < 0.5) minD = min(minD, 1.0 - tp.y);',
-    '        if (eLU < 0.5) minD = min(minD, max(tp.x, tp.y));',
-    '        if (eRU < 0.5) minD = min(minD, max(1.0 - tp.x, tp.y));',
-    '        if (eLD < 0.5) minD = min(minD, max(tp.x, 1.0 - tp.y));',
-    '        if (eRD < 0.5) minD = min(minD, max(1.0 - tp.x, 1.0 - tp.y));',
+    '        // 대각선: 코너를 사각형화 — 두 cardinal 방향 각각 경계 추가',
+    '        if (eLU < 0.5) { minD = min(minD, tp.x); minD = min(minD, tp.y); }',
+    '        if (eRU < 0.5) { minD = min(minD, 1.0 - tp.x); minD = min(minD, tp.y); }',
+    '        if (eLD < 0.5) { minD = min(minD, tp.x); minD = min(minD, 1.0 - tp.y); }',
+    '        if (eRD < 0.5) { minD = min(minD, 1.0 - tp.x); minD = min(minD, 1.0 - tp.y); }',
     '        signedDist = minD;',
     '    } else {',
     '        // 미탐험 타일: 탐험(explored>0) 인접까지의 거리 (음수)',
@@ -830,10 +793,11 @@ var EDGE_DISSOLVE_FRAG = [
     '        if (eR  > 0.5) minD = min(minD, 1.0 - tp.x);',
     '        if (eU  > 0.5) minD = min(minD, tp.y);',
     '        if (eD  > 0.5) minD = min(minD, 1.0 - tp.y);',
-    '        if (eLU > 0.5) minD = min(minD, max(tp.x, tp.y));',
-    '        if (eRU > 0.5) minD = min(minD, max(1.0 - tp.x, tp.y));',
-    '        if (eLD > 0.5) minD = min(minD, max(tp.x, 1.0 - tp.y));',
-    '        if (eRD > 0.5) minD = min(minD, max(1.0 - tp.x, 1.0 - tp.y));',
+    '        // 대각선: 코너를 사각형화',
+    '        if (eLU > 0.5) { minD = min(minD, tp.x); minD = min(minD, tp.y); }',
+    '        if (eRU > 0.5) { minD = min(minD, 1.0 - tp.x); minD = min(minD, tp.y); }',
+    '        if (eLD > 0.5) { minD = min(minD, tp.x); minD = min(minD, 1.0 - tp.y); }',
+    '        if (eRD > 0.5) { minD = min(minD, 1.0 - tp.x); minD = min(minD, 1.0 - tp.y); }',
     '        signedDist = -minD;',
     '    }',
     '',
