@@ -148,3 +148,30 @@
 .fow-reset-btn:hover {
   background: #a05555;
 }
+
+.fow-mode-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.fow-mode-btn {
+  flex: 1;
+  padding: 6px 8px;
+  background: #444;
+  color: #bbb;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+
+.fow-mode-btn:hover {
+  background: #555;
+}
+
+.fow-mode-btn.active {
+  background: #2675bf;
+  color: #fff;
+  border-color: #3388d6;
+}
