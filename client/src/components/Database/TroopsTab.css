@@ -70,14 +70,6 @@
   flex-shrink: 0;
 }
 
-/* 좌측: 미리보기 캔버스 + 아래 버튼 */
-.troops-preview-col {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-}
-
 /* 전투 미리보기 캔버스 영역 - 고정 크기 */
 .troops-preview-area {
   position: relative;
@@ -118,11 +110,19 @@
   opacity: 0.4;
 }
 
-/* 미리보기 아래 버튼 줄: 추가 해제 모두해제 정렬 */
-.troops-preview-buttons {
+/* 중앙 버튼 패널: < > + 모두해제 + 정렬 (미리보기와 적 목록 사이) */
+.troops-mid-buttons {
   display: flex;
+  flex-direction: column;
   gap: 4px;
   justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.troops-mid-nav {
+  display: flex;
+  gap: 4px;
 }
 
 /* 우측 패널: 전체 적 목록 */
