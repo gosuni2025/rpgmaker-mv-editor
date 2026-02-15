@@ -120,11 +120,6 @@
   flex-shrink: 0;
 }
 
-.troops-mid-nav {
-  display: flex;
-  gap: 4px;
-}
-
 /* 우측 패널: 전체 적 목록 */
 .troops-enemy-panel {
   display: flex;
@@ -165,6 +160,14 @@
 
 .troops-enemy-item.selected {
   background: #2675bf;
+  color: #fff;
+}
+
+.troops-enemy-item.member {
+  color: #6af;
+}
+
+.troops-enemy-item.member.selected {
   color: #fff;
 }
 

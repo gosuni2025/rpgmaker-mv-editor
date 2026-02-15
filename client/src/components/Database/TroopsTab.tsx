@@ -138,8 +138,10 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
   const addSelectedEnemy = () => {
     if (!selectedItem || (selectedItem.members || []).length >= 8) return;
     const members = [...(selectedItem.members || [])];
-    const x = 200 + members.length * 60;
-    members.push({ enemyId: selectedEnemyId, x: Math.min(x, PREVIEW_W - 50), y: Math.round(PREVIEW_H * 0.75), hidden: false });
+    const count = members.length;
+    const spacing = PREVIEW_W / (count + 2);
+    const x = Math.round(spacing * (count + 1));
+    members.push({ enemyId: selectedEnemyId, x: Math.min(x, PREVIEW_W - 50), y: Math.round(PREVIEW_H * 0.7), hidden: false });
     handleFieldChange('members', members);
   };
 
@@ -417,16 +419,14 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
               })}
             </div>
 
-            {/* 중앙: 추가/해제 < > + 모두 해제 + 정렬 */}
+            {/* 중앙: < 추가 / 해제 > + 모두 해제 + 정렬 */}
             <div className="troops-mid-buttons">
-              <div className="troops-mid-nav">
-                <button className="db-btn-small" onClick={addSelectedEnemy} disabled={(selectedItem.members || []).length >= 8}>
-                  &lt;
-                </button>
-                <button className="db-btn-small" onClick={removeMember} disabled={selectedMemberIdx < 0 || selectedMemberIdx >= (selectedItem.members || []).length}>
-                  &gt;
-                </button>
-              </div>
+              <button className="db-btn-small" onClick={addSelectedEnemy} disabled={(selectedItem.members || []).length >= 8}>
+                &lt; {t('troops.add')}
+              </button>
+              <button className="db-btn-small" onClick={removeMember} disabled={selectedMemberIdx < 0 || selectedMemberIdx >= (selectedItem.members || []).length}>
+                {t('troops.remove')} &gt;
+              </button>
               <button className="db-btn-small" onClick={clearMembers} disabled={(selectedItem.members || []).length === 0}>
                 {t('troops.clearAll')}
               </button>
@@ -438,24 +438,29 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
             {/* 우측: 전체 적 목록 */}
             <div className="troops-enemy-panel">
               <div className="troops-enemy-list">
-                {enemies.map(en => (
+                {enemies.map(en => {
+                  const isMember = (selectedItem.members || []).some((m: TroopMember) => m.enemyId === en.id);
+                  return (
                   <div
                     key={en.id}
-                    className={`troops-enemy-item${en.id === selectedEnemyId ? ' selected' : ''}`}
+                    className={`troops-enemy-item${en.id === selectedEnemyId ? ' selected' : ''}${isMember ? ' member' : ''}`}
                     onClick={() => setSelectedEnemyId(en.id)}
                     onDoubleClick={() => {
                       setSelectedEnemyId(en.id);
                       if ((selectedItem.members || []).length < 8) {
                         const members = [...(selectedItem.members || [])];
-                        const x = 200 + members.length * 60;
-                        members.push({ enemyId: en.id, x: Math.min(x, PREVIEW_W - 50), y: Math.round(PREVIEW_H * 0.75), hidden: false });
+                        const count = members.length;
+                        const spacing = PREVIEW_W / (count + 2);
+                        const x = Math.round(spacing * (count + 1));
+                        members.push({ enemyId: en.id, x: Math.min(x, PREVIEW_W - 50), y: Math.round(PREVIEW_H * 0.7), hidden: false });
                         handleFieldChange('members', members);
                       }
                     }}
                   >
                     {String(en.id).padStart(4, '0')} {en.name}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
