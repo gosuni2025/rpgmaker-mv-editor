@@ -1164,6 +1164,9 @@ FogOfWar._disposeMesh = function() {
         this._fogGroup = null;
         this._fogMesh = null;
         this._edgeMesh = null;
+        this._losDebugMesh = null;
+        if (this._losDebugTex) { this._losDebugTex.dispose(); this._losDebugTex = null; }
+        this._losDebugCanvas = null;
     }
 };
 
@@ -1436,66 +1439,49 @@ if (typeof Game_Interpreter !== 'undefined') {
 //=============================================================================
 
 FogOfWar._losDebugEnabled = false;
+FogOfWar._losDebugMesh = null;
+FogOfWar._losDebugTex = null;
 FogOfWar._losDebugCanvas = null;
-FogOfWar._losDebugCtx = null;
 
 FogOfWar.toggleLosDebug = function(on) {
     this._losDebugEnabled = on;
-    if (!on && this._losDebugCanvas) {
-        this._losDebugCanvas.style.display = 'none';
+    if (!on && this._losDebugMesh) {
+        this._losDebugMesh.visible = false;
     }
 };
 
 FogOfWar._updateLosDebug = function() {
-    if (!this._losDebugEnabled || !this._active) return;
+    if (!this._losDebugEnabled || !this._active || !this._fogGroup) return;
 
     var w = this._mapWidth;
     var h = this._mapHeight;
     if (!w || !h) return;
 
-    // 캔버스 생성/크기 조정
-    var screenW = Graphics.width || 816;
-    var screenH = Graphics.height || 624;
-    if (!this._losDebugCanvas) {
+    var totalW = w * 48;
+    var totalH = h * 48;
+
+    // 오프스크린 캔버스 생성/갱신
+    if (!this._losDebugCanvas || this._losDebugCanvas.width !== totalW || this._losDebugCanvas.height !== totalH) {
         this._losDebugCanvas = document.createElement('canvas');
-        this._losDebugCanvas.style.cssText = 'position:fixed;top:0;left:0;z-index:99990;pointer-events:none;';
-        document.body.appendChild(this._losDebugCanvas);
+        this._losDebugCanvas.width = totalW;
+        this._losDebugCanvas.height = totalH;
     }
     var canvas = this._losDebugCanvas;
-    canvas.style.display = 'block';
-    if (canvas.width !== screenW || canvas.height !== screenH) {
-        canvas.width = screenW;
-        canvas.height = screenH;
-    }
     var ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, screenW, screenH);
-    ctx.font = '9px monospace';
+    ctx.clearRect(0, 0, totalW, totalH);
+    ctx.font = 'bold 11px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-
-    // 스크롤 오프셋
-    var ox = 0, oy = 0;
-    if (typeof $gameMap !== 'undefined' && $gameMap) {
-        ox = $gameMap.displayX();
-        oy = $gameMap.displayY();
-    }
 
     var vis = this._visibilityData;
     var expl = this._exploredData;
     var blockMap = this._blockMap;
 
-    // 화면에 보이는 타일 범위
-    var startX = Math.floor(ox);
-    var startY = Math.floor(oy);
-    var endX = Math.min(w, Math.ceil(ox + screenW / 48) + 1);
-    var endY = Math.min(h, Math.ceil(oy + screenH / 48) + 1);
-
-    for (var ty = startY; ty < endY; ty++) {
-        for (var tx = startX; tx < endX; tx++) {
-            if (tx < 0 || tx >= w || ty < 0 || ty >= h) continue;
+    for (var ty = 0; ty < h; ty++) {
+        for (var tx = 0; tx < w; tx++) {
             var idx = ty * w + tx;
-            var px = (tx - ox) * 48 + 24;
-            var py = (ty - oy) * 48 + 24;
+            var px = tx * 48 + 24;
+            var py = ty * 48 + 24;
 
             var isBlocked = blockMap ? blockMap[idx] : 0;
             var v = vis ? vis[idx] : 0;
@@ -1503,27 +1489,52 @@ FogOfWar._updateLosDebug = function() {
 
             // 배경
             if (isBlocked) {
-                ctx.fillStyle = 'rgba(255,0,0,0.3)';
-                ctx.fillRect(px - 23, py - 23, 46, 46);
+                ctx.fillStyle = 'rgba(255,60,60,0.35)';
+                ctx.fillRect(tx * 48 + 1, ty * 48 + 1, 46, 46);
             }
 
             // 텍스트
             if (isBlocked) {
                 ctx.fillStyle = '#f44';
-                ctx.fillText('WALL', px, py - 8);
+                ctx.fillText('WALL', px, py - 10);
             }
             if (v > 0) {
                 ctx.fillStyle = '#4f4';
-                ctx.fillText('V:' + v.toFixed(1), px, py + (isBlocked ? 4 : -4));
+                ctx.fillText('V:' + v.toFixed(1), px, py + (isBlocked ? 4 : -2));
             }
             if (e > 0) {
                 ctx.fillStyle = '#88f';
-                ctx.fillText('E', px, py + (isBlocked ? 16 : 8));
+                ctx.fillText('E', px, py + (isBlocked ? 16 : 12));
             } else {
                 ctx.fillStyle = '#f88';
-                ctx.fillText('?', px, py + (isBlocked ? 16 : 8));
+                ctx.fillText('?', px, py + (isBlocked ? 16 : 12));
             }
         }
+    }
+
+    // Three.js 메쉬 생성 또는 텍스처 갱신
+    if (!this._losDebugMesh) {
+        this._losDebugTex = new THREE.CanvasTexture(canvas);
+        this._losDebugTex.magFilter = THREE.NearestFilter;
+        this._losDebugTex.minFilter = THREE.LinearFilter;
+
+        var mat = new THREE.MeshBasicMaterial({
+            map: this._losDebugTex,
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+        var geom = new THREE.PlaneGeometry(totalW, totalH);
+        this._losDebugMesh = new THREE.Mesh(geom, mat);
+        this._losDebugMesh.position.z = 0.3;  // FOW 메쉬(0, 0.1)보다 위
+        this._losDebugMesh.renderOrder = 9995;
+        this._losDebugMesh.frustumCulled = false;
+        this._fogGroup.add(this._losDebugMesh);
+    } else {
+        this._losDebugTex.image = canvas;
+        this._losDebugTex.needsUpdate = true;
+        this._losDebugMesh.visible = true;
     }
 };
 
