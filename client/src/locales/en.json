@@ -880,6 +880,79 @@
     "imageSaved": "Image saved",
     "imageSaveFailed": "Image save failed"
   },
+  "eventCtx": {
+    "edit": "Edit...",
+    "new": "New...",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "delete": "Delete",
+    "find": "Find...",
+    "findNext": "Find Next",
+    "findPrev": "Find Previous",
+    "quickEvent": "Quick Event Creation",
+    "quickTransfer": "Transfer...",
+    "quickDoor": "Door...",
+    "quickTreasure": "Treasure...",
+    "quickInn": "Inn...",
+    "startPosition": "Set Starting Position",
+    "player": "Player",
+    "boat": "Boat",
+    "ship": "Ship",
+    "airship": "Airship",
+    "items": "{{count}} items"
+  },
+  "quickEvent": {
+    "transfer": {
+      "title": "Transfer",
+      "destination": "Destination",
+      "map": "Map",
+      "x": "X",
+      "y": "Y",
+      "direction": "Direction",
+      "directions": {
+        "0": "Retain",
+        "2": "Down",
+        "4": "Left",
+        "6": "Right",
+        "8": "Up"
+      },
+      "fadeType": "Fade Type",
+      "fadeTypes": {
+        "0": "Black",
+        "1": "White",
+        "2": "None"
+      }
+    },
+    "door": {
+      "title": "Door",
+      "image": "Door Image",
+      "destination": "Destination",
+      "map": "Map",
+      "x": "X",
+      "y": "Y"
+    },
+    "treasure": {
+      "title": "Treasure",
+      "image": "Chest Image",
+      "rewardType": "Reward Type",
+      "rewardTypes": {
+        "gold": "Gold",
+        "item": "Item",
+        "weapon": "Weapon",
+        "armor": "Armor"
+      },
+      "amount": "Amount",
+      "item": "Item"
+    },
+    "inn": {
+      "title": "Inn",
+      "image": "NPC Image",
+      "price": "Room Price",
+      "message1": "Message 1 (Invitation)",
+      "message2": "Message 2 (After Stay)"
+    }
+  },
   "shiftMap": {
     "title": "Shift",
     "direction": "Direction",

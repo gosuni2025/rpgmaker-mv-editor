@@ -242,3 +242,37 @@
   background: #555;
   margin: 2px 0;
 }
+
+/* Submenu */
+.context-menu-item.has-submenu {
+  position: relative;
+}
+
+.context-menu-item.has-submenu::after {
+  content: '▸';
+  margin-left: 12px;
+  font-size: 10px;
+  color: #aaa;
+}
+
+.context-menu-item.has-submenu:hover::after {
+  color: #fff;
+}
+
+.context-submenu {
+  display: none;
+  position: absolute;
+  left: 100%;
+  top: -4px;
+  background: #3c3f41;
+  border: 1px solid #555;
+  border-radius: 3px;
+  min-width: 140px;
+  z-index: 5001;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  padding: 4px 0;
+}
+
+.context-menu-item.has-submenu:hover > .context-submenu {
+  display: block;
+}

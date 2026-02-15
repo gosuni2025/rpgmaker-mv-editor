@@ -955,6 +955,79 @@
     "imageSaved": "이미지 저장 완료",
     "imageSaveFailed": "이미지 저장 실패"
   },
+  "eventCtx": {
+    "edit": "편집...",
+    "new": "신규...",
+    "cut": "잘라내기",
+    "copy": "복사",
+    "paste": "붙여넣기",
+    "delete": "삭제",
+    "find": "찾기...",
+    "findNext": "다음 찾기",
+    "findPrev": "이전 찾기",
+    "quickEvent": "이벤트 간단 작성",
+    "quickTransfer": "시프트...",
+    "quickDoor": "문...",
+    "quickTreasure": "보물...",
+    "quickInn": "여관...",
+    "startPosition": "초기 위치 설정",
+    "player": "플레이어",
+    "boat": "보트",
+    "ship": "선박",
+    "airship": "비행선",
+    "items": "{{count}}개"
+  },
+  "quickEvent": {
+    "transfer": {
+      "title": "시프트",
+      "destination": "이동 위치",
+      "map": "맵",
+      "x": "X",
+      "y": "Y",
+      "direction": "방향",
+      "directions": {
+        "0": "그대로",
+        "2": "아래",
+        "4": "왼쪽",
+        "6": "오른쪽",
+        "8": "위"
+      },
+      "fadeType": "페이드 타입",
+      "fadeTypes": {
+        "0": "검은색",
+        "1": "흰색",
+        "2": "없음"
+      }
+    },
+    "door": {
+      "title": "문",
+      "image": "문 이미지",
+      "destination": "이동 위치",
+      "map": "맵",
+      "x": "X",
+      "y": "Y"
+    },
+    "treasure": {
+      "title": "보물",
+      "image": "상자 이미지",
+      "rewardType": "보상 종류",
+      "rewardTypes": {
+        "gold": "골드",
+        "item": "아이템",
+        "weapon": "무기",
+        "armor": "방어구"
+      },
+      "amount": "금액",
+      "item": "아이템"
+    },
+    "inn": {
+      "title": "여관",
+      "image": "NPC 이미지",
+      "price": "숙박 요금",
+      "message1": "대사 1 (권유)",
+      "message2": "대사 2 (숙박 후)"
+    }
+  },
   "shiftMap": {
     "title": "시프트",
     "direction": "방향",

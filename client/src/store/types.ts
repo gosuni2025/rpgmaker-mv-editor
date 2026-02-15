@@ -343,6 +343,7 @@ export interface EditorState {
 
   // Actions - Start position
   setPlayerStartPosition: (mapId: number, x: number, y: number) => Promise<void>;
+  setVehicleStartPosition: (vehicle: 'boat' | 'ship' | 'airship', mapId: number, x: number, y: number) => Promise<void>;
 
   // Actions - Dialog toggles
   setShowOpenProjectDialog: (show: boolean) => void;
