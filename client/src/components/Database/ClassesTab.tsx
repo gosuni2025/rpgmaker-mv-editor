@@ -4,6 +4,7 @@ import type { RPGClass } from '../../types/rpgMakerMV';
 import TraitsEditor from '../common/TraitsEditor';
 import apiClient from '../../api/client';
 import TranslateButton from '../common/TranslateButton';
+import ParamCurveDialog from './ParamCurveDialog';
 
 // RPG Maker MV EXP formula: rpg_objects.js line 3524
 function expForLevel(level: number, expParams: number[]): number {
@@ -161,6 +162,7 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
   const [skills, setSkills] = useState<{ id: number; name: string }[]>([]);
+  const [showParamCurve, setShowParamCurve] = useState(false);
 
   useEffect(() => {
     apiClient.get<({ id: number; name: string } | null)[]>('/database/skills').then(d => {
@@ -273,37 +275,13 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
 
             <div className="db-form-section">{t('fields.paramCurves')}</div>
             {selectedItem.params && selectedItem.params.length > 0 && (
-              <ParamCurveGraph params={selectedItem.params} paramNames={PARAM_NAMES} />
+              <div onClick={() => setShowParamCurve(true)} style={{ cursor: 'pointer' }} title={t('paramCurve.clickToEdit', '클릭하여 편집')}>
+                <ParamCurveGraph params={selectedItem.params} paramNames={PARAM_NAMES} />
+              </div>
             )}
-            {selectedItem.params && selectedItem.params.length > 0 && PARAM_NAMES.map((name, i) => (
-              <label key={i}>
-                {name}
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    type="number"
-                    value={selectedItem.params[i]?.[0] ?? 0}
-                    onChange={(e) => {
-                      const params = selectedItem.params.map((p: number[]) => [...p]);
-                      if (!params[i]) params[i] = [0, 0];
-                      params[i][0] = Number(e.target.value);
-                      handleFieldChange('params', params);
-                    }}
-                    style={{ flex: 1 }}
-                  />
-                  <input
-                    type="number"
-                    value={selectedItem.params[i]?.[selectedItem.params[i].length - 1] ?? 0}
-                    onChange={(e) => {
-                      const params = selectedItem.params.map((p: number[]) => [...p]);
-                      if (!params[i]) params[i] = [0, 0];
-                      params[i][params[i].length - 1] = Number(e.target.value);
-                      handleFieldChange('params', params);
-                    }}
-                    style={{ flex: 1 }}
-                  />
-                </div>
-              </label>
-            ))}
+            <button className="db-btn" onClick={() => setShowParamCurve(true)} style={{ alignSelf: 'flex-start' }}>
+              {t('paramCurve.editCurves', '능력치 곡선 편집...')}
+            </button>
 
             <div className="db-form-section">
               {t('fields.learnings')}
@@ -351,6 +329,16 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
           </>
         )}
       </div>
+      {showParamCurve && selectedItem && (
+        <ParamCurveDialog
+          params={selectedItem.params || Array.from({ length: 8 }, () => new Array(99).fill(0))}
+          onConfirm={(newParams) => {
+            handleFieldChange('params', newParams);
+            setShowParamCurve(false);
+          }}
+          onCancel={() => setShowParamCurve(false)}
+        />
+      )}
     </div>
   );
 }
