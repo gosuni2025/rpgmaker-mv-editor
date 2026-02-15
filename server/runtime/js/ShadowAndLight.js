@@ -1197,15 +1197,23 @@ ShadowLight._addLightsToScene = function(scene) {
     } catch (e) {}
 
     // editorLights 맵별 설정 (에디터에서 저장한 커스텀 데이터)
-    // 주의: localStorage 값이 있으면 그것을 우선 사용 (위에서 이미 복구됨)
-    // editorLights는 localStorage가 없을 때의 폴백으로만 적용
-    var el = (!savedConfig && typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+    var el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+
+    // 디버그 패널 우선 적용 플래그 로드
+    var ambientOverride = false;
+    var directionalOverride = false;
+    try { ambientOverride = localStorage.getItem('devPanel_ambientOverride') === 'true'; } catch (e) {}
+    try { directionalOverride = localStorage.getItem('devPanel_directionalOverride') === 'true'; } catch (e) {}
+    this._debugAmbientOverride = ambientOverride;
+    this._debugDirectionalOverride = directionalOverride;
 
     // AmbientLight - 전체적인 환경광
-    var ambColor = el ? parseInt(el.ambient.color.replace('#', ''), 16) : this.config.ambientColor;
-    var ambIntensity = el ? el.ambient.intensity : this.config.ambientIntensity;
+    // 디버그 우선 ON → localStorage config, OFF → 맵 데이터(editorLights)
+    var useElAmbient = el && !ambientOverride;
+    var ambColor = useElAmbient ? parseInt(el.ambient.color.replace('#', ''), 16) : this.config.ambientColor;
+    var ambIntensity = useElAmbient ? el.ambient.intensity : this.config.ambientIntensity;
     // config에 동기화 (디버그 패널 초기값과 일치시킴)
-    if (el) {
+    if (useElAmbient) {
         this.config.ambientColor = ambColor;
         this.config.ambientIntensity = ambIntensity;
     }
@@ -1213,11 +1221,13 @@ ShadowLight._addLightsToScene = function(scene) {
     scene.add(this._ambientLight);
 
     // DirectionalLight - 태양/달빛 (그림자 방향 결정)
-    var dirEnabled = el ? (el.directional.enabled === true) : true;
-    var dirColor = el ? parseInt(el.directional.color.replace('#', ''), 16) : this.config.directionalColor;
-    var dirIntensity = el ? el.directional.intensity : this.config.directionalIntensity;
+    // 디버그 우선 ON → localStorage config, OFF → 맵 데이터(editorLights)
+    var useElDir = el && !directionalOverride;
+    var dirEnabled = useElDir ? (el.directional.enabled === true) : true;
+    var dirColor = useElDir ? parseInt(el.directional.color.replace('#', ''), 16) : this.config.directionalColor;
+    var dirIntensity = useElDir ? el.directional.intensity : this.config.directionalIntensity;
     // config에 동기화
-    if (el) {
+    if (useElDir) {
         this.config.directionalColor = dirColor;
         this.config.directionalIntensity = dirIntensity;
     }
@@ -1225,7 +1235,7 @@ ShadowLight._addLightsToScene = function(scene) {
     this._directionalLight.visible = dirEnabled;
     // 위치는 방향의 반대 (광원이 오는 방향)
     var dir;
-    if (el && el.directional.direction) {
+    if (useElDir && el.directional.direction) {
         dir = new THREE.Vector3(el.directional.direction[0], el.directional.direction[1], el.directional.direction[2]).normalize();
     } else {
         dir = this.config.lightDirection;
@@ -1367,11 +1377,30 @@ ShadowLight._updateCameraZoneAmbient = function() {
     if (!this._ambientLight) return;
     if (window.__editorMode) return;
 
-    // 타겟 값 결정: 활성 카메라존 → 글로벌 config
-    var targetIntensity = this.config.ambientIntensity;
-    var targetR = ((this.config.ambientColor >> 16) & 0xFF) / 255;
-    var targetG = ((this.config.ambientColor >> 8) & 0xFF) / 255;
-    var targetB = (this.config.ambientColor & 0xFF) / 255;
+    // 디버그 패널 우선 적용 시 → 패널 config 값 직접 사용, lerp 스킵
+    if (this._debugAmbientOverride) {
+        this._ambientLight.intensity = this.config.ambientIntensity;
+        this._ambientLight.color.setHex(this.config.ambientColor);
+        this._currentAmbientIntensity = null; // 해제 시 lerp 재초기화 위해
+        return;
+    }
+
+    // 맵 데이터 기반: editorLights에서 글로벌 ambient 값 가져오기
+    var el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+    var baseIntensity, baseColor;
+    if (el && el.ambient) {
+        baseIntensity = el.ambient.intensity;
+        baseColor = parseInt(el.ambient.color.replace('#', ''), 16);
+    } else {
+        baseIntensity = this.config.ambientIntensity;
+        baseColor = this.config.ambientColor;
+    }
+
+    // 타겟 값 결정: 활성 카메라존 → 맵 editorLights 글로벌
+    var targetIntensity = baseIntensity;
+    var targetR = ((baseColor >> 16) & 0xFF) / 255;
+    var targetG = ((baseColor >> 8) & 0xFF) / 255;
+    var targetB = (baseColor & 0xFF) / 255;
     var transitionSpeed = 1.0;
 
     if ($gameMap && $gameMap._activeCameraZoneId != null) {
@@ -2492,11 +2521,63 @@ ShadowLight._createDebugUI = function() {
 
     // ── 환경광 섹션 ──
     var envBody = createSection(panel, '환경광', '#88ccff', false);
+
+    // 디버그 패널 우선 적용 체크박스 (환경광)
+    var AMBIENT_OVERRIDE_KEY = 'devPanel_ambientOverride';
+    var ambientOverrideRow = document.createElement('div');
+    ambientOverrideRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+    var ambientOverrideLbl = document.createElement('span');
+    ambientOverrideLbl.textContent = '디버그 우선';
+    ambientOverrideLbl.style.cssText = 'width:70px;font-size:11px;color:#f8a;';
+    var ambientOverrideCheck = document.createElement('input');
+    ambientOverrideCheck.type = 'checkbox';
+    try { ambientOverrideCheck.checked = localStorage.getItem(AMBIENT_OVERRIDE_KEY) === 'true'; } catch (e) {}
+    self._debugAmbientOverride = ambientOverrideCheck.checked;
+    ambientOverrideCheck.addEventListener('change', function() {
+        self._debugAmbientOverride = ambientOverrideCheck.checked;
+        try { localStorage.setItem(AMBIENT_OVERRIDE_KEY, ambientOverrideCheck.checked ? 'true' : 'false'); } catch (e) {}
+        if (!ambientOverrideCheck.checked && self._ambientLight) {
+            // 끄면 맵 데이터로 즉시 복원
+            self._currentAmbientIntensity = null; // lerp 재초기화
+        }
+    });
+    ambientOverrideRow.appendChild(ambientOverrideLbl);
+    ambientOverrideRow.appendChild(ambientOverrideCheck);
+    var ambientOverrideHint = document.createElement('span');
+    ambientOverrideHint.textContent = 'ON: 패널 값 사용';
+    ambientOverrideHint.style.cssText = 'font-size:10px;color:#888;';
+    ambientOverrideRow.appendChild(ambientOverrideHint);
+    envBody.appendChild(ambientOverrideRow);
+
     addSliderRow(envBody, { label: 'Ambient', key: 'ambientIntensity', min: 0, max: 3, step: 0.05 });
     addColorRow(envBody, { label: 'Ambient Color', key: 'ambientColor' });
 
     // ── 디렉셔널 라이트 섹션 ──
     var dirBody = createSection(panel, '디렉셔널 라이트', '#aaddff', true);
+
+    // 디버그 패널 우선 적용 체크박스 (디렉셔널)
+    var DIR_OVERRIDE_KEY = 'devPanel_directionalOverride';
+    var dirOverrideRow = document.createElement('div');
+    dirOverrideRow.style.cssText = 'margin:4px 0;display:flex;align-items:center;gap:6px;';
+    var dirOverrideLbl = document.createElement('span');
+    dirOverrideLbl.textContent = '디버그 우선';
+    dirOverrideLbl.style.cssText = 'width:70px;font-size:11px;color:#f8a;';
+    var dirOverrideCheck = document.createElement('input');
+    dirOverrideCheck.type = 'checkbox';
+    try { dirOverrideCheck.checked = localStorage.getItem(DIR_OVERRIDE_KEY) === 'true'; } catch (e) {}
+    self._debugDirectionalOverride = dirOverrideCheck.checked;
+    dirOverrideCheck.addEventListener('change', function() {
+        self._debugDirectionalOverride = dirOverrideCheck.checked;
+        try { localStorage.setItem(DIR_OVERRIDE_KEY, dirOverrideCheck.checked ? 'true' : 'false'); } catch (e) {}
+    });
+    dirOverrideRow.appendChild(dirOverrideLbl);
+    dirOverrideRow.appendChild(dirOverrideCheck);
+    var dirOverrideHint = document.createElement('span');
+    dirOverrideHint.textContent = 'ON: 패널 값 사용';
+    dirOverrideHint.style.cssText = 'font-size:10px;color:#888;';
+    dirOverrideRow.appendChild(dirOverrideHint);
+    dirBody.appendChild(dirOverrideRow);
+
     addSliderRow(dirBody, { label: 'Dir Int', key: 'directionalIntensity', min: 0, max: 3, step: 0.05 });
     addColorRow(dirBody, { label: 'Dir Color', key: 'directionalColor' });
 
