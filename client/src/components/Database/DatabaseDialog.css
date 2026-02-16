@@ -813,3 +813,93 @@
   white-space: nowrap;
   color: #888;
 }
+
+/* Tileset 4-panel layout */
+.tileset-panels {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.tileset-general {
+  width: 220px;
+  min-width: 220px;
+  padding: 8px 12px;
+  overflow-y: auto;
+  border-right: 1px solid #555;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tileset-general label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.tileset-general input[type="text"],
+.tileset-general select {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.tileset-general input[type="text"]:focus,
+.tileset-general select:focus {
+  border-color: #2675bf;
+}
+
+.tileset-section-label {
+  font-size: 12px;
+  font-weight: bold;
+  color: #bbb;
+  padding-top: 6px;
+  margin-top: 2px;
+  border-top: 1px solid #555;
+}
+
+.tileset-preview {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid #555;
+  padding: 4px;
+}
+
+.tileset-flags {
+  width: 160px;
+  min-width: 160px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.tileset-note {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+  flex: 1;
+  min-height: 60px;
+}
+
+.tileset-note:focus {
+  border-color: #2675bf;
+}

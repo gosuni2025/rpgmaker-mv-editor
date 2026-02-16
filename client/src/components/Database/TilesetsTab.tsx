@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TilesetData } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
-import TileFlagsEditor from './TileFlagsEditor';
+import { TileFlagsCanvas, TileFlagsControls, type TabName, type Mode } from './TileFlagsEditor';
 import DatabaseList from './DatabaseList';
 
 interface TilesetsTabProps {
@@ -15,6 +15,8 @@ const TILESET_LABELS = ['A1', 'A2', 'A3', 'A4', 'A5', 'B', 'C', 'D', 'E'];
 export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
+  const [activeTab, setActiveTab] = useState<TabName>('B');
+  const [flagMode, setFlagMode] = useState<Mode>('passage');
   const MODE_OPTIONS = [t('tilesetMode.field'), t('tilesetMode.area')];
   const selectedItem = data?.find((item) => item && item.id === selectedId);
 
@@ -102,9 +104,10 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
         onDuplicate={handleDuplicate}
         onReorder={handleReorder}
       />
-      <div className="db-form">
-        {selectedItem && (
-          <>
+      {selectedItem ? (
+        <div className="tileset-panels">
+          {/* Panel 1: General Settings */}
+          <div className="tileset-general">
             <label>
               {t('common.name')}
               <input
@@ -118,7 +121,6 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
               <select
                 value={selectedItem.mode || 0}
                 onChange={(e) => handleFieldChange('mode', Number(e.target.value))}
-                style={{ background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 }}
               >
                 {MODE_OPTIONS.map((label, i) => (
                   <option key={i} value={i}>{label}</option>
@@ -126,7 +128,7 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
               </select>
             </label>
 
-            <div className="db-form-section">{t('fields.tilesetImages')}</div>
+            <div className="tileset-section-label">{t('fields.tilesetImages')}</div>
             {TILESET_LABELS.map((label, i) => (
               <label key={i}>
                 {label}
@@ -137,24 +139,39 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
                 />
               </label>
             ))}
+          </div>
 
-            <TileFlagsEditor
+          {/* Panel 2: Tile Preview Canvas */}
+          <div className="tileset-preview">
+            <TileFlagsCanvas
               flags={selectedItem.flags || []}
               tilesetNames={selectedItem.tilesetNames || Array(9).fill('')}
+              activeTab={activeTab}
+              mode={flagMode}
+              onTabChange={setActiveTab}
               onChange={(flags) => handleFieldChange('flags', flags)}
             />
+          </div>
 
-            <label>
-              {t('common.note')}
-              <textarea
-                value={selectedItem.note || ''}
-                onChange={(e) => handleFieldChange('note', e.target.value)}
-                rows={3}
-              />
-            </label>
-          </>
-        )}
-      </div>
+          {/* Panel 3: Flag Controls + Note */}
+          <div className="tileset-flags">
+            <TileFlagsControls
+              mode={flagMode}
+              onModeChange={setFlagMode}
+              t={t}
+            />
+            <div className="tileset-section-label" style={{ marginTop: 12 }}>{t('common.note')}</div>
+            <textarea
+              value={selectedItem.note || ''}
+              onChange={(e) => handleFieldChange('note', e.target.value)}
+              rows={4}
+              className="tileset-note"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="db-placeholder">{t('common.noSelection') || 'No selection'}</div>
+      )}
     </div>
   );
 }

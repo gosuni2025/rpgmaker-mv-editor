@@ -1,10 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-
-interface TileFlagsEditorProps {
-  flags: number[];
-  tilesetNames: string[];
-  onChange: (flags: number[]) => void;
-}
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 
 // Flag bits
 const FLAG_DOWN = 0x01;
@@ -26,20 +20,20 @@ const TILE_ID_A2 = 2816;
 const TILE_ID_A3 = 4352;
 const TILE_ID_A4 = 5888;
 
-const TABS = ['A1', 'A2', 'A3', 'A4', 'A5', 'B', 'C', 'D', 'E'] as const;
-type TabName = typeof TABS[number];
+export const TABS = ['A1', 'A2', 'A3', 'A4', 'A5', 'B', 'C', 'D', 'E'] as const;
+export type TabName = typeof TABS[number];
 
-const MODES = [
-  { label: 'Passage', value: 'passage' },
-  { label: '4-Dir Passage', value: '4dir' },
-  { label: 'Ladder', value: 'ladder' },
-  { label: 'Bush', value: 'bush' },
-  { label: 'Counter', value: 'counter' },
-  { label: 'Damage Floor', value: 'damage' },
-  { label: 'Terrain Tag', value: 'terrain' },
+export const MODES = [
+  { label: 'passage', value: 'passage' },
+  { label: '4dir', value: '4dir' },
+  { label: 'ladder', value: 'ladder' },
+  { label: 'bush', value: 'bush' },
+  { label: 'counter', value: 'counter' },
+  { label: 'damage', value: 'damage' },
+  { label: 'terrain', value: 'terrain' },
 ] as const;
 
-type Mode = typeof MODES[number]['value'];
+export type Mode = typeof MODES[number]['value'];
 
 const TILE_SIZE = 24; // Display size (half of 48)
 
@@ -58,6 +52,10 @@ function getTabConfig(tab: TabName) {
   }
 }
 
+export function getTabTilesetIdx(tab: TabName): number {
+  return getTabConfig(tab).tilesetIdx;
+}
+
 function getTileId(tab: TabName, col: number, row: number): number {
   const config = getTabConfig(tab);
   if ((config as { isAutotile?: boolean }).isAutotile) {
@@ -67,9 +65,17 @@ function getTileId(tab: TabName, col: number, row: number): number {
   return config.baseId + row * config.cols + col;
 }
 
-export default function TileFlagsEditor({ flags, tilesetNames, onChange }: TileFlagsEditorProps) {
-  const [activeTab, setActiveTab] = useState<TabName>('B');
-  const [mode, setMode] = useState<Mode>('passage');
+// --- TileFlagsCanvas ---
+interface TileFlagsCanvasProps {
+  flags: number[];
+  tilesetNames: string[];
+  activeTab: TabName;
+  mode: Mode;
+  onTabChange: (tab: TabName) => void;
+  onChange: (flags: number[]) => void;
+}
+
+export function TileFlagsCanvas({ flags, tilesetNames, activeTab, mode, onTabChange, onChange }: TileFlagsCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -115,11 +121,8 @@ export default function TileFlagsEditor({ flags, tilesetNames, onChange }: TileF
 
     const img = imgRef.current;
     if (img && imgLoaded) {
-      // For B-E and A5: direct tile mapping
-      // For A1-A4 autotiles: show one representative tile per kind
       const isAutotile = (config as { isAutotile?: boolean }).isAutotile;
       if (!isAutotile) {
-        // Simple tiles: draw the whole image scaled
         const srcTileSize = 48;
         for (let row = 0; row < rows; row++) {
           for (let col = 0; col < cols; col++) {
@@ -130,7 +133,6 @@ export default function TileFlagsEditor({ flags, tilesetNames, onChange }: TileF
           }
         }
       } else {
-        // Autotiles: show representative image for each kind
         drawAutotileGrid(ctx, img, activeTab, config);
       }
     }
@@ -183,7 +185,6 @@ export default function TileFlagsEditor({ flags, tilesetNames, onChange }: TileF
 
     switch (mode) {
       case 'passage':
-        // Cycle: passable(0) → impassable(0x0F) → star(0x10)
         if ((current & FLAG_STAR) !== 0) {
           newFlag = current & ~FLAG_STAR & ~FLAG_PASSAGE;
         } else if ((current & FLAG_PASSAGE) === FLAG_PASSAGE) {
@@ -193,7 +194,6 @@ export default function TileFlagsEditor({ flags, tilesetNames, onChange }: TileF
         }
         break;
       case '4dir': {
-        // Determine which quadrant was clicked
         const relX = (e.clientX - canvas.getBoundingClientRect().left) - col * TILE_SIZE;
         const relY = (e.clientY - canvas.getBoundingClientRect().top) - row * TILE_SIZE;
         const mid = TILE_SIZE / 2;
@@ -217,7 +217,6 @@ export default function TileFlagsEditor({ flags, tilesetNames, onChange }: TileF
       }
     }
 
-    // For autotiles, apply to all 48 shapes of the kind
     const isAutotile = (config as { isAutotile?: boolean }).isAutotile;
     if (isAutotile) {
       for (let s = 0; s < 48; s++) {
@@ -231,55 +230,65 @@ export default function TileFlagsEditor({ flags, tilesetNames, onChange }: TileF
   };
 
   return (
-    <div>
-      <div className="db-form-section">Tile Flags</div>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+      <div style={{ flex: 1, overflow: 'auto', border: '1px solid #444' }}>
+        {!tilesetName ? (
+          <div style={{ color: '#666', fontSize: 12, padding: 8 }}>No tileset image assigned for {activeTab}</div>
+        ) : (
+          <canvas
+            ref={canvasRef}
+            style={{ display: 'block', cursor: 'pointer' }}
+            onClick={handleClick}
+          />
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: 2, padding: '4px 0', flexWrap: 'wrap', flexShrink: 0 }}>
         {TABS.map(tab => (
           <button
             key={tab}
             className="db-btn-small"
             style={tab === activeTab ? { background: '#2675bf', borderColor: '#2675bf', color: '#fff' } : {}}
-            onClick={() => { setActiveTab(tab); setImgLoaded(false); }}
+            onClick={() => onTabChange(tab)}
           >
             {tab}
           </button>
         ))}
       </div>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
-        {MODES.map(m => (
-          <button
-            key={m.value}
-            className="db-btn-small"
-            style={m.value === mode ? { background: '#bf6226', borderColor: '#bf6226', color: '#fff' } : { fontSize: 11 }}
-            onClick={() => setMode(m.value)}
-          >
-            {m.label}
-          </button>
-        ))}
-      </div>
-      {!tilesetName && (
-        <div style={{ color: '#666', fontSize: 12, padding: 8 }}>No tileset image assigned for {activeTab}</div>
-      )}
-      <div style={{ overflow: 'auto', maxHeight: 400, border: '1px solid #444' }}>
-        <canvas
-          ref={canvasRef}
-          style={{ display: 'block', cursor: 'pointer' }}
-          onClick={handleClick}
-        />
-      </div>
+    </div>
+  );
+}
+
+// --- TileFlagsControls ---
+interface TileFlagsControlsProps {
+  mode: Mode;
+  onModeChange: (mode: Mode) => void;
+  t: (key: string) => string;
+}
+
+export function TileFlagsControls({ mode, onModeChange, t }: TileFlagsControlsProps) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {MODES.map(m => (
+        <button
+          key={m.value}
+          className="db-btn-small"
+          style={m.value === mode
+            ? { background: '#bf6226', borderColor: '#bf6226', color: '#fff', textAlign: 'left', padding: '4px 8px' }
+            : { fontSize: 11, textAlign: 'left', padding: '4px 8px' }
+          }
+          onClick={() => onModeChange(m.value)}
+        >
+          {t(`tileFlags.modes.${m.label}`)}
+        </button>
+      ))}
       <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
-        {mode === 'passage' && 'Click: ○ (passable) → × (impassable) → ☆ (star)'}
-        {mode === '4dir' && 'Click direction quadrant to toggle individual passage'}
-        {mode === 'ladder' && 'Click to toggle ladder flag'}
-        {mode === 'bush' && 'Click to toggle bush flag'}
-        {mode === 'counter' && 'Click to toggle counter flag'}
-        {mode === 'damage' && 'Click to toggle damage floor flag'}
-        {mode === 'terrain' && 'Click to cycle terrain tag (0-7)'}
+        {t(`tileFlags.help.${mode}`)}
       </div>
     </div>
   );
 }
 
+// --- Drawing helpers ---
 function drawAutotileGrid(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -289,21 +298,10 @@ function drawAutotileGrid(
   const srcTileSize = 48;
   const { cols, rows } = config;
 
-  // For autotiles, each kind occupies a 2x3 (96x144) or 2x2 block in the source image
-  // A1: 768x576 — 4 animations per row, 2 rows per block, complex layout
-  // A2: 768x576 — 8 kinds per row (each 96x144), 4 rows of kinds
-  // A3: 768x384 — 8 kinds per row (each 96x96), wall tiles
-  // A4: 768x720 — 8 kinds per row, mixed floor/wall
-
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
-      // Source position: each kind is a 2-tile-wide block
       let sx: number, sy: number;
       if (tab === 'A1') {
-        // A1 has complex layout: 4 animation sets per row, 2 rows
-        // Each animation set: 2 columns x 3 rows of autotile sources = 96x144
-        // Row 0-1: kind 0-7 (water/deep water)
-        // Row 2-3: kind 8-15 (waterfall)
         const kindIdx = row * 4 + col;
         const blockCol = (kindIdx % 4);
         const blockRow = Math.floor(kindIdx / 4);
@@ -316,10 +314,6 @@ function drawAutotileGrid(
         sx = col * 2 * srcTileSize;
         sy = row * 2 * srcTileSize;
       } else if (tab === 'A4') {
-        // A4: alternating floor (3-row) and wall (2-row) blocks
-        // Row 0: floor (8 kinds, 3 src rows each)
-        // Row 1: wall (8 kinds, 2 src rows each)
-        // etc
         const isWall = row % 2 === 1;
         const srcRow = Math.floor(row / 2) * 5 + (isWall ? 3 : 0);
         sx = col * 2 * srcTileSize;
@@ -372,7 +366,6 @@ function drawFlagOverlay(
     }
     case '4dir': {
       const q = size / 4;
-      // Draw each direction
       const dirs = [
         { bit: FLAG_UP, dx: cx, dy: y + q },
         { bit: FLAG_DOWN, dx: cx, dy: y + size - q },
