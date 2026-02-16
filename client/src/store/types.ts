@@ -3,6 +3,7 @@ import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, Edito
 export const PROJECT_STORAGE_KEY = 'rpg-editor-current-project';
 export const MAP_STORAGE_KEY = 'rpg-editor-current-map';
 export const EDIT_MODE_STORAGE_KEY = 'rpg-editor-edit-mode';
+export const TOOLBAR_STORAGE_KEY = 'rpg-editor-toolbar';
 export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4];
 export const DEFAULT_MAX_UNDO = 100;
 export const DEFAULT_ZOOM_STEP = 10; // percent
@@ -176,6 +177,10 @@ export interface EditorState {
   selectedCameraZoneId: number | null;
   selectedCameraZoneIds: number[];
 
+  // Display toggles
+  showGrid: boolean;
+  showPassability: boolean;
+
   // 3D / Lighting
   mode3d: boolean;
   shadowLight: boolean;
@@ -320,6 +325,8 @@ export interface EditorState {
   setPastePreviewPos: (pos: { x: number; y: number } | null) => void;
   clearSelection: () => void;
   setSelectedEventId: (id: number | null) => void;
+  setShowGrid: (show: boolean) => void;
+  setShowPassability: (show: boolean) => void;
   setMode3d: (enabled: boolean) => void;
   setShadowLight: (enabled: boolean) => void;
   setDisableFow: (disabled: boolean) => void;

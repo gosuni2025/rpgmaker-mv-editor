@@ -356,14 +356,7 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
   const clipboard = useEditorStore((s) => s.clipboard);
   const currentMap = useEditorStore((s) => s.currentMap);
   const objectPaintTiles = useEditorStore((s) => s.objectPaintTiles);
-
-  // 통행 표시 on/off (CustomEvent로 토글)
-  const [showPassability, setShowPassability] = React.useState(false);
-  React.useEffect(() => {
-    const handler = (e: Event) => setShowPassability((e as CustomEvent).detail);
-    window.addEventListener('editor-toggle-passability', handler);
-    return () => window.removeEventListener('editor-toggle-passability', handler);
-  }, []);
+  const showPassability = useEditorStore((s) => s.showPassability);
 
   React.useEffect(() => {
     const rObj = refs.rendererObjRef.current;

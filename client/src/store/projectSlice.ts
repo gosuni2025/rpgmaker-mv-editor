@@ -1,7 +1,7 @@
 import apiClient from '../api/client';
 import type { MapInfo, MapData, TilesetData, SystemData } from '../types/rpgMakerMV';
 import type { EditorState, SliceCreator, PlayerStartHistoryEntry } from './types';
-import { PROJECT_STORAGE_KEY, MAP_STORAGE_KEY, EDIT_MODE_STORAGE_KEY } from './types';
+import { PROJECT_STORAGE_KEY, MAP_STORAGE_KEY, EDIT_MODE_STORAGE_KEY, TOOLBAR_STORAGE_KEY } from './types';
 
 export const projectSlice: SliceCreator<Pick<EditorState,
   'projectPath' | 'projectName' | 'maps' | 'currentMapId' | 'currentMap' | 'tilesetInfo' |
@@ -71,6 +71,34 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   },
 
   restoreLastProject: async () => {
+    // Restore toolbar state (project-independent UI settings)
+    try {
+      const toolbarRaw = localStorage.getItem(TOOLBAR_STORAGE_KEY);
+      if (toolbarRaw) {
+        const tb = JSON.parse(toolbarRaw);
+        const updates: Partial<EditorState> = {};
+        if (typeof tb.mode3d === 'boolean') {
+          updates.mode3d = tb.mode3d;
+          const ConfigManager = (window as any).ConfigManager;
+          if (ConfigManager) ConfigManager.mode3d = tb.mode3d;
+        }
+        if (typeof tb.shadowLight === 'boolean') {
+          updates.shadowLight = tb.shadowLight;
+          const ConfigManager = (window as any).ConfigManager;
+          if (ConfigManager) ConfigManager.shadowLight = tb.shadowLight;
+        }
+        if (typeof tb.disableFow === 'boolean') updates.disableFow = tb.disableFow;
+        if (typeof tb.zoomLevel === 'number') updates.zoomLevel = tb.zoomLevel;
+        if (typeof tb.paletteTab === 'string') updates.paletteTab = tb.paletteTab as EditorState['paletteTab'];
+        if (typeof tb.selectedTool === 'string') updates.selectedTool = tb.selectedTool;
+        if (typeof tb.drawShape === 'string') updates.drawShape = tb.drawShape;
+        if (typeof tb.currentLayer === 'number') updates.currentLayer = tb.currentLayer;
+        if (typeof tb.showGrid === 'boolean') updates.showGrid = tb.showGrid;
+        if (typeof tb.showPassability === 'boolean') updates.showPassability = tb.showPassability;
+        set(updates);
+      }
+    } catch {}
+
     const saved = localStorage.getItem(PROJECT_STORAGE_KEY);
     if (saved) {
       try {

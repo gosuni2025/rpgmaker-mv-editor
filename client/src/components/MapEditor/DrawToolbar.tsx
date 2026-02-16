@@ -1,4 +1,3 @@
-import React from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 
@@ -48,8 +47,10 @@ export default function DrawToolbar() {
   const setShowSoundTestDialog = useEditorStore((s) => s.setShowSoundTestDialog);
   const setShowEventSearchDialog = useEditorStore((s) => s.setShowEventSearchDialog);
   const setShowResourceManagerDialog = useEditorStore((s) => s.setShowResourceManagerDialog);
-  const [showGrid, setShowGrid] = React.useState(true);
-  const [showPassability, setShowPassability] = React.useState(false);
+  const showGrid = useEditorStore((s) => s.showGrid);
+  const setShowGrid = useEditorStore((s) => s.setShowGrid);
+  const showPassability = useEditorStore((s) => s.showPassability);
+  const setShowPassability = useEditorStore((s) => s.setShowPassability);
 
   return (
     <div style={styles.toolbar}>
@@ -155,9 +156,6 @@ export default function DrawToolbar() {
         onClick={() => {
           const next = !showGrid;
           setShowGrid(next);
-          window.dispatchEvent(
-            new CustomEvent('editor-toggle-grid', { detail: next })
-          );
           showToast(`격자 ${next ? 'ON' : 'OFF'}`);
         }}
         style={{ ...styles.btn, ...(showGrid ? styles.btnActive : {}) }}
@@ -171,9 +169,6 @@ export default function DrawToolbar() {
           onClick={() => {
             const next = !showPassability;
             setShowPassability(next);
-            window.dispatchEvent(
-              new CustomEvent('editor-toggle-passability', { detail: next })
-            );
             showToast(`통행 표시 ${next ? 'ON' : 'OFF'}`);
           }}
           style={{ ...styles.btn, ...(showPassability ? styles.btnActive : {}) }}

@@ -12,7 +12,7 @@ export function useKeyboardShortcuts(
   containerRef: React.RefObject<HTMLDivElement | null>,
 ): KeyboardShortcutsResult {
   const [altPressed, setAltPressed] = useState(false);
-  const [showGrid, setShowGrid] = useState(true);
+  const showGrid = useEditorStore((s) => s.showGrid);
   const [showTileId, setShowTileId] = useState(false);
   const [panning, setPanning] = useState(false);
   const isPanning = useRef(false);
@@ -136,13 +136,6 @@ export function useKeyboardShortcuts(
       window.removeEventListener('mouseup', handlePanEnd);
     };
   }, [zoomIn, zoomOut]);
-
-  // Grid toggle
-  useEffect(() => {
-    const handler = (e: Event) => setShowGrid((e as CustomEvent<boolean>).detail);
-    window.addEventListener('editor-toggle-grid', handler);
-    return () => window.removeEventListener('editor-toggle-grid', handler);
-  }, []);
 
   // Tile ID debug toggle
   useEffect(() => {
