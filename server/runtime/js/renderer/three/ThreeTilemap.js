@@ -387,7 +387,8 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
         // 그리기 z 레이어 기반 z 오프셋: 높은 drawZ가 카메라에 더 가깝도록 음수
         // z=0→0.00, z=1→-0.01, z=2→-0.02, z=3→-0.03
         var drawZ = drawZArr[i] || 0;
-        var zOffset = -drawZ * 0.01;
+        var elevationEnabled = $dataMap && $dataMap.tileLayerElevation;
+        var zOffset = elevationEnabled ? -drawZ * 0.01 : 0;
 
         for (var j = 0; j < 6; j++) {
             posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
@@ -613,7 +614,8 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(setNumber, meshKe
         // 물 타일은 drawZ 기반 z 오프셋 적용 (높은 drawZ가 카메라에 더 가깝도록 음수)
         var drawZArr = this._drawZData[setNumber] || [];
         var drawZ = drawZArr[i] || 0;
-        var zOffset = -drawZ * 0.01;
+        var elevationEnabled = $dataMap && $dataMap.tileLayerElevation;
+        var zOffset = elevationEnabled ? -drawZ * 0.01 : 0;
         for (var j = 0; j < 6; j++) {
             posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
             posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
@@ -1158,7 +1160,8 @@ ThreeTilemapZLayer.prototype.syncTransform = function() {
     var obj = this._threeObj;
     obj.position.x = this._x - this._pivotX;
     obj.position.y = this._y - this._pivotY;
-    obj.position.z = this._zIndex;
+    var elevationEnabled = $dataMap && $dataMap.tileLayerElevation;
+    obj.position.z = elevationEnabled ? this._zIndex : 0;
     obj.scale.x = this._scaleX;
     obj.scale.y = this._scaleY;
     obj.rotation.z = -this._rotation;

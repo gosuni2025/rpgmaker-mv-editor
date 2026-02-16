@@ -307,6 +307,19 @@ export default function MapInspector() {
         )}
       </div>
 
+      {/* 3D Tile Layer Elevation */}
+      <div className="light-inspector-section">
+        <div className="light-inspector-title">3D 타일 레이어 <ExtBadge inline /></div>
+        <label className="map-inspector-checkbox">
+          <input type="checkbox" checked={!!(currentMap as any).tileLayerElevation}
+            onChange={(e) => updateMapField('tileLayerElevation', e.target.checked)} />
+          <span>타일 레이어 높이 분리</span>
+        </label>
+        <div style={{ fontSize: 11, color: '#888', marginTop: 2, lineHeight: 1.4 }}>
+          3D 모드에서 상층/하층 타일의 Z축 높이를 분리합니다.
+        </div>
+      </div>
+
       {/* Parallax - standard MV */}
       <div className="light-inspector-section">
         <div className="light-inspector-title">먼 배경</div>
