@@ -88,7 +88,7 @@ export function useCommandDragDrop(
   const isDraggable = useCallback((index: number): boolean => {
     const cmd = commands[index];
     if (cmd.code === 0 && index === commands.length - 1) return false;
-    if (CHILD_TO_PARENT[cmd.code] && ![401, 405, 408, 655, 605].includes(cmd.code)) return false;
+    if (CHILD_TO_PARENT[cmd.code]) return false;
     return true;
   }, [commands]);
 
