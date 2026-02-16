@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import apiClient from '../../api/client';
 import type { Animation } from '../../types/rpgMakerMV';
 import AnimationPreview from '../Database/AnimationPreview';
+import type { AnimationPreviewHandle } from '../Database/AnimationPreview';
 import useEscClose from '../../hooks/useEscClose';
 
 const GROUP_SIZE = 20;
@@ -16,6 +17,7 @@ export default function AnimationPickerDialog({ value, onChange, onClose }: {
   onClose: () => void;
 }) {
   useEscClose(onClose);
+  const previewRef = useRef<AnimationPreviewHandle>(null);
   const [animations, setAnimations] = useState<(Animation | null)[]>([]);
   const [selected, setSelected] = useState(value);
 
@@ -92,8 +94,11 @@ export default function AnimationPickerDialog({ value, onChange, onClose }: {
             </div>
           </div>
           {/* 우측: 프리뷰 */}
-          <div style={{ flex: 1, padding: 8, overflow: 'auto' }}>
-            <AnimationPreview animation={selectedAnimation} />
+          <div style={{ flex: 1, padding: 8, overflow: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <AnimationPreview ref={previewRef} animation={selectedAnimation} />
+            <div style={{ marginTop: 8 }}>
+              <button className="db-btn" onClick={() => previewRef.current?.play()}>재생</button>
+            </div>
           </div>
         </div>
         <div className="image-picker-footer">
