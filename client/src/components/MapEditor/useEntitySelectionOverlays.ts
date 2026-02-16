@@ -341,6 +341,45 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
           const cx = obj.x * TILE_SIZE_PX + rw / 2;
           const cy = (obj.y - oh + 1) * TILE_SIZE_PX + rh / 2;
           createHighlightMesh(THREE, rObj.scene, meshes, cx, cy, rw, rh, fillColor, strokeColor, 5.5, 5.8, 9998, 9999);
+          // 앵커 마커: 빨간 원 + 노란 테두리
+          const objAnchorY = obj.anchorY != null ? obj.anchorY : 1.0;
+          const topY = (obj.y - oh + 1) * TILE_SIZE_PX;
+          const anchorPx = topY + rh * objAnchorY;
+          const anchorCx = obj.x * TILE_SIZE_PX + rw / 2;
+          const markerRadius = 5;
+          const segments = 16;
+          // 빨간 원 (채우기)
+          const circleShape = new THREE.Shape();
+          circleShape.absarc(0, 0, markerRadius, 0, Math.PI * 2, false);
+          const circleGeom = new THREE.ShapeGeometry(circleShape, segments);
+          const circleMat = new THREE.MeshBasicMaterial({
+            color: 0xff3232, opacity: 0.85, transparent: true,
+            depthTest: false, side: THREE.DoubleSide,
+          });
+          const circleMesh = new THREE.Mesh(circleGeom, circleMat);
+          circleMesh.position.set(anchorCx, anchorPx, 6.2);
+          circleMesh.renderOrder = 10010;
+          circleMesh.frustumCulled = false;
+          circleMesh.userData.editorGrid = true;
+          rObj.scene.add(circleMesh);
+          meshes.push(circleMesh);
+          // 노란 테두리
+          const ringPts: any[] = [];
+          for (let si = 0; si <= segments; si++) {
+            const angle = (si / segments) * Math.PI * 2;
+            ringPts.push(new THREE.Vector3(Math.cos(angle) * markerRadius, Math.sin(angle) * markerRadius, 0));
+          }
+          const ringGeom = new THREE.BufferGeometry().setFromPoints(ringPts);
+          const ringMat = new THREE.LineBasicMaterial({
+            color: 0xffcc00, depthTest: false, transparent: true, opacity: 1.0,
+          });
+          const ringLine = new THREE.Line(ringGeom, ringMat);
+          ringLine.position.set(anchorCx, anchorPx, 6.3);
+          ringLine.renderOrder = 10011;
+          ringLine.frustumCulled = false;
+          ringLine.userData.editorGrid = true;
+          rObj.scene.add(ringLine);
+          meshes.push(ringLine);
         } else if (tileIds && tileIds.length > 0) {
           for (let row = 0; row < oh; row++) {
             for (let col = 0; col < ow; col++) {

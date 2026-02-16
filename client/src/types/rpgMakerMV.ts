@@ -581,6 +581,7 @@ export interface MapObject {
   passability: boolean[][]; // [row][col] true=통행가능, false=불가
   // 이미지 기반 오브젝트 (선택적)
   imageName?: string;   // 이미지 파일명 (확장자 제외, img/pictures/ 내)
+  anchorY?: number;     // 3D 빌보드 세로 앵커 (0=상단, 0.5=중앙, 1=하단, 기본 1.0)
 }
 
 // Editor-only lighting data (stored as custom field in map JSON, ignored by RPG Maker MV)

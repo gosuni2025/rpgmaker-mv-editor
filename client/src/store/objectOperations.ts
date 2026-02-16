@@ -347,6 +347,7 @@ export function addObjectFromImageOp(get: GetFn, set: SetFn, imageName: string, 
     zHeight: 0,
     passability,
     imageName,
+    anchorY: 1.0,
   };
   objects.push(newObj);
   set({ currentMap: { ...currentMap, objects }, selectedObjectId: newId, selectedObjectIds: [newId] });

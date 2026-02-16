@@ -125,6 +125,10 @@ export default function ObjectInspector() {
     );
   }
 
+  const isImageObj = !!selectedObj.imageName;
+  const anchorY = selectedObj.anchorY ?? 1.0;
+  const [showAnchorHelp, setShowAnchorHelp] = useState(false);
+
   return (
     <div className="light-inspector">
       {/* Header */}
@@ -141,6 +145,91 @@ export default function ObjectInspector() {
           />
         </div>
       </div>
+
+      {/* Image preview with anchor marker (이미지 오브젝트 전용) */}
+      {isImageObj && (
+        <div className="light-inspector-section">
+          <div className="light-inspector-title">이미지</div>
+          <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
+            <img
+              src={`/api/resources/pictures/${selectedObj.imageName}.png`}
+              alt={selectedObj.imageName}
+              style={{ maxWidth: '100%', maxHeight: 120, imageRendering: 'pixelated', display: 'block' }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              onLoad={(e) => {
+                const img = e.target as HTMLImageElement;
+                const marker = img.parentElement?.querySelector('.anchor-marker') as HTMLElement;
+                if (marker) {
+                  marker.style.left = `${img.clientWidth / 2}px`;
+                  marker.style.top = `${img.clientHeight * anchorY}px`;
+                }
+              }}
+            />
+            <div
+              className="anchor-marker"
+              style={{
+                position: 'absolute',
+                width: 12, height: 12,
+                borderRadius: '50%',
+                background: 'rgba(255, 50, 50, 0.8)',
+                border: '2px solid #ffcc00',
+                transform: 'translate(-50%, -50%)',
+                left: '50%',
+                top: `${anchorY * 100}%`,
+                pointerEvents: 'none',
+                boxShadow: '0 0 4px rgba(0,0,0,0.5)',
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Anchor Y (이미지 오브젝트 전용) */}
+      {isImageObj && (
+        <div className="light-inspector-section">
+          <div className="light-inspector-title">
+            앵커
+            <button
+              className="sky-type-help"
+              style={{ marginLeft: 6 }}
+              onClick={() => setShowAnchorHelp(!showAnchorHelp)}
+              title="앵커 도움말"
+            >?</button>
+          </div>
+          {showAnchorHelp && (
+            <div className="sky-help-popup" onClick={() => setShowAnchorHelp(false)}>
+              <strong>앵커</strong>는 3D 모드에서 이미지가 타일 맵과 수직으로 세워질 때의 <strong>기준점</strong>입니다.<br/><br/>
+              <strong>1.0 (하단)</strong>: 이미지 하단이 지면에 닿음 — 나무, 건물 등<br/>
+              <strong>0.5 (중앙)</strong>: 이미지 중심이 지면 높이 — 공중 부유 오브젝트<br/>
+              <strong>0.0 (상단)</strong>: 이미지 상단이 지면 높이<br/><br/>
+              프리뷰의 <span style={{ color: '#ff3232' }}>빨간 원</span>이 앵커 위치입니다.
+            </div>
+          )}
+          <div className="light-inspector-row">
+            <DragLabel label="Y" value={anchorY} step={0.05} min={0} max={1}
+              onChange={(v) => updateObject(selectedObj.id, { anchorY: Math.round(v * 100) / 100 })} />
+            <input type="range" className="light-inspector-slider"
+              min={0} max={1} step={0.05}
+              value={anchorY}
+              onChange={(e) => updateObject(selectedObj.id, { anchorY: parseFloat(e.target.value) })} />
+            <input type="number" className="light-inspector-input" min={0} max={1} step={0.05}
+              style={{ width: 50 }}
+              value={anchorY}
+              onChange={(e) => updateObject(selectedObj.id, { anchorY: parseFloat(e.target.value) || 0 })} />
+          </div>
+          <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+            <button className="light-inspector-input"
+              style={{ flex: 1, cursor: 'pointer', textAlign: 'center', fontSize: 10 }}
+              onClick={() => updateObject(selectedObj.id, { anchorY: 1.0 })}>하단</button>
+            <button className="light-inspector-input"
+              style={{ flex: 1, cursor: 'pointer', textAlign: 'center', fontSize: 10 }}
+              onClick={() => updateObject(selectedObj.id, { anchorY: 0.5 })}>중앙</button>
+            <button className="light-inspector-input"
+              style={{ flex: 1, cursor: 'pointer', textAlign: 'center', fontSize: 10 }}
+              onClick={() => updateObject(selectedObj.id, { anchorY: 0.0 })}>상단</button>
+          </div>
+        </div>
+      )}
 
       {/* Position */}
       <div className="light-inspector-section">
