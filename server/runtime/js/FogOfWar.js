@@ -393,7 +393,12 @@ FogOfWar.setup = function(mapWidth, mapHeight, config) {
     this._active = true;
 
     if (config) {
-        this._fogMode = config.fogMode || '2d';
+        var newMode = config.fogMode || '2d';
+        // fogMode가 변경되면 메시 재생성 필요
+        if (this._fogMode !== newMode && this._fogGroup) {
+            this._disposeMesh();
+        }
+        this._fogMode = newMode;
         this._radius = config.radius != null ? config.radius : 5;
         if (config.fogColor) {
             var c = this._parseColor(config.fogColor);
