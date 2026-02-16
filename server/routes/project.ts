@@ -541,4 +541,106 @@ router.post('/migration-rollback', (req: Request, res: Response) => {
   }
 });
 
+// Git status: check if project is a git repo and git is available
+router.get('/git-status', (req: Request, res: Response) => {
+  try {
+    if (!projectManager.isOpen()) {
+      return res.json({ gitAvailable: false, isGitRepo: false });
+    }
+    const projectRoot = projectManager.currentPath!;
+
+    // Check if git is installed
+    let gitAvailable = false;
+    try {
+      execSync('git --version', { stdio: 'ignore' });
+      gitAvailable = true;
+    } catch { /* git not installed */ }
+
+    if (!gitAvailable) {
+      return res.json({ gitAvailable: false, isGitRepo: false });
+    }
+
+    // Check if it's a git repo
+    let isGitRepo = false;
+    try {
+      execSync('git rev-parse --git-dir', { cwd: projectRoot, stdio: 'ignore' });
+      isGitRepo = true;
+    } catch { /* not a git repo */ }
+
+    res.json({ gitAvailable, isGitRepo });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Git commit: auto-save commit
+router.post('/git-commit', (req: Request, res: Response) => {
+  try {
+    if (!projectManager.isOpen()) {
+      return res.status(404).json({ error: 'No project open' });
+    }
+    const projectRoot = projectManager.currentPath!;
+    const { addAll } = req.body;
+
+    // Check git available
+    try {
+      execSync('git --version', { stdio: 'ignore' });
+    } catch {
+      return res.status(400).json({ error: 'Git is not installed' });
+    }
+
+    // Init repo if not already
+    try {
+      execSync('git rev-parse --git-dir', { cwd: projectRoot, stdio: 'ignore' });
+    } catch {
+      execSync('git init', { cwd: projectRoot, stdio: 'ignore' });
+    }
+
+    // Stage files
+    if (addAll) {
+      execSync('git add -A', { cwd: projectRoot, stdio: 'ignore' });
+    } else {
+      // Only stage modified tracked files
+      execSync('git add -u', { cwd: projectRoot, stdio: 'ignore' });
+    }
+
+    // Check if there's anything to commit
+    try {
+      execSync('git diff --cached --quiet', { cwd: projectRoot, stdio: 'ignore' });
+      // No changes - nothing to commit
+      return res.json({ success: true, committed: false, message: 'No changes to commit' });
+    } catch {
+      // There are staged changes, commit them
+    }
+
+    // Get diff stats before committing
+    let added = 0, modified = 0, deleted = 0;
+    let changedFiles: string[] = [];
+    try {
+      const diffOutput = execSync('git diff --cached --name-status', {
+        cwd: projectRoot, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']
+      }).trim();
+      if (diffOutput) {
+        const lines = diffOutput.split('\n');
+        changedFiles = lines.map(l => l.split('\t').slice(1).join('\t'));
+        for (const line of lines) {
+          const status = line[0];
+          if (status === 'A') added++;
+          else if (status === 'M') modified++;
+          else if (status === 'D') deleted++;
+        }
+      }
+    } catch { /* ignore diff errors */ }
+
+    const now = new Date();
+    const timestamp = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    const commitMessage = `Auto-save: ${timestamp}`;
+    execSync(`git commit -m "${commitMessage}"`, { cwd: projectRoot, stdio: 'ignore' });
+
+    res.json({ success: true, committed: true, message: commitMessage, stats: { added, modified, deleted }, files: changedFiles });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 export default router;

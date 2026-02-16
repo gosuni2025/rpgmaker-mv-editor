@@ -6,6 +6,13 @@ import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 import './OptionsDialog.css';
 
+interface AutoSaveSettings {
+  enabled: boolean;
+  intervalMinutes: number;
+  gitCommit: boolean;
+  gitAddAll: boolean;
+}
+
 interface SettingsResponse {
   steamPath: string;
   language: string;
@@ -13,9 +20,15 @@ interface SettingsResponse {
   maxUndo: number;
   zoomStep: number;
   detectedSteamPath: string | null;
+  autoSave?: AutoSaveSettings;
 }
 
-type CategoryId = 'general' | 'appearance' | 'mapEditor' | 'paths';
+interface GitStatusResponse {
+  gitAvailable: boolean;
+  isGitRepo: boolean;
+}
+
+type CategoryId = 'general' | 'appearance' | 'mapEditor' | 'autoSave' | 'paths';
 
 interface CategoryDef {
   id: CategoryId;
@@ -40,6 +53,13 @@ export default function OptionsDialog() {
   const [localZoomStep, setLocalZoomStep] = useState(zoomStep);
   const [localSteamPath, setLocalSteamPath] = useState('');
   const [detectedSteamPath, setDetectedSteamPath] = useState<string | null>(null);
+  const [localAutoSave, setLocalAutoSave] = useState<AutoSaveSettings>({
+    enabled: true,
+    intervalMinutes: 5,
+    gitCommit: true,
+    gitAddAll: true,
+  });
+  const [gitStatus, setGitStatus] = useState<GitStatusResponse>({ gitAvailable: false, isGitRepo: false });
   const [activeCategory, setActiveCategory] = useState<CategoryId>('general');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -47,7 +67,11 @@ export default function OptionsDialog() {
     apiClient.get<SettingsResponse>('/settings').then((data) => {
       setLocalSteamPath(data.steamPath || '');
       setDetectedSteamPath(data.detectedSteamPath);
+      if (data.autoSave) {
+        setLocalAutoSave(data.autoSave);
+      }
     }).catch(() => {});
+    apiClient.get<GitStatusResponse>('/project/git-status').then(setGitStatus).catch(() => {});
   }, []);
 
   const categories: CategoryDef[] = useMemo(() => [
@@ -79,6 +103,16 @@ export default function OptionsDialog() {
         t('options.categories.mapEditor'),
         t('options.zoomStep'),
         t('options.zoomStepPercent'),
+      ],
+    },
+    {
+      id: 'autoSave',
+      labelKey: 'options.categories.autoSave',
+      searchLabels: [
+        t('options.categories.autoSave'),
+        t('options.autoSaveEnabled'),
+        t('options.autoSaveInterval'),
+        'Git',
       ],
     },
     {
@@ -122,8 +156,11 @@ export default function OptionsDialog() {
         transparentColor: localColor,
         maxUndo: localMaxUndo,
         zoomStep: localZoomStep,
+        autoSave: localAutoSave,
       });
       setDetectedSteamPath(result.detectedSteamPath);
+      // Notify auto-save hook of settings change
+      window.dispatchEvent(new Event('autosave-settings-changed'));
     } catch {}
   };
 
@@ -287,6 +324,80 @@ export default function OptionsDialog() {
                 <span>%</span>
               </label>
             </div>
+          </>
+        );
+      case 'autoSave':
+        return (
+          <>
+            <div className="options-content-title">{t('options.categories.autoSave')}</div>
+            {/* Auto Save */}
+            <div className="db-form-section">{t('options.autoSaveSection')}</div>
+            <div className="db-form" style={{ gap: 8 }}>
+              <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={localAutoSave.enabled}
+                  onChange={(e) => setLocalAutoSave({ ...localAutoSave, enabled: e.target.checked })}
+                />
+                <span>{t('options.autoSaveEnabled')}</span>
+              </label>
+              <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 24 }}>
+                <span>{t('options.autoSaveInterval')}</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={localAutoSave.intervalMinutes}
+                  onChange={(e) => setLocalAutoSave({ ...localAutoSave, intervalMinutes: Math.max(1, Math.min(60, Number(e.target.value) || 1)) })}
+                  style={{ width: 60 }}
+                  disabled={!localAutoSave.enabled}
+                />
+                <span>{t('options.minutes')}</span>
+              </label>
+            </div>
+            {/* Git */}
+            <div className="db-form-section" style={{ marginTop: 16 }}>Git</div>
+            {!gitStatus.gitAvailable ? (
+              <div style={{ padding: '8px 0' }}>
+                <div style={{ color: '#ff4444', fontWeight: 'bold', marginBottom: 8 }}>
+                  {t('options.gitNotInstalled')}
+                </div>
+                <a
+                  href="https://git-scm.com/downloads"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#4ea1f3' }}
+                >
+                  {t('options.gitDownloadLink')}
+                </a>
+              </div>
+            ) : (
+              <div className="db-form" style={{ gap: 8 }}>
+                <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={localAutoSave.gitCommit}
+                    onChange={(e) => setLocalAutoSave({ ...localAutoSave, gitCommit: e.target.checked })}
+                    disabled={!localAutoSave.enabled}
+                  />
+                  <span>{t('options.gitAutoCommit')}</span>
+                </label>
+                <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 24 }}>
+                  <input
+                    type="checkbox"
+                    checked={localAutoSave.gitAddAll}
+                    onChange={(e) => setLocalAutoSave({ ...localAutoSave, gitAddAll: e.target.checked })}
+                    disabled={!localAutoSave.enabled || !localAutoSave.gitCommit}
+                  />
+                  <span>{t('options.gitAddAll')}</span>
+                </label>
+                {!gitStatus.isGitRepo && localAutoSave.gitCommit && (
+                  <div style={{ color: '#f0ad4e', fontSize: 12, marginLeft: 24 }}>
+                    {t('options.gitWillInit')}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         );
       case 'paths':
