@@ -264,6 +264,42 @@ ShadowLight._convertMaterial = function(sprite) {
     });
 
     this._convertedMaterials.set(newMat, true);
+
+    // anchorY shader clipping: material 교체 후에도 유지
+    if (sprite._needsAnchorClip) {
+        newMat.onBeforeCompile = function(shader) {
+            shader.vertexShader = shader.vertexShader.replace(
+                'void main() {',
+                'varying float vLocalY;\nvoid main() {\n  vLocalY = position.y;'
+            );
+            shader.fragmentShader = shader.fragmentShader.replace(
+                'void main() {',
+                'varying float vLocalY;\nvoid main() {\n  if (vLocalY > 0.0) discard;'
+            );
+        };
+        newMat.customProgramCacheKey = function() {
+            return 'mapobj-clip-anchor-phong';
+        };
+        newMat.needsUpdate = true;
+        // customDepthMaterial에도 clipping 적용 (그림자도 잘리도록)
+        if (sprite._threeObj.customDepthMaterial) {
+            var depthMat = sprite._threeObj.customDepthMaterial;
+            depthMat.onBeforeCompile = function(shader) {
+                shader.vertexShader = shader.vertexShader.replace(
+                    'void main() {',
+                    'varying float vLocalY;\nvoid main() {\n  vLocalY = position.y;'
+                );
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    'void main() {',
+                    'varying float vLocalY;\nvoid main() {\n  if (vLocalY > 0.0) discard;'
+                );
+            };
+            depthMat.customProgramCacheKey = function() {
+                return 'mapobj-clip-anchor-depth';
+            };
+            depthMat.needsUpdate = true;
+        }
+    }
 };
 
 //=============================================================================
