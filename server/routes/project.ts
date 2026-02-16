@@ -81,6 +81,21 @@ router.get('/browse', (req: Request, res: Response) => {
   }
 });
 
+router.post('/reveal', (req: Request, res: Response) => {
+  try {
+    const { path: dirPath } = req.body;
+    if (!dirPath || !fs.existsSync(dirPath)) {
+      return res.status(400).json({ error: 'Invalid path' });
+    }
+    const cmd = process.platform === 'darwin' ? 'open'
+      : process.platform === 'win32' ? 'explorer' : 'xdg-open';
+    exec(`${cmd} "${dirPath}"`);
+    res.json({ success: true });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 router.post('/mkdir', (req: Request, res: Response) => {
   try {
     const { path: dirPath, name } = req.body;

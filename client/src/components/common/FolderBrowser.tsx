@@ -74,6 +74,15 @@ export default function FolderBrowser({
     }
   }, [newFolderMode]);
 
+  const handleReveal = async () => {
+    if (!currentPath) return;
+    try {
+      await apiClient.post('/project/reveal', { path: currentPath });
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   const handleNewFolder = async () => {
     const name = newFolderName.trim();
     if (!name) {
@@ -104,6 +113,14 @@ export default function FolderBrowser({
           ↑
         </button>
         <div className="folder-browser-path-text">{currentPath}</div>
+        <button
+          className="folder-browser-nav-btn"
+          onClick={handleReveal}
+          disabled={!currentPath}
+          title={t('folderBrowser.openInExplorer')}
+        >
+          ⎋
+        </button>
         <button
           className="folder-browser-nav-btn"
           onClick={() => { setNewFolderMode(true); setNewFolderName(''); setError(''); }}

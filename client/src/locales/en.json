@@ -1172,7 +1172,8 @@
   },
   "folderBrowser": {
     "newFolder": "New Folder",
-    "newFolderPlaceholder": "Enter folder name"
+    "newFolderPlaceholder": "Enter folder name",
+    "openInExplorer": "Open in Explorer"
   },
   "newProject": {
     "title": "New Project",
