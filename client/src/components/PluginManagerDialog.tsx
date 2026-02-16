@@ -6,7 +6,7 @@ import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 import CreditTextEditor from './CreditTextEditor';
 import AnimationPickerDialog from './EventEditor/AnimationPickerDialog';
-import { DataListPicker } from './EventEditor/DataListPicker';
+import { DataListPicker } from './EventEditor/dataListPicker';
 import './ProjectSettingsDialog.css';
 
 // @type -> database API endpoint mapping for DataListPicker
