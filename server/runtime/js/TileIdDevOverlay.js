@@ -177,6 +177,7 @@
         lines.position.z = 5;
         lines.frustumCulled = false;
         lines.userData._tileIdOverlay = true;
+        lines.userData.editorGrid = true;
         return lines;
     }
 
@@ -579,11 +580,8 @@
         var mapW = $gameMap.width();
         var mapH = $gameMap.height();
 
-        // 3D 모드에서는 2D 그리드를 표시하지 않음
-        if (!is3DActive()) {
-            gridMesh = createGrid(mapW, mapH);
-            if (gridMesh) scene.add(gridMesh);
-        }
+        gridMesh = createGrid(mapW, mapH);
+        if (gridMesh) scene.add(gridMesh);
 
         ensureHoverMesh();
         if (hoverMesh) scene.add(hoverMesh);
