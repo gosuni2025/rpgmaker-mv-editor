@@ -2038,21 +2038,21 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
     if (command === 'DoF' || command === 'DepthOfField' || command === 'PostProcess') {
         if (args[0] === 'on') ConfigManager.depthOfField = true;
         if (args[0] === 'off') ConfigManager.depthOfField = false;
-        if (args[0] === 'focusY' && args[1]) {
-            PostProcess.config.focusY = parseFloat(args[1]);
-        }
-        if (args[0] === 'focusRange' && args[1]) {
-            PostProcess.config.focusRange = parseFloat(args[1]);
-        }
-        if (args[0] === 'maxblur' && args[1]) {
-            PostProcess.config.maxblur = parseFloat(args[1]);
-        }
-        if (args[0] === 'blurPower' && args[1]) {
-            PostProcess.config.blurPower = parseFloat(args[1]);
+        var ppKeys = ['focusY', 'focusRange', 'maxblur', 'blurPower'];
+        for (var pi = 0; pi < ppKeys.length; pi++) {
+            if (args[0] === ppKeys[pi] && args[1]) {
+                var ppVal = parseFloat(args[1]);
+                var ppDur = args[2] ? parseFloat(args[2]) : 0;
+                if (ppDur > 0 && window.PluginTween) {
+                    PluginTween.add({ target: PostProcess.config, key: ppKeys[pi], to: ppVal, duration: ppDur });
+                } else {
+                    PostProcess.config[ppKeys[pi]] = ppVal;
+                }
+            }
         }
     }
 
-    // PPEffect <effectKey> <on|off|paramKey> [value]
+    // PPEffect <effectKey> <on|off|paramKey> [value] [duration]
     if (command === 'PPEffect') {
         var effectKey = args[0];
         var action = args[1];
@@ -2066,8 +2066,35 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 pass.enabled = false;
                 PostProcess._updateRenderToScreen();
             } else if (args[2] != null && PPE) {
-                // paramKey value
-                PPE.applyParam(effectKey, pass, action, parseFloat(args[2]));
+                var ppEffVal = parseFloat(args[2]);
+                var ppEffDur = args[3] ? parseFloat(args[3]) : 0;
+                if (ppEffDur > 0 && window.PluginTween) {
+                    // 프록시 객체로 매 프레임 applyParam 호출
+                    var _ek = effectKey, _act = action, _pass = pass;
+                    if (!PostProcess._ppTweenProxies) PostProcess._ppTweenProxies = {};
+                    var proxyKey = _ek + '_' + _act;
+                    if (!PostProcess._ppTweenProxies[proxyKey]) {
+                        // 현재 유니폼 값을 시작값으로 사용
+                        var curVal = 0;
+                        var map = PPE._UNIFORM_MAP[_ek];
+                        if (map && map[_act] && _pass.uniforms[map[_act]]) {
+                            var u = _pass.uniforms[map[_act]];
+                            if (u.value && u.value.isVector2) {
+                                curVal = (_act.endsWith('X') || _act === 'lightPosX' || _act === 'centerX') ? u.value.x : u.value.y;
+                            } else {
+                                curVal = u.value;
+                            }
+                        }
+                        PostProcess._ppTweenProxies[proxyKey] = { value: curVal };
+                    }
+                    var proxy = PostProcess._ppTweenProxies[proxyKey];
+                    PluginTween.add({
+                        target: proxy, key: 'value', to: ppEffVal, duration: ppEffDur,
+                        onUpdate: function(v) { PPE.applyParam(_ek, _pass, _act, v); }
+                    });
+                } else {
+                    PPE.applyParam(effectKey, pass, action, ppEffVal);
+                }
             }
         }
     }

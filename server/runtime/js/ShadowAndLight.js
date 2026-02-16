@@ -3032,17 +3032,34 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
         if (args[0] === 'on') ConfigManager.shadowLight = true;
         if (args[0] === 'off') ConfigManager.shadowLight = false;
         if (args[0] === 'ambient' && args[1]) {
-            ShadowLight.config.ambientIntensity = parseFloat(args[1]);
-            if (ShadowLight._ambientLight) {
-                ShadowLight._ambientLight.intensity = parseFloat(args[1]);
+            var ambVal = parseFloat(args[1]);
+            var ambDur = args[2] ? parseFloat(args[2]) : 0;
+            if (ambDur > 0 && window.PluginTween) {
+                PluginTween.add({
+                    target: ShadowLight.config, key: 'ambientIntensity', to: ambVal, duration: ambDur,
+                    onUpdate: function(v) {
+                        if (ShadowLight._ambientLight) ShadowLight._ambientLight.intensity = v;
+                    }
+                });
+            } else {
+                ShadowLight.config.ambientIntensity = ambVal;
+                if (ShadowLight._ambientLight) ShadowLight._ambientLight.intensity = ambVal;
             }
         }
         if (args[0] === 'ambientColor' && args[1]) {
             var hex = parseInt(args[1].replace('#', ''), 16);
+            var colorDur = args[2] ? parseFloat(args[2]) : 0;
             if (!isNaN(hex)) {
-                ShadowLight.config.ambientColor = hex;
-                if (ShadowLight._ambientLight) {
-                    ShadowLight._ambientLight.color.setHex(hex);
+                if (colorDur > 0 && window.PluginTween) {
+                    PluginTween.addColor({
+                        target: ShadowLight.config, key: 'ambientColor', to: hex, duration: colorDur,
+                        onUpdate: function(v) {
+                            if (ShadowLight._ambientLight) ShadowLight._ambientLight.color.setHex(v);
+                        }
+                    });
+                } else {
+                    ShadowLight.config.ambientColor = hex;
+                    if (ShadowLight._ambientLight) ShadowLight._ambientLight.color.setHex(hex);
                 }
             }
         }

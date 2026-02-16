@@ -551,7 +551,8 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
     if (match) {
       const label = ctx.t(match.subCmd.label);
       const paramStr = match.paramValues.length > 0 ? ` (${match.paramValues.join(', ')})` : '';
-      return `${ctx.t(match.def.label)}: ${label}${paramStr}`;
+      const durStr = match.duration && parseFloat(match.duration) > 0 ? ` [${match.duration}${ctx.t('addonCommands.seconds_short')}]` : '';
+      return `${ctx.t(match.def.label)}: ${label}${paramStr}${durStr}`;
     }
     return text + `: ${cmdText}`;
   }

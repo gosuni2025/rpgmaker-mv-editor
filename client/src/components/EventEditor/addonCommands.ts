@@ -20,6 +20,8 @@ export interface AddonSubCommand {
   id: string;
   label: string;
   params: AddonParam[];
+  /** 이 서브커맨드가 보간(duration) 적용을 지원하는지 여부 */
+  supportsDuration?: boolean;
 }
 
 export interface AddonCommandDef {
@@ -39,6 +41,7 @@ function ppEffect(effectKey: string, label: string, params: AddonParam[]): Addon
       id: `${effectKey} ${p.name}`,
       label: p.label,
       params: [{ ...p, label: 'addonCommands.param_value' }],
+      supportsDuration: true,
     });
   }
   return { pluginCommand: 'PPEffect', label, subCommands };
@@ -85,6 +88,7 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
         params: [
           { name: 'intensity', type: 'float', label: 'addonCommands.param_intensity', min: 0, max: 2, step: 0.1, default: 0.35 },
         ],
+        supportsDuration: true,
       },
       {
         id: 'ambientColor',
@@ -92,6 +96,7 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
         params: [
           { name: 'color', type: 'color', label: 'addonCommands.param_color', defaultColor: '#667788' },
         ],
+        supportsDuration: true,
       },
       {
         id: 'direction',
@@ -116,6 +121,7 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
         params: [
           { name: 'value', type: 'float', label: 'addonCommands.param_value', min: 0, max: 1, step: 0.05, default: 0.5 },
         ],
+        supportsDuration: true,
       },
       {
         id: 'focusRange',
@@ -123,6 +129,7 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
         params: [
           { name: 'value', type: 'float', label: 'addonCommands.param_value', min: 0, max: 1, step: 0.05, default: 0.3 },
         ],
+        supportsDuration: true,
       },
       {
         id: 'maxblur',
@@ -130,6 +137,7 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
         params: [
           { name: 'value', type: 'float', label: 'addonCommands.param_value', min: 0, max: 0.1, step: 0.005, default: 0.02 },
         ],
+        supportsDuration: true,
       },
       {
         id: 'blurPower',
@@ -137,6 +145,7 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
         params: [
           { name: 'value', type: 'float', label: 'addonCommands.param_value', min: 0, max: 10, step: 0.5, default: 2 },
         ],
+        supportsDuration: true,
       },
     ],
   },
@@ -152,6 +161,7 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
         params: [
           { name: 'deg', type: 'float', label: 'addonCommands.param_degrees', min: 0, max: 90, step: 1, default: 60 },
         ],
+        supportsDuration: true,
       },
       {
         id: 'yaw',
@@ -159,6 +169,7 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
         params: [
           { name: 'deg', type: 'float', label: 'addonCommands.param_degrees', min: -180, max: 180, step: 1, default: 0 },
         ],
+        supportsDuration: true,
       },
     ],
   },
@@ -240,28 +251,32 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
 ];
 
 /** 플러그인 커맨드 텍스트에서 매칭되는 AddonCommandDef를 찾는다 */
-export function matchAddonCommand(text: string): { def: AddonCommandDef; subCmd: AddonSubCommand; paramValues: string[] } | null {
+export function matchAddonCommand(text: string): { def: AddonCommandDef; subCmd: AddonSubCommand; paramValues: string[]; duration?: string } | null {
   const parts = text.trim().split(/\s+/);
   if (parts.length === 0) return null;
 
   const cmdName = parts[0];
 
-  // PPEffect는 3단계: PPEffect <effectKey> <action> [value]
+  // PPEffect는 3단계: PPEffect <effectKey> <action> [value] [duration]
   if (cmdName === 'PPEffect' && parts.length >= 2) {
     const effectKey = parts[1];
     const action = parts[2] || 'on';
     const subId = `${effectKey} ${action}`;
-    // effectKey로 해당 def 찾기
     const def = ADDON_COMMANDS.find(d => d.pluginCommand === 'PPEffect' && d.subCommands.some(s => s.id.startsWith(effectKey + ' ')));
     if (!def) return null;
     const subCmd = def.subCommands.find(s => s.id === subId);
     if (!subCmd) {
       return { def, subCmd: def.subCommands[0], paramValues: parts.slice(2) };
     }
-    return { def, subCmd, paramValues: parts.slice(3) };
+    // params 뒤의 추가 값이 duration일 수 있음
+    const rawParams = parts.slice(3);
+    const paramCount = subCmd.params.length;
+    const paramValues = rawParams.slice(0, paramCount);
+    const duration = subCmd.supportsDuration && rawParams.length > paramCount ? rawParams[paramCount] : undefined;
+    return { def, subCmd, paramValues, duration };
   }
 
-  // 일반 커맨드: <command> <subCommand> [params...]
+  // 일반 커맨드: <command> <subCommand> [params...] [duration]
   const def = ADDON_COMMANDS.find(d => d.pluginCommand === cmdName);
   if (!def) return null;
 
@@ -271,11 +286,19 @@ export function matchAddonCommand(text: string): { def: AddonCommandDef; subCmd:
     return { def, subCmd: def.subCommands[0], paramValues: parts.slice(1) };
   }
 
-  return { def, subCmd, paramValues: parts.slice(2) };
+  const rawParams = parts.slice(2);
+  const paramCount = subCmd.params.length;
+  const paramValues = rawParams.slice(0, paramCount);
+  const duration = subCmd.supportsDuration && rawParams.length > paramCount ? rawParams[paramCount] : undefined;
+  return { def, subCmd, paramValues, duration };
 }
 
 /** AddonCommandDef + 서브커맨드 + 파라미터 값으로 플러그인 커맨드 텍스트를 조합한다 */
-export function buildAddonCommandText(pluginCommand: string, subCommandId: string, paramValues: string[]): string {
+export function buildAddonCommandText(pluginCommand: string, subCommandId: string, paramValues: string[], duration?: string): string {
   const parts = [pluginCommand, subCommandId, ...paramValues];
+  // duration이 있고 0이 아닌 경우에만 추가
+  if (duration && parseFloat(duration) > 0) {
+    parts.push(duration);
+  }
   return parts.filter(p => p !== '').join(' ');
 }
