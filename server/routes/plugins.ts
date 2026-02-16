@@ -231,4 +231,66 @@ router.post('/credit-text/open-folder', (_req: Request, res: Response) => {
   }
 });
 
+// GET /api/plugins/browse-dir?dir=img/skybox - List subdirectories within a project directory
+router.get('/browse-dir', (req: Request, res: Response) => {
+  try {
+    const dir = (req.query.dir as string) || '';
+    const basePath = projectManager.currentPath!;
+    const targetPath = path.join(basePath, dir);
+
+    // Security: prevent path traversal
+    const resolved = path.resolve(targetPath);
+    if (!resolved.startsWith(path.resolve(basePath))) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (!fs.existsSync(targetPath)) {
+      return res.json({ dirs: [] });
+    }
+
+    const entries = fs.readdirSync(targetPath, { withFileTypes: true });
+    const dirs = entries
+      .filter(e => e.isDirectory() && !e.name.startsWith('.'))
+      .map(e => e.name)
+      .sort();
+    res.json({ dirs });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// GET /api/plugins/browse-files?dir=img/skybox&ext=png - List files within a project directory
+router.get('/browse-files', (req: Request, res: Response) => {
+  try {
+    const dir = (req.query.dir as string) || '';
+    const ext = (req.query.ext as string) || '';
+    const basePath = projectManager.currentPath!;
+    const targetPath = path.join(basePath, dir);
+
+    // Security: prevent path traversal
+    const resolved = path.resolve(targetPath);
+    if (!resolved.startsWith(path.resolve(basePath))) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (!fs.existsSync(targetPath)) {
+      return res.json({ files: [] });
+    }
+
+    const entries = fs.readdirSync(targetPath, { withFileTypes: true });
+    let files = entries
+      .filter(e => e.isFile() && !e.name.startsWith('.'))
+      .map(e => e.name);
+
+    if (ext) {
+      const exts = ext.split(',').map(e => '.' + e.toLowerCase());
+      files = files.filter(f => exts.some(e => f.toLowerCase().endsWith(e)));
+    }
+
+    res.json({ files: files.sort() });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 export default router;

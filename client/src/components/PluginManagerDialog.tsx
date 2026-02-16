@@ -77,6 +77,107 @@ interface ProjectSettings {
   fps: number;
 }
 
+/** File picker dialog for @type file parameters */
+function FilePickerDialog({ dir, files, value, onChange, onClose }: {
+  dir: string;
+  files: string[];
+  value: string;
+  onChange: (name: string) => void;
+  onClose: () => void;
+}) {
+  const [selected, setSelected] = useState(value);
+  useEscClose(useCallback(() => onClose(), [onClose]));
+
+  // Determine preview URL for images
+  const isImage = (name: string) => /\.(png|jpe?g|gif|bmp|webp)$/i.test(name);
+  // Find original filename with extension for the selected item
+  const selectedFile = files.find(f => f.replace(/\.[^.]+$/, '') === selected) || '';
+  const previewUrl = selected && selectedFile && isImage(selectedFile)
+    ? `/${dir.replace(/\/$/, '')}/${selectedFile}`
+    : null;
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 10001 }}>
+      <div className="db-dialog" style={{ width: 500, height: 450 }}>
+        <div className="db-dialog-header">파일 선택 ({dir})</div>
+        <div className="db-dialog-body" style={{ display: 'flex', gap: 8, padding: 8, overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflow: 'auto', border: '1px solid #555', borderRadius: 3, background: '#1e1e1e' }}>
+            <div
+              className={`pm-plugin-item${selected === '' ? ' active' : ''}`}
+              onClick={() => setSelected('')}
+            >(None)</div>
+            {files.map(f => {
+              const nameNoExt = f.replace(/\.[^.]+$/, '');
+              return (
+                <div
+                  key={f}
+                  className={`pm-plugin-item${selected === nameNoExt || selected === f ? ' active' : ''}`}
+                  onClick={() => setSelected(nameNoExt)}
+                  onDoubleClick={() => onChange(nameNoExt)}
+                  title={f}
+                >{nameNoExt}</div>
+              );
+            })}
+          </div>
+          <div style={{ width: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #555', borderRadius: 3, background: '#1e1e1e' }}>
+            {previewUrl ? (
+              <img src={previewUrl} alt={selected} style={{ maxWidth: '100%', maxHeight: '100%', imageRendering: 'pixelated' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            ) : (
+              <span style={{ color: '#888', fontSize: 12 }}>{selected || '미리보기 없음'}</span>
+            )}
+          </div>
+        </div>
+        <div className="db-dialog-footer">
+          <button className="db-btn" onClick={() => onChange(selected)}>OK</button>
+          <button className="db-btn" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Directory picker dialog for @type dir parameters */
+function DirPickerDialog({ parentDir, dirs, value, onChange, onClose }: {
+  parentDir: string;
+  dirs: string[];
+  value: string;
+  onChange: (name: string) => void;
+  onClose: () => void;
+}) {
+  const [selected, setSelected] = useState(value);
+  useEscClose(useCallback(() => onClose(), [onClose]));
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 10001 }}>
+      <div className="db-dialog" style={{ width: 400, height: 400 }}>
+        <div className="db-dialog-header">폴더 선택 ({parentDir})</div>
+        <div className="db-dialog-body" style={{ padding: 8, overflow: 'hidden' }}>
+          <div style={{ height: '100%', overflow: 'auto', border: '1px solid #555', borderRadius: 3, background: '#1e1e1e' }}>
+            {dirs.length === 0 ? (
+              <div style={{ padding: 12, color: '#888', textAlign: 'center' }}>폴더가 없습니다</div>
+            ) : (
+              dirs.map(d => (
+                <div
+                  key={d}
+                  className={`pm-plugin-item${selected === d ? ' active' : ''}`}
+                  onClick={() => setSelected(d)}
+                  onDoubleClick={() => onChange(d)}
+                >
+                  📁 {d}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        <div className="db-dialog-footer">
+          <button className="db-btn" onClick={() => onChange(selected)}>OK</button>
+          <button className="db-btn" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PluginManagerDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowPluginManagerDialog);
@@ -97,10 +198,13 @@ export default function PluginManagerDialog() {
   const locale = i18n.language || 'ko';
 
   // Picker dialog states
-  const [pickerType, setPickerType] = useState<'animation' | 'datalist' | null>(null);
+  const [pickerType, setPickerType] = useState<'animation' | 'datalist' | 'file' | 'dir' | null>(null);
   const [pickerParamIndex, setPickerParamIndex] = useState<number>(-1);
   const [dataListItems, setDataListItems] = useState<string[]>([]);
   const [dataListTitle, setDataListTitle] = useState('');
+  const [browseDir, setBrowseDir] = useState('');
+  const [browseFiles, setBrowseFiles] = useState<string[]>([]);
+  const [browseDirs, setBrowseDirs] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -248,6 +352,34 @@ export default function PluginManagerDialog() {
       return;
     }
 
+    if (type === 'file') {
+      const dir = paramMeta.dir || 'img/';
+      setBrowseDir(dir);
+      try {
+        const res = await apiClient.get<{ files: string[] }>(`/plugins/browse-files?dir=${encodeURIComponent(dir)}`);
+        setBrowseFiles(res.files || []);
+      } catch {
+        setBrowseFiles([]);
+      }
+      setPickerParamIndex(paramIndex);
+      setPickerType('file');
+      return;
+    }
+
+    if (type === 'dir') {
+      const dir = paramMeta.dir || 'img/';
+      setBrowseDir(dir);
+      try {
+        const res = await apiClient.get<{ dirs: string[] }>(`/plugins/browse-dir?dir=${encodeURIComponent(dir)}`);
+        setBrowseDirs(res.dirs || []);
+      } catch {
+        setBrowseDirs([]);
+      }
+      setPickerParamIndex(paramIndex);
+      setPickerType('dir');
+      return;
+    }
+
     const dbConfig = DB_TYPE_MAP[type];
     if (dbConfig) {
       try {
@@ -275,7 +407,7 @@ export default function PluginManagerDialog() {
   const hasPickerButton = (paramMeta: PluginParamMeta | undefined): boolean => {
     if (!paramMeta) return false;
     const type = paramMeta.type.toLowerCase();
-    return type === 'animation' || type in DB_TYPE_MAP;
+    return type === 'animation' || type === 'file' || type === 'dir' || type in DB_TYPE_MAP;
   };
 
   const renderParamInput = (plugin: PluginEntry, pluginIndex: number, paramMeta: PluginParamMeta | undefined, paramIndex: number) => {
@@ -563,6 +695,32 @@ export default function PluginManagerDialog() {
             }}
             onClose={() => setPickerType(null)}
             title={dataListTitle}
+          />
+        )}
+
+        {pickerType === 'file' && selectedPlugin && pickerParamIndex >= 0 && (
+          <FilePickerDialog
+            dir={browseDir}
+            files={browseFiles}
+            value={selectedPlugin.parameters[pickerParamIndex]?.value || ''}
+            onChange={(name) => {
+              updateParam(selectedIndex, pickerParamIndex, name);
+              setPickerType(null);
+            }}
+            onClose={() => setPickerType(null)}
+          />
+        )}
+
+        {pickerType === 'dir' && selectedPlugin && pickerParamIndex >= 0 && (
+          <DirPickerDialog
+            parentDir={browseDir}
+            dirs={browseDirs}
+            value={selectedPlugin.parameters[pickerParamIndex]?.value || ''}
+            onChange={(name) => {
+              updateParam(selectedIndex, pickerParamIndex, name);
+              setPickerType(null);
+            }}
+            onClose={() => setPickerType(null)}
           />
         )}
 
