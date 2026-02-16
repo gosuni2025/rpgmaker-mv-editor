@@ -38,52 +38,29 @@ if (typeof THREE !== 'undefined' && THREE.ShaderChunk) {
         }
     })();
 
-    // 2) Lambert vertex shader: vLightBack을 vLightFront와 동일하게
+    // 2) Lambert pars fragment: dotNL을 abs()로 감싸서 Y-flip에서도 양면 라이팅
+    //    (r160에서 Lambert가 fragment-based lighting으로 변경됨, lights_lambert_vertex 제거됨)
     (function() {
-        var key = 'lights_lambert_vertex';
+        var key = 'lights_lambert_pars_fragment';
         var chunk = THREE.ShaderChunk[key];
         if (chunk) {
-            var orig = 'saturate( -dotNL )';
-            var patched = 'saturate( dotNL )';
-            var newChunk = chunk.split(orig).join(patched);
-            if (newChunk !== chunk) {
-                THREE.ShaderChunk[key] = newChunk;
-                console.log('[ShadowLight] ShaderChunk patched: lights_lambert_vertex (bilateral)');
+            var orig = 'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );';
+            var patched = 'float dotNL = saturate( abs( dot( geometryNormal, directLight.direction ) ) );';
+            if (chunk.indexOf(orig) >= 0) {
+                THREE.ShaderChunk[key] = chunk.replace(orig, patched);
+                console.log('[ShadowLight] ShaderChunk patched: lights_lambert_pars_fragment (abs dotNL)');
             }
         }
     })();
 
-    // 3) Lambert fragment: gl_FrontFacing 선택을 항상 Front로 고정
-    (function() {
-        var key = 'meshlambert_frag';
-        var chunk = THREE.ShaderChunk[key];
-        if (chunk) {
-            var changed = false;
-            var o1 = 'reflectedLight.directDiffuse = ( gl_FrontFacing ) ? vLightFront : vLightBack;';
-            var o2 = 'reflectedLight.indirectDiffuse += ( gl_FrontFacing ) ? vIndirectFront : vIndirectBack;';
-            if (chunk.indexOf(o1) >= 0) {
-                chunk = chunk.replace(o1, 'reflectedLight.directDiffuse = vLightFront;');
-                changed = true;
-            }
-            if (chunk.indexOf(o2) >= 0) {
-                chunk = chunk.replace(o2, 'reflectedLight.indirectDiffuse += vIndirectFront;');
-                changed = true;
-            }
-            if (changed) {
-                THREE.ShaderChunk[key] = chunk;
-                console.log('[ShadowLight] ShaderChunk patched: meshlambert_frag (bypass gl_FrontFacing)');
-            }
-        }
-    })();
-
-    // 4) Phong fragment: normal_fragment_begin 패치로 커버되지만,
-    //    lights_phong_pars_fragment의 dotNL도 abs()로 감싸서 안전하게 처리
+    // 3) Phong pars fragment: dotNL을 abs()로 감싸서 Y-flip에서도 양면 라이팅
+    //    (r160에서 geometry.normal → geometryNormal로 변경됨)
     (function() {
         var key = 'lights_phong_pars_fragment';
         var chunk = THREE.ShaderChunk[key];
         if (chunk) {
-            var orig = 'float dotNL = saturate( dot( geometry.normal, directLight.direction ) );';
-            var patched = 'float dotNL = saturate( abs( dot( geometry.normal, directLight.direction ) ) );';
+            var orig = 'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );';
+            var patched = 'float dotNL = saturate( abs( dot( geometryNormal, directLight.direction ) ) );';
             if (chunk.indexOf(orig) >= 0) {
                 THREE.ShaderChunk[key] = chunk.replace(orig, patched);
                 console.log('[ShadowLight] ShaderChunk patched: lights_phong_pars_fragment (abs dotNL)');

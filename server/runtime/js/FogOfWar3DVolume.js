@@ -288,8 +288,7 @@ FogOfWar3DVolume._createRenderTargets = function(screenWidth, screenHeight) {
     if (this._lowResRT) this._lowResRT.dispose();
     this._lowResRT = new THREE.WebGLRenderTarget(lowW, lowH, {
         minFilter: THREE.LinearFilter,
-        magFilter: THREE.LinearFilter,
-        format: THREE.RGBAFormat
+        magFilter: THREE.LinearFilter
     });
 
     if (this._upsampleMaterial) this._upsampleMaterial.dispose();

@@ -305,7 +305,6 @@
                         this.width, this.height, {
                             minFilter: THREE.NearestFilter,
                             magFilter: THREE.NearestFilter,
-                            format: THREE.RGBAFormat,
                             depthBuffer: false,
                             stencilBuffer: false
                         }

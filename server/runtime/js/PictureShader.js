@@ -1737,7 +1737,6 @@ PictureShader.createMaterial = function(type, params, texture) {
             var rt = new THREE.WebGLRenderTarget(rtW, rtH, {
                 minFilter: THREE.NearestFilter,
                 magFilter: THREE.NearestFilter,
-                format: THREE.RGBAFormat,
             });
             this._shaderRTs.push(rt);
         }

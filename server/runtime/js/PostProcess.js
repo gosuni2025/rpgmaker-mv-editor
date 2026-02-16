@@ -231,8 +231,7 @@ function SimpleEffectComposer(renderer, renderTarget) {
     if (renderTarget === undefined) {
         var parameters = {
             minFilter: THREE.LinearFilter,
-            magFilter: THREE.LinearFilter,
-            format: THREE.RGBAFormat
+            magFilter: THREE.LinearFilter
         };
         renderTarget = new THREE.WebGLRenderTarget(w * this._pixelRatio, h * this._pixelRatio, parameters);
         renderTarget.texture.name = 'EffectComposer.rt1';
@@ -628,7 +627,7 @@ function BloomPass(params) {
 BloomPass.prototype.setSize = function(width, height) {
     var bw = Math.max(1, Math.floor(width / this._downscale));
     var bh = Math.max(1, Math.floor(height / this._downscale));
-    var params = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat };
+    var params = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
     if (this._width !== bw || this._height !== bh) {
         this._width = bw;
         this._height = bh;
