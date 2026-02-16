@@ -426,7 +426,7 @@ export default function TilesetPalette() {
               onClick={() => setSelectedLightType('ambient')}
             >
               <div className="light-type-icon" style={{ backgroundColor: '#667788' }} />
-              앰비언트 라이트
+              환경광
             </div>
             <div
               className={`light-type-item${selectedLightType === 'directional' ? ' selected' : ''}`}

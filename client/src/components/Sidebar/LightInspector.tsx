@@ -63,7 +63,7 @@ export default function LightInspector() {
       {selectedLightType === 'ambient' && (
         <div className="light-inspector-section">
           <div className="light-inspector-title">
-            앰비언트 라이트
+            환경광
             <HelpButton text={"글로벌 환경광 설정입니다.\n맵 전체에 기본 적용되며,\n카메라 존에 환경광이 설정된 경우\n해당 존 내에서는 존의 값이 우선 적용됩니다."} />
           </div>
           <div className="light-inspector-row">
