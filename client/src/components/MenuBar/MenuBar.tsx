@@ -241,25 +241,28 @@ export default function MenuBar() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // IME 입력 중에는 단축키 무시 (한글 등)
-      if (e.isComposing || e.key === 'Process') return;
       // 다이얼로그/모달이 열려있으면 맵 편집 단축키를 차단
       const target = e.target as HTMLElement;
       const inDialog = target.closest('.db-dialog-overlay, .modal-overlay, .vs-selector-overlay, .move-route-overlay, .move-route-param-overlay, .l10n-popup-overlay')
         || document.querySelector('.db-dialog-overlay, .modal-overlay, .vs-selector-overlay, .move-route-overlay, .move-route-param-overlay, .l10n-popup-overlay');
       const ctrl = e.ctrlKey || e.metaKey;
+      // IME 입력 중에는 텍스트 입력 필드의 단축키만 무시 (한글 등)
+      // e.code 기반 단축키(M/P/E/B)는 IME 상태와 무관하게 동작해야 함
+      const ime = e.isComposing || e.key === 'Process';
       // 전역 단축키 (다이얼로그 안에서도 동작)
-      if (ctrl && e.key === 's') { e.preventDefault(); handleAction('save'); }
-      else if (e.key === 'F5') { e.preventDefault(); handleAction('modeMap'); }
-      else if (e.key === 'F6') { e.preventDefault(); handleAction('modeEvent'); }
-      else if (e.key === 'F7') { e.preventDefault(); handleAction('modeLight'); }
-      else if (e.key === 'F8') { e.preventDefault(); handleAction('modeObject'); }
-      else if (e.key === 'F9') { e.preventDefault(); handleAction('modeCameraZone'); }
-      else if (e.key === 'F10') { e.preventDefault(); handleAction('database'); }
-      else if (ctrl && e.shiftKey && e.key.toLowerCase() === 'r') { e.preventDefault(); handleAction('playtestTitle'); }
-      else if (ctrl && e.key === 'r') { e.preventDefault(); handleAction('playtestCurrentMap'); }
+      if (ctrl && (e.key === 's' || e.code === 'KeyS')) { e.preventDefault(); handleAction('save'); }
+      else if (e.key === 'F5' || e.code === 'F5') { e.preventDefault(); handleAction('modeMap'); }
+      else if (e.key === 'F6' || e.code === 'F6') { e.preventDefault(); handleAction('modeEvent'); }
+      else if (e.key === 'F7' || e.code === 'F7') { e.preventDefault(); handleAction('modeLight'); }
+      else if (e.key === 'F8' || e.code === 'F8') { e.preventDefault(); handleAction('modeObject'); }
+      else if (e.key === 'F9' || e.code === 'F9') { e.preventDefault(); handleAction('modeCameraZone'); }
+      else if (e.key === 'F10' || e.code === 'F10') { e.preventDefault(); handleAction('database'); }
+      else if (ctrl && e.shiftKey && (e.key.toLowerCase() === 'r' || e.code === 'KeyR')) { e.preventDefault(); handleAction('playtestTitle'); }
+      else if (ctrl && (e.key === 'r' || e.code === 'KeyR')) { e.preventDefault(); handleAction('playtestCurrentMap'); }
       // 다이얼로그 내부에서는 편집 단축키를 맵에 전파하지 않음
       else if (inDialog) return;
+      // IME 입력 중이면 Ctrl 조합 등 텍스트 편집 단축키 무시
+      else if (ime) return;
       else if (ctrl && e.key === 'z') { e.preventDefault(); handleAction('undo'); }
       else if (ctrl && e.key === 'y') { e.preventDefault(); handleAction('redo'); }
       else if (ctrl && e.key === 'x') { e.preventDefault(); handleAction('cut'); }
@@ -273,16 +276,16 @@ export default function MenuBar() {
       else if (ctrl && e.key === 'd') { e.preventDefault(); handleAction('deselect'); }
       else if (e.key === 'Delete') { handleAction('delete'); }
       else if (e.key === 'Escape') { window.dispatchEvent(new CustomEvent('editor-escape')); }
-      // 도구 단축키 (Ctrl/Meta 없이, 텍스트 입력 중이 아닐 때)
+      // 도구 단축키 — e.code 사용으로 IME 상태와 무관하게 동작
       else if (!ctrl && !e.shiftKey && !e.altKey) {
         const tag = (e.target as HTMLElement).tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
         if ((e.target as HTMLElement).isContentEditable) return;
-        switch (e.key.toLowerCase()) {
-          case 'e': e.preventDefault(); handleAction('toolEraser'); break;
-          case 'p': e.preventDefault(); handleAction('toolPen'); break;
-          case 'b': e.preventDefault(); handleAction('toolFill'); break;
-          case 'm': e.preventDefault(); handleAction('toolSelect'); break;
+        switch (e.code) {
+          case 'KeyE': e.preventDefault(); handleAction('toolEraser'); break;
+          case 'KeyP': e.preventDefault(); handleAction('toolPen'); break;
+          case 'KeyB': e.preventDefault(); handleAction('toolFill'); break;
+          case 'KeyM': e.preventDefault(); handleAction('toolSelect'); break;
         }
       }
     };
