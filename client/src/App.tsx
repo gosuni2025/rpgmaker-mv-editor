@@ -25,6 +25,7 @@ import ResourceManagerDialog from './components/ResourceManagerDialog';
 import CharacterGeneratorDialog from './components/CharacterGenerator/CharacterGeneratorDialog';
 import OptionsDialog from './components/OptionsDialog';
 import LocalizationDialog from './components/LocalizationDialog';
+import ProjectSettingsDialog from './components/ProjectSettingsDialog';
 import AutotileDebugDialog from './components/AutotileDebugDialog';
 import LightInspector from './components/Sidebar/LightInspector';
 import ObjectInspector from './components/Sidebar/ObjectInspector';
@@ -98,6 +99,7 @@ export default function App() {
   const showCharacterGeneratorDialog = useEditorStore((s) => s.showCharacterGeneratorDialog);
   const showOptionsDialog = useEditorStore((s) => s.showOptionsDialog);
   const showLocalizationDialog = useEditorStore((s) => s.showLocalizationDialog);
+  const showProjectSettingsDialog = useEditorStore((s) => s.showProjectSettingsDialog);
   const toastMessage = useEditorStore((s) => s.toastMessage);
   const toastPersistent = useEditorStore((s) => s.toastPersistent);
   const dismissToast = useEditorStore((s) => s.dismissToast);
@@ -262,6 +264,7 @@ export default function App() {
       {showCharacterGeneratorDialog && <CharacterGeneratorDialog />}
       {showOptionsDialog && <OptionsDialog />}
       {showLocalizationDialog && <LocalizationDialog />}
+      {showProjectSettingsDialog && <ProjectSettingsDialog />}
       <AutotileDebugDialog open={showAutotileDebug} onClose={() => setShowAutotileDebug(false)} />
       {parseErrors && parseErrors.length > 0 && (
         <div className="db-dialog-overlay">

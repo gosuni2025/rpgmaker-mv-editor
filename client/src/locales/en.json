@@ -68,6 +68,7 @@
     "settings": "Settings",
     "language": "Language",
     "options": "Options...",
+    "projectSettings": "Project Settings...",
     "localization": "Localization...",
     "copyPath": "Copy Project Path",
     "openVscode": "Open in VSCode",
@@ -1313,6 +1314,20 @@
     "agility": "Agility",
     "luck": "Luck",
     "none": "(None)"
+  },
+  "projectSettings": {
+    "title": "Project Settings",
+    "categories": {
+      "general": "General",
+      "screen": "Screen"
+    },
+    "touchUI": "Touch UI",
+    "screenWidth": "Screen Width",
+    "screenHeight": "Screen Height",
+    "fps": "FPS",
+    "pluginEnabled": "Enabled",
+    "noParams": "No parameters",
+    "pluginsSeparator": "Plugins"
   },
   "localization": {
     "title": "Localization Manager",
