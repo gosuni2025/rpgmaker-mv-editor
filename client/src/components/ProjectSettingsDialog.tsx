@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import useEditorStore from '../store/useEditorStore';
 import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
@@ -18,6 +19,7 @@ interface PluginParamMeta {
 }
 
 interface PluginMetadata {
+  pluginname: string;
   plugindesc: string;
   author: string;
   help: string;
@@ -63,7 +65,7 @@ export default function ProjectSettingsDialog() {
     Promise.all([
       apiClient.get<ProjectSettings>('/project-settings'),
       apiClient.get<{ files: string[]; list: PluginEntry[] }>('/plugins'),
-      apiClient.get<Record<string, PluginMetadata>>('/plugins/metadata'),
+      apiClient.get<Record<string, PluginMetadata>>(`/plugins/metadata?locale=${i18n.language || 'ko'}`),
     ]).then(([settingsData, pluginsData, metaData]) => {
       setSettings(settingsData);
       setPlugins(pluginsData.list);
@@ -86,7 +88,7 @@ export default function ProjectSettingsDialog() {
       const meta = metadata[plugin.name];
       cats.push({
         id: `plugin:${plugin.name}`,
-        label: plugin.name,
+        label: meta?.pluginname || plugin.name,
         isPlugin: true,
       });
     }
@@ -288,7 +290,7 @@ export default function ProjectSettingsDialog() {
 
       return (
         <>
-          <div className="ps-content-title">{pluginName}</div>
+          <div className="ps-content-title">{meta?.pluginname || pluginName}</div>
           {meta?.plugindesc && (
             <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>{meta.plugindesc}</div>
           )}
