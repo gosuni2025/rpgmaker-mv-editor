@@ -573,12 +573,11 @@
                 ShadowLight.config.spotLightEnabled && ShadowLight._active) {
                 Mode3D._applyBillboardsForShadow();
                 renderer.shadowMap.needsUpdate = true;
-                var gl = renderer.getContext();
-                gl.colorMask(false, false, false, false);
-                gl.depthMask(false);
+                renderer.state.buffers.color.setMask(false);
+                renderer.state.buffers.depth.setMask(false);
                 renderer.render(scene, Mode3D._perspCamera);
-                gl.colorMask(true, true, true, true);
-                gl.depthMask(true);
+                renderer.state.buffers.color.setMask(true);
+                renderer.state.buffers.depth.setMask(true);
                 Mode3D._applyBillboards();
             } else {
                 renderer.shadowMap.needsUpdate = true;

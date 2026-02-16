@@ -433,7 +433,6 @@
         var renderTarget = new THREE.WebGLRenderTarget(width, height, {
             minFilter: THREE.NearestFilter,
             magFilter: THREE.NearestFilter,
-            format: THREE.RGBAFormat,
             depthBuffer: false,
             stencilBuffer: false
         });
@@ -599,8 +598,7 @@
                 if (rendererObj._colorMatrixRT) rendererObj._colorMatrixRT.dispose();
                 rendererObj._colorMatrixRT = new THREE.WebGLRenderTarget(w, h, {
                     minFilter: THREE.LinearFilter,
-                    magFilter: THREE.LinearFilter,
-                    format: THREE.RGBAFormat
+                    magFilter: THREE.LinearFilter
                 });
             }
 
