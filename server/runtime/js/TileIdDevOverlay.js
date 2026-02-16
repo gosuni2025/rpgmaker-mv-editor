@@ -579,8 +579,11 @@
         var mapW = $gameMap.width();
         var mapH = $gameMap.height();
 
-        gridMesh = createGrid(mapW, mapH);
-        if (gridMesh) scene.add(gridMesh);
+        // 3D 모드에서는 2D 그리드를 표시하지 않음
+        if (!is3DActive()) {
+            gridMesh = createGrid(mapW, mapH);
+            if (gridMesh) scene.add(gridMesh);
+        }
 
         ensureHoverMesh();
         if (hoverMesh) scene.add(hoverMesh);
