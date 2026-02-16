@@ -156,20 +156,21 @@ ThreeWaterShader.FRAGMENT_PARS = [
 ].join('\n');
 
 // 물 타일용 fragment 로직 (#include <map_fragment> 뒤에 삽입)
+// r160: vUv → vMapUv (Phong material 내장 셰이더에서 UV varying 이름 변경)
 ThreeWaterShader.FRAGMENT_MAIN = [
     '{',
     '    // 주변 텍셀 alpha 최솟값으로 해변 경계 감지 → wave 왜곡 감쇠',
     '    vec2 texSize = vec2(textureSize(map, 0));',
     '    vec2 texel = 1.0 / texSize;',
     '    float edgeDist = 8.0;',
-    '    float a0 = texture2D(map, clamp(vUv + vec2(-texel.x * edgeDist, 0.0), vUvBounds.xy, vUvBounds.zw)).a;',
-    '    float a1 = texture2D(map, clamp(vUv + vec2( texel.x * edgeDist, 0.0), vUvBounds.xy, vUvBounds.zw)).a;',
-    '    float a2 = texture2D(map, clamp(vUv + vec2(0.0, -texel.y * edgeDist), vUvBounds.xy, vUvBounds.zw)).a;',
-    '    float a3 = texture2D(map, clamp(vUv + vec2(0.0,  texel.y * edgeDist), vUvBounds.xy, vUvBounds.zw)).a;',
+    '    float a0 = texture2D(map, clamp(vMapUv + vec2(-texel.x * edgeDist, 0.0), vUvBounds.xy, vUvBounds.zw)).a;',
+    '    float a1 = texture2D(map, clamp(vMapUv + vec2( texel.x * edgeDist, 0.0), vUvBounds.xy, vUvBounds.zw)).a;',
+    '    float a2 = texture2D(map, clamp(vMapUv + vec2(0.0, -texel.y * edgeDist), vUvBounds.xy, vUvBounds.zw)).a;',
+    '    float a3 = texture2D(map, clamp(vMapUv + vec2(0.0,  texel.y * edgeDist), vUvBounds.xy, vUvBounds.zw)).a;',
     '    float minAlpha = min(min(a0, a1), min(a2, a3));',
     '    float waveFade = smoothstep(0.0, 1.0, minAlpha);',
-    '    vec2 waveOffset = waterWaveUV(vUv, vWorldPos, uTime) - vUv;',
-    '    vec2 waveUV = clamp(vUv + waveOffset * waveFade, vUvBounds.xy, vUvBounds.zw);',
+    '    vec2 waveOffset = waterWaveUV(vMapUv, vWorldPos, uTime) - vMapUv;',
+    '    vec2 waveUV = clamp(vMapUv + waveOffset * waveFade, vUvBounds.xy, vUvBounds.zw);',
     '    vec4 waveTexColor = texture2D(map, waveUV);',
     '    diffuseColor = waveTexColor;',
     '}',
@@ -206,11 +207,12 @@ ThreeWaterShader.SPECULAR_INJECT = [
 ].join('\n');
 
 // 폭포 타일용 fragment 로직
+// r160: vUv → vMapUv
 ThreeWaterShader.WATERFALL_FRAGMENT_MAIN = [
     '{',
     '    float wfWaveX = sin(vWorldPos.y * 6.0 + uTime * 3.0) * 0.004;',
     '    float wfWaveY = cos(vWorldPos.x * 3.0 + uTime * 2.5) * 0.003;',
-    '    vec2 wfUV = clamp(vUv + vec2(wfWaveX, wfWaveY), vUvBounds.xy, vUvBounds.zw);',
+    '    vec2 wfUV = clamp(vMapUv + vec2(wfWaveX, wfWaveY), vUvBounds.xy, vUvBounds.zw);',
     '    vec4 wfTexColor = texture2D(map, wfUV);',
     '    diffuseColor = wfTexColor;',
     '}',
