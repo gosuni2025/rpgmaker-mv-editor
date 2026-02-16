@@ -5981,6 +5981,7 @@ Game_Map.prototype.isPassable = function(x, y, d) {
         for (var i = 0; i < objects.length; i++) {
             var obj = objects[i];
             if (!obj || !obj.passability) continue;
+            if (obj.visible === false) continue;
             var col = x - obj.x;
             var row = y - (obj.y - obj.height + 1);
             if (col >= 0 && col < obj.width && row >= 0 && row < obj.height) {

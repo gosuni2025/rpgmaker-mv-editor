@@ -579,6 +579,7 @@ export interface MapObject {
   height: number;       // 타일 행 수
   zHeight: number;      // Z 높이 오프셋 (3D 빌보드용)
   passability: boolean[][]; // [row][col] true=통행가능, false=불가
+  visible?: boolean;    // 화면 표시 여부 (기본 true, false 시 렌더링 및 충돌 모두 비활성)
   // 이미지 기반 오브젝트 (선택적)
   imageName?: string;   // 이미지 파일명 (확장자 제외, img/pictures/ 내)
   anchorY?: number;     // 3D 빌보드 세로 앵커 (0=상단, 0.5=중앙, 1=하단, 기본 1.0)

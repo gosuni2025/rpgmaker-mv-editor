@@ -147,6 +147,19 @@ export default function ObjectInspector() {
             onChange={(e) => updateObject(selectedObj.id, { name: e.target.value })}
           />
         </div>
+        <div className="light-inspector-row" style={{ marginTop: 4 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12 }}>
+            <input
+              type="checkbox"
+              checked={selectedObj.visible !== false}
+              onChange={(e) => updateObject(selectedObj.id, { visible: e.target.checked })}
+            />
+            화면에 표시
+          </label>
+          <span style={{ fontSize: 10, color: '#888', marginLeft: 'auto' }}>
+            {selectedObj.visible === false ? '숨김 (충돌 비활성)' : ''}
+          </span>
+        </div>
       </div>
 
       {/* Image preview with anchor marker (이미지 오브젝트 전용) */}
