@@ -35,7 +35,7 @@ export const MODES = [
 
 export type Mode = typeof MODES[number]['value'];
 
-const TILE_SIZE = 24; // Display size (half of 48)
+const TILE_SIZE = 48; // Display size (same as source)
 
 function getTabConfig(tab: TabName) {
   switch (tab) {
