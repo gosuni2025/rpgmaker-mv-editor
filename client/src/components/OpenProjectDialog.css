@@ -42,47 +42,6 @@
   overflow: hidden;
 }
 
-.opd-path-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: #333;
-  border-bottom: 1px solid #444;
-}
-
-.opd-nav-btn {
-  background: #4a4a4a;
-  border: 1px solid #555;
-  border-radius: 3px;
-  color: #ddd;
-  padding: 2px 8px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.opd-nav-btn:hover:not(:disabled) {
-  background: #555;
-}
-
-.opd-nav-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.opd-path-text {
-  flex: 1;
-  font-size: 12px;
-  color: #bbb;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: #2b2b2b;
-  padding: 4px 8px;
-  border-radius: 3px;
-  border: 1px solid #555;
-}
-
 .opd-dir-list {
   flex: 1;
   overflow-y: auto;
@@ -107,18 +66,11 @@
   flex-shrink: 0;
 }
 
-.opd-loading,
 .opd-empty {
   padding: 16px;
   text-align: center;
   color: #666;
   font-size: 13px;
-}
-
-.opd-error {
-  padding: 12px;
-  color: #e55;
-  font-size: 12px;
 }
 
 .opd-project-badge {

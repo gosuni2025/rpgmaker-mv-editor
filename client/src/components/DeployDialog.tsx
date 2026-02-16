@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
 import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
+import FolderBrowser from './common/FolderBrowser';
 
 type Platform = 'web' | 'windows' | 'macos';
 
@@ -14,23 +15,10 @@ export default function DeployDialog() {
   const [platform, setPlatform] = useState<Platform>('web');
   const [excludeUnused, setExcludeUnused] = useState(true);
   const [outputPath, setOutputPath] = useState('');
-  const [browseDirs, setBrowseDirs] = useState<string[]>([]);
-  const [currentBrowsePath, setCurrentBrowsePath] = useState('');
   const [showBrowse, setShowBrowse] = useState(false);
   const [deploying, setDeploying] = useState(false);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
-
-  const browse = useCallback(async (dirPath: string) => {
-    try {
-      const query = dirPath ? `?path=${encodeURIComponent(dirPath)}` : '';
-      const res = await apiClient.get<{ path: string; parent: string; dirs: string[] }>(`/project/browse${query}`);
-      setCurrentBrowsePath(res.path);
-      setBrowseDirs(res.dirs);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, []);
 
   const handleDeploy = async () => {
     if (!outputPath.trim()) {
@@ -93,27 +81,15 @@ export default function DeployDialog() {
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
               <input type="text" value={outputPath} readOnly
                 style={{ flex: 1, background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '6px 8px', color: '#ddd', fontSize: 13 }} />
-              <button className="db-btn" onClick={() => { setShowBrowse(true); browse(''); }}>{t('deploy.browse')}</button>
+              <button className="db-btn" onClick={() => setShowBrowse(true)}>{t('deploy.browse')}</button>
             </div>
           </div>
 
           {showBrowse && (
-            <div style={{ border: '1px solid #555', borderRadius: 3, background: '#333', maxHeight: 200, overflow: 'auto' }}>
-              <div style={{ padding: '4px 8px', fontSize: 11, color: '#888', borderBottom: '1px solid #444', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <button className="db-btn-small" onClick={() => browse(currentBrowsePath + '/..')}>↑</button>
-                <span>{currentBrowsePath}</span>
-              </div>
-              {browseDirs.map(d => (
-                <div key={d} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: 12 }}
-                  onClick={() => browse(currentBrowsePath + '/' + d)}
-                  onDoubleClick={() => { setOutputPath(currentBrowsePath + '/' + d); setShowBrowse(false); }}>
-                  📁 {d}
-                </div>
-              ))}
-              <div style={{ padding: 4, borderTop: '1px solid #444', display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
-                <button className="db-btn-small" onClick={() => { setOutputPath(currentBrowsePath); setShowBrowse(false); }}>{t('deploy.selectFolder')}</button>
-              </div>
-            </div>
+            <FolderBrowser
+              onSelect={(path) => { setOutputPath(path); setShowBrowse(false); }}
+              style={{ border: '1px solid #555', borderRadius: 3, background: '#333', maxHeight: 250 }}
+            />
           )}
 
           {progress && <div style={{ color: '#6c6', fontSize: 12 }}>{progress}</div>}
