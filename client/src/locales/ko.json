@@ -1260,7 +1260,8 @@
   },
   "folderBrowser": {
     "newFolder": "새 폴더",
-    "newFolderPlaceholder": "폴더 이름 입력"
+    "newFolderPlaceholder": "폴더 이름 입력",
+    "openInExplorer": "탐색기에서 열기"
   },
   "newProject": {
     "title": "새 프로젝트",
