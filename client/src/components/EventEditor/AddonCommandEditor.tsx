@@ -41,15 +41,19 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
     return subCmd.params.map(getParamDefault);
   });
 
-  const [duration, setDuration] = useState(initialDuration ?? '0');
+  const [applyMode, setApplyMode] = useState<'instant' | 'interpolate'>(() =>
+    initialDuration && parseFloat(initialDuration) > 0 ? 'interpolate' : 'instant'
+  );
+  const [duration, setDuration] = useState(() =>
+    initialDuration && parseFloat(initialDuration) > 0 ? initialDuration : '1'
+  );
   const [showLightPicker, setShowLightPicker] = useState<number | null>(null); // param index
 
   const handleSubCmdChange = (idx: number) => {
     setSelectedSubIdx(idx);
     const newSub = def.subCommands[idx];
     setParamValues(newSub.params.map(p => p.type === 'color' ? (p.defaultColor ?? '#000000') : String(p.default ?? '')));
-    // duration을 유지하되, 새 서브커맨드가 duration 미지원이면 0으로 리셋
-    if (!newSub.supportsDuration) setDuration('0');
+    if (!newSub.supportsDuration) setApplyMode('instant');
   };
 
   const handleParamChange = (idx: number, value: string) => {
@@ -59,7 +63,9 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
   };
 
   const handleOk = () => {
-    const dur = subCmd.supportsDuration ? duration : undefined;
+    const dur = subCmd.supportsDuration
+      ? (applyMode === 'interpolate' ? duration : '0')
+      : undefined;
     const text = buildAddonCommandText(def.pluginCommand, subCmd.id, paramValues, dur);
     onOk([text]);
   };
@@ -144,17 +150,14 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
             <label className="addon-cmd-label">{t('addonCommands.applyMode')}</label>
             <select
               className="addon-cmd-select"
-              value={parseFloat(duration) > 0 ? 'interpolate' : 'instant'}
-              onChange={e => {
-                if (e.target.value === 'instant') setDuration('0');
-                else if (parseFloat(duration) <= 0) setDuration('1');
-              }}
+              value={applyMode}
+              onChange={e => setApplyMode(e.target.value as 'instant' | 'interpolate')}
             >
               <option value="instant">{t('addonCommands.applyInstant')}</option>
               <option value="interpolate">{t('addonCommands.applyInterpolate')}</option>
             </select>
           </div>
-          {parseFloat(duration) > 0 && (
+          {applyMode === 'interpolate' && (
             <div className="addon-cmd-row">
               <label className="addon-cmd-label">{t('addonCommands.duration')}</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -162,7 +165,7 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
                   type="number"
                   className="addon-cmd-input"
                   value={duration}
-                  min={0.1}
+                  min={0}
                   max={60}
                   step={0.1}
                   onChange={e => setDuration(e.target.value)}
@@ -177,7 +180,7 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
       <div className="addon-cmd-preview">
         <label className="addon-cmd-label">{t('addonCommands.preview')}</label>
         <code className="addon-cmd-preview-text">
-          {buildAddonCommandText(def.pluginCommand, subCmd.id, paramValues, subCmd.supportsDuration ? duration : undefined)}
+          {buildAddonCommandText(def.pluginCommand, subCmd.id, paramValues, subCmd.supportsDuration ? (applyMode === 'interpolate' ? duration : '0') : undefined)}
         </code>
       </div>
 

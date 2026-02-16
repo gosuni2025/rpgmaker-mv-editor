@@ -1679,16 +1679,16 @@ var _fowProf = {
         if (this.drawCalls > 0) {
             dcInfo = '  draws=' + (this.drawCalls/n).toFixed(0) + '  tris=' + (this.triangles/n).toFixed(0);
         }
-        console.log('[FoW Prof] total=' + (this.total/n).toFixed(2) +
-            'ms  postProc=' + (this.postProcess/n).toFixed(2) +
-            '  vis=' + (this.visibility/n).toFixed(2) +
-            '  lerp=' + (this.lerp/n).toFixed(2) +
-            '  tex=' + (this.texture/n).toFixed(2) +
-            '  meshPos=' + (this.meshPos/n).toFixed(2) +
-            '  meshUni=' + (this.meshUni/n).toFixed(2) +
-            '  losDbg=' + (this.losDbg/n).toFixed(2) +
-            dcInfo +
-            '  fogMode=' + (FogOfWar._fogMode || '?'));
+        // console.log('[FoW Prof] total=' + (this.total/n).toFixed(2) +
+        //     'ms  postProc=' + (this.postProcess/n).toFixed(2) +
+        //     '  vis=' + (this.visibility/n).toFixed(2) +
+        //     '  lerp=' + (this.lerp/n).toFixed(2) +
+        //     '  tex=' + (this.texture/n).toFixed(2) +
+        //     '  meshPos=' + (this.meshPos/n).toFixed(2) +
+        //     '  meshUni=' + (this.meshUni/n).toFixed(2) +
+        //     '  losDbg=' + (this.losDbg/n).toFixed(2) +
+        //     dcInfo +
+        //     '  fogMode=' + (FogOfWar._fogMode || '?'));
         this.frameCount = 0;
         this.total = this.postProcess = this.visibility = this.lerp = this.texture = this.meshPos = this.meshUni = this.losDbg = 0;
         this.drawCalls = this.triangles = 0;

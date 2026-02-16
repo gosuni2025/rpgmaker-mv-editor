@@ -209,6 +209,7 @@ export function createApp(options: AppOptions = {}) {
         <script defer src="js/rpg_scenes.js${cacheBust}"></script>
         <script defer src="js/rpg_sprites.js${cacheBust}"></script>
         <script defer src="js/rpg_windows.js${cacheBust}"></script>
+        <script defer src="js/PluginTween.js${cacheBust}"></script>
         <script defer src="js/Mode3D.js${cacheBust}"></script>
         <script defer src="js/ShadowAndLight.js${cacheBust}"></script>
         <script defer src="js/PostProcessEffects.js${cacheBust}"></script>
