@@ -7,9 +7,7 @@ directories:
 
 files:
   - dist-electron/**/*
-  - server/dist/**/*
   - server/runtime/**/*
-  - server/node_modules/**/*
   - client/dist/**/*
   - "!**/node_modules/.cache"
 
