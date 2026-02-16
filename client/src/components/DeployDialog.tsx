@@ -106,15 +106,15 @@ export default function DeployDialog() {
               onPathChange={(path) => setBrowsePath(path)}
               onSelect={(path) => { setOutputPath(path); setShowBrowse(false); }}
               style={{ flex: 1, overflow: 'hidden' }}
+              toolbarExtra={<>
+                <button className="db-btn-small" style={{ background: '#0078d4', borderColor: '#0078d4' }}
+                  onClick={() => { if (browsePath) { setOutputPath(browsePath); setShowBrowse(false); } }}
+                  disabled={!browsePath}>
+                  {t('deploy.selectFolder')}
+                </button>
+                <button className="db-btn-small" onClick={() => setShowBrowse(false)}>{t('common.cancel')}</button>
+              </>}
             />
-            <div className="db-dialog-footer">
-              <button className="db-btn" style={{ background: '#0078d4', borderColor: '#0078d4' }}
-                onClick={() => { if (browsePath) { setOutputPath(browsePath); setShowBrowse(false); } }}
-                disabled={!browsePath}>
-                {t('deploy.selectFolder')}
-              </button>
-              <button className="db-btn" onClick={() => setShowBrowse(false)}>{t('common.cancel')}</button>
-            </div>
           </div>
         </div>
       )}

@@ -82,8 +82,13 @@
 
 .folder-browser-toolbar {
   display: flex;
+  align-items: center;
   gap: 4px;
   padding: 6px 8px;
   border-top: 1px solid #444;
   background: #333;
+}
+
+.folder-browser-toolbar-spacer {
+  flex: 1;
 }
