@@ -20,6 +20,8 @@ export function cutEventOp(get: GetFn, set: SetFn, eventId: number) {
 export function pasteEventOp(get: GetFn, set: SetFn, x: number, y: number) {
   const { clipboard, currentMap } = get();
   if (!clipboard || clipboard.type !== 'event' || !clipboard.event || !currentMap) return;
+  // 해당 위치에 이미 이벤트가 있으면 붙여넣기하지 않음
+  if (currentMap.events?.some(e => e && e.id !== 0 && e.x === x && e.y === y)) return;
   const oldEvents = [...(currentMap.events || [])];
   const events = [...oldEvents];
   const maxId = events.reduce((max, e) => (e && e.id > max ? e.id : max), 0);
