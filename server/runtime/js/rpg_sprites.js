@@ -2586,13 +2586,53 @@ Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
         sprite._objShaderRTs.push(rt);
     }
 
-    // 최종 출력용 MeshBasicMaterial
-    var outputMat = new THREE.MeshBasicMaterial({
-        transparent: true,
-        depthTest: false,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-    });
+    // 최종 출력용 Material: 3D 모드(ShadowLight 활성)이면 MeshPhongMaterial, 아니면 MeshBasicMaterial
+    var outputMat;
+    var is3D = typeof ShadowLight !== 'undefined' && ShadowLight._active;
+    if (is3D && sprite._objOriginalMaterial && sprite._objOriginalMaterial.isMeshPhongMaterial) {
+        outputMat = new THREE.MeshPhongMaterial({
+            transparent: false,
+            alphaTest: 0.5,
+            depthTest: true,
+            depthWrite: true,
+            side: THREE.DoubleSide,
+            emissive: new THREE.Color(0x000000),
+            specular: new THREE.Color(0x000000),
+            shininess: 0,
+        });
+        // ShadowLight의 재변환 방지: _convertedMaterials에 등록
+        if (ShadowLight._convertedMaterials) {
+            ShadowLight._convertedMaterials.set(outputMat, true);
+        }
+        // customDepthMaterial 유지 (그림자 캐스팅)
+        if (sprite._threeObj && sprite._threeObj.customDepthMaterial) {
+            // customDepthMaterial.map은 _executeObjectMultipass에서 업데이트
+        }
+    } else {
+        outputMat = new THREE.MeshBasicMaterial({
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+        });
+    }
+    // anchorY shader clipping: 원래 material에 적용되어 있었다면 출력 material에도 적용
+    if (sprite._needsAnchorClip && outputMat.isMeshPhongMaterial) {
+        outputMat.onBeforeCompile = function(shader) {
+            shader.vertexShader = shader.vertexShader.replace(
+                'void main() {',
+                'varying float vLocalY;\nvoid main() {\n  vLocalY = position.y;'
+            );
+            shader.fragmentShader = shader.fragmentShader.replace(
+                'void main() {',
+                'varying float vLocalY;\nvoid main() {\n  if (vLocalY > 0.0) discard;'
+            );
+        };
+        outputMat.customProgramCacheKey = function() {
+            return 'mapobj-shader-clip-anchor-phong';
+        };
+        outputMat.needsUpdate = true;
+    }
     sprite._objOutputMaterial = outputMat;
     sprite._material = outputMat;
     if (sprite._threeObj) {
@@ -2639,13 +2679,15 @@ Spriteset_Map.prototype._executeObjectMultipass = function(sprite, passes) {
     }
 
     if (sprite._objOutputMaterial) {
-        if (lastRT) {
-            sprite._objOutputMaterial.map = lastRT.texture;
-        } else {
-            sprite._objOutputMaterial.map = sourceTexture;
-        }
+        var finalTex = lastRT ? lastRT.texture : sourceTexture;
+        sprite._objOutputMaterial.map = finalTex;
         sprite._objOutputMaterial.opacity = sprite.worldAlpha != null ? sprite.worldAlpha : 1.0;
         sprite._objOutputMaterial.needsUpdate = true;
+        // 3D 모드: customDepthMaterial.map도 동기화 (그림자 실루엣)
+        if (sprite._threeObj && sprite._threeObj.customDepthMaterial) {
+            sprite._threeObj.customDepthMaterial.map = finalTex;
+            sprite._threeObj.customDepthMaterial.needsUpdate = true;
+        }
     }
 };
 
