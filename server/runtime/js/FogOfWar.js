@@ -1475,8 +1475,7 @@ FogOfWar._createMeshVolume = function() {
 
     var geometry = new THREE.PlaneGeometry(planeW, planeH);
     var mesh = new THREE.Mesh(geometry, material);
-    // fogHeight 위치에 배치 — 카메라가 위에서 내려다볼 때 안개 볼륨 상단이 항상 보임
-    mesh.position.z = this._fogHeight;
+    mesh.position.z = 0;
     mesh.renderOrder = 9990;
     mesh.frustumCulled = false;
 
@@ -1484,7 +1483,7 @@ FogOfWar._createMeshVolume = function() {
 
     this._fogGroup = group;
     this._fogMesh = group;
-    this._fogVolumeMesh = mesh;  // fogHeight 변경 시 Z 갱신용 참조
+    this._fogVolumeMesh = null;
     this._edgeMesh = null;  // 3dvolume 모드는 경계 디졸브 메시 없음
 
     return group;
@@ -1529,10 +1528,6 @@ FogOfWar._updateMeshUniforms = function() {
     u.exploredAlpha.value = this._exploredAlpha;
     if (u.uTime) u.uTime.value = this._time;
     u.fogHeight.value = this._fogHeight;
-    // 3dvolume 메시 Z를 fogHeight에 맞춰 갱신
-    if (this._fogVolumeMesh) {
-        this._fogVolumeMesh.position.z = this._fogHeight;
-    }
     u.absorption.value = this._absorption;
     if (u.edgeAnimOn) u.edgeAnimOn.value = this._edgeAnimation ? 1.0 : 0.0;
     if (u.edgeAnimSpeed) u.edgeAnimSpeed.value = this._edgeAnimationSpeed;
