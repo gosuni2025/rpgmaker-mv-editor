@@ -43,6 +43,8 @@
         { key: 'absorption',           label: 'Absorption',       min: 0.001,max: 0.1,  step: 0.001,def: 0.012 },
         { key: 'visibilityBrightness', label: 'Vis Brightness',   min: 0,    max: 1,    step: 0.05, def: 0.0 },
         { key: 'heightGradient',       label: 'Height Gradient',  min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
+        { key: 'lineOfSight3D',        label: 'LoS 3D',           min: 0,    max: 1,    step: 1,    def: 0,   type: 'bool' },
+        { key: 'eyeHeight',            label: 'Eye Height',       min: 0.5,  max: 5.0,  step: 0.1,  def: 1.5 },
         { key: 'godRay',               label: 'God Ray',          min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
         { key: 'godRayIntensity',      label: 'GodRay Intensity', min: 0,    max: 2,    step: 0.1,  def: 0.4 },
         { key: 'vortex',               label: 'Vortex',           min: 0,    max: 1,    step: 1,    def: 1,   type: 'bool' },
@@ -66,6 +68,8 @@
         tentacleFadeDuration: '_tentacleFadeDuration',
         tentacleGrowDuration: '_tentacleGrowDuration',
         // 3D
+        lineOfSight3D: '_lineOfSight3D',
+        eyeHeight: '_eyeHeight',
         fogHeight: '_fogHeight',
         absorption: '_absorption',
         visibilityBrightness: '_visibilityBrightness',
@@ -155,6 +159,8 @@
             tentacleFadeDuration: FOW._tentacleFadeDuration,
             tentacleGrowDuration: FOW._tentacleGrowDuration,
             // 3D
+            lineOfSight3D: FOW._lineOfSight3D,
+            eyeHeight: FOW._eyeHeight,
             fogHeight: FOW._fogHeight,
             absorption: FOW._absorption,
             visibilityBrightness: FOW._visibilityBrightness,
@@ -217,17 +223,11 @@
         titleBar.appendChild(modeBadge);
         panel.appendChild(titleBar);
 
-        // 모드 배지 갱신 함수
+        // 모드 배지 갱신 함수: mode3d 상태에 따라 자동 판단
         function updateModeBadge() {
-            var mode = '2D';
-            var color = '#4a9';
-            if (window.FogOfWar3DVolume && window.FogOfWar3DVolume._active) {
-                mode = '3D Vol';
-                color = '#f6a';
-            } else if (window.Mode3D && window.Mode3D._active) {
-                mode = '3D Vol';
-                color = '#fa6';
-            }
+            var is3d = window.Mode3D && window.Mode3D._active;
+            var mode = is3d ? '3D' : '2D';
+            var color = is3d ? '#f6a' : '#4a9';
             modeBadge.textContent = mode;
             modeBadge.style.background = color;
             modeBadge.style.color = '#000';
