@@ -151,9 +151,7 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
               mode={flagMode}
               showOverlay={showOverlay}
               onTabChange={setActiveTab}
-              onShowOverlayChange={setShowOverlay}
               onChange={(flags) => handleFieldChange('flags', flags)}
-              t={t}
             />
           </div>
 
@@ -164,7 +162,15 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
               onModeChange={setFlagMode}
               t={t}
             />
-            <div className="tileset-section-label" style={{ marginTop: 12 }}>{t('common.note')}</div>
+            <label className="db-checkbox-label" style={{ fontSize: 12, marginTop: 8 }}>
+              <input
+                type="checkbox"
+                checked={showOverlay}
+                onChange={(e) => setShowOverlay(e.target.checked)}
+              />
+              {t('tileFlags.showOverlay')}
+            </label>
+            <div className="tileset-section-label" style={{ marginTop: 8 }}>{t('common.note')}</div>
             <textarea
               value={selectedItem.note || ''}
               onChange={(e) => handleFieldChange('note', e.target.value)}
