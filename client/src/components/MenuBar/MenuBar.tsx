@@ -241,6 +241,8 @@ export default function MenuBar() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // IME 입력 중에는 단축키 무시 (한글 등)
+      if (e.isComposing || e.key === 'Process') return;
       // 다이얼로그/모달이 열려있으면 맵 편집 단축키를 차단
       const target = e.target as HTMLElement;
       const inDialog = target.closest('.db-dialog-overlay, .modal-overlay, .vs-selector-overlay, .move-route-overlay, .move-route-param-overlay, .l10n-popup-overlay')
