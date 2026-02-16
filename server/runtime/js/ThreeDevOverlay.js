@@ -224,7 +224,16 @@
             var r = Graphics._renderer.renderer;
             var info = r.info;
             if (info && info.render) {
+                // Detect renderer type
+                var type = 'Unknown';
+                if (r.constructor === THREE.WebGLRenderer) {
+                    var ctx = r.getContext();
+                    type = ctx instanceof WebGL2RenderingContext ? 'WebGL2' : 'WebGL1';
+                } else if (typeof THREE.WebGPURenderer !== 'undefined' && r instanceof THREE.WebGPURenderer) {
+                    type = 'WebGPU';
+                }
                 return {
+                    type: type,
                     calls: info.render.calls,
                     triangles: info.render.triangles,
                     textures: info.memory ? info.memory.textures : 0,
@@ -245,6 +254,7 @@
         var fpsText = '<span style="color:' + color + '">FPS: ' + fps + '</span>';
         var rInfo = getRendererInfo();
         if (rInfo) {
+            fpsText += '  <span style="color:#7cc">' + rInfo.type + '</span>';
             fpsText += '  <span style="color:#aaa">DC:' + rInfo.calls + ' Tri:' + rInfo.triangles + ' Tex:' + rInfo.textures + ' Geo:' + rInfo.geometries + '</span>';
         }
         fpsEl.innerHTML = fpsText;
