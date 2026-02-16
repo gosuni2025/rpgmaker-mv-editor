@@ -48,7 +48,7 @@ export default function MenuBar() {
   const setShowCharacterGeneratorDialog = useEditorStore((s) => s.setShowCharacterGeneratorDialog);
   const setShowOptionsDialog = useEditorStore((s) => s.setShowOptionsDialog);
   const setShowLocalizationDialog = useEditorStore((s) => s.setShowLocalizationDialog);
-  const setShowProjectSettingsDialog = useEditorStore((s) => s.setShowProjectSettingsDialog);
+
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
   const setDrawShape = useEditorStore((s) => s.setDrawShape);
@@ -89,7 +89,7 @@ export default function MenuBar() {
         { label: t('menu.copyPath'), action: 'copyPath', disabled: () => !hasProject },
         { label: t('menu.openVscode'), action: 'openVscode', disabled: () => !hasProject },
         { type: 'separator' },
-        { label: t('menu.projectSettings'), action: 'projectSettings', disabled: () => !hasProject },
+        { label: t('menu.projectSettings'), action: 'pluginManager', disabled: () => !hasProject },
         { label: t('menu.options'), action: 'options' },
       ],
     },
@@ -243,14 +243,14 @@ export default function MenuBar() {
         break;
       }
       case 'migrate': window.dispatchEvent(new CustomEvent('editor-migrate')); break;
-      case 'projectSettings': setShowProjectSettingsDialog(true); break;
+
       case 'options': setShowOptionsDialog(true); break;
       case 'localization': setShowLocalizationDialog(true); break;
     }
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
       setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
-      setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog, setShowProjectSettingsDialog, setEditMode, setSelectedTool, setDrawShape, zoomIn, zoomOut,
+      setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog, setEditMode, setSelectedTool, setDrawShape, zoomIn, zoomOut,
       zoomActualSize, undo, redo, openProject, projectPath, t]);
 
   useEffect(() => {
