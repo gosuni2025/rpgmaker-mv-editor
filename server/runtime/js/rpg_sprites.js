@@ -2366,39 +2366,38 @@ Spriteset_Map.prototype.createMapObjects = function() {
             var imgSprite = new Sprite();
             imgSprite.bitmap = ImageManager.loadPicture(obj.imageName);
             var objAnchorY = obj.anchorY != null ? obj.anchorY : 1.0;
-            // anchor는 항상 하단(1.0)으로 설정 - 빌보드에서 지면 기준점
-            // anchorY < 1.0이면 이미지 로드 후 하단을 setFrame으로 잘라서 파묻힘 표현
-            imgSprite.anchor.set(0.5, 1.0);
+            imgSprite.anchor.set(0.5, objAnchorY);
             imgSprite.x = obj.width * tw / 2;
-            imgSprite._mapObjAnchorY = objAnchorY;
+            // anchorY < 1.0이면 shader clipping으로 파묻힘 표현
+            // vertex의 로컬 position.y > 0 (= anchor 아래쪽)인 fragment를 discard
+            if (objAnchorY < 1.0 && imgSprite._material) {
+                imgSprite._material.onBeforeCompile = function(shader) {
+                    shader.vertexShader = shader.vertexShader.replace(
+                        'void main() {',
+                        'varying float vLocalY;\nvoid main() {\n  vLocalY = position.y;'
+                    );
+                    shader.fragmentShader = shader.fragmentShader.replace(
+                        'void main() {',
+                        'varying float vLocalY;\nvoid main() {\n  if (vLocalY > 0.0) discard;'
+                    );
+                };
+                imgSprite._material.needsUpdate = true;
+            }
             // imageScale 적용
             var imgScale = obj.imageScale != null ? obj.imageScale : 1.0;
             if (imgScale !== 1.0) {
                 imgSprite.scale.set(imgScale, imgScale);
             }
             container.addChild(imgSprite);
-            // 이미지 로드 완료 시 anchorY 클리핑 + repaint
+            // 이미지 로드 완료 시 repaint
             var tilemap = this._tilemap;
             imgSprite.bitmap.addLoadListener(function(bmp) {
-                // 비트맵 로드 완료 후 bitmap을 재설정하여 texture를 깨끗하게 교체
-                var loadedBitmap = imgSprite.bitmap;
-                imgSprite.bitmap = null;
-                imgSprite.bitmap = loadedBitmap;
-                // anchorY < 1.0이면 하단을 잘라서 파묻힘 표현
-                var ay = imgSprite._mapObjAnchorY;
-                if (ay < 1.0) {
-                    var bw = bmp.width;
-                    var bh = bmp.height;
-                    // anchorY 위치까지만 표시 (아래 부분 제거)
-                    var visibleH = Math.round(bh * ay);
-                    if (visibleH > 0 && visibleH < bh) {
-                        imgSprite.setFrame(0, 0, bw, visibleH);
-                    }
-                }
+                // 텍스처 변경 강제 감지를 위해 _textureUpdateID 리셋
+                imgSprite._textureUpdateID = -1;
                 var count = 0;
                 function forceRepaint() {
                     if (tilemap) tilemap._needsRepaint = true;
-                    if (++count < 5) requestAnimationFrame(forceRepaint);
+                    if (++count < 10) requestAnimationFrame(forceRepaint);
                 }
                 forceRepaint();
             });
