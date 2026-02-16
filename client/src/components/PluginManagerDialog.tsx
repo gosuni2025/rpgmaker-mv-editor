@@ -5,7 +5,26 @@ import useEditorStore from '../store/useEditorStore';
 import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 import CreditTextEditor from './CreditTextEditor';
+import AnimationPickerDialog from './EventEditor/AnimationPickerDialog';
+import { DataListPicker } from './EventEditor/DataListPicker';
 import './ProjectSettingsDialog.css';
+
+// @type -> database API endpoint mapping for DataListPicker
+const DB_TYPE_MAP: Record<string, { endpoint: string; title: string }> = {
+  actor: { endpoint: 'actors', title: '액터' },
+  class: { endpoint: 'classes', title: '직업' },
+  skill: { endpoint: 'skills', title: '스킬' },
+  item: { endpoint: 'items', title: '아이템' },
+  weapon: { endpoint: 'weapons', title: '무기' },
+  armor: { endpoint: 'armors', title: '방어구' },
+  enemy: { endpoint: 'enemies', title: '적' },
+  state: { endpoint: 'states', title: '스테이트' },
+  tileset: { endpoint: 'tilesets', title: '타일셋' },
+  common_event: { endpoint: 'commonEvents', title: '커먼 이벤트' },
+  switch: { endpoint: 'switches', title: '스위치' },
+  variable: { endpoint: 'variables', title: '변수' },
+  troop: { endpoint: 'troops', title: '적 그룹' },
+};
 
 interface PluginParam {
   name: string;
@@ -76,6 +95,12 @@ export default function PluginManagerDialog() {
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
   const locale = i18n.language || 'ko';
+
+  // Picker dialog states
+  const [pickerType, setPickerType] = useState<'animation' | 'datalist' | null>(null);
+  const [pickerParamIndex, setPickerParamIndex] = useState<number>(-1);
+  const [dataListItems, setDataListItems] = useState<string[]>([]);
+  const [dataListTitle, setDataListTitle] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -212,6 +237,45 @@ export default function PluginManagerDialog() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const openPicker = async (paramMeta: PluginParamMeta, paramIndex: number) => {
+    const type = paramMeta.type.toLowerCase();
+
+    if (type === 'animation') {
+      setPickerParamIndex(paramIndex);
+      setPickerType('animation');
+      return;
+    }
+
+    const dbConfig = DB_TYPE_MAP[type];
+    if (dbConfig) {
+      try {
+        // switches and variables come from System.json
+        if (type === 'switch' || type === 'variable') {
+          const system = await apiClient.get<any>('/database/system');
+          const list = type === 'switch' ? system.switches : system.variables;
+          setDataListItems(list || []);
+        } else {
+          const data = await apiClient.get<(any | null)[]>(`/database/${dbConfig.endpoint}`);
+          const names = data.map((item: any) => item?.name || '');
+          setDataListItems(names);
+        }
+        setDataListTitle(dbConfig.title);
+        setPickerParamIndex(paramIndex);
+        setPickerType('datalist');
+      } catch {
+        // silently fail
+      }
+      return;
+    }
+  };
+
+  /** Check if a param type should show a picker button */
+  const hasPickerButton = (paramMeta: PluginParamMeta | undefined): boolean => {
+    if (!paramMeta) return false;
+    const type = paramMeta.type.toLowerCase();
+    return type === 'animation' || type in DB_TYPE_MAP;
   };
 
   const renderParamInput = (plugin: PluginEntry, pluginIndex: number, paramMeta: PluginParamMeta | undefined, paramIndex: number) => {
@@ -430,6 +494,7 @@ export default function PluginManagerDialog() {
                               if (!param) return null;
                               const isEditing = editingParamIndex === paramIndex;
                               const isBoolOrSelect = paramMeta && (paramMeta.type === 'boolean' || paramMeta.type === 'select' || paramMeta.type === 'combo' || paramMeta.options.length > 0);
+                              const showPicker = hasPickerButton(paramMeta);
                               return (
                                 <tr
                                   key={param.name}
@@ -438,16 +503,28 @@ export default function PluginManagerDialog() {
                                 >
                                   <td className="pm-param-name">{param.name}</td>
                                   <td className="pm-param-value-cell">
-                                    {isEditing || isBoolOrSelect ? (
-                                      renderParamInput(selectedPlugin, selectedIndex, paramMeta, paramIndex)
-                                    ) : (
-                                      <div
-                                        className="pm-param-value-display"
-                                        onClick={() => setEditingParamIndex(paramIndex)}
-                                      >
-                                        {param.value || '\u00A0'}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        {isEditing || isBoolOrSelect ? (
+                                          renderParamInput(selectedPlugin, selectedIndex, paramMeta, paramIndex)
+                                        ) : (
+                                          <div
+                                            className="pm-param-value-display"
+                                            onClick={() => setEditingParamIndex(paramIndex)}
+                                          >
+                                            {param.value || '\u00A0'}
+                                          </div>
+                                        )}
                                       </div>
-                                    )}
+                                      {showPicker && (
+                                        <button
+                                          className="db-btn-small"
+                                          style={{ padding: '1px 4px', fontSize: 11, flexShrink: 0 }}
+                                          onClick={() => openPicker(paramMeta!, paramIndex)}
+                                          title={paramMeta?.type}
+                                        >...</button>
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
                               );
@@ -465,6 +542,30 @@ export default function PluginManagerDialog() {
           )}
         </div>
         {error && <div style={{ padding: '4px 16px', color: '#e55', fontSize: 12 }}>{error}</div>}
+
+        {/* Picker dialogs */}
+        {pickerType === 'animation' && selectedPlugin && pickerParamIndex >= 0 && (
+          <AnimationPickerDialog
+            value={Number(selectedPlugin.parameters[pickerParamIndex]?.value) || 0}
+            onChange={(id) => {
+              updateParam(selectedIndex, pickerParamIndex, String(id));
+            }}
+            onClose={() => setPickerType(null)}
+          />
+        )}
+
+        {pickerType === 'datalist' && selectedPlugin && pickerParamIndex >= 0 && (
+          <DataListPicker
+            items={dataListItems}
+            value={Number(selectedPlugin.parameters[pickerParamIndex]?.value) || 0}
+            onChange={(id) => {
+              updateParam(selectedIndex, pickerParamIndex, String(id));
+            }}
+            onClose={() => setPickerType(null)}
+            title={dataListTitle}
+          />
+        )}
+
         <div className="db-dialog-footer">
           <div className="pm-footer-settings">
             <div className="pm-footer-settings-group">
