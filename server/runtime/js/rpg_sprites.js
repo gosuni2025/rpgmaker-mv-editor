@@ -2470,7 +2470,6 @@ Spriteset_Map.prototype.createMapObjects = function() {
                 imgChild._objShaderRTs = [];
                 imgChild._objShaderKey = '';
                 imgChild._objOutputMaterial = null;
-                imgChild._objSourceTexture = null; // 원본 이미지 texture (ShadowLight 변환과 무관하게 유지)
                 imgChild._objShakeOffsetX = 0;
                 imgChild._objShakeOffsetY = 0;
             }
@@ -2544,11 +2543,7 @@ Spriteset_Map.prototype._updateObjectShader = function(sprite) {
  * 이미지 오브젝트에 셰이더 패스를 적용한다.
  */
 Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
-    // 원본 이미지 texture 저장 (최초 1회, 이후 변경 안 함)
-    // _convertMaterial이 material을 변환해도 원본 texture 참조를 보존
-    if (!sprite._objSourceTexture) {
-        sprite._objSourceTexture = sprite._threeTexture || (sprite._material && sprite._material.map);
-    }
+    var is3D = typeof ShadowLight !== 'undefined' && ShadowLight._active;
 
     // 기존 패스 정리
     this._disposeObjectShaderPasses(sprite);
@@ -2563,8 +2558,8 @@ Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
         this._objRTScene.add(this._objRTQuad);
     }
 
-    // RT 크기: 원본 이미지 텍스처 크기 사용
-    var tex = sprite._objSourceTexture;
+    // RT 크기: 현재 텍스처 크기 사용 (이미지 로드 전이면 기본값 256)
+    var tex = sprite._threeTexture || (sprite._material && sprite._material.map);
     var rtW = 256, rtH = 256;
     if (tex && tex.image) {
         rtW = tex.image.width || 256;
@@ -2660,13 +2655,23 @@ Spriteset_Map.prototype._executeObjectMultipass = function(sprite, passes) {
     var renderer = PictureShader._renderer;
     if (!renderer) return;
 
-    var sourceTexture = sprite._objSourceTexture;
-    // 이미지 로드 지연 시 _objSourceTexture가 아직 null일 수 있음
-    if (!sourceTexture) {
-        sourceTexture = sprite._threeTexture;
-        if (sourceTexture) sprite._objSourceTexture = sourceTexture;
-    }
+    // 매 프레임 현재 texture를 사용 (이미지 로드 후 _threeTexture가 갱신될 수 있음)
+    var sourceTexture = sprite._threeTexture || (sprite._material && sprite._material.map);
     if (!sourceTexture) return;
+    // 텍스처가 변경되면 RT 크기를 실제 이미지 크기에 맞게 리사이즈
+    if (sourceTexture.image && sourceTexture !== sprite._objLastTexture) {
+        var newW = sourceTexture.image.width || 256;
+        var newH = sourceTexture.image.height || 256;
+        if (newW > 1 && newH > 1) {
+            for (var ri = 0; ri < sprite._objShaderRTs.length; ri++) {
+                var existRT = sprite._objShaderRTs[ri];
+                if (existRT && (existRT.width !== newW || existRT.height !== newH)) {
+                    existRT.setSize(newW, newH);
+                }
+            }
+            sprite._objLastTexture = sourceTexture;
+        }
+    }
 
     var currentInput = sourceTexture;
     var lastRT = null;
