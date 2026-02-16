@@ -67,7 +67,7 @@
     "openEditorFolder": "Open Editor Folder",
     "settings": "Settings",
     "language": "Language",
-    "options": "Options...",
+    "options": "Editor Settings...",
     "projectSettings": "Project Settings...",
     "localization": "Localization...",
     "copyPath": "Copy Project Path",
@@ -77,7 +77,7 @@
     "projectNotFound": "Project not found. Removing from list."
   },
   "options": {
-    "title": "Options",
+    "title": "Editor Settings",
     "search": "Search...",
     "categories": {
       "general": "General",
