@@ -2381,6 +2381,9 @@ Spriteset_Map.prototype.createMapObjects = function() {
                         'varying float vLocalY;\nvoid main() {\n  if (vLocalY > 0.0) discard;'
                     );
                 };
+                imgSprite._material.customProgramCacheKey = function() {
+                    return 'mapobj-clip-anchor';
+                };
                 imgSprite._material.needsUpdate = true;
             }
             // imageScale 적용
