@@ -134,10 +134,13 @@ export function useObjectHandlers(): ObjectHandlersResult {
       } else {
         // 빈 공간 클릭: 펜 칠하기 시작
         isPaintingObject.current = true;
-        // 선택된 오브젝트가 1개이면 expand 모드, 아니면 새 오브젝트 생성
-        if (state.selectedObjectIds.length === 1) {
+        // 선택된 오브젝트가 1개이고 이미지 오브젝트가 아니면 expand 모드
+        const selectedObj = state.selectedObjectIds.length === 1
+          ? objects.find(o => o.id === state.selectedObjectIds[0])
+          : null;
+        if (selectedObj && !selectedObj.imageName) {
           paintModeRef.current = 'add';
-          paintTargetIdRef.current = state.selectedObjectIds[0];
+          paintTargetIdRef.current = selectedObj.id;
         } else {
           paintModeRef.current = 'add';
           paintTargetIdRef.current = null;
