@@ -71,11 +71,14 @@ interface TileFlagsCanvasProps {
   tilesetNames: string[];
   activeTab: TabName;
   mode: Mode;
+  showOverlay: boolean;
   onTabChange: (tab: TabName) => void;
+  onShowOverlayChange: (show: boolean) => void;
   onChange: (flags: number[]) => void;
+  t: (key: string) => string;
 }
 
-export function TileFlagsCanvas({ flags, tilesetNames, activeTab, mode, onTabChange, onChange }: TileFlagsCanvasProps) {
+export function TileFlagsCanvas({ flags, tilesetNames, activeTab, mode, showOverlay, onTabChange, onShowOverlayChange, onChange, t }: TileFlagsCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -137,15 +140,18 @@ export function TileFlagsCanvas({ flags, tilesetNames, activeTab, mode, onTabCha
       }
     }
 
-    // Draw flag overlays
     const { cols: c, rows: r } = config;
-    for (let row = 0; row < r; row++) {
-      for (let col = 0; col < c; col++) {
-        const tileId = getTileId(activeTab, col, row);
-        const flag = flags[tileId] || 0;
-        const x = col * TILE_SIZE;
-        const y = row * TILE_SIZE;
-        drawFlagOverlay(ctx, x, y, TILE_SIZE, flag, mode);
+
+    if (showOverlay) {
+      // Draw flag overlays
+      for (let row = 0; row < r; row++) {
+        for (let col = 0; col < c; col++) {
+          const tileId = getTileId(activeTab, col, row);
+          const flag = flags[tileId] || 0;
+          const x = col * TILE_SIZE;
+          const y = row * TILE_SIZE;
+          drawFlagOverlay(ctx, x, y, TILE_SIZE, flag, mode);
+        }
       }
     }
 
@@ -164,7 +170,7 @@ export function TileFlagsCanvas({ flags, tilesetNames, activeTab, mode, onTabCha
       ctx.lineTo(col * TILE_SIZE, r * TILE_SIZE);
       ctx.stroke();
     }
-  }, [config, flags, mode, imgLoaded, activeTab]);
+  }, [config, flags, mode, imgLoaded, activeTab, showOverlay]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -254,6 +260,14 @@ export function TileFlagsCanvas({ flags, tilesetNames, activeTab, mode, onTabCha
           </button>
         ))}
       </div>
+      <label className="db-checkbox-label" style={{ flexShrink: 0, fontSize: 12 }}>
+        <input
+          type="checkbox"
+          checked={showOverlay}
+          onChange={(e) => onShowOverlayChange(e.target.checked)}
+        />
+        {t('tileFlags.showOverlay')}
+      </label>
     </div>
   );
 }
