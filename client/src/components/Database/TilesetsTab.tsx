@@ -4,6 +4,7 @@ import type { TilesetData } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import { TileFlagsCanvas, TileFlagsControls, type TabName, type Mode } from './TileFlagsEditor';
 import DatabaseList from './DatabaseList';
+import apiClient from '../../api/client';
 
 interface TilesetsTabProps {
   data: (TilesetData | null)[] | undefined;
@@ -140,6 +141,13 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
                 />
               </label>
             ))}
+            <button
+              className="db-btn-small"
+              style={{ marginTop: 8, alignSelf: 'flex-start' }}
+              onClick={() => apiClient.post('/project/open-folder', { subfolder: 'data' }).catch(() => {})}
+            >
+              {t('menu.openFolder')}
+            </button>
           </div>
 
           {/* Panel 2: Tile Preview Canvas */}
