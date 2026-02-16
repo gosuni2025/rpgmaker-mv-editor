@@ -2368,23 +2368,9 @@ Spriteset_Map.prototype.createMapObjects = function() {
             var objAnchorY = obj.anchorY != null ? obj.anchorY : 1.0;
             imgSprite.anchor.set(0.5, objAnchorY);
             imgSprite.x = obj.width * tw / 2;
-            // anchorY < 1.0이면 shader clipping으로 파묻힘 표현
-            // vertex의 로컬 position.y > 0 (= anchor 아래쪽)인 fragment를 discard
-            if (objAnchorY < 1.0 && imgSprite._material) {
-                imgSprite._material.onBeforeCompile = function(shader) {
-                    shader.vertexShader = shader.vertexShader.replace(
-                        'void main() {',
-                        'varying float vLocalY;\nvoid main() {\n  vLocalY = position.y;'
-                    );
-                    shader.fragmentShader = shader.fragmentShader.replace(
-                        'void main() {',
-                        'varying float vLocalY;\nvoid main() {\n  if (vLocalY > 0.0) discard;'
-                    );
-                };
-                imgSprite._material.customProgramCacheKey = function() {
-                    return 'mapobj-clip-anchor';
-                };
-                imgSprite._material.needsUpdate = true;
+            // anchorY < 1.0이면 ShadowLight material 변환 후 shader clipping 적용
+            if (objAnchorY < 1.0) {
+                imgSprite._needsAnchorClip = true;
             }
             // imageScale 적용
             var imgScale = obj.imageScale != null ? obj.imageScale : 1.0;
@@ -2447,6 +2433,29 @@ Spriteset_Map.prototype.createMapObjects = function() {
             if (container.children) {
                 for (var ci = 0; ci < container.children.length; ci++) {
                     ShadowLight._convertMaterial(container.children[ci]);
+                }
+            }
+        }
+
+        // anchorY shader clipping: material 변환 후 최종 material에 적용
+        if (container.children) {
+            for (var ci = 0; ci < container.children.length; ci++) {
+                var child = container.children[ci];
+                if (child._needsAnchorClip && child._material) {
+                    child._material.onBeforeCompile = function(shader) {
+                        shader.vertexShader = shader.vertexShader.replace(
+                            'void main() {',
+                            'varying float vLocalY;\nvoid main() {\n  vLocalY = position.y;'
+                        );
+                        shader.fragmentShader = shader.fragmentShader.replace(
+                            'void main() {',
+                            'varying float vLocalY;\nvoid main() {\n  if (vLocalY > 0.0) discard;'
+                        );
+                    };
+                    child._material.customProgramCacheKey = function() {
+                        return 'mapobj-clip-anchor';
+                    };
+                    child._material.needsUpdate = true;
                 }
             }
         }
