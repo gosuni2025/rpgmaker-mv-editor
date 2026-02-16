@@ -92,7 +92,7 @@ export default function LightInspector() {
       {selectedLightType === 'directional' && (
         <>
           <div className="light-inspector-section">
-            <div className="light-inspector-title">디렉셔널 라이트</div>
+            <div className="light-inspector-title">광원 방향</div>
             <div className="light-inspector-row">
               <span className="light-inspector-label">적용</span>
               <input type="checkbox" checked={dir.enabled === true}
