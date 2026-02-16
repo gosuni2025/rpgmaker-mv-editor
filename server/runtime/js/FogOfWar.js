@@ -1240,17 +1240,14 @@ var VOL_LIGHT_FRAG = [
     'uniform float exploredAlpha;',
     'uniform float fogHeight;',
     'uniform float absorption;',
-    'uniform float uTime;',
-    'uniform vec2 mapSize;',
     'uniform vec2 mapPixelSize;',
     'uniform vec2 scrollOffset;',
     'uniform vec3 cameraWorldPos;',
-    'uniform float edgeAnimOn;',
-    'uniform float edgeAnimSpeed;',
     'uniform float isOrtho;',
     '',
-    'float sampleFogDensity(vec2 worldXY) {',
-    '    vec2 mapXY = worldXY + scrollOffset;',
+    'void main() {',
+    // 단일 texture fetch — fog 밀도 계산
+    '    vec2 mapXY = vWorldPos.xy + scrollOffset;',
     '    vec2 uv = mapXY / mapPixelSize;',
     '    float dL = max(0.0, -uv.x); float dR = max(0.0, uv.x - 1.0);',
     '    float dT = max(0.0, -uv.y); float dB = max(0.0, uv.y - 1.0);',
@@ -1263,62 +1260,27 @@ var VOL_LIGHT_FRAG = [
     '    float baseDensity = mix(unexploredAlpha, exploredAlpha, explored);',
     '    float fogDensity = baseDensity * (1.0 - smoothstep(0.0, 0.6, visibility));',
     '    if (outsideDist > 0.001) {',
-    '        float fadePixels = outsideDist * mapPixelSize.x;',
-    '        fogDensity *= 1.0 - smoothstep(0.0, 2400.0, fadePixels);',
+    '        fogDensity *= 1.0 - smoothstep(0.0, 2400.0, outsideDist * mapPixelSize.x);',
     '    }',
-    '    return fogDensity;',
-    '}',
+    '    if (fogDensity < 0.001) discard;',
     '',
-    'void main() {',
-    '    vec3 rayOrigin = cameraWorldPos;',
-    '    vec3 rayDir;',
+    // Beer-Lambert: 카메라 시선이 안개 볼륨을 통과하는 경로 길이로 알파 계산
+    '    float alpha;',
     '    if (isOrtho > 0.5) {',
-    '        rayDir = vec3(0.0, 0.0, -1.0);',
-    '        rayOrigin = vec3(vWorldPos.xy, fogHeight + 100.0);',
+    '        alpha = 1.0 - exp(-fogDensity * fogHeight * absorption);',
     '    } else {',
-    '        rayDir = normalize(vWorldPos - cameraWorldPos);',
+    '        vec3 rayDir = normalize(vWorldPos - cameraWorldPos);',
+    '        float pathLen = fogHeight / max(abs(rayDir.z), 0.05);',
+    '        alpha = 1.0 - exp(-fogDensity * pathLen * absorption);',
     '    }',
+    '    alpha = clamp(alpha, 0.0, 1.0);',
+    '    if (alpha < 0.001) discard;',
     '',
-    '    float invDirZ = 1.0 / (abs(rayDir.z) < 0.0001 ? -0.0001 : rayDir.z);',
-    '    float t0 = -rayOrigin.z * invDirZ;',
-    '    float t1 = (fogHeight - rayOrigin.z) * invDirZ;',
-    '    float tMin = max(min(t0, t1), 0.0);',
-    '    float tMax = max(t0, t1);',
-    '    if (tMin >= tMax) {',
-    '        float d = sampleFogDensity(vWorldPos.xy);',
-    '        if (d < 0.001) discard;',
-    '        gl_FragColor = vec4(fogColorTop, d);',
-    '        return;',
-    '    }',
-    '    tMax = min(tMax, tMin + fogHeight * 3.0);',
-    '',
-    // 4스텝 레이마칭 — 디더링으로 banding 보정
-    '    float stepSize = (tMax - tMin) / 4.0;',
-    '    float dither = fract(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)) * 43758.5453);',
-    '',
-    '    float accAlpha = 0.0;',
-    '    float accWeight = 0.0;',
-    '    float t = tMin + stepSize * dither;',
-    '',
-    '    for (int i = 0; i < 4; i++) {',
-    '        vec3 sp = rayOrigin + rayDir * t;',
-    '        float hN = clamp(sp.z / fogHeight, 0.0, 1.0);',
-    '        float d = sampleFogDensity(sp.xy);',
-    '        float hFall = 1.0 - hN * hN;',
-    '        float absorb = d * hFall * stepSize * absorption;',
-    '        accWeight += (1.0 - accAlpha) * absorb * hN;',
-    '        accAlpha += (1.0 - accAlpha) * absorb;',
-    '        if (accAlpha > 0.95) break;',
-    '        t += stepSize;',
-    '    }',
-    '',
-    '    accAlpha = clamp(accAlpha, 0.0, 1.0);',
-    '    if (accAlpha < 0.001) discard;',
-    '',
-    '    float hBlend = accWeight / max(accAlpha, 0.001);',
-    '    vec3 finalColor = mix(fogColor, fogColorTop, hBlend);',
-    '    float outDither = (fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)) * 52.9829189) - 0.5) / 128.0;',
-    '    gl_FragColor = vec4(finalColor + outDither, accAlpha + outDither);',
+    // 높이 기반 색상 블렌딩
+    '    float hBlend = isOrtho > 0.5 ? 0.5 : clamp(cameraWorldPos.z / fogHeight, 0.0, 1.0) * 0.5;',
+    '    vec3 col = mix(fogColor, fogColorTop, hBlend);',
+    '    float d = (fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)) * 52.9829189) - 0.5) / 128.0;',
+    '    gl_FragColor = vec4(col + d, alpha + d);',
     '}'
 ].join('\n');
 
@@ -1496,15 +1458,11 @@ FogOfWar._createMeshVolume = function() {
             fogColorTop:     { value: fogColorTopVec },
             unexploredAlpha: { value: this._unexploredAlpha },
             exploredAlpha:   { value: this._exploredAlpha },
-            uTime:           { value: 0 },
-            mapSize:         { value: new THREE.Vector2(this._mapWidth, this._mapHeight) },
             cameraWorldPos:  { value: new THREE.Vector3(0, 0, 0) },
             fogHeight:       { value: this._fogHeight },
             mapPixelSize:    { value: new THREE.Vector2(totalW, totalH) },
             scrollOffset:    { value: new THREE.Vector2(0, 0) },
             absorption:      { value: this._absorption },
-            edgeAnimOn:      { value: this._edgeAnimation ? 1.0 : 0.0 },
-            edgeAnimSpeed:   { value: this._edgeAnimationSpeed },
             isOrtho:         { value: 0.0 }
         },
         vertexShader: VOL_FOG_VERT,
@@ -1569,15 +1527,15 @@ FogOfWar._updateMeshUniforms = function() {
     u.fogColor.value.copy(fogColorVec);
     u.unexploredAlpha.value = this._unexploredAlpha;
     u.exploredAlpha.value = this._exploredAlpha;
-    u.uTime.value = this._time;
+    if (u.uTime) u.uTime.value = this._time;
     u.fogHeight.value = this._fogHeight;
     // 3dvolume 메시 Z를 fogHeight에 맞춰 갱신
     if (this._fogVolumeMesh) {
         this._fogVolumeMesh.position.z = this._fogHeight;
     }
     u.absorption.value = this._absorption;
-    u.edgeAnimOn.value = this._edgeAnimation ? 1.0 : 0.0;
-    u.edgeAnimSpeed.value = this._edgeAnimationSpeed;
+    if (u.edgeAnimOn) u.edgeAnimOn.value = this._edgeAnimation ? 1.0 : 0.0;
+    if (u.edgeAnimSpeed) u.edgeAnimSpeed.value = this._edgeAnimationSpeed;
 
     // 3dvolume 모드는 경량 셰이더 — 추가 유니폼이 다름
     if (this._fogMode === '3dvolume') {
