@@ -14,25 +14,6 @@
   border-bottom: 1px solid #444;
 }
 
-.folder-browser-nav-btn {
-  background: #4a4a4a;
-  border: 1px solid #555;
-  border-radius: 3px;
-  color: #ddd;
-  padding: 2px 8px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.folder-browser-nav-btn:hover:not(:disabled) {
-  background: #555;
-}
-
-.folder-browser-nav-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
 .folder-browser-path-text {
   flex: 1;
   font-size: 12px;
@@ -97,4 +78,12 @@
   color: #ddd;
   font-size: 13px;
   outline: none;
+}
+
+.folder-browser-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-top: 1px solid #444;
+  background: #333;
 }

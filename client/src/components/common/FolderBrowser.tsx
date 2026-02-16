@@ -104,30 +104,7 @@ export default function FolderBrowser({
   return (
     <div className={cls} style={style}>
       <div className="folder-browser-path-bar">
-        <button
-          className="folder-browser-nav-btn"
-          onClick={() => browse(parentPath)}
-          disabled={currentPath === parentPath}
-          title={t('openProject.parentFolder')}
-        >
-          ↑
-        </button>
         <div className="folder-browser-path-text">{currentPath}</div>
-        <button
-          className="folder-browser-nav-btn"
-          onClick={handleReveal}
-          disabled={!currentPath}
-          title={t('folderBrowser.openInExplorer')}
-        >
-          ⎋
-        </button>
-        <button
-          className="folder-browser-nav-btn"
-          onClick={() => { setNewFolderMode(true); setNewFolderName(''); setError(''); }}
-          title={t('folderBrowser.newFolder')}
-        >
-          +
-        </button>
       </div>
 
       <div className="folder-browser-list">
@@ -165,6 +142,29 @@ export default function FolderBrowser({
         {!loading && dirs.length === 0 && !newFolderMode && !error && (
           <div className="folder-browser-empty">{t('openProject.noSubfolders')}</div>
         )}
+      </div>
+
+      <div className="folder-browser-toolbar">
+        <button
+          className="db-btn-small"
+          onClick={() => browse(parentPath)}
+          disabled={currentPath === parentPath}
+        >
+          {t('openProject.parentFolder')}
+        </button>
+        <button
+          className="db-btn-small"
+          onClick={() => { setNewFolderMode(true); setNewFolderName(''); setError(''); }}
+        >
+          {t('folderBrowser.newFolder')}
+        </button>
+        <button
+          className="db-btn-small"
+          onClick={handleReveal}
+          disabled={!currentPath}
+        >
+          {t('folderBrowser.openInExplorer')}
+        </button>
       </div>
     </div>
   );
