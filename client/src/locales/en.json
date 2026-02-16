@@ -389,7 +389,8 @@
       "counter": "Click to toggle counter flag",
       "damage": "Click to toggle damage floor flag",
       "terrain": "Click to cycle terrain tag (0-7)"
-    }
+    },
+    "showOverlay": "Show Overlay"
   },
   "triggerOptions": {
     "none": "None",

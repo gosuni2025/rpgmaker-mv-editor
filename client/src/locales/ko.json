@@ -392,7 +392,8 @@
       "counter": "클릭으로 카운터 플래그 전환",
       "damage": "클릭으로 피해입는 바닥 플래그 전환",
       "terrain": "클릭으로 지형 태그 순환 (0-7)"
-    }
+    },
+    "showOverlay": "표시"
   },
   "triggerOptions": {
     "none": "없음",

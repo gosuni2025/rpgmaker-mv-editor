@@ -17,6 +17,7 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
   const [selectedId, setSelectedId] = useState(1);
   const [activeTab, setActiveTab] = useState<TabName>('B');
   const [flagMode, setFlagMode] = useState<Mode>('passage');
+  const [showOverlay, setShowOverlay] = useState(true);
   const MODE_OPTIONS = [t('tilesetMode.field'), t('tilesetMode.area')];
   const selectedItem = data?.find((item) => item && item.id === selectedId);
 
@@ -148,8 +149,11 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
               tilesetNames={selectedItem.tilesetNames || Array(9).fill('')}
               activeTab={activeTab}
               mode={flagMode}
+              showOverlay={showOverlay}
               onTabChange={setActiveTab}
+              onShowOverlayChange={setShowOverlay}
               onChange={(flags) => handleFieldChange('flags', flags)}
+              t={t}
             />
           </div>
 
