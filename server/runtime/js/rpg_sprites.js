@@ -2459,6 +2459,22 @@ Spriteset_Map.prototype.createMapObjects = function() {
                 }
             }
         }
+
+        // 이미지 오브젝트 셰이더 적용 (PictureShader 멀티패스)
+        if (obj.imageName && obj.shaderData && Array.isArray(obj.shaderData) && obj.shaderData.length > 0
+            && typeof PictureShader !== 'undefined') {
+            var imgChild = container.children[0];
+            if (imgChild) {
+                imgChild._objShaderData = obj.shaderData;
+                imgChild._objShaderPasses = [];
+                imgChild._objShaderRTs = [];
+                imgChild._objShaderKey = '';
+                imgChild._objOutputMaterial = null;
+                imgChild._objOriginalMaterial = null;
+                imgChild._objShakeOffsetX = 0;
+                imgChild._objShakeOffsetY = 0;
+            }
+        }
     }
 };
 
@@ -2471,6 +2487,192 @@ Spriteset_Map.prototype.updateMapObjects = function() {
         // Update position based on map scroll (same as character screenX/Y)
         container.x = Math.round($gameMap.adjustX(container._mapObjX) * tw);
         container.y = Math.round($gameMap.adjustY(container._mapObjY) * th + th);
+
+        // 이미지 오브젝트 셰이더 업데이트
+        if (container.children) {
+            for (var ci = 0; ci < container.children.length; ci++) {
+                var child = container.children[ci];
+                if (child._objShaderData) {
+                    this._updateObjectShader(child);
+                }
+            }
+        }
+    }
+};
+
+/**
+ * 이미지 오브젝트의 셰이더를 PictureShader 멀티패스로 업데이트한다.
+ */
+Spriteset_Map.prototype._updateObjectShader = function(sprite) {
+    if (typeof PictureShader === 'undefined' || typeof THREE === 'undefined') return;
+
+    var shaderData = sprite._objShaderData;
+    if (!shaderData || !Array.isArray(shaderData) || shaderData.length === 0) return;
+
+    // 셰이더 키 계산 (변경 감지)
+    var passes = shaderData.filter(function(s) { return s.enabled; });
+    var key = passes.map(function(s) { return s.type; }).join(',');
+
+    if (sprite._objShaderKey !== key) {
+        this._applyObjectShaderPasses(sprite, passes);
+        sprite._objShaderKey = key;
+    }
+
+    // 매 프레임 멀티패스 렌더링
+    this._executeObjectMultipass(sprite, passes);
+
+    // Shake offset
+    sprite._objShakeOffsetX = 0;
+    sprite._objShakeOffsetY = 0;
+    var hasShake = passes.some(function(s) { return s.type === 'shake'; });
+    if (hasShake) {
+        var shakeEntry = passes.find(function(s) { return s.type === 'shake'; });
+        if (shakeEntry) {
+            var p = shakeEntry.params;
+            var power = p.power != null ? p.power : 5;
+            var speed = p.speed != null ? p.speed : 10;
+            var dir = p.direction != null ? p.direction : 2;
+            var t = PictureShader._time * speed;
+            if (dir === 0 || dir === 2) sprite._objShakeOffsetX = (Math.sin(t * 7.13) + Math.sin(t * 5.71) * 0.5) * power;
+            if (dir === 1 || dir === 2) sprite._objShakeOffsetY = (Math.sin(t * 6.47) + Math.sin(t * 4.93) * 0.5) * power;
+        }
+    }
+};
+
+/**
+ * 이미지 오브젝트에 셰이더 패스를 적용한다.
+ */
+Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
+    // 원래 material 백업
+    if (!sprite._objOriginalMaterial && sprite._material) {
+        sprite._objOriginalMaterial = sprite._material;
+    }
+
+    // 기존 패스 정리
+    this._disposeObjectShaderPasses(sprite);
+
+    // 공유 렌더 씬/카메라 (lazy init - 모든 오브젝트가 공유)
+    if (!this._objRTScene) {
+        this._objRTScene = new THREE.Scene();
+        this._objRTCamera = new THREE.OrthographicCamera(-0.5, 0.5, 0.5, -0.5, -1, 1);
+        var geo = new THREE.PlaneGeometry(1, 1);
+        this._objRTQuad = new THREE.Mesh(geo, null);
+        this._objRTQuad.frustumCulled = false;
+        this._objRTScene.add(this._objRTQuad);
+    }
+
+    // RT 크기: 텍스처 크기 또는 기본값
+    var tex = sprite._threeTexture || (sprite._material && sprite._material.map);
+    var rtW = 256, rtH = 256;
+    if (tex && tex.image) {
+        rtW = tex.image.width || 256;
+        rtH = tex.image.height || 256;
+    }
+
+    // 각 패스별 Material + RT 생성
+    for (var i = 0; i < passes.length; i++) {
+        var s = passes[i];
+        if (s.type === 'shake') {
+            sprite._objShaderPasses.push({ material: null, type: s.type, params: s.params });
+            sprite._objShaderRTs.push(null);
+            continue;
+        }
+        var mat = PictureShader.createMaterial(s.type, s.params || {}, null);
+        sprite._objShaderPasses.push({ material: mat, type: s.type, params: s.params });
+        var rt = new THREE.WebGLRenderTarget(rtW, rtH, {
+            minFilter: THREE.NearestFilter,
+            magFilter: THREE.NearestFilter,
+        });
+        sprite._objShaderRTs.push(rt);
+    }
+
+    // 최종 출력용 MeshBasicMaterial
+    var outputMat = new THREE.MeshBasicMaterial({
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    sprite._objOutputMaterial = outputMat;
+    sprite._material = outputMat;
+    if (sprite._threeObj) {
+        sprite._threeObj.material = outputMat;
+    }
+};
+
+/**
+ * 이미지 오브젝트의 멀티패스 렌더링을 실행한다.
+ */
+Spriteset_Map.prototype._executeObjectMultipass = function(sprite, passes) {
+    if (sprite._objShaderPasses.length === 0) return;
+
+    var renderer = PictureShader._renderer;
+    if (!renderer) return;
+
+    var sourceTexture = sprite._threeTexture || (sprite._objOriginalMaterial && sprite._objOriginalMaterial.map);
+    if (!sourceTexture) return;
+
+    var currentInput = sourceTexture;
+    var lastRT = null;
+
+    for (var i = 0; i < sprite._objShaderPasses.length; i++) {
+        var pass = sprite._objShaderPasses[i];
+        var rt = sprite._objShaderRTs[i];
+
+        if (pass.type === 'shake' || !pass.material) continue;
+
+        var mat = pass.material;
+        var u = mat.uniforms;
+
+        if (u.uTime) u.uTime.value = PictureShader._time;
+        if (u.map) u.map.value = currentInput;
+        if (u.opacity) u.opacity.value = 1.0;
+
+        this._objRTQuad.material = mat;
+        var prevRT = renderer.getRenderTarget();
+        renderer.setRenderTarget(rt);
+        renderer.render(this._objRTScene, this._objRTCamera);
+        renderer.setRenderTarget(prevRT);
+
+        currentInput = rt.texture;
+        lastRT = rt;
+    }
+
+    if (sprite._objOutputMaterial) {
+        if (lastRT) {
+            sprite._objOutputMaterial.map = lastRT.texture;
+        } else {
+            sprite._objOutputMaterial.map = sourceTexture;
+        }
+        sprite._objOutputMaterial.opacity = sprite.worldAlpha != null ? sprite.worldAlpha : 1.0;
+        sprite._objOutputMaterial.needsUpdate = true;
+    }
+};
+
+/**
+ * 이미지 오브젝트의 셰이더 패스를 정리한다.
+ */
+Spriteset_Map.prototype._disposeObjectShaderPasses = function(sprite) {
+    if (sprite._objShaderPasses) {
+        for (var i = 0; i < sprite._objShaderPasses.length; i++) {
+            if (sprite._objShaderPasses[i].material) {
+                sprite._objShaderPasses[i].material.dispose();
+            }
+        }
+    }
+    if (sprite._objShaderRTs) {
+        for (var j = 0; j < sprite._objShaderRTs.length; j++) {
+            if (sprite._objShaderRTs[j]) {
+                sprite._objShaderRTs[j].dispose();
+            }
+        }
+    }
+    sprite._objShaderPasses = [];
+    sprite._objShaderRTs = [];
+    sprite._objShaderKey = '';
+    if (sprite._objOutputMaterial) {
+        sprite._objOutputMaterial.dispose();
+        sprite._objOutputMaterial = null;
     }
 };
 

@@ -3,6 +3,8 @@ import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import useEscClose from '../../hooks/useEscClose';
 import DragLabel from '../common/DragLabel';
+import { ShaderEditorDialog, ShaderEntry } from '../EventEditor/shaderEditor';
+import { SHADER_DEFINITIONS } from '../EventEditor/shaderDefinitions';
 import './InspectorPanel.css';
 
 function ObjectImagePickerDialog({ onSelect, onClose }: {
@@ -85,6 +87,7 @@ export default function ObjectInspector() {
   const addObjectFromImage = useEditorStore((s) => s.addObjectFromImage);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [showAnchorHelp, setShowAnchorHelp] = useState(false);
+  const [showShaderEditor, setShowShaderEditor] = useState(false);
 
   const objects = currentMap?.objects;
   const selectedObj = selectedObjectId != null && objects
@@ -342,6 +345,60 @@ export default function ObjectInspector() {
           );
         })()}
       </div>
+
+      {/* Shader (이미지 오브젝트 전용) */}
+      {isImageObj && (
+        <div className="light-inspector-section">
+          <div className="light-inspector-title">셰이더</div>
+          {(() => {
+            const shaderList = selectedObj.shaderData || [];
+            const enabledShaders = shaderList.filter(s => s.enabled);
+            return (
+              <>
+                {enabledShaders.length > 0 ? (
+                  <div style={{ fontSize: 11, color: '#aaa', marginBottom: 4 }}>
+                    {enabledShaders.map(s => {
+                      const def = SHADER_DEFINITIONS.find(d => d.type === s.type);
+                      return def?.label || s.type;
+                    }).join(' + ')}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>
+                    셰이더 없음
+                  </div>
+                )}
+                <button
+                  className="light-inspector-input"
+                  style={{ width: '100%', cursor: 'pointer', textAlign: 'center' }}
+                  onClick={() => setShowShaderEditor(true)}
+                >
+                  셰이더 편집...
+                </button>
+                {enabledShaders.length > 0 && (
+                  <button
+                    className="light-inspector-input"
+                    style={{ width: '100%', cursor: 'pointer', textAlign: 'center', marginTop: 4, color: '#f88' }}
+                    onClick={() => updateObject(selectedObj.id, { shaderData: [] })}
+                  >
+                    셰이더 제거
+                  </button>
+                )}
+              </>
+            );
+          })()}
+          {showShaderEditor && (
+            <ShaderEditorDialog
+              imageName={selectedObj.imageName!}
+              shaderList={(selectedObj.shaderData || []) as ShaderEntry[]}
+              onOk={(newList) => {
+                updateObject(selectedObj.id, { shaderData: newList.map(s => ({ type: s.type, enabled: true, params: { ...s.params } })) });
+                setShowShaderEditor(false);
+              }}
+              onCancel={() => setShowShaderEditor(false)}
+            />
+          )}
+        </div>
+      )}
 
       {/* Passability */}
       <div className="light-inspector-section">
