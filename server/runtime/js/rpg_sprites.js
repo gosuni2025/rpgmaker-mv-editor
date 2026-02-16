@@ -2440,6 +2440,16 @@ Spriteset_Map.prototype.createMapObjects = function() {
         if (typeof Mode3D !== 'undefined') {
             Mode3D.registerBillboard(container);
         }
+
+        // ShadowLight 활성 상태이면 material을 MeshPhongMaterial로 변환
+        if (typeof ShadowLight !== 'undefined' && ShadowLight._active) {
+            ShadowLight._convertMaterial(container);
+            if (container.children) {
+                for (var ci = 0; ci < container.children.length; ci++) {
+                    ShadowLight._convertMaterial(container.children[ci]);
+                }
+            }
+        }
     }
 };
 
