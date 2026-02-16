@@ -174,6 +174,28 @@ export function createStoreSubscription(params: {
       requestRender();
     }
 
+    // 타일 레이어 높이(elevation) 옵션 변경 시
+    if (state.currentMap?.tileLayerElevation !== prevState.currentMap?.tileLayerElevation) {
+      w.$dataMap.tileLayerElevation = state.currentMap?.tileLayerElevation || false;
+      if (spriteset._tilemap) {
+        spriteset._tilemap._needsRepaint = true;
+        // ZLayer의 z 위치도 즉시 갱신
+        if (spriteset._tilemap.lowerZLayer) {
+          spriteset._tilemap.lowerZLayer._transformDirty = true;
+        }
+        if (spriteset._tilemap.upperZLayer) {
+          const elevation = state.currentMap?.tileLayerElevation;
+          if (w.ShadowLight && w.ShadowLight._active) {
+            spriteset._tilemap.upperZLayer._zIndex = elevation ? w.ShadowLight.config.upperLayerZ : 0;
+          } else {
+            spriteset._tilemap.upperZLayer._zIndex = elevation ? 4 : 0;
+          }
+          spriteset._tilemap.upperZLayer._transformDirty = true;
+        }
+      }
+      requestRender();
+    }
+
     if (state.currentMap?.skyBackground !== prevState.currentMap?.skyBackground) {
       w.$dataMap.skyBackground = state.currentMap?.skyBackground || null;
       if (w._skyBoxApplySettings) {

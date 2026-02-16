@@ -1961,8 +1961,10 @@ Spriteset_Map.prototype._activateShadowLight = function() {
     ShadowLight._resetTilemapMeshes(this._tilemap);
 
     // upperZLayer를 z 방향으로 상승시켜 PointLight 조명 효과 개선
+    // tileLayerElevation이 비활성화면 상승하지 않음
     if (this._tilemap && this._tilemap.upperZLayer) {
-        this._tilemap.upperZLayer._zIndex = ShadowLight.config.upperLayerZ;
+        var elevationEnabled = $dataMap && $dataMap.tileLayerElevation;
+        this._tilemap.upperZLayer._zIndex = elevationEnabled ? ShadowLight.config.upperLayerZ : 0;
     }
 
     // 디버그 UI 생성 (에디터 모드가 아니고, ?dev=true 일 때만)
@@ -2004,7 +2006,9 @@ Spriteset_Map.prototype._deactivateShadowLight = function() {
 
     // upperZLayer z 위치 복원
     if (this._tilemap && this._tilemap.upperZLayer) {
-        this._tilemap.upperZLayer._threeObj.position.z = 4; // 원래 zIndex
+        var elevationEnabled = $dataMap && $dataMap.tileLayerElevation;
+        this._tilemap.upperZLayer._zIndex = elevationEnabled ? 4 : 0;
+        this._tilemap.upperZLayer._threeObj.position.z = elevationEnabled ? 4 : 0;
     }
 
     // shadow mesh 숨기기 및 씬 그래프에서 제거
