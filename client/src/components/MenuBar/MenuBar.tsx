@@ -84,7 +84,7 @@ export default function MenuBar() {
         { label: t('menu.deploy'), action: 'deploy', disabled: () => !hasProject },
         { label: t('menu.migrate'), action: 'migrate', disabled: () => !hasProject },
         { type: 'separator' },
-        { label: t('menu.openFolder'), action: 'openFolder', disabled: () => !hasProject },
+        { label: t('menu.openEditorFolder'), action: 'openEditorFolder' },
         { label: t('menu.copyPath'), action: 'copyPath', disabled: () => !hasProject },
         { label: t('menu.openVscode'), action: 'openVscode', disabled: () => !hasProject },
         { type: 'separator' },
@@ -160,6 +160,8 @@ export default function MenuBar() {
       items: [
         { label: t('menu.playtestTitle'), action: 'playtestTitle', shortcut: 'Ctrl+Shift+R', disabled: () => !hasProject },
         { label: t('menu.playtestCurrentMap'), action: 'playtestCurrentMap', shortcut: 'Ctrl+R', disabled: () => !hasProject },
+        { type: 'separator' },
+        { label: t('menu.openFolder'), action: 'openFolder', disabled: () => !hasProject },
       ],
     },
   ];
@@ -218,6 +220,7 @@ export default function MenuBar() {
         window.open(`/game/index.html?dev=true&startMapId=${mapId}`, '_blank');
       }); break;
       case 'openFolder': fetch('/api/project/open-folder', { method: 'POST' }); break;
+      case 'openEditorFolder': fetch('/api/project/open-editor-folder', { method: 'POST' }); break;
       case 'copyPath': if (projectPath) navigator.clipboard.writeText(projectPath); break;
       case 'openVscode': fetch('/api/project/open-vscode', { method: 'POST' }); break;
       case 'selectAll': window.dispatchEvent(new CustomEvent('editor-selectall')); break;
@@ -286,6 +289,7 @@ export default function MenuBar() {
           case 'KeyP': e.preventDefault(); handleAction('toolPen'); break;
           case 'KeyB': e.preventDefault(); handleAction('toolFill'); break;
           case 'KeyM': e.preventDefault(); handleAction('toolSelect'); break;
+          case 'KeyS': e.preventDefault(); handleAction('toolShadow'); break;
         }
       }
     };
