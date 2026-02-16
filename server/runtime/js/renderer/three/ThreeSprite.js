@@ -306,10 +306,7 @@ ThreeSprite.prototype._updateTexture = function() {
         this._material.map = threeTexture;
         this._material.visible = true;
         this._material.needsUpdate = true;
-        // 텍스처 이미지를 GPU에 업로드하도록 설정
-        if (threeTexture.needsUpdate === undefined || threeTexture.needsUpdate === false) {
-            threeTexture.needsUpdate = true;
-        }
+        threeTexture.needsUpdate = true;
 
         // Update frame/UV
         this._updateFrame();

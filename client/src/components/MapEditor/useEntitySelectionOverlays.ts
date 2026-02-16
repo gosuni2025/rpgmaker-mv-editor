@@ -45,10 +45,11 @@ function createHighlightMesh(
   fillColor: number, strokeColor: number,
   fillZ: number, lineZ: number,
   fillOrder: number, lineOrder: number,
+  fillOpacity = 0.3,
 ) {
   const geom = new THREE.PlaneGeometry(w, h);
   const mat = new THREE.MeshBasicMaterial({
-    color: fillColor, opacity: 0.3, transparent: true,
+    color: fillColor, opacity: fillOpacity, transparent: true,
     depthTest: false, side: THREE.DoubleSide,
   });
   const mesh = new THREE.Mesh(geom, mat);
@@ -386,12 +387,12 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
         const tileIds = obj.tileIds;
         const isImageObj = !!obj.imageName;
         if (isImageObj) {
-          // 이미지 오브젝트: 전체 영역을 하나의 박스로 표시
+          // 이미지 오브젝트: 전체 영역을 하나의 박스로 표시 (이미지가 보이도록 채우기를 연하게)
           const rw = ow * TILE_SIZE_PX;
           const rh = oh * TILE_SIZE_PX;
           const cx = obj.x * TILE_SIZE_PX + rw / 2;
           const cy = (obj.y - oh + 1) * TILE_SIZE_PX + rh / 2;
-          createHighlightMesh(THREE, rObj.scene, meshes, cx, cy, rw, rh, fillColor, strokeColor, 5.5, 5.8, 9998, 9999);
+          createHighlightMesh(THREE, rObj.scene, meshes, cx, cy, rw, rh, fillColor, strokeColor, 5.5, 5.8, 9998, 9999, isSelected ? 0.15 : 0.05);
           // 앵커 마커: 빨간 원 + 노란 테두리
           const objAnchorY = obj.anchorY != null ? obj.anchorY : 1.0;
           const topY = (obj.y - oh + 1) * TILE_SIZE_PX;
