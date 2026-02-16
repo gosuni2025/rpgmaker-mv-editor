@@ -433,7 +433,7 @@ export default function TilesetPalette() {
               onClick={() => setSelectedLightType('directional')}
             >
               <div className="light-type-icon" style={{ backgroundColor: '#fff8ee' }} />
-              디렉셔널 라이트
+              광원 방향
             </div>
 
             {currentMap?.editorLights?.points && currentMap.editorLights.points.length > 0 && (
