@@ -16,6 +16,7 @@ export default function DeployDialog() {
   const [excludeUnused, setExcludeUnused] = useState(true);
   const [outputPath, setOutputPath] = useState('');
   const [showBrowse, setShowBrowse] = useState(false);
+  const [browsePath, setBrowsePath] = useState('');
   const [deploying, setDeploying] = useState(false);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
@@ -85,13 +86,6 @@ export default function DeployDialog() {
             </div>
           </div>
 
-          {showBrowse && (
-            <FolderBrowser
-              onSelect={(path) => { setOutputPath(path); setShowBrowse(false); }}
-              style={{ border: '1px solid #555', borderRadius: 3, background: '#333', maxHeight: 250 }}
-            />
-          )}
-
           {progress && <div style={{ color: '#6c6', fontSize: 12 }}>{progress}</div>}
           {error && <div style={{ color: '#e55', fontSize: 12 }}>{error}</div>}
         </div>
@@ -103,6 +97,27 @@ export default function DeployDialog() {
           <button className="db-btn" onClick={() => setShow(false)}>{t('common.close')}</button>
         </div>
       </div>
+
+      {showBrowse && (
+        <div className="db-dialog-overlay" style={{ zIndex: 1001 }}>
+          <div className="db-dialog" style={{ width: 500, height: 420, display: 'flex', flexDirection: 'column' }}>
+            <div className="db-dialog-header">{t('deploy.outputPath')}</div>
+            <FolderBrowser
+              onPathChange={(path) => setBrowsePath(path)}
+              onSelect={(path) => { setOutputPath(path); setShowBrowse(false); }}
+              style={{ flex: 1, overflow: 'hidden' }}
+            />
+            <div className="db-dialog-footer">
+              <button className="db-btn" style={{ background: '#0078d4', borderColor: '#0078d4' }}
+                onClick={() => { if (browsePath) { setOutputPath(browsePath); setShowBrowse(false); } }}
+                disabled={!browsePath}>
+                {t('deploy.selectFolder')}
+              </button>
+              <button className="db-btn" onClick={() => setShowBrowse(false)}>{t('common.cancel')}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
