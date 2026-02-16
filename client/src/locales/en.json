@@ -1498,6 +1498,18 @@
     "pp_ssao": "SSAO",
     "pp_ssao_radius": "Radius",
     "pp_ssao_intensity": "Intensity",
-    "pp_ssao_bias": "Bias"
+    "pp_ssao_bias": "Bias",
+
+    "shadowLight_pointLight_intensity": "Point Light Intensity",
+    "shadowLight_pointLight_color": "Point Light Color",
+    "shadowLight_pointLight_distance": "Point Light Distance",
+    "param_pointLight": "Light ID",
+    "param_distance": "Distance",
+    "selectPointLight": "Select...",
+    "pointLightList": "Point Lights",
+    "noPointLights": "No point lights",
+    "eventList": "Events",
+    "selected": "Selected",
+    "selectPointLightHint": "Click a point light on the map"
   }
 }

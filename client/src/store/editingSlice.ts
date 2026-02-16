@@ -10,7 +10,7 @@ import {
   copyEventsOp, pasteEventsOp, deleteEventsOp, moveEventsOp,
 } from './eventOperations';
 import {
-  addObjectOp, addObjectFromTilesOp, expandObjectTilesOp, shrinkObjectTilesOp, updateObjectOp, deleteObjectOp,
+  addObjectOp, addObjectFromTilesOp, addObjectFromImageOp, expandObjectTilesOp, shrinkObjectTilesOp, updateObjectOp, deleteObjectOp,
   copyObjectsOp, pasteObjectsOp, deleteObjectsOp, moveObjectsOp,
   addCameraZoneOp, updateCameraZoneOp, deleteCameraZoneOp, deleteCameraZonesOp, moveCameraZonesOp,
 } from './objectOperations';
@@ -28,7 +28,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'setSelectedEventIds' | 'setEventSelectionStart' | 'setEventSelectionEnd' | 'setIsEventPasting' | 'setEventPastePreviewPos' | 'clearEventSelection' |
   'setSelectedObjectId' | 'setSelectedObjectIds' | 'setObjectSelectionStart' | 'setObjectSelectionEnd' | 'setIsObjectPasting' | 'setObjectPastePreviewPos' | 'clearObjectSelection' |
   'objectPaintTiles' | 'setObjectPaintTiles' |
-  'addObject' | 'addObjectFromTiles' | 'expandObjectTiles' | 'shrinkObjectTiles' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' |
+  'addObject' | 'addObjectFromTiles' | 'addObjectFromImage' | 'expandObjectTiles' | 'shrinkObjectTiles' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' |
   'setSelectedCameraZoneId' | 'setSelectedCameraZoneIds' | 'addCameraZone' | 'updateCameraZone' | 'deleteCameraZone' | 'deleteCameraZones' | 'moveCameraZones' |
   'setEditMode' | 'setSelectedTool' | 'setDrawShape' | 'setSelectedTileId' | 'setSelectedTiles' |
   'setCurrentLayer' | 'setCursorTile' | 'setSelection' | 'setIsPasting' | 'setPastePreviewPos' | 'clearSelection' | 'setSelectedEventId'
@@ -375,6 +375,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   setObjectPaintTiles: (tiles: Set<string> | null) => set({ objectPaintTiles: tiles }),
   addObject: (x: number, y: number) => addObjectOp(get, set, x, y),
   addObjectFromTiles: (paintedTiles: Set<string>) => addObjectFromTilesOp(get, set, paintedTiles),
+  addObjectFromImage: (imageName: string, imageWidth: number, imageHeight: number) => addObjectFromImageOp(get, set, imageName, imageWidth, imageHeight),
   expandObjectTiles: (objectId: number, paintedTiles: Set<string>) => expandObjectTilesOp(get, set, objectId, paintedTiles),
   shrinkObjectTiles: (objectId: number, removeTiles: Set<string>) => shrinkObjectTilesOp(get, set, objectId, removeTiles),
   updateObject: (id: number, updates: Partial<MapObject>) => updateObjectOp(get, set, id, updates),

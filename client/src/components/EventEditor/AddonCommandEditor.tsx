@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AddonCommandDef, AddonSubCommand } from './addonCommands';
 import { buildAddonCommandText, matchAddonCommand } from './addonCommands';
+import { MapLocationPicker } from './MapLocationPicker';
+import useEditorStore from '../../store/useEditorStore';
 import './AddonCommandEditor.css';
 
 interface AddonCommandEditorProps {
@@ -15,6 +17,7 @@ interface AddonCommandEditorProps {
 
 export default function AddonCommandEditor({ def, initialSubCmd, initialParamValues, initialDuration, onOk, onCancel }: AddonCommandEditorProps) {
   const { t } = useTranslation();
+  const currentMapId = useEditorStore(s => s.currentMapId);
 
   const [selectedSubIdx, setSelectedSubIdx] = useState(() => {
     if (initialSubCmd) {
@@ -39,6 +42,7 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
   });
 
   const [duration, setDuration] = useState(initialDuration ?? '0');
+  const [showLightPicker, setShowLightPicker] = useState<number | null>(null); // param index
 
   const handleSubCmdChange = (idx: number) => {
     setSelectedSubIdx(idx);
@@ -98,6 +102,25 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
                     style={{ width: 90 }}
                     placeholder="#RRGGBB"
                   />
+                </div>
+              ) : param.type === 'pointlight' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="number"
+                    className="addon-cmd-input"
+                    value={paramValues[i] ?? ''}
+                    min={0}
+                    step={1}
+                    onChange={e => handleParamChange(i, e.target.value)}
+                    style={{ width: 70 }}
+                  />
+                  <button
+                    className="db-btn"
+                    style={{ fontSize: 11, padding: '2px 8px' }}
+                    onClick={() => setShowLightPicker(i)}
+                  >
+                    {t('addonCommands.selectPointLight')}
+                  </button>
                 </div>
               ) : (
                 <input
@@ -162,6 +185,21 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
         <button className="db-btn" onClick={handleOk}>{t('common.ok')}</button>
         <button className="db-btn" onClick={onCancel}>{t('common.cancel')}</button>
       </div>
+
+      {showLightPicker !== null && currentMapId && (
+        <MapLocationPicker
+          mode="pointlight"
+          mapId={currentMapId}
+          x={0} y={0}
+          fixedMap
+          selectedLightId={paramValues[showLightPicker] ? parseInt(paramValues[showLightPicker]) : undefined}
+          onSelectLight={(lightId) => {
+            handleParamChange(showLightPicker, String(lightId));
+            setShowLightPicker(null);
+          }}
+          onCancel={() => setShowLightPicker(null)}
+        />
+      )}
     </>
   );
 }

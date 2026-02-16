@@ -579,6 +579,8 @@ export interface MapObject {
   height: number;       // 타일 행 수
   zHeight: number;      // Z 높이 오프셋 (3D 빌보드용)
   passability: boolean[][]; // [row][col] true=통행가능, false=불가
+  // 이미지 기반 오브젝트 (선택적)
+  imageName?: string;   // 이미지 파일명 (확장자 제외, img/pictures/ 내)
 }
 
 // Editor-only lighting data (stored as custom field in map JSON, ignored by RPG Maker MV)
