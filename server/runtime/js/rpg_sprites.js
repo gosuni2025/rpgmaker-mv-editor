@@ -2361,7 +2361,8 @@ Spriteset_Map.prototype.createMapObjects = function() {
         container._mapObjH = obj.height;
         container._mapObjId = obj.id;
         container._mapObjName = obj.name || '';
-        container._mapObjVisible = true;
+        container._mapObjVisible = obj.visible !== false;
+        container.visible = obj.visible !== false;
         container.z = 5; // above upper tiles (z=4), same as upper characters
 
         if (obj.imageName) {
