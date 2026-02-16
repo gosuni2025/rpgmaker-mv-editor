@@ -413,8 +413,7 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
             if (needsPhong && !isPhong) {
                 mesh.material.dispose();
                 mesh.material = new THREE.MeshPhongMaterial({
-                    map: texture, transparent: true, depthTest: true, depthWrite: true,
-                    depthFunc: THREE.LessEqualDepth,
+                    map: texture, transparent: true, depthTest: true, depthWrite: false,
                     side: THREE.DoubleSide,
                     emissive: new THREE.Color(0x000000),
                     specular: new THREE.Color(0x000000), shininess: 0,
@@ -423,12 +422,11 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
             } else if (!needsPhong && isPhong) {
                 mesh.material.dispose();
                 mesh.material = new THREE.MeshBasicMaterial({
-                    map: texture, transparent: true, depthTest: false, depthWrite: false,
+                    map: texture, transparent: true, depthTest: true, depthWrite: false,
                     side: THREE.DoubleSide,
                 });
                 mesh.material.needsUpdate = true;
-            } else if (!needsPhong && mesh.material.depthTest !== false) {
-                mesh.material.depthTest = false;
+            } else if (mesh.material.depthWrite !== false) {
                 mesh.material.depthWrite = false;
                 mesh.material.needsUpdate = true;
             }
@@ -457,15 +455,14 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
             texture.anisotropy = 1;
             if (needsPhong) {
                 material = new THREE.MeshPhongMaterial({
-                    map: texture, transparent: true, depthTest: true, depthWrite: true,
-                    depthFunc: THREE.LessEqualDepth,
+                    map: texture, transparent: true, depthTest: true, depthWrite: false,
                     side: THREE.DoubleSide,
                     emissive: new THREE.Color(0x000000),
                     specular: new THREE.Color(0x000000), shininess: 0,
                 });
             } else {
                 material = new THREE.MeshBasicMaterial({
-                    map: texture, transparent: true, depthTest: false, depthWrite: false,
+                    map: texture, transparent: true, depthTest: true, depthWrite: false,
                     side: THREE.DoubleSide,
                 });
             }
@@ -650,7 +647,6 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(setNumber, meshKe
             mesh.material.dispose();
             var mat = new THREE.MeshPhongMaterial({
                 map: texture, transparent: true, depthTest: true, depthWrite: false,
-                depthFunc: THREE.LessEqualDepth,
                 side: THREE.DoubleSide,
                 emissive: new THREE.Color(0x000000),
                 specular: new THREE.Color(0x000000), shininess: 0,
@@ -681,7 +677,6 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(setNumber, meshKe
         if (needsPhong) {
             material = new THREE.MeshPhongMaterial({
                 map: texture, transparent: true, depthTest: true, depthWrite: false,
-                depthFunc: THREE.LessEqualDepth,
                 side: THREE.DoubleSide,
                 emissive: new THREE.Color(0x000000),
                 specular: new THREE.Color(0x000000), shininess: 0,
