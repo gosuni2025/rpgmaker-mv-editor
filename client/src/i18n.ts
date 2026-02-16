@@ -10,7 +10,7 @@ i18n
       ko: { translation: ko },
       en: { translation: en },
     },
-    lng: localStorage.getItem('editor-lang') || 'ko',
+    lng: 'ko',
     fallbackLng: 'ko',
     interpolation: {
       escapeValue: false,

@@ -33,6 +33,7 @@ import CameraZoneListPanel from './components/Sidebar/CameraZoneListPanel';
 import MapInspector from './components/Sidebar/MapInspector';
 import EventInspector from './components/Sidebar/EventInspector';
 import useFileWatcher from './hooks/useFileWatcher';
+import i18n from './i18n';
 
 function SidebarSplit({ editMode }: { editMode: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -111,6 +112,24 @@ export default function App() {
   useEffect(() => {
     restoreLastProject();
   }, [restoreLastProject]);
+
+  // 서버에서 에디터 설정 로드
+  useEffect(() => {
+    apiClient.get<{
+      language: string;
+      transparentColor: { r: number; g: number; b: number };
+      maxUndo: number;
+      zoomStep: number;
+    }>('/settings').then((data) => {
+      const store = useEditorStore.getState();
+      if (data.transparentColor) store.setTransparentColor(data.transparentColor);
+      if (data.maxUndo) store.setMaxUndo(data.maxUndo);
+      if (data.zoomStep) store.setZoomStep(data.zoomStep);
+      if (data.language && data.language !== i18n.language) {
+        i18n.changeLanguage(data.language);
+      }
+    }).catch(() => {});
+  }, []);
 
   // 브라우저 기본 컨텍스트 메뉴 차단
   useEffect(() => {

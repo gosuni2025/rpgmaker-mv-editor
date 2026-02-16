@@ -4,6 +4,10 @@ import os from 'os';
 
 export interface EditorSettings {
   steamPath: string;
+  language: string;
+  transparentColor: { r: number; g: number; b: number };
+  maxUndo: number;
+  zoomStep: number;
 }
 
 const SETTINGS_DIR = path.join(os.homedir(), '.rpg-editor');
@@ -11,6 +15,10 @@ const SETTINGS_FILE = path.join(SETTINGS_DIR, 'settings.json');
 
 const DEFAULT_SETTINGS: EditorSettings = {
   steamPath: '',
+  language: 'ko',
+  transparentColor: { r: 255, g: 255, b: 255 },
+  maxUndo: 20,
+  zoomStep: 10,
 };
 
 function load(): EditorSettings {

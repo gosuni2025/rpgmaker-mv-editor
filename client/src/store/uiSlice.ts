@@ -1,40 +1,6 @@
 import type { EditorState, SliceCreator } from './types';
 import { DEFAULT_MAX_UNDO, DEFAULT_ZOOM_STEP, MIN_ZOOM, MAX_ZOOM } from './types';
 
-const TRANSPARENT_COLOR_KEY = 'rpg-editor-transparent-color';
-const MAX_UNDO_KEY = 'rpg-editor-max-undo';
-const ZOOM_STEP_KEY = 'rpg-editor-zoom-step';
-
-function loadMaxUndo(): number {
-  try {
-    const saved = localStorage.getItem(MAX_UNDO_KEY);
-    if (saved) {
-      const val = Number(saved);
-      if (val >= 1 && val <= 999) return val;
-    }
-  } catch {}
-  return DEFAULT_MAX_UNDO;
-}
-
-function loadZoomStep(): number {
-  try {
-    const saved = localStorage.getItem(ZOOM_STEP_KEY);
-    if (saved) {
-      const val = Number(saved);
-      if (val >= 1 && val <= 100) return val;
-    }
-  } catch {}
-  return DEFAULT_ZOOM_STEP;
-}
-
-function loadTransparentColor(): { r: number; g: number; b: number } {
-  try {
-    const saved = localStorage.getItem(TRANSPARENT_COLOR_KEY);
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return { r: 255, g: 255, b: 255 };
-}
-
 export const uiSlice: SliceCreator<Pick<EditorState,
   'zoomLevel' | 'mode3d' | 'shadowLight' | 'disableFow' | 'paletteTab' | 'toastMessage' | 'toastPersistent' |
   'transparentColor' | 'maxUndo' | 'zoomStep' |
@@ -57,9 +23,9 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   paletteTab: 'A',
   toastMessage: null,
   toastPersistent: false,
-  transparentColor: loadTransparentColor(),
-  maxUndo: loadMaxUndo(),
-  zoomStep: loadZoomStep(),
+  transparentColor: { r: 255, g: 255, b: 255 },
+  maxUndo: DEFAULT_MAX_UNDO,
+  zoomStep: DEFAULT_ZOOM_STEP,
 
   showOpenProjectDialog: false,
   showNewProjectDialog: false,
@@ -146,17 +112,14 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   setShowOptionsDialog: (show: boolean) => set({ showOptionsDialog: show }),
   setShowLocalizationDialog: (show: boolean) => set({ showLocalizationDialog: show }),
   setTransparentColor: (color: { r: number; g: number; b: number }) => {
-    localStorage.setItem(TRANSPARENT_COLOR_KEY, JSON.stringify(color));
     set({ transparentColor: color });
   },
   setMaxUndo: (max: number) => {
     const clamped = Math.max(1, Math.min(999, max));
-    localStorage.setItem(MAX_UNDO_KEY, String(clamped));
     set({ maxUndo: clamped });
   },
   setZoomStep: (step: number) => {
     const clamped = Math.max(1, Math.min(100, step));
-    localStorage.setItem(ZOOM_STEP_KEY, String(clamped));
     set({ zoomStep: clamped });
   },
 });
