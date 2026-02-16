@@ -1789,7 +1789,7 @@ PostProcess._applyMapSettings = function() {
     if (!$dataMap) return;
 
     var fow = $dataMap.fogOfWar;
-    if (fow && fow.enabled) {
+    if (fow && (fow.enabled || fow.enabled2D || fow.enabled3D)) {
         FogOfWar.setup($dataMap.width, $dataMap.height, fow);
     } else {
         FogOfWar.dispose();
