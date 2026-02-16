@@ -1708,11 +1708,39 @@ FogOfWar._updateLightUniforms = function(u) {
 // PostProcess 후킹 - 3D 메쉬 통합
 //=============================================================================
 
+// --- 프로파일러 ---
+var _fowProf = {
+    frameCount: 0,
+    total: 0, postProcess: 0, visibility: 0, lerp: 0, texture: 0, meshPos: 0, meshUni: 0, losDbg: 0,
+    log: function() {
+        if (this.frameCount < 120) return;
+        var n = this.frameCount;
+        console.log('[FoW Prof] total=' + (this.total/n).toFixed(2) +
+            'ms  postProc=' + (this.postProcess/n).toFixed(2) +
+            '  vis=' + (this.visibility/n).toFixed(2) +
+            '  lerp=' + (this.lerp/n).toFixed(2) +
+            '  tex=' + (this.texture/n).toFixed(2) +
+            '  meshPos=' + (this.meshPos/n).toFixed(2) +
+            '  meshUni=' + (this.meshUni/n).toFixed(2) +
+            '  losDbg=' + (this.losDbg/n).toFixed(2));
+        this.frameCount = 0;
+        this.total = this.postProcess = this.visibility = this.lerp = this.texture = this.meshPos = this.meshUni = this.losDbg = 0;
+    }
+};
+
 var _PostProcess_updateUniforms = PostProcess._updateUniforms;
 PostProcess._updateUniforms = function() {
+    var _t0 = performance.now();
     _PostProcess_updateUniforms.call(this);
+    var _t1 = performance.now();
+    _fowProf.postProcess += _t1 - _t0;
 
-    if (!FogOfWar._active) return;
+    if (!FogOfWar._active) {
+        _fowProf.total += _t1 - _t0;
+        _fowProf.frameCount++;
+        _fowProf.log();
+        return;
+    }
 
     // 메쉬가 아직 생성되지 않았으면 scene에 lazy 추가
     if (!FogOfWar._fogGroup && FogOfWar._fogTexture) {
@@ -1730,26 +1758,45 @@ PostProcess._updateUniforms = function() {
         }
     }
 
-
     if (FogOfWar._fogGroup) {
-        // 플레이어 가시성 갱신
+        var _t2 = performance.now();
         if (typeof $gamePlayer !== 'undefined' && $gamePlayer) {
             FogOfWar.updateVisibility($gamePlayer.x, $gamePlayer.y);
         }
+        var _t3 = performance.now();
+        _fowProf.visibility += _t3 - _t2;
 
-        // 표시 버퍼를 목표값으로 부드럽게 보간
         var now = performance.now() / 1000;
         var dt = FogOfWar._lastTime > 0 ? Math.min(now - FogOfWar._lastTime, 0.1) : 0.016;
         FogOfWar._lastTime = now;
-        if (FogOfWar._lerpDisplay(dt) || FogOfWar._fogTexture.needsUpdate) {
+        var _t4 = performance.now();
+        var changed = FogOfWar._lerpDisplay(dt);
+        var _t5 = performance.now();
+        _fowProf.lerp += _t5 - _t4;
+
+        if (changed || FogOfWar._fogTexture.needsUpdate) {
             FogOfWar._updateTexture();
         }
+        var _t6 = performance.now();
+        _fowProf.texture += _t6 - _t5;
 
         FogOfWar._updateMeshPosition();
+        var _t7 = performance.now();
+        _fowProf.meshPos += _t7 - _t6;
+
         FogOfWar._updateMeshUniforms();
+        var _t8 = performance.now();
+        _fowProf.meshUni += _t8 - _t7;
     }
 
+    var _t9 = performance.now();
     FogOfWar._updateLosDebug();
+    var _t10 = performance.now();
+    _fowProf.losDbg += _t10 - _t9;
+
+    _fowProf.total += _t10 - _t0;
+    _fowProf.frameCount++;
+    _fowProf.log();
 };
 
 //=============================================================================
