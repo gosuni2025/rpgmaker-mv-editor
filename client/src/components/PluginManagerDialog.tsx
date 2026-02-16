@@ -58,19 +58,19 @@ interface ProjectSettings {
   fps: number;
 }
 
-type CategoryId = 'general' | 'screen' | string;
-
 export default function PluginManagerDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowPluginManagerDialog);
   useEscClose(useCallback(() => setShow(false), [setShow]));
 
   const [plugins, setPlugins] = useState<PluginEntry[]>([]);
+  const [availableFiles, setAvailableFiles] = useState<string[]>([]);
   const [metadata, setMetadata] = useState<Record<string, PluginMetadata>>({});
   const [settings, setSettings] = useState<ProjectSettings>({
     touchUI: true, screenWidth: 816, screenHeight: 624, fps: 60,
   });
-  const [activeCategory, setActiveCategory] = useState<CategoryId>('general');
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [editingParamIndex, setEditingParamIndex] = useState<number>(-1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -104,8 +104,10 @@ export default function PluginManagerDialog() {
           };
         });
         setPlugins(entries);
+        setAvailableFiles(res.files || []);
         setMetadata(meta);
         setSettings(settingsData);
+        if (entries.length > 0) setSelectedIndex(0);
         setLoading(false);
       } catch (e) {
         setError((e as Error).message);
@@ -114,21 +116,18 @@ export default function PluginManagerDialog() {
     })();
   }, [locale]);
 
-  const pluginCategories = useMemo(() =>
-    plugins.map((p, i) => ({
-      id: `plugin:${i}`,
-      pluginIndex: i,
-      label: metadata[p.name]?.pluginname || p.name,
-    })),
-    [plugins, metadata]
-  );
+  const selectedPlugin = selectedIndex >= 0 && selectedIndex < plugins.length ? plugins[selectedIndex] : null;
+  const selectedMeta = selectedPlugin ? metadata[selectedPlugin.name] : null;
+
+  const usedPluginNames = useMemo(() => new Set(plugins.map(p => p.name)), [plugins]);
 
   const updateSetting = <K extends keyof ProjectSettings>(key: K, value: ProjectSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
     setDirty(true);
   };
 
-  const toggleStatus = (index: number) => {
+  const toggleStatus = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
     const updated = [...plugins];
     updated[index] = { ...updated[index], status: !updated[index].status };
     setPlugins(updated);
@@ -144,24 +143,43 @@ export default function PluginManagerDialog() {
     setDirty(true);
   };
 
-  const movePlugin = (index: number, direction: -1 | 1) => {
-    const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= plugins.length) return;
+  const changePluginName = (index: number, newName: string) => {
     const updated = [...plugins];
-    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+    const meta = metadata[newName];
+    const params: PluginParam[] = meta?.params
+      ? meta.params.map(pm => ({ name: pm.name, value: pm.default }))
+      : [];
+    updated[index] = { ...updated[index], name: newName, description: meta?.plugindesc || '', parameters: params };
     setPlugins(updated);
-    setActiveCategory(`plugin:${newIndex}`);
     setDirty(true);
   };
 
-  const removePlugin = (index: number) => {
-    if (plugins.length === 0) return;
-    const updated = plugins.filter((_, i) => i !== index);
+  const movePlugin = (direction: -1 | 1) => {
+    if (selectedIndex < 0) return;
+    const newIndex = selectedIndex + direction;
+    if (newIndex < 0 || newIndex >= plugins.length) return;
+    const updated = [...plugins];
+    [updated[selectedIndex], updated[newIndex]] = [updated[newIndex], updated[selectedIndex]];
+    setPlugins(updated);
+    setSelectedIndex(newIndex);
+    setDirty(true);
+  };
+
+  const addPlugin = () => {
+    const updated = [...plugins, { name: '', status: true, description: '', parameters: [] }];
+    setPlugins(updated);
+    setSelectedIndex(updated.length - 1);
+    setDirty(true);
+  };
+
+  const removePlugin = () => {
+    if (selectedIndex < 0 || selectedIndex >= plugins.length) return;
+    const updated = plugins.filter((_, i) => i !== selectedIndex);
     setPlugins(updated);
     if (updated.length > 0) {
-      setActiveCategory(`plugin:${Math.min(index, updated.length - 1)}`);
+      setSelectedIndex(Math.min(selectedIndex, updated.length - 1));
     } else {
-      setActiveCategory('general');
+      setSelectedIndex(-1);
     }
     setDirty(true);
   };
@@ -196,22 +214,24 @@ export default function PluginManagerDialog() {
     }
   };
 
-  const renderParamInput = (plugin: PluginEntry, pluginIndex: number, paramMeta: PluginParamMeta, paramIndex: number) => {
-    const value = plugin.parameters[paramIndex]?.value ?? paramMeta.default;
+  const renderParamInput = (plugin: PluginEntry, pluginIndex: number, paramMeta: PluginParamMeta | undefined, paramIndex: number) => {
+    const param = plugin.parameters[paramIndex];
+    if (!param) return null;
+    const value = param.value;
 
-    if (paramMeta.type === 'boolean') {
+    if (paramMeta?.type === 'boolean') {
       return (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={value === 'true' || value === 'ON' || value === 'on'}
-            onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.checked ? 'true' : 'false')}
-          />
-        </label>
+        <select
+          value={value === 'true' || value === 'ON' || value === 'on' ? 'true' : 'false'}
+          onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.value)}
+        >
+          <option value="true">true</option>
+          <option value="false">false</option>
+        </select>
       );
     }
 
-    if (paramMeta.type === 'select' || paramMeta.type === 'combo' || paramMeta.options.length > 0) {
+    if (paramMeta && (paramMeta.type === 'select' || paramMeta.type === 'combo' || paramMeta.options.length > 0)) {
       return (
         <select
           value={value}
@@ -227,7 +247,7 @@ export default function PluginManagerDialog() {
       );
     }
 
-    if (paramMeta.type === 'number') {
+    if (paramMeta?.type === 'number') {
       return (
         <input
           type="number"
@@ -235,6 +255,8 @@ export default function PluginManagerDialog() {
           min={paramMeta.min}
           max={paramMeta.max}
           onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.value)}
+          onBlur={() => setEditingParamIndex(-1)}
+          autoFocus
         />
       );
     }
@@ -244,194 +266,229 @@ export default function PluginManagerDialog() {
         type="text"
         value={value}
         onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.value)}
+        onBlur={() => setEditingParamIndex(-1)}
+        autoFocus
       />
     );
   };
 
-  const renderContent = () => {
-    if (loading) return <div style={{ color: '#888' }}>{t('pluginManager.loading')}</div>;
+  // Build ordered param list: metadata params first, then raw params
+  const getOrderedParams = (plugin: PluginEntry) => {
+    const meta = metadata[plugin.name];
+    const metaParams = meta?.params ?? [];
+    const result: { paramIndex: number; meta?: PluginParamMeta }[] = [];
 
-    if (activeCategory === 'general') {
-      return (
-        <>
-          <div className="ps-content-title">{t('projectSettings.categories.general')}</div>
-          <div className="ps-param-row">
-            <span className="ps-param-label">{t('projectSettings.touchUI')}</span>
-            <div className="ps-param-input">
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={settings.touchUI}
-                  onChange={(e) => updateSetting('touchUI', e.target.checked)}
-                />
-              </label>
-            </div>
-          </div>
-        </>
-      );
+    for (const pm of metaParams) {
+      const paramIndex = plugin.parameters.findIndex(p => p.name === pm.name);
+      if (paramIndex >= 0) {
+        result.push({ paramIndex, meta: pm });
+      }
     }
 
-    if (activeCategory === 'screen') {
-      return (
-        <>
-          <div className="ps-content-title">{t('projectSettings.categories.screen')}</div>
-          <div className="ps-param-row">
-            <span className="ps-param-label">{t('projectSettings.screenWidth')}</span>
-            <div className="ps-param-input">
-              <input type="number" value={settings.screenWidth} min={1} style={{ width: 100 }}
-                onChange={(e) => updateSetting('screenWidth', Number(e.target.value) || 816)} />
-            </div>
-          </div>
-          <div className="ps-param-row">
-            <span className="ps-param-label">{t('projectSettings.screenHeight')}</span>
-            <div className="ps-param-input">
-              <input type="number" value={settings.screenHeight} min={1} style={{ width: 100 }}
-                onChange={(e) => updateSetting('screenHeight', Number(e.target.value) || 624)} />
-            </div>
-          </div>
-          <div className="ps-param-row">
-            <span className="ps-param-label">{t('projectSettings.fps')}</span>
-            <div className="ps-param-input">
-              <input type="number" value={settings.fps} min={1} max={120} style={{ width: 100 }}
-                onChange={(e) => updateSetting('fps', Math.max(1, Math.min(120, Number(e.target.value) || 60)))} />
-            </div>
-          </div>
-        </>
-      );
-    }
+    // Raw params without metadata
+    const metaNames = new Set(metaParams.map(pm => pm.name));
+    plugin.parameters.forEach((p, i) => {
+      if (!metaNames.has(p.name)) {
+        result.push({ paramIndex: i });
+      }
+    });
 
-    // Plugin category
-    if (activeCategory.startsWith('plugin:')) {
-      const pluginIndex = parseInt(activeCategory.slice(7), 10);
-      const plugin = plugins[pluginIndex];
-      if (!plugin) return null;
-
-      const meta = metadata[plugin.name];
-      const params = meta?.params ?? [];
-
-      return (
-        <>
-          <div className="ps-content-title">{meta?.pluginname || plugin.name}</div>
-          {meta?.pluginname && (
-            <div style={{ fontSize: 11, color: '#777', marginTop: -8 }}>{plugin.name}</div>
-          )}
-          {meta?.plugindesc && (
-            <div style={{ fontSize: 12, color: '#999' }}>{meta.plugindesc}</div>
-          )}
-
-          <div className="ps-plugin-toggle">
-            <label>
-              <input type="checkbox" checked={plugin.status}
-                onChange={() => toggleStatus(pluginIndex)} />
-              {t('projectSettings.pluginEnabled')}
-            </label>
-            <div style={{ flex: 1 }} />
-            <button className="db-btn-small" onClick={() => movePlugin(pluginIndex, -1)} title="위로">↑</button>
-            <button className="db-btn-small" onClick={() => movePlugin(pluginIndex, 1)} title="아래로">↓</button>
-            <button className="db-btn-small" onClick={() => removePlugin(pluginIndex)} title="삭제">✕</button>
-          </div>
-
-          {params.length === 0 && plugin.parameters.length === 0 && (
-            <div style={{ color: '#888', fontSize: 13 }}>{t('projectSettings.noParams')}</div>
-          )}
-
-          {params.map((paramMeta, pi) => {
-            const paramIndex = plugin.parameters.findIndex(p => p.name === paramMeta.name);
-            if (paramIndex < 0) return null;
-            return (
-              <div key={paramMeta.name}>
-                <div className="ps-param-row">
-                  <span className="ps-param-label" title={paramMeta.name}>{paramMeta.name}</span>
-                  <div className="ps-param-input">
-                    {renderParamInput(plugin, pluginIndex, paramMeta, paramIndex)}
-                  </div>
-                </div>
-                {paramMeta.desc && (
-                  <div className="ps-param-desc">{paramMeta.desc}</div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Raw params without metadata */}
-          {plugin.parameters
-            .filter(p => !params.some(pm => pm.name === p.name))
-            .map(param => {
-              const paramIndex = plugin.parameters.indexOf(param);
-              return (
-                <div key={param.name} className="ps-param-row">
-                  <span className="ps-param-label" title={param.name}>{param.name}</span>
-                  <div className="ps-param-input">
-                    <input type="text" value={param.value}
-                      onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.value)} />
-                  </div>
-                </div>
-              );
-            })
-          }
-
-          {plugin.name === 'TitleCredit' && <CreditTextEditor />}
-        </>
-      );
-    }
-
-    return null;
+    return result;
   };
 
   return (
     <div className="db-dialog-overlay">
-      <div className="db-dialog" style={{ width: 750, height: 550 }}>
+      <div className="db-dialog" style={{ width: 1100, height: 700 }}>
         <div className="db-dialog-header">{t('pluginManager.title')}</div>
         <div className="db-dialog-body" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="ps-layout">
-            {/* Left sidebar */}
-            <div className="ps-sidebar">
-              <div className="ps-category-list">
-                <div className={`ps-category-item${activeCategory === 'general' ? ' active' : ''}`}
-                  onClick={() => setActiveCategory('general')}>
-                  {t('projectSettings.categories.general')}
+          {loading ? (
+            <div className="pm-placeholder">{t('pluginManager.loading')}</div>
+          ) : (
+            <div className="pm-layout">
+              {/* 1st column: Plugin list */}
+              <div className="pm-plugin-list">
+                <div className="pm-plugin-list-items">
+                  {plugins.map((plugin, index) => (
+                    <div
+                      key={index}
+                      className={`pm-plugin-item${selectedIndex === index ? ' active' : ''}`}
+                      onClick={() => { setSelectedIndex(index); setEditingParamIndex(-1); }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={plugin.status}
+                        onClick={(e) => toggleStatus(index, e)}
+                        onChange={() => {}}
+                      />
+                      <span className="pm-plugin-item-name">
+                        {metadata[plugin.name]?.pluginname || plugin.name || t('pluginManager.noPlugins')}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <div className={`ps-category-item${activeCategory === 'screen' ? ' active' : ''}`}
-                  onClick={() => setActiveCategory('screen')}>
-                  {t('projectSettings.categories.screen')}
+                <div className="pm-plugin-buttons">
+                  <button className="db-btn-small" onClick={() => movePlugin(-1)} disabled={selectedIndex <= 0} title={t('pluginManager.moveUp')}>↑</button>
+                  <button className="db-btn-small" onClick={() => movePlugin(1)} disabled={selectedIndex < 0 || selectedIndex >= plugins.length - 1} title={t('pluginManager.moveDown')}>↓</button>
+                  <button className="db-btn-small" onClick={addPlugin} title={t('common.add')}>+</button>
+                  <button className="db-btn-small" onClick={removePlugin} disabled={selectedIndex < 0} title={t('common.delete')}>✕</button>
                 </div>
+                <div className="pm-open-folder-btn">
+                  <button className="db-btn-small" onClick={handleOpenPluginFolder}>
+                    {t('pluginManager.openFolder')}
+                  </button>
+                </div>
+              </div>
 
-                {pluginCategories.length > 0 && (
+              {/* 2nd column: Basic settings */}
+              <div className="pm-basic-settings">
+                {selectedPlugin ? (
                   <>
-                    <div className="ps-category-separator" />
-                    <div className="ps-category-header">{t('projectSettings.pluginsSeparator')}</div>
-                    {pluginCategories.map((cat) => {
-                      const plugin = plugins[cat.pluginIndex];
-                      return (
-                        <div key={cat.id}
-                          className={`ps-category-item${activeCategory === cat.id ? ' active' : ''}`}
-                          onClick={() => setActiveCategory(cat.id)}
-                          title={plugin?.name}>
-                          <span style={{ color: plugin?.status ? '#6c6' : '#888', marginRight: 6, fontSize: 10 }}>
-                            {plugin?.status ? 'ON' : 'OFF'}
-                          </span>
-                          {cat.label}
-                        </div>
-                      );
-                    })}
+                    <div className="pm-field-row">
+                      <span className="pm-field-label">{t('pluginManager.name')}:</span>
+                      <div className="pm-field-value">
+                        <select
+                          value={selectedPlugin.name}
+                          onChange={(e) => changePluginName(selectedIndex, e.target.value)}
+                        >
+                          <option value="">({t('pluginManager.selectPlugin')})</option>
+                          {availableFiles.map(f => (
+                            <option key={f} value={f} disabled={f !== selectedPlugin.name && usedPluginNames.has(f)}>
+                              {metadata[f]?.pluginname ? `${metadata[f].pluginname} (${f})` : f}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="pm-field-row">
+                      <span className="pm-field-label">{t('pluginManager.status')}:</span>
+                      <div className="pm-field-value">
+                        <select
+                          value={selectedPlugin.status ? 'ON' : 'OFF'}
+                          onChange={(e) => {
+                            const updated = [...plugins];
+                            updated[selectedIndex] = { ...updated[selectedIndex], status: e.target.value === 'ON' };
+                            setPlugins(updated);
+                            setDirty(true);
+                          }}
+                        >
+                          <option value="ON">ON</option>
+                          <option value="OFF">OFF</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {selectedMeta?.plugindesc && (
+                      <>
+                        <div className="pm-section-label">{t('pluginManager.descriptionLabel')}:</div>
+                        <div className="pm-description">{selectedMeta.plugindesc}</div>
+                      </>
+                    )}
+
+                    {selectedMeta?.author && (
+                      <>
+                        <div className="pm-section-label">{t('pluginManager.author')}:</div>
+                        <div className="pm-author">{selectedMeta.author}</div>
+                      </>
+                    )}
+
+                    {selectedMeta?.help && (
+                      <>
+                        <div className="pm-section-label">{t('pluginManager.help')}:</div>
+                        <div className="pm-help-box">{selectedMeta.help}</div>
+                      </>
+                    )}
+
+                    {selectedPlugin.name === 'TitleCredit' && <CreditTextEditor />}
                   </>
+                ) : (
+                  <div className="pm-placeholder">{t('pluginManager.selectPlugin')}</div>
                 )}
               </div>
-              <div style={{ padding: 6, borderTop: '1px solid #555' }}>
-                <button className="db-btn-small" onClick={handleOpenPluginFolder} style={{ width: '100%' }}>
-                  플러그인 폴더 열기
-                </button>
+
+              {/* 3rd column: Parameters */}
+              <div className="pm-params-panel">
+                <div className="pm-params-header">{t('pluginManager.parameters')}</div>
+                <div className="pm-params-body">
+                  {selectedPlugin && selectedPlugin.name ? (
+                    (() => {
+                      const orderedParams = getOrderedParams(selectedPlugin);
+                      if (orderedParams.length === 0) {
+                        return <div className="pm-no-params">{t('projectSettings.noParams')}</div>;
+                      }
+                      return (
+                        <table className="pm-param-table">
+                          <thead>
+                            <tr>
+                              <th>{t('pluginManager.paramName')}</th>
+                              <th>{t('pluginManager.paramValue')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {orderedParams.map(({ paramIndex, meta: paramMeta }) => {
+                              const param = selectedPlugin.parameters[paramIndex];
+                              if (!param) return null;
+                              const isEditing = editingParamIndex === paramIndex;
+                              const isBoolOrSelect = paramMeta && (paramMeta.type === 'boolean' || paramMeta.type === 'select' || paramMeta.type === 'combo' || paramMeta.options.length > 0);
+                              return (
+                                <tr
+                                  key={param.name}
+                                  className={isEditing ? 'active' : ''}
+                                  title={paramMeta?.desc || param.name}
+                                >
+                                  <td className="pm-param-name">{param.name}</td>
+                                  <td className="pm-param-value-cell">
+                                    {isEditing || isBoolOrSelect ? (
+                                      renderParamInput(selectedPlugin, selectedIndex, paramMeta, paramIndex)
+                                    ) : (
+                                      <div
+                                        className="pm-param-value-display"
+                                        onClick={() => setEditingParamIndex(paramIndex)}
+                                      >
+                                        {param.value || '\u00A0'}
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      );
+                    })()
+                  ) : (
+                    <div className="pm-no-params">{t('pluginManager.selectPlugin')}</div>
+                  )}
+                </div>
               </div>
             </div>
-
-            {/* Right content */}
-            <div className="ps-content">
-              {renderContent()}
-            </div>
-          </div>
+          )}
         </div>
         {error && <div style={{ padding: '4px 16px', color: '#e55', fontSize: 12 }}>{error}</div>}
         <div className="db-dialog-footer">
+          <div className="pm-footer-settings">
+            <div className="pm-footer-settings-group">
+              <span>{t('pluginManager.screen')}:</span>
+              <input type="number" value={settings.screenWidth} min={1} style={{ width: 55 }}
+                onChange={(e) => updateSetting('screenWidth', Number(e.target.value) || 816)} />
+              <span>x</span>
+              <input type="number" value={settings.screenHeight} min={1} style={{ width: 55 }}
+                onChange={(e) => updateSetting('screenHeight', Number(e.target.value) || 624)} />
+            </div>
+            <div className="pm-footer-settings-group">
+              <span>FPS:</span>
+              <input type="number" value={settings.fps} min={1} max={120} style={{ width: 45 }}
+                onChange={(e) => updateSetting('fps', Math.max(1, Math.min(120, Number(e.target.value) || 60)))} />
+            </div>
+            <label>
+              <input
+                type="checkbox"
+                checked={settings.touchUI}
+                onChange={(e) => updateSetting('touchUI', e.target.checked)}
+              />
+              TouchUI
+            </label>
+          </div>
           <button className="db-btn" onClick={handleSave} disabled={saving || !dirty}
             style={dirty ? { background: '#0078d4', borderColor: '#0078d4' } : {}}>
             {saving ? t('pluginManager.saving') : t('common.save')}

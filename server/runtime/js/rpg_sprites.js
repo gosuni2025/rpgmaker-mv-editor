@@ -2359,6 +2359,9 @@ Spriteset_Map.prototype.createMapObjects = function() {
         container._mapObjX = obj.x;
         container._mapObjY = obj.y;
         container._mapObjH = obj.height;
+        container._mapObjId = obj.id;
+        container._mapObjName = obj.name || '';
+        container._mapObjVisible = true;
         container.z = 5; // above upper tiles (z=4), same as upper characters
 
         if (obj.imageName) {
@@ -2477,6 +2480,14 @@ Spriteset_Map.prototype.createMapObjects = function() {
     }
 };
 
+Spriteset_Map.prototype.findObjectSprite = function(id) {
+    if (!this._objectSprites) return null;
+    for (var i = 0; i < this._objectSprites.length; i++) {
+        if (this._objectSprites[i]._mapObjId === id) return this._objectSprites[i];
+    }
+    return null;
+};
+
 Spriteset_Map.prototype.updateMapObjects = function() {
     if (!this._objectSprites) return;
     var tw = $gameMap.tileWidth();
@@ -2486,6 +2497,14 @@ Spriteset_Map.prototype.updateMapObjects = function() {
         // Update position based on map scroll (same as character screenX/Y)
         container.x = Math.round($gameMap.adjustX(container._mapObjX) * tw);
         container.y = Math.round($gameMap.adjustY(container._mapObjY) * th + th);
+
+        // zHeight 동적 반영 (Mode3D billboard)
+        if (container._mapObjZHeight != null && typeof Mode3D !== 'undefined' && container._threeSprite) {
+            var billboard = container._threeSprite;
+            if (billboard._heightOffset !== container._mapObjZHeight) {
+                billboard._heightOffset = container._mapObjZHeight;
+            }
+        }
 
         // 이미지 오브젝트 셰이더 업데이트
         if (container.children) {
@@ -3239,3 +3258,210 @@ Spriteset_Battle.prototype.isAnyoneMoving = function() {
 Spriteset_Battle.prototype.isBusy = function() {
     return this.isAnimationPlaying() || this.isAnyoneMoving();
 };
+
+//=============================================================================
+// MapObject Plugin Command Handler
+//=============================================================================
+
+(function() {
+    var _Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
+    Game_Interpreter.prototype.pluginCommand = function(command, args) {
+        _Game_Interpreter_pluginCommand.call(this, command, args);
+
+        if (command !== 'MapObject') return;
+
+        var subCmd = args[0];
+        var objectId = parseInt(args[1]);
+        if (isNaN(objectId)) return;
+
+        // spriteset 접근
+        var scene = SceneManager._scene;
+        var spriteset = scene && scene._spriteset;
+        if (!spriteset || !spriteset.findObjectSprite) return;
+
+        var container = spriteset.findObjectSprite(objectId);
+        if (!container) return;
+
+        var imgChild = container.children && container.children[0];
+
+        switch (subCmd) {
+            case 'show':
+                container.visible = true;
+                container._mapObjVisible = true;
+                break;
+
+            case 'hide':
+                container.visible = false;
+                container._mapObjVisible = false;
+                break;
+
+            case 'showWithShader': {
+                var shaderType = args[2] || 'dissolve';
+                var dur = parseFloat(args[3]) || 1.0;
+                container.visible = true;
+                container._mapObjVisible = true;
+                if (imgChild && typeof PictureShader !== 'undefined' && window.PluginTween) {
+                    // dissolve 계열: threshold 1→0으로 나타나기
+                    var tempShader = { type: shaderType, enabled: true, params: { threshold: 1.0 } };
+                    if (!imgChild._objShaderData) imgChild._objShaderData = [];
+                    imgChild._objShaderData.push(tempShader);
+                    imgChild._objShaderKey = '';
+                    PluginTween.add({
+                        target: tempShader.params, key: 'threshold', to: 0.0, duration: dur,
+                        onComplete: function() {
+                            // 완료 시 임시 셰이더 제거
+                            var idx = imgChild._objShaderData.indexOf(tempShader);
+                            if (idx >= 0) imgChild._objShaderData.splice(idx, 1);
+                            imgChild._objShaderKey = '';
+                        }
+                    });
+                }
+                break;
+            }
+
+            case 'hideWithShader': {
+                var shaderType2 = args[2] || 'dissolve';
+                var dur2 = parseFloat(args[3]) || 1.0;
+                if (imgChild && typeof PictureShader !== 'undefined' && window.PluginTween) {
+                    var tempShader2 = { type: shaderType2, enabled: true, params: { threshold: 0.0 } };
+                    if (!imgChild._objShaderData) imgChild._objShaderData = [];
+                    imgChild._objShaderData.push(tempShader2);
+                    imgChild._objShaderKey = '';
+                    PluginTween.add({
+                        target: tempShader2.params, key: 'threshold', to: 1.0, duration: dur2,
+                        onComplete: function() {
+                            container.visible = false;
+                            container._mapObjVisible = false;
+                            var idx = imgChild._objShaderData.indexOf(tempShader2);
+                            if (idx >= 0) imgChild._objShaderData.splice(idx, 1);
+                            imgChild._objShaderKey = '';
+                        }
+                    });
+                } else {
+                    container.visible = false;
+                    container._mapObjVisible = false;
+                }
+                break;
+            }
+
+            case 'move': {
+                var mx = parseFloat(args[2]) || 0;
+                var my = parseFloat(args[3]) || 0;
+                var mDur = parseFloat(args[4]) || 0;
+                if (mDur > 0 && window.PluginTween) {
+                    PluginTween.add({ target: container, key: '_mapObjX', to: mx, duration: mDur });
+                    PluginTween.add({ target: container, key: '_mapObjY', to: my, duration: mDur });
+                } else {
+                    container._mapObjX = mx;
+                    container._mapObjY = my;
+                }
+                break;
+            }
+
+            case 'scale': {
+                var sv = parseFloat(args[2]) || 1;
+                var sDur = parseFloat(args[3]) || 0;
+                if (imgChild) {
+                    if (sDur > 0 && window.PluginTween) {
+                        PluginTween.add({ target: imgChild.scale, key: 'x', to: sv, duration: sDur });
+                        PluginTween.add({ target: imgChild.scale, key: 'y', to: sv, duration: sDur });
+                    } else {
+                        imgChild.scale.set(sv, sv);
+                    }
+                }
+                break;
+            }
+
+            case 'zHeight': {
+                var zh = parseFloat(args[2]) || 0;
+                var zDur = parseFloat(args[3]) || 0;
+                if (container._mapObjZHeight == null) container._mapObjZHeight = 0;
+                if (zDur > 0 && window.PluginTween) {
+                    PluginTween.add({ target: container, key: '_mapObjZHeight', to: zh, duration: zDur });
+                } else {
+                    container._mapObjZHeight = zh;
+                }
+                break;
+            }
+
+            case 'anchorY': {
+                var ay = parseFloat(args[2]) || 1;
+                var aDur = parseFloat(args[3]) || 0;
+                if (imgChild && imgChild.anchor) {
+                    if (aDur > 0 && window.PluginTween) {
+                        PluginTween.add({ target: imgChild.anchor, key: 'y', to: ay, duration: aDur });
+                    } else {
+                        imgChild.anchor.y = ay;
+                    }
+                }
+                break;
+            }
+
+            case 'passability': {
+                var passVal = args[2] === '1' || args[2] === 'true';
+                if ($dataMap && $dataMap.objects) {
+                    for (var pi = 0; pi < $dataMap.objects.length; pi++) {
+                        var pobj = $dataMap.objects[pi];
+                        if (pobj && pobj.id === objectId && pobj.passability) {
+                            for (var pk in pobj.passability) {
+                                pobj.passability[pk] = passVal;
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+
+            case 'shader_add': {
+                var saType = args[2];
+                if (imgChild && saType) {
+                    if (!imgChild._objShaderData) imgChild._objShaderData = [];
+                    imgChild._objShaderData.push({ type: saType, enabled: true, params: {} });
+                    imgChild._objShaderKey = '';
+                }
+                break;
+            }
+
+            case 'shader_remove': {
+                var srType = args[2];
+                if (imgChild && imgChild._objShaderData) {
+                    if (srType === 'all') {
+                        imgChild._objShaderData = [];
+                    } else {
+                        imgChild._objShaderData = imgChild._objShaderData.filter(function(s) {
+                            return s.type !== srType;
+                        });
+                    }
+                    imgChild._objShaderKey = '';
+                }
+                break;
+            }
+
+            case 'shader_param': {
+                var spType = args[2];
+                var spKey = args[3];
+                var spVal = parseFloat(args[4]);
+                var spDur = parseFloat(args[5]) || 0;
+                if (imgChild && imgChild._objShaderData && spType && spKey && !isNaN(spVal)) {
+                    var shaderEntry = null;
+                    for (var si = 0; si < imgChild._objShaderData.length; si++) {
+                        if (imgChild._objShaderData[si].type === spType) {
+                            shaderEntry = imgChild._objShaderData[si];
+                            break;
+                        }
+                    }
+                    if (shaderEntry) {
+                        if (!shaderEntry.params) shaderEntry.params = {};
+                        if (spDur > 0 && window.PluginTween) {
+                            if (shaderEntry.params[spKey] == null) shaderEntry.params[spKey] = 0;
+                            PluginTween.add({ target: shaderEntry.params, key: spKey, to: spVal, duration: spDur });
+                        } else {
+                            shaderEntry.params[spKey] = spVal;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    };
+})();

@@ -550,8 +550,21 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
     const match = matchAddonCommand(cmdText);
     if (match) {
       const label = ctx.t(match.subCmd.label);
-      const paramStr = match.paramValues.length > 0 ? ` (${match.paramValues.join(', ')})` : '';
       const durStr = match.duration && parseFloat(match.duration) > 0 ? ` [${match.duration}${ctx.t('addonCommands.seconds_short')}]` : '';
+
+      // MapObject 커맨드: 오브젝트 이름 해석
+      if (match.def.pluginCommand === 'MapObject' && match.paramValues.length > 0) {
+        const objId = parseInt(match.paramValues[0]);
+        const objects = ctx.currentMap?.objects;
+        const obj = objects && Array.isArray(objects) ? objects.find((o: any) => o && o.id === objId) : null;
+        const objName = obj ? (obj.name || obj.imageName || `#${objId}`) : `#${objId}`;
+        const displayName = `#${objId} ${objName}`;
+        const restParams = match.paramValues.slice(1);
+        const paramStr = restParams.length > 0 ? ` (${restParams.join(', ')})` : '';
+        return `${ctx.t(match.def.label)}: ${label} ${displayName}${paramStr}${durStr}`;
+      }
+
+      const paramStr = match.paramValues.length > 0 ? ` (${match.paramValues.join(', ')})` : '';
       return `${ctx.t(match.def.label)}: ${label}${paramStr}${durStr}`;
     }
     return text + `: ${cmdText}`;

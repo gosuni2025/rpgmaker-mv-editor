@@ -112,6 +112,8 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
     const mapAddons = ADDON_COMMANDS.filter(a => ['FogOfWar', 'ShadowLight', 'Mode3D'].includes(a.pluginCommand));
     const ppAddons = ADDON_COMMANDS.filter(a => a.pluginCommand === 'PostProcess');
     const ppEffectAddons = ADDON_COMMANDS.filter(a => a.pluginCommand === 'PPEffect');
+    const objectAddons = ADDON_COMMANDS.filter(a => a.pluginCommand === 'MapObject');
+    if (objectAddons.length > 0) cats.push({ label: t('eventCommands.categories.tab4Objects'), addons: objectAddons });
     if (mapAddons.length > 0) cats.push({ label: t('eventCommands.categories.tab4MapRendering'), addons: mapAddons });
     if (ppAddons.length > 0) cats.push({ label: t('eventCommands.categories.tab4PostProcess'), addons: ppAddons });
     if (ppEffectAddons.length > 0) cats.push({ label: t('eventCommands.categories.tab4PPEffect'), addons: ppEffectAddons });
