@@ -83,6 +83,7 @@
       "general": "일반",
       "appearance": "외관",
       "mapEditor": "맵 에디터",
+      "autoSave": "자동 저장",
       "paths": "경로"
     },
     "transparentColor": "투명 색깔",
@@ -106,7 +107,20 @@
     "steamFillLinux": "Linux 기본 경로",
     "steamOpenSettings": "settings.json 보기",
     "zoomStep": "줌 설정",
-    "zoomStepPercent": "줌 스텝:"
+    "zoomStepPercent": "줌 스텝:",
+    "autoSaveSection": "자동 저장",
+    "autoSaveEnabled": "자동 저장 사용",
+    "autoSaveInterval": "저장 간격:",
+    "minutes": "분",
+    "autoSaved": "자동 저장됨",
+    "gitNotInstalled": "Git이 설치되어 있지 않습니다. Git을 설치해주세요.",
+    "gitDownloadLink": "Git 공식 다운로드 페이지로 이동 →",
+    "gitAutoCommit": "자동 저장 시 Git 커밋",
+    "gitAddAll": "추가된 파일도 항상 Git에 추가하고 커밋",
+    "gitWillInit": "현재 프로젝트가 Git 저장소가 아닙니다. 첫 커밋 시 자동으로 초기화됩니다.",
+    "gitStatsAdded": "추가 {{count}}",
+    "gitStatsModified": "변경 {{count}}",
+    "gitStatsDeleted": "삭제 {{count}}"
   },
   "toolbar": {
     "map": "맵",

@@ -2,12 +2,20 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+export interface AutoSaveSettings {
+  enabled: boolean;
+  intervalMinutes: number;
+  gitCommit: boolean;
+  gitAddAll: boolean;
+}
+
 export interface EditorSettings {
   steamPath: string;
   language: string;
   transparentColor: { r: number; g: number; b: number };
   maxUndo: number;
   zoomStep: number;
+  autoSave: AutoSaveSettings;
 }
 
 const SETTINGS_DIR = path.join(os.homedir(), '.rpg-editor');
@@ -19,6 +27,12 @@ const DEFAULT_SETTINGS: EditorSettings = {
   transparentColor: { r: 255, g: 255, b: 255 },
   maxUndo: 20,
   zoomStep: 10,
+  autoSave: {
+    enabled: true,
+    intervalMinutes: 5,
+    gitCommit: true,
+    gitAddAll: true,
+  },
 };
 
 function load(): EditorSettings {

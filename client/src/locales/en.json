@@ -83,6 +83,7 @@
       "general": "General",
       "appearance": "Appearance",
       "mapEditor": "Map Editor",
+      "autoSave": "Auto Save",
       "paths": "Paths"
     },
     "transparentColor": "Transparent Color",
@@ -106,7 +107,20 @@
     "steamFillLinux": "Linux Default",
     "steamOpenSettings": "View settings.json",
     "zoomStep": "Zoom Settings",
-    "zoomStepPercent": "Zoom Step:"
+    "zoomStepPercent": "Zoom Step:",
+    "autoSaveSection": "Auto Save",
+    "autoSaveEnabled": "Enable auto save",
+    "autoSaveInterval": "Save interval:",
+    "minutes": "min",
+    "autoSaved": "Auto saved",
+    "gitNotInstalled": "Git is not installed. Please install Git.",
+    "gitDownloadLink": "Go to Git official download page →",
+    "gitAutoCommit": "Git commit on auto save",
+    "gitAddAll": "Always add new files to Git and commit",
+    "gitWillInit": "This project is not a Git repository. It will be initialized on the first commit.",
+    "gitStatsAdded": "added {{count}}",
+    "gitStatsModified": "modified {{count}}",
+    "gitStatsDeleted": "deleted {{count}}"
   },
   "toolbar": {
     "map": "Map",

@@ -34,6 +34,7 @@ import CameraZoneListPanel from './components/Sidebar/CameraZoneListPanel';
 import MapInspector from './components/Sidebar/MapInspector';
 import EventInspector from './components/Sidebar/EventInspector';
 import useFileWatcher from './hooks/useFileWatcher';
+import useAutoSave from './hooks/useAutoSave';
 import i18n from './i18n';
 
 function SidebarSplit({ editMode }: { editMode: string }) {
@@ -107,6 +108,7 @@ export default function App() {
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
   useFileWatcher();
+  useAutoSave();
   const setShowOpenProjectDialog = useEditorStore((s) => s.setShowOpenProjectDialog);
   const openProject = useEditorStore((s) => s.openProject);
   const restoreLastProject = useEditorStore((s) => s.restoreLastProject);
