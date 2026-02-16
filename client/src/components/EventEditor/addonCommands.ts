@@ -7,12 +7,13 @@
 
 export interface AddonParam {
   name: string;
-  type: 'number' | 'float' | 'boolean';
+  type: 'number' | 'float' | 'boolean' | 'color';
   label: string;
   min?: number;
   max?: number;
   step?: number;
   default?: number;
+  defaultColor?: string;
 }
 
 export interface AddonSubCommand {
@@ -82,7 +83,14 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
         id: 'ambient',
         label: 'addonCommands.shadowLight_ambient',
         params: [
-          { name: 'intensity', type: 'float', label: 'addonCommands.param_intensity', min: 0, max: 2, step: 0.1, default: 0.5 },
+          { name: 'intensity', type: 'float', label: 'addonCommands.param_intensity', min: 0, max: 2, step: 0.1, default: 0.35 },
+        ],
+      },
+      {
+        id: 'ambientColor',
+        label: 'addonCommands.shadowLight_ambientColor',
+        params: [
+          { name: 'color', type: 'color', label: 'addonCommands.param_color', defaultColor: '#667788' },
         ],
       },
       {

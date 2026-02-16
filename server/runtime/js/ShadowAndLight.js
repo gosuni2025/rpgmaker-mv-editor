@@ -3037,6 +3037,15 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 ShadowLight._ambientLight.intensity = parseFloat(args[1]);
             }
         }
+        if (args[0] === 'ambientColor' && args[1]) {
+            var hex = parseInt(args[1].replace('#', ''), 16);
+            if (!isNaN(hex)) {
+                ShadowLight.config.ambientColor = hex;
+                if (ShadowLight._ambientLight) {
+                    ShadowLight._ambientLight.color.setHex(hex);
+                }
+            }
+        }
         if (args[0] === 'direction' && args.length >= 4) {
             ShadowLight.config.lightDirection = new THREE.Vector3(
                 parseFloat(args[1]), parseFloat(args[2]), parseFloat(args[3])

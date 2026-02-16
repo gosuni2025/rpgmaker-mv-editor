@@ -25,19 +25,22 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
 
   const subCmd = def.subCommands[selectedSubIdx];
 
+  const getParamDefault = (p: typeof subCmd.params[0]) =>
+    p.type === 'color' ? (p.defaultColor ?? '#000000') : String(p.default ?? '');
+
   const [paramValues, setParamValues] = useState<string[]>(() => {
     if (initialParamValues && initialParamValues.length > 0) {
       return subCmd.params.map((p, i) =>
-        initialParamValues[i] !== undefined ? initialParamValues[i] : String(p.default ?? '')
+        initialParamValues[i] !== undefined ? initialParamValues[i] : getParamDefault(p)
       );
     }
-    return subCmd.params.map(p => String(p.default ?? ''));
+    return subCmd.params.map(getParamDefault);
   });
 
   const handleSubCmdChange = (idx: number) => {
     setSelectedSubIdx(idx);
     const newSub = def.subCommands[idx];
-    setParamValues(newSub.params.map(p => String(p.default ?? '')));
+    setParamValues(newSub.params.map(p => p.type === 'color' ? (p.defaultColor ?? '#000000') : String(p.default ?? '')));
   };
 
   const handleParamChange = (idx: number, value: string) => {
@@ -71,15 +74,34 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
           {subCmd.params.map((param, i) => (
             <div key={param.name} className="addon-cmd-row">
               <label className="addon-cmd-label">{t(param.label)}</label>
-              <input
-                type="number"
-                className="addon-cmd-input"
-                value={paramValues[i] ?? ''}
-                min={param.min}
-                max={param.max}
-                step={param.step ?? (param.type === 'float' ? 0.1 : 1)}
-                onChange={e => handleParamChange(i, e.target.value)}
-              />
+              {param.type === 'color' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="color"
+                    value={paramValues[i] ?? '#000000'}
+                    onChange={e => handleParamChange(i, e.target.value)}
+                    style={{ width: 36, height: 28, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                  />
+                  <input
+                    type="text"
+                    className="addon-cmd-input"
+                    value={paramValues[i] ?? ''}
+                    onChange={e => handleParamChange(i, e.target.value)}
+                    style={{ width: 90 }}
+                    placeholder="#RRGGBB"
+                  />
+                </div>
+              ) : (
+                <input
+                  type="number"
+                  className="addon-cmd-input"
+                  value={paramValues[i] ?? ''}
+                  min={param.min}
+                  max={param.max}
+                  step={param.step ?? (param.type === 'float' ? 0.1 : 1)}
+                  onChange={e => handleParamChange(i, e.target.value)}
+                />
+              )}
             </div>
           ))}
         </div>

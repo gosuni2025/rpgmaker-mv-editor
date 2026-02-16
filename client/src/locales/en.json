@@ -1395,6 +1395,7 @@
     "shadowLight_on": "On",
     "shadowLight_off": "Off",
     "shadowLight_ambient": "Ambient Intensity",
+    "shadowLight_ambientColor": "Ambient Color",
     "shadowLight_direction": "Light Direction",
     "postProcess": "Post Process",
     "postProcess_on": "On",
@@ -1414,6 +1415,7 @@
     "param_intensity": "Intensity",
     "param_value": "Value",
     "param_degrees": "Degrees",
+    "param_color": "Color",
 
     "ppEffect_on": "On",
     "ppEffect_off": "Off",

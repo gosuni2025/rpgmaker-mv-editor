@@ -1483,6 +1483,7 @@
     "shadowLight_on": "켜기",
     "shadowLight_off": "끄기",
     "shadowLight_ambient": "환경광 강도",
+    "shadowLight_ambientColor": "환경광 색상",
     "shadowLight_direction": "광원 방향",
     "postProcess": "포스트 프로세스",
     "postProcess_on": "켜기",
@@ -1502,6 +1503,7 @@
     "param_intensity": "강도",
     "param_value": "값",
     "param_degrees": "각도",
+    "param_color": "색상",
 
     "ppEffect_on": "켜기",
     "ppEffect_off": "끄기",
