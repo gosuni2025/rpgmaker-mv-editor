@@ -226,13 +226,21 @@ export default function DrawToolbar() {
 
       <button
         onClick={() => {
-          const mapId = useEditorStore.getState().currentMapId || 1;
           saveCurrentMap().then(() => {
-            window.open(`/game/index.html?dev=true&startMapId=${mapId}`, '_blank');
+            const state = useEditorStore.getState();
+            const mapId = state.currentMapId || 1;
+            const testPos = state.currentMap?.testStartPosition;
+            if (testPos) {
+              window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${testPos.x}&startY=${testPos.y}`, '_blank');
+            } else {
+              const centerX = Math.floor((state.currentMap?.width || 1) / 2);
+              const centerY = Math.floor((state.currentMap?.height || 1) / 2);
+              window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${centerX}&startY=${centerY}`, '_blank');
+            }
           });
         }}
         style={styles.playBtn}
-        title="Ctrl+Shift+R"
+        title="Ctrl+R"
       >
         ▶ {t('menu.playtestCurrentMap')}
       </button>
