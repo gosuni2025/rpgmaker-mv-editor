@@ -7,7 +7,7 @@
 
 export interface AddonParam {
   name: string;
-  type: 'number' | 'float' | 'boolean' | 'color';
+  type: 'number' | 'float' | 'boolean' | 'color' | 'pointlight';
   label: string;
   min?: number;
   max?: number;
@@ -106,6 +106,32 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
           { name: 'y', type: 'float', label: 'Y', min: -1, max: 1, step: 0.1, default: -1 },
           { name: 'z', type: 'float', label: 'Z', min: -1, max: 1, step: 0.1, default: 0.5 },
         ],
+      },
+      {
+        id: 'pointLight_intensity',
+        label: 'addonCommands.shadowLight_pointLight_intensity',
+        params: [
+          { name: 'lightId', type: 'pointlight', label: 'addonCommands.param_pointLight' },
+          { name: 'intensity', type: 'float', label: 'addonCommands.param_intensity', min: 0, max: 5, step: 0.1, default: 1 },
+        ],
+        supportsDuration: true,
+      },
+      {
+        id: 'pointLight_color',
+        label: 'addonCommands.shadowLight_pointLight_color',
+        params: [
+          { name: 'lightId', type: 'pointlight', label: 'addonCommands.param_pointLight' },
+          { name: 'color', type: 'color', label: 'addonCommands.param_color', defaultColor: '#ffcc88' },
+        ],
+      },
+      {
+        id: 'pointLight_distance',
+        label: 'addonCommands.shadowLight_pointLight_distance',
+        params: [
+          { name: 'lightId', type: 'pointlight', label: 'addonCommands.param_pointLight' },
+          { name: 'distance', type: 'float', label: 'addonCommands.param_distance', min: 0, max: 1000, step: 10, default: 150 },
+        ],
+        supportsDuration: true,
       },
     ],
   },
@@ -281,6 +307,25 @@ export function matchAddonCommand(text: string): { def: AddonCommandDef; subCmd:
   if (!def) return null;
 
   const subId = parts[1] || '';
+
+  // pointLight 특수 처리: "ShadowLight pointLight <id> <prop> <value> [dur]"
+  // → 서브커맨드 id: "pointLight_<prop>", params: [id, value]
+  if (subId === 'pointLight' && parts.length >= 4) {
+    const lightId = parts[2];
+    const prop = parts[3];
+    const composedId = `pointLight_${prop}`;
+    const subCmd = def.subCommands.find(s => s.id === composedId);
+    if (subCmd) {
+      const rawParams = parts.slice(4);
+      // paramValues: [lightId, value...] — lightId가 첫 번째 파라미터
+      const valueParams = rawParams.slice(0, subCmd.params.length - 1);
+      const paramValues = [lightId, ...valueParams];
+      const totalConsumed = valueParams.length;
+      const duration = subCmd.supportsDuration && rawParams.length > totalConsumed ? rawParams[totalConsumed] : undefined;
+      return { def, subCmd, paramValues, duration };
+    }
+  }
+
   const subCmd = def.subCommands.find(s => s.id === subId);
   if (!subCmd) {
     return { def, subCmd: def.subCommands[0], paramValues: parts.slice(1) };
@@ -295,6 +340,18 @@ export function matchAddonCommand(text: string): { def: AddonCommandDef; subCmd:
 
 /** AddonCommandDef + 서브커맨드 + 파라미터 값으로 플러그인 커맨드 텍스트를 조합한다 */
 export function buildAddonCommandText(pluginCommand: string, subCommandId: string, paramValues: string[], duration?: string): string {
+  // pointLight_<property> 서브커맨드 특수 처리:
+  // "ShadowLight pointLight_intensity [lightId, value]" → "ShadowLight pointLight <lightId> intensity <value> [dur]"
+  const plMatch = subCommandId.match(/^pointLight_(\w+)$/);
+  if (plMatch && paramValues.length >= 2) {
+    const prop = plMatch[1];
+    const lightId = paramValues[0];
+    const restValues = paramValues.slice(1);
+    const parts = [pluginCommand, 'pointLight', lightId, prop, ...restValues];
+    if (duration && parseFloat(duration) > 0) parts.push(duration);
+    return parts.filter(p => p !== '').join(' ');
+  }
+
   const parts = [pluginCommand, subCommandId, ...paramValues];
   // duration이 있고 0이 아닌 경우에만 추가
   if (duration && parseFloat(duration) > 0) {

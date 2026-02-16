@@ -1,21 +1,48 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { selectStyle } from './messageEditors';
 import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
 import { useThreeRenderer } from '../MapEditor/useThreeRenderer';
+import type { EditorPointLight } from '../../types/rpgMakerMV';
 
-/** 맵 위치 선택 다이얼로그 - 왼쪽 맵 목록 + 오른쪽 2D 맵 프리뷰 */
-export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, eventMarker }: {
+const TILE_SIZE = 48;
+
+interface BaseProps {
   mapId: number; x: number; y: number;
-  onOk: (mapId: number, x: number, y: number) => void;
   onCancel: () => void;
   fixedMap?: boolean;
   eventMarker?: { x: number; y: number; label: string };
-}) {
+}
+
+interface LocationMode extends BaseProps {
+  mode?: 'location';
+  onOk: (mapId: number, x: number, y: number) => void;
+  onSelectLight?: never;
+  selectedLightId?: never;
+}
+
+interface PointLightMode extends BaseProps {
+  mode: 'pointlight';
+  onOk?: never;
+  onSelectLight: (lightId: number) => void;
+  selectedLightId?: number;
+}
+
+type MapLocationPickerProps = LocationMode | PointLightMode;
+
+/** 맵 위치 선택 다이얼로그 - 왼쪽 맵 목록 + 오른쪽 2D 맵 프리뷰 */
+export function MapLocationPicker(props: MapLocationPickerProps) {
+  const { mapId, x, y, onCancel, fixedMap, eventMarker, mode } = props;
+  const { t } = useTranslation();
   const maps = useEditorStore(s => s.maps);
+  const currentMap = useEditorStore(s => s.currentMap);
   const [selectedMapId, setSelectedMapId] = useState(mapId);
   const [selectedX, setSelectedX] = useState(x);
   const [selectedY, setSelectedY] = useState(y);
+  const [selectedLightId, setSelectedLightId] = useState<number | null>(
+    mode === 'pointlight' ? (props.selectedLightId ?? null) : null
+  );
   const [canvasScale, setCanvasScale] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [mapData, setMapData] = useState<any>(null);
@@ -23,6 +50,20 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, event
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 });
+
+  const isPointLightMode = mode === 'pointlight';
+
+  // 포인트라이트 & 이벤트 목록 (pointlight 모드에서 사용)
+  const pointLights: EditorPointLight[] = isPointLightMode
+    ? (currentMap?.editorLights?.points ?? [])
+    : [];
+
+  const mapEvents = useMemo(() => {
+    if (!isPointLightMode || !currentMap?.events) return [];
+    return currentMap.events
+      .filter((e): e is NonNullable<typeof e> => e != null)
+      .map(e => ({ id: e.id, name: e.name, x: e.x, y: e.y }));
+  }, [isPointLightMode, currentMap]);
 
   // 맵 목록 (트리를 flat list로 표시)
   const mapList = useMemo(() => {
@@ -62,7 +103,6 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, event
   useEffect(() => {
     const container = previewContainerRef.current;
     if (!container || !mapData || !rendererReady) return;
-    const TILE_SIZE = 48;
     const mapPxW = mapData.width * TILE_SIZE;
     const mapPxH = mapData.height * TILE_SIZE;
     const scale = Math.min(container.clientWidth / mapPxW, container.clientHeight / mapPxH, 1);
@@ -83,7 +123,6 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, event
       const md = mapDataRef.current;
       if (!md) return;
 
-      const TILE_SIZE = 48;
       const mapPxW = md.width * TILE_SIZE;
       const mapPxH = md.height * TILE_SIZE;
       const minScale = Math.min(container.clientWidth / mapPxW, container.clientHeight / mapPxH, 0.1);
@@ -132,7 +171,7 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, event
     window.addEventListener('mouseup', handleMouseUp);
   }, [panOffset]);
 
-  // 맵 캔버스 클릭 → 좌표 지정
+  // 맵 캔버스 클릭 → 좌표 지정 or 포인트라이트 선택
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas || !mapData) return;
@@ -143,20 +182,34 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, event
     const px = (e.clientX - rect.left) * scaleX;
     const py = (e.clientY - rect.top) * scaleY;
 
-    const TILE_SIZE = 48;
     const tileX = Math.floor(px / TILE_SIZE);
     const tileY = Math.floor(py / TILE_SIZE);
 
-    if (tileX >= 0 && tileX < mapData.width && tileY >= 0 && tileY < mapData.height) {
-      setSelectedX(tileX);
-      setSelectedY(tileY);
+    if (isPointLightMode) {
+      // 가장 가까운 포인트라이트 선택
+      let closest: number | null = null;
+      let closestDist = Infinity;
+      for (const pl of pointLights) {
+        const dist = Math.abs(pl.x - tileX) + Math.abs(pl.y - tileY);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closest = pl.id;
+        }
+      }
+      if (closest !== null && closestDist <= 3) {
+        setSelectedLightId(closest);
+      }
+    } else {
+      if (tileX >= 0 && tileX < mapData.width && tileY >= 0 && tileY < mapData.height) {
+        setSelectedX(tileX);
+        setSelectedY(tileY);
+      }
     }
-  }, [mapData]);
+  }, [mapData, isPointLightMode, pointLights]);
 
   // 캔버스 래퍼 스타일 (줌 + 팬)
   const canvasWrapperStyle = useMemo((): React.CSSProperties => {
     if (!mapData) return { position: 'relative', display: 'inline-block' };
-    const TILE_SIZE = 48;
     const mapPxW = mapData.width * TILE_SIZE;
     const mapPxH = mapData.height * TILE_SIZE;
     return {
@@ -171,7 +224,6 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, event
   // 캔버스 CSS 크기
   const canvasStyle = useMemo((): React.CSSProperties => {
     if (!mapData) return { cursor: 'crosshair', display: 'block' };
-    const TILE_SIZE = 48;
     return {
       cursor: 'crosshair',
       display: 'block',
@@ -182,8 +234,7 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, event
 
   // 마커 오버레이 (선택한 좌표 표시)
   const markerStyle = useMemo((): React.CSSProperties | null => {
-    if (!mapData || !canvasScale) return null;
-    const TILE_SIZE = 48;
+    if (isPointLightMode || !mapData || !canvasScale) return null;
     const s = canvasScale;
     return {
       position: 'absolute',
@@ -196,12 +247,11 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, event
       pointerEvents: 'none',
       boxSizing: 'border-box',
     };
-  }, [selectedX, selectedY, canvasScale, mapData]);
+  }, [isPointLightMode, selectedX, selectedY, canvasScale, mapData]);
 
   // 이벤트 위치 마커 오버레이
   const eventMarkerStyle = useMemo((): React.CSSProperties | null => {
     if (!eventMarker || !mapData || !canvasScale) return null;
-    const TILE_SIZE = 48;
     const s = canvasScale;
     return {
       position: 'absolute',
@@ -216,13 +266,138 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, event
     };
   }, [eventMarker, canvasScale, mapData]);
 
+  // 포인트라이트 모드 마커 렌더링
+  const renderPointLightMarkers = () => {
+    if (!isPointLightMode || !mapData || !canvasScale) return null;
+    const s = canvasScale;
+    return (
+      <>
+        {/* 이벤트 위치 마커 */}
+        {mapEvents.map(ev => (
+          <div key={`ev-${ev.id}`} style={{
+            position: 'absolute',
+            left: ev.x * TILE_SIZE * s,
+            top: ev.y * TILE_SIZE * s,
+            width: TILE_SIZE * s,
+            height: TILE_SIZE * s,
+            border: '1px solid rgba(68, 170, 255, 0.5)',
+            background: 'rgba(68, 170, 255, 0.15)',
+            pointerEvents: 'none',
+            boxSizing: 'border-box',
+          }}>
+            <span style={{
+              position: 'absolute', top: -14, left: 0, whiteSpace: 'nowrap',
+              fontSize: 9, color: '#4af', textShadow: '0 0 3px #000',
+              pointerEvents: 'none',
+            }}>{ev.name || `EV${String(ev.id).padStart(3, '0')}`}</span>
+          </div>
+        ))}
+        {/* 포인트라이트 마커 */}
+        {pointLights.map(pl => {
+          const isSelected = pl.id === selectedLightId;
+          return (
+            <div key={`pl-${pl.id}`} style={{
+              position: 'absolute',
+              left: pl.x * TILE_SIZE * s + TILE_SIZE * s / 2 - 6 * s,
+              top: pl.y * TILE_SIZE * s + TILE_SIZE * s / 2 - 6 * s,
+              width: 12 * s,
+              height: 12 * s,
+              borderRadius: '50%',
+              background: pl.color,
+              border: isSelected ? '2px solid #ff0' : '1px solid rgba(255,255,255,0.6)',
+              boxShadow: isSelected ? '0 0 8px #ff0' : `0 0 ${Math.min(pl.distance * s * 0.1, 20)}px ${pl.color}`,
+              pointerEvents: 'none',
+              boxSizing: 'border-box',
+            }}>
+              <span style={{
+                position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)',
+                whiteSpace: 'nowrap', fontSize: 9, color: '#ffa',
+                textShadow: '0 0 3px #000',
+                pointerEvents: 'none',
+              }}>#{pl.id} ({pl.x},{pl.y})</span>
+            </div>
+          );
+        })}
+      </>
+    );
+  };
+
+  // 포인트라이트 모드: 사이드바에 목록 표시
+  const renderPointLightList = () => {
+    if (!isPointLightMode) return null;
+    return (
+      <div style={{ width: 200, minWidth: 200, borderRight: '1px solid #444', overflowY: 'auto' }}>
+        <div style={{ padding: '4px 8px', fontSize: 11, color: '#888', borderBottom: '1px solid #333' }}>
+          {t('addonCommands.pointLightList')}
+        </div>
+        {pointLights.length === 0 ? (
+          <div style={{ padding: 12, fontSize: 12, color: '#666', textAlign: 'center' }}>
+            {t('addonCommands.noPointLights')}
+          </div>
+        ) : (
+          pointLights.map(pl => (
+            <div
+              key={pl.id}
+              onClick={() => setSelectedLightId(pl.id)}
+              onDoubleClick={() => props.onSelectLight(pl.id)}
+              style={{
+                padding: '4px 8px', cursor: 'pointer', fontSize: 12, color: '#ddd',
+                background: pl.id === selectedLightId ? '#2675bf' : 'transparent',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              <span style={{
+                display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
+                background: pl.color, border: '1px solid #888', flexShrink: 0,
+              }} />
+              <span>#{pl.id} ({pl.x}, {pl.y})</span>
+              <span style={{ color: '#888', fontSize: 10, marginLeft: 'auto' }}>
+                I:{pl.intensity}
+              </span>
+            </div>
+          ))
+        )}
+        {/* 이벤트 목록 */}
+        {mapEvents.length > 0 && (
+          <>
+            <div style={{ padding: '4px 8px', fontSize: 11, color: '#888', borderBottom: '1px solid #333', borderTop: '1px solid #333', marginTop: 4 }}>
+              {t('addonCommands.eventList')}
+            </div>
+            {mapEvents.map(ev => (
+              <div key={`ev-${ev.id}`} style={{
+                padding: '3px 8px', fontSize: 11, color: '#8ac',
+                display: 'flex', alignItems: 'center', gap: 4,
+              }}>
+                <span style={{ color: '#4af', fontSize: 10 }}>EV</span>
+                <span>{ev.name || `EV${String(ev.id).padStart(3, '0')}`}</span>
+                <span style={{ color: '#666', fontSize: 10, marginLeft: 'auto' }}>({ev.x},{ev.y})</span>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const handleOk = () => {
+    if (isPointLightMode) {
+      if (selectedLightId != null) props.onSelectLight(selectedLightId);
+    } else {
+      props.onOk(selectedMapId, selectedX, selectedY);
+    }
+  };
+
+  const showMapList = !fixedMap && !isPointLightMode;
+
   return (
     <div className="modal-overlay" style={{ zIndex: 10001 }}>
       <div className="image-picker-dialog" style={{ width: '90vw', maxWidth: 1200, height: '85vh', maxHeight: 900 }}>
-        <div className="image-picker-header">{fixedMap ? '위치' : '맵 선택'}</div>
+        <div className="image-picker-header">
+          {isPointLightMode ? t('addonCommands.selectPointLight') : (fixedMap ? '위치' : '맵 선택')}
+        </div>
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-          {/* 왼쪽: 맵 목록 (fixedMap 시 숨김) */}
-          {!fixedMap && <div style={{ width: 180, minWidth: 180, borderRight: '1px solid #444', overflowY: 'auto' }}>
+          {/* 왼쪽: 맵 목록 또는 포인트라이트 목록 */}
+          {showMapList && <div style={{ width: 180, minWidth: 180, borderRight: '1px solid #444', overflowY: 'auto' }}>
             {mapList.map(m => (
               <div key={m.id} style={{
                 padding: '3px 8px', paddingLeft: 8 + m.indent * 16,
@@ -236,6 +411,7 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, event
               </div>
             ))}
           </div>}
+          {renderPointLightList()}
           {/* 오른쪽: 맵 프리뷰 (휠 줌, 미들 클릭 팬) */}
           <div ref={previewContainerRef}
             onMouseDown={handleMouseDown}
@@ -253,24 +429,36 @@ export function MapLocationPicker({ mapId, x, y, onOk, onCancel, fixedMap, event
                   }}>{eventMarker.label}</span>
                 </div>
               )}
+              {renderPointLightMarkers()}
             </div>
           </div>
         </div>
         {/* 하단: 좌표 + 버튼 */}
         <div style={{ padding: '8px 12px', borderTop: '1px solid #444', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <label style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 4 }}>
-            X:
-            <input type="number" value={selectedX} onChange={e => setSelectedX(Number(e.target.value))}
-              min={0} style={{ ...selectStyle, width: 60 }} />
-          </label>
-          <label style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 4 }}>
-            Y:
-            <input type="number" value={selectedY} onChange={e => setSelectedY(Number(e.target.value))}
-              min={0} style={{ ...selectStyle, width: 60 }} />
-          </label>
+          {isPointLightMode ? (
+            <span style={{ fontSize: 12, color: '#aaa' }}>
+              {selectedLightId != null
+                ? `${t('addonCommands.selected')}: #${selectedLightId}`
+                : t('addonCommands.selectPointLightHint')}
+            </span>
+          ) : (
+            <>
+              <label style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 4 }}>
+                X:
+                <input type="number" value={selectedX} onChange={e => setSelectedX(Number(e.target.value))}
+                  min={0} style={{ ...selectStyle, width: 60 }} />
+              </label>
+              <label style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 4 }}>
+                Y:
+                <input type="number" value={selectedY} onChange={e => setSelectedY(Number(e.target.value))}
+                  min={0} style={{ ...selectStyle, width: 60 }} />
+              </label>
+            </>
+          )}
           <div style={{ flex: 1 }} />
-          <button className="db-btn" onClick={() => onOk(selectedMapId, selectedX, selectedY)}>OK</button>
-          <button className="db-btn" onClick={onCancel}>취소</button>
+          <button className="db-btn" onClick={handleOk}
+            disabled={isPointLightMode && selectedLightId == null}>OK</button>
+          <button className="db-btn" onClick={onCancel}>{t('common.cancel')}</button>
         </div>
       </div>
     </div>

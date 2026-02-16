@@ -1586,6 +1586,18 @@
     "pp_ssao": "SSAO",
     "pp_ssao_radius": "반경",
     "pp_ssao_intensity": "강도",
-    "pp_ssao_bias": "바이어스"
+    "pp_ssao_bias": "바이어스",
+
+    "shadowLight_pointLight_intensity": "포인트라이트 강도",
+    "shadowLight_pointLight_color": "포인트라이트 색상",
+    "shadowLight_pointLight_distance": "포인트라이트 거리",
+    "param_pointLight": "라이트 ID",
+    "param_distance": "거리",
+    "selectPointLight": "선택...",
+    "pointLightList": "포인트라이트 목록",
+    "noPointLights": "포인트라이트 없음",
+    "eventList": "이벤트 목록",
+    "selected": "선택됨",
+    "selectPointLightHint": "맵에서 포인트라이트를 클릭하세요"
   }
 }

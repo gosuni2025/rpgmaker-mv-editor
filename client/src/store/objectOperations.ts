@@ -306,6 +306,53 @@ export function shrinkObjectTilesOp(get: GetFn, set: SetFn, objectId: number, re
   pushObjectUndoEntry(get, set, oldObjects, objects);
 }
 
+export function addObjectFromImageOp(get: GetFn, set: SetFn, imageName: string, imageWidth: number, imageHeight: number) {
+  const { currentMap, currentMapId } = get();
+  if (!currentMap || !currentMapId) return;
+  const oldObjects = currentMap.objects || [];
+  const objects = [...oldObjects];
+  const newId = objects.length > 0 ? Math.max(...objects.map(o => o.id)) + 1 : 1;
+
+  const tileSize = 48;
+  const w = Math.max(1, Math.ceil(imageWidth / tileSize));
+  const h = Math.max(1, Math.ceil(imageHeight / tileSize));
+
+  // tileIds: 모두 빈 타일 (이미지로 렌더링)
+  const tileIds: number[][][] = [];
+  for (let row = 0; row < h; row++) {
+    const rowArr: number[][] = [];
+    for (let col = 0; col < w; col++) {
+      rowArr.push([0, 0, 0, 0]);
+    }
+    tileIds.push(rowArr);
+  }
+
+  const passability: boolean[][] = [];
+  for (let row = 0; row < h; row++) {
+    passability.push(Array(w).fill(row < h - 1));
+  }
+
+  // 맵 중앙 근처에 배치
+  const cx = Math.floor(currentMap.width / 2);
+  const cy = Math.floor(currentMap.height / 2);
+
+  const newObj: MapObject = {
+    id: newId,
+    name: imageName,
+    x: cx,
+    y: cy + h - 1,
+    tileIds,
+    width: w,
+    height: h,
+    zHeight: 0,
+    passability,
+    imageName,
+  };
+  objects.push(newObj);
+  set({ currentMap: { ...currentMap, objects }, selectedObjectId: newId, selectedObjectIds: [newId] });
+  pushObjectUndoEntry(get, set, oldObjects, objects);
+}
+
 export function addObjectOp(get: GetFn, set: SetFn, x: number, y: number) {
   const { currentMap, currentMapId, selectedTiles, selectedTilesWidth, selectedTilesHeight, selectedTileId } = get();
   if (!currentMap || !currentMapId) return;

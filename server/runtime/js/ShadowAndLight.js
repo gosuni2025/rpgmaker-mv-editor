@@ -3084,6 +3084,33 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 parseFloat(args[1]), parseFloat(args[2]), parseFloat(args[3])
             ).normalize();
         }
+        // ShadowLight pointLight <id> <property> <value> [duration]
+        if (args[0] === 'pointLight' && args[1] && args[2]) {
+            var plId = parseInt(args[1]);
+            var plProp = args[2];
+            var plVal = args[3];
+            var plDur = args[4] ? parseFloat(args[4]) : 0;
+            var el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+            if (el && el.points) {
+                var plObj = null;
+                for (var pli = 0; pli < el.points.length; pli++) {
+                    if (el.points[pli].id === plId) { plObj = el.points[pli]; break; }
+                }
+                if (plObj) {
+                    if (plProp === 'color' && plVal) {
+                        var plHex = parseInt(plVal.replace('#', ''), 16);
+                        if (!isNaN(plHex)) plObj.color = '#' + plHex.toString(16).padStart(6, '0');
+                    } else if (plProp === 'intensity' || plProp === 'distance' || plProp === 'decay' || plProp === 'z') {
+                        var numVal = parseFloat(plVal);
+                        if (plDur > 0 && window.PluginTween) {
+                            PluginTween.add({ target: plObj, key: plProp, to: numVal, duration: plDur });
+                        } else {
+                            plObj[plProp] = numVal;
+                        }
+                    }
+                }
+            }
+        }
     }
 };
 

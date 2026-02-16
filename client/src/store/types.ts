@@ -284,6 +284,7 @@ export interface EditorState {
   setObjectPaintTiles: (tiles: Set<string> | null) => void;
   addObject: (x: number, y: number) => void;
   addObjectFromTiles: (paintedTiles: Set<string>) => void;
+  addObjectFromImage: (imageName: string, imageWidth: number, imageHeight: number) => void;
   expandObjectTiles: (objectId: number, paintedTiles: Set<string>) => void;
   shrinkObjectTiles: (objectId: number, removeTiles: Set<string>) => void;
   updateObject: (id: number, updates: Partial<MapObject>) => void;
