@@ -17,6 +17,7 @@ export interface EventDragHandlersResult {
   dragPreview: { x: number; y: number } | null;
   eventMultiDragDelta: { dx: number; dy: number } | null;
   playerStartDragPos: { x: number; y: number } | null;
+  testStartDragPos: { x: number; y: number } | null;
   eventCtxMenu: EventContextMenu | null;
   editingEventId: number | null;
   setEditingEventId: (id: number | null) => void;
@@ -50,6 +51,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
   const systemData = useEditorStore((s) => s.systemData);
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const setPlayerStartPosition = useEditorStore((s) => s.setPlayerStartPosition);
+  const setTestStartPosition = useEditorStore((s) => s.setTestStartPosition);
 
   // Event drag state
   const isDraggingEvent = useRef(false);
@@ -69,6 +71,11 @@ export function useEventDragHandlers(): EventDragHandlersResult {
   const isDraggingPlayerStart = useRef(false);
   const playerStartDragPosRef = useRef<{ x: number; y: number } | null>(null);
   const [playerStartDragPos, setPlayerStartDragPos] = useState<{ x: number; y: number } | null>(null);
+
+  // Test start position drag state
+  const isDraggingTestStart = useRef(false);
+  const testStartDragPosRef = useRef<{ x: number; y: number } | null>(null);
+  const [testStartDragPos, setTestStartDragPos] = useState<{ x: number; y: number } | null>(null);
 
   // Context menu & event editing state
   const [eventCtxMenu, setEventCtxMenu] = useState<EventContextMenu | null>(null);
@@ -122,6 +129,16 @@ export function useEventDragHandlers(): EventDragHandlersResult {
           isDraggingPlayerStart.current = true;
           playerStartDragPosRef.current = { x: tile.x, y: tile.y };
           setPlayerStartDragPos({ x: tile.x, y: tile.y });
+          setSelectedEventIds([]);
+          setSelectedEventId(null);
+          return true;
+        }
+        // 테스트 시작 위치 드래그 확인
+        const testPos = currentMap.testStartPosition;
+        if (testPos && tile.x === testPos.x && tile.y === testPos.y && !(e.metaKey || e.ctrlKey)) {
+          isDraggingTestStart.current = true;
+          testStartDragPosRef.current = { x: tile.x, y: tile.y };
+          setTestStartDragPos({ x: tile.x, y: tile.y });
           setSelectedEventIds([]);
           setSelectedEventId(null);
           return true;
@@ -192,6 +209,11 @@ export function useEventDragHandlers(): EventDragHandlersResult {
       setPlayerStartDragPos({ x: tile.x, y: tile.y });
       return true;
     }
+    if (isDraggingTestStart.current) {
+      testStartDragPosRef.current = { x: tile.x, y: tile.y };
+      setTestStartDragPos({ x: tile.x, y: tile.y });
+      return true;
+    }
     return false;
   }, []);
 
@@ -210,14 +232,29 @@ export function useEventDragHandlers(): EventDragHandlersResult {
       }
       return true;
     }
+    if (isDraggingTestStart.current) {
+      isDraggingTestStart.current = false;
+      const dragPos = testStartDragPosRef.current;
+      if (dragPos) {
+        setTestStartPosition(dragPos.x, dragPos.y);
+      }
+      testStartDragPosRef.current = null;
+      setTestStartDragPos(null);
+      return true;
+    }
     return false;
-  }, [currentMapId, setPlayerStartPosition]);
+  }, [currentMapId, setPlayerStartPosition, setTestStartPosition]);
 
   const handlePlayerStartDragLeave = useCallback(() => {
     if (isDraggingPlayerStart.current) {
       isDraggingPlayerStart.current = false;
       playerStartDragPosRef.current = null;
       setPlayerStartDragPos(null);
+    }
+    if (isDraggingTestStart.current) {
+      isDraggingTestStart.current = false;
+      testStartDragPosRef.current = null;
+      setTestStartDragPos(null);
     }
   }, []);
 
@@ -398,7 +435,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
 
   return {
     isDraggingEvent, isSelectingEvents,
-    dragPreview, eventMultiDragDelta, playerStartDragPos,
+    dragPreview, eventMultiDragDelta, playerStartDragPos, testStartDragPos,
     eventCtxMenu, editingEventId, setEditingEventId,
     closeEventCtxMenu, createNewEvent,
     handleEventMouseDown, handleEventMouseMove,

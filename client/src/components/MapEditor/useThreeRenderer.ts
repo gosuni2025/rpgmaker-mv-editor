@@ -8,6 +8,7 @@ import { createRendererCleanup } from './createRendererCleanup';
 import {
   useRegionOverlay,
   usePlayerStartOverlay,
+  useTestStartOverlay,
   useEventOverlay,
   useDragPreviewOverlay,
   useLightOverlay,
@@ -39,6 +40,7 @@ export interface ThreeRendererRefs {
   dragPreviewMeshesRef: React.MutableRefObject<any[]>;
   toolPreviewMeshesRef: React.MutableRefObject<any[]>;
   startPosMeshesRef: React.MutableRefObject<any[]>;
+  testStartPosMeshesRef: React.MutableRefObject<any[]>;
   rendererReady: number;
 }
 
@@ -80,6 +82,7 @@ export function useThreeRenderer(
   const regionMeshesRef = useRef<any[]>([]);
   const objectMeshesRef = useRef<any[]>([]);
   const startPosMeshesRef = useRef<any[]>([]);
+  const testStartPosMeshesRef = useRef<any[]>([]);
   const eventOverlayMeshesRef = useRef<any[]>([]);
   const cursorMeshRef = useRef<any>(null);
   const selectionMeshRef = useRef<any>(null);
@@ -148,7 +151,7 @@ export function useThreeRenderer(
         stopLoop: loop.stop,
         renderRequestedRef,
         meshRefs: {
-          regionMeshesRef, startPosMeshesRef, eventOverlayMeshesRef,
+          regionMeshesRef, startPosMeshesRef, testStartPosMeshesRef, eventOverlayMeshesRef,
           dragPreviewMeshesRef, toolPreviewMeshesRef, lightOverlayMeshesRef,
           cursorMeshRef, selectionMeshRef, gridMeshRef,
         },
@@ -191,6 +194,7 @@ export function useThreeRenderer(
     renderRequestedRef,
     regionMeshesRef,
     startPosMeshesRef,
+    testStartPosMeshesRef,
     eventOverlayMeshesRef,
     dragPreviewMeshesRef,
     lightOverlayMeshesRef,
@@ -202,6 +206,7 @@ export function useThreeRenderer(
   const skipOverlays = !!standalone;
   useRegionOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   usePlayerStartOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
+  useTestStartOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   useEventOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   useDragPreviewOverlay(overlayRefs, skipOverlays ? [] : dragPreviews);
   useLightOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
@@ -216,6 +221,7 @@ export function useThreeRenderer(
     cursorMeshRef, selectionMeshRef,
     dragPreviewMeshesRef, toolPreviewMeshesRef,
     startPosMeshesRef,
+    testStartPosMeshesRef,
     rendererReady,
   };
 }

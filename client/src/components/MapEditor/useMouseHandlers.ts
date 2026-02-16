@@ -49,6 +49,7 @@ export interface MouseHandlersResult {
   isResizingCameraZone: React.MutableRefObject<boolean>;
   cameraZoneCursor: string | null;
   playerStartDragPos: { x: number; y: number } | null;
+  testStartDragPos: { x: number; y: number } | null;
 }
 
 export function useMouseHandlers(
@@ -446,5 +447,6 @@ export function useMouseHandlers(
     cameraZoneMultiDragDelta: cameraZone.cameraZoneMultiDragDelta,
     cameraZoneCursor: cameraZone.cameraZoneCursor,
     playerStartDragPos: event.playerStartDragPos,
+    testStartDragPos: event.testStartDragPos,
   };
 }

@@ -15,7 +15,7 @@ import { useEventSelectionOverlays, useLightSelectionOverlays, useObjectSelectio
 import { useMoveRouteOverlay } from './useMoveRouteOverlay';
 import { useSelectionRectOverlay, usePastePreviewOverlay } from './useSelectionOverlays';
 import { useTileCursorPreview } from './useTileCursorPreview';
-import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview } from './useDragPreviewSync';
+import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview, useTestStartDragPreview } from './useDragPreviewSync';
 import './MapCanvas.css';
 
 /** 컨텍스트 메뉴가 화면 밖으로 벗어나지 않도록 위치를 보정하는 ref callback */
@@ -59,6 +59,8 @@ export default function MapCanvas() {
   const cutEvent = useEditorStore((s) => s.cutEvent);
   const deleteEvent = useEditorStore((s) => s.deleteEvent);
   const setVehicleStartPosition = useEditorStore((s) => s.setVehicleStartPosition);
+  const setTestStartPosition = useEditorStore((s) => s.setTestStartPosition);
+  const clearTestStartPosition = useEditorStore((s) => s.clearTestStartPosition);
   const selectedCameraZoneId = useEditorStore((s) => s.selectedCameraZoneId);
   const selectedCameraZoneIds = useEditorStore((s) => s.selectedCameraZoneIds);
   const selectedEventIds = useEditorStore((s) => s.selectedEventIds);
@@ -72,7 +74,7 @@ export default function MapCanvas() {
 
   const {
     rendererObjRef, tilemapRef, stageRef, renderRequestedRef, toolPreviewMeshesRef,
-    startPosMeshesRef, rendererReady,
+    startPosMeshesRef, testStartPosMeshesRef, rendererReady,
   } = useThreeRenderer(webglCanvasRef, showGrid, [], undefined, showTileId);
 
   const tools = useMapTools(
@@ -90,12 +92,12 @@ export default function MapCanvas() {
     closeEventCtxMenu,
     isDraggingLight, isDraggingObject, draggedObjectId,
     resizeOrigSize, cameraZoneCursor,
-    playerStartDragPos,
+    playerStartDragPos, testStartDragPos,
   } = useMouseHandlers(webglCanvasRef, tools, pendingChanges);
 
   // Overlay refs shared by sub-hooks
   const overlayRefs = useMemo(() => ({ rendererObjRef, stageRef, renderRequestedRef, tilemapRef }), [rendererObjRef, stageRef, renderRequestedRef, tilemapRef]);
-  const syncRefs = useMemo(() => ({ rendererObjRef, stageRef, renderRequestedRef, startPosMeshesRef }), [rendererObjRef, stageRef, renderRequestedRef, startPosMeshesRef]);
+  const syncRefs = useMemo(() => ({ rendererObjRef, stageRef, renderRequestedRef, startPosMeshesRef, testStartPosMeshesRef }), [rendererObjRef, stageRef, renderRequestedRef, startPosMeshesRef, testStartPosMeshesRef]);
 
   // Drag previews
   const dragPreviews = useDragPreviews(
@@ -106,6 +108,7 @@ export default function MapCanvas() {
   useDragPreviewMeshSync(syncRefs, dragPreviews, rendererReady);
   useCameraZoneMeshCleanup(syncRefs, rendererReady);
   usePlayerStartDragPreview(syncRefs, playerStartDragPos, rendererReady);
+  useTestStartDragPreview(syncRefs, testStartDragPos, rendererReady);
 
   // Selection overlays
   useSelectionRectOverlay(overlayRefs, rendererReady);
@@ -462,6 +465,17 @@ export default function MapCanvas() {
                 </div>
               </div>
             </div>
+
+            <div className="context-menu-item" onClick={() => { setTestStartPosition(eventCtxMenu.tileX, eventCtxMenu.tileY); closeEventCtxMenu(); }}>
+              {t('eventCtx.testStartPosition')}
+              <span className="context-menu-ext-badge">EXT</span>
+            </div>
+            {currentMap?.testStartPosition && (
+              <div className="context-menu-item" onClick={() => { clearTestStartPosition(); closeEventCtxMenu(); }}>
+                {t('eventCtx.clearTestStartPosition')}
+                <span className="context-menu-ext-badge">EXT</span>
+              </div>
+            )}
           </div>
         );
       })()}

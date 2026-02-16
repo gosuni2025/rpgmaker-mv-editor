@@ -8,7 +8,7 @@ import sampleMapExtractor from '../services/sampleMapExtractor';
 const router = express.Router();
 
 /** ext 파일로 분리할 확장 필드 */
-const EXTENSION_FIELDS = ['editorLights', 'objects', 'cameraZones', 'skyBackground', 'animTileSettings', 'bloomConfig', 'postProcessConfig', 'fogOfWar'];
+const EXTENSION_FIELDS = ['editorLights', 'objects', 'cameraZones', 'skyBackground', 'animTileSettings', 'bloomConfig', 'postProcessConfig', 'fogOfWar', 'testStartPosition'];
 /** 저장 시 제거만 하고 ext에도 넣지 않는 필드 */
 const STRIP_ONLY_FIELDS = ['tilesetNames'];
 

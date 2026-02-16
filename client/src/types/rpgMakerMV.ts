@@ -46,6 +46,7 @@ export interface MapData {
   postProcessConfig?: Record<string, { enabled: boolean; [key: string]: any }>;
   weatherType?: number;   // 0=없음, 1=비, 2=폭풍, 3=눈
   weatherPower?: number;  // 1~9
+  testStartPosition?: { x: number; y: number };  // EXT: 현재 맵 테스트용 임시 시작 위치
 }
 
 export interface BloomConfig {
