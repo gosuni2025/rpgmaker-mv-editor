@@ -1712,9 +1712,15 @@ FogOfWar._updateLightUniforms = function(u) {
 var _fowProf = {
     frameCount: 0,
     total: 0, postProcess: 0, visibility: 0, lerp: 0, texture: 0, meshPos: 0, meshUni: 0, losDbg: 0,
+    drawCalls: 0, triangles: 0,
     log: function() {
         if (this.frameCount < 120) return;
         var n = this.frameCount;
+        // draw call / triangles
+        var dcInfo = '';
+        if (this.drawCalls > 0) {
+            dcInfo = '  draws=' + (this.drawCalls/n).toFixed(0) + '  tris=' + (this.triangles/n).toFixed(0);
+        }
         console.log('[FoW Prof] total=' + (this.total/n).toFixed(2) +
             'ms  postProc=' + (this.postProcess/n).toFixed(2) +
             '  vis=' + (this.visibility/n).toFixed(2) +
@@ -1722,9 +1728,12 @@ var _fowProf = {
             '  tex=' + (this.texture/n).toFixed(2) +
             '  meshPos=' + (this.meshPos/n).toFixed(2) +
             '  meshUni=' + (this.meshUni/n).toFixed(2) +
-            '  losDbg=' + (this.losDbg/n).toFixed(2));
+            '  losDbg=' + (this.losDbg/n).toFixed(2) +
+            dcInfo +
+            '  fogMode=' + (FogOfWar._fogMode || '?'));
         this.frameCount = 0;
         this.total = this.postProcess = this.visibility = this.lerp = this.texture = this.meshPos = this.meshUni = this.losDbg = 0;
+        this.drawCalls = this.triangles = 0;
     }
 };
 
@@ -1793,6 +1802,15 @@ PostProcess._updateUniforms = function() {
     FogOfWar._updateLosDebug();
     var _t10 = performance.now();
     _fowProf.losDbg += _t10 - _t9;
+
+    // draw call 카운트
+    try {
+        var rdr = Graphics._renderer && Graphics._renderer.renderer;
+        if (rdr && rdr.info) {
+            _fowProf.drawCalls += rdr.info.render.calls;
+            _fowProf.triangles += rdr.info.render.triangles;
+        }
+    } catch(e) {}
 
     _fowProf.total += _t10 - _t0;
     _fowProf.frameCount++;
