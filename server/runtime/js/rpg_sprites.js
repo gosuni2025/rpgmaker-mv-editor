@@ -3154,6 +3154,21 @@ Spriteset_Map.prototype._executeObjectMultipass = function(sprite, passes) {
         if (u.map) u.map.value = currentInput;
         if (u.opacity) u.opacity.value = 1.0;
 
+        // params → uniform 동기화 (PluginTween 보간 반영)
+        var passData = sprite._objShaderPasses[i];
+        if (passData && passData.params) {
+            var mapping = PictureShader._UNIFORM_MAP[passData.type];
+            if (typeof mapping === 'string') mapping = PictureShader._UNIFORM_MAP[mapping];
+            if (mapping) {
+                for (var mi = 0; mi < mapping.length; mi++) {
+                    var mm = mapping[mi];
+                    if (Array.isArray(mm) && u[mm[1]] && passData.params[mm[0]] !== undefined) {
+                        u[mm[1]].value = passData.params[mm[0]];
+                    }
+                }
+            }
+        }
+
         this._objRTQuad.material = mat;
         var prevRT = renderer.getRenderTarget();
         renderer.setRenderTarget(rt);

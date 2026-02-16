@@ -34,6 +34,30 @@ export const SHADER_DEFINITIONS: ShaderDef[] = [
   { type: 'fade', label: '페이드', params: [
     { key: 'threshold', label: '투명도', min: 0, max: 1, step: 0.01, defaultValue: 1 },
   ]},
+  { type: 'wipe', label: '와이프', params: [
+    { key: 'threshold', label: '진행도', min: 0, max: 1, step: 0.01, defaultValue: 0 },
+    { key: 'direction', label: '방향', min: 0, max: 3, step: 1, defaultValue: 0, type: 'select', options: [
+      { value: 0, label: '좌→우' }, { value: 1, label: '우→좌' }, { value: 2, label: '상→하' }, { value: 3, label: '하→상' }
+    ]},
+    { key: 'softness', label: '부드러움', min: 0, max: 0.3, step: 0.01, defaultValue: 0.05 },
+  ]},
+  { type: 'circleWipe', label: '원형 와이프', params: [
+    { key: 'threshold', label: '진행도', min: 0, max: 1, step: 0.01, defaultValue: 0 },
+    { key: 'softness', label: '부드러움', min: 0, max: 0.3, step: 0.01, defaultValue: 0.05 },
+    { key: 'centerX', label: '중심 X', min: 0, max: 1, step: 0.01, defaultValue: 0.5 },
+    { key: 'centerY', label: '중심 Y', min: 0, max: 1, step: 0.01, defaultValue: 0.5 },
+  ]},
+  { type: 'blinds', label: '블라인드', params: [
+    { key: 'threshold', label: '진행도', min: 0, max: 1, step: 0.01, defaultValue: 0 },
+    { key: 'count', label: '줄 수', min: 2, max: 30, step: 1, defaultValue: 8 },
+    { key: 'direction', label: '방향', min: 0, max: 1, step: 1, defaultValue: 0, type: 'select', options: [
+      { value: 0, label: '수평' }, { value: 1, label: '수직' }
+    ]},
+  ]},
+  { type: 'pixelDissolve', label: '픽셀 디졸브', params: [
+    { key: 'threshold', label: '진행도', min: 0, max: 1, step: 0.01, defaultValue: 0 },
+    { key: 'pixelSize', label: '픽셀 크기', min: 4, max: 128, step: 4, defaultValue: 32 },
+  ]},
   { type: 'dissolve', label: '디졸브', params: [
     { key: 'animMode', label: '애니 모드', min: 0, max: 1, step: 1, defaultValue: 0, type: 'select', options: [
       { value: 0, label: '왕복' }, { value: 1, label: '원웨이' }, { value: 2, label: '애니없음' }
