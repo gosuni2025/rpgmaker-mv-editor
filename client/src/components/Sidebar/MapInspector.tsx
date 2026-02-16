@@ -454,14 +454,22 @@ export default function MapInspector() {
           Fog of War <ExtBadge inline />
         </div>
         <label className="map-inspector-checkbox">
-          <input type="checkbox" checked={!!(currentMap as any).fogOfWar?.enabled}
+          <input type="checkbox" checked={!!(currentMap as any).fogOfWar?.enabled2D}
             onChange={(e) => {
-              const prev = (currentMap as any).fogOfWar || { enabled: false, radius: 5, fogColor: '#000000', unexploredAlpha: 1.0, exploredAlpha: 0.6, fogHeight: 300, lineOfSight: true, absorption: 0.012, visibilityBrightness: 0.0, edgeAnimation: true, edgeAnimationSpeed: 1.0 };
-              updateMapField('fogOfWar', { ...prev, enabled: e.target.checked });
+              const prev = (currentMap as any).fogOfWar || { enabled2D: false, enabled3D: false, radius: 5, fogColor: '#000000', unexploredAlpha: 1.0, exploredAlpha: 0.6, fogHeight: 300, lineOfSight: true, absorption: 0.012, visibilityBrightness: 0.0, edgeAnimation: true, edgeAnimationSpeed: 1.0 };
+              updateMapField('fogOfWar', { ...prev, enabled2D: e.target.checked });
             }} />
-          <span>활성화</span>
+          <span>2D 활성화</span>
         </label>
-        {(currentMap as any).fogOfWar?.enabled && (() => {
+        <label className="map-inspector-checkbox">
+          <input type="checkbox" checked={!!(currentMap as any).fogOfWar?.enabled3D}
+            onChange={(e) => {
+              const prev = (currentMap as any).fogOfWar || { enabled2D: false, enabled3D: false, radius: 5, fogColor: '#000000', unexploredAlpha: 1.0, exploredAlpha: 0.6, fogHeight: 300, lineOfSight: true, absorption: 0.012, visibilityBrightness: 0.0, edgeAnimation: true, edgeAnimationSpeed: 1.0 };
+              updateMapField('fogOfWar', { ...prev, enabled3D: e.target.checked });
+            }} />
+          <span>3D 활성화</span>
+        </label>
+        {((currentMap as any).fogOfWar?.enabled2D || (currentMap as any).fogOfWar?.enabled3D) && (() => {
           const fow = (currentMap as any).fogOfWar;
           return (
             <>
