@@ -333,7 +333,15 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
         const ow = obj.width || 1;
         const oh = obj.height || 1;
         const tileIds = obj.tileIds;
-        if (tileIds && tileIds.length > 0) {
+        const isImageObj = !!obj.imageName;
+        if (isImageObj) {
+          // 이미지 오브젝트: 전체 영역을 하나의 박스로 표시
+          const rw = ow * TILE_SIZE_PX;
+          const rh = oh * TILE_SIZE_PX;
+          const cx = obj.x * TILE_SIZE_PX + rw / 2;
+          const cy = (obj.y - oh + 1) * TILE_SIZE_PX + rh / 2;
+          createHighlightMesh(THREE, rObj.scene, meshes, cx, cy, rw, rh, fillColor, strokeColor, 5.5, 5.8, 9998, 9999);
+        } else if (tileIds && tileIds.length > 0) {
           for (let row = 0; row < oh; row++) {
             for (let col = 0; col < ow; col++) {
               const cell = tileIds[row]?.[col];
