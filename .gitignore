@@ -6,3 +6,5 @@ release/
 *.log
 CLAUDE.local.md
 server/sample-maps/
+plan.md
+client/public/runtime/

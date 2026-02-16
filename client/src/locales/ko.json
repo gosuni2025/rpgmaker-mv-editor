@@ -552,6 +552,8 @@
     "dragToMove": "드래그하여 이동",
     "moveUp": "위로 이동",
     "moveDown": "아래로 이동",
+    "foldAll": "모두 접기",
+    "unfoldAll": "모두 펼치기",
     "categories": {
       "tab1Messages": "메시지",
       "tab1GameProgression": "게임 진행",

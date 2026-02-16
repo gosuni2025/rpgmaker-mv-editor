@@ -15,6 +15,7 @@ import { useCommandSelection } from './useCommandSelection';
 import { useCommandClipboard } from './useCommandClipboard';
 import { useCommandDragDrop } from './useCommandDragDrop';
 import { useCommandMove } from './useCommandMove';
+import { useCommandFolding } from './useCommandFolding';
 import { CommandRow } from './CommandRow';
 
 export interface EventCommandContext {
@@ -29,6 +30,14 @@ interface EventCommandEditorProps {
   commands: EventCommand[];
   onChange: (commands: EventCommand[]) => void;
   context?: EventCommandContext;
+}
+
+// 폴딩 상태를 currentMap의 eventFoldState에 저장/로드하기 위한 키 생성
+function makeFoldKey(ctx?: EventCommandContext): string | null {
+  if (!ctx) return null;
+  if (ctx.isCommonEvent && ctx.commonEventId != null) return `ce${ctx.commonEventId}`;
+  if (ctx.eventId != null && ctx.pageIndex != null) return `${ctx.eventId}:${ctx.pageIndex}`;
+  return null;
 }
 
 export default function EventCommandEditor({ commands, onChange, context }: EventCommandEditorProps) {
@@ -68,6 +77,46 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
   const { moveSelected, canMoveUp, canMoveDown } = useCommandMove(
     commands, selectedIndices, changeWithHistory, setSelectedIndices, setLastClickedIndex,
   );
+
+  const { foldedSet, setFoldedSet, foldableIndices, hiddenIndices, foldedCounts, toggleFold, foldAll, unfoldAll } = useCommandFolding(commands);
+
+  // 폴딩 상태 복원 (이벤트 열 때)
+  const foldKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const foldKey = makeFoldKey(context);
+    if (!foldKey || foldKey === foldKeyRef.current) return;
+    foldKeyRef.current = foldKey;
+    const foldState = (currentMap as any)?.eventFoldState;
+    if (foldState && foldState[foldKey]) {
+      const indices: number[] = foldState[foldKey];
+      setFoldedSet(new Set(indices));
+    } else {
+      setFoldedSet(new Set());
+    }
+  }, [context, currentMap, setFoldedSet]);
+
+  // 폴딩 상태 저장 (변경될 때마다 currentMap에 반영)
+  const prevFoldedRef = useRef<string>('');
+  useEffect(() => {
+    const foldKey = makeFoldKey(context);
+    if (!foldKey || !currentMap) return;
+    const foldedArr = [...foldedSet].sort((a, b) => a - b);
+    const serialized = JSON.stringify(foldedArr);
+    if (serialized === prevFoldedRef.current) return;
+    prevFoldedRef.current = serialized;
+    const prevState = (currentMap as any).eventFoldState || {};
+    const newState = { ...prevState };
+    if (foldedArr.length > 0) {
+      newState[foldKey] = foldedArr;
+    } else {
+      delete newState[foldKey];
+    }
+    if (JSON.stringify(newState) !== JSON.stringify(prevState)) {
+      useEditorStore.setState({
+        currentMap: { ...currentMap, eventFoldState: Object.keys(newState).length > 0 ? newState : undefined } as any,
+      });
+    }
+  }, [foldedSet, context, currentMap]);
 
   const mapEventList = useMemo(() => {
     if (!currentMap?.events) return [];
@@ -400,10 +449,13 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
   const commandDisplayCtx: CommandDisplayContext = { t, systemData, maps, currentMap };
 
+  const hasFoldable = foldableIndices.size > 0;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }} ref={containerRef} tabIndex={-1}>
       <div className="event-commands-list" ref={listRef} onClick={() => containerRef.current?.focus()}>
         {commands.map((cmd, i) => {
+          if (hiddenIndices.has(i)) return null;
           const draggable = isDraggable(i);
           const isDragging = dragGroupRange !== null && i >= dragGroupRange[0] && i <= dragGroupRange[1];
           const isSelected = selectedIndices.has(i);
@@ -412,6 +464,9 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
           const isGroupHL = inGroup && !isSelected;
           const isGroupFirst = inGroup && i === groupStart;
           const isGroupLast = inGroup && i === groupEnd;
+          const isFoldable = foldableIndices.has(i);
+          const isFolded = foldedSet.has(i) && isFoldable;
+          const foldedCount = foldedCounts.get(i);
           return (
             <React.Fragment key={i}>
               {dropTargetIndex === i && dragGroupRange && !(i >= dragGroupRange[0] && i <= dragGroupRange[1] + 1) && (
@@ -433,6 +488,10 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
                 onDragHandleMouseDown={handleDragHandleMouseDown}
                 context={context}
                 commands={commands}
+                isFoldable={isFoldable}
+                isFolded={isFolded}
+                foldedCount={foldedCount}
+                onToggleFold={toggleFold}
               />
             </React.Fragment>
           );
@@ -450,6 +509,13 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
         <span className="event-commands-toolbar-sep" />
         <button className="db-btn-small" onClick={() => moveSelected('up')} disabled={!canMoveUp} title={t('eventCommands.moveUp')}>▲</button>
         <button className="db-btn-small" onClick={() => moveSelected('down')} disabled={!canMoveDown} title={t('eventCommands.moveDown')}>▼</button>
+        {hasFoldable && (
+          <>
+            <span className="event-commands-toolbar-sep" />
+            <button className="db-btn-small" onClick={foldAll} title={t('eventCommands.foldAll')}>{t('eventCommands.foldAll')}</button>
+            <button className="db-btn-small" onClick={unfoldAll} title={t('eventCommands.unfoldAll')}>{t('eventCommands.unfoldAll')}</button>
+          </>
+        )}
         <span style={{ flex: 1 }} />
         <button className="db-btn-small" onClick={undo} disabled={!canUndo} title="Ctrl+Z">{t('common.undo')}</button>
         <button className="db-btn-small" onClick={redo} disabled={!canRedo} title="Ctrl+Shift+Z">{t('common.redo')}</button>

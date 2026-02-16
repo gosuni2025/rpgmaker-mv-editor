@@ -4,7 +4,7 @@ RPG Maker MV 프로젝트를 웹 기반으로 편집할 수 있는 데스크톱 
 
 ## 다운로드
 
-**[최신 버전 다운로드](https://github.com/painh/rpgmaker-mv-editor/releases/latest)**
+**[최신 버전 다운로드](https://github.com/gosuni2025/rpgmaker-mv-editor/releases/latest)**
 
 | 플랫폼 | 파일 |
 |--------|------|
