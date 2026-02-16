@@ -3038,11 +3038,14 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 PluginTween.add({
                     target: ShadowLight.config, key: 'ambientIntensity', to: ambVal, duration: ambDur,
                     onUpdate: function(v) {
+                        // _updateCameraZoneAmbient의 lerp를 바이패스하기 위해 _current 값도 동기화
+                        ShadowLight._currentAmbientIntensity = v;
                         if (ShadowLight._ambientLight) ShadowLight._ambientLight.intensity = v;
                     }
                 });
             } else {
                 ShadowLight.config.ambientIntensity = ambVal;
+                ShadowLight._currentAmbientIntensity = ambVal;
                 if (ShadowLight._ambientLight) ShadowLight._ambientLight.intensity = ambVal;
             }
         }
@@ -3054,11 +3057,24 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                     PluginTween.addColor({
                         target: ShadowLight.config, key: 'ambientColor', to: hex, duration: colorDur,
                         onUpdate: function(v) {
+                            // _updateCameraZoneAmbient의 lerp를 바이패스하기 위해 _current RGB도 동기화
+                            var r = ((v >> 16) & 0xFF) / 255;
+                            var g = ((v >> 8) & 0xFF) / 255;
+                            var b = (v & 0xFF) / 255;
+                            ShadowLight._currentAmbientR = r;
+                            ShadowLight._currentAmbientG = g;
+                            ShadowLight._currentAmbientB = b;
                             if (ShadowLight._ambientLight) ShadowLight._ambientLight.color.setHex(v);
                         }
                     });
                 } else {
                     ShadowLight.config.ambientColor = hex;
+                    var r2 = ((hex >> 16) & 0xFF) / 255;
+                    var g2 = ((hex >> 8) & 0xFF) / 255;
+                    var b2 = (hex & 0xFF) / 255;
+                    ShadowLight._currentAmbientR = r2;
+                    ShadowLight._currentAmbientG = g2;
+                    ShadowLight._currentAmbientB = b2;
                     if (ShadowLight._ambientLight) ShadowLight._ambientLight.color.setHex(hex);
                 }
             }

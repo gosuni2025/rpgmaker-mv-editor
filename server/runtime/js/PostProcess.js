@@ -2038,15 +2038,26 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
     if (command === 'DoF' || command === 'DepthOfField' || command === 'PostProcess') {
         if (args[0] === 'on') ConfigManager.depthOfField = true;
         if (args[0] === 'off') ConfigManager.depthOfField = false;
+        var ppKeyMap = { focusY: '_currentFocusY', focusRange: '_currentFocusRange', maxblur: '_currentMaxBlur', blurPower: '_currentBlurPower' };
         var ppKeys = ['focusY', 'focusRange', 'maxblur', 'blurPower'];
         for (var pi = 0; pi < ppKeys.length; pi++) {
             if (args[0] === ppKeys[pi] && args[1]) {
                 var ppVal = parseFloat(args[1]);
                 var ppDur = args[2] ? parseFloat(args[2]) : 0;
+                var currentKey = ppKeyMap[ppKeys[pi]];
                 if (ppDur > 0 && window.PluginTween) {
-                    PluginTween.add({ target: PostProcess.config, key: ppKeys[pi], to: ppVal, duration: ppDur });
+                    (function(cfgKey, curKey) {
+                        PluginTween.add({
+                            target: PostProcess.config, key: cfgKey, to: ppVal, duration: ppDur,
+                            onUpdate: function(v) {
+                                // _updateUniforms의 lerp를 바이패스하기 위해 _current 값도 동기화
+                                PostProcess[curKey] = v;
+                            }
+                        });
+                    })(ppKeys[pi], currentKey);
                 } else {
                     PostProcess.config[ppKeys[pi]] = ppVal;
+                    PostProcess[currentKey] = ppVal;
                 }
             }
         }
