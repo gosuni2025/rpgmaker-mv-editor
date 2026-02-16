@@ -225,7 +225,7 @@ export interface EditorState {
   showCharacterGeneratorDialog: boolean;
   showOptionsDialog: boolean;
   showLocalizationDialog: boolean;
-  showProjectSettingsDialog: boolean;
+
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;
@@ -368,7 +368,6 @@ export interface EditorState {
   setShowCharacterGeneratorDialog: (show: boolean) => void;
   setShowOptionsDialog: (show: boolean) => void;
   setShowLocalizationDialog: (show: boolean) => void;
-  setShowProjectSettingsDialog: (show: boolean) => void;
   setTransparentColor: (color: { r: number; g: number; b: number }) => void;
   setMaxUndo: (max: number) => void;
   setZoomStep: (step: number) => void;

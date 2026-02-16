@@ -178,6 +178,20 @@ router.put('/', (req: Request, res: Response) => {
   }
 });
 
+// POST /api/plugins/open-folder - Open plugins folder in OS file explorer
+router.post('/open-folder', (_req: Request, res: Response) => {
+  try {
+    const pluginsDir = path.join(projectManager.getJsPath(), 'plugins');
+    const cmd = process.platform === 'darwin' ? `open "${pluginsDir}"`
+      : process.platform === 'win32' ? `explorer "${pluginsDir}"`
+      : `xdg-open "${pluginsDir}"`;
+    exec(cmd);
+    res.json({ success: true });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 // GET /api/plugins/credit-text - Read Credits.txt
 router.get('/credit-text', (req: Request, res: Response) => {
   try {
