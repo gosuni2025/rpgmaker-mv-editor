@@ -1,14 +1,24 @@
 import type { EditorState, SliceCreator } from './types';
-import { DEFAULT_MAX_UNDO, DEFAULT_ZOOM_STEP, MIN_ZOOM, MAX_ZOOM } from './types';
+import { DEFAULT_MAX_UNDO, DEFAULT_ZOOM_STEP, MIN_ZOOM, MAX_ZOOM, TOOLBAR_STORAGE_KEY } from './types';
+
+function saveToolbarPartial(partial: Record<string, unknown>) {
+  try {
+    const raw = localStorage.getItem(TOOLBAR_STORAGE_KEY);
+    const prev = raw ? JSON.parse(raw) : {};
+    localStorage.setItem(TOOLBAR_STORAGE_KEY, JSON.stringify({ ...prev, ...partial }));
+  } catch {}
+}
 
 export const uiSlice: SliceCreator<Pick<EditorState,
   'zoomLevel' | 'mode3d' | 'shadowLight' | 'disableFow' | 'paletteTab' | 'toastMessage' | 'toastPersistent' |
+  'showGrid' | 'showPassability' |
   'transparentColor' | 'maxUndo' | 'zoomStep' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
   'showToast' | 'dismissToast' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
+  'setShowGrid' | 'setShowPassability' |
   'setMode3d' | 'setShadowLight' | 'setDisableFow' | 'setPaletteTab' |
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
@@ -19,6 +29,8 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   mode3d: false,
   shadowLight: false,
   disableFow: true,
+  showGrid: true,
+  showPassability: false,
   postProcessConfig: {},
   paletteTab: 'A',
   toastMessage: null,
@@ -50,35 +62,54 @@ export const uiSlice: SliceCreator<Pick<EditorState,
     set({ toastMessage: null, toastPersistent: false });
   },
 
-  setZoomLevel: (level: number) => set({ zoomLevel: level }),
+  setZoomLevel: (level: number) => {
+    set({ zoomLevel: level });
+    saveToolbarPartial({ zoomLevel: level });
+  },
   zoomIn: () => {
     const { zoomLevel, zoomStep } = get();
     const step = zoomStep / 100;
     const newZoom = Math.min(MAX_ZOOM, Math.round((zoomLevel + step) * 100) / 100);
     set({ zoomLevel: newZoom });
+    saveToolbarPartial({ zoomLevel: newZoom });
   },
   zoomOut: () => {
     const { zoomLevel, zoomStep } = get();
     const step = zoomStep / 100;
     const newZoom = Math.max(MIN_ZOOM, Math.round((zoomLevel - step) * 100) / 100);
     set({ zoomLevel: newZoom });
+    saveToolbarPartial({ zoomLevel: newZoom });
   },
-  zoomActualSize: () => set({ zoomLevel: 1 }),
+  zoomActualSize: () => {
+    set({ zoomLevel: 1 });
+    saveToolbarPartial({ zoomLevel: 1 });
+  },
 
+  setShowGrid: (show: boolean) => {
+    set({ showGrid: show });
+    saveToolbarPartial({ showGrid: show });
+  },
+  setShowPassability: (show: boolean) => {
+    set({ showPassability: show });
+    saveToolbarPartial({ showPassability: show });
+  },
   setMode3d: (enabled: boolean) => {
     const ConfigManager = (window as any).ConfigManager;
     if (ConfigManager) ConfigManager.mode3d = enabled;
     set({ mode3d: enabled });
+    saveToolbarPartial({ mode3d: enabled });
     get().showToast(`3D ${enabled ? 'ON' : 'OFF'}`);
   },
   setShadowLight: (enabled: boolean) => {
     const ConfigManager = (window as any).ConfigManager;
     if (ConfigManager) ConfigManager.shadowLight = enabled;
     set({ shadowLight: enabled });
+    saveToolbarPartial({ shadowLight: enabled });
     get().showToast(`조명 ${enabled ? 'ON' : 'OFF'}`);
   },
   setDisableFow: (disabled: boolean) => {
     set({ disableFow: disabled });
+    saveToolbarPartial({ disableFow: disabled });
     get().showToast(`FOW ${disabled ? 'OFF' : 'ON'}`);
   },
   setPostProcessConfig: (config) => {
@@ -97,7 +128,10 @@ export const uiSlice: SliceCreator<Pick<EditorState,
     if (cm) set({ currentMap: { ...cm, postProcessConfig: newConfig } });
   },
 
-  setPaletteTab: (tab: 'A' | 'B' | 'C' | 'D' | 'E' | 'R') => set({ paletteTab: tab }),
+  setPaletteTab: (tab: 'A' | 'B' | 'C' | 'D' | 'E' | 'R') => {
+    set({ paletteTab: tab });
+    saveToolbarPartial({ paletteTab: tab });
+  },
 
   setShowOpenProjectDialog: (show: boolean) => set({ showOpenProjectDialog: show }),
   setShowNewProjectDialog: (show: boolean) => set({ showNewProjectDialog: show }),

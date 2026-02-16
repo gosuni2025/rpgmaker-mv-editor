@@ -2,7 +2,7 @@ import type { MapObject, CameraZone } from '../types/rpgMakerMV';
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
 import apiClient from '../api/client';
 import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry } from './types';
-import { EDIT_MODE_STORAGE_KEY } from './types';
+import { EDIT_MODE_STORAGE_KEY, TOOLBAR_STORAGE_KEY } from './types';
 import { recalcAutotiles } from './editingHelpers';
 import { undoOperation, redoOperation } from './undoRedoOperations';
 import {
@@ -464,6 +464,11 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       state.showToast(toolNames[tool]);
     }
     set(updates);
+    try {
+      const raw = localStorage.getItem(TOOLBAR_STORAGE_KEY);
+      const prev = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(TOOLBAR_STORAGE_KEY, JSON.stringify({ ...prev, selectedTool: tool }));
+    } catch {}
   },
   setDrawShape: (shape: string) => {
     const state = get();
@@ -473,10 +478,22 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     if (shapeNames[shape]) {
       state.showToast(shapeNames[shape]);
     }
+    try {
+      const raw = localStorage.getItem(TOOLBAR_STORAGE_KEY);
+      const prev = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(TOOLBAR_STORAGE_KEY, JSON.stringify({ ...prev, drawShape: shape }));
+    } catch {}
   },
   setSelectedTileId: (id: number) => set({ selectedTileId: id, selectedTiles: null, selectedTilesWidth: 1, selectedTilesHeight: 1 }),
   setSelectedTiles: (tiles: number[][] | null, width: number, height: number) => set({ selectedTiles: tiles, selectedTilesWidth: width, selectedTilesHeight: height }),
-  setCurrentLayer: (layer: number) => set({ currentLayer: layer }),
+  setCurrentLayer: (layer: number) => {
+    set({ currentLayer: layer });
+    try {
+      const raw = localStorage.getItem(TOOLBAR_STORAGE_KEY);
+      const prev = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(TOOLBAR_STORAGE_KEY, JSON.stringify({ ...prev, currentLayer: layer }));
+    } catch {}
+  },
   setCursorTile: (x: number, y: number) => set({ cursorTileX: x, cursorTileY: y }),
   setSelection: (start, end) => set({ selectionStart: start, selectionEnd: end }),
   setIsPasting: (isPasting: boolean) => set({ isPasting }),
