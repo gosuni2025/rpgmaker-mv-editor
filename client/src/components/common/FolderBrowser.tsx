@@ -19,6 +19,8 @@ export interface FolderBrowserProps {
   onSelect?: (path: string) => void;
   /** 컴포넌트 마운트 시 자동으로 browse 실행 (기본 true) */
   autoLoad?: boolean;
+  /** 하단 toolbar 오른쪽에 추가할 버튼들 */
+  toolbarExtra?: React.ReactNode;
   /** 추가 CSS 클래스 */
   className?: string;
   /** 추가 스타일 */
@@ -30,6 +32,7 @@ export default function FolderBrowser({
   onPathChange,
   onSelect,
   autoLoad = true,
+  toolbarExtra,
   className,
   style,
 }: FolderBrowserProps) {
@@ -165,6 +168,10 @@ export default function FolderBrowser({
         >
           {t('folderBrowser.openInExplorer')}
         </button>
+        {toolbarExtra && <>
+          <div className="folder-browser-toolbar-spacer" />
+          {toolbarExtra}
+        </>}
       </div>
     </div>
   );

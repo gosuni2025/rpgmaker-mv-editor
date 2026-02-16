@@ -86,6 +86,19 @@ export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialog
               onPathChange={handlePathChange}
               onSelect={(path) => onOpen(path)}
               style={{ flex: 1 }}
+              toolbarExtra={<>
+                <button
+                  className="db-btn-small"
+                  onClick={handleOpen}
+                  disabled={!currentPath}
+                  style={isRpgProject ? { background: '#0078d4', borderColor: '#0078d4' } : {}}
+                >
+                  {t('openProject.open')}
+                </button>
+                <button className="db-btn-small" onClick={onClose}>
+                  {t('common.cancel')}
+                </button>
+              </>}
             />
 
             {isRpgProject && (
@@ -121,22 +134,13 @@ export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialog
                 </div>
               ))}
             </div>
+            <div className="db-dialog-footer">
+              <button className="db-btn" onClick={onClose}>
+                {t('common.cancel')}
+              </button>
+            </div>
           </div>
         )}
-
-        <div className="db-dialog-footer">
-          <button
-            className="db-btn"
-            onClick={handleOpen}
-            disabled={!currentPath}
-            style={isRpgProject ? { background: '#0078d4', borderColor: '#0078d4' } : {}}
-          >
-            {t('openProject.open')}
-          </button>
-          <button className="db-btn" onClick={onClose}>
-            {t('common.cancel')}
-          </button>
-        </div>
       </div>
     </div>
   );
