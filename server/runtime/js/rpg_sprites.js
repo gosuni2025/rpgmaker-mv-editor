@@ -2359,7 +2359,7 @@ Spriteset_Map.prototype.createMapObjects = function() {
         container._mapObjX = obj.x;
         container._mapObjY = obj.y;
         container._mapObjH = obj.height;
-        container.z = 3; // above lower tiles, below characters
+        container.z = 5; // above upper tiles (z=4), same as upper characters
 
         if (obj.imageName) {
             // 이미지 기반 오브젝트: pictures 폴더에서 이미지 로드
