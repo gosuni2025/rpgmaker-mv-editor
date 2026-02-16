@@ -84,6 +84,7 @@ export default function ObjectInspector() {
   const setSelectedObjectId = useEditorStore((s) => s.setSelectedObjectId);
   const addObjectFromImage = useEditorStore((s) => s.addObjectFromImage);
   const [showImagePicker, setShowImagePicker] = useState(false);
+  const [showAnchorHelp, setShowAnchorHelp] = useState(false);
 
   const objects = currentMap?.objects;
   const selectedObj = selectedObjectId != null && objects
@@ -127,7 +128,6 @@ export default function ObjectInspector() {
 
   const isImageObj = !!selectedObj.imageName;
   const anchorY = selectedObj.anchorY ?? 1.0;
-  const [showAnchorHelp, setShowAnchorHelp] = useState(false);
 
   return (
     <div className="light-inspector">
