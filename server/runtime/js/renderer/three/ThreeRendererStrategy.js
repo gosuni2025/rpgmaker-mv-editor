@@ -304,6 +304,15 @@
         if (node._threeObj) {
             // THREE.Mesh objects get renderOrder for depth-independent sorting
             if (node._threeObj.isMesh) {
+                // 오브젝트 물 메시는 container보다 먼저 렌더링 (물 → 일반 타일 순서)
+                var meshChildren = node._threeObj.children;
+                if (meshChildren) {
+                    for (var t = 0; t < meshChildren.length; t++) {
+                        if (meshChildren[t].isMesh && meshChildren[t].userData && meshChildren[t].userData.isObjectWater) {
+                            meshChildren[t].renderOrder = rendererObj._drawOrderCounter++;
+                        }
+                    }
+                }
                 node._threeObj.renderOrder = rendererObj._drawOrderCounter++;
             }
             // For Groups, traverse their direct THREE children that are meshes

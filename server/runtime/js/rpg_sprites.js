@@ -2820,8 +2820,8 @@ Spriteset_Map.prototype.updateMapObjects = function() {
     var animFrame = tilemap ? tilemap.animationFrame || 0 : 0;
     var af = animFrame % 4;
     if (af === 3) af = 1;
-    var tileAnimX = af * (tw / 2);
-    var tileAnimY = (animFrame % 3) * (th / 2);
+    var tileAnimX = af * tw;
+    var tileAnimY = (animFrame % 3) * th;
 
     for (var i = 0; i < this._objectSprites.length; i++) {
         var container = this._objectSprites[i];
