@@ -1726,30 +1726,10 @@ PostProcess._updateUniforms = function() {
             var mesh = FogOfWar._createMesh();
             if (mesh) {
                 scene.add(mesh);
-                FogOfWar._scene = scene;
             }
         }
     }
 
-    // 3dvolume: parallax sky를 숨기고 scene background를 안개 색으로 설정
-    if (FogOfWar._scene) {
-        if (FogOfWar._fogMode === '3dvolume' && FogOfWar._active) {
-            // sky mesh 숨기기
-            for (var si = 0; si < FogOfWar._scene.children.length; si++) {
-                var child = FogOfWar._scene.children[si];
-                if (child._isParallaxSky) {
-                    child.visible = false;
-                    break;
-                }
-            }
-            var fc = FogOfWar._fogColorTop || FogOfWar._fogColor;
-            if (!FogOfWar._sceneBgColor) FogOfWar._sceneBgColor = new THREE.Color();
-            FogOfWar._sceneBgColor.setRGB(fc.r, fc.g, fc.b);
-            FogOfWar._scene.background = FogOfWar._sceneBgColor;
-        } else if (FogOfWar._scene.background === FogOfWar._sceneBgColor) {
-            FogOfWar._scene.background = null;
-        }
-    }
 
     if (FogOfWar._fogGroup) {
         // 플레이어 가시성 갱신
