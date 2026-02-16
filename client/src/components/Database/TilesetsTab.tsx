@@ -141,13 +141,6 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
                 />
               </label>
             ))}
-            <button
-              className="db-btn-small"
-              style={{ marginTop: 8, alignSelf: 'flex-start' }}
-              onClick={() => apiClient.post('/project/open-folder', { subfolder: 'data' }).catch(() => {})}
-            >
-              {t('menu.openFolder')}
-            </button>
           </div>
 
           {/* Panel 2: Tile Preview Canvas */}
@@ -170,7 +163,14 @@ export default function TilesetsTab({ data, onChange }: TilesetsTabProps) {
               onModeChange={setFlagMode}
               t={t}
             />
-            <label className="db-checkbox-label" style={{ fontSize: 12, marginTop: 8 }}>
+            <button
+              className="db-btn-small"
+              style={{ marginTop: 4 }}
+              onClick={() => apiClient.post('/project/open-folder', { subfolder: 'data' }).catch(() => {})}
+            >
+              {t('menu.openFolder')}
+            </button>
+            <label className="db-checkbox-label" style={{ fontSize: 12, marginTop: 4 }}>
               <input
                 type="checkbox"
                 checked={showOverlay}
