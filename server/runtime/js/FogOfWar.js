@@ -46,6 +46,9 @@ FogOfWar._vortexSpeed = 1.0;       // 소용돌이 속도
 FogOfWar._lightScattering = true;  // 라이트 산란 활성화
 FogOfWar._lightScatterIntensity = 1.0; // 라이트 산란 강도
 FogOfWar._fogMode = '2d';             // fog 렌더링 모드: '2d' | '3dvolume'
+FogOfWar._enabled2D = false;          // 2D 모드에서 FoW 활성화
+FogOfWar._enabled3D = false;          // 3D 모드에서 FoW 활성화
+FogOfWar._enabledLegacy = false;      // 하위 호환 (enabled 필드)
 FogOfWar._playerPos = new (typeof THREE !== 'undefined' ? THREE.Vector2 : Object)(0, 0); // 플레이어 타일 좌표
 
 //=============================================================================
@@ -1709,6 +1712,19 @@ PostProcess._updateUniforms = function() {
         return;
     }
 
+    // enabled2D/enabled3D에 따라 현재 모드에서 FoW를 숨김
+    if (!FogOfWar._enabledLegacy) {
+        var _is3D = typeof Mode3D !== 'undefined' && Mode3D._active;
+        if ((_is3D && !FogOfWar._enabled3D) || (!_is3D && !FogOfWar._enabled2D)) {
+            if (FogOfWar._fogGroup) FogOfWar._fogGroup.visible = false;
+            _fowProf.total += performance.now() - _t0;
+            _fowProf.frameCount++;
+            _fowProf.log();
+            return;
+        }
+        if (FogOfWar._fogGroup) FogOfWar._fogGroup.visible = true;
+    }
+
     // 메쉬가 아직 생성되지 않았으면 scene에 lazy 추가
     if (!FogOfWar._fogGroup && FogOfWar._fogTexture) {
         var scene = null;
@@ -1791,6 +1807,9 @@ PostProcess._applyMapSettings = function() {
     var fow = $dataMap.fogOfWar;
     if (fow && (fow.enabled || fow.enabled2D || fow.enabled3D)) {
         FogOfWar.setup($dataMap.width, $dataMap.height, fow);
+        FogOfWar._enabled2D = !!fow.enabled2D;
+        FogOfWar._enabled3D = !!fow.enabled3D;
+        FogOfWar._enabledLegacy = !!fow.enabled;
     } else {
         FogOfWar.dispose();
     }
