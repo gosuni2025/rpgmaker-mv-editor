@@ -255,16 +255,17 @@
     };
 
     //=========================================================================
-    // 마스크 렌더링 - 3D 모드
+    // 마스크 렌더링 공통 - tilemap 자식만 제어
     //=========================================================================
-    OcclusionSilhouette._renderMasks3D = function(renderer, renderPass) {
-        var spriteset = renderPass.spriteset;
+    // 씬 계층: scene → stage._threeObj → spriteset._threeObj → _baseSprite._threeObj → _tilemap._threeObj → sprites
+    // parent chain 전체를 건드리지 않고, tilemap 자식만 visible on/off 하는 방식
+    OcclusionSilhouette._renderMasks = function(renderer, scene, camera, spriteset) {
         if (!spriteset || !spriteset._characterSprites || !spriteset._objectSprites) return false;
         if (!spriteset._objectSprites.length) return false;
+        if (!scene || !camera) return false;
 
-        var scene = renderPass.scene;
-        var perspCamera = renderPass.perspCamera;
-        if (!scene || !perspCamera) return false;
+        var tilemapObj = spriteset._tilemap && spriteset._tilemap._threeObj;
+        if (!tilemapObj) return false;
 
         // 오브젝트 중 visible한 것이 있는지 확인
         var hasVisibleObj = false;
@@ -287,65 +288,40 @@
         var h = Math.floor(size.y * pr);
         this._ensureRenderTargets(w, h);
 
-        // 모든 씬 자식 가시성 백업
-        var sceneChildren = scene.children;
-        var origVisible = [];
-        for (var i = 0; i < sceneChildren.length; i++) {
-            origVisible.push(sceneChildren[i].visible);
-            sceneChildren[i].visible = false;
-        }
-
-        // tilemap의 _threeObj 찾기
-        var tilemapObj = spriteset._tilemap && spriteset._tilemap._threeObj;
-        var spritesetObj = spriteset._threeObj;
-
-        // spriteset을 포함하는 stageObj 찾기
-        var stageObj = null;
-        for (var si = 0; si < sceneChildren.length; si++) {
-            var child = sceneChildren[si];
-            if (child === spritesetObj || (child.children && child.children.indexOf(spritesetObj) >= 0)) {
-                stageObj = child;
-                break;
-            }
-        }
-        // stageObj 체인 가시성 활성화
-        if (stageObj) stageObj.visible = true;
-        if (spritesetObj) spritesetObj.visible = true;
-
-        // tilemap을 포함한 전체 계층 가시성 제어
-        // 우선 spriteset 자식 전체 백업 & 숨김
-        var spritesetChildVis = [];
-        if (spritesetObj) {
-            for (var sci = 0; sci < spritesetObj.children.length; sci++) {
-                spritesetChildVis.push(spritesetObj.children[sci].visible);
-                spritesetObj.children[sci].visible = false;
+        // scene 직계 자식 중 stage와 라이트만 유지, 나머지 숨김 (sky, fow 등)
+        var stageObj = scene._stageObj || null;
+        var sceneChildVis = [];
+        for (var i = 0; i < scene.children.length; i++) {
+            sceneChildVis.push(scene.children[i].visible);
+            var child = scene.children[i];
+            if (child !== stageObj && !child.isLight) {
+                child.visible = false;
             }
         }
 
-        // tilemap만 보이게
-        if (tilemapObj) tilemapObj.visible = true;
-
-        // tilemap 자식 가시성 백업
-        var tilemapChildVis = [];
-        if (tilemapObj) {
-            for (var ti = 0; ti < tilemapObj.children.length; ti++) {
-                tilemapChildVis.push(tilemapObj.children[ti].visible);
-                tilemapObj.children[ti].visible = false;
-            }
+        // tilemap 자식 가시성 백업 & 모두 숨김
+        var tmChildren = tilemapObj.children;
+        var tmChildVis = [];
+        for (var ti = 0; ti < tmChildren.length; ti++) {
+            tmChildVis.push(tmChildren[ti].visible);
+            tmChildren[ti].visible = false;
         }
+
+        // 캐릭터 스프라이트의 _threeObj를 tilemap 안에서 찾아 visible 설정할 것
+        // _threeObj는 tilemap._threeObj의 직계 자식임
+
+        var oldClearColor = renderer.getClearColor(new THREE.Color());
+        var oldClearAlpha = renderer.getClearAlpha();
+        renderer.setClearColor(0x000000, 0);
 
         // === Pass 1: 캐릭터 마스크 렌더 ===
         for (var ci = 0; ci < charSprites.length; ci++) {
             if (charSprites[ci]._threeObj) charSprites[ci]._threeObj.visible = true;
         }
 
-        var oldClearColor = renderer.getClearColor(new THREE.Color());
-        var oldClearAlpha = renderer.getClearAlpha();
-        renderer.setClearColor(0x000000, 0);
-
         renderer.setRenderTarget(this._charMaskRT);
         renderer.clear(true, true, true);
-        renderer.render(scene, perspCamera);
+        renderer.render(scene, camera);
 
         // 캐릭터 숨김
         for (var ci2 = 0; ci2 < charSprites.length; ci2++) {
@@ -353,172 +329,39 @@
         }
 
         // === Pass 2: 오브젝트 마스크 렌더 ===
+        // 원래 visible이었던 오브젝트만 마스크에 포함
         for (var oi2 = 0; oi2 < spriteset._objectSprites.length; oi2++) {
             var os = spriteset._objectSprites[oi2];
-            if (os._threeObj) os._threeObj.visible = true;
+            if (os._threeObj) {
+                var idx = tmChildren.indexOf(os._threeObj);
+                if (idx >= 0 && tmChildVis[idx]) {
+                    os._threeObj.visible = true;
+                }
+            }
         }
 
         renderer.setRenderTarget(this._objMaskRT);
         renderer.clear(true, true, true);
-        renderer.render(scene, perspCamera);
+        renderer.render(scene, camera);
 
-        // 오브젝트 숨김
-        for (var oi3 = 0; oi3 < spriteset._objectSprites.length; oi3++) {
-            var os2 = spriteset._objectSprites[oi3];
-            if (os2._threeObj) os2._threeObj.visible = false;
-        }
-
-        // === 가시성 복원 ===
+        // === 가시성 및 상태 복원 ===
+        renderer.setRenderTarget(null);
         renderer.setClearColor(oldClearColor, oldClearAlpha);
 
         // tilemap 자식 복원
-        if (tilemapObj) {
-            for (var tri = 0; tri < tilemapObj.children.length; tri++) {
-                tilemapObj.children[tri].visible = tilemapChildVis[tri];
-            }
+        for (var tri = 0; tri < tmChildren.length; tri++) {
+            tmChildren[tri].visible = tmChildVis[tri];
         }
 
-        // spriteset 자식 복원
-        if (spritesetObj) {
-            for (var sri = 0; sri < spritesetObj.children.length; sri++) {
-                spritesetObj.children[sri].visible = spritesetChildVis[sri];
-            }
-        }
-
-        // 씬 자식 복원
-        for (var ri = 0; ri < sceneChildren.length; ri++) {
-            sceneChildren[ri].visible = origVisible[ri];
+        // scene 자식 복원
+        for (var ri = 0; ri < scene.children.length; ri++) {
+            scene.children[ri].visible = sceneChildVis[ri];
         }
 
         return true;
     };
 
-    //=========================================================================
-    // 마스크 렌더링 - 2D 모드
-    //=========================================================================
-    OcclusionSilhouette._renderMasks2D = function(renderer, rendererObj) {
-        var spriteset = Mode3D._spriteset;
-        if (!spriteset || !spriteset._characterSprites || !spriteset._objectSprites) return false;
-        if (!spriteset._objectSprites.length) return false;
-
-        var scene = rendererObj.scene;
-        var camera = rendererObj.camera;
-        if (!scene || !camera) return false;
-
-        // 오브젝트 중 visible한 것이 있는지 확인
-        var hasVisibleObj = false;
-        for (var oi = 0; oi < spriteset._objectSprites.length; oi++) {
-            var objSpr = spriteset._objectSprites[oi];
-            if (objSpr._threeObj && objSpr._threeObj.visible) {
-                hasVisibleObj = true;
-                break;
-            }
-        }
-        if (!hasVisibleObj) return false;
-
-        var charSprites = this._getPlayerSprites(spriteset);
-        if (!charSprites.length) return false;
-
-        var size = renderer.getSize(new THREE.Vector2());
-        var pr = renderer.getPixelRatio();
-        var w = Math.floor(size.x * pr);
-        var h = Math.floor(size.y * pr);
-        this._ensureRenderTargets(w, h);
-
-        // 씬 자식 가시성 백업
-        var sceneChildren = scene.children;
-        var origVisible = [];
-        for (var i = 0; i < sceneChildren.length; i++) {
-            origVisible.push(sceneChildren[i].visible);
-            sceneChildren[i].visible = false;
-        }
-
-        var tilemapObj = spriteset._tilemap && spriteset._tilemap._threeObj;
-        var spritesetObj = spriteset._threeObj;
-
-        // stageObj 체인 찾기 및 활성화
-        var stageObj = null;
-        for (var si = 0; si < sceneChildren.length; si++) {
-            var child = sceneChildren[si];
-            if (child === spritesetObj || (child.children && child.children.indexOf(spritesetObj) >= 0)) {
-                stageObj = child;
-                break;
-            }
-        }
-        if (stageObj) stageObj.visible = true;
-        if (spritesetObj) spritesetObj.visible = true;
-
-        // spriteset 자식 백업 & 숨김
-        var spritesetChildVis = [];
-        if (spritesetObj) {
-            for (var sci = 0; sci < spritesetObj.children.length; sci++) {
-                spritesetChildVis.push(spritesetObj.children[sci].visible);
-                spritesetObj.children[sci].visible = false;
-            }
-        }
-
-        if (tilemapObj) tilemapObj.visible = true;
-
-        // tilemap 자식 가시성 백업
-        var tilemapChildVis = [];
-        if (tilemapObj) {
-            for (var ti = 0; ti < tilemapObj.children.length; ti++) {
-                tilemapChildVis.push(tilemapObj.children[ti].visible);
-                tilemapObj.children[ti].visible = false;
-            }
-        }
-
-        var oldClearColor = renderer.getClearColor(new THREE.Color());
-        var oldClearAlpha = renderer.getClearAlpha();
-        renderer.setClearColor(0x000000, 0);
-
-        // === Pass 1: 캐릭터 마스크 ===
-        for (var ci = 0; ci < charSprites.length; ci++) {
-            if (charSprites[ci]._threeObj) charSprites[ci]._threeObj.visible = true;
-        }
-
-        renderer.setRenderTarget(this._charMaskRT);
-        renderer.clear(true, true, true);
-        renderer.render(scene, camera);
-
-        for (var ci2 = 0; ci2 < charSprites.length; ci2++) {
-            if (charSprites[ci2]._threeObj) charSprites[ci2]._threeObj.visible = false;
-        }
-
-        // === Pass 2: 오브젝트 마스크 ===
-        for (var oi2 = 0; oi2 < spriteset._objectSprites.length; oi2++) {
-            var os = spriteset._objectSprites[oi2];
-            if (os._threeObj) os._threeObj.visible = true;
-        }
-
-        renderer.setRenderTarget(this._objMaskRT);
-        renderer.clear(true, true, true);
-        renderer.render(scene, camera);
-
-        for (var oi3 = 0; oi3 < spriteset._objectSprites.length; oi3++) {
-            var os2 = spriteset._objectSprites[oi3];
-            if (os2._threeObj) os2._threeObj.visible = false;
-        }
-
-        // === 가시성 복원 ===
-        renderer.setClearColor(oldClearColor, oldClearAlpha);
-
-        if (tilemapObj) {
-            for (var tri = 0; tri < tilemapObj.children.length; tri++) {
-                tilemapObj.children[tri].visible = tilemapChildVis[tri];
-            }
-        }
-        if (spritesetObj) {
-            for (var sri = 0; sri < spritesetObj.children.length; sri++) {
-                spritesetObj.children[sri].visible = spritesetChildVis[sri];
-            }
-        }
-        for (var ri = 0; ri < sceneChildren.length; ri++) {
-            sceneChildren[ri].visible = origVisible[ri];
-        }
-
-        return true;
-    };
+    // _renderMasks3D, _renderMasks2D는 공통 _renderMasks로 대체됨
 
     //=========================================================================
     // 플레이어/파티원 스프라이트 추출
@@ -662,7 +505,7 @@
         _MapRenderPass_render.call(this, renderer, writeBuffer, readBuffer, deltaTime, maskActive);
 
         if (OcclusionSilhouette._active) {
-            var hasMasks = OcclusionSilhouette._renderMasks3D(renderer, this);
+            var hasMasks = OcclusionSilhouette._renderMasks(renderer, this.scene, this.perspCamera, this.spriteset);
             if (OcclusionSilhouette._silhouettePass) {
                 OcclusionSilhouette._silhouettePass.enabled = hasMasks;
                 if (hasMasks) OcclusionSilhouette._syncUniforms();
@@ -680,7 +523,8 @@
         if (OcclusionSilhouette._active) {
             var rendererObj = this._rendererObj;
             if (rendererObj) {
-                var hasMasks = OcclusionSilhouette._renderMasks2D(renderer, rendererObj);
+                var spriteset = Mode3D._spriteset;
+                var hasMasks = OcclusionSilhouette._renderMasks(renderer, rendererObj.scene, rendererObj.camera, spriteset);
                 if (OcclusionSilhouette._silhouettePass) {
                     OcclusionSilhouette._silhouettePass.enabled = hasMasks;
                     if (hasMasks) OcclusionSilhouette._syncUniforms();
