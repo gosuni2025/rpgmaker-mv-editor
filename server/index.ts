@@ -76,9 +76,9 @@ export function createApp(options: AppOptions = {}) {
     const hasStartPos = req.query.startX !== undefined && req.query.startY !== undefined;
     const startX = req.query.startX ? parseInt(req.query.startX as string, 10) : 0;
     const startY = req.query.startY ? parseInt(req.query.startY as string, 10) : 0;
-    const devScript = isDev ? '\n        <script type="text/javascript" src="js/ThreeDevOverlay.js"></script>\n        <script type="text/javascript" src="js/CameraZoneDevOverlay.js"></script>\n        <script type="text/javascript" src="js/FogOfWarDevPanel.js"></script>\n        <script type="text/javascript" src="js/MemoryDevPanel.js"></script>\n        <script type="text/javascript" src="js/TileIdDevOverlay.js"></script>' : '';
+    const devScript = isDev ? '\n        <script defer src="js/ThreeDevOverlay.js"></script>\n        <script defer src="js/CameraZoneDevOverlay.js"></script>\n        <script defer src="js/FogOfWarDevPanel.js"></script>\n        <script defer src="js/MemoryDevPanel.js"></script>\n        <script defer src="js/TileIdDevOverlay.js"></script>' : '';
     const startMapScript = startMapId > 0 ? `
-        <script type="text/javascript">
+        <script type="module">
         // 현재 맵에서 테스트: 타이틀 스킵하고 지정 맵에서 시작
         (function() {
             var _Scene_Boot_start = Scene_Boot.prototype.start;
@@ -108,23 +108,23 @@ export function createApp(options: AppOptions = {}) {
         <title>${title} - Playtest</title>
     </head>
     <body style="background-color: black">
-        <script type="text/javascript" src="js/libs/three.min.js"></script>
-        <script type="text/javascript" src="js/libs/fpsmeter.js"></script>
-        <script type="text/javascript" src="js/libs/lz-string.js"></script>
-        <script type="text/javascript" src="js/libs/iphone-inline-video.browser.js"></script>
-        <script type="text/javascript" src="js/renderer/RendererFactory.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/renderer/RendererStrategy.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeRendererFactory.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeRendererStrategy.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeContainer.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeSprite.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeGraphicsNode.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeTilemap.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeWaterShader.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/renderer/three/ThreeFilters.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/rpg_core.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/rpg_managers.js${cacheBust}"></script>
-        <script type="text/javascript">
+        <script src="js/libs/three.global.min.js"></script>
+        <script defer src="js/libs/fpsmeter.js"></script>
+        <script defer src="js/libs/lz-string.js"></script>
+        <script defer src="js/libs/iphone-inline-video.browser.js"></script>
+        <script defer src="js/renderer/RendererFactory.js${cacheBust}"></script>
+        <script defer src="js/renderer/RendererStrategy.js${cacheBust}"></script>
+        <script defer src="js/renderer/three/ThreeRendererFactory.js${cacheBust}"></script>
+        <script defer src="js/renderer/three/ThreeRendererStrategy.js${cacheBust}"></script>
+        <script defer src="js/renderer/three/ThreeContainer.js${cacheBust}"></script>
+        <script defer src="js/renderer/three/ThreeSprite.js${cacheBust}"></script>
+        <script defer src="js/renderer/three/ThreeGraphicsNode.js${cacheBust}"></script>
+        <script defer src="js/renderer/three/ThreeTilemap.js${cacheBust}"></script>
+        <script defer src="js/renderer/three/ThreeWaterShader.js${cacheBust}"></script>
+        <script defer src="js/renderer/three/ThreeFilters.js${cacheBust}"></script>
+        <script defer src="js/rpg_core.js${cacheBust}"></script>
+        <script defer src="js/rpg_managers.js${cacheBust}"></script>
+        <script type="module">
         // StorageManager override: 서버 API를 통해 프로젝트 save/ 폴더에 저장
         (function() {
             function saveFileName(savefileId) {
@@ -204,20 +204,20 @@ export function createApp(options: AppOptions = {}) {
             };
         })();
         </script>
-        <script type="text/javascript" src="js/DevPanelUtils.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/rpg_objects.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/rpg_scenes.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/rpg_sprites.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/rpg_windows.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/Mode3D.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/ShadowAndLight.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/PostProcessEffects.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/PostProcess.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/PictureShader.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/FogOfWar.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/FogOfWar3DVolume.js${cacheBust}"></script>
-        <script type="text/javascript" src="js/plugins.js"></script>${devScript}${startMapScript}
-        <script type="text/javascript" src="js/main.js${cacheBust}"></script>
+        <script defer src="js/DevPanelUtils.js${cacheBust}"></script>
+        <script defer src="js/rpg_objects.js${cacheBust}"></script>
+        <script defer src="js/rpg_scenes.js${cacheBust}"></script>
+        <script defer src="js/rpg_sprites.js${cacheBust}"></script>
+        <script defer src="js/rpg_windows.js${cacheBust}"></script>
+        <script defer src="js/Mode3D.js${cacheBust}"></script>
+        <script defer src="js/ShadowAndLight.js${cacheBust}"></script>
+        <script defer src="js/PostProcessEffects.js${cacheBust}"></script>
+        <script defer src="js/PostProcess.js${cacheBust}"></script>
+        <script defer src="js/PictureShader.js${cacheBust}"></script>
+        <script defer src="js/FogOfWar.js${cacheBust}"></script>
+        <script defer src="js/FogOfWar3DVolume.js${cacheBust}"></script>
+        <script defer src="js/plugins.js"></script>${devScript}${startMapScript}
+        <script defer src="js/main.js${cacheBust}"></script>
     </body>
 </html>`;
     res.type('html').send(html);

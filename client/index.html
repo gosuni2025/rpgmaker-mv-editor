@@ -8,42 +8,39 @@
 <body>
   <div id="root"></div>
 
-  <!-- 게임 런타임 로드 (Three.js + RPG Maker MV 런타임) -->
-  <script src="/runtime/libs/three.min.js"></script>
-  <script src="/editor-runtime-bootstrap.js"></script>
-  <script src="/runtime/renderer/RendererFactory.js"></script>
-  <script src="/runtime/renderer/RendererStrategy.js"></script>
-  <script src="/runtime/renderer/three/ThreeContainer.js"></script>
-  <script src="/runtime/renderer/three/ThreeSprite.js"></script>
-  <script src="/runtime/renderer/three/ThreeGraphicsNode.js"></script>
-  <script src="/runtime/renderer/three/ThreeFilters.js"></script>
-  <script src="/runtime/renderer/three/ThreeTilemap.js"></script>
-  <script src="/runtime/renderer/three/ThreeWaterShader.js"></script>
-  <script src="/runtime/renderer/three/ThreeRendererFactory.js"></script>
-  <script src="/runtime/renderer/three/ThreeRendererStrategy.js"></script>
-  <script src="/runtime/rpg_core.js"></script>
-  <script src="/runtime/rpg_managers.js"></script>
-  <script src="/runtime/rpg_objects.js"></script>
-  <script src="/runtime/rpg_sprites.js"></script>
-  <script src="/runtime/Mode3D.js"></script>
-  <script src="/runtime/ShadowAndLight.js"></script>
-  <script src="/runtime/PostProcessEffects.js"></script>
-  <script src="/runtime/PostProcess.js"></script>
-  <script src="/runtime/PictureShader.js"></script>
-  <script src="/runtime/FogOfWar.js"></script>
-  <script src="/runtime/FogOfWar3DVolume.js"></script>
-  <script>
-    // SkyBox 플러그인 파라미터 등록
-    PluginManager._parameters['SkyBox'] = { 'Skybox Folder': 'skybox', 'Panorama File': 'sky_panorama.png' };
-  </script>
-  <script src="/plugins/SkyBox.js"></script>
-  <script>
-    RendererFactory.setBackend('threejs');
-    RendererStrategy.setStrategy('threejs');
-    window._editorRuntimeReady = true;
-    console.log('[Editor] Runtime loaded successfully');
-    console.log('[TEST] 이 로그가 보이면 콘솔은 정상입니다');
-  </script>
+  <!-- Three.js r182 (IIFE 빌드: window.THREE 글로벌 설정) -->
+  <script src="/runtime/libs/three.global.min.js"></script>
+
+  <!-- 게임 런타임 로드 -->
+  <script defer src="/editor-runtime-bootstrap.js"></script>
+  <script defer src="/runtime/renderer/RendererFactory.js"></script>
+  <script defer src="/runtime/renderer/RendererStrategy.js"></script>
+  <script defer src="/runtime/renderer/three/ThreeContainer.js"></script>
+  <script defer src="/runtime/renderer/three/ThreeSprite.js"></script>
+  <script defer src="/runtime/renderer/three/ThreeGraphicsNode.js"></script>
+  <script defer src="/runtime/renderer/three/ThreeFilters.js"></script>
+  <script defer src="/runtime/renderer/three/ThreeTilemap.js"></script>
+  <script defer src="/runtime/renderer/three/ThreeWaterShader.js"></script>
+  <script defer src="/runtime/renderer/three/ThreeRendererFactory.js"></script>
+  <script defer src="/runtime/renderer/three/ThreeRendererStrategy.js"></script>
+  <script defer src="/runtime/rpg_core.js"></script>
+  <script defer src="/runtime/rpg_managers.js"></script>
+  <script defer src="/runtime/rpg_objects.js"></script>
+  <script defer src="/runtime/rpg_sprites.js"></script>
+  <script defer src="/runtime/Mode3D.js"></script>
+  <script defer src="/runtime/ShadowAndLight.js"></script>
+  <script defer src="/runtime/PostProcessEffects.js"></script>
+  <script defer src="/runtime/PostProcess.js"></script>
+  <script defer src="/runtime/PictureShader.js"></script>
+  <script defer src="/runtime/FogOfWar.js"></script>
+  <script defer src="/runtime/FogOfWar3DVolume.js"></script>
+
+  <!-- SkyBox 파라미터 설정 후 SkyBox.js 로드 -->
+  <script defer src="/editor-runtime-init.js"></script>
+  <script defer src="/plugins/SkyBox.js"></script>
+
+  <!-- 런타임 초기화 완료 -->
+  <script defer src="/editor-runtime-ready.js"></script>
 
   <script type="module" src="/src/main.tsx"></script>
 </body>
