@@ -2369,8 +2369,17 @@ Spriteset_Map.prototype.createMapObjects = function() {
             imgSprite.anchor.set(0.5, objAnchorY);
             imgSprite.x = obj.width * tw / 2;
             container.addChild(imgSprite);
-            container._imgSprite = imgSprite;
-            container._imageReady = false;
+            // 이미지 로드 완료 시 여러 프레임에 걸쳐 repaint 요청
+            // (텍스처 생성 → ThreeSprite 반영 → 실제 렌더까지 복수 프레임 필요)
+            var tilemap = this._tilemap;
+            imgSprite.bitmap.addLoadListener(function() {
+                var count = 0;
+                function forceRepaint() {
+                    if (tilemap) tilemap._needsRepaint = true;
+                    if (++count < 5) requestAnimationFrame(forceRepaint);
+                }
+                forceRepaint();
+            });
         } else {
             for (var row = 0; row < obj.height; row++) {
                 for (var col = 0; col < obj.width; col++) {
@@ -2419,14 +2428,6 @@ Spriteset_Map.prototype.updateMapObjects = function() {
         // Update position based on map scroll (same as character screenX/Y)
         container.x = Math.round($gameMap.adjustX(container._mapObjX) * tw);
         container.y = Math.round($gameMap.adjustY(container._mapObjY) * th + th);
-        // 이미지 오브젝트: 비동기 로드 완료 감지하여 repaint 요청
-        if (container._imgSprite && !container._imageReady) {
-            var bmp = container._imgSprite.bitmap;
-            if (bmp && bmp.isReady()) {
-                container._imageReady = true;
-                if (this._tilemap) this._tilemap._needsRepaint = true;
-            }
-        }
     }
 };
 
