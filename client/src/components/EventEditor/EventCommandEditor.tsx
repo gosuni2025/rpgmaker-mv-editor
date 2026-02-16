@@ -48,6 +48,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [pendingCode, setPendingCode] = useState<number | null>(null);
+  const [pendingInitialParam, setPendingInitialParam] = useState<string | undefined>(undefined);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [showMoveRoute, setShowMoveRoute] = useState<{ editing?: number; characterId: number; moveRoute: MoveRoute } | null>(null);
 
@@ -256,11 +257,18 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     setPendingCode(null);
   };
 
-  const handleCommandSelect = (code: number) => {
+  const handleCommandSelect = (code: number, initialParam?: string) => {
     if (code === 205) {
       setShowAddDialog(false);
       const defaultRoute: MoveRoute = { list: [{ code: 0 }], repeat: false, skippable: false, wait: true };
       setShowMoveRoute({ characterId: -1, moveRoute: defaultRoute });
+      return;
+    }
+    if (initialParam) {
+      // 애드온 커맨드: 356 + initialParam
+      setShowAddDialog(false);
+      setPendingCode(code);
+      setPendingInitialParam(initialParam);
       return;
     }
     if (NO_PARAM_CODES.has(code)) {
@@ -268,6 +276,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     } else if (HAS_PARAM_EDITOR.has(code)) {
       setShowAddDialog(false);
       setPendingCode(code);
+      setPendingInitialParam(undefined);
     } else {
       insertCommandWithParams(code, []);
     }
@@ -531,8 +540,9 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       {pendingCode !== null && (
         <CommandParamEditor
           code={pendingCode}
+          initialParam={pendingInitialParam}
           onOk={(params, extra) => insertCommandWithParams(pendingCode, params, extra)}
-          onCancel={() => setPendingCode(null)}
+          onCancel={() => { setPendingCode(null); setPendingInitialParam(undefined); }}
         />
       )}
 

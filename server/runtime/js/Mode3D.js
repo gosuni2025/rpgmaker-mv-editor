@@ -983,4 +983,25 @@
         }
     };
 
+    //=========================================================================
+    // Plugin Commands
+    //=========================================================================
+
+    var _Game_Interpreter_pluginCommand_m3d = Game_Interpreter.prototype.pluginCommand;
+    Game_Interpreter.prototype.pluginCommand = function(command, args) {
+        _Game_Interpreter_pluginCommand_m3d.call(this, command, args);
+
+        if (command === 'Mode3D') {
+            if (args[0] === 'on') ConfigManager.mode3d = true;
+            if (args[0] === 'off') ConfigManager.mode3d = false;
+            if (args[0] === 'tilt' && args[1]) {
+                Mode3D._tiltDeg = parseFloat(args[1]);
+                Mode3D._tiltRad = Mode3D._tiltDeg * Math.PI / 180;
+            }
+            if (args[0] === 'yaw' && args[1]) {
+                Mode3D._yawDeg = parseFloat(args[1]);
+            }
+        }
+    };
+
 })();
