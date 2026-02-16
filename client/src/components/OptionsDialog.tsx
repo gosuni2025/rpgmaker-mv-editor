@@ -8,6 +8,10 @@ import './OptionsDialog.css';
 
 interface SettingsResponse {
   steamPath: string;
+  language: string;
+  transparentColor: { r: number; g: number; b: number };
+  maxUndo: number;
+  zoomStep: number;
   detectedSteamPath: string | null;
 }
 
@@ -110,10 +114,15 @@ export default function OptionsDialog() {
     setZoomStep(localZoomStep);
     if (localLang !== i18n.language) {
       i18n.changeLanguage(localLang);
-      localStorage.setItem('editor-lang', localLang);
     }
     try {
-      const result = await apiClient.put<SettingsResponse>('/settings', { steamPath: localSteamPath });
+      const result = await apiClient.put<SettingsResponse>('/settings', {
+        steamPath: localSteamPath,
+        language: localLang,
+        transparentColor: localColor,
+        maxUndo: localMaxUndo,
+        zoomStep: localZoomStep,
+      });
       setDetectedSteamPath(result.detectedSteamPath);
     } catch {}
   };
