@@ -162,6 +162,9 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
     }
 
     if (param.type === 'shadertype') {
+      const shaderList = param.transitionOnly
+        ? SHADER_DEFINITIONS.filter(sd => sd.params.some(p => p.key === 'threshold'))
+        : SHADER_DEFINITIONS;
       return (
         <select
           className="addon-cmd-select"
@@ -170,7 +173,7 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
         >
           <option value="">--</option>
           {param.allowAll && <option value="all">{t('common.all') || '전체'}</option>}
-          {SHADER_DEFINITIONS.map(sd => (
+          {shaderList.map(sd => (
             <option key={sd.type} value={sd.type}>{sd.label} ({sd.type})</option>
           ))}
         </select>

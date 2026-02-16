@@ -16,6 +16,8 @@ export interface AddonParam {
   defaultColor?: string;
   /** shader_remove에서 "all" 옵션을 포함할지 여부 */
   allowAll?: boolean;
+  /** threshold 파라미터를 가진 트랜지션용 셰이더만 표시 */
+  transitionOnly?: boolean;
 }
 
 export interface AddonSubCommand {
@@ -301,7 +303,7 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
         label: 'addonCommands.mapObject_showWithShader',
         params: [
           { name: 'objectId', type: 'mapobject' as const, label: 'addonCommands.param_object' },
-          { name: 'shaderType', type: 'shadertype' as const, label: 'addonCommands.param_shaderType' },
+          { name: 'shaderType', type: 'shadertype' as const, label: 'addonCommands.param_shaderType', transitionOnly: true },
         ],
         supportsDuration: true,
       },
@@ -310,7 +312,7 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
         label: 'addonCommands.mapObject_hideWithShader',
         params: [
           { name: 'objectId', type: 'mapobject' as const, label: 'addonCommands.param_object' },
-          { name: 'shaderType', type: 'shadertype' as const, label: 'addonCommands.param_shaderType' },
+          { name: 'shaderType', type: 'shadertype' as const, label: 'addonCommands.param_shaderType', transitionOnly: true },
         ],
         supportsDuration: true,
       },
