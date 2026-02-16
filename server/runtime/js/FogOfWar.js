@@ -1244,21 +1244,7 @@ var VOL_LIGHT_FRAG = [
     'uniform float edgeAnimSpeed;',
     'uniform float isOrtho;',
     '',
-    'float hash(vec2 p) {',
-    '    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);',
-    '}',
-    'float valueNoise(vec2 p) {',
-    '    vec2 i = floor(p);',
-    '    vec2 f = fract(p);',
-    '    f = f * f * (3.0 - 2.0 * f);',
-    '    float a = hash(i);',
-    '    float b = hash(i + vec2(1.0, 0.0));',
-    '    float c = hash(i + vec2(0.0, 1.0));',
-    '    float d = hash(i + vec2(1.0, 1.0));',
-    '    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);',
-    '}',
-    '',
-    'vec2 sampleFogDensity(vec2 worldXY) {',
+    'float sampleFogDensity(vec2 worldXY) {',
     '    vec2 mapXY = worldXY + scrollOffset;',
     '    vec2 uv = mapXY / mapPixelSize;',
     '    float dL = max(0.0, -uv.x); float dR = max(0.0, uv.x - 1.0);',
@@ -1275,7 +1261,7 @@ var VOL_LIGHT_FRAG = [
     '        float fadePixels = outsideDist * mapPixelSize.x;',
     '        fogDensity *= 1.0 - smoothstep(0.0, 2400.0, fadePixels);',
     '    }',
-    '    return vec2(fogDensity, visibility);',
+    '    return fogDensity;',
     '}',
     '',
     'void main() {',
@@ -1294,52 +1280,38 @@ var VOL_LIGHT_FRAG = [
     '    float tMin = max(min(t0, t1), 0.0);',
     '    float tMax = max(t0, t1);',
     '    if (tMin >= tMax) {',
-    '        vec2 fi = sampleFogDensity(vWorldPos.xy);',
-    '        if (fi.x < 0.001) discard;',
-    '        gl_FragColor = vec4(fogColorTop, fi.x);',
+    '        float d = sampleFogDensity(vWorldPos.xy);',
+    '        if (d < 0.001) discard;',
+    '        gl_FragColor = vec4(fogColorTop, d);',
     '        return;',
     '    }',
     '    tMax = min(tMax, tMin + fogHeight * 3.0);',
     '',
-    '    float stepSize = (tMax - tMin) / 8.0;',
+    // 4스텝 레이마칭 — 디더링으로 banding 보정
+    '    float stepSize = (tMax - tMin) / 4.0;',
     '    float dither = fract(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)) * 43758.5453);',
     '',
-    '    vec3 accColor = vec3(0.0);',
     '    float accAlpha = 0.0;',
+    '    float accWeight = 0.0;',
     '    float t = tMin + stepSize * dither;',
     '',
-    '    for (int i = 0; i < 8; i++) {',
-    '        if (accAlpha > 0.95) break;',
-    '        vec3 samplePos = rayOrigin + rayDir * t;',
-    '        float heightNorm = clamp(samplePos.z / fogHeight, 0.0, 1.0);',
-    '',
-    '        vec2 fogInfo = sampleFogDensity(samplePos.xy);',
-    '        float baseDensity = fogInfo.x;',
-    '',
-    '        if (edgeAnimOn > 0.5 && baseDensity > 0.01 && baseDensity < 0.95) {',
-    '            float timeS = uTime * edgeAnimSpeed;',
-    '            float edgeWave = valueNoise(samplePos.xy * 0.015 + vec2(timeS * 0.08, timeS * 0.06));',
-    '            baseDensity += edgeWave * 0.2 * smoothstep(0.0, 0.15, baseDensity) * (1.0 - smoothstep(0.4, 0.7, baseDensity));',
-    '            baseDensity = clamp(baseDensity, 0.0, 1.0);',
-    '        }',
-    '',
-    '        float heightFalloff = 1.0 - heightNorm * heightNorm;',
-    '        float noise = valueNoise(samplePos.xy * 0.004 + vec2(uTime * 0.02 + heightNorm * 5.0, uTime * 0.015));',
-    '',
-    '        float density = baseDensity * heightFalloff * (0.8 + noise * 0.4);',
-    '',
-    '        float absorb = density * stepSize * absorption;',
-    '        vec3 stepColor = mix(fogColor, fogColorTop, heightNorm);',
-    '        accColor += (1.0 - accAlpha) * absorb * stepColor;',
+    '    for (int i = 0; i < 4; i++) {',
+    '        vec3 sp = rayOrigin + rayDir * t;',
+    '        float hN = clamp(sp.z / fogHeight, 0.0, 1.0);',
+    '        float d = sampleFogDensity(sp.xy);',
+    '        float hFall = 1.0 - hN * hN;',
+    '        float absorb = d * hFall * stepSize * absorption;',
+    '        accWeight += (1.0 - accAlpha) * absorb * hN;',
     '        accAlpha += (1.0 - accAlpha) * absorb;',
-    '',
+    '        if (accAlpha > 0.95) break;',
     '        t += stepSize;',
     '    }',
     '',
     '    accAlpha = clamp(accAlpha, 0.0, 1.0);',
     '    if (accAlpha < 0.001) discard;',
     '',
-    '    vec3 finalColor = accColor / max(accAlpha, 0.001);',
+    '    float hBlend = accWeight / max(accAlpha, 0.001);',
+    '    vec3 finalColor = mix(fogColor, fogColorTop, hBlend);',
     '    float outDither = (fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)) * 52.9829189) - 0.5) / 128.0;',
     '    gl_FragColor = vec4(finalColor + outDither, accAlpha + outDither);',
     '}'
@@ -1509,9 +1481,8 @@ FogOfWar._createMeshVolume = function() {
     group.renderOrder = 9990;
     group.frustumCulled = false;
 
-    // 3D 카메라가 비스듬히 볼 때 시야 전체를 덮도록 매우 큰 평면
-    var planeW = 20000;
-    var planeH = 20000;
+    var planeW = totalW + FOG_PADDING * 2;
+    var planeH = totalH + FOG_PADDING * 2;
 
     var material = new THREE.ShaderMaterial({
         uniforms: {
@@ -1573,19 +1544,8 @@ FogOfWar._updateMeshPosition = function() {
         oy = $gameMap.displayY() * 48;
     }
 
-    if (this._fogMode === '3dvolume') {
-        // 3dvolume: 카메라 XY를 따라다님 — 거대한 평면이 항상 시야를 덮음
-        var is3D = typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active;
-        if (is3D) {
-            var cam = Mode3D._perspCamera.position;
-            this._fogGroup.position.set(cam.x, cam.y, 0);
-        } else {
-            this._fogGroup.position.set(totalW / 2 - ox, totalH / 2 - oy, 0);
-        }
-    } else {
-        // 2D: 맵 중앙 - 스크롤 오프셋
-        this._fogGroup.position.set(totalW / 2 - ox, totalH / 2 - oy, 0);
-    }
+    // 그룹 위치: 맵 중앙 - 스크롤 오프셋
+    this._fogGroup.position.set(totalW / 2 - ox, totalH / 2 - oy, 0);
 };
 
 FogOfWar._updateMeshUniforms = function() {
