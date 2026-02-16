@@ -31,6 +31,9 @@ export const SHADER_DEFINITIONS: ShaderDef[] = [
     { key: 'lineSpeed', label: '라인 속도', min: 0.1, max: 20, step: 0.1, defaultValue: 3 },
     { key: 'blockSize', label: '블록 크기', min: 1, max: 100, step: 1, defaultValue: 8 },
   ]},
+  { type: 'fade', label: '페이드', params: [
+    { key: 'threshold', label: '투명도', min: 0, max: 1, step: 0.01, defaultValue: 1 },
+  ]},
   { type: 'dissolve', label: '디졸브', params: [
     { key: 'animMode', label: '애니 모드', min: 0, max: 1, step: 1, defaultValue: 0, type: 'select', options: [
       { value: 0, label: '왕복' }, { value: 1, label: '원웨이' }, { value: 2, label: '애니없음' }

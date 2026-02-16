@@ -2341,6 +2341,276 @@ Spriteset_Map.prototype.createCharacters = function() {
     }
 };
 
+/**
+ * 오토타일 정보 계산 (kind, shape, bx, by, setNumber, animX, animY, autotileTable)
+ * ShaderTilemap._drawAutotile과 동일한 로직.
+ */
+Spriteset_Map._calcAutotileInfo = function(tileId) {
+    var autotileTable = Tilemap.FLOOR_AUTOTILE_TABLE;
+    var kind = Tilemap.getAutotileKind(tileId);
+    var shape = Tilemap.getAutotileShape(tileId);
+    var tx = kind % 8;
+    var ty = Math.floor(kind / 8);
+    var bx = 0, by = 0, setNumber = 0;
+    var animX = 0, animY = 0;
+
+    if (Tilemap.isTileA1(tileId)) {
+        setNumber = 0;
+        if (kind === 0) {
+            animX = 2; by = 0;
+        } else if (kind === 1) {
+            animX = 2; by = 3;
+        } else if (kind === 2) {
+            bx = 6; by = 0;
+        } else if (kind === 3) {
+            bx = 6; by = 3;
+        } else {
+            bx = Math.floor(tx / 4) * 8;
+            by = ty * 6 + Math.floor(tx / 2) % 2 * 3;
+            if (kind % 2 === 0) {
+                animX = 2;
+            } else {
+                bx += 6;
+                autotileTable = Tilemap.WATERFALL_AUTOTILE_TABLE;
+                animY = 1;
+            }
+        }
+    } else if (Tilemap.isTileA2(tileId)) {
+        setNumber = 1; bx = tx * 2; by = (ty - 2) * 3;
+    } else if (Tilemap.isTileA3(tileId)) {
+        setNumber = 2; bx = tx * 2; by = (ty - 6) * 2;
+        autotileTable = Tilemap.WALL_AUTOTILE_TABLE;
+    } else if (Tilemap.isTileA4(tileId)) {
+        setNumber = 3; bx = tx * 2;
+        by = Math.floor((ty - 10) * 2.5 + (ty % 2 === 1 ? 0.5 : 0));
+        if (ty % 2 === 1) autotileTable = Tilemap.WALL_AUTOTILE_TABLE;
+    }
+
+    return {
+        kind: kind, shape: shape, bx: bx, by: by,
+        setNumber: setNumber, animX: animX, animY: animY,
+        autotileTable: autotileTable
+    };
+};
+
+/**
+ * 오브젝트의 물/폭포 타일을 Three.js Mesh + ThreeWaterShader로 생성
+ */
+Spriteset_Map.prototype._createObjectWaterMesh = function(
+    container, tilesetName, info, table, col, row, obj, tw, th
+) {
+    if (typeof THREE === 'undefined') return;
+
+    var w1 = tw / 2, h1 = th / 2;
+    var isWaterfall = ThreeWaterShader.isWaterfallRect(info.animX, info.animY);
+    var kindSettings = ThreeWaterShader.getUniformsForKind(info.kind);
+
+    // quarter-tile 4개 → 삼각형 8개 (24 vertices)
+    var vertCount = 4 * 6; // 4 quads * 6 verts each (2 triangles)
+    var posArray = new Float32Array(vertCount * 3);
+    var normalArray = new Float32Array(vertCount * 3);
+    var uvArray = new Float32Array(vertCount * 2);
+    var uvBoundsArray = new Float32Array(vertCount * 4);
+
+    // 타일셋 텍스처 로드 → 크기 참조
+    var bitmap = ImageManager.loadTileset(tilesetName);
+    // 기본 UV 데이터 생성 (frame 0 기준, animX/animY 오프셋 없음)
+    var baseX = col * tw;
+    var baseY = (row - obj.height) * th;
+
+    for (var qi = 0; qi < 4; qi++) {
+        var qsx = table[qi][0];
+        var qsy = table[qi][1];
+        var srcU = (info.bx * 2 + qsx) * w1;
+        var srcV = (info.by * 2 + qsy) * h1;
+
+        var dx = baseX + (qi % 2) * w1;
+        var dy = baseY + Math.floor(qi / 2) * h1;
+
+        // 쿼드를 2개 삼각형으로 구성 (6 vertices)
+        var off = qi * 6;
+        var positions = [
+            dx,      dy,      0,  // top-left
+            dx + w1, dy,      0,  // top-right
+            dx,      dy + h1, 0,  // bottom-left
+            dx + w1, dy,      0,  // top-right (dup)
+            dx + w1, dy + h1, 0,  // bottom-right
+            dx,      dy + h1, 0,  // bottom-left (dup)
+        ];
+        for (var vi = 0; vi < 18; vi++) {
+            posArray[off * 3 + vi] = positions[vi];
+        }
+        for (var vi = 0; vi < 6; vi++) {
+            normalArray[off * 3 + vi * 3]     = 0;
+            normalArray[off * 3 + vi * 3 + 1] = 0;
+            normalArray[off * 3 + vi * 3 + 2] = -1;
+        }
+
+        // UV는 나중에 texW/texH를 알아야 정규화 가능 → 픽셀 단위로 저장
+        uvArray[off * 2 + 0]  = srcU;       uvArray[off * 2 + 1]  = srcV;
+        uvArray[off * 2 + 2]  = srcU + w1;  uvArray[off * 2 + 3]  = srcV;
+        uvArray[off * 2 + 4]  = srcU;       uvArray[off * 2 + 5]  = srcV + h1;
+        uvArray[off * 2 + 6]  = srcU + w1;  uvArray[off * 2 + 7]  = srcV;
+        uvArray[off * 2 + 8]  = srcU + w1;  uvArray[off * 2 + 9]  = srcV + h1;
+        uvArray[off * 2 + 10] = srcU;       uvArray[off * 2 + 11] = srcV + h1;
+    }
+
+    // Placeholder Sprite로 container에 추가 (위치 계산에 사용)
+    var placeholder = new Sprite();
+    placeholder._isWaterPlaceholder = true;
+    placeholder.x = baseX;
+    placeholder.y = baseY;
+    container.addChild(placeholder);
+
+    // 물 메시 데이터를 container에 저장 (텍스처 로드 후 실제 메시 생성)
+    if (!container._waterMeshData) container._waterMeshData = [];
+    container._waterMeshData.push({
+        tilesetName: tilesetName,
+        info: info,
+        isWaterfall: isWaterfall,
+        kindSettings: kindSettings,
+        posArray: posArray,
+        normalArray: normalArray,
+        uvArray: uvArray,       // 픽셀 단위, 나중에 정규화
+        uvBoundsArray: uvBoundsArray,
+        vertCount: vertCount,
+    });
+};
+
+/**
+ * 오브젝트의 물 메시들을 실제 Three.js Mesh로 빌드 (텍스처 로드 완료 후 호출)
+ */
+Spriteset_Map.prototype._buildObjectWaterMeshes = function(container) {
+    if (!container._waterMeshData || typeof THREE === 'undefined') return;
+
+    var data = container._waterMeshData;
+    // tilesetName별로 그룹핑 (같은 텍스처 → 하나의 메시로 병합)
+    var groups = {};
+    for (var di = 0; di < data.length; di++) {
+        var d = data[di];
+        var key = d.tilesetName + (d.isWaterfall ? '_wf' : '_w') + '_k' + d.info.kind;
+        if (!groups[key]) {
+            groups[key] = {
+                tilesetName: d.tilesetName,
+                isWaterfall: d.isWaterfall,
+                kindSettings: d.kindSettings,
+                kind: d.info.kind,
+                items: [],
+            };
+        }
+        groups[key].items.push(d);
+    }
+
+    if (!container._waterMeshes) container._waterMeshes = [];
+
+    for (var gk in groups) {
+        var g = groups[gk];
+        var bitmap = ImageManager.loadTileset(g.tilesetName);
+        if (!bitmap._threeTexture && bitmap._baseTexture && bitmap._baseTexture._threeTexture) {
+            bitmap._threeTexture = bitmap._baseTexture._threeTexture;
+        }
+        var texture = bitmap._threeTexture || (bitmap._baseTexture && bitmap._baseTexture._threeTexture);
+        if (!texture) continue;
+
+        var texW = texture.image ? texture.image.width : 1;
+        var texH = texture.image ? texture.image.height : 1;
+
+        // 모든 아이템의 vertex 데이터 병합
+        var totalVerts = 0;
+        for (var ii = 0; ii < g.items.length; ii++) totalVerts += g.items[ii].vertCount;
+
+        var mergedPos = new Float32Array(totalVerts * 3);
+        var mergedNorm = new Float32Array(totalVerts * 3);
+        var mergedUV = new Float32Array(totalVerts * 2);
+        var mergedBounds = new Float32Array(totalVerts * 4);
+        var vOff = 0;
+
+        for (var ii = 0; ii < g.items.length; ii++) {
+            var item = g.items[ii];
+            mergedPos.set(item.posArray, vOff * 3);
+            mergedNorm.set(item.normalArray, vOff * 3);
+
+            // 4 quads per item, 6 verts per quad
+            for (var qi = 0; qi < 4; qi++) {
+                var srcBase = qi * 6;
+                var dstBase = (vOff + qi * 6);
+                // UV 정규화 + Y-flip + animX/animY 오프셋
+                // 기본 프레임(frame 0)에서는 오프셋 없음
+                var uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+                for (var vi = 0; vi < 6; vi++) {
+                    var pu = item.uvArray[(srcBase + vi) * 2];
+                    var pv = item.uvArray[(srcBase + vi) * 2 + 1];
+                    var u = pu / texW;
+                    var v = 1.0 - pv / texH;
+                    mergedUV[(dstBase + vi) * 2] = u;
+                    mergedUV[(dstBase + vi) * 2 + 1] = v;
+                    if (u < uMin) uMin = u;
+                    if (u > uMax) uMax = u;
+                    if (v < vMin) vMin = v;
+                    if (v > vMax) vMax = v;
+                }
+                // 텍셀 절반 수축
+                var halfTexelU = 0.5 / texW;
+                var halfTexelV = 0.5 / texH;
+                uMin += halfTexelU; uMax -= halfTexelU;
+                vMin += halfTexelV; vMax -= halfTexelV;
+                for (var vi = 0; vi < 6; vi++) {
+                    var bi = (dstBase + vi) * 4;
+                    mergedBounds[bi]     = uMin;
+                    mergedBounds[bi + 1] = vMin;
+                    mergedBounds[bi + 2] = uMax;
+                    mergedBounds[bi + 3] = vMax;
+                }
+            }
+            vOff += item.vertCount;
+        }
+
+        // Three.js 메시 생성
+        var geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(mergedPos, 3));
+        geometry.setAttribute('normal', new THREE.BufferAttribute(mergedNorm, 3));
+        geometry.setAttribute('uv', new THREE.BufferAttribute(mergedUV, 2));
+        geometry.setAttribute('aUvBounds', new THREE.BufferAttribute(mergedBounds, 4));
+
+        texture.minFilter = THREE.NearestFilter;
+        texture.magFilter = THREE.NearestFilter;
+        texture.generateMipmaps = false;
+        texture.anisotropy = 1;
+
+        var needsPhong = (window.ShadowLight && window.ShadowLight._active);
+        var material;
+        if (needsPhong) {
+            material = new THREE.MeshPhongMaterial({
+                map: texture, transparent: true, depthTest: true, depthWrite: false,
+                side: THREE.DoubleSide,
+                emissive: new THREE.Color(0x000000),
+                specular: new THREE.Color(0x000000), shininess: 0,
+            });
+            ThreeWaterShader.applyToPhongMaterial(material, g.isWaterfall, g.kindSettings);
+        } else {
+            material = ThreeWaterShader.createStandaloneMaterial(texture, g.isWaterfall, g.kindSettings);
+        }
+
+        var mesh = new THREE.Mesh(geometry, material);
+        mesh.frustumCulled = false;
+        mesh.renderOrder = 0;
+        mesh.userData.isWaterMesh = true;
+        mesh.userData.isWaterfall = g.isWaterfall;
+        mesh.userData.a1Kinds = g.kind >= 0 ? [g.kind] : [];
+        mesh.userData.isObjectWater = true;
+        // UV 애니메이션용 원본 데이터 저장
+        mesh.userData._origUVs = new Float32Array(mergedUV);
+        mesh.userData._animItems = g.items;
+        mesh.userData._texW = texW;
+        mesh.userData._texH = texH;
+
+        // container._threeObj에 직접 추가 (Sprite 트리 대신 Three.js 씬)
+        container._waterMeshes.push(mesh);
+    }
+
+    delete container._waterMeshData;
+};
+
 Spriteset_Map.prototype.createMapObjects = function() {
     this._objectSprites = [];
     var objects = $dataMap.objects;
@@ -2407,69 +2677,44 @@ Spriteset_Map.prototype.createMapObjects = function() {
                         if (!tileId || tileId === 0) continue;
 
                         if (Tilemap.isAutotile(tileId)) {
-                            // 오토타일: ShaderTilemap._drawAutotile 로직 재현
-                            var autotileTable = Tilemap.FLOOR_AUTOTILE_TABLE;
-                            var kind = Tilemap.getAutotileKind(tileId);
-                            var shape = Tilemap.getAutotileShape(tileId);
-                            var tx2 = kind % 8;
-                            var ty2 = Math.floor(kind / 8);
-                            var bx = 0, by = 0, setNumber = 0;
-
-                            if (Tilemap.isTileA1(tileId)) {
-                                setNumber = 0;
-                                if (kind === 0) {
-                                    by = 0;
-                                } else if (kind === 1) {
-                                    by = 3;
-                                } else if (kind === 2) {
-                                    bx = 6;
-                                    by = 0;
-                                } else if (kind === 3) {
-                                    bx = 6;
-                                    by = 3;
-                                } else {
-                                    bx = Math.floor(tx2 / 4) * 8;
-                                    by = ty2 * 6 + Math.floor(tx2 / 2) % 2 * 3;
-                                    if (kind % 2 === 1) {
-                                        bx += 6;
-                                        autotileTable = Tilemap.WATERFALL_AUTOTILE_TABLE;
-                                    }
-                                }
-                            } else if (Tilemap.isTileA2(tileId)) {
-                                setNumber = 1;
-                                bx = tx2 * 2;
-                                by = (ty2 - 2) * 3;
-                            } else if (Tilemap.isTileA3(tileId)) {
-                                setNumber = 2;
-                                bx = tx2 * 2;
-                                by = (ty2 - 6) * 2;
-                                autotileTable = Tilemap.WALL_AUTOTILE_TABLE;
-                            } else if (Tilemap.isTileA4(tileId)) {
-                                setNumber = 3;
-                                bx = tx2 * 2;
-                                by = Math.floor((ty2 - 10) * 2.5 + (ty2 % 2 === 1 ? 0.5 : 0));
-                                if (ty2 % 2 === 1) {
-                                    autotileTable = Tilemap.WALL_AUTOTILE_TABLE;
-                                }
-                            }
-
-                            var tilesetName = tileset.tilesetNames[setNumber];
+                            var info = Spriteset_Map._calcAutotileInfo(tileId);
+                            var tilesetName = tileset.tilesetNames[info.setNumber];
                             if (!tilesetName) continue;
-                            var table = autotileTable[shape];
+                            var table = info.autotileTable[info.shape];
                             var w1 = tw / 2, h1 = th / 2;
 
-                            for (var qi = 0; qi < 4; qi++) {
-                                var qsx = table[qi][0];
-                                var qsy = table[qi][1];
-                                var sx1 = (bx * 2 + qsx) * w1;
-                                var sy1 = (by * 2 + qsy) * h1;
+                            // 물/폭포 타일 → Three.js Mesh + WaterShader
+                            var isWater = typeof ThreeWaterShader !== 'undefined' &&
+                                ThreeWaterShader.isWaterRect(info.animX, info.animY) &&
+                                (info.kind < 0 || ThreeWaterShader.isKindEnabled(info.kind));
 
-                                var qSprite = new Sprite();
-                                qSprite.bitmap = ImageManager.loadTileset(tilesetName);
-                                qSprite.setFrame(sx1, sy1, w1, h1);
-                                qSprite.x = col * tw + (qi % 2) * w1;
-                                qSprite.y = (row - obj.height) * th + Math.floor(qi / 2) * h1;
-                                container.addChild(qSprite);
+                            if (isWater) {
+                                this._createObjectWaterMesh(
+                                    container, tilesetName, info,
+                                    table, col, row, obj, tw, th
+                                );
+                            } else {
+                                // 비물 오토타일 → Sprite + 애니메이션 정보 저장
+                                for (var qi = 0; qi < 4; qi++) {
+                                    var qsx = table[qi][0];
+                                    var qsy = table[qi][1];
+                                    var sx1 = (info.bx * 2 + qsx) * w1;
+                                    var sy1 = (info.by * 2 + qsy) * h1;
+
+                                    var qSprite = new Sprite();
+                                    qSprite.bitmap = ImageManager.loadTileset(tilesetName);
+                                    qSprite.setFrame(sx1, sy1, w1, h1);
+                                    qSprite.x = col * tw + (qi % 2) * w1;
+                                    qSprite.y = (row - obj.height) * th + Math.floor(qi / 2) * h1;
+                                    // 타일 이동 애니메이션 정보
+                                    if (info.animX > 0 || info.animY > 0) {
+                                        qSprite._tileAnimX = info.animX;
+                                        qSprite._tileAnimY = info.animY;
+                                        qSprite._baseFrameX = sx1;
+                                        qSprite._baseFrameY = sy1;
+                                    }
+                                    container.addChild(qSprite);
+                                }
                             }
                         } else {
                             // 일반 타일 (B~E, A5)
@@ -2505,11 +2750,14 @@ Spriteset_Map.prototype.createMapObjects = function() {
         }
 
         // ShadowLight 활성 상태이면 material을 MeshPhongMaterial로 변환
+        // (물 placeholder와 물 메시는 자체 셰이더 사용하므로 제외)
         if (typeof ShadowLight !== 'undefined' && ShadowLight._active) {
             ShadowLight._convertMaterial(container);
             if (container.children) {
                 for (var ci = 0; ci < container.children.length; ci++) {
-                    ShadowLight._convertMaterial(container.children[ci]);
+                    if (!container.children[ci]._isWaterPlaceholder) {
+                        ShadowLight._convertMaterial(container.children[ci]);
+                    }
                 }
             }
         }
@@ -2566,6 +2814,15 @@ Spriteset_Map.prototype.updateMapObjects = function() {
     if (!this._objectSprites) return;
     var tw = $gameMap.tileWidth();
     var th = $gameMap.tileHeight();
+
+    // 타일 애니메이션 프레임 계산 (맵 타일과 동기화)
+    var tilemap = this._tilemap;
+    var animFrame = tilemap ? tilemap.animationFrame || 0 : 0;
+    var af = animFrame % 4;
+    if (af === 3) af = 1;
+    var tileAnimX = af * (tw / 2);
+    var tileAnimY = (animFrame % 3) * (th / 2);
+
     for (var i = 0; i < this._objectSprites.length; i++) {
         var container = this._objectSprites[i];
         // Update position based on map scroll (same as character screenX/Y)
@@ -2580,16 +2837,131 @@ Spriteset_Map.prototype.updateMapObjects = function() {
             }
         }
 
-        // 이미지 오브젝트 셰이더 업데이트
+        // 물 메시 lazy 빌드 (텍스처 로드 완료 후)
+        if (container._waterMeshData) {
+            this._tryBuildObjectWaterMeshes(container);
+        }
+
+        // 물 메시 uTime + UV 애니메이션 업데이트
+        if (container._waterMeshes) {
+            for (var wi = 0; wi < container._waterMeshes.length; wi++) {
+                var wMesh = container._waterMeshes[wi];
+                // uTime 업데이트
+                if (typeof ThreeWaterShader !== 'undefined') {
+                    ThreeWaterShader.updateTime(wMesh, ThreeWaterShader._time);
+                    ThreeWaterShader._hasWaterMesh = true;
+                }
+                // UV 애니메이션 (타일 이동)
+                this._updateObjectWaterUV(wMesh, tileAnimX, tileAnimY);
+            }
+        }
+
         if (container.children) {
             for (var ci = 0; ci < container.children.length; ci++) {
                 var child = container.children[ci];
+                // 이미지 오브젝트 셰이더 업데이트
                 if (child._objShaderData) {
                     this._updateObjectShader(child);
+                }
+                // 비물 오토타일 setFrame 애니메이션
+                if (child._tileAnimX || child._tileAnimY) {
+                    var newX = child._baseFrameX + (child._tileAnimX || 0) * tileAnimX;
+                    var newY = child._baseFrameY + (child._tileAnimY || 0) * tileAnimY;
+                    child.setFrame(newX, newY, child._frame.width, child._frame.height);
                 }
             }
         }
     }
+};
+
+/**
+ * 물 메시 텍스처 준비 여부 확인 후 빌드 시도
+ */
+Spriteset_Map.prototype._tryBuildObjectWaterMeshes = function(container) {
+    if (!container._waterMeshData || typeof THREE === 'undefined') return;
+
+    // 모든 물 타일의 텍스처가 준비되었는지 확인
+    var allReady = true;
+    for (var di = 0; di < container._waterMeshData.length; di++) {
+        var d = container._waterMeshData[di];
+        var bitmap = ImageManager.loadTileset(d.tilesetName);
+        var texture = bitmap._threeTexture || (bitmap._baseTexture && bitmap._baseTexture._threeTexture);
+        if (!texture || !texture.image || !texture.image.width) {
+            allReady = false;
+            break;
+        }
+    }
+    if (!allReady) return;
+
+    this._buildObjectWaterMeshes(container);
+
+    // Three.js 씬에 추가
+    if (container._waterMeshes && container._threeObj) {
+        for (var wi = 0; wi < container._waterMeshes.length; wi++) {
+            container._threeObj.add(container._waterMeshes[wi]);
+        }
+        if (this._tilemap) this._tilemap._needsRepaint = true;
+    }
+};
+
+/**
+ * 물 메시의 UV를 타일 애니메이션 프레임에 맞게 갱신
+ */
+Spriteset_Map.prototype._updateObjectWaterUV = function(mesh, tileAnimX, tileAnimY) {
+    if (!mesh || !mesh.geometry) return;
+    var uvAttr = mesh.geometry.attributes.uv;
+    var boundsAttr = mesh.geometry.attributes.aUvBounds;
+    if (!uvAttr) return;
+
+    var origUVs = mesh.userData._origUVs;
+    var items = mesh.userData._animItems;
+    var texW = mesh.userData._texW || 1;
+    var texH = mesh.userData._texH || 1;
+    if (!origUVs || !items) return;
+
+    var uvArray = uvAttr.array;
+    var boundsArray = boundsAttr ? boundsAttr.array : null;
+    var vOff = 0;
+
+    for (var ii = 0; ii < items.length; ii++) {
+        var item = items[ii];
+        var ax = (item.info.animX || 0) * tileAnimX / texW;
+        var ay = -((item.info.animY || 0) * tileAnimY) / texH; // Y-flip
+
+        for (var qi = 0; qi < 4; qi++) {
+            var dstBase = (vOff + qi * 6);
+            var uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+            for (var vi = 0; vi < 6; vi++) {
+                var idx = (dstBase + vi) * 2;
+                var u = origUVs[idx] + ax;
+                var v = origUVs[idx + 1] + ay;
+                uvArray[idx] = u;
+                uvArray[idx + 1] = v;
+                if (u < uMin) uMin = u;
+                if (u > uMax) uMax = u;
+                if (v < vMin) vMin = v;
+                if (v > vMax) vMax = v;
+            }
+            // UV 바운드 갱신
+            if (boundsArray) {
+                var halfTexelU = 0.5 / texW;
+                var halfTexelV = 0.5 / texH;
+                uMin += halfTexelU; uMax -= halfTexelU;
+                vMin += halfTexelV; vMax -= halfTexelV;
+                for (var vi = 0; vi < 6; vi++) {
+                    var bi = (dstBase + vi) * 4;
+                    boundsArray[bi]     = uMin;
+                    boundsArray[bi + 1] = vMin;
+                    boundsArray[bi + 2] = uMax;
+                    boundsArray[bi + 3] = vMax;
+                }
+            }
+        }
+        vOff += item.vertCount;
+    }
+
+    uvAttr.needsUpdate = true;
+    if (boundsAttr) boundsAttr.needsUpdate = true;
 };
 
 /**
@@ -3374,9 +3746,13 @@ Spriteset_Battle.prototype.isBusy = function() {
                 var dur = parseFloat(args[3]) || 1.0;
                 container.visible = true;
                 container._mapObjVisible = true;
-                if (imgChild && typeof PictureShader !== 'undefined' && window.PluginTween) {
-                    // dissolve 계열: threshold 1→0으로 나타나기
-                    var tempShader = { type: shaderType, enabled: true, params: { threshold: 1.0 } };
+                if (shaderType === 'fade' && imgChild && window.PluginTween) {
+                    // 페이드: opacity 0→1로 나타나기
+                    imgChild.opacity = 0;
+                    PluginTween.add({ target: imgChild, key: 'opacity', to: 255, duration: dur });
+                } else if (imgChild && typeof PictureShader !== 'undefined' && window.PluginTween) {
+                    // dissolve 계열: threshold 1→0으로 나타나기 (animSpeed 0으로 자동 애니 비활성)
+                    var tempShader = { type: shaderType, enabled: true, params: { threshold: 1.0, animSpeed: 0 } };
                     if (!imgChild._objShaderData) imgChild._objShaderData = [];
                     imgChild._objShaderData.push(tempShader);
                     imgChild._objShaderKey = '';
@@ -3396,8 +3772,19 @@ Spriteset_Battle.prototype.isBusy = function() {
             case 'hideWithShader': {
                 var shaderType2 = args[2] || 'dissolve';
                 var dur2 = parseFloat(args[3]) || 1.0;
-                if (imgChild && typeof PictureShader !== 'undefined' && window.PluginTween) {
-                    var tempShader2 = { type: shaderType2, enabled: true, params: { threshold: 0.0 } };
+                if (shaderType2 === 'fade' && imgChild && window.PluginTween) {
+                    // 페이드: opacity 255→0으로 사라지기
+                    PluginTween.add({
+                        target: imgChild, key: 'opacity', to: 0, duration: dur2,
+                        onComplete: function() {
+                            container.visible = false;
+                            container._mapObjVisible = false;
+                            imgChild.opacity = 255;
+                        }
+                    });
+                } else if (imgChild && typeof PictureShader !== 'undefined' && window.PluginTween) {
+                    // animSpeed 0으로 자동 애니 비활성
+                    var tempShader2 = { type: shaderType2, enabled: true, params: { threshold: 0.0, animSpeed: 0 } };
                     if (!imgChild._objShaderData) imgChild._objShaderData = [];
                     imgChild._objShaderData.push(tempShader2);
                     imgChild._objShaderKey = '';
