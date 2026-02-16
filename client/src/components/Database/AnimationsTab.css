@@ -434,7 +434,7 @@
   border: 1px solid #555;
   border-radius: 6px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-  width: 400px;
+  width: 480px;
 }
 
 .anim-tween-header {
@@ -502,10 +502,13 @@
   border-radius: 3px;
 }
 
-.anim-tween-checks label {
+.anim-tween-checks label,
+.anim-batch-grid label {
   display: flex;
+  flex-direction: row !important;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 4px;
+  gap: 4px !important;
   font-size: 12px;
   color: #ccc;
   cursor: pointer;
@@ -527,16 +530,6 @@
   gap: 6px 12px;
   align-items: center;
   padding: 6px 4px;
-}
-
-.anim-batch-grid label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #ccc;
-  cursor: pointer;
-  white-space: nowrap;
 }
 
 .anim-batch-grid input[type="number"] {

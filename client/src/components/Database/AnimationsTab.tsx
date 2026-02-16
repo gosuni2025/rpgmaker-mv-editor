@@ -329,7 +329,7 @@ function BatchSettingDialog({ totalFrames, maxCells, onConfirm, onClose }: {
 
   return (
     <div className="modal-overlay">
-      <div className="anim-tween-dialog" style={{ width: 480 }}>
+      <div className="anim-tween-dialog">
         <div className="anim-tween-header">일괄 설정</div>
         <div className="anim-tween-body">
           <fieldset className="anim-tween-fieldset">
