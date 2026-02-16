@@ -3761,20 +3761,18 @@ Spriteset_Battle.prototype.isBusy = function() {
                 var dur = parseFloat(args[3]) || 1.0;
                 container.visible = true;
                 container._mapObjVisible = true;
-                if (shaderType === 'fade' && imgChild && window.PluginTween) {
-                    // 페이드: opacity 0→1로 나타나기
-                    imgChild.opacity = 0;
-                    PluginTween.add({ target: imgChild, key: 'opacity', to: 255, duration: dur });
-                } else if (imgChild && typeof PictureShader !== 'undefined' && window.PluginTween) {
-                    // dissolve 계열: threshold 1→0으로 나타나기 (animSpeed 0으로 자동 애니 비활성)
-                    var tempShader = { type: shaderType, enabled: true, params: { threshold: 1.0, animSpeed: 0 } };
+                if (imgChild && typeof PictureShader !== 'undefined' && window.PluginTween) {
+                    // fade: threshold 0→1 (투명→불투명), 나머지: threshold 1→0
+                    var isFade = shaderType === 'fade';
+                    var startVal = isFade ? 0.0 : 1.0;
+                    var endVal = isFade ? 1.0 : 0.0;
+                    var tempShader = { type: shaderType, enabled: true, params: { threshold: startVal, animSpeed: 0 } };
                     if (!imgChild._objShaderData) imgChild._objShaderData = [];
                     imgChild._objShaderData.push(tempShader);
                     imgChild._objShaderKey = '';
                     PluginTween.add({
-                        target: tempShader.params, key: 'threshold', to: 0.0, duration: dur,
+                        target: tempShader.params, key: 'threshold', to: endVal, duration: dur,
                         onComplete: function() {
-                            // 완료 시 임시 셰이더 제거
                             var idx = imgChild._objShaderData.indexOf(tempShader);
                             if (idx >= 0) imgChild._objShaderData.splice(idx, 1);
                             imgChild._objShaderKey = '';
@@ -3787,24 +3785,17 @@ Spriteset_Battle.prototype.isBusy = function() {
             case 'hideWithShader': {
                 var shaderType2 = args[2] || 'dissolve';
                 var dur2 = parseFloat(args[3]) || 1.0;
-                if (shaderType2 === 'fade' && imgChild && window.PluginTween) {
-                    // 페이드: opacity 255→0으로 사라지기
-                    PluginTween.add({
-                        target: imgChild, key: 'opacity', to: 0, duration: dur2,
-                        onComplete: function() {
-                            container.visible = false;
-                            container._mapObjVisible = false;
-                            imgChild.opacity = 255;
-                        }
-                    });
-                } else if (imgChild && typeof PictureShader !== 'undefined' && window.PluginTween) {
-                    // animSpeed 0으로 자동 애니 비활성
-                    var tempShader2 = { type: shaderType2, enabled: true, params: { threshold: 0.0, animSpeed: 0 } };
+                if (imgChild && typeof PictureShader !== 'undefined' && window.PluginTween) {
+                    // fade: threshold 1→0 (불투명→투명), 나머지: threshold 0→1
+                    var isFade2 = shaderType2 === 'fade';
+                    var startVal2 = isFade2 ? 1.0 : 0.0;
+                    var endVal2 = isFade2 ? 0.0 : 1.0;
+                    var tempShader2 = { type: shaderType2, enabled: true, params: { threshold: startVal2, animSpeed: 0 } };
                     if (!imgChild._objShaderData) imgChild._objShaderData = [];
                     imgChild._objShaderData.push(tempShader2);
                     imgChild._objShaderKey = '';
                     PluginTween.add({
-                        target: tempShader2.params, key: 'threshold', to: 1.0, duration: dur2,
+                        target: tempShader2.params, key: 'threshold', to: endVal2, duration: dur2,
                         onComplete: function() {
                             container.visible = false;
                             container._mapObjVisible = false;

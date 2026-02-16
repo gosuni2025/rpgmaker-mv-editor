@@ -1279,7 +1279,20 @@ PictureShader._FRAGMENT_SHAKEUV = [
     '}',
 ].join('\n');
 
-// 53. Wipe (방향성 와이프 트랜지션)
+// 53. Fade (페이드 트랜지션) - threshold로 alpha 제어
+PictureShader._FRAGMENT_FADE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uThreshold;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 color = texture2D(map, vUv);',
+    '    color.a *= uThreshold * opacity;',
+    '    gl_FragColor = color;',
+    '}',
+].join('\n');
+
+// 54. Wipe (방향성 와이프 트랜지션)
 // threshold 0=완전 표시, 1=완전 숨김, direction: 0=좌→우, 1=우→좌, 2=상→하, 3=하→상
 PictureShader._FRAGMENT_WIPE = [
     'uniform sampler2D map;',
@@ -1413,6 +1426,7 @@ PictureShader._FRAGMENT_SHADERS = {
     'gradient2col':   PictureShader._FRAGMENT_GRADIENT2COL,
     'radialGradient': PictureShader._FRAGMENT_RADIALGRADIENT,
     'shakeUV':        PictureShader._FRAGMENT_SHAKEUV,
+    'fade':           PictureShader._FRAGMENT_FADE,
     'wipe':           PictureShader._FRAGMENT_WIPE,
     'circleWipe':     PictureShader._FRAGMENT_CIRCLEWIPE,
     'blinds':         PictureShader._FRAGMENT_BLINDS,
@@ -1471,6 +1485,7 @@ PictureShader._DEFAULT_PARAMS = {
     'gradient2col': { blend: 1, topLeftR: 1, topLeftG: 0, topLeftB: 0, topLeftA: 1, topRightR: 1, topRightG: 0, topRightB: 0, topRightA: 1, botLeftR: 0, botLeftG: 0, botLeftB: 1, botLeftA: 1, botRightR: 0, botRightG: 0, botRightB: 1, botRightA: 1, boostX: 1.2, boostY: 1.2, radial: 0 },
     'radialGradient': { blend: 1, topLeftR: 1, topLeftG: 0, topLeftB: 0, topLeftA: 1, topRightR: 1, topRightG: 0, topRightB: 0, topRightA: 1, botLeftR: 0, botLeftG: 0, botLeftB: 1, botLeftA: 1, botRightR: 0, botRightG: 0, botRightB: 1, botRightA: 1, boostX: 1.2, boostY: 1.2, radial: 1 },
     'shakeUV':   { speed: 5, shakeX: 5, shakeY: 5 },
+    'fade':      { threshold: 1 },
     'wipe':      { threshold: 0, direction: 0, softness: 0.05 },
     'circleWipe': { threshold: 0, softness: 0.05, centerX: 0.5, centerY: 0.5 },
     'blinds':    { threshold: 0, count: 8, direction: 0 },
@@ -1530,6 +1545,7 @@ PictureShader._UNIFORM_MAP = {
     'gradient2col': 'gradient',
     'radialGradient': 'gradient',
     'shakeUV':   [ ['speed','uSpeed'], ['shakeX','uShakeX'], ['shakeY','uShakeY'] ],
+    'fade':      [ ['threshold','uThreshold'] ],
     'wipe':      [ ['threshold','uThreshold'], ['direction','uDirection'], ['softness','uSoftness'] ],
     'circleWipe': [ ['threshold','uThreshold'], ['softness','uSoftness'], ['centerX','uCenterX'], ['centerY','uCenterY'] ],
     'blinds':    [ ['threshold','uThreshold'], ['count','uCount'], ['direction','uDirection'] ],
