@@ -13,7 +13,7 @@ const drawModes: ToolItem[] = [
   { id: 'select', labelKey: 'toolbar.select', shortcut: 'M' },
   { id: 'pen', labelKey: 'toolbar.pencil', shortcut: 'P' },
   { id: 'eraser', labelKey: 'toolbar.eraser', shortcut: 'E' },
-  { id: 'shadow', labelKey: 'toolbar.shadow' },
+  { id: 'shadow', labelKey: 'toolbar.shadow', shortcut: 'S' },
 ];
 
 // 형태: pen/eraser 모드에서 사용하는 그리기 형태
