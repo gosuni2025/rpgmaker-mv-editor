@@ -78,6 +78,8 @@ export const lightSlice: SliceCreator<Pick<EditorState,
   addPointLight: (x: number, y: number) => {
     const { currentMap: map, currentMapId } = get();
     if (!map || !map.editorLights || !currentMapId) return;
+    // 같은 위치에 이미 광원이 있으면 생성하지 않음
+    if (map.editorLights.points.some(p => p.x === x && p.y === y)) return;
     const oldLights = JSON.parse(JSON.stringify(map.editorLights));
     const points = [...map.editorLights.points];
     const newId = points.length > 0 ? Math.max(...points.map(p => p.id)) + 1 : 1;
@@ -129,6 +131,13 @@ export const lightSlice: SliceCreator<Pick<EditorState,
     if (srcLights.length === 0) return;
     const minX = Math.min(...srcLights.map(l => l.x));
     const minY = Math.min(...srcLights.map(l => l.y));
+    // 기존 광원 위치 + 붙여넣기 광원 간 겹침 방지
+    const occupied = new Set(map.editorLights.points.map(p => `${p.x},${p.y}`));
+    for (const light of srcLights) {
+      const nx = x + (light.x - minX);
+      const ny = y + (light.y - minY);
+      if (occupied.has(`${nx},${ny}`)) return;
+    }
     const oldLights = JSON.parse(JSON.stringify(map.editorLights));
     const points = [...map.editorLights.points];
     let maxId = points.length > 0 ? Math.max(...points.map(p => p.id)) : 0;
@@ -161,8 +170,21 @@ export const lightSlice: SliceCreator<Pick<EditorState,
     const { currentMap: map } = get();
     if (!map || !map.editorLights || lightIds.length === 0) return;
     if (dx === 0 && dy === 0) return;
-    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
     const idSet = new Set(lightIds);
+    // 이동 후 위치가 다른 (이동하지 않는) 광원과 겹치는지 확인
+    const staticPositions = new Set(
+      map.editorLights.points.filter(p => !idSet.has(p.id)).map(p => `${p.x},${p.y}`)
+    );
+    const movedPositions = new Set<string>();
+    for (const p of map.editorLights.points) {
+      if (!idSet.has(p.id)) continue;
+      const nx = p.x + dx;
+      const ny = p.y + dy;
+      const key = `${nx},${ny}`;
+      if (staticPositions.has(key) || movedPositions.has(key)) return;
+      movedPositions.add(key);
+    }
+    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
     const points = map.editorLights.points.map(p => {
       if (idSet.has(p.id)) {
         return { ...p, x: p.x + dx, y: p.y + dy };
