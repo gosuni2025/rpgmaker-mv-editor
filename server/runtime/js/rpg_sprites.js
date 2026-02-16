@@ -2365,8 +2365,15 @@ Spriteset_Map.prototype.createMapObjects = function() {
             // 이미지 기반 오브젝트: pictures 폴더에서 이미지 로드
             var imgSprite = new Sprite();
             imgSprite.bitmap = ImageManager.loadPicture(obj.imageName);
-            imgSprite.y = -obj.height * th;
+            var objAnchorY = obj.anchorY != null ? obj.anchorY : 1.0;
+            imgSprite.anchor.set(0.5, objAnchorY);
+            imgSprite.x = obj.width * tw / 2;
             container.addChild(imgSprite);
+            // 이미지 로드 완료 시 리렌더 요청
+            var tilemap = this._tilemap;
+            imgSprite.bitmap.addLoadListener(function() {
+                if (tilemap) tilemap._needsRepaint = true;
+            });
         } else {
             for (var row = 0; row < obj.height; row++) {
                 for (var col = 0; col < obj.width; col++) {
