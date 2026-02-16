@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../api/client';
 import './FolderBrowser.css';
@@ -40,6 +40,9 @@ export default function FolderBrowser({
   const [isRpgProject, setIsRpgProject] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [newFolderMode, setNewFolderMode] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const newFolderInputRef = useRef<HTMLInputElement>(null);
 
   const browse = useCallback(async (dirPath: string) => {
     setLoading(true);
@@ -65,6 +68,28 @@ export default function FolderBrowser({
     }
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (newFolderMode) {
+      newFolderInputRef.current?.focus();
+    }
+  }, [newFolderMode]);
+
+  const handleNewFolder = async () => {
+    const name = newFolderName.trim();
+    if (!name) {
+      setNewFolderMode(false);
+      return;
+    }
+    try {
+      await apiClient.post('/project/mkdir', { path: currentPath, name });
+      setNewFolderMode(false);
+      setNewFolderName('');
+      await browse(currentPath);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   const cls = ['folder-browser', className].filter(Boolean).join(' ');
 
   return (
@@ -79,11 +104,35 @@ export default function FolderBrowser({
           ↑
         </button>
         <div className="folder-browser-path-text">{currentPath}</div>
+        <button
+          className="folder-browser-nav-btn"
+          onClick={() => { setNewFolderMode(true); setNewFolderName(''); setError(''); }}
+          title={t('folderBrowser.newFolder')}
+        >
+          +
+        </button>
       </div>
 
       <div className="folder-browser-list">
         {loading && <div className="folder-browser-loading">{t('openProject.loading')}</div>}
         {error && <div className="folder-browser-error">{error}</div>}
+        {newFolderMode && (
+          <div className="folder-browser-item folder-browser-new-folder">
+            <span className="folder-browser-icon">📁</span>
+            <input
+              ref={newFolderInputRef}
+              className="folder-browser-new-input"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleNewFolder();
+                if (e.key === 'Escape') { setNewFolderMode(false); setNewFolderName(''); }
+              }}
+              onBlur={handleNewFolder}
+              placeholder={t('folderBrowser.newFolderPlaceholder')}
+            />
+          </div>
+        )}
         {!loading &&
           dirs.map((dir) => (
             <div
@@ -96,7 +145,7 @@ export default function FolderBrowser({
               <span>{dir}</span>
             </div>
           ))}
-        {!loading && dirs.length === 0 && !error && (
+        {!loading && dirs.length === 0 && !newFolderMode && !error && (
           <div className="folder-browser-empty">{t('openProject.noSubfolders')}</div>
         )}
       </div>

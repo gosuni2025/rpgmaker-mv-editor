@@ -81,6 +81,26 @@ router.get('/browse', (req: Request, res: Response) => {
   }
 });
 
+router.post('/mkdir', (req: Request, res: Response) => {
+  try {
+    const { path: dirPath, name } = req.body;
+    if (!dirPath || !name) {
+      return res.status(400).json({ error: 'path and name are required' });
+    }
+    if (/[/\\]/.test(name) || name === '.' || name === '..') {
+      return res.status(400).json({ error: 'Invalid folder name' });
+    }
+    const fullPath = path.join(dirPath, name);
+    if (fs.existsSync(fullPath)) {
+      return res.status(400).json({ error: 'Folder already exists' });
+    }
+    fs.mkdirSync(fullPath, { recursive: true });
+    res.json({ success: true, path: fullPath });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 router.post('/open', (req: Request, res: Response) => {
   try {
     const { path: projectPath } = req.body;

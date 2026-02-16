@@ -83,3 +83,18 @@
   color: #e55;
   font-size: 12px;
 }
+
+.folder-browser-new-folder {
+  background: #3a3a3a;
+}
+
+.folder-browser-new-input {
+  flex: 1;
+  background: #2b2b2b;
+  border: 1px solid #2675bf;
+  border-radius: 3px;
+  padding: 2px 6px;
+  color: #ddd;
+  font-size: 13px;
+  outline: none;
+}
