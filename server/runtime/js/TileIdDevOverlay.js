@@ -28,6 +28,7 @@
     var hoverCtx = null;
     var hoverTexture = null;
     var lastMapId = null;
+    var last3DMode = false;
     var panel = null;
     var panelCtrl = null;
 
@@ -226,6 +227,18 @@
         var lines = [];
         lines.push({ text: '(' + tileX + ', ' + tileY + ')', color: '#fff' });
 
+        // 3D 모드일 때 월드 좌표 표시
+        if (is3DActive() && mouseScreenX >= 0 && mouseScreenY >= 0) {
+            var w3d = Mode3D.screenToWorld(mouseScreenX, mouseScreenY);
+            if (w3d) {
+                var _tw = $gameMap.tileWidth();
+                var _th = $gameMap.tileHeight();
+                var wx = $gameMap._displayX * _tw + w3d.x;
+                var wy = $gameMap._displayY * _th + w3d.y;
+                lines.push({ text: 'xyz: ' + wx.toFixed(0) + ', ' + wy.toFixed(0) + ', 0', color: '#ce93d8' });
+            }
+        }
+
         var tileIds = [];
         for (var z = 0; z < 4; z++) {
             var idx = (z * mapH + tileY) * mapW + tileX;
@@ -252,6 +265,20 @@
         var copyLines = [];
         copyLines.push('Map: #' + $gameMap.mapId() + ' ' + mapName);
         copyLines.push('Tile: (' + tileX + ', ' + tileY + ')');
+
+        // 3D 월드 좌표 추가
+        if (is3DActive() && mouseScreenX >= 0 && mouseScreenY >= 0) {
+            var world3D = Mode3D.screenToWorld(mouseScreenX, mouseScreenY);
+            if (world3D) {
+                var tw = $gameMap.tileWidth();
+                var th = $gameMap.tileHeight();
+                var worldX = $gameMap._displayX * tw + world3D.x;
+                var worldY = $gameMap._displayY * th + world3D.y;
+                var worldZ = 0; // Z=0 plane intersection
+                copyLines.push('3D World: (' + worldX.toFixed(1) + ', ' + worldY.toFixed(1) + ', ' + worldZ.toFixed(1) + ')');
+            }
+        }
+
         for (var z = 0; z < 4; z++) {
             if (tileIds[z] && tileIds[z] !== 0) {
                 var sheetName = getTilesetName(tileIds[z]);
@@ -383,10 +410,7 @@
     function screenToTile(screenX, screenY) {
         if (!$gameMap) return null;
 
-        var is3D = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d &&
-                   typeof Mode3D !== 'undefined' && Mode3D._active && Mode3D._perspCamera;
-
-        if (is3D) {
+        if (is3DActive()) {
             var world = Mode3D.screenToWorld(screenX, screenY);
             if (!world) return null;
             var tw = $gameMap.tileWidth();
@@ -562,6 +586,7 @@
         if (hoverMesh) scene.add(hoverMesh);
 
         lastMapId = $gameMap.mapId();
+        last3DMode = is3DActive();
         hoverTileX = -1;
         hoverTileY = -1;
 
@@ -669,12 +694,19 @@
         lastMapId = null;
     };
 
+    function is3DActive() {
+        return typeof ConfigManager !== 'undefined' && ConfigManager.mode3d &&
+               typeof Mode3D !== 'undefined' && Mode3D._active && Mode3D._perspCamera;
+    }
+
     var _Scene_Map_update = Scene_Map.prototype.update;
     Scene_Map.prototype.update = function() {
         _Scene_Map_update.call(this);
         if (!enabled) return;
 
-        if ($gameMap && $gameMap.mapId() !== lastMapId) {
+        var cur3D = is3DActive();
+        if ($gameMap && ($gameMap.mapId() !== lastMapId || cur3D !== last3DMode)) {
+            last3DMode = cur3D;
             buildOverlay();
         }
 
