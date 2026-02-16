@@ -62,7 +62,11 @@ function getTileId(tab: TabName, col: number, row: number): number {
     const kind = row * (config as { kindsPerRow: number }).kindsPerRow + col;
     return config.baseId + kind * 48;
   }
-  return config.baseId + row * config.cols + col;
+  // B~E, A5: 좌반(col 0~7) → tileId 0~127, 우반(col 8~15) → tileId 128~255
+  // rpg_core.js _drawNormalTile 공식의 역함수
+  const page = Math.floor(col / 8);  // 0=좌반, 1=우반
+  const localCol = col % 8;
+  return config.baseId + page * 128 + row * 8 + localCol;
 }
 
 // --- TileFlagsCanvas ---

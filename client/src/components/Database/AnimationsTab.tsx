@@ -282,6 +282,175 @@ function TweenDialog({ totalFrames, maxCells, onConfirm, onClose }: {
   );
 }
 
+// 일괄 설정 (Batch Setting) 팝업
+interface BatchSettingData {
+  frameStart: number;
+  frameEnd: number;
+  cellStart: number;
+  cellEnd: number;
+  patternEnabled: boolean; pattern: number;
+  xEnabled: boolean; x: number;
+  yEnabled: boolean; y: number;
+  scaleEnabled: boolean; scale: number;
+  rotationEnabled: boolean; rotation: number;
+  mirrorEnabled: boolean; mirror: number;
+  opacityEnabled: boolean; opacity: number;
+  blendModeEnabled: boolean; blendMode: number;
+}
+
+function BatchSettingDialog({ totalFrames, maxCells, onConfirm, onClose }: {
+  totalFrames: number;
+  maxCells: number;
+  onConfirm: (data: BatchSettingData) => void;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<BatchSettingData>({
+    frameStart: 1, frameEnd: totalFrames,
+    cellStart: 1, cellEnd: maxCells || 16,
+    patternEnabled: false, pattern: 0,
+    xEnabled: false, x: 0,
+    yEnabled: false, y: 0,
+    scaleEnabled: false, scale: 100,
+    rotationEnabled: false, rotation: 0,
+    mirrorEnabled: false, mirror: 0,
+    opacityEnabled: false, opacity: 255,
+    blendModeEnabled: false, blendMode: 0,
+  });
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const update = (field: keyof BatchSettingData, value: number | boolean) => {
+    setData(prev => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="anim-tween-dialog">
+        <div className="anim-tween-header">일괄 설정</div>
+        <div className="anim-tween-body">
+          <fieldset className="anim-tween-fieldset">
+            <legend>범위</legend>
+            <div className="anim-tween-range-row">
+              <label>프레임:</label>
+              <input type="number" min={1} max={totalFrames} value={data.frameStart} onChange={e => update('frameStart', Number(e.target.value))} autoFocus />
+              <span>~</span>
+              <input type="number" min={1} max={totalFrames} value={data.frameEnd} onChange={e => update('frameEnd', Number(e.target.value))} />
+            </div>
+            <div className="anim-tween-range-row">
+              <label>셀:</label>
+              <input type="number" min={1} max={16} value={data.cellStart} onChange={e => update('cellStart', Number(e.target.value))} />
+              <span>~</span>
+              <input type="number" min={1} max={16} value={data.cellEnd} onChange={e => update('cellEnd', Number(e.target.value))} />
+            </div>
+          </fieldset>
+          <fieldset className="anim-tween-fieldset">
+            <legend>데이터</legend>
+            <div className="anim-batch-grid">
+              <label><input type="checkbox" checked={data.patternEnabled} onChange={e => update('patternEnabled', e.target.checked)} /> 패턴</label>
+              <input type="number" value={data.pattern} onChange={e => update('pattern', Number(e.target.value))} disabled={!data.patternEnabled} />
+              <label><input type="checkbox" checked={data.xEnabled} onChange={e => update('xEnabled', e.target.checked)} /> X</label>
+              <input type="number" value={data.x} onChange={e => update('x', Number(e.target.value))} disabled={!data.xEnabled} />
+              <label><input type="checkbox" checked={data.yEnabled} onChange={e => update('yEnabled', e.target.checked)} /> Y</label>
+              <input type="number" value={data.y} onChange={e => update('y', Number(e.target.value))} disabled={!data.yEnabled} />
+              <label><input type="checkbox" checked={data.scaleEnabled} onChange={e => update('scaleEnabled', e.target.checked)} /> 배율</label>
+              <input type="number" value={data.scale} onChange={e => update('scale', Number(e.target.value))} disabled={!data.scaleEnabled} />
+              <label><input type="checkbox" checked={data.rotationEnabled} onChange={e => update('rotationEnabled', e.target.checked)} /> 회전</label>
+              <input type="number" value={data.rotation} onChange={e => update('rotation', Number(e.target.value))} disabled={!data.rotationEnabled} />
+              <label><input type="checkbox" checked={data.mirrorEnabled} onChange={e => update('mirrorEnabled', e.target.checked)} /> 좌우 반전</label>
+              <input type="number" min={0} max={1} value={data.mirror} onChange={e => update('mirror', Number(e.target.value))} disabled={!data.mirrorEnabled} />
+              <label><input type="checkbox" checked={data.opacityEnabled} onChange={e => update('opacityEnabled', e.target.checked)} /> 불투명도</label>
+              <input type="number" min={0} max={255} value={data.opacity} onChange={e => update('opacity', Number(e.target.value))} disabled={!data.opacityEnabled} />
+              <label><input type="checkbox" checked={data.blendModeEnabled} onChange={e => update('blendModeEnabled', e.target.checked)} /> 합성 방법</label>
+              <input type="number" min={0} max={2} value={data.blendMode} onChange={e => update('blendMode', Number(e.target.value))} disabled={!data.blendModeEnabled} />
+            </div>
+          </fieldset>
+        </div>
+        <div className="anim-tween-footer">
+          <button className="db-btn" onClick={() => { onConfirm(data); onClose(); }}>OK</button>
+          <button className="db-btn" onClick={onClose}>취소</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 시프트 (Shift) 팝업
+interface ShiftData {
+  frameStart: number;
+  frameEnd: number;
+  cellStart: number;
+  cellEnd: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+function ShiftDialog({ totalFrames, maxCells, onConfirm, onClose }: {
+  totalFrames: number;
+  maxCells: number;
+  onConfirm: (data: ShiftData) => void;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<ShiftData>({
+    frameStart: 1, frameEnd: totalFrames,
+    cellStart: 1, cellEnd: maxCells || 16,
+    offsetX: 0, offsetY: 0,
+  });
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const update = (field: keyof ShiftData, value: number) => {
+    setData(prev => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="anim-tween-dialog" style={{ width: 320 }}>
+        <div className="anim-tween-header">시프트</div>
+        <div className="anim-tween-body">
+          <fieldset className="anim-tween-fieldset">
+            <legend>범위</legend>
+            <div className="anim-tween-range-row">
+              <label>프레임:</label>
+              <input type="number" min={1} max={totalFrames} value={data.frameStart} onChange={e => update('frameStart', Number(e.target.value))} autoFocus />
+              <span>~</span>
+              <input type="number" min={1} max={totalFrames} value={data.frameEnd} onChange={e => update('frameEnd', Number(e.target.value))} />
+            </div>
+            <div className="anim-tween-range-row">
+              <label>셀:</label>
+              <input type="number" min={1} max={16} value={data.cellStart} onChange={e => update('cellStart', Number(e.target.value))} />
+              <span>~</span>
+              <input type="number" min={1} max={16} value={data.cellEnd} onChange={e => update('cellEnd', Number(e.target.value))} />
+            </div>
+          </fieldset>
+          <fieldset className="anim-tween-fieldset">
+            <legend>오프셋</legend>
+            <div className="anim-tween-range-row">
+              <label>X:</label>
+              <input type="number" value={data.offsetX} onChange={e => update('offsetX', Number(e.target.value))} />
+            </div>
+            <div className="anim-tween-range-row">
+              <label>Y:</label>
+              <input type="number" value={data.offsetY} onChange={e => update('offsetY', Number(e.target.value))} />
+            </div>
+          </fieldset>
+        </div>
+        <div className="anim-tween-footer">
+          <button className="db-btn" onClick={() => { onConfirm(data); onClose(); }}>OK</button>
+          <button className="db-btn" onClick={onClose}>취소</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface AnimationsTabProps {
   data: (Animation | null)[] | undefined;
   onChange: (data: (Animation | null)[]) => void;
@@ -298,6 +467,8 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
   const [showMaxFrameDialog, setShowMaxFrameDialog] = useState(false);
   const [showEnemyImagePopup, setShowEnemyImagePopup] = useState(false);
   const [showTweenDialog, setShowTweenDialog] = useState(false);
+  const [showBatchSettingDialog, setShowBatchSettingDialog] = useState(false);
+  const [showShiftDialog, setShowShiftDialog] = useState(false);
   const [targetImageName, setTargetImageName] = useState('Dragon');
   const previewRef = useRef<AnimationPreviewHandle>(null);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
@@ -386,6 +557,53 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
         if (opts.opacity) existing[6] = Math.round(startCell[6] + (endCell[6] - startCell[6]) * t);
         if (opts.blendMode) existing[7] = t < 0.5 ? startCell[7] : endCell[7];
         frames[f][c] = existing;
+      }
+    }
+    handleFieldChange('frames', frames);
+  };
+
+  const handleBatchSetting = (batchData: BatchSettingData) => {
+    if (!selectedItem || !selectedItem.frames) return;
+    const frames = selectedItem.frames.map(f => f.map(c => [...c]));
+    const fi = batchData.frameStart - 1;
+    const fe = batchData.frameEnd - 1;
+    const ci = batchData.cellStart - 1;
+    const ce = batchData.cellEnd - 1;
+
+    for (let f = fi; f <= fe && f < frames.length; f++) {
+      if (!frames[f]) frames[f] = [];
+      for (let c = ci; c <= ce; c++) {
+        if (!frames[f][c] || frames[f][c].length < 8) continue;
+        const cell = [...frames[f][c]];
+        // cell: [pattern, x, y, scale, rotation, mirror, opacity, blendMode]
+        if (batchData.patternEnabled) cell[0] = batchData.pattern;
+        if (batchData.xEnabled) cell[1] = batchData.x;
+        if (batchData.yEnabled) cell[2] = batchData.y;
+        if (batchData.scaleEnabled) cell[3] = batchData.scale;
+        if (batchData.rotationEnabled) cell[4] = batchData.rotation;
+        if (batchData.mirrorEnabled) cell[5] = batchData.mirror;
+        if (batchData.opacityEnabled) cell[6] = batchData.opacity;
+        if (batchData.blendModeEnabled) cell[7] = batchData.blendMode;
+        frames[f][c] = cell;
+      }
+    }
+    handleFieldChange('frames', frames);
+  };
+
+  const handleShift = (shiftData: ShiftData) => {
+    if (!selectedItem || !selectedItem.frames) return;
+    const frames = selectedItem.frames.map(f => f.map(c => [...c]));
+    const fi = shiftData.frameStart - 1;
+    const fe = shiftData.frameEnd - 1;
+    const ci = shiftData.cellStart - 1;
+    const ce = shiftData.cellEnd - 1;
+
+    for (let f = fi; f <= fe && f < frames.length; f++) {
+      if (!frames[f]) continue;
+      for (let c = ci; c <= ce; c++) {
+        if (!frames[f][c] || frames[f][c].length < 8) continue;
+        frames[f][c][1] += shiftData.offsetX; // X
+        frames[f][c][2] += shiftData.offsetY; // Y
       }
     }
     handleFieldChange('frames', frames);
@@ -645,8 +863,8 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                   <button className="anim-frame-btn" onClick={() => setShowEnemyImagePopup(true)}>대상 변경...</button>
                   <button className="anim-frame-btn">전 프레임 붙이기</button>
                   <button className="anim-frame-btn" onClick={() => setShowTweenDialog(true)}>보완...</button>
-                  <button className="anim-frame-btn">일괄 설정...</button>
-                  <button className="anim-frame-btn">시프트...</button>
+                  <button className="anim-frame-btn" onClick={() => setShowBatchSettingDialog(true)}>일괄 설정...</button>
+                  <button className="anim-frame-btn" onClick={() => setShowShiftDialog(true)}>시프트...</button>
                   <button className="anim-frame-btn anim-frame-btn-play" onClick={() => previewRef.current?.play()}>재생</button>
                 </div>
               </div>
@@ -703,6 +921,22 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                 maxCells={Math.max(...(selectedItem.frames || []).map(f => f.length), 16)}
                 onConfirm={handleTween}
                 onClose={() => setShowTweenDialog(false)}
+              />
+            )}
+            {showBatchSettingDialog && (
+              <BatchSettingDialog
+                totalFrames={totalFrames}
+                maxCells={Math.max(...(selectedItem.frames || []).map(f => f.length), 16)}
+                onConfirm={handleBatchSetting}
+                onClose={() => setShowBatchSettingDialog(false)}
+              />
+            )}
+            {showShiftDialog && (
+              <ShiftDialog
+                totalFrames={totalFrames}
+                maxCells={Math.max(...(selectedItem.frames || []).map(f => f.length), 16)}
+                onConfirm={handleShift}
+                onClose={() => setShowShiftDialog(false)}
               />
             )}
           </>

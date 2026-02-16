@@ -519,3 +519,32 @@
   padding: 10px 16px;
   border-top: 1px solid #555;
 }
+
+/* ===== 일괄 설정 그리드 ===== */
+.anim-batch-grid {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
+  gap: 6px 10px;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.anim-batch-grid label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #ccc;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.anim-batch-grid input[type="number"] {
+  width: 70px;
+  text-align: center;
+}
+
+.anim-batch-grid input[type="number"]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
