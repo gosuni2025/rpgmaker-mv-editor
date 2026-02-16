@@ -5,6 +5,102 @@ import projectManager from '../services/projectManager';
 
 const router = express.Router();
 
+interface PluginParamMeta {
+  name: string;
+  desc: string;
+  type: string;       // string, number, boolean, select, file, combo, note, etc.
+  default: string;
+  options: string[];   // for select/combo @option entries
+  dir: string;         // for file type @dir
+  min?: string;
+  max?: string;
+  parent?: string;     // for nested @parent
+}
+
+interface PluginMetadata {
+  plugindesc: string;
+  author: string;
+  help: string;
+  params: PluginParamMeta[];
+}
+
+function parsePluginMetadata(content: string): PluginMetadata {
+  // Extract first /*: ... */ block (English locale)
+  const blockMatch = content.match(/\/\*:\s*\n([\s\S]*?)\*\//);
+  if (!blockMatch) return { plugindesc: '', author: '', help: '', params: [] };
+
+  const block = blockMatch[1];
+  const lines = block.split('\n').map(l => l.replace(/^\s*\*\s?/, ''));
+
+  let plugindesc = '';
+  let author = '';
+  let help = '';
+  const params: PluginParamMeta[] = [];
+  let currentParam: PluginParamMeta | null = null;
+  let inHelp = false;
+
+  for (const line of lines) {
+    const tagMatch = line.match(/^@(\w+)\s*(.*)/);
+    if (tagMatch) {
+      const tag = tagMatch[1].toLowerCase();
+      const value = tagMatch[2].trim();
+
+      if (tag === 'plugindesc') {
+        plugindesc = value;
+        inHelp = false;
+      } else if (tag === 'author') {
+        author = value;
+        inHelp = false;
+      } else if (tag === 'help') {
+        help = value;
+        inHelp = true;
+      } else if (tag === 'param') {
+        inHelp = false;
+        if (currentParam) params.push(currentParam);
+        currentParam = {
+          name: value,
+          desc: '',
+          type: 'string',
+          default: '',
+          options: [],
+          dir: '',
+        };
+      } else if (currentParam) {
+        inHelp = false;
+        if (tag === 'desc') {
+          currentParam.desc = value;
+        } else if (tag === 'type') {
+          currentParam.type = value;
+        } else if (tag === 'default') {
+          currentParam.default = value;
+        } else if (tag === 'option') {
+          currentParam.options.push(value);
+        } else if (tag === 'dir') {
+          currentParam.dir = value;
+        } else if (tag === 'min') {
+          currentParam.min = value;
+        } else if (tag === 'max') {
+          currentParam.max = value;
+        } else if (tag === 'parent') {
+          currentParam.parent = value;
+        }
+      } else if (inHelp) {
+        help += '\n' + line;
+      }
+    } else if (inHelp) {
+      help += '\n' + line;
+    } else if (currentParam && !line.startsWith('@')) {
+      // Multi-line desc continuation
+      if (currentParam.desc && line.trim()) {
+        currentParam.desc += ' ' + line.trim();
+      }
+    }
+  }
+  if (currentParam) params.push(currentParam);
+
+  return { plugindesc, author, help: help.trim(), params };
+}
+
 // GET /api/plugins - List plugins and their status
 router.get('/', (req: Request, res: Response) => {
   try {
@@ -26,6 +122,27 @@ router.get('/', (req: Request, res: Response) => {
     const files = fs.readdirSync(pluginsDir).filter(f => f.endsWith('.js')).map(f => f.replace('.js', ''));
 
     res.json({ files, list: pluginList });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// GET /api/plugins/metadata - Parse plugin file comments for param metadata
+router.get('/metadata', (req: Request, res: Response) => {
+  try {
+    const pluginsDir = path.join(projectManager.getJsPath(), 'plugins');
+    if (!fs.existsSync(pluginsDir)) return res.json({});
+
+    const files = fs.readdirSync(pluginsDir).filter(f => f.endsWith('.js'));
+    const result: Record<string, PluginMetadata> = {};
+
+    for (const file of files) {
+      const name = file.replace('.js', '');
+      const content = fs.readFileSync(path.join(pluginsDir, file), 'utf8');
+      result[name] = parsePluginMetadata(content);
+    }
+
+    res.json(result);
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

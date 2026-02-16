@@ -7,12 +7,14 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
+  'showProjectSettingsDialog' |
   'showToast' | 'dismissToast' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
   'setMode3d' | 'setShadowLight' | 'setDisableFow' | 'setPaletteTab' |
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
   'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' | 'setShowLocalizationDialog' |
+  'setShowProjectSettingsDialog' |
   'setTransparentColor' | 'setMaxUndo' | 'setZoomStep'
 >> = (set, get) => ({
   zoomLevel: 1,
@@ -39,6 +41,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   showCharacterGeneratorDialog: false,
   showOptionsDialog: false,
   showLocalizationDialog: false,
+  showProjectSettingsDialog: false,
 
   showToast: (message: string, persistent?: boolean) => {
     set({ toastMessage: message, toastPersistent: !!persistent });
@@ -111,6 +114,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   setShowCharacterGeneratorDialog: (show: boolean) => set({ showCharacterGeneratorDialog: show }),
   setShowOptionsDialog: (show: boolean) => set({ showOptionsDialog: show }),
   setShowLocalizationDialog: (show: boolean) => set({ showLocalizationDialog: show }),
+  setShowProjectSettingsDialog: (show: boolean) => set({ showProjectSettingsDialog: show }),
   setTransparentColor: (color: { r: number; g: number; b: number }) => {
     set({ transparentColor: color });
   },

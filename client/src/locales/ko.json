@@ -68,6 +68,7 @@
     "settings": "환경설정",
     "language": "언어",
     "options": "옵션...",
+    "projectSettings": "프로젝트 설정...",
     "localization": "로컬라이제이션...",
     "copyPath": "프로젝트 경로 복사",
     "openVscode": "VSCode로 열기",
@@ -1401,6 +1402,20 @@
     "agility": "민첩성",
     "luck": "운",
     "none": "(없음)"
+  },
+  "projectSettings": {
+    "title": "프로젝트 설정",
+    "categories": {
+      "general": "일반",
+      "screen": "화면"
+    },
+    "touchUI": "터치 UI",
+    "screenWidth": "화면 너비",
+    "screenHeight": "화면 높이",
+    "fps": "FPS",
+    "pluginEnabled": "활성화",
+    "noParams": "파라미터 없음",
+    "pluginsSeparator": "플러그인"
   },
   "localization": {
     "title": "로컬라이제이션 매니저",

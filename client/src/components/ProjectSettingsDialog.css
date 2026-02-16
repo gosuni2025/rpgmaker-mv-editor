@@ -1,0 +1,154 @@
+.ps-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Left sidebar */
+.ps-sidebar {
+  width: 200px;
+  min-width: 200px;
+  border-right: 1px solid #555;
+  display: flex;
+  flex-direction: column;
+  background: #2b2b2b;
+}
+
+.ps-search {
+  padding: 8px;
+  border-bottom: 1px solid #444;
+}
+
+.ps-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  background: #1e1e1e;
+  border: 1px solid #555;
+  color: #ddd;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.ps-search input:focus {
+  border-color: #2675bf;
+  outline: none;
+}
+
+.ps-category-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.ps-category-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  color: #ccc;
+  font-size: 13px;
+  border-left: 3px solid transparent;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ps-category-item:hover {
+  background: #383838;
+}
+
+.ps-category-item.active {
+  background: #2675bf33;
+  color: #fff;
+  border-left-color: #2675bf;
+}
+
+.ps-category-separator {
+  height: 1px;
+  background: #444;
+  margin: 4px 12px;
+}
+
+.ps-category-header {
+  padding: 6px 12px 2px;
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+
+/* Right content */
+.ps-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ps-content-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #eee;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #444;
+  margin-bottom: 4px;
+}
+
+/* Plugin param row */
+.ps-param-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.ps-param-label {
+  min-width: 140px;
+  max-width: 200px;
+  font-size: 13px;
+  color: #ccc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ps-param-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ps-param-input input,
+.ps-param-input select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ps-param-desc {
+  font-size: 11px;
+  color: #888;
+  margin-top: -4px;
+  margin-bottom: 4px;
+}
+
+/* Plugin toggle in content area */
+.ps-plugin-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #444;
+}
+
+.ps-plugin-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #ccc;
+  cursor: pointer;
+}
