@@ -465,20 +465,6 @@ export default function MapInspector() {
           const fow = (currentMap as any).fogOfWar;
           return (
             <>
-              {/* ── 모드 선택 ── */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>렌더링 모드</span>
-                <select
-                  className="map-inspector-select"
-                  value={fow.fogMode ?? '2d'}
-                  onChange={(e) => updateMapField('fogOfWar', { ...fow, fogMode: e.target.value })}
-                  style={{ flex: 1 }}
-                >
-                  <option value="2d">2D (기본)</option>
-                  <option value="3dvolume">3D Volume (저해상도 RT)</option>
-                </select>
-              </div>
-
               {/* ── 공통 ── */}
               <div style={{ color: '#aaa', fontSize: 10, marginTop: 6, borderBottom: '1px solid #444', paddingBottom: 2 }}>공통</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
@@ -607,55 +593,129 @@ export default function MapInspector() {
                 </span>
               </div>
 
-              {/* ── 3D Volume (저해상도 RT) ── */}
-              {fow.fogMode === '3dvolume' && (
-                <>
-                  <div style={{ color: '#cf8', fontSize: 10, marginTop: 10, borderBottom: '1px solid #444', paddingBottom: 2 }}>3D Volume (저해상도 RT)</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                    <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>안개 높이</span>
-                    <input type="range" min={48} max={480} step={24}
-                      value={fow.fogHeight ?? 200}
-                      onChange={(e) => updateMapField('fogOfWar', { ...fow, fogHeight: Number(e.target.value) })}
-                      style={{ flex: 1 }} />
-                    <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
-                      {fow.fogHeight ?? 200}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                    <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>흡수율</span>
-                    <input type="range" min={1} max={50} step={1}
-                      value={Math.round((fow.absorption ?? 0.018) * 1000)}
-                      onChange={(e) => updateMapField('fogOfWar', { ...fow, absorption: Number(e.target.value) / 1000 })}
-                      style={{ flex: 1 }} />
-                    <span style={{ fontSize: 11, color: '#aaa', minWidth: 36, textAlign: 'right' }}>
-                      {(fow.absorption ?? 0.018).toFixed(3)}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                    <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>해상도 (1/N)</span>
-                    <input type="range" min={1} max={8} step={1}
-                      value={fow.volumeResolution ?? 4}
-                      onChange={(e) => updateMapField('fogOfWar', { ...fow, volumeResolution: Number(e.target.value) })}
-                      style={{ flex: 1 }} />
-                    <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
-                      {fow.volumeResolution ?? 4}
-                    </span>
-                  </div>
-                  <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
-                    <input type="checkbox" checked={fow.heightGradient !== false}
-                      onChange={(e) => updateMapField('fogOfWar', { ...fow, heightGradient: e.target.checked })} />
-                    <span>높이 색상 그라데이션</span>
-                  </label>
-                  {fow.heightGradient !== false && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                      <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>상단 색상</span>
-                      <input type="color" value={fow.fogColorTop ?? '#1a1a26'}
-                        onChange={(e) => updateMapField('fogOfWar', { ...fow, fogColorTop: e.target.value })}
-                        style={{ width: 28, height: 20, padding: 0, border: '1px solid #555', background: 'none', cursor: 'pointer' }} />
-                      <span style={{ fontSize: 11, color: '#888' }}>{fow.fogColorTop ?? '#1a1a26'}</span>
-                    </div>
-                  )}
-                </>
+              {/* ── 3D Volume ── */}
+              <div style={{ color: '#cf8', fontSize: 10, marginTop: 10, borderBottom: '1px solid #444', paddingBottom: 2 }}>3D Volume</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>안개 높이</span>
+                <input type="range" min={48} max={480} step={24}
+                  value={fow.fogHeight ?? 200}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, fogHeight: Number(e.target.value) })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                  {fow.fogHeight ?? 200}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>흡수율</span>
+                <input type="range" min={1} max={50} step={1}
+                  value={Math.round((fow.absorption ?? 0.018) * 1000)}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, absorption: Number(e.target.value) / 1000 })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 36, textAlign: 'right' }}>
+                  {(fow.absorption ?? 0.018).toFixed(3)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>가시 밝기</span>
+                <input type="range" min={0} max={100} step={5}
+                  value={Math.round((fow.visibilityBrightness ?? 0.0) * 100)}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, visibilityBrightness: Number(e.target.value) / 100 })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                  {(fow.visibilityBrightness ?? 0.0).toFixed(2)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>해상도 (1/N)</span>
+                <input type="range" min={1} max={8} step={1}
+                  value={fow.volumeResolution ?? 4}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, volumeResolution: Number(e.target.value) })}
+                  style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                  {fow.volumeResolution ?? 4}
+                </span>
+              </div>
+              <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={fow.heightGradient !== false}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, heightGradient: e.target.checked })} />
+                <span>높이 색상 그라데이션</span>
+              </label>
+              {fow.heightGradient !== false && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>상단 색상</span>
+                  <input type="color" value={fow.fogColorTop ?? '#1a1a26'}
+                    onChange={(e) => updateMapField('fogOfWar', { ...fow, fogColorTop: e.target.value })}
+                    style={{ width: 28, height: 20, padding: 0, border: '1px solid #555', background: 'none', cursor: 'pointer' }} />
+                  <span style={{ fontSize: 11, color: '#888' }}>{fow.fogColorTop ?? '#1a1a26'}</span>
+                </div>
+              )}
+              <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={fow.lineOfSight3D ?? false}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, lineOfSight3D: e.target.checked })} />
+                <span>3D 시야 차단</span>
+              </label>
+              {fow.lineOfSight3D && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>눈 높이</span>
+                  <input type="range" min={5} max={50} step={1}
+                    value={Math.round((fow.eyeHeight ?? 1.5) * 10)}
+                    onChange={(e) => updateMapField('fogOfWar', { ...fow, eyeHeight: Number(e.target.value) / 10 })}
+                    style={{ flex: 1 }} />
+                  <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                    {(fow.eyeHeight ?? 1.5).toFixed(1)}
+                  </span>
+                </div>
+              )}
+              <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={fow.godRay !== false}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, godRay: e.target.checked })} />
+                <span>God Ray</span>
+              </label>
+              {fow.godRay !== false && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>광선 강도</span>
+                  <input type="range" min={0} max={20} step={1}
+                    value={Math.round((fow.godRayIntensity ?? 0.4) * 10)}
+                    onChange={(e) => updateMapField('fogOfWar', { ...fow, godRayIntensity: Number(e.target.value) / 10 })}
+                    style={{ flex: 1 }} />
+                  <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                    {(fow.godRayIntensity ?? 0.4).toFixed(1)}
+                  </span>
+                </div>
+              )}
+              <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={fow.vortex !== false}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, vortex: e.target.checked })} />
+                <span>소용돌이</span>
+              </label>
+              {fow.vortex !== false && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>소용돌이 속도</span>
+                  <input type="range" min={0} max={50} step={1}
+                    value={Math.round((fow.vortexSpeed ?? 1.0) * 10)}
+                    onChange={(e) => updateMapField('fogOfWar', { ...fow, vortexSpeed: Number(e.target.value) / 10 })}
+                    style={{ flex: 1 }} />
+                  <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                    {(fow.vortexSpeed ?? 1.0).toFixed(1)}
+                  </span>
+                </div>
+              )}
+              <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={fow.lightScattering !== false}
+                  onChange={(e) => updateMapField('fogOfWar', { ...fow, lightScattering: e.target.checked })} />
+                <span>광산란</span>
+              </label>
+              {fow.lightScattering !== false && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: '#aaa', minWidth: 80 }}>산란 강도</span>
+                  <input type="range" min={0} max={30} step={1}
+                    value={Math.round((fow.lightScatterIntensity ?? 1.0) * 10)}
+                    onChange={(e) => updateMapField('fogOfWar', { ...fow, lightScatterIntensity: Number(e.target.value) / 10 })}
+                    style={{ flex: 1 }} />
+                  <span style={{ fontSize: 11, color: '#aaa', minWidth: 30, textAlign: 'right' }}>
+                    {(fow.lightScatterIntensity ?? 1.0).toFixed(1)}
+                  </span>
+                </div>
               )}
 
             </>
