@@ -924,19 +924,19 @@
         if (!this._perspCamera) return;
         if (window.__editorMode) return; // 에디터에서는 적용하지 않음
 
-        // 타겟 값 결정: 활성 카메라존 → 글로벌 기본값
-        var targetTilt = 60;  // 글로벌 기본
+        // 타겟 값 결정: 활성 카메라존 → 현재 _tiltDeg/_yawDeg (플러그인 커맨드로 변경 가능)
+        var targetTilt = this._tiltDeg != null ? this._tiltDeg : 60;
         var targetFov = 60;
-        var targetYaw = 0;
+        var targetYaw = this._yawDeg != null ? this._yawDeg : 0;
         var targetZoom = 1.0;
         var transitionSpeed = 1.0;
 
         if ($gameMap && $gameMap._activeCameraZoneId != null) {
             var zone = $gameMap.getCameraZoneById($gameMap._activeCameraZoneId);
             if (zone) {
-                targetTilt = zone.tilt != null ? zone.tilt : 60;
+                targetTilt = zone.tilt != null ? zone.tilt : targetTilt;
                 targetFov = zone.fov != null ? zone.fov : 60;
-                targetYaw = zone.yaw != null ? zone.yaw : 0;
+                targetYaw = zone.yaw != null ? zone.yaw : targetYaw;
                 targetZoom = zone.zoom != null ? zone.zoom : 1.0;
                 transitionSpeed = zone.transitionSpeed || 1.0;
             }
