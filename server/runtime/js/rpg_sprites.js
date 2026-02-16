@@ -2369,11 +2369,8 @@ Spriteset_Map.prototype.createMapObjects = function() {
             imgSprite.anchor.set(0.5, objAnchorY);
             imgSprite.x = obj.width * tw / 2;
             container.addChild(imgSprite);
-            // 이미지 로드 완료 시 리렌더 요청
-            var tilemap = this._tilemap;
-            imgSprite.bitmap.addLoadListener(function() {
-                if (tilemap) tilemap._needsRepaint = true;
-            });
+            container._imgSprite = imgSprite;
+            container._imageReady = false;
         } else {
             for (var row = 0; row < obj.height; row++) {
                 for (var col = 0; col < obj.width; col++) {
@@ -2422,6 +2419,14 @@ Spriteset_Map.prototype.updateMapObjects = function() {
         // Update position based on map scroll (same as character screenX/Y)
         container.x = Math.round($gameMap.adjustX(container._mapObjX) * tw);
         container.y = Math.round($gameMap.adjustY(container._mapObjY) * th + th);
+        // 이미지 오브젝트: 비동기 로드 완료 감지하여 repaint 요청
+        if (container._imgSprite && !container._imageReady) {
+            var bmp = container._imgSprite.bitmap;
+            if (bmp && bmp.isReady()) {
+                container._imageReady = true;
+                if (this._tilemap) this._tilemap._needsRepaint = true;
+            }
+        }
     }
 };
 
