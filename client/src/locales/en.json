@@ -1170,6 +1170,10 @@
     "noRecent": "No recent projects",
     "open": "Open"
   },
+  "folderBrowser": {
+    "newFolder": "New Folder",
+    "newFolderPlaceholder": "Enter folder name"
+  },
   "newProject": {
     "title": "New Project",
     "useRpgMakerMV": "Please create new projects in RPG Maker MV.\nThis editor is a compatible editor for editing existing projects.",

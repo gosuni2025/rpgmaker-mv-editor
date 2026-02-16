@@ -1258,6 +1258,10 @@
     "noRecent": "최근 프로젝트 없음",
     "open": "열기"
   },
+  "folderBrowser": {
+    "newFolder": "새 폴더",
+    "newFolderPlaceholder": "폴더 이름 입력"
+  },
   "newProject": {
     "title": "새 프로젝트",
     "useRpgMakerMV": "새 프로젝트는 RPG Maker MV에서 생성해 주세요.\n이 에디터는 RPG Maker MV의 호환 에디터로, 기존 프로젝트를 편집하는 용도입니다.",
