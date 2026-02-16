@@ -570,6 +570,7 @@
       "tab3Map": "Map",
       "tab3Battle": "Battle",
       "tab3Advanced": "Advanced",
+      "tab4Objects": "Objects",
       "tab4MapRendering": "Map/Rendering",
       "tab4PostProcess": "Post Process (DoF)",
       "tab4PPEffect": "PP Effects"
@@ -1265,7 +1266,18 @@
     "noDescription": "No description",
     "parameters": "Parameters",
     "selectPlugin": "Select a plugin",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "name": "Name",
+    "status": "Status",
+    "descriptionLabel": "Description",
+    "author": "Author",
+    "help": "Help",
+    "openFolder": "Open Plugin Folder",
+    "moveUp": "Move Up",
+    "moveDown": "Move Down",
+    "paramName": "Name",
+    "paramValue": "Value",
+    "screen": "Screen"
   },
   "soundTest": {
     "title": "Sound Test",
@@ -1524,6 +1536,24 @@
     "noPointLights": "No point lights",
     "eventList": "Events",
     "selected": "Selected",
-    "selectPointLightHint": "Click a point light on the map"
+    "selectPointLightHint": "Click a point light on the map",
+
+    "mapObject": "Object Control",
+    "mapObject_show": "Show",
+    "mapObject_hide": "Hide",
+    "mapObject_showWithShader": "Show with Shader",
+    "mapObject_hideWithShader": "Hide with Shader",
+    "mapObject_move": "Move",
+    "mapObject_scale": "Scale",
+    "mapObject_zHeight": "Z Height",
+    "mapObject_anchorY": "Anchor Y",
+    "mapObject_passability": "Passability",
+    "mapObject_shader_add": "Add Shader",
+    "mapObject_shader_remove": "Remove Shader",
+    "mapObject_shader_param": "Shader Parameter",
+    "param_object": "Object",
+    "param_shaderType": "Shader",
+    "param_shaderParam": "Parameter",
+    "param_onOff": "ON/OFF"
   }
 }

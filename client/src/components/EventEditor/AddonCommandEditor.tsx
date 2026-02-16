@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AddonCommandDef, AddonSubCommand } from './addonCommands';
 import { buildAddonCommandText, matchAddonCommand } from './addonCommands';
+import { SHADER_DEFINITIONS } from './shaderDefinitions';
 import { MapLocationPicker } from './MapLocationPicker';
 import useEditorStore from '../../store/useEditorStore';
 import './AddonCommandEditor.css';
@@ -18,6 +19,7 @@ interface AddonCommandEditorProps {
 export default function AddonCommandEditor({ def, initialSubCmd, initialParamValues, initialDuration, onOk, onCancel }: AddonCommandEditorProps) {
   const { t } = useTranslation();
   const currentMapId = useEditorStore(s => s.currentMapId);
+  const currentMap = useEditorStore(s => s.currentMap);
 
   const [selectedSubIdx, setSelectedSubIdx] = useState(() => {
     if (initialSubCmd) {
@@ -49,6 +51,17 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
   );
   const [showLightPicker, setShowLightPicker] = useState<number | null>(null); // param index
 
+  // 맵 오브젝트 목록
+  const mapObjects = useMemo(() => {
+    const objs = currentMap?.objects;
+    if (!objs || !Array.isArray(objs)) return [];
+    return objs.filter((o: any) => o != null).map((o: any) => ({
+      id: o.id as number,
+      name: (o.name || '') as string,
+      imageName: (o.imageName || '') as string,
+    }));
+  }, [currentMap]);
+
   const handleSubCmdChange = (idx: number) => {
     setSelectedSubIdx(idx);
     const newSub = def.subCommands[idx];
@@ -72,6 +85,142 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
 
   const showDuration = subCmd.supportsDuration;
 
+  // 현재 선택된 shaderType 값 (shaderparam 렌더링용)
+  const getShaderTypeValue = () => {
+    const stIdx = subCmd.params.findIndex(p => p.type === 'shadertype');
+    if (stIdx >= 0) return paramValues[stIdx] || '';
+    return '';
+  };
+
+  // shaderparam 드롭다운 옵션
+  const getShaderParams = (shaderType: string) => {
+    const sd = SHADER_DEFINITIONS.find(d => d.type === shaderType);
+    if (!sd) return [];
+    return sd.params.map(p => ({ key: p.key, label: p.label }));
+  };
+
+  const renderParamInput = (param: typeof subCmd.params[0], i: number) => {
+    if (param.type === 'color') {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input
+            type="color"
+            value={paramValues[i] ?? '#000000'}
+            onChange={e => handleParamChange(i, e.target.value)}
+            style={{ width: 36, height: 28, border: 'none', background: 'transparent', cursor: 'pointer' }}
+          />
+          <input
+            type="text"
+            className="addon-cmd-input"
+            value={paramValues[i] ?? ''}
+            onChange={e => handleParamChange(i, e.target.value)}
+            style={{ width: 90 }}
+            placeholder="#RRGGBB"
+          />
+        </div>
+      );
+    }
+
+    if (param.type === 'pointlight') {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input
+            type="number"
+            className="addon-cmd-input"
+            value={paramValues[i] ?? ''}
+            min={0}
+            step={1}
+            onChange={e => handleParamChange(i, e.target.value)}
+            style={{ width: 70 }}
+          />
+          <button
+            className="db-btn"
+            style={{ fontSize: 11, padding: '2px 8px' }}
+            onClick={() => setShowLightPicker(i)}
+          >
+            {t('addonCommands.selectPointLight')}
+          </button>
+        </div>
+      );
+    }
+
+    if (param.type === 'mapobject') {
+      return (
+        <select
+          className="addon-cmd-select"
+          value={paramValues[i] ?? ''}
+          onChange={e => handleParamChange(i, e.target.value)}
+        >
+          <option value="">--</option>
+          {mapObjects.map(obj => (
+            <option key={obj.id} value={String(obj.id)}>
+              #{obj.id} - {obj.name || obj.imageName || `Object ${obj.id}`}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    if (param.type === 'shadertype') {
+      return (
+        <select
+          className="addon-cmd-select"
+          value={paramValues[i] ?? ''}
+          onChange={e => handleParamChange(i, e.target.value)}
+        >
+          <option value="">--</option>
+          {param.allowAll && <option value="all">{t('common.all') || '전체'}</option>}
+          {SHADER_DEFINITIONS.map(sd => (
+            <option key={sd.type} value={sd.type}>{sd.label} ({sd.type})</option>
+          ))}
+        </select>
+      );
+    }
+
+    if (param.type === 'shaderparam') {
+      const shaderType = getShaderTypeValue();
+      const shaderParams = getShaderParams(shaderType);
+      return (
+        <select
+          className="addon-cmd-select"
+          value={paramValues[i] ?? ''}
+          onChange={e => handleParamChange(i, e.target.value)}
+        >
+          <option value="">--</option>
+          {shaderParams.map(sp => (
+            <option key={sp.key} value={sp.key}>{sp.label} ({sp.key})</option>
+          ))}
+        </select>
+      );
+    }
+
+    if (param.type === 'boolean') {
+      return (
+        <select
+          className="addon-cmd-select"
+          value={paramValues[i] ?? '1'}
+          onChange={e => handleParamChange(i, e.target.value)}
+        >
+          <option value="1">ON</option>
+          <option value="0">OFF</option>
+        </select>
+      );
+    }
+
+    // number / float
+    return (
+      <input
+        type="number"
+        className="addon-cmd-input"
+        value={paramValues[i] ?? ''}
+        min={param.min}
+        max={param.max}
+        step={param.step ?? (param.type === 'float' ? 0.1 : 1)}
+        onChange={e => handleParamChange(i, e.target.value)}
+      />
+    );
+  };
+
   return (
     <>
       <div className="addon-cmd-row">
@@ -92,53 +241,7 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
           {subCmd.params.map((param, i) => (
             <div key={param.name} className="addon-cmd-row">
               <label className="addon-cmd-label">{t(param.label)}</label>
-              {param.type === 'color' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input
-                    type="color"
-                    value={paramValues[i] ?? '#000000'}
-                    onChange={e => handleParamChange(i, e.target.value)}
-                    style={{ width: 36, height: 28, border: 'none', background: 'transparent', cursor: 'pointer' }}
-                  />
-                  <input
-                    type="text"
-                    className="addon-cmd-input"
-                    value={paramValues[i] ?? ''}
-                    onChange={e => handleParamChange(i, e.target.value)}
-                    style={{ width: 90 }}
-                    placeholder="#RRGGBB"
-                  />
-                </div>
-              ) : param.type === 'pointlight' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input
-                    type="number"
-                    className="addon-cmd-input"
-                    value={paramValues[i] ?? ''}
-                    min={0}
-                    step={1}
-                    onChange={e => handleParamChange(i, e.target.value)}
-                    style={{ width: 70 }}
-                  />
-                  <button
-                    className="db-btn"
-                    style={{ fontSize: 11, padding: '2px 8px' }}
-                    onClick={() => setShowLightPicker(i)}
-                  >
-                    {t('addonCommands.selectPointLight')}
-                  </button>
-                </div>
-              ) : (
-                <input
-                  type="number"
-                  className="addon-cmd-input"
-                  value={paramValues[i] ?? ''}
-                  min={param.min}
-                  max={param.max}
-                  step={param.step ?? (param.type === 'float' ? 0.1 : 1)}
-                  onChange={e => handleParamChange(i, e.target.value)}
-                />
-              )}
+              {renderParamInput(param, i)}
             </div>
           ))}
         </div>

@@ -585,6 +585,7 @@
       "tab3Map": "지도",
       "tab3Battle": "전투",
       "tab3Advanced": "상급",
+      "tab4Objects": "오브젝트",
       "tab4MapRendering": "맵/렌더링",
       "tab4PostProcess": "포스트 프로세스 (DoF)",
       "tab4PPEffect": "PP 이펙트"
@@ -1351,9 +1352,20 @@
     "loading": "불러오는 중...",
     "noPlugins": "플러그인 없음",
     "noDescription": "설명 없음",
-    "parameters": "파라미터",
+    "parameters": "매개 변수",
     "selectPlugin": "플러그인을 선택하세요",
-    "saving": "저장 중..."
+    "saving": "저장 중...",
+    "name": "이름",
+    "status": "상태",
+    "descriptionLabel": "설명",
+    "author": "만든 사람",
+    "help": "도움말",
+    "openFolder": "플러그인 폴더 열기",
+    "moveUp": "위로",
+    "moveDown": "아래로",
+    "paramName": "이름",
+    "paramValue": "값",
+    "screen": "화면"
   },
   "soundTest": {
     "title": "사운드 테스트",
@@ -1612,6 +1624,24 @@
     "noPointLights": "포인트라이트 없음",
     "eventList": "이벤트 목록",
     "selected": "선택됨",
-    "selectPointLightHint": "맵에서 포인트라이트를 클릭하세요"
+    "selectPointLightHint": "맵에서 포인트라이트를 클릭하세요",
+
+    "mapObject": "오브젝트 제어",
+    "mapObject_show": "표시",
+    "mapObject_hide": "숨기기",
+    "mapObject_showWithShader": "셰이더로 나타나기",
+    "mapObject_hideWithShader": "셰이더로 사라지기",
+    "mapObject_move": "이동",
+    "mapObject_scale": "스케일 변경",
+    "mapObject_zHeight": "Z 높이 변경",
+    "mapObject_anchorY": "앵커 Y 변경",
+    "mapObject_passability": "통행 설정",
+    "mapObject_shader_add": "셰이더 추가",
+    "mapObject_shader_remove": "셰이더 제거",
+    "mapObject_shader_param": "셰이더 파라미터",
+    "param_object": "오브젝트",
+    "param_shaderType": "셰이더",
+    "param_shaderParam": "파라미터",
+    "param_onOff": "ON/OFF"
   }
 }
