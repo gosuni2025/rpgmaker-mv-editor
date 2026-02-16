@@ -218,8 +218,8 @@ export default function MenuBar() {
       case 'resourceManager': setShowResourceManagerDialog(true); break;
       case 'playtestTitle': saveCurrentMap().then(() => window.open('/game/index.html?dev=true', '_blank')); break;
       case 'playtestCurrentMap': saveCurrentMap().then(() => {
-        const mapId = currentMapId || 1;
         const state = useEditorStore.getState();
+        const mapId = state.currentMapId || 1;
         const testPos = state.currentMap?.testStartPosition;
         if (testPos) {
           window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${testPos.x}&startY=${testPos.y}`, '_blank');
