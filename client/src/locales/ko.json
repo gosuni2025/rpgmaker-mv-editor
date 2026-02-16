@@ -1505,6 +1505,13 @@
     "param_degrees": "각도",
     "param_color": "색상",
 
+    "applyMode": "적용 방식",
+    "applyInstant": "즉시 적용",
+    "applyInterpolate": "보간 적용",
+    "duration": "소요 시간",
+    "seconds": "초",
+    "seconds_short": "초",
+
     "ppEffect_on": "켜기",
     "ppEffect_off": "끄기",
 

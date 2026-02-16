@@ -37,6 +37,15 @@
   gap: 6px;
 }
 
+.addon-cmd-duration {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #444;
+}
+
 .addon-cmd-preview {
   display: flex;
   align-items: center;

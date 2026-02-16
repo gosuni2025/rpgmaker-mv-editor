@@ -1417,6 +1417,13 @@
     "param_degrees": "Degrees",
     "param_color": "Color",
 
+    "applyMode": "Apply Mode",
+    "applyInstant": "Instant",
+    "applyInterpolate": "Interpolate",
+    "duration": "Duration",
+    "seconds": "sec",
+    "seconds_short": "s",
+
     "ppEffect_on": "On",
     "ppEffect_off": "Off",
 

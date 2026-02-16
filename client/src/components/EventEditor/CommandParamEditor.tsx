@@ -105,7 +105,7 @@ function getEditorContent(
       // 새 삽입 시 initialParam으로 매칭
       const initDef = initialParam ? ADDON_COMMANDS.find(d => d.pluginCommand === initialParam) : null;
       if (addonProps) {
-        return <AddonCommandEditor def={addonProps.def} initialSubCmd={addonProps.initialSubCmd} initialParamValues={addonProps.initialParamValues} onOk={onOk} onCancel={onCancel} />;
+        return <AddonCommandEditor def={addonProps.def} initialSubCmd={addonProps.initialSubCmd} initialParamValues={addonProps.initialParamValues} initialDuration={addonProps.initialDuration} onOk={onOk} onCancel={onCancel} />;
       }
       if (initDef) {
         return <AddonCommandEditor def={initDef} onOk={onOk} onCancel={onCancel} />;

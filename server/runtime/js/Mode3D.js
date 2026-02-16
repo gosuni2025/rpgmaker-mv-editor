@@ -995,11 +995,26 @@
             if (args[0] === 'on') ConfigManager.mode3d = true;
             if (args[0] === 'off') ConfigManager.mode3d = false;
             if (args[0] === 'tilt' && args[1]) {
-                Mode3D._tiltDeg = parseFloat(args[1]);
-                Mode3D._tiltRad = Mode3D._tiltDeg * Math.PI / 180;
+                var tiltVal = parseFloat(args[1]);
+                var tiltDur = args[2] ? parseFloat(args[2]) : 0;
+                if (tiltDur > 0 && window.PluginTween) {
+                    PluginTween.add({
+                        target: Mode3D, key: '_tiltDeg', to: tiltVal, duration: tiltDur,
+                        onUpdate: function() { Mode3D._tiltRad = Mode3D._tiltDeg * Math.PI / 180; }
+                    });
+                } else {
+                    Mode3D._tiltDeg = tiltVal;
+                    Mode3D._tiltRad = tiltVal * Math.PI / 180;
+                }
             }
             if (args[0] === 'yaw' && args[1]) {
-                Mode3D._yawDeg = parseFloat(args[1]);
+                var yawVal = parseFloat(args[1]);
+                var yawDur = args[2] ? parseFloat(args[2]) : 0;
+                if (yawDur > 0 && window.PluginTween) {
+                    PluginTween.add({ target: Mode3D, key: '_yawDeg', to: yawVal, duration: yawDur });
+                } else {
+                    Mode3D._yawDeg = yawVal;
+                }
             }
         }
     };
