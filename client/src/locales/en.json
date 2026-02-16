@@ -556,7 +556,9 @@
       "tab3Map": "Map",
       "tab3Battle": "Battle",
       "tab3Advanced": "Advanced",
-      "tab3Addon": "Addon"
+      "tab4MapRendering": "Map/Rendering",
+      "tab4PostProcess": "Post Process (DoF)",
+      "tab4PPEffect": "PP Effects"
     },
     "commands": {
       "101": "Show Text...",
@@ -1411,6 +1413,82 @@
     "param_height": "Height",
     "param_intensity": "Intensity",
     "param_value": "Value",
-    "param_degrees": "Degrees"
+    "param_degrees": "Degrees",
+
+    "ppEffect_on": "On",
+    "ppEffect_off": "Off",
+
+    "pp_vignette": "Vignette",
+    "pp_vignette_intensity": "Intensity",
+    "pp_vignette_softness": "Softness",
+    "pp_vignette_radius": "Radius",
+
+    "pp_colorGrading": "Color Grading",
+    "pp_colorGrading_brightness": "Brightness",
+    "pp_colorGrading_contrast": "Contrast",
+    "pp_colorGrading_saturation": "Saturation",
+    "pp_colorGrading_temperature": "Temperature",
+    "pp_colorGrading_tint": "Tint",
+    "pp_colorGrading_gamma": "Gamma",
+
+    "pp_chromatic": "Chromatic Aberration",
+    "pp_chromatic_strength": "Strength",
+    "pp_chromatic_radial": "Radial",
+
+    "pp_filmGrain": "Film Grain",
+    "pp_filmGrain_intensity": "Intensity",
+    "pp_filmGrain_size": "Size",
+
+    "pp_toneMapping": "Tone Mapping",
+    "pp_toneMapping_exposure": "Exposure",
+    "pp_toneMapping_mode": "Mode (0:ACES, 1:Reinhard, 2:Linear)",
+
+    "pp_fog": "Fog",
+    "pp_fog_density": "Density",
+    "pp_fog_start": "Start",
+    "pp_fog_end": "End",
+
+    "pp_godRays": "God Rays",
+    "pp_godRays_lightPosX": "Light Pos X",
+    "pp_godRays_lightPosY": "Light Pos Y",
+    "pp_godRays_exposure": "Exposure",
+    "pp_godRays_decay": "Decay",
+    "pp_godRays_density": "Density",
+    "pp_godRays_weight": "Weight",
+
+    "pp_radialBlur": "Radial Blur",
+    "pp_radialBlur_centerX": "Center X",
+    "pp_radialBlur_centerY": "Center Y",
+    "pp_radialBlur_strength": "Strength",
+
+    "pp_waveDistortion": "Wave Distortion",
+    "pp_waveDistortion_amplitude": "Amplitude",
+    "pp_waveDistortion_waveWidth": "Wave Width",
+    "pp_waveDistortion_speed": "Speed",
+
+    "pp_anamorphic": "Anamorphic Flare",
+    "pp_anamorphic_threshold": "Threshold",
+    "pp_anamorphic_intensity": "Intensity",
+    "pp_anamorphic_streakLength": "Streak Length",
+
+    "pp_motionBlur": "Motion Blur",
+    "pp_motionBlur_velocityX": "Velocity X",
+    "pp_motionBlur_velocityY": "Velocity Y",
+
+    "pp_pixelation": "Pixelation",
+    "pp_pixelation_pixelSize": "Pixel Size",
+
+    "pp_colorInversion": "Color Inversion",
+    "pp_colorInversion_strength": "Strength",
+
+    "pp_edgeDetection": "Edge Detection",
+    "pp_edgeDetection_strength": "Strength",
+    "pp_edgeDetection_threshold": "Threshold",
+    "pp_edgeDetection_overlay": "Overlay",
+
+    "pp_ssao": "SSAO",
+    "pp_ssao_radius": "Radius",
+    "pp_ssao_intensity": "Intensity",
+    "pp_ssao_bias": "Bias"
   }
 }
