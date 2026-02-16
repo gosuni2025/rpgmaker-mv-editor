@@ -217,7 +217,15 @@ export default function MenuBar() {
       case 'playtestTitle': saveCurrentMap().then(() => window.open('/game/index.html?dev=true', '_blank')); break;
       case 'playtestCurrentMap': saveCurrentMap().then(() => {
         const mapId = currentMapId || 1;
-        window.open(`/game/index.html?dev=true&startMapId=${mapId}`, '_blank');
+        const state = useEditorStore.getState();
+        const testPos = state.currentMap?.testStartPosition;
+        if (testPos) {
+          window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${testPos.x}&startY=${testPos.y}`, '_blank');
+        } else {
+          const centerX = Math.floor((state.currentMap?.width || 1) / 2);
+          const centerY = Math.floor((state.currentMap?.height || 1) / 2);
+          window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${centerX}&startY=${centerY}`, '_blank');
+        }
       }); break;
       case 'openFolder': fetch('/api/project/open-folder', { method: 'POST' }); break;
       case 'openEditorFolder': fetch('/api/project/open-editor-folder', { method: 'POST' }); break;

@@ -276,3 +276,14 @@
 .context-menu-item.has-submenu:hover > .context-submenu {
   display: block;
 }
+
+.context-menu-ext-badge {
+  background: linear-gradient(135deg, #6a3fb5, #3f6ab5);
+  color: #fff;
+  font-size: 9px;
+  font-weight: bold;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 8px;
+  letter-spacing: 0.5px;
+}

@@ -948,6 +948,8 @@
     "boat": "Boat",
     "ship": "Ship",
     "airship": "Airship",
+    "testStartPosition": "Set Test Start Position",
+    "clearTestStartPosition": "Clear Test Start Position",
     "items": "{{count}} items"
   },
   "quickEvent": {

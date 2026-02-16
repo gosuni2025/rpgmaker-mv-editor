@@ -7,7 +7,8 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   'projectPath' | 'projectName' | 'maps' | 'currentMapId' | 'currentMap' | 'tilesetInfo' |
   'systemData' | 'playerCharacterName' | 'playerCharacterIndex' | 'parseErrors' |
   'openProject' | 'closeProject' | 'restoreLastProject' | 'loadMaps' | 'selectMap' |
-  'saveCurrentMap' | 'createMap' | 'deleteMap' | 'updateMapInfos' | 'setPlayerStartPosition' | 'setVehicleStartPosition'
+  'saveCurrentMap' | 'createMap' | 'deleteMap' | 'updateMapInfos' | 'setPlayerStartPosition' | 'setVehicleStartPosition' |
+  'setTestStartPosition' | 'clearTestStartPosition'
 >> = (set, get) => ({
   projectPath: null,
   projectName: null,
@@ -199,5 +200,21 @@ export const projectSlice: SliceCreator<Pick<EditorState,
     } catch {
       showToast(`${vehicleNames[vehicle]} 시작 위치 저장 실패`);
     }
+  },
+
+  setTestStartPosition: (x: number, y: number) => {
+    const { currentMap, showToast } = get();
+    if (!currentMap) return;
+    set({ currentMap: { ...currentMap, testStartPosition: { x, y } } });
+    showToast(`테스트 시작 위치 설정: (${x}, ${y})`);
+  },
+
+  clearTestStartPosition: () => {
+    const { currentMap, showToast } = get();
+    if (!currentMap) return;
+    const updated = { ...currentMap };
+    delete updated.testStartPosition;
+    set({ currentMap: updated });
+    showToast('테스트 시작 위치 해제');
   },
 });

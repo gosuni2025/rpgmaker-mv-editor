@@ -11,6 +11,7 @@ interface OverlayRefs {
   renderRequestedRef: React.MutableRefObject<boolean>;
   regionMeshesRef: React.MutableRefObject<any[]>;
   startPosMeshesRef: React.MutableRefObject<any[]>;
+  testStartPosMeshesRef: React.MutableRefObject<any[]>;
   eventOverlayMeshesRef: React.MutableRefObject<any[]>;
   dragPreviewMeshesRef: React.MutableRefObject<any[]>;
   lightOverlayMeshesRef: React.MutableRefObject<any[]>;
@@ -242,6 +243,143 @@ export function usePlayerStartOverlay(refs: OverlayRefs, rendererReady: number) 
 
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
   }, [systemData, currentMapId, playerCharacterName, playerCharacterIndex, rendererReady]);
+}
+
+/** Test start position overlay (green border + character image) - EXT */
+export function useTestStartOverlay(refs: OverlayRefs, rendererReady: number) {
+  const testStartPosition = useEditorStore((s) => s.currentMap?.testStartPosition ?? null);
+  const playerCharacterName = useEditorStore((s) => s.playerCharacterName);
+  const playerCharacterIndex = useEditorStore((s) => s.playerCharacterIndex);
+
+  useEffect(() => {
+    const rendererObj = refs.rendererObjRef.current;
+    if (!rendererObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    // Dispose existing
+    for (const m of refs.testStartPosMeshesRef.current) {
+      rendererObj.scene.remove(m);
+      if (m.material?.map) m.material.map.dispose();
+      m.geometry?.dispose();
+      m.material?.dispose();
+    }
+    refs.testStartPosMeshesRef.current = [];
+
+    if (!testStartPosition) {
+      requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+      return;
+    }
+
+    const px = testStartPosition.x * TILE_SIZE_PX;
+    const py = testStartPosition.y * TILE_SIZE_PX;
+    const cx = px + TILE_SIZE_PX / 2;
+    const cy = py + TILE_SIZE_PX / 2;
+
+    // Green border
+    const hw = TILE_SIZE_PX / 2 - 1.5;
+    const hh = TILE_SIZE_PX / 2 - 1.5;
+    const pts = [
+      new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+      new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+      new THREE.Vector3(-hw, -hh, 0),
+    ];
+    const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: 0x00cc66, depthTest: false, transparent: true, opacity: 1.0, linewidth: 3,
+    });
+    const line = new THREE.Line(lineGeom, lineMat);
+    line.position.set(cx, cy, 5.2);
+    line.renderOrder = 9993;
+    line.frustumCulled = false;
+    line.userData.editorGrid = true;
+    rendererObj.scene.add(line);
+    refs.testStartPosMeshesRef.current.push(line);
+
+    // "테스트 시작점" label
+    {
+      const cvsW = 320;
+      const cvsH = 80;
+      const cvs = document.createElement('canvas');
+      cvs.width = cvsW;
+      cvs.height = cvsH;
+      const ctx = cvs.getContext('2d')!;
+      ctx.clearRect(0, 0, cvsW, cvsH);
+      ctx.fillStyle = '#66ffaa';
+      ctx.font = 'bold 48px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 4;
+      ctx.fillText('테스트 시작점', cvsW / 2, cvsH / 2, cvsW - 8);
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.flipY = false;
+      tex.minFilter = THREE.LinearFilter;
+      const labelW = TILE_SIZE_PX * 1.5;
+      const labelH = labelW * (cvsH / cvsW);
+      const labelGeom = new THREE.PlaneGeometry(labelW, labelH);
+      const labelMat = new THREE.MeshBasicMaterial({
+        map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
+      });
+      const labelMesh = new THREE.Mesh(labelGeom, labelMat);
+      labelMesh.position.set(cx, py - labelH / 2 - 2, 5.3);
+      labelMesh.renderOrder = 9994;
+      labelMesh.frustumCulled = false;
+      labelMesh.userData.editorGrid = true;
+      rendererObj.scene.add(labelMesh);
+      refs.testStartPosMeshesRef.current.push(labelMesh);
+    }
+
+    // Character image (loaded async via CanvasTexture)
+    if (playerCharacterName) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (!refs.rendererObjRef.current) return;
+        const isSingle = playerCharacterName.startsWith('$');
+        const charW = isSingle ? img.width / 3 : img.width / 12;
+        const charH = isSingle ? img.height / 4 : img.height / 8;
+        const charCol = isSingle ? 0 : playerCharacterIndex % 4;
+        const charRow = isSingle ? 0 : Math.floor(playerCharacterIndex / 4);
+        const srcX = charCol * charW * 3 + 1 * charW;
+        const srcY = charRow * charH * 4 + 0 * charH;
+
+        const cvs = document.createElement('canvas');
+        cvs.width = TILE_SIZE_PX;
+        cvs.height = TILE_SIZE_PX;
+        const ctx = cvs.getContext('2d')!;
+        const scale = Math.min(TILE_SIZE_PX / charW, TILE_SIZE_PX / charH);
+        const dw = charW * scale;
+        const dh = charH * scale;
+        const dx = (TILE_SIZE_PX - dw) / 2;
+        const dy = TILE_SIZE_PX - dh;
+        // Green tint overlay
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(img, srcX, srcY, charW, charH, dx, dy, dw, dh);
+        ctx.globalAlpha = 1.0;
+        ctx.drawImage(img, srcX, srcY, charW, charH, dx, dy, dw, dh);
+
+        const tex = new THREE.CanvasTexture(cvs);
+        tex.flipY = false;
+        tex.minFilter = THREE.LinearFilter;
+        const geom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
+        const mat = new THREE.MeshBasicMaterial({
+          map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
+        });
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.position.set(cx, cy, 5.1);
+        mesh.renderOrder = 9992;
+        mesh.frustumCulled = false;
+        mesh.userData.editorGrid = true;
+        rendererObj.scene.add(mesh);
+        refs.testStartPosMeshesRef.current.push(mesh);
+        requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+      };
+      img.src = `/api/resources/img_characters/${playerCharacterName}.png`;
+    }
+
+    requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+  }, [testStartPosition, playerCharacterName, playerCharacterIndex, rendererReady]);
 }
 
 /** Event overlay (border + name) in event edit mode */

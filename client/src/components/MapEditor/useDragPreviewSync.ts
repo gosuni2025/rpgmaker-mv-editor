@@ -8,6 +8,7 @@ interface SyncRefs {
   stageRef: React.MutableRefObject<any>;
   renderRequestedRef: React.MutableRefObject<boolean>;
   startPosMeshesRef: React.MutableRefObject<any[]>;
+  testStartPosMeshesRef: React.MutableRefObject<any[]>;
 }
 
 function triggerRender(
@@ -222,4 +223,42 @@ export function usePlayerStartDragPreview(
     }
     triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
   }, [playerStartDragPos, systemData, currentMapId, rendererReady]);
+}
+
+/**
+ * Test start position drag preview (테스트 시작 위치 드래그 시 위치 이동)
+ */
+export function useTestStartDragPreview(
+  refs: SyncRefs,
+  testStartDragPos: { x: number; y: number } | null,
+  rendererReady: number,
+) {
+  const testStartPosition = useEditorStore((s) => s.currentMap?.testStartPosition ?? null);
+
+  React.useEffect(() => {
+    const meshes = refs.testStartPosMeshesRef.current;
+    if (!meshes || meshes.length === 0 || !testStartPosition) return;
+    const origX = testStartPosition.x;
+    const origY = testStartPosition.y;
+    if (testStartDragPos) {
+      const dx = (testStartDragPos.x - origX) * TILE_SIZE_PX;
+      const dy = (testStartDragPos.y - origY) * TILE_SIZE_PX;
+      for (const m of meshes) {
+        if (m._origPos === undefined) {
+          m._origPos = { x: m.position.x, y: m.position.y };
+        }
+        m.position.x = m._origPos.x + dx;
+        m.position.y = m._origPos.y + dy;
+      }
+    } else {
+      for (const m of meshes) {
+        if (m._origPos !== undefined) {
+          m.position.x = m._origPos.x;
+          m.position.y = m._origPos.y;
+          delete m._origPos;
+        }
+      }
+    }
+    triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
+  }, [testStartDragPos, testStartPosition, rendererReady]);
 }

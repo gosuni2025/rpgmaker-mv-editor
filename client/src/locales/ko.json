@@ -1036,6 +1036,8 @@
     "boat": "보트",
     "ship": "선박",
     "airship": "비행선",
+    "testStartPosition": "테스트 시작 위치 설정",
+    "clearTestStartPosition": "테스트 시작 위치 해제",
     "items": "{{count}}개"
   },
   "quickEvent": {
