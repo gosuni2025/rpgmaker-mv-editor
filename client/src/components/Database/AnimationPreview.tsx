@@ -69,10 +69,16 @@ const AnimationPreview = React.forwardRef<
       const bitmap = ImageManager.loadEnemy(name, 0);
       rt.targetSprite.bitmap = bitmap;
       bitmap.addLoadListener(() => {
-        if (rtRef.current === rt) renderOnce();
+        if (rtRef.current === rt) {
+          // anchor.y=1이므로 발밑이 y에 위치함
+          // 비트맵 중앙이 캔버스 중앙에 오도록 y 조정
+          rt.targetSprite.y = CANVAS_H / 2 + bitmap.height / 2;
+          renderOnce();
+        }
       });
     } else {
       rt.targetSprite.bitmap = null;
+      rt.targetSprite.y = CANVAS_H / 2;
     }
     renderOnce();
   }
@@ -260,7 +266,7 @@ const AnimationPreview = React.forwardRef<
     targetSprite.anchor.x = 0.5;
     targetSprite.anchor.y = 1;
     targetSprite.x = CANVAS_W / 2;
-    targetSprite.y = CANVAS_H * 3 / 4;
+    targetSprite.y = CANVAS_H / 2;
     stage.addChild(targetSprite);
 
     rtRef.current = {
