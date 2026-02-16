@@ -1279,6 +1279,88 @@ PictureShader._FRAGMENT_SHAKEUV = [
     '}',
 ].join('\n');
 
+// 53. Wipe (방향성 와이프 트랜지션)
+// threshold 0=완전 표시, 1=완전 숨김, direction: 0=좌→우, 1=우→좌, 2=상→하, 3=하→상
+PictureShader._FRAGMENT_WIPE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uThreshold;',
+    'uniform float uDirection;',
+    'uniform float uSoftness;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 color = texture2D(map, vUv);',
+    '    float pos;',
+    '    if (uDirection < 0.5) pos = vUv.x;',             // 좌→우
+    '    else if (uDirection < 1.5) pos = 1.0 - vUv.x;',  // 우→좌
+    '    else if (uDirection < 2.5) pos = 1.0 - vUv.y;',  // 상→하
+    '    else pos = vUv.y;',                                // 하→상
+    '    float edge = smoothstep(uThreshold - uSoftness, uThreshold, pos);',
+    '    color.a *= edge * opacity;',
+    '    gl_FragColor = color;',
+    '}',
+].join('\n');
+
+// 54. CircleWipe (원형 와이프 트랜지션)
+// threshold 0=완전 표시, 1=완전 숨김
+PictureShader._FRAGMENT_CIRCLEWIPE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uThreshold;',
+    'uniform float uSoftness;',
+    'uniform float uCenterX;',
+    'uniform float uCenterY;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 color = texture2D(map, vUv);',
+    '    float dist = length(vUv - vec2(uCenterX, uCenterY)) / 0.707;',  // 0.707 = sqrt(0.5) 정규화
+    '    float edge = smoothstep(uThreshold - uSoftness, uThreshold, 1.0 - dist);',
+    '    color.a *= edge * opacity;',
+    '    gl_FragColor = color;',
+    '}',
+].join('\n');
+
+// 55. Blinds (블라인드 트랜지션)
+// threshold 0=완전 표시, 1=완전 숨김, direction: 0=수평, 1=수직
+PictureShader._FRAGMENT_BLINDS = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uThreshold;',
+    'uniform float uCount;',
+    'uniform float uDirection;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec4 color = texture2D(map, vUv);',
+    '    float pos = uDirection < 0.5 ? vUv.y : vUv.x;',
+    '    float stripe = fract(pos * uCount);',
+    '    float reveal = 1.0 - uThreshold;',
+    '    float edge = step(stripe, reveal);',
+    '    color.a *= edge * opacity;',
+    '    gl_FragColor = color;',
+    '}',
+].join('\n');
+
+// 56. PixelDissolve (픽셀 디졸브 트랜지션)
+// threshold 0=완전 표시, 1=완전 숨김
+PictureShader._FRAGMENT_PIXELDISSOLVE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uThreshold;',
+    'uniform float uPixelSize;',
+    'varying vec2 vUv;',
+    'float rand(vec2 s) { return fract(sin(dot(s, vec2(12.9898,78.233)))*43758.5453); }',
+    'void main() {',
+    '    float ps = mix(1.0, uPixelSize, uThreshold) / 256.0;',  // 픽셀 크기를 threshold에 비례
+    '    vec2 pixUv = floor(vUv / ps) * ps + ps * 0.5;',
+    '    vec4 color = texture2D(map, pixUv);',
+    '    float cellRand = rand(floor(vUv / ps));',
+    '    float reveal = 1.0 - uThreshold;',
+    '    float edge = smoothstep(reveal - 0.1, reveal, cellRand);',
+    '    color.a *= (1.0 - edge) * opacity;',
+    '    gl_FragColor = color;',
+    '}',
+].join('\n');
+
 //=============================================================================
 // 셰이더 타입별 fragment shader 매핑
 //=============================================================================
@@ -1331,6 +1413,10 @@ PictureShader._FRAGMENT_SHADERS = {
     'gradient2col':   PictureShader._FRAGMENT_GRADIENT2COL,
     'radialGradient': PictureShader._FRAGMENT_RADIALGRADIENT,
     'shakeUV':        PictureShader._FRAGMENT_SHAKEUV,
+    'wipe':           PictureShader._FRAGMENT_WIPE,
+    'circleWipe':     PictureShader._FRAGMENT_CIRCLEWIPE,
+    'blinds':         PictureShader._FRAGMENT_BLINDS,
+    'pixelDissolve':  PictureShader._FRAGMENT_PIXELDISSOLVE,
 };
 
 //=============================================================================
@@ -1385,6 +1471,10 @@ PictureShader._DEFAULT_PARAMS = {
     'gradient2col': { blend: 1, topLeftR: 1, topLeftG: 0, topLeftB: 0, topLeftA: 1, topRightR: 1, topRightG: 0, topRightB: 0, topRightA: 1, botLeftR: 0, botLeftG: 0, botLeftB: 1, botLeftA: 1, botRightR: 0, botRightG: 0, botRightB: 1, botRightA: 1, boostX: 1.2, boostY: 1.2, radial: 0 },
     'radialGradient': { blend: 1, topLeftR: 1, topLeftG: 0, topLeftB: 0, topLeftA: 1, topRightR: 1, topRightG: 0, topRightB: 0, topRightA: 1, botLeftR: 0, botLeftG: 0, botLeftB: 1, botLeftA: 1, botRightR: 0, botRightG: 0, botRightB: 1, botRightA: 1, boostX: 1.2, boostY: 1.2, radial: 1 },
     'shakeUV':   { speed: 5, shakeX: 5, shakeY: 5 },
+    'wipe':      { threshold: 0, direction: 0, softness: 0.05 },
+    'circleWipe': { threshold: 0, softness: 0.05, centerX: 0.5, centerY: 0.5 },
+    'blinds':    { threshold: 0, count: 8, direction: 0 },
+    'pixelDissolve': { threshold: 0, pixelSize: 32 },
 };
 
 //=============================================================================
@@ -1440,6 +1530,10 @@ PictureShader._UNIFORM_MAP = {
     'gradient2col': 'gradient',
     'radialGradient': 'gradient',
     'shakeUV':   [ ['speed','uSpeed'], ['shakeX','uShakeX'], ['shakeY','uShakeY'] ],
+    'wipe':      [ ['threshold','uThreshold'], ['direction','uDirection'], ['softness','uSoftness'] ],
+    'circleWipe': [ ['threshold','uThreshold'], ['softness','uSoftness'], ['centerX','uCenterX'], ['centerY','uCenterY'] ],
+    'blinds':    [ ['threshold','uThreshold'], ['count','uCount'], ['direction','uDirection'] ],
+    'pixelDissolve': [ ['threshold','uThreshold'], ['pixelSize','uPixelSize'] ],
 };
 
 //=============================================================================
