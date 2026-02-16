@@ -85,12 +85,24 @@ export default function PluginManagerDialog() {
           apiClient.get<Record<string, PluginMetadata>>(`/plugins/metadata?locale=${locale}`),
           apiClient.get<ProjectSettings>('/project-settings'),
         ]);
-        const entries: PluginEntry[] = (res.list || []).map((p: ServerPluginEntry) => ({
-          name: p.name,
-          status: p.status,
-          description: p.description || '',
-          parameters: Object.entries(p.parameters || {}).map(([k, v]) => ({ name: k, value: String(v) })),
-        }));
+        const entries: PluginEntry[] = (res.list || []).map((p: ServerPluginEntry) => {
+          const existingParams = Object.entries(p.parameters || {}).map(([k, v]) => ({ name: k, value: String(v) }));
+          const pluginMeta = meta[p.name];
+          if (pluginMeta?.params) {
+            const existingNames = new Set(existingParams.map(ep => ep.name));
+            for (const pm of pluginMeta.params) {
+              if (!existingNames.has(pm.name)) {
+                existingParams.push({ name: pm.name, value: pm.default });
+              }
+            }
+          }
+          return {
+            name: p.name,
+            status: p.status,
+            description: p.description || '',
+            parameters: existingParams,
+          };
+        });
         setPlugins(entries);
         setMetadata(meta);
         setSettings(settingsData);
