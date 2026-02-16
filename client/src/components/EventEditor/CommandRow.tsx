@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import type { EventCommandContext } from './EventCommandEditor';
@@ -21,22 +21,74 @@ interface CommandRowProps {
   onDragHandleMouseDown: (e: React.MouseEvent, index: number) => void;
   context?: EventCommandContext;
   commands: EventCommand[];
+  isFoldable?: boolean;
+  isFolded?: boolean;
+  foldedCount?: number;
+  onToggleFold?: (index: number) => void;
 }
 
 export const CommandRow = React.memo(function CommandRow({
   cmd, index, isSelected, isDragging, isGroupHL, isGroupFirst, isGroupLast, inGroup,
   draggable, displayCtx, onRowClick, onDoubleClick, onDragHandleMouseDown, context, commands,
+  isFoldable, isFolded, foldedCount, onToggleFold,
 }: CommandRowProps) {
   const { t } = useTranslation();
   const display = getCommandDisplay(cmd, displayCtx);
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
+  const isDragStarted = useRef(false);
+
+  // 메인 커맨드 행(foldable) 드래그: 행 전체에서 mousedown으로 드래그 시작
+  const handleRowMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!isFoldable || !draggable) return;
+    // 폴드 토글 버튼이나 드래그 핸들 클릭은 무시
+    const target = e.target as HTMLElement;
+    if (target.closest('.fold-toggle') || target.closest('.drag-handle')) return;
+
+    mouseDownPos.current = { x: e.clientX, y: e.clientY };
+    isDragStarted.current = false;
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!mouseDownPos.current) return;
+      const dx = ev.clientX - mouseDownPos.current.x;
+      const dy = ev.clientY - mouseDownPos.current.y;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        isDragStarted.current = true;
+        mouseDownPos.current = null;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        // 합성 이벤트로 드래그 핸들 mousedown 트리거
+        onDragHandleMouseDown(e, index);
+      }
+    };
+
+    const handleMouseUp = () => {
+      mouseDownPos.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [isFoldable, draggable, onDragHandleMouseDown, index]);
 
   return (
     <div
-      className={`event-command-row${isSelected ? ' selected' : ''}${isGroupHL ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}${isGroupFirst ? ' group-first' : ''}${isGroupLast ? ' group-last' : ''}${inGroup ? ' group-member' : ''}`}
+      className={`event-command-row${isSelected ? ' selected' : ''}${isGroupHL ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}${isGroupFirst ? ' group-first' : ''}${isGroupLast ? ' group-last' : ''}${inGroup ? ' group-member' : ''}${isFolded ? ' folded' : ''}`}
       style={{ paddingLeft: draggable ? cmd.indent * 20 : 8 + cmd.indent * 20 }}
       onClick={e => onRowClick(index, e)}
       onDoubleClick={() => onDoubleClick(index)}
+      onMouseDown={handleRowMouseDown}
     >
+      {isFoldable ? (
+        <span
+          className="fold-toggle"
+          onClick={e => { e.stopPropagation(); onToggleFold?.(index); }}
+        >
+          {isFolded ? '▶' : '▼'}
+        </span>
+      ) : (
+        draggable ? <span className="fold-toggle-placeholder" /> : null
+      )}
       {draggable && (
         <span
           className="drag-handle"
@@ -49,6 +101,9 @@ export const CommandRow = React.memo(function CommandRow({
       {display ? (
         (cmd.code === 108 || cmd.code === 408) ? <span style={{ color: '#4ec94e' }}>{display}</span> : display
       ) : <span style={{ color: '#555' }}>&loz;</span>}
+      {isFolded && foldedCount !== undefined && foldedCount > 0 && (
+        <span className="fold-count-badge">+{foldedCount}줄</span>
+      )}
       {context && [101, 102, 105, 320, 324, 325].includes(cmd.code) && (() => {
         const prefix = context.isCommonEvent
           ? `ce${context.commonEventId}`

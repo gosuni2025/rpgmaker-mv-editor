@@ -375,6 +375,42 @@
   pointer-events: none;
 }
 
+/* Fold toggle */
+.fold-toggle {
+  width: 16px;
+  flex-shrink: 0;
+  text-align: center;
+  cursor: pointer;
+  font-size: 9px;
+  color: #888;
+  user-select: none;
+  line-height: 1;
+  padding: 2px 0;
+}
+
+.fold-toggle:hover {
+  color: #ddd;
+}
+
+.fold-toggle-placeholder {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.fold-count-badge {
+  margin-left: 6px;
+  font-size: 10px;
+  color: #999;
+  background: #383838;
+  border-radius: 3px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.event-command-row.folded {
+  border-bottom: 2px solid #555;
+}
+
 .event-commands-toolbar {
   display: flex;
   gap: 4px;

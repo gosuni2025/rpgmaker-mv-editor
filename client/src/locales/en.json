@@ -537,6 +537,8 @@
     "dragToMove": "Drag to move",
     "moveUp": "Move Up",
     "moveDown": "Move Down",
+    "foldAll": "Fold All",
+    "unfoldAll": "Unfold All",
     "categories": {
       "tab1Messages": "Messages",
       "tab1GameProgression": "Game Progression",
