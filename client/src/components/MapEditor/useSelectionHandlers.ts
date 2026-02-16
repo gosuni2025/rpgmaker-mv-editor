@@ -56,7 +56,7 @@ export function useSelectionHandlers(): SelectionHandlersResult {
         const latestMap = useEditorStore.getState().currentMap;
         if (latestMap) {
           const clearChanges: { x: number; y: number; z: number; tileId: number }[] = [];
-          for (let z = 0; z < 4; z++) {
+          for (let z = 0; z < 5; z++) {
             for (let y = minY; y <= maxY; y++) {
               for (let x = minX; x <= maxX; x++) {
                 const idx = (z * latestMap.height + y) * latestMap.width + x;

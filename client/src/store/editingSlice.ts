@@ -234,7 +234,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
     const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
     const tiles: { x: number; y: number; z: number; tileId: number }[] = [];
-    for (let z = 0; z < 4; z++) {
+    for (let z = 0; z < 5; z++) {
       for (let y = minY; y <= maxY; y++) {
         for (let x = minX; x <= maxX; x++) {
           const tileId = map.data[(z * map.height + y) * map.width + x];
@@ -257,10 +257,10 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     const newData = [...currentMap.data];
     const affected: { x: number; y: number; z: number }[] = [];
     for (const t of clipboard.tiles) {
-      if (t.tileId === 0) continue;
       const tx = x + t.x, ty = y + t.y;
       if (tx < 0 || tx >= currentMap.width || ty < 0 || ty >= currentMap.height) continue;
       const idx = (t.z * currentMap.height + ty) * currentMap.width + tx;
+      if (newData[idx] === t.tileId) continue;
       changes.push({ x: tx, y: ty, z: t.z, oldTileId: newData[idx], newTileId: t.tileId });
       newData[idx] = t.tileId;
       affected.push({ x: tx, y: ty, z: t.z });
@@ -278,7 +278,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     const changes: TileChange[] = [];
     const newData = [...map.data];
     const affected: { x: number; y: number; z: number }[] = [];
-    for (let z = 0; z < 4; z++) {
+    for (let z = 0; z < 5; z++) {
       for (let y = minY; y <= maxY; y++) {
         for (let x = minX; x <= maxX; x++) {
           const idx = (z * map.height + y) * map.width + x;
@@ -310,23 +310,22 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       origTileMap.set(`${ox},${oy},${t.z}`, t.tileId);
     }
 
-    // 1. 원본 영역 삭제 (tileId가 0이 아닌 것만 — 빈 레이어는 대상 위치의 기존 타일 보존)
-    for (let z = 0; z < 4; z++) {
+    // 1. 원본 영역 삭제 (타일+그림자 레이어, 리전 제외)
+    for (let z = 0; z < 5; z++) {
       for (let y = minY; y <= maxY; y++) {
         for (let x = minX; x <= maxX; x++) {
           const origTileId = origTileMap.get(`${x},${y},${z}`) ?? 0;
           if (origTileId !== 0) {
             allChanges.push({ x, y, z, oldTileId: origTileId, newTileId: 0 });
-            const idx = (z * currentMap.height + y) * currentMap.width + x;
-            newData[idx] = 0;
           }
+          const idx = (z * currentMap.height + y) * currentMap.width + x;
+          newData[idx] = 0;
         }
       }
     }
-    // 2. 새 위치에 붙여넣기 (tileId=0인 레이어는 대상 위치의 기존 타일 유지)
+    // 2. 새 위치에 붙여넣기 (모든 레이어)
     const affected: { x: number; y: number; z: number }[] = [];
     for (const t of clipboard.tiles) {
-      if (t.tileId === 0) continue;
       const tx = destX + t.x, ty = destY + t.y;
       if (tx < 0 || tx >= currentMap.width || ty < 0 || ty >= currentMap.height) continue;
       const idx = (t.z * currentMap.height + ty) * currentMap.width + tx;
@@ -335,7 +334,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
       affected.push({ x: tx, y: ty, z: t.z });
     }
     // 원본 영역도 affected에 추가 (주변 오토타일 재계산용)
-    for (let z = 0; z < 4; z++) {
+    for (let z = 0; z < 5; z++) {
       for (let y = minY; y <= maxY; y++) {
         for (let x = minX; x <= maxX; x++) {
           affected.push({ x, y, z });
