@@ -3034,17 +3034,20 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
         if (args[0] === 'ambient' && args[1]) {
             var ambVal = parseFloat(args[1]);
             var ambDur = args[2] ? parseFloat(args[2]) : 0;
+            // editorLights.ambient도 함께 업데이트 (_updateCameraZoneAmbient가 이 값을 target으로 사용)
+            var _el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
             if (ambDur > 0 && window.PluginTween) {
                 PluginTween.add({
                     target: ShadowLight.config, key: 'ambientIntensity', to: ambVal, duration: ambDur,
                     onUpdate: function(v) {
-                        // _updateCameraZoneAmbient의 lerp를 바이패스하기 위해 _current 값도 동기화
+                        if (_el && _el.ambient) _el.ambient.intensity = v;
                         ShadowLight._currentAmbientIntensity = v;
                         if (ShadowLight._ambientLight) ShadowLight._ambientLight.intensity = v;
                     }
                 });
             } else {
                 ShadowLight.config.ambientIntensity = ambVal;
+                if (_el && _el.ambient) _el.ambient.intensity = ambVal;
                 ShadowLight._currentAmbientIntensity = ambVal;
                 if (ShadowLight._ambientLight) ShadowLight._ambientLight.intensity = ambVal;
             }
@@ -3052,12 +3055,15 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
         if (args[0] === 'ambientColor' && args[1]) {
             var hex = parseInt(args[1].replace('#', ''), 16);
             var colorDur = args[2] ? parseFloat(args[2]) : 0;
+            // editorLights.ambient도 함께 업데이트 (_updateCameraZoneAmbient가 이 값을 target으로 사용)
+            var _el2 = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
             if (!isNaN(hex)) {
                 if (colorDur > 0 && window.PluginTween) {
                     PluginTween.addColor({
                         target: ShadowLight.config, key: 'ambientColor', to: hex, duration: colorDur,
                         onUpdate: function(v) {
-                            // _updateCameraZoneAmbient의 lerp를 바이패스하기 위해 _current RGB도 동기화
+                            // editorLights.ambient.color도 동기화
+                            if (_el2 && _el2.ambient) _el2.ambient.color = '#' + ('000000' + (v >>> 0).toString(16)).slice(-6);
                             var r = ((v >> 16) & 0xFF) / 255;
                             var g = ((v >> 8) & 0xFF) / 255;
                             var b = (v & 0xFF) / 255;
@@ -3069,6 +3075,7 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                     });
                 } else {
                     ShadowLight.config.ambientColor = hex;
+                    if (_el2 && _el2.ambient) _el2.ambient.color = '#' + ('000000' + (hex >>> 0).toString(16)).slice(-6);
                     var r2 = ((hex >> 16) & 0xFF) / 255;
                     var g2 = ((hex >> 8) & 0xFF) / 255;
                     var b2 = (hex & 0xFF) / 255;
