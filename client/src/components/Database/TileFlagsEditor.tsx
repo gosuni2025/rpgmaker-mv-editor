@@ -73,12 +73,10 @@ interface TileFlagsCanvasProps {
   mode: Mode;
   showOverlay: boolean;
   onTabChange: (tab: TabName) => void;
-  onShowOverlayChange: (show: boolean) => void;
   onChange: (flags: number[]) => void;
-  t: (key: string) => string;
 }
 
-export function TileFlagsCanvas({ flags, tilesetNames, activeTab, mode, showOverlay, onTabChange, onShowOverlayChange, onChange, t }: TileFlagsCanvasProps) {
+export function TileFlagsCanvas({ flags, tilesetNames, activeTab, mode, showOverlay, onTabChange, onChange }: TileFlagsCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -260,14 +258,6 @@ export function TileFlagsCanvas({ flags, tilesetNames, activeTab, mode, showOver
           </button>
         ))}
       </div>
-      <label className="db-checkbox-label" style={{ flexShrink: 0, fontSize: 12 }}>
-        <input
-          type="checkbox"
-          checked={showOverlay}
-          onChange={(e) => onShowOverlayChange(e.target.checked)}
-        />
-        {t('tileFlags.showOverlay')}
-      </label>
     </div>
   );
 }
