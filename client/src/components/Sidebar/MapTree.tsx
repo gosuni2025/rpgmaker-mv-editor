@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { MapInfo } from '../../types/rpgMakerMV';
 import apiClient from '../../api/client';
-import MapPropertiesDialog from '../MapEditor/MapPropertiesDialog';
 import SampleMapDialog from '../SampleMapDialog';
 import './Sidebar.css';
 import './MapTree.css';
@@ -109,8 +108,6 @@ export default function MapTree() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
-  const [mapPropsId, setMapPropsId] = useState<number | null>(null);
-  const [mapPropsName, setMapPropsName] = useState('');
   const [sampleMapTargetId, setSampleMapTargetId] = useState<number | null>(null);
 
   const tree = useMemo(() => buildTree(maps), [maps]);
@@ -120,12 +117,8 @@ export default function MapTree() {
   };
 
   const handleDoubleClick = useCallback((mapId: number) => {
-    const info = maps.find(m => m && m.id === mapId);
-    if (info) {
-      setMapPropsId(mapId);
-      setMapPropsName(info.name);
-    }
-  }, [maps]);
+    selectMap(mapId);
+  }, [selectMap]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, mapId: number) => {
     setContextMenu({ x: e.clientX, y: e.clientY, mapId });
@@ -160,16 +153,6 @@ export default function MapTree() {
     if (info) {
       setEditingId(contextMenu.mapId);
       setEditName(info.name);
-    }
-    closeContextMenu();
-  }, [contextMenu, maps, closeContextMenu]);
-
-  const handleMapProperties = useCallback(() => {
-    if (!contextMenu) return;
-    const info = maps.find(m => m && m.id === contextMenu.mapId);
-    if (info) {
-      setMapPropsId(contextMenu.mapId);
-      setMapPropsName(info.name);
     }
     closeContextMenu();
   }, [contextMenu, maps, closeContextMenu]);
@@ -269,14 +252,6 @@ export default function MapTree() {
         </div>
       )}
 
-      {mapPropsId !== null && (
-        <MapPropertiesDialog
-          mapId={mapPropsId}
-          mapName={mapPropsName}
-          onClose={() => setMapPropsId(null)}
-        />
-      )}
-
       {sampleMapTargetId !== null && (
         <SampleMapDialog
           parentId={sampleMapTargetId}
@@ -290,7 +265,6 @@ export default function MapTree() {
           {contextMenu.mapId > 0 && (
             <>
               <div className="context-menu-item" onClick={handleLoadSampleMap}>{t('mapTree.loadSampleMap')}</div>
-              <div className="context-menu-item" onClick={handleMapProperties}>{t('mapTree.mapProperties')}</div>
               <div className="context-menu-item" onClick={handleEditMap}>{t('mapTree.editMapName')}</div>
               <div className="context-menu-separator" />
               <div className="context-menu-item" onClick={handleDeleteMap}>{t('mapTree.deleteMap')}</div>
