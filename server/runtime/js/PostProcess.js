@@ -1033,10 +1033,11 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
         }
     }
 
-    // 하늘, FOW 메쉬 숨김 (UIRenderPass는 2D OrthographicCamera이므로)
+    // 하늘, FOW, editorGrid 메쉬 숨김 (UIRenderPass는 2D OrthographicCamera이므로)
     var skyWasVisible = false;
     var fowWasVisible = false;
     var fowMesh = null;
+    var gridVisibility = [];
     for (var si = 0; si < scene.children.length; si++) {
         if (scene.children[si]._isParallaxSky) {
             skyWasVisible = scene.children[si].visible;
@@ -1046,6 +1047,10 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
             fowMesh = scene.children[si];
             fowWasVisible = fowMesh.visible;
             fowMesh.visible = false;
+        }
+        if (scene.children[si].userData && scene.children[si].userData.editorGrid) {
+            gridVisibility.push({ idx: si, visible: scene.children[si].visible });
+            scene.children[si].visible = false;
         }
     }
 
@@ -1121,6 +1126,9 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
         if (scene.children[si]._isFogOfWar) {
             scene.children[si].visible = fowWasVisible;
         }
+    }
+    for (var gi = 0; gi < gridVisibility.length; gi++) {
+        scene.children[gridVisibility[gi].idx].visible = gridVisibility[gi].visible;
     }
 };
 
