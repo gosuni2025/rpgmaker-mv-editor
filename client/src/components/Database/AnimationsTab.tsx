@@ -91,6 +91,79 @@ function ImageSelectPopup({ type, value, hue, onSelect, onClose }: {
   );
 }
 
+// 적 이미지 선택 팝업 (대상 변경)
+function EnemyImageSelectPopup({ value, onSelect, onClose }: {
+  value: string;
+  onSelect: (name: string) => void;
+  onClose: () => void;
+}) {
+  const [files, setFiles] = useState<string[]>([]);
+  const [selected, setSelected] = useState(value);
+  const [selectedHue, setSelectedHue] = useState(0);
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    apiClient.get<string[]>('/resources/enemies').then(list => {
+      setFiles(list.filter(f => /\.png$/i.test(f)).map(f => f.replace(/\.png$/i, '')));
+    }).catch(() => setFiles([]));
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div className="modal-overlay">
+      <div className="anim-img-popup" ref={popupRef}>
+        <div className="anim-img-popup-header">이미지 선택</div>
+        <div className="anim-img-popup-body">
+          <div className="anim-img-popup-list">
+            {files.map(name => (
+              <div
+                key={name}
+                className={`anim-img-popup-item${selected === name ? ' selected' : ''}`}
+                onClick={() => setSelected(name)}
+                ref={selected === name ? (el) => { el?.scrollIntoView({ block: 'nearest' }); } : undefined}
+              >{name}</div>
+            ))}
+          </div>
+          <div className="anim-img-popup-preview anim-enemy-preview-bg">
+            {selected && (
+              <img
+                src={`/api/resources/enemies/${selected}.png`}
+                alt={selected}
+                style={{ maxWidth: '100%', maxHeight: '100%', imageRendering: 'pixelated', objectFit: 'contain' }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            )}
+          </div>
+        </div>
+        <div className="anim-img-popup-hue">
+          <label>
+            색조
+            <input type="range" min={0} max={360} value={selectedHue} onChange={(e) => setSelectedHue(Number(e.target.value))} />
+            <span>{selectedHue}</span>
+          </label>
+        </div>
+        <div className="anim-img-popup-footer">
+          <button className="db-btn" onClick={() => { onSelect(selected); onClose(); }}>OK</button>
+          <button className="db-btn" onClick={onClose}>취소</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // 최대 프레임 팝업
 function MaxFrameDialog({ value, onConfirm, onClose }: {
   value: number;
@@ -142,6 +215,7 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
   const [showImg1Popup, setShowImg1Popup] = useState(false);
   const [showImg2Popup, setShowImg2Popup] = useState(false);
   const [showMaxFrameDialog, setShowMaxFrameDialog] = useState(false);
+  const [showEnemyImagePopup, setShowEnemyImagePopup] = useState(false);
   const [targetImageName, setTargetImageName] = useState('Dragon');
   const previewRef = useRef<AnimationPreviewHandle>(null);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
@@ -453,11 +527,7 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
 
                 {/* 오른쪽: 버튼 */}
                 <div className="anim-frame-buttons">
-                  <button className="anim-frame-btn" onClick={() => {
-                    // 대상 변경: 간단히 prompt로 처리 (추후 팝업으로 교체 가능)
-                    const name = window.prompt('대상 이미지 이름 (예: Dragon, Bat)', targetImageName);
-                    if (name !== null) setTargetImageName(name || 'Dragon');
-                  }}>대상 변경...</button>
+                  <button className="anim-frame-btn" onClick={() => setShowEnemyImagePopup(true)}>대상 변경...</button>
                   <button className="anim-frame-btn">전 프레임 붙이기</button>
                   <button className="anim-frame-btn">보완...</button>
                   <button className="anim-frame-btn">일괄 설정...</button>
@@ -503,6 +573,13 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                 value={totalFrames}
                 onConfirm={handleMaxFrameChange}
                 onClose={() => setShowMaxFrameDialog(false)}
+              />
+            )}
+            {showEnemyImagePopup && (
+              <EnemyImageSelectPopup
+                value={targetImageName}
+                onSelect={(name) => setTargetImageName(name || 'Dragon')}
+                onClose={() => setShowEnemyImagePopup(false)}
               />
             )}
           </>
