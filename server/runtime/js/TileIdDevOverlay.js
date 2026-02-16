@@ -206,6 +206,7 @@
         hoverMesh.renderOrder = 9992;
         hoverMesh.frustumCulled = false;
         hoverMesh.userData._tileIdOverlay = true;
+        hoverMesh.userData.editorGrid = true;
         hoverMesh.visible = false;
     }
 
