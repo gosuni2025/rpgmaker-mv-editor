@@ -305,9 +305,30 @@ ThreeTilemapRectLayer.prototype._flush = function() {
         }
 
         // --- 일반 타일 메시 빌드 (물 메시 위에 렌더링) ---
+        // drawZ가 혼합된 setNumber는 drawZ별로 별도 메시로 분리
+        // (depthTest:false이므로 renderOrder만으로 순서 결정 → 메시 단위로 분리 필요)
         if (hasNormal) {
-            this._buildNormalMesh(setNumber, data, animOffsets, texture, texW, texH,
-                                  tileAnimX, tileAnimY, isShadow, hasWater);
+            var dzArr = this._drawZData[setNumber] || [];
+            var dzSet = {};
+            for (var dzi = 0; dzi < dzArr.length; dzi++) {
+                dzSet[dzArr[dzi]] = true;
+            }
+            var uniqueDrawZs = Object.keys(dzSet).map(Number).sort();
+
+            if (uniqueDrawZs.length <= 1) {
+                // 단일 drawZ → 기존 방식으로 빌드
+                this._buildNormalMesh(setNumber, data, animOffsets, texture, texW, texH,
+                                      tileAnimX, tileAnimY, isShadow, hasWater,
+                                      undefined, uniqueDrawZs[0] || 0);
+            } else {
+                // 복수 drawZ → drawZ별 별도 메시
+                for (var dzu = 0; dzu < uniqueDrawZs.length; dzu++) {
+                    var splitDrawZ = uniqueDrawZs[dzu];
+                    this._buildNormalMesh(setNumber + '_z' + splitDrawZ, data, animOffsets,
+                                          texture, texW, texH, tileAnimX, tileAnimY,
+                                          isShadow, hasWater, splitDrawZ, splitDrawZ);
+                }
+            }
         }
     }
 };
@@ -316,14 +337,19 @@ ThreeTilemapRectLayer.prototype._flush = function() {
  * 일반(비물) 타일 메시 빌드
  */
 ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, animOffsets,
-        texture, texW, texH, tileAnimX, tileAnimY, isShadow, hasWater) {
+        texture, texW, texH, tileAnimX, tileAnimY, isShadow, hasWater, filterDrawZ, maxDrawZ) {
     var sn = parseInt(setNumber);
+    // split 키 (예: '6_z2')인 경우 원본 setNumber에서 drawZ 데이터 참조
+    var origSetNumber = String(sn);
 
     // 물 rect를 제외한 일반 rect만 수집 (enabled=false인 kind는 일반으로 포함)
+    // filterDrawZ가 지정되면 해당 drawZ만 포함
+    var drawZArr = this._drawZData[origSetNumber] || [];
     var normalIndices = [];
     if (hasWater) {
-        var kindArr = this._kindData[setNumber] || [];
+        var kindArr = this._kindData[origSetNumber] || [];
         for (var ci = 0; ci < data.count; ci++) {
+            if (filterDrawZ !== undefined && drawZArr[ci] !== filterDrawZ) continue;
             var cAnimX = animOffsets[ci * 2] || 0;
             var cAnimY = animOffsets[ci * 2 + 1] || 0;
             var ck = kindArr[ci] != null ? kindArr[ci] : -1;
@@ -336,6 +362,7 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
         }
     } else {
         for (var ci = 0; ci < data.count; ci++) {
+            if (filterDrawZ !== undefined && drawZArr[ci] !== filterDrawZ) continue;
             normalIndices.push(ci);
         }
     }
@@ -359,7 +386,6 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
 
         // 그리기 z 레이어 기반 z 오프셋: 높은 drawZ가 카메라에 더 가깝도록 음수
         // z=0→0.00, z=1→-0.01, z=2→-0.02, z=3→-0.03
-        var drawZArr = this._drawZData[setNumber] || [];
         var drawZ = drawZArr[i] || 0;
         var zOffset = -drawZ * 0.01;
 
@@ -413,7 +439,7 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
             if (needsPhong && !isPhong) {
                 mesh.material.dispose();
                 mesh.material = new THREE.MeshPhongMaterial({
-                    map: texture, transparent: true, depthTest: true, depthWrite: false,
+                    map: texture, transparent: true, depthTest: false, depthWrite: false,
                     side: THREE.DoubleSide,
                     emissive: new THREE.Color(0x000000),
                     specular: new THREE.Color(0x000000), shininess: 0,
@@ -422,11 +448,12 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
             } else if (!needsPhong && isPhong) {
                 mesh.material.dispose();
                 mesh.material = new THREE.MeshBasicMaterial({
-                    map: texture, transparent: true, depthTest: true, depthWrite: false,
+                    map: texture, transparent: true, depthTest: false, depthWrite: false,
                     side: THREE.DoubleSide,
                 });
                 mesh.material.needsUpdate = true;
-            } else if (mesh.material.depthWrite !== false) {
+            } else if (mesh.material.depthTest !== false || mesh.material.depthWrite !== false) {
+                mesh.material.depthTest = false;
                 mesh.material.depthWrite = false;
                 mesh.material.needsUpdate = true;
             }
@@ -455,14 +482,14 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
             texture.anisotropy = 1;
             if (needsPhong) {
                 material = new THREE.MeshPhongMaterial({
-                    map: texture, transparent: true, depthTest: true, depthWrite: false,
+                    map: texture, transparent: true, depthTest: false, depthWrite: false,
                     side: THREE.DoubleSide,
                     emissive: new THREE.Color(0x000000),
                     specular: new THREE.Color(0x000000), shininess: 0,
                 });
             } else {
                 material = new THREE.MeshBasicMaterial({
-                    map: texture, transparent: true, depthTest: true, depthWrite: false,
+                    map: texture, transparent: true, depthTest: false, depthWrite: false,
                     side: THREE.DoubleSide,
                 });
             }
@@ -486,6 +513,9 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
         this._meshes[setNumber] = mesh;
         this._threeObj.add(mesh);
     }
+
+    // drawZ 기반 renderOrder 정렬에 사용
+    mesh.userData.maxDrawZ = (maxDrawZ !== undefined) ? maxDrawZ : 0;
 
     // 텍스처 교체 (타일셋 로딩 완료 후 바뀔 수 있음)
     if (!isShadow && mesh.material.map !== texture) {

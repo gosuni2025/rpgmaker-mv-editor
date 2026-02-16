@@ -317,10 +317,20 @@
                         threeChildren[t].renderOrder = rendererObj._drawOrderCounter++;
                     }
                 }
+                // 일반 메시: drawZ(maxDrawZ) 기준 정렬 후 renderOrder 할당
+                // 낮은 drawZ가 먼저 렌더링되어 높은 drawZ가 위에 그려짐
+                var normalMeshes = [];
                 for (var t = 0; t < threeChildren.length; t++) {
-                    if (threeChildren[t].isMesh && !threeChildren[t]._wrapper && !(threeChildren[t].userData && threeChildren[t].userData.isWaterMesh)) {
-                        threeChildren[t].renderOrder = rendererObj._drawOrderCounter++;
+                    if (threeChildren[t].isMesh && !threeChildren[t]._wrapper &&
+                        !(threeChildren[t].userData && threeChildren[t].userData.isWaterMesh)) {
+                        normalMeshes.push(threeChildren[t]);
                     }
+                }
+                normalMeshes.sort(function(a, b) {
+                    return (a.userData.maxDrawZ || 0) - (b.userData.maxDrawZ || 0);
+                });
+                for (var t = 0; t < normalMeshes.length; t++) {
+                    normalMeshes[t].renderOrder = rendererObj._drawOrderCounter++;
                 }
             }
         }
