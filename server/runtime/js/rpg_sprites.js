@@ -2470,7 +2470,7 @@ Spriteset_Map.prototype.createMapObjects = function() {
                 imgChild._objShaderRTs = [];
                 imgChild._objShaderKey = '';
                 imgChild._objOutputMaterial = null;
-                imgChild._objOriginalMaterial = null;
+                imgChild._objSourceTexture = null; // 원본 이미지 texture (ShadowLight 변환과 무관하게 유지)
                 imgChild._objShakeOffsetX = 0;
                 imgChild._objShakeOffsetY = 0;
             }
@@ -2509,9 +2509,10 @@ Spriteset_Map.prototype._updateObjectShader = function(sprite) {
     var shaderData = sprite._objShaderData;
     if (!shaderData || !Array.isArray(shaderData) || shaderData.length === 0) return;
 
-    // 셰이더 키 계산 (변경 감지)
+    // 셰이더 키 계산 (변경 감지 - ShadowLight 상태도 포함)
     var passes = shaderData.filter(function(s) { return s.enabled; });
-    var key = passes.map(function(s) { return s.type; }).join(',');
+    var is3D = typeof ShadowLight !== 'undefined' && ShadowLight._active;
+    var key = (is3D ? '3d:' : '2d:') + passes.map(function(s) { return s.type; }).join(',');
 
     if (sprite._objShaderKey !== key) {
         this._applyObjectShaderPasses(sprite, passes);
@@ -2543,9 +2544,9 @@ Spriteset_Map.prototype._updateObjectShader = function(sprite) {
  * 이미지 오브젝트에 셰이더 패스를 적용한다.
  */
 Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
-    // 원래 material 백업
-    if (!sprite._objOriginalMaterial && sprite._material) {
-        sprite._objOriginalMaterial = sprite._material;
+    // 원본 이미지 texture 저장 (최초 1회, ShadowLight 변환과 무관)
+    if (!sprite._objSourceTexture) {
+        sprite._objSourceTexture = sprite._threeTexture || (sprite._material && sprite._material.map);
     }
 
     // 기존 패스 정리
@@ -2561,8 +2562,8 @@ Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
         this._objRTScene.add(this._objRTQuad);
     }
 
-    // RT 크기: 텍스처 크기 또는 기본값
-    var tex = sprite._threeTexture || (sprite._material && sprite._material.map);
+    // RT 크기: 원본 이미지 텍스처 크기 사용
+    var tex = sprite._objSourceTexture;
     var rtW = 256, rtH = 256;
     if (tex && tex.image) {
         rtW = tex.image.width || 256;
@@ -2586,10 +2587,10 @@ Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
         sprite._objShaderRTs.push(rt);
     }
 
-    // 최종 출력용 Material: 3D 모드(ShadowLight 활성)이면 MeshPhongMaterial, 아니면 MeshBasicMaterial
+    // 최종 출력용 Material: ShadowLight 활성이면 MeshPhongMaterial, 아니면 MeshBasicMaterial
     var outputMat;
     var is3D = typeof ShadowLight !== 'undefined' && ShadowLight._active;
-    if (is3D && sprite._objOriginalMaterial && sprite._objOriginalMaterial.isMeshPhongMaterial) {
+    if (is3D) {
         outputMat = new THREE.MeshPhongMaterial({
             transparent: false,
             alphaTest: 0.5,
@@ -2604,9 +2605,14 @@ Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
         if (ShadowLight._convertedMaterials) {
             ShadowLight._convertedMaterials.set(outputMat, true);
         }
-        // customDepthMaterial 유지 (그림자 캐스팅)
-        if (sprite._threeObj && sprite._threeObj.customDepthMaterial) {
-            // customDepthMaterial.map은 _executeObjectMultipass에서 업데이트
+        // 그림자 캐스팅용 customDepthMaterial 생성
+        if (sprite._threeObj) {
+            sprite._threeObj.castShadow = true;
+            sprite._threeObj.customDepthMaterial = new THREE.MeshDepthMaterial({
+                depthPacking: THREE.RGBADepthPacking,
+                alphaTest: 0.5,
+                side: THREE.DoubleSide,
+            });
         }
     } else {
         outputMat = new THREE.MeshBasicMaterial({
@@ -2616,7 +2622,7 @@ Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
             side: THREE.DoubleSide,
         });
     }
-    // anchorY shader clipping: 원래 material에 적용되어 있었다면 출력 material에도 적용
+    // anchorY shader clipping: MeshPhongMaterial 출력에 적용
     if (sprite._needsAnchorClip && outputMat.isMeshPhongMaterial) {
         outputMat.onBeforeCompile = function(shader) {
             shader.vertexShader = shader.vertexShader.replace(
@@ -2649,7 +2655,7 @@ Spriteset_Map.prototype._executeObjectMultipass = function(sprite, passes) {
     var renderer = PictureShader._renderer;
     if (!renderer) return;
 
-    var sourceTexture = sprite._threeTexture || (sprite._objOriginalMaterial && sprite._objOriginalMaterial.map);
+    var sourceTexture = sprite._objSourceTexture || sprite._threeTexture;
     if (!sourceTexture) return;
 
     var currentInput = sourceTexture;
