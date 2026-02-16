@@ -19,7 +19,7 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
   const [commandFilter, setCommandFilter] = useState('');
   const commandFilterRef = useRef<HTMLInputElement>(null);
 
-  // 탭별 좌/우 카테고리 구성 (원본 RPG Maker MV와 동일)
+  // 탭별 좌/우 카테고리 구성 (원본 RPG Maker MV와 동일 + Tab4 애드온)
   const TABS = useMemo(() => ({
     1: {
       left: [
@@ -105,6 +105,19 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
     },
   }), [t]);
 
+  // 애드온 커맨드를 카테고리별로 분류
+  const addonCategories = useMemo(() => {
+    const cats: { label: string; addons: typeof ADDON_COMMANDS }[] = [];
+    // 맵/렌더링 관련
+    const mapAddons = ADDON_COMMANDS.filter(a => ['FogOfWar', 'ShadowLight', 'Mode3D'].includes(a.pluginCommand));
+    const ppAddons = ADDON_COMMANDS.filter(a => a.pluginCommand === 'PostProcess');
+    const ppEffectAddons = ADDON_COMMANDS.filter(a => a.pluginCommand === 'PPEffect');
+    if (mapAddons.length > 0) cats.push({ label: t('eventCommands.categories.tab4MapRendering'), addons: mapAddons });
+    if (ppAddons.length > 0) cats.push({ label: t('eventCommands.categories.tab4PostProcess'), addons: ppAddons });
+    if (ppEffectAddons.length > 0) cats.push({ label: t('eventCommands.categories.tab4PPEffect'), addons: ppEffectAddons });
+    return cats;
+  }, [t]);
+
   // 검색 모드: 필터가 있으면 모든 탭에서 검색
   const isFiltering = commandFilter.length > 0;
 
@@ -120,12 +133,12 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
         }
       }
     }
-    const addonCat = t('eventCommands.categories.tab3Addon');
     for (const addon of ADDON_COMMANDS) {
-      result.push({ code: 356, name: t(addon.label), category: addonCat, addonPlugin: addon.pluginCommand });
+      const catLabel = addonCategories.find(c => c.addons.includes(addon))?.label || t('eventCommands.categories.tab4Addon');
+      result.push({ code: 356, name: t(addon.label), category: catLabel, addonPlugin: addon.pluginCommand });
     }
     return result;
-  }, [TABS, t]);
+  }, [TABS, t, addonCategories]);
 
   const filteredCommands = useMemo(() => {
     if (!isFiltering) return [];
@@ -151,11 +164,11 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
     </div>
   );
 
-  const renderAddonCategory = () => (
-    <div className="cmd-insert-category">
-      <div className="cmd-insert-category-header">{t('eventCommands.categories.tab3Addon')}</div>
+  const renderAddonCategory = (label: string, addons: typeof ADDON_COMMANDS) => (
+    <div key={label} className="cmd-insert-category">
+      <div className="cmd-insert-category-header">{label}</div>
       <div className="cmd-insert-category-body">
-        {ADDON_COMMANDS.map(addon => (
+        {addons.map(addon => (
           <div
             key={addon.pluginCommand}
             className="insert-command-item"
@@ -169,6 +182,23 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
   );
 
   const renderTab = (tabNum: number) => {
+    if (tabNum === 4) {
+      // 애드온 탭: 카테고리별 분류
+      return (
+        <div className="cmd-insert-columns">
+          <div className="cmd-insert-column">
+            {addonCategories.slice(0, Math.ceil(addonCategories.length / 2)).map(cat =>
+              renderAddonCategory(cat.label, cat.addons)
+            )}
+          </div>
+          <div className="cmd-insert-column">
+            {addonCategories.slice(Math.ceil(addonCategories.length / 2)).map(cat =>
+              renderAddonCategory(cat.label, cat.addons)
+            )}
+          </div>
+        </div>
+      );
+    }
     const tab = TABS[tabNum as keyof typeof TABS];
     return (
       <div className="cmd-insert-columns">
@@ -177,7 +207,6 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
         </div>
         <div className="cmd-insert-column">
           {tab.right.map(cat => renderCategory(cat.label, cat.commands))}
-          {tabNum === 3 && renderAddonCategory()}
         </div>
       </div>
     );
@@ -189,7 +218,7 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
         <div className="cmd-insert-title">{t('eventCommands.insertCommand')}</div>
         <div className="cmd-insert-toolbar">
           <div className="cmd-insert-tabs">
-            {[1, 2, 3].map(n => (
+            {[1, 2, 3, 4].map(n => (
               <button
                 key={n}
                 className={`cmd-insert-tab${activeTab === n ? ' active' : ''}`}

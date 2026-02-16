@@ -2051,6 +2051,26 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
             PostProcess.config.blurPower = parseFloat(args[1]);
         }
     }
+
+    // PPEffect <effectKey> <on|off|paramKey> [value]
+    if (command === 'PPEffect') {
+        var effectKey = args[0];
+        var action = args[1];
+        var PPE = window.PostProcessEffects;
+        if (effectKey && action && PostProcess._ppPasses && PostProcess._ppPasses[effectKey]) {
+            var pass = PostProcess._ppPasses[effectKey];
+            if (action === 'on') {
+                pass.enabled = true;
+                PostProcess._updateRenderToScreen();
+            } else if (action === 'off') {
+                pass.enabled = false;
+                PostProcess._updateRenderToScreen();
+            } else if (args[2] != null && PPE) {
+                // paramKey value
+                PPE.applyParam(effectKey, pass, action, parseFloat(args[2]));
+            }
+        }
+    }
 };
 
 })();
