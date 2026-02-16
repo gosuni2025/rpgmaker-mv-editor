@@ -1,0 +1,65 @@
+.addon-cmd-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.addon-cmd-label {
+  min-width: 80px;
+  color: #ccc;
+  font-size: 13px;
+  text-align: right;
+}
+
+.addon-cmd-select {
+  flex: 1;
+  padding: 4px 8px;
+  background: #3c3c3c;
+  color: #ddd;
+  border: 1px solid #555;
+  border-radius: 3px;
+  font-size: 13px;
+}
+
+.addon-cmd-input {
+  width: 120px;
+  padding: 4px 8px;
+  background: #3c3c3c;
+  color: #ddd;
+  border: 1px solid #555;
+  border-radius: 3px;
+  font-size: 13px;
+}
+
+.addon-cmd-params {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.addon-cmd-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #444;
+}
+
+.addon-cmd-preview-text {
+  flex: 1;
+  padding: 4px 8px;
+  background: #1e1e1e;
+  color: #9cdcfe;
+  border: 1px solid #444;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.addon-cmd-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 4px;
+}

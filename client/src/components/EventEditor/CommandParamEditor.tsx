@@ -1,6 +1,8 @@
 import React from 'react';
 import useEscClose from '../../hooks/useEscClose';
 import type { EventCommand } from '../../types/rpgMakerMV';
+import { ADDON_COMMANDS } from './addonCommands';
+import AddonCommandEditor, { parseAddonProps } from './AddonCommandEditor';
 import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
@@ -28,14 +30,15 @@ interface CommandParamEditorProps {
   command?: EventCommand;
   followCommands?: EventCommand[];
   hasElse?: boolean;
+  initialParam?: string;
   onOk: (params: unknown[], extraCommands?: EventCommand[]) => void;
   onCancel: () => void;
 }
 
-export default function CommandParamEditor({ code, command, followCommands, hasElse, onOk, onCancel }: CommandParamEditorProps) {
+export default function CommandParamEditor({ code, command, followCommands, hasElse, initialParam, onOk, onCancel }: CommandParamEditorProps) {
   useEscClose(onCancel);
   const p = command?.parameters || [];
-  const content = getEditorContent(code, p, followCommands || [], onOk, onCancel, hasElse);
+  const content = getEditorContent(code, p, followCommands || [], onOk, onCancel, hasElse, initialParam);
   if (!content) {
     onOk(p);
     return null;
@@ -81,6 +84,7 @@ function getEditorContent(
   onOk: (params: unknown[], extraCommands?: EventCommand[]) => void,
   onCancel: () => void,
   hasElse?: boolean,
+  initialParam?: string,
 ): React.ReactNode | null {
   // 후속 라인 텍스트 추출 헬퍼
   const followText = (followCode: number) =>
@@ -94,7 +98,20 @@ function getEditorContent(
     case 101: return <ShowTextEditor p={p} onOk={onOk} onCancel={onCancel} existingLines={followText(401)} />;
     case 108: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={408} label="Comment" existingLines={followText(408)} />;
     case 355: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={655} label="Script" existingLines={followText(655)} />;
-    case 356: return <SingleTextEditor p={p} onOk={onOk} onCancel={onCancel} label="Plugin Command" />;
+    case 356: {
+      // 기존 텍스트에서 애드온 매칭 시도
+      const existingText = (p[0] as string) || '';
+      const addonProps = existingText ? parseAddonProps(existingText) : null;
+      // 새 삽입 시 initialParam으로 매칭
+      const initDef = initialParam ? ADDON_COMMANDS.find(d => d.pluginCommand === initialParam) : null;
+      if (addonProps) {
+        return <AddonCommandEditor def={addonProps.def} initialSubCmd={addonProps.initialSubCmd} initialParamValues={addonProps.initialParamValues} onOk={onOk} onCancel={onCancel} />;
+      }
+      if (initDef) {
+        return <AddonCommandEditor def={initDef} onOk={onOk} onCancel={onCancel} />;
+      }
+      return <SingleTextEditor p={p} onOk={onOk} onCancel={onCancel} label="Plugin Command" />;
+    }
     case 105: return <ScrollingTextEditor p={p} onOk={onOk} onCancel={onCancel} existingLines={followText(405)} />;
     case 121: return <ControlSwitchesEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 122: return <ControlVariablesEditor p={p} onOk={onOk} onCancel={onCancel} />;

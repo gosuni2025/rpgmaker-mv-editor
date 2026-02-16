@@ -555,7 +555,8 @@
       "tab3SystemSettings": "System Settings",
       "tab3Map": "Map",
       "tab3Battle": "Battle",
-      "tab3Advanced": "Advanced"
+      "tab3Advanced": "Advanced",
+      "tab3Addon": "Addon"
     },
     "commands": {
       "101": "Show Text...",
@@ -1377,5 +1378,39 @@
     "copySource": "Copy Source",
     "copySourceTooltip": "Copy source language values to all target languages for selected entries",
     "copySourceDone": "Copied source text for {{count}} entries"
+  },
+  "addonCommands": {
+    "subCommand": "Sub Command",
+    "preview": "Preview",
+    "fogOfWar": "Fog of War",
+    "fogOfWar_Enable": "Enable",
+    "fogOfWar_Disable": "Disable",
+    "fogOfWar_Radius": "Set Radius",
+    "fogOfWar_RevealAll": "Reveal All",
+    "fogOfWar_HideAll": "Hide All",
+    "fogOfWar_RevealRect": "Reveal Rect",
+    "shadowLight": "Shadow & Light",
+    "shadowLight_on": "On",
+    "shadowLight_off": "Off",
+    "shadowLight_ambient": "Ambient Intensity",
+    "shadowLight_direction": "Light Direction",
+    "postProcess": "Post Process",
+    "postProcess_on": "On",
+    "postProcess_off": "Off",
+    "postProcess_focusY": "Focus Y",
+    "postProcess_focusRange": "Focus Range",
+    "postProcess_maxblur": "Max Blur",
+    "postProcess_blurPower": "Blur Power",
+    "mode3d": "3D Mode",
+    "mode3d_on": "On",
+    "mode3d_off": "Off",
+    "mode3d_tilt": "Tilt",
+    "mode3d_yaw": "Yaw",
+    "param_radius": "Radius",
+    "param_width": "Width",
+    "param_height": "Height",
+    "param_intensity": "Intensity",
+    "param_value": "Value",
+    "param_degrees": "Degrees"
   }
 }

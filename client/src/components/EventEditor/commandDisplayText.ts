@@ -1,4 +1,5 @@
 import type { EventCommand, MoveRoute } from '../../types/rpgMakerMV';
+import { matchAddonCommand } from './addonCommands';
 
 export interface CommandDisplayContext {
   t: (key: string) => string;
@@ -541,6 +542,18 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
       text += `: (없음)`;
     }
     return text;
+  }
+
+  // 플러그인 커맨드 - 애드온 매칭 시 보기 좋은 포맷
+  if (code === 356 && cmd.parameters && cmd.parameters.length >= 1) {
+    const cmdText = cmd.parameters[0] as string;
+    const match = matchAddonCommand(cmdText);
+    if (match) {
+      const label = ctx.t(match.subCmd.label);
+      const paramStr = match.paramValues.length > 0 ? ` (${match.paramValues.join(', ')})` : '';
+      return `${ctx.t(match.def.label)}: ${label}${paramStr}`;
+    }
+    return text + `: ${cmdText}`;
   }
 
   if (cmd.parameters && cmd.parameters.length > 0) {

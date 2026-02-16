@@ -570,7 +570,8 @@
       "tab3SystemSettings": "시스템 설정",
       "tab3Map": "지도",
       "tab3Battle": "전투",
-      "tab3Advanced": "상급"
+      "tab3Advanced": "상급",
+      "tab3Addon": "애드온"
     },
     "commands": {
       "101": "텍스트 표시...",
@@ -1465,5 +1466,39 @@
     "copySource": "원문 복사",
     "copySourceTooltip": "선택된 항목의 원본 언어 값을 모든 타겟 언어에 복사합니다",
     "copySourceDone": "{{count}}개 항목의 원문을 복사했습니다"
+  },
+  "addonCommands": {
+    "subCommand": "서브 커맨드",
+    "preview": "미리보기",
+    "fogOfWar": "FOW 제어",
+    "fogOfWar_Enable": "활성화",
+    "fogOfWar_Disable": "비활성화",
+    "fogOfWar_Radius": "반경 설정",
+    "fogOfWar_RevealAll": "전체 공개",
+    "fogOfWar_HideAll": "전체 숨김",
+    "fogOfWar_RevealRect": "영역 공개",
+    "shadowLight": "광원 제어",
+    "shadowLight_on": "켜기",
+    "shadowLight_off": "끄기",
+    "shadowLight_ambient": "환경광 강도",
+    "shadowLight_direction": "광원 방향",
+    "postProcess": "포스트 프로세스",
+    "postProcess_on": "켜기",
+    "postProcess_off": "끄기",
+    "postProcess_focusY": "초점 Y",
+    "postProcess_focusRange": "초점 범위",
+    "postProcess_maxblur": "최대 블러",
+    "postProcess_blurPower": "블러 강도",
+    "mode3d": "3D 모드",
+    "mode3d_on": "켜기",
+    "mode3d_off": "끄기",
+    "mode3d_tilt": "틸트(기울기)",
+    "mode3d_yaw": "요(회전)",
+    "param_radius": "반경",
+    "param_width": "너비",
+    "param_height": "높이",
+    "param_intensity": "강도",
+    "param_value": "값",
+    "param_degrees": "각도"
   }
 }

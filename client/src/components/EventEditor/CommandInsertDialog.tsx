@@ -2,10 +2,11 @@ import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fuzzyMatch } from '../../utils/fuzzySearch';
 import useEscClose from '../../hooks/useEscClose';
+import { ADDON_COMMANDS } from './addonCommands';
 import '../MapEditor/MapCanvas.css';
 
 interface CommandInsertDialogProps {
-  onSelect: (code: number) => void;
+  onSelect: (code: number, initialParam?: string) => void;
   onCancel: () => void;
 }
 
@@ -108,7 +109,7 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
   const isFiltering = commandFilter.length > 0;
 
   const allCommands = useMemo(() => {
-    const result: { code: number; name: string; category: string }[] = [];
+    const result: { code: number; name: string; category: string; addonPlugin?: string }[] = [];
     for (const tab of Object.values(TABS)) {
       for (const col of [tab.left, tab.right]) {
         for (const cat of col) {
@@ -118,6 +119,10 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
           }
         }
       }
+    }
+    const addonCat = t('eventCommands.categories.tab3Addon');
+    for (const addon of ADDON_COMMANDS) {
+      result.push({ code: 356, name: t(addon.label), category: addonCat, addonPlugin: addon.pluginCommand });
     }
     return result;
   }, [TABS, t]);
@@ -146,6 +151,23 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
     </div>
   );
 
+  const renderAddonCategory = () => (
+    <div className="cmd-insert-category">
+      <div className="cmd-insert-category-header">{t('eventCommands.categories.tab3Addon')}</div>
+      <div className="cmd-insert-category-body">
+        {ADDON_COMMANDS.map(addon => (
+          <div
+            key={addon.pluginCommand}
+            className="insert-command-item"
+            onClick={() => onSelect(356, addon.pluginCommand)}
+          >
+            {t(addon.label)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   const renderTab = (tabNum: number) => {
     const tab = TABS[tabNum as keyof typeof TABS];
     return (
@@ -155,6 +177,7 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
         </div>
         <div className="cmd-insert-column">
           {tab.right.map(cat => renderCategory(cat.label, cat.commands))}
+          {tabNum === 3 && renderAddonCategory()}
         </div>
       </div>
     );
@@ -197,11 +220,11 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
               <div style={{ padding: 16, textAlign: 'center', color: '#888' }}>{t('eventCommands.noResults')}</div>
             ) : (
               <div>
-                {filteredCommands.map(c => (
+                {filteredCommands.map((c, i) => (
                   <div
-                    key={c.code}
+                    key={`${c.code}-${c.addonPlugin || i}`}
                     className="insert-command-item"
-                    onClick={() => onSelect(c.code)}
+                    onClick={() => onSelect(c.code, c.addonPlugin)}
                   >
                     {c.name}
                   </div>
