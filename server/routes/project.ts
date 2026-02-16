@@ -251,7 +251,7 @@ router.post('/open-folder', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'No project open' });
   }
   const subfolder = req.body?.subfolder;
-  let targetPath = projectManager.currentPath;
+  let targetPath = projectManager.currentPath!;
   if (subfolder) {
     const resolved = path.join(targetPath, subfolder);
     if (fs.existsSync(resolved)) targetPath = resolved;
