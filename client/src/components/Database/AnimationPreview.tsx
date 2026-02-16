@@ -260,7 +260,7 @@ const AnimationPreview = React.forwardRef<
     targetSprite.anchor.x = 0.5;
     targetSprite.anchor.y = 1;
     targetSprite.x = CANVAS_W / 2;
-    targetSprite.y = CANVAS_H / 2;
+    targetSprite.y = CANVAS_H * 3 / 4;
     stage.addChild(targetSprite);
 
     rtRef.current = {
