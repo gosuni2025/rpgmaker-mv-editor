@@ -2368,11 +2368,25 @@ Spriteset_Map.prototype.createMapObjects = function() {
             var objAnchorY = obj.anchorY != null ? obj.anchorY : 1.0;
             imgSprite.anchor.set(0.5, objAnchorY);
             imgSprite.x = obj.width * tw / 2;
+            // 3D 모드에서 anchorY에 의한 파묻힘이 보이도록 depthTest 활성화
+            if (imgSprite._material) {
+                imgSprite._material.depthTest = true;
+                imgSprite._material.depthWrite = true;
+                imgSprite._material.needsUpdate = true;
+            }
+            // imageScale 적용
+            var imgScale = obj.imageScale != null ? obj.imageScale : 1.0;
+            if (imgScale !== 1.0) {
+                imgSprite.scale.set(imgScale, imgScale);
+            }
             container.addChild(imgSprite);
             // 이미지 로드 완료 시 여러 프레임에 걸쳐 repaint 요청
-            // (텍스처 생성 → ThreeSprite 반영 → 실제 렌더까지 복수 프레임 필요)
             var tilemap = this._tilemap;
-            imgSprite.bitmap.addLoadListener(function() {
+            imgSprite.bitmap.addLoadListener(function(bmp) {
+                // 비트맵 로드 완료 후 bitmap을 재설정하여 texture를 깨끗하게 교체
+                var loadedBitmap = imgSprite.bitmap;
+                imgSprite.bitmap = null;
+                imgSprite.bitmap = loadedBitmap;
                 var count = 0;
                 function forceRepaint() {
                     if (tilemap) tilemap._needsRepaint = true;

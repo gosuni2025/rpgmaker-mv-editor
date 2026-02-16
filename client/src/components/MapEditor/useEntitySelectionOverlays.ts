@@ -302,6 +302,49 @@ export function useLightSelectionOverlays(refs: OverlayRefs, rendererReady: numb
 /**
  * Object selection overlays (선택된 오브젝트 하이라이트 + 드래그 선택 영역 + 붙여넣기 프리뷰)
  */
+/**
+ * 통행 표시용 Canvas 텍스처 캐시 (O: 통행가능, X: 통행불가)
+ */
+const _passabilityTexCache: { o?: any; x?: any } = {};
+function getPassabilityTexture(THREE: any, passable: boolean) {
+  const key = passable ? 'o' : 'x';
+  if (_passabilityTexCache[key]) return _passabilityTexCache[key];
+
+  const size = 32;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  ctx.clearRect(0, 0, size, size);
+
+  if (passable) {
+    // O 표시 (초록)
+    ctx.strokeStyle = '#22cc44';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    // X 표시 (빨강)
+    ctx.strokeStyle = '#ee3333';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    const m = 5;
+    ctx.beginPath();
+    ctx.moveTo(m, m);
+    ctx.lineTo(size - m, size - m);
+    ctx.moveTo(size - m, m);
+    ctx.lineTo(m, size - m);
+    ctx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  _passabilityTexCache[key] = tex;
+  return tex;
+}
+
 export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: number) {
   const editMode = useEditorStore((s) => s.editMode);
   const selectedObjectIds = useEditorStore((s) => s.selectedObjectIds);
@@ -312,6 +355,14 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
   const clipboard = useEditorStore((s) => s.clipboard);
   const currentMap = useEditorStore((s) => s.currentMap);
   const objectPaintTiles = useEditorStore((s) => s.objectPaintTiles);
+
+  // 통행 표시 on/off (CustomEvent로 토글)
+  const [showPassability, setShowPassability] = React.useState(false);
+  React.useEffect(() => {
+    const handler = (e: Event) => setShowPassability((e as CustomEvent).detail);
+    window.addEventListener('editor-toggle-passability', handler);
+    return () => window.removeEventListener('editor-toggle-passability', handler);
+  }, []);
 
   React.useEffect(() => {
     const rObj = refs.rendererObjRef.current;
@@ -406,6 +457,41 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
       }
     }
 
+    // 1. 통행 표시 (O/X)
+    if (isObjMode && showPassability && currentMap?.objects) {
+      for (const obj of currentMap.objects as any[]) {
+        if (!obj || !obj.passability) continue;
+        const ow = obj.width || 1;
+        const oh = obj.height || 1;
+        for (let row = 0; row < oh; row++) {
+          const passRow = obj.passability[row];
+          if (!passRow) continue;
+          for (let col = 0; col < ow; col++) {
+            const passable = passRow[col] !== false;
+            const tx = obj.x + col;
+            const ty = (obj.y - oh + 1) + row;
+            const cx = tx * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+            const cy = ty * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+            const iconSize = 20;
+            const geom = new THREE.PlaneGeometry(iconSize, iconSize);
+            const mat = new THREE.MeshBasicMaterial({
+              map: getPassabilityTexture(THREE, passable),
+              transparent: true,
+              depthTest: false,
+              side: THREE.DoubleSide,
+            });
+            const mesh = new THREE.Mesh(geom, mat);
+            mesh.position.set(cx, cy, 7.0);
+            mesh.renderOrder = 10020;
+            mesh.frustumCulled = false;
+            mesh.userData.editorGrid = true;
+            rObj.scene.add(mesh);
+            meshes.push(mesh);
+          }
+        }
+      }
+    }
+
     // 2. 드래그 선택 영역
     if (isObjMode && objectSelectionStart && objectSelectionEnd) {
       createDragSelectionArea(THREE, rObj.scene, meshes, objectSelectionStart, objectSelectionEnd, 0x00ff66);
@@ -439,5 +525,5 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
     }
 
     triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
-  }, [editMode, selectedObjectIds, objectSelectionStart, objectSelectionEnd, isObjectPasting, objectPastePreviewPos, clipboard, currentMap?.objects, objectPaintTiles, rendererReady]);
+  }, [editMode, selectedObjectIds, objectSelectionStart, objectSelectionEnd, isObjectPasting, objectPastePreviewPos, clipboard, currentMap?.objects, objectPaintTiles, showPassability, rendererReady]);
 }

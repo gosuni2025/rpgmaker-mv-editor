@@ -262,12 +262,85 @@ export default function ObjectInspector() {
         </div>
       </div>
 
-      {/* Size info */}
+      {/* Size / Scale */}
       <div className="light-inspector-section">
         <div className="light-inspector-title">크기</div>
         <div className="light-inspector-row">
           <span className="light-inspector-label" style={{ width: 'auto' }}>{selectedObj.width} x {selectedObj.height} 타일</span>
         </div>
+        {isImageObj && (() => {
+          const scale = selectedObj.imageScale ?? 1.0;
+          const handleScaleChange = (newScale: number) => {
+            newScale = Math.max(0.1, Math.round(newScale * 100) / 100);
+            // 이미지 원본 크기를 로드해서 타일 영역 재계산
+            const img = new Image();
+            img.onload = () => {
+              const tileSize = 48;
+              const scaledW = img.naturalWidth * newScale;
+              const scaledH = img.naturalHeight * newScale;
+              const newW = Math.max(1, Math.ceil(scaledW / tileSize));
+              const newH = Math.max(1, Math.ceil(scaledH / tileSize));
+              // passability 배열 리사이즈
+              const oldPass = selectedObj.passability;
+              const newPass: boolean[][] = [];
+              for (let row = 0; row < newH; row++) {
+                const newRow: boolean[] = [];
+                for (let col = 0; col < newW; col++) {
+                  // 기존 값 유지, 새 셀은 하단 행만 불통
+                  newRow.push(oldPass[row]?.[col] ?? (row < newH - 1));
+                }
+                newPass.push(newRow);
+              }
+              // tileIds도 리사이즈 (이미지 오브젝트는 모두 빈 타일)
+              const newTileIds: number[][][] = [];
+              for (let row = 0; row < newH; row++) {
+                const tileRow: number[][] = [];
+                for (let col = 0; col < newW; col++) {
+                  tileRow.push([0, 0, 0, 0]);
+                }
+                newTileIds.push(tileRow);
+              }
+              updateObject(selectedObj.id, {
+                imageScale: newScale,
+                width: newW,
+                height: newH,
+                passability: newPass,
+                tileIds: newTileIds,
+              });
+            };
+            img.onerror = () => {
+              updateObject(selectedObj.id, { imageScale: newScale });
+            };
+            img.src = `/api/resources/pictures/${selectedObj.imageName}.png`;
+          };
+          return (
+            <>
+              <div className="light-inspector-row" style={{ marginTop: 4 }}>
+                <DragLabel label="스케일" value={scale} step={0.05} min={0.1} max={10}
+                  onChange={handleScaleChange} />
+                <input type="range" className="light-inspector-slider"
+                  min={0.1} max={5} step={0.05}
+                  value={scale}
+                  onChange={(e) => handleScaleChange(parseFloat(e.target.value))} />
+                <input type="number" className="light-inspector-input" min={0.1} max={10} step={0.05}
+                  style={{ width: 55 }}
+                  value={scale}
+                  onChange={(e) => handleScaleChange(parseFloat(e.target.value) || 1)} />
+              </div>
+              <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                <button className="light-inspector-input"
+                  style={{ flex: 1, cursor: 'pointer', textAlign: 'center', fontSize: 10 }}
+                  onClick={() => handleScaleChange(0.5)}>0.5x</button>
+                <button className="light-inspector-input"
+                  style={{ flex: 1, cursor: 'pointer', textAlign: 'center', fontSize: 10 }}
+                  onClick={() => handleScaleChange(1.0)}>1x</button>
+                <button className="light-inspector-input"
+                  style={{ flex: 1, cursor: 'pointer', textAlign: 'center', fontSize: 10 }}
+                  onClick={() => handleScaleChange(2.0)}>2x</button>
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* Passability */}

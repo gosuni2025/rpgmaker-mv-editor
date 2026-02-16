@@ -49,6 +49,7 @@ export default function DrawToolbar() {
   const setShowEventSearchDialog = useEditorStore((s) => s.setShowEventSearchDialog);
   const setShowResourceManagerDialog = useEditorStore((s) => s.setShowResourceManagerDialog);
   const [showGrid, setShowGrid] = React.useState(true);
+  const [showPassability, setShowPassability] = React.useState(false);
 
   return (
     <div style={styles.toolbar}>
@@ -163,6 +164,23 @@ export default function DrawToolbar() {
       >
         {t('toolbar.grid')}
       </button>
+
+      {/* Passability toggle (object mode) */}
+      {editMode === 'object' && (
+        <button
+          onClick={() => {
+            const next = !showPassability;
+            setShowPassability(next);
+            window.dispatchEvent(
+              new CustomEvent('editor-toggle-passability', { detail: next })
+            );
+            showToast(`통행 표시 ${next ? 'ON' : 'OFF'}`);
+          }}
+          style={{ ...styles.btn, ...(showPassability ? styles.btnActive : {}) }}
+        >
+          통행
+        </button>
+      )}
 
       <div style={styles.separator} />
 
