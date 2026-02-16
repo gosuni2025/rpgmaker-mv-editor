@@ -2544,7 +2544,8 @@ Spriteset_Map.prototype._updateObjectShader = function(sprite) {
  * 이미지 오브젝트에 셰이더 패스를 적용한다.
  */
 Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
-    // 원본 이미지 texture 저장 (최초 1회, ShadowLight 변환과 무관)
+    // 원본 이미지 texture 저장 (최초 1회, 이후 변경 안 함)
+    // _convertMaterial이 material을 변환해도 원본 texture 참조를 보존
     if (!sprite._objSourceTexture) {
         sprite._objSourceTexture = sprite._threeTexture || (sprite._material && sprite._material.map);
     }
@@ -2621,6 +2622,10 @@ Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
             depthWrite: false,
             side: THREE.DoubleSide,
         });
+        // ShadowLight._convertMaterial이 이 outputMat을 변환하지 않도록 등록
+        if (typeof ShadowLight !== 'undefined' && ShadowLight._convertedMaterials) {
+            ShadowLight._convertedMaterials.set(outputMat, true);
+        }
     }
     // anchorY shader clipping: MeshPhongMaterial 출력에 적용
     if (sprite._needsAnchorClip && outputMat.isMeshPhongMaterial) {
@@ -2655,7 +2660,12 @@ Spriteset_Map.prototype._executeObjectMultipass = function(sprite, passes) {
     var renderer = PictureShader._renderer;
     if (!renderer) return;
 
-    var sourceTexture = sprite._objSourceTexture || sprite._threeTexture;
+    var sourceTexture = sprite._objSourceTexture;
+    // 이미지 로드 지연 시 _objSourceTexture가 아직 null일 수 있음
+    if (!sourceTexture) {
+        sourceTexture = sprite._threeTexture;
+        if (sourceTexture) sprite._objSourceTexture = sourceTexture;
+    }
     if (!sourceTexture) return;
 
     var currentInput = sourceTexture;
