@@ -371,6 +371,26 @@
     "field": "Field",
     "area": "Area"
   },
+  "tileFlags": {
+    "modes": {
+      "passage": "Passage",
+      "4dir": "4-Dir Passage",
+      "ladder": "Ladder",
+      "bush": "Bush",
+      "counter": "Counter",
+      "damage": "Damage Floor",
+      "terrain": "Terrain Tag"
+    },
+    "help": {
+      "passage": "Click: ○ (passable) → × (impassable) → ☆ (star)",
+      "4dir": "Click direction quadrant to toggle individual passage",
+      "ladder": "Click to toggle ladder flag",
+      "bush": "Click to toggle bush flag",
+      "counter": "Click to toggle counter flag",
+      "damage": "Click to toggle damage floor flag",
+      "terrain": "Click to cycle terrain tag (0-7)"
+    }
+  },
   "triggerOptions": {
     "none": "None",
     "autorun": "Autorun",
