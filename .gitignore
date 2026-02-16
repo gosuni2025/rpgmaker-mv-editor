@@ -4,6 +4,7 @@ dist-electron/
 release/
 .DS_Store
 *.log
+CLAUDE.md
 CLAUDE.local.md
 server/sample-maps/
 plan.md
