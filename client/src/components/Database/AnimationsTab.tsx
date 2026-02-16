@@ -201,6 +201,87 @@ function MaxFrameDialog({ value, onConfirm, onClose }: {
   );
 }
 
+// 보완 (Tween) 팝업
+interface TweenOptions {
+  frameStart: number;
+  frameEnd: number;
+  cellStart: number;
+  cellEnd: number;
+  pattern: boolean;
+  x: boolean;
+  y: boolean;
+  scale: boolean;
+  rotation: boolean;
+  mirror: boolean;
+  opacity: boolean;
+  blendMode: boolean;
+}
+
+function TweenDialog({ totalFrames, maxCells, onConfirm, onClose }: {
+  totalFrames: number;
+  maxCells: number;
+  onConfirm: (opts: TweenOptions) => void;
+  onClose: () => void;
+}) {
+  const [opts, setOpts] = useState<TweenOptions>({
+    frameStart: 1, frameEnd: totalFrames,
+    cellStart: 1, cellEnd: maxCells || 16,
+    pattern: true, x: true, y: true, scale: true,
+    rotation: true, mirror: true, opacity: true, blendMode: true,
+  });
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const update = (field: keyof TweenOptions, value: number | boolean) => {
+    setOpts(prev => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="anim-tween-dialog">
+        <div className="anim-tween-header">보완</div>
+        <div className="anim-tween-body">
+          <fieldset className="anim-tween-fieldset">
+            <legend>범위</legend>
+            <div className="anim-tween-range-row">
+              <label>프레임:</label>
+              <input type="number" min={1} max={totalFrames} value={opts.frameStart} onChange={e => update('frameStart', Number(e.target.value))} autoFocus />
+              <span>~</span>
+              <input type="number" min={1} max={totalFrames} value={opts.frameEnd} onChange={e => update('frameEnd', Number(e.target.value))} />
+            </div>
+            <div className="anim-tween-range-row">
+              <label>셀:</label>
+              <input type="number" min={1} max={16} value={opts.cellStart} onChange={e => update('cellStart', Number(e.target.value))} />
+              <span>~</span>
+              <input type="number" min={1} max={16} value={opts.cellEnd} onChange={e => update('cellEnd', Number(e.target.value))} />
+            </div>
+          </fieldset>
+          <div className="anim-tween-checks">
+            <label><input type="checkbox" checked={opts.pattern} onChange={e => update('pattern', e.target.checked)} /> 패턴</label>
+            <label><input type="checkbox" checked={opts.x} onChange={e => update('x', e.target.checked)} /> X</label>
+            <label><input type="checkbox" checked={opts.y} onChange={e => update('y', e.target.checked)} /> Y</label>
+            <label><input type="checkbox" checked={opts.scale} onChange={e => update('scale', e.target.checked)} /> 배율</label>
+            <label><input type="checkbox" checked={opts.rotation} onChange={e => update('rotation', e.target.checked)} /> 회전</label>
+            <label><input type="checkbox" checked={opts.mirror} onChange={e => update('mirror', e.target.checked)} /> 좌우 반전</label>
+            <label><input type="checkbox" checked={opts.opacity} onChange={e => update('opacity', e.target.checked)} /> 불투명도</label>
+            <label><input type="checkbox" checked={opts.blendMode} onChange={e => update('blendMode', e.target.checked)} /> 합성 방법</label>
+          </div>
+        </div>
+        <div className="anim-tween-footer">
+          <button className="db-btn" onClick={() => { onConfirm(opts); onClose(); }}>OK</button>
+          <button className="db-btn" onClick={onClose}>취소</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface AnimationsTabProps {
   data: (Animation | null)[] | undefined;
   onChange: (data: (Animation | null)[]) => void;
@@ -216,6 +297,7 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
   const [showImg2Popup, setShowImg2Popup] = useState(false);
   const [showMaxFrameDialog, setShowMaxFrameDialog] = useState(false);
   const [showEnemyImagePopup, setShowEnemyImagePopup] = useState(false);
+  const [showTweenDialog, setShowTweenDialog] = useState(false);
   const [targetImageName, setTargetImageName] = useState('Dragon');
   const previewRef = useRef<AnimationPreviewHandle>(null);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
@@ -274,6 +356,39 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     }
     handleFieldChange('frames', frames);
     if (selectedFrameIdx >= newMax) setSelectedFrameIdx(newMax - 1);
+  };
+
+  const handleTween = (opts: TweenOptions) => {
+    if (!selectedItem || !selectedItem.frames) return;
+    const frames = selectedItem.frames.map(f => f.map(c => [...c]));
+    const fi = opts.frameStart - 1; // 0-based 시작 프레임
+    const fe = opts.frameEnd - 1;   // 0-based 끝 프레임
+    if (fi < 0 || fe >= frames.length || fi >= fe) return;
+    const ci = opts.cellStart - 1;  // 0-based 시작 셀
+    const ce = opts.cellEnd - 1;    // 0-based 끝 셀
+    const totalSteps = fe - fi;
+
+    for (let c = ci; c <= ce; c++) {
+      const startCell = frames[fi]?.[c];
+      const endCell = frames[fe]?.[c];
+      if (!startCell || startCell.length < 8 || !endCell || endCell.length < 8) continue;
+      // cell: [pattern, x, y, scale, rotation, mirror, opacity, blendMode]
+      for (let f = fi + 1; f < fe; f++) {
+        const t = (f - fi) / totalSteps;
+        if (!frames[f]) frames[f] = [];
+        const existing = frames[f][c] ? [...frames[f][c]] : [...startCell];
+        if (opts.pattern) existing[0] = Math.round(startCell[0] + (endCell[0] - startCell[0]) * t);
+        if (opts.x) existing[1] = Math.round(startCell[1] + (endCell[1] - startCell[1]) * t);
+        if (opts.y) existing[2] = Math.round(startCell[2] + (endCell[2] - startCell[2]) * t);
+        if (opts.scale) existing[3] = Math.round(startCell[3] + (endCell[3] - startCell[3]) * t);
+        if (opts.rotation) existing[4] = Math.round(startCell[4] + (endCell[4] - startCell[4]) * t);
+        if (opts.mirror) existing[5] = t < 0.5 ? startCell[5] : endCell[5];
+        if (opts.opacity) existing[6] = Math.round(startCell[6] + (endCell[6] - startCell[6]) * t);
+        if (opts.blendMode) existing[7] = t < 0.5 ? startCell[7] : endCell[7];
+        frames[f][c] = existing;
+      }
+    }
+    handleFieldChange('frames', frames);
   };
 
   const handleAddNew = useCallback(() => {
@@ -529,7 +644,7 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                 <div className="anim-frame-buttons">
                   <button className="anim-frame-btn" onClick={() => setShowEnemyImagePopup(true)}>대상 변경...</button>
                   <button className="anim-frame-btn">전 프레임 붙이기</button>
-                  <button className="anim-frame-btn">보완...</button>
+                  <button className="anim-frame-btn" onClick={() => setShowTweenDialog(true)}>보완...</button>
                   <button className="anim-frame-btn">일괄 설정...</button>
                   <button className="anim-frame-btn">시프트...</button>
                   <button className="anim-frame-btn anim-frame-btn-play" onClick={() => previewRef.current?.play()}>재생</button>
@@ -580,6 +695,14 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                 value={targetImageName}
                 onSelect={(name) => setTargetImageName(name || 'Dragon')}
                 onClose={() => setShowEnemyImagePopup(false)}
+              />
+            )}
+            {showTweenDialog && (
+              <TweenDialog
+                totalFrames={totalFrames}
+                maxCells={Math.max(...(selectedItem.frames || []).map(f => f.length), 16)}
+                onConfirm={handleTween}
+                onClose={() => setShowTweenDialog(false)}
               />
             )}
           </>
