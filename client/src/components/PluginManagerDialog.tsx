@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import useEditorStore from '../store/useEditorStore';
 import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
@@ -28,23 +29,116 @@ interface PluginsResponse {
   list: ServerPluginEntry[];
 }
 
+interface PluginMetadata {
+  pluginname: string;
+  plugindesc: string;
+  author: string;
+  help: string;
+  params: { name: string; desc: string; type: string; default: string; options: string[]; dir: string }[];
+}
+
+function CreditTextEditor() {
+  const [text, setText] = useState('');
+  const [originalText, setOriginalText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/plugins/credit-text');
+        const content = await res.text();
+        setText(content);
+        setOriginalText(content);
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const isDirty = text !== originalText;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      await fetch('/api/plugins/credit-text', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'text/plain' },
+        body: text,
+      });
+      setOriginalText(text);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleOpenFolder = async () => {
+    try {
+      await apiClient.post('/plugins/credit-text/open-folder', {});
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  if (loading) return <div style={{ color: '#888', fontSize: 12, padding: '4px 0' }}>로딩 중...</div>;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+      <div className="db-form-section">크레딧 텍스트 (data/Credits.txt)</div>
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        style={{
+          width: '100%',
+          height: 150,
+          fontFamily: 'monospace',
+          fontSize: 12,
+          background: '#1e1e1e',
+          color: '#ddd',
+          border: '1px solid #555',
+          padding: 6,
+          resize: 'vertical',
+          boxSizing: 'border-box',
+        }}
+      />
+      {error && <div style={{ color: '#e55', fontSize: 11 }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 4 }}>
+        <button className="db-btn-small" onClick={handleSave} disabled={saving || !isDirty}
+          style={isDirty ? { background: '#0078d4', borderColor: '#0078d4', color: '#fff' } : {}}>
+          {saving ? '저장 중...' : '저장'}
+        </button>
+        <button className="db-btn-small" onClick={handleOpenFolder}>폴더 열기</button>
+      </div>
+    </div>
+  );
+}
+
 export default function PluginManagerDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowPluginManagerDialog);
   useEscClose(useCallback(() => setShow(false), [setShow]));
   const [plugins, setPlugins] = useState<PluginEntry[]>([]);
+  const [metadata, setMetadata] = useState<Record<string, PluginMetadata>>({});
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
+  const locale = i18n.language || 'ko';
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await apiClient.get<PluginsResponse>('/plugins');
-        // Convert server format { name, status, description, parameters: Record<string,string> }
-        // to client format { name, status, description, parameters: PluginParam[] }
+        const [res, meta] = await Promise.all([
+          apiClient.get<PluginsResponse>('/plugins'),
+          apiClient.get<Record<string, PluginMetadata>>(`/plugins/metadata?locale=${locale}`),
+        ]);
         const entries: PluginEntry[] = (res.list || []).map((p: ServerPluginEntry) => ({
           name: p.name,
           status: p.status,
@@ -52,15 +146,17 @@ export default function PluginManagerDialog() {
           parameters: Object.entries(p.parameters || {}).map(([k, v]) => ({ name: k, value: String(v) })),
         }));
         setPlugins(entries);
+        setMetadata(meta);
         setLoading(false);
       } catch (e) {
         setError((e as Error).message);
         setLoading(false);
       }
     })();
-  }, []);
+  }, [locale]);
 
   const selected = plugins[selectedIndex] ?? null;
+  const isTitleCredit = selected?.name === 'TitleCredit';
 
   const toggleStatus = (index: number) => {
     const updated = [...plugins];
@@ -128,16 +224,21 @@ export default function PluginManagerDialog() {
             <>
               <div style={{ width: 220, minWidth: 220, display: 'flex', flexDirection: 'column', borderRight: '1px solid #555' }}>
                 <div style={{ flex: 1, overflowY: 'auto' }}>
-                  {plugins.map((p, i) => (
-                    <div key={`${p.name}-${i}`}
-                      className={`db-list-item${i === selectedIndex ? ' selected' : ''}`}
-                      onClick={() => setSelectedIndex(i)}>
-                      <span style={{ color: p.status ? '#6c6' : '#888', marginRight: 6, fontSize: 10 }}>
-                        {p.status ? 'ON' : 'OFF'}
-                      </span>
-                      {p.name}
-                    </div>
-                  ))}
+                  {plugins.map((p, i) => {
+                    const meta = metadata[p.name];
+                    const displayName = meta?.pluginname || p.name;
+                    return (
+                      <div key={`${p.name}-${i}`}
+                        className={`db-list-item${i === selectedIndex ? ' selected' : ''}`}
+                        onClick={() => setSelectedIndex(i)}
+                        title={meta?.pluginname ? p.name : undefined}>
+                        <span style={{ color: p.status ? '#6c6' : '#888', marginRight: 6, fontSize: 10 }}>
+                          {p.status ? 'ON' : 'OFF'}
+                        </span>
+                        {displayName}
+                      </div>
+                    );
+                  })}
                   {plugins.length === 0 && (
                     <div style={{ padding: 12, color: '#666', fontSize: 12 }}>{t('pluginManager.noPlugins')}</div>
                   )}
@@ -151,30 +252,44 @@ export default function PluginManagerDialog() {
 
               <div className="db-form" style={{ flex: 1 }}>
                 {selected ? (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 14, fontWeight: 'bold' }}>{selected.name}</span>
-                      <button className="db-btn-small" onClick={() => toggleStatus(selectedIndex)}
-                        style={selected.status ? { color: '#6c6' } : { color: '#888' }}>
-                        {selected.status ? 'ON' : 'OFF'}
-                      </button>
-                    </div>
-                    <div style={{ fontSize: 12, color: '#aaa', whiteSpace: 'pre-wrap' }}>
-                      {selected.description || t('pluginManager.noDescription')}
-                    </div>
-                    {selected.parameters.length > 0 && (
+                  (() => {
+                    const selMeta = metadata[selected.name];
+                    const selDisplayName = selMeta?.pluginname || selected.name;
+                    const selDesc = selMeta?.plugindesc || selected.description;
+                    return (
                       <>
-                        <div className="db-form-section">{t('pluginManager.parameters')}</div>
-                        {selected.parameters.map((param, pi) => (
-                          <label key={param.name}>
-                            <span>{param.name}</span>
-                            <input type="text" value={param.value}
-                              onChange={e => updateParam(pi, e.target.value)} />
-                          </label>
-                        ))}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 14, fontWeight: 'bold' }}>{selDisplayName}</span>
+                          <button className="db-btn-small" onClick={() => toggleStatus(selectedIndex)}
+                            style={selected.status ? { color: '#6c6' } : { color: '#888' }}>
+                            {selected.status ? 'ON' : 'OFF'}
+                          </button>
+                        </div>
+                        {selMeta?.pluginname && (
+                          <div style={{ fontSize: 11, color: '#777' }}>{selected.name}</div>
+                        )}
+                        <div style={{ fontSize: 12, color: '#aaa', whiteSpace: 'pre-wrap' }}>
+                          {selDesc || t('pluginManager.noDescription')}
+                        </div>
+                        {selected.parameters.length > 0 && (
+                          <>
+                            <div className="db-form-section">{t('pluginManager.parameters')}</div>
+                            {selected.parameters.map((param, pi) => {
+                              const paramMeta = selMeta?.params.find(pm => pm.name === param.name);
+                              return (
+                                <label key={param.name} title={paramMeta?.desc || undefined}>
+                                  <span>{param.name}</span>
+                                  <input type="text" value={param.value}
+                                    onChange={e => updateParam(pi, e.target.value)} />
+                                </label>
+                              );
+                            })}
+                          </>
+                        )}
+                        {isTitleCredit && <CreditTextEditor />}
                       </>
-                    )}
-                  </>
+                    );
+                  })()
                 ) : (
                   <div className="db-placeholder">{t('pluginManager.selectPlugin')}</div>
                 )}
