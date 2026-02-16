@@ -2405,18 +2405,91 @@ Spriteset_Map.prototype.createMapObjects = function() {
                         var tileId = layers[li];
                         if (!tileId || tileId === 0) continue;
 
-                        var setNumber = 5 + Math.floor(tileId / 256);
-                        var tilesetName = tileset.tilesetNames[setNumber];
-                        if (!tilesetName) continue;
+                        if (Tilemap.isAutotile(tileId)) {
+                            // 오토타일: ShaderTilemap._drawAutotile 로직 재현
+                            var autotileTable = Tilemap.FLOOR_AUTOTILE_TABLE;
+                            var kind = Tilemap.getAutotileKind(tileId);
+                            var shape = Tilemap.getAutotileShape(tileId);
+                            var tx2 = kind % 8;
+                            var ty2 = Math.floor(kind / 8);
+                            var bx = 0, by = 0, setNumber = 0;
 
-                        var tileSprite = new Sprite();
-                        tileSprite.bitmap = ImageManager.loadTileset(tilesetName);
-                        var sx = (Math.floor(tileId / 128) % 2 * 8 + tileId % 8) * tw;
-                        var sy = Math.floor(tileId % 256 / 8) % 16 * th;
-                        tileSprite.setFrame(sx, sy, tw, th);
-                        tileSprite.x = col * tw;
-                        tileSprite.y = (row - obj.height) * th;
-                        container.addChild(tileSprite);
+                            if (Tilemap.isTileA1(tileId)) {
+                                setNumber = 0;
+                                if (kind === 0) {
+                                    by = 0;
+                                } else if (kind === 1) {
+                                    by = 3;
+                                } else if (kind === 2) {
+                                    bx = 6;
+                                    by = 0;
+                                } else if (kind === 3) {
+                                    bx = 6;
+                                    by = 3;
+                                } else {
+                                    bx = Math.floor(tx2 / 4) * 8;
+                                    by = ty2 * 6 + Math.floor(tx2 / 2) % 2 * 3;
+                                    if (kind % 2 === 1) {
+                                        bx += 6;
+                                        autotileTable = Tilemap.WATERFALL_AUTOTILE_TABLE;
+                                    }
+                                }
+                            } else if (Tilemap.isTileA2(tileId)) {
+                                setNumber = 1;
+                                bx = tx2 * 2;
+                                by = (ty2 - 2) * 3;
+                            } else if (Tilemap.isTileA3(tileId)) {
+                                setNumber = 2;
+                                bx = tx2 * 2;
+                                by = (ty2 - 6) * 2;
+                                autotileTable = Tilemap.WALL_AUTOTILE_TABLE;
+                            } else if (Tilemap.isTileA4(tileId)) {
+                                setNumber = 3;
+                                bx = tx2 * 2;
+                                by = Math.floor((ty2 - 10) * 2.5 + (ty2 % 2 === 1 ? 0.5 : 0));
+                                if (ty2 % 2 === 1) {
+                                    autotileTable = Tilemap.WALL_AUTOTILE_TABLE;
+                                }
+                            }
+
+                            var tilesetName = tileset.tilesetNames[setNumber];
+                            if (!tilesetName) continue;
+                            var table = autotileTable[shape];
+                            var w1 = tw / 2, h1 = th / 2;
+
+                            for (var qi = 0; qi < 4; qi++) {
+                                var qsx = table[qi][0];
+                                var qsy = table[qi][1];
+                                var sx1 = (bx * 2 + qsx) * w1;
+                                var sy1 = (by * 2 + qsy) * h1;
+
+                                var qSprite = new Sprite();
+                                qSprite.bitmap = ImageManager.loadTileset(tilesetName);
+                                qSprite.setFrame(sx1, sy1, w1, h1);
+                                qSprite.x = col * tw + (qi % 2) * w1;
+                                qSprite.y = (row - obj.height) * th + Math.floor(qi / 2) * h1;
+                                container.addChild(qSprite);
+                            }
+                        } else {
+                            // 일반 타일 (B~E, A5)
+                            var setNumber;
+                            if (Tilemap.isTileA5(tileId)) {
+                                setNumber = 4;
+                            } else {
+                                setNumber = 5 + Math.floor(tileId / 256);
+                            }
+                            var tilesetName = tileset.tilesetNames[setNumber];
+                            if (!tilesetName) continue;
+
+                            var tileSprite = new Sprite();
+                            tileSprite.bitmap = ImageManager.loadTileset(tilesetName);
+                            var sx = (Math.floor(tileId / 128) % 2 * 8 + tileId % 8) * tw;
+                            var sy = Math.floor(tileId % 256 / 8) % 16 * th;
+                            tileSprite.setFrame(sx, sy, tw, th);
+                            tileSprite.x = col * tw;
+                            tileSprite.y = (row - obj.height) * th;
+                            container.addChild(tileSprite);
+                        }
                     }
                 }
             }
