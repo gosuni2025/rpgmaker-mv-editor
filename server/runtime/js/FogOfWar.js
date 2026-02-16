@@ -1504,8 +1504,9 @@ FogOfWar._createMeshVolume = function() {
     group.renderOrder = 9990;
     group.frustumCulled = false;
 
-    var planeW = totalW + FOG_PADDING * 2;
-    var planeH = totalH + FOG_PADDING * 2;
+    // 3D 카메라가 비스듬히 볼 때 시야 전체를 덮도록 매우 큰 평면
+    var planeW = 20000;
+    var planeH = 20000;
 
     var material = new THREE.ShaderMaterial({
         uniforms: {
@@ -1567,8 +1568,19 @@ FogOfWar._updateMeshPosition = function() {
         oy = $gameMap.displayY() * 48;
     }
 
-    // 그룹 위치: 맵 중앙 - 스크롤 오프셋
-    this._fogGroup.position.set(totalW / 2 - ox, totalH / 2 - oy, 0);
+    if (this._fogMode === '3dvolume') {
+        // 3dvolume: 카메라 XY를 따라다님 — 거대한 평면이 항상 시야를 덮음
+        var is3D = typeof Mode3D !== 'undefined' && Mode3D._perspCamera && Mode3D._active;
+        if (is3D) {
+            var cam = Mode3D._perspCamera.position;
+            this._fogGroup.position.set(cam.x, cam.y, 0);
+        } else {
+            this._fogGroup.position.set(totalW / 2 - ox, totalH / 2 - oy, 0);
+        }
+    } else {
+        // 2D: 맵 중앙 - 스크롤 오프셋
+        this._fogGroup.position.set(totalW / 2 - ox, totalH / 2 - oy, 0);
+    }
 };
 
 FogOfWar._updateMeshUniforms = function() {
