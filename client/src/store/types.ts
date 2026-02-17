@@ -316,6 +316,7 @@ export interface EditorState {
   addObject: (x: number, y: number) => void;
   addObjectFromTiles: (paintedTiles: Set<string>) => void;
   addObjectFromImage: (imageName: string, imageWidth: number, imageHeight: number) => void;
+  addObjectFromAnimation: (animationId: number, animationName: string) => void;
   expandObjectTiles: (objectId: number, paintedTiles: Set<string>) => void;
   shrinkObjectTiles: (objectId: number, removeTiles: Set<string>) => void;
   updateObject: (id: number, updates: Partial<MapObject>) => void;
