@@ -133,7 +133,7 @@ export interface SkyBackground {
   skyImage?: string;
   rotationSpeed?: number;
   sunPosition?: [number, number];   // deprecated: sunLights로 대체
-  sunLights?: SkySunLight[];        // 태양 광원 배열
+  sunLights?: SkySunLight[];        // 태양 조명 배열
 }
 
 /** equirectangular UV 좌표를 디렉셔널 라이트 방향 벡터로 변환

@@ -799,8 +799,8 @@ PostProcessEffects.EFFECT_PARAMS = {
         { key: 'color',   label: '안개 색상', type: 'color', default: '#ccd9e6' }
     ],
     godRays: [
-        { key: 'lightPosX', label: '광원 X', min: 0, max: 1, step: 0.01, default: 0.5 },
-        { key: 'lightPosY', label: '광원 Y', min: 0, max: 1, step: 0.01, default: 0 },
+        { key: 'lightPosX', label: '조명 X', min: 0, max: 1, step: 0.01, default: 0.5 },
+        { key: 'lightPosY', label: '조명 Y', min: 0, max: 1, step: 0.01, default: 0 },
         { key: 'exposure',  label: '노출',   min: 0, max: 1, step: 0.01, default: 0.3 },
         { key: 'decay',     label: '감쇠',   min: 0.8, max: 1, step: 0.005, default: 0.95 },
         { key: 'density',   label: '밀도',   min: 0, max: 2, step: 0.05, default: 0.8 },

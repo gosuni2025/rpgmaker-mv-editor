@@ -64,10 +64,10 @@ export default function LightInspector() {
       {/* Global lights enabled */}
       <div className="light-inspector-section">
         <div className="light-inspector-row">
-          <span className="light-inspector-label">광원 적용</span>
+          <span className="light-inspector-label">조명 적용</span>
           <input type="checkbox" checked={editorLights.enabled !== false}
             onChange={(e) => updateEditorLightsEnabled(e.target.checked)} />
-          <HelpButton text={"이 맵에 에디터 광원 시스템을 적용할지 결정합니다.\n맵 속성의 동일한 설정과 연동됩니다."} />
+          <HelpButton text={"이 맵에 에디터 조명 시스템을 적용할지 결정합니다.\n맵 속성의 동일한 설정과 연동됩니다."} />
         </div>
       </div>
 
@@ -112,7 +112,7 @@ export default function LightInspector() {
       {selectedLightType === 'directional' && (
         <>
           <div className="light-inspector-section">
-            <div className="light-inspector-title">광원 방향 <ExtBadge inline /></div>
+            <div className="light-inspector-title">조명 방향 <ExtBadge inline /></div>
             <div className="light-inspector-row">
               <span className="light-inspector-label">적용</span>
               <input type="checkbox" checked={dir.enabled === true}
@@ -414,8 +414,8 @@ export default function LightInspector() {
             <div style={{ color: '#666', fontSize: 12, padding: 8 }}>
               <span style={{ color: '#4a4' }}>맵에서 포인트 라이트를 선택하세요.</span>
               <div style={{ color: '#aaa', marginTop: 8, lineHeight: 1.6 }}>
-                포인트 라이트는 맵의 특정 위치에서 모든 방향으로 빛을 발산하는 광원입니다.
-                횃불, 가로등, 마법 오브 등 점 광원 효과에 사용합니다.
+                포인트 라이트는 맵의 특정 위치에서 모든 방향으로 빛을 발산하는 조명입니다.
+                횃불, 가로등, 마법 오브 등 점 조명 효과에 사용합니다.
                 <br /><br />
                 빈 타일을 클릭하면 새 포인트 라이트를 배치하고,
                 드래그로 이동하거나 인스펙터에서 색상, 강도, 거리를 조절할 수 있습니다.

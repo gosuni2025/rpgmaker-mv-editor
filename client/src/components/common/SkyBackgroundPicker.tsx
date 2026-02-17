@@ -154,12 +154,12 @@ export default function SkyBackgroundPicker({ value, rotationSpeed, sunLights, o
                 {/* 태양 광원 목록 */}
                 <div className="sky-picker-sun-section">
                   <div className="sky-picker-sun-header">
-                    <span className="sky-picker-sun-title">태양 광원</span>
+                    <span className="sky-picker-sun-title">태양 조명</span>
                     <button className="sky-picker-sun-add" onClick={handleAddLight}>+ 추가</button>
                   </div>
                   {lights.length === 0 && (
                     <div className="sky-picker-sun-hint">
-                      미리보기 이미지를 클릭하거나 추가 버튼으로 태양 광원을 생성하세요
+                      미리보기 이미지를 클릭하거나 추가 버튼으로 태양 조명을 생성하세요
                     </div>
                   )}
                   {lights.length > 0 && (
@@ -177,7 +177,7 @@ export default function SkyBackgroundPicker({ value, rotationSpeed, sunLights, o
                             onChange={(e) => updateLight(i, { color: e.target.value })}
                             onClick={(e) => e.stopPropagation()}
                           />
-                          <span className="sky-picker-sun-item-label">광원 {i + 1}</span>
+                          <span className="sky-picker-sun-item-label">조명 {i + 1}</span>
                           <span className="sky-picker-sun-item-uv">
                             ({light.position[0].toFixed(2)}, {light.position[1].toFixed(2)})
                           </span>
