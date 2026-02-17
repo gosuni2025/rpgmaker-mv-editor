@@ -4,7 +4,6 @@ import { VariableSwitchPicker } from './VariableSwitchSelector';
 import ImagePicker from '../common/ImagePicker';
 import { TINT_PRESETS, TintColorPreview } from './screenEffectEditors';
 import { ShaderEditorDialog, ShaderEntry, SHADER_DEFINITIONS } from './shaderEditor';
-import ExtBadge from '../common/ExtBadge';
 
 // ─── 셰이더 트랜지션 타입 ───
 export interface ShaderTransition {
@@ -323,8 +322,7 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
         />
       )}
 
-      <Fieldset legend="셰이더로 나타나기" style={{ position: 'relative' }}>
-        <ExtBadge inline />
+      <Fieldset legend="셰이더로 나타나기">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
             <input type="checkbox" checked={transitionEnabled} onChange={e => setTransitionEnabled(e.target.checked)} />
