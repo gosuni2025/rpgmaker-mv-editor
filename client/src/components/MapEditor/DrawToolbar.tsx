@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
-import ExtBadge from '../common/ExtBadge';
 
 interface ToolItem {
   id: string;
@@ -91,41 +90,45 @@ export default function DrawToolbar() {
           onClick={() => setEditMode('light')}
           style={{
             ...styles.btn,
-            ...(editMode === 'light' ? styles.btnActive : {}),
+            ...styles.btnExt,
+            ...(editMode === 'light' ? styles.btnExtActive : {}),
           }}
           title="F7"
         >
-          {t('toolbar.light')} <ExtBadge inline /> <span style={styles.shortcut}>F7</span>
+          {t('toolbar.light')} <span style={styles.shortcut}>F7</span>
         </button>
         <button
           onClick={() => setEditMode('object')}
           style={{
             ...styles.btn,
-            ...(editMode === 'object' ? styles.btnActive : {}),
+            ...styles.btnExt,
+            ...(editMode === 'object' ? styles.btnExtActive : {}),
           }}
           title="F8"
         >
-          {t('toolbar.object')} <ExtBadge inline /> <span style={styles.shortcut}>F8</span>
+          {t('toolbar.object')} <span style={styles.shortcut}>F8</span>
         </button>
         <button
           onClick={() => setEditMode('cameraZone')}
           style={{
             ...styles.btn,
-            ...(editMode === 'cameraZone' ? styles.btnActive : {}),
+            ...styles.btnExt,
+            ...(editMode === 'cameraZone' ? styles.btnExtActive : {}),
           }}
           title="F9"
         >
-          {t('toolbar.cameraZone')} <ExtBadge inline /> <span style={styles.shortcut}>F9</span>
+          {t('toolbar.cameraZone')} <span style={styles.shortcut}>F9</span>
         </button>
         <button
           onClick={() => setEditMode('passage')}
           style={{
             ...styles.btn,
-            ...(editMode === 'passage' ? styles.btnActive : {}),
+            ...styles.btnExt,
+            ...(editMode === 'passage' ? styles.btnExtActive : {}),
           }}
           title="F11"
         >
-          {t('toolbar.passage', '통행')} <ExtBadge inline /> <span style={styles.shortcut}>F11</span>
+          {t('toolbar.passage', '통행')} <span style={styles.shortcut}>F11</span>
         </button>
       </div>
 
@@ -399,6 +402,15 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#0078d4',
     color: '#fff',
     borderColor: '#0078d4',
+  },
+  btnExt: {
+    background: '#352f4a',
+    borderColor: '#5a4f7a',
+  },
+  btnExtActive: {
+    background: '#5a3fb5',
+    color: '#fff',
+    borderColor: '#5a3fb5',
   },
   btnEraserActive: {
     background: '#d43a0e',
