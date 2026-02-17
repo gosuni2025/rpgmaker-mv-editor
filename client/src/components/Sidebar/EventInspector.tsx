@@ -165,7 +165,19 @@ export default function EventInspector() {
         <div style={{ color: '#666', fontSize: 12, padding: 8 }}>
           {selectedEventIds.length > 1
             ? `${selectedEventIds.length}개 이벤트 선택됨`
-            : '이벤트를 선택하세요'}
+            : (<>
+              <span style={{ color: '#4a4' }}>맵에서 이벤트를 선택하세요.</span>
+              <div style={{ color: '#aaa', marginTop: 8, lineHeight: 1.6 }}>
+                이벤트는 맵 위에 배치되는 상호작용 오브젝트입니다.
+                NPC 대화, 보물상자, 문 전환, 함정 등 게임 내 모든 상호작용을 담당합니다.
+                <br /><br />
+                조건 분기, 변수 제어, 화면 연출, 전투 호출 등
+                다양한 이벤트 커맨드를 조합하여 게임 로직을 구성할 수 있습니다.
+                <br /><br />
+                더블클릭으로 이벤트를 생성/편집하거나,
+                우클릭 메뉴에서 새 이벤트를 만들 수 있습니다.
+              </div>
+            </>)}
         </div>
       </div>
     );

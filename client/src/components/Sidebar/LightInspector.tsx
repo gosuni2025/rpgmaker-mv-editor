@@ -401,7 +401,14 @@ export default function LightInspector() {
           {/* No point light selected hint */}
           {!selectedPoint && (
             <div style={{ color: '#666', fontSize: 12, padding: 8 }}>
-              맵에서 포인트 라이트를 선택하세요.
+              <span style={{ color: '#4a4' }}>맵에서 포인트 라이트를 선택하세요.</span>
+              <div style={{ color: '#aaa', marginTop: 8, lineHeight: 1.6 }}>
+                포인트 라이트는 맵의 특정 위치에서 모든 방향으로 빛을 발산하는 광원입니다.
+                횃불, 가로등, 마법 오브 등 점 광원 효과에 사용합니다.
+                <br /><br />
+                빈 타일을 클릭하면 새 포인트 라이트를 배치하고,
+                드래그로 이동하거나 인스펙터에서 색상, 강도, 거리를 조절할 수 있습니다.
+              </div>
             </div>
           )}
         </>
