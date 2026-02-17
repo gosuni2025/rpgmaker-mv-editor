@@ -68,7 +68,7 @@ export default function ObjectListPanel() {
               onClick={(e) => handleItemClick(obj.id, e)}
             >
               <span className="object-list-item-icon">
-                {obj.imageName ? '\u{1F5BC}' : '\u{1F9F1}'}
+                {obj.imageName ? '\u{1F5BC}' : obj.animationId ? '\u{2728}' : '\u{1F9F1}'}
               </span>
               <span className="object-list-item-name">
                 #{obj.id} {obj.name}
@@ -76,7 +76,9 @@ export default function ObjectListPanel() {
               <span className="object-list-item-info">
                 {obj.imageName
                   ? obj.imageName
-                  : `${obj.width}x${obj.height}`
+                  : obj.animationId
+                    ? `#${obj.animationId}`
+                    : `${obj.width}x${obj.height}`
                 }
               </span>
             </div>
