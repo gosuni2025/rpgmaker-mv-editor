@@ -186,6 +186,52 @@ export function useThreeRenderer(
     requestRenderFrames(rendererObjRef, stageRef, renderRequestedRef);
   }, [showGrid, mode3d]);
 
+  // 이미지 변경 감지: ImageManager 캐시 무효화 후 타일맵/스프라이트 갱신
+  useEffect(() => {
+    if (!rendererReady || standalone) return;
+
+    const handleImageChanged = (e: Event) => {
+      const { folder } = (e as CustomEvent).detail as { file: string; folder: string };
+      const spriteset = spritesetRef.current;
+      if (!spriteset) return;
+
+      const w = window as any;
+
+      // 타일셋 이미지가 변경된 경우: Tilemap의 비트맵을 재로드하고 repaint
+      if (folder === 'tilesets' && spriteset._tilemap) {
+        const tilemap = spriteset._tilemap;
+        // refreshTilesets: 현재 맵의 타일셋 비트맵을 새로 로드
+        if (w.$gameMap && typeof w.$gameMap.tileset === 'function') {
+          const tileset = w.$gameMap.tileset();
+          if (tileset) {
+            const tilesetNames = tileset.tilesetNames;
+            const bitmaps: any[] = [];
+            for (let i = 0; i < tilesetNames.length; i++) {
+              bitmaps.push(w.ImageManager.loadTileset(tilesetNames[i]));
+            }
+            tilemap.bitmaps = bitmaps;
+            tilemap._needsRepaint = true;
+          }
+        }
+      }
+
+      // 캐릭터 이미지가 변경된 경우: 이벤트 스프라이트 갱신
+      if (folder === 'characters' && spriteset._characterSprites) {
+        for (const charSprite of spriteset._characterSprites) {
+          if (charSprite._character && typeof charSprite.setCharacterBitmap === 'function') {
+            charSprite.setCharacterBitmap();
+          }
+        }
+      }
+
+      // 렌더링 갱신
+      renderRequestedRef.current = true;
+    };
+
+    window.addEventListener('imageChanged', handleImageChanged);
+    return () => window.removeEventListener('imageChanged', handleImageChanged);
+  }, [rendererReady, standalone]);
+
   // Overlay refs for sub-hooks
   const overlayRefs = React.useMemo(() => ({
     rendererObjRef,

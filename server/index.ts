@@ -272,6 +272,7 @@ export function createApp(options: AppOptions = {}) {
   });
   app.use('/game/img', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
+    res.set('Cache-Control', 'no-store');
     express.static(path.join(projectManager.currentPath!, 'img'))(req, res, next);
   });
   app.use('/game/audio', (req, res, next) => {
@@ -296,6 +297,7 @@ export function createApp(options: AppOptions = {}) {
   // 에디터 런타임용: 프로젝트 img/, data/, plugins/ 직접 서빙
   app.use('/img', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
+    res.set('Cache-Control', 'no-store');
     express.static(path.join(projectManager.currentPath!, 'img'))(req, res, next);
   });
   app.use('/data', (req, res, next) => {
