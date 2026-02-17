@@ -255,10 +255,16 @@
     };
 
     //=========================================================================
-    // 마스크 렌더링 공통 - tilemap 자식만 제어
+    // 마스크 렌더링 공통
     //=========================================================================
-    // 씬 계층: scene → stage._threeObj → spriteset._threeObj → _baseSprite._threeObj → _tilemap._threeObj → sprites
-    // parent chain 전체를 건드리지 않고, tilemap 자식만 visible on/off 하는 방식
+    // 씬 계층:
+    //   scene → stage._threeObj → spriteset._threeObj → _baseSprite._threeObj
+    //     _baseSprite 자식: _blackScreen, _parallax, _tilemap
+    //     _tilemap 자식: ZLayer(타일메시)들 + characterSprites + objectSprites
+    //
+    // 마스크 RT에는 대상 스프라이트만 렌더해야 하므로,
+    // _baseSprite의 모든 자식을 숨기고 → tilemap만 켜고 →
+    // tilemap 안에서 대상만 선택적으로 visible 설정.
     OcclusionSilhouette._renderMasks = function(renderer, scene, camera, spriteset) {
         if (!spriteset || !spriteset._characterSprites || !spriteset._objectSprites) return false;
         if (!spriteset._objectSprites.length) return false;
@@ -266,6 +272,8 @@
 
         var tilemapObj = spriteset._tilemap && spriteset._tilemap._threeObj;
         if (!tilemapObj) return false;
+        var baseSpriteObj = spriteset._baseSprite && spriteset._baseSprite._threeObj;
+        if (!baseSpriteObj) return false;
 
         // 오브젝트 중 visible한 것이 있는지 확인
         var hasVisibleObj = false;
@@ -288,16 +296,25 @@
         var h = Math.floor(size.y * pr);
         this._ensureRenderTargets(w, h);
 
-        // scene 직계 자식 중 stage와 라이트만 유지, 나머지 숨김 (sky, fow 등)
+        // scene 직계 자식 중 stage만 유지, 나머지 숨김 (sky, fow 등)
         var stageObj = scene._stageObj || null;
         var sceneChildVis = [];
         for (var i = 0; i < scene.children.length; i++) {
             sceneChildVis.push(scene.children[i].visible);
-            var child = scene.children[i];
-            if (child !== stageObj && !child.isLight) {
-                child.visible = false;
+            if (scene.children[i] !== stageObj) {
+                scene.children[i].visible = false;
             }
         }
+
+        // _baseSprite 자식 가시성 백업 & 모두 숨김 (_blackScreen, _parallax 등)
+        var bsChildren = baseSpriteObj.children;
+        var bsChildVis = [];
+        for (var bi = 0; bi < bsChildren.length; bi++) {
+            bsChildVis.push(bsChildren[bi].visible);
+            bsChildren[bi].visible = false;
+        }
+        // tilemap만 다시 켜기 (내부 자식은 아래에서 개별 제어)
+        tilemapObj.visible = true;
 
         // tilemap 자식 가시성 백업 & 모두 숨김
         var tmChildren = tilemapObj.children;
@@ -306,9 +323,6 @@
             tmChildVis.push(tmChildren[ti].visible);
             tmChildren[ti].visible = false;
         }
-
-        // 캐릭터 스프라이트의 _threeObj를 tilemap 안에서 찾아 visible 설정할 것
-        // _threeObj는 tilemap._threeObj의 직계 자식임
 
         var oldClearColor = renderer.getClearColor(new THREE.Color());
         var oldClearAlpha = renderer.getClearAlpha();
@@ -329,7 +343,6 @@
         }
 
         // === Pass 2: 오브젝트 마스크 렌더 ===
-        // 원래 visible이었던 오브젝트만 마스크에 포함
         for (var oi2 = 0; oi2 < spriteset._objectSprites.length; oi2++) {
             var os = spriteset._objectSprites[oi2];
             if (os._threeObj) {
@@ -344,16 +357,16 @@
         renderer.clear(true, true, true);
         renderer.render(scene, camera);
 
-        // === 가시성 및 상태 복원 ===
+        // === 가시성 복원 ===
         renderer.setRenderTarget(null);
         renderer.setClearColor(oldClearColor, oldClearAlpha);
 
-        // tilemap 자식 복원
         for (var tri = 0; tri < tmChildren.length; tri++) {
             tmChildren[tri].visible = tmChildVis[tri];
         }
-
-        // scene 자식 복원
+        for (var bri = 0; bri < bsChildren.length; bri++) {
+            bsChildren[bri].visible = bsChildVis[bri];
+        }
         for (var ri = 0; ri < scene.children.length; ri++) {
             scene.children[ri].visible = sceneChildVis[ri];
         }
