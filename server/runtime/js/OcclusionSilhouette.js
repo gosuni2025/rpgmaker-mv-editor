@@ -260,31 +260,42 @@
     // 씬 계층:
     //   scene → stage._threeObj → spriteset._threeObj → _baseSprite._threeObj
     //     _baseSprite 자식: _blackScreen, _parallax, _tilemap
-    //     _tilemap 자식: ZLayer(타일메시)들 + characterSprites + objectSprites
+    //     _tilemap 자식: lowerZLayer, upperZLayer, characterSprites, objectSprites
+    //
+    // 오브젝트 마스크 대상:
+    //   1) upperZLayer (z=4) — 나무 상단, 지붕 등 캐릭터를 가리는 타일
+    //   2) _objectSprites — 에디터 이미지 오브젝트 (z=5)
     //
     // 마스크 RT에는 대상 스프라이트만 렌더해야 하므로,
     // _baseSprite의 모든 자식을 숨기고 → tilemap만 켜고 →
     // tilemap 안에서 대상만 선택적으로 visible 설정.
     OcclusionSilhouette._renderMasks = function(renderer, scene, camera, spriteset) {
-        if (!spriteset || !spriteset._characterSprites || !spriteset._objectSprites) return false;
-        if (!spriteset._objectSprites.length) return false;
+        if (!spriteset || !spriteset._characterSprites) return false;
         if (!scene || !camera) return false;
 
-        var tilemapObj = spriteset._tilemap && spriteset._tilemap._threeObj;
+        var tilemap = spriteset._tilemap;
+        var tilemapObj = tilemap && tilemap._threeObj;
         if (!tilemapObj) return false;
         var baseSpriteObj = spriteset._baseSprite && spriteset._baseSprite._threeObj;
         if (!baseSpriteObj) return false;
 
-        // 오브젝트 중 visible한 것이 있는지 확인
+        // upperZLayer 참조 (타일맵의 upper 타일 레이어, z=4)
+        var upperZLayer = tilemap.upperZLayer;
+        var upperZObj = upperZLayer && upperZLayer._threeObj;
+
+        // 가림 대상(오브젝트 마스크에 넣을 것)이 있는지 확인
+        var hasUpperTiles = upperZObj && upperZObj.visible;
         var hasVisibleObj = false;
-        for (var oi = 0; oi < spriteset._objectSprites.length; oi++) {
-            var objSpr = spriteset._objectSprites[oi];
-            if (objSpr._threeObj && objSpr._threeObj.visible) {
-                hasVisibleObj = true;
-                break;
+        if (spriteset._objectSprites) {
+            for (var oi = 0; oi < spriteset._objectSprites.length; oi++) {
+                var objSpr = spriteset._objectSprites[oi];
+                if (objSpr._threeObj && objSpr._threeObj.visible) {
+                    hasVisibleObj = true;
+                    break;
+                }
             }
         }
-        if (!hasVisibleObj) return false;
+        if (!hasUpperTiles && !hasVisibleObj) return false;
 
         // 플레이어/파티원 스프라이트 식별
         var charSprites = this._getPlayerSprites(spriteset);
@@ -342,13 +353,23 @@
             if (charSprites[ci2]._threeObj) charSprites[ci2]._threeObj.visible = false;
         }
 
-        // === Pass 2: 오브젝트 마스크 렌더 ===
-        for (var oi2 = 0; oi2 < spriteset._objectSprites.length; oi2++) {
-            var os = spriteset._objectSprites[oi2];
-            if (os._threeObj) {
-                var idx = tmChildren.indexOf(os._threeObj);
-                if (idx >= 0 && tmChildVis[idx]) {
-                    os._threeObj.visible = true;
+        // === Pass 2: 오브젝트 마스크 렌더 (upperZLayer + _objectSprites) ===
+        // upper 타일 레이어 (나무/지붕 등)
+        if (upperZObj) {
+            var uidx = tmChildren.indexOf(upperZObj);
+            if (uidx >= 0 && tmChildVis[uidx]) {
+                upperZObj.visible = true;
+            }
+        }
+        // 에디터 이미지 오브젝트
+        if (spriteset._objectSprites) {
+            for (var oi2 = 0; oi2 < spriteset._objectSprites.length; oi2++) {
+                var os = spriteset._objectSprites[oi2];
+                if (os._threeObj) {
+                    var idx = tmChildren.indexOf(os._threeObj);
+                    if (idx >= 0 && tmChildVis[idx]) {
+                        os._threeObj.visible = true;
+                    }
                 }
             }
         }
