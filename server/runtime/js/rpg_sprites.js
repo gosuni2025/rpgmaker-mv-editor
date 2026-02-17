@@ -2864,18 +2864,13 @@ Spriteset_Map.prototype.updateMapObjects = function() {
             var animSpr = container._mapObjAnimSprite;
             if (!animSpr.isPlaying()) {
                 var loop = container._mapObjAnimLoop;
+                var animData = null;
                 if (loop === 'forward') {
-                    var anim = $dataAnimations[container._mapObjAnimId];
-                    if (anim) {
-                        animSpr.setup(container._mapObjAnimTarget, anim, false, 0);
-                        animSpr._duplicated = !container._mapObjAnimSe;
-                        container.addChild(animSpr);
-                    }
+                    animData = $dataAnimations[container._mapObjAnimId];
                 } else if (loop === 'pingpong') {
                     var origAnim = $dataAnimations[container._mapObjAnimId];
                     if (origAnim) {
                         container._mapObjAnimReverse = !container._mapObjAnimReverse;
-                        var animData;
                         if (container._mapObjAnimReverse) {
                             animData = Object.create(origAnim);
                             animData.frames = origAnim.frames.slice().reverse();
@@ -2886,12 +2881,18 @@ Spriteset_Map.prototype.updateMapObjects = function() {
                         } else {
                             animData = origAnim;
                         }
-                        animSpr.setup(container._mapObjAnimTarget, animData, false, 0);
-                        animSpr._duplicated = !container._mapObjAnimSe;
-                        container.addChild(animSpr);
                     }
                 }
-                // 'once': 아무것도 안 함 (마지막 프레임에서 정지)
+                // 'once': animData가 null이므로 아무것도 안 함
+                if (animData) {
+                    // 이전 스프라이트 제거 후 새로 생성 (셀 스프라이트 누적 방지)
+                    if (animSpr.parent) animSpr.parent.removeChild(animSpr);
+                    var newAnimSpr = new Sprite_Animation();
+                    newAnimSpr.setup(container._mapObjAnimTarget, animData, false, 0);
+                    newAnimSpr._duplicated = !container._mapObjAnimSe;
+                    container.addChild(newAnimSpr);
+                    container._mapObjAnimSprite = newAnimSpr;
+                }
             }
         }
 
