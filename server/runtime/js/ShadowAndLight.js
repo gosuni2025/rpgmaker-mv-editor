@@ -1190,6 +1190,16 @@ function sunUVToDirection(u, v) {
 ShadowLight._addLightsToScene = function(scene) {
     if (this._ambientLight) return; // 이미 추가됨
 
+    // 기본 config 백업 (에디터에서 광원 off 시 복원용)
+    if (!this._defaultConfig) {
+        this._defaultConfig = {};
+        for (var key in this.config) {
+            if (this.config.hasOwnProperty(key)) {
+                this._defaultConfig[key] = this.config[key];
+            }
+        }
+    }
+
     // localStorage에서 인스펙터 config 복구 (사용자가 마지막으로 조절한 값)
     var CONFIG_STORAGE_KEY = 'devPanel_mapInspector_config';
     try {
