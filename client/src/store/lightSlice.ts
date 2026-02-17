@@ -131,6 +131,12 @@ export const lightSlice: SliceCreator<Pick<EditorState,
     if (srcLights.length === 0) return;
     const minX = Math.min(...srcLights.map(l => l.x));
     const minY = Math.min(...srcLights.map(l => l.y));
+    // 맵 경계 체크
+    for (const light of srcLights) {
+      const nx = x + (light.x - minX);
+      const ny = y + (light.y - minY);
+      if (nx < 0 || nx >= map.width || ny < 0 || ny >= map.height) return;
+    }
     // 기존 광원 위치 + 붙여넣기 광원 간 겹침 방지
     const occupied = new Set(map.editorLights.points.map(p => `${p.x},${p.y}`));
     for (const light of srcLights) {
@@ -171,6 +177,11 @@ export const lightSlice: SliceCreator<Pick<EditorState,
     if (!map || !map.editorLights || lightIds.length === 0) return;
     if (dx === 0 && dy === 0) return;
     const idSet = new Set(lightIds);
+
+    // 맵 경계 체크
+    const movingLights = map.editorLights.points.filter(p => idSet.has(p.id));
+    if (movingLights.some(p => p.x + dx < 0 || p.x + dx >= map.width || p.y + dy < 0 || p.y + dy >= map.height)) return;
+
     // 이동 후 위치가 다른 (이동하지 않는) 광원과 겹치는지 확인
     const staticPositions = new Set(
       map.editorLights.points.filter(p => !idSet.has(p.id)).map(p => `${p.x},${p.y}`)
