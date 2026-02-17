@@ -343,7 +343,7 @@ export function addObjectFromAnimationOp(get: GetFn, set: SetFn, animationId: nu
     passability,
     animationId,
     animationLoop: 'forward',
-    animationSe: true,
+    animationSe: false,
   };
   objects.push(newObj);
   set({ currentMap: { ...currentMap, objects }, selectedObjectId: newId, selectedObjectIds: [newId] });
