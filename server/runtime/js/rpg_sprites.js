@@ -2869,6 +2869,7 @@ Spriteset_Map.prototype.updateMapObjects = function() {
                     if (anim) {
                         animSpr.setup(container._mapObjAnimTarget, anim, false, 0);
                         animSpr._duplicated = !container._mapObjAnimSe;
+                        container.addChild(animSpr);
                     }
                 } else if (loop === 'pingpong') {
                     var origAnim = $dataAnimations[container._mapObjAnimId];
@@ -2887,6 +2888,7 @@ Spriteset_Map.prototype.updateMapObjects = function() {
                         }
                         animSpr.setup(container._mapObjAnimTarget, animData, false, 0);
                         animSpr._duplicated = !container._mapObjAnimSe;
+                        container.addChild(animSpr);
                     }
                 }
                 // 'once': 아무것도 안 함 (마지막 프레임에서 정지)
