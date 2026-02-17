@@ -212,31 +212,40 @@ export default function LightInspector() {
         <div className="light-inspector-section">
           <div className="light-inspector-title">플레이어 라이트 <ExtBadge inline /></div>
           <div className="light-inspector-row">
+            <span className="light-inspector-label">적용</span>
+            <input type="checkbox" checked={playerLight.enabled !== false}
+              onChange={(e) => updatePlayerLight({ enabled: e.target.checked })} />
+          </div>
+          <div className="light-inspector-row">
             <span className="light-inspector-label">색상</span>
             <input type="color" className="light-inspector-color"
               value={playerLight.color}
-              onChange={(e) => updatePlayerLight({ color: e.target.value })} />
+              onChange={(e) => updatePlayerLight({ color: e.target.value })}
+              disabled={playerLight.enabled === false} />
           </div>
           <div className="light-inspector-row">
             <DragLabel label="강도" value={playerLight.intensity} step={0.1} min={0} max={10}
               onChange={(v) => updatePlayerLight({ intensity: v })} />
             <input type="number" className="light-inspector-input" step={0.1}
               value={playerLight.intensity}
-              onChange={(e) => updatePlayerLight({ intensity: parseFloat(e.target.value) || 0 })} />
+              onChange={(e) => updatePlayerLight({ intensity: parseFloat(e.target.value) || 0 })}
+              disabled={playerLight.enabled === false} />
           </div>
           <div className="light-inspector-row">
             <DragLabel label="거리" value={playerLight.distance} step={10} min={50} max={5000}
               onChange={(v) => updatePlayerLight({ distance: Math.round(v) })} />
             <input type="number" className="light-inspector-input" step={10}
               value={playerLight.distance}
-              onChange={(e) => updatePlayerLight({ distance: parseFloat(e.target.value) || 200 })} />
+              onChange={(e) => updatePlayerLight({ distance: parseFloat(e.target.value) || 200 })}
+              disabled={playerLight.enabled === false} />
           </div>
           <div className="light-inspector-row">
             <DragLabel label="Z (높이)" value={playerLight.z} step={1} min={0} max={1000}
               onChange={(v) => updatePlayerLight({ z: Math.round(v) })} />
             <input type="number" className="light-inspector-input" step={1}
               value={playerLight.z}
-              onChange={(e) => updatePlayerLight({ z: parseFloat(e.target.value) || 40 })} />
+              onChange={(e) => updatePlayerLight({ z: parseFloat(e.target.value) || 40 })}
+              disabled={playerLight.enabled === false} />
           </div>
         </div>
       )}

@@ -151,6 +151,7 @@ ShadowLight.config = {
     lightDirection: new THREE.Vector3(-1, -1, -2).normalize(), // 광원 방향 (Z 성분 크게)
 
     // 플레이어 포인트 라이트
+    playerLightEnabled: true,
     playerLightColor: 0xa25f06,       // 횃불 색상
     playerLightIntensity: 0.8,
     playerLightDistance: 200,          // 범위 (pixel 단위, decay=0에서 이 범위 밖은 영향 없음)
@@ -1294,6 +1295,7 @@ ShadowLight._addLightsToScene = function(scene) {
     // editorLights에서 playerLight config 동기화 (디버그 우선 OFF일 때만)
     if (el && el.playerLight && !playerLightOverride) {
         var pl = el.playerLight;
+        this.config.playerLightEnabled = pl.enabled !== false;
         if (pl.color) this.config.playerLightColor = parseInt(pl.color.replace('#', ''), 16);
         if (pl.intensity != null) this.config.playerLightIntensity = pl.intensity;
         if (pl.distance != null) this.config.playerLightDistance = pl.distance;
@@ -2059,13 +2061,14 @@ Spriteset_Map.prototype._updatePointLights = function() {
 
     // 플레이어 라이트 (PointLight - 횃불 효과, 플레이어가 보일 때만)
     var playerWp = null;
+    var plEnabled = ShadowLight.config.playerLightEnabled !== false;
     if ($gamePlayer) {
         var playerSprite = this._getPlayerSprite();
         if (playerSprite) {
             playerWp = ShadowLight._getWrapperWorldPos(playerSprite);
         }
-        // 디버그 우선 OFF → 플레이어 라이트 비활성, ON → 패널(config) 값 사용
-        if (!$gamePlayer.isTransparent() && playerWp && ShadowLight._debugPlayerLightOverride) {
+        // playerLightEnabled === false이면 스킵
+        if (!$gamePlayer.isTransparent() && playerWp && plEnabled && ShadowLight._debugPlayerLightOverride) {
             var light = ShadowLight._getPointLight();
             var plCfg = ShadowLight.config;
             light.color.setHex(plCfg.playerLightColor);
