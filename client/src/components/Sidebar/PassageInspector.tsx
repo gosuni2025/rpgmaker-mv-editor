@@ -13,9 +13,29 @@ export default function PassageInspector() {
 
   const hasSelection = !!(passageSelectionStart && passageSelectionEnd);
 
-  const passageValue = selectedTile && currentMap
+  // 단일 타일 값
+  const singleValue = selectedTile && currentMap
     ? (currentMap.customPassage?.[selectedTile.y * currentMap.width + selectedTile.x] ?? 0)
     : 0;
+
+  // 선택 영역의 대표 값: 모든 타일에 공통으로 켜진 비트만 AND, 하나라도 켜진 비트는 OR
+  const { commonBits, passageValue } = React.useMemo(() => {
+    if (!hasSelection || !currentMap) return { commonBits: singleValue, passageValue: singleValue };
+    const minX = Math.min(passageSelectionStart!.x, passageSelectionEnd!.x);
+    const maxX = Math.max(passageSelectionStart!.x, passageSelectionEnd!.x);
+    const minY = Math.min(passageSelectionStart!.y, passageSelectionEnd!.y);
+    const maxY = Math.max(passageSelectionStart!.y, passageSelectionEnd!.y);
+    let andBits = 0x0F; // 모든 타일에 공통
+    let orBits = 0;     // 하나라도 있는 비트
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const val = currentMap.customPassage?.[y * currentMap.width + x] ?? 0;
+        andBits &= val;
+        orBits |= val;
+      }
+    }
+    return { commonBits: andBits, passageValue: orBits };
+  }, [hasSelection, currentMap, passageSelectionStart, passageSelectionEnd, singleValue]);
 
   // 선택 영역 내 모든 타일에 대해 변경 생성
   const getSelectionChanges = useCallback((changeFn: (oldValue: number) => number) => {
@@ -40,14 +60,18 @@ export default function PassageInspector() {
   const toggleDirection = useCallback((bit: number) => {
     if (!currentMap) return;
     if (hasSelection) {
-      const changes = getSelectionChanges((oldValue) => oldValue ^ bit);
+      // 모든 타일에 해당 비트가 켜져 있으면 → 끄기, 아니면 → 켜기
+      const allHaveBit = (commonBits & bit) !== 0;
+      const changes = getSelectionChanges((oldValue) =>
+        allHaveBit ? (oldValue & ~bit) : (oldValue | bit)
+      );
       if (changes.length > 0) updateCustomPassage(changes);
     } else if (selectedTile) {
       const oldValue = currentMap.customPassage?.[selectedTile.y * currentMap.width + selectedTile.x] ?? 0;
       const newValue = oldValue ^ bit;
       updateCustomPassage([{ x: selectedTile.x, y: selectedTile.y, oldValue, newValue }]);
     }
-  }, [selectedTile, currentMap, updateCustomPassage, hasSelection, getSelectionChanges]);
+  }, [selectedTile, currentMap, updateCustomPassage, hasSelection, commonBits, getSelectionChanges]);
 
   const setAll = useCallback((value: number) => {
     if (!currentMap) return;
@@ -88,31 +112,35 @@ export default function PassageInspector() {
               <div />
               <DirectionBtn
                 label={t('passage.up')}
-                active={!!(passageValue & 0x08)}
+                active={!!(commonBits & 0x08)}
+                partial={!!(passageValue & 0x08) && !(commonBits & 0x08)}
                 onClick={() => toggleDirection(0x08)}
               />
               <div />
               <DirectionBtn
                 label={t('passage.left')}
-                active={!!(passageValue & 0x02)}
+                active={!!(commonBits & 0x02)}
+                partial={!!(passageValue & 0x02) && !(commonBits & 0x02)}
                 onClick={() => toggleDirection(0x02)}
               />
               <div style={{
                 width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: passageValue === 0x0F ? 'rgba(200,50,50,0.3)' : passageValue > 0 ? 'rgba(200,150,50,0.2)' : 'rgba(80,80,80,0.2)',
-                borderRadius: 4, fontSize: 20, color: passageValue === 0x0F ? '#f66' : passageValue > 0 ? '#fa4' : '#666',
+                background: commonBits === 0x0F ? 'rgba(200,50,50,0.3)' : passageValue > 0 ? 'rgba(200,150,50,0.2)' : 'rgba(80,80,80,0.2)',
+                borderRadius: 4, fontSize: 20, color: commonBits === 0x0F ? '#f66' : passageValue > 0 ? '#fa4' : '#666',
               }}>
-                {passageValue === 0x0F ? '✕' : passageValue > 0 ? '△' : '○'}
+                {commonBits === 0x0F ? '✕' : passageValue > 0 ? '△' : '○'}
               </div>
               <DirectionBtn
                 label={t('passage.right')}
-                active={!!(passageValue & 0x04)}
+                active={!!(commonBits & 0x04)}
+                partial={!!(passageValue & 0x04) && !(commonBits & 0x04)}
                 onClick={() => toggleDirection(0x04)}
               />
               <div />
               <DirectionBtn
                 label={t('passage.down')}
-                active={!!(passageValue & 0x01)}
+                active={!!(commonBits & 0x01)}
+                partial={!!(passageValue & 0x01) && !(commonBits & 0x01)}
                 onClick={() => toggleDirection(0x01)}
               />
               <div />
@@ -122,7 +150,7 @@ export default function PassageInspector() {
             <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
               <button
                 className="camera-zone-action-btn"
-                style={{ background: passageValue === 0x0F ? '#c44' : undefined }}
+                style={{ background: commonBits === 0x0F ? '#c44' : undefined }}
                 onClick={() => setAll(0x0F)}
               >
                 {t('passage.blockAll')}
@@ -141,20 +169,20 @@ export default function PassageInspector() {
   );
 }
 
-function DirectionBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function DirectionBtn({ label, active, partial, onClick }: { label: string; active: boolean; partial?: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       style={{
         width: 48, height: 48, display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', gap: 2,
-        background: active ? 'rgba(200,50,50,0.5)' : 'rgba(80,80,80,0.3)',
-        border: `1px solid ${active ? '#c66' : '#555'}`,
-        borderRadius: 4, cursor: 'pointer', color: active ? '#faa' : '#888',
-        fontSize: 11, fontWeight: active ? 'bold' : 'normal',
+        background: active ? 'rgba(200,50,50,0.5)' : partial ? 'rgba(200,150,50,0.35)' : 'rgba(80,80,80,0.3)',
+        border: `1px solid ${active ? '#c66' : partial ? '#a86' : '#555'}`,
+        borderRadius: 4, cursor: 'pointer', color: active ? '#faa' : partial ? '#da8' : '#888',
+        fontSize: 11, fontWeight: active || partial ? 'bold' : 'normal',
       }}
     >
-      <span style={{ fontSize: 14 }}>{active ? '✕' : '○'}</span>
+      <span style={{ fontSize: 14 }}>{active ? '✕' : partial ? '△' : '○'}</span>
       <span style={{ fontSize: 9 }}>{label.replace(/[←→↑↓]\s*/, '')}</span>
     </button>
   );
