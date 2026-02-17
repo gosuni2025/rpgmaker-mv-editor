@@ -192,7 +192,7 @@ export interface EditorState {
   selectedCameraZoneIds: number[];
 
   // Passage editor
-  passageTool: 'pen' | 'eraser';
+  passageTool: 'select' | 'pen' | 'eraser';
   passageShape: 'freehand' | 'rectangle' | 'ellipse' | 'fill';
   selectedPassageTile: { x: number; y: number } | null;
 
@@ -330,7 +330,7 @@ export interface EditorState {
   moveCameraZones: (ids: number[], dx: number, dy: number) => void;
 
   // Actions - Passage
-  setPassageTool: (tool: 'pen' | 'eraser') => void;
+  setPassageTool: (tool: 'select' | 'pen' | 'eraser') => void;
   setPassageShape: (shape: 'freehand' | 'rectangle' | 'ellipse' | 'fill') => void;
   setSelectedPassageTile: (tile: { x: number; y: number } | null) => void;
   updateCustomPassage: (changes: PassageChange[]) => void;

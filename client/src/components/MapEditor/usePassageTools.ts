@@ -102,10 +102,13 @@ export function usePassageHandlers(
     if (e.button !== 0) return false;
     const tile = canvasToTile(e);
     if (!tile) return false;
-    const { passageShape } = useEditorStore.getState();
+    const { passageTool, passageShape } = useEditorStore.getState();
 
     // 선택된 타일 업데이트 (인스펙터용)
     useEditorStore.getState().setSelectedPassageTile(tile);
+
+    // 선택 모드: 타일 선택만 수행
+    if (passageTool === 'select') return true;
 
     isDrawing.current = true;
     lastTile.current = tile;

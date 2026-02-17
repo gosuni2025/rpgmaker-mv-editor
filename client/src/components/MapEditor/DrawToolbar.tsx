@@ -174,10 +174,19 @@ export default function DrawToolbar() {
         </>
       )}
 
-      {/* Passage mode: pen / eraser + shapes */}
+      {/* Passage mode: select / pen / eraser + shapes */}
       {showPassageTools && (
         <>
           <div style={styles.group}>
+            <button
+              onClick={() => setPassageTool('select')}
+              style={{
+                ...styles.btn,
+                ...(passageTool === 'select' ? styles.btnActive : {}),
+              }}
+            >
+              {t('toolbar.select')}
+            </button>
             <button
               onClick={() => setPassageTool('pen')}
               style={{
@@ -198,22 +207,26 @@ export default function DrawToolbar() {
             </button>
           </div>
 
-          <div style={styles.separator} />
+          {passageTool !== 'select' && (
+            <>
+              <div style={styles.separator} />
 
-          <div style={styles.group}>
-            {drawShapes.map((shape) => (
-              <button
-                key={shape.id}
-                onClick={() => setPassageShape(shape.id as any)}
-                style={{
-                  ...styles.btn,
-                  ...(passageShape === shape.id ? styles.btnActive : {}),
-                }}
-              >
-                {t(shape.labelKey)}
-              </button>
-            ))}
-          </div>
+              <div style={styles.group}>
+                {drawShapes.map((shape) => (
+                  <button
+                    key={shape.id}
+                    onClick={() => setPassageShape(shape.id as any)}
+                    style={{
+                      ...styles.btn,
+                      ...(passageShape === shape.id ? styles.btnActive : {}),
+                    }}
+                  >
+                    {t(shape.labelKey)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           <div style={styles.separator} />
         </>
