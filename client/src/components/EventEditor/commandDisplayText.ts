@@ -338,6 +338,7 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
       wave: '물결', glitch: '글리치', dissolve: '디졸브', glow: '발광',
       chromatic: '색수차', pixelate: '픽셀화', shake: '흔들림', blur: '흐림',
       rainbow: '무지개', hologram: '홀로그램', outline: '외곽선', fireAura: '불꽃 오라',
+      fade: '페이드', wipe: '와이프', circleWipe: '원형 와이프', blinds: '블라인드', pixelDissolve: '픽셀 디졸브',
     };
     const shaderRaw = cmd.parameters[10];
     if (shaderRaw) {
@@ -350,6 +351,14 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
         const single = shaderRaw as { type: string; enabled: boolean };
         if (single.enabled) text += `, [${shaderLabels[single.type] || single.type}]`;
       }
+    }
+    // 셰이더로 나타나기 표시
+    const transitionRaw = cmd.parameters[12] as { shaderList: { type: string }[]; applyMode: string; duration: number } | null;
+    if (transitionRaw && transitionRaw.shaderList?.length > 0) {
+      const tNames = transitionRaw.shaderList.map(s => shaderLabels[s.type] || s.type);
+      const durStr = transitionRaw.applyMode === 'interpolate' && transitionRaw.duration > 0
+        ? ` ${transitionRaw.duration}초` : '';
+      text += `, 나타나기:[${tNames.join('+')}${durStr}]`;
     }
     return text;
   }

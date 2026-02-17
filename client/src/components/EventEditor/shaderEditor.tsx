@@ -245,17 +245,21 @@ function ShaderPreviewCanvas({ imageName, shaderList, size = 280 }: {
 }
 
 // ─── 셰이더 에디터 다이얼로그 (전체화면) ───
-export function ShaderEditorDialog({ imageName, shaderList: initialList, onOk, onCancel }: {
+export function ShaderEditorDialog({ imageName, shaderList: initialList, transitionOnly, onOk, onCancel }: {
   imageName: string;
   shaderList: ShaderEntry[];
+  transitionOnly?: boolean;
   onOk: (shaderList: ShaderEntry[]) => void;
   onCancel: () => void;
 }) {
+  const availableShaders = transitionOnly
+    ? SHADER_DEFINITIONS.filter(sd => sd.params.some(p => p.key === 'threshold'))
+    : SHADER_DEFINITIONS;
   const [shaderList, setShaderList] = useState<ShaderEntry[]>(initialList.map(s => ({ ...s, params: { ...s.params } })));
   const [selectedShaderIdx, setSelectedShaderIdx] = useState<number>(0);
 
   const addShader = () => {
-    const def = SHADER_DEFINITIONS[0];
+    const def = availableShaders[0];
     const params: Record<string, number> = {};
     def.params.forEach(pd => { params[pd.key] = pd.defaultValue; });
     const newList = [...shaderList, { type: def.type, enabled: true, params }];
@@ -351,7 +355,7 @@ export function ShaderEditorDialog({ imageName, shaderList: initialList, onOk, o
                   <select value={selectedShader.type}
                     onChange={e => updateShaderType(selectedShaderIdx, e.target.value)}
                     style={{ ...selectStyle, marginLeft: 8, fontSize: 13 }}>
-                    {SHADER_DEFINITIONS.map(sd => (
+                    {availableShaders.map(sd => (
                       <option key={sd.type} value={sd.type}>{sd.label}</option>
                     ))}
                   </select>

@@ -4,6 +4,14 @@ import { VariableSwitchPicker } from './VariableSwitchSelector';
 import ImagePicker from '../common/ImagePicker';
 import { TINT_PRESETS, TintColorPreview } from './screenEffectEditors';
 import { ShaderEditorDialog, ShaderEntry, SHADER_DEFINITIONS } from './shaderEditor';
+import ExtBadge from '../common/ExtBadge';
+
+// ─── 셰이더 트랜지션 타입 ───
+export interface ShaderTransition {
+  shaderList: ShaderEntry[];
+  applyMode: 'instant' | 'interpolate';
+  duration: number;
+}
 
 // ─── 공통 스타일 ───
 const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
@@ -213,6 +221,20 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
   const [shaderList, setShaderList] = useState<ShaderEntry[]>(initShaderList);
   const [showShaderDialog, setShowShaderDialog] = useState(false);
 
+  // 셰이더로 나타나기 (p[12])
+  const existingTransition = p[12] as ShaderTransition | null;
+  const initTransitionShaderList = (): ShaderEntry[] => {
+    if (!existingTransition?.shaderList) return [];
+    return existingTransition.shaderList.map(s => ({ ...s, params: { ...s.params } }));
+  };
+  const [transitionEnabled, setTransitionEnabled] = useState<boolean>(!!existingTransition);
+  const [transitionShaderList, setTransitionShaderList] = useState<ShaderEntry[]>(initTransitionShaderList);
+  const [transitionApplyMode, setTransitionApplyMode] = useState<'instant' | 'interpolate'>(
+    existingTransition?.applyMode ?? 'interpolate'
+  );
+  const [transitionDuration, setTransitionDuration] = useState<number>(existingTransition?.duration ?? 1);
+  const [showTransitionShaderDialog, setShowTransitionShaderDialog] = useState(false);
+
   return (
     <>
       <Fieldset legend="그림">
@@ -301,10 +323,72 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
         />
       )}
 
+      <Fieldset legend="셰이더로 나타나기" style={{ position: 'relative' }}>
+        <ExtBadge inline />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="checkbox" checked={transitionEnabled} onChange={e => setTransitionEnabled(e.target.checked)} />
+            셰이더 트랜지션 사용
+          </label>
+          {transitionEnabled && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button className="db-btn" onClick={() => setShowTransitionShaderDialog(true)}>
+                  셰이더 설정...
+                </button>
+                <span style={{ fontSize: 12, color: transitionShaderList.length > 0 ? '#7cb3ff' : '#666' }}>
+                  {transitionShaderList.length > 0
+                    ? transitionShaderList.map(s => SHADER_DEFINITIONS.find(d => d.type === s.type)?.label ?? s.type).join(' + ')
+                    : '없음'}
+                </span>
+                {transitionShaderList.length > 0 && (
+                  <button className="db-btn" style={{ fontSize: 11, padding: '1px 6px', color: '#f88' }}
+                    onClick={() => setTransitionShaderList([])}>초기화</button>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={labelStyle}>적용 방식:</span>
+                <label style={radioStyle}>
+                  <input type="radio" name="show-pic-transition-mode" checked={transitionApplyMode === 'interpolate'}
+                    onChange={() => setTransitionApplyMode('interpolate')} />
+                  보간 적용
+                </label>
+                <label style={radioStyle}>
+                  <input type="radio" name="show-pic-transition-mode" checked={transitionApplyMode === 'instant'}
+                    onChange={() => setTransitionApplyMode('instant')} />
+                  즉시 적용
+                </label>
+              </div>
+              {transitionApplyMode === 'interpolate' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={labelStyle}>소요 시간:</span>
+                  <input type="number" min={0.1} max={60} step={0.1} value={transitionDuration}
+                    onChange={e => setTransitionDuration(Math.max(0.1, Math.min(60, Number(e.target.value))))}
+                    style={{ ...selectStyle, width: 70 }} />
+                  <span style={{ fontSize: 12, color: '#aaa' }}>초</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </Fieldset>
+      {showTransitionShaderDialog && (
+        <ShaderEditorDialog
+          imageName={imageName}
+          shaderList={transitionShaderList}
+          transitionOnly
+          onOk={(list) => { setTransitionShaderList(list); setShowTransitionShaderDialog(false); }}
+          onCancel={() => setShowTransitionShaderDialog(false)}
+        />
+      )}
+
       <EditorFooter onCancel={onCancel} onOk={() => {
         const shaderData = shaderList.length > 0 ? shaderList.map(s => ({ type: s.type, enabled: true, params: { ...s.params } })) : null;
         const presetData = positionType === 2 ? { presetX, presetY, offsetX: presetOffsetX, offsetY: presetOffsetY } : null;
-        onOk([pictureNumber, imageName, origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode, shaderData, presetData]);
+        const transitionData: ShaderTransition | null = transitionEnabled && transitionShaderList.length > 0
+          ? { shaderList: transitionShaderList.map(s => ({ ...s, params: { ...s.params } })), applyMode: transitionApplyMode, duration: transitionApplyMode === 'interpolate' ? transitionDuration : 0 }
+          : null;
+        onOk([pictureNumber, imageName, origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode, shaderData, presetData, transitionData]);
       }} />
     </>
   );
