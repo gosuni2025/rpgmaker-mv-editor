@@ -40,7 +40,10 @@ export async function initGameGlobals() {
     if (!w.$dataEnemies) w.$dataEnemies = [null];
     if (!w.$dataTroops) w.$dataTroops = [null];
     if (!w.$dataStates) w.$dataStates = [null];
-    if (!w.$dataAnimations) w.$dataAnimations = [null];
+    try {
+      const anims = await apiClient.get<any>('/database/animations');
+      w.$dataAnimations = anims;
+    } catch { w.$dataAnimations = [null]; }
     if (!w.$dataMapInfos) w.$dataMapInfos = [null];
 
     DataManager.createGameObjects();

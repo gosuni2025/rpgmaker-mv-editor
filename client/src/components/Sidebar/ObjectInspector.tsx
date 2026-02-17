@@ -5,7 +5,72 @@ import useEscClose from '../../hooks/useEscClose';
 import DragLabel from '../common/DragLabel';
 import { ShaderEditorDialog, ShaderEntry } from '../EventEditor/shaderEditor';
 import { SHADER_DEFINITIONS } from '../EventEditor/shaderDefinitions';
+import type { Animation } from '../../types/rpgMakerMV';
 import './InspectorPanel.css';
+
+function AnimationPickerDialog({ onSelect, onClose }: {
+  onSelect: (animationId: number, animationName: string) => void;
+  onClose: () => void;
+}) {
+  const [animations, setAnimations] = useState<(Animation | null)[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  useEscClose(useCallback(() => onClose(), [onClose]));
+
+  useEffect(() => {
+    apiClient.get<(Animation | null)[]>('/database/animations').then(setAnimations).catch(() => setAnimations([]));
+  }, []);
+
+  const validAnims = animations.filter((a): a is Animation => a != null && a.id > 0);
+
+  const handleOk = () => {
+    if (selectedId == null) return;
+    const anim = validAnims.find(a => a.id === selectedId);
+    if (anim) {
+      onSelect(anim.id, anim.name);
+      onClose();
+    }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="image-picker-dialog">
+        <div className="image-picker-header">애니메이션 오브젝트 생성</div>
+        <div className="image-picker-body">
+          <div className="image-picker-list">
+            {validAnims.map(a => (
+              <div
+                key={a.id}
+                className={`image-picker-item${selectedId === a.id ? ' selected' : ''}`}
+                onClick={() => setSelectedId(a.id)}
+              >
+                {String(a.id).padStart(4, '0')}: {a.name}
+              </div>
+            ))}
+          </div>
+          <div className="image-picker-preview-area" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontSize: 12 }}>
+            {selectedId != null ? (() => {
+              const anim = validAnims.find(a => a.id === selectedId);
+              if (!anim) return null;
+              return (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, color: '#ddd', marginBottom: 8 }}>{anim.name}</div>
+                  <div>프레임 수: {anim.frames?.length ?? 0}</div>
+                  <div>이미지1: {anim.animation1Name || '(없음)'}</div>
+                  <div>이미지2: {anim.animation2Name || '(없음)'}</div>
+                </div>
+              );
+            })() : '애니메이션을 선택하세요'}
+          </div>
+        </div>
+        <div style={{ color: '#888', fontSize: '0.85em', padding: '4px 12px' }}>데이터베이스 애니메이션을 맵에 루프 재생합니다.</div>
+        <div className="image-picker-footer">
+          <button className="db-btn" onClick={handleOk} disabled={selectedId == null}>OK</button>
+          <button className="db-btn" onClick={onClose}>취소</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ObjectImagePickerDialog({ onSelect, onClose }: {
   onSelect: (imageName: string) => void;
@@ -85,7 +150,9 @@ export default function ObjectInspector() {
   const deleteObject = useEditorStore((s) => s.deleteObject);
   const setSelectedObjectId = useEditorStore((s) => s.setSelectedObjectId);
   const addObjectFromImage = useEditorStore((s) => s.addObjectFromImage);
+  const addObjectFromAnimation = useEditorStore((s) => s.addObjectFromAnimation);
   const [showImagePicker, setShowImagePicker] = useState(false);
+  const [showAnimationPicker, setShowAnimationPicker] = useState(false);
   const [showAnchorHelp, setShowAnchorHelp] = useState(false);
   const [showShaderEditor, setShowShaderEditor] = useState(false);
 
@@ -122,14 +189,22 @@ export default function ObjectInspector() {
             <b>외곽선 오브젝트</b> — 맵에서 타일 영역을 칠하여 오브젝트 범위를 지정합니다.
             <br />
             <b>이미지 오브젝트</b> — 이미지 파일을 직접 삽입하여 오브젝트로 사용합니다.
+            <br />
+            <b>애니메이션 오브젝트</b> — 데이터베이스 애니메이션을 맵에서 루프 재생합니다.
           </div>
         </div>
-        <div style={{ padding: '0 8px' }}>
+        <div style={{ padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
           <button
             className="camera-zone-action-btn"
             onClick={() => setShowImagePicker(true)}
           >
             이미지로 오브젝트 생성
+          </button>
+          <button
+            className="camera-zone-action-btn"
+            onClick={() => setShowAnimationPicker(true)}
+          >
+            애니메이션 오브젝트 생성
           </button>
         </div>
         {showImagePicker && (
@@ -138,11 +213,18 @@ export default function ObjectInspector() {
             onClose={() => setShowImagePicker(false)}
           />
         )}
+        {showAnimationPicker && (
+          <AnimationPickerDialog
+            onSelect={(animId, animName) => addObjectFromAnimation(animId, animName)}
+            onClose={() => setShowAnimationPicker(false)}
+          />
+        )}
       </div>
     );
   }
 
   const isImageObj = !!selectedObj.imageName;
+  const isAnimObj = !!selectedObj.animationId;
   const anchorY = selectedObj.anchorY ?? 1.0;
 
   return (
@@ -174,6 +256,47 @@ export default function ObjectInspector() {
           </span>
         </div>
       </div>
+
+      {/* Animation settings (애니메이션 오브젝트 전용) */}
+      {isAnimObj && (
+        <div className="light-inspector-section">
+          <div className="light-inspector-title">애니메이션</div>
+          <div className="light-inspector-row">
+            <span className="light-inspector-label">ID</span>
+            <span style={{ fontSize: 12, color: '#ddd' }}>
+              {String(selectedObj.animationId).padStart(4, '0')}: {(() => {
+                const w = window as any;
+                const anims = w.$dataAnimations;
+                const anim = anims && anims[selectedObj.animationId!];
+                return anim?.name || '(알 수 없음)';
+              })()}
+            </span>
+          </div>
+          <div className="light-inspector-row" style={{ marginTop: 4 }}>
+            <span className="light-inspector-label">재생 모드</span>
+            <select
+              className="light-inspector-input"
+              style={{ flex: 1 }}
+              value={selectedObj.animationLoop || 'forward'}
+              onChange={(e) => updateObject(selectedObj.id, { animationLoop: e.target.value as any })}
+            >
+              <option value="forward">일방향 루프</option>
+              <option value="pingpong">핑퐁 루프</option>
+              <option value="once">원샷</option>
+            </select>
+          </div>
+          <div className="light-inspector-row" style={{ marginTop: 4 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12 }}>
+              <input
+                type="checkbox"
+                checked={selectedObj.animationSe !== false}
+                onChange={(e) => updateObject(selectedObj.id, { animationSe: e.target.checked })}
+              />
+              SE 재생
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* Image preview with anchor marker (이미지 오브젝트 전용) */}
       {isImageObj && (

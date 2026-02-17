@@ -2635,7 +2635,29 @@ Spriteset_Map.prototype.createMapObjects = function() {
         container.visible = obj.visible !== false;
         container.z = 5; // above upper tiles (z=4), same as upper characters
 
-        if (obj.imageName) {
+        if (obj.animationId && $dataAnimations && $dataAnimations[obj.animationId]) {
+            // 애니메이션 기반 오브젝트
+            var anim = $dataAnimations[obj.animationId];
+            var targetSprite = new Sprite();
+            targetSprite.x = obj.width * tw / 2;
+            targetSprite.y = -obj.height * th / 2;
+            targetSprite.setBlendColor = targetSprite.setBlendColor || function() {};
+            targetSprite.show = targetSprite.show || function() { this.visible = true; };
+            targetSprite.hide = targetSprite.hide || function() { this.visible = false; };
+            container.addChild(targetSprite);
+
+            var animSprite = new Sprite_Animation();
+            animSprite._duplicated = !(obj.animationSe !== false);
+            animSprite.setup(targetSprite, anim, false, 0);
+            container.addChild(animSprite);
+
+            container._mapObjAnimId = obj.animationId;
+            container._mapObjAnimLoop = obj.animationLoop || 'forward';
+            container._mapObjAnimSe = obj.animationSe !== false;
+            container._mapObjAnimSprite = animSprite;
+            container._mapObjAnimTarget = targetSprite;
+            container._mapObjAnimReverse = false;
+        } else if (obj.imageName) {
             // 이미지 기반 오브젝트: pictures 폴더에서 이미지 로드
             var imgSprite = new Sprite();
             imgSprite.bitmap = ImageManager.loadPicture(obj.imageName);
@@ -2834,6 +2856,40 @@ Spriteset_Map.prototype.updateMapObjects = function() {
             var billboard = container._threeSprite;
             if (billboard._heightOffset !== container._mapObjZHeight) {
                 billboard._heightOffset = container._mapObjZHeight;
+            }
+        }
+
+        // 애니메이션 오브젝트 루프 처리
+        if (container._mapObjAnimSprite) {
+            var animSpr = container._mapObjAnimSprite;
+            if (!animSpr.isPlaying()) {
+                var loop = container._mapObjAnimLoop;
+                if (loop === 'forward') {
+                    var anim = $dataAnimations[container._mapObjAnimId];
+                    if (anim) {
+                        animSpr._duplicated = !container._mapObjAnimSe;
+                        animSpr.setup(container._mapObjAnimTarget, anim, false, 0);
+                    }
+                } else if (loop === 'pingpong') {
+                    var origAnim = $dataAnimations[container._mapObjAnimId];
+                    if (origAnim) {
+                        container._mapObjAnimReverse = !container._mapObjAnimReverse;
+                        var animData;
+                        if (container._mapObjAnimReverse) {
+                            animData = Object.create(origAnim);
+                            animData.frames = origAnim.frames.slice().reverse();
+                            var maxFrame = origAnim.frames.length - 1;
+                            animData.timings = origAnim.timings.map(function(t) {
+                                return Object.assign({}, t, { frame: maxFrame - t.frame });
+                            });
+                        } else {
+                            animData = origAnim;
+                        }
+                        animSpr._duplicated = !container._mapObjAnimSe;
+                        animSpr.setup(container._mapObjAnimTarget, animData, false, 0);
+                    }
+                }
+                // 'once': 아무것도 안 함 (마지막 프레임에서 정지)
             }
         }
 

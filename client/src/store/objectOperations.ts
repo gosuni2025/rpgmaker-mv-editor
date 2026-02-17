@@ -306,6 +306,50 @@ export function shrinkObjectTilesOp(get: GetFn, set: SetFn, objectId: number, re
   pushObjectUndoEntry(get, set, oldObjects, objects);
 }
 
+export function addObjectFromAnimationOp(get: GetFn, set: SetFn, animationId: number, animationName: string) {
+  const { currentMap, currentMapId } = get();
+  if (!currentMap || !currentMapId) return;
+  const oldObjects = currentMap.objects || [];
+  const objects = [...oldObjects];
+  const newId = objects.length > 0 ? Math.max(...objects.map(o => o.id)) + 1 : 1;
+
+  // 애니메이션 셀 크기 192px → 4x4 타일 (192/48=4)
+  const w = 4, h = 4;
+  const tileIds: number[][][] = [];
+  for (let row = 0; row < h; row++) {
+    const rowArr: number[][] = [];
+    for (let col = 0; col < w; col++) {
+      rowArr.push([0, 0, 0, 0]);
+    }
+    tileIds.push(rowArr);
+  }
+  const passability: boolean[][] = [];
+  for (let row = 0; row < h; row++) {
+    passability.push(Array(w).fill(true)); // 전부 통행 가능
+  }
+
+  const cx = Math.floor(currentMap.width / 2);
+  const cy = Math.floor(currentMap.height / 2);
+
+  const newObj: MapObject = {
+    id: newId,
+    name: animationName,
+    x: cx,
+    y: cy + h - 1,
+    tileIds,
+    width: w,
+    height: h,
+    zHeight: 0,
+    passability,
+    animationId,
+    animationLoop: 'forward',
+    animationSe: true,
+  };
+  objects.push(newObj);
+  set({ currentMap: { ...currentMap, objects }, selectedObjectId: newId, selectedObjectIds: [newId] });
+  pushObjectUndoEntry(get, set, oldObjects, objects);
+}
+
 export function addObjectFromImageOp(get: GetFn, set: SetFn, imageName: string, imageWidth: number, imageHeight: number) {
   const { currentMap, currentMapId } = get();
   if (!currentMap || !currentMapId) return;
