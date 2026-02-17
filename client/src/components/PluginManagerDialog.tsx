@@ -68,6 +68,7 @@ interface PluginMetadata {
   author: string;
   help: string;
   params: PluginParamMeta[];
+  dependencies?: string[];
 }
 
 interface ProjectSettings {
@@ -519,6 +520,11 @@ export default function PluginManagerDialog() {
                       <span className="pm-plugin-item-name">
                         {metadata[plugin.name]?.pluginname || plugin.name || t('pluginManager.noPlugins')}
                       </span>
+                      {metadata[plugin.name]?.dependencies?.map(dep => (
+                        <span key={dep} className="pm-plugin-badge" title={`${dep} 필요`}>
+                          {dep === 'Three.js' ? '3D' : dep}
+                        </span>
+                      ))}
                     </div>
                   ))}
                 </div>
