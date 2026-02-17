@@ -120,9 +120,25 @@ export function useKeyboardShortcuts(
       if ((e.target as HTMLElement).closest?.('.db-dialog-overlay')) return;
       e.preventDefault();
 
-      // 마우스 커서 기준 줌: 줌 전후 커서가 가리키는 콘텐츠 위치를 동일하게 유지
+      const is3D = useEditorStore.getState().mode3d;
+
+      // 3D 모드: 유니티 스타일 — 카메라를 lookAt 방향으로 전진/후진
+      if (is3D && Mode3D) {
+        const moveSpeed = 80; // 한 번 스크롤당 이동 거리 (px)
+        const dir = e.deltaY < 0 ? 1 : -1; // 줌인=전진, 줌아웃=후진
+        const yaw = (Mode3D._yawRad || 0);
+        const tilt = (Mode3D._tiltRad || 0);
+        // 카메라 forward 방향 (lookAt - position 정규화)
+        // lookAt 방향: (-sin(yaw)*cos(tilt), -sin(tilt), -cos(yaw)*cos(tilt)) 를 맵 좌표로
+        Mode3D._editorPanX = (Mode3D._editorPanX || 0) + Math.sin(yaw) * dir * moveSpeed;
+        Mode3D._editorPanY = (Mode3D._editorPanY || 0) + Math.cos(yaw) * dir * moveSpeed;
+        Mode3D._editorPanZ = (Mode3D._editorPanZ || 0) + Math.sin(tilt) * dir * moveSpeed;
+        return;
+      }
+
+      // 2D 모드: 마우스 커서 기준 줌
       const rect = el.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left; // 컨테이너 내 커서 위치
+      const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
       const oldZoom = useEditorStore.getState().zoomLevel;
 
@@ -132,9 +148,6 @@ export function useKeyboardShortcuts(
       const newZoom = useEditorStore.getState().zoomLevel;
       if (newZoom === oldZoom) return;
 
-      // 줌 전 커서가 가리키는 콘텐츠 좌표: (scrollLeft + mouseX) / oldZoom
-      // 줌 후 같은 콘텐츠 좌표가 같은 화면 위치에 오려면:
-      // newScrollLeft = contentX * newZoom - mouseX
       const contentX = (el.scrollLeft + mouseX) / oldZoom;
       const contentY = (el.scrollTop + mouseY) / oldZoom;
       el.scrollLeft = contentX * newZoom - mouseX;
