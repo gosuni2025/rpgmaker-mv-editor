@@ -150,6 +150,9 @@ export default function App() {
   // 브라우저 기본 컨텍스트 메뉴 차단
   useEffect(() => {
     const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const tag = target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return;
       e.preventDefault();
     };
     document.addEventListener('contextmenu', handler);
