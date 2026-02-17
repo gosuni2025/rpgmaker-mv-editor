@@ -78,7 +78,9 @@
     "projectNotFound": "Project not found. Removing from list.",
     "help": "Help",
     "homepage": "Homepage",
-    "reportIssue": "Report Issue..."
+    "reportIssue": "Report Issue...",
+    "twitter": "Developer Twitter (X)",
+    "youtube": "Developer YouTube"
   },
   "options": {
     "title": "Editor Settings",

@@ -172,6 +172,9 @@ export default function MenuBar() {
       items: [
         { label: t('menu.homepage'), action: 'homepage' },
         { label: t('menu.reportIssue'), action: 'reportIssue' },
+        { type: 'separator' },
+        { label: t('menu.twitter'), action: 'twitter' },
+        { label: t('menu.youtube'), action: 'youtube' },
       ],
     },
   ];
@@ -257,6 +260,8 @@ export default function MenuBar() {
       case 'localization': setShowLocalizationDialog(true); break;
       case 'homepage': window.open('https://github.com/gosuni2025/rpgmaker-mv-editor', '_blank'); break;
       case 'reportIssue': window.open('https://github.com/gosuni2025/rpgmaker-mv-editor/issues', '_blank'); break;
+      case 'twitter': window.open('https://x.com/gosuni2025', '_blank'); break;
+      case 'youtube': window.open('https://www.youtube.com/@gosuni2025', '_blank'); break;
     }
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
