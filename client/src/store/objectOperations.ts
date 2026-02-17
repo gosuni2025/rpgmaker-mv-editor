@@ -474,6 +474,25 @@ export function pasteObjectsOp(get: GetFn, set: SetFn, x: number, y: number) {
   if (objs.length === 0) return;
   const minX = Math.min(...objs.map(o => o.x));
   const minY = Math.min(...objs.map(o => o.y));
+
+  // 붙여넣기할 위치 계산
+  const newPositions = objs.map(o => ({ x: x + (o.x - minX), y: y + (o.y - minY) }));
+
+  // 맵 경계 체크
+  if (newPositions.some(p => p.x < 0 || p.x >= currentMap.width || p.y < 0 || p.y >= currentMap.height)) return;
+
+  // 기존 오브젝트와 겹침 체크
+  const existingPositions = new Set(
+    (currentMap.objects || []).map(o => `${o.x},${o.y}`)
+  );
+  // 붙여넣기 대상끼리 겹침 체크
+  const pastePositions = new Set<string>();
+  for (const p of newPositions) {
+    const key = `${p.x},${p.y}`;
+    if (existingPositions.has(key) || pastePositions.has(key)) return;
+    pastePositions.add(key);
+  }
+
   const oldObjects = currentMap.objects || [];
   const objects = [...oldObjects];
   let maxId = objects.length > 0 ? Math.max(...objects.map(o => o.id)) : 0;
@@ -506,6 +525,26 @@ export function moveObjectsOp(get: GetFn, set: SetFn, objectIds: number[], dx: n
   if (!currentMap || !currentMap.objects || objectIds.length === 0) return;
   if (dx === 0 && dy === 0) return;
   const idSet = new Set(objectIds);
+
+  // 이동할 오브젝트들의 새 위치 계산
+  const movingObjects = currentMap.objects.filter(o => idSet.has(o.id));
+  const newPositions = movingObjects.map(o => ({ x: o.x + dx, y: o.y + dy }));
+
+  // 맵 경계 체크
+  if (newPositions.some(p => p.x < 0 || p.x >= currentMap.width || p.y < 0 || p.y >= currentMap.height)) return;
+
+  // 이동하지 않는 오브젝트와 겹침 체크
+  const staticPositions = new Set(
+    currentMap.objects.filter(o => !idSet.has(o.id)).map(o => `${o.x},${o.y}`)
+  );
+  // 이동 대상끼리 겹침 체크
+  const movedPositions = new Set<string>();
+  for (const p of newPositions) {
+    const key = `${p.x},${p.y}`;
+    if (staticPositions.has(key) || movedPositions.has(key)) return;
+    movedPositions.add(key);
+  }
+
   const oldObjects = currentMap.objects;
   const objects = oldObjects.map(o => {
     if (idSet.has(o.id)) {
