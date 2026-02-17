@@ -57,6 +57,7 @@
     // 에디터 카메라 팬 오프셋 (픽셀 단위)
     Mode3D._editorPanX = 0;
     Mode3D._editorPanY = 0;
+    Mode3D._editorPanZ = 0; // 높이 오프셋
     window.Mode3D = Mode3D;
 
     //=========================================================================
@@ -177,9 +178,11 @@
         var cy = h / 2;
 
         // 에디터 카메라 팬 오프셋 적용
+        var panZ = 0;
         if (window.__editorMode) {
             cx += (this._editorPanX || 0);
             cy += (this._editorPanY || 0);
+            panZ = (this._editorPanZ || 0);
         }
 
         // yaw 회전: 카메라를 맵 중심(cx, cy, 0) 주위로 Y축 회전
@@ -190,13 +193,13 @@
         camera.position.set(
             cx + offX,
             cy + offY,
-            offZ
+            offZ + panZ
         );
 
         // far plane도 충분히 넓게
         camera.far = dist * 4;
         camera.up.set(0, 1, 0);
-        camera.lookAt(new THREE.Vector3(cx, cy, 0));
+        camera.lookAt(new THREE.Vector3(cx, cy, panZ));
         camera.updateProjectionMatrix();
 
         // Y-down 좌표계: projectionMatrix의 Y축 반전

@@ -166,6 +166,7 @@ export default function Camera3DGizmo() {
     Mode3D._yawRad = 0;
     Mode3D._editorPanX = 0;
     Mode3D._editorPanY = 0;
+    Mode3D._editorPanZ = 0;
   }, []);
 
   if (!mode3d) return null;
