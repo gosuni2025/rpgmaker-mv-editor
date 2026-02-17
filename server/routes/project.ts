@@ -321,7 +321,8 @@ router.post('/deploy', (req: Request, res: Response) => {
   }
 });
 
-// Migration: compare editor runtime files with project js/ folder
+// Migration: compare editor runtime files with project js/3d/ folder
+// Runtime files are placed in js/3d/ to coexist with PIXI originals in js/
 router.get('/migration-check', (req: Request, res: Response) => {
   try {
     const projectPath = req.query.path as string;
@@ -330,7 +331,7 @@ router.get('/migration-check', (req: Request, res: Response) => {
     }
 
     const runtimeJsDir = path.join(runtimePath, 'js');
-    const projectJsDir = path.join(projectPath, 'js');
+    const projectJsDir = path.join(projectPath, 'js', '3d');
 
     // Collect all runtime js files
     const runtimeFiles = collectFiles(runtimeJsDir, runtimeJsDir);
@@ -341,15 +342,23 @@ router.get('/migration-check', (req: Request, res: Response) => {
     for (const relFile of runtimeFiles) {
       // Skip plugins-related files (those are project-specific)
       if (relFile === 'plugins.js' || relFile.startsWith('plugins/') || relFile.startsWith('plugins\\')) continue;
+      // libs/ go to js/libs/ (shared), other files go to js/3d/
+      const isLib = relFile.startsWith('libs/') || relFile.startsWith('libs\\');
+      // Skip non-Three.js libs (fpsmeter, lz-string, iphone-inline-video are already in PIXI projects)
+      if (isLib && !relFile.includes('three')) continue;
 
       const editorFile = path.join(runtimeJsDir, relFile);
-      const projectFile = path.join(projectJsDir, relFile);
+      // libs go to js/libs/, everything else to js/3d/
+      const projectFile = isLib
+        ? path.join(projectPath, 'js', relFile)
+        : path.join(projectJsDir, relFile);
+      const displayPath = isLib ? `js/${relFile}` : `js/3d/${relFile}`;
       const editorStat = fs.statSync(editorFile);
       const editorSize = editorStat.size;
       const editorMtime = editorStat.mtime.toISOString();
 
       if (!fs.existsSync(projectFile)) {
-        files.push({ file: `js/${relFile}`, status: 'add', editorSize, editorMtime });
+        files.push({ file: displayPath, status: 'add', editorSize, editorMtime });
         needsMigration = true;
       } else {
         const projectStat = fs.statSync(projectFile);
@@ -358,10 +367,33 @@ router.get('/migration-check', (req: Request, res: Response) => {
         const editorHash = fileHash(editorFile);
         const projectHash = fileHash(projectFile);
         if (editorHash !== projectHash) {
-          files.push({ file: `js/${relFile}`, status: 'update', editorSize, projectSize, editorMtime, projectMtime });
+          files.push({ file: displayPath, status: 'update', editorSize, projectSize, editorMtime, projectMtime });
           needsMigration = true;
         } else {
-          files.push({ file: `js/${relFile}`, status: 'same', editorSize, projectSize, editorMtime, projectMtime });
+          files.push({ file: displayPath, status: 'same', editorSize, projectSize, editorMtime, projectMtime });
+        }
+      }
+    }
+
+    // Check index_3d.html
+    const runtimeIndex3d = path.join(runtimePath, 'index_3d.html');
+    const projectIndex3d = path.join(projectPath, 'index_3d.html');
+    if (fs.existsSync(runtimeIndex3d)) {
+      const editorStat = fs.statSync(runtimeIndex3d);
+      const editorSize = editorStat.size;
+      const editorMtime = editorStat.mtime.toISOString();
+      if (!fs.existsSync(projectIndex3d)) {
+        files.push({ file: 'index_3d.html', status: 'add', editorSize, editorMtime });
+        needsMigration = true;
+      } else {
+        const projectStat = fs.statSync(projectIndex3d);
+        const projectSize = projectStat.size;
+        const projectMtime = projectStat.mtime.toISOString();
+        if (fileHash(runtimeIndex3d) !== fileHash(projectIndex3d)) {
+          files.push({ file: 'index_3d.html', status: 'update', editorSize, projectSize, editorMtime, projectMtime });
+          needsMigration = true;
+        } else {
+          files.push({ file: 'index_3d.html', status: 'same', editorSize, projectSize, editorMtime, projectMtime });
         }
       }
     }
@@ -385,7 +417,7 @@ router.get('/migration-check', (req: Request, res: Response) => {
   }
 });
 
-// Migration: copy editor runtime files to project js/ folder
+// Migration: copy editor runtime files to project js/3d/ folder
 router.post('/migrate', (req: Request, res: Response) => {
   try {
     if (!projectManager.isOpen()) {
@@ -394,7 +426,7 @@ router.post('/migrate', (req: Request, res: Response) => {
 
     const projectRoot = projectManager.currentPath!;
     const runtimeJsDir = path.join(runtimePath, 'js');
-    const projectJsDir = path.join(projectRoot, 'js');
+    const projectJsDir = path.join(projectRoot, 'js', '3d');
     const selectedFiles: string[] | undefined = req.body.files;
     const gitBackup: boolean = req.body.gitBackup === true;
 
@@ -432,8 +464,32 @@ router.post('/migrate', (req: Request, res: Response) => {
     if (selectedFiles && selectedFiles.length > 0) {
       // Copy only selected files
       for (const file of selectedFiles) {
-        // file is like "js/rpg_core.js" – strip the leading "js/"
-        const relFile = file.replace(/^js\//, '');
+        // Handle index_3d.html (project root)
+        if (file === 'index_3d.html') {
+          const src = path.join(runtimePath, 'index_3d.html');
+          const dest = path.join(projectRoot, 'index_3d.html');
+          if (fs.existsSync(src)) {
+            fs.copyFileSync(src, dest);
+            copied.push('index_3d.html');
+          }
+          continue;
+        }
+
+        // Handle js/libs/* files (Three.js libs go to project js/libs/)
+        if (file.startsWith('js/libs/')) {
+          const relFile = file.replace(/^js\//, '');
+          const src = path.join(runtimeJsDir, relFile);
+          const dest = path.join(projectRoot, 'js', relFile);
+          if (fs.existsSync(src)) {
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            fs.copyFileSync(src, dest);
+            copied.push(file);
+          }
+          continue;
+        }
+
+        // file is like "js/3d/rpg_core.js" – strip the leading "js/3d/"
+        const relFile = file.replace(/^js\/3d\//, '');
         if (relFile === 'plugins.js' || relFile.startsWith('plugins/') || relFile.startsWith('plugins\\')) continue;
 
         const src = path.join(runtimeJsDir, relFile);
@@ -443,16 +499,21 @@ router.post('/migrate', (req: Request, res: Response) => {
 
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         fs.copyFileSync(src, dest);
-        copied.push(`js/${relFile}`);
+        copied.push(`js/3d/${relFile}`);
       }
     } else {
       // Legacy: copy all changed files
       const runtimeFiles = collectFiles(runtimeJsDir, runtimeJsDir);
       for (const relFile of runtimeFiles) {
         if (relFile === 'plugins.js' || relFile.startsWith('plugins/') || relFile.startsWith('plugins\\')) continue;
+        const isLib = relFile.startsWith('libs/') || relFile.startsWith('libs\\');
+        if (isLib && !relFile.includes('three')) continue;
 
         const src = path.join(runtimeJsDir, relFile);
-        const dest = path.join(projectJsDir, relFile);
+        const dest = isLib
+          ? path.join(projectRoot, 'js', relFile)
+          : path.join(projectJsDir, relFile);
+        const displayPath = isLib ? `js/${relFile}` : `js/3d/${relFile}`;
 
         if (fs.existsSync(dest)) {
           if (fileHash(src) === fileHash(dest)) continue;
@@ -460,7 +521,17 @@ router.post('/migrate', (req: Request, res: Response) => {
 
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         fs.copyFileSync(src, dest);
-        copied.push(`js/${relFile}`);
+        copied.push(displayPath);
+      }
+
+      // Also copy index_3d.html
+      const runtimeIndex3d = path.join(runtimePath, 'index_3d.html');
+      const projectIndex3d = path.join(projectRoot, 'index_3d.html');
+      if (fs.existsSync(runtimeIndex3d)) {
+        if (!fs.existsSync(projectIndex3d) || fileHash(runtimeIndex3d) !== fileHash(projectIndex3d)) {
+          fs.copyFileSync(runtimeIndex3d, projectIndex3d);
+          copied.push('index_3d.html');
+        }
       }
     }
 
