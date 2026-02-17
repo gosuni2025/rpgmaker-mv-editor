@@ -2904,10 +2904,14 @@ Spriteset_Map.prototype.updateMapObjects = function() {
                         }
                     }
                 }
-                // 'once': animData가 null이므로 아무것도 안 함
+                // 이전 스프라이트의 Three.js 리소스 해제
+                if (animSpr.destroy) {
+                    animSpr.destroy();
+                } else if (animSpr.parent) {
+                    animSpr.parent.removeChild(animSpr);
+                }
                 if (animData) {
-                    // 이전 스프라이트 제거 후 새로 생성 (셀 스프라이트 누적 방지)
-                    if (animSpr.parent) animSpr.parent.removeChild(animSpr);
+                    // 새 애니메이션 스프라이트 생성
                     var newAnimSpr = new Sprite_Animation();
                     newAnimSpr.setup(container._mapObjAnimTarget, animData, false, 0);
                     if (!container._mapObjAnimSe) {
@@ -2924,6 +2928,9 @@ Spriteset_Map.prototype.updateMapObjects = function() {
                     if (container._mapObjAnimScaleY) newAnimSpr.scale.y = container._mapObjAnimScaleY;
                     container.addChild(newAnimSpr);
                     container._mapObjAnimSprite = newAnimSpr;
+                } else {
+                    // 'once' 모드: 재생 완료 후 참조 정리
+                    container._mapObjAnimSprite = null;
                 }
             }
         }
