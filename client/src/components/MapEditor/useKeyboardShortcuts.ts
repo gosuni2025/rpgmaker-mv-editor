@@ -122,17 +122,17 @@ export function useKeyboardShortcuts(
 
       const is3D = useEditorStore.getState().mode3d;
 
-      // 3D 모드: 유니티 스타일 — 카메라를 lookAt 방향으로 전진/후진
+      // 3D 모드: 유니티 스타일 — 카메라 forward 벡터 방향으로 전진/후진
       if (is3D && Mode3D) {
-        const moveSpeed = 80; // 한 번 스크롤당 이동 거리 (px)
-        const dir = e.deltaY < 0 ? 1 : -1; // 줌인=전진, 줌아웃=후진
-        const yaw = (Mode3D._yawRad || 0);
-        const tilt = (Mode3D._tiltRad || 0);
-        // 카메라 forward 방향 (lookAt - position 정규화)
-        // lookAt 방향: (-sin(yaw)*cos(tilt), -sin(tilt), -cos(yaw)*cos(tilt)) 를 맵 좌표로
-        Mode3D._editorPanX = (Mode3D._editorPanX || 0) + Math.sin(yaw) * dir * moveSpeed;
-        Mode3D._editorPanY = (Mode3D._editorPanY || 0) + Math.cos(yaw) * dir * moveSpeed;
-        Mode3D._editorPanZ = (Mode3D._editorPanZ || 0) + Math.sin(tilt) * dir * moveSpeed;
+        const cam = Mode3D._perspCamera;
+        if (!cam) return;
+        const moveSpeed = 80;
+        const dir = e.deltaY < 0 ? 1 : -1;
+        const fwd = new (window as any).THREE.Vector3();
+        cam.getWorldDirection(fwd);
+        Mode3D._editorPanX = (Mode3D._editorPanX || 0) + fwd.x * dir * moveSpeed;
+        Mode3D._editorPanY = (Mode3D._editorPanY || 0) + fwd.y * dir * moveSpeed;
+        Mode3D._editorPanZ = (Mode3D._editorPanZ || 0) + fwd.z * dir * moveSpeed;
         return;
       }
 
@@ -164,23 +164,29 @@ export function useKeyboardShortcuts(
           flyAnimRef.current = 0;
           return;
         }
+        const cam = Mode3D._perspCamera;
+        if (!cam) { flyAnimRef.current = requestAnimationFrame(loop); return; }
         const now = performance.now();
         const dt = (now - lastTime) / 1000;
         lastTime = now;
         const speed = 400; // px/sec
-        const yaw = (Mode3D._yawRad || 0);
-        const tilt = (Mode3D._tiltRad || 0);
-        const cosY = Math.cos(yaw);
-        const sinY = Math.sin(yaw);
+        const THREE = (window as any).THREE;
+
+        // 카메라에서 forward/right/up 벡터 직접 추출
+        const fwd = new THREE.Vector3();
+        cam.getWorldDirection(fwd);
+        const right = new THREE.Vector3();
+        right.crossVectors(fwd, cam.up).normalize();
+        const up = new THREE.Vector3(0, 0, 1); // 월드 Z-up (높이)
 
         let dx = 0, dy = 0, dz = 0;
-        // W/S: 카메라가 바라보는 방향으로 전진/후진 (맵 평면 투영)
-        if (flyKeys.current.has('w')) { dx += sinY; dy += cosY; }
-        if (flyKeys.current.has('s')) { dx -= sinY; dy -= cosY; }
-        // A/D: 카메라 옆 방향
-        if (flyKeys.current.has('a')) { dx -= cosY; dy += sinY; }
-        if (flyKeys.current.has('d')) { dx += cosY; dy -= sinY; }
-        // Q/E: 높이 (상하)
+        // W/S: 카메라 forward 방향
+        if (flyKeys.current.has('w')) { dx += fwd.x; dy += fwd.y; dz += fwd.z; }
+        if (flyKeys.current.has('s')) { dx -= fwd.x; dy -= fwd.y; dz -= fwd.z; }
+        // A/D: 카메라 right 방향
+        if (flyKeys.current.has('a')) { dx -= right.x; dy -= right.y; dz -= right.z; }
+        if (flyKeys.current.has('d')) { dx += right.x; dy += right.y; dz += right.z; }
+        // Q/E: 월드 높이 (Z축)
         if (flyKeys.current.has('e')) { dz += 1; }
         if (flyKeys.current.has('q')) { dz -= 1; }
 
@@ -302,22 +308,23 @@ export function useKeyboardShortcuts(
         return;
       }
 
-      // 3D 팬 (중클릭 드래그) — 카메라 로컬 좌표계 기준
+      // 3D 팬 (중클릭 드래그) — 카메라 right/up 벡터 사용
       if (isPanning3D.current && Mode3D) {
+        const cam = Mode3D._perspCamera;
+        if (!cam) return;
         const dx = e.clientX - cam3DStart.current.x;
         const dy = e.clientY - cam3DStart.current.y;
         const panSpeed = 2.0;
-        const yawRad = (Mode3D._yawRad || 0);
-        const tiltRad = (Mode3D._tiltRad || 0);
-        const cosYaw = Math.cos(yawRad);
-        const sinYaw = Math.sin(yawRad);
-        const cosTilt = Math.cos(tiltRad);
-        const sinTilt = Math.sin(tiltRad);
-        // 카메라 right 방향 (화면 가로) → 맵 X,Y에 투영
-        // 카메라 up 방향 (화면 세로) → 맵 Y,Z에 투영
-        Mode3D._editorPanX = cam3DStart.current.panX - (dx * cosYaw + dy * sinTilt * sinYaw) * panSpeed;
-        Mode3D._editorPanY = cam3DStart.current.panY - (-dx * sinYaw + dy * sinTilt * cosYaw) * panSpeed;
-        Mode3D._editorPanZ = cam3DStart.current.panZ + dy * cosTilt * panSpeed;
+        const THREE = (window as any).THREE;
+        const fwd = new THREE.Vector3();
+        cam.getWorldDirection(fwd);
+        const right = new THREE.Vector3();
+        right.crossVectors(fwd, cam.up).normalize();
+        const up = new THREE.Vector3();
+        up.crossVectors(right, fwd).normalize();
+        Mode3D._editorPanX = cam3DStart.current.panX - (dx * right.x + dy * -up.x) * panSpeed;
+        Mode3D._editorPanY = cam3DStart.current.panY - (dx * right.y + dy * -up.y) * panSpeed;
+        Mode3D._editorPanZ = cam3DStart.current.panZ - (dx * right.z + dy * -up.z) * panSpeed;
         return;
       }
 
