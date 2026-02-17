@@ -1211,7 +1211,8 @@ ShadowLight._addLightsToScene = function(scene) {
     } catch (e) {}
 
     // editorLights 맵별 설정 (에디터에서 저장한 커스텀 데이터)
-    var el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+    var elRaw = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+    var el = (elRaw && elRaw.enabled !== false) ? elRaw : null;
 
     // 디버그 패널 우선 적용 플래그 로드
     var ambientOverride = false;
@@ -1408,7 +1409,8 @@ ShadowLight._updateCameraZoneAmbient = function() {
     }
 
     // 맵 데이터 기반: editorLights에서 글로벌 ambient 값 가져오기
-    var el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+    var elRaw = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+    var el = (elRaw && elRaw.enabled !== false) ? elRaw : null;
     var baseIntensity, baseColor;
     var ambEnabled = true;
     if (el && el.ambient) {
@@ -2138,7 +2140,8 @@ Spriteset_Map.prototype._updatePointLights = function() {
     }
 
     // 에디터에서 배치한 포인트 라이트 ($dataMap.editorLights.points)
-    var el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+    var elRaw2 = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+    var el = (elRaw2 && elRaw2.enabled !== false) ? elRaw2 : null;
     if (el && el.points) {
         var tw = $gameMap.tileWidth();
         var th = $gameMap.tileHeight();

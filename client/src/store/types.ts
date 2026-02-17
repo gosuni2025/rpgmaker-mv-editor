@@ -353,6 +353,7 @@ export interface EditorState {
   pasteLights: (x: number, y: number) => void;
   deleteLights: (lightIds: number[]) => void;
   moveLights: (lightIds: number[], dx: number, dy: number) => void;
+  updateEditorLightsEnabled: (enabled: boolean) => void;
   updateAmbientLight: (updates: Partial<EditorAmbientLight>) => void;
   updateDirectionalLight: (updates: Partial<EditorDirectionalLight>) => void;
   updatePlayerLight: (updates: Partial<EditorPlayerLight>) => void;

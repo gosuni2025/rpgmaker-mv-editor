@@ -40,6 +40,7 @@ export default function LightInspector() {
   const updatePointLight = useEditorStore((s) => s.updatePointLight);
   const deletePointLight = useEditorStore((s) => s.deletePointLight);
   const setSelectedLightId = useEditorStore((s) => s.setSelectedLightId);
+  const updateEditorLightsEnabled = useEditorStore((s) => s.updateEditorLightsEnabled);
   const updateAmbientLight = useEditorStore((s) => s.updateAmbientLight);
   const updateDirectionalLight = useEditorStore((s) => s.updateDirectionalLight);
   const updatePlayerLight = useEditorStore((s) => s.updatePlayerLight);
@@ -60,6 +61,16 @@ export default function LightInspector() {
 
   return (
     <div className="light-inspector">
+      {/* Global lights enabled */}
+      <div className="light-inspector-section">
+        <div className="light-inspector-row">
+          <span className="light-inspector-label">광원 적용</span>
+          <input type="checkbox" checked={editorLights.enabled !== false}
+            onChange={(e) => updateEditorLightsEnabled(e.target.checked)} />
+          <HelpButton text={"이 맵에 에디터 광원 시스템을 적용할지 결정합니다.\n맵 속성의 동일한 설정과 연동됩니다."} />
+        </div>
+      </div>
+
       {/* Ambient Light */}
       {selectedLightType === 'ambient' && (
         <div className="light-inspector-section">

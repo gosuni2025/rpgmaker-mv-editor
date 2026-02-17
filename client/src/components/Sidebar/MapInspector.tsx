@@ -275,6 +275,24 @@ export default function MapInspector() {
         </div>
       </div>
 
+      {/* Editor Lights enabled */}
+      <div className="light-inspector-section">
+        <div className="light-inspector-title">광원 시스템 <ExtBadge inline /></div>
+        <label className="map-inspector-checkbox">
+          <input type="checkbox" checked={currentMap.editorLights?.enabled !== false}
+            onChange={(e) => {
+              const cm = useEditorStore.getState().currentMap;
+              if (!cm || !cm.editorLights) return;
+              useEditorStore.getState().updateEditorLightsEnabled(e.target.checked);
+            }} />
+          <span>광원 적용</span>
+        </label>
+        <div style={{ fontSize: 11, color: '#888', marginTop: 2, lineHeight: 1.4 }}>
+          이 맵에 에디터 광원(환경광, 방향광, 포인트라이트 등)을 적용합니다.
+          광원 편집 모드의 동일한 설정과 연동됩니다.
+        </div>
+      </div>
+
       {/* Parallax - standard MV */}
       <div className="light-inspector-section">
         <div className="light-inspector-title">먼 배경</div>
