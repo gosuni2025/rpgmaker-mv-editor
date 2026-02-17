@@ -435,13 +435,13 @@ export function addObjectOp(get: GetFn, set: SetFn, x: number, y: number) {
   pushObjectUndoEntry(get, set, oldObjects, objects);
 }
 
-export function updateObjectOp(get: GetFn, set: SetFn, id: number, updates: Partial<MapObject>) {
+export function updateObjectOp(get: GetFn, set: SetFn, id: number, updates: Partial<MapObject>, skipUndo?: boolean) {
   const { currentMap, currentMapId } = get();
   if (!currentMap || !currentMapId || !currentMap.objects) return;
   const oldObjects = currentMap.objects;
   const objects = oldObjects.map(o => o.id === id ? { ...o, ...updates } : o);
   set({ currentMap: { ...currentMap, objects } });
-  pushObjectUndoEntry(get, set, oldObjects, objects);
+  if (!skipUndo) pushObjectUndoEntry(get, set, oldObjects, objects);
 }
 
 export function deleteObjectOp(get: GetFn, set: SetFn, id: number) {
@@ -517,6 +517,14 @@ export function moveObjectsOp(get: GetFn, set: SetFn, objectIds: number[], dx: n
   pushObjectUndoEntry(get, set, oldObjects, objects);
 }
 
+/** 드래그 완료 시 수동으로 undo entry를 push (DragLabel skipUndo 패턴용) */
+export function commitDragUndoOp(get: GetFn, set: SetFn, snapshotObjects: MapObject[]) {
+  const { currentMap } = get();
+  if (!currentMap || !currentMap.objects) return;
+  if (snapshotObjects === currentMap.objects) return; // 변경 없음
+  pushObjectUndoEntry(get, set, snapshotObjects, currentMap.objects);
+}
+
 // ============================================================
 // Camera zone operations
 // ============================================================
@@ -568,13 +576,17 @@ export function addCameraZoneOp(get: GetFn, set: SetFn, x: number, y: number, wi
   });
 }
 
-export function updateCameraZoneOp(get: GetFn, set: SetFn, id: number, updates: Partial<CameraZone>) {
+export function updateCameraZoneOp(get: GetFn, set: SetFn, id: number, updates: Partial<CameraZone>, skipUndo?: boolean) {
   const { currentMap, currentMapId, undoStack, selectedCameraZoneId, selectedCameraZoneIds } = get();
   if (!currentMap || !currentMapId || !currentMap.cameraZones) return;
   if (updates.width !== undefined) updates.width = Math.max(updates.width, MIN_CAMERA_ZONE_WIDTH);
   if (updates.height !== undefined) updates.height = Math.max(updates.height, MIN_CAMERA_ZONE_HEIGHT);
   const oldZones = currentMap.cameraZones;
   const zones = oldZones.map(z => z.id === id ? { ...z, ...updates } : z);
+  if (skipUndo) {
+    set({ currentMap: { ...currentMap, cameraZones: zones } });
+    return;
+  }
   const historyEntry: CameraZoneHistoryEntry = {
     mapId: currentMapId, type: 'cameraZone',
     oldZones, newZones: zones,
@@ -588,6 +600,22 @@ export function updateCameraZoneOp(get: GetFn, set: SetFn, id: number, updates: 
     undoStack: newStack,
     redoStack: [],
   });
+}
+
+/** 카메라존 드래그 완료 시 수동으로 undo entry를 push */
+export function commitCameraZoneDragUndoOp(get: GetFn, set: SetFn, snapshotZones: CameraZone[]) {
+  const { currentMap, currentMapId, undoStack, selectedCameraZoneId, selectedCameraZoneIds } = get();
+  if (!currentMap || !currentMapId || !currentMap.cameraZones) return;
+  if (snapshotZones === currentMap.cameraZones) return;
+  const historyEntry: CameraZoneHistoryEntry = {
+    mapId: currentMapId, type: 'cameraZone',
+    oldZones: snapshotZones, newZones: currentMap.cameraZones,
+    oldSelectedCameraZoneId: selectedCameraZoneId,
+    oldSelectedCameraZoneIds: selectedCameraZoneIds,
+  };
+  const newStack = [...undoStack, historyEntry];
+  if (newStack.length > get().maxUndo) newStack.shift();
+  set({ undoStack: newStack, redoStack: [] });
 }
 
 export function deleteCameraZoneOp(get: GetFn, set: SetFn, id: number) {

@@ -11,8 +11,8 @@ import {
 } from './eventOperations';
 import {
   addObjectOp, addObjectFromTilesOp, addObjectFromImageOp, addObjectFromAnimationOp, expandObjectTilesOp, shrinkObjectTilesOp, updateObjectOp, deleteObjectOp,
-  copyObjectsOp, pasteObjectsOp, deleteObjectsOp, moveObjectsOp,
-  addCameraZoneOp, updateCameraZoneOp, deleteCameraZoneOp, deleteCameraZonesOp, moveCameraZonesOp,
+  copyObjectsOp, pasteObjectsOp, deleteObjectsOp, moveObjectsOp, commitDragUndoOp,
+  addCameraZoneOp, updateCameraZoneOp, deleteCameraZoneOp, deleteCameraZonesOp, moveCameraZonesOp, commitCameraZoneDragUndoOp,
 } from './objectOperations';
 
 export const editingSlice: SliceCreator<Pick<EditorState,
@@ -394,21 +394,23 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   addObjectFromAnimation: (animationId: number, animationName: string) => addObjectFromAnimationOp(get, set, animationId, animationName),
   expandObjectTiles: (objectId: number, paintedTiles: Set<string>) => expandObjectTilesOp(get, set, objectId, paintedTiles),
   shrinkObjectTiles: (objectId: number, removeTiles: Set<string>) => shrinkObjectTilesOp(get, set, objectId, removeTiles),
-  updateObject: (id: number, updates: Partial<MapObject>) => updateObjectOp(get, set, id, updates),
+  updateObject: (id: number, updates: Partial<MapObject>, skipUndo?: boolean) => updateObjectOp(get, set, id, updates, skipUndo),
   deleteObject: (id: number) => deleteObjectOp(get, set, id),
   copyObjects: (objectIds: number[]) => copyObjectsOp(get, set, objectIds),
   pasteObjects: (x: number, y: number) => pasteObjectsOp(get, set, x, y),
   deleteObjects: (objectIds: number[]) => deleteObjectsOp(get, set, objectIds),
   moveObjects: (objectIds: number[], dx: number, dy: number) => moveObjectsOp(get, set, objectIds, dx, dy),
+  commitDragUndo: (snapshotObjects: MapObject[]) => commitDragUndoOp(get, set, snapshotObjects),
 
   // Camera zone operations (delegated)
   setSelectedCameraZoneId: (id: number | null) => set({ selectedCameraZoneId: id }),
   setSelectedCameraZoneIds: (ids: number[]) => set({ selectedCameraZoneIds: ids }),
   addCameraZone: (x: number, y: number, width: number, height: number) => addCameraZoneOp(get, set, x, y, width, height),
-  updateCameraZone: (id: number, updates: Partial<CameraZone>) => updateCameraZoneOp(get, set, id, updates),
+  updateCameraZone: (id: number, updates: Partial<CameraZone>, skipUndo?: boolean) => updateCameraZoneOp(get, set, id, updates, skipUndo),
   deleteCameraZone: (id: number) => deleteCameraZoneOp(get, set, id),
   deleteCameraZones: (ids: number[]) => deleteCameraZonesOp(get, set, ids),
   moveCameraZones: (ids: number[], dx: number, dy: number) => moveCameraZonesOp(get, set, ids, dx, dy),
+  commitCameraZoneDragUndo: (snapshotZones: CameraZone[]) => commitCameraZoneDragUndoOp(get, set, snapshotZones),
 
   // UI setters
   // Passage actions

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
 import './InspectorPanel.css';
@@ -37,6 +37,18 @@ export default function CameraZoneInspector() {
   const updateCameraZone = useEditorStore((s) => s.updateCameraZone);
   const deleteCameraZone = useEditorStore((s) => s.deleteCameraZone);
   const setSelectedCameraZoneId = useEditorStore((s) => s.setSelectedCameraZoneId);
+  const commitCameraZoneDragUndo = useEditorStore((s) => s.commitCameraZoneDragUndo);
+
+  const dragSnapshotRef = useRef<any[] | null>(null);
+  const onDragStart = useCallback(() => {
+    dragSnapshotRef.current = useEditorStore.getState().currentMap?.cameraZones || null;
+  }, []);
+  const onDragEnd = useCallback(() => {
+    if (dragSnapshotRef.current) {
+      commitCameraZoneDragUndo(dragSnapshotRef.current);
+      dragSnapshotRef.current = null;
+    }
+  }, [commitCameraZoneDragUndo]);
 
   const zones = currentMap?.cameraZones;
   const selectedZone = selectedCameraZoneId != null && zones
@@ -103,14 +115,16 @@ export default function CameraZoneInspector() {
             <div className="light-inspector-title">위치</div>
             <div className="light-inspector-row">
               <DragLabel label="X" value={selectedZone.x} step={1} min={-999} max={mapWidth + 999}
-                onChange={(v) => updateCameraZone(selectedZone.id, { x: Math.round(v) })} />
+                onDragStart={onDragStart} onDragEnd={onDragEnd}
+                onChange={(v) => updateCameraZone(selectedZone.id, { x: Math.round(v) }, true)} />
               <input type="number" className="light-inspector-input"
                 value={selectedZone.x}
                 onChange={(e) => updateCameraZone(selectedZone.id, { x: parseInt(e.target.value) || 0 })} />
             </div>
             <div className="light-inspector-row">
               <DragLabel label="Y" value={selectedZone.y} step={1} min={-999} max={mapHeight + 999}
-                onChange={(v) => updateCameraZone(selectedZone.id, { y: Math.round(v) })} />
+                onDragStart={onDragStart} onDragEnd={onDragEnd}
+                onChange={(v) => updateCameraZone(selectedZone.id, { y: Math.round(v) }, true)} />
               <input type="number" className="light-inspector-input"
                 value={selectedZone.y}
                 onChange={(e) => updateCameraZone(selectedZone.id, { y: parseInt(e.target.value) || 0 })} />
@@ -128,14 +142,16 @@ export default function CameraZoneInspector() {
             <div className="light-inspector-title">크기</div>
             <div className="light-inspector-row">
               <DragLabel label="W" value={selectedZone.width} step={1} min={minZoneWidth} max={mapWidth * 3}
-                onChange={(v) => updateCameraZone(selectedZone.id, { width: Math.max(minZoneWidth, Math.round(v)) })} />
+                onDragStart={onDragStart} onDragEnd={onDragEnd}
+                onChange={(v) => updateCameraZone(selectedZone.id, { width: Math.max(minZoneWidth, Math.round(v)) }, true)} />
               <input type="number" className="light-inspector-input" min={minZoneWidth}
                 value={selectedZone.width}
                 onChange={(e) => updateCameraZone(selectedZone.id, { width: Math.max(minZoneWidth, parseInt(e.target.value) || minZoneWidth) })} />
             </div>
             <div className="light-inspector-row">
               <DragLabel label="H" value={selectedZone.height} step={1} min={minZoneHeight} max={mapHeight * 3}
-                onChange={(v) => updateCameraZone(selectedZone.id, { height: Math.max(minZoneHeight, Math.round(v)) })} />
+                onDragStart={onDragStart} onDragEnd={onDragEnd}
+                onChange={(v) => updateCameraZone(selectedZone.id, { height: Math.max(minZoneHeight, Math.round(v)) }, true)} />
               <input type="number" className="light-inspector-input" min={minZoneHeight}
                 value={selectedZone.height}
                 onChange={(e) => updateCameraZone(selectedZone.id, { height: Math.max(minZoneHeight, parseInt(e.target.value) || minZoneHeight) })} />
@@ -167,7 +183,8 @@ export default function CameraZoneInspector() {
             <div className="light-inspector-title">카메라 설정</div>
             <div className="light-inspector-row">
               <DragLabel label="줌" value={selectedZone.zoom} step={0.05} min={0.1} max={5.0}
-                onChange={(v) => updateCameraZone(selectedZone.id, { zoom: Math.round(v * 100) / 100 })} />
+                onDragStart={onDragStart} onDragEnd={onDragEnd}
+                onChange={(v) => updateCameraZone(selectedZone.id, { zoom: Math.round(v * 100) / 100 }, true)} />
               <input type="range" className="light-inspector-slider" min={0.1} max={5.0} step={0.05}
                 value={selectedZone.zoom}
                 onChange={(e) => updateCameraZone(selectedZone.id, { zoom: parseFloat(e.target.value) })} />
@@ -178,7 +195,8 @@ export default function CameraZoneInspector() {
             </div>
             <div className="light-inspector-row">
               <DragLabel label="Tilt" value={selectedZone.tilt} step={1} min={5} max={89}
-                onChange={(v) => updateCameraZone(selectedZone.id, { tilt: Math.round(v) })} />
+                onDragStart={onDragStart} onDragEnd={onDragEnd}
+                onChange={(v) => updateCameraZone(selectedZone.id, { tilt: Math.round(v) }, true)} />
               <HelpButton text="카메라가 내려다보는 각도입니다.\n90°에 가까울수록 위에서 수직으로 내려다보고,\n작을수록 수평에 가깝게 비스듬히 봅니다.\n기본값: 60°" />
               <input type="range" className="light-inspector-slider" min={5} max={89} step={1}
                 value={selectedZone.tilt}
@@ -190,7 +208,8 @@ export default function CameraZoneInspector() {
             </div>
             <div className="light-inspector-row">
               <DragLabel label="Fov" value={selectedZone.fov ?? 60} step={1} min={10} max={150}
-                onChange={(v) => updateCameraZone(selectedZone.id, { fov: Math.round(v) })} />
+                onDragStart={onDragStart} onDragEnd={onDragEnd}
+                onChange={(v) => updateCameraZone(selectedZone.id, { fov: Math.round(v) }, true)} />
               <HelpButton text="카메라 시야각(Field of View)입니다.\n값이 클수록 화면에 더 넓은 영역이 보이며\n원근감이 강해집니다.\n값이 작으면 망원 효과로 납작해 보입니다.\n기본값: 60°" />
               <input type="range" className="light-inspector-slider" min={10} max={150} step={1}
                 value={selectedZone.fov ?? 60}
@@ -202,7 +221,8 @@ export default function CameraZoneInspector() {
             </div>
             <div className="light-inspector-row">
               <DragLabel label="Yaw" value={selectedZone.yaw} step={1} min={-180} max={180}
-                onChange={(v) => updateCameraZone(selectedZone.id, { yaw: Math.round(v) })} />
+                onDragStart={onDragStart} onDragEnd={onDragEnd}
+                onChange={(v) => updateCameraZone(selectedZone.id, { yaw: Math.round(v) }, true)} />
               <input type="range" className="light-inspector-slider" min={-180} max={180} step={1}
                 value={selectedZone.yaw}
                 onChange={(e) => updateCameraZone(selectedZone.id, { yaw: parseInt(e.target.value) })} />
@@ -218,7 +238,8 @@ export default function CameraZoneInspector() {
             <div className="light-inspector-title">전환</div>
             <div className="light-inspector-row">
               <DragLabel label="속도" value={selectedZone.transitionSpeed} step={0.1} min={0.1} max={10.0}
-                onChange={(v) => updateCameraZone(selectedZone.id, { transitionSpeed: Math.round(v * 10) / 10 })} />
+                onDragStart={onDragStart} onDragEnd={onDragEnd}
+                onChange={(v) => updateCameraZone(selectedZone.id, { transitionSpeed: Math.round(v * 10) / 10 }, true)} />
               <input type="range" className="light-inspector-slider" min={0.1} max={10.0} step={0.1}
                 value={selectedZone.transitionSpeed}
                 onChange={(e) => updateCameraZone(selectedZone.id, { transitionSpeed: parseFloat(e.target.value) })} />
@@ -229,7 +250,8 @@ export default function CameraZoneInspector() {
             </div>
             <div className="light-inspector-row">
               <DragLabel label="우선순위" value={selectedZone.priority} step={1} min={0} max={100}
-                onChange={(v) => updateCameraZone(selectedZone.id, { priority: Math.round(v) })} />
+                onDragStart={onDragStart} onDragEnd={onDragEnd}
+                onChange={(v) => updateCameraZone(selectedZone.id, { priority: Math.round(v) }, true)} />
               <input type="number" className="light-inspector-input" step={1}
                 value={selectedZone.priority}
                 onChange={(e) => updateCameraZone(selectedZone.id, { priority: parseInt(e.target.value) || 0 })} />
@@ -251,7 +273,8 @@ export default function CameraZoneInspector() {
               <>
                 <div className="light-inspector-row">
                   <DragLabel label="Focus Y" value={selectedZone.dofFocusY ?? 0.55} step={0.01} min={0} max={1}
-                    onChange={(v) => updateCameraZone(selectedZone.id, { dofFocusY: Math.round(v * 100) / 100 })} />
+                    onDragStart={onDragStart} onDragEnd={onDragEnd}
+                    onChange={(v) => updateCameraZone(selectedZone.id, { dofFocusY: Math.round(v * 100) / 100 }, true)} />
                   <input type="range" className="light-inspector-slider" min={0} max={1} step={0.01}
                     value={selectedZone.dofFocusY ?? 0.55}
                     onChange={(e) => updateCameraZone(selectedZone.id, { dofFocusY: parseFloat(e.target.value) })} />
@@ -262,7 +285,8 @@ export default function CameraZoneInspector() {
                 </div>
                 <div className="light-inspector-row">
                   <DragLabel label="Range" value={selectedZone.dofFocusRange ?? 0.1} step={0.01} min={0} max={1}
-                    onChange={(v) => updateCameraZone(selectedZone.id, { dofFocusRange: Math.round(v * 100) / 100 })} />
+                    onDragStart={onDragStart} onDragEnd={onDragEnd}
+                    onChange={(v) => updateCameraZone(selectedZone.id, { dofFocusRange: Math.round(v * 100) / 100 }, true)} />
                   <input type="range" className="light-inspector-slider" min={0} max={1} step={0.01}
                     value={selectedZone.dofFocusRange ?? 0.1}
                     onChange={(e) => updateCameraZone(selectedZone.id, { dofFocusRange: parseFloat(e.target.value) })} />
@@ -273,7 +297,8 @@ export default function CameraZoneInspector() {
                 </div>
                 <div className="light-inspector-row">
                   <DragLabel label="Max Blur" value={selectedZone.dofMaxBlur ?? 0.05} step={0.005} min={0} max={0.5}
-                    onChange={(v) => updateCameraZone(selectedZone.id, { dofMaxBlur: Math.round(v * 1000) / 1000 })} />
+                    onDragStart={onDragStart} onDragEnd={onDragEnd}
+                    onChange={(v) => updateCameraZone(selectedZone.id, { dofMaxBlur: Math.round(v * 1000) / 1000 }, true)} />
                   <input type="range" className="light-inspector-slider" min={0} max={0.5} step={0.005}
                     value={selectedZone.dofMaxBlur ?? 0.05}
                     onChange={(e) => updateCameraZone(selectedZone.id, { dofMaxBlur: parseFloat(e.target.value) })} />
@@ -284,7 +309,8 @@ export default function CameraZoneInspector() {
                 </div>
                 <div className="light-inspector-row">
                   <DragLabel label="Power" value={selectedZone.dofBlurPower ?? 1.5} step={0.1} min={0.1} max={10}
-                    onChange={(v) => updateCameraZone(selectedZone.id, { dofBlurPower: Math.round(v * 10) / 10 })} />
+                    onDragStart={onDragStart} onDragEnd={onDragEnd}
+                    onChange={(v) => updateCameraZone(selectedZone.id, { dofBlurPower: Math.round(v * 10) / 10 }, true)} />
                   <input type="range" className="light-inspector-slider" min={0.1} max={10} step={0.1}
                     value={selectedZone.dofBlurPower ?? 1.5}
                     onChange={(e) => updateCameraZone(selectedZone.id, { dofBlurPower: parseFloat(e.target.value) })} />
@@ -330,7 +356,8 @@ export default function CameraZoneInspector() {
                 </div>
                 <div className="light-inspector-row">
                   <DragLabel label="강도" value={selectedZone.ambientIntensity} step={0.05} min={0} max={10}
-                    onChange={(v) => updateCameraZone(selectedZone.id, { ambientIntensity: Math.round(v * 100) / 100 })} />
+                    onDragStart={onDragStart} onDragEnd={onDragEnd}
+                    onChange={(v) => updateCameraZone(selectedZone.id, { ambientIntensity: Math.round(v * 100) / 100 }, true)} />
                   <input type="range" className="light-inspector-slider" min={0} max={10} step={0.05}
                     value={selectedZone.ambientIntensity}
                     onChange={(e) => updateCameraZone(selectedZone.id, { ambientIntensity: parseFloat(e.target.value) })} />
