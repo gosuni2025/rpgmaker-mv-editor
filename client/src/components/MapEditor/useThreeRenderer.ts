@@ -193,7 +193,6 @@ export function useThreeRenderer(
     const handleImageReloaded = () => {
       const spriteset = spritesetRef.current;
       if (!spriteset) return;
-      console.log('[useThreeRenderer] imageReloaded - repaint 요청');
       // 타일셋 이미지가 갱신된 경우 repaint
       if (spriteset._tilemap) {
         spriteset._tilemap._needsRepaint = true;
