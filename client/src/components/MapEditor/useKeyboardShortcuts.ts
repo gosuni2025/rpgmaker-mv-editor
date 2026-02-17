@@ -116,23 +116,48 @@ export function useKeyboardShortcuts(
     if (!el) return;
     const Mode3D = (window as any).Mode3D;
 
+    // _positionCamera 좌표계 기반 카메라 벡터 계산
+    // 맵 좌표: X=오른쪽, Y=아래(화면), Z=위(높이)
+    // camera offset: (dist*cosTilt*sinYaw, dist*sinTilt, dist*cosTilt*cosYaw)
+    // forward = lookAt - position = 정규화(-cosTilt*sinYaw, -sinTilt, -cosTilt*cosYaw)
+    // right = 화면 오른쪽 (Y-flip 적용됨)
+    // up = 화면 위쪽 (Y-flip 적용됨)
+    const getCamVectors = () => {
+      const tilt = Mode3D?._tiltRad || 0;
+      const yaw = Mode3D?._yawRad || 0;
+      const cosTilt = Math.cos(tilt);
+      const sinTilt = Math.sin(tilt);
+      const cosYaw = Math.cos(yaw);
+      const sinYaw = Math.sin(yaw);
+      // forward: 카메라→lookAt 방향
+      const fwd = [-cosTilt * sinYaw, -sinTilt, -cosTilt * cosYaw];
+      // right: 화면 오른쪽 (수평면에서 yaw에 수직)
+      const right = [cosYaw, 0, -sinYaw];
+      // up: 화면 위 방향
+      // cross(right, fwd) = (-sinYaw*sinTilt, cosTilt, -cosYaw*sinTilt)
+      // Y-flip(projection m[5]=-m[5]) 때문에 화면 위 = -cross(right, fwd)
+      const up = [
+        sinYaw * sinTilt,
+        -cosTilt,
+        cosYaw * sinTilt,
+      ];
+      return { fwd, right, up };
+    };
+
     const handleWheel = (e: WheelEvent) => {
       if ((e.target as HTMLElement).closest?.('.db-dialog-overlay')) return;
       e.preventDefault();
 
       const is3D = useEditorStore.getState().mode3d;
 
-      // 3D 모드: 유니티 스타일 — 카메라 forward 벡터 방향으로 전진/후진
+      // 3D 모드: 유니티 스타일 — lookAt 방향으로 전진/후진
       if (is3D && Mode3D) {
-        const cam = Mode3D._perspCamera;
-        if (!cam) return;
         const moveSpeed = 80;
         const dir = e.deltaY < 0 ? 1 : -1;
-        const fwd = new (window as any).THREE.Vector3();
-        cam.getWorldDirection(fwd);
-        Mode3D._editorPanX = (Mode3D._editorPanX || 0) + fwd.x * dir * moveSpeed;
-        Mode3D._editorPanY = (Mode3D._editorPanY || 0) + fwd.y * dir * moveSpeed;
-        Mode3D._editorPanZ = (Mode3D._editorPanZ || 0) + fwd.z * dir * moveSpeed;
+        const { fwd } = getCamVectors();
+        Mode3D._editorPanX = (Mode3D._editorPanX || 0) + fwd[0] * dir * moveSpeed;
+        Mode3D._editorPanY = (Mode3D._editorPanY || 0) + fwd[1] * dir * moveSpeed;
+        Mode3D._editorPanZ = (Mode3D._editorPanZ || 0) + fwd[2] * dir * moveSpeed;
         return;
       }
 
@@ -164,28 +189,20 @@ export function useKeyboardShortcuts(
           flyAnimRef.current = 0;
           return;
         }
-        const cam = Mode3D._perspCamera;
-        if (!cam) { flyAnimRef.current = requestAnimationFrame(loop); return; }
         const now = performance.now();
         const dt = (now - lastTime) / 1000;
         lastTime = now;
         const speed = 400; // px/sec
-        const THREE = (window as any).THREE;
 
-        // 카메라에서 forward/right/up 벡터 직접 추출
-        const fwd = new THREE.Vector3();
-        cam.getWorldDirection(fwd);
-        const right = new THREE.Vector3();
-        right.crossVectors(fwd, cam.up).normalize();
-        const up = new THREE.Vector3(0, 0, 1); // 월드 Z-up (높이)
+        const { fwd, right } = getCamVectors();
 
         let dx = 0, dy = 0, dz = 0;
         // W/S: 카메라 forward 방향
-        if (flyKeys.current.has('w')) { dx += fwd.x; dy += fwd.y; dz += fwd.z; }
-        if (flyKeys.current.has('s')) { dx -= fwd.x; dy -= fwd.y; dz -= fwd.z; }
+        if (flyKeys.current.has('w')) { dx += fwd[0]; dy += fwd[1]; dz += fwd[2]; }
+        if (flyKeys.current.has('s')) { dx -= fwd[0]; dy -= fwd[1]; dz -= fwd[2]; }
         // A/D: 카메라 right 방향
-        if (flyKeys.current.has('a')) { dx -= right.x; dy -= right.y; dz -= right.z; }
-        if (flyKeys.current.has('d')) { dx += right.x; dy += right.y; dz += right.z; }
+        if (flyKeys.current.has('a')) { dx -= right[0]; dy -= right[1]; dz -= right[2]; }
+        if (flyKeys.current.has('d')) { dx += right[0]; dy += right[1]; dz += right[2]; }
         // Q/E: 월드 높이 (Z축)
         if (flyKeys.current.has('e')) { dz += 1; }
         if (flyKeys.current.has('q')) { dz -= 1; }
@@ -251,26 +268,14 @@ export function useKeyboardShortcuts(
         isPanning.current = true;
         setPanning(true);
         // 드래그 시작 시점의 카메라 right/up 벡터를 저장 (드래그 중 고정)
-        const cam = Mode3D._perspCamera;
-        let rightVec = [1, 0, 0], upVec = [0, 0, 1];
-        if (cam) {
-          const THREE = (window as any).THREE;
-          const fwd = new THREE.Vector3();
-          cam.getWorldDirection(fwd);
-          const right = new THREE.Vector3();
-          right.crossVectors(fwd, cam.up).normalize();
-          const up = new THREE.Vector3();
-          up.crossVectors(right, fwd).normalize();
-          rightVec = [right.x, right.y, right.z];
-          upVec = [up.x, up.y, up.z];
-        }
+        const { right, up } = getCamVectors();
         cam3DStart.current = {
           x: e.clientX, y: e.clientY,
           tiltDeg: 0, yawDeg: 0,
           panX: Mode3D._editorPanX || 0,
           panY: Mode3D._editorPanY || 0,
           panZ: Mode3D._editorPanZ || 0,
-          rightVec, upVec,
+          rightVec: right, upVec: up,
         };
         return;
       }
