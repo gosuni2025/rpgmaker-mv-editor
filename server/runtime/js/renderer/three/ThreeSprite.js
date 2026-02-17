@@ -615,7 +615,14 @@ ThreeSprite.prototype.destroy = function(options) {
     if (this.parent) {
         this.parent.removeChild(this);
     }
-    this.removeChildren();
+    // 자식 스프라이트의 Three.js 리소스도 재귀적으로 해제
+    var children = this.children.slice();
+    for (var i = 0; i < children.length; i++) {
+        if (children[i].destroy) {
+            children[i].destroy(options);
+        }
+    }
+    this.children.length = 0;
     if (this._geometry) {
         this._geometry.dispose();
         this._geometry = null;
