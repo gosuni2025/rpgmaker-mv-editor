@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { fuzzyMatch } from '../../utils/fuzzyMatch';
 
 const GROUP_SIZE = 20;
 const ICON_SIZE = 32;
@@ -142,6 +143,7 @@ export function DataListPicker({ items, value, onChange, onClose, title, iconInd
   const initGroupIdx = Math.max(0, Math.floor((value - 1) / GROUP_SIZE));
   const [selectedGroup, setSelectedGroup] = useState(initGroupIdx);
   const [selected, setSelected] = useState(value);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const currentGroup = groups[selectedGroup];
   const groupItems = useMemo(() => {
@@ -153,34 +155,62 @@ export function DataListPicker({ items, value, onChange, onClose, title, iconInd
     return result;
   }, [currentGroup, items]);
 
+  // 검색 시 전체 목록에서 필터링 (그룹 무시)
+  const searchResults = useMemo(() => {
+    if (!searchQuery) return null;
+    const result: { id: number; label: string }[] = [];
+    for (let i = 1; i < items.length; i++) {
+      const label = `${String(i).padStart(4, '0')} ${items[i] || ''}`;
+      if (fuzzyMatch(label, searchQuery)) {
+        result.push({ id: i, label });
+      }
+    }
+    return result;
+  }, [items, searchQuery]);
+
+  const displayItems = searchResults ?? groupItems;
+
   const categoryName = title?.replace(' 선택', '') || title || '';
 
   return (
     <div className="modal-overlay" style={{ zIndex: 10001 }}>
       <div className="image-picker-dialog" style={{ width: 500, maxHeight: '70vh' }}>
         <div className="image-picker-header">{title || '대상 선택'}</div>
+        <div style={{ padding: '6px 12px', borderBottom: '1px solid #444' }}>
+          <input
+            type="text"
+            className="picker-search-input"
+            placeholder="검색 (초성 지원: ㄱㄴㄷ)"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            autoFocus
+            style={{ width: '100%', padding: '4px 8px', background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, color: '#ddd', fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
+          />
+        </div>
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 300 }}>
-          {/* 왼쪽 패널: 카테고리 + 범위 그룹 */}
-          <div style={{ width: 170, borderRight: '1px solid #444', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-            {/* 카테고리명 */}
-            <div style={{ padding: '6px 8px', fontSize: 14, fontWeight: 'bold', color: '#fff', borderBottom: '1px solid #444' }}>
-              {categoryName}
+          {/* 왼쪽 패널: 카테고리 + 범위 그룹 (검색 중에는 숨김) */}
+          {!searchQuery && (
+            <div style={{ width: 170, borderRight: '1px solid #444', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+              {/* 카테고리명 */}
+              <div style={{ padding: '6px 8px', fontSize: 14, fontWeight: 'bold', color: '#fff', borderBottom: '1px solid #444' }}>
+                {categoryName}
+              </div>
+              {/* 범위 그룹 */}
+              {groups.map((g, idx) => (
+                <div
+                  key={g.startId}
+                  style={{
+                    padding: '4px 8px', cursor: 'pointer', fontSize: 12, color: '#ccc',
+                    background: idx === selectedGroup ? '#2675bf' : 'transparent',
+                  }}
+                  onClick={() => setSelectedGroup(idx)}
+                >{g.label}</div>
+              ))}
             </div>
-            {/* 범위 그룹 */}
-            {groups.map((g, idx) => (
-              <div
-                key={g.startId}
-                style={{
-                  padding: '4px 8px', cursor: 'pointer', fontSize: 12, color: '#ccc',
-                  background: idx === selectedGroup ? '#2675bf' : 'transparent',
-                }}
-                onClick={() => setSelectedGroup(idx)}
-              >{g.label}</div>
-            ))}
-          </div>
+          )}
           {/* 오른쪽 패널: 아이템 목록 */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-            {groupItems.map(item => {
+            {displayItems.map(item => {
               const iconIdx = iconIndices?.[item.id];
               const charInfo = characterData?.[item.id];
               return (

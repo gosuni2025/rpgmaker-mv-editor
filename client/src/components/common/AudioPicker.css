@@ -50,6 +50,37 @@
   border-bottom: 1px solid #555;
 }
 
+.audio-picker-body-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.audio-picker-search-bar {
+  padding: 8px 12px 0 12px;
+}
+
+.picker-search-input {
+  width: 100%;
+  padding: 4px 8px;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ddd;
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.picker-search-input:focus {
+  border-color: #2675bf;
+}
+
+.picker-search-input::placeholder {
+  color: #777;
+}
+
 .audio-picker-body {
   flex: 1;
   display: flex;
