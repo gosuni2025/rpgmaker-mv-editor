@@ -7,9 +7,9 @@
   background: #3c3c3c;
   border: 1px solid #555;
   border-radius: 4px;
-  width: 82vw;
-  max-width: 1100px;
-  height: 82vh;
+  width: 95vw;
+  max-width: none;
+  height: 95vh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px rgba(0,0,0,0.6);
