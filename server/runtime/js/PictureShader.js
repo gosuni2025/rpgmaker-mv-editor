@@ -1617,6 +1617,7 @@ PictureShader.createMaterial = function(type, params, texture) {
     Game_Picture.prototype.initialize = function() {
         _Game_Picture_initialize.call(this);
         this._shaderData = null;
+        this._transition = null; // { shaderList, direction, applyMode, duration, elapsed, onComplete }
     };
 
     var _Game_Picture_show = Game_Picture.prototype.show;
@@ -1626,11 +1627,113 @@ PictureShader.createMaterial = function(type, params, texture) {
     };
 
     Game_Picture.prototype.shaderData = function() {
+        // 트랜지션 중이면 트랜지션 셰이더를 반환
+        if (this._transition && this._transition.shaderList) {
+            // 기본 셰이더와 트랜지션 셰이더를 합침
+            var base = this._shaderData ? this._normalizeArray(this._shaderData) : [];
+            return base.concat(this._transition.shaderList);
+        }
         return this._shaderData;
+    };
+
+    Game_Picture.prototype._normalizeArray = function(data) {
+        if (!data) return [];
+        if (Array.isArray(data)) return data;
+        return [data];
     };
 
     Game_Picture.prototype.setShaderData = function(data) {
         this._shaderData = data;
+    };
+
+    // fade: threshold 높으면 보임 (0=투명, 1=불투명)
+    // wipe, circleWipe, blinds, pixelDissolve: threshold 높으면 안 보임 (0=보임, 1=투명)
+    var INVERTED_THRESHOLD_TYPES = { wipe: true, circleWipe: true, blinds: true, pixelDissolve: true };
+
+    /**
+     * 셰이더 트랜지션 시작
+     * @param {Array} shaderList - 트랜지션 셰이더 목록 [{type, enabled, params}]
+     * @param {string} direction - 'in' (나타나기) 또는 'out' (사라지기)
+     * @param {string} applyMode - 'interpolate' 또는 'instant'
+     * @param {number} duration - 소요 시간 (초), instant이면 0
+     * @param {function} onComplete - 완료 콜백
+     */
+    Game_Picture.prototype.startTransition = function(shaderList, direction, applyMode, duration, onComplete) {
+        if (!shaderList || shaderList.length === 0) {
+            if (onComplete) onComplete();
+            return;
+        }
+        // 셰이더 타입에 따라 threshold 방향 결정
+        // 각 셰이더별로 시작/종료 threshold를 계산
+        for (var i = 0; i < shaderList.length; i++) {
+            var s = shaderList[i];
+            var inverted = INVERTED_THRESHOLD_TYPES[s.type];
+            if (direction === 'in') {
+                // 나타나기: 안보임→보임
+                s._startThreshold = inverted ? 1 : 0;  // 시작: 안 보이는 값
+                s._endThreshold = inverted ? 0 : 1;    // 끝: 보이는 값
+            } else {
+                // 사라지기: 보임→안보임
+                s._startThreshold = inverted ? 0 : 1;  // 시작: 보이는 값
+                s._endThreshold = inverted ? 1 : 0;    // 끝: 안 보이는 값
+            }
+        }
+        if (applyMode === 'instant' || duration <= 0) {
+            for (var i = 0; i < shaderList.length; i++) {
+                shaderList[i].params.threshold = shaderList[i]._endThreshold;
+            }
+            this._transition = {
+                shaderList: shaderList,
+                direction: direction,
+                applyMode: 'instant',
+                duration: 0,
+                elapsed: 0,
+                onComplete: onComplete
+            };
+            return;
+        }
+        // 보간 적용: 시작값으로 설정
+        for (var i = 0; i < shaderList.length; i++) {
+            shaderList[i].params.threshold = shaderList[i]._startThreshold;
+        }
+        this._transition = {
+            shaderList: shaderList,
+            direction: direction,
+            applyMode: applyMode,
+            duration: duration,
+            elapsed: 0,
+            onComplete: onComplete
+        };
+    };
+
+    var _Game_Picture_update = Game_Picture.prototype.update;
+    Game_Picture.prototype.update = function() {
+        _Game_Picture_update.call(this);
+        this.updateTransition();
+    };
+
+    Game_Picture.prototype.updateTransition = function() {
+        if (!this._transition) return;
+        var t = this._transition;
+        if (t.applyMode === 'instant') {
+            // 즉시 적용: 한 프레임 후 완료
+            var cb = t.onComplete;
+            this._transition = null;
+            if (cb) cb();
+            return;
+        }
+        // 보간 적용
+        t.elapsed += 1 / 60;
+        var progress = Math.min(t.elapsed / t.duration, 1);
+        for (var i = 0; i < t.shaderList.length; i++) {
+            var s = t.shaderList[i];
+            s.params.threshold = s._startThreshold + (s._endThreshold - s._startThreshold) * progress;
+        }
+        if (progress >= 1) {
+            var cb = t.onComplete;
+            this._transition = null;
+            if (cb) cb();
+        }
     };
 
     var _Game_Picture_erase = Game_Picture.prototype.erase;
@@ -1639,6 +1742,7 @@ PictureShader.createMaterial = function(type, params, texture) {
             _Game_Picture_erase.call(this);
         }
         this._shaderData = null;
+        this._transition = null;
     };
 })();
 
@@ -1668,7 +1772,41 @@ PictureShader.createMaterial = function(type, params, texture) {
 // Game_Interpreter 확장
 //=============================================================================
 
+// 프리셋 좌표를 픽셀 좌표로 변환하는 유틸리티
+PictureShader._resolvePresetPosition = function(preset) {
+    var sw = Graphics.boxWidth || 816;
+    var sh = Graphics.boxHeight || 624;
+    var px = (preset && preset.presetX !== undefined) ? preset.presetX : 3;
+    var py = (preset && preset.presetY !== undefined) ? preset.presetY : 3;
+    var ox = (preset && preset.offsetX !== undefined) ? preset.offsetX : 0;
+    var oy = (preset && preset.offsetY !== undefined) ? preset.offsetY : 0;
+    return {
+        x: Math.round(sw * (px - 1) / 4) + ox,
+        y: Math.round(sh * (py - 1) / 4) + oy
+    };
+};
+
+// 트랜지션 셰이더 리스트를 복제 (params.threshold를 0으로 초기화)
+PictureShader._cloneTransitionShaders = function(transitionData) {
+    if (!transitionData || !transitionData.shaderList || transitionData.shaderList.length === 0) return null;
+    var list = [];
+    for (var i = 0; i < transitionData.shaderList.length; i++) {
+        var s = transitionData.shaderList[i];
+        var params = {};
+        for (var k in s.params) {
+            if (s.params.hasOwnProperty(k)) params[k] = s.params[k];
+        }
+        list.push({ type: s.type, enabled: true, params: params });
+    }
+    return {
+        shaderList: list,
+        applyMode: transitionData.applyMode || 'interpolate',
+        duration: transitionData.duration || 1
+    };
+};
+
 (function() {
+    // ─── command231: 그림 표시 ───
     var _Game_Interpreter_command231 = Game_Interpreter.prototype.command231;
     Game_Interpreter.prototype.command231 = function() {
         var x, y;
@@ -1679,15 +1817,9 @@ PictureShader.createMaterial = function(type, params, texture) {
             x = $gameVariables.value(this._params[4]);
             y = $gameVariables.value(this._params[5]);
         } else if (this._params[3] === 2) {   // 프리셋 지정
-            var preset = this._params[11] || {};
-            var sw = Graphics.boxWidth || 816;
-            var sh = Graphics.boxHeight || 624;
-            var px = (preset.presetX !== undefined) ? preset.presetX : 3;
-            var py = (preset.presetY !== undefined) ? preset.presetY : 3;
-            var ox = (preset.offsetX !== undefined) ? preset.offsetX : 0;
-            var oy = (preset.offsetY !== undefined) ? preset.offsetY : 0;
-            x = Math.round(sw * (px - 1) / 4) + ox;
-            y = Math.round(sh * (py - 1) / 4) + oy;
+            var pos = PictureShader._resolvePresetPosition(this._params[11]);
+            x = pos.x;
+            y = pos.y;
         } else {
             x = this._params[4];
             y = this._params[5];
@@ -1697,6 +1829,94 @@ PictureShader.createMaterial = function(type, params, texture) {
         $gameScreen.showPicture(this._params[0], this._params[1], this._params[2],
             x, y, this._params[6], this._params[7], this._params[8], this._params[9],
             shaderData);
+
+        // parameters[12]에 트랜지션 데이터가 있으면 나타나기 트랜지션 시작
+        var transitionData = PictureShader._cloneTransitionShaders(this._params[12]);
+        if (transitionData) {
+            var realPictureId = $gameScreen.realPictureId(this._params[0]);
+            var picture = $gameScreen._pictures[realPictureId];
+            if (picture) {
+                picture.startTransition(
+                    transitionData.shaderList, 'in',
+                    transitionData.applyMode, transitionData.duration
+                );
+            }
+        }
+        return true;
+    };
+
+    // ─── command232: 그림 이동 ───
+    var _Game_Interpreter_command232 = Game_Interpreter.prototype.command232;
+    Game_Interpreter.prototype.command232 = function() {
+        var x, y;
+        if (this._params[3] === 0) {          // 직접 지정
+            x = this._params[4];
+            y = this._params[5];
+        } else if (this._params[3] === 1) {   // 변수로 지정
+            x = $gameVariables.value(this._params[4]);
+            y = $gameVariables.value(this._params[5]);
+        } else if (this._params[3] === 2) {   // 프리셋 지정
+            var pos = PictureShader._resolvePresetPosition(this._params[12]);
+            x = pos.x;
+            y = pos.y;
+        } else {
+            x = this._params[4];
+            y = this._params[5];
+        }
+
+        var moveMode = this._params[13] || 'interpolate';
+        var duration = (moveMode === 'instant') ? 1 : (this._params[10] || 60);
+
+        $gameScreen.movePicture(this._params[0], this._params[2], x, y,
+            this._params[6], this._params[7], this._params[8], this._params[9], duration);
+
+        // 보간 이동 시 트랜지션 셰이더
+        if (moveMode === 'interpolate') {
+            var transitionData = PictureShader._cloneTransitionShaders(this._params[14]);
+            if (transitionData) {
+                var realPictureId = $gameScreen.realPictureId(this._params[0]);
+                var picture = $gameScreen._pictures[realPictureId];
+                if (picture) {
+                    // 이동 트랜지션: in 방향 (0→1, 새 위치로 나타남)
+                    picture.startTransition(
+                        transitionData.shaderList, 'in',
+                        transitionData.applyMode, transitionData.duration
+                    );
+                }
+            }
+            if (this._params[11]) {
+                this.wait(duration);
+            }
+        }
+        return true;
+    };
+
+    // ─── command235: 그림 제거 ───
+    var _Game_Interpreter_command235 = Game_Interpreter.prototype.command235;
+    Game_Interpreter.prototype.command235 = function() {
+        var eraseMode = this._params[1] || 'instant';
+        var transitionData = PictureShader._cloneTransitionShaders(this._params[2]);
+
+        if (eraseMode === 'interpolate' && transitionData) {
+            // 보간 제거: 트랜지션 후 erase
+            var pictureId = this._params[0];
+            var realPictureId = $gameScreen.realPictureId(pictureId);
+            var picture = $gameScreen._pictures[realPictureId];
+            if (picture) {
+                picture.startTransition(
+                    transitionData.shaderList, 'out',
+                    transitionData.applyMode, transitionData.duration,
+                    function() {
+                        $gameScreen.erasePicture(pictureId);
+                    }
+                );
+            } else {
+                $gameScreen.erasePicture(pictureId);
+            }
+        } else {
+            // 즉시 제거
+            $gameScreen.erasePicture(this._params[0]);
+        }
         return true;
     };
 })();
