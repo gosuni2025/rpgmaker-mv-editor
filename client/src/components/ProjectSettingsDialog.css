@@ -214,6 +214,22 @@
   text-overflow: ellipsis;
 }
 
+.pm-plugin-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  margin-left: auto;
+  background: #5a3d8a;
+  color: #ddd;
+  font-size: 9px;
+  font-weight: 600;
+  border-radius: 2px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  line-height: 16px;
+}
+
 .pm-plugin-buttons {
   display: flex;
   gap: 4px;
