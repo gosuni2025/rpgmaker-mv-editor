@@ -94,10 +94,21 @@ export function useKeyboardShortcuts(
     };
   }, []);
 
-  // 3D 카메라 조작 refs
-  const isRotating3D = useRef(false); // 중클릭 드래그: 카메라 회전
-  const isPanning3D = useRef(false);  // 우클릭 드래그: 카메라 이동
+  // =========================================================================
+  // 3D 카메라 조작 (유니티 Scene View 스타일)
+  // - 우클릭 드래그: 카메라 회전 (Flythrough)
+  // - 우클릭 + WASD/QE: FPS 이동
+  // - 중클릭 드래그: 팬 (카메라 이동)
+  // - Alt + 좌클릭 드래그: 공전 (Orbit)
+  // - 마우스 휠: 줌
+  // =========================================================================
+  const isRotating3D = useRef(false);  // 우클릭 드래그: 카메라 회전
+  const isPanning3D = useRef(false);   // 중클릭 드래그: 팬
+  const isOrbiting3D = useRef(false);  // Alt+좌클릭: 공전
   const cam3DStart = useRef({ x: 0, y: 0, tiltDeg: 0, yawDeg: 0, panX: 0, panY: 0 });
+  // FPS 이동 키 상태
+  const flyKeys = useRef<Set<string>>(new Set());
+  const flyAnimRef = useRef<number>(0);
 
   // Mouse wheel zoom & middle click panning / 3D camera controls
   useEffect(() => {
@@ -106,7 +117,6 @@ export function useKeyboardShortcuts(
     const Mode3D = (window as any).Mode3D;
 
     const handleWheel = (e: WheelEvent) => {
-      // 모달 다이얼로그 위에서의 wheel 이벤트는 무시 (줌 방지)
       if ((e.target as HTMLElement).closest?.('.db-dialog-overlay')) return;
       e.preventDefault();
       if (e.deltaY < 0) zoomIn();
@@ -114,11 +124,76 @@ export function useKeyboardShortcuts(
     };
     el.addEventListener('wheel', handleWheel, { passive: false });
 
+    // --- FPS 이동 루프 (우클릭 + WASD/QE) ---
+    const startFlyLoop = () => {
+      if (flyAnimRef.current) return;
+      let lastTime = performance.now();
+      const loop = () => {
+        if (!isRotating3D.current || !Mode3D) {
+          flyAnimRef.current = 0;
+          return;
+        }
+        const now = performance.now();
+        const dt = (now - lastTime) / 1000;
+        lastTime = now;
+        const speed = 400; // px/sec
+        const yaw = (Mode3D._yawRad || 0);
+        const tilt = (Mode3D._tiltRad || 0);
+        const cosY = Math.cos(yaw);
+        const sinY = Math.sin(yaw);
+
+        let dx = 0, dy = 0;
+        // W/S: 카메라가 바라보는 방향으로 전진/후진 (맵 평면 투영)
+        if (flyKeys.current.has('w')) { dx += sinY; dy += cosY; }
+        if (flyKeys.current.has('s')) { dx -= sinY; dy -= cosY; }
+        // A/D: 카메라 옆 방향
+        if (flyKeys.current.has('a')) { dx -= cosY; dy += sinY; }
+        if (flyKeys.current.has('d')) { dx += cosY; dy -= sinY; }
+        // Q/E: 높이 (tilt 방향으로 상하)
+        if (flyKeys.current.has('q')) { dy -= Math.cos(tilt); }
+        if (flyKeys.current.has('e')) { dy += Math.cos(tilt); }
+
+        if (dx !== 0 || dy !== 0) {
+          Mode3D._editorPanX = (Mode3D._editorPanX || 0) + dx * speed * dt;
+          Mode3D._editorPanY = (Mode3D._editorPanY || 0) + dy * speed * dt;
+        }
+        flyAnimRef.current = requestAnimationFrame(loop);
+      };
+      flyAnimRef.current = requestAnimationFrame(loop);
+    };
+
+    const stopFlyLoop = () => {
+      if (flyAnimRef.current) {
+        cancelAnimationFrame(flyAnimRef.current);
+        flyAnimRef.current = 0;
+      }
+      flyKeys.current.clear();
+    };
+
+    // WASD/QE 키 핸들러 (우클릭 누른 상태에서만)
+    // e.code 사용: IME(한글) 입력 중에도 물리 키 감지
+    const codeToFlyKey: Record<string, string> = {
+      KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd', KeyQ: 'q', KeyE: 'e',
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isRotating3D.current) return;
+      const k = codeToFlyKey[e.code];
+      if (k) {
+        e.preventDefault();
+        flyKeys.current.add(k);
+        startFlyLoop();
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const k = codeToFlyKey[e.code];
+      if (k) flyKeys.current.delete(k);
+    };
+
     const handleMouseDown = (e: MouseEvent) => {
       const is3D = useEditorStore.getState().mode3d;
 
-      // 3D 모드: 중클릭 → 카메라 회전
-      if (e.button === 1 && is3D && Mode3D) {
+      // 3D 모드: 우클릭 → Flythrough (카메라 회전 + WASD 이동)
+      if (e.button === 2 && is3D && Mode3D) {
         e.preventDefault();
         isRotating3D.current = true;
         isPanning.current = true;
@@ -131,8 +206,8 @@ export function useKeyboardShortcuts(
         return;
       }
 
-      // 3D 모드: 우클릭 → 카메라 이동
-      if (e.button === 2 && is3D && Mode3D) {
+      // 3D 모드: 중클릭 → 팬 (카메라 이동)
+      if (e.button === 1 && is3D && Mode3D) {
         e.preventDefault();
         isPanning3D.current = true;
         isPanning.current = true;
@@ -142,6 +217,20 @@ export function useKeyboardShortcuts(
           tiltDeg: 0, yawDeg: 0,
           panX: Mode3D._editorPanX || 0,
           panY: Mode3D._editorPanY || 0,
+        };
+        return;
+      }
+
+      // 3D 모드: Alt + 좌클릭 → 공전 (Orbit)
+      if (e.button === 0 && e.altKey && is3D && Mode3D) {
+        e.preventDefault();
+        isOrbiting3D.current = true;
+        isPanning.current = true;
+        setPanning(true);
+        cam3DStart.current = {
+          x: e.clientX, y: e.clientY,
+          tiltDeg: Mode3D._tiltDeg, yawDeg: Mode3D._yawDeg,
+          panX: 0, panY: 0,
         };
         return;
       }
@@ -156,7 +245,7 @@ export function useKeyboardShortcuts(
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      // 3D 카메라 회전 (중클릭 드래그)
+      // 3D Flythrough 회전 (우클릭 드래그)
       if (isRotating3D.current && Mode3D) {
         const dx = e.clientX - cam3DStart.current.x;
         const dy = e.clientY - cam3DStart.current.y;
@@ -168,17 +257,28 @@ export function useKeyboardShortcuts(
         return;
       }
 
-      // 3D 카메라 이동 (우클릭 드래그)
+      // 3D 공전 (Alt+좌클릭 드래그) — 유니티와 동일하게 동작
+      if (isOrbiting3D.current && Mode3D) {
+        const dx = e.clientX - cam3DStart.current.x;
+        const dy = e.clientY - cam3DStart.current.y;
+        const sensitivity = 0.3;
+        Mode3D._yawDeg = cam3DStart.current.yawDeg + dx * sensitivity;
+        Mode3D._yawRad = Mode3D._yawDeg * Math.PI / 180;
+        Mode3D._tiltDeg = Math.max(5, Math.min(89, cam3DStart.current.tiltDeg - dy * sensitivity));
+        Mode3D._tiltRad = Mode3D._tiltDeg * Math.PI / 180;
+        return;
+      }
+
+      // 3D 팬 (중클릭 드래그)
       if (isPanning3D.current && Mode3D) {
         const dx = e.clientX - cam3DStart.current.x;
         const dy = e.clientY - cam3DStart.current.y;
         const panSpeed = 2.0;
         const yawRad = (Mode3D._yawRad || 0);
-        // yaw 방향에 맞게 회전된 이동 벡터
         const cosYaw = Math.cos(yawRad);
         const sinYaw = Math.sin(yawRad);
-        Mode3D._editorPanX = cam3DStart.current.panX - (dx * cosYaw + dy * sinYaw) * panSpeed;
-        Mode3D._editorPanY = cam3DStart.current.panY - (-dx * sinYaw + dy * cosYaw) * panSpeed;
+        Mode3D._editorPanX = cam3DStart.current.panX - (dx * cosYaw) * panSpeed;
+        Mode3D._editorPanY = cam3DStart.current.panY - (dy) * panSpeed;
         return;
       }
 
@@ -189,14 +289,21 @@ export function useKeyboardShortcuts(
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      if (e.button === 1 && isRotating3D.current) {
+      if (e.button === 2 && isRotating3D.current) {
         isRotating3D.current = false;
+        isPanning.current = false;
+        setPanning(false);
+        stopFlyLoop();
+        return;
+      }
+      if (e.button === 1 && isPanning3D.current) {
+        isPanning3D.current = false;
         isPanning.current = false;
         setPanning(false);
         return;
       }
-      if (e.button === 2 && isPanning3D.current) {
-        isPanning3D.current = false;
+      if (e.button === 0 && isOrbiting3D.current) {
+        isOrbiting3D.current = false;
         isPanning.current = false;
         setPanning(false);
         return;
@@ -206,9 +313,9 @@ export function useKeyboardShortcuts(
       setPanning(false);
     };
 
-    // 3D 모드에서 우클릭 드래그 중 컨텍스트 메뉴 방지
+    // 3D 모드에서 우클릭 컨텍스트 메뉴 방지
     const handleContextMenu = (e: MouseEvent) => {
-      if (isPanning3D.current || useEditorStore.getState().mode3d) {
+      if (isRotating3D.current || useEditorStore.getState().mode3d) {
         e.preventDefault();
       }
     };
@@ -217,6 +324,8 @@ export function useKeyboardShortcuts(
     el.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     return () => {
       el.removeEventListener('wheel', handleWheel);
@@ -224,6 +333,9 @@ export function useKeyboardShortcuts(
       el.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      stopFlyLoop();
     };
   }, [zoomIn, zoomOut]);
 
