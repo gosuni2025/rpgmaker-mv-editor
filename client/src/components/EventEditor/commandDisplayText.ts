@@ -371,7 +371,22 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
     const posType = cmd.parameters[3] as number;
     const px = cmd.parameters[4] as number;
     const py = cmd.parameters[5] as number;
-    const posStr = posType === 0 ? `(${px},${py})` : `(V[${px}],V[${py}])`;
+    let posStr: string;
+    if (posType === 2) {
+      const presetLabels: Record<number, string> = { 1: '0%', 2: '25%', 3: '50%', 4: '75%', 5: '100%' };
+      const preset = cmd.parameters[12] as { presetX: number; presetY: number; offsetX: number; offsetY: number } | null;
+      if (preset) {
+        const pxl = presetLabels[preset.presetX] ?? '?';
+        const pyl = presetLabels[preset.presetY] ?? '?';
+        const ox = preset.offsetX !== 0 ? `${preset.offsetX > 0 ? '+' : ''}${preset.offsetX}` : '';
+        const oy = preset.offsetY !== 0 ? `${preset.offsetY > 0 ? '+' : ''}${preset.offsetY}` : '';
+        posStr = `(${pxl}${ox}, ${pyl}${oy})`;
+      } else {
+        posStr = '(프리셋)';
+      }
+    } else {
+      posStr = posType === 0 ? `(${px},${py})` : `(V[${px}],V[${py}])`;
+    }
     text += `: #${num}, ${originLabels[cmd.parameters[2] as number] || ''}, ${posStr}`;
     const sw = cmd.parameters[6] as number;
     const sh = cmd.parameters[7] as number;
@@ -380,9 +395,26 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
     if (op !== 255) text += `, 불투명도:${op}`;
     const bm = cmd.parameters[9] as number;
     if (bm !== 0) text += `, ${blendLabels[bm] || ''}`;
-    const dur = cmd.parameters[10] as number;
-    text += `, ${dur}프레임`;
-    if (cmd.parameters[11]) text += `, 완료까지 대기`;
+    const moveMode = cmd.parameters[13] as string | undefined;
+    if (moveMode === 'instant') {
+      text += `, 즉시`;
+    } else {
+      const dur = cmd.parameters[10] as number;
+      text += `, ${dur}프레임`;
+      if (cmd.parameters[11]) text += `, 완료까지 대기`;
+    }
+    // 셰이더 트랜지션 표시
+    const shaderLabelsMap: Record<string, string> = {
+      dissolve: '디졸브', fade: '페이드', wipe: '와이프', circleWipe: '원형 와이프',
+      blinds: '블라인드', pixelDissolve: '픽셀 디졸브',
+    };
+    const transitionRaw = cmd.parameters[14] as { shaderList: { type: string }[]; applyMode: string; duration: number } | null;
+    if (transitionRaw && transitionRaw.shaderList?.length > 0) {
+      const tNames = transitionRaw.shaderList.map(s => shaderLabelsMap[s.type] || s.type);
+      const durStr = transitionRaw.applyMode === 'interpolate' && transitionRaw.duration > 0
+        ? ` ${transitionRaw.duration}초` : '';
+      text += `, 트랜지션:[${tNames.join('+')}${durStr}]`;
+    }
     return text;
   }
 

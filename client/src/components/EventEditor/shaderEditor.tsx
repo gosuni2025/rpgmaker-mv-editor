@@ -246,7 +246,7 @@ function ShaderPreviewCanvas({ imageName, shaderList, size = 280 }: {
 
 // ─── 셰이더 에디터 다이얼로그 (전체화면) ───
 export function ShaderEditorDialog({ imageName, shaderList: initialList, transitionOnly, onOk, onCancel }: {
-  imageName: string;
+  imageName?: string;
   shaderList: ShaderEntry[];
   transitionOnly?: boolean;
   onOk: (shaderList: ShaderEntry[]) => void;
@@ -304,7 +304,7 @@ export function ShaderEditorDialog({ imageName, shaderList: initialList, transit
         <div style={{ flex: 1, overflow: 'hidden', padding: 16, display: 'flex', gap: 16 }}>
           {/* 좌측: 프리뷰 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-            <ShaderPreviewCanvas imageName={imageName} shaderList={shaderList} size={480} />
+            <ShaderPreviewCanvas imageName={imageName || ''} shaderList={shaderList} size={480} />
           </div>
           {/* 우측: 셰이더 리스트 + 파라미터 */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, overflow: 'hidden' }}>
