@@ -47,6 +47,7 @@ export interface MapData {
   weatherType?: number;   // 0=없음, 1=비, 2=폭풍, 3=눈
   weatherPower?: number;  // 1~9
   testStartPosition?: { x: number; y: number };  // EXT: 현재 맵 테스트용 임시 시작 위치
+  customPassage?: number[];  // EXT: 맵 단위 커스텀 통행불가 (y * width + x, 비트: 0x01=DOWN, 0x02=LEFT, 0x04=RIGHT, 0x08=UP)
 }
 
 export interface BloomConfig {

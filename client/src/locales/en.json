@@ -45,6 +45,7 @@
     "event": "Event",
     "object": "Object",
     "cameraZone": "Camera Zone",
+    "passage": "Passage",
     "pencil": "Pencil",
     "rectangle": "Rectangle",
     "ellipse": "Ellipse",
@@ -146,7 +147,8 @@
     "lighting": "Lighting",
     "zoomOut": "Zoom Out",
     "zoomIn": "Zoom In",
-    "save": "Save"
+    "save": "Save",
+    "passage": "Passage"
   },
   "statusBar": {
     "noProject": "No Project",
@@ -1369,6 +1371,19 @@
     "copySource": "Copy Source",
     "copySourceTooltip": "Copy source language values to all target languages for selected entries",
     "copySourceDone": "Copied source text for {{count}} entries"
+  },
+  "passage": {
+    "title": "Passage Edit",
+    "selectTile": "Click a tile on the map",
+    "tileCoord": "Tile Coordinate",
+    "directions": "Directional Impassable",
+    "down": "↓ Down",
+    "left": "← Left",
+    "right": "→ Right",
+    "up": "↑ Up",
+    "blockAll": "Block All",
+    "clearAll": "Clear All",
+    "tilesetDefault": "Tileset Default Passage"
   },
   "addonCommands": {
     "subCommand": "Sub Command",

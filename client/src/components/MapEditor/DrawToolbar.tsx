@@ -53,9 +53,14 @@ export default function DrawToolbar() {
   const setShowPassability = useEditorStore((s) => s.setShowPassability);
   const objectSubMode = useEditorStore((s) => s.objectSubMode);
   const setObjectSubMode = useEditorStore((s) => s.setObjectSubMode);
+  const passageTool = useEditorStore((s) => s.passageTool);
+  const passageShape = useEditorStore((s) => s.passageShape);
+  const setPassageTool = useEditorStore((s) => s.setPassageTool);
+  const setPassageShape = useEditorStore((s) => s.setPassageShape);
 
   const showMapTools = editMode === 'map';
   const showObjectTools = editMode === 'object';
+  const showPassageTools = editMode === 'passage';
 
   return (
     <div style={styles.toolbar}>
@@ -111,6 +116,16 @@ export default function DrawToolbar() {
         >
           {t('toolbar.cameraZone')} <span style={styles.shortcut}>F9</span>
         </button>
+        <button
+          onClick={() => setEditMode('passage')}
+          style={{
+            ...styles.btn,
+            ...(editMode === 'passage' ? styles.btnActive : {}),
+          }}
+          title="F11"
+        >
+          {t('toolbar.passage', '통행')} <span style={styles.shortcut}>F11</span>
+        </button>
       </div>
 
       <div style={styles.separator} />
@@ -151,6 +166,51 @@ export default function DrawToolbar() {
                 title={shape.shortcut || undefined}
               >
                 {t(shape.labelKey)}{shape.shortcut && <span style={styles.shortcut}>{shape.shortcut}</span>}
+              </button>
+            ))}
+          </div>
+
+          <div style={styles.separator} />
+        </>
+      )}
+
+      {/* Passage mode: pen / eraser + shapes */}
+      {showPassageTools && (
+        <>
+          <div style={styles.group}>
+            <button
+              onClick={() => setPassageTool('pen')}
+              style={{
+                ...styles.btn,
+                ...(passageTool === 'pen' ? styles.btnActive : {}),
+              }}
+            >
+              {t('toolbar.pencil')}
+            </button>
+            <button
+              onClick={() => setPassageTool('eraser')}
+              style={{
+                ...styles.btn,
+                ...(passageTool === 'eraser' ? styles.btnEraserActive : {}),
+              }}
+            >
+              {t('toolbar.eraser')}
+            </button>
+          </div>
+
+          <div style={styles.separator} />
+
+          <div style={styles.group}>
+            {drawShapes.map((shape) => (
+              <button
+                key={shape.id}
+                onClick={() => setPassageShape(shape.id as any)}
+                style={{
+                  ...styles.btn,
+                  ...(passageShape === shape.id ? styles.btnActive : {}),
+                }}
+              >
+                {t(shape.labelKey)}
               </button>
             ))}
           </div>

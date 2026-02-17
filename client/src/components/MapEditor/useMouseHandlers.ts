@@ -9,6 +9,7 @@ import { useLightHandlers } from './useLightHandlers';
 import { useObjectHandlers } from './useObjectHandlers';
 import { useEventDragHandlers } from './useEventDragHandlers';
 import { useSelectionHandlers } from './useSelectionHandlers';
+import { usePassageHandlers } from './usePassageTools';
 
 export type { EventContextMenu } from './useEventDragHandlers';
 
@@ -95,6 +96,8 @@ export function useMouseHandlers(
     drawOverlayPreview, drawRectangle, drawEllipse, clearOverlay,
     detectEdge, edgeToCursor, getCanvasPx } = tools;
 
+  const passage = usePassageHandlers(canvasToTile);
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
       if ((window as any)._probeDebugActive) return;
@@ -123,6 +126,11 @@ export function useMouseHandlers(
         }
       }
       if (!tile) return;
+
+      // Passage mode
+      if (e.button === 0 && editMode === 'passage') {
+        if (passage.handleMouseDown(e)) return;
+      }
 
       // Alt+Click: 스포이드
       if (e.altKey && e.button === 0 && editMode === 'map') {
@@ -235,6 +243,11 @@ export function useMouseHandlers(
         setHoverTile(prev => prev ? null : prev);
       }
 
+      // Passage mode
+      if (editMode === 'passage') {
+        if (passage.handleMouseMove(e)) return;
+      }
+
       // Selection tool
       if (selectedTool === 'select' && editMode === 'map') {
         if (selection.handleSelectionMouseMove(tile)) return;
@@ -324,6 +337,11 @@ export function useMouseHandlers(
     (e: React.MouseEvent<HTMLElement>) => {
       if ((window as any)._probeDebugActive) return;
       if (isResizing.current) return;
+
+      // Passage mode
+      if (editMode === 'passage') {
+        if (passage.handleMouseUp(e)) return;
+      }
 
       // 우클릭 드래그 지우기 종료
       if (isRightErasing.current) {

@@ -1,7 +1,7 @@
 import type { MapObject, CameraZone } from '../types/rpgMakerMV';
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
 import apiClient from '../api/client';
-import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry } from './types';
+import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, PassageChange, PassageHistoryEntry } from './types';
 import { EDIT_MODE_STORAGE_KEY, TOOLBAR_STORAGE_KEY } from './types';
 import { recalcAutotiles } from './editingHelpers';
 import { undoOperation, redoOperation } from './undoRedoOperations';
@@ -21,6 +21,8 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'selectedEventId' | 'selectedEventIds' | 'eventSelectionStart' | 'eventSelectionEnd' | 'isEventPasting' | 'eventPastePreviewPos' |
   'objectSubMode' | 'selectedObjectId' | 'selectedObjectIds' | 'objectSelectionStart' | 'objectSelectionEnd' | 'isObjectPasting' | 'objectPastePreviewPos' |
   'selectedCameraZoneId' | 'selectedCameraZoneIds' | 'undoStack' | 'redoStack' |
+  'passageTool' | 'passageShape' | 'selectedPassageTile' |
+  'setPassageTool' | 'setPassageShape' | 'setSelectedPassageTile' | 'updateCustomPassage' |
   'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' | 'shiftMap' |
   'copyTiles' | 'cutTiles' | 'pasteTiles' | 'deleteTiles' | 'moveTiles' |
   'copyEvent' | 'cutEvent' | 'pasteEvent' | 'deleteEvent' |
@@ -64,6 +66,9 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   objectPaintTiles: null,
   selectedCameraZoneId: null,
   selectedCameraZoneIds: [],
+  passageTool: 'pen',
+  passageShape: 'freehand',
+  selectedPassageTile: null,
   undoStack: [],
   redoStack: [],
 
@@ -401,11 +406,47 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   moveCameraZones: (ids: number[], dx: number, dy: number) => moveCameraZonesOp(get, set, ids, dx, dy),
 
   // UI setters
-  setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone') => {
+  // Passage actions
+  setPassageTool: (tool: 'pen' | 'eraser') => set({ passageTool: tool }),
+  setPassageShape: (shape: 'freehand' | 'rectangle' | 'ellipse' | 'fill') => set({ passageShape: shape }),
+  setSelectedPassageTile: (tile: { x: number; y: number } | null) => set({ selectedPassageTile: tile }),
+  updateCustomPassage: (changes: PassageChange[]) => {
+    const { currentMap, currentMapId, undoStack } = get();
+    if (!currentMap || !currentMapId || changes.length === 0) return;
+    const w = currentMap.width;
+    const h = currentMap.height;
+    const cp = currentMap.customPassage ? [...currentMap.customPassage] : new Array(w * h).fill(0);
+    // 중복 변경 병합
+    const merged = new Map<string, PassageChange>();
+    for (const c of changes) {
+      const key = `${c.x},${c.y}`;
+      const existing = merged.get(key);
+      if (existing) {
+        existing.newValue = c.newValue;
+      } else {
+        merged.set(key, { ...c });
+      }
+    }
+    const mergedChanges = [...merged.values()].filter(c => c.oldValue !== c.newValue);
+    if (mergedChanges.length === 0) return;
+    for (const c of mergedChanges) {
+      cp[c.y * w + c.x] = c.newValue;
+    }
+    const entry: PassageHistoryEntry = { mapId: currentMapId, type: 'passage', changes: mergedChanges };
+    const newStack = [...undoStack, entry];
+    if (newStack.length > get().maxUndo) newStack.shift();
+    set({
+      currentMap: { ...currentMap, customPassage: cp },
+      undoStack: newStack,
+      redoStack: [],
+    });
+  },
+
+  setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage') => {
     const state = get();
     const updates: Partial<EditorState> = { editMode: mode };
     localStorage.setItem(EDIT_MODE_STORAGE_KEY, mode);
-    const modeNames: Record<string, string> = { map: '맵', event: '이벤트', light: '조명', object: '오브젝트', cameraZone: '카메라' };
+    const modeNames: Record<string, string> = { map: '맵', event: '이벤트', light: '조명', object: '오브젝트', cameraZone: '카메라', passage: '통행' };
     if (state.editMode !== mode) {
       state.showToast(`${modeNames[mode]} 모드`);
     }
@@ -452,6 +493,9 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     if (mode !== 'cameraZone') {
       updates.selectedCameraZoneId = null;
       updates.selectedCameraZoneIds = [];
+    }
+    if (mode !== 'passage') {
+      updates.selectedPassageTile = null;
     }
     set(updates);
   },

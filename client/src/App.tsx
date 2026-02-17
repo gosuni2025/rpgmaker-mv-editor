@@ -34,6 +34,7 @@ import CameraZoneListPanel from './components/Sidebar/CameraZoneListPanel';
 import ObjectListPanel from './components/Sidebar/ObjectListPanel';
 import MapInspector from './components/Sidebar/MapInspector';
 import EventInspector from './components/Sidebar/EventInspector';
+import PassageInspector from './components/Sidebar/PassageInspector';
 import useFileWatcher from './hooks/useFileWatcher';
 import useAutoSave from './hooks/useAutoSave';
 import i18n from './i18n';
@@ -249,6 +250,7 @@ export default function App() {
             {editMode === 'event' ? <EventInspector />
               : editMode === 'object' ? <ObjectInspector />
               : editMode === 'cameraZone' ? <CameraZoneInspector />
+              : editMode === 'passage' ? <PassageInspector />
               : lightEditMode ? <LightInspector />
               : <MapInspector />}
           </ResizablePanel>

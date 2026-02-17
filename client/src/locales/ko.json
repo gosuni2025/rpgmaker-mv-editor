@@ -45,6 +45,7 @@
     "event": "이벤트",
     "object": "오브젝트",
     "cameraZone": "카메라 영역",
+    "passage": "통행",
     "pencil": "연필",
     "rectangle": "직사각형",
     "ellipse": "타원",
@@ -146,7 +147,8 @@
     "lighting": "조명",
     "zoomOut": "축소",
     "zoomIn": "확대",
-    "save": "저장"
+    "save": "저장",
+    "passage": "통행"
   },
   "statusBar": {
     "noProject": "프로젝트 없음",
@@ -1457,6 +1459,19 @@
     "copySource": "원문 복사",
     "copySourceTooltip": "선택된 항목의 원본 언어 값을 모든 타겟 언어에 복사합니다",
     "copySourceDone": "{{count}}개 항목의 원문을 복사했습니다"
+  },
+  "passage": {
+    "title": "통행 편집",
+    "selectTile": "맵에서 타일을 클릭하세요",
+    "tileCoord": "타일 좌표",
+    "directions": "방향별 통행불가",
+    "down": "↓ 아래",
+    "left": "← 왼쪽",
+    "right": "→ 오른쪽",
+    "up": "↑ 위",
+    "blockAll": "전방향 불가",
+    "clearAll": "모두 해제",
+    "tilesetDefault": "타일셋 기본 통행"
   },
   "addonCommands": {
     "subCommand": "서브 커맨드",
