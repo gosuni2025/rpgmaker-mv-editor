@@ -46,7 +46,7 @@ export const lightSlice: SliceCreator<Pick<EditorState,
   'setSelectedLightIds' | 'setLightSelectionStart' | 'setLightSelectionEnd' | 'setIsLightPasting' | 'setLightPastePreviewPos' | 'clearLightSelection' |
   'initEditorLights' | 'addPointLight' | 'updatePointLight' | 'deletePointLight' |
   'copyLights' | 'pasteLights' | 'deleteLights' | 'moveLights' |
-  'updateEditorLightsEnabled' | 'updateAmbientLight' | 'updateDirectionalLight' | 'updatePlayerLight' | 'updateSpotLight' | 'updateShadowSettings'
+  'updateEditorLightsEnabled' | 'updateAmbientLight' | 'updateDirectionalLight' | 'updatePlayerLight' | 'updateSpotLight' | 'updateShadowSettings' | 'commitLightDragUndo'
 >> = (set, get) => ({
   lightEditMode: false,
   selectedLightId: null,
@@ -90,14 +90,14 @@ export const lightSlice: SliceCreator<Pick<EditorState,
     pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
   },
 
-  updatePointLight: (id: number, updates: Partial<EditorPointLight>) => {
+  updatePointLight: (id: number, updates: Partial<EditorPointLight>, skipUndo?: boolean) => {
     const { currentMap: map, currentMapId } = get();
     if (!map || !map.editorLights || !currentMapId) return;
-    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
+    const oldLights = skipUndo ? null : JSON.parse(JSON.stringify(map.editorLights));
     const points = map.editorLights.points.map(p => p.id === id ? { ...p, ...updates } : p);
     const newLights = { ...map.editorLights, points };
     set({ currentMap: { ...map, editorLights: newLights } });
-    pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
+    if (!skipUndo) pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
   },
 
   deletePointLight: (id: number) => {
@@ -205,51 +205,57 @@ export const lightSlice: SliceCreator<Pick<EditorState,
     pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
   },
 
-  updateAmbientLight: (updates: Partial<EditorAmbientLight>) => {
+  updateAmbientLight: (updates: Partial<EditorAmbientLight>, skipUndo?: boolean) => {
     const { currentMap: map, currentMapId } = get();
     if (!map || !map.editorLights || !currentMapId) return;
-    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
+    const oldLights = skipUndo ? null : JSON.parse(JSON.stringify(map.editorLights));
     const newLights = { ...map.editorLights, ambient: { ...map.editorLights.ambient, ...updates } };
     set({ currentMap: { ...map, editorLights: newLights } });
-    pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
+    if (!skipUndo) pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
   },
 
-  updateDirectionalLight: (updates: Partial<EditorDirectionalLight>) => {
+  updateDirectionalLight: (updates: Partial<EditorDirectionalLight>, skipUndo?: boolean) => {
     const { currentMap: map, currentMapId } = get();
     if (!map || !map.editorLights || !currentMapId) return;
-    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
+    const oldLights = skipUndo ? null : JSON.parse(JSON.stringify(map.editorLights));
     const newLights = { ...map.editorLights, directional: { ...map.editorLights.directional, ...updates } };
     set({ currentMap: { ...map, editorLights: newLights } });
-    pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
+    if (!skipUndo) pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
   },
 
-  updatePlayerLight: (updates: Partial<EditorPlayerLight>) => {
+  updatePlayerLight: (updates: Partial<EditorPlayerLight>, skipUndo?: boolean) => {
     const { currentMap: map, currentMapId } = get();
     if (!map || !map.editorLights || !currentMapId) return;
-    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
+    const oldLights = skipUndo ? null : JSON.parse(JSON.stringify(map.editorLights));
     const cur = map.editorLights.playerLight ?? { color: '#a25f06', intensity: 0.8, distance: 200, z: 40 };
     const newLights = { ...map.editorLights, playerLight: { ...cur, ...updates } };
     set({ currentMap: { ...map, editorLights: newLights } });
-    pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
+    if (!skipUndo) pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
   },
 
-  updateSpotLight: (updates: Partial<EditorSpotLight>) => {
+  updateSpotLight: (updates: Partial<EditorSpotLight>, skipUndo?: boolean) => {
     const { currentMap: map, currentMapId } = get();
     if (!map || !map.editorLights || !currentMapId) return;
-    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
+    const oldLights = skipUndo ? null : JSON.parse(JSON.stringify(map.editorLights));
     const cur = map.editorLights.spotLight ?? { enabled: true, color: '#ffeedd', intensity: 0.8, distance: 250, angle: 0.60, penumbra: 0.9, z: 120, shadowMapSize: 2048, targetDistance: 70 };
     const newLights = { ...map.editorLights, spotLight: { ...cur, ...updates } };
     set({ currentMap: { ...map, editorLights: newLights } });
-    pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
+    if (!skipUndo) pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
   },
 
-  updateShadowSettings: (updates: Partial<EditorShadowSettings>) => {
+  updateShadowSettings: (updates: Partial<EditorShadowSettings>, skipUndo?: boolean) => {
     const { currentMap: map, currentMapId } = get();
     if (!map || !map.editorLights || !currentMapId) return;
-    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
+    const oldLights = skipUndo ? null : JSON.parse(JSON.stringify(map.editorLights));
     const cur = map.editorLights.shadow ?? { opacity: 0.4, color: '#000000', offsetScale: 0.6 };
     const newLights = { ...map.editorLights, shadow: { ...cur, ...updates } };
     set({ currentMap: { ...map, editorLights: newLights } });
-    pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
+    if (!skipUndo) pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
+  },
+
+  commitLightDragUndo: (snapshotLights: any) => {
+    const { currentMap: map } = get();
+    if (!map || !map.editorLights) return;
+    pushLightUndo(get, set, snapshotLights, JSON.parse(JSON.stringify(map.editorLights)));
   },
 });

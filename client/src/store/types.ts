@@ -319,21 +319,23 @@ export interface EditorState {
   addObjectFromAnimation: (animationId: number, animationName: string) => void;
   expandObjectTiles: (objectId: number, paintedTiles: Set<string>) => void;
   shrinkObjectTiles: (objectId: number, removeTiles: Set<string>) => void;
-  updateObject: (id: number, updates: Partial<MapObject>) => void;
+  updateObject: (id: number, updates: Partial<MapObject>, skipUndo?: boolean) => void;
   deleteObject: (id: number) => void;
   copyObjects: (objectIds: number[]) => void;
   pasteObjects: (x: number, y: number) => void;
   deleteObjects: (objectIds: number[]) => void;
   moveObjects: (objectIds: number[], dx: number, dy: number) => void;
+  commitDragUndo: (snapshotObjects: MapObject[]) => void;
 
   // Actions - Camera Zone
   setSelectedCameraZoneId: (id: number | null) => void;
   setSelectedCameraZoneIds: (ids: number[]) => void;
   addCameraZone: (x: number, y: number, width: number, height: number) => void;
-  updateCameraZone: (id: number, updates: Partial<CameraZone>) => void;
+  updateCameraZone: (id: number, updates: Partial<CameraZone>, skipUndo?: boolean) => void;
   deleteCameraZone: (id: number) => void;
   deleteCameraZones: (ids: number[]) => void;
   moveCameraZones: (ids: number[], dx: number, dy: number) => void;
+  commitCameraZoneDragUndo: (snapshotZones: CameraZone[]) => void;
 
   // Actions - Passage
   setPassageTool: (tool: 'select' | 'pen' | 'eraser') => void;
@@ -388,18 +390,19 @@ export interface EditorState {
   setSelectedLightType: (type: 'point' | 'ambient' | 'directional' | 'playerLight' | 'spotLight') => void;
   initEditorLights: () => void;
   addPointLight: (x: number, y: number) => void;
-  updatePointLight: (id: number, updates: Partial<EditorPointLight>) => void;
+  updatePointLight: (id: number, updates: Partial<EditorPointLight>, skipUndo?: boolean) => void;
   deletePointLight: (id: number) => void;
   copyLights: (lightIds: number[]) => void;
   pasteLights: (x: number, y: number) => void;
   deleteLights: (lightIds: number[]) => void;
   moveLights: (lightIds: number[], dx: number, dy: number) => void;
   updateEditorLightsEnabled: (enabled: boolean) => void;
-  updateAmbientLight: (updates: Partial<EditorAmbientLight>) => void;
-  updateDirectionalLight: (updates: Partial<EditorDirectionalLight>) => void;
-  updatePlayerLight: (updates: Partial<EditorPlayerLight>) => void;
-  updateSpotLight: (updates: Partial<EditorSpotLight>) => void;
-  updateShadowSettings: (updates: Partial<EditorShadowSettings>) => void;
+  updateAmbientLight: (updates: Partial<EditorAmbientLight>, skipUndo?: boolean) => void;
+  updateDirectionalLight: (updates: Partial<EditorDirectionalLight>, skipUndo?: boolean) => void;
+  updatePlayerLight: (updates: Partial<EditorPlayerLight>, skipUndo?: boolean) => void;
+  updateSpotLight: (updates: Partial<EditorSpotLight>, skipUndo?: boolean) => void;
+  updateShadowSettings: (updates: Partial<EditorShadowSettings>, skipUndo?: boolean) => void;
+  commitLightDragUndo: (snapshotLights: any) => void;
 
   // Actions - Start position
   setPlayerStartPosition: (mapId: number, x: number, y: number) => Promise<void>;

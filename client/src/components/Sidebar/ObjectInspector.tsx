@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import useEscClose from '../../hooks/useEscClose';
@@ -87,10 +87,19 @@ export default function ObjectInspector() {
   const setSelectedObjectId = useEditorStore((s) => s.setSelectedObjectId);
   const addObjectFromImage = useEditorStore((s) => s.addObjectFromImage);
   const addObjectFromAnimation = useEditorStore((s) => s.addObjectFromAnimation);
+  const commitDragUndo = useEditorStore((s) => s.commitDragUndo);
+  const dragSnapshotRef = useRef<any[] | null>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [showAnimationPicker, setShowAnimationPicker] = useState(false);
   const [showAnchorHelp, setShowAnchorHelp] = useState(false);
   const [showShaderEditor, setShowShaderEditor] = useState(false);
+
+  const onDragStart = useCallback(() => {
+    dragSnapshotRef.current = useEditorStore.getState().currentMap?.objects || null;
+  }, []);
+  const onDragEnd = useCallback(() => {
+    if (dragSnapshotRef.current) { commitDragUndo(dragSnapshotRef.current); dragSnapshotRef.current = null; }
+  }, [commitDragUndo]);
 
   const objects = currentMap?.objects;
   const selectedObj = selectedObjectId != null && objects
@@ -317,7 +326,8 @@ export default function ObjectInspector() {
           )}
           <div className="light-inspector-row">
             <DragLabel label="Y" value={anchorY} step={0.05} min={0} max={1}
-              onChange={(v) => updateObject(selectedObj.id, { anchorY: Math.round(v * 100) / 100 })} />
+              onDragStart={onDragStart} onDragEnd={onDragEnd}
+              onChange={(v) => updateObject(selectedObj.id, { anchorY: Math.round(v * 100) / 100 }, true)} />
             <input type="range" className="light-inspector-slider"
               min={0} max={1} step={0.05}
               value={anchorY}
@@ -346,14 +356,16 @@ export default function ObjectInspector() {
         <div className="light-inspector-title">위치</div>
         <div className="light-inspector-row">
           <DragLabel label="X" value={selectedObj.x} step={1}
-            onChange={(v) => updateObject(selectedObj.id, { x: Math.round(v) })} />
+            onDragStart={onDragStart} onDragEnd={onDragEnd}
+            onChange={(v) => updateObject(selectedObj.id, { x: Math.round(v) }, true)} />
           <input type="number" className="light-inspector-input"
             value={selectedObj.x}
             onChange={(e) => updateObject(selectedObj.id, { x: parseInt(e.target.value) || 0 })} />
         </div>
         <div className="light-inspector-row">
           <DragLabel label="Y" value={selectedObj.y} step={1}
-            onChange={(v) => updateObject(selectedObj.id, { y: Math.round(v) })} />
+            onDragStart={onDragStart} onDragEnd={onDragEnd}
+            onChange={(v) => updateObject(selectedObj.id, { y: Math.round(v) }, true)} />
           <input type="number" className="light-inspector-input"
             value={selectedObj.y}
             onChange={(e) => updateObject(selectedObj.id, { y: parseInt(e.target.value) || 0 })} />
@@ -365,7 +377,8 @@ export default function ObjectInspector() {
         <div className="light-inspector-title">Z 높이</div>
         <div className="light-inspector-row">
           <DragLabel label="높이" value={selectedObj.zHeight} step={0.5} min={0} max={200}
-            onChange={(v) => updateObject(selectedObj.id, { zHeight: v })} />
+            onDragStart={onDragStart} onDragEnd={onDragEnd}
+            onChange={(v) => updateObject(selectedObj.id, { zHeight: v }, true)} />
           <input type="number" className="light-inspector-input" min={0} max={200} step={0.5}
             value={selectedObj.zHeight}
             onChange={(e) => updateObject(selectedObj.id, { zHeight: parseFloat(e.target.value) || 0 })} />
