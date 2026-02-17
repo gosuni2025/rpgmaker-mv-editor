@@ -180,6 +180,38 @@ editor/
 - `01_11*.html` - 문서 (에셋 규격, 플러그인, 배포 형식)
 - `03_*.html` - JS 라이브러리 API 레퍼런스 (데이터 구조 상세)
 
+## 듀얼 런타임 구조 (PIXI / Three.js)
+
+RPG Maker MV 프로젝트 폴더에는 두 가지 런타임이 공존함:
+
+```
+project/
+├── index.html       ← PIXI 런타임 (RPG Maker MV 스팀판 호환)
+├── index_3d.html    ← Three.js 런타임 (에디터 3D 모드)
+├── js/
+│   ├── rpg_core.js  ← PIXI 원본 (스팀판용)
+│   ├── rpg_*.js     ← PIXI 원본
+│   ├── main.js      ← PIXI 원본
+│   ├── plugins.js   ← 공통 (양쪽 공유)
+│   ├── plugins/     ← 공통
+│   ├── libs/
+│   │   ├── pixi.js, pixi-tilemap.js, pixi-picture.js  ← PIXI용
+│   │   ├── three.global.min.js                         ← Three.js용
+│   │   └── fpsmeter.js, lz-string.js, ...              ← 공통
+│   └── 3d/          ← Three.js 전용
+│       ├── rpg_core.js, rpg_*.js, main.js  ← Three.js 수정본
+│       ├── renderer/                        ← Three.js 렌더러
+│       ├── Mode3D.js, ShadowAndLight.js, ... ← 3D 플러그인
+│       └── DevPanelUtils.js, ...            ← 개발 도구
+```
+
+- **`index.html`**: PIXI 기반 — RPG Maker MV 스팀판에서 열기/플레이테스트 시 사용. **수정하지 말 것.**
+- **`index_3d.html`**: Three.js 기반 — `js/3d/` 경로 참조. 에디터가 수정하는 대상.
+- **`js/3d/`**: 에디터가 수정하는 Three.js 런타임 파일. `server/runtime/js/`와 동기화됨.
+- **마이그레이션**: 프로젝트 열 때 `server/runtime/js/` → `js/3d/`로 비교/복사. `index_3d.html`도 포함.
+- **에디터 플레이테스트**: `server/runtime/js/`에서 직접 서빙 (프로젝트 `js/3d/` 불필요)
+- **런타임 템플릿**: `server/runtime/index_3d.html` — 마이그레이션 시 프로젝트 루트에 복사
+
 ## 확장 데이터 저장 규칙
 
 에디터 전용 확장 데이터(editorLights, objects, cameraZones 등)는 원본 RPG Maker MV와의 호환성을 위해 별도 파일에 저장됨:
