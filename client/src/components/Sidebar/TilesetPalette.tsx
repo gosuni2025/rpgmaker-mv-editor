@@ -436,6 +436,22 @@ export default function TilesetPalette() {
               광원 방향
             </div>
 
+            <div className="light-palette-section-title" style={{ marginTop: 8 }}>플레이어</div>
+            <div
+              className={`light-type-item${selectedLightType === 'playerLight' ? ' selected' : ''}`}
+              onClick={() => setSelectedLightType('playerLight')}
+            >
+              <div className="light-type-icon" style={{ backgroundColor: '#a25f06' }} />
+              플레이어 라이트
+            </div>
+            <div
+              className={`light-type-item${selectedLightType === 'spotLight' ? ' selected' : ''}`}
+              onClick={() => setSelectedLightType('spotLight')}
+            >
+              <div className="light-type-icon" style={{ backgroundColor: '#ffeedd' }} />
+              스포트라이트
+            </div>
+
             {currentMap?.editorLights?.points && currentMap.editorLights.points.length > 0 && (
               <>
                 <div className="light-palette-section-title" style={{ marginTop: 8 }}>
