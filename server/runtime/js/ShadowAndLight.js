@@ -2616,7 +2616,7 @@ ShadowLight._createDebugUI = function() {
     addColorRow(envBody, { label: 'Ambient Color', key: 'ambientColor' });
 
     // ── 디렉셔널 라이트 섹션 ──
-    var dirBody = createSection(panel, '디렉셔널 라이트', '#aaddff', true);
+    var dirBody = createSection(panel, '방향 조명', '#aaddff', true);
 
     // 디버그 패널 우선 적용 체크박스 (디렉셔널)
     var DIR_OVERRIDE_KEY = 'devPanel_directionalOverride';
@@ -2734,7 +2734,7 @@ ShadowLight._createDebugUI = function() {
     addSliderRow(shadowBody, { label: 'UpperZ', key: 'upperLayerZ', min: 0, max: 100, step: 1 });
 
     // ── 플레이어 라이트 섹션 ──
-    var playerBody = createSection(panel, '플레이어 라이트', '#ffcc66', false);
+    var playerBody = createSection(panel, '플레이어 조명', '#ffcc66', false);
 
     // 디버그 패널 우선 적용 체크박스 (플레이어 라이트)
     var PLAYER_OVERRIDE_KEY = 'devPanel_playerLightOverride';
@@ -2788,7 +2788,7 @@ ShadowLight._createDebugUI = function() {
     playerBody.appendChild(decayRow);
 
     // ── 스포트라이트 섹션 ──
-    var spotBody = createSection(panel, '스포트라이트', '#ff9966', true);
+    var spotBody = createSection(panel, '집중 조명', '#ff9966', true);
 
     // 디버그 패널 우선 적용 체크박스 (스포트라이트)
     var SPOT_OVERRIDE_KEY = 'devPanel_spotLightOverride';
@@ -2866,7 +2866,7 @@ ShadowLight._createDebugUI = function() {
             '--- 환경광 ---',
             'ambientIntensity: ' + cfg.ambientIntensity,
             'ambientColor: 0x' + ('000000' + ((cfg.ambientColor || 0xffffff) >>> 0).toString(16)).slice(-6),
-            '--- 디렉셔널 라이트 ---',
+            '--- 방향 조명 ---',
             'directionalIntensity: ' + cfg.directionalIntensity,
             'directionalColor: 0x' + ('000000' + ((cfg.directionalColor || 0xffffff) >>> 0).toString(16)).slice(-6),
             'lightDirection: [' + dirArr[0].toFixed(2) + ', ' + dirArr[1].toFixed(2) + ', ' + dirArr[2].toFixed(2) + ']',
@@ -2877,13 +2877,13 @@ ShadowLight._createDebugUI = function() {
             '--- 그림자 설정 ---',
             'shadowRadius: ' + cfg.shadowRadius,
             'upperLayerZ: ' + cfg.upperLayerZ,
-            '--- 플레이어 라이트 ---',
+            '--- 플레이어 조명 ---',
             'playerLightIntensity: ' + cfg.playerLightIntensity,
             'playerLightDistance: ' + cfg.playerLightDistance,
             'playerLightZ: ' + cfg.playerLightZ,
             'playerLightColor: 0x' + ('000000' + ((cfg.playerLightColor || 0xffffff) >>> 0).toString(16)).slice(-6),
             'decay: ' + (self._debugDecay !== undefined ? self._debugDecay : 0),
-            '--- 스포트라이트 ---',
+            '--- 집중 조명 ---',
             'spotLightEnabled: ' + cfg.spotLightEnabled,
             'spotLightIntensity: ' + cfg.spotLightIntensity,
             'spotLightDistance: ' + cfg.spotLightDistance,
@@ -3056,7 +3056,7 @@ ShadowLight._createDebugUI = function() {
         arrowRow.appendChild(arrowCb);
 
         var arrowLabel = document.createElement('span');
-        arrowLabel.textContent = '조명 방향 화살표';
+        arrowLabel.textContent = '방향 조명 화살표';
         arrowLabel.style.cssText = 'color:#ccc;font-size:11px;';
         arrowRow.appendChild(arrowLabel);
 

@@ -288,7 +288,7 @@ export default function MapInspector() {
           <span>조명 적용</span>
         </label>
         <div style={{ fontSize: 11, color: '#888', marginTop: 2, lineHeight: 1.4 }}>
-          이 맵에 에디터 조명(환경광, 방향광, 포인트라이트 등)을 적용합니다.
+          이 맵에 에디터 조명(환경광, 방향 조명, 점 조명 등)을 적용합니다.
           조명 편집 모드의 동일한 설정과 연동됩니다.
         </div>
       </div>

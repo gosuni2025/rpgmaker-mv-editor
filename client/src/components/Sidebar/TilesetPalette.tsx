@@ -433,7 +433,7 @@ export default function TilesetPalette() {
               onClick={() => setSelectedLightType('point')}
             >
               <div className="light-type-icon" style={{ backgroundColor: '#ffcc88' }} />
-              포인트 라이트
+              점 조명
             </div>
             <div
               className={`light-type-item${selectedLightType === 'ambient' ? ' selected' : ''}`}
@@ -447,7 +447,7 @@ export default function TilesetPalette() {
               onClick={() => setSelectedLightType('directional')}
             >
               <div className="light-type-icon" style={{ backgroundColor: '#fff8ee' }} />
-              조명 방향
+              방향 조명
             </div>
 
             <div className="light-palette-section-title" style={{ marginTop: 8 }}>플레이어</div>
@@ -456,20 +456,20 @@ export default function TilesetPalette() {
               onClick={() => setSelectedLightType('playerLight')}
             >
               <div className="light-type-icon" style={{ backgroundColor: '#a25f06' }} />
-              플레이어 라이트
+              플레이어 조명
             </div>
             <div
               className={`light-type-item${selectedLightType === 'spotLight' ? ' selected' : ''}`}
               onClick={() => setSelectedLightType('spotLight')}
             >
               <div className="light-type-icon" style={{ backgroundColor: '#ffeedd' }} />
-              스포트라이트
+              집중 조명
             </div>
 
             {currentMap?.editorLights?.points && currentMap.editorLights.points.length > 0 && (
               <>
                 <div className="light-palette-section-title" style={{ marginTop: 8 }}>
-                  배치된 포인트 라이트 ({currentMap.editorLights.points.length})
+                  배치된 점 조명 ({currentMap.editorLights.points.length})
                 </div>
                 <div className="light-point-list">
                   {currentMap.editorLights.points.map((pl) => (

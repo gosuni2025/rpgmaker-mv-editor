@@ -112,7 +112,7 @@ export default function LightInspector() {
       {selectedLightType === 'directional' && (
         <>
           <div className="light-inspector-section">
-            <div className="light-inspector-title">조명 방향 <ExtBadge inline /></div>
+            <div className="light-inspector-title">방향 조명 <ExtBadge inline /></div>
             <div className="light-inspector-row">
               <span className="light-inspector-label">적용</span>
               <input type="checkbox" checked={dir.enabled === true}
@@ -221,7 +221,7 @@ export default function LightInspector() {
       {/* Player Light */}
       {selectedLightType === 'playerLight' && (
         <div className="light-inspector-section">
-          <div className="light-inspector-title">플레이어 라이트 <ExtBadge inline /></div>
+          <div className="light-inspector-title">플레이어 조명 <ExtBadge inline /></div>
           <div className="light-inspector-row">
             <span className="light-inspector-label">적용</span>
             <input type="checkbox" checked={playerLight.enabled !== false}
@@ -264,7 +264,7 @@ export default function LightInspector() {
       {/* Spot Light */}
       {selectedLightType === 'spotLight' && (
         <div className="light-inspector-section">
-          <div className="light-inspector-title">스포트라이트 <ExtBadge inline /></div>
+          <div className="light-inspector-title">집중 조명 <ExtBadge inline /></div>
           <div className="light-inspector-row">
             <span className="light-inspector-label">활성화</span>
             <input type="checkbox" checked={spotLight.enabled}
@@ -339,7 +339,7 @@ export default function LightInspector() {
           {/* Selected Point Light */}
           {selectedPoint && (
             <div className="light-inspector-section">
-              <div className="light-inspector-title">포인트 라이트 #{selectedPoint.id}</div>
+              <div className="light-inspector-title">점 조명 #{selectedPoint.id}</div>
               <div className="light-inspector-row">
                 <DragLabel label="X" value={selectedPoint.x} step={1}
                   onChange={(v) => updatePointLight(selectedPoint.id, { x: Math.round(v) })} />
@@ -412,12 +412,12 @@ export default function LightInspector() {
           {/* No point light selected hint */}
           {!selectedPoint && (
             <div style={{ color: '#666', fontSize: 12, padding: 8 }}>
-              <span style={{ color: '#4a4' }}>맵에서 포인트 라이트를 선택하세요.</span>
+              <span style={{ color: '#4a4' }}>맵에서 점 조명을 선택하세요.</span>
               <div style={{ color: '#aaa', marginTop: 8, lineHeight: 1.6 }}>
-                포인트 라이트는 맵의 특정 위치에서 모든 방향으로 빛을 발산하는 조명입니다.
-                횃불, 가로등, 마법 오브 등 점 조명 효과에 사용합니다.
+                점 조명은 맵의 특정 위치에서 모든 방향으로 빛을 발산하는 조명입니다.
+                횃불, 가로등, 마법 오브 등의 효과에 사용합니다.
                 <br /><br />
-                빈 타일을 클릭하면 새 포인트 라이트를 배치하고,
+                빈 타일을 클릭하면 새 점 조명을 배치하고,
                 드래그로 이동하거나 인스펙터에서 색상, 강도, 거리를 조절할 수 있습니다.
               </div>
             </div>
