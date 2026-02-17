@@ -151,7 +151,7 @@ export function useMouseHandlers(
         return;
       }
 
-      // 3D 모드에서 우클릭은 카메라 이동으로 사용 (타일 조작 무시)
+      // 3D 모드에서 우클릭은 카메라 회전으로 사용 (타일 조작 무시)
       if (e.button === 2 && mode3d) {
         return;
       }
