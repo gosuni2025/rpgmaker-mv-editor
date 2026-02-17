@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
+import ExtBadge from '../common/ExtBadge';
 
 interface ToolItem {
   id: string;
@@ -94,7 +95,7 @@ export default function DrawToolbar() {
           }}
           title="F7"
         >
-          {t('toolbar.light')} <span style={styles.shortcut}>F7</span>
+          {t('toolbar.light')} <ExtBadge inline /> <span style={styles.shortcut}>F7</span>
         </button>
         <button
           onClick={() => setEditMode('object')}
@@ -104,7 +105,7 @@ export default function DrawToolbar() {
           }}
           title="F8"
         >
-          {t('toolbar.object')} <span style={styles.shortcut}>F8</span>
+          {t('toolbar.object')} <ExtBadge inline /> <span style={styles.shortcut}>F8</span>
         </button>
         <button
           onClick={() => setEditMode('cameraZone')}
@@ -114,7 +115,7 @@ export default function DrawToolbar() {
           }}
           title="F9"
         >
-          {t('toolbar.cameraZone')} <span style={styles.shortcut}>F9</span>
+          {t('toolbar.cameraZone')} <ExtBadge inline /> <span style={styles.shortcut}>F9</span>
         </button>
         <button
           onClick={() => setEditMode('passage')}
@@ -124,7 +125,7 @@ export default function DrawToolbar() {
           }}
           title="F11"
         >
-          {t('toolbar.passage', '통행')} <span style={styles.shortcut}>F11</span>
+          {t('toolbar.passage', '통행')} <ExtBadge inline /> <span style={styles.shortcut}>F11</span>
         </button>
       </div>
 
