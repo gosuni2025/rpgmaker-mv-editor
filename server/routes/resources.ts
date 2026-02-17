@@ -37,13 +37,29 @@ const upload = multer({
   }),
 });
 
+/** 디렉토리를 재귀적으로 읽어 파일 목록을 반환 (하위 폴더는 prefix/ 형태로 포함) */
+function readDirRecursive(dirPath: string, prefix = ''): string[] {
+  const results: string[] = [];
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    const relName = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      results.push(...readDirRecursive(path.join(dirPath, entry.name), relName));
+    } else {
+      results.push(relName);
+    }
+  }
+  return results;
+}
+
 router.get('/:type', (req: Request<{ type: string }>, res: Response) => {
   try {
     const dirPath = resolveResourceDir(req.params.type);
     if (!fs.existsSync(dirPath)) {
       return res.status(404).json({ error: 'Resource directory not found' });
     }
-    const files = fs.readdirSync(dirPath).filter(f => !f.startsWith('.'));
+    const files = readDirRecursive(dirPath);
     // detail=1 파라미터가 있으면 파일 메타데이터 포함
     if (req.query.detail === '1') {
       const detailed = files.map(f => {
@@ -62,9 +78,15 @@ router.get('/:type', (req: Request<{ type: string }>, res: Response) => {
   }
 });
 
-router.get('/:type/:name', (req: Request<{ type: string; name: string }>, res: Response) => {
+router.get('/:type/:name(*)', (req: Request<{ type: string; name: string }>, res: Response) => {
   try {
     const filePath = path.join(resolveResourceDir(req.params.type), req.params.name);
+    // 보안: resolveResourceDir 밖으로 나가지 못하도록 검사
+    const resolved = path.resolve(filePath);
+    const base = path.resolve(resolveResourceDir(req.params.type));
+    if (!resolved.startsWith(base)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Resource not found' });
     }
