@@ -512,6 +512,22 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
   // 그림 제거
   if (code === 235 && cmd.parameters && cmd.parameters.length >= 1) {
     text += `: #${cmd.parameters[0]}`;
+    const eraseMode = cmd.parameters[1] as string | undefined;
+    if (eraseMode === 'instant') {
+      text += `, 즉시`;
+    }
+    // 셰이더 트랜지션 표시
+    const shaderLabelsMap: Record<string, string> = {
+      dissolve: '디졸브', fade: '페이드', wipe: '와이프', circleWipe: '원형 와이프',
+      blinds: '블라인드', pixelDissolve: '픽셀 디졸브',
+    };
+    const transitionRaw = cmd.parameters[2] as { shaderList: { type: string }[]; applyMode: string; duration: number } | null;
+    if (transitionRaw && transitionRaw.shaderList?.length > 0) {
+      const tNames = transitionRaw.shaderList.map(s => shaderLabelsMap[s.type] || s.type);
+      const durStr = transitionRaw.applyMode === 'interpolate' && transitionRaw.duration > 0
+        ? ` ${transitionRaw.duration}초` : '';
+      text += `, 트랜지션:[${tNames.join('+')}${durStr}]`;
+    }
     return text;
   }
 

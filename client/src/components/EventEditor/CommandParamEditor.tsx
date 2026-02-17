@@ -8,7 +8,7 @@ import {
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor, VehicleBGMEditor, MovieEditor, FadeoutEditor,
   ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeActorImagesEditor, ChangeVehicleImageEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeMapNameDisplayEditor, ChangeTilesetEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor, ShowBalloonIconEditor,
-  ScrollingTextEditor, ConditionalBranchEditor, ShowPictureEditor, MovePictureEditor, RotatePictureEditor, TintPictureEditor, TintScreenEditor, FlashScreenEditor, ShakeScreenEditor, SetWeatherEffectEditor, ChangeWindowColorEditor,
+  ScrollingTextEditor, ConditionalBranchEditor, ShowPictureEditor, MovePictureEditor, RotatePictureEditor, TintPictureEditor, ErasePictureEditor, TintScreenEditor, FlashScreenEditor, ShakeScreenEditor, SetWeatherEffectEditor, ChangeWindowColorEditor,
   BattleProcessingEditor,
   ShopProcessingEditor,
   ChangeBattleBackEditor,
@@ -140,7 +140,7 @@ function getEditorContent(
     case 232: return <MovePictureEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 233: return <RotatePictureEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 234: return <TintPictureEditor p={p} onOk={onOk} onCancel={onCancel} />;
-    case 235: return <SingleNumberEditor p={p} onOk={onOk} onCancel={onCancel} label="번호" min={1} max={100} />;
+    case 235: return <ErasePictureEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 241: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgm" />;
     case 245: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="bgs" />;
     case 249: return <AudioEditor p={p} onOk={onOk} onCancel={onCancel} type="me" />;
