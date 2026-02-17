@@ -74,7 +74,10 @@
     "openVscode": "VSCode로 열기",
     "recentProjects": "최근 프로젝트",
     "noRecentProjects": "최근 프로젝트 없음",
-    "projectNotFound": "프로젝트를 찾을 수 없습니다. 목록에서 제거합니다."
+    "projectNotFound": "프로젝트를 찾을 수 없습니다. 목록에서 제거합니다.",
+    "help": "도움말",
+    "homepage": "홈페이지",
+    "reportIssue": "이슈 보고..."
   },
   "options": {
     "title": "에디터 설정",

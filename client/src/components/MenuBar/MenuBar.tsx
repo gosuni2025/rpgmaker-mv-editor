@@ -166,6 +166,13 @@ export default function MenuBar() {
         { label: t('menu.openFolder'), action: 'openFolder', disabled: () => !hasProject },
       ],
     },
+    {
+      label: t('menu.help'),
+      items: [
+        { label: t('menu.homepage'), action: 'homepage' },
+        { label: t('menu.reportIssue'), action: 'reportIssue' },
+      ],
+    },
   ];
 
   const handleAction = useCallback((action: string) => {
@@ -246,6 +253,8 @@ export default function MenuBar() {
 
       case 'options': setShowOptionsDialog(true); break;
       case 'localization': setShowLocalizationDialog(true); break;
+      case 'homepage': window.open('https://github.com/gosuni2025/rpgmaker-mv-editor', '_blank'); break;
+      case 'reportIssue': window.open('https://github.com/gosuni2025/rpgmaker-mv-editor/issues', '_blank'); break;
     }
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
