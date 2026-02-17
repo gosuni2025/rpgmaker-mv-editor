@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import type { EventCommandContext } from './EventCommandEditor';
 import TranslateButton from '../common/TranslateButton';
-import ExtBadge from '../common/ExtBadge';
 import { getCommandDisplay, type CommandDisplayContext } from './commandDisplayText';
 
 interface CommandRowProps {
@@ -102,9 +101,6 @@ export const CommandRow = React.memo(function CommandRow({
       {display ? (
         (cmd.code === 108 || cmd.code === 408) ? <span style={{ color: '#4ec94e' }}>{display}</span> : display
       ) : <span style={{ color: '#555' }}>&loz;</span>}
-      {cmd.code === 231 && cmd.parameters && !!(cmd.parameters[10] || cmd.parameters[11] || cmd.parameters[12]) && (
-        <ExtBadge inline />
-      )}
       {isFolded && foldedCount !== undefined && foldedCount > 0 && (
         <span className="fold-count-badge">+{foldedCount}줄</span>
       )}

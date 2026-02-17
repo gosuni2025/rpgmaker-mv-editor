@@ -3,7 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { fuzzyMatch } from '../../utils/fuzzySearch';
 import useEscClose from '../../hooks/useEscClose';
 import { ADDON_COMMANDS } from './addonCommands';
+import ExtBadge from '../common/ExtBadge';
 import '../MapEditor/MapCanvas.css';
+
+// EXT 뱃지를 표시할 커맨드 코드 목록
+const EXT_COMMANDS = new Set([231]);
 
 interface CommandInsertDialogProps {
   onSelect: (code: number, initialParam?: string) => void;
@@ -160,6 +164,7 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
             onClick={() => onSelect(code)}
           >
             {t(`eventCommands.commands.${code}`)}
+            {EXT_COMMANDS.has(code) && <ExtBadge inline />}
           </div>
         ))}
       </div>
@@ -258,6 +263,7 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
                     onClick={() => onSelect(c.code, c.addonPlugin)}
                   >
                     {c.name}
+                    {EXT_COMMANDS.has(c.code) && !c.addonPlugin && <ExtBadge inline />}
                   </div>
                 ))}
               </div>
