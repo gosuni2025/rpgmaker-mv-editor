@@ -1702,9 +1702,7 @@ PictureShader.createMaterial = function(type, params, texture) {
             applyMode: applyMode,
             duration: duration,
             elapsed: 0,
-            onComplete: onComplete,
-            // 나타나기 트랜지션: 셰이더 적용 전까지 스프라이트 숨김 (한 프레임 플래시 방지)
-            _hideUntilShaderApplied: (direction === 'in')
+            onComplete: onComplete
         };
     };
 
@@ -1977,18 +1975,27 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
     /**
      * 셰이더 업데이트 (멀티패스)
      */
+    // _updateTexture 오버라이드: 셰이더가 활성화된 동안 _outputMaterial.map을
+    // 원본 텍스처로 덮어쓰지 않도록 함 (_syncHierarchy에서 호출됨)
+    var _Sprite_Picture_updateTexture = Sprite_Picture.prototype._updateTexture;
+    Sprite_Picture.prototype._updateTexture = function() {
+        // 셰이더 패스가 활성화되어 있으면 _material이 _outputMaterial이므로
+        // _originalMaterial에 대해 텍스처 업데이트를 수행
+        if (this._outputMaterial && this._originalMaterial) {
+            var savedMaterial = this._material;
+            this._material = this._originalMaterial;
+            _Sprite_Picture_updateTexture.call(this);
+            this._material = savedMaterial;
+            return;
+        }
+        _Sprite_Picture_updateTexture.call(this);
+    };
+
     Sprite_Picture.prototype.updateShader = function() {
         var picture = this.picture();
         if (!picture) {
             this._restoreOriginalMaterial();
             return;
-        }
-
-        // 나타나기 트랜지션: 셰이더 적용 전까지 숨김 (한 프레임 플래시 방지)
-        var transition = picture._transition;
-        var hiding = transition && transition._hideUntilShaderApplied;
-        if (hiding) {
-            this.visible = false;
         }
 
         var shaderData = picture.shaderData();
@@ -2008,13 +2015,7 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
         }
 
         // 매 프레임: 멀티패스 렌더링 실행
-        var applied = this._executeMultipass(passes);
-
-        // 셰이더 적용 완료: 숨김 해제 (텍스처 미로드 등으로 실패하면 계속 숨김)
-        if (hiding && applied) {
-            transition._hideUntilShaderApplied = false;
-            this.visible = true;
-        }
+        this._executeMultipass(passes);
 
         // Shake offset 계산 (shake 셰이더가 포함되어 있으면)
         this._shakeOffsetX = 0;
