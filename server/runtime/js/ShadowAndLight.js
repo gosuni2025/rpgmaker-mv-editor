@@ -1899,6 +1899,11 @@ Spriteset_Map.prototype.update = function() {
 Spriteset_Map.prototype._updateShadowLight = function() {
     var enabled = ConfigManager.shadowLight;
 
+    // editorLights.enabled === false이면 ShadowLight 비활성화 (MeshBasicMaterial 복원)
+    var elRaw = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+    var elGlobalOff = elRaw && elRaw.enabled === false;
+    if (elGlobalOff) enabled = false;
+
     if (enabled && !ShadowLight._active) {
         // 활성화
         this._activateShadowLight();
