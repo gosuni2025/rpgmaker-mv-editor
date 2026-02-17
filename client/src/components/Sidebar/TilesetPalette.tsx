@@ -3,12 +3,13 @@ import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import {
   TILE_SIZE_PX, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E,
-  getTileRenderInfo, isGroundDecorationTile,
+  getTileRenderInfo, isGroundDecorationTile, getTileDescription,
 } from '../../utils/tileHelper';
 import { buildAutotileEntries } from '../../utils/autotileEntries';
 import { loadTilesetImages } from '../../utils/tilesetImageLoader';
 import './RegionPalette.css';
 import './InspectorPanel.css';
+import '../MapEditor/TileInfoTooltip.css';
 
 type PaletteTab = 'A' | 'B' | 'C' | 'D' | 'E' | 'R';
 const TABS: PaletteTab[] = ['A', 'B', 'C', 'D', 'E', 'R'];
@@ -64,6 +65,9 @@ export default function TilesetPalette() {
   const isDragging = useRef(false);
   const dragStartCell = useRef<{ col: number; row: number } | null>(null);
   const [dragCurrentCell, setDragCurrentCell] = useState<{ col: number; row: number } | null>(null);
+
+  // Hover tooltip state for palette
+  const [paletteHover, setPaletteHover] = useState<{ tileId: number; mouseX: number; mouseY: number } | null>(null);
 
   // Load ALL tileset images
   useEffect(() => {
@@ -355,12 +359,19 @@ export default function TilesetPalette() {
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!isDragging.current || !dragStartCell.current) return;
       const cell = canvasToCell(e);
-      if (!cell) return;
-      setDragCurrentCell(cell);
+      if (isDragging.current && dragStartCell.current) {
+        if (cell) setDragCurrentCell(cell);
+      }
+      // Hover tooltip
+      if (showTileInfo && cell) {
+        const tid = getTileIdForCell(cell.col, cell.row);
+        setPaletteHover({ tileId: tid, mouseX: e.clientX, mouseY: e.clientY });
+      } else {
+        setPaletteHover(null);
+      }
     },
-    [canvasToCell]
+    [canvasToCell, showTileInfo, getTileIdForCell]
   );
 
   const handleMouseUp = useCallback(
@@ -381,6 +392,7 @@ export default function TilesetPalette() {
   // Handle mouse leaving the canvas while dragging
   const handleMouseLeave = useCallback(
     () => {
+      setPaletteHover(null);
       if (!isDragging.current || !dragStartCell.current) return;
       isDragging.current = false;
       const start = dragStartCell.current;
@@ -543,8 +555,69 @@ export default function TilesetPalette() {
           />
         )}
       </div>
+      {showTileInfo && paletteHover && paletteHover.tileId !== 0 && (
+        <PaletteTileTooltip
+          tileId={paletteHover.tileId}
+          mouseX={paletteHover.mouseX}
+          mouseY={paletteHover.mouseY}
+          tilesetNames={currentMap?.tilesetNames}
+        />
+      )}
       </>
       )}
+    </div>
+  );
+}
+
+function PaletteTileTooltip({ tileId, mouseX, mouseY, tilesetNames }: {
+  tileId: number; mouseX: number; mouseY: number; tilesetNames?: string[];
+}) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const desc = React.useMemo(() => getTileDescription(tileId, tilesetNames), [tileId, tilesetNames]);
+
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = mouseX + 16;
+    let top = mouseY + 16;
+    if (left + rect.width > vw) left = mouseX - rect.width - 8;
+    if (top + rect.height > vh) top = mouseY - rect.height - 8;
+    if (left < 0) left = 4;
+    if (top < 0) top = 4;
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+  });
+
+  if (!desc) return null;
+
+  return (
+    <div ref={ref} className="tile-info-tooltip" style={{ left: mouseX + 16, top: mouseY + 16 }}>
+      <div className="tile-info-row">
+        <span className="tile-info-label">종류:</span>
+        <span>{desc.category}</span>
+        {desc.tags.map((tag) => (
+          <span key={tag} className="tile-info-tag">{tag}</span>
+        ))}
+      </div>
+      <div className="tile-info-row">
+        <span className="tile-info-label">이름:</span>
+        <span>{desc.name}</span>
+      </div>
+      {desc.fileName && (
+        <div className="tile-info-row">
+          <span className="tile-info-label">파일:</span>
+          <span className="tile-info-file">{desc.fileName}</span>
+        </div>
+      )}
+      <div className="tile-info-row">
+        <span className="tile-info-label">ID:</span>
+        <span>{tileId}</span>
+        <span className="tile-info-label" style={{ marginLeft: 6 }}>시트 #{desc.sheetIndex}</span>
+        <span className="tile-info-label" style={{ marginLeft: 6 }}>인덱스 {desc.indexInSheet}</span>
+      </div>
     </div>
   );
 }
