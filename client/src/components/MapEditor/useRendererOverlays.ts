@@ -1156,3 +1156,198 @@ export function usePassageOverlay(
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
   }, [editMode, passageHash, mapWidth, mapHeight, rendererReady]);
 }
+
+/** 통행 선택 영역 오버레이 */
+export function usePassageSelectionOverlay(
+  refs: OverlayRefs & { passageMeshesRef: React.MutableRefObject<any[]> },
+  rendererReady: number,
+) {
+  const editMode = useEditorStore((s) => s.editMode);
+  const passageTool = useEditorStore((s) => s.passageTool);
+  const passageSelectionStart = useEditorStore((s) => s.passageSelectionStart);
+  const passageSelectionEnd = useEditorStore((s) => s.passageSelectionEnd);
+
+  useEffect(() => {
+    const rendererObj = refs.rendererObjRef.current;
+    if (!rendererObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    // 기존 selection 메시 제거
+    if (!(window as any)._editorPassageSelMeshes) (window as any)._editorPassageSelMeshes = [];
+    const existing = (window as any)._editorPassageSelMeshes as any[];
+    for (const m of existing) {
+      rendererObj.scene.remove(m);
+      m.geometry?.dispose();
+      m.material?.dispose();
+    }
+    existing.length = 0;
+
+    if (editMode !== 'passage' || passageTool !== 'select' || !passageSelectionStart || !passageSelectionEnd) {
+      requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+      return;
+    }
+
+    const minX = Math.min(passageSelectionStart.x, passageSelectionEnd.x);
+    const maxX = Math.max(passageSelectionStart.x, passageSelectionEnd.x);
+    const minY = Math.min(passageSelectionStart.y, passageSelectionEnd.y);
+    const maxY = Math.max(passageSelectionStart.y, passageSelectionEnd.y);
+
+    const rw = (maxX - minX + 1) * TILE_SIZE_PX;
+    const rh = (maxY - minY + 1) * TILE_SIZE_PX;
+    const cx = minX * TILE_SIZE_PX + rw / 2;
+    const cy = minY * TILE_SIZE_PX + rh / 2;
+
+    // 선택 영역 채우기 (빨간 반투명)
+    const geom = new THREE.PlaneGeometry(rw, rh);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xff6666, opacity: 0.15, transparent: true,
+      depthTest: false, side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.set(cx, cy, 6.5);
+    mesh.renderOrder = 9975;
+    mesh.frustumCulled = false;
+    mesh.userData.editorGrid = true;
+    rendererObj.scene.add(mesh);
+    existing.push(mesh);
+
+    // 대시선 테두리
+    const hw = rw / 2, hh = rh / 2;
+    const pts = [
+      new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+      new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+      new THREE.Vector3(-hw, -hh, 0),
+    ];
+    const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+    const lineMat = new THREE.LineDashedMaterial({
+      color: 0xff6666, depthTest: false, transparent: true,
+      opacity: 1.0, dashSize: 6, gapSize: 4,
+    });
+    const line = new THREE.Line(lineGeom, lineMat);
+    line.computeLineDistances();
+    line.position.set(cx, cy, 6.8);
+    line.renderOrder = 9976;
+    line.frustumCulled = false;
+    line.userData.editorGrid = true;
+    rendererObj.scene.add(line);
+    existing.push(line);
+
+    requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+  }, [editMode, passageTool, passageSelectionStart, passageSelectionEnd, rendererReady]);
+}
+
+/** 통행 붙여넣기 프리뷰 오버레이 */
+export function usePassagePastePreviewOverlay(
+  refs: OverlayRefs & { passageMeshesRef: React.MutableRefObject<any[]> },
+  rendererReady: number,
+) {
+  const editMode = useEditorStore((s) => s.editMode);
+  const isPassagePasting = useEditorStore((s) => s.isPassagePasting);
+  const passagePastePreviewPos = useEditorStore((s) => s.passagePastePreviewPos);
+  const clipboard = useEditorStore((s) => s.clipboard);
+
+  useEffect(() => {
+    const rendererObj = refs.rendererObjRef.current;
+    if (!rendererObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    // 기존 프리뷰 메시 제거
+    if (!(window as any)._editorPassagePasteMeshes) (window as any)._editorPassagePasteMeshes = [];
+    const existing = (window as any)._editorPassagePasteMeshes as any[];
+    for (const m of existing) {
+      rendererObj.scene.remove(m);
+      m.geometry?.dispose();
+      if (m.material?.map) m.material.map.dispose();
+      m.material?.dispose();
+    }
+    existing.length = 0;
+
+    if (editMode !== 'passage' || !isPassagePasting || !passagePastePreviewPos ||
+        !clipboard || clipboard.type !== 'passage' || !clipboard.passage || !clipboard.width || !clipboard.height) {
+      requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+      return;
+    }
+
+    const tw = TILE_SIZE_PX;
+    const tilesW = clipboard.width;
+    const tilesH = clipboard.height;
+
+    // 프리뷰 Canvas 텍스처 생성
+    const cvs = document.createElement('canvas');
+    cvs.width = tw * tilesW;
+    cvs.height = tw * tilesH;
+    const ctx = cvs.getContext('2d')!;
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+    for (const p of clipboard.passage) {
+      if (!p.value) continue;
+      const px = p.x * tw;
+      const py = p.y * tw;
+
+      if (p.value === 0x0F) {
+        ctx.strokeStyle = 'rgba(255, 60, 60, 0.9)';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(px + 10, py + 10); ctx.lineTo(px + 38, py + 38);
+        ctx.moveTo(px + 38, py + 10); ctx.lineTo(px + 10, py + 38);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = 'rgba(255, 60, 60, 0.8)';
+        const barW = 28, barH = 6;
+        if (p.value & 0x01) ctx.fillRect(px + (48 - barW) / 2, py + 48 - barH - 2, barW, barH);
+        if (p.value & 0x02) ctx.fillRect(px + 2, py + (48 - barW) / 2, barH, barW);
+        if (p.value & 0x04) ctx.fillRect(px + 48 - barH - 2, py + (48 - barW) / 2, barH, barW);
+        if (p.value & 0x08) ctx.fillRect(px + (48 - barW) / 2, py + 2, barW, barH);
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.flipY = false;
+
+    const rw = tw * tilesW;
+    const rh = tw * tilesH;
+    const cx = passagePastePreviewPos.x * tw + rw / 2;
+    const cy = passagePastePreviewPos.y * tw + rh / 2;
+
+    const geom = new THREE.PlaneGeometry(rw, rh);
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex, transparent: true, opacity: 0.5,
+      depthTest: false, side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.set(cx, cy, 8);
+    mesh.renderOrder = 9977;
+    mesh.frustumCulled = false;
+    mesh.userData.editorGrid = true;
+    rendererObj.scene.add(mesh);
+    existing.push(mesh);
+
+    // 대시선 테두리
+    const hw = rw / 2, hh = rh / 2;
+    const pts = [
+      new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+      new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+      new THREE.Vector3(-hw, -hh, 0),
+    ];
+    const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+    const lineMat = new THREE.LineDashedMaterial({
+      color: 0xff6666, depthTest: false, transparent: true,
+      opacity: 1.0, dashSize: 6, gapSize: 4,
+    });
+    const line = new THREE.Line(lineGeom, lineMat);
+    line.computeLineDistances();
+    line.position.set(cx, cy, 8.5);
+    line.renderOrder = 9978;
+    line.frustumCulled = false;
+    line.userData.editorGrid = true;
+    rendererObj.scene.add(line);
+    existing.push(line);
+
+    requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+  }, [editMode, isPassagePasting, passagePastePreviewPos, clipboard, rendererReady]);
+}
