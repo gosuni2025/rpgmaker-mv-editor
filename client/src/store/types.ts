@@ -181,6 +181,7 @@ export interface EditorState {
   // Display toggles
   showGrid: boolean;
   showPassability: boolean;
+  showTileInfo: boolean;
 
   // 3D / Lighting
   mode3d: boolean;
@@ -329,6 +330,7 @@ export interface EditorState {
   setSelectedEventId: (id: number | null) => void;
   setShowGrid: (show: boolean) => void;
   setShowPassability: (show: boolean) => void;
+  setShowTileInfo: (show: boolean) => void;
   setMode3d: (enabled: boolean) => void;
   setShadowLight: (enabled: boolean) => void;
   setDisableFow: (disabled: boolean) => void;

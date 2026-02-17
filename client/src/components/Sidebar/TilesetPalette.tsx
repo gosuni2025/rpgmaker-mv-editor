@@ -53,6 +53,8 @@ export default function TilesetPalette() {
 
   const paletteTab = useEditorStore((s) => s.paletteTab);
   const setPaletteTab = useEditorStore((s) => s.setPaletteTab);
+  const showTileInfo = useEditorStore((s) => s.showTileInfo);
+  const setShowTileInfo = useEditorStore((s) => s.setShowTileInfo);
   const activeTab = paletteTab as PaletteTab;
   const setActiveTab = setPaletteTab;
   const [tilesetImages, setTilesetImages] = useState<Record<number, HTMLImageElement>>({});
@@ -492,6 +494,18 @@ export default function TilesetPalette() {
               {tab}
             </div>
           ))}
+          <label
+            style={styles.tileInfoToggle}
+            title="맵에서 타일 정보 툴팁 표시"
+          >
+            <input
+              type="checkbox"
+              checked={showTileInfo}
+              onChange={(e) => setShowTileInfo(e.target.checked)}
+              style={{ margin: 0, marginRight: 3 }}
+            />
+            <span style={{ fontSize: 10 }}>정보</span>
+          </label>
           <div
             style={styles.openFolderBtn}
             title="타일셋 폴더 열기"
@@ -564,8 +578,17 @@ const styles: Record<string, React.CSSProperties> = {
   tabDisabled: {
     color: '#555',
   },
-  openFolderBtn: {
+  tileInfoToggle: {
     marginLeft: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '1px 4px',
+    cursor: 'pointer',
+    userSelect: 'none',
+    color: '#aaa',
+    fontSize: 10,
+  },
+  openFolderBtn: {
     padding: '3px 6px',
     fontSize: 12,
     cursor: 'pointer',

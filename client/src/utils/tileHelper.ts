@@ -684,5 +684,179 @@ export function isUpperLayerTile(tileId: number): boolean {
   return tileId > 0 && tileId < TILE_ID_A5;
 }
 
+/**
+ * 타일 ID에서 사람이 읽을 수 있는 상세 정보를 반환.
+ * 맵 에디터 툴팁에서 사용.
+ */
+export interface TileDescription {
+  tileId: number;
+  /** 타일 종류 (예: "A1", "A2", "B", "빈 타일") */
+  category: string;
+  /** 타일 이름 (예: "바다 1", "지형 3") */
+  name: string;
+  /** 타일셋 이미지 파일명 (tilesetNames에서 조회) */
+  fileName: string | null;
+  /** 시트 인덱스 (0~8) */
+  sheetIndex: number;
+  /** 오토타일 여부 */
+  isAutotile: boolean;
+  /** 애니메이션 타일 여부 (물, 폭포 등) */
+  isAnimated: boolean;
+  /** 타일 특성 태그 목록 */
+  tags: string[];
+  /** 시트 내 인덱스 (일반 타일) 또는 kind (오토타일) */
+  indexInSheet: number;
+}
+
+export function getTileDescription(tileId: number, tilesetNames?: string[]): TileDescription | null {
+  if (tileId === 0) return null;
+
+  // 리전
+  if (tileId >= 1 && tileId <= 255) {
+    return {
+      tileId,
+      category: '리전',
+      name: `리전 ${tileId}`,
+      fileName: null,
+      sheetIndex: -1,
+      isAutotile: false,
+      isAnimated: false,
+      tags: ['리전'],
+      indexInSheet: tileId,
+    };
+  }
+
+  const tags: string[] = [];
+
+  if (isTileA1(tileId)) {
+    const kind = getAutotileKind(tileId);
+    const kindType = getA1KindType(kind);
+    const kindName = getA1KindName(kind);
+    const animated = kindType === 'water' || kindType === 'waterfall';
+    if (animated) tags.push('애니메이션');
+    if (kindType === 'water') tags.push('물');
+    else if (kindType === 'waterfall') tags.push('폭포');
+    else tags.push('정적');
+    if (isA1DecorationTile(tileId)) tags.push('장식');
+    tags.push('오토타일');
+    return {
+      tileId,
+      category: 'A1',
+      name: kindName,
+      fileName: tilesetNames?.[0] || null,
+      sheetIndex: 0,
+      isAutotile: true,
+      isAnimated: animated,
+      tags,
+      indexInSheet: kind,
+    };
+  }
+
+  if (isTileA2(tileId)) {
+    const kind = getAutotileKind(tileId);
+    const col = kind % 8;
+    const row = Math.floor(kind / 8) - 2;
+    const isDeco = col >= 4;
+    if (isDeco) tags.push('장식');
+    tags.push('오토타일');
+    return {
+      tileId,
+      category: 'A2',
+      name: `A2 지형 (${col}, ${row})`,
+      fileName: tilesetNames?.[1] || null,
+      sheetIndex: 1,
+      isAutotile: true,
+      isAnimated: false,
+      tags,
+      indexInSheet: kind - 16,
+    };
+  }
+
+  if (isTileA3(tileId)) {
+    const kind = getAutotileKind(tileId);
+    const col = kind % 8;
+    const row = Math.floor(kind / 8) - 6;
+    tags.push('벽(외벽)');
+    tags.push('오토타일');
+    return {
+      tileId,
+      category: 'A3',
+      name: `A3 건물 외벽 (${col}, ${row})`,
+      fileName: tilesetNames?.[2] || null,
+      sheetIndex: 2,
+      isAutotile: true,
+      isAnimated: false,
+      tags,
+      indexInSheet: kind - 48,
+    };
+  }
+
+  if (isTileA4(tileId)) {
+    const kind = getAutotileKind(tileId);
+    const col = kind % 8;
+    const row = Math.floor(kind / 8) - 10;
+    const isWall = Math.floor(kind / 8) % 2 === 1;
+    tags.push(isWall ? '벽' : '바닥');
+    tags.push('오토타일');
+    return {
+      tileId,
+      category: 'A4',
+      name: `A4 ${isWall ? '벽' : '바닥'} (${col}, ${row})`,
+      fileName: tilesetNames?.[3] || null,
+      sheetIndex: 3,
+      isAutotile: true,
+      isAnimated: false,
+      tags,
+      indexInSheet: kind - 80,
+    };
+  }
+
+  if (isTileA5(tileId)) {
+    const localId = tileId - TILE_ID_A5;
+    const col = localId % 8;
+    const row = Math.floor(localId / 8);
+    return {
+      tileId,
+      category: 'A5',
+      name: `A5 타일 (${col}, ${row})`,
+      fileName: tilesetNames?.[4] || null,
+      sheetIndex: 4,
+      isAutotile: false,
+      isAnimated: false,
+      tags: ['일반 타일'],
+      indexInSheet: localId,
+    };
+  }
+
+  // B~E 타일
+  let cat: string;
+  let offset: number;
+  let sheetIdx: number;
+  if (tileId >= TILE_ID_E) {
+    cat = 'E'; offset = TILE_ID_E; sheetIdx = 8;
+  } else if (tileId >= TILE_ID_D) {
+    cat = 'D'; offset = TILE_ID_D; sheetIdx = 7;
+  } else if (tileId >= TILE_ID_C) {
+    cat = 'C'; offset = TILE_ID_C; sheetIdx = 6;
+  } else {
+    cat = 'B'; offset = TILE_ID_B; sheetIdx = 5;
+  }
+  const localId = tileId - offset;
+  const col = localId % 8;
+  const row = Math.floor(localId / 8) % 16;
+  const half = localId >= 128 ? '우' : '좌';
+  return {
+    tileId,
+    category: cat,
+    name: `${cat} 타일 (${col}, ${row}) ${half}`,
+    fileName: tilesetNames?.[sheetIdx] || null,
+    sheetIndex: sheetIdx,
+    isAutotile: false,
+    isAnimated: false,
+    tags: ['일반 타일'],
+    indexInSheet: localId,
+  };
+}
+
 // Exports for tile ID constants
 export { TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1, TILE_ID_A2, TILE_ID_A3, TILE_ID_A4, TILE_ID_MAX };

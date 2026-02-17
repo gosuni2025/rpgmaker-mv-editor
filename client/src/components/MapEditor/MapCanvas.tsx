@@ -16,6 +16,7 @@ import { useMoveRouteOverlay } from './useMoveRouteOverlay';
 import { useSelectionRectOverlay, usePastePreviewOverlay } from './useSelectionOverlays';
 import { useTileCursorPreview } from './useTileCursorPreview';
 import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview, useTestStartDragPreview } from './useDragPreviewSync';
+import TileInfoTooltip from './TileInfoTooltip';
 import './MapCanvas.css';
 
 /** 컨텍스트 메뉴가 화면 밖으로 벗어나지 않도록 위치를 보정하는 ref callback */
@@ -68,6 +69,7 @@ export default function MapCanvas() {
   const deleteEvents = useEditorStore((s) => s.deleteEvents);
   const pasteEvents = useEditorStore((s) => s.pasteEvents);
   const setShowFindDialog = useEditorStore((s) => s.setShowFindDialog);
+  const showTileInfo = useEditorStore((s) => s.showTileInfo);
 
   // Compose hooks
   const { showGrid, showTileId, altPressed, panning } = useKeyboardShortcuts(containerRef);
@@ -134,6 +136,19 @@ export default function MapCanvas() {
     document.addEventListener('mousedown', onMouseDown);
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [eventCtxMenu, closeEventCtxMenu]);
+
+  // 마우스 screen 좌표 (툴팁용)
+  const [mouseScreenPos, setMouseScreenPos] = useState<{ x: number; y: number } | null>(null);
+  const handleMouseMoveWithTooltip = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    handleMouseMove(e);
+    if (showTileInfo && editMode === 'map') {
+      setMouseScreenPos({ x: e.clientX, y: e.clientY });
+    }
+  }, [handleMouseMove, showTileInfo, editMode]);
+  const handleMouseLeaveWithTooltip = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    handleMouseLeave(e);
+    setMouseScreenPos(null);
+  }, [handleMouseLeave]);
 
   // 시프트 / 샘플맵 / 이벤트 간단 작성 다이얼로그 상태
   const [showShiftDialog, setShowShiftDialog] = useState(false);
@@ -230,9 +245,9 @@ export default function MapCanvas() {
         <canvas
           ref={webglCanvasRef}
           onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
+          onMouseMove={handleMouseMoveWithTooltip}
           onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
+          onMouseLeave={handleMouseLeaveWithTooltip}
           onDoubleClick={handleDoubleClick}
           onContextMenu={handleContextMenu}
           style={{
@@ -498,6 +513,15 @@ export default function MapCanvas() {
           tileX={quickEventPos.x}
           tileY={quickEventPos.y}
           onClose={() => setQuickEventType(null)}
+        />
+      )}
+
+      {showTileInfo && editMode === 'map' && hoverTile && mouseScreenPos && (
+        <TileInfoTooltip
+          tileX={hoverTile.x}
+          tileY={hoverTile.y}
+          mouseX={mouseScreenPos.x}
+          mouseY={mouseScreenPos.y}
         />
       )}
     </div>

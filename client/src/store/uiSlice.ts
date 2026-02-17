@@ -11,14 +11,14 @@ function saveToolbarPartial(partial: Record<string, unknown>) {
 
 export const uiSlice: SliceCreator<Pick<EditorState,
   'zoomLevel' | 'mode3d' | 'shadowLight' | 'disableFow' | 'paletteTab' | 'toastMessage' | 'toastPersistent' |
-  'showGrid' | 'showPassability' |
+  'showGrid' | 'showPassability' | 'showTileInfo' |
   'transparentColor' | 'maxUndo' | 'zoomStep' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
   'showToast' | 'dismissToast' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
-  'setShowGrid' | 'setShowPassability' |
+  'setShowGrid' | 'setShowPassability' | 'setShowTileInfo' |
   'setMode3d' | 'setShadowLight' | 'setDisableFow' | 'setPaletteTab' |
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
@@ -31,6 +31,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   disableFow: true,
   showGrid: true,
   showPassability: false,
+  showTileInfo: (() => { try { const raw = localStorage.getItem(TOOLBAR_STORAGE_KEY); return raw ? JSON.parse(raw).showTileInfo ?? false : false; } catch { return false; } })(),
   postProcessConfig: {},
   paletteTab: 'A',
   toastMessage: null,
@@ -92,6 +93,10 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   setShowPassability: (show: boolean) => {
     set({ showPassability: show });
     saveToolbarPartial({ showPassability: show });
+  },
+  setShowTileInfo: (show: boolean) => {
+    set({ showTileInfo: show });
+    saveToolbarPartial({ showTileInfo: show });
   },
   setMode3d: (enabled: boolean) => {
     const ConfigManager = (window as any).ConfigManager;
