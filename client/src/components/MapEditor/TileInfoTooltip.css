@@ -1,0 +1,68 @@
+.tile-info-tooltip {
+  position: fixed;
+  z-index: 6000;
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 6px 8px;
+  pointer-events: none;
+  max-width: 320px;
+  font-size: 11px;
+  color: #ddd;
+  line-height: 1.4;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  white-space: nowrap;
+}
+
+.tile-info-pos {
+  font-weight: bold;
+  color: #88ccff;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.tile-info-layer {
+  border-top: 1px solid #444;
+  padding-top: 3px;
+  margin-top: 3px;
+}
+
+.tile-info-layer:first-of-type {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.tile-info-layer-header {
+  color: #aaa;
+  font-size: 10px;
+  font-weight: bold;
+  margin-bottom: 1px;
+}
+
+.tile-info-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #ccc;
+  font-size: 11px;
+}
+
+.tile-info-label {
+  color: #888;
+  font-size: 10px;
+}
+
+.tile-info-tag {
+  background: #3a5070;
+  color: #aaccee;
+  font-size: 9px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.tile-info-file {
+  color: #aacc88;
+  font-size: 10px;
+}
