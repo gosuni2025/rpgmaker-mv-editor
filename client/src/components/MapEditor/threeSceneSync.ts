@@ -30,39 +30,23 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
 
   const globalEnabled = editorLights.enabled !== false;
 
-  // globalEnabled가 false이면 에디터 광원 커스텀 설정을 무시하고
-  // ShadowLight 플러그인의 기본 config 값으로 복원
+  // globalEnabled가 false이면 조명 없는 상태로 전환
+  // ambient=1 흰색 (조명 영향 없이 원래 색상), directional/player/spot OFF
   if (!globalEnabled) {
-    // ambient → config 기본값 복원
     if (ShadowLight._ambientLight) {
-      // _defaultConfig에 저장된 원본 값으로 복원, 없으면 현재 config 유지
-      const defCfg = ShadowLight._defaultConfig || ShadowLight.config;
-      ShadowLight._ambientLight.color.setHex(defCfg.ambientColor);
-      ShadowLight._ambientLight.intensity = defCfg.ambientIntensity;
-      ShadowLight.config.ambientColor = defCfg.ambientColor;
-      ShadowLight.config.ambientIntensity = defCfg.ambientIntensity;
+      ShadowLight._ambientLight.color.setHex(0xffffff);
+      ShadowLight._ambientLight.intensity = 1.0;
+      ShadowLight.config.ambientColor = 0xffffff;
+      ShadowLight.config.ambientIntensity = 1.0;
     }
-    // directional → 기본값 복원 (비활성)
     if (ShadowLight._directionalLight) {
-      const defCfg = ShadowLight._defaultConfig || ShadowLight.config;
-      ShadowLight._directionalLight.visible = true;
-      ShadowLight._directionalLight.color.setHex(defCfg.directionalColor);
-      ShadowLight._directionalLight.intensity = defCfg.directionalIntensity;
-      ShadowLight.config.directionalColor = defCfg.directionalColor;
-      ShadowLight.config.directionalIntensity = defCfg.directionalIntensity;
+      ShadowLight._directionalLight.visible = false;
+      ShadowLight._directionalLight.intensity = 0;
     }
-    // player light → 기본값 복원
-    ShadowLight.config.playerLightEnabled = true;
-    if (ShadowLight._playerLight) {
-      const defCfg = ShadowLight._defaultConfig || ShadowLight.config;
-      ShadowLight._playerLight.color.setHex(defCfg.playerLightColor);
-      ShadowLight._playerLight.intensity = defCfg.playerLightIntensity;
-      ShadowLight._playerLight.distance = defCfg.playerLightDistance;
-    }
-    // spot light → 기본값 복원
+    ShadowLight.config.playerLightEnabled = false;
+    ShadowLight.config.spotLightEnabled = false;
     if (ShadowLight._playerSpotLight) {
-      ShadowLight.config.spotLightEnabled = true;
-      ShadowLight._playerSpotLight.visible = true;
+      ShadowLight._playerSpotLight.visible = false;
     }
     // 에디터 포인트 라이트/마커 정리
     _removeEditorPointLightsAndMarkers(scene);

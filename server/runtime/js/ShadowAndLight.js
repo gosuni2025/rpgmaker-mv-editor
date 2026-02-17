@@ -1190,16 +1190,6 @@ function sunUVToDirection(u, v) {
 ShadowLight._addLightsToScene = function(scene) {
     if (this._ambientLight) return; // 이미 추가됨
 
-    // 기본 config 백업 (에디터에서 광원 off 시 복원용)
-    if (!this._defaultConfig) {
-        this._defaultConfig = {};
-        for (var key in this.config) {
-            if (this.config.hasOwnProperty(key)) {
-                this._defaultConfig[key] = this.config[key];
-            }
-        }
-    }
-
     // localStorage에서 인스펙터 config 복구 (사용자가 마지막으로 조절한 값)
     var CONFIG_STORAGE_KEY = 'devPanel_mapInspector_config';
     try {
@@ -1221,9 +1211,9 @@ ShadowLight._addLightsToScene = function(scene) {
     } catch (e) {}
 
     // editorLights 맵별 설정 (에디터에서 저장한 커스텀 데이터)
-    // enabled === false → editorLights 커스텀 무시, config 기본값으로 동작
     var elRaw = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
-    var el = (elRaw && elRaw.enabled !== false) ? elRaw : null;
+    var elGlobalOff = elRaw && elRaw.enabled === false;
+    var el = (elRaw && !elGlobalOff) ? elRaw : null;
 
     // 디버그 패널 우선 적용 플래그 로드
     var ambientOverride = false;
@@ -1240,11 +1230,22 @@ ShadowLight._addLightsToScene = function(scene) {
     this._debugSpotLightOverride = spotLightOverride;
 
     // AmbientLight - 전체적인 환경광
-    // 디버그 우선 ON → localStorage config, OFF → 맵 데이터(editorLights)
-    var useElAmbient = el && !ambientOverride;
-    var ambColor = useElAmbient ? parseInt(el.ambient.color.replace('#', ''), 16) : this.config.ambientColor;
-    var ambIntensity = useElAmbient ? el.ambient.intensity : this.config.ambientIntensity;
-    var ambEnabled = useElAmbient ? (el.ambient.enabled !== false) : true;
+    // 글로벌 OFF → ambient=1 흰색 (조명 없는 상태), 디버그 우선 ON → config, OFF → editorLights
+    var useElAmbient = !elGlobalOff && el && !ambientOverride;
+    var ambColor, ambIntensity, ambEnabled;
+    if (elGlobalOff) {
+        ambColor = 0xffffff;
+        ambIntensity = 1.0;
+        ambEnabled = true;
+    } else if (useElAmbient) {
+        ambColor = parseInt(el.ambient.color.replace('#', ''), 16);
+        ambIntensity = el.ambient.intensity;
+        ambEnabled = el.ambient.enabled !== false;
+    } else {
+        ambColor = this.config.ambientColor;
+        ambIntensity = this.config.ambientIntensity;
+        ambEnabled = true;
+    }
     // config에 동기화 (디버그 패널 초기값과 일치시킴)
     if (useElAmbient) {
         this.config.ambientColor = ambColor;
@@ -1254,9 +1255,9 @@ ShadowLight._addLightsToScene = function(scene) {
     scene.add(this._ambientLight);
 
     // DirectionalLight - 태양/달빛 (그림자 방향 결정)
-    // 디버그 우선 ON → localStorage config, OFF → 맵 데이터(editorLights)
-    var useElDir = el && !directionalOverride;
-    var dirEnabled = useElDir ? (el.directional.enabled === true) : true;
+    // 글로벌 OFF → directional 비활성, 디버그 우선 ON → config, OFF → editorLights
+    var useElDir = !elGlobalOff && el && !directionalOverride;
+    var dirEnabled = elGlobalOff ? false : (useElDir ? (el.directional.enabled === true) : true);
     var dirColor = useElDir ? parseInt(el.directional.color.replace('#', ''), 16) : this.config.directionalColor;
     var dirIntensity = useElDir ? el.directional.intensity : this.config.directionalIntensity;
     // config에 동기화
@@ -1304,8 +1305,12 @@ ShadowLight._addLightsToScene = function(scene) {
     scene.add(this._directionalLight);
     scene.add(this._directionalLight.target);
 
-    // editorLights에서 playerLight config 동기화 (디버그 우선 OFF일 때만)
-    if (el && el.playerLight && !playerLightOverride) {
+    // editorLights에서 playerLight config 동기화
+    // 글로벌 OFF → player/spot light 비활성
+    if (elGlobalOff) {
+        this.config.playerLightEnabled = false;
+        this.config.spotLightEnabled = false;
+    } else if (el && el.playerLight && !playerLightOverride) {
         var pl = el.playerLight;
         this.config.playerLightEnabled = pl.enabled !== false;
         if (pl.color) this.config.playerLightColor = parseInt(pl.color.replace('#', ''), 16);
@@ -1314,7 +1319,7 @@ ShadowLight._addLightsToScene = function(scene) {
         if (pl.z != null) this.config.playerLightZ = pl.z;
     }
     // editorLights에서 spotLight config 동기화 (디버그 우선 OFF일 때만)
-    if (el && el.spotLight && !spotLightOverride) {
+    if (!elGlobalOff && el && el.spotLight && !spotLightOverride) {
         var sl = el.spotLight;
         if (sl.enabled != null) this.config.spotLightEnabled = sl.enabled;
         if (sl.color) this.config.spotLightColor = parseInt(sl.color.replace('#', ''), 16);
@@ -1420,12 +1425,16 @@ ShadowLight._updateCameraZoneAmbient = function() {
     }
 
     // 맵 데이터 기반: editorLights에서 글로벌 ambient 값 가져오기
-    // enabled === false → editorLights 커스텀 무시, config 기본값으로 동작
     var elRaw = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
-    var el = (elRaw && elRaw.enabled !== false) ? elRaw : null;
+    var elGlobalOff = elRaw && elRaw.enabled === false;
+    var el = (elRaw && !elGlobalOff) ? elRaw : null;
     var baseIntensity, baseColor;
     var ambEnabled = true;
-    if (el && el.ambient) {
+    if (elGlobalOff) {
+        // 광원 시스템 OFF → 조명 없는 상태 (ambient=1, 흰색)
+        baseIntensity = 1.0;
+        baseColor = 0xffffff;
+    } else if (el && el.ambient) {
         ambEnabled = el.ambient.enabled !== false;
         baseIntensity = el.ambient.intensity;
         baseColor = parseInt(el.ambient.color.replace('#', ''), 16);
