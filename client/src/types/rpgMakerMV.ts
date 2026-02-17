@@ -136,7 +136,7 @@ export interface SkyBackground {
   sunLights?: SkySunLight[];        // 태양 조명 배열
 }
 
-/** equirectangular UV 좌표를 디렉셔널 라이트 방향 벡터로 변환
+/** equirectangular UV 좌표를 방향 조명 벡터로 변환
  *  SkyBox.js: SphereGeometry + DoubleSide + flipY=false + rotation.x=PI/2 기준
  *  반환값: 태양이 있는 방향 (단위 벡터) */
 export function sunUVToDirection(u: number, v: number): [number, number, number] {
@@ -586,6 +586,10 @@ export interface MapObject {
   anchorY?: number;     // 3D 빌보드 세로 앵커 (0=상단, 0.5=중앙, 1=하단, 기본 1.0)
   imageScale?: number;  // 이미지 스케일 (기본 1.0)
   shaderData?: { type: string; enabled: boolean; params: Record<string, number> }[];
+  // 애니메이션 기반 오브젝트 (선택적)
+  animationId?: number;                           // 재생할 애니메이션 ID
+  animationLoop?: 'forward' | 'pingpong' | 'once'; // 재생 모드 (기본: 'forward')
+  animationSe?: boolean;                          // SE 재생 여부 (기본: true)
 }
 
 // Editor-only lighting data (stored as custom field in map JSON, ignored by RPG Maker MV)

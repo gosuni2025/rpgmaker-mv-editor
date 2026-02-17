@@ -301,7 +301,7 @@ export default function CameraZoneInspector() {
           <div className="light-inspector-section">
             <div className="light-inspector-title">
               환경광
-              <HelpButton text={"이 카메라 존에 진입할 때 적용할 환경광입니다.\n활성화하면 글로벌 환경광 대신 이 값을 사용합니다.\n존 간 이동 시 부드럽게 보간됩니다.\n\n카메라 존 바깥의 환경광은\n라이트 에디트 모드에서 설정하세요."} />
+              <HelpButton text={"이 카메라 존에 진입할 때 적용할 환경광입니다.\n활성화하면 글로벌 환경광 대신 이 값을 사용합니다.\n존 간 이동 시 부드럽게 보간됩니다.\n\n카메라 존 바깥의 환경광은\n조명 편집 모드에서 설정하세요."} />
             </div>
             <div className="light-inspector-row">
               <span className="light-inspector-label">환경광 설정</span>
