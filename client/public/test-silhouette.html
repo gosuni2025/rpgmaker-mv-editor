@@ -72,7 +72,7 @@ canvas { display: block; }
     document.body.appendChild(renderer.domElement);
 
     var scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x224433);
+    var sceneBgColor = new THREE.Color(0x224433);
 
     // 정사영 카메라 (RPG Maker MV 스타일)
     var aspect = W / H;
@@ -106,6 +106,7 @@ canvas { display: block; }
         bgMesh.renderOrder = 0;
         bgMesh.position.z = -5;
         scene.add(bgMesh);
+        scene._bgMesh = bgMesh;
     })();
 
     // ── 캐릭터 (파란 원) ──
@@ -445,15 +446,18 @@ canvas { display: block; }
         var silhouetteEnabled = ctrlEnableSilhouette.checked;
 
         if (silhouetteEnabled) {
-            // === Pass 1: 캐릭터 마스크 ===
+            // 마스크 렌더 준비: 배경 숨김
+            scene._bgMesh.visible = false;
+            renderer.setClearColor(clearColor, 0);
+
+            // === Pass 1: 캐릭터 마스크 (캐릭터만 렌더) ===
             objGroup.visible = false;
             objGroup2.visible = false;
-            renderer.setClearColor(clearColor, 0);
             renderer.setRenderTarget(charMaskRT);
             renderer.clear(true, true, true);
             renderer.render(scene, camera);
 
-            // === Pass 2: 오브젝트 마스크 ===
+            // === Pass 2: 오브젝트 마스크 (오브젝트만 렌더) ===
             charGroup.visible = false;
             objGroup.visible = true;
             objGroup2.visible = true;
@@ -463,8 +467,10 @@ canvas { display: block; }
 
             // 복원
             charGroup.visible = true;
+            scene._bgMesh.visible = true;
 
             // === Pass 3: 씬 전체 렌더 ===
+            renderer.setClearColor(sceneBgColor, 1);
             renderer.setRenderTarget(sceneRT);
             renderer.clear(true, true, true);
             renderer.render(scene, camera);
@@ -488,7 +494,7 @@ canvas { display: block; }
             renderer.render(quadScene, quadCamera);
         } else {
             // 실루엣 OFF: 직접 렌더
-            renderer.setClearColor(clearColor, 1);
+            renderer.setClearColor(sceneBgColor, 1);
             renderer.setRenderTarget(null);
             renderer.clear(true, true, true);
             renderer.render(scene, camera);
