@@ -69,6 +69,10 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   passageTool: 'select',
   passageShape: 'freehand',
   selectedPassageTile: null,
+  passageSelectionStart: null,
+  passageSelectionEnd: null,
+  isPassagePasting: false,
+  passagePastePreviewPos: null,
   undoStack: [],
   redoStack: [],
 
@@ -407,9 +411,127 @@ export const editingSlice: SliceCreator<Pick<EditorState,
 
   // UI setters
   // Passage actions
-  setPassageTool: (tool: 'pen' | 'eraser') => set({ passageTool: tool }),
+  setPassageTool: (tool: 'select' | 'pen' | 'eraser') => {
+    const updates: Partial<EditorState> = { passageTool: tool };
+    if (tool !== 'select') {
+      updates.passageSelectionStart = null;
+      updates.passageSelectionEnd = null;
+      updates.isPassagePasting = false;
+      updates.passagePastePreviewPos = null;
+    }
+    set(updates);
+  },
   setPassageShape: (shape: 'freehand' | 'rectangle' | 'ellipse' | 'fill') => set({ passageShape: shape }),
   setSelectedPassageTile: (tile: { x: number; y: number } | null) => set({ selectedPassageTile: tile }),
+  setPassageSelection: (start: { x: number; y: number } | null, end: { x: number; y: number } | null) => set({ passageSelectionStart: start, passageSelectionEnd: end }),
+  clearPassageSelection: () => set({ passageSelectionStart: null, passageSelectionEnd: null }),
+  setIsPassagePasting: (v: boolean) => set({ isPassagePasting: v }),
+  setPassagePastePreviewPos: (pos: { x: number; y: number } | null) => set({ passagePastePreviewPos: pos }),
+  copyPassage: (x1: number, y1: number, x2: number, y2: number) => {
+    const map = get().currentMap;
+    if (!map) return;
+    const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+    const cp = map.customPassage;
+    const passage: { x: number; y: number; value: number }[] = [];
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const val = cp ? (cp[y * map.width + x] || 0) : 0;
+        passage.push({ x: x - minX, y: y - minY, value: val });
+      }
+    }
+    set({ clipboard: { type: 'passage', passage, width: maxX - minX + 1, height: maxY - minY + 1 } });
+  },
+  cutPassage: (x1: number, y1: number, x2: number, y2: number) => {
+    get().copyPassage(x1, y1, x2, y2);
+    get().deletePassage(x1, y1, x2, y2);
+  },
+  pastePassage: (x: number, y: number) => {
+    const { clipboard, currentMap, currentMapId, undoStack } = get();
+    if (!currentMap || !currentMapId || !clipboard || clipboard.type !== 'passage' || !clipboard.passage) return;
+    const w = currentMap.width;
+    const h = currentMap.height;
+    const cp = currentMap.customPassage ? [...currentMap.customPassage] : new Array(w * h).fill(0);
+    const changes: PassageChange[] = [];
+    for (const p of clipboard.passage) {
+      const tx = x + p.x, ty = y + p.y;
+      if (tx < 0 || tx >= w || ty < 0 || ty >= h) continue;
+      const idx = ty * w + tx;
+      const oldValue = cp[idx] || 0;
+      if (oldValue === p.value) continue;
+      changes.push({ x: tx, y: ty, oldValue, newValue: p.value });
+      cp[idx] = p.value;
+    }
+    if (changes.length === 0) return;
+    const entry: PassageHistoryEntry = { mapId: currentMapId, type: 'passage', changes };
+    const newStack = [...undoStack, entry];
+    if (newStack.length > get().maxUndo) newStack.shift();
+    set({ currentMap: { ...currentMap, customPassage: cp }, undoStack: newStack, redoStack: [] });
+  },
+  deletePassage: (x1: number, y1: number, x2: number, y2: number) => {
+    const { currentMap, currentMapId, undoStack } = get();
+    if (!currentMap || !currentMapId) return;
+    const w = currentMap.width;
+    const h = currentMap.height;
+    const cp = currentMap.customPassage ? [...currentMap.customPassage] : new Array(w * h).fill(0);
+    const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+    const changes: PassageChange[] = [];
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        if (x < 0 || x >= w || y < 0 || y >= h) continue;
+        const idx = y * w + x;
+        const oldValue = cp[idx] || 0;
+        if (oldValue === 0) continue;
+        changes.push({ x, y, oldValue, newValue: 0 });
+        cp[idx] = 0;
+      }
+    }
+    if (changes.length === 0) return;
+    const entry: PassageHistoryEntry = { mapId: currentMapId, type: 'passage', changes };
+    const newStack = [...undoStack, entry];
+    if (newStack.length > get().maxUndo) newStack.shift();
+    set({ currentMap: { ...currentMap, customPassage: cp }, undoStack: newStack, redoStack: [] });
+  },
+  movePassage: (srcX1: number, srcY1: number, srcX2: number, srcY2: number, destX: number, destY: number) => {
+    const { currentMap, currentMapId, undoStack } = get();
+    if (!currentMap || !currentMapId) return;
+    const w = currentMap.width;
+    const h = currentMap.height;
+    const cp = currentMap.customPassage ? [...currentMap.customPassage] : new Array(w * h).fill(0);
+    const minX = Math.min(srcX1, srcX2), maxX = Math.max(srcX1, srcX2);
+    const minY = Math.min(srcY1, srcY2), maxY = Math.max(srcY1, srcY2);
+    const allChanges: PassageChange[] = [];
+    // 원본 데이터 수집 + 원본 영역 클리어
+    const srcData: { dx: number; dy: number; value: number }[] = [];
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        if (x < 0 || x >= w || y < 0 || y >= h) continue;
+        const idx = y * w + x;
+        const val = cp[idx] || 0;
+        srcData.push({ dx: x - minX, dy: y - minY, value: val });
+        if (val !== 0) {
+          allChanges.push({ x, y, oldValue: val, newValue: 0 });
+          cp[idx] = 0;
+        }
+      }
+    }
+    // 새 위치에 데이터 배치
+    for (const d of srcData) {
+      const tx = destX + d.dx, ty = destY + d.dy;
+      if (tx < 0 || tx >= w || ty < 0 || ty >= h) continue;
+      const idx = ty * w + tx;
+      const oldValue = cp[idx] || 0;
+      if (oldValue === d.value) continue;
+      allChanges.push({ x: tx, y: ty, oldValue, newValue: d.value });
+      cp[idx] = d.value;
+    }
+    if (allChanges.length === 0) return;
+    const entry: PassageHistoryEntry = { mapId: currentMapId, type: 'passage', changes: allChanges };
+    const newStack = [...undoStack, entry];
+    if (newStack.length > get().maxUndo) newStack.shift();
+    set({ currentMap: { ...currentMap, customPassage: cp }, undoStack: newStack, redoStack: [] });
+  },
   updateCustomPassage: (changes: PassageChange[]) => {
     const { currentMap, currentMapId, undoStack } = get();
     if (!currentMap || !currentMapId || changes.length === 0) return;
@@ -496,6 +618,10 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     }
     if (mode !== 'passage') {
       updates.selectedPassageTile = null;
+      updates.passageSelectionStart = null;
+      updates.passageSelectionEnd = null;
+      updates.isPassagePasting = false;
+      updates.passagePastePreviewPos = null;
     }
     set(updates);
   },

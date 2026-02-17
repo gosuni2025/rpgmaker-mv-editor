@@ -16,6 +16,8 @@ import {
   useFogOfWar3DVolumeOverlay,
   useTileIdDebugOverlay,
   usePassageOverlay,
+  usePassageSelectionOverlay,
+  usePassagePastePreviewOverlay,
 } from './useRendererOverlays';
 
 export { requestRenderFrames } from './initGameGlobals';
@@ -241,6 +243,8 @@ export function useThreeRenderer(
   useFogOfWar3DVolumeOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   useTileIdDebugOverlay(overlayRefs, skipOverlays ? false : !!showTileId, skipOverlays ? 0 : rendererReady);
   usePassageOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
+  usePassageSelectionOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
+  usePassagePastePreviewOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
 
   return {
     rendererObjRef, tilemapRef, stageRef, spritesetRef, gridMeshRef,

@@ -54,6 +54,10 @@ export default function MapCanvas() {
   const selectionStart = useEditorStore((s) => s.selectionStart);
   const selectionEnd = useEditorStore((s) => s.selectionEnd);
   const isPasting = useEditorStore((s) => s.isPasting);
+  const passageTool = useEditorStore((s) => s.passageTool);
+  const isPassagePasting = useEditorStore((s) => s.isPassagePasting);
+  const passageSelectionStart = useEditorStore((s) => s.passageSelectionStart);
+  const passageSelectionEnd = useEditorStore((s) => s.passageSelectionEnd);
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const setPlayerStartPosition = useEditorStore((s) => s.setPlayerStartPosition);
   const copyEvent = useEditorStore((s) => s.copyEvent);
@@ -258,7 +262,14 @@ export default function MapCanvas() {
               : altPressed && editMode === 'map' ? eyedropperCursor
               : cameraZoneCursor
               || resizeCursor
-              || (selectedTool === 'select' && isPasting ? 'copy'
+              || (editMode === 'passage' && passageTool === 'select' && isPassagePasting ? 'copy'
+                : editMode === 'passage' && passageTool === 'select' && passageSelectionStart && passageSelectionEnd && hoverTile
+                  && hoverTile.x >= Math.min(passageSelectionStart.x, passageSelectionEnd.x)
+                  && hoverTile.x <= Math.max(passageSelectionStart.x, passageSelectionEnd.x)
+                  && hoverTile.y >= Math.min(passageSelectionStart.y, passageSelectionEnd.y)
+                  && hoverTile.y <= Math.max(passageSelectionStart.y, passageSelectionEnd.y) ? 'move'
+                : editMode === 'passage' && passageTool === 'select' ? 'crosshair'
+                : selectedTool === 'select' && isPasting ? 'copy'
                 : selectedTool === 'select' && selectionStart && selectionEnd && hoverTile
                   && hoverTile.x >= Math.min(selectionStart.x, selectionEnd.x)
                   && hoverTile.x <= Math.max(selectionStart.x, selectionEnd.x)

@@ -192,6 +192,18 @@ export function useKeyboardShortcuts(
         }
         return;
       }
+      if (editMode === 'passage') {
+        const state = useEditorStore.getState();
+        if (state.passageSelectionStart && state.passageSelectionEnd) {
+          state.deletePassage(
+            state.passageSelectionStart.x, state.passageSelectionStart.y,
+            state.passageSelectionEnd.x, state.passageSelectionEnd.y,
+          );
+          state.clearPassageSelection();
+          showToast('통행 선택 영역 삭제됨');
+        }
+        return;
+      }
     };
     window.addEventListener('editor-delete', handleDelete);
     return () => window.removeEventListener('editor-delete', handleDelete);
@@ -226,6 +238,17 @@ export function useKeyboardShortcuts(
         if (selectedObjectIds.length > 0) {
           copyObjects(selectedObjectIds);
           showToast(`오브젝트 ${selectedObjectIds.length}개 복사됨`);
+        }
+        return;
+      }
+      if (editMode === 'passage') {
+        const state = useEditorStore.getState();
+        if (state.passageSelectionStart && state.passageSelectionEnd) {
+          state.copyPassage(
+            state.passageSelectionStart.x, state.passageSelectionStart.y,
+            state.passageSelectionEnd.x, state.passageSelectionEnd.y,
+          );
+          showToast('통행 선택 영역 복사됨');
         }
         return;
       }
@@ -265,6 +288,18 @@ export function useKeyboardShortcuts(
         }
         return;
       }
+      if (editMode === 'passage') {
+        const state = useEditorStore.getState();
+        if (state.passageSelectionStart && state.passageSelectionEnd) {
+          state.cutPassage(
+            state.passageSelectionStart.x, state.passageSelectionStart.y,
+            state.passageSelectionEnd.x, state.passageSelectionEnd.y,
+          );
+          state.clearPassageSelection();
+          showToast('통행 선택 영역 잘라내기');
+        }
+        return;
+      }
     };
     const handlePaste = () => {
       if (editMode === 'map' && clipboard?.type === 'tiles') {
@@ -288,6 +323,13 @@ export function useKeyboardShortcuts(
       if (editMode === 'object' && clipboard?.type === 'objects') {
         setIsObjectPasting(true);
         setObjectPastePreviewPos({ x: cursorTileX, y: cursorTileY });
+        showToast('붙여넣기 모드 - 클릭하여 배치');
+        return;
+      }
+      if (editMode === 'passage' && clipboard?.type === 'passage') {
+        const state = useEditorStore.getState();
+        state.setIsPassagePasting(true);
+        state.setPassagePastePreviewPos({ x: cursorTileX, y: cursorTileY });
         showToast('붙여넣기 모드 - 클릭하여 배치');
         return;
       }
@@ -335,6 +377,14 @@ export function useKeyboardShortcuts(
         if (allIds.length > 0) useEditorStore.getState().setSelectedCameraZoneId(allIds[0]);
         showToast(`전체 선택 (카메라 영역 ${allIds.length}개)`);
       }
+      if (editMode === 'passage' && currentMap) {
+        const state = useEditorStore.getState();
+        if (state.passageTool !== 'select') {
+          state.setPassageTool('select');
+        }
+        state.setPassageSelection({ x: 0, y: 0 }, { x: currentMap.width - 1, y: currentMap.height - 1 });
+        showToast('전체 선택');
+      }
     };
     window.addEventListener('editor-selectall', handleSelectAll);
     return () => window.removeEventListener('editor-selectall', handleSelectAll);
@@ -375,6 +425,14 @@ export function useKeyboardShortcuts(
         useEditorStore.getState().setSelectedCameraZoneIds([]);
         useEditorStore.getState().setSelectedCameraZoneId(null);
       }
+      if (editMode === 'passage') {
+        const state = useEditorStore.getState();
+        if (state.isPassagePasting) {
+          state.setIsPassagePasting(false);
+          state.setPassagePastePreviewPos(null);
+        }
+        state.clearPassageSelection();
+      }
     };
     window.addEventListener('editor-deselect', handleDeselect);
     return () => window.removeEventListener('editor-deselect', handleDeselect);
@@ -383,6 +441,17 @@ export function useKeyboardShortcuts(
   // Handle Escape key for selection/paste cancel
   useEffect(() => {
     const handleEscape = () => {
+      // Passage 모드
+      const pState = useEditorStore.getState();
+      if (pState.isPassagePasting) {
+        pState.setIsPassagePasting(false);
+        pState.setPassagePastePreviewPos(null);
+        return;
+      }
+      if (pState.passageSelectionStart || pState.passageSelectionEnd) {
+        pState.clearPassageSelection();
+        return;
+      }
       if (isEventPasting) {
         setIsEventPasting(false);
         setEventPastePreviewPos(null);

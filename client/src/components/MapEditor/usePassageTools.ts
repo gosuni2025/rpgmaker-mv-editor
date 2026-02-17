@@ -2,6 +2,18 @@ import { useRef, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { PassageChange } from '../../store/types';
 
+function isInsideSelection(
+  tile: { x: number; y: number },
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+): boolean {
+  const minX = Math.min(start.x, end.x);
+  const maxX = Math.max(start.x, end.x);
+  const minY = Math.min(start.y, end.y);
+  const maxY = Math.max(start.y, end.y);
+  return tile.x >= minX && tile.x <= maxX && tile.y >= minY && tile.y <= maxY;
+}
+
 export function usePassageHandlers(
   canvasToTile: (e: React.MouseEvent<HTMLElement>, unclamped?: boolean) => { x: number; y: number } | null,
 ) {
@@ -9,6 +21,12 @@ export function usePassageHandlers(
   const lastTile = useRef<{ x: number; y: number } | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const pendingChanges = useRef<PassageChange[]>([]);
+
+  // Select 모드용 refs
+  const isSelectDragging = useRef(false); // 드래그 선택 중
+  const isMoving = useRef(false); // 선택 영역 이동 중
+  const moveOrigin = useRef<{ x: number; y: number } | null>(null); // 이동 시작 시 원본 선택 좌상단
+  const selectDragStart = useRef<{ x: number; y: number } | null>(null);
 
   const getPassageValue = useCallback((x: number, y: number): number => {
     const map = useEditorStore.getState().currentMap;
@@ -102,14 +120,52 @@ export function usePassageHandlers(
     if (e.button !== 0) return false;
     const tile = canvasToTile(e);
     if (!tile) return false;
-    const { passageTool, passageShape } = useEditorStore.getState();
+    const { passageTool, passageShape, isPassagePasting, passageSelectionStart, passageSelectionEnd } = useEditorStore.getState();
 
     // 선택된 타일 업데이트 (인스펙터용)
     useEditorStore.getState().setSelectedPassageTile(tile);
 
-    // 선택 모드: 타일 선택만 수행
-    if (passageTool === 'select') return true;
+    // 선택 모드
+    if (passageTool === 'select') {
+      // 붙여넣기 모드 → 클릭으로 배치
+      if (isPassagePasting) {
+        const { clipboard } = useEditorStore.getState();
+        if (clipboard?.type === 'passage' && clipboard.width && clipboard.height) {
+          useEditorStore.getState().pastePassage(tile.x, tile.y);
+          useEditorStore.getState().setPassageSelection(
+            { x: tile.x, y: tile.y },
+            { x: tile.x + clipboard.width - 1, y: tile.y + clipboard.height - 1 },
+          );
+          useEditorStore.getState().setIsPassagePasting(false);
+          useEditorStore.getState().setPassagePastePreviewPos(null);
+          useEditorStore.getState().showToast('통행 데이터 붙여넣기 완료');
+        }
+        return true;
+      }
 
+      // 기존 선택 영역 내부 클릭 → 이동 시작
+      if (passageSelectionStart && passageSelectionEnd && isInsideSelection(tile, passageSelectionStart, passageSelectionEnd)) {
+        isMoving.current = true;
+        const minX = Math.min(passageSelectionStart.x, passageSelectionEnd.x);
+        const minY = Math.min(passageSelectionStart.y, passageSelectionEnd.y);
+        moveOrigin.current = { x: minX, y: minY };
+        selectDragStart.current = tile;
+        // 이동 시작 시 클립보드에 원본 데이터를 복사해둠
+        useEditorStore.getState().copyPassage(
+          passageSelectionStart.x, passageSelectionStart.y,
+          passageSelectionEnd.x, passageSelectionEnd.y,
+        );
+        return true;
+      }
+
+      // 새 드래그 선택 시작
+      isSelectDragging.current = true;
+      selectDragStart.current = tile;
+      useEditorStore.getState().setPassageSelection(tile, tile);
+      return true;
+    }
+
+    // 그리기 모드 (pen/eraser)
     isDrawing.current = true;
     lastTile.current = tile;
     pendingChanges.current = [];
@@ -131,13 +187,50 @@ export function usePassageHandlers(
   }, [canvasToTile, applyToTile, floodFill]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    if (!isDrawing.current) return false;
     const tile = canvasToTile(e);
+    const { passageTool, isPassagePasting } = useEditorStore.getState();
+
+    // 붙여넣기 프리뷰 이동
+    if (passageTool === 'select' && isPassagePasting && tile) {
+      useEditorStore.getState().setPassagePastePreviewPos(tile);
+      return true;
+    }
+
+    // 선택 영역 이동 중
+    if (isMoving.current && tile && selectDragStart.current) {
+      const dx = tile.x - selectDragStart.current.x;
+      const dy = tile.y - selectDragStart.current.y;
+      if (dx === 0 && dy === 0) return true;
+      const { passageSelectionStart, passageSelectionEnd } = useEditorStore.getState();
+      if (passageSelectionStart && passageSelectionEnd) {
+        const w = Math.abs(passageSelectionEnd.x - passageSelectionStart.x);
+        const h = Math.abs(passageSelectionEnd.y - passageSelectionStart.y);
+        const newMinX = Math.min(passageSelectionStart.x, passageSelectionEnd.x) + dx;
+        const newMinY = Math.min(passageSelectionStart.y, passageSelectionEnd.y) + dy;
+        useEditorStore.getState().setPassageSelection(
+          { x: newMinX, y: newMinY },
+          { x: newMinX + w, y: newMinY + h },
+        );
+        selectDragStart.current = tile;
+      }
+      return true;
+    }
+
+    // 드래그 선택 중
+    if (isSelectDragging.current && tile) {
+      useEditorStore.getState().setPassageSelection(
+        useEditorStore.getState().passageSelectionStart || tile,
+        tile,
+      );
+      return true;
+    }
+
+    // 그리기 모드
+    if (!isDrawing.current) return false;
     if (!tile) return false;
     const { passageShape } = useEditorStore.getState();
 
     if (passageShape === 'rectangle' || passageShape === 'ellipse') {
-      // 드래그 프리뷰 (오버레이에서 처리)
       return true;
     }
 
@@ -151,9 +244,51 @@ export function usePassageHandlers(
   }, [canvasToTile, applyToTile]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    const tile = canvasToTile(e);
+
+    // 이동 종료
+    if (isMoving.current) {
+      isMoving.current = false;
+      if (moveOrigin.current && tile) {
+        const { passageSelectionStart, passageSelectionEnd } = useEditorStore.getState();
+        if (passageSelectionStart && passageSelectionEnd && moveOrigin.current) {
+          const origMinX = moveOrigin.current.x;
+          const origMinY = moveOrigin.current.y;
+          const { clipboard } = useEditorStore.getState();
+          if (clipboard?.type === 'passage' && clipboard.width && clipboard.height) {
+            const destX = Math.min(passageSelectionStart.x, passageSelectionEnd.x);
+            const destY = Math.min(passageSelectionStart.y, passageSelectionEnd.y);
+            if (destX !== origMinX || destY !== origMinY) {
+              useEditorStore.getState().movePassage(
+                origMinX, origMinY,
+                origMinX + clipboard.width - 1, origMinY + clipboard.height - 1,
+                destX, destY,
+              );
+            }
+          }
+        }
+      }
+      moveOrigin.current = null;
+      selectDragStart.current = null;
+      return true;
+    }
+
+    // 드래그 선택 종료
+    if (isSelectDragging.current) {
+      isSelectDragging.current = false;
+      if (selectDragStart.current && tile) {
+        // 같은 타일 클릭 → 선택 해제
+        if (selectDragStart.current.x === tile.x && selectDragStart.current.y === tile.y) {
+          useEditorStore.getState().clearPassageSelection();
+        }
+      }
+      selectDragStart.current = null;
+      return true;
+    }
+
+    // 그리기 모드 종료
     if (!isDrawing.current) return false;
     isDrawing.current = false;
-    const tile = canvasToTile(e);
     const { passageShape } = useEditorStore.getState();
 
     if ((passageShape === 'rectangle' || passageShape === 'ellipse') && dragStart.current && tile) {
@@ -176,5 +311,7 @@ export function usePassageHandlers(
     handleMouseUp,
     isDrawing,
     dragStart,
+    isSelectDragging,
+    isMoving,
   };
 }

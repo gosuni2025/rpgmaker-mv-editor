@@ -110,7 +110,7 @@ export interface PassageHistoryEntry {
 export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry | CameraZoneHistoryEntry | EventHistoryEntry | PlayerStartHistoryEntry | PassageHistoryEntry;
 
 export interface ClipboardData {
-  type: 'tiles' | 'event' | 'events' | 'lights' | 'objects';
+  type: 'tiles' | 'event' | 'events' | 'lights' | 'objects' | 'passage';
   tiles?: { x: number; y: number; z: number; tileId: number }[];
   width?: number;
   height?: number;
@@ -118,6 +118,7 @@ export interface ClipboardData {
   events?: unknown[];
   lights?: unknown[];
   objects?: unknown[];
+  passage?: { x: number; y: number; value: number }[];
 }
 
 export interface EditorState {
@@ -195,6 +196,10 @@ export interface EditorState {
   passageTool: 'select' | 'pen' | 'eraser';
   passageShape: 'freehand' | 'rectangle' | 'ellipse' | 'fill';
   selectedPassageTile: { x: number; y: number } | null;
+  passageSelectionStart: { x: number; y: number } | null;
+  passageSelectionEnd: { x: number; y: number } | null;
+  isPassagePasting: boolean;
+  passagePastePreviewPos: { x: number; y: number } | null;
 
   // Display toggles
   showGrid: boolean;
@@ -334,6 +339,15 @@ export interface EditorState {
   setPassageShape: (shape: 'freehand' | 'rectangle' | 'ellipse' | 'fill') => void;
   setSelectedPassageTile: (tile: { x: number; y: number } | null) => void;
   updateCustomPassage: (changes: PassageChange[]) => void;
+  setPassageSelection: (start: { x: number; y: number } | null, end: { x: number; y: number } | null) => void;
+  clearPassageSelection: () => void;
+  setIsPassagePasting: (v: boolean) => void;
+  setPassagePastePreviewPos: (pos: { x: number; y: number } | null) => void;
+  copyPassage: (x1: number, y1: number, x2: number, y2: number) => void;
+  cutPassage: (x1: number, y1: number, x2: number, y2: number) => void;
+  pastePassage: (x: number, y: number) => void;
+  deletePassage: (x1: number, y1: number, x2: number, y2: number) => void;
+  movePassage: (srcX1: number, srcY1: number, srcX2: number, srcY2: number, destX: number, destY: number) => void;
 
   // Actions - UI
   setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage') => void;

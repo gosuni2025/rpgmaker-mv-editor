@@ -131,6 +131,18 @@ export function useMouseHandlers(
       if (e.button === 0 && editMode === 'passage') {
         if (passage.handleMouseDown(e)) return;
       }
+      // Passage mode: 우클릭으로 선택/붙여넣기 해제
+      if (e.button === 2 && editMode === 'passage') {
+        const state = useEditorStore.getState();
+        if (state.isPassagePasting) {
+          state.setIsPassagePasting(false);
+          state.setPassagePastePreviewPos(null);
+        }
+        if (state.passageSelectionStart || state.passageSelectionEnd) {
+          state.clearPassageSelection();
+        }
+        return;
+      }
 
       // Alt+Click: 스포이드
       if (e.altKey && e.button === 0 && editMode === 'map') {
