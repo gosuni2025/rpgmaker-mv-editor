@@ -319,6 +319,17 @@
             }
         }
 
+        // spriteset 자식 가시성 백업 & baseSprite 외 모두 숨김 (pictureContainer 등)
+        var spritesetObj = spriteset._threeObj;
+        var ssChildren = spritesetObj ? spritesetObj.children : [];
+        var ssChildVis = [];
+        for (var si = 0; si < ssChildren.length; si++) {
+            ssChildVis.push(ssChildren[si].visible);
+            if (ssChildren[si] !== baseSpriteObj) {
+                ssChildren[si].visible = false;
+            }
+        }
+
         // _baseSprite 자식 가시성 백업 & 모두 숨김 (_blackScreen, _parallax 등)
         var bsChildren = baseSpriteObj.children;
         var bsChildVis = [];
@@ -389,6 +400,9 @@
         }
         for (var bri = 0; bri < bsChildren.length; bri++) {
             bsChildren[bri].visible = bsChildVis[bri];
+        }
+        for (var ssi = 0; ssi < ssChildren.length; ssi++) {
+            ssChildren[ssi].visible = ssChildVis[ssi];
         }
         for (var ri = 0; ri < scene.children.length; ri++) {
             scene.children[ri].visible = sceneChildVis[ri];
