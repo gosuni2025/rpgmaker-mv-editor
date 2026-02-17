@@ -7,31 +7,65 @@ export default function PassageInspector() {
   const { t } = useTranslation();
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedTile = useEditorStore((s) => s.selectedPassageTile);
+  const passageSelectionStart = useEditorStore((s) => s.passageSelectionStart);
+  const passageSelectionEnd = useEditorStore((s) => s.passageSelectionEnd);
   const updateCustomPassage = useEditorStore((s) => s.updateCustomPassage);
+
+  const hasSelection = !!(passageSelectionStart && passageSelectionEnd);
 
   const passageValue = selectedTile && currentMap
     ? (currentMap.customPassage?.[selectedTile.y * currentMap.width + selectedTile.x] ?? 0)
     : 0;
 
+  // 선택 영역 내 모든 타일에 대해 변경 생성
+  const getSelectionChanges = useCallback((changeFn: (oldValue: number) => number) => {
+    if (!currentMap || !passageSelectionStart || !passageSelectionEnd) return [];
+    const minX = Math.min(passageSelectionStart.x, passageSelectionEnd.x);
+    const maxX = Math.max(passageSelectionStart.x, passageSelectionEnd.x);
+    const minY = Math.min(passageSelectionStart.y, passageSelectionEnd.y);
+    const maxY = Math.max(passageSelectionStart.y, passageSelectionEnd.y);
+    const changes: { x: number; y: number; oldValue: number; newValue: number }[] = [];
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const oldValue = currentMap.customPassage?.[y * currentMap.width + x] ?? 0;
+        const newValue = changeFn(oldValue);
+        if (oldValue !== newValue) {
+          changes.push({ x, y, oldValue, newValue });
+        }
+      }
+    }
+    return changes;
+  }, [currentMap, passageSelectionStart, passageSelectionEnd]);
+
   const toggleDirection = useCallback((bit: number) => {
-    if (!selectedTile || !currentMap) return;
-    const oldValue = currentMap.customPassage?.[selectedTile.y * currentMap.width + selectedTile.x] ?? 0;
-    const newValue = oldValue ^ bit;
-    updateCustomPassage([{ x: selectedTile.x, y: selectedTile.y, oldValue, newValue }]);
-  }, [selectedTile, currentMap, updateCustomPassage]);
+    if (!currentMap) return;
+    if (hasSelection) {
+      const changes = getSelectionChanges((oldValue) => oldValue ^ bit);
+      if (changes.length > 0) updateCustomPassage(changes);
+    } else if (selectedTile) {
+      const oldValue = currentMap.customPassage?.[selectedTile.y * currentMap.width + selectedTile.x] ?? 0;
+      const newValue = oldValue ^ bit;
+      updateCustomPassage([{ x: selectedTile.x, y: selectedTile.y, oldValue, newValue }]);
+    }
+  }, [selectedTile, currentMap, updateCustomPassage, hasSelection, getSelectionChanges]);
 
   const setAll = useCallback((value: number) => {
-    if (!selectedTile || !currentMap) return;
-    const oldValue = currentMap.customPassage?.[selectedTile.y * currentMap.width + selectedTile.x] ?? 0;
-    if (oldValue === value) return;
-    updateCustomPassage([{ x: selectedTile.x, y: selectedTile.y, oldValue, newValue: value }]);
-  }, [selectedTile, currentMap, updateCustomPassage]);
+    if (!currentMap) return;
+    if (hasSelection) {
+      const changes = getSelectionChanges(() => value);
+      if (changes.length > 0) updateCustomPassage(changes);
+    } else if (selectedTile) {
+      const oldValue = currentMap.customPassage?.[selectedTile.y * currentMap.width + selectedTile.x] ?? 0;
+      if (oldValue === value) return;
+      updateCustomPassage([{ x: selectedTile.x, y: selectedTile.y, oldValue, newValue: value }]);
+    }
+  }, [selectedTile, currentMap, updateCustomPassage, hasSelection, getSelectionChanges]);
 
   return (
     <div className="light-inspector">
       <div className="light-inspector-title">{t('passage.title')}</div>
 
-      {!selectedTile ? (
+      {!selectedTile && !hasSelection ? (
         <div style={{ color: '#888', fontSize: 12, padding: '8px 0' }}>
           {t('passage.selectTile')}
         </div>
@@ -39,7 +73,11 @@ export default function PassageInspector() {
         <>
           <div className="light-inspector-row" style={{ marginBottom: 10 }}>
             <span className="light-inspector-label">{t('passage.tileCoord')}</span>
-            <span style={{ color: '#ddd', fontSize: 12 }}>({selectedTile.x}, {selectedTile.y})</span>
+            <span style={{ color: '#ddd', fontSize: 12 }}>
+              {hasSelection
+                ? `(${Math.min(passageSelectionStart!.x, passageSelectionEnd!.x)},${Math.min(passageSelectionStart!.y, passageSelectionEnd!.y)})~(${Math.max(passageSelectionStart!.x, passageSelectionEnd!.x)},${Math.max(passageSelectionStart!.y, passageSelectionEnd!.y)})`
+                : `(${selectedTile!.x}, ${selectedTile!.y})`}
+            </span>
           </div>
 
           <div className="light-inspector-section">
