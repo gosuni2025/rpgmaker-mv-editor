@@ -12,6 +12,10 @@
   min-height: 36px;
 }
 
+.image-picker-preview:hover {
+  border-color: #2675bf;
+}
+
 .image-picker-preview img {
   image-rendering: pixelated;
 }
