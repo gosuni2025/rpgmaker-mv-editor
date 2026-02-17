@@ -71,8 +71,8 @@ export function useObjectHandlers(): ObjectHandlersResult {
       if (tile.x < o.x || tile.x >= o.x + o.width) return false;
       const topY = o.y - o.height + 1;
       if (tile.y < topY || tile.y > o.y) return false;
-      // 이미지 오브젝트는 전체 영역이 히트
-      if (o.imageName) return true;
+      // 이미지/애니메이션 오브젝트는 전체 영역이 히트
+      if (o.imageName || o.animationId) return true;
       // tileIds가 있으면 해당 셀이 0이 아닌지 확인
       if (o.tileIds) {
         const row = tile.y - topY, col = tile.x - o.x;

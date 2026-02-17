@@ -379,7 +379,8 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
         const oh = obj.height || 1;
         const tileIds = obj.tileIds;
         const isImageObj = !!obj.imageName;
-        if (isImageObj) {
+        const isAnimObj = !!obj.animationId;
+        if (isImageObj || isAnimObj) {
           // 이미지 오브젝트: 전체 영역을 하나의 박스로 표시 (이미지가 보이도록 채우기를 연하게)
           const rw = ow * TILE_SIZE_PX;
           const rh = oh * TILE_SIZE_PX;
