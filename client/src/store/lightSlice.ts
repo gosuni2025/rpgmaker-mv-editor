@@ -46,7 +46,7 @@ export const lightSlice: SliceCreator<Pick<EditorState,
   'setSelectedLightIds' | 'setLightSelectionStart' | 'setLightSelectionEnd' | 'setIsLightPasting' | 'setLightPastePreviewPos' | 'clearLightSelection' |
   'initEditorLights' | 'addPointLight' | 'updatePointLight' | 'deletePointLight' |
   'copyLights' | 'pasteLights' | 'deleteLights' | 'moveLights' |
-  'updateAmbientLight' | 'updateDirectionalLight' | 'updatePlayerLight' | 'updateSpotLight' | 'updateShadowSettings'
+  'updateEditorLightsEnabled' | 'updateAmbientLight' | 'updateDirectionalLight' | 'updatePlayerLight' | 'updateSpotLight' | 'updateShadowSettings'
 >> = (set, get) => ({
   lightEditMode: false,
   selectedLightId: null,
@@ -192,6 +192,15 @@ export const lightSlice: SliceCreator<Pick<EditorState,
       return p;
     });
     const newLights = { ...map.editorLights, points };
+    set({ currentMap: { ...map, editorLights: newLights } });
+    pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
+  },
+
+  updateEditorLightsEnabled: (enabled: boolean) => {
+    const { currentMap: map, currentMapId } = get();
+    if (!map || !map.editorLights || !currentMapId) return;
+    const oldLights = JSON.parse(JSON.stringify(map.editorLights));
+    const newLights = { ...map.editorLights, enabled };
     set({ currentMap: { ...map, editorLights: newLights } });
     pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));
   },

@@ -644,6 +644,7 @@ export interface EditorShadowSettings {
 }
 
 export interface EditorLights {
+  enabled?: boolean;
   ambient: EditorAmbientLight;
   directional: EditorDirectionalLight;
   points: EditorPointLight[];
@@ -653,6 +654,7 @@ export interface EditorLights {
 }
 
 export const DEFAULT_EDITOR_LIGHTS: EditorLights = {
+  enabled: true,
   ambient: { enabled: true, color: '#667788', intensity: 0.4 },
   directional: { enabled: false, color: '#fff8ee', intensity: 0.1, direction: [-1, -1, -2], castShadow: true, shadowMapSize: 2048, shadowBias: -0.001, shadowNear: 1, shadowFar: 5000 },
   points: [],

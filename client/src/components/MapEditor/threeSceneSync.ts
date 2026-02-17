@@ -28,9 +28,11 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
   const THREE = (window as any).THREE;
   if (!THREE) return;
 
+  const globalEnabled = editorLights.enabled !== false;
+
   // Update ambient light
   if (ShadowLight._ambientLight) {
-    const ambEnabled = editorLights.ambient.enabled !== false;
+    const ambEnabled = globalEnabled && editorLights.ambient.enabled !== false;
     ShadowLight._ambientLight.color.set(editorLights.ambient.color);
     ShadowLight._ambientLight.intensity = ambEnabled ? editorLights.ambient.intensity : 0;
   }
@@ -39,7 +41,7 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
   if (ShadowLight._directionalLight) {
     const dl = ShadowLight._directionalLight;
     const ed = editorLights.directional;
-    const dirEnabled = ed.enabled === true;
+    const dirEnabled = globalEnabled && ed.enabled === true;
     dl.visible = dirEnabled;
     dl.color.set(ed.color);
     dl.intensity = dirEnabled ? ed.intensity : 0;
@@ -60,7 +62,7 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
   // Update player light
   if (ShadowLight._playerLight && editorLights.playerLight) {
     const pl = editorLights.playerLight;
-    const plEnabled = pl.enabled !== false;
+    const plEnabled = globalEnabled && pl.enabled !== false;
     ShadowLight._playerLight.color.set(pl.color);
     ShadowLight._playerLight.intensity = plEnabled ? pl.intensity : 0;
     ShadowLight._playerLight.distance = pl.distance;
@@ -75,9 +77,9 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
   if (ShadowLight._playerSpotLight && editorLights.spotLight) {
     const sl = editorLights.spotLight;
     const spot = ShadowLight._playerSpotLight;
-    spot.visible = sl.enabled;
+    spot.visible = globalEnabled && sl.enabled;
     spot.color.set(sl.color);
-    spot.intensity = sl.intensity;
+    spot.intensity = globalEnabled ? sl.intensity : 0;
     spot.distance = sl.distance;
     spot.angle = sl.angle;
     spot.penumbra = sl.penumbra;
@@ -85,7 +87,7 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
       spot.shadow.mapSize.width = sl.shadowMapSize;
       spot.shadow.mapSize.height = sl.shadowMapSize;
     }
-    ShadowLight.config.spotLightEnabled = sl.enabled;
+    ShadowLight.config.spotLightEnabled = globalEnabled && sl.enabled;
     ShadowLight.config.spotLightColor = parseInt(sl.color.replace('#', ''), 16);
     ShadowLight.config.spotLightIntensity = sl.intensity;
     ShadowLight.config.spotLightDistance = sl.distance;
