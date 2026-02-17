@@ -145,8 +145,13 @@ export function useEventDragHandlers(): EventDragHandlersResult {
         }
         // 빈 타일 클릭: 영역 선택 시작
         if (!(e.metaKey || e.ctrlKey)) {
+          const hadSelection = state.selectedEventIds.length > 0;
           setSelectedEventIds([]);
           setSelectedEventId(null);
+          // 선택된 항목이 있었으면 선택 해제만 하고 영역선택 진입하지 않음
+          if (hadSelection) {
+            return true;
+          }
         }
         isSelectingEvents.current = true;
         eventSelDragStart.current = tile;

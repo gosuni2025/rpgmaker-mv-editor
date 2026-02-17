@@ -317,8 +317,13 @@ export function useCameraZoneHandlers(
     } else {
       // Click on empty space
       if (!(e.metaKey || e.ctrlKey)) {
+        const hadSelection = curIds.length > 0;
         setSelectedCameraZoneIds([]);
         setSelectedCameraZoneId(null);
+        // 선택된 항목이 있었으면 선택 해제만 하고 생성 진입하지 않음
+        if (hadSelection) {
+          return true;
+        }
       }
       isCreatingCameraZone.current = true;
       createZoneStart.current = unclampedTile;

@@ -121,32 +121,32 @@ export function useObjectHandlers(): ObjectHandlersResult {
         setObjectDragPreview(null);
       }
     } else {
+      const hadSelection = state.selectedObjectIds.length > 0;
       if (e.shiftKey) {
         // Shift+클릭: 영역 선택
         if (!(e.metaKey || e.ctrlKey)) {
           setSelectedObjectIds([]);
           setSelectedObjectId(null);
+          // 선택된 항목이 있었으면 선택 해제만 하고 영역선택 진입하지 않음
+          if (hadSelection) {
+            return true;
+          }
         }
         isSelectingObjects.current = true;
         objectSelDragStart.current = tile;
         setObjectSelectionStart(tile);
         setObjectSelectionEnd(tile);
       } else {
-        // 빈 공간 클릭: 펜 칠하기 시작
-        isPaintingObject.current = true;
-        // 선택된 오브젝트가 1개이고 이미지 오브젝트가 아니면 expand 모드
-        const selectedObj = state.selectedObjectIds.length === 1
-          ? objects.find(o => o.id === state.selectedObjectIds[0])
-          : null;
-        if (selectedObj && !selectedObj.imageName) {
-          paintModeRef.current = 'add';
-          paintTargetIdRef.current = selectedObj.id;
-        } else {
-          paintModeRef.current = 'add';
-          paintTargetIdRef.current = null;
+        // 빈 공간 클릭: 선택된 항목이 있었으면 선택 해제만
+        if (hadSelection) {
           setSelectedObjectIds([]);
           setSelectedObjectId(null);
+          return true;
         }
+        // 빈 공간 클릭: 펜 칠하기 시작 (아무것도 선택되지 않은 상태)
+        isPaintingObject.current = true;
+        paintModeRef.current = 'add';
+        paintTargetIdRef.current = null;
         paintedTilesRef.current = new Set([`${tile.x},${tile.y}`]);
         lastPaintTile.current = { x: tile.x, y: tile.y };
         setObjectPaintTiles(new Set([`${tile.x},${tile.y}`]));
