@@ -276,12 +276,7 @@ export function usePassageHandlers(
     // 드래그 선택 종료
     if (isSelectDragging.current) {
       isSelectDragging.current = false;
-      if (selectDragStart.current && tile) {
-        // 같은 타일 클릭 → 선택 해제
-        if (selectDragStart.current.x === tile.x && selectDragStart.current.y === tile.y) {
-          useEditorStore.getState().clearPassageSelection();
-        }
-      }
+      // 단일 타일 클릭이든 드래그 선택이든 선택 상태 유지
       selectDragStart.current = null;
       return true;
     }
