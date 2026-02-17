@@ -201,7 +201,7 @@ export interface EditorState {
   lightSelectionEnd: { x: number; y: number } | null;
   isLightPasting: boolean;
   lightPastePreviewPos: { x: number; y: number } | null;
-  selectedLightType: 'point' | 'ambient' | 'directional';
+  selectedLightType: 'point' | 'ambient' | 'directional' | 'playerLight' | 'spotLight';
 
   // Parse errors
   parseErrors: { file: string; error: string }[] | null;
@@ -342,7 +342,7 @@ export interface EditorState {
   setIsLightPasting: (isPasting: boolean) => void;
   setLightPastePreviewPos: (pos: { x: number; y: number } | null) => void;
   clearLightSelection: () => void;
-  setSelectedLightType: (type: 'point' | 'ambient' | 'directional') => void;
+  setSelectedLightType: (type: 'point' | 'ambient' | 'directional' | 'playerLight' | 'spotLight') => void;
   initEditorLights: () => void;
   addPointLight: (x: number, y: number) => void;
   updatePointLight: (id: number, updates: Partial<EditorPointLight>) => void;
