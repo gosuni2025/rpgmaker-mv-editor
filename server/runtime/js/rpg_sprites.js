@@ -3745,15 +3745,29 @@ Spriteset_Battle.prototype.isBusy = function() {
 
         var imgChild = container.children && container.children[0];
 
+        // $dataMap.objects의 visible 동기화 (isPassable 등에서 참조)
+        var syncDataVisible = function(vis) {
+            var objs = $dataMap.objects;
+            if (!objs) return;
+            for (var j = 0; j < objs.length; j++) {
+                if (objs[j] && objs[j].id === objectId) {
+                    objs[j].visible = vis;
+                    break;
+                }
+            }
+        };
+
         switch (subCmd) {
             case 'show':
                 container.visible = true;
                 container._mapObjVisible = true;
+                syncDataVisible(true);
                 break;
 
             case 'hide':
                 container.visible = false;
                 container._mapObjVisible = false;
+                syncDataVisible(false);
                 break;
 
             case 'showWithShader': {
@@ -3761,6 +3775,7 @@ Spriteset_Battle.prototype.isBusy = function() {
                 var dur = parseFloat(args[3]) || 1.0;
                 container.visible = true;
                 container._mapObjVisible = true;
+                syncDataVisible(true);
                 if (imgChild && typeof PictureShader !== 'undefined' && window.PluginTween) {
                     // fade: threshold 0→1 (투명→불투명), 나머지: threshold 1→0
                     var isFade = shaderType === 'fade';
@@ -3799,6 +3814,7 @@ Spriteset_Battle.prototype.isBusy = function() {
                         onComplete: function() {
                             container.visible = false;
                             container._mapObjVisible = false;
+                            syncDataVisible(false);
                             var idx = imgChild._objShaderData.indexOf(tempShader2);
                             if (idx >= 0) imgChild._objShaderData.splice(idx, 1);
                             imgChild._objShaderKey = '';
@@ -3807,6 +3823,7 @@ Spriteset_Battle.prototype.isBusy = function() {
                 } else {
                     container.visible = false;
                     container._mapObjVisible = false;
+                    syncDataVisible(false);
                 }
                 break;
             }
