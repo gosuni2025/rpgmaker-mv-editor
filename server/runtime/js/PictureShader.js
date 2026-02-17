@@ -2118,6 +2118,17 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
             if (u.map) u.map.value = currentInput;
             // opacity는 마지막 패스에서만 적용
             if (u.opacity) u.opacity.value = 1.0;
+            // params → uniform 동기화 (트랜지션 threshold 등 런타임 변경 반영)
+            var mapping = PictureShader._UNIFORM_MAP[pass.type];
+            if (typeof mapping === 'string') mapping = PictureShader._UNIFORM_MAP[mapping];
+            if (mapping && pass.params) {
+                for (var mi = 0; mi < mapping.length; mi++) {
+                    var m = mapping[mi];
+                    if (Array.isArray(m) && u[m[1]] !== undefined && pass.params[m[0]] !== undefined) {
+                        u[m[1]].value = pass.params[m[0]];
+                    }
+                }
+            }
 
             // RT에 렌더링
             this._rtQuad.material = mat;
