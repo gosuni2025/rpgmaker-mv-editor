@@ -2634,6 +2634,7 @@ Spriteset_Map.prototype.createMapObjects = function() {
         container._mapObjVisible = obj.visible !== false;
         container.visible = obj.visible !== false;
         container.z = 5; // above upper tiles (z=4), same as upper characters
+        container._heightOffset = (obj.zHeight || 0) * th;
 
         if (obj.animationId && $dataAnimations && $dataAnimations[obj.animationId]) {
             // 애니메이션 기반 오브젝트
@@ -2871,11 +2872,11 @@ Spriteset_Map.prototype.updateMapObjects = function() {
         container.x = Math.round($gameMap.adjustX(container._mapObjX) * tw);
         container.y = Math.round($gameMap.adjustY(container._mapObjY) * th + th);
 
-        // zHeight 동적 반영 (Mode3D billboard)
-        if (container._mapObjZHeight != null && typeof Mode3D !== 'undefined' && container._threeSprite) {
-            var billboard = container._threeSprite;
-            if (billboard._heightOffset !== container._mapObjZHeight) {
-                billboard._heightOffset = container._mapObjZHeight;
+        // zHeight 동적 반영 (타일 단위 → 픽셀 단위 변환)
+        if (container._mapObjZHeight != null) {
+            var zPx = container._mapObjZHeight * th;
+            if (container._heightOffset !== zPx) {
+                container._heightOffset = zPx;
             }
         }
 

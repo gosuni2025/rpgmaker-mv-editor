@@ -422,7 +422,7 @@ ThreeSprite.prototype.syncTransform = function() {
     // Position: apply pivot offsets
     obj.position.x = this._x - this._pivotX;
     obj.position.y = this._y - this._pivotY;
-    obj.position.z = this._zIndex;
+    obj.position.z = this._zIndex + (this._heightOffset || 0);
 
     // Scale: only logical scale (scaleX/scaleY), NOT frame dimensions.
     // Frame dimensions are baked into geometry vertices below.
