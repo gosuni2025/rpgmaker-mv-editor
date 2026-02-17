@@ -119,8 +119,26 @@ export function useKeyboardShortcuts(
     const handleWheel = (e: WheelEvent) => {
       if ((e.target as HTMLElement).closest?.('.db-dialog-overlay')) return;
       e.preventDefault();
+
+      // 마우스 커서 기준 줌: 줌 전후 커서가 가리키는 콘텐츠 위치를 동일하게 유지
+      const rect = el.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left; // 컨테이너 내 커서 위치
+      const mouseY = e.clientY - rect.top;
+      const oldZoom = useEditorStore.getState().zoomLevel;
+
       if (e.deltaY < 0) zoomIn();
       else if (e.deltaY > 0) zoomOut();
+
+      const newZoom = useEditorStore.getState().zoomLevel;
+      if (newZoom === oldZoom) return;
+
+      // 줌 전 커서가 가리키는 콘텐츠 좌표: (scrollLeft + mouseX) / oldZoom
+      // 줌 후 같은 콘텐츠 좌표가 같은 화면 위치에 오려면:
+      // newScrollLeft = contentX * newZoom - mouseX
+      const contentX = (el.scrollLeft + mouseX) / oldZoom;
+      const contentY = (el.scrollTop + mouseY) / oldZoom;
+      el.scrollLeft = contentX * newZoom - mouseX;
+      el.scrollTop = contentY * newZoom - mouseY;
     };
     el.addEventListener('wheel', handleWheel, { passive: false });
 
@@ -202,7 +220,7 @@ export function useKeyboardShortcuts(
         cam3DStart.current = {
           x: e.clientX, y: e.clientY,
           tiltDeg: Mode3D._tiltDeg, yawDeg: Mode3D._yawDeg,
-          panX: 0, panY: 0,
+          panX: 0, panY: 0, panZ: 0,
         };
         return;
       }
@@ -232,7 +250,7 @@ export function useKeyboardShortcuts(
         cam3DStart.current = {
           x: e.clientX, y: e.clientY,
           tiltDeg: Mode3D._tiltDeg, yawDeg: Mode3D._yawDeg,
-          panX: 0, panY: 0,
+          panX: 0, panY: 0, panZ: 0,
         };
         return;
       }
