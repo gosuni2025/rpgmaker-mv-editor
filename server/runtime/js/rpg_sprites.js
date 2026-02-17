@@ -2648,7 +2648,17 @@ Spriteset_Map.prototype.createMapObjects = function() {
 
             var animSprite = new Sprite_Animation();
             animSprite.setup(targetSprite, anim, false, 0);
-            animSprite._duplicated = !obj.animationSe;
+            if (!obj.animationSe) {
+                animSprite.processTimingData = function(timing) {
+                    // SE 재생 차단: flashScope만 처리
+                    var duration = timing.flashDuration * this._rate;
+                    switch (timing.flashScope) {
+                    case 1: this._target.setBlendColor(timing.flashColor); this._flashDuration = duration; break;
+                    case 2: this._screenFlashDuration = duration; if (this._screenFlashSprite) { this._screenFlashSprite.setColor(timing.flashColor[0], timing.flashColor[1], timing.flashColor[2]); this._screenFlashSprite.opacity = timing.flashColor[3]; } break;
+                    case 3: this.startHiding(duration); break;
+                    }
+                };
+            }
             container.addChild(animSprite);
 
             container._mapObjAnimId = obj.animationId;
@@ -2889,7 +2899,16 @@ Spriteset_Map.prototype.updateMapObjects = function() {
                     if (animSpr.parent) animSpr.parent.removeChild(animSpr);
                     var newAnimSpr = new Sprite_Animation();
                     newAnimSpr.setup(container._mapObjAnimTarget, animData, false, 0);
-                    newAnimSpr._duplicated = !container._mapObjAnimSe;
+                    if (!container._mapObjAnimSe) {
+                        newAnimSpr.processTimingData = function(timing) {
+                            var duration = timing.flashDuration * this._rate;
+                            switch (timing.flashScope) {
+                            case 1: this._target.setBlendColor(timing.flashColor); this._flashDuration = duration; break;
+                            case 2: this._screenFlashDuration = duration; if (this._screenFlashSprite) { this._screenFlashSprite.setColor(timing.flashColor[0], timing.flashColor[1], timing.flashColor[2]); this._screenFlashSprite.opacity = timing.flashColor[3]; } break;
+                            case 3: this.startHiding(duration); break;
+                            }
+                        };
+                    }
                     container.addChild(newAnimSpr);
                     container._mapObjAnimSprite = newAnimSpr;
                 }
