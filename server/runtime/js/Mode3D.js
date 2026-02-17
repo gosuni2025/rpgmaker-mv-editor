@@ -54,6 +54,9 @@
     Mode3D._perspCamera = null;
     Mode3D._extraRows = 6;  // 에디터에서 참조
     Mode3D._extraCols = 4;  // 에디터에서 참조
+    // 에디터 카메라 팬 오프셋 (픽셀 단위)
+    Mode3D._editorPanX = 0;
+    Mode3D._editorPanY = 0;
     window.Mode3D = Mode3D;
 
     //=========================================================================
@@ -172,6 +175,12 @@
 
         var cx = w / 2;
         var cy = h / 2;
+
+        // 에디터 카메라 팬 오프셋 적용
+        if (window.__editorMode) {
+            cx += (this._editorPanX || 0);
+            cy += (this._editorPanY || 0);
+        }
 
         // yaw 회전: 카메라를 맵 중심(cx, cy, 0) 주위로 Y축 회전
         var offX = dist * Math.cos(tilt) * Math.sin(yaw);

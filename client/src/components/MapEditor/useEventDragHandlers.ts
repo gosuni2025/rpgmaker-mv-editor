@@ -413,6 +413,8 @@ export function useEventDragHandlers(): EventDragHandlersResult {
 
   const handleContextMenu = useCallback((e: React.MouseEvent<HTMLElement>, canvasToTile: MapToolsResult['canvasToTile']) => {
     e.preventDefault();
+    // 3D 모드에서는 우클릭이 카메라 이동으로 사용됨
+    if (useEditorStore.getState().mode3d) return;
     if (editMode === 'event') {
       const state = useEditorStore.getState();
       if (state.isEventPasting) {
