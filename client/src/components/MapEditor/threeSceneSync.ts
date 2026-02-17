@@ -30,8 +30,9 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
 
   // Update ambient light
   if (ShadowLight._ambientLight) {
+    const ambEnabled = editorLights.ambient.enabled !== false;
     ShadowLight._ambientLight.color.set(editorLights.ambient.color);
-    ShadowLight._ambientLight.intensity = editorLights.ambient.intensity;
+    ShadowLight._ambientLight.intensity = ambEnabled ? editorLights.ambient.intensity : 0;
   }
 
   // Update directional light

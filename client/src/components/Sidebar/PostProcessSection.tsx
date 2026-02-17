@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { BloomConfig } from '../../types/rpgMakerMV';
 import { DEFAULT_BLOOM_CONFIG } from '../../types/rpgMakerMV';
+import ExtBadge from '../common/ExtBadge';
 import { AnimSlider } from './AnimTileShaderSection';
 
 interface PPEffectEntry {
@@ -36,10 +37,9 @@ function getEffectParams(key: string): PPParamDef[] {
   return [];
 }
 
-export function PostProcessSection({ currentMap, updateMapField, ExtBadge }: {
+export function PostProcessSection({ currentMap, updateMapField }: {
   currentMap: any;
   updateMapField: (field: string, value: unknown) => void;
-  ExtBadge: React.ComponentType<{ inline?: boolean }>;
 }) {
   const postProcessConfig = useEditorStore((s) => s.postProcessConfig);
   const updatePostProcessEffect = useEditorStore((s) => s.updatePostProcessEffect);
