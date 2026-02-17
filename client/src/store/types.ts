@@ -94,7 +94,20 @@ export interface PlayerStartHistoryEntry {
   newY: number;
 }
 
-export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry | CameraZoneHistoryEntry | EventHistoryEntry | PlayerStartHistoryEntry;
+export interface PassageChange {
+  x: number;
+  y: number;
+  oldValue: number;
+  newValue: number;
+}
+
+export interface PassageHistoryEntry {
+  mapId: number;
+  type: 'passage';
+  changes: PassageChange[];
+}
+
+export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry | CameraZoneHistoryEntry | EventHistoryEntry | PlayerStartHistoryEntry | PassageHistoryEntry;
 
 export interface ClipboardData {
   type: 'tiles' | 'event' | 'events' | 'lights' | 'objects';
@@ -126,7 +139,7 @@ export interface EditorState {
   playerCharacterIndex: number;
 
   // Mode
-  editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone';
+  editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage';
 
   // Drawing tools
   selectedTool: string;  // 'select' | 'pen' | 'eraser' | 'shadow'
@@ -177,6 +190,11 @@ export interface EditorState {
   // Camera zone editor
   selectedCameraZoneId: number | null;
   selectedCameraZoneIds: number[];
+
+  // Passage editor
+  passageTool: 'pen' | 'eraser';
+  passageShape: 'freehand' | 'rectangle' | 'ellipse' | 'fill';
+  selectedPassageTile: { x: number; y: number } | null;
 
   // Display toggles
   showGrid: boolean;
@@ -311,8 +329,14 @@ export interface EditorState {
   deleteCameraZones: (ids: number[]) => void;
   moveCameraZones: (ids: number[], dx: number, dy: number) => void;
 
+  // Actions - Passage
+  setPassageTool: (tool: 'pen' | 'eraser') => void;
+  setPassageShape: (shape: 'freehand' | 'rectangle' | 'ellipse' | 'fill') => void;
+  setSelectedPassageTile: (tile: { x: number; y: number } | null) => void;
+  updateCustomPassage: (changes: PassageChange[]) => void;
+
   // Actions - UI
-  setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone') => void;
+  setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage') => void;
   setSelectedTool: (tool: string) => void;
   setDrawShape: (shape: string) => void;
   setSelectedTileId: (id: number) => void;

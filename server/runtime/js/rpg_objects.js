@@ -5974,8 +5974,45 @@ Game_Map.prototype.autotileType = function(x, y, z) {
     return tileId >= 2048 ? Math.floor((tileId - 2048) / 48) : -1;
 };
 
+// 디버그 함수: 콘솔에서 _debugPass(x,y) 로 호출
+window._debugPass = function(x, y) {
+    var px = $gamePlayer._x, py = $gamePlayer._y;
+    console.log('[DEBUG] Player at (' + px + ',' + py + ')');
+    // 현재 isPassable 함수가 objects 체크를 포함하는지 확인
+    var fnSrc = $gameMap.isPassable.toString();
+    console.log('[DEBUG] isPassable has objects check:', fnSrc.includes('objects'));
+    console.log('[DEBUG] isPassable source (first 300):', fnSrc.substring(0, 300));
+    console.log('[DEBUG] Testing isPassable(' + x + ',' + y + ') for all 4 dirs:');
+    [2,4,6,8].forEach(function(d) {
+        var cp = $gameMap.checkPassage(x, y, (1 << (d / 2 - 1)) & 0x0f);
+        console.log('  d=' + d + ' checkPassage=' + cp + ' isPassable=' + $gameMap.isPassable(x, y, d));
+    });
+    var objects = $dataMap.objects;
+    if (!objects) { console.log('[DEBUG] No objects in $dataMap'); return; }
+    for (var i = 0; i < objects.length; i++) {
+        var obj = objects[i];
+        if (!obj || !obj.passability) continue;
+        var col = x - obj.x;
+        var row = y - (obj.y - obj.height + 1);
+        var inRange = col >= 0 && col < obj.width && row >= 0 && row < obj.height;
+        if (inRange) {
+            var val = obj.passability[row] ? obj.passability[row][col] : undefined;
+            console.log('[DEBUG] obj#' + obj.id + ' col=' + col + ' row=' + row + ' passability=' + val);
+        }
+    }
+};
+
 Game_Map.prototype.isPassable = function(x, y, d) {
     if (!this.checkPassage(x, y, (1 << (d / 2 - 1)) & 0x0f)) return false;
+    // customPassage: 맵 단위 커스텀 통행불가
+    var cp = $dataMap.customPassage;
+    if (cp) {
+        var cpVal = cp[y * this.width() + x];
+        if (cpVal) {
+            var bit = (1 << (d / 2 - 1)) & 0x0f;
+            if (cpVal & bit) return false;
+        }
+    }
     var objects = $dataMap.objects;
     if (objects) {
         for (var i = 0; i < objects.length; i++) {
@@ -5993,6 +6030,10 @@ Game_Map.prototype.isPassable = function(x, y, d) {
     }
     return true;
 };
+
+// isPassable가 오버라이드되었는지 검증
+var _origIsPassable = Game_Map.prototype.isPassable;
+console.log('[VERIFY] isPassable includes objects check:', _origIsPassable.toString().substring(0, 200));
 
 Game_Map.prototype.isBoatPassable = function(x, y) {
     return this.checkPassage(x, y, 0x0200);

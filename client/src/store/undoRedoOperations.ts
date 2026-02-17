@@ -1,4 +1,4 @@
-import type { EditorState, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry, EventHistoryEntry, PlayerStartHistoryEntry } from './types';
+import type { EditorState, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry, EventHistoryEntry, PlayerStartHistoryEntry, PassageHistoryEntry } from './types';
 import apiClient from '../api/client';
 
 type SetFn = (partial: Partial<EditorState> | ((s: EditorState) => Partial<EditorState>)) => void;
@@ -140,6 +140,22 @@ export function undoOperation(get: GetFn, set: SetFn) {
       apiClient.put('/database/system', updated).catch(() => {});
     }
     showToast('실행 취소 (시작 위치)');
+    return;
+  }
+
+  if (entry.type === 'passage') {
+    const pe = entry as PassageHistoryEntry;
+    const cp = currentMap.customPassage ? [...currentMap.customPassage] : new Array(currentMap.width * currentMap.height).fill(0);
+    const redoChanges = pe.changes.map(c => ({ ...c, oldValue: c.newValue, newValue: c.oldValue }));
+    for (const c of pe.changes) {
+      cp[c.y * currentMap.width + c.x] = c.oldValue;
+    }
+    set({
+      currentMap: { ...currentMap, customPassage: cp },
+      undoStack: undoStack.slice(0, -1),
+      redoStack: [...get().redoStack, { mapId: currentMapId, type: 'passage', changes: redoChanges } as PassageHistoryEntry],
+    });
+    showToast(`실행 취소 (통행 ${pe.changes.length}개 변경)`);
     return;
   }
 
@@ -296,6 +312,22 @@ export function redoOperation(get: GetFn, set: SetFn) {
       apiClient.put('/database/system', updated).catch(() => {});
     }
     showToast('다시 실행 (시작 위치)');
+    return;
+  }
+
+  if (entry.type === 'passage') {
+    const pe = entry as PassageHistoryEntry;
+    const cp = currentMap.customPassage ? [...currentMap.customPassage] : new Array(currentMap.width * currentMap.height).fill(0);
+    const undoChanges = pe.changes.map(c => ({ ...c, oldValue: c.newValue, newValue: c.oldValue }));
+    for (const c of pe.changes) {
+      cp[c.y * currentMap.width + c.x] = c.newValue;
+    }
+    set({
+      currentMap: { ...currentMap, customPassage: cp },
+      redoStack: redoStack.slice(0, -1),
+      undoStack: [...get().undoStack, { mapId: currentMapId, type: 'passage', changes: undoChanges } as PassageHistoryEntry],
+    });
+    showToast(`다시 실행 (통행 ${pe.changes.length}개 변경)`);
     return;
   }
 

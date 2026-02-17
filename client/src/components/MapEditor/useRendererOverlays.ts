@@ -1053,3 +1053,106 @@ export function useTileIdDebugOverlay(
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
   }, [showTileId, mapData, mapWidth, mapHeight, rendererReady]);
 }
+
+/** 통행불가 (custom passage) 오버레이 */
+export function usePassageOverlay(
+  refs: OverlayRefs & { passageMeshesRef: React.MutableRefObject<any[]> },
+  rendererReady: number,
+) {
+  const editMode = useEditorStore((s) => s.editMode);
+  const mapWidth = useEditorStore((s) => s.currentMap?.width ?? 0);
+  const mapHeight = useEditorStore((s) => s.currentMap?.height ?? 0);
+  const customPassage = useEditorStore((s) => s.currentMap?.customPassage ?? null);
+
+  // customPassage 변경 감지를 위한 해시
+  const passageHash = useEditorStore((s) => {
+    if (!s.currentMap?.customPassage || s.editMode !== 'passage') return '';
+    const cp = s.currentMap.customPassage;
+    const parts: string[] = [];
+    for (let i = 0; i < cp.length; i++) {
+      if (cp[i]) parts.push(`${i}:${cp[i]}`);
+    }
+    return parts.join(';');
+  });
+
+  useEffect(() => {
+    const rendererObj = refs.rendererObjRef.current;
+    if (!rendererObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    // 기존 메시 제거
+    for (const m of refs.passageMeshesRef.current) {
+      rendererObj.scene.remove(m);
+      m.geometry?.dispose();
+      if (m.material?.map) m.material.map.dispose();
+      m.material?.dispose();
+    }
+    refs.passageMeshesRef.current = [];
+
+    if (editMode !== 'passage' || !customPassage || mapWidth <= 0 || mapHeight <= 0) {
+      requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+      return;
+    }
+
+    const sharedGeom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
+
+    for (let y = 0; y < mapHeight; y++) {
+      for (let x = 0; x < mapWidth; x++) {
+        const val = customPassage[y * mapWidth + x];
+        if (!val) continue;
+
+        const cvs = document.createElement('canvas');
+        cvs.width = 48; cvs.height = 48;
+        const ctx = cvs.getContext('2d')!;
+        ctx.clearRect(0, 0, 48, 48);
+
+        if (val === 0x0F) {
+          // 전방향 불가 — 빨간 X
+          ctx.strokeStyle = 'rgba(255, 60, 60, 0.9)';
+          ctx.lineWidth = 4;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(10, 10); ctx.lineTo(38, 38);
+          ctx.moveTo(38, 10); ctx.lineTo(10, 38);
+          ctx.stroke();
+        } else {
+          // 개별 방향 — 빨간 바
+          ctx.fillStyle = 'rgba(255, 60, 60, 0.8)';
+          const barW = 28, barH = 6;
+          if (val & 0x01) { // DOWN
+            ctx.fillRect((48 - barW) / 2, 48 - barH - 2, barW, barH);
+          }
+          if (val & 0x02) { // LEFT
+            ctx.fillRect(2, (48 - barW) / 2, barH, barW);
+          }
+          if (val & 0x04) { // RIGHT
+            ctx.fillRect(48 - barH - 2, (48 - barW) / 2, barH, barW);
+          }
+          if (val & 0x08) { // UP
+            ctx.fillRect((48 - barW) / 2, 2, barW, barH);
+          }
+        }
+
+        const tex = new THREE.CanvasTexture(cvs);
+        tex.minFilter = THREE.LinearFilter;
+        const mat = new THREE.MeshBasicMaterial({
+          map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
+        });
+        const mesh = new THREE.Mesh(sharedGeom, mat);
+        mesh.position.set(
+          x * TILE_SIZE_PX + TILE_SIZE_PX / 2,
+          y * TILE_SIZE_PX + TILE_SIZE_PX / 2,
+          4,
+        );
+        mesh.renderOrder = 9970;
+        mesh.frustumCulled = false;
+        mesh.userData.editorGrid = true;
+        rendererObj.scene.add(mesh);
+        refs.passageMeshesRef.current.push(mesh);
+      }
+    }
+
+    requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+  }, [editMode, passageHash, mapWidth, mapHeight, rendererReady]);
+}

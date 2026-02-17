@@ -118,6 +118,7 @@ export default function MenuBar() {
         { label: t('menu.light', '조명'), action: 'modeLight', shortcut: 'F7', checked: () => editMode === 'light' },
         { label: t('menu.object'), action: 'modeObject', shortcut: 'F8', checked: () => editMode === 'object' },
         { label: t('menu.cameraZone', '카메라 영역'), action: 'modeCameraZone', shortcut: 'F9', checked: () => editMode === 'cameraZone' },
+        { label: t('menu.passage', '통행'), action: 'modePassage', shortcut: 'F11', checked: () => editMode === 'passage' },
       ],
     },
     {
@@ -207,6 +208,7 @@ export default function MenuBar() {
       case 'modeLight': setEditMode('light'); break;
       case 'modeObject': setEditMode('object'); break;
       case 'modeCameraZone': setEditMode('cameraZone'); break;
+      case 'modePassage': setEditMode('passage'); break;
       case 'toolSelect': setSelectedTool('select'); break;
       case 'toolPen': setSelectedTool('pen'); break;
       case 'toolEraser': setSelectedTool('eraser'); break;
@@ -280,6 +282,7 @@ export default function MenuBar() {
       else if (e.key === 'F8' || e.code === 'F8') { e.preventDefault(); handleAction('modeObject'); }
       else if (e.key === 'F9' || e.code === 'F9') { e.preventDefault(); handleAction('modeCameraZone'); }
       else if (e.key === 'F10' || e.code === 'F10') { e.preventDefault(); handleAction('database'); }
+      else if (e.key === 'F11' || e.code === 'F11') { e.preventDefault(); handleAction('modePassage'); }
       else if (ctrl && e.shiftKey && (e.key.toLowerCase() === 'r' || e.code === 'KeyR')) { e.preventDefault(); handleAction('playtestTitle'); }
       else if (ctrl && (e.key === 'r' || e.code === 'KeyR')) { e.preventDefault(); handleAction('playtestCurrentMap'); }
       // 다이얼로그 내부에서는 편집 단축키를 맵에 전파하지 않음
