@@ -1702,7 +1702,9 @@ PictureShader.createMaterial = function(type, params, texture) {
             applyMode: applyMode,
             duration: duration,
             elapsed: 0,
-            onComplete: onComplete
+            onComplete: onComplete,
+            // 나타나기 트랜지션: 셰이더 적용 전까지 스프라이트 숨김 (한 프레임 플래시 방지)
+            _hideUntilShaderApplied: (direction === 'in')
         };
     };
 
@@ -1982,6 +1984,13 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
             return;
         }
 
+        // 나타나기 트랜지션: 셰이더 적용 전까지 숨김 (한 프레임 플래시 방지)
+        var transition = picture._transition;
+        var hiding = transition && transition._hideUntilShaderApplied;
+        if (hiding) {
+            this.visible = false;
+        }
+
         var shaderData = picture.shaderData();
         var passes = this._normalizeShaderData(shaderData);
 
@@ -1999,7 +2008,13 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
         }
 
         // 매 프레임: 멀티패스 렌더링 실행
-        this._executeMultipass(passes);
+        var applied = this._executeMultipass(passes);
+
+        // 셰이더 적용 완료: 숨김 해제 (텍스처 미로드 등으로 실패하면 계속 숨김)
+        if (hiding && applied) {
+            transition._hideUntilShaderApplied = false;
+            this.visible = true;
+        }
 
         // Shake offset 계산 (shake 셰이더가 포함되어 있으면)
         this._shakeOffsetX = 0;
@@ -2090,14 +2105,14 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
      * 매 프레임 멀티패스 렌더링을 실행한다.
      */
     Sprite_Picture.prototype._executeMultipass = function(passes) {
-        if (this._shaderPasses.length === 0) return;
+        if (this._shaderPasses.length === 0) return false;
 
         // Three.js 렌더러 가져오기
         var renderer = PictureShader._renderer;
-        if (!renderer) return;
+        if (!renderer) return false;
 
         var sourceTexture = this._threeTexture || (this._originalMaterial && this._originalMaterial.map);
-        if (!sourceTexture) return;
+        if (!sourceTexture) return false;
 
         var currentInput = sourceTexture;
         var lastRT = null;
@@ -2153,6 +2168,7 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
             this._outputMaterial.opacity = this.worldAlpha;
             this._outputMaterial.needsUpdate = true;
         }
+        return true;
     };
 
     /**
