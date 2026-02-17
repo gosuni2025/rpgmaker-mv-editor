@@ -24,7 +24,7 @@ interface PluginMetadata {
   author: string;
   help: string;
   params: PluginParamMeta[];
-  dependencies?: string[];  // e.g. ['Three.js', 'Mode3D']
+  dependencies?: string[];  // e.g. ['EXT']
 }
 
 function parsePluginMetadata(content: string, locale?: string): PluginMetadata {
@@ -118,8 +118,7 @@ function parsePluginMetadata(content: string, locale?: string): PluginMetadata {
   // 코드 본체(주석 블록 이후)에서 의존성 감지
   const deps: string[] = [];
   const codeBody = content.replace(/\/\*[\s\S]*?\*\//g, ''); // 주석 블록 제거
-  if (/\bTHREE\b/.test(codeBody)) deps.push('Three.js');
-  if (/\bMode3D\b/.test(codeBody)) deps.push('Mode3D');
+  if (/\bTHREE\b/.test(codeBody) || /\bMode3D\b/.test(codeBody)) deps.push('EXT');
 
   return { pluginname, plugindesc, author, help: help.trim(), params, ...(deps.length > 0 ? { dependencies: deps } : {}) };
 }

@@ -581,7 +581,7 @@ export default function PluginManagerDialog() {
                       </span>
                       {metadata[plugin.name]?.dependencies?.map(dep => (
                         <span key={dep} className="pm-plugin-badge" title={`${dep} 필요`}>
-                          {dep === 'Three.js' ? '3D' : dep}
+                          {dep}
                         </span>
                       ))}
                     </div>
