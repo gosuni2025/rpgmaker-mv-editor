@@ -60,13 +60,15 @@ export function syncEditorLightsToScene(scene: any, editorLights: EditorLights |
   // Update player light
   if (ShadowLight._playerLight && editorLights.playerLight) {
     const pl = editorLights.playerLight;
+    const plEnabled = pl.enabled !== false;
     ShadowLight._playerLight.color.set(pl.color);
-    ShadowLight._playerLight.intensity = pl.intensity;
+    ShadowLight._playerLight.intensity = plEnabled ? pl.intensity : 0;
     ShadowLight._playerLight.distance = pl.distance;
     ShadowLight.config.playerLightZ = pl.z;
     ShadowLight.config.playerLightColor = parseInt(pl.color.replace('#', ''), 16);
-    ShadowLight.config.playerLightIntensity = pl.intensity;
+    ShadowLight.config.playerLightIntensity = plEnabled ? pl.intensity : 0;
     ShadowLight.config.playerLightDistance = pl.distance;
+    ShadowLight.config.playerLightEnabled = plEnabled;
   }
 
   // Update spot light
