@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import apiClient from '../../api/client';
 import type { AudioFile } from '../../types/rpgMakerMV';
 import useEscClose from '../../hooks/useEscClose';
+import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import './AudioPicker.css';
 
 interface AudioPickerProps {
@@ -22,6 +23,8 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
   const [pan, setPan] = useState(value.pan);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const active = inline || open;
 
@@ -33,6 +36,8 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
       setVolume(value.volume);
       setPitch(value.pitch);
       setPan(value.pan);
+      setSearchQuery('');
+      setTimeout(() => searchInputRef.current?.focus(), 100);
     }
   }, [active, type]);
 
@@ -62,7 +67,11 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
     return () => clearTimeout(timer);
   }, [active, files, selected]);
 
-  const fileNames = [...new Set(files.map(f => f.replace(/\.(ogg|m4a|wav|mp3)$/i, '')))];
+  const fileNames = useMemo(() => {
+    const names = [...new Set(files.map(f => f.replace(/\.(ogg|m4a|wav|mp3)$/i, '')))];
+    if (!searchQuery) return names;
+    return names.filter(n => fuzzyMatch(n, searchQuery));
+  }, [files, searchQuery]);
 
   const play = (name?: string) => {
     const n = name || selected;
@@ -99,14 +108,27 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
   const displayName = value.name || '(없음)';
 
   const bodyContent = (
-    <div className="audio-picker-body">
+    <div className="audio-picker-body-wrapper">
+      <div className="audio-picker-search-bar">
+        <input
+          ref={searchInputRef}
+          type="text"
+          className="picker-search-input"
+          placeholder="검색 (초성 지원: ㄱㄴㄷ)"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
+      </div>
+      <div className="audio-picker-body">
       <div className="audio-picker-list" ref={listRef}>
-        <div
-          className={`audio-picker-item${selected === '' ? ' selected' : ''}`}
-          onClick={() => setSelected('')}
-        >
-          (없음)
-        </div>
+        {!searchQuery && (
+          <div
+            className={`audio-picker-item${selected === '' ? ' selected' : ''}`}
+            onClick={() => setSelected('')}
+          >
+            (없음)
+          </div>
+        )}
         {fileNames.map(name => (
           <div
             key={name}
@@ -159,6 +181,7 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 

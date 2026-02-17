@@ -5,6 +5,7 @@ import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
 import { useThreeRenderer } from '../MapEditor/useThreeRenderer';
 import type { EditorPointLight } from '../../types/rpgMakerMV';
+import { fuzzyMatch } from '../../utils/fuzzyMatch';
 
 const TILE_SIZE = 48;
 
@@ -50,6 +51,7 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 });
+  const [mapSearchQuery, setMapSearchQuery] = useState('');
 
   const isPointLightMode = mode === 'pointlight';
 
@@ -81,6 +83,11 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
     buildTree(0, 0);
     return result;
   }, [maps]);
+
+  const filteredMapList = useMemo(() => {
+    if (!mapSearchQuery) return mapList;
+    return mapList.filter(m => fuzzyMatch(`${String(m.id).padStart(3, '0')}: ${m.name}`, mapSearchQuery));
+  }, [mapList, mapSearchQuery]);
 
   // 맵 데이터 로드
   useEffect(() => {
@@ -397,19 +404,31 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
         </div>
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* 왼쪽: 맵 목록 또는 포인트라이트 목록 */}
-          {showMapList && <div style={{ width: 180, minWidth: 180, borderRight: '1px solid #444', overflowY: 'auto' }}>
-            {mapList.map(m => (
-              <div key={m.id} style={{
-                padding: '3px 8px', paddingLeft: 8 + m.indent * 16,
-                cursor: 'pointer', fontSize: 12, color: '#ddd',
-                background: m.id === selectedMapId ? '#2675bf' : 'transparent',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-              }}
-                onClick={() => setSelectedMapId(m.id)}
-              >
-                {String(m.id).padStart(3, '0')}: {m.name}
-              </div>
-            ))}
+          {showMapList && <div style={{ width: 200, minWidth: 200, borderRight: '1px solid #444', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '6px 8px', borderBottom: '1px solid #444' }}>
+              <input
+                type="text"
+                placeholder="검색 (초성 지원)"
+                value={mapSearchQuery}
+                onChange={e => setMapSearchQuery(e.target.value)}
+                autoFocus
+                style={{ width: '100%', padding: '3px 6px', background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, color: '#ddd', fontSize: 11, outline: 'none', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {filteredMapList.map(m => (
+                <div key={m.id} style={{
+                  padding: '3px 8px', paddingLeft: mapSearchQuery ? 8 : 8 + m.indent * 16,
+                  cursor: 'pointer', fontSize: 12, color: '#ddd',
+                  background: m.id === selectedMapId ? '#2675bf' : 'transparent',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}
+                  onClick={() => setSelectedMapId(m.id)}
+                >
+                  {String(m.id).padStart(3, '0')}: {m.name}
+                </div>
+              ))}
+            </div>
           </div>}
           {renderPointLightList()}
           {/* 오른쪽: 맵 프리뷰 (휠 줌, 미들 클릭 팬) */}

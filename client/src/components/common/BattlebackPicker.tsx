@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import apiClient from '../../api/client';
 import useEscClose from '../../hooks/useEscClose';
+import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import './BattlebackPicker.css';
 
 interface BattlebackPickerProps {
@@ -16,12 +17,14 @@ export default function BattlebackPicker({ value1, value2, onChange }: Battlebac
   const [files2, setFiles2] = useState<string[]>([]);
   const [selected1, setSelected1] = useState(value1);
   const [selected2, setSelected2] = useState(value2);
+  const [searchQuery, setSearchQuery] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (!open) return;
     setSelected1(value1);
     setSelected2(value2);
+    setSearchQuery('');
     Promise.all([
       apiClient.get<string[]>('/resources/battlebacks1'),
       apiClient.get<string[]>('/resources/battlebacks2'),
@@ -34,8 +37,14 @@ export default function BattlebackPicker({ value1, value2, onChange }: Battlebac
     });
   }, [open]);
 
-  const names1 = [...new Set(files1.map(f => f.replace(/\.png$/i, '')))];
-  const names2 = [...new Set(files2.map(f => f.replace(/\.png$/i, '')))];
+  const names1 = useMemo(() => {
+    const all = [...new Set(files1.map(f => f.replace(/\.png$/i, '')))];
+    return searchQuery ? all.filter(n => fuzzyMatch(n, searchQuery)) : all;
+  }, [files1, searchQuery]);
+  const names2 = useMemo(() => {
+    const all = [...new Set(files2.map(f => f.replace(/\.png$/i, '')))];
+    return searchQuery ? all.filter(n => fuzzyMatch(n, searchQuery)) : all;
+  }, [files2, searchQuery]);
 
   // Composite preview
   useEffect(() => {
@@ -98,16 +107,28 @@ export default function BattlebackPicker({ value1, value2, onChange }: Battlebac
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) handleCancel(); }}>
           <div className="battleback-picker-dialog">
             <div className="audio-picker-header">이미지 선택</div>
+            <div className="audio-picker-search-bar" style={{ padding: '8px 12px' }}>
+              <input
+                type="text"
+                className="picker-search-input"
+                placeholder="검색 (초성 지원: ㄱㄴㄷ)"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                autoFocus
+              />
+            </div>
             <div className="battleback-picker-body">
               <div className="battleback-picker-lists">
                 <div className="battleback-picker-list-col">
                   <div className="audio-picker-list" style={{ flex: 1 }}>
-                    <div
-                      className={`audio-picker-item${selected1 === '' ? ' selected' : ''}`}
-                      onClick={() => setSelected1('')}
-                    >
-                      (없음)
-                    </div>
+                    {!searchQuery && (
+                      <div
+                        className={`audio-picker-item${selected1 === '' ? ' selected' : ''}`}
+                        onClick={() => setSelected1('')}
+                      >
+                        (없음)
+                      </div>
+                    )}
                     {names1.map(name => (
                       <div
                         key={name}
@@ -121,12 +142,14 @@ export default function BattlebackPicker({ value1, value2, onChange }: Battlebac
                 </div>
                 <div className="battleback-picker-list-col">
                   <div className="audio-picker-list" style={{ flex: 1 }}>
-                    <div
-                      className={`audio-picker-item${selected2 === '' ? ' selected' : ''}`}
-                      onClick={() => setSelected2('')}
-                    >
-                      (없음)
-                    </div>
+                    {!searchQuery && (
+                      <div
+                        className={`audio-picker-item${selected2 === '' ? ' selected' : ''}`}
+                        onClick={() => setSelected2('')}
+                      >
+                        (없음)
+                      </div>
+                    )}
                     {names2.map(name => (
                       <div
                         key={name}

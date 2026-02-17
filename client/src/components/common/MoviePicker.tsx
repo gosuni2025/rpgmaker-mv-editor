@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import apiClient from '../../api/client';
+import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import './AudioPicker.css';
 
 interface MoviePickerProps {
@@ -13,6 +14,7 @@ const MOVIE_EXTENSIONS = /\.(mp4|webm)$/i;
 export default function MoviePicker({ value, onChange, inline }: MoviePickerProps) {
   const [files, setFiles] = useState<string[]>([]);
   const [selected, setSelected] = useState(value);
+  const [searchQuery, setSearchQuery] = useState('');
   const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -36,21 +38,37 @@ export default function MoviePicker({ value, onChange, inline }: MoviePickerProp
     return () => clearTimeout(timer);
   }, [files, selected]);
 
-  const fileNames = [...new Set(files.map(f => f.replace(MOVIE_EXTENSIONS, '')))];
+  const fileNames = useMemo(() => {
+    const names = [...new Set(files.map(f => f.replace(MOVIE_EXTENSIONS, '')))];
+    if (!searchQuery) return names;
+    return names.filter(n => fuzzyMatch(n, searchQuery));
+  }, [files, searchQuery]);
 
   const openFolder = () => {
     apiClient.post('/resources/movies/open-folder', {}).catch(() => {});
   };
 
   return (
-    <div className="audio-picker-body">
+    <div className="audio-picker-body-wrapper">
+      <div className="audio-picker-search-bar">
+        <input
+          type="text"
+          className="picker-search-input"
+          placeholder="검색 (초성 지원: ㄱㄴㄷ)"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
+      </div>
+      <div className="audio-picker-body">
       <div className="audio-picker-list" ref={listRef}>
-        <div
-          className={`audio-picker-item${selected === '' ? ' selected' : ''}`}
-          onClick={() => setSelected('')}
-        >
-          (없음)
-        </div>
+        {!searchQuery && (
+          <div
+            className={`audio-picker-item${selected === '' ? ' selected' : ''}`}
+            onClick={() => setSelected('')}
+          >
+            (없음)
+          </div>
+        )}
         {fileNames.map(name => (
           <div
             key={name}
@@ -69,6 +87,7 @@ export default function MoviePicker({ value, onChange, inline }: MoviePickerProp
           지원 형식: mp4, webm
         </div>
       </div>
+    </div>
     </div>
   );
 }
