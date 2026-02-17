@@ -70,11 +70,14 @@ export function CondBranchTab3({
               <input type="radio" name="cb-type3" checked={condType === 6} onChange={() => onCondTypeChange(6)} />
               캐릭터
             </label>
-            <select value={charId} onChange={e => setCharId(Number(e.target.value))}
-              disabled={condType !== 6} style={{ ...selectStyle, width: 160, ...disabledOpacity(condType === 6) }}>
-              <option value={-1}>플레이어</option>
-              <option value={0}>이 이벤트</option>
-            </select>
+            <label style={{ ...radioStyle, ...disabledOpacity(condType === 6) }}>
+              <input type="radio" name="cb-char-id" checked={charId === -1} onChange={() => setCharId(-1)} disabled={condType !== 6} />
+              플레이어
+            </label>
+            <label style={{ ...radioStyle, ...disabledOpacity(condType === 6) }}>
+              <input type="radio" name="cb-char-id" checked={charId === 0} onChange={() => setCharId(0)} disabled={condType !== 6} />
+              이 이벤트
+            </label>
           </div>
           <div style={{ marginLeft: 100, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ color: '#ddd', fontSize: 13, ...disabledOpacity(condType === 6) }}>마주하고 있음</span>

@@ -36,11 +36,14 @@ export function CondBranchTab1({
         </label>
         <VariableSwitchPicker type="switch" value={switchId} onChange={setSwitchId} disabled={condType !== 0} style={{ flex: 1 }} />
         <span style={{ color: '#aaa', fontSize: 13 }}>(은)는</span>
-        <select value={switchValue} onChange={e => setSwitchValue(Number(e.target.value))}
-          disabled={condType !== 0} style={{ ...selectStyle, ...disabledOpacity(condType === 0) }}>
-          <option value={0}>ON</option>
-          <option value={1}>OFF</option>
-        </select>
+        <label style={{ ...radioStyle, ...disabledOpacity(condType === 0) }}>
+          <input type="radio" name="cb-switch-val" checked={switchValue === 0} onChange={() => setSwitchValue(0)} disabled={condType !== 0} />
+          ON
+        </label>
+        <label style={{ ...radioStyle, ...disabledOpacity(condType === 0) }}>
+          <input type="radio" name="cb-switch-val" checked={switchValue === 1} onChange={() => setSwitchValue(1)} disabled={condType !== 0} />
+          OFF
+        </label>
       </div>
 
       {/* 변수 */}
@@ -91,11 +94,14 @@ export function CondBranchTab1({
           {['A', 'B', 'C', 'D'].map(ch => <option key={ch} value={ch}>{ch}</option>)}
         </select>
         <span style={{ color: '#aaa', fontSize: 13 }}>(은)는</span>
-        <select value={selfSwitchValue} onChange={e => setSelfSwitchValue(Number(e.target.value))}
-          disabled={condType !== 2} style={{ ...selectStyle, ...disabledOpacity(condType === 2) }}>
-          <option value={0}>ON</option>
-          <option value={1}>OFF</option>
-        </select>
+        <label style={{ ...radioStyle, ...disabledOpacity(condType === 2) }}>
+          <input type="radio" name="cb-selfswitch-val" checked={selfSwitchValue === 0} onChange={() => setSelfSwitchValue(0)} disabled={condType !== 2} />
+          ON
+        </label>
+        <label style={{ ...radioStyle, ...disabledOpacity(condType === 2) }}>
+          <input type="radio" name="cb-selfswitch-val" checked={selfSwitchValue === 1} onChange={() => setSelfSwitchValue(1)} disabled={condType !== 2} />
+          OFF
+        </label>
       </div>
 
       {/* 타이머 */}
@@ -104,11 +110,14 @@ export function CondBranchTab1({
           <input type="radio" name="cb-type" checked={condType === 3} onChange={() => onCondTypeChange(3)} />
           타이머
         </label>
-        <select value={timerCompare} onChange={e => setTimerCompare(Number(e.target.value))}
-          disabled={condType !== 3} style={{ ...selectStyle, width: 60, ...disabledOpacity(condType === 3) }}>
-          <option value={0}>≥</option>
-          <option value={1}>≤</option>
-        </select>
+        <label style={{ ...radioStyle, ...disabledOpacity(condType === 3) }}>
+          <input type="radio" name="cb-timer-cmp" checked={timerCompare === 0} onChange={() => setTimerCompare(0)} disabled={condType !== 3} />
+          ≥
+        </label>
+        <label style={{ ...radioStyle, ...disabledOpacity(condType === 3) }}>
+          <input type="radio" name="cb-timer-cmp" checked={timerCompare === 1} onChange={() => setTimerCompare(1)} disabled={condType !== 3} />
+          ≤
+        </label>
         <input type="number" value={timerMin} onChange={e => setTimerMin(Math.max(0, Math.min(99, Number(e.target.value))))}
           min={0} max={99} disabled={condType !== 3} style={{ ...selectStyle, width: 60, ...disabledOpacity(condType === 3) }} />
         <span style={{ color: '#ddd' }}>분</span>

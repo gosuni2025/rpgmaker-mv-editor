@@ -198,15 +198,18 @@ export default function AddonCommandEditor({ def, initialSubCmd, initialParamVal
     }
 
     if (param.type === 'boolean') {
+      const boolVal = paramValues[i] ?? '1';
       return (
-        <select
-          className="addon-cmd-select"
-          value={paramValues[i] ?? '1'}
-          onChange={e => handleParamChange(i, e.target.value)}
-        >
-          <option value="1">ON</option>
-          <option value="0">OFF</option>
-        </select>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="radio" name={`addon-bool-${i}`} checked={boolVal === '1'} onChange={() => handleParamChange(i, '1')} />
+            ON
+          </label>
+          <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="radio" name={`addon-bool-${i}`} checked={boolVal === '0'} onChange={() => handleParamChange(i, '0')} />
+            OFF
+          </label>
+        </span>
       );
     }
 
