@@ -88,16 +88,14 @@ export default function SkyBackgroundPicker({ value, rotationSpeed, sunLights, o
 
   return (
     <div className="sky-picker">
-      <div className="audio-picker-preview" onClick={() => setOpen(true)}>
+      <button className="audio-picker-preview-btn" onClick={() => setOpen(true)}>
         {value ? (
-          <div className="sky-picker-thumb-inline">
-            <img src={`/api/resources/img_skybox/${value}`} alt={value} />
-            <span>{value.replace(/\.png$/i, '')}</span>
-          </div>
+          <span className="audio-picker-preview-name">{value.replace(/\.png$/i, '')}</span>
         ) : (
-          <span>(없음)</span>
+          <span className="audio-picker-preview-name">(없음)</span>
         )}
-      </div>
+        <span className="audio-picker-preview-dots">...</span>
+      </button>
       {open && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) handleCancel(); }}>
           <div className="sky-picker-dialog">

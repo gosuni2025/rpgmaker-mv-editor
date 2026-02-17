@@ -138,11 +138,11 @@ export default function MapInspector() {
               onBlur={handleRenameSave}
             />
           ) : (
-            <span
-              style={{ fontSize: 12, color: '#ddd', cursor: 'pointer', flex: 1 }}
-              onDoubleClick={() => { setNameValue(mapName); setEditingName(true); }}
-              title="더블클릭으로 이름 편집"
-            >{mapName}</span>
+            <button
+              className="inspector-clickable-label"
+              onClick={() => { setNameValue(mapName); setEditingName(true); }}
+              title="클릭하여 이름 편집"
+            >{mapName}</button>
           )}
         </div>
         <div className="light-inspector-row">

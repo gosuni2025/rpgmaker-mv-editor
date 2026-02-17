@@ -90,9 +90,10 @@ export default function BattlebackPicker({ value1, value2, onChange }: Battlebac
 
   return (
     <div className="battleback-picker">
-      <div className="audio-picker-preview" onClick={() => setOpen(true)}>
-        <span>{displayText}</span>
-      </div>
+      <button className="audio-picker-preview-btn" onClick={() => setOpen(true)}>
+        <span className="audio-picker-preview-name">{displayText}</span>
+        <span className="audio-picker-preview-dots">...</span>
+      </button>
       {open && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) handleCancel(); }}>
           <div className="battleback-picker-dialog">
