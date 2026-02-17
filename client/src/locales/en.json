@@ -74,7 +74,10 @@
     "openVscode": "Open in VSCode",
     "recentProjects": "Recent Projects",
     "noRecentProjects": "No recent projects",
-    "projectNotFound": "Project not found. Removing from list."
+    "projectNotFound": "Project not found. Removing from list.",
+    "help": "Help",
+    "homepage": "Homepage",
+    "reportIssue": "Report Issue..."
   },
   "options": {
     "title": "Editor Settings",
