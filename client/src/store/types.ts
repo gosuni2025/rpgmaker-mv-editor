@@ -166,6 +166,7 @@ export interface EditorState {
   eventPastePreviewPos: { x: number; y: number } | null;
 
   // Object editor
+  objectSubMode: 'select' | 'create';
   selectedObjectId: number | null;
   selectedObjectIds: number[];
   objectSelectionStart: { x: number; y: number } | null;
@@ -278,6 +279,7 @@ export interface EditorState {
   clearEventSelection: () => void;
 
   // Actions - Object
+  setObjectSubMode: (mode: 'select' | 'create') => void;
   setSelectedObjectId: (id: number | null) => void;
   setSelectedObjectIds: (ids: number[]) => void;
   setObjectSelectionStart: (pos: { x: number; y: number } | null) => void;

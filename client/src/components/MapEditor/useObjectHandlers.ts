@@ -31,6 +31,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
   const expandObjectTiles = useEditorStore((s) => s.expandObjectTiles);
   const shrinkObjectTiles = useEditorStore((s) => s.shrinkObjectTiles);
   const setObjectPaintTiles = useEditorStore((s) => s.setObjectPaintTiles);
+  const objectSubMode = useEditorStore((s) => s.objectSubMode);
 
   // Object paint state
   const isPaintingObject = useRef(false);
@@ -122,8 +123,10 @@ export function useObjectHandlers(): ObjectHandlersResult {
       }
     } else {
       const hadSelection = state.selectedObjectIds.length > 0;
-      if (e.shiftKey) {
-        // Shift+클릭: 영역 선택
+      const subMode = state.objectSubMode;
+
+      if (subMode === 'select' || e.shiftKey) {
+        // 선택 모드 또는 Shift+클릭: 영역 선택
         if (!(e.metaKey || e.ctrlKey)) {
           setSelectedObjectIds([]);
           setSelectedObjectId(null);
@@ -137,7 +140,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
         setObjectSelectionStart(tile);
         setObjectSelectionEnd(tile);
       } else {
-        // 빈 공간 클릭: 선택된 항목이 있었으면 선택 해제만
+        // 생성 모드 + 빈 공간 클릭: 선택된 항목이 있었으면 선택 해제만
         if (hadSelection) {
           setSelectedObjectIds([]);
           setSelectedObjectId(null);
@@ -153,7 +156,7 @@ export function useObjectHandlers(): ObjectHandlersResult {
       }
     }
     return true;
-  }, [currentMap, pasteObjects, setIsObjectPasting, setObjectPastePreviewPos, setSelectedObjectId, setSelectedObjectIds, setObjectSelectionStart, setObjectSelectionEnd, setObjectPaintTiles]);
+  }, [currentMap, objectSubMode, pasteObjects, setIsObjectPasting, setObjectPastePreviewPos, setSelectedObjectId, setSelectedObjectIds, setObjectSelectionStart, setObjectSelectionEnd, setObjectPaintTiles]);
 
   const handleObjectMouseMove = useCallback((tile: { x: number; y: number } | null): boolean => {
     // Object paint (Bresenham 보간으로 빈틈 없이 칠하기)
@@ -301,7 +304,11 @@ export function useObjectHandlers(): ObjectHandlersResult {
       objectSelDragStart.current = null;
 
       if (start && tile && start.x === tile.x && start.y === tile.y) {
-        addObject(tile.x, tile.y);
+        // 단일 클릭: select 모드에서는 선택 해제만, create 모드에서는 오브젝트 생성
+        const subMode = useEditorStore.getState().objectSubMode;
+        if (subMode === 'create') {
+          addObject(tile.x, tile.y);
+        }
         setObjectSelectionStart(null);
         setObjectSelectionEnd(null);
       } else if (start && tile && currentMap?.objects) {
