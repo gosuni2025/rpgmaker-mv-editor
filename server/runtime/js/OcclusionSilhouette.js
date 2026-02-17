@@ -53,7 +53,7 @@
  * @param Include Followers
  * @type boolean
  * @desc 파티원도 실루엣 대상에 포함
- * @default true
+ * @default false
  *
  * @help
  * 플레이어 캐릭터가 이미지 오브젝트(z=5) 뒤에 가려졌을 때,
