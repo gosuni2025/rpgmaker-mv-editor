@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import apiClient from '../../api/client';
 import useEscClose from '../../hooks/useEscClose';
 import './ImagePicker.css';
@@ -13,6 +13,55 @@ interface ImagePickerProps {
   onDirectionChange?: (direction: number) => void;
   pattern?: number;
   onPatternChange?: (pattern: number) => void;
+}
+
+interface FileInfo {
+  name: string;
+  size: number;
+  mtime: number;
+}
+
+type SortMode = 'name' | 'size' | 'mtime';
+
+// 한글 초성 추출 및 fuzzy 매칭
+const CHOSUNG = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+const CHOSUNG_BASE = 0xAC00;
+const CHOSUNG_PERIOD = 588; // 21 * 28
+
+function getChosung(ch: string): string {
+  const code = ch.charCodeAt(0);
+  if (code >= CHOSUNG_BASE && code <= 0xD7A3) {
+    return CHOSUNG[Math.floor((code - CHOSUNG_BASE) / CHOSUNG_PERIOD)];
+  }
+  return ch;
+}
+
+function isChosung(ch: string): boolean {
+  return CHOSUNG.includes(ch);
+}
+
+/** 초성 검색 포함 fuzzy 매칭. query의 각 문자가 target에 순서대로 나타나면 매칭 */
+function fuzzyMatch(target: string, query: string): boolean {
+  if (!query) return true;
+  const tLower = target.toLowerCase();
+  const qLower = query.toLowerCase();
+  let ti = 0;
+  for (let qi = 0; qi < qLower.length; qi++) {
+    const qch = qLower[qi];
+    let found = false;
+    while (ti < tLower.length) {
+      const tch = tLower[ti];
+      ti++;
+      if (isChosung(qch)) {
+        // 초성 문자면 target 글자의 초성과 비교
+        if (getChosung(tch) === qch) { found = true; break; }
+      } else {
+        if (tch === qch) { found = true; break; }
+      }
+    }
+    if (!found) return false;
+  }
+  return true;
 }
 
 // RPG Maker MV direction: 2=아래, 4=왼쪽, 6=오른쪽, 8=위
@@ -197,11 +246,14 @@ function getCellCount(type: string) {
 export default function ImagePicker({ type, value, onChange, index, onIndexChange, direction, onDirectionChange, pattern, onPatternChange }: ImagePickerProps) {
   const [open, setOpen] = useState(false);
   useEscClose(useCallback(() => { if (open) setOpen(false); }, [open]));
-  const [files, setFiles] = useState<string[]>([]);
+  const [files, setFiles] = useState<FileInfo[]>([]);
   const [selected, setSelected] = useState(value);
   const [selectedIndex, setSelectedIndex] = useState(index ?? 0);
   const [selectedDirection, setSelectedDirection] = useState(direction ?? 2);
   const [selectedPattern, setSelectedPattern] = useState(pattern ?? 1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortMode, setSortMode] = useState<SortMode>('name');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -209,8 +261,26 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     setSelectedIndex(index ?? 0);
     setSelectedDirection(direction ?? 2);
     setSelectedPattern(pattern ?? 1);
-    apiClient.get<string[]>(`/resources/${type}`).then(setFiles).catch(() => setFiles([]));
+    setSearchQuery('');
+    apiClient.get<FileInfo[]>(`/resources/${type}?detail=1`).then(setFiles).catch(() => setFiles([]));
+    // 검색 입력창에 포커스
+    setTimeout(() => searchInputRef.current?.focus(), 100);
   }, [open]);
+
+  const filteredAndSorted = useMemo(() => {
+    let result = files;
+    if (searchQuery) {
+      result = result.filter(f => fuzzyMatch(f.name, searchQuery));
+    }
+    result = [...result].sort((a, b) => {
+      switch (sortMode) {
+        case 'size': return b.size - a.size;
+        case 'mtime': return b.mtime - a.mtime;
+        case 'name': default: return a.name.localeCompare(b.name);
+      }
+    });
+    return result;
+  }, [files, searchQuery, sortMode]);
 
   const handleOk = () => {
     onChange(selected.replace(/\.png$/i, ''));
@@ -255,23 +325,51 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
         <div className="modal-overlay">
           <div className="image-picker-dialog">
             <div className="image-picker-header">Select {type}</div>
+            <div className="image-picker-toolbar">
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="image-picker-search"
+                placeholder="검색 (초성 지원: ㄱㄴㄷ)"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+              <select
+                className="image-picker-sort"
+                value={sortMode}
+                onChange={e => setSortMode(e.target.value as SortMode)}
+              >
+                <option value="name">이름순</option>
+                <option value="size">용량순</option>
+                <option value="mtime">최신순</option>
+              </select>
+            </div>
             <div className="image-picker-body">
               <div className="image-picker-list">
-                <div
-                  className={`image-picker-item${selected === '' ? ' selected' : ''}`}
-                  onClick={() => setSelected('')}
-                >
-                  (None)
-                </div>
-                {files.map(f => {
-                  const name = f.replace(/\.png$/i, '');
+                {!searchQuery && (
+                  <div
+                    className={`image-picker-item${selected === '' ? ' selected' : ''}`}
+                    onClick={() => setSelected('')}
+                  >
+                    (None)
+                  </div>
+                )}
+                {filteredAndSorted.map(f => {
+                  const name = f.name.replace(/\.png$/i, '');
+                  const sizeStr = f.size >= 1048576
+                    ? (f.size / 1048576).toFixed(1) + ' MB'
+                    : f.size >= 1024
+                    ? Math.round(f.size / 1024) + ' KB'
+                    : f.size + ' B';
                   return (
                     <div
-                      key={f}
+                      key={f.name}
                       className={`image-picker-item${selected === name ? ' selected' : ''}`}
                       onClick={() => setSelected(name)}
+                      title={`${name}\n${sizeStr}`}
                     >
-                      {name}
+                      <span className="image-picker-item-name">{name}</span>
+                      <span className="image-picker-item-size">{sizeStr}</span>
                     </div>
                   );
                 })}
