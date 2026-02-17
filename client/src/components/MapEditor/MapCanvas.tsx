@@ -17,6 +17,7 @@ import { useSelectionRectOverlay, usePastePreviewOverlay } from './useSelectionO
 import { useTileCursorPreview } from './useTileCursorPreview';
 import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview, useTestStartDragPreview } from './useDragPreviewSync';
 import TileInfoTooltip from './TileInfoTooltip';
+import Camera3DGizmo from './Camera3DGizmo';
 import './MapCanvas.css';
 
 /** 컨텍스트 메뉴가 화면 밖으로 벗어나지 않도록 위치를 보정하는 ref callback */
@@ -236,7 +237,9 @@ export default function MapCanvas() {
   }, [transparentColor, mapPxW, mapPxH]);
 
   return (
-    <div ref={containerRef} style={containerStyle}>
+    <div style={{ flex: 1, position: 'relative', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <Camera3DGizmo />
+      <div ref={containerRef} style={containerStyle}>
       <div style={{
         position: 'relative',
         transform: `scale(${zoomLevel})`,
@@ -535,6 +538,7 @@ export default function MapCanvas() {
           mouseY={mouseScreenPos.y}
         />
       )}
+      </div>
     </div>
   );
 }

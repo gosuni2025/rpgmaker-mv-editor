@@ -20,6 +20,7 @@ export function useKeyboardShortcuts(
 
   const zoomIn = useEditorStore((s) => s.zoomIn);
   const zoomOut = useEditorStore((s) => s.zoomOut);
+  const mode3d = useEditorStore((s) => s.mode3d);
   const editMode = useEditorStore((s) => s.editMode);
   const selectedEventId = useEditorStore((s) => s.selectedEventId);
   const selectedLightId = useEditorStore((s) => s.selectedLightId);
@@ -93,10 +94,17 @@ export function useKeyboardShortcuts(
     };
   }, []);
 
-  // Mouse wheel zoom & middle click panning
+  // 3D 카메라 조작 refs
+  const isRotating3D = useRef(false); // 중클릭 드래그: 카메라 회전
+  const isPanning3D = useRef(false);  // 우클릭 드래그: 카메라 이동
+  const cam3DStart = useRef({ x: 0, y: 0, tiltDeg: 0, yawDeg: 0, panX: 0, panY: 0 });
+
+  // Mouse wheel zoom & middle click panning / 3D camera controls
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    const Mode3D = (window as any).Mode3D;
+
     const handleWheel = (e: WheelEvent) => {
       // 모달 다이얼로그 위에서의 wheel 이벤트는 무시 (줌 방지)
       if ((e.target as HTMLElement).closest?.('.db-dialog-overlay')) return;
@@ -106,34 +114,116 @@ export function useKeyboardShortcuts(
     };
     el.addEventListener('wheel', handleWheel, { passive: false });
 
-    // 미들 클릭 패닝
-    const handlePanStart = (e: MouseEvent) => {
-      if (e.button !== 1) return;
-      e.preventDefault();
-      isPanning.current = true;
-      setPanning(true);
-      panStart.current = { x: e.clientX, y: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop };
+    const handleMouseDown = (e: MouseEvent) => {
+      const is3D = useEditorStore.getState().mode3d;
+
+      // 3D 모드: 중클릭 → 카메라 회전
+      if (e.button === 1 && is3D && Mode3D) {
+        e.preventDefault();
+        isRotating3D.current = true;
+        isPanning.current = true;
+        setPanning(true);
+        cam3DStart.current = {
+          x: e.clientX, y: e.clientY,
+          tiltDeg: Mode3D._tiltDeg, yawDeg: Mode3D._yawDeg,
+          panX: 0, panY: 0,
+        };
+        return;
+      }
+
+      // 3D 모드: 우클릭 → 카메라 이동
+      if (e.button === 2 && is3D && Mode3D) {
+        e.preventDefault();
+        isPanning3D.current = true;
+        isPanning.current = true;
+        setPanning(true);
+        cam3DStart.current = {
+          x: e.clientX, y: e.clientY,
+          tiltDeg: 0, yawDeg: 0,
+          panX: Mode3D._editorPanX || 0,
+          panY: Mode3D._editorPanY || 0,
+        };
+        return;
+      }
+
+      // 2D 모드: 미들 클릭 패닝
+      if (e.button === 1) {
+        e.preventDefault();
+        isPanning.current = true;
+        setPanning(true);
+        panStart.current = { x: e.clientX, y: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop };
+      }
     };
-    const handlePanMove = (e: MouseEvent) => {
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // 3D 카메라 회전 (중클릭 드래그)
+      if (isRotating3D.current && Mode3D) {
+        const dx = e.clientX - cam3DStart.current.x;
+        const dy = e.clientY - cam3DStart.current.y;
+        const sensitivity = 0.3;
+        Mode3D._yawDeg = cam3DStart.current.yawDeg + dx * sensitivity;
+        Mode3D._yawRad = Mode3D._yawDeg * Math.PI / 180;
+        Mode3D._tiltDeg = Math.max(5, Math.min(89, cam3DStart.current.tiltDeg - dy * sensitivity));
+        Mode3D._tiltRad = Mode3D._tiltDeg * Math.PI / 180;
+        return;
+      }
+
+      // 3D 카메라 이동 (우클릭 드래그)
+      if (isPanning3D.current && Mode3D) {
+        const dx = e.clientX - cam3DStart.current.x;
+        const dy = e.clientY - cam3DStart.current.y;
+        const panSpeed = 2.0;
+        const yawRad = (Mode3D._yawRad || 0);
+        // yaw 방향에 맞게 회전된 이동 벡터
+        const cosYaw = Math.cos(yawRad);
+        const sinYaw = Math.sin(yawRad);
+        Mode3D._editorPanX = cam3DStart.current.panX - (dx * cosYaw + dy * sinYaw) * panSpeed;
+        Mode3D._editorPanY = cam3DStart.current.panY - (-dx * sinYaw + dy * cosYaw) * panSpeed;
+        return;
+      }
+
+      // 2D 패닝
       if (!isPanning.current) return;
       el.scrollLeft = panStart.current.scrollLeft - (e.clientX - panStart.current.x);
       el.scrollTop = panStart.current.scrollTop - (e.clientY - panStart.current.y);
     };
-    const handlePanEnd = (e: MouseEvent) => {
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.button === 1 && isRotating3D.current) {
+        isRotating3D.current = false;
+        isPanning.current = false;
+        setPanning(false);
+        return;
+      }
+      if (e.button === 2 && isPanning3D.current) {
+        isPanning3D.current = false;
+        isPanning.current = false;
+        setPanning(false);
+        return;
+      }
       if (e.button !== 1 || !isPanning.current) return;
       isPanning.current = false;
       setPanning(false);
     };
 
-    el.addEventListener('mousedown', handlePanStart);
-    window.addEventListener('mousemove', handlePanMove);
-    window.addEventListener('mouseup', handlePanEnd);
+    // 3D 모드에서 우클릭 드래그 중 컨텍스트 메뉴 방지
+    const handleContextMenu = (e: MouseEvent) => {
+      if (isPanning3D.current || useEditorStore.getState().mode3d) {
+        e.preventDefault();
+      }
+    };
+
+    el.addEventListener('mousedown', handleMouseDown);
+    el.addEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
 
     return () => {
       el.removeEventListener('wheel', handleWheel);
-      el.removeEventListener('mousedown', handlePanStart);
-      window.removeEventListener('mousemove', handlePanMove);
-      window.removeEventListener('mouseup', handlePanEnd);
+      el.removeEventListener('mousedown', handleMouseDown);
+      el.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [zoomIn, zoomOut]);
 

@@ -1,0 +1,46 @@
+.camera-3d-gizmo-wrapper {
+  position: absolute;
+  top: 8px;
+  right: 24px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.camera-3d-gizmo-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: auto;
+}
+
+.camera-3d-gizmo-canvas {
+  cursor: grab;
+  border-radius: 50%;
+}
+
+.camera-3d-gizmo-canvas:active {
+  cursor: grabbing;
+}
+
+.camera-3d-reset-btn {
+  background: rgba(40, 40, 40, 0.7);
+  border: 1px solid rgba(100, 100, 100, 0.5);
+  color: #ccc;
+  font-size: 16px;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.camera-3d-reset-btn:hover {
+  background: rgba(60, 60, 60, 0.9);
+  color: #fff;
+  border-color: rgba(150, 150, 150, 0.7);
+}
