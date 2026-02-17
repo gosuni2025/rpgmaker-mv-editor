@@ -4,6 +4,7 @@
  * @author Claude
  *
  * @param Fill Color
+ * @type color
  * @desc 실루엣 내부 채움 색 (CSS hex)
  * @default #3366ff
  *
@@ -15,6 +16,7 @@
  * @default 0.35
  *
  * @param Outline Color
+ * @type color
  * @desc 외곽선 색 (CSS hex)
  * @default #ffffff
  *
