@@ -33,6 +33,8 @@ export default function useFileWatcher() {
           const msg = JSON.parse(event.data);
           if (msg.type === 'fileChanged') {
             handleFileChanged(msg.file);
+          } else if (msg.type === 'imageChanged') {
+            handleImageChanged(msg.file, msg.folder);
           }
         } catch {
           // ignore parse errors
@@ -63,6 +65,52 @@ export default function useFileWatcher() {
       }
     };
   }, []);
+}
+
+/**
+ * 이미지 파일이 외부에서 변경되었을 때 ImageManager 캐시를 무효화하고 재로드.
+ * @param basename 파일명 (확장자 제외, e.g. "Actor1")
+ * @param folder 하위 폴더명 (e.g. "pictures", "tilesets", "characters")
+ */
+function handleImageChanged(basename: string, folder: string) {
+  const IM = (window as any).ImageManager;
+  if (!IM || !IM._imageCache || !IM._imageCache._items) return;
+
+  const store = useEditorStore.getState();
+  const { showToast } = store;
+
+  // ImageManager 캐시 키 형식: "img/pictures/Actor1.png:0"
+  // folder가 있으면 "img/{folder}/{basename}.png"로 매칭, 없으면 basename으로 검색
+  const searchPath = folder ? `img/${folder}/${encodeURIComponent(basename)}.png` : basename;
+  const items = IM._imageCache._items;
+  const keysToReload: string[] = [];
+
+  for (const key of Object.keys(items)) {
+    // 키 형식: "path:hue"
+    if (key.includes(searchPath)) {
+      keysToReload.push(key);
+    }
+  }
+
+  if (keysToReload.length > 0) {
+    // 캐시에서 삭제 후 재로드
+    for (const key of keysToReload) {
+      delete items[key];
+    }
+
+    // 같은 경로의 이미지를 다시 로드하면 ImageManager가 캐시 미스로 새로 fetch
+    // Spriteset이 다음 프레임에서 자연스럽게 갱신된 이미지를 사용
+    console.log(`[FileWatcher] 이미지 캐시 갱신: ${searchPath} (${keysToReload.length}개 엔트리)`);
+    showToast(`이미지 갱신됨: ${folder}/${basename}`, true);
+
+    // 렌더링 갱신을 위해 커스텀 이벤트 발행
+    window.dispatchEvent(new CustomEvent('imageChanged', { detail: { file: basename, folder } }));
+  } else {
+    // 캐시에 없는 이미지라도 토스트로 알려줌
+    console.log(`[FileWatcher] 이미지 변경 감지 (캐시 미사용): ${searchPath}`);
+    showToast(`이미지 갱신됨: ${folder}/${basename}`, true);
+    window.dispatchEvent(new CustomEvent('imageChanged', { detail: { file: basename, folder } }));
+  }
 }
 
 async function handleFileChanged(filename: string) {
