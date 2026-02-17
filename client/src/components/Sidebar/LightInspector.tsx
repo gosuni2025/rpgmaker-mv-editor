@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
+import ExtBadge from '../common/ExtBadge';
 import { DEFAULT_EDITOR_LIGHTS } from '../../types/rpgMakerMV';
 import './InspectorPanel.css';
 
@@ -63,8 +64,13 @@ export default function LightInspector() {
       {selectedLightType === 'ambient' && (
         <div className="light-inspector-section">
           <div className="light-inspector-title">
-            환경광
+            환경광 <ExtBadge inline />
             <HelpButton text={"글로벌 환경광 설정입니다.\n맵 전체에 기본 적용되며,\n카메라 존에 환경광이 설정된 경우\n해당 존 내에서는 존의 값이 우선 적용됩니다."} />
+          </div>
+          <div className="light-inspector-row">
+            <span className="light-inspector-label">적용</span>
+            <input type="checkbox" checked={editorLights.ambient.enabled !== false}
+              onChange={(e) => updateAmbientLight({ enabled: e.target.checked })} />
           </div>
           <div className="light-inspector-row">
             <span className="light-inspector-label">색상</span>
@@ -73,6 +79,7 @@ export default function LightInspector() {
               className="light-inspector-color"
               value={editorLights.ambient.color}
               onChange={(e) => updateAmbientLight({ color: e.target.value })}
+              disabled={editorLights.ambient.enabled === false}
             />
           </div>
           <div className="light-inspector-row">
@@ -80,10 +87,12 @@ export default function LightInspector() {
               onChange={(v) => updateAmbientLight({ intensity: v })} />
             <input type="range" className="light-inspector-slider" min={0} max={3} step={0.05}
               value={editorLights.ambient.intensity}
-              onChange={(e) => updateAmbientLight({ intensity: parseFloat(e.target.value) })} />
+              onChange={(e) => updateAmbientLight({ intensity: parseFloat(e.target.value) })}
+              disabled={editorLights.ambient.enabled === false} />
             <input type="number" className="light-inspector-input" step={0.05}
               value={editorLights.ambient.intensity}
-              onChange={(e) => updateAmbientLight({ intensity: parseFloat(e.target.value) || 0 })} />
+              onChange={(e) => updateAmbientLight({ intensity: parseFloat(e.target.value) || 0 })}
+              disabled={editorLights.ambient.enabled === false} />
           </div>
         </div>
       )}
@@ -92,7 +101,7 @@ export default function LightInspector() {
       {selectedLightType === 'directional' && (
         <>
           <div className="light-inspector-section">
-            <div className="light-inspector-title">광원 방향</div>
+            <div className="light-inspector-title">광원 방향 <ExtBadge inline /></div>
             <div className="light-inspector-row">
               <span className="light-inspector-label">적용</span>
               <input type="checkbox" checked={dir.enabled === true}
@@ -204,7 +213,7 @@ export default function LightInspector() {
           {/* Map Settings (Player Light + Spot Light) - hidden when a point light is selected */}
           {!selectedPoint && (
             <div className="light-inspector-group">
-              <div className="light-inspector-group-title">맵 설정</div>
+              <div className="light-inspector-group-title">맵 설정 <ExtBadge inline /></div>
 
               {/* Player Light */}
               <div className="light-inspector-section">

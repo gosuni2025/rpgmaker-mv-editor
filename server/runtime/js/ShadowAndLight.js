@@ -1231,12 +1231,13 @@ ShadowLight._addLightsToScene = function(scene) {
     var useElAmbient = el && !ambientOverride;
     var ambColor = useElAmbient ? parseInt(el.ambient.color.replace('#', ''), 16) : this.config.ambientColor;
     var ambIntensity = useElAmbient ? el.ambient.intensity : this.config.ambientIntensity;
+    var ambEnabled = useElAmbient ? (el.ambient.enabled !== false) : true;
     // config에 동기화 (디버그 패널 초기값과 일치시킴)
     if (useElAmbient) {
         this.config.ambientColor = ambColor;
         this.config.ambientIntensity = ambIntensity;
     }
-    this._ambientLight = new THREE.AmbientLight(ambColor, ambIntensity);
+    this._ambientLight = new THREE.AmbientLight(ambColor, ambEnabled ? ambIntensity : 0);
     scene.add(this._ambientLight);
 
     // DirectionalLight - 태양/달빛 (그림자 방향 결정)
@@ -1407,7 +1408,9 @@ ShadowLight._updateCameraZoneAmbient = function() {
     // 맵 데이터 기반: editorLights에서 글로벌 ambient 값 가져오기
     var el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
     var baseIntensity, baseColor;
+    var ambEnabled = true;
     if (el && el.ambient) {
+        ambEnabled = el.ambient.enabled !== false;
         baseIntensity = el.ambient.intensity;
         baseColor = parseInt(el.ambient.color.replace('#', ''), 16);
     } else {
@@ -1416,7 +1419,7 @@ ShadowLight._updateCameraZoneAmbient = function() {
     }
 
     // 타겟 값 결정: 활성 카메라존 → 맵 editorLights 글로벌
-    var targetIntensity = baseIntensity;
+    var targetIntensity = ambEnabled ? baseIntensity : 0;
     var targetR = ((baseColor >> 16) & 0xFF) / 255;
     var targetG = ((baseColor >> 8) & 0xFF) / 255;
     var targetB = (baseColor & 0xFF) / 255;

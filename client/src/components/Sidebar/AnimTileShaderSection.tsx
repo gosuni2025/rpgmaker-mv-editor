@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { AnimTileShaderSettings } from '../../types/rpgMakerMV';
 import { DEFAULT_WATER_SETTINGS, DEFAULT_WATERFALL_SETTINGS } from '../../types/rpgMakerMV';
+import ExtBadge from '../common/ExtBadge';
 import { getA1KindName, getA1KindType, getUsedA1Kinds } from '../../utils/tileHelper';
 
 function getDefaultForKind(kind: number): AnimTileShaderSettings {
@@ -96,10 +97,9 @@ function useA1KindNames(tilesetNames?: string[]): { names: string[][] | null; la
   return { names, langCount };
 }
 
-export function AnimTileShaderSection({ currentMap, updateMapField, ExtBadge }: {
+export function AnimTileShaderSection({ currentMap, updateMapField }: {
   currentMap: any;
   updateMapField: (field: string, value: unknown) => void;
-  ExtBadge: React.ComponentType<{ inline?: boolean }>;
 }) {
   const [expandedKinds, setExpandedKinds] = useState<Set<number>>(new Set());
   const [langIndex, setLangIndex] = useState(0);
