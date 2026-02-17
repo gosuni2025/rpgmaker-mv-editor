@@ -33,6 +33,12 @@ jobs:
         with:
           node-version: 20
 
+      - name: Set version from tag
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          npm version $VERSION --no-git-tag-version
+        shell: bash
+
       - name: Install root dependencies
         run: npm ci
 
