@@ -44,6 +44,18 @@ router.get('/:type', (req: Request<{ type: string }>, res: Response) => {
       return res.status(404).json({ error: 'Resource directory not found' });
     }
     const files = fs.readdirSync(dirPath).filter(f => !f.startsWith('.'));
+    // detail=1 파라미터가 있으면 파일 메타데이터 포함
+    if (req.query.detail === '1') {
+      const detailed = files.map(f => {
+        try {
+          const stat = fs.statSync(path.join(dirPath, f));
+          return { name: f, size: stat.size, mtime: stat.mtimeMs };
+        } catch {
+          return { name: f, size: 0, mtime: 0 };
+        }
+      });
+      return res.json(detailed);
+    }
     res.json(files);
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
