@@ -1,0 +1,89 @@
+/* Object List Panel (left sidebar) */
+.object-list-panel {
+  padding: 8px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.object-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.object-list-item {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  background: #3a3a3a;
+  transition: background 0.1s;
+  gap: 6px;
+}
+
+.object-list-item:hover {
+  background: #444;
+}
+
+.object-list-item.selected {
+  background: #2675bf;
+}
+
+.object-list-item.hidden-obj .object-list-item-name {
+  color: #666;
+}
+
+.object-list-item-icon {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.object-list-item-name {
+  flex: 1;
+  font-size: 12px;
+  color: #ccc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.object-list-item.selected .object-list-item-name {
+  color: #fff;
+}
+
+.object-list-item-info {
+  font-size: 11px;
+  color: #888;
+  flex-shrink: 0;
+  margin-left: 4px;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.object-list-item.selected .object-list-item-info {
+  color: #cde;
+}
+
+.object-list-empty {
+  color: #666;
+  font-size: 12px;
+  padding: 12px 8px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.object-list-actions {
+  margin-top: 8px;
+  padding: 0 2px;
+}
+
+.object-list-deselect {
+  float: right;
+  cursor: pointer;
+  color: #8cf;
+  font-weight: normal;
+  font-size: 10px;
+}

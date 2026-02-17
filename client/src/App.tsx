@@ -31,6 +31,7 @@ import LightInspector from './components/Sidebar/LightInspector';
 import ObjectInspector from './components/Sidebar/ObjectInspector';
 import CameraZoneInspector from './components/Sidebar/CameraZoneInspector';
 import CameraZoneListPanel from './components/Sidebar/CameraZoneListPanel';
+import ObjectListPanel from './components/Sidebar/ObjectListPanel';
 import MapInspector from './components/Sidebar/MapInspector';
 import EventInspector from './components/Sidebar/EventInspector';
 import useFileWatcher from './hooks/useFileWatcher';
@@ -63,22 +64,33 @@ function SidebarSplit({ editMode }: { editMode: string }) {
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
-  const showTileset = editMode === 'map' || editMode === 'object' || editMode === 'light';
+  const showTileset = editMode === 'map' || editMode === 'light';
   const showCameraZoneList = editMode === 'cameraZone';
-  const showTopPanel = showTileset || showCameraZoneList;
+  const showObjectList = editMode === 'object';
+  const showTopPanel = showTileset || showCameraZoneList || showObjectList;
+
+  const topContent = showCameraZoneList
+    ? <CameraZoneListPanel />
+    : showObjectList
+    ? <ObjectListPanel />
+    : <TilesetPalette />;
+
+  const bottomContent = showObjectList
+    ? <TilesetPalette />
+    : <MapTree />;
 
   return (
     <div className="sidebar-split" ref={containerRef}>
       {showTopPanel && (
         <div className="sidebar-top" style={{ flex: `0 0 ${splitRatio * 100}%` }}>
-          {showCameraZoneList ? <CameraZoneListPanel /> : <TilesetPalette />}
+          {topContent}
         </div>
       )}
       {showTopPanel && (
         <div className="sidebar-split-handle" onMouseDown={handleMouseDown} />
       )}
       <div className="sidebar-bottom" style={showTopPanel ? { flex: `0 0 ${(1 - splitRatio) * 100}%` } : { flex: 1 }}>
-        <MapTree />
+        {bottomContent}
       </div>
     </div>
   );
