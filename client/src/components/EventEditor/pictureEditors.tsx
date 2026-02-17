@@ -228,13 +228,17 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
       <div style={{ display: 'flex', gap: 8 }}>
         <Fieldset legend="위치" style={{ flex: 1 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={labelStyle}>
-              원점:
-              <select value={origin} onChange={e => setOrigin(Number(e.target.value))} style={{ ...selectStyle, marginLeft: 4 }}>
-                <option value={0}>왼쪽 위</option>
-                <option value={1}>중앙</option>
-              </select>
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={labelStyle}>원점:</span>
+              <label style={radioStyle}>
+                <input type="radio" name="show-pic-origin" checked={origin === 0} onChange={() => setOrigin(0)} />
+                왼쪽 위
+              </label>
+              <label style={radioStyle}>
+                <input type="radio" name="show-pic-origin" checked={origin === 1} onChange={() => setOrigin(1)} />
+                중앙
+              </label>
+            </div>
 
             <label style={radioStyle}>
               <input type="radio" name="picture-pos-type" checked={positionType === 0} onChange={() => setPositionType(0)} />
@@ -330,13 +334,17 @@ export function MovePictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
       <div style={{ display: 'flex', gap: 8 }}>
         <Fieldset legend="위치" style={{ flex: 1 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={labelStyle}>
-              원점:
-              <select value={origin} onChange={e => setOrigin(Number(e.target.value))} style={{ ...selectStyle, marginLeft: 4 }}>
-                <option value={0}>왼쪽 위</option>
-                <option value={1}>중앙</option>
-              </select>
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={labelStyle}>원점:</span>
+              <label style={radioStyle}>
+                <input type="radio" name="move-pic-origin" checked={origin === 0} onChange={() => setOrigin(0)} />
+                왼쪽 위
+              </label>
+              <label style={radioStyle}>
+                <input type="radio" name="move-pic-origin" checked={origin === 1} onChange={() => setOrigin(1)} />
+                중앙
+              </label>
+            </div>
 
             <label style={radioStyle}>
               <input type="radio" name="movepic-pos-type" checked={positionType === 0} onChange={() => setPositionType(0)} />
