@@ -4,5 +4,5 @@ PluginManager._parameters['SkyBox'] = { 'Skybox Folder': 'skybox', 'Panorama Fil
 PluginManager._parameters['OcclusionSilhouette'] = {
     'Fill Color': '#3366ff', 'Fill Opacity': '0.35',
     'Outline Color': '#ffffff', 'Outline Opacity': '0.8', 'Outline Width': '2',
-    'Pattern': 'solid', 'Pattern Scale': '8', 'Include Followers': 'true'
+    'Pattern': 'solid', 'Pattern Scale': '8', 'Include Followers': 'false'
 };
