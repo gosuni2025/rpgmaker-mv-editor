@@ -53,9 +53,17 @@ export default function CameraZoneInspector() {
   if (!selectedZone) {
     return (
       <div className="light-inspector">
-        <div className="light-inspector-section">
-          <div style={{ color: '#888', fontSize: 12, padding: 8 }}>
-            왼쪽 목록에서 카메라 영역을 선택하세요
+        <div style={{ color: '#666', fontSize: 12, padding: 8 }}>
+          <span style={{ color: '#4a4' }}>맵에서 카메라 영역을 선택하세요.</span>
+          <div style={{ color: '#aaa', marginTop: 8, lineHeight: 1.6 }}>
+            카메라 영역은 3D 모드에서 카메라의 행동을 제어하는 직사각형 구역입니다.
+            플레이어가 해당 구역에 진입하면 지정된 카메라 설정이 적용됩니다.
+            <br /><br />
+            영역별로 카메라 각도, 높이, 거리, FOV를 개별 설정하여
+            실내/실외, 던전, 컷신 등 장면에 맞는 시점 연출이 가능합니다.
+            환경광과 안개 등 렌더링 설정도 영역별로 오버라이드할 수 있습니다.
+            <br /><br />
+            빈 영역을 드래그하여 새 카메라 영역을 생성합니다.
           </div>
         </div>
       </div>

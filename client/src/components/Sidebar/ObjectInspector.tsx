@@ -110,7 +110,20 @@ export default function ObjectInspector() {
   if (!selectedObj) {
     return (
       <div className="light-inspector">
-        <div style={{ color: '#666', fontSize: 12, padding: 8 }}>오브젝트를 선택하세요</div>
+        <div style={{ color: '#666', fontSize: 12, padding: 8 }}>
+          <span style={{ color: '#4a4' }}>맵에서 오브젝트를 선택하세요.</span>
+          <div style={{ color: '#aaa', marginTop: 8, lineHeight: 1.6 }}>
+            오브젝트는 맵 위에 배치하는 3D 렌더링 요소입니다.
+            런타임에서 타일맵과 별도로 관리되어, 높이(Z)와 회전 등
+            3D 변환이 적용된 상태로 렌더링됩니다.
+            <br /><br />
+            <b>타일 오브젝트</b> — 타일셋에서 선택한 타일을 오브젝트로 배치합니다.
+            <br />
+            <b>외곽선 오브젝트</b> — 맵에서 타일 영역을 칠하여 오브젝트 범위를 지정합니다.
+            <br />
+            <b>이미지 오브젝트</b> — 이미지 파일을 직접 삽입하여 오브젝트로 사용합니다.
+          </div>
+        </div>
         <div style={{ padding: '0 8px' }}>
           <button
             className="camera-zone-action-btn"
