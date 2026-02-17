@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>OcclusionSilhouette - 독립 테스트</title>
+<style>
+body { margin: 0; background: #111; overflow: hidden; }
+canvas { display: block; }
+#controls {
+    position: fixed; top: 10px; right: 10px; width: 280px;
+    background: rgba(0,0,0,0.85); color: #ddd; padding: 12px;
+    border-radius: 6px; font: 12px monospace; z-index: 100;
+    max-height: 90vh; overflow-y: auto;
+}
+#controls h3 { margin: 0 0 8px; color: #6af; font-size: 14px; }
+#controls label { display: flex; justify-content: space-between; align-items: center; margin: 3px 0; }
+#controls input[type=range] { width: 120px; }
+#controls select { background: #333; color: #ddd; border: 1px solid #555; padding: 2px; }
+#controls input[type=color] { width: 40px; height: 20px; border: none; cursor: pointer; }
+.section { margin-top: 10px; padding-top: 6px; border-top: 1px solid #444; }
+.section-title { color: #fa0; font-weight: bold; margin-bottom: 4px; }
+#info { position: fixed; bottom: 10px; left: 10px; color: #888; font: 11px monospace; }
+#debug-view { position: fixed; bottom: 10px; right: 10px; display: flex; gap: 4px; }
+#debug-view canvas { border: 1px solid #444; }
+</style>
+</head>
+<body>
+<div id="controls">
+    <h3>OcclusionSilhouette 테스트</h3>
+    <div>
+        <label>Fill Color <input type="color" id="fillColor" value="#3366ff"></label>
+        <label>Fill Opacity <input type="range" id="fillOpacity" min="0" max="1" step="0.05" value="0.35"> <span id="fillOpacityVal">0.35</span></label>
+        <label>Outline Color <input type="color" id="outlineColor" value="#ffffff"></label>
+        <label>Outline Opacity <input type="range" id="outlineOpacity" min="0" max="1" step="0.05" value="0.8"> <span id="outlineOpacityVal">0.8</span></label>
+        <label>Outline Width <input type="range" id="outlineWidth" min="0" max="10" step="0.5" value="2"> <span id="outlineWidthVal">2</span></label>
+    </div>
+    <div class="section">
+        <div class="section-title">패턴</div>
+        <label>Pattern <select id="pattern">
+            <option value="0">solid</option>
+            <option value="1">empty</option>
+            <option value="2">dot</option>
+            <option value="3">diagonal</option>
+            <option value="4">cross</option>
+            <option value="5">hatch</option>
+        </select></label>
+        <label>Pattern Scale <input type="range" id="patternScale" min="2" max="32" step="1" value="8"> <span id="patternScaleVal">8</span></label>
+    </div>
+    <div class="section">
+        <div class="section-title">씬 컨트롤</div>
+        <label>Char Opacity <input type="range" id="charOpacity" min="0" max="1" step="0.05" value="1"> <span id="charOpacityVal">1</span></label>
+        <label>Obj Opacity <input type="range" id="objOpacity" min="0" max="1" step="0.05" value="0.8"> <span id="objOpacityVal">0.8</span></label>
+        <label>Obj Scale <input type="range" id="objScale" min="0.5" max="5" step="0.1" value="2"> <span id="objScaleVal">2</span></label>
+        <label><input type="checkbox" id="showDebug" checked> 디버그 마스크 표시</label>
+        <label><input type="checkbox" id="enableSilhouette" checked> 실루엣 효과 ON</label>
+    </div>
+</div>
+<div id="info">마우스로 캐릭터(파란 원) 이동 | 오브젝트(빨간 사각형) 뒤로 가리면 실루엣 확인</div>
+<div id="debug-view"></div>
+
+<script src="/runtime/libs/three.global.min.js"></script>
+<script>
+(function() {
+    'use strict';
+
+    // ── 렌더러 / 씬 / 카메라 ──
+    var W = window.innerWidth, H = window.innerHeight;
+    var renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.autoClear = false;
+    document.body.appendChild(renderer.domElement);
+
+    var scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x224433);
+
+    // 정사영 카메라 (RPG Maker MV 스타일)
+    var aspect = W / H;
+    var camH = 600;
+    var camera = new THREE.OrthographicCamera(
+        -camH * aspect / 2, camH * aspect / 2,
+        camH / 2, -camH / 2, -1000, 1000
+    );
+    camera.position.z = 10;
+
+    // ── 배경: 체커보드 그리드 ──
+    (function() {
+        var gridSize = 48;
+        var cols = Math.ceil(camH * aspect / gridSize) + 2;
+        var rows = Math.ceil(camH / gridSize) + 2;
+        var canvas = document.createElement('canvas');
+        canvas.width = cols * gridSize;
+        canvas.height = rows * gridSize;
+        var ctx = canvas.getContext('2d');
+        for (var y = 0; y < rows; y++) {
+            for (var x = 0; x < cols; x++) {
+                ctx.fillStyle = (x + y) % 2 === 0 ? '#2a3a2a' : '#1e2e1e';
+                ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
+            }
+        }
+        var tex = new THREE.CanvasTexture(canvas);
+        var bgMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(canvas.width, canvas.height),
+            new THREE.MeshBasicMaterial({ map: tex })
+        );
+        bgMesh.renderOrder = 0;
+        bgMesh.position.z = -5;
+        scene.add(bgMesh);
+    })();
+
+    // ── 캐릭터 (파란 원) ──
+    var charGroup = new THREE.Group();
+    (function() {
+        var canvas = document.createElement('canvas');
+        canvas.width = 64; canvas.height = 96;
+        var ctx = canvas.getContext('2d');
+        // 몸통
+        ctx.fillStyle = '#4488ff';
+        ctx.beginPath();
+        ctx.ellipse(32, 55, 20, 30, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 머리
+        ctx.fillStyle = '#66aaff';
+        ctx.beginPath();
+        ctx.arc(32, 20, 16, 0, Math.PI * 2);
+        ctx.fill();
+        // 눈
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(26, 18, 4, 0, Math.PI * 2);
+        ctx.arc(38, 18, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.arc(27, 18, 2, 0, Math.PI * 2);
+        ctx.arc(39, 18, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        var tex = new THREE.CanvasTexture(canvas);
+        var mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+        var mesh = new THREE.Mesh(new THREE.PlaneGeometry(64, 96), mat);
+        mesh.renderOrder = 2;
+        charGroup.add(mesh);
+        charGroup._mainMesh = mesh;
+        charGroup._material = mat;
+    })();
+    charGroup.position.set(-100, 0, 0);
+    scene.add(charGroup);
+
+    // ── 오브젝트 (큰 빨간 사각형 - 건물 이미지 오브젝트 시뮬레이션) ──
+    var objGroup = new THREE.Group();
+    (function() {
+        var canvas = document.createElement('canvas');
+        canvas.width = 192; canvas.height = 192;
+        var ctx = canvas.getContext('2d');
+        // 건물 베이스
+        ctx.fillStyle = '#884422';
+        ctx.fillRect(10, 40, 172, 142);
+        // 지붕
+        ctx.fillStyle = '#aa3322';
+        ctx.beginPath();
+        ctx.moveTo(0, 50); ctx.lineTo(96, 0); ctx.lineTo(192, 50);
+        ctx.closePath();
+        ctx.fill();
+        // 문
+        ctx.fillStyle = '#553311';
+        ctx.fillRect(76, 120, 40, 62);
+        // 창문
+        ctx.fillStyle = '#aaccff';
+        ctx.fillRect(26, 70, 36, 30);
+        ctx.fillRect(130, 70, 36, 30);
+        // 창문 십자
+        ctx.strokeStyle = '#553311';
+        ctx.lineWidth = 2;
+        [26, 130].forEach(function(sx) {
+            ctx.beginPath(); ctx.moveTo(sx + 18, 70); ctx.lineTo(sx + 18, 100); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(sx, 85); ctx.lineTo(sx + 36, 85); ctx.stroke();
+        });
+
+        var tex = new THREE.CanvasTexture(canvas);
+        var mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.8 });
+        var mesh = new THREE.Mesh(new THREE.PlaneGeometry(192, 192), mat);
+        mesh.renderOrder = 5;  // z=5 (upper 타일 위)
+        objGroup.add(mesh);
+        objGroup._mainMesh = mesh;
+        objGroup._material = mat;
+    })();
+    objGroup.position.set(50, 0, 0);
+    scene.add(objGroup);
+
+    // 두 번째 오브젝트 (나무)
+    var objGroup2 = new THREE.Group();
+    (function() {
+        var canvas = document.createElement('canvas');
+        canvas.width = 96; canvas.height = 144;
+        var ctx = canvas.getContext('2d');
+        // 줄기
+        ctx.fillStyle = '#664422';
+        ctx.fillRect(38, 80, 20, 64);
+        // 잎
+        ctx.fillStyle = '#228844';
+        ctx.beginPath();
+        ctx.arc(48, 50, 40, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#33aa55';
+        ctx.beginPath();
+        ctx.arc(48, 40, 30, 0, Math.PI * 2);
+        ctx.fill();
+
+        var tex = new THREE.CanvasTexture(canvas);
+        var mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.8 });
+        var mesh = new THREE.Mesh(new THREE.PlaneGeometry(96, 144), mat);
+        mesh.renderOrder = 5;
+        objGroup2.add(mesh);
+        objGroup2._mainMesh = mesh;
+        objGroup2._material = mat;
+    })();
+    objGroup2.position.set(-150, -80, 0);
+    scene.add(objGroup2);
+
+    // ── RenderTargets ──
+    var pr = renderer.getPixelRatio();
+    var rtW = Math.floor(W * pr);
+    var rtH = Math.floor(H * pr);
+    var rtParams = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat };
+    var charMaskRT = new THREE.WebGLRenderTarget(rtW, rtH, rtParams);
+    var objMaskRT = new THREE.WebGLRenderTarget(rtW, rtH, rtParams);
+    var sceneRT = new THREE.WebGLRenderTarget(rtW, rtH, rtParams);
+
+    // ── 실루엣 합성 셰이더 ──
+    var SilhouetteShader = {
+        uniforms: {
+            tColor:         { value: null },
+            tCharMask:      { value: null },
+            tObjMask:       { value: null },
+            uFillColor:     { value: new THREE.Vector3(0.2, 0.4, 1.0) },
+            uFillOpacity:   { value: 0.35 },
+            uOutlineColor:  { value: new THREE.Vector3(1.0, 1.0, 1.0) },
+            uOutlineOpacity:{ value: 0.8 },
+            uOutlineWidth:  { value: 2.0 },
+            uPattern:       { value: 0 },
+            uPatternScale:  { value: 8.0 },
+            uResolution:    { value: new THREE.Vector2(rtW, rtH) }
+        },
+        vertexShader: [
+            'varying vec2 vUv;',
+            'void main() {',
+            '    vUv = uv;',
+            '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+            '}'
+        ].join('\n'),
+        fragmentShader: [
+            'uniform sampler2D tColor;',
+            'uniform sampler2D tCharMask;',
+            'uniform sampler2D tObjMask;',
+            'uniform vec3 uFillColor;',
+            'uniform float uFillOpacity;',
+            'uniform vec3 uOutlineColor;',
+            'uniform float uOutlineOpacity;',
+            'uniform float uOutlineWidth;',
+            'uniform int uPattern;',
+            'uniform float uPatternScale;',
+            'uniform vec2 uResolution;',
+            'varying vec2 vUv;',
+            '',
+            'float getOccluded(vec2 uv) {',
+            '    float charA = texture2D(tCharMask, uv).a;',
+            '    float objA = texture2D(tObjMask, uv).a;',
+            '    return step(0.01, charA) * step(0.01, objA);',
+            '}',
+            '',
+            'float getPattern(vec2 screenPos) {',
+            '    float scale = uPatternScale;',
+            '    if (uPattern == 0) return 1.0;',
+            '    if (uPattern == 1) return 0.0;',
+            '    if (uPattern == 2) {',
+            '        vec2 cell = mod(screenPos, vec2(scale));',
+            '        float d = length(cell - vec2(scale * 0.5));',
+            '        return smoothstep(scale * 0.3, scale * 0.25, d);',
+            '    }',
+            '    if (uPattern == 3) {',
+            '        float d = mod(screenPos.x + screenPos.y, scale);',
+            '        return smoothstep(scale * 0.4, scale * 0.35, d);',
+            '    }',
+            '    if (uPattern == 4) {',
+            '        float d1 = mod(screenPos.x + screenPos.y, scale);',
+            '        float d2 = mod(screenPos.x - screenPos.y, scale);',
+            '        float p1 = smoothstep(scale * 0.4, scale * 0.35, d1);',
+            '        float p2 = smoothstep(scale * 0.4, scale * 0.35, d2);',
+            '        return max(p1, p2);',
+            '    }',
+            '    if (uPattern == 5) {',
+            '        float dx = mod(screenPos.x, scale);',
+            '        float dy = mod(screenPos.y, scale);',
+            '        float p1 = smoothstep(scale * 0.4, scale * 0.35, dx);',
+            '        float p2 = smoothstep(scale * 0.4, scale * 0.35, dy);',
+            '        return max(p1, p2);',
+            '    }',
+            '    return 1.0;',
+            '}',
+            '',
+            'float edgeDetect(vec2 uv) {',
+            '    vec2 texelSize = 1.0 / uResolution;',
+            '    float width = uOutlineWidth;',
+            '    float center = getOccluded(uv);',
+            '    float maxN = 0.0;',
+            '    for (int dx = -1; dx <= 1; dx++) {',
+            '        for (int dy = -1; dy <= 1; dy++) {',
+            '            if (dx == 0 && dy == 0) continue;',
+            '            vec2 offset = vec2(float(dx), float(dy)) * texelSize * width;',
+            '            maxN = max(maxN, getOccluded(uv + offset));',
+            '        }',
+            '    }',
+            '    return maxN * (1.0 - center);',
+            '}',
+            '',
+            'void main() {',
+            '    vec4 original = texture2D(tColor, vUv);',
+            '    float occluded = getOccluded(vUv);',
+            '    float edge = edgeDetect(vUv);',
+            '    vec2 screenPos = vUv * uResolution;',
+            '    float pat = getPattern(screenPos);',
+            '    float fillMask = occluded * pat * uFillOpacity;',
+            '    vec3 col = mix(original.rgb, uFillColor, fillMask);',
+            '    col = mix(col, uOutlineColor, edge * uOutlineOpacity);',
+            '    gl_FragColor = vec4(col, original.a);',
+            '}'
+        ].join('\n')
+    };
+
+    // 풀스크린 쿼드
+    var quadScene = new THREE.Scene();
+    var quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    var quadMat = new THREE.ShaderMaterial({
+        uniforms: THREE.UniformsUtils.clone(SilhouetteShader.uniforms),
+        vertexShader: SilhouetteShader.vertexShader,
+        fragmentShader: SilhouetteShader.fragmentShader
+    });
+    var quadMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), quadMat);
+    quadScene.add(quadMesh);
+
+    // 디버그 뷰: charMask, objMask 미리보기
+    var debugCharCanvas = document.createElement('canvas');
+    debugCharCanvas.width = 160; debugCharCanvas.height = 120;
+    var debugObjCanvas = document.createElement('canvas');
+    debugObjCanvas.width = 160; debugObjCanvas.height = 120;
+    var debugView = document.getElementById('debug-view');
+    debugView.appendChild(debugCharCanvas);
+    debugView.appendChild(debugObjCanvas);
+    var debugCharCtx = debugCharCanvas.getContext('2d');
+    var debugObjCtx = debugObjCanvas.getContext('2d');
+
+    // 디버그 캔버스 라벨
+    function drawLabel(ctx, text) {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(0, 0, ctx.canvas.width, 16);
+        ctx.fillStyle = '#fff';
+        ctx.font = '10px monospace';
+        ctx.fillText(text, 4, 12);
+    }
+
+    // ── 마우스 상호작용 ──
+    var mouseX = 0, mouseY = 0;
+    renderer.domElement.addEventListener('mousemove', function(e) {
+        // 화면 좌표를 씬 좌표로 변환 (정사영)
+        mouseX = (e.clientX / W - 0.5) * camH * aspect;
+        mouseY = -(e.clientY / H - 0.5) * camH;
+    });
+
+    // ── 컨트롤 바인딩 ──
+    function hexToVec3(hex) {
+        hex = hex.replace('#', '');
+        return new THREE.Vector3(
+            parseInt(hex.substr(0, 2), 16) / 255,
+            parseInt(hex.substr(2, 2), 16) / 255,
+            parseInt(hex.substr(4, 2), 16) / 255
+        );
+    }
+
+    function bindSlider(id) {
+        var el = document.getElementById(id);
+        var valEl = document.getElementById(id + 'Val');
+        el.addEventListener('input', function() { if (valEl) valEl.textContent = el.value; });
+        return el;
+    }
+
+    var ctrlFillColor = document.getElementById('fillColor');
+    var ctrlFillOpacity = bindSlider('fillOpacity');
+    var ctrlOutlineColor = document.getElementById('outlineColor');
+    var ctrlOutlineOpacity = bindSlider('outlineOpacity');
+    var ctrlOutlineWidth = bindSlider('outlineWidth');
+    var ctrlPattern = document.getElementById('pattern');
+    var ctrlPatternScale = bindSlider('patternScale');
+    var ctrlCharOpacity = bindSlider('charOpacity');
+    var ctrlObjOpacity = bindSlider('objOpacity');
+    var ctrlObjScale = bindSlider('objScale');
+    var ctrlShowDebug = document.getElementById('showDebug');
+    var ctrlEnableSilhouette = document.getElementById('enableSilhouette');
+
+    // 디버그 RT 읽기용 buffer
+    var debugReadBuf = new Uint8Array(rtW * rtH * 4);
+
+    function updateDebugCanvas(ctx, rt) {
+        var dw = ctx.canvas.width;
+        var dh = ctx.canvas.height;
+        // 작은 영역만 읽어서 성능 확보
+        var readW = Math.min(dw, rtW);
+        var readH = Math.min(dh, rtH);
+        var buf = new Uint8Array(readW * readH * 4);
+        renderer.readRenderTargetPixels(rt, 0, rtH - readH, readW, readH, buf);
+        var imgData = ctx.createImageData(readW, readH);
+        // Y-flip
+        for (var y = 0; y < readH; y++) {
+            var srcRow = (readH - 1 - y) * readW * 4;
+            var dstRow = y * readW * 4;
+            for (var x = 0; x < readW * 4; x++) {
+                imgData.data[dstRow + x] = buf[srcRow + x];
+            }
+        }
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    // ── 렌더 루프 ──
+    var clearColor = new THREE.Color(0x000000);
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        // 캐릭터 위치 = 마우스
+        charGroup.position.x = mouseX;
+        charGroup.position.y = mouseY;
+
+        // 오브젝트 스케일
+        var sc = parseFloat(ctrlObjScale.value);
+        objGroup.scale.set(sc, sc, 1);
+        objGroup2.scale.set(sc * 0.7, sc * 0.7, 1);
+
+        // 오브젝트 투명도
+        objGroup._material.opacity = parseFloat(ctrlObjOpacity.value);
+        objGroup2._material.opacity = parseFloat(ctrlObjOpacity.value);
+
+        // 캐릭터 투명도
+        charGroup._material.opacity = parseFloat(ctrlCharOpacity.value);
+
+        var silhouetteEnabled = ctrlEnableSilhouette.checked;
+
+        if (silhouetteEnabled) {
+            // === Pass 1: 캐릭터 마스크 ===
+            objGroup.visible = false;
+            objGroup2.visible = false;
+            renderer.setClearColor(clearColor, 0);
+            renderer.setRenderTarget(charMaskRT);
+            renderer.clear(true, true, true);
+            renderer.render(scene, camera);
+
+            // === Pass 2: 오브젝트 마스크 ===
+            charGroup.visible = false;
+            objGroup.visible = true;
+            objGroup2.visible = true;
+            renderer.setRenderTarget(objMaskRT);
+            renderer.clear(true, true, true);
+            renderer.render(scene, camera);
+
+            // 복원
+            charGroup.visible = true;
+
+            // === Pass 3: 씬 전체 렌더 ===
+            renderer.setRenderTarget(sceneRT);
+            renderer.clear(true, true, true);
+            renderer.render(scene, camera);
+            renderer.setRenderTarget(null);
+
+            // === Pass 4: 합성 ===
+            var u = quadMat.uniforms;
+            u.tColor.value = sceneRT.texture;
+            u.tCharMask.value = charMaskRT.texture;
+            u.tObjMask.value = objMaskRT.texture;
+            u.uFillColor.value = hexToVec3(ctrlFillColor.value);
+            u.uFillOpacity.value = parseFloat(ctrlFillOpacity.value);
+            u.uOutlineColor.value = hexToVec3(ctrlOutlineColor.value);
+            u.uOutlineOpacity.value = parseFloat(ctrlOutlineOpacity.value);
+            u.uOutlineWidth.value = parseFloat(ctrlOutlineWidth.value);
+            u.uPattern.value = parseInt(ctrlPattern.value);
+            u.uPatternScale.value = parseFloat(ctrlPatternScale.value);
+            u.uResolution.value.set(rtW, rtH);
+
+            renderer.clear(true, true, true);
+            renderer.render(quadScene, quadCamera);
+        } else {
+            // 실루엣 OFF: 직접 렌더
+            renderer.setClearColor(clearColor, 1);
+            renderer.setRenderTarget(null);
+            renderer.clear(true, true, true);
+            renderer.render(scene, camera);
+        }
+
+        // 디버그 마스크 표시
+        if (ctrlShowDebug.checked && silhouetteEnabled) {
+            debugView.style.display = 'flex';
+            updateDebugCanvas(debugCharCtx, charMaskRT);
+            drawLabel(debugCharCtx, 'CharMask');
+            updateDebugCanvas(debugObjCtx, objMaskRT);
+            drawLabel(debugObjCtx, 'ObjMask');
+        } else {
+            debugView.style.display = 'none';
+        }
+    }
+
+    animate();
+
+    // ── 리사이즈 ──
+    window.addEventListener('resize', function() {
+        W = window.innerWidth;
+        H = window.innerHeight;
+        renderer.setSize(W, H);
+        aspect = W / H;
+        camera.left = -camH * aspect / 2;
+        camera.right = camH * aspect / 2;
+        camera.top = camH / 2;
+        camera.bottom = -camH / 2;
+        camera.updateProjectionMatrix();
+
+        pr = renderer.getPixelRatio();
+        rtW = Math.floor(W * pr);
+        rtH = Math.floor(H * pr);
+        charMaskRT.setSize(rtW, rtH);
+        objMaskRT.setSize(rtW, rtH);
+        sceneRT.setSize(rtW, rtH);
+    });
+})();
+</script>
+</body>
+</html>
