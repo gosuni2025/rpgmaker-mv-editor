@@ -589,7 +589,8 @@ export interface MapObject {
   // 애니메이션 기반 오브젝트 (선택적)
   animationId?: number;                           // 재생할 애니메이션 ID
   animationLoop?: 'forward' | 'pingpong' | 'once'; // 재생 모드 (기본: 'forward')
-  animationSe?: boolean;                          // SE 재생 여부 (기본: true)
+  animationSe?: boolean;                          // SE 재생 여부 (기본: false)
+  animationPlayInEditor?: boolean;                 // 에디터에서 재생 여부 (기본: true)
 }
 
 // Editor-only lighting data (stored as custom field in map JSON, ignored by RPG Maker MV)

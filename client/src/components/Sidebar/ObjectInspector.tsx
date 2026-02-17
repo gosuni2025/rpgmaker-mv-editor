@@ -263,22 +263,14 @@ export default function ObjectInspector() {
             </label>
           </div>
           <div className="light-inspector-row" style={{ marginTop: 4 }}>
-            <DragLabel label="너비" value={selectedObj.width} step={1} min={1} max={20}
-              onDragStart={onDragStart} onDragEnd={onDragEnd}
-              onChange={(v) => updateObject(selectedObj.id, { width: Math.max(1, Math.round(v)) }, true)} />
-            <input type="number" className="light-inspector-input" min={1} max={20} step={1}
-              style={{ width: 50 }}
-              value={selectedObj.width}
-              onChange={(e) => updateObject(selectedObj.id, { width: Math.max(1, parseInt(e.target.value) || 1) })} />
-          </div>
-          <div className="light-inspector-row">
-            <DragLabel label="높이" value={selectedObj.height} step={1} min={1} max={20}
-              onDragStart={onDragStart} onDragEnd={onDragEnd}
-              onChange={(v) => updateObject(selectedObj.id, { height: Math.max(1, Math.round(v)) }, true)} />
-            <input type="number" className="light-inspector-input" min={1} max={20} step={1}
-              style={{ width: 50 }}
-              value={selectedObj.height}
-              onChange={(e) => updateObject(selectedObj.id, { height: Math.max(1, parseInt(e.target.value) || 1) })} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12 }}>
+              <input
+                type="checkbox"
+                checked={selectedObj.animationPlayInEditor !== false}
+                onChange={(e) => updateObject(selectedObj.id, { animationPlayInEditor: e.target.checked })}
+              />
+              에디터에서 재생
+            </label>
           </div>
         </div>
       )}
@@ -407,7 +399,20 @@ export default function ObjectInspector() {
       <div className="light-inspector-section">
         <div className="light-inspector-title">크기</div>
         <div className="light-inspector-row">
-          <span className="light-inspector-label" style={{ width: 'auto' }}>{selectedObj.width} x {selectedObj.height} 타일</span>
+          <DragLabel label="W" value={selectedObj.width} step={1} min={1} max={99}
+            onDragStart={onDragStart} onDragEnd={onDragEnd}
+            onChange={(v) => updateObject(selectedObj.id, { width: Math.max(1, Math.round(v)) }, true)} />
+          <input type="number" className="light-inspector-input" min={1} max={99} step={1}
+            style={{ width: 50 }}
+            value={selectedObj.width}
+            onChange={(e) => updateObject(selectedObj.id, { width: Math.max(1, parseInt(e.target.value) || 1) })} />
+          <DragLabel label="H" value={selectedObj.height} step={1} min={1} max={99}
+            onDragStart={onDragStart} onDragEnd={onDragEnd}
+            onChange={(v) => updateObject(selectedObj.id, { height: Math.max(1, Math.round(v)) }, true)} />
+          <input type="number" className="light-inspector-input" min={1} max={99} step={1}
+            style={{ width: 50 }}
+            value={selectedObj.height}
+            onChange={(e) => updateObject(selectedObj.id, { height: Math.max(1, parseInt(e.target.value) || 1) })} />
         </div>
         {isImageObj && (() => {
           const scale = selectedObj.imageScale ?? 1.0;
