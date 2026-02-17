@@ -190,13 +190,19 @@ export function useThreeRenderer(
   useEffect(() => {
     if (!rendererReady || standalone) return;
 
-    const handleImageReloaded = () => {
+    const handleImageReloaded = (e: Event) => {
+      const { folder } = (e as CustomEvent).detail as { file: string; folder: string };
       const spriteset = spritesetRef.current;
       if (!spriteset) return;
-      // 타일셋 이미지가 갱신된 경우 repaint
-      if (spriteset._tilemap) {
+
+      if (folder === 'tilesets' && spriteset._tilemap) {
+        // ShaderTilemap: _baseTexture→Three.js 텍스처 변환을 다시 수행
+        if (typeof spriteset._tilemap.refreshTileset === 'function') {
+          spriteset._tilemap.refreshTileset();
+        }
         spriteset._tilemap._needsRepaint = true;
       }
+
       renderRequestedRef.current = true;
     };
 
