@@ -451,6 +451,114 @@ export function useObjectSelectionOverlays(refs: OverlayRefs, rendererReady: num
       }
     }
 
+    // 0.5. 선택된 오브젝트의 통행불가 영역 외곽선
+    if (isObjMode && selectedSet.size > 0 && currentMap?.objects) {
+      for (const obj of currentMap.objects as any[]) {
+        if (!obj || !selectedSet.has(obj.id) || !obj.passability) continue;
+        const ow = obj.width || 1;
+        const oh = obj.height || 1;
+        // 통행불가 타일 세트 구축
+        const impassable = new Set<string>();
+        for (let row = 0; row < oh; row++) {
+          const passRow = obj.passability[row];
+          if (!passRow) continue;
+          for (let col = 0; col < ow; col++) {
+            if (passRow[col] === false) {
+              impassable.add(`${col},${row}`);
+            }
+          }
+        }
+        if (impassable.size === 0) continue;
+
+        // 외곽 엣지 수집: 인접 타일이 통행불가가 아닌 쪽의 변
+        // 각 엣지는 (x1,y1)→(x2,y2) 방향으로 저장
+        const edges: { x1: number; y1: number; x2: number; y2: number }[] = [];
+        for (const key of impassable) {
+          const [cs, rs] = key.split(',');
+          const col = parseInt(cs), row = parseInt(rs);
+          // 상: row-1이 통행불가가 아니면 상변
+          if (!impassable.has(`${col},${row - 1}`)) {
+            edges.push({ x1: col, y1: row, x2: col + 1, y2: row });
+          }
+          // 하: row+1이 통행불가가 아니면 하변
+          if (!impassable.has(`${col},${row + 1}`)) {
+            edges.push({ x1: col + 1, y1: row + 1, x2: col, y2: row + 1 });
+          }
+          // 좌: col-1이 통행불가가 아니면 좌변
+          if (!impassable.has(`${col - 1},${row}`)) {
+            edges.push({ x1: col, y1: row + 1, x2: col, y2: row });
+          }
+          // 우: col+1이 통행불가가 아니면 우변
+          if (!impassable.has(`${col + 1},${row}`)) {
+            edges.push({ x1: col + 1, y1: row, x2: col + 1, y2: row + 1 });
+          }
+        }
+
+        // 엣지들을 연결된 폴리라인으로 병합
+        const edgeMap = new Map<string, { x: number; y: number }[]>();
+        for (const e of edges) {
+          const startKey = `${e.x1},${e.y1}`;
+          if (!edgeMap.has(startKey)) edgeMap.set(startKey, []);
+          edgeMap.get(startKey)!.push({ x: e.x2, y: e.y2 });
+        }
+
+        const usedEdges = new Set<string>();
+        const polylines: { x: number; y: number }[][] = [];
+        for (const e of edges) {
+          const edgeKey = `${e.x1},${e.y1}-${e.x2},${e.y2}`;
+          if (usedEdges.has(edgeKey)) continue;
+          // 체인 따라가기
+          const chain: { x: number; y: number }[] = [{ x: e.x1, y: e.y1 }];
+          let next = { x: e.x2, y: e.y2 };
+          usedEdges.add(edgeKey);
+          chain.push(next);
+          // 다음 엣지 계속 따라가기
+          while (true) {
+            const nextKey = `${next.x},${next.y}`;
+            const candidates = edgeMap.get(nextKey);
+            if (!candidates) break;
+            let found = false;
+            for (const c of candidates) {
+              const ck = `${next.x},${next.y}-${c.x},${c.y}`;
+              if (!usedEdges.has(ck)) {
+                usedEdges.add(ck);
+                next = c;
+                chain.push(next);
+                found = true;
+                break;
+              }
+            }
+            if (!found) break;
+          }
+          polylines.push(chain);
+        }
+
+        // 오브젝트 좌상단 기준 좌표 → 월드 좌표로 변환하여 라인 렌더링
+        const baseX = obj.x;
+        const baseY = obj.y - oh + 1;
+        for (const chain of polylines) {
+          const points = chain.map(p =>
+            new THREE.Vector3(
+              (baseX + p.x) * TILE_SIZE_PX,
+              (baseY + p.y) * TILE_SIZE_PX,
+              0
+            )
+          );
+          const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
+          const lineMat = new THREE.LineBasicMaterial({
+            color: 0xff4444, depthTest: false, transparent: true, opacity: 0.9,
+          });
+          const line = new THREE.Line(lineGeom, lineMat);
+          line.position.set(0, 0, 6.0);
+          line.renderOrder = 10015;
+          line.frustumCulled = false;
+          line.userData.editorGrid = true;
+          rObj.scene.add(line);
+          meshes.push(line);
+        }
+      }
+    }
+
     // 1. 통행 표시 (O/X)
     if (isObjMode && showPassability && currentMap?.objects) {
       for (const obj of currentMap.objects as any[]) {
