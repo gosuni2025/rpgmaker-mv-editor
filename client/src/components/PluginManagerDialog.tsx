@@ -411,10 +411,69 @@ export default function PluginManagerDialog() {
     return type === 'animation' || type === 'file' || type === 'dir' || type in DB_TYPE_MAP;
   };
 
+  /** Parse a CSS color string to hex (#rrggbb) for <input type="color"> */
+  const colorToHex = (color: string): string => {
+    if (!color) return '#000000';
+    const s = color.trim();
+    // Already hex
+    if (s.startsWith('#')) {
+      const h = s.slice(1);
+      if (h.length === 3) return '#' + h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+      if (h.length >= 6) return '#' + h.slice(0, 6);
+      return s;
+    }
+    // rgba(r,g,b,a) or rgb(r,g,b)
+    const m = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (m) {
+      const r = Math.min(255, Number(m[1]));
+      const g = Math.min(255, Number(m[2]));
+      const b = Math.min(255, Number(m[3]));
+      return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+    }
+    return '#000000';
+  };
+
+  /** Update hex portion of a color value, preserving rgba format if original was rgba */
+  const updateColorHex = (original: string, newHex: string): string => {
+    const r = parseInt(newHex.slice(1, 3), 16);
+    const g = parseInt(newHex.slice(3, 5), 16);
+    const b = parseInt(newHex.slice(5, 7), 16);
+    // If original was rgba(), preserve alpha
+    const rgbaMatch = original.match(/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/);
+    if (rgbaMatch) {
+      return `rgba(${r}, ${g}, ${b}, ${rgbaMatch[1]})`;
+    }
+    // If original was rgb(), keep as rgb
+    if (/^rgb\(/.test(original.trim())) {
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+    return newHex;
+  };
+
   const renderParamInput = (plugin: PluginEntry, pluginIndex: number, paramMeta: PluginParamMeta | undefined, paramIndex: number) => {
     const param = plugin.parameters[paramIndex];
     if (!param) return null;
     const value = param.value;
+
+    if (paramMeta?.type === 'color') {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input
+            type="color"
+            value={colorToHex(value)}
+            onChange={(e) => updateParam(pluginIndex, paramIndex, updateColorHex(value, e.target.value))}
+            style={{ width: 28, height: 22, padding: 0, border: '1px solid #555', cursor: 'pointer', flexShrink: 0 }}
+          />
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.value)}
+            onBlur={() => setEditingParamIndex(-1)}
+            style={{ flex: 1, minWidth: 0 }}
+          />
+        </div>
+      );
+    }
 
     if (paramMeta?.type === 'boolean') {
       return (
@@ -631,7 +690,7 @@ export default function PluginManagerDialog() {
                               const param = selectedPlugin.parameters[paramIndex];
                               if (!param) return null;
                               const isEditing = editingParamIndex === paramIndex;
-                              const isBoolOrSelect = paramMeta && (paramMeta.type === 'boolean' || paramMeta.type === 'select' || paramMeta.type === 'combo' || paramMeta.options.length > 0);
+                              const isBoolOrSelect = paramMeta && (paramMeta.type === 'boolean' || paramMeta.type === 'select' || paramMeta.type === 'combo' || paramMeta.type === 'color' || paramMeta.options.length > 0);
                               const showPicker = hasPickerButton(paramMeta);
                               return (
                                 <tr
