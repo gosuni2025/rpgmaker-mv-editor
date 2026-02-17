@@ -2647,13 +2647,13 @@ Spriteset_Map.prototype.createMapObjects = function() {
             container.addChild(targetSprite);
 
             var animSprite = new Sprite_Animation();
-            animSprite._duplicated = !(obj.animationSe !== false);
             animSprite.setup(targetSprite, anim, false, 0);
+            animSprite._duplicated = !obj.animationSe;
             container.addChild(animSprite);
 
             container._mapObjAnimId = obj.animationId;
             container._mapObjAnimLoop = obj.animationLoop || 'forward';
-            container._mapObjAnimSe = obj.animationSe !== false;
+            container._mapObjAnimSe = !!obj.animationSe;
             container._mapObjAnimSprite = animSprite;
             container._mapObjAnimTarget = targetSprite;
             container._mapObjAnimReverse = false;
@@ -2867,8 +2867,8 @@ Spriteset_Map.prototype.updateMapObjects = function() {
                 if (loop === 'forward') {
                     var anim = $dataAnimations[container._mapObjAnimId];
                     if (anim) {
-                        animSpr._duplicated = !container._mapObjAnimSe;
                         animSpr.setup(container._mapObjAnimTarget, anim, false, 0);
+                        animSpr._duplicated = !container._mapObjAnimSe;
                     }
                 } else if (loop === 'pingpong') {
                     var origAnim = $dataAnimations[container._mapObjAnimId];
@@ -2885,8 +2885,8 @@ Spriteset_Map.prototype.updateMapObjects = function() {
                         } else {
                             animData = origAnim;
                         }
-                        animSpr._duplicated = !container._mapObjAnimSe;
                         animSpr.setup(container._mapObjAnimTarget, animData, false, 0);
+                        animSpr._duplicated = !container._mapObjAnimSe;
                     }
                 }
                 // 'once': 아무것도 안 함 (마지막 프레임에서 정지)
