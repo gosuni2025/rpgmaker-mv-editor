@@ -142,20 +142,21 @@ export function useKeyboardShortcuts(
         const cosY = Math.cos(yaw);
         const sinY = Math.sin(yaw);
 
-        let dx = 0, dy = 0;
+        let dx = 0, dy = 0, dz = 0;
         // W/S: 카메라가 바라보는 방향으로 전진/후진 (맵 평면 투영)
         if (flyKeys.current.has('w')) { dx += sinY; dy += cosY; }
         if (flyKeys.current.has('s')) { dx -= sinY; dy -= cosY; }
         // A/D: 카메라 옆 방향
         if (flyKeys.current.has('a')) { dx -= cosY; dy += sinY; }
         if (flyKeys.current.has('d')) { dx += cosY; dy -= sinY; }
-        // Q/E: 높이 (tilt 방향으로 상하)
-        if (flyKeys.current.has('q')) { dy -= Math.cos(tilt); }
-        if (flyKeys.current.has('e')) { dy += Math.cos(tilt); }
+        // Q/E: 높이 (상하)
+        if (flyKeys.current.has('e')) { dz += 1; }
+        if (flyKeys.current.has('q')) { dz -= 1; }
 
-        if (dx !== 0 || dy !== 0) {
+        if (dx !== 0 || dy !== 0 || dz !== 0) {
           Mode3D._editorPanX = (Mode3D._editorPanX || 0) + dx * speed * dt;
           Mode3D._editorPanY = (Mode3D._editorPanY || 0) + dy * speed * dt;
+          Mode3D._editorPanZ = (Mode3D._editorPanZ || 0) + dz * speed * dt;
         }
         flyAnimRef.current = requestAnimationFrame(loop);
       };
