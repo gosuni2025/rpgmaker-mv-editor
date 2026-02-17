@@ -447,7 +447,7 @@ export default function TilesetPalette() {
               onClick={() => setSelectedLightType('directional')}
             >
               <div className="light-type-icon" style={{ backgroundColor: '#fff8ee' }} />
-              광원 방향
+              조명 방향
             </div>
 
             <div className="light-palette-section-title" style={{ marginTop: 8 }}>플레이어</div>

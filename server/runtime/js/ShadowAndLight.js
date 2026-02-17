@@ -95,7 +95,7 @@ ConfigManager.applyData = function(config) {
 var _Window_Options_addGeneralOptions = Window_Options.prototype.addGeneralOptions;
 Window_Options.prototype.addGeneralOptions = function() {
     _Window_Options_addGeneralOptions.call(this);
-    this.addCommand('그림자/광원', 'shadowLight');
+    this.addCommand('그림자/조명', 'shadowLight');
 };
 
 //=============================================================================
@@ -3056,7 +3056,7 @@ ShadowLight._createDebugUI = function() {
         arrowRow.appendChild(arrowCb);
 
         var arrowLabel = document.createElement('span');
-        arrowLabel.textContent = '광원 방향 화살표';
+        arrowLabel.textContent = '조명 방향 화살표';
         arrowLabel.style.cssText = 'color:#ccc;font-size:11px;';
         arrowRow.appendChild(arrowLabel);
 
