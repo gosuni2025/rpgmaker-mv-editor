@@ -19,14 +19,14 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'editMode' | 'selectedTool' | 'drawShape' | 'selectedTileId' | 'selectedTiles' | 'selectedTilesWidth' | 'selectedTilesHeight' |
   'currentLayer' | 'clipboard' | 'cursorTileX' | 'cursorTileY' | 'selectionStart' | 'selectionEnd' | 'isPasting' | 'pastePreviewPos' |
   'selectedEventId' | 'selectedEventIds' | 'eventSelectionStart' | 'eventSelectionEnd' | 'isEventPasting' | 'eventPastePreviewPos' |
-  'selectedObjectId' | 'selectedObjectIds' | 'objectSelectionStart' | 'objectSelectionEnd' | 'isObjectPasting' | 'objectPastePreviewPos' |
+  'objectSubMode' | 'selectedObjectId' | 'selectedObjectIds' | 'objectSelectionStart' | 'objectSelectionEnd' | 'isObjectPasting' | 'objectPastePreviewPos' |
   'selectedCameraZoneId' | 'selectedCameraZoneIds' | 'undoStack' | 'redoStack' |
   'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' | 'shiftMap' |
   'copyTiles' | 'cutTiles' | 'pasteTiles' | 'deleteTiles' | 'moveTiles' |
   'copyEvent' | 'cutEvent' | 'pasteEvent' | 'deleteEvent' |
   'copyEvents' | 'pasteEvents' | 'deleteEvents' | 'moveEvents' |
   'setSelectedEventIds' | 'setEventSelectionStart' | 'setEventSelectionEnd' | 'setIsEventPasting' | 'setEventPastePreviewPos' | 'clearEventSelection' |
-  'setSelectedObjectId' | 'setSelectedObjectIds' | 'setObjectSelectionStart' | 'setObjectSelectionEnd' | 'setIsObjectPasting' | 'setObjectPastePreviewPos' | 'clearObjectSelection' |
+  'setObjectSubMode' | 'setSelectedObjectId' | 'setSelectedObjectIds' | 'setObjectSelectionStart' | 'setObjectSelectionEnd' | 'setIsObjectPasting' | 'setObjectPastePreviewPos' | 'clearObjectSelection' |
   'objectPaintTiles' | 'setObjectPaintTiles' |
   'addObject' | 'addObjectFromTiles' | 'addObjectFromImage' | 'expandObjectTiles' | 'shrinkObjectTiles' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' |
   'setSelectedCameraZoneId' | 'setSelectedCameraZoneIds' | 'addCameraZone' | 'updateCameraZone' | 'deleteCameraZone' | 'deleteCameraZones' | 'moveCameraZones' |
@@ -54,6 +54,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   eventSelectionEnd: null,
   isEventPasting: false,
   eventPastePreviewPos: null,
+  objectSubMode: 'select',
   selectedObjectId: null,
   selectedObjectIds: [],
   objectSelectionStart: null,
@@ -364,6 +365,11 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   clearEventSelection: () => set({ eventSelectionStart: null, eventSelectionEnd: null, selectedEventIds: [], selectedEventId: null, isEventPasting: false, eventPastePreviewPos: null }),
 
   // Object operations (delegated)
+  setObjectSubMode: (mode: 'select' | 'create') => {
+    set({ objectSubMode: mode });
+    const modeNames = { select: '선택', create: '생성' };
+    get().showToast(`오브젝트: ${modeNames[mode]}`);
+  },
   setSelectedObjectId: (id: number | null) => set({ selectedObjectId: id }),
   setSelectedObjectIds: (ids: number[]) => set({ selectedObjectIds: ids }),
   setObjectSelectionStart: (pos) => set({ objectSelectionStart: pos }),

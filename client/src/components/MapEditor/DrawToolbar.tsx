@@ -51,6 +51,11 @@ export default function DrawToolbar() {
   const setShowGrid = useEditorStore((s) => s.setShowGrid);
   const showPassability = useEditorStore((s) => s.showPassability);
   const setShowPassability = useEditorStore((s) => s.setShowPassability);
+  const objectSubMode = useEditorStore((s) => s.objectSubMode);
+  const setObjectSubMode = useEditorStore((s) => s.setObjectSubMode);
+
+  const showMapTools = editMode === 'map';
+  const showObjectTools = editMode === 'object';
 
   return (
     <div style={styles.toolbar}>
@@ -110,46 +115,77 @@ export default function DrawToolbar() {
 
       <div style={styles.separator} />
 
-      {/* Drawing modes: select / pen / eraser / shadow */}
-      <div style={styles.group}>
-        {drawModes.map((mode) => (
-          <button
-            key={mode.id}
-            onClick={() => setSelectedTool(mode.id)}
-            style={{
-              ...styles.btn,
-              ...(selectedTool === mode.id ? (mode.id === 'eraser' ? styles.btnEraserActive : styles.btnActive) : {}),
-              ...(editMode !== 'map' ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
-            }}
-            title={mode.shortcut || undefined}
-          >
-            {t(mode.labelKey)}{mode.shortcut && <span style={styles.shortcut}>{mode.shortcut}</span>}
-          </button>
-        ))}
-      </div>
+      {/* Map mode: Drawing modes */}
+      {showMapTools && (
+        <>
+          <div style={styles.group}>
+            {drawModes.map((mode) => (
+              <button
+                key={mode.id}
+                onClick={() => setSelectedTool(mode.id)}
+                style={{
+                  ...styles.btn,
+                  ...(selectedTool === mode.id ? (mode.id === 'eraser' ? styles.btnEraserActive : styles.btnActive) : {}),
+                }}
+                title={mode.shortcut || undefined}
+              >
+                {t(mode.labelKey)}{mode.shortcut && <span style={styles.shortcut}>{mode.shortcut}</span>}
+              </button>
+            ))}
+          </div>
 
-      <div style={styles.separator} />
+          <div style={styles.separator} />
 
-      {/* Draw shapes: freehand / rectangle / ellipse / fill */}
-      <div style={styles.group}>
-        {drawShapes.map((shape) => (
-          <button
-            key={shape.id}
-            onClick={() => setDrawShape(shape.id)}
-            style={{
-              ...styles.btn,
-              ...(drawShape === shape.id ? styles.btnActive : {}),
-              ...(editMode !== 'map' || selectedTool === 'select' || selectedTool === 'shadow'
-                ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
-            }}
-            title={shape.shortcut || undefined}
-          >
-            {t(shape.labelKey)}{shape.shortcut && <span style={styles.shortcut}>{shape.shortcut}</span>}
-          </button>
-        ))}
-      </div>
+          {/* Draw shapes */}
+          <div style={styles.group}>
+            {drawShapes.map((shape) => (
+              <button
+                key={shape.id}
+                onClick={() => setDrawShape(shape.id)}
+                style={{
+                  ...styles.btn,
+                  ...(drawShape === shape.id ? styles.btnActive : {}),
+                  ...(selectedTool === 'select' || selectedTool === 'shadow'
+                    ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
+                }}
+                title={shape.shortcut || undefined}
+              >
+                {t(shape.labelKey)}{shape.shortcut && <span style={styles.shortcut}>{shape.shortcut}</span>}
+              </button>
+            ))}
+          </div>
 
-      <div style={styles.separator} />
+          <div style={styles.separator} />
+        </>
+      )}
+
+      {/* Object mode: select / create */}
+      {showObjectTools && (
+        <>
+          <div style={styles.group}>
+            <button
+              onClick={() => setObjectSubMode('select')}
+              style={{
+                ...styles.btn,
+                ...(objectSubMode === 'select' ? styles.btnActive : {}),
+              }}
+            >
+              {t('toolbar.select')}
+            </button>
+            <button
+              onClick={() => setObjectSubMode('create')}
+              style={{
+                ...styles.btn,
+                ...(objectSubMode === 'create' ? styles.btnActive : {}),
+              }}
+            >
+              {t('toolbar.create')}
+            </button>
+          </div>
+
+          <div style={styles.separator} />
+        </>
+      )}
 
       {/* Grid toggle */}
       <button
@@ -164,7 +200,7 @@ export default function DrawToolbar() {
       </button>
 
       {/* Passability toggle (object mode) */}
-      {editMode === 'object' && (
+      {showObjectTools && (
         <button
           onClick={() => {
             const next = !showPassability;
