@@ -31,6 +31,7 @@ export default function useFileWatcher() {
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
+          console.log('[FileWatcher] WebSocket 메시지 수신:', msg);
           if (msg.type === 'fileChanged') {
             handleFileChanged(msg.file);
           } else if (msg.type === 'imageChanged') {
@@ -73,44 +74,61 @@ export default function useFileWatcher() {
  * @param folder 하위 폴더명 (e.g. "pictures", "tilesets", "characters")
  */
 function handleImageChanged(basename: string, folder: string) {
+  console.log(`[FileWatcher] handleImageChanged 호출: basename=${basename}, folder=${folder}`);
   const IM = (window as any).ImageManager;
-  if (!IM || !IM._imageCache || !IM._imageCache._items) return;
+  if (!IM || !IM._imageCache || !IM._imageCache._items) {
+    console.log('[FileWatcher] ImageManager 또는 _imageCache 없음');
+    return;
+  }
 
   const store = useEditorStore.getState();
   const { showToast } = store;
 
   // ImageManager 캐시 키 형식: "img/pictures/Actor1.png:0"
-  // folder가 있으면 "img/{folder}/{basename}.png"로 매칭, 없으면 basename으로 검색
   const searchPath = folder ? `img/${folder}/${encodeURIComponent(basename)}.png` : basename;
   const items = IM._imageCache._items;
-  const keysToReload: string[] = [];
+  const allKeys = Object.keys(items);
+  console.log(`[FileWatcher] 캐시 검색: searchPath=${searchPath}, 전체 캐시 키 수=${allKeys.length}`);
 
-  for (const key of Object.keys(items)) {
-    // 키 형식: "path:hue"
+  // 캐시에서 매칭되는 Bitmap을 찾아서 이미지를 강제 재로드
+  let reloadCount = 0;
+  for (const key of allKeys) {
     if (key.includes(searchPath)) {
-      keysToReload.push(key);
+      const entry = items[key];
+      const bitmap = entry?.bitmap;
+      if (bitmap) {
+        console.log(`[FileWatcher] Bitmap 재로드: key=${key}, url=${bitmap._url}`);
+        // 캐시 버스팅 URL로 HTMLImageElement를 강제 재로드
+        const cacheBustUrl = bitmap._url + (bitmap._url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+        const img = new Image();
+        img.onload = () => {
+          console.log(`[FileWatcher] 이미지 재로드 완료: ${bitmap._url}`);
+          // Bitmap 내부 이미지 교체
+          bitmap._image = img;
+          // __baseTexture의 이미지 소스도 갱신하고 needsUpdate 설정
+          if (bitmap.__baseTexture) {
+            bitmap.__baseTexture.image = img;
+            if (bitmap.__baseTexture.needsUpdate !== undefined) {
+              bitmap.__baseTexture.needsUpdate = true;
+            }
+            if (typeof bitmap.__baseTexture.update === 'function') {
+              bitmap.__baseTexture.update();
+            }
+          }
+          bitmap._setDirty();
+          // 렌더링 갱신 커스텀 이벤트
+          window.dispatchEvent(new CustomEvent('imageReloaded', { detail: { file: basename, folder } }));
+        };
+        img.src = cacheBustUrl;
+        reloadCount++;
+      }
     }
   }
 
-  if (keysToReload.length > 0) {
-    // 캐시에서 삭제 후 재로드
-    for (const key of keysToReload) {
-      delete items[key];
-    }
-
-    // 같은 경로의 이미지를 다시 로드하면 ImageManager가 캐시 미스로 새로 fetch
-    // Spriteset이 다음 프레임에서 자연스럽게 갱신된 이미지를 사용
-    console.log(`[FileWatcher] 이미지 캐시 갱신: ${searchPath} (${keysToReload.length}개 엔트리)`);
-    showToast(`이미지 갱신됨: ${folder}/${basename}`, true);
-
-    // 렌더링 갱신을 위해 커스텀 이벤트 발행
-    window.dispatchEvent(new CustomEvent('imageChanged', { detail: { file: basename, folder } }));
-  } else {
-    // 캐시에 없는 이미지라도 토스트로 알려줌
-    console.log(`[FileWatcher] 이미지 변경 감지 (캐시 미사용): ${searchPath}`);
-    showToast(`이미지 갱신됨: ${folder}/${basename}`, true);
-    window.dispatchEvent(new CustomEvent('imageChanged', { detail: { file: basename, folder } }));
-  }
+  console.log(`[FileWatcher] 이미지 ${reloadCount}개 재로드 시작: ${searchPath}`);
+  showToast(`이미지 갱신됨: ${folder}/${basename}`, true);
+  // 즉시 이벤트 발행 (타일맵 등 재로드 트리거)
+  window.dispatchEvent(new CustomEvent('imageChanged', { detail: { file: basename, folder } }));
 }
 
 async function handleFileChanged(filename: string) {

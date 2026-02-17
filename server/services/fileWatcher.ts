@@ -61,8 +61,10 @@ function watch(dataPath: string): void {
 
   // img/ 폴더 감시 (이미지 파일)
   const imgPath = path.join(path.dirname(dataPath), 'img');
+  console.log(`[FileWatcher] img/ 감시 경로: ${imgPath}, 존재: ${fs.existsSync(imgPath)}`);
   if (fs.existsSync(imgPath)) {
     imgWatcher = fs.watch(imgPath, { recursive: true }, (eventType, filename) => {
+      console.log(`[FileWatcher] img/ 이벤트: ${eventType}, 파일: ${filename}`);
       if (!filename) return;
       const ext = path.extname(filename).toLowerCase();
       if (!IMAGE_EXTENSIONS.has(ext)) return;
@@ -78,9 +80,11 @@ function watch(dataPath: string): void {
         const parts = filename.split(path.sep);
         const folder = parts.length > 1 ? parts[0] : '';
         const basename = path.basename(filename, ext);
+        console.log(`[FileWatcher] 이미지 변경 브로드캐스트: type=imageChanged, file=${basename}, folder=${folder}, clients=${clients.size}`);
         broadcast({ type: 'imageChanged', file: basename, folder });
       }, DEBOUNCE_MS));
     });
+    console.log('[FileWatcher] img/ 폴더 감시 시작됨');
   }
 }
 
