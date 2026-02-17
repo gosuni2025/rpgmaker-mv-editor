@@ -1,6 +1,6 @@
-import React, { useMemo, useRef, useLayoutEffect } from 'react';
+import React, { useMemo, useRef, useLayoutEffect, useEffect, useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
-import { getTileDescription } from '../../utils/tileHelper';
+import { getTileDescription, getTileRenderInfo, TILE_SIZE_PX } from '../../utils/tileHelper';
 import './TileInfoTooltip.css';
 
 interface TileInfoTooltipProps {
@@ -11,6 +11,95 @@ interface TileInfoTooltipProps {
 }
 
 const LAYER_NAMES = ['z0 (지면)', 'z1 (장식)', 'z2 (상층)', 'z3 (상층2)', 'z4 (그림자)', 'z5 (리전)'];
+const HALF = TILE_SIZE_PX / 2;
+
+// 모듈 레벨 이미지 캐시
+const imageCache = new Map<string, HTMLImageElement>();
+function getCachedImage(name: string): HTMLImageElement | null {
+  if (imageCache.has(name)) return imageCache.get(name)!;
+  const img = new Image();
+  img.src = `/api/resources/img_tilesets/${name}.png`;
+  img.onload = () => { imageCache.set(name, img); };
+  imageCache.set(name, img); // 로드 전에도 캐시에 넣어서 중복 요청 방지
+  return img;
+}
+
+/** 단일 타일 ID를 32x32 캔버스에 미리보기로 그리는 컴포넌트 */
+function TilePreviewCanvas({ tileId, tilesetNames }: { tileId: number; tilesetNames?: string[] }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [, setRerender] = useState(0);
+
+  const renderInfo = useMemo(() => getTileRenderInfo(tileId), [tileId]);
+
+  useEffect(() => {
+    if (!renderInfo || !tilesetNames) return;
+    // 이미지가 아직 로드 안 됐으면 로드 후 re-render
+    const sheetIndices = renderInfo.type === 'normal'
+      ? [renderInfo.sheet]
+      : renderInfo.quarters.map(q => q.sheet);
+    const uniqueSheets = [...new Set(sheetIndices)];
+    let needRerender = false;
+    for (const si of uniqueSheets) {
+      const name = tilesetNames[si];
+      if (!name) continue;
+      const img = getCachedImage(name);
+      if (img && !img.complete) {
+        needRerender = true;
+        const prev = img.onload;
+        img.onload = () => {
+          if (prev) (prev as () => void)();
+          setRerender(n => n + 1);
+        };
+      }
+    }
+    if (!needRerender) setRerender(n => n + 1);
+  }, [renderInfo, tilesetNames]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !renderInfo || !tilesetNames) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const SIZE = 32;
+    ctx.clearRect(0, 0, SIZE, SIZE);
+    ctx.imageSmoothingEnabled = false;
+
+    if (renderInfo.type === 'normal') {
+      const name = tilesetNames[renderInfo.sheet];
+      if (!name) return;
+      const img = getCachedImage(name);
+      if (img && img.complete && img.naturalWidth > 0) {
+        ctx.drawImage(img, renderInfo.sx, renderInfo.sy, renderInfo.sw, renderInfo.sh, 0, 0, SIZE, SIZE);
+      }
+    } else {
+      // autotile - 4 quarters
+      const qs = renderInfo.quarters;
+      const halfSize = SIZE / 2;
+      for (let j = 0; j < 4; j++) {
+        const name = tilesetNames[qs[j].sheet];
+        if (!name) continue;
+        const img = getCachedImage(name);
+        if (img && img.complete && img.naturalWidth > 0) {
+          const dx = (j % 2) * halfSize;
+          const dy = Math.floor(j / 2) * halfSize;
+          ctx.drawImage(img, qs[j].sx, qs[j].sy, HALF, HALF, dx, dy, halfSize, halfSize);
+        }
+      }
+    }
+  });
+
+  if (!renderInfo) return null;
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={32}
+      height={32}
+      className="tile-info-preview"
+    />
+  );
+}
 
 export default function TileInfoTooltip({ tileX, tileY, mouseX, mouseY }: TileInfoTooltipProps) {
   const currentMap = useEditorStore((s) => s.currentMap);
@@ -31,7 +120,7 @@ export default function TileInfoTooltip({ tileX, tileY, mouseX, mouseY }: TileIn
       }
     }
 
-    return { tileX, tileY, layers };
+    return { tileX, tileY, layers, tilesetNames };
   }, [currentMap, tileX, tileY]);
 
   // 화면 밖으로 나가지 않도록 위치 보정
@@ -65,37 +154,95 @@ export default function TileInfoTooltip({ tileX, tileY, mouseX, mouseY }: TileIn
       {info.layers.map(({ z, tileId, desc }) => (
         <div key={z} className="tile-info-layer">
           <div className="tile-info-layer-header">{LAYER_NAMES[z] ?? `z${z}`}</div>
-          {desc ? (
-            <>
-              <div className="tile-info-row">
-                <span className="tile-info-label">종류:</span>
-                <span>{desc.category}</span>
-                {desc.tags.map((tag) => (
-                  <span key={tag} className="tile-info-tag">{tag}</span>
-                ))}
-              </div>
-              <div className="tile-info-row">
-                <span className="tile-info-label">이름:</span>
-                <span>{desc.name}</span>
-              </div>
-              {desc.fileName && (
-                <div className="tile-info-row">
-                  <span className="tile-info-label">파일:</span>
-                  <span className="tile-info-file">{desc.fileName}</span>
-                </div>
+          <div className="tile-info-content">
+            <TilePreviewCanvas tileId={tileId} tilesetNames={info.tilesetNames} />
+            <div className="tile-info-details">
+              {desc ? (
+                <>
+                  <div className="tile-info-row">
+                    <span>{desc.category}</span>
+                    {desc.tags.map((tag) => (
+                      <span key={tag} className="tile-info-tag">{tag}</span>
+                    ))}
+                  </div>
+                  <div className="tile-info-row">
+                    <span>{desc.name}</span>
+                  </div>
+                  {desc.fileName && (
+                    <div className="tile-info-row">
+                      <span className="tile-info-file">{desc.fileName}</span>
+                    </div>
+                  )}
+                  <div className="tile-info-row">
+                    <span className="tile-info-label">ID {tileId}</span>
+                    <span className="tile-info-label">시트#{desc.sheetIndex}</span>
+                    <span className="tile-info-label">#{desc.indexInSheet}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="tile-info-row">타일 ID: {tileId}</div>
               )}
-              <div className="tile-info-row">
-                <span className="tile-info-label">ID:</span>
-                <span>{tileId}</span>
-                <span className="tile-info-label" style={{ marginLeft: 6 }}>시트 #{desc.sheetIndex}</span>
-                <span className="tile-info-label" style={{ marginLeft: 6 }}>인덱스 {desc.indexInSheet}</span>
-              </div>
-            </>
-          ) : (
-            <div className="tile-info-row">타일 ID: {tileId}</div>
-          )}
+            </div>
+          </div>
         </div>
       ))}
+      <div className="tile-info-hint">타일 패널의 [정보] 체크박스로 끌 수 있습니다</div>
+    </div>
+  );
+}
+
+/** 팔레트 툴팁용 - 단일 tileId의 정보 + 미리보기 */
+export function PaletteTileTooltip({ tileId, mouseX, mouseY, tilesetNames }: {
+  tileId: number; mouseX: number; mouseY: number; tilesetNames?: string[];
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const desc = useMemo(() => getTileDescription(tileId, tilesetNames), [tileId, tilesetNames]);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = mouseX + 16;
+    let top = mouseY + 16;
+    if (left + rect.width > vw) left = mouseX - rect.width - 8;
+    if (top + rect.height > vh) top = mouseY - rect.height - 8;
+    if (left < 0) left = 4;
+    if (top < 0) top = 4;
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+  });
+
+  if (!desc) return null;
+
+  return (
+    <div ref={ref} className="tile-info-tooltip" style={{ left: mouseX + 16, top: mouseY + 16 }}>
+      <div className="tile-info-content">
+        <TilePreviewCanvas tileId={tileId} tilesetNames={tilesetNames} />
+        <div className="tile-info-details">
+          <div className="tile-info-row">
+            <span>{desc.category}</span>
+            {desc.tags.map((tag) => (
+              <span key={tag} className="tile-info-tag">{tag}</span>
+            ))}
+          </div>
+          <div className="tile-info-row">
+            <span>{desc.name}</span>
+          </div>
+          {desc.fileName && (
+            <div className="tile-info-row">
+              <span className="tile-info-file">{desc.fileName}</span>
+            </div>
+          )}
+          <div className="tile-info-row">
+            <span className="tile-info-label">ID {tileId}</span>
+            <span className="tile-info-label">시트#{desc.sheetIndex}</span>
+            <span className="tile-info-label">#{desc.indexInSheet}</span>
+          </div>
+        </div>
+      </div>
+      <div className="tile-info-hint">[정보] 체크박스로 끌 수 있습니다</div>
     </div>
   );
 }
