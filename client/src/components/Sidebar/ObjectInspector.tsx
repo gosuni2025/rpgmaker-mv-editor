@@ -262,6 +262,24 @@ export default function ObjectInspector() {
               SE 재생
             </label>
           </div>
+          <div className="light-inspector-row" style={{ marginTop: 4 }}>
+            <DragLabel label="너비" value={selectedObj.width} step={1} min={1} max={20}
+              onDragStart={onDragStart} onDragEnd={onDragEnd}
+              onChange={(v) => updateObject(selectedObj.id, { width: Math.max(1, Math.round(v)) }, true)} />
+            <input type="number" className="light-inspector-input" min={1} max={20} step={1}
+              style={{ width: 50 }}
+              value={selectedObj.width}
+              onChange={(e) => updateObject(selectedObj.id, { width: Math.max(1, parseInt(e.target.value) || 1) })} />
+          </div>
+          <div className="light-inspector-row">
+            <DragLabel label="높이" value={selectedObj.height} step={1} min={1} max={20}
+              onDragStart={onDragStart} onDragEnd={onDragEnd}
+              onChange={(v) => updateObject(selectedObj.id, { height: Math.max(1, Math.round(v)) }, true)} />
+            <input type="number" className="light-inspector-input" min={1} max={20} step={1}
+              style={{ width: 50 }}
+              value={selectedObj.height}
+              onChange={(e) => updateObject(selectedObj.id, { height: Math.max(1, parseInt(e.target.value) || 1) })} />
+          </div>
         </div>
       )}
 

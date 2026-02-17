@@ -2648,6 +2648,11 @@ Spriteset_Map.prototype.createMapObjects = function() {
 
             var animSprite = new Sprite_Animation();
             animSprite.setup(targetSprite, anim, false, 0);
+            // 오브젝트 크기에 맞게 스케일 조절 (기본 4x4 타일 = 192px)
+            var animScaleX = (obj.width * tw) / 192;
+            var animScaleY = (obj.height * th) / 192;
+            animSprite.scale.x = animScaleX;
+            animSprite.scale.y = animScaleY;
             if (!obj.animationSe) {
                 animSprite.processTimingData = function(timing) {
                     // SE 재생 차단: flashScope만 처리
@@ -2667,6 +2672,8 @@ Spriteset_Map.prototype.createMapObjects = function() {
             container._mapObjAnimSprite = animSprite;
             container._mapObjAnimTarget = targetSprite;
             container._mapObjAnimReverse = false;
+            container._mapObjAnimScaleX = animScaleX;
+            container._mapObjAnimScaleY = animScaleY;
         } else if (obj.imageName) {
             // 이미지 기반 오브젝트: pictures 폴더에서 이미지 로드
             var imgSprite = new Sprite();
@@ -2909,6 +2916,8 @@ Spriteset_Map.prototype.updateMapObjects = function() {
                             }
                         };
                     }
+                    if (container._mapObjAnimScaleX) newAnimSpr.scale.x = container._mapObjAnimScaleX;
+                    if (container._mapObjAnimScaleY) newAnimSpr.scale.y = container._mapObjAnimScaleY;
                     container.addChild(newAnimSpr);
                     container._mapObjAnimSprite = newAnimSpr;
                 }
