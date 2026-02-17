@@ -105,7 +105,7 @@ export function useKeyboardShortcuts(
   const isRotating3D = useRef(false);  // 우클릭 드래그: 카메라 회전
   const isPanning3D = useRef(false);   // 중클릭 드래그: 팬
   const isOrbiting3D = useRef(false);  // Alt+좌클릭: 공전
-  const cam3DStart = useRef({ x: 0, y: 0, tiltDeg: 0, yawDeg: 0, panX: 0, panY: 0 });
+  const cam3DStart = useRef({ x: 0, y: 0, tiltDeg: 0, yawDeg: 0, panX: 0, panY: 0, panZ: 0 });
   // FPS 이동 키 상태
   const flyKeys = useRef<Set<string>>(new Set());
   const flyAnimRef = useRef<number>(0);
@@ -218,6 +218,7 @@ export function useKeyboardShortcuts(
           tiltDeg: 0, yawDeg: 0,
           panX: Mode3D._editorPanX || 0,
           panY: Mode3D._editorPanY || 0,
+          panZ: Mode3D._editorPanZ || 0,
         };
         return;
       }
@@ -270,16 +271,22 @@ export function useKeyboardShortcuts(
         return;
       }
 
-      // 3D 팬 (중클릭 드래그)
+      // 3D 팬 (중클릭 드래그) — 카메라 로컬 좌표계 기준
       if (isPanning3D.current && Mode3D) {
         const dx = e.clientX - cam3DStart.current.x;
         const dy = e.clientY - cam3DStart.current.y;
         const panSpeed = 2.0;
         const yawRad = (Mode3D._yawRad || 0);
+        const tiltRad = (Mode3D._tiltRad || 0);
         const cosYaw = Math.cos(yawRad);
         const sinYaw = Math.sin(yawRad);
-        Mode3D._editorPanX = cam3DStart.current.panX - (dx * cosYaw) * panSpeed;
-        Mode3D._editorPanY = cam3DStart.current.panY - (dy) * panSpeed;
+        const cosTilt = Math.cos(tiltRad);
+        const sinTilt = Math.sin(tiltRad);
+        // 카메라 right 방향 (화면 가로) → 맵 X,Y에 투영
+        // 카메라 up 방향 (화면 세로) → 맵 Y,Z에 투영
+        Mode3D._editorPanX = cam3DStart.current.panX - (dx * cosYaw + dy * sinTilt * sinYaw) * panSpeed;
+        Mode3D._editorPanY = cam3DStart.current.panY - (-dx * sinYaw + dy * sinTilt * cosYaw) * panSpeed;
+        Mode3D._editorPanZ = cam3DStart.current.panZ + dy * cosTilt * panSpeed;
         return;
       }
 
