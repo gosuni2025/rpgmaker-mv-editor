@@ -71,17 +71,37 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
   // 맵 목록 (트리를 flat list로 표시)
   const mapList = useMemo(() => {
     if (!maps) return [];
+
+    // 2-pass: ID 맵 구축 → 부모-자식 관계 설정 (orphan은 루트로)
+    type TreeNode = { id: number; name: string; order: number; children: TreeNode[] };
+    const byId: Record<number, TreeNode> = {};
+    const roots: TreeNode[] = [];
+
+    maps.forEach(m => {
+      if (!m) return;
+      byId[m.id] = { id: m.id, name: m.name, order: m.order, children: [] };
+    });
+
+    maps.forEach(m => {
+      if (!m) return;
+      const node = byId[m.id];
+      if (m.parentId && byId[m.parentId]) {
+        byId[m.parentId].children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    // 트리를 flat list로 변환
     const result: { id: number; name: string; indent: number }[] = [];
-    const buildTree = (parentId: number, indent: number) => {
-      const children = maps
-        .filter((m): m is NonNullable<typeof m> => m != null && m.parentId === parentId)
-        .sort((a, b) => a.order - b.order);
-      for (const child of children) {
-        result.push({ id: child.id, name: child.name, indent });
-        buildTree(child.id, indent + 1);
+    const flatten = (nodes: TreeNode[], indent: number) => {
+      nodes.sort((a, b) => a.order - b.order);
+      for (const node of nodes) {
+        result.push({ id: node.id, name: node.name, indent });
+        flatten(node.children, indent + 1);
       }
     };
-    buildTree(0, 0);
+    flatten(roots, 0);
     return result;
   }, [maps]);
 
