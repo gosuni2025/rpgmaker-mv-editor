@@ -6,6 +6,7 @@ import AudioPicker from '../common/AudioPicker';
 import ImagePicker from '../common/ImagePicker';
 import BattlebackPicker from '../common/BattlebackPicker';
 import { DataListPicker } from '../EventEditor/dataListPicker';
+import EncounterDialog from './EncounterDialog';
 import type { AudioFile, MapData } from '../../types/rpgMakerMV';
 import './MapPropertiesDialog.css';
 
@@ -63,6 +64,8 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
   const [note, setNote] = useState('');
   const [encounterList, setEncounterList] = useState<EncounterEntry[]>([]);
   const [selectedEncIdx, setSelectedEncIdx] = useState<number | null>(null);
+  const [encDialogOpen, setEncDialogOpen] = useState(false);
+  const [encDialogEditIdx, setEncDialogEditIdx] = useState<number | null>(null);
 
   // Tilesets and troops for dropdowns
   const [tilesets, setTilesets] = useState<TilesetEntry[]>([]);
@@ -139,10 +142,9 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
 
   // Encounter handlers
   const handleAddEncounter = useCallback(() => {
-    const newEntry: EncounterEntry = { troopId: 1, weight: 10, regionSet: [] };
-    setEncounterList(prev => [...prev, newEntry]);
-    setSelectedEncIdx(encounterList.length);
-  }, [encounterList.length]);
+    setEncDialogEditIdx(null);
+    setEncDialogOpen(true);
+  }, []);
 
   const handleDeleteEncounter = useCallback(() => {
     if (selectedEncIdx === null || selectedEncIdx >= encounterList.length) return;
@@ -150,9 +152,19 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
     setSelectedEncIdx(null);
   }, [selectedEncIdx, encounterList.length]);
 
-  const updateEncounter = useCallback((idx: number, field: keyof EncounterEntry, value: unknown) => {
-    setEncounterList(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
-  }, []);
+  const handleEncDialogOk = useCallback((entry: EncounterEntry) => {
+    if (encDialogEditIdx !== null) {
+      setEncounterList(prev => prev.map((e, i) => i === encDialogEditIdx ? entry : e));
+      setSelectedEncIdx(encDialogEditIdx);
+    } else {
+      setEncounterList(prev => {
+        setSelectedEncIdx(prev.length);
+        return [...prev, entry];
+      });
+    }
+    setEncDialogOpen(false);
+    setEncDialogEditIdx(null);
+  }, [encDialogEditIdx]);
 
   // Save handler
   const handleOk = useCallback(async () => {
@@ -509,47 +521,24 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                     key={idx}
                     className={`map-props-enc-row${selectedEncIdx === idx ? ' selected' : ''}`}
                     onClick={() => setSelectedEncIdx(idx)}
+                    onDoubleClick={() => {
+                      setSelectedEncIdx(idx);
+                      setEncDialogEditIdx(idx);
+                      setEncDialogOpen(true);
+                    }}
                   >
-                    <div className="map-props-enc-col-troop">
-                      <select
-                        value={enc.troopId}
-                        onChange={(e) => { e.stopPropagation(); updateEncounter(idx, 'troopId', Number(e.target.value)); }}
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ background: 'transparent', border: 'none', color: 'inherit', fontSize: 12, width: '100%', outline: 'none', cursor: 'pointer' }}
-                      >
-                        {troopNames.map((tn, ti) => tn ? (
-                          <option key={ti} value={ti}>{String(ti).padStart(4, '0')} {tn}</option>
-                        ) : null)}
-                      </select>
+                    <div className="map-props-enc-col-troop" style={{ padding: '3px 6px', fontSize: 12 }}>
+                      {String(enc.troopId).padStart(4, '0')} {troopNames[enc.troopId] || ''}
                     </div>
-                    <div className="map-props-enc-col-weight">
-                      <input
-                        type="number" min={1} max={100} value={enc.weight}
-                        onChange={(e) => updateEncounter(idx, 'weight', Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ background: 'transparent', border: 'none', color: 'inherit', fontSize: 12, width: '100%', textAlign: 'center', outline: 'none' }}
-                      />
+                    <div className="map-props-enc-col-weight" style={{ padding: '3px 6px', fontSize: 12, textAlign: 'center' }}>
+                      {enc.weight}
                     </div>
-                    <div className="map-props-enc-col-region">
-                      <input
-                        type="text"
-                        value={enc.regionSet.length === 0 ? t('mapProperties.encEntireMap') : enc.regionSet.join(',')}
-                        onChange={(e) => {
-                          const val = e.target.value.trim();
-                          if (!val || val === t('mapProperties.encEntireMap')) {
-                            updateEncounter(idx, 'regionSet', []);
-                          } else {
-                            const nums = val.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n >= 0 && n <= 255);
-                            updateEncounter(idx, 'regionSet', nums);
-                          }
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ background: 'transparent', border: 'none', color: 'inherit', fontSize: 12, width: '100%', textAlign: 'center', outline: 'none' }}
-                      />
+                    <div className="map-props-enc-col-region" style={{ padding: '3px 6px', fontSize: 12, textAlign: 'center' }}>
+                      {enc.regionSet.length === 0 ? t('mapProperties.encEntireMap') : enc.regionSet.join(',')}
                     </div>
                   </div>
                 ))}
-                {/* Empty rows for adding */}
+                {/* Empty row: double-click to add */}
                 <div className="map-props-enc-row-empty" onDoubleClick={handleAddEncounter}>
                   &nbsp;
                 </div>
@@ -579,6 +568,16 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
           value={tilesetId}
           onChange={(id) => setTilesetId(id)}
           onClose={() => setShowTilesetPicker(false)}
+        />
+      )}
+
+      {/* Encounter Dialog */}
+      {encDialogOpen && (
+        <EncounterDialog
+          initial={encDialogEditIdx !== null ? encounterList[encDialogEditIdx] : undefined}
+          troopNames={troopNames}
+          onOk={handleEncDialogOk}
+          onCancel={() => { setEncDialogOpen(false); setEncDialogEditIdx(null); }}
         />
       )}
     </div>

@@ -449,3 +449,134 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* EncounterDialog */
+.enc-dialog {
+  background: #3c3f41;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 0;
+  min-width: 320px;
+  max-width: 400px;
+  width: 340px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+}
+
+.enc-dialog-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #ccc;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid #555;
+  text-align: center;
+}
+
+.enc-dialog-section {
+  border: 1px solid #555;
+  border-radius: 4px;
+  margin: 10px 12px 0;
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.enc-dialog-section-title {
+  font-size: 11px;
+  font-weight: bold;
+  color: #aaa;
+  margin-bottom: 4px;
+}
+
+.enc-dialog-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.enc-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.enc-dialog-field-weight {
+  min-width: 72px;
+  max-width: 72px;
+}
+
+.enc-dialog-label {
+  font-size: 11px;
+  color: #aaa;
+}
+
+.enc-dialog-select {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ddd;
+  font-size: 12px;
+  padding: 3px 6px;
+  width: 100%;
+  outline: none;
+}
+
+.enc-dialog-select:focus {
+  border-color: #2675bf;
+}
+
+.enc-dialog-input-num {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ddd;
+  font-size: 12px;
+  padding: 3px 6px;
+  width: 100%;
+  outline: none;
+  text-align: center;
+}
+
+.enc-dialog-input-num:focus {
+  border-color: #2675bf;
+}
+
+.enc-dialog-input-num:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.enc-dialog-radio-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #ddd;
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+
+.enc-dialog-radio-row input[type="radio"] {
+  accent-color: #2675bf;
+  cursor: pointer;
+}
+
+.enc-dialog-regions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  padding-left: 20px;
+}
+
+.enc-dialog-region-slot {
+  flex: 1;
+}
+
+.enc-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 12px 12px;
+}
