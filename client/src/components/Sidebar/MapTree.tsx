@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { MapInfo } from '../../types/rpgMakerMV';
@@ -133,7 +133,6 @@ export default function MapTree() {
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const selectMap = useEditorStore((s) => s.selectMap);
   const deleteMap = useEditorStore((s) => s.deleteMap);
-  const renameMap = useEditorStore((s) => s.renameMap);
   const systemData = useEditorStore((s) => s.systemData);
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -145,11 +144,6 @@ export default function MapTree() {
   const [copiedMapId, setCopiedMapId] = useState<number | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const loadMaps = useEditorStore((s) => s.loadMaps);
-
-  // 이름 변경 다이얼로그 state
-  const [renameMapId, setRenameMapId] = useState<number | null>(null);
-  const [renameDraft, setRenameDraft] = useState('');
-  const renameInputRef = useRef<HTMLInputElement>(null);
 
   const tree = useMemo(() => buildTree(maps), [maps]);
   const filteredTree = useMemo(() => filterTree(tree, filterQuery), [tree, filterQuery]);
@@ -174,32 +168,10 @@ export default function MapTree() {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // 더블클릭: 맵 속성 다이얼로그(편집 모드) 열기
   const handleDoubleClick = useCallback((mapId: number) => {
-    const mapInfo = maps.find(m => m && m.id === mapId);
-    if (!mapInfo) return;
-    setRenameDraft(mapInfo.name || `Map ${mapId}`);
-    setRenameMapId(mapId);
-  }, [maps]);
-
-  const handleRenameConfirm = useCallback(async () => {
-    if (renameMapId == null) return;
-    const trimmed = renameDraft.trim();
-    if (trimmed) {
-      await renameMap(renameMapId, trimmed);
-    }
-    setRenameMapId(null);
-  }, [renameMapId, renameDraft, renameMap]);
-
-  const handleRenameCancel = useCallback(() => {
-    setRenameMapId(null);
+    setMapPropertiesId(mapId);
   }, []);
-
-  // 이름 변경 다이얼로그 열릴 때 input 포커스
-  useEffect(() => {
-    if (renameMapId != null) {
-      setTimeout(() => renameInputRef.current?.select(), 0);
-    }
-  }, [renameMapId]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, mapId: number) => {
     setContextMenu({ x: e.clientX, y: e.clientY, mapId });
@@ -427,32 +399,6 @@ export default function MapTree() {
               </div>
             </>
           )}
-        </div>
-      )}
-
-      {renameMapId != null && (
-        <div className="modal-overlay" onClick={handleRenameCancel}>
-          <div className="modal-dialog" style={{ width: 320 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">{t('mapTree.renameMap', '맵 이름 변경')}</div>
-            <div className="modal-body" style={{ padding: '16px' }}>
-              <input
-                ref={renameInputRef}
-                type="text"
-                className="db-input"
-                style={{ width: '100%', boxSizing: 'border-box' }}
-                value={renameDraft}
-                onChange={e => setRenameDraft(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') { e.preventDefault(); handleRenameConfirm(); }
-                  if (e.key === 'Escape') handleRenameCancel();
-                }}
-              />
-            </div>
-            <div className="modal-footer">
-              <button className="db-btn db-btn-primary" onClick={handleRenameConfirm}>{t('common.ok', '확인')}</button>
-              <button className="db-btn" onClick={handleRenameCancel}>{t('common.cancel', '취소')}</button>
-            </div>
-          </div>
         </div>
       )}
     </div>
