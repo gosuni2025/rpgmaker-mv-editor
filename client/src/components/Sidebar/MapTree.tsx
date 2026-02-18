@@ -4,6 +4,7 @@ import useEditorStore from '../../store/useEditorStore';
 import type { MapInfo } from '../../types/rpgMakerMV';
 import apiClient from '../../api/client';
 import SampleMapDialog from '../SampleMapDialog';
+import MapPropertiesDialog from '../MapEditor/MapPropertiesDialog';
 import './Sidebar.css';
 import './MapTree.css';
 
@@ -134,15 +135,17 @@ export default function MapTree() {
   const createMap = useEditorStore((s) => s.createMap);
   const deleteMap = useEditorStore((s) => s.deleteMap);
   const updateMapInfos = useEditorStore((s) => s.updateMapInfos);
-  const setShowDatabaseDialog = useEditorStore((s) => s.setShowDatabaseDialog);
   const systemData = useEditorStore((s) => s.systemData);
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [sampleMapTargetId, setSampleMapTargetId] = useState<number | null>(null);
+  const [mapPropertiesId, setMapPropertiesId] = useState<number | null>(null);
+  const [filterQuery, setFilterQuery] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
-  const [sampleMapTargetId, setSampleMapTargetId] = useState<number | null>(null);
-  const [filterQuery, setFilterQuery] = useState('');
+  const [copiedMapId, setCopiedMapId] = useState<number | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const loadMaps = useEditorStore((s) => s.loadMaps);
 
   const tree = useMemo(() => buildTree(maps), [maps]);
   const filteredTree = useMemo(() => filterTree(tree, filterQuery), [tree, filterQuery]);
@@ -242,6 +245,30 @@ export default function MapTree() {
     setEditingId(null);
   }, [editingId, editName, maps, updateMapInfos]);
 
+  // 복사 기능
+  const handleCopyMap = useCallback(() => {
+    const targetId = contextMenu?.mapId ?? currentMapId;
+    if (targetId && targetId > 0) {
+      setCopiedMapId(targetId);
+    }
+    closeContextMenu();
+  }, [contextMenu, currentMapId, closeContextMenu]);
+
+  // 붙여넣기 기능
+  const handlePasteMap = useCallback(async () => {
+    if (!copiedMapId) return;
+    closeContextMenu();
+    try {
+      const result = await apiClient.post<{ id: number }>(`/maps/${copiedMapId}/duplicate`, {});
+      if (result.id) {
+        await loadMaps();
+        selectMap(result.id);
+      }
+    } catch (err) {
+      console.error('Failed to paste map:', err);
+    }
+  }, [copiedMapId, loadMaps, selectMap, closeContextMenu]);
+
   const projectName = useEditorStore((s) => s.projectName);
   const [rootCollapsed, setRootCollapsed] = useState(false);
 
@@ -259,10 +286,23 @@ export default function MapTree() {
 
   return (
     <div className="map-tree" tabIndex={-1} onKeyDown={(e) => {
+      // 검색 입력 중에는 단축키 무시
+      if (document.activeElement === searchInputRef.current) return;
+      
       if (e.key === 'Delete' && currentMapId != null && currentMapId !== 0) {
         e.preventDefault();
         e.nativeEvent.stopImmediatePropagation();
         handleDeleteMapById(currentMapId);
+      }
+      // Ctrl+C: 맵 복사
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && currentMapId != null && currentMapId !== 0) {
+        e.preventDefault();
+        setCopiedMapId(currentMapId);
+      }
+      // Ctrl+V: 맵 붙여넣기
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && copiedMapId != null) {
+        e.preventDefault();
+        handlePasteMap();
       }
     }} onContextMenu={(e) => {
       // 빈 공간 우클릭 시 루트 레벨 컨텍스트 메뉴 표시
@@ -362,7 +402,28 @@ export default function MapTree() {
               <div className="context-menu-item" onClick={handleLoadSampleMap}>{t('mapTree.loadSampleMap')}</div>
               <div className="context-menu-item" onClick={handleEditMap}>{t('mapTree.editMapName')}</div>
               <div className="context-menu-separator" />
+              <div className="context-menu-item" onClick={handleCopyMap}>
+                {t('mapTree.copyMap', '맵 복사')}
+                <span className="context-menu-shortcut">Ctrl+C</span>
+              </div>
+              <div 
+                className={`context-menu-item${!copiedMapId ? ' disabled' : ''}`} 
+                onClick={copiedMapId ? handlePasteMap : undefined}
+              >
+                {t('mapTree.pasteMap', '맵 붙여넣기')}
+                <span className="context-menu-shortcut">Ctrl+V</span>
+              </div>
+              <div className="context-menu-separator" />
               <div className="context-menu-item" onClick={handleDeleteMap}>{t('mapTree.deleteMap')}</div>
+            </>
+          )}
+          {contextMenu.mapId === 0 && copiedMapId && (
+            <>
+              <div className="context-menu-separator" />
+              <div className="context-menu-item" onClick={handlePasteMap}>
+                {t('mapTree.pasteMap', '맵 붙여넣기')}
+                <span className="context-menu-shortcut">Ctrl+V</span>
+              </div>
             </>
           )}
         </div>
