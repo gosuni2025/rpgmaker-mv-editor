@@ -61,8 +61,8 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
     // R탭(currentLayer===5)이면 불투명도 높게, 아니면 낮게
     const isRegionMode = currentLayer === 5;
     const fillOpacity = isRegionMode ? 0.5 : 0.25;
-    // R탭이 아닐 때는 숫자 레이블 숨김
-    const showLabel = isRegionMode;
+    // R탭이거나 showRegion 토글이 켜진 경우 숫자 레이블 표시
+    const showLabel = isRegionMode || showRegion;
 
     // 공유 지오메트리 — 모든 리전 타일에 같은 크기 사용
     const sharedGeom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
