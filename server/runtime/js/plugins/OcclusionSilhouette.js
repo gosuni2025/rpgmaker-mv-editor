@@ -1,7 +1,7 @@
 /*:
  * @pluginname 실루엣 효과
  * @plugindesc 플레이어가 오브젝트 뒤에 가려졌을 때 실루엣으로 위치를 표시합니다.
- * @author Claude
+ * @author gosuni2025
  *
  * @param Fill Color
  * @type color

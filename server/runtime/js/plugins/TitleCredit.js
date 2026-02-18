@@ -1,7 +1,7 @@
 /*:
  * @pluginname 타이틀 크레딧
  * @plugindesc 타이틀 화면에 Credit 버튼 추가
- * @author Claude
+ * @author gosuni2025
  *
  * @help
  * 타이틀 화면에 "크레딧" 버튼을 추가합니다.
