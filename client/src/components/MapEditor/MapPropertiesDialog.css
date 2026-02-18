@@ -373,6 +373,63 @@
   gap: 4px;
 }
 
+/* Tileset picker row (input + ... button) */
+.map-props-picker-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.map-props-picker-input {
+  flex: 1;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 13px;
+  outline: none;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.map-props-picker-btn {
+  background: #4a4a4a;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.map-props-picker-btn:hover {
+  background: #555;
+}
+
+/* Scroll type radio group */
+.map-props-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 2px;
+}
+
+.map-props-radio {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #ddd;
+  cursor: pointer;
+}
+
+.map-props-radio input[type="radio"] {
+  cursor: pointer;
+  accent-color: #2675bf;
+}
+
 /* Image picker row */
 .map-props-img-row {
   display: flex;

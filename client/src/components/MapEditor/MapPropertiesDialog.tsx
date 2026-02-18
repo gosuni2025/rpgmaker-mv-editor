@@ -5,6 +5,7 @@ import useEditorStore from '../../store/useEditorStore';
 import AudioPicker from '../common/AudioPicker';
 import ImagePicker from '../common/ImagePicker';
 import BattlebackPicker from '../common/BattlebackPicker';
+import { DataListPicker } from '../EventEditor/dataListPicker';
 import type { AudioFile, MapData } from '../../types/rpgMakerMV';
 import './MapPropertiesDialog.css';
 
@@ -17,19 +18,26 @@ interface EncounterEntry {
 interface TilesetEntry { id: number; name: string; }
 
 interface MapPropertiesDialogProps {
-  mapId: number;
+  /** 편집 모드: 기존 맵 ID */
+  mapId?: number;
+  /** 신규 모드: 부모 맵 ID (mapId가 없을 때 사용) */
+  parentId?: number;
   onClose: () => void;
 }
 
-export default function MapPropertiesDialog({ mapId, onClose }: MapPropertiesDialogProps) {
+export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPropertiesDialogProps) {
   const { t } = useTranslation();
   const maps = useEditorStore((s) => s.maps);
   const updateMapInfos = useEditorStore((s) => s.updateMapInfos);
   const currentMapId = useEditorStore((s) => s.currentMapId);
+  const createMap = useEditorStore((s) => s.createMap);
+  const selectMap = useEditorStore((s) => s.selectMap);
   const showToast = useEditorStore((s) => s.showToast);
 
+  const isNew = mapId == null;
+
   // Local state for form fields
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isNew);
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [name, setName] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -58,55 +66,67 @@ export default function MapPropertiesDialog({ mapId, onClose }: MapPropertiesDia
 
   // Tilesets and troops for dropdowns
   const [tilesets, setTilesets] = useState<TilesetEntry[]>([]);
+  const [tilesetNames, setTilesetNames] = useState<string[]>([]);
   const [troopNames, setTroopNames] = useState<string[]>([]);
+  const [showTilesetPicker, setShowTilesetPicker] = useState(false);
 
   // Load data
   useEffect(() => {
     const loadAll = async () => {
       try {
-        const [mapRes, tsRes, troopRes] = await Promise.all([
-          apiClient.get<MapData>(`/maps/${mapId}`),
+        const [tsRes, troopRes] = await Promise.all([
           apiClient.get<(null | { id: number; name: string })[]>('/database/tilesets'),
           apiClient.get<(null | { id: number; name: string })[]>('/database/troops'),
         ]);
 
-        setMapData(mapRes);
-        setDisplayName(mapRes.displayName || '');
-        setTilesetId(mapRes.tilesetId || 1);
-        setWidth(mapRes.width);
-        setHeight(mapRes.height);
-        setScrollType(mapRes.scrollType ?? 0);
-        setEncounterStep(mapRes.encounterStep ?? 30);
-        setAutoplayBgm(!!mapRes.autoplayBgm);
-        setBgm(mapRes.bgm || { name: '', volume: 90, pitch: 100, pan: 0 });
-        setAutoplayBgs(!!mapRes.autoplayBgs);
-        setBgs(mapRes.bgs || { name: '', volume: 90, pitch: 100, pan: 0 });
-        setSpecifyBattleback(!!mapRes.specifyBattleback);
-        setBattleback1Name(mapRes.battleback1Name || '');
-        setBattleback2Name(mapRes.battleback2Name || '');
-        setDisableDashing(!!mapRes.disableDashing);
-        setParallaxName(mapRes.parallaxName || '');
-        setParallaxLoopX(!!mapRes.parallaxLoopX);
-        setParallaxLoopY(!!mapRes.parallaxLoopY);
-        setParallaxSx(mapRes.parallaxSx || 0);
-        setParallaxSy(mapRes.parallaxSy || 0);
-        setParallaxShow(mapRes.parallaxShow ?? true);
-        setNote(mapRes.note || '');
-        setEncounterList((mapRes.encounterList as EncounterEntry[]) || []);
-
-        // Map name from MapInfos
-        const info = maps.find(m => m && m.id === mapId);
-        setName(info?.name || '');
-
         // Tilesets
         const entries: TilesetEntry[] = [];
-        tsRes.forEach((ts, i) => { if (ts && ts.name) entries.push({ id: i, name: ts.name }); });
+        const names: string[] = [];
+        tsRes.forEach((ts, i) => {
+          if (ts && ts.name) {
+            entries.push({ id: i, name: ts.name });
+            names[i] = ts.name;
+          }
+        });
         setTilesets(entries);
+        setTilesetNames(names);
 
         // Troops
         const tNames: string[] = [];
         troopRes.forEach(tr => { if (tr) tNames[tr.id] = tr.name || ''; });
         setTroopNames(tNames);
+
+        // 편집 모드: 기존 맵 데이터 로드
+        if (!isNew && mapId != null) {
+          const mapRes = await apiClient.get<MapData>(`/maps/${mapId}`);
+          setMapData(mapRes);
+          setDisplayName(mapRes.displayName || '');
+          setTilesetId(mapRes.tilesetId || 1);
+          setWidth(mapRes.width);
+          setHeight(mapRes.height);
+          setScrollType(mapRes.scrollType ?? 0);
+          setEncounterStep(mapRes.encounterStep ?? 30);
+          setAutoplayBgm(!!mapRes.autoplayBgm);
+          setBgm(mapRes.bgm || { name: '', volume: 90, pitch: 100, pan: 0 });
+          setAutoplayBgs(!!mapRes.autoplayBgs);
+          setBgs(mapRes.bgs || { name: '', volume: 90, pitch: 100, pan: 0 });
+          setSpecifyBattleback(!!mapRes.specifyBattleback);
+          setBattleback1Name(mapRes.battleback1Name || '');
+          setBattleback2Name(mapRes.battleback2Name || '');
+          setDisableDashing(!!mapRes.disableDashing);
+          setParallaxName(mapRes.parallaxName || '');
+          setParallaxLoopX(!!mapRes.parallaxLoopX);
+          setParallaxLoopY(!!mapRes.parallaxLoopY);
+          setParallaxSx(mapRes.parallaxSx || 0);
+          setParallaxSy(mapRes.parallaxSy || 0);
+          setParallaxShow(mapRes.parallaxShow ?? true);
+          setNote(mapRes.note || '');
+          setEncounterList((mapRes.encounterList as EncounterEntry[]) || []);
+
+          // Map name from MapInfos
+          const info = maps.find(m => m && m.id === mapId);
+          setName(info?.name || '');
+        }
       } catch (e) {
         console.error('Failed to load map properties', e);
       } finally {
@@ -114,7 +134,8 @@ export default function MapPropertiesDialog({ mapId, onClose }: MapPropertiesDia
       }
     };
     loadAll();
-  }, [mapId, maps]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapId, isNew]);
 
   // Encounter handlers
   const handleAddEncounter = useCallback(() => {
@@ -135,93 +156,157 @@ export default function MapPropertiesDialog({ mapId, onClose }: MapPropertiesDia
 
   // Save handler
   const handleOk = useCallback(async () => {
-    if (!mapData) return;
     try {
-      // Update MapInfos name
-      const newMaps = maps.map(m => {
-        if (m && m.id === mapId) return { ...m, name };
-        return m;
-      });
-      await updateMapInfos(newMaps);
+      if (isNew) {
+        // 신규 맵 생성
+        const newId = await createMap({
+          name: name || t('mapProperties.newMapDefaultName', '신규 맵'),
+          width,
+          height,
+          tilesetId,
+          parentId: parentId ?? 0,
+        });
+        if (!newId) {
+          showToast(t('mapProperties.saveFailed'));
+          return;
+        }
 
-      // Build updated map data
-      const updatedMap: MapData = {
-        ...mapData,
-        displayName,
-        tilesetId,
-        width,
-        height,
-        scrollType,
-        encounterStep,
-        autoplayBgm,
-        bgm,
-        autoplayBgs,
-        bgs,
-        specifyBattleback,
-        battleback1Name,
-        battleback2Name,
-        disableDashing,
-        parallaxName,
-        parallaxLoopX,
-        parallaxLoopY,
-        parallaxSx,
-        parallaxSy,
-        parallaxShow,
-        note,
-        encounterList,
-      };
+        // 생성된 맵에 나머지 속성 저장
+        const newMapData = await apiClient.get<MapData>(`/maps/${newId}`);
+        const updatedMap: MapData = {
+          ...newMapData,
+          displayName,
+          tilesetId,
+          width,
+          height,
+          scrollType,
+          encounterStep,
+          autoplayBgm,
+          bgm,
+          autoplayBgs,
+          bgs,
+          specifyBattleback,
+          battleback1Name,
+          battleback2Name,
+          disableDashing,
+          parallaxName,
+          parallaxLoopX,
+          parallaxLoopY,
+          parallaxSx,
+          parallaxSy,
+          parallaxShow,
+          note,
+          encounterList,
+        };
+        await apiClient.put(`/maps/${newId}`, updatedMap);
 
-      // Handle resize if dimensions changed
-      if (width !== mapData.width || height !== mapData.height) {
-        const oldW = mapData.width;
-        const oldH = mapData.height;
-        const newData = new Array(width * height * 6).fill(0);
-        for (let z = 0; z < 6; z++) {
-          for (let y = 0; y < Math.min(oldH, height); y++) {
-            for (let x = 0; x < Math.min(oldW, width); x++) {
-              newData[(z * height + y) * width + x] = mapData.data[(z * oldH + y) * oldW + x] || 0;
+        // MapInfos 이름 업데이트
+        const updatedMaps = useEditorStore.getState().maps.map(m => {
+          if (m && m.id === newId) return { ...m, name: name || t('mapProperties.newMapDefaultName', '신규 맵') };
+          return m;
+        });
+        await updateMapInfos(updatedMaps);
+
+        selectMap(newId);
+        showToast(t('mapProperties.saved'));
+        onClose();
+      } else {
+        // 편집 모드
+        if (!mapData) return;
+
+        // Update MapInfos name
+        const newMaps = maps.map(m => {
+          if (m && m.id === mapId) return { ...m, name };
+          return m;
+        });
+        await updateMapInfos(newMaps);
+
+        // Build updated map data
+        const updatedMap: MapData = {
+          ...mapData,
+          displayName,
+          tilesetId,
+          width,
+          height,
+          scrollType,
+          encounterStep,
+          autoplayBgm,
+          bgm,
+          autoplayBgs,
+          bgs,
+          specifyBattleback,
+          battleback1Name,
+          battleback2Name,
+          disableDashing,
+          parallaxName,
+          parallaxLoopX,
+          parallaxLoopY,
+          parallaxSx,
+          parallaxSy,
+          parallaxShow,
+          note,
+          encounterList,
+        };
+
+        // Handle resize if dimensions changed
+        if (width !== mapData.width || height !== mapData.height) {
+          const oldW = mapData.width;
+          const oldH = mapData.height;
+          const newData = new Array(width * height * 6).fill(0);
+          for (let z = 0; z < 6; z++) {
+            for (let y = 0; y < Math.min(oldH, height); y++) {
+              for (let x = 0; x < Math.min(oldW, width); x++) {
+                newData[(z * height + y) * width + x] = mapData.data[(z * oldH + y) * oldW + x] || 0;
+              }
             }
           }
+          updatedMap.data = newData;
+          // Trim events outside the new map bounds
+          updatedMap.events = mapData.events.map(ev => {
+            if (!ev) return null;
+            if (ev.x >= width || ev.y >= height) return null;
+            return ev;
+          });
         }
-        updatedMap.data = newData;
-        // Trim events outside the new map bounds
-        updatedMap.events = mapData.events.map(ev => {
-          if (!ev) return null;
-          if (ev.x >= width || ev.y >= height) return null;
-          return ev;
-        });
+
+        await apiClient.put(`/maps/${mapId}`, updatedMap);
+
+        // If this is the currently loaded map, reload it in the store
+        if (currentMapId === mapId) {
+          const refreshed = await apiClient.get<MapData>(`/maps/${mapId}`);
+          useEditorStore.setState({ currentMap: refreshed });
+        }
+
+        showToast(t('mapProperties.saved'));
+        onClose();
       }
-
-      await apiClient.put(`/maps/${mapId}`, updatedMap);
-
-      // If this is the currently loaded map, reload it in the store
-      if (currentMapId === mapId) {
-        const refreshed = await apiClient.get<MapData>(`/maps/${mapId}`);
-        useEditorStore.setState({ currentMap: refreshed });
-      }
-
-      showToast(t('mapProperties.saved'));
-      onClose();
     } catch (e) {
       console.error('Failed to save map properties', e);
       showToast(t('mapProperties.saveFailed'));
     }
-  }, [mapData, maps, mapId, name, displayName, tilesetId, width, height, scrollType, encounterStep,
+  }, [isNew, mapData, maps, mapId, parentId, name, displayName, tilesetId, width, height, scrollType, encounterStep,
     autoplayBgm, bgm, autoplayBgs, bgs, specifyBattleback, battleback1Name, battleback2Name,
     disableDashing, parallaxName, parallaxLoopX, parallaxLoopY, parallaxSx, parallaxSy, parallaxShow,
-    note, encounterList, currentMapId, updateMapInfos, showToast, onClose, t]);
+    note, encounterList, currentMapId, createMap, updateMapInfos, selectMap, showToast, onClose, t]);
 
   // Scroll speed options (-32 to 32)
   const scrollSpeedOptions = [];
   for (let i = -32; i <= 32; i++) scrollSpeedOptions.push(i);
 
+  // Tileset display name
+  const tilesetDisplayName = tilesetNames[tilesetId]
+    ? `${String(tilesetId).padStart(4, '0')} ${tilesetNames[tilesetId]}`
+    : String(tilesetId).padStart(4, '0');
+
+  const dialogTitle = isNew
+    ? t('mapProperties.titleNew', '새 맵')
+    : t('mapProperties.title', { id: String(mapId).padStart(3, '0') });
+
   if (loading) {
     return (
       <div className="map-props-overlay">
         <div className="map-props-dialog">
-          <div className="map-props-header">
-            {t('mapProperties.title', { id: String(mapId).padStart(3, '0') })}
-          </div>
+          <div className="map-props-header">{dialogTitle}</div>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
             {t('common.loading')}
           </div>
@@ -234,9 +319,7 @@ export default function MapPropertiesDialog({ mapId, onClose }: MapPropertiesDia
     <div className="map-props-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="map-props-dialog">
         {/* Header */}
-        <div className="map-props-header">
-          {t('mapProperties.title', { id: String(mapId).padStart(3, '0') })}
-        </div>
+        <div className="map-props-header">{dialogTitle}</div>
 
         {/* Body */}
         <div className="map-props-body">
@@ -258,13 +341,18 @@ export default function MapPropertiesDialog({ mapId, onClose }: MapPropertiesDia
               <div className="map-props-row">
                 <div className="map-props-field flex-1">
                   <span>{t('mapProperties.tileset')}</span>
-                  <select value={tilesetId} onChange={(e) => setTilesetId(Number(e.target.value))}>
-                    {tilesets.map(ts => (
-                      <option key={ts.id} value={ts.id}>
-                        {String(ts.id).padStart(4, '0')} {ts.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="map-props-picker-row">
+                    <input
+                      type="text"
+                      readOnly
+                      value={tilesetDisplayName}
+                      className="map-props-picker-input"
+                    />
+                    <button
+                      className="map-props-picker-btn"
+                      onClick={() => setShowTilesetPicker(true)}
+                    >...</button>
+                  </div>
                 </div>
                 <div className="map-props-field">
                   <span>{t('mapProperties.width')}</span>
@@ -280,12 +368,25 @@ export default function MapPropertiesDialog({ mapId, onClose }: MapPropertiesDia
               <div className="map-props-row">
                 <div className="map-props-field flex-1">
                   <span>{t('mapProperties.scrollType')}</span>
-                  <select value={scrollType} onChange={(e) => setScrollType(Number(e.target.value))}>
-                    <option value={0}>{t('mapProperties.scrollNone')}</option>
-                    <option value={1}>{t('mapProperties.scrollHorizontal')}</option>
-                    <option value={2}>{t('mapProperties.scrollVertical')}</option>
-                    <option value={3}>{t('mapProperties.scrollBoth')}</option>
-                  </select>
+                  <div className="map-props-radio-group">
+                    {[
+                      { value: 0, label: t('mapProperties.scrollNone') },
+                      { value: 1, label: t('mapProperties.scrollHorizontal') },
+                      { value: 2, label: t('mapProperties.scrollVertical') },
+                      { value: 3, label: t('mapProperties.scrollBoth') },
+                    ].map(opt => (
+                      <label key={opt.value} className="map-props-radio">
+                        <input
+                          type="radio"
+                          name="scrollType"
+                          value={opt.value}
+                          checked={scrollType === opt.value}
+                          onChange={() => setScrollType(opt.value)}
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div className="map-props-field">
                   <span>{t('mapProperties.encounterSteps')}</span>
@@ -410,7 +511,6 @@ export default function MapPropertiesDialog({ mapId, onClose }: MapPropertiesDia
                     key={idx}
                     className={`map-props-enc-row${selectedEncIdx === idx ? ' selected' : ''}`}
                     onClick={() => setSelectedEncIdx(idx)}
-                    onDoubleClick={() => {/* could open edit dialog */}}
                   >
                     <div className="map-props-enc-col-troop">
                       <select
@@ -472,6 +572,17 @@ export default function MapPropertiesDialog({ mapId, onClose }: MapPropertiesDia
           <button className="db-btn" onClick={onClose}>{t('common.cancel')}</button>
         </div>
       </div>
+
+      {/* Tileset Picker Popup */}
+      {showTilesetPicker && (
+        <DataListPicker
+          title={t('mapProperties.tileset') + ' 선택'}
+          items={tilesetNames}
+          value={tilesetId}
+          onChange={(id) => setTilesetId(id)}
+          onClose={() => setShowTilesetPicker(false)}
+        />
+      )}
     </div>
   );
 }
