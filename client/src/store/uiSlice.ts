@@ -11,14 +11,14 @@ function saveToolbarPartial(partial: Record<string, unknown>) {
 
 export const uiSlice: SliceCreator<Pick<EditorState,
   'zoomLevel' | 'mode3d' | 'shadowLight' | 'disableFow' | 'paletteTab' | 'toastQueue' |
-  'showGrid' | 'showPassability' | 'showTileInfo' |
+  'showGrid' | 'showPassability' | 'showTileInfo' | 'showRegion' |
   'transparentColor' | 'maxUndo' | 'zoomStep' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
   'showToast' | 'dismissToast' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
-  'setShowGrid' | 'setShowPassability' | 'setShowTileInfo' |
+  'setShowGrid' | 'setShowPassability' | 'setShowTileInfo' | 'setShowRegion' |
   'setMode3d' | 'setShadowLight' | 'setDisableFow' | 'setPaletteTab' |
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
@@ -31,6 +31,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   disableFow: true,
   showGrid: true,
   showPassability: false,
+  showRegion: false,
   showTileInfo: (() => { try { const raw = localStorage.getItem(TOOLBAR_STORAGE_KEY); return raw ? JSON.parse(raw).showTileInfo ?? true : true; } catch { return true; } })(),
   postProcessConfig: {},
   paletteTab: 'A',
@@ -90,6 +91,10 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   setShowPassability: (show: boolean) => {
     set({ showPassability: show });
     saveToolbarPartial({ showPassability: show });
+  },
+  setShowRegion: (show: boolean) => {
+    set({ showRegion: show });
+    saveToolbarPartial({ showRegion: show });
   },
   setShowTileInfo: (show: boolean) => {
     set({ showTileInfo: show });
