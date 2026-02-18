@@ -883,7 +883,8 @@
     "newMap": "New Map...",
     "mapProperties": "Map Properties...",
     "deleteMap": "Delete",
-    "confirmDelete": "Delete map {{id}}?",
+    "confirmDelete": "Delete map {{name}} ({{id}})?",
+    "confirmDeleteWithChildren": "Delete map {{name}} ({{id}})?\n\nChild maps will not be deleted and will be moved to the top level.",
     "loadSampleMap": "Load Sample Map..."
   },
   "mapProperties": {
