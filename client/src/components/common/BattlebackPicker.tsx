@@ -167,6 +167,12 @@ export default function BattlebackPicker({ value1, value2, onChange }: Battlebac
               </div>
             </div>
             <div className="audio-picker-footer">
+              <button className="db-btn" onClick={() => {
+                apiClient.post('/resources/battlebacks1/open-folder', {}).catch(() => {});
+              }} style={{ marginRight: 4 }}>배경1 폴더 열기</button>
+              <button className="db-btn" onClick={() => {
+                apiClient.post('/resources/battlebacks2/open-folder', {}).catch(() => {});
+              }} style={{ marginRight: 'auto' }}>배경2 폴더 열기</button>
               <button className="db-btn" onClick={handleOk}>OK</button>
               <button className="db-btn" onClick={handleCancel}>취소</button>
             </div>
