@@ -74,6 +74,7 @@
             });
 
             _skyMesh = new THREE.Mesh(geometry, material);
+            _skyMesh.scale.set(1, -1, 1); // Mode3D projection Y-flip 보정
             _skyMesh.rotation.x = Math.PI / 2;
             _skyMesh._isParallaxSky = true;
             _skyMesh._isSkyMeshSphere = true;  // 구체형 sky — 렌더 패스에서 재배치 건너뜀
