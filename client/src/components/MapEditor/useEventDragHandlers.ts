@@ -463,6 +463,22 @@ export function useEventDragHandlers(): EventDragHandlersResult {
     if (editMode !== 'event') return;
     const tile = canvasToTile(e);
     if (!tile || !currentMap || !currentMap.events) return;
+
+    // 시작 위치(플레이어/탈것/테스트) 위에서는 더블클릭 무시
+    const isPlayerStart = systemData && currentMapId === systemData.startMapId
+      && tile.x === systemData.startX && tile.y === systemData.startY;
+    if (isPlayerStart) return;
+
+    if (systemData) {
+      for (const vk of ['boat', 'ship', 'airship'] as const) {
+        const vData = systemData[vk];
+        if (vData && vData.startMapId === currentMapId && tile.x === vData.startX && tile.y === vData.startY) return;
+      }
+    }
+
+    const testPos = currentMap.testStartPosition;
+    if (testPos && tile.x === testPos.x && tile.y === testPos.y) return;
+
     const ev = currentMap.events.find(
       (ev) => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y
     );
@@ -472,7 +488,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
     } else {
       createNewEvent(tile.x, tile.y);
     }
-  }, [editMode, currentMap, setSelectedEventId, createNewEvent]);
+  }, [editMode, currentMap, systemData, currentMapId, setSelectedEventId, createNewEvent]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent<HTMLElement>, canvasToTile: MapToolsResult['canvasToTile']) => {
     e.preventDefault();
