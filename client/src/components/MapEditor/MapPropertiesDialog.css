@@ -550,13 +550,53 @@
 
 .enc-dialog-regions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: 4px;
   padding-left: 20px;
+  align-items: center;
 }
 
 .enc-dialog-region-slot {
-  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.enc-dialog-region-remove {
+  background: none;
+  border: none;
+  color: #aaa;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.enc-dialog-region-remove:hover:not(:disabled) {
+  color: #e06c6c;
+}
+.enc-dialog-region-remove:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.enc-dialog-region-add {
+  background: none;
+  border: 1px solid #555;
+  color: #aaa;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 1px 7px;
+  border-radius: 3px;
+}
+.enc-dialog-region-add:hover:not(:disabled) {
+  color: #ddd;
+  border-color: #888;
+}
+.enc-dialog-region-add:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .enc-dialog-footer {

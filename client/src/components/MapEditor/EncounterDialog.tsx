@@ -35,23 +35,29 @@ export default function EncounterDialog({ initial, onOk, onCancel }: EncounterDi
     initial?.regionSet && initial.regionSet.length > 0 ? 'region' : 'all'
   );
   const initRegions = initial?.regionSet ?? [];
-  const [regions, setRegions] = useState<[number, number, number]>([
-    initRegions[0] ?? 0,
-    initRegions[1] ?? 0,
-    initRegions[2] ?? 0,
-  ]);
+  const [regions, setRegions] = useState<number[]>(
+    initRegions.length > 0 ? initRegions : [0]
+  );
 
   const handleOk = () => {
     const regionSet = scope === 'region' ? regions.filter(r => r > 0) : [];
     onOk({ troopId, weight, regionSet });
   };
 
-  const handleRegionChange = (slot: 0 | 1 | 2, val: number) => {
+  const handleRegionChange = (idx: number, val: number) => {
     setRegions(prev => {
-      const next = [...prev] as [number, number, number];
-      next[slot] = Math.max(0, Math.min(255, val));
+      const next = [...prev];
+      next[idx] = Math.max(0, Math.min(255, val));
       return next;
     });
+  };
+
+  const handleAddRegion = () => {
+    setRegions(prev => [...prev, 0]);
+  };
+
+  const handleRemoveRegion = (idx: number) => {
+    setRegions(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
   };
 
   const troopName = troopNames[troopId] || '';
@@ -103,19 +109,33 @@ export default function EncounterDialog({ initial, onOk, onCancel }: EncounterDi
             <span>지역 ID로 지정</span>
           </label>
           <div className="enc-dialog-regions">
-            {([0, 1, 2] as const).map((slot) => (
-              <div key={slot} className="enc-dialog-region-slot">
+            {regions.map((val, idx) => (
+              <div key={idx} className="enc-dialog-region-slot">
                 <input
                   type="number"
                   className="enc-dialog-input-num"
                   min={0} max={255}
-                  value={regions[slot] || ''}
+                  value={val || ''}
                   disabled={scope === 'all'}
                   placeholder="0"
-                  onChange={(e) => handleRegionChange(slot, Number(e.target.value) || 0)}
+                  onChange={(e) => handleRegionChange(idx, Number(e.target.value) || 0)}
                 />
+                {regions.length > 1 && (
+                  <button
+                    className="enc-dialog-region-remove"
+                    disabled={scope === 'all'}
+                    onClick={() => handleRemoveRegion(idx)}
+                    title="제거"
+                  >×</button>
+                )}
               </div>
             ))}
+            <button
+              className="enc-dialog-region-add"
+              disabled={scope === 'all'}
+              onClick={handleAddRegion}
+              title="지역 ID 추가"
+            >+</button>
           </div>
         </div>
 
