@@ -205,7 +205,7 @@ export default function MapTree() {
   }, [contextMenu, closeContextMenu]);
 
   const handleLoadSampleMap = useCallback(() => {
-    if (!contextMenu || contextMenu.mapId <= 0) return;
+    if (!contextMenu) return;
     setSampleMapTargetId(contextMenu.mapId);
     closeContextMenu();
   }, [contextMenu, closeContextMenu]);
@@ -363,9 +363,9 @@ export default function MapTree() {
       {contextMenu && (
         <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={e => e.stopPropagation()}>
           <div className="context-menu-item" onClick={handleNewMap}>{t('mapTree.newMap')}</div>
+          <div className="context-menu-item" onClick={handleLoadSampleMap}>{t('mapTree.loadSampleMap')}</div>
           {contextMenu.mapId > 0 && (
             <>
-              <div className="context-menu-item" onClick={handleLoadSampleMap}>{t('mapTree.loadSampleMap')}</div>
               <div className="context-menu-item" onClick={handleMapProperties}>{t('mapTree.mapProperties')}</div>
               <div className="context-menu-separator" />
               <div className="context-menu-item" onClick={handleCopyMap}>
