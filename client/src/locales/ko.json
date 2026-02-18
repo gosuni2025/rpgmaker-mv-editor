@@ -971,8 +971,8 @@
     "newMap": "새 맵...",
     "mapProperties": "맵 속성...",
     "deleteMap": "삭제",
-    "confirmDelete": "맵 {{id}}을(를) 삭제하시겠습니까?",
-    "confirmDeleteWithChildren": "맵 {{id}}을(를) 삭제하시겠습니까?\n\n하위 맵은 삭제되지 않으며, 최상위 목록으로 이동됩니다.",
+    "confirmDelete": "{{name}}(맵 {{id}})을(를) 삭제하시겠습니까?",
+    "confirmDeleteWithChildren": "{{name}}(맵 {{id}})을(를) 삭제하시겠습니까?\n\n하위 맵은 삭제되지 않으며, 최상위 목록으로 이동됩니다.",
     "loadSampleMap": "샘플 맵 로드..."
   },
   "mapProperties": {
