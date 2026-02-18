@@ -416,6 +416,13 @@ export default function TilesetPalette() {
     }
   };
 
+  // 오브젝트 편집 모드에서 R탭이 선택돼 있으면 A탭으로 전환
+  useEffect(() => {
+    if (editMode === 'object' && activeTab === 'R') {
+      handleTabClick('A');
+    }
+  }, [editMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const hasSheet = (tab: PaletteTab): boolean => {
     if (tab === 'R') return true;
     return TAB_SHEET_INDEX[tab].some(idx => !!tilesetImages[idx]);
@@ -493,7 +500,7 @@ export default function TilesetPalette() {
         /* Normal tileset mode */
         <>
         <div style={styles.tabBar}>
-          {TABS.map((tab) => (
+          {TABS.filter((tab) => !(editMode === 'object' && tab === 'R')).map((tab) => (
             <div
               key={tab}
               style={{
