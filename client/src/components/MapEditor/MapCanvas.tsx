@@ -221,6 +221,38 @@ export default function MapCanvas() {
   const eyedropperCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.54 3.54 1.41 1.41L16.25 6.8l.88.88-5.66 5.66-1.41-1.41-2.12 2.12a3 3 0 000 4.24l.71.71a3 3 0 004.24 0l2.12-2.12-1.41-1.41 5.66-5.66.88.88 1.41-1.41-3.54-3.54a1 1 0 000-1.41z' fill='white' stroke='black' stroke-width='0.5'/%3E%3C/svg%3E") 2 22, crosshair`;
 
   const transparentColor = useEditorStore((s) => s.transparentColor);
+
+  // Parallax background overlay style
+  const parallaxBgStyle = useMemo(() => {
+    const name = currentMap?.parallaxName;
+    const show = currentMap?.parallaxShow;
+    if (!name || !show) return null;
+    const loopX = currentMap?.parallaxLoopX;
+    const loopY = currentMap?.parallaxLoopY;
+    const url = `/img/parallaxes/${encodeURIComponent(name)}.png`;
+    const repeatX = loopX ? 'repeat' : 'no-repeat';
+    const repeatY = loopY ? 'repeat' : 'no-repeat';
+    let repeat: string;
+    if (loopX && loopY) repeat = 'repeat';
+    else if (loopX) repeat = 'repeat-x';
+    else if (loopY) repeat = 'repeat-y';
+    else repeat = 'no-repeat';
+    return {
+      position: 'absolute' as const,
+      top: 0,
+      left: 0,
+      width: mapPxW,
+      height: mapPxH,
+      backgroundImage: `url("${url}")`,
+      backgroundRepeat: repeat,
+      backgroundSize: (!loopX && !loopY) ? 'cover' : 'auto',
+      backgroundPosition: '0 0',
+      zIndex: 0,
+      pointerEvents: 'none' as const,
+      opacity: 0.85,
+    };
+  }, [currentMap?.parallaxName, currentMap?.parallaxShow, currentMap?.parallaxLoopX, currentMap?.parallaxLoopY, mapPxW, mapPxH]);
+
   const containerStyle = useMemo(() => ({
     flex: 1 as const,
     overflow: 'auto' as const,
@@ -266,6 +298,8 @@ export default function MapCanvas() {
       }}>
         {/* Map interior checkerboard background */}
         <div style={mapBgStyle} />
+        {/* Parallax background overlay (에디터 표시용) */}
+        {parallaxBgStyle && <div style={parallaxBgStyle} />}
         <canvas
           ref={webglCanvasRef}
           onMouseDown={handleMouseDown}
