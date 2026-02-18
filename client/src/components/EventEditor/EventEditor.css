@@ -260,6 +260,33 @@
   margin: 0;
 }
 
+.event-editor-billboard-row {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid #3a3a3a;
+}
+
+.event-editor-tooltip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #555;
+  color: #ccc;
+  font-size: 10px;
+  font-weight: bold;
+  cursor: help;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.event-editor-tooltip-icon:hover {
+  background: #2675bf;
+  color: #fff;
+}
+
 /* Right panel */
 .event-editor-right {
   flex: 1;
