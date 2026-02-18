@@ -195,6 +195,7 @@ export default function MapTree() {
     const newId = await createMap({ parentId });
     if (newId) {
       selectMap(newId);
+      setMapPropertiesId(newId);
     }
   }, [contextMenu, createMap, selectMap, closeContextMenu]);
 
