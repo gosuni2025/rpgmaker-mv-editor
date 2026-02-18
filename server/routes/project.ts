@@ -582,7 +582,8 @@ router.post('/migrate', (req: Request, res: Response) => {
       }
 
       // Register editor plugins in plugins.js if not already registered
-      if (copiedPlugins.length > 0) {
+      // Always check registration (even if no files were copied — plugin may exist on disk but not in plugins.js)
+      {
         const pluginsJsPath = path.join(projectRoot, 'js', 'plugins.js');
         let pluginList: { name: string; status: boolean; description: string; parameters: Record<string, string> }[] = [];
         if (fs.existsSync(pluginsJsPath)) {
