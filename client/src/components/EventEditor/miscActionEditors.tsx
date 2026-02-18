@@ -419,7 +419,7 @@ export function ChangeBattleBackEditor({ p, onOk, onCancel }: { p: unknown[]; on
       {showPicker && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowPicker(false); }}>
           <div className="battleback-picker-dialog">
-            <div className="audio-picker-header">이미지 선택</div>
+            <div className="audio-picker-header">전투 배경 선택</div>
             <div className="battleback-picker-body">
               <div className="battleback-picker-lists">
                 <div className="battleback-picker-list-col">
@@ -466,6 +466,12 @@ export function ChangeBattleBackEditor({ p, onOk, onCancel }: { p: unknown[]; on
               </div>
             </div>
             <div className="audio-picker-footer">
+              <button className="db-btn" onClick={() => {
+                apiClient.post('/resources/battlebacks1/open-folder', {}).catch(() => {});
+              }} style={{ marginRight: 4 }}>배경1 폴더 열기</button>
+              <button className="db-btn" onClick={() => {
+                apiClient.post('/resources/battlebacks2/open-folder', {}).catch(() => {});
+              }} style={{ marginRight: 'auto' }}>배경2 폴더 열기</button>
               <button className="db-btn" onClick={handlePickerOk}>OK</button>
               <button className="db-btn" onClick={() => setShowPicker(false)}>취소</button>
             </div>
