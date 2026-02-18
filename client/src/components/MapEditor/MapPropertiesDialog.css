@@ -512,21 +512,6 @@
   color: #aaa;
 }
 
-.enc-dialog-select {
-  background: #2b2b2b;
-  border: 1px solid #555;
-  border-radius: 3px;
-  color: #ddd;
-  font-size: 12px;
-  padding: 3px 6px;
-  width: 100%;
-  outline: none;
-}
-
-.enc-dialog-select:focus {
-  border-color: #2675bf;
-}
-
 .enc-dialog-input-num {
   background: #2b2b2b;
   border: 1px solid #555;

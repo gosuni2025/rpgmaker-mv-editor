@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { DataListPicker } from '../EventEditor/dataListPicker';
+import { getLabel } from '../EventEditor/actionEditorUtils';
 
 interface EncounterEntry {
   troopId: number;
@@ -19,6 +21,7 @@ export default function EncounterDialog({ initial, troopNames, onOk, onCancel }:
   const defaultTroopId = initial?.troopId ?? (firstValidId > 0 ? firstValidId : 1);
 
   const [troopId, setTroopId] = useState<number>(defaultTroopId);
+  const [showTroopPicker, setShowTroopPicker] = useState(false);
   const [weight, setWeight] = useState<number>(initial?.weight ?? 5);
   const [scope, setScope] = useState<'all' | 'region'>(
     initial?.regionSet && initial.regionSet.length > 0 ? 'region' : 'all'
@@ -57,17 +60,13 @@ export default function EncounterDialog({ initial, troopNames, onOk, onCancel }:
           <div className="enc-dialog-row">
             <div className="enc-dialog-field" style={{ flex: 1 }}>
               <label className="enc-dialog-label">적 군단:</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <select
-                  className="enc-dialog-select"
-                  value={troopId}
-                  onChange={(e) => setTroopId(Number(e.target.value))}
-                >
-                  {troopNames.map((tn, ti) => tn ? (
-                    <option key={ti} value={ti}>{String(ti).padStart(4, '0')} {tn}</option>
-                  ) : null)}
-                </select>
-              </div>
+              <button
+                className="db-btn"
+                style={{ textAlign: 'left', padding: '3px 8px', fontSize: 12, width: '100%' }}
+                onClick={() => setShowTroopPicker(true)}
+              >
+                {getLabel(troopId, troopNames)}
+              </button>
             </div>
             <div className="enc-dialog-field enc-dialog-field-weight">
               <label className="enc-dialog-label">영향력:</label>
@@ -126,6 +125,16 @@ export default function EncounterDialog({ initial, troopNames, onOk, onCancel }:
           <button className="db-btn" onClick={onCancel}>취소</button>
         </div>
       </div>
+
+      {showTroopPicker && (
+        <DataListPicker
+          title="적 군단 선택"
+          items={troopNames}
+          value={troopId}
+          onChange={(id) => { setTroopId(id); setShowTroopPicker(false); }}
+          onClose={() => setShowTroopPicker(false)}
+        />
+      )}
     </div>
   );
 }
