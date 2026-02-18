@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import apiClient from '../../api/client';
 import useEscClose from '../../hooks/useEscClose';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
+import { highlightMatch } from '../../utils/highlightMatch';
 import './BattlebackPicker.css';
 
 interface BattlebackPickerProps {
@@ -135,7 +136,7 @@ export default function BattlebackPicker({ value1, value2, onChange }: Battlebac
                         className={`audio-picker-item${selected1 === name ? ' selected' : ''}`}
                         onClick={() => setSelected1(name)}
                       >
-                        {name}
+                        {highlightMatch(name, searchQuery)}
                       </div>
                     ))}
                   </div>
@@ -156,7 +157,7 @@ export default function BattlebackPicker({ value1, value2, onChange }: Battlebac
                         className={`audio-picker-item${selected2 === name ? ' selected' : ''}`}
                         onClick={() => setSelected2(name)}
                       >
-                        {name}
+                        {highlightMatch(name, searchQuery)}
                       </div>
                     ))}
                   </div>

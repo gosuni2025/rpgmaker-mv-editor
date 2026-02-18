@@ -18,6 +18,13 @@ input, textarea, [contenteditable="true"] {
   user-select: text;
 }
 
+/* Search highlight: 검색어 매칭 강조 */
+mark.search-highlight {
+  background: transparent;
+  color: #f0c040;
+  font-weight: bold;
+}
+
 /* App Layout */
 .app-layout {
   display: grid;

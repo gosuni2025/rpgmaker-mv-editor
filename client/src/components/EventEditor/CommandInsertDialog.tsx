@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fuzzyMatch } from '../../utils/fuzzySearch';
+import { highlightMatch } from '../../utils/highlightMatch';
 import useEscClose from '../../hooks/useEscClose';
 import { ADDON_COMMANDS } from './addonCommands';
 import '../MapEditor/MapCanvas.css';
@@ -257,7 +258,8 @@ export default function CommandInsertDialog({ onSelect, onCancel }: CommandInser
                     className="insert-command-item"
                     onClick={() => onSelect(c.code, c.addonPlugin)}
                   >
-                    {c.name}
+                    <span style={{ color: '#888', fontSize: 11, marginRight: 6 }}>{highlightMatch(c.category, commandFilter)}</span>
+                    {highlightMatch(c.name, commandFilter)}
                   </div>
                 ))}
               </div>

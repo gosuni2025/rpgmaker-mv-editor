@@ -7,6 +7,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import apiClient from '../../api/client';
 import TroopPreview from './TroopPreview';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
+import { highlightMatch } from '../../utils/highlightMatch';
 import type { Troop } from '../../types/rpgMakerMV';
 import './TroopPickerDialog.css';
 
@@ -91,7 +92,8 @@ export default function TroopPickerDialog({ value, onChange, onClose, title = 'ì
                   onClick={() => handleSelect(troop.id)}
                   onDoubleClick={() => { handleSelect(troop.id); onChange(troop.id); onClose(); }}
                 >
-                  {String(troop.id).padStart(4, '0')} {troop.name}
+                  {highlightMatch(String(troop.id).padStart(4, '0'), searchQuery)}{' '}
+                  {highlightMatch(troop.name, searchQuery)}
                 </div>
               ))}
             </div>

@@ -5,6 +5,7 @@ import AnimationPreview from '../Database/AnimationPreview';
 import type { AnimationPreviewHandle } from '../Database/AnimationPreview';
 import useEscClose from '../../hooks/useEscClose';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
+import { highlightMatch } from '../../utils/highlightMatch';
 
 const GROUP_SIZE = 20;
 
@@ -116,8 +117,8 @@ export default function AnimationPickerDialog({ value, onChange, onClose }: {
                   padding: '3px 8px', cursor: 'pointer', fontSize: 12, color: '#ddd',
                   background: item.id === selected ? '#2675bf' : 'transparent',
                 }} onClick={() => setSelected(item.id)}
-                  onDoubleClick={() => { onChange(item.id); onClose(); }}>
-                  <span>{item.label}</span>
+                   onDoubleClick={() => { onChange(item.id); onClose(); }}>
+                  <span>{highlightMatch(item.label, searchQuery)}</span>
                 </div>
               ))}
             </div>

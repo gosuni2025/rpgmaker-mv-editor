@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import apiClient from '../../api/client';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
+import { highlightMatch } from '../../utils/highlightMatch';
 import './AudioPicker.css';
 
 interface MoviePickerProps {
@@ -75,7 +76,7 @@ export default function MoviePicker({ value, onChange, inline }: MoviePickerProp
             className={`audio-picker-item${selected === name ? ' selected' : ''}`}
             onClick={() => setSelected(name)}
           >
-            {name}
+            {highlightMatch(name, searchQuery)}
           </div>
         ))}
       </div>
