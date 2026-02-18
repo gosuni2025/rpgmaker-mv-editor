@@ -832,6 +832,20 @@
         Mode3D.registerBillboard(this);
     };
 
+    var _Sprite_Character_updatePosition = Sprite_Character.prototype.updatePosition;
+    Sprite_Character.prototype.updatePosition = function() {
+        _Sprite_Character_updatePosition.call(this);
+        // 현재 이벤트 페이지의 billboardZ(타일 단위)를 _heightOffset에 반영
+        if (this._character && typeof this._character.page === 'function') {
+            try {
+                var page = this._character.page();
+                var bz = (page && page.billboardZ) ? page.billboardZ : 0;
+                var th = ($gameMap && $gameMap.tileHeight) ? $gameMap.tileHeight() : 48;
+                this._heightOffset = bz * th;
+            } catch (e) { /* ignore */ }
+        }
+    };
+
     var _Spriteset_Map_createCharacters = Spriteset_Map.prototype.createCharacters;
     Spriteset_Map.prototype.createCharacters = function() {
         Mode3D._billboardTargets = [];

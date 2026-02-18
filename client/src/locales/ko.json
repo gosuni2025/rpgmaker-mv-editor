@@ -893,7 +893,10 @@
     "conditionActor": "액터",
     "route": "루트...",
     "billboard3d": "3D 모드에서 입체로 표시",
-    "billboard3dTooltip": "체크 시 3D 모드에서 이벤트 캐릭터에 빌보드(billboard) 효과를 적용하여 카메라를 향해 세워집니다. 체크 해제 시 타일처럼 바닥에 눕혀진 채로 표시됩니다."
+    "billboard3dTooltip": "체크 시 3D 모드에서 이벤트 캐릭터에 빌보드(billboard) 효과를 적용하여 카메라를 향해 세워집니다. 체크 해제 시 타일처럼 바닥에 눕혀진 채로 표시됩니다.",
+    "billboardZ": "Z 위치",
+    "billboardZUnit": "타일",
+    "billboardZTooltip": "3D 모드에서 캐릭터의 높이 위치입니다. 양수면 위로, 음수면 아래로 이동합니다. (1.0 = 타일 1칸 높이)"
   },
   "moveRoute": {
     "title": "이동 루트",
