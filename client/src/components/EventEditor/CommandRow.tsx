@@ -27,6 +27,16 @@ interface CommandRowProps {
   onToggleFold?: (index: number) => void;
 }
 
+// indent 레인보우 색상 (VSCode indent-rainbow 스타일, 다크 테마에 맞게 낮은 opacity)
+const INDENT_COLORS = [
+  'rgba(255, 255, 64, 0.10)',   // 노랑
+  'rgba(127, 255, 127, 0.10)',  // 초록
+  'rgba(255, 127, 255, 0.10)',  // 마젠타
+  'rgba(79, 236, 236, 0.10)',   // 시안
+];
+
+const INDENT_WIDTH = 20; // paddingLeft per indent level (px)
+
 export const CommandRow = React.memo(function CommandRow({
   cmd, index, isSelected, isDragging, isGroupHL, isGroupFirst, isGroupLast, inGroup,
   draggable, displayCtx, onRowClick, onDoubleClick, onDragHandleMouseDown, context, commands,
@@ -71,15 +81,32 @@ export const CommandRow = React.memo(function CommandRow({
     document.addEventListener('mouseup', handleMouseUp);
   }, [isFoldable, draggable, onDragHandleMouseDown, index]);
 
+  // indent 가이드 렌더링
+  const indentGuides = [];
+  for (let level = 0; level < cmd.indent; level++) {
+    indentGuides.push(
+      <span
+        key={level}
+        className="indent-guide"
+        style={{
+          left: level * INDENT_WIDTH,
+          width: INDENT_WIDTH,
+          backgroundColor: INDENT_COLORS[level % INDENT_COLORS.length],
+        }}
+      />
+    );
+  }
+
   return (
     <div
       className={`event-command-row${isSelected ? ' selected' : ''}${isGroupHL ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}${isGroupFirst ? ' group-first' : ''}${isGroupLast ? ' group-last' : ''}${inGroup ? ' group-member' : ''}${isFolded ? ' folded' : ''}`}
-      style={{ paddingLeft: draggable ? cmd.indent * 20 : 8 + cmd.indent * 20 }}
+      style={{ paddingLeft: draggable ? cmd.indent * INDENT_WIDTH : 8 + cmd.indent * INDENT_WIDTH }}
       data-cmd-index={index}
       onClick={e => onRowClick(index, e)}
       onDoubleClick={() => onDoubleClick(index)}
       onMouseDown={handleRowMouseDown}
     >
+      {indentGuides}
       {isFoldable ? (
         <span
           className="fold-toggle"
