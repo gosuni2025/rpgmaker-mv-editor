@@ -14,8 +14,20 @@ const STRIP_ONLY_FIELDS = ['tilesetNames'];
 
 router.get('/', (req: Request, res: Response) => {
   try {
-    const data = projectManager.readJSON('MapInfos.json');
-    res.json(data);
+    const data = projectManager.readJSON('MapInfos.json') as (null | { id: number; [key: string]: unknown })[];
+    // 각 맵의 displayName을 Map파일에서 읽어 MapInfo에 포함
+    const enriched = data.map((info) => {
+      if (!info) return null;
+      try {
+        const filename = `Map${String(info.id).padStart(3, '0')}.json`;
+        const mapData = projectManager.readJSON(filename) as { displayName?: string } | null;
+        const displayName = mapData?.displayName ?? '';
+        return displayName ? { ...info, displayName } : info;
+      } catch {
+        return info;
+      }
+    });
+    res.json(enriched);
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

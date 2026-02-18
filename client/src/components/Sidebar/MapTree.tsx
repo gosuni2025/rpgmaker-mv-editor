@@ -59,7 +59,10 @@ function filterTree(nodes: TreeNodeData[], query: string): TreeNodeData[] {
   const result: TreeNodeData[] = [];
   for (const node of nodes) {
     const filteredChildren = filterTree(node.children, query);
-    const selfMatch = fuzzyMatch(node.name || `Map ${node.id}`, query);
+    const idStr = String(node.id).padStart(3, '0');
+    const selfMatch = fuzzyMatch(node.name || `Map ${node.id}`, query)
+      || fuzzyMatch(idStr, query)
+      || (!!node.displayName && fuzzyMatch(node.displayName, query));
     if (selfMatch || filteredChildren.length > 0) {
       result.push({ ...node, children: selfMatch && filteredChildren.length === 0 ? [] : filteredChildren.length > 0 ? filteredChildren : [] });
     }
@@ -87,7 +90,9 @@ function TreeNode({ node, depth, selectedId, selectedDisplayName, onSelect, onDo
   const idPrefix = `[${String(node.id).padStart(3, '0')}]`;
   const baseName = node.name || `Map ${node.id}`;
   const isSelected = node.id === selectedId;
-  const label = isSelected && selectedDisplayName ? `${baseName}(${selectedDisplayName})` : baseName;
+  // 선택된 맵은 currentMap의 displayName(최신 편집값) 우선, 아니면 MapInfo에 캐싱된 displayName 사용
+  const dn = isSelected ? (selectedDisplayName || node.displayName || '') : (node.displayName || '');
+  const label = dn ? `${baseName}(${dn})` : baseName;
   const displayName = `${idPrefix} ${label}`;
 
   return (

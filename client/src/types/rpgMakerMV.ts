@@ -8,6 +8,7 @@ export interface MapInfo {
   expanded?: boolean;
   scrollX?: number;
   scrollY?: number;
+  displayName?: string;
 }
 
 export interface MapData {
