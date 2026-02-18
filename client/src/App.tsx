@@ -114,9 +114,9 @@ export default function App() {
   const showOptionsDialog = useEditorStore((s) => s.showOptionsDialog);
   const showLocalizationDialog = useEditorStore((s) => s.showLocalizationDialog);
 
-  const toastMessage = useEditorStore((s) => s.toastMessage);
-  const toastPersistent = useEditorStore((s) => s.toastPersistent);
+  const toastQueue = useEditorStore((s) => s.toastQueue);
   const dismissToast = useEditorStore((s) => s.dismissToast);
+  const currentToast = toastQueue[0] ?? null;
   const parseErrors = useEditorStore((s) => s.parseErrors);
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
@@ -306,10 +306,18 @@ export default function App() {
           </div>
         </div>
       )}
-      {toastMessage && (
-        <div className={`toast ${toastPersistent ? 'toast-persistent' : ''}`}>
-          {toastMessage}
-          {toastPersistent && (
+      {currentToast && (
+        <div
+          key={currentToast.id}
+          className={`toast ${currentToast.persistent ? 'toast-persistent' : ''}`}
+          onAnimationEnd={(e) => {
+            if (e.animationName === 'toast-fade') {
+              dismissToast();
+            }
+          }}
+        >
+          {currentToast.message}
+          {currentToast.persistent && (
             <button className="toast-close" onClick={dismissToast}>&times;</button>
           )}
         </div>

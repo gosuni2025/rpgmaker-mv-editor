@@ -12,7 +12,7 @@
   font-weight: bold;
   z-index: 10000;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  animation: toast-fade 2s ease-in-out;
+  animation: toast-fade 2s ease-in-out forwards;
   pointer-events: none;
   white-space: pre-line;
   max-width: 480px;

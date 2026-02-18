@@ -10,7 +10,7 @@ function saveToolbarPartial(partial: Record<string, unknown>) {
 }
 
 export const uiSlice: SliceCreator<Pick<EditorState,
-  'zoomLevel' | 'mode3d' | 'shadowLight' | 'disableFow' | 'paletteTab' | 'toastMessage' | 'toastPersistent' |
+  'zoomLevel' | 'mode3d' | 'shadowLight' | 'disableFow' | 'paletteTab' | 'toastQueue' |
   'showGrid' | 'showPassability' | 'showTileInfo' |
   'transparentColor' | 'maxUndo' | 'zoomStep' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
@@ -34,8 +34,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   showTileInfo: (() => { try { const raw = localStorage.getItem(TOOLBAR_STORAGE_KEY); return raw ? JSON.parse(raw).showTileInfo ?? true : true; } catch { return true; } })(),
   postProcessConfig: {},
   paletteTab: 'A',
-  toastMessage: null,
-  toastPersistent: false,
+  toastQueue: [],
   transparentColor: { r: 255, g: 255, b: 255 },
   maxUndo: DEFAULT_MAX_UNDO,
   zoomStep: DEFAULT_ZOOM_STEP,
@@ -54,13 +53,14 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   showLocalizationDialog: false,
 
   showToast: (message: string, persistent?: boolean) => {
-    set({ toastMessage: message, toastPersistent: !!persistent });
-    if (!persistent) {
-      setTimeout(() => set({ toastMessage: null, toastPersistent: false }), 2000);
-    }
+    const id = Date.now() + Math.random();
+    set({ toastQueue: [...get().toastQueue, { id, message, persistent: !!persistent }] });
   },
   dismissToast: () => {
-    set({ toastMessage: null, toastPersistent: false });
+    const queue = get().toastQueue;
+    if (queue.length > 0) {
+      set({ toastQueue: queue.slice(1) });
+    }
   },
 
   setZoomLevel: (level: number) => {
