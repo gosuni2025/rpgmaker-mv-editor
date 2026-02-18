@@ -169,30 +169,26 @@ export default function DrawToolbar() {
 
           <div style={styles.separator} />
 
-          {/* Draw shapes — Region 모드에서는 숨김 */}
-          {!isRegionMode && (
-            <>
-              <div style={styles.group}>
-                {drawShapes.map((shape) => (
-                  <button
-                    key={shape.id}
-                    onClick={() => setDrawShape(shape.id)}
-                    style={{
-                      ...styles.btn,
-                      ...(drawShape === shape.id ? styles.btnActive : {}),
-                      ...(selectedTool === 'select' || selectedTool === 'shadow'
-                        ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
-                    }}
-                    title={shape.shortcut || undefined}
-                  >
-                    {t(shape.labelKey)}{shape.shortcut && <span style={styles.shortcut}>{shape.shortcut}</span>}
-                  </button>
-                ))}
-              </div>
+          {/* Draw shapes */}
+          <div style={styles.group}>
+            {drawShapes.map((shape) => (
+              <button
+                key={shape.id}
+                onClick={() => setDrawShape(shape.id)}
+                style={{
+                  ...styles.btn,
+                  ...(drawShape === shape.id ? styles.btnActive : {}),
+                  ...(selectedTool === 'select' || selectedTool === 'shadow'
+                    ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
+                }}
+                title={shape.shortcut || undefined}
+              >
+                {t(shape.labelKey)}{shape.shortcut && <span style={styles.shortcut}>{shape.shortcut}</span>}
+              </button>
+            ))}
+          </div>
 
-              <div style={styles.separator} />
-            </>
-          )}
+          <div style={styles.separator} />
         </>
       )}
 
