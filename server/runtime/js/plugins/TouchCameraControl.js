@@ -410,6 +410,12 @@
     var _orig_characterPatternY = Sprite_Character.prototype.characterPatternY;
     Sprite_Character.prototype.characterPatternY = function() {
         if (is3DActive() && this._character) {
+            // !나 $ 접두어가 붙은 캐릭터(오브젝트/빅 캐릭터)는 방향 보정 안 함
+            // 이들은 고정 방향 이미지이므로 카메라 각도와 무관하게 원래 방향 유지
+            var charName = this._character.characterName ? this._character.characterName() : '';
+            if (charName && /^[\!\$]/.test(charName)) {
+                return _orig_characterPatternY.call(this);
+            }
             var actualDir = this._character.direction();
             var visualDir = getVisualDirection(actualDir);
             return (visualDir - 2) / 2;
