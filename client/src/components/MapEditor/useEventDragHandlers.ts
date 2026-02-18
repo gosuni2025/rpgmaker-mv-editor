@@ -73,16 +73,19 @@ export function useEventDragHandlers(): EventDragHandlersResult {
   // Player start position drag state
   const isDraggingPlayerStart = useRef(false);
   const playerStartDragPosRef = useRef<{ x: number; y: number } | null>(null);
+  const playerStartDragOriginRef = useRef<{ x: number; y: number } | null>(null);
   const [playerStartDragPos, setPlayerStartDragPos] = useState<{ x: number; y: number } | null>(null);
 
   // Test start position drag state
   const isDraggingTestStart = useRef(false);
   const testStartDragPosRef = useRef<{ x: number; y: number } | null>(null);
+  const testStartDragOriginRef = useRef<{ x: number; y: number } | null>(null);
   const [testStartDragPos, setTestStartDragPos] = useState<{ x: number; y: number } | null>(null);
 
   // Vehicle start position drag state
   const isDraggingVehicleStart = useRef<'boat' | 'ship' | 'airship' | null>(null);
   const vehicleStartDragPosRef = useRef<{ x: number; y: number } | null>(null);
+  const vehicleStartDragOriginRef = useRef<{ x: number; y: number } | null>(null);
   const [vehicleStartDragPos, setVehicleStartDragPos] = useState<{ x: number; y: number; vehicle: 'boat' | 'ship' | 'airship' } | null>(null);
 
   // Context menu & event editing state
@@ -150,6 +153,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
           // 플레이어 시작 위치: 선택 + 드래그 준비
           isDraggingPlayerStart.current = true;
           playerStartDragPosRef.current = { x: tile.x, y: tile.y };
+          playerStartDragOriginRef.current = { x: tile.x, y: tile.y };
           setPlayerStartDragPos({ x: tile.x, y: tile.y });
           setSelectedEventIds([]);
           setSelectedEventId(null);
@@ -161,6 +165,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
           // 탈것 시작 위치: 선택 + 드래그 준비
           isDraggingVehicleStart.current = vehicleStart;
           vehicleStartDragPosRef.current = { x: tile.x, y: tile.y };
+          vehicleStartDragOriginRef.current = { x: tile.x, y: tile.y };
           setVehicleStartDragPos({ x: tile.x, y: tile.y, vehicle: vehicleStart });
           setSelectedEventIds([]);
           setSelectedEventId(null);
@@ -173,6 +178,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
         if (testPos && tile.x === testPos.x && tile.y === testPos.y && !(e.metaKey || e.ctrlKey)) {
           isDraggingTestStart.current = true;
           testStartDragPosRef.current = { x: tile.x, y: tile.y };
+          testStartDragOriginRef.current = { x: tile.x, y: tile.y };
           setTestStartDragPos({ x: tile.x, y: tile.y });
           setSelectedEventIds([]);
           setSelectedEventId(null);
@@ -269,13 +275,17 @@ export function useEventDragHandlers(): EventDragHandlersResult {
     if (isDraggingPlayerStart.current) {
       isDraggingPlayerStart.current = false;
       const dragPos = playerStartDragPosRef.current;
-      if (dragPos && currentMapId) {
-        setPlayerStartPosition(currentMapId, dragPos.x, dragPos.y).then(() => {
+      const origin = playerStartDragOriginRef.current;
+      const moved = dragPos && origin && (dragPos.x !== origin.x || dragPos.y !== origin.y);
+      if (moved && currentMapId) {
+        setPlayerStartPosition(currentMapId, dragPos!.x, dragPos!.y).then(() => {
           playerStartDragPosRef.current = null;
+          playerStartDragOriginRef.current = null;
           setPlayerStartDragPos(null);
         });
       } else {
         playerStartDragPosRef.current = null;
+        playerStartDragOriginRef.current = null;
         setPlayerStartDragPos(null);
       }
       return true;
@@ -283,10 +293,13 @@ export function useEventDragHandlers(): EventDragHandlersResult {
     if (isDraggingTestStart.current) {
       isDraggingTestStart.current = false;
       const dragPos = testStartDragPosRef.current;
-      if (dragPos) {
-        setTestStartPosition(dragPos.x, dragPos.y);
+      const origin = testStartDragOriginRef.current;
+      const moved = dragPos && origin && (dragPos.x !== origin.x || dragPos.y !== origin.y);
+      if (moved) {
+        setTestStartPosition(dragPos!.x, dragPos!.y);
       }
       testStartDragPosRef.current = null;
+      testStartDragOriginRef.current = null;
       setTestStartDragPos(null);
       return true;
     }
@@ -294,13 +307,17 @@ export function useEventDragHandlers(): EventDragHandlersResult {
       const vehicle = isDraggingVehicleStart.current;
       isDraggingVehicleStart.current = null;
       const dragPos = vehicleStartDragPosRef.current;
-      if (dragPos && currentMapId) {
-        setVehicleStartPosition(vehicle, currentMapId, dragPos.x, dragPos.y).then(() => {
+      const origin = vehicleStartDragOriginRef.current;
+      const moved = dragPos && origin && (dragPos.x !== origin.x || dragPos.y !== origin.y);
+      if (moved && currentMapId) {
+        setVehicleStartPosition(vehicle, currentMapId, dragPos!.x, dragPos!.y).then(() => {
           vehicleStartDragPosRef.current = null;
+          vehicleStartDragOriginRef.current = null;
           setVehicleStartDragPos(null);
         });
       } else {
         vehicleStartDragPosRef.current = null;
+        vehicleStartDragOriginRef.current = null;
         setVehicleStartDragPos(null);
       }
       return true;
@@ -312,16 +329,19 @@ export function useEventDragHandlers(): EventDragHandlersResult {
     if (isDraggingPlayerStart.current) {
       isDraggingPlayerStart.current = false;
       playerStartDragPosRef.current = null;
+      playerStartDragOriginRef.current = null;
       setPlayerStartDragPos(null);
     }
     if (isDraggingTestStart.current) {
       isDraggingTestStart.current = false;
       testStartDragPosRef.current = null;
+      testStartDragOriginRef.current = null;
       setTestStartDragPos(null);
     }
     if (isDraggingVehicleStart.current) {
       isDraggingVehicleStart.current = null;
       vehicleStartDragPosRef.current = null;
+      vehicleStartDragOriginRef.current = null;
       setVehicleStartDragPos(null);
     }
   }, []);
