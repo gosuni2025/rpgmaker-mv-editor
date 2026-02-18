@@ -1,7 +1,7 @@
 /*:
  * @pluginname WASD 이동
  * @plugindesc WASD 키로 이동, Q/E 키로 PageUp/PageDown 매핑
- * @author Claude
+ * @author gosuni2025
  *
  * @help
  * WASD 키를 방향키로, Q/E 키를 PageUp/PageDown으로 매핑합니다.

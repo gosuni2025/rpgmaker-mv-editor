@@ -1,7 +1,7 @@
 /*:
  * @pluginname 스카이박스
  * @plugindesc Three.js SkySphere - 3D 모드에서 파노라마 하늘 배경 표시
- * @author Claude
+ * @author gosuni2025
  *
  * @param Skybox Folder
  * @type dir

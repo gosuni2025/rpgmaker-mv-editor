@@ -1,7 +1,7 @@
 /*:
  * @pluginname 터치 목적지 설정
  * @plugindesc 터치/클릭 목적지 애니메이션 및 이동경로 화살표 표시
- * @author Claude
+ * @author gosuni2025
  *
  * @param Animation ID
  * @type animation
