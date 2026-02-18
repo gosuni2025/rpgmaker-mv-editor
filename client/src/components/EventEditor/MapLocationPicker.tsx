@@ -6,6 +6,7 @@ import useEditorStore from '../../store/useEditorStore';
 import { useThreeRenderer } from '../MapEditor/useThreeRenderer';
 import type { EditorPointLight } from '../../types/rpgMakerMV';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
+import { highlightMatch } from '../../utils/highlightMatch';
 
 const TILE_SIZE = 48;
 
@@ -425,7 +426,7 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
                 }}
                   onClick={() => setSelectedMapId(m.id)}
                 >
-                  {String(m.id).padStart(3, '0')}: {m.name}
+                  {highlightMatch(String(m.id).padStart(3, '0'), mapSearchQuery)}: {highlightMatch(m.name, mapSearchQuery)}
                 </div>
               ))}
             </div>

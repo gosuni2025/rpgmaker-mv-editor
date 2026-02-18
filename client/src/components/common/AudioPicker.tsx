@@ -3,6 +3,7 @@ import apiClient from '../../api/client';
 import type { AudioFile } from '../../types/rpgMakerMV';
 import useEscClose from '../../hooks/useEscClose';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
+import { highlightMatch } from '../../utils/highlightMatch';
 import './AudioPicker.css';
 
 interface AudioPickerProps {
@@ -136,7 +137,7 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
             onClick={() => setSelected(name)}
             onDoubleClick={() => { setSelected(name); play(name); }}
           >
-            {name}
+            {highlightMatch(name, searchQuery)}
           </div>
         ))}
       </div>

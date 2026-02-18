@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
+import { highlightMatch } from '../../utils/highlightMatch';
 
 const GROUP_SIZE = 20;
 const ICON_SIZE = 32;
@@ -226,7 +227,7 @@ export function DataListPicker({ items, value, onChange, onClose, title, iconInd
                 >
                   {iconIdx != null && iconIdx > 0 && <IconSprite iconIndex={iconIdx} />}
                   {charInfo?.characterName && <CharacterSprite {...charInfo} />}
-                  <span>{item.label}</span>
+                  <span>{highlightMatch(item.label, searchQuery)}</span>
                 </div>
               );
             })}

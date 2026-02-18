@@ -5,6 +5,7 @@ import type { MapInfo } from '../../types/rpgMakerMV';
 import apiClient from '../../api/client';
 import SampleMapDialog from '../SampleMapDialog';
 import MapPropertiesDialog from '../MapEditor/MapPropertiesDialog';
+import { highlightMatch } from '../../utils/highlightMatch';
 import './Sidebar.css';
 import './MapTree.css';
 
@@ -71,18 +72,6 @@ function filterTree(nodes: TreeNodeData[], query: string): TreeNodeData[] {
 }
 
 /** 검색어와 일치하는 부분을 <mark>로 감싸 반환 (대소문자 무시, 연속 substring) */
-function highlightMatch(text: string, query: string): React.ReactNode {
-  if (!query) return text;
-  const idx = text.toLowerCase().indexOf(query.toLowerCase());
-  if (idx < 0) return text;
-  return (
-    <>
-      {text.slice(0, idx)}
-      <mark className="map-tree-highlight">{text.slice(idx, idx + query.length)}</mark>
-      {highlightMatch(text.slice(idx + query.length), query)}
-    </>
-  );
-}
 
 interface TreeNodeProps {
   node: TreeNodeData;

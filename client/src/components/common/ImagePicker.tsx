@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import apiClient from '../../api/client';
 import useEscClose from '../../hooks/useEscClose';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
+import { highlightMatch } from '../../utils/highlightMatch';
 import './ImagePicker.css';
 
 interface ImagePickerProps {
@@ -328,7 +329,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
                       onClick={() => setSelected(name)}
                       title={`${name}\n${sizeStr}`}
                     >
-                      <span className="image-picker-item-name">{name}</span>
+                      <span className="image-picker-item-name">{highlightMatch(name, searchQuery)}</span>
                       <span className="image-picker-item-size">{sizeStr}</span>
                     </div>
                   );
