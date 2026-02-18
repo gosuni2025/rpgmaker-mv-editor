@@ -24,9 +24,9 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
   const showRegion = useEditorStore((s) => s.showRegion);
   const mapWidth = useEditorStore((s) => s.currentMap?.width ?? 0);
   const mapHeight = useEditorStore((s) => s.currentMap?.height ?? 0);
-  // Region 데이터 해시 — showRegion이 꺼져있으면 빈 문자열 반환
+  // Region 데이터 해시 — R탭(currentLayer===5)이거나 showRegion이 켜진 경우에만 계산
   const regionHash = useEditorStore((s) => {
-    if (!s.currentMap || !s.showRegion) return '';
+    if (!s.currentMap || (!s.showRegion && s.currentLayer !== 5)) return '';
     const { width, height, data } = s.currentMap;
     const parts: string[] = [];
     for (let y = 0; y < height; y++) {
