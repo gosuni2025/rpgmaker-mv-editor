@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { DataListPicker } from '../EventEditor/dataListPicker';
-import { getLabel } from '../EventEditor/actionEditorUtils';
+import React, { useState, useEffect } from 'react';
+import apiClient from '../../api/client';
+import TroopPickerDialog from '../common/TroopPickerDialog';
 
 interface EncounterEntry {
   troopId: number;
@@ -10,23 +10,30 @@ interface EncounterEntry {
 
 interface EncounterDialogProps {
   initial?: Partial<EncounterEntry>;
-  troopNames: string[];
   onOk: (entry: EncounterEntry) => void;
   onCancel: () => void;
 }
 
-export default function EncounterDialog({ initial, troopNames, onOk, onCancel }: EncounterDialogProps) {
-  // 유효한 첫 번째 군단 ID 찾기
-  const firstValidId = troopNames.findIndex((n, i) => i > 0 && !!n);
-  const defaultTroopId = initial?.troopId ?? (firstValidId > 0 ? firstValidId : 1);
+export default function EncounterDialog({ initial, onOk, onCancel }: EncounterDialogProps) {
+  const defaultTroopId = initial?.troopId ?? 1;
 
   const [troopId, setTroopId] = useState<number>(defaultTroopId);
+  const [troopNames, setTroopNames] = useState<string[]>([]);
   const [showTroopPicker, setShowTroopPicker] = useState(false);
+
+  useEffect(() => {
+    apiClient.get<(null | { id: number; name: string })[]>('/database/troops')
+      .then(res => {
+        const names: string[] = [];
+        res.forEach(t => { if (t) names[t.id] = t.name || ''; });
+        setTroopNames(names);
+      })
+      .catch(() => {});
+  }, []);
   const [weight, setWeight] = useState<number>(initial?.weight ?? 5);
   const [scope, setScope] = useState<'all' | 'region'>(
     initial?.regionSet && initial.regionSet.length > 0 ? 'region' : 'all'
   );
-  // 지역 ID로 지정: 최대 3개 슬롯
   const initRegions = initial?.regionSet ?? [];
   const [regions, setRegions] = useState<[number, number, number]>([
     initRegions[0] ?? 0,
@@ -35,9 +42,7 @@ export default function EncounterDialog({ initial, troopNames, onOk, onCancel }:
   ]);
 
   const handleOk = () => {
-    const regionSet = scope === 'region'
-      ? regions.filter(r => r > 0)
-      : [];
+    const regionSet = scope === 'region' ? regions.filter(r => r > 0) : [];
     onOk({ troopId, weight, regionSet });
   };
 
@@ -48,6 +53,11 @@ export default function EncounterDialog({ initial, troopNames, onOk, onCancel }:
       return next;
     });
   };
+
+  const troopName = troopNames[troopId] || '';
+  const buttonLabel = troopName
+    ? `${String(troopId).padStart(4, '0')} ${troopName}`
+    : `${String(troopId).padStart(4, '0')}`;
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
@@ -65,7 +75,7 @@ export default function EncounterDialog({ initial, troopNames, onOk, onCancel }:
                 style={{ textAlign: 'left', padding: '3px 8px', fontSize: 12, width: '100%' }}
                 onClick={() => setShowTroopPicker(true)}
               >
-                {getLabel(troopId, troopNames)}
+                {buttonLabel}
               </button>
             </div>
             <div className="enc-dialog-field enc-dialog-field-weight">
@@ -85,21 +95,11 @@ export default function EncounterDialog({ initial, troopNames, onOk, onCancel }:
         <div className="enc-dialog-section">
           <div className="enc-dialog-section-title">범위</div>
           <label className="enc-dialog-radio-row">
-            <input
-              type="radio"
-              name="enc-scope"
-              checked={scope === 'all'}
-              onChange={() => setScope('all')}
-            />
+            <input type="radio" name="enc-scope" checked={scope === 'all'} onChange={() => setScope('all')} />
             <span>지도 전체</span>
           </label>
           <label className="enc-dialog-radio-row">
-            <input
-              type="radio"
-              name="enc-scope"
-              checked={scope === 'region'}
-              onChange={() => setScope('region')}
-            />
+            <input type="radio" name="enc-scope" checked={scope === 'region'} onChange={() => setScope('region')} />
             <span>지역 ID로 지정</span>
           </label>
           <div className="enc-dialog-regions">
@@ -127,11 +127,11 @@ export default function EncounterDialog({ initial, troopNames, onOk, onCancel }:
       </div>
 
       {showTroopPicker && (
-        <DataListPicker
-          title="적 군단 선택"
-          items={troopNames}
+        <TroopPickerDialog
           value={troopId}
-          onChange={(id) => { setTroopId(id); setShowTroopPicker(false); }}
+          onChange={(id) => {
+            setTroopId(id);
+          }}
           onClose={() => setShowTroopPicker(false)}
         />
       )}

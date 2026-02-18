@@ -67,13 +67,13 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
   const [encDialogOpen, setEncDialogOpen] = useState(false);
   const [encDialogEditIdx, setEncDialogEditIdx] = useState<number | null>(null);
 
-  // Tilesets and troops for dropdowns
+  // Tilesets for dropdowns
   const [tilesets, setTilesets] = useState<TilesetEntry[]>([]);
   const [tilesetNames, setTilesetNames] = useState<string[]>([]);
   const [troopNames, setTroopNames] = useState<string[]>([]);
   const [showTilesetPicker, setShowTilesetPicker] = useState(false);
 
-  // Load data
+    // Load data
   useEffect(() => {
     const loadAll = async () => {
       try {
@@ -575,7 +575,6 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
       {encDialogOpen && (
         <EncounterDialog
           initial={encDialogEditIdx !== null ? encounterList[encDialogEditIdx] : undefined}
-          troopNames={troopNames}
           onOk={handleEncDialogOk}
           onCancel={() => { setEncDialogOpen(false); setEncDialogEditIdx(null); }}
         />

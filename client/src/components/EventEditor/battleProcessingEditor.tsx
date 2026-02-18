@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
-import { DataListPicker } from './dataListPicker';
+import TroopPickerDialog from '../common/TroopPickerDialog';
 import { useDbNames, getLabel } from './actionEditorUtils';
 import type { EventCommand } from '../../types/rpgMakerMV';
 
@@ -123,7 +122,7 @@ export function BattleProcessingEditor({ p, onOk, onCancel }: {
       </div>
 
       {showTroopPicker && (
-        <DataListPicker items={troopNames} value={troopId} onChange={setTroopId}
+        <TroopPickerDialog value={troopId} onChange={setTroopId}
           onClose={() => setShowTroopPicker(false)} title="대상 선택" />
       )}
     </>

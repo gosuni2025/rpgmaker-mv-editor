@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Troop, TroopMember, TroopPage, TroopConditions } from '../../types/rpgMakerMV';
 import EventCommandEditor from '../EventEditor/EventCommandEditor';
 import DatabaseList from './DatabaseList';
 import BattleTestDialog from './BattleTestDialog';
+import TroopPreview from '../common/TroopPreview';
 import apiClient from '../../api/client';
 import './TroopsTab.css';
 
@@ -45,11 +46,8 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
   const [selectedMemberIdx, setSelectedMemberIdx] = useState(-1);
   const [enemies, setEnemies] = useState<EnemyRef[]>([]);
   const [actors, setActors] = useState<{ id: number; name: string }[]>([]);
-  const [enemyImages, setEnemyImages] = useState<Record<string, HTMLImageElement>>({});
   const [battleback1, setBattleback1] = useState('');
   const [battleback2, setBattleback2] = useState('');
-  const previewRef = useRef<HTMLDivElement>(null);
-  const [dragging, setDragging] = useState<{ memberIdx: number; offsetX: number; offsetY: number } | null>(null);
   const [condDialogOpen, setCondDialogOpen] = useState(false);
   const [editingCond, setEditingCond] = useState<TroopConditions>({ ...emptyConditions });
   const [bgDialogOpen, setBgDialogOpen] = useState(false);
@@ -78,35 +76,9 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     }).catch(() => {});
   }, []);
 
-  // 적 battler 이미지 로드
-  const battlerNamesNeeded = useMemo(() => {
-    if (!selectedItem) return [];
-    const names = new Set<string>();
-    for (const m of selectedItem.members || []) {
-      const en = enemies.find(e => e.id === m.enemyId);
-      if (en?.battlerName) names.add(en.battlerName);
-    }
-    return Array.from(names);
-  }, [selectedItem, enemies]);
-
-  useEffect(() => {
-    for (const name of battlerNamesNeeded) {
-      if (enemyImages[name]) continue;
-      const img = new Image();
-      img.src = `/img/enemies/${name}.png`;
-      img.onload = () => setEnemyImages(prev => ({ ...prev, [name]: img }));
-    }
-  }, [battlerNamesNeeded]);
-
   const enemyNameMap = useMemo(() => {
     const m: Record<number, string> = {};
     for (const e of enemies) m[e.id] = e.name;
-    return m;
-  }, [enemies]);
-
-  const enemyBattlerMap = useMemo(() => {
-    const m: Record<number, string> = {};
-    for (const e of enemies) if (e.battlerName) m[e.id] = e.battlerName;
     return m;
   }, [enemies]);
 
@@ -186,45 +158,6 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     if (members.length === 0) return;
     handleFieldChange('members', repositionMembers(members));
   };
-
-  // 미리보기 드래그
-  const handlePreviewMouseDown = (e: React.MouseEvent, idx: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const rect = previewRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const member = selectedItem?.members?.[idx];
-    if (!member) return;
-    const scaleX = rect.width / PREVIEW_W;
-    const scaleY = rect.height / PREVIEW_H;
-    const offsetX = e.clientX - rect.left - member.x * scaleX;
-    const offsetY = e.clientY - rect.top - member.y * scaleY;
-    setDragging({ memberIdx: idx, offsetX, offsetY });
-  };
-
-  useEffect(() => {
-    if (!dragging) return;
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = previewRef.current?.getBoundingClientRect();
-      if (!rect || !selectedItem) return;
-      const scaleX = rect.width / PREVIEW_W;
-      const scaleY = rect.height / PREVIEW_H;
-      let x = Math.round((e.clientX - rect.left - dragging.offsetX) / scaleX);
-      let y = Math.round((e.clientY - rect.top - dragging.offsetY) / scaleY);
-      x = Math.max(0, Math.min(PREVIEW_W, x));
-      y = Math.max(0, Math.min(PREVIEW_H, y));
-      const members = [...(selectedItem.members || [])];
-      members[dragging.memberIdx] = { ...members[dragging.memberIdx], x, y };
-      handleFieldChange('members', members);
-    };
-    const handleMouseUp = () => setDragging(null);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [dragging, selectedItem, selectedId, data]);
 
   // 전투 이벤트 페이지
   const handlePageChange = (pageIdx: number, field: keyof TroopPage, value: unknown) => {
@@ -399,40 +332,17 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
           {/* ===== 배치 뷰: 미리보기 | 버튼 | 적 목록 ===== */}
           <div className="troops-placement-row">
             {/* 좌측: 미리보기 */}
-            <div className="troops-preview-area" ref={previewRef}>
-              {battleback1 && (
-                <img className="troops-preview-bg" src={`/img/battlebacks1/${battleback1}.png`} alt="" />
-              )}
-              {battleback2 && (
-                <img className="troops-preview-bg" src={`/img/battlebacks2/${battleback2}.png`} alt="" style={{ zIndex: 1 }} />
-              )}
-              {(selectedItem.members || []).map((member: TroopMember, i: number) => {
-                const battlerName = enemyBattlerMap[member.enemyId];
-                const img = battlerName ? enemyImages[battlerName] : null;
-                if (!img) return null;
-                const rect = previewRef.current?.getBoundingClientRect();
-                const scaleX = rect ? rect.width / PREVIEW_W : 1;
-                const scaleY = rect ? rect.height / PREVIEW_H : 1;
-                const scale = Math.min(scaleX, scaleY);
-                // CSS transform: translate(-50%, -100%)로 anchor bottom-center 적용됨
-                return (
-                  <img
-                    key={i}
-                    className={`troops-preview-enemy${member.hidden ? ' hidden-enemy' : ''}${i === selectedMemberIdx ? ' selected' : ''}`}
-                    src={img.src}
-                    style={{
-                      left: member.x * scaleX,
-                      top: member.y * scaleY,
-                      width: img.naturalWidth * scale,
-                      height: img.naturalHeight * scale,
-                      zIndex: 2 + i,
-                    }}
-                    onMouseDown={(e) => { setSelectedMemberIdx(i); handlePreviewMouseDown(e, i); }}
-                    draggable={false}
-                  />
-                );
-              })}
-            </div>
+            <TroopPreview
+              troop={selectedItem}
+              enemies={enemies}
+              battleback1={battleback1}
+              battleback2={battleback2}
+              draggable={true}
+              onMembersChange={(members) => handleFieldChange('members', members)}
+              selectedMemberIdx={selectedMemberIdx}
+              onSelectMember={setSelectedMemberIdx}
+              className="troops-preview-area"
+            />
 
             {/* 중앙: < 추가 / 해제 > + 모두 해제 + 정렬 */}
             <div className="troops-mid-buttons">
