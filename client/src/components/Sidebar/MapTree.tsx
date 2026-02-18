@@ -134,15 +134,12 @@ export default function MapTree() {
   const selectMap = useEditorStore((s) => s.selectMap);
   const createMap = useEditorStore((s) => s.createMap);
   const deleteMap = useEditorStore((s) => s.deleteMap);
-  const updateMapInfos = useEditorStore((s) => s.updateMapInfos);
   const systemData = useEditorStore((s) => s.systemData);
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [sampleMapTargetId, setSampleMapTargetId] = useState<number | null>(null);
   const [mapPropertiesId, setMapPropertiesId] = useState<number | null>(null);
   const [filterQuery, setFilterQuery] = useState('');
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editName, setEditName] = useState('');
   const [copiedMapId, setCopiedMapId] = useState<number | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const loadMaps = useEditorStore((s) => s.loadMaps);
@@ -201,15 +198,11 @@ export default function MapTree() {
     }
   }, [contextMenu, createMap, selectMap, closeContextMenu]);
 
-  const handleEditMap = useCallback(() => {
+  const handleMapProperties = useCallback(() => {
     if (!contextMenu) return;
-    const info = maps.find(m => m && m.id === contextMenu.mapId);
-    if (info) {
-      setEditingId(contextMenu.mapId);
-      setEditName(info.name);
-    }
+    setMapPropertiesId(contextMenu.mapId);
     closeContextMenu();
-  }, [contextMenu, maps, closeContextMenu]);
+  }, [contextMenu, closeContextMenu]);
 
   const handleLoadSampleMap = useCallback(() => {
     if (!contextMenu || contextMenu.mapId <= 0) return;
@@ -234,16 +227,6 @@ export default function MapTree() {
     closeContextMenu();
     await handleDeleteMapById(mapId);
   }, [contextMenu, closeContextMenu, handleDeleteMapById]);
-
-  const handleRenameSubmit = useCallback(async () => {
-    if (editingId === null) return;
-    const newMaps = maps.map(m => {
-      if (m && m.id === editingId) return { ...m, name: editName };
-      return m;
-    });
-    await updateMapInfos(newMaps);
-    setEditingId(null);
-  }, [editingId, editName, maps, updateMapInfos]);
 
   // 복사 기능
   const handleCopyMap = useCallback(() => {
@@ -363,34 +346,17 @@ export default function MapTree() {
         </>
       )}
 
-      {editingId !== null && (
-        <div className="modal-overlay">
-          <div className="map-props-dialog">
-            <div className="image-picker-header">{t('mapTree.renameMap')}</div>
-            <div className="db-form" style={{ padding: 16 }}>
-              <label>
-                {t('common.name')}
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  autoFocus
-                  onKeyDown={e => { if (e.key === 'Enter') handleRenameSubmit(); }}
-                />
-              </label>
-            </div>
-            <div className="image-picker-footer">
-              <button className="db-btn" onClick={handleRenameSubmit}>{t('common.ok')}</button>
-              <button className="db-btn" onClick={() => setEditingId(null)}>{t('common.cancel')}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {sampleMapTargetId !== null && (
         <SampleMapDialog
           parentId={sampleMapTargetId}
           onClose={() => setSampleMapTargetId(null)}
+        />
+      )}
+
+      {mapPropertiesId !== null && (
+        <MapPropertiesDialog
+          mapId={mapPropertiesId}
+          onClose={() => setMapPropertiesId(null)}
         />
       )}
 
@@ -400,7 +366,7 @@ export default function MapTree() {
           {contextMenu.mapId > 0 && (
             <>
               <div className="context-menu-item" onClick={handleLoadSampleMap}>{t('mapTree.loadSampleMap')}</div>
-              <div className="context-menu-item" onClick={handleEditMap}>{t('mapTree.editMapName')}</div>
+              <div className="context-menu-item" onClick={handleMapProperties}>{t('mapTree.mapProperties')}</div>
               <div className="context-menu-separator" />
               <div className="context-menu-item" onClick={handleCopyMap}>
                 {t('mapTree.copyMap', '맵 복사')}

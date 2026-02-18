@@ -1,0 +1,394 @@
+/* Map Properties Dialog */
+.map-props-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.map-props-dialog {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 860px;
+  max-width: 95vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.map-props-header {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: bold;
+  border-bottom: 1px solid #555;
+  background: #333;
+  border-radius: 4px 4px 0 0;
+  text-align: center;
+  color: #ddd;
+}
+
+.map-props-body {
+  display: flex;
+  gap: 16px;
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.map-props-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.map-props-right {
+  width: 320px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Fieldset-like sections */
+.map-props-section {
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 8px 10px;
+  position: relative;
+}
+
+.map-props-section-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #bbb;
+  margin-bottom: 6px;
+}
+
+/* Form rows */
+.map-props-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 6px;
+}
+
+.map-props-row:last-child {
+  margin-bottom: 0;
+}
+
+.map-props-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.map-props-field.flex-1 {
+  flex: 1;
+  min-width: 0;
+}
+
+.map-props-field input[type="text"],
+.map-props-field input[type="number"],
+.map-props-field select {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.map-props-field input:focus,
+.map-props-field select:focus {
+  border-color: #2675bf;
+}
+
+.map-props-field input[type="number"] {
+  width: 70px;
+}
+
+.map-props-field-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Audio row: checkbox + picker */
+.map-props-audio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.map-props-audio-value {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.map-props-audio-name {
+  flex: 1;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-props-audio-btn {
+  background: #4a4a4a;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 10px;
+  color: #ddd;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.map-props-audio-btn:hover {
+  background: #555;
+}
+
+/* Checkbox */
+.map-props-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #ddd;
+  cursor: pointer;
+  flex-direction: row;
+}
+
+.map-props-checkbox input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* Encounter table */
+.map-props-enc-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #bbb;
+}
+
+.map-props-enc-table {
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #2b2b2b;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 150px;
+}
+
+.map-props-enc-header {
+  display: flex;
+  background: #333;
+  border-bottom: 1px solid #555;
+  font-size: 11px;
+  font-weight: bold;
+  color: #aaa;
+}
+
+.map-props-enc-header > div {
+  padding: 4px 6px;
+}
+
+.map-props-enc-col-troop {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-props-enc-col-weight {
+  width: 60px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.map-props-enc-col-region {
+  width: 80px;
+  min-width: 80px;
+  text-align: center;
+}
+
+.map-props-enc-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.map-props-enc-row {
+  display: flex;
+  font-size: 12px;
+  color: #ddd;
+  cursor: pointer;
+  border-bottom: 1px solid #333;
+}
+
+.map-props-enc-row:hover {
+  background: #383838;
+}
+
+.map-props-enc-row.selected {
+  background: #2675bf;
+  color: #fff;
+}
+
+.map-props-enc-row > div {
+  padding: 3px 6px;
+}
+
+.map-props-enc-row-empty {
+  padding: 3px 6px;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  border-bottom: 1px solid #333;
+  min-height: 22px;
+}
+
+.map-props-enc-row-empty:hover {
+  background: #383838;
+}
+
+.map-props-enc-buttons {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+/* Parallax section */
+.map-props-parallax {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-props-parallax-scroll {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 20px;
+}
+
+.map-props-parallax-scroll span {
+  font-size: 12px;
+  color: #aaa;
+  min-width: 50px;
+}
+
+.map-props-parallax-scroll select {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 2px 4px;
+  color: #ddd;
+  font-size: 12px;
+  width: 70px;
+}
+
+/* Note */
+.map-props-note {
+  flex: 1;
+  min-height: 80px;
+}
+
+.map-props-note textarea {
+  width: 100%;
+  height: 100%;
+  min-height: 60px;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.map-props-note textarea:focus {
+  border-color: #2675bf;
+}
+
+/* Footer */
+.map-props-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid #555;
+  background: #333;
+  border-radius: 0 0 4px 4px;
+}
+
+.map-props-footer .db-btn {
+  min-width: 80px;
+}
+
+/* Bottom row: parallax + note side by side */
+.map-props-bottom-row {
+  display: flex;
+  gap: 12px;
+}
+
+.map-props-bottom-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.map-props-bottom-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Image picker row */
+.map-props-img-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.map-props-img-name {
+  flex: 1;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #ddd;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
