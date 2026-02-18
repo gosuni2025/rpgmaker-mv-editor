@@ -78,6 +78,11 @@ interface ProjectSettings {
   fps: number;
 }
 
+interface EditorPluginInfo {
+  name: string;
+  hasUpdate: boolean;
+}
+
 /** File picker dialog for @type file parameters */
 function FilePickerDialog({ dir, files, value, onChange, onClose }: {
   dir: string;
@@ -187,6 +192,7 @@ export default function PluginManagerDialog() {
   const [plugins, setPlugins] = useState<PluginEntry[]>([]);
   const [availableFiles, setAvailableFiles] = useState<string[]>([]);
   const [metadata, setMetadata] = useState<Record<string, PluginMetadata>>({});
+  const [editorPlugins, setEditorPlugins] = useState<EditorPluginInfo[]>([]);
   const [settings, setSettings] = useState<ProjectSettings>({
     touchUI: true, screenWidth: 816, screenHeight: 624, fps: 60,
   });
@@ -210,10 +216,11 @@ export default function PluginManagerDialog() {
   useEffect(() => {
     (async () => {
       try {
-        const [res, meta, settingsData] = await Promise.all([
+        const [res, meta, settingsData, editorPluginsData] = await Promise.all([
           apiClient.get<PluginsResponse>('/plugins'),
           apiClient.get<Record<string, PluginMetadata>>(`/plugins/metadata?locale=${locale}`),
           apiClient.get<ProjectSettings>('/project-settings'),
+          apiClient.get<EditorPluginInfo[]>('/plugins/editor-plugins'),
         ]);
         const entries: PluginEntry[] = (res.list || []).map((p: ServerPluginEntry) => {
           const existingParams = Object.entries(p.parameters || {}).map(([k, v]) => ({ name: k, value: String(v) }));
@@ -236,6 +243,7 @@ export default function PluginManagerDialog() {
         setPlugins(entries);
         setAvailableFiles(res.files || []);
         setMetadata(meta);
+        setEditorPlugins(editorPluginsData || []);
         setSettings(settingsData);
         if (entries.length > 0) setSelectedIndex(0);
         setLoading(false);
@@ -250,6 +258,12 @@ export default function PluginManagerDialog() {
   const selectedMeta = selectedPlugin ? metadata[selectedPlugin.name] : null;
 
   const usedPluginNames = useMemo(() => new Set(plugins.map(p => p.name)), [plugins]);
+
+  const editorPluginMap = useMemo(() => {
+    const map = new Map<string, EditorPluginInfo>();
+    for (const ep of editorPlugins) map.set(ep.name, ep);
+    return map;
+  }, [editorPlugins]);
 
   const updateSetting = <K extends keyof ProjectSettings>(key: K, value: ProjectSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -317,6 +331,20 @@ export default function PluginManagerDialog() {
   const handleOpenPluginFolder = async () => {
     try {
       await apiClient.post('/plugins/open-folder', {});
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const handleUpgradePlugin = async (pluginName: string) => {
+    try {
+      await apiClient.post('/plugins/upgrade', { name: pluginName });
+      // Refresh editor plugins info
+      const updated = await apiClient.get<EditorPluginInfo[]>('/plugins/editor-plugins');
+      setEditorPlugins(updated || []);
+      // Also refresh metadata in case the plugin description changed
+      const meta = await apiClient.get<Record<string, PluginMetadata>>(`/plugins/metadata?locale=${locale}`);
+      setMetadata(meta);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -579,6 +607,11 @@ export default function PluginManagerDialog() {
                       <span className="pm-plugin-item-name">
                         {metadata[plugin.name]?.pluginname || plugin.name || t('pluginManager.noPlugins')}
                       </span>
+                      {editorPluginMap.has(plugin.name) && (
+                        <span className={`pm-plugin-badge editor${editorPluginMap.get(plugin.name)!.hasUpdate ? ' has-update' : ''}`} title={editorPluginMap.get(plugin.name)!.hasUpdate ? '업그레이드 가능' : '에디터 기본 제공'}>
+                          에디터
+                        </span>
+                      )}
                       {metadata[plugin.name]?.dependencies?.map(dep => (
                         <span key={dep} className="pm-plugin-badge" title={`${dep} 필요`}>
                           {dep}
@@ -651,6 +684,17 @@ export default function PluginManagerDialog() {
                         <div className="pm-section-label">{t('pluginManager.author')}:</div>
                         <div className="pm-author">{selectedMeta.author}</div>
                       </>
+                    )}
+
+                    {selectedPlugin && editorPluginMap.has(selectedPlugin.name) && (
+                      <div className="pm-editor-plugin-info">
+                        <div className="pm-editor-plugin-label">에디터 기본 제공 플러그인</div>
+                        {editorPluginMap.get(selectedPlugin.name)!.hasUpdate && (
+                          <button className="db-btn pm-upgrade-btn" onClick={() => handleUpgradePlugin(selectedPlugin.name)}>
+                            업그레이드
+                          </button>
+                        )}
+                      </div>
                     )}
 
                     {selectedMeta?.help && (
