@@ -199,11 +199,6 @@ export default function MapInspector() {
             onChange={(e) => updateMapField('encounterStep', Number(e.target.value))}
           />
         </div>
-        <label className="map-inspector-checkbox">
-          <input type="checkbox" checked={!!currentMap.disableDashing}
-            onChange={(e) => updateMapField('disableDashing', e.target.checked)} />
-          <span>대시 금지</span>
-        </label>
       </div>
 
       {/* Battleback */}
@@ -228,6 +223,11 @@ export default function MapInspector() {
             />
           </div>
         )}
+        <label className="map-inspector-checkbox" style={{ marginTop: 4 }}>
+          <input type="checkbox" checked={!!currentMap.disableDashing}
+            onChange={(e) => updateMapField('disableDashing', e.target.checked)} />
+          <span>대시 금지</span>
+        </label>
       </div>
 
       {/* BGM / BGS */}

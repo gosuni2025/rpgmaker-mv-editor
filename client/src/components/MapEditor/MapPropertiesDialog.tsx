@@ -420,18 +420,11 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                   <AudioPicker type="bgs" value={bgs} onChange={setBgs} />
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 4 }}>
-                <label className="map-props-checkbox">
-                  <input type="checkbox" checked={specifyBattleback}
-                    onChange={(e) => setSpecifyBattleback(e.target.checked)} />
-                  <span>{t('mapProperties.specifyBattleback')}</span>
-                </label>
-                <label className="map-props-checkbox">
-                  <input type="checkbox" checked={disableDashing}
-                    onChange={(e) => setDisableDashing(e.target.checked)} />
-                  <span>{t('mapProperties.disableDashing')}</span>
-                </label>
-              </div>
+              <label className="map-props-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={specifyBattleback}
+                  onChange={(e) => setSpecifyBattleback(e.target.checked)} />
+                <span>{t('mapProperties.specifyBattleback')}</span>
+              </label>
               {specifyBattleback && (
                 <div style={{ marginLeft: 20, marginTop: 4 }}>
                   <BattlebackPicker
@@ -441,6 +434,11 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                   />
                 </div>
               )}
+              <label className="map-props-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={disableDashing}
+                  onChange={(e) => setDisableDashing(e.target.checked)} />
+                <span>{t('mapProperties.disableDashing')}</span>
+              </label>
             </div>
 
             {/* Bottom row: Parallax + Note */}
