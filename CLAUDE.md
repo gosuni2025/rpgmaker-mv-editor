@@ -32,10 +32,22 @@ RPG Maker MV의 Mode3D 플러그인이 projection matrix의 Y축을 반전(`m[5]
 
 - `renderOrder`는 `ThreeRendererStrategy._syncHierarchy`에서 tilemap의 `_sortChildren()` 정렬 순서(PIXI 호환 `.z` 속성 기준)를 따라 할당됨
 - RPG Maker MV의 PIXI `.z` 값 체계: `0=Lower tiles, 1=Lower chars, 3=Normal chars, 4=Upper tiles, 5=Upper chars, 6~9=기타`
-- **upper layer 타일(z=4)은 z=3 이하의 모든 오브젝트를 덮어씀** — 이는 2D에서는 정상(지붕 아래로 숨는 효과)이지만, 3D 모드에서 이미지 오브젝트 등에 문제가 됨
-- 현재 이미지 오브젝트는 `z=5`로 설정하여 upper 타일 위에 그려지도록 우회함
+- **upper layer 타일(z=4)은 z=3 이하의 모든 오브젝트를 덮어씀** — 이는 2D에서는 정상(지붕 아래로 숨는 효과)이지만, 3D 모드에서 빌보드 캐릭터/이미지 오브젝트에 문제가 됨
+- **3D 모드 z=5 처리**: 빌보드 캐릭터(플레이어, 팔로워, billboard 활성화된 이벤트)와 이미지 오브젝트는 `z=5`로 설정하여 upper 타일 위에 그려지도록 우회함
+  - 이미지 오브젝트: `rpg_sprites.js`의 `createMapObjects()`에서 `container.z = 5` 설정
+  - 빌보드 캐릭터: `Mode3D.js`의 `Sprite_Character.updatePosition()` 오버라이드에서 3D 모드 + billboard 활성 시 `this.z = 5` 설정
 - **근본적 해결**: 3D 모드에서 depthTest를 활성화하고 position.z 기반 깊이 판별로 전환해야 하나, 투명도 정렬 문제(반투명 오브젝트 간 정렬)가 수반됨
 - 관련 파일: `ThreeTilemap.js`(타일 메시 material), `ThreeSprite.js`(스프라이트 material), `ThreeRendererStrategy.js`(renderOrder 할당)
+
+### 3D 모드 캐릭터 방향 보정
+
+3D 모드에서 카메라 yaw에 따라 캐릭터 스프라이트의 방향(프레임)을 보정하여, 카메라가 회전해도 캐릭터가 올바른 방향을 향하도록 함.
+
+- **구현 위치**: `TouchCameraControl.js`의 `Sprite_Character.prototype.characterPatternY` 오버라이드
+- **예외 처리**: `!` 또는 `$` 접두어가 붙은 캐릭터 이미지는 고정 방향 이미지이므로 방향 보정을 건너뜀
+  - `!` 접두어: 오브젝트 캐릭터 (shiftY 없음, 단일 방향)
+  - `$` 접두어: 빅 캐릭터 (3x4 프레임)
+  - 확인 방법: `ImageManager.isObjectCharacter()`, `ImageManager.isBigCharacter()`
 
 ## 디렉터리 구조
 
