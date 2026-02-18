@@ -230,8 +230,6 @@ export default function MapCanvas() {
     const loopX = currentMap?.parallaxLoopX;
     const loopY = currentMap?.parallaxLoopY;
     const url = `/img/parallaxes/${encodeURIComponent(name)}.png`;
-    const repeatX = loopX ? 'repeat' : 'no-repeat';
-    const repeatY = loopY ? 'repeat' : 'no-repeat';
     let repeat: string;
     if (loopX && loopY) repeat = 'repeat';
     else if (loopX) repeat = 'repeat-x';
@@ -249,7 +247,6 @@ export default function MapCanvas() {
       backgroundPosition: '0 0',
       zIndex: 0,
       pointerEvents: 'none' as const,
-      opacity: 0.85,
     };
   }, [currentMap?.parallaxName, currentMap?.parallaxShow, currentMap?.parallaxLoopX, currentMap?.parallaxLoopY, mapPxW, mapPxH]);
 
