@@ -126,11 +126,9 @@
     // skyBackground 설정 적용 (에디터에서 호출)
     function applySettings(skyBg) {
         if (!skyBg || skyBg.type !== 'skysphere') {
-            // parallax 모드 또는 설정 없음 → sky sphere 숨기기
+            // parallax 모드 또는 설정 없음 → sky sphere 완전 제거
             _skyEnabled = false;
-            if (_skyMesh) {
-                _skyMesh.visible = false;
-            }
+            cleanupMesh();
             // parallax sky plane 복원 활성화
             restoreParallaxSky();
             return;
@@ -205,6 +203,11 @@
         _Spriteset_Map_initialize.call(this);
         _applied = false;
         readMapSettings();
+        // readMapSettings()에서 _skyEnabled가 변경된 후 parallax sky plane 재설정
+        // (initialize 내부에서 이전 _skyEnabled 값으로 호출된 것을 보정)
+        if (!_skyEnabled) {
+            this._updateParallaxSkyPlane();
+        }
     };
 
     var _Spriteset_Map_update = Spriteset_Map.prototype.update;
