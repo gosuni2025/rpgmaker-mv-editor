@@ -437,7 +437,11 @@ export function useKeyboardShortcuts(
       if (editMode === 'event') {
         // 탈것 시작 위치 선택 시 Delete → 해제
         const selStart = useEditorStore.getState().selectedStartPosition;
-        if (selStart && selStart !== 'player') {
+        if (selStart === 'player') {
+          showToast('플레이어 시작 위치는 삭제할 수 없습니다');
+          return;
+        }
+        if (selStart) {
           const clearVehicle = useEditorStore.getState().clearVehicleStartPosition;
           clearVehicle(selStart);
           useEditorStore.getState().setSelectedStartPosition(null);
