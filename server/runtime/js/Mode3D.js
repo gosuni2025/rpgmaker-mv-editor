@@ -634,10 +634,16 @@
             if (skyMesh) {
                 // 렌더 직전에 sky mesh 위치를 카메라에 동기화 (update 타이밍 차이로 인한 떨림 방지)
                 var cam = Mode3D._perspCamera;
-                var skyDir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
-                var skyFarDist = cam.far * 0.8;
-                skyMesh.position.copy(cam.position).addScaledVector(skyDir, skyFarDist);
-                skyMesh.quaternion.copy(cam.quaternion);
+                if (skyMesh._isSkyMeshSphere) {
+                    // 구체형 sky: 카메라가 구 내부에 위치하도록 중심을 카메라에 맞춤
+                    skyMesh.position.copy(cam.position);
+                } else {
+                    // 평면형 sky: far plane 앞에 배치
+                    var skyDir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+                    var skyFarDist = cam.far * 0.8;
+                    skyMesh.position.copy(cam.position).addScaledVector(skyDir, skyFarDist);
+                    skyMesh.quaternion.copy(cam.quaternion);
+                }
 
                 // Hide everything except sky
                 if (stageObj) stageObj.visible = false;
@@ -866,6 +872,23 @@
                 var th = ($gameMap && $gameMap.tileHeight) ? $gameMap.tileHeight() : 48;
                 this._heightOffset = bz * th;
             } catch (e) { /* ignore */ }
+        }
+        // 3D 모드에서 빌보드 캐릭터는 z=5로 설정 (upper layer 타일 z=4 위에 그리기)
+        // 플레이어, 팔로워, billboard 활성화된 이벤트 모두 해당
+        if (ConfigManager.mode3d && this._character) {
+            var isBillboard = true;
+            // 이벤트인 경우 페이지의 billboard 설정 확인
+            if (typeof this._character.page === 'function') {
+                try {
+                    var page = this._character.page();
+                    if (page && page.billboard === false) {
+                        isBillboard = false;
+                    }
+                } catch (e) { /* ignore */ }
+            }
+            if (isBillboard) {
+                this.z = 5;
+            }
         }
     };
 
