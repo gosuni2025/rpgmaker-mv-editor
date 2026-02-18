@@ -72,14 +72,13 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
   const { copySelected, pasteAtSelection, deleteSelected, hasClipboard } = useCommandClipboard(
     commands, selectedIndices, primaryIndex, changeWithHistory, setSelectedIndices, setLastClickedIndex,
   );
+  const { foldedSet, setFoldedSet, foldableIndices, hiddenIndices, foldedCounts, toggleFold, foldAll, unfoldAll } = useCommandFolding(commands);
   const { dragGroupRange, dropTargetIndex, handleDragHandleMouseDown, isDraggable, listRef } = useCommandDragDrop(
-    commands, changeWithHistory, setSelectedIndices, setLastClickedIndex,
+    commands, changeWithHistory, setSelectedIndices, setLastClickedIndex, foldedSet, setFoldedSet,
   );
   const { moveSelected, canMoveUp, canMoveDown } = useCommandMove(
     commands, selectedIndices, changeWithHistory, setSelectedIndices, setLastClickedIndex,
   );
-
-  const { foldedSet, setFoldedSet, foldableIndices, hiddenIndices, foldedCounts, toggleFold, foldAll, unfoldAll } = useCommandFolding(commands);
 
   // 폴딩 상태 복원 (이벤트 열 때)
   const foldKeyRef = useRef<string | null>(null);

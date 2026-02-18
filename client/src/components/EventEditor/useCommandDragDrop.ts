@@ -7,6 +7,8 @@ export function useCommandDragDrop(
   changeWithHistory: (cmds: EventCommand[]) => void,
   setSelectedIndices: (s: Set<number>) => void,
   setLastClickedIndex: (i: number) => void,
+  foldedSet: Set<number>,
+  setFoldedSet: (s: Set<number>) => void,
 ) {
   const [dragGroupRange, setDragGroupRange] = useState<[number, number] | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
@@ -85,6 +87,30 @@ export function useCommandDragDrop(
               changeWithHistory(rest);
               setSelectedIndices(new Set([insertAt]));
               setLastClickedIndex(insertAt);
+
+              // foldedSet 인덱스 재매핑: 이동된 명령어의 인덱스 변화를 반영
+              if (foldedSet.size > 0) {
+                const newFolded = new Set<number>();
+                for (const fi of foldedSet) {
+                  if (fi >= start && fi <= end) {
+                    // 드래그 그룹에 속한 folded 인덱스 → 새 위치로 매핑
+                    newFolded.add(insertAt + (fi - start));
+                  } else {
+                    // 그룹 밖의 folded 인덱스 → 제거/삽입에 따른 시프트 계산
+                    let newIdx = fi;
+                    // 1단계: 그룹 제거 효과 (start~end 제거)
+                    if (fi > end) {
+                      newIdx -= groupLen;
+                    }
+                    // 2단계: 새 위치에 삽입 효과
+                    if (newIdx >= insertAt) {
+                      newIdx += groupLen;
+                    }
+                    newFolded.add(newIdx);
+                  }
+                }
+                setFoldedSet(newFolded);
+              }
             }
           }
           return null;
