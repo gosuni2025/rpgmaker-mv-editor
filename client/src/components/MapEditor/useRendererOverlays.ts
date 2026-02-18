@@ -23,9 +23,9 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
   const currentLayer = useEditorStore((s) => s.currentLayer);
   const mapWidth = useEditorStore((s) => s.currentMap?.width ?? 0);
   const mapHeight = useEditorStore((s) => s.currentMap?.height ?? 0);
-  // Region data만 추출해서 해시 — data 배열 전체 참조 변경에 반응하지 않도록
+  // Region 데이터 해시 — currentLayer 무관하게 항상 계산
   const regionHash = useEditorStore((s) => {
-    if (!s.currentMap || s.currentLayer !== 5) return '';
+    if (!s.currentMap) return '';
     const { width, height, data } = s.currentMap;
     const parts: string[] = [];
     for (let y = 0; y < height; y++) {
@@ -52,10 +52,16 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
     }
     refs.regionMeshesRef.current = [];
 
-    if (currentLayer !== 5 || !regionHash) {
+    if (!regionHash) {
       requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
       return;
     }
+
+    // R탭(currentLayer===5)이면 불투명도 높게, 아니면 낮게
+    const isRegionMode = currentLayer === 5;
+    const fillOpacity = isRegionMode ? 0.5 : 0.25;
+    // R탭이 아닐 때는 숫자 레이블 숨김
+    const showLabel = isRegionMode;
 
     // 공유 지오메트리 — 모든 리전 타일에 같은 크기 사용
     const sharedGeom = new THREE.PlaneGeometry(TILE_SIZE_PX, TILE_SIZE_PX);
@@ -73,7 +79,7 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
         const color = new THREE.Color(`hsl(${hue}, 60%, 40%)`);
         // Region fill quad (공유 지오메트리)
         const mat = new THREE.MeshBasicMaterial({
-          color, opacity: 0.5, transparent: true, depthTest: false, side: THREE.DoubleSide,
+          color, opacity: fillOpacity, transparent: true, depthTest: false, side: THREE.DoubleSide,
         });
         const mesh = new THREE.Mesh(sharedGeom, mat);
         mesh.position.set(x * TILE_SIZE_PX + TILE_SIZE_PX / 2, y * TILE_SIZE_PX + TILE_SIZE_PX / 2, 4);
@@ -83,7 +89,9 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
         rendererObj.scene.add(mesh);
         refs.regionMeshesRef.current.push(mesh);
 
-        // Region ID text label
+        if (!showLabel) continue;
+
+        // Region ID text label (R탭 활성 시만 표시)
         const cvs = document.createElement('canvas');
         cvs.width = 48; cvs.height = 48;
         const ctx = cvs.getContext('2d')!;

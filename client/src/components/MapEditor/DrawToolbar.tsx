@@ -1,3 +1,4 @@
+import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 
@@ -28,6 +29,7 @@ export default function DrawToolbar() {
   const selectedTool = useEditorStore((s) => s.selectedTool);
   const drawShape = useEditorStore((s) => s.drawShape);
   const editMode = useEditorStore((s) => s.editMode);
+  const currentLayer = useEditorStore((s) => s.currentLayer);
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
   const setDrawShape = useEditorStore((s) => s.setDrawShape);
@@ -61,6 +63,16 @@ export default function DrawToolbar() {
   const showMapTools = editMode === 'map';
   const showObjectTools = editMode === 'object';
   const showPassageTools = editMode === 'passage';
+
+  // Region 모드: R 탭(currentLayer===5)일 때 shadow 툴과 shape 버튼 비활성화
+  const isRegionMode = editMode === 'map' && currentLayer === 5;
+
+  // Region 모드 진입 시 shadow 툴이 선택돼 있으면 pen으로 전환
+  useEffect(() => {
+    if (isRegionMode && selectedTool === 'shadow') {
+      setSelectedTool('pen');
+    }
+  }, [isRegionMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={styles.toolbar}>
@@ -138,43 +150,49 @@ export default function DrawToolbar() {
       {showMapTools && (
         <>
           <div style={styles.group}>
-            {drawModes.map((mode) => (
-              <button
-                key={mode.id}
-                onClick={() => setSelectedTool(mode.id)}
-                style={{
-                  ...styles.btn,
-                  ...(selectedTool === mode.id ? (mode.id === 'eraser' ? styles.btnEraserActive : styles.btnActive) : {}),
-                }}
-                title={mode.shortcut || undefined}
-              >
-                {t(mode.labelKey)}{mode.shortcut && <span style={styles.shortcut}>{mode.shortcut}</span>}
-              </button>
-            ))}
+            {drawModes
+              .filter((mode) => !(isRegionMode && mode.id === 'shadow'))
+              .map((mode) => (
+                <button
+                  key={mode.id}
+                  onClick={() => setSelectedTool(mode.id)}
+                  style={{
+                    ...styles.btn,
+                    ...(selectedTool === mode.id ? (mode.id === 'eraser' ? styles.btnEraserActive : styles.btnActive) : {}),
+                  }}
+                  title={mode.shortcut || undefined}
+                >
+                  {t(mode.labelKey)}{mode.shortcut && <span style={styles.shortcut}>{mode.shortcut}</span>}
+                </button>
+              ))}
           </div>
 
           <div style={styles.separator} />
 
-          {/* Draw shapes */}
-          <div style={styles.group}>
-            {drawShapes.map((shape) => (
-              <button
-                key={shape.id}
-                onClick={() => setDrawShape(shape.id)}
-                style={{
-                  ...styles.btn,
-                  ...(drawShape === shape.id ? styles.btnActive : {}),
-                  ...(selectedTool === 'select' || selectedTool === 'shadow'
-                    ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
-                }}
-                title={shape.shortcut || undefined}
-              >
-                {t(shape.labelKey)}{shape.shortcut && <span style={styles.shortcut}>{shape.shortcut}</span>}
-              </button>
-            ))}
-          </div>
+          {/* Draw shapes — Region 모드에서는 숨김 */}
+          {!isRegionMode && (
+            <>
+              <div style={styles.group}>
+                {drawShapes.map((shape) => (
+                  <button
+                    key={shape.id}
+                    onClick={() => setDrawShape(shape.id)}
+                    style={{
+                      ...styles.btn,
+                      ...(drawShape === shape.id ? styles.btnActive : {}),
+                      ...(selectedTool === 'select' || selectedTool === 'shadow'
+                        ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
+                    }}
+                    title={shape.shortcut || undefined}
+                  >
+                    {t(shape.labelKey)}{shape.shortcut && <span style={styles.shortcut}>{shape.shortcut}</span>}
+                  </button>
+                ))}
+              </div>
 
-          <div style={styles.separator} />
+              <div style={styles.separator} />
+            </>
+          )}
         </>
       )}
 
