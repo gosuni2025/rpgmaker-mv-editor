@@ -242,7 +242,7 @@ export interface EditorState {
   // Toast
   toastQueue: { id: number; message: string; persistent: boolean }[];
   showToast: (message: string, persistent?: boolean) => void;
-  dismissToast: () => void;
+  dismissToast: (id: number) => void;
 
   // Options
   transparentColor: { r: number; g: number; b: number };

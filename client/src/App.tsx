@@ -116,7 +116,6 @@ export default function App() {
 
   const toastQueue = useEditorStore((s) => s.toastQueue);
   const dismissToast = useEditorStore((s) => s.dismissToast);
-  const currentToast = toastQueue[0] ?? null;
   const parseErrors = useEditorStore((s) => s.parseErrors);
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
@@ -306,20 +305,25 @@ export default function App() {
           </div>
         </div>
       )}
-      {currentToast && (
-        <div
-          key={currentToast.id}
-          className={`toast ${currentToast.persistent ? 'toast-persistent' : ''}`}
-          onAnimationEnd={(e) => {
-            if (e.animationName === 'toast-fade') {
-              dismissToast();
-            }
-          }}
-        >
-          {currentToast.message}
-          {currentToast.persistent && (
-            <button className="toast-close" onClick={dismissToast}>&times;</button>
-          )}
+      {toastQueue.length > 0 && (
+        <div className="toast-container">
+          {toastQueue.map((toast, index) => (
+            <div
+              key={toast.id}
+              className={`toast ${toast.persistent ? 'toast-persistent' : ''}`}
+              style={{ bottom: `${40 + index * 44}px` }}
+              onAnimationEnd={(e) => {
+                if (e.animationName === 'toast-fade') {
+                  dismissToast(toast.id);
+                }
+              }}
+            >
+              {toast.message}
+              {toast.persistent && (
+                <button className="toast-close" onClick={() => dismissToast(toast.id)}>&times;</button>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -56,11 +56,8 @@ export const uiSlice: SliceCreator<Pick<EditorState,
     const id = Date.now() + Math.random();
     set({ toastQueue: [...get().toastQueue, { id, message, persistent: !!persistent }] });
   },
-  dismissToast: () => {
-    const queue = get().toastQueue;
-    if (queue.length > 0) {
-      set({ toastQueue: queue.slice(1) });
-    }
+  dismissToast: (id: number) => {
+    set({ toastQueue: get().toastQueue.filter(t => t.id !== id) });
   },
 
   setZoomLevel: (level: number) => {
