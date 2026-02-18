@@ -2415,8 +2415,8 @@ Spriteset_Map.prototype._createObjectWaterMesh = function(
     // 타일셋 텍스처 로드 → 크기 참조
     var bitmap = ImageManager.loadTileset(tilesetName);
     // 기본 UV 데이터 생성 (frame 0 기준, animX/animY 오프셋 없음)
-    var baseX = col * tw;
-    var baseY = (row - obj.height) * th;
+    var baseX = col * tw - obj.width * tw / 2;
+    var baseY = (row - obj.height) * th + obj.height * th / 2;
 
     for (var qi = 0; qi < 4; qi++) {
         var qsx = table[qi][0];
@@ -2628,6 +2628,7 @@ Spriteset_Map.prototype.createMapObjects = function() {
         // Store map tile coordinates for scroll-based position update
         container._mapObjX = obj.x;
         container._mapObjY = obj.y;
+        container._mapObjW = obj.width;
         container._mapObjH = obj.height;
         container._mapObjId = obj.id;
         container._mapObjName = obj.name || '';
@@ -2642,8 +2643,8 @@ Spriteset_Map.prototype.createMapObjects = function() {
             var playInEditor = obj.animationPlayInEditor !== false;
             if (playInEditor) {
                 var targetSprite = new Sprite();
-                targetSprite.x = obj.width * tw / 2;
-                targetSprite.y = -obj.height * th / 2;
+                targetSprite.x = 0;
+                targetSprite.y = 0;
                 targetSprite.setBlendColor = targetSprite.setBlendColor || function() {};
                 targetSprite.show = targetSprite.show || function() { this.visible = true; };
                 targetSprite.hide = targetSprite.hide || function() { this.visible = false; };
@@ -2684,7 +2685,8 @@ Spriteset_Map.prototype.createMapObjects = function() {
             imgSprite.bitmap = ImageManager.loadPicture(obj.imageName);
             var objAnchorY = obj.anchorY != null ? obj.anchorY : 1.0;
             imgSprite.anchor.set(0.5, objAnchorY);
-            imgSprite.x = obj.width * tw / 2;
+            imgSprite.x = 0;
+            imgSprite.y = obj.height * th / 2;
             // anchorY < 1.0이면 ShadowLight material 변환 후 shader clipping 적용
             if (objAnchorY < 1.0) {
                 imgSprite._needsAnchorClip = true;
@@ -2747,8 +2749,8 @@ Spriteset_Map.prototype.createMapObjects = function() {
                                     var qSprite = new Sprite();
                                     qSprite.bitmap = ImageManager.loadTileset(tilesetName);
                                     qSprite.setFrame(sx1, sy1, w1, h1);
-                                    qSprite.x = col * tw + (qi % 2) * w1;
-                                    qSprite.y = (row - obj.height) * th + Math.floor(qi / 2) * h1;
+                                    qSprite.x = col * tw + (qi % 2) * w1 - obj.width * tw / 2;
+                                    qSprite.y = (row - obj.height) * th + Math.floor(qi / 2) * h1 + obj.height * th / 2;
                                     // 타일 이동 애니메이션 정보
                                     if (info.animX > 0 || info.animY > 0) {
                                         qSprite._tileAnimX = info.animX;
@@ -2775,8 +2777,8 @@ Spriteset_Map.prototype.createMapObjects = function() {
                             var sx = (Math.floor(tileId / 128) % 2 * 8 + tileId % 8) * tw;
                             var sy = Math.floor(tileId % 256 / 8) % 16 * th;
                             tileSprite.setFrame(sx, sy, tw, th);
-                            tileSprite.x = col * tw;
-                            tileSprite.y = (row - obj.height) * th;
+                            tileSprite.x = col * tw - obj.width * tw / 2;
+                            tileSprite.y = (row - obj.height) * th + obj.height * th / 2;
                             container.addChild(tileSprite);
                         }
                     }
@@ -2876,8 +2878,8 @@ Spriteset_Map.prototype.updateMapObjects = function() {
     for (var i = 0; i < this._objectSprites.length; i++) {
         var container = this._objectSprites[i];
         // Update position based on map scroll (same as character screenX/Y)
-        container.x = Math.round($gameMap.adjustX(container._mapObjX) * tw);
-        container.y = Math.round($gameMap.adjustY(container._mapObjY) * th + th);
+        container.x = Math.round($gameMap.adjustX(container._mapObjX) * tw + container._mapObjW * tw / 2);
+        container.y = Math.round($gameMap.adjustY(container._mapObjY) * th + th - container._mapObjH * th / 2);
 
         // zHeight 동적 반영 (타일 단위 → 픽셀 단위 변환)
         if (container._mapObjZHeight != null) {
