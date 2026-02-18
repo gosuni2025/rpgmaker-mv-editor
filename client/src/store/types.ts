@@ -107,7 +107,15 @@ export interface PassageHistoryEntry {
   changes: PassageChange[];
 }
 
-export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry | CameraZoneHistoryEntry | EventHistoryEntry | PlayerStartHistoryEntry | PassageHistoryEntry;
+export interface MapDeleteHistoryEntry {
+  mapId: number;
+  type: 'mapDelete';
+  mapInfo: any;
+  mapData: any;
+  extData: any;
+}
+
+export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry | CameraZoneHistoryEntry | EventHistoryEntry | PlayerStartHistoryEntry | PassageHistoryEntry | MapDeleteHistoryEntry;
 
 export interface ClipboardData {
   type: 'tiles' | 'event' | 'events' | 'lights' | 'objects' | 'passage';

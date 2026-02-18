@@ -1,4 +1,4 @@
-import type { EditorState, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry, EventHistoryEntry, PlayerStartHistoryEntry, PassageHistoryEntry } from './types';
+import type { EditorState, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry, EventHistoryEntry, PlayerStartHistoryEntry, PassageHistoryEntry, MapDeleteHistoryEntry } from './types';
 import apiClient from '../api/client';
 
 type SetFn = (partial: Partial<EditorState> | ((s: EditorState) => Partial<EditorState>)) => void;
@@ -6,8 +6,32 @@ type GetFn = () => EditorState;
 
 export function undoOperation(get: GetFn, set: SetFn) {
   const { undoStack, currentMap, currentMapId, showToast } = get();
-  if (undoStack.length === 0 || !currentMap || !currentMapId) return;
+  if (undoStack.length === 0) return;
   const entry = undoStack[undoStack.length - 1];
+
+  // Map deletion undo — special case: the map no longer exists
+  if (entry.type === 'mapDelete') {
+    const mde = entry as MapDeleteHistoryEntry;
+    apiClient.post('/maps/restore', {
+      mapId: mde.mapId,
+      mapInfo: mde.mapInfo,
+      mapData: mde.mapData,
+      extData: mde.extData,
+    }).then(() => {
+      const redoEntry: MapDeleteHistoryEntry = { ...mde };
+      set({
+        undoStack: get().undoStack.slice(0, -1),
+        redoStack: [...get().redoStack, redoEntry],
+      });
+      get().loadMaps();
+      showToast(`실행 취소 (맵 ${mde.mapId} 복원)`);
+    }).catch(() => {
+      showToast('맵 복원 실패');
+    });
+    return;
+  }
+
+  if (!currentMap || !currentMapId) return;
   if (entry.mapId !== currentMapId) return;
 
   if (entry.type === 'resize') {
@@ -178,8 +202,40 @@ export function undoOperation(get: GetFn, set: SetFn) {
 
 export function redoOperation(get: GetFn, set: SetFn) {
   const { redoStack, currentMap, currentMapId, showToast } = get();
-  if (redoStack.length === 0 || !currentMap || !currentMapId) return;
+  if (redoStack.length === 0) return;
   const entry = redoStack[redoStack.length - 1];
+
+  // Map deletion redo — re-delete the restored map
+  if (entry.type === 'mapDelete') {
+    const mde = entry as MapDeleteHistoryEntry;
+    apiClient.delete<{ success: boolean; mapInfo: any; mapData: any; extData: any }>(`/maps/${mde.mapId}`).then((res) => {
+      const undoEntry: MapDeleteHistoryEntry = {
+        mapId: mde.mapId,
+        type: 'mapDelete',
+        mapInfo: res.mapInfo || mde.mapInfo,
+        mapData: res.mapData || mde.mapData,
+        extData: res.extData || mde.extData,
+      };
+      const { currentMapId: curId } = get();
+      const stateUpdates: Partial<EditorState> = {
+        redoStack: get().redoStack.slice(0, -1),
+        undoStack: [...get().undoStack, undoEntry],
+      };
+      if (curId === mde.mapId) {
+        stateUpdates.currentMapId = null;
+        stateUpdates.currentMap = null;
+        stateUpdates.tilesetInfo = null;
+      }
+      set(stateUpdates);
+      get().loadMaps();
+      showToast(`다시 실행 (맵 ${mde.mapId} 삭제)`);
+    }).catch(() => {
+      showToast('맵 삭제 실패');
+    });
+    return;
+  }
+
+  if (!currentMap || !currentMapId) return;
   if (entry.mapId !== currentMapId) return;
 
   if (entry.type === 'resize') {

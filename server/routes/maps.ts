@@ -216,7 +216,7 @@ router.post('/', (req: Request, res: Response) => {
   }
 });
 
-// Delete map
+// Delete map (returns deleted data for undo)
 router.delete('/:id', (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
@@ -226,18 +226,63 @@ router.delete('/:id', (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Map not found' });
     }
 
+    // Capture data before deletion for undo
+    const mapInfo = mapInfos[id];
+    const idStr = String(id).padStart(3, '0');
+    const mapFile = `Map${idStr}.json`;
+    let mapData = null;
+    let extData = null;
+    try { mapData = projectManager.readJSON(mapFile); } catch {}
+    try { extData = projectManager.readExtJSON(mapFile); } catch {}
+
     // Remove from MapInfos
     mapInfos[id] = null;
     projectManager.writeJSON('MapInfos.json', mapInfos);
 
     // Delete map file + ext file
-    const idStr = String(id).padStart(3, '0');
-    const mapFile = `Map${idStr}.json`;
     const filePath = path.join(projectManager.getDataPath(), mapFile);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
     projectManager.deleteExtJSON(mapFile);
+
+    res.json({ success: true, mapInfo, mapData, extData });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Restore deleted map
+router.post('/restore', (req: Request, res: Response) => {
+  try {
+    const { mapId, mapInfo, mapData, extData } = req.body;
+    if (!mapId || !mapInfo || !mapData) {
+      return res.status(400).json({ error: 'Missing required fields: mapId, mapInfo, mapData' });
+    }
+
+    const mapInfos = projectManager.readJSON('MapInfos.json') as (null | any)[];
+
+    // Extend array if needed
+    while (mapInfos.length <= mapId) mapInfos.push(null);
+
+    // Check if slot is already taken
+    if (mapInfos[mapId]) {
+      return res.status(409).json({ error: 'Map ID already exists' });
+    }
+
+    // Restore MapInfos entry
+    mapInfos[mapId] = mapInfo;
+    projectManager.writeJSON('MapInfos.json', mapInfos);
+
+    // Restore map data file
+    const idStr = String(mapId).padStart(3, '0');
+    const mapFile = `Map${idStr}.json`;
+    projectManager.writeJSON(mapFile, mapData);
+
+    // Restore ext data file
+    if (extData && Object.keys(extData).length > 0) {
+      projectManager.writeExtJSON(mapFile, extData);
+    }
 
     res.json({ success: true });
   } catch (err: unknown) {
