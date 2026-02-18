@@ -1,7 +1,15 @@
 /* Toast */
+.toast-container {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  pointer-events: none;
+}
+
 .toast {
   position: fixed;
-  bottom: 40px;
   left: 50%;
   transform: translateX(-50%);
   background: #4caf50;
@@ -17,6 +25,7 @@
   white-space: pre-line;
   max-width: 480px;
   text-align: left;
+  transition: bottom 0.2s ease-out;
 }
 
 .toast.toast-persistent {
