@@ -71,6 +71,7 @@ interface TreeNodeProps {
   node: TreeNodeData;
   depth: number;
   selectedId: number | null;
+  selectedDisplayName?: string;
   onSelect: (id: number) => void;
   onDoubleClick: (id: number) => void;
   collapsed: Record<number, boolean>;
@@ -79,10 +80,13 @@ interface TreeNodeProps {
   startPositions: Record<number, string[]>;
 }
 
-function TreeNode({ node, depth, selectedId, onSelect, onDoubleClick, collapsed, onToggle, onContextMenu, startPositions }: TreeNodeProps) {
+function TreeNode({ node, depth, selectedId, selectedDisplayName, onSelect, onDoubleClick, collapsed, onToggle, onContextMenu, startPositions }: TreeNodeProps) {
   const isCollapsed = collapsed[node.id];
   const hasChildren = node.children && node.children.length > 0;
   const badges = startPositions[node.id];
+  const baseName = node.name || `Map ${node.id}`;
+  const isSelected = node.id === selectedId;
+  const displayName = isSelected && selectedDisplayName ? `${baseName}(${selectedDisplayName})` : baseName;
 
   return (
     <>
@@ -102,7 +106,7 @@ function TreeNode({ node, depth, selectedId, onSelect, onDoubleClick, collapsed,
         >
           {hasChildren ? (isCollapsed ? '▶' : '▼') : ''}
         </span>
-        <span className="map-tree-label">{node.name || `Map ${node.id}`}</span>
+        <span className="map-tree-label">{displayName}</span>
         {badges && badges.map((badge) => (
           <span key={badge} className="map-tree-badge" title={badge}>{badge}</span>
         ))}
@@ -114,6 +118,7 @@ function TreeNode({ node, depth, selectedId, onSelect, onDoubleClick, collapsed,
             node={child}
             depth={depth + 1}
             selectedId={selectedId}
+            selectedDisplayName={selectedDisplayName}
             onSelect={onSelect}
             onDoubleClick={onDoubleClick}
             collapsed={collapsed}
@@ -131,6 +136,7 @@ export default function MapTree() {
   const { t } = useTranslation();
   const maps = useEditorStore((s) => s.maps);
   const currentMapId = useEditorStore((s) => s.currentMapId);
+  const currentMap = useEditorStore((s) => s.currentMap);
   const selectMap = useEditorStore((s) => s.selectMap);
   const deleteMap = useEditorStore((s) => s.deleteMap);
   const systemData = useEditorStore((s) => s.systemData);
@@ -335,6 +341,7 @@ export default function MapTree() {
               node={node}
               depth={1}
               selectedId={currentMapId}
+              selectedDisplayName={currentMap?.displayName || undefined}
               onSelect={selectMap}
               onDoubleClick={handleDoubleClick}
               collapsed={filterQuery ? {} : collapsed}

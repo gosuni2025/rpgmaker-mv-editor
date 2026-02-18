@@ -142,7 +142,7 @@ export default function MapInspector() {
               className="inspector-clickable-label"
               onClick={() => { setNameValue(mapName); setEditingName(true); }}
               title="클릭하여 이름 편집"
-            >{mapName}</button>
+            >{currentMap.displayName ? `${mapName}(${currentMap.displayName})` : mapName}</button>
           )}
         </div>
         <div className="light-inspector-row">
