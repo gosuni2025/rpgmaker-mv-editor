@@ -1,6 +1,6 @@
 import apiClient from '../api/client';
 import type { MapInfo, MapData, TilesetData, SystemData } from '../types/rpgMakerMV';
-import type { EditorState, SliceCreator, PlayerStartHistoryEntry } from './types';
+import type { EditorState, SliceCreator, PlayerStartHistoryEntry, MapDeleteHistoryEntry } from './types';
 import { PROJECT_STORAGE_KEY, MAP_STORAGE_KEY, EDIT_MODE_STORAGE_KEY, TOOLBAR_STORAGE_KEY } from './types';
 
 export const projectSlice: SliceCreator<Pick<EditorState,
@@ -127,7 +127,11 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   },
 
   selectMap: async (mapId: number) => {
-    set({ currentMapId: mapId, undoStack: [], redoStack: [] });
+    // Preserve mapDelete entries (project-level) when switching maps
+    const { undoStack, redoStack } = get();
+    const preservedUndo = undoStack.filter(e => e.type === 'mapDelete');
+    const preservedRedo = redoStack.filter(e => e.type === 'mapDelete');
+    set({ currentMapId: mapId, undoStack: preservedUndo, redoStack: preservedRedo });
     localStorage.setItem(MAP_STORAGE_KEY, String(mapId));
     const map = await apiClient.get<MapData>(`/maps/${mapId}`);
     // 맵 데이터에서 postProcessConfig 로드
@@ -176,12 +180,28 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   },
 
   deleteMap: async (mapId: number) => {
-    await apiClient.delete(`/maps/${mapId}`);
-    const { currentMapId } = get();
+    const res = await apiClient.delete<{ success: boolean; mapInfo: any; mapData: any; extData: any }>(`/maps/${mapId}`);
+    const { currentMapId, undoStack, maxUndo, showToast } = get();
+
+    // Push undo entry with the deleted map data
+    if (res.mapInfo) {
+      const entry: MapDeleteHistoryEntry = {
+        mapId,
+        type: 'mapDelete',
+        mapInfo: res.mapInfo,
+        mapData: res.mapData,
+        extData: res.extData,
+      };
+      const newStack = [...undoStack, entry];
+      if (newStack.length > maxUndo) newStack.shift();
+      set({ undoStack: newStack, redoStack: [] });
+    }
+
     if (currentMapId === mapId) {
       set({ currentMapId: null, currentMap: null, tilesetInfo: null });
     }
     await get().loadMaps();
+    showToast(`맵 ${mapId} 삭제됨 (Ctrl+Z로 복원 가능)`);
   },
 
   updateMapInfos: async (mapInfos: (MapInfo | null)[]) => {
