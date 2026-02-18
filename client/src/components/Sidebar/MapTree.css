@@ -106,3 +106,9 @@
   flex-shrink: 0;
   white-space: nowrap;
 }
+
+.map-tree-highlight {
+  background: transparent;
+  color: #f0c040;
+  font-weight: bold;
+}

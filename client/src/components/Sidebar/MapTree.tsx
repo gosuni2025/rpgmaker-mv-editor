@@ -70,11 +70,26 @@ function filterTree(nodes: TreeNodeData[], query: string): TreeNodeData[] {
   return result;
 }
 
+/** 검색어와 일치하는 부분을 <mark>로 감싸 반환 (대소문자 무시, 연속 substring) */
+function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!query) return text;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx < 0) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="map-tree-highlight">{text.slice(idx, idx + query.length)}</mark>
+      {highlightMatch(text.slice(idx + query.length), query)}
+    </>
+  );
+}
+
 interface TreeNodeProps {
   node: TreeNodeData;
   depth: number;
   selectedId: number | null;
   selectedDisplayName?: string;
+  filterQuery?: string;
   onSelect: (id: number) => void;
   onDoubleClick: (id: number) => void;
   collapsed: Record<number, boolean>;
@@ -83,17 +98,22 @@ interface TreeNodeProps {
   startPositions: Record<number, string[]>;
 }
 
-function TreeNode({ node, depth, selectedId, selectedDisplayName, onSelect, onDoubleClick, collapsed, onToggle, onContextMenu, startPositions }: TreeNodeProps) {
+function TreeNode({ node, depth, selectedId, selectedDisplayName, filterQuery, onSelect, onDoubleClick, collapsed, onToggle, onContextMenu, startPositions }: TreeNodeProps) {
   const isCollapsed = collapsed[node.id];
   const hasChildren = node.children && node.children.length > 0;
   const badges = startPositions[node.id];
-  const idPrefix = `[${String(node.id).padStart(3, '0')}]`;
+  const idStr = String(node.id).padStart(3, '0');
+  const idPrefix = `[${idStr}]`;
   const baseName = node.name || `Map ${node.id}`;
   const isSelected = node.id === selectedId;
   // 선택된 맵은 currentMap의 displayName(최신 편집값) 우선, 아니면 MapInfo에 캐싱된 displayName 사용
   const dn = isSelected ? (selectedDisplayName || node.displayName || '') : (node.displayName || '');
-  const label = dn ? `${baseName}(${dn})` : baseName;
-  const displayName = `${idPrefix} ${label}`;
+
+  // 검색어 강조: 각 파트를 분리하여 개별 강조
+  const q = filterQuery || '';
+  const labelNode = dn ? (
+    <>{highlightMatch(baseName, q)}<span style={{ color: '#999' }}>({highlightMatch(dn, q)})</span></>
+  ) : highlightMatch(baseName, q);
 
   return (
     <>
@@ -113,7 +133,9 @@ function TreeNode({ node, depth, selectedId, selectedDisplayName, onSelect, onDo
         >
           {hasChildren ? (isCollapsed ? '▶' : '▼') : ''}
         </span>
-        <span className="map-tree-label">{displayName}</span>
+        <span className="map-tree-label">
+          <span style={{ color: '#888' }}>{highlightMatch(idPrefix, q)}</span>{' '}{labelNode}
+        </span>
         {badges && badges.map((badge) => (
           <span key={badge} className="map-tree-badge" title={badge}>{badge}</span>
         ))}
@@ -126,6 +148,7 @@ function TreeNode({ node, depth, selectedId, selectedDisplayName, onSelect, onDo
             depth={depth + 1}
             selectedId={selectedId}
             selectedDisplayName={selectedDisplayName}
+            filterQuery={filterQuery}
             onSelect={onSelect}
             onDoubleClick={onDoubleClick}
             collapsed={collapsed}
@@ -349,6 +372,7 @@ export default function MapTree() {
               depth={1}
               selectedId={currentMapId}
               selectedDisplayName={currentMap?.displayName || undefined}
+              filterQuery={filterQuery}
               onSelect={selectMap}
               onDoubleClick={handleDoubleClick}
               collapsed={filterQuery ? {} : collapsed}
