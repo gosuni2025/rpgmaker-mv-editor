@@ -3411,9 +3411,9 @@ Spriteset_Map.prototype.updateParallax = function() {
     // - 에디터 모드: HTML DIV로 패러럴 표시하므로 TilingSprite는 항상 숨김
     // - 게임 3D 모드: sky mesh가 대신 렌더되므로 TilingSprite 숨김
     // - 게임 2D 모드: TilingSprite 표시
-    if (this._parallax._threeObj) {
-        this._parallax._threeObj.visible = !is3D && !window.__editorMode;
-    }
+    // NOTE: _threeObj.visible 직접 설정 불가 — _updateFrame()이 this._visible로 매번 복원함.
+    //       반드시 PIXI 호환 visible 속성(= this._visible + _threeObj.visible 동시 설정)을 사용해야 함.
+    this._parallax.visible = !is3D && !window.__editorMode;
     if (this._parallax.bitmap) {
         this._parallax.origin.x = $gameMap.parallaxOx();
         this._parallax.origin.y = $gameMap.parallaxOy();
