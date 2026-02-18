@@ -1,10 +1,17 @@
 import express, { Request, Response } from 'express';
 import fs from 'fs';
+import crypto from 'crypto';
 import path from 'path';
 import { exec } from 'child_process';
 import projectManager from '../services/projectManager';
 
 const router = express.Router();
+const runtimePath = path.join(__dirname, '..', 'runtime');
+
+function pluginFileHash(filePath: string): string {
+  const content = fs.readFileSync(filePath);
+  return crypto.createHash('md5').update(content).digest('hex');
+}
 
 interface PluginParamMeta {
   name: string;
@@ -296,6 +303,57 @@ router.get('/browse-files', (req: Request, res: Response) => {
     }
 
     res.json({ files: files.sort() });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// GET /api/plugins/editor-plugins - List editor-provided plugins with update status
+router.get('/editor-plugins', (req: Request, res: Response) => {
+  try {
+    const editorPluginsDir = path.join(runtimePath, 'js', 'plugins');
+    if (!fs.existsSync(editorPluginsDir)) return res.json([]);
+
+    const projectPluginsDir = path.join(projectManager.getJsPath(), 'plugins');
+    const epFiles = fs.readdirSync(editorPluginsDir).filter(f => f.endsWith('.js'));
+    const result: { name: string; hasUpdate: boolean }[] = [];
+
+    for (const epFile of epFiles) {
+      const name = epFile.replace('.js', '');
+      const editorFile = path.join(editorPluginsDir, epFile);
+      const projectFile = path.join(projectPluginsDir, epFile);
+      let hasUpdate = false;
+      if (fs.existsSync(projectFile)) {
+        hasUpdate = pluginFileHash(editorFile) !== pluginFileHash(projectFile);
+      } else {
+        hasUpdate = true; // not yet copied
+      }
+      result.push({ name, hasUpdate });
+    }
+
+    res.json(result);
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// POST /api/plugins/upgrade - Upgrade an editor plugin to latest version
+router.post('/upgrade', (req: Request, res: Response) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'name is required' });
+
+    const editorFile = path.join(runtimePath, 'js', 'plugins', `${name}.js`);
+    if (!fs.existsSync(editorFile)) {
+      return res.status(404).json({ error: `Editor plugin not found: ${name}` });
+    }
+
+    const projectPluginsDir = path.join(projectManager.getJsPath(), 'plugins');
+    fs.mkdirSync(projectPluginsDir, { recursive: true });
+    const dest = path.join(projectPluginsDir, `${name}.js`);
+    fs.copyFileSync(editorFile, dest);
+
+    res.json({ success: true });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }
