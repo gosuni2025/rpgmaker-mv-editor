@@ -176,6 +176,8 @@ export interface EventPage {
   walkAnime: boolean;
   /** 3D 모드에서 빌보드(입체 표시) 적용 여부. undefined/true이면 빌보드 활성 (기본값: true) */
   billboard?: boolean;
+  /** 3D 모드 빌보드 Z 높이 오프셋 (타일 단위). 양수=위로 올라감. 기본값: 0 */
+  billboardZ?: number;
 }
 
 export interface EventConditions {

@@ -336,6 +336,24 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                       title={t('eventDetail.billboard3dTooltip')}
                     >?</span>
                   </label>
+                  {page.billboard !== false && (
+                    <div className="event-editor-billboard-z-row">
+                      <span className="event-editor-form-label">{t('eventDetail.billboardZ')}</span>
+                      <input
+                        type="number"
+                        value={page.billboardZ ?? 0}
+                        step={0.1}
+                        onChange={(e) => updatePage(activePage, { billboardZ: Number(e.target.value) })}
+                        className="event-editor-input event-editor-input-sm"
+                        style={{ width: 60 }}
+                      />
+                      <span className="event-editor-billboard-z-unit">{t('eventDetail.billboardZUnit')}</span>
+                      <span
+                        className="event-editor-tooltip-icon"
+                        title={t('eventDetail.billboardZTooltip')}
+                      >?</span>
+                    </div>
+                  )}
                 </fieldset>
                 <fieldset className="event-editor-fieldset event-editor-fieldset-half">
                   <legend>{t('eventDetail.autonomousMovement')}</legend>
