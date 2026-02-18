@@ -130,6 +130,20 @@ export default function MapCanvas() {
   useObjectSelectionOverlays(overlayRefs, rendererReady);
   useMoveRouteOverlay(overlayRefs, hoverTile, rendererReady);
 
+  // 맵 캔버스 외부 클릭 시 시작 위치 선택 해제
+  useEffect(() => {
+    const onMouseDown = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        const sel = useEditorStore.getState().selectedStartPosition;
+        if (sel != null) {
+          useEditorStore.getState().setSelectedStartPosition(null);
+        }
+      }
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, []);
+
   // Tile cursor preview
   useTileCursorPreview(overlayRefs, hoverTile, rendererReady);
 
