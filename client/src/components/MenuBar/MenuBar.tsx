@@ -294,16 +294,22 @@ export default function MenuBar() {
       else if (inDialog) return;
       // IME 입력 중이면 Ctrl 조합 등 텍스트 편집 단축키 무시
       else if (ime) return;
-      else if (ctrl && e.key === 'z') { e.preventDefault(); handleAction('undo'); }
+      // 텍스트 입력 필드에서는 텍스트 편집 단축키(Ctrl+A/C/V/X/Z)를 브라우저 기본 동작으로 위임
+      else if (ctrl && ['a', 'c', 'v', 'x', 'z'].includes(e.key.toLowerCase())) {
+        const tag = (e.target as HTMLElement).tagName;
+        const isTextInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable;
+        if (isTextInput) return; // 브라우저 기본 동작 (텍스트 전체 선택, 복사, 붙여넣기 등)
+        if (e.key === 'z') { e.preventDefault(); handleAction('undo'); }
+        else if (e.key === 'a') { e.preventDefault(); handleAction('selectAll'); }
+        else if (e.key === 'x') { e.preventDefault(); handleAction('cut'); }
+        else if (e.key === 'c') { e.preventDefault(); handleAction('copy'); }
+        else if (e.key === 'v') { e.preventDefault(); handleAction('paste'); }
+      }
       else if (ctrl && e.key === 'y') { e.preventDefault(); handleAction('redo'); }
-      else if (ctrl && e.key === 'x') { e.preventDefault(); handleAction('cut'); }
-      else if (ctrl && e.key === 'c') { e.preventDefault(); handleAction('copy'); }
-      else if (ctrl && e.key === 'v') { e.preventDefault(); handleAction('paste'); }
       else if (ctrl && e.key === 'f') { e.preventDefault(); handleAction('find'); }
       else if (ctrl && (e.key === '=' || e.key === '+')) { e.preventDefault(); handleAction('zoomIn'); }
       else if (ctrl && e.key === '-') { e.preventDefault(); handleAction('zoomOut'); }
       else if (ctrl && e.key === '0') { e.preventDefault(); handleAction('zoomActual'); }
-      else if (ctrl && e.key === 'a') { e.preventDefault(); handleAction('selectAll'); }
       else if (ctrl && e.key === 'd') { e.preventDefault(); handleAction('deselect'); }
       else if (e.key === 'Delete') { handleAction('delete'); }
       else if (e.key === 'Escape') { window.dispatchEvent(new CustomEvent('editor-escape')); }
