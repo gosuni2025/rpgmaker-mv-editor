@@ -126,6 +126,11 @@
     // 터치 이동 억제 플래그: 드래그/핀치 중이었으면 터치업 시 이동하지 않음
     var _suppressNextDestination = false;
 
+    // 맵에서 실제로 터치 다운(trigger)이 있었는지 추적
+    // 이 플래그가 true일 때만 isReleased()에서 이동 처리
+    // (이벤트/선택지 등 다른 UI에서 클릭 후 맵으로 복귀 시 오발동 방지)
+    var _mapTouchTriggered = false;
+
     //=========================================================================
     // 유틸
     //=========================================================================
@@ -189,6 +194,12 @@
                 _dragState.lastY = event.pageY;
                 _dragState.moved = false;
                 _suppressNextDestination = false;
+                // 맵에서 실제로 이동 가능한 상태일 때만 터치 다운으로 기록
+                // (이벤트/선택지 등 다른 UI 처리 중에는 이동 불가 상태이므로 기록 안 함)
+                var scene = SceneManager._scene;
+                var mapTouchOk = scene && scene.isActive &&
+                                 scene.isActive() && $gamePlayer && $gamePlayer.canMove();
+                _mapTouchTriggered = !!mapTouchOk;
             }
         }
         _orig_onLeftButtonDown.call(this, event);
@@ -251,11 +262,16 @@
                 _dragState.lastY = touch.pageY;
                 _dragState.moved = false;
                 _suppressNextDestination = false;
+                var scene = SceneManager._scene;
+                var mapTouchOk = scene && scene.isActive &&
+                                 scene.isActive() && $gamePlayer && $gamePlayer.canMove();
+                _mapTouchTriggered = !!mapTouchOk;
             } else if (event.touches.length >= 2) {
                 // 핀치 시작
                 _dragState.active = false;
                 _dragState.moved = true; // 핀치 → 이동 억제
                 _suppressNextDestination = true;
+                _mapTouchTriggered = false;
                 _pinchState.active = true;
                 _pinchState.lastDist = getTouchDist(event.touches);
             }
@@ -353,6 +369,7 @@
             // 릴리즈 시점에서만 플래그 클리어
             if (TouchInput.isReleased()) {
                 _suppressNextDestination = false;
+                _mapTouchTriggered = false;
             }
             // 현재 이동 요청 무시, 진행 중인 destination도 클리어
             if (this._touchCount > 0) {
@@ -363,10 +380,15 @@
         }
 
         // 3D 모드: 터치 릴리즈(터치업) 시에만 이동
+        // 단, 맵에서 실제로 터치 다운이 있었던 경우에만 처리
+        // (이벤트/선택지 등 다른 UI에서 클릭 후 맵으로 복귀 시 오발동 방지)
         if (TouchInput.isReleased()) {
-            var x = $gameMap.canvasToMapX(TouchInput.x);
-            var y = $gameMap.canvasToMapY(TouchInput.y);
-            $gameTemp.setDestination(x, y);
+            if (_mapTouchTriggered) {
+                var x = $gameMap.canvasToMapX(TouchInput.x);
+                var y = $gameMap.canvasToMapY(TouchInput.y);
+                $gameTemp.setDestination(x, y);
+            }
+            _mapTouchTriggered = false;
             this._touchCount = 0;
         }
     };
