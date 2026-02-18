@@ -1,4 +1,4 @@
-import type { EditorState, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry, EventHistoryEntry, PlayerStartHistoryEntry, PassageHistoryEntry, MapDeleteHistoryEntry } from './types';
+import type { EditorState, TileChange, TileHistoryEntry, ResizeHistoryEntry, ObjectHistoryEntry, LightHistoryEntry, CameraZoneHistoryEntry, EventHistoryEntry, PlayerStartHistoryEntry, PassageHistoryEntry, MapDeleteHistoryEntry, MapRenameHistoryEntry } from './types';
 import apiClient from '../api/client';
 
 type SetFn = (partial: Partial<EditorState> | ((s: EditorState) => Partial<EditorState>)) => void;
@@ -27,6 +27,25 @@ export function undoOperation(get: GetFn, set: SetFn) {
       showToast(`실행 취소 (맵 ${mde.mapId} 복원)`);
     }).catch(() => {
       showToast('맵 복원 실패');
+    });
+    return;
+  }
+
+  // Map rename undo — special case: works regardless of current map
+  if (entry.type === 'mapRename') {
+    const mre = entry as MapRenameHistoryEntry;
+    const { maps } = get();
+    const newMaps = maps.map(m => m && m.id === mre.mapId ? { ...m, name: mre.oldName } : m);
+    apiClient.put('/maps', newMaps).then(() => {
+      const redoEntry: MapRenameHistoryEntry = { ...mre };
+      set({
+        maps: newMaps,
+        undoStack: get().undoStack.slice(0, -1),
+        redoStack: [...get().redoStack, redoEntry],
+      });
+      showToast(`실행 취소 (맵 이름: ${mre.oldName})`);
+    }).catch(() => {
+      showToast('맵 이름 변경 실패');
     });
     return;
   }
@@ -231,6 +250,25 @@ export function redoOperation(get: GetFn, set: SetFn) {
       showToast(`다시 실행 (맵 ${mde.mapId} 삭제)`);
     }).catch(() => {
       showToast('맵 삭제 실패');
+    });
+    return;
+  }
+
+  // Map rename redo
+  if (entry.type === 'mapRename') {
+    const mre = entry as MapRenameHistoryEntry;
+    const { maps } = get();
+    const newMaps = maps.map(m => m && m.id === mre.mapId ? { ...m, name: mre.newName } : m);
+    apiClient.put('/maps', newMaps).then(() => {
+      const undoEntry: MapRenameHistoryEntry = { ...mre };
+      set({
+        maps: newMaps,
+        redoStack: get().redoStack.slice(0, -1),
+        undoStack: [...get().undoStack, undoEntry],
+      });
+      showToast(`다시 실행 (맵 이름: ${mre.newName})`);
+    }).catch(() => {
+      showToast('맵 이름 변경 실패');
     });
     return;
   }

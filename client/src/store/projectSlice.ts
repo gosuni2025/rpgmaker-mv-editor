@@ -1,6 +1,6 @@
 import apiClient from '../api/client';
 import type { MapInfo, MapData, TilesetData, SystemData } from '../types/rpgMakerMV';
-import type { EditorState, SliceCreator, PlayerStartHistoryEntry, MapDeleteHistoryEntry } from './types';
+import type { EditorState, SliceCreator, PlayerStartHistoryEntry, MapDeleteHistoryEntry, MapRenameHistoryEntry } from './types';
 import { PROJECT_STORAGE_KEY, MAP_STORAGE_KEY, EDIT_MODE_STORAGE_KEY, TOOLBAR_STORAGE_KEY } from './types';
 
 export const projectSlice: SliceCreator<Pick<EditorState,
@@ -8,7 +8,7 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   'systemData' | 'playerCharacterName' | 'playerCharacterIndex' | 'parseErrors' |
   'selectedStartPosition' |
   'openProject' | 'closeProject' | 'restoreLastProject' | 'loadMaps' | 'selectMap' |
-  'saveCurrentMap' | 'createMap' | 'deleteMap' | 'updateMapInfos' | 'setPlayerStartPosition' | 'setVehicleStartPosition' |
+  'saveCurrentMap' | 'createMap' | 'deleteMap' | 'updateMapInfos' | 'renameMap' | 'setPlayerStartPosition' | 'setVehicleStartPosition' |
   'clearVehicleStartPosition' | 'setSelectedStartPosition' |
   'setTestStartPosition' | 'clearTestStartPosition'
 >> = (set, get) => ({
@@ -210,6 +210,25 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   updateMapInfos: async (mapInfos: (MapInfo | null)[]) => {
     await apiClient.put('/maps', mapInfos);
     set({ maps: mapInfos });
+  },
+
+  renameMap: async (mapId: number, newName: string) => {
+    const { maps, undoStack, maxUndo, showToast } = get();
+    const targetMap = maps.find(m => m && m.id === mapId);
+    if (!targetMap) return;
+    const oldName = targetMap.name;
+    if (oldName === newName) return;
+    const newMaps = maps.map(m => m && m.id === mapId ? { ...m, name: newName } : m);
+    try {
+      await apiClient.put('/maps', newMaps);
+      const entry: MapRenameHistoryEntry = { mapId, type: 'mapRename', oldName, newName };
+      const newStack = [...undoStack, entry];
+      if (newStack.length > maxUndo) newStack.shift();
+      set({ maps: newMaps, undoStack: newStack, redoStack: [] });
+      showToast(`맵 이름 변경: ${newName}`);
+    } catch {
+      showToast('맵 이름 변경 실패');
+    }
   },
 
   setPlayerStartPosition: async (mapId: number, x: number, y: number) => {
