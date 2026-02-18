@@ -1,6 +1,6 @@
 /*:
  * @pluginname 터치 카메라 조작
- * @plugindesc 터치/마우스 드래그로 카메라 회전, 핀치로 줌 인/아웃 (3D 모드 전용)
+ * @plugindesc 터치 카메라 회전/줌 + HD-2D 스타일 빌보드 방향 (3D 모드 전용)
  * @author gosuni2025
  *
  * @param Drag Threshold
@@ -79,6 +79,11 @@
  * - 마우스 휠: 줌 인/아웃 (설정 시)
  * - 같은 위치에서 터치 후 바로 떼기: 이동 목적지 설정 (원래 동작)
  *   (드래그한 경우 이동하지 않음)
+ *
+ * === HD-2D 빌보드 방향 ===
+ * 카메라 yaw 회전에 따라 캐릭터 스프라이트의 방향 행이 자동으로 변경됩니다.
+ * (옥토패스 트래블러/HD-2D 스타일)
+ * 예: 아래를 향한 캐릭터가 카메라 90° 회전 시 왼쪽 방향 행으로 표시됩니다.
  */
 
 (function() {
@@ -364,6 +369,52 @@
             $gameTemp.setDestination(x, y);
             this._touchCount = 0;
         }
+    };
+
+    //=========================================================================
+    // HD-2D 스타일 빌보드 방향 (카메라 yaw에 따라 스프라이트 방향 행 변경)
+    //=========================================================================
+    // 카메라가 회전하면 캐릭터의 실제 이동 방향과 무관하게,
+    // 카메라 시점에서 보이는 방향에 맞는 스프라이트 행을 표시함.
+    // 예: 캐릭터가 아래(+Y)를 향하고 있을 때 카메라가 90° 회전하면
+    //     카메라 시점에서는 왼쪽을 향한 것으로 보이므로 "왼쪽" 행 사용.
+    //
+    // 방향 회전 순서 (CCW, yaw +90°마다 한 단계):
+    //   2(Down) → 4(Left) → 8(Up) → 6(Right) → 2(Down)
+    //=========================================================================
+
+    // 방향 → 인덱스, 인덱스 → 방향 매핑
+    var _dirToIdx = { 2: 0, 4: 1, 8: 2, 6: 3 };
+    var _idxToDir = [2, 4, 8, 6];
+
+    /**
+     * 카메라 yaw를 고려한 시각적 방향을 반환
+     * @param {number} actualDir - 캐릭터의 실제 방향 (2/4/6/8)
+     * @returns {number} 카메라 시점에서의 시각적 방향 (2/4/6/8)
+     */
+    function getVisualDirection(actualDir) {
+        if (!is3DActive()) return actualDir;
+
+        var yawDeg = Mode3D._yawDeg || 0;
+        // yaw를 90° 단위로 양자화 (반올림)
+        var yawStep = Math.round(yawDeg / 90);
+        // -180~180 범위의 yaw에서 step은 -2~2 범위
+        var idx = _dirToIdx[actualDir];
+        if (idx === undefined) return actualDir; // 비표준 방향은 그대로
+        // 양의 모듈로 연산: (idx + yawStep) mod 4
+        var visualIdx = ((idx + yawStep) % 4 + 4) % 4;
+        return _idxToDir[visualIdx];
+    }
+
+    // Sprite_Character.prototype.characterPatternY 오버라이드
+    var _orig_characterPatternY = Sprite_Character.prototype.characterPatternY;
+    Sprite_Character.prototype.characterPatternY = function() {
+        if (is3DActive() && this._character) {
+            var actualDir = this._character.direction();
+            var visualDir = getVisualDirection(actualDir);
+            return (visualDir - 2) / 2;
+        }
+        return _orig_characterPatternY.call(this);
     };
 
 })();
