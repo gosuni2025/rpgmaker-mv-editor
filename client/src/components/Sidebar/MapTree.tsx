@@ -188,10 +188,14 @@ export default function MapTree() {
 
   const handleDeleteMapById = useCallback(async (mapId: number) => {
     if (mapId === 0) return;
-    if (window.confirm(t('mapTree.confirmDelete', { id: mapId }))) {
+    const hasChildren = maps.some(m => m && m.parentId === mapId);
+    const msg = hasChildren
+      ? t('mapTree.confirmDeleteWithChildren', { id: mapId })
+      : t('mapTree.confirmDelete', { id: mapId });
+    if (window.confirm(msg)) {
       await deleteMap(mapId);
     }
-  }, [deleteMap, t]);
+  }, [deleteMap, maps, t]);
 
   const handleDeleteMap = useCallback(async () => {
     if (!contextMenu) return;
