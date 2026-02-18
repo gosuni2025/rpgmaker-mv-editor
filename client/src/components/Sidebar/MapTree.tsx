@@ -65,7 +65,7 @@ function TreeNode({ node, depth, selectedId, onSelect, onDoubleClick, collapsed,
         style={{ paddingLeft: 8 + depth * 16 }}
         onClick={() => onSelect(node.id)}
         onDoubleClick={() => onDoubleClick(node.id)}
-        onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, node.id); }}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, node.id); }}
       >
         <span
           className="map-tree-toggle"
@@ -236,11 +236,15 @@ export default function MapTree() {
         e.nativeEvent.stopImmediatePropagation();
         handleDeleteMapById(currentMapId);
       }
+    }} onContextMenu={(e) => {
+      // 빈 공간 우클릭 시 루트 레벨 컨텍스트 메뉴 표시
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0 });
     }}>
       <div
         className="map-tree-node map-tree-root"
         onClick={() => setRootCollapsed(!rootCollapsed)}
-        onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0 }); }}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, mapId: 0 }); }}
       >
         <span className="map-tree-toggle">{rootCollapsed ? '▶' : '▼'}</span>
         <span className="map-tree-label">{projectName || t('mapTree.project')}</span>
