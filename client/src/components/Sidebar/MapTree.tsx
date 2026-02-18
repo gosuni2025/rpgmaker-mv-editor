@@ -50,11 +50,13 @@ interface TreeNodeProps {
   collapsed: Record<number, boolean>;
   onToggle: (id: number) => void;
   onContextMenu: (e: React.MouseEvent, mapId: number) => void;
+  startPositions: Record<number, string[]>;
 }
 
-function TreeNode({ node, depth, selectedId, onSelect, onDoubleClick, collapsed, onToggle, onContextMenu }: TreeNodeProps) {
+function TreeNode({ node, depth, selectedId, onSelect, onDoubleClick, collapsed, onToggle, onContextMenu, startPositions }: TreeNodeProps) {
   const isCollapsed = collapsed[node.id];
   const hasChildren = node.children && node.children.length > 0;
+  const badges = startPositions[node.id];
 
   return (
     <>
@@ -75,6 +77,9 @@ function TreeNode({ node, depth, selectedId, onSelect, onDoubleClick, collapsed,
           {hasChildren ? (isCollapsed ? '▶' : '▼') : ''}
         </span>
         <span className="map-tree-label">{node.name || `Map ${node.id}`}</span>
+        {badges && badges.map((badge) => (
+          <span key={badge} className="map-tree-badge" title={badge}>{badge}</span>
+        ))}
       </div>
       {hasChildren && !isCollapsed &&
         node.children.map((child) => (
@@ -88,6 +93,7 @@ function TreeNode({ node, depth, selectedId, onSelect, onDoubleClick, collapsed,
             collapsed={collapsed}
             onToggle={onToggle}
             onContextMenu={onContextMenu}
+            startPositions={startPositions}
           />
         ))
       }
@@ -104,6 +110,7 @@ export default function MapTree() {
   const deleteMap = useEditorStore((s) => s.deleteMap);
   const updateMapInfos = useEditorStore((s) => s.updateMapInfos);
   const setShowDatabaseDialog = useEditorStore((s) => s.setShowDatabaseDialog);
+  const systemData = useEditorStore((s) => s.systemData);
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -111,6 +118,22 @@ export default function MapTree() {
   const [sampleMapTargetId, setSampleMapTargetId] = useState<number | null>(null);
 
   const tree = useMemo(() => buildTree(maps), [maps]);
+
+  // Build a map of mapId -> badge labels for start positions
+  const startPositions = useMemo(() => {
+    const result: Record<number, string[]> = {};
+    if (!systemData) return result;
+    const add = (mapId: number, label: string) => {
+      if (!mapId) return;
+      if (!result[mapId]) result[mapId] = [];
+      result[mapId].push(label);
+    };
+    if (systemData.startMapId) add(systemData.startMapId, t('mapTree.badgePlayer', '플레이어'));
+    if (systemData.boat?.startMapId) add(systemData.boat.startMapId, t('mapTree.badgeBoat', '보트'));
+    if (systemData.ship?.startMapId) add(systemData.ship.startMapId, t('mapTree.badgeShip', '선박'));
+    if (systemData.airship?.startMapId) add(systemData.airship.startMapId, t('mapTree.badgeAirship', '비행선'));
+    return result;
+  }, [systemData, t]);
 
   const handleToggle = (id: number) => {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -225,6 +248,7 @@ export default function MapTree() {
           collapsed={collapsed}
           onToggle={handleToggle}
           onContextMenu={handleContextMenu}
+          startPositions={startPositions}
         />
       ))}
 
