@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import type { EventCommand } from '../../types/rpgMakerMV';
-import { CHILD_TO_PARENT, getCommandGroupRange, isValidDropTarget } from './commandConstants';
+import { CHILD_TO_PARENT, getCommandGroupRange, isValidDropTarget, getDropTargetIndent } from './commandConstants';
 
 export function useCommandDragDrop(
   commands: EventCommand[],
@@ -35,22 +35,24 @@ export function useCommandDragDrop(
         listRef.current.scrollTop += 6;
       }
 
-      let closestIdx = 0;
+      let closestCmdIdx = 0;
       let closestDist = Infinity;
       for (let i = 0; i < rows.length; i++) {
-        const rect = rows[i].getBoundingClientRect();
+        const row = rows[i] as HTMLElement;
+        const cmdIdx = parseInt(row.dataset.cmdIndex || '0', 10);
+        const rect = row.getBoundingClientRect();
         const topDist = Math.abs(mouseY - rect.top);
         const bottomDist = Math.abs(mouseY - rect.bottom);
         if (topDist < closestDist) {
           closestDist = topDist;
-          closestIdx = i;
+          closestCmdIdx = cmdIdx;
         }
         if (bottomDist < closestDist) {
           closestDist = bottomDist;
-          closestIdx = i + 1;
+          closestCmdIdx = cmdIdx + 1;
         }
       }
-      setDropTargetIndex(closestIdx);
+      setDropTargetIndex(closestCmdIdx);
     };
 
     const handleMouseUp = () => {
@@ -66,9 +68,20 @@ export function useCommandDragDrop(
                 !(prevDrop >= start && prevDrop <= end + 1)) {
               const groupLen = end - start + 1;
               const group = commands.slice(start, end + 1);
+
+              // 드롭 위치의 indent 계산 (드래그 소스 제거 전 기준)
+              const targetIndent = getDropTargetIndent(commands, prevDrop);
+              const sourceMinIndent = Math.min(...group.map(c => c.indent));
+              const indentDelta = targetIndent - sourceMinIndent;
+
+              // indent 조정 적용
+              const adjustedGroup = indentDelta !== 0
+                ? group.map(c => ({ ...c, indent: c.indent + indentDelta }))
+                : group;
+
               const rest = [...commands.slice(0, start), ...commands.slice(end + 1)];
               const insertAt = prevDrop > end ? prevDrop - groupLen : prevDrop;
-              rest.splice(insertAt, 0, ...group);
+              rest.splice(insertAt, 0, ...adjustedGroup);
               changeWithHistory(rest);
               setSelectedIndices(new Set([insertAt]));
               setLastClickedIndex(insertAt);

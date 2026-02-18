@@ -139,3 +139,22 @@ export function isValidDropTarget(commands: EventCommand[], targetIndex: number,
   if (targetIndex >= dragStart && targetIndex <= dragEnd + 1) return true;
   return true;
 }
+
+/**
+ * 드롭 대상 위치에서 명령어가 가져야 할 indent를 계산.
+ * 블록 구조(선택지, 조건분기 등) 내부로 드래그할 때 indent를 자동 조정하기 위함.
+ */
+export function getDropTargetIndent(commands: EventCommand[], targetIndex: number): number {
+  if (targetIndex >= commands.length || commands.length === 0) return 0;
+
+  const targetCmd = commands[targetIndex];
+
+  // 블록 구조 부속 코드(402, 403, 404, 411, 412, 413, 601~604) 위에 드롭 →
+  // 부속 코드 바로 앞은 해당 블록 "내부"이므로 indent + 1
+  if (CHILD_TO_PARENT[targetCmd.code] && ![401, 405, 408, 655, 605].includes(targetCmd.code)) {
+    return targetCmd.indent + 1;
+  }
+
+  // 일반 명령어나 연속 부속 코드: 해당 명령어의 indent를 그대로 사용
+  return targetCmd.indent;
+}

@@ -7,7 +7,7 @@ import MoveRouteDialog from './MoveRouteDialog';
 import useEditorStore from '../../store/useEditorStore';
 import {
   NO_PARAM_CODES, CONTINUATION_CODES, BLOCK_END_CODES, CHILD_TO_PARENT,
-  HAS_PARAM_EDITOR,
+  HAS_PARAM_EDITOR, getDropTargetIndent,
 } from './commandConstants';
 import type { CommandDisplayContext } from './commandDisplayText';
 import { useCommandHistory } from './useCommandHistory';
@@ -479,7 +479,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
           return (
             <React.Fragment key={i}>
               {dropTargetIndex === i && dragGroupRange && !(i >= dragGroupRange[0] && i <= dragGroupRange[1] + 1) && (
-                <div className="event-command-drop-indicator" />
+                <div className="event-command-drop-indicator" style={{ marginLeft: getDropTargetIndent(commands, i) * 20 }} />
               )}
               <CommandRow
                 cmd={cmd}
@@ -506,7 +506,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
           );
         })}
         {dropTargetIndex === commands.length && dragGroupRange && (
-          <div className="event-command-drop-indicator" />
+          <div className="event-command-drop-indicator" style={{ marginLeft: getDropTargetIndent(commands, commands.length - 1) * 20 }} />
         )}
       </div>
       <div className="event-commands-toolbar">
