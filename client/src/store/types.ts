@@ -240,8 +240,7 @@ export interface EditorState {
   parseErrors: { file: string; error: string }[] | null;
 
   // Toast
-  toastMessage: string | null;
-  toastPersistent: boolean;
+  toastQueue: { id: number; message: string; persistent: boolean }[];
   showToast: (message: string, persistent?: boolean) => void;
   dismissToast: () => void;
 
