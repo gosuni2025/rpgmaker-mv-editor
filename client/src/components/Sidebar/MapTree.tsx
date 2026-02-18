@@ -84,9 +84,11 @@ function TreeNode({ node, depth, selectedId, selectedDisplayName, onSelect, onDo
   const isCollapsed = collapsed[node.id];
   const hasChildren = node.children && node.children.length > 0;
   const badges = startPositions[node.id];
+  const idPrefix = `[${String(node.id).padStart(3, '0')}]`;
   const baseName = node.name || `Map ${node.id}`;
   const isSelected = node.id === selectedId;
-  const displayName = isSelected && selectedDisplayName ? `${baseName}(${selectedDisplayName})` : baseName;
+  const label = isSelected && selectedDisplayName ? `${baseName}(${selectedDisplayName})` : baseName;
+  const displayName = `${idPrefix} ${label}`;
 
   return (
     <>
