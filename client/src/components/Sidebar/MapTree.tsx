@@ -186,14 +186,19 @@ export default function MapTree() {
     closeContextMenu();
   }, [contextMenu, closeContextMenu]);
 
+  const handleDeleteMapById = useCallback(async (mapId: number) => {
+    if (mapId === 0) return;
+    if (window.confirm(t('mapTree.confirmDelete', { id: mapId }))) {
+      await deleteMap(mapId);
+    }
+  }, [deleteMap, t]);
+
   const handleDeleteMap = useCallback(async () => {
     if (!contextMenu) return;
     const mapId = contextMenu.mapId;
     closeContextMenu();
-    if (window.confirm(t('mapTree.confirmDelete', { id: mapId }))) {
-      await deleteMap(mapId);
-    }
-  }, [contextMenu, deleteMap, closeContextMenu, t]);
+    await handleDeleteMapById(mapId);
+  }, [contextMenu, closeContextMenu, handleDeleteMapById]);
 
   const handleRenameSubmit = useCallback(async () => {
     if (editingId === null) return;
@@ -221,7 +226,13 @@ export default function MapTree() {
   }
 
   return (
-    <div className="map-tree">
+    <div className="map-tree" tabIndex={-1} onKeyDown={(e) => {
+      if (e.key === 'Delete' && currentMapId != null && currentMapId !== 0) {
+        e.preventDefault();
+        e.nativeEvent.stopImmediatePropagation();
+        handleDeleteMapById(currentMapId);
+      }
+    }}>
       <div
         className="map-tree-node map-tree-root"
         onClick={() => setRootCollapsed(!rootCollapsed)}
