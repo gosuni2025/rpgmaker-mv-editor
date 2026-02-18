@@ -115,7 +115,14 @@ export interface MapDeleteHistoryEntry {
   extData: any;
 }
 
-export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry | CameraZoneHistoryEntry | EventHistoryEntry | PlayerStartHistoryEntry | PassageHistoryEntry | MapDeleteHistoryEntry;
+export interface MapRenameHistoryEntry {
+  mapId: number;
+  type: 'mapRename';
+  oldName: string;
+  newName: string;
+}
+
+export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry | CameraZoneHistoryEntry | EventHistoryEntry | PlayerStartHistoryEntry | PassageHistoryEntry | MapDeleteHistoryEntry | MapRenameHistoryEntry;
 
 export interface ClipboardData {
   type: 'tiles' | 'event' | 'events' | 'lights' | 'objects' | 'passage';
@@ -276,6 +283,7 @@ export interface EditorState {
   createMap: (opts: { name?: string; width?: number; height?: number; tilesetId?: number; parentId?: number }) => Promise<number | null>;
   deleteMap: (mapId: number) => Promise<void>;
   updateMapInfos: (mapInfos: (MapInfo | null)[]) => Promise<void>;
+  renameMap: (mapId: number, newName: string) => Promise<void>;
 
   // Actions - Map editing
   updateMapTile: (x: number, y: number, z: number, tileId: number) => void;
