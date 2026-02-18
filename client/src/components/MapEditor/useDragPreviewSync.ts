@@ -9,6 +9,7 @@ interface SyncRefs {
   renderRequestedRef: React.MutableRefObject<boolean>;
   startPosMeshesRef: React.MutableRefObject<any[]>;
   testStartPosMeshesRef: React.MutableRefObject<any[]>;
+  vehicleStartPosMeshesRef: React.MutableRefObject<any[]>;
 }
 
 function triggerRender(
@@ -261,4 +262,57 @@ export function useTestStartDragPreview(
     }
     triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
   }, [testStartDragPos, testStartPosition, rendererReady]);
+}
+
+/**
+ * Vehicle start position drag preview (탈것 시작 위치 드래그 시 위치 이동)
+ */
+export function useVehicleStartDragPreview(
+  refs: SyncRefs,
+  vehicleStartDragPos: { x: number; y: number; vehicle: 'boat' | 'ship' | 'airship' } | null,
+  rendererReady: number,
+) {
+  const systemData = useEditorStore((s) => s.systemData);
+  const currentMapId = useEditorStore((s) => s.currentMapId);
+
+  React.useEffect(() => {
+    const meshes = refs.vehicleStartPosMeshesRef.current;
+    if (!meshes || meshes.length === 0 || !systemData || !currentMapId) return;
+
+    if (vehicleStartDragPos) {
+      const vData = systemData[vehicleStartDragPos.vehicle];
+      if (!vData || vData.startMapId !== currentMapId) return;
+      const origX = vData.startX;
+      const origY = vData.startY;
+      const dx = (vehicleStartDragPos.x - origX) * TILE_SIZE_PX;
+      const dy = (vehicleStartDragPos.y - origY) * TILE_SIZE_PX;
+
+      // 해당 탈것의 메시들만 이동 (vehicleStartPosMeshesRef에는 모든 탈것 메시가 섞여있음)
+      // userData.vehicleKey로 구분하거나 전체 메시를 이동
+      // 현재 구조상 전체 메시에 대해 origPos 기준으로 offset 적용
+      for (const m of meshes) {
+        // 해당 탈것 위치의 메시만 이동 (위치 기반 필터링)
+        const mOrigX = m._origPos?.x ?? m.position.x;
+        const mOrigY = m._origPos?.y ?? m.position.y;
+        const tileCx = origX * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+        const tileRange = TILE_SIZE_PX * 1.5; // label 포함 범위
+        if (Math.abs(mOrigX - tileCx) < tileRange) {
+          if (m._origPos === undefined) {
+            m._origPos = { x: m.position.x, y: m.position.y };
+          }
+          m.position.x = m._origPos.x + dx;
+          m.position.y = m._origPos.y + dy;
+        }
+      }
+    } else {
+      for (const m of meshes) {
+        if (m._origPos !== undefined) {
+          m.position.x = m._origPos.x;
+          m.position.y = m._origPos.y;
+          delete m._origPos;
+        }
+      }
+    }
+    triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
+  }, [vehicleStartDragPos, systemData, currentMapId, rendererReady]);
 }

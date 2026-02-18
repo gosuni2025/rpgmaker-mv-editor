@@ -16,6 +16,7 @@ export function createRendererCleanup(params: {
     regionMeshesRef: React.MutableRefObject<any[]>;
     startPosMeshesRef: React.MutableRefObject<any[]>;
     testStartPosMeshesRef?: React.MutableRefObject<any[]>;
+    vehicleStartPosMeshesRef?: React.MutableRefObject<any[]>;
     eventOverlayMeshesRef: React.MutableRefObject<any[]>;
     dragPreviewMeshesRef: React.MutableRefObject<any[]>;
     toolPreviewMeshesRef: React.MutableRefObject<any[]>;
@@ -53,6 +54,10 @@ export function createRendererCleanup(params: {
       if (meshRefs.testStartPosMeshesRef) {
         disposeSceneObjects(rendererObj.scene, meshRefs.testStartPosMeshesRef.current);
         meshRefs.testStartPosMeshesRef.current = [];
+      }
+      if (meshRefs.vehicleStartPosMeshesRef) {
+        disposeSceneObjects(rendererObj.scene, meshRefs.vehicleStartPosMeshesRef.current);
+        meshRefs.vehicleStartPosMeshesRef.current = [];
       }
       disposeSceneObjects(rendererObj.scene, meshRefs.eventOverlayMeshesRef.current);
       meshRefs.eventOverlayMeshesRef.current = [];

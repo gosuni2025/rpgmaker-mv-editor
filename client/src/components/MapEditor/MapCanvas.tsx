@@ -15,7 +15,7 @@ import { useEventSelectionOverlays, useLightSelectionOverlays, useObjectSelectio
 import { useMoveRouteOverlay } from './useMoveRouteOverlay';
 import { useSelectionRectOverlay, usePastePreviewOverlay } from './useSelectionOverlays';
 import { useTileCursorPreview } from './useTileCursorPreview';
-import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview, useTestStartDragPreview } from './useDragPreviewSync';
+import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview, useTestStartDragPreview, useVehicleStartDragPreview } from './useDragPreviewSync';
 import TileInfoTooltip from './TileInfoTooltip';
 import Camera3DGizmo from './Camera3DGizmo';
 import './MapCanvas.css';
@@ -67,6 +67,8 @@ export default function MapCanvas() {
   const setVehicleStartPosition = useEditorStore((s) => s.setVehicleStartPosition);
   const setTestStartPosition = useEditorStore((s) => s.setTestStartPosition);
   const clearTestStartPosition = useEditorStore((s) => s.clearTestStartPosition);
+  const clearVehicleStartPosition = useEditorStore((s) => s.clearVehicleStartPosition);
+  const systemData = useEditorStore((s) => s.systemData);
   const selectedCameraZoneId = useEditorStore((s) => s.selectedCameraZoneId);
   const selectedCameraZoneIds = useEditorStore((s) => s.selectedCameraZoneIds);
   const selectedEventIds = useEditorStore((s) => s.selectedEventIds);
@@ -81,7 +83,7 @@ export default function MapCanvas() {
 
   const {
     rendererObjRef, tilemapRef, stageRef, renderRequestedRef, toolPreviewMeshesRef,
-    startPosMeshesRef, testStartPosMeshesRef, rendererReady,
+    startPosMeshesRef, testStartPosMeshesRef, vehicleStartPosMeshesRef, rendererReady,
   } = useThreeRenderer(webglCanvasRef, showGrid, [], undefined, showTileId);
 
   const tools = useMapTools(
@@ -99,12 +101,12 @@ export default function MapCanvas() {
     closeEventCtxMenu,
     isDraggingLight, isDraggingObject, draggedObjectId,
     resizeOrigSize, cameraZoneCursor,
-    playerStartDragPos, testStartDragPos,
+    playerStartDragPos, testStartDragPos, vehicleStartDragPos,
   } = useMouseHandlers(webglCanvasRef, tools, pendingChanges);
 
   // Overlay refs shared by sub-hooks
   const overlayRefs = useMemo(() => ({ rendererObjRef, stageRef, renderRequestedRef, tilemapRef }), [rendererObjRef, stageRef, renderRequestedRef, tilemapRef]);
-  const syncRefs = useMemo(() => ({ rendererObjRef, stageRef, renderRequestedRef, startPosMeshesRef, testStartPosMeshesRef }), [rendererObjRef, stageRef, renderRequestedRef, startPosMeshesRef, testStartPosMeshesRef]);
+  const syncRefs = useMemo(() => ({ rendererObjRef, stageRef, renderRequestedRef, startPosMeshesRef, testStartPosMeshesRef, vehicleStartPosMeshesRef }), [rendererObjRef, stageRef, renderRequestedRef, startPosMeshesRef, testStartPosMeshesRef, vehicleStartPosMeshesRef]);
 
   // Drag previews
   const dragPreviews = useDragPreviews(
@@ -116,6 +118,7 @@ export default function MapCanvas() {
   useCameraZoneMeshCleanup(syncRefs, rendererReady);
   usePlayerStartDragPreview(syncRefs, playerStartDragPos, rendererReady);
   useTestStartDragPreview(syncRefs, testStartDragPos, rendererReady);
+  useVehicleStartDragPreview(syncRefs, vehicleStartDragPos, rendererReady);
 
   // Selection overlays
   useSelectionRectOverlay(overlayRefs, rendererReady);
@@ -503,6 +506,29 @@ export default function MapCanvas() {
               <div className="context-menu-item" onClick={() => { clearTestStartPosition(); closeEventCtxMenu(); }}>
                 {t('eventCtx.clearTestStartPosition')}
                 <span className="context-menu-ext-badge">EXT</span>
+              </div>
+            )}
+
+            {systemData && (systemData.boat?.startMapId === currentMapId || systemData.ship?.startMapId === currentMapId || systemData.airship?.startMapId === currentMapId) && (
+              <div className="context-menu-item has-submenu">
+                {t('eventCtx.clearStartPosition')}
+                <div className="context-submenu">
+                  {systemData.boat?.startMapId === currentMapId && (
+                    <div className="context-menu-item" onClick={() => { clearVehicleStartPosition('boat'); closeEventCtxMenu(); }}>
+                      {t('eventCtx.boat')}
+                    </div>
+                  )}
+                  {systemData.ship?.startMapId === currentMapId && (
+                    <div className="context-menu-item" onClick={() => { clearVehicleStartPosition('ship'); closeEventCtxMenu(); }}>
+                      {t('eventCtx.ship')}
+                    </div>
+                  )}
+                  {systemData.airship?.startMapId === currentMapId && (
+                    <div className="context-menu-item" onClick={() => { clearVehicleStartPosition('airship'); closeEventCtxMenu(); }}>
+                      {t('eventCtx.airship')}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

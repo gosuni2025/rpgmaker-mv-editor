@@ -412,9 +412,14 @@ export interface EditorState {
   updateShadowSettings: (updates: Partial<EditorShadowSettings>, skipUndo?: boolean) => void;
   commitLightDragUndo: (snapshotLights: any) => void;
 
+  // Start position selection
+  selectedStartPosition: 'player' | 'boat' | 'ship' | 'airship' | null;
+
   // Actions - Start position
+  setSelectedStartPosition: (pos: 'player' | 'boat' | 'ship' | 'airship' | null) => void;
   setPlayerStartPosition: (mapId: number, x: number, y: number) => Promise<void>;
   setVehicleStartPosition: (vehicle: 'boat' | 'ship' | 'airship', mapId: number, x: number, y: number) => Promise<void>;
+  clearVehicleStartPosition: (vehicle: 'boat' | 'ship' | 'airship') => Promise<void>;
   setTestStartPosition: (x: number, y: number) => void;
   clearTestStartPosition: () => void;
 

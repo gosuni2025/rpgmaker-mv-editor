@@ -199,6 +199,9 @@ export function useEventSelectionOverlays(refs: OverlayRefs, rendererReady: numb
   const eventPastePreviewPos = useEditorStore((s) => s.eventPastePreviewPos);
   const clipboard = useEditorStore((s) => s.clipboard);
   const currentMap = useEditorStore((s) => s.currentMap);
+  const selectedStartPosition = useEditorStore((s) => s.selectedStartPosition);
+  const systemData = useEditorStore((s) => s.systemData);
+  const currentMapId = useEditorStore((s) => s.currentMapId);
 
   React.useEffect(() => {
     const rObj = refs.rendererObjRef.current;
@@ -216,6 +219,30 @@ export function useEventSelectionOverlays(refs: OverlayRefs, rendererReady: numb
         const cx = ev.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
         const cy = ev.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
         createHighlightMesh(THREE, rObj.scene, meshes, cx, cy, TILE_SIZE_PX, TILE_SIZE_PX, 0x4488ff, 0x4488ff, 5.5, 5.8, 9998, 9999);
+      }
+    }
+
+    // 1.5. 선택된 시작 위치 하이라이트
+    if (editMode === 'event' && selectedStartPosition && systemData) {
+      let sx: number | undefined, sy: number | undefined, highlightColor: number | undefined;
+      if (selectedStartPosition === 'player' && currentMapId === systemData.startMapId) {
+        sx = systemData.startX;
+        sy = systemData.startY;
+        highlightColor = 0x4488ff;
+      } else if (selectedStartPosition === 'boat' || selectedStartPosition === 'ship' || selectedStartPosition === 'airship') {
+        const vData = systemData[selectedStartPosition];
+        if (vData && vData.startMapId === currentMapId) {
+          sx = vData.startX;
+          sy = vData.startY;
+          highlightColor = selectedStartPosition === 'boat' ? 0xff9933
+            : selectedStartPosition === 'ship' ? 0x9966ff
+            : 0xff3399;
+        }
+      }
+      if (sx !== undefined && sy !== undefined && highlightColor !== undefined) {
+        const cx = sx * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+        const cy = sy * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+        createHighlightMesh(THREE, rObj.scene, meshes, cx, cy, TILE_SIZE_PX, TILE_SIZE_PX, highlightColor, highlightColor, 5.5, 5.8, 9998, 9999);
       }
     }
 
@@ -242,7 +269,7 @@ export function useEventSelectionOverlays(refs: OverlayRefs, rendererReady: numb
     }
 
     triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
-  }, [editMode, selectedEventIds, eventSelectionStart, eventSelectionEnd, isEventPasting, eventPastePreviewPos, clipboard, currentMap?.events, rendererReady]);
+  }, [editMode, selectedEventIds, eventSelectionStart, eventSelectionEnd, isEventPasting, eventPastePreviewPos, clipboard, currentMap?.events, selectedStartPosition, systemData, currentMapId, rendererReady]);
 }
 
 /**
