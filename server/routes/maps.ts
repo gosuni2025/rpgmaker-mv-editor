@@ -335,4 +335,111 @@ router.put('/', (req: Request, res: Response) => {
   }
 });
 
+// Duplicate map
+router.post('/:id/duplicate', (req: Request, res: Response) => {
+  try {
+    const sourceId = parseInt(req.params.id as string, 10);
+    const mapInfos = projectManager.readJSON('MapInfos.json') as (null | { id: number; name: string; order: number; parentId: number; expanded?: boolean; scrollX?: number; scrollY?: number })[];
+
+    if (!mapInfos[sourceId]) {
+      return res.status(404).json({ error: 'Source map not found' });
+    }
+
+    const sourceInfo = mapInfos[sourceId]!;
+    const sourceIdStr = String(sourceId).padStart(3, '0');
+    const sourceMapFile = `Map${sourceIdStr}.json`;
+
+    // Read source map data
+    let sourceMapData: Record<string, unknown>;
+    try {
+      sourceMapData = projectManager.readJSON(sourceMapFile) as Record<string, unknown>;
+    } catch {
+      return res.status(404).json({ error: 'Source map data not found' });
+    }
+
+    // Read source ext data
+    let sourceExtData: Record<string, unknown> = {};
+    try {
+      sourceExtData = projectManager.readExtJSON(sourceMapFile);
+    } catch { /* no ext data */ }
+
+    // Find next available ID
+    let newId = 1;
+    for (let i = 1; i < mapInfos.length; i++) {
+      if (mapInfos[i]) newId = Math.max(newId, mapInfos[i]!.id + 1);
+    }
+
+    // Find max order
+    let maxOrder = 0;
+    for (const info of mapInfos) {
+      if (info && info.order > maxOrder) maxOrder = info.order;
+    }
+
+    // Generate unique name (add number suffix if duplicate)
+    const existingNames = new Set<string>();
+    for (const info of mapInfos) {
+      if (info) existingNames.add(info.name);
+    }
+
+    let newName = sourceInfo.name;
+    if (existingNames.has(newName)) {
+      let suffix = 1;
+      // Check if name already has a number suffix like "Name (1)"
+      const match = newName.match(/^(.+?)\s*\((\d+)\)$/);
+      if (match) {
+        const baseName = match[1];
+        suffix = parseInt(match[2], 10) + 1;
+        while (existingNames.has(`${baseName} (${suffix})`)) {
+          suffix++;
+        }
+        newName = `${baseName} (${suffix})`;
+      } else {
+        while (existingNames.has(`${newName} (${suffix})`)) {
+          suffix++;
+        }
+        newName = `${newName} (${suffix})`;
+      }
+    }
+
+    // Create new map info
+    const newMapInfo = {
+      id: newId,
+      expanded: false,
+      name: newName,
+      order: maxOrder + 1,
+      parentId: sourceInfo.parentId,
+      scrollX: 0,
+      scrollY: 0,
+    };
+
+    // Extend array if needed and add new map info
+    while (mapInfos.length <= newId) mapInfos.push(null);
+    mapInfos[newId] = newMapInfo;
+    projectManager.writeJSON('MapInfos.json', mapInfos);
+
+    // Copy map data (deep clone to avoid reference issues)
+    const newMapData = JSON.parse(JSON.stringify(sourceMapData));
+    // Reset events array to clear any event IDs that might conflict
+    // Events are copied as-is since they're local to the map
+
+    const newIdStr = String(newId).padStart(3, '0');
+    const newMapFile = `Map${newIdStr}.json`;
+    projectManager.writeJSON(newMapFile, newMapData);
+
+    // Copy ext data if exists
+    if (Object.keys(sourceExtData).length > 0) {
+      const newExtData = JSON.parse(JSON.stringify(sourceExtData));
+      // Remove test start position since it shouldn't be copied
+      delete newExtData.testStartPosition;
+      if (Object.keys(newExtData).length > 0) {
+        projectManager.writeExtJSON(newMapFile, newExtData);
+      }
+    }
+
+    res.json({ id: newId, mapInfo: newMapInfo });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 export default router;
