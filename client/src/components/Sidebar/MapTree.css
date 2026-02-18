@@ -53,6 +53,48 @@
   opacity: 1;
 }
 
+/* Map Tree Search */
+.map-tree-search {
+  position: relative;
+  padding: 4px 8px;
+}
+
+.map-tree-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 24px 4px 8px;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #3c3f41;
+  color: #ddd;
+  font-size: 12px;
+  outline: none;
+}
+
+.map-tree-search-input:focus {
+  border-color: #2675bf;
+}
+
+.map-tree-search-input::placeholder {
+  color: #888;
+}
+
+.map-tree-search-clear {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #888;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.map-tree-search-clear:hover {
+  color: #ddd;
+}
+
 .map-tree-badge {
   margin-left: 4px;
   padding: 0 4px;

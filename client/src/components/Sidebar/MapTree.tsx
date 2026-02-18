@@ -17,6 +17,18 @@ interface ContextMenuState {
   mapId: number;
 }
 
+function fuzzyMatch(text: string, query: string): boolean {
+  const lowerText = text.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  let ti = 0;
+  for (let qi = 0; qi < lowerQuery.length; qi++) {
+    const idx = lowerText.indexOf(lowerQuery[qi], ti);
+    if (idx < 0) return false;
+    ti = idx + 1;
+  }
+  return true;
+}
+
 function buildTree(maps: (MapInfo | null)[]): TreeNodeData[] {
   if (!maps || maps.length === 0) return [];
 
@@ -39,6 +51,19 @@ function buildTree(maps: (MapInfo | null)[]): TreeNodeData[] {
   });
 
   return roots;
+}
+
+function filterTree(nodes: TreeNodeData[], query: string): TreeNodeData[] {
+  if (!query) return nodes;
+  const result: TreeNodeData[] = [];
+  for (const node of nodes) {
+    const filteredChildren = filterTree(node.children, query);
+    const selfMatch = fuzzyMatch(node.name || `Map ${node.id}`, query);
+    if (selfMatch || filteredChildren.length > 0) {
+      result.push({ ...node, children: selfMatch && filteredChildren.length === 0 ? [] : filteredChildren.length > 0 ? filteredChildren : [] });
+    }
+  }
+  return result;
 }
 
 interface TreeNodeProps {
@@ -116,8 +141,11 @@ export default function MapTree() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [sampleMapTargetId, setSampleMapTargetId] = useState<number | null>(null);
+  const [filterQuery, setFilterQuery] = useState('');
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   const tree = useMemo(() => buildTree(maps), [maps]);
+  const filteredTree = useMemo(() => filterTree(tree, filterQuery), [tree, filterQuery]);
 
   // Build a map of mapId -> badge labels for start positions
   const startPositions = useMemo(() => {
@@ -256,20 +284,44 @@ export default function MapTree() {
           📂
         </span>
       </div>
-      {!rootCollapsed && tree.map((node) => (
-        <TreeNode
-          key={node.id}
-          node={node}
-          depth={1}
-          selectedId={currentMapId}
-          onSelect={selectMap}
-          onDoubleClick={handleDoubleClick}
-          collapsed={collapsed}
-          onToggle={handleToggle}
-          onContextMenu={handleContextMenu}
-          startPositions={startPositions}
-        />
-      ))}
+      {!rootCollapsed && (
+        <>
+          <div className="map-tree-search">
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="map-tree-search-input"
+              placeholder={t('mapTree.searchPlaceholder', '맵 검색...')}
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setFilterQuery('');
+                  searchInputRef.current?.blur();
+                }
+                e.stopPropagation();
+              }}
+            />
+            {filterQuery && (
+              <span className="map-tree-search-clear" onClick={() => { setFilterQuery(''); searchInputRef.current?.focus(); }}>×</span>
+            )}
+          </div>
+          {filteredTree.map((node) => (
+            <TreeNode
+              key={node.id}
+              node={node}
+              depth={1}
+              selectedId={currentMapId}
+              onSelect={selectMap}
+              onDoubleClick={handleDoubleClick}
+              collapsed={filterQuery ? {} : collapsed}
+              onToggle={handleToggle}
+              onContextMenu={handleContextMenu}
+              startPositions={startPositions}
+            />
+          ))}
+        </>
+      )}
 
       {editingId !== null && (
         <div className="modal-overlay">
