@@ -76,6 +76,7 @@
             _skyMesh = new THREE.Mesh(geometry, material);
             _skyMesh.rotation.x = Math.PI / 2;
             _skyMesh._isParallaxSky = true;
+            _skyMesh._isSkyMeshSphere = true;  // 구체형 sky — 렌더 패스에서 재배치 건너뜀
             _skyMesh.renderOrder = -1;
             _skyMesh.frustumCulled = false;
             _skyMesh.visible = _skyEnabled;
