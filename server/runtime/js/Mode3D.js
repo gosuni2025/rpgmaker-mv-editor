@@ -204,7 +204,7 @@
 
         // far plane도 충분히 넓게
         camera.far = dist * 4;
-        camera.up.set(0, 0, 1);
+        camera.up.set(0, 0, -1);
         camera.lookAt(new THREE.Vector3(cx, cy, panZ));
         camera.updateProjectionMatrix();
 
