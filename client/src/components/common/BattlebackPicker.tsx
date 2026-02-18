@@ -106,7 +106,7 @@ export default function BattlebackPicker({ value1, value2, onChange }: Battlebac
       {open && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) handleCancel(); }}>
           <div className="battleback-picker-dialog">
-            <div className="audio-picker-header">이미지 선택</div>
+            <div className="audio-picker-header">전투 배경 선택</div>
             <div className="audio-picker-search-bar" style={{ padding: '8px 12px' }}>
               <input
                 type="text"

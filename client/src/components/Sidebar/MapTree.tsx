@@ -132,13 +132,14 @@ export default function MapTree() {
   const maps = useEditorStore((s) => s.maps);
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const selectMap = useEditorStore((s) => s.selectMap);
-  const createMap = useEditorStore((s) => s.createMap);
   const deleteMap = useEditorStore((s) => s.deleteMap);
   const systemData = useEditorStore((s) => s.systemData);
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [sampleMapTargetId, setSampleMapTargetId] = useState<number | null>(null);
   const [mapPropertiesId, setMapPropertiesId] = useState<number | null>(null);
+  // 신규 맵 생성 모드: parentId를 담아두고 MapPropertiesDialog를 신규 모드로 열기
+  const [newMapParentId, setNewMapParentId] = useState<number | null>(null);
   const [filterQuery, setFilterQuery] = useState('');
   const [copiedMapId, setCopiedMapId] = useState<number | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
@@ -189,15 +190,11 @@ export default function MapTree() {
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [contextMenu, closeContextMenu]);
 
-  const handleNewMap = useCallback(async () => {
-    const parentId = contextMenu?.mapId || 0;
+  const handleNewMap = useCallback(() => {
+    const parentId = contextMenu?.mapId ?? 0;
     closeContextMenu();
-    const newId = await createMap({ parentId });
-    if (newId) {
-      selectMap(newId);
-      setMapPropertiesId(newId);
-    }
-  }, [contextMenu, createMap, selectMap, closeContextMenu]);
+    setNewMapParentId(parentId);
+  }, [contextMenu, closeContextMenu]);
 
   const handleMapProperties = useCallback(() => {
     if (!contextMenu) return;
@@ -358,6 +355,13 @@ export default function MapTree() {
         <MapPropertiesDialog
           mapId={mapPropertiesId}
           onClose={() => setMapPropertiesId(null)}
+        />
+      )}
+
+      {newMapParentId !== null && (
+        <MapPropertiesDialog
+          parentId={newMapParentId}
+          onClose={() => setNewMapParentId(null)}
         />
       )}
 
