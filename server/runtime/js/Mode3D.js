@@ -185,10 +185,16 @@
             panZ = (this._editorPanZ || 0);
         }
 
-        // yaw 회전: 카메라를 맵 중심(cx, cy, 0) 주위로 Y축 회전
-        var offX = dist * Math.cos(tilt) * Math.sin(yaw);
-        var offY = dist * Math.sin(tilt);
-        var offZ = dist * Math.cos(tilt) * Math.cos(yaw);
+        // yaw 회전: 카메라를 맵 중심(cx, cy, 0) 주위로 Z축(높이축) 회전
+        // tilt: 수평(0°)→탑다운(90°) 각도. Z축으로부터의 각도와 동일.
+        // 1) tilt만으로 기본 오프셋: 수평 거리 + 높이
+        var horizDist = dist * Math.sin(tilt);  // tilt=0 → 0(수평), tilt=90 → 최대(탑다운)
+        var vertZ = dist * Math.cos(tilt);      // tilt=0 → 최대(수평에서 봄), tilt=90 → 0(바로 위)
+        // 2) 수평 오프셋을 yaw로 XY 평면에서 회전 (Z축 중심)
+        // yaw=0 → 카메라가 Y 양의 방향(화면 아래 뒤편)에서 봄 (기존 동작 호환)
+        var offX = horizDist * Math.sin(yaw);
+        var offY = horizDist * Math.cos(yaw);
+        var offZ = vertZ;
 
         camera.position.set(
             cx + offX,
@@ -198,7 +204,7 @@
 
         // far plane도 충분히 넓게
         camera.far = dist * 4;
-        camera.up.set(0, 1, 0);
+        camera.up.set(0, 0, 1);
         camera.lookAt(new THREE.Vector3(cx, cy, panZ));
         camera.updateProjectionMatrix();
 
@@ -308,6 +314,7 @@
     Mode3D._applyBillboards = function() {
         // 카메라가 위에서 내려다보므로 스프라이트를 -tilt만큼 역회전
         var tilt = -this._tiltRad;
+        var yaw = this._yawRad || 0;
         for (var i = 0; i < this._billboardTargets.length; i++) {
             var sprite = this._billboardTargets[i];
             if (sprite._threeObj && sprite._visible !== false) {
@@ -321,7 +328,15 @@
                         }
                     } catch (e) { /* page 접근 실패 시 기본값 유지 */ }
                 }
-                sprite._threeObj.rotation.x = billboardEnabled ? tilt : 0;
+                if (billboardEnabled) {
+                    // yaw + tilt 순서로 회전: Z축 yaw 회전 → X축 tilt 회전
+                    sprite._threeObj.rotation.order = 'ZXY';
+                    sprite._threeObj.rotation.x = tilt;
+                    sprite._threeObj.rotation.z = -yaw;
+                } else {
+                    sprite._threeObj.rotation.x = 0;
+                    sprite._threeObj.rotation.z = 0;
+                }
             }
         }
     };
@@ -368,6 +383,7 @@
             var sprite = this._billboardTargets[i];
             if (sprite._threeObj) {
                 sprite._threeObj.rotation.x = 0;
+                sprite._threeObj.rotation.z = 0;
             }
         }
     };
