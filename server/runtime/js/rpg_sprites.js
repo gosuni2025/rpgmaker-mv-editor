@@ -3391,8 +3391,8 @@ Spriteset_Map.prototype.updateParallax = function() {
             // far plane의 80% 거리에 배치
             var farDist = cam.far * 0.8;
             mesh.position.copy(cam.position).addScaledVector(dir, farDist);
-            // 카메라를 정면으로 바라보도록 회전
-            mesh.lookAt(cam.position);
+            // 카메라와 정확히 같은 방향을 향하도록 quaternion 복사
+            mesh.quaternion.copy(cam.quaternion);
             // 패럴랙스 스크롤 오프셋을 sky mesh 텍스처에 적용
             if (mesh.material && mesh.material.map) {
                 var tex = mesh.material.map;
