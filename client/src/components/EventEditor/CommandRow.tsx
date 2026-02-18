@@ -75,6 +75,7 @@ export const CommandRow = React.memo(function CommandRow({
     <div
       className={`event-command-row${isSelected ? ' selected' : ''}${isGroupHL ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}${isGroupFirst ? ' group-first' : ''}${isGroupLast ? ' group-last' : ''}${inGroup ? ' group-member' : ''}${isFolded ? ' folded' : ''}`}
       style={{ paddingLeft: draggable ? cmd.indent * 20 : 8 + cmd.indent * 20 }}
+      data-cmd-index={index}
       onClick={e => onRowClick(index, e)}
       onDoubleClick={() => onDoubleClick(index)}
       onMouseDown={handleRowMouseDown}
