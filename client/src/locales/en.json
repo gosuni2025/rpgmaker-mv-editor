@@ -875,7 +875,10 @@
     "conditionVariable": "Variable",
     "conditionSelfSwitch": "Self Switch",
     "conditionItem": "Item",
-    "conditionActor": "Actor"
+    "conditionActor": "Actor",
+    "route": "Route...",
+    "billboard3d": "Display in 3D (Billboard)",
+    "billboard3dTooltip": "When checked, the event character will be displayed upright (billboard effect) in 3D mode, facing the camera. When unchecked, the character lies flat like a tile on the ground."
   },
   "mapTree": {
     "openProject": "Please open a project",

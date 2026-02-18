@@ -311,7 +311,17 @@
         for (var i = 0; i < this._billboardTargets.length; i++) {
             var sprite = this._billboardTargets[i];
             if (sprite._threeObj && sprite._visible !== false) {
-                sprite._threeObj.rotation.x = tilt;
+                // 이벤트 캐릭터인 경우 현재 페이지의 billboard 설정을 확인
+                var billboardEnabled = true;
+                if (sprite._character && typeof sprite._character.page === 'function') {
+                    try {
+                        var page = sprite._character.page();
+                        if (page && page.billboard === false) {
+                            billboardEnabled = false;
+                        }
+                    } catch (e) { /* page 접근 실패 시 기본값 유지 */ }
+                }
+                sprite._threeObj.rotation.x = billboardEnabled ? tilt : 0;
             }
         }
     };
@@ -339,7 +349,16 @@
         for (var i = 0; i < this._billboardTargets.length; i++) {
             var sprite = this._billboardTargets[i];
             if (sprite._threeObj && sprite._visible !== false) {
-                sprite._threeObj.rotation.x = shadowTilt;
+                var billboardEnabled = true;
+                if (sprite._character && typeof sprite._character.page === 'function') {
+                    try {
+                        var page = sprite._character.page();
+                        if (page && page.billboard === false) {
+                            billboardEnabled = false;
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+                sprite._threeObj.rotation.x = billboardEnabled ? shadowTilt : 0;
             }
         }
     };

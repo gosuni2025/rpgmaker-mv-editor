@@ -23,6 +23,7 @@ function getDefaultPage(): EventPage {
       variableId: 1, variableValid: false, variableValue: 0,
     },
     directionFix: false,
+    billboard: true,
     image: { characterIndex: 0, characterName: '', direction: 2, pattern: 1, tileId: 0 },
     list: [{ code: 0, indent: 0, parameters: [] }],
     moveFrequency: 3,
@@ -323,6 +324,18 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                     pattern={page.image.pattern}
                     onPatternChange={(pat) => updateImage({ pattern: pat })}
                   />
+                  <label className="event-editor-checkbox event-editor-billboard-row">
+                    <input
+                      type="checkbox"
+                      checked={page.billboard !== false}
+                      onChange={(e) => updatePage(activePage, { billboard: e.target.checked })}
+                    />
+                    {t('eventDetail.billboard3d')}
+                    <span
+                      className="event-editor-tooltip-icon"
+                      title={t('eventDetail.billboard3dTooltip')}
+                    >?</span>
+                  </label>
                 </fieldset>
                 <fieldset className="event-editor-fieldset event-editor-fieldset-half">
                   <legend>{t('eventDetail.autonomousMovement')}</legend>

@@ -174,6 +174,8 @@ export interface EventPage {
   through: boolean;
   trigger: number;
   walkAnime: boolean;
+  /** 3D 모드에서 빌보드(입체 표시) 적용 여부. undefined/true이면 빌보드 활성 (기본값: true) */
+  billboard?: boolean;
 }
 
 export interface EventConditions {
