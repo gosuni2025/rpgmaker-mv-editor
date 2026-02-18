@@ -632,6 +632,13 @@
 
             // --- Pass 0: Sky background (PerspectiveCamera) ---
             if (skyMesh) {
+                // 렌더 직전에 sky mesh 위치를 카메라에 동기화 (update 타이밍 차이로 인한 떨림 방지)
+                var cam = Mode3D._perspCamera;
+                var skyDir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+                var skyFarDist = cam.far * 0.8;
+                skyMesh.position.copy(cam.position).addScaledVector(skyDir, skyFarDist);
+                skyMesh.quaternion.copy(cam.quaternion);
+
                 // Hide everything except sky
                 if (stageObj) stageObj.visible = false;
                 skyMesh.visible = true;

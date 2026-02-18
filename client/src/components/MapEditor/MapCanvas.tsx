@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
+import { SCROLL_POSITIONS_STORAGE_KEY } from '../../store/types';
 import EventDetail from '../EventEditor/EventDetail';
 import ShiftMapDialog from './ShiftMapDialog';
 import SampleMapDialog from '../SampleMapDialog';
@@ -143,6 +144,69 @@ export default function MapCanvas() {
     document.addEventListener('mousedown', onMouseDown);
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, []);
+
+  // 맵 변경 시: 이전 맵 스크롤 저장 + 새 맵 스크롤 복원
+  const prevMapIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !currentMapId) return;
+
+    // 이전 맵의 스크롤 위치 저장
+    if (prevMapIdRef.current !== null && prevMapIdRef.current !== currentMapId) {
+      try {
+        const raw = localStorage.getItem(SCROLL_POSITIONS_STORAGE_KEY);
+        const positions = raw ? JSON.parse(raw) : {};
+        positions[prevMapIdRef.current] = { left: el.scrollLeft, top: el.scrollTop };
+        localStorage.setItem(SCROLL_POSITIONS_STORAGE_KEY, JSON.stringify(positions));
+      } catch {}
+    }
+
+    prevMapIdRef.current = currentMapId;
+
+    // 새 맵의 저장된 스크롤 위치 복원
+    try {
+      const raw = localStorage.getItem(SCROLL_POSITIONS_STORAGE_KEY);
+      if (raw) {
+        const positions = JSON.parse(raw);
+        const saved = positions[currentMapId];
+        if (saved) {
+          // 렌더링 완료 후 스크롤 복원
+          requestAnimationFrame(() => {
+            el.scrollLeft = saved.left ?? 0;
+            el.scrollTop = saved.top ?? 0;
+          });
+        } else {
+          el.scrollLeft = 0;
+          el.scrollTop = 0;
+        }
+      } else {
+        el.scrollLeft = 0;
+        el.scrollTop = 0;
+      }
+    } catch {}
+  }, [currentMapId]);
+
+  // 스크롤 시 현재 맵의 위치 저장 (debounce)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const onScroll = () => {
+      const mapId = currentMapId;
+      if (!mapId) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        try {
+          const raw = localStorage.getItem(SCROLL_POSITIONS_STORAGE_KEY);
+          const positions = raw ? JSON.parse(raw) : {};
+          positions[mapId] = { left: el.scrollLeft, top: el.scrollTop };
+          localStorage.setItem(SCROLL_POSITIONS_STORAGE_KEY, JSON.stringify(positions));
+        } catch {}
+      }, 300);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => { el.removeEventListener('scroll', onScroll); clearTimeout(timer); };
+  }, [currentMapId]);
 
   // Tile cursor preview
   useTileCursorPreview(overlayRefs, hoverTile, rendererReady);
