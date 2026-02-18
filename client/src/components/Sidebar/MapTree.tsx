@@ -128,7 +128,7 @@ export default function MapTree() {
       if (!result[mapId]) result[mapId] = [];
       result[mapId].push(label);
     };
-    if (systemData.startMapId) add(systemData.startMapId, t('mapTree.badgePlayer', '플레이어'));
+    if (systemData.startMapId) add(systemData.startMapId, t('mapTree.badgePlayer', '플레이어 시작점'));
     if (systemData.boat?.startMapId) add(systemData.boat.startMapId, t('mapTree.badgeBoat', '보트'));
     if (systemData.ship?.startMapId) add(systemData.ship.startMapId, t('mapTree.badgeShip', '선박'));
     if (systemData.airship?.startMapId) add(systemData.airship.startMapId, t('mapTree.badgeAirship', '비행선'));

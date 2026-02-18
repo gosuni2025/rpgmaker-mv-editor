@@ -8,6 +8,7 @@ import { createRendererCleanup } from './createRendererCleanup';
 import {
   useRegionOverlay,
   usePlayerStartOverlay,
+  useVehicleStartOverlay,
   useTestStartOverlay,
   useEventOverlay,
   useDragPreviewOverlay,
@@ -44,6 +45,7 @@ export interface ThreeRendererRefs {
   toolPreviewMeshesRef: React.MutableRefObject<any[]>;
   startPosMeshesRef: React.MutableRefObject<any[]>;
   testStartPosMeshesRef: React.MutableRefObject<any[]>;
+  vehicleStartPosMeshesRef: React.MutableRefObject<any[]>;
   rendererReady: number;
 }
 
@@ -86,6 +88,7 @@ export function useThreeRenderer(
   const objectMeshesRef = useRef<any[]>([]);
   const startPosMeshesRef = useRef<any[]>([]);
   const testStartPosMeshesRef = useRef<any[]>([]);
+  const vehicleStartPosMeshesRef = useRef<any[]>([]);
   const eventOverlayMeshesRef = useRef<any[]>([]);
   const cursorMeshRef = useRef<any>(null);
   const selectionMeshRef = useRef<any>(null);
@@ -155,7 +158,8 @@ export function useThreeRenderer(
         stopLoop: loop.stop,
         renderRequestedRef,
         meshRefs: {
-          regionMeshesRef, startPosMeshesRef, testStartPosMeshesRef, eventOverlayMeshesRef,
+          regionMeshesRef, startPosMeshesRef, testStartPosMeshesRef, vehicleStartPosMeshesRef,
+          eventOverlayMeshesRef,
           dragPreviewMeshesRef, toolPreviewMeshesRef, lightOverlayMeshesRef,
           cursorMeshRef, selectionMeshRef, gridMeshRef,
         },
@@ -223,6 +227,7 @@ export function useThreeRenderer(
     regionMeshesRef,
     startPosMeshesRef,
     testStartPosMeshesRef,
+    vehicleStartPosMeshesRef,
     eventOverlayMeshesRef,
     dragPreviewMeshesRef,
     lightOverlayMeshesRef,
@@ -235,6 +240,7 @@ export function useThreeRenderer(
   const skipOverlays = !!standalone;
   useRegionOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   usePlayerStartOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
+  useVehicleStartOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   useTestStartOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   useEventOverlay(overlayRefs, skipOverlays ? 0 : rendererReady);
   useDragPreviewOverlay(overlayRefs, skipOverlays ? [] : dragPreviews);
@@ -254,6 +260,7 @@ export function useThreeRenderer(
     dragPreviewMeshesRef, toolPreviewMeshesRef,
     startPosMeshesRef,
     testStartPosMeshesRef,
+    vehicleStartPosMeshesRef,
     rendererReady,
   };
 }

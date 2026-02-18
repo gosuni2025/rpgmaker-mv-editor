@@ -6,8 +6,10 @@ import { PROJECT_STORAGE_KEY, MAP_STORAGE_KEY, EDIT_MODE_STORAGE_KEY, TOOLBAR_ST
 export const projectSlice: SliceCreator<Pick<EditorState,
   'projectPath' | 'projectName' | 'maps' | 'currentMapId' | 'currentMap' | 'tilesetInfo' |
   'systemData' | 'playerCharacterName' | 'playerCharacterIndex' | 'parseErrors' |
+  'selectedStartPosition' |
   'openProject' | 'closeProject' | 'restoreLastProject' | 'loadMaps' | 'selectMap' |
   'saveCurrentMap' | 'createMap' | 'deleteMap' | 'updateMapInfos' | 'setPlayerStartPosition' | 'setVehicleStartPosition' |
+  'clearVehicleStartPosition' | 'setSelectedStartPosition' |
   'setTestStartPosition' | 'clearTestStartPosition'
 >> = (set, get) => ({
   projectPath: null,
@@ -20,6 +22,7 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   playerCharacterName: null,
   playerCharacterIndex: 0,
   parseErrors: null,
+  selectedStartPosition: null,
 
   openProject: async (projectPath: string) => {
     const res = await apiClient.post<{ name?: string; parseErrors?: { file: string; error: string }[] }>('/project/open', { path: projectPath });
@@ -264,5 +267,26 @@ export const projectSlice: SliceCreator<Pick<EditorState,
     delete updated.testStartPosition;
     set({ currentMap: updated });
     showToast('테스트 시작 위치 해제');
+  },
+
+  setSelectedStartPosition: (pos: 'player' | 'boat' | 'ship' | 'airship' | null) => {
+    set({ selectedStartPosition: pos });
+  },
+
+  clearVehicleStartPosition: async (vehicle: 'boat' | 'ship' | 'airship') => {
+    const { systemData, showToast } = get();
+    if (!systemData) return;
+    const v = systemData[vehicle];
+    if (v.startMapId === 0) return;
+    const updatedVehicle = { ...v, startMapId: 0, startX: 0, startY: 0 };
+    const updated = { ...systemData, [vehicle]: updatedVehicle };
+    const vehicleNames: Record<string, string> = { boat: '보트', ship: '선박', airship: '비행선' };
+    try {
+      await apiClient.put('/database/system', updated);
+      set({ systemData: updated, selectedStartPosition: null });
+      showToast(`${vehicleNames[vehicle]} 초기 위치 해제됨`);
+    } catch {
+      showToast(`${vehicleNames[vehicle]} 초기 위치 해제 실패`);
+    }
   },
 });

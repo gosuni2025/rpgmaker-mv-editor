@@ -51,6 +51,7 @@ export interface MouseHandlersResult {
   cameraZoneCursor: string | null;
   playerStartDragPos: { x: number; y: number } | null;
   testStartDragPos: { x: number; y: number } | null;
+  vehicleStartDragPos: { x: number; y: number; vehicle: 'boat' | 'ship' | 'airship' } | null;
 }
 
 export function useMouseHandlers(
@@ -483,5 +484,6 @@ export function useMouseHandlers(
     cameraZoneCursor: cameraZone.cameraZoneCursor,
     playerStartDragPos: event.playerStartDragPos,
     testStartDragPos: event.testStartDragPos,
+    vehicleStartDragPos: event.vehicleStartDragPos,
   };
 }

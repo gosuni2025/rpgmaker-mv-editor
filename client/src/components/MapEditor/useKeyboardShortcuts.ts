@@ -435,6 +435,15 @@ export function useKeyboardShortcuts(
         return;
       }
       if (editMode === 'event') {
+        // 탈것 시작 위치 선택 시 Delete → 해제
+        const selStart = useEditorStore.getState().selectedStartPosition;
+        if (selStart && selStart !== 'player') {
+          const clearVehicle = useEditorStore.getState().clearVehicleStartPosition;
+          clearVehicle(selStart);
+          useEditorStore.getState().setSelectedStartPosition(null);
+          showToast(`${selStart === 'boat' ? '보트' : selStart === 'ship' ? '선박' : '비행선'} 초기 위치 해제됨`);
+          return;
+        }
         if (selectedEventIds.length > 0) {
           deleteEvents(selectedEventIds);
           showToast(`이벤트 ${selectedEventIds.length}개 삭제됨`);
