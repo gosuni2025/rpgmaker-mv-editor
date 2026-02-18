@@ -21,11 +21,12 @@ interface OverlayRefs {
 /** Region overlay (Three.js meshes) */
 export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
   const currentLayer = useEditorStore((s) => s.currentLayer);
+  const showRegion = useEditorStore((s) => s.showRegion);
   const mapWidth = useEditorStore((s) => s.currentMap?.width ?? 0);
   const mapHeight = useEditorStore((s) => s.currentMap?.height ?? 0);
-  // Region 데이터 해시 — currentLayer 무관하게 항상 계산
+  // Region 데이터 해시 — showRegion이 꺼져있으면 빈 문자열 반환
   const regionHash = useEditorStore((s) => {
-    if (!s.currentMap) return '';
+    if (!s.currentMap || !s.showRegion) return '';
     const { width, height, data } = s.currentMap;
     const parts: string[] = [];
     for (let y = 0; y < height; y++) {
@@ -116,7 +117,7 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
       }
     }
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
-  }, [regionHash, currentLayer, mapWidth, mapHeight, rendererReady]);
+  }, [regionHash, currentLayer, showRegion, mapWidth, mapHeight, rendererReady]);
 }
 
 /** Player start position overlay (blue border + character image) */

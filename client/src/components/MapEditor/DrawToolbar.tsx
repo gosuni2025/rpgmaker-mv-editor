@@ -51,6 +51,8 @@ export default function DrawToolbar() {
   const setShowResourceManagerDialog = useEditorStore((s) => s.setShowResourceManagerDialog);
   const showGrid = useEditorStore((s) => s.showGrid);
   const setShowGrid = useEditorStore((s) => s.setShowGrid);
+  const showRegion = useEditorStore((s) => s.showRegion);
+  const setShowRegion = useEditorStore((s) => s.setShowRegion);
   const showPassability = useEditorStore((s) => s.showPassability);
   const setShowPassability = useEditorStore((s) => s.setShowPassability);
   const objectSubMode = useEditorStore((s) => s.objectSubMode);
@@ -288,6 +290,18 @@ export default function DrawToolbar() {
         style={{ ...styles.btn, ...(showGrid ? styles.btnActive : {}) }}
       >
         {t('toolbar.grid')}
+      </button>
+
+      {/* Region overlay toggle */}
+      <button
+        onClick={() => {
+          const next = !showRegion;
+          setShowRegion(next);
+          showToast(`영역 ${next ? 'ON' : 'OFF'}`);
+        }}
+        style={{ ...styles.btn, ...(showRegion ? styles.btnActive : {}) }}
+      >
+        영역
       </button>
 
       {/* Passability toggle (object mode) */}

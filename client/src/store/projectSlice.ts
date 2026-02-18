@@ -98,6 +98,7 @@ export const projectSlice: SliceCreator<Pick<EditorState,
         if (typeof tb.currentLayer === 'number') updates.currentLayer = tb.currentLayer;
         if (typeof tb.showGrid === 'boolean') updates.showGrid = tb.showGrid;
         if (typeof tb.showPassability === 'boolean') updates.showPassability = tb.showPassability;
+        if (typeof tb.showRegion === 'boolean') updates.showRegion = tb.showRegion;
         set(updates);
       }
     } catch {}

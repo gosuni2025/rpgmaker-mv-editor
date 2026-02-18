@@ -220,6 +220,7 @@ export interface EditorState {
   showGrid: boolean;
   showPassability: boolean;
   showTileInfo: boolean;
+  showRegion: boolean;
 
   // 3D / Lighting
   mode3d: boolean;
@@ -387,6 +388,7 @@ export interface EditorState {
   setShowGrid: (show: boolean) => void;
   setShowPassability: (show: boolean) => void;
   setShowTileInfo: (show: boolean) => void;
+  setShowRegion: (show: boolean) => void;
   setMode3d: (enabled: boolean) => void;
   setShadowLight: (enabled: boolean) => void;
   setDisableFow: (disabled: boolean) => void;
