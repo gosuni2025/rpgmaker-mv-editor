@@ -1,6 +1,7 @@
 /* Map Tree */
 .map-tree {
   padding: 2px 0;
+  min-height: 100%;
 }
 
 .map-tree-node {
