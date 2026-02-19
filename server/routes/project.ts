@@ -41,6 +41,21 @@ interface MigrationFile {
 
 const router = express.Router();
 
+router.get('/drives', (_req: Request, res: Response) => {
+  if (process.platform !== 'win32') {
+    return res.json({ drives: [] });
+  }
+  const drives: string[] = [];
+  for (let i = 65; i <= 90; i++) {
+    const drive = String.fromCharCode(i) + ':\\';
+    try {
+      fs.accessSync(drive);
+      drives.push(drive);
+    } catch { /* drive not accessible */ }
+  }
+  res.json({ drives });
+});
+
 router.get('/browse', (req: Request, res: Response) => {
   try {
     let dirPath = (req.query.path as string) || os.homedir();
