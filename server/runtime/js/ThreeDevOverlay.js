@@ -15,7 +15,6 @@
     var overlay = null;
     var fpsEl = null;
     var treeEl = null;
-    var ctrlBtns = {}; // 토글 버튼 참조 { mode3d, shadowLight, depthOfField }
     var titleBar = null;
     var frames = 0;
     var lastTime = performance.now();
@@ -82,36 +81,6 @@
         var separator = document.createElement('div');
         separator.style.cssText = 'border-top:1px solid #555;margin:2px 0 4px;';
         overlay.appendChild(separator);
-
-        // 렌더링 컨트롤 (3D / 광원 / DoF 토글)
-        var ctrlSep = document.createElement('div');
-        ctrlSep.style.cssText = 'border-top:1px solid #555;margin:4px 0 3px;';
-        overlay.appendChild(ctrlSep);
-
-        var ctrlRow = document.createElement('div');
-        ctrlRow.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;';
-        overlay.appendChild(ctrlRow);
-
-        function makeToggleBtn(label, key) {
-            var btn = document.createElement('button');
-            btn.style.cssText = 'color:#fff;border:none;padding:2px 7px;font:10px monospace;cursor:pointer;border-radius:2px;';
-            btn.addEventListener('click', function() {
-                var CM = window.ConfigManager;
-                if (!CM) return;
-                CM[key] = !CM[key];
-            });
-            ctrlBtns[key] = { el: btn, label: label };
-            ctrlRow.appendChild(btn);
-            return btn;
-        }
-
-        makeToggleBtn('3D', 'mode3d');
-        makeToggleBtn('광원', 'shadowLight');
-        makeToggleBtn('DoF', 'depthOfField');
-
-        var treeSep = document.createElement('div');
-        treeSep.style.cssText = 'border-top:1px solid #555;margin:0 0 4px;';
-        overlay.appendChild(treeSep);
 
         treeEl = document.createElement('div');
         treeEl.style.cssText = 'white-space:nowrap;';
@@ -275,26 +244,10 @@
         return null;
     }
 
-    function updateCtrlBtns() {
-        var CM = window.ConfigManager;
-        if (!CM) return;
-        var keys = Object.keys(ctrlBtns);
-        for (var i = 0; i < keys.length; i++) {
-            var key = keys[i];
-            var info = ctrlBtns[key];
-            var on = !!CM[key];
-            info.el.textContent = info.label + ': ' + (on ? 'ON' : 'OFF');
-            info.el.style.background = on ? '#1a7a3a' : '#555';
-        }
-    }
-
     function update() {
         updateFPS();
 
         if (!overlay) createOverlay();
-
-        // 토글 버튼 상태 동기화
-        updateCtrlBtns();
 
         // FPS + renderer stats
         var color = fps >= 50 ? '#0f0' : fps >= 30 ? '#ff0' : '#f00';
