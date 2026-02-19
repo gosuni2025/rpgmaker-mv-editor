@@ -22,11 +22,14 @@ interface OverlayRefs {
 export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
   const currentLayer = useEditorStore((s) => s.currentLayer);
   const showRegion = useEditorStore((s) => s.showRegion);
+  const editMode = useEditorStore((s) => s.editMode);
   const mapWidth = useEditorStore((s) => s.currentMap?.width ?? 0);
   const mapHeight = useEditorStore((s) => s.currentMap?.height ?? 0);
-  // Region 데이터 해시 — R탭(currentLayer===5)이거나 showRegion이 켜진 경우에만 계산
+  // Region 데이터 해시 — R탭(map모드+currentLayer===5)이거나 showRegion이 켜진 경우에만 계산
   const regionHash = useEditorStore((s) => {
-    if (!s.currentMap || (!s.showRegion && s.currentLayer !== 5)) return '';
+    if (!s.currentMap) return '';
+    const isRTabActive = s.editMode === 'map' && s.currentLayer === 5;
+    if (!s.showRegion && !isRTabActive) return '';
     const { width, height, data } = s.currentMap;
     const parts: string[] = [];
     for (let y = 0; y < height; y++) {
@@ -58,8 +61,8 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
       return;
     }
 
-    // R탭(currentLayer===5)이면 불투명도 높게, 아니면 낮게
-    const isRegionMode = currentLayer === 5;
+    // R탭(map모드+currentLayer===5)이면 불투명도 높게, 아니면 낮게
+    const isRegionMode = editMode === 'map' && currentLayer === 5;
     const fillOpacity = isRegionMode ? 0.5 : 0.25;
     // R탭이거나 showRegion 토글이 켜진 경우 숫자 레이블 표시
     const showLabel = isRegionMode || showRegion;
@@ -118,7 +121,7 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
       }
     }
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
-  }, [regionHash, currentLayer, showRegion, mapWidth, mapHeight, rendererReady]);
+  }, [regionHash, currentLayer, editMode, showRegion, mapWidth, mapHeight, rendererReady]);
 }
 
 /** Player start position overlay (blue border + character image) */
