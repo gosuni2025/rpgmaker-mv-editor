@@ -3,6 +3,7 @@ import useEscClose from '../../hooks/useEscClose';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import { ADDON_COMMANDS } from './addonCommands';
 import AddonCommandEditor, { parseAddonProps } from './AddonCommandEditor';
+import { ScriptEditor } from './ScriptEditor';
 import {
   ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
@@ -38,6 +39,19 @@ interface CommandParamEditorProps {
 export default function CommandParamEditor({ code, command, followCommands, hasElse, initialParam, onOk, onCancel }: CommandParamEditorProps) {
   useEscClose(onCancel);
   const p = command?.parameters || [];
+
+  // Script 커맨드는 자체 전체화면 에디터로 처리
+  if (code === 355) {
+    return (
+      <ScriptEditor
+        p={p}
+        followCommands={followCommands}
+        onOk={onOk}
+        onCancel={onCancel}
+      />
+    );
+  }
+
   const content = getEditorContent(code, p, followCommands || [], onOk, onCancel, hasElse, initialParam);
   if (!content) {
     onOk(p);
@@ -97,7 +111,7 @@ function getEditorContent(
     case 104: return <SelectItemEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 101: return <ShowTextEditor p={p} onOk={onOk} onCancel={onCancel} existingLines={followText(401)} />;
     case 108: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={408} label="Comment" existingLines={followText(408)} />;
-    case 355: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={655} label="Script" existingLines={followText(655)} />;
+    // case 355: ScriptEditor로 분리됨 (CommandParamEditor 상단에서 처리)
     case 356: {
       // 기존 텍스트에서 애드온 매칭 시도
       const existingText = (p[0] as string) || '';
