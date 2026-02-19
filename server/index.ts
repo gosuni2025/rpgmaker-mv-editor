@@ -368,7 +368,7 @@ if (require.main === module) {
   const server = http.createServer(app);
   attachWebSocket(server);
 
-  const PORT = 3001;
+  const PORT = parseInt(process.env.SERVER_PORT || '3001');
   server.listen(PORT, '127.0.0.1', () => {
     console.log(`Editor server listening on 127.0.0.1:${PORT}`);
   });
