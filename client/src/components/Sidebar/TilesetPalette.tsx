@@ -120,7 +120,7 @@ export default function TilesetPalette() {
 
     canvas.width = img.width;
     canvas.height = img.height;
-    drawCheckerboard(ctx, canvas.width, canvas.height);
+    drawCheckerboard(ctx, canvas.width, canvas.height, transparentColor);
     ctx.drawImage(img, 0, 0);
 
     // Highlight selection (drag preview or committed selection)
