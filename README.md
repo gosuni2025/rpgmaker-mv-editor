@@ -2,17 +2,6 @@
 
 RPG Maker MV 프로젝트를 웹 기반으로 편집할 수 있는 데스크톱 에디터입니다.
 
-## 다운로드
-
-**[최신 버전 다운로드](https://github.com/gosuni2025/rpgmaker-mv-editor/releases/latest)**
-
-| 플랫폼 | 파일 |
-|--------|------|
-| macOS (Apple Silicon) | `.dmg` |
-| macOS (Intel) | `.dmg` |
-| Windows | `.exe` (설치 프로그램) / `.zip` |
-| Linux | `.AppImage` / `.zip` |
-
 ## 사전 요구사항
 
 - **RPG Maker MV**가 필요합니다. 이 에디터는 RPG Maker MV 프로젝트 파일을 편집하며, 런타임 에셋에 의존합니다.
