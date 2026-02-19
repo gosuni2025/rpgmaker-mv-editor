@@ -73,7 +73,7 @@ if (typeof THREE !== 'undefined' && THREE.ShaderChunk) {
 // ConfigManager - 그림자/광원 설정 추가
 //=============================================================================
 
-ConfigManager.shadowLight = true;
+ConfigManager.shadowLight = false;
 
 var _ConfigManager_makeData = ConfigManager.makeData;
 ConfigManager.makeData = function() {
