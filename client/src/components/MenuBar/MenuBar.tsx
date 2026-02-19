@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import useEditorStore from '../../store/useEditorStore';
-import apiClient from '../../api/client';
+import apiClient, { ApiError } from '../../api/client';
 import { getRecentProjects, removeRecentProject } from '../OpenProjectDialog';
 import './MenuBar.css';
 
@@ -60,6 +60,7 @@ export default function MenuBar() {
 
   const hasProject = !!projectPath;
   const openProject = useEditorStore((s) => s.openProject);
+  const setUninitializedProjectPath = useEditorStore((s) => s.setUninitializedProjectPath);
   const [showTileIdOverlay, setShowTileIdOverlay] = useState(false);
 
   const recentProjects = getRecentProjects().slice(0, 10);
@@ -188,7 +189,11 @@ export default function MenuBar() {
       const recentPath = action.slice(7);
       apiClient.get<{ exists: boolean }>(`/project/check-path?path=${encodeURIComponent(recentPath)}`).then(res => {
         if (res.exists) {
-          openProject(recentPath);
+          openProject(recentPath).catch((err) => {
+            if (err instanceof ApiError && (err.body as Record<string, unknown>)?.errorCode === 'NOT_INITIALIZED') {
+              setUninitializedProjectPath(recentPath);
+            }
+          });
         } else {
           removeRecentProject(recentPath);
           alert(t('menu.projectNotFound'));
