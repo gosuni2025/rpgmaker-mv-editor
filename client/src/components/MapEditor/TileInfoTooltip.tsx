@@ -69,12 +69,12 @@ function RegionPreviewCanvas({ regionId }: { regionId: number }) {
 }
 
 /** 단일 타일 ID를 32x32 캔버스에 미리보기로 그리는 컴포넌트 */
-function TilePreviewCanvas({ tileId, tilesetNames }: { tileId: number; tilesetNames?: string[] }) {
+function TilePreviewCanvas({ tileId, layer, tilesetNames }: { tileId: number; layer?: number; tilesetNames?: string[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [, setRerender] = useState(0);
 
-  // Region ID (1~255)는 별도 컴포넌트로 처리
-  const isRegion = tileId >= 1 && tileId <= 255;
+  // Region ID (1~255)는 z=5 레이어(리전 레이어)일 때만 리전으로 처리
+  const isRegion = layer === 5 && tileId >= 1 && tileId <= 255;
 
   const renderInfo = useMemo(() => (!isRegion ? getTileRenderInfo(tileId) : null), [tileId, isRegion]);
 
@@ -203,7 +203,7 @@ export default function TileInfoTooltip({ tileX, tileY, mouseX, mouseY }: TileIn
         <div key={z} className="tile-info-layer">
           <div className="tile-info-layer-header">{LAYER_NAMES[z] ?? `z${z}`}</div>
           <div className="tile-info-content">
-            <TilePreviewCanvas tileId={tileId} tilesetNames={info.tilesetNames} />
+            <TilePreviewCanvas tileId={tileId} layer={z} tilesetNames={info.tilesetNames} />
             <div className="tile-info-details">
               {desc ? (
                 <>
