@@ -21,10 +21,15 @@ function HelpButton({ text }: { text: string }) {
         <div style={{
           position: 'absolute', left: 20, top: -4, zIndex: 100,
           background: '#333', border: '1px solid #555', borderRadius: 4,
-          padding: '6px 10px', fontSize: 11, color: '#ccc', whiteSpace: 'pre-line',
+          padding: '6px 10px', fontSize: 11, color: '#ccc',
           minWidth: 180, maxWidth: 260, boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
         }}>
-          {text}
+          {text.split('\n').map((line, i, arr) => (
+            <React.Fragment key={i}>
+              {line}
+              {i < arr.length - 1 && <br />}
+            </React.Fragment>
+          ))}
         </div>
       )}
     </span>
