@@ -12,12 +12,18 @@ import './RegionPalette.css';
 import './InspectorPanel.css';
 
 /** 투명 배경을 나타내는 체크보드 패턴을 canvas에 그린다 */
-function drawCheckerboard(ctx: CanvasRenderingContext2D, width: number, height: number, size = 8) {
-  const light = '#4a4a4a';
-  const dark  = '#2e2e2e';
+function drawCheckerboard(
+  ctx: CanvasRenderingContext2D,
+  width: number, height: number,
+  color: { r: number; g: number; b: number },
+  size = 8,
+) {
+  const { r, g, b } = color;
+  const c1 = `rgb(${r}, ${g}, ${b})`;
+  const c2 = `rgb(${Math.max(0, r - 48)}, ${Math.max(0, g - 48)}, ${Math.max(0, b - 48)})`;
   for (let y = 0; y < height; y += size) {
     for (let x = 0; x < width; x += size) {
-      ctx.fillStyle = (Math.floor(x / size) + Math.floor(y / size)) % 2 === 0 ? light : dark;
+      ctx.fillStyle = (Math.floor(x / size) + Math.floor(y / size)) % 2 === 0 ? c1 : c2;
       ctx.fillRect(x, y, Math.min(size, width - x), Math.min(size, height - y));
     }
   }
@@ -67,6 +73,7 @@ export default function TilesetPalette() {
   const paletteTab = useEditorStore((s) => s.paletteTab);
   const setPaletteTab = useEditorStore((s) => s.setPaletteTab);
   const showTileInfo = useEditorStore((s) => s.showTileInfo);
+  const transparentColor = useEditorStore((s) => s.transparentColor);
   const setShowTileInfo = useEditorStore((s) => s.setShowTileInfo);
   const activeTab = paletteTab as PaletteTab;
   const setActiveTab = setPaletteTab;
@@ -103,7 +110,7 @@ export default function TilesetPalette() {
     if (!img) {
       canvas.width = 256;
       canvas.height = 100;
-      drawCheckerboard(ctx, canvas.width, canvas.height);
+      drawCheckerboard(ctx, canvas.width, canvas.height, transparentColor);
       ctx.fillStyle = '#666';
       ctx.font = '12px sans-serif';
       ctx.textAlign = 'center';
@@ -169,7 +176,7 @@ export default function TilesetPalette() {
         ctx.strokeRect(cell.col * TILE_SIZE_PX + 1, cell.row * TILE_SIZE_PX + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
       }
     }
-  }, [activeTab, tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, dragCurrentCell]);
+  }, [activeTab, tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, dragCurrentCell, transparentColor]);
 
   // Render A tab (autotile thumbnails grid)
   const renderATab = useCallback(() => {
@@ -186,7 +193,7 @@ export default function TilesetPalette() {
     canvas.width = cw;
     canvas.height = ch;
 
-    drawCheckerboard(ctx, cw, ch);
+    drawCheckerboard(ctx, cw, ch, transparentColor);
 
     for (let i = 0; i < totalEntries; i++) {
       const entry = A_TILE_ENTRIES[i];
@@ -260,7 +267,7 @@ export default function TilesetPalette() {
         }
       }
     }
-  }, [tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, dragCurrentCell]);
+  }, [tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, dragCurrentCell, transparentColor]);
 
   // Main render
   useEffect(() => {
