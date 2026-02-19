@@ -117,7 +117,8 @@ function DoorForm({ onConfirm, onClose }: { onConfirm: (cmds: EventCommand[], im
       // Wait 15 frames
       { code: 230, indent: 0, parameters: [15] },
       // Set Move Route (this event - step anime)
-      { code: 205, indent: 0, parameters: [-1, { list: [
+      // 0 = this event (note: -1 means $gamePlayer in RPG Maker MV)
+      { code: 205, indent: 0, parameters: [0, { list: [
         { code: 33 },  // Stepping Animation ON
         { code: 15, parameters: [3] },  // Wait 3 frames
         { code: 15, parameters: [3] },  // Wait 3 frames
@@ -127,7 +128,7 @@ function DoorForm({ onConfirm, onClose }: { onConfirm: (cmds: EventCommand[], im
       // Transfer Player
       { code: 201, indent: 0, parameters: [0, mapId, x, y, 0, 0] },
       // Set Move Route (close door)
-      { code: 205, indent: 0, parameters: [-1, { list: [
+      { code: 205, indent: 0, parameters: [0, { list: [
         { code: 34 },  // Stepping Animation OFF
         { code: 41, parameters: [charName, charIndex, 2, 1] },  // Set Image (pattern 1 = closed)
         { code: 0 },
@@ -192,7 +193,8 @@ function TreasureForm({ onConfirm, onClose }: { onConfirm: (pages: EventPage[]) 
     // Play SE
     cmds.push({ code: 250, indent: 0, parameters: [{ name: 'Chest1', pan: 0, pitch: 100, volume: 90 }] });
     // Set Move Route (open animation - change to opened pattern)
-    cmds.push({ code: 205, indent: 0, parameters: [-1, { list: [
+    // 0 = this event (note: -1 means $gamePlayer in RPG Maker MV)
+    cmds.push({ code: 205, indent: 0, parameters: [0, { list: [
       { code: 41, parameters: [charName, charIndex, 2, 0] },  // Set Image (direction 2, pattern 0 = open)
       { code: 0 },
     ], repeat: false, skippable: false, wait: true }] });
@@ -200,24 +202,24 @@ function TreasureForm({ onConfirm, onClose }: { onConfirm: (pages: EventPage[]) 
     if (rewardType === 'gold') {
       // Change Gold
       cmds.push({ code: 125, indent: 0, parameters: [0, 0, amount] });
-      // Show Text: "X골드를 손에 넣었다!"
+      // Show Text
       cmds.push({ code: 101, indent: 0, parameters: ['', 0, 0, 2] });
-      cmds.push({ code: 401, indent: 0, parameters: [`${amount}\\G を手に入れた！`] });
+      cmds.push({ code: 401, indent: 0, parameters: [`${amount}\\G를 손에 넣었다!`] });
     } else if (rewardType === 'item') {
       // Change Items
       cmds.push({ code: 126, indent: 0, parameters: [itemId, 0, 0, 1] });
       cmds.push({ code: 101, indent: 0, parameters: ['', 0, 0, 2] });
-      cmds.push({ code: 401, indent: 0, parameters: [`\\I[0] を手に入れた！`] });
+      cmds.push({ code: 401, indent: 0, parameters: [`\\I[${itemId}]를 손에 넣었다!`] });
     } else if (rewardType === 'weapon') {
       // Change Weapons
       cmds.push({ code: 127, indent: 0, parameters: [itemId, 0, 0, 1, false] });
       cmds.push({ code: 101, indent: 0, parameters: ['', 0, 0, 2] });
-      cmds.push({ code: 401, indent: 0, parameters: [`\\I[0] を手に入れた！`] });
+      cmds.push({ code: 401, indent: 0, parameters: [`\\I[${itemId}]를 손에 넣었다!`] });
     } else if (rewardType === 'armor') {
       // Change Armors
       cmds.push({ code: 128, indent: 0, parameters: [itemId, 0, 0, 1, false] });
       cmds.push({ code: 101, indent: 0, parameters: ['', 0, 0, 2] });
-      cmds.push({ code: 401, indent: 0, parameters: [`\\I[0] を手に入れた！`] });
+      cmds.push({ code: 401, indent: 0, parameters: [`\\I[${itemId}]를 손에 넣었다!`] });
     }
 
     // Self Switch A = ON
