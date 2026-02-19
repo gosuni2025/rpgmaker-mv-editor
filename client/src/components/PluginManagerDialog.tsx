@@ -184,6 +184,51 @@ function DirPickerDialog({ parentDir, dirs, value, onChange, onClose }: {
   );
 }
 
+/** Text file picker dialog for @type textfile parameters */
+function TextFilePickerDialog({ dir, files, value, onChange, onClose }: {
+  dir: string;
+  files: string[];
+  value: string;
+  onChange: (path: string) => void;
+  onClose: () => void;
+}) {
+  const [selected, setSelected] = useState(value);
+  useEscClose(useCallback(() => onClose(), [onClose]));
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 10001 }}>
+      <div className="db-dialog" style={{ width: 360, height: 350 }}>
+        <div className="db-dialog-header">텍스트 파일 선택 ({dir}/)</div>
+        <div className="db-dialog-body" style={{ padding: 8, overflow: 'hidden' }}>
+          <div style={{ height: '100%', overflow: 'auto', border: '1px solid #555', borderRadius: 3, background: '#1e1e1e' }}>
+            {files.length === 0 ? (
+              <div style={{ padding: 12, color: '#888', textAlign: 'center' }}>파일이 없습니다</div>
+            ) : (
+              files.map(f => {
+                const fullPath = dir ? `${dir}/${f}` : f;
+                return (
+                  <div
+                    key={f}
+                    className={`pm-plugin-item${selected === fullPath ? ' active' : ''}`}
+                    onClick={() => setSelected(fullPath)}
+                    onDoubleClick={() => onChange(fullPath)}
+                  >
+                    {f}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+        <div className="db-dialog-footer">
+          <button className="db-btn" onClick={() => onChange(selected)}>OK</button>
+          <button className="db-btn" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PluginManagerDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowPluginManagerDialog);
@@ -205,7 +250,7 @@ export default function PluginManagerDialog() {
   const locale = i18n.language || 'ko';
 
   // Picker dialog states
-  const [pickerType, setPickerType] = useState<'animation' | 'datalist' | 'file' | 'dir' | null>(null);
+  const [pickerType, setPickerType] = useState<'animation' | 'datalist' | 'file' | 'dir' | 'textfile' | null>(null);
   const [pickerParamIndex, setPickerParamIndex] = useState<number>(-1);
   const [dataListItems, setDataListItems] = useState<string[]>([]);
   const [dataListTitle, setDataListTitle] = useState('');
@@ -409,6 +454,20 @@ export default function PluginManagerDialog() {
       return;
     }
 
+    if (type === 'textfile') {
+      const dir = paramMeta.dir || 'data';
+      setBrowseDir(dir);
+      try {
+        const res = await apiClient.get<{ files: string[] }>(`/plugins/browse-files?dir=${encodeURIComponent(dir)}&ext=txt`);
+        setBrowseFiles(res.files || []);
+      } catch {
+        setBrowseFiles([]);
+      }
+      setPickerParamIndex(paramIndex);
+      setPickerType('textfile');
+      return;
+    }
+
     const dbConfig = DB_TYPE_MAP[type];
     if (dbConfig) {
       try {
@@ -436,7 +495,7 @@ export default function PluginManagerDialog() {
   const hasPickerButton = (paramMeta: PluginParamMeta | undefined): boolean => {
     if (!paramMeta) return false;
     const type = paramMeta.type.toLowerCase();
-    return type === 'animation' || type === 'file' || type === 'dir' || type in DB_TYPE_MAP;
+    return type === 'animation' || type === 'file' || type === 'dir' || type === 'textfile' || type in DB_TYPE_MAP;
   };
 
   /** Parse a CSS color string to hex (#rrggbb) for <input type="color"> */
@@ -704,11 +763,6 @@ export default function PluginManagerDialog() {
                       </>
                     )}
 
-                    {selectedPlugin.name === 'TitleCredit' && (
-                      <CreditTextEditor
-                        textFilePath={selectedPlugin.parameters.find(p => p.name === 'textFile')?.value || 'data/Credits.txt'}
-                      />
-                    )}
                   </>
                 ) : (
                   <div className="pm-placeholder">{t('pluginManager.selectPlugin')}</div>
@@ -740,38 +794,47 @@ export default function PluginManagerDialog() {
                               const isEditing = editingParamIndex === paramIndex;
                               const isBoolOrSelect = paramMeta && (paramMeta.type === 'boolean' || paramMeta.type === 'select' || paramMeta.type === 'combo' || paramMeta.type === 'color' || paramMeta.options.length > 0);
                               const showPicker = hasPickerButton(paramMeta);
+                              const isTextFile = paramMeta?.type === 'textfile';
                               return (
-                                <tr
-                                  key={param.name}
-                                  className={isEditing ? 'active' : ''}
-                                  title={paramMeta?.desc || param.name}
-                                >
-                                  <td className="pm-param-name">{param.name}</td>
-                                  <td className="pm-param-value-cell">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                      <div style={{ flex: 1, minWidth: 0 }}>
-                                        {isEditing || isBoolOrSelect ? (
-                                          renderParamInput(selectedPlugin, selectedIndex, paramMeta, paramIndex)
-                                        ) : (
-                                          <div
-                                            className="pm-param-value-display"
-                                            onClick={() => setEditingParamIndex(paramIndex)}
-                                          >
-                                            {param.value || '\u00A0'}
-                                          </div>
+                                <React.Fragment key={param.name}>
+                                  <tr
+                                    className={isEditing ? 'active' : ''}
+                                    title={paramMeta?.desc || param.name}
+                                  >
+                                    <td className="pm-param-name">{param.name}</td>
+                                    <td className="pm-param-value-cell">
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          {isEditing || isBoolOrSelect ? (
+                                            renderParamInput(selectedPlugin, selectedIndex, paramMeta, paramIndex)
+                                          ) : (
+                                            <div
+                                              className="pm-param-value-display"
+                                              onClick={() => setEditingParamIndex(paramIndex)}
+                                            >
+                                              {param.value || '\u00A0'}
+                                            </div>
+                                          )}
+                                        </div>
+                                        {showPicker && (
+                                          <button
+                                            className="db-btn-small"
+                                            style={{ padding: '1px 4px', fontSize: 11, flexShrink: 0 }}
+                                            onClick={() => openPicker(paramMeta!, paramIndex)}
+                                            title={paramMeta?.type}
+                                          >...</button>
                                         )}
                                       </div>
-                                      {showPicker && (
-                                        <button
-                                          className="db-btn-small"
-                                          style={{ padding: '1px 4px', fontSize: 11, flexShrink: 0 }}
-                                          onClick={() => openPicker(paramMeta!, paramIndex)}
-                                          title={paramMeta?.type}
-                                        >...</button>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
+                                    </td>
+                                  </tr>
+                                  {isTextFile && param.value && (
+                                    <tr>
+                                      <td colSpan={2} style={{ padding: '4px 8px 8px 8px' }}>
+                                        <CreditTextEditor textFilePath={param.value} />
+                                      </td>
+                                    </tr>
+                                  )}
+                                </React.Fragment>
                               );
                             })}
                           </tbody>
@@ -831,6 +894,19 @@ export default function PluginManagerDialog() {
             value={selectedPlugin.parameters[pickerParamIndex]?.value || ''}
             onChange={(name) => {
               updateParam(selectedIndex, pickerParamIndex, name);
+              setPickerType(null);
+            }}
+            onClose={() => setPickerType(null)}
+          />
+        )}
+
+        {pickerType === 'textfile' && selectedPlugin && pickerParamIndex >= 0 && (
+          <TextFilePickerDialog
+            dir={browseDir}
+            files={browseFiles}
+            value={selectedPlugin.parameters[pickerParamIndex]?.value || ''}
+            onChange={(filePath) => {
+              updateParam(selectedIndex, pickerParamIndex, filePath);
               setPickerType(null);
             }}
             onClose={() => setPickerType(null)}
