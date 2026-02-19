@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import useEditorStore from '../../store/useEditorStore';
+import FuzzySearchInput from '../common/FuzzySearchInput';
+import { fuzzyMatch, fuzzyScore } from '../../utils/fuzzySearch';
 import './ObjectListPanel.css';
 
 export default function ObjectListPanel() {
@@ -11,7 +13,16 @@ export default function ObjectListPanel() {
   const deleteObject = useEditorStore((s) => s.deleteObject);
   const deleteObjects = useEditorStore((s) => s.deleteObjects);
 
-  const objects = currentMap?.objects;
+  const [filterQuery, setFilterQuery] = useState('');
+  const allObjects = currentMap?.objects ?? [];
+
+  const objects = useMemo(() => {
+    if (!filterQuery) return allObjects;
+    const q = filterQuery;
+    return allObjects
+      .filter((obj) => fuzzyMatch(`${obj.id} ${obj.name}`, q))
+      .sort((a, b) => fuzzyScore(b.name, q) - fuzzyScore(a.name, q));
+  }, [allObjects, filterQuery]);
 
   const handleItemClick = (objId: number, e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey) {
@@ -59,6 +70,7 @@ export default function ObjectListPanel() {
           </span>
         )}
       </div>
+      <FuzzySearchInput value={filterQuery} onChange={setFilterQuery} placeholder="오브젝트 검색..." />
       <div className="object-list">
         {objects && objects.length > 0 ? (
           objects.map((obj) => (
@@ -85,7 +97,7 @@ export default function ObjectListPanel() {
           ))
         ) : (
           <div className="object-list-empty">
-            맵에서 타일을 칠하거나 이미지를 추가하여<br />오브젝트를 생성하세요
+            {filterQuery ? '검색 결과 없음' : <>맵에서 타일을 칠하거나 이미지를 추가하여<br />오브젝트를 생성하세요</>}
           </div>
         )}
       </div>

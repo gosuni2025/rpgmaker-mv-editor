@@ -6,6 +6,8 @@ import apiClient from '../../api/client';
 import SampleMapDialog from '../SampleMapDialog';
 import MapPropertiesDialog from '../MapEditor/MapPropertiesDialog';
 import { highlightMatch } from '../../utils/highlightMatch';
+import { fuzzyMatch } from '../../utils/fuzzySearch';
+import FuzzySearchInput from '../common/FuzzySearchInput';
 import './Sidebar.css';
 import './MapTree.css';
 
@@ -19,17 +21,6 @@ interface ContextMenuState {
   mapId: number;
 }
 
-function fuzzyMatch(text: string, query: string): boolean {
-  const lowerText = text.toLowerCase();
-  const lowerQuery = query.toLowerCase();
-  let ti = 0;
-  for (let qi = 0; qi < lowerQuery.length; qi++) {
-    const idx = lowerText.indexOf(lowerQuery[qi], ti);
-    if (idx < 0) return false;
-    ti = idx + 1;
-  }
-  return true;
-}
 
 function buildTree(maps: (MapInfo | null)[]): TreeNodeData[] {
   if (!maps || maps.length === 0) return [];
@@ -167,7 +158,6 @@ export default function MapTree() {
   const [newMapParentId, setNewMapParentId] = useState<number | null>(null);
   const [filterQuery, setFilterQuery] = useState('');
   const [copiedMapId, setCopiedMapId] = useState<number | null>(null);
-  const searchInputRef = React.useRef<HTMLInputElement>(null);
   const loadMaps = useEditorStore((s) => s.loadMaps);
 
   const tree = useMemo(() => buildTree(maps), [maps]);
@@ -295,7 +285,7 @@ export default function MapTree() {
   return (
     <div className="map-tree" tabIndex={-1} onKeyDown={(e) => {
       // 검색 입력 중에는 단축키 무시
-      if (document.activeElement === searchInputRef.current) return;
+      if ((document.activeElement as HTMLElement)?.classList.contains('fuzzy-search-input')) return;
       
       if (e.key === 'Delete' && currentMapId != null && currentMapId !== 0) {
         e.preventDefault();
@@ -334,26 +324,11 @@ export default function MapTree() {
       </div>
       {!rootCollapsed && (
         <>
-          <div className="map-tree-search">
-            <input
-              ref={searchInputRef}
-              type="text"
-              className="map-tree-search-input"
-              placeholder={t('mapTree.searchPlaceholder', '맵 검색...')}
-              value={filterQuery}
-              onChange={(e) => setFilterQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  setFilterQuery('');
-                  searchInputRef.current?.blur();
-                }
-                e.stopPropagation();
-              }}
-            />
-            {filterQuery && (
-              <span className="map-tree-search-clear" onClick={() => { setFilterQuery(''); searchInputRef.current?.focus(); }}>×</span>
-            )}
-          </div>
+          <FuzzySearchInput
+            value={filterQuery}
+            onChange={setFilterQuery}
+            placeholder={t('mapTree.searchPlaceholder', '맵 검색...')}
+          />
           {filteredTree.map((node) => (
             <TreeNode
               key={node.id}

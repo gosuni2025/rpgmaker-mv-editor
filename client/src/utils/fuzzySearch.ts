@@ -2,6 +2,31 @@
  * 퍼지 검색 유틸리티 (한글 초성 검색 지원)
  */
 
+/**
+ * 매칭 품질 점수 (높을수록 관련도 높음, 정렬에 사용)
+ */
+export function fuzzyScore(text: string, pattern: string): number {
+  if (!pattern) return 0;
+  const trimmed = pattern.trim();
+  if (!trimmed) return 0;
+  const lowerText = text.toLowerCase();
+  const lowerPattern = trimmed.toLowerCase();
+  if (lowerText === lowerPattern) return 5;
+  if (lowerText.startsWith(lowerPattern)) return 4;
+  if (lowerText.includes(lowerPattern)) return 3;
+  // 초성 기준
+  const textChosung = [...text].map(ch => {
+    const code = ch.charCodeAt(0);
+    if (code >= 0xAC00 && code <= 0xD7A3) {
+      return ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'][Math.floor((code - 0xAC00) / 588)];
+    }
+    return ch;
+  }).join('');
+  if (textChosung.startsWith(lowerPattern)) return 2;
+  if (textChosung.includes(lowerPattern)) return 1;
+  return 0;
+}
+
 // 한글 초성 배열 (가~힣 유니코드 블록)
 const CHOSUNG = [
   'ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ',

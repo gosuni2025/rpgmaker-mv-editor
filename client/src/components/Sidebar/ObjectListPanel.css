@@ -1,14 +1,27 @@
 /* Object List Panel (left sidebar) */
 .object-list-panel {
-  padding: 8px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   height: 100%;
 }
 
+.object-list-panel .light-palette-section-title {
+  padding: 6px 8px;
+  flex-shrink: 0;
+}
+
 .object-list {
+  flex: 1;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding: 0 8px;
+}
+
+.object-list-actions {
+  flex-shrink: 0;
+  padding: 8px;
 }
 
 .object-list-item {
@@ -73,11 +86,6 @@
   padding: 12px 8px;
   text-align: center;
   line-height: 1.6;
-}
-
-.object-list-actions {
-  margin-top: 8px;
-  padding: 0 2px;
 }
 
 .object-list-deselect {

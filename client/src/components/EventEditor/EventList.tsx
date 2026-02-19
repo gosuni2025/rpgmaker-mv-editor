@@ -1,7 +1,9 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent } from '../../types/rpgMakerMV';
+import FuzzySearchInput from '../common/FuzzySearchInput';
+import { fuzzyMatch, fuzzyScore } from '../../utils/fuzzySearch';
 import './EventEditor.css';
 
 function scrollToEvent(x: number, y: number) {
@@ -29,9 +31,18 @@ export default function EventList() {
 
   const [showDetail, setShowDetail] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
+  const [filterQuery, setFilterQuery] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
 
-  const events: RPGEvent[] = (currentMap?.events || []).filter(Boolean) as RPGEvent[];
+  const allEvents: RPGEvent[] = (currentMap?.events || []).filter(Boolean) as RPGEvent[];
+
+  const events = useMemo(() => {
+    if (!filterQuery) return allEvents;
+    const q = filterQuery;
+    return allEvents
+      .filter((ev) => fuzzyMatch(`${String(ev.id).padStart(3, '0')} ${ev.name}`, q))
+      .sort((a, b) => fuzzyScore(b.name, q) - fuzzyScore(a.name, q));
+  }, [allEvents, filterQuery]);
 
   // 맵에서 이벤트 선택 시 목록에서 해당 항목으로 자동 스크롤
   useEffect(() => {
@@ -91,6 +102,7 @@ export default function EventList() {
         <span style={{ fontWeight: 'bold', fontSize: 12, color: '#bbb' }}>{t('eventList.title')}</span>
         <button className="db-btn-small" onClick={handleNewEvent}>{t('eventList.newEvent')}</button>
       </div>
+      <FuzzySearchInput value={filterQuery} onChange={setFilterQuery} placeholder="이벤트 검색..." />
 
       <div ref={listRef} style={{ flex: 1, overflowY: 'auto' }} onContextMenu={(e) => handleContextMenu(e, null)}>
         {events.length === 0 && (
