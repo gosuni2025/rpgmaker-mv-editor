@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent, EventPage, EventCommand, MapData } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
+import './QuickEventDialog.css';
 
 interface QuickEventDialogProps {
   type: 'transfer' | 'door' | 'treasure' | 'inn';

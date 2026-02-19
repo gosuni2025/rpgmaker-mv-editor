@@ -1058,7 +1058,7 @@
     "findNext": "다음 찾기",
     "findPrev": "이전 찾기",
     "quickEvent": "이벤트 간단 작성",
-    "quickTransfer": "시프트...",
+    "quickTransfer": "시프트(장소 이동)...",
     "quickDoor": "문...",
     "quickTreasure": "보물...",
     "quickInn": "여관...",
@@ -1074,7 +1074,7 @@
   },
   "quickEvent": {
     "transfer": {
-      "title": "시프트",
+      "title": "시프트(장소 이동)",
       "destination": "이동 위치",
       "map": "맵",
       "x": "X",
