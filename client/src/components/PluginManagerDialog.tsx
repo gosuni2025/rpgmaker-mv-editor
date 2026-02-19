@@ -704,7 +704,11 @@ export default function PluginManagerDialog() {
                       </>
                     )}
 
-                    {selectedPlugin.name === 'TitleCredit' && <CreditTextEditor />}
+                    {selectedPlugin.name === 'TitleCredit' && (
+                      <CreditTextEditor
+                        textFilePath={selectedPlugin.parameters.find(p => p.name === 'textFile')?.value || 'data/Credits.txt'}
+                      />
+                    )}
                   </>
                 ) : (
                   <div className="pm-placeholder">{t('pluginManager.selectPlugin')}</div>

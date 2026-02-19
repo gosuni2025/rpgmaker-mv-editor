@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/client';
 
-export default function CreditTextEditor() {
+interface Props {
+  textFilePath?: string;
+}
+
+export default function CreditTextEditor({ textFilePath = 'data/Credits.txt' }: Props) {
   const [text, setText] = useState('');
   const [originalText, setOriginalText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -9,9 +13,11 @@ export default function CreditTextEditor() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    setLoading(true);
+    setError('');
     (async () => {
       try {
-        const res = await fetch('/api/plugins/credit-text');
+        const res = await fetch(`/api/plugins/credit-text?path=${encodeURIComponent(textFilePath)}`);
         const content = await res.text();
         setText(content);
         setOriginalText(content);
@@ -21,7 +27,7 @@ export default function CreditTextEditor() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [textFilePath]);
 
   const isDirty = text !== originalText;
 
@@ -29,7 +35,7 @@ export default function CreditTextEditor() {
     setSaving(true);
     setError('');
     try {
-      await fetch('/api/plugins/credit-text', {
+      await fetch(`/api/plugins/credit-text?path=${encodeURIComponent(textFilePath)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'text/plain' },
         body: text,
@@ -44,7 +50,7 @@ export default function CreditTextEditor() {
 
   const handleOpenFolder = async () => {
     try {
-      await apiClient.post('/plugins/credit-text/open-folder', {});
+      await apiClient.post(`/plugins/credit-text/open-folder?path=${encodeURIComponent(textFilePath)}`, {});
     } catch (e) {
       setError((e as Error).message);
     }
@@ -54,7 +60,7 @@ export default function CreditTextEditor() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
-      <div className="db-form-section">크레딧 텍스트 (data/Credits.txt)</div>
+      <div className="db-form-section">크레딧 텍스트 ({textFilePath})</div>
       <textarea
         value={text}
         onChange={e => setText(e.target.value)}
