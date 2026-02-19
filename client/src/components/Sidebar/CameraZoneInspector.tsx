@@ -220,15 +220,16 @@ export default function CameraZoneInspector() {
                 onChange={(e) => updateCameraZone(selectedZone.id, { fov: parseInt(e.target.value) || 60 })} />
             </div>
             <div className="light-inspector-row">
-              <DragLabel label="Yaw" value={selectedZone.yaw} step={1} min={-180} max={180}
+              <DragLabel label="Yaw" value={selectedZone.yaw ?? 0} step={1} min={-180} max={180}
                 onDragStart={onDragStart} onDragEnd={onDragEnd}
                 onChange={(v) => updateCameraZone(selectedZone.id, { yaw: Math.round(v) }, true)} />
+              <HelpButton text={"카메라 수평 회전각(Yaw)입니다.\n0°: 기본 방향 (화면 아래가 남쪽)\n±90°: 측면에서 바라봄\n±180°: 반대 방향에서 바라봄\n\n이 영역 안에서는 터치/드래그로 회전이 비활성화됩니다."} />
               <input type="range" className="light-inspector-slider" min={-180} max={180} step={1}
-                value={selectedZone.yaw}
+                value={selectedZone.yaw ?? 0}
                 onChange={(e) => updateCameraZone(selectedZone.id, { yaw: parseInt(e.target.value) })} />
               <input type="number" className="light-inspector-input" step={1}
                 style={{ width: 55 }}
-                value={selectedZone.yaw}
+                value={selectedZone.yaw ?? 0}
                 onChange={(e) => updateCameraZone(selectedZone.id, { yaw: parseInt(e.target.value) || 0 })} />
             </div>
           </div>

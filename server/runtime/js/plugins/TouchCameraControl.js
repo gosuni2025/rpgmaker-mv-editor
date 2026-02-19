@@ -139,6 +139,12 @@
         return ConfigManager.mode3d && Mode3D._active && Mode3D._perspCamera;
     }
 
+    // 카메라 존 활성화 중이면 true (터치 회전 비활성화 판단에 사용)
+    function isCameraZoneActive() {
+        return typeof $gameMap !== 'undefined' && $gameMap &&
+               $gameMap._activeCameraZoneId != null;
+    }
+
     function clamp(val, min, max) {
         return Math.max(min, Math.min(max, val));
     }
@@ -211,19 +217,22 @@
             var dx = event.pageX - _dragState.lastX;
             var dy = event.pageY - _dragState.lastY;
 
-            // threshold 체크
-            var totalDx = event.pageX - _dragState.startX;
-            var totalDy = event.pageY - _dragState.startY;
-            if (!_dragState.moved) {
-                if (Math.sqrt(totalDx * totalDx + totalDy * totalDy) > DRAG_THRESHOLD) {
-                    _dragState.moved = true;
-                    _suppressNextDestination = true;
+            // 카메라 존 밖에서만 드래그 회전 처리
+            if (!isCameraZoneActive()) {
+                // threshold 체크
+                var totalDx = event.pageX - _dragState.startX;
+                var totalDy = event.pageY - _dragState.startY;
+                if (!_dragState.moved) {
+                    if (Math.sqrt(totalDx * totalDx + totalDy * totalDy) > DRAG_THRESHOLD) {
+                        _dragState.moved = true;
+                        _suppressNextDestination = true;
+                    }
                 }
-            }
 
-            if (_dragState.moved) {
-                applyYaw(-dx * ROTATION_SPEED);
-                applyTilt(dy * ROTATION_SPEED);
+                if (_dragState.moved) {
+                    applyYaw(-dx * ROTATION_SPEED);
+                    applyTilt(dy * ROTATION_SPEED);
+                }
             }
 
             _dragState.lastX = event.pageX;
@@ -297,22 +306,25 @@
                 var dx = touch.pageX - _dragState.lastX;
                 var dy = touch.pageY - _dragState.lastY;
 
-                var totalDx = touch.pageX - _dragState.startX;
-                var totalDy = touch.pageY - _dragState.startY;
-                if (!_dragState.moved) {
-                    if (Math.sqrt(totalDx * totalDx + totalDy * totalDy) > DRAG_THRESHOLD) {
-                        _dragState.moved = true;
-                        _suppressNextDestination = true;
+                // 카메라 존 밖에서만 드래그 회전 처리
+                if (!isCameraZoneActive()) {
+                    var totalDx = touch.pageX - _dragState.startX;
+                    var totalDy = touch.pageY - _dragState.startY;
+                    if (!_dragState.moved) {
+                        if (Math.sqrt(totalDx * totalDx + totalDy * totalDy) > DRAG_THRESHOLD) {
+                            _dragState.moved = true;
+                            _suppressNextDestination = true;
+                        }
                     }
-                }
 
-                if (_dragState.moved) {
-                    applyYaw(-dx * ROTATION_SPEED);
-                    applyTilt(dy * ROTATION_SPEED);
-                    _dragState.lastX = touch.pageX;
-                    _dragState.lastY = touch.pageY;
-                    event.preventDefault();
-                    return; // 원본 호출 안함
+                    if (_dragState.moved) {
+                        applyYaw(-dx * ROTATION_SPEED);
+                        applyTilt(dy * ROTATION_SPEED);
+                        _dragState.lastX = touch.pageX;
+                        _dragState.lastY = touch.pageY;
+                        event.preventDefault();
+                        return; // 원본 호출 안함
+                    }
                 }
 
                 _dragState.lastX = touch.pageX;
