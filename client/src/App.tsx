@@ -35,6 +35,7 @@ import ObjectListPanel from './components/Sidebar/ObjectListPanel';
 import MapInspector from './components/Sidebar/MapInspector';
 import EventInspector from './components/Sidebar/EventInspector';
 import PassageInspector from './components/Sidebar/PassageInspector';
+import EventList from './components/EventEditor/EventList';
 import useFileWatcher from './hooks/useFileWatcher';
 import useAutoSave from './hooks/useAutoSave';
 import i18n from './i18n';
@@ -65,10 +66,22 @@ function SidebarSplit({ editMode }: { editMode: string }) {
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
+  const showEventList = editMode === 'event';
   const showTileset = editMode === 'map' || editMode === 'light';
   const showCameraZoneList = editMode === 'cameraZone';
   const showObjectList = editMode === 'object';
   const showTopPanel = showTileset || showCameraZoneList || showObjectList;
+
+  // 이벤트 편집 모드: 이벤트 목록만 전체 표시
+  if (showEventList) {
+    return (
+      <div className="sidebar-split" ref={containerRef}>
+        <div className="sidebar-bottom" style={{ flex: 1 }}>
+          <EventList />
+        </div>
+      </div>
+    );
+  }
 
   const topContent = showCameraZoneList
     ? <CameraZoneListPanel />
