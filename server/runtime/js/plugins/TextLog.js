@@ -243,6 +243,12 @@
             }
         }
         this.drawScrollBar();
+
+        // ExtendedText가 drawTextEx 중 _etAnimSegs에 추가한 shake/hologram 세그먼트를 초기화.
+        // 세그먼트는 그 시점의 y 좌표를 기억하므로, 스크롤 후 redraw하면 좌표가 달라져
+        // 엉뚱한 위치에 흰 글자가 계속 흔들리며 남는 버그가 발생함.
+        this._etAnimSegs  = [];
+        this._etEffectStack = [];
     };
 
     // ── 스크롤바 ────────────────────────────────────────────────────────────
@@ -304,6 +310,10 @@
 
     // ── update ──────────────────────────────────────────────────────────────
     Window_TextLog.prototype.update = function () {
+        // ExtendedText.update가 _etAnimSegs 좌표로 그리기 전에 미리 비워서
+        // 로그 창에서 shake/hologram 애니메이션이 잘못된 위치에 그려지지 않도록 억제
+        this._etAnimSegs    = [];
+        this._etEffectStack = [];
         Window_Base.prototype.update.call(this);
         this._handleKeyScroll();
         this._handleInertia();
