@@ -3,11 +3,19 @@
  * @plugindesc 타이틀 화면에 Credit 버튼 추가
  * @author gosuni2025
  *
+ * @param textFile
+ * @text 크레딧 파일 경로
+ * @desc 프로젝트 루트 기준 크레딧 텍스트 파일의 상대 경로
+ * @type string
+ * @default data/Credits.txt
+ *
  * @help
  * 타이틀 화면에 "크레딧" 버튼을 추가합니다.
  * 사용된 에셋의 저작권/라이선스 정보를 표시합니다.
  *
- * data/Credits.txt 파일에서 크레딧 내용을 읽어 표시합니다.
+ * textFile 파라미터에 지정한 파일에서 크레딧 내용을 읽어 표시합니다.
+ * 기본값: data/Credits.txt
+ *
  * 파일 형식:
  *   [섹션명]    → 시스템 색상으로 표시
  *   @link URL   → 파란색으로 표시
@@ -17,6 +25,9 @@
  */
 
 (function() {
+
+    var _parameters = PluginManager.parameters('TitleCredit');
+    var _creditTextFile = (_parameters['textFile'] || 'data/Credits.txt').trim();
 
     //=========================================================================
     // Window_TitleCommand - "크레딧" 커맨드 추가
@@ -108,7 +119,7 @@
     Window_Credit.prototype.loadCredits = function() {
         var self = this;
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', 'data/Credits.txt');
+        xhr.open('GET', _creditTextFile);
         xhr.overrideMimeType('text/plain; charset=utf-8');
         xhr.onload = function() {
             if (xhr.status < 400) {

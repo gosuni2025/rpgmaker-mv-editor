@@ -207,38 +207,53 @@ router.post('/open-folder', (_req: Request, res: Response) => {
   }
 });
 
-// GET /api/plugins/credit-text - Read Credits.txt
+// Resolve a project-relative text file path safely
+function resolveCreditFilePath(filePath: string): string | null {
+  const basePath = projectManager.currentPath;
+  if (!basePath) return null;
+  const rel = filePath || 'data/Credits.txt';
+  const resolved = path.resolve(path.join(basePath, rel));
+  if (!resolved.startsWith(path.resolve(basePath))) return null; // path traversal guard
+  return resolved;
+}
+
+// GET /api/plugins/credit-text?path=data/Credits.txt - Read credit text file
 router.get('/credit-text', (req: Request, res: Response) => {
   try {
-    const creditsPath = path.join(projectManager.getDataPath(), 'Credits.txt');
-    if (!fs.existsSync(creditsPath)) {
+    const filePath = resolveCreditFilePath((req.query.path as string) || 'data/Credits.txt');
+    if (!filePath) return res.status(403).json({ error: 'Access denied' });
+    if (!fs.existsSync(filePath)) {
       return res.type('text/plain').send('');
     }
-    const content = fs.readFileSync(creditsPath, 'utf8');
+    const content = fs.readFileSync(filePath, 'utf8');
     res.type('text/plain').send(content);
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }
 });
 
-// PUT /api/plugins/credit-text - Save Credits.txt
+// PUT /api/plugins/credit-text?path=data/Credits.txt - Save credit text file
 router.put('/credit-text', express.text({ type: '*/*' }), (req: Request, res: Response) => {
   try {
-    const creditsPath = path.join(projectManager.getDataPath(), 'Credits.txt');
-    fs.writeFileSync(creditsPath, req.body, 'utf8');
+    const filePath = resolveCreditFilePath((req.query.path as string) || 'data/Credits.txt');
+    if (!filePath) return res.status(403).json({ error: 'Access denied' });
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, req.body, 'utf8');
     res.json({ success: true });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }
 });
 
-// POST /api/plugins/credit-text/open-folder - Open data folder in OS file explorer
-router.post('/credit-text/open-folder', (_req: Request, res: Response) => {
+// POST /api/plugins/credit-text/open-folder?path=data/Credits.txt - Open containing folder
+router.post('/credit-text/open-folder', (req: Request, res: Response) => {
   try {
-    const dataPath = projectManager.getDataPath();
-    const cmd = process.platform === 'darwin' ? `open "${dataPath}"`
-      : process.platform === 'win32' ? `explorer "${dataPath}"`
-      : `xdg-open "${dataPath}"`;
+    const filePath = resolveCreditFilePath((req.query.path as string) || 'data/Credits.txt');
+    if (!filePath) return res.status(403).json({ error: 'Access denied' });
+    const dirPath = fs.existsSync(filePath) ? path.dirname(filePath) : path.dirname(filePath);
+    const cmd = process.platform === 'darwin' ? `open "${dirPath}"`
+      : process.platform === 'win32' ? `explorer "${dirPath}"`
+      : `xdg-open "${dirPath}"`;
     exec(cmd);
     res.json({ success: true });
   } catch (err: unknown) {
