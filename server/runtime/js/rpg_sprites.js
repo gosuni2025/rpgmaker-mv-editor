@@ -2652,6 +2652,8 @@ Spriteset_Map.prototype.createMapObjects = function() {
 
                 var animSprite = new Sprite_Animation();
                 animSprite.setup(targetSprite, anim, false, 0);
+                // 컨테이너(z=5) 자식이므로 z=0 (누적 방지: animSprite.z=8 기본값이 world.z를 더 내려가게 함)
+                animSprite.z = 0;
                 // 오브젝트 크기에 맞게 스케일 조절 (기본 4x4 타일 = 192px)
                 var animScaleX = (obj.width * tw) / 192;
                 var animScaleY = (obj.height * th) / 192;
@@ -2882,10 +2884,20 @@ Spriteset_Map.prototype.updateMapObjects = function() {
         container.y = Math.round($gameMap.adjustY(container._mapObjY) * th + th - container._mapObjH * th / 2);
 
         // zHeight 동적 반영 (타일 단위 → 픽셀 단위 변환)
+        // 우선순위: 플러그인 커맨드(_mapObjZHeight) > $dataMap.objects의 zHeight
         if (container._mapObjZHeight != null) {
             var zPx = container._mapObjZHeight * th;
             if (container._heightOffset !== zPx) {
                 container._heightOffset = zPx;
+            }
+        } else {
+            // Inspector에서 obj.zHeight를 직접 수정한 경우 반영
+            var obj = $dataMap.objects[i];
+            if (obj) {
+                var dataZPx = (obj.zHeight || 0) * th;
+                if (container._heightOffset !== dataZPx) {
+                    container._heightOffset = dataZPx;
+                }
             }
         }
 
@@ -2935,6 +2947,7 @@ Spriteset_Map.prototype.updateMapObjects = function() {
                     }
                     if (container._mapObjAnimScaleX) newAnimSpr.scale.x = container._mapObjAnimScaleX;
                     if (container._mapObjAnimScaleY) newAnimSpr.scale.y = container._mapObjAnimScaleY;
+                    newAnimSpr.z = 0;  // 컨테이너 자식이므로 z=0
                     container.addChild(newAnimSpr);
                     container._mapObjAnimSprite = newAnimSpr;
                 } else {
