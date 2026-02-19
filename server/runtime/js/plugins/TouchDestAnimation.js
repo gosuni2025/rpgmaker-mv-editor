@@ -208,6 +208,23 @@
             this._currentPath = [];
         }
 
+        // 목적지 인디케이터 스프라이트 - tilemap 안, 타일 좌표 기준
+        // z=1(Lower chars)로 캐릭터(z=3) 뒤에 그려지며 3D 카메라 변환도 자동 반영
+        if (showDestIndicator) {
+            var tw = $gameMap.tileWidth();
+            var th = $gameMap.tileHeight();
+            var tileSize = Math.min(tw, th);
+            var indicSize = Math.ceil(tileSize * 1.6);
+            this._destIndicatorSprite = new Sprite();
+            this._destIndicatorSprite.bitmap = new Bitmap(indicSize, indicSize);
+            this._destIndicatorSprite.anchor.x = 0.5;
+            this._destIndicatorSprite.anchor.y = 0.5;
+            this._destIndicatorSprite.z = 1;
+            this._destIndicatorSprite.visible = false;
+            this._tilemap.addChild(this._destIndicatorSprite);
+            if (!this._currentPath) this._currentPath = [];
+        }
+
         _lastDestX = -1;
         _lastDestY = -1;
     };
@@ -261,12 +278,15 @@
     var _indicatorFrame = 0;
 
     Spriteset_Map.prototype.updatePathArrow = function() {
-        if (!this._pathArrowSprite) return;
+        if (!this._pathArrowSprite && !this._destIndicatorSprite) return;
 
         if (!$gameTemp.isDestinationValid()) {
-            if (this._currentPath.length > 0) {
+            if (this._pathArrowSprite && this._currentPath && this._currentPath.length > 0) {
                 this._currentPath = [];
                 this._pathArrowSprite.bitmap.clear();
+            }
+            if (this._destIndicatorSprite) {
+                this._destIndicatorSprite.visible = false;
             }
             _pathLastPlayerX = -1;
             _pathLastPlayerY = -1;
@@ -293,8 +313,20 @@
             this._currentPath = findPath(playerX, playerY, destX, destY);
         }
 
-        // 매 프레임 화면 좌표로 다시 그리기 (스크롤 대응)
-        this.drawPathArrow();
+        // 경로 화살표: 매 프레임 화면 좌표로 다시 그리기 (스크롤 대응)
+        if (this._pathArrowSprite) {
+            this.drawPathArrow();
+        }
+
+        // 인디케이터: tilemap 좌표 기준으로 위치 갱신 (3D 카메라 변환 자동 반영)
+        if (this._destIndicatorSprite) {
+            var tw = $gameMap.tileWidth();
+            var th = $gameMap.tileHeight();
+            this._destIndicatorSprite.x = $gameMap.adjustX(_pathLastDestX) * tw + tw / 2;
+            this._destIndicatorSprite.y = $gameMap.adjustY(_pathLastDestY) * th + th / 2;
+            this._destIndicatorSprite.visible = true;
+            this.drawDestIndicator();
+        }
     };
 
     Spriteset_Map.prototype.drawPathArrow = function() {
@@ -302,9 +334,7 @@
         bitmap.clear();
 
         var path = this._currentPath;
-        var hasDest = _pathLastDestX >= 0 && _pathLastDestY >= 0;
-
-        if (path.length === 0 && !hasDest) return;
+        if (path.length === 0) return;
 
         var tw = $gameMap.tileWidth();
         var th = $gameMap.tileHeight();
@@ -388,59 +418,69 @@
             ctx.fill();
         }
 
-        // 목적지 인디케이터: 역삼각형 3개가 목적지 주변을 공전
-        if (showDestIndicator && hasDest) {
-            var iX = screenX(_pathLastDestX);
-            var iY = screenY(_pathLastDestY);
-            var destReachable = path.length > 0 &&
-                path[path.length - 1].x === _pathLastDestX &&
-                path[path.length - 1].y === _pathLastDestY;
+        ctx.restore();
+        bitmap._setDirty();
+    };
 
-            var tileSize = Math.min(tw, th);
-            // 공전 반경 및 삼각형 크기
-            var orbitR = tileSize * 0.38 * dpr;
-            var triH  = tileSize * 0.20 * dpr;  // 삼각형 높이 (꼭짓점→밑변 중심)
-            var triW  = triH * 1.0;             // 밑변 반폭
-            var iColor = destReachable ? arrowColor : 'rgba(255, 80, 80, 0.9)';
-            var iOutlineColor = destReachable ? arrowOutlineColor : 'rgba(80, 0, 0, 0.7)';
+    //=========================================================================
+    // 목적지 인디케이터 그리기 (tilemap 좌표계 - DPR 불필요)
+    //=========================================================================
+    Spriteset_Map.prototype.drawDestIndicator = function() {
+        var bitmap = this._destIndicatorSprite.bitmap;
+        bitmap.clear();
 
-            // 공전 각속도: 360프레임에 1바퀴
-            var baseRot = (_indicatorFrame / 360) * Math.PI * 2;
+        var tw = $gameMap.tileWidth();
+        var th = $gameMap.tileHeight();
+        var tileSize = Math.min(tw, th);
+        var ctx = bitmap._context;
 
-            for (var t = 0; t < 3; t++) {
-                // 각 삼각형의 공전 각도 (120도씩 분리)
-                var orbitAngle = baseRot + (t * Math.PI * 2 / 3);
-                var cx = iX + orbitR * Math.cos(orbitAngle);
-                var cy = iY + orbitR * Math.sin(orbitAngle);
+        // 스프라이트 anchor=0.5이므로 중심 = bitmap 중앙
+        var cx = bitmap.width / 2;
+        var cy = bitmap.height / 2;
 
-                // 꼭짓점이 중심(iX, iY)을 가리키도록 회전
-                // 기본 역삼각형의 꼭짓점 방향이 +y(아래)이므로
-                // rotate = orbitAngle + π/2 로 중심 방향 정렬
-                var triRot = orbitAngle + Math.PI / 2;
+        var orbitR = tileSize * 0.38;
+        var triH   = tileSize * 0.20;
+        var triW   = triH;
 
-                ctx.save();
-                ctx.translate(cx, cy);
-                ctx.rotate(triRot);
+        var path = this._currentPath || [];
+        var destReachable = path.length > 0 &&
+            path[path.length - 1].x === _pathLastDestX &&
+            path[path.length - 1].y === _pathLastDestY;
 
-                // 역삼각형: 꼭짓점(0, triH), 왼쪽(-triW, -triH*0.5), 오른쪽(triW, -triH*0.5)
-                ctx.beginPath();
-                ctx.moveTo(0,      triH);
-                ctx.lineTo(-triW, -triH * 0.5);
-                ctx.lineTo( triW, -triH * 0.5);
-                ctx.closePath();
+        var iColor        = destReachable ? arrowColor        : 'rgba(255, 80, 80, 0.9)';
+        var iOutlineColor = destReachable ? arrowOutlineColor : 'rgba(80, 0, 0, 0.7)';
 
-                if (arrowOutline) {
-                    ctx.strokeStyle = iOutlineColor;
-                    ctx.lineWidth = (arrowWidth + arrowOutlineWidth * 2) * dpr;
-                    ctx.stroke();
-                }
-                ctx.fillStyle = iColor;
-                ctx.fill();
+        // 공전 각속도: 360프레임에 1바퀴
+        var baseRot = (_indicatorFrame / 360) * Math.PI * 2;
 
-                ctx.restore();
+        ctx.save();
+        for (var t = 0; t < 3; t++) {
+            var orbitAngle = baseRot + (t * Math.PI * 2 / 3);
+            var tx = cx + orbitR * Math.cos(orbitAngle);
+            var ty = cy + orbitR * Math.sin(orbitAngle);
+            // 꼭짓점이 중심을 향하도록: 기본 꼭짓점 방향(+y) → orbitAngle + π/2
+            var triRot = orbitAngle + Math.PI / 2;
+
+            ctx.save();
+            ctx.translate(tx, ty);
+            ctx.rotate(triRot);
+
+            ctx.beginPath();
+            ctx.moveTo(0,      triH);
+            ctx.lineTo(-triW, -triH * 0.5);
+            ctx.lineTo( triW, -triH * 0.5);
+            ctx.closePath();
+
+            if (arrowOutline) {
+                ctx.strokeStyle = iOutlineColor;
+                ctx.lineWidth = arrowWidth + arrowOutlineWidth * 2;
+                ctx.stroke();
             }
-        }
+            ctx.fillStyle = iColor;
+            ctx.fill();
 
+            ctx.restore();
+        }
         ctx.restore();
         bitmap._setDirty();
     };
