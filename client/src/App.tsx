@@ -66,7 +66,7 @@ function SidebarSplit({ editMode }: { editMode: string }) {
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
-  // 이벤트/오브젝트 편집 모드: 전용 목록만 전체 표시
+  // 전용 패널만 전체 표시하는 모드들
   if (editMode === 'event') {
     return (
       <div className="sidebar-split" ref={containerRef}>
@@ -85,26 +85,33 @@ function SidebarSplit({ editMode }: { editMode: string }) {
       </div>
     );
   }
-
-  const showTileset = editMode === 'map' || editMode === 'light';
-  const showCameraZoneList = editMode === 'cameraZone';
-  const showTopPanel = showTileset || showCameraZoneList;
-
-  const topContent = showCameraZoneList ? <CameraZoneListPanel /> : <TilesetPalette />;
-  const bottomContent = <MapTree />;
+  if (editMode === 'cameraZone') {
+    return (
+      <div className="sidebar-split" ref={containerRef}>
+        <div className="sidebar-bottom" style={{ flex: 1 }}>
+          <CameraZoneListPanel />
+        </div>
+      </div>
+    );
+  }
+  if (editMode === 'light') {
+    return (
+      <div className="sidebar-split" ref={containerRef}>
+        <div className="sidebar-bottom" style={{ flex: 1 }}>
+          <TilesetPalette />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="sidebar-split" ref={containerRef}>
-      {showTopPanel && (
-        <div className="sidebar-top" style={{ flex: `0 0 ${splitRatio * 100}%` }}>
-          {topContent}
-        </div>
-      )}
-      {showTopPanel && (
-        <div className="sidebar-split-handle" onMouseDown={handleMouseDown} />
-      )}
-      <div className="sidebar-bottom" style={showTopPanel ? { flex: `0 0 ${(1 - splitRatio) * 100}%` } : { flex: 1 }}>
-        {bottomContent}
+      <div className="sidebar-top" style={{ flex: `0 0 ${splitRatio * 100}%` }}>
+        <TilesetPalette />
+      </div>
+      <div className="sidebar-split-handle" onMouseDown={handleMouseDown} />
+      <div className="sidebar-bottom" style={{ flex: `0 0 ${(1 - splitRatio) * 100}%` }}>
+        <MapTree />
       </div>
     </div>
   );
