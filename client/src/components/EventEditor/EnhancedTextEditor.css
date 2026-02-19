@@ -28,6 +28,19 @@
   color: #ddd;
   border-bottom-color: #2675bf;
 }
+.ete-ext-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #2675bf;
+  color: #fff;
+  vertical-align: middle;
+  margin-left: 4px;
+  letter-spacing: 0.5px;
+}
 
 /* 툴바 */
 .ete-toolbar {
