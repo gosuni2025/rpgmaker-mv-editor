@@ -524,29 +524,90 @@ router.get('/migration-check', (req: Request, res: Response) => {
 });
 
 // Migration step: git backup only
-router.post('/migrate-git-backup', (req: Request, res: Response) => {
+// Migration git backup step 1: init repo if needed
+router.post('/migrate-git-init', (req: Request, res: Response) => {
   try {
     if (!projectManager.isOpen()) {
       return res.status(404).json({ error: 'No project open' });
     }
     const projectRoot = projectManager.currentPath!;
+    let initialized = false;
     try {
       execSync('git rev-parse --git-dir', { cwd: projectRoot, stdio: 'ignore' });
     } catch {
       execSync('git init', { cwd: projectRoot, stdio: 'ignore' });
+      initialized = true;
     }
+    res.json({ success: true, initialized });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Migration git backup step 2: stage all files
+router.post('/migrate-git-add', (req: Request, res: Response) => {
+  try {
+    if (!projectManager.isOpen()) {
+      return res.status(404).json({ error: 'No project open' });
+    }
+    const projectRoot = projectManager.currentPath!;
     execSync('git add -A', { cwd: projectRoot, stdio: 'ignore' });
+
+    // Count staged files
+    let stagedCount = 0;
+    try {
+      const out = execSync('git diff --cached --name-only', {
+        cwd: projectRoot, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'],
+      }).trim();
+      stagedCount = out ? out.split('\n').length : 0;
+    } catch { /* ignore */ }
+
+    res.json({ success: true, stagedCount });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Migration git backup step 3: commit
+router.post('/migrate-git-commit', (req: Request, res: Response) => {
+  try {
+    if (!projectManager.isOpen()) {
+      return res.status(404).json({ error: 'No project open' });
+    }
+    const projectRoot = projectManager.currentPath!;
+
+    // Check if there's anything staged
+    let hasStaged = false;
     try {
       execSync('git diff --cached --quiet', { cwd: projectRoot, stdio: 'ignore' });
-      try {
-        execSync('git rev-parse HEAD', { cwd: projectRoot, stdio: 'ignore' });
-      } catch {
-        execSync('git commit -m "Initial commit (before runtime migration)"', { cwd: projectRoot, stdio: 'ignore' });
-      }
     } catch {
-      execSync('git commit -m "Backup before runtime migration"', { cwd: projectRoot, stdio: 'ignore' });
+      hasStaged = true;
     }
-    res.json({ success: true });
+
+    let hasHead = false;
+    try {
+      execSync('git rev-parse HEAD', { cwd: projectRoot, stdio: 'ignore' });
+      hasHead = true;
+    } catch { /* no commits yet */ }
+
+    if (!hasStaged && hasHead) {
+      // Nothing to commit
+      return res.json({ success: true, committed: false, message: '변경 사항 없음 (이미 최신)' });
+    }
+
+    const message = hasHead
+      ? 'Backup before runtime migration'
+      : 'Initial commit (before runtime migration)';
+    execSync(`git commit -m "${message}"`, { cwd: projectRoot, stdio: 'ignore' });
+
+    let hash = '';
+    try {
+      hash = execSync('git rev-parse --short HEAD', {
+        cwd: projectRoot, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'],
+      }).trim();
+    } catch { /* ignore */ }
+
+    res.json({ success: true, committed: true, message, hash });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }
