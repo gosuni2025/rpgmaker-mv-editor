@@ -238,7 +238,9 @@ export function EnhancedTextEditor({
     <div className="ete-root">
       {/* 탭 바 */}
       <div className="ete-tabs">
-        <button className={`ete-tab ${mode === 'visual' ? 'active' : ''}`} onClick={() => setMode('visual')}>기본</button>
+        <button className={`ete-tab ${mode === 'visual' ? 'active' : ''}`} onClick={() => setMode('visual')}>
+          기본 <span className="ete-ext-badge">EXT</span>
+        </button>
         <button className={`ete-tab ${mode === 'raw' ? 'active' : ''}`} onClick={() => setMode('raw')}>Raw</button>
       </div>
 
