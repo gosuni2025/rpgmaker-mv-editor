@@ -1308,6 +1308,7 @@
     "noFiles": "No files",
     "import": "Import",
     "export": "Export",
+    "openFolder": "Open Folder",
     "noPreview": "No preview available",
     "selectFile": "Select a file",
     "confirmDelete": "Delete {{name}}?"
