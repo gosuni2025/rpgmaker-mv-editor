@@ -269,7 +269,6 @@ export default function MapInspector() {
           <input type="checkbox" checked={!!(currentMap as any).is3D}
             onChange={(e) => {
               updateMapField('is3D', e.target.checked || undefined);
-              useEditorStore.getState().setMode3d(e.target.checked);
             }} />
           <span>3D 모드</span>
         </label>

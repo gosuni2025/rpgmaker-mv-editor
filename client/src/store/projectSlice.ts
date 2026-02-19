@@ -161,11 +161,8 @@ export const projectSlice: SliceCreator<Pick<EditorState,
       localStorage.setItem(`rpg-last-map-${projectPath}`, String(mapId));
     }
     const map = await apiClient.get<MapData>(`/maps/${mapId}`);
-    // 맵 데이터에서 postProcessConfig 로드 및 is3D 플래그에 따라 mode3d 자동 설정
-    const is3D = !!(map as any).is3D;
-    const ConfigManager = (window as any).ConfigManager;
-    if (ConfigManager) ConfigManager.mode3d = is3D;
-    set({ postProcessConfig: map.postProcessConfig || {}, mode3d: is3D });
+    // 맵 데이터에서 postProcessConfig 로드
+    set({ postProcessConfig: map.postProcessConfig || {} });
     if (map.tilesetId) {
       try {
         const tilesets = await apiClient.get<(TilesetData | null)[]>('/database/tilesets');
