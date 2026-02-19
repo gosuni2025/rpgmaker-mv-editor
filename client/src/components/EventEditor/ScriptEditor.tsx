@@ -7,6 +7,75 @@ import type { EventCommand } from '../../types/rpgMakerMV';
 import useEscClose from '../../hooks/useEscClose';
 import './ScriptEditor.css';
 
+// ─── 샘플 코드 템플릿 ───
+const SCRIPT_SAMPLES: { label: string; code: string }[] = [
+  {
+    label: '변수 설정',
+    code:
+`// 변수 #1에 값 100 설정
+$gameVariables.setValue(1, 100);`,
+  },
+  {
+    label: '변수 계산 (현재값 +10)',
+    code:
+`// 변수 #1의 현재 값에 10 더하기
+$gameVariables.setValue(1, $gameVariables.value(1) + 10);`,
+  },
+  {
+    label: '스위치 켜기 / 끄기',
+    code:
+`// 스위치 #1 ON
+$gameSwitches.setValue(1, true);
+// 스위치 #1 OFF
+// $gameSwitches.setValue(1, false);`,
+  },
+  {
+    label: '골드 증감',
+    code:
+`// 소지금 1000 증가 (음수 시 감소)
+$gameParty.gainGold(1000);`,
+  },
+  {
+    label: '아이템 획득',
+    code:
+`// 아이템 ID 1을 5개 추가 (3번째 인수 false=포함, true=포함안함)
+$gameParty.gainItem($dataItems[1], 5, false);`,
+  },
+  {
+    label: '파티 전체 HP 회복',
+    code:
+`// 파티원 전체 HP·MP 완전 회복
+$gameParty.members().forEach(function(actor) {
+  actor.recoverAll();
+});`,
+  },
+  {
+    label: '장소 이동 (맵 ID 지정)',
+    code:
+`// 맵 ID 1의 좌표 (10, 8)로 이동, 방향 아래(2), 페이드인(0)
+$gamePlayer.reserveTransfer(1, 10, 8, 2, 0);`,
+  },
+  {
+    label: 'BGM 재생',
+    code:
+`// BGM 재생 (audio/bgm/ 폴더 기준 파일명)
+AudioManager.playBgm({ name: "Field1", volume: 90, pitch: 100, pan: 0 });`,
+  },
+  {
+    label: '화면 플래시',
+    code:
+`// 흰색 플래시 30프레임
+$gameScreen.startFlash([255, 255, 255, 255], 30);`,
+  },
+  {
+    label: '이벤트 위치 변경',
+    code:
+`// 이벤트 ID 2를 좌표 (5, 5)로 순간 이동
+var ev = $gameMap.event(2);
+if (ev) ev.locate(5, 5);`,
+  },
+];
+
 // 파일 참조 마커 패턴
 const FILE_REF_REGEX = /^\/\* @script-file: (.+?) \*\//;
 
@@ -193,6 +262,20 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
     };
   }, [activeTab, fileContent, fileLoading]);
 
+  // ─── 샘플 삽입 ───
+  const handleInsertSample = useCallback((code: string) => {
+    const view = inlineViewRef.current;
+    if (!view) return;
+    const docLen = view.state.doc.length;
+    const isEmpty = !view.state.doc.toString().trim();
+    if (isEmpty) {
+      view.dispatch({ changes: { from: 0, to: docLen, insert: code } });
+    } else {
+      view.dispatch({ changes: { from: docLen, insert: '\n\n' + code } });
+    }
+    view.focus();
+  }, []);
+
   // ─── 폴더 열기 ───
   const handleOpenFolder = useCallback(() => {
     const folderPath = selectedFile
@@ -251,6 +334,24 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
           {/* 인라인 탭 */}
           {activeTab === 'inline' && (
             <div className="script-editor-inline">
+              {/* 샘플 삽입 툴바 */}
+              <div className="script-sample-toolbar">
+                <span className="script-sample-label">샘플 삽입:</span>
+                <select
+                  className="script-sample-select"
+                  value=""
+                  onChange={e => {
+                    const sample = SCRIPT_SAMPLES.find(s => s.label === e.target.value);
+                    if (sample) handleInsertSample(sample.code);
+                    e.target.value = '';
+                  }}
+                >
+                  <option value="">-- 샘플 코드 선택 --</option>
+                  {SCRIPT_SAMPLES.map(s => (
+                    <option key={s.label} value={s.label}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
               <div ref={inlineContainerRef} className="script-cm-container" />
               {lintErrors.length > 0 && (
                 <div className="script-lint-panel">
