@@ -18,7 +18,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
-  'showToast' | 'dismissToast' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
+  'showToast' | 'dismissToast' | 'dismissAllToasts' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
   'setShowGrid' | 'setShowPassability' | 'setShowTileInfo' | 'setShowRegion' |
   'setMode3d' | 'setShadowLight' | 'setDisableFow' | 'setPaletteTab' |
@@ -64,6 +64,9 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   },
   dismissToast: (id: number) => {
     set({ toastQueue: get().toastQueue.filter(t => t.id !== id) });
+  },
+  dismissAllToasts: () => {
+    set({ toastQueue: [] });
   },
 
   setZoomLevel: (level: number) => {
