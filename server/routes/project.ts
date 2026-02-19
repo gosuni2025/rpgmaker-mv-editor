@@ -45,15 +45,23 @@ router.get('/drives', (_req: Request, res: Response) => {
   if (process.platform !== 'win32') {
     return res.json({ drives: [] });
   }
-  const drives: string[] = [];
-  for (let i = 65; i <= 90; i++) {
-    const drive = String.fromCharCode(i) + ':\\';
-    try {
-      fs.accessSync(drive);
-      drives.push(drive);
-    } catch { /* drive not accessible */ }
+  try {
+    // wmic으로 실제 존재하는 드라이브 목록 가져오기
+    const output = execSync('wmic logicaldisk get caption', { encoding: 'utf8', timeout: 3000 });
+    const drives = (output.match(/[A-Z]:/gi) || []).map((d: string) => d.toUpperCase() + '\\');
+    return res.json({ drives });
+  } catch {
+    // fallback: 알파벳 순회
+    const drives: string[] = [];
+    for (let i = 65; i <= 90; i++) {
+      const drive = String.fromCharCode(i) + ':\\';
+      try {
+        fs.statSync(drive);
+        drives.push(drive);
+      } catch { /* drive not accessible */ }
+    }
+    res.json({ drives });
   }
-  res.json({ drives });
 });
 
 router.get('/browse', (req: Request, res: Response) => {
