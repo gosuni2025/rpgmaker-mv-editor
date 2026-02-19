@@ -256,6 +256,23 @@ export default function MapCanvas() {
     };
   }, []);
 
+  // 이벤트 목록에서 클릭 시 해당 타일로 스크롤
+  useEffect(() => {
+    const onScrollToTile = (e: Event) => {
+      const el = containerRef.current;
+      if (!el) return;
+      const { x, y } = (e as CustomEvent<{ x: number; y: number }>).detail;
+      const zoom = useEditorStore.getState().zoomLevel;
+      const tilePx = TILE_SIZE_PX * zoom;
+      const targetLeft = x * tilePx - el.clientWidth / 2 + tilePx / 2;
+      const targetTop = y * tilePx - el.clientHeight / 2 + tilePx / 2;
+      el.scrollLeft = Math.max(0, targetLeft);
+      el.scrollTop = Math.max(0, targetTop);
+    };
+    window.addEventListener('scroll-to-tile', onScrollToTile);
+    return () => window.removeEventListener('scroll-to-tile', onScrollToTile);
+  }, []);
+
   // =========================================================================
   // Render
   // =========================================================================

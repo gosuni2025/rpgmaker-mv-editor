@@ -5,6 +5,47 @@ import { pushEventUndoEntry, incrementName } from './editingHelpers';
 type SetFn = (partial: Partial<EditorState> | ((s: EditorState) => Partial<EditorState>)) => void;
 type GetFn = () => EditorState;
 
+export function addEventOp(get: GetFn, set: SetFn, x: number = 0, y: number = 0): number | null {
+  const { currentMap } = get();
+  if (!currentMap) return null;
+  const events = [...(currentMap.events || [])];
+  const maxId = events.reduce((max, e) => (e && e.id > max ? e.id : max), 0);
+  const newId = maxId + 1;
+  const newEvent = {
+    id: newId,
+    name: `EV${String(newId).padStart(3, '0')}`,
+    x,
+    y,
+    note: '',
+    pages: [{
+      conditions: {
+        actorId: 1, actorValid: false, itemId: 1, itemValid: false,
+        selfSwitchCh: 'A', selfSwitchValid: false,
+        switch1Id: 1, switch1Valid: false, switch2Id: 1, switch2Valid: false,
+        variableId: 1, variableValid: false, variableValue: 0,
+      },
+      directionFix: false,
+      image: { characterIndex: 0, characterName: '', direction: 2, pattern: 1, tileId: 0 },
+      list: [{ code: 0, indent: 0, parameters: [] }],
+      moveFrequency: 3,
+      moveRoute: { list: [{ code: 0 }], repeat: true, skippable: false, wait: false },
+      moveSpeed: 3,
+      moveType: 0,
+      priorityType: 1,
+      stepAnime: false,
+      through: false,
+      trigger: 0,
+      walkAnime: true,
+    }],
+  } as MapData['events'][number];
+  const oldEvents = [...events];
+  while (events.length <= newId) events.push(null);
+  events[newId] = newEvent;
+  set({ currentMap: { ...currentMap, events }, selectedEventId: newId });
+  pushEventUndoEntry(get, set, oldEvents, events);
+  return newId;
+}
+
 export function copyEventOp(get: GetFn, set: SetFn, eventId: number) {
   const map = get().currentMap;
   if (!map || !map.events) return;
