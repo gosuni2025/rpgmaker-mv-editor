@@ -304,12 +304,13 @@
         var _is3DMode = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
         if (node._threeObj) {
             // 3D 모드: PIXI .z 값을 position.z로 변환 (depth buffer 기반 깊이 판별)
-            //   - position.z = -pixiZ * 0.01 (음수 = 카메라에 가까움)
+            //   - position.z = pixiZ * zStep + _heightOffset
+            //   - _heightOffset: zHeight 등의 3D 높이 오프셋 (픽셀 단위)
             //   - renderOrder는 동일 z 레이어 내 코플래너 스태킹에 보조 사용
             if (_is3DMode) {
                 var pixiZ = node.z || 0;
                 var zStep = (window.DepthDebugConfig && window.DepthDebugConfig.zLayerStep) || -0.01;
-                node._threeObj.position.z = pixiZ * zStep;
+                node._threeObj.position.z = pixiZ * zStep + (node._heightOffset || 0);
             }
             // THREE.Mesh objects get renderOrder for depth-independent sorting
             if (node._threeObj.isMesh) {
