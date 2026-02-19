@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
+import { EnhancedTextEditor } from './EnhancedTextEditor';
 import './ShowChoicesEditor.css';
 
 export const selectStyle = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 } as const;
@@ -70,10 +71,14 @@ export function ShowTextEditor({ p, onOk, onCancel, existingLines }: { p: unknow
         <input type="checkbox" checked={bulkInput} onChange={e => setBulkInput(e.target.checked)} />
         일괄 입력
       </label>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
+      <label style={{ fontSize: 12, color: '#aaa', display: 'block' }}>
         텍스트{bulkInput ? '' : ' (최대 4줄)'}:
-        <textarea value={text} onChange={e => setText(e.target.value)} rows={bulkInput ? 12 : 4}
-          style={{ ...selectStyle, width: '100%', resize: 'vertical', fontFamily: 'monospace' }} />
+        <EnhancedTextEditor
+          value={text}
+          onChange={setText}
+          rows={bulkInput ? 12 : 4}
+          placeholder="텍스트를 입력하세요..."
+        />
       </label>
       <div className="image-picker-footer">
         <button className="db-btn" onClick={handleOk}>OK</button>
@@ -104,10 +109,13 @@ export function TextEditor({ p, onOk, onCancel, followCode, label, existingLines
 
   return (
     <>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
+      <label style={{ fontSize: 12, color: '#aaa', display: 'block' }}>
         {label}
-        <textarea value={text} onChange={e => setText(e.target.value)} rows={8}
-          style={{ ...selectStyle, width: '100%', resize: 'vertical', fontFamily: 'monospace' }} />
+        <EnhancedTextEditor
+          value={text}
+          onChange={setText}
+          rows={8}
+        />
       </label>
       <div className="image-picker-footer">
         <button className="db-btn" onClick={handleOk}>OK</button>
@@ -140,10 +148,14 @@ export function ScrollingTextEditor({ p, onOk, onCancel, existingLines }: {
 
   return (
     <>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
+      <label style={{ fontSize: 12, color: '#aaa', display: 'block' }}>
         텍스트:
-        <textarea value={text} onChange={e => setText(e.target.value)} rows={8}
-          style={{ ...selectStyle, width: '100%', resize: 'vertical', fontFamily: 'monospace' }} />
+        <EnhancedTextEditor
+          value={text}
+          onChange={setText}
+          rows={8}
+          placeholder="스크롤 텍스트를 입력하세요..."
+        />
       </label>
       <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
         <label style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 4 }}>
