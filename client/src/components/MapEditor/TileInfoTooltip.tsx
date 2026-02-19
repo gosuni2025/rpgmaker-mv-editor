@@ -24,12 +24,59 @@ function getCachedImage(name: string): HTMLImageElement | null {
   return img;
 }
 
+/** Region(R 레이어) 타일을 팔레트와 동일한 방식으로 그리는 컴포넌트 */
+function RegionPreviewCanvas({ regionId }: { regionId: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const SIZE = 32;
+    ctx.clearRect(0, 0, SIZE, SIZE);
+
+    // 팔레트와 동일한 색상 계산
+    if (regionId > 0) {
+      ctx.fillStyle = `hsl(${(regionId * 137) % 360}, 50%, 30%)`;
+    } else {
+      ctx.fillStyle = '#2b2b2b';
+    }
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    // 테두리
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, SIZE - 1, SIZE - 1);
+
+    // 숫자 텍스트
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(regionId), SIZE / 2, SIZE / 2);
+  });
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={32}
+      height={32}
+      className="tile-info-preview"
+    />
+  );
+}
+
 /** 단일 타일 ID를 32x32 캔버스에 미리보기로 그리는 컴포넌트 */
 function TilePreviewCanvas({ tileId, tilesetNames }: { tileId: number; tilesetNames?: string[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [, setRerender] = useState(0);
 
-  const renderInfo = useMemo(() => getTileRenderInfo(tileId), [tileId]);
+  // Region ID (1~255)는 별도 컴포넌트로 처리
+  const isRegion = tileId >= 1 && tileId <= 255;
+
+  const renderInfo = useMemo(() => (!isRegion ? getTileRenderInfo(tileId) : null), [tileId, isRegion]);
 
   useEffect(() => {
     if (!renderInfo || !tilesetNames) return;
@@ -89,6 +136,7 @@ function TilePreviewCanvas({ tileId, tilesetNames }: { tileId: number; tilesetNa
     }
   });
 
+  if (isRegion) return <RegionPreviewCanvas regionId={tileId} />;
   if (!renderInfo) return null;
 
   return (
