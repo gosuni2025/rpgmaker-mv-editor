@@ -3194,8 +3194,8 @@ Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
             ShadowLight._convertedMaterials.set(outputMat, true);
         }
     }
-    // anchorY shader clipping: MeshPhongMaterial 출력에 적용
-    if (sprite._needsAnchorClip && outputMat.isMeshPhongMaterial) {
+    // anchorY shader clipping: output material에 적용 (MeshPhong/MeshBasic 모두)
+    if (sprite._needsAnchorClip) {
         outputMat.onBeforeCompile = function(shader) {
             shader.vertexShader = shader.vertexShader.replace(
                 'void main() {',
@@ -3206,8 +3206,9 @@ Spriteset_Map.prototype._applyObjectShaderPasses = function(sprite, passes) {
                 'varying float vLocalY;\nvoid main() {\n  if (vLocalY > 0.0) discard;'
             );
         };
+        var _matType = outputMat.isMeshPhongMaterial ? 'phong' : 'basic';
         outputMat.customProgramCacheKey = function() {
-            return 'mapobj-shader-clip-anchor-phong';
+            return 'mapobj-shader-clip-anchor-' + _matType;
         };
         outputMat.needsUpdate = true;
     }
