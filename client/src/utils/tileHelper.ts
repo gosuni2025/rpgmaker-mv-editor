@@ -708,11 +708,12 @@ export interface TileDescription {
   indexInSheet: number;
 }
 
-export function getTileDescription(tileId: number, tilesetNames?: string[]): TileDescription | null {
+export function getTileDescription(tileId: number, tilesetNames?: string[], layer?: number): TileDescription | null {
   if (tileId === 0) return null;
 
-  // 리전
-  if (tileId >= 1 && tileId <= 255) {
+  // 리전: z=5 레이어에서만 1~255를 리전으로 해석
+  // (TILE_ID_B=0 이므로 layer 구분 없이 처리하면 B 타일이 리전으로 오인됨)
+  if (layer === 5 && tileId >= 1 && tileId <= 255) {
     return {
       tileId,
       category: '리전',
