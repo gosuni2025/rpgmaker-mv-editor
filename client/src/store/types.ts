@@ -259,6 +259,10 @@ export interface EditorState {
   // Renderer init error
   rendererInitError: RendererInitError | null;
 
+  // 미실행 프로젝트 팝업
+  uninitializedProjectPath: string | null;
+  setUninitializedProjectPath: (path: string | null) => void;
+
   // Toast
   toastQueue: { id: number; message: string; persistent: boolean }[];
   showToast: (message: string, persistent?: boolean) => void;

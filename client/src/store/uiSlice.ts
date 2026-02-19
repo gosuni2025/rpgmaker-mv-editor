@@ -14,6 +14,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'zoomLevel' | 'mode3d' | 'shadowLight' | 'disableFow' | 'paletteTab' | 'toastQueue' |
   'showGrid' | 'showPassability' | 'showTileInfo' | 'showRegion' |
   'transparentColor' | 'maxUndo' | 'zoomStep' | 'rendererInitError' |
+  'uninitializedProjectPath' | 'setUninitializedProjectPath' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
@@ -38,6 +39,8 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   paletteTab: 'A',
   toastQueue: [],
   rendererInitError: null as RendererInitError | null,
+  uninitializedProjectPath: null as string | null,
+  setUninitializedProjectPath: (path: string | null) => set({ uninitializedProjectPath: path }),
   transparentColor: { r: 255, g: 255, b: 255 },
   maxUndo: DEFAULT_MAX_UNDO,
   zoomStep: DEFAULT_ZOOM_STEP,

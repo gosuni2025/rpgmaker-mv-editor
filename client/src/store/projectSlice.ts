@@ -1,4 +1,4 @@
-import apiClient from '../api/client';
+import apiClient, { ApiError } from '../api/client';
 import type { MapInfo, MapData, TilesetData, SystemData } from '../types/rpgMakerMV';
 import type { EditorState, SliceCreator, PlayerStartHistoryEntry, MapDeleteHistoryEntry, MapRenameHistoryEntry } from './types';
 import { PROJECT_STORAGE_KEY, EDIT_MODE_STORAGE_KEY, TOOLBAR_STORAGE_KEY } from './types';
@@ -134,7 +134,12 @@ export const projectSlice: SliceCreator<Pick<EditorState,
         if (savedMode && ['map', 'event', 'light', 'object', 'cameraZone'].includes(savedMode)) {
           get().setEditMode(savedMode as EditorState['editMode']);
         }
-      } catch {
+      } catch (err) {
+        if (err instanceof ApiError && (err.body as Record<string, unknown>)?.errorCode === 'NOT_INITIALIZED') {
+          // 미실행 프로젝트: 팝업 표시, 저장된 경로는 유지
+          get().setUninitializedProjectPath(saved);
+          return;
+        }
         localStorage.removeItem(PROJECT_STORAGE_KEY);
       }
     }

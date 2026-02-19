@@ -118,6 +118,8 @@ export default function App() {
   const dismissToast = useEditorStore((s) => s.dismissToast);
   const parseErrors = useEditorStore((s) => s.parseErrors);
   const rendererInitError = useEditorStore((s) => s.rendererInitError);
+  const uninitializedProjectPath = useEditorStore((s) => s.uninitializedProjectPath);
+  const setUninitializedProjectPath = useEditorStore((s) => s.setUninitializedProjectPath);
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
   useFileWatcher();
@@ -190,40 +192,37 @@ export default function App() {
   }, []);
 
   const [migrationPath, setMigrationPath] = useState<string | null>(null);
-  const [uninitializedProject, setUninitializedProject] = useState<string | null>(null);
 
   const handleOpenProject = async (projectPath: string) => {
     setShowOpenProjectDialog(false);
 
-    const doOpen = async () => {
-      try {
-        const res = await apiClient.get<{ needsMigration: boolean }>(
-          `/project/migration-check?path=${encodeURIComponent(projectPath)}`
-        );
-        if (res.needsMigration) {
-          // Open the project first (so migrate API works), then show dialog
-          await openProject(projectPath);
-          const name = useEditorStore.getState().projectName;
-          addRecentProject(projectPath, name || '');
-          setMigrationPath(projectPath);
-          return;
-        }
-      } catch (err) {
-        if (err instanceof ApiError && (err.body as Record<string, unknown>)?.errorCode === 'NOT_INITIALIZED') {
-          throw err;
-        }
-        // If migration check fails for other reasons, just open normally
+    try {
+      const res = await apiClient.get<{ needsMigration: boolean }>(
+        `/project/migration-check?path=${encodeURIComponent(projectPath)}`
+      );
+      if (res.needsMigration) {
+        // Open the project first (so migrate API works), then show dialog
+        await openProject(projectPath);
+        const name = useEditorStore.getState().projectName;
+        addRecentProject(projectPath, name || '');
+        setMigrationPath(projectPath);
+        return;
       }
+    } catch (err) {
+      if (err instanceof ApiError && (err.body as Record<string, unknown>)?.errorCode === 'NOT_INITIALIZED') {
+        setUninitializedProjectPath(projectPath);
+        return;
+      }
+      // migration check 실패는 무시하고 계속
+    }
+
+    try {
       await openProject(projectPath);
       const name = useEditorStore.getState().projectName;
       addRecentProject(projectPath, name || '');
-    };
-
-    try {
-      await doOpen();
     } catch (err) {
       if (err instanceof ApiError && (err.body as Record<string, unknown>)?.errorCode === 'NOT_INITIALIZED') {
-        setUninitializedProject(projectPath);
+        setUninitializedProjectPath(projectPath);
       }
     }
   };
@@ -288,7 +287,7 @@ export default function App() {
           onSkip={() => setMigrationPath(null)}
         />
       )}
-      {uninitializedProject && (
+      {uninitializedProjectPath && (
         <div className="db-dialog-overlay">
           <div className="db-dialog" style={{ maxWidth: 480 }}>
             <div className="db-dialog-header">프로젝트를 열 수 없습니다</div>
@@ -300,11 +299,11 @@ export default function App() {
                 <strong>1회 실행</strong>한 후 다시 시도해주세요.
               </p>
               <p style={{ marginTop: 12, color: '#aaa', fontSize: '0.85em' }}>
-                경로: {uninitializedProject}
+                경로: {uninitializedProjectPath}
               </p>
             </div>
             <div className="db-dialog-footer">
-              <button className="db-btn" onClick={() => setUninitializedProject(null)}>확인</button>
+              <button className="db-btn" onClick={() => setUninitializedProjectPath(null)}>확인</button>
             </div>
           </div>
         </div>
