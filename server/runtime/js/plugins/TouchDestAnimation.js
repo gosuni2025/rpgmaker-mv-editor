@@ -258,6 +258,7 @@
     var _pathLastPlayerY = -1;
     var _pathLastDestX = -1;
     var _pathLastDestY = -1;
+    var _indicatorFrame = 0;
 
     Spriteset_Map.prototype.updatePathArrow = function() {
         if (!this._pathArrowSprite) return;
@@ -271,8 +272,11 @@
             _pathLastPlayerY = -1;
             _pathLastDestX = -1;
             _pathLastDestY = -1;
+            _indicatorFrame = 0;
             return;
         }
+
+        _indicatorFrame = (_indicatorFrame + 1) % 360;
 
         var destX = $gameTemp.destinationX();
         var destY = $gameTemp.destinationY();
@@ -384,7 +388,7 @@
             ctx.fill();
         }
 
-        // 목적지 인디케이터: 실제 목적지 타일 위치를 항상 표시
+        // 목적지 인디케이터: 역삼각형 3개가 목적지 주변을 공전
         if (showDestIndicator && hasDest) {
             var iX = screenX(_pathLastDestX);
             var iY = screenY(_pathLastDestY);
@@ -393,67 +397,47 @@
                 path[path.length - 1].y === _pathLastDestY;
 
             var tileSize = Math.min(tw, th);
-            var radius = tileSize * 0.35 * dpr;
+            // 공전 반경 및 삼각형 크기
+            var orbitR = tileSize * 0.38 * dpr;
+            var triH  = tileSize * 0.20 * dpr;  // 삼각형 높이 (꼭짓점→밑변 중심)
+            var triW  = triH * 1.0;             // 밑변 반폭
             var iColor = destReachable ? arrowColor : 'rgba(255, 80, 80, 0.9)';
             var iOutlineColor = destReachable ? arrowOutlineColor : 'rgba(80, 0, 0, 0.7)';
 
-            // 테두리 원
-            if (arrowOutline) {
-                ctx.strokeStyle = iOutlineColor;
-                ctx.lineWidth = (arrowWidth + arrowOutlineWidth * 2) * dpr;
-                ctx.beginPath();
-                ctx.arc(iX, iY, radius, 0, Math.PI * 2);
-                ctx.stroke();
-            }
-            // 메인 원
-            ctx.strokeStyle = iColor;
-            ctx.lineWidth = arrowWidth * dpr;
-            ctx.beginPath();
-            ctx.arc(iX, iY, radius, 0, Math.PI * 2);
-            ctx.stroke();
+            // 공전 각속도: 360프레임에 1바퀴
+            var baseRot = (_indicatorFrame / 360) * Math.PI * 2;
 
-            if (!destReachable) {
-                // X 마크 (이동 불가)
-                var xSize = radius * 0.55;
+            for (var t = 0; t < 3; t++) {
+                // 각 삼각형의 공전 각도 (120도씩 분리)
+                var orbitAngle = baseRot + (t * Math.PI * 2 / 3);
+                var cx = iX + orbitR * Math.cos(orbitAngle);
+                var cy = iY + orbitR * Math.sin(orbitAngle);
+
+                // 꼭짓점이 중심(iX, iY)을 가리키도록 회전
+                // 기본 역삼각형의 꼭짓점 방향이 +y(아래)이므로
+                // rotate = orbitAngle + π/2 로 중심 방향 정렬
+                var triRot = orbitAngle + Math.PI / 2;
+
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(triRot);
+
+                // 역삼각형: 꼭짓점(0, triH), 왼쪽(-triW, -triH*0.5), 오른쪽(triW, -triH*0.5)
+                ctx.beginPath();
+                ctx.moveTo(0,      triH);
+                ctx.lineTo(-triW, -triH * 0.5);
+                ctx.lineTo( triW, -triH * 0.5);
+                ctx.closePath();
+
                 if (arrowOutline) {
                     ctx.strokeStyle = iOutlineColor;
                     ctx.lineWidth = (arrowWidth + arrowOutlineWidth * 2) * dpr;
-                    ctx.beginPath();
-                    ctx.moveTo(iX - xSize, iY - xSize);
-                    ctx.lineTo(iX + xSize, iY + xSize);
-                    ctx.moveTo(iX + xSize, iY - xSize);
-                    ctx.lineTo(iX - xSize, iY + xSize);
                     ctx.stroke();
                 }
-                ctx.strokeStyle = iColor;
-                ctx.lineWidth = arrowWidth * dpr;
-                ctx.beginPath();
-                ctx.moveTo(iX - xSize, iY - xSize);
-                ctx.lineTo(iX + xSize, iY + xSize);
-                ctx.moveTo(iX + xSize, iY - xSize);
-                ctx.lineTo(iX - xSize, iY + xSize);
-                ctx.stroke();
-            } else {
-                // 십자 마크 (도달 가능)
-                var crossSize = radius * 0.4;
-                if (arrowOutline) {
-                    ctx.strokeStyle = iOutlineColor;
-                    ctx.lineWidth = (arrowWidth + arrowOutlineWidth * 2) * dpr;
-                    ctx.beginPath();
-                    ctx.moveTo(iX - crossSize, iY);
-                    ctx.lineTo(iX + crossSize, iY);
-                    ctx.moveTo(iX, iY - crossSize);
-                    ctx.lineTo(iX, iY + crossSize);
-                    ctx.stroke();
-                }
-                ctx.strokeStyle = iColor;
-                ctx.lineWidth = arrowWidth * dpr;
-                ctx.beginPath();
-                ctx.moveTo(iX - crossSize, iY);
-                ctx.lineTo(iX + crossSize, iY);
-                ctx.moveTo(iX, iY - crossSize);
-                ctx.lineTo(iX, iY + crossSize);
-                ctx.stroke();
+                ctx.fillStyle = iColor;
+                ctx.fill();
+
+                ctx.restore();
             }
         }
 
