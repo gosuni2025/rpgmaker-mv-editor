@@ -12,43 +12,72 @@ export function ShowTextEditor({ p, onOk, onCancel, existingLines }: { p: unknow
   const [background, setBackground] = useState<number>((p[2] as number) || 0);
   const [positionType, setPositionType] = useState<number>((p[3] as number) || 2);
   const [text, setText] = useState(existingLines?.join('\n') || '');
+  const [bulkInput, setBulkInput] = useState(false);
 
   const handleOk = () => {
-    const lines = text.split('\n').filter((_, i) => i < 4);
-    const extra: EventCommand[] = lines.map(line => ({ code: 401, indent: 0, parameters: [line] }));
-    onOk([faceName, faceIndex, background, positionType], extra);
+    if (bulkInput) {
+      const allLines = text.split('\n');
+      const groups: string[][] = [];
+      for (let i = 0; i < allLines.length; i += 4) {
+        groups.push(allLines.slice(i, i + 4));
+      }
+      if (groups.length === 0) groups.push([]);
+      const extra: EventCommand[] = groups[0].map(line => ({ code: 401, indent: 0, parameters: [line] }));
+      for (let i = 1; i < groups.length; i++) {
+        extra.push({ code: 101, indent: 0, parameters: [faceName, faceIndex, background, positionType] });
+        groups[i].forEach(line => extra.push({ code: 401, indent: 0, parameters: [line] }));
+      }
+      onOk([faceName, faceIndex, background, positionType], extra);
+    } else {
+      const lines = text.split('\n').filter((_, i) => i < 4);
+      const extra: EventCommand[] = lines.map(line => ({ code: 401, indent: 0, parameters: [line] }));
+      onOk([faceName, faceIndex, background, positionType], extra);
+    }
   };
+
+  const radioRowStyle: React.CSSProperties = { display: 'flex', gap: 12, marginTop: 4 };
+  const radioLabelStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#ddd', fontSize: 12 };
 
   return (
     <>
       <div style={{ fontSize: 12, color: '#aaa' }}>
-        Face
+        얼굴
         <ImagePicker type="faces" value={faceName} onChange={setFaceName} index={faceIndex} onIndexChange={setFaceIndex} />
       </div>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        Background
-        <select value={background} onChange={e => setBackground(Number(e.target.value))} style={selectStyle}>
-          <option value={0}>Window</option>
-          <option value={1}>Dim</option>
-          <option value={2}>Transparent</option>
-        </select>
+      <div style={{ fontSize: 12, color: '#aaa', marginBottom: 6 }}>
+        배경
+        <div style={radioRowStyle}>
+          {([{ value: 0, label: '창' }, { value: 1, label: '어둡게' }, { value: 2, label: '투명' }] as const).map(opt => (
+            <label key={opt.value} style={radioLabelStyle}>
+              <input type="radio" name="showtext-background" value={opt.value} checked={background === opt.value} onChange={() => setBackground(opt.value)} />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: '#aaa', marginBottom: 6 }}>
+        창의 위치
+        <div style={radioRowStyle}>
+          {([{ value: 0, label: '위' }, { value: 1, label: '가운데' }, { value: 2, label: '아래' }] as const).map(opt => (
+            <label key={opt.value} style={radioLabelStyle}>
+              <input type="radio" name="showtext-position" value={opt.value} checked={positionType === opt.value} onChange={() => setPositionType(opt.value)} />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </div>
+      <label className="db-checkbox-label" style={{ fontSize: 12, color: '#aaa', flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+        <input type="checkbox" checked={bulkInput} onChange={e => setBulkInput(e.target.checked)} />
+        일괄 입력
       </label>
       <label style={{ fontSize: 12, color: '#aaa' }}>
-        Position
-        <select value={positionType} onChange={e => setPositionType(Number(e.target.value))} style={selectStyle}>
-          <option value={0}>Top</option>
-          <option value={1}>Middle</option>
-          <option value={2}>Bottom</option>
-        </select>
-      </label>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        Text (max 4 lines)
-        <textarea value={text} onChange={e => setText(e.target.value)} rows={4}
+        텍스트{bulkInput ? '' : ' (최대 4줄)'}:
+        <textarea value={text} onChange={e => setText(e.target.value)} rows={bulkInput ? 12 : 4}
           style={{ ...selectStyle, width: '100%', resize: 'vertical', fontFamily: 'monospace' }} />
       </label>
       <div className="image-picker-footer">
         <button className="db-btn" onClick={handleOk}>OK</button>
-        <button className="db-btn" onClick={onCancel}>Cancel</button>
+        <button className="db-btn" onClick={onCancel}>취소</button>
       </div>
     </>
   );
