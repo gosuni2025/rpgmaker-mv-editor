@@ -359,7 +359,7 @@ $gameScreen.changeWeather('rain', 5, 60);
     group: '오디오',
     label: 'BGM 재생',
     code:
-`AudioManager.playBgm({ name: "Field1", volume: 90, pitch: 100, pan: 0 });`,
+`AudioManager.playBgm({ name: "Castle1", volume: 90, pitch: 100, pan: 0 });`,
   },
   {
     group: '오디오',
@@ -378,14 +378,14 @@ $gameScreen.changeWeather('rain', 5, 60);
     group: '오디오',
     label: 'BGS 재생 / 정지',
     code:
-`AudioManager.playBgs({ name: "River", volume: 80, pitch: 100, pan: 0 });
+`AudioManager.playBgs({ name: "City", volume: 80, pitch: 100, pan: 0 });
 // AudioManager.fadeOutBgs(2); // 2초 페이드아웃`,
   },
   {
     group: '오디오',
     label: 'ME 재생',
     code:
-`AudioManager.playMe({ name: "Item", volume: 90, pitch: 100, pan: 0 });`,
+`AudioManager.playMe({ name: "Fanfare1", volume: 90, pitch: 100, pan: 0 });`,
   },
   {
     group: '오디오',
@@ -450,9 +450,10 @@ $gameSystem.disableEncounter();  // 조우 금지
     group: '시스템 설정',
     label: '창 색깔 변경',
     code:
-`// windowTone: [R, G, B] 각 -255~255
-$gameSystem.windowTone = [-50, 0, 50]; // 파란빛
-// 원상복구: $gameSystem.windowTone = [0, 0, 0];`,
+`// windowTone: [R, G, B, gray] 각 -255~255
+// windowTone은 메서드이므로 setWindowTone()으로 설정해야 함
+$gameSystem.setWindowTone([-50, 0, 50, 0]); // 파란빛
+// 원상복구: $gameSystem.setWindowTone([0, 0, 0, 0]);`,
   },
   {
     group: '시스템 설정',
@@ -469,7 +470,8 @@ $gameSystem.setVictoryMe({ name: "Victory1", volume: 90, pitch: 100, pan: 0 });`
     group: '맵',
     label: '지도 이름 변경 (표시명)',
     code:
-`$gameMap.setDisplayName("새로운 지역");`,
+`// $dataMap.displayName을 직접 수정 (setDisplayName은 MV에 없음)
+$dataMap.displayName = "새로운 지역";`,
   },
   {
     group: '맵',
