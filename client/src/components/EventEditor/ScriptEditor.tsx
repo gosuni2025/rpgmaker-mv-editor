@@ -5,100 +5,8 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { linter, lintGutter, type Diagnostic } from '@codemirror/lint';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import useEscClose from '../../hooks/useEscClose';
+import { SCRIPT_SAMPLES, SAMPLE_GROUPS } from './scriptSamples';
 import './ScriptEditor.css';
-
-// ─── 샘플 코드 템플릿 ───
-const SCRIPT_SAMPLES: { label: string; code: string }[] = [
-  {
-    label: '변수 설정',
-    code:
-`// 변수 #1에 값 100 설정
-$gameVariables.setValue(1, 100);`,
-  },
-  {
-    label: '변수 계산 (현재값 +10)',
-    code:
-`// 변수 #1의 현재 값에 10 더하기
-$gameVariables.setValue(1, $gameVariables.value(1) + 10);`,
-  },
-  {
-    label: '스위치 켜기 / 끄기',
-    code:
-`// 스위치 #1 ON
-$gameSwitches.setValue(1, true);
-// 스위치 #1 OFF
-// $gameSwitches.setValue(1, false);`,
-  },
-  {
-    label: '골드 증감',
-    code:
-`// 소지금 1000 증가 (음수 시 감소)
-$gameParty.gainGold(1000);`,
-  },
-  {
-    label: '아이템 획득',
-    code:
-`// 아이템 ID 1을 5개 추가 (3번째 인수 false=포함, true=포함안함)
-$gameParty.gainItem($dataItems[1], 5, false);`,
-  },
-  {
-    label: '파티 전체 HP 회복',
-    code:
-`// 파티원 전체 HP·MP 완전 회복
-$gameParty.members().forEach(function(actor) {
-  actor.recoverAll();
-});`,
-  },
-  {
-    label: '장소 이동 (맵 ID 지정)',
-    code:
-`// 맵 ID 1의 좌표 (10, 8)로 이동, 방향 아래(2), 페이드인(0)
-$gamePlayer.reserveTransfer(1, 10, 8, 2, 0);`,
-  },
-  {
-    label: 'BGM 재생',
-    code:
-`// BGM 재생 (audio/bgm/ 폴더 기준 파일명)
-AudioManager.playBgm({ name: "Field1", volume: 90, pitch: 100, pan: 0 });`,
-  },
-  {
-    label: '화면 플래시',
-    code:
-`// 흰색 플래시 30프레임
-$gameScreen.startFlash([255, 255, 255, 255], 30);`,
-  },
-  {
-    label: '이벤트 위치 변경',
-    code:
-`// 이벤트 ID 2를 좌표 (5, 5)로 순간 이동
-var ev = $gameMap.event(2);
-if (ev) ev.locate(5, 5);`,
-  },
-  {
-    label: '텍스트 출력 (메시지 창)',
-    code:
-`// 메시지 창에 텍스트 표시
-$gameMessage.add("안녕하세요!");
-$gameMessage.add("두 번째 줄입니다.");`,
-  },
-  {
-    label: '텍스트 출력 (이름 + 얼굴 이미지)',
-    code:
-`// 화자 이름·얼굴 이미지 지정 후 메시지 표시
-// faceImage: img/faces/ 기준 파일명, faceIndex: 0~7
-$gameMessage.setFaceImage("Actor1", 0);
-$gameMessage.setSpeakerName("주인공");
-$gameMessage.add("\\C[6]안녕하세요\\C[0], 모험가님!");`,
-  },
-  {
-    label: '디버그 출력 (콘솔)',
-    code:
-`// 개발자 도구 콘솔에 출력 (F8 또는 F12)
-console.log("=== 디버그 ===");
-console.log("소지금:", $gameParty.gold());
-console.log("변수#1:", $gameVariables.value(1));`,
-  },
-];
 
 // 파일 참조 마커 패턴
 const FILE_REF_REGEX = /^\/\* @script-file: (.+?) \*\//;
@@ -365,14 +273,20 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
                   className="script-sample-select"
                   value=""
                   onChange={e => {
-                    const sample = SCRIPT_SAMPLES.find(s => s.label === e.target.value);
+                    const val = e.target.value;
+                    if (!val) return;
+                    const sample = SCRIPT_SAMPLES.find(s => s.group + '\0' + s.label === val);
                     if (sample) handleInsertSample(sample.code);
                     e.target.value = '';
                   }}
                 >
                   <option value="">-- 샘플 코드 선택 --</option>
-                  {SCRIPT_SAMPLES.map(s => (
-                    <option key={s.label} value={s.label}>{s.label}</option>
+                  {SAMPLE_GROUPS.map(group => (
+                    <optgroup key={group} label={group}>
+                      {SCRIPT_SAMPLES.filter(s => s.group === group).map(s => (
+                        <option key={s.label} value={group + '\0' + s.label}>{s.label}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
