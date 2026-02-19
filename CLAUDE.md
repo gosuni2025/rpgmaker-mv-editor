@@ -139,13 +139,14 @@ editor/
 - `Map001.json` ~ `MapNNN.json` - 개별 맵 데이터
 
 맵 데이터 구조:
-- `data[]`: 1차원 배열, 인덱스 = `(z * height + y) * width + x` (z: 레이어 0~3)
+- `data[]`: 1차원 배열, 인덱스 = `(z * height + y) * width + x` (z: 레이어 0~5, 총 6레이어)
+- z=0~3: 타일 레이어, z=4: 섀도우, z=5: 리전 (Game_Map.regionId가 z=5를 읽음)
 - `events[]`: 맵 이벤트 배열 (null 가능, id 기반 인덱싱)
 - `tilesetId`: 사용할 타일셋 ID
 
 타일 ID 규칙 (RPG Maker MV):
 - 0: 빈 타일
-- 1~255: Region ID (레이어 z=3 사용)
+- 1~255: Region ID (레이어 z=5 에만 존재)
 - 2048~: A1 타일 (바다/물)
 - 2816~: A2 타일 (지형)
 - 4352~: A3 타일 (건물 외벽)
