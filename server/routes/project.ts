@@ -9,7 +9,7 @@ import fileWatcher from '../services/fileWatcher';
 
 const runtimePath = path.join(__dirname, '..', 'runtime');
 
-/** Collect all files under a directory recursively, returning relative paths */
+/** Collect all files under a directory recursively, returning relative paths (always with forward slashes) */
 function collectFiles(dir: string, base: string = dir): string[] {
   const results: string[] = [];
   if (!fs.existsSync(dir)) return results;
@@ -19,7 +19,7 @@ function collectFiles(dir: string, base: string = dir): string[] {
     if (entry.isDirectory()) {
       results.push(...collectFiles(full, base));
     } else {
-      results.push(path.relative(base, full));
+      results.push(path.relative(base, full).replace(/\\/g, '/'));
     }
   }
   return results;
@@ -647,7 +647,7 @@ router.post('/migrate-file', (req: Request, res: Response) => {
     const projectRoot = projectManager.currentPath!;
     const runtimeJsDir = path.join(runtimePath, 'js');
     const projectJsDir = path.join(projectRoot, 'js', '3d');
-    const file: string = req.body.file;
+    const file: string = (req.body.file as string)?.replace(/\\/g, '/');
 
     if (!file) {
       return res.status(400).json({ error: 'file is required' });
