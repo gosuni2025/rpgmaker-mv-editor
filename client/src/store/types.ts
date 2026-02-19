@@ -11,6 +11,14 @@ export const DEFAULT_ZOOM_STEP = 10; // percent
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 8;
 
+export interface RendererInitError {
+  title: string;
+  details: string;
+  browserInfo: string;
+  webglSupport: string;
+  originalError?: string;
+}
+
 export interface TileChange {
   x: number;
   y: number;
@@ -247,6 +255,9 @@ export interface EditorState {
 
   // Parse errors
   parseErrors: { file: string; error: string }[] | null;
+
+  // Renderer init error
+  rendererInitError: RendererInitError | null;
 
   // Toast
   toastQueue: { id: number; message: string; persistent: boolean }[];

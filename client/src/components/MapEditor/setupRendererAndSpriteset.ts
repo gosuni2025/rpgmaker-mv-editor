@@ -2,6 +2,74 @@ import useEditorStore from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
 import { initGameGlobals } from './initGameGlobals';
 import { syncEditorLightsToScene } from './threeSceneSync';
+import type { RendererInitError } from '../../store/types';
+
+function checkWebGLSupport(): { webgl: boolean; webgl2: boolean } {
+  try {
+    const testCanvas = document.createElement('canvas');
+    const webgl2 = !!testCanvas.getContext('webgl2');
+    const webgl = webgl2 || !!testCanvas.getContext('webgl');
+    return { webgl, webgl2 };
+  } catch {
+    return { webgl: false, webgl2: false };
+  }
+}
+
+function buildRendererInitError(err: unknown): RendererInitError {
+  const w = window as any;
+  const { webgl, webgl2 } = checkWebGLSupport();
+
+  const webglSupport = webgl2
+    ? 'WebGL 2 지원됨'
+    : webgl
+      ? 'WebGL 1만 지원됨 (WebGL 2 미지원)'
+      : 'WebGL 미지원';
+
+  let title: string;
+  let details: string;
+
+  if (!w.THREE) {
+    title = 'Three.js 라이브러리 로드 실패';
+    details =
+      'Three.js 런타임 스크립트가 로드되지 않았습니다.\n' +
+      '네트워크 에러이거나 서버가 실행되지 않았을 수 있습니다.\n\n' +
+      '해결 방법:\n' +
+      '• 서버(npm run dev)가 실행 중인지 확인하세요\n' +
+      '• 브라우저를 새로고침하세요\n' +
+      '• 개발자 도구 → Network 탭에서 스크립트 로드 실패 여부를 확인하세요';
+  } else if (!webgl) {
+    title = 'WebGL 미지원 브라우저';
+    details =
+      '이 브라우저는 WebGL을 지원하지 않아 3D 렌더링이 불가능합니다.\n\n' +
+      '해결 방법:\n' +
+      '• 최신 Chrome / Firefox / Edge 브라우저로 업데이트하세요\n' +
+      '• 브라우저 설정에서 하드웨어 가속을 활성화하세요\n' +
+      '  Chrome: 설정 → 시스템 → "가능한 경우 하드웨어 가속 사용"\n' +
+      '  about:flags 에서 WebGL 강제 활성화를 시도할 수 있습니다\n' +
+      '• GPU 드라이버를 최신 버전으로 업데이트하세요';
+  } else {
+    title = '렌더러 초기화 실패';
+    details =
+      'WebGLRenderer 생성 중 오류가 발생했습니다.\n\n' +
+      '해결 방법:\n' +
+      '• 브라우저를 새로고침하세요\n' +
+      '• 다른 탭에서 실행 중인 WebGL 앱을 닫으세요 (GPU 컨텍스트 제한)\n' +
+      '• 브라우저의 하드웨어 가속이 활성화되어 있는지 확인하세요\n' +
+      '• 브라우저를 재시작하거나 다른 브라우저를 시도하세요';
+  }
+
+  const originalError = err instanceof Error
+    ? (err.stack || err.message)
+    : String(err);
+
+  return {
+    title,
+    details,
+    browserInfo: navigator.userAgent,
+    webglSupport,
+    originalError,
+  };
+}
 
 // Runtime globals (loaded via index.html script tags)
 declare const Graphics: any;
@@ -76,13 +144,24 @@ export async function setupRendererAndSpriteset(params: {
   canvas.height = mapPxH;
 
   const THREE = w.THREE;
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: false,
-    alpha: true,
-    preserveDrawingBuffer: true,
-    powerPreference: 'high-performance',
-  });
+  if (!THREE) {
+    useEditorStore.setState({ rendererInitError: buildRendererInitError(new Error('THREE not found')) });
+    return null;
+  }
+
+  let renderer: any;
+  try {
+    renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: false,
+      alpha: true,
+      preserveDrawingBuffer: true,
+      powerPreference: 'high-performance',
+    });
+  } catch (err) {
+    useEditorStore.setState({ rendererInitError: buildRendererInitError(err) });
+    return null;
+  }
   renderer.state.reset();
   renderer.setSize(mapPxW, mapPxH, false);
   renderer.setClearColor(0x000000, 0);

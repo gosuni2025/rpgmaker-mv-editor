@@ -3,7 +3,7 @@ import './App.css';
 import './components/ParseErrorsDialog.css';
 import './components/common/Toast.css';
 import useEditorStore from './store/useEditorStore';
-import apiClient from './api/client';
+import apiClient, { ApiError } from './api/client';
 import MenuBar from './components/MenuBar/MenuBar';
 import MapTree from './components/Sidebar/MapTree';
 import TilesetPalette from './components/Sidebar/TilesetPalette';
@@ -117,6 +117,7 @@ export default function App() {
   const toastQueue = useEditorStore((s) => s.toastQueue);
   const dismissToast = useEditorStore((s) => s.dismissToast);
   const parseErrors = useEditorStore((s) => s.parseErrors);
+  const rendererInitError = useEditorStore((s) => s.rendererInitError);
   const lightEditMode = useEditorStore((s) => s.lightEditMode);
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
   useFileWatcher();
@@ -189,27 +190,42 @@ export default function App() {
   }, []);
 
   const [migrationPath, setMigrationPath] = useState<string | null>(null);
+  const [uninitializedProject, setUninitializedProject] = useState<string | null>(null);
 
   const handleOpenProject = async (projectPath: string) => {
     setShowOpenProjectDialog(false);
-    try {
-      const res = await apiClient.get<{ needsMigration: boolean }>(
-        `/project/migration-check?path=${encodeURIComponent(projectPath)}`
-      );
-      if (res.needsMigration) {
-        // Open the project first (so migrate API works), then show dialog
-        await openProject(projectPath);
-        const name = useEditorStore.getState().projectName;
-        addRecentProject(projectPath, name || '');
-        setMigrationPath(projectPath);
-        return;
+
+    const doOpen = async () => {
+      try {
+        const res = await apiClient.get<{ needsMigration: boolean }>(
+          `/project/migration-check?path=${encodeURIComponent(projectPath)}`
+        );
+        if (res.needsMigration) {
+          // Open the project first (so migrate API works), then show dialog
+          await openProject(projectPath);
+          const name = useEditorStore.getState().projectName;
+          addRecentProject(projectPath, name || '');
+          setMigrationPath(projectPath);
+          return;
+        }
+      } catch (err) {
+        if (err instanceof ApiError && (err.body as Record<string, unknown>)?.errorCode === 'NOT_INITIALIZED') {
+          throw err;
+        }
+        // If migration check fails for other reasons, just open normally
       }
-    } catch {
-      // If migration check fails, just open normally
+      await openProject(projectPath);
+      const name = useEditorStore.getState().projectName;
+      addRecentProject(projectPath, name || '');
+    };
+
+    try {
+      await doOpen();
+    } catch (err) {
+      if (err instanceof ApiError && (err.body as Record<string, unknown>)?.errorCode === 'NOT_INITIALIZED') {
+        setUninitializedProject(projectPath);
+      }
     }
-    await openProject(projectPath);
-    const name = useEditorStore.getState().projectName;
-    addRecentProject(projectPath, name || '');
   };
 
   return (
@@ -272,6 +288,27 @@ export default function App() {
           onSkip={() => setMigrationPath(null)}
         />
       )}
+      {uninitializedProject && (
+        <div className="db-dialog-overlay">
+          <div className="db-dialog" style={{ maxWidth: 480 }}>
+            <div className="db-dialog-header">프로젝트를 열 수 없습니다</div>
+            <div className="db-dialog-body" style={{ padding: '20px 24px', lineHeight: 1.7 }}>
+              <p>이 프로젝트는 <strong>RPG Maker MV에서 한번도 실행되지 않은</strong> 프로젝트입니다.</p>
+              <p style={{ marginTop: 12 }}>
+                RPG Maker MV 에디터에서 해당 프로젝트를 열고<br />
+                플레이테스트 (<strong>Ctrl+P</strong> 또는 게임 메뉴 &gt; 플레이테스트)를<br />
+                <strong>1회 실행</strong>한 후 다시 시도해주세요.
+              </p>
+              <p style={{ marginTop: 12, color: '#aaa', fontSize: '0.85em' }}>
+                경로: {uninitializedProject}
+              </p>
+            </div>
+            <div className="db-dialog-footer">
+              <button className="db-btn" onClick={() => setUninitializedProject(null)}>확인</button>
+            </div>
+          </div>
+        </div>
+      )}
       {showDatabaseDialog && <DatabaseDialog />}
       {showDeployDialog && <DeployDialog />}
       {showFindDialog && <FindDialog />}
@@ -301,6 +338,36 @@ export default function App() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {rendererInitError && (
+        <div className="db-dialog-overlay">
+          <div className="db-dialog renderer-error-dialog">
+            <div className="db-dialog-header">
+              <span>⚠ {rendererInitError.title}</span>
+              <button className="db-dialog-close" onClick={() => useEditorStore.setState({ rendererInitError: null })}>×</button>
+            </div>
+            <div className="renderer-error-body">
+              <div className="renderer-error-section">
+                <div className="renderer-error-label">오류 내용</div>
+                <pre className="renderer-error-details">{rendererInitError.details}</pre>
+              </div>
+              <div className="renderer-error-section">
+                <div className="renderer-error-label">WebGL 지원 상태</div>
+                <code className="renderer-error-code">{rendererInitError.webglSupport}</code>
+              </div>
+              <div className="renderer-error-section">
+                <div className="renderer-error-label">브라우저 정보</div>
+                <code className="renderer-error-code">{rendererInitError.browserInfo}</code>
+              </div>
+              {rendererInitError.originalError && (
+                <div className="renderer-error-section">
+                  <div className="renderer-error-label">원본 에러</div>
+                  <pre className="renderer-error-stack">{rendererInitError.originalError}</pre>
+                </div>
+              )}
             </div>
           </div>
         </div>
