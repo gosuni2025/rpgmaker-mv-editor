@@ -180,9 +180,26 @@ export function EnhancedTextEditor({
       setPropContent(content);
       editorRef.current?.querySelectorAll('.ete-block.selected').forEach(el => el.classList.remove('selected'));
       blockEl.classList.add('selected');
+      // e.preventDefault()가 contentEditable 포커스를 막으므로 명시적 복구
+      requestAnimationFrame(() => editorRef.current?.focus());
     } else {
+      // 빈 공간 클릭: 커서 위치를 저장해두고 setState(패널 리렌더링) 후 복구
+      const sel = window.getSelection();
+      const savedSel = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
       setSelectedBlock(null);
       editorRef.current?.querySelectorAll('.ete-block.selected').forEach(el => el.classList.remove('selected'));
+      // 프로퍼티 패널 DOM 교체로 포커스가 body로 이동할 수 있으므로 복구
+      requestAnimationFrame(() => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        if (savedSel) {
+          const sel2 = window.getSelection();
+          if (sel2) {
+            sel2.removeAllRanges();
+            try { sel2.addRange(savedSel); } catch { /* 범위가 이미 무효화된 경우 무시 */ }
+          }
+        }
+      });
     }
   }, [syncToParent]);
 
@@ -195,6 +212,8 @@ export function EnhancedTextEditor({
     el.parentNode?.replaceChild(frag, el);
     setSelectedBlock(null);
     syncToParent();
+    // 패널 DOM 교체 후 에디터 포커스 복구
+    requestAnimationFrame(() => editorRef.current?.focus());
   }, [selectedBlock, propTags, propContent, syncToParent]);
 
   // ─── 외부 클릭으로 드롭다운 닫기 ───
@@ -364,7 +383,16 @@ export function EnhancedTextEditor({
 
             {/* 프로퍼티 패널 */}
             {selectedBlock ? (
-              <div className="ete-props-panel">
+              <div
+                className="ete-props-panel"
+                onMouseDown={e => {
+                  // input/textarea/select/color picker는 포커스 허용, 나머지는 에디터 포커스 유지
+                  const tag = (e.target as HTMLElement).tagName;
+                  if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+                    e.preventDefault();
+                  }
+                }}
+              >
                 {/* 태그별 섹션 */}
                 {propTags.map((entry, idx) => {
                   const def = getTagDef(entry.tag);
