@@ -74,6 +74,30 @@ $gameScreen.startFlash([255, 255, 255, 255], 30);`,
 var ev = $gameMap.event(2);
 if (ev) ev.locate(5, 5);`,
   },
+  {
+    label: '텍스트 출력 (메시지 창)',
+    code:
+`// 메시지 창에 텍스트 표시
+$gameMessage.add("안녕하세요!");
+$gameMessage.add("두 번째 줄입니다.");`,
+  },
+  {
+    label: '텍스트 출력 (이름 + 얼굴 이미지)',
+    code:
+`// 화자 이름·얼굴 이미지 지정 후 메시지 표시
+// faceImage: img/faces/ 기준 파일명, faceIndex: 0~7
+$gameMessage.setFaceImage("Actor1", 0);
+$gameMessage.setSpeakerName("주인공");
+$gameMessage.add("\\C[6]안녕하세요\\C[0], 모험가님!");`,
+  },
+  {
+    label: '디버그 출력 (콘솔)',
+    code:
+`// 개발자 도구 콘솔에 출력 (F8 또는 F12)
+console.log("=== 디버그 ===");
+console.log("소지금:", $gameParty.gold());
+console.log("변수#1:", $gameVariables.value(1));`,
+  },
 ];
 
 // 파일 참조 마커 패턴
