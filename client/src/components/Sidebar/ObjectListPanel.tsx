@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import FuzzySearchInput from '../common/FuzzySearchInput';
 import { fuzzyMatch, fuzzyScore } from '../../utils/fuzzySearch';
+import { highlightMatch } from '../../utils/highlightMatch';
 import './ObjectListPanel.css';
 
 export default function ObjectListPanel() {
@@ -83,7 +84,7 @@ export default function ObjectListPanel() {
                 {obj.imageName ? '\u{1F5BC}' : obj.animationId ? '\u{2728}' : '\u{1F9F1}'}
               </span>
               <span className="object-list-item-name">
-                #{obj.id} {obj.name}
+                #{obj.id} {highlightMatch(obj.name, filterQuery)}
               </span>
               <span className="object-list-item-info">
                 {obj.imageName
