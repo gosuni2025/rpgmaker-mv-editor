@@ -1,0 +1,40 @@
+.fuzzy-search {
+  position: relative;
+  padding: 4px 8px;
+}
+
+.fuzzy-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 24px 4px 8px;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #3c3f41;
+  color: #ddd;
+  font-size: 12px;
+  outline: none;
+}
+
+.fuzzy-search-input:focus {
+  border-color: #2675bf;
+}
+
+.fuzzy-search-input::placeholder {
+  color: #888;
+}
+
+.fuzzy-search-clear {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #888;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.fuzzy-search-clear:hover {
+  color: #ddd;
+}

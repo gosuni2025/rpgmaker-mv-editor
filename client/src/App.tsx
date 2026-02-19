@@ -66,14 +66,8 @@ function SidebarSplit({ editMode }: { editMode: string }) {
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
-  const showEventList = editMode === 'event';
-  const showTileset = editMode === 'map' || editMode === 'light';
-  const showCameraZoneList = editMode === 'cameraZone';
-  const showObjectList = editMode === 'object';
-  const showTopPanel = showTileset || showCameraZoneList || showObjectList;
-
-  // 이벤트 편집 모드: 이벤트 목록만 전체 표시
-  if (showEventList) {
+  // 이벤트/오브젝트 편집 모드: 전용 목록만 전체 표시
+  if (editMode === 'event') {
     return (
       <div className="sidebar-split" ref={containerRef}>
         <div className="sidebar-bottom" style={{ flex: 1 }}>
@@ -82,16 +76,22 @@ function SidebarSplit({ editMode }: { editMode: string }) {
       </div>
     );
   }
+  if (editMode === 'object') {
+    return (
+      <div className="sidebar-split" ref={containerRef}>
+        <div className="sidebar-bottom" style={{ flex: 1 }}>
+          <ObjectListPanel />
+        </div>
+      </div>
+    );
+  }
 
-  const topContent = showCameraZoneList
-    ? <CameraZoneListPanel />
-    : showObjectList
-    ? <ObjectListPanel />
-    : <TilesetPalette />;
+  const showTileset = editMode === 'map' || editMode === 'light';
+  const showCameraZoneList = editMode === 'cameraZone';
+  const showTopPanel = showTileset || showCameraZoneList;
 
-  const bottomContent = showObjectList
-    ? <TilesetPalette />
-    : <MapTree />;
+  const topContent = showCameraZoneList ? <CameraZoneListPanel /> : <TilesetPalette />;
+  const bottomContent = <MapTree />;
 
   return (
     <div className="sidebar-split" ref={containerRef}>
