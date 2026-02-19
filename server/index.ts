@@ -239,6 +239,12 @@ export function createApp(options: AppOptions = {}) {
     next();
   }, express.static(path.join(resolvedRuntimePath, 'js')));
 
+  // /runtime - 에디터 클라이언트용 런타임 JS 서빙 (client/public/runtime/ 심볼릭 링크 대체)
+  app.use('/runtime', (req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  }, express.static(path.join(resolvedRuntimePath, 'js')));
+
   // /game/fonts, /game/icon - 내장 런타임
   app.use('/game/fonts', express.static(path.join(resolvedRuntimePath, 'fonts')));
   app.use('/game/icon', express.static(path.join(resolvedRuntimePath, 'icon')));
