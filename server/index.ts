@@ -217,6 +217,7 @@ export function createApp(options: AppOptions = {}) {
         <script defer src="js/PictureShader.js${cacheBust}"></script>
         <script defer src="js/FogOfWar.js${cacheBust}"></script>
         <script defer src="js/FogOfWar3DVolume.js${cacheBust}"></script>
+        <script defer src="js/ExtendedText.js${cacheBust}"></script>
         <script defer src="js/plugins.js"></script>${devScript}${startMapScript}
         <script defer src="js/main.js${cacheBust}"></script>
     </body>
