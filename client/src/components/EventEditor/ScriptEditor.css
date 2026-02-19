@@ -1,0 +1,180 @@
+.script-editor-dialog {
+  width: 92vw;
+  height: 88vh;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.script-editor-header {
+  padding: 10px 16px;
+  background: #383838;
+  border-bottom: 1px solid #555;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #ddd;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.script-editor-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.script-editor-tab {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  color: #aaa;
+  padding: 4px 14px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.script-editor-tab:hover {
+  background: #3a3a3a;
+  color: #ddd;
+}
+
+.script-editor-tab.active {
+  background: #2675bf;
+  color: #fff;
+  border-color: #2675bf;
+}
+
+.script-editor-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.script-editor-inline,
+.script-editor-file {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.script-cm-container {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.script-cm-container .cm-editor {
+  height: 100%;
+  font-size: 13px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.script-cm-container .cm-scroller {
+  overflow: auto;
+}
+
+.script-cm-container .cm-focused {
+  outline: none;
+}
+
+.script-lint-panel {
+  background: #1e1e1e;
+  border-top: 1px solid #444;
+  padding: 6px 12px;
+  max-height: 90px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.script-lint-error {
+  color: #f97b7b;
+  font-size: 12px;
+  font-family: monospace;
+  padding: 2px 0;
+}
+
+.script-file-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #323232;
+  border-bottom: 1px solid #444;
+  flex-shrink: 0;
+}
+
+.script-file-select {
+  flex: 1;
+  background: #3a3a3a;
+  border: 1px solid #555;
+  color: #ddd;
+  padding: 5px 8px;
+  border-radius: 3px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.script-file-select:focus {
+  outline: 1px solid #2675bf;
+}
+
+.script-file-loading {
+  padding: 20px;
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+}
+
+.script-file-hint {
+  padding: 6px 12px;
+  background: #1e3a5f;
+  border-top: 1px solid #2675bf;
+  color: #8bc4f0;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.script-editor-footer {
+  padding: 8px 12px;
+  background: #383838;
+  border-top: 1px solid #555;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.script-lint-badge {
+  color: #f97b7b;
+  font-size: 12px;
+  margin-right: auto;
+}
+
+/* CodeMirror one-dark 테마에 맞는 커스텀 스크롤바 */
+.script-cm-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.script-cm-container::-webkit-scrollbar-track {
+  background: #282c34;
+}
+
+.script-cm-container::-webkit-scrollbar-thumb {
+  background: #4a4a4a;
+  border-radius: 4px;
+}
+
+.script-cm-container::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
