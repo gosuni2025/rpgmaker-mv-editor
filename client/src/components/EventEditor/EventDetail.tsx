@@ -11,7 +11,8 @@ import ExtBadge from '../common/ExtBadge';
 import './EventEditor.css';
 
 interface EventDetailProps {
-  eventId: number;
+  eventId?: number;
+  pendingEvent?: RPGEvent;
   onClose: () => void;
 }
 
@@ -39,19 +40,25 @@ function getDefaultPage(): EventPage {
   };
 }
 
-export default function EventDetail({ eventId, onClose }: EventDetailProps) {
+export default function EventDetail({ eventId, pendingEvent, onClose }: EventDetailProps) {
   const { t } = useTranslation();
   useEscClose(onClose);
   const currentMap = useEditorStore((s) => s.currentMap);
   const currentMapId = useEditorStore((s) => s.currentMapId);
-  const event = currentMap?.events?.find((e) => e && e.id === eventId) as RPGEvent | undefined;
+  const setSelectedEventId = useEditorStore((s) => s.setSelectedEventId);
+  const isNew = pendingEvent != null;
+  const event = isNew
+    ? pendingEvent
+    : (currentMap?.events?.find((e) => e && e.id === eventId) as RPGEvent | undefined);
 
   const [editEvent, setEditEvent] = useState<RPGEvent>(() => event ? JSON.parse(JSON.stringify(event)) : null!);
   const [activePage, setActivePage] = useState(0);
   const [showMoveRoute, setShowMoveRoute] = useState(false);
 
-  const [npcName, setNpcName] = useState<string>(() => currentMap?.npcData?.[eventId]?.name ?? '');
-  const [showNpcName, setShowNpcName] = useState<boolean>(() => currentMap?.npcData?.[eventId]?.showName ?? false);
+  const resolvedEventId = editEvent?.id ?? eventId ?? 0;
+  const initNpcId = isNew ? 0 : (eventId ?? 0);
+  const [npcName, setNpcName] = useState<string>(() => currentMap?.npcData?.[initNpcId]?.name ?? '');
+  const [showNpcName, setShowNpcName] = useState<boolean>(() => currentMap?.npcData?.[initNpcId]?.showName ?? false);
 
   const MOVE_TYPES = useMemo(() => [
     t('eventDetail.moveTypes.0'), t('eventDetail.moveTypes.1'), t('eventDetail.moveTypes.2'), t('eventDetail.moveTypes.3'),
@@ -154,28 +161,47 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
   const buildNpcData = (map: MapData): Record<number, NpcDisplayData> | undefined => {
     const updated = { ...(map.npcData || {}) };
     if (npcName.trim() || showNpcName) {
-      updated[eventId] = { name: npcName, showName: showNpcName };
+      updated[resolvedEventId] = { name: npcName, showName: showNpcName };
     } else {
-      delete updated[eventId];
+      delete updated[resolvedEventId];
     }
     return Object.keys(updated).length > 0 ? updated : undefined;
   };
 
   const handleOk = () => {
-    if (!currentMap) return;
+    if (!currentMap || !currentMapId) return;
     const events = [...(currentMap.events || [])];
-    const idx = events.findIndex((e) => e && e.id === eventId);
-    if (idx >= 0) {
-      events[idx] = editEvent;
+    if (isNew) {
+      // 신규 이벤트: 맵에 추가 + undo 스택 등록
+      const oldEvents = [...events];
+      while (events.length <= editEvent.id) events.push(null);
+      events[editEvent.id] = editEvent;
+      const state = useEditorStore.getState();
+      const undoStack = [...state.undoStack, {
+        mapId: currentMapId, type: 'event' as const,
+        oldEvents, newEvents: events,
+        oldSelectedEventId: state.selectedEventId,
+        oldSelectedEventIds: state.selectedEventIds,
+      }];
+      if (undoStack.length > state.maxUndo) undoStack.shift();
+      useEditorStore.setState({
+        currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap) } as MapData & { tilesetNames?: string[] },
+        undoStack, redoStack: [],
+      });
+      setSelectedEventId(editEvent.id);
+    } else {
+      // 기존 이벤트: 업데이트
+      const idx = events.findIndex((e) => e && e.id === resolvedEventId);
+      if (idx >= 0) events[idx] = editEvent;
+      useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap) } as MapData & { tilesetNames?: string[] } });
     }
-    useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap) } as MapData & { tilesetNames?: string[] } });
     onClose();
   };
 
   const handleApply = () => {
-    if (!currentMap) return;
+    if (!currentMap || isNew) return;
     const events = [...(currentMap.events || [])];
-    const idx = events.findIndex((e) => e && e.id === eventId);
+    const idx = events.findIndex((e) => e && e.id === resolvedEventId);
     if (idx >= 0) {
       events[idx] = JSON.parse(JSON.stringify(editEvent));
     }
@@ -462,7 +488,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
               <EventCommandEditor
                 commands={page.list || []}
                 onChange={(newList) => updatePage(activePage, { list: newList })}
-                context={{ mapId: currentMapId || undefined, eventId, pageIndex: activePage }}
+                context={{ mapId: currentMapId || undefined, eventId: resolvedEventId, pageIndex: activePage }}
               />
             </div>
           </div>
@@ -472,7 +498,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
         <div className="event-editor-footer">
           <button className="db-btn" onClick={handleOk}>{t('common.ok')}</button>
           <button className="db-btn" onClick={onClose}>{t('common.cancel')}</button>
-          <button className="db-btn" onClick={handleApply}>{t('common.apply', '적용')}</button>
+          <button className="db-btn" onClick={handleApply} disabled={isNew}>{t('common.apply', '적용')}</button>
         </div>
 
         {showMoveRoute && page && (

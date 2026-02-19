@@ -101,6 +101,7 @@ export default function MapCanvas() {
     lightMultiDragDelta, objectMultiDragDelta,
     lightDragPreview, objectDragPreview, cameraZoneDragPreview, cameraZoneMultiDragDelta, hoverTile,
     eventCtxMenu, editingEventId, setEditingEventId,
+    pendingNewEvent, setPendingNewEvent,
     closeEventCtxMenu,
     isDraggingLight, isDraggingObject, draggedObjectId,
     resizeOrigSize, cameraZoneCursor,
@@ -666,6 +667,10 @@ export default function MapCanvas() {
 
       {editingEventId != null && (
         <EventDetail eventId={editingEventId} onClose={() => setEditingEventId(null)} />
+      )}
+
+      {pendingNewEvent != null && (
+        <EventDetail pendingEvent={pendingNewEvent} onClose={() => setPendingNewEvent(null)} />
       )}
 
       {showShiftDialog && (

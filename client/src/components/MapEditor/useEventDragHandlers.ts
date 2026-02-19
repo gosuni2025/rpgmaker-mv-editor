@@ -22,6 +22,8 @@ export interface EventDragHandlersResult {
   eventCtxMenu: EventContextMenu | null;
   editingEventId: number | null;
   setEditingEventId: (id: number | null) => void;
+  pendingNewEvent: RPGEvent | null;
+  setPendingNewEvent: (event: RPGEvent | null) => void;
   closeEventCtxMenu: () => void;
   createNewEvent: (x: number, y: number) => void;
   handleEventMouseDown: (tile: { x: number; y: number }, e: React.MouseEvent<HTMLElement>) => boolean;
@@ -91,6 +93,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
   // Context menu & event editing state
   const [eventCtxMenu, setEventCtxMenu] = useState<EventContextMenu | null>(null);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [pendingNewEvent, setPendingNewEvent] = useState<RPGEvent | null>(null);
 
   const handleEventMouseDown = useCallback((tile: { x: number; y: number }, e: React.MouseEvent<HTMLElement>): boolean => {
     const state = useEditorStore.getState();
@@ -430,8 +433,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
 
   const createNewEvent = useCallback((x: number, y: number) => {
     if (!currentMap) return;
-    const oldEvents = [...(currentMap.events || [])];
-    const events = [...oldEvents];
+    const events = [...(currentMap.events || [])];
     const maxId = events.reduce((max: number, e) => (e && e.id > max ? e.id : max), 0);
     const defaultPage: EventPage = {
       conditions: {
@@ -460,24 +462,10 @@ export function useEventDragHandlers(): EventDragHandlersResult {
       note: '',
       pages: [defaultPage],
     };
-    while (events.length <= maxId + 1) events.push(null);
-    events[maxId + 1] = newEvent;
-    const state = useEditorStore.getState();
-    const mapId = state.currentMapId;
-    useEditorStore.setState({ currentMap: { ...currentMap, events } as MapData & { tilesetNames?: string[] } });
-    if (mapId) {
-      const undoStack = [...useEditorStore.getState().undoStack, {
-        mapId, type: 'event' as const,
-        oldEvents, newEvents: events,
-        oldSelectedEventId: state.selectedEventId,
-        oldSelectedEventIds: state.selectedEventIds,
-      }];
-      if (undoStack.length > state.maxUndo) undoStack.shift();
-      useEditorStore.setState({ undoStack, redoStack: [] });
-    }
-    setSelectedEventId(maxId + 1);
-    setEditingEventId(maxId + 1);
-  }, [currentMap, setSelectedEventId]);
+    // 이벤트를 맵에 즉시 저장하지 않고 pendingNewEvent에만 설정
+    // EventDetail에서 OK 버튼 클릭 시 실제로 저장됨
+    setPendingNewEvent(newEvent);
+  }, [currentMap]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLElement>, canvasToTile: MapToolsResult['canvasToTile']) => {
     if (editMode !== 'event') return;
@@ -543,6 +531,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
     isDraggingEvent, isSelectingEvents,
     dragPreview, eventMultiDragDelta, playerStartDragPos, testStartDragPos, vehicleStartDragPos,
     eventCtxMenu, editingEventId, setEditingEventId,
+    pendingNewEvent, setPendingNewEvent,
     closeEventCtxMenu, createNewEvent,
     handleEventMouseDown, handleEventMouseMove,
     handleEventMouseUp, handleEventMouseLeave,
