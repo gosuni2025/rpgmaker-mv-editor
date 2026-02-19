@@ -104,6 +104,7 @@ export function useRegionOverlay(refs: OverlayRefs, rendererReady: number) {
         ctx.shadowBlur = 3;
         ctx.fillText(String(regionId), 24, 24);
         const tex = new THREE.CanvasTexture(cvs);
+        tex.flipY = false;
         const labelMat = new THREE.MeshBasicMaterial({
           map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
         });
