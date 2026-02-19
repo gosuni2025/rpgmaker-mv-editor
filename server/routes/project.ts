@@ -45,23 +45,25 @@ router.get('/drives', (_req: Request, res: Response) => {
   if (process.platform !== 'win32') {
     return res.json({ drives: [] });
   }
+  // PowerShell로 드라이브 목록 가져오기 (wmic은 Windows 11에서 제거됨)
   try {
-    // wmic으로 실제 존재하는 드라이브 목록 가져오기
-    const output = execSync('wmic logicaldisk get caption', { encoding: 'utf8', timeout: 3000 });
-    const drives = (output.match(/[A-Z]:/gi) || []).map((d: string) => d.toUpperCase() + '\\');
-    return res.json({ drives });
-  } catch {
-    // fallback: 알파벳 순회
-    const drives: string[] = [];
-    for (let i = 65; i <= 90; i++) {
-      const drive = String.fromCharCode(i) + ':\\';
-      try {
-        fs.statSync(drive);
-        drives.push(drive);
-      } catch { /* drive not accessible */ }
-    }
-    res.json({ drives });
+    const output = execSync(
+      'powershell -command "Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandProperty Root"',
+      { encoding: 'utf8', timeout: 5000 }
+    );
+    const drives = output.trim().split(/\r?\n/).map((d: string) => d.trim()).filter((d: string) => /^[A-Za-z]:\\$/.test(d));
+    if (drives.length > 0) return res.json({ drives });
+  } catch { /* fallback */ }
+  // fallback: 알파벳 순회
+  const drives: string[] = [];
+  for (let i = 65; i <= 90; i++) {
+    const drive = String.fromCharCode(i) + ':\\';
+    try {
+      fs.statSync(drive);
+      drives.push(drive);
+    } catch { /* drive not accessible */ }
   }
+  res.json({ drives });
 });
 
 router.get('/browse', (req: Request, res: Response) => {
