@@ -18,11 +18,11 @@ $gameMessage.add("두 번째 줄입니다.");`,
   },
   {
     group: '텍스트 / 메시지',
-    label: '이름 + 얼굴 이미지 지정 메시지',
+    label: '얼굴 이미지 지정 메시지',
     code:
 `// faceImage: img/faces/ 기준 파일명, faceIndex: 0~7
+// ※ MV에는 이름 창 기능 없음 (setSpeakerName은 MZ 전용)
 $gameMessage.setFaceImage("Actor1", 0);
-$gameMessage.setSpeakerName("주인공");
 $gameMessage.add("\\\\C[6]안녕하세요\\\\C[0], 모험가님!");`,
   },
   {
