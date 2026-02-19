@@ -163,7 +163,7 @@ export default function TileInfoTooltip({ tileX, tileY, mouseX, mouseY }: TileIn
       const idx = (z * height + tileY) * width + tileX;
       const tileId = data[idx];
       if (tileId !== 0 && tileId !== undefined) {
-        const desc = getTileDescription(tileId, tilesetNames);
+        const desc = getTileDescription(tileId, tilesetNames, z);
         layers.push({ z, tileId, desc });
       }
     }
