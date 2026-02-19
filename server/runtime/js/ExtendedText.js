@@ -9,13 +9,15 @@
 //   <outline color=#rrggbb thickness=3>텍스트</outline>
 //   <gradient color1=#ffff00 color2=#ff0000 direction=h>텍스트</gradient>
 //
-// 지원 태그 (애니메이션 - 텍스트는 표시되나 이펙트는 미구현):
+// 지원 태그 (애니메이션):
+//   <shake amplitude=3 speed=1>텍스트</shake>           ← 매 프레임 sin 진동
+//   <hologram scanline=5>텍스트</hologram>              ← 청록색 + 스캔라인
+//
+// 지원 태그 (패스스루 - 텍스트는 표시, 이펙트 미구현):
 //   <gradient-wave speed=1>텍스트</gradient-wave>
 //   <dissolve speed=1>텍스트</dissolve>
 //   <fade duration=60>텍스트</fade>
-//   <shake amplitude=3 speed=1>텍스트</shake>
 //   <blur-fade duration=60>텍스트</blur-fade>
-//   <hologram scanline=5 flicker=0.3>텍스트</hologram>
 //
 // 지원 태그 (타이밍):
 //   <typewriter speed=1>텍스트</typewriter>
@@ -163,6 +165,8 @@ Window_Base.prototype._etProcessStart = function(textState) {
         startY: textState.y,
         chars: [],
         gradientActive: false,
+        shakeActive: false,
+        hologramActive: false,
     };
 
     // 효과 적용
@@ -186,7 +190,18 @@ Window_Base.prototype._etProcessStart = function(textState) {
         // 임시로 color1으로 설정 (ETEND에서 재그리기)
         if (this.contents) this.changeTextColor(params.color1 || '#ffffff');
         break;
-    // 기타 태그 (gradient-wave, dissolve, fade, shake, blur-fade, hologram, typewriter):
+    case 'shake':
+        saved.shakeActive = true;
+        saved.amplitude = Number(params.amplitude || 3);
+        saved.speed = Number(params.speed || 1);
+        break;
+    case 'hologram':
+        saved.hologramActive = true;
+        saved.scanline = Number(params.scanline || 5);
+        // 청록색으로 텍스트 색상 변경
+        if (this.contents) this.changeTextColor('#00ffff');
+        break;
+    // 기타 태그 (gradient-wave, dissolve, fade, blur-fade, typewriter):
     // 텍스트는 정상 표시, 이펙트 미구현
     }
 
@@ -206,6 +221,17 @@ Window_Base.prototype._etProcessEnd = function(textState) {
         this._etRedrawGradient(saved);
     }
 
+    // shake: 애니메이션 세그먼트 등록
+    if (saved.shakeActive && saved.chars.length > 0) {
+        if (!this._etAnimSegs) this._etAnimSegs = [];
+        this._etAnimSegs.push(saved);
+    }
+
+    // hologram: 스캔라인 오버레이
+    if (saved.hologramActive && saved.chars.length > 0) {
+        this._etDrawHologram(saved);
+    }
+
     // 상태 복원
     if (this.contents) {
         this.changeTextColor(saved.textColor);
@@ -220,9 +246,10 @@ Window_Base.prototype.processNormalCharacter = function(textState) {
     // 활성 gradient 이펙트가 있으면 문자/위치 기록
     if (this._etEffectStack && this._etEffectStack.length > 0) {
         for (var i = this._etEffectStack.length - 1; i >= 0; i--) {
-            if (this._etEffectStack[i].gradientActive) {
+            var seg = this._etEffectStack[i];
+            if (seg.gradientActive || seg.shakeActive || seg.hologramActive) {
                 var c = textState.text[textState.index];
-                this._etEffectStack[i].chars.push({
+                seg.chars.push({
                     c: c,
                     x: textState.x,
                     y: textState.y,
@@ -274,12 +301,93 @@ Window_Base.prototype._etRedrawGradient = function(saved) {
     this.changeTextColor(savedColor);
 };
 
+//─── shake 재그리기 (매 프레임 호출) ───
+Window_Base.prototype._etRedrawShake = function(seg, time) {
+    var chars = seg.chars;
+    if (!chars || chars.length === 0 || !this.contents) return;
+
+    var bmp = this.contents;
+    var lh = chars[0].h || this.lineHeight();
+    var amp = seg.amplitude;
+    var speed = seg.speed;
+    var ow = (bmp.outlineWidth || 4) + 1;
+
+    // 진동 여백 포함한 영역 클리어
+    var startX = chars[0].x - ow;
+    var endX   = chars[chars.length - 1].x + this.textWidth(chars[chars.length - 1].c) + ow;
+    var y0     = chars[0].y - amp - 1;
+    var totalH = lh + (amp + 1) * 2;
+    bmp.clearRect(startX, y0, endX - startX, totalH);
+
+    // 각 문자를 sin 오프셋으로 재그리기
+    var savedColor = bmp.textColor;
+    this.changeTextColor(seg.textColor);
+    for (var i = 0; i < chars.length; i++) {
+        var ch = chars[i];
+        var offsetY = Math.sin(time * speed * 5.0 + i * 0.8) * amp;
+        var w = this.textWidth(ch.c) + 4;
+        bmp.drawText(ch.c, ch.x, ch.y + offsetY, w, ch.h || lh);
+    }
+    this.changeTextColor(savedColor);
+
+    // Three.js 텍스처 갱신
+    if (bmp._baseTexture) bmp._baseTexture.needsUpdate = true;
+};
+
+//─── hologram 스캔라인 오버레이 ───
+Window_Base.prototype._etDrawHologram = function(saved) {
+    var chars = saved.chars;
+    if (!chars || chars.length === 0 || !this.contents) return;
+
+    var bmp = this.contents;
+    var ctx = bmp._context;
+    if (!ctx) return;
+
+    var startX   = chars[0].x;
+    var endX     = chars[chars.length - 1].x + this.textWidth(chars[chars.length - 1].c);
+    var y0       = chars[0].y;
+    var lh       = chars[0].h || this.lineHeight();
+    var scanH    = saved.scanline || 5;
+    var darkH    = Math.max(1, Math.floor(scanH * 0.45));
+
+    // 수평 스캔라인: 짝수 밴드를 반투명 검정으로 덮음
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    for (var y = y0; y < y0 + lh; y += scanH) {
+        ctx.fillRect(startX, y + (scanH - darkH), endX - startX, darkH);
+    }
+    ctx.restore();
+
+    // Three.js 텍스처 갱신
+    if (bmp._baseTexture) bmp._baseTexture.needsUpdate = true;
+};
+
 //=============================================================================
-// update 루프 (애니메이션 시간 업데이트용)
+// createContents 오버라이드 – 애니메이션 세그먼트 초기화
+//=============================================================================
+var _Window_Base_createContents = Window_Base.prototype.createContents;
+Window_Base.prototype.createContents = function() {
+    _Window_Base_createContents.call(this);
+    this._etAnimSegs = [];
+};
+
+//=============================================================================
+// update 루프 (애니메이션 시간 업데이트 + shake 재그리기)
 //=============================================================================
 var _Window_Base_update = Window_Base.prototype.update;
 Window_Base.prototype.update = function() {
     _Window_Base_update.call(this);
-    // 향후 애니메이션 이펙트용 시간 동기화
-    ExtendedText._time = PictureShader ? PictureShader._time : (ExtendedText._time + 1/60);
+    ExtendedText._time = typeof PictureShader !== 'undefined' && PictureShader
+        ? PictureShader._time
+        : (ExtendedText._time + 1 / 60);
+
+    // shake 세그먼트 매 프레임 재그리기
+    if (this._etAnimSegs && this._etAnimSegs.length > 0) {
+        for (var i = 0; i < this._etAnimSegs.length; i++) {
+            var seg = this._etAnimSegs[i];
+            if (seg.shakeActive) {
+                this._etRedrawShake(seg, ExtendedText._time);
+            }
+        }
+    }
 };
