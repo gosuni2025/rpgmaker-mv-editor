@@ -1,7 +1,7 @@
 import apiClient from '../api/client';
 import type { MapInfo, MapData, TilesetData, SystemData } from '../types/rpgMakerMV';
 import type { EditorState, SliceCreator, PlayerStartHistoryEntry, MapDeleteHistoryEntry, MapRenameHistoryEntry } from './types';
-import { PROJECT_STORAGE_KEY, MAP_STORAGE_KEY, EDIT_MODE_STORAGE_KEY, TOOLBAR_STORAGE_KEY } from './types';
+import { PROJECT_STORAGE_KEY, EDIT_MODE_STORAGE_KEY, TOOLBAR_STORAGE_KEY } from './types';
 
 export const projectSlice: SliceCreator<Pick<EditorState,
   'projectPath' | 'projectName' | 'maps' | 'currentMapId' | 'currentMap' | 'tilesetInfo' |
@@ -26,9 +26,13 @@ export const projectSlice: SliceCreator<Pick<EditorState,
 
   openProject: async (projectPath: string) => {
     const res = await apiClient.post<{ name?: string; parseErrors?: { file: string; error: string }[] }>('/project/open', { path: projectPath });
+    // 기존 맵 상태 초기화 (프로젝트 전환 시 이전 맵이 남는 버그 수정)
     set({
       projectPath,
       projectName: res.name || projectPath.split('/').pop() || null,
+      currentMapId: null,
+      currentMap: null,
+      tilesetInfo: null,
       undoStack: [],
       redoStack: [],
       clipboard: null,
@@ -36,9 +40,14 @@ export const projectSlice: SliceCreator<Pick<EditorState,
       parseErrors: res.parseErrors || null,
     });
     localStorage.setItem(PROJECT_STORAGE_KEY, projectPath);
-    get().loadMaps();
-    apiClient.get<SystemData>('/database/system').then(async (sys) => {
+
+    await get().loadMaps();
+
+    // system data 로드 + 자동 맵 선택
+    try {
+      const sys = await apiClient.get<SystemData>('/database/system');
       set({ systemData: sys });
+
       if (sys.partyMembers && sys.partyMembers.length > 0) {
         try {
           const actors = await apiClient.get<({ characterName: string; characterIndex: number } | null)[]>('/database/actors');
@@ -48,7 +57,21 @@ export const projectSlice: SliceCreator<Pick<EditorState,
           }
         } catch {}
       }
-    }).catch(() => {});
+
+      // 자동 맵 선택: 마지막 열었던 맵 → 플레이어 시작 맵
+      const savedMapId = localStorage.getItem(`rpg-last-map-${projectPath}`);
+      if (savedMapId) {
+        const mapId = parseInt(savedMapId, 10);
+        const maps = get().maps;
+        if (!isNaN(mapId) && mapId > 0 && maps.some(m => m && m.id === mapId)) {
+          await get().selectMap(mapId);
+          return;
+        }
+      }
+      if (sys.startMapId && sys.startMapId > 0) {
+        await get().selectMap(sys.startMapId);
+      }
+    } catch {}
   },
 
   closeProject: () => {
@@ -69,7 +92,6 @@ export const projectSlice: SliceCreator<Pick<EditorState,
       selectedEventId: null,
     });
     localStorage.removeItem(PROJECT_STORAGE_KEY);
-    localStorage.removeItem(MAP_STORAGE_KEY);
     localStorage.removeItem(EDIT_MODE_STORAGE_KEY);
   },
 
@@ -106,21 +128,14 @@ export const projectSlice: SliceCreator<Pick<EditorState,
     const saved = localStorage.getItem(PROJECT_STORAGE_KEY);
     if (saved) {
       try {
+        // openProject 내에서 자동으로 마지막 열었던 맵을 선택함
         await get().openProject(saved);
-        const savedMap = localStorage.getItem(MAP_STORAGE_KEY);
-        if (savedMap) {
-          const mapId = parseInt(savedMap, 10);
-          if (!isNaN(mapId) && mapId > 0) {
-            await get().selectMap(mapId);
-          }
-        }
         const savedMode = localStorage.getItem(EDIT_MODE_STORAGE_KEY);
         if (savedMode && ['map', 'event', 'light', 'object', 'cameraZone'].includes(savedMode)) {
           get().setEditMode(savedMode as EditorState['editMode']);
         }
       } catch {
         localStorage.removeItem(PROJECT_STORAGE_KEY);
-        localStorage.removeItem(MAP_STORAGE_KEY);
       }
     }
   },
@@ -132,11 +147,14 @@ export const projectSlice: SliceCreator<Pick<EditorState,
 
   selectMap: async (mapId: number) => {
     // Preserve mapDelete entries (project-level) when switching maps
-    const { undoStack, redoStack } = get();
+    const { undoStack, redoStack, projectPath } = get();
     const preservedUndo = undoStack.filter(e => e.type === 'mapDelete');
     const preservedRedo = redoStack.filter(e => e.type === 'mapDelete');
     set({ currentMapId: mapId, undoStack: preservedUndo, redoStack: preservedRedo });
-    localStorage.setItem(MAP_STORAGE_KEY, String(mapId));
+    // 프로젝트별 마지막 열었던 맵 저장
+    if (projectPath) {
+      localStorage.setItem(`rpg-last-map-${projectPath}`, String(mapId));
+    }
     const map = await apiClient.get<MapData>(`/maps/${mapId}`);
     // 맵 데이터에서 postProcessConfig 로드
     set({ postProcessConfig: map.postProcessConfig || {} });

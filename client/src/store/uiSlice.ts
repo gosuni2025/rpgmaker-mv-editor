@@ -1,5 +1,6 @@
 import type { EditorState, SliceCreator } from './types';
 import { DEFAULT_MAX_UNDO, DEFAULT_ZOOM_STEP, MIN_ZOOM, MAX_ZOOM, TOOLBAR_STORAGE_KEY } from './types';
+import type { RendererInitError } from './types';
 
 function saveToolbarPartial(partial: Record<string, unknown>) {
   try {
@@ -12,7 +13,7 @@ function saveToolbarPartial(partial: Record<string, unknown>) {
 export const uiSlice: SliceCreator<Pick<EditorState,
   'zoomLevel' | 'mode3d' | 'shadowLight' | 'disableFow' | 'paletteTab' | 'toastQueue' |
   'showGrid' | 'showPassability' | 'showTileInfo' | 'showRegion' |
-  'transparentColor' | 'maxUndo' | 'zoomStep' |
+  'transparentColor' | 'maxUndo' | 'zoomStep' | 'rendererInitError' |
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
@@ -36,6 +37,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   postProcessConfig: {},
   paletteTab: 'A',
   toastQueue: [],
+  rendererInitError: null as RendererInitError | null,
   transparentColor: { r: 255, g: 255, b: 255 },
   maxUndo: DEFAULT_MAX_UNDO,
   zoomStep: DEFAULT_ZOOM_STEP,

@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './i18n';
 import App from './App';
+import { install as installErrorOverlay } from './utils/jsErrorOverlay';
+
+installErrorOverlay();
 import LandingPage from './pages/LandingPage';
 import FogOfWarTestPage from './pages/FogOfWarTestPage';
 import FogOfWar3DVolumeTestPage from './pages/FogOfWar3DVolumeTestPage';
