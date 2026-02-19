@@ -94,6 +94,15 @@ export default function ResourceManagerDialog() {
     }
   };
 
+  const handleOpenFolder = async () => {
+    try {
+      const type = selectedFolder.replace('/', '_');
+      await apiClient.post(`/resources/${type}/open-folder`, {});
+    } catch (err) {
+      console.error('Open folder failed:', err);
+    }
+  };
+
   const handleClose = () => setShowResourceManagerDialog(false);
 
   const previewUrl = selectedFile && isImageFolder
@@ -145,6 +154,7 @@ export default function ResourceManagerDialog() {
               <button className="db-btn" onClick={() => fileInputRef.current?.click()}>{t('resourceManager.import')}</button>
               <button className="db-btn" onClick={handleExport} disabled={!selectedFile}>{t('resourceManager.export')}</button>
               <button className="db-btn" onClick={handleDelete} disabled={!selectedFile}>{t('common.delete')}</button>
+              <button className="db-btn" onClick={handleOpenFolder}>{t('resourceManager.openFolder')}</button>
             </div>
           </div>
 
