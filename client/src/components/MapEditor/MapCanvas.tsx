@@ -15,6 +15,7 @@ import { useMouseHandlers } from './useMouseHandlers';
 import { useEventSelectionOverlays, useLightSelectionOverlays, useObjectSelectionOverlays } from './useEntitySelectionOverlays';
 import { useMoveRouteOverlay } from './useMoveRouteOverlay';
 import { useSelectionRectOverlay, usePastePreviewOverlay } from './useSelectionOverlays';
+import { useCameraZoneOverlay } from './useRendererOverlays';
 import { useTileCursorPreview } from './useTileCursorPreview';
 import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview, useTestStartDragPreview, useVehicleStartDragPreview } from './useDragPreviewSync';
 import TileInfoTooltip from './TileInfoTooltip';
@@ -78,6 +79,7 @@ export default function MapCanvas() {
   const pasteEvents = useEditorStore((s) => s.pasteEvents);
   const setShowFindDialog = useEditorStore((s) => s.setShowFindDialog);
   const showTileInfo = useEditorStore((s) => s.showTileInfo);
+  const mode3d = useEditorStore((s) => s.mode3d);
 
   // Compose hooks
   const { showGrid, showTileId, altPressed, panning } = useKeyboardShortcuts(containerRef);
@@ -130,6 +132,7 @@ export default function MapCanvas() {
   useLightSelectionOverlays(overlayRefs, rendererReady);
   useObjectSelectionOverlays(overlayRefs, rendererReady);
   useMoveRouteOverlay(overlayRefs, hoverTile, rendererReady);
+  useCameraZoneOverlay(overlayRefs, rendererReady, cameraZoneMultiDragDelta, cameraZoneDragPreview);
 
   // 맵 캔버스 외부 클릭 시 시작 위치 선택 해제
   useEffect(() => {
@@ -395,8 +398,8 @@ export default function MapCanvas() {
                 : 'crosshair'),
           }}
         />
-        {/* Camera Zone HTML overlays */}
-        {editMode === 'cameraZone' && currentMap?.cameraZones && currentMap.cameraZones.map((zone) => {
+        {/* Camera Zone HTML overlays (2D 모드에서만 표시 — 3D 모드는 Three.js 메쉬로 처리) */}
+        {!mode3d && editMode === 'cameraZone' && currentMap?.cameraZones && currentMap.cameraZones.map((zone) => {
           const isSelected = selectedCameraZoneIds.includes(zone.id);
           const isDragged = isSelected && cameraZoneMultiDragDelta;
           const zx = (zone.x + (isDragged ? cameraZoneMultiDragDelta.dx : 0)) * TILE_SIZE_PX;
@@ -433,8 +436,8 @@ export default function MapCanvas() {
             </React.Fragment>
           );
         })}
-        {/* Camera Zone drag/creation preview */}
-        {editMode === 'cameraZone' && cameraZoneDragPreview && (
+        {/* Camera Zone drag/creation preview (2D 모드에서만 표시) */}
+        {!mode3d && editMode === 'cameraZone' && cameraZoneDragPreview && (
           <div style={{
             position: 'absolute',
             left: cameraZoneDragPreview.x * TILE_SIZE_PX,

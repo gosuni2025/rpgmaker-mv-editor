@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import { TILE_SIZE_PX, isTileA1, isTileA2, isTileA3, isTileA4, isTileA5, isAutotile, TILE_ID_A1 } from '../../utils/tileHelper';
 import { requestRenderFrames } from './initGameGlobals';
@@ -1511,4 +1511,165 @@ export function usePassagePastePreviewOverlay(
 
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
   }, [editMode, isPassagePasting, passagePastePreviewPos, clipboard, rendererReady]);
+}
+
+/** 카메라 존 오버레이 (3D 모드 전용 Three.js 메쉬) */
+export function useCameraZoneOverlay(
+  refs: Pick<OverlayRefs, 'rendererObjRef' | 'stageRef' | 'renderRequestedRef'>,
+  rendererReady: number,
+  cameraZoneMultiDragDelta: { dx: number; dy: number } | null,
+  cameraZoneDragPreview: { x: number; y: number; width: number; height: number } | null,
+) {
+  const editMode = useEditorStore((s) => s.editMode);
+  const mode3d = useEditorStore((s) => s.mode3d);
+  const selectedCameraZoneIds = useEditorStore((s) => s.selectedCameraZoneIds);
+  const cameraZones = useEditorStore((s) => (s.currentMap as any)?.cameraZones ?? null);
+  const meshesRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    const rendererObj = refs.rendererObjRef.current;
+    if (!rendererObj) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+
+    // 기존 메쉬 제거
+    for (const m of meshesRef.current) {
+      rendererObj.scene.remove(m);
+      m.geometry?.dispose();
+      if (m.material?.map) m.material.map.dispose();
+      m.material?.dispose();
+    }
+    meshesRef.current = [];
+
+    // 3D 모드 + cameraZone 편집 모드에서만 활성화
+    if (!mode3d || editMode !== 'cameraZone') {
+      requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+      return;
+    }
+
+    const zones: any[] = cameraZones || [];
+
+    for (const zone of zones) {
+      const isSelected = selectedCameraZoneIds.includes(zone.id);
+      const isDragged = isSelected && cameraZoneMultiDragDelta;
+      const zx = zone.x + (isDragged ? cameraZoneMultiDragDelta!.dx : 0);
+      const zy = zone.y + (isDragged ? cameraZoneMultiDragDelta!.dy : 0);
+      const rw = zone.width * TILE_SIZE_PX;
+      const rh = zone.height * TILE_SIZE_PX;
+      const cx = zx * TILE_SIZE_PX + rw / 2;
+      const cy = zy * TILE_SIZE_PX + rh / 2;
+      const fillColor = isSelected ? 0xff8800 : 0x2288ff;
+      const strokeColor = isSelected ? 0xffaa44 : 0x44aaff;
+      const fillOpacity = isSelected ? 0.25 : 0.15;
+
+      // 채우기 (반투명)
+      const fillGeom = new THREE.PlaneGeometry(rw, rh);
+      const fillMat = new THREE.MeshBasicMaterial({
+        color: fillColor, opacity: fillOpacity, transparent: true, depthTest: false, side: THREE.DoubleSide,
+      });
+      const fillMesh = new THREE.Mesh(fillGeom, fillMat);
+      fillMesh.position.set(cx, cy, 6);
+      fillMesh.renderOrder = 9988;
+      fillMesh.frustumCulled = false;
+      fillMesh.userData.editorGrid = true;
+      rendererObj.scene.add(fillMesh);
+      meshesRef.current.push(fillMesh);
+
+      // 점선 테두리
+      const hw = rw / 2, hh = rh / 2;
+      const pts = [
+        new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+        new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+        new THREE.Vector3(-hw, -hh, 0),
+      ];
+      const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+      const lineMat = new THREE.LineDashedMaterial({
+        color: strokeColor, depthTest: false, transparent: true,
+        opacity: 1.0, dashSize: 8, gapSize: 4,
+      });
+      const line = new THREE.Line(lineGeom, lineMat);
+      line.computeLineDistances();
+      line.position.set(cx, cy, 6.1);
+      line.renderOrder = 9989;
+      line.frustumCulled = false;
+      line.userData.editorGrid = true;
+      rendererObj.scene.add(line);
+      meshesRef.current.push(line);
+
+      // 존 이름 레이블
+      if (zone.name) {
+        const cvsW = 320; const cvsH = 64;
+        const cvs = document.createElement('canvas');
+        cvs.width = cvsW; cvs.height = cvsH;
+        const ctx = cvs.getContext('2d')!;
+        ctx.clearRect(0, 0, cvsW, cvsH);
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(0, 0, cvsW, cvsH);
+        ctx.fillStyle = isSelected ? '#ffaa44' : '#88ccff';
+        ctx.font = 'bold 40px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(zone.name, 8, cvsH / 2, cvsW - 16);
+        const tex = new THREE.CanvasTexture(cvs);
+        tex.flipY = false;
+        tex.minFilter = THREE.LinearFilter;
+        const labelW = TILE_SIZE_PX * 1.5;
+        const labelH = labelW * (cvsH / cvsW);
+        const labelGeom = new THREE.PlaneGeometry(labelW, labelH);
+        const labelMat = new THREE.MeshBasicMaterial({
+          map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide,
+        });
+        const labelMesh = new THREE.Mesh(labelGeom, labelMat);
+        labelMesh.position.set(zx * TILE_SIZE_PX + labelW / 2, zy * TILE_SIZE_PX + labelH / 2 + 2, 6.2);
+        labelMesh.renderOrder = 9990;
+        labelMesh.frustumCulled = false;
+        labelMesh.userData.editorGrid = true;
+        rendererObj.scene.add(labelMesh);
+        meshesRef.current.push(labelMesh);
+      }
+    }
+
+    // 드래그 생성 프리뷰
+    if (cameraZoneDragPreview) {
+      const dp = cameraZoneDragPreview;
+      const rw = dp.width * TILE_SIZE_PX;
+      const rh = dp.height * TILE_SIZE_PX;
+      const cx = dp.x * TILE_SIZE_PX + rw / 2;
+      const cy = dp.y * TILE_SIZE_PX + rh / 2;
+
+      const fillGeom = new THREE.PlaneGeometry(rw, rh);
+      const fillMat = new THREE.MeshBasicMaterial({
+        color: 0x44ff88, opacity: 0.2, transparent: true, depthTest: false, side: THREE.DoubleSide,
+      });
+      const fillMesh = new THREE.Mesh(fillGeom, fillMat);
+      fillMesh.position.set(cx, cy, 6);
+      fillMesh.renderOrder = 9988;
+      fillMesh.frustumCulled = false;
+      fillMesh.userData.editorGrid = true;
+      rendererObj.scene.add(fillMesh);
+      meshesRef.current.push(fillMesh);
+
+      const hw = rw / 2, hh = rh / 2;
+      const pts = [
+        new THREE.Vector3(-hw, -hh, 0), new THREE.Vector3(hw, -hh, 0),
+        new THREE.Vector3(hw, hh, 0), new THREE.Vector3(-hw, hh, 0),
+        new THREE.Vector3(-hw, -hh, 0),
+      ];
+      const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+      const lineMat = new THREE.LineDashedMaterial({
+        color: 0x44ff88, depthTest: false, transparent: true,
+        opacity: 1.0, dashSize: 8, gapSize: 4,
+      });
+      const line = new THREE.Line(lineGeom, lineMat);
+      line.computeLineDistances();
+      line.position.set(cx, cy, 6.1);
+      line.renderOrder = 9989;
+      line.frustumCulled = false;
+      line.userData.editorGrid = true;
+      rendererObj.scene.add(line);
+      meshesRef.current.push(line);
+    }
+
+    requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
+  }, [mode3d, editMode, cameraZones, selectedCameraZoneIds, cameraZoneMultiDragDelta, cameraZoneDragPreview, rendererReady]);
 }
