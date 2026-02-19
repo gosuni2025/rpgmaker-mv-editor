@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "SERVER_PORT=3001 CLIENT_PORT=5173 concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev": "cross-env SERVER_PORT=3001 CLIENT_PORT=5173 concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "cd server && npx tsx --watch index.ts",
     "dev:client": "cd client && npm run dev",
     "build:client": "cd client && npm run build",
@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
     "electron": "^33.0.0",
     "electron-builder": "^25.1.8",
     "esbuild": "^0.24.0"
