@@ -24,6 +24,21 @@ interface MigrationBackup {
   message: string;
 }
 
+interface PluginFileInfo {
+  file: string;
+  from: string;
+  to: string;
+}
+
+interface MigrationProgress {
+  phase: 'gitBackup' | 'copying' | 'registerPlugins';
+  current: number;
+  total: number;
+  currentFile: string;
+  from: string;
+  to: string;
+}
+
 interface MigrationDialogProps {
   projectPath: string;
   onComplete: () => void;
@@ -52,6 +67,7 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [migrating, setMigrating] = useState(false);
+  const [progress, setProgress] = useState<MigrationProgress | null>(null);
   const [error, setError] = useState('');
   const [gitAvailable, setGitAvailable] = useState(false);
   const [gitBackup, setGitBackup] = useState(true);
@@ -62,10 +78,11 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
   const [showRollbackConfirm, setShowRollbackConfirm] = useState(false);
 
   useEscClose(useCallback(() => {
+    if (migrating) return;
     if (showRollbackConfirm) setShowRollbackConfirm(false);
     else if (showNoGitWarning) setShowNoGitWarning(false);
     else onSkip();
-  }, [showRollbackConfirm, showNoGitWarning, onSkip]));
+  }, [migrating, showRollbackConfirm, showNoGitWarning, onSkip]));
 
   useEffect(() => {
     (async () => {
@@ -129,14 +146,68 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
     setShowNoGitWarning(false);
     setMigrating(true);
     setError('');
+
     try {
-      await apiClient.post('/project/migrate', {
-        files: Array.from(selected),
-        gitBackup: gitBackup && gitAvailable,
+      // Step 1: Git backup
+      if (gitBackup && gitAvailable) {
+        setProgress({
+          phase: 'gitBackup',
+          current: 0,
+          total: 0,
+          currentFile: '',
+          from: '',
+          to: '',
+        });
+        await apiClient.post('/project/migrate-git-backup', {});
+      }
+
+      // Step 2: Collect plugin files
+      const pluginRes = await apiClient.get<{ files: PluginFileInfo[] }>('/project/migrate-plugin-files');
+      const pluginFiles = pluginRes.files;
+
+      // Build full list of files to copy: selected 3d/index_3d files + all plugin files
+      const filesToCopy: { file: string; from?: string; to?: string }[] = [
+        ...Array.from(selected).map(f => ({ file: f })),
+        ...pluginFiles.map(p => ({ file: p.file, from: p.from, to: p.to })),
+      ];
+      const total = filesToCopy.length;
+
+      // Step 3: Copy files one by one
+      for (let i = 0; i < filesToCopy.length; i++) {
+        const item = filesToCopy[i];
+        setProgress({
+          phase: 'copying',
+          current: i + 1,
+          total,
+          currentFile: item.file,
+          from: item.from ?? '',
+          to: item.to ?? '',
+        });
+
+        const res = await apiClient.post<{ success: boolean; from: string; to: string }>(
+          '/project/migrate-file',
+          { file: item.file }
+        );
+        // Update from/to with actual paths from server response
+        setProgress(prev => prev ? { ...prev, from: res.from, to: res.to } : prev);
+      }
+
+      // Step 4: Register plugins
+      setProgress({
+        phase: 'registerPlugins',
+        current: total,
+        total,
+        currentFile: 'plugins.js',
+        from: '',
+        to: '',
       });
+      await apiClient.post('/project/migrate-register-plugins', {});
+
+      setProgress(null);
       onComplete();
     } catch (e) {
       setError((e as Error).message);
+      setProgress(null);
       setMigrating(false);
     }
   };
@@ -164,6 +235,18 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
       setRollingBack(false);
     }
   };
+
+  const phaseLabel = progress
+    ? progress.phase === 'gitBackup'
+      ? t('migration.phaseGitBackup')
+      : progress.phase === 'registerPlugins'
+        ? t('migration.phaseRegisterPlugins')
+        : t('migration.phaseCopying', { current: progress.current, total: progress.total })
+    : '';
+
+  const progressPct = progress && progress.total > 0
+    ? Math.round((progress.current / progress.total) * 100)
+    : 0;
 
   return (
     <div className="db-dialog-overlay">
@@ -317,6 +400,61 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
           </button>
         </div>
       </div>
+
+      {/* Migration progress popup */}
+      {progress && (
+        <div className="db-dialog-overlay" style={{ zIndex: 10002 }}>
+          <div className="db-dialog" style={{ width: 560, height: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div className="db-dialog-header">{t('migration.progressTitle')}</div>
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Phase label + progress counter */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#ddd', fontSize: 13, fontWeight: 'bold' }}>{phaseLabel}</span>
+                {progress.total > 0 && (
+                  <span style={{ color: '#aaa', fontSize: 12 }}>{progress.current} / {progress.total}</span>
+                )}
+              </div>
+
+              {/* Progress bar */}
+              {progress.total > 0 && (
+                <div style={{ background: '#444', borderRadius: 3, height: 6, overflow: 'hidden' }}>
+                  <div style={{
+                    background: '#0078d4',
+                    height: '100%',
+                    width: `${progressPct}%`,
+                    transition: 'width 0.15s ease',
+                  }} />
+                </div>
+              )}
+
+              {/* Current file */}
+              {progress.currentFile && (
+                <div style={{ background: '#2b2b2b', borderRadius: 3, border: '1px solid #444', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '48px 1fr', gap: '4px 8px', fontSize: 12 }}>
+                    <span style={{ color: '#888' }}>{t('migration.progressFile')}</span>
+                    <span style={{ color: '#ddd', wordBreak: 'break-all' }}>{progress.currentFile}</span>
+
+                    {progress.from && (
+                      <>
+                        <span style={{ color: '#888' }}>{t('migration.progressFrom')}</span>
+                        <span style={{ color: '#aaa', fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>{progress.from}</span>
+                      </>
+                    )}
+
+                    {progress.to && (
+                      <>
+                        <span style={{ color: '#888' }}>{t('migration.progressTo')}</span>
+                        <span style={{ color: '#aaa', fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>{progress.to}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showNoGitWarning && (
         <div className="db-dialog-overlay" style={{ zIndex: 10001 }}>
           <div className="db-dialog" style={{ width: 420, height: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
