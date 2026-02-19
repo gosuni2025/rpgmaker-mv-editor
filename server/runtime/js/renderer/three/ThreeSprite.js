@@ -21,10 +21,15 @@ function ThreeSprite(texture) {
     for (var ni = 0; ni < norms.count; ni++) {
         norms.setZ(ni, -1);
     }
+    var _sc = (window.DepthDebugConfig) ? window.DepthDebugConfig.sprite : null;
+    var _sDT = _sc ? _sc.depthTest : false;
+    var _sDW = _sc ? _sc.depthWrite : false;
+    var _sAT = (_sc && _sc.alphaTest) ? 0.5 : 0;
     this._material = new THREE.MeshBasicMaterial({
-        transparent: true,
-        depthTest: false,
-        depthWrite: false,
+        transparent: _sAT > 0 ? false : true,
+        alphaTest: _sAT,
+        depthTest: _sDT,
+        depthWrite: _sDW,
         side: THREE.DoubleSide
     });
     this._threeObj = new THREE.Mesh(this._geometry, this._material);

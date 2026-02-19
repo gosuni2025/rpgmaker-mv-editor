@@ -388,7 +388,9 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
         // z=0→0.00, z=1→-0.01, z=2→-0.02, z=3→-0.03
         var drawZ = drawZArr[i] || 0;
         var elevationEnabled = $dataMap && $dataMap.tileLayerElevation;
-        var zOffset = elevationEnabled ? -drawZ * 0.01 : 0;
+        var _is3DZ = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
+        var _drawZStep = (window.DepthDebugConfig && window.DepthDebugConfig.drawZStep) || -0.001;
+        var zOffset = (_is3DZ || elevationEnabled) ? drawZ * _drawZStep : 0;
 
         for (var j = 0; j < 6; j++) {
             posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
@@ -436,11 +438,19 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
         }
         // material 타입 전환
         if (!isShadow) {
+            var _is3D = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
+            var _tc = (_is3D && window.DepthDebugConfig) ? window.DepthDebugConfig.tile : null;
+            var _dTest = _tc ? _tc.depthTest : false;
+            var _dWrite = _tc ? _tc.depthWrite : false;
+            var _aTest = (_tc && _tc.alphaTest) ? 0.5 : 0;
+            var _transp = _aTest > 0 ? false : true;
             var isPhong = mesh.material.isMeshPhongMaterial;
             if (needsPhong && !isPhong) {
                 mesh.material.dispose();
                 mesh.material = new THREE.MeshPhongMaterial({
-                    map: texture, transparent: true, depthTest: false, depthWrite: false,
+                    map: texture,
+                    transparent: _transp, alphaTest: _aTest,
+                    depthTest: _dTest, depthWrite: _dWrite,
                     side: THREE.DoubleSide,
                     emissive: new THREE.Color(0x000000),
                     specular: new THREE.Color(0x000000), shininess: 0,
@@ -449,13 +459,17 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
             } else if (!needsPhong && isPhong) {
                 mesh.material.dispose();
                 mesh.material = new THREE.MeshBasicMaterial({
-                    map: texture, transparent: true, depthTest: false, depthWrite: false,
+                    map: texture,
+                    transparent: _transp, alphaTest: _aTest,
+                    depthTest: _dTest, depthWrite: _dWrite,
                     side: THREE.DoubleSide,
                 });
                 mesh.material.needsUpdate = true;
-            } else if (mesh.material.depthTest !== false || mesh.material.depthWrite !== false) {
-                mesh.material.depthTest = false;
-                mesh.material.depthWrite = false;
+            } else {
+                mesh.material.depthTest = _dTest;
+                mesh.material.depthWrite = _dWrite;
+                mesh.material.transparent = _transp;
+                mesh.material.alphaTest = _aTest;
                 mesh.material.needsUpdate = true;
             }
         }
@@ -471,26 +485,38 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
         var material;
         if (isShadow) {
             var sc = this._shadowColor;
+            var _sc = (window.DepthDebugConfig) ? window.DepthDebugConfig.shadow : null;
             material = new THREE.MeshBasicMaterial({
                 color: new THREE.Color(sc[0], sc[1], sc[2]),
                 transparent: true, opacity: sc[3],
-                depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+                depthTest: _sc ? _sc.depthTest : false, depthWrite: _sc ? _sc.depthWrite : false,
+                side: THREE.DoubleSide,
             });
         } else {
+            var _is3D = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
+            var _tc2 = (_is3D && window.DepthDebugConfig) ? window.DepthDebugConfig.tile : null;
+            var _dTest2 = _tc2 ? _tc2.depthTest : false;
+            var _dWrite2 = _tc2 ? _tc2.depthWrite : false;
+            var _aTest2 = (_tc2 && _tc2.alphaTest) ? 0.5 : 0;
+            var _transp2 = _aTest2 > 0 ? false : true;
             texture.minFilter = THREE.NearestFilter;
             texture.magFilter = THREE.NearestFilter;
             texture.generateMipmaps = false;
             texture.anisotropy = 1;
             if (needsPhong) {
                 material = new THREE.MeshPhongMaterial({
-                    map: texture, transparent: true, depthTest: false, depthWrite: false,
+                    map: texture,
+                    transparent: _transp2, alphaTest: _aTest2,
+                    depthTest: _dTest2, depthWrite: _dWrite2,
                     side: THREE.DoubleSide,
                     emissive: new THREE.Color(0x000000),
                     specular: new THREE.Color(0x000000), shininess: 0,
                 });
             } else {
                 material = new THREE.MeshBasicMaterial({
-                    map: texture, transparent: true, depthTest: false, depthWrite: false,
+                    map: texture,
+                    transparent: _transp2, alphaTest: _aTest2,
+                    depthTest: _dTest2, depthWrite: _dWrite2,
                     side: THREE.DoubleSide,
                 });
             }
@@ -615,7 +641,9 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(setNumber, meshKe
         var drawZArr = this._drawZData[setNumber] || [];
         var drawZ = drawZArr[i] || 0;
         var elevationEnabled = $dataMap && $dataMap.tileLayerElevation;
-        var zOffset = elevationEnabled ? -drawZ * 0.01 : 0;
+        var _is3DZ = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
+        var _drawZStep = (window.DepthDebugConfig && window.DepthDebugConfig.drawZStep) || -0.001;
+        var zOffset = (_is3DZ || elevationEnabled) ? drawZ * _drawZStep : 0;
         for (var j = 0; j < 6; j++) {
             posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
             posArray[posOff + j * 3 + 1] = data.positions[srcOff + j * 2 + 1];
@@ -673,12 +701,19 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(setNumber, meshKe
         }
 
         // material 타입 전환 (ShadowLight 상태에 따라)
+        var _wc = (window.DepthDebugConfig) ? window.DepthDebugConfig.water : null;
+        var _wDT = _wc ? _wc.depthTest : false;
+        var _wDW = _wc ? _wc.depthWrite : false;
+        var _wAT = (_wc && _wc.alphaTest) ? 0.5 : 0;
+        var _wTr = _wAT > 0 ? false : true;
         var isPhong = mesh.material.isMeshPhongMaterial;
         var isShader = mesh.material.isShaderMaterial;
         if (needsPhong && !isPhong) {
             mesh.material.dispose();
             var mat = new THREE.MeshPhongMaterial({
-                map: texture, transparent: true, depthTest: true, depthWrite: false,
+                map: texture,
+                transparent: _wTr, alphaTest: _wAT,
+                depthTest: _wDT, depthWrite: _wDW,
                 side: THREE.DoubleSide,
                 emissive: new THREE.Color(0x000000),
                 specular: new THREE.Color(0x000000), shininess: 0,
@@ -706,9 +741,16 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(setNumber, meshKe
         texture.generateMipmaps = false;
         texture.anisotropy = 1;
 
+        var _wc2 = (window.DepthDebugConfig) ? window.DepthDebugConfig.water : null;
+        var _wDT2 = _wc2 ? _wc2.depthTest : false;
+        var _wDW2 = _wc2 ? _wc2.depthWrite : false;
+        var _wAT2 = (_wc2 && _wc2.alphaTest) ? 0.5 : 0;
+        var _wTr2 = _wAT2 > 0 ? false : true;
         if (needsPhong) {
             material = new THREE.MeshPhongMaterial({
-                map: texture, transparent: true, depthTest: true, depthWrite: false,
+                map: texture,
+                transparent: _wTr2, alphaTest: _wAT2,
+                depthTest: _wDT2, depthWrite: _wDW2,
                 side: THREE.DoubleSide,
                 emissive: new THREE.Color(0x000000),
                 specular: new THREE.Color(0x000000), shininess: 0,
