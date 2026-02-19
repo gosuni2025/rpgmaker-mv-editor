@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import useEscClose from '../../hooks/useEscClose';
-import type { RPGEvent, EventPage, EventConditions, EventImage, EventCommand, MoveRoute, MapData } from '../../types/rpgMakerMV';
+import type { RPGEvent, EventPage, EventConditions, EventImage, EventCommand, MoveRoute, MapData, NpcDisplayData } from '../../types/rpgMakerMV';
 import EventCommandEditor from './EventCommandEditor';
 import ImagePicker from '../common/ImagePicker';
 import MoveRouteDialog from './MoveRouteDialog';
@@ -48,6 +48,9 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
   const [editEvent, setEditEvent] = useState<RPGEvent>(() => event ? JSON.parse(JSON.stringify(event)) : null!);
   const [activePage, setActivePage] = useState(0);
   const [showMoveRoute, setShowMoveRoute] = useState(false);
+
+  const [npcName, setNpcName] = useState<string>(() => currentMap?.npcData?.[eventId]?.name ?? '');
+  const [showNpcName, setShowNpcName] = useState<boolean>(() => currentMap?.npcData?.[eventId]?.showName ?? false);
 
   const MOVE_TYPES = useMemo(() => [
     t('eventDetail.moveTypes.0'), t('eventDetail.moveTypes.1'), t('eventDetail.moveTypes.2'), t('eventDetail.moveTypes.3'),
@@ -147,6 +150,16 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
     updateEvent({ pages });
   };
 
+  const buildNpcData = (map: MapData): Record<number, NpcDisplayData> | undefined => {
+    const updated = { ...(map.npcData || {}) };
+    if (npcName.trim() || showNpcName) {
+      updated[eventId] = { name: npcName, showName: showNpcName };
+    } else {
+      delete updated[eventId];
+    }
+    return Object.keys(updated).length > 0 ? updated : undefined;
+  };
+
   const handleOk = () => {
     if (!currentMap) return;
     const events = [...(currentMap.events || [])];
@@ -154,7 +167,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
     if (idx >= 0) {
       events[idx] = editEvent;
     }
-    useEditorStore.setState({ currentMap: { ...currentMap, events } as MapData & { tilesetNames?: string[] } });
+    useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap) } as MapData & { tilesetNames?: string[] } });
     onClose();
   };
 
@@ -165,7 +178,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
     if (idx >= 0) {
       events[idx] = JSON.parse(JSON.stringify(editEvent));
     }
-    useEditorStore.setState({ currentMap: { ...currentMap, events } as MapData & { tilesetNames?: string[] } });
+    useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap) } as MapData & { tilesetNames?: string[] } });
   };
 
   const padId = (id: number) => String(id).padStart(3, '0');
@@ -229,6 +242,25 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
               className="event-editor-input"
               style={{ flex: 1, minWidth: 120 }}
             />
+          </label>
+          <label className="event-editor-name-label event-editor-npc-name-label">
+            {t('eventDetail.npcName')}:
+            <input
+              type="text"
+              value={npcName}
+              onChange={(e) => setNpcName(e.target.value)}
+              className="event-editor-input"
+              style={{ width: 120 }}
+              placeholder={t('eventDetail.npcNamePlaceholder')}
+            />
+            <label className="event-editor-npc-show-check">
+              <input
+                type="checkbox"
+                checked={showNpcName}
+                onChange={(e) => setShowNpcName(e.target.checked)}
+              />
+              {t('eventDetail.showNpcName')}
+            </label>
           </label>
         </div>
 

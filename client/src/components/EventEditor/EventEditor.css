@@ -48,6 +48,21 @@
   white-space: nowrap;
 }
 
+.event-editor-npc-name-label {
+  border-left: 1px solid #555;
+  padding-left: 16px;
+}
+
+.event-editor-npc-show-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #ccc;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 /* Common input/select styles */
 .event-editor-input {
   background: #2b2b2b;

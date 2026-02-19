@@ -884,7 +884,10 @@
     "billboard3dTooltip": "When checked, the event character will be displayed upright (billboard effect) in 3D mode, facing the camera. When unchecked, the character lies flat like a tile on the ground.",
     "billboardZ": "Z Position",
     "billboardZUnit": "tiles",
-    "billboardZTooltip": "Height offset of the character in 3D mode. Positive values move it up, negative values move it down. (1.0 = 1 tile height)"
+    "billboardZTooltip": "Height offset of the character in 3D mode. Positive values move it up, negative values move it down. (1.0 = 1 tile height)",
+    "npcName": "NPC Name",
+    "npcNamePlaceholder": "Display name",
+    "showNpcName": "Show Name"
   },
   "mapTree": {
     "openProject": "Please open a project",
