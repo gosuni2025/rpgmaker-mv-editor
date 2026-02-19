@@ -188,7 +188,7 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
       const pluginRes = await apiClient.get<{ files: PluginFileInfo[] }>('/project/migrate-plugin-files');
       const pluginFiles = pluginRes.files;
 
-      // Build full list of files to copy: selected 3d/index.html files + all plugin files
+      // Build full list of files to copy: selected 3d/index_3d files + all plugin files
       const filesToCopy: { file: string; from?: string; to?: string }[] = [
         ...Array.from(selected).map(f => ({ file: f })),
         ...pluginFiles.map(p => ({ file: p.file, from: p.from, to: p.to })),
