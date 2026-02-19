@@ -1009,50 +1009,94 @@
     Mode3D._currentYaw = null;    // lerp 중인 현재 yaw (rad)
     Mode3D._currentZoom = null;   // lerp 중인 현재 zoom
 
+    // 카메라 존 진입 전 상태 저장 (존 탈출 시 복원용)
+    Mode3D._prevActiveCameraZoneId = null;
+    Mode3D._savedTiltBeforeZone = null;
+    Mode3D._savedFovBeforeZone = null;
+    Mode3D._savedYawBeforeZone = null;
+    Mode3D._savedZoomBeforeZone = null;
+
     Mode3D._updateCameraZoneParams = function() {
         if (!this._perspCamera) return;
         if (window.__editorMode) return; // 에디터에서는 적용하지 않음
 
-        // 타겟 값 결정: 활성 카메라존 → 현재 _tiltDeg/_yawDeg (플러그인 커맨드로 변경 가능)
-        var targetTilt = this._tiltDeg != null ? this._tiltDeg : 60;
-        var targetFov = 60;
-        var targetYaw = this._yawDeg != null ? this._yawDeg : 0;
-        var targetZoom = 1.0;
+        var nowActiveId = ($gameMap && $gameMap._activeCameraZoneId != null)
+            ? $gameMap._activeCameraZoneId : null;
+        var prevActiveId = this._prevActiveCameraZoneId;
+
+        // 카메라 존에 새로 진입하는 순간: 현재 상태 저장
+        if (prevActiveId == null && nowActiveId != null) {
+            this._savedTiltBeforeZone = this._tiltDeg != null ? this._tiltDeg : 60;
+            this._savedFovBeforeZone  = this._perspCamera.fov || 60;
+            this._savedYawBeforeZone  = this._yawDeg != null ? this._yawDeg : 0;
+            this._savedZoomBeforeZone = this._zoomScale != null ? this._zoomScale : 1.0;
+        }
+        this._prevActiveCameraZoneId = nowActiveId;
+
+        // 타겟 결정
+        var targetTilt, targetFov, targetYaw, targetZoom;
         var transitionSpeed = 1.0;
 
-        if ($gameMap && $gameMap._activeCameraZoneId != null) {
-            var zone = $gameMap.getCameraZoneById($gameMap._activeCameraZoneId);
+        if (nowActiveId != null) {
+            // 존 안: 존의 값으로 전환
+            targetTilt = this._tiltDeg != null ? this._tiltDeg : 60;
+            targetFov  = 60;
+            targetYaw  = this._yawDeg != null ? this._yawDeg : 0;
+            targetZoom = 1.0;
+            var zone = $gameMap.getCameraZoneById(nowActiveId);
             if (zone) {
                 targetTilt = zone.tilt != null ? zone.tilt : targetTilt;
-                targetFov = zone.fov != null ? zone.fov : 60;
-                targetYaw = zone.yaw != null ? zone.yaw : targetYaw;
+                targetFov  = zone.fov  != null ? zone.fov  : 60;
+                targetYaw  = zone.yaw  != null ? zone.yaw  : targetYaw;
                 targetZoom = zone.zoom != null ? zone.zoom : 1.0;
                 transitionSpeed = zone.transitionSpeed || 1.0;
             }
+        } else if (this._savedTiltBeforeZone != null) {
+            // 존 탈출 직후: 저장된 진입 전 상태로 복원
+            targetTilt = this._savedTiltBeforeZone;
+            targetFov  = this._savedFovBeforeZone  != null ? this._savedFovBeforeZone  : 60;
+            targetYaw  = this._savedYawBeforeZone  != null ? this._savedYawBeforeZone  : 0;
+            targetZoom = this._savedZoomBeforeZone != null ? this._savedZoomBeforeZone : 1.0;
+        } else {
+            // 맵 시작부터 존 밖 (저장 값 없음): 현재 값 그대로 유지
+            targetTilt = this._tiltDeg != null ? this._tiltDeg : 60;
+            targetFov  = 60;
+            targetYaw  = this._yawDeg != null ? this._yawDeg : 0;
+            targetZoom = 1.0;
         }
 
         // 초기화 (최초 호출 시)
         if (this._currentTilt === null) {
             this._currentTilt = targetTilt;
-            this._currentFov = targetFov;
-            this._currentYaw = targetYaw;
+            this._currentFov  = targetFov;
+            this._currentYaw  = targetYaw;
             this._currentZoom = targetZoom;
         }
 
         // lerp로 부드럽게 전환
-        var lerpRate = 0.1 * transitionSpeed;
-        lerpRate = Math.min(lerpRate, 1.0);
+        var lerpRate = Math.min(0.1 * transitionSpeed, 1.0);
 
         this._currentTilt += (targetTilt - this._currentTilt) * lerpRate;
-        this._currentFov += (targetFov - this._currentFov) * lerpRate;
-        this._currentYaw += (targetYaw - this._currentYaw) * lerpRate;
+        this._currentFov  += (targetFov  - this._currentFov ) * lerpRate;
+        this._currentYaw  += (targetYaw  - this._currentYaw ) * lerpRate;
         this._currentZoom += (targetZoom - this._currentZoom) * lerpRate;
 
         // 수렴 체크 (0.01 이하면 스냅)
-        if (Math.abs(targetTilt - this._currentTilt) < 0.01) this._currentTilt = targetTilt;
-        if (Math.abs(targetFov - this._currentFov) < 0.01) this._currentFov = targetFov;
-        if (Math.abs(targetYaw - this._currentYaw) < 0.01) this._currentYaw = targetYaw;
+        if (Math.abs(targetTilt - this._currentTilt) < 0.01)  this._currentTilt = targetTilt;
+        if (Math.abs(targetFov  - this._currentFov ) < 0.01)  this._currentFov  = targetFov;
+        if (Math.abs(targetYaw  - this._currentYaw ) < 0.01)  this._currentYaw  = targetYaw;
         if (Math.abs(targetZoom - this._currentZoom) < 0.001) this._currentZoom = targetZoom;
+
+        // 존 밖 복원 완료 시 저장 값 클리어 → 이후 사용자 입력을 다시 target으로
+        if (nowActiveId == null && this._savedTiltBeforeZone != null) {
+            if (this._currentTilt === targetTilt && this._currentYaw === targetYaw &&
+                this._currentZoom === targetZoom) {
+                this._savedTiltBeforeZone = null;
+                this._savedFovBeforeZone  = null;
+                this._savedYawBeforeZone  = null;
+                this._savedZoomBeforeZone = null;
+            }
+        }
 
         // Mode3D 전역에 반영: tilt
         this._tiltDeg = this._currentTilt;
