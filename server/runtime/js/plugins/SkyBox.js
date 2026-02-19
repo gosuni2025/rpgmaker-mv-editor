@@ -171,14 +171,12 @@
 
     // $dataMap에서 skyBackground 읽어 자동 적용
     function readMapSettings() {
-        if (typeof $dataMap !== 'undefined' && $dataMap && $dataMap.skyBackground) {
+        if (typeof $dataMap === 'undefined' || !$dataMap) return;
+        if ($dataMap.skyBackground) {
             applySettings($dataMap.skyBackground);
-        } else if (typeof $dataMap !== 'undefined' && $dataMap && $dataMap.parallaxName) {
-            // skyBackground 없지만 parallaxName 있으면 parallax 모드 사용
-            applySettings(null);
         } else {
-            // skyBackground도 parallax도 없으면 기본 sky sphere
-            applySettings({ type: 'skysphere', skyImage: defaultPanoramaFile, rotationSpeed: 0.02 });
+            // skyBackground 없으면 parallax 모드 (sky sphere 비활성)
+            applySettings(null);
         }
     }
 
