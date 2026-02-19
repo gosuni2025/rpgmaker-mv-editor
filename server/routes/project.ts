@@ -452,25 +452,25 @@ router.get('/migration-check', (req: Request, res: Response) => {
       }
     }
 
-    // Check index.html (Three.js runtime — template is index_3d.html in server/runtime)
+    // Check index_3d.html
     const runtimeIndex3d = path.join(runtimePath, 'index_3d.html');
-    const projectIndexHtml = path.join(projectPath, 'index.html');
+    const projectIndex3d = path.join(projectPath, 'index_3d.html');
     if (fs.existsSync(runtimeIndex3d)) {
       const editorStat = fs.statSync(runtimeIndex3d);
       const editorSize = editorStat.size;
       const editorMtime = editorStat.mtime.toISOString();
-      if (!fs.existsSync(projectIndexHtml)) {
-        files.push({ file: 'index.html', status: 'add', editorSize, editorMtime });
+      if (!fs.existsSync(projectIndex3d)) {
+        files.push({ file: 'index_3d.html', status: 'add', editorSize, editorMtime });
         needsMigration = true;
       } else {
-        const projectStat = fs.statSync(projectIndexHtml);
+        const projectStat = fs.statSync(projectIndex3d);
         const projectSize = projectStat.size;
         const projectMtime = projectStat.mtime.toISOString();
-        if (fileHash(runtimeIndex3d) !== fileHash(projectIndexHtml)) {
-          files.push({ file: 'index.html', status: 'update', editorSize, projectSize, editorMtime, projectMtime });
+        if (fileHash(runtimeIndex3d) !== fileHash(projectIndex3d)) {
+          files.push({ file: 'index_3d.html', status: 'update', editorSize, projectSize, editorMtime, projectMtime });
           needsMigration = true;
         } else {
-          files.push({ file: 'index.html', status: 'same', editorSize, projectSize, editorMtime, projectMtime });
+          files.push({ file: 'index_3d.html', status: 'same', editorSize, projectSize, editorMtime, projectMtime });
         }
       }
     }
@@ -631,14 +631,9 @@ router.post('/migrate-file', (req: Request, res: Response) => {
     let src: string;
     let dest: string;
 
-    if (file === 'index.html') {
+    if (file === 'index_3d.html') {
       src = path.join(runtimePath, 'index_3d.html');
-      dest = path.join(projectRoot, 'index.html');
-      // Backup original PIXI index.html as index_2d.html if not already done
-      const backup = path.join(projectRoot, 'index_2d.html');
-      if (!fs.existsSync(backup) && fs.existsSync(dest)) {
-        fs.copyFileSync(dest, backup);
-      }
+      dest = path.join(projectRoot, 'index_3d.html');
     } else if (file.startsWith('js/libs/')) {
       const relFile = file.replace(/^js\//, '');
       src = path.join(runtimeJsDir, relFile);
@@ -786,18 +781,13 @@ router.post('/migrate', (req: Request, res: Response) => {
     if (selectedFiles && selectedFiles.length > 0) {
       // Copy only selected files
       for (const file of selectedFiles) {
-        // Handle index.html (Three.js runtime replaces PIXI index.html)
-        if (file === 'index.html') {
+        // Handle index_3d.html (project root)
+        if (file === 'index_3d.html') {
           const src = path.join(runtimePath, 'index_3d.html');
-          const dest = path.join(projectRoot, 'index.html');
+          const dest = path.join(projectRoot, 'index_3d.html');
           if (fs.existsSync(src)) {
-            // Backup original PIXI index.html as index_2d.html if not already done
-            const backup = path.join(projectRoot, 'index_2d.html');
-            if (!fs.existsSync(backup) && fs.existsSync(dest)) {
-              fs.copyFileSync(dest, backup);
-            }
             fs.copyFileSync(src, dest);
-            copied.push('index.html');
+            copied.push('index_3d.html');
           }
           continue;
         }
@@ -851,18 +841,13 @@ router.post('/migrate', (req: Request, res: Response) => {
         copied.push(displayPath);
       }
 
-      // Also copy index.html (Three.js runtime)
+      // Also copy index_3d.html
       const runtimeIndex3d = path.join(runtimePath, 'index_3d.html');
-      const projectIndexHtml = path.join(projectRoot, 'index.html');
+      const projectIndex3d = path.join(projectRoot, 'index_3d.html');
       if (fs.existsSync(runtimeIndex3d)) {
-        if (!fs.existsSync(projectIndexHtml) || fileHash(runtimeIndex3d) !== fileHash(projectIndexHtml)) {
-          // Backup original PIXI index.html as index_2d.html if not already done
-          const backup = path.join(projectRoot, 'index_2d.html');
-          if (!fs.existsSync(backup) && fs.existsSync(projectIndexHtml)) {
-            fs.copyFileSync(projectIndexHtml, backup);
-          }
-          fs.copyFileSync(runtimeIndex3d, projectIndexHtml);
-          copied.push('index.html');
+        if (!fs.existsSync(projectIndex3d) || fileHash(runtimeIndex3d) !== fileHash(projectIndex3d)) {
+          fs.copyFileSync(runtimeIndex3d, projectIndex3d);
+          copied.push('index_3d.html');
         }
       }
     }
