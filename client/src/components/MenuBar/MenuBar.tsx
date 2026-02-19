@@ -86,7 +86,7 @@ export default function MenuBar() {
         { label: t('menu.migrate'), action: 'migrate', disabled: () => !hasProject },
         { type: 'separator' },
         { label: t('menu.openEditorFolder'), action: 'openEditorFolder' },
-        { label: t('menu.copyPath'), action: 'copyPath', disabled: () => !hasProject },
+        { label: t('menu.openEditorFolderTerminal'), action: 'openEditorFolderTerminal' },
         { label: t('menu.openVscode'), action: 'openVscode', disabled: () => !hasProject },
         { type: 'separator' },
         { label: t('menu.projectSettings'), action: 'pluginManager', disabled: () => !hasProject },
@@ -164,7 +164,10 @@ export default function MenuBar() {
         { label: t('menu.playtestTitle'), action: 'playtestTitle', shortcut: 'Ctrl+Shift+R', disabled: () => !hasProject },
         { label: t('menu.playtestCurrentMap'), action: 'playtestCurrentMap', shortcut: 'Ctrl+R', disabled: () => !hasProject },
         { type: 'separator' },
-        { label: t('menu.openFolder'), action: 'openFolder', disabled: () => !hasProject },
+        { label: t('menu.openProjectFolder'), action: 'openFolder', disabled: () => !hasProject },
+        { label: t('menu.openProjectFolderTerminal'), action: 'openProjectFolderTerminal', disabled: () => !hasProject },
+        { type: 'separator' },
+        { label: t('menu.copyPath'), action: 'copyPath', disabled: () => !hasProject },
       ],
     },
     {
@@ -242,7 +245,9 @@ export default function MenuBar() {
         }
       }); break;
       case 'openFolder': fetch('/api/project/open-folder', { method: 'POST' }); break;
+      case 'openProjectFolderTerminal': fetch('/api/project/open-folder-terminal', { method: 'POST' }); break;
       case 'openEditorFolder': fetch('/api/project/open-editor-folder', { method: 'POST' }); break;
+      case 'openEditorFolderTerminal': fetch('/api/project/open-editor-folder-terminal', { method: 'POST' }); break;
       case 'copyPath': if (projectPath) navigator.clipboard.writeText(projectPath); break;
       case 'openVscode': fetch('/api/project/open-vscode', { method: 'POST' }); break;
       case 'selectAll': window.dispatchEvent(new CustomEvent('editor-selectall')); break;
