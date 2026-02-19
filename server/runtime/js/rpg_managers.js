@@ -107,10 +107,37 @@ DataManager.loadMapData = function(mapId) {
     if (mapId > 0) {
         var filename = 'Map%1.json'.format(mapId.padZero(3));
         this._mapLoader = ResourceHandler.createLoader('data/' + filename, this.loadDataFile.bind(this, '$dataMap', filename));
+        this._mapExtLoaded = false;
+        this._pendingExtData = null;
         this.loadDataFile('$dataMap', filename);
+        this._loadMapExtFile(filename.replace('.json', '_ext.json'));
     } else {
+        this._mapExtLoaded = true;
         this.makeEmptyMap();
     }
+};
+
+DataManager._loadMapExtFile = function(extFilename) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'data/' + extFilename);
+    xhr.overrideMimeType('application/json');
+    xhr.onload = function() {
+        if (xhr.status < 400) {
+            try {
+                var extData = JSON.parse(xhr.responseText);
+                if ($dataMap) {
+                    Object.assign($dataMap, extData);
+                } else {
+                    DataManager._pendingExtData = extData;
+                }
+            } catch (e) {}
+        }
+        DataManager._mapExtLoaded = true;
+    };
+    xhr.onerror = function() {
+        DataManager._mapExtLoaded = true;
+    };
+    xhr.send();
 };
 
 DataManager.makeEmptyMap = function() {
@@ -124,12 +151,16 @@ DataManager.makeEmptyMap = function() {
 
 DataManager.isMapLoaded = function() {
     this.checkError();
-    return !!$dataMap;
+    return !!$dataMap && !!this._mapExtLoaded;
 };
 
 DataManager.onLoad = function(object) {
     var array;
     if (object === $dataMap) {
+        if (DataManager._pendingExtData) {
+            Object.assign($dataMap, DataManager._pendingExtData);
+            DataManager._pendingExtData = null;
+        }
         this.extractMetadata(object);
         array = object.events;
     } else {

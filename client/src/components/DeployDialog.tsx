@@ -5,7 +5,7 @@ import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 import FolderBrowser from './common/FolderBrowser';
 
-type Platform = 'web' | 'windows' | 'macos';
+type Platform = 'web';
 
 export default function DeployDialog() {
   const { t } = useTranslation();
@@ -47,8 +47,6 @@ export default function DeployDialog() {
 
   const platforms: { key: Platform; label: string; desc: string }[] = [
     { key: 'web', label: 'Web (HTML5)', desc: t('deploy.platformDesc.web') },
-    { key: 'windows', label: 'Windows', desc: t('deploy.platformDesc.windows') },
-    { key: 'macos', label: 'macOS', desc: t('deploy.platformDesc.macos') },
   ];
 
   return (
