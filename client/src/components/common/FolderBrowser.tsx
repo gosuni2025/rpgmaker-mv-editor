@@ -45,6 +45,7 @@ export default function FolderBrowser({
   const [error, setError] = useState('');
   const [newFolderMode, setNewFolderMode] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [drives, setDrives] = useState<string[]>([]);
   const newFolderInputRef = useRef<HTMLInputElement>(null);
 
   const browse = useCallback(async (dirPath: string) => {
@@ -66,6 +67,9 @@ export default function FolderBrowser({
   }, [onPathChange]);
 
   useEffect(() => {
+    apiClient.get<{ drives: string[] }>('/project/drives').then((res) => {
+      setDrives(res.drives);
+    }).catch(() => {});
     if (autoLoad) {
       browse(initialPath);
     }
@@ -102,6 +106,8 @@ export default function FolderBrowser({
     }
   };
 
+  const currentDrive = currentPath.match(/^([A-Za-z]:[/\\])/)?.[1]?.toUpperCase() ?? '';
+
   const cls = ['folder-browser', className].filter(Boolean).join(' ');
 
   return (
@@ -109,6 +115,24 @@ export default function FolderBrowser({
       <div className="folder-browser-path-bar">
         <div className="folder-browser-path-text">{currentPath}</div>
       </div>
+      {drives.length > 0 && (
+        <div className="folder-browser-drives">
+          {drives.map((drive) => {
+            const driveLabel = drive.replace(':\\', ':');
+            const active = currentDrive === drive.toUpperCase();
+            return (
+              <button
+                key={drive}
+                className={`folder-browser-drive-btn${active ? ' active' : ''}`}
+                onClick={() => browse(drive)}
+                title={drive}
+              >
+                {driveLabel}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="folder-browser-list">
         {loading && <div className="folder-browser-loading">{t('openProject.loading')}</div>}
