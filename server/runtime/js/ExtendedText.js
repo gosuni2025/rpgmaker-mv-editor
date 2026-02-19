@@ -330,8 +330,7 @@ Window_Base.prototype._etRedrawShake = function(seg, time) {
     }
     this.changeTextColor(savedColor);
 
-    // Three.js 텍스처 갱신
-    if (bmp._baseTexture) bmp._baseTexture.needsUpdate = true;
+    // drawText가 _setDirty()를 호출하므로 checkDirty()에서 텍스처가 갱신됨
 };
 
 //─── hologram 스캔라인 오버레이 ───
@@ -358,8 +357,8 @@ Window_Base.prototype._etDrawHologram = function(saved) {
     }
     ctx.restore();
 
-    // Three.js 텍스처 갱신
-    if (bmp._baseTexture) bmp._baseTexture.needsUpdate = true;
+    // ctx를 직접 조작했으므로 _setDirty()를 명시 호출해야 텍스처가 갱신됨
+    bmp._setDirty();
 };
 
 //=============================================================================
@@ -377,9 +376,7 @@ Window_Base.prototype.createContents = function() {
 var _Window_Base_update = Window_Base.prototype.update;
 Window_Base.prototype.update = function() {
     _Window_Base_update.call(this);
-    ExtendedText._time = typeof PictureShader !== 'undefined' && PictureShader
-        ? PictureShader._time
-        : (ExtendedText._time + 1 / 60);
+    ExtendedText._time += 1 / 60;
 
     // shake 세그먼트 매 프레임 재그리기
     if (this._etAnimSegs && this._etAnimSegs.length > 0) {
