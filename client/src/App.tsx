@@ -116,6 +116,7 @@ export default function App() {
 
   const toastQueue = useEditorStore((s) => s.toastQueue);
   const dismissToast = useEditorStore((s) => s.dismissToast);
+  const dismissAllToasts = useEditorStore((s) => s.dismissAllToasts);
   const parseErrors = useEditorStore((s) => s.parseErrors);
   const rendererInitError = useEditorStore((s) => s.rendererInitError);
   const uninitializedProjectPath = useEditorStore((s) => s.uninitializedProjectPath);
@@ -390,6 +391,15 @@ export default function App() {
               )}
             </div>
           ))}
+          {toastQueue.length >= 2 && (
+            <button
+              className="toast-dismiss-all"
+              style={{ bottom: `${40}px` }}
+              onClick={dismissAllToasts}
+            >
+              모두 읽음
+            </button>
+          )}
         </div>
       )}
     </div>
