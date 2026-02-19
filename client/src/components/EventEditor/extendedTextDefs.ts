@@ -21,6 +21,12 @@ export interface TagDef {
   params: TagParam[];
 }
 
+// 블록 하나에 적용된 단일 태그 항목 (여러 개가 모이면 중첩 효과)
+export interface TagEntry {
+  tag: string;
+  params: Record<string, string>;
+}
+
 export const EXTENDED_TAG_DEFS: TagDef[] = [
   {
     tag: 'color',
@@ -244,9 +250,34 @@ export function serializeExtendedText(segments: AnyTextSeg[]): string {
   }).join('');
 }
 
+// ─── 중첩 블록 → TagEntry 배열 + 최종 content 텍스트로 flatten ───
+// <shake><color>텍스트</color></shake> → tags:[shake,color], content:'텍스트'
+function collectTags(seg: TextBlockSeg): { tags: TagEntry[]; content: string } {
+  const tags: TagEntry[] = [{ tag: seg.tag, params: seg.params }];
+  // 자식이 단일 블록 세그먼트이면 재귀 flatten
+  if (seg.children.length === 1 && seg.children[0].type === 'block') {
+    const inner = collectTags(seg.children[0] as TextBlockSeg);
+    return { tags: [...tags, ...inner.tags], content: inner.content };
+  }
+  return { tags, content: serializeExtendedText(seg.children) };
+}
+
+// ─── TagEntry 배열 → 중첩 태그 raw 문자열 ───
+// tags[0]이 가장 바깥쪽
+export function entriesToRaw(tags: TagEntry[], content: string): string {
+  let result = content;
+  for (let i = tags.length - 1; i >= 0; i--) {
+    const { tag, params } = tags[i];
+    const ps = Object.entries(params)
+      .filter(([, v]) => v !== '')
+      .map(([k, v]) => `${k}=${v}`)
+      .join(' ');
+    result = ps ? `<${tag} ${ps}>${result}</${tag}>` : `<${tag}>${result}</${tag}>`;
+  }
+  return result;
+}
+
 // ─── 세그먼트 → HTML (contentEditable 렌더링용) ───
-// 블록은 contenteditable="false" 칩으로 렌더링
-// 내용(children) 텍스트는 data-ete-content에 별도 저장
 
 function _esc(text: string): string {
   return text
@@ -255,6 +286,26 @@ function _esc(text: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+export function buildBlockChipHTML(tags: TagEntry[], content: string): string {
+  const primaryColor = getTagDef(tags[0]?.tag)?.badgeColor ?? '#888';
+  const tagsJSON = _esc(JSON.stringify(tags));
+  const labels = tags.map(e => {
+    const def = getTagDef(e.tag);
+    return `<span class="ete-block-label" style="background:${def?.badgeColor ?? '#888'}">${_esc(def?.label ?? e.tag)}</span>`;
+  }).join('');
+  return (
+    `<span class="ete-block" ` +
+    `data-ete-tags="${tagsJSON}" ` +
+    `data-ete-content="${_esc(content)}" ` +
+    `contenteditable="false" ` +
+    `style="border-color:${primaryColor}">` +
+    labels +
+    `<span class="ete-block-preview">${_esc(content || ' ')}</span>` +
+    `<span class="ete-block-del" data-del="1">✕</span>` +
+    `</span>`
+  );
 }
 
 export function segsToHTML(segs: AnyTextSeg[]): string {
@@ -266,23 +317,8 @@ export function segsToHTML(segs: AnyTextSeg[]): string {
       return `<span class="ete-escape" data-ete-escape="${_esc(seg.raw)}" contenteditable="false">${_esc(seg.raw)}</span>`;
     }
     if (seg.type === 'block') {
-      const def = getTagDef(seg.tag);
-      const label = def?.label ?? seg.tag;
-      const color = def?.badgeColor ?? '#888';
-      const paramsJSON = _esc(JSON.stringify(seg.params));
-      const contentText = serializeExtendedText(seg.children);
-      return (
-        `<span class="ete-block" ` +
-        `data-ete-tag="${_esc(seg.tag)}" ` +
-        `data-ete-params="${paramsJSON}" ` +
-        `data-ete-content="${_esc(contentText)}" ` +
-        `contenteditable="false" ` +
-        `style="border-color:${color}">` +
-        `<span class="ete-block-label" style="background:${color}">${_esc(label)}</span>` +
-        `<span class="ete-block-preview">${_esc(contentText || ' ')}</span>` +
-        `<span class="ete-block-del" data-del="1">✕</span>` +
-        `</span>`
-      );
+      const { tags, content } = collectTags(seg);
+      return buildBlockChipHTML(tags, content);
     }
     return '';
   }).join('');
@@ -301,22 +337,23 @@ export function htmlDivToRaw(div: HTMLElement): string {
     const el = node as HTMLElement;
 
     const escapeAttr = el.dataset.eteEscape;
-    const tagAttr = el.dataset.eteTag;
+    const tagsAttr = el.dataset.eteTags;
+    const tagAttr = el.dataset.eteTag; // 하위 호환
 
     if (escapeAttr) {
       result += escapeAttr;
       return;
     }
-    if (tagAttr) {
-      const params = JSON.parse(el.dataset.eteParams ?? '{}') as Record<string, string>;
+    if (tagsAttr || tagAttr) {
+      let entries: TagEntry[];
+      if (tagsAttr) {
+        entries = JSON.parse(tagsAttr) as TagEntry[];
+      } else {
+        // 기존 단일 태그 속성 형식 하위 호환
+        entries = [{ tag: tagAttr!, params: JSON.parse(el.dataset.eteParams ?? '{}') as Record<string, string> }];
+      }
       const contentText = el.dataset.eteContent ?? '';
-      const paramsStr = Object.entries(params)
-        .filter(([, v]) => v !== '')
-        .map(([k, v]) => `${k}=${v}`)
-        .join(' ');
-      result += paramsStr ? `<${tagAttr} ${paramsStr}>` : `<${tagAttr}>`;
-      result += contentText;
-      result += `</${tagAttr}>`;
+      result += entriesToRaw(entries, contentText);
       return;
     }
     if (el.tagName === 'BR') {
