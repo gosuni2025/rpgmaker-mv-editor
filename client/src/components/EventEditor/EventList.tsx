@@ -4,6 +4,7 @@ import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent } from '../../types/rpgMakerMV';
 import FuzzySearchInput from '../common/FuzzySearchInput';
 import { fuzzyMatch, fuzzyScore } from '../../utils/fuzzySearch';
+import { highlightMatch } from '../../utils/highlightMatch';
 import './EventEditor.css';
 
 function scrollToEvent(x: number, y: number) {
@@ -121,7 +122,7 @@ export default function EventList() {
             style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}
           >
             <span style={{ color: '#888', fontSize: 11, minWidth: 36 }}>#{String(ev.id).padStart(3, '0')}</span>
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.name}</span>
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{highlightMatch(ev.name, filterQuery)}</span>
             <span style={{ color: '#666', fontSize: 11 }}>({ev.x}, {ev.y})</span>
           </div>
         ))}
