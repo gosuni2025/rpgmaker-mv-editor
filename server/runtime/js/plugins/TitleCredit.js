@@ -6,7 +6,7 @@
  * @param textFile
  * @text 크레딧 파일 경로
  * @desc 프로젝트 루트 기준 크레딧 텍스트 파일의 상대 경로
- * @type string
+ * @type textfile
  * @default data/Credits.txt
  *
  * @help
