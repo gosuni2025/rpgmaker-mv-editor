@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent } from '../../types/rpgMakerMV';
@@ -19,6 +19,7 @@ export default function EventList() {
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedEventId = useEditorStore((s) => s.selectedEventId);
   const setSelectedEventId = useEditorStore((s) => s.setSelectedEventId);
+  const setSelectedEventIds = useEditorStore((s) => s.setSelectedEventIds);
   const addEvent = useEditorStore((s) => s.addEvent);
   const deleteEvent = useEditorStore((s) => s.deleteEvent);
   const copyEvent = useEditorStore((s) => s.copyEvent);
@@ -28,8 +29,16 @@ export default function EventList() {
 
   const [showDetail, setShowDetail] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const events: RPGEvent[] = (currentMap?.events || []).filter(Boolean) as RPGEvent[];
+
+  // 맵에서 이벤트 선택 시 목록에서 해당 항목으로 자동 스크롤
+  useEffect(() => {
+    if (selectedEventId == null || !listRef.current) return;
+    const item = listRef.current.querySelector(`[data-event-id="${selectedEventId}"]`);
+    if (item) item.scrollIntoView({ block: 'nearest' });
+  }, [selectedEventId]);
 
   const handleDoubleClick = (eventId: number) => {
     setSelectedEventId(eventId);
@@ -83,7 +92,7 @@ export default function EventList() {
         <button className="db-btn-small" onClick={handleNewEvent}>{t('eventList.newEvent')}</button>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto' }} onContextMenu={(e) => handleContextMenu(e, null)}>
+      <div ref={listRef} style={{ flex: 1, overflowY: 'auto' }} onContextMenu={(e) => handleContextMenu(e, null)}>
         {events.length === 0 && (
           <div style={{ padding: 16, color: '#666', fontSize: 12, textAlign: 'center' }}>
             {t('eventList.noEvents')}
@@ -92,8 +101,9 @@ export default function EventList() {
         {events.map((ev) => (
           <div
             key={ev.id}
+            data-event-id={ev.id}
             className={`db-list-item${ev.id === selectedEventId ? ' selected' : ''}`}
-            onClick={() => { setSelectedEventId(ev.id); scrollToEvent(ev.x, ev.y); }}
+            onClick={() => { setSelectedEventId(ev.id); setSelectedEventIds([ev.id]); scrollToEvent(ev.x, ev.y); }}
             onDoubleClick={() => handleDoubleClick(ev.id)}
             onContextMenu={(e) => { e.stopPropagation(); handleContextMenu(e, ev.id); }}
             style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}
