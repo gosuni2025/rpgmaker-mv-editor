@@ -1,0 +1,358 @@
+/* ─── 확장 텍스트 에디터 ─── */
+
+.ete-root {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 탭 바 */
+.ete-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid #444;
+  margin-bottom: 4px;
+}
+.ete-tab {
+  padding: 3px 10px;
+  font-size: 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #888;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.ete-tab:hover { color: #ccc; }
+.ete-tab.active {
+  color: #ddd;
+  border-bottom-color: #2675bf;
+}
+
+/* 툴바 */
+.ete-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+  padding: 3px 0;
+}
+.ete-toolbar-btn {
+  padding: 2px 7px;
+  font-size: 11px;
+  background: #3a3a3a;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ccc;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.ete-toolbar-btn:hover { background: #4a4a4a; }
+.ete-toolbar-sep {
+  width: 1px;
+  height: 16px;
+  background: #555;
+  margin: 0 2px;
+}
+
+/* 드롭다운 래퍼 */
+.ete-dropdown-wrap {
+  position: relative;
+  display: inline-block;
+}
+.ete-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 200;
+  background: #2a2a2a;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 4px 0;
+  min-width: 140px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.ete-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: #ccc;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+.ete-dropdown-item:hover { background: #3a3a3a; }
+.ete-dropdown-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  color: #fff;
+  font-weight: bold;
+}
+.ete-dropdown-sep {
+  height: 1px;
+  background: #444;
+  margin: 3px 0;
+}
+.ete-dropdown-group-label {
+  padding: 4px 10px 2px;
+  font-size: 10px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 에디터 영역 + 프로퍼티 패널 레이아웃 */
+.ete-body {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+/* contentEditable 영역 */
+.ete-editor-area {
+  flex: 1;
+  min-width: 0;
+  background: #1e1e1e;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: monospace;
+  color: #ddd;
+  line-height: 1.6;
+  outline: none;
+  overflow-y: auto;
+  word-break: break-word;
+  white-space: pre-wrap;
+  cursor: text;
+  transition: border-color 0.15s;
+}
+.ete-editor-area:focus { border-color: #2675bf; }
+.ete-editor-area.single-line {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* 블록 칩 */
+.ete-block {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #888;
+  border-radius: 3px;
+  margin: 0 1px;
+  vertical-align: baseline;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s;
+  max-width: 280px;
+}
+.ete-block:hover { opacity: 0.85; }
+.ete-block.selected { box-shadow: 0 0 0 2px rgba(255,255,255,0.4); }
+.ete-block-label {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 10px;
+  color: #fff;
+  font-weight: bold;
+  white-space: nowrap;
+  border-radius: 2px 0 0 2px;
+}
+.ete-block-preview {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 12px;
+  color: #eee;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+.ete-block-del {
+  display: inline-block;
+  padding: 1px 4px;
+  font-size: 10px;
+  color: #fff;
+  opacity: 0.6;
+  cursor: pointer;
+  border-radius: 0 2px 2px 0;
+  transition: opacity 0.12s;
+}
+.ete-block-del:hover { opacity: 1; }
+
+/* 이스케이프 칩 */
+.ete-escape {
+  display: inline-block;
+  padding: 0 4px;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #9cdcfe;
+  margin: 0 1px;
+  vertical-align: baseline;
+  cursor: default;
+  user-select: none;
+}
+
+/* 프로퍼티 패널 */
+.ete-props-panel {
+  width: 180px;
+  flex-shrink: 0;
+  background: #252525;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 12px;
+  color: #ddd;
+}
+.ete-props-panel h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #eee;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #444;
+}
+.ete-props-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+.ete-props-label {
+  font-size: 11px;
+  color: #888;
+}
+.ete-props-input {
+  background: #1e1e1e;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.ete-props-input:focus {
+  outline: none;
+  border-color: #2675bf;
+}
+.ete-props-content-row {
+  margin-bottom: 8px;
+}
+.ete-props-content-input {
+  background: #1e1e1e;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: #ddd;
+  font-size: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.ete-props-content-input:focus {
+  outline: none;
+  border-color: #2675bf;
+}
+.ete-props-empty {
+  color: #555;
+  font-size: 11px;
+  font-style: italic;
+  text-align: center;
+  padding: 8px 0;
+}
+.ete-props-apply-btn {
+  width: 100%;
+  padding: 4px 0;
+  background: #2675bf;
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.ete-props-apply-btn:hover { background: #3085cf; }
+
+/* Raw 모드 textarea */
+.ete-raw-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1e1e1e;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: monospace;
+  color: #ddd;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.ete-raw-textarea:focus { border-color: #2675bf; }
+
+/* 도움말 패널 */
+.ete-help-toggle {
+  font-size: 11px;
+  color: #666;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  text-decoration: underline;
+  margin-top: 2px;
+}
+.ete-help-toggle:hover { color: #999; }
+.ete-help-panel {
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #999;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.ete-help-section {
+  margin-bottom: 8px;
+}
+.ete-help-title {
+  color: #ccc;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.ete-help-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  font-family: monospace;
+}
+.ete-help-code {
+  color: #9cdcfe;
+  white-space: nowrap;
+}
+.ete-help-desc {
+  color: #888;
+}
+.ete-help-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ete-help-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: bold;
+  cursor: default;
+}
