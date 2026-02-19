@@ -192,8 +192,12 @@
 
         // 경로 화살표 스프라이트 - tilemap 밖, 화면 좌표 기준
         if (showPathArrow) {
+            var dpr = window.devicePixelRatio || 1;
             this._pathArrowSprite = new Sprite();
-            this._pathArrowSprite.bitmap = new Bitmap(Graphics.width, Graphics.height);
+            this._pathArrowSprite.bitmap = new Bitmap(Graphics.width * dpr, Graphics.height * dpr);
+            this._pathArrowSprite.scale.x = 1 / dpr;
+            this._pathArrowSprite.scale.y = 1 / dpr;
+            this._pathArrowDPR = dpr;
             this._baseSprite.addChild(this._pathArrowSprite);
             this._currentPath = [];
         }
@@ -293,13 +297,14 @@
         var tw = $gameMap.tileWidth();
         var th = $gameMap.tileHeight();
         var ctx = bitmap._context;
+        var dpr = this._pathArrowDPR || 1;
 
-        // 타일 좌표 → 화면 좌표 변환 함수
+        // 타일 좌표 → 화면 좌표 변환 함수 (DPR 반영)
         function screenX(tileX) {
-            return $gameMap.adjustX(tileX) * tw + tw / 2;
+            return ($gameMap.adjustX(tileX) * tw + tw / 2) * dpr;
         }
         function screenY(tileY) {
-            return $gameMap.adjustY(tileY) * th + th / 2;
+            return ($gameMap.adjustY(tileY) * th + th / 2) * dpr;
         }
 
         ctx.save();
@@ -321,7 +326,7 @@
             var adx = last.x - prev.x;
             var ady = last.y - prev.y;
             var angle = Math.atan2(ady, adx);
-            var arrowSize = 10;
+            var arrowSize = 10 * dpr;
             arrowHeadPoints = {
                 tip: [endX, endY],
                 left: [endX - arrowSize * Math.cos(angle - Math.PI / 6),
@@ -335,7 +340,7 @@
         if (arrowOutline) {
             ctx.strokeStyle = arrowOutlineColor;
             ctx.fillStyle = arrowOutlineColor;
-            ctx.lineWidth = arrowWidth + arrowOutlineWidth * 2;
+            ctx.lineWidth = (arrowWidth + arrowOutlineWidth * 2) * dpr;
 
             ctx.beginPath();
             ctx.moveTo(sx, sy);
@@ -358,7 +363,7 @@
         // 메인 화살표 (위 레이어)
         ctx.strokeStyle = arrowColor;
         ctx.fillStyle = arrowColor;
-        ctx.lineWidth = arrowWidth;
+        ctx.lineWidth = arrowWidth * dpr;
 
         ctx.beginPath();
         ctx.moveTo(sx, sy);
