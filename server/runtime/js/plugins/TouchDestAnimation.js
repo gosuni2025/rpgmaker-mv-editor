@@ -47,6 +47,11 @@
  * @max 10
  * @default 2
  *
+ * @param Show Destination Indicator
+ * @type boolean
+ * @desc 실제 목적지 타일에 인디케이터를 표시할지 여부 (이동불가 시 빨간색 X, 이동가능 시 원+십자 표시)
+ * @default true
+ *
  * @help
  * 맵을 터치/클릭하면 기본 흰색 사각형 펄스 대신
  * 지정한 RPG Maker 애니메이션을 해당 위치에 재생합니다.
@@ -72,6 +77,7 @@
     var arrowOutline = String(parameters['Arrow Outline']) !== 'false';
     var arrowOutlineColor = String(parameters['Arrow Outline Color'] || 'rgba(0, 0, 0, 0.5)');
     var arrowOutlineWidth = Number(parameters['Arrow Outline Width'] || 2);
+    var showDestIndicator = String(parameters['Show Destination Indicator']) !== 'false';
 
     var _lastDestX = -1;
     var _lastDestY = -1;
@@ -292,7 +298,9 @@
         bitmap.clear();
 
         var path = this._currentPath;
-        if (path.length === 0) return;
+        var hasDest = _pathLastDestX >= 0 && _pathLastDestY >= 0;
+
+        if (path.length === 0 && !hasDest) return;
 
         var tw = $gameMap.tileWidth();
         var th = $gameMap.tileHeight();
@@ -311,13 +319,12 @@
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
-        // 시작점: 플레이어 위치 (화면 좌표)
-        var sx = screenX(_pathLastPlayerX);
-        var sy = screenY(_pathLastPlayerY);
+        if (path.length > 0) {
+            // 시작점: 플레이어 위치 (화면 좌표)
+            var sx = screenX(_pathLastPlayerX);
+            var sy = screenY(_pathLastPlayerY);
 
-        // 화살촉 계산 (테두리, 메인 모두 같은 좌표 사용)
-        var arrowHeadPoints = null;
-        if (path.length >= 1) {
+            // 화살촉 계산 (테두리, 메인 모두 같은 좌표 사용)
             var last = path[path.length - 1];
             var prev = path.length >= 2 ? path[path.length - 2] :
                        { x: _pathLastPlayerX, y: _pathLastPlayerY };
@@ -327,29 +334,27 @@
             var ady = last.y - prev.y;
             var angle = Math.atan2(ady, adx);
             var arrowSize = 10 * dpr;
-            arrowHeadPoints = {
+            var arrowHeadPoints = {
                 tip: [endX, endY],
                 left: [endX - arrowSize * Math.cos(angle - Math.PI / 6),
                        endY - arrowSize * Math.sin(angle - Math.PI / 6)],
                 right: [endX - arrowSize * Math.cos(angle + Math.PI / 6),
                         endY - arrowSize * Math.sin(angle + Math.PI / 6)]
             };
-        }
 
-        // 테두리 (아래 레이어)
-        if (arrowOutline) {
-            ctx.strokeStyle = arrowOutlineColor;
-            ctx.fillStyle = arrowOutlineColor;
-            ctx.lineWidth = (arrowWidth + arrowOutlineWidth * 2) * dpr;
+            // 테두리 (아래 레이어)
+            if (arrowOutline) {
+                ctx.strokeStyle = arrowOutlineColor;
+                ctx.fillStyle = arrowOutlineColor;
+                ctx.lineWidth = (arrowWidth + arrowOutlineWidth * 2) * dpr;
 
-            ctx.beginPath();
-            ctx.moveTo(sx, sy);
-            for (var oi = 0; oi < path.length; oi++) {
-                ctx.lineTo(screenX(path[oi].x), screenY(path[oi].y));
-            }
-            ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                for (var oi = 0; oi < path.length; oi++) {
+                    ctx.lineTo(screenX(path[oi].x), screenY(path[oi].y));
+                }
+                ctx.stroke();
 
-            if (arrowHeadPoints) {
                 ctx.beginPath();
                 ctx.moveTo(arrowHeadPoints.tip[0], arrowHeadPoints.tip[1]);
                 ctx.lineTo(arrowHeadPoints.left[0], arrowHeadPoints.left[1]);
@@ -358,27 +363,98 @@
                 ctx.stroke();
                 ctx.fill();
             }
-        }
 
-        // 메인 화살표 (위 레이어)
-        ctx.strokeStyle = arrowColor;
-        ctx.fillStyle = arrowColor;
-        ctx.lineWidth = arrowWidth * dpr;
+            // 메인 화살표 (위 레이어)
+            ctx.strokeStyle = arrowColor;
+            ctx.fillStyle = arrowColor;
+            ctx.lineWidth = arrowWidth * dpr;
 
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        for (var i = 0; i < path.length; i++) {
-            ctx.lineTo(screenX(path[i].x), screenY(path[i].y));
-        }
-        ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            for (var i = 0; i < path.length; i++) {
+                ctx.lineTo(screenX(path[i].x), screenY(path[i].y));
+            }
+            ctx.stroke();
 
-        if (arrowHeadPoints) {
             ctx.beginPath();
             ctx.moveTo(arrowHeadPoints.tip[0], arrowHeadPoints.tip[1]);
             ctx.lineTo(arrowHeadPoints.left[0], arrowHeadPoints.left[1]);
             ctx.lineTo(arrowHeadPoints.right[0], arrowHeadPoints.right[1]);
             ctx.closePath();
             ctx.fill();
+        }
+
+        // 목적지 인디케이터: 실제 목적지 타일 위치를 항상 표시
+        if (showDestIndicator && hasDest) {
+            var iX = screenX(_pathLastDestX);
+            var iY = screenY(_pathLastDestY);
+            var destReachable = path.length > 0 &&
+                path[path.length - 1].x === _pathLastDestX &&
+                path[path.length - 1].y === _pathLastDestY;
+
+            var tileSize = Math.min(tw, th);
+            var radius = tileSize * 0.35 * dpr;
+            var iColor = destReachable ? arrowColor : 'rgba(255, 80, 80, 0.9)';
+            var iOutlineColor = destReachable ? arrowOutlineColor : 'rgba(80, 0, 0, 0.7)';
+
+            // 테두리 원
+            if (arrowOutline) {
+                ctx.strokeStyle = iOutlineColor;
+                ctx.lineWidth = (arrowWidth + arrowOutlineWidth * 2) * dpr;
+                ctx.beginPath();
+                ctx.arc(iX, iY, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            // 메인 원
+            ctx.strokeStyle = iColor;
+            ctx.lineWidth = arrowWidth * dpr;
+            ctx.beginPath();
+            ctx.arc(iX, iY, radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            if (!destReachable) {
+                // X 마크 (이동 불가)
+                var xSize = radius * 0.55;
+                if (arrowOutline) {
+                    ctx.strokeStyle = iOutlineColor;
+                    ctx.lineWidth = (arrowWidth + arrowOutlineWidth * 2) * dpr;
+                    ctx.beginPath();
+                    ctx.moveTo(iX - xSize, iY - xSize);
+                    ctx.lineTo(iX + xSize, iY + xSize);
+                    ctx.moveTo(iX + xSize, iY - xSize);
+                    ctx.lineTo(iX - xSize, iY + xSize);
+                    ctx.stroke();
+                }
+                ctx.strokeStyle = iColor;
+                ctx.lineWidth = arrowWidth * dpr;
+                ctx.beginPath();
+                ctx.moveTo(iX - xSize, iY - xSize);
+                ctx.lineTo(iX + xSize, iY + xSize);
+                ctx.moveTo(iX + xSize, iY - xSize);
+                ctx.lineTo(iX - xSize, iY + xSize);
+                ctx.stroke();
+            } else {
+                // 십자 마크 (도달 가능)
+                var crossSize = radius * 0.4;
+                if (arrowOutline) {
+                    ctx.strokeStyle = iOutlineColor;
+                    ctx.lineWidth = (arrowWidth + arrowOutlineWidth * 2) * dpr;
+                    ctx.beginPath();
+                    ctx.moveTo(iX - crossSize, iY);
+                    ctx.lineTo(iX + crossSize, iY);
+                    ctx.moveTo(iX, iY - crossSize);
+                    ctx.lineTo(iX, iY + crossSize);
+                    ctx.stroke();
+                }
+                ctx.strokeStyle = iColor;
+                ctx.lineWidth = arrowWidth * dpr;
+                ctx.beginPath();
+                ctx.moveTo(iX - crossSize, iY);
+                ctx.lineTo(iX + crossSize, iY);
+                ctx.moveTo(iX, iY - crossSize);
+                ctx.lineTo(iX, iY + crossSize);
+                ctx.stroke();
+            }
         }
 
         ctx.restore();
