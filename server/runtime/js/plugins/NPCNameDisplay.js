@@ -65,7 +65,7 @@
 
   Sprite_Character.prototype._updateNpcName = function () {
     var character = this._character;
-    if (!character || !character.isEvent()) {
+    if (!character || typeof character.isEvent !== 'function' || !character.isEvent()) {
       this._destroyNpcName();
       return;
     }
