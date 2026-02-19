@@ -7,6 +7,7 @@ import EventCommandEditor from './EventCommandEditor';
 import ImagePicker from '../common/ImagePicker';
 import MoveRouteDialog from './MoveRouteDialog';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
+import ExtBadge from '../common/ExtBadge';
 import './EventEditor.css';
 
 interface EventDetailProps {
@@ -260,6 +261,7 @@ export default function EventDetail({ eventId, onClose }: EventDetailProps) {
                 onChange={(e) => setShowNpcName(e.target.checked)}
               />
               {t('eventDetail.showNpcName')}
+              <ExtBadge inline />
             </label>
           </label>
         </div>
