@@ -400,6 +400,10 @@ ThreeWaterShader.createStandaloneMaterial = function(texture, isWaterfall, kindS
         this._STANDALONE_FRAGMENT_WATER;
     var d = this.DEFAULT_UNIFORMS;
     var ks = kindSettings || {};
+    var _wc = (window.DepthDebugConfig) ? window.DepthDebugConfig.water : null;
+    var _wDT = _wc ? _wc.depthTest : false;
+    var _wDW = _wc ? _wc.depthWrite : false;
+    var _wAT = (_wc && _wc.alphaTest) ? 0.5 : 0;
 
     var material = new THREE.ShaderMaterial({
         uniforms: {
@@ -422,9 +426,10 @@ ThreeWaterShader.createStandaloneMaterial = function(texture, isWaterfall, kindS
         },
         vertexShader: this._STANDALONE_VERTEX,
         fragmentShader: fragShader,
-        transparent: true,
-        depthTest: false,
-        depthWrite: false,
+        transparent: _wAT > 0 ? false : true,
+        alphaTest: _wAT,
+        depthTest: _wDT,
+        depthWrite: _wDW,
         side: THREE.DoubleSide,
     });
 
