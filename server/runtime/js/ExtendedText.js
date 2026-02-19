@@ -13,12 +13,8 @@
 //   <shake amplitude=3 speed=1>텍스트</shake>       ← 매 프레임 sin 진동
 //   <hologram scanline=5>텍스트</hologram>           ← cyan + 이동하는 투명 스캔라인
 //
-// 지원 태그 (패스스루 - 텍스트는 표시, 이펙트 미구현):
-//   <gradient-wave speed=1>텍스트</gradient-wave>
-//   <dissolve speed=1>텍스트</dissolve>
-//   <fade duration=60>텍스트</fade>
-//   <blur-fade duration=60>텍스트</blur-fade>
-//   <typewriter speed=1>텍스트</typewriter>
+// 지원 태그 (패스스루):
+//   <gradient-wave>, <dissolve>, <fade>, <blur-fade>, <typewriter>
 //=============================================================================
 
 var ExtendedText = {};
@@ -138,8 +134,12 @@ Window_Base.prototype.processEscapeCharacter = function(code, textState) {
 };
 
 //─── ETSTART 처리 ───
+// shake/hologram은 여기서 즉시 animSegs에 등록한다.
+// 이렇게 해야 타이프라이터 모드에서 첫 글자부터 효과가 적용되고,
+// ETEND 시점의 즉시 그리기로 인한 깜빡임도 없어진다.
 Window_Base.prototype._etProcessStart = function(textState) {
     if (!this._etEffectStack) this._etEffectStack = [];
+    if (!this._etAnimSegs) this._etAnimSegs = [];
 
     var idx = this.obtainEscapeParam(textState);
     var tagData = this._etTags && this._etTags[idx];
@@ -160,6 +160,8 @@ Window_Base.prototype._etProcessStart = function(textState) {
         gradientActive: false,
         shakeActive: false,
         hologramActive: false,
+        hologramOuter: null,   // shake 전용: 이 shake를 감싸는 hologram 참조
+        hasInnerShake: false,  // hologram 전용: 내부에 shake가 있는지
     };
 
     switch (tag) {
@@ -185,11 +187,15 @@ Window_Base.prototype._etProcessStart = function(textState) {
         saved.shakeActive = true;
         saved.amplitude = Number(params.amplitude || 3);
         saved.speed = Number(params.speed || 1);
+        // 즉시 animSegs에 등록 (타이프라이터 모드 지원, 깜빡임 방지)
+        this._etAnimSegs.push(saved);
         break;
     case 'hologram':
         saved.hologramActive = true;
         saved.scanline = Number(params.scanline || 5);
         if (this.contents) this.changeTextColor('#00ffff');
+        // 즉시 animSegs에 등록
+        this._etAnimSegs.push(saved);
         break;
     }
 
@@ -203,24 +209,35 @@ Window_Base.prototype._etProcessEnd = function(textState) {
     if (!this._etEffectStack || this._etEffectStack.length === 0) return;
     var saved = this._etEffectStack.pop();
 
-    // gradient: 기록된 문자 재그리기 (finalColor도 설정)
+    // gradient: 전체 범위를 알아야 그라데이션 계산 가능 → ETEND에서 재그리기
     if (saved.gradientActive && saved.chars.length > 0) {
         this._etRedrawGradient(saved);
     }
 
-    // shake: 애니메이션 세그먼트 등록
-    if (saved.shakeActive && saved.chars.length > 0) {
-        if (!this._etAnimSegs) this._etAnimSegs = [];
-        this._etAnimSegs.push(saved);
+    // shake: outer hologram 연결 (있으면)
+    // ETEND[shake] 시점에 _etEffectStack에 hologram_saved가 남아있다
+    if (saved.shakeActive) {
+        for (var i = this._etEffectStack.length - 1; i >= 0; i--) {
+            if (this._etEffectStack[i].hologramActive) {
+                saved.hologramOuter = this._etEffectStack[i];
+                break;
+            }
+        }
+        // animSegs는 ETSTART에서 이미 등록됨
     }
 
-    // hologram: 애니메이션 세그먼트 등록 + 초기 그리기
-    if (saved.hologramActive && saved.chars.length > 0) {
-        if (!this._etAnimSegs) this._etAnimSegs = [];
-        this._etAnimSegs.push(saved);
-        // 초기 상태 렌더
-        this._etRedrawHologramBase(saved);
-        this._etOverlayScanlines(saved, ExtendedText._time);
+    // hologram: inner shake 가 있는지 확인
+    // ETEND[hologram] 시점에 animSegs에 shake가 있고 hologramOuter === 이 saved이면 inner shake 존재
+    if (saved.hologramActive) {
+        var segs = this._etAnimSegs || [];
+        for (var j = 0; j < segs.length; j++) {
+            if (segs[j].shakeActive && segs[j].hologramOuter === saved) {
+                saved.hasInnerShake = true;
+                break;
+            }
+        }
+        // animSegs는 ETSTART에서 이미 등록됨
+        // 즉시 그리기 없음 (첫 update 프레임에서 처리)
     }
 
     // 상태 복원
@@ -232,7 +249,7 @@ Window_Base.prototype._etProcessEnd = function(textState) {
 };
 
 //─── processNormalCharacter: 모든 활성 이펙트에 문자/위치/색상 기록 ───
-// (break 없이 모든 활성 이펙트에 기록 → 중첩 효과 지원)
+// break 없이 모든 활성 이펙트에 기록 → 중첩 효과 지원
 var _Window_Base_processNormalCharacter = Window_Base.prototype.processNormalCharacter;
 Window_Base.prototype.processNormalCharacter = function(textState) {
     if (this._etEffectStack && this._etEffectStack.length > 0) {
@@ -246,8 +263,8 @@ Window_Base.prototype.processNormalCharacter = function(textState) {
                     x: textState.x,
                     y: textState.y,
                     h: textState.height,
-                    color: currentColor,   // 현재 색상 저장 (중첩 color 태그 등 반영)
-                    finalColor: null,      // gradient가 설정하는 최종 색상
+                    color: currentColor,  // 기록 시점의 textColor (중첩 color 태그 반영)
+                    finalColor: null,     // gradient ETEND에서 설정하는 최종 색상
                 });
             }
         }
@@ -261,7 +278,7 @@ Window_Base.prototype._etRedrawGradient = function(saved) {
     if (!chars || chars.length === 0 || !this.contents) return;
 
     var bmp = this.contents;
-    var lh = saved.chars[0].h || this.lineHeight();
+    var lh = chars[0].h || this.lineHeight();
     var startX = saved.startX;
     var endX = chars[chars.length - 1].x + this.textWidth(chars[chars.length - 1].c);
     var y0 = saved.startY;
@@ -284,7 +301,7 @@ Window_Base.prototype._etRedrawGradient = function(saved) {
         var ch = chars[i];
         var w = this.textWidth(ch.c);
         bmp.drawText(ch.c, ch.x, ch.y, w * 2, ch.h || lh);
-        // shake 등 외부 이펙트가 이 char를 재그릴 때 사용할 최종 색상 기록
+        // shake 등 외부 이펙트가 이 char를 재그릴 때 사용할 최종 색상
         ch.finalColor = color;
     }
     this.changeTextColor(savedColor);
@@ -318,10 +335,10 @@ Window_Base.prototype._etRedrawShake = function(seg, time) {
         bmp.drawText(ch.c, ch.x, ch.y + offsetY, w, ch.h || lh);
     }
     this.changeTextColor(savedColor);
-    // drawText가 _setDirty()를 호출하므로 checkDirty()에서 텍스처가 갱신됨
+    // drawText가 _setDirty() 호출 → checkDirty()에서 텍스처 갱신
 };
 
-//─── hologram base 재그리기 (clearRect + drawText, 패스1) ───
+//─── hologram base 재그리기 (clearRect + cyan drawText) ───
 Window_Base.prototype._etRedrawHologramBase = function(seg) {
     var chars = seg.chars;
     if (!chars || chars.length === 0 || !this.contents) return;
@@ -346,9 +363,9 @@ Window_Base.prototype._etRedrawHologramBase = function(seg) {
     this.changeTextColor(savedColor);
 };
 
-//─── hologram 스캔라인 오버레이 (패스2) ───
-// destination-out compositing으로 해당 줄을 투명하게 만듦
-// → cyan 글자에 투명한 가로 줄이 아래로 흘러가는 애니메이션
+//─── hologram 스캔라인 오버레이 ───
+// destination-out compositing: 해당 줄을 투명하게 만들어 배경이 비쳐 보이는 효과
+// 스캔라인이 time에 따라 아래로 흘러내리는 애니메이션
 Window_Base.prototype._etOverlayScanlines = function(seg, time) {
     var chars = seg.chars;
     if (!chars || chars.length === 0 || !this.contents) return;
@@ -366,11 +383,10 @@ Window_Base.prototype._etOverlayScanlines = function(seg, time) {
 
     var scanH = seg.scanline || 5;
     var darkH = Math.max(1, Math.floor(scanH * 0.45));
-    // 스캔라인이 아래로 흐르는 애니메이션: time * speed → y 오프셋
+    // 스캔라인이 아래로 스크롤
     var scrollY = (time * 25) % scanH;
 
     ctx.save();
-    // destination-out: 그리는 부분의 알파를 줄여 투명하게 만듦
     ctx.globalCompositeOperation = 'destination-out';
     ctx.fillStyle = 'rgba(0,0,0,0.7)';
     for (var y = y0 - scanH + scrollY; y < y0 + lh + scanH; y += scanH) {
@@ -386,7 +402,7 @@ Window_Base.prototype._etOverlayScanlines = function(seg, time) {
 };
 
 //=============================================================================
-// createContents 오버라이드 – 애니메이션 세그먼트 초기화
+// createContents / newPage 오버라이드 – 애니메이션 세그먼트 초기화
 //=============================================================================
 var _Window_Base_createContents = Window_Base.prototype.createContents;
 Window_Base.prototype.createContents = function() {
@@ -395,10 +411,6 @@ Window_Base.prototype.createContents = function() {
     this._etEffectStack = [];
 };
 
-//=============================================================================
-// Window_Message.newPage 오버라이드 – 페이지 전환 시 초기화
-// contents.clear()만으로는 _etAnimSegs가 초기화되지 않아 이전 shake/hologram이 지속됨
-//=============================================================================
 if (typeof Window_Message !== 'undefined') {
     var _Window_Message_newPage = Window_Message.prototype.newPage;
     Window_Message.prototype.newPage = function(textState) {
@@ -409,9 +421,19 @@ if (typeof Window_Message !== 'undefined') {
 }
 
 //=============================================================================
-// update 루프 (시간 업데이트 + 2패스 애니메이션)
-// 패스1: shake / hologram base → 패스2: hologram scanline 오버레이
-// 순서가 중요: shake 후 hologram 스캔라인이 올라와야 겹쳐서 올바른 효과 나옴
+// update 루프 – 2패스 애니메이션
+//
+// 패스1: 텍스트 재그리기
+//   - shake: clearRect + sin 오프셋 drawText
+//   - hologram (inner shake 없는 경우): clearRect + cyan drawText
+//   - shake with hologramOuter: shake 직후 스캔라인 오버레이
+//
+// 패스2: 오버레이
+//   - hologram (inner shake 없는 경우): 스캔라인 오버레이
+//
+// shake + hologram 중첩 케이스:
+//   shake.hologramOuter = hologram → 패스1에서 shake 재그리기 후 즉시 scanlines 적용
+//   hologram.hasInnerShake = true → 패스1/2 모두 스킵 (shake가 처리)
 //=============================================================================
 var _Window_Base_update = Window_Base.prototype.update;
 Window_Base.prototype.update = function() {
@@ -423,20 +445,29 @@ Window_Base.prototype.update = function() {
     var segs = this._etAnimSegs;
     var t = ExtendedText._time;
 
-    // 패스 1: 텍스트 재그리기 (shake는 위치 변경, hologram은 cyan 재그리기)
+    // 패스 1: 텍스트 재그리기
     for (var i = 0; i < segs.length; i++) {
         var seg = segs[i];
+        if (seg.chars.length === 0) continue;
+
         if (seg.shakeActive) {
             this._etRedrawShake(seg, t);
-        } else if (seg.hologramActive) {
+            // outer hologram이 있으면 shake 직후 스캔라인 오버레이
+            if (seg.hologramOuter && seg.hologramOuter.chars.length > 0) {
+                this._etOverlayScanlines(seg.hologramOuter, t);
+            }
+        } else if (seg.hologramActive && !seg.hasInnerShake) {
+            // hologram 단독 (inner shake 없음): base 재그리기
             this._etRedrawHologramBase(seg);
         }
     }
 
-    // 패스 2: 오버레이 (hologram 스캔라인을 텍스트 위에 적용)
+    // 패스 2: 오버레이 (hologram 단독 케이스의 스캔라인)
     for (var j = 0; j < segs.length; j++) {
         var seg2 = segs[j];
-        if (seg2.hologramActive) {
+        if (seg2.chars.length === 0) continue;
+
+        if (seg2.hologramActive && !seg2.hasInnerShake) {
             this._etOverlayScanlines(seg2, t);
         }
     }
