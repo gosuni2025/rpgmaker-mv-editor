@@ -35,12 +35,6 @@ ConfigManager.applyData = function(config) {
     this.depthOfField = this.readFlag(config, 'depthOfField');
 };
 
-var _Window_Options_addGeneralOptions = Window_Options.prototype.addGeneralOptions;
-Window_Options.prototype.addGeneralOptions = function() {
-    _Window_Options_addGeneralOptions.call(this);
-    this.addCommand('피사계 심도', 'depthOfField');
-};
-
 //=============================================================================
 // PostProcess 시스템 관리
 //=============================================================================

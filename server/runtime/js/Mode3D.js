@@ -30,16 +30,6 @@
     };
 
     //=========================================================================
-    // Window_Options - "3D 보기" 옵션 추가
-    //=========================================================================
-
-    var _Window_Options_addGeneralOptions = Window_Options.prototype.addGeneralOptions;
-    Window_Options.prototype.addGeneralOptions = function() {
-        _Window_Options_addGeneralOptions.call(this);
-        this.addCommand('3D 보기', 'mode3d');
-    };
-
-    //=========================================================================
     // Mode3D 상태 관리
     //=========================================================================
 
@@ -123,6 +113,10 @@
 
     var _Spriteset_Map_initialize = Spriteset_Map.prototype.initialize;
     Spriteset_Map.prototype.initialize = function() {
+        // 게임 플레이 시 맵 데이터의 is3D 플래그로 모드 자동 설정 (에디터 모드 제외)
+        if (!window.__editorMode && typeof $dataMap !== 'undefined' && $dataMap) {
+            ConfigManager.mode3d = !!$dataMap.is3D;
+        }
         _Spriteset_Map_initialize.call(this);
         Mode3D._spriteset = this;
     };
