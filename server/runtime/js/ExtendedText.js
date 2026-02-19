@@ -121,6 +121,8 @@ Window_Base.prototype._etProcessStart = function(textState) {
         startX: textState.x, startY: textState.y,
         chars: [],
         gradientActive: false, shakeActive: false, hologramActive: false,
+        gradientWaveActive: false, fadeActive: false,
+        dissolveActive: false, blurFadeActive: false,
         hologramOuter: null,  // shake 전용: outer hologram 참조
         hasInnerShake: false, // hologram 전용: inner shake 존재 여부
     };
@@ -153,6 +155,30 @@ Window_Base.prototype._etProcessStart = function(textState) {
         saved.scanline = Number(params.scanline || 5);
         if (this.contents) this.changeTextColor('#00ffff');
         this._etAnimSegs.push(saved); // 즉시 등록
+        break;
+    case 'gradient-wave':
+        saved.gradientWaveActive = true;
+        saved.speed = Number(params.speed || 1);
+        saved.startTime = ExtendedText._time;
+        this._etAnimSegs.push(saved);
+        break;
+    case 'fade':
+        saved.fadeActive = true;
+        saved.duration = Number(params.duration || 60);
+        saved.startTime = ExtendedText._time;
+        this._etAnimSegs.push(saved);
+        break;
+    case 'dissolve':
+        saved.dissolveActive = true;
+        saved.speed = Number(params.speed || 1);
+        saved.startTime = ExtendedText._time;
+        this._etAnimSegs.push(saved);
+        break;
+    case 'blur-fade':
+        saved.blurFadeActive = true;
+        saved.duration = Number(params.duration || 60);
+        saved.startTime = ExtendedText._time;
+        this._etAnimSegs.push(saved);
         break;
     }
 
@@ -208,14 +234,16 @@ Window_Base.prototype.processNormalCharacter = function(textState) {
         var currentColor = this.contents ? this.contents.textColor : '#ffffff';
         for (var i = this._etEffectStack.length - 1; i >= 0; i--) {
             var seg = this._etEffectStack[i];
-            if (seg.gradientActive || seg.shakeActive || seg.hologramActive) {
+            if (seg.gradientActive || seg.shakeActive || seg.hologramActive ||
+                seg.gradientWaveActive || seg.fadeActive || seg.dissolveActive || seg.blurFadeActive) {
                 seg.chars.push({
                     c: c,
                     x: textState.x, y: textState.y, h: textState.height,
                     color: currentColor,
                     finalColor: null,
                 });
-                if (seg.shakeActive || seg.hologramActive) hasAnim = true;
+                if (seg.shakeActive || seg.hologramActive ||
+                    seg.gradientWaveActive || seg.fadeActive || seg.dissolveActive || seg.blurFadeActive) hasAnim = true;
             }
         }
     }
@@ -246,6 +274,14 @@ Window_Base.prototype._etRunAnimPass = function() {
             }
         } else if (seg.hologramActive && !seg.hasInnerShake) {
             this._etRedrawHologramBase(seg);
+        } else if (seg.gradientWaveActive) {
+            this._etRedrawGradientWave(seg, t);
+        } else if (seg.fadeActive) {
+            this._etRedrawFade(seg, t);
+        } else if (seg.dissolveActive) {
+            this._etRedrawDissolve(seg, t);
+        } else if (seg.blurFadeActive) {
+            this._etRedrawBlurFade(seg, t);
         }
     }
 
@@ -256,6 +292,11 @@ Window_Base.prototype._etRunAnimPass = function() {
         if (seg2.hologramActive && !seg2.hasInnerShake) {
             this._etOverlayScanlines(seg2, t);
         }
+    }
+
+    // 완료 세그먼트 제거 (_etDone 플래그)
+    for (var k = segs.length - 1; k >= 0; k--) {
+        if (segs[k]._etDone) segs.splice(k, 1);
     }
 };
 
@@ -379,6 +420,186 @@ Window_Base.prototype._etOverlayScanlines = function(seg, time) {
     }
     ctx.restore();
     bmp._setDirty();
+};
+
+//─── gradient-wave: 무지개 색상 사이클 (문자별 hue 오프셋) ───
+Window_Base.prototype._etRedrawGradientWave = function(seg, time) {
+    var chars = seg.chars;
+    if (!chars || chars.length === 0 || !this.contents) return;
+    var bmp = this.contents;
+    var lh = chars[0].h || this.lineHeight();
+    var ow = (bmp.outlineWidth || 4) + 1;
+    var startX = chars[0].x - ow;
+    var endX   = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c) + ow;
+
+    bmp.clearRect(startX, chars[0].y - 1, endX - startX, lh + 2);
+
+    var savedColor = bmp.textColor;
+    var savedOutlineColor = bmp.outlineColor;
+    var savedOutlineWidth = bmp.outlineWidth;
+    bmp.outlineColor = seg.outlineColor;
+    bmp.outlineWidth = seg.outlineWidth;
+
+    var speed = seg.speed || 1;
+    for (var i = 0; i < chars.length; i++) {
+        var hue = ((i * 28 + time * speed * 80) % 360 + 360) % 360;
+        this.changeTextColor('hsl(' + hue.toFixed(0) + ',100%,62%)');
+        var ch = chars[i];
+        bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c) + 4, ch.h || lh);
+    }
+
+    this.changeTextColor(savedColor);
+    bmp.outlineColor = savedOutlineColor;
+    bmp.outlineWidth = savedOutlineWidth;
+};
+
+//─── fade: globalAlpha로 서서히 나타나기 ───
+Window_Base.prototype._etRedrawFade = function(seg, time) {
+    var chars = seg.chars;
+    if (!chars || chars.length === 0 || !this.contents) return;
+    var bmp = this.contents;
+    var ctx = bmp._context;
+    if (!ctx) return;
+
+    var progress = Math.min(1.0, (time - seg.startTime) * 60 / seg.duration);
+    var lh = chars[0].h || this.lineHeight();
+    var ow = (bmp.outlineWidth || 4) + 1;
+    var startX = chars[0].x - ow;
+    var endX   = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c) + ow;
+
+    bmp.clearRect(startX, chars[0].y - 1, endX - startX, lh + 2);
+    if (progress <= 0) return;
+
+    var savedAlpha = ctx.globalAlpha;
+    ctx.globalAlpha = progress;
+
+    var savedColor = bmp.textColor;
+    var savedOutlineColor = bmp.outlineColor;
+    var savedOutlineWidth = bmp.outlineWidth;
+    bmp.outlineColor = seg.outlineColor;
+    bmp.outlineWidth = seg.outlineWidth;
+
+    for (var i = 0; i < chars.length; i++) {
+        var ch = chars[i];
+        this.changeTextColor(ch.finalColor || ch.color || seg.textColor);
+        bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c) + 4, ch.h || lh);
+    }
+
+    ctx.globalAlpha = savedAlpha;
+    this.changeTextColor(savedColor);
+    bmp.outlineColor = savedOutlineColor;
+    bmp.outlineWidth = savedOutlineWidth;
+
+    if (progress >= 1.0) seg._etDone = true;
+};
+
+//─── dissolve: 픽셀 블록 단위로 서서히 나타나기 ───
+Window_Base.prototype._etRedrawDissolve = function(seg, time) {
+    var chars = seg.chars;
+    if (!chars || chars.length === 0 || !this.contents) return;
+    var bmp = this.contents;
+    var ctx = bmp._context;
+    if (!ctx) return;
+
+    var elapsed = time - seg.startTime;
+    var speed = seg.speed || 1;
+    var threshold = Math.max(0, 1.0 - elapsed * speed);
+
+    var lh = chars[0].h || this.lineHeight();
+    var ow = (bmp.outlineWidth || 4) + 1;
+    var startX = chars[0].x - ow;
+    var endX   = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c) + ow;
+    var y0 = chars[0].y;
+    var width = endX - startX;
+
+    bmp.clearRect(startX, y0 - 1, width, lh + 2);
+
+    var savedColor = bmp.textColor;
+    var savedOutlineColor = bmp.outlineColor;
+    var savedOutlineWidth = bmp.outlineWidth;
+    bmp.outlineColor = seg.outlineColor;
+    bmp.outlineWidth = seg.outlineWidth;
+
+    for (var i = 0; i < chars.length; i++) {
+        var ch = chars[i];
+        this.changeTextColor(ch.finalColor || ch.color || seg.textColor);
+        bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c) + 4, ch.h || lh);
+    }
+
+    this.changeTextColor(savedColor);
+    bmp.outlineColor = savedOutlineColor;
+    bmp.outlineWidth = savedOutlineWidth;
+
+    if (threshold <= 0) {
+        seg._etDone = true;
+        return;
+    }
+
+    // destination-out으로 노이즈 블록 지우기 (임계값 이하 블록은 숨김)
+    var blockSize = 4;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0,0,0,1)';
+    for (var by = y0; by < y0 + lh; by += blockSize) {
+        for (var bx = startX; bx < startX + width; bx += blockSize) {
+            var noiseVal = Math.abs(Math.sin(bx * 127.1 + by * 311.7));
+            if (noiseVal < threshold) {
+                ctx.fillRect(bx, by, blockSize, blockSize);
+            }
+        }
+    }
+    ctx.restore();
+    bmp._setDirty();
+};
+
+//─── blur-fade: 흐릿한 상태에서 선명하게 나타나기 ───
+Window_Base.prototype._etRedrawBlurFade = function(seg, time) {
+    var chars = seg.chars;
+    if (!chars || chars.length === 0 || !this.contents) return;
+    var bmp = this.contents;
+    var ctx = bmp._context;
+    if (!ctx) return;
+
+    var progress = Math.min(1.0, (time - seg.startTime) * 60 / seg.duration);
+    var blurPx = (1.0 - progress) * 8;
+    var alpha = 0.2 + progress * 0.8;
+
+    var lh = chars[0].h || this.lineHeight();
+    // blur 여백 확보
+    var ow = (bmp.outlineWidth || 4) + Math.ceil(blurPx) + 2;
+    var startX = chars[0].x - ow;
+    var endX   = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c) + ow;
+
+    bmp.clearRect(startX, chars[0].y - ow, endX - startX, lh + ow * 2);
+    if (progress <= 0) return;
+
+    var savedFilter = ctx.filter !== undefined ? ctx.filter : 'none';
+    var savedAlpha = ctx.globalAlpha;
+
+    if (blurPx > 0.1 && 'filter' in ctx) {
+        ctx.filter = 'blur(' + blurPx.toFixed(1) + 'px)';
+    }
+    ctx.globalAlpha = alpha;
+
+    var savedColor = bmp.textColor;
+    var savedOutlineColor = bmp.outlineColor;
+    var savedOutlineWidth = bmp.outlineWidth;
+    bmp.outlineColor = seg.outlineColor;
+    bmp.outlineWidth = seg.outlineWidth;
+
+    for (var i = 0; i < chars.length; i++) {
+        var ch = chars[i];
+        this.changeTextColor(ch.finalColor || ch.color || seg.textColor);
+        bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c) + 4, ch.h || lh);
+    }
+
+    if ('filter' in ctx) ctx.filter = savedFilter;
+    ctx.globalAlpha = savedAlpha;
+    this.changeTextColor(savedColor);
+    bmp.outlineColor = savedOutlineColor;
+    bmp.outlineWidth = savedOutlineWidth;
+
+    if (progress >= 1.0) seg._etDone = true;
 };
 
 //=============================================================================
