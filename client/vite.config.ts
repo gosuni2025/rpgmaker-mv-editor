@@ -16,6 +16,7 @@ export default defineConfig({
       '/data': serverBase,
       '/audio': serverBase,
       '/plugins': serverBase,
+      '/runtime': serverBase,
     },
   },
 });
