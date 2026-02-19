@@ -440,6 +440,29 @@
         return _idxToDir[visualIdx];
     }
 
+    //=========================================================================
+    // TPS 스타일 이동: WASD 입력을 카메라 방향 기준으로 변환
+    //=========================================================================
+    // 카메라 yaw 회전에 따라 입력 방향을 월드 좌표 기준으로 변환.
+    // getVisualDirection(월드→시각) 의 역방향: 입력(화면 기준) → 월드 방향.
+    //
+    // 예: 카메라가 yaw=90° 일 때 "위" 키 → 맵에서 Left(4) 방향으로 이동
+    //=========================================================================
+
+    var _orig_getInputDirection = Game_Player.prototype.getInputDirection;
+    Game_Player.prototype.getInputDirection = function() {
+        var dir4 = _orig_getInputDirection.call(this);
+        if (!is3DActive() || dir4 === 0) return dir4;
+
+        var yawDeg = Mode3D._yawDeg || 0;
+        var yawStep = Math.round(yawDeg / 90);
+        var idx = _dirToIdx[dir4];
+        if (idx === undefined) return dir4;
+        // 역변환: 화면 기준 방향 → 월드 방향
+        var worldIdx = ((idx - yawStep) % 4 + 4) % 4;
+        return _idxToDir[worldIdx];
+    };
+
     // Sprite_Character.prototype.characterPatternY 오버라이드
     var _orig_characterPatternY = Sprite_Character.prototype.characterPatternY;
     Sprite_Character.prototype.characterPatternY = function() {
