@@ -123,8 +123,9 @@ Window_Base.prototype._etProcessStart = function(textState) {
         gradientActive: false, shakeActive: false, hologramActive: false,
         gradientWaveActive: false, fadeActive: false,
         dissolveActive: false, blurFadeActive: false,
-        hologramOuter: null,  // shake 전용: outer hologram 참조
-        hasInnerShake: false, // hologram 전용: inner shake 존재 여부
+        hologramOuter: null,      // shake 전용: outer hologram 참조
+        gradientWaveOuter: null,  // shake 전용: outer gradient-wave 참조
+        hasInnerShake: false,     // hologram/gradient-wave 전용: inner shake 존재 여부
     };
 
     switch (tag) {
@@ -196,11 +197,14 @@ Window_Base.prototype._etProcessEnd = function(textState) {
     }
 
     if (saved.shakeActive) {
-        // outer hologram 연결 (ETEND[shake] 시 _etEffectStack에 hologram이 남아있음)
+        // outer hologram/gradient-wave 연결 (ETEND[shake] 시 스택에 남아있는 outer 확인)
         for (var i = this._etEffectStack.length - 1; i >= 0; i--) {
-            if (this._etEffectStack[i].hologramActive) {
-                saved.hologramOuter = this._etEffectStack[i];
-                break;
+            var outerSeg = this._etEffectStack[i];
+            if (outerSeg.hologramActive && !saved.hologramOuter) {
+                saved.hologramOuter = outerSeg;
+            }
+            if (outerSeg.gradientWaveActive && !saved.gradientWaveOuter) {
+                saved.gradientWaveOuter = outerSeg;
             }
         }
     }
@@ -215,6 +219,17 @@ Window_Base.prototype._etProcessEnd = function(textState) {
             }
         }
         // 즉시 그리기 없음 (깜빡임 방지, 다음 _etRunAnimPass에서 처리)
+    }
+
+    if (saved.gradientWaveActive) {
+        // inner shake 여부 감지
+        var segs2 = this._etAnimSegs || [];
+        for (var k = 0; k < segs2.length; k++) {
+            if (segs2[k].shakeActive && segs2[k].gradientWaveOuter === saved) {
+                saved.hasInnerShake = true;
+                break;
+            }
+        }
     }
 
     if (this.contents) {
@@ -274,7 +289,7 @@ Window_Base.prototype._etRunAnimPass = function() {
             }
         } else if (seg.hologramActive && !seg.hasInnerShake) {
             this._etRedrawHologramBase(seg);
-        } else if (seg.gradientWaveActive) {
+        } else if (seg.gradientWaveActive && !seg.hasInnerShake) {
             this._etRedrawGradientWave(seg, t);
         } else if (seg.fadeActive) {
             this._etRedrawFade(seg, t);
@@ -346,9 +361,17 @@ Window_Base.prototype._etRedrawShake = function(seg, time) {
     bmp.outlineColor = seg.outlineColor;
     bmp.outlineWidth = seg.outlineWidth;
 
+    var gw = seg.gradientWaveOuter;
     for (var i = 0; i < chars.length; i++) {
         var ch = chars[i];
-        var charColor = ch.finalColor || ch.color || seg.textColor;
+        var charColor;
+        if (gw) {
+            // outer gradient-wave가 있으면 무지개 색상 계산 (속도 동기화)
+            var hue = ((i * 28 + time * gw.speed * 27) % 360 + 360) % 360;
+            charColor = 'hsl(' + hue.toFixed(0) + ',100%,62%)';
+        } else {
+            charColor = ch.finalColor || ch.color || seg.textColor;
+        }
         this.changeTextColor(charColor);
         var offsetY = Math.sin(time * speed * 5.0 + i * 0.8) * amp;
         bmp.drawText(ch.c, ch.x, ch.y + offsetY, this.textWidth(ch.c) + 4, ch.h || lh);
@@ -442,7 +465,7 @@ Window_Base.prototype._etRedrawGradientWave = function(seg, time) {
 
     var speed = seg.speed || 1;
     for (var i = 0; i < chars.length; i++) {
-        var hue = ((i * 28 + time * speed * 80) % 360 + 360) % 360;
+        var hue = ((i * 28 + time * speed * 27) % 360 + 360) % 360;
         this.changeTextColor('hsl(' + hue.toFixed(0) + ',100%,62%)');
         var ch = chars[i];
         bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c) + 4, ch.h || lh);
@@ -461,7 +484,7 @@ Window_Base.prototype._etRedrawFade = function(seg, time) {
     var ctx = bmp._context;
     if (!ctx) return;
 
-    var progress = Math.min(1.0, (time - seg.startTime) * 60 / seg.duration);
+    var progress = Math.min(1.0, (time - seg.startTime) * 20 / seg.duration);
     var lh = chars[0].h || this.lineHeight();
     var ow = (bmp.outlineWidth || 4) + 1;
     var startX = chars[0].x - ow;
@@ -503,7 +526,7 @@ Window_Base.prototype._etRedrawDissolve = function(seg, time) {
 
     var elapsed = time - seg.startTime;
     var speed = seg.speed || 1;
-    var threshold = Math.max(0, 1.0 - elapsed * speed);
+    var threshold = Math.max(0, 1.0 - elapsed * speed * 0.33);
 
     var lh = chars[0].h || this.lineHeight();
     var ow = (bmp.outlineWidth || 4) + 1;
@@ -560,7 +583,7 @@ Window_Base.prototype._etRedrawBlurFade = function(seg, time) {
     var ctx = bmp._context;
     if (!ctx) return;
 
-    var progress = Math.min(1.0, (time - seg.startTime) * 60 / seg.duration);
+    var progress = Math.min(1.0, (time - seg.startTime) * 20 / seg.duration);
     var blurPx = (1.0 - progress) * 8;
     var alpha = 0.2 + progress * 0.8;
 
