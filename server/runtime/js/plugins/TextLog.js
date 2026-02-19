@@ -1,5 +1,5 @@
 /*:
- * @plugindesc [v1.0] 텍스트 로그 - 메시지 대사 기록을 스크롤하며 볼 수 있는 창
+ * @plugindesc [v1.1] 텍스트 로그 - 메시지 대사 기록을 스크롤하며 볼 수 있는 창
  * @author RPG Maker MV Web Editor
  *
  * @param menuName
@@ -194,27 +194,17 @@
         return Math.max(0, this._total - this.innerH());
     };
 
-    // ── 항목 높이 계산 ──────────────────────────────────────────────────────
+    // ── 항목 높이 계산 (calcTextHeight로 정확하게) ──────────────────────────
     Window_TextLog.prototype.entryH = function (e) {
-        var lh  = this.lineHeight();
         var hasFace = SHOW_FACE && e.fn;
-        var faceW = hasFace ? (FACE_SIZE + 12) : 0;
-        var tw  = this.contentsWidth() - faceW - ENTRY_PAD * 2;
-        var fs  = this.standardFontSize();
-        var cpl = Math.max(8, Math.floor(tw / (fs * 0.62)));
-
-        // 이스케이프 코드 제거 후 라인 수 추정
-        var txt  = e.txt.replace(/\x1b[A-Za-z]+\[[^\]]*\]/g, '').replace(/\x1b./g, '');
-        var rows = txt.split('\n');
-        var lc   = 0;
-        for (var i = 0; i < rows.length; i++) {
-            lc += Math.max(1, Math.ceil(rows[i].length / cpl));
-        }
-        if (e.spk) lc++;
-
-        var textH = lc * lh + ENTRY_PAD * 2;
-        if (hasFace) textH = Math.max(textH, FACE_SIZE + ENTRY_PAD * 2);
-        return textH;
+        // escape code 변환 후 실제 줄 수를 calcTextHeight로 측정
+        var converted  = this.convertEscapeCharacters(e.txt);
+        var textState  = { index: 0, text: converted };
+        var textH = this.calcTextHeight(textState, true);
+        if (e.spk) textH += this.lineHeight();
+        var height = textH + ENTRY_PAD * 2;
+        if (hasFace) height = Math.max(height, FACE_SIZE + ENTRY_PAD * 2);
+        return height;
     };
 
     // ── 레이아웃 빌드 (각 항목의 y 위치, h 계산) ────────────────────────────
@@ -358,6 +348,7 @@
     Scene_TextLog.prototype.initialize = function () {
         Scene_Base.prototype.initialize.call(this);
         this._touchPrevY = null;
+        this._wheelHandler = null;
     };
 
     Scene_TextLog.prototype.create = function () {
@@ -365,6 +356,29 @@
         this._createBackground();
         this.createWindowLayer();
         this._createWindows();
+    };
+
+    // window 이벤트로 직접 휠을 받아야 함
+    // (TouchCameraControl.js가 3D 모드에서 TouchInput.wheelY를 소비하기 때문)
+    Scene_TextLog.prototype.start = function () {
+        Scene_Base.prototype.start.call(this);
+        var self = this;
+        this._wheelHandler = function (event) {
+            event.preventDefault();
+            if (self._log) {
+                self._log.scrollBy(event.deltaY * 0.5);
+                self._log._vel = 0;
+            }
+        };
+        window.addEventListener('wheel', this._wheelHandler, { passive: false });
+    };
+
+    Scene_TextLog.prototype.terminate = function () {
+        Scene_Base.prototype.terminate.call(this);
+        if (this._wheelHandler) {
+            window.removeEventListener('wheel', this._wheelHandler);
+            this._wheelHandler = null;
+        }
     };
 
     Scene_TextLog.prototype._createBackground = function () {
@@ -400,20 +414,11 @@
 
     Scene_TextLog.prototype.update = function () {
         Scene_Base.prototype.update.call(this);
-        this._processWheelScroll();
         this._processDragScroll();
 
         if (this.isActive() && (Input.isTriggered('cancel') || TouchInput.isCancelled())) {
             SoundManager.playCancel();
             this.popScene();
-        }
-    };
-
-    Scene_TextLog.prototype._processWheelScroll = function () {
-        var wy = TouchInput.wheelY;
-        if (wy !== 0) {
-            this._log.scrollBy(wy * SCROLL_SPEED * 0.1);
-            this._log._vel = 0;
         }
     };
 
