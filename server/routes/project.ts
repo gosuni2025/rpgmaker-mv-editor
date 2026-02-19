@@ -3,7 +3,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import path from 'path';
 import os from 'os';
-import { exec, execSync } from 'child_process';
+import { exec, execFile, execSync } from 'child_process';
 import projectManager from '../services/projectManager';
 import fileWatcher from '../services/fileWatcher';
 
@@ -246,6 +246,30 @@ router.post('/new', (req: Request, res: Response) => {
   }
 });
 
+function openInExplorer(targetPath: string) {
+  const resolved = path.resolve(targetPath);
+  if (process.platform === 'darwin') {
+    execFile('open', [resolved]);
+  } else if (process.platform === 'win32') {
+    execFile('explorer.exe', [resolved]);
+  } else {
+    execFile('xdg-open', [resolved]);
+  }
+}
+
+function openInTerminal(targetPath: string) {
+  const resolved = path.resolve(targetPath);
+  if (process.platform === 'darwin') {
+    execFile('osascript', ['-e', `tell application "Terminal" to do script "cd '${resolved.replace(/'/g, "'\\''")}'"`, '-e', 'tell application "Terminal" to activate']);
+  } else if (process.platform === 'win32') {
+    const winPath = resolved.replace(/\//g, '\\');
+    exec(`start cmd /K cd /d "${winPath}"`, { shell: true });
+  } else {
+    // 일반적인 Linux 터미널 에뮬레이터 시도
+    exec(`x-terminal-emulator -e bash -c "cd '${resolved.replace(/'/g, "'\\''")}'; exec bash" &`);
+  }
+}
+
 router.post('/open-folder', (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {
     return res.status(404).json({ error: 'No project open' });
@@ -256,17 +280,27 @@ router.post('/open-folder', (req: Request, res: Response) => {
     const resolved = path.join(targetPath, subfolder);
     if (fs.existsSync(resolved)) targetPath = resolved;
   }
-  const cmd = process.platform === 'darwin' ? 'open'
-    : process.platform === 'win32' ? 'explorer' : 'xdg-open';
-  exec(`${cmd} "${targetPath}"`);
+  openInExplorer(targetPath);
+  res.json({ success: true });
+});
+
+router.post('/open-folder-terminal', (_req: Request, res: Response) => {
+  if (!projectManager.isOpen()) {
+    return res.status(404).json({ error: 'No project open' });
+  }
+  openInTerminal(projectManager.currentPath!);
   res.json({ success: true });
 });
 
 router.post('/open-editor-folder', (_req: Request, res: Response) => {
   const editorPath = path.join(__dirname, '..', '..');
-  const cmd = process.platform === 'darwin' ? 'open'
-    : process.platform === 'win32' ? 'explorer' : 'xdg-open';
-  exec(`${cmd} "${editorPath}"`);
+  openInExplorer(editorPath);
+  res.json({ success: true });
+});
+
+router.post('/open-editor-folder-terminal', (_req: Request, res: Response) => {
+  const editorPath = path.join(__dirname, '..', '..');
+  openInTerminal(editorPath);
   res.json({ success: true });
 });
 
@@ -441,6 +475,156 @@ router.get('/migration-check', (req: Request, res: Response) => {
     } catch { /* git not installed */ }
 
     res.json({ needsMigration: needsMigration || needsPluginMigration, files, editorPluginFiles, gitAvailable });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Migration step: git backup only
+router.post('/migrate-git-backup', (req: Request, res: Response) => {
+  try {
+    if (!projectManager.isOpen()) {
+      return res.status(404).json({ error: 'No project open' });
+    }
+    const projectRoot = projectManager.currentPath!;
+    try {
+      execSync('git rev-parse --git-dir', { cwd: projectRoot, stdio: 'ignore' });
+    } catch {
+      execSync('git init', { cwd: projectRoot, stdio: 'ignore' });
+    }
+    execSync('git add -A', { cwd: projectRoot, stdio: 'ignore' });
+    try {
+      execSync('git diff --cached --quiet', { cwd: projectRoot, stdio: 'ignore' });
+      try {
+        execSync('git rev-parse HEAD', { cwd: projectRoot, stdio: 'ignore' });
+      } catch {
+        execSync('git commit -m "Initial commit (before runtime migration)"', { cwd: projectRoot, stdio: 'ignore' });
+      }
+    } catch {
+      execSync('git commit -m "Backup before runtime migration"', { cwd: projectRoot, stdio: 'ignore' });
+    }
+    res.json({ success: true });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Migration step: copy a single file
+router.post('/migrate-file', (req: Request, res: Response) => {
+  try {
+    if (!projectManager.isOpen()) {
+      return res.status(404).json({ error: 'No project open' });
+    }
+    const projectRoot = projectManager.currentPath!;
+    const runtimeJsDir = path.join(runtimePath, 'js');
+    const projectJsDir = path.join(projectRoot, 'js', '3d');
+    const file: string = req.body.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'file is required' });
+    }
+
+    let src: string;
+    let dest: string;
+
+    if (file === 'index_3d.html') {
+      src = path.join(runtimePath, 'index_3d.html');
+      dest = path.join(projectRoot, 'index_3d.html');
+    } else if (file.startsWith('js/libs/')) {
+      const relFile = file.replace(/^js\//, '');
+      src = path.join(runtimeJsDir, relFile);
+      dest = path.join(projectRoot, 'js', relFile);
+    } else if (file.startsWith('js/plugins/')) {
+      const relFile = file.replace(/^js\/plugins\//, '');
+      src = path.join(runtimePath, 'js', 'plugins', relFile);
+      dest = path.join(projectRoot, 'js', 'plugins', relFile);
+    } else {
+      // js/3d/...
+      const relFile = file.replace(/^js\/3d\//, '');
+      src = path.join(runtimeJsDir, relFile);
+      dest = path.join(projectJsDir, relFile);
+    }
+
+    if (!fs.existsSync(src)) {
+      return res.status(400).json({ error: `Source file not found: ${src}` });
+    }
+
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(src, dest);
+
+    res.json({ success: true, from: src, to: dest });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Migration step: collect plugin files to copy and register
+router.get('/migrate-plugin-files', (req: Request, res: Response) => {
+  try {
+    if (!projectManager.isOpen()) {
+      return res.status(404).json({ error: 'No project open' });
+    }
+    const projectRoot = projectManager.currentPath!;
+    const editorPluginsDir = path.join(runtimePath, 'js', 'plugins');
+    const projectPluginsDir = path.join(projectRoot, 'js', 'plugins');
+
+    if (!fs.existsSync(editorPluginsDir)) {
+      return res.json({ files: [] });
+    }
+
+    const files = fs.readdirSync(editorPluginsDir).filter(f => f.endsWith('.js')).map(f => {
+      return {
+        file: `js/plugins/${f}`,
+        from: path.join(editorPluginsDir, f),
+        to: path.join(projectPluginsDir, f),
+      };
+    });
+
+    res.json({ files });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Migration step: register plugins in plugins.js
+router.post('/migrate-register-plugins', (req: Request, res: Response) => {
+  try {
+    if (!projectManager.isOpen()) {
+      return res.status(404).json({ error: 'No project open' });
+    }
+    const projectRoot = projectManager.currentPath!;
+    const editorPluginsDir = path.join(runtimePath, 'js', 'plugins');
+
+    if (!fs.existsSync(editorPluginsDir)) {
+      return res.json({ success: true, modified: false });
+    }
+
+    const pluginsJsPath = path.join(projectRoot, 'js', 'plugins.js');
+    let pluginList: { name: string; status: boolean; description: string; parameters: Record<string, string> }[] = [];
+    if (fs.existsSync(pluginsJsPath)) {
+      const content = fs.readFileSync(pluginsJsPath, 'utf8');
+      const match = content.match(/\$plugins\s*=\s*(\[[\s\S]*?\]);/);
+      if (match) {
+        try { pluginList = JSON.parse(match[1]); } catch { /* parse error */ }
+      }
+    }
+
+    const registeredNames = new Set(pluginList.map(p => p.name));
+    let modified = false;
+    for (const epFile of fs.readdirSync(editorPluginsDir).filter(f => f.endsWith('.js'))) {
+      const pluginName = epFile.replace('.js', '');
+      if (!registeredNames.has(pluginName)) {
+        pluginList.push({ name: pluginName, status: true, description: '', parameters: {} });
+        modified = true;
+      }
+    }
+    if (modified) {
+      const lines = pluginList.map(p => JSON.stringify(p));
+      const content = `// Generated by RPG Maker.\n// Do not edit this file directly.\nvar $plugins =\n[\n${lines.join(',\n')}\n];\n`;
+      fs.writeFileSync(pluginsJsPath, content, 'utf8');
+    }
+
+    res.json({ success: true, modified });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }
