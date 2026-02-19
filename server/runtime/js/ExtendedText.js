@@ -368,7 +368,21 @@ var _Window_Base_createContents = Window_Base.prototype.createContents;
 Window_Base.prototype.createContents = function() {
     _Window_Base_createContents.call(this);
     this._etAnimSegs = [];
+    this._etEffectStack = [];
 };
+
+//=============================================================================
+// Window_Message.newPage 오버라이드 – 페이지 전환 시 애니메이션 세그먼트 초기화
+// (contents.clear()만으로는 _etAnimSegs가 초기화되지 않아 이전 shake가 지속됨)
+//=============================================================================
+if (typeof Window_Message !== 'undefined') {
+    var _Window_Message_newPage = Window_Message.prototype.newPage;
+    Window_Message.prototype.newPage = function(textState) {
+        _Window_Message_newPage.call(this, textState);
+        this._etAnimSegs = [];
+        this._etEffectStack = [];
+    };
+}
 
 //=============================================================================
 // update 루프 (애니메이션 시간 업데이트 + shake 재그리기)

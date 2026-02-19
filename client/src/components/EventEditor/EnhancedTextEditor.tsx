@@ -377,6 +377,31 @@ export function EnhancedTextEditor({
                 if (inline && e.key === 'Enter') {
                   e.preventDefault();
                 }
+                // ArrowLeft: contenteditable="false" 블록 직후 커서에서 ← 키를 누르면
+                // 브라우저가 블록 전체를 건너뛰어 이전 줄로 점프하는 기본 동작 보정.
+                // 대신 블록 앞으로만 커서를 이동한다.
+                if (e.key === 'ArrowLeft') {
+                  const sel = window.getSelection();
+                  if (sel && sel.rangeCount > 0 && sel.isCollapsed) {
+                    const range = sel.getRangeAt(0);
+                    const container = range.startContainer;
+                    const offset = range.startOffset;
+                    let prevSibling: Node | null = null;
+                    if (container.nodeType === Node.TEXT_NODE && offset === 0) {
+                      prevSibling = container.previousSibling;
+                    } else if (container.nodeType === Node.ELEMENT_NODE && offset > 0) {
+                      prevSibling = (container as Element).childNodes[offset - 1];
+                    }
+                    if (prevSibling instanceof HTMLElement && prevSibling.classList.contains('ete-block')) {
+                      e.preventDefault();
+                      const newRange = document.createRange();
+                      newRange.setStartBefore(prevSibling);
+                      newRange.collapse(true);
+                      sel.removeAllRanges();
+                      sel.addRange(newRange);
+                    }
+                  }
+                }
               }}
               onBlur={syncToParent}
             />
