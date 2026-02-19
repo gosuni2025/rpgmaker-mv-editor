@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev": "SERVER_PORT=3001 CLIENT_PORT=5173 concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "cd server && npx tsx --watch index.ts",
     "dev:client": "cd client && npm run dev",
     "build:client": "cd client && npm run build",
