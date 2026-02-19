@@ -16,11 +16,8 @@ RPG Maker MV 프로젝트를 웹 기반으로 편집할 수 있는 데스크톱 
 ### 설치 및 실행
 
 ```bash
-# 의존성 설치
+# 의존성 설치 (루트 한 번만 — client/server 자동 설치됨)
 npm install
-cd server && npm install
-cd ../client && npm install
-cd ..
 
 # 개발 모드 실행 (서버:3001 + 클라이언트:5173)
 npm run dev
