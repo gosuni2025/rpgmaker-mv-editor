@@ -32,10 +32,10 @@ RPG Maker MV의 Mode3D 플러그인이 projection matrix의 Y축을 반전(`m[5]
 
 - `renderOrder`는 `ThreeRendererStrategy._syncHierarchy`에서 tilemap의 `_sortChildren()` 정렬 순서(PIXI 호환 `.z` 속성 기준)를 따라 할당됨
 - RPG Maker MV의 PIXI `.z` 값 체계: `0=Lower tiles, 1=Lower chars, 3=Normal chars, 4=Upper tiles, 5=Upper chars, 6~9=기타`
-- **upper layer 타일(z=4)은 z=3 이하의 모든 오브젝트를 덮어씀** — 이는 2D에서는 정상(지붕 아래로 숨는 효과)이지만, 3D 모드에서 빌보드 캐릭터/이미지 오브젝트에 문제가 됨
-- **3D 모드 z=5 처리**: 빌보드 캐릭터(플레이어, 팔로워, billboard 활성화된 이벤트)와 이미지 오브젝트는 `z=5`로 설정하여 upper 타일 위에 그려지도록 우회함
-  - 이미지 오브젝트: `rpg_sprites.js`의 `createMapObjects()`에서 `container.z = 5` 설정
-  - 빌보드 캐릭터: `Mode3D.js`의 `Sprite_Character.updatePosition()` 오버라이드에서 3D 모드 + billboard 활성 시 `this.z = 5` 설정
+- **upper layer 타일(z=4)은 z=3 이하의 모든 오브젝트를 덮어씀** — 이는 2D/3D 모두 정상 동작 (지붕 아래로 숨는 효과)
+- **이미지 오브젝트 z=5**: `rpg_sprites.js`의 `createMapObjects()`에서 `container.z = 5` 설정 — upper tile 위에 그려짐
+- **빌보드 캐릭터는 z=3 그대로** — upper tile(z=4)이 캐릭터를 정상적으로 가림 (2D와 동일 동작)
+  - `Mode3D.js`의 `Sprite_Character.updatePosition()` 오버라이드에서 `this.y -= th/2` 보정만 수행 (z 값 변경 없음)
 - **근본적 해결**: 3D 모드에서 depthTest를 활성화하고 position.z 기반 깊이 판별로 전환해야 하나, 투명도 정렬 문제(반투명 오브젝트 간 정렬)가 수반됨
 - 관련 파일: `ThreeTilemap.js`(타일 메시 material), `ThreeSprite.js`(스프라이트 material), `ThreeRendererStrategy.js`(renderOrder 할당)
 

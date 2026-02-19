@@ -881,7 +881,6 @@
                 } catch (e) { /* ignore */ }
             }
             if (isBillboard) {
-                this.z = 5;
                 // screenY가 타일 하단(bottom) 기준이라 빌보드가 타일 경계에 나타남
                 // th/2만큼 보정하여 타일 중심에 위치하도록 수정
                 var th = ($gameMap && $gameMap.tileHeight) ? $gameMap.tileHeight() : 48;
