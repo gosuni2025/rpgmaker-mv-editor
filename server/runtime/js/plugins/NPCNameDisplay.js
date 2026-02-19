@@ -65,7 +65,8 @@
 
   Sprite_Character.prototype._updateNpcName = function () {
     var character = this._character;
-    if (!character || typeof character.isEvent !== 'function' || !character.isEvent()) {
+    // Game_Event 여부: event() 메서드가 있으면 이벤트 캐릭터
+    if (!character || typeof character.event !== 'function') {
       this._destroyNpcName();
       return;
     }
