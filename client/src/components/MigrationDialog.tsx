@@ -31,12 +31,13 @@ interface PluginFileInfo {
 }
 
 interface MigrationProgress {
-  phase: 'gitBackup' | 'copying' | 'registerPlugins';
+  phase: 'gitInit' | 'gitAdd' | 'gitCommit' | 'copying' | 'registerPlugins';
   current: number;
   total: number;
   currentFile: string;
   from: string;
   to: string;
+  detail?: string;   // 단계별 부가 정보 (파일 수, 커밋 해시 등)
 }
 
 interface MigrationDialogProps {
@@ -148,17 +149,39 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
     setError('');
 
     try {
-      // Step 1: Git backup
+      // Step 1: Git backup (3 substeps)
       if (gitBackup && gitAvailable) {
-        setProgress({
-          phase: 'gitBackup',
-          current: 0,
-          total: 0,
-          currentFile: '',
-          from: '',
-          to: '',
-        });
-        await apiClient.post('/project/migrate-git-backup', {});
+        // 1-1. init
+        setProgress({ phase: 'gitInit', current: 0, total: 0, currentFile: '', from: '', to: '' });
+        const initRes = await apiClient.post<{ success: boolean; initialized: boolean }>(
+          '/project/migrate-git-init', {}
+        );
+        setProgress(prev => prev ? {
+          ...prev,
+          detail: initRes.initialized ? '새 저장소를 초기화했습니다' : '기존 저장소 사용',
+        } : prev);
+
+        // 1-2. add
+        setProgress({ phase: 'gitAdd', current: 0, total: 0, currentFile: '', from: '', to: '' });
+        const addRes = await apiClient.post<{ success: boolean; stagedCount: number }>(
+          '/project/migrate-git-add', {}
+        );
+        setProgress(prev => prev ? {
+          ...prev,
+          detail: `${addRes.stagedCount}개 파일 스테이징됨`,
+        } : prev);
+
+        // 1-3. commit
+        setProgress({ phase: 'gitCommit', current: 0, total: 0, currentFile: '', from: '', to: '' });
+        const commitRes = await apiClient.post<{ success: boolean; committed: boolean; message: string; hash: string }>(
+          '/project/migrate-git-commit', {}
+        );
+        setProgress(prev => prev ? {
+          ...prev,
+          detail: commitRes.committed
+            ? `커밋 완료 — ${commitRes.hash} "${commitRes.message}"`
+            : commitRes.message,
+        } : prev);
       }
 
       // Step 2: Collect plugin files
@@ -237,11 +260,11 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
   };
 
   const phaseLabel = progress
-    ? progress.phase === 'gitBackup'
-      ? t('migration.phaseGitBackup')
-      : progress.phase === 'registerPlugins'
-        ? t('migration.phaseRegisterPlugins')
-        : t('migration.phaseCopying', { current: progress.current, total: progress.total })
+    ? progress.phase === 'gitInit'     ? t('migration.phaseGitInit')
+    : progress.phase === 'gitAdd'      ? t('migration.phaseGitAdd')
+    : progress.phase === 'gitCommit'   ? t('migration.phaseGitCommit')
+    : progress.phase === 'registerPlugins' ? t('migration.phaseRegisterPlugins')
+    : t('migration.phaseCopying', { current: progress.current, total: progress.total })
     : '';
 
   const progressPct = progress && progress.total > 0
@@ -427,8 +450,58 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
                 </div>
               )}
 
-              {/* Current file */}
-              {progress.currentFile && (
+              {/* Git 단계 정보 */}
+              {(progress.phase === 'gitInit' || progress.phase === 'gitAdd' || progress.phase === 'gitCommit') && (
+                <div style={{ background: '#2b2b2b', borderRadius: 3, border: '1px solid #444', padding: '10px 12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr', gap: '6px 10px', fontSize: 12, alignItems: 'start' }}>
+                    {/* 각 단계 상태 행 */}
+                    {(['gitInit', 'gitAdd', 'gitCommit'] as const).map((step) => {
+                      const phases = ['gitInit', 'gitAdd', 'gitCommit'] as const;
+                      const stepIdx = phases.indexOf(step);
+                      const curIdx = phases.indexOf(progress.phase as typeof step);
+                      const isDone = stepIdx < curIdx;
+                      const isActive = stepIdx === curIdx;
+                      const isPending = stepIdx > curIdx;
+                      const labels: Record<typeof step, string> = {
+                        gitInit:   t('migration.phaseGitInit'),
+                        gitAdd:    t('migration.phaseGitAdd'),
+                        gitCommit: t('migration.phaseGitCommit'),
+                      };
+                      return (
+                        <React.Fragment key={step}>
+                          <span style={{ fontSize: 14, lineHeight: '16px' }}>
+                            {isDone ? '✓' : isActive ? '▶' : '○'}
+                          </span>
+                          <div>
+                            <span style={{
+                              color: isDone ? '#6c6' : isActive ? '#ddd' : '#666',
+                              fontWeight: isActive ? 'bold' : 'normal',
+                            }}>
+                              {labels[step]}
+                            </span>
+                            {isActive && progress.detail && (
+                              <span style={{ color: '#aaa', marginLeft: 8, fontSize: 11 }}>
+                                {progress.detail}
+                              </span>
+                            )}
+                            {isDone && (
+                              <span style={{ color: '#555', marginLeft: 8, fontSize: 11 }}>
+                                {step === 'gitInit' && t('migration.gitStepInitDone')}
+                                {step === 'gitAdd'  && t('migration.gitStepAddDone')}
+                                {step === 'gitCommit' && t('migration.gitStepCommitDone')}
+                              </span>
+                            )}
+                          </div>
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                  {/* detail은 active 단계 아래에 표시 — 이미 행에 포함했으므로 생략 */}
+                </div>
+              )}
+
+              {/* Current file (복사 단계에서만) */}
+              {progress.currentFile && progress.phase === 'copying' && (
                 <div style={{ background: '#2b2b2b', borderRadius: 3, border: '1px solid #444', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '48px 1fr', gap: '4px 8px', fontSize: 12 }}>
                     <span style={{ color: '#888' }}>{t('migration.progressFile')}</span>

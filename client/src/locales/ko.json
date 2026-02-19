@@ -1330,12 +1330,17 @@
     "rollbackConfirmProceed": "롤백 실행",
     "rollbackSuccess": "롤백이 완료되었습니다.",
     "progressTitle": "마이그레이션 진행 중",
-    "phaseGitBackup": "Git 백업 중...",
+    "phaseGitInit": "저장소 초기화 중...",
+    "phaseGitAdd": "파일 스테이징 중 (git add -A)...",
+    "phaseGitCommit": "백업 커밋 생성 중...",
     "phaseCopying": "파일 복사 중 ({{current}}/{{total}})",
     "phaseRegisterPlugins": "플러그인 등록 중...",
     "progressFile": "파일",
     "progressFrom": "원본",
-    "progressTo": "대상"
+    "progressTo": "대상",
+    "gitStepInitDone": "완료",
+    "gitStepAddDone": "완료",
+    "gitStepCommitDone": "완료"
   },
   "find": {
     "title": "검색",
