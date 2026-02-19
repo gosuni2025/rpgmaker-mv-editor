@@ -256,7 +256,7 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
               className={`script-editor-tab${activeTab === 'file' ? ' active' : ''}`}
               onClick={() => setActiveTab('file')}
             >
-              파일 참조<span className="script-ext-badge">EXT</span>
+              파일 참조<span className="ext-badge">EXT</span>
             </button>
           </div>
         </div>
