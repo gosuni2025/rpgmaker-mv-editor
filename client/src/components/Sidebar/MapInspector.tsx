@@ -262,6 +262,22 @@ export default function MapInspector() {
         )}
       </div>
 
+      {/* 렌더 모드 (2D/3D) */}
+      <div className="light-inspector-section">
+        <div className="light-inspector-title">렌더 모드 <ExtBadge inline /></div>
+        <label className="map-inspector-checkbox">
+          <input type="checkbox" checked={!!(currentMap as any).is3D}
+            onChange={(e) => {
+              updateMapField('is3D', e.target.checked || undefined);
+              useEditorStore.getState().setMode3d(e.target.checked);
+            }} />
+          <span>3D 모드</span>
+        </label>
+        <div style={{ fontSize: 11, color: '#888', marginTop: 2, lineHeight: 1.4 }}>
+          이 맵을 3D 모드로 렌더링합니다. 게임 플레이 시 이 맵에 진입할 때 자동으로 3D/2D 모드가 전환됩니다.
+        </div>
+      </div>
+
       {/* 3D Tile Layer Elevation */}
       <div className="light-inspector-section">
         <div className="light-inspector-title">3D 타일 레이어 <ExtBadge inline /></div>

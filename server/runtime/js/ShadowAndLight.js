@@ -89,16 +89,6 @@ ConfigManager.applyData = function(config) {
 };
 
 //=============================================================================
-// Window_Options - "그림자/광원" 옵션 추가
-//=============================================================================
-
-var _Window_Options_addGeneralOptions = Window_Options.prototype.addGeneralOptions;
-Window_Options.prototype.addGeneralOptions = function() {
-    _Window_Options_addGeneralOptions.call(this);
-    this.addCommand('그림자/조명', 'shadowLight');
-};
-
-//=============================================================================
 // ShadowLight 시스템 관리
 //=============================================================================
 
