@@ -206,5 +206,13 @@ export function createStoreSubscription(params: {
       }
       requestRender();
     }
+
+    // NPC 이름 데이터 변경 시 $dataMap에 즉시 반영
+    if (state.currentMap?.npcData !== prevState.currentMap?.npcData) {
+      if (w.$dataMap) {
+        w.$dataMap.npcData = state.currentMap?.npcData;
+      }
+      requestRender();
+    }
   });
 }
