@@ -11,6 +11,18 @@ import { PaletteTileTooltip } from '../MapEditor/TileInfoTooltip';
 import './RegionPalette.css';
 import './InspectorPanel.css';
 
+/** 투명 배경을 나타내는 체크보드 패턴을 canvas에 그린다 */
+function drawCheckerboard(ctx: CanvasRenderingContext2D, width: number, height: number, size = 8) {
+  const light = '#4a4a4a';
+  const dark  = '#2e2e2e';
+  for (let y = 0; y < height; y += size) {
+    for (let x = 0; x < width; x += size) {
+      ctx.fillStyle = (Math.floor(x / size) + Math.floor(y / size)) % 2 === 0 ? light : dark;
+      ctx.fillRect(x, y, Math.min(size, width - x), Math.min(size, height - y));
+    }
+  }
+}
+
 type PaletteTab = 'A' | 'B' | 'C' | 'D' | 'E' | 'R';
 const TABS: PaletteTab[] = ['A', 'B', 'C', 'D', 'E', 'R'];
 
@@ -91,8 +103,7 @@ export default function TilesetPalette() {
     if (!img) {
       canvas.width = 256;
       canvas.height = 100;
-      ctx.fillStyle = '#1e1e1e';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawCheckerboard(ctx, canvas.width, canvas.height);
       ctx.fillStyle = '#666';
       ctx.font = '12px sans-serif';
       ctx.textAlign = 'center';
@@ -102,7 +113,7 @@ export default function TilesetPalette() {
 
     canvas.width = img.width;
     canvas.height = img.height;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawCheckerboard(ctx, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
 
     // Highlight selection (drag preview or committed selection)
@@ -175,8 +186,7 @@ export default function TilesetPalette() {
     canvas.width = cw;
     canvas.height = ch;
 
-    ctx.fillStyle = '#1e1e1e';
-    ctx.fillRect(0, 0, cw, ch);
+    drawCheckerboard(ctx, cw, ch);
 
     for (let i = 0; i < totalEntries; i++) {
       const entry = A_TILE_ENTRIES[i];
