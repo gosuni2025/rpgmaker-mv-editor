@@ -6,7 +6,7 @@ import { EDIT_MODE_STORAGE_KEY, TOOLBAR_STORAGE_KEY } from './types';
 import { recalcAutotiles } from './editingHelpers';
 import { undoOperation, redoOperation } from './undoRedoOperations';
 import {
-  copyEventOp, cutEventOp, pasteEventOp, deleteEventOp,
+  addEventOp, copyEventOp, cutEventOp, pasteEventOp, deleteEventOp,
   copyEventsOp, pasteEventsOp, deleteEventsOp, moveEventsOp,
 } from './eventOperations';
 import {
@@ -25,7 +25,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'setPassageTool' | 'setPassageShape' | 'setSelectedPassageTile' | 'updateCustomPassage' |
   'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' | 'shiftMap' |
   'copyTiles' | 'cutTiles' | 'pasteTiles' | 'deleteTiles' | 'moveTiles' |
-  'copyEvent' | 'cutEvent' | 'pasteEvent' | 'deleteEvent' |
+  'addEvent' | 'copyEvent' | 'cutEvent' | 'pasteEvent' | 'deleteEvent' |
   'copyEvents' | 'pasteEvents' | 'deleteEvents' | 'moveEvents' |
   'setSelectedEventIds' | 'setEventSelectionStart' | 'setEventSelectionEnd' | 'setIsEventPasting' | 'setEventPastePreviewPos' | 'clearEventSelection' |
   'setObjectSubMode' | 'setSelectedObjectId' | 'setSelectedObjectIds' | 'setObjectSelectionStart' | 'setObjectSelectionEnd' | 'setIsObjectPasting' | 'setObjectPastePreviewPos' | 'clearObjectSelection' |
@@ -357,6 +357,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   },
 
   // Event operations (delegated)
+  addEvent: (x?: number, y?: number) => addEventOp(get, set, x, y),
   copyEvent: (eventId: number) => copyEventOp(get, set, eventId),
   cutEvent: (eventId: number) => cutEventOp(get, set, eventId),
   pasteEvent: (x: number, y: number) => pasteEventOp(get, set, x, y),

@@ -1,8 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
-import type { RPGEvent, MapData } from '../../types/rpgMakerMV';
+import type { RPGEvent } from '../../types/rpgMakerMV';
 import './EventEditor.css';
+
+function scrollToEvent(x: number, y: number) {
+  window.dispatchEvent(new CustomEvent('scroll-to-tile', { detail: { x, y } }));
+}
 
 interface ContextMenu {
   x: number;
@@ -15,6 +19,7 @@ export default function EventList() {
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedEventId = useEditorStore((s) => s.selectedEventId);
   const setSelectedEventId = useEditorStore((s) => s.setSelectedEventId);
+  const addEvent = useEditorStore((s) => s.addEvent);
   const deleteEvent = useEditorStore((s) => s.deleteEvent);
   const copyEvent = useEditorStore((s) => s.copyEvent);
   const cutEvent = useEditorStore((s) => s.cutEvent);
@@ -39,42 +44,9 @@ export default function EventList() {
   const closeContextMenu = () => setContextMenu(null);
 
   const handleNewEvent = useCallback(() => {
-    if (!currentMap) return;
-    const events = [...(currentMap.events || [])];
-    const maxId = events.reduce((max, e) => (e && e.id > max ? e.id : max), 0);
-    const newEvent: RPGEvent = {
-      id: maxId + 1,
-      name: `EV${String(maxId + 1).padStart(3, '0')}`,
-      x: 0,
-      y: 0,
-      note: '',
-      pages: [{
-        conditions: {
-          actorId: 1, actorValid: false, itemId: 1, itemValid: false,
-          selfSwitchCh: 'A', selfSwitchValid: false,
-          switch1Id: 1, switch1Valid: false, switch2Id: 1, switch2Valid: false,
-          variableId: 1, variableValid: false, variableValue: 0,
-        },
-        directionFix: false,
-        image: { characterIndex: 0, characterName: '', direction: 2, pattern: 1, tileId: 0 },
-        list: [{ code: 0, indent: 0, parameters: [] }],
-        moveFrequency: 3,
-        moveRoute: { list: [{ code: 0 }], repeat: true, skippable: false, wait: false },
-        moveSpeed: 3,
-        moveType: 0,
-        priorityType: 1,
-        stepAnime: false,
-        through: false,
-        trigger: 0,
-        walkAnime: true,
-      }],
-    };
-    while (events.length <= maxId + 1) events.push(null);
-    events[maxId + 1] = newEvent;
-    useEditorStore.setState({ currentMap: { ...currentMap, events } as MapData & { tilesetNames?: string[] } });
-    setSelectedEventId(maxId + 1);
+    addEvent(0, 0);
     closeContextMenu();
-  }, [currentMap, setSelectedEventId]);
+  }, [addEvent]);
 
   const handleDeleteEvent = () => {
     if (contextMenu?.eventId != null) {
@@ -121,7 +93,7 @@ export default function EventList() {
           <div
             key={ev.id}
             className={`db-list-item${ev.id === selectedEventId ? ' selected' : ''}`}
-            onClick={() => setSelectedEventId(ev.id)}
+            onClick={() => { setSelectedEventId(ev.id); scrollToEvent(ev.x, ev.y); }}
             onDoubleClick={() => handleDoubleClick(ev.id)}
             onContextMenu={(e) => { e.stopPropagation(); handleContextMenu(e, ev.id); }}
             style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}
