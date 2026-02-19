@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   parseExtendedText, htmlDivToRaw, segsToHTML,
-  EXTENDED_TAG_DEFS, getTagDef, TagDef,
+  buildBlockChipHTML, entriesToRaw,
+  EXTENDED_TAG_DEFS, getTagDef, TagDef, TagEntry, TagParam,
 } from './extendedTextDefs';
 import { ExtTextHelpPanel } from './ExtTextHelpPanel';
 import './EnhancedTextEditor.css';
@@ -21,8 +22,7 @@ const ESCAPE_INSERTS: { label: string; text: string }[] = [
 
 interface BlockInfo {
   el: HTMLElement;
-  tag: string;
-  params: Record<string, string>;
+  tags: TagEntry[];
   content: string;
 }
 
@@ -31,7 +31,7 @@ interface EnhancedTextEditorProps {
   onChange: (value: string) => void;
   rows?: number;
   placeholder?: string;
-  inline?: boolean; // single-line 모드
+  inline?: boolean;
 }
 
 export function EnhancedTextEditor({
@@ -45,12 +45,15 @@ export function EnhancedTextEditor({
   const [showBlockMenu, setShowBlockMenu] = useState(false);
   const [showEscMenu, setShowEscMenu] = useState(false);
   const [selectedBlock, setSelectedBlock] = useState<BlockInfo | null>(null);
-  const [propValues, setPropValues] = useState<Record<string, string>>({});
+  // 프로퍼티 패널 상태: TagEntry 배열 + content
+  const [propTags, setPropTags] = useState<TagEntry[]>([]);
   const [propContent, setPropContent] = useState('');
+  const [showAddTagMenu, setShowAddTagMenu] = useState(false);
 
   const editorRef = useRef<HTMLDivElement>(null);
   const blockMenuRef = useRef<HTMLDivElement>(null);
   const escMenuRef = useRef<HTMLDivElement>(null);
+  const addTagMenuRef = useRef<HTMLDivElement>(null);
   const isInternalUpdate = useRef(false);
   const savedRange = useRef<Range | null>(null);
 
@@ -62,15 +65,12 @@ export function EnhancedTextEditor({
     isInternalUpdate.current = false;
   }, []);
 
-  // visual 모드로 전환 시 현재 value를 div에 적용
   useEffect(() => {
     if (mode === 'visual') {
       applyValueToEditor(value);
     }
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // value가 외부에서 변경될 때 (raw 모드에서 돌아온 경우 등) visual 모드 갱신
-  // 단, 에디터 내부 input으로 인한 변경은 재갱신 안 함
   const lastValueRef = useRef(value);
   useEffect(() => {
     if (mode === 'visual' && value !== lastValueRef.current) {
@@ -111,11 +111,9 @@ export function EnhancedTextEditor({
     if (!sel || !editorRef.current) return;
     const range = sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
     if (!range) return;
-    // 선택 영역 삭제
     range.deleteContents();
     const fragment = document.createRange().createContextualFragment(html);
     range.insertNode(fragment);
-    // 커서를 삽입된 내용 뒤로 이동
     range.collapse(false);
     sel.removeAllRanges();
     sel.addRange(range);
@@ -130,13 +128,12 @@ export function EnhancedTextEditor({
     const range = sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
     const selectedText = range ? range.toString() : '';
 
-    // 기본 파라미터
     const defaultParams: Record<string, string> = {};
     for (const p of def.params) {
       defaultParams[p.key] = String(p.defaultValue);
     }
-
-    const blockHTML = buildBlockHTML(def, defaultParams, selectedText);
+    const tags: TagEntry[] = [{ tag: def.tag, params: defaultParams }];
+    const blockHTML = buildBlockChipHTML(tags, selectedText);
 
     if (range && !range.collapsed) {
       range.deleteContents();
@@ -152,31 +149,13 @@ export function EnhancedTextEditor({
     setShowBlockMenu(false);
   }, [insertAtCursor, syncToParent]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── 블록 HTML 생성 ───
-  function buildBlockHTML(def: TagDef, params: Record<string, string>, content: string): string {
-    const color = def.badgeColor;
-    const paramsJSON = JSON.stringify(params).replace(/"/g, '&quot;');
-    return (
-      `<span class="ete-block" ` +
-      `data-ete-tag="${def.tag}" ` +
-      `data-ete-params="${paramsJSON}" ` +
-      `data-ete-content="${content.replace(/"/g, '&quot;')}" ` +
-      `contenteditable="false" ` +
-      `style="border-color:${color}">` +
-      `<span class="ete-block-label" style="background:${color}">${def.label}</span>` +
-      `<span class="ete-block-preview">${content || ' '}</span>` +
-      `<span class="ete-block-del" data-del="1">✕</span>` +
-      `</span>`
-    );
-  }
-
   // ─── 블록 클릭 처리 ───
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     // 삭제 버튼
     const delBtn = target.closest('[data-del]') as HTMLElement | null;
     if (delBtn) {
-      const blockEl = delBtn.closest('[data-ete-tag]') as HTMLElement | null;
+      const blockEl = delBtn.closest('[data-ete-tags],[data-ete-tag]') as HTMLElement | null;
       if (blockEl) {
         blockEl.remove();
         syncToParent();
@@ -185,16 +164,20 @@ export function EnhancedTextEditor({
       }
     }
     // 블록 선택
-    const blockEl = target.closest('[data-ete-tag]') as HTMLElement | null;
+    const blockEl = target.closest('[data-ete-tags],[data-ete-tag]') as HTMLElement | null;
     if (blockEl) {
       e.preventDefault();
-      const tag = blockEl.dataset.eteTag!;
-      const params = JSON.parse(blockEl.dataset.eteParams ?? '{}') as Record<string, string>;
+      let tags: TagEntry[];
+      if (blockEl.dataset.eteTags) {
+        tags = JSON.parse(blockEl.dataset.eteTags) as TagEntry[];
+      } else {
+        // 하위 호환: 기존 단일 태그
+        tags = [{ tag: blockEl.dataset.eteTag!, params: JSON.parse(blockEl.dataset.eteParams ?? '{}') as Record<string, string> }];
+      }
       const content = blockEl.dataset.eteContent ?? '';
-      setSelectedBlock({ el: blockEl, tag, params, content });
-      setPropValues({ ...params });
+      setSelectedBlock({ el: blockEl, tags, content });
+      setPropTags(tags.map(e => ({ ...e, params: { ...e.params } })));
       setPropContent(content);
-      // 이전에 선택된 블록 강조 제거
       editorRef.current?.querySelectorAll('.ete-block.selected').forEach(el => el.classList.remove('selected'));
       blockEl.classList.add('selected');
     } else {
@@ -205,18 +188,14 @@ export function EnhancedTextEditor({
 
   // ─── 프로퍼티 패널 적용 ───
   const applyProps = useCallback(() => {
-    if (!selectedBlock) return;
-    const { el, tag } = selectedBlock;
-    const def = getTagDef(tag);
-    if (!def) return;
-    // 블록 HTML 재생성
-    el.dataset.eteParams = JSON.stringify(propValues);
-    el.dataset.eteContent = propContent;
-    const previewEl = el.querySelector('.ete-block-preview');
-    if (previewEl) previewEl.textContent = propContent || ' ';
+    if (!selectedBlock || propTags.length === 0) return;
+    const { el } = selectedBlock;
+    const newHTML = buildBlockChipHTML(propTags, propContent);
+    const frag = document.createRange().createContextualFragment(newHTML);
+    el.parentNode?.replaceChild(frag, el);
+    setSelectedBlock(null);
     syncToParent();
-    setSelectedBlock(prev => prev ? { ...prev, params: propValues, content: propContent } : null);
-  }, [selectedBlock, propValues, propContent, syncToParent]);
+  }, [selectedBlock, propTags, propContent, syncToParent]);
 
   // ─── 외부 클릭으로 드롭다운 닫기 ───
   useEffect(() => {
@@ -227,10 +206,60 @@ export function EnhancedTextEditor({
       if (escMenuRef.current && !escMenuRef.current.contains(e.target as Node)) {
         setShowEscMenu(false);
       }
+      if (addTagMenuRef.current && !addTagMenuRef.current.contains(e.target as Node)) {
+        setShowAddTagMenu(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // ─── 파라미터 입력 렌더링 헬퍼 ───
+  function renderParamInput(param: TagParam, value: string, onChangeFn: (val: string) => void) {
+    if (param.type === 'color') {
+      return (
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <input
+            type="color"
+            value={value}
+            onChange={e => onChangeFn(e.target.value)}
+            style={{ width: 32, height: 22, padding: 0, border: 'none', background: 'none', cursor: 'pointer', flexShrink: 0 }}
+          />
+          <input
+            type="text"
+            className="ete-props-input"
+            value={value}
+            onChange={e => onChangeFn(e.target.value)}
+            style={{ flex: 1 }}
+          />
+        </div>
+      );
+    }
+    if (param.type === 'select') {
+      return (
+        <select
+          className="ete-props-input"
+          value={value}
+          onChange={e => onChangeFn(e.target.value)}
+        >
+          {param.options?.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      );
+    }
+    return (
+      <input
+        type="number"
+        className="ete-props-input"
+        min={param.min}
+        max={param.max}
+        step={param.step}
+        value={value}
+        onChange={e => onChangeFn(e.target.value)}
+      />
+    );
+  }
 
   const editorMinHeight = inline ? undefined : `${rows * 1.6 + 0.5}em`;
 
@@ -336,10 +365,39 @@ export function EnhancedTextEditor({
             {/* 프로퍼티 패널 */}
             {selectedBlock ? (
               <div className="ete-props-panel">
-                <h4 style={{ borderLeftColor: getTagDef(selectedBlock.tag)?.badgeColor }}>
-                  {getTagDef(selectedBlock.tag)?.label ?? selectedBlock.tag}
-                </h4>
-                {/* 내용 편집 */}
+                {/* 태그별 섹션 */}
+                {propTags.map((entry, idx) => {
+                  const def = getTagDef(entry.tag);
+                  if (!def) return null;
+                  return (
+                    <div key={idx} className="ete-props-tag-section">
+                      <div className="ete-props-tag-header">
+                        <span className="ete-block-label" style={{ background: def.badgeColor, borderRadius: 3 }}>
+                          {def.label}
+                        </span>
+                        <button
+                          className="ete-props-tag-del"
+                          title="이 효과 제거"
+                          onClick={() => setPropTags(prev => prev.filter((_, i) => i !== idx))}
+                        >✕</button>
+                      </div>
+                      {def.params.map(param => (
+                        <div key={param.key} className="ete-props-row">
+                          <label className="ete-props-label">{param.label}</label>
+                          {renderParamInput(
+                            param,
+                            entry.params[param.key] ?? String(param.defaultValue),
+                            val => setPropTags(prev => prev.map((e, i) =>
+                              i === idx ? { ...e, params: { ...e.params, [param.key]: val } } : e
+                            ))
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+
+                {/* 내용 텍스트 */}
                 <div className="ete-props-content-row">
                   <div className="ete-props-label">내용 텍스트</div>
                   <textarea
@@ -349,49 +407,46 @@ export function EnhancedTextEditor({
                     onChange={e => setPropContent(e.target.value)}
                   />
                 </div>
-                {/* 파라미터 편집 */}
-                {(getTagDef(selectedBlock.tag)?.params ?? []).map(param => (
-                  <div key={param.key} className="ete-props-row">
-                    <label className="ete-props-label">{param.label}</label>
-                    {param.type === 'color' ? (
-                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                        <input
-                          type="color"
-                          value={propValues[param.key] ?? String(param.defaultValue)}
-                          onChange={e => setPropValues(pv => ({ ...pv, [param.key]: e.target.value }))}
-                          style={{ width: 36, height: 24, padding: 0, border: 'none', background: 'none', cursor: 'pointer' }}
-                        />
-                        <input
-                          type="text"
-                          className="ete-props-input"
-                          value={propValues[param.key] ?? String(param.defaultValue)}
-                          onChange={e => setPropValues(pv => ({ ...pv, [param.key]: e.target.value }))}
-                          style={{ flex: 1 }}
-                        />
-                      </div>
-                    ) : param.type === 'select' ? (
-                      <select
-                        className="ete-props-input"
-                        value={propValues[param.key] ?? String(param.defaultValue)}
-                        onChange={e => setPropValues(pv => ({ ...pv, [param.key]: e.target.value }))}
-                      >
-                        {param.options?.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="number"
-                        className="ete-props-input"
-                        min={param.min}
-                        max={param.max}
-                        step={param.step}
-                        value={propValues[param.key] ?? String(param.defaultValue)}
-                        onChange={e => setPropValues(pv => ({ ...pv, [param.key]: e.target.value }))}
-                      />
-                    )}
-                  </div>
-                ))}
+
+                {/* 효과 추가 드롭다운 */}
+                <div className="ete-dropdown-wrap ete-props-add-wrap" ref={addTagMenuRef}>
+                  <button
+                    className="ete-props-add-btn"
+                    onMouseDown={e => { e.preventDefault(); setShowAddTagMenu(s => !s); }}
+                  >
+                    + 효과 추가
+                  </button>
+                  {showAddTagMenu && (
+                    <div className="ete-dropdown-menu" style={{ bottom: 'calc(100% + 2px)', top: 'auto', left: 0 }}>
+                      {(['visual', 'animation', 'timing'] as const).map(cat => {
+                        const defs = EXTENDED_TAG_DEFS.filter(d => d.category === cat);
+                        if (!defs.length) return null;
+                        const catLabel = { visual: '비주얼', animation: '애니메이션', timing: '타이밍' }[cat];
+                        return (
+                          <React.Fragment key={cat}>
+                            <div className="ete-dropdown-group-label">{catLabel}</div>
+                            {defs.map(def => (
+                              <div
+                                key={def.tag}
+                                className="ete-dropdown-item"
+                                onMouseDown={e => {
+                                  e.preventDefault();
+                                  const defaultParams: Record<string, string> = {};
+                                  for (const p of def.params) defaultParams[p.key] = String(p.defaultValue);
+                                  setPropTags(prev => [...prev, { tag: def.tag, params: defaultParams }]);
+                                  setShowAddTagMenu(false);
+                                }}
+                              >
+                                <span className="ete-dropdown-badge" style={{ background: def.badgeColor }}>{def.label}</span>
+                              </div>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <button className="ete-props-apply-btn" onClick={applyProps}>적용</button>
               </div>
             ) : (

@@ -214,7 +214,7 @@
 
 /* 프로퍼티 패널 */
 .ete-props-panel {
-  width: 180px;
+  width: 210px;
   flex-shrink: 0;
   background: #252525;
   border: 1px solid #444;
@@ -292,6 +292,57 @@
   margin-top: 4px;
 }
 .ete-props-apply-btn:hover { background: #3085cf; }
+
+/* 태그 섹션 (프로퍼티 패널 내 효과 하나씩) */
+.ete-props-tag-section {
+  border: 1px solid #383838;
+  border-radius: 4px;
+  padding: 6px 7px 4px;
+  margin-bottom: 6px;
+  background: #1e1e1e;
+}
+.ete-props-tag-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.ete-props-tag-del {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 2px;
+  line-height: 1;
+  transition: color 0.12s, background 0.12s;
+}
+.ete-props-tag-del:hover {
+  color: #e74c3c;
+  background: rgba(231,76,60,0.12);
+}
+
+/* 효과 추가 버튼 */
+.ete-props-add-wrap {
+  display: block;
+  margin-bottom: 6px;
+}
+.ete-props-add-btn {
+  width: 100%;
+  padding: 4px 0;
+  background: #2e2e2e;
+  border: 1px dashed #555;
+  border-radius: 3px;
+  color: #aaa;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.ete-props-add-btn:hover {
+  background: #3a3a3a;
+  color: #ddd;
+}
 
 /* Raw 모드 textarea */
 .ete-raw-textarea {
