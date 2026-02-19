@@ -21,14 +21,14 @@
  * @param Arrow Color
  * @type color
  * @desc 화살표 색상 (CSS 색상값)
- * @default rgba(255, 255, 255, 0.7)
+ * @default rgba(255, 255, 255, 0.95)
  *
  * @param Arrow Width
  * @type number
- * @desc 화살표 선 굵기 (px)
+ * @desc 화살표 삼각형 크기 배율 (1~10, 기본 5)
  * @min 1
  * @max 10
- * @default 3
+ * @default 5
  *
  * @param Arrow Outline
  * @type boolean
@@ -38,14 +38,14 @@
  * @param Arrow Outline Color
  * @type color
  * @desc 화살표 테두리 색상
- * @default rgba(0, 0, 0, 0.5)
+ * @default rgba(0, 0, 0, 0.85)
  *
  * @param Arrow Outline Width
  * @type number
- * @desc 화살표 테두리 굵기 (px, 선 굵기에 추가)
+ * @desc 화살표 테두리 굵기 (px)
  * @min 1
- * @max 10
- * @default 2
+ * @max 5
+ * @default 1
  *
  * @param Show Destination Indicator
  * @type boolean
@@ -72,11 +72,11 @@
     var animationId = Number(parameters['Animation ID'] || 0);
     var hideDefault = String(parameters['Hide Default']) !== 'false';
     var showPathArrow = String(parameters['Show Path Arrow']) !== 'false';
-    var arrowColor = String(parameters['Arrow Color'] || 'rgba(255, 255, 255, 0.7)');
-    var arrowWidth = Number(parameters['Arrow Width'] || 3);
+    var arrowColor = String(parameters['Arrow Color'] || 'rgba(255, 255, 255, 0.95)');
+    var arrowWidth = Number(parameters['Arrow Width'] || 5);
     var arrowOutline = String(parameters['Arrow Outline']) !== 'false';
-    var arrowOutlineColor = String(parameters['Arrow Outline Color'] || 'rgba(0, 0, 0, 0.5)');
-    var arrowOutlineWidth = Number(parameters['Arrow Outline Width'] || 2);
+    var arrowOutlineColor = String(parameters['Arrow Outline Color'] || 'rgba(0, 0, 0, 0.85)');
+    var arrowOutlineWidth = Number(parameters['Arrow Outline Width'] || 1);
     var showDestIndicator = String(parameters['Show Destination Indicator']) !== 'false';
 
     var _lastDestX = -1;
@@ -336,86 +336,57 @@
         var path = this._currentPath;
         if (path.length === 0) return;
 
-        var tw = $gameMap.tileWidth();
-        var th = $gameMap.tileHeight();
+        var tw  = $gameMap.tileWidth();
+        var th  = $gameMap.tileHeight();
         var ctx = bitmap._context;
         var dpr = this._pathArrowDPR || 1;
 
-        // 타일 좌표 → 화면 좌표 변환 함수 (DPR 반영)
+        // 정수 스냅으로 선명한 경계
         function screenX(tileX) {
-            return ($gameMap.adjustX(tileX) * tw + tw / 2) * dpr;
+            return Math.round(($gameMap.adjustX(tileX) * tw + tw / 2) * dpr);
         }
         function screenY(tileY) {
-            return ($gameMap.adjustY(tileY) * th + th / 2) * dpr;
+            return Math.round(($gameMap.adjustY(tileY) * th + th / 2) * dpr);
         }
 
         ctx.save();
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineCap = 'butt';
+        ctx.lineJoin = 'miter';
 
-        if (path.length > 0) {
-            // 시작점: 플레이어 위치 (화면 좌표)
-            var sx = screenX(_pathLastPlayerX);
-            var sy = screenY(_pathLastPlayerY);
+        // arrowWidth(1~10)를 타일 크기에 대한 삼각형 크기로 환산
+        var tileMin  = Math.min(tw, th);
+        var baseSize = Math.round(tileMin * (0.10 + arrowWidth * 0.018) * dpr);
+        var playerPos = { x: _pathLastPlayerX, y: _pathLastPlayerY };
 
-            // 화살촉 계산 (테두리, 메인 모두 같은 좌표 사용)
-            var last = path[path.length - 1];
-            var prev = path.length >= 2 ? path[path.length - 2] :
-                       { x: _pathLastPlayerX, y: _pathLastPlayerY };
-            var endX = screenX(last.x);
-            var endY = screenY(last.y);
-            var adx = last.x - prev.x;
-            var ady = last.y - prev.y;
-            var angle = Math.atan2(ady, adx);
-            var arrowSize = 10 * dpr;
-            var arrowHeadPoints = {
-                tip: [endX, endY],
-                left: [endX - arrowSize * Math.cos(angle - Math.PI / 6),
-                       endY - arrowSize * Math.sin(angle - Math.PI / 6)],
-                right: [endX - arrowSize * Math.cos(angle + Math.PI / 6),
-                        endY - arrowSize * Math.sin(angle + Math.PI / 6)]
-            };
+        for (var i = 0; i < path.length; i++) {
+            var from  = (i === 0) ? playerPos : path[i - 1];
+            var to    = path[i];
+            var angle = Math.atan2(to.y - from.y, to.x - from.x);
+            var cx    = screenX(to.x);
+            var cy    = screenY(to.y);
+            // 마지막 타일은 1.5배
+            var sz    = (i === path.length - 1) ? Math.round(baseSize * 1.5) : baseSize;
 
-            // 테두리 (아래 레이어)
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+
+            // 오른쪽을 향하는 삼각형 (픽셀 스냅 좌표)
+            ctx.beginPath();
+            ctx.moveTo( sz,              0);
+            ctx.lineTo(-Math.round(sz * 0.55), -Math.round(sz * 0.72));
+            ctx.lineTo(-Math.round(sz * 0.55),  Math.round(sz * 0.72));
+            ctx.closePath();
+
             if (arrowOutline) {
                 ctx.strokeStyle = arrowOutlineColor;
-                ctx.fillStyle = arrowOutlineColor;
-                ctx.lineWidth = (arrowWidth + arrowOutlineWidth * 2) * dpr;
-
-                ctx.beginPath();
-                ctx.moveTo(sx, sy);
-                for (var oi = 0; oi < path.length; oi++) {
-                    ctx.lineTo(screenX(path[oi].x), screenY(path[oi].y));
-                }
+                ctx.lineWidth   = Math.max(1, Math.round(arrowOutlineWidth * dpr));
                 ctx.stroke();
-
-                ctx.beginPath();
-                ctx.moveTo(arrowHeadPoints.tip[0], arrowHeadPoints.tip[1]);
-                ctx.lineTo(arrowHeadPoints.left[0], arrowHeadPoints.left[1]);
-                ctx.lineTo(arrowHeadPoints.right[0], arrowHeadPoints.right[1]);
-                ctx.closePath();
-                ctx.stroke();
-                ctx.fill();
             }
-
-            // 메인 화살표 (위 레이어)
-            ctx.strokeStyle = arrowColor;
             ctx.fillStyle = arrowColor;
-            ctx.lineWidth = arrowWidth * dpr;
-
-            ctx.beginPath();
-            ctx.moveTo(sx, sy);
-            for (var i = 0; i < path.length; i++) {
-                ctx.lineTo(screenX(path[i].x), screenY(path[i].y));
-            }
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(arrowHeadPoints.tip[0], arrowHeadPoints.tip[1]);
-            ctx.lineTo(arrowHeadPoints.left[0], arrowHeadPoints.left[1]);
-            ctx.lineTo(arrowHeadPoints.right[0], arrowHeadPoints.right[1]);
-            ctx.closePath();
             ctx.fill();
+
+            ctx.restore();
         }
 
         ctx.restore();
@@ -454,11 +425,12 @@
         var baseRot = (_indicatorFrame / 360) * Math.PI * 2;
 
         ctx.save();
+        ctx.lineCap = 'butt';
+        ctx.lineJoin = 'miter';
         for (var t = 0; t < 3; t++) {
             var orbitAngle = baseRot + (t * Math.PI * 2 / 3);
-            var tx = cx + orbitR * Math.cos(orbitAngle);
-            var ty = cy + orbitR * Math.sin(orbitAngle);
-            // 꼭짓점이 중심을 향하도록: 기본 꼭짓점 방향(+y) → orbitAngle + π/2
+            var tx = Math.round(cx + orbitR * Math.cos(orbitAngle));
+            var ty = Math.round(cy + orbitR * Math.sin(orbitAngle));
             var triRot = orbitAngle + Math.PI / 2;
 
             ctx.save();
@@ -466,14 +438,14 @@
             ctx.rotate(triRot);
 
             ctx.beginPath();
-            ctx.moveTo(0,      triH);
-            ctx.lineTo(-triW, -triH * 0.5);
-            ctx.lineTo( triW, -triH * 0.5);
+            ctx.moveTo(0,                       Math.round(triH));
+            ctx.lineTo(-Math.round(triW), -Math.round(triH * 0.5));
+            ctx.lineTo( Math.round(triW), -Math.round(triH * 0.5));
             ctx.closePath();
 
             if (arrowOutline) {
                 ctx.strokeStyle = iOutlineColor;
-                ctx.lineWidth = arrowWidth + arrowOutlineWidth * 2;
+                ctx.lineWidth   = Math.max(1, Math.round(arrowOutlineWidth));
                 ctx.stroke();
             }
             ctx.fillStyle = iColor;
