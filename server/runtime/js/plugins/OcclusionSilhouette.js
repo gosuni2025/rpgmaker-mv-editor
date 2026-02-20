@@ -300,7 +300,8 @@
         if (!hasUpperTiles && !hasVisibleObj) return false;
 
         // 플레이어/파티원 스프라이트 식별
-        var charSprites = this._getPlayerSprites(spriteset);
+        // 플레이어/팔로워뿐 아니라 맵 이벤트(NPC)도 포함
+        var charSprites = spriteset._characterSprites || [];
         if (!charSprites.length) return false;
 
         var size = renderer.getSize(new THREE.Vector2());
@@ -385,9 +386,68 @@
         var oldClearAlpha = renderer.getClearAlpha();
         renderer.setClearColor(0x000000, 0);
 
+        // depth 계산용 yaw 파라미터 (Mode3D._sortChildren과 동일 기준)
+        var _yaw = (typeof ConfigManager !== 'undefined' && ConfigManager.mode3d && Mode3D && Mode3D._yawRad) ? Mode3D._yawRad : 0;
+        var _cosY = Math.cos(_yaw);
+        var _sinY = Math.sin(_yaw);
+        var _th3d = ($gameMap && $gameMap.tileHeight) ? $gameMap.tileHeight() : 48;
+
+        // charMask 대상 캐릭터 선별:
+        //   - upperZLayer가 있으면(naïve): 모든 캐릭터 포함 (타일별 depth 계산 불가)
+        //   - _objectSprites만 있으면: max(obj_depth) >= char_depth 인 캐릭터만 포함
+        //     (적어도 하나의 오브젝트보다 앞에 있지 않은 캐릭터 = 오브젝트 뒤에 있을 수 있음)
+        var charMaskSprites = [];
+        var _minCharDepth = -Infinity; // objMask 포함 임계값: obj_depth >= _minCharDepth
+
+        if (hasUpperTiles) {
+            // upper tile은 모든 캐릭터를 가릴 수 있으므로 전원 포함
+            for (var _ui = 0; _ui < charSprites.length; _ui++) {
+                if (charSprites[_ui]._threeObj) charMaskSprites.push(charSprites[_ui]);
+            }
+            _minCharDepth = -Infinity; // 모든 오브젝트 포함
+        } else if (hasVisibleObj && spriteset._objectSprites) {
+            // 최대 오브젝트 depth 계산
+            var _maxObjDepth = -Infinity;
+            for (var _preiO = 0; _preiO < spriteset._objectSprites.length; _preiO++) {
+                var _preOs = spriteset._objectSprites[_preiO];
+                if (_preOs._threeObj) {
+                    var _preIdx = tmChildren.indexOf(_preOs._threeObj);
+                    if (_preIdx >= 0 && tmChildVis[_preIdx]) {
+                        var _preOsY = (_preOs._mapObjH && _preOs._mapObjH > 1)
+                            ? _preOs._y + 1.5 * _th3d * (_preOs._mapObjH - 1)
+                            : _preOs._y;
+                        var _preOd = _preOs._x * _sinY + _preOsY * _cosY;
+                        if (_preOd > _maxObjDepth) _maxObjDepth = _preOd;
+                    }
+                }
+            }
+            // 적어도 하나의 오브젝트가 앞에 있는 캐릭터만 charMask에 포함
+            _minCharDepth = Infinity;
+            for (var _ci = 0; _ci < charSprites.length; _ci++) {
+                var _ch = charSprites[_ci];
+                if (!_ch._threeObj) continue;
+                var _cd = _ch._x * _sinY + _ch._y * _cosY;
+                if (_maxObjDepth >= _cd) { // 이 캐릭터보다 앞에 있는 오브젝트 존재
+                    charMaskSprites.push(_ch);
+                    if (_cd < _minCharDepth) _minCharDepth = _cd;
+                }
+            }
+            if (!charMaskSprites.length || _minCharDepth === Infinity) {
+                // 아무 캐릭터도 오브젝트 뒤에 없음 → 실루엣 불필요
+                for (var _tri = 0; _tri < tmChildren.length; _tri++) tmChildren[_tri].visible = tmChildVis[_tri];
+                for (var _bri = 0; _bri < bsChildren.length; _bri++) bsChildren[_bri].visible = bsChildVis[_bri];
+                for (var _ssi = 0; _ssi < ssChildren.length; _ssi++) ssChildren[_ssi].visible = ssChildVis[_ssi];
+                for (var _smri = 0; _smri < sceneMapChildren.length; _smri++) sceneMapChildren[_smri].visible = sceneMapChildVis[_smri];
+                for (var _stri = 0; _stri < stageChildren.length; _stri++) stageChildren[_stri].visible = stageChildVis[_stri];
+                for (var _ri = 0; _ri < scene.children.length; _ri++) scene.children[_ri].visible = sceneChildVis[_ri];
+                renderer.setClearColor(oldClearColor, oldClearAlpha);
+                return false;
+            }
+        }
+
         // === Pass 1: 캐릭터 마스크 렌더 ===
-        for (var ci = 0; ci < charSprites.length; ci++) {
-            if (charSprites[ci]._threeObj) charSprites[ci]._threeObj.visible = true;
+        for (var ci = 0; ci < charMaskSprites.length; ci++) {
+            if (charMaskSprites[ci]._threeObj) charMaskSprites[ci]._threeObj.visible = true;
         }
 
         renderer.setRenderTarget(this._charMaskRT);
@@ -395,8 +455,8 @@
         renderer.render(scene, camera);
 
         // 캐릭터 숨김
-        for (var ci2 = 0; ci2 < charSprites.length; ci2++) {
-            if (charSprites[ci2]._threeObj) charSprites[ci2]._threeObj.visible = false;
+        for (var ci2 = 0; ci2 < charMaskSprites.length; ci2++) {
+            if (charMaskSprites[ci2]._threeObj) charMaskSprites[ci2]._threeObj.visible = false;
         }
 
         // === Pass 2: 오브젝트 마스크 렌더 (upperZLayer + _objectSprites) ===
@@ -407,40 +467,22 @@
                 upperZObj.visible = true;
             }
         }
-        // 에디터 이미지 오브젝트 - depth 비교하여 플레이어보다 앞에 있는 것만 마스크에 포함
+        // 이미지 오브젝트 - charMask 캐릭터 중 적어도 하나보다 앞에 있는 것만 마스크에 포함
         // depth = x*sin(yaw) + y*cos(yaw) (카메라 yaw 반영, yaw=0이면 y 기준)
-        // Mode3D._sortChildren과 동일한 foot 보정 적용: 멀티타일 오브젝트는 시각 중심(y)이
-        // 아닌 발(foot) 기준 depth = y + 1.5*th*(h-1) 사용 (캐릭터는 보정 없음).
+        // Mode3D._sortChildren과 동일한 foot 보정: 멀티타일은 foot 기준 depth 사용
         if (spriteset._objectSprites) {
-            var _yaw = (typeof ConfigManager !== 'undefined' && ConfigManager.mode3d && Mode3D && Mode3D._yawRad) ? Mode3D._yawRad : 0;
-            var _cosY = Math.cos(_yaw);
-            var _sinY = Math.sin(_yaw);
-            var _th3d = ($gameMap && $gameMap.tileHeight) ? $gameMap.tileHeight() : 48;
-
-            // 플레이어 depth 계산 ($gamePlayer 기준, 없으면 첫 번째 캐릭터)
-            // _y 사용: Mode3D가 this.y -= th/2 로 보정한 PIXI y 좌표 (_sortChildren과 동일 기준)
-            var _playerSpr = null;
-            for (var _pi = 0; _pi < charSprites.length; _pi++) {
-                if (charSprites[_pi]._character === $gamePlayer) { _playerSpr = charSprites[_pi]; break; }
-            }
-            if (!_playerSpr && charSprites.length > 0) _playerSpr = charSprites[0];
-            var _playerDepth = (_playerSpr)
-                ? _playerSpr._x * _sinY + _playerSpr._y * _cosY
-                : -Infinity;
-
             for (var oi2 = 0; oi2 < spriteset._objectSprites.length; oi2++) {
                 var os = spriteset._objectSprites[oi2];
                 if (os._threeObj) {
                     var idx = tmChildren.indexOf(os._threeObj);
                     if (idx >= 0 && tmChildVis[idx]) {
                         // 멀티타일 오브젝트는 발 기준 depth로 보정 (_sortChildren와 동일)
-                        // foot_ref = container.y + 1.5 * th * (h - 1)
                         var _osY = (os._mapObjH && os._mapObjH > 1)
                             ? os._y + 1.5 * _th3d * (os._mapObjH - 1)
                             : os._y;
                         var _objDepth = os._x * _sinY + _osY * _cosY;
-                        // 오브젝트가 플레이어보다 앞에(depth 크거나 같음) 있을 때만 마스크에 포함
-                        if (_objDepth >= _playerDepth) {
+                        // charMask 캐릭터 중 적어도 하나보다 앞에 있을 때만 포함
+                        if (_objDepth >= _minCharDepth) {
                             os._threeObj.visible = true;
                         }
                     }
