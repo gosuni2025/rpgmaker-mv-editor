@@ -30,7 +30,7 @@ export function ShowTextEditor({ p, onOk, onCancel, existingLines }: { p: unknow
       }
       onOk([faceName, faceIndex, background, positionType], extra);
     } else {
-      const lines = text.split('\n').filter((_, i) => i < 4);
+      const lines = text.split('\n');
       const extra: EventCommand[] = lines.map(line => ({ code: 401, indent: 0, parameters: [line] }));
       onOk([faceName, faceIndex, background, positionType], extra);
     }
@@ -72,11 +72,11 @@ export function ShowTextEditor({ p, onOk, onCancel, existingLines }: { p: unknow
         일괄 입력
       </label>
       <label style={{ fontSize: 12, color: '#aaa', display: 'block' }}>
-        텍스트{bulkInput ? '' : ' (최대 4줄)'}:
+        텍스트{bulkInput ? ' (4줄마다 자동 분할)' : ''}:
         <EnhancedTextEditor
           value={text}
           onChange={setText}
-          rows={bulkInput ? 12 : 4}
+          rows={Math.max(4, text.split('\n').length)}
           placeholder="텍스트를 입력하세요..."
         />
       </label>
