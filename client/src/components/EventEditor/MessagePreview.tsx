@@ -261,8 +261,11 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
 
     const scene = new THREE.Scene();
 
+    // Y-down 카메라에서 투영행렬 m[5]<0 → 와인딩 역전 → 백페이스 컬링
+    // DoubleSide로 양면 렌더링하여 회피
     const mat = (cfg: any) => new THREE.MeshBasicMaterial({
-      depthTest: false, depthWrite: false, transparent: true, ...cfg,
+      depthTest: false, depthWrite: false, transparent: true,
+      side: THREE.DoubleSide, ...cfg,
     });
 
     // 0: 맵 배경
@@ -290,6 +293,7 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
       vertexShader: WINDOW_VERT,
       fragmentShader: WINDOW_FRAG,
       transparent: true, depthTest: false, depthWrite: false,
+      side: THREE.DoubleSide,
     });
     const windowMesh = makePlaneMesh(THREE, windowMat);
     windowMesh.renderOrder = 2;
