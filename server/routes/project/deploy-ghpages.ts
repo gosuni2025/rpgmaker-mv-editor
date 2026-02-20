@@ -26,12 +26,6 @@ const DEPLOY_BRANCH = 'gh-pages';
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
 
-async function checkGhCli(): Promise<boolean> {
-  try { await execAsync('which gh'); return true; } catch {}
-  try { await execAsync('gh --version'); return true; } catch {}
-  return false;
-}
-
 async function checkGitRepo(repoPath: string): Promise<boolean> {
   if (!repoPath || !fs.existsSync(repoPath)) return false;
   try { await execAsync(`git -C "${repoPath}" rev-parse --git-dir`); return true; } catch { return false; }
@@ -74,7 +68,7 @@ router.get('/deploy-ghpages-check', async (_req: Request, res: Response) => {
   const settings = settingsManager.get();
   const selectedRemote = settings.ghPages?.remote || 'pages';
 
-  const [ghCli, isGitRepo] = await Promise.all([checkGhCli(), checkGitRepo(srcPath)]);
+  const isGitRepo = await checkGitRepo(srcPath);
 
   let remotes: { name: string; url: string; pageUrl: string }[] = [];
   let pageUrl = '';
@@ -86,7 +80,7 @@ router.get('/deploy-ghpages-check', async (_req: Request, res: Response) => {
     pageUrl = sel?.pageUrl ?? '';
   }
 
-  res.json({ ghCli, isGitRepo, remotes, selectedRemote, pageUrl });
+  res.json({ isGitRepo, remotes, selectedRemote, pageUrl });
 });
 
 // ─── GitHub Pages 배포 (SSE) ──────────────────────────────────────────────────

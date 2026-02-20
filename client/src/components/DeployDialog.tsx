@@ -29,7 +29,6 @@ interface GhPagesRemote {
 }
 
 interface GhPagesCheck {
-  ghCli: boolean;
   isGitRepo: boolean;
   remotes: GhPagesRemote[];
   selectedRemote: string;
@@ -379,7 +378,7 @@ export default function DeployDialog() {
 
   // GitHub Pages 사전 조건 배지
   const ghSelectedRemoteExists = ghCheck?.remotes.some(r => r.name === ghRemote) ?? false;
-  const ghPrereqOk = (ghCheck?.ghCli ?? false) && (ghCheck?.isGitRepo ?? false) && ghSelectedRemoteExists;
+  const ghPrereqOk = (ghCheck?.isGitRepo ?? false) && ghSelectedRemoteExists;
   const CheckBadge = ({ ok, label, warn }: { ok: boolean; label: string; warn?: string }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={!ok && warn ? warn : ''}>
       <span style={{ color: ok ? '#6c6' : '#e55', fontSize: 12 }}>{ok ? '✓' : '✗'}</span>
@@ -586,11 +585,6 @@ export default function DeployDialog() {
                 <div style={{ color: '#bbb', fontSize: 11, fontWeight: 600, marginBottom: 8 }}>{t('deploy.ghPages.prerequisites')}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <CheckBadge
-                    ok={ghCheck?.ghCli ?? false}
-                    label={t('deploy.ghPages.checkGhCli')}
-                    warn={t('deploy.ghPages.ghCliMissing')}
-                  />
-                  <CheckBadge
                     ok={ghCheck?.isGitRepo ?? false}
                     label={t('deploy.ghPages.checkGitRepo')}
                     warn={t('deploy.ghPages.notGitRepo')}
@@ -601,9 +595,6 @@ export default function DeployDialog() {
                     warn={t('deploy.ghPages.remoteMissing', { remote: ghRemote })}
                   />
                 </div>
-                {!ghCheck?.ghCli && (
-                  <div style={{ marginTop: 8, color: '#e77', fontSize: 11 }}>{t('deploy.ghPages.ghCliMissing')}</div>
-                )}
               </div>
 
               {/* 배포 버튼 */}
