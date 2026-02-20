@@ -412,9 +412,9 @@
                 if (_preOs._threeObj) {
                     var _preIdx = tmChildren.indexOf(_preOs._threeObj);
                     if (_preIdx >= 0 && tmChildVis[_preIdx]) {
-                        var _preOsY = (_preOs._mapObjH && _preOs._mapObjH > 1)
+                        var _preOsY = (_preOs._mapObjH > 1)
                             ? _preOs._y + 1.5 * _th3d * (_preOs._mapObjH - 1)
-                            : _preOs._y;
+                            : (_preOs._mapObjH === 1) ? _preOs._y + _th3d / 2 : _preOs._y;
                         var _preOd = _preOs._x * _sinY + _preOsY * _cosY;
                         if (_preOd > _maxObjDepth) _maxObjDepth = _preOd;
                     }
@@ -476,9 +476,9 @@
                     var idx = tmChildren.indexOf(os._threeObj);
                     if (idx >= 0 && tmChildVis[idx]) {
                         // 멀티타일 오브젝트는 발 기준 depth로 보정 (_sortChildren와 동일)
-                        var _osY = (os._mapObjH && os._mapObjH > 1)
+                        var _osY = (os._mapObjH > 1)
                             ? os._y + 1.5 * _th3d * (os._mapObjH - 1)
-                            : os._y;
+                            : (os._mapObjH === 1) ? os._y + _th3d / 2 : os._y;
                         var _objDepth = os._x * _sinY + _osY * _cosY;
                         // charMask 캐릭터 중 적어도 하나보다 앞에 있을 때만 포함
                         if (_objDepth >= _minCharDepth) {

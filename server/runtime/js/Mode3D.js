@@ -125,12 +125,15 @@
         var children = this.children;
         if (children.length > 0) {
             children.sort(function(a, b) {
-                // 멀티타일 오브젝트(h>1)의 center y는 시각 범위보다 위에 있으므로
-                // foot tile center로 변환: foot_ref = y + 1.5 * th * (h - 1)
+                // 이미지 오브젝트(z=5, _mapObjH 있음) depth 계산:
+                //   - h=1: container.y = oy*th + th/2, 이미지 하단(anchorY=1.0) = oy*th + th
+                //          → 캐릭터(ty*th - shiftY)와 비교 시 th/2 보정 추가
+                //   - h>1: foot tile center로 변환: foot_ref = y + 1.5 * th * (h - 1)
                 // 캐릭터는 Mode3D updatePosition에서 y -= th/2로 tile center 기준 사용.
-                // h=1 오브젝트는 container.y = tile center → 보정 불필요.
-                var ayD = (a._mapObjH > 1) ? a.y + 1.5 * th3d * (a._mapObjH - 1) : a.y;
-                var byD = (b._mapObjH > 1) ? b.y + 1.5 * th3d * (b._mapObjH - 1) : b.y;
+                var ayD = (a._mapObjH > 1) ? a.y + 1.5 * th3d * (a._mapObjH - 1) :
+                          (a._mapObjH === 1) ? a.y + th3d / 2 : a.y;
+                var byD = (b._mapObjH > 1) ? b.y + 1.5 * th3d * (b._mapObjH - 1) :
+                          (b._mapObjH === 1) ? b.y + th3d / 2 : b.y;
                 var dA = a.x * sinY + ayD * cosY;
                 var dB = b.x * sinY + byD * cosY;
                 // 3D 모드 렌더 순서:
