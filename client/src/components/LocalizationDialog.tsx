@@ -5,27 +5,8 @@ import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 import type { L10nConfig, CSVRow, Category, StatsData, UndoEntry, FilterMode } from './localizationTypes';
 import { LANGUAGE_NAMES, getCsvPath, formatTs, getStatus } from './localizationTypes';
+import HelpButton from './common/HelpButton';
 import './LocalizationDialog.css';
-
-function HelpButton({ text }: { text: string }) {
-  const [show, setShow] = useState(false);
-  const ref = useRef<HTMLButtonElement>(null);
-  return (
-    <span style={{ position: 'relative', display: 'inline-flex' }}>
-      <button
-        ref={ref}
-        className="l10n-help-btn"
-        onClick={() => setShow(!show)}
-        onBlur={() => setShow(false)}
-      >?</button>
-      {show && (
-        <div className="l10n-help-tooltip">
-          {text.split('\n').map((line, i) => <div key={i}>{line}</div>)}
-        </div>
-      )}
-    </span>
-  );
-}
 
 export default function LocalizationDialog() {
   const { t } = useTranslation();
