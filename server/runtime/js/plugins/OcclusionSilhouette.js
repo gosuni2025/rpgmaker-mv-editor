@@ -300,8 +300,7 @@
         if (!hasUpperTiles && !hasVisibleObj) return false;
 
         // 플레이어/파티원 스프라이트 식별
-        // 플레이어/팔로워뿐 아니라 맵 이벤트(NPC)도 포함
-        var charSprites = spriteset._characterSprites || [];
+        var charSprites = this._getPlayerSprites(spriteset);
         if (!charSprites.length) return false;
 
         var size = renderer.getSize(new THREE.Vector2());
