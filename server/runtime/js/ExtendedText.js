@@ -8,11 +8,10 @@ ExtendedText._time = 0;
 // ─── 씬 참조 헬퍼 ───
 // MessagePreview에서 설정: ExtendedText._overlayScene = previewScene;
 // 게임 런타임에서는 Graphics._renderer.scene 사용
-// 에디터 맵 캔버스에서는 _editorRendererObj.scene 사용
+// 주의: _editorRendererObj.scene은 에디터 맵 뷰어 씬이므로 절대 사용하지 않음
 ExtendedText._overlayScene = null;
 ExtendedText._getScene = function() {
     return ExtendedText._overlayScene
-        || (window._editorRendererObj && window._editorRendererObj.scene)
         || (typeof Graphics !== 'undefined' && Graphics._renderer && Graphics._renderer.scene)
         || null;
 };
@@ -684,17 +683,28 @@ Window_Base.prototype.createContents = function() {
     this._etEffectStack = [];
 };
 
+// 오버레이 전체 정리 헬퍼 (newPage / terminateMessage 공통)
+Window_Base.prototype._etClearAllOverlays = function() {
+    var segs = this._etAnimSegs || [];
+    for (var i = 0; i < segs.length; i++) {
+        if (segs[i]._overlayMesh) this._etDisposeOverlay(segs[i]);
+    }
+    this._etAnimSegs = [];
+    this._etEffectStack = [];
+};
+
 if (typeof Window_Message !== 'undefined') {
     var _Window_Message_newPage = Window_Message.prototype.newPage;
     Window_Message.prototype.newPage = function(textState) {
         _Window_Message_newPage.call(this, textState);
-        // 남아있는 오버레이 메시 정리
-        var segs = this._etAnimSegs || [];
-        for (var i = 0; i < segs.length; i++) {
-            if (segs[i]._overlayMesh) this._etDisposeOverlay(segs[i]);
-        }
-        this._etAnimSegs = [];
-        this._etEffectStack = [];
+        this._etClearAllOverlays();
+    };
+
+    // 대화창 닫힐 때 오버레이 정리
+    var _Window_Message_terminateMessage = Window_Message.prototype.terminateMessage;
+    Window_Message.prototype.terminateMessage = function() {
+        this._etClearAllOverlays();
+        _Window_Message_terminateMessage.call(this);
     };
 }
 

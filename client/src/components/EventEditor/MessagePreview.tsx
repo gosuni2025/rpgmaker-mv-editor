@@ -682,8 +682,21 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
   // ─── 언마운트 정리 ───
   useEffect(() => () => {
     const t = threeRef.current;
-    // ExtendedText 씬 참조 해제
     const ET = (window as any).ExtendedText;
+    // 오버레이 메시 씬에서 제거
+    const r = rendererRef.current;
+    if (r?._etAnimSegs && t) {
+      (r._etAnimSegs as any[]).forEach((seg: any) => {
+        if (seg._overlayMesh) {
+          t.scene.remove(seg._overlayMesh);
+          seg._overlayMesh.geometry?.dispose();
+          seg._overlayMesh.material?.dispose();
+          seg._overlayTex?.dispose();
+          seg._overlayMesh = null;
+        }
+      });
+    }
+    // ExtendedText 씬 참조 해제
     if (ET && t && ET._overlayScene === t.scene) ET._overlayScene = null;
     if (!t) return;
     [t.mapTexture, t.faceTexture, t.textTexture, t.speakerTexture].forEach(tx => tx?.dispose());
