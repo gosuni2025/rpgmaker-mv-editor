@@ -22,19 +22,17 @@ import {
 const router = express.Router();
 const execAsync = promisify(exec);
 
-/** staging 디렉터리 루트: ~/.rpg-editor/gh-deploy/<remoteUrl-hash>/ */
-const GH_DEPLOY_BASE = path.join(os.homedir(), '.rpg-editor', 'gh-deploy');
+/** 배포 대상 브랜치 — GitHub Pages는 gh-pages 브랜치를 서비스함 */
+const DEPLOY_BRANCH = 'gh-pages';
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
 
-/** gh CLI 설치 여부 확인 */
 async function checkGhCli(): Promise<boolean> {
   try { await execAsync('which gh'); return true; } catch {}
   try { await execAsync('gh --version'); return true; } catch {}
   return false;
 }
 
-/** 경로가 유효한 git 저장소인지 확인 */
 async function checkGitRepo(repoPath: string): Promise<boolean> {
   if (!repoPath || !fs.existsSync(repoPath)) return false;
   try { await execAsync(`git -C "${repoPath}" rev-parse --git-dir`); return true; } catch { return false; }
@@ -50,7 +48,6 @@ function derivePageUrl(remoteUrl: string): string {
   return `https://${m[1]}.github.io/${m[2]}`;
 }
 
-/** 프로젝트의 모든 remote 목록 */
 async function getRemotes(repoPath: string): Promise<{ name: string; url: string }[]> {
   try {
     const { stdout } = await execAsync(`git -C "${repoPath}" remote`);
@@ -66,7 +63,6 @@ async function getRemotes(repoPath: string): Promise<{ name: string; url: string
   } catch { return []; }
 }
 
-/** 특정 remote의 URL */
 async function getRemoteUrl(repoPath: string, remote: string): Promise<string> {
   try {
     const { stdout } = await execAsync(`git -C "${repoPath}" remote get-url ${remote}`);
@@ -74,24 +70,12 @@ async function getRemoteUrl(repoPath: string, remote: string): Promise<string> {
   } catch { return ''; }
 }
 
-/** remoteUrl 기반 staging 디렉터리 경로 */
-function getStagingDir(remoteUrl: string): string {
-  const hash = crypto.createHash('md5').update(remoteUrl).digest('hex').slice(0, 12);
-  return path.join(GH_DEPLOY_BASE, hash);
-}
-
-/**
- * staging 디렉터리 준비
- * - 없으면 git clone
- * - 있으면 remote URL만 최신화
- */
-function ensureStagingDir(stagingDir: string, remoteUrl: string): void {
-  if (!fs.existsSync(stagingDir)) {
-    fs.mkdirSync(path.dirname(stagingDir), { recursive: true });
-    execSync(`git clone "${remoteUrl}" "${stagingDir}"`, { stdio: 'pipe' });
-  } else {
-    try { execSync(`git -C "${stagingDir}" remote set-url origin "${remoteUrl}"`, { stdio: 'pipe' }); } catch {}
-  }
+/** 원격에 gh-pages 브랜치가 이미 존재하는지 확인 */
+async function remoteBranchExists(remoteUrl: string): Promise<boolean> {
+  try {
+    const { stdout } = await execAsync(`git ls-remote --heads "${remoteUrl}" "${DEPLOY_BRANCH}"`);
+    return stdout.trim().length > 0;
+  } catch { return false; }
 }
 
 // ─── 사전 조건 체크 ───────────────────────────────────────────────────────────
@@ -129,24 +113,40 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
 
   setupSSE(res);
 
+  // 배포마다 새 임시 디렉터리 사용 — 완료 후 삭제
+  const tmpDir = path.join(os.tmpdir(), `rpgmv-deploy-${crypto.randomBytes(6).toString('hex')}`);
+
   try {
     // ── 1. remote URL 확인 ────────────────────────────────────────────────────
     const remoteUrl = await getRemoteUrl(srcPath, remote);
     if (!remoteUrl) {
-      sseWrite(res, { type: 'error', message: `remote '${remote}'를 찾을 수 없습니다. 프로젝트 폴더에서 git remote add ${remote} <URL> 을 실행해주세요.` });
+      sseWrite(res, { type: 'error', message: `remote '${remote}'를 찾을 수 없습니다. git remote add ${remote} <URL> 을 실행해주세요.` });
       res.end();
       return;
     }
 
-    // ── 2. staging 디렉터리 준비 (첫 배포 시 git clone) ──────────────────────
+    // ── 2. gh-pages 브랜치 clone 또는 orphan 생성 ────────────────────────────
     sseWrite(res, { type: 'status', phase: 'copying' });
-    const stagingDir = getStagingDir(remoteUrl);
-    ensureStagingDir(stagingDir, remoteUrl);
+
+    const branchExists = await remoteBranchExists(remoteUrl);
+    if (branchExists) {
+      // 기존 gh-pages 브랜치 shallow clone (빠름)
+      execSync(`git clone --depth=1 --branch ${DEPLOY_BRANCH} "${remoteUrl}" "${tmpDir}"`, { stdio: 'pipe' });
+    } else {
+      // 첫 배포: main 브랜치 clone 후 orphan gh-pages 브랜치 생성
+      execSync(`git clone --depth=1 "${remoteUrl}" "${tmpDir}"`, { stdio: 'pipe' });
+      execSync(`git -C "${tmpDir}" checkout --orphan ${DEPLOY_BRANCH}`, { stdio: 'pipe' });
+      try { execSync(`git -C "${tmpDir}" rm -rf .`, { stdio: 'pipe' }); } catch {}
+    }
+
+    // git author 설정 (CI/서버 환경에서 미설정일 수 있음)
+    execSync(`git -C "${tmpDir}" config user.email "deploy@rpgmaker-editor"`, { stdio: 'pipe' });
+    execSync(`git -C "${tmpDir}" config user.name "RPG Maker MV Editor"`, { stdio: 'pipe' });
 
     // ── 3. 기존 파일 정리 (.git 제외) ─────────────────────────────────────────
-    for (const entry of fs.readdirSync(stagingDir)) {
+    for (const entry of fs.readdirSync(tmpDir)) {
       if (entry === '.git') continue;
-      fs.rmSync(path.join(stagingDir, entry), { recursive: true, force: true });
+      fs.rmSync(path.join(tmpDir, entry), { recursive: true, force: true });
     }
 
     // ── 4. 프로젝트 파일 복사 ─────────────────────────────────────────────────
@@ -156,7 +156,7 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
 
     let current = 0;
     for (const rel of files) {
-      const destFile = path.join(stagingDir, rel);
+      const destFile = path.join(tmpDir, rel);
       fs.mkdirSync(path.dirname(destFile), { recursive: true });
       fs.copyFileSync(path.join(srcPath, rel), destFile);
       current++;
@@ -166,37 +166,38 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
     }
 
     // ── 5. index_3d.html → index.html + 캐시 버스팅 ─────────────────────────
-    // 프로젝트의 index.html(PIXI용)은 index_pixi.html로 보존하고,
+    // 소스의 index.html(PIXI용)은 index_pixi.html로 보존,
     // Three.js 런타임인 index_3d.html을 index.html로 사용
     sseWrite(res, { type: 'status', phase: 'patching' });
-    applyIndexHtmlRename(stagingDir);
+    applyIndexHtmlRename(tmpDir);
     const buildId = makeBuildId();
-    applyCacheBusting(stagingDir, buildId, opts);
+    applyCacheBusting(tmpDir, buildId, opts);
 
     // ── 6. git commit ─────────────────────────────────────────────────────────
     sseWrite(res, { type: 'status', phase: 'committing' });
     const now = new Date().toLocaleString('ko-KR');
-    const commitMsg = `Deploy: ${now}`;
 
-    execSync(`git -C "${stagingDir}" add -A`);
+    execSync(`git -C "${tmpDir}" add -A`);
     let commitHash = '';
     try {
-      execSync(`git -C "${stagingDir}" commit -m "${commitMsg}"`);
-      const hashResult = execSync(`git -C "${stagingDir}" rev-parse --short HEAD`, { encoding: 'utf-8' });
-      commitHash = hashResult.trim();
+      execSync(`git -C "${tmpDir}" commit -m "Deploy: ${now}"`);
+      commitHash = execSync(`git -C "${tmpDir}" rev-parse --short HEAD`, { encoding: 'utf-8' }).trim();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (!msg.includes('nothing to commit') && !msg.includes('nothing added')) throw e;
     }
 
-    // ── 7. git push ───────────────────────────────────────────────────────────
+    // ── 7. git push → origin gh-pages ────────────────────────────────────────
     sseWrite(res, { type: 'status', phase: 'pushing' });
-    execSync(`git -C "${stagingDir}" push`, { stdio: 'pipe' });
+    execSync(`git -C "${tmpDir}" push origin ${DEPLOY_BRANCH}`, { stdio: 'pipe' });
 
     const pageUrl = derivePageUrl(remoteUrl);
     sseWrite(res, { type: 'done', commitHash, pageUrl, buildId });
   } catch (err) {
     sseWrite(res, { type: 'error', message: (err as Error).message });
+  } finally {
+    // ── 8. 임시 디렉터리 삭제 ─────────────────────────────────────────────────
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
   }
   res.end();
 });
