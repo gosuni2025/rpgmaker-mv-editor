@@ -9,3 +9,4 @@ server/sample-maps/
 plan.md
 client/public/runtime/
 extracted_maps/
+.patches/
