@@ -163,7 +163,8 @@ uniform float uDuration;
 varying vec2 vUv;
 void main() {
   vec4 c = texture2D(tTex, vUv);
-  float progress = clamp((uTime - uStartTime) * 20.0 / uDuration, 0.0, 1.0);
+  // uTime += 1/60 per frame, uDuration in frames → 60.0/dur = frames to seconds conversion
+  float progress = clamp((uTime - uStartTime) * 60.0 / uDuration, 0.0, 1.0);
   c.a *= progress;
   c.rgb *= progress;
   gl_FragColor = c;
@@ -210,7 +211,8 @@ uniform vec2 uTexelSize;
 varying vec2 vUv;
 void main() {
   // 초점 맞추기 효과: 블러 → 선명, 투명 → 불투명
-  float progress = clamp((uTime - uStartTime) * 20.0 / uDuration, 0.0, 1.0);
+  // uTime += 1/60 per frame, uDuration in frames
+  float progress = clamp((uTime - uStartTime) * 60.0 / uDuration, 0.0, 1.0);
   float blurR = (1.0 - progress) * 10.0;  // 10픽셀 블러로 시작, progress 1.0에서 0
   // 3x3 box blur: 더 자연스러운 카메라 초점 효과
   vec4 c = vec4(0.0);
@@ -505,6 +507,10 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     var srcX = segX - clearL;
     var srcY = segY;
 
+    // 진단 로그 (첫 생성 시 1회)
+    var _dbgType = seg.shakeActive ? 'shake' : seg.hologramActive ? 'hologram' : seg.gradientWaveActive ? 'gradient-wave' : seg.fadeActive ? 'fade' : seg.dissolveActive ? 'dissolve' : seg.blurFadeActive ? 'blur-fade' : '?';
+    console.log('[ET overlay] ' + _dbgType + ' chars=' + seg.chars.length + ' segW=' + Math.round(segW) + ' segH=' + Math.round(segH) + ' x=' + Math.round(segX) + ' y=' + Math.round(segY));
+
     // 각 글자를 직접 재그리기 (bitmap copy 대신 — 인접 글자 bleeding 방지)
     var offCanvas = document.createElement('canvas');
     offCanvas.width = Math.ceil(segW);
@@ -617,17 +623,18 @@ Window_Base.prototype._etUpdateOverlayUniforms = function(seg, t) {
     if (uniforms.uTime) uniforms.uTime.value = t;
 
     // 완료 판정: dispose 대신 freeze (메시 유지 → 글자가 사라지지 않음)
+    // uTime += 1/60 per frame, duration in frames → 60/dur converts frames→seconds ratio
     if (seg.fadeActive || seg.blurFadeActive) {
         var dur    = seg.duration || 60;
         var startT = seg._overlayStartTime || 0;
-        var progress = Math.min(1.0, (t - startT) * 20 / dur);
+        var progress = Math.min(1.0, (t - startT) * 60 / dur);
         if (progress >= 1.0) seg._etFrozen = true;
     } else if (seg.dissolveActive) {
         var speed   = seg.speed || 1;
         var startT2 = seg._overlayStartTime || 0;
         var elapsed = t - startT2;
-        var threshold = Math.max(0, 1.0 - elapsed * speed * 0.33);
-        if (threshold <= 0) seg._etFrozen = true;
+        // GLSL: progress = elapsed * speed * 0.5; frozen when progress >= 1 → elapsed >= 2/speed
+        if (elapsed * speed * 0.5 >= 1.0) seg._etFrozen = true;
     }
 };
 
