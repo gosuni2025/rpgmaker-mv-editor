@@ -15,7 +15,7 @@ import { useMouseHandlers } from './useMouseHandlers';
 import { useEventSelectionOverlays, useLightSelectionOverlays, useObjectSelectionOverlays } from './useEntitySelectionOverlays';
 import { useMoveRouteOverlay } from './useMoveRouteOverlay';
 import { useSelectionRectOverlay, usePastePreviewOverlay } from './useSelectionOverlays';
-import { useCameraZoneOverlay } from './useRendererOverlays';
+import { useCameraZoneOverlay } from './overlays';
 import { useTileCursorPreview } from './useTileCursorPreview';
 import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview, useTestStartDragPreview, useVehicleStartDragPreview } from './useDragPreviewSync';
 import TileInfoTooltip from './TileInfoTooltip';

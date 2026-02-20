@@ -19,7 +19,7 @@ import {
   usePassageOverlay,
   usePassageSelectionOverlay,
   usePassagePastePreviewOverlay,
-} from './useRendererOverlays';
+} from './overlays';
 
 export { requestRenderFrames } from './initGameGlobals';
 
