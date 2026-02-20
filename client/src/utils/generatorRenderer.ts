@@ -119,9 +119,10 @@ export async function recolorFacePart(
       continue;
     }
 
-    // RGB에서 luminance 계산 후 반전 (gradient: x=0 밝음, x=255 어두움)
-    const lum = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
-    const brightness = 255 - Math.round(lum);
+    // max(R,G,B)를 기준으로 brightness 계산
+    // luminance 가중치 방식은 컬러(예: 파란 눈동자) 소스 이미지에서 왜곡됨
+    const maxChannel = Math.max(pixels[i], pixels[i + 1], pixels[i + 2]);
+    const brightness = 255 - maxChannel;
     const color = getGradientColor(gradients, gradientRow, brightness);
     pixels[i] = color.r;
     pixels[i + 1] = color.g;
@@ -171,8 +172,8 @@ export async function recolorTVSVPart(
       continue;
     }
 
-    const lum = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
-    const brightness = 255 - Math.round(lum);
+    const maxChannel = Math.max(pixels[i], pixels[i + 1], pixels[i + 2]);
+    const brightness = 255 - maxChannel;
     const color = getGradientColor(gradients, gradientRow, brightness);
     pixels[i] = color.r;
     pixels[i + 1] = color.g;
@@ -203,6 +204,7 @@ export async function compositeFaceCharacter(
   const sortedParts = sortByRenderOrder(parts, FACE_RENDER_ORDER);
 
   for (const part of sortedParts) {
+    // c1(홍채 등 gradient 레이어) → c2(동공/하이라이트 등 fixed 레이어) 순으로 그림
     for (const layer of part.layers) {
       if (layer.gradientRow !== null) {
         const recolored = await recolorFacePart(
