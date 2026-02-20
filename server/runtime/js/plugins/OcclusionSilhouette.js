@@ -131,6 +131,9 @@
             tColor:         { value: null },                          // 원본 렌더 결과
             tCharMask:      { value: null },                          // 캐릭터 마스크
             tObjMask:       { value: null },                          // 오브젝트 마스크
+            tCharDepth:     { value: null },                          // 캐릭터 depth texture
+            tObjDepth:      { value: null },                          // 오브젝트 depth texture
+            uUseDepthTest:  { value: 0 },                             // 1=depth 비교 활성화 (3D)
             uFillColor:     { value: new THREE.Vector3(0.2, 0.4, 1.0) },
             uFillOpacity:   { value: 0.35 },
             uOutlineColor:  { value: new THREE.Vector3(1.0, 1.0, 1.0) },
@@ -151,6 +154,9 @@
             'uniform sampler2D tColor;',
             'uniform sampler2D tCharMask;',
             'uniform sampler2D tObjMask;',
+            'uniform sampler2D tCharDepth;',
+            'uniform sampler2D tObjDepth;',
+            'uniform int uUseDepthTest;',
             'uniform vec3 uFillColor;',
             'uniform float uFillOpacity;',
             'uniform vec3 uOutlineColor;',
@@ -161,11 +167,19 @@
             'uniform vec2 uResolution;',
             'varying vec2 vUv;',
             '',
-            '// 가려진 영역 판정: 캐릭터 마스크 > 0 AND 오브젝트 마스크 > 0',
+            '// 가려진 영역 판정: 픽셀 겹침 + (3D 모드) 오브젝트가 캐릭터보다 앞에 있는지 depth 비교',
             'float getOccluded(vec2 uv) {',
             '    float charA = texture2D(tCharMask, uv).a;',
             '    float objA = texture2D(tObjMask, uv).a;',
-            '    return step(0.01, charA) * step(0.01, objA);',
+            '    if (charA < 0.01 || objA < 0.01) return 0.0;',
+            '    if (uUseDepthTest == 1) {',
+            '        // NDC depth: 값이 작을수록 카메라에 가까움',
+            '        // 오브젝트 depth <= 캐릭터 depth → 오브젝트가 앞에 있음 → 실루엣',
+            '        float charZ = texture2D(tCharDepth, uv).r;',
+            '        float objZ  = texture2D(tObjDepth,  uv).r;',
+            '        return step(objZ, charZ);',
+            '    }',
+            '    return 1.0;',
             '}',
             '',
             '// 채움 패턴 함수',
@@ -244,15 +258,30 @@
         var params = {
             minFilter: THREE.LinearFilter,
             magFilter: THREE.LinearFilter,
-            format: THREE.RGBAFormat
+            format: THREE.RGBAFormat,
+            depthBuffer: true,
+            depthTexture: null  // 아래에서 개별 생성
         };
 
-        if (this._charMaskRT) this._charMaskRT.dispose();
-        if (this._objMaskRT) this._objMaskRT.dispose();
+        if (this._charMaskRT) {
+            if (this._charMaskRT.depthTexture) this._charMaskRT.depthTexture.dispose();
+            this._charMaskRT.dispose();
+        }
+        if (this._objMaskRT) {
+            if (this._objMaskRT.depthTexture) this._objMaskRT.depthTexture.dispose();
+            this._objMaskRT.dispose();
+        }
 
-        this._charMaskRT = new THREE.WebGLRenderTarget(width, height, params);
-        this._objMaskRT = new THREE.WebGLRenderTarget(width, height, params);
-        this._maskWidth = width;
+        var charParams = Object.assign({}, params, {
+            depthTexture: new THREE.DepthTexture(width, height)
+        });
+        var objParams = Object.assign({}, params, {
+            depthTexture: new THREE.DepthTexture(width, height)
+        });
+
+        this._charMaskRT = new THREE.WebGLRenderTarget(width, height, charParams);
+        this._objMaskRT  = new THREE.WebGLRenderTarget(width, height, objParams);
+        this._maskWidth  = width;
         this._maskHeight = height;
     };
 
@@ -564,7 +593,7 @@
     //=========================================================================
     // Uniforms 동기화
     //=========================================================================
-    OcclusionSilhouette._syncUniforms = function() {
+    OcclusionSilhouette._syncUniforms = function(useDepthTest) {
         var pass = this._silhouettePass;
         if (!pass) return;
 
@@ -579,7 +608,12 @@
 
         if (this._charMaskRT) {
             pass.uniforms.tCharMask.value = this._charMaskRT.texture;
-            pass.uniforms.tObjMask.value = this._objMaskRT.texture;
+            pass.uniforms.tObjMask.value  = this._objMaskRT.texture;
+            // depth texture: 3D 모드에서는 depthTexture가 있으므로 depth 비교 활성화
+            var hasDepth = !!(this._charMaskRT.depthTexture && this._objMaskRT.depthTexture && useDepthTest);
+            pass.uniforms.tCharDepth.value    = hasDepth ? this._charMaskRT.depthTexture : null;
+            pass.uniforms.tObjDepth.value     = hasDepth ? this._objMaskRT.depthTexture  : null;
+            pass.uniforms.uUseDepthTest.value = hasDepth ? 1 : 0;
             pass.uniforms.uResolution.value.set(this._maskWidth, this._maskHeight);
         }
     };
@@ -668,7 +702,8 @@
             var hasMasks = OcclusionSilhouette._renderMasks(renderer, this.scene, this.perspCamera, this.spriteset);
             if (OcclusionSilhouette._silhouettePass) {
                 OcclusionSilhouette._silhouettePass.enabled = hasMasks;
-                if (hasMasks) OcclusionSilhouette._syncUniforms();
+                // 3D 모드에서는 depth 비교 활성화
+                if (hasMasks) OcclusionSilhouette._syncUniforms(true);
             }
         }
     };
@@ -687,7 +722,8 @@
                 var hasMasks = OcclusionSilhouette._renderMasks(renderer, rendererObj.scene, rendererObj.camera, spriteset);
                 if (OcclusionSilhouette._silhouettePass) {
                     OcclusionSilhouette._silhouettePass.enabled = hasMasks;
-                    if (hasMasks) OcclusionSilhouette._syncUniforms();
+                    // 2D 모드: depth 비교 비활성화
+                    if (hasMasks) OcclusionSilhouette._syncUniforms(false);
                 }
             }
         }
@@ -698,10 +734,12 @@
     //=========================================================================
     OcclusionSilhouette.dispose = function() {
         if (this._charMaskRT) {
+            if (this._charMaskRT.depthTexture) this._charMaskRT.depthTexture.dispose();
             this._charMaskRT.dispose();
             this._charMaskRT = null;
         }
         if (this._objMaskRT) {
+            if (this._objMaskRT.depthTexture) this._objMaskRT.depthTexture.dispose();
             this._objMaskRT.dispose();
             this._objMaskRT = null;
         }
