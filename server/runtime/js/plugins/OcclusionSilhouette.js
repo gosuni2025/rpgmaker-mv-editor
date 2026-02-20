@@ -407,14 +407,33 @@
                 upperZObj.visible = true;
             }
         }
-        // 에디터 이미지 오브젝트
+        // 에디터 이미지 오브젝트 - depth 비교하여 플레이어보다 앞에 있는 것만 마스크에 포함
+        // depth = x*sin(yaw) + y*cos(yaw) (카메라 yaw 반영, yaw=0이면 y 기준)
         if (spriteset._objectSprites) {
+            var _yaw = (typeof ConfigManager !== 'undefined' && ConfigManager.mode3d && Mode3D && Mode3D._yawRad) ? Mode3D._yawRad : 0;
+            var _cosY = Math.cos(_yaw);
+            var _sinY = Math.sin(_yaw);
+
+            // 플레이어 depth 계산 ($gamePlayer 기준, 없으면 첫 번째 캐릭터)
+            var _playerSpr = null;
+            for (var _pi = 0; _pi < charSprites.length; _pi++) {
+                if (charSprites[_pi]._character === $gamePlayer) { _playerSpr = charSprites[_pi]; break; }
+            }
+            if (!_playerSpr && charSprites.length > 0) _playerSpr = charSprites[0];
+            var _playerDepth = (_playerSpr && _playerSpr._threeObj)
+                ? _playerSpr._threeObj.position.x * _sinY + _playerSpr._threeObj.position.y * _cosY
+                : -Infinity;
+
             for (var oi2 = 0; oi2 < spriteset._objectSprites.length; oi2++) {
                 var os = spriteset._objectSprites[oi2];
                 if (os._threeObj) {
                     var idx = tmChildren.indexOf(os._threeObj);
                     if (idx >= 0 && tmChildVis[idx]) {
-                        os._threeObj.visible = true;
+                        // 오브젝트가 플레이어보다 앞에(depth 큰) 있을 때만 마스크에 포함
+                        var _objDepth = os._threeObj.position.x * _sinY + os._threeObj.position.y * _cosY;
+                        if (_objDepth > _playerDepth) {
+                            os._threeObj.visible = true;
+                        }
                     }
                 }
             }
