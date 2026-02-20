@@ -1,3 +1,66 @@
+/*:
+ * @plugindesc 전쟁의 안개 시스템 (3D 볼류메트릭 안개 + 시야 관리)
+ * @author RPG Maker MV Web Editor
+ *
+ * @command Enable
+ * @text 전쟁의 안개 활성화
+ * @desc 전쟁의 안개를 활성화합니다.
+ *
+ * @command Disable
+ * @text 전쟁의 안개 비활성화
+ * @desc 전쟁의 안개를 비활성화합니다.
+ *
+ * @command Radius
+ * @text 시야 반경 설정
+ * @desc 플레이어의 시야 반경을 설정합니다.
+ *
+ * @arg radius
+ * @text 반경
+ * @type number
+ * @min 1
+ * @max 30
+ * @default 5
+ *
+ * @command RevealAll
+ * @text 전체 공개
+ * @desc 맵 전체를 공개합니다.
+ *
+ * @command HideAll
+ * @text 전체 숨김
+ * @desc 맵 전체를 숨깁니다.
+ *
+ * @command RevealRect
+ * @text 영역 공개
+ * @desc 지정한 사각형 영역을 공개합니다.
+ *
+ * @arg x
+ * @text X 좌표
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg y
+ * @text Y 좌표
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg w
+ * @text 너비
+ * @type number
+ * @min 1
+ * @default 1
+ *
+ * @arg h
+ * @text 높이
+ * @type number
+ * @min 1
+ * @default 1
+ *
+ * @help
+ * FogOfWar.js는 에디터 코어 파일로 자동으로 로드됩니다.
+ * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
+ */
 //=============================================================================
 // FogOfWar.js - Fog of War 시스템 (런타임 + 에디터)
 //=============================================================================

@@ -77,6 +77,27 @@
  * @off 숨김
  * @default false
  *
+ * @command enter
+ * @text VN 모드 시작
+ * @desc 비주얼 노벨 모드를 활성화합니다.
+ *
+ * @command exit
+ * @text VN 모드 종료
+ * @desc 비주얼 노벨 모드를 비활성화합니다.
+ *
+ * @command choiceStyle
+ * @text 선택지 스타일 변경
+ * @desc 선택지 스타일을 변경합니다.
+ *
+ * @arg style
+ * @text 스타일
+ * @type select
+ * @option RPG Maker 기본 선택지
+ * @value default
+ * @option 비주얼 노벨 인라인 선택지
+ * @value inline
+ * @default inline
+ *
  * @help
  * ============================================================================
  * 비주얼 노벨 모드 플러그인 v1.1

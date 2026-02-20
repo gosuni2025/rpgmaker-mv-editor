@@ -1,3 +1,55 @@
+/*:
+ * @plugindesc 3D 보기 모드 (파판6 스타일 원근감 + 빌보드 캐릭터)
+ * @author RPG Maker MV Web Editor
+ *
+ * @command on
+ * @text 3D 모드 활성화
+ * @desc 3D 보기 모드를 활성화합니다.
+ *
+ * @command off
+ * @text 3D 모드 비활성화
+ * @desc 3D 보기 모드를 비활성화하고 2D로 돌아갑니다.
+ *
+ * @command tilt
+ * @text 기울기 설정
+ * @desc 카메라 기울기(틸트) 각도를 설정합니다.
+ *
+ * @arg deg
+ * @text 각도
+ * @type number
+ * @min 0
+ * @max 90
+ * @default 60
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @command yaw
+ * @text 수평 회전 설정
+ * @desc 카메라 수평 회전(요) 각도를 설정합니다.
+ *
+ * @arg deg
+ * @text 각도
+ * @type number
+ * @min -180
+ * @max 180
+ * @default 0
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @help
+ * Mode3D.js는 에디터 코어 파일로 자동으로 로드됩니다.
+ * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
+ */
 //=============================================================================
 // Mode3D.js - 3D 보기 모드 (파판6 스타일 기울임 + 빌보드 캐릭터)
 //=============================================================================
