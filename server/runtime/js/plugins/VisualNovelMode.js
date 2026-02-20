@@ -533,6 +533,10 @@
         this._etEffectStack = [];
         Window_Base.prototype.update.call(this);
 
+        // Three.js 런타임에서 Window.updateTransform()이 호출되지 않으므로
+        // pause sign 애니메이션을 직접 구동
+        this._updatePauseSign();
+
         // 타이프라이터 진행
         if (this._isTyping) {
             this._typeShown++;
