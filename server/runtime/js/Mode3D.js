@@ -121,11 +121,18 @@
         var yaw = Mode3D._yawRad || 0;
         var cosY = Math.cos(yaw);
         var sinY = Math.sin(yaw);
+        var th3d = ($gameMap && $gameMap.tileHeight) ? $gameMap.tileHeight() : 48;
         var children = this.children;
         if (children.length > 0) {
             children.sort(function(a, b) {
-                var dA = a.x * sinY + a.y * cosY;
-                var dB = b.x * sinY + b.y * cosY;
+                // 멀티타일 오브젝트(h>1)의 center y는 시각 범위보다 위에 있으므로
+                // foot tile center로 변환: foot_ref = y + 1.5 * th * (h - 1)
+                // 캐릭터는 Mode3D updatePosition에서 y -= th/2로 tile center 기준 사용.
+                // h=1 오브젝트는 container.y = tile center → 보정 불필요.
+                var ayD = (a._mapObjH > 1) ? a.y + 1.5 * th3d * (a._mapObjH - 1) : a.y;
+                var byD = (b._mapObjH > 1) ? b.y + 1.5 * th3d * (b._mapObjH - 1) : b.y;
+                var dA = a.x * sinY + ayD * cosY;
+                var dB = b.x * sinY + byD * cosY;
                 // 3D 모드 렌더 순서:
                 //   [버킷 0] 타일 (z=0 lower, z=4 upper): 항상 캐릭터/오브젝트 아래
                 //   [버킷 1] 캐릭터·오브젝트 (z=1,2,3,5 등): depth만으로 앞뒤 결정
