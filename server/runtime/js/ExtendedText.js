@@ -393,6 +393,11 @@ Window_Base.prototype._etProcessEnd = function(textState) {
     this.obtainEscapeParam(textState);
     if (!this._etEffectStack || this._etEffectStack.length === 0) return;
     var saved = this._etEffectStack.pop();
+    // 파싱 완료 로그
+    if (saved.shakeActive || saved.hologramActive || saved.gradientWaveActive || saved.fadeActive || saved.dissolveActive || saved.blurFadeActive) {
+        var _t = saved.shakeActive ? 'shake' : saved.hologramActive ? 'hologram' : saved.gradientWaveActive ? 'gradient-wave' : saved.fadeActive ? 'fade' : saved.dissolveActive ? 'dissolve' : saved.blurFadeActive ? 'blur-fade' : '?';
+        console.log('[ET parse] ' + _t + ' end, total chars=' + saved.chars.length + ' text="' + saved.chars.map(function(ch){return ch.c;}).join('') + '"');
+    }
 
     if (saved.gradientActive && saved.chars.length > 0) {
         this._etRedrawGradient(saved);
@@ -447,6 +452,11 @@ Window_Base.prototype.processNormalCharacter = function(textState) {
             var seg = this._etEffectStack[i];
             if (seg.gradientActive || seg.shakeActive || seg.hologramActive ||
                 seg.gradientWaveActive || seg.fadeActive || seg.dissolveActive || seg.blurFadeActive) {
+                // 첫 글자 push 시 로그 (파싱 확인용)
+                if (seg.chars.length === 0) {
+                    var _dbgSeg = seg.shakeActive ? 'shake' : seg.hologramActive ? 'hologram' : seg.gradientWaveActive ? 'gradient-wave' : seg.fadeActive ? 'fade' : seg.dissolveActive ? 'dissolve' : seg.blurFadeActive ? 'blur-fade' : '?';
+                    console.log('[ET parse] ' + _dbgSeg + ' start c="' + c + '"');
+                }
                 seg.chars.push({
                     c: c,
                     x: textState.x, y: textState.y, h: textState.height,
@@ -509,7 +519,8 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
 
     // 진단 로그 (첫 생성 시 1회)
     var _dbgType = seg.shakeActive ? 'shake' : seg.hologramActive ? 'hologram' : seg.gradientWaveActive ? 'gradient-wave' : seg.fadeActive ? 'fade' : seg.dissolveActive ? 'dissolve' : seg.blurFadeActive ? 'blur-fade' : '?';
-    console.log('[ET overlay] ' + _dbgType + ' chars=' + seg.chars.length + ' segW=' + Math.round(segW) + ' segH=' + Math.round(segH) + ' x=' + Math.round(segX) + ' y=' + Math.round(segY));
+    var _dbgText = chars.map(function(ch) { return ch.c; }).join('');
+    console.log('[ET overlay] ' + _dbgType + ' chars=' + seg.chars.length + ' text="' + _dbgText + '" segW=' + Math.round(segW) + ' x=' + Math.round(segX) + ' y=' + Math.round(segY));
 
     // 각 글자를 직접 재그리기 (bitmap copy 대신 — 인접 글자 bleeding 방지)
     var offCanvas = document.createElement('canvas');
