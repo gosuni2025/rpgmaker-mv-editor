@@ -1649,7 +1649,7 @@
     "shadowLight_ambient": "환경광 강도",
     "shadowLight_ambientColor": "환경광 색상",
     "shadowLight_direction": "방향 조명",
-    "postProcess": "포스트 프로세스",
+    "postProcess": "DoF (피사계 심도)",
     "postProcess_on": "켜기",
     "postProcess_off": "끄기",
     "postProcess_focusY": "초점 Y",

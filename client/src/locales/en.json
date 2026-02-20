@@ -1535,7 +1535,7 @@
     "shadowLight_ambient": "Ambient Intensity",
     "shadowLight_ambientColor": "Ambient Color",
     "shadowLight_direction": "Light Direction",
-    "postProcess": "Post Process",
+    "postProcess": "DoF (Depth of Field)",
     "postProcess_on": "On",
     "postProcess_off": "Off",
     "postProcess_focusY": "Focus Y",

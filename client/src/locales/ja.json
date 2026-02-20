@@ -1609,7 +1609,7 @@
     "shadowLight_ambient": "環境光強度",
     "shadowLight_ambientColor": "環境光色",
     "shadowLight_direction": "方向照明",
-    "postProcess": "ポストプロセス",
+    "postProcess": "DoF (被写界深度)",
     "postProcess_on": "オン",
     "postProcess_off": "オフ",
     "postProcess_focusY": "焦点Y",
