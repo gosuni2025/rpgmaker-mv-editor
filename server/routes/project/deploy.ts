@@ -46,6 +46,33 @@ function applyIndexHtmlRename(stagingDir: string) {
   }
 }
 
+/** HTML 파일에 캐시 버스팅 쿼리 및 window.__BUILD_ID__ 주입 */
+function applyCacheBusting(stagingDir: string, buildId: string) {
+  const htmlFiles = fs.readdirSync(stagingDir).filter((f: string) => f.endsWith('.html'));
+  for (const htmlFile of htmlFiles) {
+    const htmlPath = path.join(stagingDir, htmlFile);
+    let html = fs.readFileSync(htmlPath, 'utf-8');
+    // src="...js" 또는 href="...css" 에 ?v=buildId 삽입 (기존 쿼리 교체)
+    html = html.replace(/((?:src|href)="[^"?]+\.(?:js|css))(?:\?[^"]*)?"/g,
+      (_: string, base: string) => `${base}?v=${buildId}"`);
+    // <head> 직후에 window.__BUILD_ID__ 전역 변수 주입
+    html = html.replace('<head>', `<head>\n    <script>window.__BUILD_ID__='${buildId}';</script>`);
+    fs.writeFileSync(htmlPath, html, 'utf-8');
+  }
+}
+
+function makeBuildId(): string {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+    String(now.getSeconds()).padStart(2, '0'),
+  ].join('');
+}
+
 async function zipStagingWithProgress(
   stagingDir: string,
   zipPath: string,
@@ -223,6 +250,7 @@ async function buildDeployZipWithProgress(
     }
 
     applyIndexHtmlRename(stagingDir);
+    applyCacheBusting(stagingDir, makeBuildId());
 
     onEvent({ type: 'status', phase: 'zipping' });
     const safeName = (gameTitle || 'game').replace(/[^a-zA-Z0-9가-힣_-]/g, '_');

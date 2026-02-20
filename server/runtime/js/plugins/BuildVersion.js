@@ -11,7 +11,7 @@
  * @default 14
  *
  * @param textColor
- * @text 텍스트 색상
+ * @text 텍스트 색상 (CSS color)
  * @type string
  * @default rgba(255,255,255,0.5)
  *
@@ -26,31 +26,27 @@
  * @default 8
  *
  * @help
- * 배포 시 script src에 삽입된 ?v=YYYYMMDDHHMMSS 쿼리를 읽어
- * 타이틀 화면 오른쪽 하단에 빌드 번호를 작게 표시합니다.
+ * 배포 시 HTML에 주입된 window.__BUILD_ID__ (YYYYMMDDHHMMSS) 를 읽어
+ * 타이틀 화면 오른쪽 하단에 "Build YYYY-MM-DD HH:MM" 형식으로 표시합니다.
  *
- * 로컬 실행 시에는 버전 정보가 없으므로 아무것도 표시되지 않습니다.
+ * 로컬 실행 시 window.__BUILD_ID__ 가 없으면 아무것도 표시되지 않습니다.
  */
 
 (function() {
     'use strict';
 
-    var params = PluginManager.parameters('BuildVersion');
-    var _fontSize    = parseInt(params['fontSize']    || 14, 10);
-    var _textColor   = (params['textColor']  || 'rgba(255,255,255,0.5)').trim();
-    var _marginRight = parseInt(params['marginRight'] || 12, 10);
-    var _marginBottom= parseInt(params['marginBottom']|| 8,  10);
+    var params        = PluginManager.parameters('BuildVersion');
+    var _fontSize     = parseInt(params['fontSize']     || 14, 10);
+    var _textColor    = (params['textColor']   || 'rgba(255,255,255,0.5)').trim();
+    var _marginRight  = parseInt(params['marginRight']  || 12, 10);
+    var _marginBottom = parseInt(params['marginBottom'] || 8,  10);
 
     // ── 빌드 ID 읽기 ─────────────────────────────────────────────────────────
-    // 배포 스크립트가 script src에 ?v=YYYYMMDDHHMMSS 를 삽입하므로,
-    // 이 파일 자신의 <script> 태그 src에서 파라미터를 읽는다.
+    // 배포 스크립트가 <head>에 window.__BUILD_ID__ = 'YYYYMMDDHHMMSS' 를 주입한다.
+    // PluginManager는 플러그인을 동적 script 태그로 로드하므로 src 속성에
+    // ?v= 쿼리가 붙지 않음 → 전역 변수로 빌드 ID를 전달하는 방식 사용.
     function _readBuildId() {
-        var scripts = document.querySelectorAll('script[src*="BuildVersion.js"]');
-        for (var i = 0; i < scripts.length; i++) {
-            var m = scripts[i].src.match(/\?v=(\d{14})/);
-            if (m) return m[1];
-        }
-        return null;
+        return (typeof window !== 'undefined' && window.__BUILD_ID__) || null;
     }
 
     // YYYYMMDDHHMMSS → "YYYY-MM-DD HH:MM" 형식으로 변환
@@ -76,37 +72,17 @@
     };
 
     Scene_Title.prototype._createBuildVersionSprite = function() {
-        var text     = _buildText;
-        var fontSize = _fontSize;
-        var padding  = 6;
-
-        // Canvas로 텍스트 크기 측정
-        var bmp = new Bitmap(1, 1);
-        bmp.fontSize = fontSize;
-        var textWidth = bmp.measureTextWidth(text);
-        var w = textWidth + padding * 2;
-        var h = fontSize + padding * 2;
+        var text   = _buildText;
+        var w      = Graphics.boxWidth;
+        var h      = _fontSize + 8;
 
         var bitmap = new Bitmap(w, h);
-        bitmap.fontSize    = fontSize;
-        bitmap.fontItalic  = false;
-
-        // 텍스트 그리기
-        bitmap.drawText(text, 0, 0, w, h, 'center');
-
-        // 색상 적용을 위해 canvas context를 직접 사용
-        var ctx = bitmap._context || (bitmap.canvas && bitmap.canvas.getContext('2d'));
-        if (ctx) {
-            ctx.clearRect(0, 0, w, h);
-            ctx.font = fontSize + 'px GameFont, sans-serif';
-            ctx.fillStyle = _textColor;
-            ctx.textBaseline = 'top';
-            ctx.fillText(text, padding, padding);
-            bitmap._setDirty && bitmap._setDirty();
-        }
+        bitmap.fontSize  = _fontSize;
+        bitmap.textColor = _textColor;
+        bitmap.drawText(text, 0, 0, w - _marginRight, h, 'right');
 
         var sprite = new Sprite(bitmap);
-        sprite.x = Graphics.boxWidth  - w - _marginRight;
+        sprite.x = 0;
         sprite.y = Graphics.boxHeight - h - _marginBottom;
         return sprite;
     };
