@@ -110,24 +110,34 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
       return;
     }
 
-    // ── 2. 리모트 gh-pages 브랜치가 앞서있는지 확인 ─────────────────────────
+    // ── 2. 리모트 gh-pages 브랜치가 로컬보다 앞서있는지 확인 ─────────────────
+    // 비교 기준: 로컬 gh-pages 브랜치 (HEAD가 아님 — 이전 배포 커밋이 항상 걸리므로)
+    // 로컬 gh-pages가 없으면 첫 배포이므로 체크 스킵
     sseWrite(res, { type: 'status', phase: 'copying' });
     try {
-      execSync(`git -C "${srcPath}" fetch ${remote} ${DEPLOY_BRANCH}`, { stdio: 'pipe' });
-      const behind = execSync(
-        `git -C "${srcPath}" rev-list HEAD..${remote}/${DEPLOY_BRANCH} --count`,
-        { encoding: 'utf-8' }
-      ).trim();
-      if (parseInt(behind, 10) > 0) {
-        sseWrite(res, {
-          type: 'error',
-          message: `원격 ${remote}/${DEPLOY_BRANCH} 브랜치가 ${behind}개 커밋 앞서 있습니다.\ngit pull ${remote} ${DEPLOY_BRANCH} 를 실행한 뒤 다시 배포하세요.`,
-        });
-        res.end();
-        return;
+      const localGhExists = (() => {
+        try {
+          execSync(`git -C "${srcPath}" rev-parse --verify ${DEPLOY_BRANCH}`, { stdio: 'pipe' });
+          return true;
+        } catch { return false; }
+      })();
+      if (localGhExists) {
+        execSync(`git -C "${srcPath}" fetch ${remote} ${DEPLOY_BRANCH}`, { stdio: 'pipe' });
+        const behind = execSync(
+          `git -C "${srcPath}" rev-list ${DEPLOY_BRANCH}..${remote}/${DEPLOY_BRANCH} --count`,
+          { encoding: 'utf-8' }
+        ).trim();
+        if (parseInt(behind, 10) > 0) {
+          sseWrite(res, {
+            type: 'error',
+            message: `원격 ${remote}/${DEPLOY_BRANCH} 브랜치가 ${behind}개 커밋 앞서 있습니다.\ngit pull ${remote} ${DEPLOY_BRANCH} 를 실행한 뒤 다시 배포하세요.`,
+          });
+          res.end();
+          return;
+        }
       }
     } catch {
-      // fetch 실패(브랜치 없음 등)는 무시하고 계속 진행
+      // fetch 실패(리모트에 브랜치 없음 등)는 무시하고 계속 진행
     }
 
     // ── 3. 현재 브랜치 저장 & 미커밋 변경사항 stash ──────────────────────────

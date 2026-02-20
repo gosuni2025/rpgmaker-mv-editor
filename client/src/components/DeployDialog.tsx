@@ -219,7 +219,10 @@ export default function DeployDialog() {
         evtSource.close();
         return;
       }
-      handleSSEEvent(ev, totalRef, { copy: 0.75, zip: 0.25 });
+      if (!handleSSEEvent(ev, totalRef, { copy: 0.75, zip: 0.25 })) {
+        completed = true;
+        evtSource.close();
+      }
     };
     evtSource.onerror = () => {
       evtSource.close();
@@ -317,7 +320,10 @@ export default function DeployDialog() {
         evtSource.close();
         return;
       }
-      handleSSEEvent(ev, totalRef, { copy: 0.85, zip: 0 });
+      if (!handleSSEEvent(ev, totalRef, { copy: 0.85, zip: 0 })) {
+        completed = true; // onerror가 에러 메시지를 덮어쓰지 않도록
+        evtSource.close();
+      }
     };
     evtSource.onerror = () => {
       evtSource.close();
