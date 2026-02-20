@@ -50,18 +50,16 @@ async function zipStagingWithProgress(
   stagingDir: string,
   zipPath: string,
   fileTotal: number,
-  onProgress: (current: number, total: number) => void,
+  onProgress: (current: number, total: number, name: string) => void,
 ): Promise<void> {
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
   return new Promise<void>((resolve, reject) => {
     const output = fs.createWriteStream(zipPath);
     const archive = archiver('zip', { zlib: { level: 6 } });
     let current = 0;
-    archive.on('entry', () => {
+    archive.on('entry', (entry) => {
       current++;
-      if (current % 10 === 0 || current === fileTotal) {
-        onProgress(Math.min(current, fileTotal), fileTotal);
-      }
+      onProgress(Math.min(current, fileTotal), fileTotal, String(entry.name || ''));
     });
     archive.on('error', reject);
     output.on('close', resolve);
@@ -229,8 +227,8 @@ async function buildDeployZipWithProgress(
     onEvent({ type: 'status', phase: 'zipping' });
     const safeName = (gameTitle || 'game').replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
     const zipPath = path.join(DEPLOYS_DIR, `${safeName}.zip`);
-    await zipStagingWithProgress(stagingDir, zipPath, total, (cur, tot) => {
-      onEvent({ type: 'zip-progress', current: cur, total: tot });
+    await zipStagingWithProgress(stagingDir, zipPath, total, (cur, tot, name) => {
+      onEvent({ type: 'zip-progress', current: cur, total: tot, name });
     });
 
     return zipPath;

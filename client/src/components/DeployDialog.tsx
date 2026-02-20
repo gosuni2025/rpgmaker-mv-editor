@@ -11,7 +11,7 @@ type SSEEvent =
   | { type: 'status'; phase: 'counting' | 'zipping' | 'uploading' | 'creating-site' }
   | { type: 'counted'; total: number }
   | { type: 'progress'; current: number; total: number }
-  | { type: 'zip-progress'; current: number; total: number }
+  | { type: 'zip-progress'; current: number; total: number; name: string }
   | { type: 'upload-progress'; sent: number; total: number }
   | { type: 'site-created'; siteId: string; siteName: string }
   | { type: 'done'; zipPath?: string; deployUrl?: string; siteUrl?: string }
@@ -70,6 +70,7 @@ export default function DeployDialog() {
   const [error, setError] = useState('');
   const [deployUrl, setDeployUrl] = useState('');
   const [progress, setProgress] = useState<number | null>(null);
+  const [zipFile, setZipFile] = useState('');
 
   // 로컬 배포
   const [outputPath, setOutputPath] = useState('');
@@ -88,7 +89,7 @@ export default function DeployDialog() {
     }).catch(() => {});
   }, []);
 
-  const resetStatus = () => { setError(''); setStatus(''); setDeployUrl(''); setProgress(null); };
+  const resetStatus = () => { setError(''); setStatus(''); setDeployUrl(''); setProgress(null); setZipFile(''); };
 
   const handleOpenMySite = async () => {
     const url = deployUrl || siteUrl;
@@ -129,6 +130,7 @@ export default function DeployDialog() {
         const pct = ev.current / Math.max(ev.total, 1);
         setProgress(weights.copy + pct * weights.zip);
         setStatus(`${t('deploy.netlify.zipping')} (${ev.current}/${ev.total})`);
+        if (ev.name) setZipFile(ev.name);
       } else if (ev.type === 'upload-progress') {
         const pct = ev.sent / Math.max(ev.total, 1);
         setProgress(uploadStart + pct * (1 - uploadStart));
@@ -404,6 +406,11 @@ export default function DeployDialog() {
               )}
 
               {status && <div style={{ color: '#6c6', fontSize: 12 }}>{status}</div>}
+              {zipFile && !deployUrl && (
+                <div style={{ color: '#555', fontSize: 11, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {zipFile}
+                </div>
+              )}
               {error && <div style={{ color: '#e55', fontSize: 12 }}>{error}</div>}
 
               {deployUrl && (
