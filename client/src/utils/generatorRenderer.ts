@@ -14,18 +14,20 @@ export const FACE_RENDER_ORDER: string[] = [
 ];
 
 // TV(걷기) 렌더링 순서 (bottom → top)
-// 파일명 규칙: X2 = 배경 레이어(body 뒤), X1 = 전경 레이어(body 앞)
-// (문서 레이어 번호가 1=foreground/20=background인 Photoshop 순서임)
+// X2 = 배경 레이어 (Body 이전에 그림), X1 = 전경 레이어 (Body 이후에 그림)
+// 근거: TV_RearHair2는 DOWN/LEFT/RIGHT 프레임(y=1-129)에만 존재 → Body 뒤에 위치
+//       TV_RearHair1은 UP 프레임(y=145-177)에만 존재 → 뒤돌아볼 때 Body 위에 표시
 export const TV_RENDER_ORDER: string[] = [
-  'Wing2', 'Cloak2', 'Tail2', 'FrontHair2', 'Beard2', 'Body', 'Ears',
-  'FacialMark', 'RearHair2', 'Clothing2', 'Beard1', 'Clothing1', 'Tail1',
+  'Wing2', 'Cloak2', 'Tail2', 'RearHair2', 'FrontHair2', 'Beard2', 'Body', 'Ears',
+  'FacialMark', 'Clothing2', 'Beard1', 'Clothing1', 'Tail1',
   'Cloak1', 'BeastEars', 'Glasses', 'RearHair1', 'AccA', 'FrontHair1',
   'AccB', 'Wing1',
 ];
 
-// SV(전투) 렌더링 순서 (bottom → top, layer 15→1)
+// SV(전투) 렌더링 순서 (bottom → top)
+// SV는 항상 측면 뷰 → RearHair1이 Body 뒤에 위치하므로 Body 이전에 그림
 export const SV_RENDER_ORDER: string[] = [
-  'Wing', 'Cloak2', 'Tail', 'Body', 'Ears', 'FacialMark', 'RearHair1',
+  'Wing', 'Cloak2', 'Tail', 'RearHair1', 'Body', 'Ears', 'FacialMark',
   'Clothing2', 'Beard', 'Clothing1', 'Cloak1', 'BeastEars', 'Glasses',
   'AccA', 'FrontHair', 'AccB',
 ];
