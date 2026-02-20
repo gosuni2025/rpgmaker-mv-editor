@@ -121,11 +121,17 @@
         var yaw = Mode3D._yawRad || 0;
         var cosY = Math.cos(yaw);
         var sinY = Math.sin(yaw);
+        // 이미지 오브젝트는 y가 중심(center) 기준이고, 캐릭터는 발(foot) 기준임.
+        // foot_y = container.y + th * (1.5 * mapObjH - 1) 으로 변환.
+        var th3d = ($gameMap && $gameMap.tileHeight) ? $gameMap.tileHeight() : 48;
         var children = this.children;
         if (children.length > 0) {
             children.sort(function(a, b) {
-                var dA = a.x * sinY + a.y * cosY;
-                var dB = b.x * sinY + b.y * cosY;
+                // 이미지 오브젝트는 foot 기준 y로 보정 (캐릭터의 screenY anchor와 일치)
+                var ayD = (a._mapObjH !== undefined) ? a.y + th3d * (1.5 * a._mapObjH - 1) : a.y;
+                var byD = (b._mapObjH !== undefined) ? b.y + th3d * (1.5 * b._mapObjH - 1) : b.y;
+                var dA = a.x * sinY + ayD * cosY;
+                var dB = b.x * sinY + byD * cosY;
                 // 3D 모드에서 z=5(이미지 오브젝트/상위 캐릭터)를 z=3(일반 캐릭터)과
                 // 같은 depth pool로 취급하여 depth만으로 앞뒤 결정.
                 // 단, z=4(upper tile: 지붕)는 항상 캐릭터/오브젝트 위에 유지.
