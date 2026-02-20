@@ -17,11 +17,14 @@ export function ShowTextEditorDialog({ p, onOk, onCancel, existingLines }: { p: 
   const [text, setText] = useState(existingLines?.join('\n') || '');
   const [bulkInput, setBulkInput] = useState(false);
 
-  // ─── 스플릿 핸들 상태 ───
-  const [previewWidth, setPreviewWidth] = useState(380);
+  // ─── 스플릿 핸들 상태 (localStorage 복구) ───
+  const [previewWidth, setPreviewWidth] = useState(() => {
+    const saved = localStorage.getItem('showtext-preview-width');
+    return saved ? Math.max(180, Math.min(900, parseInt(saved, 10))) : 380;
+  });
   const splitDragging = useRef(false);
   const splitStartX = useRef(0);
-  const splitStartW = useRef(380);
+  const splitStartW = useRef(previewWidth);
 
   const onSplitDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -35,7 +38,9 @@ export function ShowTextEditorDialog({ p, onOk, onCancel, existingLines }: { p: 
       if (!splitDragging.current) return;
       // 핸들을 왼쪽으로 드래그 → 미리보기 넓어짐
       const delta = splitStartX.current - e.clientX;
-      setPreviewWidth(Math.max(180, Math.min(900, splitStartW.current + delta)));
+      const w = Math.max(180, Math.min(900, splitStartW.current + delta));
+      setPreviewWidth(w);
+      localStorage.setItem('showtext-preview-width', String(w));
     };
     const onUp = () => { splitDragging.current = false; };
     document.addEventListener('mousemove', onMove);
