@@ -146,9 +146,6 @@ export function useKeyboardShortcuts(
 
     const handleWheel = (e: WheelEvent) => {
       if ((e.target as HTMLElement).closest?.('.db-dialog-overlay')) return;
-      // VN 모드 활성 시 에디터 줌 비활성화 (VisualNovelMode.js의 wheel 핸들러에 위임)
-      const vnManager = (window as any).VNManager;
-      if (vnManager?.isActive?.()) return;
       e.preventDefault();
 
       const is3D = useEditorStore.getState().mode3d;

@@ -659,7 +659,8 @@
         var self = this;
         _vnWheelHandler = function (e) {
             if (!VNManager.isActive()) return;
-            e.preventDefault();  // VN 모드 중에는 항상 배경 3D 줌 차단
+            e.preventDefault();         // 배경 3D 줌 차단
+            e.stopPropagation();        // 캡처 이후 버블링 핸들러(에디터 줌) 차단
             var ctrl = self._vnCtrl;
             if (!ctrl) return;
             var tw = ctrl.getTextWindow();
@@ -668,14 +669,15 @@
                 tw._vel = 0;
             }
         };
-        window.addEventListener('wheel', _vnWheelHandler, { passive: false });
+        // capture: true — 버블링 핸들러보다 먼저 실행되어 에디터 줌을 차단
+        window.addEventListener('wheel', _vnWheelHandler, { passive: false, capture: true });
     };
 
     var _SceneMap_terminate = Scene_Map.prototype.terminate;
     Scene_Map.prototype.terminate = function () {
         _SceneMap_terminate.call(this);
         if (_vnWheelHandler) {
-            window.removeEventListener('wheel', _vnWheelHandler);
+            window.removeEventListener('wheel', _vnWheelHandler, { capture: true });
             _vnWheelHandler = null;
         }
     };
