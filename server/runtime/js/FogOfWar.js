@@ -1910,6 +1910,36 @@ if (typeof Game_Interpreter !== 'undefined') {
                 var rw = parseInt(args[3]) || 1;
                 var rh = parseInt(args[4]) || 1;
                 FogOfWar.revealRect(rx, ry, rw, rh);
+            } else if (sub === 'FogColor') {
+                // FogOfWar FogColor #rrggbb
+                var hexStr = (args[1] || '#000000').replace('#', '');
+                var hexVal = parseInt(hexStr, 16);
+                var cr = ((hexVal >> 16) & 0xFF) / 255;
+                var cg = ((hexVal >> 8) & 0xFF) / 255;
+                var cb = (hexVal & 0xFF) / 255;
+                FogOfWar._fogColor = { r: cr, g: cg, b: cb };
+                // 메시가 이미 생성되어 있으면 uniform 즉시 적용
+                if (FogOfWar._fogGroup) {
+                    FogOfWar._fogGroup.traverse(function(child) {
+                        if (child.isMesh && child.material && child.material.uniforms && child.material.uniforms.fogColor) {
+                            child.material.uniforms.fogColor.value.set(cr, cg, cb);
+                        }
+                    });
+                }
+            } else if (sub === 'TentacleSharpness') {
+                // FogOfWar TentacleSharpness <value>  (기본 3.0, 높을수록 뾰족)
+                var tsVal = parseFloat(args[1]);
+                if (!isNaN(tsVal)) {
+                    FogOfWar._shaderOverrides = FogOfWar._shaderOverrides || {};
+                    FogOfWar._shaderOverrides.tentacleSharpness = tsVal;
+                    if (FogOfWar._fogGroup) {
+                        FogOfWar._fogGroup.traverse(function(child) {
+                            if (child.isMesh && child.material && child.material.uniforms && child.material.uniforms.tentacleSharpness) {
+                                child.material.uniforms.tentacleSharpness.value = tsVal;
+                            }
+                        });
+                    }
+                }
             }
         }
     };
