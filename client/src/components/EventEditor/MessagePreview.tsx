@@ -120,11 +120,12 @@ function createTextRenderer(contentsW: number, contentsH: number): any | null {
   try {
     WB.prototype.resetFontSettings.call(r);
   } catch (e) {
-    // $gameSystem 미준비 / windowskin 미로드 시 폴백
     try { bmp.fontFace = 'Dotum, AppleGothic, sans-serif'; } catch (_) {}
     try { bmp.fontSize = 28; } catch (_) {}
-    try { bmp.textColor = '#ffffff'; } catch (_) {}
   }
+  // windowskin이 아직 로드되지 않은 경우 normalColor()가 검은색을 반환하므로
+  // textColor를 항상 흰색으로 강제 (RPG Maker MV 기본 normalColor = 흰색)
+  try { bmp.textColor = '#ffffff'; } catch (_) {}
 
   return r;
 }
@@ -138,6 +139,7 @@ function setupRendererText(renderer: any, lines: string[]) {
   renderer._etEffectStack = [];
   renderer._etAnimSegs = [];
   try { WB.prototype.resetFontSettings.call(renderer); } catch (e) {}
+  try { renderer.contents.textColor = '#ffffff'; } catch (_) {}
   lines.forEach((line, i) => {
     try {
       WB.prototype.drawTextEx.call(renderer, line, 0, i * LINE_H);
