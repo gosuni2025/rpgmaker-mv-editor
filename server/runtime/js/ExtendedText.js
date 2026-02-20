@@ -492,18 +492,45 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     var segEndX = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c);
     var segW = Math.max(1, segEndX - segX + ow * 2);
     var segH = Math.max(1, lh + (seg.shakeActive ? (seg.amplitude || 3) * 2 : 0) + 4);
+    var srcX = segX - ow;
+    var srcY = segY;
 
-    // Bitmap에서 세그먼트 영역 복사 → 오버레이 canvas
+    // 각 글자를 직접 재그리기 (bitmap copy 대신 — 인접 글자 bleeding 방지)
     var offCanvas = document.createElement('canvas');
     offCanvas.width = Math.ceil(segW);
     offCanvas.height = Math.ceil(segH);
     var offCtx = offCanvas.getContext('2d');
 
-    var srcCanvas = bmp.canvas || bmp._canvas;
-    var srcX = segX - ow;
-    var srcY = segY;
-    if (offCtx && srcCanvas) {
-        offCtx.drawImage(srcCanvas, srcX, srcY, segW, segH, 0, 0, segW, segH);
+    if (offCtx) {
+        offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
+
+        var fontSize   = bmp.fontSize   || 28;
+        var fontFace   = bmp.fontFace   || 'GameFont';
+        var outlineCol = bmp.outlineColor  || 'rgba(0,0,0,0.5)';
+        var outlineW   = bmp.outlineWidth  !== undefined ? bmp.outlineWidth : 4;
+        // Bitmap.drawText 기준선 공식: ty = y + lh - (lh - fontSize * 0.7) / 2
+        // offCanvas에서는 segY 오프셋 제거 (offCanvas top = segY in bitmap)
+        var baselineY = lh - (lh - fontSize * 0.7) / 2;
+
+        offCtx.save();
+        offCtx.font = fontSize + 'px ' + fontFace;
+        offCtx.textBaseline = 'alphabetic';
+        offCtx.textAlign    = 'left';
+        offCtx.lineJoin     = 'round';
+
+        for (var ci = 0; ci < chars.length; ci++) {
+            var ch = chars[ci];
+            var drawX = ch.x - segX + ow;
+            if (outlineW > 0) {
+                offCtx.strokeStyle = outlineCol;
+                offCtx.lineWidth   = outlineW;
+                offCtx.strokeText(ch.c, drawX, baselineY);
+            }
+            offCtx.fillStyle = ch.finalColor || ch.color || '#ffffff';
+            offCtx.fillText(ch.c, drawX, baselineY);
+        }
+        offCtx.restore();
+
         // Bitmap에서 해당 영역 투명화 (오버레이가 대신 표시)
         if (bmp.clearRect) {
             bmp.clearRect(srcX, srcY, segW, segH);
@@ -546,38 +573,52 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     var winY = this._etWindowY !== undefined ? this._etWindowY : (this.y || 0);
     var pad  = this._etPadding !== undefined ? this._etPadding  : (this.padding || 0);
 
-    var worldX = winX + pad + srcX;
-    var worldY = winY + pad + srcY;
+    var worldX     = winX + pad + srcX;
+    var worldBaseY = winY + pad + srcY;
+    // VN 스크롤 오프셋 적용
+    var scrollY = this._etScrollY || 0;
 
     // Three.js OrthographicCamera(0, GW, 0, GH): Y-down 카메라
-    // world Y = screen Y (0=화면상단, GH=화면하단) — 변환 없이 직접 사용
-    mesh.position.set(worldX + segW / 2, worldY + segH / 2, 1);
+    mesh.position.set(worldX + segW / 2, worldBaseY - scrollY + segH / 2, 1);
     mesh.scale.set(segW, segH, 1);
 
     scene.add(mesh);
-    seg._overlayMesh = mesh;
-    seg._overlayTex = tex;
+    seg._overlayMesh      = mesh;
+    seg._overlayTex       = tex;
     seg._overlayStartTime = ExtendedText._time;
+    // VN 스크롤 위치 보정용 기준값 저장
+    seg._etBaseWorldY = worldBaseY;
+    seg._etSegH       = segH;
 };
 
 //─── 오버레이 uniform 업데이트 ───
 Window_Base.prototype._etUpdateOverlayUniforms = function(seg, t) {
     if (!seg._overlayMesh) return;
+
+    // VN 스크롤 위치 업데이트 (매 프레임)
+    var scrollY = this._etScrollY || 0;
+    if (seg._etBaseWorldY !== undefined) {
+        seg._overlayMesh.position.y = (seg._etBaseWorldY - scrollY) + (seg._etSegH || 0) / 2;
+    }
+
+    // 애니메이션 완료 후 frozen 상태 — 위치만 갱신하고 종료
+    if (seg._etFrozen) return;
+
     var uniforms = seg._overlayMesh.material.uniforms;
     if (uniforms.uTime) uniforms.uTime.value = t;
 
-    // 완료 판정
+    // 완료 판정: dispose 대신 freeze (메시 유지 → 글자가 사라지지 않음)
     if (seg.fadeActive || seg.blurFadeActive) {
-        var dur = seg.duration || 60;
+        var dur    = seg.duration || 60;
         var startT = seg._overlayStartTime || 0;
         var progress = Math.min(1.0, (t - startT) * 20 / dur);
-        if (progress >= 1.0) seg._etDone = true;
+        if (progress >= 1.0) seg._etFrozen = true;
     } else if (seg.dissolveActive) {
-        var speed = seg.speed || 1;
+        var speed   = seg.speed || 1;
         var startT2 = seg._overlayStartTime || 0;
         var elapsed = t - startT2;
         var threshold = Math.max(0, 1.0 - elapsed * speed * 0.33);
-        if (threshold <= 0) seg._etDone = true;
+        if (threshold <= 0) seg._etFrozen = true;
     }
 };
 
@@ -608,14 +649,8 @@ Window_Base.prototype._etRunAnimPass = function() {
         this._etEnsureOverlay(seg);
         this._etUpdateOverlayUniforms(seg, t);
     }
-
-    // 완료 세그먼트 제거
-    for (var k = segs.length - 1; k >= 0; k--) {
-        if (segs[k]._etDone) {
-            this._etDisposeOverlay(segs[k]);
-            segs.splice(k, 1);
-        }
-    }
+    // 참고: _etFrozen 세그먼트는 메시를 유지 (애니메이션 완료 후 글자 보존)
+    // 오버레이 정리는 newPage / buildRenderer 정리 시에만 수행
 };
 
 //=============================================================================

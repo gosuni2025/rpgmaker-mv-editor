@@ -472,6 +472,7 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
       textRenderer._etWindowX = layout.textX;
       textRenderer._etWindowY = layout.textY;
       textRenderer._etPadding = 0;
+      textRenderer._etScrollY = isVN ? vnScrollRef.current * LINE_H : 0;
     }
 
     // text bitmap — mapBgMesh와 동일 패턴:
