@@ -687,19 +687,23 @@
 
     var _WM_startMessage = Window_Message.prototype.startMessage;
     Window_Message.prototype.startMessage = function () {
-        if (VNManager.isActive()) {
-            var spk = (typeof $gameMessage.speakerName === 'function')
+        var isVN = VNManager.isActive();
+        var spk = '', txt = '';
+        if (isVN) {
+            spk = (typeof $gameMessage.speakerName === 'function')
                         ? ($gameMessage.speakerName() || '') : '';
-            var txt = $gameMessage.allText();
+            txt = $gameMessage.allText();
+        }
+        _WM_startMessage.call(this);  // 원본 호출 (내부 newPage→clearFlags가 _showFast를 false로 리셋함)
+        if (isVN) {
+            // clearFlags() 이후에 _showFast=true 재설정해야 효과 있음
+            this._showFast = true;
             var s = SceneManager._scene;
             if (s && s._vnCtrl) {
                 s._vnCtrl.startTyping(spk, txt);
                 s._vnCtrl.cancelAutoExit();
             }
-            // Window_Message는 즉시 처리 (화면 밖에 있으므로 안 보임)
-            this._showFast = true;
         }
-        _WM_startMessage.call(this);
     };
 
     // VN 모드에서 Window_Message를 화면 밖으로
