@@ -328,6 +328,7 @@ Window_Base.prototype._etProcessStart = function(textState) {
         gradientWaveOuter: null,
         hasInnerShake: false,
         _overlayMesh: null,
+        _etOpen: true,   // 태그가 아직 닫히지 않음 — _etEnsureOverlay 생성 보류
     };
 
     switch (tag) {
@@ -393,11 +394,9 @@ Window_Base.prototype._etProcessEnd = function(textState) {
     this.obtainEscapeParam(textState);
     if (!this._etEffectStack || this._etEffectStack.length === 0) return;
     var saved = this._etEffectStack.pop();
-    // 파싱 완료 로그
-    if (saved.shakeActive || saved.hologramActive || saved.gradientWaveActive || saved.fadeActive || saved.dissolveActive || saved.blurFadeActive) {
-        var _t = saved.shakeActive ? 'shake' : saved.hologramActive ? 'hologram' : saved.gradientWaveActive ? 'gradient-wave' : saved.fadeActive ? 'fade' : saved.dissolveActive ? 'dissolve' : saved.blurFadeActive ? 'blur-fade' : '?';
-        console.log('[ET parse] ' + _t + ' end, total chars=' + saved.chars.length + ' text="' + saved.chars.map(function(ch){return ch.c;}).join('') + '"');
-    }
+    // 태그 닫힘 → 이제 _etEnsureOverlay 허용
+    saved._etOpen = false;
+
 
     if (saved.gradientActive && saved.chars.length > 0) {
         this._etRedrawGradient(saved);
@@ -452,11 +451,6 @@ Window_Base.prototype.processNormalCharacter = function(textState) {
             var seg = this._etEffectStack[i];
             if (seg.gradientActive || seg.shakeActive || seg.hologramActive ||
                 seg.gradientWaveActive || seg.fadeActive || seg.dissolveActive || seg.blurFadeActive) {
-                // 첫 글자 push 시 로그 (파싱 확인용)
-                if (seg.chars.length === 0) {
-                    var _dbgSeg = seg.shakeActive ? 'shake' : seg.hologramActive ? 'hologram' : seg.gradientWaveActive ? 'gradient-wave' : seg.fadeActive ? 'fade' : seg.dissolveActive ? 'dissolve' : seg.blurFadeActive ? 'blur-fade' : '?';
-                    console.log('[ET parse] ' + _dbgSeg + ' start c="' + c + '"');
-                }
                 seg.chars.push({
                     c: c,
                     x: textState.x, y: textState.y, h: textState.height,
@@ -497,6 +491,10 @@ Window_Base.prototype._etRedrawGradient = function(saved) {
 //─── 세그먼트 오버레이 메시 생성 ───
 Window_Base.prototype._etEnsureOverlay = function(seg) {
     if (seg._overlayMesh) return;
+    // 태그가 아직 열려있으면 (</tag> 미처리) 오버레이 생성 보류
+    // 인게임: 매 프레임 한 글자씩 처리 → 태그 닫히기 전에 _etRunAnimPass가 호출될 수 있음
+    // 프리뷰: drawTextEx 중간에 RAF가 끼어들 수 있음
+    if (seg._etOpen) return;
     var THREE = window.THREE;
     var scene = ExtendedText._getScene();
     if (!THREE || !scene || !this.contents || seg.chars.length === 0) return;
@@ -517,10 +515,6 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     var srcX = segX - clearL;
     var srcY = segY;
 
-    // 진단 로그 (첫 생성 시 1회)
-    var _dbgType = seg.shakeActive ? 'shake' : seg.hologramActive ? 'hologram' : seg.gradientWaveActive ? 'gradient-wave' : seg.fadeActive ? 'fade' : seg.dissolveActive ? 'dissolve' : seg.blurFadeActive ? 'blur-fade' : '?';
-    var _dbgText = chars.map(function(ch) { return ch.c; }).join('');
-    console.log('[ET overlay] ' + _dbgType + ' chars=' + seg.chars.length + ' text="' + _dbgText + '" segW=' + Math.round(segW) + ' x=' + Math.round(segX) + ' y=' + Math.round(segY));
 
     // 각 글자를 직접 재그리기 (bitmap copy 대신 — 인접 글자 bleeding 방지)
     var offCanvas = document.createElement('canvas');
