@@ -13,23 +13,29 @@ export const FACE_RENDER_ORDER: string[] = [
   'Beard', 'BeastEars', 'AccA', 'Cloak1', 'FrontHair', 'Glasses', 'AccB',
 ];
 
+// TV/SV 렌더 순서의 항목 타입:
+//   string → 단일 레이어 파트 (layer1File 또는 layer2File 중 존재하는 것)
+//   [partName, 'layer1'] → X1(전경) 레이어만 그림
+//   [partName, 'layer2'] → X2(배경) 레이어만 그림
+export type RenderEntry = string | readonly [string, 'layer1' | 'layer2'];
+
 // TV(걷기) 렌더링 순서 (bottom → top)
-// X2 = 배경 레이어 (Body 이전에 그림), X1 = 전경 레이어 (Body 이후에 그림)
-// 근거: TV_RearHair2는 DOWN/LEFT/RIGHT 프레임(y=1-129)에만 존재 → Body 뒤에 위치
-//       TV_RearHair1은 UP 프레임(y=145-177)에만 존재 → 뒤돌아볼 때 Body 위에 표시
-export const TV_RENDER_ORDER: string[] = [
-  'Wing2', 'Cloak2', 'Tail2', 'RearHair2', 'FrontHair2', 'Beard2', 'Body', 'Ears',
-  'FacialMark', 'Clothing2', 'Beard1', 'Clothing1', 'Tail1',
-  'Cloak1', 'BeastEars', 'Glasses', 'RearHair1', 'AccA', 'FrontHair1',
-  'AccB', 'Wing1',
+// X1/X2 파트는 하나의 논리적 파트로 병합: Cloak2+Cloak1 → Cloak(layer2+layer1)
+export const TV_RENDER_ORDER: RenderEntry[] = [
+  ['Wing', 'layer2'], ['Cloak', 'layer2'], ['Tail', 'layer2'], ['RearHair', 'layer2'],
+  ['FrontHair', 'layer2'], ['Beard', 'layer2'],
+  'Body', 'Ears', 'FacialMark',
+  ['Clothing', 'layer2'], ['Beard', 'layer1'], ['Clothing', 'layer1'], ['Tail', 'layer1'],
+  ['Cloak', 'layer1'], 'BeastEars', 'Glasses', ['RearHair', 'layer1'], 'AccA',
+  ['FrontHair', 'layer1'], 'AccB', ['Wing', 'layer1'],
 ];
 
 // SV(전투) 렌더링 순서 (bottom → top)
-// SV는 항상 측면 뷰 → RearHair1이 Body 뒤에 위치하므로 Body 이전에 그림
-export const SV_RENDER_ORDER: string[] = [
-  'Wing', 'Cloak2', 'Tail', 'RearHair1', 'Body', 'Ears', 'FacialMark',
-  'Clothing2', 'Beard', 'Clothing1', 'Cloak1', 'BeastEars', 'Glasses',
-  'AccA', 'FrontHair', 'AccB',
+// SV는 항상 측면 뷰, Cloak/Clothing만 X1/X2 분리
+export const SV_RENDER_ORDER: RenderEntry[] = [
+  'Wing', ['Cloak', 'layer2'], 'Tail', 'RearHair', 'Body', 'Ears', 'FacialMark',
+  ['Clothing', 'layer2'], 'Beard', ['Clothing', 'layer1'], ['Cloak', 'layer1'],
+  'BeastEars', 'Glasses', 'AccA', 'FrontHair', 'AccB',
 ];
 
 const imageCache = new Map<string, HTMLImageElement>();
@@ -234,6 +240,7 @@ export async function compositeFaceCharacter(
   return canvas;
 }
 
+// parts는 이미 렌더 순서대로 정렬된 상태로 전달됨 (renderOrder 이터레이션 순서)
 export async function compositeTVSVCharacter(
   parts: Array<{
     partName: string;
@@ -244,17 +251,13 @@ export async function compositeTVSVCharacter(
   gradients: ImageData,
   canvasWidth: number,
   canvasHeight: number,
-  outputType: 'TV' | 'SV' = 'TV',
 ): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
   canvas.width = canvasWidth;
   canvas.height = canvasHeight;
   const ctx = canvas.getContext('2d')!;
 
-  const order = outputType === 'SV' ? SV_RENDER_ORDER : TV_RENDER_ORDER;
-  const sortedParts = sortByRenderOrder(parts, order);
-
-  for (const part of sortedParts) {
+  for (const part of parts) {
     const recolored = await recolorTVSVPart(
       part.baseImageUrl,
       part.colorMapUrl,
