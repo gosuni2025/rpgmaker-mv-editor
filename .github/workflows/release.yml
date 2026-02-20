@@ -14,13 +14,7 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            arch: arm64
-          - os: macos-15
-            arch: x64
           - os: windows-latest
-            arch: x64
-          - os: ubuntu-latest
-            arch: x64
 
     runs-on: ${{ matrix.os }}
 
@@ -65,12 +59,10 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.os }}-${{ matrix.arch }}
+          name: release-${{ matrix.os }}
           path: |
             release/*.dmg
             release/*.zip
-            release/*.exe
-            release/*.AppImage
           if-no-files-found: ignore
 
   publish:
