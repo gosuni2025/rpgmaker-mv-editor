@@ -1416,6 +1416,8 @@
   },
   "deploy": {
     "title": "배포",
+    "tabNetlify": "Netlify",
+    "tabLocal": "로컬 폴더",
     "platform": "플랫폼",
     "platformDesc": {
       "web": "웹 브라우저에서 실행 가능한 형태로 배포",
@@ -1431,7 +1433,32 @@
     "deploying": "배포 중...",
     "preparing": "배포 준비 중...",
     "complete": "배포 완료!",
-    "pathRequired": "출력 경로를 선택해주세요"
+    "pathRequired": "출력 경로를 선택해주세요",
+    "netlify": {
+      "settingsTitle": "Netlify 연결 설정",
+      "apiKey": "Personal Access Token",
+      "apiKeyPlaceholder": "nfp_xxxxxxxxxxxxxxxxxxxx",
+      "siteId": "Site ID",
+      "siteIdPlaceholder": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+      "saved": "저장됨",
+      "makeZip": "ZIP 만들기 + 폴더 열기",
+      "makingZip": "ZIP 생성 중...",
+      "zipDone": "ZIP 생성 완료. 폴더를 열었습니다.",
+      "openDrop": "드래그앤드롭 페이지 열기",
+      "autoDeploy": "Netlify에 자동 배포",
+      "deploying": "Netlify에 업로드 중...",
+      "deployDone": "배포 완료",
+      "deployUrl": "배포 URL",
+      "apiKeyRequired": "Personal Access Token을 입력해주세요",
+      "siteIdRequired": "Site ID를 입력해주세요",
+      "guideTitle": "처음 사용하는 방법",
+      "guide1": "netlify.com 에서 계정을 만드세요",
+      "guide2": "우측 상단 프로필 → User settings → Applications → Personal access tokens → New access token",
+      "guide3": "생성된 토큰을 위의 Personal Access Token 필드에 붙여넣고 저장하세요",
+      "guide4": "아래 'ZIP 만들기' 버튼으로 게임 ZIP을 생성한 뒤, '드래그앤드롭 페이지 열기'를 눌러 ZIP을 업로드하세요",
+      "guide5": "업로드한 사이트의 Site configuration → General → Site details → Site ID 를 복사하여 위 Site ID 필드에 붙여넣고 저장하세요",
+      "guide6": "이후 업데이트 시에는 'Netlify에 자동 배포' 버튼만 누르면 됩니다"
+    }
   },
   "troops": {
     "generalSettings": "일반 설정",

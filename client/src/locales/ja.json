@@ -1416,6 +1416,8 @@
   },
   "deploy": {
     "title": "デプロイ",
+    "tabNetlify": "Netlify",
+    "tabLocal": "ローカルフォルダ",
     "platform": "プラットフォーム",
     "platformDesc": {
       "web": "Webブラウザで実行可能な形式でデプロイ",
@@ -1431,7 +1433,32 @@
     "deploying": "デプロイ中...",
     "preparing": "デプロイを準備中...",
     "complete": "デプロイ完了！",
-    "pathRequired": "出力先を選択してください"
+    "pathRequired": "出力先を選択してください",
+    "netlify": {
+      "settingsTitle": "Netlify接続設定",
+      "apiKey": "Personal Access Token",
+      "apiKeyPlaceholder": "nfp_xxxxxxxxxxxxxxxxxxxx",
+      "siteId": "Site ID",
+      "siteIdPlaceholder": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+      "saved": "保存済み",
+      "makeZip": "ZIP作成＋フォルダを開く",
+      "makingZip": "ZIP作成中...",
+      "zipDone": "ZIP作成完了。フォルダを開きました。",
+      "openDrop": "ドラッグ＆ドロップページを開く",
+      "autoDeploy": "Netlifyへ自動デプロイ",
+      "deploying": "Netlifyにアップロード中...",
+      "deployDone": "デプロイ完了",
+      "deployUrl": "デプロイURL",
+      "apiKeyRequired": "Personal Access Tokenを入力してください",
+      "siteIdRequired": "Site IDを入力してください",
+      "guideTitle": "初回セットアップ方法",
+      "guide1": "netlify.com でアカウントを作成",
+      "guide2": "右上プロフィール → User settings → Applications → Personal access tokens → New access token",
+      "guide3": "生成されたトークンを上のPersonal Access Tokenフィールドに貼り付けて保存",
+      "guide4": "「ZIP作成」でゲームをZIP化し、「ドラッグ＆ドロップページ」を開いてアップロード",
+      "guide5": "アップロードしたサイトの Site configuration → General → Site details → Site ID をコピーして貼り付け",
+      "guide6": "以降の更新は「Netlifyへ自動デプロイ」ボタンだけでOK"
+    }
   },
   "troops": {
     "generalSettings": "基本設定",

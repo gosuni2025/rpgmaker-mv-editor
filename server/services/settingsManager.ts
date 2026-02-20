@@ -9,6 +9,11 @@ export interface AutoSaveSettings {
   gitAddAll: boolean;
 }
 
+export interface NetlifySettings {
+  apiKey: string;
+  siteId: string;
+}
+
 export interface EditorSettings {
   steamPath: string;
   language: string;
@@ -16,6 +21,7 @@ export interface EditorSettings {
   maxUndo: number;
   zoomStep: number;
   autoSave: AutoSaveSettings;
+  netlify: NetlifySettings;
 }
 
 const SETTINGS_DIR = path.join(os.homedir(), '.rpg-editor');
@@ -32,6 +38,10 @@ const DEFAULT_SETTINGS: EditorSettings = {
     intervalMinutes: 5,
     gitCommit: true,
     gitAddAll: true,
+  },
+  netlify: {
+    apiKey: '',
+    siteId: '',
   },
 };
 

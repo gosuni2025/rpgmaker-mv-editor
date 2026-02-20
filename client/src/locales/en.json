@@ -1342,6 +1342,8 @@
   },
   "deploy": {
     "title": "Deploy",
+    "tabNetlify": "Netlify",
+    "tabLocal": "Local Folder",
     "platform": "Platform",
     "platformDesc": {
       "web": "Deploy as web browser playable",
@@ -1357,7 +1359,32 @@
     "deploying": "Deploying...",
     "preparing": "Preparing deployment...",
     "complete": "Deployment complete!",
-    "pathRequired": "Please select an output path"
+    "pathRequired": "Please select an output path",
+    "netlify": {
+      "settingsTitle": "Netlify Connection Settings",
+      "apiKey": "Personal Access Token",
+      "apiKeyPlaceholder": "nfp_xxxxxxxxxxxxxxxxxxxx",
+      "siteId": "Site ID",
+      "siteIdPlaceholder": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+      "saved": "Saved",
+      "makeZip": "Create ZIP + Open Folder",
+      "makingZip": "Creating ZIP...",
+      "zipDone": "ZIP created. Folder opened.",
+      "openDrop": "Open Drag & Drop Page",
+      "autoDeploy": "Auto Deploy to Netlify",
+      "deploying": "Uploading to Netlify...",
+      "deployDone": "Deployment complete",
+      "deployUrl": "Deploy URL",
+      "apiKeyRequired": "Please enter your Personal Access Token",
+      "siteIdRequired": "Please enter your Site ID",
+      "guideTitle": "Getting Started",
+      "guide1": "Create an account at netlify.com",
+      "guide2": "Profile (top right) → User settings → Applications → Personal access tokens → New access token",
+      "guide3": "Paste the token into the Personal Access Token field above and save",
+      "guide4": "Click 'Create ZIP' to package your game, then click 'Open Drag & Drop Page' to upload it",
+      "guide5": "On the uploaded site: Site configuration → General → Site details → Copy the Site ID and paste it above",
+      "guide6": "For future updates, just click 'Auto Deploy to Netlify'"
+    }
   },
   "troops": {
     "generalSettings": "General Settings",
