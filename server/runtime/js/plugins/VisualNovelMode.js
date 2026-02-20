@@ -579,7 +579,13 @@
         this._textWin = new Window_VNText();
         this._textWin.contentsOpacity = 0;
 
-        scene.addChild(this._overlay);
+        // overlay를 _windowLayer 바로 앞에 삽입: 맵 위에 어둠을 깔고, 텍스트 창은 그 위에 표시
+        var winLayerIdx = scene.children.indexOf(scene._windowLayer);
+        if (winLayerIdx >= 0) {
+            scene.addChildAt(this._overlay, winLayerIdx);
+        } else {
+            scene.addChild(this._overlay);
+        }
         scene.addWindow(this._textWin);
     }
 
@@ -702,6 +708,38 @@
         return _WM_isTriggered.call(this);
     };
 
+    // VN 모드에서 \! \. \| \w 대기/정지 코드 무시 — Window_Message는 즉시 처리하고 숨김
+    var _WM_startPause = Window_Message.prototype.startPause;
+    Window_Message.prototype.startPause = function () {
+        if (VNManager.isActive()) {
+            this.pause = true;  // VN 모드: 화살표 없이 pause 플래그만 설정
+            return;
+        }
+        _WM_startPause.call(this);
+    };
+
+    var _WM_startWait = Window_Message.prototype.startWait;
+    Window_Message.prototype.startWait = function (count) {
+        if (VNManager.isActive()) return;  // VN 모드에서 \. \| \w 무시
+        _WM_startWait.call(this, count);
+    };
+
+    var _WM_updateWait = Window_Message.prototype.updateWait;
+    Window_Message.prototype.updateWait = function () {
+        if (VNManager.isActive()) return false;  // VN 모드에서 waitCount 무시
+        return _WM_updateWait.call(this);
+    };
+
+    var _WM_updateMessage = Window_Message.prototype.updateMessage;
+    Window_Message.prototype.updateMessage = function () {
+        if (VNManager.isActive()) {
+            // 이전 메시지에서 남은 상태 클리어 (안전망)
+            this.pause = false;
+            this._waitCount = 0;
+        }
+        return _WM_updateMessage.call(this);
+    };
+
     var _WM_startMessage = Window_Message.prototype.startMessage;
     Window_Message.prototype.startMessage = function () {
         var isVN = VNManager.isActive();
@@ -713,12 +751,11 @@
         }
         _WM_startMessage.call(this);  // 원본 호출 (내부 newPage→clearFlags가 _showFast를 false로 리셋함)
         if (isVN) {
-            // clearFlags() 이후에 _showFast=true 재설정해야 효과 있음
             this._showFast = true;
-            // Window_Message가 opening 상태(openness 0→255 애니메이션)이면
-            // Window_Message.update()의 while 루프가 차단되어 onEndOfText()→startInput()이 호출되지 않음.
-            // VN 모드에서는 Window_Message가 화면 밖에 있으므로 즉시 open 상태로 강제 설정.
             this.openness = 255;
+            this._opening = false;  // open() 호출로 세팅된 _opening 플래그 즉시 해제
+            this.pause = false;     // 이전 메시지의 pause 상태 클리어
+            this._waitCount = 0;    // 이전 메시지의 waitCount 클리어
             var s = SceneManager._scene;
             if (s && s._vnCtrl) {
                 s._vnCtrl.startTyping(spk, txt);
@@ -726,6 +763,19 @@
             }
         }
     };
+
+    // VN 모드에서 onEndOfText: _textState를 null로 설정하여 updateMessage 루프 종료,
+    // pause=true로 설정하여 _forceOk → terminateMessage() 흐름 활성화
+    var _WM_onEndOfText = Window_Message.prototype.onEndOfText;
+    Window_Message.prototype.onEndOfText = function () {
+        if (VNManager.isActive()) {
+            this._textState = null;
+            this.pause = true;
+            return;
+        }
+        _WM_onEndOfText.call(this);
+    };
+
 
     // VN 모드에서 Window_Message를 화면 밖으로
     var _WM_updatePlacement = Window_Message.prototype.updatePlacement;
