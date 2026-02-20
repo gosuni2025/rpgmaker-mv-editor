@@ -369,8 +369,8 @@ export function attachWebSocket(server: http.Server) {
   return wss;
 }
 
-// dev 모드 직접 실행 시
-if (require.main === module) {
+// dev 모드 직접 실행 시 (Electron 번들 내에서는 실행 안 함)
+if (require.main === module && !process.versions.electron) {
   const app = createApp();
   const server = http.createServer(app);
   attachWebSocket(server);
