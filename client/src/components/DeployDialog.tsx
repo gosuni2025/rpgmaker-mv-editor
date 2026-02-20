@@ -13,7 +13,6 @@ export default function DeployDialog() {
   useEscClose(useCallback(() => setShow(false), [setShow]));
   const projectPath = useEditorStore((s) => s.projectPath);
   const [platform, setPlatform] = useState<Platform>('web');
-  const [excludeUnused, setExcludeUnused] = useState(true);
   const [outputPath, setOutputPath] = useState('');
   const [showBrowse, setShowBrowse] = useState(false);
   const [browsePath, setBrowsePath] = useState('');
@@ -33,7 +32,6 @@ export default function DeployDialog() {
       await apiClient.post('/project/deploy', {
         platform,
         outputPath,
-        excludeUnused,
         projectPath,
       });
       setProgress(t('deploy.complete'));
@@ -64,15 +62,6 @@ export default function DeployDialog() {
                 <span style={{ color: '#888', fontSize: 11 }}>— {p.desc}</span>
               </label>
             ))}
-          </div>
-
-          <div>
-            <div style={{ color: '#aaa', fontSize: 12, marginBottom: 8 }}>{t('deploy.options')}</div>
-            <label className="db-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-              <input type="checkbox" checked={excludeUnused}
-                onChange={e => setExcludeUnused(e.target.checked)} />
-              <span style={{ color: '#ddd' }}>{t('deploy.excludeUnused')}</span>
-            </label>
           </div>
 
           <div>

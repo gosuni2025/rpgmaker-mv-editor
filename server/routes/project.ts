@@ -393,7 +393,7 @@ router.post('/deploy', (req: Request, res: Response) => {
     if (!projectManager.isOpen()) {
       return res.status(404).json({ error: 'No project open' });
     }
-    const { outputPath, excludeUnusedFiles = false } = req.body;
+    const { outputPath } = req.body;
     if (!outputPath) {
       return res.status(400).json({ error: 'outputPath is required' });
     }
