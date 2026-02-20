@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import useEditorStore from '../../store/useEditorStore';
 
 // ─── 상수 (Window_Message / VisualNovelMode 기본값) ───
 const GW = 816;
@@ -76,15 +77,36 @@ function drawWindowPng(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: 
   ctx.restore();
 }
 
-// ─── 배경 ───
-function drawBackground(ctx: CanvasRenderingContext2D) {
-  ctx.fillStyle = '#3a4a5a';
-  ctx.fillRect(0, 0, GW, GH);
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
-  for (let x = 0; x < GW; x += 48) { ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, GH); ctx.stroke(); }
-  for (let y = 0; y < GH; y += 48) { ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(GW, y + .5); ctx.stroke(); }
-  ctx.fillStyle = 'rgba(255,255,255,0.08)';
-  ctx.fillRect(GW / 2 - 16, GH / 2 - 56, 32, 56);
+// ─── 배경: 현재 Three.js 맵 캔버스 (이벤트 위치 중앙) ───
+const TILE_SIZE = 48;
+function drawMapBackground(
+  ctx: CanvasRenderingContext2D,
+  eventTileX: number | null,
+  eventTileY: number | null,
+) {
+  const mapCanvas = ((window as any)._editorRendererObj?.view) as HTMLCanvasElement | null | undefined;
+
+  if (mapCanvas && mapCanvas.width > 0 && mapCanvas.height > 0) {
+    // 이벤트 타일 중앙이 화면 중앙에 오도록 srcX/srcY 계산
+    let srcX = 0, srcY = 0;
+    if (eventTileX !== null && eventTileY !== null) {
+      srcX = Math.round(eventTileX * TILE_SIZE + TILE_SIZE / 2 - GW / 2);
+      srcY = Math.round(eventTileY * TILE_SIZE + TILE_SIZE / 2 - GH / 2);
+      srcX = Math.max(0, Math.min(srcX, mapCanvas.width  - GW));
+      srcY = Math.max(0, Math.min(srcY, mapCanvas.height - GH));
+    }
+    ctx.drawImage(mapCanvas, srcX, srcY, GW, GH, 0, 0, GW, GH);
+    // 메시지 창 가독성을 위해 살짝 어둡게
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(0, 0, GW, GH);
+  } else {
+    // 폴백: 맵이 없을 때 기본 배경
+    ctx.fillStyle = '#3a4a5a';
+    ctx.fillRect(0, 0, GW, GH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
+    for (let x = 0; x < GW; x += 48) { ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, GH); ctx.stroke(); }
+    for (let y = 0; y < GH; y += 48) { ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(GW, y + .5); ctx.stroke(); }
+  }
 }
 
 // ─── Window_Base 오프스크린 렌더러 생성 ───
@@ -162,6 +184,15 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<any>(null);
   const rafRef = useRef(0);
+
+  // 현재 이벤트 좌표 (맵 배경 중앙 설정용)
+  const currentMap = useEditorStore((s) => s.currentMap);
+  const selectedEventId = useEditorStore((s) => s.selectedEventId);
+  const event = currentMap?.events?.find((e) => e && e.id === selectedEventId);
+  const eventTileX = event?.x ?? null;
+  const eventTileY = event?.y ?? null;
+  const eventTileRef = useRef({ x: eventTileX, y: eventTileY });
+  eventTileRef.current = { x: eventTileX, y: eventTileY };
 
   // 최신 props를 ref로 유지 (RAF 클로저에서 사용)
   const propsRef = useRef({ faceName, faceIndex, background, positionType, text });
@@ -241,11 +272,12 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
     const { faceName: fn, faceIndex: fi, background: bg, positionType: pt, text: txt } = propsRef.current;
     const { face: faceImg, win: winImg } = imgsRef.current;
     const renderer = rendererRef.current;
+    const { x: evX, y: evY } = eventTileRef.current;
     const isVN = txt.split('\n').length > 4;
 
     if (isVN) {
       // ── VN 모드 ──
-      drawBackground(ctx);
+      drawMapBackground(ctx, evX, evY);
       ctx.fillStyle = `rgba(0,0,0,${VN_OVERLAY_ALPHA})`;
       ctx.fillRect(0, 0, GW, GH);
 
@@ -306,7 +338,7 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
 
     } else {
       // ── 일반 모드 ──
-      drawBackground(ctx);
+      drawMapBackground(ctx, evX, evY);
       if (bg === 1) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, GW, GH); }
       const winY = pt === 0 ? 0 : pt === 1 ? Math.floor((GH - WIN_H) / 2) : GH - WIN_H;
 
