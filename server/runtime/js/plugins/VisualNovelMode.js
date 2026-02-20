@@ -154,7 +154,8 @@
     var _pluginCommand = Game_Interpreter.prototype.pluginCommand;
     Game_Interpreter.prototype.pluginCommand = function (command, args) {
         _pluginCommand.call(this, command, args);
-        if (command !== 'VisualNovel') return;
+        var cmd = command.toLowerCase();
+        if (cmd !== 'visualnovel' && cmd !== 'visualnovelmode') return;
         var sub = (args[0] || '').toLowerCase();
         if (sub === 'enter') {
             VNManager.enter();
