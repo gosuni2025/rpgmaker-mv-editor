@@ -210,13 +210,17 @@ export function PostProcessSection({ currentMap, updateMapField }: {
             {dof.enabled && (
               <>
                 <AnimSlider label="Focus Y" value={dof.focusY} min={0} max={1} step={0.01}
-                  onChange={(v) => updateDof('focusY', v)} />
+                  onChange={(v) => updateDof('focusY', v)}
+                  tooltip={"포커스 중심 Y 위치\n0=화면 상단, 1=화면 하단\n캐릭터가 있는 위치에 맞춤\n앞쪽(작은 값)과 뒤쪽(큰 값)\n모두 이 기준선에서 멀어질수록 블러"} />
                 <AnimSlider label="Range" value={dof.focusRange} min={0} max={0.5} step={0.01}
-                  onChange={(v) => updateDof('focusRange', v)} />
+                  onChange={(v) => updateDof('focusRange', v)}
+                  tooltip={"선명한 영역 반폭\nFocus Y 기준 ±Range 내부는\n완전히 선명하게 유지됨\n클수록 선명한 구간이 넓어짐"} />
                 <AnimSlider label="Max Blur" value={dof.maxBlur} min={0} max={0.2} step={0.005}
-                  onChange={(v) => updateDof('maxBlur', v)} />
+                  onChange={(v) => updateDof('maxBlur', v)}
+                  tooltip={"최대 블러 강도\n화면 가장자리(상단/하단)에서의\n최대 흐림 정도\n클수록 강하게 흐려짐"} />
                 <AnimSlider label="Blur Power" value={dof.blurPower} min={0.5} max={5} step={0.1}
-                  onChange={(v) => updateDof('blurPower', v)} />
+                  onChange={(v) => updateDof('blurPower', v)}
+                  tooltip={"블러 증가 곡선\n1=선형(균일하게 증가)\n높을수록 포커스 근처는 선명하고\n가장자리만 급격히 흐려짐"} />
                 {currentMap.dofConfig && (
                   <button className="anim-tile-reset-btn" onClick={handleDofReset}>
                     초기화

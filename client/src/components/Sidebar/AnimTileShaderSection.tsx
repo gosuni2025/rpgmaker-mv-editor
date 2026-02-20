@@ -221,13 +221,22 @@ export function AnimTileShaderSection({ currentMap, updateMapField }: {
   );
 }
 
-export function AnimSlider({ label, value, min, max, step, onChange }: {
+export function AnimSlider({ label, value, min, max, step, onChange, tooltip }: {
   label: string; value: number; min: number; max: number; step: number;
   onChange: (v: number) => void;
+  tooltip?: string;
 }) {
   return (
     <div className="anim-tile-slider-row">
-      <span className="anim-tile-slider-label">{label}</span>
+      <span className="anim-tile-slider-label">
+        {label}
+        {tooltip && (
+          <span className="anim-slider-tooltip-wrap">
+            <span className="anim-slider-tooltip-btn">?</span>
+            <span className="anim-slider-tooltip-box">{tooltip}</span>
+          </span>
+        )}
+      </span>
       <input type="range" min={min} max={max} step={step} value={value}
         className="anim-tile-slider"
         onChange={(e) => onChange(Number(e.target.value))} />

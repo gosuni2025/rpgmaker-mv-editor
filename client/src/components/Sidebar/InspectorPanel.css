@@ -715,6 +715,54 @@
   color: #999;
   width: 56px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.anim-slider-tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.anim-slider-tooltip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #555;
+  color: #bbb;
+  font-size: 8px;
+  font-weight: bold;
+  cursor: default;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.anim-slider-tooltip-box {
+  display: none;
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1a1a2e;
+  color: #ddd;
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 5px 8px;
+  border: 1px solid #4a6fa5;
+  border-radius: 4px;
+  white-space: pre-line;
+  width: 180px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.anim-slider-tooltip-wrap:hover .anim-slider-tooltip-box {
+  display: block;
 }
 
 .anim-tile-slider {
