@@ -42,6 +42,10 @@ jobs:
       - name: Install client dependencies
         run: cd client && npm ci
 
+      - name: Link runtime for client build
+        run: ln -s ../../server/runtime/js client/public/runtime
+        shell: bash
+
       - name: Build client
         run: npm run build:client
 
