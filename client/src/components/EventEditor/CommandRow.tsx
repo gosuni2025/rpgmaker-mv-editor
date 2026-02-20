@@ -27,6 +27,45 @@ interface CommandRowProps {
   onToggleFold?: (index: number) => void;
 }
 
+// 커맨드 코드별 텍스트 색상 (카테고리 기준)
+function getCommandColor(code: number): string | undefined {
+  // 댓글 — 초록
+  if (code === 108 || code === 408) return '#4ec94e';
+  // 메시지/선택지/텍스트 입력 — 파랑
+  if ([101, 401, 102, 402, 403, 404, 103, 104, 105, 405].includes(code)) return '#5b9bd5';
+  // 흐름 제어 (조건분기, 루프, 중단, 라벨, 공통이벤트) — 주황
+  if ([111, 411, 412, 112, 413, 113, 115, 116, 117, 118, 119].includes(code)) return '#e8a020';
+  // 변수/스위치/타이머 조작 — 노랑
+  if ([121, 122, 123, 124].includes(code)) return '#d4c84a';
+  // 파티/아이템/장비 증감 — 연보라
+  if ([125, 126, 127, 128, 129].includes(code)) return '#a87ed4';
+  // 시스템 설정 (BGM변경, 접근제한 등) — 회청
+  if ([132, 133, 134, 135, 136, 137, 138, 139, 140].includes(code)) return '#7ea8c8';
+  // 이동/캐릭터 제어 — 보라
+  if ([201, 202, 203, 204, 205, 206, 211, 212, 213, 214, 216, 217].includes(code)) return '#9b7ed4';
+  // 화면 효과/대기 — 청록
+  if ([221, 222, 223, 224, 225, 226, 230].includes(code)) return '#4ec9b0';
+  // 그림 표시/이동/소거 — 연주황
+  if ([231, 232, 233, 234, 235, 236].includes(code)) return '#d4a87e';
+  // 오디오 (BGM/BGS/ME/SE) — 시안
+  if ([241, 242, 243, 244, 245, 246, 249, 250, 251].includes(code)) return '#4ec8c8';
+  // 씬 제어/맵 설정/동영상 — 연녹
+  if ([261, 281, 282, 283, 284, 285].includes(code)) return '#7ec87e';
+  // 전투 처리/분기 — 빨강
+  if ([301, 601, 602, 603, 604].includes(code)) return '#e87878';
+  // 상점/이름입력 — 살구
+  if ([302, 605, 303].includes(code)) return '#d4b07e';
+  // 액터 조작 — 연보라(밝음)
+  if ([311, 312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326].includes(code)) return '#c87ed4';
+  // 적 조작/전투 행동 — 연빨강
+  if ([331, 332, 333, 334, 335, 336, 337, 339, 340, 342].includes(code)) return '#e8a0a0';
+  // 씬 전환/메뉴/저장/게임오버 — 연회
+  if ([351, 352, 353, 354].includes(code)) return '#a0a0c8';
+  // 스크립트/플러그인 커맨드 — 핑크
+  if ([355, 655, 356].includes(code)) return '#e87ec8';
+  return undefined;
+}
+
 // indent 레인보우 색상 (VSCode indent-rainbow 스타일, 다크 테마에 맞게 낮은 opacity)
 const INDENT_COLORS = [
   'rgba(255, 255, 64, 0.10)',   // 노랑
@@ -127,7 +166,7 @@ export const CommandRow = React.memo(function CommandRow({
         </span>
       )}
       {display ? (
-        (cmd.code === 108 || cmd.code === 408) ? <span style={{ color: '#4ec94e' }}>{display}</span> : display
+        (() => { const c = getCommandColor(cmd.code); return c ? <span style={{ color: c }}>{display}</span> : display; })()
       ) : <span style={{ color: '#555' }}>&loz;</span>}
       {isFolded && foldedCount !== undefined && foldedCount > 0 && (
         <span className="fold-count-badge">+{foldedCount}줄</span>
