@@ -286,7 +286,12 @@
         this._cancelIndex  = cancelIdx;
         this._choiceResult = -1;
         this._vel = 0;
-        this._rebuildAndScroll();
+        // skipTyping() 후 _scrollY는 이전 maxScrollY(텍스트만 기준) 값이므로,
+        // 선택지가 추가된 후 늘어난 maxScrollY를 추적하지 못해 선택지가 화면 밖으로 밀림.
+        // 항상 맨 아래로 강제 이동.
+        this._buildLayouts();
+        this._scrollY = this._maxScrollY();
+        this._redraw();
     };
 
     Window_VNText.prototype.isChoiceActive  = function () { return this._choiceActive; };
