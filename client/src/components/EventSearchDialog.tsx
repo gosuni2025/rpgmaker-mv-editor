@@ -20,6 +20,7 @@ export default function EventSearchDialog() {
   useEscClose(useCallback(() => setShow(false), [setShow]));
   const selectMap = useEditorStore((s) => s.selectMap);
   const setSelectedEventId = useEditorStore((s) => s.setSelectedEventId);
+  const setSelectedEventIds = useEditorStore((s) => s.setSelectedEventIds);
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState<SearchType>('name');
@@ -45,9 +46,16 @@ export default function EventSearchDialog() {
   };
 
   const navigateToResult = async (result: SearchResult) => {
+    setEditMode('event');
     await selectMap(result.mapId);
     setSelectedEventId(result.eventId);
-    setEditMode('event');
+    setSelectedEventIds([result.eventId]);
+    // 맵에서 해당 이벤트 위치로 스크롤
+    const currentMap = useEditorStore.getState().currentMap;
+    const ev = currentMap?.events?.find((e) => e && e.id === result.eventId);
+    if (ev) {
+      window.dispatchEvent(new CustomEvent('scroll-to-tile', { detail: { x: ev.x, y: ev.y } }));
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
