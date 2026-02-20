@@ -1,29 +1,13 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { parseExtendedText, AnyTextSeg, TextBlockSeg } from './extendedTextDefs';
+import React, { useEffect, useRef, useState } from 'react';
 
-// ─── RPG Maker MV 기본 텍스트 색상 팔레트 (\C[n]) ───
-const TEXT_COLORS: string[] = [
-  '#ffffff', '#20a0d6', '#ff784c', '#66cc40',
-  '#99ccff', '#ccc0ff', '#ffffa0', '#c8c8c8',
-  '#e8e8e8', '#2080cc', '#ff3810', '#00a010',
-  '#3e9ade', '#875496', '#ddd000', '#666666',
-  '#00d8d8', '#c8a800', '#e82878', '#d8d8b8',
-  '#8888cc', '#a06020', '#d8a800', '#888800',
-  '#00e000', '#0088aa', '#a06020', '#4444aa',
-  '#880000', '#002888', '#444400', '#000000',
-];
-
+// ─── 상수 (Window_Message / VisualNovelMode 기본값) ───
 const GW = 816;
 const GH = 624;
 const WIN_H = 180;
 const FACE_SZ = 144;
 const PAD = 12;
 const LINE_H = 36;
-const BASE_FONT = 26;
-const ICON_SZ = 32;
-const ICON_COLS = 16;
 
-// VN 모드 상수 (VisualNovelMode.js 기본값)
 const VN_X = 60;
 const VN_Y = 40;
 const VN_W = 700;
@@ -31,10 +15,7 @@ const VN_H = 520;
 const VN_OVERLAY_ALPHA = 120 / 255;
 const VN_SPEAKER_COLOR = '#ffe066';
 
-// 타이프라이터: 2프레임에 1글자 (RPG Maker MV 기본)
-const CHARS_PER_FRAME = 0.5;
-
-// ─── 이미지 캐시 ───
+// ─── 이미지 캐시 (face/window skin용) ───
 const imgCache: Record<string, HTMLImageElement | null> = {};
 function loadImg(src: string): Promise<HTMLImageElement | null> {
   if (src in imgCache) return Promise.resolve(imgCache[src]);
@@ -44,117 +25,6 @@ function loadImg(src: string): Promise<HTMLImageElement | null> {
     img.onerror = () => { imgCache[src] = null; resolve(null); };
     img.src = src;
   });
-}
-
-// ─── DrawSeg 타입 (애니메이션 파라미터 포함) ───
-interface DrawText {
-  type: 'text';
-  text: string;
-  color: string;
-  size: number;
-  outlineColor?: string;
-  outlineWidth?: number;
-  gradient?: [string, string];
-  // 확장 태그 애니메이션
-  shakeAmp?: number;
-  shakeSpeed?: number;
-  gradWaveSpeed?: number;
-  fadeFrames?: number;      // 페이드인 지속 프레임
-  dissolveSpeed?: number;
-  blurFadeDuration?: number; // 흐릿하게 나타나기 지속 프레임
-  hologramScanlines?: number;
-  hologramFlicker?: number;
-}
-interface DrawIcon { type: 'icon'; index: number; size: number; }
-interface DrawWaiter { type: 'waiter'; size: number; }
-type DrawSeg = DrawText | DrawIcon | DrawWaiter;
-
-// ─── 줄 → DrawSeg[] 변환 ───
-function buildDrawSegs(line: string): DrawSeg[] {
-  const result: DrawSeg[] = [];
-  let color = '#ffffff';
-  let size = BASE_FONT;
-
-  function processSegs(
-    segs: AnyTextSeg[],
-    overColor?: string,
-    outline?: { color: string; width: number },
-    gradient?: [string, string],
-    shakeAmp?: number, shakeSpeed?: number,
-    gradWaveSpeed?: number,
-    fadeFrames?: number,
-    dissolveSpeed?: number,
-    blurFadeDuration?: number,
-    hologramScanlines?: number,
-    hologramFlicker?: number,
-  ) {
-    for (const seg of segs) {
-      if (seg.type === 'escape') {
-        const r = seg.raw;
-        const cM = r.match(/^\\C\[(\d+)\]$/);
-        const iM = r.match(/^\\I\[(\d+)\]$/);
-        const vM = r.match(/^\\V\[(\d+)\]$/);
-        const nM = r.match(/^\\N\[(\d+)\]$/);
-        const pM = r.match(/^\\P\[(\d+)\]$/);
-        if (cM) { color = TEXT_COLORS[+cM[1]] || '#ffffff'; }
-        else if (iM) { result.push({ type: 'icon', index: +iM[1], size }); }
-        else if (vM) { result.push({ type: 'text', text: `#${vM[1]}변수`, color: '#ffffaa', size }); }
-        else if (nM) { result.push({ type: 'text', text: `[이름${nM[1]}]`, color: '#aaffaa', size }); }
-        else if (pM) { result.push({ type: 'text', text: `[파티${pM[1]}]`, color: '#aaffaa', size }); }
-        else if (r === '\\G') { result.push({ type: 'text', text: '골드', color: overColor || color, size }); }
-        else if (r === '\\{') { size = Math.min(size + 4, BASE_FONT + 16); }
-        else if (r === '\\}') { size = Math.max(size - 4, BASE_FONT - 8); }
-        else if (r === '\\!') { result.push({ type: 'waiter', size }); }
-      } else if (seg.type === 'text') {
-        if (seg.text) {
-          result.push({
-            type: 'text', text: seg.text,
-            color: overColor || color, size,
-            outlineColor: outline?.color, outlineWidth: outline?.width,
-            gradient, shakeAmp, shakeSpeed, gradWaveSpeed, fadeFrames, dissolveSpeed, blurFadeDuration,
-            hologramScanlines, hologramFlicker,
-          });
-        }
-      } else if (seg.type === 'block') {
-        const b = seg as TextBlockSeg;
-        let nc = overColor, no = outline, ng = gradient;
-        let sa = shakeAmp, ss = shakeSpeed, gw = gradWaveSpeed, ff = fadeFrames, ds = dissolveSpeed, bf = blurFadeDuration;
-        let hsl = hologramScanlines, hlf = hologramFlicker;
-
-        if (b.tag === 'color') nc = b.params.value || overColor;
-        else if (b.tag === 'outline') no = { color: b.params.color || '#000000', width: +(b.params.thickness || '3') };
-        else if (b.tag === 'gradient') ng = [b.params.color1 || '#ffffff', b.params.color2 || '#000000'];
-        else if (b.tag === 'shake') { sa = +(b.params.amplitude || '3'); ss = +(b.params.speed || '1'); }
-        else if (b.tag === 'gradient-wave') gw = +(b.params.speed || '1');
-        else if (b.tag === 'fade') ff = +(b.params.duration || '60');
-        else if (b.tag === 'dissolve') ds = +(b.params.speed || '1');
-        else if (b.tag === 'blur-fade') bf = +(b.params.duration || '60');
-        else if (b.tag === 'hologram') {
-          hsl = +(b.params.scanline || '5');
-          hlf = +(b.params.flicker || '0');
-          nc = '#00ffff'; // cyan 강제
-        }
-        // typewriter → 정적 미리보기에서 기본 처리
-
-        processSegs(b.children, nc, no, ng, sa, ss, gw, ff, ds, bf, hsl, hlf);
-      }
-    }
-  }
-
-  processSegs(parseExtendedText(line));
-  return result;
-}
-
-// ─── 전체 글자 수 계산 (타이프라이터용) ───
-function countTotalChars(lines: string[]): number {
-  let total = 0;
-  for (const line of lines) {
-    for (const seg of buildDrawSegs(line)) {
-      if (seg.type === 'text') total += seg.text.length;
-      else total += 1;
-    }
-  }
-  return total;
 }
 
 // ─── Window 폴백 (Window.png 없을 때) ───
@@ -206,163 +76,7 @@ function drawWindowPng(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: 
   ctx.restore();
 }
 
-// ─── 한 줄 텍스트 렌더링 (charBudget: 남은 표시 가능 글자, animFrame: 애니 프레임) ───
-function drawLine(
-  ctx: CanvasRenderingContext2D,
-  line: string,
-  x: number, baselineY: number, maxW: number,
-  iconImg: HTMLImageElement | null,
-  charBudget: { remaining: number },
-  animFrame: number,
-) {
-  const segs = buildDrawSegs(line);
-  let cx = x;
-  let segIdx = 0; // 세그먼트 내 offset (dissolve 등에 사용)
-
-  for (const seg of segs) {
-    if (cx >= x + maxW) break;
-    if (charBudget.remaining <= 0) break;
-
-    if (seg.type === 'icon') {
-      if (iconImg) {
-        const col = seg.index % ICON_COLS;
-        const row = Math.floor(seg.index / ICON_COLS);
-        ctx.drawImage(iconImg, col * ICON_SZ, row * ICON_SZ, ICON_SZ, ICON_SZ, cx, baselineY - seg.size + 4, seg.size, seg.size);
-      } else {
-        ctx.fillStyle = 'rgba(180,180,180,0.4)';
-        ctx.fillRect(cx, baselineY - seg.size + 4, seg.size, seg.size);
-      }
-      cx += seg.size + 2;
-      charBudget.remaining -= 1;
-    } else if (seg.type === 'waiter') {
-      ctx.save();
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `${seg.size * 0.55}px serif`;
-      ctx.fillText('▼', cx, baselineY);
-      cx += seg.size * 0.55 + 2;
-      ctx.restore();
-      charBudget.remaining -= 1;
-    } else if (seg.type === 'text' && seg.text) {
-      const fs = seg.size;
-      const fontStr = `${fs}px "GameFont","MS PGothic","dotumche","나눔고딕",serif`;
-      ctx.font = fontStr;
-
-      // 타이프라이터: charBudget만큼만 표시
-      const visibleText = seg.text.slice(0, charBudget.remaining);
-      charBudget.remaining -= visibleText.length;
-      if (!visibleText) { segIdx++; continue; }
-
-      ctx.font = fontStr;
-      const tw = ctx.measureText(visibleText).width;
-      const startCx = cx; // hologram 스캔라인 위치 저장
-
-      ctx.save();
-
-      // ── fade 효과: 페이드인 (animFrame=0 정적 모드는 완료 상태=alpha 1) ──
-      if (seg.fadeFrames) {
-        ctx.globalAlpha = animFrame <= 0 ? 1 : Math.min(1, animFrame / seg.fadeFrames);
-      }
-
-      // ── dissolve 효과: 글자별 페이드인 ──
-      if (seg.dissolveSpeed) {
-        ctx.globalAlpha = animFrame <= 0 ? 1 : Math.min(1, (animFrame * seg.dissolveSpeed) / 30);
-      }
-
-      // ── blur-fade 효과: 흐릿하게 나타나기 ──
-      if (seg.blurFadeDuration) {
-        const progress = animFrame <= 0 ? 1 : Math.min(1, animFrame / seg.blurFadeDuration);
-        const blurPx = (1 - progress) * 8;
-        ctx.globalAlpha = animFrame <= 0 ? 1 : (0.2 + progress * 0.8);
-        if (blurPx > 0.1) ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
-      }
-
-      // ── hologram flicker: alpha 깜빡임 ──
-      if (seg.hologramScanlines && animFrame > 0) {
-        const flicker = Math.min(1, (seg.hologramFlicker || 0) / 10);
-        ctx.globalAlpha = 0.65 + 0.35 * (1 - flicker * Math.abs(Math.sin(animFrame * 0.2)));
-      }
-
-      // ── shake 효과: sin 파형으로 Y 흔들림 ──
-      let dy = 0;
-      if (seg.shakeAmp && animFrame > 0) {
-        dy = Math.sin(animFrame * (seg.shakeSpeed || 1) * 0.18) * (seg.shakeAmp || 3);
-      }
-
-      // ── gradient-wave 효과: 색상 위상 이동 ──
-      if (seg.gradWaveSpeed && animFrame > 0) {
-        const phase = (animFrame * (seg.gradWaveSpeed || 1) * 0.04) % (Math.PI * 2);
-        const r = Math.floor(128 + 127 * Math.sin(phase));
-        const g = Math.floor(128 + 127 * Math.sin(phase + 2.094));
-        const b = Math.floor(128 + 127 * Math.sin(phase + 4.189));
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
-        // 그림자
-        ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.75;
-        ctx.fillText(visibleText, cx + 2, baselineY + dy + 2);
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
-        ctx.fillText(visibleText, cx, baselineY + dy);
-        cx += tw;
-        ctx.restore();
-        segIdx++;
-        continue;
-      }
-
-      // ── 일반 텍스트 렌더링 ──
-      if (seg.gradient) {
-        const gr = ctx.createLinearGradient(cx, baselineY + dy - fs, cx + tw, baselineY + dy);
-        gr.addColorStop(0, seg.gradient[0]);
-        gr.addColorStop(1, seg.gradient[1]);
-        if (seg.outlineColor) {
-          ctx.strokeStyle = seg.outlineColor; ctx.lineWidth = (seg.outlineWidth || 3) * 2;
-          ctx.lineJoin = 'round'; ctx.strokeText(visibleText, cx, baselineY + dy);
-        }
-        ctx.fillStyle = gr;
-        ctx.fillText(visibleText, cx, baselineY + dy);
-      } else if (seg.hologramScanlines) {
-        // hologram: outline 없이 cyan으로 그리기
-        ctx.fillStyle = seg.color; // overColor로 '#00ffff' 설정됨
-        ctx.fillText(visibleText, cx, baselineY + dy);
-      } else {
-        // 그림자
-        const prevAlpha = ctx.globalAlpha;
-        ctx.globalAlpha = prevAlpha * 0.75;
-        ctx.fillStyle = '#000000';
-        ctx.fillText(visibleText, cx + 2, baselineY + dy + 2);
-        ctx.globalAlpha = prevAlpha;
-
-        if (seg.outlineColor) {
-          ctx.strokeStyle = seg.outlineColor; ctx.lineWidth = (seg.outlineWidth || 3) * 2;
-          ctx.lineJoin = 'round'; ctx.strokeText(visibleText, cx, baselineY + dy);
-        }
-        ctx.fillStyle = seg.color;
-        ctx.fillText(visibleText, cx, baselineY + dy);
-      }
-
-      // ── hologram 스캔라인 오버레이 ──
-      if (seg.hologramScanlines) {
-        const scanH = seg.hologramScanlines;
-        const darkH = Math.max(1, Math.floor(scanH * 0.45));
-        const t = animFrame <= 0 ? 0 : animFrame / 60;
-        const scrollY = (t * 25) % scanH;
-        const lineTop = baselineY - fs;
-        ctx.save();
-        ctx.fillStyle = 'rgba(0,0,0,0.75)';
-        for (let sy = lineTop - scanH + scrollY; sy < lineTop + fs + scanH; sy += scanH) {
-          const clipY = Math.max(sy, lineTop);
-          const clipH = Math.min(sy + darkH, lineTop + fs) - clipY;
-          if (clipH > 0) ctx.fillRect(startCx, clipY, tw, clipH);
-        }
-        ctx.restore();
-      }
-
-      cx += tw;
-      ctx.restore();
-    }
-    segIdx++;
-  }
-}
-
-// ─── 배경 그리기 ───
+// ─── 배경 ───
 function drawBackground(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = '#3a4a5a';
   ctx.fillRect(0, 0, GW, GH);
@@ -373,147 +87,60 @@ function drawBackground(ctx: CanvasRenderingContext2D) {
   ctx.fillRect(GW / 2 - 16, GH / 2 - 56, 32, 56);
 }
 
-// ─── 일반 메시지 창 렌더링 ───
-function renderNormal(
-  ctx: CanvasRenderingContext2D,
-  faceName: string, faceIndex: number, background: number, positionType: number, text: string,
-  faceImg: HTMLImageElement | null, winImg: HTMLImageElement | null, iconImg: HTMLImageElement | null,
-  animFrame: number,
-) {
-  drawBackground(ctx);
-  if (background === 1) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, GW, GH); }
-  const winY = positionType === 0 ? 0 : positionType === 1 ? Math.floor((GH - WIN_H) / 2) : GH - WIN_H;
+// ─── Window_Base 오프스크린 렌더러 생성 ───
+// Window.prototype.initialize (ThreeContainer 등)를 건너뛰고,
+// Window_Base.prototype 메서드(drawTextEx, drawFace, ExtendedText 등)만 사용
+function createTextRenderer(contentsW: number, contentsH: number): any | null {
+  const WB = (window as any).Window_Base;
+  const BitmapCls = (window as any).Bitmap;
+  if (!WB || !BitmapCls) return null;
 
-  if (background !== 2) {
-    if (winImg) drawWindowPng(ctx, winImg, 0, winY, GW, WIN_H);
-    else drawWindowFallback(ctx, 0, winY, GW, WIN_H);
+  const bmp = new BitmapCls(Math.max(1, contentsW), Math.max(1, contentsH));
+  const r = Object.create(WB.prototype);
+  r.contents = bmp;
+  r.padding = 18;
+  r.width = contentsW + 36;
+  r.height = contentsH + 36;
+  // windowskin: textColor(n) 에서 픽셀 읽기용 (로드 전엔 기본 흰색으로 폴백)
+  r.windowskin = (window as any).ImageManager
+    ? (window as any).ImageManager.loadSystem('Window')
+    : null;
+  // ExtendedText.js 상태 초기화
+  r._etTags = null;
+  r._etEffectStack = [];
+  r._etAnimSegs = [];
+
+  try {
+    WB.prototype.resetFontSettings.call(r);
+  } catch (e) {
+    // $gameSystem 미준비 시 폴백: 직접 설정
+    if (bmp.fontFace !== undefined) bmp.fontFace = 'Dotum, AppleGothic, sans-serif';
+    if (bmp.fontSize !== undefined) bmp.fontSize = 28;
+    if (bmp.textColor !== undefined) bmp.textColor = '#ffffff';
   }
 
-  const hasFace = !!(faceName && faceImg);
-  if (hasFace && faceImg) {
-    const col = faceIndex % 4, row = Math.floor(faceIndex / 4);
-    ctx.drawImage(faceImg, col * FACE_SZ, row * FACE_SZ, FACE_SZ, FACE_SZ, PAD, winY + PAD, FACE_SZ, FACE_SZ);
-  }
+  return r;
+}
 
-  const textX = hasFace ? PAD + FACE_SZ + 16 : PAD;
-  const textMaxW = GW - textX - PAD;
-  const lines = text.split('\n').slice(0, 4);
-
-  // 타이프라이터: visibleChars 계산
-  const totalChars = countTotalChars(lines);
-  const visibleChars = animFrame <= 0 ? Infinity : Math.floor(animFrame * CHARS_PER_FRAME);
-  const typingDone = visibleChars >= totalChars;
-  const charBudget = { remaining: animFrame <= 0 ? Infinity : visibleChars };
-
+// ─── 텍스트를 renderer에 그리기 ───
+function setupRendererText(renderer: any, lines: string[]) {
+  const WB = (window as any).Window_Base;
+  if (!WB || !renderer) return;
+  renderer.contents.clear();
+  renderer._etTags = null;
+  renderer._etEffectStack = [];
+  renderer._etAnimSegs = [];
+  try { WB.prototype.resetFontSettings.call(renderer); } catch (e) {}
   lines.forEach((line, i) => {
-    if (charBudget.remaining <= 0) return;
-    drawLine(ctx, line, textX, winY + PAD + i * LINE_H + BASE_FONT + 2, textMaxW, iconImg, charBudget, animFrame);
-  });
-
-  // ▼ 입력 대기 (타이핑 완료 후 깜빡임)
-  if (animFrame <= 0 || typingDone) {
-    const blink = animFrame <= 0 || Math.floor(animFrame / 30) % 2 === 0;
-    if (blink) {
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
-      ctx.font = '18px serif';
-      ctx.fillText('▼', GW - 22, winY + WIN_H - 10);
+    try {
+      WB.prototype.drawTextEx.call(renderer, line, 0, i * LINE_H);
+    } catch (e) {
+      console.warn('[MessagePreview] drawTextEx error:', e);
     }
-  }
-}
-
-// ─── VN 모드 렌더링 ───
-function renderVN(
-  ctx: CanvasRenderingContext2D,
-  faceName: string, faceIndex: number, text: string,
-  faceImg: HTMLImageElement | null, winImg: HTMLImageElement | null, iconImg: HTMLImageElement | null,
-  animFrame: number,
-) {
-  drawBackground(ctx);
-  ctx.fillStyle = `rgba(0,0,0,${VN_OVERLAY_ALPHA})`;
-  ctx.fillRect(0, 0, GW, GH);
-
-  if (winImg) drawWindowPng(ctx, winImg, VN_X, VN_Y, VN_W, VN_H);
-  else drawWindowFallback(ctx, VN_X, VN_Y, VN_W, VN_H);
-
-  const innerX = VN_X + PAD;
-  const innerY = VN_Y + PAD;
-  const innerW = VN_W - PAD * 2;
-
-  const hasFace = !!(faceName && faceImg);
-  let textStartX = innerX;
-  if (hasFace && faceImg) {
-    const col = faceIndex % 4, row = Math.floor(faceIndex / 4);
-    const faceDst = 120;
-    ctx.drawImage(faceImg, col * FACE_SZ, row * FACE_SZ, FACE_SZ, FACE_SZ, innerX, innerY, faceDst, faceDst);
-    textStartX = innerX + faceDst + 12;
-  }
-
-  const textW = VN_X + VN_W - textStartX - PAD;
-  let curY = innerY;
-
-  if (faceName) {
-    ctx.save();
-    ctx.fillStyle = '#000000';
-    ctx.font = `bold 22px "GameFont","MS PGothic","dotumche","나눔고딕",serif`;
-    ctx.fillText(faceName, textStartX + 1, curY + 22 + 1);
-    ctx.fillStyle = VN_SPEAKER_COLOR;
-    ctx.fillText(faceName, textStartX, curY + 22);
-    ctx.restore();
-    curY += LINE_H;
-  }
-
-  const lines = text.split('\n');
-  const maxLines = Math.floor((VN_Y + VN_H - curY - PAD) / LINE_H);
-  const displayLines = lines.slice(0, maxLines);
-
-  const totalChars = countTotalChars(displayLines);
-  const visibleChars = animFrame <= 0 ? Infinity : Math.floor(animFrame * CHARS_PER_FRAME);
-  const typingDone = visibleChars >= totalChars;
-  const charBudget = { remaining: animFrame <= 0 ? Infinity : visibleChars };
-
-  displayLines.forEach((line, i) => {
-    if (charBudget.remaining <= 0) return;
-    drawLine(ctx, line, textStartX, curY + i * LINE_H + BASE_FONT + 2, textW, iconImg, charBudget, animFrame);
   });
-
-  if (lines.length > maxLines) {
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.font = '14px serif';
-    ctx.fillText(`↓ (${lines.length - maxLines}줄 더 있음)`, textStartX, VN_Y + VN_H - 8);
-  }
-
-  if (animFrame <= 0 || typingDone) {
-    const blink = animFrame <= 0 || Math.floor(animFrame / 30) % 2 === 0;
-    if (blink) {
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
-      ctx.font = '18px serif';
-      ctx.fillText('▼', VN_X + VN_W - 22, VN_Y + VN_H - 10);
-    }
-  }
-
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,224,102,0.85)';
-  ctx.font = 'bold 13px sans-serif';
-  ctx.fillText('VN MODE', VN_X + 4, VN_Y - 4);
-  ctx.restore();
 }
 
-// ─── 진입점 ───
-function render(
-  ctx: CanvasRenderingContext2D,
-  faceName: string, faceIndex: number, background: number, positionType: number, text: string,
-  faceImg: HTMLImageElement | null, winImg: HTMLImageElement | null, iconImg: HTMLImageElement | null,
-  animFrame: number,
-) {
-  const lineCount = text.split('\n').length;
-  if (lineCount > 4) {
-    renderVN(ctx, faceName, faceIndex, text, faceImg, winImg, iconImg, animFrame);
-  } else {
-    renderNormal(ctx, faceName, faceIndex, background, positionType, text, faceImg, winImg, iconImg, animFrame);
-  }
-}
-
-// ─── MessagePreview 컴포넌트 ───
+// ─── Props ───
 interface MessagePreviewProps {
   faceName: string;
   faceIndex: number;
@@ -524,93 +151,221 @@ interface MessagePreviewProps {
 
 export function MessagePreview({ faceName, faceIndex, background, positionType, text }: MessagePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [imgs, setImgs] = useState<{
-    face: HTMLImageElement | null;
-    win: HTMLImageElement | null;
-    icon: HTMLImageElement | null;
-  }>({ face: null, win: null, icon: null });
+  const rendererRef = useRef<any>(null);
+  const rafRef = useRef(0);
 
-  const isVNMode = text.split('\n').length > 4;
+  // 최신 props를 ref로 유지 (RAF 클로저에서 사용)
+  const propsRef = useRef({ faceName, faceIndex, background, positionType, text });
+  propsRef.current = { faceName, faceIndex, background, positionType, text };
 
-  // ─── 재생 상태 ───
-  const [isPlaying, setIsPlaying] = useState(false);
-  const animFrameRef = useRef(0);    // 현재 애니 프레임
-  const rafRef = useRef(0);          // requestAnimationFrame handle
+  const [imgs, setImgs] = useState<{ face: HTMLImageElement | null; win: HTMLImageElement | null }>({ face: null, win: null });
   const imgsRef = useRef(imgs);
   useEffect(() => { imgsRef.current = imgs; }, [imgs]);
 
-  // ─── 이미지 로드 ───
+  const [runtimeReady, setRuntimeReady] = useState(() => !!(window as any).Window_Base && !!(window as any).Bitmap);
+
+  const isVNMode = text.split('\n').length > 4;
+
+  // ─── 런타임 로드 대기 ───
+  useEffect(() => {
+    if (runtimeReady) return;
+    const id = setInterval(() => {
+      if ((window as any).Window_Base && (window as any).Bitmap) {
+        setRuntimeReady(true);
+        clearInterval(id);
+      }
+    }, 100);
+    return () => clearInterval(id);
+  }, [runtimeReady]);
+
+  // ─── 이미지 로드 (face, window skin) ───
   useEffect(() => {
     let cancelled = false;
     Promise.all([
       loadImg('/img/system/Window.png'),
-      loadImg('/img/system/IconSet.png'),
       faceName ? loadImg(`/img/faces/${faceName}.png`) : Promise.resolve(null),
-    ]).then(([win, icon, face]) => {
-      if (!cancelled) setImgs({ win, icon, face });
+    ]).then(([win, face]) => {
+      if (!cancelled) setImgs({ win, face });
     });
     return () => { cancelled = true; };
   }, [faceName]);
 
-  // ─── 정적 렌더링 (재생 중이 아닐 때) ───
-  const renderStatic = useCallback(() => {
+  // ─── renderer 생성 + drawTextEx 호출 (텍스트/face 변경 시) ───
+  useEffect(() => {
+    if (!runtimeReady) return;
+
+    const allLines = text.split('\n');
+    const isVN = allLines.length > 4;
+
+    let contentsW: number, contentsH: number;
+    if (isVN) {
+      const hasFace = !!faceName;
+      const textOffsetX = hasFace ? 120 + 12 : 0;
+      const speakerH = faceName ? LINE_H : 0;
+      contentsW = VN_W - PAD * 2 - textOffsetX;
+      // 모든 줄이 들어갈 높이
+      contentsH = Math.max(LINE_H, allLines.length * LINE_H);
+    } else {
+      const hasFace = !!faceName;
+      contentsW = GW - PAD * 2 - (hasFace ? FACE_SZ + 16 : 0);
+      contentsH = WIN_H - PAD * 2; // 4줄 * 36 = 144 < 156, 충분
+    }
+
+    const renderer = createTextRenderer(contentsW, contentsH);
+    rendererRef.current = renderer;
+
+    if (renderer) {
+      const lines = isVN ? allLines : allLines.slice(0, 4);
+      setupRendererText(renderer, lines);
+    }
+  }, [runtimeReady, text, faceName]);
+
+  // ─── canvas 렌더 함수 ───
+  const renderToCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    canvas.width = GW; canvas.height = GH;
-    render(ctx, faceName, faceIndex, background, positionType, text, imgsRef.current.face, imgsRef.current.win, imgsRef.current.icon, 0);
-  }, [faceName, faceIndex, background, positionType, text]);
+    canvas.width = GW;
+    canvas.height = GH;
 
-  useEffect(() => {
-    if (!isPlaying) renderStatic();
-  }, [imgs, faceName, faceIndex, background, positionType, text, isPlaying, renderStatic]);
+    const { faceName: fn, faceIndex: fi, background: bg, positionType: pt, text: txt } = propsRef.current;
+    const { face: faceImg, win: winImg } = imgsRef.current;
+    const renderer = rendererRef.current;
+    const isVN = txt.split('\n').length > 4;
 
-  // ─── 재생 루프 ───
-  const startPlay = useCallback(() => {
-    animFrameRef.current = 0;
+    if (isVN) {
+      // ── VN 모드 ──
+      drawBackground(ctx);
+      ctx.fillStyle = `rgba(0,0,0,${VN_OVERLAY_ALPHA})`;
+      ctx.fillRect(0, 0, GW, GH);
 
-    const allLines = text.split('\n');
-    const displayLines = allLines.length > 4
-      ? allLines.slice(0, Math.floor((VN_H - LINE_H * (faceName ? 1 : 0) - PAD * 2) / LINE_H))
-      : allLines.slice(0, 4);
-    const totalChars = countTotalChars(displayLines);
-    // 타이핑 완료 후 2초(120f) + 애니메이션 지속 60f
-    const totalFrames = Math.ceil(totalChars / CHARS_PER_FRAME) + 180;
+      if (winImg) drawWindowPng(ctx, winImg, VN_X, VN_Y, VN_W, VN_H);
+      else drawWindowFallback(ctx, VN_X, VN_Y, VN_W, VN_H);
 
-    const tick = () => {
-      animFrameRef.current += 1;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      canvas.width = GW; canvas.height = GH;
-      const { face, win, icon } = imgsRef.current;
-      render(ctx, faceName, faceIndex, background, positionType, text, face, win, icon, animFrameRef.current);
+      const innerX = VN_X + PAD;
+      const innerY = VN_Y + PAD;
 
-      if (animFrameRef.current < totalFrames) {
-        rafRef.current = requestAnimationFrame(tick);
-      } else {
-        setIsPlaying(false);
-        animFrameRef.current = 0;
-        // 최종 정적 렌더링
-        const { face: f, win: w, icon: ic } = imgsRef.current;
-        render(ctx, faceName, faceIndex, background, positionType, text, f, w, ic, 0);
+      const hasFace = !!(fn && faceImg);
+      let textStartX = innerX;
+      if (hasFace && faceImg) {
+        const col = fi % 4, row = Math.floor(fi / 4);
+        ctx.drawImage(faceImg, col * FACE_SZ, row * FACE_SZ, FACE_SZ, FACE_SZ, innerX, innerY, 120, 120);
+        textStartX = innerX + 120 + 12;
       }
+
+      let curY = innerY;
+      if (fn) {
+        ctx.save();
+        ctx.fillStyle = '#000000';
+        ctx.font = `bold 22px "GameFont","MS PGothic","dotumche","나눔고딕",serif`;
+        ctx.fillText(fn, textStartX + 1, curY + 22 + 1);
+        ctx.fillStyle = VN_SPEAKER_COLOR;
+        ctx.fillText(fn, textStartX, curY + 22);
+        ctx.restore();
+        curY += LINE_H;
+      }
+
+      // 텍스트 Bitmap 합성 (창 내부 클리핑)
+      if (renderer) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(textStartX, curY, VN_X + VN_W - textStartX - PAD, VN_Y + VN_H - curY - PAD);
+        ctx.clip();
+        ctx.drawImage(renderer.contents.canvas, textStartX, curY);
+        ctx.restore();
+      }
+
+      // 넘침 표시
+      const allLines = txt.split('\n');
+      const maxLines = Math.floor((VN_Y + VN_H - curY - PAD) / LINE_H);
+      if (allLines.length > maxLines) {
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = '14px serif';
+        ctx.fillText(`↓ (${allLines.length - maxLines}줄 더 있음)`, textStartX, VN_Y + VN_H - 8);
+      }
+
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font = '18px serif';
+      ctx.fillText('▼', VN_X + VN_W - 22, VN_Y + VN_H - 10);
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,224,102,0.85)';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('VN MODE', VN_X + 4, VN_Y - 4);
+      ctx.restore();
+
+    } else {
+      // ── 일반 모드 ──
+      drawBackground(ctx);
+      if (bg === 1) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, GW, GH); }
+      const winY = pt === 0 ? 0 : pt === 1 ? Math.floor((GH - WIN_H) / 2) : GH - WIN_H;
+
+      if (bg !== 2) {
+        if (winImg) drawWindowPng(ctx, winImg, 0, winY, GW, WIN_H);
+        else drawWindowFallback(ctx, 0, winY, GW, WIN_H);
+      }
+
+      const hasFace = !!(fn && faceImg);
+      if (hasFace && faceImg) {
+        const col = fi % 4, row = Math.floor(fi / 4);
+        ctx.drawImage(faceImg, col * FACE_SZ, row * FACE_SZ, FACE_SZ, FACE_SZ, PAD, winY + PAD, FACE_SZ, FACE_SZ);
+      }
+
+      const textX = hasFace ? PAD + FACE_SZ + 16 : PAD;
+
+      // 텍스트 Bitmap 합성 (창 내부 클리핑)
+      if (renderer) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(textX, winY, GW - textX - PAD, WIN_H);
+        ctx.clip();
+        ctx.drawImage(renderer.contents.canvas, textX, winY + PAD);
+        ctx.restore();
+      }
+
+      // ▼ 입력 대기
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font = '18px serif';
+      ctx.fillText('▼', GW - 22, winY + WIN_H - 10);
+    }
+  };
+
+  // ─── RAF 루프 (항상 실행 — ExtendedText 애니메이션) ───
+  useEffect(() => {
+    if (!runtimeReady) return;
+
+    let running = true;
+    const tick = () => {
+      if (!running) return;
+
+      // ExtendedText._time 진행
+      const ET = (window as any).ExtendedText;
+      if (ET) ET._time += 1 / 60;
+
+      // 애니메이션 패스
+      const r = rendererRef.current;
+      if (r?._etAnimSegs?.length > 0) {
+        try { r._etRunAnimPass(); } catch (e) {}
+      }
+
+      renderToCanvas();
+      rafRef.current = requestAnimationFrame(tick);
     };
 
-    setIsPlaying(true);
     rafRef.current = requestAnimationFrame(tick);
-  }, [faceName, faceIndex, background, positionType, text]);
+    return () => {
+      running = false;
+      cancelAnimationFrame(rafRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runtimeReady]);
 
-  const stopPlay = useCallback(() => {
-    cancelAnimationFrame(rafRef.current);
-    animFrameRef.current = 0;
-    setIsPlaying(false);
-    renderStatic();
-  }, [renderStatic]);
-
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+  // 이미지 로드 완료 시 즉시 재렌더
+  useEffect(() => {
+    renderToCanvas();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imgs]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 4 }}>
@@ -628,28 +383,9 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
         style={{ width: '100%', aspectRatio: `${GW}/${GH}`, display: 'block', imageRendering: 'pixelated', background: '#222' }}
       />
 
-      {/* 재생 컨트롤 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-        <button
-          onClick={isPlaying ? stopPlay : startPlay}
-          style={{
-            background: isPlaying ? '#5a1a1a' : '#1a3a1a',
-            border: `1px solid ${isPlaying ? '#c44' : '#4a8'}`,
-            borderRadius: 4,
-            color: isPlaying ? '#f88' : '#6da',
-            fontSize: 14,
-            padding: '3px 14px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            minWidth: 70,
-          }}
-        >
-          {isPlaying ? '■ 정지' : '▶ 재생'}
-        </button>
-        <span style={{ fontSize: 11, color: '#555' }}>
-          {isPlaying ? '타이프라이터 + 애니메이션 재생 중...' : '재생 버튼으로 실제 애니메이션 미리보기'}
-        </span>
-      </div>
+      {!runtimeReady && (
+        <div style={{ fontSize: 11, color: '#888' }}>런타임 로딩 중...</div>
+      )}
     </div>
   );
 }
