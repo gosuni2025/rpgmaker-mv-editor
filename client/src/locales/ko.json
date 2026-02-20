@@ -81,10 +81,26 @@
     "noRecentProjects": "최근 프로젝트 없음",
     "projectNotFound": "프로젝트를 찾을 수 없습니다. 목록에서 제거합니다.",
     "help": "도움말",
+    "checkUpdate": "업데이트 확인...",
     "homepage": "홈페이지",
     "reportIssue": "이슈 보고...",
     "twitter": "개발자 Twitter (X)",
     "youtube": "개발자 YouTube"
+  },
+  "update": {
+    "title": "업데이트 확인",
+    "checking": "확인 중...",
+    "error": "버전 확인에 실패했습니다.",
+    "upToDate": "최신 버전입니다",
+    "available": "업데이트가 있습니다",
+    "currentVersion": "현재 버전",
+    "latestVersion": "최신 버전",
+    "currentCommit": "현재 커밋 날짜",
+    "latestCommit": "최신 커밋 날짜",
+    "currentHash": "현재 커밋",
+    "gitHint": "git pull 명령으로 최신 변경사항을 받을 수 있습니다.",
+    "download": "다운로드",
+    "viewChanges": "변경사항 보기"
   },
   "options": {
     "title": "에디터 설정",

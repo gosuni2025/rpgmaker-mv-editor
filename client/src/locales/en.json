@@ -81,10 +81,26 @@
     "noRecentProjects": "No recent projects",
     "projectNotFound": "Project not found. Removing from list.",
     "help": "Help",
+    "checkUpdate": "Check for Updates...",
     "homepage": "Homepage",
     "reportIssue": "Report Issue...",
     "twitter": "Developer Twitter (X)",
     "youtube": "Developer YouTube"
+  },
+  "update": {
+    "title": "Check for Updates",
+    "checking": "Checking...",
+    "error": "Failed to check version.",
+    "upToDate": "You are up to date",
+    "available": "Update available",
+    "currentVersion": "Current version",
+    "latestVersion": "Latest version",
+    "currentCommit": "Current commit date",
+    "latestCommit": "Latest commit date",
+    "currentHash": "Current commit",
+    "gitHint": "Run git pull to get the latest changes.",
+    "download": "Download",
+    "viewChanges": "View Changes"
   },
   "options": {
     "title": "Editor Settings",

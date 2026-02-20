@@ -81,10 +81,26 @@
     "noRecentProjects": "最近のプロジェクトなし",
     "projectNotFound": "プロジェクトが見つかりません。リストから削除します。",
     "help": "ヘルプ",
+    "checkUpdate": "アップデートを確認...",
     "homepage": "ホームページ",
     "reportIssue": "問題を報告...",
     "twitter": "開発者 Twitter (X)",
     "youtube": "開発者 YouTube"
+  },
+  "update": {
+    "title": "アップデートを確認",
+    "checking": "確認中...",
+    "error": "バージョンの確認に失敗しました。",
+    "upToDate": "最新バージョンです",
+    "available": "アップデートがあります",
+    "currentVersion": "現在のバージョン",
+    "latestVersion": "最新バージョン",
+    "currentCommit": "現在のコミット日",
+    "latestCommit": "最新コミット日",
+    "currentHash": "現在のコミット",
+    "gitHint": "git pull で最新の変更を取得できます。",
+    "download": "ダウンロード",
+    "viewChanges": "変更内容を見る"
   },
   "options": {
     "title": "エディタ設定",

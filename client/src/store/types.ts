@@ -286,6 +286,7 @@ export interface EditorState {
   showCharacterGeneratorDialog: boolean;
   showOptionsDialog: boolean;
   showLocalizationDialog: boolean;
+  showUpdateCheckDialog: boolean;
 
 
   // Actions - Project
@@ -462,6 +463,7 @@ export interface EditorState {
   setShowCharacterGeneratorDialog: (show: boolean) => void;
   setShowOptionsDialog: (show: boolean) => void;
   setShowLocalizationDialog: (show: boolean) => void;
+  setShowUpdateCheckDialog: (show: boolean) => void;
   setTransparentColor: (color: { r: number; g: number; b: number }) => void;
   setMaxUndo: (max: number) => void;
   setZoomStep: (step: number) => void;

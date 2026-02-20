@@ -25,6 +25,7 @@ import ResourceManagerDialog from './components/ResourceManagerDialog';
 import CharacterGeneratorDialog from './components/CharacterGenerator/CharacterGeneratorDialog';
 import OptionsDialog from './components/OptionsDialog';
 import LocalizationDialog from './components/LocalizationDialog';
+import UpdateCheckDialog from './components/UpdateCheckDialog';
 
 import AutotileDebugDialog from './components/AutotileDebugDialog';
 import LightInspector from './components/Sidebar/LightInspector';
@@ -134,6 +135,8 @@ export default function App() {
   const showCharacterGeneratorDialog = useEditorStore((s) => s.showCharacterGeneratorDialog);
   const showOptionsDialog = useEditorStore((s) => s.showOptionsDialog);
   const showLocalizationDialog = useEditorStore((s) => s.showLocalizationDialog);
+  const showUpdateCheckDialog = useEditorStore((s) => s.showUpdateCheckDialog);
+  const setShowUpdateCheckDialog = useEditorStore((s) => s.setShowUpdateCheckDialog);
 
   const toastQueue = useEditorStore((s) => s.toastQueue);
   const dismissToast = useEditorStore((s) => s.dismissToast);
@@ -154,6 +157,48 @@ export default function App() {
   useEffect(() => {
     restoreLastProject();
   }, [restoreLastProject]);
+
+  // 앱 시작 시 자동 업데이트 체크 (하루 한 번)
+  useEffect(() => {
+    const STORAGE_KEY = 'rpg-editor-last-update-check';
+    const ONE_DAY_MS = 86_400_000;
+    const last = parseInt(localStorage.getItem(STORAGE_KEY) ?? '0', 10);
+    if (Date.now() - last < ONE_DAY_MS) return;
+    const timer = setTimeout(async () => {
+      try {
+        const REPO = 'gosuni2025/rpgmaker-mv-editor';
+        const info = await apiClient.get<{ type: string; version?: string; commitDate?: string }>('/version/info');
+        let hasUpdate = false;
+        if (info.type === 'release' && info.version) {
+          const ghRes = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+            headers: { Accept: 'application/vnd.github+json' },
+          });
+          if (ghRes.ok) {
+            const gh = await ghRes.json();
+            const latestTag: string = gh.tag_name ?? '';
+            const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
+            const [aMaj, aMin, aPatch] = parse(info.version);
+            const [bMaj, bMin, bPatch] = parse(latestTag);
+            hasUpdate = aMaj < bMaj || (aMaj === bMaj && (aMin < bMin || (aMin === bMin && (aPatch ?? 0) < (bPatch ?? 0))));
+          }
+        } else if (info.type === 'git' && info.commitDate) {
+          const ghRes = await fetch(`https://api.github.com/repos/${REPO}/commits?sha=main&per_page=1`, {
+            headers: { Accept: 'application/vnd.github+json' },
+          });
+          if (ghRes.ok) {
+            const gh = await ghRes.json();
+            const latestDate: string = gh[0]?.commit?.committer?.date ?? '';
+            hasUpdate = !!latestDate && info.commitDate < latestDate;
+          }
+        }
+        localStorage.setItem(STORAGE_KEY, String(Date.now()));
+        if (hasUpdate) setShowUpdateCheckDialog(true);
+      } catch {
+        // 자동 체크 실패는 무시
+      }
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [setShowUpdateCheckDialog]);
 
   // 서버에서 에디터 설정 로드
   useEffect(() => {
@@ -341,6 +386,7 @@ export default function App() {
       {showCharacterGeneratorDialog && <CharacterGeneratorDialog />}
       {showOptionsDialog && <OptionsDialog />}
       {showLocalizationDialog && <LocalizationDialog />}
+      {showUpdateCheckDialog && <UpdateCheckDialog onClose={() => setShowUpdateCheckDialog(false)} />}
 
       <AutotileDebugDialog open={showAutotileDebug} onClose={() => setShowAutotileDebug(false)} />
       {parseErrors && parseErrors.length > 0 && (

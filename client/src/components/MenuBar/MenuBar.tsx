@@ -48,6 +48,7 @@ export default function MenuBar() {
   const setShowCharacterGeneratorDialog = useEditorStore((s) => s.setShowCharacterGeneratorDialog);
   const setShowOptionsDialog = useEditorStore((s) => s.setShowOptionsDialog);
   const setShowLocalizationDialog = useEditorStore((s) => s.setShowLocalizationDialog);
+  const setShowUpdateCheckDialog = useEditorStore((s) => s.setShowUpdateCheckDialog);
 
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
@@ -174,6 +175,8 @@ export default function MenuBar() {
     {
       label: t('menu.help'),
       items: [
+        { label: t('menu.checkUpdate', '업데이트 확인...'), action: 'checkUpdate' },
+        { type: 'separator' },
         { label: t('menu.homepage'), action: 'homepage' },
         { label: t('menu.reportIssue'), action: 'reportIssue' },
         { type: 'separator' },
@@ -268,6 +271,7 @@ export default function MenuBar() {
 
       case 'options': setShowOptionsDialog(true); break;
       case 'localization': setShowLocalizationDialog(true); break;
+      case 'checkUpdate': setShowUpdateCheckDialog(true); break;
       case 'homepage': window.open('https://github.com/gosuni2025/rpgmaker-mv-editor', '_blank'); break;
       case 'reportIssue': window.open('https://github.com/gosuni2025/rpgmaker-mv-editor/issues', '_blank'); break;
       case 'twitter': window.open('https://x.com/gosuni2025', '_blank'); break;
@@ -276,7 +280,7 @@ export default function MenuBar() {
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
       setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
-      setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog, setEditMode, setSelectedTool, setDrawShape, zoomIn, zoomOut,
+      setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog, setShowUpdateCheckDialog, setEditMode, setSelectedTool, setDrawShape, zoomIn, zoomOut,
       zoomActualSize, undo, redo, openProject, projectPath, t]);
 
   useEffect(() => {
