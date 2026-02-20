@@ -6,15 +6,11 @@ var ExtendedText = {};
 ExtendedText._time = 0;
 
 // ─── 씬 참조 헬퍼 ───
-// MessagePreview에서 설정: ExtendedText._overlayScene = previewScene;
-// 게임 런타임에서는 Graphics._renderer.scene 사용
-// 주의: _editorRendererObj.scene은 에디터 맵 뷰어 씬이므로 절대 사용하지 않음
+// 에디터 프리뷰: MessagePreview가 renderer._etScene = previewScene으로 설정
+// 게임 런타임: _etScene 미설정 → 씬=null → 오버레이 미생성 → bitmap 텍스트 유지
+// 주의: Graphics._renderer.scene은 3D 맵 씬(PerspectiveCamera)이므로 절대 사용 금지
+//   → 화면좌표 기반 오버레이가 월드좌표로 해석되어 맵에 투영되는 버그 발생
 ExtendedText._overlayScene = null;
-ExtendedText._getScene = function() {
-    return ExtendedText._overlayScene
-        || (typeof Graphics !== 'undefined' && Graphics._renderer && Graphics._renderer.scene)
-        || null;
-};
 
 //─── 파라미터 파싱 ───
 ExtendedText._parseParams = function(paramsStr) {
@@ -54,6 +50,20 @@ ExtendedText._lerpColor = function(c1, c2, t) {
         rgb1[1] + (rgb2[1]-rgb1[1])*t,
         rgb1[2] + (rgb2[2]-rgb1[2])*t,
     ]);
+};
+
+ExtendedText._hsv2css = function(h, s, v) {
+    var c = v * s;
+    var x = c * (1 - Math.abs((h * 6) % 2 - 1));
+    var m = v - c;
+    var r, g, b;
+    if      (h < 1/6) { r=c; g=x; b=0; }
+    else if (h < 2/6) { r=x; g=c; b=0; }
+    else if (h < 3/6) { r=0; g=c; b=x; }
+    else if (h < 4/6) { r=0; g=x; b=c; }
+    else if (h < 5/6) { r=x; g=0; b=c; }
+    else               { r=c; g=0; b=x; }
+    return 'rgb(' + Math.round((r+m)*255) + ',' + Math.round((g+m)*255) + ',' + Math.round((b+m)*255) + ')';
 };
 
 //─── GLSL 공통 Vertex ───
@@ -456,9 +466,17 @@ Window_Base.prototype.processNormalCharacter = function(textState) {
                     color: currentColor,
                     finalColor: null,
                 });
-                // gradient: 글자 추가마다 즉시 재그리기 (타이핑 중 착! 현상 방지)
+                // gradient/gradient-wave: 글자 추가마다 즉시 재그리기 (타이핑 중 흰색 착! 현상 방지)
+                // 재그리기 후 마지막 글자 색상으로 변경 → 원본 processNormalCharacter가 올바른 색으로 덮어씀
                 if (seg.gradientActive) {
                     this._etRedrawGradient(seg);
+                    var lastCh = seg.chars[seg.chars.length - 1];
+                    if (lastCh && lastCh.finalColor) this.changeTextColor(lastCh.finalColor);
+                }
+                if (seg.gradientWaveActive) {
+                    this._etRedrawGradientWave(seg);
+                    var lastChW = seg.chars[seg.chars.length - 1];
+                    if (lastChW && lastChW.finalColor) this.changeTextColor(lastChW.finalColor);
                 }
             }
         }
@@ -491,6 +509,33 @@ Window_Base.prototype._etRedrawGradient = function(saved) {
     this.changeTextColor(savedColor);
 };
 
+//─── gradient-wave 재그리기 (Canvas 2D — 타이핑 중 정적 무지개 색상 적용) ───
+// 프리뷰 오버레이가 생성되면 애니메이션 버전으로 교체됨
+Window_Base.prototype._etRedrawGradientWave = function(saved) {
+    var chars = saved.chars;
+    if (!chars || chars.length === 0 || !this.contents) return;
+    var bmp = this.contents;
+    var lh = chars[0].h || this.lineHeight();
+    var startX = saved.startX;
+    var endX = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c);
+    var totalW = endX - startX;
+    var y0 = saved.startY;
+    var ow = bmp.outlineWidth || 4;
+    if (bmp.clearRect) bmp.clearRect(startX - ow, y0, endX - startX + ow*2, lh);
+
+    var savedColor = bmp.textColor;
+    for (var i = 0; i < chars.length; i++) {
+        var ch = chars[i];
+        // HSV hue: 글자 위치 기반 (0~1, GLSL shader와 동일 공식)
+        var hue = totalW > 0 ? (ch.x - startX) / totalW : 0;
+        var color = ExtendedText._hsv2css(hue, 1.0, 0.62);
+        this.changeTextColor(color);
+        bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c)*2, ch.h || lh);
+        ch.finalColor = color;
+    }
+    this.changeTextColor(savedColor);
+};
+
 //─── 세그먼트 오버레이 메시 생성 ───
 Window_Base.prototype._etEnsureOverlay = function(seg) {
     if (seg._overlayMesh || seg._charMeshes) return;  // 이미 생성됨
@@ -499,7 +544,8 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     // 프리뷰: drawTextEx 중간에 RAF가 끼어들 수 있음
     if (seg._etOpen) return;
     var THREE = window.THREE;
-    var scene = ExtendedText._getScene();
+    // per-renderer 씬 → 글로벌 fallback (게임 런타임은 둘 다 null → 오버레이 미생성)
+    var scene = this._etScene || ExtendedText._overlayScene || null;
     if (!THREE || !scene || !this.contents || seg.chars.length === 0) return;
 
     // shake는 per-character 독립 메시 사용 (UV charIdx 기반 세로줄 아티팩트 방지)
@@ -612,6 +658,7 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     seg._overlayMesh      = mesh;
     seg._overlayTex       = tex;
     seg._overlayStartTime = ExtendedText._time;
+    seg._overlayScene     = scene;  // dispose 시 사용 (글로벌 참조가 변경되어도 안전)
     // VN 스크롤 위치 보정용 기준값 저장
     seg._etBaseWorldY = worldBaseY;
     seg._etSegH       = segH;
@@ -697,6 +744,7 @@ Window_Base.prototype._etEnsureShakeMeshes = function(seg, THREE, scene) {
     }
 
     seg._overlayStartTime = ExtendedText._time;
+    seg._overlayScene     = scene;  // dispose 시 사용
 };
 
 //─── 오버레이 uniform 업데이트 ───
@@ -748,7 +796,7 @@ Window_Base.prototype._etUpdateOverlayUniforms = function(seg, t) {
 
 //─── 오버레이 dispose ───
 Window_Base.prototype._etDisposeOverlay = function(seg) {
-    var scene = ExtendedText._getScene();
+    var scene = seg._overlayScene || ExtendedText._overlayScene || null;
 
     // shake per-character meshes
     if (seg._charMeshes) {
@@ -773,6 +821,8 @@ Window_Base.prototype._etDisposeOverlay = function(seg) {
         seg._overlayMesh = null;
         seg._overlayTex = null;
     }
+
+    seg._overlayScene = null;
 };
 
 //─── _etRunAnimPass: ShaderMaterial 오버레이 업데이트 ───

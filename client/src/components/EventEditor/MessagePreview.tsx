@@ -598,6 +598,8 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
       r._etWindowY = layout.textY;
       r._etPadding = 0;
       r._etScrollY = isVN ? vnScrollRef.current * LINE_H : 0;
+      // per-renderer 씬 참조 (게임 런타임과 분리)
+      if (threeRef.current) r._etScene = threeRef.current.scene;
     }
     rendererRef.current = r;
     if (r) setupRendererText(r, isVN ? allLines : allLines.slice(0, 4));
@@ -640,6 +642,8 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
 
       // ExtendedText 애니메이션 패스 (updateScene 이후 실행 — _etWindowX/Y/Padding 설정 완료)
       const r = rendererRef.current;
+      // 초기 렌더 시 buildRenderer가 initThree보다 먼저 실행되어 _etScene 미설정될 수 있음
+      if (r && !r._etScene) r._etScene = t.scene;
       if (r?._etAnimSegs?.length > 0) {
         try { r._etRunAnimPass(); } catch (_) {}
       }
