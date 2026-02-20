@@ -11,6 +11,8 @@ type SSEEvent =
   | { type: 'status'; phase: 'counting' | 'zipping' | 'uploading' | 'creating-site' }
   | { type: 'counted'; total: number }
   | { type: 'progress'; current: number; total: number }
+  | { type: 'zip-progress'; current: number; total: number }
+  | { type: 'upload-progress'; sent: number; total: number }
   | { type: 'site-created'; siteId: string; siteName: string }
   | { type: 'done'; zipPath?: string; deployUrl?: string; siteUrl?: string }
   | { type: 'error'; message: string };
@@ -106,12 +108,13 @@ export default function DeployDialog() {
   };
 
   const handleSSEEvent = useCallback(
-    (ev: SSEEvent, totalRef: { current: number }, weights: { copy: number }): boolean => {
+    (ev: SSEEvent, totalRef: { current: number }, weights: { copy: number; zip: number }): boolean => {
+      const uploadStart = weights.copy + weights.zip;
       if (ev.type === 'status') {
         if (ev.phase === 'creating-site') setStatus(t('deploy.netlify.creatingSite'));
         if (ev.phase === 'counting') setStatus(t('deploy.netlify.analyzing'));
         if (ev.phase === 'zipping') { setProgress(weights.copy); setStatus(t('deploy.netlify.zipping')); }
-        if (ev.phase === 'uploading') { setProgress(weights.copy + 0.15); setStatus(t('deploy.netlify.uploading')); }
+        if (ev.phase === 'uploading') { setProgress(uploadStart); setStatus(t('deploy.netlify.uploading')); }
       } else if (ev.type === 'site-created') {
         setSiteId(ev.siteId);
         setStatus(`${t('deploy.netlify.siteCreatedMsg')}: ${ev.siteName}.netlify.app`);
@@ -122,6 +125,16 @@ export default function DeployDialog() {
       } else if (ev.type === 'progress') {
         setProgress((ev.current / Math.max(totalRef.current, 1)) * weights.copy);
         setStatus(`${t('deploy.netlify.copying')} (${ev.current}/${totalRef.current})`);
+      } else if (ev.type === 'zip-progress') {
+        const pct = ev.current / Math.max(ev.total, 1);
+        setProgress(weights.copy + pct * weights.zip);
+        setStatus(`${t('deploy.netlify.zipping')} (${ev.current}/${ev.total})`);
+      } else if (ev.type === 'upload-progress') {
+        const pct = ev.sent / Math.max(ev.total, 1);
+        setProgress(uploadStart + pct * (1 - uploadStart));
+        const sentMb = (ev.sent / 1048576).toFixed(1);
+        const totalMb = (ev.total / 1048576).toFixed(1);
+        setStatus(`${t('deploy.netlify.uploading')} (${sentMb} / ${totalMb} MB)`);
       } else if (ev.type === 'error') {
         setError(ev.message);
         setStatus('');
@@ -153,7 +166,7 @@ export default function DeployDialog() {
         evtSource.close();
         return;
       }
-      handleSSEEvent(ev, totalRef, { copy: 0.8 });
+      handleSSEEvent(ev, totalRef, { copy: 0.75, zip: 0.25 });
     };
     evtSource.onerror = () => {
       evtSource.close();
@@ -200,7 +213,7 @@ export default function DeployDialog() {
             setTimeout(() => setProgress(null), 800);
             return false;
           }
-          return handleSSEEvent(ev, totalRef, { copy: 0.6 });
+          return handleSSEEvent(ev, totalRef, { copy: 0.55, zip: 0.1 });
         },
       );
     } catch (e) {

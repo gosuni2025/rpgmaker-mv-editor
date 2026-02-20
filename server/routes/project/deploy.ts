@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import https from 'https';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import projectManager from '../../services/projectManager';
 import settingsManager from '../../services/settingsManager';
 import { openInExplorer } from './helpers';
@@ -45,12 +45,39 @@ function applyIndexHtmlRename(stagingDir: string) {
   }
 }
 
-async function zipStaging(stagingDir: string, zipPath: string): Promise<void> {
+async function zipStagingWithProgress(
+  stagingDir: string,
+  zipPath: string,
+  fileTotal: number,
+  onProgress: (current: number, total: number) => void,
+): Promise<void> {
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-  await new Promise<void>((resolve, reject) => {
-    exec(`zip -r "${zipPath}" .`, { cwd: stagingDir }, (err) => {
-      if (err) reject(err); else resolve();
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn('zip', ['-r', zipPath, '.'], { cwd: stagingDir });
+    let current = 0;
+    let buf = '';
+    const parseLine = (chunk: Buffer) => {
+      buf += chunk.toString();
+      let nl: number;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (line.startsWith('adding:') || line.startsWith('updating:')) {
+          current++;
+          const display = Math.min(current, fileTotal);
+          if (current % 10 === 0 || display === fileTotal) {
+            onProgress(display, fileTotal);
+          }
+        }
+      }
+    };
+    child.stdout.on('data', parseLine);
+    child.stderr.on('data', parseLine);
+    child.on('close', (code) => {
+      if (code === 0) { onProgress(fileTotal, fileTotal); resolve(); }
+      else reject(new Error(`zip 압축 실패 (code ${code})`));
     });
+    child.on('error', reject);
   });
 }
 
@@ -120,10 +147,10 @@ function netlifyUpload(
   apiKey: string,
   siteId: string,
   zipPath: string,
+  onProgress?: (sent: number, total: number) => void,
 ): Promise<{ id: string; deploy_ssl_url?: string; ssl_url?: string; url?: string }> {
   return new Promise((resolve, reject) => {
-    const stat = fs.statSync(zipPath);
-    const fileStream = fs.createReadStream(zipPath);
+    const totalSize = fs.statSync(zipPath).size;
     const options: https.RequestOptions = {
       hostname: 'api.netlify.com',
       path: `/api/v1/sites/${siteId}/deploys`,
@@ -131,7 +158,7 @@ function netlifyUpload(
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/zip',
-        'Content-Length': stat.size,
+        'Content-Length': totalSize,
       },
     };
     const req = https.request(options, (res) => {
@@ -151,7 +178,23 @@ function netlifyUpload(
       });
     });
     req.on('error', reject);
-    fileStream.pipe(req);
+
+    // 업로드 진행률 추적 (backpressure 고려)
+    let sent = 0;
+    let lastPct = -1;
+    const fileStream = fs.createReadStream(zipPath);
+    fileStream.on('data', (chunk: Buffer) => {
+      sent += chunk.length;
+      if (onProgress) {
+        const pct = Math.floor((sent / totalSize) * 100);
+        if (pct !== lastPct) { lastPct = pct; onProgress(sent, totalSize); }
+      }
+      const canContinue = req.write(chunk);
+      if (!canContinue) fileStream.pause();
+    });
+    req.on('drain', () => fileStream.resume());
+    fileStream.on('end', () => req.end());
+    fileStream.on('error', reject);
   });
 }
 
@@ -196,7 +239,9 @@ async function buildDeployZipWithProgress(
     onEvent({ type: 'status', phase: 'zipping' });
     const safeName = (gameTitle || 'game').replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
     const zipPath = path.join(DEPLOYS_DIR, `${safeName}.zip`);
-    await zipStaging(stagingDir, zipPath);
+    await zipStagingWithProgress(stagingDir, zipPath, total, (cur, tot) => {
+      onEvent({ type: 'zip-progress', current: cur, total: tot });
+    });
 
     return zipPath;
   } finally {
@@ -260,7 +305,9 @@ router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
       (data) => sseWrite(res, data),
     );
     sseWrite(res, { type: 'status', phase: 'uploading' });
-    const result = await netlifyUpload(apiKey.trim(), resolvedSiteId, zipPath);
+    const result = await netlifyUpload(apiKey.trim(), resolvedSiteId, zipPath, (sent, total) => {
+      sseWrite(res, { type: 'upload-progress', sent, total });
+    });
     const deployUrl = result.deploy_ssl_url || result.ssl_url || result.url || '';
     const siteUrl = result.ssl_url || result.url || '';
     // 사이트 URL을 설정에 저장 (다음에 "내 사이트 열기"에 활용)
