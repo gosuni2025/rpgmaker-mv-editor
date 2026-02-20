@@ -467,19 +467,16 @@
         }
     };
 
-    // Window_Message의 pause를 해제하여 다음 메시지로 진행
+    // Window_Message를 다음 메시지로 진행
+    // _forceOk 플래그를 세워 isTriggered()가 1회 true 반환하도록 함.
+    // 원본 updateInput() 흐름:
+    //   isTriggered()=true → pause=false, !_textState(onEndOfText에서 null) → terminateMessage()
+    //   terminateMessage() → $gameMessage.clear() → 인터프리터 진행 → 다음 startMessage()
     Window_VNText.prototype._sendOkToMessage = function () {
         var s  = SceneManager._scene;
         var mw = s && s._messageWindow;
         if (!mw || !mw.pause) return;
-        mw.pause = false;
-        mw._waitCount = 0;
-        // textState를 null로 지워야 함:
-        // pause=false만 설정하면 다음 프레임에 updateMessage()가 textState를 보고
-        // onEndOfText() → startPause() → pause=true로 되돌려버림.
-        // null로 설정하면 updateMessage()가 false 반환 → canStart()로 넘어가
-        // 다음 메시지 블록의 startMessage()가 호출됨.
-        mw._textState = null;
+        this._forceOk = true;
     };
 
     // ── update ───────────────────────────────────────────────────────────────
@@ -672,10 +669,19 @@
     // Window_Message 확장
     // =========================================================================
 
-    // VN 모드에서 Window_Message 자체 입력을 차단 → VN 창이 직접 pause 해제
+    // VN 모드에서 Window_Message 자체 입력 차단
+    // 단, VN 창이 _forceOk 플래그를 세우면 1회만 true 반환 → 원본 흐름(terminateMessage) 활용
     var _WM_isTriggered = Window_Message.prototype.isTriggered;
     Window_Message.prototype.isTriggered = function () {
-        if (VNManager.isActive()) return false;
+        if (VNManager.isActive()) {
+            var s  = SceneManager._scene;
+            var tw = s && s._vnCtrl ? s._vnCtrl.getTextWindow() : null;
+            if (tw && tw._forceOk) {
+                tw._forceOk = false;
+                return true;  // 원본 updateInput() 흐름: pause=false → terminateMessage()
+            }
+            return false;
+        }
         return _WM_isTriggered.call(this);
     };
 
