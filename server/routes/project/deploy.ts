@@ -66,6 +66,56 @@ function sseWrite(res: Response, data: object) {
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
+/** 게임 제목을 Netlify 사이트 이름 규칙(소문자+숫자+하이픈)으로 변환 */
+function toNetlifySiteName(gameTitle: string): string {
+  return (gameTitle || 'rpgmaker-game')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 63)
+    || 'rpgmaker-game';
+}
+
+/** Netlify 사이트 신규 생성 */
+function netlifyCreateSite(
+  apiKey: string,
+  name: string,
+): Promise<{ id: string; name: string; ssl_url?: string }> {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ name });
+    const options: https.RequestOptions = {
+      hostname: 'api.netlify.com',
+      path: '/api/v1/sites',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (res.statusCode && res.statusCode >= 400) {
+            const msg = Array.isArray(json.errors) ? json.errors.join(', ') : (json.message || json.error);
+            reject(new Error(msg || `Netlify API 오류 (HTTP ${res.statusCode})`));
+          } else {
+            resolve(json);
+          }
+        } catch {
+          reject(new Error(`응답 파싱 실패: ${data.slice(0, 200)}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
 function netlifyUpload(
   apiKey: string,
   siteId: string,
@@ -176,25 +226,41 @@ router.get('/deploy-zip-progress', async (_req: Request, res: Response) => {
 });
 
 // Netlify 자동 배포 (SSE 프로그레스, POST body로 API 키 전달)
+// siteId가 비어있으면 프로젝트 이름으로 사이트를 자동 생성하고 설정에 저장
 router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {
     res.status(404).json({ error: '프로젝트가 열려있지 않습니다' });
     return;
   }
-  const { apiKey, siteId } = req.body as { apiKey?: string; siteId?: string };
-  if (!apiKey?.trim() || !siteId?.trim()) {
-    res.status(400).json({ error: 'API Key와 Site ID가 필요합니다' });
+  const { apiKey, siteId: inputSiteId } = req.body as { apiKey?: string; siteId?: string };
+  if (!apiKey?.trim()) {
+    res.status(400).json({ error: 'API Key가 필요합니다' });
     return;
   }
   setupSSE(res);
   try {
+    const gameTitle = getGameTitle();
+    let resolvedSiteId = inputSiteId?.trim() || '';
+
+    // Site ID가 없으면 자동 생성
+    if (!resolvedSiteId) {
+      sseWrite(res, { type: 'status', phase: 'creating-site' });
+      const siteName = toNetlifySiteName(gameTitle);
+      const site = await netlifyCreateSite(apiKey.trim(), siteName);
+      resolvedSiteId = site.id;
+      // 생성된 Site ID를 설정에 저장 (다음 배포에서 재사용)
+      const current = settingsManager.get();
+      settingsManager.update({ netlify: { ...current.netlify, siteId: resolvedSiteId } });
+      sseWrite(res, { type: 'site-created', siteId: resolvedSiteId, siteName: site.name });
+    }
+
     const zipPath = await buildDeployZipWithProgress(
       projectManager.currentPath!,
-      getGameTitle(),
+      gameTitle,
       (data) => sseWrite(res, data),
     );
     sseWrite(res, { type: 'status', phase: 'uploading' });
-    const result = await netlifyUpload(apiKey.trim(), siteId.trim(), zipPath);
+    const result = await netlifyUpload(apiKey.trim(), resolvedSiteId, zipPath);
     const deployUrl = result.deploy_ssl_url || result.ssl_url || result.url || '';
     sseWrite(res, { type: 'done', deployUrl, deployId: result.id });
   } catch (err) {

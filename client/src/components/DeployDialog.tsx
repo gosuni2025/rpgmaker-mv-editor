@@ -8,17 +8,17 @@ import FolderBrowser from './common/FolderBrowser';
 type Tab = 'netlify' | 'local';
 
 type SSEEvent =
-  | { type: 'status'; phase: 'counting' | 'zipping' | 'uploading' }
+  | { type: 'status'; phase: 'counting' | 'zipping' | 'uploading' | 'creating-site' }
   | { type: 'counted'; total: number }
   | { type: 'progress'; current: number; total: number }
-  | { type: 'done'; zipPath?: string; deployUrl?: string; deployId?: string }
+  | { type: 'site-created'; siteId: string; siteName: string }
+  | { type: 'done'; zipPath?: string; deployUrl?: string }
   | { type: 'error'; message: string };
 
-/** fetch 기반 SSE 스트림 읽기 (POST body 지원) */
 async function readSSEStream(
   url: string,
   options: RequestInit,
-  onEvent: (data: SSEEvent) => boolean, // false 반환 시 중단
+  onEvent: (data: SSEEvent) => boolean,
 ): Promise<void> {
   const response = await fetch(url, options);
   if (!response.ok) {
@@ -40,8 +40,7 @@ async function readSSEStream(
       for (const line of part.split('\n')) {
         if (line.startsWith('data: ')) {
           try {
-            const ev = JSON.parse(line.slice(6)) as SSEEvent;
-            if (!onEvent(ev)) return;
+            if (!onEvent(JSON.parse(line.slice(6)) as SSEEvent)) return;
           } catch {}
         }
       }
@@ -59,6 +58,7 @@ export default function DeployDialog() {
   // Netlify 설정
   const [apiKey, setApiKey] = useState('');
   const [siteId, setSiteId] = useState('');
+  const [manualSiteId, setManualSiteId] = useState(false); // false=자동, true=수동
   const [settingsSaved, setSettingsSaved] = useState(false);
 
   // 작업 상태
@@ -66,14 +66,13 @@ export default function DeployDialog() {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [deployUrl, setDeployUrl] = useState('');
-  const [progress, setProgress] = useState<number | null>(null); // 0~1
+  const [progress, setProgress] = useState<number | null>(null);
 
   // 로컬 배포
   const [outputPath, setOutputPath] = useState('');
   const [showBrowse, setShowBrowse] = useState(false);
   const [browsePath, setBrowsePath] = useState('');
 
-  // 가이드 열기/닫기
   const [guideOpen, setGuideOpen] = useState(false);
 
   useEffect(() => {
@@ -97,26 +96,22 @@ export default function DeployDialog() {
     }
   };
 
-  /** SSE 이벤트를 공통 처리 → progress/status 업데이트, true=계속 false=에러중단 */
   const handleSSEEvent = useCallback(
-    (ev: SSEEvent, totalRef: { current: number }, phaseWeight: { copy: number; zip: number }): boolean => {
+    (ev: SSEEvent, totalRef: { current: number }, weights: { copy: number }): boolean => {
       if (ev.type === 'status') {
+        if (ev.phase === 'creating-site') setStatus(t('deploy.netlify.creatingSite'));
         if (ev.phase === 'counting') setStatus(t('deploy.netlify.analyzing'));
-        if (ev.phase === 'zipping') {
-          setProgress(phaseWeight.copy);
-          setStatus(t('deploy.netlify.zipping'));
-        }
-        if (ev.phase === 'uploading') {
-          setProgress(phaseWeight.copy + phaseWeight.zip);
-          setStatus(t('deploy.netlify.uploading'));
-        }
+        if (ev.phase === 'zipping') { setProgress(weights.copy); setStatus(t('deploy.netlify.zipping')); }
+        if (ev.phase === 'uploading') { setProgress(weights.copy + 0.15); setStatus(t('deploy.netlify.uploading')); }
+      } else if (ev.type === 'site-created') {
+        setSiteId(ev.siteId);
+        setStatus(`${t('deploy.netlify.siteCreatedMsg')}: ${ev.siteName}.netlify.app`);
       } else if (ev.type === 'counted') {
         totalRef.current = ev.total;
         setStatus(`${t('deploy.netlify.copying')} (0/${ev.total})`);
         setProgress(0);
       } else if (ev.type === 'progress') {
-        const pct = (ev.current / Math.max(totalRef.current, 1)) * phaseWeight.copy;
-        setProgress(pct);
+        setProgress((ev.current / Math.max(totalRef.current, 1)) * weights.copy);
         setStatus(`${t('deploy.netlify.copying')} (${ev.current}/${totalRef.current})`);
       } else if (ev.type === 'error') {
         setError(ev.message);
@@ -135,11 +130,9 @@ export default function DeployDialog() {
     setProgress(0);
     setStatus(t('deploy.netlify.analyzing'));
     setBusy(true);
-
     let completed = false;
     const totalRef = { current: 0 };
     const evtSource = new EventSource('/api/project/deploy-zip-progress');
-
     evtSource.onmessage = (e) => {
       const ev = JSON.parse(e.data) as SSEEvent;
       if (ev.type === 'done') {
@@ -151,9 +144,8 @@ export default function DeployDialog() {
         evtSource.close();
         return;
       }
-      handleSSEEvent(ev, totalRef, { copy: 0.8, zip: 0.2 });
+      handleSSEEvent(ev, totalRef, { copy: 0.8 });
     };
-
     evtSource.onerror = () => {
       evtSource.close();
       if (!completed) {
@@ -166,29 +158,21 @@ export default function DeployDialog() {
   };
 
   const handleOpenDrop = async () => {
-    try {
-      await apiClient.post('/project/open-netlify-drop', {});
-    } catch (e) {
-      setError((e as Error).message);
-    }
+    try { await apiClient.post('/project/open-netlify-drop', {}); }
+    catch (e) { setError((e as Error).message); }
   };
 
   const handleOpenNetlifySite = async () => {
-    try {
-      await apiClient.post('/project/open-url', { url: 'https://www.netlify.com' });
-    } catch (e) {
-      setError((e as Error).message);
-    }
+    try { await apiClient.post('/project/open-url', { url: 'https://www.netlify.com' }); }
+    catch (e) { setError((e as Error).message); }
   };
 
   const handleAutoDeploy = async () => {
     if (!apiKey.trim()) { setError(t('deploy.netlify.apiKeyRequired')); return; }
-    if (!siteId.trim()) { setError(t('deploy.netlify.siteIdRequired')); return; }
     resetStatus();
     setProgress(0);
     setStatus(t('deploy.netlify.analyzing'));
     setBusy(true);
-
     const totalRef = { current: 0 };
     try {
       await readSSEStream(
@@ -196,7 +180,7 @@ export default function DeployDialog() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiKey: apiKey.trim(), siteId: siteId.trim() }),
+          body: JSON.stringify({ apiKey: apiKey.trim(), siteId: manualSiteId ? siteId.trim() : siteId }),
         },
         (ev) => {
           if (ev.type === 'done') {
@@ -204,9 +188,9 @@ export default function DeployDialog() {
             setStatus(t('deploy.netlify.deployDone'));
             setDeployUrl(ev.deployUrl || '');
             setTimeout(() => setProgress(null), 800);
-            return false; // 스트림 종료
+            return false;
           }
-          return handleSSEEvent(ev, totalRef, { copy: 0.6, zip: 0.15 });
+          return handleSSEEvent(ev, totalRef, { copy: 0.6 });
         },
       );
     } catch (e) {
@@ -247,7 +231,8 @@ export default function DeployDialog() {
 
   const fieldLabel: React.CSSProperties = { color: '#aaa', fontSize: 11, marginBottom: 4 };
   const inputStyle: React.CSSProperties = {
-    flex: 1,
+    width: '100%',
+    boxSizing: 'border-box',
     background: '#2b2b2b',
     border: '1px solid #555',
     borderRadius: 3,
@@ -263,7 +248,6 @@ export default function DeployDialog() {
     t('deploy.netlify.guide3'),
     t('deploy.netlify.guide4'),
     t('deploy.netlify.guide5'),
-    t('deploy.netlify.guide6'),
   ];
 
   return (
@@ -271,7 +255,6 @@ export default function DeployDialog() {
       <div className="db-dialog" style={{ width: 560, height: 'auto', minHeight: 0 }}>
         <div className="db-dialog-header">{t('deploy.title')}</div>
 
-        {/* 탭 */}
         <div style={{ display: 'flex', borderBottom: '1px solid #444', paddingTop: 4 }}>
           <button style={tabStyle(tab === 'netlify')} onClick={() => { setTab('netlify'); resetStatus(); }}>
             {t('deploy.tabNetlify')}
@@ -285,7 +268,7 @@ export default function DeployDialog() {
 
           {tab === 'netlify' && (
             <>
-              {/* 면책 고지 + netlify.com 링크 */}
+              {/* 면책 고지 */}
               <div style={{ background: '#2a2a2a', border: '1px solid #3a3a3a', borderRadius: 4, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <span style={{ color: '#777', fontSize: 11, lineHeight: 1.4 }}>
                   {t('deploy.netlify.disclaimer')}
@@ -299,16 +282,35 @@ export default function DeployDialog() {
               <div style={{ background: '#333', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ color: '#bbb', fontSize: 12, fontWeight: 600 }}>{t('deploy.netlify.settingsTitle')}</div>
 
+                {/* API Key */}
                 <div>
                   <div style={fieldLabel}>{t('deploy.netlify.apiKey')}</div>
                   <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                     placeholder={t('deploy.netlify.apiKeyPlaceholder')} style={inputStyle} />
                 </div>
 
+                {/* Site ID - 자동/수동 */}
                 <div>
-                  <div style={fieldLabel}>{t('deploy.netlify.siteId')}</div>
-                  <input type="text" value={siteId} onChange={(e) => setSiteId(e.target.value)}
-                    placeholder={t('deploy.netlify.siteIdPlaceholder')} style={inputStyle} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={fieldLabel}>Site ID</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={manualSiteId}
+                        onChange={(e) => setManualSiteId(e.target.checked)} />
+                      <span style={{ color: '#888', fontSize: 11 }}>{t('deploy.netlify.siteManualInput')}</span>
+                    </label>
+                  </div>
+
+                  {manualSiteId ? (
+                    <input type="text" value={siteId} onChange={(e) => setSiteId(e.target.value)}
+                      placeholder={t('deploy.netlify.siteIdPlaceholder')} style={inputStyle} />
+                  ) : (
+                    <div style={{ padding: '5px 8px', background: '#2b2b2b', border: '1px solid #444', borderRadius: 3, fontSize: 12 }}>
+                      {siteId
+                        ? <span style={{ color: '#6c6' }}>✓ {t('deploy.netlify.siteConnected')}: <code style={{ fontSize: 11, color: '#aaa' }}>{siteId.slice(0, 8)}…</code></span>
+                        : <span style={{ color: '#777' }}>{t('deploy.netlify.siteAutoDesc')}</span>
+                      }
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
@@ -331,7 +333,7 @@ export default function DeployDialog() {
                   <div style={{ padding: '10px 12px', background: '#252525' }}>
                     <ol style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {guideSteps.map((step, i) => (
-                        <li key={i} style={{ color: '#ccc', fontSize: 12, lineHeight: 1.5 }}>{step}</li>
+                        <li key={i} style={{ color: '#ccc', fontSize: 12, lineHeight: 1.6 }}>{step}</li>
                       ))}
                     </ol>
                   </div>
@@ -340,7 +342,7 @@ export default function DeployDialog() {
 
               {/* 수동 업로드 */}
               <div>
-                <div style={{ color: '#777', fontSize: 11, marginBottom: 8 }}>수동 업로드</div>
+                <div style={{ color: '#666', fontSize: 11, marginBottom: 6 }}>수동 업로드</div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="db-btn" onClick={handleMakeZip} disabled={busy} style={{ flex: 1 }}>
                     {t('deploy.netlify.makeZip')}
@@ -352,31 +354,21 @@ export default function DeployDialog() {
               </div>
 
               {/* 자동 배포 */}
-              <div>
-                <div style={{ color: '#777', fontSize: 11, marginBottom: 8 }}>자동 배포</div>
-                <button className="db-btn" onClick={handleAutoDeploy} disabled={busy}
-                  style={{ width: '100%', background: '#0078d4', borderColor: '#0078d4' }}>
-                  {t('deploy.netlify.autoDeploy')}
-                </button>
-              </div>
+              <button className="db-btn" onClick={handleAutoDeploy} disabled={busy}
+                style={{ width: '100%', background: '#0078d4', borderColor: '#0078d4' }}>
+                {t('deploy.netlify.autoDeploy')}
+              </button>
 
               {/* 프로그레스 바 */}
               {progress !== null && (
                 <div style={{ background: '#3a3a3a', borderRadius: 3, height: 5, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${Math.round(progress * 100)}%`,
-                    background: '#2675bf',
-                    transition: 'width 0.15s ease-out',
-                  }} />
+                  <div style={{ height: '100%', width: `${Math.round(progress * 100)}%`, background: '#2675bf', transition: 'width 0.15s ease-out' }} />
                 </div>
               )}
 
-              {/* 상태 */}
               {status && <div style={{ color: '#6c6', fontSize: 12 }}>{status}</div>}
               {error && <div style={{ color: '#e55', fontSize: 12 }}>{error}</div>}
 
-              {/* 배포 URL */}
               {deployUrl && (
                 <div style={{ background: '#2a3a2a', border: '1px solid #3a5a3a', borderRadius: 4, padding: '8px 12px' }}>
                   <div style={{ color: '#6c6', fontSize: 11, marginBottom: 4 }}>{t('deploy.netlify.deployUrl')}</div>
@@ -384,7 +376,7 @@ export default function DeployDialog() {
                     style={{ color: '#5af', fontSize: 13, wordBreak: 'break-all' }}>
                     {deployUrl}
                   </a>
-                  <div style={{ color: '#666', fontSize: 11, marginTop: 4 }}>
+                  <div style={{ color: '#555', fontSize: 11, marginTop: 4 }}>
                     {t('deploy.netlify.deployUrlDesc')}
                   </div>
                 </div>
@@ -398,7 +390,7 @@ export default function DeployDialog() {
                 <div style={fieldLabel}>{t('deploy.outputPath')}</div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input type="text" value={outputPath} readOnly
-                    style={{ ...inputStyle, fontFamily: undefined }} />
+                    style={{ ...inputStyle, fontFamily: undefined, flex: 1, width: 'auto' }} />
                   <button className="db-btn" onClick={() => setShowBrowse(true)}>{t('deploy.browse')}</button>
                 </div>
               </div>
