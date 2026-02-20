@@ -519,7 +519,7 @@ export default function DeployDialog() {
               {zipFile && !deployUrl && (
                 <div style={{ color: '#ddd', fontSize: 11, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{zipFile}</div>
               )}
-              {error && <div style={{ color: '#e55', fontSize: 12 }}>{error}</div>}
+              {error && <div style={{ color: '#e55', fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{error}</div>}
               {deployUrl && (
                 <div style={{ background: '#2a3a2a', border: '1px solid #3a5a3a', borderRadius: 4, padding: '8px 12px' }}>
                   <div style={{ color: '#6c6', fontSize: 11, marginBottom: 4 }}>{t('deploy.netlify.deployUrl')}</div>
@@ -624,7 +624,7 @@ export default function DeployDialog() {
                 </div>
               )}
               {status && <div style={{ color: '#6c6', fontSize: 12 }}>{status}</div>}
-              {error && <div style={{ color: '#e55', fontSize: 12 }}>{error}</div>}
+              {error && <div style={{ color: '#e55', fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{error}</div>}
 
               {/* 완료 후 URL */}
               {(ghPageUrl || ghCheck?.pageUrl) && (
@@ -655,7 +655,7 @@ export default function DeployDialog() {
                 </div>
               </div>
               {status && <div style={{ color: '#6c6', fontSize: 12 }}>{status}</div>}
-              {error && <div style={{ color: '#e55', fontSize: 12 }}>{error}</div>}
+              {error && <div style={{ color: '#e55', fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{error}</div>}
             </>
           )}
 

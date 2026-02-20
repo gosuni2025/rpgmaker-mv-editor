@@ -83,6 +83,21 @@ router.get('/deploy-ghpages-check', async (_req: Request, res: Response) => {
   res.json({ isGitRepo, remotes, selectedRemote, pageUrl });
 });
 
+// ─── git execSync 래퍼: stderr까지 포함한 에러 메시지 생성 ───────────────────
+function gitExec(cmd: string, opts: { encoding?: BufferEncoding } = {}): string {
+  try {
+    return execSync(cmd, { encoding: opts.encoding ?? 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }) as string;
+  } catch (e: unknown) {
+    const err = e as { message?: string; stderr?: Buffer | string; stdout?: Buffer | string; status?: number };
+    const stderr = (err.stderr ? err.stderr.toString() : '').trim();
+    const stdout = (err.stdout ? err.stdout.toString() : '').trim();
+    const code = err.status !== undefined ? ` (exit ${err.status})` : '';
+    // stderr 우선, 없으면 stdout, 없으면 message
+    const detail = stderr || stdout || err.message || String(e);
+    throw new Error(`${detail}${code}`);
+  }
+}
+
 // ─── GitHub Pages 배포 (SSE) ──────────────────────────────────────────────────
 router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {
@@ -100,12 +115,19 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
   // 배포 전 현재 브랜치를 기억해두고 복귀에 사용
   let originalBranch = 'main';
   let stashed = false;
+  let currentStep = '';
 
   try {
     // ── 1. remote URL 확인 ────────────────────────────────────────────────────
+    currentStep = `remote '${remote}' URL 확인`;
     const remoteUrl = await getRemoteUrl(srcPath, remote);
     if (!remoteUrl) {
-      sseWrite(res, { type: 'error', message: `remote '${remote}'를 찾을 수 없습니다. git remote add ${remote} <URL> 을 실행해주세요.` });
+      sseWrite(res, {
+        type: 'error',
+        message: `[${currentStep}] remote '${remote}'를 찾을 수 없습니다.\n` +
+          `프로젝트 폴더(${srcPath})에서 다음 명령으로 추가하세요:\n` +
+          `  git remote add ${remote} https://github.com/<owner>/<repo>.git`,
+      });
       res.end();
       return;
     }
@@ -114,77 +136,103 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
     // 비교 기준: 로컬 gh-pages 브랜치 (HEAD가 아님 — 이전 배포 커밋이 항상 걸리므로)
     // 로컬 gh-pages가 없으면 첫 배포이므로 체크 스킵
     sseWrite(res, { type: 'status', phase: 'copying' });
+    currentStep = `리모트 ${remote}/${DEPLOY_BRANCH} 동기화 확인`;
     try {
       const localGhExists = (() => {
         try {
-          execSync(`git -C "${srcPath}" rev-parse --verify ${DEPLOY_BRANCH}`, { stdio: 'pipe' });
+          gitExec(`git -C "${srcPath}" rev-parse --verify ${DEPLOY_BRANCH}`);
           return true;
         } catch { return false; }
       })();
       if (localGhExists) {
-        execSync(`git -C "${srcPath}" fetch ${remote} ${DEPLOY_BRANCH}`, { stdio: 'pipe' });
-        const behind = execSync(
+        gitExec(`git -C "${srcPath}" fetch ${remote} ${DEPLOY_BRANCH}`);
+        const behind = gitExec(
           `git -C "${srcPath}" rev-list ${DEPLOY_BRANCH}..${remote}/${DEPLOY_BRANCH} --count`,
-          { encoding: 'utf-8' }
         ).trim();
         if (parseInt(behind, 10) > 0) {
+          const remoteLog = (() => {
+            try {
+              return gitExec(
+                `git -C "${srcPath}" log ${DEPLOY_BRANCH}..${remote}/${DEPLOY_BRANCH} --oneline`,
+              ).trim();
+            } catch { return ''; }
+          })();
           sseWrite(res, {
             type: 'error',
-            message: `원격 ${remote}/${DEPLOY_BRANCH} 브랜치가 ${behind}개 커밋 앞서 있습니다.\ngit pull ${remote} ${DEPLOY_BRANCH} 를 실행한 뒤 다시 배포하세요.`,
+            message: `[${currentStep}] 원격 ${remote}/${DEPLOY_BRANCH}가 로컬보다 ${behind}개 커밋 앞서 있습니다.\n` +
+              (remoteLog ? `앞선 커밋:\n${remoteLog}\n\n` : '') +
+              `다른 기기 또는 다른 경로에서 배포된 것 같습니다.\n` +
+              `로컬 프로젝트 폴더에서 다음 명령으로 동기화하세요:\n` +
+              `  git fetch ${remote} ${DEPLOY_BRANCH}\n` +
+              `  git branch -f ${DEPLOY_BRANCH} ${remote}/${DEPLOY_BRANCH}`,
           });
           res.end();
           return;
         }
       }
-    } catch {
-      // fetch 실패(리모트에 브랜치 없음 등)는 무시하고 계속 진행
+    } catch (fetchErr: unknown) {
+      // 리모트에 gh-pages 브랜치 없음(첫 배포) 등은 무시하고 계속 진행
+      const msg = (fetchErr as Error).message || '';
+      if (!msg.includes("couldn't find remote ref") && !msg.includes('unknown revision')) {
+        // 예상치 못한 fetch 오류는 경고만 남기고 계속 진행
+        console.warn(`[deploy-ghpages] fetch 경고 (무시됨): ${msg}`);
+      }
     }
 
     // ── 3. 현재 브랜치 저장 & 미커밋 변경사항 stash ──────────────────────────
-    originalBranch = execSync(`git -C "${srcPath}" rev-parse --abbrev-ref HEAD`, { encoding: 'utf-8' }).trim();
+    currentStep = '현재 브랜치/상태 저장';
+    originalBranch = gitExec(`git -C "${srcPath}" rev-parse --abbrev-ref HEAD`).trim();
 
-    const dirty = execSync(`git -C "${srcPath}" status --porcelain`, { encoding: 'utf-8' }).trim();
+    const dirty = gitExec(`git -C "${srcPath}" status --porcelain`).trim();
     if (dirty) {
-      execSync(`git -C "${srcPath}" stash push -m "rpgmv-deploy-stash"`, { stdio: 'pipe' });
+      gitExec(`git -C "${srcPath}" stash push -m "rpgmv-deploy-stash"`);
       stashed = true;
     }
 
     // ── 4. gh-pages 브랜치로 전환 (현재 HEAD 기준으로 생성/리셋) ─────────────
-    execSync(`git -C "${srcPath}" checkout -B ${DEPLOY_BRANCH}`, { stdio: 'pipe' });
+    currentStep = `${DEPLOY_BRANCH} 브랜치 전환 (checkout -B)`;
+    gitExec(`git -C "${srcPath}" checkout -B ${DEPLOY_BRANCH}`);
 
     // ── 5. index_3d.html → index.html + 캐시 버스팅 ─────────────────────────
     // 이 시점의 working tree = 소스 파일 그대로 (브랜치 전환해도 파일은 동일)
+    currentStep = 'index.html 교체 및 캐시 버스팅 적용';
     sseWrite(res, { type: 'status', phase: 'patching' });
     applyIndexHtmlRename(srcPath);
     const buildId = makeBuildId();
     applyCacheBusting(srcPath, buildId, opts);
 
     // ── 6. git commit ─────────────────────────────────────────────────────────
+    currentStep = 'git commit';
     sseWrite(res, { type: 'status', phase: 'committing' });
     const now = new Date().toLocaleString('ko-KR');
 
-    execSync(`git -C "${srcPath}" add -A`);
+    gitExec(`git -C "${srcPath}" add -A`);
     let commitHash = '';
     try {
-      execSync(`git -C "${srcPath}" commit -m "Deploy: ${now}"`);
-      commitHash = execSync(`git -C "${srcPath}" rev-parse --short HEAD`, { encoding: 'utf-8' }).trim();
+      gitExec(`git -C "${srcPath}" commit -m "Deploy: ${now}"`);
+      commitHash = gitExec(`git -C "${srcPath}" rev-parse --short HEAD`).trim();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = (e as Error).message;
       if (!msg.includes('nothing to commit') && !msg.includes('nothing added')) throw e;
     }
 
     // ── 7. push → remote/gh-pages ────────────────────────────────────────────
+    currentStep = `git push ${remote} ${DEPLOY_BRANCH} --force`;
     sseWrite(res, { type: 'status', phase: 'pushing' });
-    execSync(`git -C "${srcPath}" push ${remote} ${DEPLOY_BRANCH} --force`, { stdio: 'pipe' });
+    gitExec(`git -C "${srcPath}" push ${remote} ${DEPLOY_BRANCH} --force`);
 
     const pageUrl = derivePageUrl(remoteUrl);
     sseWrite(res, { type: 'done', commitHash, pageUrl, buildId });
-  } catch (err) {
-    sseWrite(res, { type: 'error', message: (err as Error).message });
+  } catch (err: unknown) {
+    const raw = (err as Error).message || String(err);
+    sseWrite(res, {
+      type: 'error',
+      message: `[${currentStep}] 오류:\n${raw}`,
+    });
   } finally {
     // ── 8. 원래 브랜치로 복귀 & stash 복원 ──────────────────────────────────
-    try { execSync(`git -C "${srcPath}" checkout ${originalBranch}`, { stdio: 'pipe' }); } catch {}
-    if (stashed) try { execSync(`git -C "${srcPath}" stash pop`, { stdio: 'pipe' }); } catch {}
+    try { gitExec(`git -C "${srcPath}" checkout ${originalBranch}`); } catch {}
+    if (stashed) try { gitExec(`git -C "${srcPath}" stash pop`); } catch {}
   }
   res.end();
 });
