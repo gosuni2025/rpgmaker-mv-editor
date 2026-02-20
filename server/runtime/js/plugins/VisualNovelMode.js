@@ -473,8 +473,13 @@
         var mw = s && s._messageWindow;
         if (!mw || !mw.pause) return;
         mw.pause = false;
-        // _waitCount가 남아 있을 수 있으므로 초기화
         mw._waitCount = 0;
+        // textState를 null로 지워야 함:
+        // pause=false만 설정하면 다음 프레임에 updateMessage()가 textState를 보고
+        // onEndOfText() → startPause() → pause=true로 되돌려버림.
+        // null로 설정하면 updateMessage()가 false 반환 → canStart()로 넘어가
+        // 다음 메시지 블록의 startMessage()가 호출됨.
+        mw._textState = null;
     };
 
     // ── update ───────────────────────────────────────────────────────────────
