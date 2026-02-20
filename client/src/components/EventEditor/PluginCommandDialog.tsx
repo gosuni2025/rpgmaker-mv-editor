@@ -27,6 +27,8 @@ interface PluginMetadata {
   pluginname: string;
   plugindesc: string;
   commands?: PluginCommandMeta[];
+  /** @plugincommand 태그 — 파일명과 다른 실제 커맨드 prefix */
+  plugincommand?: string;
 }
 
 interface PluginEntry {
@@ -35,12 +37,16 @@ interface PluginEntry {
   description: string;
 }
 
-// 선택 아이템 종류
-type SelectionKind =
-  | { type: 'addon'; pluginCommand: string }
-  | { type: 'plugin'; pluginName: string; command: PluginCommandMeta }
-  | { type: 'plugin-nocmd'; pluginName: string }
-  | { type: 'direct' };
+interface GroupItem {
+  key: string;
+  label: string;
+  sublabel: string;
+  /** addonCommandData의 pluginCommand와 매핑될 때 설정 */
+  addonKey?: string;
+  /** JSDoc 기반 커맨드 prefix */
+  cmdPrefix?: string;
+  hasCommands: boolean;
+}
 
 interface PluginCommandDialogProps {
   existingText?: string;
@@ -53,26 +59,27 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
 
   const [plugins, setPlugins] = useState<PluginEntry[]>([]);
   const [metadata, setMetadata] = useState<Record<string, PluginMetadata>>({});
+  const [coreMetadata, setCoreMetadata] = useState<Record<string, PluginMetadata>>({});
   const [loading, setLoading] = useState(true);
 
-  // 좌측 패널: 선택된 "그룹" (플러그인 커맨드 prefix 또는 플러그인 이름)
   const [selectedGroup, setSelectedGroup] = useState<string>('');
-  // 우측 패널: 선택된 커맨드 (JSDoc 기반 플러그인일 때)
   const [selectedCmd, setSelectedCmd] = useState<PluginCommandMeta | null>(null);
-  // 직접 입력 텍스트
   const [directText, setDirectText] = useState(existingText || '');
-
-  // 인자 값들 (JSDoc 기반)
   const [argValues, setArgValues] = useState<string[]>([]);
+
+  // addonCommandData에 있는 pluginCommand 집합
+  const addonKeySet = new Set(ADDON_COMMANDS.map(d => d.pluginCommand));
 
   useEffect(() => {
     Promise.all([
       apiClient.get<{ list: PluginEntry[] }>('/plugins'),
       apiClient.get<Record<string, PluginMetadata>>('/plugins/metadata?locale=ko'),
-    ]).then(([pluginRes, metaRes]) => {
+      apiClient.get<Record<string, PluginMetadata>>('/plugins/core-metadata'),
+    ]).then(([pluginRes, metaRes, coreRes]) => {
       const enabled = (pluginRes.list || []).filter((p: PluginEntry) => p.status);
       setPlugins(enabled);
       setMetadata(metaRes || {});
+      setCoreMetadata(coreRes || {});
 
       // 초기 선택: 기존 텍스트에서 추론
       if (existingText) {
@@ -80,23 +87,45 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
         if (addonProps) {
           setSelectedGroup('__addon__' + addonProps.def.pluginCommand);
         } else {
-          const firstWord = existingText.trim().split(/\s+/)[0] || '';
-          // 활성화된 플러그인 중 매칭 찾기
-          const matchedPlugin = enabled.find((p: PluginEntry) => p.name === firstWord);
-          if (matchedPlugin) {
-            const meta = (metaRes || {} as Record<string, PluginMetadata>)[firstWord];
-            const restWords = existingText.trim().split(/\s+/).slice(1);
-            const cmdName = restWords[0] || '';
-            const matchedCmd = meta?.commands?.find((c: PluginCommandMeta) => c.name === cmdName);
-            if (matchedCmd) {
-              setSelectedGroup('__plugin__' + firstWord);
-              setSelectedCmd(matchedCmd);
-              setArgValues(matchedCmd.args.map((a: PluginArgMeta, i: number) => restWords[i + 1] ?? a.default));
+          const words = existingText.trim().split(/\s+/);
+          const firstWord = words[0] || '';
+
+          // core 파일에서 커맨드 prefix 매칭
+          const coreMatch = Object.entries(coreRes || {}).find(([, m]) =>
+            (m.plugincommand || '') === firstWord
+          );
+          if (coreMatch) {
+            const [fileName] = coreMatch;
+            const addonKey = coreMatch[1].plugincommand || fileName;
+            if (addonKeySet.has(addonKey)) {
+              setSelectedGroup('__addon__' + addonKey);
             } else {
-              setSelectedGroup('__plugin__' + firstWord);
+              setSelectedGroup('__core__' + fileName);
+              const meta = coreMatch[1];
+              const cmdName = words[1] || '';
+              const cmd = meta.commands?.find((c: PluginCommandMeta) => c.name === cmdName);
+              if (cmd) {
+                setSelectedCmd(cmd);
+                setArgValues(cmd.args.map((a: PluginArgMeta, i: number) => words[i + 2] ?? a.default));
+              }
             }
           } else {
-            setSelectedGroup('__direct__');
+            // 활성화된 플러그인 매칭
+            const matchedPlugin = enabled.find((p: PluginEntry) => p.name === firstWord);
+            if (matchedPlugin) {
+              const meta = (metaRes || {} as Record<string, PluginMetadata>)[firstWord];
+              const cmdName = words[1] || '';
+              const cmd = meta?.commands?.find((c: PluginCommandMeta) => c.name === cmdName);
+              if (cmd) {
+                setSelectedGroup('__plugin__' + firstWord);
+                setSelectedCmd(cmd);
+                setArgValues(cmd.args.map((a: PluginArgMeta, i: number) => words[i + 2] ?? a.default));
+              } else {
+                setSelectedGroup('__plugin__' + firstWord);
+              }
+            } else {
+              setSelectedGroup('__direct__');
+            }
           }
         }
       }
@@ -104,61 +133,71 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
     }).catch(() => setLoading(false));
   }, []);
 
-  // 그룹 선택 핸들러
   const handleGroupSelect = useCallback((groupKey: string) => {
     setSelectedGroup(groupKey);
     setSelectedCmd(null);
     setArgValues([]);
   }, []);
 
-  // JSDoc 커맨드 선택
   const handleCmdSelect = useCallback((cmd: PluginCommandMeta) => {
     setSelectedCmd(cmd);
     setArgValues(cmd.args.map(a => a.default));
   }, []);
 
-  // JSDoc 기반 커맨드 텍스트 생성
-  const buildJsDocText = useCallback((pluginName: string, cmd: PluginCommandMeta, values: string[]) => {
-    const parts = [pluginName, cmd.name, ...values.filter(v => v !== '')];
+  const buildCmdText = useCallback((prefix: string, cmd: PluginCommandMeta, values: string[]) => {
+    const parts = [prefix, cmd.name, ...values.filter(v => v !== '')];
     return parts.join(' ');
   }, []);
 
-  // JSDoc 기반 OK 핸들러
-  const handleJsDocOk = useCallback(() => {
+  const handleCmdOk = useCallback((prefix: string) => {
     if (!selectedCmd) return;
-    const pluginName = selectedGroup.replace('__plugin__', '');
-    const text = buildJsDocText(pluginName, selectedCmd, argValues);
-    onOk([text]);
-  }, [selectedGroup, selectedCmd, argValues, buildJsDocText, onOk]);
+    onOk([buildCmdText(prefix, selectedCmd, argValues)]);
+  }, [selectedCmd, argValues, buildCmdText, onOk]);
 
-  // 직접 입력 OK
   const handleDirectOk = useCallback(() => {
     onOk([directText]);
   }, [directText, onOk]);
 
-  // 좌측 목록 렌더
+  // core 파일 그룹 목록 생성
+  // addonCommandData에 매핑되는 것은 제외 (에디터 기능 섹션과 중복)
+  const buildCoreGroups = (): GroupItem[] => {
+    return Object.entries(coreMetadata)
+      .filter(([, meta]) => {
+        const prefix = meta.plugincommand || '';
+        // addonCommandData에 이미 있는 것은 에디터 기능 섹션에서 처리
+        return !addonKeySet.has(prefix);
+      })
+      .map(([fileName, meta]) => ({
+        key: '__core__' + fileName,
+        label: meta.plugindesc || fileName,
+        sublabel: meta.plugincommand || fileName,
+        cmdPrefix: meta.plugincommand || fileName,
+        hasCommands: (meta.commands?.length ?? 0) > 0,
+      }));
+  };
+
   const renderGroupList = () => {
-    // 에디터 기능 그룹들 (addonCommandData)
-    const addonGroups = ADDON_COMMANDS.map(def => ({
+    const addonGroups: GroupItem[] = ADDON_COMMANDS.map(def => ({
       key: '__addon__' + def.pluginCommand,
       label: t(def.label),
       sublabel: def.pluginCommand,
+      addonKey: def.pluginCommand,
+      hasCommands: true,
     }));
 
-    // 활성화된 플러그인 중 @command가 있는 것들
-    const pluginGroups = plugins
-      .filter(p => {
-        const meta = metadata[p.name];
-        return meta && (meta.commands?.length ?? 0) > 0;
-      })
+    const coreGroups = buildCoreGroups();
+
+    const pluginGroups: GroupItem[] = plugins
+      .filter(p => (metadata[p.name]?.commands?.length ?? 0) > 0)
       .map(p => ({
         key: '__plugin__' + p.name,
         label: metadata[p.name]?.pluginname || p.name,
         sublabel: p.name,
+        cmdPrefix: p.name,
+        hasCommands: true,
       }));
 
-    // @command 없는 활성화 플러그인
-    const pluginNoCmdGroups = plugins
+    const pluginNoCmdGroups: GroupItem[] = plugins
       .filter(p => {
         const meta = metadata[p.name];
         return !meta || !meta.commands || meta.commands.length === 0;
@@ -167,51 +206,35 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
         key: '__plugin_nocmd__' + p.name,
         label: metadata[p.name]?.pluginname || p.name,
         sublabel: p.name,
+        hasCommands: false,
       }));
+
+    const renderItem = (g: GroupItem) => (
+      <div
+        key={g.key}
+        className={`pcmd-group-item${selectedGroup === g.key ? ' selected' : ''}${!g.hasCommands ? ' pcmd-group-item-nocmd' : ''}`}
+        onClick={() => handleGroupSelect(g.key)}
+        title={g.sublabel}
+      >
+        <span className="pcmd-group-name">{g.label}</span>
+        <span className="pcmd-group-sub">{g.sublabel}</span>
+      </div>
+    );
 
     return (
       <div className="pcmd-group-list">
-        {addonGroups.length > 0 && (
+        {(addonGroups.length > 0 || coreGroups.length > 0) && (
           <>
             <div className="pcmd-group-section">{t('pluginCommand.editorFeatures') || '에디터 기능'}</div>
-            {addonGroups.map(g => (
-              <div
-                key={g.key}
-                className={`pcmd-group-item${selectedGroup === g.key ? ' selected' : ''}`}
-                onClick={() => handleGroupSelect(g.key)}
-                title={g.sublabel}
-              >
-                <span className="pcmd-group-name">{g.label}</span>
-                <span className="pcmd-group-sub">{g.sublabel}</span>
-              </div>
-            ))}
+            {addonGroups.map(renderItem)}
+            {coreGroups.map(renderItem)}
           </>
         )}
         {(pluginGroups.length > 0 || pluginNoCmdGroups.length > 0) && (
           <>
             <div className="pcmd-group-section">{t('pluginCommand.installedPlugins') || '설치된 플러그인'}</div>
-            {pluginGroups.map(g => (
-              <div
-                key={g.key}
-                className={`pcmd-group-item${selectedGroup === g.key ? ' selected' : ''}`}
-                onClick={() => handleGroupSelect(g.key)}
-                title={g.sublabel}
-              >
-                <span className="pcmd-group-name">{g.label}</span>
-                <span className="pcmd-group-sub">{g.sublabel}</span>
-              </div>
-            ))}
-            {pluginNoCmdGroups.map(g => (
-              <div
-                key={g.key}
-                className={`pcmd-group-item pcmd-group-item-nocmd${selectedGroup === g.key ? ' selected' : ''}`}
-                onClick={() => handleGroupSelect(g.key)}
-                title={g.sublabel}
-              >
-                <span className="pcmd-group-name">{g.label}</span>
-                <span className="pcmd-group-sub">{g.sublabel}</span>
-              </div>
-            ))}
+            {pluginGroups.map(renderItem)}
+            {pluginNoCmdGroups.map(renderItem)}
           </>
         )}
         <div className="pcmd-group-section">{t('pluginCommand.manual') || '직접 입력'}</div>
@@ -225,7 +248,57 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
     );
   };
 
-  // 우측 패널 렌더
+  const renderJsDocPanel = (meta: PluginMetadata, cmdPrefix: string) => {
+    const commands = meta.commands || [];
+    return (
+      <div className="pcmd-jsdoc">
+        <div className="pcmd-cmd-list-label">{t('pluginCommand.commands') || '커맨드'}</div>
+        <div className="pcmd-cmd-list">
+          {commands.map(cmd => (
+            <div
+              key={cmd.name}
+              className={`pcmd-cmd-item${selectedCmd?.name === cmd.name ? ' selected' : ''}`}
+              onClick={() => handleCmdSelect(cmd)}
+            >
+              <span className="pcmd-cmd-name">{cmd.text || cmd.name}</span>
+              <span className="pcmd-cmd-sub">{cmdPrefix} {cmd.name}</span>
+              {cmd.desc && <span className="pcmd-cmd-desc">{cmd.desc}</span>}
+            </div>
+          ))}
+        </div>
+
+        {selectedCmd && (
+          <div className="pcmd-jsdoc-args">
+            {selectedCmd.args.map((arg, i) => (
+              <div key={arg.name} className="pcmd-arg-row">
+                <label className="pcmd-label">{arg.text || arg.name}</label>
+                {renderArgInput(arg, i)}
+              </div>
+            ))}
+
+            <div className="pcmd-preview">
+              <label className="pcmd-label">{t('addonCommands.preview') || '미리보기'}</label>
+              <code className="pcmd-preview-text">
+                {buildCmdText(cmdPrefix, selectedCmd, argValues)}
+              </code>
+            </div>
+
+            <div className="pcmd-footer">
+              <button className="db-btn" onClick={() => handleCmdOk(cmdPrefix)}>{t('common.ok')}</button>
+              <button className="db-btn" onClick={onCancel}>{t('common.cancel')}</button>
+            </div>
+          </div>
+        )}
+
+        {!selectedCmd && commands.length > 0 && (
+          <div className="pcmd-right-empty" style={{ marginTop: 12 }}>
+            {t('pluginCommand.selectCommand') || '커맨드를 선택하세요'}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderRightPanel = () => {
     if (!selectedGroup) {
       return (
@@ -235,15 +308,13 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
       );
     }
 
-    // 에디터 기능 (AddonCommandEditor)
+    // 에디터 기능 (addonCommandData → AddonCommandEditor)
     if (selectedGroup.startsWith('__addon__')) {
       const pluginCommand = selectedGroup.replace('__addon__', '');
       const def = ADDON_COMMANDS.find(d => d.pluginCommand === pluginCommand);
       if (!def) return null;
-
       const addonProps = existingText ? parseAddonProps(existingText) : null;
       const isMatch = addonProps?.def.pluginCommand === pluginCommand;
-
       return (
         <AddonCommandEditor
           def={def}
@@ -254,6 +325,15 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
           onCancel={onCancel}
         />
       );
+    }
+
+    // 코어 파일 (JSDoc 기반 UI)
+    if (selectedGroup.startsWith('__core__')) {
+      const fileName = selectedGroup.replace('__core__', '');
+      const meta = coreMetadata[fileName];
+      if (!meta) return null;
+      const cmdPrefix = meta.plugincommand || fileName;
+      return renderJsDocPanel(meta, cmdPrefix);
     }
 
     // 직접 입력
@@ -278,7 +358,7 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
       );
     }
 
-    // @command 없는 플러그인 (직접 입력으로 안내)
+    // @command 없는 플러그인
     if (selectedGroup.startsWith('__plugin_nocmd__')) {
       const pluginName = selectedGroup.replace('__plugin_nocmd__', '');
       return (
@@ -313,55 +393,9 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
     if (selectedGroup.startsWith('__plugin__')) {
       const pluginName = selectedGroup.replace('__plugin__', '');
       const meta = metadata[pluginName];
-      const commands = meta?.commands || [];
-
-      return (
-        <div className="pcmd-jsdoc">
-          <div className="pcmd-cmd-list-label">{t('pluginCommand.commands') || '커맨드'}</div>
-          <div className="pcmd-cmd-list">
-            {commands.map(cmd => (
-              <div
-                key={cmd.name}
-                className={`pcmd-cmd-item${selectedCmd?.name === cmd.name ? ' selected' : ''}`}
-                onClick={() => handleCmdSelect(cmd)}
-              >
-                <span className="pcmd-cmd-name">{cmd.text || cmd.name}</span>
-                <span className="pcmd-cmd-sub">{cmd.name}</span>
-                {cmd.desc && <span className="pcmd-cmd-desc">{cmd.desc}</span>}
-              </div>
-            ))}
-          </div>
-
-          {selectedCmd && (
-            <div className="pcmd-jsdoc-args">
-              {selectedCmd.args.map((arg, i) => (
-                <div key={arg.name} className="pcmd-arg-row">
-                  <label className="pcmd-label">{arg.text || arg.name}</label>
-                  {renderArgInput(arg, i)}
-                </div>
-              ))}
-
-              <div className="pcmd-preview">
-                <label className="pcmd-label">{t('addonCommands.preview') || '미리보기'}</label>
-                <code className="pcmd-preview-text">
-                  {buildJsDocText(pluginName, selectedCmd, argValues)}
-                </code>
-              </div>
-
-              <div className="pcmd-footer">
-                <button className="db-btn" onClick={handleJsDocOk}>{t('common.ok')}</button>
-                <button className="db-btn" onClick={onCancel}>{t('common.cancel')}</button>
-              </div>
-            </div>
-          )}
-
-          {!selectedCmd && commands.length > 0 && (
-            <div className="pcmd-right-empty" style={{ marginTop: 12 }}>
-              {t('pluginCommand.selectCommand') || '커맨드를 선택하세요'}
-            </div>
-          )}
-        </div>
-      );
+      if (!meta) return null;
+      const cmdPrefix = meta.plugincommand || pluginName;
+      return renderJsDocPanel(meta, cmdPrefix);
     }
 
     return null;
@@ -418,7 +452,6 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
       );
     }
 
-    // string, 기타
     return (
       <input
         type="text"
@@ -433,9 +466,7 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
   return (
     <div className="modal-overlay">
       <div className="pcmd-dialog">
-        <div className="pcmd-header">
-          Plugin Command
-        </div>
+        <div className="pcmd-header">Plugin Command</div>
         <div className="pcmd-body">
           <div className="pcmd-left">
             {loading

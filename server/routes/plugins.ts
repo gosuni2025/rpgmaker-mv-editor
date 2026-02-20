@@ -51,6 +51,7 @@ interface PluginMetadata {
   help: string;
   params: PluginParamMeta[];
   commands?: PluginCommandMeta[];
+  plugincommand?: string;   // @plugincommand — 실제 커맨드 prefix (파일명과 다를 경우 명시)
   dependencies?: string[];  // e.g. ['EXT']
 }
 
@@ -76,6 +77,7 @@ function parsePluginMetadata(content: string, locale?: string): PluginMetadata {
   let plugindesc = '';
   let author = '';
   let help = '';
+  let plugincommand = '';
   const params: PluginParamMeta[] = [];
   const commands: PluginCommandMeta[] = [];
   let currentParam: PluginParamMeta | null = null;
@@ -99,6 +101,9 @@ function parsePluginMetadata(content: string, locale?: string): PluginMetadata {
         inHelp = false;
       } else if (tag === 'author') {
         author = value;
+        inHelp = false;
+      } else if (tag === 'plugincommand') {
+        plugincommand = value;
         inHelp = false;
       } else if (tag === 'help') {
         help = value;
@@ -207,6 +212,7 @@ function parsePluginMetadata(content: string, locale?: string): PluginMetadata {
   return {
     pluginname, plugindesc, author, help: help.trim(), params,
     ...(commands.length > 0 ? { commands } : {}),
+    ...(plugincommand ? { plugincommand } : {}),
     ...(deps.length > 0 ? { dependencies: deps } : {}),
   };
 }
@@ -399,6 +405,35 @@ router.get('/browse-files', (req: Request, res: Response) => {
     }
 
     res.json({ files: files.sort() });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// GET /api/plugins/core-metadata - Parse metadata from editor core JS files (non-plugin folder)
+// These are files like FogOfWar.js, Mode3D.js, ShadowAndLight.js, PostProcess.js, rpg_sprites.js
+// that implement plugin commands but live in runtime/js/ root, not in a plugins/ folder.
+router.get('/core-metadata', (_req: Request, res: Response) => {
+  try {
+    const coreDir = path.join(runtimePath, 'js');
+    // Only scan files directly in the runtime/js/ root (not subfolders)
+    const coreFiles = fs.readdirSync(coreDir, { withFileTypes: true })
+      .filter(e => e.isFile() && e.name.endsWith('.js'))
+      .map(e => e.name);
+
+    const result: Record<string, PluginMetadata> = {};
+
+    for (const file of coreFiles) {
+      const content = fs.readFileSync(path.join(coreDir, file), 'utf8');
+      // Only include files that have a /*: block with @command tags
+      const meta = parsePluginMetadata(content);
+      if (meta.commands && meta.commands.length > 0) {
+        const name = file.replace('.js', '');
+        result[name] = meta;
+      }
+    }
+
+    res.json(result);
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }

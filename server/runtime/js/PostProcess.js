@@ -1,6 +1,7 @@
 /*:
  * @plugindesc 포스트 프로세싱 파이프라인 (피사계 심도 + 이펙트)
  * @author RPG Maker MV Web Editor
+ * @plugincommand PostProcess
  *
  * @command on
  * @text 피사계 심도 활성화

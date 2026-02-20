@@ -1,6 +1,7 @@
 /*:
  * @plugindesc 3D 그림자 및 조명 시스템 (DirectionalLight + PointLight)
  * @author RPG Maker MV Web Editor
+ * @plugincommand ShadowLight
  *
  * @command on
  * @text 조명 시스템 활성화
