@@ -331,7 +331,7 @@ function openInTerminal(targetPath: string) {
     execFile('osascript', ['-e', `tell application "Terminal" to do script "cd '${resolved.replace(/'/g, "'\\''")}'"`, '-e', 'tell application "Terminal" to activate']);
   } else if (process.platform === 'win32') {
     const winPath = resolved.replace(/\//g, '\\');
-    exec(`start cmd /K cd /d "${winPath}"`, { shell: true });
+    exec(`start cmd /K cd /d "${winPath}"`);
   } else {
     // 일반적인 Linux 터미널 에뮬레이터 시도
     exec(`x-terminal-emulator -e bash -c "cd '${resolved.replace(/'/g, "'\\''")}'; exec bash" &`);
