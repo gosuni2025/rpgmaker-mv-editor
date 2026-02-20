@@ -384,12 +384,12 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
         var ax = (animOffsets[i * 2] || 0) * tileAnimX;
         var ay = (animOffsets[i * 2 + 1] || 0) * tileAnimY;
 
-        // 그리기 z 레이어 기반 z 오프셋: 높은 drawZ가 카메라에 더 가깝도록 음수
-        // z=0→0.00, z=1→-0.01, z=2→-0.02, z=3→-0.03
+        // 그리기 z 레이어 기반 z 오프셋: 높은 drawZ가 카메라에 더 가깝도록 양수
+        // z=0→0.00, z=1→+0.001, z=2→+0.002, z=3→+0.003
         var drawZ = drawZArr[i] || 0;
         var elevationEnabled = $dataMap && $dataMap.tileLayerElevation;
         var _is3DZ = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
-        var _drawZStep = (window.DepthDebugConfig && window.DepthDebugConfig.drawZStep) || -0.001;
+        var _drawZStep = (window.DepthDebugConfig && window.DepthDebugConfig.drawZStep) || 0.001;
         var zOffset = (_is3DZ || elevationEnabled) ? drawZ * _drawZStep : 0;
 
         for (var j = 0; j < 6; j++) {
@@ -637,12 +637,12 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(setNumber, meshKe
         vMin += halfTexelV;
         vMax -= halfTexelV;
         // 모든 버텍스에 동일한 바운드 할당
-        // 물 타일은 drawZ 기반 z 오프셋 적용 (높은 drawZ가 카메라에 더 가깝도록 음수)
+        // 물 타일은 drawZ 기반 z 오프셋 적용 (높은 drawZ가 카메라에 더 가깝도록 양수)
         var drawZArr = this._drawZData[setNumber] || [];
         var drawZ = drawZArr[i] || 0;
         var elevationEnabled = $dataMap && $dataMap.tileLayerElevation;
         var _is3DZ = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
-        var _drawZStep = (window.DepthDebugConfig && window.DepthDebugConfig.drawZStep) || -0.001;
+        var _drawZStep = (window.DepthDebugConfig && window.DepthDebugConfig.drawZStep) || 0.001;
         var zOffset = (_is3DZ || elevationEnabled) ? drawZ * _drawZStep : 0;
         for (var j = 0; j < 6; j++) {
             posArray[posOff + j * 3]     = data.positions[srcOff + j * 2];
