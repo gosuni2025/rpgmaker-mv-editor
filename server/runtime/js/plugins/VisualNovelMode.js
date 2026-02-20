@@ -80,6 +80,14 @@
  * @desc 마지막 메시지 후 VN 모드를 자동으로 탈출하기까지 대기 프레임 수 (0=즉시)
  * @default 30
  *
+ * @param showScrollBar
+ * @text 스크롤바 표시
+ * @type boolean
+ * @on 표시
+ * @off 숨김
+ * @desc 텍스트 영역 우측에 스크롤바를 표시합니다.
+ * @default false
+ *
  * @help
  * ============================================================================
  * 비주얼 노벨 모드 플러그인 v1.0
@@ -124,6 +132,7 @@
     var CHOICE_IND       = String(params['choiceIndicator'] || '>');
     var AUTO_EXIT_DELAY  = parseInt(params['autoExitDelay']);
     if (isNaN(AUTO_EXIT_DELAY)) AUTO_EXIT_DELAY = 30;
+    var SHOW_SCROLL_BAR  = String(params['showScrollBar']) !== 'false';
 
     var ENTRY_GAP   = 6;
     var ENTRY_PAD   = 4;
@@ -244,8 +253,17 @@
     };
 
     Window_VNText.prototype._rebuildAndScroll = function () {
+        // 관성 즉시 초기화 — vel이 남아 있으면 다음 프레임에 스크롤이 위로 튀어오름
+        this._vel = 0;
+        // 새 항목 추가 전에 이미 맨 아래에 있었는지 기록
+        var prevMax = this._maxScrollY();
+        var wasAtBottom = (prevMax <= 0) || (this._scrollY >= prevMax - 2);
         this._buildLayouts();
-        this._scrollY = this._maxScrollY();  // 최신 내용이 보이도록 맨 아래
+        if (wasAtBottom) {
+            // 맨 아래에 있었으면 새 maxScrollY로 따라감 (새 내용 보이도록)
+            this._scrollY = this._maxScrollY();
+        }
+        // else: 위로 스크롤해서 읽던 중이면 위치 유지
         this._redraw();
     };
 
@@ -305,6 +323,7 @@
     };
 
     Window_VNText.prototype._drawScrollBar = function () {
+        if (!SHOW_SCROLL_BAR) return;
         var innerH = this._innerH();
         if (this._totalH <= innerH) return;
         var bw    = 4;
