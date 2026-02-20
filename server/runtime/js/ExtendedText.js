@@ -7,11 +7,13 @@ ExtendedText._time = 0;
 
 // ─── 씬 참조 헬퍼 ───
 // MessagePreview에서 설정: ExtendedText._overlayScene = previewScene;
-// 게임 런타임에서는 _editorRendererObj.scene 사용
+// 게임 런타임에서는 Graphics._renderer.scene 사용
+// 에디터 맵 캔버스에서는 _editorRendererObj.scene 사용
 ExtendedText._overlayScene = null;
 ExtendedText._getScene = function() {
     return ExtendedText._overlayScene
         || (window._editorRendererObj && window._editorRendererObj.scene)
+        || (typeof Graphics !== 'undefined' && Graphics._renderer && Graphics._renderer.scene)
         || null;
 };
 
@@ -207,17 +209,23 @@ uniform float uDuration;
 uniform vec2 uTexelSize;
 varying vec2 vUv;
 void main() {
+  // 초점 맞추기 효과: 블러 → 선명, 투명 → 불투명
   float progress = clamp((uTime - uStartTime) * 20.0 / uDuration, 0.0, 1.0);
-  float blurR = (1.0 - progress) * 4.0;
+  float blurR = (1.0 - progress) * 10.0;  // 10픽셀 블러로 시작, progress 1.0에서 0
+  // 3x3 box blur: 더 자연스러운 카메라 초점 효과
   vec4 c = vec4(0.0);
+  c += texture2D(tTex, vUv + vec2(-blurR, -blurR) * uTexelSize);
+  c += texture2D(tTex, vUv + vec2(  0.0, -blurR) * uTexelSize);
+  c += texture2D(tTex, vUv + vec2( blurR, -blurR) * uTexelSize);
+  c += texture2D(tTex, vUv + vec2(-blurR,   0.0) * uTexelSize);
   c += texture2D(tTex, vUv);
-  c += texture2D(tTex, vUv + vec2( blurR, 0.0) * uTexelSize);
-  c += texture2D(tTex, vUv + vec2(-blurR, 0.0) * uTexelSize);
-  c += texture2D(tTex, vUv + vec2(0.0,  blurR) * uTexelSize);
-  c += texture2D(tTex, vUv + vec2(0.0, -blurR) * uTexelSize);
-  c /= 5.0;
-  c.a *= progress;
-  c.rgb *= progress;
+  c += texture2D(tTex, vUv + vec2( blurR,   0.0) * uTexelSize);
+  c += texture2D(tTex, vUv + vec2(-blurR,  blurR) * uTexelSize);
+  c += texture2D(tTex, vUv + vec2(  0.0,  blurR) * uTexelSize);
+  c += texture2D(tTex, vUv + vec2( blurR,  blurR) * uTexelSize);
+  c /= 9.0;
+  // sqrt(progress): 초반에 빠르게 나타나서 블러 상태로 잠시 보임 → 서서히 초점
+  c.a *= sqrt(progress);
   gl_FragColor = c;
 }
 `;
@@ -484,15 +492,17 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     var bmp = this.contents;
     var chars = seg.chars;
     var lh = chars[0].h || this.lineHeight();
-    var ow = (bmp.outlineWidth || 4) + 1;
+    var outlineW = bmp.outlineWidth !== undefined ? bmp.outlineWidth : 4;
+    // clearL: 스트로크가 양옆으로 뻗는 최소 픽셀 (인접 글자를 최소한만 침범)
+    var clearL = Math.ceil(outlineW / 2);
 
     // 세그먼트 영역 계산
     var segX = chars[0].x;
     var segY = chars[0].y;
     var segEndX = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c);
-    var segW = Math.max(1, segEndX - segX + ow * 2);
+    var segW = Math.max(1, segEndX - segX + clearL * 2);
     var segH = Math.max(1, lh + (seg.shakeActive ? (seg.amplitude || 3) * 2 : 0) + 4);
-    var srcX = segX - ow;
+    var srcX = segX - clearL;
     var srcY = segY;
 
     // 각 글자를 직접 재그리기 (bitmap copy 대신 — 인접 글자 bleeding 방지)
@@ -507,7 +517,6 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
         var fontSize   = bmp.fontSize   || 28;
         var fontFace   = bmp.fontFace   || 'GameFont';
         var outlineCol = bmp.outlineColor  || 'rgba(0,0,0,0.5)';
-        var outlineW   = bmp.outlineWidth  !== undefined ? bmp.outlineWidth : 4;
         // Bitmap.drawText 기준선 공식: ty = y + lh - (lh - fontSize * 0.7) / 2
         // offCanvas에서는 segY 오프셋 제거 (offCanvas top = segY in bitmap)
         var baselineY = lh - (lh - fontSize * 0.7) / 2;
@@ -520,7 +529,7 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
 
         for (var ci = 0; ci < chars.length; ci++) {
             var ch = chars[ci];
-            var drawX = ch.x - segX + ow;
+            var drawX = ch.x - segX + clearL;  // clearL 마진 기준으로 오프셋
             if (outlineW > 0) {
                 offCtx.strokeStyle = outlineCol;
                 offCtx.lineWidth   = outlineW;
