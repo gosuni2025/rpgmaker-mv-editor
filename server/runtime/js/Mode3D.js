@@ -108,6 +108,30 @@
     };
 
     //=========================================================================
+    // Tilemap._sortChildren - 3D 모드에서 카메라 yaw 반영 depth 정렬
+    // yaw=0: depth = y (기존 동작), yaw=θ: depth = x*sin(θ) + y*cos(θ)
+    //=========================================================================
+
+    var _Tilemap_sortChildren = Tilemap.prototype._sortChildren;
+    Tilemap.prototype._sortChildren = function() {
+        if (!ConfigManager.mode3d) {
+            _Tilemap_sortChildren.call(this);
+            return;
+        }
+        var yaw = Mode3D._yawRad || 0;
+        var cosY = Math.cos(yaw);
+        var sinY = Math.sin(yaw);
+        var children = this.children;
+        if (children.length > 0) {
+            children.sort(function(a, b) {
+                var dA = a.x * sinY + a.y * cosY;
+                var dB = b.x * sinY + b.y * cosY;
+                return (a.z - b.z) || (dA - dB) || (a.x - b.x);
+            });
+        }
+    };
+
+    //=========================================================================
     // Spriteset_Map 참조 저장
     //=========================================================================
 
