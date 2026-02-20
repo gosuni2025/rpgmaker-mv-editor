@@ -6,16 +6,22 @@ import { createApp, attachWebSocket } from '../server/index';
 let mainWindow: BrowserWindow | null = null;
 let server: http.Server | null = null;
 
-function getResourcePath(...segments: string[]) {
+function getAsarPath(...segments: string[]) {
+  // asar 내부 파일 (client/dist 등)
+  return path.join(__dirname, '..', ...segments);
+}
+
+function getUnpackedPath(...segments: string[]) {
+  // asar 외부 파일 (server/runtime 등 - asarUnpack 설정된 파일)
   const base = app.isPackaged
-    ? process.resourcesPath
+    ? path.join(process.resourcesPath, 'app.asar.unpacked')
     : path.join(__dirname, '..');
   return path.join(base, ...segments);
 }
 
 async function startServer(): Promise<number> {
-  const runtimePath = getResourcePath('server', 'runtime');
-  const clientDistPath = getResourcePath('client', 'dist');
+  const runtimePath = getUnpackedPath('server', 'runtime');
+  const clientDistPath = getAsarPath('client', 'dist');
 
   const expressApp = createApp({ runtimePath, clientDistPath });
   server = http.createServer(expressApp);
