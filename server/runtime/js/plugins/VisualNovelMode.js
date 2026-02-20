@@ -900,14 +900,16 @@
         }
     };
 
-    // 선택지 시작 전 자동 탈출 취소
+    // 선택지/숫자입력 등이 실제로 시작될 때만 자동 탈출 취소
+    // (startInput은 매 프레임 호출될 수 있으므로, true 반환 시(=실제 입력 시작)에만 취소)
     var _WM_startInput = Window_Message.prototype.startInput;
     Window_Message.prototype.startInput = function () {
-        if (VNManager.isActive()) {
+        var result = _WM_startInput.call(this);
+        if (result && VNManager.isActive()) {
             var s = SceneManager._scene;
             if (s && s._vnCtrl) s._vnCtrl.cancelAutoExit();
         }
-        return _WM_startInput.call(this);
+        return result;
     };
 
     // =========================================================================
