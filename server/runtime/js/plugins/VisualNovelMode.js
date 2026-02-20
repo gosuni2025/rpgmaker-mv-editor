@@ -238,6 +238,11 @@
         this._cancelIndex   = -1;
         this._choiceResult  = -1;
 
+        // 타이핑 중 선택지 pending 상태
+        this._pendingChoiceIdx     = -1;
+        this._pendingChoiceDefault = 0;
+        this._pendingCancelIdx     = -1;
+
         this.contents.clear();
     };
 
@@ -279,8 +284,20 @@
 
     // 인라인 선택지 추가
     Window_VNText.prototype.addChoiceEntry = function (choices, defaultIdx, cancelIdx) {
-        if (this._isTyping) this.skipTyping();
         this._forceOk = false;  // 이전 메시지에서 남은 forceOk 리셋 (선택지 이후 메시지 자동진행 방지)
+        if (this._isTyping) {
+            // 타이핑 중: skipTyping 없이 pending으로 저장 → 타이핑 완료 후 활성화
+            // (타이핑 효과를 유지하면서 텍스트가 끝난 후 선택지가 자연스럽게 나타남)
+            this._entries.push({ type: 'choice', choices: choices, sel: defaultIdx >= 0 ? defaultIdx : 0, cancelIndex: cancelIdx, _pending: true });
+            this._pendingChoiceIdx     = this._entries.length - 1;
+            this._pendingChoiceDefault = defaultIdx >= 0 ? defaultIdx : 0;
+            this._pendingCancelIdx     = cancelIdx;
+            this._vel = 0;
+            this._buildLayouts();
+            this._scrollY = this._maxScrollY();
+            this._redraw();
+            return;
+        }
         this._entries.push({ type: 'choice', choices: choices, sel: defaultIdx, cancelIndex: cancelIdx });
         this._choiceActive = true;
         this._choiceIndex  = (defaultIdx >= 0) ? defaultIdx : 0;
@@ -288,9 +305,25 @@
         this._choiceResult = -1;
         this._choiceInputDelay = 3;  // 선택지 추가 직후 3프레임간 입력 무시 (즉시 확정 방지)
         this._vel = 0;
-        // skipTyping() 후 _scrollY는 이전 maxScrollY(텍스트만 기준) 값이므로,
-        // 선택지가 추가된 후 늘어난 maxScrollY를 추적하지 못해 선택지가 화면 밖으로 밀림.
-        // 항상 맨 아래로 강제 이동.
+        // 항상 맨 아래로 강제 이동 (선택지가 화면 밖으로 밀리지 않도록)
+        this._buildLayouts();
+        this._scrollY = this._maxScrollY();
+        this._redraw();
+    };
+
+    // pending 선택지 활성화 (타이핑 완료 시 호출)
+    Window_VNText.prototype._activatePendingChoice = function () {
+        if (this._pendingChoiceIdx < 0) return;
+        var e = this._entries[this._pendingChoiceIdx];
+        if (!e || e.type !== 'choice') { this._pendingChoiceIdx = -1; return; }
+        e._pending = false;
+        this._choiceActive     = true;
+        this._choiceIndex      = this._pendingChoiceDefault;
+        this._cancelIndex      = this._pendingCancelIdx;
+        this._choiceResult     = -1;
+        this._choiceInputDelay = 3;
+        this._pendingChoiceIdx = -1;
+        this._vel = 0;
         this._buildLayouts();
         this._scrollY = this._maxScrollY();
         this._redraw();
@@ -740,6 +773,27 @@
         return _WM_updateMessage.call(this);
     };
 
+    // VN 모드에서 페이지 분할 없이 즉시 처리
+    // newPage() → clearFlags() → _showFast=false 로 인해 텍스트가 한 글자씩 처리되어
+    // 선택지 설정(onEndOfText→startInput)이 수 초 후에야 실행되는 문제 방지.
+    var _WM_needsNewPage = Window_Message.prototype.needsNewPage;
+    Window_Message.prototype.needsNewPage = function (textState) {
+        if (VNManager.isActive()) return false;
+        return _WM_needsNewPage.call(this, textState);
+    };
+
+    // VN 모드에서 pending 선택지(타이핑 완료 대기)도 subWindow 활성으로 간주
+    // → Window_Message.update() while 루프를 대기 상태로 유지하여 terminateMessage 방지
+    var _WM_isAnySubWindowActive = Window_Message.prototype.isAnySubWindowActive;
+    Window_Message.prototype.isAnySubWindowActive = function () {
+        if (VNManager.isActive()) {
+            var s  = SceneManager._scene;
+            var tw = s && s._vnCtrl ? s._vnCtrl.getTextWindow() : null;
+            if (tw && (tw.isChoiceActive() || tw._pendingChoiceIdx >= 0)) return true;
+        }
+        return _WM_isAnySubWindowActive.call(this);
+    };
+
     var _WM_startMessage = Window_Message.prototype.startMessage;
     Window_Message.prototype.startMessage = function () {
         var isVN = VNManager.isActive();
@@ -815,10 +869,11 @@
         }
     };
 
-    // 타이핑 완료 감지 → 자동 탈출
+    // 타이핑 완료 감지 → pending 선택지 활성화 + 자동 탈출
     var _origSkipTyping = Window_VNText.prototype.skipTyping;
     Window_VNText.prototype.skipTyping = function () {
         _origSkipTyping.call(this);
+        this._activatePendingChoice();
         this._checkPendingAutoExit();
     };
 
@@ -838,6 +893,7 @@
         var wasTying = this._isTyping;
         _origUpdate.call(this);
         if (wasTying && !this._isTyping) {
+            this._activatePendingChoice();
             this._checkPendingAutoExit();
         }
     };
