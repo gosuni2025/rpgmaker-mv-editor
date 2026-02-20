@@ -615,7 +615,7 @@
       "tab3Advanced": "상급",
       "tab4Objects": "오브젝트",
       "tab4MapRendering": "맵/렌더링",
-      "tab4PostProcess": "포스트 프로세스 (DoF)",
+      "tab4PostProcess": "DoF (피사계 심도)",
       "tab4PPEffect": "PP 이펙트"
     },
     "commands": {

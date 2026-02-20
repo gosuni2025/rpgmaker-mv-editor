@@ -615,7 +615,7 @@
       "tab3Advanced": "上級",
       "tab4Objects": "オブジェクト",
       "tab4MapRendering": "マップ/レンダリング",
-      "tab4PostProcess": "ポストプロセス (DoF)",
+      "tab4PostProcess": "DoF (被写界深度)",
       "tab4PPEffect": "PPエフェクト"
     },
     "commands": {

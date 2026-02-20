@@ -613,7 +613,7 @@
       "tab3Advanced": "Advanced",
       "tab4Objects": "Objects",
       "tab4MapRendering": "Map/Rendering",
-      "tab4PostProcess": "Post Process (DoF)",
+      "tab4PostProcess": "DoF (Depth of Field)",
       "tab4PPEffect": "PP Effects"
     },
     "commands": {
