@@ -84,10 +84,10 @@ export interface DofConfig {
 
 export const DEFAULT_DOF_CONFIG: DofConfig = {
   enabled: false,
-  focusY: 0.55,
-  focusRange: 0.1,
-  maxBlur: 0.05,
-  blurPower: 1.5,
+  focusY: 0.14,
+  focusRange: 0,
+  maxBlur: 0.13,
+  blurPower: 2.4,
 };
 
 export interface AnimTileShaderSettings {
