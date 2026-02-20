@@ -93,6 +93,7 @@
     var SCROLL_SPEED = parseInt(params['scrollSpeed']) || 4;
 
     var ENTRY_PAD = 10;  // 항목 내부 패딩
+    var TITLE_H   = 40;  // 창 내부 제목 영역 높이
 
     // =========================================================================
     // TextLogManager — 로그 데이터 관리
@@ -185,9 +186,9 @@
         this.refresh();
     };
 
-    // 창 내부 표시 가능 높이 (padding 제외)
+    // 창 내부 표시 가능 높이 (padding + 제목 영역 제외)
     Window_TextLog.prototype.innerH = function () {
-        return this.height - this.standardPadding() * 2;
+        return this.height - this.standardPadding() * 2 - TITLE_H;
     };
 
     Window_TextLog.prototype.maxSY = function () {
@@ -232,6 +233,25 @@
         if (!this.contents) return;
         this.contents.clear();
 
+        // 제목 표시 (고정)
+        this.changeTextColor(this.systemColor());
+        this.drawText(MENU_NAME, 0, 0, this.contentsWidth(), 'center');
+        this.resetTextColor();
+        this.resetFontSettings();
+
+        // 구분선
+        var ctx = this.contents._context;
+        if (ctx) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, TITLE_H - 6);
+            ctx.lineTo(this.contentsWidth(), TITLE_H - 6);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         var list = TextLogManager.list();
         var top  = this._sy;
         var bot  = this._sy + this.innerH();
@@ -239,7 +259,7 @@
         for (var i = 0; i < this._layouts.length; i++) {
             var l = this._layouts[i];
             if (l.y + l.h > top && l.y < bot) {
-                this.drawEntry(list[i], l.y - this._sy, l.h);
+                this.drawEntry(list[i], TITLE_H + l.y - this._sy, l.h);
             }
         }
         this.drawScrollBar();
@@ -259,9 +279,9 @@
         var avail = this.innerH() - 8;
         var hh   = Math.max(24, avail * (this.innerH() / this._total));
         var ratio = this.maxSY() > 0 ? (this._sy / this.maxSY()) : 0;
-        var hy   = 4 + (avail - hh) * ratio;
-        this.contents.fillRect(bx, 4,  bw, avail, 'rgba(255,255,255,0.1)');
-        this.contents.fillRect(bx, hy, bw, hh,    'rgba(255,255,255,0.55)');
+        var hy   = TITLE_H + 4 + (avail - hh) * ratio;
+        this.contents.fillRect(bx, TITLE_H + 4, bw, avail, 'rgba(255,255,255,0.1)');
+        this.contents.fillRect(bx, hy,           bw, hh,    'rgba(255,255,255,0.55)');
     };
 
     // ── 항목 하나 렌더링 ─────────────────────────────────────────────────────
@@ -405,19 +425,13 @@
         var mg = 16;
         var bw = Graphics.boxWidth;
         var bh = Graphics.boxHeight;
-        var hh = 44;  // 헤더 창 높이
 
-        // 헤더
-        this._header = new Window_Base(mg, mg, bw - mg * 2, hh);
-        this._header.drawText(MENU_NAME, 0, 0, this._header.contentsWidth(), 'center');
-        this.addWindow(this._header);
-
-        // 로그 창 (헤더 바로 아래 ~ 화면 하단까지)
+        // 창 하나로 통합 (제목은 창 내부 상단에 고정 표시)
         this._log = new Window_TextLog(
             mg,
-            mg + hh + 4,
+            mg,
             bw - mg * 2,
-            bh - mg * 2 - hh - 4
+            bh - mg * 2
         );
         this.addWindow(this._log);
     };
