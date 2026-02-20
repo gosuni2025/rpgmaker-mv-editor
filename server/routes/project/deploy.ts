@@ -3,7 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import https from 'https';
-import { exec, spawn } from 'child_process';
+import { exec } from 'child_process';
+import archiver from 'archiver';
 import projectManager from '../../services/projectManager';
 import settingsManager from '../../services/settingsManager';
 import { openInExplorer } from './helpers';
@@ -53,31 +54,20 @@ async function zipStagingWithProgress(
 ): Promise<void> {
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
   return new Promise<void>((resolve, reject) => {
-    const child = spawn('zip', ['-r', zipPath, '.'], { cwd: stagingDir });
+    const output = fs.createWriteStream(zipPath);
+    const archive = archiver('zip', { zlib: { level: 6 } });
     let current = 0;
-    let buf = '';
-    const parseLine = (chunk: Buffer) => {
-      buf += chunk.toString();
-      let nl: number;
-      while ((nl = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, nl).trim();
-        buf = buf.slice(nl + 1);
-        if (line.startsWith('adding:') || line.startsWith('updating:')) {
-          current++;
-          const display = Math.min(current, fileTotal);
-          if (current % 10 === 0 || display === fileTotal) {
-            onProgress(display, fileTotal);
-          }
-        }
+    archive.on('entry', () => {
+      current++;
+      if (current % 10 === 0 || current === fileTotal) {
+        onProgress(Math.min(current, fileTotal), fileTotal);
       }
-    };
-    child.stdout.on('data', parseLine);
-    child.stderr.on('data', parseLine);
-    child.on('close', (code) => {
-      if (code === 0) { onProgress(fileTotal, fileTotal); resolve(); }
-      else reject(new Error(`zip 압축 실패 (code ${code})`));
     });
-    child.on('error', reject);
+    archive.on('error', reject);
+    output.on('close', resolve);
+    archive.pipe(output);
+    archive.directory(stagingDir, false);
+    archive.finalize();
   });
 }
 
