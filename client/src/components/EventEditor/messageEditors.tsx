@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
@@ -8,7 +8,7 @@ import './ShowChoicesEditor.css';
 
 export const selectStyle = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 } as const;
 
-// ─── 전체화면 텍스트 표시 다이얼로그 (좌: 설정, 우: 미리보기) ───
+// ─── 전체화면 텍스트 표시 다이얼로그 (좌: 설정, 우: 미리보기 + 스플릿 핸들) ───
 export function ShowTextEditorDialog({ p, onOk, onCancel, existingLines }: { p: unknown[]; onOk: (params: unknown[], extra?: EventCommand[]) => void; onCancel: () => void; existingLines?: string[] }) {
   const [faceName, setFaceName] = useState<string>((p[0] as string) || '');
   const [faceIndex, setFaceIndex] = useState<number>((p[1] as number) || 0);
@@ -16,6 +16,32 @@ export function ShowTextEditorDialog({ p, onOk, onCancel, existingLines }: { p: 
   const [positionType, setPositionType] = useState<number>((p[3] as number) || 2);
   const [text, setText] = useState(existingLines?.join('\n') || '');
   const [bulkInput, setBulkInput] = useState(false);
+
+  // ─── 스플릿 핸들 상태 ───
+  const [previewWidth, setPreviewWidth] = useState(380);
+  const splitDragging = useRef(false);
+  const splitStartX = useRef(0);
+  const splitStartW = useRef(380);
+
+  const onSplitDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    splitDragging.current = true;
+    splitStartX.current = e.clientX;
+    splitStartW.current = previewWidth;
+  }, [previewWidth]);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!splitDragging.current) return;
+      // 핸들을 왼쪽으로 드래그 → 미리보기 넓어짐
+      const delta = splitStartX.current - e.clientX;
+      setPreviewWidth(Math.max(180, Math.min(900, splitStartW.current + delta)));
+    };
+    const onUp = () => { splitDragging.current = false; };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+  }, []);
 
   const handleOk = () => {
     if (bulkInput) {
@@ -96,13 +122,16 @@ export function ShowTextEditorDialog({ p, onOk, onCancel, existingLines }: { p: 
             </div>
           </div>
 
+          {/* 스플릿 핸들 */}
+          <div className="show-text-split-handle" onMouseDown={onSplitDown} title="드래그하여 미리보기 크기 조절" />
+
           {/* 오른쪽: 미리보기 */}
-          <div className="show-text-preview-panel">
+          <div className="show-text-preview-panel" style={{ width: previewWidth }}>
             <div className="show-text-preview-header">
               미리보기
-              <span style={{ fontSize: 11, color: '#666', marginLeft: 8 }}>실제 게임 창 스타일 (816×624)</span>
+              <span style={{ fontSize: 11, color: '#555', marginLeft: 8 }}>816×624</span>
             </div>
-            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#111', borderRadius: 4 }}>
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#111', borderRadius: 4, padding: 6 }}>
               <MessagePreview
                 faceName={faceName}
                 faceIndex={faceIndex}

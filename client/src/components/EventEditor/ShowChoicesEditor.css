@@ -32,14 +32,41 @@
   border-right: 1px solid #444;
 }
 
-/* 오른쪽: 미리보기 패널 — 고정 너비 (Canvas는 패널 안에서 비율 유지) */
+/* 스플릿 핸들 */
+.show-text-split-handle {
+  width: 5px;
+  flex-shrink: 0;
+  background: #3a3a3a;
+  cursor: col-resize;
+  position: relative;
+  transition: background 0.15s;
+  z-index: 1;
+}
+.show-text-split-handle:hover,
+.show-text-split-handle:active {
+  background: #2675bf;
+}
+.show-text-split-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 1px;
+  height: 40px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 1px;
+}
+
+/* 오른쪽: 미리보기 패널 — 스플릿으로 너비 동적 제어 */
 .show-text-preview-panel {
-  width: 380px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   padding: 10px;
   overflow: hidden;
+  min-width: 180px;
+  max-width: 900px;
 }
 
 .show-text-preview-header {

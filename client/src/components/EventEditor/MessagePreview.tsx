@@ -24,6 +24,14 @@ const BASE_FONT = 26;
 const ICON_SZ = 32;
 const ICON_COLS = 16;
 
+// ─── VN 모드 상수 (VisualNovelMode.js 기본값) ───
+const VN_X = 60;
+const VN_Y = 40;
+const VN_W = 700;
+const VN_H = 520;
+const VN_OVERLAY_ALPHA = 120 / 255; // overlayOpacity 기본값
+const VN_SPEAKER_COLOR = '#ffe066';
+
 // ─── 이미지 캐시 (글로벌, 모듈 생명주기) ───
 const imgCache: Record<string, HTMLImageElement | null> = {};
 
@@ -254,7 +262,130 @@ function drawLine(
   }
 }
 
-// ─── 전체 씬 렌더링 ───
+// ─── 배경 + 캐릭터 placeholder 공통 그리기 ───
+function drawBackground(ctx: CanvasRenderingContext2D) {
+  ctx.fillStyle = '#3a4a5a';
+  ctx.fillRect(0, 0, GW, GH);
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < GW; x += 48) { ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, GH); ctx.stroke(); }
+  for (let y = 0; y < GH; y += 48) { ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(GW, y + 0.5); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.fillRect(GW / 2 - 16, GH / 2 - 56, 32, 56);
+}
+
+// ─── 일반 메시지 창 렌더링 ───
+function renderNormal(
+  ctx: CanvasRenderingContext2D,
+  faceName: string, faceIndex: number, background: number, positionType: number, text: string,
+  faceImg: HTMLImageElement | null, winImg: HTMLImageElement | null, iconImg: HTMLImageElement | null,
+) {
+  drawBackground(ctx);
+
+  if (background === 1) {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, GW, GH);
+  }
+
+  const winY = positionType === 0 ? 0 : positionType === 1 ? Math.floor((GH - WIN_H) / 2) : GH - WIN_H;
+
+  if (background !== 2) {
+    if (winImg) drawWindowPng(ctx, winImg, 0, winY, GW, WIN_H);
+    else drawWindowFallback(ctx, 0, winY, GW, WIN_H);
+  }
+
+  const hasFace = !!(faceName && faceImg);
+  if (hasFace && faceImg) {
+    const col = faceIndex % 4;
+    const row = Math.floor(faceIndex / 4);
+    ctx.drawImage(faceImg, col * FACE_SZ, row * FACE_SZ, FACE_SZ, FACE_SZ, PAD, winY + PAD, FACE_SZ, FACE_SZ);
+  }
+
+  const textX = hasFace ? PAD + FACE_SZ + 16 : PAD;
+  const textMaxW = GW - textX - PAD;
+  const lines = text.split('\n').slice(0, 4);
+  lines.forEach((line, i) => {
+    drawLine(ctx, line, textX, winY + PAD + i * LINE_H + BASE_FONT + 2, textMaxW, iconImg);
+  });
+
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = '18px serif';
+  ctx.fillText('▼', GW - 22, winY + WIN_H - 10);
+}
+
+// ─── VN 모드 렌더링 (VisualNovelMode.js 스타일) ───
+function renderVN(
+  ctx: CanvasRenderingContext2D,
+  faceName: string, faceIndex: number, text: string,
+  faceImg: HTMLImageElement | null, winImg: HTMLImageElement | null, iconImg: HTMLImageElement | null,
+) {
+  drawBackground(ctx);
+
+  // VN 오버레이: 전체 화면 반투명 어두운 레이어
+  ctx.fillStyle = `rgba(0,0,0,${VN_OVERLAY_ALPHA})`;
+  ctx.fillRect(0, 0, GW, GH);
+
+  // VN 텍스트 창 배경
+  if (winImg) drawWindowPng(ctx, winImg, VN_X, VN_Y, VN_W, VN_H);
+  else drawWindowFallback(ctx, VN_X, VN_Y, VN_W, VN_H);
+
+  const innerX = VN_X + PAD;
+  const innerY = VN_Y + PAD;
+  const innerW = VN_W - PAD * 2;
+
+  // 얼굴 이미지 (창 좌측에 작게)
+  const hasFace = !!(faceName && faceImg);
+  let textStartX = innerX;
+  if (hasFace && faceImg) {
+    const col = faceIndex % 4;
+    const row = Math.floor(faceIndex / 4);
+    const faceDst = 120; // VN 모드에서 얼굴 크기는 약간 작게
+    ctx.drawImage(faceImg, col * FACE_SZ, row * FACE_SZ, FACE_SZ, FACE_SZ, innerX, innerY, faceDst, faceDst);
+    textStartX = innerX + faceDst + 12;
+  }
+
+  const textW = VN_X + VN_W - textStartX - PAD;
+  let curY = innerY;
+
+  // 화자명 (faceName → 화자명으로 표시, 황색 #ffe066)
+  if (faceName) {
+    ctx.save();
+    ctx.fillStyle = '#000000';
+    ctx.font = `bold 22px "GameFont","MS PGothic","dotumche","나눔고딕",serif`;
+    ctx.fillText(faceName, textStartX + 1, curY + 22 + 1);
+    ctx.fillStyle = VN_SPEAKER_COLOR;
+    ctx.fillText(faceName, textStartX, curY + 22);
+    ctx.restore();
+    curY += LINE_H;
+  }
+
+  // 텍스트 (모든 줄 표시, VN은 누적형)
+  const lines = text.split('\n');
+  const maxLines = Math.floor((VN_Y + VN_H - curY - PAD) / LINE_H);
+  lines.slice(0, maxLines).forEach((line, i) => {
+    drawLine(ctx, line, textStartX, curY + i * LINE_H + BASE_FONT + 2, textW, iconImg);
+  });
+  if (lines.length > maxLines) {
+    // 스크롤 표시
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '14px serif';
+    ctx.fillText(`↓ (${lines.length - maxLines}줄 더 있음)`, textStartX, VN_Y + VN_H - 8);
+  }
+
+  // 입력 대기 ▼
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = '18px serif';
+  ctx.fillText('▼', VN_X + VN_W - 22, VN_Y + VN_H - 10);
+
+  // 모드 라벨
+  ctx.save();
+  ctx.fillStyle = 'rgba(255, 224, 102, 0.85)';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.fillText('VN MODE', VN_X + 4, VN_Y - 4);
+  ctx.restore();
+}
+
+// ─── 전체 씬 렌더링 (진입점) ───
 function render(
   ctx: CanvasRenderingContext2D,
   faceName: string,
@@ -266,52 +397,12 @@ function render(
   winImg: HTMLImageElement | null,
   iconImg: HTMLImageElement | null,
 ) {
-  // 맵 배경 시뮬레이션
-  ctx.fillStyle = '#3a4a5a';
-  ctx.fillRect(0, 0, GW, GH);
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-  ctx.lineWidth = 1;
-  for (let x = 0; x < GW; x += 48) { ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, GH); ctx.stroke(); }
-  for (let y = 0; y < GH; y += 48) { ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(GW, y + 0.5); ctx.stroke(); }
-  // 캐릭터 placeholder
-  ctx.fillStyle = 'rgba(255,255,255,0.08)';
-  ctx.fillRect(GW / 2 - 16, GH / 2 - 56, 32, 56);
-
-  // background=1: 전체 어두운 오버레이
-  if (background === 1) {
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(0, 0, GW, GH);
+  const lineCount = text.split('\n').filter(l => l !== '').length || text.split('\n').length;
+  if (lineCount > 4) {
+    renderVN(ctx, faceName, faceIndex, text, faceImg, winImg, iconImg);
+  } else {
+    renderNormal(ctx, faceName, faceIndex, background, positionType, text, faceImg, winImg, iconImg);
   }
-
-  // 창의 Y 위치
-  let winY = positionType === 0 ? 0 : positionType === 1 ? Math.floor((GH - WIN_H) / 2) : GH - WIN_H;
-
-  // 창 그리기 (background=2 투명은 창 생략)
-  if (background !== 2) {
-    if (winImg) drawWindowPng(ctx, winImg, 0, winY, GW, WIN_H);
-    else drawWindowFallback(ctx, 0, winY, GW, WIN_H);
-  }
-
-  // 얼굴 이미지
-  const hasFace = !!(faceName && faceImg);
-  if (hasFace && faceImg) {
-    const col = faceIndex % 4;
-    const row = Math.floor(faceIndex / 4);
-    ctx.drawImage(faceImg, col * FACE_SZ, row * FACE_SZ, FACE_SZ, FACE_SZ, PAD, winY + PAD, FACE_SZ, FACE_SZ);
-  }
-
-  // 텍스트 영역
-  const textX = hasFace ? PAD + FACE_SZ + 16 : PAD;
-  const textMaxW = GW - textX - PAD;
-  const lines = text.split('\n').slice(0, 4);
-  lines.forEach((line, i) => {
-    drawLine(ctx, line, textX, winY + PAD + i * LINE_H + BASE_FONT + 2, textMaxW, iconImg);
-  });
-
-  // 입력 대기 인디케이터 (▼) 우하단
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.font = '18px serif';
-  ctx.fillText('▼', GW - 22, winY + WIN_H - 10);
 }
 
 // ─── MessagePreview 컴포넌트 ───
@@ -330,6 +421,8 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
     win: HTMLImageElement | null;
     icon: HTMLImageElement | null;
   }>({ face: null, win: null, icon: null });
+
+  const isVNMode = text.split('\n').filter(l => l !== '').length > 4 || text.split('\n').length > 4;
 
   useEffect(() => {
     let cancelled = false;
@@ -354,9 +447,17 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
   }, [imgs, faceName, faceIndex, background, positionType, text]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ width: '100%', aspectRatio: `${GW}/${GH}`, display: 'block', imageRendering: 'pixelated', background: '#222' }}
-    />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ fontSize: 11, color: isVNMode ? '#ffe066' : '#666', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+        {isVNMode
+          ? <><span style={{ background: '#5a4200', border: '1px solid #ffe066', borderRadius: 3, padding: '1px 6px', color: '#ffe066', fontWeight: 'bold' }}>VN MODE</span> 4줄 초과 — Visual Novel 렌더링</>
+          : <><span style={{ background: '#1a3a1a', border: '1px solid #4a8', borderRadius: 3, padding: '1px 6px', color: '#4da' }}>NORMAL</span> Window_Message 렌더링</>
+        }
+      </div>
+      <canvas
+        ref={canvasRef}
+        style={{ width: '100%', aspectRatio: `${GW}/${GH}`, display: 'block', imageRendering: 'pixelated', background: '#222', flex: 1, minHeight: 0, objectFit: 'contain' }}
+      />
+    </div>
   );
 }
