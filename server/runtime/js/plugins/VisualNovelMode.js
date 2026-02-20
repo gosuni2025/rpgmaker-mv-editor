@@ -764,13 +764,17 @@
         }
     };
 
-    // VN 모드에서 onEndOfText: _textState를 null로 설정하여 updateMessage 루프 종료,
-    // pause=true로 설정하여 _forceOk → terminateMessage() 흐름 활성화
+    // VN 모드에서 onEndOfText:
+    // - 선택지가 있으면 startInput()이 true → 원본 흐름대로 (choiceList.start 등) 진행
+    // - 일반 메시지면 startInput()이 false → _textState=null, pause=true로
+    //   updateMessage 루프를 종료하고 _forceOk → terminateMessage() 대기
     var _WM_onEndOfText = Window_Message.prototype.onEndOfText;
     Window_Message.prototype.onEndOfText = function () {
         if (VNManager.isActive()) {
-            this._textState = null;
-            this.pause = true;
+            if (!this.startInput()) {
+                this._textState = null;
+                this.pause = true;
+            }
             return;
         }
         _WM_onEndOfText.call(this);
