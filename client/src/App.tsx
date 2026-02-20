@@ -38,6 +38,7 @@ import PassageInspector from './components/Sidebar/PassageInspector';
 import EventList from './components/EventEditor/EventList';
 import useFileWatcher from './hooks/useFileWatcher';
 import useAutoSave from './hooks/useAutoSave';
+import useDialogDrag from './hooks/useDialogDrag';
 import i18n from './i18n';
 
 function SidebarSplit({ editMode }: { editMode: string }) {
@@ -145,6 +146,7 @@ export default function App() {
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
   useFileWatcher();
   useAutoSave();
+  useDialogDrag();
   const setShowOpenProjectDialog = useEditorStore((s) => s.setShowOpenProjectDialog);
   const openProject = useEditorStore((s) => s.openProject);
   const restoreLastProject = useEditorStore((s) => s.restoreLastProject);

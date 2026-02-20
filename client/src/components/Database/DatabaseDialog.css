@@ -30,6 +30,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  cursor: grab;
+  user-select: none;
+}
+
+.db-dialog-header:active {
+  cursor: grabbing;
+}
+
+.db-dialog-header button,
+.db-dialog-header input,
+.db-dialog-header select {
+  cursor: default;
 }
 
 .db-dialog-header h2 {
