@@ -1,5 +1,5 @@
 // Re-export all command editors from split modules
-export { selectStyle, ShowTextEditor, TextEditor, ScrollingTextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor, InputNumberEditor, SelectItemEditor, ShowChoicesEditor } from './messageEditors';
+export { selectStyle, ShowTextEditor, ShowTextEditorDialog, TextEditor, ScrollingTextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor, InputNumberEditor, SelectItemEditor, ShowChoicesEditor } from './messageEditors';
 export { ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor } from './controlEditors';
 export { DataListPicker } from './dataListPicker';
 export { VariableSwitchSelector } from './VariableSwitchSelector';

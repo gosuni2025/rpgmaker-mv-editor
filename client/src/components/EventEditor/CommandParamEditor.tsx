@@ -5,7 +5,7 @@ import { ADDON_COMMANDS } from './addonCommands';
 import AddonCommandEditor, { parseAddonProps } from './AddonCommandEditor';
 import { ScriptEditor } from './ScriptEditor';
 import {
-  ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor,
+  ShowTextEditor, ShowTextEditorDialog, TextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor,
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor, VehicleBGMEditor, MovieEditor, FadeoutEditor,
   ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeActorImagesEditor, ChangeVehicleImageEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeMapNameDisplayEditor, ChangeTilesetEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor, ShowBalloonIconEditor,
@@ -39,6 +39,12 @@ interface CommandParamEditorProps {
 export default function CommandParamEditor({ code, command, followCommands, hasElse, initialParam, onOk, onCancel }: CommandParamEditorProps) {
   useEscClose(onCancel);
   const p = command?.parameters || [];
+
+  // ShowText(101) 커맨드는 미리보기 전체화면 다이얼로그로 처리
+  if (code === 101) {
+    const existingLines = (followCommands || []).filter(c => c.code === 401).map(c => c.parameters[0] as string);
+    return <ShowTextEditorDialog p={p} existingLines={existingLines} onOk={onOk} onCancel={onCancel} />;
+  }
 
   // Script 커맨드는 자체 전체화면 에디터로 처리
   if (code === 355) {

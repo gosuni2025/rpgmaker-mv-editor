@@ -1,3 +1,57 @@
+/* ─── 텍스트 표시 전체화면 다이얼로그 ─── */
+.show-text-fullscreen-dialog {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  width: 90vw;
+  max-width: 1400px;
+  height: 88vh;
+  max-height: 920px;
+  overflow: hidden;
+}
+
+.show-text-body {
+  flex: 1;
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* 왼쪽: 설정 패널 */
+.show-text-settings {
+  width: 420px;
+  min-width: 360px;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  overflow-y: auto;
+  border-right: 1px solid #444;
+}
+
+/* 오른쪽: 미리보기 패널 */
+.show-text-preview-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.show-text-preview-header {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 8px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+}
+
 /* Show Choices Editor */
 .show-choices-editor {
   display: flex;

@@ -290,6 +290,7 @@ export function EnhancedTextEditor({
           확장 블럭 <span className="ext-badge">EXT</span>
         </button>
         <button className={`ete-tab ${mode === 'raw' ? 'active' : ''}`} onClick={() => setMode('raw')}>Raw</button>
+        <span className="ete-tab-hint">텍스트를 드래그 선택 후 "효과 적용" 버튼으로 효과 적용</span>
       </div>
 
       {mode === 'visual' && (
