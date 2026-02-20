@@ -217,6 +217,7 @@
         Window_Base.prototype.initialize.call(this, TEXT_AREA_X, TEXT_AREA_Y, TEXT_AREA_W, TEXT_AREA_H);
         this.opacity     = 0;
         this.backOpacity = 0;
+        this.openness    = 255;  // pause sign 표시를 위해 isOpen()=true로 유지
         this._entries    = [];
         this._layouts    = [];
         this._totalH     = 0;
@@ -521,6 +522,7 @@
         var s  = SceneManager._scene;
         var mw = s && s._messageWindow;
         if (!mw) return;
+        this.pause = false;  // 입력 완료 → pause sign 숨김
         this._forceOk = true;
     };
 
@@ -614,9 +616,28 @@
         this._overlay.bitmap.fillAll('rgba(0,0,0,' + (OVERLAY_OPACITY / 255).toFixed(2) + ')');
         this._overlay.setFrame(0, 0, ow, oh);
         this._overlay.opacity = 0;
-        // windowLayer보다 낮은 z → 오버레이가 텍스트 창 아래에 위치
-        this._overlay.z = -1;
         scene.addChild(this._overlay);
+
+        // renderOrder는 children 배열 순서로 할당됨.
+        // overlay가 windowLayer보다 앞에 오도록 배열과 Three.js 그룹을 직접 재정렬.
+        var sc = scene.children;
+        var wlIdx = sc.indexOf(scene._windowLayer);
+        var ovIdx = sc.indexOf(this._overlay);
+        if (wlIdx >= 0 && ovIdx > wlIdx) {
+            sc.splice(ovIdx, 1);
+            sc.splice(wlIdx, 0, this._overlay);
+            if (scene._threeObj && this._overlay._threeObj && scene._windowLayer._threeObj) {
+                var tc = scene._threeObj.children;
+                var wlT = scene._windowLayer._threeObj;
+                var ovT = this._overlay._threeObj;
+                var wlTi = tc.indexOf(wlT);
+                var ovTi = tc.indexOf(ovT);
+                if (wlTi >= 0 && ovTi > wlTi) {
+                    tc.splice(ovTi, 1);
+                    tc.splice(wlTi, 0, ovT);
+                }
+            }
+        }
 
         this._textWin = new Window_VNText();
         this._textWin.contentsOpacity = 0;
@@ -746,7 +767,11 @@
     var _WM_startPause = Window_Message.prototype.startPause;
     Window_Message.prototype.startPause = function () {
         if (VNManager.isActive()) {
-            this.pause = true;  // VN 모드: 화살표 없이 pause 플래그만 설정
+            this.pause = true;
+            // VN 텍스트 창의 pause sign도 활성화
+            var s  = SceneManager._scene;
+            var tw = s && s._vnCtrl ? s._vnCtrl.getTextWindow() : null;
+            if (tw) tw.pause = true;
             return;
         }
         _WM_startPause.call(this);
