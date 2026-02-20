@@ -1940,6 +1940,33 @@ if (typeof Game_Interpreter !== 'undefined') {
                         });
                     }
                 }
+            } else if (sub === 'TentacleLength') {
+                // FogOfWar TentacleLength <value>  (기본 2.0, 높을수록 촉수가 멀리 뻗음)
+                var tlVal = parseFloat(args[1]);
+                if (!isNaN(tlVal)) {
+                    FogOfWar._shaderOverrides = FogOfWar._shaderOverrides || {};
+                    FogOfWar._shaderOverrides.dissolveStrength = tlVal;
+                    if (FogOfWar._fogGroup) {
+                        FogOfWar._fogGroup.traverse(function(child) {
+                            if (child.isMesh && child.material && child.material.uniforms && child.material.uniforms.dissolveStrength) {
+                                child.material.uniforms.dissolveStrength.value = tlVal;
+                            }
+                        });
+                    }
+                }
+            } else if (sub === 'TentacleSpeed') {
+                // FogOfWar TentacleSpeed <value>  (기본 1.0, 높을수록 빠르게 움직임)
+                var tSpVal = parseFloat(args[1]);
+                if (!isNaN(tSpVal)) {
+                    FogOfWar._edgeAnimationSpeed = tSpVal;
+                    if (FogOfWar._fogGroup) {
+                        FogOfWar._fogGroup.traverse(function(child) {
+                            if (child.isMesh && child.material && child.material.uniforms && child.material.uniforms.edgeAnimSpeed) {
+                                child.material.uniforms.edgeAnimSpeed.value = tSpVal;
+                            }
+                        });
+                    }
+                }
             }
         }
     };
