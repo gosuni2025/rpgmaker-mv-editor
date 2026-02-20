@@ -22,7 +22,6 @@ import {
 const router = express.Router();
 const execAsync = promisify(exec);
 
-/** 배포 대상 브랜치 — GitHub Pages는 gh-pages 브랜치를 서비스함 */
 const DEPLOY_BRANCH = 'gh-pages';
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
@@ -38,7 +37,6 @@ async function checkGitRepo(repoPath: string): Promise<boolean> {
   try { await execAsync(`git -C "${repoPath}" rev-parse --git-dir`); return true; } catch { return false; }
 }
 
-/** git remote URL에서 GitHub Pages URL 추출 */
 function derivePageUrl(remoteUrl: string): string {
   const m = remoteUrl.trim()
     .replace(/^git@github\.com:/, 'https://github.com/')
@@ -68,14 +66,6 @@ async function getRemoteUrl(repoPath: string, remote: string): Promise<string> {
     const { stdout } = await execAsync(`git -C "${repoPath}" remote get-url ${remote}`);
     return stdout.trim();
   } catch { return ''; }
-}
-
-/** 원격에 gh-pages 브랜치가 이미 존재하는지 확인 */
-async function remoteBranchExists(remoteUrl: string): Promise<boolean> {
-  try {
-    const { stdout } = await execAsync(`git ls-remote --heads "${remoteUrl}" "${DEPLOY_BRANCH}"`);
-    return stdout.trim().length > 0;
-  } catch { return false; }
 }
 
 // ─── 사전 조건 체크 ───────────────────────────────────────────────────────────
@@ -113,7 +103,8 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
 
   setupSSE(res);
 
-  // 배포마다 새 임시 디렉터리 사용 — 완료 후 삭제
+  // 로컬 프로젝트 저장소에서 worktree를 생성 — clone 불필요
+  const tmpBranch = `_deploy_${crypto.randomBytes(4).toString('hex')}`;
   const tmpDir = path.join(os.tmpdir(), `rpgmv-deploy-${crypto.randomBytes(6).toString('hex')}`);
 
   try {
@@ -125,31 +116,17 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
       return;
     }
 
-    // ── 2. gh-pages 브랜치 clone 또는 orphan 생성 ────────────────────────────
+    // ── 2. 로컬 저장소에서 worktree 생성 (orphan — 소스 히스토리와 분리) ──────
     sseWrite(res, { type: 'status', phase: 'copying' });
-
-    const branchExists = await remoteBranchExists(remoteUrl);
-    if (branchExists) {
-      // 기존 gh-pages 브랜치 shallow clone (빠름)
-      execSync(`git clone --depth=1 --branch ${DEPLOY_BRANCH} "${remoteUrl}" "${tmpDir}"`, { stdio: 'pipe' });
-    } else {
-      // 첫 배포: main 브랜치 clone 후 orphan gh-pages 브랜치 생성
-      execSync(`git clone --depth=1 "${remoteUrl}" "${tmpDir}"`, { stdio: 'pipe' });
-      execSync(`git -C "${tmpDir}" checkout --orphan ${DEPLOY_BRANCH}`, { stdio: 'pipe' });
-      try { execSync(`git -C "${tmpDir}" rm -rf .`, { stdio: 'pipe' }); } catch {}
-    }
-
-    // git author 설정 (CI/서버 환경에서 미설정일 수 있음)
-    execSync(`git -C "${tmpDir}" config user.email "deploy@rpgmaker-editor"`, { stdio: 'pipe' });
-    execSync(`git -C "${tmpDir}" config user.name "RPG Maker MV Editor"`, { stdio: 'pipe' });
-
-    // ── 3. 기존 파일 정리 (.git 제외) ─────────────────────────────────────────
+    execSync(`git -C "${srcPath}" worktree add --no-checkout "${tmpDir}"`, { stdio: 'pipe' });
+    execSync(`git -C "${tmpDir}" checkout --orphan ${tmpBranch}`, { stdio: 'pipe' });
+    // orphan 상태이므로 staged 파일 없음 — working tree만 비워주면 됨
     for (const entry of fs.readdirSync(tmpDir)) {
       if (entry === '.git') continue;
       fs.rmSync(path.join(tmpDir, entry), { recursive: true, force: true });
     }
 
-    // ── 4. 프로젝트 파일 복사 ─────────────────────────────────────────────────
+    // ── 3. 프로젝트 파일 복사 ─────────────────────────────────────────────────
     const files = collectFilesForDeploy(srcPath);
     const total = files.length;
     sseWrite(res, { type: 'counted', total });
@@ -165,15 +142,13 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
       }
     }
 
-    // ── 5. index_3d.html → index.html + 캐시 버스팅 ─────────────────────────
-    // 소스의 index.html(PIXI용)은 index_pixi.html로 보존,
-    // Three.js 런타임인 index_3d.html을 index.html로 사용
+    // ── 4. index_3d.html → index.html + 캐시 버스팅 ─────────────────────────
     sseWrite(res, { type: 'status', phase: 'patching' });
     applyIndexHtmlRename(tmpDir);
     const buildId = makeBuildId();
     applyCacheBusting(tmpDir, buildId, opts);
 
-    // ── 6. git commit ─────────────────────────────────────────────────────────
+    // ── 5. git commit ─────────────────────────────────────────────────────────
     sseWrite(res, { type: 'status', phase: 'committing' });
     const now = new Date().toLocaleString('ko-KR');
 
@@ -187,17 +162,18 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
       if (!msg.includes('nothing to commit') && !msg.includes('nothing added')) throw e;
     }
 
-    // ── 7. git push → origin gh-pages ────────────────────────────────────────
+    // ── 6. push → <remote>/gh-pages (force: orphan이므로 항상 덮어씀) ────────
     sseWrite(res, { type: 'status', phase: 'pushing' });
-    execSync(`git -C "${tmpDir}" push origin ${DEPLOY_BRANCH}`, { stdio: 'pipe' });
+    execSync(`git -C "${tmpDir}" push "${remoteUrl}" ${tmpBranch}:${DEPLOY_BRANCH} --force`, { stdio: 'pipe' });
 
     const pageUrl = derivePageUrl(remoteUrl);
     sseWrite(res, { type: 'done', commitHash, pageUrl, buildId });
   } catch (err) {
     sseWrite(res, { type: 'error', message: (err as Error).message });
   } finally {
-    // ── 8. 임시 디렉터리 삭제 ─────────────────────────────────────────────────
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    // ── 7. worktree + 임시 브랜치 정리 ──────────────────────────────────────
+    try { execSync(`git -C "${srcPath}" worktree remove "${tmpDir}" --force`, { stdio: 'pipe' }); } catch {}
+    try { execSync(`git -C "${srcPath}" branch -D ${tmpBranch}`, { stdio: 'pipe' }); } catch {}
   }
   res.end();
 });

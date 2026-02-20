@@ -1448,9 +1448,9 @@
     "tabLocal": "로컬 폴더",
     "ghPages": {
       "howItWorks": "배포 동작 방식",
-      "howStep1": "배포마다 임시 폴더를 만들어 선택한 remote의 gh-pages 브랜치를 clone합니다",
+      "howStep1": "로컬 프로젝트 저장소에서 git worktree로 임시 브랜치를 생성합니다 (네트워크 clone 없음)",
       "howStep2": "프로젝트 파일을 복사하고, index_3d.html → index.html 로 교체합니다 (Three.js 런타임이 GitHub Pages의 진입점)",
-      "howStep3": "캐시 버스팅 처리 후 gh-pages 브랜치에 commit & push한 뒤 임시 폴더를 삭제합니다",
+      "howStep3": "캐시 버스팅 처리 후 선택한 remote의 gh-pages 브랜치에 force push한 뒤 worktree를 정리합니다",
       "indexNote": "프로젝트 원본의 index.html(PIXI/RPG Maker MV 네이티브용)은 변경되지 않습니다. gh-pages 브랜치에서만 index.html이 Three.js 버전으로 적용됩니다.",
       "remote": "푸시할 git remote",
       "prerequisites": "사전 조건",
