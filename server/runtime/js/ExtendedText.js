@@ -494,7 +494,7 @@ Window_Base.prototype._etRedrawGradient = function(saved) {
     var endX = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c);
     var y0 = saved.startY;
     var ow = bmp.outlineWidth || 4;
-    if (bmp.clearRect) bmp.clearRect(startX - ow, y0, endX - startX + ow*2, lh);
+    if (bmp.clearRect && !this._etNoClearRect) bmp.clearRect(startX - ow, y0, endX - startX + ow*2, lh);
 
     var savedColor = bmp.textColor;
     var count = chars.length;
@@ -521,7 +521,7 @@ Window_Base.prototype._etRedrawGradientWave = function(saved) {
     var totalW = endX - startX;
     var y0 = saved.startY;
     var ow = bmp.outlineWidth || 4;
-    if (bmp.clearRect) bmp.clearRect(startX - ow, y0, endX - startX + ow*2, lh);
+    if (bmp.clearRect && !this._etNoClearRect) bmp.clearRect(startX - ow, y0, endX - startX + ow*2, lh);
 
     var savedColor = bmp.textColor;
     for (var i = 0; i < chars.length; i++) {

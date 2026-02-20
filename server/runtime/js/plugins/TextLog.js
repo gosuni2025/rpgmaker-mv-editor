@@ -219,6 +219,7 @@
 
     Window_TextLog.prototype.initialize = function (x, y, w, h) {
         Window_Base.prototype.initialize.call(this, x, y, w, h);
+        this._etNoClearRect = true;  // gradient 재그리기 시 clearRect 방지 (배경 보존)
         this._sy      = 0;      // 현재 스크롤 Y
         this._layouts = [];     // 각 항목의 { y, h }
         this._total   = 0;      // 전체 콘텐츠 높이
