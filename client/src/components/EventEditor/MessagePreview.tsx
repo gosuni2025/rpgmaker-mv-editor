@@ -62,6 +62,8 @@ interface DrawText {
   fadeFrames?: number;      // 페이드인 지속 프레임
   dissolveSpeed?: number;
   blurFadeDuration?: number; // 흐릿하게 나타나기 지속 프레임
+  hologramScanlines?: number;
+  hologramFlicker?: number;
 }
 interface DrawIcon { type: 'icon'; index: number; size: number; }
 interface DrawWaiter { type: 'waiter'; size: number; }
@@ -83,6 +85,8 @@ function buildDrawSegs(line: string): DrawSeg[] {
     fadeFrames?: number,
     dissolveSpeed?: number,
     blurFadeDuration?: number,
+    hologramScanlines?: number,
+    hologramFlicker?: number,
   ) {
     for (const seg of segs) {
       if (seg.type === 'escape') {
@@ -108,12 +112,14 @@ function buildDrawSegs(line: string): DrawSeg[] {
             color: overColor || color, size,
             outlineColor: outline?.color, outlineWidth: outline?.width,
             gradient, shakeAmp, shakeSpeed, gradWaveSpeed, fadeFrames, dissolveSpeed, blurFadeDuration,
+            hologramScanlines, hologramFlicker,
           });
         }
       } else if (seg.type === 'block') {
         const b = seg as TextBlockSeg;
         let nc = overColor, no = outline, ng = gradient;
         let sa = shakeAmp, ss = shakeSpeed, gw = gradWaveSpeed, ff = fadeFrames, ds = dissolveSpeed, bf = blurFadeDuration;
+        let hsl = hologramScanlines, hlf = hologramFlicker;
 
         if (b.tag === 'color') nc = b.params.value || overColor;
         else if (b.tag === 'outline') no = { color: b.params.color || '#000000', width: +(b.params.thickness || '3') };
@@ -123,9 +129,14 @@ function buildDrawSegs(line: string): DrawSeg[] {
         else if (b.tag === 'fade') ff = +(b.params.duration || '60');
         else if (b.tag === 'dissolve') ds = +(b.params.speed || '1');
         else if (b.tag === 'blur-fade') bf = +(b.params.duration || '60');
-        // hologram, typewriter → 정적 미리보기에서 기본 처리
+        else if (b.tag === 'hologram') {
+          hsl = +(b.params.scanline || '5');
+          hlf = +(b.params.flicker || '0');
+          nc = '#00ffff'; // cyan 강제
+        }
+        // typewriter → 정적 미리보기에서 기본 처리
 
-        processSegs(b.children, nc, no, ng, sa, ss, gw, ff, ds, bf);
+        processSegs(b.children, nc, no, ng, sa, ss, gw, ff, ds, bf, hsl, hlf);
       }
     }
   }
@@ -243,6 +254,7 @@ function drawLine(
 
       ctx.font = fontStr;
       const tw = ctx.measureText(visibleText).width;
+      const startCx = cx; // hologram 스캔라인 위치 저장
 
       ctx.save();
 
@@ -262,6 +274,12 @@ function drawLine(
         const blurPx = (1 - progress) * 8;
         ctx.globalAlpha = animFrame <= 0 ? 1 : (0.2 + progress * 0.8);
         if (blurPx > 0.1) ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
+      }
+
+      // ── hologram flicker: alpha 깜빡임 ──
+      if (seg.hologramScanlines && animFrame > 0) {
+        const flicker = Math.min(1, (seg.hologramFlicker || 0) / 10);
+        ctx.globalAlpha = 0.65 + 0.35 * (1 - flicker * Math.abs(Math.sin(animFrame * 0.2)));
       }
 
       // ── shake 효과: sin 파형으로 Y 흔들림 ──
@@ -300,6 +318,10 @@ function drawLine(
         }
         ctx.fillStyle = gr;
         ctx.fillText(visibleText, cx, baselineY + dy);
+      } else if (seg.hologramScanlines) {
+        // hologram: outline 없이 cyan으로 그리기
+        ctx.fillStyle = seg.color; // overColor로 '#00ffff' 설정됨
+        ctx.fillText(visibleText, cx, baselineY + dy);
       } else {
         // 그림자
         const prevAlpha = ctx.globalAlpha;
@@ -315,6 +337,24 @@ function drawLine(
         ctx.fillStyle = seg.color;
         ctx.fillText(visibleText, cx, baselineY + dy);
       }
+
+      // ── hologram 스캔라인 오버레이 ──
+      if (seg.hologramScanlines) {
+        const scanH = seg.hologramScanlines;
+        const darkH = Math.max(1, Math.floor(scanH * 0.45));
+        const t = animFrame <= 0 ? 0 : animFrame / 60;
+        const scrollY = (t * 25) % scanH;
+        const lineTop = baselineY - fs;
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
+        for (let sy = lineTop - scanH + scrollY; sy < lineTop + fs + scanH; sy += scanH) {
+          const clipY = Math.max(sy, lineTop);
+          const clipH = Math.min(sy + darkH, lineTop + fs) - clipY;
+          if (clipH > 0) ctx.fillRect(startCx, clipY, tw, clipH);
+        }
+        ctx.restore();
+      }
+
       cx += tw;
       ctx.restore();
     }
