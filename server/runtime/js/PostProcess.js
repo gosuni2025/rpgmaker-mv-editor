@@ -1897,6 +1897,22 @@ PostProcess._applyMapSettings = function() {
         }
     }
 
+    // dofConfig 적용
+    var dc = $dataMap.dofConfig;
+    if (dc) {
+        this.config.focusY = dc.focusY != null ? dc.focusY : 0.55;
+        this.config.focusRange = dc.focusRange != null ? dc.focusRange : 0.1;
+        this.config.maxblur = dc.maxBlur != null ? dc.maxBlur : 0.05;
+        this.config.blurPower = dc.blurPower != null ? dc.blurPower : 1.5;
+        ConfigManager.depthOfField = !!dc.enabled;
+    } else {
+        this.config.focusY = 0.55;
+        this.config.focusRange = 0.1;
+        this.config.maxblur = 0.05;
+        this.config.blurPower = 1.5;
+        ConfigManager.depthOfField = false;
+    }
+
     // postProcessConfig 적용
     var ppc = $dataMap.postProcessConfig;
     if (ppc) {
