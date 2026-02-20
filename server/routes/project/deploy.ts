@@ -16,6 +16,15 @@ const DEPLOYS_DIR = path.join(os.homedir(), '.rpg-editor', 'deploys');
 const EXCLUDE_DIRS = new Set(['save', '.git', 'node_modules', 'Generator']);
 const EXCLUDE_FILES = new Set(['.DS_Store', 'Thumbs.db', 'Game.rpgproject']);
 
+// ─── 캐시 버스팅 옵션 ─────────────────────────────────────────────────────────
+export interface CacheBustOptions {
+  scripts?: boolean; // HTML 정적 script/link + PluginManager 동적 로드
+  images?:  boolean; // img/
+  audio?:   boolean; // audio/
+  video?:   boolean; // movies/
+  data?:    boolean; // data/
+}
+
 /** 배포할 파일 목록을 상대경로 배열로 반환 */
 function collectFilesForDeploy(baseDir: string, subDir = ''): string[] {
   const currentDir = subDir ? path.join(baseDir, subDir) : baseDir;
@@ -46,17 +55,38 @@ function applyIndexHtmlRename(stagingDir: string) {
   }
 }
 
-/** HTML 파일에 캐시 버스팅 쿼리 및 window.__BUILD_ID__ 주입 */
-function applyCacheBusting(stagingDir: string, buildId: string) {
+/** HTML 파일에 캐시 버스팅 쿼리 및 window.__CACHE_BUST__ 주입 */
+function applyCacheBusting(stagingDir: string, buildId: string, opts: CacheBustOptions = {}) {
+  const doScripts = opts.scripts !== false;
+  const cb = JSON.stringify({
+    buildId,
+    scripts: opts.scripts !== false,
+    images:  opts.images  !== false,
+    audio:   opts.audio   !== false,
+    video:   opts.video   !== false,
+    data:    opts.data    !== false,
+  });
+
   const htmlFiles = fs.readdirSync(stagingDir).filter((f: string) => f.endsWith('.html'));
   for (const htmlFile of htmlFiles) {
     const htmlPath = path.join(stagingDir, htmlFile);
     let html = fs.readFileSync(htmlPath, 'utf-8');
-    // src="...js" 또는 href="...css" 에 ?v=buildId 삽입 (기존 쿼리 교체)
-    html = html.replace(/((?:src|href)="[^"?]+\.(?:js|css))(?:\?[^"]*)?"/g,
-      (_: string, base: string) => `${base}?v=${buildId}"`);
-    // <head> 직후에 window.__BUILD_ID__ 전역 변수 주입
-    html = html.replace('<head>', `<head>\n    <script>window.__BUILD_ID__='${buildId}';</script>`);
+
+    // HTML 정적 script src / link href 에 ?v= 삽입 (scripts 옵션)
+    if (doScripts) {
+      html = html.replace(
+        /((?:src|href)="[^"?]+\.(?:js|css))(?:\?[^"]*)?"/g,
+        (_: string, base: string) => `${base}?v=${buildId}"`,
+      );
+    }
+
+    // <head> 직후에 window.__BUILD_ID__ (하위 호환) + window.__CACHE_BUST__ 주입
+    // rpg_managers.js/rpg_core.js가 이 객체를 읽어 카테고리별로 URL에 ?v= 붙임
+    html = html.replace(
+      '<head>',
+      `<head>\n    <script>window.__BUILD_ID__='${buildId}';window.__CACHE_BUST__=${cb};</script>`,
+    );
+
     fs.writeFileSync(htmlPath, html, 'utf-8');
   }
 }
@@ -227,6 +257,7 @@ function getGameTitle(): string {
 async function buildDeployZipWithProgress(
   srcPath: string,
   gameTitle: string,
+  opts: CacheBustOptions,
   onEvent: (data: object) => void,
 ): Promise<string> {
   fs.mkdirSync(DEPLOYS_DIR, { recursive: true });
@@ -250,7 +281,7 @@ async function buildDeployZipWithProgress(
     }
 
     applyIndexHtmlRename(stagingDir);
-    applyCacheBusting(stagingDir, makeBuildId());
+    applyCacheBusting(stagingDir, makeBuildId(), opts);
 
     onEvent({ type: 'status', phase: 'zipping' });
     const safeName = (gameTitle || 'game').replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
@@ -265,17 +296,31 @@ async function buildDeployZipWithProgress(
   }
 }
 
+// ─── query string에서 CacheBustOptions 파싱 (GET SSE용) ──────────────────────
+function parseCacheBustQuery(query: Record<string, unknown>): CacheBustOptions {
+  const flag = (key: string) => query[key] !== '0';
+  return {
+    scripts: flag('cbScripts'),
+    images:  flag('cbImages'),
+    audio:   flag('cbAudio'),
+    video:   flag('cbVideo'),
+    data:    flag('cbData'),
+  };
+}
+
 // ZIP 생성 + 폴더 열기 (SSE 프로그레스)
-router.get('/deploy-zip-progress', async (_req: Request, res: Response) => {
+router.get('/deploy-zip-progress', async (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {
     res.status(404).json({ error: '프로젝트가 열려있지 않습니다' });
     return;
   }
+  const opts = parseCacheBustQuery(req.query as Record<string, unknown>);
   setupSSE(res);
   try {
     const zipPath = await buildDeployZipWithProgress(
       projectManager.currentPath!,
       getGameTitle(),
+      opts,
       (data) => sseWrite(res, data),
     );
     openInExplorer(DEPLOYS_DIR);
@@ -293,11 +338,16 @@ router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
     res.status(404).json({ error: '프로젝트가 열려있지 않습니다' });
     return;
   }
-  const { apiKey, siteId: inputSiteId } = req.body as { apiKey?: string; siteId?: string };
+  const { apiKey, siteId: inputSiteId, cacheBust } = req.body as {
+    apiKey?: string;
+    siteId?: string;
+    cacheBust?: CacheBustOptions;
+  };
   if (!apiKey?.trim()) {
     res.status(400).json({ error: 'API Key가 필요합니다' });
     return;
   }
+  const opts: CacheBustOptions = cacheBust ?? {};
   setupSSE(res);
   try {
     const gameTitle = getGameTitle();
@@ -318,6 +368,7 @@ router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
     const zipPath = await buildDeployZipWithProgress(
       projectManager.currentPath!,
       gameTitle,
+      opts,
       (data) => sseWrite(res, data),
     );
     sseWrite(res, { type: 'status', phase: 'uploading' });

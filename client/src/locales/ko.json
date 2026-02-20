@@ -1432,6 +1432,17 @@
   },
   "deploy": {
     "title": "배포",
+    "cacheBust": {
+      "title": "캐시 버스팅",
+      "helpTitle": "캐시 버스팅이란?",
+      "helpDesc": "배포한 파일 URL에 버전 번호(?v=xxx)를 붙여 브라우저가 이전에 받아둔 캐시 대신 항상 최신 파일을 내려받도록 합니다.",
+      "helpDisabled": "끄면 로딩이 빠를 수 있지만, 이전 배포 파일이 캐시로 남아 옛날 데이터가 표시될 위험이 있습니다.",
+      "scripts": "소스코드",
+      "images": "이미지",
+      "audio": "오디오",
+      "video": "동영상",
+      "data": "데이터"
+    },
     "tabNetlify": "Netlify",
     "tabLocal": "로컬 폴더",
     "platform": "플랫폼",

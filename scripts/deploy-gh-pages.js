@@ -95,18 +95,18 @@ if (fs.existsSync(idx3d)) {
 }
 
 // 3. HTML 파일 캐시 버스팅 처리
+// 모든 카테고리 기본 활성화 (CLI 배포는 항상 full 캐시 버스팅)
 console.log('\n[3/4] 캐시 버스팅 처리 중...');
+const cb = JSON.stringify({ buildId, scripts: true, images: true, audio: true, video: true, data: true });
 const htmlFiles = fs.readdirSync(dst).filter(f => f.endsWith('.html'));
 for (const htmlFile of htmlFiles) {
   const htmlPath = path.join(dst, htmlFile);
   let html = fs.readFileSync(htmlPath, 'utf-8');
-  // src="...js" 또는 href="...css" 에 ?v=buildId 삽입 (기존 쿼리 교체)
+  // HTML 정적 src/href 에 ?v=buildId 삽입 (기존 쿼리 교체)
   html = html.replace(/((?:src|href)="[^"?]+\.(?:js|css))(?:\?[^"]*)?"/g,
     (_, base) => `${base}?v=${buildId}"`);
-  // <head> 직후에 window.__BUILD_ID__ 전역 변수 주입
-  // (PluginManager가 동적으로 로드하는 플러그인 파일에는 ?v= 쿼리를 붙일 수 없으므로,
-  //  플러그인이 이 변수를 읽어 빌드 번호를 얻도록 함)
-  html = html.replace('<head>', `<head>\n    <script>window.__BUILD_ID__='${buildId}';</script>`);
+  // window.__BUILD_ID__ (하위 호환) + window.__CACHE_BUST__ (카테고리별 옵션) 주입
+  html = html.replace('<head>', `<head>\n    <script>window.__BUILD_ID__='${buildId}';window.__CACHE_BUST__=${cb};</script>`);
   fs.writeFileSync(htmlPath, html, 'utf-8');
   console.log(`  ${htmlFile}`);
 }

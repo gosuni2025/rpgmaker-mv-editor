@@ -2169,7 +2169,8 @@ Graphics.playVideo = function(src) {
  * @private
  */
 Graphics._playVideo = function(src) {
-    this._video.src = src;
+    var _cb = window.__CACHE_BUST__;
+    this._video.src = (_cb && _cb.video) ? src + '?v=' + _cb.buildId : src;
     this._video.onloadeddata = this._onVideoLoad.bind(this);
     this._video.onerror = this._videoLoader;
     this._video.onended = this._onVideoEnd.bind(this);

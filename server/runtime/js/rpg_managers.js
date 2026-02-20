@@ -77,7 +77,8 @@ DataManager.loadDatabase = function() {
 
 DataManager.loadDataFile = function(name, src) {
     var xhr = new XMLHttpRequest();
-    var url = 'data/' + src;
+    var _cb = window.__CACHE_BUST__;
+    var url = 'data/' + src + (_cb && _cb.data ? '?v=' + _cb.buildId : '');
     xhr.open('GET', url);
     xhr.overrideMimeType('application/json');
     xhr.onload = function() {
@@ -119,7 +120,9 @@ DataManager.loadMapData = function(mapId) {
 
 DataManager._loadMapExtFile = function(extFilename) {
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'data/' + extFilename);
+    var _cb = window.__CACHE_BUST__;
+    var _extUrl = 'data/' + extFilename + (_cb && _cb.data ? '?v=' + _cb.buildId : '');
+    xhr.open('GET', _extUrl);
     xhr.overrideMimeType('application/json');
     xhr.onload = function() {
         if (xhr.status < 400) {
@@ -910,10 +913,12 @@ ImageManager.loadEmptyBitmap = function() {
 };
 
 ImageManager.loadNormalBitmap = function(path, hue) {
-    var key = this._generateCacheKey(path, hue);
+    var _cb = window.__CACHE_BUST__;
+    var _loadPath = (_cb && _cb.images) ? path + '?v=' + _cb.buildId : path;
+    var key = this._generateCacheKey(_loadPath, hue);
     var bitmap = this._imageCache.get(key);
     if (!bitmap) {
-        bitmap = Bitmap.load(decodeURIComponent(path));
+        bitmap = Bitmap.load(decodeURIComponent(_loadPath));
         bitmap.addLoadListener(function() {
             bitmap.rotateHue(hue);
         });
@@ -1495,6 +1500,8 @@ AudioManager.makeEmptyAudioObject = function() {
 AudioManager.createBuffer = function(folder, name) {
     var ext = this.audioFileExt();
     var url = this._path + folder + '/' + encodeURIComponent(name) + ext;
+    var _cb = window.__CACHE_BUST__;
+    if (_cb && _cb.audio) url += '?v=' + _cb.buildId;
     if (this.shouldUseHtml5Audio() && folder === 'bgm') {
         if(this._blobUrl) Html5Audio.setup(this._blobUrl);
         else Html5Audio.setup(url);
@@ -2849,7 +2856,9 @@ PluginManager.setParameters = function(name, parameters) {
 };
 
 PluginManager.loadScript = function(name) {
+    var _cb = window.__CACHE_BUST__;
     var url = this._path + name;
+    if (_cb && _cb.scripts) url += '?v=' + _cb.buildId;
     var script = document.createElement('script');
     script.type = 'text/javascript';
     script.src = url;

@@ -17,6 +17,16 @@ type SSEEvent =
   | { type: 'done'; zipPath?: string; deployUrl?: string; siteUrl?: string }
   | { type: 'error'; message: string };
 
+interface CacheBustOpts {
+  scripts: boolean;
+  images:  boolean;
+  audio:   boolean;
+  video:   boolean;
+  data:    boolean;
+}
+
+const CB_KEYS = ['scripts', 'images', 'audio', 'video', 'data'] as const;
+
 async function readSSEStream(
   url: string,
   options: RequestInit,
@@ -61,7 +71,7 @@ export default function DeployDialog() {
   const [apiKey, setApiKey] = useState('');
   const [siteId, setSiteId] = useState('');
   const [siteUrl, setSiteUrl] = useState('');
-  const [manualSiteId, setManualSiteId] = useState(false); // false=자동, true=수동
+  const [manualSiteId, setManualSiteId] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
 
   // 작업 상태
@@ -78,6 +88,16 @@ export default function DeployDialog() {
   const [browsePath, setBrowsePath] = useState('');
 
   const [guideOpen, setGuideOpen] = useState(false);
+
+  // 캐시 버스팅 옵션
+  const [cbOpts, setCbOpts] = useState<CacheBustOpts>({
+    scripts: true,
+    images:  true,
+    audio:   true,
+    video:   true,
+    data:    true,
+  });
+  const [cbHelpOpen, setCbHelpOpen] = useState(false);
 
   useEffect(() => {
     apiClient.get('/settings').then((data) => {
@@ -149,6 +169,13 @@ export default function DeployDialog() {
     [t],
   );
 
+  // 캐시 버스팅 옵션을 query string으로 변환
+  const cbQuery = () => {
+    const p = new URLSearchParams();
+    for (const key of CB_KEYS) p.set(`cb${key.charAt(0).toUpperCase()}${key.slice(1)}`, cbOpts[key] ? '1' : '0');
+    return p.toString();
+  };
+
   const handleMakeZip = () => {
     resetStatus();
     setProgress(0);
@@ -156,7 +183,7 @@ export default function DeployDialog() {
     setBusy(true);
     let completed = false;
     const totalRef = { current: 0 };
-    const evtSource = new EventSource('/api/project/deploy-zip-progress');
+    const evtSource = new EventSource(`/api/project/deploy-zip-progress?${cbQuery()}`);
     evtSource.onmessage = (e) => {
       const ev = JSON.parse(e.data) as SSEEvent;
       if (ev.type === 'done') {
@@ -204,7 +231,11 @@ export default function DeployDialog() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiKey: apiKey.trim(), siteId: manualSiteId ? siteId.trim() : siteId }),
+          body: JSON.stringify({
+            apiKey: apiKey.trim(),
+            siteId: manualSiteId ? siteId.trim() : siteId,
+            cacheBust: cbOpts,
+          }),
         },
         (ev) => {
           if (ev.type === 'done') {
@@ -233,7 +264,7 @@ export default function DeployDialog() {
     setStatus(t('deploy.preparing'));
     setBusy(true);
     try {
-      await apiClient.post('/project/deploy', { platform: 'web', outputPath });
+      await apiClient.post('/project/deploy', { platform: 'web', outputPath, cacheBust: cbOpts });
       setStatus(t('deploy.complete'));
     } catch (e) {
       setError((e as Error).message);
@@ -274,6 +305,65 @@ export default function DeployDialog() {
     t('deploy.netlify.guide4'),
     t('deploy.netlify.guide5'),
   ];
+
+  // 캐시 버스팅 옵션 섹션 (두 탭 공통)
+  const cacheBustSection = (
+    <div style={{ background: '#2e2e2e', border: '1px solid #3e3e3e', borderRadius: 4, padding: '10px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: cbHelpOpen ? 8 : 6 }}>
+        <span style={{ color: '#bbb', fontSize: 12, fontWeight: 600 }}>{t('deploy.cacheBust.title')}</span>
+        <button
+          onClick={() => setCbHelpOpen(!cbHelpOpen)}
+          title={t('deploy.cacheBust.helpTitle')}
+          style={{
+            background: cbHelpOpen ? '#2675bf' : '#444',
+            border: '1px solid #555',
+            borderRadius: '50%',
+            width: 16,
+            height: 16,
+            color: '#ddd',
+            fontSize: 10,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >?</button>
+      </div>
+
+      {cbHelpOpen && (
+        <div style={{
+          background: '#252525',
+          border: '1px solid #3a3a3a',
+          borderRadius: 3,
+          padding: '8px 10px',
+          marginBottom: 8,
+          fontSize: 11,
+          color: '#aaa',
+          lineHeight: 1.7,
+        }}>
+          <div style={{ fontWeight: 600, color: '#ccc', marginBottom: 2 }}>{t('deploy.cacheBust.helpTitle')}</div>
+          <div>{t('deploy.cacheBust.helpDesc')}</div>
+          <div style={{ marginTop: 4, color: '#e8a040' }}>⚠ {t('deploy.cacheBust.helpDisabled')}</div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 18px' }}>
+        {CB_KEYS.map((key) => (
+          <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={cbOpts[key]}
+              onChange={(e) => setCbOpts((prev) => ({ ...prev, [key]: e.target.checked }))}
+            />
+            <span style={{ color: '#ccc', fontSize: 12 }}>{t(`deploy.cacheBust.${key}`)}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="db-dialog-overlay">
@@ -343,7 +433,6 @@ export default function DeployDialog() {
                     </div>
                   )}
 
-                  {/* 내 사이트 열기 (이전 배포 URL 기억) */}
                   {siteUrl && !deployUrl && (
                     <button className="db-btn" onClick={handleOpenMySite}
                       style={{ marginTop: 6, width: '100%' }}>
@@ -446,6 +535,10 @@ export default function DeployDialog() {
               {error && <div style={{ color: '#e55', fontSize: 12 }}>{error}</div>}
             </>
           )}
+
+          {/* 캐시 버스팅 옵션 — 두 탭 공통 */}
+          {cacheBustSection}
+
         </div>
 
         <div className="db-dialog-footer">
