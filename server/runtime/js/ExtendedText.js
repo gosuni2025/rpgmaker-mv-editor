@@ -232,6 +232,7 @@ void main() {
         transparent: true,
         depthTest: false,
         depthWrite: false,
+        side: THREE.DoubleSide,
     });
 };
 
@@ -548,9 +549,9 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     var worldX = winX + pad + srcX;
     var worldY = winY + pad + srcY;
 
-    // Three.js OrthographicCamera(0, GW, GH, 0): Y-up 기준에서 GH-y 변환
-    var GH_val = 624;
-    mesh.position.set(worldX + segW / 2, GH_val - (worldY + segH / 2), 1);
+    // Three.js OrthographicCamera(0, GW, 0, GH): Y-down 카메라
+    // world Y = screen Y (0=화면상단, GH=화면하단) — 변환 없이 직접 사용
+    mesh.position.set(worldX + segW / 2, worldY + segH / 2, 1);
     mesh.scale.set(segW, segH, 1);
 
     scene.add(mesh);

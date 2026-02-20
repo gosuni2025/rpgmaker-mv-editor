@@ -85,7 +85,10 @@ function setupRendererText(renderer: any, lines: string[]) {
   lines.forEach((line, i) => {
     try {
       WB.prototype.drawTextEx.call(renderer, line, 0, i * LINE_H);
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      // drawTextEx 실패 시 plain 텍스트로 폴백
+      try { renderer.contents.drawText(line, 0, i * LINE_H, renderer.contents.width, LINE_H, 'left'); } catch (_) {}
+    }
   });
 
   // windowskin 로드 완료 시 재그리기
@@ -141,6 +144,15 @@ function getThree(): any { return (window as any).THREE; }
 
 function makePlaneMesh(THREE: any, material: any): any {
   return new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+}
+
+// 1×1 투명 플레이스홀더 텍스처: USE_MAP define으로 셰이더 미리 컴파일
+function makePlaceholderTex(THREE: any): any {
+  const c = document.createElement('canvas');
+  c.width = 1; c.height = 1;
+  const tex = new THREE.CanvasTexture(c);
+  tex.flipY = false;
+  return tex;
 }
 
 // Y-down 좌표계: OrthographicCamera(0,GW, 0,GH) 기준
@@ -205,6 +217,7 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
     mapBgMesh: any; dimMesh: any; windowMesh: any; faceMesh: any;
     textMesh: any; speakerMesh: any; arrowMesh: any;
     mapTexture: any; faceTexture: any; textTexture: any;
+    textOffCanvas: HTMLCanvasElement;   // bmpCanvas 복사 대상 (mapBgMesh 패턴)
     speakerTexture: any; windowImg: HTMLImageElement | null;
     winTexLoaded: boolean; lastFaceName: string;
   } | null>(null);
@@ -300,20 +313,27 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
     windowMesh.visible = false;
     scene.add(windowMesh);
 
-    // 3: face
-    const faceMesh = makePlaneMesh(THREE, mat({ transparent: true }));
+    // 3: face (플레이스홀더로 USE_MAP 셰이더 미리 컴파일)
+    const facePlaceholder = makePlaceholderTex(THREE);
+    const faceMesh = makePlaneMesh(THREE, mat({ map: facePlaceholder, transparent: true }));
     faceMesh.renderOrder = 3;
     faceMesh.visible = false;
     scene.add(faceMesh);
 
-    // 4: text bitmap
-    const textMesh = makePlaneMesh(THREE, mat({ transparent: true }));
+    // 4: text bitmap — mapBgMesh 패턴: 오프스크린 canvas → CanvasTexture
+    // bmpCanvas를 직접 텍스처로 사용하지 않고 항상 offCanvas에 drawImage 복사
+    const textOffCanvas = document.createElement('canvas');
+    textOffCanvas.width = GW; textOffCanvas.height = GH;
+    const textTextureBuf = new THREE.CanvasTexture(textOffCanvas);
+    textTextureBuf.flipY = false;
+    const textMesh = makePlaneMesh(THREE, mat({ map: textTextureBuf }));
     textMesh.renderOrder = 4;
     textMesh.visible = false;
     scene.add(textMesh);
 
-    // 5: speaker name (VN 모드)
-    const speakerMesh = makePlaneMesh(THREE, mat({ transparent: true }));
+    // 5: speaker name (VN 모드, 플레이스홀더)
+    const speakerPlaceholder = makePlaceholderTex(THREE);
+    const speakerMesh = makePlaneMesh(THREE, mat({ map: speakerPlaceholder, transparent: true }));
     speakerMesh.renderOrder = 5;
     speakerMesh.visible = false;
     scene.add(speakerMesh);
@@ -336,9 +356,15 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
       renderer, scene, camera,
       mapBgMesh, dimMesh, windowMesh, faceMesh,
       textMesh, speakerMesh, arrowMesh,
-      mapTexture, faceTexture: null, textTexture: null, speakerTexture: null,
+      mapTexture, faceTexture: null, textTexture: textTextureBuf,
+      textOffCanvas,
+      speakerTexture: null,
       windowImg: null, winTexLoaded: false, lastFaceName: '',
     };
+
+    // ExtendedText 오버레이를 프리뷰 씬에 연결
+    const ET = (window as any).ExtendedText;
+    if (ET) ET._overlayScene = scene;
 
     // Window.png 로드
     const img = new Image();
@@ -439,29 +465,43 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
       t.faceMesh.visible = false;
     }
 
-    // text bitmap
+    // ExtendedText 오버레이 위치 기준점: bitmap은 (0,0)에서 그리기 시작하고
+    // textMesh가 (layout.textX, layout.textY)에 배치되므로 이를 기준으로 설정
     const textRenderer = rendererRef.current;
+    if (textRenderer) {
+      textRenderer._etWindowX = layout.textX;
+      textRenderer._etWindowY = layout.textY;
+      textRenderer._etPadding = 0;
+    }
+
+    // text bitmap — mapBgMesh와 동일 패턴:
+    // bmpCanvas → textOffCanvas drawImage 복사 → textTexture.needsUpdate = true
+    const textOffCanvas = t.textOffCanvas;
+    const textCtx = textOffCanvas.getContext('2d')!;
     if (textRenderer?.contents) {
-      const bmpCanvas = textRenderer.contents.canvas || textRenderer.contents._canvas;
-      if (bmpCanvas) {
-        if (t.textTexture) t.textTexture.dispose();
-        const tex = new THREE.CanvasTexture(bmpCanvas);
-        tex.flipY = false;  // Y-down 기준
-        // VN 스크롤: Y-down + flipY=false → V=0=canvas 상단 → offset.y = scrollY/totalH
+      const bmpCanvas = (textRenderer.contents.canvas || textRenderer.contents._canvas) as HTMLCanvasElement | null;
+      if (bmpCanvas && bmpCanvas.width > 0 && bmpCanvas.height > 0) {
+        // RAF tick에서 매 프레임 bmpCanvas → textOffCanvas 복사됨
+        // updateScene에서는 UV repeat/offset 설정만 담당
+        const tex = t.textTexture;
         if (isVN) {
-          const totalH = bmpCanvas.height;
-          const visH = layout.textH;
+          // VN 스크롤: UV offset으로 처리 (bmpCanvas 전체가 textOffCanvas에 있음)
           const scrollY = vnScrollRef.current * LINE_H;
-          tex.repeat.set(1, visH / totalH);
-          tex.offset.set(0, scrollY / totalH);
+          tex.repeat.set(bmpCanvas.width / GW, layout.textH / GH);
+          tex.offset.set(0, scrollY / GH);
+        } else {
+          tex.repeat.set(layout.textW / GW, layout.textH / GH);
+          tex.offset.set(0, 0);
         }
-        t.textTexture = tex;
-        t.textMesh.material.map = tex;
-        t.textMesh.material.needsUpdate = true;
+        tex.needsUpdate = true;
         positionMesh(t.textMesh, layout.textX, layout.textY, layout.textW, layout.textH);
         t.textMesh.visible = true;
+      } else {
+        textCtx.clearRect(0, 0, textOffCanvas.width, textOffCanvas.height);
+        t.textMesh.visible = false;
       }
     } else {
+      textCtx.clearRect(0, 0, textOffCanvas.width, textOffCanvas.height);
       t.textMesh.visible = false;
     }
 
@@ -502,6 +542,23 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
   // ─── renderer(Window_Base) 생성 ───
   const buildRenderer = useCallback((resetScroll = false) => {
     if (!runtimeReady) return;
+
+    // 이전 renderer의 ExtendedText 오버레이 메시 정리
+    const oldR = rendererRef.current;
+    const tClean = threeRef.current;
+    if (oldR?._etAnimSegs && tClean) {
+      (oldR._etAnimSegs as any[]).forEach((seg: any) => {
+        if (seg._overlayMesh) {
+          tClean.scene.remove(seg._overlayMesh);
+          seg._overlayMesh.geometry?.dispose();
+          seg._overlayMesh.material?.dispose();
+          seg._overlayTex?.dispose();
+          seg._overlayMesh = null;
+          seg._overlayTex = null;
+        }
+      });
+    }
+
     const allLines = propsRef.current.text.split('\n');
     const fn = propsRef.current.faceName;
     const isVN = allLines.length > 4;
@@ -546,20 +603,20 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
 
       const THREE = getThree();
 
+      // 씬 dirty 시 먼저 업데이트 (ET 오버레이 위치 기준점이 여기서 설정됨)
+      if (sceneDirtyRef.current) {
+        updateScene();
+        sceneDirtyRef.current = false;
+      }
+
       // ExtendedText 시간 진행
       const ET = (window as any).ExtendedText;
       if (ET) ET._time += 1 / 60;
 
-      // ExtendedText 애니메이션 패스
+      // ExtendedText 애니메이션 패스 (updateScene 이후 실행 — _etWindowX/Y/Padding 설정 완료)
       const r = rendererRef.current;
       if (r?._etAnimSegs?.length > 0) {
         try { r._etRunAnimPass(); } catch (_) {}
-      }
-
-      // 씬 dirty 시 업데이트
-      if (sceneDirtyRef.current) {
-        updateScene();
-        sceneDirtyRef.current = false;
       }
 
       // 맵 배경 텍스처 매 프레임 갱신
@@ -588,9 +645,19 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
         }
       }
 
-      // textTexture 애니메이션 갱신
-      if (r?._etAnimSegs?.length > 0 && t.textTexture) {
-        t.textTexture.needsUpdate = true;
+      // textOffCanvas 매 프레임 갱신 (mapBgMesh와 동일 패턴)
+      // dirty 플래그와 무관하게 항상 bmpCanvas → textOffCanvas 복사
+      // VN 스크롤은 UV offset으로 처리하므로 여기서는 항상 전체 복사
+      if (r?.contents) {
+        const bmpCanvas = (r.contents.canvas || r.contents._canvas) as HTMLCanvasElement | null;
+        if (bmpCanvas && bmpCanvas.width > 0 && bmpCanvas.height > 0) {
+          const textCtxR = t.textOffCanvas.getContext('2d');
+          if (textCtxR) {
+            textCtxR.clearRect(0, 0, t.textOffCanvas.width, t.textOffCanvas.height);
+            textCtxR.drawImage(bmpCanvas, 0, 0);  // 항상 전체 복사
+            t.textTexture.needsUpdate = true;
+          }
+        }
       }
 
       // Three.js 렌더링
@@ -614,6 +681,9 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
   // ─── 언마운트 정리 ───
   useEffect(() => () => {
     const t = threeRef.current;
+    // ExtendedText 씬 참조 해제
+    const ET = (window as any).ExtendedText;
+    if (ET && t && ET._overlayScene === t.scene) ET._overlayScene = null;
     if (!t) return;
     [t.mapTexture, t.faceTexture, t.textTexture, t.speakerTexture].forEach(tx => tx?.dispose());
     [t.mapBgMesh, t.dimMesh, t.windowMesh, t.faceMesh, t.textMesh, t.speakerMesh, t.arrowMesh].forEach(m => {
