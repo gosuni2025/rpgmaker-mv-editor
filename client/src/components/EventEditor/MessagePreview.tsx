@@ -97,14 +97,21 @@ function createTextRenderer(contentsW: number, contentsH: number): any | null {
 
   const bmp = new BitmapCls(Math.max(1, contentsW), Math.max(1, contentsH));
   const r = Object.create(WB.prototype);
-  r.contents = bmp;
-  r.padding = 18;
-  r.width = contentsW + 36;
-  r.height = contentsH + 36;
-  // windowskin: textColor(n) 에서 픽셀 읽기용 (로드 전엔 기본 흰색으로 폴백)
-  r.windowskin = (window as any).ImageManager
+
+  // Window.prototype에 contents/width/height/padding 모두 setter가 있어서
+  // 직접 할당하면 _windowContentsSprite/_refreshAllParts 등을 호출하므로
+  // defineProperty로 shadow하여 우회
+  Object.defineProperty(r, 'contents', { value: bmp,              writable: true, configurable: true });
+  Object.defineProperty(r, 'width',    { value: contentsW + 36,   writable: true, configurable: true });
+  Object.defineProperty(r, 'height',   { value: contentsH + 36,   writable: true, configurable: true });
+  Object.defineProperty(r, 'padding',  { value: 18,               writable: true, configurable: true });
+
+  // windowskin: getter가 this._windowskin을 반환하므로 직접 _windowskin에 설정
+  // (setter 우회 → addLoadListener/_onWindowskinLoad 호출 방지)
+  r._windowskin = (window as any).ImageManager
     ? (window as any).ImageManager.loadSystem('Window')
     : null;
+
   // ExtendedText.js 상태 초기화
   r._etTags = null;
   r._etEffectStack = [];
@@ -113,10 +120,10 @@ function createTextRenderer(contentsW: number, contentsH: number): any | null {
   try {
     WB.prototype.resetFontSettings.call(r);
   } catch (e) {
-    // $gameSystem 미준비 시 폴백: 직접 설정
-    if (bmp.fontFace !== undefined) bmp.fontFace = 'Dotum, AppleGothic, sans-serif';
-    if (bmp.fontSize !== undefined) bmp.fontSize = 28;
-    if (bmp.textColor !== undefined) bmp.textColor = '#ffffff';
+    // $gameSystem 미준비 / windowskin 미로드 시 폴백
+    try { bmp.fontFace = 'Dotum, AppleGothic, sans-serif'; } catch (_) {}
+    try { bmp.fontSize = 28; } catch (_) {}
+    try { bmp.textColor = '#ffffff'; } catch (_) {}
   }
 
   return r;
