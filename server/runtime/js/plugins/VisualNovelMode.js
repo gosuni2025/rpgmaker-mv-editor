@@ -765,16 +765,16 @@
     };
 
     // VN 모드에서 onEndOfText:
-    // - 선택지가 있으면 startInput()이 true → 원본 흐름대로 (choiceList.start 등) 진행
-    // - 일반 메시지면 startInput()이 false → _textState=null, pause=true로
-    //   updateMessage 루프를 종료하고 _forceOk → terminateMessage() 대기
+    // - startInput()으로 선택지/숫자입력 등 처리 (원본과 동일)
+    // - 일반 메시지면 pause=true → _forceOk → terminateMessage() 대기
+    // - _textState는 항상 null (원본과 동일) → updateMessage 루프 종료
     var _WM_onEndOfText = Window_Message.prototype.onEndOfText;
     Window_Message.prototype.onEndOfText = function () {
         if (VNManager.isActive()) {
             if (!this.startInput()) {
-                this._textState = null;
                 this.pause = true;
             }
+            this._textState = null;  // 원본과 동일: 항상 null
             return;
         }
         _WM_onEndOfText.call(this);
@@ -791,18 +791,24 @@
     // 메시지 종료 후 자동 탈출 스케줄
     var _WM_terminateMessage = Window_Message.prototype.terminateMessage;
     Window_Message.prototype.terminateMessage = function () {
-        _WM_terminateMessage.call(this);
-        if (!VNManager.isActive()) return;
+        if (VNManager.isActive()) {
+            // VN 모드: close()를 호출하지 않음.
+            // 원본 close() → isClosing()=true → update() while 루프가 멈춰 선택지 처리 불가.
+            // Window_Message는 화면 밖(y=boxHeight+200)에 있으므로 열린 채 유지해도 무방.
+            this._goldWindow.close();
+            $gameMessage.clear();
+        } else {
+            _WM_terminateMessage.call(this);
+            return;
+        }
         if ($gameMessage.isChoice() || $gameMessage.isNumberInput() || $gameMessage.isItemChoice()) return;
         if (!$gameMessage.isBusy()) {
             var s = SceneManager._scene;
             if (s && s._vnCtrl) {
                 var tw = s._vnCtrl.getTextWindow();
-                // 타이핑이 끝난 후에 자동 탈출 스케줄
                 if (tw && !tw._isTyping) {
                     s._vnCtrl.scheduleAutoExit();
                 } else if (tw) {
-                    // 타이핑 완료 후 자동 탈출 예약
                     tw._pendingAutoExit = true;
                 }
             }
