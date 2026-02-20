@@ -324,6 +324,17 @@
     // 인라인 선택지 추가
     Window_VNText.prototype.addChoiceEntry = function (choices, defaultIdx, cancelIdx) {
         this._forceOk = false;  // 이전 메시지에서 남은 forceOk 리셋 (선택지 이후 메시지 자동진행 방지)
+        // TextLog에 선택지 목록 기록
+        if (window.TextLogManager && choices && choices.length > 0) {
+            var lines = choices.map(function (c) { return '  ' + c; });
+            window.TextLogManager.add({
+                type: 'choice',
+                spk: '◆ 선택지',
+                txt: lines.join('\n'),
+                fn: '', fi: 0, bg: 0,
+                lc: choices.length + 1
+            });
+        }
         if (this._isTyping) {
             // 타이핑 중: skipTyping 없이 pending으로 저장 → 타이핑 완료 후 활성화
             // (타이핑 효과를 유지하면서 텍스트가 끝난 후 선택지가 자연스럽게 나타남)
@@ -1038,13 +1049,11 @@
         var result = tw.getChoiceResult();
         if (result < 0) result = 0;
 
-        // TextLog에 선택 기록
+        // TextLog에 선택 결과 기록
         var entries = tw._entries;
         var lastLog = entries[entries.length - 1];
-        if (lastLog && lastLog._choiceLog) {
-            if (typeof TextLogManager !== 'undefined') {
-                TextLogManager.add({ spk: '[선택]', txt: lastLog._choiceLog, fn: '', fi: 0, bg: 0, lc: 1 });
-            }
+        if (lastLog && lastLog._choiceLog && window.TextLogManager) {
+            window.TextLogManager.add({ type: 'selected', spk: '', txt: '▷ ' + lastLog._choiceLog, fn: '', fi: 0, bg: 0, lc: 1 });
         }
 
         $gameMessage.onChoice(result);
@@ -1068,8 +1077,8 @@
         if (VNManager.isActive() && VNManager.getChoiceStyle() === 'default') {
             var choices = this._choices || [];
             var chosen  = (n >= 0 && n < choices.length) ? choices[n] : ('선택 ' + n);
-            if (typeof TextLogManager !== 'undefined') {
-                TextLogManager.add({ spk: '[선택]', txt: chosen, fn: '', fi: 0, bg: 0, lc: 1 });
+            if (window.TextLogManager) {
+                window.TextLogManager.add({ type: 'selected', spk: '', txt: '▷ ' + chosen, fn: '', fi: 0, bg: 0, lc: 1 });
             }
             var s = SceneManager._scene;
             if (s && s._vnCtrl) s._vnCtrl.getTextWindow().addEntry('[선택]', '  ' + CHOICE_IND + ' ' + chosen);

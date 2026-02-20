@@ -529,4 +529,7 @@
         SceneManager.push(Scene_TextLog);
     };
 
+    // 다른 플러그인(VisualNovelMode 등)에서 접근할 수 있도록 전역 노출
+    window.TextLogManager = TextLogManager;
+
 })();
