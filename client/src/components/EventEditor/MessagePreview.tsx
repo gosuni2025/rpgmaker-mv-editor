@@ -134,6 +134,21 @@ function createTextRenderer(contentsW: number, contentsH: number): any | null {
     ? (window as any).ImageManager.loadSystem('Window')
     : null;
 
+  // normalColor/textColor 오버라이드:
+  // drawTextEx 내부에서 resetFontSettings → normalColor()를 호출하는데
+  // windowskin 미로드 시 getPixel이 검은색 반환 → 텍스트가 검은색이 됨
+  r.normalColor = () => '#ffffff';
+  r.textColor = (n: number) => {
+    const ws = r._windowskin;
+    if (ws && typeof ws.isReady === 'function' && ws.isReady()) {
+      const px = 96 + (n % 8) * 12 + 6;
+      const py = 144 + Math.floor(n / 8) * 12 + 6;
+      const c = ws.getPixel(px, py);
+      return c || '#ffffff';
+    }
+    return '#ffffff';
+  };
+
   // ExtendedText.js 상태 초기화
   r._etTags = null;
   r._etEffectStack = [];
