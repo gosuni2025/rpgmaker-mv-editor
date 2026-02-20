@@ -103,9 +103,9 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
 
   setupSSE(res);
 
-  // 로컬 프로젝트 저장소에서 worktree를 생성 — clone 불필요
-  const tmpBranch = `_deploy_${crypto.randomBytes(4).toString('hex')}`;
-  const tmpDir = path.join(os.tmpdir(), `rpgmv-deploy-${crypto.randomBytes(6).toString('hex')}`);
+  // 배포 전 현재 브랜치를 기억해두고 복귀에 사용
+  let originalBranch = 'main';
+  let stashed = false;
 
   try {
     // ── 1. remote URL 확인 ────────────────────────────────────────────────────
@@ -116,64 +116,71 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
       return;
     }
 
-    // ── 2. 로컬 저장소에서 worktree 생성 (orphan — 소스 히스토리와 분리) ──────
+    // ── 2. 리모트 gh-pages 브랜치가 앞서있는지 확인 ─────────────────────────
     sseWrite(res, { type: 'status', phase: 'copying' });
-    execSync(`git -C "${srcPath}" worktree add --no-checkout "${tmpDir}"`, { stdio: 'pipe' });
-    execSync(`git -C "${tmpDir}" checkout --orphan ${tmpBranch}`, { stdio: 'pipe' });
-    // orphan 상태이므로 staged 파일 없음 — working tree만 비워주면 됨
-    for (const entry of fs.readdirSync(tmpDir)) {
-      if (entry === '.git') continue;
-      fs.rmSync(path.join(tmpDir, entry), { recursive: true, force: true });
-    }
-
-    // ── 3. 프로젝트 파일 복사 ─────────────────────────────────────────────────
-    const files = collectFilesForDeploy(srcPath);
-    const total = files.length;
-    sseWrite(res, { type: 'counted', total });
-
-    let current = 0;
-    for (const rel of files) {
-      const destFile = path.join(tmpDir, rel);
-      fs.mkdirSync(path.dirname(destFile), { recursive: true });
-      fs.copyFileSync(path.join(srcPath, rel), destFile);
-      current++;
-      if (current % 30 === 0 || current === total) {
-        sseWrite(res, { type: 'progress', current, total });
+    try {
+      execSync(`git -C "${srcPath}" fetch ${remote} ${DEPLOY_BRANCH}`, { stdio: 'pipe' });
+      const behind = execSync(
+        `git -C "${srcPath}" rev-list HEAD..${remote}/${DEPLOY_BRANCH} --count`,
+        { encoding: 'utf-8' }
+      ).trim();
+      if (parseInt(behind, 10) > 0) {
+        sseWrite(res, {
+          type: 'error',
+          message: `원격 ${remote}/${DEPLOY_BRANCH} 브랜치가 ${behind}개 커밋 앞서 있습니다.\ngit pull ${remote} ${DEPLOY_BRANCH} 를 실행한 뒤 다시 배포하세요.`,
+        });
+        res.end();
+        return;
       }
+    } catch {
+      // fetch 실패(브랜치 없음 등)는 무시하고 계속 진행
     }
 
-    // ── 4. index_3d.html → index.html + 캐시 버스팅 ─────────────────────────
-    sseWrite(res, { type: 'status', phase: 'patching' });
-    applyIndexHtmlRename(tmpDir);
-    const buildId = makeBuildId();
-    applyCacheBusting(tmpDir, buildId, opts);
+    // ── 3. 현재 브랜치 저장 & 미커밋 변경사항 stash ──────────────────────────
+    originalBranch = execSync(`git -C "${srcPath}" rev-parse --abbrev-ref HEAD`, { encoding: 'utf-8' }).trim();
 
-    // ── 5. git commit ─────────────────────────────────────────────────────────
+    const dirty = execSync(`git -C "${srcPath}" status --porcelain`, { encoding: 'utf-8' }).trim();
+    if (dirty) {
+      execSync(`git -C "${srcPath}" stash push -m "rpgmv-deploy-stash"`, { stdio: 'pipe' });
+      stashed = true;
+    }
+
+    // ── 4. gh-pages 브랜치로 전환 (현재 HEAD 기준으로 생성/리셋) ─────────────
+    execSync(`git -C "${srcPath}" checkout -B ${DEPLOY_BRANCH}`, { stdio: 'pipe' });
+
+    // ── 5. index_3d.html → index.html + 캐시 버스팅 ─────────────────────────
+    // 이 시점의 working tree = 소스 파일 그대로 (브랜치 전환해도 파일은 동일)
+    sseWrite(res, { type: 'status', phase: 'patching' });
+    applyIndexHtmlRename(srcPath);
+    const buildId = makeBuildId();
+    applyCacheBusting(srcPath, buildId, opts);
+
+    // ── 6. git commit ─────────────────────────────────────────────────────────
     sseWrite(res, { type: 'status', phase: 'committing' });
     const now = new Date().toLocaleString('ko-KR');
 
-    execSync(`git -C "${tmpDir}" add -A`);
+    execSync(`git -C "${srcPath}" add -A`);
     let commitHash = '';
     try {
-      execSync(`git -C "${tmpDir}" commit -m "Deploy: ${now}"`);
-      commitHash = execSync(`git -C "${tmpDir}" rev-parse --short HEAD`, { encoding: 'utf-8' }).trim();
+      execSync(`git -C "${srcPath}" commit -m "Deploy: ${now}"`);
+      commitHash = execSync(`git -C "${srcPath}" rev-parse --short HEAD`, { encoding: 'utf-8' }).trim();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       if (!msg.includes('nothing to commit') && !msg.includes('nothing added')) throw e;
     }
 
-    // ── 6. push → <remote>/gh-pages (force: orphan이므로 항상 덮어씀) ────────
+    // ── 7. push → remote/gh-pages ────────────────────────────────────────────
     sseWrite(res, { type: 'status', phase: 'pushing' });
-    execSync(`git -C "${tmpDir}" push "${remoteUrl}" ${tmpBranch}:${DEPLOY_BRANCH} --force`, { stdio: 'pipe' });
+    execSync(`git -C "${srcPath}" push ${remote} ${DEPLOY_BRANCH} --force`, { stdio: 'pipe' });
 
     const pageUrl = derivePageUrl(remoteUrl);
     sseWrite(res, { type: 'done', commitHash, pageUrl, buildId });
   } catch (err) {
     sseWrite(res, { type: 'error', message: (err as Error).message });
   } finally {
-    // ── 7. worktree + 임시 브랜치 정리 ──────────────────────────────────────
-    try { execSync(`git -C "${srcPath}" worktree remove "${tmpDir}" --force`, { stdio: 'pipe' }); } catch {}
-    try { execSync(`git -C "${srcPath}" branch -D ${tmpBranch}`, { stdio: 'pipe' }); } catch {}
+    // ── 8. 원래 브랜치로 복귀 & stash 복원 ──────────────────────────────────
+    try { execSync(`git -C "${srcPath}" checkout ${originalBranch}`, { stdio: 'pipe' }); } catch {}
+    if (stashed) try { execSync(`git -C "${srcPath}" stash pop`, { stdio: 'pipe' }); } catch {}
   }
   res.end();
 });
