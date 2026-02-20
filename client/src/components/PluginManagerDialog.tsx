@@ -4,7 +4,6 @@ import i18n from '../i18n';
 import useEditorStore from '../store/useEditorStore';
 import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
-import CreditTextEditor from './CreditTextEditor';
 import AnimationPickerDialog from './EventEditor/AnimationPickerDialog';
 import { DataListPicker } from './EventEditor/dataListPicker';
 import './ProjectSettingsDialog.css';
@@ -14,6 +13,7 @@ import {
   PluginParamMeta, PluginMetadata, ProjectSettings, EditorPluginInfo,
   FilePickerDialog, DirPickerDialog, TextFilePickerDialog,
 } from './PluginManagerHelpers';
+import { getOrderedParams, PluginParamRow } from './PluginParamEditor';
 
 export default function PluginManagerDialog() {
   const { t } = useTranslation();
@@ -284,147 +284,6 @@ export default function PluginManagerDialog() {
     return type === 'animation' || type === 'file' || type === 'dir' || type === 'textfile' || type in DB_TYPE_MAP;
   };
 
-  /** Parse a CSS color string to hex (#rrggbb) for <input type="color"> */
-  const colorToHex = (color: string): string => {
-    if (!color) return '#000000';
-    const s = color.trim();
-    // Already hex
-    if (s.startsWith('#')) {
-      const h = s.slice(1);
-      if (h.length === 3) return '#' + h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
-      if (h.length >= 6) return '#' + h.slice(0, 6);
-      return s;
-    }
-    // rgba(r,g,b,a) or rgb(r,g,b)
-    const m = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-    if (m) {
-      const r = Math.min(255, Number(m[1]));
-      const g = Math.min(255, Number(m[2]));
-      const b = Math.min(255, Number(m[3]));
-      return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
-    }
-    return '#000000';
-  };
-
-  /** Update hex portion of a color value, preserving rgba format if original was rgba */
-  const updateColorHex = (original: string, newHex: string): string => {
-    const r = parseInt(newHex.slice(1, 3), 16);
-    const g = parseInt(newHex.slice(3, 5), 16);
-    const b = parseInt(newHex.slice(5, 7), 16);
-    // If original was rgba(), preserve alpha
-    const rgbaMatch = original.match(/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/);
-    if (rgbaMatch) {
-      return `rgba(${r}, ${g}, ${b}, ${rgbaMatch[1]})`;
-    }
-    // If original was rgb(), keep as rgb
-    if (/^rgb\(/.test(original.trim())) {
-      return `rgb(${r}, ${g}, ${b})`;
-    }
-    return newHex;
-  };
-
-  const renderParamInput = (plugin: PluginEntry, pluginIndex: number, paramMeta: PluginParamMeta | undefined, paramIndex: number) => {
-    const param = plugin.parameters[paramIndex];
-    if (!param) return null;
-    const value = param.value;
-
-    if (paramMeta?.type === 'color') {
-      return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <input
-            type="color"
-            value={colorToHex(value)}
-            onChange={(e) => updateParam(pluginIndex, paramIndex, updateColorHex(value, e.target.value))}
-            style={{ width: 28, height: 22, padding: 0, border: '1px solid #555', cursor: 'pointer', flexShrink: 0 }}
-          />
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.value)}
-            onBlur={() => setEditingParamIndex(-1)}
-            style={{ flex: 1, minWidth: 0 }}
-          />
-        </div>
-      );
-    }
-
-    if (paramMeta?.type === 'boolean') {
-      return (
-        <select
-          value={value === 'true' || value === 'ON' || value === 'on' ? 'true' : 'false'}
-          onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.value)}
-        >
-          <option value="true">true</option>
-          <option value="false">false</option>
-        </select>
-      );
-    }
-
-    if (paramMeta && (paramMeta.type === 'select' || paramMeta.type === 'combo' || paramMeta.options.length > 0)) {
-      return (
-        <select
-          value={value}
-          onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.value)}
-        >
-          {paramMeta.options.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
-          {value && !paramMeta.options.includes(value) && (
-            <option value={value}>{value}</option>
-          )}
-        </select>
-      );
-    }
-
-    if (paramMeta?.type === 'number') {
-      return (
-        <input
-          type="number"
-          value={value}
-          min={paramMeta.min}
-          max={paramMeta.max}
-          onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.value)}
-          onBlur={() => setEditingParamIndex(-1)}
-          autoFocus
-        />
-      );
-    }
-
-    return (
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.value)}
-        onBlur={() => setEditingParamIndex(-1)}
-        autoFocus
-      />
-    );
-  };
-
-  // Build ordered param list: metadata params first, then raw params
-  const getOrderedParams = (plugin: PluginEntry) => {
-    const meta = metadata[plugin.name];
-    const metaParams = meta?.params ?? [];
-    const result: { paramIndex: number; meta?: PluginParamMeta }[] = [];
-
-    for (const pm of metaParams) {
-      const paramIndex = plugin.parameters.findIndex(p => p.name === pm.name);
-      if (paramIndex >= 0) {
-        result.push({ paramIndex, meta: pm });
-      }
-    }
-
-    // Raw params without metadata
-    const metaNames = new Set(metaParams.map(pm => pm.name));
-    plugin.parameters.forEach((p, i) => {
-      if (!metaNames.has(p.name)) {
-        result.push({ paramIndex: i });
-      }
-    });
-
-    return result;
-  };
-
   return (
     <div className="db-dialog-overlay">
       <div className="db-dialog" style={{ width: 1100, height: 700 }}>
@@ -561,7 +420,7 @@ export default function PluginManagerDialog() {
                 <div className="pm-params-body">
                   {selectedPlugin && selectedPlugin.name ? (
                     (() => {
-                      const orderedParams = getOrderedParams(selectedPlugin);
+                      const orderedParams = getOrderedParams(selectedPlugin, metadata);
                       if (orderedParams.length === 0) {
                         return <div className="pm-no-params">{t('projectSettings.noParams')}</div>;
                       }
@@ -574,55 +433,20 @@ export default function PluginManagerDialog() {
                             </tr>
                           </thead>
                           <tbody>
-                            {orderedParams.map(({ paramIndex, meta: paramMeta }) => {
-                              const param = selectedPlugin.parameters[paramIndex];
-                              if (!param) return null;
-                              const isEditing = editingParamIndex === paramIndex;
-                              const isBoolOrSelect = paramMeta && (paramMeta.type === 'boolean' || paramMeta.type === 'select' || paramMeta.type === 'combo' || paramMeta.type === 'color' || paramMeta.options.length > 0);
-                              const showPicker = hasPickerButton(paramMeta);
-                              const isTextFile = paramMeta?.type === 'textfile';
-                              return (
-                                <React.Fragment key={param.name}>
-                                  <tr
-                                    className={isEditing ? 'active' : ''}
-                                    title={paramMeta?.desc || param.name}
-                                  >
-                                    <td className="pm-param-name">{param.name}</td>
-                                    <td className="pm-param-value-cell">
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                          {isEditing || isBoolOrSelect ? (
-                                            renderParamInput(selectedPlugin, selectedIndex, paramMeta, paramIndex)
-                                          ) : (
-                                            <div
-                                              className="pm-param-value-display"
-                                              onClick={() => setEditingParamIndex(paramIndex)}
-                                            >
-                                              {param.value || '\u00A0'}
-                                            </div>
-                                          )}
-                                        </div>
-                                        {showPicker && (
-                                          <button
-                                            className="db-btn-small"
-                                            style={{ padding: '1px 4px', fontSize: 11, flexShrink: 0 }}
-                                            onClick={() => openPicker(paramMeta!, paramIndex)}
-                                            title={paramMeta?.type}
-                                          >...</button>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                  {isTextFile && param.value && (
-                                    <tr>
-                                      <td colSpan={2} style={{ padding: '4px 8px 8px 8px' }}>
-                                        <CreditTextEditor textFilePath={param.value} />
-                                      </td>
-                                    </tr>
-                                  )}
-                                </React.Fragment>
-                              );
-                            })}
+                            {orderedParams.map(({ paramIndex, meta: paramMeta }) => (
+                              <PluginParamRow
+                                key={selectedPlugin.parameters[paramIndex]?.name ?? paramIndex}
+                                plugin={selectedPlugin}
+                                pluginIndex={selectedIndex}
+                                paramIndex={paramIndex}
+                                paramMeta={paramMeta}
+                                editingParamIndex={editingParamIndex}
+                                setEditingParamIndex={setEditingParamIndex}
+                                updateParam={updateParam}
+                                hasPickerButton={hasPickerButton}
+                                openPicker={openPicker}
+                              />
+                            ))}
                           </tbody>
                         </table>
                       );
