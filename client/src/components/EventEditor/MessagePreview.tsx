@@ -15,7 +15,6 @@ const VN_W = 700;
 const VN_H = 520;
 const VN_OVERLAY_ALPHA = 120 / 255;
 const VN_SPEAKER_COLOR = '#ffe066';
-
 const TILE_SIZE = 48;
 
 // ─── Props ───
@@ -86,17 +85,13 @@ function setupRendererText(renderer: any, lines: string[]) {
   lines.forEach((line, i) => {
     try {
       WB.prototype.drawTextEx.call(renderer, line, 0, i * LINE_H);
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) { /* ignore */ }
   });
 
   // windowskin 로드 완료 시 재그리기
   const ws = renderer._windowskin;
   if (ws && typeof ws.addLoadListener === 'function' && !ws.isReady?.()) {
-    ws.addLoadListener(() => {
-      setupRendererText(renderer, lines);
-    });
+    ws.addLoadListener(() => { setupRendererText(renderer, lines); });
   }
 }
 
@@ -116,15 +111,14 @@ function computeLayout(
     const innerY = VN_Y + PAD;
     const faceW = hasFace ? 120 : 0;
     const textStartX = hasFace ? innerX + faceW + 12 : innerX;
-    const speakerY = hasSpeaker ? innerY : innerY;
     const textY = innerY + (hasSpeaker ? LINE_H : 0);
     const textW = VN_X + VN_W - textStartX - PAD;
     const textH = VN_Y + VN_H - textY - PAD;
     return {
       windowX: VN_X, windowY: VN_Y, windowW: VN_W, windowH: VN_H,
-      faceX: innerX, faceY: innerY, faceW: faceW, faceH: 120,
+      faceX: innerX, faceY: innerY, faceW, faceH: 120,
       textX: textStartX, textY, textW, textH,
-      speakerX: textStartX, speakerY,
+      speakerX: textStartX, speakerY: innerY,
       dimAlpha: VN_OVERLAY_ALPHA, showWindow: true,
     };
   } else {
@@ -145,32 +139,21 @@ function computeLayout(
 // ─── Three.js 헬퍼 ───
 function getThree(): any { return (window as any).THREE; }
 
-function makeOrthoCamera(THREE: any, w: number, h: number): any {
-  // Y-down: top=0, bottom=h → position.y = screenY 직접 매핑
-  const cam = new THREE.OrthographicCamera(0, w, 0, h, -100, 100);
-  cam.position.set(0, 0, 50);
-  cam.lookAt(0, 0, 0);
-  // Y-down을 위해 up을 Y- 방향으로 설정하고 projection matrix 조정
-  // Three.js OrthographicCamera에서 top < bottom이면 Y-down이 됨
-  // 이미 top=0, bottom=h이면 Y는 0이 위, h가 아래 — 하지만 기본 Three.js는 Y-up
-  // 실제로는 top=h, bottom=0으로 설정하고 메시 Y를 반전하는 방식 사용
-  return cam;
+function makePlaneMesh(THREE: any, material: any): any {
+  return new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
 }
 
-function makePlaneMesh(THREE: any, w: number, h: number, material: any): any {
-  const geo = new THREE.PlaneGeometry(w, h);
-  return new THREE.Mesh(geo, material);
-}
-
-// 메시를 좌상단 기준 위치로 배치 (Three.js 기본은 중심 기준)
+// Y-down 좌표계: OrthographicCamera(0,GW, 0,GH) 기준
+// position.set(x+w/2, y+h/2) 로 직접 배치 (flip 불필요)
 function positionMesh(mesh: any, x: number, y: number, w: number, h: number) {
-  // OrthographicCamera가 top=0,bottom=GH일 때 Y-up이 default이므로
-  // Y를 GH에서 뒤집어서 배치
-  mesh.position.set(x + w / 2, GH - (y + h / 2), 0);
+  mesh.position.set(x + w / 2, y + h / 2, 0);
   mesh.scale.set(w, h, 1);
 }
 
-// Window.png 9-slice ShaderMaterial
+// ─── Window.png 9-slice ShaderMaterial ───
+// 카메라: Y-down, flipY=false → vUv.y=0=화면상단, vUv.y=1=화면하단
+// Window.png 192×192: 배경(0,0,64,64), 테두리(64,64,64,64)
+// flipY=false: V=0=이미지 상단 → 배경V∈[0,64/192], 테두리V∈[64/192,128/192]
 const WINDOW_VERT = `
 varying vec2 vUv;
 void main() {
@@ -189,62 +172,53 @@ vec2 nineSliceUV(vec2 uv, vec2 dstSize, float border) {
   float bx = border / dstSize.x;
   float by = border / dstSize.y;
   float sx, sy;
-  if (uv.x < bx)             sx = uv.x / bx * (border / 64.0);
-  else if (uv.x > 1.0 - bx)  sx = (64.0 - border + (uv.x - (1.0 - bx)) / bx * border) / 64.0;
-  else                        sx = (border + (uv.x - bx) / (1.0 - 2.0 * bx) * (64.0 - 2.0 * border)) / 64.0;
-  if (uv.y < by)             sy = uv.y / by * (border / 64.0);
-  else if (uv.y > 1.0 - by)  sy = (64.0 - border + (uv.y - (1.0 - by)) / by * border) / 64.0;
-  else                        sy = (border + (uv.y - by) / (1.0 - 2.0 * by) * (64.0 - 2.0 * border)) / 64.0;
+  if (uv.x < bx)            sx = uv.x / bx * (border / 64.0);
+  else if (uv.x > 1.0 - bx) sx = (64.0 - border + (uv.x - (1.0 - bx)) / bx * border) / 64.0;
+  else                       sx = (border + (uv.x - bx) / (1.0 - 2.0 * bx) * (64.0 - 2.0 * border)) / 64.0;
+  if (uv.y < by)            sy = uv.y / by * (border / 64.0);
+  else if (uv.y > 1.0 - by) sy = (64.0 - border + (uv.y - (1.0 - by)) / by * border) / 64.0;
+  else                       sy = (border + (uv.y - by) / (1.0 - 2.0 * by) * (64.0 - 2.0 * border)) / 64.0;
   return vec2(sx, sy);
 }
 
 void main() {
-  // 배경 타일 (Window.png 0,0~64,64 영역) - UV Y 반전
-  vec2 bgUV = vec2(mod(vUv.x * uDstSize.x / 64.0, 1.0) * (64.0 / 192.0),
-                   (1.0 - mod(vUv.y * uDstSize.y / 64.0, 1.0)) * (64.0 / 192.0));
-  vec4 bg = texture2D(tWindow, bgUV);
+  // 배경 타일: 이미지 (0,0)~(64,64) → V∈[0, 64/192]
+  float bgU = mod(vUv.x * uDstSize.x / 64.0, 1.0) * (64.0 / 192.0);
+  float bgV = mod(vUv.y * uDstSize.y / 64.0, 1.0) * (64.0 / 192.0);
+  vec4 bg = texture2D(tWindow, vec2(bgU, bgV));
   bg.a *= 0.82;
 
-  // 테두리 9-slice (Window.png 64,64~128,128 영역) - UV Y 반전
+  // 테두리 9-slice: 이미지 (64,64)~(128,128) → UV∈[64/192, 128/192]
   vec2 bUV = nineSliceUV(vUv, uDstSize, BORDER);
-  vec2 borderUV = vec2(bUV.x * (64.0/192.0) + 64.0/192.0,
-                       (1.0 - bUV.y) * (64.0/192.0) + 64.0/192.0);
+  vec2 borderUV = (vec2(1.0) + bUV) * (64.0 / 192.0);
   vec4 border = texture2D(tWindow, borderUV);
 
   gl_FragColor = mix(bg, border, border.a);
 }
 `;
 
-// 공통 Vertex Shader (effect overlay)
-const EFFECT_VERT = `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}
-`;
-
 // ─── 메인 컴포넌트 ───
 export function MessagePreview({ faceName, faceIndex, background, positionType, text }: MessagePreviewProps) {
-  const canvasRef       = useRef<HTMLCanvasElement>(null);
-  const threeRef        = useRef<{
-    renderer: any; scene: any; camera: any; renderTarget: any;
+  const canvasRef  = useRef<HTMLCanvasElement>(null);
+  const threeRef   = useRef<{
+    renderer: any; scene: any; camera: any;
     mapBgMesh: any; dimMesh: any; windowMesh: any; faceMesh: any;
     textMesh: any; speakerMesh: any; arrowMesh: any;
-    mapTexture: any; faceTexture: any; textTexture: any; speakerTexture: any;
-    windowTexture: any;
+    mapTexture: any; faceTexture: any; textTexture: any;
+    speakerTexture: any; windowImg: HTMLImageElement | null;
+    winTexLoaded: boolean; lastFaceName: string;
   } | null>(null);
-  const rendererRef     = useRef<any>(null);  // Window_Base 텍스트 렌더러
-  const rafRef          = useRef(0);
-  const prevMapStateRef = useRef<string>('');
+  const rendererRef  = useRef<any>(null);
+  const rafRef       = useRef(0);
+  const sceneDirtyRef = useRef(true);  // 씬 업데이트 필요 플래그
 
-  const currentMap       = useEditorStore((s) => s.currentMap);
-  const selectedEventId  = useEditorStore((s) => s.selectedEventId);
-  const event            = currentMap?.events?.find((e) => e && e.id === selectedEventId);
-  const eventTileX       = event?.x ?? null;
-  const eventTileY       = event?.y ?? null;
-  const eventTileRef     = useRef({ x: eventTileX, y: eventTileY });
-  eventTileRef.current   = { x: eventTileX, y: eventTileY };
+  const currentMap      = useEditorStore((s) => s.currentMap);
+  const selectedEventId = useEditorStore((s) => s.selectedEventId);
+  const event           = currentMap?.events?.find((e) => e && e.id === selectedEventId);
+  const eventTileX      = event?.x ?? null;
+  const eventTileY      = event?.y ?? null;
+  const eventTileRef    = useRef({ x: eventTileX, y: eventTileY });
+  eventTileRef.current  = { x: eventTileX, y: eventTileY };
 
   const propsRef = useRef({ faceName, faceIndex, background, positionType, text });
   propsRef.current = { faceName, faceIndex, background, positionType, text };
@@ -257,25 +231,29 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
 
   const [vnScrollLine, setVnScrollLine] = useState(0);
   const vnScrollRef = useRef(0);
-  useEffect(() => { vnScrollRef.current = vnScrollLine; }, [vnScrollLine]);
+  useEffect(() => { vnScrollRef.current = vnScrollLine; sceneDirtyRef.current = true; }, [vnScrollLine]);
 
   // ─── 런타임 로드 대기 ───
   useEffect(() => {
     if (runtimeReady) return;
     const id = setInterval(() => {
       if ((window as any).Window_Base && (window as any).Bitmap) {
-        setRuntimeReady(true);
-        clearInterval(id);
+        setRuntimeReady(true); clearInterval(id);
       }
     }, 100);
     return () => clearInterval(id);
   }, [runtimeReady]);
 
-  // ─── Three.js 초기화 ───
+  // ─── Three.js 초기화 (최초 1회) ───
   const initThree = useCallback(() => {
     const THREE = getThree();
-    if (!THREE || !canvasRef.current) return;
-    if (threeRef.current) return;  // 이미 초기화됨
+    if (!THREE || !canvasRef.current || threeRef.current) return;
+
+    // Y-down OrthographicCamera: top=0, bottom=GH
+    // → world Y=0=화면 상단, world Y=GH=화면 하단
+    const camera = new THREE.OrthographicCamera(0, GW, 0, GH, -100, 100);
+    camera.position.set(0, 0, 50);
+    camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
     renderer.setSize(GW, GH);
@@ -283,87 +261,60 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
 
     const scene = new THREE.Scene();
 
-    // Y-down 좌표계: top=GH, bottom=0 → 화면 상단이 Y=GH, 하단이 Y=0
-    // 메시는 positionMesh()에서 GH-y 로 변환
-    const camera = new THREE.OrthographicCamera(0, GW, GH, 0, -100, 100);
-    camera.position.set(0, 0, 50);
-    camera.lookAt(0, 0, 0);
-
-    // ── 레이어 메시 생성 ──
+    const mat = (cfg: any) => new THREE.MeshBasicMaterial({
+      depthTest: false, depthWrite: false, transparent: true, ...cfg,
+    });
 
     // 0: 맵 배경
     const mapCanvas = document.createElement('canvas');
     mapCanvas.width = GW; mapCanvas.height = GH;
     const mapTexture = new THREE.CanvasTexture(mapCanvas);
-    mapTexture.flipY = false;
-    const mapBgMat = new THREE.MeshBasicMaterial({
-      map: mapTexture, depthTest: false, depthWrite: false,
-    });
-    const mapBgMesh = makePlaneMesh(THREE, 1, 1, mapBgMat);
+    mapTexture.flipY = false;  // Y-down 카메라 기준 — flip 불필요
+    const mapBgMesh = makePlaneMesh(THREE, mat({ map: mapTexture, transparent: false }));
     mapBgMesh.renderOrder = 0;
     positionMesh(mapBgMesh, 0, 0, GW, GH);
     scene.add(mapBgMesh);
 
-    // 1: 어둡게 오버레이 (dim)
-    const dimMat = new THREE.MeshBasicMaterial({
-      color: 0x000000, transparent: true, opacity: 0,
-      depthTest: false, depthWrite: false,
-    });
-    const dimMesh = makePlaneMesh(THREE, 1, 1, dimMat);
+    // 1: dim 오버레이
+    const dimMesh = makePlaneMesh(THREE, mat({ color: 0x000000, opacity: 0 }));
     dimMesh.renderOrder = 1;
     positionMesh(dimMesh, 0, 0, GW, GH);
     scene.add(dimMesh);
 
-    // 2: window frame (9-slice, 초기에 placeholder)
-    const windowTex = new THREE.Texture();
-    windowTex.needsUpdate = false;
+    // 2: window frame (9-slice shader)
     const windowMat = new THREE.ShaderMaterial({
       uniforms: {
-        tWindow: { value: windowTex },
+        tWindow: { value: new THREE.Texture() },
         uDstSize: { value: new THREE.Vector2(GW, WIN_H) },
       },
       vertexShader: WINDOW_VERT,
       fragmentShader: WINDOW_FRAG,
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-    });
-    const windowMesh = makePlaneMesh(THREE, 1, 1, windowMat);
-    windowMesh.renderOrder = 2;
-    positionMesh(windowMesh, 0, GH - WIN_H, GW, WIN_H);
-    scene.add(windowMesh);
-
-    // 2b: window fallback (Window.png 없을 때 사용할 canvas texture)
-    // windowMesh.material에 ShaderMaterial 또는 MeshBasicMaterial 교체로 처리
-
-    // 3: face
-    const faceMat = new THREE.MeshBasicMaterial({
       transparent: true, depthTest: false, depthWrite: false,
     });
-    const faceMesh = makePlaneMesh(THREE, 1, 1, faceMat);
+    const windowMesh = makePlaneMesh(THREE, windowMat);
+    windowMesh.renderOrder = 2;
+    windowMesh.visible = false;
+    scene.add(windowMesh);
+
+    // 3: face
+    const faceMesh = makePlaneMesh(THREE, mat({ transparent: true }));
     faceMesh.renderOrder = 3;
     faceMesh.visible = false;
     scene.add(faceMesh);
 
     // 4: text bitmap
-    const textMat = new THREE.MeshBasicMaterial({
-      transparent: true, depthTest: false, depthWrite: false,
-    });
-    const textMesh = makePlaneMesh(THREE, 1, 1, textMat);
+    const textMesh = makePlaneMesh(THREE, mat({ transparent: true }));
     textMesh.renderOrder = 4;
     textMesh.visible = false;
     scene.add(textMesh);
 
-    // 4.5: speaker name (VN 모드)
-    const speakerMat = new THREE.MeshBasicMaterial({
-      transparent: true, depthTest: false, depthWrite: false,
-    });
-    const speakerMesh = makePlaneMesh(THREE, 1, 1, speakerMat);
+    // 5: speaker name (VN 모드)
+    const speakerMesh = makePlaneMesh(THREE, mat({ transparent: true }));
     speakerMesh.renderOrder = 5;
     speakerMesh.visible = false;
     scene.add(speakerMesh);
 
-    // 5: ▼ 화살표 (입력 대기 표시)
+    // 6: ▼ 화살표
     const arrowCanvas = document.createElement('canvas');
     arrowCanvas.width = 32; arrowCanvas.height = 32;
     const arrowCtx = arrowCanvas.getContext('2d')!;
@@ -372,73 +323,36 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
     arrowCtx.fillText('▼', 6, 22);
     const arrowTex = new THREE.CanvasTexture(arrowCanvas);
     arrowTex.flipY = false;
-    const arrowMat = new THREE.MeshBasicMaterial({
-      map: arrowTex, transparent: true, depthTest: false, depthWrite: false,
-    });
-    const arrowMesh = makePlaneMesh(THREE, 1, 1, arrowMat);
+    const arrowMesh = makePlaneMesh(THREE, mat({ map: arrowTex }));
     arrowMesh.renderOrder = 6;
     arrowMesh.visible = false;
     scene.add(arrowMesh);
 
     threeRef.current = {
-      renderer, scene, camera, renderTarget: null,
+      renderer, scene, camera,
       mapBgMesh, dimMesh, windowMesh, faceMesh,
       textMesh, speakerMesh, arrowMesh,
       mapTexture, faceTexture: null, textTexture: null, speakerTexture: null,
-      windowTexture: windowTex,
+      windowImg: null, winTexLoaded: false, lastFaceName: '',
     };
 
     // Window.png 로드
-    loadWindowTexture(THREE);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const loadWindowTexture = (THREE: any) => {
     const img = new Image();
     img.onload = () => {
       const t = threeRef.current;
       if (!t) return;
+      t.windowImg = img;
+      t.winTexLoaded = true;
       const tex = new THREE.Texture(img);
+      tex.flipY = false;  // Y-down 카메라 기준
       tex.needsUpdate = true;
       t.windowMesh.material.uniforms.tWindow.value = tex;
-      t.windowTexture = tex;
+      sceneDirtyRef.current = true;
     };
     img.src = '/img/system/Window.png';
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── renderer(Window_Base) 생성 ───
-  const buildRenderer = useCallback((resetScroll = false) => {
-    if (!runtimeReady) return;
-    const allLines = propsRef.current.text.split('\n');
-    const fn = propsRef.current.faceName;
-    const isVN = allLines.length > 4;
-    const hasFace = !!fn;
-
-    let contentsW: number, contentsH: number;
-    if (isVN) {
-      const textOffsetX = hasFace ? 120 + 12 : 0;
-      contentsW = VN_W - PAD * 2 - textOffsetX;
-      contentsH = Math.max(LINE_H, allLines.length * LINE_H);
-    } else {
-      contentsW = GW - PAD * 2 - (hasFace ? FACE_SZ + 16 : 0);
-      contentsH = WIN_H - PAD * 2;
-    }
-
-    const r = createTextRenderer(contentsW, contentsH);
-    rendererRef.current = r;
-    if (r) {
-      const lines = isVN ? allLines : allLines.slice(0, 4);
-      setupRendererText(r, lines);
-    }
-    if (resetScroll) setVnScrollLine(0);
-  }, [runtimeReady]);
-
-  useEffect(() => {
-    buildRenderer(true);
-  }, [runtimeReady, text, faceName]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleReplay = useCallback(() => { buildRenderer(true); }, [buildRenderer]);
-
-  // ─── 씬 메시 업데이트 (props/scroll 변경 시) ───
+  // ─── 씬 메시 업데이트 (dirty 플래그 소비) ───
   const updateScene = useCallback(() => {
     const t = threeRef.current;
     const THREE = getThree();
@@ -450,93 +364,96 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
     const hasSpeaker = isVN && !!fn;
     const layout = computeLayout(isVN, bg, pt, hasFace, hasSpeaker);
 
-    // dim overlay
+    // dim
     t.dimMesh.material.opacity = layout.dimAlpha;
 
     // window frame
     if (layout.showWindow) {
-      const winY = layout.windowY;
-      const winH = layout.windowH;
-      positionMesh(t.windowMesh, layout.windowX, winY, layout.windowW, winH);
-      t.windowMesh.material.uniforms.uDstSize.value.set(layout.windowW, winH);
+      positionMesh(t.windowMesh, layout.windowX, layout.windowY, layout.windowW, layout.windowH);
+      t.windowMesh.material.uniforms.uDstSize.value.set(layout.windowW, layout.windowH);
+      // Window.png 미로드 시 폴백: 단색 오버레이로 교체
+      if (!t.winTexLoaded) {
+        // ShaderMaterial로 유지, 배경이 보이지 않으면 fallback canvas texture 사용
+        const fbCanvas = document.createElement('canvas');
+        fbCanvas.width = 4; fbCanvas.height = 4;
+        const fbCtx = fbCanvas.getContext('2d')!;
+        fbCtx.fillStyle = 'rgba(8,14,40,0.9)';
+        fbCtx.fillRect(0, 0, 4, 4);
+        const fbTex = new THREE.CanvasTexture(fbCanvas);
+        fbTex.flipY = false;
+        t.windowMesh.material.uniforms.tWindow.value = fbTex;
+      }
       t.windowMesh.visible = true;
     } else {
       t.windowMesh.visible = false;
     }
 
-    // face 이미지
+    // face
     if (hasFace && fn) {
-      if (!t.faceTexture || t.faceTexture._faceName !== fn) {
-        // 이미지 로드
-        const img = new Image();
-        img.onload = () => {
-          const tex = new THREE.Texture(img);
+      if (t.lastFaceName !== fn) {
+        t.lastFaceName = fn;
+        const faceImg = new Image();
+        faceImg.onload = () => {
+          const t2 = threeRef.current;
+          if (!t2) return;
+          if (t2.faceTexture) t2.faceTexture.dispose();
+          const tex = new THREE.Texture(faceImg);
+          tex.flipY = false;  // Y-down 기준
+          // UV: 4×2 face sheet에서 선택
+          const col = fi % 4;
+          const row = Math.floor(fi / 4);
+          const totalW = faceImg.naturalWidth  || (FACE_SZ * 4);
+          const totalH = faceImg.naturalHeight || (FACE_SZ * 2);
+          const uW = FACE_SZ / totalW;
+          const uH = FACE_SZ / totalH;
+          tex.repeat.set(uW, uH);
+          tex.offset.set(col * uW, row * uH);  // Y-down: row 0=상단 → V=0=이미지 상단 ✓
           tex.needsUpdate = true;
-          // UV: faceIndex에 따라 crop (4×2 배열, 각 144×144)
-          const col = fi % 4;
-          const row = Math.floor(fi / 4);
-          const totalW = img.naturalWidth;
-          const totalH = img.naturalHeight;
-          const uW = FACE_SZ / totalW;
-          const uH = FACE_SZ / totalH;
-          // UV 오프셋/반복 설정
-          tex.repeat.set(uW, uH);
-          // flipY=true (기본값)이므로 v는 아래에서 위로
-          tex.offset.set(col * uW, 1 - (row + 1) * uH);
-          if (t.faceTexture) t.faceTexture.dispose();
-          t.faceTexture = tex;
-          t.faceTexture._faceName = fn;
-          t.faceMesh.material.map = tex;
-          t.faceMesh.material.needsUpdate = true;
+          t2.faceTexture = tex;
+          t2.faceMesh.material.map = tex;
+          t2.faceMesh.material.needsUpdate = true;
+          positionMesh(t2.faceMesh, layout.faceX, layout.faceY, layout.faceW, layout.faceH);
+          t2.faceMesh.visible = true;
         };
-        img.src = `/img/faces/${fn}.png`;
+        faceImg.src = `/img/faces/${fn}.png`;
       } else {
-        // faceIndex 변경 시 UV 재계산
+        // faceIndex 변경만 → UV 재계산
         const tex = t.faceTexture;
-        if (tex.image) {
+        if (tex && tex.image) {
           const col = fi % 4;
           const row = Math.floor(fi / 4);
-          const totalW = tex.image.naturalWidth;
-          const totalH = tex.image.naturalHeight;
-          const uW = FACE_SZ / totalW;
-          const uH = FACE_SZ / totalH;
-          tex.repeat.set(uW, uH);
-          tex.offset.set(col * uW, 1 - (row + 1) * uH);
+          const totalW = tex.image.naturalWidth  || (FACE_SZ * 4);
+          const totalH = tex.image.naturalHeight || (FACE_SZ * 2);
+          tex.repeat.set(FACE_SZ / totalW, FACE_SZ / totalH);
+          tex.offset.set(col * (FACE_SZ / totalW), row * (FACE_SZ / totalH));
           tex.needsUpdate = true;
         }
+        positionMesh(t.faceMesh, layout.faceX, layout.faceY, layout.faceW, layout.faceH);
+        t.faceMesh.visible = true;
       }
-      positionMesh(t.faceMesh, layout.faceX, layout.faceY, layout.faceW, layout.faceH);
-      t.faceMesh.visible = true;
     } else {
       t.faceMesh.visible = false;
     }
 
     // text bitmap
     const textRenderer = rendererRef.current;
-    if (textRenderer && textRenderer.contents) {
+    if (textRenderer?.contents) {
       const bmpCanvas = textRenderer.contents.canvas || textRenderer.contents._canvas;
       if (bmpCanvas) {
         if (t.textTexture) t.textTexture.dispose();
         const tex = new THREE.CanvasTexture(bmpCanvas);
-        tex.flipY = false;
-        t.textTexture = tex;
-        t.textMesh.material.map = tex;
-        t.textMesh.material.needsUpdate = true;
-
-        // VN 스크롤: UV offset/repeat로 처리
+        tex.flipY = false;  // Y-down 기준
+        // VN 스크롤: Y-down + flipY=false → V=0=canvas 상단 → offset.y = scrollY/totalH
         if (isVN) {
           const totalH = bmpCanvas.height;
           const visH = layout.textH;
           const scrollY = vnScrollRef.current * LINE_H;
-          const repeatV = visH / totalH;
-          const offsetV = scrollY / totalH;
-          tex.repeat.set(1, repeatV);
-          tex.offset.set(0, offsetV);
-        } else {
-          tex.repeat.set(1, 1);
-          tex.offset.set(0, 0);
+          tex.repeat.set(1, visH / totalH);
+          tex.offset.set(0, scrollY / totalH);
         }
-
+        t.textTexture = tex;
+        t.textMesh.material.map = tex;
+        t.textMesh.material.needsUpdate = true;
         positionMesh(t.textMesh, layout.textX, layout.textY, layout.textW, layout.textH);
         t.textMesh.visible = true;
       }
@@ -544,7 +461,7 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
       t.textMesh.visible = false;
     }
 
-    // speaker name (VN 모드)
+    // speaker name (VN)
     if (hasSpeaker && fn) {
       const spW = Math.max(100, fn.length * 16 + 20);
       const spH = LINE_H;
@@ -554,9 +471,9 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
       spCtx.clearRect(0, 0, spW, spH);
       spCtx.font = `bold 22px "GameFont","MS PGothic","dotumche","나눔고딕",serif`;
       spCtx.fillStyle = '#000000';
-      spCtx.fillText(fn, 1, 24);
+      spCtx.fillText(fn, 1, 23);
       spCtx.fillStyle = VN_SPEAKER_COLOR;
-      spCtx.fillText(fn, 0, 23);
+      spCtx.fillText(fn, 0, 22);
       if (t.speakerTexture) t.speakerTexture.dispose();
       const spTex = new THREE.CanvasTexture(spCanvas);
       spTex.flipY = false;
@@ -571,33 +488,49 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
 
     // 화살표 ▼
     if (layout.showWindow) {
-      const ax = layout.windowX + layout.windowW - 28;
-      const ay = layout.windowY + layout.windowH - 28;
-      positionMesh(t.arrowMesh, ax, ay, 24, 24);
+      positionMesh(t.arrowMesh, layout.windowX + layout.windowW - 28, layout.windowY + layout.windowH - 28, 24, 24);
       t.arrowMesh.visible = true;
     } else {
       t.arrowMesh.visible = false;
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // props/scroll 변경 시 씬 업데이트
-  useEffect(() => {
-    updateScene();
-  }, [faceName, faceIndex, background, positionType, text, vnScrollLine, updateScene]);
+  // ─── renderer(Window_Base) 생성 ───
+  const buildRenderer = useCallback((resetScroll = false) => {
+    if (!runtimeReady) return;
+    const allLines = propsRef.current.text.split('\n');
+    const fn = propsRef.current.faceName;
+    const isVN = allLines.length > 4;
+    const hasFace = !!fn;
 
-  // textRenderer 재생성 완료 후 씬도 업데이트
-  useEffect(() => {
-    const r = rendererRef.current;
-    if (r) updateScene();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rendererRef.current]);
+    let contentsW: number, contentsH: number;
+    if (isVN) {
+      contentsW = VN_W - PAD * 2 - (hasFace ? 120 + 12 : 0);
+      contentsH = Math.max(LINE_H, allLines.length * LINE_H);
+    } else {
+      contentsW = GW - PAD * 2 - (hasFace ? FACE_SZ + 16 : 0);
+      contentsH = WIN_H - PAD * 2;
+    }
+
+    const r = createTextRenderer(contentsW, contentsH);
+    rendererRef.current = r;
+    if (r) setupRendererText(r, isVN ? allLines : allLines.slice(0, 4));
+    if (resetScroll) setVnScrollLine(0);
+    sceneDirtyRef.current = true;
+  }, [runtimeReady]);
+
+  useEffect(() => { buildRenderer(true); }, [runtimeReady, text, faceName]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { sceneDirtyRef.current = true; }, [faceName, faceIndex, background, positionType, text]);
+
+  const handleReplay = useCallback(() => { buildRenderer(true); }, [buildRenderer]);
 
   // ─── RAF 루프 ───
   useEffect(() => {
     if (!runtimeReady) return;
 
-    // Three.js 초기화 (첫 번째 RAF 루프 시작 전)
-    initThree();
+    initThree();       // 최초 1회 초기화
+    updateScene();     // 초기화 직후 즉시 씬 업데이트
+    sceneDirtyRef.current = false;
 
     let running = true;
     const tick = () => {
@@ -609,19 +542,24 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
 
       const THREE = getThree();
 
-      // ExtendedText._time 진행
+      // ExtendedText 시간 진행
       const ET = (window as any).ExtendedText;
       if (ET) ET._time += 1 / 60;
 
-      // 애니메이션 패스 (ExtendedText 효과)
+      // ExtendedText 애니메이션 패스
       const r = rendererRef.current;
       if (r?._etAnimSegs?.length > 0) {
         try { r._etRunAnimPass(); } catch (_) {}
       }
 
-      // 맵 배경 텍스처 업데이트
+      // 씬 dirty 시 업데이트
+      if (sceneDirtyRef.current) {
+        updateScene();
+        sceneDirtyRef.current = false;
+      }
+
+      // 맵 배경 텍스처 매 프레임 갱신
       const mapCanvas = ((window as any)._editorRendererObj?.view) as HTMLCanvasElement | null | undefined;
-      const mapState = mapCanvas ? `${mapCanvas.width}x${mapCanvas.height}` : 'none';
       const offCanvas = t.mapTexture.image as HTMLCanvasElement;
       if (offCanvas && mapCanvas && mapCanvas.width > 0 && mapCanvas.height > 0) {
         const ctx2d = offCanvas.getContext('2d');
@@ -629,10 +567,8 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
           const { x: evX, y: evY } = eventTileRef.current;
           let srcX = 0, srcY = 0;
           if (evX !== null && evY !== null) {
-            srcX = Math.round(evX * TILE_SIZE + TILE_SIZE / 2 - GW / 2);
-            srcY = Math.round(evY * TILE_SIZE + TILE_SIZE / 2 - GH / 2);
-            srcX = Math.max(0, Math.min(srcX, mapCanvas.width  - GW));
-            srcY = Math.max(0, Math.min(srcY, mapCanvas.height - GH));
+            srcX = Math.max(0, Math.min(Math.round(evX * TILE_SIZE + TILE_SIZE / 2 - GW / 2), mapCanvas.width  - GW));
+            srcY = Math.max(0, Math.min(Math.round(evY * TILE_SIZE + TILE_SIZE / 2 - GH / 2), mapCanvas.height - GH));
           }
           ctx2d.drawImage(mapCanvas, srcX, srcY, GW, GH, 0, 0, GW, GH);
           ctx2d.fillStyle = 'rgba(0,0,0,0.25)';
@@ -640,41 +576,25 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
           t.mapTexture.needsUpdate = true;
         }
       } else if (!mapCanvas || mapCanvas.width === 0) {
-        // 맵 없을 때 폴백 배경 (최초 1회 또는 상태 변경 시)
-        if (prevMapStateRef.current !== 'fallback') {
-          const ctx2d = offCanvas?.getContext('2d');
-          if (ctx2d) {
-            ctx2d.fillStyle = '#3a4a5a';
-            ctx2d.fillRect(0, 0, GW, GH);
-            ctx2d.strokeStyle = 'rgba(255,255,255,0.04)';
-            ctx2d.lineWidth = 1;
-            for (let x = 0; x < GW; x += 48) {
-              ctx2d.beginPath(); ctx2d.moveTo(x + .5, 0); ctx2d.lineTo(x + .5, GH); ctx2d.stroke();
-            }
-            for (let y = 0; y < GH; y += 48) {
-              ctx2d.beginPath(); ctx2d.moveTo(0, y + .5); ctx2d.lineTo(GW, y + .5); ctx2d.stroke();
-            }
-            t.mapTexture.needsUpdate = true;
-            prevMapStateRef.current = 'fallback';
-          }
+        const ctx2d = offCanvas?.getContext('2d');
+        if (ctx2d) {
+          ctx2d.fillStyle = '#3a4a5a';
+          ctx2d.fillRect(0, 0, GW, GH);
+          t.mapTexture.needsUpdate = true;
         }
       }
-      if (mapState !== 'fallback') prevMapStateRef.current = mapState;
 
-      // textTexture 애니메이션 업데이트
+      // textTexture 애니메이션 갱신
       if (r?._etAnimSegs?.length > 0 && t.textTexture) {
         t.textTexture.needsUpdate = true;
       }
 
-      // 렌더링
+      // Three.js 렌더링
       t.renderer.render(t.scene, t.camera);
 
-      // WebGL canvas → preview canvas 복사
-      const gl = t.renderer.domElement;
+      // WebGL canvas → 2D preview canvas 복사
       const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(gl, 0, 0, GW, GH, 0, 0, GW, GH);
-      }
+      if (ctx) ctx.drawImage(t.renderer.domElement, 0, 0, GW, GH, 0, 0, GW, GH);
 
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -688,33 +608,24 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
   }, [runtimeReady]);
 
   // ─── 언마운트 정리 ───
-  useEffect(() => {
-    return () => {
-      const t = threeRef.current;
-      if (!t) return;
-      t.mapTexture?.dispose();
-      t.faceTexture?.dispose();
-      t.textTexture?.dispose();
-      t.speakerTexture?.dispose();
-      t.windowTexture?.dispose();
-      // 씬 메시 정리
-      [t.mapBgMesh, t.dimMesh, t.windowMesh, t.faceMesh, t.textMesh, t.speakerMesh, t.arrowMesh].forEach(m => {
-        if (!m) return;
-        m.geometry?.dispose();
-        m.material?.dispose();
-      });
-      t.renderer?.dispose();
-      threeRef.current = null;
-    };
+  useEffect(() => () => {
+    const t = threeRef.current;
+    if (!t) return;
+    [t.mapTexture, t.faceTexture, t.textTexture, t.speakerTexture].forEach(tx => tx?.dispose());
+    [t.mapBgMesh, t.dimMesh, t.windowMesh, t.faceMesh, t.textMesh, t.speakerMesh, t.arrowMesh].forEach(m => {
+      m?.geometry?.dispose(); m?.material?.dispose();
+    });
+    t.renderer?.dispose();
+    threeRef.current = null;
   }, []);
 
   // VN 스크롤 계산
   const vnAllLines = isVNMode ? text.split('\n') : [];
-  const vnHasFace = isVNMode && !!faceName;
-  const vnCurY = VN_Y + PAD + (vnHasFace ? LINE_H : 0);
-  const vnClipH = VN_Y + VN_H - vnCurY - PAD;
+  const vnHasFace  = isVNMode && !!faceName;
+  const vnCurY     = VN_Y + PAD + (vnHasFace ? LINE_H : 0);
+  const vnClipH    = VN_Y + VN_H - vnCurY - PAD;
   const vnMaxVisLines = Math.floor(vnClipH / LINE_H);
-  const vnMaxScroll = Math.max(0, vnAllLines.length - vnMaxVisLines);
+  const vnMaxScroll   = Math.max(0, vnAllLines.length - vnMaxVisLines);
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     if (!isVNMode) return;
@@ -724,7 +635,6 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 4 }}>
-      {/* 모드 배지 + 컨트롤 버튼 */}
       <div style={{ fontSize: 11, color: isVNMode ? '#ffe066' : '#666', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         {isVNMode
           ? <><span style={{ background: '#5a4200', border: '1px solid #ffe066', borderRadius: 3, padding: '1px 6px', color: '#ffe066', fontWeight: 'bold' }}>VN MODE</span> 4줄 초과 — Visual Novel 렌더링</>
@@ -737,24 +647,15 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
         >▶ 재생</button>
         {isVNMode && vnMaxScroll > 0 && (
           <>
-            <button
-              onClick={() => setVnScrollLine(p => Math.max(0, p - 1))}
-              disabled={vnScrollLine <= 0}
-              style={{ fontSize: 11, padding: '1px 6px', background: '#2a2a2a', border: '1px solid #555', borderRadius: 3, color: '#ccc', cursor: 'pointer' }}
-              title="위로 스크롤"
-            >▲</button>
+            <button onClick={() => setVnScrollLine(p => Math.max(0, p - 1))} disabled={vnScrollLine <= 0}
+              style={{ fontSize: 11, padding: '1px 6px', background: '#2a2a2a', border: '1px solid #555', borderRadius: 3, color: '#ccc', cursor: 'pointer' }}>▲</button>
             <span style={{ color: '#888', fontSize: 11 }}>{vnScrollLine + 1}/{vnAllLines.length}</span>
-            <button
-              onClick={() => setVnScrollLine(p => Math.min(vnMaxScroll, p + 1))}
-              disabled={vnScrollLine >= vnMaxScroll}
-              style={{ fontSize: 11, padding: '1px 6px', background: '#2a2a2a', border: '1px solid #555', borderRadius: 3, color: '#ccc', cursor: 'pointer' }}
-              title="아래로 스크롤"
-            >▼</button>
+            <button onClick={() => setVnScrollLine(p => Math.min(vnMaxScroll, p + 1))} disabled={vnScrollLine >= vnMaxScroll}
+              style={{ fontSize: 11, padding: '1px 6px', background: '#2a2a2a', border: '1px solid #555', borderRadius: 3, color: '#ccc', cursor: 'pointer' }}>▼</button>
           </>
         )}
       </div>
 
-      {/* Canvas (2D 출력 대상 — WebGL 결과를 drawImage로 복사) */}
       <canvas
         ref={canvasRef}
         width={GW}
@@ -763,9 +664,7 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
         style={{ width: '100%', aspectRatio: `${GW}/${GH}`, display: 'block', imageRendering: 'pixelated', background: '#222', cursor: isVNMode && vnMaxScroll > 0 ? 'ns-resize' : 'default' }}
       />
 
-      {!runtimeReady && (
-        <div style={{ fontSize: 11, color: '#888' }}>런타임 로딩 중...</div>
-      )}
+      {!runtimeReady && <div style={{ fontSize: 11, color: '#888' }}>런타임 로딩 중...</div>}
     </div>
   );
 }
