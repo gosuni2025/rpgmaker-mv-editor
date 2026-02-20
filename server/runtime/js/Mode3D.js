@@ -126,12 +126,14 @@
             children.sort(function(a, b) {
                 var dA = a.x * sinY + a.y * cosY;
                 var dB = b.x * sinY + b.y * cosY;
-                // 3D 모드에서 z=5(이미지 오브젝트/상위 캐릭터)를 z=3(일반 캐릭터)과
-                // 같은 depth pool로 취급하여 depth만으로 앞뒤 결정.
-                // 단, z=4(upper tile: 지붕)는 항상 캐릭터/오브젝트 위에 유지.
-                var zA = (a.z === 5 ? 3 : a.z);
-                var zB = (b.z === 5 ? 3 : b.z);
-                return (zA - zB) || (dA - dB) || (a.x - b.x);
+                // 3D 모드 렌더 순서:
+                //   [버킷 0] 타일 (z=0 lower, z=4 upper): 항상 캐릭터/오브젝트 아래
+                //   [버킷 1] 캐릭터·오브젝트 (z=1,2,3,5 등): depth만으로 앞뒤 결정
+                var tA = (a.z === 0 || a.z === 4) ? 0 : 1;
+                var tB = (b.z === 0 || b.z === 4) ? 0 : 1;
+                if (tA !== tB) return tA - tB;
+                if (tA === 0) return (a.z - b.z) || (dA - dB); // 타일끼리: z→depth
+                return (dA - dB) || (a.x - b.x);               // 캐릭터/오브젝트: depth만
             });
         }
     };
