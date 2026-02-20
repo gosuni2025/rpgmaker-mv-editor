@@ -52,7 +52,7 @@ const DEFAULT_SETTINGS: EditorSettings = {
     siteUrl: '',
   },
   ghPages: {
-    remote: 'origin',
+    remote: 'pages',
   },
 };
 
