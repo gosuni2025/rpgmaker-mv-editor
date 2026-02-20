@@ -22,9 +22,10 @@ function ThreeSprite(texture) {
         norms.setZ(ni, -1);
     }
     var _sc = (window.DepthDebugConfig) ? window.DepthDebugConfig.sprite : null;
-    var _sDT = _sc ? _sc.depthTest : false;
-    var _sDW = _sc ? _sc.depthWrite : false;
-    var _sAT = (_sc && _sc.alphaTest) ? 0.5 : 0;
+    var _is3DSprite = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
+    var _sDT = _sc ? _sc.depthTest : (_is3DSprite ? true : false);
+    var _sDW = _sc ? _sc.depthWrite : (_is3DSprite ? true : false);
+    var _sAT = _sc ? (_sc.alphaTest ? 0.5 : 0) : (_is3DSprite ? 0.5 : 0);
     this._material = new THREE.MeshBasicMaterial({
         transparent: _sAT > 0 ? false : true,
         alphaTest: _sAT,
