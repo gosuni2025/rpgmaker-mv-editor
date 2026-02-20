@@ -287,6 +287,12 @@ export default function DeployDialog() {
                   <div style={fieldLabel}>{t('deploy.netlify.apiKey')}</div>
                   <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                     placeholder={t('deploy.netlify.apiKeyPlaceholder')} style={inputStyle} />
+                  <div style={{ marginTop: 6, background: '#1e2a1e', border: '1px solid #2a3a2a', borderRadius: 3, padding: '7px 10px', fontSize: 11, color: '#7a9a7a', lineHeight: 1.7 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 2 }}>{t('deploy.netlify.securityTitle')}</div>
+                    <div>· {t('deploy.netlify.security1')}</div>
+                    <div>· {t('deploy.netlify.security2')}</div>
+                    <div>· {t('deploy.netlify.security3')}</div>
+                  </div>
                 </div>
 
                 {/* Site ID - 자동/수동 */}
