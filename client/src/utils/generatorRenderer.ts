@@ -62,6 +62,17 @@ export async function loadGradients(url: string): Promise<ImageData> {
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
+// 소스 픽셀의 gradient x 위치를 계산 (0=밝음, 255=어두움)
+// luminance 기반이되, 고채도 픽셀(파란 홍채 등)은 max-channel 쪽으로 자동 전환
+// 공식: lum + sat² × (max - lum), where sat = HSV saturation
+function pixelBrightness(r: number, g: number, b: number): number {
+  const maxChannel = Math.max(r, g, b);
+  const minChannel = Math.min(r, g, b);
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  const sat = maxChannel > 0 ? (maxChannel - minChannel) / maxChannel : 0;
+  return 255 - Math.round(lum + sat * sat * (maxChannel - lum));
+}
+
 function getGradientColor(
   gradients: ImageData,
   row: number,
@@ -121,10 +132,7 @@ export async function recolorFacePart(
       continue;
     }
 
-    // max(R,G,B)를 기준으로 brightness 계산
-    // luminance 가중치 방식은 컬러(예: 파란 눈동자) 소스 이미지에서 왜곡됨
-    const maxChannel = Math.max(pixels[i], pixels[i + 1], pixels[i + 2]);
-    const brightness = 255 - maxChannel;
+    const brightness = pixelBrightness(pixels[i], pixels[i + 1], pixels[i + 2]);
     const color = getGradientColor(gradients, gradientRow, brightness);
     pixels[i] = color.r;
     pixels[i + 1] = color.g;
@@ -174,8 +182,7 @@ export async function recolorTVSVPart(
       continue;
     }
 
-    const maxChannel = Math.max(pixels[i], pixels[i + 1], pixels[i + 2]);
-    const brightness = 255 - maxChannel;
+    const brightness = pixelBrightness(pixels[i], pixels[i + 1], pixels[i + 2]);
     const color = getGradientColor(gradients, gradientRow, brightness);
     pixels[i] = color.r;
     pixels[i + 1] = color.g;

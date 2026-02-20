@@ -318,7 +318,9 @@ router.get('/variation/:gender/:part', (req: Request<{ gender: string; part: str
       return res.status(404).json({ error: 'Directory not found' });
     }
 
-    const prefix = `icon_${part}_p`;
+    // Variation 아이콘은 suffix 없는 기본 파트명 사용 (Cloak1/Cloak2 → Cloak, RearHair1 → RearHair)
+    const iconPart = part.replace(/[12]$/, '') || part;
+    const prefix = `icon_${iconPart}_p`;
     const files = fs
       .readdirSync(dirPath)
       .filter(f => f.startsWith(prefix) && f.endsWith('.png'));
