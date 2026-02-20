@@ -22,10 +22,17 @@ type SSEEvent =
   | { type: 'done'; zipPath?: string; deployUrl?: string; siteUrl?: string; commitHash?: string; pageUrl?: string; buildId?: string }
   | { type: 'error'; message: string };
 
+interface GhPagesRemote {
+  name: string;
+  url: string;
+  pageUrl: string;
+}
+
 interface GhPagesCheck {
   ghCli: boolean;
-  repoPath: string;
   isGitRepo: boolean;
+  remotes: GhPagesRemote[];
+  selectedRemote: string;
   pageUrl: string;
 }
 
@@ -77,12 +84,10 @@ export default function DeployDialog() {
   const [settingsSaved, setSettingsSaved] = useState(false);
 
   // GitHub Pages 설정
-  const [ghRepoPath, setGhRepoPath] = useState('');
+  const [ghRemote, setGhRemote] = useState('pages');
   const [ghCheck, setGhCheck] = useState<GhPagesCheck | null>(null);
   const [ghSettingsSaved, setGhSettingsSaved] = useState(false);
   const [ghPageUrl, setGhPageUrl] = useState('');
-  const [showGhBrowse, setShowGhBrowse] = useState(false);
-  const [ghBrowsePath, setGhBrowsePath] = useState('');
   const ghCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 로컬 배포
@@ -111,27 +116,28 @@ export default function DeployDialog() {
       if (netlify?.apiKey) setApiKey(netlify.apiKey);
       if (netlify?.siteId) setSiteId(netlify.siteId);
       if (netlify?.siteUrl) setSiteUrl(netlify.siteUrl);
-      const ghPages = d.ghPages as { repoPath?: string } | undefined;
-      if (ghPages?.repoPath) setGhRepoPath(ghPages.repoPath);
+      const ghPages = d.ghPages as { remote?: string } | undefined;
+      if (ghPages?.remote) setGhRemote(ghPages.remote);
     }).catch(() => {});
   }, []);
 
   // ── GitHub Pages 사전 조건 체크 ─────────────────────────────────────────────
-  const runGhCheck = useCallback((repoPath: string) => {
+  const runGhCheck = useCallback(() => {
     if (ghCheckTimer.current) clearTimeout(ghCheckTimer.current);
     ghCheckTimer.current = setTimeout(async () => {
       try {
         const result = await apiClient.get('/project/deploy-ghpages-check') as GhPagesCheck;
-        // repoPath가 다를 수 있으므로 repoPath를 현재값으로 보정
-        setGhCheck({ ...result, repoPath });
+        setGhCheck(result);
         if (result.pageUrl) setGhPageUrl(result.pageUrl);
+        // 서버에서 받은 selectedRemote로 동기화
+        if (result.selectedRemote) setGhRemote(result.selectedRemote);
       } catch {}
     }, 300);
   }, []);
 
   useEffect(() => {
-    if (tab === 'ghpages') runGhCheck(ghRepoPath);
-  }, [tab, ghRepoPath, runGhCheck]);
+    if (tab === 'ghpages') runGhCheck();
+  }, [tab, runGhCheck]);
 
   const resetStatus = () => {
     setError(''); setStatus(''); setDeployUrl(''); setProgress(null); setZipFile('');
@@ -284,10 +290,10 @@ export default function DeployDialog() {
   // ── GitHub Pages ─────────────────────────────────────────────────────────────
   const saveGhPagesSettings = async () => {
     try {
-      await apiClient.put('/project/ghpages-settings', { repoPath: ghRepoPath });
+      await apiClient.put('/project/ghpages-settings', { remote: ghRemote });
       setGhSettingsSaved(true);
       setTimeout(() => setGhSettingsSaved(false), 2000);
-      runGhCheck(ghRepoPath);
+      runGhCheck();
     } catch (e) { setError((e as Error).message); }
   };
 
@@ -298,7 +304,7 @@ export default function DeployDialog() {
     let completed = false;
     const totalRef = { current: 0 };
     const params = new URLSearchParams(cacheBustToQuery(cbOpts));
-    if (ghRepoPath) params.set('repoPath', ghRepoPath);
+    if (ghRemote) params.set('remote', ghRemote);
     const evtSource = new EventSource(`/api/project/deploy-ghpages-progress?${params}`);
     evtSource.onmessage = (e) => {
       const ev = JSON.parse(e.data) as SSEEvent;
@@ -372,7 +378,8 @@ export default function DeployDialog() {
   };
 
   // GitHub Pages 사전 조건 배지
-  const ghPrereqOk = ghCheck?.ghCli && !!ghRepoPath && ghCheck?.isGitRepo;
+  const ghSelectedRemoteExists = ghCheck?.remotes.some(r => r.name === ghRemote) ?? false;
+  const ghPrereqOk = (ghCheck?.ghCli ?? false) && (ghCheck?.isGitRepo ?? false) && ghSelectedRemoteExists;
   const CheckBadge = ({ ok, label, warn }: { ok: boolean; label: string; warn?: string }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={!ok && warn ? warn : ''}>
       <span style={{ color: ok ? '#6c6' : '#e55', fontSize: 12 }}>{ok ? '✓' : '✗'}</span>
@@ -525,22 +532,48 @@ export default function DeployDialog() {
           {/* ── GitHub Pages 탭 ── */}
           {tab === 'ghpages' && (
             <>
-              {/* 저장소 경로 */}
+              {/* 동작 방식 안내 */}
+              <div style={{ background: '#1e2a1e', border: '1px solid #2a4a2a', borderRadius: 4, padding: '10px 12px', fontSize: 11, color: '#9c9', lineHeight: 1.7 }}>
+                <div style={{ fontWeight: 600, color: '#aed6ae', marginBottom: 4 }}>{t('deploy.ghPages.howItWorks')}</div>
+                <div>· {t('deploy.ghPages.howStep1')}</div>
+                <div>· {t('deploy.ghPages.howStep2')}</div>
+                <div>· {t('deploy.ghPages.howStep3')}</div>
+                <div style={{ marginTop: 4, color: '#e8a040' }}>⚠ {t('deploy.ghPages.indexNote')}</div>
+              </div>
+
+              {/* remote 선택 */}
               <div style={{ background: '#333', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div>
-                  <div style={fieldLabel}>{t('deploy.ghPages.repoPath')}</div>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={fieldLabel}>{t('deploy.ghPages.remote')}</div>
+                  {ghCheck && ghCheck.remotes.length > 0 ? (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <select
+                        value={ghRemote}
+                        onChange={(e) => setGhRemote(e.target.value)}
+                        style={{ ...inputStyle, flex: 1, width: 'auto' }}
+                      >
+                        {ghCheck.remotes.map(r => (
+                          <option key={r.name} value={r.name}>
+                            {r.name}  ({r.url})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
                     <input
                       type="text"
-                      value={ghRepoPath}
-                      onChange={(e) => setGhRepoPath(e.target.value)}
-                      placeholder={t('deploy.ghPages.repoPathPlaceholder')}
-                      style={{ ...inputStyle, flex: 1, width: 'auto' }}
+                      value={ghRemote}
+                      onChange={(e) => setGhRemote(e.target.value)}
+                      placeholder="pages"
+                      style={inputStyle}
                     />
-                    <button className="db-btn" onClick={() => setShowGhBrowse(true)}>
-                      {t('deploy.ghPages.browse')}
-                    </button>
-                  </div>
+                  )}
+                  {/* 선택된 remote의 Pages URL 미리보기 */}
+                  {ghCheck?.remotes.find(r => r.name === ghRemote)?.pageUrl && (
+                    <div style={{ marginTop: 5, fontSize: 11, color: '#5af' }}>
+                      → {ghCheck.remotes.find(r => r.name === ghRemote)!.pageUrl}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
                   {ghSettingsSaved && <span style={{ color: '#6c6', fontSize: 12 }}>{t('deploy.ghPages.settingsSaved')}</span>}
@@ -558,14 +591,14 @@ export default function DeployDialog() {
                     warn={t('deploy.ghPages.ghCliMissing')}
                   />
                   <CheckBadge
-                    ok={!!ghRepoPath}
-                    label={t('deploy.ghPages.checkRepoPath')}
-                    warn={t('deploy.ghPages.repoPathMissing')}
-                  />
-                  <CheckBadge
                     ok={ghCheck?.isGitRepo ?? false}
                     label={t('deploy.ghPages.checkGitRepo')}
                     warn={t('deploy.ghPages.notGitRepo')}
+                  />
+                  <CheckBadge
+                    ok={ghSelectedRemoteExists}
+                    label={t('deploy.ghPages.checkRemote', { remote: ghRemote })}
+                    warn={t('deploy.ghPages.remoteMissing', { remote: ghRemote })}
                   />
                 </div>
                 {!ghCheck?.ghCli && (
@@ -667,27 +700,6 @@ export default function DeployDialog() {
         </div>
       )}
 
-      {/* GitHub Pages 저장소 찾아보기 */}
-      {showGhBrowse && (
-        <div className="db-dialog-overlay" style={{ zIndex: 1001 }}>
-          <div className="db-dialog" style={{ width: 500, height: 420, display: 'flex', flexDirection: 'column' }}>
-            <div className="db-dialog-header">{t('deploy.ghPages.repoPath')}</div>
-            <FolderBrowser
-              onPathChange={(p) => setGhBrowsePath(p)}
-              onSelect={(p) => { setGhRepoPath(p); setShowGhBrowse(false); }}
-              style={{ flex: 1, overflow: 'hidden' }}
-              toolbarExtra={<>
-                <button className="db-btn-small" style={{ background: '#0078d4', borderColor: '#0078d4' }}
-                  onClick={() => { if (ghBrowsePath) { setGhRepoPath(ghBrowsePath); setShowGhBrowse(false); } }}
-                  disabled={!ghBrowsePath}>
-                  {t('deploy.selectFolder')}
-                </button>
-                <button className="db-btn-small" onClick={() => setShowGhBrowse(false)}>{t('common.cancel')}</button>
-              </>}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

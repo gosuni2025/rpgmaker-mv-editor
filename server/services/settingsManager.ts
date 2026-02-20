@@ -17,7 +17,7 @@ export interface NetlifySettings {
 }
 
 export interface GhPagesSettings {
-  repoPath: string;
+  remote: string; // 푸시할 git remote 이름 (예: 'pages')
 }
 
 export interface EditorSettings {
@@ -52,7 +52,7 @@ const DEFAULT_SETTINGS: EditorSettings = {
     siteUrl: '',
   },
   ghPages: {
-    repoPath: '',
+    remote: 'pages',
   },
 };
 
