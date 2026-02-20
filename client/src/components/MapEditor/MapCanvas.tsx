@@ -40,6 +40,9 @@ export default function MapCanvas() {
   const selectionStart = useEditorStore((s) => s.selectionStart);
   const selectionEnd = useEditorStore((s) => s.selectionEnd);
   const isPasting = useEditorStore((s) => s.isPasting);
+  const isEventPasting = useEditorStore((s) => s.isEventPasting);
+  const isLightPasting = useEditorStore((s) => s.isLightPasting);
+  const isObjectPasting = useEditorStore((s) => s.isObjectPasting);
   const passageTool = useEditorStore((s) => s.passageTool);
   const isPassagePasting = useEditorStore((s) => s.isPassagePasting);
   const passageSelectionStart = useEditorStore((s) => s.passageSelectionStart);
@@ -378,6 +381,7 @@ export default function MapCanvas() {
                   && hoverTile.y >= Math.min(selectionStart.y, selectionEnd.y)
                   && hoverTile.y <= Math.max(selectionStart.y, selectionEnd.y) ? 'move'
                 : selectedTool === 'select' ? 'crosshair'
+                : isEventPasting || isLightPasting || isObjectPasting ? 'copy'
                 : editMode === 'event' ? 'pointer'
                 : 'crosshair'),
           }}

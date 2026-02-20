@@ -583,9 +583,14 @@ export function useKeyboardShortcuts(
         return;
       }
       if (editMode === 'event' && (clipboard?.type === 'event' || clipboard?.type === 'events')) {
-        setIsEventPasting(true);
-        setEventPastePreviewPos({ x: cursorTileX, y: cursorTileY });
-        showToast('붙여넣기 모드 - 클릭하여 배치');
+        const result = pasteEvents(cursorTileX, cursorTileY);
+        if (result.pastedCount === 0 && result.blockedPositions > 0) {
+          showToast('해당 위치에 붙여넣을 수 없습니다 (이미 이벤트가 있음)');
+        } else if (result.pastedCount > 0 && result.blockedPositions > 0) {
+          showToast(`이벤트 ${result.pastedCount}개 붙여넣기 (${result.blockedPositions}개 위치 충돌로 건너뜀)`);
+        } else if (result.pastedCount > 0) {
+          showToast(`이벤트 ${result.pastedCount}개 붙여넣기 완료`);
+        }
         return;
       }
       if (lightEditMode && clipboard?.type === 'lights') {
