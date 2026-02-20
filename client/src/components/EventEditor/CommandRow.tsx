@@ -27,14 +27,14 @@ interface CommandRowProps {
   onToggleFold?: (index: number) => void;
 }
 
-// 커맨드 코드별 텍스트 색상 (카테고리 기준)
+// 커맨드 코드별 텍스트 색상 (주 명령어 코드에만 적용; 부속 코드는 undefined)
 function getCommandColor(code: number): string | undefined {
-  // 댓글 — 초록
+  // 댓글 — 초록 (408 계속줄도 포함)
   if (code === 108 || code === 408) return '#4ec94e';
-  // 메시지/선택지/텍스트 입력 — 파랑
-  if ([101, 401, 102, 402, 403, 404, 103, 104, 105, 405].includes(code)) return '#5b9bd5';
-  // 흐름 제어 (조건분기, 루프, 중단, 라벨, 공통이벤트) — 주황
-  if ([111, 411, 412, 112, 413, 113, 115, 116, 117, 118, 119].includes(code)) return '#e8a020';
+  // 메시지/선택지/텍스트 입력 주 명령어 — 파랑
+  if ([101, 102, 103, 104, 105].includes(code)) return '#5b9bd5';
+  // 흐름 제어 주 명령어 — 주황 (411/412/413 부속 제외)
+  if ([111, 112, 113, 115, 116, 117, 118, 119].includes(code)) return '#e8a020';
   // 변수/스위치/타이머 조작 — 노랑
   if ([121, 122, 123, 124].includes(code)) return '#d4c84a';
   // 파티/아이템/장비 증감 — 연보라
@@ -51,18 +51,18 @@ function getCommandColor(code: number): string | undefined {
   if ([241, 242, 243, 244, 245, 246, 249, 250, 251].includes(code)) return '#4ec8c8';
   // 씬 제어/맵 설정/동영상 — 연녹
   if ([261, 281, 282, 283, 284, 285].includes(code)) return '#7ec87e';
-  // 전투 처리/분기 — 빨강
-  if ([301, 601, 602, 603, 604].includes(code)) return '#e87878';
-  // 상점/이름입력 — 살구
-  if ([302, 605, 303].includes(code)) return '#d4b07e';
+  // 전투 처리 주 명령어 — 빨강 (601~604 부속 제외)
+  if (code === 301) return '#e87878';
+  // 상점/이름입력 주 명령어 — 살구 (605 부속 제외)
+  if ([302, 303].includes(code)) return '#d4b07e';
   // 액터 조작 — 연보라(밝음)
   if ([311, 312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326].includes(code)) return '#c87ed4';
   // 적 조작/전투 행동 — 연빨강
   if ([331, 332, 333, 334, 335, 336, 337, 339, 340, 342].includes(code)) return '#e8a0a0';
   // 씬 전환/메뉴/저장/게임오버 — 연회
   if ([351, 352, 353, 354].includes(code)) return '#a0a0c8';
-  // 스크립트/플러그인 커맨드 — 핑크
-  if ([355, 655, 356].includes(code)) return '#e87ec8';
+  // 스크립트/플러그인 주 명령어 — 핑크 (655 부속 제외)
+  if ([355, 356].includes(code)) return '#e87ec8';
   return undefined;
 }
 
@@ -166,7 +166,16 @@ export const CommandRow = React.memo(function CommandRow({
         </span>
       )}
       {display ? (
-        (() => { const c = getCommandColor(cmd.code); return c ? <span style={{ color: c }}>{display}</span> : display; })()
+        (() => {
+          const c = getCommandColor(cmd.code);
+          if (!c) return <>{display}</>;
+          // 댓글(108/408)은 내용 전체 색상
+          if (cmd.code === 108 || cmd.code === 408) return <span style={{ color: c }}>{display}</span>;
+          // 나머지: ': ' 앞의 명령어 이름만 색상, 인자값은 기본색
+          const sep = display.indexOf(': ');
+          if (sep === -1) return <span style={{ color: c }}>{display}</span>;
+          return <><span style={{ color: c }}>{display.slice(0, sep)}</span>{display.slice(sep)}</>;
+        })()
       ) : <span style={{ color: '#555' }}>&loz;</span>}
       {isFolded && foldedCount !== undefined && foldedCount > 0 && (
         <span className="fold-count-badge">+{foldedCount}줄</span>
