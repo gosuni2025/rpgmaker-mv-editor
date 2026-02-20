@@ -87,6 +87,8 @@ export default function DeployDialog() {
   const [ghCheck, setGhCheck] = useState<GhPagesCheck | null>(null);
   const [ghSettingsSaved, setGhSettingsSaved] = useState(false);
   const [ghPageUrl, setGhPageUrl] = useState('');
+  const [ghBuildId, setGhBuildId] = useState('');
+  const [ghCommitHash, setGhCommitHash] = useState('');
   const ghCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 로컬 배포
@@ -315,6 +317,8 @@ export default function DeployDialog() {
         setProgress(1);
         setStatus(t('deploy.ghPages.done'));
         if (ev.pageUrl) setGhPageUrl(ev.pageUrl);
+        if (ev.buildId) setGhBuildId(ev.buildId);
+        if (ev.commitHash) setGhCommitHash(ev.commitHash);
         setBusy(false);
         setTimeout(() => setProgress(null), 800);
         evtSource.close();
@@ -626,7 +630,7 @@ export default function DeployDialog() {
               {status && <div style={{ color: '#6c6', fontSize: 12 }}>{status}</div>}
               {error && <div style={{ color: '#e55', fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{error}</div>}
 
-              {/* 완료 후 URL */}
+              {/* 완료 후 URL + 빌드 정보 */}
               {(ghPageUrl || ghCheck?.pageUrl) && (
                 <div style={{ background: '#1e2e1e', border: '1px solid #2a4a2a', borderRadius: 4, padding: '8px 12px' }}>
                   <div style={{ color: '#6c6', fontSize: 11, marginBottom: 4 }}>{t('deploy.ghPages.pageUrl')}</div>
@@ -634,6 +638,20 @@ export default function DeployDialog() {
                     style={{ color: '#5af', fontSize: 13, wordBreak: 'break-all' }}>
                     {ghPageUrl || ghCheck?.pageUrl}
                   </a>
+                  {(ghBuildId || ghCommitHash) && (
+                    <div style={{ marginTop: 6, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      {ghBuildId && (
+                        <span style={{ color: '#888', fontSize: 11 }}>
+                          빌드: <code style={{ color: '#aaa', fontFamily: 'monospace' }}>{ghBuildId}</code>
+                        </span>
+                      )}
+                      {ghCommitHash && (
+                        <span style={{ color: '#888', fontSize: 11 }}>
+                          커밋: <code style={{ color: '#aaa', fontFamily: 'monospace' }}>{ghCommitHash}</code>
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <button className="db-btn" onClick={handleOpenGhPage}
                     style={{ marginTop: 8, width: '100%', background: '#0e5f1f', borderColor: '#1a8a30' }}>
                     {t('deploy.ghPages.openPage')}
