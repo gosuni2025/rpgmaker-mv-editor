@@ -98,7 +98,7 @@
     'use strict';
 
     var params = PluginManager.parameters('VisualNovelMode');
-    var OVERLAY_OPACITY  = parseInt(params['overlayOpacity'])   || 120;
+    var OVERLAY_OPACITY  = parseInt(params['overlayOpacity'])   || 180;
     var TRANS_FRAMES     = Math.max(1, parseInt(params['transitionFrames']) || 24);
     var TEXT_AREA_X      = parseInt(params['textAreaX'])        || 60;
     var TEXT_AREA_Y      = parseInt(params['textAreaY'])        || 40;
@@ -245,6 +245,22 @@
         this._pendingCancelIdx     = -1;
 
         this.contents.clear();
+
+        // pause sign sprite: transparent:false(3D모드)에선 opacity 제어가 안 됨 → 패치
+        var ps = this._windowPauseSignSprite;
+        if (ps && ps._threeObj && ps._threeObj.material) {
+            ps._threeObj.material.transparent = true;
+            ps._threeObj.material.alphaTest   = 0;
+            ps._threeObj.material.needsUpdate = true;
+        }
+    };
+
+    // Three.js에서 transparent:false면 alpha 변화가 시각 효과 없음.
+    // pause=false일 때 visible=false로 숨기고, pause=true일 때만 표시.
+    Window_VNText.prototype._updatePauseSign = function () {
+        Window.prototype._updatePauseSign.call(this);
+        var sp = this._windowPauseSignSprite;
+        if (sp) sp.visible = this.pause && this.isOpen();
     };
 
     // ── 타이프라이터로 텍스트 추가 ────────────────────────────────────────────
@@ -617,10 +633,21 @@
         var ow = Graphics.width;
         var oh = Graphics.height;
         this._overlay = new Sprite(new Bitmap(ow, oh));
-        this._overlay.bitmap.fillAll('rgba(0,0,0,' + (OVERLAY_OPACITY / 255).toFixed(2) + ')');
+        this._overlay.bitmap.fillAll('#000000');  // 텍스처는 불투명 검정, 투명도는 sprite.opacity로 제어
         this._overlay.setFrame(0, 0, ow, oh);
         this._overlay.opacity = 0;
         scene.addChild(this._overlay);
+
+        // ThreeSprite는 3D 모드에서 alphaTest:0.5, transparent:false로 생성됨.
+        // 오버레이는 반드시 투명 블렌딩이 필요하므로 material을 직접 패치.
+        var ovMat = this._overlay._threeObj && this._overlay._threeObj.material;
+        if (ovMat) {
+            ovMat.transparent  = true;
+            ovMat.alphaTest    = 0;
+            ovMat.depthTest    = false;
+            ovMat.depthWrite   = false;
+            ovMat.needsUpdate  = true;
+        }
 
         // renderOrder는 children 배열 순서로 할당됨.
         // overlay가 windowLayer보다 앞에 오도록 배열과 Three.js 그룹을 직접 재정렬.
@@ -674,16 +701,16 @@
     VNController.prototype.cancelAutoExit = function () { this._autoTimer = -1; };
 
     VNController.prototype.update = function () {
-        var step = 255 / TRANS_FRAMES;
+        var step = OVERLAY_OPACITY / TRANS_FRAMES;
         if (this._state === 'opening') {
-            this._alpha = Math.min(255, this._alpha + step);
+            this._alpha = Math.min(OVERLAY_OPACITY, this._alpha + step);
             this._overlay.opacity         = Math.round(this._alpha);
-            this._textWin.contentsOpacity = Math.round(this._alpha);
-            if (this._alpha >= 255) { this._alpha = 255; this._state = 'open'; }
+            this._textWin.contentsOpacity = Math.round(this._alpha / OVERLAY_OPACITY * 255);
+            if (this._alpha >= OVERLAY_OPACITY) { this._alpha = OVERLAY_OPACITY; this._state = 'open'; }
         } else if (this._state === 'closing') {
             this._alpha = Math.max(0, this._alpha - step);
             this._overlay.opacity         = Math.round(this._alpha);
-            this._textWin.contentsOpacity = Math.round(this._alpha);
+            this._textWin.contentsOpacity = Math.round(this._alpha / OVERLAY_OPACITY * 255);
             if (this._alpha <= 0) {
                 this._alpha = 0; this._state = 'closed';
                 this._overlay.visible = false;
@@ -856,7 +883,7 @@
     Window_Message.prototype.onEndOfText = function () {
         if (VNManager.isActive()) {
             if (!this.startInput()) {
-                this.pause = true;
+                this.startPause();  // startPause 오버라이드를 통해 tw.pause도 설정됨
             }
             this._textState = null;  // 원본과 동일: 항상 null
             return;
