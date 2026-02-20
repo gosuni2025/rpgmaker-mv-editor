@@ -5,10 +5,10 @@
   border-radius: 6px;
   display: flex;
   flex-direction: column;
-  width: 90vw;
-  max-width: 1400px;
-  height: 88vh;
-  max-height: 920px;
+  width: 96vw;
+  max-width: 1600px;
+  height: 94vh;
+  max-height: 1100px;
   overflow: hidden;
 }
 
@@ -20,11 +20,10 @@
   min-height: 0;
 }
 
-/* 왼쪽: 설정 패널 */
+/* 왼쪽: 설정 패널 — flex: 1로 가변 */
 .show-text-settings {
-  width: 420px;
-  min-width: 360px;
-  max-width: 480px;
+  flex: 1;
+  min-width: 380px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -33,13 +32,13 @@
   border-right: 1px solid #444;
 }
 
-/* 오른쪽: 미리보기 패널 */
+/* 오른쪽: 미리보기 패널 — 고정 너비 (Canvas는 패널 안에서 비율 유지) */
 .show-text-preview-panel {
-  flex: 1;
+  width: 380px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   padding: 10px;
-  min-width: 0;
   overflow: hidden;
 }
 
