@@ -152,9 +152,7 @@ router.post('/deploy-netlify', async (req: Request, res: Response) => {
   }
 });
 
-// Netlify 드래그앤드롭 페이지 열기
-router.post('/open-netlify-drop', (_req: Request, res: Response) => {
-  const url = 'https://app.netlify.com/drop';
+function openUrl(url: string) {
   if (process.platform === 'darwin') {
     exec(`open "${url}"`);
   } else if (process.platform === 'win32') {
@@ -162,6 +160,21 @@ router.post('/open-netlify-drop', (_req: Request, res: Response) => {
   } else {
     exec(`xdg-open "${url}"`);
   }
+}
+
+// Netlify 드래그앤드롭 페이지 열기
+router.post('/open-netlify-drop', (_req: Request, res: Response) => {
+  openUrl('https://app.netlify.com/drop');
+  res.json({ success: true });
+});
+
+// 일반 URL 브라우저 열기
+router.post('/open-url', (req: Request, res: Response) => {
+  const { url } = req.body as { url?: string };
+  if (!url || !/^https?:\/\//.test(url)) {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
+  openUrl(url);
   res.json({ success: true });
 });
 

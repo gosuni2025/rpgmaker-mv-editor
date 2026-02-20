@@ -76,6 +76,14 @@ export default function DeployDialog() {
     }
   };
 
+  const handleOpenNetlifySite = async () => {
+    try {
+      await apiClient.post('/project/open-url', { url: 'https://www.netlify.com' });
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   const handleAutoDeploy = async () => {
     if (!apiKey.trim()) { setError(t('deploy.netlify.apiKeyRequired')); return; }
     if (!siteId.trim()) { setError(t('deploy.netlify.siteIdRequired')); return; }
@@ -162,6 +170,20 @@ export default function DeployDialog() {
 
           {tab === 'netlify' && (
             <>
+              {/* 면책 고지 + netlify.com 링크 */}
+              <div style={{ background: '#2a2a2a', border: '1px solid #3a3a3a', borderRadius: 4, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ color: '#777', fontSize: 11, lineHeight: 1.4 }}>
+                  {t('deploy.netlify.disclaimer')}
+                </span>
+                <button
+                  className="db-btn"
+                  onClick={handleOpenNetlifySite}
+                  style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                >
+                  {t('deploy.netlify.visitSite')} ↗
+                </button>
+              </div>
+
               {/* 설정 */}
               <div style={{ background: '#333', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ color: '#bbb', fontSize: 12, fontWeight: 600 }}>{t('deploy.netlify.settingsTitle')}</div>
