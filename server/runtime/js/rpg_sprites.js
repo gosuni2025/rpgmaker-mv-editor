@@ -1346,6 +1346,7 @@ Sprite_Animation.prototype.createScreenFlashSprite = function() {
 };
 
 Sprite_Animation.prototype.updateMain = function() {
+    if (this._mapObjPauseOnMsg && typeof $gameMessage !== 'undefined' && $gameMessage.isBusy()) return;
     if (this.isPlaying() && this.isReady()) {
         if (this._delay > 0) {
             this._delay--;
@@ -2680,6 +2681,8 @@ Spriteset_Map.prototype.createMapObjects = function() {
                 container._mapObjAnimReverse = false;
                 container._mapObjAnimScaleX = animScaleX;
                 container._mapObjAnimScaleY = animScaleY;
+                container._mapObjPauseOnMsg = obj.animationPauseOnMessage !== false;
+                animSprite._mapObjPauseOnMsg = obj.animationPauseOnMessage !== false;
             }
         } else if (obj.imageName) {
             // 이미지 기반 오브젝트: pictures 폴더에서 이미지 로드
@@ -2948,6 +2951,7 @@ Spriteset_Map.prototype.updateMapObjects = function() {
                     if (container._mapObjAnimScaleX) newAnimSpr.scale.x = container._mapObjAnimScaleX;
                     if (container._mapObjAnimScaleY) newAnimSpr.scale.y = container._mapObjAnimScaleY;
                     newAnimSpr.z = 0;  // 컨테이너 자식이므로 z=0
+                    newAnimSpr._mapObjPauseOnMsg = container._mapObjPauseOnMsg;
                     container.addChild(newAnimSpr);
                     container._mapObjAnimSprite = newAnimSpr;
                 } else {

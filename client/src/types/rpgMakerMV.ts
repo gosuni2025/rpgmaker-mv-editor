@@ -602,6 +602,7 @@ export interface MapObject {
   animationLoop?: 'forward' | 'pingpong' | 'once'; // 재생 모드 (기본: 'forward')
   animationSe?: boolean;                          // SE 재생 여부 (기본: false)
   animationPlayInEditor?: boolean;                 // 에디터에서 재생 여부 (기본: true)
+  animationPauseOnMessage?: boolean;               // 이벤트 메시지 표시 중 일시정지 (기본: true)
 }
 
 // Editor-only lighting data (stored as custom field in map JSON, ignored by RPG Maker MV)

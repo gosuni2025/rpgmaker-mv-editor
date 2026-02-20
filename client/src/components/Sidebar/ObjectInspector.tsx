@@ -200,6 +200,16 @@ export default function ObjectInspector() {
               에디터에서 재생
             </label>
           </div>
+          <div className="light-inspector-row" style={{ marginTop: 4 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12 }}>
+              <input
+                type="checkbox"
+                checked={selectedObj.animationPauseOnMessage !== false}
+                onChange={(e) => updateObject(selectedObj.id, { animationPauseOnMessage: e.target.checked })}
+              />
+              이벤트 진행 중 일시정지
+            </label>
+          </div>
         </div>
       )}
 
