@@ -1,5 +1,5 @@
 /*:
- * @plugindesc [v1.1] 텍스트 로그 - 메시지 대사 기록을 스크롤하며 볼 수 있는 창
+ * @plugindesc [v1.2] 텍스트 로그 - 메시지 대사 기록을 스크롤하며 볼 수 있는 창
  * @author RPG Maker MV Web Editor
  *
  * @param menuName
@@ -58,9 +58,10 @@
  *
  * @help
  * ============================================================================
- * 텍스트 로그 플러그인 v1.0
+ * 텍스트 로그 플러그인 v1.2
  * ============================================================================
  * 게임 내 메시지 창의 대사를 자동으로 기록하여 다시 볼 수 있습니다.
+ * 선택지 목록과 선택한 항목도 함께 기록됩니다.
  *
  * [접근 방법]
  * - 메인 메뉴에서 "텍스트 로그" 항목 선택
@@ -92,8 +93,8 @@
     var BG_OPACITY  = parseInt(params['bgOpacity'])  || 160;
     var SCROLL_SPEED = parseInt(params['scrollSpeed']) || 4;
 
-    var ENTRY_PAD = 10;  // 항목 내부 패딩
-    var TITLE_H   = 40;  // 창 내부 제목 영역 높이
+    var ENTRY_PAD    = 10;  // 항목 내부 패딩
+    var TITLE_ITEM_H = 40;  // 스크롤 가능한 제목 항목 높이
 
     // =========================================================================
     // TextLogManager — 로그 데이터 관리
@@ -171,6 +172,45 @@
     };
 
     // =========================================================================
+    // Window_ChoiceList 후킹 — 선택지 및 선택한 항목 로그 기록
+    // =========================================================================
+
+    // 선택지 창이 열릴 때 선택지 목록 기록
+    var _choiceStart = Window_ChoiceList.prototype.start;
+    Window_ChoiceList.prototype.start = function () {
+        _choiceStart.call(this);
+        var choices = $gameMessage.choices();
+        if (choices && choices.length > 0) {
+            var lines = choices.map(function (c) { return '  ' + c; });
+            TextLogManager.add({
+                type: 'choice',
+                spk: '◆ 선택지',
+                txt: lines.join('\n'),
+                fn: '', fi: 0, bg: 0,
+                lc: choices.length + 1
+            });
+        }
+    };
+
+    // 선택지 선택 완료 시 선택한 항목 기록
+    var _choiceOk = Window_ChoiceList.prototype.processOk;
+    Window_ChoiceList.prototype.processOk = function () {
+        var choices  = $gameMessage.choices();
+        var idx      = this.index();
+        var selected = (choices && choices[idx] !== undefined) ? choices[idx] : null;
+        _choiceOk.call(this);
+        if (selected !== null) {
+            TextLogManager.add({
+                type: 'selected',
+                spk: '',
+                txt: '▷ ' + selected,
+                fn: '', fi: 0, bg: 0,
+                lc: 1
+            });
+        }
+    };
+
+    // =========================================================================
     // Window_TextLog — 가상 스크롤 로그 창
     // =========================================================================
     function Window_TextLog() { this.initialize.apply(this, arguments); }
@@ -186,9 +226,9 @@
         this.refresh();
     };
 
-    // 창 내부 표시 가능 높이 (padding + 제목 영역 제외)
+    // 창 내부 표시 가능 높이
     Window_TextLog.prototype.innerH = function () {
-        return this.height - this.standardPadding() * 2 - TITLE_H;
+        return this.height - this.standardPadding() * 2;
     };
 
     Window_TextLog.prototype.maxSY = function () {
@@ -209,16 +249,17 @@
     };
 
     // ── 레이아웃 빌드 (각 항목의 y 위치, h 계산) ────────────────────────────
+    // 타이틀(TITLE_ITEM_H)은 스크롤 영역의 첫 부분으로 포함됨
     Window_TextLog.prototype.buildLayouts = function () {
         var list = TextLogManager.list();
         this._layouts = [];
-        var y = ENTRY_GAP;
+        var y = ENTRY_GAP + TITLE_ITEM_H + ENTRY_GAP;
         for (var i = 0; i < list.length; i++) {
             var h = this.entryH(list[i]);
             this._layouts.push({ y: y, h: h });
             y += h + ENTRY_GAP;
         }
-        this._total = y;
+        this._total = Math.max(y, ENTRY_GAP + TITLE_ITEM_H + ENTRY_GAP);
     };
 
     // ── 새로고침 (레이아웃 재계산 + 맨 아래로 스크롤) ───────────────────────
@@ -233,23 +274,26 @@
         if (!this.contents) return;
         this.contents.clear();
 
-        // 제목 표시 (고정)
-        this.changeTextColor(this.systemColor());
-        this.drawText(MENU_NAME, 0, 0, this.contentsWidth(), 'center');
-        this.resetTextColor();
-        this.resetFontSettings();
-
-        // 구분선
-        var ctx = this.contents._context;
-        if (ctx) {
-            ctx.save();
-            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(0, TITLE_H - 6);
-            ctx.lineTo(this.contentsWidth(), TITLE_H - 6);
-            ctx.stroke();
-            ctx.restore();
+        // 제목 (스크롤과 함께 이동 — 첫 라인으로 포함)
+        var titleY = ENTRY_GAP - this._sy;
+        if (titleY + TITLE_ITEM_H > 0 && titleY < this.contentsHeight()) {
+            var ty = titleY + Math.floor((TITLE_ITEM_H - this.lineHeight()) / 2);
+            this.changeTextColor(this.systemColor());
+            this.drawText(MENU_NAME, 0, ty, this.contentsWidth(), 'center');
+            this.resetTextColor();
+            this.resetFontSettings();
+            // 구분선
+            var ctx = this.contents._context;
+            if (ctx) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, titleY + TITLE_ITEM_H - 2);
+                ctx.lineTo(this.contentsWidth(), titleY + TITLE_ITEM_H - 2);
+                ctx.stroke();
+                ctx.restore();
+            }
         }
 
         var list = TextLogManager.list();
@@ -259,7 +303,7 @@
         for (var i = 0; i < this._layouts.length; i++) {
             var l = this._layouts[i];
             if (l.y + l.h > top && l.y < bot) {
-                this.drawEntry(list[i], TITLE_H + l.y - this._sy, l.h);
+                this.drawEntry(list[i], l.y - this._sy, l.h);
             }
         }
         this.drawScrollBar();
@@ -274,14 +318,14 @@
     // ── 스크롤바 ────────────────────────────────────────────────────────────
     Window_TextLog.prototype.drawScrollBar = function () {
         if (this._total <= this.innerH()) return;
-        var bw   = 5;
-        var bx   = this.contentsWidth() - bw - 1;
+        var bw    = 5;
+        var bx    = this.contentsWidth() - bw - 1;
         var avail = this.innerH() - 8;
-        var hh   = Math.max(24, avail * (this.innerH() / this._total));
+        var hh    = Math.max(24, avail * (this.innerH() / this._total));
         var ratio = this.maxSY() > 0 ? (this._sy / this.maxSY()) : 0;
-        var hy   = TITLE_H + 4 + (avail - hh) * ratio;
-        this.contents.fillRect(bx, TITLE_H + 4, bw, avail, 'rgba(255,255,255,0.1)');
-        this.contents.fillRect(bx, hy,           bw, hh,    'rgba(255,255,255,0.55)');
+        var hy    = 4 + (avail - hh) * ratio;
+        this.contents.fillRect(bx, 4,  bw, avail, 'rgba(255,255,255,0.1)');
+        this.contents.fillRect(bx, hy, bw, hh,    'rgba(255,255,255,0.55)');
     };
 
     // ── 항목 하나 렌더링 ─────────────────────────────────────────────────────
@@ -289,9 +333,15 @@
         var w       = this.contentsWidth();
         var hasFace = SHOW_FACE && e.fn;
 
-        // 배경 박스
+        // 배경 박스 (선택지/선택 항목은 약간 다른 색)
         var alpha = BG_OPACITY / 255;
-        this.contents.fillRect(0, dy, w, bh, 'rgba(0,0,0,' + (alpha * 0.85).toFixed(3) + ')');
+        if (e.type === 'choice') {
+            this.contents.fillRect(0, dy, w, bh, 'rgba(20,40,80,' + (alpha * 0.9).toFixed(3) + ')');
+        } else if (e.type === 'selected') {
+            this.contents.fillRect(0, dy, w, bh, 'rgba(40,60,20,' + (alpha * 0.9).toFixed(3) + ')');
+        } else {
+            this.contents.fillRect(0, dy, w, bh, 'rgba(0,0,0,' + (alpha * 0.85).toFixed(3) + ')');
+        }
 
         // 테두리 (canvas context 직접 접근)
         var ctx = this.contents._context;
@@ -315,7 +365,7 @@
 
         var cy = dy + ENTRY_PAD;
 
-        // 화자 이름
+        // 화자 이름 (선택지 헤더 포함)
         if (e.spk) {
             this.changeTextColor(this.systemColor());
             this.drawText(e.spk, tx, cy, tw);
@@ -426,7 +476,6 @@
         var bw = Graphics.boxWidth;
         var bh = Graphics.boxHeight;
 
-        // 창 하나로 통합 (제목은 창 내부 상단에 고정 표시)
         this._log = new Window_TextLog(
             mg,
             mg,
