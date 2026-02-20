@@ -493,7 +493,7 @@ Window_Base.prototype._etRedrawGradient = function(saved) {
 
 //─── 세그먼트 오버레이 메시 생성 ───
 Window_Base.prototype._etEnsureOverlay = function(seg) {
-    if (seg._overlayMesh) return;
+    if (seg._overlayMesh || seg._charMeshes) return;  // 이미 생성됨
     // 태그가 아직 열려있으면 (</tag> 미처리) 오버레이 생성 보류
     // 인게임: 매 프레임 한 글자씩 처리 → 태그 닫히기 전에 _etRunAnimPass가 호출될 수 있음
     // 프리뷰: drawTextEx 중간에 RAF가 끼어들 수 있음
@@ -501,6 +501,12 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     var THREE = window.THREE;
     var scene = ExtendedText._getScene();
     if (!THREE || !scene || !this.contents || seg.chars.length === 0) return;
+
+    // shake는 per-character 독립 메시 사용 (UV charIdx 기반 세로줄 아티팩트 방지)
+    if (seg.shakeActive) {
+        this._etEnsureShakeMeshes(seg, THREE, scene);
+        return;
+    }
 
     var bmp = this.contents;
     var chars = seg.chars;
@@ -514,10 +520,9 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     var segY = chars[0].y;
     var segEndX = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c);
     var segW = Math.max(1, segEndX - segX + clearL * 2);
-    var segH = Math.max(1, lh + (seg.shakeActive ? (seg.amplitude || 3) * 2 : 0) + 4);
+    var segH = Math.max(1, lh + 4);
     var srcX = segX - clearL;
     var srcY = segY;
-
 
     // 각 글자를 직접 재그리기 (bitmap copy 대신 — 인접 글자 bleeding 방지)
     var offCanvas = document.createElement('canvas');
@@ -566,9 +571,8 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     tex.needsUpdate = true;
 
     // 효과 타입 결정
-    var effectType = 'shake';
-    if (seg.hologramActive)     effectType = 'hologram';
-    else if (seg.dissolveActive) effectType = 'dissolve';
+    var effectType = 'hologram';
+    if (seg.dissolveActive)      effectType = 'dissolve';
     else if (seg.fadeActive)     effectType = 'fade';
     else if (seg.gradientWaveActive) effectType = 'gradient-wave';
     else if (seg.blurFadeActive) effectType = 'blur-fade';
@@ -580,7 +584,6 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
 
     // 텍스처 크기 업데이트
     if (mat.uniforms.uTexH) mat.uniforms.uTexH.value = segH;
-    if (mat.uniforms.uCharCount) mat.uniforms.uCharCount.value = Math.max(1, chars.length);
     if (mat.uniforms.uTexelSize) {
         mat.uniforms.uTexelSize.value.set(1 / Math.max(1, segW), 1 / Math.max(1, segH));
     }
@@ -614,8 +617,105 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     seg._etSegH       = segH;
 };
 
+//─── shake per-character 메시 생성 (texture boundary 세로줄 방지) ───
+// 각 글자를 독립 PlaneGeometry Mesh로 생성, 매 프레임 position.y로 shake 표현
+Window_Base.prototype._etEnsureShakeMeshes = function(seg, THREE, scene) {
+    var bmp   = this.contents;
+    var chars = seg.chars;
+    if (!bmp || !chars || chars.length === 0) return;
+
+    var fontSize   = bmp.fontSize   || 28;
+    var fontFace   = bmp.fontFace   || 'GameFont';
+    var outlineCol = bmp.outlineColor  || 'rgba(0,0,0,0.5)';
+    var outlineW   = bmp.outlineWidth !== undefined ? bmp.outlineWidth : 4;
+    var clearL     = Math.ceil(outlineW / 2);
+    var lh         = chars[0].h || this.lineHeight();
+    var amp        = seg.amplitude || 3;
+    var segH       = Math.max(1, lh + amp * 2 + 4);  // shake 여백 포함 높이
+    var baselineY  = lh - (lh - fontSize * 0.7) / 2;
+
+    var winX    = this._etWindowX !== undefined ? this._etWindowX : (this.x || 0);
+    var winY    = this._etWindowY !== undefined ? this._etWindowY : (this.y || 0);
+    var pad     = this._etPadding !== undefined ? this._etPadding  : (this.padding || 0);
+    var scrollY = this._etScrollY || 0;
+
+    seg._charMeshes = [];
+
+    for (var ci = 0; ci < chars.length; ci++) {
+        var ch    = chars[ci];
+        var rawW  = this.textWidth ? this.textWidth(ch.c) : fontSize;
+        var charW = Math.max(1, Math.ceil(rawW) + clearL * 2);
+
+        // 글자 하나짜리 오프스크린 캔버스
+        var offCanvas = document.createElement('canvas');
+        offCanvas.width  = charW;
+        offCanvas.height = segH;
+        var offCtx = offCanvas.getContext('2d');
+        if (offCtx) {
+            offCtx.clearRect(0, 0, charW, segH);
+            offCtx.save();
+            offCtx.font         = fontSize + 'px ' + fontFace;
+            offCtx.textBaseline = 'alphabetic';
+            offCtx.textAlign    = 'left';
+            offCtx.lineJoin     = 'round';
+            if (outlineW > 0) {
+                offCtx.strokeStyle = outlineCol;
+                offCtx.lineWidth   = outlineW;
+                offCtx.strokeText(ch.c, clearL, baselineY);
+            }
+            offCtx.fillStyle = ch.finalColor || ch.color || '#ffffff';
+            offCtx.fillText(ch.c, clearL, baselineY);
+            offCtx.restore();
+        }
+
+        var tex = new THREE.CanvasTexture(offCanvas);
+        tex.flipY     = false;
+        tex.needsUpdate = true;
+
+        var geo  = new THREE.PlaneGeometry(1, 1);
+        var mat  = new THREE.MeshBasicMaterial({
+            map: tex, transparent: true,
+            depthTest: false, depthWrite: false,
+            side: THREE.DoubleSide,
+        });
+        var mesh = new THREE.Mesh(geo, mat);
+        mesh.renderOrder = 100;
+
+        // 기준 위치 (스크롤 없음 — 매 프레임 scrollY를 따로 더함)
+        var baseX = winX + pad + ch.x - clearL + charW / 2;
+        var baseY = winY + pad + ch.y + segH / 2;
+        mesh.position.set(baseX, baseY - scrollY, 1);
+        mesh.scale.set(charW, segH, 1);
+        scene.add(mesh);
+
+        // Bitmap에서 해당 글자 영역 투명화
+        if (bmp.clearRect) {
+            bmp.clearRect(ch.x - clearL, ch.y, charW, segH);
+        }
+
+        seg._charMeshes.push({ mesh: mesh, tex: tex, baseX: baseX, baseY: baseY, charIdx: ci });
+    }
+
+    seg._overlayStartTime = ExtendedText._time;
+};
+
 //─── 오버레이 uniform 업데이트 ───
 Window_Base.prototype._etUpdateOverlayUniforms = function(seg, t) {
+    // shake: per-character 메시 위치를 sin 파형으로 업데이트
+    if (seg.shakeActive && seg._charMeshes) {
+        var scrollY = this._etScrollY || 0;
+        var amp   = seg.amplitude || 3;
+        var speed = seg.speed || 1;
+        for (var ci = 0; ci < seg._charMeshes.length; ci++) {
+            var cm = seg._charMeshes[ci];
+            var shakeY = Math.sin(t * speed * 5.0 + cm.charIdx * 0.8) * amp;
+            var shakeX = Math.sin(t * speed * 3.0 + cm.charIdx * 0.5) * amp * 0.3;
+            cm.mesh.position.x = cm.baseX + shakeX;
+            cm.mesh.position.y = cm.baseY - scrollY + shakeY;
+        }
+        return;
+    }
+
     if (!seg._overlayMesh) return;
 
     // VN 스크롤 위치 업데이트 (매 프레임)
@@ -648,14 +748,31 @@ Window_Base.prototype._etUpdateOverlayUniforms = function(seg, t) {
 
 //─── 오버레이 dispose ───
 Window_Base.prototype._etDisposeOverlay = function(seg) {
-    if (!seg._overlayMesh) return;
     var scene = ExtendedText._getScene();
-    if (scene) scene.remove(seg._overlayMesh);
-    seg._overlayMesh.geometry.dispose();
-    seg._overlayMesh.material.dispose();
-    if (seg._overlayTex) seg._overlayTex.dispose();
-    seg._overlayMesh = null;
-    seg._overlayTex = null;
+
+    // shake per-character meshes
+    if (seg._charMeshes) {
+        for (var ci = 0; ci < seg._charMeshes.length; ci++) {
+            var cm = seg._charMeshes[ci];
+            if (scene) scene.remove(cm.mesh);
+            if (cm.mesh) {
+                cm.mesh.geometry.dispose();
+                cm.mesh.material.dispose();
+            }
+            if (cm.tex) cm.tex.dispose();
+        }
+        seg._charMeshes = null;
+    }
+
+    // 단일 오버레이 메시 (non-shake 효과)
+    if (seg._overlayMesh) {
+        if (scene) scene.remove(seg._overlayMesh);
+        seg._overlayMesh.geometry.dispose();
+        seg._overlayMesh.material.dispose();
+        if (seg._overlayTex) seg._overlayTex.dispose();
+        seg._overlayMesh = null;
+        seg._overlayTex = null;
+    }
 };
 
 //─── _etRunAnimPass: ShaderMaterial 오버레이 업데이트 ───
@@ -691,7 +808,9 @@ Window_Base.prototype.createContents = function() {
 Window_Base.prototype._etClearAllOverlays = function() {
     var segs = this._etAnimSegs || [];
     for (var i = 0; i < segs.length; i++) {
-        if (segs[i]._overlayMesh) this._etDisposeOverlay(segs[i]);
+        if (segs[i]._overlayMesh || segs[i]._charMeshes) {
+            this._etDisposeOverlay(segs[i]);
+        }
     }
     this._etAnimSegs = [];
     this._etEffectStack = [];

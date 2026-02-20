@@ -549,13 +549,23 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
     const tClean = threeRef.current;
     if (oldR?._etAnimSegs && tClean) {
       (oldR._etAnimSegs as any[]).forEach((seg: any) => {
-        if (seg._overlayMesh) {
+        if (seg._overlayMesh && typeof seg._overlayMesh === 'object') {
           tClean.scene.remove(seg._overlayMesh);
           seg._overlayMesh.geometry?.dispose();
           seg._overlayMesh.material?.dispose();
           seg._overlayTex?.dispose();
           seg._overlayMesh = null;
           seg._overlayTex = null;
+        }
+        // shake per-character meshes
+        if (seg._charMeshes) {
+          (seg._charMeshes as any[]).forEach((cm: any) => {
+            tClean.scene.remove(cm.mesh);
+            cm.mesh?.geometry?.dispose();
+            cm.mesh?.material?.dispose();
+            cm.tex?.dispose();
+          });
+          seg._charMeshes = null;
         }
       });
     }
@@ -564,6 +574,7 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
     const fn = propsRef.current.faceName;
     const isVN = allLines.length > 4;
     const hasFace = !!fn;
+    const hasSpeaker = isVN && hasFace;
 
     let contentsW: number, contentsH: number;
     if (isVN) {
@@ -575,6 +586,19 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
     }
 
     const r = createTextRenderer(contentsW, contentsH);
+    // _etWindowX/Y를 setupRendererText 전에 미리 설정:
+    // setupRendererText(→drawTextEx)가 완료된 후 첫 RAF에서 _etRunAnimPass가
+    // _etEnsureOverlay를 호출할 때 정확한 오버레이 위치를 사용하도록 보장
+    if (r) {
+      const layout = computeLayout(
+        isVN, propsRef.current.background, propsRef.current.positionType,
+        hasFace, hasSpeaker,
+      );
+      r._etWindowX = layout.textX;
+      r._etWindowY = layout.textY;
+      r._etPadding = 0;
+      r._etScrollY = isVN ? vnScrollRef.current * LINE_H : 0;
+    }
     rendererRef.current = r;
     if (r) setupRendererText(r, isVN ? allLines : allLines.slice(0, 4));
     if (resetScroll) setVnScrollLine(0);
@@ -687,12 +711,22 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
     const r = rendererRef.current;
     if (r?._etAnimSegs && t) {
       (r._etAnimSegs as any[]).forEach((seg: any) => {
-        if (seg._overlayMesh) {
+        if (seg._overlayMesh && typeof seg._overlayMesh === 'object') {
           t.scene.remove(seg._overlayMesh);
           seg._overlayMesh.geometry?.dispose();
           seg._overlayMesh.material?.dispose();
           seg._overlayTex?.dispose();
           seg._overlayMesh = null;
+        }
+        // shake per-character meshes
+        if (seg._charMeshes) {
+          (seg._charMeshes as any[]).forEach((cm: any) => {
+            t.scene.remove(cm.mesh);
+            cm.mesh?.geometry?.dispose();
+            cm.mesh?.material?.dispose();
+            cm.tex?.dispose();
+          });
+          seg._charMeshes = null;
         }
       });
     }
