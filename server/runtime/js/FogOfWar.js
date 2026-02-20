@@ -57,6 +57,51 @@
  * @min 1
  * @default 1
  *
+ * @command FogColor
+ * @text 안개 색깔 변경
+ * @desc 안개의 색깔을 변경합니다. (예: #000000 검정, #000044 파랑)
+ *
+ * @arg color
+ * @text 색깔 (hex)
+ * @type string
+ * @default #000000
+ *
+ * @command TentacleSharpness
+ * @text 촉수 날카로움
+ * @desc 안개 경계 촉수의 날카로움을 설정합니다. 높을수록 뾰족함 (기본 3.0)
+ *
+ * @arg value
+ * @text 값
+ * @type number
+ * @decimals 1
+ * @min 0.5
+ * @max 20
+ * @default 3.0
+ *
+ * @command TentacleLength
+ * @text 촉수 길이
+ * @desc 안개 경계 촉수가 얼마나 멀리 뻗는지 설정합니다. 높을수록 길게 뻗음 (기본 2.0)
+ *
+ * @arg value
+ * @text 값
+ * @type number
+ * @decimals 1
+ * @min 0.1
+ * @max 10
+ * @default 2.0
+ *
+ * @command TentacleSpeed
+ * @text 촉수 애니 속도
+ * @desc 안개 경계 촉수의 움직임 속도를 설정합니다. 높을수록 빠름 (기본 1.0)
+ *
+ * @arg value
+ * @text 값
+ * @type number
+ * @decimals 1
+ * @min 0
+ * @max 10
+ * @default 1.0
+ *
  * @help
  * FogOfWar.js는 에디터 코어 파일로 자동으로 로드됩니다.
  * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
