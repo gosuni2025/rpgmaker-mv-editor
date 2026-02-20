@@ -639,6 +639,7 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     var geo = new THREE.PlaneGeometry(1, 1);
     var mesh = new THREE.Mesh(geo, mat);
     mesh.renderOrder = 10000;  // 윈도우 내부 요소 위에 표시
+    mesh._wrapper = true;  // _syncHierarchy가 renderOrder 덮어쓰기 방지
 
     var oX = target.offsetX + srcX;
     var oY = target.offsetY + srcY;
@@ -712,6 +713,7 @@ Window_Base.prototype._etEnsureShakeMeshes = function(seg, THREE, target) {
         });
         var mesh = new THREE.Mesh(geo, mat);
         mesh.renderOrder = 10000;
+        mesh._wrapper = true;  // _syncHierarchy가 renderOrder 덮어쓰기 방지
 
         // target 좌표 기반 위치 (스크롤 없음 — 매 프레임 scrollY를 따로 더함)
         var baseX = target.offsetX + ch.x - clearL + charW / 2;
