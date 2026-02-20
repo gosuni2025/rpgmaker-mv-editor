@@ -407,7 +407,7 @@ export default function DeployDialog() {
 
               {status && <div style={{ color: '#6c6', fontSize: 12 }}>{status}</div>}
               {zipFile && !deployUrl && (
-                <div style={{ color: '#555', fontSize: 11, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ color: '#ddd', fontSize: 11, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {zipFile}
                 </div>
               )}
