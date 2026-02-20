@@ -209,7 +209,7 @@ export default function OptionsDialog() {
               <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <select
                   value={localLang}
-                  onChange={(e) => setLocalLang(e.target.value)}
+                  onChange={(e) => { setLocalLang(e.target.value); i18n.changeLanguage(e.target.value); }}
                   style={{ width: 200 }}
                 >
                   <option value="ko">한국어</option>
