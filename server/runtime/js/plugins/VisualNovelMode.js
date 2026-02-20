@@ -470,12 +470,15 @@
     // Window_Message를 다음 메시지로 진행
     // _forceOk 플래그를 세워 isTriggered()가 1회 true 반환하도록 함.
     // 원본 updateInput() 흐름:
-    //   isTriggered()=true → pause=false, !_textState(onEndOfText에서 null) → terminateMessage()
-    //   terminateMessage() → $gameMessage.clear() → 인터프리터 진행 → 다음 startMessage()
+    //   pause=true 시 isTriggered()=true → pause=false, !_textState → terminateMessage()
+    // 주의: mw.pause가 아직 false일 수 있음 (창이 isOpening() 상태이면 updateMessage가
+    //   실행되지 않아 onEndOfText/startPause가 아직 호출되지 않은 것).
+    //   이 경우 _forceOk=true를 미리 설정해두면, pause가 true가 되는 순간
+    //   updateInput()에서 isTriggered()=true를 반환하여 자동으로 처리됨.
     Window_VNText.prototype._sendOkToMessage = function () {
         var s  = SceneManager._scene;
         var mw = s && s._messageWindow;
-        if (!mw || !mw.pause) return;
+        if (!mw) return;
         this._forceOk = true;
     };
 
