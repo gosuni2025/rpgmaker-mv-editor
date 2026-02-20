@@ -1885,6 +1885,13 @@ if (typeof Game_Interpreter !== 'undefined') {
         if (command === 'FogOfWar') {
             var sub = args[0];
             if (sub === 'Enable') {
+                // 현재 모드(2D/3D)에 따라 enabled 플래그 설정
+                var _is3D = typeof Mode3D !== 'undefined' && Mode3D._active;
+                if (_is3D) {
+                    FogOfWar._enabled3D = true;
+                } else {
+                    FogOfWar._enabled2D = true;
+                }
                 if (!FogOfWar._active && $dataMap) {
                     FogOfWar.setup($dataMap.width, $dataMap.height, $dataMap.fogOfWar || {});
                 }
