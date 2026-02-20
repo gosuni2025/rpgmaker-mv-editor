@@ -1397,7 +1397,8 @@
       "guide2": "After login, go to https://app.netlify.com/user/applications#oauth → Personal access tokens → New access token → enter a name (e.g. rpgmaker-mv) → Generate token",
       "guide3": "Copy the generated nfp_xxx... token and paste it into the Personal Access Token field above, then save",
       "guide4": "Click 'Auto Deploy to Netlify' — a site will be automatically created and deployed (subsequent deploys update the same site)",
-      "guide5": "For manual upload: use 'Create ZIP' → 'Open Drag & Drop Page' to upload the ZIP"
+      "guide5": "For manual upload: use 'Create ZIP' → 'Open Drag & Drop Page' to upload the ZIP",
+      "openSite": "Open My Site"
     }
   },
   "troops": {

@@ -262,7 +262,11 @@ router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
     sseWrite(res, { type: 'status', phase: 'uploading' });
     const result = await netlifyUpload(apiKey.trim(), resolvedSiteId, zipPath);
     const deployUrl = result.deploy_ssl_url || result.ssl_url || result.url || '';
-    sseWrite(res, { type: 'done', deployUrl, deployId: result.id });
+    const siteUrl = result.ssl_url || result.url || '';
+    // 사이트 URL을 설정에 저장 (다음에 "내 사이트 열기"에 활용)
+    const current2 = settingsManager.get();
+    settingsManager.update({ netlify: { ...current2.netlify, siteUrl } });
+    sseWrite(res, { type: 'done', deployUrl, siteUrl, deployId: result.id });
   } catch (err) {
     sseWrite(res, { type: 'error', message: (err as Error).message });
   }
@@ -298,7 +302,8 @@ router.post('/open-url', (req: Request, res: Response) => {
 // Netlify 설정 저장
 router.put('/netlify-settings', (req: Request, res: Response) => {
   const { apiKey, siteId } = req.body as { apiKey?: string; siteId?: string };
-  settingsManager.update({ netlify: { apiKey: apiKey || '', siteId: siteId || '' } });
+  const current = settingsManager.get();
+  settingsManager.update({ netlify: { ...current.netlify, apiKey: apiKey || '', siteId: siteId || '' } });
   res.json({ success: true });
 });
 

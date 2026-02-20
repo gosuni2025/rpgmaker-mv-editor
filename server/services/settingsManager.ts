@@ -13,6 +13,7 @@ export interface AutoSaveSettings {
 export interface NetlifySettings {
   apiKey: string;
   siteId: string;
+  siteUrl: string;
 }
 
 export interface EditorSettings {
@@ -43,6 +44,7 @@ const DEFAULT_SETTINGS: EditorSettings = {
   netlify: {
     apiKey: '',
     siteId: '',
+    siteUrl: '',
   },
 };
 

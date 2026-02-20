@@ -12,7 +12,7 @@ type SSEEvent =
   | { type: 'counted'; total: number }
   | { type: 'progress'; current: number; total: number }
   | { type: 'site-created'; siteId: string; siteName: string }
-  | { type: 'done'; zipPath?: string; deployUrl?: string }
+  | { type: 'done'; zipPath?: string; deployUrl?: string; siteUrl?: string }
   | { type: 'error'; message: string };
 
 async function readSSEStream(
@@ -58,6 +58,7 @@ export default function DeployDialog() {
   // Netlify 설정
   const [apiKey, setApiKey] = useState('');
   const [siteId, setSiteId] = useState('');
+  const [siteUrl, setSiteUrl] = useState('');
   const [manualSiteId, setManualSiteId] = useState(false); // false=자동, true=수동
   const [settingsSaved, setSettingsSaved] = useState(false);
 
@@ -78,13 +79,21 @@ export default function DeployDialog() {
   useEffect(() => {
     apiClient.get('/settings').then((data) => {
       const d = data as Record<string, unknown>;
-      const netlify = d.netlify as { apiKey?: string; siteId?: string } | undefined;
+      const netlify = d.netlify as { apiKey?: string; siteId?: string; siteUrl?: string } | undefined;
       if (netlify?.apiKey) setApiKey(netlify.apiKey);
       if (netlify?.siteId) setSiteId(netlify.siteId);
+      if (netlify?.siteUrl) setSiteUrl(netlify.siteUrl);
     }).catch(() => {});
   }, []);
 
   const resetStatus = () => { setError(''); setStatus(''); setDeployUrl(''); setProgress(null); };
+
+  const handleOpenMySite = async () => {
+    const url = deployUrl || siteUrl;
+    if (!url) return;
+    try { await apiClient.post('/project/open-url', { url }); }
+    catch (e) { setError((e as Error).message); }
+  };
 
   const saveNetlifySettings = async () => {
     try {
@@ -187,6 +196,7 @@ export default function DeployDialog() {
             setProgress(1);
             setStatus(t('deploy.netlify.deployDone'));
             setDeployUrl(ev.deployUrl || '');
+            if (ev.siteUrl) setSiteUrl(ev.siteUrl);
             setTimeout(() => setProgress(null), 800);
             return false;
           }
@@ -317,6 +327,14 @@ export default function DeployDialog() {
                       }
                     </div>
                   )}
+
+                  {/* 내 사이트 열기 (이전 배포 URL 기억) */}
+                  {siteUrl && !deployUrl && (
+                    <button className="db-btn" onClick={handleOpenMySite}
+                      style={{ marginTop: 6, width: '100%' }}>
+                      {t('deploy.netlify.openSite')} ↗
+                    </button>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
@@ -385,6 +403,10 @@ export default function DeployDialog() {
                   <div style={{ color: '#555', fontSize: 11, marginTop: 4 }}>
                     {t('deploy.netlify.deployUrlDesc')}
                   </div>
+                  <button className="db-btn" onClick={handleOpenMySite}
+                    style={{ marginTop: 8, width: '100%', background: '#0e5f1f', borderColor: '#1a8a30' }}>
+                    {t('deploy.netlify.openSite')} ↗
+                  </button>
                 </div>
               )}
             </>

@@ -1471,7 +1471,8 @@
       "guide2": "ログイン後、https://app.netlify.com/user/applications#oauth にアクセス → Personal access tokens → New access token → 名前を入力（例: rpgmaker-mv）→ Generate token",
       "guide3": "生成された nfp_xxx... トークンをコピーして上のPersonal Access Tokenフィールドに貼り付けて保存",
       "guide4": "「Netlifyへ自動デプロイ」ボタンを押すとサイトが自動作成されてデプロイされます（以降は同じサイトに更新されます）",
-      "guide5": "手動アップロードの場合: 「ZIP作成」→「ドラッグ＆ドロップページ」でZIPをアップロード"
+      "guide5": "手動アップロードの場合: 「ZIP作成」→「ドラッグ＆ドロップページ」でZIPをアップロード",
+      "openSite": "マイサイトを開く"
     }
   },
   "troops": {
