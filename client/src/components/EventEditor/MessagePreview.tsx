@@ -61,6 +61,7 @@ interface DrawText {
   gradWaveSpeed?: number;
   fadeFrames?: number;      // 페이드인 지속 프레임
   dissolveSpeed?: number;
+  blurFadeDuration?: number; // 흐릿하게 나타나기 지속 프레임
 }
 interface DrawIcon { type: 'icon'; index: number; size: number; }
 interface DrawWaiter { type: 'waiter'; size: number; }
@@ -81,6 +82,7 @@ function buildDrawSegs(line: string): DrawSeg[] {
     gradWaveSpeed?: number,
     fadeFrames?: number,
     dissolveSpeed?: number,
+    blurFadeDuration?: number,
   ) {
     for (const seg of segs) {
       if (seg.type === 'escape') {
@@ -105,13 +107,13 @@ function buildDrawSegs(line: string): DrawSeg[] {
             type: 'text', text: seg.text,
             color: overColor || color, size,
             outlineColor: outline?.color, outlineWidth: outline?.width,
-            gradient, shakeAmp, shakeSpeed, gradWaveSpeed, fadeFrames, dissolveSpeed,
+            gradient, shakeAmp, shakeSpeed, gradWaveSpeed, fadeFrames, dissolveSpeed, blurFadeDuration,
           });
         }
       } else if (seg.type === 'block') {
         const b = seg as TextBlockSeg;
         let nc = overColor, no = outline, ng = gradient;
-        let sa = shakeAmp, ss = shakeSpeed, gw = gradWaveSpeed, ff = fadeFrames, ds = dissolveSpeed;
+        let sa = shakeAmp, ss = shakeSpeed, gw = gradWaveSpeed, ff = fadeFrames, ds = dissolveSpeed, bf = blurFadeDuration;
 
         if (b.tag === 'color') nc = b.params.value || overColor;
         else if (b.tag === 'outline') no = { color: b.params.color || '#000000', width: +(b.params.thickness || '3') };
@@ -120,9 +122,10 @@ function buildDrawSegs(line: string): DrawSeg[] {
         else if (b.tag === 'gradient-wave') gw = +(b.params.speed || '1');
         else if (b.tag === 'fade') ff = +(b.params.duration || '60');
         else if (b.tag === 'dissolve') ds = +(b.params.speed || '1');
-        // blur-fade, hologram, typewriter → 정적 미리보기에서 기본 처리
+        else if (b.tag === 'blur-fade') bf = +(b.params.duration || '60');
+        // hologram, typewriter → 정적 미리보기에서 기본 처리
 
-        processSegs(b.children, nc, no, ng, sa, ss, gw, ff, ds);
+        processSegs(b.children, nc, no, ng, sa, ss, gw, ff, ds, bf);
       }
     }
   }
@@ -243,14 +246,22 @@ function drawLine(
 
       ctx.save();
 
-      // ── fade 효과: 페이드인 ──
+      // ── fade 효과: 페이드인 (animFrame=0 정적 모드는 완료 상태=alpha 1) ──
       if (seg.fadeFrames) {
-        ctx.globalAlpha = Math.min(1, animFrame / seg.fadeFrames);
+        ctx.globalAlpha = animFrame <= 0 ? 1 : Math.min(1, animFrame / seg.fadeFrames);
       }
 
       // ── dissolve 효과: 글자별 페이드인 ──
       if (seg.dissolveSpeed) {
-        ctx.globalAlpha = Math.min(1, (animFrame * seg.dissolveSpeed) / 30);
+        ctx.globalAlpha = animFrame <= 0 ? 1 : Math.min(1, (animFrame * seg.dissolveSpeed) / 30);
+      }
+
+      // ── blur-fade 효과: 흐릿하게 나타나기 ──
+      if (seg.blurFadeDuration) {
+        const progress = animFrame <= 0 ? 1 : Math.min(1, animFrame / seg.blurFadeDuration);
+        const blurPx = (1 - progress) * 8;
+        ctx.globalAlpha = animFrame <= 0 ? 1 : (0.2 + progress * 0.8);
+        if (blurPx > 0.1) ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
       }
 
       // ── shake 효과: sin 파형으로 Y 흔들림 ──

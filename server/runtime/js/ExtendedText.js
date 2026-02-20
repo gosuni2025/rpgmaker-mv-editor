@@ -588,39 +588,43 @@ Window_Base.prototype._etRedrawBlurFade = function(seg, time) {
     var alpha = 0.2 + progress * 0.8;
 
     var lh = chars[0].h || this.lineHeight();
-    // blur 여백 확보
     var ow = (bmp.outlineWidth || 4) + Math.ceil(blurPx) + 2;
     var startX = chars[0].x - ow;
     var endX   = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c) + ow;
 
+    // 현재 줄 범위로 클리핑 — 인접 줄(특히 윗줄) clearRect 침범 방지
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(startX, chars[0].y, endX - startX, lh);
+    ctx.clip();
+
     bmp.clearRect(startX, chars[0].y - ow, endX - startX, lh + ow * 2);
-    if (progress <= 0) return;
 
-    var savedFilter = ctx.filter !== undefined ? ctx.filter : 'none';
-    var savedAlpha = ctx.globalAlpha;
+    if (progress > 0) {
+        if (blurPx > 0.1 && 'filter' in ctx) {
+            ctx.filter = 'blur(' + blurPx.toFixed(1) + 'px)';
+        }
+        ctx.globalAlpha = alpha;
 
-    if (blurPx > 0.1 && 'filter' in ctx) {
-        ctx.filter = 'blur(' + blurPx.toFixed(1) + 'px)';
+        var savedColor = bmp.textColor;
+        var savedOutlineColor = bmp.outlineColor;
+        var savedOutlineWidth = bmp.outlineWidth;
+        bmp.outlineColor = seg.outlineColor;
+        bmp.outlineWidth = seg.outlineWidth;
+
+        for (var i = 0; i < chars.length; i++) {
+            var ch = chars[i];
+            this.changeTextColor(ch.finalColor || ch.color || seg.textColor);
+            bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c) + 4, ch.h || lh);
+        }
+
+        this.changeTextColor(savedColor);
+        bmp.outlineColor = savedOutlineColor;
+        bmp.outlineWidth = savedOutlineWidth;
     }
-    ctx.globalAlpha = alpha;
 
-    var savedColor = bmp.textColor;
-    var savedOutlineColor = bmp.outlineColor;
-    var savedOutlineWidth = bmp.outlineWidth;
-    bmp.outlineColor = seg.outlineColor;
-    bmp.outlineWidth = seg.outlineWidth;
-
-    for (var i = 0; i < chars.length; i++) {
-        var ch = chars[i];
-        this.changeTextColor(ch.finalColor || ch.color || seg.textColor);
-        bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c) + 4, ch.h || lh);
-    }
-
-    if ('filter' in ctx) ctx.filter = savedFilter;
-    ctx.globalAlpha = savedAlpha;
-    this.changeTextColor(savedColor);
-    bmp.outlineColor = savedOutlineColor;
-    bmp.outlineWidth = savedOutlineWidth;
+    ctx.restore();
+    bmp._setDirty();
 
     if (progress >= 1.0) seg._etDone = true;
 };
