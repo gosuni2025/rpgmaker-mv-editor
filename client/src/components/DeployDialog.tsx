@@ -1,31 +1,33 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
 import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
 import FolderBrowser from './common/FolderBrowser';
+import CacheBustSection, {
+  CacheBustOpts,
+  DEFAULT_CACHE_BUST_OPTS,
+  cacheBustToQuery,
+} from './common/CacheBustSection';
 
-type Tab = 'netlify' | 'local';
+type Tab = 'netlify' | 'ghpages' | 'local';
 
 type SSEEvent =
-  | { type: 'status'; phase: 'counting' | 'zipping' | 'uploading' | 'creating-site' }
+  | { type: 'status'; phase: 'counting' | 'zipping' | 'uploading' | 'creating-site' | 'copying' | 'patching' | 'committing' | 'pushing' }
   | { type: 'counted'; total: number }
   | { type: 'progress'; current: number; total: number }
   | { type: 'zip-progress'; current: number; total: number; name: string }
   | { type: 'upload-progress'; sent: number; total: number }
   | { type: 'site-created'; siteId: string; siteName: string }
-  | { type: 'done'; zipPath?: string; deployUrl?: string; siteUrl?: string }
+  | { type: 'done'; zipPath?: string; deployUrl?: string; siteUrl?: string; commitHash?: string; pageUrl?: string; buildId?: string }
   | { type: 'error'; message: string };
 
-interface CacheBustOpts {
-  scripts: boolean;
-  images:  boolean;
-  audio:   boolean;
-  video:   boolean;
-  data:    boolean;
+interface GhPagesCheck {
+  ghCli: boolean;
+  repoPath: string;
+  isGitRepo: boolean;
+  pageUrl: string;
 }
-
-const CB_KEYS = ['scripts', 'images', 'audio', 'video', 'data'] as const;
 
 async function readSSEStream(
   url: string,
@@ -74,7 +76,21 @@ export default function DeployDialog() {
   const [manualSiteId, setManualSiteId] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
 
-  // 작업 상태
+  // GitHub Pages 설정
+  const [ghRepoPath, setGhRepoPath] = useState('');
+  const [ghCheck, setGhCheck] = useState<GhPagesCheck | null>(null);
+  const [ghSettingsSaved, setGhSettingsSaved] = useState(false);
+  const [ghPageUrl, setGhPageUrl] = useState('');
+  const [showGhBrowse, setShowGhBrowse] = useState(false);
+  const [ghBrowsePath, setGhBrowsePath] = useState('');
+  const ghCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 로컬 배포
+  const [outputPath, setOutputPath] = useState('');
+  const [showBrowse, setShowBrowse] = useState(false);
+  const [browsePath, setBrowsePath] = useState('');
+
+  // 공통 작업 상태
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -82,23 +98,12 @@ export default function DeployDialog() {
   const [progress, setProgress] = useState<number | null>(null);
   const [zipFile, setZipFile] = useState('');
 
-  // 로컬 배포
-  const [outputPath, setOutputPath] = useState('');
-  const [showBrowse, setShowBrowse] = useState(false);
-  const [browsePath, setBrowsePath] = useState('');
-
   const [guideOpen, setGuideOpen] = useState(false);
 
   // 캐시 버스팅 옵션
-  const [cbOpts, setCbOpts] = useState<CacheBustOpts>({
-    scripts: true,
-    images:  true,
-    audio:   true,
-    video:   true,
-    data:    true,
-  });
-  const [cbHelpOpen, setCbHelpOpen] = useState(false);
+  const [cbOpts, setCbOpts] = useState<CacheBustOpts>(DEFAULT_CACHE_BUST_OPTS);
 
+  // ── 설정 로드 ───────────────────────────────────────────────────────────────
   useEffect(() => {
     apiClient.get('/settings').then((data) => {
       const d = data as Record<string, unknown>;
@@ -106,35 +111,47 @@ export default function DeployDialog() {
       if (netlify?.apiKey) setApiKey(netlify.apiKey);
       if (netlify?.siteId) setSiteId(netlify.siteId);
       if (netlify?.siteUrl) setSiteUrl(netlify.siteUrl);
+      const ghPages = d.ghPages as { repoPath?: string } | undefined;
+      if (ghPages?.repoPath) setGhRepoPath(ghPages.repoPath);
     }).catch(() => {});
   }, []);
 
-  const resetStatus = () => { setError(''); setStatus(''); setDeployUrl(''); setProgress(null); setZipFile(''); };
+  // ── GitHub Pages 사전 조건 체크 ─────────────────────────────────────────────
+  const runGhCheck = useCallback((repoPath: string) => {
+    if (ghCheckTimer.current) clearTimeout(ghCheckTimer.current);
+    ghCheckTimer.current = setTimeout(async () => {
+      try {
+        const result = await apiClient.get('/project/deploy-ghpages-check') as GhPagesCheck;
+        // repoPath가 다를 수 있으므로 repoPath를 현재값으로 보정
+        setGhCheck({ ...result, repoPath });
+        if (result.pageUrl) setGhPageUrl(result.pageUrl);
+      } catch {}
+    }, 300);
+  }, []);
 
-  const handleOpenMySite = async () => {
-    const url = deployUrl || siteUrl;
-    if (!url) return;
-    try { await apiClient.post('/project/open-url', { url }); }
-    catch (e) { setError((e as Error).message); }
+  useEffect(() => {
+    if (tab === 'ghpages') runGhCheck(ghRepoPath);
+  }, [tab, ghRepoPath, runGhCheck]);
+
+  const resetStatus = () => {
+    setError(''); setStatus(''); setDeployUrl(''); setProgress(null); setZipFile('');
   };
 
-  const saveNetlifySettings = async () => {
-    try {
-      await apiClient.put('/project/netlify-settings', { apiKey, siteId });
-      setSettingsSaved(true);
-      setTimeout(() => setSettingsSaved(false), 2000);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-
+  // ── 공통 SSE 이벤트 핸들러 ──────────────────────────────────────────────────
   const handleSSEEvent = useCallback(
     (ev: SSEEvent, totalRef: { current: number }, weights: { copy: number; zip: number }): boolean => {
       const uploadStart = weights.copy + weights.zip;
       if (ev.type === 'status') {
-        if (ev.phase === 'creating-site') setStatus(t('deploy.netlify.creatingSite'));
-        if (ev.phase === 'counting') setStatus(t('deploy.netlify.analyzing'));
-        if (ev.phase === 'zipping') { setProgress(weights.copy); setStatus(t('deploy.netlify.zipping')); }
+        const phaseMap: Record<string, string> = {
+          'creating-site': t('deploy.netlify.creatingSite'),
+          'counting':   t('deploy.netlify.analyzing'),
+          'copying':    t('deploy.ghPages.copying'),
+          'patching':   t('deploy.ghPages.patching'),
+          'committing': t('deploy.ghPages.committing'),
+          'pushing':    t('deploy.ghPages.pushing'),
+        };
+        if (phaseMap[ev.phase]) setStatus(phaseMap[ev.phase]);
+        if (ev.phase === 'zipping')   { setProgress(weights.copy); setStatus(t('deploy.netlify.zipping')); }
         if (ev.phase === 'uploading') { setProgress(uploadStart); setStatus(t('deploy.netlify.uploading')); }
       } else if (ev.type === 'site-created') {
         setSiteId(ev.siteId);
@@ -169,11 +186,13 @@ export default function DeployDialog() {
     [t],
   );
 
-  // 캐시 버스팅 옵션을 query string으로 변환
-  const cbQuery = () => {
-    const p = new URLSearchParams();
-    for (const key of CB_KEYS) p.set(`cb${key.charAt(0).toUpperCase()}${key.slice(1)}`, cbOpts[key] ? '1' : '0');
-    return p.toString();
+  // ── Netlify ─────────────────────────────────────────────────────────────────
+  const saveNetlifySettings = async () => {
+    try {
+      await apiClient.put('/project/netlify-settings', { apiKey, siteId });
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 2000);
+    } catch (e) { setError((e as Error).message); }
   };
 
   const handleMakeZip = () => {
@@ -183,7 +202,7 @@ export default function DeployDialog() {
     setBusy(true);
     let completed = false;
     const totalRef = { current: 0 };
-    const evtSource = new EventSource(`/api/project/deploy-zip-progress?${cbQuery()}`);
+    const evtSource = new EventSource(`/api/project/deploy-zip-progress?${cacheBustToQuery(cbOpts)}`);
     evtSource.onmessage = (e) => {
       const ev = JSON.parse(e.data) as SSEEvent;
       if (ev.type === 'done') {
@@ -201,21 +220,9 @@ export default function DeployDialog() {
       evtSource.close();
       if (!completed) {
         setError(t('deploy.netlify.connectionError'));
-        setStatus('');
-        setProgress(null);
-        setBusy(false);
+        setStatus(''); setProgress(null); setBusy(false);
       }
     };
-  };
-
-  const handleOpenDrop = async () => {
-    try { await apiClient.post('/project/open-netlify-drop', {}); }
-    catch (e) { setError((e as Error).message); }
-  };
-
-  const handleOpenNetlifySite = async () => {
-    try { await apiClient.post('/project/open-url', { url: 'https://www.netlify.com' }); }
-    catch (e) { setError((e as Error).message); }
   };
 
   const handleAutoDeploy = async () => {
@@ -251,13 +258,79 @@ export default function DeployDialog() {
       );
     } catch (e) {
       setError((e as Error).message);
-      setStatus('');
-      setProgress(null);
+      setStatus(''); setProgress(null);
     } finally {
       setBusy(false);
     }
   };
 
+  const handleOpenNetlifySite = async () => {
+    try { await apiClient.post('/project/open-url', { url: 'https://www.netlify.com' }); }
+    catch (e) { setError((e as Error).message); }
+  };
+
+  const handleOpenDrop = async () => {
+    try { await apiClient.post('/project/open-netlify-drop', {}); }
+    catch (e) { setError((e as Error).message); }
+  };
+
+  const handleOpenMySite = async () => {
+    const url = deployUrl || siteUrl;
+    if (!url) return;
+    try { await apiClient.post('/project/open-url', { url }); }
+    catch (e) { setError((e as Error).message); }
+  };
+
+  // ── GitHub Pages ─────────────────────────────────────────────────────────────
+  const saveGhPagesSettings = async () => {
+    try {
+      await apiClient.put('/project/ghpages-settings', { repoPath: ghRepoPath });
+      setGhSettingsSaved(true);
+      setTimeout(() => setGhSettingsSaved(false), 2000);
+      runGhCheck(ghRepoPath);
+    } catch (e) { setError((e as Error).message); }
+  };
+
+  const handleGhPagesDeploy = () => {
+    resetStatus();
+    setProgress(0);
+    setBusy(true);
+    let completed = false;
+    const totalRef = { current: 0 };
+    const params = new URLSearchParams(cacheBustToQuery(cbOpts));
+    if (ghRepoPath) params.set('repoPath', ghRepoPath);
+    const evtSource = new EventSource(`/api/project/deploy-ghpages-progress?${params}`);
+    evtSource.onmessage = (e) => {
+      const ev = JSON.parse(e.data) as SSEEvent;
+      if (ev.type === 'done') {
+        completed = true;
+        setProgress(1);
+        setStatus(t('deploy.ghPages.done'));
+        if (ev.pageUrl) setGhPageUrl(ev.pageUrl);
+        setBusy(false);
+        setTimeout(() => setProgress(null), 800);
+        evtSource.close();
+        return;
+      }
+      handleSSEEvent(ev, totalRef, { copy: 0.85, zip: 0 });
+    };
+    evtSource.onerror = () => {
+      evtSource.close();
+      if (!completed) {
+        setError(t('deploy.netlify.connectionError'));
+        setStatus(''); setProgress(null); setBusy(false);
+      }
+    };
+  };
+
+  const handleOpenGhPage = async () => {
+    const url = ghPageUrl || ghCheck?.pageUrl;
+    if (!url) return;
+    try { await apiClient.post('/project/open-url', { url }); }
+    catch (e) { setError((e as Error).message); }
+  };
+
+  // ── 로컬 배포 ───────────────────────────────────────────────────────────────
   const handleLocalDeploy = async () => {
     if (!outputPath.trim()) { setError(t('deploy.pathRequired')); return; }
     resetStatus();
@@ -267,15 +340,15 @@ export default function DeployDialog() {
       await apiClient.post('/project/deploy', { platform: 'web', outputPath, cacheBust: cbOpts });
       setStatus(t('deploy.complete'));
     } catch (e) {
-      setError((e as Error).message);
-      setStatus('');
+      setError((e as Error).message); setStatus('');
     } finally {
       setBusy(false);
     }
   };
 
+  // ── 스타일 유틸 ─────────────────────────────────────────────────────────────
   const tabStyle = (active: boolean): React.CSSProperties => ({
-    padding: '6px 16px',
+    padding: '6px 14px',
     background: active ? '#3c3f41' : 'transparent',
     border: 'none',
     borderBottom: active ? '2px solid #2675bf' : '2px solid transparent',
@@ -298,6 +371,15 @@ export default function DeployDialog() {
     fontFamily: 'monospace',
   };
 
+  // GitHub Pages 사전 조건 배지
+  const ghPrereqOk = ghCheck?.ghCli && !!ghRepoPath && ghCheck?.isGitRepo;
+  const CheckBadge = ({ ok, label, warn }: { ok: boolean; label: string; warn?: string }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={!ok && warn ? warn : ''}>
+      <span style={{ color: ok ? '#6c6' : '#e55', fontSize: 12 }}>{ok ? '✓' : '✗'}</span>
+      <span style={{ color: ok ? '#aaa' : '#e77', fontSize: 12 }}>{label}</span>
+    </div>
+  );
+
   const guideSteps = [
     t('deploy.netlify.guide1'),
     t('deploy.netlify.guide2'),
@@ -305,65 +387,6 @@ export default function DeployDialog() {
     t('deploy.netlify.guide4'),
     t('deploy.netlify.guide5'),
   ];
-
-  // 캐시 버스팅 옵션 섹션 (두 탭 공통)
-  const cacheBustSection = (
-    <div style={{ background: '#2e2e2e', border: '1px solid #3e3e3e', borderRadius: 4, padding: '10px 12px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: cbHelpOpen ? 8 : 6 }}>
-        <span style={{ color: '#bbb', fontSize: 12, fontWeight: 600 }}>{t('deploy.cacheBust.title')}</span>
-        <button
-          onClick={() => setCbHelpOpen(!cbHelpOpen)}
-          title={t('deploy.cacheBust.helpTitle')}
-          style={{
-            background: cbHelpOpen ? '#2675bf' : '#444',
-            border: '1px solid #555',
-            borderRadius: '50%',
-            width: 16,
-            height: 16,
-            color: '#ddd',
-            fontSize: 10,
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 0,
-            lineHeight: 1,
-            flexShrink: 0,
-          }}
-        >?</button>
-      </div>
-
-      {cbHelpOpen && (
-        <div style={{
-          background: '#252525',
-          border: '1px solid #3a3a3a',
-          borderRadius: 3,
-          padding: '8px 10px',
-          marginBottom: 8,
-          fontSize: 11,
-          color: '#aaa',
-          lineHeight: 1.7,
-        }}>
-          <div style={{ fontWeight: 600, color: '#ccc', marginBottom: 2 }}>{t('deploy.cacheBust.helpTitle')}</div>
-          <div>{t('deploy.cacheBust.helpDesc')}</div>
-          <div style={{ marginTop: 4, color: '#e8a040' }}>⚠ {t('deploy.cacheBust.helpDisabled')}</div>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 18px' }}>
-        {CB_KEYS.map((key) => (
-          <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={cbOpts[key]}
-              onChange={(e) => setCbOpts((prev) => ({ ...prev, [key]: e.target.checked }))}
-            />
-            <span style={{ color: '#ccc', fontSize: 12 }}>{t(`deploy.cacheBust.${key}`)}</span>
-          </label>
-        ))}
-      </div>
-    </div>
-  );
 
   return (
     <div className="db-dialog-overlay">
@@ -374,6 +397,9 @@ export default function DeployDialog() {
           <button style={tabStyle(tab === 'netlify')} onClick={() => { setTab('netlify'); resetStatus(); }}>
             {t('deploy.tabNetlify')}
           </button>
+          <button style={tabStyle(tab === 'ghpages')} onClick={() => { setTab('ghpages'); resetStatus(); }}>
+            {t('deploy.tabGhPages')}
+          </button>
           <button style={tabStyle(tab === 'local')} onClick={() => { setTab('local'); resetStatus(); }}>
             {t('deploy.tabLocal')}
           </button>
@@ -381,23 +407,18 @@ export default function DeployDialog() {
 
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
+          {/* ── Netlify 탭 ── */}
           {tab === 'netlify' && (
             <>
-              {/* 면책 고지 */}
               <div style={{ background: '#2a2a2a', border: '1px solid #3a3a3a', borderRadius: 4, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <span style={{ color: '#777', fontSize: 11, lineHeight: 1.4 }}>
-                  {t('deploy.netlify.disclaimer')}
-                </span>
+                <span style={{ color: '#777', fontSize: 11, lineHeight: 1.4 }}>{t('deploy.netlify.disclaimer')}</span>
                 <button className="db-btn" onClick={handleOpenNetlifySite} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                   {t('deploy.netlify.visitSite')} ↗
                 </button>
               </div>
 
-              {/* 설정 */}
               <div style={{ background: '#333', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ color: '#bbb', fontSize: 12, fontWeight: 600 }}>{t('deploy.netlify.settingsTitle')}</div>
-
-                {/* API Key */}
                 <div>
                   <div style={fieldLabel}>{t('deploy.netlify.apiKey')}</div>
                   <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
@@ -409,18 +430,14 @@ export default function DeployDialog() {
                     <div>· {t('deploy.netlify.security3')}</div>
                   </div>
                 </div>
-
-                {/* Site ID - 자동/수동 */}
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <span style={fieldLabel}>Site ID</span>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={manualSiteId}
-                        onChange={(e) => setManualSiteId(e.target.checked)} />
+                      <input type="checkbox" checked={manualSiteId} onChange={(e) => setManualSiteId(e.target.checked)} />
                       <span style={{ color: '#888', fontSize: 11 }}>{t('deploy.netlify.siteManualInput')}</span>
                     </label>
                   </div>
-
                   {manualSiteId ? (
                     <input type="text" value={siteId} onChange={(e) => setSiteId(e.target.value)}
                       placeholder={t('deploy.netlify.siteIdPlaceholder')} style={inputStyle} />
@@ -432,22 +449,18 @@ export default function DeployDialog() {
                       }
                     </div>
                   )}
-
                   {siteUrl && !deployUrl && (
-                    <button className="db-btn" onClick={handleOpenMySite}
-                      style={{ marginTop: 6, width: '100%' }}>
+                    <button className="db-btn" onClick={handleOpenMySite} style={{ marginTop: 6, width: '100%' }}>
                       {t('deploy.netlify.openSite')} ↗
                     </button>
                   )}
                 </div>
-
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
                   {settingsSaved && <span style={{ color: '#6c6', fontSize: 12 }}>{t('deploy.netlify.saved')}</span>}
                   <button className="db-btn" onClick={saveNetlifySettings}>{t('common.save')}</button>
                 </div>
               </div>
 
-              {/* 가이드 */}
               <div style={{ border: '1px solid #444', borderRadius: 4, overflow: 'hidden' }}>
                 <button onClick={() => setGuideOpen(!guideOpen)} style={{
                   width: '100%', background: '#2e2e2e', border: 'none', padding: '8px 12px',
@@ -468,7 +481,6 @@ export default function DeployDialog() {
                 )}
               </div>
 
-              {/* 수동 업로드 */}
               <div>
                 <div style={{ color: '#666', fontSize: 11, marginBottom: 6 }}>수동 업로드</div>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -481,37 +493,26 @@ export default function DeployDialog() {
                 </div>
               </div>
 
-              {/* 자동 배포 */}
               <button className="db-btn" onClick={handleAutoDeploy} disabled={busy}
                 style={{ width: '100%', background: '#0078d4', borderColor: '#0078d4' }}>
                 {t('deploy.netlify.autoDeploy')}
               </button>
 
-              {/* 프로그레스 바 */}
               {progress !== null && (
                 <div style={{ background: '#3a3a3a', borderRadius: 3, height: 5, overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${Math.round(progress * 100)}%`, background: '#2675bf', transition: 'width 0.15s ease-out' }} />
                 </div>
               )}
-
               {status && <div style={{ color: '#6c6', fontSize: 12 }}>{status}</div>}
               {zipFile && !deployUrl && (
-                <div style={{ color: '#ddd', fontSize: 11, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {zipFile}
-                </div>
+                <div style={{ color: '#ddd', fontSize: 11, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{zipFile}</div>
               )}
               {error && <div style={{ color: '#e55', fontSize: 12 }}>{error}</div>}
-
               {deployUrl && (
                 <div style={{ background: '#2a3a2a', border: '1px solid #3a5a3a', borderRadius: 4, padding: '8px 12px' }}>
                   <div style={{ color: '#6c6', fontSize: 11, marginBottom: 4 }}>{t('deploy.netlify.deployUrl')}</div>
-                  <a href={deployUrl} target="_blank" rel="noopener noreferrer"
-                    style={{ color: '#5af', fontSize: 13, wordBreak: 'break-all' }}>
-                    {deployUrl}
-                  </a>
-                  <div style={{ color: '#555', fontSize: 11, marginTop: 4 }}>
-                    {t('deploy.netlify.deployUrlDesc')}
-                  </div>
+                  <a href={deployUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#5af', fontSize: 13, wordBreak: 'break-all' }}>{deployUrl}</a>
+                  <div style={{ color: '#555', fontSize: 11, marginTop: 4 }}>{t('deploy.netlify.deployUrlDesc')}</div>
                   <button className="db-btn" onClick={handleOpenMySite}
                     style={{ marginTop: 8, width: '100%', background: '#0e5f1f', borderColor: '#1a8a30' }}>
                     {t('deploy.netlify.openSite')} ↗
@@ -521,6 +522,98 @@ export default function DeployDialog() {
             </>
           )}
 
+          {/* ── GitHub Pages 탭 ── */}
+          {tab === 'ghpages' && (
+            <>
+              {/* 저장소 경로 */}
+              <div style={{ background: '#333', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <div style={fieldLabel}>{t('deploy.ghPages.repoPath')}</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="text"
+                      value={ghRepoPath}
+                      onChange={(e) => setGhRepoPath(e.target.value)}
+                      placeholder={t('deploy.ghPages.repoPathPlaceholder')}
+                      style={{ ...inputStyle, flex: 1, width: 'auto' }}
+                    />
+                    <button className="db-btn" onClick={() => setShowGhBrowse(true)}>
+                      {t('deploy.ghPages.browse')}
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
+                  {ghSettingsSaved && <span style={{ color: '#6c6', fontSize: 12 }}>{t('deploy.ghPages.settingsSaved')}</span>}
+                  <button className="db-btn" onClick={saveGhPagesSettings}>{t('common.save')}</button>
+                </div>
+              </div>
+
+              {/* 사전 조건 배지 */}
+              <div style={{ background: '#2a2a2a', border: '1px solid #3a3a3a', borderRadius: 4, padding: '10px 12px' }}>
+                <div style={{ color: '#bbb', fontSize: 11, fontWeight: 600, marginBottom: 8 }}>{t('deploy.ghPages.prerequisites')}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <CheckBadge
+                    ok={ghCheck?.ghCli ?? false}
+                    label={t('deploy.ghPages.checkGhCli')}
+                    warn={t('deploy.ghPages.ghCliMissing')}
+                  />
+                  <CheckBadge
+                    ok={!!ghRepoPath}
+                    label={t('deploy.ghPages.checkRepoPath')}
+                    warn={t('deploy.ghPages.repoPathMissing')}
+                  />
+                  <CheckBadge
+                    ok={ghCheck?.isGitRepo ?? false}
+                    label={t('deploy.ghPages.checkGitRepo')}
+                    warn={t('deploy.ghPages.notGitRepo')}
+                  />
+                </div>
+                {!ghCheck?.ghCli && (
+                  <div style={{ marginTop: 8, color: '#e77', fontSize: 11 }}>{t('deploy.ghPages.ghCliMissing')}</div>
+                )}
+              </div>
+
+              {/* 배포 버튼 */}
+              <button
+                className="db-btn"
+                onClick={handleGhPagesDeploy}
+                disabled={busy || !ghPrereqOk}
+                style={{
+                  width: '100%',
+                  background: ghPrereqOk ? '#1a6e2e' : undefined,
+                  borderColor: ghPrereqOk ? '#2a9a42' : undefined,
+                  opacity: ghPrereqOk ? 1 : 0.5,
+                }}
+              >
+                {t('deploy.ghPages.deploy')}
+              </button>
+
+              {progress !== null && (
+                <div style={{ background: '#3a3a3a', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.round(progress * 100)}%`, background: '#2a9a42', transition: 'width 0.15s ease-out' }} />
+                </div>
+              )}
+              {status && <div style={{ color: '#6c6', fontSize: 12 }}>{status}</div>}
+              {error && <div style={{ color: '#e55', fontSize: 12 }}>{error}</div>}
+
+              {/* 완료 후 URL */}
+              {(ghPageUrl || ghCheck?.pageUrl) && (
+                <div style={{ background: '#1e2e1e', border: '1px solid #2a4a2a', borderRadius: 4, padding: '8px 12px' }}>
+                  <div style={{ color: '#6c6', fontSize: 11, marginBottom: 4 }}>{t('deploy.ghPages.pageUrl')}</div>
+                  <a href={ghPageUrl || ghCheck?.pageUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ color: '#5af', fontSize: 13, wordBreak: 'break-all' }}>
+                    {ghPageUrl || ghCheck?.pageUrl}
+                  </a>
+                  <button className="db-btn" onClick={handleOpenGhPage}
+                    style={{ marginTop: 8, width: '100%', background: '#0e5f1f', borderColor: '#1a8a30' }}>
+                    {t('deploy.ghPages.openPage')}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── 로컬 폴더 탭 ── */}
           {tab === 'local' && (
             <>
               <div>
@@ -536,8 +629,8 @@ export default function DeployDialog() {
             </>
           )}
 
-          {/* 캐시 버스팅 옵션 — 두 탭 공통 */}
-          {cacheBustSection}
+          {/* 캐시 버스팅 — 모든 탭 공통 */}
+          <CacheBustSection opts={cbOpts} onChange={setCbOpts} />
 
         </div>
 
@@ -552,6 +645,7 @@ export default function DeployDialog() {
         </div>
       </div>
 
+      {/* 로컬 폴더 찾아보기 */}
       {showBrowse && (
         <div className="db-dialog-overlay" style={{ zIndex: 1001 }}>
           <div className="db-dialog" style={{ width: 500, height: 420, display: 'flex', flexDirection: 'column' }}>
@@ -567,6 +661,28 @@ export default function DeployDialog() {
                   {t('deploy.selectFolder')}
                 </button>
                 <button className="db-btn-small" onClick={() => setShowBrowse(false)}>{t('common.cancel')}</button>
+              </>}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* GitHub Pages 저장소 찾아보기 */}
+      {showGhBrowse && (
+        <div className="db-dialog-overlay" style={{ zIndex: 1001 }}>
+          <div className="db-dialog" style={{ width: 500, height: 420, display: 'flex', flexDirection: 'column' }}>
+            <div className="db-dialog-header">{t('deploy.ghPages.repoPath')}</div>
+            <FolderBrowser
+              onPathChange={(p) => setGhBrowsePath(p)}
+              onSelect={(p) => { setGhRepoPath(p); setShowGhBrowse(false); }}
+              style={{ flex: 1, overflow: 'hidden' }}
+              toolbarExtra={<>
+                <button className="db-btn-small" style={{ background: '#0078d4', borderColor: '#0078d4' }}
+                  onClick={() => { if (ghBrowsePath) { setGhRepoPath(ghBrowsePath); setShowGhBrowse(false); } }}
+                  disabled={!ghBrowsePath}>
+                  {t('deploy.selectFolder')}
+                </button>
+                <button className="db-btn-small" onClick={() => setShowGhBrowse(false)}>{t('common.cancel')}</button>
               </>}
             />
           </div>

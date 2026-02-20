@@ -11,10 +11,10 @@ import { openInExplorer } from './helpers';
 
 const router = express.Router();
 
-const DEPLOYS_DIR = path.join(os.homedir(), '.rpg-editor', 'deploys');
+export const DEPLOYS_DIR = path.join(os.homedir(), '.rpg-editor', 'deploys');
 // Generator: 에디터 전용 캐릭터 생성기 에셋, 웹 배포에 불필요
-const EXCLUDE_DIRS = new Set(['save', '.git', 'node_modules', 'Generator']);
-const EXCLUDE_FILES = new Set(['.DS_Store', 'Thumbs.db', 'Game.rpgproject']);
+export const EXCLUDE_DIRS  = new Set(['save', '.git', 'node_modules', 'Generator']);
+export const EXCLUDE_FILES = new Set(['.DS_Store', 'Thumbs.db', 'Game.rpgproject']);
 
 // ─── 캐시 버스팅 옵션 ─────────────────────────────────────────────────────────
 export interface CacheBustOptions {
@@ -26,7 +26,7 @@ export interface CacheBustOptions {
 }
 
 /** 배포할 파일 목록을 상대경로 배열로 반환 */
-function collectFilesForDeploy(baseDir: string, subDir = ''): string[] {
+export function collectFilesForDeploy(baseDir: string, subDir = ''): string[] {
   const currentDir = subDir ? path.join(baseDir, subDir) : baseDir;
   const results: string[] = [];
   for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
@@ -43,7 +43,7 @@ function collectFilesForDeploy(baseDir: string, subDir = ''): string[] {
   return results;
 }
 
-function applyIndexHtmlRename(stagingDir: string) {
+export function applyIndexHtmlRename(stagingDir: string) {
   const idx3d = path.join(stagingDir, 'index_3d.html');
   const idxMain = path.join(stagingDir, 'index.html');
   const idxPixi = path.join(stagingDir, 'index_pixi.html');
@@ -56,7 +56,7 @@ function applyIndexHtmlRename(stagingDir: string) {
 }
 
 /** HTML 파일에 캐시 버스팅 쿼리 및 window.__CACHE_BUST__ 주입 */
-function applyCacheBusting(stagingDir: string, buildId: string, opts: CacheBustOptions = {}) {
+export function applyCacheBusting(stagingDir: string, buildId: string, opts: CacheBustOptions = {}) {
   const doScripts = opts.scripts !== false;
   const cb = JSON.stringify({
     buildId,
@@ -72,7 +72,6 @@ function applyCacheBusting(stagingDir: string, buildId: string, opts: CacheBustO
     const htmlPath = path.join(stagingDir, htmlFile);
     let html = fs.readFileSync(htmlPath, 'utf-8');
 
-    // HTML 정적 script src / link href 에 ?v= 삽입 (scripts 옵션)
     if (doScripts) {
       html = html.replace(
         /((?:src|href)="[^"?]+\.(?:js|css))(?:\?[^"]*)?"/g,
@@ -80,8 +79,7 @@ function applyCacheBusting(stagingDir: string, buildId: string, opts: CacheBustO
       );
     }
 
-    // <head> 직후에 window.__BUILD_ID__ (하위 호환) + window.__CACHE_BUST__ 주입
-    // rpg_managers.js/rpg_core.js가 이 객체를 읽어 카테고리별로 URL에 ?v= 붙임
+    // window.__BUILD_ID__ (하위 호환) + window.__CACHE_BUST__ (카테고리별 옵션) 주입
     html = html.replace(
       '<head>',
       `<head>\n    <script>window.__BUILD_ID__='${buildId}';window.__CACHE_BUST__=${cb};</script>`,
@@ -91,7 +89,7 @@ function applyCacheBusting(stagingDir: string, buildId: string, opts: CacheBustO
   }
 }
 
-function makeBuildId(): string {
+export function makeBuildId(): string {
   const now = new Date();
   return [
     now.getFullYear(),
@@ -101,6 +99,30 @@ function makeBuildId(): string {
     String(now.getMinutes()).padStart(2, '0'),
     String(now.getSeconds()).padStart(2, '0'),
   ].join('');
+}
+
+export function setupSSE(res: Response) {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+}
+
+export function sseWrite(res: Response, data: object) {
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+/** query string에서 CacheBustOptions 파싱 (GET SSE용) */
+export function parseCacheBustQuery(query: Record<string, unknown>): CacheBustOptions {
+  const flag = (key: string) => query[key] !== '0';
+  return {
+    scripts: flag('cbScripts'),
+    images:  flag('cbImages'),
+    audio:   flag('cbAudio'),
+    video:   flag('cbVideo'),
+    data:    flag('cbData'),
+  };
 }
 
 async function zipStagingWithProgress(
@@ -126,18 +148,6 @@ async function zipStagingWithProgress(
   });
 }
 
-function setupSSE(res: Response) {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
-  res.flushHeaders();
-}
-
-function sseWrite(res: Response, data: object) {
-  res.write(`data: ${JSON.stringify(data)}\n\n`);
-}
-
 /** 게임 제목을 Netlify 사이트 이름 규칙(소문자+숫자+하이픈)으로 변환 */
 function toNetlifySiteName(gameTitle: string): string {
   return (gameTitle || 'rpgmaker-game')
@@ -148,7 +158,6 @@ function toNetlifySiteName(gameTitle: string): string {
     || 'rpgmaker-game';
 }
 
-/** Netlify 사이트 신규 생성 */
 function netlifyCreateSite(
   apiKey: string,
   name: string,
@@ -224,7 +233,6 @@ function netlifyUpload(
     });
     req.on('error', reject);
 
-    // 업로드 진행률 추적 (backpressure 고려)
     let sent = 0;
     let lastPct = -1;
     const fileStream = fs.createReadStream(zipPath);
@@ -243,7 +251,7 @@ function netlifyUpload(
   });
 }
 
-function getGameTitle(): string {
+export function getGameTitle(): string {
   if (!projectManager.isOpen()) return 'game';
   try {
     const system = projectManager.readJSON('System.json') as { gameTitle?: string };
@@ -254,7 +262,7 @@ function getGameTitle(): string {
 }
 
 /** 파일 복사 + ZIP 생성 공통 로직 (SSE 프로그레스 콜백 포함) */
-async function buildDeployZipWithProgress(
+export async function buildDeployZipWithProgress(
   srcPath: string,
   gameTitle: string,
   opts: CacheBustOptions,
@@ -296,19 +304,7 @@ async function buildDeployZipWithProgress(
   }
 }
 
-// ─── query string에서 CacheBustOptions 파싱 (GET SSE용) ──────────────────────
-function parseCacheBustQuery(query: Record<string, unknown>): CacheBustOptions {
-  const flag = (key: string) => query[key] !== '0';
-  return {
-    scripts: flag('cbScripts'),
-    images:  flag('cbImages'),
-    audio:   flag('cbAudio'),
-    video:   flag('cbVideo'),
-    data:    flag('cbData'),
-  };
-}
-
-// ZIP 생성 + 폴더 열기 (SSE 프로그레스)
+// ─── ZIP 생성 + 폴더 열기 (SSE) ──────────────────────────────────────────────
 router.get('/deploy-zip-progress', async (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {
     res.status(404).json({ error: '프로젝트가 열려있지 않습니다' });
@@ -331,8 +327,7 @@ router.get('/deploy-zip-progress', async (req: Request, res: Response) => {
   res.end();
 });
 
-// Netlify 자동 배포 (SSE 프로그레스, POST body로 API 키 전달)
-// siteId가 비어있으면 프로젝트 이름으로 사이트를 자동 생성하고 설정에 저장
+// ─── Netlify 자동 배포 (SSE) ──────────────────────────────────────────────────
 router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {
     res.status(404).json({ error: '프로젝트가 열려있지 않습니다' });
@@ -353,13 +348,11 @@ router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
     const gameTitle = getGameTitle();
     let resolvedSiteId = inputSiteId?.trim() || '';
 
-    // Site ID가 없으면 자동 생성
     if (!resolvedSiteId) {
       sseWrite(res, { type: 'status', phase: 'creating-site' });
       const siteName = toNetlifySiteName(gameTitle);
       const site = await netlifyCreateSite(apiKey.trim(), siteName);
       resolvedSiteId = site.id;
-      // 생성된 Site ID를 설정에 저장 (다음 배포에서 재사용)
       const current = settingsManager.get();
       settingsManager.update({ netlify: { ...current.netlify, siteId: resolvedSiteId } });
       sseWrite(res, { type: 'site-created', siteId: resolvedSiteId, siteName: site.name });
@@ -377,7 +370,6 @@ router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
     });
     const deployUrl = result.deploy_ssl_url || result.ssl_url || result.url || '';
     const siteUrl = result.ssl_url || result.url || '';
-    // 사이트 URL을 설정에 저장 (다음에 "내 사이트 열기"에 활용)
     const current2 = settingsManager.get();
     settingsManager.update({ netlify: { ...current2.netlify, siteUrl } });
     sseWrite(res, { type: 'done', deployUrl, siteUrl, deployId: result.id });
@@ -397,13 +389,11 @@ function openUrl(url: string) {
   }
 }
 
-// Netlify 드래그앤드롭 페이지 열기
 router.post('/open-netlify-drop', (_req: Request, res: Response) => {
   openUrl('https://app.netlify.com/drop');
   res.json({ success: true });
 });
 
-// 일반 URL 브라우저 열기
 router.post('/open-url', (req: Request, res: Response) => {
   const { url } = req.body as { url?: string };
   if (!url || !/^https?:\/\//.test(url)) {
@@ -413,7 +403,6 @@ router.post('/open-url', (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
-// Netlify 설정 저장
 router.put('/netlify-settings', (req: Request, res: Response) => {
   const { apiKey, siteId } = req.body as { apiKey?: string; siteId?: string };
   const current = settingsManager.get();

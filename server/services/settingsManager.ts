@@ -16,6 +16,10 @@ export interface NetlifySettings {
   siteUrl: string;
 }
 
+export interface GhPagesSettings {
+  repoPath: string;
+}
+
 export interface EditorSettings {
   steamPath: string;
   language: string;
@@ -24,6 +28,7 @@ export interface EditorSettings {
   zoomStep: number;
   autoSave: AutoSaveSettings;
   netlify: NetlifySettings;
+  ghPages: GhPagesSettings;
 }
 
 const SETTINGS_DIR = path.join(os.homedir(), '.rpg-editor');
@@ -45,6 +50,9 @@ const DEFAULT_SETTINGS: EditorSettings = {
     apiKey: '',
     siteId: '',
     siteUrl: '',
+  },
+  ghPages: {
+    repoPath: '',
   },
 };
 
