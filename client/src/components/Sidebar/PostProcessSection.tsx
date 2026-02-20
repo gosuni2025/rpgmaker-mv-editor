@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useEditorStore from '../../store/useEditorStore';
-import type { BloomConfig } from '../../types/rpgMakerMV';
-import { DEFAULT_BLOOM_CONFIG } from '../../types/rpgMakerMV';
+import type { BloomConfig, DofConfig } from '../../types/rpgMakerMV';
+import { DEFAULT_BLOOM_CONFIG, DEFAULT_DOF_CONFIG } from '../../types/rpgMakerMV';
 import ExtBadge from '../common/ExtBadge';
 import { AnimSlider } from './AnimTileShaderSection';
 
@@ -112,11 +112,41 @@ export function PostProcessSection({ currentMap, updateMapField }: {
     }
   }, [updateMapField]);
 
+  // DoF
+  const dof: DofConfig = currentMap.dofConfig || DEFAULT_DOF_CONFIG;
+
+  const updateDof = useCallback((field: keyof DofConfig, value: unknown) => {
+    const cur: DofConfig = useEditorStore.getState().currentMap?.dofConfig || DEFAULT_DOF_CONFIG;
+    const updated = { ...cur, [field]: value };
+    updateMapField('dofConfig', updated);
+    const PP = (window as any).PostProcess;
+    if (PP) {
+      PP.config.focusY = updated.focusY;
+      PP.config.focusRange = updated.focusRange;
+      PP.config.maxblur = updated.maxBlur;
+      PP.config.blurPower = updated.blurPower;
+      if ((window as any).ConfigManager) (window as any).ConfigManager.depthOfField = updated.enabled;
+    }
+  }, [updateMapField]);
+
+  const handleDofReset = useCallback(() => {
+    updateMapField('dofConfig', undefined);
+    const PP = (window as any).PostProcess;
+    if (PP) {
+      PP.config.focusY = DEFAULT_DOF_CONFIG.focusY;
+      PP.config.focusRange = DEFAULT_DOF_CONFIG.focusRange;
+      PP.config.maxblur = DEFAULT_DOF_CONFIG.maxBlur;
+      PP.config.blurPower = DEFAULT_DOF_CONFIG.blurPower;
+      if ((window as any).ConfigManager) (window as any).ConfigManager.depthOfField = DEFAULT_DOF_CONFIG.enabled;
+    }
+  }, [updateMapField]);
+
   const enabledCount = useMemo(() => {
     let count = Object.values(postProcessConfig).filter(c => c?.enabled).length;
     if (bloom.enabled !== false) count++;
+    if (dof.enabled) count++;
     return count;
-  }, [postProcessConfig, bloom.enabled]);
+  }, [postProcessConfig, bloom.enabled, dof.enabled]);
 
   return (
     <div className="light-inspector-section">
@@ -154,6 +184,41 @@ export function PostProcessSection({ currentMap, updateMapField }: {
                   onChange={(v) => updateBloom('downscale', v)} />
                 {currentMap.bloomConfig && (
                   <button className="anim-tile-reset-btn" onClick={handleBloomReset}>
+                    초기화
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* DoF (피사계 심도) */}
+      <div className="anim-tile-kind-panel">
+        <div className="anim-tile-kind-header" onClick={() => toggleExpand('__dof__')}>
+          <span className="anim-tile-kind-arrow">{expandedEffects.has('__dof__') ? '\u25BC' : '\u25B6'}</span>
+          <span className="anim-tile-kind-name">DoF (피사계 심도)</span>
+          {dof.enabled && <span className="pp-effect-active-dot" title="활성">{'\u2022'}</span>}
+        </div>
+        {expandedEffects.has('__dof__') && (
+          <div className="anim-tile-kind-body">
+            <label className="map-inspector-checkbox">
+              <input type="checkbox" checked={dof.enabled}
+                onChange={(e) => updateDof('enabled', e.target.checked)} />
+              <span>활성화</span>
+            </label>
+            {dof.enabled && (
+              <>
+                <AnimSlider label="Focus Y" value={dof.focusY} min={0} max={1} step={0.01}
+                  onChange={(v) => updateDof('focusY', v)} />
+                <AnimSlider label="Range" value={dof.focusRange} min={0} max={0.5} step={0.01}
+                  onChange={(v) => updateDof('focusRange', v)} />
+                <AnimSlider label="Max Blur" value={dof.maxBlur} min={0} max={0.2} step={0.005}
+                  onChange={(v) => updateDof('maxBlur', v)} />
+                <AnimSlider label="Blur Power" value={dof.blurPower} min={0.5} max={5} step={0.1}
+                  onChange={(v) => updateDof('blurPower', v)} />
+                {currentMap.dofConfig && (
+                  <button className="anim-tile-reset-btn" onClick={handleDofReset}>
                     초기화
                   </button>
                 )}

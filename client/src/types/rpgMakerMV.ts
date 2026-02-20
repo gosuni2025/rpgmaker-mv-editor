@@ -49,6 +49,7 @@ export interface MapData {
   skyBackground?: SkyBackground;
   animTileSettings?: Record<number, AnimTileShaderSettings>; // key = kind (0~15)
   bloomConfig?: BloomConfig;
+  dofConfig?: DofConfig;
   postProcessConfig?: Record<string, { enabled: boolean; [key: string]: any }>;
   weatherType?: number;   // 0=없음, 1=비, 2=폭풍, 3=눈
   weatherPower?: number;  // 1~9
@@ -71,6 +72,22 @@ export const DEFAULT_BLOOM_CONFIG: BloomConfig = {
   strength: 0.8,
   radius: 1.0,
   downscale: 4,
+};
+
+export interface DofConfig {
+  enabled: boolean;
+  focusY: number;      // 포커스 중심 Y (0~1, 기본 0.55)
+  focusRange: number;  // 선명 영역 반폭 (0~0.5, 기본 0.1)
+  maxBlur: number;     // 최대 블러 (0~0.2, 기본 0.05)
+  blurPower: number;   // 블러 강도 곡선 (0.5~5, 기본 1.5)
+}
+
+export const DEFAULT_DOF_CONFIG: DofConfig = {
+  enabled: false,
+  focusY: 0.55,
+  focusRange: 0.1,
+  maxBlur: 0.05,
+  blurPower: 1.5,
 };
 
 export interface AnimTileShaderSettings {
