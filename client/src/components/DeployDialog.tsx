@@ -13,7 +13,7 @@ import CacheBustSection, {
 type Tab = 'netlify' | 'ghpages' | 'local';
 
 type SSEEvent =
-  | { type: 'status'; phase: 'counting' | 'zipping' | 'uploading' | 'creating-site' | 'copying' | 'patching' | 'committing' | 'pushing' }
+  | { type: 'status'; phase: 'counting' | 'zipping' | 'uploading' | 'creating-site' | 'copying' | 'patching' | 'committing' | 'pushing' | 'pages-setup' | 'pages-setup-skipped'; detail?: string }
   | { type: 'counted'; total: number }
   | { type: 'progress'; current: number; total: number }
   | { type: 'zip-progress'; current: number; total: number; name: string }
@@ -29,6 +29,7 @@ interface GhPagesRemote {
 }
 
 interface GhPagesCheck {
+  ghCli: boolean;
   isGitRepo: boolean;
   remotes: GhPagesRemote[];
   selectedRemote: string;
@@ -150,14 +151,17 @@ export default function DeployDialog() {
       const uploadStart = weights.copy + weights.zip;
       if (ev.type === 'status') {
         const phaseMap: Record<string, string> = {
-          'creating-site': t('deploy.netlify.creatingSite'),
-          'counting':   t('deploy.netlify.analyzing'),
-          'copying':    t('deploy.ghPages.copying'),
-          'patching':   t('deploy.ghPages.patching'),
-          'committing': t('deploy.ghPages.committing'),
-          'pushing':    t('deploy.ghPages.pushing'),
+          'creating-site':       t('deploy.netlify.creatingSite'),
+          'counting':            t('deploy.netlify.analyzing'),
+          'copying':             t('deploy.ghPages.copying'),
+          'patching':            t('deploy.ghPages.patching'),
+          'committing':          t('deploy.ghPages.committing'),
+          'pushing':             t('deploy.ghPages.pushing'),
+          'pages-setup':         t('deploy.ghPages.pagesSetup'),
+          'pages-setup-skipped': t('deploy.ghPages.pagesSetupSkipped'),
         };
         if (phaseMap[ev.phase]) setStatus(phaseMap[ev.phase]);
+        if (ev.phase === 'pages-setup-skipped' && ev.detail) setError(ev.detail);
         if (ev.phase === 'zipping')   { setProgress(weights.copy); setStatus(t('deploy.netlify.zipping')); }
         if (ev.phase === 'uploading') { setProgress(uploadStart); setStatus(t('deploy.netlify.uploading')); }
       } else if (ev.type === 'site-created') {
@@ -388,7 +392,7 @@ export default function DeployDialog() {
 
   // GitHub Pages 사전 조건 배지
   const ghSelectedRemoteExists = ghCheck?.remotes.some(r => r.name === ghRemote) ?? false;
-  const ghPrereqOk = (ghCheck?.isGitRepo ?? false) && ghSelectedRemoteExists;
+  const ghPrereqOk = (ghCheck?.ghCli ?? false) && (ghCheck?.isGitRepo ?? false) && ghSelectedRemoteExists;
   const CheckBadge = ({ ok, label, warn }: { ok: boolean; label: string; warn?: string }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={!ok && warn ? warn : ''}>
       <span style={{ color: ok ? '#6c6' : '#e55', fontSize: 12 }}>{ok ? '✓' : '✗'}</span>
@@ -595,6 +599,11 @@ export default function DeployDialog() {
                 <div style={{ color: '#bbb', fontSize: 11, fontWeight: 600, marginBottom: 8 }}>{t('deploy.ghPages.prerequisites')}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <CheckBadge
+                    ok={ghCheck?.ghCli ?? false}
+                    label={t('deploy.ghPages.checkGhCli')}
+                    warn={t('deploy.ghPages.ghCliMissing')}
+                  />
+                  <CheckBadge
                     ok={ghCheck?.isGitRepo ?? false}
                     label={t('deploy.ghPages.checkGitRepo')}
                     warn={t('deploy.ghPages.notGitRepo')}
@@ -605,6 +614,9 @@ export default function DeployDialog() {
                     warn={t('deploy.ghPages.remoteMissing', { remote: ghRemote })}
                   />
                 </div>
+                {!ghCheck?.ghCli && ghCheck !== null && (
+                  <div style={{ marginTop: 8, color: '#e77', fontSize: 11 }}>{t('deploy.ghPages.ghCliMissing')}</div>
+                )}
               </div>
 
               {/* 배포 버튼 */}

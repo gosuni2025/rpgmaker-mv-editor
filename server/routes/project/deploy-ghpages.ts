@@ -26,6 +26,12 @@ const DEPLOY_BRANCH = 'gh-pages';
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
 
+async function checkGhCli(): Promise<boolean> {
+  try { await execAsync('gh --version'); return true; } catch {}
+  try { await execAsync('which gh'); return true; } catch {}
+  return false;
+}
+
 async function checkGitRepo(repoPath: string): Promise<boolean> {
   if (!repoPath || !fs.existsSync(repoPath)) return false;
   try { await execAsync(`git -C "${repoPath}" rev-parse --git-dir`); return true; } catch { return false; }
@@ -68,7 +74,7 @@ router.get('/deploy-ghpages-check', async (_req: Request, res: Response) => {
   const settings = settingsManager.get();
   const selectedRemote = settings.ghPages?.remote || 'pages';
 
-  const isGitRepo = await checkGitRepo(srcPath);
+  const [ghCli, isGitRepo] = await Promise.all([checkGhCli(), checkGitRepo(srcPath)]);
 
   let remotes: { name: string; url: string; pageUrl: string }[] = [];
   let pageUrl = '';
@@ -80,7 +86,7 @@ router.get('/deploy-ghpages-check', async (_req: Request, res: Response) => {
     pageUrl = sel?.pageUrl ?? '';
   }
 
-  res.json({ isGitRepo, remotes, selectedRemote, pageUrl });
+  res.json({ ghCli, isGitRepo, remotes, selectedRemote, pageUrl });
 });
 
 // ─── git execSync 래퍼: stderr까지 포함한 에러 메시지 생성 ───────────────────
@@ -221,7 +227,37 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
     sseWrite(res, { type: 'status', phase: 'pushing' });
     gitExec(`git -C "${srcPath}" push ${remote} ${DEPLOY_BRANCH} --force`);
 
+    // ── 8. GitHub Pages 소스 브랜치 설정 (gh api, 없으면 스킵) ─────────────────
     const pageUrl = derivePageUrl(remoteUrl);
+    const ownerRepo = (() => {
+      const m = remoteUrl.trim()
+        .replace(/^git@github\.com:/, 'https://github.com/')
+        .replace(/\.git$/, '')
+        .match(/github\.com\/([^/]+\/.+)/);
+      return m ? m[1] : null;
+    })();
+
+    if (ownerRepo) {
+      currentStep = `GitHub Pages 소스 설정 (gh api)`;
+      sseWrite(res, { type: 'status', phase: 'pages-setup' });
+      try {
+        // 이미 활성화된 경우 PUT, 처음이면 POST
+        try {
+          gitExec(`gh api repos/${ownerRepo}/pages -X PUT -f 'source[branch]=${DEPLOY_BRANCH}' -f 'source[path]=/'`);
+        } catch {
+          gitExec(`gh api repos/${ownerRepo}/pages -X POST -f 'source[branch]=${DEPLOY_BRANCH}' -f 'source[path]=/'`);
+        }
+      } catch (ghErr: unknown) {
+        // gh CLI 없음 또는 권한 없음 — 배포 자체는 성공이므로 경고만
+        const ghMsg = (ghErr as Error).message || '';
+        sseWrite(res, {
+          type: 'status',
+          phase: 'pages-setup-skipped',
+          detail: `GitHub Pages 소스 자동 설정 실패 (무시됨):\n${ghMsg}\n저장소 Settings → Pages에서 수동으로 Source를 '${DEPLOY_BRANCH}' 브랜치로 설정하세요.`,
+        } as never);
+      }
+    }
+
     sseWrite(res, { type: 'done', commitHash, pageUrl, buildId });
   } catch (err: unknown) {
     const raw = (err as Error).message || String(err);

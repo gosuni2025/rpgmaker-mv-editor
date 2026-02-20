@@ -1463,6 +1463,8 @@
       "deploy": "GitHub Pages에 배포",
       "checking": "사전 조건 확인 중...",
       "copying": "리모트 확인 및 브랜치 전환 준비 중",
+      "pagesSetup": "GitHub Pages 소스 브랜치 설정 중...",
+      "pagesSetupSkipped": "GitHub Pages 자동 설정 건너뜀 (수동 설정 필요)",
       "patching": "index.html 처리 중 (index_3d.html → index.html)...",
       "committing": "커밋 중...",
       "pushing": "푸시 중...",
