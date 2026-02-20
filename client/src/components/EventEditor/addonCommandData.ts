@@ -44,6 +44,34 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
           { name: 'h', type: 'number', label: 'addonCommands.param_height', min: 1, default: 1 },
         ],
       },
+      {
+        id: 'FogColor',
+        label: 'addonCommands.fogOfWar_FogColor',
+        params: [
+          { name: 'color', type: 'color', label: 'addonCommands.param_color', defaultColor: '#000000' },
+        ],
+      },
+      {
+        id: 'TentacleSharpness',
+        label: 'addonCommands.fogOfWar_TentacleSharpness',
+        params: [
+          { name: 'value', type: 'float', label: 'addonCommands.param_value', min: 0.5, max: 20, step: 0.5, default: 3.0 },
+        ],
+      },
+      {
+        id: 'TentacleLength',
+        label: 'addonCommands.fogOfWar_TentacleLength',
+        params: [
+          { name: 'value', type: 'float', label: 'addonCommands.param_value', min: 0.1, max: 10, step: 0.1, default: 2.0 },
+        ],
+      },
+      {
+        id: 'TentacleSpeed',
+        label: 'addonCommands.fogOfWar_TentacleSpeed',
+        params: [
+          { name: 'value', type: 'float', label: 'addonCommands.param_value', min: 0, max: 10, step: 0.1, default: 1.0 },
+        ],
+      },
     ],
   },
   {
