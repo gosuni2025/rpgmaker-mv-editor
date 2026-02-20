@@ -409,19 +409,23 @@
         }
         // 에디터 이미지 오브젝트 - depth 비교하여 플레이어보다 앞에 있는 것만 마스크에 포함
         // depth = x*sin(yaw) + y*cos(yaw) (카메라 yaw 반영, yaw=0이면 y 기준)
+        // Mode3D._sortChildren과 동일한 foot 보정 적용: 멀티타일 오브젝트는 시각 중심(y)이
+        // 아닌 발(foot) 기준 depth = y + 1.5*th*(h-1) 사용 (캐릭터는 보정 없음).
         if (spriteset._objectSprites) {
             var _yaw = (typeof ConfigManager !== 'undefined' && ConfigManager.mode3d && Mode3D && Mode3D._yawRad) ? Mode3D._yawRad : 0;
             var _cosY = Math.cos(_yaw);
             var _sinY = Math.sin(_yaw);
+            var _th3d = ($gameMap && $gameMap.tileHeight) ? $gameMap.tileHeight() : 48;
 
             // 플레이어 depth 계산 ($gamePlayer 기준, 없으면 첫 번째 캐릭터)
+            // _y 사용: Mode3D가 this.y -= th/2 로 보정한 PIXI y 좌표 (_sortChildren과 동일 기준)
             var _playerSpr = null;
             for (var _pi = 0; _pi < charSprites.length; _pi++) {
                 if (charSprites[_pi]._character === $gamePlayer) { _playerSpr = charSprites[_pi]; break; }
             }
             if (!_playerSpr && charSprites.length > 0) _playerSpr = charSprites[0];
-            var _playerDepth = (_playerSpr && _playerSpr._threeObj)
-                ? _playerSpr._threeObj.position.x * _sinY + _playerSpr._threeObj.position.y * _cosY
+            var _playerDepth = (_playerSpr)
+                ? _playerSpr._x * _sinY + _playerSpr._y * _cosY
                 : -Infinity;
 
             for (var oi2 = 0; oi2 < spriteset._objectSprites.length; oi2++) {
@@ -429,9 +433,14 @@
                 if (os._threeObj) {
                     var idx = tmChildren.indexOf(os._threeObj);
                     if (idx >= 0 && tmChildVis[idx]) {
-                        // 오브젝트가 플레이어보다 앞에(depth 큰) 있을 때만 마스크에 포함
-                        var _objDepth = os._threeObj.position.x * _sinY + os._threeObj.position.y * _cosY;
-                        if (_objDepth > _playerDepth) {
+                        // 멀티타일 오브젝트는 발 기준 depth로 보정 (_sortChildren와 동일)
+                        // foot_ref = container.y + 1.5 * th * (h - 1)
+                        var _osY = (os._mapObjH && os._mapObjH > 1)
+                            ? os._y + 1.5 * _th3d * (os._mapObjH - 1)
+                            : os._y;
+                        var _objDepth = os._x * _sinY + _osY * _cosY;
+                        // 오브젝트가 플레이어보다 앞에(depth 크거나 같음) 있을 때만 마스크에 포함
+                        if (_objDepth >= _playerDepth) {
                             os._threeObj.visible = true;
                         }
                     }
