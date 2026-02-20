@@ -53,12 +53,24 @@ function copyRecursive(srcPath, dstPath) {
 }
 
 // ─── 메인 ────────────────────────────────────────────────────────────────────
+// ─── 빌드 ID (캐시 버스팅용) ─────────────────────────────────────────────────
+const _now = new Date();
+const buildId = [
+  _now.getFullYear(),
+  String(_now.getMonth() + 1).padStart(2, '0'),
+  String(_now.getDate()).padStart(2, '0'),
+  String(_now.getHours()).padStart(2, '0'),
+  String(_now.getMinutes()).padStart(2, '0'),
+  String(_now.getSeconds()).padStart(2, '0'),
+].join('');
+
 console.log(`\n=== RPG Maker MV gh-pages 배포 ===`);
 console.log(`소스: ${src}`);
-console.log(`대상: ${dst}\n`);
+console.log(`대상: ${dst}`);
+console.log(`빌드 ID: ${buildId}\n`);
 
 // 1. 기존 파일 정리 후 복사 (.git 제외)
-console.log('[1/3] 파일 복사 중...');
+console.log('[1/4] 파일 복사 중...');
 const existing = fs.existsSync(dst) ? fs.readdirSync(dst) : [];
 for (const entry of existing) {
   if (entry === '.git') continue;
@@ -68,7 +80,7 @@ copyRecursive(src, dst);
 console.log('  완료');
 
 // 2. index_3d.html → index.html 처리
-console.log('\n[2/3] index.html 처리 중...');
+console.log('\n[2/4] index.html 처리 중...');
 const idx3d   = path.join(dst, 'index_3d.html');
 const idxMain = path.join(dst, 'index.html');
 const idxPixi = path.join(dst, 'index_pixi.html');
@@ -82,9 +94,22 @@ if (fs.existsSync(idx3d)) {
   console.log('  index_3d.html → index.html');
 }
 
-// 3. git 커밋 & 푸시
-console.log('\n[3/3] git 커밋 & 푸시 중...');
-const now = new Date().toLocaleString('ko-KR');
+// 3. HTML 파일 캐시 버스팅 쿼리 삽입
+console.log('\n[3/4] 캐시 버스팅 쿼리 삽입 중...');
+const htmlFiles = fs.readdirSync(dst).filter(f => f.endsWith('.html'));
+for (const htmlFile of htmlFiles) {
+  const htmlPath = path.join(dst, htmlFile);
+  let html = fs.readFileSync(htmlPath, 'utf-8');
+  // src="...js" 또는 href="...css" 에 ?v=buildId 삽입 (기존 쿼리 교체)
+  html = html.replace(/((?:src|href)="[^"?]+\.(?:js|css))(?:\?[^"]*)?"/g,
+    (_, base) => `${base}?v=${buildId}"`);
+  fs.writeFileSync(htmlPath, html, 'utf-8');
+  console.log(`  ${htmlFile}`);
+}
+
+// 4. git 커밋 & 푸시
+console.log('\n[4/4] git 커밋 & 푸시 중...');
+const now = _now.toLocaleString('ko-KR');
 try {
   execSync(`git -C "${dst}" add -A`, { stdio: 'inherit' });
   execSync(`git -C "${dst}" commit -m "Deploy: ${now}"`, { stdio: 'inherit' });
