@@ -329,7 +329,8 @@
         this._redraw();
     };
 
-    Window_VNText.prototype.isChoiceActive  = function () { return this._choiceActive; };
+    // pending 상태(타이핑 완료 대기)도 "선택 중"으로 간주 → _updateVNInline 자동선택 방지
+    Window_VNText.prototype.isChoiceActive  = function () { return this._choiceActive || this._pendingChoiceIdx >= 0; };
     Window_VNText.prototype.getChoiceResult = function () { return this._choiceResult; };
 
     // ── 레이아웃 빌드 ─────────────────────────────────────────────────────────
@@ -341,7 +342,7 @@
             var e = this._entries[i];
             var h;
             if (e.type === 'choice') {
-                h = e.choices.length * lh + ENTRY_PAD * 2;
+                h = e._pending ? 0 : (e.choices.length * lh + ENTRY_PAD * 2);
             } else {
                 var conv = this.convertEscapeCharacters(e.txt || '');
                 var ts   = { index: 0, text: conv };
@@ -381,6 +382,7 @@
             var dy = l.y - this._scrollY;
             var e  = this._entries[i];
             if (e.type === 'choice') {
+                if (e._pending) continue;  // 타이핑 완료 전엔 그리지 않음
                 var activeSel = (i === this._entries.length - 1 && this._choiceActive)
                     ? this._choiceIndex : (e.sel !== undefined ? e.sel : -1);
                 this._drawChoiceEntry(e, dy, lh, iw, activeSel);
