@@ -652,11 +652,11 @@
         var self = this;
         _vnWheelHandler = function (e) {
             if (!VNManager.isActive()) return;
+            e.preventDefault();  // VN 모드 중에는 항상 배경 3D 줌 차단
             var ctrl = self._vnCtrl;
             if (!ctrl) return;
             var tw = ctrl.getTextWindow();
             if (tw && !tw.isChoiceActive() && !tw._isTyping) {
-                e.preventDefault();
                 tw.scrollBy(e.deltaY * 0.5);
                 tw._vel = 0;
             }
