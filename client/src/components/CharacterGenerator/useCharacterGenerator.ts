@@ -312,6 +312,8 @@ export function useCharacterGenerator() {
       if (outputType === 'Face') {
         const fp = randomPattern as FacePattern;
         for (const cl of fp.colorLayers) {
+          // null defaultGradientRow = 고정색 레이어(_m 없음), 랜덤 적용 안 함
+          if (cl.defaultGradientRow == null) continue;
           if (!groupColors.has(cl.defaultGradientRow)) {
             groupColors.set(cl.defaultGradientRow, Math.floor(Math.random() * 70));
           }

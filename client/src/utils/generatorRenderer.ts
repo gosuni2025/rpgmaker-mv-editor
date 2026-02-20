@@ -13,7 +13,9 @@ export const FACE_RENDER_ORDER: string[] = [
   'Beard', 'BeastEars', 'AccA', 'Cloak1', 'FrontHair', 'Glasses', 'AccB',
 ];
 
-// TV(걷기) 렌더링 순서 (bottom → top, layer 20→1)
+// TV(걷기) 렌더링 순서 (bottom → top)
+// 파일명 규칙: X2 = 배경 레이어(body 뒤), X1 = 전경 레이어(body 앞)
+// (문서 레이어 번호가 1=foreground/20=background인 Photoshop 순서임)
 export const TV_RENDER_ORDER: string[] = [
   'Wing2', 'Cloak2', 'Tail2', 'FrontHair2', 'Beard2', 'Body', 'Ears',
   'FacialMark', 'RearHair2', 'Clothing2', 'Beard1', 'Clothing1', 'Tail1',
