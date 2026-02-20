@@ -606,26 +606,23 @@
         this._alpha     = 0;
         this._autoTimer = -1;
 
-        this._overlay = new Sprite(new Bitmap(Graphics.boxWidth, Graphics.boxHeight));
-        this._overlay.bitmap.fillAll('rgba(0,0,0,' + (OVERLAY_OPACITY / 255).toFixed(3) + ')');
-        this._overlay.opacity = 0;
-        this._overlay.visible = false;
+        // 오버레이: HTML div 사용 (Three.js/PIXI 렌더링과 무관하게 항상 동작)
+        this._overlayEl = document.createElement('div');
+        this._overlayEl.style.cssText = [
+            'position:fixed', 'left:0', 'top:0', 'width:100%', 'height:100%',
+            'background:rgba(0,0,0,' + (OVERLAY_OPACITY / 255).toFixed(3) + ')',
+            'pointer-events:none', 'opacity:0', 'display:none', 'z-index:10'
+        ].join(';');
+        document.body.appendChild(this._overlayEl);
 
         this._textWin = new Window_VNText();
         this._textWin.contentsOpacity = 0;
 
-        // overlay를 _windowLayer 바로 앞에 삽입: 맵 위에 어둠을 깔고, 텍스트 창은 그 위에 표시
-        var winLayerIdx = scene.children.indexOf(scene._windowLayer);
-        if (winLayerIdx >= 0) {
-            scene.addChildAt(this._overlay, winLayerIdx);
-        } else {
-            scene.addChild(this._overlay);
-        }
         scene.addWindow(this._textWin);
     }
 
     VNController.prototype.open = function () {
-        this._overlay.visible = true;
+        this._overlayEl.style.display = 'block';
         this._state = 'opening';
         this._autoTimer = -1;
     };
@@ -653,16 +650,16 @@
         var step = 255 / TRANS_FRAMES;
         if (this._state === 'opening') {
             this._alpha = Math.min(255, this._alpha + step);
-            this._overlay.opacity         = Math.round(this._alpha);
+            this._overlayEl.style.opacity = (this._alpha / 255).toFixed(3);
             this._textWin.contentsOpacity = Math.round(this._alpha);
             if (this._alpha >= 255) { this._alpha = 255; this._state = 'open'; }
         } else if (this._state === 'closing') {
             this._alpha = Math.max(0, this._alpha - step);
-            this._overlay.opacity         = Math.round(this._alpha);
+            this._overlayEl.style.opacity = (this._alpha / 255).toFixed(3);
             this._textWin.contentsOpacity = Math.round(this._alpha);
             if (this._alpha <= 0) {
                 this._alpha = 0; this._state = 'closed';
-                this._overlay.visible = false;
+                this._overlayEl.style.display = 'none';
             }
         }
 
@@ -720,6 +717,10 @@
         if (_vnWheelHandler) {
             window.removeEventListener('wheel', _vnWheelHandler, { capture: true });
             _vnWheelHandler = null;
+        }
+        if (this._vnCtrl && this._vnCtrl._overlayEl) {
+            document.body.removeChild(this._vnCtrl._overlayEl);
+            this._vnCtrl._overlayEl = null;
         }
     };
 
