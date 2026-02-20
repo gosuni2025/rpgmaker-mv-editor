@@ -440,7 +440,7 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
         if (!isShadow) {
             var _is3D = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
             var _tc = (_is3D && window.DepthDebugConfig) ? window.DepthDebugConfig.tile : null;
-            var _dTest = _tc ? _tc.depthTest : (_is3D ? true : false);
+            var _dTest = _tc ? _tc.depthTest : false;
             var _dWrite = _tc ? _tc.depthWrite : (_is3D ? true : false);
             var _aTest = _tc ? (_tc.alphaTest ? 0.5 : 0) : (_is3D ? 0.5 : 0);
             var _transp = _aTest > 0 ? false : true;
@@ -495,7 +495,7 @@ ThreeTilemapRectLayer.prototype._buildNormalMesh = function(setNumber, data, ani
         } else {
             var _is3D = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
             var _tc2 = (_is3D && window.DepthDebugConfig) ? window.DepthDebugConfig.tile : null;
-            var _dTest2 = _tc2 ? _tc2.depthTest : (_is3D ? true : false);
+            var _dTest2 = _tc2 ? _tc2.depthTest : false;
             var _dWrite2 = _tc2 ? _tc2.depthWrite : (_is3D ? true : false);
             var _aTest2 = _tc2 ? (_tc2.alphaTest ? 0.5 : 0) : (_is3D ? 0.5 : 0);
             var _transp2 = _aTest2 > 0 ? false : true;

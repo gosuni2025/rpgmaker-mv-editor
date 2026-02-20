@@ -12,9 +12,9 @@
         window.DepthDebugConfig = {
             zLayerStep: 0.01,
             drawZStep: 0.001,
-            tile:   { depthTest: false, depthWrite: false, alphaTest: false },
-            sprite: { depthTest: false, depthWrite: false, alphaTest: false },
-            water:  { depthTest: true,  depthWrite: false, alphaTest: false },
+            tile:   { depthTest: false, depthWrite: true,  alphaTest: true  },
+            sprite: { depthTest: true,  depthWrite: true,  alphaTest: true  },
+            water:  { depthTest: true,  depthWrite: false, alphaTest: true  },
             shadow: { depthTest: false, depthWrite: false, alphaTest: false },
         };
     }
@@ -27,9 +27,9 @@
     ];
 
     var CATEGORIES = [
-        { key: 'tile',   label: 'Tile',   defDepthTest: false, defDepthWrite: false, defAlphaTest: false },
-        { key: 'sprite', label: 'Sprite', defDepthTest: false, defDepthWrite: false, defAlphaTest: false },
-        { key: 'water',  label: 'Water',  defDepthTest: true,  defDepthWrite: false, defAlphaTest: false },
+        { key: 'tile',   label: 'Tile',   defDepthTest: false, defDepthWrite: true,  defAlphaTest: true  },
+        { key: 'sprite', label: 'Sprite', defDepthTest: true,  defDepthWrite: true,  defAlphaTest: true  },
+        { key: 'water',  label: 'Water',  defDepthTest: true,  defDepthWrite: false, defAlphaTest: true  },
         { key: 'shadow', label: 'Shadow', defDepthTest: false, defDepthWrite: false, defAlphaTest: false },
     ];
 
