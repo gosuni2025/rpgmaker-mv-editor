@@ -456,6 +456,10 @@ Window_Base.prototype.processNormalCharacter = function(textState) {
                     color: currentColor,
                     finalColor: null,
                 });
+                // gradient: 글자 추가마다 즉시 재그리기 (타이핑 중 착! 현상 방지)
+                if (seg.gradientActive) {
+                    this._etRedrawGradient(seg);
+                }
             }
         }
     }
