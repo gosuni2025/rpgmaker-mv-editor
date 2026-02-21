@@ -673,6 +673,7 @@ export interface EditorSpotLight {
 }
 
 export interface EditorShadowSettings {
+  enabled?: boolean;
   opacity: number;
   color: string;
   offsetScale: number;
@@ -695,5 +696,5 @@ export const DEFAULT_EDITOR_LIGHTS: EditorLights = {
   points: [],
   playerLight: { enabled: true, color: '#a25f06', intensity: 0.8, distance: 200, z: 40 },
   spotLight: { enabled: true, color: '#ffeedd', intensity: 0.8, distance: 250, angle: 0.60, penumbra: 0.9, z: 120, shadowMapSize: 2048, targetDistance: 70 },
-  shadow: { opacity: 0.4, color: '#000000', offsetScale: 0.6 },
+  shadow: { enabled: false, opacity: 0.4, color: '#000000', offsetScale: 0.6 },
 };

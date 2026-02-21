@@ -1,6 +1,7 @@
 import React from 'react';
 import DragLabel from '../common/DragLabel';
 import ExtBadge from '../common/ExtBadge';
+import HelpButton from '../common/HelpButton';
 
 interface DragCallbacks {
   onDragStart: () => void;
@@ -97,11 +98,20 @@ export function DirectionalLightSection({ dir, shadow, updateDirectionalLight, u
       </div>
 
       <div className="light-inspector-section">
-        <div className="light-inspector-title">그림자 설정</div>
+        <div className="light-inspector-title">
+          발치 그림자
+          <HelpButton text={"캐릭터 발밑에 납작하게 그려지는 소프트웨어 그림자입니다.\n\n방향 조명의 shadow map(실제 3D 그림자)과는 별개로,\n캐릭터 위치를 바닥에서 시각적으로 강조하는 용도입니다.\n\n※ 방향 조명을 켜면 그림자가 두 개 겹쳐 보일 수 있으므로\n   기본적으로 꺼두는 것을 권장합니다."} />
+        </div>
+        <div className="light-inspector-row">
+          <span className="light-inspector-label">활성화</span>
+          <input type="checkbox" checked={shadow.enabled === true}
+            onChange={(e) => updateShadowSettings({ enabled: e.target.checked })} />
+        </div>
         <div className="light-inspector-row">
           <span className="light-inspector-label">색상</span>
           <input type="color" className="light-inspector-color" value={shadow.color}
-            onChange={(e) => updateShadowSettings({ color: e.target.value })} />
+            onChange={(e) => updateShadowSettings({ color: e.target.value })}
+            disabled={shadow.enabled !== true} />
         </div>
         <div className="light-inspector-row">
           <DragLabel label="불투명도" value={shadow.opacity} step={0.05} min={0} max={1}
@@ -109,7 +119,8 @@ export function DirectionalLightSection({ dir, shadow, updateDirectionalLight, u
             onChange={(v) => updateShadowSettings({ opacity: v }, true)} />
           <input type="number" className="light-inspector-input" step={0.05}
             value={shadow.opacity}
-            onChange={(e) => updateShadowSettings({ opacity: parseFloat(e.target.value) || 0 })} />
+            onChange={(e) => updateShadowSettings({ opacity: parseFloat(e.target.value) || 0 })}
+            disabled={shadow.enabled !== true} />
         </div>
         <div className="light-inspector-row">
           <DragLabel label="오프셋" value={shadow.offsetScale} step={0.1} min={0} max={10}
@@ -117,7 +128,8 @@ export function DirectionalLightSection({ dir, shadow, updateDirectionalLight, u
             onChange={(v) => updateShadowSettings({ offsetScale: v }, true)} />
           <input type="number" className="light-inspector-input" step={0.1}
             value={shadow.offsetScale}
-            onChange={(e) => updateShadowSettings({ offsetScale: parseFloat(e.target.value) || 0 })} />
+            onChange={(e) => updateShadowSettings({ offsetScale: parseFloat(e.target.value) || 0 })}
+            disabled={shadow.enabled !== true} />
         </div>
       </div>
     </>

@@ -271,6 +271,7 @@ ShadowLight.config = {
     upperLayerZ: 24,                  // PointLight(z=30)와 가까워지도록 상승
 
     // 그림자 설정
+    shadowEnabled: false,             // 발치 그림자(PlaneGeometry blob shadow) 활성화
     shadowOpacity: 0.4,
     shadowColor: 0x000000,
     shadowOffsetScale: 0.6,           // 광원 방향에 따른 오프셋 스케일
@@ -1430,6 +1431,16 @@ ShadowLight._addLightsToScene = function(scene) {
         if (sl.shadowMapSize != null) this.config.spotLightShadowMapSize = sl.shadowMapSize;
         if (sl.targetDistance != null) this.config.spotLightTargetDistance = sl.targetDistance;
     }
+    // editorLights에서 발치 그림자(blob shadow) 설정 동기화
+    if (!elGlobalOff && el && el.shadow) {
+        var sh = el.shadow;
+        if (sh.enabled != null) this.config.shadowEnabled = sh.enabled;
+        if (sh.opacity != null) this.config.shadowOpacity = sh.opacity;
+        if (sh.color != null) this.config.shadowColor = parseInt(sh.color.replace('#', ''), 16);
+        if (sh.offsetScale != null) this.config.shadowOffsetScale = sh.offsetScale;
+    } else if (elGlobalOff) {
+        this.config.shadowEnabled = false;
+    }
 
     // SpotLight - 플레이어 방향성 그림자 (항상 생성, visible로 제어)
     this._playerSpotLight = new THREE.SpotLight(
@@ -1885,7 +1896,7 @@ ShadowLight._createShadowMesh = function() {
  */
 ShadowLight._updateShadowMesh = function(shadowMesh, charSprite) {
     var spriteObj = charSprite._threeObj;
-    if (!spriteObj || !spriteObj.visible) {
+    if (!spriteObj || !spriteObj.visible || !this.config.shadowEnabled) {
         shadowMesh.visible = false;
         return;
     }
