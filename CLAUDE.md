@@ -4,6 +4,17 @@ RPG Maker MV의 에디터를 웹 기반으로 재구현하는 프로젝트.
 
 작업 마치면 반드시 커밋할것.
 
+## 버전 관리
+
+- **버전 태그**: git 태그로 관리 (`v0.0.7`, `v0.1.0` 등)
+- **package.json과 연동**: `npm version` 명령어로 버전 올리기 (package.json 업데이트 + git commit + git tag 자동 생성)
+  ```bash
+  npm version patch      # 0.0.7 → 0.0.8
+  npm version minor      # 0.0.7 → 0.1.0
+  npm version 0.1.0      # 직접 지정
+  ```
+- 버전 올린 후 `git push --tags`로 원격에 태그 반영
+
 > **IMPORTANT**: 반드시 `CLAUDE.local.md` 파일을 함께 읽을 것. 이 파일은 `.gitignore`에 포함되어 Git에 커밋되지 않으며, 로컬 환경에 한정된 설정(Node.js 설치 방식, 경로, 환경변수 등)을 담고 있다. 로컬 환경 관련 문제 발생 시 이 파일을 먼저 참조할 것.
 
 ## 프로젝트 개요
