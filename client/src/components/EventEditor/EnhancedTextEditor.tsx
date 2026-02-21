@@ -6,6 +6,8 @@ import {
 } from './extendedTextDefs';
 import { ExtTextHelpPanel } from './ExtTextHelpPanel';
 import { BlockPropsPanel } from './BlockPropsPanel';
+import IconPicker from '../common/IconPicker';
+import ImagePicker from '../common/ImagePicker';
 import './EnhancedTextEditor.css';
 
 // ─── 인라인 이스케이프 삽입 목록 ───
@@ -48,6 +50,11 @@ export function EnhancedTextEditor({
   const [showBlockMenu, setShowBlockMenu] = useState(false);
   const [showEscMenu, setShowEscMenu] = useState(false);
   const [selectedBlock, setSelectedBlock] = useState<BlockInfo | null>(null);
+  // 아이콘/이미지 삽입 모달
+  const [showIconModal, setShowIconModal] = useState(false);
+  const [iconInsertIdx, setIconInsertIdx] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageInsertSrc, setImageInsertSrc] = useState('');
   // 프로퍼티 패널 상태: TagEntry 배열 + content
   const [propTags, setPropTags] = useState<TagEntry[]>([]);
   const [propContent, setPropContent] = useState('');
@@ -194,6 +201,30 @@ export function EnhancedTextEditor({
     }
   }, [syncToParent]);
 
+  // ─── 아이콘 삽입 ───
+  const insertIconBlock = useCallback(() => {
+    const html = buildBlockChipHTML([{ tag: 'icon', params: { index: String(iconInsertIdx) } }], '');
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    document.execCommand('insertHTML', false, html);
+    syncToParent();
+    setShowIconModal(false);
+  }, [iconInsertIdx, syncToParent]);
+
+  // ─── 이미지 삽입 ───
+  const insertImageBlock = useCallback(() => {
+    if (!imageInsertSrc) return;
+    const html = buildBlockChipHTML([{ tag: 'picture', params: { src: imageInsertSrc, imgtype: 'pictures' } }], '');
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    document.execCommand('insertHTML', false, html);
+    syncToParent();
+    setShowImageModal(false);
+    setImageInsertSrc('');
+  }, [imageInsertSrc, syncToParent]);
+
   // ─── 프로퍼티 패널 적용 (execCommand로 undo 히스토리에 기록) ───
   const applyProps = useCallback(() => {
     if (!selectedBlock || propTags.length === 0) return;
@@ -279,6 +310,24 @@ export function EnhancedTextEditor({
                 </div>
               )}
             </div>
+
+            <div className="ete-toolbar-sep" />
+
+            {/* 아이콘/이미지 삽입 */}
+            <button
+              className="ete-toolbar-btn"
+              onMouseDown={e => { e.preventDefault(); setShowIconModal(true); setShowBlockMenu(false); setShowEscMenu(false); }}
+              title="커서 위치에 아이콘 삽입"
+            >
+              아이콘
+            </button>
+            <button
+              className="ete-toolbar-btn"
+              onMouseDown={e => { e.preventDefault(); setImageInsertSrc(''); setShowImageModal(true); setShowBlockMenu(false); setShowEscMenu(false); }}
+              title="커서 위치에 이미지 삽입 (pictures 폴더)"
+            >
+              이미지
+            </button>
 
             <div className="ete-toolbar-sep" />
 
@@ -394,6 +443,34 @@ export function EnhancedTextEditor({
       )}
 
       <ExtTextHelpPanel />
+
+      {/* 아이콘 삽입 모달 */}
+      {showIconModal && (
+        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowIconModal(false); }}>
+          <div style={{ background: '#2b2b2b', padding: 16, borderRadius: 8, minWidth: 320 }}>
+            <div style={{ color: '#ddd', marginBottom: 8, fontSize: 14, fontWeight: 600 }}>아이콘 선택</div>
+            <IconPicker value={iconInsertIdx} onChange={setIconInsertIdx} />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
+              <button className="db-btn" onClick={insertIconBlock}>삽입</button>
+              <button className="db-btn" onClick={() => setShowIconModal(false)}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 이미지 삽입 모달 */}
+      {showImageModal && (
+        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowImageModal(false); }}>
+          <div style={{ background: '#2b2b2b', padding: 16, borderRadius: 8, minWidth: 360 }}>
+            <div style={{ color: '#ddd', marginBottom: 8, fontSize: 14, fontWeight: 600 }}>이미지 선택 (pictures)</div>
+            <ImagePicker type="pictures" value={imageInsertSrc} onChange={setImageInsertSrc} />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
+              <button className="db-btn" onClick={insertImageBlock} disabled={!imageInsertSrc}>삽입</button>
+              <button className="db-btn" onClick={() => setShowImageModal(false)}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { EXTENDED_TAG_DEFS, getTagDef, type TagEntry, type TagParam } from './extendedTextDefs';
+import IconPicker from '../common/IconPicker';
+import ImagePicker from '../common/ImagePicker';
 
 interface BlockPropsPanelProps {
   propTags: TagEntry[];
@@ -9,7 +11,12 @@ interface BlockPropsPanelProps {
   onApply: () => void;
 }
 
-function renderParamInput(param: TagParam, value: string, onChangeFn: (val: string) => void) {
+function renderParamInput(
+  param: TagParam,
+  value: string,
+  onChangeFn: (val: string) => void,
+  allParams?: Record<string, string>,
+) {
   if (param.type === 'color') {
     return (
       <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -42,6 +49,24 @@ function renderParamInput(param: TagParam, value: string, onChangeFn: (val: stri
       </select>
     );
   }
+  if (param.type === 'icon-picker') {
+    return (
+      <IconPicker
+        value={parseInt(value, 10) || 0}
+        onChange={v => onChangeFn(String(v))}
+      />
+    );
+  }
+  if (param.type === 'image-picker') {
+    const imgtype = (allParams?.['imgtype'] || 'pictures') as Parameters<typeof ImagePicker>[0]['type'];
+    return (
+      <ImagePicker
+        type={imgtype}
+        value={value}
+        onChange={onChangeFn}
+      />
+    );
+  }
   return (
     <input
       type="number"
@@ -58,6 +83,8 @@ function renderParamInput(param: TagParam, value: string, onChangeFn: (val: stri
 export function BlockPropsPanel({ propTags, propContent, setPropTags, setPropContent, onApply }: BlockPropsPanelProps) {
   const [showAddTagMenu, setShowAddTagMenu] = useState(false);
   const addTagMenuRef = useRef<HTMLDivElement>(null);
+  // void 요소 (icon, picture)이면 내용 텍스트/효과 추가 숨김
+  const isAllVoid = propTags.length > 0 && propTags.every(e => getTagDef(e.tag)?.void);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -102,7 +129,8 @@ export function BlockPropsPanel({ propTags, propContent, setPropTags, setPropCon
                   entry.params[param.key] ?? String(param.defaultValue),
                   val => setPropTags(prev => prev.map((e, i) =>
                     i === idx ? { ...e, params: { ...e.params, [param.key]: val } } : e
-                  ))
+                  )),
+                  entry.params,
                 )}
               </div>
             ))}
@@ -110,16 +138,19 @@ export function BlockPropsPanel({ propTags, propContent, setPropTags, setPropCon
         );
       })}
 
-      <div className="ete-props-content-row">
-        <div className="ete-props-label">내용 텍스트</div>
-        <textarea
-          className="ete-props-content-input"
-          rows={2}
-          value={propContent}
-          onChange={e => setPropContent(e.target.value)}
-        />
-      </div>
+      {!isAllVoid && (
+        <div className="ete-props-content-row">
+          <div className="ete-props-label">내용 텍스트</div>
+          <textarea
+            className="ete-props-content-input"
+            rows={2}
+            value={propContent}
+            onChange={e => setPropContent(e.target.value)}
+          />
+        </div>
+      )}
 
+      {!isAllVoid && (
       <div className="ete-dropdown-wrap ete-props-add-wrap" ref={addTagMenuRef}>
         <button
           className="ete-props-add-btn"
@@ -157,6 +188,7 @@ export function BlockPropsPanel({ propTags, propContent, setPropTags, setPropCon
           </div>
         )}
       </div>
+      )}
 
       <button className="ete-props-apply-btn" onClick={onApply}>적용</button>
     </div>

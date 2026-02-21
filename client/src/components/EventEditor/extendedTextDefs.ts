@@ -1,6 +1,6 @@
 // ─── 확장 텍스트 태그 정의 + 파서 + 직렬화 ───
 
-export type TagParamType = 'color' | 'number' | 'select';
+export type TagParamType = 'color' | 'number' | 'select' | 'icon-picker' | 'image-picker';
 
 export interface TagParam {
   key: string;
@@ -16,9 +16,11 @@ export interface TagParam {
 export interface TagDef {
   tag: string;
   label: string;
-  category: 'visual' | 'animation' | 'timing';
+  category: 'visual' | 'animation' | 'timing' | 'inline';
   badgeColor: string;
   params: TagParam[];
+  /** 자식 내용이 없는 인라인 void 요소 (icon, picture 등) */
+  void?: boolean;
 }
 
 // 블록 하나에 적용된 단일 태그 항목 (여러 개가 모이면 중첩 효과)
@@ -126,6 +128,36 @@ export const EXTENDED_TAG_DEFS: TagDef[] = [
       { key: 'flicker', label: '깜빡임', type: 'number', defaultValue: 0.3, min: 0, max: 1, step: 0.1 },
     ],
   },
+  {
+    tag: 'icon',
+    label: '아이콘',
+    category: 'inline',
+    badgeColor: '#e67e22',
+    void: true,
+    params: [
+      { key: 'index', label: '아이콘 번호', type: 'icon-picker', defaultValue: '0' },
+    ],
+  },
+  {
+    tag: 'picture',
+    label: '이미지',
+    category: 'inline',
+    badgeColor: '#27ae60',
+    void: true,
+    params: [
+      { key: 'src', label: '파일', type: 'image-picker', defaultValue: '' },
+      {
+        key: 'imgtype',
+        label: '종류',
+        type: 'select',
+        defaultValue: 'pictures',
+        options: [
+          { value: 'pictures', label: '그림' },
+          { value: 'system', label: '시스템' },
+        ],
+      },
+    ],
+  },
 ];
 
 export function getTagDef(tag: string): TagDef | undefined {
@@ -200,6 +232,23 @@ export function parseExtendedText(raw: string): AnyTextSeg[] {
         }
       }
 
+      // 자기 닫힘 태그 확인 (void 요소): <tagname attrs/>
+      const selfCloseMatch = raw.slice(pos).match(/^<([a-zA-Z][a-zA-Z0-9-]*)(\s[^>]*)?\s*\/>/);
+      if (selfCloseMatch) {
+        flushText();
+        const tag = selfCloseMatch[1];
+        const paramsStr = selfCloseMatch[2] || '';
+        pos += selfCloseMatch[0].length;
+        const params: Record<string, string> = {};
+        const paramRe = /(\w+)=(?:"([^"]*)"|(\S+))/g;
+        let pm: RegExpExecArray | null;
+        while ((pm = paramRe.exec(paramsStr)) !== null) {
+          params[pm[1]] = pm[2] !== undefined ? pm[2] : pm[3];
+        }
+        children.push({ type: 'block', tag, params, children: [] });
+        continue;
+      }
+
       // 시작 태그 확인: <tagname attrs>
       const openMatch = raw.slice(pos).match(/^<([a-zA-Z][a-zA-Z0-9-]*)(\s[^>]*)?\s*>/);
       if (openMatch) {
@@ -239,6 +288,15 @@ export function serializeExtendedText(segments: AnyTextSeg[]): string {
     if (seg.type === 'text') return seg.text;
     if (seg.type === 'escape') return seg.raw;
     if (seg.type === 'block') {
+      const def = getTagDef(seg.tag);
+      if (def?.void) {
+        // void 요소: <tag key="val"/> 자기 닫힘 형식
+        const paramsStr = Object.entries(seg.params)
+          .filter(([, v]) => v !== '')
+          .map(([k, v]) => `${k}="${v}"`)
+          .join(' ');
+        return paramsStr ? `<${seg.tag} ${paramsStr}/>` : `<${seg.tag}/>`;
+      }
       const paramsStr = Object.entries(seg.params)
         .filter(([, v]) => v !== '')
         .map(([k, v]) => `${k}=${v}`)
@@ -268,11 +326,21 @@ export function entriesToRaw(tags: TagEntry[], content: string): string {
   let result = content;
   for (let i = tags.length - 1; i >= 0; i--) {
     const { tag, params } = tags[i];
-    const ps = Object.entries(params)
-      .filter(([, v]) => v !== '')
-      .map(([k, v]) => `${k}=${v}`)
-      .join(' ');
-    result = ps ? `<${tag} ${ps}>${result}</${tag}>` : `<${tag}>${result}</${tag}>`;
+    const def = getTagDef(tag);
+    if (def?.void) {
+      // void 요소: 자기 닫힘 형식 (<icon index="5"/>)
+      const ps = Object.entries(params)
+        .filter(([, v]) => v !== '')
+        .map(([k, v]) => `${k}="${v}"`)
+        .join(' ');
+      result = ps ? `<${tag} ${ps}/>` : `<${tag}/>`;
+    } else {
+      const ps = Object.entries(params)
+        .filter(([, v]) => v !== '')
+        .map(([k, v]) => `${k}=${v}`)
+        .join(' ');
+      result = ps ? `<${tag} ${ps}>${result}</${tag}>` : `<${tag}>${result}</${tag}>`;
+    }
   }
   return result;
 }
@@ -289,20 +357,34 @@ function _esc(text: string): string {
 }
 
 export function buildBlockChipHTML(tags: TagEntry[], content: string): string {
-  const primaryColor = getTagDef(tags[0]?.tag)?.badgeColor ?? '#888';
+  const primaryDef = getTagDef(tags[0]?.tag);
+  const primaryColor = primaryDef?.badgeColor ?? '#888';
+  const isVoid = primaryDef?.void ?? false;
   const tagsJSON = _esc(JSON.stringify(tags));
   const labels = tags.map(e => {
     const def = getTagDef(e.tag);
     return `<span class="ete-block-label" style="background:${def?.badgeColor ?? '#888'}">${_esc(def?.label ?? e.tag)}</span>`;
   }).join('');
+
+  // void 요소 (icon, picture): 내용 대신 파라미터 값을 미리보기로 표시
+  let preview: string;
+  if (isVoid) {
+    const t = tags[0];
+    if (t.tag === 'icon') preview = `#${t.params.index ?? '?'}`;
+    else if (t.tag === 'picture') preview = t.params.src || '(없음)';
+    else preview = '';
+  } else {
+    preview = content || ' ';
+  }
+
   return (
-    `<span class="ete-block" ` +
+    `<span class="ete-block${isVoid ? ' ete-block-void' : ''}" ` +
     `data-ete-tags="${tagsJSON}" ` +
     `data-ete-content="${_esc(content)}" ` +
     `contenteditable="false" ` +
     `style="border-color:${primaryColor}">` +
     labels +
-    `<span class="ete-block-preview">${_esc(content || ' ')}</span>` +
+    `<span class="ete-block-preview">${_esc(preview)}</span>` +
     `<span class="ete-block-del" data-del="1">✕</span>` +
     `</span>`
   );

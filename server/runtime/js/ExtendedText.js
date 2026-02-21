@@ -263,6 +263,7 @@ var _Window_Base_convertEscapeCharacters = Window_Base.prototype.convertEscapeCh
 Window_Base.prototype.convertEscapeCharacters = function(text) {
     text = _Window_Base_convertEscapeCharacters.call(this, text);
     this._etTags = [];
+    this._etInlineItems = [];
     var self = this;
     var result = '';
     var i = 0;
@@ -270,6 +271,19 @@ Window_Base.prototype.convertEscapeCharacters = function(text) {
 
     while (i < text.length) {
         if (text[i] === '<') {
+            // 자기 닫힘 태그 우선 확인: <tag ... />  (icon, picture 등 void 요소)
+            var selfCloseMatch = text.slice(i).match(/^<([a-zA-Z][a-zA-Z0-9-]*)(\s[^>]*)?\s*\/>/);
+            if (selfCloseMatch) {
+                var scTag = selfCloseMatch[1];
+                if (scTag === 'icon' || scTag === 'picture') {
+                    var scParams = ExtendedText._parseParams(selfCloseMatch[2] || '');
+                    var itemIdx = self._etInlineItems.length;
+                    self._etInlineItems.push({ type: scTag, params: scParams });
+                    result += '\x1bETITEM[' + itemIdx + ']';
+                    i += selfCloseMatch[0].length;
+                    continue;
+                }
+            }
             var openMatch = text.slice(i).match(/^<([a-zA-Z][a-zA-Z0-9-]*)(\s[^>]*)?\s*>/);
             if (openMatch) {
                 var tag = openMatch[1];
@@ -307,7 +321,74 @@ Window_Base.prototype.processEscapeCharacter = function(code, textState) {
     switch (code) {
     case 'ETSTART': this._etProcessStart(textState); break;
     case 'ETEND':   this._etProcessEnd(textState);   break;
+    case 'ETITEM':  this._etProcessInlineItem(textState); break;
     default: _Window_Base_processEscapeCharacter.call(this, code, textState); break;
+    }
+};
+
+//─── 인라인 아이템 처리 (icon / picture) ───
+Window_Base.prototype._etProcessInlineItem = function(textState) {
+    var idx = this.obtainEscapeParam(textState);
+    var item = this._etInlineItems && this._etInlineItems[idx];
+    if (!item) return;
+
+    var lh = this.lineHeight ? this.lineHeight() : 36;
+    var beforeX = textState.x;
+
+    if (item.type === 'icon') {
+        // 표준 RPG Maker MV 아이콘 그리기
+        var iconIndex = parseInt(item.params.index || '0', 10);
+        this.processDrawIcon(iconIndex, textState);
+    } else if (item.type === 'picture') {
+        var src = item.params.src || '';
+        var imgtype = item.params.imgtype || 'pictures';
+        var bmp = null;
+        try {
+            if (imgtype === 'pictures') bmp = ImageManager.loadPicture(src);
+            else if (imgtype === 'system') bmp = ImageManager.loadSystem(src);
+            else bmp = ImageManager.loadPicture(src);
+        } catch(e) { bmp = null; }
+
+        if (bmp && bmp.isReady() && bmp.width > 0 && bmp.height > 0) {
+            // 폰트 높이(lh)에 맞춰 원본 비율로 축소
+            var drawW = Math.round(bmp.width / bmp.height * lh);
+            if (this.contents) {
+                this.contents.blt(bmp, 0, 0, bmp.width, bmp.height,
+                    textState.x, textState.y, drawW, lh);
+            }
+            textState.x += drawW;
+        } else {
+            // 미로딩: 빈 사각형 플레이스홀더
+            var phW = lh;
+            if (this.contents && this.contents._context) {
+                var ctx = this.contents._context;
+                ctx.save();
+                ctx.strokeStyle = '#888';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(textState.x + 1, textState.y + 1, phW - 2, lh - 2);
+                ctx.restore();
+            }
+            textState.x += phW;
+        }
+    }
+
+    // 활성화된 이펙트 세그먼트에 이 아이템의 위치/크기를 'char'로 등록
+    var chW = textState.x - beforeX;
+    if (this._etEffectStack && this._etEffectStack.length > 0) {
+        for (var i = 0; i < this._etEffectStack.length; i++) {
+            var seg = this._etEffectStack[i];
+            if (seg.gradientActive || seg.shakeActive || seg.hologramActive ||
+                seg.gradientWaveActive || seg.fadeActive || seg.dissolveActive || seg.blurFadeActive) {
+                seg.chars.push({
+                    c: item.type === 'icon' ? 'ETICON' : 'ETPIC',
+                    x: beforeX, y: textState.y, h: lh,
+                    _width: chW,
+                    _isInline: true,
+                    _inlineType: item.type,
+                    _inlineParams: item.params,
+                });
+            }
+        }
     }
 };
 
@@ -491,7 +572,8 @@ Window_Base.prototype._etRedrawGradient = function(saved) {
     var bmp = this.contents;
     var lh = chars[0].h || this.lineHeight();
     var startX = saved.startX;
-    var endX = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c);
+    var lastCh = chars[chars.length-1];
+    var endX = lastCh.x + (lastCh._width !== undefined ? lastCh._width : this.textWidth(lastCh.c));
     var y0 = saved.startY;
     var ow = bmp.outlineWidth || 4;
     if (bmp.clearRect && !this._etNoClearRect) bmp.clearRect(startX - ow, y0, endX - startX + ow*2, lh);
@@ -499,10 +581,11 @@ Window_Base.prototype._etRedrawGradient = function(saved) {
     var savedColor = bmp.textColor;
     var count = chars.length;
     for (var i = 0; i < count; i++) {
+        var ch = chars[i];
+        if (ch._isInline) continue; // 인라인 아이템 (icon/picture)은 색상 재그리기 스킵
         var t = count > 1 ? i / (count-1) : 0;
         var color = (saved.direction === 'v') ? saved.color1 : ExtendedText._lerpColor(saved.color1, saved.color2, t);
         this.changeTextColor(color);
-        var ch = chars[i];
         bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c)*2, ch.h || lh);
         ch.finalColor = color;
     }
@@ -517,7 +600,8 @@ Window_Base.prototype._etRedrawGradientWave = function(saved) {
     var bmp = this.contents;
     var lh = chars[0].h || this.lineHeight();
     var startX = saved.startX;
-    var endX = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c);
+    var lastChGW = chars[chars.length-1];
+    var endX = lastChGW.x + (lastChGW._width !== undefined ? lastChGW._width : this.textWidth(lastChGW.c));
     var totalW = endX - startX;
     var y0 = saved.startY;
     var ow = bmp.outlineWidth || 4;
@@ -526,6 +610,7 @@ Window_Base.prototype._etRedrawGradientWave = function(saved) {
     var savedColor = bmp.textColor;
     for (var i = 0; i < chars.length; i++) {
         var ch = chars[i];
+        if (ch._isInline) continue; // 인라인 아이템 스킵
         // HSV hue: 글자 위치 기반 (0~1, GLSL shader와 동일 공식)
         var hue = totalW > 0 ? (ch.x - startX) / totalW : 0;
         var color = ExtendedText._hsv2css(hue, 1.0, 0.62);
@@ -578,7 +663,9 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
 
     var segX = chars[0].x;
     var segY = chars[0].y;
-    var segEndX = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c);
+    var lastCh = chars[chars.length-1];
+    var lastW = lastCh._width !== undefined ? lastCh._width : this.textWidth(lastCh.c);
+    var segEndX = lastCh.x + lastW;
     var segW = Math.max(1, segEndX - segX + clearL * 2);
     var segH = Math.max(1, lh + 4);
     var srcX = segX - clearL;
@@ -686,7 +773,7 @@ Window_Base.prototype._etEnsureShakeMeshes = function(seg, THREE, target) {
 
     for (var ci = 0; ci < chars.length; ci++) {
         var ch    = chars[ci];
-        var rawW  = this.textWidth ? this.textWidth(ch.c) : fontSize;
+        var rawW  = ch._width !== undefined ? ch._width : (this.textWidth ? this.textWidth(ch.c) : fontSize);
         var charW = Math.max(1, Math.ceil(rawW) + clearL * 2);
 
         // 글자 하나짜리 오프스크린 캔버스
@@ -696,19 +783,30 @@ Window_Base.prototype._etEnsureShakeMeshes = function(seg, THREE, target) {
         var offCtx = offCanvas.getContext('2d');
         if (offCtx) {
             offCtx.clearRect(0, 0, charW, segH);
-            offCtx.save();
-            offCtx.font         = fontSize + 'px ' + fontFace;
-            offCtx.textBaseline = 'alphabetic';
-            offCtx.textAlign    = 'left';
-            offCtx.lineJoin     = 'round';
-            if (outlineW > 0) {
-                offCtx.strokeStyle = outlineCol;
-                offCtx.lineWidth   = outlineW;
-                offCtx.strokeText(ch.c, clearL, baselineY);
+            if (ch._isInline) {
+                // 인라인 아이템: 메인 비트맵에서 이미 그려진 내용을 복사
+                var srcBmpCanvasSh = bmp._canvas || (bmp._context && bmp._context.canvas);
+                if (srcBmpCanvasSh) {
+                    var shDrawY = (segH - lh) / 2;
+                    offCtx.drawImage(srcBmpCanvasSh,
+                        ch.x - clearL, ch.y, charW, lh,
+                        0, shDrawY, charW, lh);
+                }
+            } else {
+                offCtx.save();
+                offCtx.font         = fontSize + 'px ' + fontFace;
+                offCtx.textBaseline = 'alphabetic';
+                offCtx.textAlign    = 'left';
+                offCtx.lineJoin     = 'round';
+                if (outlineW > 0) {
+                    offCtx.strokeStyle = outlineCol;
+                    offCtx.lineWidth   = outlineW;
+                    offCtx.strokeText(ch.c, clearL, baselineY);
+                }
+                offCtx.fillStyle = ch.finalColor || ch.color || '#ffffff';
+                offCtx.fillText(ch.c, clearL, baselineY);
+                offCtx.restore();
             }
-            offCtx.fillStyle = ch.finalColor || ch.color || '#ffffff';
-            offCtx.fillText(ch.c, clearL, baselineY);
-            offCtx.restore();
         }
 
         var tex = new THREE.CanvasTexture(offCanvas);
