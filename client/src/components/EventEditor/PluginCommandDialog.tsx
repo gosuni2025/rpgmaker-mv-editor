@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import apiClient from '../../api/client';
 import { ADDON_COMMANDS } from './addonCommands';
 import AddonCommandEditor, { parseAddonProps } from './AddonCommandEditor';
+import { DataListPicker } from './dataListPicker';
 import './PluginCommandDialog.css';
 
 interface PluginArgMeta {
@@ -19,12 +20,17 @@ interface PluginArgMeta {
 interface DbEntry {
   id: number;
   name: string;
+  iconIndex?: number;
 }
 
 const DB_TYPE_ENDPOINT: Record<string, string> = {
   item: 'items', weapon: 'weapons', armor: 'armors', enemy: 'enemies',
 };
 const PICKER_TYPES = new Set(Object.keys(DB_TYPE_ENDPOINT));
+
+const PICKER_TITLES: Record<string, string> = {
+  item: '아이템 선택', weapon: '무기 선택', armor: '방어구 선택', enemy: '적 선택',
+};
 
 interface PluginCommandMeta {
   name: string;
@@ -77,9 +83,8 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
   const [directText, setDirectText] = useState(existingText || '');
   const [argValues, setArgValues] = useState<string[]>([]);
 
-  const [dbCache, setDbCache] = useState<Record<string, DbEntry[]>>({});
+  const [dbCache, setDbCache] = useState<Record<string, (DbEntry | null)[]>>({});
   const [picker, setPicker] = useState<{ argIndex: number; type: string } | null>(null);
-  const [pickerSearch, setPickerSearch] = useState('');
 
   // addonCommandData에 있는 pluginCommand 집합
   const addonKeySet = new Set(ADDON_COMMANDS.map(d => d.pluginCommand));
@@ -164,8 +169,7 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
     if (!endpoint) return;
     try {
       const raw = await apiClient.get<(DbEntry | null)[]>(`/database/${endpoint}`);
-      const list = (raw || []).filter((e): e is DbEntry => !!e && !!e.name);
-      setDbCache(prev => ({ ...prev, [type]: list }));
+      setDbCache(prev => ({ ...prev, [type]: raw || [] }));
     } catch {
       setDbCache(prev => ({ ...prev, [type]: [] }));
     }
@@ -439,7 +443,7 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
     if (PICKER_TYPES.has(arg.type)) {
       const id = parseInt(value) || 0;
       const list = dbCache[arg.type];
-      const entry = list?.find(e => e.id === id);
+      const entry = id > 0 ? list?.[id] : undefined;
       const label = id > 0 ? `#${String(id).padStart(3, '0')}  ${entry?.name ?? '...'}` : '선택...';
       return (
         <button
@@ -447,7 +451,6 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
           onClick={() => {
             loadDbData(arg.type);
             setPicker({ argIndex: i, type: arg.type });
-            setPickerSearch('');
           }}
         >
           {label}
@@ -528,51 +531,23 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
         </div>
       </div>
 
-      {picker && (
-        <div className="modal-overlay" style={{ zIndex: 2100 }} onClick={() => setPicker(null)}>
-          <div className="pcmd-picker" onClick={e => e.stopPropagation()}>
-            <div className="pcmd-picker-header">
-              <input
-                autoFocus
-                className="pcmd-picker-search"
-                placeholder="이름 또는 번호 검색..."
-                value={pickerSearch}
-                onChange={e => setPickerSearch(e.target.value)}
-              />
-              <button className="pcmd-picker-close" onClick={() => setPicker(null)}>✕</button>
-            </div>
-            <div className="pcmd-picker-list">
-              {!dbCache[picker.type] && (
-                <div className="pcmd-picker-empty">로딩 중...</div>
-              )}
-              {dbCache[picker.type]?.length === 0 && (
-                <div className="pcmd-picker-empty">데이터가 없습니다</div>
-              )}
-              {dbCache[picker.type]
-                ?.filter(e => {
-                  if (!pickerSearch) return true;
-                  const s = pickerSearch.toLowerCase();
-                  return e.name.toLowerCase().includes(s) || String(e.id).includes(s);
-                })
-                .map(e => (
-                  <div
-                    key={e.id}
-                    className="pcmd-picker-item"
-                    onClick={() => {
-                      const next = [...argValues];
-                      next[picker.argIndex] = String(e.id);
-                      setArgValues(next);
-                      setPicker(null);
-                    }}
-                  >
-                    <span className="pcmd-picker-num">#{String(e.id).padStart(3, '0')}</span>
-                    <span className="pcmd-picker-name">{e.name}</span>
-                  </div>
-                ))
-              }
-            </div>
-          </div>
-        </div>
+      {picker && dbCache[picker.type] && (
+        <DataListPicker
+          title={PICKER_TITLES[picker.type] ?? '선택'}
+          items={(dbCache[picker.type]!).map(e => e?.name ?? '')}
+          value={parseInt(argValues[picker.argIndex]) || 0}
+          iconIndices={
+            ['item', 'weapon', 'armor'].includes(picker.type)
+              ? (dbCache[picker.type]!).map(e => e?.iconIndex)
+              : undefined
+          }
+          onChange={id => {
+            const next = [...argValues];
+            next[picker.argIndex] = String(id);
+            setArgValues(next);
+          }}
+          onClose={() => setPicker(null)}
+        />
       )}
     </>
   );
