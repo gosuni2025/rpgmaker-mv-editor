@@ -124,6 +124,8 @@ DataManager._loadMapExtFile = function(extFilename) {
     var _extUrl = 'data/' + extFilename + (_cb && _cb.data ? '?v=' + _cb.buildId : '');
     xhr.open('GET', _extUrl);
     xhr.overrideMimeType('application/json');
+    // 서버가 응답하지 않을 경우 무한 대기 방지 (3초 타임아웃)
+    xhr.timeout = 3000;
     xhr.onload = function() {
         if (xhr.status < 400) {
             try {
@@ -138,6 +140,9 @@ DataManager._loadMapExtFile = function(extFilename) {
         DataManager._mapExtLoaded = true;
     };
     xhr.onerror = function() {
+        DataManager._mapExtLoaded = true;
+    };
+    xhr.ontimeout = function() {
         DataManager._mapExtLoaded = true;
     };
     xhr.send();

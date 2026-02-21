@@ -294,7 +294,13 @@ export function createApp(options: AppOptions = {}) {
       }
       return;
     }
-    express.static(path.join(projectManager.currentPath!, 'data'))(req, res, next);
+    // express.static이 파일을 찾지 못하면 next()를 호출하는데,
+    // 이후 catch-all 핸들러가 /game/ 경로에 응답하지 않아 XHR이 무한 대기함.
+    // (_mapExtLoaded가 영원히 false → Now Loading 무한 대기 버그)
+    // → 파일 없을 때 명시적으로 404 반환
+    express.static(path.join(projectManager.currentPath!, 'data'))(req, res, () => {
+      if (!res.headersSent) res.status(404).send('Not found');
+    });
   });
   app.use('/game/img', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
@@ -342,7 +348,9 @@ export function createApp(options: AppOptions = {}) {
       }
       return;
     }
-    express.static(path.join(projectManager.currentPath!, 'data'))(req, res, next);
+    express.static(path.join(projectManager.currentPath!, 'data'))(req, res, () => {
+      if (!res.headersSent) res.status(404).send('Not found');
+    });
   });
   app.use('/audio', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
