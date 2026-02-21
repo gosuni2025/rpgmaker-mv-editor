@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
-import useEscClose from '../../hooks/useEscClose';
+import Dialog from '../common/Dialog';
 import apiClient from '../../api/client';
 import ActorsTab from './ActorsTab';
 import ClassesTab from './ClassesTab';
@@ -73,7 +73,6 @@ export default function DatabaseDialog() {
   const { t } = useTranslation();
   const setShowDatabaseDialog = useEditorStore((s) => s.setShowDatabaseDialog);
   const showToast = useEditorStore((s) => s.showToast);
-  useEscClose(useCallback(() => setShowDatabaseDialog(false), [setShowDatabaseDialog]));
   const [activeTab, setActiveTab] = useState('actors');
   const [tabData, setTabData] = useState<Record<string, unknown>>({});
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
@@ -215,43 +214,45 @@ export default function DatabaseDialog() {
   const TabComponent = TAB_COMPONENTS[activeTab];
   const activeDataKey = getDataKey(activeTab);
 
+  const handleClose = useCallback(() => setShowDatabaseDialog(false), [setShowDatabaseDialog]);
+
   return (
-    <div className="db-dialog-overlay">
-      <div className="db-dialog">
-        <div className="db-dialog-header">{t('database.title')}</div>
-        <div className="db-dialog-body">
-          <div className="db-tab-bar">
-            {TABS.map((tab) => (
-              <div
-                key={tab.key}
-                className={`db-tab-item${activeTab === tab.key ? ' active' : ''}`}
-                onClick={() => setActiveTab(tab.key)}
-              >
-                {t(tab.labelKey)}
-              </div>
-            ))}
-          </div>
-          <div className="db-tab-content">
-            {loading && <div className="db-loading">{t('common.loading')}</div>}
-            {!loading && TabComponent && (
-              <TabComponent
-                data={tabData[activeDataKey]}
-                onChange={(newData: unknown) => handleDataChange(activeTab, newData)}
-              />
-            )}
-            {!loading && !TabComponent && (
-              <div className="db-placeholder">
-                {t(TABS.find((tb) => tb.key === activeTab)?.labelKey || '')} - {t('common.preparing')}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="db-dialog-footer">
+    <Dialog
+      title={t('database.title')}
+      onClose={handleClose}
+      footer={
+        <>
           <button className="db-btn" onClick={handleOk}>{t('common.ok')}</button>
           <button className="db-btn" onClick={handleCancel}>{t('common.cancel')}</button>
           <button className="db-btn" onClick={handleApply}>{t('common.apply')}</button>
-        </div>
+        </>
+      }
+    >
+      <div className="db-tab-bar">
+        {TABS.map((tab) => (
+          <div
+            key={tab.key}
+            className={`db-tab-item${activeTab === tab.key ? ' active' : ''}`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {t(tab.labelKey)}
+          </div>
+        ))}
       </div>
-    </div>
+      <div className="db-tab-content">
+        {loading && <div className="db-loading">{t('common.loading')}</div>}
+        {!loading && TabComponent && (
+          <TabComponent
+            data={tabData[activeDataKey]}
+            onChange={(newData: unknown) => handleDataChange(activeTab, newData)}
+          />
+        )}
+        {!loading && !TabComponent && (
+          <div className="db-placeholder">
+            {t(TABS.find((tb) => tb.key === activeTab)?.labelKey || '')} - {t('common.preparing')}
+          </div>
+        )}
+      </div>
+    </Dialog>
   );
 }

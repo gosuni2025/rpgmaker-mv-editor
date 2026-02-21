@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
-import useEscClose from '../../hooks/useEscClose';
+import Dialog from '../common/Dialog';
 import apiClient from '../../api/client';
 import CacheBustSection, { CacheBustOpts, DEFAULT_CACHE_BUST_OPTS } from '../common/CacheBustSection';
 import { Tab } from './types';
@@ -13,7 +13,6 @@ import './DeployDialog.css';
 export default function DeployDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowDeployDialog);
-  useEscClose(useCallback(() => setShow(false), [setShow]));
 
   const [tab, setTab] = useState<Tab>('netlify');
   const [cbOpts, setCbOpts] = useState<CacheBustOpts>(DEFAULT_CACHE_BUST_OPTS);
@@ -37,39 +36,41 @@ export default function DeployDialog() {
     }).catch(() => {}).finally(() => setSettingsLoaded(true));
   }, []);
 
+  const handleClose = useCallback(() => setShow(false), [setShow]);
+
   if (!settingsLoaded) return null;
 
   return (
-    <div className="db-dialog-overlay">
-      <div className="db-dialog deploy-dialog">
-        <div className="db-dialog-header">{t('deploy.title')}</div>
-
-        <div className="deploy-tabs">
-          {(['netlify', 'ghpages', 'local'] as Tab[]).map((id) => (
-            <button key={id} className={`deploy-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>
-              {t(id === 'netlify' ? 'deploy.tabNetlify' : id === 'ghpages' ? 'deploy.tabGhPages' : 'deploy.tabLocal')}
-            </button>
-          ))}
-        </div>
-
-        <div className="deploy-content">
-          {tab === 'netlify' && (
-            <NetlifyTab cbOpts={cbOpts} initialApiKey={initialApiKey} initialSiteId={initialSiteId} initialSiteUrl={initialSiteUrl} />
-          )}
-          {tab === 'ghpages' && (
-            <GhPagesTab cbOpts={cbOpts} initialRemote={initialGhRemote} />
-          )}
-          {tab === 'local' && (
-            <LocalTab cbOpts={cbOpts} />
-          )}
-
-          <CacheBustSection opts={cbOpts} onChange={setCbOpts} />
-        </div>
-
-        <div className="db-dialog-footer">
-          <button className="db-btn" onClick={() => setShow(false)}>{t('common.close')}</button>
-        </div>
+    <Dialog
+      title={t('deploy.title')}
+      onClose={handleClose}
+      className="deploy-dialog"
+      noBody
+      footer={
+        <button className="db-btn" onClick={() => setShow(false)}>{t('common.close')}</button>
+      }
+    >
+      <div className="deploy-tabs">
+        {(['netlify', 'ghpages', 'local'] as Tab[]).map((id) => (
+          <button key={id} className={`deploy-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>
+            {t(id === 'netlify' ? 'deploy.tabNetlify' : id === 'ghpages' ? 'deploy.tabGhPages' : 'deploy.tabLocal')}
+          </button>
+        ))}
       </div>
-    </div>
+
+      <div className="deploy-content">
+        {tab === 'netlify' && (
+          <NetlifyTab cbOpts={cbOpts} initialApiKey={initialApiKey} initialSiteId={initialSiteId} initialSiteUrl={initialSiteUrl} />
+        )}
+        {tab === 'ghpages' && (
+          <GhPagesTab cbOpts={cbOpts} initialRemote={initialGhRemote} />
+        )}
+        {tab === 'local' && (
+          <LocalTab cbOpts={cbOpts} />
+        )}
+
+        <CacheBustSection opts={cbOpts} onChange={setCbOpts} />
+      </div>
+    </Dialog>
   );
 }
