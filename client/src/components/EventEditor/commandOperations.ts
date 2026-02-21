@@ -100,25 +100,8 @@ export function buildToggleDisabledCommands(
     });
   }
 
-  // 주석 처리: 연속형 부속 코드(401/405/655/605)가 선택된 경우 부모 주 명령어를 추가하여
-  // 블록 전체(예: 텍스트 표시 + 텍스트 줄들)가 함께 처리되도록 함
-  const augmented = new Set(indices);
-  for (const idx of indices) {
-    const cmd = commands[idx];
-    if (!cmd) continue;
-    // 위쪽으로 탐색: 같은 부속 코드를 건너뛰고, 바로 아래에 부모 주 명령어가 있으면 추가
-    for (let i = idx - 1; i >= 0; i--) {
-      const pc = commands[i];
-      if (pc.code === cmd.code) continue; // 동일 부속 코드 건너뜀
-      if (CONTINUATION_CODES[pc.code] === cmd.code && pc.indent === cmd.indent) {
-        augmented.add(i);
-      }
-      break;
-    }
-  }
-
-  // 블록 구조를 포함해 그룹 단위로 범위 확장, 각 연속 범위에 독립 blockId 부여
-  const expandedRanges = expandSelectionToGroups(commands, augmented);
+  // 주석 처리: 블록 구조를 포함해 그룹 단위로 범위 확장, 각 연속 범위에 독립 blockId 부여
+  const expandedRanges = expandSelectionToGroups(commands, indices);
   const expandedMap = new Map<number, string>(); // index → blockId
   for (const [start, end] of expandedRanges) {
     const bid = generateBlockId();
