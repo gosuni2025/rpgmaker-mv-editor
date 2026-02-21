@@ -21,6 +21,7 @@ interface FileInfo {
   name: string;
   size: number;
   mtime: number;
+  isDir?: boolean;
 }
 
 type SortMode = 'name' | 'size' | 'mtime';
@@ -217,7 +218,16 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
   const [currentSubDir, setCurrentSubDir] = useState('');
   // img/ 전체 탐색 모드: type 루트에서 상위로 이동 시 활성화
   const [fetchType, setFetchType] = useState<string>(type);
+  // 하위폴더 미리 읽기 (false = 현재 폴더만, true = 전체 재귀)
+  const [prefetchSubdirs, setPrefetchSubdirs] = useState(true);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // non-recursive 모드에서 폴더 이동 시 서버에 재요청
+  const fetchShallow = useCallback((ft: string, subdir: string) => {
+    const subdirParam = subdir ? `&subdir=${encodeURIComponent(subdir)}` : '';
+    apiClient.get<FileInfo[]>(`/resources/${ft}?recursive=0${subdirParam}`)
+      .then(setFiles).catch(() => setFiles([]));
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -232,8 +242,21 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     const ft = isImgMode ? 'img' : type;
     setFetchType(ft);
     const lastSlash = value.lastIndexOf('/');
-    setCurrentSubDir(lastSlash !== -1 ? value.substring(0, lastSlash) : '');
-    apiClient.get<FileInfo[]>(`/resources/${ft}?detail=1`).then(setFiles).catch(() => setFiles([]));
+    const subdir = lastSlash !== -1 ? value.substring(0, lastSlash) : '';
+    setCurrentSubDir(subdir);
+    // project-settings에서 imagePrefetchSubdirs 로드
+    apiClient.get<{ imagePrefetchSubdirs?: boolean }>('/project-settings').then(ps => {
+      const pref = ps.imagePrefetchSubdirs !== false;
+      setPrefetchSubdirs(pref);
+      if (pref) {
+        apiClient.get<FileInfo[]>(`/resources/${ft}?detail=1`).then(setFiles).catch(() => setFiles([]));
+      } else {
+        fetchShallow(ft, subdir);
+      }
+    }).catch(() => {
+      // 프로젝트가 없으면 recursive 모드로 폴백
+      apiClient.get<FileInfo[]>(`/resources/${ft}?detail=1`).then(setFiles).catch(() => setFiles([]));
+    });
     // 검색 입력창에 포커스
     setTimeout(() => searchInputRef.current?.focus(), 100);
   }, [open]);
@@ -256,8 +279,16 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
   // 현재 폴더 기준 파일/하위폴더 분리 (검색 중에는 전체 표시)
   const { currentFiles, currentFolders } = useMemo(() => {
     if (searchQuery) {
-      return { currentFiles: filteredAndSorted, currentFolders: [] };
+      return { currentFiles: filteredAndSorted.filter(f => !f.isDir), currentFolders: [] };
     }
+    // non-recursive 모드: 서버가 이미 현재 폴더 기준 항목을 반환
+    if (!prefetchSubdirs) {
+      return {
+        currentFiles: filteredAndSorted.filter(f => !f.isDir),
+        currentFolders: filteredAndSorted.filter(f => f.isDir).map(f => f.name).sort(),
+      };
+    }
+    // recursive 모드: prefix 필터링
     const prefix = currentSubDir ? currentSubDir + '/' : '';
     const filesInDir: FileInfo[] = [];
     const foldersInDir = new Set<string>();
@@ -275,28 +306,44 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
       currentFiles: filesInDir,
       currentFolders: Array.from(foldersInDir).sort(),
     };
-  }, [filteredAndSorted, currentSubDir, searchQuery]);
+  }, [filteredAndSorted, currentSubDir, searchQuery, prefetchSubdirs]);
 
   const navigateToFolder = (folderName: string) => {
-    setCurrentSubDir(prev => prev ? `${prev}/${folderName}` : folderName);
+    const next = currentSubDir ? `${currentSubDir}/${folderName}` : folderName;
+    setCurrentSubDir(next);
     setSearchQuery('');
+    if (!prefetchSubdirs) fetchShallow(fetchType, next);
   };
 
   const navigateUp = () => {
     const slash = currentSubDir.lastIndexOf('/');
-    if (slash !== -1) {
-      setCurrentSubDir(currentSubDir.substring(0, slash));
-    } else if (currentSubDir !== '') {
-      setCurrentSubDir('');
-    }
+    const next = slash !== -1 ? currentSubDir.substring(0, slash) : '';
+    setCurrentSubDir(next);
+    if (!prefetchSubdirs) fetchShallow(fetchType, next);
   };
 
   // type 루트에서 img/ 전체 탐색 모드로 전환
   const navigateToImgRoot = () => {
     setFetchType('img');
-    setCurrentSubDir(type); // img/ 기준에서 기존 type 폴더에서 시작
+    const next = type; // img/ 기준에서 기존 type 폴더에서 시작
+    setCurrentSubDir(next);
     setSearchQuery('');
-    apiClient.get<FileInfo[]>(`/resources/img?detail=1`).then(setFiles).catch(() => setFiles([]));
+    if (prefetchSubdirs) {
+      apiClient.get<FileInfo[]>(`/resources/img?detail=1`).then(setFiles).catch(() => setFiles([]));
+    } else {
+      fetchShallow('img', next);
+    }
+  };
+
+  // 체크박스 변경: project-settings 저장 + 파일 목록 재fetch
+  const handlePrefetchChange = (checked: boolean) => {
+    setPrefetchSubdirs(checked);
+    apiClient.put('/project-settings', { imagePrefetchSubdirs: checked }).catch(() => {});
+    if (checked) {
+      apiClient.get<FileInfo[]>(`/resources/${fetchType}?detail=1`).then(setFiles).catch(() => setFiles([]));
+    } else {
+      fetchShallow(fetchType, currentSubDir);
+    }
   };
 
   const handleOk = () => {
@@ -367,6 +414,14 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
                 <option value="size">용량순</option>
                 <option value="mtime">최신순</option>
               </select>
+              <label className="image-picker-prefetch-label" title="끄면 현재 폴더 내 파일만 로드 (대형 프로젝트 권장)">
+                <input
+                  type="checkbox"
+                  checked={prefetchSubdirs}
+                  onChange={e => handlePrefetchChange(e.target.checked)}
+                />
+                하위폴더 미리 읽기
+              </label>
             </div>
             <div className="image-picker-body">
               <div className="image-picker-list">

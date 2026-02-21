@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS = {
   screenWidth: 816,
   screenHeight: 624,
   fps: 60,
+  imagePrefetchSubdirs: true,
 };
 
 // GET /api/project-settings

@@ -48,6 +48,7 @@ export default function OptionsDialog() {
   const setShowOptionsDialog = useEditorStore((s) => s.setShowOptionsDialog);
   useEscClose(useCallback(() => setShowOptionsDialog(false), [setShowOptionsDialog]));
 
+  const projectPath = useEditorStore((s) => s.projectPath);
   const [localColor, setLocalColor] = useState(transparentColor);
   const [localLang, setLocalLang] = useState(i18n.language);
   const [localMaxUndo, setLocalMaxUndo] = useState(maxUndo);
@@ -60,6 +61,7 @@ export default function OptionsDialog() {
     gitCommit: true,
     gitAddAll: true,
   });
+  const [localImagePrefetch, setLocalImagePrefetch] = useState(true);
   const [gitStatus, setGitStatus] = useState<GitStatusResponse>({ gitAvailable: false, isGitRepo: false });
   const [activeCategory, setActiveCategory] = useState<CategoryId>('general');
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,6 +75,11 @@ export default function OptionsDialog() {
       }
     }).catch(() => {});
     apiClient.get<GitStatusResponse>('/project/git-status').then(setGitStatus).catch(() => {});
+    if (projectPath) {
+      apiClient.get<{ imagePrefetchSubdirs?: boolean }>('/project-settings')
+        .then(ps => setLocalImagePrefetch(ps.imagePrefetchSubdirs !== false))
+        .catch(() => {});
+    }
   }, []);
 
   const categories: CategoryDef[] = useMemo(() => [
@@ -163,6 +170,9 @@ export default function OptionsDialog() {
       // Notify auto-save hook of settings change
       window.dispatchEvent(new Event('autosave-settings-changed'));
     } catch {}
+    if (projectPath) {
+      apiClient.put('/project-settings', { imagePrefetchSubdirs: localImagePrefetch }).catch(() => {});
+    }
   };
 
   const handleOK = async () => {
@@ -185,7 +195,9 @@ export default function OptionsDialog() {
       case 'appearance':
         return <AppearancePanel localColor={localColor} setLocalColor={setLocalColor} />;
       case 'mapEditor':
-        return <MapEditorPanel localZoomStep={localZoomStep} setLocalZoomStep={setLocalZoomStep} />;
+        return <MapEditorPanel localZoomStep={localZoomStep} setLocalZoomStep={setLocalZoomStep}
+          localImagePrefetch={localImagePrefetch} setLocalImagePrefetch={setLocalImagePrefetch}
+          hasProject={!!projectPath} />;
       case 'autoSave':
         return <AutoSavePanel localAutoSave={localAutoSave} setLocalAutoSave={setLocalAutoSave} gitStatus={gitStatus} />;
       case 'paths':

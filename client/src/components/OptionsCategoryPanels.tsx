@@ -100,8 +100,10 @@ export function AppearancePanel({ localColor, setLocalColor }: {
 
 // --- Map Editor ---
 
-export function MapEditorPanel({ localZoomStep, setLocalZoomStep }: {
+export function MapEditorPanel({ localZoomStep, setLocalZoomStep, localImagePrefetch, setLocalImagePrefetch, hasProject }: {
   localZoomStep: number; setLocalZoomStep: (v: number) => void;
+  localImagePrefetch: boolean; setLocalImagePrefetch: (v: boolean) => void;
+  hasProject: boolean;
 }) {
   const { t } = useTranslation();
   return (
@@ -115,6 +117,19 @@ export function MapEditorPanel({ localZoomStep, setLocalZoomStep }: {
             onChange={(e) => setLocalZoomStep(Math.max(1, Math.min(100, Number(e.target.value) || 1)))} style={{ width: 80 }} />
           <span>%</span>
         </label>
+      </div>
+      <div className="db-form-section" style={{ marginTop: 16 }}>이미지 선택기 (프로젝트 설정)</div>
+      <div className="db-form" style={{ gap: 8 }}>
+        <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8, opacity: hasProject ? 1 : 0.4 }}
+          title={hasProject ? '' : '프로젝트를 열어야 설정할 수 있습니다'}>
+          <input type="checkbox" checked={localImagePrefetch}
+            disabled={!hasProject}
+            onChange={e => setLocalImagePrefetch(e.target.checked)} />
+          <span>하위폴더 미리 읽기</span>
+        </label>
+        <div style={{ fontSize: 11, color: '#888', paddingLeft: 20 }}>
+          끄면 현재 폴더 내 파일만 로드합니다. 이미지가 많은 프로젝트에서 권장합니다.
+        </div>
       </div>
     </>
   );
