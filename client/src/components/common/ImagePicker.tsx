@@ -15,6 +15,7 @@ interface ImagePickerProps {
   onDirectionChange?: (direction: number) => void;
   pattern?: number;
   onPatternChange?: (pattern: number) => void;
+  defaultOpen?: boolean;
 }
 
 interface FileInfo {
@@ -205,8 +206,8 @@ function getCellCount(type: string) {
   return 0;
 }
 
-export default function ImagePicker({ type, value, onChange, index, onIndexChange, direction, onDirectionChange, pattern, onPatternChange }: ImagePickerProps) {
-  const [open, setOpen] = useState(false);
+export default function ImagePicker({ type, value, onChange, index, onIndexChange, direction, onDirectionChange, pattern, onPatternChange, defaultOpen }: ImagePickerProps) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
   useEscClose(useCallback(() => { if (open) setOpen(false); }, [open]));
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [selected, setSelected] = useState(value);
