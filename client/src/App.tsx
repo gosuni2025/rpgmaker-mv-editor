@@ -1,12 +1,10 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import './App.css';
 import './components/ParseErrorsDialog.css';
 import './components/common/Toast.css';
 import useEditorStore from './store/useEditorStore';
 import apiClient, { ApiError } from './api/client';
 import MenuBar from './components/MenuBar/MenuBar';
-import MapTree from './components/Sidebar/MapTree';
-import TilesetPalette from './components/Sidebar/TilesetPalette';
 import ResizablePanel from './components/common/ResizablePanel';
 import StatusBar from './components/common/StatusBar';
 import DatabaseDialog from './components/Database/DatabaseDialog';
@@ -28,96 +26,17 @@ import LocalizationDialog from './components/LocalizationDialog';
 import UpdateCheckDialog from './components/UpdateCheckDialog';
 
 import AutotileDebugDialog from './components/AutotileDebugDialog';
+import SidebarSplit from './components/SidebarSplit';
 import LightInspector from './components/Sidebar/LightInspector';
 import ObjectInspector from './components/Sidebar/ObjectInspector';
 import CameraZoneInspector from './components/Sidebar/CameraZoneInspector';
-import CameraZoneListPanel from './components/Sidebar/CameraZoneListPanel';
-import ObjectListPanel from './components/Sidebar/ObjectListPanel';
 import MapInspector from './components/Sidebar/MapInspector';
 import EventInspector from './components/Sidebar/EventInspector';
 import PassageInspector from './components/Sidebar/PassageInspector';
-import EventList from './components/EventEditor/EventList';
 import useFileWatcher from './hooks/useFileWatcher';
 import useAutoSave from './hooks/useAutoSave';
 import useDialogDrag from './hooks/useDialogDrag';
 import i18n from './i18n';
-
-function SidebarSplit({ editMode }: { editMode: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [splitRatio, setSplitRatio] = useState(0.5);
-  const dragging = useRef(false);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    dragging.current = true;
-
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!dragging.current || !containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const ratio = (ev.clientY - rect.top) / rect.height;
-      setSplitRatio(Math.max(0.15, Math.min(0.85, ratio)));
-    };
-
-    const onMouseUp = () => {
-      dragging.current = false;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  }, []);
-
-  // 전용 패널만 전체 표시하는 모드들
-  if (editMode === 'event') {
-    return (
-      <div className="sidebar-split" ref={containerRef}>
-        <div className="sidebar-bottom" style={{ flex: 1 }}>
-          <EventList />
-        </div>
-      </div>
-    );
-  }
-  if (editMode === 'object') {
-    return (
-      <div className="sidebar-split" ref={containerRef}>
-        <div className="sidebar-bottom" style={{ flex: 1 }}>
-          <ObjectListPanel />
-        </div>
-      </div>
-    );
-  }
-  if (editMode === 'cameraZone') {
-    return (
-      <div className="sidebar-split" ref={containerRef}>
-        <div className="sidebar-bottom" style={{ flex: 1 }}>
-          <CameraZoneListPanel />
-        </div>
-      </div>
-    );
-  }
-  if (editMode === 'light') {
-    return (
-      <div className="sidebar-split" ref={containerRef}>
-        <div className="sidebar-bottom" style={{ flex: 1 }}>
-          <TilesetPalette />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="sidebar-split" ref={containerRef}>
-      <div className="sidebar-top" style={{ flex: `0 0 ${splitRatio * 100}%` }}>
-        <TilesetPalette />
-      </div>
-      <div className="sidebar-split-handle" onMouseDown={handleMouseDown} />
-      <div className="sidebar-bottom" style={{ flex: `0 0 ${(1 - splitRatio) * 100}%` }}>
-        <MapTree />
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   const projectPath = useEditorStore((s) => s.projectPath);
