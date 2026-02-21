@@ -146,6 +146,13 @@
         };
 
         var renderer = new THREE.WebGLRenderer(rendererOptions);
+        renderer.debug.onShaderError = function(gl, program, vs, fs) {
+            console.error('[ThreeRenderer] Shader compile error!');
+            var vsLog = gl.getShaderInfoLog(vs);
+            var fsLog = gl.getShaderInfoLog(fs);
+            if (vsLog) console.error('[VS]', vsLog);
+            if (fsLog) console.error('[FS]', fsLog);
+        };
         renderer.setSize(width, height);
         renderer.setClearColor(0x000000, 0);
 
