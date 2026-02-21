@@ -641,7 +641,10 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     mat.uniforms.tTex.value = tex;
     if (mat.uniforms.uTexH) mat.uniforms.uTexH.value = segH;
     if (mat.uniforms.uTexelSize) mat.uniforms.uTexelSize.value.set(1/Math.max(1,segW), 1/Math.max(1,segH));
-    if (mat.uniforms.uStartTime) mat.uniforms.uStartTime.value = ExtendedText._time;
+    // 복원된 _overlayStartTime이 있으면 유지 (스크롤/타이핑 중 재생성 시 애니메이션 연속성 보장)
+    // 없으면 현재 시간으로 새 애니메이션 시작
+    var startT = seg._overlayStartTime || ExtendedText._time;
+    if (mat.uniforms.uStartTime) mat.uniforms.uStartTime.value = startT;
 
     var geo = new THREE.PlaneGeometry(1, 1);
     var mesh = new THREE.Mesh(geo, mat);
@@ -656,7 +659,7 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     target.parent.add(mesh);
     seg._overlayMesh      = mesh;
     seg._overlayTex       = tex;
-    seg._overlayStartTime = ExtendedText._time;
+    seg._overlayStartTime = startT;
     seg._overlayParent    = target.parent;
     seg._etBaseWorldY = oY;
     seg._etSegH       = segH;
@@ -766,10 +769,16 @@ Window_Base.prototype._etUpdateOverlayUniforms = function(seg, t) {
         seg._overlayMesh.position.y = (seg._etBaseWorldY - scrollY) + (seg._etSegH || 0) / 2;
     }
 
-    // 애니메이션 완료 후 frozen 상태 — 위치만 갱신하고 종료
-    if (seg._etFrozen) return;
-
     var uniforms = seg._overlayMesh.material.uniforms;
+
+    // 애니메이션 완료 후 frozen 상태 — uStartTime/uTime을 완성값으로 고정 후 종료
+    // (오버레이 재생성 후에도 shader가 완성 상태 progress=1로 표시되도록)
+    if (seg._etFrozen) {
+        if (uniforms.uStartTime) uniforms.uStartTime.value = seg._overlayStartTime || 0;
+        if (uniforms.uTime) uniforms.uTime.value = (seg._overlayStartTime || 0) + 100;
+        return;
+    }
+
     if (uniforms.uTime) uniforms.uTime.value = t;
     // _overlayStartTime은 스크롤 시 _redraw()에서 복원될 수 있으므로 매 프레임 동기화
     if (uniforms.uStartTime) uniforms.uStartTime.value = seg._overlayStartTime || 0;
