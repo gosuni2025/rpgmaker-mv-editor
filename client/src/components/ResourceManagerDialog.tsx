@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
-import useEscClose from '../hooks/useEscClose';
+import Dialog from './common/Dialog';
 import apiClient from '../api/client';
 
 const RESOURCE_FOLDERS = [
@@ -32,7 +32,6 @@ interface ResourceFile {
 export default function ResourceManagerDialog() {
   const { t } = useTranslation();
   const setShowResourceManagerDialog = useEditorStore((s) => s.setShowResourceManagerDialog);
-  useEscClose(useCallback(() => setShowResourceManagerDialog(false), [setShowResourceManagerDialog]));
   const [selectedFolder, setSelectedFolder] = useState(RESOURCE_FOLDERS[0]);
   const [files, setFiles] = useState<ResourceFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -103,80 +102,78 @@ export default function ResourceManagerDialog() {
     }
   };
 
-  const handleClose = () => setShowResourceManagerDialog(false);
-
   const previewUrl = selectedFile && isImageFolder
     ? `/api/resources/${selectedFolder.replace('/', '_')}/${encodeURIComponent(selectedFile)}`
     : null;
 
   return (
-    <div className="db-dialog-overlay">
-      <div className="db-dialog" style={{ width: '70vw', height: '70vh' }}>
-        <div className="db-dialog-header">{t('resourceManager.title')}</div>
-        <div className="db-dialog-body">
-          {/* Folder list */}
-          <div className="db-list" style={{ width: 180, minWidth: 180 }}>
-            {RESOURCE_FOLDERS.map((folder) => (
-              <div
-                key={folder}
-                className={`db-list-item${folder === selectedFolder ? ' selected' : ''}`}
-                onClick={() => setSelectedFolder(folder)}
-              >
-                {folder}
-              </div>
-            ))}
+    <Dialog
+      title={t('resourceManager.title')}
+      onClose={() => setShowResourceManagerDialog(false)}
+      width="70vw"
+      height="70vh"
+      footer={
+        <button className="db-btn" onClick={() => setShowResourceManagerDialog(false)}>{t('common.close')}</button>
+      }
+    >
+      {/* Folder list */}
+      <div className="db-list" style={{ width: 180, minWidth: 180 }}>
+        {RESOURCE_FOLDERS.map((folder) => (
+          <div
+            key={folder}
+            className={`db-list-item${folder === selectedFolder ? ' selected' : ''}`}
+            onClick={() => setSelectedFolder(folder)}
+          >
+            {folder}
           </div>
+        ))}
+      </div>
 
-          {/* File list */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #555' }}>
-            <div style={{ flex: 1, overflowY: 'auto', background: '#353535' }}>
-              {loading && <div className="db-loading">{t('resourceManager.loading')}</div>}
-              {!loading && files.length === 0 && (
-                <div className="db-placeholder">{t('resourceManager.noFiles')}</div>
-              )}
-              {!loading && files.map((file) => (
-                <div
-                  key={file.name}
-                  className={`db-list-item${file.name === selectedFile ? ' selected' : ''}`}
-                  onClick={() => setSelectedFile(file.name)}
-                >
-                  {file.name}
-                </div>
-              ))}
+      {/* File list */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #555' }}>
+        <div style={{ flex: 1, overflowY: 'auto', background: '#353535' }}>
+          {loading && <div className="db-loading">{t('resourceManager.loading')}</div>}
+          {!loading && files.length === 0 && (
+            <div className="db-placeholder">{t('resourceManager.noFiles')}</div>
+          )}
+          {!loading && files.map((file) => (
+            <div
+              key={file.name}
+              className={`db-list-item${file.name === selectedFile ? ' selected' : ''}`}
+              onClick={() => setSelectedFile(file.name)}
+            >
+              {file.name}
             </div>
-            <div style={{ padding: '8px', borderTop: '1px solid #555', display: 'flex', gap: 8 }}>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleImport}
-                style={{ display: 'none' }}
-              />
-              <button className="db-btn" onClick={() => fileInputRef.current?.click()}>{t('resourceManager.import')}</button>
-              <button className="db-btn" onClick={handleExport} disabled={!selectedFile}>{t('resourceManager.export')}</button>
-              <button className="db-btn" onClick={handleDelete} disabled={!selectedFile}>{t('common.delete')}</button>
-              <button className="db-btn" onClick={handleOpenFolder}>{t('resourceManager.openFolder')}</button>
-            </div>
-          </div>
-
-          {/* Preview */}
-          <div style={{ width: 250, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#2b2b2b', padding: 16 }}>
-            {previewUrl ? (
-              <img
-                src={previewUrl}
-                alt={selectedFile || ''}
-                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', imageRendering: 'pixelated' }}
-              />
-            ) : (
-              <span style={{ color: '#666', fontSize: 12 }}>
-                {selectedFile ? t('resourceManager.noPreview') : t('resourceManager.selectFile')}
-              </span>
-            )}
-          </div>
+          ))}
         </div>
-        <div className="db-dialog-footer">
-          <button className="db-btn" onClick={handleClose}>{t('common.close')}</button>
+        <div style={{ padding: '8px', borderTop: '1px solid #555', display: 'flex', gap: 8 }}>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImport}
+            style={{ display: 'none' }}
+          />
+          <button className="db-btn" onClick={() => fileInputRef.current?.click()}>{t('resourceManager.import')}</button>
+          <button className="db-btn" onClick={handleExport} disabled={!selectedFile}>{t('resourceManager.export')}</button>
+          <button className="db-btn" onClick={handleDelete} disabled={!selectedFile}>{t('common.delete')}</button>
+          <button className="db-btn" onClick={handleOpenFolder}>{t('resourceManager.openFolder')}</button>
         </div>
       </div>
-    </div>
+
+      {/* Preview */}
+      <div style={{ width: 250, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#2b2b2b', padding: 16 }}>
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt={selectedFile || ''}
+            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', imageRendering: 'pixelated' }}
+          />
+        ) : (
+          <span style={{ color: '#666', fontSize: 12 }}>
+            {selectedFile ? t('resourceManager.noPreview') : t('resourceManager.selectFile')}
+          </span>
+        )}
+      </div>
+    </Dialog>
   );
 }

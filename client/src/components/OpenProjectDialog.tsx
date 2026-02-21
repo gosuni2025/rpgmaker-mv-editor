@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import useEscClose from '../hooks/useEscClose';
+import Dialog from './common/Dialog';
 import FolderBrowser from './common/FolderBrowser';
 import './OpenProjectDialog.css';
 
@@ -38,7 +38,6 @@ interface OpenProjectDialogProps {
 
 export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialogProps) {
   const { t } = useTranslation();
-  useEscClose(onClose);
   const [currentPath, setCurrentPath] = useState('');
   const [isRpgProject, setIsRpgProject] = useState(false);
   const [tab, setTab] = useState<'browse' | 'recent'>('browse');
@@ -59,89 +58,90 @@ export default function OpenProjectDialog({ onOpen, onClose }: OpenProjectDialog
   const recentProjects = getRecentProjects();
 
   return (
-    <div className="db-dialog-overlay">
-      <div className="open-project-dialog">
-        <div className="db-dialog-header">{t('openProject.title')}</div>
+    <Dialog
+      title={t('openProject.title')}
+      onClose={onClose}
+      className="open-project-dialog"
+      noBody
+    >
+      <div className="opd-tabs">
+        <button
+          className={`opd-tab${tab === 'browse' ? ' active' : ''}`}
+          onClick={() => setTab('browse')}
+        >
+          {t('openProject.browseFolders')}
+        </button>
+        <button
+          className={`opd-tab${tab === 'recent' ? ' active' : ''}`}
+          onClick={() => setTab('recent')}
+        >
+          {t('openProject.recentProjects')}
+        </button>
+      </div>
 
-        <div className="opd-tabs">
-          <button
-            className={`opd-tab${tab === 'browse' ? ' active' : ''}`}
-            onClick={() => setTab('browse')}
-          >
-            {t('openProject.browseFolders')}
-          </button>
-          <button
-            className={`opd-tab${tab === 'recent' ? ' active' : ''}`}
-            onClick={() => setTab('recent')}
-          >
-            {t('openProject.recentProjects')}
-          </button>
-        </div>
-
-        {tab === 'browse' && (
-          <div className="opd-body">
-            <FolderBrowser
-              key={browseKey}
-              initialPath={browseInitialPath}
-              onPathChange={handlePathChange}
-              onSelect={(path) => onOpen(path)}
-              style={{ flex: 1 }}
-              toolbarExtra={<>
-                <button
-                  className="db-btn-small"
-                  onClick={handleOpen}
-                  disabled={!currentPath}
-                  style={isRpgProject ? { background: '#0078d4', borderColor: '#0078d4' } : {}}
-                >
-                  {t('openProject.open')}
-                </button>
-                <button className="db-btn-small" onClick={onClose}>
-                  {t('common.cancel')}
-                </button>
-              </>}
-            />
-
-            {isRpgProject && (
-              <div className="opd-project-badge">
-                {t('openProject.projectDetected')}
-              </div>
-            )}
-          </div>
-        )}
-
-        {tab === 'recent' && (
-          <div className="opd-body">
-            <div className="opd-dir-list">
-              {recentProjects.length === 0 && (
-                <div className="opd-empty">{t('openProject.noRecent')}</div>
-              )}
-              {recentProjects.map((p) => (
-                <div
-                  key={p.path}
-                  className="opd-dir-item"
-                  onDoubleClick={() => onOpen(p.path)}
-                  onClick={() => {
-                    setBrowseInitialPath(p.path);
-                    setBrowseKey((k) => k + 1);
-                    setTab('browse');
-                  }}
-                >
-                  <span className="opd-dir-icon">📂</span>
-                  <div className="opd-recent-info">
-                    <span className="opd-recent-name">{p.name || p.path.split('/').pop()}</span>
-                    <span className="opd-recent-path">{p.path}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="db-dialog-footer">
-              <button className="db-btn" onClick={onClose}>
+      {tab === 'browse' && (
+        <div className="opd-body">
+          <FolderBrowser
+            key={browseKey}
+            initialPath={browseInitialPath}
+            onPathChange={handlePathChange}
+            onSelect={(path) => onOpen(path)}
+            style={{ flex: 1 }}
+            toolbarExtra={<>
+              <button
+                className="db-btn-small"
+                onClick={handleOpen}
+                disabled={!currentPath}
+                style={isRpgProject ? { background: '#0078d4', borderColor: '#0078d4' } : {}}
+              >
+                {t('openProject.open')}
+              </button>
+              <button className="db-btn-small" onClick={onClose}>
                 {t('common.cancel')}
               </button>
+            </>}
+          />
+
+          {isRpgProject && (
+            <div className="opd-project-badge">
+              {t('openProject.projectDetected')}
             </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'recent' && (
+        <div className="opd-body">
+          <div className="opd-dir-list">
+            {recentProjects.length === 0 && (
+              <div className="opd-empty">{t('openProject.noRecent')}</div>
+            )}
+            {recentProjects.map((p) => (
+              <div
+                key={p.path}
+                className="opd-dir-item"
+                onDoubleClick={() => onOpen(p.path)}
+                onClick={() => {
+                  setBrowseInitialPath(p.path);
+                  setBrowseKey((k) => k + 1);
+                  setTab('browse');
+                }}
+              >
+                <span className="opd-dir-icon">📂</span>
+                <div className="opd-recent-info">
+                  <span className="opd-recent-name">{p.name || p.path.split('/').pop()}</span>
+                  <span className="opd-recent-path">{p.path}</span>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
-      </div>
-    </div>
+          <div className="db-dialog-footer">
+            <button className="db-btn" onClick={onClose}>
+              {t('common.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
+    </Dialog>
   );
 }
