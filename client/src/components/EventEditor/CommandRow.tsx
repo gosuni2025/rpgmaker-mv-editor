@@ -169,6 +169,8 @@ export const CommandRow = React.memo(function CommandRow({
       )}
       {display ? (
         (() => {
+          // 주석 처리된 커맨드는 CSS(cmd-disabled)가 색상 처리 — inline style 적용 안 함
+          if (isDisabled) return <>{display}</>;
           const c = getCommandColor(cmd.code);
           if (!c) return <>{display}</>;
           // 댓글(108/408)은 내용 전체 색상
