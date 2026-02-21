@@ -712,6 +712,22 @@
         this._overlay.visible = true;
         this._state = 'opening';
         this._autoTimer = -1;
+        // 새 VN 세션 시작 시 이전 텍스트 초기화
+        var tw = this._textWin;
+        tw._entries          = [];
+        tw._layouts          = [];
+        tw._totalH           = 0;
+        tw._scrollY          = 0;
+        tw._vel              = 0;
+        tw._isTyping         = false;
+        tw._typeEntryIdx     = -1;
+        tw._choiceActive     = false;
+        tw._choiceResult     = -1;
+        tw._pendingChoiceIdx = -1;
+        tw._pendingAutoExit  = false;
+        tw.pause             = false;
+        tw._forceOk          = false;
+        if (tw.contents) tw.contents.clear();
     };
 
     VNController.prototype.close = function () {
