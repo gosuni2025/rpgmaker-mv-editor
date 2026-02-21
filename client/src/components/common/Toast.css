@@ -26,12 +26,19 @@
   max-width: 480px;
   text-align: left;
   transition: bottom 0.2s ease-out;
+  overflow: hidden;
 }
 
 .toast.toast-persistent {
   animation: toast-appear 0.3s ease-out forwards;
   pointer-events: auto;
   padding-right: 40px;
+}
+
+.toast.toast-pinned {
+  animation: none !important;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .toast-close {
@@ -90,6 +97,21 @@
 
 .toast-dismiss-all:hover {
   background: #c62828;
+}
+
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.55);
+  animation: toast-progress 2s linear forwards;
+}
+
+@keyframes toast-progress {
+  from { width: 100%; }
+  to { width: 0%; }
 }
 
 .toast-count {
