@@ -53,12 +53,45 @@ function readDirRecursive(dirPath: string, prefix = ''): string[] {
   return results;
 }
 
+/** 디렉토리 1단계만 읽어 파일+폴더 목록 반환 (isDir 포함) */
+function readDirShallow(dirPath: string): Array<{ name: string; size: number; mtime: number; isDir: boolean }> {
+  const results = [];
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    if (entry.isDirectory()) {
+      results.push({ name: entry.name, size: 0, mtime: 0, isDir: true });
+    } else {
+      try {
+        const stat = fs.statSync(path.join(dirPath, entry.name));
+        results.push({ name: entry.name, size: stat.size, mtime: stat.mtimeMs, isDir: false });
+      } catch {
+        results.push({ name: entry.name, size: 0, mtime: 0, isDir: false });
+      }
+    }
+  }
+  return results;
+}
+
 router.get('/:type', (req: Request<{ type: string }>, res: Response) => {
   try {
     const dirPath = resolveResourceDir(req.params.type);
     if (!fs.existsSync(dirPath)) {
       return res.status(404).json({ error: 'Resource directory not found' });
     }
+
+    // recursive=0: 지정된 subdir의 1단계 목록만 반환 (isDir 포함)
+    if (req.query.recursive === '0') {
+      const subdir = (req.query.subdir as string) || '';
+      const targetDir = subdir ? path.join(dirPath, subdir) : dirPath;
+      // 보안: dirPath 밖으로 나가지 않도록
+      if (!path.resolve(targetDir).startsWith(path.resolve(dirPath))) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      if (!fs.existsSync(targetDir)) return res.status(404).json({ error: 'Directory not found' });
+      return res.json(readDirShallow(targetDir));
+    }
+
     const files = readDirRecursive(dirPath);
     // detail=1 파라미터가 있으면 파일 메타데이터 포함
     if (req.query.detail === '1') {
