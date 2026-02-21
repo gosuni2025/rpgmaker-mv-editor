@@ -143,6 +143,16 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       else if (mod && e.key === 'f') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(false); }
       else if (mod && e.key === 'h') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(true); }
       else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); primaryIndex >= 0 && primaryIndex < commands.length ? handleDoubleClick(primaryIndex) : setShowAddDialog(true); }
+      else if (e.key === 'ArrowLeft' && !mod) {
+        e.preventDefault();
+        if (primaryIndex >= 0 && foldableIndices.has(primaryIndex) && !foldedSet.has(primaryIndex))
+          toggleFold(primaryIndex);
+      }
+      else if (e.key === 'ArrowRight' && !mod) {
+        e.preventDefault();
+        if (primaryIndex >= 0 && foldableIndices.has(primaryIndex) && foldedSet.has(primaryIndex))
+          toggleFold(primaryIndex);
+      }
       else if (e.key === 'ArrowDown' && !mod) {
         e.preventDefault();
         const visible = commands.map((_, i) => i).filter(i => !hiddenIndices.has(i) && i < commands.length - 1);
@@ -166,7 +176,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     };
     container.addEventListener('keydown', handleKeyDown);
     return () => container.removeEventListener('keydown', handleKeyDown);
-  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, indentSelected, toggleDisabled, showAddDialog, pendingCode, editingIndex, showMoveRoute, selectedIndices, commands, setSelectedIndices, setLastClickedIndex, primaryIndex, showFind, hiddenIndices, listRef]);
+  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, indentSelected, toggleDisabled, showAddDialog, pendingCode, editingIndex, showMoveRoute, selectedIndices, commands, setSelectedIndices, setLastClickedIndex, primaryIndex, showFind, hiddenIndices, listRef, foldableIndices, foldedSet, toggleFold]);
 
   // Global space key
   useEffect(() => {
