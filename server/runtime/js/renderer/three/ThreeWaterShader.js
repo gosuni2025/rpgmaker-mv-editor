@@ -400,7 +400,9 @@ ThreeWaterShader.createStandaloneMaterial = function(texture, isWaterfall, kindS
         this._STANDALONE_FRAGMENT_WATER;
     var d = this.DEFAULT_UNIFORMS;
     var ks = kindSettings || {};
-    var _wc = (window.DepthDebugConfig) ? window.DepthDebugConfig.water : null;
+    // DepthDebugConfig.water는 3D 모드에서만 적용 (2D 모드는 기본값: transparent=true, depthTest=false)
+    var _isWater3D = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
+    var _wc = (_isWater3D && window.DepthDebugConfig) ? window.DepthDebugConfig.water : null;
     var _wDT = _wc ? _wc.depthTest : false;
     var _wDW = _wc ? _wc.depthWrite : false;
     var _wAT = (_wc && _wc.alphaTest) ? 0.5 : 0;

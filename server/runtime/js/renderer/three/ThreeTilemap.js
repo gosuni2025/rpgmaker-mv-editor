@@ -728,7 +728,9 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(setNumber, meshKe
         }
 
         // material 타입 전환 (ShadowLight 상태에 따라)
-        var _wc = (window.DepthDebugConfig) ? window.DepthDebugConfig.water : null;
+        // DepthDebugConfig.water는 3D 모드에서만 적용 (2D 모드는 기본값: transparent=true, depthTest=false)
+        var _isWater3D = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
+        var _wc = (_isWater3D && window.DepthDebugConfig) ? window.DepthDebugConfig.water : null;
         var _wDT = _wc ? _wc.depthTest : false;
         var _wDW = _wc ? _wc.depthWrite : false;
         var _wAT = (_wc && _wc.alphaTest) ? 0.5 : 0;
@@ -768,7 +770,9 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(setNumber, meshKe
         texture.generateMipmaps = false;
         texture.anisotropy = 1;
 
-        var _wc2 = (window.DepthDebugConfig) ? window.DepthDebugConfig.water : null;
+        // DepthDebugConfig.water는 3D 모드에서만 적용 (2D 모드는 기본값: transparent=true, depthTest=false)
+        var _isWater3D2 = typeof ConfigManager !== 'undefined' && ConfigManager.mode3d;
+        var _wc2 = (_isWater3D2 && window.DepthDebugConfig) ? window.DepthDebugConfig.water : null;
         var _wDT2 = _wc2 ? _wc2.depthTest : false;
         var _wDW2 = _wc2 ? _wc2.depthWrite : false;
         var _wAT2 = (_wc2 && _wc2.alphaTest) ? 0.5 : 0;
