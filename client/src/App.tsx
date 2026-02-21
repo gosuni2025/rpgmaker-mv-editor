@@ -53,14 +53,19 @@ interface ToastItemProps {
 
 function ToastItem({ toast, index, onDismiss }: ToastItemProps) {
   const [now, setNow] = useState(Date.now());
+  const [pinned, setPinned] = useState(false);
+  const isPersistent = toast.persistent || pinned;
+
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
   return (
     <div
-      className={`toast ${toast.persistent ? 'toast-persistent' : ''}`}
-      style={{ bottom: `${40 + index * 44}px` }}
+      className={`toast ${isPersistent ? 'toast-persistent' : ''} ${pinned ? 'toast-pinned' : ''}`}
+      style={{ bottom: `${40 + index * 44}px`, cursor: isPersistent ? 'default' : 'pointer' }}
+      onClick={!isPersistent ? () => setPinned(true) : undefined}
       onAnimationEnd={(e) => {
         if (e.animationName === 'toast-fade') onDismiss(toast.id);
       }}
@@ -70,9 +75,10 @@ function ToastItem({ toast, index, onDismiss }: ToastItemProps) {
       )}
       {toast.message}
       <span className="toast-age">{formatRelativeTime(toast.createdAt, now)}</span>
-      {toast.persistent && (
-        <button className="toast-close" onClick={() => onDismiss(toast.id)}>&times;</button>
+      {isPersistent && (
+        <button className="toast-close" onClick={(e) => { e.stopPropagation(); onDismiss(toast.id); }}>&times;</button>
       )}
+      {!isPersistent && <div className="toast-progress" />}
     </div>
   );
 }
