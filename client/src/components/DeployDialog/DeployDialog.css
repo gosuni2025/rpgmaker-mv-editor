@@ -1,0 +1,217 @@
+.deploy-dialog {
+  width: 560px;
+  height: auto;
+  min-height: 0;
+}
+
+.deploy-tabs {
+  display: flex;
+  border-bottom: 1px solid #444;
+  padding-top: 4px;
+}
+
+.deploy-tab {
+  padding: 6px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #888;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.deploy-tab.active {
+  background: #3c3f41;
+  border-bottom-color: #2675bf;
+  color: #ddd;
+  font-weight: 600;
+}
+
+.deploy-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.deploy-field-label {
+  color: #aaa;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.deploy-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 5px 8px;
+  color: #ddd;
+  font-size: 13px;
+  font-family: monospace;
+}
+
+.deploy-info-box {
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+.deploy-settings-box {
+  background: #333;
+  border-radius: 4px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.deploy-security-note {
+  margin-top: 6px;
+  background: #1e2a1e;
+  border: 1px solid #2a3a2a;
+  border-radius: 3px;
+  padding: 7px 10px;
+  font-size: 11px;
+  color: #7a9a7a;
+  line-height: 1.7;
+}
+
+.deploy-site-status {
+  padding: 5px 8px;
+  background: #2b2b2b;
+  border: 1px solid #444;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.deploy-guide-toggle {
+  width: 100%;
+  background: #2e2e2e;
+  border: none;
+  padding: 8px 12px;
+  color: #aaa;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.deploy-howit-box {
+  background: #1e2a1e;
+  border: 1px solid #2a4a2a;
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 11px;
+  color: #9c9;
+  line-height: 1.7;
+}
+
+.deploy-result-box {
+  background: #2a3a2a;
+  border: 1px solid #3a5a3a;
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+.deploy-local-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ─── 배포 진행 모달 ─── */
+
+.deploy-progress-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.deploy-progress-modal {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 8px;
+  padding: 20px;
+  width: 520px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.deploy-progress-header {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ddd;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.deploy-progress-status {
+  color: #aaa;
+  font-size: 12px;
+}
+
+.deploy-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #555;
+  border-top-color: #2a9a42;
+  border-radius: 50%;
+  animation: deploy-spin 0.8s linear infinite;
+}
+
+@keyframes deploy-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── 로그 패널 ─── */
+
+.deploy-log-panel {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 8px 10px;
+  min-height: 120px;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.deploy-log-cmd {
+  color: #6cb6ff;
+}
+
+.deploy-log-step {
+  color: #e0e0e0;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.deploy-log-ok {
+  color: #6c6;
+}
+
+.deploy-log-err {
+  color: #e55;
+}
+
+.deploy-log-info {
+  color: #888;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

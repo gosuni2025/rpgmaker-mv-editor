@@ -1,3 +1,258 @@
+/*:
+ * @plugindesc 맵 오브젝트 제어 커맨드 (rpg_sprites 내장)
+ * @author RPG Maker MV Web Editor
+ * @plugincommand MapObject
+ *
+ * @command show
+ * @text 오브젝트 표시
+ * @desc 맵 오브젝트를 표시합니다.
+ *
+ * @arg objectId
+ * @text 오브젝트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @command hide
+ * @text 오브젝트 숨김
+ * @desc 맵 오브젝트를 숨깁니다.
+ *
+ * @arg objectId
+ * @text 오브젝트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @command showWithShader
+ * @text 셰이더와 함께 표시
+ * @desc 셰이더 효과와 함께 오브젝트를 표시합니다.
+ *
+ * @arg objectId
+ * @text 오브젝트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg shaderType
+ * @text 셰이더 타입
+ * @type string
+ * @default dissolve
+ *
+ * @arg duration
+ * @text 지속 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 1
+ *
+ * @command hideWithShader
+ * @text 셰이더와 함께 숨김
+ * @desc 셰이더 효과와 함께 오브젝트를 숨깁니다.
+ *
+ * @arg objectId
+ * @text 오브젝트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg shaderType
+ * @text 셰이더 타입
+ * @type string
+ * @default dissolve
+ *
+ * @arg duration
+ * @text 지속 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 1
+ *
+ * @command move
+ * @text 위치 이동
+ * @desc 맵 오브젝트의 위치를 이동합니다.
+ *
+ * @arg objectId
+ * @text 오브젝트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg x
+ * @text X 좌표 (타일)
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg y
+ * @text Y 좌표 (타일)
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg duration
+ * @text 지속 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @command scale
+ * @text 크기 변경
+ * @desc 맵 오브젝트의 크기를 변경합니다.
+ *
+ * @arg objectId
+ * @text 오브젝트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg value
+ * @text 크기 (1.0 = 원본)
+ * @type number
+ * @min 0.1
+ * @max 10
+ * @default 1
+ *
+ * @arg duration
+ * @text 지속 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @command zHeight
+ * @text Z축 높이 설정
+ * @desc 3D 모드에서 오브젝트의 Z축 높이를 설정합니다.
+ *
+ * @arg objectId
+ * @text 오브젝트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg value
+ * @text 높이
+ * @type number
+ * @min 0
+ * @max 200
+ * @default 0
+ *
+ * @arg duration
+ * @text 지속 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @command anchorY
+ * @text Y 앵커 설정
+ * @desc 오브젝트의 Y 앵커 포인트를 설정합니다.
+ *
+ * @arg objectId
+ * @text 오브젝트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg value
+ * @text 앵커 (0~1)
+ * @type number
+ * @min 0
+ * @max 1
+ * @default 1
+ *
+ * @arg duration
+ * @text 지속 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @command passability
+ * @text 통행성 설정
+ * @desc 오브젝트의 충돌 판정을 설정합니다.
+ *
+ * @arg objectId
+ * @text 오브젝트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg value
+ * @text 통행 가능
+ * @type boolean
+ * @on 통행 가능
+ * @off 통행 불가
+ * @default true
+ *
+ * @command shader_add
+ * @text 셰이더 추가
+ * @desc 오브젝트에 셰이더 효과를 추가합니다.
+ *
+ * @arg objectId
+ * @text 오브젝트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg shaderType
+ * @text 셰이더 타입
+ * @type string
+ * @default dissolve
+ *
+ * @command shader_remove
+ * @text 셰이더 제거
+ * @desc 오브젝트에서 셰이더 효과를 제거합니다.
+ *
+ * @arg objectId
+ * @text 오브젝트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg shaderType
+ * @text 셰이더 타입 (all=전체 제거)
+ * @type string
+ * @default all
+ *
+ * @command shader_param
+ * @text 셰이더 파라미터 설정
+ * @desc 셰이더의 특정 파라미터 값을 설정합니다.
+ *
+ * @arg objectId
+ * @text 오브젝트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg shaderType
+ * @text 셰이더 타입
+ * @type string
+ * @default dissolve
+ *
+ * @arg paramKey
+ * @text 파라미터 키
+ * @type string
+ * @default threshold
+ *
+ * @arg value
+ * @text 값
+ * @type number
+ * @min -100
+ * @max 100
+ * @default 0
+ *
+ * @arg duration
+ * @text 지속 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @help
+ * MapObject 커맨드는 rpg_sprites.js에 내장된 기능입니다.
+ * 에디터에서 에디터 기능 > MapObject를 통해 GUI로 편집할 수 있습니다.
+ */
 //=============================================================================
 // rpg_sprites.js v1.6.2
 //=============================================================================
@@ -1346,6 +1601,7 @@ Sprite_Animation.prototype.createScreenFlashSprite = function() {
 };
 
 Sprite_Animation.prototype.updateMain = function() {
+    if (this._mapObjPauseOnMsg && typeof $gameMessage !== 'undefined' && $gameMessage.isBusy()) return;
     if (this.isPlaying() && this.isReady()) {
         if (this._delay > 0) {
             this._delay--;
@@ -2680,6 +2936,11 @@ Spriteset_Map.prototype.createMapObjects = function() {
                 container._mapObjAnimReverse = false;
                 container._mapObjAnimScaleX = animScaleX;
                 container._mapObjAnimScaleY = animScaleY;
+<<<<<<< HEAD
+=======
+                container._mapObjPauseOnMsg = obj.animationPauseOnMessage !== false;
+                animSprite._mapObjPauseOnMsg = obj.animationPauseOnMessage !== false;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             }
         } else if (obj.imageName) {
             // 이미지 기반 오브젝트: pictures 폴더에서 이미지 로드
@@ -2948,6 +3209,10 @@ Spriteset_Map.prototype.updateMapObjects = function() {
                     if (container._mapObjAnimScaleX) newAnimSpr.scale.x = container._mapObjAnimScaleX;
                     if (container._mapObjAnimScaleY) newAnimSpr.scale.y = container._mapObjAnimScaleY;
                     newAnimSpr.z = 0;  // 컨테이너 자식이므로 z=0
+<<<<<<< HEAD
+=======
+                    newAnimSpr._mapObjPauseOnMsg = container._mapObjPauseOnMsg;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                     container.addChild(newAnimSpr);
                     container._mapObjAnimSprite = newAnimSpr;
                 } else {

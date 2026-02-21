@@ -1,10 +1,20 @@
+<<<<<<< HEAD
 import React, { useState, useRef, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
 import ExtBadge from '../common/ExtBadge';
+=======
+import React, { useRef, useCallback } from 'react';
+import useEditorStore from '../../store/useEditorStore';
+import DragLabel from '../common/DragLabel';
+import ExtBadge from '../common/ExtBadge';
+import HelpButton from '../common/HelpButton';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import { DEFAULT_EDITOR_LIGHTS } from '../../types/rpgMakerMV';
+import { DirectionalLightSection, SpotLightSection, PointLightSection } from './LightInspectorSections';
 import './InspectorPanel.css';
 
+<<<<<<< HEAD
 function HelpButton({ text }: { text: string }) {
   const [show, setShow] = useState(false);
   return (
@@ -38,6 +48,8 @@ function HelpButton({ text }: { text: string }) {
   );
 }
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 export default function LightInspector() {
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedLightId = useEditorStore((s) => s.selectedLightId);
@@ -69,17 +81,18 @@ export default function LightInspector() {
   if (!editorLights) return <div className="light-inspector"><div style={{ color: '#666', fontSize: 12, padding: 8 }}>조명 데이터 없음</div></div>;
 
   const selectedPoint = selectedLightType === 'point' && selectedLightId != null
-    ? editorLights.points.find((p) => p.id === selectedLightId)
-    : null;
-
+    ? editorLights.points.find((p) => p.id === selectedLightId) : null;
   const playerLight = editorLights.playerLight ?? DEFAULT_EDITOR_LIGHTS.playerLight!;
   const spotLight = editorLights.spotLight ?? DEFAULT_EDITOR_LIGHTS.spotLight!;
   const shadow = editorLights.shadow ?? DEFAULT_EDITOR_LIGHTS.shadow!;
-  const dir = editorLights.directional;
 
   return (
     <div className="light-inspector">
+<<<<<<< HEAD
       {/* Global lights enabled */}
+=======
+      {/* Lights enabled toggle */}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       <div className="light-inspector-section">
         <div className="light-inspector-row">
           <span className="light-inspector-label">조명 적용</span>
@@ -100,6 +113,7 @@ export default function LightInspector() {
             <span className="light-inspector-label">적용</span>
             <input type="checkbox" checked={editorLights.ambient.enabled !== false}
               onChange={(e) => updateAmbientLight({ enabled: e.target.checked })} />
+<<<<<<< HEAD
           </div>
           <div className="light-inspector-row">
             <span className="light-inspector-label">색상</span>
@@ -112,6 +126,17 @@ export default function LightInspector() {
             />
           </div>
           <div className="light-inspector-row">
+=======
+          </div>
+          <div className="light-inspector-row">
+            <span className="light-inspector-label">색상</span>
+            <input type="color" className="light-inspector-color"
+              value={editorLights.ambient.color}
+              onChange={(e) => updateAmbientLight({ color: e.target.value })}
+              disabled={editorLights.ambient.enabled === false} />
+          </div>
+          <div className="light-inspector-row">
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             <DragLabel label="강도" value={editorLights.ambient.intensity} step={0.05} min={0} max={10}
               onDragStart={onDragStart} onDragEnd={onDragEnd}
               onChange={(v) => updateAmbientLight({ intensity: v }, true)} />
@@ -127,8 +152,9 @@ export default function LightInspector() {
         </div>
       )}
 
-      {/* Directional Light */}
+      {/* Directional + Shadow */}
       {selectedLightType === 'directional' && (
+<<<<<<< HEAD
         <>
           <div className="light-inspector-section">
             <div className="light-inspector-title">방향 조명 <ExtBadge inline /></div>
@@ -243,6 +269,11 @@ export default function LightInspector() {
             </div>
           </div>
         </>
+=======
+        <DirectionalLightSection dir={editorLights.directional} shadow={shadow}
+          updateDirectionalLight={updateDirectionalLight} updateShadowSettings={updateShadowSettings}
+          onDragStart={onDragStart} onDragEnd={onDragEnd} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       )}
 
       {/* Player Light */}
@@ -256,6 +287,7 @@ export default function LightInspector() {
           </div>
           <div className="light-inspector-row">
             <span className="light-inspector-label">색상</span>
+<<<<<<< HEAD
             <input type="color" className="light-inspector-color"
               value={playerLight.color}
               onChange={(e) => updatePlayerLight({ color: e.target.value })}
@@ -288,11 +320,33 @@ export default function LightInspector() {
               onChange={(e) => updatePlayerLight({ z: parseFloat(e.target.value) || 40 })}
               disabled={playerLight.enabled === false} />
           </div>
+=======
+            <input type="color" className="light-inspector-color" value={playerLight.color}
+              onChange={(e) => updatePlayerLight({ color: e.target.value })}
+              disabled={playerLight.enabled === false} />
+          </div>
+          {[
+            { label: '강도', key: 'intensity', step: 0.1, min: 0, max: 10, fallback: 0 },
+            { label: '거리', key: 'distance', step: 10, min: 50, max: 5000, fallback: 200 },
+            { label: 'Z (높이)', key: 'z', step: 1, min: 0, max: 1000, fallback: 40 },
+          ].map(({ label, key, step, min, max, fallback }) => (
+            <div className="light-inspector-row" key={key}>
+              <DragLabel label={label} value={playerLight[key]} step={step} min={min} max={max}
+                onDragStart={onDragStart} onDragEnd={onDragEnd}
+                onChange={(v) => updatePlayerLight({ [key]: key === 'distance' || key === 'z' ? Math.round(v) : v }, true)} />
+              <input type="number" className="light-inspector-input" step={step}
+                value={playerLight[key]}
+                onChange={(e) => updatePlayerLight({ [key]: parseFloat(e.target.value) || fallback })}
+                disabled={playerLight.enabled === false} />
+            </div>
+          ))}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         </div>
       )}
 
       {/* Spot Light */}
       {selectedLightType === 'spotLight' && (
+<<<<<<< HEAD
         <div className="light-inspector-section">
           <div className="light-inspector-title">집중 조명 <ExtBadge inline /></div>
           <div className="light-inspector-row">
@@ -465,6 +519,17 @@ export default function LightInspector() {
             </div>
           )}
         </>
+=======
+        <SpotLightSection spotLight={spotLight} updateSpotLight={updateSpotLight}
+          onDragStart={onDragStart} onDragEnd={onDragEnd} />
+      )}
+
+      {/* Point Light */}
+      {selectedLightType === 'point' && (
+        <PointLightSection selectedPoint={selectedPoint} updatePointLight={updatePointLight}
+          deletePointLight={deletePointLight} setSelectedLightId={setSelectedLightId}
+          onDragStart={onDragStart} onDragEnd={onDragEnd} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       )}
     </div>
   );

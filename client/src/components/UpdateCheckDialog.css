@@ -1,0 +1,137 @@
+.update-check-dialog {
+  width: 380px;
+  height: auto;
+}
+
+.update-check-body {
+  padding: 20px 24px;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 로딩 */
+.update-check-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #aaa;
+  margin: auto;
+}
+
+.update-check-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #444;
+  border-top-color: #2675bf;
+  border-radius: 50%;
+  animation: update-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes update-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 에러 */
+.update-check-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #e06c75;
+  text-align: center;
+  margin: auto;
+}
+
+.update-check-error-icon {
+  font-size: 24px;
+}
+
+.update-check-error-detail {
+  font-size: 0.8em;
+  color: #888;
+  word-break: break-all;
+}
+
+/* 상태 배지 */
+.update-check-badge {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 12px;
+  font-size: 0.85em;
+  font-weight: bold;
+  align-self: flex-start;
+}
+
+.update-check-badge.up-to-date {
+  background: #1e4d2b;
+  color: #6fc78a;
+}
+
+.update-check-badge.outdated {
+  background: #4d2b1e;
+  color: #e8956c;
+}
+
+/* 버전 정보 행 */
+.update-check-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.update-check-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.88em;
+}
+
+.update-check-label {
+  color: #888;
+}
+
+.update-check-value {
+  color: #ddd;
+}
+
+.update-check-value.update-check-highlight {
+  color: #e8956c;
+  font-weight: bold;
+}
+
+.update-check-mono {
+  font-family: monospace;
+  font-size: 0.95em;
+  color: #aaa;
+}
+
+/* 힌트 */
+.update-check-hint {
+  font-size: 0.82em;
+  color: #777;
+  background: #1e1e1e;
+  border-radius: 4px;
+  padding: 8px 10px;
+  line-height: 1.5;
+}
+
+/* 다운로드 링크 버튼 */
+.update-check-download {
+  text-decoration: none;
+  background: #2675bf;
+  color: #fff;
+  padding: 4px 14px;
+  border-radius: 3px;
+  font-size: 0.9em;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.update-check-download:hover {
+  background: #3386d0;
+}

@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
+import type { RPGEvent } from '../../types/rpgMakerMV';
 import { placeAutotileAtPure } from './mapToolAlgorithms';
 import type { MapToolsResult } from './useMapTools';
 import { useResizeHandlers } from './useResizeHandlers';
@@ -35,6 +36,8 @@ export interface MouseHandlersResult {
   eventCtxMenu: { x: number; y: number; tileX: number; tileY: number; eventId: number | null } | null;
   editingEventId: number | null;
   setEditingEventId: (id: number | null) => void;
+  pendingNewEvent: RPGEvent | null;
+  setPendingNewEvent: (event: RPGEvent | null) => void;
   closeEventCtxMenu: () => void;
   isDraggingEvent: React.MutableRefObject<boolean>;
   isDraggingLight: React.MutableRefObject<boolean>;
@@ -467,6 +470,8 @@ export function useMouseHandlers(
     eventCtxMenu: event.eventCtxMenu,
     editingEventId: event.editingEventId,
     setEditingEventId: event.setEditingEventId,
+    pendingNewEvent: event.pendingNewEvent,
+    setPendingNewEvent: event.setPendingNewEvent,
     closeEventCtxMenu: event.closeEventCtxMenu,
     isDraggingEvent: event.isDraggingEvent,
     isDraggingLight: light.isDraggingLight,

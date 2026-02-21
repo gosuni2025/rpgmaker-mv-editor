@@ -1,7 +1,8 @@
 import React, { useRef, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
-import type { RPGEvent, EventPage, MapData } from '../../types/rpgMakerMV';
+import type { RPGEvent, EventPage } from '../../types/rpgMakerMV';
 import type { MapToolsResult } from './useMapTools';
+import { useStartPositionDrag } from './useStartPositionDrag';
 
 export interface EventContextMenu {
   x: number;
@@ -22,6 +23,8 @@ export interface EventDragHandlersResult {
   eventCtxMenu: EventContextMenu | null;
   editingEventId: number | null;
   setEditingEventId: (id: number | null) => void;
+  pendingNewEvent: RPGEvent | null;
+  setPendingNewEvent: (event: RPGEvent | null) => void;
   closeEventCtxMenu: () => void;
   createNewEvent: (x: number, y: number) => void;
   handleEventMouseDown: (tile: { x: number; y: number }, e: React.MouseEvent<HTMLElement>) => boolean;
@@ -40,21 +43,25 @@ export function useEventDragHandlers(): EventDragHandlersResult {
   const currentMap = useEditorStore((s) => s.currentMap);
   const editMode = useEditorStore((s) => s.editMode);
   const setSelectedEventId = useEditorStore((s) => s.setSelectedEventId);
-  const selectedEventIds = useEditorStore((s) => s.selectedEventIds);
   const setSelectedEventIds = useEditorStore((s) => s.setSelectedEventIds);
   const setEventSelectionStart = useEditorStore((s) => s.setEventSelectionStart);
   const setEventSelectionEnd = useEditorStore((s) => s.setEventSelectionEnd);
   const moveEvents = useEditorStore((s) => s.moveEvents);
-  const isEventPasting = useEditorStore((s) => s.isEventPasting);
   const setIsEventPasting = useEditorStore((s) => s.setIsEventPasting);
   const setEventPastePreviewPos = useEditorStore((s) => s.setEventPastePreviewPos);
   const pasteEvents = useEditorStore((s) => s.pasteEvents);
   const systemData = useEditorStore((s) => s.systemData);
   const currentMapId = useEditorStore((s) => s.currentMapId);
+<<<<<<< HEAD
   const setPlayerStartPosition = useEditorStore((s) => s.setPlayerStartPosition);
   const setTestStartPosition = useEditorStore((s) => s.setTestStartPosition);
   const setVehicleStartPosition = useEditorStore((s) => s.setVehicleStartPosition);
   const setSelectedStartPosition = useEditorStore((s) => s.setSelectedStartPosition);
+=======
+  const setSelectedStartPosition = useEditorStore((s) => s.setSelectedStartPosition);
+
+  const startPosDrag = useStartPositionDrag();
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   // Event drag state
   const isDraggingEvent = useRef(false);
@@ -70,6 +77,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
   const multiEventDragOrigin = useRef<{ x: number; y: number } | null>(null);
   const [eventMultiDragDelta, setEventMultiDragDelta] = useState<{ dx: number; dy: number } | null>(null);
 
+<<<<<<< HEAD
   // Player start position drag state
   const isDraggingPlayerStart = useRef(false);
   const playerStartDragPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -88,9 +96,12 @@ export function useEventDragHandlers(): EventDragHandlersResult {
   const vehicleStartDragOriginRef = useRef<{ x: number; y: number } | null>(null);
   const [vehicleStartDragPos, setVehicleStartDragPos] = useState<{ x: number; y: number; vehicle: 'boat' | 'ship' | 'airship' } | null>(null);
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   // Context menu & event editing state
   const [eventCtxMenu, setEventCtxMenu] = useState<EventContextMenu | null>(null);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [pendingNewEvent, setPendingNewEvent] = useState<RPGEvent | null>(null);
 
   const handleEventMouseDown = useCallback((tile: { x: number; y: number }, e: React.MouseEvent<HTMLElement>): boolean => {
     const state = useEditorStore.getState();
@@ -133,6 +144,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
           setDragPreview(null);
         }
       } else {
+<<<<<<< HEAD
         // 시작 위치 클릭 확인 (플레이어 + 탈것)
         const isPlayerStart = systemData && currentMapId === systemData.startMapId
           && tile.x === systemData.startX && tile.y === systemData.startY;
@@ -185,6 +197,11 @@ export function useEventDragHandlers(): EventDragHandlersResult {
           setSelectedStartPosition(null);
           return true;
         }
+=======
+        // 시작 위치 클릭 확인 (플레이어 + 탈것 + 테스트)
+        if (startPosDrag.tryStartPositionMouseDown(tile, e)) return true;
+
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         // 빈 타일 클릭: 영역 선택 시작
         if (!(e.metaKey || e.ctrlKey)) {
           const hadSelection = state.selectedEventIds.length > 0;
@@ -192,10 +209,14 @@ export function useEventDragHandlers(): EventDragHandlersResult {
           setSelectedEventIds([]);
           setSelectedEventId(null);
           setSelectedStartPosition(null);
+<<<<<<< HEAD
           // 선택된 항목이 있었으면 선택 해제만 하고 영역선택 진입하지 않음
           if (hadSelection || hadStartSel) {
             return true;
           }
+=======
+          if (hadSelection || hadStartSel) return true;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         }
         isSelectingEvents.current = true;
         eventSelDragStart.current = tile;
@@ -204,27 +225,19 @@ export function useEventDragHandlers(): EventDragHandlersResult {
       }
     }
     return true;
-  }, [currentMap, systemData, currentMapId, pasteEvents, setIsEventPasting, setEventPastePreviewPos, setSelectedEventId, setSelectedEventIds, setEventSelectionStart, setEventSelectionEnd, setPlayerStartPosition]);
+  }, [currentMap, pasteEvents, setIsEventPasting, setEventPastePreviewPos, setSelectedEventId, setSelectedEventIds, setEventSelectionStart, setEventSelectionEnd, startPosDrag.tryStartPositionMouseDown, setSelectedStartPosition]);
 
   const handleEventMouseMove = useCallback((tile: { x: number; y: number } | null): boolean => {
-    // Event multi-drag
     if (isDraggingMultiEvents.current && tile && multiEventDragOrigin.current) {
       const dx = tile.x - multiEventDragOrigin.current.x;
       const dy = tile.y - multiEventDragOrigin.current.y;
-      if (dx !== 0 || dy !== 0) {
-        setEventMultiDragDelta({ dx, dy });
-      } else {
-        setEventMultiDragDelta(null);
-      }
+      setEventMultiDragDelta(dx !== 0 || dy !== 0 ? { dx, dy } : null);
       return true;
     }
-
-    // Event area selection drag
     if (isSelectingEvents.current && tile && eventSelDragStart.current) {
       setEventSelectionEnd(tile);
       return true;
     }
-
     // Single event drag → convert to multi-drag
     if (isDraggingEvent.current && tile && dragEventOrigin.current) {
       if (tile.x !== dragEventOrigin.current.x || tile.y !== dragEventOrigin.current.y) {
@@ -239,19 +252,18 @@ export function useEventDragHandlers(): EventDragHandlersResult {
       }
       return true;
     }
-
     return false;
   }, [setEventSelectionEnd]);
 
   const handleEventPastePreview = useCallback((tile: { x: number; y: number }): boolean => {
-    const state = useEditorStore.getState();
-    if (state.isEventPasting) {
+    if (useEditorStore.getState().isEventPasting) {
       setEventPastePreviewPos(tile);
       return true;
     }
     return false;
   }, [setEventPastePreviewPos]);
 
+<<<<<<< HEAD
   const handlePlayerStartDragMove = useCallback((tile: { x: number; y: number }): boolean => {
     if (isDraggingPlayerStart.current) {
       playerStartDragPosRef.current = { x: tile.x, y: tile.y };
@@ -346,37 +358,31 @@ export function useEventDragHandlers(): EventDragHandlersResult {
     }
   }, []);
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const handleEventMouseUp = useCallback((tile: { x: number; y: number } | null, e: React.MouseEvent<HTMLElement>): boolean => {
-    // Event multi-drag commit
     if (isDraggingMultiEvents.current) {
       if (tile && multiEventDragOrigin.current) {
         const dx = tile.x - multiEventDragOrigin.current.x;
         const dy = tile.y - multiEventDragOrigin.current.y;
         const state = useEditorStore.getState();
-        if (dx !== 0 || dy !== 0) {
-          moveEvents(state.selectedEventIds, dx, dy);
-        }
+        if (dx !== 0 || dy !== 0) moveEvents(state.selectedEventIds, dx, dy);
       }
       isDraggingMultiEvents.current = false;
       multiEventDragOrigin.current = null;
       setEventMultiDragDelta(null);
       return true;
     }
-
-    // Event area selection commit
     if (isSelectingEvents.current) {
       isSelectingEvents.current = false;
       const start = eventSelDragStart.current;
       eventSelDragStart.current = null;
-
       if (start && tile && start.x === tile.x && start.y === tile.y) {
         setEventSelectionStart(null);
         setEventSelectionEnd(null);
       } else if (start && tile && currentMap?.events) {
-        const minX = Math.min(start.x, tile.x);
-        const maxX = Math.max(start.x, tile.x);
-        const minY = Math.min(start.y, tile.y);
-        const maxY = Math.max(start.y, tile.y);
+        const minX = Math.min(start.x, tile.x), maxX = Math.max(start.x, tile.x);
+        const minY = Math.min(start.y, tile.y), maxY = Math.max(start.y, tile.y);
         const eventsInArea = currentMap.events
           .filter(ev => ev && ev.id !== 0 && ev.x >= minX && ev.x <= maxX && ev.y >= minY && ev.y <= maxY)
           .map(ev => ev!.id);
@@ -387,16 +393,13 @@ export function useEventDragHandlers(): EventDragHandlersResult {
           if (merged.length > 0) setSelectedEventId(merged[merged.length - 1]);
         } else {
           setSelectedEventIds(eventsInArea);
-          if (eventsInArea.length > 0) setSelectedEventId(eventsInArea[0]);
-          else setSelectedEventId(null);
+          setSelectedEventId(eventsInArea.length > 0 ? eventsInArea[0] : null);
         }
         setEventSelectionStart(null);
         setEventSelectionEnd(null);
       }
       return true;
     }
-
-    // Single event drag (fallback - mouseUp without move)
     if (isDraggingEvent.current && draggedEventId.current != null) {
       isDraggingEvent.current = false;
       draggedEventId.current = null;
@@ -404,7 +407,6 @@ export function useEventDragHandlers(): EventDragHandlersResult {
       setDragPreview(null);
       return true;
     }
-
     return false;
   }, [currentMap, moveEvents, setSelectedEventId, setSelectedEventIds, setEventSelectionStart, setEventSelectionEnd]);
 
@@ -430,8 +432,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
 
   const createNewEvent = useCallback((x: number, y: number) => {
     if (!currentMap) return;
-    const oldEvents = [...(currentMap.events || [])];
-    const events = [...oldEvents];
+    const events = [...(currentMap.events || [])];
     const maxId = events.reduce((max: number, e) => (e && e.id > max ? e.id : max), 0);
     const defaultPage: EventPage = {
       conditions: {
@@ -445,55 +446,39 @@ export function useEventDragHandlers(): EventDragHandlersResult {
       list: [{ code: 0, indent: 0, parameters: [] }],
       moveFrequency: 3,
       moveRoute: { list: [{ code: 0 }], repeat: true, skippable: false, wait: false },
-      moveSpeed: 3,
-      moveType: 0,
-      priorityType: 1,
-      stepAnime: false,
-      through: false,
-      trigger: 0,
-      walkAnime: true,
+      moveSpeed: 3, moveType: 0, priorityType: 1,
+      stepAnime: false, through: false, trigger: 0, walkAnime: true,
     };
     const newEvent: RPGEvent = {
-      id: maxId + 1,
-      name: `EV${String(maxId + 1).padStart(3, '0')}`,
-      x, y,
-      note: '',
-      pages: [defaultPage],
+      id: maxId + 1, name: `EV${String(maxId + 1).padStart(3, '0')}`,
+      x, y, note: '', pages: [defaultPage],
     };
-    while (events.length <= maxId + 1) events.push(null);
-    events[maxId + 1] = newEvent;
-    const state = useEditorStore.getState();
-    const mapId = state.currentMapId;
-    useEditorStore.setState({ currentMap: { ...currentMap, events } as MapData & { tilesetNames?: string[] } });
-    if (mapId) {
-      const undoStack = [...useEditorStore.getState().undoStack, {
-        mapId, type: 'event' as const,
-        oldEvents, newEvents: events,
-        oldSelectedEventId: state.selectedEventId,
-        oldSelectedEventIds: state.selectedEventIds,
-      }];
-      if (undoStack.length > state.maxUndo) undoStack.shift();
-      useEditorStore.setState({ undoStack, redoStack: [] });
-    }
-    setSelectedEventId(maxId + 1);
-    setEditingEventId(maxId + 1);
-  }, [currentMap, setSelectedEventId]);
+    setPendingNewEvent(newEvent);
+  }, [currentMap]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLElement>, canvasToTile: MapToolsResult['canvasToTile']) => {
     if (editMode !== 'event') return;
     const tile = canvasToTile(e);
     if (!tile || !currentMap || !currentMap.events) return;
 
+<<<<<<< HEAD
     // 시작 위치(플레이어/탈것/테스트) 위에서는 더블클릭 무시
     const isPlayerStart = systemData && currentMapId === systemData.startMapId
       && tile.x === systemData.startX && tile.y === systemData.startY;
     if (isPlayerStart) return;
 
+=======
+    // 시작 위치에서는 더블클릭 무시
+    const isPlayerStart = systemData && currentMapId === systemData.startMapId
+      && tile.x === systemData.startX && tile.y === systemData.startY;
+    if (isPlayerStart) return;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     if (systemData) {
       for (const vk of ['boat', 'ship', 'airship'] as const) {
         const vData = systemData[vk];
         if (vData && vData.startMapId === currentMapId && tile.x === vData.startX && tile.y === vData.startY) return;
       }
+<<<<<<< HEAD
     }
 
     const testPos = currentMap.testStartPosition;
@@ -508,31 +493,34 @@ export function useEventDragHandlers(): EventDragHandlersResult {
     } else {
       createNewEvent(tile.x, tile.y);
     }
+=======
+    }
+    const testPos = currentMap.testStartPosition;
+    if (testPos && tile.x === testPos.x && tile.y === testPos.y) return;
+
+    const ev = currentMap.events.find((ev) => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y);
+    if (ev) { setSelectedEventId(ev.id); setEditingEventId(ev.id); }
+    else createNewEvent(tile.x, tile.y);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   }, [editMode, currentMap, systemData, currentMapId, setSelectedEventId, createNewEvent]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent<HTMLElement>, canvasToTile: MapToolsResult['canvasToTile']) => {
     e.preventDefault();
+<<<<<<< HEAD
     // 3D 모드에서는 우클릭이 카메라 이동으로 사용됨
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     if (useEditorStore.getState().mode3d) return;
     if (editMode === 'event') {
-      const state = useEditorStore.getState();
-      if (state.isEventPasting) {
+      if (useEditorStore.getState().isEventPasting) {
         setIsEventPasting(false);
         setEventPastePreviewPos(null);
         return;
       }
       const tile = canvasToTile(e);
       if (!tile || !currentMap) return;
-      const ev = currentMap.events?.find(
-        (ev) => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y
-      );
-      setEventCtxMenu({
-        x: e.clientX,
-        y: e.clientY,
-        tileX: tile.x,
-        tileY: tile.y,
-        eventId: ev ? ev.id : null,
-      });
+      const ev = currentMap.events?.find((ev) => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y);
+      setEventCtxMenu({ x: e.clientX, y: e.clientY, tileX: tile.x, tileY: tile.y, eventId: ev ? ev.id : null });
     }
     // 맵 모드에서는 컨텍스트 메뉴 없음 (우클릭은 삭제)
   }, [editMode, currentMap, setIsEventPasting, setEventPastePreviewPos]);
@@ -541,13 +529,23 @@ export function useEventDragHandlers(): EventDragHandlersResult {
 
   return {
     isDraggingEvent, isSelectingEvents,
+<<<<<<< HEAD
     dragPreview, eventMultiDragDelta, playerStartDragPos, testStartDragPos, vehicleStartDragPos,
+=======
+    dragPreview, eventMultiDragDelta,
+    playerStartDragPos: startPosDrag.playerStartDragPos,
+    testStartDragPos: startPosDrag.testStartDragPos,
+    vehicleStartDragPos: startPosDrag.vehicleStartDragPos,
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     eventCtxMenu, editingEventId, setEditingEventId,
+    pendingNewEvent, setPendingNewEvent,
     closeEventCtxMenu, createNewEvent,
     handleEventMouseDown, handleEventMouseMove,
     handleEventMouseUp, handleEventMouseLeave,
     handleEventPastePreview,
     handleDoubleClick, handleContextMenu,
-    handlePlayerStartDragMove, handlePlayerStartDragUp, handlePlayerStartDragLeave,
+    handlePlayerStartDragMove: startPosDrag.handleStartPositionDragMove,
+    handlePlayerStartDragUp: startPosDrag.handleStartPositionDragUp,
+    handlePlayerStartDragLeave: startPosDrag.handleStartPositionDragLeave,
   };
 }

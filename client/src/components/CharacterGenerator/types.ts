@@ -2,7 +2,10 @@ import {
   FACE_RENDER_ORDER,
   TV_RENDER_ORDER,
   SV_RENDER_ORDER,
+  type RenderEntry,
 } from '../../utils/generatorRenderer';
+
+export type { RenderEntry };
 
 export type Gender = 'Male' | 'Female' | 'Kid';
 export type OutputType = 'Face' | 'TV' | 'SV';
@@ -20,8 +23,10 @@ export interface FacePattern {
 
 export interface TVSVPattern {
   id: string;
-  baseFile: string;
-  colorMapFile: string | null;
+  layer1File: string | null;  // X1 = 전경 레이어
+  layer1CmFile: string | null;
+  layer2File: string | null;  // X2 = 배경 레이어
+  layer2CmFile: string | null;
 }
 
 export interface FacePartManifest {
@@ -54,10 +59,22 @@ export interface GeneratorStatus {
   customPath: string | null;
 }
 
-export function getRenderOrder(type: OutputType): string[] {
+export function getRenderOrder(type: OutputType): RenderEntry[] {
   if (type === 'TV') return TV_RENDER_ORDER;
   if (type === 'SV') return SV_RENDER_ORDER;
-  return FACE_RENDER_ORDER;
+  return FACE_RENDER_ORDER as RenderEntry[];
+}
+
+// RenderEntry에서 파트 이름 추출
+export function getPartName(entry: RenderEntry): string {
+  return typeof entry === 'string' ? entry : entry[0];
+}
+
+// TV/SV 렌더 순서에서 중복 없는 파트 이름 목록 추출
+export function getUniqueParts(type: OutputType): string[] {
+  if (type === 'Face') return FACE_RENDER_ORDER;
+  const order = type === 'TV' ? TV_RENDER_ORDER : SV_RENDER_ORDER;
+  return [...new Set(order.map(getPartName))];
 }
 
 export const GENDER_LABELS: Record<Gender, string> = { Male: '남성', Female: '여성', Kid: '아이' };
@@ -94,17 +111,16 @@ export function buildColorGroupMap(manifest: FacePartManifest, selections: Recor
 
 // TV/SV 파트 이름 → Face에서 사용하는 _m 값 (기본 gradient row) 매핑
 // Face 파트의 _m 값 기반: _m001=피부, _m002=눈, _m003=머리, _m005=문신, _m006=수인귀
+// X1/X2 파트가 병합되어 suffix 없는 기본 이름만 사용
 export const TVSV_PART_DEFAULT_GRADIENT: Record<string, number> = {
-  Body: 1, Ears: 1,                                    // 피부 (_m001)
-  FacialMark: 5,                                        // 문신 (_m005)
-  BeastEars: 6,                                         // 수인귀 (_m006)
-  FrontHair: 3, FrontHair1: 3, FrontHair2: 3,          // 머리 (_m003)
-  RearHair1: 3, RearHair2: 3,                           // 머리 (_m003)
-  Beard: 3, Beard1: 3, Beard2: 3,                       // 수염/머리 (_m003)
-  Clothing1: 7, Clothing2: 7,                            // 의복 (_m007)
-  Cloak1: 11, Cloak2: 11,                               // 망토 (_m011)
-  AccA: 13, AccB: 16,                                   // 악세사리
-  Glasses: 20,                                           // 안경
-  Wing: 7, Wing1: 7, Wing2: 7,                          // 날개
-  Tail: 3, Tail1: 3, Tail2: 3,                          // 꼬리
+  Body: 1, Ears: 1,      // 피부 (_m001)
+  FacialMark: 5,         // 문신 (_m005)
+  BeastEars: 6,          // 수인귀 (_m006)
+  FrontHair: 3, RearHair: 3, Beard: 3,  // 머리/수염 (_m003)
+  Clothing: 7,           // 의복 (_m007)
+  Cloak: 11,             // 망토 (_m011)
+  AccA: 13, AccB: 16,   // 악세사리
+  Glasses: 20,           // 안경
+  Wing: 7,               // 날개
+  Tail: 3,               // 꼬리
 };

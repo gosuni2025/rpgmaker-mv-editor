@@ -49,6 +49,10 @@
     "pencil": "Pencil",
     "rectangle": "Rectangle",
     "ellipse": "Ellipse",
+<<<<<<< HEAD
+=======
+    "eraser": "Eraser",
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "fill": "Fill",
     "shadow": "Shadow",
     "zoomIn": "Zoom In",
@@ -80,11 +84,33 @@
     "noRecentProjects": "No recent projects",
     "projectNotFound": "Project not found. Removing from list.",
     "help": "Help",
+<<<<<<< HEAD
+=======
+    "checkUpdate": "Check for Updates...",
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "homepage": "Homepage",
     "reportIssue": "Report Issue...",
     "twitter": "Developer Twitter (X)",
     "youtube": "Developer YouTube"
   },
+<<<<<<< HEAD
+=======
+  "update": {
+    "title": "Check for Updates",
+    "checking": "Checking...",
+    "error": "Failed to check version.",
+    "upToDate": "You are up to date",
+    "available": "Update available",
+    "currentVersion": "Current version",
+    "latestVersion": "Latest version",
+    "currentCommit": "Current commit date",
+    "latestCommit": "Latest commit date",
+    "currentHash": "Current commit",
+    "gitHint": "Run git pull to get the latest changes.",
+    "download": "Download",
+    "viewChanges": "View Changes"
+  },
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   "options": {
     "title": "Editor Settings",
     "search": "Search...",
@@ -194,6 +220,10 @@
     "msgPreset3": " uses %1!"
   },
   "fields": {
+<<<<<<< HEAD
+=======
+    "generalSettings": "General Settings",
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "nickname": "Nickname",
     "class": "Class",
     "initialLevel": "Initial Level",
@@ -439,6 +469,19 @@
   "traits": {
     "title": "Traits",
     "noTraits": "No traits",
+<<<<<<< HEAD
+=======
+    "tabRate": "Rate",
+    "tabParam": "Param",
+    "tabAttack": "Attack",
+    "tabSkill": "Skill",
+    "tabEquip": "Equip",
+    "tabOther": "Other",
+    "slotTypes": {
+      "0": "Normal",
+      "1": "Dual Wield"
+    },
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "codes": {
       "11": "Element Rate",
       "12": "Debuff Rate",
@@ -562,6 +605,11 @@
     "dragToMove": "Drag to move",
     "moveUp": "Move Up",
     "moveDown": "Move Down",
+<<<<<<< HEAD
+=======
+    "filterPlaceholder": "Search commands...",
+    "noResults": "No results found",
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "foldAll": "Fold All",
     "unfoldAll": "Unfold All",
     "categories": {
@@ -583,7 +631,11 @@
       "tab3Advanced": "Advanced",
       "tab4Objects": "Objects",
       "tab4MapRendering": "Map/Rendering",
+<<<<<<< HEAD
       "tab4PostProcess": "Post Process (DoF)",
+=======
+      "tab4PostProcess": "DoF (Depth of Field)",
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       "tab4PPEffect": "PP Effects"
     },
     "commands": {
@@ -678,6 +730,7 @@
       "326": "Change TP...",
       "331": "Change Enemy HP...",
       "332": "Change Enemy MP...",
+<<<<<<< HEAD
       "333": "Change Enemy TP...",
       "334": "Change Enemy State...",
       "335": "Enemy Recover All...",
@@ -686,6 +739,16 @@
       "338": "Show Battle Animation...",
       "339": "Force Action...",
       "340": "Abort Battle",
+=======
+      "333": "Change Enemy State...",
+      "334": "Enemy Recover All...",
+      "335": "Enemy Appear...",
+      "336": "Enemy Transform...",
+      "337": "Show Battle Animation...",
+      "339": "Force Action...",
+      "340": "Abort Battle",
+      "342": "Change Enemy TP...",
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       "351": "Open Menu Screen",
       "352": "Open Save Screen",
       "353": "Game Over",
@@ -785,6 +848,7 @@
       "326": "Change TP",
       "331": "Change Enemy HP",
       "332": "Change Enemy MP",
+<<<<<<< HEAD
       "333": "Change Enemy TP",
       "334": "Change Enemy State",
       "335": "Enemy Recover All",
@@ -793,6 +857,16 @@
       "338": "Show Battle Animation",
       "339": "Force Action",
       "340": "Abort Battle",
+=======
+      "333": "Change Enemy State",
+      "334": "Enemy Recover All",
+      "335": "Enemy Appear",
+      "336": "Enemy Transform",
+      "337": "Show Battle Animation",
+      "339": "Force Action",
+      "340": "Abort Battle",
+      "342": "Change Enemy TP",
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       "351": "Open Menu Screen",
       "352": "Open Save Screen",
       "353": "Game Over",
@@ -985,6 +1059,10 @@
     "airship": "Airship",
     "testStartPosition": "Set Test Start Position",
     "clearTestStartPosition": "Clear Test Start Position",
+<<<<<<< HEAD
+=======
+    "clearStartPosition": "Clear Starting Position",
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "items": "{{count}} items"
   },
   "quickEvent": {
@@ -1243,7 +1321,23 @@
     "rollbackConfirmTitle": "Confirm Rollback",
     "rollbackConfirmMessage": "This will restore the js/ folder from the selected backup. Current js/ files will be overwritten. Continue?",
     "rollbackConfirmProceed": "Proceed with Rollback",
+<<<<<<< HEAD
     "rollbackSuccess": "Rollback completed successfully."
+=======
+    "rollbackSuccess": "Rollback completed successfully.",
+    "progressTitle": "Migration in Progress",
+    "phaseGitInit": "Initializing repository...",
+    "phaseGitAdd": "Staging files (git add -A)...",
+    "phaseGitCommit": "Creating backup commit...",
+    "phaseCopying": "Copying files ({{current}}/{{total}})",
+    "phaseRegisterPlugins": "Registering plugins...",
+    "progressFile": "File",
+    "progressFrom": "Source",
+    "progressTo": "Destination",
+    "gitStepInitDone": "Done",
+    "gitStepAddDone": "Done",
+    "gitStepCommitDone": "Done"
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   },
   "find": {
     "title": "Search",
@@ -1315,6 +1409,11 @@
   },
   "deploy": {
     "title": "Deploy",
+<<<<<<< HEAD
+=======
+    "tabNetlify": "Netlify",
+    "tabLocal": "Local Folder",
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "platform": "Platform",
     "platformDesc": {
       "web": "Deploy as web browser playable",
@@ -1330,7 +1429,51 @@
     "deploying": "Deploying...",
     "preparing": "Preparing deployment...",
     "complete": "Deployment complete!",
+<<<<<<< HEAD
     "pathRequired": "Please select an output path"
+=======
+    "pathRequired": "Please select an output path",
+    "netlify": {
+      "settingsTitle": "Netlify Connection Settings",
+      "apiKey": "Personal Access Token",
+      "apiKeyPlaceholder": "nfp_xxxxxxxxxxxxxxxxxxxx",
+      "siteId": "Site ID",
+      "siteIdPlaceholder": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+      "saved": "Saved",
+      "makeZip": "Create ZIP + Open Folder",
+      "securityTitle": "API Key Storage Notice",
+      "security1": "Stored on this PC only — never included in git or project files",
+      "security2": "Keep a copy in a safe place (password manager, etc.)",
+      "security3": "Lost it? Just delete the old token on Netlify and generate a new one",
+      "analyzing": "Analyzing files...",
+      "copying": "Copying files",
+      "zipping": "Compressing ZIP...",
+      "creatingSite": "Creating Netlify site...",
+      "uploading": "Uploading to Netlify...",
+      "zipDone": "ZIP created. Folder opened.",
+      "openDrop": "Open Drag & Drop Page",
+      "autoDeploy": "Auto Deploy to Netlify",
+      "deployDone": "Deployment complete",
+      "deployUrl": "Deploy URL",
+      "deployUrlDesc": "Your game is accessible at https://xxxx-yyyy-zzzz.netlify.app/",
+      "apiKeyRequired": "Please enter your Personal Access Token",
+      "connectionError": "Connection error",
+      "siteAuto": "Auto-manage site",
+      "siteAutoDesc": "A site will be automatically created on first deploy using the project name",
+      "siteConnected": "Connected site",
+      "siteManualInput": "Enter Site ID manually",
+      "siteCreatedMsg": "Site created",
+      "visitSite": "Go to netlify.com / Sign up",
+      "disclaimer": "This editor has no affiliation with Netlify. This feature was added purely for convenience.",
+      "guideTitle": "Getting Started",
+      "guide1": "Click the button above to visit netlify.com and create an account",
+      "guide2": "After login, go to https://app.netlify.com/user/applications#oauth → Personal access tokens → New access token → enter a name (e.g. rpgmaker-mv) → Generate token",
+      "guide3": "Copy the generated nfp_xxx... token and paste it into the Personal Access Token field above, then save",
+      "guide4": "Click 'Auto Deploy to Netlify' — a site will be automatically created and deployed (subsequent deploys update the same site)",
+      "guide5": "For manual upload: use 'Create ZIP' → 'Open Drag & Drop Page' to upload the ZIP",
+      "openSite": "Open My Site"
+    }
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   },
   "troops": {
     "generalSettings": "General Settings",
@@ -1444,13 +1587,24 @@
     "fogOfWar_RevealAll": "Reveal All",
     "fogOfWar_HideAll": "Hide All",
     "fogOfWar_RevealRect": "Reveal Rect",
+<<<<<<< HEAD
+=======
+    "fogOfWar_FogColor": "Fog Color",
+    "fogOfWar_TentacleSharpness": "Tentacle Sharpness",
+    "fogOfWar_TentacleLength": "Tentacle Length",
+    "fogOfWar_TentacleSpeed": "Tentacle Speed",
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "shadowLight": "Shadow & Light",
     "shadowLight_on": "On",
     "shadowLight_off": "Off",
     "shadowLight_ambient": "Ambient Intensity",
     "shadowLight_ambientColor": "Ambient Color",
     "shadowLight_direction": "Light Direction",
+<<<<<<< HEAD
     "postProcess": "Post Process",
+=======
+    "postProcess": "DoF (Depth of Field)",
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "postProcess_on": "On",
     "postProcess_off": "Off",
     "postProcess_focusY": "Focus Y",

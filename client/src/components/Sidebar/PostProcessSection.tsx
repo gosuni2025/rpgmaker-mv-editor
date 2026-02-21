@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useEditorStore from '../../store/useEditorStore';
+<<<<<<< HEAD
 import type { BloomConfig } from '../../types/rpgMakerMV';
 import { DEFAULT_BLOOM_CONFIG } from '../../types/rpgMakerMV';
+=======
+import type { BloomConfig, DofConfig } from '../../types/rpgMakerMV';
+import { DEFAULT_BLOOM_CONFIG, DEFAULT_DOF_CONFIG } from '../../types/rpgMakerMV';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import ExtBadge from '../common/ExtBadge';
 import { AnimSlider } from './AnimTileShaderSection';
 
@@ -112,11 +117,49 @@ export function PostProcessSection({ currentMap, updateMapField }: {
     }
   }, [updateMapField]);
 
+<<<<<<< HEAD
   const enabledCount = useMemo(() => {
     let count = Object.values(postProcessConfig).filter(c => c?.enabled).length;
     if (bloom.enabled !== false) count++;
     return count;
   }, [postProcessConfig, bloom.enabled]);
+=======
+  // DoF
+  const dof: DofConfig = currentMap.dofConfig || DEFAULT_DOF_CONFIG;
+
+  const updateDof = useCallback((field: keyof DofConfig, value: unknown) => {
+    const cur: DofConfig = useEditorStore.getState().currentMap?.dofConfig || DEFAULT_DOF_CONFIG;
+    const updated = { ...cur, [field]: value };
+    updateMapField('dofConfig', updated);
+    const PP = (window as any).PostProcess;
+    if (PP) {
+      PP.config.focusY = updated.focusY;
+      PP.config.focusRange = updated.focusRange;
+      PP.config.maxblur = updated.maxBlur;
+      PP.config.blurPower = updated.blurPower;
+      if ((window as any).ConfigManager) (window as any).ConfigManager.depthOfField = updated.enabled;
+    }
+  }, [updateMapField]);
+
+  const handleDofReset = useCallback(() => {
+    updateMapField('dofConfig', undefined);
+    const PP = (window as any).PostProcess;
+    if (PP) {
+      PP.config.focusY = DEFAULT_DOF_CONFIG.focusY;
+      PP.config.focusRange = DEFAULT_DOF_CONFIG.focusRange;
+      PP.config.maxblur = DEFAULT_DOF_CONFIG.maxBlur;
+      PP.config.blurPower = DEFAULT_DOF_CONFIG.blurPower;
+      if ((window as any).ConfigManager) (window as any).ConfigManager.depthOfField = DEFAULT_DOF_CONFIG.enabled;
+    }
+  }, [updateMapField]);
+
+  const enabledCount = useMemo(() => {
+    let count = Object.values(postProcessConfig).filter(c => c?.enabled).length;
+    if (bloom.enabled !== false) count++;
+    if (dof.enabled) count++;
+    return count;
+  }, [postProcessConfig, bloom.enabled, dof.enabled]);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   return (
     <div className="light-inspector-section">
@@ -163,6 +206,48 @@ export function PostProcessSection({ currentMap, updateMapField }: {
         )}
       </div>
 
+<<<<<<< HEAD
+=======
+      {/* DoF (피사계 심도) */}
+      <div className="anim-tile-kind-panel">
+        <div className="anim-tile-kind-header" onClick={() => toggleExpand('__dof__')}>
+          <span className="anim-tile-kind-arrow">{expandedEffects.has('__dof__') ? '\u25BC' : '\u25B6'}</span>
+          <span className="anim-tile-kind-name">DoF (피사계 심도)</span>
+          {dof.enabled && <span className="pp-effect-active-dot" title="활성">{'\u2022'}</span>}
+        </div>
+        {expandedEffects.has('__dof__') && (
+          <div className="anim-tile-kind-body">
+            <label className="map-inspector-checkbox">
+              <input type="checkbox" checked={dof.enabled}
+                onChange={(e) => updateDof('enabled', e.target.checked)} />
+              <span>활성화</span>
+            </label>
+            {dof.enabled && (
+              <>
+                <AnimSlider label="Focus Y" value={dof.focusY} min={0} max={1} step={0.01}
+                  onChange={(v) => updateDof('focusY', v)}
+                  tooltip={"포커스 중심 Y 위치\n0=화면 상단, 1=화면 하단\n캐릭터가 있는 위치에 맞춤\n앞쪽(작은 값)과 뒤쪽(큰 값)\n모두 이 기준선에서 멀어질수록 블러"} />
+                <AnimSlider label="Range" value={dof.focusRange} min={0} max={0.5} step={0.01}
+                  onChange={(v) => updateDof('focusRange', v)}
+                  tooltip={"선명한 영역 반폭\nFocus Y 기준 ±Range 내부는\n완전히 선명하게 유지됨\n클수록 선명한 구간이 넓어짐"} />
+                <AnimSlider label="Max Blur" value={dof.maxBlur} min={0} max={0.2} step={0.005}
+                  onChange={(v) => updateDof('maxBlur', v)}
+                  tooltip={"최대 블러 강도\n화면 가장자리(상단/하단)에서의\n최대 흐림 정도\n클수록 강하게 흐려짐"} />
+                <AnimSlider label="Blur Power" value={dof.blurPower} min={0.5} max={5} step={0.1}
+                  onChange={(v) => updateDof('blurPower', v)}
+                  tooltip={"블러 증가 곡선\n1=선형(균일하게 증가)\n높을수록 포커스 근처는 선명하고\n가장자리만 급격히 흐려짐"} />
+                {currentMap.dofConfig && (
+                  <button className="anim-tile-reset-btn" onClick={handleDofReset}>
+                    초기화
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       {effectList.map(effect => {
         const config = postProcessConfig[effect.key] || { enabled: false };
         const expanded = expandedEffects.has(effect.key);

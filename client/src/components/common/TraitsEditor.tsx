@@ -2,7 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Trait } from '../../types/rpgMakerMV';
 import apiClient from '../../api/client';
+<<<<<<< HEAD
 import { DataListPicker, IconSprite } from '../EventEditor/dataListPicker';
+=======
+import { DataListPicker } from '../EventEditor/dataListPicker';
+import { RateTab, ParamTab, AttackTab, SkillTab, EquipTab, OtherTab } from './TraitsEditorTabs';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import './TraitsEditor.css';
 
 interface TraitsEditorProps {
@@ -122,6 +127,16 @@ export default function TraitsEditor({ traits, onChange }: TraitsEditorProps) {
     if ([52].includes(code)) return 1; // armor type
     if ([53, 54, 55].includes(code)) return 1; // equip type
     return 0;
+<<<<<<< HEAD
+  };
+
+  const getDefaultValue = (code: number): number => {
+    if ([11, 12, 13, 21, 22, 23, 32].includes(code)) return 1; // 100%
+    if (code === 33) return 0;
+    if (code === 34 || code === 61) return 0;
+    return 0;
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   };
 
   const getDefaultValue = (code: number): number => {
@@ -131,8 +146,123 @@ export default function TraitsEditor({ traits, onChange }: TraitsEditorProps) {
     return 0;
   };
 
-  const isRateTrait = (code: number) => [11, 12, 13, 21, 22, 23, 32].includes(code);
-  const isNoValue = (code: number) => [14, 31, 41, 42, 43, 44, 51, 52, 53, 54, 55, 62, 63, 64].includes(code);
+  // --- Label helpers ---
+  const getElementLabel = (id: number) => {
+    if (id === 0) return t('common.none');
+    return elements[id] ? `${String(id).padStart(2, '0')}: ${elements[id]}` : String(id);
+  };
+
+  const getStateLabel = (id: number) => {
+    if (id === 0) return t('common.none');
+    const st = states.find(s => s && s.id === id);
+    return st ? `${String(id).padStart(4, '0')}: ${st.name}` : String(id);
+  };
+
+  const getSkillLabel = (id: number) => {
+    if (id === 0) return t('common.none');
+    const sk = skills.find(s => s && s.id === id);
+    return sk ? `${String(id).padStart(4, '0')}: ${sk.name}` : String(id);
+  };
+
+  const getStateIconIndex = (id: number) => {
+    const st = states.find(s => s && s.id === id);
+    return st?.iconIndex;
+  };
+
+  const getSkillIconIndex = (id: number) => {
+    const sk = skills.find(s => s && s.id === id);
+    return sk?.iconIndex;
+  };
+
+  // Picker data
+  const stateNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const s of states) { if (s) arr[s.id] = s.name; }
+    return arr;
+  }, [states]);
+  const stateIcons = useMemo(() => {
+    const arr: (number | undefined)[] = [];
+    for (const s of states) { if (s) arr[s.id] = s.iconIndex; }
+    return arr;
+  }, [states]);
+  const skillNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const s of skills) { if (s) arr[s.id] = s.name; }
+    return arr;
+  }, [skills]);
+  const skillIcons = useMemo(() => {
+    const arr: (number | undefined)[] = [];
+    for (const s of skills) { if (s) arr[s.id] = s.iconIndex; }
+    return arr;
+  }, [skills]);
+
+  // --- Description for list display ---
+  const getTraitDescription = (tr: Trait): string => {
+    const codeName = t(`traits.codes.${tr.code}`, `Code ${tr.code}`);
+    switch (tr.code) {
+      case 11: return `${codeName} ${getElementLabel(tr.dataId)} * ${Math.round(tr.value * 100)}%`;
+      case 12: {
+        const st = states.find(s => s && s.id === tr.dataId);
+        return `${codeName} ${st ? st.name : tr.dataId} * ${Math.round(tr.value * 100)}%`;
+      }
+      case 13: {
+        const st = states.find(s => s && s.id === tr.dataId);
+        return `${codeName} ${st ? st.name : tr.dataId} * ${Math.round(tr.value * 100)}%`;
+      }
+      case 14: {
+        const st = states.find(s => s && s.id === tr.dataId);
+        return `${codeName} ${st ? st.name : tr.dataId}`;
+      }
+      case 21: return `${codeName} ${PARAM_NAMES[tr.dataId] || tr.dataId} * ${Math.round(tr.value * 100)}%`;
+      case 22: return `${codeName} ${XPARAM_NAMES[tr.dataId] || tr.dataId} + ${Math.round(tr.value * 100)}%`;
+      case 23: return `${codeName} ${SPARAM_NAMES[tr.dataId] || tr.dataId} * ${Math.round(tr.value * 100)}%`;
+      case 31: return `${codeName} ${getElementLabel(tr.dataId)}`;
+      case 32: {
+        const st = states.find(s => s && s.id === tr.dataId);
+        return `${codeName} ${st ? st.name : tr.dataId} + ${Math.round(tr.value * 100)}%`;
+      }
+      case 33: return `${codeName} ${tr.value}`;
+      case 34: return `${codeName} +${tr.value}`;
+      case 41: return `${codeName} ${skillTypes[tr.dataId] || tr.dataId}`;
+      case 42: return `${codeName} ${skillTypes[tr.dataId] || tr.dataId}`;
+      case 43: {
+        const sk = skills.find(s => s && s.id === tr.dataId);
+        return `${codeName} ${sk ? sk.name : tr.dataId}`;
+      }
+      case 44: {
+        const sk = skills.find(s => s && s.id === tr.dataId);
+        return `${codeName} ${sk ? sk.name : tr.dataId}`;
+      }
+      case 51: return `${codeName} ${weaponTypes[tr.dataId] || tr.dataId}`;
+      case 52: return `${codeName} ${armorTypes[tr.dataId] || tr.dataId}`;
+      case 53: return `${codeName} ${equipTypes[tr.dataId] || tr.dataId}`;
+      case 54: return `${codeName} ${equipTypes[tr.dataId] || tr.dataId}`;
+      case 55: return `${codeName} ${tr.dataId === 1 ? t('traits.slotTypes.1') : t('traits.slotTypes.0')}`;
+      case 61: return `${codeName} +${Math.round(tr.value * 100)}%`;
+      case 62: return `${codeName} ${SPECIAL_FLAGS[tr.dataId] || tr.dataId}`;
+      case 63: return `${codeName} ${COLLAPSE_EFFECTS[tr.dataId] || tr.dataId}`;
+      case 64: return `${codeName} ${PARTY_ABILITIES[tr.dataId] || tr.dataId}`;
+      default: return `Code ${tr.code}`;
+    }
+  };
+
+  const sharedTabProps = {
+    formCode,
+    formDataId,
+    formValue,
+    switchCode,
+    setFormDataId,
+    setFormValue,
+  };
+
+  const TABS: { key: TraitTab; label: string }[] = [
+    { key: 'rate', label: t('traits.tabRate') },
+    { key: 'param', label: t('traits.tabParam') },
+    { key: 'attack', label: t('traits.tabAttack') },
+    { key: 'skill', label: t('traits.tabSkill') },
+    { key: 'equip', label: t('traits.tabEquip') },
+    { key: 'other', label: t('traits.tabOther') },
+  ];
 
   // --- Label helpers ---
   const getElementLabel = (id: number) => {
@@ -687,12 +817,66 @@ export default function TraitsEditor({ traits, onChange }: TraitsEditorProps) {
               ))}
             </div>
             <div className="traits-dialog-body">
+<<<<<<< HEAD
               {tab === 'rate' && renderRateTab()}
               {tab === 'param' && renderParamTab()}
               {tab === 'attack' && renderAttackTab()}
               {tab === 'skill' && renderSkillTab()}
               {tab === 'equip' && renderEquipTab()}
               {tab === 'other' && renderOtherTab()}
+=======
+              {tab === 'rate' && (
+                <RateTab
+                  {...sharedTabProps}
+                  elements={elements}
+                  getStateLabel={getStateLabel}
+                  getStateIconIndex={getStateIconIndex}
+                  setPickerTarget={(target) => setPickerTarget(target)}
+                />
+              )}
+              {tab === 'param' && (
+                <ParamTab
+                  {...sharedTabProps}
+                  PARAM_NAMES={PARAM_NAMES}
+                  XPARAM_NAMES={XPARAM_NAMES}
+                  SPARAM_NAMES={SPARAM_NAMES}
+                />
+              )}
+              {tab === 'attack' && (
+                <AttackTab
+                  {...sharedTabProps}
+                  elements={elements}
+                  getStateLabel={getStateLabel}
+                  getStateIconIndex={getStateIconIndex}
+                  setPickerTarget={(target) => setPickerTarget(target)}
+                />
+              )}
+              {tab === 'skill' && (
+                <SkillTab
+                  {...sharedTabProps}
+                  skillTypes={skillTypes}
+                  getSkillLabel={getSkillLabel}
+                  getSkillIconIndex={getSkillIconIndex}
+                  setPickerTarget={(target) => setPickerTarget(target)}
+                />
+              )}
+              {tab === 'equip' && (
+                <EquipTab
+                  {...sharedTabProps}
+                  weaponTypes={weaponTypes}
+                  armorTypes={armorTypes}
+                  equipTypes={equipTypes}
+                />
+              )}
+              {tab === 'other' && (
+                <OtherTab
+                  {...sharedTabProps}
+                  SPECIAL_FLAGS={SPECIAL_FLAGS}
+                  COLLAPSE_EFFECTS={COLLAPSE_EFFECTS}
+                  PARTY_ABILITIES={PARTY_ABILITIES}
+                />
+              )}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             </div>
             <div className="traits-dialog-footer">
               <button className="db-btn" onClick={handleOk}>{t('common.ok')}</button>

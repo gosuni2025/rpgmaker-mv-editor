@@ -1,13 +1,103 @@
-import type { MapObject, CameraZone } from '../types/rpgMakerMV';
-import type { EditorState, CameraZoneHistoryEntry } from './types';
+import type { MapObject } from '../types/rpgMakerMV';
+import type { EditorState } from './types';
 import { pushObjectUndoEntry, incrementName } from './editingHelpers';
+
+export { addObjectFromTilesOp, expandObjectTilesOp, shrinkObjectTilesOp } from './objectTileOperations';
 
 type SetFn = (partial: Partial<EditorState> | ((s: EditorState) => Partial<EditorState>)) => void;
 type GetFn = () => EditorState;
 
-// ============================================================
-// Object operations
-// ============================================================
+export function addObjectFromAnimationOp(get: GetFn, set: SetFn, animationId: number, animationName: string) {
+  const { currentMap, currentMapId } = get();
+  if (!currentMap || !currentMapId) return;
+  const oldObjects = currentMap.objects || [];
+  const objects = [...oldObjects];
+  const newId = objects.length > 0 ? Math.max(...objects.map(o => o.id)) + 1 : 1;
+
+  // 애니메이션 셀 크기 192px → 4x4 타일 (192/48=4)
+  const w = 4, h = 4;
+  const tileIds: number[][][] = [];
+  for (let row = 0; row < h; row++) {
+    const rowArr: number[][] = [];
+    for (let col = 0; col < w; col++) {
+      rowArr.push([0, 0, 0, 0]);
+    }
+    tileIds.push(rowArr);
+  }
+  const passability: boolean[][] = [];
+  for (let row = 0; row < h; row++) {
+    passability.push(Array(w).fill(true)); // 전부 통행 가능
+  }
+
+  const cx = Math.floor(currentMap.width / 2);
+  const cy = Math.floor(currentMap.height / 2);
+
+  const newObj: MapObject = {
+    id: newId,
+    name: animationName,
+    x: cx,
+    y: cy + h - 1,
+    tileIds,
+    width: w,
+    height: h,
+    zHeight: 0,
+    passability,
+    animationId,
+    animationLoop: 'forward',
+    animationSe: false,
+  };
+  objects.push(newObj);
+  set({ currentMap: { ...currentMap, objects }, selectedObjectId: newId, selectedObjectIds: [newId] });
+  pushObjectUndoEntry(get, set, oldObjects, objects);
+}
+
+export function addObjectFromImageOp(get: GetFn, set: SetFn, imageName: string, imageWidth: number, imageHeight: number) {
+  const { currentMap, currentMapId } = get();
+  if (!currentMap || !currentMapId) return;
+  const oldObjects = currentMap.objects || [];
+  const objects = [...oldObjects];
+  const newId = objects.length > 0 ? Math.max(...objects.map(o => o.id)) + 1 : 1;
+
+  const tileSize = 48;
+  const w = Math.max(1, Math.ceil(imageWidth / tileSize));
+  const h = Math.max(1, Math.ceil(imageHeight / tileSize));
+
+  // tileIds: 모두 빈 타일 (이미지로 렌더링)
+  const tileIds: number[][][] = [];
+  for (let row = 0; row < h; row++) {
+    const rowArr: number[][] = [];
+    for (let col = 0; col < w; col++) {
+      rowArr.push([0, 0, 0, 0]);
+    }
+    tileIds.push(rowArr);
+  }
+
+  const passability: boolean[][] = [];
+  for (let row = 0; row < h; row++) {
+    passability.push(Array(w).fill(row < h - 1));
+  }
+
+  // 맵 중앙 근처에 배치
+  const cx = Math.floor(currentMap.width / 2);
+  const cy = Math.floor(currentMap.height / 2);
+
+  const newObj: MapObject = {
+    id: newId,
+    name: imageName,
+    x: cx,
+    y: cy + h - 1,
+    tileIds,
+    width: w,
+    height: h,
+    zHeight: 0,
+    passability,
+    imageName,
+    anchorY: 1.0,
+  };
+  objects.push(newObj);
+  set({ currentMap: { ...currentMap, objects }, selectedObjectId: newId, selectedObjectIds: [newId] });
+  pushObjectUndoEntry(get, set, oldObjects, objects);
+}
 
 /**
  * 칠한 타일(외곽선)을 기반으로 내부를 채운 타일 영역을 계산.
@@ -562,6 +652,7 @@ export function commitDragUndoOp(get: GetFn, set: SetFn, snapshotObjects: MapObj
   if (!currentMap || !currentMap.objects) return;
   if (snapshotObjects === currentMap.objects) return; // 변경 없음
   pushObjectUndoEntry(get, set, snapshotObjects, currentMap.objects);
+<<<<<<< HEAD
 }
 
 // ============================================================
@@ -723,3 +814,8 @@ export function moveCameraZonesOp(get: GetFn, set: SetFn, ids: number[], dx: num
     redoStack: [],
   });
 }
+=======
+}
+
+export { addCameraZoneOp, updateCameraZoneOp, deleteCameraZoneOp, deleteCameraZonesOp, moveCameraZonesOp, commitCameraZoneDragUndoOp } from './cameraZoneOperations';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f

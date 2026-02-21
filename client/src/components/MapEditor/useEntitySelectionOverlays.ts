@@ -1,6 +1,7 @@
 import React from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
+<<<<<<< HEAD
 
 /**
  * Helper: dispose all meshes in a global array and clear it
@@ -186,6 +187,17 @@ interface OverlayRefs {
   stageRef: React.MutableRefObject<any>;
   renderRequestedRef: React.MutableRefObject<boolean>;
 }
+=======
+import {
+  OverlayRefs,
+  disposeMeshes,
+  triggerRender,
+  createHighlightMesh,
+  createDragSelectionArea,
+  createPastePreview,
+  getPassabilityTexture,
+} from './useEntitySelectionOverlaysUtils';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 /**
  * Event selection overlays (선택된 이벤트 하이라이트 + 드래그 선택 영역 + 붙여넣기 프리뷰)

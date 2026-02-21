@@ -49,51 +49,23 @@ export function isWaterfallTile(tileId: number): boolean {
   return false;
 }
 
-// Autotile tables from rpg_core.js
-// Each shape is an array of 4 quarter-tiles: [topLeft, topRight, bottomLeft, bottomRight]
-// Each quarter-tile is [qsx, qsy] - half-tile coordinates within the autotile block
-const FLOOR_AUTOTILE_TABLE: [number, number][][] = [
-  [[2,4],[1,4],[2,3],[1,3]],[[2,0],[1,4],[2,3],[1,3]],
-  [[2,4],[3,0],[2,3],[1,3]],[[2,0],[3,0],[2,3],[1,3]],
-  [[2,4],[1,4],[2,3],[3,1]],[[2,0],[1,4],[2,3],[3,1]],
-  [[2,4],[3,0],[2,3],[3,1]],[[2,0],[3,0],[2,3],[3,1]],
-  [[2,4],[1,4],[2,1],[1,3]],[[2,0],[1,4],[2,1],[1,3]],
-  [[2,4],[3,0],[2,1],[1,3]],[[2,0],[3,0],[2,1],[1,3]],
-  [[2,4],[1,4],[2,1],[3,1]],[[2,0],[1,4],[2,1],[3,1]],
-  [[2,4],[3,0],[2,1],[3,1]],[[2,0],[3,0],[2,1],[3,1]],
-  [[0,4],[1,4],[0,3],[1,3]],[[0,4],[3,0],[0,3],[1,3]],
-  [[0,4],[1,4],[0,3],[3,1]],[[0,4],[3,0],[0,3],[3,1]],
-  [[2,2],[1,2],[2,3],[1,3]],[[2,2],[1,2],[2,3],[3,1]],
-  [[2,2],[1,2],[2,1],[1,3]],[[2,2],[1,2],[2,1],[3,1]],
-  [[2,4],[3,4],[2,3],[3,3]],[[2,4],[3,4],[2,1],[3,3]],
-  [[2,0],[3,4],[2,3],[3,3]],[[2,0],[3,4],[2,1],[3,3]],
-  [[2,4],[1,4],[2,5],[1,5]],[[2,0],[1,4],[2,5],[1,5]],
-  [[2,4],[3,0],[2,5],[1,5]],[[2,0],[3,0],[2,5],[1,5]],
-  [[0,4],[3,4],[0,3],[3,3]],[[2,2],[1,2],[2,5],[1,5]],
-  [[0,2],[1,2],[0,3],[1,3]],[[0,2],[1,2],[0,3],[3,1]],
-  [[2,2],[3,2],[2,3],[3,3]],[[2,2],[3,2],[2,1],[3,3]],
-  [[2,4],[3,4],[2,5],[3,5]],[[2,0],[3,4],[2,5],[3,5]],
-  [[0,4],[1,4],[0,5],[1,5]],[[0,4],[3,0],[0,5],[1,5]],
-  [[0,2],[3,2],[0,3],[3,3]],[[0,2],[1,2],[0,5],[1,5]],
-  [[0,4],[3,4],[0,5],[3,5]],[[2,2],[3,2],[2,5],[3,5]],
-  [[0,2],[3,2],[0,5],[3,5]],[[0,0],[1,0],[0,1],[1,1]]
-];
+// Autotile tables (imported from autotileTables.ts)
+import {
+  FLOOR_AUTOTILE_TABLE,
+  WALL_AUTOTILE_TABLE,
+  WATERFALL_AUTOTILE_TABLE,
+} from './autotileTables';
+export { FLOOR_AUTOTILE_TABLE, WALL_AUTOTILE_TABLE, WATERFALL_AUTOTILE_TABLE };
 
-const WALL_AUTOTILE_TABLE: [number, number][][] = [
-  [[2,2],[1,2],[2,1],[1,1]],[[0,2],[1,2],[0,1],[1,1]],
-  [[2,0],[1,0],[2,1],[1,1]],[[0,0],[1,0],[0,1],[1,1]],
-  [[2,2],[3,2],[2,1],[3,1]],[[0,2],[3,2],[0,1],[3,1]],
-  [[2,0],[3,0],[2,1],[3,1]],[[0,0],[3,0],[0,1],[3,1]],
-  [[2,2],[1,2],[2,3],[1,3]],[[0,2],[1,2],[0,3],[1,3]],
-  [[2,0],[1,0],[2,3],[1,3]],[[0,0],[1,0],[0,3],[1,3]],
-  [[2,2],[3,2],[2,3],[3,3]],[[0,2],[3,2],[0,3],[3,3]],
-  [[2,0],[3,0],[2,3],[3,3]],[[0,0],[3,0],[0,3],[3,3]]
-];
-
-const WATERFALL_AUTOTILE_TABLE: [number, number][][] = [
-  [[2,0],[1,0],[2,1],[1,1]],[[0,0],[1,0],[0,1],[1,1]],
-  [[2,0],[3,0],[2,1],[3,1]],[[0,0],[3,0],[0,1],[3,1]]
-];
+// Autotile shape calculation functions (imported from autotileCalculator.ts)
+import { computeAutoShapeForPosition as _computeAutoShape } from './autotileCalculator';
+export {
+  computeAutoShapeForPosition,
+  getShapeNeighbors,
+  findFloorShape,
+  findWallShape,
+} from './autotileCalculator';
+export type { ShapeNeighborInfo } from './autotileCalculator';
 
 export interface QuarterTile {
   sheet: number;
@@ -250,7 +222,7 @@ export function getAutotileBaseTileId(kind: number): number {
   return TILE_ID_A1 + kind * 48 + 46;
 }
 
-// --- Autotile shape calculation for placement ---
+// --- Autotile shape calculation (delegated to autotileCalculator.ts) ---
 
 export function getAutotileKindExported(tileId: number): number {
   return getAutotileKind(tileId);
@@ -258,202 +230,6 @@ export function getAutotileKindExported(tileId: number): number {
 
 export function makeAutotileId(kind: number, shape: number): number {
   return TILE_ID_A1 + kind * 48 + shape;
-}
-
-function isWallAutotile(tileId: number): boolean {
-  if (isTileA3(tileId)) return true;
-  if (isTileA4(tileId)) {
-    const kind = getAutotileKind(tileId);
-    return Math.floor(kind / 8) % 2 === 1;
-  }
-  return false;
-}
-
-function isWaterfallKind(tileId: number): boolean {
-  if (!isTileA1(tileId)) return false;
-  const kind = getAutotileKind(tileId);
-  return kind >= 4 && kind % 2 === 1;
-}
-
-// Floor autotile shape calculation.
-// Shape is determined by which cardinal neighbors are ABSENT (= edges/borders)
-// and inner corner sub-index (diagonal ABSENT when both adjacent cardinals PRESENT).
-//
-// Shape groups by absent cardinal directions:
-//   0 absent: 0-15  (inner corner combos: icTL*1 + icTR*2 + icBR*4 + icBL*8)
-//   L absent: 16-19 (sub: icTR*1 + icBR*2)
-//   T absent: 20-23 (sub: icBR*1 + icBL*2)
-//   R absent: 24-27 (sub: icBL*1 + icTL*2)
-//   B absent: 28-31 (sub: icTL*1 + icTR*2)
-//   L+R: 32, T+B: 33
-//   T+L: 34-35 (sub: icBR), T+R: 36-37 (sub: icBL)
-//   R+B: 38-39 (sub: icTL), B+L: 40-41 (sub: icTR)
-//   T+R+L: 42, T+B+L: 43, R+B+L: 44, T+R+B: 45
-//   T+R+B+L: 46
-function findFloorShape(
-  top: boolean, right: boolean, bottom: boolean, left: boolean,
-  topLeft: boolean, topRight: boolean, bottomLeft: boolean, bottomRight: boolean
-): number {
-  // Inner corners: both adjacent cardinals PRESENT but diagonal ABSENT
-  const icTL = top && left && !topLeft ? 1 : 0;
-  const icTR = top && right && !topRight ? 1 : 0;
-  const icBL = bottom && left && !bottomLeft ? 1 : 0;
-  const icBR = bottom && right && !bottomRight ? 1 : 0;
-
-  const absentT = !top, absentR = !right, absentB = !bottom, absentL = !left;
-  const n = (absentT ? 1 : 0) + (absentR ? 1 : 0) + (absentB ? 1 : 0) + (absentL ? 1 : 0);
-
-  if (n === 0) return icTL + icTR * 2 + icBR * 4 + icBL * 8;
-  if (n === 1) {
-    if (absentL) return 16 + icTR + icBR * 2;
-    if (absentT) return 20 + icBR + icBL * 2;
-    if (absentR) return 24 + icBL + icTL * 2;
-    return 28 + icTL + icTR * 2; // absentB
-  }
-  if (n === 2) {
-    if (absentL && absentR) return 32;
-    if (absentT && absentB) return 33;
-    if (absentT && absentL) return 34 + icBR;
-    if (absentT && absentR) return 36 + icBL;
-    if (absentR && absentB) return 38 + icTL;
-    return 40 + icTR; // absentB && absentL
-  }
-  if (n === 3) {
-    if (!absentB) return 42;
-    if (!absentR) return 43;
-    if (!absentT) return 44;
-    return 45; // !absentL
-  }
-  return 46; // n === 4
-}
-
-// Wall shape lookup
-const WALL_SHAPE_LOOKUP = new Map<string, number>();
-(function() {
-  for (let i = 0; i < WALL_AUTOTILE_TABLE.length; i++) {
-    const t = WALL_AUTOTILE_TABLE[i];
-    const key = `${t[0][0]},${t[0][1]},${t[1][0]},${t[1][1]},${t[2][0]},${t[2][1]},${t[3][0]},${t[3][1]}`;
-    WALL_SHAPE_LOOKUP.set(key, i);
-  }
-})();
-
-function findWallShape(top: boolean, right: boolean, bottom: boolean, left: boolean): number {
-  // Wall autotiles use a 4x4 half-tile grid (2 tile wide × 2 tile tall)
-  // q0(TL): x = left?0:2, y = top?0:2
-  // q1(TR): x = right?3:1, y = top?0:2
-  // q2(BL): x = left?0:2, y = bottom?3:1
-  // q3(BR): x = right?3:1, y = bottom?3:1
-  const c0: [number, number] = [left ? 0 : 2, top ? 0 : 2];
-  const c1: [number, number] = [right ? 3 : 1, top ? 0 : 2];
-  const c2: [number, number] = [left ? 0 : 2, bottom ? 3 : 1];
-  const c3: [number, number] = [right ? 3 : 1, bottom ? 3 : 1];
-  const key = `${c0[0]},${c0[1]},${c1[0]},${c1[1]},${c2[0]},${c2[1]},${c3[0]},${c3[1]}`;
-  return WALL_SHAPE_LOOKUP.get(key) ?? 0;
-}
-
-/**
- * Given map tile data and a position, compute the correct autotile shape.
- */
-export function computeAutoShapeForPosition(
-  data: number[], width: number, height: number,
-  x: number, y: number, z: number, tileId: number
-): number {
-  if (!isAutotile(tileId) || isTileA5(tileId)) return 0;
-  const kind = getAutotileKind(tileId);
-
-  function sameKind(nx: number, ny: number): boolean {
-    if (nx < 0 || nx >= width || ny < 0 || ny >= height) return false;
-    const nId = data[(z * height + ny) * width + nx];
-    if (!isAutotile(nId) || isTileA5(nId)) return false;
-    return getAutotileKind(nId) === kind;
-  }
-
-  const top = sameKind(x, y - 1);
-  const bottom = sameKind(x, y + 1);
-  const left = sameKind(x - 1, y);
-  const right = sameKind(x + 1, y);
-
-  if (isWaterfallKind(tileId)) {
-    return (left ? 0 : 1) + (right ? 0 : 2);
-  } else if (isWallAutotile(tileId)) {
-    return findWallShape(top, right, bottom, left);
-  } else {
-    const tl = sameKind(x - 1, y - 1);
-    const tr = sameKind(x + 1, y - 1);
-    const bl = sameKind(x - 1, y + 1);
-    const br = sameKind(x + 1, y + 1);
-    return findFloorShape(top, right, bottom, left, tl, tr, bl, br);
-  }
-}
-
-// Reverse lookup: shape → neighbor bitmask for floor autotiles
-// Bitmask bits: top=1, right=2, bottom=4, left=8, topLeft=16, topRight=32, bottomLeft=64, bottomRight=128
-// Returns the canonical neighbor bitmask that produces this shape
-const FLOOR_SHAPE_TO_BITMASK: number[] = [];
-const WALL_SHAPE_TO_BITMASK: number[] = [];
-
-(function buildShapeToBitmask() {
-  // Floor: try all 256 combinations of 8 directions
-  // Store the maximal bitmask (most neighbors set) for each shape
-  const floorMap = new Map<number, number>();
-  for (let mask = 255; mask >= 0; mask--) {
-    const top = !!(mask & 1);
-    const right = !!(mask & 2);
-    const bottom = !!(mask & 4);
-    const left = !!(mask & 8);
-    const tl = !!(mask & 16);
-    const tr = !!(mask & 32);
-    const bl = !!(mask & 64);
-    const br = !!(mask & 128);
-    const shape = findFloorShape(top, right, bottom, left, tl, tr, bl, br);
-    if (!floorMap.has(shape)) {
-      floorMap.set(shape, mask);
-    }
-  }
-  for (let s = 0; s < 48; s++) {
-    FLOOR_SHAPE_TO_BITMASK[s] = floorMap.get(s) ?? 0;
-  }
-
-  // Wall: try all 16 combinations of 4 directions
-  const wallMap = new Map<number, number>();
-  for (let mask = 15; mask >= 0; mask--) {
-    const top = !!(mask & 1);
-    const right = !!(mask & 2);
-    const bottom = !!(mask & 4);
-    const left = !!(mask & 8);
-    const shape = findWallShape(top, right, bottom, left);
-    if (!wallMap.has(shape)) {
-      wallMap.set(shape, mask);
-    }
-  }
-  for (let s = 0; s < 16; s++) {
-    WALL_SHAPE_TO_BITMASK[s] = wallMap.get(s) ?? 0;
-  }
-})();
-
-export interface ShapeNeighborInfo {
-  top: boolean; right: boolean; bottom: boolean; left: boolean;
-  topLeft: boolean; topRight: boolean; bottomLeft: boolean; bottomRight: boolean;
-}
-
-export function getShapeNeighbors(shape: number, tableType: 'floor' | 'wall' | 'waterfall'): ShapeNeighborInfo {
-  let mask = 0;
-  if (tableType === 'floor') {
-    mask = FLOOR_SHAPE_TO_BITMASK[shape] ?? 0;
-  } else if (tableType === 'wall') {
-    mask = WALL_SHAPE_TO_BITMASK[shape] ?? 0;
-  } else {
-    // waterfall: left=bit0, right=bit1
-    mask = ((shape & 1) ? 0 : 8) | ((shape & 2) ? 0 : 2); // invert: shape bit means NOT connected
-    return {
-      top: false, right: !!(shape & 2) === false, bottom: false, left: !!(shape & 1) === false,
-      topLeft: false, topRight: false, bottomLeft: false, bottomRight: false,
-    };
-  }
-  return {
-    top: !!(mask & 1), right: !!(mask & 2), bottom: !!(mask & 4), left: !!(mask & 8),
-    topLeft: !!(mask & 16), topRight: !!(mask & 32), bottomLeft: !!(mask & 64), bottomRight: !!(mask & 128),
-  };
 }
 
 // Get autotile source block info (sheet, bx, by, table type) for debug/visualization
@@ -552,14 +328,14 @@ export function debugAutotileAt(
     }
   }
 
-  const computedShape = isAuto && !a5 ? computeAutoShapeForPosition(data, width, height, x, y, z, tileId) : -1;
+  const computedShape = isAuto && !a5 ? _computeAutoShape(data, width, height, x, y, z, tileId) : -1;
 
   return { tileId, kind, shape, isAuto, isA5: a5, neighbors, computedShape };
 }
 
 // Debug: expose tileHelper for console testing
 (window as unknown as Record<string, unknown>).__tileHelper = {
-  computeAutoShapeForPosition, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId,
+  computeAutoShapeForPosition: _computeAutoShape, isAutotile, isTileA5, getAutotileKindExported, makeAutotileId,
   TILE_ID_A1, TILE_ID_A2, TILE_ID_A3, TILE_ID_A4, TILE_ID_A5, debugAutotileAt, getTileRenderInfo,
 };
 

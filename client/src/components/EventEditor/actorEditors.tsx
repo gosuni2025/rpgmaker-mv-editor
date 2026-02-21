@@ -1,8 +1,13 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useMemo } from 'react';
+=======
+import React, { useState, useMemo } from 'react';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { DataListPicker } from './dataListPicker';
 import { useDbNames, useDbNamesWithIcons, useActorData, getLabel, DataListPickerWithZero, type CharacterInfo } from './actionEditorUtils';
+<<<<<<< HEAD
 import ImagePicker from '../common/ImagePicker';
 import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
@@ -12,6 +17,14 @@ type EditorProps = { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: 
 const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
 const fieldsetStyle: React.CSSProperties = { border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 };
 const legendStyle: React.CSSProperties = { fontSize: 12, color: '#aaa', padding: '0 4px' };
+=======
+import { radioStyle, fieldsetStyle, legendStyle, ActorDirectPicker, type EditorProps } from './actorEditorsCommon';
+
+// re-export 분리된 에디터들
+export { ChangeActorImagesEditor } from './ChangeActorImagesEditor';
+export { ChangeVehicleImageEditor } from './ChangeVehicleImageEditor';
+export { ChangeEquipmentEditor } from './ChangeEquipmentEditor';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 /* ─── 공통 컴포넌트 ─── */
 
@@ -68,6 +81,7 @@ function ActorFixedVarFieldset({
   );
 }
 
+<<<<<<< HEAD
 /** 단순 액터 선택 (라벨 + 버튼 + 피커 다이얼로그) */
 function ActorDirectPicker({ actorId, onChange, actorNames, actorChars, title }: {
   actorId: number;
@@ -92,6 +106,8 @@ function ActorDirectPicker({ actorId, onChange, actorNames, actorChars, title }:
   );
 }
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 /* ─── 액터 + 조작 + 대상 패턴 (ChangeState, ChangeSkill) ─── */
 
 function ActorOperationTargetEditor({
@@ -237,6 +253,7 @@ export function ChangeClassEditor({ p, onOk, onCancel }: EditorProps) {
   );
 }
 
+<<<<<<< HEAD
 /**
  * 장비 변경 에디터 (코드 319)
  * params: [actorId, etypeId, itemId]
@@ -313,6 +330,8 @@ export function ChangeEquipmentEditor({ p, onOk, onCancel }: EditorProps) {
   );
 }
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 export function ChangeNameEditor({ p, onOk, onCancel, label }: EditorProps & { label: string }) {
   const [actorId, setActorId] = useState<number>((p[0] as number) || 1);
   const [name, setName] = useState<string>((p[1] as string) || '');
@@ -376,6 +395,7 @@ export function ChangeProfileEditor({ p, onOk, onCancel }: EditorProps) {
     </>
   );
 }
+<<<<<<< HEAD
 
 /* ─── 이미지 에디터 ─── */
 
@@ -547,3 +567,5 @@ export function ChangeVehicleImageEditor({ p, onOk, onCancel }: EditorProps) {
     </>
   );
 }
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f

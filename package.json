@@ -1,6 +1,6 @@
 {
   "name": "rpgmaker-mv-editor",
-  "version": "1.0.0",
+  "version": "0.0.7",
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {

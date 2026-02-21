@@ -1,5 +1,8 @@
 import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
+<<<<<<< HEAD
 import { useTranslation } from 'react-i18next';
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
@@ -7,7 +10,11 @@ import { SCROLL_POSITIONS_STORAGE_KEY } from '../../store/types';
 import EventDetail from '../EventEditor/EventDetail';
 import ShiftMapDialog from './ShiftMapDialog';
 import SampleMapDialog from '../SampleMapDialog';
+<<<<<<< HEAD
 import QuickEventDialog from './QuickEventDialog';
+=======
+import MapCanvasContextMenu from './MapCanvasContextMenu';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { useThreeRenderer } from './useThreeRenderer';
 import { useMapTools } from './useMapTools';
@@ -15,9 +22,16 @@ import { useMouseHandlers } from './useMouseHandlers';
 import { useEventSelectionOverlays, useLightSelectionOverlays, useObjectSelectionOverlays } from './useEntitySelectionOverlays';
 import { useMoveRouteOverlay } from './useMoveRouteOverlay';
 import { useSelectionRectOverlay, usePastePreviewOverlay } from './useSelectionOverlays';
+<<<<<<< HEAD
 import { useCameraZoneOverlay } from './useRendererOverlays';
 import { useTileCursorPreview } from './useTileCursorPreview';
 import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview, useTestStartDragPreview, useVehicleStartDragPreview } from './useDragPreviewSync';
+=======
+import { useCameraZoneOverlay } from './overlays';
+import { useTileCursorPreview } from './useTileCursorPreview';
+import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview, useTestStartDragPreview, useVehicleStartDragPreview } from './useDragPreviewSync';
+import { useMapScrollPersistence } from './useMapScrollPersistence';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import TileInfoTooltip from './TileInfoTooltip';
 import Camera3DGizmo from './Camera3DGizmo';
 import './MapCanvas.css';
@@ -53,15 +67,21 @@ export default function MapCanvas() {
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
   const editMode = useEditorStore((s) => s.editMode);
   const selectedTool = useEditorStore((s) => s.selectedTool);
-  const clipboard = useEditorStore((s) => s.clipboard);
   const selectionStart = useEditorStore((s) => s.selectionStart);
   const selectionEnd = useEditorStore((s) => s.selectionEnd);
   const isPasting = useEditorStore((s) => s.isPasting);
+<<<<<<< HEAD
+=======
+  const isEventPasting = useEditorStore((s) => s.isEventPasting);
+  const isLightPasting = useEditorStore((s) => s.isLightPasting);
+  const isObjectPasting = useEditorStore((s) => s.isObjectPasting);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const passageTool = useEditorStore((s) => s.passageTool);
   const isPassagePasting = useEditorStore((s) => s.isPassagePasting);
   const passageSelectionStart = useEditorStore((s) => s.passageSelectionStart);
   const passageSelectionEnd = useEditorStore((s) => s.passageSelectionEnd);
   const currentMapId = useEditorStore((s) => s.currentMapId);
+<<<<<<< HEAD
   const setPlayerStartPosition = useEditorStore((s) => s.setPlayerStartPosition);
   const copyEvent = useEditorStore((s) => s.copyEvent);
   const cutEvent = useEditorStore((s) => s.cutEvent);
@@ -78,6 +98,9 @@ export default function MapCanvas() {
   const deleteEvents = useEditorStore((s) => s.deleteEvents);
   const pasteEvents = useEditorStore((s) => s.pasteEvents);
   const setShowFindDialog = useEditorStore((s) => s.setShowFindDialog);
+=======
+  const selectedCameraZoneIds = useEditorStore((s) => s.selectedCameraZoneIds);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const showTileInfo = useEditorStore((s) => s.showTileInfo);
   const mode3d = useEditorStore((s) => s.mode3d);
 
@@ -101,6 +124,7 @@ export default function MapCanvas() {
     lightMultiDragDelta, objectMultiDragDelta,
     lightDragPreview, objectDragPreview, cameraZoneDragPreview, cameraZoneMultiDragDelta, hoverTile,
     eventCtxMenu, editingEventId, setEditingEventId,
+    pendingNewEvent, setPendingNewEvent,
     closeEventCtxMenu,
     isDraggingLight, isDraggingObject, draggedObjectId,
     resizeOrigSize, cameraZoneCursor,
@@ -148,6 +172,7 @@ export default function MapCanvas() {
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, []);
 
+<<<<<<< HEAD
   // 맵 변경 시: 이전 맵 스크롤 저장 + 새 맵 스크롤 복원
   const prevMapIdRef = useRef<number | null>(null);
   useEffect(() => {
@@ -210,6 +235,9 @@ export default function MapCanvas() {
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => { el.removeEventListener('scroll', onScroll); clearTimeout(timer); };
   }, [currentMapId]);
+=======
+  useMapScrollPersistence(containerRef, currentMapId);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   // Tile cursor preview
   useTileCursorPreview(overlayRefs, hoverTile, rendererReady);
@@ -239,11 +267,17 @@ export default function MapCanvas() {
     setMouseScreenPos(null);
   }, [handleMouseLeave]);
 
+<<<<<<< HEAD
   // 시프트 / 샘플맵 / 이벤트 간단 작성 다이얼로그 상태
   const [showShiftDialog, setShowShiftDialog] = useState(false);
   const [showSampleMapDialog, setShowSampleMapDialog] = useState(false);
   const [quickEventType, setQuickEventType] = useState<'transfer' | 'door' | 'treasure' | 'inn' | null>(null);
   const [quickEventPos, setQuickEventPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+=======
+  // 시프트 / 샘플맵 다이얼로그 상태
+  const [showShiftDialog, setShowShiftDialog] = useState(false);
+  const [showSampleMapDialog, setShowSampleMapDialog] = useState(false);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   useEffect(() => {
     const onShift = () => setShowShiftDialog(true);
@@ -256,6 +290,7 @@ export default function MapCanvas() {
     };
   }, []);
 
+<<<<<<< HEAD
   // 이벤트 목록에서 클릭 시 해당 타일로 스크롤
   useEffect(() => {
     const onScrollToTile = (e: Event) => {
@@ -273,6 +308,8 @@ export default function MapCanvas() {
     return () => window.removeEventListener('scroll-to-tile', onScrollToTile);
   }, []);
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   // =========================================================================
   // Render
   // =========================================================================
@@ -411,6 +448,7 @@ export default function MapCanvas() {
                   && hoverTile.y >= Math.min(selectionStart.y, selectionEnd.y)
                   && hoverTile.y <= Math.max(selectionStart.y, selectionEnd.y) ? 'move'
                 : selectedTool === 'select' ? 'crosshair'
+                : isEventPasting || isLightPasting || isObjectPasting ? 'copy'
                 : editMode === 'event' ? 'pointer'
                 : 'crosshair'),
           }}
@@ -514,6 +552,7 @@ export default function MapCanvas() {
         })()}
       </div>
 
+<<<<<<< HEAD
       {eventCtxMenu && (() => {
         const hasEvent = eventCtxMenu.eventId != null;
         const isMulti = hasEvent && selectedEventIds.length > 1 && selectedEventIds.includes(eventCtxMenu.eventId!);
@@ -663,11 +702,28 @@ export default function MapCanvas() {
           </div>
         );
       })()}
+=======
+      {eventCtxMenu && (
+        <MapCanvasContextMenu
+          eventCtxMenu={eventCtxMenu}
+          closeEventCtxMenu={closeEventCtxMenu}
+          setEditingEventId={setEditingEventId}
+          createNewEvent={createNewEvent}
+        />
+      )}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
       {editingEventId != null && (
         <EventDetail eventId={editingEventId} onClose={() => setEditingEventId(null)} />
       )}
 
+<<<<<<< HEAD
+=======
+      {pendingNewEvent != null && (
+        <EventDetail pendingEvent={pendingNewEvent} onClose={() => setPendingNewEvent(null)} />
+      )}
+
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       {showShiftDialog && (
         <ShiftMapDialog onClose={() => setShowShiftDialog(false)} />
       )}
@@ -676,6 +732,7 @@ export default function MapCanvas() {
         <SampleMapDialog onClose={() => setShowSampleMapDialog(false)} />
       )}
 
+<<<<<<< HEAD
       {quickEventType && (
         <QuickEventDialog
           type={quickEventType}
@@ -685,6 +742,8 @@ export default function MapCanvas() {
         />
       )}
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       {showTileInfo && editMode === 'map' && hoverTile && mouseScreenPos && (
         <TileInfoTooltip
           tileX={hoverTile.x}

@@ -10,11 +10,19 @@
     // 전역 설정 (다른 파일에서 참조) — dev 모드 여부와 무관하게 항상 설정
     if (!window.DepthDebugConfig) {
         window.DepthDebugConfig = {
+<<<<<<< HEAD
             zLayerStep: -0.01,
             drawZStep: -0.001,
             tile:   { depthTest: false, depthWrite: false, alphaTest: false },
             sprite: { depthTest: false, depthWrite: false, alphaTest: false },
             water:  { depthTest: true,  depthWrite: false, alphaTest: false },
+=======
+            zLayerStep: 0.01,
+            drawZStep: 0.001,
+            tile:   { depthTest: false, depthWrite: true,  alphaTest: true  },
+            sprite: { depthTest: true,  depthWrite: true,  alphaTest: true  },
+            water:  { depthTest: true,  depthWrite: false, alphaTest: true  },
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             shadow: { depthTest: false, depthWrite: false, alphaTest: false },
         };
     }
@@ -22,6 +30,7 @@
     var STORAGE_KEY = 'depthDebugPanel';
 
     var STEP_PARAMS = [
+<<<<<<< HEAD
         { key: 'zLayerStep', label: 'ZLayer Step', step: 0.01, def: -0.01 },
         { key: 'drawZStep',  label: 'DrawZ Step',  step: 0.01, def: -0.001 },
     ];
@@ -30,6 +39,16 @@
         { key: 'tile',   label: 'Tile',   defDepthTest: false, defDepthWrite: false, defAlphaTest: false },
         { key: 'sprite', label: 'Sprite', defDepthTest: false, defDepthWrite: false, defAlphaTest: false },
         { key: 'water',  label: 'Water',  defDepthTest: true,  defDepthWrite: false, defAlphaTest: false },
+=======
+        { key: 'zLayerStep', label: 'ZLayer Step', step: 0.01, def: 0.01 },
+        { key: 'drawZStep',  label: 'DrawZ Step',  step: 0.01, def: 0.001 },
+    ];
+
+    var CATEGORIES = [
+        { key: 'tile',   label: 'Tile',   defDepthTest: false, defDepthWrite: true,  defAlphaTest: true  },
+        { key: 'sprite', label: 'Sprite', defDepthTest: true,  defDepthWrite: true,  defAlphaTest: true  },
+        { key: 'water',  label: 'Water',  defDepthTest: true,  defDepthWrite: false, defAlphaTest: true  },
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         { key: 'shadow', label: 'Shadow', defDepthTest: false, defDepthWrite: false, defAlphaTest: false },
     ];
 
@@ -66,6 +85,12 @@
         }
     }
     loadFromStorage();
+<<<<<<< HEAD
+=======
+    // 이전 버전에서 저장된 음수 값 교정 (zLayerStep, drawZStep은 양수여야 함)
+    if (window.DepthDebugConfig.zLayerStep < 0) window.DepthDebugConfig.zLayerStep = 0.01;
+    if (window.DepthDebugConfig.drawZStep < 0) window.DepthDebugConfig.drawZStep = 0.001;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
     // dev 모드가 아니면 패널 UI는 생성하지 않음
     if (!(new URLSearchParams(window.location.search)).has('dev') && !window._forceDevPanel) return;

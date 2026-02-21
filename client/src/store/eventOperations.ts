@@ -50,7 +50,11 @@ export function copyEventOp(get: GetFn, set: SetFn, eventId: number) {
   const map = get().currentMap;
   if (!map || !map.events) return;
   const ev = map.events.find((e) => e && e.id === eventId);
-  if (ev) set({ clipboard: { type: 'event', event: JSON.parse(JSON.stringify(ev)) } });
+  if (ev) {
+    const npcEntry = map.npcData?.[eventId];
+    const npcData = npcEntry ? { [eventId]: npcEntry } : undefined;
+    set({ clipboard: { type: 'event', event: JSON.parse(JSON.stringify(ev)), npcData } });
+  }
 }
 
 export function cutEventOp(get: GetFn, set: SetFn, eventId: number) {
@@ -91,41 +95,72 @@ export function copyEventsOp(get: GetFn, set: SetFn, eventIds: number[]) {
     .map(id => map.events.find(e => e && e.id === id))
     .filter((e): e is NonNullable<typeof e> => !!e);
   if (evts.length === 0) return;
-  set({ clipboard: { type: 'events', events: JSON.parse(JSON.stringify(evts)) } });
+  const npcData: Record<number, { name: string; showName: boolean }> = {};
+  for (const id of eventIds) {
+    if (map.npcData?.[id]) npcData[id] = map.npcData[id];
+  }
+  set({ clipboard: {
+    type: 'events',
+    events: JSON.parse(JSON.stringify(evts)),
+    npcData: Object.keys(npcData).length > 0 ? JSON.parse(JSON.stringify(npcData)) : undefined,
+  } });
 }
 
-export function pasteEventsOp(get: GetFn, set: SetFn, x: number, y: number) {
+export function pasteEventsOp(get: GetFn, set: SetFn, x: number, y: number): { pastedCount: number; blockedPositions: number } {
   const { clipboard, currentMap } = get();
-  if (!currentMap) return;
+  if (!currentMap) return { pastedCount: 0, blockedPositions: 0 };
   let evts: any[] | undefined;
   if (clipboard?.type === 'events' && clipboard.events) {
     evts = clipboard.events as any[];
   } else if (clipboard?.type === 'event' && clipboard.event) {
     evts = [clipboard.event];
   }
-  if (!evts || evts.length === 0) return;
+  if (!evts || evts.length === 0) return { pastedCount: 0, blockedPositions: 0 };
   // 원본 이벤트들의 좌상단 기준으로 오프셋 계산
   const minX = Math.min(...evts.map((e: any) => e.x));
   const minY = Math.min(...evts.map((e: any) => e.y));
   const oldEvents = [...(currentMap.events || [])];
   const events = [...oldEvents];
-  let maxId = events.reduce((max, e) => (e && e.id > max ? e.id : max), 0);
-  const newIds: number[] = [];
+  // 충돌 체크 + 배치 가능 목록 분리
+  let blockedPositions = 0;
+  const placeable: { evt: any; nx: number; ny: number }[] = [];
   for (const evt of evts) {
-    const newId = ++maxId;
     const nx = x + ((evt as any).x - minX);
     const ny = y + ((evt as any).y - minY);
-    // 해당 위치에 이미 이벤트가 있으면 스킵
     const occupied = events.some(e => e && e.id !== 0 && e.x === nx && e.y === ny);
-    if (occupied) continue;
+    if (occupied) { blockedPositions++; } else { placeable.push({ evt, nx, ny }); }
+  }
+  let maxId = events.reduce((max, e) => (e && e.id > max ? e.id : max), 0);
+  const newIds: number[] = [];
+  const idMapping: Record<number, number> = {};
+  for (const { evt, nx, ny } of placeable) {
+    const newId = ++maxId;
+    idMapping[(evt as any).id] = newId;
     const newName = incrementName((evt as any).name as string, events);
     const newEvent = { ...(evt as any), id: newId, x: nx, y: ny, name: newName };
     while (events.length <= newId) events.push(null);
     events[newId] = newEvent as MapData['events'][0];
     newIds.push(newId);
   }
-  set({ currentMap: { ...currentMap, events }, selectedEventIds: newIds, selectedEventId: newIds[0] ?? null });
-  pushEventUndoEntry(get, set, oldEvents, events);
+  // npcData 적용: 원본 eventId → 새 eventId로 매핑
+  const newNpcData = { ...(currentMap.npcData || {}) };
+  if (clipboard?.npcData) {
+    for (const [oldIdStr, data] of Object.entries(clipboard.npcData)) {
+      const newId = idMapping[Number(oldIdStr)];
+      if (newId !== undefined) newNpcData[newId] = data;
+    }
+  }
+  set({
+    currentMap: {
+      ...currentMap,
+      events,
+      npcData: Object.keys(newNpcData).length > 0 ? newNpcData : undefined,
+    },
+    selectedEventIds: newIds,
+    selectedEventId: newIds[0] ?? null,
+  });
+  if (newIds.length > 0) pushEventUndoEntry(get, set, oldEvents, events);
+  return { pastedCount: newIds.length, blockedPositions };
 }
 
 export function deleteEventsOp(get: GetFn, set: SetFn, eventIds: number[]) {

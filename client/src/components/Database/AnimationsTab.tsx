@@ -1,17 +1,27 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Animation, AnimationTiming, AudioFile } from '../../types/rpgMakerMV';
+<<<<<<< HEAD
 import apiClient from '../../api/client';
 import AudioPicker from '../common/AudioPicker';
 import AnimationPreview from './AnimationPreview';
 import type { AnimationPreviewHandle } from './AnimationPreview';
 import DatabaseList from './DatabaseList';
+=======
+import AnimationPreview from './AnimationPreview';
+import type { AnimationPreviewHandle } from './AnimationPreview';
+import DatabaseList from './DatabaseList';
+import { ImageSelectPopup, EnemyImageSelectPopup, MaxFrameDialog, TweenDialog, BatchSettingDialog, ShiftDialog } from './AnimationDialogs';
+import { applyTween, applyBatchSetting, applyShift } from './animationOperations';
+import { AnimationTimingSection } from './AnimationTimingSection';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import './AnimationsTab.css';
 import './AnimationPreview.css';
 
 // 마지막으로 사용된 애니메이션 이미지를 기억하기 위한 모듈 변수
 let lastUsedAnimation1Name: string | null = null;
 
+<<<<<<< HEAD
 // 이미지 선택 팝업
 function ImageSelectPopup({ type, value, hue, onSelect, onClose }: {
   type: 'animations';
@@ -451,6 +461,8 @@ function ShiftDialog({ totalFrames, maxCells, onConfirm, onClose }: {
   );
 }
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 interface AnimationsTabProps {
   data: (Animation | null)[] | undefined;
   onChange: (data: (Animation | null)[]) => void;
@@ -460,7 +472,10 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
   const { t } = useTranslation();
   const POSITION_OPTIONS = [t('animations.positions.0'), t('animations.positions.1'), t('animations.positions.2'), t('animations.positions.3')];
   const [selectedId, setSelectedId] = useState(1);
+<<<<<<< HEAD
   const [selectedTimingIdx, setSelectedTimingIdx] = useState<number>(-1);
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const [selectedFrameIdx, setSelectedFrameIdx] = useState(0);
   const [showImg1Popup, setShowImg1Popup] = useState(false);
   const [showImg2Popup, setShowImg2Popup] = useState(false);
@@ -529,6 +544,7 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     if (selectedFrameIdx >= newMax) setSelectedFrameIdx(newMax - 1);
   };
 
+<<<<<<< HEAD
   const handleTween = (opts: TweenOptions) => {
     if (!selectedItem || !selectedItem.frames) return;
     const frames = selectedItem.frames.map(f => f.map(c => [...c]));
@@ -607,6 +623,21 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
       }
     }
     handleFieldChange('frames', frames);
+=======
+  const handleTween = (opts: Parameters<typeof applyTween>[1]) => {
+    if (!selectedItem?.frames) return;
+    handleFieldChange('frames', applyTween(selectedItem.frames, opts));
+  };
+
+  const handleBatchSetting = (batchData: Parameters<typeof applyBatchSetting>[1]) => {
+    if (!selectedItem?.frames) return;
+    handleFieldChange('frames', applyBatchSetting(selectedItem.frames, batchData));
+  };
+
+  const handleShift = (shiftData: Parameters<typeof applyShift>[1]) => {
+    if (!selectedItem?.frames) return;
+    handleFieldChange('frames', applyShift(selectedItem.frames, shiftData));
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   };
 
   const handleAddNew = useCallback(() => {
@@ -623,6 +654,7 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     onChange(newData);
     setSelectedId(maxId + 1);
   }, [data, onChange]);
+<<<<<<< HEAD
 
   const handleDelete = useCallback((id: number) => {
     if (!data) return;
@@ -668,13 +700,22 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     }
     onChange([null, ...items]);
   }, [data, onChange]);
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
-  const handleTimingChange = (index: number, field: keyof AnimationTiming, value: unknown) => {
-    const timings = [...(selectedItem?.timings || [])];
-    timings[index] = { ...timings[index], [field]: value };
-    handleFieldChange('timings', timings);
-  };
+  const handleDelete = useCallback((id: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Animation[];
+    if (items.length <= 1) return;
+    const newData = data.filter((item) => !item || item.id !== id);
+    onChange(newData);
+    if (id === selectedId) {
+      const remaining = newData.filter(Boolean) as Animation[];
+      if (remaining.length > 0) setSelectedId(remaining[0].id);
+    }
+  }, [data, onChange, selectedId]);
 
+<<<<<<< HEAD
   const addTiming = () => {
     const timings = [...(selectedItem?.timings || []), { flashColor: [255, 255, 255, 170], flashDuration: 5, flashScope: 1, frame: 0, se: { name: '', pan: 0, pitch: 100, volume: 90 } }];
     handleFieldChange('timings', timings);
@@ -685,6 +726,42 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     handleFieldChange('timings', (selectedItem?.timings || []).filter((_: unknown, i: number) => i !== index));
     setSelectedTimingIdx(-1);
   };
+=======
+  const handleDuplicate = useCallback((id: number) => {
+    if (!data) return;
+    const source = data.find((item) => item && item.id === id);
+    if (!source) return;
+    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
+    const newId = maxId + 1;
+    const newData = [...data];
+    while (newData.length <= newId) newData.push(null);
+    newData[newId] = {
+      ...source, id: newId,
+      frames: source.frames.map(f => f.map(c => [...c])),
+      timings: source.timings.map(ti => ({ ...ti, flashColor: [...(ti.flashColor || [255, 255, 255, 170])], se: { ...(ti.se || { name: '', pan: 0, pitch: 100, volume: 90 }) } })),
+    };
+    onChange(newData);
+    setSelectedId(newId);
+  }, [data, onChange]);
+
+  const handleReorder = useCallback((fromId: number, toId: number) => {
+    if (!data) return;
+    const items = data.filter(Boolean) as Animation[];
+    const fromIdx = items.findIndex(item => item.id === fromId);
+    if (fromIdx < 0) return;
+    const [moved] = items.splice(fromIdx, 1);
+    if (toId === -1) {
+      items.push(moved);
+    } else {
+      const toIdx = items.findIndex(item => item.id === toId);
+      if (toIdx < 0) items.push(moved);
+      else items.splice(toIdx, 0, moved);
+    }
+    onChange([null, ...items]);
+  }, [data, onChange]);
+
+  const totalFrames = selectedItem?.frames?.length || 0;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   const getTimingSeText = (timing: AnimationTiming): string => {
     if (timing.se && timing.se.name) return timing.se.name;
@@ -752,6 +829,7 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                 </div>
               </fieldset>
 
+<<<<<<< HEAD
               {/* 오른쪽: SE와 Flash 타이밍 (테두리 박스) */}
               <fieldset className="anim-fieldset anim-timing-section">
                 <legend>{t('animations.seAndFlashTiming')}</legend>
@@ -847,6 +925,29 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                     >
                       #{String(i + 1).padStart(3, '0')}
                     </div>
+=======
+              {/* 오른쪽: SE와 Flash 타이밍 */}
+              <AnimationTimingSection
+                timings={selectedItem.timings || []}
+                onTimingsChange={(timings) => handleFieldChange('timings', timings)}
+              />
+            </div>
+
+            {/* ===== 하단: 프레임 (테두리 박스) ===== */}
+            <fieldset className="anim-fieldset anim-lower-section">
+              <legend>{t('animations.frames')}</legend>
+              <div className="anim-frame-area">
+                {/* 왼쪽: 프레임 목록 */}
+                <div className="anim-frame-list">
+                  {Array.from({ length: totalFrames }, (_, i) => (
+                    <div
+                      key={i}
+                      className={`anim-frame-item${selectedFrameIdx === i ? ' selected' : ''}`}
+                      onClick={() => setSelectedFrameIdx(i)}
+                    >
+                      #{String(i + 1).padStart(3, '0')}
+                    </div>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                   ))}
                   {totalFrames === 0 && (
                     <div className="anim-frame-empty">-----</div>

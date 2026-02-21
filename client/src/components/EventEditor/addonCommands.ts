@@ -34,6 +34,7 @@ export interface AddonCommandDef {
   subCommands: AddonSubCommand[];
 }
 
+<<<<<<< HEAD
 // PPEffect 이펙트별 서브커맨드 생성 헬퍼
 function ppEffect(effectKey: string, label: string, params: AddonParam[]): AddonCommandDef {
   const subCommands: AddonSubCommand[] = [
@@ -391,6 +392,10 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
     ],
   },
 ];
+=======
+import { ADDON_COMMANDS } from './addonCommandData';
+export { ADDON_COMMANDS };
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 /** 플러그인 커맨드 텍스트에서 매칭되는 AddonCommandDef를 찾는다 */
 export function matchAddonCommand(text: string): { def: AddonCommandDef; subCmd: AddonSubCommand; paramValues: string[]; duration?: string } | null {

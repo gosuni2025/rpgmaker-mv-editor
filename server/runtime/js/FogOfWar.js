@@ -1,3 +1,114 @@
+<<<<<<< HEAD
+=======
+/*:
+ * @plugindesc 전쟁의 안개 시스템 (3D 볼류메트릭 안개 + 시야 관리)
+ * @author RPG Maker MV Web Editor
+ *
+ * @command Enable
+ * @text 전쟁의 안개 활성화
+ * @desc 전쟁의 안개를 활성화합니다.
+ *
+ * @command Disable
+ * @text 전쟁의 안개 비활성화
+ * @desc 전쟁의 안개를 비활성화합니다.
+ *
+ * @command Radius
+ * @text 시야 반경 설정
+ * @desc 플레이어의 시야 반경을 설정합니다.
+ *
+ * @arg radius
+ * @text 반경
+ * @type number
+ * @min 1
+ * @max 30
+ * @default 5
+ *
+ * @command RevealAll
+ * @text 전체 공개
+ * @desc 맵 전체를 공개합니다.
+ *
+ * @command HideAll
+ * @text 전체 숨김
+ * @desc 맵 전체를 숨깁니다.
+ *
+ * @command RevealRect
+ * @text 영역 공개
+ * @desc 지정한 사각형 영역을 공개합니다.
+ *
+ * @arg x
+ * @text X 좌표
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg y
+ * @text Y 좌표
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg w
+ * @text 너비
+ * @type number
+ * @min 1
+ * @default 1
+ *
+ * @arg h
+ * @text 높이
+ * @type number
+ * @min 1
+ * @default 1
+ *
+ * @command FogColor
+ * @text 안개 색깔 변경
+ * @desc 안개의 색깔을 변경합니다. (예: #000000 검정, #000044 파랑)
+ *
+ * @arg color
+ * @text 색깔 (hex)
+ * @type string
+ * @default #000000
+ *
+ * @command TentacleSharpness
+ * @text 촉수 날카로움
+ * @desc 안개 경계 촉수의 날카로움을 설정합니다. 높을수록 뾰족함 (기본 3.0)
+ *
+ * @arg value
+ * @text 값
+ * @type number
+ * @decimals 1
+ * @min 0.5
+ * @max 20
+ * @default 3.0
+ *
+ * @command TentacleLength
+ * @text 촉수 길이
+ * @desc 안개 경계 촉수가 얼마나 멀리 뻗는지 설정합니다. 높을수록 길게 뻗음 (기본 2.0)
+ *
+ * @arg value
+ * @text 값
+ * @type number
+ * @decimals 1
+ * @min 0.1
+ * @max 10
+ * @default 2.0
+ *
+ * @command TentacleSpeed
+ * @text 촉수 애니 속도
+ * @desc 안개 경계 촉수의 움직임 속도를 설정합니다. 높을수록 빠름 (기본 1.0)
+ *
+ * @arg value
+ * @text 값
+ * @type number
+ * @decimals 1
+ * @min 0
+ * @max 10
+ * @default 1.0
+ *
+ * @help
+ * FogOfWar.js는 에디터 코어 파일로 자동으로 로드됩니다.
+ * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
+ */
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 //=============================================================================
 // FogOfWar.js - Fog of War 시스템 (런타임 + 에디터)
 //=============================================================================
@@ -117,9 +228,16 @@ var VOL_FOG_FRAG = [
     '    float d = dot(_hash22(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0));',
     '    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);',
     '}',
+<<<<<<< HEAD
     'float fbm3(vec2 p) {',
     '    float v = 0.0; float amp = 0.5;',
     '    for (int i = 0; i < 3; i++) { v += amp * _valueNoise(p); p *= 2.03; amp *= 0.5; }',
+=======
+    'float fbm2(vec2 p) {',
+    '    float v = 0.5 * _valueNoise(p);',
+    '    p *= 2.03;',
+    '    v += 0.25 * _valueNoise(p);',
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     '    return v;',
     '}',
     '',
@@ -268,7 +386,11 @@ var VOL_FOG_FRAG = [
     '        if (tMin >= tMax) discard;',
     '    }',
     '',
+<<<<<<< HEAD
     '    const int MAX_STEPS = 48;',
+=======
+    '    const int MAX_STEPS = 24;',
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     '    float stepSize = (tMax - tMin) / float(MAX_STEPS);',
     '    float dither = fract(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)) * 43758.5453);',
     '',
@@ -277,7 +399,11 @@ var VOL_FOG_FRAG = [
     '    float t = tMin + stepSize * dither;',
     '',
     '    for (int i = 0; i < MAX_STEPS; i++) {',
+<<<<<<< HEAD
     '        if (accAlpha > 0.97) break;',
+=======
+    '        if (accAlpha > 0.95) break;',
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     '        vec3 samplePos = rayOrigin + rayDir * t;',
     '        float heightNorm = clamp(samplePos.z / fogHeight, 0.0, 1.0);',
     '',
@@ -305,8 +431,12 @@ var VOL_FOG_FRAG = [
     '',
     '        // === 경계 애니메이션 ===',
     '        float timeS = uTime * edgeAnimSpeed;',
+<<<<<<< HEAD
     '        float edgeWave = _valueNoise(samplePos.xy * 0.015 + vec2(timeS * 0.08, timeS * 0.06));',
     '        edgeWave += 0.5 * _valueNoise(samplePos.xy * 0.03 + vec2(-timeS * 0.05, timeS * 0.04));',
+=======
+    '        float edgeWave = _valueNoise(samplePos.xy * 0.02 + vec2(timeS * 0.07, timeS * 0.05));',
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     '        float edgeMask = smoothstep(0.0, 0.15, baseDensity) * (1.0 - smoothstep(0.4, 0.7, baseDensity));',
     '        baseDensity += edgeWave * 0.2 * edgeMask * edgeAnimOn;',
     '        baseDensity = clamp(baseDensity, 0.0, 1.0);',
@@ -316,7 +446,11 @@ var VOL_FOG_FRAG = [
     '        float heightFalloff = exp(-heightNorm * 3.0);',
     '        vec2 noiseCoord = samplePos.xy * 0.004 + vec2(uTime * 0.02, uTime * 0.015);',
     '        noiseCoord += vec2(heightNorm * 5.0);',
+<<<<<<< HEAD
     '        float noise = fbm3(noiseCoord);',
+=======
+    '        float noise = fbm2(noiseCoord);',
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     '',
     '        float density = baseDensity * heightFalloff * (1.0 + noise * 0.5);',
     '        density = clamp(density, 0.0, 1.0);',
@@ -1517,15 +1651,22 @@ FogOfWar._updateMeshUniforms = function() {
 
     this._time += 1.0 / 60.0;
 
+<<<<<<< HEAD
     var fogColorVec = new THREE.Vector3(this._fogColor.r, this._fogColor.g, this._fogColor.b);
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     // 단일 메쉬의 유니폼 갱신
     var fogMesh = this._fogGroup.children[0];
     if (!fogMesh) return;
 
     var u = fogMesh.material.uniforms;
     u.tFog.value = this._fogTexture;
+<<<<<<< HEAD
     u.fogColor.value.copy(fogColorVec);
+=======
+    u.fogColor.value.set(this._fogColor.r, this._fogColor.g, this._fogColor.b);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     u.unexploredAlpha.value = this._unexploredAlpha;
     u.exploredAlpha.value = this._exploredAlpha;
     if (u.uTime) u.uTime.value = this._time;
@@ -1588,7 +1729,11 @@ FogOfWar._updateMeshUniforms = function() {
         if (this._edgeMesh && this._edgeMesh.material) {
             var eu = this._edgeMesh.material.uniforms;
             eu.tFog.value = this._fogTexture;
+<<<<<<< HEAD
             eu.fogColor.value.copy(fogColorVec);
+=======
+            eu.fogColor.value.set(this._fogColor.r, this._fogColor.g, this._fogColor.b);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             eu.exploredAlpha.value = this._exploredAlpha;
             eu.unexploredAlpha.value = this._unexploredAlpha;
             eu.uTime.value = this._time;
@@ -1822,6 +1967,16 @@ if (typeof Game_Interpreter !== 'undefined') {
         if (command === 'FogOfWar') {
             var sub = args[0];
             if (sub === 'Enable') {
+<<<<<<< HEAD
+=======
+                // 현재 모드(2D/3D)에 따라 enabled 플래그 설정
+                var _is3D = typeof Mode3D !== 'undefined' && Mode3D._active;
+                if (_is3D) {
+                    FogOfWar._enabled3D = true;
+                } else {
+                    FogOfWar._enabled2D = true;
+                }
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 if (!FogOfWar._active && $dataMap) {
                     FogOfWar.setup($dataMap.width, $dataMap.height, $dataMap.fogOfWar || {});
                 }
@@ -1840,6 +1995,66 @@ if (typeof Game_Interpreter !== 'undefined') {
                 var rw = parseInt(args[3]) || 1;
                 var rh = parseInt(args[4]) || 1;
                 FogOfWar.revealRect(rx, ry, rw, rh);
+<<<<<<< HEAD
+=======
+            } else if (sub === 'FogColor') {
+                // FogOfWar FogColor #rrggbb
+                var hexStr = (args[1] || '#000000').replace('#', '');
+                var hexVal = parseInt(hexStr, 16);
+                var cr = ((hexVal >> 16) & 0xFF) / 255;
+                var cg = ((hexVal >> 8) & 0xFF) / 255;
+                var cb = (hexVal & 0xFF) / 255;
+                FogOfWar._fogColor = { r: cr, g: cg, b: cb };
+                // 메시가 이미 생성되어 있으면 uniform 즉시 적용
+                if (FogOfWar._fogGroup) {
+                    FogOfWar._fogGroup.traverse(function(child) {
+                        if (child.isMesh && child.material && child.material.uniforms && child.material.uniforms.fogColor) {
+                            child.material.uniforms.fogColor.value.set(cr, cg, cb);
+                        }
+                    });
+                }
+            } else if (sub === 'TentacleSharpness') {
+                // FogOfWar TentacleSharpness <value>  (기본 3.0, 높을수록 뾰족)
+                var tsVal = parseFloat(args[1]);
+                if (!isNaN(tsVal)) {
+                    FogOfWar._shaderOverrides = FogOfWar._shaderOverrides || {};
+                    FogOfWar._shaderOverrides.tentacleSharpness = tsVal;
+                    if (FogOfWar._fogGroup) {
+                        FogOfWar._fogGroup.traverse(function(child) {
+                            if (child.isMesh && child.material && child.material.uniforms && child.material.uniforms.tentacleSharpness) {
+                                child.material.uniforms.tentacleSharpness.value = tsVal;
+                            }
+                        });
+                    }
+                }
+            } else if (sub === 'TentacleLength') {
+                // FogOfWar TentacleLength <value>  (기본 2.0, 높을수록 촉수가 멀리 뻗음)
+                var tlVal = parseFloat(args[1]);
+                if (!isNaN(tlVal)) {
+                    FogOfWar._shaderOverrides = FogOfWar._shaderOverrides || {};
+                    FogOfWar._shaderOverrides.dissolveStrength = tlVal;
+                    if (FogOfWar._fogGroup) {
+                        FogOfWar._fogGroup.traverse(function(child) {
+                            if (child.isMesh && child.material && child.material.uniforms && child.material.uniforms.dissolveStrength) {
+                                child.material.uniforms.dissolveStrength.value = tlVal;
+                            }
+                        });
+                    }
+                }
+            } else if (sub === 'TentacleSpeed') {
+                // FogOfWar TentacleSpeed <value>  (기본 1.0, 높을수록 빠르게 움직임)
+                var tSpVal = parseFloat(args[1]);
+                if (!isNaN(tSpVal)) {
+                    FogOfWar._edgeAnimationSpeed = tSpVal;
+                    if (FogOfWar._fogGroup) {
+                        FogOfWar._fogGroup.traverse(function(child) {
+                            if (child.isMesh && child.material && child.material.uniforms && child.material.uniforms.edgeAnimSpeed) {
+                                child.material.uniforms.edgeAnimSpeed.value = tSpVal;
+                            }
+                        });
+                    }
+                }
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             }
         }
     };

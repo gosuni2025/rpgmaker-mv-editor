@@ -5,6 +5,10 @@ import {
   EXTENDED_TAG_DEFS, getTagDef, TagDef, TagEntry, TagParam,
 } from './extendedTextDefs';
 import { ExtTextHelpPanel } from './ExtTextHelpPanel';
+<<<<<<< HEAD
+=======
+import { BlockPropsPanel } from './BlockPropsPanel';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import './EnhancedTextEditor.css';
 
 // ─── 인라인 이스케이프 삽입 목록 ───
@@ -41,19 +45,31 @@ export function EnhancedTextEditor({
   placeholder,
   inline = false,
 }: EnhancedTextEditorProps) {
+<<<<<<< HEAD
   const [mode, setMode] = useState<'visual' | 'raw'>('visual');
+=======
+  const [mode, setMode] = useState<'visual' | 'raw'>(() =>
+    (localStorage.getItem('ete-tab') as 'visual' | 'raw') || 'visual'
+  );
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const [showBlockMenu, setShowBlockMenu] = useState(false);
   const [showEscMenu, setShowEscMenu] = useState(false);
   const [selectedBlock, setSelectedBlock] = useState<BlockInfo | null>(null);
   // 프로퍼티 패널 상태: TagEntry 배열 + content
   const [propTags, setPropTags] = useState<TagEntry[]>([]);
   const [propContent, setPropContent] = useState('');
+<<<<<<< HEAD
   const [showAddTagMenu, setShowAddTagMenu] = useState(false);
 
   const editorRef = useRef<HTMLDivElement>(null);
   const blockMenuRef = useRef<HTMLDivElement>(null);
   const escMenuRef = useRef<HTMLDivElement>(null);
   const addTagMenuRef = useRef<HTMLDivElement>(null);
+=======
+  const editorRef = useRef<HTMLDivElement>(null);
+  const blockMenuRef = useRef<HTMLDivElement>(null);
+  const escMenuRef = useRef<HTMLDivElement>(null);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const isInternalUpdate = useRef(false);
   const savedRange = useRef<Range | null>(null);
 
@@ -225,14 +241,18 @@ export function EnhancedTextEditor({
       if (escMenuRef.current && !escMenuRef.current.contains(e.target as Node)) {
         setShowEscMenu(false);
       }
+<<<<<<< HEAD
       if (addTagMenuRef.current && !addTagMenuRef.current.contains(e.target as Node)) {
         setShowAddTagMenu(false);
       }
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+<<<<<<< HEAD
   // ─── 파라미터 입력 렌더링 헬퍼 ───
   function renderParamInput(param: TagParam, value: string, onChangeFn: (val: string) => void) {
     if (param.type === 'color') {
@@ -280,16 +300,26 @@ export function EnhancedTextEditor({
     );
   }
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const editorMinHeight = inline ? undefined : `${rows * 1.6 + 0.5}em`;
 
   return (
     <div className="ete-root">
       {/* 탭 바 */}
       <div className="ete-tabs">
+<<<<<<< HEAD
         <button className={`ete-tab ${mode === 'visual' ? 'active' : ''}`} onClick={() => setMode('visual')}>
           확장 블럭 <span className="ext-badge">EXT</span>
         </button>
         <button className={`ete-tab ${mode === 'raw' ? 'active' : ''}`} onClick={() => setMode('raw')}>Raw</button>
+=======
+        <button className={`ete-tab ${mode === 'visual' ? 'active' : ''}`} onClick={() => { setMode('visual'); localStorage.setItem('ete-tab', 'visual'); }}>
+          확장 블럭 <span className="ext-badge">EXT</span>
+        </button>
+        <button className={`ete-tab ${mode === 'raw' ? 'active' : ''}`} onClick={() => { setMode('raw'); localStorage.setItem('ete-tab', 'raw'); }}>Raw</button>
+        <span className="ete-tab-hint">텍스트를 드래그 선택 후 "효과 적용" 버튼으로 효과 적용</span>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       </div>
 
       {mode === 'visual' && (
@@ -408,6 +438,7 @@ export function EnhancedTextEditor({
 
             {/* 프로퍼티 패널 */}
             {selectedBlock ? (
+<<<<<<< HEAD
               <div
                 className="ete-props-panel"
                 onMouseDown={e => {
@@ -502,6 +533,15 @@ export function EnhancedTextEditor({
 
                 <button className="ete-props-apply-btn" onClick={applyProps}>적용</button>
               </div>
+=======
+              <BlockPropsPanel
+                propTags={propTags}
+                propContent={propContent}
+                setPropTags={setPropTags}
+                setPropContent={setPropContent}
+                onApply={applyProps}
+              />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             ) : (
               <div className="ete-props-panel">
                 <div className="ete-props-empty">

@@ -1,15 +1,25 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useMemo } from 'react';
+=======
+import React, { useState, useMemo } from 'react';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import type { AudioFile } from '../../types/rpgMakerMV';
 import AudioPicker from '../common/AudioPicker';
 import MoviePicker from '../common/MoviePicker';
 import ImagePicker from '../common/ImagePicker';
+<<<<<<< HEAD
 import apiClient from '../../api/client';
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import { selectStyle } from './messageEditors';
 import { DataListPicker } from './dataListPicker';
 import useEditorStore from '../../store/useEditorStore';
 import { useDbNames, DEFAULT_AUDIO } from './actionEditorUtils';
 import AnimationPickerDialog from './AnimationPickerDialog';
+<<<<<<< HEAD
 import '../common/BattlebackPicker.css';
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 export function AudioEditor({ p, onOk, onCancel, type }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; type: 'bgm' | 'bgs' | 'me' | 'se' }) {
   const audioParam = (p[0] as AudioFile) || { ...DEFAULT_AUDIO };
@@ -324,6 +334,7 @@ export function ShowBalloonIconEditor({ p, onOk, onCancel }: { p: unknown[]; onO
   );
 }
 
+<<<<<<< HEAD
 /**
  * 전투 배경 변경 에디터 (코드 283)
  * params: [battleback1Name, battleback2Name]
@@ -481,6 +492,9 @@ export function ChangeBattleBackEditor({ p, onOk, onCancel }: { p: unknown[]; on
     </>
   );
 }
+=======
+export { ChangeBattleBackEditor } from './ChangeBattleBackEditor';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 /**
  * 먼 배경 변경 에디터 (코드 284)

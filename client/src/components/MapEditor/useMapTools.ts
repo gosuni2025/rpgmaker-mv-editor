@@ -5,6 +5,7 @@ import { posToTile, TILE_SIZE_PX, isAutotile, getAutotileKindExported, makeAutot
 import { placeAutotileAtPure, floodFillRegion, floodFillTile, batchPlaceWithAutotilePure, getRectanglePositions, getEllipsePositions, resolveUpperLayerPlacement, resolveUpperLayerErase } from './mapToolAlgorithms';
 import { useDrawingOverlay } from './useDrawingOverlay';
 import type { DrawingOverlayRefs } from './useDrawingOverlay';
+import { computePlacementChanges, computePlacementChangesWithData } from './mapToolHelpers';
 
 // Runtime globals (loaded via index.html script tags)
 declare const ConfigManager: any;
@@ -361,6 +362,7 @@ export function useMapTools(
         if (currentLayer === 1) {
           const placements = resolveUpperLayerErase(x, y, latestMap.data, latestMap.width, latestMap.height);
           if (placements.length > 0) {
+<<<<<<< HEAD
             const changes: TileChange[] = [];
             const updates: { x: number; y: number; z: number; tileId: number }[] = [];
             for (const p of placements) {
@@ -371,6 +373,9 @@ export function useMapTools(
                 updates.push(p);
               }
             }
+=======
+            const { changes, updates } = computePlacementChanges(placements, latestMap.data, latestMap.width, latestMap.height);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             if (updates.length > 0) {
               pendingChanges.current.push(...changes);
               updateMapTiles(updates);
@@ -399,6 +404,7 @@ export function useMapTools(
               // B/C/D/E 타일 → 자동 레이어 관리
               if (currentLayer === 1 && isUpperLayerTile(tid)) {
                 const placements = resolveUpperLayerPlacement(tx, ty, tid, data, latestMap.width, latestMap.height);
+<<<<<<< HEAD
                 for (const p of placements) {
                   const pidx = (p.z * latestMap.height + p.y) * latestMap.width + p.x;
                   const oldId = data[pidx];
@@ -408,6 +414,11 @@ export function useMapTools(
                     updates.push(p);
                   }
                 }
+=======
+                const r = computePlacementChangesWithData(placements, data, latestMap.width, latestMap.height);
+                changes.push(...r.changes);
+                updates.push(...r.updates);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
               } else {
                 placeAutotileAt(tx, ty, currentLayer, tid, data, latestMap.width, latestMap.height, changes, updates);
               }
@@ -422,6 +433,7 @@ export function useMapTools(
           if (currentLayer === 1 && isUpperLayerTile(selectedTileId)) {
             const placements = resolveUpperLayerPlacement(x, y, selectedTileId, latestMap.data, latestMap.width, latestMap.height);
             if (placements.length > 0) {
+<<<<<<< HEAD
               const changes: TileChange[] = [];
               const updates: { x: number; y: number; z: number; tileId: number }[] = [];
               for (const p of placements) {
@@ -432,6 +444,9 @@ export function useMapTools(
                   updates.push(p);
                 }
               }
+=======
+              const { changes, updates } = computePlacementChanges(placements, latestMap.data, latestMap.width, latestMap.height);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
               if (updates.length > 0) {
                 pendingChanges.current.push(...changes);
                 updateMapTiles(updates);
@@ -441,6 +456,7 @@ export function useMapTools(
             // B탭 투명 타일 → z=1, z=2 클리어
             const placements = resolveUpperLayerPlacement(x, y, 0, latestMap.data, latestMap.width, latestMap.height);
             if (placements.length > 0) {
+<<<<<<< HEAD
               const changes: TileChange[] = [];
               const updates: { x: number; y: number; z: number; tileId: number }[] = [];
               for (const p of placements) {
@@ -451,6 +467,9 @@ export function useMapTools(
                   updates.push(p);
                 }
               }
+=======
+              const { changes, updates } = computePlacementChanges(placements, latestMap.data, latestMap.width, latestMap.height);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
               if (updates.length > 0) {
                 pendingChanges.current.push(...changes);
                 updateMapTiles(updates);

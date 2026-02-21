@@ -2,8 +2,11 @@
  * JS Error Overlay
  * Catches JS errors and warnings, displays them in a DOM overlay.
  * Call install() to activate.
+<<<<<<< HEAD
  *
  * Source: https://github.com/painh/js-error-overlay
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
  */
 
 type EntryLevel = 'error' | 'warn';

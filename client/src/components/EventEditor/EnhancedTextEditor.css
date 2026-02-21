@@ -28,6 +28,20 @@
   color: #ddd;
   border-bottom-color: #2675bf;
 }
+<<<<<<< HEAD
+=======
+.ete-tab-hint {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 11px;
+  color: #555;
+  padding: 0 6px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 /* 툴바 */
 .ete-toolbar {

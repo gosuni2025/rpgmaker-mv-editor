@@ -140,6 +140,7 @@ export interface ClipboardData {
   height?: number;
   event?: unknown;
   events?: unknown[];
+  npcData?: Record<number, { name: string; showName: boolean }>;
   lights?: unknown[];
   objects?: unknown[];
   passage?: { x: number; y: number; value: number }[];
@@ -286,6 +287,8 @@ export interface EditorState {
   showCharacterGeneratorDialog: boolean;
   showOptionsDialog: boolean;
   showLocalizationDialog: boolean;
+  showUpdateCheckDialog: boolean;
+
 
 
   // Actions - Project
@@ -325,7 +328,7 @@ export interface EditorState {
   pasteEvent: (x: number, y: number) => void;
   deleteEvent: (eventId: number) => void;
   copyEvents: (eventIds: number[]) => void;
-  pasteEvents: (x: number, y: number) => void;
+  pasteEvents: (x: number, y: number) => { pastedCount: number; blockedPositions: number };
   deleteEvents: (eventIds: number[]) => void;
   moveEvents: (eventIds: number[], dx: number, dy: number) => void;
   setSelectedEventIds: (ids: number[]) => void;
@@ -462,6 +465,7 @@ export interface EditorState {
   setShowCharacterGeneratorDialog: (show: boolean) => void;
   setShowOptionsDialog: (show: boolean) => void;
   setShowLocalizationDialog: (show: boolean) => void;
+  setShowUpdateCheckDialog: (show: boolean) => void;
   setTransparentColor: (color: { r: number; g: number; b: number }) => void;
   setMaxUndo: (max: number) => void;
   setZoomStep: (step: number) => void;

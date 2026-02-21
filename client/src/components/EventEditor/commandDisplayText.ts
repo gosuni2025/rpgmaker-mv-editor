@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 import type { EventCommand, MoveRoute } from '../../types/rpgMakerMV';
 import { matchAddonCommand } from './addonCommands';
+=======
+import type { EventCommand } from '../../types/rpgMakerMV';
+import { FORMATTERS } from './commandFormatters';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 export interface CommandDisplayContext {
   t: (key: string) => string;
@@ -8,6 +13,7 @@ export interface CommandDisplayContext {
   currentMap: any;
 }
 
+<<<<<<< HEAD
 function formatSwitchId(id: number) {
   return `#${String(id).padStart(4, '0')}`;
 }
@@ -83,10 +89,17 @@ function formatConditionalBranch(params: unknown[], ctx: CommandDisplayContext):
 export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext): string {
   const code = cmd.code;
   if (code === 0) return '';
+=======
+export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext): string {
+  const code = cmd.code;
+  if (code === 0) return '';
+
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const displayKey = `eventCommands.display.${code}`;
   const desc = ctx.t(displayKey);
   let text = desc !== displayKey ? desc : `@${code}`;
 
+<<<<<<< HEAD
   // 조건 분기 전용 포맷
   if (code === 111 && cmd.parameters && cmd.parameters.length >= 2) {
     return text + ': ' + formatConditionalBranch(cmd.parameters, ctx);
@@ -634,6 +647,21 @@ export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext)
     } else {
       text += `: ${params}`;
     }
+=======
+  if (code === 411) return ctx.t('eventCommands.display.411');
+  if (code === 412) return ctx.t('eventCommands.display.412');
+
+  // 등록된 포매터 사용
+  const entry = FORMATTERS.get(code);
+  if (entry && cmd.parameters && cmd.parameters.length >= entry.minParams) {
+    return entry.fn(cmd, text, ctx);
+  }
+
+  // 기본 포맷: 파라미터 표시
+  if (cmd.parameters && cmd.parameters.length > 0) {
+    const params = cmd.parameters.map(p => typeof p === 'string' ? p : JSON.stringify(p)).join(', ');
+    text += params.length > 60 ? `: ${params.substring(0, 60)}...` : `: ${params}`;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   }
   return text;
 }

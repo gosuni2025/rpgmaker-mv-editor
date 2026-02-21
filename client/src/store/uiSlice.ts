@@ -18,6 +18,10 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
+<<<<<<< HEAD
+=======
+  'showUpdateCheckDialog' |
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   'showToast' | 'dismissToast' | 'dismissAllToasts' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
   'setShowGrid' | 'setShowPassability' | 'setShowTileInfo' | 'setShowRegion' |
@@ -25,6 +29,10 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
   'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' | 'setShowLocalizationDialog' |
+<<<<<<< HEAD
+=======
+  'setShowUpdateCheckDialog' |
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   'setTransparentColor' | 'setMaxUndo' | 'setZoomStep'
 >> = (set, get) => ({
   zoomLevel: 1,
@@ -57,6 +65,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   showCharacterGeneratorDialog: false,
   showOptionsDialog: false,
   showLocalizationDialog: false,
+  showUpdateCheckDialog: false,
 
   showToast: (message: string, persistent?: boolean) => {
     const id = Date.now() + Math.random();
@@ -160,6 +169,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   setShowCharacterGeneratorDialog: (show: boolean) => set({ showCharacterGeneratorDialog: show }),
   setShowOptionsDialog: (show: boolean) => set({ showOptionsDialog: show }),
   setShowLocalizationDialog: (show: boolean) => set({ showLocalizationDialog: show }),
+  setShowUpdateCheckDialog: (show: boolean) => set({ showUpdateCheckDialog: show }),
   setTransparentColor: (color: { r: number; g: number; b: number }) => {
     set({ transparentColor: color });
   },
