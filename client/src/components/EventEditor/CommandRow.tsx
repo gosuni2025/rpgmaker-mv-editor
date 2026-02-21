@@ -26,6 +26,8 @@ interface CommandRowProps {
   isFolded?: boolean;
   foldedCount?: number;
   onToggleFold?: (index: number) => void;
+  isMatch?: boolean;
+  isCurrentMatch?: boolean;
 }
 
 // 커맨드 코드별 텍스트 색상 (주 명령어 코드에만 적용; 부속 코드는 undefined)
@@ -80,7 +82,7 @@ const INDENT_WIDTH = 20; // paddingLeft per indent level (px)
 export const CommandRow = React.memo(function CommandRow({
   cmd, index, isSelected, isDragging, isGroupHL, isGroupFirst, isGroupLast, inGroup,
   draggable, displayCtx, onRowClick, onDoubleClick, onDragHandleMouseDown, context, commands,
-  isFoldable, isFolded, foldedCount, onToggleFold,
+  isFoldable, isFolded, foldedCount, onToggleFold, isMatch, isCurrentMatch,
 }: CommandRowProps) {
   const { t } = useTranslation();
   const isDisabled = isDisabledComment(cmd);
@@ -140,7 +142,7 @@ export const CommandRow = React.memo(function CommandRow({
 
   return (
     <div
-      className={`event-command-row${isSelected ? ' selected' : ''}${isGroupHL ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}${isGroupFirst ? ' group-first' : ''}${isGroupLast ? ' group-last' : ''}${inGroup ? ' group-member' : ''}${isFolded ? ' folded' : ''}${isDisabled ? ' cmd-disabled' : ''}`}
+      className={`event-command-row${isSelected ? ' selected' : ''}${isGroupHL ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}${isGroupFirst ? ' group-first' : ''}${isGroupLast ? ' group-last' : ''}${inGroup ? ' group-member' : ''}${isFolded ? ' folded' : ''}${isDisabled ? ' cmd-disabled' : ''}${isMatch ? ' find-match' : ''}${isCurrentMatch ? ' find-match-current' : ''}`}
       style={{ paddingLeft: draggable ? cmd.indent * INDENT_WIDTH : 8 + cmd.indent * INDENT_WIDTH }}
       data-cmd-index={index}
       onClick={e => onRowClick(index, e)}

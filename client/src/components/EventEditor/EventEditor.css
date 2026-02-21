@@ -468,6 +468,20 @@
   border-bottom: 2px solid #555;
 }
 
+/* 찾기 매치 하이라이트 */
+.event-command-row.find-match {
+  background: rgba(255, 210, 0, 0.12);
+}
+.event-command-row.find-match-current {
+  background: rgba(255, 160, 0, 0.30);
+  outline: 1px solid rgba(255, 160, 0, 0.75);
+  outline-offset: -1px;
+}
+.event-command-row.selected.find-match-current {
+  background: #2675bf;
+  outline: 1px solid #ffa040;
+}
+
 /* 주석 처리된 커맨드 — IDE 스타일 */
 .event-command-row.cmd-disabled {
   background: rgba(78, 201, 78, 0.05);
