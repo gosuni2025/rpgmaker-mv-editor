@@ -468,6 +468,16 @@
   border-bottom: 2px solid #555;
 }
 
+/* 주석 처리된 커맨드 */
+.event-command-row.cmd-disabled {
+  opacity: 0.45;
+}
+.event-command-row.cmd-disabled > *:not(.indent-guide) {
+  text-decoration: line-through;
+  text-decoration-color: #888;
+  color: #777 !important;
+}
+
 /* Indent rainbow guides */
 .indent-guide {
   position: absolute;

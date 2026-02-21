@@ -596,6 +596,8 @@
     "moveDown": "下に移動",
     "foldAll": "すべて折りたたむ",
     "unfoldAll": "すべて展開",
+    "toggleDisabled": "コメントアウト / 解除 (Cmd+/)",
+    "toggleDisabledShort": "コメント",
     "categories": {
       "tab1Messages": "メッセージ",
       "tab1GameProgression": "ゲーム進行",

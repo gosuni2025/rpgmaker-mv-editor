@@ -4,6 +4,7 @@ import type { EventCommand } from '../../types/rpgMakerMV';
 import type { EventCommandContext } from './EventCommandEditor';
 import TranslateButton from '../common/TranslateButton';
 import { getCommandDisplay, type CommandDisplayContext } from './commandDisplayText';
+import { isDisabledComment } from './commandOperations';
 
 interface CommandRowProps {
   cmd: EventCommand;
@@ -82,6 +83,7 @@ export const CommandRow = React.memo(function CommandRow({
   isFoldable, isFolded, foldedCount, onToggleFold,
 }: CommandRowProps) {
   const { t } = useTranslation();
+  const isDisabled = isDisabledComment(cmd);
   const display = getCommandDisplay(cmd, displayCtx);
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const isDragStarted = useRef(false);
@@ -138,7 +140,7 @@ export const CommandRow = React.memo(function CommandRow({
 
   return (
     <div
-      className={`event-command-row${isSelected ? ' selected' : ''}${isGroupHL ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}${isGroupFirst ? ' group-first' : ''}${isGroupLast ? ' group-last' : ''}${inGroup ? ' group-member' : ''}${isFolded ? ' folded' : ''}`}
+      className={`event-command-row${isSelected ? ' selected' : ''}${isGroupHL ? ' group-highlight' : ''}${isDragging ? ' dragging' : ''}${isGroupFirst ? ' group-first' : ''}${isGroupLast ? ' group-last' : ''}${inGroup ? ' group-member' : ''}${isFolded ? ' folded' : ''}${isDisabled ? ' cmd-disabled' : ''}`}
       style={{ paddingLeft: draggable ? cmd.indent * INDENT_WIDTH : 8 + cmd.indent * INDENT_WIDTH }}
       data-cmd-index={index}
       onClick={e => onRowClick(index, e)}

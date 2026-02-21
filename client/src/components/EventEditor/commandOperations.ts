@@ -1,5 +1,65 @@
 import type { EventCommand } from '../../types/rpgMakerMV';
-import { CONTINUATION_CODES, BLOCK_END_CODES } from './commandConstants';
+import { CONTINUATION_CODES, BLOCK_END_CODES, expandSelectionToGroups } from './commandConstants';
+
+/**
+ * 주석 처리된 커맨드 식별자 prefix.
+ * code:108/408의 parameters[0]이 이 prefix로 시작하면 주석 처리된 커맨드.
+ */
+export const DISABLED_CMD_PREFIX = '//CMD:';
+
+export function isDisabledComment(cmd: EventCommand): boolean {
+  return (cmd.code === 108 || cmd.code === 408) &&
+    typeof cmd.parameters[0] === 'string' &&
+    (cmd.parameters[0] as string).startsWith(DISABLED_CMD_PREFIX);
+}
+
+export function deserializeDisabledCommand(cmd: EventCommand): EventCommand {
+  const text = cmd.parameters[0] as string;
+  return JSON.parse(text.slice(DISABLED_CMD_PREFIX.length)) as EventCommand;
+}
+
+function serializeToDisabledComment(cmd: EventCommand): EventCommand {
+  return {
+    code: 108,
+    indent: cmd.indent,
+    parameters: [DISABLED_CMD_PREFIX + JSON.stringify({ code: cmd.code, indent: cmd.indent, parameters: cmd.parameters })],
+  };
+}
+
+/**
+ * 선택된 커맨드들을 주석 처리(code:108 Comment로 변환)하거나 복원(역직렬화).
+ * - 선택된 커맨드가 모두 주석 처리 상태 → 복원
+ * - 아니면 → 그룹 단위로 확장하여 Comment로 변환 (블록 구조 안전 처리)
+ * code:0 (종료 마커)는 항상 제외.
+ */
+export function buildToggleDisabledCommands(
+  commands: EventCommand[], indices: Set<number>,
+): EventCommand[] {
+  const effective = [...indices].filter(i => commands[i] && commands[i].code !== 0);
+  if (effective.length === 0) return commands;
+
+  const allDisabled = effective.every(i => isDisabledComment(commands[i]));
+
+  if (allDisabled) {
+    // 복원: 선택된 주석 커맨드를 역직렬화
+    return commands.map((cmd, i) => {
+      if (!indices.has(i) || cmd.code === 0) return cmd;
+      return isDisabledComment(cmd) ? deserializeDisabledCommand(cmd) : cmd;
+    });
+  }
+
+  // 주석 처리: 블록 구조를 포함해 그룹 단위로 범위 확장 후 변환
+  const expandedRanges = expandSelectionToGroups(commands, indices);
+  const expandedIndices = new Set<number>();
+  for (const [start, end] of expandedRanges) {
+    for (let i = start; i <= end; i++) expandedIndices.add(i);
+  }
+
+  return commands.map((cmd, i) => {
+    if (!expandedIndices.has(i) || cmd.code === 0) return cmd;
+    return serializeToDisabledComment(cmd);
+  });
+}
 
 /**
  * Change indent of selected commands by delta (+1 or -1). Minimum indent is 0.
