@@ -7,28 +7,67 @@ import { CONTINUATION_CODES, BLOCK_END_CODES, expandSelectionToGroups } from './
  */
 export const DISABLED_CMD_PREFIX = '//CMD:';
 
+interface DisabledCmdPayload {
+  blockId: string;
+  code: number;
+  indent: number;
+  parameters: unknown[];
+}
+
+function generateBlockId(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
 export function isDisabledComment(cmd: EventCommand): boolean {
   return (cmd.code === 108 || cmd.code === 408) &&
     typeof cmd.parameters[0] === 'string' &&
     (cmd.parameters[0] as string).startsWith(DISABLED_CMD_PREFIX);
 }
 
-export function deserializeDisabledCommand(cmd: EventCommand): EventCommand {
-  const text = cmd.parameters[0] as string;
-  return JSON.parse(text.slice(DISABLED_CMD_PREFIX.length)) as EventCommand;
+/** payload 파싱. blockId가 없는 레거시 형식도 처리. */
+function parseDisabledPayload(cmd: EventCommand): DisabledCmdPayload | null {
+  if (!isDisabledComment(cmd)) return null;
+  try {
+    const raw = JSON.parse((cmd.parameters[0] as string).slice(DISABLED_CMD_PREFIX.length));
+    if (raw.blockId) return raw as DisabledCmdPayload;
+    // 레거시: blockId 없음 → 임시 ID 부여
+    return { blockId: '', code: raw.code, indent: raw.indent, parameters: raw.parameters };
+  } catch { return null; }
 }
 
-function serializeToDisabledComment(cmd: EventCommand): EventCommand {
+export function getDisabledBlockId(cmd: EventCommand): string | null {
+  const p = parseDisabledPayload(cmd);
+  return p?.blockId || null;
+}
+
+export function deserializeDisabledCommand(cmd: EventCommand): EventCommand {
+  const p = parseDisabledPayload(cmd);
+  if (!p) return cmd;
+  return { code: p.code, indent: p.indent, parameters: p.parameters };
+}
+
+/** 같은 blockId를 가진 모든 인덱스 반환 */
+export function findDisabledBlock(commands: EventCommand[], blockId: string): Set<number> {
+  const result = new Set<number>();
+  if (!blockId) return result;
+  for (let i = 0; i < commands.length; i++) {
+    if (getDisabledBlockId(commands[i]) === blockId) result.add(i);
+  }
+  return result;
+}
+
+function serializeToDisabledComment(cmd: EventCommand, blockId: string): EventCommand {
+  const payload: DisabledCmdPayload = { blockId, code: cmd.code, indent: cmd.indent, parameters: cmd.parameters };
   return {
     code: 108,
     indent: cmd.indent,
-    parameters: [DISABLED_CMD_PREFIX + JSON.stringify({ code: cmd.code, indent: cmd.indent, parameters: cmd.parameters })],
+    parameters: [DISABLED_CMD_PREFIX + JSON.stringify(payload)],
   };
 }
 
 /**
  * 선택된 커맨드들을 주석 처리(code:108 Comment로 변환)하거나 복원(역직렬화).
- * - 선택된 커맨드가 모두 주석 처리 상태 → 복원
+ * - 선택된 커맨드가 모두 주석 처리 상태 → blockId 기반으로 블록 전체 복원
  * - 아니면 → 그룹 단위로 확장하여 Comment로 변환 (블록 구조 안전 처리)
  * code:0 (종료 마커)는 항상 제외.
  */
@@ -41,23 +80,38 @@ export function buildToggleDisabledCommands(
   const allDisabled = effective.every(i => isDisabledComment(commands[i]));
 
   if (allDisabled) {
-    // 복원: 선택된 주석 커맨드를 역직렬화
+    // 선택된 커맨드들의 blockId 수집
+    const blockIds = new Set<string>();
+    const soloIndices = new Set<number>(); // blockId 없는 레거시 커맨드
+    for (const i of effective) {
+      const bid = getDisabledBlockId(commands[i]);
+      if (bid) blockIds.add(bid);
+      else soloIndices.add(i);
+    }
+    // 동일 blockId를 가진 커맨드 전체로 복원 대상 확장
+    const toRestore = new Set<number>(soloIndices);
+    for (let i = 0; i < commands.length; i++) {
+      const bid = getDisabledBlockId(commands[i]);
+      if (bid && blockIds.has(bid)) toRestore.add(i);
+    }
     return commands.map((cmd, i) => {
-      if (!indices.has(i) || cmd.code === 0) return cmd;
+      if (!toRestore.has(i)) return cmd;
       return isDisabledComment(cmd) ? deserializeDisabledCommand(cmd) : cmd;
     });
   }
 
-  // 주석 처리: 블록 구조를 포함해 그룹 단위로 범위 확장 후 변환
+  // 주석 처리: 블록 구조를 포함해 그룹 단위로 범위 확장, 각 연속 범위에 독립 blockId 부여
   const expandedRanges = expandSelectionToGroups(commands, indices);
-  const expandedIndices = new Set<number>();
+  const expandedMap = new Map<number, string>(); // index → blockId
   for (const [start, end] of expandedRanges) {
-    for (let i = start; i <= end; i++) expandedIndices.add(i);
+    const bid = generateBlockId();
+    for (let i = start; i <= end; i++) expandedMap.set(i, bid);
   }
 
   return commands.map((cmd, i) => {
-    if (!expandedIndices.has(i) || cmd.code === 0) return cmd;
-    return serializeToDisabledComment(cmd);
+    const bid = expandedMap.get(i);
+    if (!bid || cmd.code === 0) return cmd;
+    return serializeToDisabledComment(cmd, bid);
   });
 }
 
