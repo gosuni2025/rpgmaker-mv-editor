@@ -529,7 +529,7 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
       </div>
 
       {picker && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setPicker(null)}>
+        <div className="modal-overlay" style={{ zIndex: 2100 }} onClick={() => setPicker(null)}>
           <div className="pcmd-picker" onClick={e => e.stopPropagation()}>
             <div className="pcmd-picker-header">
               <input
