@@ -1,4 +1,4 @@
-import React, { useRef, useLayoutEffect, useCallback } from 'react';
+import React from 'react';
 import useEscClose from '../../hooks/useEscClose';
 import './Dialog.css';
 
@@ -31,11 +31,7 @@ export default function Dialog({
   showCloseButton,
   overlayStyle,
 }: DialogProps) {
-  // ref 패턴으로 항상 최신 onClose를 호출하되 useEscClose에는 stable 함수를 전달
-  const onCloseRef = useRef(onClose);
-  useLayoutEffect(() => { onCloseRef.current = onClose; });
-  const stableClose = useCallback(() => onCloseRef.current(), []);
-  useEscClose(stableClose);
+  useEscClose(onClose);
 
   const dialogStyle: React.CSSProperties = {
     ...(width !== undefined ? { width } : {}),
