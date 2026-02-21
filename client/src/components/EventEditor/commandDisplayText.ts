@@ -1,5 +1,6 @@
 import type { EventCommand } from '../../types/rpgMakerMV';
 import { FORMATTERS } from './commandFormatters';
+import { isDisabledComment, deserializeDisabledCommand } from './commandOperations';
 
 export interface CommandDisplayContext {
   t: (key: string) => string;
@@ -9,6 +10,11 @@ export interface CommandDisplayContext {
 }
 
 export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext): string {
+  // 주석 처리된 커맨드: 원본 커맨드를 역직렬화해서 표시
+  if (isDisabledComment(cmd)) {
+    return getCommandDisplay(deserializeDisabledCommand(cmd), ctx);
+  }
+
   const code = cmd.code;
   if (code === 0) return '';
 

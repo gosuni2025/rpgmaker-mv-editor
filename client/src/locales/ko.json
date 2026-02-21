@@ -596,6 +596,8 @@
     "moveDown": "아래로 이동",
     "foldAll": "모두 접기",
     "unfoldAll": "모두 펼치기",
+    "toggleDisabled": "주석 처리 / 해제 (Cmd+/)",
+    "toggleDisabledShort": "주석",
     "categories": {
       "tab1Messages": "메시지",
       "tab1GameProgression": "게임 진행",
