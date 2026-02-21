@@ -62,6 +62,29 @@ export function replaceInCommand(
   return { ...cmd, parameters: newParams };
 }
 
+export interface TextSegment {
+  text: string;
+  isMatch: boolean;
+}
+
+/** 텍스트를 매치/비매치 세그먼트로 분리 (CommandRow 인라인 하이라이트용) */
+export function splitByQuery(text: string, query: string, opts: FindOptions): TextSegment[] {
+  const re = buildRegex(query, opts);
+  if (!re || !text) return [{ text, isMatch: false }];
+  const segments: TextSegment[] = [];
+  let lastIndex = 0;
+  re.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > lastIndex) segments.push({ text: text.slice(lastIndex, m.index), isMatch: false });
+    if (m[0].length > 0) segments.push({ text: m[0], isMatch: true });
+    lastIndex = m.index + m[0].length;
+    if (m[0].length === 0) { re.lastIndex++; } // 빈 매치 무한루프 방지
+  }
+  if (lastIndex < text.length) segments.push({ text: text.slice(lastIndex), isMatch: false });
+  return segments;
+}
+
 /**
  * 매치 인덱스 중 폴딩으로 숨겨진 것이 있으면 해당 fold를 해제한 새 foldedSet 반환.
  * 매치가 없는 폴딩은 그대로 유지.
