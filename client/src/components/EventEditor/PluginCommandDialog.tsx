@@ -16,6 +16,16 @@ interface PluginArgMeta {
   desc?: string;
 }
 
+interface DbEntry {
+  id: number;
+  name: string;
+}
+
+const DB_TYPE_ENDPOINT: Record<string, string> = {
+  item: 'items', weapon: 'weapons', armor: 'armors', enemy: 'enemies',
+};
+const PICKER_TYPES = new Set(Object.keys(DB_TYPE_ENDPOINT));
+
 interface PluginCommandMeta {
   name: string;
   text: string;
@@ -66,6 +76,10 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
   const [selectedCmd, setSelectedCmd] = useState<PluginCommandMeta | null>(null);
   const [directText, setDirectText] = useState(existingText || '');
   const [argValues, setArgValues] = useState<string[]>([]);
+
+  const [dbCache, setDbCache] = useState<Record<string, DbEntry[]>>({});
+  const [picker, setPicker] = useState<{ argIndex: number; type: string } | null>(null);
+  const [pickerSearch, setPickerSearch] = useState('');
 
   // addonCommandData에 있는 pluginCommand 집합
   const addonKeySet = new Set(ADDON_COMMANDS.map(d => d.pluginCommand));
@@ -143,6 +157,19 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
     setSelectedCmd(cmd);
     setArgValues(cmd.args.map(a => a.default));
   }, []);
+
+  const loadDbData = useCallback(async (type: string) => {
+    if (dbCache[type] !== undefined) return;
+    const endpoint = DB_TYPE_ENDPOINT[type];
+    if (!endpoint) return;
+    try {
+      const raw = await apiClient.get<(DbEntry | null)[]>(`/database/${endpoint}`);
+      const list = (raw || []).filter((e): e is DbEntry => !!e && !!e.name);
+      setDbCache(prev => ({ ...prev, [type]: list }));
+    } catch {
+      setDbCache(prev => ({ ...prev, [type]: [] }));
+    }
+  }, [dbCache]);
 
   const buildCmdText = useCallback((prefix: string, cmd: PluginCommandMeta, values: string[]) => {
     const parts = [prefix, cmd.name, ...values.filter(v => v !== '')];
@@ -409,6 +436,25 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
       setArgValues(next);
     };
 
+    if (PICKER_TYPES.has(arg.type)) {
+      const id = parseInt(value) || 0;
+      const list = dbCache[arg.type];
+      const entry = list?.find(e => e.id === id);
+      const label = id > 0 ? `#${String(id).padStart(3, '0')}  ${entry?.name ?? '...'}` : '선택...';
+      return (
+        <button
+          className="pcmd-picker-btn"
+          onClick={() => {
+            loadDbData(arg.type);
+            setPicker({ argIndex: i, type: arg.type });
+            setPickerSearch('');
+          }}
+        >
+          {label}
+        </button>
+      );
+    }
+
     if (arg.type === 'boolean') {
       return (
         <span style={{ display: 'inline-flex', gap: 8 }}>
@@ -464,21 +510,70 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="pcmd-dialog">
-        <div className="pcmd-header">Plugin Command</div>
-        <div className="pcmd-body">
-          <div className="pcmd-left">
-            {loading
-              ? <div className="pcmd-right-empty">로딩 중...</div>
-              : renderGroupList()
-            }
-          </div>
-          <div className="pcmd-right">
-            {renderRightPanel()}
+    <>
+      <div className="modal-overlay">
+        <div className="pcmd-dialog">
+          <div className="pcmd-header">Plugin Command</div>
+          <div className="pcmd-body">
+            <div className="pcmd-left">
+              {loading
+                ? <div className="pcmd-right-empty">로딩 중...</div>
+                : renderGroupList()
+              }
+            </div>
+            <div className="pcmd-right">
+              {renderRightPanel()}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {picker && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setPicker(null)}>
+          <div className="pcmd-picker" onClick={e => e.stopPropagation()}>
+            <div className="pcmd-picker-header">
+              <input
+                autoFocus
+                className="pcmd-picker-search"
+                placeholder="이름 또는 번호 검색..."
+                value={pickerSearch}
+                onChange={e => setPickerSearch(e.target.value)}
+              />
+              <button className="pcmd-picker-close" onClick={() => setPicker(null)}>✕</button>
+            </div>
+            <div className="pcmd-picker-list">
+              {!dbCache[picker.type] && (
+                <div className="pcmd-picker-empty">로딩 중...</div>
+              )}
+              {dbCache[picker.type]?.length === 0 && (
+                <div className="pcmd-picker-empty">데이터가 없습니다</div>
+              )}
+              {dbCache[picker.type]
+                ?.filter(e => {
+                  if (!pickerSearch) return true;
+                  const s = pickerSearch.toLowerCase();
+                  return e.name.toLowerCase().includes(s) || String(e.id).includes(s);
+                })
+                .map(e => (
+                  <div
+                    key={e.id}
+                    className="pcmd-picker-item"
+                    onClick={() => {
+                      const next = [...argValues];
+                      next[picker.argIndex] = String(e.id);
+                      setArgValues(next);
+                      setPicker(null);
+                    }}
+                  >
+                    <span className="pcmd-picker-num">#{String(e.id).padStart(3, '0')}</span>
+                    <span className="pcmd-picker-name">{e.name}</span>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
