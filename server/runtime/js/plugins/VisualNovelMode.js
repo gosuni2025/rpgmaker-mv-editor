@@ -454,6 +454,7 @@
             prevMap[key].push({
                 startTime:        seg.startTime,
                 overlayStartTime: seg._overlayStartTime,
+                etFrozen:         seg._etFrozen,
             });
         });
         var keyCounters = {};
@@ -494,6 +495,8 @@
                     segs[j].startTime = prev.startTime;
                 if (prev.overlayStartTime !== undefined)
                     segs[j]._overlayStartTime = prev.overlayStartTime;
+                if (prev.etFrozen !== undefined)
+                    segs[j]._etFrozen = prev.etFrozen;
             }
         }
     };
