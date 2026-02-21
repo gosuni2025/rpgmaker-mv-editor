@@ -300,18 +300,6 @@ ThreeTilemapRectLayer.prototype._flush = function() {
             hasNormal = true;
         }
 
-        // --- [진단] 물 타일 감지 결과 (최초 한 번만 출력) ---
-        if (!ThreeTilemapRectLayer._dbgWaterChecked) {
-            ThreeTilemapRectLayer._dbgWaterChecked = true;
-            console.log('[Water診断] updateRect sn=' + sn + ' isShadow=' + isShadow +
-                ' total=' + data.count + ' waterCount=' + _dbgWaterCount +
-                ' hasWater=' + hasWater + ' hasNormal=' + hasNormal +
-                ' ThreeWaterShader정의=' + (typeof ThreeWaterShader !== 'undefined'));
-            if (animOffsets.length > 0) {
-                console.log('[Water診断] 첫 rect animX=' + (animOffsets[0]||0) + ' animY=' + (animOffsets[1]||0));
-            }
-        }
-
         // --- 물 타일 메시 빌드 (일반 메시보다 먼저 → 낮은 renderOrder) ---
         if (hasWater) {
             this._buildWaterMesh(setNumber, data, animOffsets, texture, texW, texH,
@@ -599,13 +587,6 @@ ThreeTilemapRectLayer.prototype._buildWaterMesh = function(setNumber, data, anim
         }
     }
 
-    // --- [진단] 그룹핑 결과 ---
-    var _gkList = Object.keys(kindGroups).map(function(k) {
-        return k + '(' + kindGroups[k].indices.length + ')';
-    }).join(', ');
-    console.log('[Water診断] _buildWaterMesh 그룹: ' + (_gkList || '없음') +
-        ' tileAnim=' + tileAnimX + 'x' + tileAnimY);
-
     for (var gk in kindGroups) {
         var group = kindGroups[gk];
         if (group.indices.length > 0) {
@@ -622,12 +603,6 @@ ThreeTilemapRectLayer.prototype._buildWaterMesh = function(setNumber, data, anim
 ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(setNumber, meshKey, indices, data, animOffsets,
         texture, texW, texH, tileAnimX, tileAnimY, isWaterfall, a1Kinds) {
     var count = indices.length;
-    // --- [진단] ---
-    console.log('[Water診断] _buildWaterTypeMesh: key=' + meshKey +
-        ' count=' + count + ' isWaterfall=' + isWaterfall +
-        ' ShadowLight.active=' + (window.ShadowLight ? window.ShadowLight._active : 'undefined') +
-        ' texture=' + (texture ? (texture.image ? 'OK' : 'noImage') : 'NULL') +
-        ' texSize=' + texW + 'x' + texH);
     var vertCount = count * 6;
     var posArray = new Float32Array(vertCount * 3);
     var normalArray = new Float32Array(vertCount * 3);
@@ -797,12 +772,6 @@ ThreeTilemapRectLayer.prototype._buildWaterTypeMesh = function(setNumber, meshKe
         // 물 타일은 receiveShadow 비활성 (shadow acne로 검은 구멍 아티팩트 방지)
         this._meshes[meshKey] = mesh;
         this._threeObj.add(mesh);
-        console.log('[Water診断] 새 메시 생성: key=' + meshKey +
-            ' matType=' + (material.isShaderMaterial ? 'ShaderMaterial' : material.type) +
-            ' transparent=' + material.transparent + ' depthTest=' + material.depthTest +
-            ' alphaTest=' + material.alphaTest + ' renderOrder=' + mesh.renderOrder +
-            ' mapUniform=' + (material.isShaderMaterial && material.uniforms && material.uniforms.map ?
-                (material.uniforms.map.value ? 'SET' : 'NULL') : 'N/A'));
     }
 
     // 텍스처 교체
