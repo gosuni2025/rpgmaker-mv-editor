@@ -468,14 +468,18 @@
   border-bottom: 2px solid #555;
 }
 
-/* 주석 처리된 커맨드 */
+/* 주석 처리된 커맨드 — IDE 스타일 */
 .event-command-row.cmd-disabled {
-  opacity: 0.45;
+  background: rgba(78, 201, 78, 0.05);
+  border-left: 3px solid #4a7a4a;
+  opacity: 0.75;
 }
-.event-command-row.cmd-disabled > *:not(.indent-guide) {
-  text-decoration: line-through;
-  text-decoration-color: #888;
-  color: #777 !important;
+.event-command-row.cmd-disabled:hover {
+  background: rgba(78, 201, 78, 0.10);
+}
+.event-command-row.cmd-disabled > *:not(.indent-guide):not(.fold-toggle):not(.drag-handle):not(.fold-count-badge) {
+  color: #6a9a6a !important;
+  font-style: italic;
 }
 
 /* Indent rainbow guides */

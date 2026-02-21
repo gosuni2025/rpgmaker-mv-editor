@@ -594,7 +594,6 @@
     "noResults": "No results found",
     "foldAll": "Fold All",
     "unfoldAll": "Unfold All",
-    "toggleDisabled": "Toggle Comment (Cmd+/)",
     "toggleDisabledShort": "Comment",
     "categories": {
       "tab1Messages": "Messages",
