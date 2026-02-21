@@ -346,6 +346,7 @@ Window_Base.prototype._etProcessInlineItem = function(textState) {
         try {
             if (imgtype === 'pictures') bmp = ImageManager.loadPicture(src);
             else if (imgtype === 'system') bmp = ImageManager.loadSystem(src);
+            else if (imgtype === 'img') bmp = ImageManager.loadBitmap('img/', src, 0, true);
             else bmp = ImageManager.loadPicture(src);
         } catch(e) { bmp = null; }
 

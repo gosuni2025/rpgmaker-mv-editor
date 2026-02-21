@@ -58,10 +58,12 @@ function renderParamInput(
     );
   }
   if (param.type === 'image-picker') {
-    const imgtype = (allParams?.['imgtype'] || 'pictures') as Parameters<typeof ImagePicker>[0]['type'];
+    const imgtypeVal = allParams?.['imgtype'] || 'pictures';
+    // 'img' imgtype은 ImagePicker에서 지원하지 않으므로 'pictures' 사용 (value에서 자동 감지)
+    const pickerType = (imgtypeVal === 'img' ? 'pictures' : imgtypeVal) as Parameters<typeof ImagePicker>[0]['type'];
     return (
       <ImagePicker
-        type={imgtype}
+        type={pickerType}
         value={value}
         onChange={onChangeFn}
       />

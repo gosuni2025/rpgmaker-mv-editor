@@ -8,7 +8,7 @@ import './ImagePicker.css';
 interface ImagePickerProps {
   type: 'faces' | 'characters' | 'sv_actors' | 'sv_enemies' | 'enemies' | 'battlebacks1' | 'battlebacks2' | 'parallaxes' | 'tilesets' | 'titles1' | 'titles2' | 'animations' | 'pictures';
   value: string;
-  onChange: (name: string) => void;
+  onChange: (name: string, meta?: { fetchType: string }) => void;
   index?: number;
   onIndexChange?: (index: number) => void;
   direction?: number;
@@ -348,7 +348,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
   };
 
   const handleOk = () => {
-    onChange(selected.replace(/\.png$/i, ''));
+    onChange(selected.replace(/\.png$/i, ''), { fetchType });
     if (onIndexChange) onIndexChange(selectedIndex);
     if (onDirectionChange) onDirectionChange(selectedDirection);
     if (onPatternChange) onPatternChange(selectedPattern);
@@ -492,6 +492,10 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
                   const name = f.name.replace(/\.png$/i, '');
                   const prefix = currentSubDir && !searchQuery ? currentSubDir + '/' : '';
                   const displayName = name.startsWith(prefix) ? name.slice(prefix.length) : name;
+                  // non-recursive 모드에서 f.name은 파일명만 포함하므로 currentSubDir를 붙여야 함
+                  const fullPath = !prefetchSubdirs && currentSubDir && !searchQuery
+                    ? `${currentSubDir}/${name}`
+                    : name;
                   const sizeStr = f.size >= 1048576
                     ? (f.size / 1048576).toFixed(1) + ' MB'
                     : f.size >= 1024
@@ -500,9 +504,9 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
                   return (
                     <div
                       key={f.name}
-                      className={`image-picker-item${selected === name ? ' selected' : ''}`}
-                      onClick={() => setSelected(name)}
-                      title={`${name}\n${sizeStr}`}
+                      className={`image-picker-item${selected === fullPath ? ' selected' : ''}`}
+                      onClick={() => setSelected(fullPath)}
+                      title={`${fullPath}\n${sizeStr}`}
                     >
                       <span className="image-picker-item-name">{highlightMatch(displayName, searchQuery)}</span>
                       <span className="image-picker-item-size">{sizeStr}</span>

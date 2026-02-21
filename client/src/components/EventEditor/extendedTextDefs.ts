@@ -154,6 +154,7 @@ export const EXTENDED_TAG_DEFS: TagDef[] = [
         options: [
           { value: 'pictures', label: '그림' },
           { value: 'system', label: '시스템' },
+          { value: 'img', label: '직접 경로 (img/)' },
         ],
       },
     ],
