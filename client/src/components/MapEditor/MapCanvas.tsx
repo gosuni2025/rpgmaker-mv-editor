@@ -2,7 +2,6 @@ import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react'
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
-import { SCROLL_POSITIONS_STORAGE_KEY } from '../../store/types';
 import EventDetail from '../EventEditor/EventDetail';
 import ShiftMapDialog from './ShiftMapDialog';
 import SampleMapDialog from '../SampleMapDialog';
@@ -17,6 +16,7 @@ import { useSelectionRectOverlay, usePastePreviewOverlay } from './useSelectionO
 import { useCameraZoneOverlay } from './overlays';
 import { useTileCursorPreview } from './useTileCursorPreview';
 import { useDragPreviews, useDragPreviewMeshSync, useCameraZoneMeshCleanup, usePlayerStartDragPreview, useTestStartDragPreview, useVehicleStartDragPreview } from './useDragPreviewSync';
+import { useMapScrollPersistence } from './useMapScrollPersistence';
 import TileInfoTooltip from './TileInfoTooltip';
 import Camera3DGizmo from './Camera3DGizmo';
 import './MapCanvas.css';
@@ -120,68 +120,7 @@ export default function MapCanvas() {
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, []);
 
-  // 맵 변경 시: 이전 맵 스크롤 저장 + 새 맵 스크롤 복원
-  const prevMapIdRef = useRef<number | null>(null);
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el || !currentMapId) return;
-
-    // 이전 맵의 스크롤 위치 저장
-    if (prevMapIdRef.current !== null && prevMapIdRef.current !== currentMapId) {
-      try {
-        const raw = localStorage.getItem(SCROLL_POSITIONS_STORAGE_KEY);
-        const positions = raw ? JSON.parse(raw) : {};
-        positions[prevMapIdRef.current] = { left: el.scrollLeft, top: el.scrollTop };
-        localStorage.setItem(SCROLL_POSITIONS_STORAGE_KEY, JSON.stringify(positions));
-      } catch {}
-    }
-
-    prevMapIdRef.current = currentMapId;
-
-    // 새 맵의 저장된 스크롤 위치 복원
-    try {
-      const raw = localStorage.getItem(SCROLL_POSITIONS_STORAGE_KEY);
-      if (raw) {
-        const positions = JSON.parse(raw);
-        const saved = positions[currentMapId];
-        if (saved) {
-          // 렌더링 완료 후 스크롤 복원
-          requestAnimationFrame(() => {
-            el.scrollLeft = saved.left ?? 0;
-            el.scrollTop = saved.top ?? 0;
-          });
-        } else {
-          el.scrollLeft = 0;
-          el.scrollTop = 0;
-        }
-      } else {
-        el.scrollLeft = 0;
-        el.scrollTop = 0;
-      }
-    } catch {}
-  }, [currentMapId]);
-
-  // 스크롤 시 현재 맵의 위치 저장 (debounce)
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    let timer: ReturnType<typeof setTimeout>;
-    const onScroll = () => {
-      const mapId = currentMapId;
-      if (!mapId) return;
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        try {
-          const raw = localStorage.getItem(SCROLL_POSITIONS_STORAGE_KEY);
-          const positions = raw ? JSON.parse(raw) : {};
-          positions[mapId] = { left: el.scrollLeft, top: el.scrollTop };
-          localStorage.setItem(SCROLL_POSITIONS_STORAGE_KEY, JSON.stringify(positions));
-        } catch {}
-      }, 300);
-    };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => { el.removeEventListener('scroll', onScroll); clearTimeout(timer); };
-  }, [currentMapId]);
+  useMapScrollPersistence(containerRef, currentMapId);
 
   // Tile cursor preview
   useTileCursorPreview(overlayRefs, hoverTile, rendererReady);
@@ -224,23 +163,6 @@ export default function MapCanvas() {
       window.removeEventListener('editor-shift-map', onShift);
       window.removeEventListener('editor-load-sample-map', onLoadSample);
     };
-  }, []);
-
-  // 이벤트 목록에서 클릭 시 해당 타일로 스크롤
-  useEffect(() => {
-    const onScrollToTile = (e: Event) => {
-      const el = containerRef.current;
-      if (!el) return;
-      const { x, y } = (e as CustomEvent<{ x: number; y: number }>).detail;
-      const zoom = useEditorStore.getState().zoomLevel;
-      const tilePx = TILE_SIZE_PX * zoom;
-      const targetLeft = x * tilePx - el.clientWidth / 2 + tilePx / 2;
-      const targetTop = y * tilePx - el.clientHeight / 2 + tilePx / 2;
-      el.scrollLeft = Math.max(0, targetLeft);
-      el.scrollTop = Math.max(0, targetTop);
-    };
-    window.addEventListener('scroll-to-tile', onScrollToTile);
-    return () => window.removeEventListener('scroll-to-tile', onScrollToTile);
   }, []);
 
   // =========================================================================
