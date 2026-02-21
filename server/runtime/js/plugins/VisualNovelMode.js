@@ -433,17 +433,33 @@
     };
 
     // ── 렌더링 ──────────────────────────────────────────────────────────────
+    // 세그먼트 고유 키 생성 (이펙트 타입 + 글자 내용)
+    // 스크롤로 뷰포트가 바뀌어 세그먼트 순서가 달라져도 같은 세그먼트를 정확히 매칭
+    function _etSegKey(seg) {
+        var type = seg.shakeActive ? 'S' : seg.hologramActive ? 'H' :
+            seg.gradientWaveActive ? 'GW' : seg.gradientActive ? 'G' :
+            seg.fadeActive ? 'F' : seg.dissolveActive ? 'D' : seg.blurFadeActive ? 'BF' : '?';
+        return type + ':' + (seg.chars || []).map(function(ch){ return ch.c; }).join('');
+    }
+
     Window_VNText.prototype._redraw = function () {
         if (!this.contents) return;
 
-        // 기존 세그먼트의 시간 상태를 보존 (스크롤 시 애니메이션 재시작 방지)
-        // 텍스트가 바뀌지 않은 스크롤에서는 세그먼트 순서가 동일하므로 인덱스 매칭으로 복원
-        var prevState = (this._etAnimSegs || []).map(function (seg) {
-            return {
+        // _etScrollY를 _scrollY와 동기화 — overlay 위치 업데이트(_etUpdateOverlayUniforms)에 필요
+        this._etScrollY = this._scrollY;
+
+        // 기존 세그먼트의 시간 상태를 텍스트+이펙트 키 기반으로 보존 (스크롤 시 애니메이션 재시작 방지)
+        // 인덱스 기반 매칭은 뷰포트 밖 텍스트 여부에 따라 순서가 달라져 오작동하므로 키 기반 사용
+        var prevMap = {};
+        (this._etAnimSegs || []).forEach(function (seg) {
+            var key = _etSegKey(seg);
+            if (!prevMap[key]) prevMap[key] = [];
+            prevMap[key].push({
                 startTime:        seg.startTime,
                 overlayStartTime: seg._overlayStartTime,
-            };
+            });
         });
+        var keyCounters = {};
 
         this._etClearAllOverlays();
         this.contents.clear();
@@ -469,14 +485,19 @@
 
         if (SHOW_SCROLL_BAR) this._drawScrollBar();
 
-        // startTime / _overlayStartTime 복원
+        // 키 기반으로 startTime / _overlayStartTime 복원
         var segs = this._etAnimSegs || [];
-        var n = Math.min(segs.length, prevState.length);
-        for (var j = 0; j < n; j++) {
-            if (prevState[j].startTime !== undefined)
-                segs[j].startTime = prevState[j].startTime;
-            if (prevState[j].overlayStartTime !== undefined)
-                segs[j]._overlayStartTime = prevState[j].overlayStartTime;
+        for (var j = 0; j < segs.length; j++) {
+            var key = _etSegKey(segs[j]);
+            if (!keyCounters[key]) keyCounters[key] = 0;
+            var cnt = keyCounters[key]++;
+            var prev = prevMap[key] && prevMap[key][cnt];
+            if (prev) {
+                if (prev.startTime !== undefined)
+                    segs[j].startTime = prev.startTime;
+                if (prev.overlayStartTime !== undefined)
+                    segs[j]._overlayStartTime = prev.overlayStartTime;
+            }
         }
     };
 
