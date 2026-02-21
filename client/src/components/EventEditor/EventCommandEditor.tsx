@@ -146,17 +146,17 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       else if ((mod && e.key === 'f') || e.key === '/') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(false); }
       else if (mod && e.key === 'h') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(true); }
       else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); primaryIndex >= 0 && primaryIndex < commands.length ? handleDoubleClick(primaryIndex) : setShowAddDialog(true); }
-      else if (e.key === 'ArrowLeft' && !mod) {
+      else if ((e.key === 'ArrowLeft' || (!mod && (e.key === 'a' || e.key === 'h'))) && !mod) {
         e.preventDefault();
         if (primaryIndex >= 0 && foldableIndices.has(primaryIndex) && !foldedSet.has(primaryIndex))
           toggleFold(primaryIndex);
       }
-      else if (e.key === 'ArrowRight' && !mod) {
+      else if ((e.key === 'ArrowRight' || (!mod && (e.key === 'd' || e.key === 'l'))) && !mod) {
         e.preventDefault();
         if (primaryIndex >= 0 && foldableIndices.has(primaryIndex) && foldedSet.has(primaryIndex))
           toggleFold(primaryIndex);
       }
-      else if (e.key === 'ArrowDown' && !mod) {
+      else if ((e.key === 'ArrowDown' || (!mod && (e.key === 's' || e.key === 'j'))) && !mod) {
         e.preventDefault();
         const visible = commands.map((_, i) => i).filter(i => !hiddenIndices.has(i) && i < commands.length - 1);
         const cur = visible.indexOf(primaryIndex);
@@ -166,7 +166,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
           listRef.current?.querySelector<HTMLElement>(`[data-cmd-index="${next}"]`)?.scrollIntoView({ block: 'nearest' });
         }
       }
-      else if (e.key === 'ArrowUp' && !mod) {
+      else if ((e.key === 'ArrowUp' || (!mod && (e.key === 'w' || e.key === 'k'))) && !mod) {
         e.preventDefault();
         const visible = commands.map((_, i) => i).filter(i => !hiddenIndices.has(i) && i < commands.length - 1);
         const cur = visible.indexOf(primaryIndex);
