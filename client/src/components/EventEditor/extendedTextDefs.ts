@@ -395,7 +395,7 @@ export function buildBlockChipHTML(tags: TagEntry[], content: string): string {
 export function segsToHTML(segs: AnyTextSeg[]): string {
   return segs.map(seg => {
     if (seg.type === 'text') {
-      return _esc(seg.text).replace(/\n/g, '<br>');
+      return _esc(seg.text).replace(/\n/g, '<span class="ete-nl-mark" contenteditable="false">↵</span><br>');
     }
     if (seg.type === 'escape') {
       return `<span class="ete-escape" data-ete-escape="${_esc(seg.raw)}" contenteditable="false">${_esc(seg.raw)}</span>`;
@@ -419,6 +419,9 @@ export function htmlDivToRaw(div: HTMLElement): string {
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const el = node as HTMLElement;
+
+    // 개행 시각 마커 (↵) 스킵 — raw 문자열에는 포함하지 않음
+    if (el.classList.contains('ete-nl-mark')) return;
 
     const escapeAttr = el.dataset.eteEscape;
     const tagsAttr = el.dataset.eteTags;

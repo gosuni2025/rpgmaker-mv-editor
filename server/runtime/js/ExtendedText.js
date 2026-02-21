@@ -344,10 +344,17 @@ Window_Base.prototype._etProcessInlineItem = function(textState) {
         var imgtype = item.params.imgtype || 'pictures';
         var bmp = null;
         try {
-            if (imgtype === 'pictures') bmp = ImageManager.loadPicture(src);
-            else if (imgtype === 'system') bmp = ImageManager.loadSystem(src);
-            else if (imgtype === 'img') bmp = ImageManager.loadBitmap('img/', src, 0, true);
-            else bmp = ImageManager.loadPicture(src);
+            if (imgtype === 'pictures') {
+                // src에 '/'가 있으면 img/ 루트 기준으로 로드 (하위 폴더 경로 하위호환)
+                if (src.includes('/')) bmp = ImageManager.loadBitmap('img/', src, 0, true);
+                else bmp = ImageManager.loadPicture(src);
+            } else if (imgtype === 'system') {
+                bmp = ImageManager.loadSystem(src);
+            } else if (imgtype === 'img') {
+                bmp = ImageManager.loadBitmap('img/', src, 0, true);
+            } else {
+                bmp = ImageManager.loadPicture(src);
+            }
         } catch(e) { bmp = null; }
 
         if (bmp && bmp.isReady() && bmp.width > 0 && bmp.height > 0) {
