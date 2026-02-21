@@ -311,6 +311,7 @@
     Spriteset_Map.prototype.updateTouchDestAnimation = function() {
         if (!this._touchAnimSprite) return;
         if (animationId <= 0) return;
+        if ($gameMap.isEventRunning()) return;
 
         if ($gameTemp.isDestinationValid()) {
             var destX = $gameTemp.destinationX();
@@ -348,6 +349,21 @@
 
     Spriteset_Map.prototype.updatePathArrow = function() {
         if (!this._pathArrowSprite && !this._destIndicatorSprite) return;
+
+        if ($gameMap.isEventRunning()) {
+            if (this._pathArrowSprite && this._currentPath && this._currentPath.length > 0) {
+                this._currentPath = [];
+                this._pathArrowSprite.bitmap.clear();
+            }
+            if (this._destIndicatorSprite) {
+                this._destIndicatorSprite.visible = false;
+            }
+            _pathLastPlayerX = -1;
+            _pathLastPlayerY = -1;
+            _pathLastDestX = -1;
+            _pathLastDestY = -1;
+            return;
+        }
 
         if (!$gameTemp.isDestinationValid()) {
             if (this._pathArrowSprite && this._currentPath && this._currentPath.length > 0) {
@@ -469,7 +485,7 @@
     Spriteset_Map.prototype.updateHoverHighlight = function() {
         if (!this._hoverHighlightSprite) return;
 
-        if (!ConfigManager.showHoverHighlight) {
+        if (!ConfigManager.showHoverHighlight || $gameMap.isEventRunning()) {
             this._hoverHighlightSprite.visible = false;
             return;
         }
