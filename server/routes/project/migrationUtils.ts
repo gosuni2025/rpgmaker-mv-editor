@@ -3,8 +3,9 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { collectFiles, fileHash, MigrationFile } from './helpers';
 
-const runtimePath = path.join(__dirname, '..', '..', 'runtime');
+let runtimePath = path.join(__dirname, '..', '..', 'runtime');
 
+export function setRuntimePath(p: string) { runtimePath = p; }
 export function getRuntimePath() { return runtimePath; }
 
 // ─── 파일 비교 ───
