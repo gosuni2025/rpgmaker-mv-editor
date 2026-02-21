@@ -7,6 +7,17 @@ export interface FindOptions {
   regex: boolean;
 }
 
+export interface TextSegment {
+  text: string;
+  isMatch: boolean;
+  localMatchIndex?: number; // isMatch일 때 커맨드 내 몇 번째 매치인지
+}
+
+export interface MatchLocation {
+  cmdIndex: number;    // 커맨드 인덱스
+  matchIndex: number;  // 해당 커맨드 내 매치 순서 (0-based)
+}
+
 function buildRegex(query: string, opts: FindOptions): RegExp | null {
   if (!query) return null;
   try {
@@ -30,19 +41,23 @@ function getParamStrings(cmd: EventCommand): string[] {
   return result;
 }
 
-/** displayTexts[i] 또는 parameters의 string에서 검색 */
-export function findMatchIndices(
+/** 전체 매치 목록을 단어 단위로 반환 (라인이 아닌 출현 횟수 기준) */
+export function findAllMatches(
   commands: EventCommand[], displayTexts: string[], query: string, opts: FindOptions,
-): number[] {
+): MatchLocation[] {
   const re = buildRegex(query, opts);
   if (!re) return [];
-  const result: number[] = [];
+  const result: MatchLocation[] = [];
   for (let i = 0; i < commands.length; i++) {
     if (commands[i].code === 0) continue;
+    const text = displayTexts[i] ?? '';
     re.lastIndex = 0;
-    if (re.test(displayTexts[i] ?? '')) { result.push(i); continue; }
-    const strs = getParamStrings(commands[i]);
-    if (strs.some(s => { re.lastIndex = 0; return re.test(s); })) result.push(i);
+    let m: RegExpExecArray | null;
+    let localMatchIndex = 0;
+    while ((m = re.exec(text)) !== null) {
+      if (m[0].length > 0) result.push({ cmdIndex: i, matchIndex: localMatchIndex++ });
+      else re.lastIndex++;
+    }
   }
   return result;
 }
@@ -62,24 +77,20 @@ export function replaceInCommand(
   return { ...cmd, parameters: newParams };
 }
 
-export interface TextSegment {
-  text: string;
-  isMatch: boolean;
-}
-
 /** 텍스트를 매치/비매치 세그먼트로 분리 (CommandRow 인라인 하이라이트용) */
-export function splitByQuery(text: string, query: string, opts: FindOptions): TextSegment[] {
+export function splitByQuery(text: string, query: string, opts: FindOptions, startMatchIndex = 0): TextSegment[] {
   const re = buildRegex(query, opts);
   if (!re || !text) return [{ text, isMatch: false }];
   const segments: TextSegment[] = [];
   let lastIndex = 0;
   re.lastIndex = 0;
+  let matchCount = startMatchIndex;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     if (m.index > lastIndex) segments.push({ text: text.slice(lastIndex, m.index), isMatch: false });
-    if (m[0].length > 0) segments.push({ text: m[0], isMatch: true });
+    if (m[0].length > 0) segments.push({ text: m[0], isMatch: true, localMatchIndex: matchCount++ });
     lastIndex = m.index + m[0].length;
-    if (m[0].length === 0) { re.lastIndex++; } // 빈 매치 무한루프 방지
+    if (m[0].length === 0) { re.lastIndex++; }
   }
   if (lastIndex < text.length) segments.push({ text: text.slice(lastIndex), isMatch: false });
   return segments;
@@ -93,10 +104,10 @@ export function unfoldForMatches(
   commands: EventCommand[],
   foldedSet: Set<number>,
   foldableIndices: Set<number>,
-  matchIndices: number[],
+  matchCmdIndices: number[],
 ): Set<number> {
-  if (matchIndices.length === 0 || foldedSet.size === 0) return foldedSet;
-  const matchSet = new Set(matchIndices);
+  if (matchCmdIndices.length === 0 || foldedSet.size === 0) return foldedSet;
+  const matchSet = new Set(matchCmdIndices);
   const toRemove = new Set<number>();
 
   for (const foldIdx of foldedSet) {
