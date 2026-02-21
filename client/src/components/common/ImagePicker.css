@@ -135,6 +135,57 @@
   color: #fff;
 }
 
+/* 폴더 항목 */
+.image-picker-folder {
+  color: #f0c060;
+}
+
+.image-picker-folder:hover {
+  background: #4a4010;
+}
+
+.image-picker-folder-up {
+  color: #aaa;
+  font-style: italic;
+}
+
+.image-picker-folder-icon {
+  margin-right: 5px;
+  flex-shrink: 0;
+  font-style: normal;
+}
+
+/* breadcrumb */
+.image-picker-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 4px 8px;
+  font-size: 11px;
+  background: #2b2b2b;
+  border-bottom: 1px solid #444;
+  color: #888;
+  gap: 2px;
+}
+
+.image-picker-breadcrumb-root,
+.image-picker-breadcrumb-seg {
+  cursor: pointer;
+  color: #7ab0e0;
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+
+.image-picker-breadcrumb-root:hover,
+.image-picker-breadcrumb-seg:hover {
+  color: #aed0f0;
+  background: #3a3a4a;
+}
+
+.image-picker-breadcrumb-sep {
+  color: #555;
+}
+
 .image-picker-preview-area {
   flex: 1;
   display: flex;
