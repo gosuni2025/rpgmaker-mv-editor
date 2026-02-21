@@ -115,13 +115,6 @@ jobs:
                 repo: context.repo.repo,
                 release_id: release.id,
               });
-              try {
-                await github.rest.git.deleteRef({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  ref: `tags/${release.tag_name}`,
-                });
-              } catch (e) {
-                console.log(`Tag ${release.tag_name} already deleted or not found`);
-              }
+              // 태그는 삭제하지 않음 — 원격 태그 삭제 시 로컬 태그가 남아
+              // 다음 git push --tags 때 재push되어 워크플로우 중복 실행이 발생함
             }

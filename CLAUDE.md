@@ -11,8 +11,9 @@ RPG Maker MV의 에디터를 웹 기반으로 재구현하는 프로젝트.
 - **버전 올리는 방법**: 태그 생성 후 push하면 Actions가 패키징 실행
   ```bash
   git tag v0.0.8
-  git push && git push --tags
+  git push && git push origin v0.0.8
   ```
+  > **주의**: `git push --tags`는 모든 로컬 태그를 push하므로 워크플로우가 중복 실행될 수 있음. 특정 태그명을 명시해서 push할 것.
 
 > **IMPORTANT**: 반드시 `CLAUDE.local.md` 파일을 함께 읽을 것. 이 파일은 `.gitignore`에 포함되어 Git에 커밋되지 않으며, 로컬 환경에 한정된 설정(Node.js 설치 방식, 경로, 환경변수 등)을 담고 있다. 로컬 환경 관련 문제 발생 시 이 파일을 먼저 참조할 것.
 
