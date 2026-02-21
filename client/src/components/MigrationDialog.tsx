@@ -101,7 +101,7 @@ export default function MigrationDialog({ projectPath, onComplete, onSkip }: Mig
       }
 
       const pluginRes = await apiClient.get<{ files: PluginFileInfo[] }>('/project/migrate-plugin-files');
-      const filesToCopy = [
+      const filesToCopy: { file: string; from?: string; to?: string }[] = [
         ...Array.from(selected).map(f => ({ file: f })),
         ...pluginRes.files.map(p => ({ file: p.file, from: p.from, to: p.to })),
       ];

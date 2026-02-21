@@ -1,8 +1,8 @@
-import type { AddonParam, AddonCommandDef } from './addonCommands';
+import type { AddonParam, AddonSubCommand, AddonCommandDef } from './addonCommands';
 
 // PPEffect 이펙트별 서브커맨드 생성 헬퍼
 function ppEffect(effectKey: string, label: string, params: AddonParam[]): AddonCommandDef {
-  const subCommands = [
+  const subCommands: AddonSubCommand[] = [
     { id: `${effectKey} on`, label: 'addonCommands.ppEffect_on', params: [] },
     { id: `${effectKey} off`, label: 'addonCommands.ppEffect_off', params: [] },
   ];

@@ -4,7 +4,7 @@ import { TILE_SIZE_PX } from '../../utils/tileHelper';
 import { SCROLL_POSITIONS_STORAGE_KEY } from '../../store/types';
 
 export function useMapScrollPersistence(
-  containerRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLDivElement | null>,
   currentMapId: number | null,
 ) {
   const prevMapIdRef = useRef<number | null>(null);

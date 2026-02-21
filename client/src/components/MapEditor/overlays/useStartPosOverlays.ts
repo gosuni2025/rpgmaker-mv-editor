@@ -16,7 +16,7 @@ function buildStartPosOverlay(
   borderColor: number,
   labelText: string, labelColor: string,
   charName: string | null, charIndex: number,
-  tint?: Parameters<typeof addCharacterSprite>[9],
+  tint?: TintFn,
 ) {
   const px = tileX * TILE_SIZE_PX;
   const py = tileY * TILE_SIZE_PX;

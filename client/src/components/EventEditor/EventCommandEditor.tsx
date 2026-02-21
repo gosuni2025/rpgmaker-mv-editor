@@ -297,7 +297,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
   const handleReplaceAll = useCallback((replacement: string) => {
     if (findMatchList.length === 0) return;
-    const matchSet = new Set(findMatchList);
+    const matchSet = new Set(findMatchList.map(m => m.cmdIndex));
     changeWithHistory(commands.map((cmd, i) =>
       matchSet.has(i) ? replaceInCommand(cmd, findQuery, replacement, findOpts) : cmd,
     ));

@@ -43,6 +43,7 @@ export interface MapData {
   specifyBattleback: boolean;
   battleback1Name: string;
   battleback2Name: string;
+  tileLayerElevation?: boolean;
   editorLights?: EditorLights;
   objects?: MapObject[];
   cameraZones?: CameraZone[];
