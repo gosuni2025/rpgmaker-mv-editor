@@ -49,13 +49,19 @@ async function startServer(): Promise<number> {
   server = http.createServer(expressApp);
   attachWebSocket(server);
 
+  // 고정 포트 사용 — 랜덤 포트는 재실행 시 origin이 바뀌어 localStorage가 초기화됨
+  const PREFERRED_PORT = 49321;
   return new Promise((resolve) => {
-    server!.listen(0, '127.0.0.1', () => {
-      const addr = server!.address();
-      const port = typeof addr === 'object' && addr ? addr.port : 0;
-      console.log(`Server listening on port ${port}`);
-      resolve(port);
-    });
+    const tryListen = (port: number) => {
+      server!.once('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') tryListen(port + 1);
+      });
+      server!.listen(port, '127.0.0.1', () => {
+        console.log(`Server listening on port ${port}`);
+        resolve(port);
+      });
+    };
+    tryListen(PREFERRED_PORT);
   });
 }
 
