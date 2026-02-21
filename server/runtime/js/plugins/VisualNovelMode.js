@@ -433,12 +433,18 @@
     };
 
     // ── 렌더링 ──────────────────────────────────────────────────────────────
-    // 세그먼트 고유 키 생성 (이펙트 타입 + 글자 내용)
-    // 스크롤로 뷰포트가 바뀌어 세그먼트 순서가 달라져도 같은 세그먼트를 정확히 매칭
+    // 세그먼트 고유 키 생성 (이펙트 타입 + 엔트리 인덱스)
+    // 엔트리 인덱스 기반으로 매칭하므로 타이핑 중 chars가 바뀌어도 올바르게 복원됨
+    // 스크롤로 뷰포트 밖 텍스트 여부가 달라져도 엔트리 인덱스로 구분되어 오매칭 방지
     function _etSegKey(seg) {
         var type = seg.shakeActive ? 'S' : seg.hologramActive ? 'H' :
             seg.gradientWaveActive ? 'GW' : seg.gradientActive ? 'G' :
             seg.fadeActive ? 'F' : seg.dissolveActive ? 'D' : seg.blurFadeActive ? 'BF' : '?';
+        // _entryIdx가 있으면 엔트리 기반 키 (정상 경로)
+        if (seg._entryIdx !== undefined) {
+            return type + ':e' + seg._entryIdx;
+        }
+        // fallback: 세그먼트 생성 직후 아직 태그 전 (chars 기반)
         return type + ':' + (seg.chars || []).map(function(ch){ return ch.c; }).join('');
     }
 
@@ -471,6 +477,7 @@
             if (l.y + l.h < top || l.y > bot) continue;
             var dy = l.y - this._scrollY;
             var e  = this._entries[i];
+            var segsBefore = (this._etAnimSegs || []).length;
             if (e.type === 'choice') {
                 if (e._pending) continue;  // 타이핑 완료 전엔 그리지 않음
                 var activeSel = (i === this._entries.length - 1 && this._choiceActive)
@@ -478,6 +485,11 @@
                 this._drawChoiceEntry(e, dy, lh, iw, activeSel);
             } else {
                 this._drawTextEntry(e, dy, lh, iw);
+            }
+            // 이 엔트리에서 생성된 세그먼트에 엔트리 인덱스 태그 (키 매칭용)
+            var curSegs = this._etAnimSegs || [];
+            for (var s = segsBefore; s < curSegs.length; s++) {
+                curSegs[s]._entryIdx = i;
             }
         }
 
