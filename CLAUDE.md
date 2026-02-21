@@ -7,14 +7,10 @@ RPG Maker MV의 에디터를 웹 기반으로 재구현하는 프로젝트.
 ## 버전 관리
 
 - **버전 태그**: git 태그로 관리 (`v0.0.7`, `v0.1.0` 등)
-- **package.json과 연동**: `npm version` 명령어로 버전 올리기 (package.json 업데이트 + git commit + git tag 자동 생성)
+- **package.json은 직접 수정하지 말 것** — GitHub Actions가 태그에서 버전을 읽어 빌드 시 자동으로 설정함
+- **버전 올리는 방법**: 태그 생성 후 push하면 Actions가 패키징 실행
   ```bash
-  npm version patch      # 0.0.7 → 0.0.8
-  npm version minor      # 0.0.7 → 0.1.0
-  npm version 0.1.0      # 직접 지정
-  ```
-- 버전 올린 후 반드시 push — GitHub Actions가 태그를 감지해 패키징 실행:
-  ```bash
+  git tag v0.0.8
   git push && git push --tags
   ```
 
