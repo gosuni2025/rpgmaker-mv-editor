@@ -8,6 +8,7 @@ import fileWatcher from './services/fileWatcher';
 import projectManager from './services/projectManager';
 
 import projectRoutes from './routes/project';
+import { setRuntimePath } from './routes/project/migrationUtils';
 import mapsRoutes from './routes/maps';
 import databaseRoutes from './routes/database';
 import resourcesRoutes from './routes/resources';
@@ -27,6 +28,7 @@ export interface AppOptions {
 
 export function createApp(options: AppOptions = {}) {
   const resolvedRuntimePath = options.runtimePath || path.join(__dirname, 'runtime');
+  setRuntimePath(resolvedRuntimePath);
 
   const app = express();
   app.use(cors());
