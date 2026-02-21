@@ -379,6 +379,7 @@ export function buildBlockChipHTML(tags: TagEntry[], content: string): string {
 
   return (
     `<span class="ete-block${isVoid ? ' ete-block-void' : ''}" ` +
+    `draggable="true" ` +
     `data-ete-tags="${tagsJSON}" ` +
     `data-ete-content="${_esc(content)}" ` +
     `contenteditable="false" ` +

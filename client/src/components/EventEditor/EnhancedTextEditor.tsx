@@ -63,6 +63,8 @@ export function EnhancedTextEditor({
   const escMenuRef = useRef<HTMLDivElement>(null);
   const isInternalUpdate = useRef(false);
   const savedRange = useRef<Range | null>(null);
+  const dragBlockRef = useRef<HTMLElement | null>(null);
+  const justDroppedRef = useRef(false);
 
   // ─── raw → HTML 변환 후 div에 주입 ───
   const applyValueToEditor = useCallback((raw: string) => {
@@ -147,8 +149,124 @@ export function EnhancedTextEditor({
     setShowBlockMenu(false);
   }, [syncToParent]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ─── 드래그 앤 드롭 ───
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    const blockEl = (e.target as HTMLElement).closest('[data-ete-tags],[data-ete-tag]') as HTMLElement | null;
+    if (!blockEl) { e.preventDefault(); return; }
+    dragBlockRef.current = blockEl;
+    blockEl.classList.add('ete-block-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    if (blockEl.dataset.eteTags) {
+      const tags = JSON.parse(blockEl.dataset.eteTags) as TagEntry[];
+      const content = blockEl.dataset.eteContent ?? '';
+      e.dataTransfer.setData('text/plain', entriesToRaw(tags, content));
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!dragBlockRef.current) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const blockEl = dragBlockRef.current;
+    dragBlockRef.current = null;
+    if (!blockEl || !editorRef.current) return;
+    blockEl.classList.remove('ete-block-dragging');
+
+    // 삽입 위치 계산
+    const doc = document as any;
+    let range: Range | null = null;
+    if (doc.caretRangeFromPoint) {
+      range = doc.caretRangeFromPoint(e.clientX, e.clientY);
+    } else if (doc.caretPositionFromPoint) {
+      const pos = doc.caretPositionFromPoint(e.clientX, e.clientY);
+      if (pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); }
+    }
+    if (!range || blockEl.contains(range.commonAncestorContainer)) return;
+
+    blockEl.remove();
+    range.insertNode(blockEl);
+
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      const r2 = document.createRange();
+      r2.setStartAfter(blockEl);
+      r2.collapse(true);
+      sel.addRange(r2);
+    }
+    justDroppedRef.current = true;
+    setTimeout(() => { justDroppedRef.current = false; }, 100);
+    syncToParent();
+  }, [syncToParent]);
+
+  const handleDragEnd = useCallback((_e: React.DragEvent) => {
+    if (dragBlockRef.current) {
+      dragBlockRef.current.classList.remove('ete-block-dragging');
+      dragBlockRef.current = null;
+    }
+  }, []);
+
+  // ─── 클립보드 (복사/잘라내기/붙여넣기) ───
+  const handleCopy = useCallback((e: React.ClipboardEvent) => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+      const frag = sel.getRangeAt(0).cloneContents();
+      const tmp = document.createElement('div');
+      tmp.appendChild(frag);
+      e.clipboardData.setData('text/plain', htmlDivToRaw(tmp));
+      e.preventDefault();
+      return;
+    }
+    if (selectedBlock) {
+      e.clipboardData.setData('text/plain', entriesToRaw(selectedBlock.tags, selectedBlock.content));
+      e.preventDefault();
+    }
+  }, [selectedBlock]);
+
+  const handleCut = useCallback((e: React.ClipboardEvent) => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+      const frag = sel.getRangeAt(0).cloneContents();
+      const tmp = document.createElement('div');
+      tmp.appendChild(frag);
+      e.clipboardData.setData('text/plain', htmlDivToRaw(tmp));
+      // eslint-disable-next-line @typescript-eslint/no-deprecated
+      document.execCommand('delete', false);
+      syncToParent();
+      e.preventDefault();
+      return;
+    }
+    if (selectedBlock) {
+      e.clipboardData.setData('text/plain', entriesToRaw(selectedBlock.tags, selectedBlock.content));
+      selectedBlock.el.remove();
+      setSelectedBlock(null);
+      syncToParent();
+      e.preventDefault();
+    }
+  }, [selectedBlock, syncToParent]);
+
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData('text/plain');
+    if (!text) return;
+    e.preventDefault();
+    const segs = parseExtendedText(text);
+    if (segs.some(s => s.type === 'block')) {
+      // eslint-disable-next-line @typescript-eslint/no-deprecated
+      document.execCommand('insertHTML', false, segsToHTML(segs));
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-deprecated
+      document.execCommand('insertText', false, text);
+    }
+    syncToParent();
+  }, [syncToParent]);
+
   // ─── 블록 클릭 처리 ───
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
+    if (justDroppedRef.current) return;
     const target = e.target as HTMLElement;
     // 삭제 버튼
     const delBtn = target.closest('[data-del]') as HTMLElement | null;
@@ -376,6 +494,13 @@ export function EnhancedTextEditor({
               data-placeholder={placeholder}
               onInput={syncToParent}
               onClick={handleEditorClick}
+              onCopy={handleCopy}
+              onCut={handleCut}
+              onPaste={handlePaste}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onDragEnd={handleDragEnd}
               onKeyDown={e => {
                 if (inline && e.key === 'Enter') {
                   e.preventDefault();
