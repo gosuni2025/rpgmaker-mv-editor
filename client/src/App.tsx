@@ -23,104 +23,13 @@ import ResourceManagerDialog from './components/ResourceManagerDialog';
 import CharacterGeneratorDialog from './components/CharacterGenerator/CharacterGeneratorDialog';
 import OptionsDialog from './components/OptionsDialog';
 import LocalizationDialog from './components/LocalizationDialog';
-<<<<<<< HEAD
-=======
 import UpdateCheckDialog from './components/UpdateCheckDialog';
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 import AutotileDebugDialog from './components/AutotileDebugDialog';
 import SidebarSplit from './components/SidebarSplit';
 import LightInspector from './components/Sidebar/LightInspector';
 import ObjectInspector from './components/Sidebar/ObjectInspector';
 import CameraZoneInspector from './components/Sidebar/CameraZoneInspector';
-<<<<<<< HEAD
-import CameraZoneListPanel from './components/Sidebar/CameraZoneListPanel';
-import ObjectListPanel from './components/Sidebar/ObjectListPanel';
-import MapInspector from './components/Sidebar/MapInspector';
-import EventInspector from './components/Sidebar/EventInspector';
-import PassageInspector from './components/Sidebar/PassageInspector';
-import EventList from './components/EventEditor/EventList';
-import useFileWatcher from './hooks/useFileWatcher';
-import useAutoSave from './hooks/useAutoSave';
-import i18n from './i18n';
-
-function SidebarSplit({ editMode }: { editMode: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [splitRatio, setSplitRatio] = useState(0.5);
-  const dragging = useRef(false);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    dragging.current = true;
-
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!dragging.current || !containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const ratio = (ev.clientY - rect.top) / rect.height;
-      setSplitRatio(Math.max(0.15, Math.min(0.85, ratio)));
-    };
-
-    const onMouseUp = () => {
-      dragging.current = false;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  }, []);
-
-  // 전용 패널만 전체 표시하는 모드들
-  if (editMode === 'event') {
-    return (
-      <div className="sidebar-split" ref={containerRef}>
-        <div className="sidebar-bottom" style={{ flex: 1 }}>
-          <EventList />
-        </div>
-      </div>
-    );
-  }
-  if (editMode === 'object') {
-    return (
-      <div className="sidebar-split" ref={containerRef}>
-        <div className="sidebar-bottom" style={{ flex: 1 }}>
-          <ObjectListPanel />
-        </div>
-      </div>
-    );
-  }
-  if (editMode === 'cameraZone') {
-    return (
-      <div className="sidebar-split" ref={containerRef}>
-        <div className="sidebar-bottom" style={{ flex: 1 }}>
-          <CameraZoneListPanel />
-        </div>
-      </div>
-    );
-  }
-  if (editMode === 'light') {
-    return (
-      <div className="sidebar-split" ref={containerRef}>
-        <div className="sidebar-bottom" style={{ flex: 1 }}>
-          <TilesetPalette />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="sidebar-split" ref={containerRef}>
-      <div className="sidebar-top" style={{ flex: `0 0 ${splitRatio * 100}%` }}>
-        <TilesetPalette />
-      </div>
-      <div className="sidebar-split-handle" onMouseDown={handleMouseDown} />
-      <div className="sidebar-bottom" style={{ flex: `0 0 ${(1 - splitRatio) * 100}%` }}>
-        <MapTree />
-      </div>
-    </div>
-  );
-}
-=======
 import MapInspector from './components/Sidebar/MapInspector';
 import EventInspector from './components/Sidebar/EventInspector';
 import PassageInspector from './components/Sidebar/PassageInspector';
@@ -128,7 +37,6 @@ import useFileWatcher from './hooks/useFileWatcher';
 import useAutoSave from './hooks/useAutoSave';
 import useDialogDrag from './hooks/useDialogDrag';
 import i18n from './i18n';
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 export default function App() {
   const projectPath = useEditorStore((s) => s.projectPath);
@@ -146,11 +54,8 @@ export default function App() {
   const showCharacterGeneratorDialog = useEditorStore((s) => s.showCharacterGeneratorDialog);
   const showOptionsDialog = useEditorStore((s) => s.showOptionsDialog);
   const showLocalizationDialog = useEditorStore((s) => s.showLocalizationDialog);
-<<<<<<< HEAD
-=======
   const showUpdateCheckDialog = useEditorStore((s) => s.showUpdateCheckDialog);
   const setShowUpdateCheckDialog = useEditorStore((s) => s.setShowUpdateCheckDialog);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   const toastQueue = useEditorStore((s) => s.toastQueue);
   const dismissToast = useEditorStore((s) => s.dismissToast);
@@ -163,10 +68,7 @@ export default function App() {
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
   useFileWatcher();
   useAutoSave();
-<<<<<<< HEAD
-=======
   useDialogDrag();
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const setShowOpenProjectDialog = useEditorStore((s) => s.setShowOpenProjectDialog);
   const openProject = useEditorStore((s) => s.openProject);
   const restoreLastProject = useEditorStore((s) => s.restoreLastProject);
@@ -175,8 +77,6 @@ export default function App() {
     restoreLastProject();
   }, [restoreLastProject]);
 
-<<<<<<< HEAD
-=======
   // 앱 시작 시 자동 업데이트 체크 (하루 한 번)
   useEffect(() => {
     const STORAGE_KEY = 'rpg-editor-last-update-check';
@@ -219,7 +119,6 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [setShowUpdateCheckDialog]);
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   // 서버에서 에디터 설정 로드
   useEffect(() => {
     apiClient.get<{
@@ -406,10 +305,7 @@ export default function App() {
       {showCharacterGeneratorDialog && <CharacterGeneratorDialog />}
       {showOptionsDialog && <OptionsDialog />}
       {showLocalizationDialog && <LocalizationDialog />}
-<<<<<<< HEAD
-=======
       {showUpdateCheckDialog && <UpdateCheckDialog onClose={() => setShowUpdateCheckDialog(false)} />}
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
       <AutotileDebugDialog open={showAutotileDebug} onClose={() => setShowAutotileDebug(false)} />
       {parseErrors && parseErrors.length > 0 && (

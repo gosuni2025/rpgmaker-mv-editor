@@ -4,8 +4,6 @@ RPG Maker MV의 에디터를 웹 기반으로 재구현하는 프로젝트.
 
 작업 마치면 반드시 커밋할것.
 
-<<<<<<< HEAD
-=======
 ## 버전 관리
 
 - **버전 태그**: git 태그로 관리 (`v0.0.7`, `v0.1.0` 등)
@@ -16,7 +14,6 @@ RPG Maker MV의 에디터를 웹 기반으로 재구현하는 프로젝트.
   git push && git push --tags
   ```
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 > **IMPORTANT**: 반드시 `CLAUDE.local.md` 파일을 함께 읽을 것. 이 파일은 `.gitignore`에 포함되어 Git에 커밋되지 않으며, 로컬 환경에 한정된 설정(Node.js 설치 방식, 경로, 환경변수 등)을 담고 있다. 로컬 환경 관련 문제 발생 시 이 파일을 먼저 참조할 것.
 
 ## 프로젝트 개요
@@ -45,17 +42,10 @@ RPG Maker MV의 Mode3D 플러그인이 projection matrix의 Y축을 반전(`m[5]
 
 - `renderOrder`는 `ThreeRendererStrategy._syncHierarchy`에서 tilemap의 `_sortChildren()` 정렬 순서(PIXI 호환 `.z` 속성 기준)를 따라 할당됨
 - RPG Maker MV의 PIXI `.z` 값 체계: `0=Lower tiles, 1=Lower chars, 3=Normal chars, 4=Upper tiles, 5=Upper chars, 6~9=기타`
-<<<<<<< HEAD
-- **upper layer 타일(z=4)은 z=3 이하의 모든 오브젝트를 덮어씀** — 이는 2D에서는 정상(지붕 아래로 숨는 효과)이지만, 3D 모드에서 빌보드 캐릭터/이미지 오브젝트에 문제가 됨
-- **3D 모드 z=5 처리**: 빌보드 캐릭터(플레이어, 팔로워, billboard 활성화된 이벤트)와 이미지 오브젝트는 `z=5`로 설정하여 upper 타일 위에 그려지도록 우회함
-  - 이미지 오브젝트: `rpg_sprites.js`의 `createMapObjects()`에서 `container.z = 5` 설정
-  - 빌보드 캐릭터: `Mode3D.js`의 `Sprite_Character.updatePosition()` 오버라이드에서 3D 모드 + billboard 활성 시 `this.z = 5` 설정
-=======
 - **upper layer 타일(z=4)은 z=3 이하의 모든 오브젝트를 덮어씀** — 이는 2D/3D 모두 정상 동작 (지붕 아래로 숨는 효과)
 - **이미지 오브젝트 z=5**: `rpg_sprites.js`의 `createMapObjects()`에서 `container.z = 5` 설정 — upper tile 위에 그려짐
 - **빌보드 캐릭터는 z=3 그대로** — upper tile(z=4)이 캐릭터를 정상적으로 가림 (2D와 동일 동작)
   - `Mode3D.js`의 `Sprite_Character.updatePosition()` 오버라이드에서 `this.y -= th/2` 보정만 수행 (z 값 변경 없음)
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 - **근본적 해결**: 3D 모드에서 depthTest를 활성화하고 position.z 기반 깊이 판별로 전환해야 하나, 투명도 정렬 문제(반투명 오브젝트 간 정렬)가 수반됨
 - 관련 파일: `ThreeTilemap.js`(타일 메시 material), `ThreeSprite.js`(스프라이트 material), `ThreeRendererStrategy.js`(renderOrder 할당)
 

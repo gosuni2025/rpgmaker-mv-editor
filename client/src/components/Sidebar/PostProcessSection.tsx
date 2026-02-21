@@ -1,12 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useEditorStore from '../../store/useEditorStore';
-<<<<<<< HEAD
-import type { BloomConfig } from '../../types/rpgMakerMV';
-import { DEFAULT_BLOOM_CONFIG } from '../../types/rpgMakerMV';
-=======
 import type { BloomConfig, DofConfig } from '../../types/rpgMakerMV';
 import { DEFAULT_BLOOM_CONFIG, DEFAULT_DOF_CONFIG } from '../../types/rpgMakerMV';
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import ExtBadge from '../common/ExtBadge';
 import { AnimSlider } from './AnimTileShaderSection';
 
@@ -117,13 +112,6 @@ export function PostProcessSection({ currentMap, updateMapField }: {
     }
   }, [updateMapField]);
 
-<<<<<<< HEAD
-  const enabledCount = useMemo(() => {
-    let count = Object.values(postProcessConfig).filter(c => c?.enabled).length;
-    if (bloom.enabled !== false) count++;
-    return count;
-  }, [postProcessConfig, bloom.enabled]);
-=======
   // DoF
   const dof: DofConfig = currentMap.dofConfig || DEFAULT_DOF_CONFIG;
 
@@ -159,7 +147,6 @@ export function PostProcessSection({ currentMap, updateMapField }: {
     if (dof.enabled) count++;
     return count;
   }, [postProcessConfig, bloom.enabled, dof.enabled]);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   return (
     <div className="light-inspector-section">
@@ -206,8 +193,6 @@ export function PostProcessSection({ currentMap, updateMapField }: {
         )}
       </div>
 
-<<<<<<< HEAD
-=======
       {/* DoF (피사계 심도) */}
       <div className="anim-tile-kind-panel">
         <div className="anim-tile-kind-header" onClick={() => toggleExpand('__dof__')}>
@@ -247,7 +232,6 @@ export function PostProcessSection({ currentMap, updateMapField }: {
         )}
       </div>
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       {effectList.map(effect => {
         const config = postProcessConfig[effect.key] || { enabled: false };
         const expanded = expandedEffects.has(effect.key);

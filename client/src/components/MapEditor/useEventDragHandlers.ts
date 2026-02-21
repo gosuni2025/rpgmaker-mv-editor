@@ -52,16 +52,9 @@ export function useEventDragHandlers(): EventDragHandlersResult {
   const pasteEvents = useEditorStore((s) => s.pasteEvents);
   const systemData = useEditorStore((s) => s.systemData);
   const currentMapId = useEditorStore((s) => s.currentMapId);
-<<<<<<< HEAD
-  const setPlayerStartPosition = useEditorStore((s) => s.setPlayerStartPosition);
-  const setTestStartPosition = useEditorStore((s) => s.setTestStartPosition);
-  const setVehicleStartPosition = useEditorStore((s) => s.setVehicleStartPosition);
-  const setSelectedStartPosition = useEditorStore((s) => s.setSelectedStartPosition);
-=======
   const setSelectedStartPosition = useEditorStore((s) => s.setSelectedStartPosition);
 
   const startPosDrag = useStartPositionDrag();
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   // Event drag state
   const isDraggingEvent = useRef(false);
@@ -77,27 +70,6 @@ export function useEventDragHandlers(): EventDragHandlersResult {
   const multiEventDragOrigin = useRef<{ x: number; y: number } | null>(null);
   const [eventMultiDragDelta, setEventMultiDragDelta] = useState<{ dx: number; dy: number } | null>(null);
 
-<<<<<<< HEAD
-  // Player start position drag state
-  const isDraggingPlayerStart = useRef(false);
-  const playerStartDragPosRef = useRef<{ x: number; y: number } | null>(null);
-  const playerStartDragOriginRef = useRef<{ x: number; y: number } | null>(null);
-  const [playerStartDragPos, setPlayerStartDragPos] = useState<{ x: number; y: number } | null>(null);
-
-  // Test start position drag state
-  const isDraggingTestStart = useRef(false);
-  const testStartDragPosRef = useRef<{ x: number; y: number } | null>(null);
-  const testStartDragOriginRef = useRef<{ x: number; y: number } | null>(null);
-  const [testStartDragPos, setTestStartDragPos] = useState<{ x: number; y: number } | null>(null);
-
-  // Vehicle start position drag state
-  const isDraggingVehicleStart = useRef<'boat' | 'ship' | 'airship' | null>(null);
-  const vehicleStartDragPosRef = useRef<{ x: number; y: number } | null>(null);
-  const vehicleStartDragOriginRef = useRef<{ x: number; y: number } | null>(null);
-  const [vehicleStartDragPos, setVehicleStartDragPos] = useState<{ x: number; y: number; vehicle: 'boat' | 'ship' | 'airship' } | null>(null);
-
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   // Context menu & event editing state
   const [eventCtxMenu, setEventCtxMenu] = useState<EventContextMenu | null>(null);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
@@ -144,64 +116,9 @@ export function useEventDragHandlers(): EventDragHandlersResult {
           setDragPreview(null);
         }
       } else {
-<<<<<<< HEAD
-        // 시작 위치 클릭 확인 (플레이어 + 탈것)
-        const isPlayerStart = systemData && currentMapId === systemData.startMapId
-          && tile.x === systemData.startX && tile.y === systemData.startY;
-        
-        // 탈것 시작 위치 확인
-        let vehicleStart: 'boat' | 'ship' | 'airship' | null = null;
-        if (systemData && !(e.metaKey || e.ctrlKey)) {
-          for (const vk of ['boat', 'ship', 'airship'] as const) {
-            const vData = systemData[vk];
-            if (vData && vData.startMapId === currentMapId && tile.x === vData.startX && tile.y === vData.startY) {
-              vehicleStart = vk;
-              break;
-            }
-          }
-        }
-
-        if (isPlayerStart && !(e.metaKey || e.ctrlKey)) {
-          // 플레이어 시작 위치: 선택 + 드래그 준비
-          isDraggingPlayerStart.current = true;
-          playerStartDragPosRef.current = { x: tile.x, y: tile.y };
-          playerStartDragOriginRef.current = { x: tile.x, y: tile.y };
-          setPlayerStartDragPos({ x: tile.x, y: tile.y });
-          setSelectedEventIds([]);
-          setSelectedEventId(null);
-          setSelectedStartPosition('player');
-          return true;
-        }
-
-        if (vehicleStart && !(e.metaKey || e.ctrlKey)) {
-          // 탈것 시작 위치: 선택 + 드래그 준비
-          isDraggingVehicleStart.current = vehicleStart;
-          vehicleStartDragPosRef.current = { x: tile.x, y: tile.y };
-          vehicleStartDragOriginRef.current = { x: tile.x, y: tile.y };
-          setVehicleStartDragPos({ x: tile.x, y: tile.y, vehicle: vehicleStart });
-          setSelectedEventIds([]);
-          setSelectedEventId(null);
-          setSelectedStartPosition(vehicleStart);
-          return true;
-        }
-
-        // 테스트 시작 위치 드래그 확인
-        const testPos = currentMap.testStartPosition;
-        if (testPos && tile.x === testPos.x && tile.y === testPos.y && !(e.metaKey || e.ctrlKey)) {
-          isDraggingTestStart.current = true;
-          testStartDragPosRef.current = { x: tile.x, y: tile.y };
-          testStartDragOriginRef.current = { x: tile.x, y: tile.y };
-          setTestStartDragPos({ x: tile.x, y: tile.y });
-          setSelectedEventIds([]);
-          setSelectedEventId(null);
-          setSelectedStartPosition(null);
-          return true;
-        }
-=======
         // 시작 위치 클릭 확인 (플레이어 + 탈것 + 테스트)
         if (startPosDrag.tryStartPositionMouseDown(tile, e)) return true;
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         // 빈 타일 클릭: 영역 선택 시작
         if (!(e.metaKey || e.ctrlKey)) {
           const hadSelection = state.selectedEventIds.length > 0;
@@ -209,14 +126,7 @@ export function useEventDragHandlers(): EventDragHandlersResult {
           setSelectedEventIds([]);
           setSelectedEventId(null);
           setSelectedStartPosition(null);
-<<<<<<< HEAD
-          // 선택된 항목이 있었으면 선택 해제만 하고 영역선택 진입하지 않음
-          if (hadSelection || hadStartSel) {
-            return true;
-          }
-=======
           if (hadSelection || hadStartSel) return true;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         }
         isSelectingEvents.current = true;
         eventSelDragStart.current = tile;
@@ -263,103 +173,6 @@ export function useEventDragHandlers(): EventDragHandlersResult {
     return false;
   }, [setEventPastePreviewPos]);
 
-<<<<<<< HEAD
-  const handlePlayerStartDragMove = useCallback((tile: { x: number; y: number }): boolean => {
-    if (isDraggingPlayerStart.current) {
-      playerStartDragPosRef.current = { x: tile.x, y: tile.y };
-      setPlayerStartDragPos({ x: tile.x, y: tile.y });
-      return true;
-    }
-    if (isDraggingTestStart.current) {
-      testStartDragPosRef.current = { x: tile.x, y: tile.y };
-      setTestStartDragPos({ x: tile.x, y: tile.y });
-      return true;
-    }
-    if (isDraggingVehicleStart.current) {
-      vehicleStartDragPosRef.current = { x: tile.x, y: tile.y };
-      setVehicleStartDragPos({ x: tile.x, y: tile.y, vehicle: isDraggingVehicleStart.current });
-      return true;
-    }
-    return false;
-  }, []);
-
-  const handlePlayerStartDragUp = useCallback((): boolean => {
-    if (isDraggingPlayerStart.current) {
-      isDraggingPlayerStart.current = false;
-      const dragPos = playerStartDragPosRef.current;
-      const origin = playerStartDragOriginRef.current;
-      const moved = dragPos && origin && (dragPos.x !== origin.x || dragPos.y !== origin.y);
-      if (moved && currentMapId) {
-        setPlayerStartPosition(currentMapId, dragPos!.x, dragPos!.y).then(() => {
-          playerStartDragPosRef.current = null;
-          playerStartDragOriginRef.current = null;
-          setPlayerStartDragPos(null);
-        });
-      } else {
-        playerStartDragPosRef.current = null;
-        playerStartDragOriginRef.current = null;
-        setPlayerStartDragPos(null);
-      }
-      return true;
-    }
-    if (isDraggingTestStart.current) {
-      isDraggingTestStart.current = false;
-      const dragPos = testStartDragPosRef.current;
-      const origin = testStartDragOriginRef.current;
-      const moved = dragPos && origin && (dragPos.x !== origin.x || dragPos.y !== origin.y);
-      if (moved) {
-        setTestStartPosition(dragPos!.x, dragPos!.y);
-      }
-      testStartDragPosRef.current = null;
-      testStartDragOriginRef.current = null;
-      setTestStartDragPos(null);
-      return true;
-    }
-    if (isDraggingVehicleStart.current) {
-      const vehicle = isDraggingVehicleStart.current;
-      isDraggingVehicleStart.current = null;
-      const dragPos = vehicleStartDragPosRef.current;
-      const origin = vehicleStartDragOriginRef.current;
-      const moved = dragPos && origin && (dragPos.x !== origin.x || dragPos.y !== origin.y);
-      if (moved && currentMapId) {
-        setVehicleStartPosition(vehicle, currentMapId, dragPos!.x, dragPos!.y).then(() => {
-          vehicleStartDragPosRef.current = null;
-          vehicleStartDragOriginRef.current = null;
-          setVehicleStartDragPos(null);
-        });
-      } else {
-        vehicleStartDragPosRef.current = null;
-        vehicleStartDragOriginRef.current = null;
-        setVehicleStartDragPos(null);
-      }
-      return true;
-    }
-    return false;
-  }, [currentMapId, setPlayerStartPosition, setTestStartPosition, setVehicleStartPosition]);
-
-  const handlePlayerStartDragLeave = useCallback(() => {
-    if (isDraggingPlayerStart.current) {
-      isDraggingPlayerStart.current = false;
-      playerStartDragPosRef.current = null;
-      playerStartDragOriginRef.current = null;
-      setPlayerStartDragPos(null);
-    }
-    if (isDraggingTestStart.current) {
-      isDraggingTestStart.current = false;
-      testStartDragPosRef.current = null;
-      testStartDragOriginRef.current = null;
-      setTestStartDragPos(null);
-    }
-    if (isDraggingVehicleStart.current) {
-      isDraggingVehicleStart.current = null;
-      vehicleStartDragPosRef.current = null;
-      vehicleStartDragOriginRef.current = null;
-      setVehicleStartDragPos(null);
-    }
-  }, []);
-
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const handleEventMouseUp = useCallback((tile: { x: number; y: number } | null, e: React.MouseEvent<HTMLElement>): boolean => {
     if (isDraggingMultiEvents.current) {
       if (tile && multiEventDragOrigin.current) {
@@ -461,39 +274,15 @@ export function useEventDragHandlers(): EventDragHandlersResult {
     const tile = canvasToTile(e);
     if (!tile || !currentMap || !currentMap.events) return;
 
-<<<<<<< HEAD
-    // 시작 위치(플레이어/탈것/테스트) 위에서는 더블클릭 무시
-    const isPlayerStart = systemData && currentMapId === systemData.startMapId
-      && tile.x === systemData.startX && tile.y === systemData.startY;
-    if (isPlayerStart) return;
-
-=======
     // 시작 위치에서는 더블클릭 무시
     const isPlayerStart = systemData && currentMapId === systemData.startMapId
       && tile.x === systemData.startX && tile.y === systemData.startY;
     if (isPlayerStart) return;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     if (systemData) {
       for (const vk of ['boat', 'ship', 'airship'] as const) {
         const vData = systemData[vk];
         if (vData && vData.startMapId === currentMapId && tile.x === vData.startX && tile.y === vData.startY) return;
       }
-<<<<<<< HEAD
-    }
-
-    const testPos = currentMap.testStartPosition;
-    if (testPos && tile.x === testPos.x && tile.y === testPos.y) return;
-
-    const ev = currentMap.events.find(
-      (ev) => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y
-    );
-    if (ev) {
-      setSelectedEventId(ev.id);
-      setEditingEventId(ev.id);
-    } else {
-      createNewEvent(tile.x, tile.y);
-    }
-=======
     }
     const testPos = currentMap.testStartPosition;
     if (testPos && tile.x === testPos.x && tile.y === testPos.y) return;
@@ -501,15 +290,10 @@ export function useEventDragHandlers(): EventDragHandlersResult {
     const ev = currentMap.events.find((ev) => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y);
     if (ev) { setSelectedEventId(ev.id); setEditingEventId(ev.id); }
     else createNewEvent(tile.x, tile.y);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   }, [editMode, currentMap, systemData, currentMapId, setSelectedEventId, createNewEvent]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent<HTMLElement>, canvasToTile: MapToolsResult['canvasToTile']) => {
     e.preventDefault();
-<<<<<<< HEAD
-    // 3D 모드에서는 우클릭이 카메라 이동으로 사용됨
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     if (useEditorStore.getState().mode3d) return;
     if (editMode === 'event') {
       if (useEditorStore.getState().isEventPasting) {
@@ -522,21 +306,16 @@ export function useEventDragHandlers(): EventDragHandlersResult {
       const ev = currentMap.events?.find((ev) => ev && ev.id !== 0 && ev.x === tile.x && ev.y === tile.y);
       setEventCtxMenu({ x: e.clientX, y: e.clientY, tileX: tile.x, tileY: tile.y, eventId: ev ? ev.id : null });
     }
-    // 맵 모드에서는 컨텍스트 메뉴 없음 (우클릭은 삭제)
   }, [editMode, currentMap, setIsEventPasting, setEventPastePreviewPos]);
 
   const closeEventCtxMenu = useCallback(() => setEventCtxMenu(null), []);
 
   return {
     isDraggingEvent, isSelectingEvents,
-<<<<<<< HEAD
-    dragPreview, eventMultiDragDelta, playerStartDragPos, testStartDragPos, vehicleStartDragPos,
-=======
     dragPreview, eventMultiDragDelta,
     playerStartDragPos: startPosDrag.playerStartDragPos,
     testStartDragPos: startPosDrag.testStartDragPos,
     vehicleStartDragPos: startPosDrag.vehicleStartDragPos,
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     eventCtxMenu, editingEventId, setEditingEventId,
     pendingNewEvent, setPendingNewEvent,
     closeEventCtxMenu, createNewEvent,

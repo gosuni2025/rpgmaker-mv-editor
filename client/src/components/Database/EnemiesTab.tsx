@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-=======
 import React, { useState, useCallback } from 'react';
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import { useTranslation } from 'react-i18next';
 import type { Enemy, DropItem, EnemyAction } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
@@ -10,12 +6,8 @@ import TraitsEditor from '../common/TraitsEditor';
 import TranslateButton from '../common/TranslateButton';
 import { DataListPicker, IconSprite } from '../EventEditor/dataListPicker';
 import DatabaseList from './DatabaseList';
-<<<<<<< HEAD
-import apiClient from '../../api/client';
-=======
 import { useEnemyRefData } from './useEnemyRefData';
 import EnemyDropDialog from './EnemyDropDialog';
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import './EnemiesTab.css';
 
 interface EnemiesTabProps {
@@ -23,60 +15,14 @@ interface EnemiesTabProps {
   onChange: (data: (Enemy | null)[]) => void;
 }
 
-<<<<<<< HEAD
-interface RefItem { id: number; name: string; iconIndex?: number }
-
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(1);
   const selectedItem = data?.find((item) => item && item.id === selectedId);
-<<<<<<< HEAD
-  const [skills, setSkills] = useState<RefItem[]>([]);
-  const [items, setItems] = useState<RefItem[]>([]);
-  const [weapons, setWeapons] = useState<RefItem[]>([]);
-  const [armors, setArmors] = useState<RefItem[]>([]);
-  const [selectedActionIndex, setSelectedActionIndex] = useState<number>(-1);
-  const [skillPickerOpen, setSkillPickerOpen] = useState(false);
-  const [dropItemPickerIndex, setDropItemPickerIndex] = useState<number | null>(null);
-  const [dropDataPickerKind, setDropDataPickerKind] = useState<number | null>(null);
-
-  const skillNames = useMemo(() => {
-    const arr: string[] = [];
-    for (const s of skills) arr[s.id] = s.name;
-    return arr;
-  }, [skills]);
-
-  const skillIcons = useMemo(() => {
-    const arr: (number | undefined)[] = [];
-    for (const s of skills) arr[s.id] = s.iconIndex;
-    return arr;
-  }, [skills]);
-
-  const itemNames = useMemo(() => {
-    const arr: string[] = [];
-    for (const s of items) arr[s.id] = s.name;
-    return arr;
-  }, [items]);
-
-  const weaponNames = useMemo(() => {
-    const arr: string[] = [];
-    for (const s of weapons) arr[s.id] = s.name;
-    return arr;
-  }, [weapons]);
-
-  const armorNames = useMemo(() => {
-    const arr: string[] = [];
-    for (const s of armors) arr[s.id] = s.name;
-    return arr;
-  }, [armors]);
-=======
   const { skills, items, weapons, armors, skillNames, skillIcons, itemNames, weaponNames, armorNames } = useEnemyRefData();
   const [selectedActionIndex, setSelectedActionIndex] = useState<number>(-1);
   const [skillPickerOpen, setSkillPickerOpen] = useState(false);
   const [dropItemPickerIndex, setDropItemPickerIndex] = useState<number | null>(null);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   const DROP_KIND_LABELS: Record<number, string> = { 0: t('dropKind.none'), 1: t('dropKind.item'), 2: t('dropKind.weapon'), 3: t('dropKind.armor') };
   const CONDITION_TYPE_LABELS: Record<number, string> = {
@@ -84,18 +30,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
     3: t('conditionType.mp'), 4: t('conditionType.state'), 5: t('conditionType.partyLevel'), 6: t('conditionType.switch'),
   };
 
-<<<<<<< HEAD
-  useEffect(() => {
-    apiClient.get<({ id: number; name: string; iconIndex?: number } | null)[]>('/database/skills').then(d => {
-      setSkills(d.filter(Boolean).map(s => ({ id: s!.id, name: s!.name, iconIndex: s!.iconIndex })) as RefItem[]);
-    }).catch(() => {});
-    apiClient.get<(RefItem | null)[]>('/database/items').then(d => setItems(d.filter(Boolean) as RefItem[])).catch(() => {});
-    apiClient.get<(RefItem | null)[]>('/database/weapons').then(d => setWeapons(d.filter(Boolean) as RefItem[])).catch(() => {});
-    apiClient.get<(RefItem | null)[]>('/database/armors').then(d => setArmors(d.filter(Boolean) as RefItem[])).catch(() => {});
-  }, []);
-
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const handleFieldChange = (field: keyof Enemy, value: unknown) => {
     if (!data) return;
     onChange(data.map(item => item && item.id === selectedId ? { ...item, [field]: value } : item));
@@ -148,14 +82,8 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
 
   const handleDeleteEnemy = useCallback((id: number) => {
     if (!data) return;
-<<<<<<< HEAD
-    const items = data.filter(Boolean) as Enemy[];
-    if (items.length <= 1) return;
-    const newData = data.filter((item) => !item || item.id !== id);
-=======
     if ((data.filter(Boolean) as Enemy[]).length <= 1) return;
     const newData = data.filter(item => !item || item.id !== id);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     onChange(newData);
     if (id === selectedId) {
       const remaining = newData.filter(Boolean) as Enemy[];
@@ -165,22 +93,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
 
   const handleDuplicate = useCallback((id: number) => {
     if (!data) return;
-<<<<<<< HEAD
-    const source = data.find((item) => item && item.id === id);
-    if (!source) return;
-    const existing = data.filter(Boolean) as Enemy[];
-    const maxId = existing.length > 0 ? Math.max(...existing.map(e => e.id)) : 0;
-    const newId = maxId + 1;
-    const newData = [...data, {
-      ...source,
-      id: newId,
-      params: [...source.params],
-      dropItems: source.dropItems.map(d => ({ ...d })),
-      actions: source.actions.map(a => ({ ...a })),
-      traits: source.traits.map(t => ({ ...t })),
-    }];
-    onChange(newData);
-=======
     const source = data.find(item => item && item.id === id);
     if (!source) return;
     const existing = data.filter(Boolean) as Enemy[];
@@ -191,7 +103,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
       actions: source.actions.map(a => ({ ...a })),
       traits: source.traits.map(t => ({ ...t })),
     }]);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     setSelectedId(newId);
   }, [data, onChange]);
 
@@ -201,18 +112,8 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
     const fromIdx = items.findIndex(item => item.id === fromId);
     if (fromIdx < 0) return;
     const [moved] = items.splice(fromIdx, 1);
-<<<<<<< HEAD
-    if (toId === -1) {
-      items.push(moved);
-    } else {
-      const toIdx = items.findIndex(item => item.id === toId);
-      if (toIdx < 0) items.push(moved);
-      else items.splice(toIdx, 0, moved);
-    }
-=======
     if (toId === -1) items.push(moved);
     else { const toIdx = items.findIndex(item => item.id === toId); toIdx < 0 ? items.push(moved) : items.splice(toIdx, 0, moved); }
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     onChange([null, ...items]);
   }, [data, onChange]);
 
@@ -224,96 +125,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
   };
 
   const currentAction = selectedItem && selectedActionIndex >= 0 && selectedActionIndex < (selectedItem.actions || []).length
-<<<<<<< HEAD
-    ? (selectedItem.actions || [])[selectedActionIndex]
-    : null;
-
-  return (
-    <div className="db-tab-layout">
-      <DatabaseList
-        items={data}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        onAdd={addNewEnemy}
-        onDelete={handleDeleteEnemy}
-        onDuplicate={handleDuplicate}
-        onReorder={handleReorder}
-      />
-
-      {selectedItem && (
-        <div className="enemies-main">
-          {/* 가운데 패널: 일반설정 + 행동패턴 (세로 쌓기) */}
-          <div className="enemies-center">
-            {/* 일반 설정 */}
-            <div className="enemies-section-title">{t('fields.generalSettings') || '일반 설정'}</div>
-            <div className="enemies-general-layout">
-              {/* 왼쪽: 이름 + 이미지 */}
-              <div className="enemies-general-left">
-                <label className="enemies-label">
-                  {t('common.name')}:
-                  <div style={{display:'flex',gap:4,alignItems:'center'}}>
-                    <input
-                      type="text"
-                      value={selectedItem.name || ''}
-                      onChange={(e) => handleFieldChange('name', e.target.value)}
-                      className="enemies-input"
-                      style={{flex:1}}
-                    />
-                    <TranslateButton csvPath="database/enemies.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
-                  </div>
-                </label>
-                <div className="enemies-label">{t('fields.battlerImage') || '이미지'}:</div>
-                <ImagePicker
-                  type="enemies"
-                  value={selectedItem.battlerName || ''}
-                  onChange={(name) => handleFieldChange('battlerName', name)}
-                />
-              </div>
-
-              {/* 오른쪽: 파라미터 2열 그리드 */}
-              <div className="enemies-general-right">
-                <div className="enemies-params-grid">
-                  <label className="enemies-param-label">
-                    <span>{t('params.maxHP')}:</span>
-                    <input type="number" value={selectedItem.params?.[0] ?? 0} min={1} max={999999}
-                      onChange={(e) => handleParamChange(0, Number(e.target.value))} className="enemies-input enemies-input-num" />
-                  </label>
-                  <label className="enemies-param-label">
-                    <span>{t('params.maxMP')}:</span>
-                    <input type="number" value={selectedItem.params?.[1] ?? 0} min={0} max={9999}
-                      onChange={(e) => handleParamChange(1, Number(e.target.value))} className="enemies-input enemies-input-num" />
-                  </label>
-                  <label className="enemies-param-label">
-                    <span>{t('params.attack')}:</span>
-                    <input type="number" value={selectedItem.params?.[2] ?? 0} min={1} max={999}
-                      onChange={(e) => handleParamChange(2, Number(e.target.value))} className="enemies-input enemies-input-num" />
-                  </label>
-                  <label className="enemies-param-label">
-                    <span>{t('params.defense')}:</span>
-                    <input type="number" value={selectedItem.params?.[3] ?? 0} min={1} max={999}
-                      onChange={(e) => handleParamChange(3, Number(e.target.value))} className="enemies-input enemies-input-num" />
-                  </label>
-                  <label className="enemies-param-label">
-                    <span>{t('params.mAttack')}:</span>
-                    <input type="number" value={selectedItem.params?.[4] ?? 0} min={1} max={999}
-                      onChange={(e) => handleParamChange(4, Number(e.target.value))} className="enemies-input enemies-input-num" />
-                  </label>
-                  <label className="enemies-param-label">
-                    <span>{t('params.mDefense')}:</span>
-                    <input type="number" value={selectedItem.params?.[5] ?? 0} min={1} max={999}
-                      onChange={(e) => handleParamChange(5, Number(e.target.value))} className="enemies-input enemies-input-num" />
-                  </label>
-                  <label className="enemies-param-label">
-                    <span>{t('params.agility')}:</span>
-                    <input type="number" value={selectedItem.params?.[6] ?? 0} min={1} max={999}
-                      onChange={(e) => handleParamChange(6, Number(e.target.value))} className="enemies-input enemies-input-num" />
-                  </label>
-                  <label className="enemies-param-label">
-                    <span>{t('params.luck')}:</span>
-                    <input type="number" value={selectedItem.params?.[7] ?? 0} min={1} max={999}
-                      onChange={(e) => handleParamChange(7, Number(e.target.value))} className="enemies-input enemies-input-num" />
-                  </label>
-=======
     ? (selectedItem.actions || [])[selectedActionIndex] : null;
 
   const PARAM_DEFS = [
@@ -354,35 +165,22 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
                         onChange={e => handleParamChange(i, Number(e.target.value))} className="enemies-input enemies-input-num" />
                     </label>
                   ))}
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 </div>
               </div>
             </div>
 
-<<<<<<< HEAD
-            {/* 보상 + 드롭 아이템 가로 배치 */}
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             <div className="enemies-reward-drop-row">
               <div className="enemies-reward-section">
                 <div className="enemies-section-title">{t('fields.rewards') || '보상'}</div>
                 <label className="enemies-param-label">
                   <span>EXP:</span>
                   <input type="number" value={selectedItem.exp || 0} min={0} max={9999999}
-<<<<<<< HEAD
-                    onChange={(e) => handleFieldChange('exp', Number(e.target.value))} className="enemies-input enemies-input-num" />
-=======
                     onChange={e => handleFieldChange('exp', Number(e.target.value))} className="enemies-input enemies-input-num" />
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 </label>
                 <label className="enemies-param-label">
                   <span>{t('fields.gold') || 'Gold'}:</span>
                   <input type="number" value={selectedItem.gold || 0} min={0} max={9999999}
-<<<<<<< HEAD
-                    onChange={(e) => handleFieldChange('gold', Number(e.target.value))} className="enemies-input enemies-input-num" />
-=======
                     onChange={e => handleFieldChange('gold', Number(e.target.value))} className="enemies-input enemies-input-num" />
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 </label>
               </div>
               <div className="enemies-drop-section">
@@ -396,30 +194,15 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
                     </div>
                   ))}
                   {(selectedItem.dropItems || []).length === 0 && (
-<<<<<<< HEAD
-                    <>
-                      <div className="enemies-drop-row enemies-drop-empty" />
-                      <div className="enemies-drop-row enemies-drop-empty" />
-                      <div className="enemies-drop-row enemies-drop-empty" />
-                    </>
-=======
                     <>{[0, 1, 2].map(i => <div key={i} className="enemies-drop-row enemies-drop-empty" />)}</>
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                   )}
                 </div>
               </div>
             </div>
 
-<<<<<<< HEAD
-            {/* 행동 패턴 */}
-            <div className="enemies-section-title">
-              {t('fields.actionPatterns') || '행동 패턴'}
-              <div style={{marginLeft:'auto',display:'flex',gap:4}}>
-=======
             <div className="enemies-section-title">
               {t('fields.actionPatterns') || '행동 패턴'}
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 <button className="db-btn-small" onClick={addAction}>+</button>
                 <button className="db-btn-small" onClick={() => selectedActionIndex >= 0 && removeAction(selectedActionIndex)}
                   disabled={selectedActionIndex < 0}>-</button>
@@ -434,20 +217,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
               <div className="enemies-action-body">
                 {(selectedItem.actions || []).map((action: EnemyAction, i: number) => {
                   const sk = skills.find(s => s.id === action.skillId);
-<<<<<<< HEAD
-                  const skLabel = sk ? sk.name : String(action.skillId);
-                  const condLabel = CONDITION_TYPE_LABELS[action.conditionType] || '';
-                  return (
-                    <div key={i}
-                      className={`enemies-action-row${i === selectedActionIndex ? ' selected' : ''}`}
-                      onClick={() => setSelectedActionIndex(i)}
-                    >
-                      <span className="enemies-action-col-skill">
-                        {sk?.iconIndex != null && sk.iconIndex > 0 && <IconSprite iconIndex={sk.iconIndex} />}
-                        {skLabel}
-                      </span>
-                      <span className="enemies-action-col-cond">{condLabel}</span>
-=======
                   return (
                     <div key={i} className={`enemies-action-row${i === selectedActionIndex ? ' selected' : ''}`} onClick={() => setSelectedActionIndex(i)}>
                       <span className="enemies-action-col-skill">
@@ -455,7 +224,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
                         {sk ? sk.name : String(action.skillId)}
                       </span>
                       <span className="enemies-action-col-cond">{CONDITION_TYPE_LABELS[action.conditionType] || ''}</span>
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                       <span className="enemies-action-col-rating">{action.rating}</span>
                     </div>
                   );
@@ -463,10 +231,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
               </div>
             </div>
 
-<<<<<<< HEAD
-            {/* 선택된 행동 패턴 편집 */}
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             {currentAction && (
               <div className="enemies-action-edit">
                 <label className="enemies-label">
@@ -482,23 +246,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
                   </button>
                 </label>
                 <div className="enemies-action-edit-row">
-<<<<<<< HEAD
-                  <label className="enemies-label" style={{flex:1}}>
-                    {t('fields.condition') || '조건'}:
-                    <select value={currentAction.conditionType}
-                      onChange={(e) => handleActionChange(selectedActionIndex, 'conditionType', Number(e.target.value))}
-                      className="enemies-select">
-                      {Object.entries(CONDITION_TYPE_LABELS).map(([val, label]) => (
-                        <option key={val} value={val}>{label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="enemies-label" style={{flex:1}}>
-                    {t('fields.rating') || '레이팅'}:
-                    <input type="number" value={currentAction.rating} min={1} max={9}
-                      onChange={(e) => handleActionChange(selectedActionIndex, 'rating', Number(e.target.value))}
-                      className="enemies-input enemies-input-num" />
-=======
                   <label className="enemies-label" style={{ flex: 1 }}>
                     {t('fields.condition') || '조건'}:
                     <select value={currentAction.conditionType} onChange={e => handleActionChange(selectedActionIndex, 'conditionType', Number(e.target.value))} className="enemies-select">
@@ -509,25 +256,10 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
                     {t('fields.rating') || '레이팅'}:
                     <input type="number" value={currentAction.rating} min={1} max={9}
                       onChange={e => handleActionChange(selectedActionIndex, 'rating', Number(e.target.value))} className="enemies-input enemies-input-num" />
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                   </label>
                 </div>
                 {currentAction.conditionType !== 0 && (
                   <div className="enemies-action-edit-row">
-<<<<<<< HEAD
-                    <label className="enemies-label" style={{flex:1}}>
-                      {currentAction.conditionType === 1 ? 'A:' : currentAction.conditionType <= 3 ? '%:' : ''}
-                      <input type="number" value={currentAction.conditionParam1}
-                        onChange={(e) => handleActionChange(selectedActionIndex, 'conditionParam1', Number(e.target.value))}
-                        className="enemies-input enemies-input-num" />
-                    </label>
-                    {(currentAction.conditionType >= 1 && currentAction.conditionType <= 3) && (
-                      <label className="enemies-label" style={{flex:1}}>
-                        {currentAction.conditionType === 1 ? 'B:' : '~'}
-                        <input type="number" value={currentAction.conditionParam2}
-                          onChange={(e) => handleActionChange(selectedActionIndex, 'conditionParam2', Number(e.target.value))}
-                          className="enemies-input enemies-input-num" />
-=======
                     <label className="enemies-label" style={{ flex: 1 }}>
                       {currentAction.conditionType === 1 ? 'A:' : currentAction.conditionType <= 3 ? '%:' : ''}
                       <input type="number" value={currentAction.conditionParam1}
@@ -538,7 +270,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
                         {currentAction.conditionType === 1 ? 'B:' : '~'}
                         <input type="number" value={currentAction.conditionParam2}
                           onChange={e => handleActionChange(selectedActionIndex, 'conditionParam2', Number(e.target.value))} className="enemies-input enemies-input-num" />
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                       </label>
                     )}
                   </div>
@@ -546,112 +277,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
               </div>
             )}
           </div>
-<<<<<<< HEAD
-
-          {/* 오른쪽 패널: 특성 + 메모 */}
-          <div className="enemies-right">
-            <div className="enemies-section-title">{t('fields.traits') || '특성'}</div>
-            <TraitsEditor
-              traits={selectedItem.traits || []}
-              onChange={(traits) => handleFieldChange('traits', traits)}
-            />
-
-            <div className="enemies-section-title">{t('common.note') || '메모'}</div>
-            <textarea
-              value={selectedItem.note || ''}
-              onChange={(e) => handleFieldChange('note', e.target.value)}
-              className="enemies-note"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* 스킬 선택 피커 */}
-      {skillPickerOpen && selectedItem && currentAction && (
-        <DataListPicker
-          items={skillNames}
-          value={currentAction.skillId}
-          onChange={(id) => {
-            handleActionChange(selectedActionIndex, 'skillId', id);
-          }}
-          onClose={() => setSkillPickerOpen(false)}
-          title={t('fields.skill') + ' 선택'}
-          iconIndices={skillIcons}
-        />
-      )}
-
-      {/* 드롭 아이템 편집 다이얼로그 */}
-      {dropItemPickerIndex !== null && selectedItem && (() => {
-        const drop = (selectedItem.dropItems || [])[dropItemPickerIndex];
-        if (!drop) return null;
-        const kindOptions: { kind: number; label: string; list: RefItem[] }[] = [
-          { kind: 0, label: t('dropKind.none'), list: [] },
-          { kind: 1, label: t('dropKind.item'), list: items },
-          { kind: 2, label: t('dropKind.weapon'), list: weapons },
-          { kind: 3, label: t('dropKind.armor'), list: armors },
-        ];
-        return (
-          <div className="db-dialog-overlay" onClick={() => setDropItemPickerIndex(null)}>
-            <div className="enemies-drop-dialog" onClick={e => e.stopPropagation()}>
-              <div className="enemies-drop-dialog-title">{t('fields.dropItemDrop') || '아이템 드롭'}</div>
-              <div className="enemies-drop-dialog-body">
-                <div className="enemies-drop-dialog-section">{t('fields.dropItemDrop') || '아이템 드롭'}</div>
-                {kindOptions.map(opt => {
-                  const isSelected = drop.kind === opt.kind;
-                  const selectedDataItem = isSelected ? opt.list.find(it => it.id === drop.dataId) : null;
-                  const displayName = selectedDataItem ? selectedDataItem.name : '';
-                  return (
-                    <div key={opt.kind} className="enemies-drop-radio-row">
-                      <label className="enemies-drop-radio-label">
-                        <input type="radio" name="dropKind" checked={isSelected}
-                          onChange={() => handleDropItemChange(dropItemPickerIndex, 'kind', opt.kind)} />
-                        <span>{opt.label}</span>
-                      </label>
-                      {opt.kind > 0 && (
-                        <button className={`enemies-drop-item-btn${!isSelected ? ' disabled' : ''}`}
-                          disabled={!isSelected}
-                          onClick={() => setDropDataPickerKind(opt.kind)}>
-                          {isSelected ? displayName : ''}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-
-                <div className="enemies-drop-dialog-section">{t('fields.dropRate') || '출현율'}</div>
-                <div className="enemies-drop-rate-row">
-                  <span>1 /</span>
-                  <input type="number" value={drop.denominator} min={1} max={1000}
-                    onChange={(e) => handleDropItemChange(dropItemPickerIndex, 'denominator', Number(e.target.value))}
-                    className="enemies-input" style={{width:80}} />
-                </div>
-              </div>
-              <div className="enemies-drop-dialog-footer">
-                <button className="db-btn" onClick={() => setDropItemPickerIndex(null)}>OK</button>
-                <button className="db-btn" onClick={() => setDropItemPickerIndex(null)}>{t('common.cancel') || '취소'}</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* 드롭 아이템 데이터 선택 피커 */}
-      {dropDataPickerKind !== null && dropItemPickerIndex !== null && selectedItem && (() => {
-        const drop = (selectedItem.dropItems || [])[dropItemPickerIndex];
-        if (!drop) return null;
-        const names = dropDataPickerKind === 1 ? itemNames : dropDataPickerKind === 2 ? weaponNames : armorNames;
-        const title = dropDataPickerKind === 1 ? t('dropKind.item') : dropDataPickerKind === 2 ? t('dropKind.weapon') : t('dropKind.armor');
-        return (
-          <DataListPicker
-            items={names}
-            value={drop.kind === dropDataPickerKind ? drop.dataId : 0}
-            onChange={(id) => {
-              handleDropItemChange(dropItemPickerIndex, 'dataId', id);
-            }}
-            onClose={() => setDropDataPickerKind(null)}
-            title={title + ' 선택'}
-          />
-=======
 
           <div className="enemies-right">
             <div className="enemies-section-title">{t('fields.traits') || '특성'}</div>
@@ -676,7 +301,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
             itemNames={itemNames} weaponNames={weaponNames} armorNames={armorNames}
             onDropChange={(field, value) => handleDropItemChange(dropItemPickerIndex, field, value)}
             onClose={() => setDropItemPickerIndex(null)} />
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         );
       })()}
     </div>

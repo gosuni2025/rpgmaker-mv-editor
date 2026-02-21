@@ -110,13 +110,8 @@ var VOL_FRAG = [
     '    if (tMin >= tMax) discard;',
     '    tMax = min(tMax, tMin + fogHeight * 3.0);',
     '',
-<<<<<<< HEAD
-    '    const int MAX_STEPS = 8;',
-    '    float stepSize = (tMax - tMin) / 8.0;',
-=======
     '    const int MAX_STEPS = 6;',
     '    float stepSize = (tMax - tMin) / 6.0;',
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     '    float dither = fract(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)) * 43758.5453);',
     '',
     '    vec3 accColor = vec3(0.0);',
@@ -347,13 +342,8 @@ FogOfWar3DVolume.render = function(renderer, camera, dt) {
     var hasEdgeAnim = FogOfWar._edgeAnimation;
     var needsRender = this._dirty || hasEdgeAnim;
     if (!needsRender) {
-<<<<<<< HEAD
-        // dirty 아니고 edgeAnim도 없으면 — 이전 RT 결과만 합성
-        if (this._upsampleScene && this._upsampleCamera) {
-=======
         // dirty 아니고 edgeAnim도 없으면 — 이전 RT 결과만 합성 (단, 한 번도 렌더 안 됐으면 스킵)
         if (this._lastRendered && this._upsampleScene && this._upsampleCamera) {
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             var prevAC = renderer.autoClear;
             renderer.autoClear = false;
             renderer.render(this._upsampleScene, this._upsampleCamera);
@@ -361,10 +351,7 @@ FogOfWar3DVolume.render = function(renderer, camera, dt) {
         }
         return;
     }
-<<<<<<< HEAD
-=======
     this._lastRendered = true;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     this._dirty = false;
 
     // fogHeight 변경 시 Box Z 스케일 동적 업데이트
@@ -454,10 +441,7 @@ FogOfWar3DVolume.dispose = function() {
     this._active = false;
     this._time = 0;
     this._dirty = true;
-<<<<<<< HEAD
-=======
     this._lastRendered = false;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 };
 
 })();

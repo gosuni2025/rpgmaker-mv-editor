@@ -1,9 +1,5 @@
 /*:
-<<<<<<< HEAD
- * @plugindesc [v1.1] 텍스트 로그 - 메시지 대사 기록을 스크롤하며 볼 수 있는 창
-=======
  * @plugindesc [v1.2] 텍스트 로그 - 메시지 대사 기록을 스크롤하며 볼 수 있는 창
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
  * @author RPG Maker MV Web Editor
  *
  * @param menuName
@@ -62,16 +58,10 @@
  *
  * @help
  * ============================================================================
-<<<<<<< HEAD
- * 텍스트 로그 플러그인 v1.0
- * ============================================================================
- * 게임 내 메시지 창의 대사를 자동으로 기록하여 다시 볼 수 있습니다.
-=======
  * 텍스트 로그 플러그인 v1.2
  * ============================================================================
  * 게임 내 메시지 창의 대사를 자동으로 기록하여 다시 볼 수 있습니다.
  * 선택지 목록과 선택한 항목도 함께 기록됩니다.
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
  *
  * [접근 방법]
  * - 메인 메뉴에서 "텍스트 로그" 항목 선택
@@ -103,14 +93,10 @@
     var BG_OPACITY  = parseInt(params['bgOpacity'])  || 160;
     var SCROLL_SPEED = parseInt(params['scrollSpeed']) || 4;
 
-<<<<<<< HEAD
-    var ENTRY_PAD = 10;  // 항목 내부 패딩
-=======
     var ENTRY_PAD    = 10;  // 항목 내부 패딩
     var TITLE_ITEM_H = 40;  // 스크롤 가능한 제목 항목 높이
     var SCROLLBAR_W  = 5;   // 스크롤바 너비
     var SCROLLBAR_RESERVED = SCROLLBAR_W + 6; // 스크롤바 + 여백 (텍스트 영역에서 제외)
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
     // =========================================================================
     // TextLogManager — 로그 데이터 관리
@@ -188,8 +174,6 @@
     };
 
     // =========================================================================
-<<<<<<< HEAD
-=======
     // Window_ChoiceList 후킹 — 선택지 및 선택한 항목 로그 기록
     // =========================================================================
 
@@ -229,7 +213,6 @@
     };
 
     // =========================================================================
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     // Window_TextLog — 가상 스크롤 로그 창
     // =========================================================================
     function Window_TextLog() { this.initialize.apply(this, arguments); }
@@ -238,10 +221,7 @@
 
     Window_TextLog.prototype.initialize = function (x, y, w, h) {
         Window_Base.prototype.initialize.call(this, x, y, w, h);
-<<<<<<< HEAD
-=======
         this._etNoClearRect = true;  // gradient 재그리기 시 clearRect 방지 (배경 보존)
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         this._sy      = 0;      // 현재 스크롤 Y
         this._layouts = [];     // 각 항목의 { y, h }
         this._total   = 0;      // 전체 콘텐츠 높이
@@ -249,11 +229,7 @@
         this.refresh();
     };
 
-<<<<<<< HEAD
-    // 창 내부 표시 가능 높이 (padding 제외)
-=======
     // 창 내부 표시 가능 높이
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     Window_TextLog.prototype.innerH = function () {
         return this.height - this.standardPadding() * 2;
     };
@@ -276,28 +252,17 @@
     };
 
     // ── 레이아웃 빌드 (각 항목의 y 위치, h 계산) ────────────────────────────
-<<<<<<< HEAD
-    Window_TextLog.prototype.buildLayouts = function () {
-        var list = TextLogManager.list();
-        this._layouts = [];
-        var y = ENTRY_GAP;
-=======
     // 타이틀(TITLE_ITEM_H)은 스크롤 영역의 첫 부분으로 포함됨
     Window_TextLog.prototype.buildLayouts = function () {
         var list = TextLogManager.list();
         this._layouts = [];
         var y = ENTRY_GAP + TITLE_ITEM_H + ENTRY_GAP;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         for (var i = 0; i < list.length; i++) {
             var h = this.entryH(list[i]);
             this._layouts.push({ y: y, h: h });
             y += h + ENTRY_GAP;
         }
-<<<<<<< HEAD
-        this._total = y;
-=======
         this._total = Math.max(y, ENTRY_GAP + TITLE_ITEM_H + ENTRY_GAP);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     };
 
     // ── 새로고침 (레이아웃 재계산 + 맨 아래로 스크롤) ───────────────────────
@@ -312,8 +277,6 @@
         if (!this.contents) return;
         this.contents.clear();
 
-<<<<<<< HEAD
-=======
         // 제목 (스크롤과 함께 이동 — 첫 라인으로 포함)
         var sbR    = (this._total > this.innerH()) ? SCROLLBAR_RESERVED : 0;
         var titleY = ENTRY_GAP - this._sy;
@@ -338,7 +301,6 @@
             }
         }
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         var list = TextLogManager.list();
         var top  = this._sy;
         var bot  = this._sy + this.innerH();
@@ -361,35 +323,18 @@
     // ── 스크롤바 ────────────────────────────────────────────────────────────
     Window_TextLog.prototype.drawScrollBar = function () {
         if (this._total <= this.innerH()) return;
-<<<<<<< HEAD
-        var bw   = 5;
-        var bx   = this.contentsWidth() - bw - 1;
-        var avail = this.innerH() - 8;
-        var hh   = Math.max(24, avail * (this.innerH() / this._total));
-        var ratio = this.maxSY() > 0 ? (this._sy / this.maxSY()) : 0;
-        var hy   = 4 + (avail - hh) * ratio;
-=======
         var bw    = 5;
         var bx    = this.contentsWidth() - bw - 1;
         var avail = this.innerH() - 8;
         var hh    = Math.max(24, avail * (this.innerH() / this._total));
         var ratio = this.maxSY() > 0 ? (this._sy / this.maxSY()) : 0;
         var hy    = 4 + (avail - hh) * ratio;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         this.contents.fillRect(bx, 4,  bw, avail, 'rgba(255,255,255,0.1)');
         this.contents.fillRect(bx, hy, bw, hh,    'rgba(255,255,255,0.55)');
     };
 
     // ── 항목 하나 렌더링 ─────────────────────────────────────────────────────
     Window_TextLog.prototype.drawEntry = function (e, dy, bh) {
-<<<<<<< HEAD
-        var w       = this.contentsWidth();
-        var hasFace = SHOW_FACE && e.fn;
-
-        // 배경 박스
-        var alpha = BG_OPACITY / 255;
-        this.contents.fillRect(0, dy, w, bh, 'rgba(0,0,0,' + (alpha * 0.85).toFixed(3) + ')');
-=======
         var sbR     = (this._total > this.innerH()) ? SCROLLBAR_RESERVED : 0;
         var w       = this.contentsWidth() - sbR;
         var hasFace = SHOW_FACE && e.fn;
@@ -403,7 +348,6 @@
         } else {
             this.contents.fillRect(0, dy, w, bh, 'rgba(0,0,0,' + (alpha * 0.85).toFixed(3) + ')');
         }
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
         // 테두리 (canvas context 직접 접근)
         var ctx = this.contents._context;
@@ -427,11 +371,7 @@
 
         var cy = dy + ENTRY_PAD;
 
-<<<<<<< HEAD
-        // 화자 이름
-=======
         // 화자 이름 (선택지 헤더 포함)
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         if (e.spk) {
             this.changeTextColor(this.systemColor());
             this.drawText(e.spk, tx, cy, tw);
@@ -541,28 +481,12 @@
         var mg = 16;
         var bw = Graphics.boxWidth;
         var bh = Graphics.boxHeight;
-<<<<<<< HEAD
-        var hh = 44;  // 헤더 창 높이
-
-        // 헤더
-        this._header = new Window_Base(mg, mg, bw - mg * 2, hh);
-        this._header.drawText(MENU_NAME, 0, 0, this._header.contentsWidth(), 'center');
-        this.addWindow(this._header);
-
-        // 로그 창 (헤더 바로 아래 ~ 화면 하단까지)
-        this._log = new Window_TextLog(
-            mg,
-            mg + hh + 4,
-            bw - mg * 2,
-            bh - mg * 2 - hh - 4
-=======
 
         this._log = new Window_TextLog(
             mg,
             mg,
             bw - mg * 2,
             bh - mg * 2
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         );
         this.addWindow(this._log);
     };
@@ -611,10 +535,7 @@
         SceneManager.push(Scene_TextLog);
     };
 
-<<<<<<< HEAD
-=======
     // 다른 플러그인(VisualNovelMode 등)에서 접근할 수 있도록 전역 노출
     window.TextLogManager = TextLogManager;
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 })();

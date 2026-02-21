@@ -1,15 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../store/useEditorStore';
 import useEscClose from '../hooks/useEscClose';
-<<<<<<< HEAD
-import {
-  getTileRenderInfo, TILE_SIZE_PX, makeAutotileId,
-  getAutotileBlockInfo, getShapeNeighbors,
-  TILE_ID_A1,
-} from '../utils/tileHelper';
-=======
 import { getTileRenderInfo, TILE_SIZE_PX } from '../utils/tileHelper';
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import { buildAutotileEntries } from '../utils/autotileEntries';
 import { loadTilesetImages } from '../utils/tilesetImageLoader';
 import { drawSheetSource, drawAllShapes } from './autotileDebugRenderer';

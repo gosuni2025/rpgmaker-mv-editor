@@ -27,8 +27,6 @@ interface CommandRowProps {
   onToggleFold?: (index: number) => void;
 }
 
-<<<<<<< HEAD
-=======
 // 커맨드 코드별 텍스트 색상 (주 명령어 코드에만 적용; 부속 코드는 undefined)
 function getCommandColor(code: number): string | undefined {
   // 댓글 — 초록 (408 계속줄도 포함)
@@ -68,7 +66,6 @@ function getCommandColor(code: number): string | undefined {
   return undefined;
 }
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 // indent 레인보우 색상 (VSCode indent-rainbow 스타일, 다크 테마에 맞게 낮은 opacity)
 const INDENT_COLORS = [
   'rgba(255, 255, 64, 0.10)',   // 노랑
@@ -169,9 +166,6 @@ export const CommandRow = React.memo(function CommandRow({
         </span>
       )}
       {display ? (
-<<<<<<< HEAD
-        (cmd.code === 108 || cmd.code === 408) ? <span style={{ color: '#4ec94e' }}>{display}</span> : display
-=======
         (() => {
           const c = getCommandColor(cmd.code);
           if (!c) return <>{display}</>;
@@ -182,7 +176,6 @@ export const CommandRow = React.memo(function CommandRow({
           if (sep === -1) return <span style={{ color: c }}>{display}</span>;
           return <><span style={{ color: c }}>{display.slice(0, sep)}</span>{display.slice(sep)}</>;
         })()
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       ) : <span style={{ color: '#555' }}>&loz;</span>}
       {isFolded && foldedCount !== undefined && foldedCount > 0 && (
         <span className="fold-count-badge">+{foldedCount}줄</span>

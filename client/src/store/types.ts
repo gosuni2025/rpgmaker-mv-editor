@@ -290,7 +290,6 @@ export interface EditorState {
   showUpdateCheckDialog: boolean;
 
 
-
   // Actions - Project
   openProject: (path: string) => Promise<void>;
   closeProject: () => void;

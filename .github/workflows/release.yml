@@ -30,10 +30,6 @@ jobs:
 
       - name: Set version from tag
         run: |
-<<<<<<< HEAD
-          VERSION=${GITHUB_REF_NAME#v}
-          npm version $VERSION --no-git-tag-version
-=======
           if [[ "$GITHUB_REF_NAME" == v* ]]; then
             VERSION=${GITHUB_REF_NAME#v}
           else
@@ -43,7 +39,6 @@ jobs:
           if [ "$CURRENT" != "$VERSION" ]; then
             npm version $VERSION --no-git-tag-version
           fi
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         shell: bash
 
       - name: Install root dependencies

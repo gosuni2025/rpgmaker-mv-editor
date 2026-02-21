@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 /*:
  * @plugindesc 포스트 프로세싱 파이프라인 (피사계 심도 + 이펙트)
  * @author RPG Maker MV Web Editor
@@ -90,7 +88,6 @@
  * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
  * 커맨드 이름으로 DoF, DepthOfField, PostProcess 모두 사용 가능합니다.
  */
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 //=============================================================================
 // PostProcess.js - 포스트 프로세싱 파이프라인 (Bloom, DoF, PP Effects)
 //=============================================================================
@@ -145,17 +142,10 @@ window.MapRenderPass = MapRenderPass;
 window.Simple2DRenderPass = Simple2DRenderPass;
 
 PostProcess.config = {
-<<<<<<< HEAD
-    focusY: 0.55,       // 포커스 중심 Y위치 (0=상단, 1=하단), 캐릭터 약간 아래
-    focusRange: 0.1,    // 선명 영역 반폭
-    maxblur: 0.05,      // 최대 블러
-    blurPower: 1.5      // 블러 증가 커브 (1=선형, 2=이차, 부드러운 전환)
-=======
     focusY: 0.14,       // 포커스 중심 Y위치 (0=상단, 1=하단)
     focusRange: 0,      // 선명 영역 반폭
     maxblur: 0.13,      // 최대 블러
     blurPower: 2.4      // 블러 증가 커브 (1=선형, 2=이차, 부드러운 전환)
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 };
 
 PostProcess.bloomConfig = {
@@ -1997,8 +1987,6 @@ PostProcess._applyMapSettings = function() {
         }
     }
 
-<<<<<<< HEAD
-=======
     // dofConfig 적용
     var dc = $dataMap.dofConfig;
     if (dc) {
@@ -2015,7 +2003,6 @@ PostProcess._applyMapSettings = function() {
         ConfigManager.depthOfField = false;
     }
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     // postProcessConfig 적용
     var ppc = $dataMap.postProcessConfig;
     if (ppc) {

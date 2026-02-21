@@ -3,10 +3,7 @@ import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 
 export { DataListPicker, CharacterSprite, IconSprite, type CharacterInfo } from './dataListPicker';
-<<<<<<< HEAD
-=======
 export { ControlVariablesEditor } from './controlVariablesEditor';
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 export function ControlSwitchesEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const initStart = (p[0] as number) || 1;
