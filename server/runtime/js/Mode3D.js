@@ -207,8 +207,13 @@
     var _Spriteset_Map_initialize = Spriteset_Map.prototype.initialize;
     Spriteset_Map.prototype.initialize = function() {
         // 게임 플레이 시 맵 데이터의 is3D 플래그로 모드 자동 설정 (에디터 모드 제외)
+        // 이벤트로 override된 경우($gameSystem._mode3dOverride)는 그 값을 우선 사용
         if (!window.__editorMode && typeof $dataMap !== 'undefined' && $dataMap) {
-            ConfigManager.mode3d = !!$dataMap.is3D;
+            if ($gameSystem && $gameSystem._mode3dOverride !== undefined) {
+                ConfigManager.mode3d = $gameSystem._mode3dOverride;
+            } else {
+                ConfigManager.mode3d = !!$dataMap.is3D;
+            }
         }
         _Spriteset_Map_initialize.call(this);
         Mode3D._spriteset = this;
@@ -1209,6 +1214,16 @@
     };
 
     //=========================================================================
+    // 맵 이동 시 override 리셋 (새 맵의 is3D 설정을 따름)
+    //=========================================================================
+
+    var _Game_Player_reserveTransfer = Game_Player.prototype.reserveTransfer;
+    Game_Player.prototype.reserveTransfer = function(mapId, x, y, d, type) {
+        if ($gameSystem) $gameSystem._mode3dOverride = undefined;
+        _Game_Player_reserveTransfer.call(this, mapId, x, y, d, type);
+    };
+
+    //=========================================================================
     // Plugin Commands
     //=========================================================================
 
@@ -1217,8 +1232,14 @@
         _Game_Interpreter_pluginCommand_m3d.call(this, command, args);
 
         if (command === 'Mode3D') {
-            if (args[0] === 'on') ConfigManager.mode3d = true;
-            if (args[0] === 'off') ConfigManager.mode3d = false;
+            if (args[0] === 'on') {
+                ConfigManager.mode3d = true;
+                if ($gameSystem) $gameSystem._mode3dOverride = true;
+            }
+            if (args[0] === 'off') {
+                ConfigManager.mode3d = false;
+                if ($gameSystem) $gameSystem._mode3dOverride = false;
+            }
             if (args[0] === 'tilt' && args[1]) {
                 var tiltVal = parseFloat(args[1]);
                 var tiltDur = args[2] ? parseFloat(args[2]) : 0;
