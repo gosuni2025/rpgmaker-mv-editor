@@ -95,6 +95,8 @@
 
     var ENTRY_PAD    = 10;  // 항목 내부 패딩
     var TITLE_ITEM_H = 40;  // 스크롤 가능한 제목 항목 높이
+    var SCROLLBAR_W  = 5;   // 스크롤바 너비
+    var SCROLLBAR_RESERVED = SCROLLBAR_W + 6; // 스크롤바 + 여백 (텍스트 영역에서 제외)
 
     // =========================================================================
     // TextLogManager — 로그 데이터 관리
@@ -276,11 +278,13 @@
         this.contents.clear();
 
         // 제목 (스크롤과 함께 이동 — 첫 라인으로 포함)
+        var sbR    = (this._total > this.innerH()) ? SCROLLBAR_RESERVED : 0;
         var titleY = ENTRY_GAP - this._sy;
         if (titleY + TITLE_ITEM_H > 0 && titleY < this.contentsHeight()) {
+            var titleW = this.contentsWidth() - sbR;
             var ty = titleY + Math.floor((TITLE_ITEM_H - this.lineHeight()) / 2);
             this.changeTextColor(this.systemColor());
-            this.drawText(MENU_NAME, 0, ty, this.contentsWidth(), 'center');
+            this.drawText(MENU_NAME, 0, ty, titleW, 'center');
             this.resetTextColor();
             this.resetFontSettings();
             // 구분선
@@ -291,7 +295,7 @@
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(0, titleY + TITLE_ITEM_H - 2);
-                ctx.lineTo(this.contentsWidth(), titleY + TITLE_ITEM_H - 2);
+                ctx.lineTo(titleW, titleY + TITLE_ITEM_H - 2);
                 ctx.stroke();
                 ctx.restore();
             }
@@ -331,7 +335,8 @@
 
     // ── 항목 하나 렌더링 ─────────────────────────────────────────────────────
     Window_TextLog.prototype.drawEntry = function (e, dy, bh) {
-        var w       = this.contentsWidth();
+        var sbR     = (this._total > this.innerH()) ? SCROLLBAR_RESERVED : 0;
+        var w       = this.contentsWidth() - sbR;
         var hasFace = SHOW_FACE && e.fn;
 
         // 배경 박스 (선택지/선택 항목은 약간 다른 색)
