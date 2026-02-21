@@ -50,9 +50,12 @@ export function ShowChoicesEditor({ p, onOk, onCancel }: {
 
   const choiceOptions = useMemo(() => {
     const opts: { value: number; label: string }[] = [];
-    for (let i = 0; i < activeCount; i++) opts.push({ value: i, label: `선택 #${i + 1}` });
+    for (let i = 0; i < activeCount; i++) {
+      const text = choices[i].trim() || `선택 #${i + 1}`;
+      opts.push({ value: i, label: text });
+    }
     return opts;
-  }, [activeCount]);
+  }, [activeCount, choices]);
 
   return (
     <div className="show-choices-editor">
