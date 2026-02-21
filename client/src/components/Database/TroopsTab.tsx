@@ -5,10 +5,7 @@ import EventCommandEditor from '../EventEditor/EventCommandEditor';
 import DatabaseList from './DatabaseList';
 import BattleTestDialog from './BattleTestDialog';
 import TroopPreview from '../common/TroopPreview';
-<<<<<<< HEAD
-=======
 import { TroopCondDialog, TroopBgDialog, conditionSummary } from './TroopsDialogs';
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import apiClient from '../../api/client';
 import './TroopsTab.css';
 
@@ -28,22 +25,6 @@ const emptyConditions: TroopConditions = {
   switchId: 1, switchValid: false,
   turnA: 0, turnB: 0, turnEnding: false, turnValid: false,
 };
-<<<<<<< HEAD
-
-function conditionSummary(c: TroopConditions, t: (k: string) => string, actors: { id: number; name: string }[]): string {
-  const parts: string[] = [];
-  if (c.turnEnding) parts.push(t('fields.turnEnd'));
-  if (c.turnValid) parts.push(`${t('fields.turn')} ${c.turnA}+${c.turnB}*X`);
-  if (c.enemyValid) parts.push(`${t('fields.enemyNum')} #${c.enemyIndex} HP≤${c.enemyHp}%`);
-  if (c.actorValid) {
-    const a = actors.find(ac => ac.id === c.actorId);
-    parts.push(`${a?.name || t('fields.actor')} HP≤${c.actorHp}%`);
-  }
-  if (c.switchValid) parts.push(`${t('fields.switch')} ${c.switchId}`);
-  return parts.length > 0 ? parts.join(', ') : t('troops.noCondition');
-}
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 export default function TroopsTab({ data, onChange }: TroopsTabProps) {
   const { t } = useTranslation();
@@ -56,16 +37,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
   const [battleback1, setBattleback1] = useState('');
   const [battleback2, setBattleback2] = useState('');
   const [condDialogOpen, setCondDialogOpen] = useState(false);
-<<<<<<< HEAD
-  const [editingCond, setEditingCond] = useState<TroopConditions>({ ...emptyConditions });
   const [bgDialogOpen, setBgDialogOpen] = useState(false);
-  const [bb1Files, setBb1Files] = useState<string[]>([]);
-  const [bb2Files, setBb2Files] = useState<string[]>([]);
-  const [editBb1, setEditBb1] = useState('');
-  const [editBb2, setEditBb2] = useState('');
-=======
-  const [bgDialogOpen, setBgDialogOpen] = useState(false);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const [battleTestOpen, setBattleTestOpen] = useState(false);
 
   const selectedItem = data?.find((item) => item && item.id === selectedId);
@@ -214,38 +186,8 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     handlePageChange(activePage, 'span', 0);
   };
 
-<<<<<<< HEAD
-  // 조건 다이얼로그
-  const openCondDialog = () => {
-    const pg = selectedItem?.pages?.[activePage];
-    if (!pg) return;
-    setEditingCond({ ...pg.conditions });
-    setCondDialogOpen(true);
-  };
-
-  const saveCondDialog = () => {
-    handlePageChange(activePage, 'conditions', editingCond);
-    setCondDialogOpen(false);
-  };
-
-  // 전투 배경 변경 다이얼로그
-  const openBgDialog = () => {
-    setEditBb1(battleback1);
-    setEditBb2(battleback2);
-    apiClient.get<string[]>('/resources/battlebacks1').then(f => setBb1Files(f.map(n => n.replace(/\.png$/i, '')))).catch(() => {});
-    apiClient.get<string[]>('/resources/battlebacks2').then(f => setBb2Files(f.map(n => n.replace(/\.png$/i, '')))).catch(() => {});
-    setBgDialogOpen(true);
-  };
-
-  const saveBgDialog = () => {
-    setBattleback1(editBb1);
-    setBattleback2(editBb2);
-    setBgDialogOpen(false);
-  };
-=======
   const openCondDialog = () => { if (selectedItem?.pages?.[activePage]) setCondDialogOpen(true); };
   const openBgDialog = () => setBgDialogOpen(true);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   // DatabaseList 핸들러
   const handleAddNew = useCallback(() => {
@@ -475,114 +417,6 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
         </div>
       )}
 
-<<<<<<< HEAD
-      {/* 조건 편집 다이얼로그 */}
-      {condDialogOpen && (
-        <div className="db-dialog-overlay" onClick={() => setCondDialogOpen(false)}>
-          <div className="troops-cond-dialog" onClick={e => e.stopPropagation()}>
-            <div className="troops-cond-dialog-title">{t('fields.conditions')}</div>
-            <div className="troops-cond-dialog-body">
-              <div className="troops-cond-row">
-                <input type="checkbox" checked={editingCond.turnEnding}
-                  onChange={(e) => setEditingCond(c => ({ ...c, turnEnding: e.target.checked }))} />
-                <span>{t('fields.turnEnd')}</span>
-              </div>
-              <div className="troops-cond-row">
-                <input type="checkbox" checked={editingCond.turnValid}
-                  onChange={(e) => setEditingCond(c => ({ ...c, turnValid: e.target.checked }))} />
-                <span>{t('fields.turn')}</span>
-                <input type="number" value={editingCond.turnA} disabled={!editingCond.turnValid}
-                  onChange={(e) => setEditingCond(c => ({ ...c, turnA: Number(e.target.value) }))} />
-                <span>+</span>
-                <input type="number" value={editingCond.turnB} disabled={!editingCond.turnValid}
-                  onChange={(e) => setEditingCond(c => ({ ...c, turnB: Number(e.target.value) }))} />
-                <span>* X</span>
-              </div>
-              <div className="troops-cond-row">
-                <input type="checkbox" checked={editingCond.enemyValid}
-                  onChange={(e) => setEditingCond(c => ({ ...c, enemyValid: e.target.checked }))} />
-                <span>{t('fields.enemyNum')}</span>
-                <input type="number" value={editingCond.enemyIndex} disabled={!editingCond.enemyValid}
-                  onChange={(e) => setEditingCond(c => ({ ...c, enemyIndex: Number(e.target.value) }))} />
-                <span>HP ≤</span>
-                <input type="number" value={editingCond.enemyHp} disabled={!editingCond.enemyValid}
-                  onChange={(e) => setEditingCond(c => ({ ...c, enemyHp: Number(e.target.value) }))} />
-                <span>%</span>
-              </div>
-              <div className="troops-cond-row">
-                <input type="checkbox" checked={editingCond.actorValid}
-                  onChange={(e) => setEditingCond(c => ({ ...c, actorValid: e.target.checked }))} />
-                <span>{t('fields.actor')}</span>
-                <select value={editingCond.actorId} disabled={!editingCond.actorValid}
-                  onChange={(e) => setEditingCond(c => ({ ...c, actorId: Number(e.target.value) }))}>
-                  {actors.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
-                <span>HP ≤</span>
-                <input type="number" value={editingCond.actorHp} disabled={!editingCond.actorValid}
-                  onChange={(e) => setEditingCond(c => ({ ...c, actorHp: Number(e.target.value) }))} />
-                <span>%</span>
-              </div>
-              <div className="troops-cond-row">
-                <input type="checkbox" checked={editingCond.switchValid}
-                  onChange={(e) => setEditingCond(c => ({ ...c, switchValid: e.target.checked }))} />
-                <span>{t('fields.switch')}</span>
-                <input type="number" value={editingCond.switchId} style={{ width: 60 }} disabled={!editingCond.switchValid}
-                  onChange={(e) => setEditingCond(c => ({ ...c, switchId: Number(e.target.value) }))} />
-              </div>
-            </div>
-            <div className="troops-cond-dialog-footer">
-              <button className="db-btn" onClick={saveCondDialog}>{t('common.ok')}</button>
-              <button className="db-btn" onClick={() => setCondDialogOpen(false)}>{t('common.cancel')}</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* 전투 배경 변경 다이얼로그 */}
-      {bgDialogOpen && (
-        <div className="db-dialog-overlay" onClick={() => setBgDialogOpen(false)}>
-          <div className="troops-bg-dialog" onClick={e => e.stopPropagation()}>
-            <div className="troops-cond-dialog-title">{t('troops.changeBG')}</div>
-            <div className="troops-bg-dialog-body">
-              <div className="troops-bg-list-col">
-                <div className="troops-bg-list-header">battlebacks1</div>
-                <div className="troops-bg-list">
-                  {bb1Files.map(name => (
-                    <div
-                      key={name}
-                      className={`troops-enemy-item${name === editBb1 ? ' selected' : ''}`}
-                      onClick={() => setEditBb1(name)}
-                    >
-                      {name}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="troops-bg-list-col">
-                <div className="troops-bg-list-header">battlebacks2</div>
-                <div className="troops-bg-list">
-                  {bb2Files.map(name => (
-                    <div
-                      key={name}
-                      className={`troops-enemy-item${name === editBb2 ? ' selected' : ''}`}
-                      onClick={() => setEditBb2(name)}
-                    >
-                      {name}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="troops-bg-preview">
-                {editBb1 && <img src={`/img/battlebacks1/${editBb1}.png`} alt="" className="troops-bg-preview-img" />}
-                {editBb2 && <img src={`/img/battlebacks2/${editBb2}.png`} alt="" className="troops-bg-preview-img" style={{ position: 'absolute', top: 0, left: 0 }} />}
-              </div>
-            </div>
-            <div className="troops-cond-dialog-footer">
-              <button className="db-btn" onClick={saveBgDialog}>{t('common.ok')}</button>
-              <button className="db-btn" onClick={() => setBgDialogOpen(false)}>{t('common.cancel')}</button>
-            </div>
-          </div>
-        </div>
-=======
       {condDialogOpen && page && (
         <TroopCondDialog conditions={page.conditions} actors={actors}
           onSave={c => { handlePageChange(activePage, 'conditions', c); setCondDialogOpen(false); }}
@@ -592,7 +426,6 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
         <TroopBgDialog bb1={battleback1} bb2={battleback2}
           onSave={(b1, b2) => { setBattleback1(b1); setBattleback2(b2); setBgDialogOpen(false); }}
           onCancel={() => setBgDialogOpen(false)} />
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       )}
       {/* 전투 테스트 다이얼로그 */}
       {battleTestOpen && selectedItem && (

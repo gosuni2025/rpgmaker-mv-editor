@@ -49,10 +49,7 @@
     "pencil": "연필",
     "rectangle": "직사각형",
     "ellipse": "타원",
-<<<<<<< HEAD
-=======
     "eraser": "지우개",
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "fill": "채우기",
     "shadow": "그림자",
     "zoomIn": "확대",
@@ -84,17 +81,12 @@
     "noRecentProjects": "최근 프로젝트 없음",
     "projectNotFound": "프로젝트를 찾을 수 없습니다. 목록에서 제거합니다.",
     "help": "도움말",
-<<<<<<< HEAD
-=======
     "checkUpdate": "업데이트 확인...",
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "homepage": "홈페이지",
     "reportIssue": "이슈 보고...",
     "twitter": "개발자 Twitter (X)",
     "youtube": "개발자 YouTube"
   },
-<<<<<<< HEAD
-=======
   "update": {
     "title": "업데이트 확인",
     "checking": "확인 중...",
@@ -110,7 +102,6 @@
     "download": "다운로드",
     "viewChanges": "변경사항 보기"
   },
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   "options": {
     "title": "에디터 설정",
     "search": "검색...",
@@ -624,11 +615,7 @@
       "tab3Advanced": "상급",
       "tab4Objects": "오브젝트",
       "tab4MapRendering": "맵/렌더링",
-<<<<<<< HEAD
-      "tab4PostProcess": "포스트 프로세스 (DoF)",
-=======
       "tab4PostProcess": "DoF (피사계 심도)",
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       "tab4PPEffect": "PP 이펙트"
     },
     "commands": {
@@ -1445,8 +1432,6 @@
   },
   "deploy": {
     "title": "배포",
-<<<<<<< HEAD
-=======
     "cacheBust": {
       "title": "캐시 버스팅",
       "helpTitle": "캐시 버스팅이란?",
@@ -1489,7 +1474,6 @@
       "commit": "커밋",
       "settingsSaved": "저장됨"
     },
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "platform": "플랫폼",
     "platformDesc": {
       "web": "웹 브라우저에서 실행 가능한 형태로 배포",
@@ -1505,9 +1489,6 @@
     "deploying": "배포 중...",
     "preparing": "배포 준비 중...",
     "complete": "배포 완료!",
-<<<<<<< HEAD
-    "pathRequired": "출력 경로를 선택해주세요"
-=======
     "pathRequired": "출력 경로를 선택해주세요",
     "netlify": {
       "settingsTitle": "Netlify 연결 설정",
@@ -1549,7 +1530,6 @@
       "guide5": "수동 업로드를 원한다면: 'ZIP 만들기' → '드래그앤드롭 페이지 열기'에서 ZIP 업로드",
       "openSite": "내 사이트 열기"
     }
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   },
   "troops": {
     "generalSettings": "일반 설정",
@@ -1663,24 +1643,17 @@
     "fogOfWar_RevealAll": "전체 공개",
     "fogOfWar_HideAll": "전체 숨김",
     "fogOfWar_RevealRect": "영역 공개",
-<<<<<<< HEAD
-=======
     "fogOfWar_FogColor": "안개 색깔",
     "fogOfWar_TentacleSharpness": "촉수 날카로움",
     "fogOfWar_TentacleLength": "촉수 길이",
     "fogOfWar_TentacleSpeed": "촉수 속도",
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "shadowLight": "조명 제어",
     "shadowLight_on": "켜기",
     "shadowLight_off": "끄기",
     "shadowLight_ambient": "환경광 강도",
     "shadowLight_ambientColor": "환경광 색상",
     "shadowLight_direction": "방향 조명",
-<<<<<<< HEAD
-    "postProcess": "포스트 프로세스",
-=======
     "postProcess": "DoF (피사계 심도)",
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     "postProcess_on": "켜기",
     "postProcess_off": "끄기",
     "postProcess_focusY": "초점 Y",

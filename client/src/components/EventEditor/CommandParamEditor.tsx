@@ -1,18 +1,10 @@
 import React from 'react';
 import useEscClose from '../../hooks/useEscClose';
 import type { EventCommand } from '../../types/rpgMakerMV';
-<<<<<<< HEAD
-import { ADDON_COMMANDS } from './addonCommands';
-import AddonCommandEditor, { parseAddonProps } from './AddonCommandEditor';
-import { ScriptEditor } from './ScriptEditor';
-import {
-  ShowTextEditor, TextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor,
-=======
 import PluginCommandDialog from './PluginCommandDialog';
 import { ScriptEditor } from './ScriptEditor';
 import {
   ShowTextEditor, ShowTextEditorDialog, TextEditor, SingleTextEditor, SingleNumberEditor, WaitEditor,
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   ControlSwitchesEditor, ControlVariablesEditor, ControlSelfSwitchEditor, ControlTimerEditor,
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor, VehicleBGMEditor, MovieEditor, FadeoutEditor,
   ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeActorImagesEditor, ChangeVehicleImageEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeMapNameDisplayEditor, ChangeTilesetEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor, ShowBalloonIconEditor,
@@ -47,15 +39,12 @@ export default function CommandParamEditor({ code, command, followCommands, hasE
   useEscClose(onCancel);
   const p = command?.parameters || [];
 
-<<<<<<< HEAD
-=======
   // ShowText(101) 커맨드는 미리보기 전체화면 다이얼로그로 처리
   if (code === 101) {
     const existingLines = (followCommands || []).filter(c => c.code === 401).map(c => c.parameters[0] as string);
     return <ShowTextEditorDialog p={p} existingLines={existingLines} onOk={onOk} onCancel={onCancel} />;
   }
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   // Script 커맨드는 자체 전체화면 에디터로 처리
   if (code === 355) {
     return (
@@ -68,8 +57,6 @@ export default function CommandParamEditor({ code, command, followCommands, hasE
     );
   }
 
-<<<<<<< HEAD
-=======
   // Plugin Command는 전용 다이얼로그로 처리
   if (code === 356) {
     const existingText = (p[0] as string) || '';
@@ -82,7 +69,6 @@ export default function CommandParamEditor({ code, command, followCommands, hasE
     );
   }
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const content = getEditorContent(code, p, followCommands || [], onOk, onCancel, hasElse, initialParam);
   if (!content) {
     onOk(p);
@@ -143,24 +129,7 @@ function getEditorContent(
     case 101: return <ShowTextEditor p={p} onOk={onOk} onCancel={onCancel} existingLines={followText(401)} />;
     case 108: return <TextEditor p={p} onOk={onOk} onCancel={onCancel} followCode={408} label="Comment" existingLines={followText(408)} />;
     // case 355: ScriptEditor로 분리됨 (CommandParamEditor 상단에서 처리)
-<<<<<<< HEAD
-    case 356: {
-      // 기존 텍스트에서 애드온 매칭 시도
-      const existingText = (p[0] as string) || '';
-      const addonProps = existingText ? parseAddonProps(existingText) : null;
-      // 새 삽입 시 initialParam으로 매칭
-      const initDef = initialParam ? ADDON_COMMANDS.find(d => d.pluginCommand === initialParam) : null;
-      if (addonProps) {
-        return <AddonCommandEditor def={addonProps.def} initialSubCmd={addonProps.initialSubCmd} initialParamValues={addonProps.initialParamValues} initialDuration={addonProps.initialDuration} onOk={onOk} onCancel={onCancel} />;
-      }
-      if (initDef) {
-        return <AddonCommandEditor def={initDef} onOk={onOk} onCancel={onCancel} />;
-      }
-      return <SingleTextEditor p={p} onOk={onOk} onCancel={onCancel} label="Plugin Command" />;
-    }
-=======
     // case 356: PluginCommandDialog로 분리됨 (CommandParamEditor 상단에서 처리)
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     case 105: return <ScrollingTextEditor p={p} onOk={onOk} onCancel={onCancel} existingLines={followText(405)} />;
     case 121: return <ControlSwitchesEditor p={p} onOk={onOk} onCancel={onCancel} />;
     case 122: return <ControlVariablesEditor p={p} onOk={onOk} onCancel={onCancel} />;

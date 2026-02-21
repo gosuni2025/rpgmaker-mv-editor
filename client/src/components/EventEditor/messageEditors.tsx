@@ -3,15 +3,11 @@ import type { EventCommand } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import { EnhancedTextEditor } from './EnhancedTextEditor';
-<<<<<<< HEAD
-import './ShowChoicesEditor.css';
-=======
 import { buildTextExtra } from './messageEditorUtils';
 
 // Re-export split-out components
 export { ShowTextEditorDialog } from './ShowTextEditorDialog';
 export { ShowChoicesEditor } from './ShowChoicesEditorComponent';
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 export const selectStyle = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13 } as const;
 
@@ -27,30 +23,9 @@ export function ShowTextEditor({ p, onOk, onCancel, existingLines }: {
   const [bulkInput, setBulkInput] = useState(false);
 
   const handleOk = () => {
-<<<<<<< HEAD
-    if (bulkInput) {
-      const allLines = text.split('\n');
-      const groups: string[][] = [];
-      for (let i = 0; i < allLines.length; i += 4) {
-        groups.push(allLines.slice(i, i + 4));
-      }
-      if (groups.length === 0) groups.push([]);
-      const extra: EventCommand[] = groups[0].map(line => ({ code: 401, indent: 0, parameters: [line] }));
-      for (let i = 1; i < groups.length; i++) {
-        extra.push({ code: 101, indent: 0, parameters: [faceName, faceIndex, background, positionType] });
-        groups[i].forEach(line => extra.push({ code: 401, indent: 0, parameters: [line] }));
-      }
-      onOk([faceName, faceIndex, background, positionType], extra);
-    } else {
-      const lines = text.split('\n').filter((_, i) => i < 4);
-      const extra: EventCommand[] = lines.map(line => ({ code: 401, indent: 0, parameters: [line] }));
-      onOk([faceName, faceIndex, background, positionType], extra);
-    }
-=======
     const params = [faceName, faceIndex, background, positionType];
     const extra = buildTextExtra(text, bulkInput, 401, params);
     onOk(params, extra);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   };
 
   const radioRowStyle: React.CSSProperties = { display: 'flex', gap: 12, marginTop: 4 };
@@ -89,18 +64,8 @@ export function ShowTextEditor({ p, onOk, onCancel, existingLines }: {
         일괄 입력
       </label>
       <label style={{ fontSize: 12, color: '#aaa', display: 'block' }}>
-<<<<<<< HEAD
-        텍스트{bulkInput ? '' : ' (최대 4줄)'}:
-        <EnhancedTextEditor
-          value={text}
-          onChange={setText}
-          rows={bulkInput ? 12 : 4}
-          placeholder="텍스트를 입력하세요..."
-        />
-=======
         텍스트{bulkInput ? ' (4줄마다 자동 분할)' : ''}:
         <EnhancedTextEditor value={text} onChange={setText} rows={Math.max(4, text.split('\n').length)} placeholder="텍스트를 입력하세요..." />
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       </label>
       <div className="image-picker-footer">
         <button className="db-btn" onClick={handleOk}>OK</button>
@@ -132,15 +97,7 @@ export function TextEditor({ p, onOk, onCancel, followCode, label, existingLines
     <>
       <label style={{ fontSize: 12, color: '#aaa', display: 'block' }}>
         {label}
-<<<<<<< HEAD
-        <EnhancedTextEditor
-          value={text}
-          onChange={setText}
-          rows={8}
-        />
-=======
         <EnhancedTextEditor value={text} onChange={setText} rows={8} />
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       </label>
       <div className="image-picker-footer">
         <button className="db-btn" onClick={handleOk}>OK</button>
@@ -161,16 +118,7 @@ export function ScrollingTextEditor({ p, onOk, onCancel, existingLines }: {
     <>
       <label style={{ fontSize: 12, color: '#aaa', display: 'block' }}>
         텍스트:
-<<<<<<< HEAD
-        <EnhancedTextEditor
-          value={text}
-          onChange={setText}
-          rows={8}
-          placeholder="스크롤 텍스트를 입력하세요..."
-        />
-=======
         <EnhancedTextEditor value={text} onChange={setText} rows={8} placeholder="스크롤 텍스트를 입력하세요..." />
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       </label>
       <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
         <label style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -201,20 +149,6 @@ export function SingleTextEditor({ p, onOk, onCancel, label }: { p: unknown[]; o
 }
 
 export function SingleNumberEditor({ p, onOk, onCancel, label, min, max }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void; label: string; min?: number; max?: number }) {
-<<<<<<< HEAD
-  const defaultVal = (p[0] as number) || (min != null ? min : 0);
-  const [value, setValue] = useState<number>(defaultVal);
-  return (
-    <>
-      <label style={{ fontSize: 12, color: '#aaa' }}>
-        {label}
-        <input type="number" value={value} min={min} max={max} onChange={e => setValue(Number(e.target.value))} style={{ ...selectStyle, width: 120 }} />
-      </label>
-      <div className="image-picker-footer">
-        <button className="db-btn" onClick={() => onOk([value])}>OK</button>
-        <button className="db-btn" onClick={onCancel}>Cancel</button>
-      </div>
-=======
   const [value, setValue] = useState<number>((p[0] as number) || (min != null ? min : 0));
   return (
     <>
@@ -234,39 +168,10 @@ export function WaitEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params:
         <span style={{ fontSize: 12, color: '#aaa' }}>프레임 (1/60 초)</span>
       </div>
       <div className="image-picker-footer"><button className="db-btn" onClick={() => onOk([value])}>OK</button><button className="db-btn" onClick={onCancel}>취소</button></div>
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     </>
   );
 }
 
-<<<<<<< HEAD
-/**
- * Wait Editor (Command 230)
- * RPG Maker MV 파라미터: [duration(frames)]
- */
-export function WaitEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
-  const [value, setValue] = useState<number>((p[0] as number) || 60);
-  return (
-    <>
-      <div style={{ fontSize: 12, color: '#aaa' }}>지속 시간</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-        <input type="number" value={value} min={1} max={999} onChange={e => setValue(Number(e.target.value))} style={{ ...selectStyle, width: 80 }} />
-        <span style={{ fontSize: 12, color: '#aaa' }}>프레임 (1/60 초)</span>
-      </div>
-      <div className="image-picker-footer">
-        <button className="db-btn" onClick={() => onOk([value])}>OK</button>
-        <button className="db-btn" onClick={onCancel}>취소</button>
-      </div>
-    </>
-  );
-}
-
-/**
- * Input Number Editor (Command 103)
- * RPG Maker MV 파라미터: [variableId, maxDigits]
- */
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 export function InputNumberEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const [variableId, setVariableId] = useState<number>((p[0] as number) || 1);
   const [maxDigits, setMaxDigits] = useState<number>((p[1] as number) || 1);

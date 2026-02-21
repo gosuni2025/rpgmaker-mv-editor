@@ -131,8 +131,6 @@ export function createStoreSubscription(params: {
       requestRender();
     }
 
-<<<<<<< HEAD
-=======
     if (state.currentMap?.dofConfig !== prevState.currentMap?.dofConfig) {
       const DOF = (window as any).PostProcess;
       if (DOF) {
@@ -146,7 +144,6 @@ export function createStoreSubscription(params: {
       requestRender();
     }
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     if (state.currentMap?.weatherType !== prevState.currentMap?.weatherType ||
         state.currentMap?.weatherPower !== prevState.currentMap?.weatherPower) {
       const wt = state.currentMap?.weatherType ?? 0;

@@ -52,14 +52,11 @@
  * @desc 실제 목적지 타일에 인디케이터를 표시할지 여부 (이동불가 시 빨간색 X, 이동가능 시 원+십자 표시)
  * @default true
  *
-<<<<<<< HEAD
-=======
  * @param Show Hover Highlight
  * @type boolean
  * @desc 마우스 커서 위치의 타일을 흰선+검은 외곽선으로 하이라이트할지 여부 (2D/3D 모두 지원)
  * @default true
  *
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
  * @help
  * 맵을 터치/클릭하면 기본 흰색 사각형 펄스 대신
  * 지정한 RPG Maker 애니메이션을 해당 위치에 재생합니다.
@@ -86,8 +83,6 @@
     var arrowOutlineColor = String(parameters['Arrow Outline Color'] || 'rgba(0, 0, 0, 0.85)');
     var arrowOutlineWidth = Number(parameters['Arrow Outline Width'] || 1);
     var showDestIndicator = String(parameters['Show Destination Indicator']) !== 'false';
-<<<<<<< HEAD
-=======
     var showHoverHighlight = String(parameters['Show Hover Highlight']) !== 'false';
 
     //=========================================================================
@@ -137,7 +132,6 @@
             _hoverMouseY = -1;
         });
     }
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
     var _lastDestX = -1;
     var _lastDestY = -1;
@@ -285,8 +279,6 @@
             if (!this._currentPath) this._currentPath = [];
         }
 
-<<<<<<< HEAD
-=======
         // 타일 호버 하이라이트 스프라이트 - tilemap 안, 타일 좌표 기준
         if (showHoverHighlight) {
             var tw = $gameMap.tileWidth();
@@ -301,7 +293,6 @@
             this.drawHoverHighlight();
         }
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         _lastDestX = -1;
         _lastDestY = -1;
     };
@@ -311,10 +302,7 @@
         _Spriteset_Map_update.call(this);
         this.updateTouchDestAnimation();
         this.updatePathArrow();
-<<<<<<< HEAD
-=======
         this.updateHoverHighlight();
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     };
 
     //=========================================================================
@@ -475,8 +463,6 @@
     };
 
     //=========================================================================
-<<<<<<< HEAD
-=======
     // 타일 호버 하이라이트
     //=========================================================================
 
@@ -546,7 +532,6 @@
     };
 
     //=========================================================================
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     // 목적지 인디케이터 그리기 (tilemap 좌표계 - DPR 불필요)
     //=========================================================================
     Spriteset_Map.prototype.drawDestIndicator = function() {

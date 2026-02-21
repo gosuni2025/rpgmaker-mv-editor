@@ -1431,8 +1431,6 @@ ShadowLight._addLightsToScene = function(scene) {
         if (sl.shadowMapSize != null) this.config.spotLightShadowMapSize = sl.shadowMapSize;
         if (sl.targetDistance != null) this.config.spotLightTargetDistance = sl.targetDistance;
     }
-<<<<<<< HEAD
-=======
     // editorLights에서 발치 그림자(blob shadow) 설정 동기화
     if (!elGlobalOff && el && el.shadow) {
         var sh = el.shadow;
@@ -1443,7 +1441,6 @@ ShadowLight._addLightsToScene = function(scene) {
     } else if (elGlobalOff) {
         this.config.shadowEnabled = false;
     }
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
     // SpotLight - 플레이어 방향성 그림자 (항상 생성, visible로 제어)
     this._playerSpotLight = new THREE.SpotLight(
@@ -3224,11 +3221,8 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
             var ambDur = args[2] ? parseFloat(args[2]) : 0;
             // editorLights.ambient도 함께 업데이트 (_updateCameraZoneAmbient가 이 값을 target으로 사용)
             var _el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
-<<<<<<< HEAD
-=======
             // ambient 커맨드 실행 시 disabled여도 활성화 (커맨드로 명시적 제어)
             if (_el && _el.ambient) _el.ambient.enabled = true;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             if (ambDur > 0 && window.PluginTween) {
                 PluginTween.add({
                     target: ShadowLight.config, key: 'ambientIntensity', to: ambVal, duration: ambDur,

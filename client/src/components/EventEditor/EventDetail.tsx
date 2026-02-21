@@ -2,20 +2,13 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import useEscClose from '../../hooks/useEscClose';
-<<<<<<< HEAD
-import type { RPGEvent, EventPage, EventConditions, EventImage, EventCommand, MoveRoute, MapData, NpcDisplayData } from '../../types/rpgMakerMV';
-=======
 import type { RPGEvent, EventPage } from '../../types/rpgMakerMV';
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import EventCommandEditor from './EventCommandEditor';
 import ImagePicker from '../common/ImagePicker';
 import MoveRouteDialog from './MoveRouteDialog';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import ExtBadge from '../common/ExtBadge';
-<<<<<<< HEAD
-=======
 import { useEventEditor } from './useEventEditor';
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import './EventEditor.css';
 
 interface EventDetailProps {
@@ -24,38 +17,6 @@ interface EventDetailProps {
   onClose: () => void;
 }
 
-<<<<<<< HEAD
-function getDefaultPage(): EventPage {
-  return {
-    conditions: {
-      actorId: 1, actorValid: false, itemId: 1, itemValid: false,
-      selfSwitchCh: 'A', selfSwitchValid: false,
-      switch1Id: 1, switch1Valid: false, switch2Id: 1, switch2Valid: false,
-      variableId: 1, variableValid: false, variableValue: 0,
-    },
-    directionFix: false,
-    billboard: true,
-    image: { characterIndex: 0, characterName: '', direction: 2, pattern: 1, tileId: 0 },
-    list: [{ code: 0, indent: 0, parameters: [] }],
-    moveFrequency: 3,
-    moveRoute: { list: [{ code: 0 }], repeat: true, skippable: false, wait: false },
-    moveSpeed: 3,
-    moveType: 0,
-    priorityType: 1,
-    stepAnime: false,
-    through: false,
-    trigger: 0,
-    walkAnime: true,
-  };
-}
-
-export default function EventDetail({ eventId, onClose }: EventDetailProps) {
-  const { t } = useTranslation();
-  useEscClose(onClose);
-  const currentMap = useEditorStore((s) => s.currentMap);
-  const currentMapId = useEditorStore((s) => s.currentMapId);
-  const event = currentMap?.events?.find((e) => e && e.id === eventId) as RPGEvent | undefined;
-=======
 export default function EventDetail({ eventId, pendingEvent, onClose }: EventDetailProps) {
   const { t } = useTranslation();
   useEscClose(onClose);
@@ -65,7 +26,6 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
   const event = isNew
     ? pendingEvent
     : (currentMap?.events?.find(e => e && e.id === eventId) as RPGEvent | undefined);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   const resolvedEventId = event?.id ?? eventId ?? 0;
   const initNpcId = isNew ? 0 : (eventId ?? 0);
@@ -73,141 +33,6 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
   const [showNpcName, setShowNpcName] = useState<boolean>(() => currentMap?.npcData?.[initNpcId]?.showName ?? false);
   const [showMoveRoute, setShowMoveRoute] = useState(false);
 
-<<<<<<< HEAD
-  const [npcName, setNpcName] = useState<string>(() => currentMap?.npcData?.[eventId]?.name ?? '');
-  const [showNpcName, setShowNpcName] = useState<boolean>(() => currentMap?.npcData?.[eventId]?.showName ?? false);
-
-  const MOVE_TYPES = useMemo(() => [
-    t('eventDetail.moveTypes.0'), t('eventDetail.moveTypes.1'), t('eventDetail.moveTypes.2'), t('eventDetail.moveTypes.3'),
-  ], [t]);
-
-  const MOVE_SPEEDS = useMemo(() => [
-    t('eventDetail.moveSpeeds.0'), t('eventDetail.moveSpeeds.1'), t('eventDetail.moveSpeeds.2'),
-    t('eventDetail.moveSpeeds.3'), t('eventDetail.moveSpeeds.4'), t('eventDetail.moveSpeeds.5'),
-  ], [t]);
-
-  const MOVE_FREQS = useMemo(() => [
-    t('eventDetail.moveFreqs.0'), t('eventDetail.moveFreqs.1'), t('eventDetail.moveFreqs.2'),
-    t('eventDetail.moveFreqs.3'), t('eventDetail.moveFreqs.4'),
-  ], [t]);
-
-  const PRIORITY_TYPES = useMemo(() => [
-    t('eventDetail.priorityTypes.0'), t('eventDetail.priorityTypes.1'), t('eventDetail.priorityTypes.2'),
-  ], [t]);
-
-  const TRIGGER_TYPES = useMemo(() => [
-    t('eventDetail.triggerTypes.0'), t('eventDetail.triggerTypes.1'), t('eventDetail.triggerTypes.2'),
-    t('eventDetail.triggerTypes.3'), t('eventDetail.triggerTypes.4'),
-  ], [t]);
-
-  if (!editEvent) {
-    return (
-      <div className="db-dialog-overlay">
-        <div className="db-dialog" style={{ width: '70vw', height: '75vh' }}>
-          <div className="db-dialog-header">Event #{eventId}</div>
-          <div className="db-dialog-body">
-            <div className="db-placeholder">{t('eventDetail.eventNotFound')}</div>
-          </div>
-          <div className="db-dialog-footer">
-            <button className="db-btn" onClick={onClose}>{t('common.close')}</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const page = editEvent.pages?.[activePage];
-
-  const updateEvent = (partial: Partial<RPGEvent>) => {
-    setEditEvent((prev) => ({ ...prev, ...partial }));
-  };
-
-  const updatePage = (pageIndex: number, partial: Partial<EventPage>) => {
-    setEditEvent((prev) => {
-      const pages = [...prev.pages];
-      pages[pageIndex] = { ...pages[pageIndex], ...partial };
-      return { ...prev, pages };
-    });
-  };
-
-  const updateConditions = (partial: Partial<EventConditions>) => {
-    setEditEvent((prev) => {
-      const pg = prev.pages?.[activePage];
-      if (!pg) return prev;
-      const pages = [...prev.pages];
-      pages[activePage] = { ...pg, conditions: { ...pg.conditions, ...partial } };
-      return { ...prev, pages };
-    });
-  };
-
-  const updateImage = (partial: Partial<EventImage>) => {
-    setEditEvent((prev) => {
-      const pg = prev.pages?.[activePage];
-      if (!pg) return prev;
-      const pages = [...prev.pages];
-      pages[activePage] = { ...pg, image: { ...pg.image, ...partial } };
-      return { ...prev, pages };
-    });
-  };
-
-  const addPage = () => {
-    const pages = [...editEvent.pages, getDefaultPage()];
-    updateEvent({ pages });
-    setActivePage(pages.length - 1);
-  };
-
-  const copyPage = () => {
-    if (!page) return;
-    const pages = [...editEvent.pages, JSON.parse(JSON.stringify(page))];
-    updateEvent({ pages });
-    setActivePage(pages.length - 1);
-  };
-
-  const deletePage = () => {
-    if (editEvent.pages.length <= 1) return;
-    const pages = editEvent.pages.filter((_: EventPage, i: number) => i !== activePage);
-    updateEvent({ pages });
-    setActivePage(Math.min(activePage, pages.length - 1));
-  };
-
-  const clearPage = () => {
-    const pages = editEvent.pages.map((p: EventPage, i: number) => i === activePage ? getDefaultPage() : p);
-    updateEvent({ pages });
-  };
-
-  const buildNpcData = (map: MapData): Record<number, NpcDisplayData> | undefined => {
-    const updated = { ...(map.npcData || {}) };
-    if (npcName.trim() || showNpcName) {
-      updated[eventId] = { name: npcName, showName: showNpcName };
-    } else {
-      delete updated[eventId];
-    }
-    return Object.keys(updated).length > 0 ? updated : undefined;
-  };
-
-  const handleOk = () => {
-    if (!currentMap) return;
-    const events = [...(currentMap.events || [])];
-    const idx = events.findIndex((e) => e && e.id === eventId);
-    if (idx >= 0) {
-      events[idx] = editEvent;
-    }
-    useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap) } as MapData & { tilesetNames?: string[] } });
-    onClose();
-  };
-
-  const handleApply = () => {
-    if (!currentMap) return;
-    const events = [...(currentMap.events || [])];
-    const idx = events.findIndex((e) => e && e.id === eventId);
-    if (idx >= 0) {
-      events[idx] = JSON.parse(JSON.stringify(editEvent));
-    }
-    useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap) } as MapData & { tilesetNames?: string[] } });
-  };
-
-  const padId = (id: number) => String(id).padStart(3, '0');
-=======
   const {
     editEvent, page, activePage, setActivePage,
     updateEvent, updatePage, updateConditions, updateImage,
@@ -220,7 +45,6 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
   const MOVE_FREQS = useMemo(() => [0, 1, 2, 3, 4].map(i => t(`eventDetail.moveFreqs.${i}`)), [t]);
   const PRIORITY_TYPES = useMemo(() => [0, 1, 2].map(i => t(`eventDetail.priorityTypes.${i}`)), [t]);
   const TRIGGER_TYPES = useMemo(() => [0, 1, 2, 3, 4].map(i => t(`eventDetail.triggerTypes.${i}`)), [t]);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const [dialogPos, setDialogPos] = useState<{ x: number; y: number } | null>(null);
@@ -276,26 +100,6 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
             <input type="text" value={npcName} onChange={e => setNpcName(e.target.value)} className="event-editor-input" style={{ width: 120 }} placeholder={t('eventDetail.npcNamePlaceholder')} />
             <label className="event-editor-npc-show-check">
               <input type="checkbox" checked={showNpcName} onChange={e => setShowNpcName(e.target.checked)} />
-              {t('eventDetail.showNpcName')}
-              <ExtBadge inline />
-            </label>
-          </label>
-          <label className="event-editor-name-label event-editor-npc-name-label">
-            {t('eventDetail.npcName')}:
-            <input
-              type="text"
-              value={npcName}
-              onChange={(e) => setNpcName(e.target.value)}
-              className="event-editor-input"
-              style={{ width: 120 }}
-              placeholder={t('eventDetail.npcNamePlaceholder')}
-            />
-            <label className="event-editor-npc-show-check">
-              <input
-                type="checkbox"
-                checked={showNpcName}
-                onChange={(e) => setShowNpcName(e.target.checked)}
-              />
               {t('eventDetail.showNpcName')}
               <ExtBadge inline />
             </label>
@@ -356,30 +160,6 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
               <div className="event-editor-hrow">
                 <fieldset className="event-editor-fieldset event-editor-fieldset-half">
                   <legend>{t('eventDetail.image')}</legend>
-<<<<<<< HEAD
-                  <ImagePicker
-                    type="characters"
-                    value={page.image.characterName || ''}
-                    onChange={(name) => updateImage({ characterName: name })}
-                    index={page.image.characterIndex}
-                    onIndexChange={(idx) => updateImage({ characterIndex: idx })}
-                    direction={page.image.direction}
-                    onDirectionChange={(dir) => updateImage({ direction: dir })}
-                    pattern={page.image.pattern}
-                    onPatternChange={(pat) => updateImage({ pattern: pat })}
-                  />
-                  <label className="event-editor-checkbox event-editor-billboard-row">
-                    <input
-                      type="checkbox"
-                      checked={page.billboard !== false}
-                      onChange={(e) => updatePage(activePage, { billboard: e.target.checked })}
-                    />
-                    {t('eventDetail.billboard3d')}
-                    <span
-                      className="event-editor-tooltip-icon"
-                      title={t('eventDetail.billboard3dTooltip')}
-                    >?</span>
-=======
                   <ImagePicker type="characters" value={page.image.characterName || ''} onChange={name => updateImage({ characterName: name })}
                     index={page.image.characterIndex} onIndexChange={idx => updateImage({ characterIndex: idx })}
                     direction={page.image.direction} onDirectionChange={dir => updateImage({ direction: dir })}
@@ -388,30 +168,13 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
                     <input type="checkbox" checked={page.billboard !== false} onChange={e => updatePage(activePage, { billboard: e.target.checked })} />
                     {t('eventDetail.billboard3d')}
                     <span className="event-editor-tooltip-icon" title={t('eventDetail.billboard3dTooltip')}>?</span>
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                   </label>
                   {page.billboard !== false && (
                     <div className="event-editor-billboard-z-row">
                       <span className="event-editor-form-label">{t('eventDetail.billboardZ')}</span>
-<<<<<<< HEAD
-                      <input
-                        type="number"
-                        value={page.billboardZ ?? 0}
-                        step={0.1}
-                        onChange={(e) => updatePage(activePage, { billboardZ: Number(e.target.value) })}
-                        className="event-editor-input event-editor-input-sm"
-                        style={{ width: 60 }}
-                      />
-                      <span className="event-editor-billboard-z-unit">{t('eventDetail.billboardZUnit')}</span>
-                      <span
-                        className="event-editor-tooltip-icon"
-                        title={t('eventDetail.billboardZTooltip')}
-                      >?</span>
-=======
                       <input type="number" value={page.billboardZ ?? 0} step={0.1} onChange={e => updatePage(activePage, { billboardZ: Number(e.target.value) })} className="event-editor-input event-editor-input-sm" style={{ width: 60 }} />
                       <span className="event-editor-billboard-z-unit">{t('eventDetail.billboardZUnit')}</span>
                       <span className="event-editor-tooltip-icon" title={t('eventDetail.billboardZTooltip')}>?</span>
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                     </div>
                   )}
                 </fieldset>

@@ -243,8 +243,6 @@ export async function setupRendererAndSpriteset(params: {
     if (DOF._bloomPass) {
       DOF._bloomPass.enabled = bc ? bc.enabled !== false : true;
     }
-<<<<<<< HEAD
-=======
 
     // dofConfig 초기화
     const dc = effectiveMap.dofConfig;
@@ -253,7 +251,6 @@ export async function setupRendererAndSpriteset(params: {
     DOF.config.maxblur = dc?.maxBlur ?? 0.13;
     DOF.config.blurPower = dc?.blurPower ?? 2.4;
     if (w.ConfigManager) w.ConfigManager.depthOfField = dc?.enabled ?? false;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   }
 
   // ShadowLight._scene 설정 (Spriteset_Map 생성 전 필수)

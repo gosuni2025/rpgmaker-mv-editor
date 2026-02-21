@@ -18,10 +18,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
-<<<<<<< HEAD
-=======
   'showUpdateCheckDialog' |
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   'showToast' | 'dismissToast' | 'dismissAllToasts' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
   'setShowGrid' | 'setShowPassability' | 'setShowTileInfo' | 'setShowRegion' |
@@ -29,10 +26,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
   'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' | 'setShowLocalizationDialog' |
-<<<<<<< HEAD
-=======
   'setShowUpdateCheckDialog' |
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   'setTransparentColor' | 'setMaxUndo' | 'setZoomStep'
 >> = (set, get) => ({
   zoomLevel: 1,

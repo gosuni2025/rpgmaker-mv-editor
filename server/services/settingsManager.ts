@@ -20,13 +20,6 @@ export interface GhPagesSettings {
   remote: string; // 푸시할 git remote 이름 (예: 'pages')
 }
 
-export interface AutoSaveSettings {
-  enabled: boolean;
-  intervalMinutes: number;
-  gitCommit: boolean;
-  gitAddAll: boolean;
-}
-
 export interface EditorSettings {
   steamPath: string;
   language: string;
@@ -34,11 +27,8 @@ export interface EditorSettings {
   maxUndo: number;
   zoomStep: number;
   autoSave: AutoSaveSettings;
-<<<<<<< HEAD
-=======
   netlify: NetlifySettings;
   ghPages: GhPagesSettings;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 }
 
 const SETTINGS_DIR = path.join(os.homedir(), '.rpg-editor');
@@ -56,8 +46,6 @@ const DEFAULT_SETTINGS: EditorSettings = {
     gitCommit: true,
     gitAddAll: true,
   },
-<<<<<<< HEAD
-=======
   netlify: {
     apiKey: '',
     siteId: '',
@@ -66,7 +54,6 @@ const DEFAULT_SETTINGS: EditorSettings = {
   ghPages: {
     remote: 'pages',
   },
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 };
 
 // ─── API Key 암호화 (AES-256-CBC, 이 PC에서만 복호화 가능) ───────────────────

@@ -2,28 +2,16 @@ import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
 import useEscClose from '../hooks/useEscClose';
-<<<<<<< HEAD
-import apiClient from '../api/client';
-import type { L10nConfig, CSVRow, Category, StatsData, UndoEntry, FilterMode } from './localizationTypes';
-import { LANGUAGE_NAMES, getCsvPath, formatTs, getStatus } from './localizationTypes';
-=======
 import { LANGUAGE_NAMES, formatTs, getStatus } from './localizationTypes';
 import type { FilterMode } from './localizationTypes';
 import HelpButton from './common/HelpButton';
 import { useLocalization } from './useLocalization';
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import './LocalizationDialog.css';
 
 export default function LocalizationDialog() {
   const { t } = useTranslation();
-<<<<<<< HEAD
-  const setShowLocalizationDialog = useEditorStore((s) => s.setShowLocalizationDialog);
-  useEscClose(useCallback(() => setShowLocalizationDialog(false), [setShowLocalizationDialog]));
-  const showToast = useEditorStore((s) => s.showToast);
-=======
   const setShow = useEditorStore((s) => s.setShowLocalizationDialog);
   useEscClose(useCallback(() => setShow(false), [setShow]));
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   const lc = useLocalization();
 

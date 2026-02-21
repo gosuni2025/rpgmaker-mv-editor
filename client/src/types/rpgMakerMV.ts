@@ -49,10 +49,7 @@ export interface MapData {
   skyBackground?: SkyBackground;
   animTileSettings?: Record<number, AnimTileShaderSettings>; // key = kind (0~15)
   bloomConfig?: BloomConfig;
-<<<<<<< HEAD
-=======
   dofConfig?: DofConfig;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   postProcessConfig?: Record<string, { enabled: boolean; [key: string]: any }>;
   weatherType?: number;   // 0=없음, 1=비, 2=폭풍, 3=눈
   weatherPower?: number;  // 1~9
@@ -77,8 +74,6 @@ export const DEFAULT_BLOOM_CONFIG: BloomConfig = {
   downscale: 4,
 };
 
-<<<<<<< HEAD
-=======
 export interface DofConfig {
   enabled: boolean;
   focusY: number;      // 포커스 중심 Y (0~1, 기본 0.55)
@@ -95,7 +90,6 @@ export const DEFAULT_DOF_CONFIG: DofConfig = {
   blurPower: 2.4,
 };
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 export interface AnimTileShaderSettings {
   enabled: boolean;
   waveAmplitude: number;      // 물결 진폭 (0~0.05)
@@ -625,10 +619,7 @@ export interface MapObject {
   animationLoop?: 'forward' | 'pingpong' | 'once'; // 재생 모드 (기본: 'forward')
   animationSe?: boolean;                          // SE 재생 여부 (기본: false)
   animationPlayInEditor?: boolean;                 // 에디터에서 재생 여부 (기본: true)
-<<<<<<< HEAD
-=======
   animationPauseOnMessage?: boolean;               // 이벤트 메시지 표시 중 일시정지 (기본: true)
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 }
 
 // Editor-only lighting data (stored as custom field in map JSON, ignored by RPG Maker MV)

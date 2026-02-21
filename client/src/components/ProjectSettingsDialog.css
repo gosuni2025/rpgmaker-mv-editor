@@ -286,12 +286,9 @@
 .pm-open-folder-btn {
   padding: 6px;
   border-top: 1px solid #555;
-<<<<<<< HEAD
-=======
   display: flex;
   flex-direction: column;
   gap: 4px;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 }
 
 .pm-open-folder-btn button {

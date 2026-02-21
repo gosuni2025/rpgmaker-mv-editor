@@ -440,8 +440,6 @@
         return _idxToDir[visualIdx];
     }
 
-<<<<<<< HEAD
-=======
     //=========================================================================
     // TPS 스타일 이동: WASD 입력을 카메라 방향 기준으로 변환
     //=========================================================================
@@ -465,7 +463,6 @@
         return _idxToDir[worldIdx];
     };
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     // Sprite_Character.prototype.characterPatternY 오버라이드
     var _orig_characterPatternY = Sprite_Character.prototype.characterPatternY;
     Sprite_Character.prototype.characterPatternY = function() {

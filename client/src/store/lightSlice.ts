@@ -258,11 +258,7 @@ export const lightSlice: SliceCreator<Pick<EditorState,
     const { currentMap: map, currentMapId } = get();
     if (!map || !map.editorLights || !currentMapId) return;
     const oldLights = skipUndo ? null : JSON.parse(JSON.stringify(map.editorLights));
-<<<<<<< HEAD
-    const cur = map.editorLights.shadow ?? { opacity: 0.4, color: '#000000', offsetScale: 0.6 };
-=======
     const cur = map.editorLights.shadow ?? { enabled: false, opacity: 0.4, color: '#000000', offsetScale: 0.6 };
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     const newLights = { ...map.editorLights, shadow: { ...cur, ...updates } };
     set({ currentMap: { ...map, editorLights: newLights } });
     if (!skipUndo) pushLightUndo(get, set, oldLights, JSON.parse(JSON.stringify(newLights)));

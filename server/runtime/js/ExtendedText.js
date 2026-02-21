@@ -1,17 +1,10 @@
 //=============================================================================
-<<<<<<< HEAD
-// ExtendedText.js - 확장 텍스트 이펙트 플러그인
-=======
 // ExtendedText.js - 확장 텍스트 이펙트 플러그인 (Three.js ShaderMaterial 기반)
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 //=============================================================================
 
 var ExtendedText = {};
 ExtendedText._time = 0;
 
-<<<<<<< HEAD
-//─── 헬퍼: 파라미터 문자열 파싱 ───
-=======
 // ─── 씬 참조 헬퍼 ───
 // 에디터 프리뷰: MessagePreview가 renderer._etScene = previewScene으로 설정
 // 게임 런타임: _etScene 미설정 → 씬=null → 오버레이 미생성 → bitmap 텍스트 유지
@@ -20,7 +13,6 @@ ExtendedText._time = 0;
 ExtendedText._overlayScene = null;
 
 //─── 파라미터 파싱 ───
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 ExtendedText._parseParams = function(paramsStr) {
     var params = {};
     if (!paramsStr) return params;
@@ -60,8 +52,6 @@ ExtendedText._lerpColor = function(c1, c2, t) {
     ]);
 };
 
-<<<<<<< HEAD
-=======
 ExtendedText._hsv2css = function(h, s, v) {
     var c = v * s;
     var x = c * (1 - Math.abs((h * 6) % 2 - 1));
@@ -265,7 +255,6 @@ void main() {
     });
 };
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 //=============================================================================
 // Window_Base 오버라이드
 //=============================================================================
@@ -277,11 +266,7 @@ Window_Base.prototype.convertEscapeCharacters = function(text) {
     var self = this;
     var result = '';
     var i = 0;
-<<<<<<< HEAD
-    var tagStack = []; // {tag, idx}
-=======
     var tagStack = [];
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
     while (i < text.length) {
         if (text[i] === '<') {
@@ -326,11 +311,7 @@ Window_Base.prototype.processEscapeCharacter = function(code, textState) {
     }
 };
 
-<<<<<<< HEAD
-//─── ETSTART: shake/hologram은 즉시 animSegs 등록 ───
-=======
 //─── ETSTART ───
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 Window_Base.prototype._etProcessStart = function(textState) {
     if (!this._etEffectStack) this._etEffectStack = [];
     if (!this._etAnimSegs)   this._etAnimSegs = [];
@@ -352,17 +333,11 @@ Window_Base.prototype._etProcessStart = function(textState) {
         gradientActive: false, shakeActive: false, hologramActive: false,
         gradientWaveActive: false, fadeActive: false,
         dissolveActive: false, blurFadeActive: false,
-<<<<<<< HEAD
-        hologramOuter: null,      // shake 전용: outer hologram 참조
-        gradientWaveOuter: null,  // shake 전용: outer gradient-wave 참조
-        hasInnerShake: false,     // hologram/gradient-wave 전용: inner shake 존재 여부
-=======
         hologramOuter: null,
         gradientWaveOuter: null,
         hasInnerShake: false,
         _overlayMesh: null,
         _etOpen: true,   // 태그가 아직 닫히지 않음 — _etEnsureOverlay 생성 보류
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     };
 
     switch (tag) {
@@ -386,21 +361,13 @@ Window_Base.prototype._etProcessStart = function(textState) {
         saved.shakeActive = true;
         saved.amplitude = Number(params.amplitude || 3);
         saved.speed = Number(params.speed || 1);
-<<<<<<< HEAD
-        this._etAnimSegs.push(saved); // 즉시 등록
-=======
         this._etAnimSegs.push(saved);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         break;
     case 'hologram':
         saved.hologramActive = true;
         saved.scanline = Number(params.scanline || 5);
         if (this.contents) this.changeTextColor('#00ffff');
-<<<<<<< HEAD
-        this._etAnimSegs.push(saved); // 즉시 등록
-=======
         this._etAnimSegs.push(saved);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         break;
     case 'gradient-wave':
         saved.gradientWaveActive = true;
@@ -436,22 +403,15 @@ Window_Base.prototype._etProcessEnd = function(textState) {
     this.obtainEscapeParam(textState);
     if (!this._etEffectStack || this._etEffectStack.length === 0) return;
     var saved = this._etEffectStack.pop();
-<<<<<<< HEAD
-=======
     // 태그 닫힘 → 이제 _etEnsureOverlay 허용
     saved._etOpen = false;
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
     if (saved.gradientActive && saved.chars.length > 0) {
         this._etRedrawGradient(saved);
     }
 
     if (saved.shakeActive) {
-<<<<<<< HEAD
-        // outer hologram/gradient-wave 연결 (ETEND[shake] 시 스택에 남아있는 outer 확인)
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         for (var i = this._etEffectStack.length - 1; i >= 0; i--) {
             var outerSeg = this._etEffectStack[i];
             if (outerSeg.hologramActive && !saved.hologramOuter) {
@@ -464,10 +424,6 @@ Window_Base.prototype._etProcessEnd = function(textState) {
     }
 
     if (saved.hologramActive) {
-<<<<<<< HEAD
-        // inner shake 여부 감지
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         var segs = this._etAnimSegs || [];
         for (var j = 0; j < segs.length; j++) {
             if (segs[j].shakeActive && segs[j].hologramOuter === saved) {
@@ -475,17 +431,9 @@ Window_Base.prototype._etProcessEnd = function(textState) {
                 break;
             }
         }
-<<<<<<< HEAD
-        // 즉시 그리기 없음 (깜빡임 방지, 다음 _etRunAnimPass에서 처리)
     }
 
     if (saved.gradientWaveActive) {
-        // inner shake 여부 감지
-=======
-    }
-
-    if (saved.gradientWaveActive) {
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         var segs2 = this._etAnimSegs || [];
         for (var k = 0; k < segs2.length; k++) {
             if (segs2[k].shakeActive && segs2[k].gradientWaveOuter === saved) {
@@ -502,17 +450,9 @@ Window_Base.prototype._etProcessEnd = function(textState) {
     }
 };
 
-<<<<<<< HEAD
-//─── processNormalCharacter: 모든 활성 이펙트에 chars 기록 ───
-// 타이프라이터 모드 지원: chars 추가 직후 즉시 _etRunAnimPass 호출
-var _Window_Base_processNormalCharacter = Window_Base.prototype.processNormalCharacter;
-Window_Base.prototype.processNormalCharacter = function(textState) {
-    var hasAnim = false;
-=======
 //─── processNormalCharacter: chars 기록 ───
 var _Window_Base_processNormalCharacter = Window_Base.prototype.processNormalCharacter;
 Window_Base.prototype.processNormalCharacter = function(textState) {
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     if (this._etEffectStack && this._etEffectStack.length > 0) {
         var c = textState.text[textState.index];
         var currentColor = this.contents ? this.contents.textColor : '#ffffff';
@@ -526,10 +466,6 @@ Window_Base.prototype.processNormalCharacter = function(textState) {
                     color: currentColor,
                     finalColor: null,
                 });
-<<<<<<< HEAD
-                if (seg.shakeActive || seg.hologramActive ||
-                    seg.gradientWaveActive || seg.fadeActive || seg.dissolveActive || seg.blurFadeActive) hasAnim = true;
-=======
                 // gradient/gradient-wave: 글자 추가마다 즉시 재그리기 (타이핑 중 흰색 착! 현상 방지)
                 // 재그리기 후 마지막 글자 색상으로 변경 → 원본 processNormalCharacter가 올바른 색으로 덮어씀
                 if (seg.gradientActive) {
@@ -542,70 +478,13 @@ Window_Base.prototype.processNormalCharacter = function(textState) {
                     var lastChW = seg.chars[seg.chars.length - 1];
                     if (lastChW && lastChW.finalColor) this.changeTextColor(lastChW.finalColor);
                 }
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             }
         }
     }
     _Window_Base_processNormalCharacter.call(this, textState);
-<<<<<<< HEAD
-    // 타이프라이터 모드: 새 글자가 그려진 직후 즉시 효과 적용
-    if (hasAnim && this._etAnimSegs && this._etAnimSegs.length > 0) {
-        this._etRunAnimPass();
-    }
-};
-
-//─── _etRunAnimPass: 2패스 애니메이션 적용 (재사용 가능한 공통 함수) ───
-// 패스1: shake/hologram_base 재그리기 + shake의 hologramOuter scanlines
-// 패스2: hologram 단독의 scanlines 오버레이
-Window_Base.prototype._etRunAnimPass = function() {
-    var segs = this._etAnimSegs;
-    if (!segs || segs.length === 0) return;
-    var t = ExtendedText._time;
-
-    // 패스 1: 텍스트 재그리기
-    for (var i = 0; i < segs.length; i++) {
-        var seg = segs[i];
-        if (seg.chars.length === 0) continue;
-        if (seg.shakeActive) {
-            this._etRedrawShake(seg, t);
-            // outer hologram의 스캔라인을 shake 직후 오버레이
-            if (seg.hologramOuter && seg.hologramOuter.chars.length > 0) {
-                this._etOverlayScanlines(seg.hologramOuter, t);
-            }
-        } else if (seg.hologramActive && !seg.hasInnerShake) {
-            this._etRedrawHologramBase(seg);
-        } else if (seg.gradientWaveActive && !seg.hasInnerShake) {
-            this._etRedrawGradientWave(seg, t);
-        } else if (seg.fadeActive) {
-            this._etRedrawFade(seg, t);
-        } else if (seg.dissolveActive) {
-            this._etRedrawDissolve(seg, t);
-        } else if (seg.blurFadeActive) {
-            this._etRedrawBlurFade(seg, t);
-        }
-    }
-
-    // 패스 2: hologram 단독 스캔라인 오버레이
-    for (var j = 0; j < segs.length; j++) {
-        var seg2 = segs[j];
-        if (seg2.chars.length === 0) continue;
-        if (seg2.hologramActive && !seg2.hasInnerShake) {
-            this._etOverlayScanlines(seg2, t);
-        }
-    }
-
-    // 완료 세그먼트 제거 (_etDone 플래그)
-    for (var k = segs.length - 1; k >= 0; k--) {
-        if (segs[k]._etDone) segs.splice(k, 1);
-    }
-};
-
-//─── gradient 재그리기 ───
-=======
 };
 
 //─── gradient 재그리기 (Canvas 2D, 정적 효과이므로 유지) ───
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 Window_Base.prototype._etRedrawGradient = function(saved) {
     var chars = saved.chars;
     if (!chars || chars.length === 0 || !this.contents) return;
@@ -615,11 +494,7 @@ Window_Base.prototype._etRedrawGradient = function(saved) {
     var endX = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c);
     var y0 = saved.startY;
     var ow = bmp.outlineWidth || 4;
-<<<<<<< HEAD
-    if (bmp.clearRect) bmp.clearRect(startX - ow, y0, endX - startX + ow*2, lh);
-=======
     if (bmp.clearRect && !this._etNoClearRect) bmp.clearRect(startX - ow, y0, endX - startX + ow*2, lh);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
     var savedColor = bmp.textColor;
     var count = chars.length;
@@ -629,300 +504,11 @@ Window_Base.prototype._etRedrawGradient = function(saved) {
         this.changeTextColor(color);
         var ch = chars[i];
         bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c)*2, ch.h || lh);
-<<<<<<< HEAD
-        ch.finalColor = color; // shake 등 외부 이펙트가 사용할 최종 색상
-=======
         ch.finalColor = color;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     }
     this.changeTextColor(savedColor);
 };
 
-<<<<<<< HEAD
-//─── shake 재그리기 ───
-Window_Base.prototype._etRedrawShake = function(seg, time) {
-    var chars = seg.chars;
-    if (!chars || chars.length === 0 || !this.contents) return;
-    var bmp = this.contents;
-    var lh = chars[0].h || this.lineHeight();
-    var amp = seg.amplitude, speed = seg.speed;
-    var ow = (bmp.outlineWidth || 4) + 1;
-
-    var startX = chars[0].x - ow;
-    var endX   = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c) + ow;
-    bmp.clearRect(startX, chars[0].y - amp - 1, endX - startX, lh + (amp+1)*2);
-
-    var savedColor = bmp.textColor;
-    // 현재 outlineColor가 외부 이펙트(다른 줄 outline 등)로 오염될 수 있으므로
-    // seg 생성 시점의 값으로 복구하여 그리기
-    var savedOutlineColor = bmp.outlineColor;
-    var savedOutlineWidth = bmp.outlineWidth;
-    bmp.outlineColor = seg.outlineColor;
-    bmp.outlineWidth = seg.outlineWidth;
-
-    var gw = seg.gradientWaveOuter;
-    for (var i = 0; i < chars.length; i++) {
-        var ch = chars[i];
-        var charColor;
-        if (gw) {
-            // outer gradient-wave가 있으면 무지개 색상 계산 (속도 동기화)
-            var hue = ((i * 28 + time * gw.speed * 27) % 360 + 360) % 360;
-            charColor = 'hsl(' + hue.toFixed(0) + ',100%,62%)';
-        } else {
-            charColor = ch.finalColor || ch.color || seg.textColor;
-        }
-        this.changeTextColor(charColor);
-        var offsetY = Math.sin(time * speed * 5.0 + i * 0.8) * amp;
-        bmp.drawText(ch.c, ch.x, ch.y + offsetY, this.textWidth(ch.c) + 4, ch.h || lh);
-    }
-
-    this.changeTextColor(savedColor);
-    bmp.outlineColor = savedOutlineColor;
-    bmp.outlineWidth = savedOutlineWidth;
-};
-
-//─── hologram base 재그리기 (clearRect + cyan, outline 없이) ───
-Window_Base.prototype._etRedrawHologramBase = function(seg) {
-    var chars = seg.chars;
-    if (!chars || chars.length === 0 || !this.contents) return;
-    var bmp = this.contents;
-    var lh = chars[0].h || this.lineHeight();
-    var ow = (bmp.outlineWidth || 4) + 1;
-    var startX = chars[0].x - ow;
-    var endX   = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c) + ow;
-
-    bmp.clearRect(startX, chars[0].y - 1, endX - startX, lh + 2);
-
-    var savedColor = bmp.textColor;
-    // 외부 outlineColor 오염 방지: hologram은 outline 없이 그리기
-    var savedOutlineColor = bmp.outlineColor;
-    var savedOutlineWidth = bmp.outlineWidth;
-    bmp.outlineColor = 'rgba(0,0,0,0)';
-    bmp.outlineWidth = 0;
-
-    this.changeTextColor('#00ffff');
-    for (var i = 0; i < chars.length; i++) {
-        var ch = chars[i];
-        bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c) + 4, ch.h || lh);
-    }
-
-    this.changeTextColor(savedColor);
-    bmp.outlineColor = savedOutlineColor;
-    bmp.outlineWidth = savedOutlineWidth;
-};
-
-//─── hologram 스캔라인 오버레이 ───
-// destination-out: 해당 줄을 투명하게 잘라내어 배경이 비쳐 보이는 효과
-// 스캔라인이 time에 따라 아래로 흘러내림
-Window_Base.prototype._etOverlayScanlines = function(seg, time) {
-    var chars = seg.chars;
-    if (!chars || chars.length === 0 || !this.contents) return;
-    var bmp = this.contents;
-    var ctx = bmp._context;
-    if (!ctx) return;
-
-    var lh = chars[0].h || this.lineHeight();
-    var ow = (bmp.outlineWidth || 4) + 1;
-    var startX = chars[0].x - ow;
-    var endX   = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c) + ow;
-    var y0 = chars[0].y;
-    var width = endX - startX;
-
-    var scanH = seg.scanline || 5;
-    var darkH = Math.max(1, Math.floor(scanH * 0.45));
-    var scrollY = (time * 25) % scanH;
-
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    for (var y = y0 - scanH + scrollY; y < y0 + lh + scanH; y += scanH) {
-        var clipY = Math.max(y, y0);
-        var clipH = Math.min(y + darkH, y0 + lh) - clipY;
-        if (clipH > 0) ctx.fillRect(startX, clipY, width, clipH);
-    }
-    ctx.restore();
-    bmp._setDirty();
-};
-
-//─── gradient-wave: 무지개 색상 사이클 (문자별 hue 오프셋) ───
-Window_Base.prototype._etRedrawGradientWave = function(seg, time) {
-    var chars = seg.chars;
-    if (!chars || chars.length === 0 || !this.contents) return;
-    var bmp = this.contents;
-    var lh = chars[0].h || this.lineHeight();
-    var ow = (bmp.outlineWidth || 4) + 1;
-    var startX = chars[0].x - ow;
-    var endX   = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c) + ow;
-
-    bmp.clearRect(startX, chars[0].y - 1, endX - startX, lh + 2);
-
-    var savedColor = bmp.textColor;
-    var savedOutlineColor = bmp.outlineColor;
-    var savedOutlineWidth = bmp.outlineWidth;
-    bmp.outlineColor = seg.outlineColor;
-    bmp.outlineWidth = seg.outlineWidth;
-
-    var speed = seg.speed || 1;
-    for (var i = 0; i < chars.length; i++) {
-        var hue = ((i * 28 + time * speed * 27) % 360 + 360) % 360;
-        this.changeTextColor('hsl(' + hue.toFixed(0) + ',100%,62%)');
-        var ch = chars[i];
-        bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c) + 4, ch.h || lh);
-    }
-
-    this.changeTextColor(savedColor);
-    bmp.outlineColor = savedOutlineColor;
-    bmp.outlineWidth = savedOutlineWidth;
-};
-
-//─── fade: globalAlpha로 서서히 나타나기 ───
-Window_Base.prototype._etRedrawFade = function(seg, time) {
-    var chars = seg.chars;
-    if (!chars || chars.length === 0 || !this.contents) return;
-    var bmp = this.contents;
-    var ctx = bmp._context;
-    if (!ctx) return;
-
-    var progress = Math.min(1.0, (time - seg.startTime) * 20 / seg.duration);
-    var lh = chars[0].h || this.lineHeight();
-    var ow = (bmp.outlineWidth || 4) + 1;
-    var startX = chars[0].x - ow;
-    var endX   = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c) + ow;
-
-    bmp.clearRect(startX, chars[0].y - 1, endX - startX, lh + 2);
-    if (progress <= 0) return;
-
-    var savedAlpha = ctx.globalAlpha;
-    ctx.globalAlpha = progress;
-
-    var savedColor = bmp.textColor;
-    var savedOutlineColor = bmp.outlineColor;
-    var savedOutlineWidth = bmp.outlineWidth;
-    bmp.outlineColor = seg.outlineColor;
-    bmp.outlineWidth = seg.outlineWidth;
-
-    for (var i = 0; i < chars.length; i++) {
-        var ch = chars[i];
-        this.changeTextColor(ch.finalColor || ch.color || seg.textColor);
-        bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c) + 4, ch.h || lh);
-    }
-
-    ctx.globalAlpha = savedAlpha;
-    this.changeTextColor(savedColor);
-    bmp.outlineColor = savedOutlineColor;
-    bmp.outlineWidth = savedOutlineWidth;
-
-    if (progress >= 1.0) seg._etDone = true;
-};
-
-//─── dissolve: 픽셀 블록 단위로 서서히 나타나기 ───
-Window_Base.prototype._etRedrawDissolve = function(seg, time) {
-    var chars = seg.chars;
-    if (!chars || chars.length === 0 || !this.contents) return;
-    var bmp = this.contents;
-    var ctx = bmp._context;
-    if (!ctx) return;
-
-    var elapsed = time - seg.startTime;
-    var speed = seg.speed || 1;
-    var threshold = Math.max(0, 1.0 - elapsed * speed * 0.33);
-
-    var lh = chars[0].h || this.lineHeight();
-    var ow = (bmp.outlineWidth || 4) + 1;
-    var startX = chars[0].x - ow;
-    var endX   = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c) + ow;
-    var y0 = chars[0].y;
-    var width = endX - startX;
-
-    bmp.clearRect(startX, y0 - 1, width, lh + 2);
-
-    var savedColor = bmp.textColor;
-    var savedOutlineColor = bmp.outlineColor;
-    var savedOutlineWidth = bmp.outlineWidth;
-    bmp.outlineColor = seg.outlineColor;
-    bmp.outlineWidth = seg.outlineWidth;
-
-    for (var i = 0; i < chars.length; i++) {
-        var ch = chars[i];
-        this.changeTextColor(ch.finalColor || ch.color || seg.textColor);
-        bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c) + 4, ch.h || lh);
-    }
-
-    this.changeTextColor(savedColor);
-    bmp.outlineColor = savedOutlineColor;
-    bmp.outlineWidth = savedOutlineWidth;
-
-    if (threshold <= 0) {
-        seg._etDone = true;
-        return;
-    }
-
-    // destination-out으로 노이즈 블록 지우기 (임계값 이하 블록은 숨김)
-    var blockSize = 4;
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillStyle = 'rgba(0,0,0,1)';
-    for (var by = y0; by < y0 + lh; by += blockSize) {
-        for (var bx = startX; bx < startX + width; bx += blockSize) {
-            var noiseVal = Math.abs(Math.sin(bx * 127.1 + by * 311.7));
-            if (noiseVal < threshold) {
-                ctx.fillRect(bx, by, blockSize, blockSize);
-            }
-        }
-    }
-    ctx.restore();
-    bmp._setDirty();
-};
-
-//─── blur-fade: 흐릿한 상태에서 선명하게 나타나기 ───
-Window_Base.prototype._etRedrawBlurFade = function(seg, time) {
-    var chars = seg.chars;
-    if (!chars || chars.length === 0 || !this.contents) return;
-    var bmp = this.contents;
-    var ctx = bmp._context;
-    if (!ctx) return;
-
-    var progress = Math.min(1.0, (time - seg.startTime) * 20 / seg.duration);
-    var blurPx = (1.0 - progress) * 8;
-    var alpha = 0.2 + progress * 0.8;
-
-    var lh = chars[0].h || this.lineHeight();
-    // blur 여백 확보
-    var ow = (bmp.outlineWidth || 4) + Math.ceil(blurPx) + 2;
-    var startX = chars[0].x - ow;
-    var endX   = chars[chars.length-1].x + this.textWidth(chars[chars.length-1].c) + ow;
-
-    bmp.clearRect(startX, chars[0].y - ow, endX - startX, lh + ow * 2);
-    if (progress <= 0) return;
-
-    var savedFilter = ctx.filter !== undefined ? ctx.filter : 'none';
-    var savedAlpha = ctx.globalAlpha;
-
-    if (blurPx > 0.1 && 'filter' in ctx) {
-        ctx.filter = 'blur(' + blurPx.toFixed(1) + 'px)';
-    }
-    ctx.globalAlpha = alpha;
-
-    var savedColor = bmp.textColor;
-    var savedOutlineColor = bmp.outlineColor;
-    var savedOutlineWidth = bmp.outlineWidth;
-    bmp.outlineColor = seg.outlineColor;
-    bmp.outlineWidth = seg.outlineWidth;
-
-    for (var i = 0; i < chars.length; i++) {
-        var ch = chars[i];
-        this.changeTextColor(ch.finalColor || ch.color || seg.textColor);
-        bmp.drawText(ch.c, ch.x, ch.y, this.textWidth(ch.c) + 4, ch.h || lh);
-    }
-
-    if ('filter' in ctx) ctx.filter = savedFilter;
-    ctx.globalAlpha = savedAlpha;
-    this.changeTextColor(savedColor);
-    bmp.outlineColor = savedOutlineColor;
-    bmp.outlineWidth = savedOutlineWidth;
-
-    if (progress >= 1.0) seg._etDone = true;
-=======
 //─── gradient-wave 재그리기 (Canvas 2D — 타이핑 중 정적 무지개 색상 적용) ───
 // 프리뷰 오버레이가 생성되면 애니메이션 버전으로 교체됨
 Window_Base.prototype._etRedrawGradientWave = function(saved) {
@@ -1243,7 +829,6 @@ Window_Base.prototype._etRunAnimPass = function() {
     }
     // 참고: _etFrozen 세그먼트는 메시를 유지 (애니메이션 완료 후 글자 보존)
     // 오버레이 정리는 newPage / buildRenderer 정리 시에만 수행
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 };
 
 //=============================================================================
@@ -1256,8 +841,6 @@ Window_Base.prototype.createContents = function() {
     this._etEffectStack = [];
 };
 
-<<<<<<< HEAD
-=======
 // 오버레이 전체 정리 헬퍼 (newPage / terminateMessage 공통)
 Window_Base.prototype._etClearAllOverlays = function() {
     var segs = this._etAnimSegs || [];
@@ -1270,15 +853,10 @@ Window_Base.prototype._etClearAllOverlays = function() {
     this._etEffectStack = [];
 };
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 if (typeof Window_Message !== 'undefined') {
     var _Window_Message_newPage = Window_Message.prototype.newPage;
     Window_Message.prototype.newPage = function(textState) {
         _Window_Message_newPage.call(this, textState);
-<<<<<<< HEAD
-        this._etAnimSegs = [];
-        this._etEffectStack = [];
-=======
         this._etClearAllOverlays();
     };
 
@@ -1287,7 +865,6 @@ if (typeof Window_Message !== 'undefined') {
     Window_Message.prototype.terminateMessage = function() {
         this._etClearAllOverlays();
         _Window_Message_terminateMessage.call(this);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     };
 }
 

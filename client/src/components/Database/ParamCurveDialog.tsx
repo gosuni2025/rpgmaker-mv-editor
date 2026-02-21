@@ -1,13 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEscClose from '../../hooks/useEscClose';
-<<<<<<< HEAD
-import './ParamCurveDialog.css';
-
-interface ParamCurveDialogProps {
-  params: number[][];  // 8 arrays of 99 values
-  initialTab?: number; // which tab to open initially (0-7)
-=======
 import {
   PARAM_KEYS, PARAM_COLORS, PARAM_PRESETS, LEVELS_PER_COL,
   generateCurve, cubicSplineInterpolate, getMaxForParam,
@@ -18,162 +11,21 @@ import './ParamCurveDialog.css';
 interface ParamCurveDialogProps {
   params: number[][];
   initialTab?: number;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   onConfirm: (params: number[][]) => void;
   onCancel: () => void;
 }
 
-<<<<<<< HEAD
-const PARAM_KEYS = ['maxHP', 'maxMP', 'attack', 'defense', 'mAttack', 'mDefense', 'agility', 'luck'];
-const PARAM_COLORS = ['#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8', '#4dd0e1', '#fff176', '#a1887f'];
-
-// Generate curve from lv1, lv99, and growth type
-// growthType: 0=fast(log-like), 0.5=linear, 1=slow(exp-like)
-function generateCurve(lv1: number, lv99: number, growthType: number): number[] {
-  const arr = new Array(99);
-  for (let i = 0; i < 99; i++) {
-    const lv = i + 1;
-    const t = (lv - 1) / 98; // 0..1
-    let curve: number;
-    if (growthType <= 0.5) {
-      // Fast growth: interpolate between sqrt curve and linear
-      const blend = growthType / 0.5; // 0..1
-      const fast = Math.pow(t, 0.5); // sqrt curve (fast start)
-      curve = fast * (1 - blend) + t * blend;
-    } else {
-      // Slow growth: interpolate between linear and pow curve
-      const blend = (growthType - 0.5) / 0.5; // 0..1
-      const slow = Math.pow(t, 2); // pow curve (slow start)
-      curve = t * (1 - blend) + slow * blend;
-    }
-    arr[i] = Math.round(lv1 + (lv99 - lv1) * curve);
-  }
-  return arr;
-}
-
-// Cubic spline interpolation between anchor points
-function cubicSplineInterpolate(anchors: { idx: number; val: number }[], totalLen: number, maxVal: number): number[] {
-  const result = new Array(totalLen);
-  if (anchors.length === 0) return result.fill(0);
-  if (anchors.length === 1) return result.fill(anchors[0].val);
-
-  // Sort anchors by index
-  anchors.sort((a, b) => a.idx - b.idx);
-
-  // For segments before first anchor and after last anchor, just keep existing values
-  // We'll only interpolate between first and last anchor
-
-  const n = anchors.length;
-
-  // Build cubic spline (natural spline)
-  const xs = anchors.map(a => a.idx);
-  const ys = anchors.map(a => a.val);
-
-  // Compute spline coefficients using tridiagonal algorithm
-  const h: number[] = [];
-  for (let i = 0; i < n - 1; i++) {
-    h.push(xs[i + 1] - xs[i]);
-  }
-
-  // Set up tridiagonal system for second derivatives
-  const alpha: number[] = [0];
-  for (let i = 1; i < n - 1; i++) {
-    alpha.push(
-      (3 / h[i]) * (ys[i + 1] - ys[i]) - (3 / h[i - 1]) * (ys[i] - ys[i - 1])
-    );
-  }
-
-  const l: number[] = [1];
-  const mu: number[] = [0];
-  const z: number[] = [0];
-
-  for (let i = 1; i < n - 1; i++) {
-    l.push(2 * (xs[i + 1] - xs[i - 1]) - h[i - 1] * mu[i - 1]);
-    mu.push(h[i] / l[i]);
-    z.push((alpha[i] - h[i - 1] * z[i - 1]) / l[i]);
-  }
-
-  l.push(1);
-  z.push(0);
-
-  const c: number[] = new Array(n).fill(0);
-  const b: number[] = new Array(n - 1).fill(0);
-  const d: number[] = new Array(n - 1).fill(0);
-
-  for (let j = n - 2; j >= 0; j--) {
-    c[j] = z[j] - mu[j] * c[j + 1];
-    b[j] = (ys[j + 1] - ys[j]) / h[j] - h[j] * (c[j + 1] + 2 * c[j]) / 3;
-    d[j] = (c[j + 1] - c[j]) / (3 * h[j]);
-  }
-
-  // Evaluate spline at each integer point
-  for (let idx = 0; idx < totalLen; idx++) {
-    if (idx < xs[0]) {
-      result[idx] = ys[0];
-    } else if (idx > xs[n - 1]) {
-      result[idx] = ys[n - 1];
-    } else {
-      // Find the right segment
-      let seg = n - 2;
-      for (let i = 0; i < n - 1; i++) {
-        if (idx <= xs[i + 1]) {
-          seg = i;
-          break;
-        }
-      }
-      const dx = idx - xs[seg];
-      const val = ys[seg] + b[seg] * dx + c[seg] * dx * dx + d[seg] * dx * dx * dx;
-      result[idx] = Math.max(0, Math.min(maxVal, Math.round(val)));
-    }
-  }
-
-  return result;
-}
-
-// Preset parameter ranges for A~E presets
-// [lv1, lv99] for each param and preset level
-const PARAM_PRESETS: Record<string, number[][]> = {
-  maxHP:   [[450,9500],[400,8500],[350,7500],[300,6500],[250,5500]],
-  maxMP:   [[100,1900],[90,1700],[80,1500],[70,1300],[60,1100]],
-  attack:  [[30,300],[25,250],[20,200],[15,150],[10,100]],
-  defense: [[30,300],[25,250],[20,200],[15,150],[10,100]],
-  mAttack: [[30,300],[25,250],[20,200],[15,150],[10,100]],
-  mDefense:[[30,300],[25,250],[20,200],[15,150],[10,100]],
-  agility: [[30,300],[25,250],[20,200],[15,150],[10,100]],
-  luck:    [[30,300],[25,250],[20,200],[15,150],[10,100]],
-};
-
-const LEVELS_PER_COL = 20;
-
-export default function ParamCurveDialog({ params: initialParams, initialTab = 0, onConfirm, onCancel }: ParamCurveDialogProps) {
-  const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState(initialTab);
-  const [params, setParams] = useState<number[][]>(() =>
-    initialParams.map(arr => [...arr])
-  );
-=======
 export default function ParamCurveDialog({ params: initialParams, initialTab = 0, onConfirm, onCancel }: ParamCurveDialogProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [params, setParams] = useState<number[][]>(() => initialParams.map(arr => [...arr]));
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const [growthType, setGrowthType] = useState(0.5);
   const [yScale, setYScale] = useState<'linear' | 'log'>('linear');
   const [yZoomMin, setYZoomMin] = useState(0);
   const [yZoomMax, setYZoomMax] = useState(1);
 
-<<<<<<< HEAD
-  // Track initial values for color comparison
-  const initialParamsRef = useRef<number[][]>(initialParams.map(arr => [...arr]));
-
-  // Track manually modified (dragged) points per param for interpolation
-  const modifiedPointsRef = useRef<Set<number>[]>(
-    Array.from({ length: 8 }, () => new Set<number>())
-  );
-=======
   const initialParamsRef = useRef<number[][]>(initialParams.map(arr => [...arr]));
   const modifiedPointsRef = useRef<Set<number>[]>(Array.from({ length: 8 }, () => new Set<number>()));
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   useEscClose(onCancel);
 
@@ -183,11 +35,7 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ y: 0, yMin: 0, yMax: 0 });
 
-<<<<<<< HEAD
-  // activeTab이나 yScale 변경 시 줌 리셋
-=======
   // 탭/스케일 변경 시 줌 리셋
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const prevTabRef = useRef(activeTab);
   const prevScaleRef = useRef(yScale);
   if (prevTabRef.current !== activeTab || prevScaleRef.current !== yScale) {
@@ -198,26 +46,9 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
   }
 
   const PARAM_NAMES = PARAM_KEYS.map(k => t(`params.${k}`));
-<<<<<<< HEAD
-
-  const currentArr = params[activeTab] || new Array(99).fill(0);
-
-  // Get max value for current param type for Y axis scaling
-  const getMaxForParam = useCallback((paramIdx: number) => {
-    const key = PARAM_KEYS[paramIdx];
-    if (key === 'maxHP') return 9999;
-    if (key === 'maxMP') return 9999;
-    return 999;
-  }, []);
-
-  const maxVal = getMaxForParam(activeTab);
-
-  // Value color: red=increase, blue=decrease, white=same
-=======
   const currentArr = params[activeTab] || new Array(99).fill(0);
   const maxVal = getMaxForParam(activeTab);
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const getValueColor = useCallback((lv: number) => {
     const cur = params[activeTab][lv - 1];
     const orig = initialParamsRef.current[activeTab][lv - 1];
@@ -228,173 +59,6 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
 
   // Draw graph
   const drawGraph = useCallback(() => {
-<<<<<<< HEAD
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const W = canvas.width;
-    const H = canvas.height;
-    const padL = 50, padR = 15, padT = 15, padB = 30;
-    const gW = W - padL - padR;
-    const gH = H - padT - padB;
-
-    // Background
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(0, 0, W, H);
-
-    // Y축 매핑 함수
-    const useLog = yScale === 'log';
-    const dataMin = Math.max(1, Math.min(...currentArr.filter(v => v > 0)));
-    const logMin = useLog ? Math.log10(dataMin) : 0;
-    const logMax = useLog ? Math.log10(maxVal) : maxVal;
-
-    const normalize = (v: number): number => {
-      if (useLog) {
-        const lv = Math.log10(Math.max(1, v));
-        return logMax > logMin ? (lv - logMin) / (logMax - logMin) : 0;
-      }
-      return v / maxVal;
-    };
-
-    const valToY = (v: number): number => {
-      const norm = normalize(v);
-      const viewRange = yZoomMax - yZoomMin;
-      const mapped = viewRange > 0 ? (norm - yZoomMin) / viewRange : 0;
-      return padT + gH - mapped * gH;
-    };
-
-    const denormalize = (norm: number): number => {
-      if (useLog) {
-        return Math.pow(10, logMin + norm * (logMax - logMin));
-      }
-      return norm * maxVal;
-    };
-
-    // Grid lines
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= 10; i++) {
-      const y = padT + (i / 10) * gH;
-      ctx.beginPath();
-      ctx.moveTo(padL, y);
-      ctx.lineTo(W - padR, y);
-      ctx.stroke();
-    }
-    for (let lv = 1; lv <= 99; lv += 10) {
-      const x = padL + ((lv - 1) / 98) * gW;
-      ctx.beginPath();
-      ctx.moveTo(x, padT);
-      ctx.lineTo(x, padT + gH);
-      ctx.stroke();
-    }
-
-    // Axes
-    ctx.strokeStyle = '#666';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(padL, padT);
-    ctx.lineTo(padL, padT + gH);
-    ctx.lineTo(W - padR, padT + gH);
-    ctx.stroke();
-
-    // Clip to graph area
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(padL, padT, gW, gH);
-    ctx.clip();
-
-    // Fill under curve
-    const color = PARAM_COLORS[activeTab];
-    ctx.fillStyle = color + '40';
-    ctx.beginPath();
-    ctx.moveTo(padL, padT + gH);
-    for (let i = 0; i < 99; i++) {
-      const x = padL + (i / 98) * gW;
-      const v = Math.max(0, Math.min(currentArr[i], maxVal));
-      const y = valToY(v);
-      ctx.lineTo(x, y);
-    }
-    ctx.lineTo(padL + gW, padT + gH);
-    ctx.closePath();
-    ctx.fill();
-
-    // Curve line
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let i = 0; i < 99; i++) {
-      const x = padL + (i / 98) * gW;
-      const v = Math.max(0, Math.min(currentArr[i], maxVal));
-      const y = valToY(v);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-
-    // Draw modified points (anchor markers)
-    const modSet = modifiedPointsRef.current[activeTab];
-    if (modSet.size > 0) {
-      for (const idx of modSet) {
-        const x = padL + (idx / 98) * gW;
-        const v = Math.max(0, Math.min(currentArr[idx], maxVal));
-        const y = valToY(v);
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    // Draw points (every 10 levels)
-    for (let lv = 1; lv <= 99; lv += 10) {
-      const i = lv - 1;
-      if (modSet.has(i)) continue; // already drawn as anchor
-      const x = padL + (i / 98) * gW;
-      const v = Math.max(0, Math.min(currentArr[i], maxVal));
-      const y = valToY(v);
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-
-    ctx.restore(); // unclip
-
-    // Axis labels
-    ctx.fillStyle = '#999';
-    ctx.font = '11px sans-serif';
-    ctx.textAlign = 'center';
-    for (let lv = 1; lv <= 99; lv += 10) {
-      const x = padL + ((lv - 1) / 98) * gW;
-      ctx.fillText(String(lv), x, padT + gH + 16);
-    }
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    const labelCount = 5;
-    for (let i = 0; i <= labelCount; i++) {
-      const viewNorm = yZoomMin + (i / labelCount) * (yZoomMax - yZoomMin);
-      const val = Math.round(denormalize(viewNorm));
-      const y = padT + gH - (i / labelCount) * gH;
-      ctx.fillText(val.toLocaleString(), padL - 5, y);
-    }
-    ctx.textBaseline = 'alphabetic';
-  }, [currentArr, activeTab, maxVal, yScale, yZoomMin, yZoomMax]);
-
-  useEffect(() => {
-    drawGraph();
-  }, [drawGraph]);
-
-  // Canvas resize observer
-=======
     if (!canvasRef.current) return;
     drawParamGraph(canvasRef.current, {
       activeTab, currentArr, maxVal, yScale, yZoomMin, yZoomMax,
@@ -404,7 +68,6 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
 
   useEffect(() => { drawGraph(); }, [drawGraph]);
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -420,53 +83,6 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     return () => ro.disconnect();
   }, [drawGraph]);
 
-<<<<<<< HEAD
-  // Mouse -> level/value mapping (줌 적용)
-  const canvasToLvVal = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const mx = (e.clientX - rect.left) * scaleX;
-    const my = (e.clientY - rect.top) * scaleY;
-
-    const W = canvas.width, H = canvas.height;
-    const padL = 50, padR = 15, padT = 15, padB = 30;
-    const gW = W - padL - padR;
-    const gH = H - padT - padB;
-
-    const lv = Math.round(((mx - padL) / gW) * 98) + 1;
-
-    // 줌/로그를 고려한 Y 역변환
-    const yRatio = 1 - (my - padT) / gH; // 0(하단)~1(상단)
-    const viewRange = yZoomMax - yZoomMin;
-    const norm = yZoomMin + yRatio * viewRange;
-
-    let val: number;
-    if (yScale === 'log') {
-      const dataMin = Math.max(1, Math.min(...currentArr.filter(v => v > 0)));
-      const logMin = Math.log10(dataMin);
-      const logMax = Math.log10(maxVal);
-      val = Math.round(Math.pow(10, logMin + norm * (logMax - logMin)));
-    } else {
-      val = Math.round(norm * maxVal);
-    }
-
-    return {
-      lv: Math.max(1, Math.min(99, lv)),
-      val: Math.max(0, Math.min(maxVal, val))
-    };
-  }, [maxVal, yScale, yZoomMin, yZoomMax, currentArr]);
-
-  const applyDragPoint = useCallback((lv: number, val: number) => {
-    const idx = lv - 1;
-    modifiedPointsRef.current[activeTab].add(idx);
-    setParams(prev => {
-      const newParams = prev.map(a => [...a]);
-      newParams[activeTab][idx] = val;
-      return newParams;
-=======
   // Canvas interaction
   const canvasToLvVal = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return null;
@@ -479,36 +95,19 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
       const np = prev.map(a => [...a]);
       np[activeTab][lv - 1] = val;
       return np;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     });
   }, [activeTab]);
 
   const interpolateDrag = useCallback((fromLv: number, toLv: number, toVal: number) => {
     setParams(prev => {
-<<<<<<< HEAD
-      const newParams = prev.map(a => [...a]);
-      const arr = newParams[activeTab];
-=======
       const np = prev.map(a => [...a]);
       const arr = np[activeTab];
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       const modSet = modifiedPointsRef.current[activeTab];
       if (fromLv === toLv) {
         arr[toLv - 1] = toVal;
         modSet.add(toLv - 1);
       } else {
         const fromVal = arr[fromLv - 1];
-<<<<<<< HEAD
-        const minLv = Math.min(fromLv, toLv);
-        const maxLv = Math.max(fromLv, toLv);
-        for (let lv = minLv; lv <= maxLv; lv++) {
-          const t = (lv - fromLv) / (toLv - fromLv);
-          arr[lv - 1] = Math.round(fromVal + (toVal - fromVal) * t);
-          modSet.add(lv - 1);
-        }
-      }
-      return newParams;
-=======
         const minLv = Math.min(fromLv, toLv), maxLv = Math.max(fromLv, toLv);
         for (let lv = minLv; lv <= maxLv; lv++) {
           arr[lv - 1] = Math.round(fromVal + (toVal - fromVal) * ((lv - fromLv) / (toLv - fromLv)));
@@ -516,16 +115,11 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
         }
       }
       return np;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     });
   }, [activeTab]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (e.button === 1) {
-<<<<<<< HEAD
-      // 중버튼: 패닝
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       e.preventDefault();
       isPanningRef.current = true;
       panStartRef.current = { y: e.clientY, yMin: yZoomMin, yMax: yZoomMax };
@@ -540,20 +134,11 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
   }, [canvasToLvVal, applyDragPoint, yZoomMin, yZoomMax]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-<<<<<<< HEAD
-    // 패닝 처리
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     if (isPanningRef.current) {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-<<<<<<< HEAD
-      const padT = 15, padB = 30;
-      const gH = rect.height - (padT + padB) * (rect.height / canvas.height);
-=======
       const gH = rect.height - (15 + 30) * (rect.height / canvas.height);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       const dy = e.clientY - panStartRef.current.y;
       const range = panStartRef.current.yMax - panStartRef.current.yMin;
       const delta = (dy / gH) * range;
@@ -561,20 +146,10 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
       let newMax = panStartRef.current.yMax + delta;
       if (newMin < 0) { newMax -= newMin; newMin = 0; }
       if (newMax > 1) { newMin -= (newMax - 1); newMax = 1; }
-<<<<<<< HEAD
-      newMin = Math.max(0, newMin);
-      newMax = Math.min(1, newMax);
-      setYZoomMin(newMin);
-      setYZoomMax(newMax);
-      return;
-    }
-    // 값 편집 드래그
-=======
       setYZoomMin(Math.max(0, newMin));
       setYZoomMax(Math.min(1, newMax));
       return;
     }
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     if (!isDragging.current) return;
     const pt = canvasToLvVal(e);
     if (!pt) return;
@@ -592,29 +167,11 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     isPanningRef.current = false;
   }, []);
 
-<<<<<<< HEAD
-  // Mouse wheel zoom on Y axis
-=======
   // Wheel zoom
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-<<<<<<< HEAD
-    const padT = 15, padB = 30;
-    const gH = canvas.height - padT - padB;
-    const mouseY = e.clientY - rect.top;
-    const canvasY = mouseY * (canvas.height / rect.height);
-    const yRatio = 1 - Math.max(0, Math.min(1, (canvasY - padT) / gH));
-
-    const zoomFactor = e.deltaY > 0 ? 1.15 : 1 / 1.15;
-    const curMin = yZoomMin;
-    const curMax = yZoomMax;
-    const range = curMax - curMin;
-    const newRange = Math.min(1, range * zoomFactor);
-    const pivot = curMin + yRatio * range;
-=======
     const gH = canvas.height - 15 - 30;
     const canvasY = (e.clientY - rect.top) * (canvas.height / rect.height);
     const yRatio = 1 - Math.max(0, Math.min(1, (canvasY - 15) / gH));
@@ -622,25 +179,14 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     const range = yZoomMax - yZoomMin;
     const newRange = Math.min(1, range * zoomFactor);
     const pivot = yZoomMin + yRatio * range;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     let newMin = pivot - yRatio * newRange;
     let newMax = pivot + (1 - yRatio) * newRange;
     if (newMin < 0) { newMax -= newMin; newMin = 0; }
     if (newMax > 1) { newMin -= (newMax - 1); newMax = 1; }
-<<<<<<< HEAD
-    newMin = Math.max(0, newMin);
-    newMax = Math.min(1, newMax);
-    setYZoomMin(newMin);
-    setYZoomMax(newMax);
-  }, [yZoomMin, yZoomMax]);
-
-  // Non-passive wheel event to allow preventDefault
-=======
     setYZoomMin(Math.max(0, newMin));
     setYZoomMax(Math.min(1, newMax));
   }, [yZoomMin, yZoomMax]);
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const wheelHandlerRef = useRef(handleWheel);
   wheelHandlerRef.current = handleWheel;
   useEffect(() => {
@@ -654,78 +200,6 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     return () => canvas.removeEventListener('wheel', handler);
   }, []);
 
-<<<<<<< HEAD
-  // Generate curve
-  const handleGenerate = useCallback(() => {
-    const lv1 = currentArr[0];
-    const lv99 = currentArr[98];
-    const curve = generateCurve(lv1, lv99, growthType);
-    modifiedPointsRef.current[activeTab].clear();
-    setParams(prev => {
-      const newParams = prev.map(a => [...a]);
-      newParams[activeTab] = curve;
-      return newParams;
-    });
-  }, [currentArr, growthType, activeTab]);
-
-  // Apply preset
-  const applyPreset = useCallback((presetIdx: number) => {
-    const key = PARAM_KEYS[activeTab];
-    const preset = PARAM_PRESETS[key][presetIdx];
-    const curve = generateCurve(preset[0], preset[1], 0.5);
-    modifiedPointsRef.current[activeTab].clear();
-    setParams(prev => {
-      const newParams = prev.map(a => [...a]);
-      newParams[activeTab] = curve;
-      return newParams;
-    });
-  }, [activeTab]);
-
-  // Interpolation: smooth between modified anchor points using cubic spline
-  const handleInterpolate = useCallback(() => {
-    const modSet = modifiedPointsRef.current[activeTab];
-    if (modSet.size < 2) return; // need at least 2 anchor points
-
-    setParams(prev => {
-      const newParams = prev.map(a => [...a]);
-      const arr = newParams[activeTab];
-      const anchors = Array.from(modSet)
-        .sort((a, b) => a - b)
-        .map(idx => ({ idx, val: arr[idx] }));
-
-      const interpolated = cubicSplineInterpolate(anchors, 99, maxVal);
-
-      // Apply interpolated values only between first and last anchor
-      const firstIdx = anchors[0].idx;
-      const lastIdx = anchors[anchors.length - 1].idx;
-      for (let i = firstIdx; i <= lastIdx; i++) {
-        if (!modSet.has(i)) {
-          arr[i] = interpolated[i];
-        }
-      }
-
-      return newParams;
-    });
-  }, [activeTab, maxVal]);
-
-  // Clear modified points
-  const handleClearAnchors = useCallback(() => {
-    modifiedPointsRef.current[activeTab].clear();
-    // Force re-render
-    setParams(prev => prev.map(a => [...a]));
-  }, [activeTab]);
-
-  // Value editing
-  const handleValueChange = useCallback((lv: number, val: number) => {
-    setParams(prev => {
-      const newParams = prev.map(a => [...a]);
-      newParams[activeTab][lv - 1] = Math.max(0, Math.min(maxVal, val));
-      return newParams;
-    });
-  }, [activeTab, maxVal]);
-
-  // Build columns for the table (20 levels per column)
-=======
   const handleGenerate = useCallback(() => {
     modifiedPointsRef.current[activeTab].clear();
     setParams(prev => {
@@ -774,41 +248,15 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     });
   }, [activeTab, maxVal]);
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const columns: { startLv: number; endLv: number }[] = [];
   for (let start = 1; start <= 99; start += LEVELS_PER_COL) {
     columns.push({ startLv: start, endLv: Math.min(start + LEVELS_PER_COL - 1, 99) });
   }
-<<<<<<< HEAD
-
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const modCount = modifiedPointsRef.current[activeTab].size;
 
   return (
     <div className="param-curve-overlay" onMouseUp={handleMouseUp}>
       <div className="param-curve-dialog">
-<<<<<<< HEAD
-        <div className="param-curve-header">
-          {t('fields.paramCurves')}
-        </div>
-        <div className="param-curve-body">
-          {/* Param tabs */}
-          <div className="param-curve-tabs">
-            {PARAM_NAMES.map((name, i) => (
-              <div
-                key={i}
-                className={`param-curve-tab${i === activeTab ? ' active' : ''}`}
-                style={i === activeTab ? { borderBottomColor: PARAM_COLORS[i] } : undefined}
-                onClick={() => setActiveTab(i)}
-              >
-                {name}
-              </div>
-            ))}
-          </div>
-
-          {/* Controls row */}
-=======
         <div className="param-curve-header">{t('fields.paramCurves')}</div>
         <div className="param-curve-body">
           <div className="param-curve-tabs">
@@ -819,72 +267,26 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
             ))}
           </div>
 
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
           <div className="param-curve-controls">
             <div className="param-curve-presets">
               <span className="param-curve-label">{t('paramCurve.quickSetup', '간단 설정')}</span>
               {['A', 'B', 'C', 'D', 'E'].map((letter, i) => (
-<<<<<<< HEAD
-                <button key={letter} className="db-btn-small param-preset-btn" onClick={() => applyPreset(i)}>
-                  {letter}
-                </button>
-=======
                 <button key={letter} className="db-btn-small param-preset-btn" onClick={() => applyPreset(i)}>{letter}</button>
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
               ))}
             </div>
             <div className="param-curve-lv-val">
               <span className="param-curve-label">{t('fields.level', '레벨')}:</span>
-<<<<<<< HEAD
-              <input
-                type="number"
-                className="param-curve-input"
-                value={currentArr[0]}
-                min={0}
-                max={maxVal}
-                onChange={(e) => handleValueChange(1, Number(e.target.value))}
-              />
-              <span className="param-curve-arrow">&gt;</span>
-              <span className="param-curve-label">{t('paramCurve.value', '값')}:</span>
-              <input
-                type="number"
-                className="param-curve-input"
-                value={currentArr[98]}
-                min={0}
-                max={maxVal}
-                onChange={(e) => handleValueChange(99, Number(e.target.value))}
-              />
-=======
               <input type="number" className="param-curve-input" value={currentArr[0]} min={0} max={maxVal}
                 onChange={(e) => handleValueChange(1, Number(e.target.value))} />
               <span className="param-curve-arrow">&gt;</span>
               <span className="param-curve-label">{t('paramCurve.value', '값')}:</span>
               <input type="number" className="param-curve-input" value={currentArr[98]} min={0} max={maxVal}
                 onChange={(e) => handleValueChange(99, Number(e.target.value))} />
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
               <button className="db-btn param-generate-btn" onClick={handleGenerate}>
                 {t('paramCurve.generateCurve', '곡선 생성...')}
               </button>
             </div>
             <div className="param-curve-interpolate">
-<<<<<<< HEAD
-              <button
-                className="db-btn"
-                onClick={handleInterpolate}
-                disabled={modCount < 2}
-                title={t('paramCurve.interpolateDesc', '수정한 포인트를 기준으로 곡선 보간')}
-              >
-                {t('paramCurve.interpolate', '보간')} ({modCount})
-              </button>
-              {modCount > 0 && (
-                <button
-                  className="db-btn-small"
-                  onClick={handleClearAnchors}
-                  title={t('paramCurve.clearAnchors', '앵커 초기화')}
-                >
-                  ✕
-                </button>
-=======
               <button className="db-btn" onClick={handleInterpolate} disabled={modCount < 2}
                 title={t('paramCurve.interpolateDesc', '수정한 포인트를 기준으로 곡선 보간')}>
                 {t('paramCurve.interpolate', '보간')} ({modCount})
@@ -892,62 +294,10 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
               {modCount > 0 && (
                 <button className="db-btn-small" onClick={handleClearAnchors}
                   title={t('paramCurve.clearAnchors', '앵커 초기화')}>✕</button>
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
               )}
             </div>
           </div>
 
-<<<<<<< HEAD
-          {/* Growth type slider */}
-          <div className="param-curve-growth">
-            <span className="param-curve-growth-label">{t('paramCurve.fast', '빠른 성장')}</span>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={growthType}
-              onChange={(e) => setGrowthType(Number(e.target.value))}
-              className="param-curve-growth-slider"
-            />
-            <span className="param-curve-growth-label">{t('paramCurve.slow', '느린 성장')}</span>
-          </div>
-
-          {/* Graph */}
-          <div className="param-curve-graph-container">
-            <canvas
-              ref={canvasRef}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onContextMenu={(e) => e.preventDefault()}
-              style={{ width: '100%', height: '100%', cursor: 'crosshair' }}
-            />
-            <div className="param-curve-graph-controls">
-              <button
-                className={`param-curve-scale-btn${yScale === 'linear' ? ' active' : ''}`}
-                onClick={() => setYScale('linear')}
-                title="Linear"
-              >
-                Lin
-              </button>
-              <button
-                className={`param-curve-scale-btn${yScale === 'log' ? ' active' : ''}`}
-                onClick={() => setYScale('log')}
-                title="Logarithmic"
-              >
-                Log
-              </button>
-              {(yZoomMin > 0.001 || yZoomMax < 0.999) && (
-                <button
-                  className="param-curve-scale-btn"
-                  onClick={() => { setYZoomMin(0); setYZoomMax(1); }}
-                  title={t('expCurve.resetZoom', '줌 리셋')}
-                >
-                  ↺
-                </button>
-=======
           <div className="param-curve-growth">
             <span className="param-curve-growth-label">{t('paramCurve.fast', '빠른 성장')}</span>
             <input type="range" min={0} max={1} step={0.01} value={growthType}
@@ -969,15 +319,10 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
                 <button className="param-curve-scale-btn"
                   onClick={() => { setYZoomMin(0); setYZoomMax(1); }}
                   title={t('expCurve.resetZoom', '줌 리셋')}>↺</button>
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
               )}
             </div>
           </div>
 
-<<<<<<< HEAD
-          {/* Value table */}
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
           <div className="param-curve-table">
             {columns.map((col, ci) => (
               <div key={ci} className="param-curve-table-col">
@@ -986,21 +331,9 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
                   return (
                     <div key={lv} className="param-curve-table-row">
                       <span className="param-curve-table-lv">Lv {String(lv).padStart(2, ' ')}</span>
-<<<<<<< HEAD
-                      <input
-                        type="number"
-                        className="param-curve-table-input"
-                        style={{ color: getValueColor(lv) }}
-                        value={currentArr[lv - 1]}
-                        min={0}
-                        max={maxVal}
-                        onChange={(e) => handleValueChange(lv, Number(e.target.value))}
-                      />
-=======
                       <input type="number" className="param-curve-table-input"
                         style={{ color: getValueColor(lv) }} value={currentArr[lv - 1]}
                         min={0} max={maxVal} onChange={(e) => handleValueChange(lv, Number(e.target.value))} />
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                     </div>
                   );
                 })}
@@ -1009,10 +342,6 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
           </div>
         </div>
 
-<<<<<<< HEAD
-        {/* Footer */}
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         <div className="param-curve-footer">
           <button className="db-btn" onClick={() => onConfirm(params)}>OK</button>
           <button className="db-btn" onClick={onCancel}>{t('common.cancel', '취소')}</button>

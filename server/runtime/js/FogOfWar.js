@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 /*:
  * @plugindesc 전쟁의 안개 시스템 (3D 볼류메트릭 안개 + 시야 관리)
  * @author RPG Maker MV Web Editor
@@ -108,7 +106,6 @@
  * FogOfWar.js는 에디터 코어 파일로 자동으로 로드됩니다.
  * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
  */
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 //=============================================================================
 // FogOfWar.js - Fog of War 시스템 (런타임 + 에디터)
 //=============================================================================
@@ -228,16 +225,10 @@ var VOL_FOG_FRAG = [
     '    float d = dot(_hash22(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0));',
     '    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);',
     '}',
-<<<<<<< HEAD
-    'float fbm3(vec2 p) {',
-    '    float v = 0.0; float amp = 0.5;',
-    '    for (int i = 0; i < 3; i++) { v += amp * _valueNoise(p); p *= 2.03; amp *= 0.5; }',
-=======
     'float fbm2(vec2 p) {',
     '    float v = 0.5 * _valueNoise(p);',
     '    p *= 2.03;',
     '    v += 0.25 * _valueNoise(p);',
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     '    return v;',
     '}',
     '',
@@ -386,11 +377,7 @@ var VOL_FOG_FRAG = [
     '        if (tMin >= tMax) discard;',
     '    }',
     '',
-<<<<<<< HEAD
-    '    const int MAX_STEPS = 48;',
-=======
     '    const int MAX_STEPS = 24;',
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     '    float stepSize = (tMax - tMin) / float(MAX_STEPS);',
     '    float dither = fract(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)) * 43758.5453);',
     '',
@@ -399,11 +386,7 @@ var VOL_FOG_FRAG = [
     '    float t = tMin + stepSize * dither;',
     '',
     '    for (int i = 0; i < MAX_STEPS; i++) {',
-<<<<<<< HEAD
-    '        if (accAlpha > 0.97) break;',
-=======
     '        if (accAlpha > 0.95) break;',
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     '        vec3 samplePos = rayOrigin + rayDir * t;',
     '        float heightNorm = clamp(samplePos.z / fogHeight, 0.0, 1.0);',
     '',
@@ -431,12 +414,7 @@ var VOL_FOG_FRAG = [
     '',
     '        // === 경계 애니메이션 ===',
     '        float timeS = uTime * edgeAnimSpeed;',
-<<<<<<< HEAD
-    '        float edgeWave = _valueNoise(samplePos.xy * 0.015 + vec2(timeS * 0.08, timeS * 0.06));',
-    '        edgeWave += 0.5 * _valueNoise(samplePos.xy * 0.03 + vec2(-timeS * 0.05, timeS * 0.04));',
-=======
     '        float edgeWave = _valueNoise(samplePos.xy * 0.02 + vec2(timeS * 0.07, timeS * 0.05));',
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     '        float edgeMask = smoothstep(0.0, 0.15, baseDensity) * (1.0 - smoothstep(0.4, 0.7, baseDensity));',
     '        baseDensity += edgeWave * 0.2 * edgeMask * edgeAnimOn;',
     '        baseDensity = clamp(baseDensity, 0.0, 1.0);',
@@ -446,11 +424,7 @@ var VOL_FOG_FRAG = [
     '        float heightFalloff = exp(-heightNorm * 3.0);',
     '        vec2 noiseCoord = samplePos.xy * 0.004 + vec2(uTime * 0.02, uTime * 0.015);',
     '        noiseCoord += vec2(heightNorm * 5.0);',
-<<<<<<< HEAD
-    '        float noise = fbm3(noiseCoord);',
-=======
     '        float noise = fbm2(noiseCoord);',
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     '',
     '        float density = baseDensity * heightFalloff * (1.0 + noise * 0.5);',
     '        density = clamp(density, 0.0, 1.0);',
@@ -1651,22 +1625,13 @@ FogOfWar._updateMeshUniforms = function() {
 
     this._time += 1.0 / 60.0;
 
-<<<<<<< HEAD
-    var fogColorVec = new THREE.Vector3(this._fogColor.r, this._fogColor.g, this._fogColor.b);
-
-=======
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     // 단일 메쉬의 유니폼 갱신
     var fogMesh = this._fogGroup.children[0];
     if (!fogMesh) return;
 
     var u = fogMesh.material.uniforms;
     u.tFog.value = this._fogTexture;
-<<<<<<< HEAD
-    u.fogColor.value.copy(fogColorVec);
-=======
     u.fogColor.value.set(this._fogColor.r, this._fogColor.g, this._fogColor.b);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     u.unexploredAlpha.value = this._unexploredAlpha;
     u.exploredAlpha.value = this._exploredAlpha;
     if (u.uTime) u.uTime.value = this._time;
@@ -1729,11 +1694,7 @@ FogOfWar._updateMeshUniforms = function() {
         if (this._edgeMesh && this._edgeMesh.material) {
             var eu = this._edgeMesh.material.uniforms;
             eu.tFog.value = this._fogTexture;
-<<<<<<< HEAD
-            eu.fogColor.value.copy(fogColorVec);
-=======
             eu.fogColor.value.set(this._fogColor.r, this._fogColor.g, this._fogColor.b);
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             eu.exploredAlpha.value = this._exploredAlpha;
             eu.unexploredAlpha.value = this._unexploredAlpha;
             eu.uTime.value = this._time;
@@ -1967,8 +1928,6 @@ if (typeof Game_Interpreter !== 'undefined') {
         if (command === 'FogOfWar') {
             var sub = args[0];
             if (sub === 'Enable') {
-<<<<<<< HEAD
-=======
                 // 현재 모드(2D/3D)에 따라 enabled 플래그 설정
                 var _is3D = typeof Mode3D !== 'undefined' && Mode3D._active;
                 if (_is3D) {
@@ -1976,7 +1935,6 @@ if (typeof Game_Interpreter !== 'undefined') {
                 } else {
                     FogOfWar._enabled2D = true;
                 }
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 if (!FogOfWar._active && $dataMap) {
                     FogOfWar.setup($dataMap.width, $dataMap.height, $dataMap.fogOfWar || {});
                 }
@@ -1995,8 +1953,6 @@ if (typeof Game_Interpreter !== 'undefined') {
                 var rw = parseInt(args[3]) || 1;
                 var rh = parseInt(args[4]) || 1;
                 FogOfWar.revealRect(rx, ry, rw, rh);
-<<<<<<< HEAD
-=======
             } else if (sub === 'FogColor') {
                 // FogOfWar FogColor #rrggbb
                 var hexStr = (args[1] || '#000000').replace('#', '');
@@ -2054,7 +2010,6 @@ if (typeof Game_Interpreter !== 'undefined') {
                         });
                     }
                 }
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             }
         }
     };

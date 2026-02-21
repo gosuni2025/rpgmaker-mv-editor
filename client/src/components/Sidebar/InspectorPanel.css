@@ -715,8 +715,6 @@
   color: #999;
   width: 56px;
   flex-shrink: 0;
-<<<<<<< HEAD
-=======
   display: flex;
   align-items: center;
   gap: 2px;
@@ -765,7 +763,6 @@
 
 .anim-slider-tooltip-wrap:hover .anim-slider-tooltip-box {
   display: block;
->>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 }
 
 .anim-tile-slider {
