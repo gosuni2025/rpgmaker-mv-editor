@@ -2,6 +2,19 @@ import type { EventCommand } from '../../types/rpgMakerMV';
 import { CONTINUATION_CODES, BLOCK_END_CODES } from './commandConstants';
 
 /**
+ * Change indent of selected commands by delta (+1 or -1). Minimum indent is 0.
+ */
+export function buildIndentedCommands(
+  commands: EventCommand[], indices: Set<number>, delta: number,
+): EventCommand[] {
+  return commands.map((cmd, i) => {
+    if (!indices.has(i)) return cmd;
+    const newIndent = Math.max(0, cmd.indent + delta);
+    return { ...cmd, indent: newIndent };
+  });
+}
+
+/**
  * Insert a new command with block structure handling (if/loop/choice/battle).
  */
 export function buildInsertedCommands(

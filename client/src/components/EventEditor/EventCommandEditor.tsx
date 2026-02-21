@@ -17,7 +17,7 @@ import { useCommandDragDrop } from './useCommandDragDrop';
 import { useCommandMove } from './useCommandMove';
 import { useCommandFolding } from './useCommandFolding';
 import { CommandRow } from './CommandRow';
-import { buildInsertedCommands, buildUpdatedCommands } from './commandOperations';
+import { buildInsertedCommands, buildUpdatedCommands, buildIndentedCommands } from './commandOperations';
 
 export interface EventCommandContext {
   mapId?: number;
@@ -71,6 +71,11 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     commands, selectedIndices, changeWithHistory, setSelectedIndices, setLastClickedIndex,
   );
 
+  const indentSelected = useCallback((delta: number) => {
+    if (selectedIndices.size === 0) return;
+    changeWithHistory(buildIndentedCommands(commands, selectedIndices, delta));
+  }, [commands, selectedIndices, changeWithHistory]);
+
   // Fold state restore/save
   const foldKeyRef = useRef<string | null>(null);
   useEffect(() => {
@@ -118,11 +123,12 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       else if (mod && e.key === 'y') { e.preventDefault(); e.stopPropagation(); redo(); }
       else if (mod && e.key === 'a') { e.preventDefault(); e.stopPropagation(); const all = new Set<number>(); for (let i = 0; i < commands.length - 1; i++) all.add(i); setSelectedIndices(all); }
       else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIndices.size > 0) { e.preventDefault(); deleteSelected(); }
+      else if (e.key === 'Tab' && selectedIndices.size > 0) { e.preventDefault(); e.stopPropagation(); indentSelected(e.shiftKey ? -1 : 1); }
       else if (e.key === ' ') { e.preventDefault(); primaryIndex >= 0 && primaryIndex < commands.length ? handleDoubleClick(primaryIndex) : setShowAddDialog(true); }
     };
     container.addEventListener('keydown', handleKeyDown);
     return () => container.removeEventListener('keydown', handleKeyDown);
-  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, showAddDialog, pendingCode, editingIndex, showMoveRoute, selectedIndices, commands, setSelectedIndices, primaryIndex]);
+  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, indentSelected, showAddDialog, pendingCode, editingIndex, showMoveRoute, selectedIndices, commands, setSelectedIndices, primaryIndex]);
 
   // Global space key
   useEffect(() => {
@@ -228,6 +234,9 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
         <span className="event-commands-toolbar-sep" />
         <button className="db-btn-small" onClick={() => moveSelected('up')} disabled={!canMoveUp} title={t('eventCommands.moveUp')}>▲</button>
         <button className="db-btn-small" onClick={() => moveSelected('down')} disabled={!canMoveDown} title={t('eventCommands.moveDown')}>▼</button>
+        <span className="event-commands-toolbar-sep" />
+        <button className="db-btn-small" onClick={() => indentSelected(-1)} disabled={selectedIndices.size === 0} title="인덴트 감소 (Shift+Tab)">←</button>
+        <button className="db-btn-small" onClick={() => indentSelected(1)} disabled={selectedIndices.size === 0} title="인덴트 증가 (Tab)">→</button>
         {foldableIndices.size > 0 && (
           <>
             <span className="event-commands-toolbar-sep" />
