@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Animation, AnimationTiming, AudioFile } from '../../types/rpgMakerMV';
-import AudioPicker from '../common/AudioPicker';
 import AnimationPreview from './AnimationPreview';
 import type { AnimationPreviewHandle } from './AnimationPreview';
 import DatabaseList from './DatabaseList';
 import { ImageSelectPopup, EnemyImageSelectPopup, MaxFrameDialog, TweenDialog, BatchSettingDialog, ShiftDialog } from './AnimationDialogs';
 import { applyTween, applyBatchSetting, applyShift } from './animationOperations';
+import { AnimationTimingSection } from './AnimationTimingSection';
 import './AnimationsTab.css';
 import './AnimationPreview.css';
 
@@ -22,7 +22,6 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
   const { t } = useTranslation();
   const POSITION_OPTIONS = [t('animations.positions.0'), t('animations.positions.1'), t('animations.positions.2'), t('animations.positions.3')];
   const [selectedId, setSelectedId] = useState(1);
-  const [selectedTimingIdx, setSelectedTimingIdx] = useState<number>(-1);
   const [selectedFrameIdx, setSelectedFrameIdx] = useState(0);
   const [showImg1Popup, setShowImg1Popup] = useState(false);
   const [showImg2Popup, setShowImg2Popup] = useState(false);
@@ -166,37 +165,6 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     onChange([null, ...items]);
   }, [data, onChange]);
 
-  const handleTimingChange = (index: number, field: keyof AnimationTiming, value: unknown) => {
-    const timings = [...(selectedItem?.timings || [])];
-    timings[index] = { ...timings[index], [field]: value };
-    handleFieldChange('timings', timings);
-  };
-
-  const addTiming = () => {
-    const timings = [...(selectedItem?.timings || []), { flashColor: [255, 255, 255, 170], flashDuration: 5, flashScope: 1, frame: 0, se: { name: '', pan: 0, pitch: 100, volume: 90 } }];
-    handleFieldChange('timings', timings);
-    setSelectedTimingIdx(timings.length - 1);
-  };
-
-  const removeTiming = (index: number) => {
-    handleFieldChange('timings', (selectedItem?.timings || []).filter((_: unknown, i: number) => i !== index));
-    setSelectedTimingIdx(-1);
-  };
-
-  const getTimingSeText = (timing: AnimationTiming): string => {
-    if (timing.se && timing.se.name) return timing.se.name;
-    return t('animations.noSe');
-  };
-
-  const getTimingFlashText = (timing: AnimationTiming): string => {
-    if (timing.flashScope === 3) return t('animations.hideTarget');
-    if (timing.flashScope === 0 || (!timing.flashColor && timing.flashScope !== 3)) return t('animations.noFlash');
-    const c = timing.flashColor || [255, 255, 255, 170];
-    const d = timing.flashDuration || 0;
-    if (timing.flashScope === 2) return `화면(${c[0]},${c[1]},${c[2]},${c[3]}), ${d}프레임들`;
-    return `대상(${c[0]},${c[1]},${c[2]},${c[3]}), ${d}프레임들`;
-  };
-
   const totalFrames = selectedItem?.frames?.length || 0;
 
   return (
@@ -249,85 +217,11 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
                 </div>
               </fieldset>
 
-              {/* 오른쪽: SE와 Flash 타이밍 (테두리 박스) */}
-              <fieldset className="anim-fieldset anim-timing-section">
-                <legend>{t('animations.seAndFlashTiming')}</legend>
-                <div className="anim-timing-table-wrapper">
-                  <table className="anim-timing-table">
-                    <thead>
-                      <tr>
-                        <th className="anim-timing-col-no">{t('animations.timingNo')}</th>
-                        <th className="anim-timing-col-se">{t('animations.timingSe')}</th>
-                        <th className="anim-timing-col-flash">{t('animations.timingFlash')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(selectedItem.timings || []).map((timing: AnimationTiming, i: number) => (
-                        <tr
-                          key={i}
-                          className={selectedTimingIdx === i ? 'selected' : ''}
-                          onClick={() => setSelectedTimingIdx(i)}
-                          onDoubleClick={() => setSelectedTimingIdx(i)}
-                        >
-                          <td className="anim-timing-col-no">#{String(i + 1).padStart(3, '0')}</td>
-                          <td className="anim-timing-col-se">{getTimingSeText(timing)}</td>
-                          <td className="anim-timing-col-flash">{getTimingFlashText(timing)}, {timing.frame}프레임들</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* 선택된 타이밍 편집 */}
-                {selectedTimingIdx >= 0 && selectedItem.timings && selectedItem.timings[selectedTimingIdx] && (
-                  <div className="anim-timing-edit">
-                    <div className="anim-timing-edit-row">
-                      <label>
-                        {t('animations.frame')}
-                        <input type="number" min={0} value={selectedItem.timings[selectedTimingIdx].frame} onChange={(e) => handleTimingChange(selectedTimingIdx, 'frame', Number(e.target.value))} style={{ width: 60 }} />
-                      </label>
-                      <label>
-                        {t('animations.flashScope')}
-                        <select value={selectedItem.timings[selectedTimingIdx].flashScope} onChange={(e) => handleTimingChange(selectedTimingIdx, 'flashScope', Number(e.target.value))}>
-                          <option value={0}>{t('animations.flashScopes.0')}</option>
-                          <option value={1}>{t('animations.flashScopes.1')}</option>
-                          <option value={2}>{t('animations.flashScopes.2')}</option>
-                          <option value={3}>{t('animations.flashScopes.3')}</option>
-                        </select>
-                      </label>
-                      <label>
-                        {t('animations.duration')}
-                        <input type="number" min={0} value={selectedItem.timings[selectedTimingIdx].flashDuration || 0} onChange={(e) => handleTimingChange(selectedTimingIdx, 'flashDuration', Number(e.target.value))} style={{ width: 50 }} />
-                      </label>
-                      <button className="db-btn-small" style={{ marginLeft: 'auto' }} onClick={addTiming}>+</button>
-                      <button className="db-btn-small" onClick={() => removeTiming(selectedTimingIdx)}>-</button>
-                    </div>
-                    <div className="anim-timing-edit-row">
-                      <label style={{ flex: 1 }}>
-                        SE
-                        <AudioPicker type="se" value={selectedItem.timings[selectedTimingIdx].se || { name: '', pan: 0, pitch: 100, volume: 90 }} onChange={(a: AudioFile) => handleTimingChange(selectedTimingIdx, 'se', a)} />
-                      </label>
-                    </div>
-                    <div className="anim-timing-edit-row">
-                      <label>{t('animations.flashColor')}
-                        <div className="anim-flash-color-inputs">
-                          {[0, 1, 2, 3].map((ci) => (
-                            <input key={ci} type="number" value={(selectedItem.timings![selectedTimingIdx].flashColor || [255, 255, 255, 170])[ci]}
-                              onChange={(e) => { const c = [...(selectedItem.timings![selectedTimingIdx].flashColor || [255, 255, 255, 170])]; c[ci] = Number(e.target.value); handleTimingChange(selectedTimingIdx, 'flashColor', c); }}
-                              min={0} max={255} />
-                          ))}
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                )}
-                {/* 타이밍이 없거나 선택 안 됐을 때 +/- 버튼 */}
-                {(selectedTimingIdx < 0 || !selectedItem.timings || !selectedItem.timings[selectedTimingIdx]) && (
-                  <div className="anim-timing-edit-row" style={{ padding: '4px 0' }}>
-                    <button className="db-btn-small" style={{ marginLeft: 'auto' }} onClick={addTiming}>+</button>
-                  </div>
-                )}
-              </fieldset>
+              {/* 오른쪽: SE와 Flash 타이밍 */}
+              <AnimationTimingSection
+                timings={selectedItem.timings || []}
+                onTimingsChange={(timings) => handleFieldChange('timings', timings)}
+              />
             </div>
 
             {/* ===== 하단: 프레임 (테두리 박스) ===== */}
