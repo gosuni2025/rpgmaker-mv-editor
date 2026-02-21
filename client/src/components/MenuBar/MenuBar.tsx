@@ -282,7 +282,7 @@ export default function MenuBar() {
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
       setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
       setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog, setShowUpdateCheckDialog, setEditMode, setSelectedTool, setDrawShape, zoomIn, zoomOut,
-      zoomActualSize, undo, redo, openProject, projectPath, t]);
+      zoomActualSize, undo, redo, openProject, projectPath, t, showTileIdOverlay]);
 
   useMenuBarKeyboard(handleAction);
 
