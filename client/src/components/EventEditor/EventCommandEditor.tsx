@@ -325,7 +325,8 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
                 context={context} commands={commands}
                 isFoldable={foldableIndices.has(i)} isFolded={foldedSet.has(i) && foldableIndices.has(i)}
                 foldedCount={foldedCounts.get(i)} onToggleFold={toggleFold}
-                isMatch={findMatchSet.has(i)} isCurrentMatch={i === currentMatchCmdIdx} />
+                isMatch={findMatchSet.has(i)} isCurrentMatch={i === currentMatchCmdIdx}
+                findQuery={showFind ? findQuery : undefined} findOpts={showFind ? findOpts : undefined} />
             </React.Fragment>
           );
         })}

@@ -481,13 +481,9 @@
   border-bottom: 2px solid #555;
 }
 
-/* 찾기 매치 하이라이트 */
-.event-command-row.find-match {
-  background: rgba(255, 210, 0, 0.12);
-}
+/* 찾기 매치 하이라이트 — 인라인 단어 하이라이트 사용, 라인 배경 없음 */
 .event-command-row.find-match-current {
-  background: rgba(255, 160, 0, 0.30);
-  outline: 1px solid rgba(255, 160, 0, 0.75);
+  outline: 1px solid rgba(255, 160, 0, 0.55);
   outline-offset: -1px;
 }
 .event-command-row.selected.find-match-current {

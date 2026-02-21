@@ -5,6 +5,7 @@ import type { EventCommandContext } from './EventCommandEditor';
 import TranslateButton from '../common/TranslateButton';
 import { getCommandDisplay, getFoldPreview, type CommandDisplayContext } from './commandDisplayText';
 import { isDisabledComment } from './commandOperations';
+import { type FindOptions, splitByQuery } from './commandSearch';
 
 interface CommandRowProps {
   cmd: EventCommand;
@@ -28,6 +29,8 @@ interface CommandRowProps {
   onToggleFold?: (index: number) => void;
   isMatch?: boolean;
   isCurrentMatch?: boolean;
+  findQuery?: string;
+  findOpts?: FindOptions;
 }
 
 // 커맨드 코드별 텍스트 색상 (주 명령어 코드에만 적용; 부속 코드는 undefined)
@@ -82,7 +85,7 @@ const INDENT_WIDTH = 20; // paddingLeft per indent level (px)
 export const CommandRow = React.memo(function CommandRow({
   cmd, index, isSelected, isDragging, isGroupHL, isGroupFirst, isGroupLast, inGroup,
   draggable, displayCtx, onRowClick, onDoubleClick, onDragHandleMouseDown, context, commands,
-  isFoldable, isFolded, foldedCount, onToggleFold, isMatch, isCurrentMatch,
+  isFoldable, isFolded, foldedCount, onToggleFold, isMatch, isCurrentMatch, findQuery, findOpts,
 }: CommandRowProps) {
   const { t } = useTranslation();
   const isDisabled = isDisabledComment(cmd);
@@ -172,16 +175,35 @@ export const CommandRow = React.memo(function CommandRow({
       )}
       {display ? (
         (() => {
-          // 주석 처리된 커맨드는 CSS(cmd-disabled)가 색상 처리 — inline style 적용 안 함
-          if (isDisabled) return <>{display}</>;
+          const shouldHighlight = isMatch && findQuery && findOpts;
+
+          // 텍스트에 찾기 하이라이트 적용 (세그먼트 분리)
+          const renderWithHighlight = (text: string, color?: string) => {
+            if (!shouldHighlight) {
+              return color ? <span style={{ color }}>{text}</span> : <>{text}</>;
+            }
+            const segs = splitByQuery(text, findQuery!, findOpts!);
+            const nodes = segs.map((seg, si) => {
+              if (!seg.isMatch) return color ? <span key={si} style={{ color }}>{seg.text}</span> : <React.Fragment key={si}>{seg.text}</React.Fragment>;
+              const bg = isCurrentMatch ? 'rgba(255,140,0,0.85)' : 'rgba(255,215,0,0.55)';
+              return <mark key={si} style={{ background: bg, color: color ?? 'inherit', borderRadius: 2, padding: '0 1px' }}>{seg.text}</mark>;
+            });
+            return <>{nodes}</>;
+          };
+
+          // 주석 처리된 커맨드는 CSS(cmd-disabled)가 색상 처리
+          if (isDisabled) return renderWithHighlight(display);
           const c = getCommandColor(cmd.code);
-          if (!c) return <>{display}</>;
           // 댓글(108/408)은 내용 전체 색상
-          if (cmd.code === 108 || cmd.code === 408) return <span style={{ color: c }}>{display}</span>;
+          if (cmd.code === 108 || cmd.code === 408) return renderWithHighlight(display, c);
+          if (!c) return renderWithHighlight(display);
           // 나머지: ': ' 앞의 명령어 이름만 색상, 인자값은 기본색
           const sep = display.indexOf(': ');
-          if (sep === -1) return <span style={{ color: c }}>{display}</span>;
-          return <><span style={{ color: c }}>{display.slice(0, sep)}</span>{display.slice(sep)}</>;
+          if (sep === -1) return renderWithHighlight(display, c);
+          return <>
+            {renderWithHighlight(display.slice(0, sep), c)}
+            {renderWithHighlight(display.slice(sep))}
+          </>;
         })()
       ) : <span style={{ color: '#555' }}>&loz;</span>}
       {isFolded && foldedCount !== undefined && foldedCount > 0 && (
