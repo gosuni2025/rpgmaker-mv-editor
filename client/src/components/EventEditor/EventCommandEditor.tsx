@@ -244,7 +244,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
         <button className="db-btn-small" onClick={() => indentSelected(-1)} disabled={selectedIndices.size === 0} title="인덴트 감소 (Shift+Tab)">←</button>
         <button className="db-btn-small" onClick={() => indentSelected(1)} disabled={selectedIndices.size === 0} title="인덴트 증가 (Tab)">→</button>
         <span className="event-commands-toolbar-sep" />
-        <button className="db-btn-small" onClick={toggleDisabled} disabled={selectedIndices.size === 0} title="Ctrl+/">{t('eventCommands.toggleDisabledShort')}</button>
+        <button className="db-btn-small" onClick={toggleDisabled} disabled={selectedIndices.size === 0}>{t('eventCommands.toggleDisabledShort')} (Ctrl+/)</button>
         {foldableIndices.size > 0 && (
           <>
             <span className="event-commands-toolbar-sep" />
