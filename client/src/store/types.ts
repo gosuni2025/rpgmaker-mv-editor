@@ -265,7 +265,7 @@ export interface EditorState {
   setUninitializedProjectPath: (path: string | null) => void;
 
   // Toast
-  toastQueue: { id: number; message: string; persistent: boolean; createdAt: number }[];
+  toastQueue: { id: number; message: string; persistent: boolean; createdAt: number; count: number }[];
   showToast: (message: string, persistent?: boolean) => void;
   dismissToast: (id: number) => void;
 

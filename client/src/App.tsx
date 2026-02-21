@@ -46,7 +46,7 @@ function formatRelativeTime(createdAt: number, now: number): string {
 }
 
 interface ToastItemProps {
-  toast: { id: number; message: string; persistent: boolean; createdAt: number };
+  toast: { id: number; message: string; persistent: boolean; createdAt: number; count: number };
   index: number;
   onDismiss: (id: number) => void;
 }
@@ -65,6 +65,9 @@ function ToastItem({ toast, index, onDismiss }: ToastItemProps) {
         if (e.animationName === 'toast-fade') onDismiss(toast.id);
       }}
     >
+      {toast.count > 1 && (
+        <span className="toast-count">{toast.count}</span>
+      )}
       {toast.message}
       <span className="toast-age">{formatRelativeTime(toast.createdAt, now)}</span>
       {toast.persistent && (
