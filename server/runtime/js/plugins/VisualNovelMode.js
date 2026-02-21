@@ -445,9 +445,6 @@
     Window_VNText.prototype._redraw = function () {
         if (!this.contents) return;
 
-        // _etScrollY를 _scrollY와 동기화 — overlay 위치 업데이트(_etUpdateOverlayUniforms)에 필요
-        this._etScrollY = this._scrollY;
-
         // 기존 세그먼트의 시간 상태를 텍스트+이펙트 키 기반으로 보존 (스크롤 시 애니메이션 재시작 방지)
         // 인덱스 기반 매칭은 뷰포트 밖 텍스트 여부에 따라 순서가 달라져 오작동하므로 키 기반 사용
         var prevMap = {};
