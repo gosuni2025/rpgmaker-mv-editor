@@ -128,8 +128,10 @@ interface FacePattern {
 
 interface SpritePattern {
   id: string;
-  baseFile: string;
-  colorMapFile: string | null;
+  layer1File: string | null;  // X1 = 전경 레이어 (Body 위에 그려짐)
+  layer1CmFile: string | null;
+  layer2File: string | null;  // X2 = 배경 레이어 (Body 아래에 그려짐)
+  layer2CmFile: string | null;
 }
 
 // Parse Face filename: FG_[Part]_p[pattern]_c[colorIndex]_m[gradientRow].png
@@ -158,21 +160,26 @@ function parseFaceFilename(filename: string): {
 }
 
 // Parse TV/SV/TVD filename:
-//   TV_[Part]_p[pattern].png      (base image)
-//   TV_[Part]_p[pattern]_c.png    (color map)
+//   TV_[Part]_p[pattern].png      (single layer)
+//   TV_[Part]1_p[pattern].png     (X1 = 전경 레이어, Body 위)
+//   TV_[Part]2_p[pattern].png     (X2 = 배경 레이어, Body 아래)
+//   TV_[Part]1_p[pattern]_c.png   (color map)
+// suffix 1/2가 있으면 layer1/layer2로 분리, 없으면 layer1로 처리
 function parseSpriteFilename(
   filename: string,
   prefix: string
-): { part: string; pattern: string; isColorMap: boolean } | null {
+): { part: string; pattern: string; isColorMap: boolean; isLayer2: boolean } | null {
   const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // ([12])? 는 파트명 뒤의 suffix 1 또는 2를 선택적으로 캡처
   const match = filename.match(
-    new RegExp(`^${escaped}_(.+?)_p(\\d+?)(_c)?\\.png$`)
+    new RegExp(`^${escaped}_(.+?)([12])?_p(\\d+?)(_c)?\\.png$`)
   );
   if (!match) return null;
   return {
     part: normalizePart(match[1]),
-    pattern: `p${match[2]}`,
-    isColorMap: match[3] === '_c',
+    pattern: `p${match[3]}`,
+    isColorMap: match[4] === '_c',
+    isLayer2: match[2] === '2',
   };
 }
 
@@ -223,9 +230,10 @@ function buildSpriteManifest(
   prefix: string
 ): Record<string, { patterns: SpritePattern[] }> {
   const files = fs.readdirSync(dirPath).filter(f => f.endsWith('.png'));
+  // X1(suffix=1) 과 X2(suffix=2) 를 같은 파트로 병합
   const partsMap = new Map<
     string,
-    Map<string, { baseFile: string | null; colorMapFile: string | null }>
+    Map<string, { layer1File: string | null; layer1CmFile: string | null; layer2File: string | null; layer2CmFile: string | null }>
   >();
 
   for (const file of files) {
@@ -240,14 +248,16 @@ function buildSpriteManifest(
 
     let entry = patternMap.get(parsed.pattern);
     if (!entry) {
-      entry = { baseFile: null, colorMapFile: null };
+      entry = { layer1File: null, layer1CmFile: null, layer2File: null, layer2CmFile: null };
       patternMap.set(parsed.pattern, entry);
     }
 
-    if (parsed.isColorMap) {
-      entry.colorMapFile = file;
+    if (parsed.isLayer2) {
+      if (parsed.isColorMap) entry.layer2CmFile = file;
+      else entry.layer2File = file;
     } else {
-      entry.baseFile = file;
+      if (parsed.isColorMap) entry.layer1CmFile = file;
+      else entry.layer1File = file;
     }
   }
 
@@ -255,12 +265,8 @@ function buildSpriteManifest(
   for (const [part, patternMap] of partsMap) {
     const patterns: SpritePattern[] = [];
     for (const [patternId, entry] of patternMap) {
-      if (!entry.baseFile) continue;
-      patterns.push({
-        id: patternId,
-        baseFile: entry.baseFile,
-        colorMapFile: entry.colorMapFile,
-      });
+      if (!entry.layer1File && !entry.layer2File) continue;
+      patterns.push({ id: patternId, ...entry });
     }
     patterns.sort((a, b) => a.id.localeCompare(b.id));
     result[part] = { patterns };
@@ -318,7 +324,9 @@ router.get('/variation/:gender/:part', (req: Request<{ gender: string; part: str
       return res.status(404).json({ error: 'Directory not found' });
     }
 
-    const prefix = `icon_${part}_p`;
+    // Variation 아이콘은 suffix 없는 기본 파트명 사용 (Cloak1/Cloak2 → Cloak, RearHair1 → RearHair)
+    const iconPart = part.replace(/[12]$/, '') || part;
+    const prefix = `icon_${iconPart}_p`;
     const files = fs
       .readdirSync(dirPath)
       .filter(f => f.startsWith(prefix) && f.endsWith('.png'));

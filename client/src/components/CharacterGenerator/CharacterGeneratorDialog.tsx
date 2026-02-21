@@ -111,6 +111,10 @@ export default function CharacterGeneratorDialog() {
           </div>
         </div>
 
+        <div style={{ padding: '4px 12px', background: '#2a2000', borderBottom: '1px solid #554400', fontSize: 11, color: '#cc9' }}>
+          ⚠ 개발 중 기능입니다. 정식 캐릭터 생성에는 RPG Maker MV 원본의 캐릭터 생성기 사용을 권장합니다.
+        </div>
+
         <div className="cg-body">
           {/* 부품 목록 */}
           <div className="cg-parts-list">

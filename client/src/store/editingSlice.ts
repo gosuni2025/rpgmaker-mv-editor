@@ -1,4 +1,5 @@
 import type { MapObject, CameraZone } from '../types/rpgMakerMV';
+<<<<<<< HEAD
 import { resizeMapData, resizeEvents } from '../utils/mapResize';
 import apiClient from '../api/client';
 import type { EditorState, SliceCreator, TileChange, TileHistoryEntry, ResizeHistoryEntry, PassageChange, PassageHistoryEntry } from './types';
@@ -6,6 +7,20 @@ import { EDIT_MODE_STORAGE_KEY, TOOLBAR_STORAGE_KEY } from './types';
 import { recalcAutotiles } from './editingHelpers';
 import { undoOperation, redoOperation } from './undoRedoOperations';
 import {
+=======
+import type { EditorState, SliceCreator, TileChange, PassageChange } from './types';
+import { EDIT_MODE_STORAGE_KEY, TOOLBAR_STORAGE_KEY } from './types';
+import { undoOperation, redoOperation } from './undoRedoOperations';
+import {
+  updateMapTileOp, updateMapTilesOp, pushUndoOp,
+  copyTilesOp, cutTilesOp, pasteTilesOp, deleteTilesOp, moveTilesOp,
+} from './tileOperations';
+import { resizeMapOp, shiftMapOp } from './mapResizeOperations';
+import {
+  copyPassageOp, cutPassageOp, pastePassageOp, deletePassageOp, movePassageOp, updateCustomPassageOp,
+} from './passageOperations';
+import {
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   addEventOp, copyEventOp, cutEventOp, pasteEventOp, deleteEventOp,
   copyEventsOp, pasteEventsOp, deleteEventsOp, moveEventsOp,
 } from './eventOperations';
@@ -76,49 +91,25 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   undoStack: [],
   redoStack: [],
 
-  // Map editing
-  updateMapTile: (x: number, y: number, z: number, tileId: number) => {
-    const map = get().currentMap;
-    if (!map) return;
-    const newData = [...map.data];
-    newData[(z * map.height + y) * map.width + x] = tileId;
-    set({ currentMap: { ...map, data: newData } });
-  },
+  // Tile operations (delegated)
+  updateMapTile: (x, y, z, tileId) => updateMapTileOp(get, set, x, y, z, tileId),
+  updateMapTiles: (changes) => updateMapTilesOp(get, set, changes),
+  pushUndo: (changes: TileChange[]) => pushUndoOp(get, set, changes),
+  copyTiles: (x1, y1, x2, y2) => copyTilesOp(get, set, x1, y1, x2, y2),
+  cutTiles: (x1, y1, x2, y2) => cutTilesOp(get, set, x1, y1, x2, y2),
+  pasteTiles: (x, y) => pasteTilesOp(get, set, x, y),
+  deleteTiles: (x1, y1, x2, y2) => deleteTilesOp(get, set, x1, y1, x2, y2),
+  moveTiles: (srcX1, srcY1, srcX2, srcY2, destX, destY) => moveTilesOp(get, set, srcX1, srcY1, srcX2, srcY2, destX, destY),
 
-  updateMapTiles: (changes: { x: number; y: number; z: number; tileId: number }[]) => {
-    const map = get().currentMap;
-    if (!map) return;
-    const newData = [...map.data];
-    for (const c of changes) {
-      newData[(c.z * map.height + c.y) * map.width + c.x] = c.tileId;
-    }
-    set({ currentMap: { ...map, data: newData } });
-  },
+  // Map resize/shift (delegated)
+  resizeMap: (nw, nh, ox, oy) => resizeMapOp(get, set, nw, nh, ox, oy),
+  shiftMap: (dx, dy) => shiftMapOp(get, set, dx, dy),
 
-  pushUndo: (changes: TileChange[]) => {
-    const { currentMapId, undoStack } = get();
-    if (!currentMapId || changes.length === 0) return;
-    // 동일 좌표+레이어의 중복 변경을 병합: 첫 번째 oldTileId + 마지막 newTileId 유지
-    const merged = new Map<string, TileChange>();
-    for (const c of changes) {
-      const key = `${c.x},${c.y},${c.z}`;
-      const existing = merged.get(key);
-      if (existing) {
-        existing.newTileId = c.newTileId;
-      } else {
-        merged.set(key, { ...c });
-      }
-    }
-    const mergedChanges = [...merged.values()].filter(c => c.oldTileId !== c.newTileId);
-    if (mergedChanges.length === 0) return;
-    const newStack = [...undoStack, { mapId: currentMapId, changes: mergedChanges } as TileHistoryEntry];
-    if (newStack.length > get().maxUndo) newStack.shift();
-    set({ undoStack: newStack, redoStack: [] });
-  },
-
+  // Undo/redo (delegated)
   undo: () => undoOperation(get, set),
   redo: () => redoOperation(get, set),
 
+<<<<<<< HEAD
   resizeMap: (newWidth: number, newHeight: number, offsetX: number, offsetY: number) => {
     const { currentMap, currentMapId, undoStack, systemData, showToast } = get();
     if (!currentMap || !currentMapId) return;
@@ -356,6 +347,8 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     get().pushUndo(allChanges);
   },
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   // Event operations (delegated)
   addEvent: (x?: number, y?: number) => addEventOp(get, set, x, y),
   copyEvent: (eventId: number) => copyEventOp(get, set, eventId),
@@ -412,6 +405,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   deleteCameraZones: (ids: number[]) => deleteCameraZonesOp(get, set, ids),
   moveCameraZones: (ids: number[], dx: number, dy: number) => moveCameraZonesOp(get, set, ids, dx, dy),
   commitCameraZoneDragUndo: (snapshotZones: CameraZone[]) => commitCameraZoneDragUndoOp(get, set, snapshotZones),
+<<<<<<< HEAD
 
   // UI setters
   // Passage actions
@@ -568,6 +562,34 @@ export const editingSlice: SliceCreator<Pick<EditorState,
     });
   },
 
+=======
+
+  // Passage operations (delegated)
+  setPassageTool: (tool: 'select' | 'pen' | 'eraser') => {
+    const updates: Partial<EditorState> = { passageTool: tool };
+    if (tool !== 'select') {
+      updates.passageSelectionStart = null;
+      updates.passageSelectionEnd = null;
+      updates.isPassagePasting = false;
+      updates.passagePastePreviewPos = null;
+    }
+    set(updates);
+  },
+  setPassageShape: (shape: 'freehand' | 'rectangle' | 'ellipse' | 'fill') => set({ passageShape: shape }),
+  setSelectedPassageTile: (tile: { x: number; y: number } | null) => set({ selectedPassageTile: tile }),
+  setPassageSelection: (start: { x: number; y: number } | null, end: { x: number; y: number } | null) => set({ passageSelectionStart: start, passageSelectionEnd: end }),
+  clearPassageSelection: () => set({ passageSelectionStart: null, passageSelectionEnd: null }),
+  setIsPassagePasting: (v: boolean) => set({ isPassagePasting: v }),
+  setPassagePastePreviewPos: (pos: { x: number; y: number } | null) => set({ passagePastePreviewPos: pos }),
+  copyPassage: (x1, y1, x2, y2) => copyPassageOp(get, set, x1, y1, x2, y2),
+  cutPassage: (x1, y1, x2, y2) => cutPassageOp(get, set, x1, y1, x2, y2),
+  pastePassage: (x, y) => pastePassageOp(get, set, x, y),
+  deletePassage: (x1, y1, x2, y2) => deletePassageOp(get, set, x1, y1, x2, y2),
+  movePassage: (srcX1, srcY1, srcX2, srcY2, destX, destY) => movePassageOp(get, set, srcX1, srcY1, srcX2, srcY2, destX, destY),
+  updateCustomPassage: (changes: PassageChange[]) => updateCustomPassageOp(get, set, changes),
+
+  // UI setters
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage') => {
     const state = get();
     const updates: Partial<EditorState> = { editMode: mode };

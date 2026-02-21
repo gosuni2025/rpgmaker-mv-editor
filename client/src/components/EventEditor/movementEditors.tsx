@@ -5,6 +5,7 @@ import { VariableSwitchPicker } from './VariableSwitchSelector';
 import useEditorStore from '../../store/useEditorStore';
 import { MapLocationPicker } from './MapLocationPicker';
 
+<<<<<<< HEAD
 /**
  * 지정 위치의 정보 획득 에디터 (코드 285)
  * params: [variableId, infoType, designationType, x, y]
@@ -208,6 +209,11 @@ export function TransferPlayerEditor({ p, onOk, onCancel }: { p: unknown[]; onOk
     </>
   );
 }
+=======
+export { GetLocationInfoEditor } from './GetLocationInfoEditor';
+export { TransferPlayerEditor } from './TransferPlayerEditor';
+export { SetEventLocationEditor } from './SetEventLocationEditor';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 /**
  * 탈 것 위치 설정 에디터 (코드 202)
@@ -300,6 +306,7 @@ export function SetVehicleLocationEditor({ p, onOk, onCancel }: { p: unknown[]; 
 }
 
 /**
+<<<<<<< HEAD
  * 이벤트 위치 설정 에디터 (코드 203)
  * params: [eventId, designationType, x/varX/exchangeEventId, y/varY, direction]
  * eventId: -1=플레이어, 0=해당 이벤트, 1~=이벤트 ID
@@ -428,6 +435,8 @@ export function SetEventLocationEditor({ p, onOk, onCancel }: { p: unknown[]; on
 }
 
 /**
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
  * 지도 스크롤 에디터 (코드 204)
  * params: [direction, distance, speed]
  * direction: 2=아래, 4=왼쪽, 6=오른쪽, 8=위

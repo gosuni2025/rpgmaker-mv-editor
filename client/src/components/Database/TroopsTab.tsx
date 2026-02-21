@@ -5,6 +5,10 @@ import EventCommandEditor from '../EventEditor/EventCommandEditor';
 import DatabaseList from './DatabaseList';
 import BattleTestDialog from './BattleTestDialog';
 import TroopPreview from '../common/TroopPreview';
+<<<<<<< HEAD
+=======
+import { TroopCondDialog, TroopBgDialog, conditionSummary } from './TroopsDialogs';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import apiClient from '../../api/client';
 import './TroopsTab.css';
 
@@ -24,6 +28,7 @@ const emptyConditions: TroopConditions = {
   switchId: 1, switchValid: false,
   turnA: 0, turnB: 0, turnEnding: false, turnValid: false,
 };
+<<<<<<< HEAD
 
 function conditionSummary(c: TroopConditions, t: (k: string) => string, actors: { id: number; name: string }[]): string {
   const parts: string[] = [];
@@ -37,6 +42,8 @@ function conditionSummary(c: TroopConditions, t: (k: string) => string, actors: 
   if (c.switchValid) parts.push(`${t('fields.switch')} ${c.switchId}`);
   return parts.length > 0 ? parts.join(', ') : t('troops.noCondition');
 }
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 export default function TroopsTab({ data, onChange }: TroopsTabProps) {
   const { t } = useTranslation();
@@ -49,12 +56,16 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
   const [battleback1, setBattleback1] = useState('');
   const [battleback2, setBattleback2] = useState('');
   const [condDialogOpen, setCondDialogOpen] = useState(false);
+<<<<<<< HEAD
   const [editingCond, setEditingCond] = useState<TroopConditions>({ ...emptyConditions });
   const [bgDialogOpen, setBgDialogOpen] = useState(false);
   const [bb1Files, setBb1Files] = useState<string[]>([]);
   const [bb2Files, setBb2Files] = useState<string[]>([]);
   const [editBb1, setEditBb1] = useState('');
   const [editBb2, setEditBb2] = useState('');
+=======
+  const [bgDialogOpen, setBgDialogOpen] = useState(false);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const [battleTestOpen, setBattleTestOpen] = useState(false);
 
   const selectedItem = data?.find((item) => item && item.id === selectedId);
@@ -203,6 +214,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     handlePageChange(activePage, 'span', 0);
   };
 
+<<<<<<< HEAD
   // 조건 다이얼로그
   const openCondDialog = () => {
     const pg = selectedItem?.pages?.[activePage];
@@ -230,6 +242,10 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
     setBattleback2(editBb2);
     setBgDialogOpen(false);
   };
+=======
+  const openCondDialog = () => { if (selectedItem?.pages?.[activePage]) setCondDialogOpen(true); };
+  const openBgDialog = () => setBgDialogOpen(true);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   // DatabaseList 핸들러
   const handleAddNew = useCallback(() => {
@@ -459,6 +475,7 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
         </div>
       )}
 
+<<<<<<< HEAD
       {/* 조건 편집 다이얼로그 */}
       {condDialogOpen && (
         <div className="db-dialog-overlay" onClick={() => setCondDialogOpen(false)}>
@@ -565,6 +582,17 @@ export default function TroopsTab({ data, onChange }: TroopsTabProps) {
             </div>
           </div>
         </div>
+=======
+      {condDialogOpen && page && (
+        <TroopCondDialog conditions={page.conditions} actors={actors}
+          onSave={c => { handlePageChange(activePage, 'conditions', c); setCondDialogOpen(false); }}
+          onCancel={() => setCondDialogOpen(false)} />
+      )}
+      {bgDialogOpen && (
+        <TroopBgDialog bb1={battleback1} bb2={battleback2}
+          onSave={(b1, b2) => { setBattleback1(b1); setBattleback2(b2); setBgDialogOpen(false); }}
+          onCancel={() => setBgDialogOpen(false)} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       )}
       {/* 전투 테스트 다이얼로그 */}
       {battleTestOpen && selectedItem && (

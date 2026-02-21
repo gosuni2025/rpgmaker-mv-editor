@@ -2169,7 +2169,8 @@ Graphics.playVideo = function(src) {
  * @private
  */
 Graphics._playVideo = function(src) {
-    this._video.src = src;
+    var _cb = window.__CACHE_BUST__;
+    this._video.src = (_cb && _cb.video) ? src + '?v=' + _cb.buildId : src;
     this._video.onloadeddata = this._onVideoLoad.bind(this);
     this._video.onerror = this._videoLoader;
     this._video.onended = this._onVideoEnd.bind(this);
@@ -6652,6 +6653,23 @@ Window.prototype._createAllParts = function() {
     this._windowPauseSignSprite = new Sprite();
     this._windowBackSprite.bitmap = new Bitmap(1, 1);
     this._windowBackSprite.alpha = 192 / 255;
+    // UI 스프라이트는 3D 모드의 alphaTest:0.5 영향을 받으면 안 됨
+    // (커서·화살표 등은 반투명 픽셀로 구성되어 있어 alphaTest로 사라짐)
+    var _uiSprites = [
+        this._windowBackSprite, this._windowCursorSprite,
+        this._windowFrameSprite, this._windowContentsSprite,
+        this._downArrowSprite, this._upArrowSprite, this._windowPauseSignSprite
+    ];
+    for (var _si = 0; _si < _uiSprites.length; _si++) {
+        var _mat = _uiSprites[_si]._material;
+        if (_mat) {
+            _mat.alphaTest  = 0;
+            _mat.depthTest  = false;
+            _mat.depthWrite = false;
+            _mat.transparent = true;
+            _mat.needsUpdate = true;
+        }
+    }
     this.addChild(this._windowSpriteContainer);
     this._windowSpriteContainer.addChild(this._windowBackSprite);
     this._windowSpriteContainer.addChild(this._windowFrameSprite);

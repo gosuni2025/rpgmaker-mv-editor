@@ -1,3 +1,96 @@
+<<<<<<< HEAD
+=======
+/*:
+ * @plugindesc 포스트 프로세싱 파이프라인 (피사계 심도 + 이펙트)
+ * @author RPG Maker MV Web Editor
+ * @plugincommand PostProcess
+ *
+ * @command on
+ * @text 피사계 심도 활성화
+ * @desc 포스트 프로세싱(피사계 심도)을 활성화합니다.
+ *
+ * @command off
+ * @text 피사계 심도 비활성화
+ * @desc 포스트 프로세싱(피사계 심도)을 비활성화합니다.
+ *
+ * @command focusY
+ * @text 포커스 Y 위치 설정
+ * @desc 피사계 심도 포커스의 화면 Y 위치(0~1)를 설정합니다.
+ *
+ * @arg value
+ * @text 값
+ * @type number
+ * @min 0
+ * @max 1
+ * @default 0.5
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @command focusRange
+ * @text 포커스 범위 설정
+ * @desc 피사계 심도 포커스 범위(0~1)를 설정합니다.
+ *
+ * @arg value
+ * @text 값
+ * @type number
+ * @min 0
+ * @max 1
+ * @default 0.3
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @command maxblur
+ * @text 최대 블러 강도 설정
+ * @desc 피사계 심도 최대 블러 강도를 설정합니다.
+ *
+ * @arg value
+ * @text 값
+ * @type number
+ * @min 0
+ * @max 0.1
+ * @default 0.02
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @command blurPower
+ * @text 블러 파워 설정
+ * @desc 피사계 심도 블러 파워를 설정합니다.
+ *
+ * @arg value
+ * @text 값
+ * @type number
+ * @min 0
+ * @max 10
+ * @default 2
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @help
+ * PostProcess.js는 에디터 코어 파일로 자동으로 로드됩니다.
+ * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
+ * 커맨드 이름으로 DoF, DepthOfField, PostProcess 모두 사용 가능합니다.
+ */
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 //=============================================================================
 // PostProcess.js - 포스트 프로세싱 파이프라인 (Bloom, DoF, PP Effects)
 //=============================================================================
@@ -52,10 +145,17 @@ window.MapRenderPass = MapRenderPass;
 window.Simple2DRenderPass = Simple2DRenderPass;
 
 PostProcess.config = {
+<<<<<<< HEAD
     focusY: 0.55,       // 포커스 중심 Y위치 (0=상단, 1=하단), 캐릭터 약간 아래
     focusRange: 0.1,    // 선명 영역 반폭
     maxblur: 0.05,      // 최대 블러
     blurPower: 1.5      // 블러 증가 커브 (1=선형, 2=이차, 부드러운 전환)
+=======
+    focusY: 0.14,       // 포커스 중심 Y위치 (0=상단, 1=하단)
+    focusRange: 0,      // 선명 영역 반폭
+    maxblur: 0.13,      // 최대 블러
+    blurPower: 2.4      // 블러 증가 커브 (1=선형, 2=이차, 부드러운 전환)
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 };
 
 PostProcess.bloomConfig = {
@@ -1897,6 +1997,25 @@ PostProcess._applyMapSettings = function() {
         }
     }
 
+<<<<<<< HEAD
+=======
+    // dofConfig 적용
+    var dc = $dataMap.dofConfig;
+    if (dc) {
+        this.config.focusY = dc.focusY != null ? dc.focusY : 0.14;
+        this.config.focusRange = dc.focusRange != null ? dc.focusRange : 0;
+        this.config.maxblur = dc.maxBlur != null ? dc.maxBlur : 0.13;
+        this.config.blurPower = dc.blurPower != null ? dc.blurPower : 2.4;
+        ConfigManager.depthOfField = !!dc.enabled;
+    } else {
+        this.config.focusY = 0.14;
+        this.config.focusRange = 0;
+        this.config.maxblur = 0.13;
+        this.config.blurPower = 2.4;
+        ConfigManager.depthOfField = false;
+    }
+
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     // postProcessConfig 적용
     var ppc = $dataMap.postProcessConfig;
     if (ppc) {

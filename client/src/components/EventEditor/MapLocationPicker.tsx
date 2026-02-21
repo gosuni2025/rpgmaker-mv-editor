@@ -7,6 +7,10 @@ import { useThreeRenderer } from '../MapEditor/useThreeRenderer';
 import type { EditorPointLight } from '../../types/rpgMakerMV';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import { highlightMatch } from '../../utils/highlightMatch';
+<<<<<<< HEAD
+=======
+import { PointLightMarkers, PointLightList } from './MapLocationPickerParts';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 const TILE_SIZE = 48;
 
@@ -294,6 +298,7 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
     };
   }, [eventMarker, canvasScale, mapData]);
 
+<<<<<<< HEAD
   // 포인트라이트 모드 마커 렌더링
   const renderPointLightMarkers = () => {
     if (!isPointLightMode || !mapData || !canvasScale) return null;
@@ -406,6 +411,8 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
       </div>
     );
   };
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   const handleOk = () => {
     if (isPointLightMode) {
@@ -451,7 +458,17 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
               ))}
             </div>
           </div>}
+<<<<<<< HEAD
           {renderPointLightList()}
+=======
+          {isPointLightMode && (
+            <PointLightList
+              pointLights={pointLights} mapEvents={mapEvents}
+              selectedLightId={selectedLightId}
+              onSelect={setSelectedLightId} onDoubleClick={props.onSelectLight}
+            />
+          )}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
           {/* 오른쪽: 맵 프리뷰 (휠 줌, 미들 클릭 팬) */}
           <div ref={previewContainerRef}
             onMouseDown={handleMouseDown}
@@ -469,7 +486,16 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
                   }}>{eventMarker.label}</span>
                 </div>
               )}
+<<<<<<< HEAD
               {renderPointLightMarkers()}
+=======
+              {isPointLightMode && mapData && canvasScale > 0 && (
+                <PointLightMarkers
+                  pointLights={pointLights} mapEvents={mapEvents}
+                  selectedLightId={selectedLightId} canvasScale={canvasScale}
+                />
+              )}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             </div>
           </div>
         </div>

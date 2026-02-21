@@ -3,11 +3,18 @@ import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import {
   TILE_SIZE_PX, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E,
+<<<<<<< HEAD
   getTileRenderInfo, isGroundDecorationTile,
+=======
+  isGroundDecorationTile,
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 } from '../../utils/tileHelper';
-import { buildAutotileEntries } from '../../utils/autotileEntries';
 import { loadTilesetImages } from '../../utils/tilesetImageLoader';
 import { PaletteTileTooltip } from '../MapEditor/TileInfoTooltip';
+<<<<<<< HEAD
+=======
+import { renderNormalTab, renderATab, A_TILE_ENTRIES } from './paletteRenderers';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import './RegionPalette.css';
 import './InspectorPanel.css';
 
@@ -32,27 +39,13 @@ function drawCheckerboard(
 type PaletteTab = 'A' | 'B' | 'C' | 'D' | 'E' | 'R';
 const TABS: PaletteTab[] = ['A', 'B', 'C', 'D', 'E', 'R'];
 
-// Tab → tileset image index mapping
 const TAB_SHEET_INDEX: Record<PaletteTab, number[]> = {
-  A: [0, 1, 2, 3, 4], // A1-A5
-  B: [5],
-  C: [6],
-  D: [7],
-  E: [8],
-  R: [],
+  A: [0, 1, 2, 3, 4], B: [5], C: [6], D: [7], E: [8], R: [],
 };
 
-// B-E tile ID offsets
 const TAB_TILE_OFFSET: Record<string, number> = {
-  B: TILE_ID_B,
-  C: TILE_ID_C,
-  D: TILE_ID_D,
-  E: TILE_ID_E,
+  B: TILE_ID_B, C: TILE_ID_C, D: TILE_ID_D, E: TILE_ID_E,
 };
-
-const HALF = TILE_SIZE_PX / 2;
-
-const A_TILE_ENTRIES = buildAutotileEntries(true);
 
 export default function TilesetPalette() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -66,10 +59,8 @@ export default function TilesetPalette() {
   const currentMap = useEditorStore((s) => s.currentMap);
   const editMode = useEditorStore((s) => s.editMode);
   const selectedLightId = useEditorStore((s) => s.selectedLightId);
-  const setSelectedLightId = useEditorStore((s) => s.setSelectedLightId);
   const selectedLightType = useEditorStore((s) => s.selectedLightType);
   const setSelectedLightType = useEditorStore((s) => s.setSelectedLightType);
-
   const paletteTab = useEditorStore((s) => s.paletteTab);
   const setPaletteTab = useEditorStore((s) => s.setPaletteTab);
   const showTileInfo = useEditorStore((s) => s.showTileInfo);
@@ -79,24 +70,24 @@ export default function TilesetPalette() {
   const setActiveTab = setPaletteTab;
   const [tilesetImages, setTilesetImages] = useState<Record<number, HTMLImageElement>>({});
   const [selectedRegion, setSelectedRegion] = useState(0);
-
-  // Drag selection state for multi-tile selection
   const isDragging = useRef(false);
   const dragStartCell = useRef<{ col: number; row: number } | null>(null);
   const [dragCurrentCell, setDragCurrentCell] = useState<{ col: number; row: number } | null>(null);
+  const [paletteHover, setPaletteHover] = useState<{ tileId: number; mouseX: number; mouseY: number } | null>(null);
 
+<<<<<<< HEAD
   // Hover tooltip state for palette
   const [paletteHover, setPaletteHover] = useState<{ tileId: number; mouseX: number; mouseY: number } | null>(null);
 
   // Load ALL tileset images
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   useEffect(() => {
-    if (!currentMap || !currentMap.tilesetNames) {
-      setTilesetImages({});
-      return;
-    }
+    if (!currentMap || !currentMap.tilesetNames) { setTilesetImages({}); return; }
     return loadTilesetImages(currentMap.tilesetNames, setTilesetImages);
   }, [currentMap?.tilesetId, currentMap?.tilesetNames]);
 
+<<<<<<< HEAD
   // Render B-E tab (simple tileset image)
   const renderNormalTab = useCallback(() => {
     const canvas = canvasRef.current;
@@ -269,15 +260,23 @@ export default function TilesetPalette() {
     }
   }, [tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, dragCurrentCell, transparentColor]);
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   // Main render
   useEffect(() => {
-    if (activeTab === 'R') return; // R tab doesn't use canvas
+    const canvas = canvasRef.current;
+    if (!canvas || activeTab === 'R') return;
+    const highlight = {
+      isDragging: isDragging.current,
+      dragStart: dragStartCell.current,
+      dragCurrent: dragCurrentCell,
+    };
     if (activeTab === 'A') {
-      renderATab();
+      renderATab(canvas, tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, transparentColor, { ctx: null as any, ...highlight });
     } else {
-      renderNormalTab();
+      renderNormalTab(canvas, activeTab, tilesetImages, TAB_SHEET_INDEX, TAB_TILE_OFFSET, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, transparentColor, { ctx: null as any, ...highlight });
     }
-  }, [activeTab, renderATab, renderNormalTab]);
+  }, [activeTab, tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, dragCurrentCell, transparentColor]);
 
   const canvasToCell = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -292,32 +291,18 @@ export default function TilesetPalette() {
       const col = Math.max(0, Math.min(cols - 1, Math.floor(cx / TILE_SIZE_PX)));
       const row = Math.max(0, Math.floor(cy / TILE_SIZE_PX));
       return { col, row };
-    },
-    [activeTab]
+    }, [activeTab]
   );
 
   const getTileIdForCell = useCallback(
     (col: number, row: number): number => {
       if (activeTab === 'A') {
-        const cols = 8;
-        const idx = row * cols + col;
-        if (idx >= 0 && idx < A_TILE_ENTRIES.length) {
-          return A_TILE_ENTRIES[idx].tileId;
-        }
-        return 0;
-      } else {
-        // B-E tileset image layout: 16 cols (768px / 48px)
-        // But RPG Maker MV tile ID mapping uses 8-col halves:
-        //   Left half (col 0-7): localId = row * 8 + col       (0~127)
-        //   Right half (col 8-15): localId = 128 + row * 8 + (col - 8) (128~255)
-        const localId = col < 8
-          ? row * 8 + col
-          : 128 + row * 8 + (col - 8);
-        const offset = TAB_TILE_OFFSET[activeTab] ?? 0;
-        return offset + localId;
+        const idx = row * 8 + col;
+        return idx >= 0 && idx < A_TILE_ENTRIES.length ? A_TILE_ENTRIES[idx].tileId : 0;
       }
-    },
-    [activeTab]
+      const localId = col < 8 ? row * 8 + col : 128 + row * 8 + (col - 8);
+      return (TAB_TILE_OFFSET[activeTab] ?? 0) + localId;
+    }, [activeTab]
   );
 
   const commitSelection = useCallback(
@@ -329,6 +314,7 @@ export default function TilesetPalette() {
       const w = maxCol - minCol + 1;
       const h = maxRow - minRow + 1;
 
+<<<<<<< HEAD
       // A 탭: 기본 z=0, decoration 타일이면 z=1
       // B~E 탭: z=1
       let layer: number;
@@ -338,42 +324,39 @@ export default function TilesetPalette() {
       } else {
         layer = 1;
       }
+=======
+      let layer: number;
+      if (activeTab === 'A') {
+        layer = isGroundDecorationTile(getTileIdForCell(minCol, minRow)) ? 1 : 0;
+      } else { layer = 1; }
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       setCurrentLayer(layer);
 
       if (w === 1 && h === 1) {
-        // Single tile selection
         setSelectedTileId(getTileIdForCell(minCol, minRow));
       } else {
-        // Multi-tile selection: build 2D array
         const tiles: number[][] = [];
         for (let r = 0; r < h; r++) {
           const rowTiles: number[] = [];
-          for (let c = 0; c < w; c++) {
-            rowTiles.push(getTileIdForCell(minCol + c, minRow + r));
-          }
+          for (let c = 0; c < w; c++) rowTiles.push(getTileIdForCell(minCol + c, minRow + r));
           tiles.push(rowTiles);
         }
-        // Set the top-left tile as selectedTileId for backward compat
-        const topLeftId = getTileIdForCell(minCol, minRow);
-        useEditorStore.setState({ selectedTileId: topLeftId });
+        useEditorStore.setState({ selectedTileId: getTileIdForCell(minCol, minRow) });
         setSelectedTiles(tiles, w, h);
       }
-    },
-    [activeTab, getTileIdForCell, setSelectedTileId, setSelectedTiles, setCurrentLayer]
+    }, [activeTab, getTileIdForCell, setSelectedTileId, setSelectedTiles, setCurrentLayer]
   );
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (e.button !== 0) return;
-      const cell = canvasToCell(e);
-      if (!cell) return;
-      isDragging.current = true;
-      dragStartCell.current = cell;
-      setDragCurrentCell(cell);
-    },
-    [canvasToCell]
-  );
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (e.button !== 0) return;
+    const cell = canvasToCell(e);
+    if (!cell) return;
+    isDragging.current = true;
+    dragStartCell.current = cell;
+    setDragCurrentCell(cell);
+  }, [canvasToCell]);
 
+<<<<<<< HEAD
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const cell = canvasToCell(e);
@@ -390,22 +373,27 @@ export default function TilesetPalette() {
     },
     [canvasToCell, showTileInfo, getTileIdForCell]
   );
+=======
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const cell = canvasToCell(e);
+    if (isDragging.current && dragStartCell.current && cell) setDragCurrentCell(cell);
+    if (showTileInfo && cell) {
+      setPaletteHover({ tileId: getTileIdForCell(cell.col, cell.row), mouseX: e.clientX, mouseY: e.clientY });
+    } else { setPaletteHover(null); }
+  }, [canvasToCell, showTileInfo, getTileIdForCell]);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
-  const handleMouseUp = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!isDragging.current || !dragStartCell.current) return;
-      isDragging.current = false;
-      const cell = canvasToCell(e);
-      const start = dragStartCell.current;
-      const end = cell || dragCurrentCell;
-      if (!end) return;
-      commitSelection(start.col, start.row, end.col, end.row);
-      dragStartCell.current = null;
-      setDragCurrentCell(null);
-    },
-    [canvasToCell, dragCurrentCell, commitSelection]
-  );
+  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDragging.current || !dragStartCell.current) return;
+    isDragging.current = false;
+    const end = canvasToCell(e) || dragCurrentCell;
+    if (!end) return;
+    commitSelection(dragStartCell.current.col, dragStartCell.current.row, end.col, end.row);
+    dragStartCell.current = null;
+    setDragCurrentCell(null);
+  }, [canvasToCell, dragCurrentCell, commitSelection]);
 
+<<<<<<< HEAD
   // Handle mouse leaving the canvas while dragging
   const handleMouseLeave = useCallback(
     () => {
@@ -420,24 +408,37 @@ export default function TilesetPalette() {
     },
     [dragCurrentCell, commitSelection]
   );
+=======
+  const handleMouseLeave = useCallback(() => {
+    setPaletteHover(null);
+    if (!isDragging.current || !dragStartCell.current) return;
+    isDragging.current = false;
+    const end = dragCurrentCell || dragStartCell.current;
+    commitSelection(dragStartCell.current.col, dragStartCell.current.row, end.col, end.row);
+    dragStartCell.current = null;
+    setDragCurrentCell(null);
+  }, [dragCurrentCell, commitSelection]);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   const handleTabClick = (tab: PaletteTab) => {
     setActiveTab(tab);
-    if (tab === 'R') {
-      setCurrentLayer(5);
-    } else if (currentMap) {
+    if (tab === 'R') { setCurrentLayer(5); }
+    else if (currentMap) {
       const layer = useEditorStore.getState().currentLayer;
-      if (layer === 5) {
-        setCurrentLayer(tab === 'A' ? 0 : 1);
-      }
+      if (layer === 5) setCurrentLayer(tab === 'A' ? 0 : 1);
     }
   };
 
+<<<<<<< HEAD
   // 오브젝트 편집 모드에서 R탭이 선택돼 있으면 A탭으로 전환
   useEffect(() => {
     if (editMode === 'object' && activeTab === 'R') {
       handleTabClick('A');
     }
+=======
+  useEffect(() => {
+    if (editMode === 'object' && activeTab === 'R') handleTabClick('A');
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   }, [editMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasSheet = (tab: PaletteTab): boolean => {
@@ -448,10 +449,10 @@ export default function TilesetPalette() {
   return (
     <div style={styles.container}>
       {editMode === 'light' ? (
-        /* Light edit mode: show light palette instead of tileset tabs */
         <div style={styles.scrollArea}>
           <div className="light-palette">
             <div className="light-palette-section-title">조명 타입</div>
+<<<<<<< HEAD
             <div
               className={`light-type-item${selectedLightType === 'point' ? ' selected' : ''}`}
               onClick={() => setSelectedLightType('point')}
@@ -490,6 +491,30 @@ export default function TilesetPalette() {
               집중 조명
             </div>
 
+=======
+            {[
+              { type: 'point' as const, color: '#ffcc88', label: '점 조명' },
+              { type: 'ambient' as const, color: '#667788', label: '환경광' },
+              { type: 'directional' as const, color: '#fff8ee', label: '방향 조명' },
+            ].map(({ type, color, label }) => (
+              <div key={type} className={`light-type-item${selectedLightType === type ? ' selected' : ''}`}
+                onClick={() => setSelectedLightType(type)}>
+                <div className="light-type-icon" style={{ backgroundColor: color }} />
+                {label}
+              </div>
+            ))}
+            <div className="light-palette-section-title" style={{ marginTop: 8 }}>플레이어</div>
+            {[
+              { type: 'playerLight' as const, color: '#a25f06', label: '플레이어 조명' },
+              { type: 'spotLight' as const, color: '#ffeedd', label: '집중 조명' },
+            ].map(({ type, color, label }) => (
+              <div key={type} className={`light-type-item${selectedLightType === type ? ' selected' : ''}`}
+                onClick={() => setSelectedLightType(type)}>
+                <div className="light-type-icon" style={{ backgroundColor: color }} />
+                {label}
+              </div>
+            ))}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             {currentMap?.editorLights?.points && currentMap.editorLights.points.length > 0 && (
               <>
                 <div className="light-palette-section-title" style={{ marginTop: 8 }}>
@@ -497,13 +522,9 @@ export default function TilesetPalette() {
                 </div>
                 <div className="light-point-list">
                   {currentMap.editorLights.points.map((pl) => (
-                    <div
-                      key={pl.id}
+                    <div key={pl.id}
                       className={`light-point-item${selectedLightId === pl.id ? ' selected' : ''}`}
-                      onClick={() => {
-                        useEditorStore.setState({ selectedLightType: 'point', selectedLightId: pl.id });
-                      }}
-                    >
+                      onClick={() => useEditorStore.setState({ selectedLightType: 'point', selectedLightId: pl.id })}>
                       <div className="light-point-swatch" style={{ backgroundColor: pl.color }} />
                       #{pl.id} ({pl.x}, {pl.y})
                     </div>
@@ -514,10 +535,10 @@ export default function TilesetPalette() {
           </div>
         </div>
       ) : (
-        /* Normal tileset mode */
         <>
         <div style={styles.tabBar}>
           {TABS.filter((tab) => !(editMode === 'object' && tab === 'R')).map((tab) => (
+<<<<<<< HEAD
             <div
               key={tab}
               style={{
@@ -549,35 +570,38 @@ export default function TilesetPalette() {
           >
             📂
           </div>
+=======
+            <div key={tab}
+              style={{ ...styles.tab, ...(activeTab === tab ? styles.tabActive : {}), ...(hasSheet(tab) ? {} : styles.tabDisabled) }}
+              onClick={() => handleTabClick(tab)}>{tab}</div>
+          ))}
+          <label style={styles.tileInfoToggle} title="맵에서 타일 정보 툴팁 표시">
+            <input type="checkbox" checked={showTileInfo} onChange={(e) => setShowTileInfo(e.target.checked)} style={{ margin: 0, marginRight: 3 }} />
+            <span style={{ fontSize: 10 }}>정보</span>
+          </label>
+          <div style={styles.openFolderBtn} title="타일셋 폴더 열기"
+            onClick={() => { apiClient.post('/resources/img_tilesets/open-folder', {}).catch(() => {}); }}>📂</div>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         </div>
         <div style={styles.scrollArea}>
           {activeTab === 'R' ? (
-          <div className="region-palette">
-            {Array.from({ length: 256 }, (_, i) => (
-              <div
-                key={i}
-                className={`region-cell${selectedRegion === i ? ' selected' : ''}`}
-                onClick={() => {
-                  setSelectedRegion(i);
-                  setCurrentLayer(5);
-                  setSelectedTileId(i);
-                }}
-                style={i > 0 ? { backgroundColor: `hsl(${(i * 137) % 360}, 50%, 30%)` } : undefined}
-              >
-                {i}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <canvas
-            ref={canvasRef}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseLeave}
-            style={styles.canvas}
-          />
+            <div className="region-palette">
+              {Array.from({ length: 256 }, (_, i) => (
+                <div key={i} className={`region-cell${selectedRegion === i ? ' selected' : ''}`}
+                  onClick={() => { setSelectedRegion(i); setCurrentLayer(5); setSelectedTileId(i); }}
+                  style={i > 0 ? { backgroundColor: `hsl(${(i * 137) % 360}, 50%, 30%)` } : undefined}>{i}</div>
+              ))}
+            </div>
+          ) : (
+            <canvas ref={canvasRef} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp} onMouseLeave={handleMouseLeave} style={styles.canvas} />
+          )}
+        </div>
+        {showTileInfo && paletteHover && paletteHover.tileId !== 0 && (
+          <PaletteTileTooltip tileId={paletteHover.tileId} mouseX={paletteHover.mouseX}
+            mouseY={paletteHover.mouseY} tilesetNames={currentMap?.tilesetNames} />
         )}
+<<<<<<< HEAD
       </div>
       {showTileInfo && paletteHover && paletteHover.tileId !== 0 && (
         <PaletteTileTooltip
@@ -588,12 +612,16 @@ export default function TilesetPalette() {
         />
       )}
       </>
+=======
+        </>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       )}
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
+<<<<<<< HEAD
   container: {
     display: 'flex',
     flexDirection: 'column',
@@ -650,4 +678,15 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'crosshair',
     imageRendering: 'pixelated',
   },
+=======
+  container: { display: 'flex', flexDirection: 'column', borderTop: '1px solid #444', flex: 1, minHeight: 0 },
+  tabBar: { display: 'flex', background: '#2a2a2a', borderBottom: '1px solid #444' },
+  tab: { padding: '3px 8px', fontSize: 11, color: '#aaa', cursor: 'pointer', borderRight: '1px solid #444', userSelect: 'none' },
+  tabActive: { background: '#3a3a3a', color: '#fff', borderBottom: '2px solid #4a9eff' },
+  tabDisabled: { color: '#555' },
+  tileInfoToggle: { marginLeft: 'auto', display: 'flex', alignItems: 'center', padding: '1px 4px', cursor: 'pointer', userSelect: 'none', color: '#aaa', fontSize: 10 },
+  openFolderBtn: { padding: '3px 6px', fontSize: 12, cursor: 'pointer', userSelect: 'none', opacity: 0.7 },
+  scrollArea: { flex: 1, overflow: 'auto', background: '#1e1e1e' },
+  canvas: { display: 'block', width: '100%', cursor: 'crosshair', imageRendering: 'pixelated' },
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 };

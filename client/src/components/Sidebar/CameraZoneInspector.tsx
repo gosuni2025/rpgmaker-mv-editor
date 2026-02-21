@@ -1,8 +1,15 @@
+<<<<<<< HEAD
 import React, { useState, useRef, useCallback } from 'react';
+=======
+import React, { useRef, useCallback } from 'react';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
+import HelpButton from '../common/HelpButton';
+import { CameraZoneRenderSection } from './CameraZoneRenderSection';
 import './InspectorPanel.css';
 
+<<<<<<< HEAD
 function HelpButton({ text }: { text: string }) {
   const [show, setShow] = useState(false);
   return (
@@ -36,6 +43,8 @@ function HelpButton({ text }: { text: string }) {
   );
 }
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 export default function CameraZoneInspector() {
   const currentMap = useEditorStore((s) => s.currentMap);
   const selectedCameraZoneId = useEditorStore((s) => s.selectedCameraZoneId);
@@ -264,6 +273,7 @@ export default function CameraZoneInspector() {
             </div>
           </div>
 
+<<<<<<< HEAD
           {/* DoF Settings */}
           <div className="light-inspector-section">
             <div className="light-inspector-title">DoF (피사계 심도)</div>
@@ -375,6 +385,14 @@ export default function CameraZoneInspector() {
               </>
             )}
           </div>
+=======
+          <CameraZoneRenderSection
+            zone={selectedZone}
+            updateCameraZone={updateCameraZone}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+          />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
           {/* Delete */}
           <button

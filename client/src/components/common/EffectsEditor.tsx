@@ -2,7 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Effect } from '../../types/rpgMakerMV';
 import apiClient from '../../api/client';
+<<<<<<< HEAD
 import { DataListPicker, IconSprite } from '../EventEditor/dataListPicker';
+=======
+import { DataListPicker } from '../EventEditor/dataListPicker';
+import { RecoveryTab, StateTab, ParamTab, OtherTab } from './EffectsEditorTabs';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import './EffectsEditor.css';
 
 interface EffectsEditorProps {
@@ -131,6 +136,7 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
     }
   };
 
+<<<<<<< HEAD
   const renderRecoveryTab = () => (
     <div className="eff-tab-content">
       {/* HP 회복 */}
@@ -184,7 +190,157 @@ export default function EffectsEditor({ effects, onChange }: EffectsEditorProps)
             </div>
           </div>
         )}
+=======
+  const tabSharedProps = {
+    formCode, formDataId, formValue1, formValue2,
+    switchCode, setFormDataId, setFormValue1, setFormValue2,
+  };
+
+  const getStateLabel = (id: number) => {
+    if (id === 0) return t('common.normalAttack');
+    const st = states.find(s => s && s.id === id);
+    return st ? `${String(id).padStart(4, '0')}: ${st.name}` : String(id);
+  };
+
+  const getSkillLabel = (id: number) => {
+    if (id === 0) return t('common.none');
+    const sk = skills.find(s => s && s.id === id);
+    return sk ? `${String(id).padStart(4, '0')}: ${sk.name}` : String(id);
+  };
+
+  const getCELabel = (id: number) => {
+    if (id === 0) return t('common.none');
+    const ce = commonEvents.find(c => c && c.id === id);
+    return ce ? `${String(id).padStart(4, '0')}: ${ce.name}` : String(id);
+  };
+
+  const getStateIconIndex = (id: number) => {
+    const st = states.find(s => s && s.id === id);
+    return st?.iconIndex;
+  };
+
+  const getSkillIconIndex = (id: number) => {
+    const sk = skills.find(s => s && s.id === id);
+    return sk?.iconIndex;
+  };
+
+  const stateNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const s of states) { if (s) arr[s.id] = s.name; }
+    return arr;
+  }, [states]);
+
+  const stateIcons = useMemo(() => {
+    const arr: (number | undefined)[] = [];
+    for (const s of states) { if (s) arr[s.id] = s.iconIndex; }
+    return arr;
+  }, [states]);
+
+  const skillNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const s of skills) { if (s) arr[s.id] = s.name; }
+    return arr;
+  }, [skills]);
+
+  const skillIcons = useMemo(() => {
+    const arr: (number | undefined)[] = [];
+    for (const s of skills) { if (s) arr[s.id] = s.iconIndex; }
+    return arr;
+  }, [skills]);
+
+  const ceNames = useMemo(() => {
+    const arr: string[] = [];
+    for (const c of commonEvents) { if (c) arr[c.id] = c.name; }
+    return arr;
+  }, [commonEvents]);
+
+
+  const TABS: { key: EffectTab; label: string }[] = [
+    { key: 'recovery', label: t('effects.tabRecovery') },
+    { key: 'state', label: t('effects.tabState') },
+    { key: 'param', label: t('effects.tabParam') },
+    { key: 'other', label: t('effects.tabOther') },
+  ];
+
+  return (
+    <div className="effects-editor">
+      <div className="effects-list">
+        {effects.map((eff, i) => (
+          <div key={i} className="effects-list-item" onDoubleClick={() => openEditDialog(i)}>
+            <span className="effects-list-text">{getEffectDescription(eff)}</span>
+            <button className="db-btn-small" onClick={() => removeEffect(i)}>x</button>
+          </div>
+        ))}
+        {effects.length === 0 && <div className="effects-empty">{t('effects.noEffects')}</div>}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       </div>
+      <div className="effects-buttons">
+        <button className="db-btn-small" onClick={openAddDialog}>+</button>
+      </div>
+
+      {dialogOpen && (
+        <div className="effects-dialog-overlay" onClick={() => setDialogOpen(false)}>
+          <div className="effects-dialog" onClick={e => e.stopPropagation()}>
+            <div className="effects-dialog-header">
+              <span>{t('effects.title')}</span>
+              <button className="db-dialog-close" onClick={() => setDialogOpen(false)}>&times;</button>
+            </div>
+            <div className="effects-dialog-tabs">
+              {TABS.map(tb => (
+                <button
+                  key={tb.key}
+                  className={`effects-dialog-tab${tab === tb.key ? ' active' : ''}`}
+                  onClick={() => setTab(tb.key)}
+                >
+                  {tb.label}
+                </button>
+              ))}
+            </div>
+            <div className="effects-dialog-body">
+              {tab === 'recovery' && <RecoveryTab {...tabSharedProps} />}
+              {tab === 'state' && <StateTab {...tabSharedProps} getStateLabel={getStateLabel} getStateIconIndex={getStateIconIndex} setPickerTarget={setPickerTarget} />}
+              {tab === 'param' && <ParamTab {...tabSharedProps} PARAM_NAMES={PARAM_NAMES} />}
+              {tab === 'other' && <OtherTab {...tabSharedProps} PARAM_NAMES={PARAM_NAMES} getSkillLabel={getSkillLabel} getSkillIconIndex={getSkillIconIndex} getCELabel={getCELabel} setPickerTarget={setPickerTarget} />}
+            </div>
+            <div className="effects-dialog-footer">
+              <button className="db-btn" onClick={handleOk}>{t('common.ok')}</button>
+              <button className="db-btn" onClick={() => setDialogOpen(false)}>{t('common.cancel')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pickerTarget && (pickerTarget === 'state21' || pickerTarget === 'state22') && (
+        <DataListPicker
+          items={stateNames}
+          value={formDataId}
+          onChange={(id) => setFormDataId(id)}
+          onClose={() => setPickerTarget(null)}
+          title={t('effects.codes.' + (pickerTarget === 'state21' ? '21' : '22')) + ' 선택'}
+          iconIndices={stateIcons}
+        />
+      )}
+
+      {pickerTarget === 'skill' && (
+        <DataListPicker
+          items={skillNames}
+          value={formDataId}
+          onChange={(id) => setFormDataId(id)}
+          onClose={() => setPickerTarget(null)}
+          title={t('effects.codes.43') + ' 선택'}
+          iconIndices={skillIcons}
+        />
+      )}
+
+      {pickerTarget === 'commonEvent' && (
+        <DataListPicker
+          items={ceNames}
+          value={formDataId}
+          onChange={(id) => setFormDataId(id)}
+          onClose={() => setPickerTarget(null)}
+          title={t('effects.codes.44') + ' 선택'}
+        />
+      )}
     </div>
   );
 

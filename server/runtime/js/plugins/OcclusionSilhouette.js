@@ -131,6 +131,12 @@
             tColor:         { value: null },                          // 원본 렌더 결과
             tCharMask:      { value: null },                          // 캐릭터 마스크
             tObjMask:       { value: null },                          // 오브젝트 마스크
+<<<<<<< HEAD
+=======
+            tCharDepth:     { value: null },                          // 캐릭터 depth texture
+            tObjDepth:      { value: null },                          // 오브젝트 depth texture
+            uUseDepthTest:  { value: 0 },                             // 1=depth 비교 활성화 (3D)
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             uFillColor:     { value: new THREE.Vector3(0.2, 0.4, 1.0) },
             uFillOpacity:   { value: 0.35 },
             uOutlineColor:  { value: new THREE.Vector3(1.0, 1.0, 1.0) },
@@ -151,6 +157,12 @@
             'uniform sampler2D tColor;',
             'uniform sampler2D tCharMask;',
             'uniform sampler2D tObjMask;',
+<<<<<<< HEAD
+=======
+            'uniform sampler2D tCharDepth;',
+            'uniform sampler2D tObjDepth;',
+            'uniform int uUseDepthTest;',
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             'uniform vec3 uFillColor;',
             'uniform float uFillOpacity;',
             'uniform vec3 uOutlineColor;',
@@ -161,11 +173,27 @@
             'uniform vec2 uResolution;',
             'varying vec2 vUv;',
             '',
+<<<<<<< HEAD
             '// 가려진 영역 판정: 캐릭터 마스크 > 0 AND 오브젝트 마스크 > 0',
             'float getOccluded(vec2 uv) {',
             '    float charA = texture2D(tCharMask, uv).a;',
             '    float objA = texture2D(tObjMask, uv).a;',
             '    return step(0.01, charA) * step(0.01, objA);',
+=======
+            '// 가려진 영역 판정: 픽셀 겹침 + (3D 모드) 오브젝트가 캐릭터보다 앞에 있는지 depth 비교',
+            'float getOccluded(vec2 uv) {',
+            '    float charA = texture2D(tCharMask, uv).a;',
+            '    float objA = texture2D(tObjMask, uv).a;',
+            '    if (charA < 0.01 || objA < 0.01) return 0.0;',
+            '    if (uUseDepthTest == 1) {',
+            '        // NDC depth: 값이 작을수록 카메라에 가까움',
+            '        // 오브젝트 depth <= 캐릭터 depth → 오브젝트가 앞에 있음 → 실루엣',
+            '        float charZ = texture2D(tCharDepth, uv).r;',
+            '        float objZ  = texture2D(tObjDepth,  uv).r;',
+            '        return step(objZ, charZ);',
+            '    }',
+            '    return 1.0;',
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             '}',
             '',
             '// 채움 패턴 함수',
@@ -244,6 +272,7 @@
         var params = {
             minFilter: THREE.LinearFilter,
             magFilter: THREE.LinearFilter,
+<<<<<<< HEAD
             format: THREE.RGBAFormat
         };
 
@@ -253,6 +282,32 @@
         this._charMaskRT = new THREE.WebGLRenderTarget(width, height, params);
         this._objMaskRT = new THREE.WebGLRenderTarget(width, height, params);
         this._maskWidth = width;
+=======
+            format: THREE.RGBAFormat,
+            depthBuffer: true,
+            depthTexture: null  // 아래에서 개별 생성
+        };
+
+        if (this._charMaskRT) {
+            if (this._charMaskRT.depthTexture) this._charMaskRT.depthTexture.dispose();
+            this._charMaskRT.dispose();
+        }
+        if (this._objMaskRT) {
+            if (this._objMaskRT.depthTexture) this._objMaskRT.depthTexture.dispose();
+            this._objMaskRT.dispose();
+        }
+
+        var charParams = Object.assign({}, params, {
+            depthTexture: new THREE.DepthTexture(width, height)
+        });
+        var objParams = Object.assign({}, params, {
+            depthTexture: new THREE.DepthTexture(width, height)
+        });
+
+        this._charMaskRT = new THREE.WebGLRenderTarget(width, height, charParams);
+        this._objMaskRT  = new THREE.WebGLRenderTarget(width, height, objParams);
+        this._maskWidth  = width;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         this._maskHeight = height;
     };
 
@@ -385,9 +440,74 @@
         var oldClearAlpha = renderer.getClearAlpha();
         renderer.setClearColor(0x000000, 0);
 
+<<<<<<< HEAD
         // === Pass 1: 캐릭터 마스크 렌더 ===
         for (var ci = 0; ci < charSprites.length; ci++) {
             if (charSprites[ci]._threeObj) charSprites[ci]._threeObj.visible = true;
+=======
+        // depth 계산용 yaw 파라미터 (Mode3D._sortChildren과 동일 기준)
+        var _yaw = (typeof ConfigManager !== 'undefined' && ConfigManager.mode3d && Mode3D && Mode3D._yawRad) ? Mode3D._yawRad : 0;
+        var _cosY = Math.cos(_yaw);
+        var _sinY = Math.sin(_yaw);
+        var _th3d = ($gameMap && $gameMap.tileHeight) ? $gameMap.tileHeight() : 48;
+
+        // charMask 대상 캐릭터 선별:
+        //   - upperZLayer가 있으면(naïve): 모든 캐릭터 포함 (타일별 depth 계산 불가)
+        //   - _objectSprites만 있으면: max(obj_depth) >= char_depth 인 캐릭터만 포함
+        //     (적어도 하나의 오브젝트보다 앞에 있지 않은 캐릭터 = 오브젝트 뒤에 있을 수 있음)
+        var charMaskSprites = [];
+        var _minCharDepth = -Infinity; // objMask 포함 임계값: obj_depth >= _minCharDepth
+
+        if (hasUpperTiles) {
+            // upper tile은 모든 캐릭터를 가릴 수 있으므로 전원 포함
+            for (var _ui = 0; _ui < charSprites.length; _ui++) {
+                if (charSprites[_ui]._threeObj) charMaskSprites.push(charSprites[_ui]);
+            }
+            _minCharDepth = -Infinity; // 모든 오브젝트 포함
+        } else if (hasVisibleObj && spriteset._objectSprites) {
+            // 최대 오브젝트 depth 계산
+            var _maxObjDepth = -Infinity;
+            for (var _preiO = 0; _preiO < spriteset._objectSprites.length; _preiO++) {
+                var _preOs = spriteset._objectSprites[_preiO];
+                if (_preOs._threeObj) {
+                    var _preIdx = tmChildren.indexOf(_preOs._threeObj);
+                    if (_preIdx >= 0 && tmChildVis[_preIdx]) {
+                        var _preOsY = (_preOs._mapObjH > 1)
+                            ? _preOs._y + 1.5 * _th3d * (_preOs._mapObjH - 1)
+                            : (_preOs._mapObjH === 1) ? _preOs._y + _th3d / 2 : _preOs._y;
+                        var _preOd = _preOs._x * _sinY + _preOsY * _cosY;
+                        if (_preOd > _maxObjDepth) _maxObjDepth = _preOd;
+                    }
+                }
+            }
+            // 적어도 하나의 오브젝트가 앞에 있는 캐릭터만 charMask에 포함
+            _minCharDepth = Infinity;
+            for (var _ci = 0; _ci < charSprites.length; _ci++) {
+                var _ch = charSprites[_ci];
+                if (!_ch._threeObj) continue;
+                var _cd = _ch._x * _sinY + _ch._y * _cosY;
+                if (_maxObjDepth >= _cd) { // 이 캐릭터보다 앞에 있는 오브젝트 존재
+                    charMaskSprites.push(_ch);
+                    if (_cd < _minCharDepth) _minCharDepth = _cd;
+                }
+            }
+            if (!charMaskSprites.length || _minCharDepth === Infinity) {
+                // 아무 캐릭터도 오브젝트 뒤에 없음 → 실루엣 불필요
+                for (var _tri = 0; _tri < tmChildren.length; _tri++) tmChildren[_tri].visible = tmChildVis[_tri];
+                for (var _bri = 0; _bri < bsChildren.length; _bri++) bsChildren[_bri].visible = bsChildVis[_bri];
+                for (var _ssi = 0; _ssi < ssChildren.length; _ssi++) ssChildren[_ssi].visible = ssChildVis[_ssi];
+                for (var _smri = 0; _smri < sceneMapChildren.length; _smri++) sceneMapChildren[_smri].visible = sceneMapChildVis[_smri];
+                for (var _stri = 0; _stri < stageChildren.length; _stri++) stageChildren[_stri].visible = stageChildVis[_stri];
+                for (var _ri = 0; _ri < scene.children.length; _ri++) scene.children[_ri].visible = sceneChildVis[_ri];
+                renderer.setClearColor(oldClearColor, oldClearAlpha);
+                return false;
+            }
+        }
+
+        // === Pass 1: 캐릭터 마스크 렌더 ===
+        for (var ci = 0; ci < charMaskSprites.length; ci++) {
+            if (charMaskSprites[ci]._threeObj) charMaskSprites[ci]._threeObj.visible = true;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         }
 
         renderer.setRenderTarget(this._charMaskRT);
@@ -395,8 +515,13 @@
         renderer.render(scene, camera);
 
         // 캐릭터 숨김
+<<<<<<< HEAD
         for (var ci2 = 0; ci2 < charSprites.length; ci2++) {
             if (charSprites[ci2]._threeObj) charSprites[ci2]._threeObj.visible = false;
+=======
+        for (var ci2 = 0; ci2 < charMaskSprites.length; ci2++) {
+            if (charMaskSprites[ci2]._threeObj) charMaskSprites[ci2]._threeObj.visible = false;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         }
 
         // === Pass 2: 오브젝트 마스크 렌더 (upperZLayer + _objectSprites) ===
@@ -407,14 +532,32 @@
                 upperZObj.visible = true;
             }
         }
+<<<<<<< HEAD
         // 에디터 이미지 오브젝트
+=======
+        // 이미지 오브젝트 - charMask 캐릭터 중 적어도 하나보다 앞에 있는 것만 마스크에 포함
+        // depth = x*sin(yaw) + y*cos(yaw) (카메라 yaw 반영, yaw=0이면 y 기준)
+        // Mode3D._sortChildren과 동일한 foot 보정: 멀티타일은 foot 기준 depth 사용
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         if (spriteset._objectSprites) {
             for (var oi2 = 0; oi2 < spriteset._objectSprites.length; oi2++) {
                 var os = spriteset._objectSprites[oi2];
                 if (os._threeObj) {
                     var idx = tmChildren.indexOf(os._threeObj);
                     if (idx >= 0 && tmChildVis[idx]) {
+<<<<<<< HEAD
                         os._threeObj.visible = true;
+=======
+                        // 멀티타일 오브젝트는 발 기준 depth로 보정 (_sortChildren와 동일)
+                        var _osY = (os._mapObjH > 1)
+                            ? os._y + 1.5 * _th3d * (os._mapObjH - 1)
+                            : (os._mapObjH === 1) ? os._y + _th3d / 2 : os._y;
+                        var _objDepth = os._x * _sinY + _osY * _cosY;
+                        // charMask 캐릭터 중 적어도 하나보다 앞에 있을 때만 포함
+                        if (_objDepth >= _minCharDepth) {
+                            os._threeObj.visible = true;
+                        }
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                     }
                 }
             }
@@ -495,7 +638,11 @@
     //=========================================================================
     // Uniforms 동기화
     //=========================================================================
+<<<<<<< HEAD
     OcclusionSilhouette._syncUniforms = function() {
+=======
+    OcclusionSilhouette._syncUniforms = function(useDepthTest) {
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         var pass = this._silhouettePass;
         if (!pass) return;
 
@@ -510,7 +657,16 @@
 
         if (this._charMaskRT) {
             pass.uniforms.tCharMask.value = this._charMaskRT.texture;
+<<<<<<< HEAD
             pass.uniforms.tObjMask.value = this._objMaskRT.texture;
+=======
+            pass.uniforms.tObjMask.value  = this._objMaskRT.texture;
+            // depth texture: 3D 모드에서는 depthTexture가 있으므로 depth 비교 활성화
+            var hasDepth = !!(this._charMaskRT.depthTexture && this._objMaskRT.depthTexture && useDepthTest);
+            pass.uniforms.tCharDepth.value    = hasDepth ? this._charMaskRT.depthTexture : null;
+            pass.uniforms.tObjDepth.value     = hasDepth ? this._objMaskRT.depthTexture  : null;
+            pass.uniforms.uUseDepthTest.value = hasDepth ? 1 : 0;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             pass.uniforms.uResolution.value.set(this._maskWidth, this._maskHeight);
         }
     };
@@ -599,7 +755,12 @@
             var hasMasks = OcclusionSilhouette._renderMasks(renderer, this.scene, this.perspCamera, this.spriteset);
             if (OcclusionSilhouette._silhouettePass) {
                 OcclusionSilhouette._silhouettePass.enabled = hasMasks;
+<<<<<<< HEAD
                 if (hasMasks) OcclusionSilhouette._syncUniforms();
+=======
+                // 3D 모드에서는 depth 비교 활성화
+                if (hasMasks) OcclusionSilhouette._syncUniforms(true);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             }
         }
     };
@@ -618,7 +779,12 @@
                 var hasMasks = OcclusionSilhouette._renderMasks(renderer, rendererObj.scene, rendererObj.camera, spriteset);
                 if (OcclusionSilhouette._silhouettePass) {
                     OcclusionSilhouette._silhouettePass.enabled = hasMasks;
+<<<<<<< HEAD
                     if (hasMasks) OcclusionSilhouette._syncUniforms();
+=======
+                    // 2D 모드: depth 비교 비활성화
+                    if (hasMasks) OcclusionSilhouette._syncUniforms(false);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 }
             }
         }
@@ -629,10 +795,18 @@
     //=========================================================================
     OcclusionSilhouette.dispose = function() {
         if (this._charMaskRT) {
+<<<<<<< HEAD
+=======
+            if (this._charMaskRT.depthTexture) this._charMaskRT.depthTexture.dispose();
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             this._charMaskRT.dispose();
             this._charMaskRT = null;
         }
         if (this._objMaskRT) {
+<<<<<<< HEAD
+=======
+            if (this._objMaskRT.depthTexture) this._objMaskRT.depthTexture.dispose();
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             this._objMaskRT.dispose();
             this._objMaskRT = null;
         }

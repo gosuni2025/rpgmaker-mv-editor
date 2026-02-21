@@ -1,8 +1,13 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+=======
+import React, { useCallback } from 'react';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import useEditorStore from '../store/useEditorStore';
 import useEscClose from '../hooks/useEscClose';
+<<<<<<< HEAD
 import apiClient from '../api/client';
 import CreditTextEditor from './CreditTextEditor';
 import AnimationPickerDialog from './EventEditor/AnimationPickerDialog';
@@ -49,6 +54,14 @@ interface PluginsResponse {
   files: string[];
   list: ServerPluginEntry[];
 }
+=======
+import AnimationPickerDialog from './EventEditor/AnimationPickerDialog';
+import { DataListPicker } from './EventEditor/dataListPicker';
+import './ProjectSettingsDialog.css';
+import { FilePickerDialog, DirPickerDialog, TextFilePickerDialog } from './PluginManagerHelpers';
+import { getOrderedParams, PluginParamRow } from './PluginParamEditor';
+import { usePluginManager } from './usePluginManager';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 interface PluginParamMeta {
   name: string;
@@ -233,6 +246,7 @@ export default function PluginManagerDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowPluginManagerDialog);
   useEscClose(useCallback(() => setShow(false), [setShow]));
+<<<<<<< HEAD
 
   const [plugins, setPlugins] = useState<PluginEntry[]>([]);
   const [availableFiles, setAvailableFiles] = useState<string[]>([]);
@@ -416,6 +430,10 @@ export default function PluginManagerDialog() {
       setSaving(false);
     }
   };
+=======
+
+  const pm = usePluginManager();
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   const openPicker = async (paramMeta: PluginParamMeta, paramIndex: number) => {
     const type = paramMeta.type.toLowerCase();
@@ -644,6 +662,7 @@ export default function PluginManagerDialog() {
       <div className="db-dialog" style={{ width: 1100, height: 700 }}>
         <div className="db-dialog-header">{t('pluginManager.title')}</div>
         <div className="db-dialog-body" style={{ padding: 0, overflow: 'hidden' }}>
+<<<<<<< HEAD
           {loading ? (
             <div className="pm-placeholder">{t('pluginManager.loading')}</div>
           ) : (
@@ -675,11 +694,36 @@ export default function PluginManagerDialog() {
                         <span key={dep} className="pm-plugin-badge" title={`${dep} 필요`}>
                           {dep}
                         </span>
+=======
+          {pm.loading ? (
+            <div className="pm-placeholder">{t('pluginManager.loading')}</div>
+          ) : (
+            <div className="pm-layout">
+              {/* Plugin list */}
+              <div className="pm-plugin-list">
+                <div className="pm-plugin-list-items">
+                  {pm.plugins.map((plugin, index) => (
+                    <div key={index}
+                      className={`pm-plugin-item${pm.selectedIndex === index ? ' active' : ''}`}
+                      onClick={() => { pm.setSelectedIndex(index); pm.setEditingParamIndex(-1); }}>
+                      <input type="checkbox" checked={plugin.status}
+                        onClick={(e) => pm.toggleStatus(index, e)} onChange={() => {}} />
+                      <span className="pm-plugin-item-name">
+                        {pm.metadata[plugin.name]?.pluginname || plugin.name || t('pluginManager.noPlugins')}
+                      </span>
+                      {pm.editorPluginMap.has(plugin.name) && (
+                        <span className={`pm-plugin-badge editor${pm.editorPluginMap.get(plugin.name)!.hasUpdate ? ' has-update' : ''}`}
+                          title={pm.editorPluginMap.get(plugin.name)!.hasUpdate ? '업그레이드 가능' : '에디터 기본 제공'}>에디터</span>
+                      )}
+                      {pm.metadata[plugin.name]?.dependencies?.map(dep => (
+                        <span key={dep} className="pm-plugin-badge" title={`${dep} 필요`}>{dep}</span>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                       ))}
                     </div>
                   ))}
                 </div>
                 <div className="pm-plugin-buttons">
+<<<<<<< HEAD
                   <button className="db-btn-small" onClick={() => movePlugin(-1)} disabled={selectedIndex <= 0} title={t('pluginManager.moveUp')}>↑</button>
                   <button className="db-btn-small" onClick={() => movePlugin(1)} disabled={selectedIndex < 0 || selectedIndex >= plugins.length - 1} title={t('pluginManager.moveDown')}>↓</button>
                   <button className="db-btn-small" onClick={addPlugin} title={t('common.add')}>+</button>
@@ -688,17 +732,38 @@ export default function PluginManagerDialog() {
                 <div className="pm-open-folder-btn">
                   <button className="db-btn-small" onClick={handleOpenPluginFolder}>
                     {t('pluginManager.openFolder')}
+=======
+                  <button className="db-btn-small" onClick={() => pm.movePlugin(-1)} disabled={pm.selectedIndex <= 0} title={t('pluginManager.moveUp')}>↑</button>
+                  <button className="db-btn-small" onClick={() => pm.movePlugin(1)} disabled={pm.selectedIndex < 0 || pm.selectedIndex >= pm.plugins.length - 1} title={t('pluginManager.moveDown')}>↓</button>
+                  <button className="db-btn-small" onClick={pm.addPlugin} title={t('common.add')}>+</button>
+                  <button className="db-btn-small" onClick={pm.removePlugin} disabled={pm.selectedIndex < 0} title={t('common.delete')}>✕</button>
+                </div>
+                <div className="pm-open-folder-btn">
+                  <button className="db-btn-small" onClick={pm.handleOpenPluginFolder}>{t('pluginManager.openFolder')}</button>
+                  <button className="db-btn-small"
+                    disabled={pm.selectedIndex < 0 || !pm.selectedPlugin?.name}
+                    onClick={() => pm.selectedPlugin?.name && pm.handleOpenInVSCode(pm.selectedPlugin.name)}
+                    title="선택한 플러그인 파일을 VSCode로 열기">
+                    VSCode로 열기
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                   </button>
                 </div>
               </div>
 
+<<<<<<< HEAD
               {/* 2nd column: Basic settings */}
               <div className="pm-basic-settings">
                 {selectedPlugin ? (
+=======
+              {/* Basic settings */}
+              <div className="pm-basic-settings">
+                {pm.selectedPlugin ? (
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                   <>
                     <div className="pm-field-row">
                       <span className="pm-field-label">{t('pluginManager.name')}:</span>
                       <div className="pm-field-value">
+<<<<<<< HEAD
                         <select
                           value={selectedPlugin.name}
                           onChange={(e) => changePluginName(selectedIndex, e.target.value)}
@@ -707,11 +772,20 @@ export default function PluginManagerDialog() {
                           {availableFiles.map(f => (
                             <option key={f} value={f} disabled={f !== selectedPlugin.name && usedPluginNames.has(f)}>
                               {metadata[f]?.pluginname ? `${metadata[f].pluginname} (${f})` : f}
+=======
+                        <select value={pm.selectedPlugin.name}
+                          onChange={(e) => pm.changePluginName(pm.selectedIndex, e.target.value)}>
+                          <option value="">({t('pluginManager.selectPlugin')})</option>
+                          {pm.availableFiles.map(f => (
+                            <option key={f} value={f} disabled={f !== pm.selectedPlugin!.name && pm.usedPluginNames.has(f)}>
+                              {pm.metadata[f]?.pluginname ? `${pm.metadata[f].pluginname} (${f})` : f}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                             </option>
                           ))}
                         </select>
                       </div>
                     </div>
+<<<<<<< HEAD
 
                     <div className="pm-field-row">
                       <span className="pm-field-label">{t('pluginManager.status')}:</span>
@@ -725,17 +799,46 @@ export default function PluginManagerDialog() {
                             setDirty(true);
                           }}
                         >
+=======
+                    <div className="pm-field-row">
+                      <span className="pm-field-label">{t('pluginManager.status')}:</span>
+                      <div className="pm-field-value">
+                        <select value={pm.selectedPlugin.status ? 'ON' : 'OFF'}
+                          onChange={(e) => pm.setPluginStatus(pm.selectedIndex, e.target.value === 'ON')}>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                           <option value="ON">ON</option>
                           <option value="OFF">OFF</option>
                         </select>
                       </div>
                     </div>
+<<<<<<< HEAD
 
                     {selectedMeta?.plugindesc && (
                       <>
                         <div className="pm-section-label">{t('pluginManager.descriptionLabel')}:</div>
                         <div className="pm-description">{selectedMeta.plugindesc}</div>
                       </>
+=======
+                    {pm.selectedMeta?.plugindesc && (
+                      <><div className="pm-section-label">{t('pluginManager.descriptionLabel')}:</div>
+                      <div className="pm-description">{pm.selectedMeta.plugindesc}</div></>
+                    )}
+                    {pm.selectedMeta?.author && (
+                      <><div className="pm-section-label">{t('pluginManager.author')}:</div>
+                      <div className="pm-author">{pm.selectedMeta.author}</div></>
+                    )}
+                    {pm.editorPluginMap.has(pm.selectedPlugin.name) && (
+                      <div className="pm-editor-plugin-info">
+                        <div className="pm-editor-plugin-label">에디터 기본 제공 플러그인</div>
+                        {pm.editorPluginMap.get(pm.selectedPlugin.name)!.hasUpdate && (
+                          <button className="db-btn pm-upgrade-btn" onClick={() => pm.handleUpgradePlugin(pm.selectedPlugin!.name)}>업그레이드</button>
+                        )}
+                      </div>
+                    )}
+                    {pm.selectedMeta?.help && (
+                      <><div className="pm-section-label">{t('pluginManager.help')}:</div>
+                      <div className="pm-help-box">{pm.selectedMeta.help}</div></>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                     )}
 
                     {selectedMeta?.author && (
@@ -769,6 +872,7 @@ export default function PluginManagerDialog() {
                 )}
               </div>
 
+<<<<<<< HEAD
               {/* 3rd column: Parameters */}
               <div className="pm-params-panel">
                 <div className="pm-params-header">{t('pluginManager.parameters')}</div>
@@ -842,6 +946,30 @@ export default function PluginManagerDialog() {
                       );
                     })()
                   ) : (
+=======
+              {/* Parameters */}
+              <div className="pm-params-panel">
+                <div className="pm-params-header">{t('pluginManager.parameters')}</div>
+                <div className="pm-params-body">
+                  {pm.selectedPlugin && pm.selectedPlugin.name ? (() => {
+                    const orderedParams = getOrderedParams(pm.selectedPlugin, pm.metadata);
+                    if (orderedParams.length === 0) return <div className="pm-no-params">{t('projectSettings.noParams')}</div>;
+                    return (
+                      <table className="pm-param-table">
+                        <thead><tr><th>{t('pluginManager.paramName')}</th><th>{t('pluginManager.paramValue')}</th></tr></thead>
+                        <tbody>
+                          {orderedParams.map(({ paramIndex, meta: paramMeta }) => (
+                            <PluginParamRow key={pm.selectedPlugin!.parameters[paramIndex]?.name ?? paramIndex}
+                              plugin={pm.selectedPlugin!} pluginIndex={pm.selectedIndex}
+                              paramIndex={paramIndex} paramMeta={paramMeta}
+                              editingParamIndex={pm.editingParamIndex} setEditingParamIndex={pm.setEditingParamIndex}
+                              updateParam={pm.updateParam} hasPickerButton={pm.hasPickerButton} openPicker={pm.openPicker} />
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  })() : (
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                     <div className="pm-no-params">{t('pluginManager.selectPlugin')}</div>
                   )}
                 </div>
@@ -849,6 +977,7 @@ export default function PluginManagerDialog() {
             </div>
           )}
         </div>
+<<<<<<< HEAD
         {error && <div style={{ padding: '4px 16px', color: '#e55', fontSize: 12 }}>{error}</div>}
 
         {/* Picker dialogs */}
@@ -911,12 +1040,47 @@ export default function PluginManagerDialog() {
             }}
             onClose={() => setPickerType(null)}
           />
+=======
+        {pm.error && <div style={{ padding: '4px 16px', color: '#e55', fontSize: 12 }}>{pm.error}</div>}
+
+        {/* Picker dialogs */}
+        {pm.pickerType === 'animation' && pm.selectedPlugin && pm.pickerParamIndex >= 0 && (
+          <AnimationPickerDialog
+            value={Number(pm.selectedPlugin.parameters[pm.pickerParamIndex]?.value) || 0}
+            onChange={(id) => pm.updateParam(pm.selectedIndex, pm.pickerParamIndex, String(id))}
+            onClose={() => pm.setPickerType(null)} />
+        )}
+        {pm.pickerType === 'datalist' && pm.selectedPlugin && pm.pickerParamIndex >= 0 && (
+          <DataListPicker items={pm.dataListItems}
+            value={Number(pm.selectedPlugin.parameters[pm.pickerParamIndex]?.value) || 0}
+            onChange={(id) => pm.updateParam(pm.selectedIndex, pm.pickerParamIndex, String(id))}
+            onClose={() => pm.setPickerType(null)} title={pm.dataListTitle} />
+        )}
+        {pm.pickerType === 'file' && pm.selectedPlugin && pm.pickerParamIndex >= 0 && (
+          <FilePickerDialog dir={pm.browseDir} files={pm.browseFiles}
+            value={pm.selectedPlugin.parameters[pm.pickerParamIndex]?.value || ''}
+            onChange={(name) => { pm.updateParam(pm.selectedIndex, pm.pickerParamIndex, name); pm.setPickerType(null); }}
+            onClose={() => pm.setPickerType(null)} />
+        )}
+        {pm.pickerType === 'dir' && pm.selectedPlugin && pm.pickerParamIndex >= 0 && (
+          <DirPickerDialog parentDir={pm.browseDir} dirs={pm.browseDirs}
+            value={pm.selectedPlugin.parameters[pm.pickerParamIndex]?.value || ''}
+            onChange={(name) => { pm.updateParam(pm.selectedIndex, pm.pickerParamIndex, name); pm.setPickerType(null); }}
+            onClose={() => pm.setPickerType(null)} />
+        )}
+        {pm.pickerType === 'textfile' && pm.selectedPlugin && pm.pickerParamIndex >= 0 && (
+          <TextFilePickerDialog dir={pm.browseDir} files={pm.browseFiles}
+            value={pm.selectedPlugin.parameters[pm.pickerParamIndex]?.value || ''}
+            onChange={(fp) => { pm.updateParam(pm.selectedIndex, pm.pickerParamIndex, fp); pm.setPickerType(null); }}
+            onClose={() => pm.setPickerType(null)} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         )}
 
         <div className="db-dialog-footer">
           <div className="pm-footer-settings">
             <div className="pm-footer-settings-group">
               <span>{t('pluginManager.screen')}:</span>
+<<<<<<< HEAD
               <input type="number" value={settings.screenWidth} min={1} style={{ width: 55 }}
                 onChange={(e) => updateSetting('screenWidth', Number(e.target.value) || 816)} />
               <span>x</span>
@@ -940,6 +1104,28 @@ export default function PluginManagerDialog() {
           <button className="db-btn" onClick={handleSave} disabled={saving || !dirty}
             style={dirty ? { background: '#0078d4', borderColor: '#0078d4' } : {}}>
             {saving ? t('pluginManager.saving') : t('common.save')}
+=======
+              <input type="number" value={pm.settings.screenWidth} min={1} style={{ width: 55 }}
+                onChange={(e) => pm.updateSetting('screenWidth', Number(e.target.value) || 816)} />
+              <span>x</span>
+              <input type="number" value={pm.settings.screenHeight} min={1} style={{ width: 55 }}
+                onChange={(e) => pm.updateSetting('screenHeight', Number(e.target.value) || 624)} />
+            </div>
+            <div className="pm-footer-settings-group">
+              <span>FPS:</span>
+              <input type="number" value={pm.settings.fps} min={1} max={120} style={{ width: 45 }}
+                onChange={(e) => pm.updateSetting('fps', Math.max(1, Math.min(120, Number(e.target.value) || 60)))} />
+            </div>
+            <label>
+              <input type="checkbox" checked={pm.settings.touchUI}
+                onChange={(e) => pm.updateSetting('touchUI', e.target.checked)} />
+              TouchUI
+            </label>
+          </div>
+          <button className="db-btn" onClick={pm.handleSave} disabled={pm.saving || !pm.dirty}
+            style={pm.dirty ? { background: '#0078d4', borderColor: '#0078d4' } : {}}>
+            {pm.saving ? t('pluginManager.saving') : t('common.save')}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
           </button>
           <button className="db-btn" onClick={() => setShow(false)}>{t('common.close')}</button>
         </div>

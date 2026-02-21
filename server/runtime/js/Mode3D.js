@@ -1,5 +1,57 @@
+/*:
+ * @plugindesc 3D 보기 모드 (원근감 카메라 + 빌보드 캐릭터)
+ * @author RPG Maker MV Web Editor
+ *
+ * @command on
+ * @text 3D 모드 활성화
+ * @desc 3D 보기 모드를 활성화합니다.
+ *
+ * @command off
+ * @text 3D 모드 비활성화
+ * @desc 3D 보기 모드를 비활성화하고 2D로 돌아갑니다.
+ *
+ * @command tilt
+ * @text 기울기 설정
+ * @desc 카메라 기울기(틸트) 각도를 설정합니다.
+ *
+ * @arg deg
+ * @text 각도
+ * @type number
+ * @min 0
+ * @max 90
+ * @default 60
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @command yaw
+ * @text 수평 회전 설정
+ * @desc 카메라 수평 회전(요) 각도를 설정합니다.
+ *
+ * @arg deg
+ * @text 각도
+ * @type number
+ * @min -180
+ * @max 180
+ * @default 0
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @help
+ * Mode3D.js는 에디터 코어 파일로 자동으로 로드됩니다.
+ * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
+ */
 //=============================================================================
-// Mode3D.js - 3D 보기 모드 (파판6 스타일 기울임 + 빌보드 캐릭터)
+// Mode3D.js - 3D 보기 모드 (기울임 카메라 + 빌보드 캐릭터)
 //=============================================================================
 // 게임 옵션에서 ON/OFF 가능
 // - PerspectiveCamera로 맵을 기울여서 원근감 부여
@@ -105,6 +157,47 @@
             }
         }
         _ShaderTilemap_updateTransform2.call(this);
+    };
+
+    //=========================================================================
+    // Tilemap._sortChildren - 3D 모드에서 카메라 yaw 반영 depth 정렬
+    // yaw=0: depth = y (기존 동작), yaw=θ: depth = x*sin(θ) + y*cos(θ)
+    //=========================================================================
+
+    var _Tilemap_sortChildren = Tilemap.prototype._sortChildren;
+    Tilemap.prototype._sortChildren = function() {
+        if (!ConfigManager.mode3d) {
+            _Tilemap_sortChildren.call(this);
+            return;
+        }
+        var yaw = Mode3D._yawRad || 0;
+        var cosY = Math.cos(yaw);
+        var sinY = Math.sin(yaw);
+        var th3d = ($gameMap && $gameMap.tileHeight) ? $gameMap.tileHeight() : 48;
+        var children = this.children;
+        if (children.length > 0) {
+            children.sort(function(a, b) {
+                // 이미지 오브젝트(z=5, _mapObjH 있음) depth 계산:
+                //   - h=1: container.y = oy*th + th/2, 이미지 하단(anchorY=1.0) = oy*th + th
+                //          → 캐릭터(ty*th - shiftY)와 비교 시 th/2 보정 추가
+                //   - h>1: foot tile center로 변환: foot_ref = y + 1.5 * th * (h - 1)
+                // 캐릭터는 Mode3D updatePosition에서 y -= th/2로 tile center 기준 사용.
+                var ayD = (a._mapObjH > 1) ? a.y + 1.5 * th3d * (a._mapObjH - 1) :
+                          (a._mapObjH === 1) ? a.y + th3d / 2 : a.y;
+                var byD = (b._mapObjH > 1) ? b.y + 1.5 * th3d * (b._mapObjH - 1) :
+                          (b._mapObjH === 1) ? b.y + th3d / 2 : b.y;
+                var dA = a.x * sinY + ayD * cosY;
+                var dB = b.x * sinY + byD * cosY;
+                // 3D 모드 렌더 순서:
+                //   [버킷 0] 타일 (z=0 lower, z=4 upper): 항상 캐릭터/오브젝트 아래
+                //   [버킷 1] 캐릭터·오브젝트 (z=1,2,3,5 등): depth만으로 앞뒤 결정
+                var tA = (a.z === 0 || a.z === 4) ? 0 : 1;
+                var tB = (b.z === 0 || b.z === 4) ? 0 : 1;
+                if (tA !== tB) return tA - tB;
+                if (tA === 0) return (a.z - b.z) || (dA - dB); // 타일끼리: z→depth
+                return (dA - dB) || (a.x - b.x);               // 캐릭터/오브젝트: depth만
+            });
+        }
     };
 
     //=========================================================================
@@ -881,7 +974,10 @@
                 } catch (e) { /* ignore */ }
             }
             if (isBillboard) {
+<<<<<<< HEAD
                 this.z = 5;
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 // screenY가 타일 하단(bottom) 기준이라 빌보드가 타일 경계에 나타남
                 // th/2만큼 보정하여 타일 중심에 위치하도록 수정
                 var th = ($gameMap && $gameMap.tileHeight) ? $gameMap.tileHeight() : 48;

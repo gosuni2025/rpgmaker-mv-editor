@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { selectStyle } from './messageEditors';
 
+<<<<<<< HEAD
 // ─── 화면의 색조 변경 (Tint Screen, code 223) ───
 // parameters: [[R,G,B,Gray], 지속시간, 완료까지대기]
 export function TintScreenEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
@@ -94,6 +95,10 @@ export function TintScreenEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (p
     </>
   );
 }
+=======
+export { TintScreenEditor } from './TintScreenEditor';
+export { FlashScreenEditor } from './FlashScreenEditor';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 // ─── 창 색깔 변경 (Change Window Color, code 138) ───
 // parameters: [[R,G,B]]  범위: -255 ~ 255
@@ -200,6 +205,7 @@ function WindowColorPreview({ r, g, b }: { r: number; g: number; b: number }) {
   return <canvas ref={canvasRef} width={120} height={120} style={{ borderRadius: 4, border: '1px solid #555' }} />;
 }
 
+<<<<<<< HEAD
 // ─── 화면의 플래시 (Flash Screen, code 224) ───
 // parameters: [[R,G,B,A(진한정도)], 지속시간, 완료까지대기]
 export function FlashScreenEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
@@ -318,6 +324,8 @@ function FlashColorPreview({ r, g, b, a }: { r: number; g: number; b: number; a:
   return <canvas ref={canvasRef} width={120} height={120} style={{ borderRadius: 4, border: '1px solid #555' }} />;
 }
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 // ─── 화면 흔들리기 (Shake Screen, code 225) ───
 // parameters: [강도, 속도, 지속시간, 완료까지대기]
 export function ShakeScreenEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {

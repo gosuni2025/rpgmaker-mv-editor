@@ -13,19 +13,29 @@ export const FACE_RENDER_ORDER: string[] = [
   'Beard', 'BeastEars', 'AccA', 'Cloak1', 'FrontHair', 'Glasses', 'AccB',
 ];
 
-// TV(걷기) 렌더링 순서 (bottom → top, layer 20→1)
-export const TV_RENDER_ORDER: string[] = [
-  'Wing2', 'Cloak2', 'Tail2', 'FrontHair2', 'Beard2', 'Body', 'Ears',
-  'FacialMark', 'RearHair2', 'Clothing2', 'Beard1', 'Clothing1', 'Tail1',
-  'Cloak1', 'BeastEars', 'Glasses', 'RearHair1', 'AccA', 'FrontHair1',
-  'AccB', 'Wing1',
+// TV/SV 렌더 순서의 항목 타입:
+//   string → 단일 레이어 파트 (layer1File 또는 layer2File 중 존재하는 것)
+//   [partName, 'layer1'] → X1(전경) 레이어만 그림
+//   [partName, 'layer2'] → X2(배경) 레이어만 그림
+export type RenderEntry = string | readonly [string, 'layer1' | 'layer2'];
+
+// TV(걷기) 렌더링 순서 (bottom → top)
+// X1/X2 파트는 하나의 논리적 파트로 병합: Cloak2+Cloak1 → Cloak(layer2+layer1)
+export const TV_RENDER_ORDER: RenderEntry[] = [
+  ['Wing', 'layer2'], ['Cloak', 'layer2'], ['Tail', 'layer2'], ['RearHair', 'layer2'],
+  ['FrontHair', 'layer2'], ['Beard', 'layer2'],
+  'Body', 'Ears', 'FacialMark',
+  ['Clothing', 'layer2'], ['Beard', 'layer1'], ['Clothing', 'layer1'], ['Tail', 'layer1'],
+  ['Cloak', 'layer1'], 'BeastEars', 'Glasses', ['RearHair', 'layer1'], 'AccA',
+  ['FrontHair', 'layer1'], 'AccB', ['Wing', 'layer1'],
 ];
 
-// SV(전투) 렌더링 순서 (bottom → top, layer 15→1)
-export const SV_RENDER_ORDER: string[] = [
-  'Wing', 'Cloak2', 'Tail', 'Body', 'Ears', 'FacialMark', 'RearHair1',
-  'Clothing2', 'Beard', 'Clothing1', 'Cloak1', 'BeastEars', 'Glasses',
-  'AccA', 'FrontHair', 'AccB',
+// SV(전투) 렌더링 순서 (bottom → top)
+// SV는 항상 측면 뷰, Cloak/Clothing만 X1/X2 분리
+export const SV_RENDER_ORDER: RenderEntry[] = [
+  'Wing', ['Cloak', 'layer2'], 'Tail', 'RearHair', 'Body', 'Ears', 'FacialMark',
+  ['Clothing', 'layer2'], 'Beard', ['Clothing', 'layer1'], ['Cloak', 'layer1'],
+  'BeastEars', 'Glasses', 'AccA', 'FrontHair', 'AccB',
 ];
 
 const imageCache = new Map<string, HTMLImageElement>();
@@ -58,6 +68,17 @@ export async function loadGradients(url: string): Promise<ImageData> {
   const ctx = canvas.getContext('2d')!;
   ctx.drawImage(img, 0, 0);
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+// 소스 픽셀의 gradient x 위치를 계산 (0=밝음, 255=어두움)
+// luminance 기반이되, 고채도 픽셀(파란 홍채 등)은 max-channel 쪽으로 자동 전환
+// 공식: lum + sat² × (max - lum), where sat = HSV saturation
+function pixelBrightness(r: number, g: number, b: number): number {
+  const maxChannel = Math.max(r, g, b);
+  const minChannel = Math.min(r, g, b);
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  const sat = maxChannel > 0 ? (maxChannel - minChannel) / maxChannel : 0;
+  return 255 - Math.round(lum + sat * sat * (maxChannel - lum));
 }
 
 function getGradientColor(
@@ -119,9 +140,7 @@ export async function recolorFacePart(
       continue;
     }
 
-    // RGB에서 luminance 계산 후 반전 (gradient: x=0 밝음, x=255 어두움)
-    const lum = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
-    const brightness = 255 - Math.round(lum);
+    const brightness = pixelBrightness(pixels[i], pixels[i + 1], pixels[i + 2]);
     const color = getGradientColor(gradients, gradientRow, brightness);
     pixels[i] = color.r;
     pixels[i + 1] = color.g;
@@ -171,8 +190,7 @@ export async function recolorTVSVPart(
       continue;
     }
 
-    const lum = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
-    const brightness = 255 - Math.round(lum);
+    const brightness = pixelBrightness(pixels[i], pixels[i + 1], pixels[i + 2]);
     const color = getGradientColor(gradients, gradientRow, brightness);
     pixels[i] = color.r;
     pixels[i + 1] = color.g;
@@ -203,6 +221,7 @@ export async function compositeFaceCharacter(
   const sortedParts = sortByRenderOrder(parts, FACE_RENDER_ORDER);
 
   for (const part of sortedParts) {
+    // c1(홍채 등 gradient 레이어) → c2(동공/하이라이트 등 fixed 레이어) 순으로 그림
     for (const layer of part.layers) {
       if (layer.gradientRow !== null) {
         const recolored = await recolorFacePart(
@@ -221,6 +240,7 @@ export async function compositeFaceCharacter(
   return canvas;
 }
 
+// parts는 이미 렌더 순서대로 정렬된 상태로 전달됨 (renderOrder 이터레이션 순서)
 export async function compositeTVSVCharacter(
   parts: Array<{
     partName: string;
@@ -231,17 +251,13 @@ export async function compositeTVSVCharacter(
   gradients: ImageData,
   canvasWidth: number,
   canvasHeight: number,
-  outputType: 'TV' | 'SV' = 'TV',
 ): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
   canvas.width = canvasWidth;
   canvas.height = canvasHeight;
   const ctx = canvas.getContext('2d')!;
 
-  const order = outputType === 'SV' ? SV_RENDER_ORDER : TV_RENDER_ORDER;
-  const sortedParts = sortByRenderOrder(parts, order);
-
-  for (const part of sortedParts) {
+  for (const part of parts) {
     const recolored = await recolorTVSVPart(
       part.baseImageUrl,
       part.colorMapUrl,

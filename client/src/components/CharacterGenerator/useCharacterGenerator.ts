@@ -12,7 +12,7 @@ import type {
   VariationIcon, GradientSwatch, PartSelection, GeneratorStatus,
   FacePattern, TVSVPattern,
 } from './types';
-import { getRenderOrder, buildColorGroupMap, TVSV_PART_DEFAULT_GRADIENT, OUTPUT_SIZES } from './types';
+import { getRenderOrder, getPartName, getUniqueParts, buildColorGroupMap, TVSV_PART_DEFAULT_GRADIENT, OUTPUT_SIZES } from './types';
 
 export function useCharacterGenerator() {
   const setShowCharacterGeneratorDialog = useEditorStore((s) => s.setShowCharacterGeneratorDialog);
@@ -95,7 +95,9 @@ export function useCharacterGenerator() {
 
   const initSelections = (manifest: FacePartManifest | TVSVPartManifest, type: OutputType) => {
     const sel: Record<string, PartSelection> = {};
-    for (const partName of getRenderOrder(type)) {
+    // TV/SV는 동일 파트가 렌더 순서에 여러 번 등장(layer1/layer2)하므로 중복 제거
+    const partNames = getUniqueParts(type);
+    for (const partName of partNames) {
       const partData = manifest[partName];
       if (!partData || partData.patterns.length === 0) {
         sel[partName] = { patternId: null, colorRows: {} };
@@ -115,7 +117,7 @@ export function useCharacterGenerator() {
         colorRows[1] = colorMap[defaultRow] ?? defaultRow;
       }
       const shouldSelect = ['Body', 'Face', 'Eyes', 'Ears', 'Eyebrows', 'Nose', 'Mouth',
-        'FrontHair', 'FrontHair1', 'RearHair1'].includes(partName);
+        'FrontHair', 'RearHair'].includes(partName);
       sel[partName] = {
         patternId: shouldSelect ? firstPattern.id : null,
         colorRows,
@@ -149,7 +151,7 @@ export function useCharacterGenerator() {
       let result: HTMLCanvasElement;
       const renderOrder = getRenderOrder(outputType);
       if (outputType === 'Face') {
-        const parts = renderOrder
+        const parts = (renderOrder as string[])
           .filter((pn) => selections[pn]?.patternId)
           .map((pn) => {
             const sel = selections[pn];
@@ -167,24 +169,41 @@ export function useCharacterGenerator() {
           .filter(Boolean) as any[];
         result = await compositeFaceCharacter(parts, gradients, size.w, size.h);
       } else {
+        // renderOrder를 순서대로 순회하여 layer1/layer2 각각을 개별 렌더 항목으로 변환
         const parts = renderOrder
-          .filter((pn) => selections[pn]?.patternId)
-          .map((pn) => {
-            const sel = selections[pn];
-            const partData = tvsvManifest[pn];
+          .map((entry) => {
+            const partName = getPartName(entry);
+            const layer = typeof entry === 'string' ? null : entry[1];
+            const sel = selections[partName];
+            if (!sel?.patternId) return null;
+            const partData = tvsvManifest[partName];
             const pattern = partData?.patterns.find((p) => p.id === sel.patternId) as TVSVPattern | undefined;
             if (!pattern) return null;
+
+            let file: string | null;
+            let cmFile: string | null;
+            if (layer === 'layer2') {
+              file = pattern.layer2File;
+              cmFile = pattern.layer2CmFile;
+            } else if (layer === 'layer1') {
+              file = pattern.layer1File;
+              cmFile = pattern.layer1CmFile;
+            } else {
+              // string 항목 = 단일 레이어 파트, 있는 파일 사용
+              file = pattern.layer1File ?? pattern.layer2File;
+              cmFile = file === pattern.layer1File ? pattern.layer1CmFile : pattern.layer2CmFile;
+            }
+
+            if (!file) return null;
             return {
-              partName: pn,
-              baseImageUrl: `/api/generator/image/${outputType}/${gender}/${pattern.baseFile}`,
-              colorMapUrl: pattern.colorMapFile
-                ? `/api/generator/image/${outputType}/${gender}/${pattern.colorMapFile}`
-                : null,
+              partName,
+              baseImageUrl: `/api/generator/image/${outputType}/${gender}/${file}`,
+              colorMapUrl: cmFile ? `/api/generator/image/${outputType}/${gender}/${cmFile}` : null,
               gradientRow: sel.colorRows[1] ?? 1,
             };
           })
           .filter(Boolean) as any[];
-        result = await compositeTVSVCharacter(parts, gradients, size.w, size.h, outputType as 'TV' | 'SV');
+        result = await compositeTVSVCharacter(parts, gradients, size.w, size.h);
       }
       const ctx = canvasRef.current.getContext('2d')!;
       canvasRef.current.width = size.w;
@@ -294,8 +313,10 @@ export function useCharacterGenerator() {
     const sel: Record<string, PartSelection> = {};
     // 같은 defaultGradientRow를 가진 레이어들이 동일한 색상을 쓰도록
     const groupColors = new Map<number, number>();
+    // TV/SV는 동일 파트 중복 방지를 위해 고유 파트 이름 목록 사용
+    const partNames = getUniqueParts(outputType);
 
-    for (const partName of getRenderOrder(outputType)) {
+    for (const partName of partNames) {
       const partData = manifest[partName];
       if (!partData || partData.patterns.length === 0) {
         sel[partName] = { patternId: null, colorRows: {} };
@@ -312,6 +333,8 @@ export function useCharacterGenerator() {
       if (outputType === 'Face') {
         const fp = randomPattern as FacePattern;
         for (const cl of fp.colorLayers) {
+          // null defaultGradientRow = 고정색 레이어(_m 없음), 랜덤 적용 안 함
+          if (cl.defaultGradientRow == null) continue;
           if (!groupColors.has(cl.defaultGradientRow)) {
             groupColors.set(cl.defaultGradientRow, Math.floor(Math.random() * 70));
           }
@@ -399,7 +422,7 @@ export function useCharacterGenerator() {
 
   const previewSize = OUTPUT_SIZES[outputType];
   const scale = outputType === 'SV' ? 0.5 : 1.5;
-  const availableParts = getRenderOrder(outputType).filter((pn) => manifest[pn]?.patterns?.length > 0);
+  const availableParts = getUniqueParts(outputType).filter((pn) => manifest[pn]?.patterns?.length > 0);
 
   const handleSetCustomPath = async () => {
     if (!customPath.trim()) return;

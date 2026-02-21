@@ -1,12 +1,10 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import './App.css';
 import './components/ParseErrorsDialog.css';
 import './components/common/Toast.css';
 import useEditorStore from './store/useEditorStore';
 import apiClient, { ApiError } from './api/client';
 import MenuBar from './components/MenuBar/MenuBar';
-import MapTree from './components/Sidebar/MapTree';
-import TilesetPalette from './components/Sidebar/TilesetPalette';
 import ResizablePanel from './components/common/ResizablePanel';
 import StatusBar from './components/common/StatusBar';
 import DatabaseDialog from './components/Database/DatabaseDialog';
@@ -25,11 +23,17 @@ import ResourceManagerDialog from './components/ResourceManagerDialog';
 import CharacterGeneratorDialog from './components/CharacterGenerator/CharacterGeneratorDialog';
 import OptionsDialog from './components/OptionsDialog';
 import LocalizationDialog from './components/LocalizationDialog';
+<<<<<<< HEAD
+=======
+import UpdateCheckDialog from './components/UpdateCheckDialog';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 import AutotileDebugDialog from './components/AutotileDebugDialog';
+import SidebarSplit from './components/SidebarSplit';
 import LightInspector from './components/Sidebar/LightInspector';
 import ObjectInspector from './components/Sidebar/ObjectInspector';
 import CameraZoneInspector from './components/Sidebar/CameraZoneInspector';
+<<<<<<< HEAD
 import CameraZoneListPanel from './components/Sidebar/CameraZoneListPanel';
 import ObjectListPanel from './components/Sidebar/ObjectListPanel';
 import MapInspector from './components/Sidebar/MapInspector';
@@ -116,6 +120,15 @@ function SidebarSplit({ editMode }: { editMode: string }) {
     </div>
   );
 }
+=======
+import MapInspector from './components/Sidebar/MapInspector';
+import EventInspector from './components/Sidebar/EventInspector';
+import PassageInspector from './components/Sidebar/PassageInspector';
+import useFileWatcher from './hooks/useFileWatcher';
+import useAutoSave from './hooks/useAutoSave';
+import useDialogDrag from './hooks/useDialogDrag';
+import i18n from './i18n';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 export default function App() {
   const projectPath = useEditorStore((s) => s.projectPath);
@@ -133,6 +146,11 @@ export default function App() {
   const showCharacterGeneratorDialog = useEditorStore((s) => s.showCharacterGeneratorDialog);
   const showOptionsDialog = useEditorStore((s) => s.showOptionsDialog);
   const showLocalizationDialog = useEditorStore((s) => s.showLocalizationDialog);
+<<<<<<< HEAD
+=======
+  const showUpdateCheckDialog = useEditorStore((s) => s.showUpdateCheckDialog);
+  const setShowUpdateCheckDialog = useEditorStore((s) => s.setShowUpdateCheckDialog);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   const toastQueue = useEditorStore((s) => s.toastQueue);
   const dismissToast = useEditorStore((s) => s.dismissToast);
@@ -145,6 +163,10 @@ export default function App() {
   const [showAutotileDebug, setShowAutotileDebug] = useState(false);
   useFileWatcher();
   useAutoSave();
+<<<<<<< HEAD
+=======
+  useDialogDrag();
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   const setShowOpenProjectDialog = useEditorStore((s) => s.setShowOpenProjectDialog);
   const openProject = useEditorStore((s) => s.openProject);
   const restoreLastProject = useEditorStore((s) => s.restoreLastProject);
@@ -153,6 +175,51 @@ export default function App() {
     restoreLastProject();
   }, [restoreLastProject]);
 
+<<<<<<< HEAD
+=======
+  // 앱 시작 시 자동 업데이트 체크 (하루 한 번)
+  useEffect(() => {
+    const STORAGE_KEY = 'rpg-editor-last-update-check';
+    const ONE_DAY_MS = 86_400_000;
+    const last = parseInt(localStorage.getItem(STORAGE_KEY) ?? '0', 10);
+    if (Date.now() - last < ONE_DAY_MS) return;
+    const timer = setTimeout(async () => {
+      try {
+        const REPO = 'gosuni2025/rpgmaker-mv-editor';
+        const info = await apiClient.get<{ type: string; version?: string; commitDate?: string }>('/version/info');
+        let hasUpdate = false;
+        if (info.type === 'release' && info.version) {
+          const ghRes = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+            headers: { Accept: 'application/vnd.github+json' },
+          });
+          if (ghRes.ok) {
+            const gh = await ghRes.json();
+            const latestTag: string = gh.tag_name ?? '';
+            const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
+            const [aMaj, aMin, aPatch] = parse(info.version);
+            const [bMaj, bMin, bPatch] = parse(latestTag);
+            hasUpdate = aMaj < bMaj || (aMaj === bMaj && (aMin < bMin || (aMin === bMin && (aPatch ?? 0) < (bPatch ?? 0))));
+          }
+        } else if (info.type === 'git' && info.commitDate) {
+          const ghRes = await fetch(`https://api.github.com/repos/${REPO}/commits?sha=main&per_page=1`, {
+            headers: { Accept: 'application/vnd.github+json' },
+          });
+          if (ghRes.ok) {
+            const gh = await ghRes.json();
+            const latestDate: string = gh[0]?.commit?.committer?.date ?? '';
+            hasUpdate = !!latestDate && info.commitDate < latestDate;
+          }
+        }
+        localStorage.setItem(STORAGE_KEY, String(Date.now()));
+        if (hasUpdate) setShowUpdateCheckDialog(true);
+      } catch {
+        // 자동 체크 실패는 무시
+      }
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [setShowUpdateCheckDialog]);
+
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   // 서버에서 에디터 설정 로드
   useEffect(() => {
     apiClient.get<{
@@ -339,6 +406,10 @@ export default function App() {
       {showCharacterGeneratorDialog && <CharacterGeneratorDialog />}
       {showOptionsDialog && <OptionsDialog />}
       {showLocalizationDialog && <LocalizationDialog />}
+<<<<<<< HEAD
+=======
+      {showUpdateCheckDialog && <UpdateCheckDialog onClose={() => setShowUpdateCheckDialog(false)} />}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
       <AutotileDebugDialog open={showAutotileDebug} onClose={() => setShowAutotileDebug(false)} />
       {parseErrors && parseErrors.length > 0 && (

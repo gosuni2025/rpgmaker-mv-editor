@@ -1,5 +1,7 @@
-import { useRef, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
+import { use3DCameraControls } from './use3DCameraControls';
+import { useEditorCommands } from './useEditorCommands';
 
 interface KeyboardShortcutsResult {
   showGrid: boolean;
@@ -14,6 +16,7 @@ export function useKeyboardShortcuts(
   const [altPressed, setAltPressed] = useState(false);
   const showGrid = useEditorStore((s) => s.showGrid);
   const [showTileId, setShowTileId] = useState(false);
+<<<<<<< HEAD
   const [panning, setPanning] = useState(false);
   const isPanning = useRef(false);
   const panStart = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number }>({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
@@ -57,30 +60,14 @@ export function useKeyboardShortcuts(
   const cursorTileX = useEditorStore((s) => s.cursorTileX);
   const cursorTileY = useEditorStore((s) => s.cursorTileY);
   const showToast = useEditorStore((s) => s.showToast);
+=======
 
-  // Light multi-select
-  const selectedLightIds = useEditorStore((s) => s.selectedLightIds);
-  const copyLights = useEditorStore((s) => s.copyLights);
-  const deleteLights = useEditorStore((s) => s.deleteLights);
-  const isLightPasting = useEditorStore((s) => s.isLightPasting);
-  const setIsLightPasting = useEditorStore((s) => s.setIsLightPasting);
-  const setLightPastePreviewPos = useEditorStore((s) => s.setLightPastePreviewPos);
-  const clearLightSelection = useEditorStore((s) => s.clearLightSelection);
+  // 3D camera controls (wheel zoom, mouse drag, WASD/QE)
+  const { panning } = use3DCameraControls(containerRef);
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
-  // Object multi-select
-  const selectedObjectIds = useEditorStore((s) => s.selectedObjectIds);
-  const copyObjects = useEditorStore((s) => s.copyObjects);
-  const deleteObjects = useEditorStore((s) => s.deleteObjects);
-  const isObjectPasting = useEditorStore((s) => s.isObjectPasting);
-  const setIsObjectPasting = useEditorStore((s) => s.setIsObjectPasting);
-  const setObjectPastePreviewPos = useEditorStore((s) => s.setObjectPastePreviewPos);
-  const clearObjectSelection = useEditorStore((s) => s.clearObjectSelection);
-
-  // Camera zone multi-select
-  const selectedCameraZoneId = useEditorStore((s) => s.selectedCameraZoneId);
-  const selectedCameraZoneIds = useEditorStore((s) => s.selectedCameraZoneIds);
-  const deleteCameraZone = useEditorStore((s) => s.deleteCameraZone);
-  const deleteCameraZones = useEditorStore((s) => s.deleteCameraZones);
+  // Editor commands (Delete, Copy/Cut/Paste, SelectAll, Deselect, Escape)
+  useEditorCommands();
 
   // Alt key state for eyedropper cursor
   useEffect(() => {
@@ -94,6 +81,7 @@ export function useKeyboardShortcuts(
     };
   }, []);
 
+<<<<<<< HEAD
   // =========================================================================
   // 3D 카메라 조작 (유니티 Scene View 스타일)
   // - 우클릭 드래그: 카메라 회전 (Flythrough)
@@ -400,11 +388,16 @@ export function useKeyboardShortcuts(
 
   // Tile ID debug toggle
   useEffect(() => {
+=======
+  // Tile ID debug toggle
+  useEffect(() => {
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     const handler = (e: Event) => setShowTileId((e as CustomEvent<boolean>).detail);
     window.addEventListener('editor-toggle-tileid', handler);
     return () => window.removeEventListener('editor-toggle-tileid', handler);
   }, []);
 
+<<<<<<< HEAD
   // Handle Delete key for events, lights, objects, and tile selection
   useEffect(() => {
     const handleDelete = () => {
@@ -769,5 +762,7 @@ export function useKeyboardShortcuts(
     return () => window.removeEventListener('editor-escape', handleEscape);
   }, [isPasting, isEventPasting, isLightPasting, isObjectPasting, selectionStart, selectionEnd, setIsPasting, setPastePreviewPos, clearSelection, setIsEventPasting, setEventPastePreviewPos, clearEventSelection, setIsLightPasting, setLightPastePreviewPos, clearLightSelection, setIsObjectPasting, setObjectPastePreviewPos, clearObjectSelection]);
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   return { showGrid, showTileId, altPressed, panning };
 }

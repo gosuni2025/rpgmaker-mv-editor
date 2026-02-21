@@ -1,3 +1,83 @@
+/* ─── 텍스트 표시 전체화면 다이얼로그 ─── */
+.show-text-fullscreen-dialog {
+  background: #2b2b2b;
+  border: 1px solid #555;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  width: 96vw;
+  max-width: 1600px;
+  height: 94vh;
+  max-height: 1100px;
+  overflow: hidden;
+}
+
+.show-text-body {
+  flex: 1;
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* 왼쪽: 설정 패널 — flex: 1로 가변 */
+.show-text-settings {
+  flex: 1;
+  min-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  overflow-y: auto;
+  border-right: 1px solid #444;
+}
+
+/* 스플릿 핸들 */
+.show-text-split-handle {
+  width: 5px;
+  flex-shrink: 0;
+  background: #3a3a3a;
+  cursor: col-resize;
+  position: relative;
+  transition: background 0.15s;
+  z-index: 1;
+}
+.show-text-split-handle:hover,
+.show-text-split-handle:active {
+  background: #2675bf;
+}
+.show-text-split-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 1px;
+  height: 40px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 1px;
+}
+
+/* 오른쪽: 미리보기 패널 — 스플릿으로 너비 동적 제어 */
+.show-text-preview-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  overflow: hidden;
+  min-width: 180px;
+  max-width: 900px;
+}
+
+.show-text-preview-header {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 8px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+}
+
 /* Show Choices Editor */
 .show-choices-editor {
   display: flex;
@@ -15,6 +95,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  max-height: 460px;
+  overflow-y: auto;
 }
 
 .show-choices-right {
@@ -46,4 +128,38 @@
   width: 28px;
   text-align: right;
   flex-shrink: 0;
+}
+
+.show-choices-remove-btn {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.show-choices-remove-btn:hover:not(:disabled) {
+  color: #e06c6c;
+}
+.show-choices-remove-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.show-choices-add-btn {
+  background: none;
+  border: 1px dashed #555;
+  color: #888;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  margin-top: 2px;
+  text-align: left;
+}
+.show-choices-add-btn:hover {
+  border-color: #2675bf;
+  color: #2675bf;
 }

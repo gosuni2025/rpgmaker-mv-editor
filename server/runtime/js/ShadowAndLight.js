@@ -1,3 +1,112 @@
+/*:
+ * @plugindesc 3D 그림자 및 조명 시스템 (DirectionalLight + PointLight)
+ * @author RPG Maker MV Web Editor
+ * @plugincommand ShadowLight
+ *
+ * @command on
+ * @text 조명 시스템 활성화
+ * @desc 3D 그림자 및 조명 시스템을 활성화합니다.
+ *
+ * @command off
+ * @text 조명 시스템 비활성화
+ * @desc 3D 그림자 및 조명 시스템을 비활성화합니다.
+ *
+ * @command ambient
+ * @text 주변광 강도 설정
+ * @desc 주변광(AmbientLight) 강도를 설정합니다.
+ *
+ * @arg intensity
+ * @text 강도
+ * @type number
+ * @min 0
+ * @max 2
+ * @default 0.35
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @command ambientColor
+ * @text 주변광 색상 설정
+ * @desc 주변광(AmbientLight) 색상을 설정합니다.
+ *
+ * @arg color
+ * @text 색상 (#RRGGBB)
+ * @type string
+ * @default #667788
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @command direction
+ * @text 광원 방향 설정
+ * @desc 방향광(DirectionalLight)의 방향을 설정합니다.
+ *
+ * @arg x
+ * @text X
+ * @type number
+ * @min -1
+ * @max 1
+ * @default -1
+ *
+ * @arg y
+ * @text Y
+ * @type number
+ * @min -1
+ * @max 1
+ * @default -1
+ *
+ * @arg z
+ * @text Z
+ * @type number
+ * @min -1
+ * @max 1
+ * @default 0.5
+ *
+ * @command pointLight
+ * @text 포인트 라이트 속성 설정
+ * @desc 특정 포인트 라이트의 속성(intensity/color/distance)을 설정합니다.
+ *
+ * @arg lightId
+ * @text 라이트 ID
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg property
+ * @text 속성
+ * @type select
+ * @option 강도 (intensity)
+ * @value intensity
+ * @option 색상 (color)
+ * @value color
+ * @option 거리 (distance)
+ * @value distance
+ * @default intensity
+ *
+ * @arg value
+ * @text 값
+ * @type string
+ * @default 1
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @default 0
+ *
+ * @help
+ * ShadowAndLight.js는 에디터 코어 파일로 자동으로 로드됩니다.
+ * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
+ */
 //=============================================================================
 // ShadowAndLight.js - Three.js 3D Shadow & Lighting System
 //=============================================================================
@@ -162,6 +271,7 @@ ShadowLight.config = {
     upperLayerZ: 24,                  // PointLight(z=30)와 가까워지도록 상승
 
     // 그림자 설정
+    shadowEnabled: false,             // 발치 그림자(PlaneGeometry blob shadow) 활성화
     shadowOpacity: 0.4,
     shadowColor: 0x000000,
     shadowOffsetScale: 0.6,           // 광원 방향에 따른 오프셋 스케일
@@ -1321,6 +1431,19 @@ ShadowLight._addLightsToScene = function(scene) {
         if (sl.shadowMapSize != null) this.config.spotLightShadowMapSize = sl.shadowMapSize;
         if (sl.targetDistance != null) this.config.spotLightTargetDistance = sl.targetDistance;
     }
+<<<<<<< HEAD
+=======
+    // editorLights에서 발치 그림자(blob shadow) 설정 동기화
+    if (!elGlobalOff && el && el.shadow) {
+        var sh = el.shadow;
+        if (sh.enabled != null) this.config.shadowEnabled = sh.enabled;
+        if (sh.opacity != null) this.config.shadowOpacity = sh.opacity;
+        if (sh.color != null) this.config.shadowColor = parseInt(sh.color.replace('#', ''), 16);
+        if (sh.offsetScale != null) this.config.shadowOffsetScale = sh.offsetScale;
+    } else if (elGlobalOff) {
+        this.config.shadowEnabled = false;
+    }
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
     // SpotLight - 플레이어 방향성 그림자 (항상 생성, visible로 제어)
     this._playerSpotLight = new THREE.SpotLight(
@@ -1776,7 +1899,7 @@ ShadowLight._createShadowMesh = function() {
  */
 ShadowLight._updateShadowMesh = function(shadowMesh, charSprite) {
     var spriteObj = charSprite._threeObj;
-    if (!spriteObj || !spriteObj.visible) {
+    if (!spriteObj || !spriteObj.visible || !this.config.shadowEnabled) {
         shadowMesh.visible = false;
         return;
     }
@@ -3101,6 +3224,11 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
             var ambDur = args[2] ? parseFloat(args[2]) : 0;
             // editorLights.ambient도 함께 업데이트 (_updateCameraZoneAmbient가 이 값을 target으로 사용)
             var _el = (typeof $dataMap !== 'undefined' && $dataMap) ? $dataMap.editorLights : null;
+<<<<<<< HEAD
+=======
+            // ambient 커맨드 실행 시 disabled여도 활성화 (커맨드로 명시적 제어)
+            if (_el && _el.ambient) _el.ambient.enabled = true;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             if (ambDur > 0 && window.PluginTween) {
                 PluginTween.add({
                     target: ShadowLight.config, key: 'ambientIntensity', to: ambVal, duration: ambDur,

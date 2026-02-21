@@ -2,10 +2,7 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
 import type { MapToolsResult } from './useMapTools';
-
-// 카메라존 최소 크기 = 화면 타일 수
-const MIN_CZ_W = Math.ceil(816 / 48); // 17
-const MIN_CZ_H = Math.ceil(624 / 48); // 13
+import { detectEdge, edgeToCursor, applyResize, computeCreationRect } from './cameraZoneUtils';
 
 export interface CameraZoneHandlersResult {
   isDraggingCameraZone: React.MutableRefObject<boolean>;
@@ -56,36 +53,7 @@ export function useCameraZoneHandlers(
   const multiCameraZoneDragOrigin = useRef<{ x: number; y: number } | null>(null);
   const [cameraZoneMultiDragDelta, setCameraZoneMultiDragDelta] = useState<{ dx: number; dy: number } | null>(null);
 
-  // Camera zone edge detection helper
-  const detectCameraZoneEdge = useCallback((tile: { x: number; y: number }, zone: { x: number; y: number; width: number; height: number }): string | null => {
-    const { x, y, width, height } = zone;
-    const onLeft = tile.x === x;
-    const onRight = tile.x === x + width - 1;
-    const onTop = tile.y === y;
-    const onBottom = tile.y === y + height - 1;
-    const inHorizontal = tile.x >= x && tile.x < x + width;
-    const inVertical = tile.y >= y && tile.y < y + height;
-
-    if (onTop && onLeft) return 'nw';
-    if (onTop && onRight) return 'ne';
-    if (onBottom && onLeft) return 'sw';
-    if (onBottom && onRight) return 'se';
-    if (onTop && inHorizontal) return 'n';
-    if (onBottom && inHorizontal) return 's';
-    if (onLeft && inVertical) return 'w';
-    if (onRight && inVertical) return 'e';
-    return null;
-  }, []);
-
-  const edgeToCursorStyle = useCallback((edge: string): string => {
-    const map: Record<string, string> = {
-      n: 'ns-resize', s: 'ns-resize',
-      e: 'ew-resize', w: 'ew-resize',
-      nw: 'nwse-resize', se: 'nwse-resize',
-      ne: 'nesw-resize', sw: 'nesw-resize',
-    };
-    return map[edge] || 'default';
-  }, []);
+  // Edge detection and cursor helpers imported from cameraZoneUtils
 
   // Convert clientX/clientY to tile coordinates (unclamped)
   const clientToTileUnclamped = useCallback((clientX: number, clientY: number): { x: number; y: number } | null => {
@@ -123,14 +91,7 @@ export function useCameraZoneHandlers(
         const edge = resizeCameraZoneEdge.current!;
         const dx = tile.x - resizeCameraZoneStart.current.x;
         const dy = tile.y - resizeCameraZoneStart.current.y;
-        let nx = orig.x, ny = orig.y, nw = orig.width, nh = orig.height;
-        if (edge.includes('w')) { nx = orig.x + dx; nw = orig.width - dx; }
-        if (edge.includes('e')) { nw = orig.width + dx; }
-        if (edge.includes('n')) { ny = orig.y + dy; nh = orig.height - dy; }
-        if (edge.includes('s')) { nh = orig.height + dy; }
-        if (nw < MIN_CZ_W) { if (edge.includes('w')) nx = orig.x + orig.width - MIN_CZ_W; nw = MIN_CZ_W; }
-        if (nh < MIN_CZ_H) { if (edge.includes('n')) ny = orig.y + orig.height - MIN_CZ_H; nh = MIN_CZ_H; }
-        setCameraZoneDragPreview({ x: nx, y: ny, width: nw, height: nh });
+        setCameraZoneDragPreview(applyResize(orig, edge, dx, dy));
         return;
       }
 
@@ -162,13 +123,7 @@ export function useCameraZoneHandlers(
       }
 
       if (isCreatingCameraZone.current && createZoneStart.current) {
-        const sx = createZoneStart.current.x;
-        const sy = createZoneStart.current.y;
-        const minX = Math.min(sx, tile.x);
-        const minY = Math.min(sy, tile.y);
-        const maxX = Math.max(sx, tile.x);
-        const maxY = Math.max(sy, tile.y);
-        setCameraZoneDragPreview({ x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 });
+        setCameraZoneDragPreview(computeCreationRect(createZoneStart.current, tile));
         return;
       }
     };
@@ -229,15 +184,8 @@ export function useCameraZoneHandlers(
 
       if (isCreatingCameraZone.current && createZoneStart.current) {
         if (tile) {
-          const sx = createZoneStart.current.x;
-          const sy = createZoneStart.current.y;
-          const minX = Math.min(sx, tile.x);
-          const minY = Math.min(sy, tile.y);
-          const w = Math.abs(tile.x - sx) + 1;
-          const h = Math.abs(tile.y - sy) + 1;
-          if (w >= 2 || h >= 2) {
-            addCameraZone(minX, minY, w, h);
-          }
+          const rect = computeCreationRect(createZoneStart.current, tile);
+          if (rect.width >= 2 || rect.height >= 2) addCameraZone(rect.x, rect.y, rect.width, rect.height);
         }
         isCreatingCameraZone.current = false;
         createZoneStart.current = null;
@@ -268,7 +216,7 @@ export function useCameraZoneHandlers(
 
     // Resize edge detection (only for single-selected zone, not during multi-select)
     if (selectedZone && curIds.length <= 1) {
-      const edge = detectCameraZoneEdge(unclampedTile, selectedZone);
+      const edge = detectEdge(unclampedTile, selectedZone);
       if (edge) {
         isResizingCameraZone.current = true;
         resizeCameraZoneId.current = selectedZone.id;
@@ -331,25 +279,16 @@ export function useCameraZoneHandlers(
       startCameraZoneWindowCapture();
     }
     return true;
-  }, [currentMap, detectCameraZoneEdge, setCameraZoneDragPreview, startCameraZoneWindowCapture, setSelectedCameraZoneId, setSelectedCameraZoneIds]);
+  }, [currentMap, setCameraZoneDragPreview, startCameraZoneWindowCapture, setSelectedCameraZoneId, setSelectedCameraZoneIds]);
 
   const handleCameraZoneMouseMove = useCallback((tile: { x: number; y: number } | null, e: React.MouseEvent<HTMLElement>, canvasToTile: MapToolsResult['canvasToTile']): boolean => {
     const unclampedTile = (isResizingCameraZone.current || isDraggingCameraZone.current || isDraggingMultiCameraZones.current || isCreatingCameraZone.current) ? (canvasToTile(e, true) ?? tile) : null;
 
     // Camera zone resize
     if (isResizingCameraZone.current && unclampedTile && resizeCameraZoneOriginal.current && resizeCameraZoneStart.current) {
-      const orig = resizeCameraZoneOriginal.current;
-      const edge = resizeCameraZoneEdge.current!;
       const dx = unclampedTile.x - resizeCameraZoneStart.current.x;
       const dy = unclampedTile.y - resizeCameraZoneStart.current.y;
-      let nx = orig.x, ny = orig.y, nw = orig.width, nh = orig.height;
-      if (edge.includes('w')) { nx = orig.x + dx; nw = orig.width - dx; }
-      if (edge.includes('e')) { nw = orig.width + dx; }
-      if (edge.includes('n')) { ny = orig.y + dy; nh = orig.height - dy; }
-      if (edge.includes('s')) { nh = orig.height + dy; }
-      if (nw < MIN_CZ_W) { if (edge.includes('w')) nx = orig.x + orig.width - MIN_CZ_W; nw = MIN_CZ_W; }
-      if (nh < MIN_CZ_H) { if (edge.includes('n')) ny = orig.y + orig.height - MIN_CZ_H; nh = MIN_CZ_H; }
-      setCameraZoneDragPreview({ x: nx, y: ny, width: nw, height: nh });
+      setCameraZoneDragPreview(applyResize(resizeCameraZoneOriginal.current, resizeCameraZoneEdge.current!, dx, dy));
       return true;
     }
 
@@ -382,13 +321,7 @@ export function useCameraZoneHandlers(
 
     // Camera zone creation drag
     if (isCreatingCameraZone.current && unclampedTile && createZoneStart.current) {
-      const sx = createZoneStart.current.x;
-      const sy = createZoneStart.current.y;
-      const minX = Math.min(sx, unclampedTile.x);
-      const minY = Math.min(sy, unclampedTile.y);
-      const maxX = Math.max(sx, unclampedTile.x);
-      const maxY = Math.max(sy, unclampedTile.y);
-      setCameraZoneDragPreview({ x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 });
+      setCameraZoneDragPreview(computeCreationRect(createZoneStart.current, unclampedTile));
       return true;
     }
 
@@ -401,8 +334,8 @@ export function useCameraZoneHandlers(
         const zones = currentMap?.cameraZones || [];
         const selectedZone = selectedZoneId != null ? zones.find(z => z.id === selectedZoneId) : null;
         if (selectedZone && state.selectedCameraZoneIds.length <= 1) {
-          const edge = detectCameraZoneEdge(hoverTileUnclamped, selectedZone);
-          setCameraZoneCursor(edge ? edgeToCursorStyle(edge) : null);
+          const edge = detectEdge(hoverTileUnclamped, selectedZone);
+          setCameraZoneCursor(edge ? edgeToCursor(edge) : null);
         } else {
           setCameraZoneCursor(null);
         }
@@ -410,7 +343,7 @@ export function useCameraZoneHandlers(
     }
 
     return false;
-  }, [currentMap, detectCameraZoneEdge, edgeToCursorStyle, setCameraZoneDragPreview]);
+  }, [currentMap, setCameraZoneDragPreview]);
 
   const handleCameraZoneMouseUp = useCallback((e: React.MouseEvent<HTMLElement>): boolean => {
     // Camera zone resize commit
@@ -464,15 +397,8 @@ export function useCameraZoneHandlers(
     if (isCreatingCameraZone.current && createZoneStart.current) {
       const unclTile = clientToTileUnclamped(e.clientX, e.clientY);
       if (unclTile) {
-        const sx = createZoneStart.current.x;
-        const sy = createZoneStart.current.y;
-        const minX = Math.min(sx, unclTile.x);
-        const minY = Math.min(sy, unclTile.y);
-        const w = Math.abs(unclTile.x - sx) + 1;
-        const h = Math.abs(unclTile.y - sy) + 1;
-        if (w >= 2 || h >= 2) {
-          addCameraZone(minX, minY, w, h);
-        }
+        const rect = computeCreationRect(createZoneStart.current, unclTile);
+        if (rect.width >= 2 || rect.height >= 2) addCameraZone(rect.x, rect.y, rect.width, rect.height);
       }
       isCreatingCameraZone.current = false;
       createZoneStart.current = null;

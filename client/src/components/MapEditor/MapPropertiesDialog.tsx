@@ -1,12 +1,18 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
+=======
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import AudioPicker from '../common/AudioPicker';
 import ImagePicker from '../common/ImagePicker';
 import BattlebackPicker from '../common/BattlebackPicker';
 import { DataListPicker } from '../EventEditor/dataListPicker';
 import EncounterDialog from './EncounterDialog';
+<<<<<<< HEAD
 import type { AudioFile, MapData } from '../../types/rpgMakerMV';
 import './MapPropertiesDialog.css';
 
@@ -22,12 +28,20 @@ interface MapPropertiesDialogProps {
   /** 편집 모드: 기존 맵 ID */
   mapId?: number;
   /** 신규 모드: 부모 맵 ID (mapId가 없을 때 사용) */
+=======
+import { useMapPropertiesForm } from './useMapPropertiesForm';
+import './MapPropertiesDialog.css';
+
+interface MapPropertiesDialogProps {
+  mapId?: number;
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
   parentId?: number;
   onClose: () => void;
 }
 
 export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPropertiesDialogProps) {
   const { t } = useTranslation();
+<<<<<<< HEAD
   const maps = useEditorStore((s) => s.maps);
   const updateMapInfos = useEditorStore((s) => s.updateMapInfos);
   const currentMapId = useEditorStore((s) => s.currentMapId);
@@ -315,6 +329,22 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
     : t('mapProperties.title', { id: String(mapId).padStart(3, '0') });
 
   if (loading) {
+=======
+  const f = useMapPropertiesForm(mapId, parentId, onClose);
+
+  const scrollSpeedOptions = [];
+  for (let i = -32; i <= 32; i++) scrollSpeedOptions.push(i);
+
+  const tilesetDisplayName = f.tilesetNames[f.tilesetId]
+    ? `${String(f.tilesetId).padStart(4, '0')} ${f.tilesetNames[f.tilesetId]}`
+    : String(f.tilesetId).padStart(4, '0');
+
+  const dialogTitle = f.isNew
+    ? t('mapProperties.titleNew', '새 맵')
+    : t('mapProperties.title', { id: String(mapId).padStart(3, '0') });
+
+  if (f.loading) {
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     return (
       <div className="map-props-overlay">
         <div className="map-props-dialog">
@@ -330,10 +360,15 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
   return (
     <div className="map-props-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="map-props-dialog">
+<<<<<<< HEAD
         {/* Header */}
         <div className="map-props-header">{dialogTitle}</div>
 
         {/* Body */}
+=======
+        <div className="map-props-header">{dialogTitle}</div>
+
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         <div className="map-props-body">
           {/* Left column */}
           <div className="map-props-left">
@@ -343,17 +378,26 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
               <div className="map-props-row">
                 <div className="map-props-field flex-1">
                   <span>{t('mapProperties.name')}</span>
+<<<<<<< HEAD
                   <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
                 <div className="map-props-field flex-1">
                   <span>{t('mapProperties.displayName')}</span>
                   <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+=======
+                  <input type="text" value={f.name} onChange={(e) => f.setName(e.target.value)} />
+                </div>
+                <div className="map-props-field flex-1">
+                  <span>{t('mapProperties.displayName')}</span>
+                  <input type="text" value={f.displayName} onChange={(e) => f.setDisplayName(e.target.value)} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 </div>
               </div>
               <div className="map-props-row">
                 <div className="map-props-field flex-1">
                   <span>{t('mapProperties.tileset')}</span>
                   <div className="map-props-picker-row">
+<<<<<<< HEAD
                     <input
                       type="text"
                       readOnly
@@ -364,10 +408,15 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                       className="map-props-picker-btn"
                       onClick={() => setShowTilesetPicker(true)}
                     >...</button>
+=======
+                    <input type="text" readOnly value={tilesetDisplayName} className="map-props-picker-input" />
+                    <button className="map-props-picker-btn" onClick={() => f.setShowTilesetPicker(true)}>...</button>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                   </div>
                 </div>
                 <div className="map-props-field">
                   <span>{t('mapProperties.width')}</span>
+<<<<<<< HEAD
                   <input type="number" min={1} max={256} value={width}
                     onChange={(e) => setWidth(Math.max(1, Math.min(256, Number(e.target.value) || 1)))} />
                 </div>
@@ -375,6 +424,15 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                   <span>{t('mapProperties.height')}</span>
                   <input type="number" min={1} max={256} value={height}
                     onChange={(e) => setHeight(Math.max(1, Math.min(256, Number(e.target.value) || 1)))} />
+=======
+                  <input type="number" min={1} max={256} value={f.width}
+                    onChange={(e) => f.setWidth(Math.max(1, Math.min(256, Number(e.target.value) || 1)))} />
+                </div>
+                <div className="map-props-field">
+                  <span>{t('mapProperties.height')}</span>
+                  <input type="number" min={1} max={256} value={f.height}
+                    onChange={(e) => f.setHeight(Math.max(1, Math.min(256, Number(e.target.value) || 1)))} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 </div>
               </div>
               <div className="map-props-row">
@@ -388,6 +446,7 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                       { value: 3, label: t('mapProperties.scrollBoth') },
                     ].map(opt => (
                       <label key={opt.value} className="map-props-radio">
+<<<<<<< HEAD
                         <input
                           type="radio"
                           name="scrollType"
@@ -395,6 +454,10 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                           checked={scrollType === opt.value}
                           onChange={() => setScrollType(opt.value)}
                         />
+=======
+                        <input type="radio" name="scrollType" value={opt.value}
+                          checked={f.scrollType === opt.value} onChange={() => f.setScrollType(opt.value)} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                         <span>{opt.label}</span>
                       </label>
                     ))}
@@ -402,8 +465,13 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                 </div>
                 <div className="map-props-field">
                   <span>{t('mapProperties.encounterSteps')}</span>
+<<<<<<< HEAD
                   <input type="number" min={1} max={999} value={encounterStep}
                     onChange={(e) => setEncounterStep(Math.max(1, Math.min(999, Number(e.target.value) || 1)))} />
+=======
+                  <input type="number" min={1} max={999} value={f.encounterStep}
+                    onChange={(e) => f.setEncounterStep(Math.max(1, Math.min(999, Number(e.target.value) || 1)))} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 </div>
               </div>
             </div>
@@ -412,6 +480,7 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
             <div className="map-props-section">
               <div className="map-props-audio-row">
                 <label className="map-props-checkbox">
+<<<<<<< HEAD
                   <input type="checkbox" checked={autoplayBgm} onChange={(e) => setAutoplayBgm(e.target.checked)} />
                   <span>BGM {t('mapProperties.autoplay')}</span>
                 </label>
@@ -419,10 +488,20 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
               {autoplayBgm && (
                 <div style={{ marginLeft: 20, marginBottom: 6 }}>
                   <AudioPicker type="bgm" value={bgm} onChange={setBgm} />
+=======
+                  <input type="checkbox" checked={f.autoplayBgm} onChange={(e) => f.setAutoplayBgm(e.target.checked)} />
+                  <span>BGM {t('mapProperties.autoplay')}</span>
+                </label>
+              </div>
+              {f.autoplayBgm && (
+                <div style={{ marginLeft: 20, marginBottom: 6 }}>
+                  <AudioPicker type="bgm" value={f.bgm} onChange={f.setBgm} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 </div>
               )}
               <div className="map-props-audio-row">
                 <label className="map-props-checkbox">
+<<<<<<< HEAD
                   <input type="checkbox" checked={autoplayBgs} onChange={(e) => setAutoplayBgs(e.target.checked)} />
                   <span>BGS {t('mapProperties.autoplay')}</span>
                 </label>
@@ -443,24 +522,54 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                     value1={battleback1Name}
                     value2={battleback2Name}
                     onChange={(n1, n2) => { setBattleback1Name(n1); setBattleback2Name(n2); }}
+=======
+                  <input type="checkbox" checked={f.autoplayBgs} onChange={(e) => f.setAutoplayBgs(e.target.checked)} />
+                  <span>BGS {t('mapProperties.autoplay')}</span>
+                </label>
+              </div>
+              {f.autoplayBgs && (
+                <div style={{ marginLeft: 20, marginBottom: 6 }}>
+                  <AudioPicker type="bgs" value={f.bgs} onChange={f.setBgs} />
+                </div>
+              )}
+              <label className="map-props-checkbox" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={f.specifyBattleback}
+                  onChange={(e) => f.setSpecifyBattleback(e.target.checked)} />
+                <span>{t('mapProperties.specifyBattleback')}</span>
+              </label>
+              {f.specifyBattleback && (
+                <div style={{ marginLeft: 20, marginTop: 4 }}>
+                  <BattlebackPicker
+                    value1={f.battleback1Name} value2={f.battleback2Name}
+                    onChange={(n1, n2) => { f.setBattleback1Name(n1); f.setBattleback2Name(n2); }}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                   />
                 </div>
               )}
               <label className="map-props-checkbox" style={{ marginTop: 4 }}>
+<<<<<<< HEAD
                 <input type="checkbox" checked={disableDashing}
                   onChange={(e) => setDisableDashing(e.target.checked)} />
+=======
+                <input type="checkbox" checked={f.disableDashing}
+                  onChange={(e) => f.setDisableDashing(e.target.checked)} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 <span>{t('mapProperties.disableDashing')}</span>
               </label>
             </div>
 
             {/* Bottom row: Parallax + Note */}
             <div className="map-props-bottom-row">
+<<<<<<< HEAD
               {/* Parallax Background */}
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
               <div className="map-props-bottom-left">
                 <div className="map-props-section">
                   <div className="map-props-section-title">{t('mapProperties.parallaxBg')}</div>
                   <div className="map-props-field" style={{ marginBottom: 6 }}>
                     <span>{t('mapProperties.image')}</span>
+<<<<<<< HEAD
                     <ImagePicker type="parallaxes" value={parallaxName} onChange={setParallaxName} />
                   </div>
                   <label className="map-props-checkbox">
@@ -471,11 +580,24 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                     <div className="map-props-parallax-scroll">
                       <span>{t('mapProperties.scroll')}</span>
                       <select value={parallaxSx} onChange={(e) => setParallaxSx(Number(e.target.value))}>
+=======
+                    <ImagePicker type="parallaxes" value={f.parallaxName} onChange={f.setParallaxName} />
+                  </div>
+                  <label className="map-props-checkbox">
+                    <input type="checkbox" checked={f.parallaxLoopX} onChange={(e) => f.setParallaxLoopX(e.target.checked)} />
+                    <span>{t('mapProperties.loopHorizontal')}</span>
+                  </label>
+                  {f.parallaxLoopX && (
+                    <div className="map-props-parallax-scroll">
+                      <span>{t('mapProperties.scroll')}</span>
+                      <select value={f.parallaxSx} onChange={(e) => f.setParallaxSx(Number(e.target.value))}>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                         {scrollSpeedOptions.map(v => <option key={v} value={v}>{v}</option>)}
                       </select>
                     </div>
                   )}
                   <label className="map-props-checkbox">
+<<<<<<< HEAD
                     <input type="checkbox" checked={parallaxLoopY} onChange={(e) => setParallaxLoopY(e.target.checked)} />
                     <span>{t('mapProperties.loopVertical')}</span>
                   </label>
@@ -483,23 +605,43 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                     <div className="map-props-parallax-scroll">
                       <span>{t('mapProperties.scroll')}</span>
                       <select value={parallaxSy} onChange={(e) => setParallaxSy(Number(e.target.value))}>
+=======
+                    <input type="checkbox" checked={f.parallaxLoopY} onChange={(e) => f.setParallaxLoopY(e.target.checked)} />
+                    <span>{t('mapProperties.loopVertical')}</span>
+                  </label>
+                  {f.parallaxLoopY && (
+                    <div className="map-props-parallax-scroll">
+                      <span>{t('mapProperties.scroll')}</span>
+                      <select value={f.parallaxSy} onChange={(e) => f.setParallaxSy(Number(e.target.value))}>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                         {scrollSpeedOptions.map(v => <option key={v} value={v}>{v}</option>)}
                       </select>
                     </div>
                   )}
                   <label className="map-props-checkbox" style={{ marginTop: 4 }}>
+<<<<<<< HEAD
                     <input type="checkbox" checked={parallaxShow} onChange={(e) => setParallaxShow(e.target.checked)} />
+=======
+                    <input type="checkbox" checked={f.parallaxShow} onChange={(e) => f.setParallaxShow(e.target.checked)} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                     <span>{t('mapProperties.showInEditor')}</span>
                   </label>
                 </div>
               </div>
+<<<<<<< HEAD
 
               {/* Note */}
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
               <div className="map-props-bottom-right">
                 <div className="map-props-section" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                   <div className="map-props-section-title">{t('mapProperties.note')}</div>
                   <div className="map-props-note">
+<<<<<<< HEAD
                     <textarea value={note} onChange={(e) => setNote(e.target.value)} />
+=======
+                    <textarea value={f.note} onChange={(e) => f.setNote(e.target.value)} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                   </div>
                 </div>
               </div>
@@ -516,6 +658,7 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                 <div className="map-props-enc-col-region">{t('mapProperties.encRange')}</div>
               </div>
               <div className="map-props-enc-body">
+<<<<<<< HEAD
                 {encounterList.map((enc, idx) => (
                   <div
                     key={idx}
@@ -529,6 +672,19 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                   >
                     <div className="map-props-enc-col-troop" style={{ padding: '3px 6px', fontSize: 12 }}>
                       {String(enc.troopId).padStart(4, '0')} {troopNames[enc.troopId] || ''}
+=======
+                {f.encounterList.map((enc, idx) => (
+                  <div key={idx}
+                    className={`map-props-enc-row${f.selectedEncIdx === idx ? ' selected' : ''}`}
+                    onClick={() => f.setSelectedEncIdx(idx)}
+                    onDoubleClick={() => {
+                      f.setSelectedEncIdx(idx);
+                      f.setEncDialogEditIdx(idx);
+                      f.setEncDialogOpen(true);
+                    }}>
+                    <div className="map-props-enc-col-troop" style={{ padding: '3px 6px', fontSize: 12 }}>
+                      {String(enc.troopId).padStart(4, '0')} {f.troopNames[enc.troopId] || ''}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                     </div>
                     <div className="map-props-enc-col-weight" style={{ padding: '3px 6px', fontSize: 12, textAlign: 'center' }}>
                       {enc.weight}
@@ -538,6 +694,7 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
                     </div>
                   </div>
                 ))}
+<<<<<<< HEAD
                 {/* Empty row: double-click to add */}
                 <div className="map-props-enc-row-empty" onDoubleClick={handleAddEncounter}>
                   &nbsp;
@@ -547,19 +704,33 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
             <div className="map-props-enc-buttons">
               <button className="db-btn-small" onClick={handleAddEncounter}>{t('mapProperties.encAdd')}</button>
               <button className="db-btn-small" onClick={handleDeleteEncounter} disabled={selectedEncIdx === null}>
+=======
+                <div className="map-props-enc-row-empty" onDoubleClick={f.handleAddEncounter}>&nbsp;</div>
+              </div>
+            </div>
+            <div className="map-props-enc-buttons">
+              <button className="db-btn-small" onClick={f.handleAddEncounter}>{t('mapProperties.encAdd')}</button>
+              <button className="db-btn-small" onClick={f.handleDeleteEncounter} disabled={f.selectedEncIdx === null}>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
                 {t('mapProperties.encDelete')}
               </button>
             </div>
           </div>
         </div>
 
+<<<<<<< HEAD
         {/* Footer */}
         <div className="map-props-footer">
           <button className="db-btn" onClick={handleOk}>{t('common.ok')}</button>
+=======
+        <div className="map-props-footer">
+          <button className="db-btn" onClick={f.handleOk}>{t('common.ok')}</button>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
           <button className="db-btn" onClick={onClose}>{t('common.cancel')}</button>
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Tileset Picker Popup */}
       {showTilesetPicker && (
         <DataListPicker
@@ -577,6 +748,23 @@ export default function MapPropertiesDialog({ mapId, parentId, onClose }: MapPro
           initial={encDialogEditIdx !== null ? encounterList[encDialogEditIdx] : undefined}
           onOk={handleEncDialogOk}
           onCancel={() => { setEncDialogOpen(false); setEncDialogEditIdx(null); }}
+=======
+      {f.showTilesetPicker && (
+        <DataListPicker
+          title={t('mapProperties.tileset') + ' 선택'}
+          items={f.tilesetNames}
+          value={f.tilesetId}
+          onChange={(id) => f.setTilesetId(id)}
+          onClose={() => f.setShowTilesetPicker(false)}
+        />
+      )}
+
+      {f.encDialogOpen && (
+        <EncounterDialog
+          initial={f.encDialogEditIdx !== null ? f.encounterList[f.encDialogEditIdx] : undefined}
+          onOk={f.handleEncDialogOk}
+          onCancel={() => { f.setEncDialogOpen(false); f.setEncDialogEditIdx(null); }}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         />
       )}
     </div>

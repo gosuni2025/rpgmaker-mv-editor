@@ -1,11 +1,21 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+=======
+import React, { useState, useCallback, useRef } from 'react';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import useEditorStore from '../../store/useEditorStore';
 import apiClient from '../../api/client';
 import useEscClose from '../../hooks/useEscClose';
 import DragLabel from '../common/DragLabel';
+<<<<<<< HEAD
 import { ShaderEditorDialog, ShaderEntry } from '../EventEditor/shaderEditor';
 import { SHADER_DEFINITIONS } from '../EventEditor/shaderDefinitions';
 import AnimationPickerDialog from '../EventEditor/AnimationPickerDialog';
+=======
+import AnimationPickerDialog from '../EventEditor/AnimationPickerDialog';
+import ObjectImagePickerDialog from './ObjectImagePickerDialog';
+import { ObjectAnimSection, ObjectImagePreviewSection, ObjectImageScaleSection, ObjectShaderSection, ObjectPassabilitySection } from './ObjectInspectorSections';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import './InspectorPanel.css';
 
 function ObjectImagePickerDialog({ onSelect, onClose }: {
@@ -91,8 +101,11 @@ export default function ObjectInspector() {
   const dragSnapshotRef = useRef<any[] | null>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [showAnimationPicker, setShowAnimationPicker] = useState(false);
+<<<<<<< HEAD
   const [showAnchorHelp, setShowAnchorHelp] = useState(false);
   const [showShaderEditor, setShowShaderEditor] = useState(false);
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   const onDragStart = useCallback(() => {
     dragSnapshotRef.current = useEditorStore.getState().currentMap?.objects || null;
@@ -107,6 +120,7 @@ export default function ObjectInspector() {
     : null;
 
   const handleImageSelect = (imageName: string) => {
+<<<<<<< HEAD
     // 이미지 크기를 얻어서 오브젝트 생성
     const img = new Image();
     img.onload = () => {
@@ -116,6 +130,11 @@ export default function ObjectInspector() {
       // 크기를 알 수 없으면 기본 1x1 타일
       addObjectFromImage(imageName, 48, 48);
     };
+=======
+    const img = new Image();
+    img.onload = () => { addObjectFromImage(imageName, img.naturalWidth, img.naturalHeight); };
+    img.onerror = () => { addObjectFromImage(imageName, 48, 48); };
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     img.src = `/api/resources/pictures/${imageName}.png`;
   };
 
@@ -139,6 +158,7 @@ export default function ObjectInspector() {
           </div>
         </div>
         <div style={{ padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+<<<<<<< HEAD
           <button
             className="camera-zone-action-btn"
             onClick={() => setShowImagePicker(true)}
@@ -149,14 +169,24 @@ export default function ObjectInspector() {
             className="camera-zone-action-btn"
             onClick={() => setShowAnimationPicker(true)}
           >
+=======
+          <button className="camera-zone-action-btn" onClick={() => setShowImagePicker(true)}>
+            이미지로 오브젝트 생성
+          </button>
+          <button className="camera-zone-action-btn" onClick={() => setShowAnimationPicker(true)}>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             애니메이션 오브젝트 생성
           </button>
         </div>
         {showImagePicker && (
+<<<<<<< HEAD
           <ObjectImagePickerDialog
             onSelect={handleImageSelect}
             onClose={() => setShowImagePicker(false)}
           />
+=======
+          <ObjectImagePickerDialog onSelect={handleImageSelect} onClose={() => setShowImagePicker(false)} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
         )}
         {showAnimationPicker && (
           <AnimationPickerDialog
@@ -176,7 +206,10 @@ export default function ObjectInspector() {
 
   const isImageObj = !!selectedObj.imageName;
   const isAnimObj = !!selectedObj.animationId;
+<<<<<<< HEAD
   const anchorY = selectedObj.anchorY ?? 1.0;
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
   return (
     <div className="light-inspector">
@@ -185,13 +218,18 @@ export default function ObjectInspector() {
         <div className="light-inspector-title">오브젝트 #{selectedObj.id}</div>
         <div className="light-inspector-row">
           <span className="light-inspector-label">이름</span>
-          <input
-            type="text"
-            className="light-inspector-input"
-            style={{ width: '100%' }}
-            value={selectedObj.name}
-            onChange={(e) => updateObject(selectedObj.id, { name: e.target.value })}
-          />
+          <input type="text" className="light-inspector-input" style={{ width: '100%' }}
+            value={selectedObj.name} onChange={(e) => updateObject(selectedObj.id, { name: e.target.value })} />
+        </div>
+        <div className="light-inspector-row" style={{ marginTop: 4 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12 }}>
+            <input type="checkbox" checked={selectedObj.visible !== false}
+              onChange={(e) => updateObject(selectedObj.id, { visible: e.target.checked })} />
+            화면에 표시
+          </label>
+          <span style={{ fontSize: 10, color: '#888', marginLeft: 'auto' }}>
+            {selectedObj.visible === false ? '숨김 (충돌 비활성)' : ''}
+          </span>
         </div>
         <div className="light-inspector-row" style={{ marginTop: 4 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12 }}>
@@ -208,6 +246,7 @@ export default function ObjectInspector() {
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Animation settings (애니메이션 오브젝트 전용) */}
       {isAnimObj && (
         <div className="light-inspector-section">
@@ -359,6 +398,17 @@ export default function ObjectInspector() {
               onClick={() => updateObject(selectedObj.id, { anchorY: 0.0 })}>상단</button>
           </div>
         </div>
+=======
+      {isAnimObj && (
+        <ObjectAnimSection selectedObj={selectedObj} updateObject={updateObject}
+          onDragStart={onDragStart} onDragEnd={onDragEnd}
+          showAnimationPicker={showAnimationPicker} setShowAnimationPicker={setShowAnimationPicker} />
+      )}
+
+      {isImageObj && (
+        <ObjectImagePreviewSection selectedObj={selectedObj} updateObject={updateObject}
+          onDragStart={onDragStart} onDragEnd={onDragEnd} />
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       )}
 
       {/* Position */}
@@ -369,16 +419,14 @@ export default function ObjectInspector() {
             onDragStart={onDragStart} onDragEnd={onDragEnd}
             onChange={(v) => updateObject(selectedObj.id, { x: Math.round(v) }, true)} />
           <input type="number" className="light-inspector-input"
-            value={selectedObj.x}
-            onChange={(e) => updateObject(selectedObj.id, { x: parseInt(e.target.value) || 0 })} />
+            value={selectedObj.x} onChange={(e) => updateObject(selectedObj.id, { x: parseInt(e.target.value) || 0 })} />
         </div>
         <div className="light-inspector-row">
           <DragLabel label="Y" value={selectedObj.y} step={1}
             onDragStart={onDragStart} onDragEnd={onDragEnd}
             onChange={(v) => updateObject(selectedObj.id, { y: Math.round(v) }, true)} />
           <input type="number" className="light-inspector-input"
-            value={selectedObj.y}
-            onChange={(e) => updateObject(selectedObj.id, { y: parseInt(e.target.value) || 0 })} />
+            value={selectedObj.y} onChange={(e) => updateObject(selectedObj.id, { y: parseInt(e.target.value) || 0 })} />
         </div>
       </div>
 
@@ -395,7 +443,11 @@ export default function ObjectInspector() {
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Size / Scale */}
+=======
+      {/* Size */}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
       <div className="light-inspector-section">
         <div className="light-inspector-title">크기</div>
         <div className="light-inspector-row">
@@ -403,13 +455,18 @@ export default function ObjectInspector() {
             onDragStart={onDragStart} onDragEnd={onDragEnd}
             onChange={(v) => updateObject(selectedObj.id, { width: Math.max(1, Math.round(v)) }, true)} />
           <input type="number" className="light-inspector-input" min={1} max={99} step={1}
+<<<<<<< HEAD
             style={{ width: 50 }}
             value={selectedObj.width}
+=======
+            style={{ width: 50 }} value={selectedObj.width}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             onChange={(e) => updateObject(selectedObj.id, { width: Math.max(1, parseInt(e.target.value) || 1) })} />
           <DragLabel label="H" value={selectedObj.height} step={1} min={1} max={99}
             onDragStart={onDragStart} onDragEnd={onDragEnd}
             onChange={(v) => updateObject(selectedObj.id, { height: Math.max(1, Math.round(v)) }, true)} />
           <input type="number" className="light-inspector-input" min={1} max={99} step={1}
+<<<<<<< HEAD
             style={{ width: 50 }}
             value={selectedObj.height}
             onChange={(e) => updateObject(selectedObj.id, { height: Math.max(1, parseInt(e.target.value) || 1) })} />
@@ -582,17 +639,20 @@ export default function ObjectInspector() {
           스마트 초기화
         </button>
       </div>
+=======
+            style={{ width: 50 }} value={selectedObj.height}
+            onChange={(e) => updateObject(selectedObj.id, { height: Math.max(1, parseInt(e.target.value) || 1) })} />
+        </div>
+        {isImageObj && <ObjectImageScaleSection selectedObj={selectedObj} updateObject={updateObject} />}
+      </div>
 
-      {/* Delete */}
-      <button
-        className="light-inspector-delete"
-        onClick={() => {
-          deleteObject(selectedObj.id);
-          setSelectedObjectId(null);
-        }}
-      >
-        삭제
-      </button>
+      {isImageObj && <ObjectShaderSection selectedObj={selectedObj} updateObject={updateObject} />}
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
+
+      <ObjectPassabilitySection selectedObj={selectedObj} updateObject={updateObject} />
+
+      <button className="light-inspector-delete"
+        onClick={() => { deleteObject(selectedObj.id); setSelectedObjectId(null); }}>삭제</button>
     </div>
   );
 }

@@ -4,6 +4,10 @@ import i18n from '../i18n';
 import useEditorStore from '../store/useEditorStore';
 import useEscClose from '../hooks/useEscClose';
 import apiClient from '../api/client';
+<<<<<<< HEAD
+=======
+import { GeneralPanel, AppearancePanel, MapEditorPanel, AutoSavePanel, PathsPanel } from './OptionsCategoryPanels';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import './OptionsDialog.css';
 
 interface AutoSaveSettings {
@@ -177,26 +181,22 @@ export default function OptionsDialog() {
     applySettings();
   };
 
-  const checkerPreview = (color: { r: number; g: number; b: number }) => {
-    const c1 = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    const c2 = `rgb(${Math.max(0, color.r - 48)}, ${Math.max(0, color.g - 48)}, ${Math.max(0, color.b - 48)})`;
-    return {
-      backgroundColor: c1,
-      backgroundImage: `
-        linear-gradient(45deg, ${c2} 25%, transparent 25%),
-        linear-gradient(-45deg, ${c2} 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, ${c2} 75%),
-        linear-gradient(-45deg, transparent 75%, ${c2} 75%)
-      `,
-      backgroundSize: '16px 16px',
-      backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
-      width: 80,
-      height: 80,
-      border: '1px solid #555',
-      borderRadius: 3,
-    };
+  const renderCategoryContent = () => {
+    switch (activeCategory) {
+      case 'general':
+        return <GeneralPanel localLang={localLang} setLocalLang={setLocalLang} localMaxUndo={localMaxUndo} setLocalMaxUndo={setLocalMaxUndo} />;
+      case 'appearance':
+        return <AppearancePanel localColor={localColor} setLocalColor={setLocalColor} />;
+      case 'mapEditor':
+        return <MapEditorPanel localZoomStep={localZoomStep} setLocalZoomStep={setLocalZoomStep} />;
+      case 'autoSave':
+        return <AutoSavePanel localAutoSave={localAutoSave} setLocalAutoSave={setLocalAutoSave} gitStatus={gitStatus} />;
+      case 'paths':
+        return <PathsPanel localSteamPath={localSteamPath} setLocalSteamPath={setLocalSteamPath} detectedSteamPath={detectedSteamPath} />;
+    }
   };
 
+<<<<<<< HEAD
   const renderCategoryContent = () => {
     switch (activeCategory) {
       case 'general':
@@ -506,6 +506,36 @@ export default function OptionsDialog() {
                 ))}
               </div>
             </div>
+=======
+  return (
+    <div className="db-dialog-overlay">
+      <div className="db-dialog" style={{ width: 700, height: 500 }}>
+        <div className="db-dialog-header">{t('options.title')}</div>
+        <div className="db-dialog-body" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="options-layout">
+            {/* Left sidebar */}
+            <div className="options-sidebar">
+              <div className="options-search">
+                <input
+                  type="text"
+                  placeholder={t('options.search')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="options-category-list">
+                {filteredCategories.map((cat) => (
+                  <div
+                    key={cat.id}
+                    className={`options-category-item${activeCategory === cat.id ? ' active' : ''}`}
+                    onClick={() => setActiveCategory(cat.id)}
+                  >
+                    {t(cat.labelKey)}
+                  </div>
+                ))}
+              </div>
+            </div>
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
             {/* Right content */}
             <div className="options-content">
               {renderCategoryContent()}

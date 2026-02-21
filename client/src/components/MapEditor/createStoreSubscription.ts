@@ -131,6 +131,22 @@ export function createStoreSubscription(params: {
       requestRender();
     }
 
+<<<<<<< HEAD
+=======
+    if (state.currentMap?.dofConfig !== prevState.currentMap?.dofConfig) {
+      const DOF = (window as any).PostProcess;
+      if (DOF) {
+        const dc = state.currentMap?.dofConfig;
+        DOF.config.focusY = dc?.focusY ?? 0.14;
+        DOF.config.focusRange = dc?.focusRange ?? 0;
+        DOF.config.maxblur = dc?.maxBlur ?? 0.13;
+        DOF.config.blurPower = dc?.blurPower ?? 2.4;
+        if ((window as any).ConfigManager) (window as any).ConfigManager.depthOfField = dc?.enabled ?? false;
+      }
+      requestRender();
+    }
+
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
     if (state.currentMap?.weatherType !== prevState.currentMap?.weatherType ||
         state.currentMap?.weatherPower !== prevState.currentMap?.weatherPower) {
       const wt = state.currentMap?.weatherType ?? 0;

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { selectStyle } from './messageEditors';
+<<<<<<< HEAD
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import ImagePicker from '../common/ImagePicker';
 import { TINT_PRESETS, TintColorPreview } from './screenEffectEditors';
@@ -590,6 +591,19 @@ export function MovePictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
     </>
   );
 }
+=======
+import { ShaderEditorDialog, ShaderEntry, SHADER_DEFINITIONS } from './shaderEditor';
+import { TINT_PRESETS, TintColorPreview } from './screenEffectEditors';
+import type { ShaderTransition } from './pictureEditorCommon';
+import {
+  radioStyle, labelStyle, inputStyle, Fieldset, PictureNumberField,
+  ScaleFields, BlendFields, DurationFields, EditorFooter,
+  DirectPositionInputs, VariablePositionInputs, PresetPositionInputs,
+} from './pictureEditorCommon';
+export type { ShaderTransition } from './pictureEditorCommon';
+export { ShowPictureEditor } from './ShowPictureEditor';
+export { MovePictureEditor } from './MovePictureEditor';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 
 // ─── 그림 회전 (Rotate Picture, code 233) ───
 // parameters: [번호, 속도]

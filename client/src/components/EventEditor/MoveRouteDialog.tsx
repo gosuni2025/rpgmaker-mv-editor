@@ -1,8 +1,17 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MoveRoute, MoveCommand } from '../../types/rpgMakerMV';
+<<<<<<< HEAD
 import AudioPicker from '../common/AudioPicker';
 import useEscClose from '../../hooks/useEscClose';
+=======
+import useEscClose from '../../hooks/useEscClose';
+import {
+  ROUTE_END, COMMAND_CODES,
+  needsParams, getDefaultParams, getCommandDisplay,
+  ParamInputDialog,
+} from './MoveRouteParamDialog';
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 import './MoveRouteDialog.css';
 
 interface MoveRouteDialogProps {
@@ -16,6 +25,7 @@ interface MoveRouteDialogProps {
   mapEvents?: { id: number; name: string }[];
 }
 
+<<<<<<< HEAD
 // 이동 명령 코드 (rpg_objects.js의 Game_Character.ROUTE_* 상수)
 const ROUTE_END = 0;
 const ROUTE_JUMP = 14;
@@ -290,6 +300,8 @@ function ParamInputDialog({ code, initialParams, onOk, onCancel, t }: {
   }
 }
 
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
 export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId, onOkWithCharacter, mapEvents }: MoveRouteDialogProps) {
   const { t } = useTranslation();
   const [charId, setCharId] = useState(characterId ?? -1);
@@ -314,11 +326,9 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId
 
   const addCommand = useCallback((code: number) => {
     if (needsParams(code)) {
-      // 파라미터 입력 다이얼로그 표시
       const defaults: unknown[] = getDefaultParams(code);
       setParamEdit({ code, params: defaults });
     } else {
-      // 파라미터 없는 명령은 바로 추가
       insertCommand({ code });
     }
   }, [selectedIdx, commands]);
@@ -326,7 +336,6 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId
   const insertCommand = useCallback((cmd: MoveCommand) => {
     setCommands(prev => {
       const newCmds = [...prev];
-      // ROUTE_END 앞에 삽입 (또는 선택된 위치에)
       const insertAt = selectedIdx >= 0 && selectedIdx < newCmds.length - 1
         ? selectedIdx + 1
         : newCmds.length - 1;
@@ -337,7 +346,7 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId
   }, [selectedIdx]);
 
   const deleteSelected = useCallback(() => {
-    if (selectedIdx < 0 || selectedIdx >= commands.length - 1) return; // ROUTE_END 삭제 방지
+    if (selectedIdx < 0 || selectedIdx >= commands.length - 1) return;
     setCommands(prev => {
       const newCmds = [...prev];
       newCmds.splice(selectedIdx, 1);
@@ -350,14 +359,12 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId
     if (!paramEdit) return;
     const cmd: MoveCommand = { code: paramEdit.code, parameters: params };
     if (paramEdit.editIdx !== undefined) {
-      // 편집 모드
       setCommands(prev => {
         const newCmds = [...prev];
         newCmds[paramEdit.editIdx!] = cmd;
         return newCmds;
       });
     } else {
-      // 새 삽입
       insertCommand(cmd);
     }
     setParamEdit(null);
@@ -385,7 +392,10 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId
       <div className="move-route-dialog">
         <div className="move-route-titlebar">{t('moveRoute.title')}</div>
         <div className="move-route-body">
+<<<<<<< HEAD
           {/* 캐릭터 선택 (이벤트 커맨드 205용) */}
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
           {showCharacterSelect && (
             <div className="move-route-character-select">
               <label>{t('moveRoute.character')}
@@ -404,7 +414,10 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId
               </label>
             </div>
           )}
+<<<<<<< HEAD
           {/* 좌측: 이동 명령 리스트 */}
+=======
+>>>>>>> fc6cde345bca626bcd2fcb60fafd18ccce0a223f
           <div className="move-route-left">
             <div className="move-route-list">
               {commands.map((cmd, i) => (
@@ -419,7 +432,6 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId
               ))}
             </div>
           </div>
-          {/* 우측: 명령 버튼 + 옵션 */}
           <div className="move-route-right">
             <div className="move-route-commands-grid">
               {COMMAND_CODES.map(code => (
@@ -470,21 +482,4 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId
       )}
     </div>
   );
-}
-
-function getDefaultParams(code: number): unknown[] {
-  switch (code) {
-    case ROUTE_JUMP: return [0, 0];
-    case ROUTE_WAIT: return [60];
-    case ROUTE_SWITCH_ON:
-    case ROUTE_SWITCH_OFF: return [1];
-    case ROUTE_CHANGE_SPEED: return [4];
-    case ROUTE_CHANGE_FREQ: return [3];
-    case ROUTE_CHANGE_IMAGE: return ['', 0];
-    case ROUTE_CHANGE_OPACITY: return [255];
-    case ROUTE_CHANGE_BLEND_MODE: return [0];
-    case ROUTE_PLAY_SE: return [{ name: '', volume: 90, pitch: 100, pan: 0 }];
-    case ROUTE_SCRIPT: return [''];
-    default: return [];
-  }
 }
