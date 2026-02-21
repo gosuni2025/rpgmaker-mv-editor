@@ -52,6 +52,11 @@
  * @desc 실제 목적지 타일에 인디케이터를 표시할지 여부 (이동불가 시 빨간색 X, 이동가능 시 원+십자 표시)
  * @default true
  *
+ * @param Show Hover Highlight
+ * @type boolean
+ * @desc 마우스 커서 위치의 타일을 흰선+검은 외곽선으로 하이라이트할지 여부 (2D/3D 모두 지원)
+ * @default true
+ *
  * @help
  * 맵을 터치/클릭하면 기본 흰색 사각형 펄스 대신
  * 지정한 RPG Maker 애니메이션을 해당 위치에 재생합니다.
@@ -78,6 +83,24 @@
     var arrowOutlineColor = String(parameters['Arrow Outline Color'] || 'rgba(0, 0, 0, 0.85)');
     var arrowOutlineWidth = Number(parameters['Arrow Outline Width'] || 1);
     var showDestIndicator = String(parameters['Show Destination Indicator']) !== 'false';
+    var showHoverHighlight = String(parameters['Show Hover Highlight']) !== 'false';
+
+    //=========================================================================
+    // 마우스 좌표 추적 (TouchInput._onMove 억제와 무관하게 실제 위치 추적)
+    //=========================================================================
+    var _hoverMouseX = -1;
+    var _hoverMouseY = -1;
+
+    if (showHoverHighlight) {
+        document.addEventListener('mousemove', function(e) {
+            _hoverMouseX = Graphics.pageToCanvasX(e.pageX);
+            _hoverMouseY = Graphics.pageToCanvasY(e.pageY);
+        });
+        document.addEventListener('mouseleave', function() {
+            _hoverMouseX = -1;
+            _hoverMouseY = -1;
+        });
+    }
 
     var _lastDestX = -1;
     var _lastDestY = -1;
@@ -225,6 +248,20 @@
             if (!this._currentPath) this._currentPath = [];
         }
 
+        // 타일 호버 하이라이트 스프라이트 - tilemap 안, 타일 좌표 기준
+        if (showHoverHighlight) {
+            var tw = $gameMap.tileWidth();
+            var th = $gameMap.tileHeight();
+            this._hoverHighlightSprite = new Sprite();
+            this._hoverHighlightSprite.bitmap = new Bitmap(tw, th);
+            this._hoverHighlightSprite.anchor.x = 0;
+            this._hoverHighlightSprite.anchor.y = 0;
+            this._hoverHighlightSprite.z = 9;
+            this._hoverHighlightSprite.visible = false;
+            this._tilemap.addChild(this._hoverHighlightSprite);
+            this.drawHoverHighlight();
+        }
+
         _lastDestX = -1;
         _lastDestY = -1;
     };
@@ -234,6 +271,7 @@
         _Spriteset_Map_update.call(this);
         this.updateTouchDestAnimation();
         this.updatePathArrow();
+        this.updateHoverHighlight();
     };
 
     //=========================================================================
@@ -388,6 +426,56 @@
 
             ctx.restore();
         }
+
+        ctx.restore();
+        bitmap._setDirty();
+    };
+
+    //=========================================================================
+    // 타일 호버 하이라이트
+    //=========================================================================
+
+    Spriteset_Map.prototype.updateHoverHighlight = function() {
+        if (!this._hoverHighlightSprite) return;
+
+        var mx = _hoverMouseX;
+        var my = _hoverMouseY;
+
+        if (mx < 0 || my < 0 || mx >= Graphics.width || my >= Graphics.height) {
+            this._hoverHighlightSprite.visible = false;
+            return;
+        }
+
+        // canvasToMapX/Y는 3D 모드에서 Mode3D.screenToWorld()를 자동 사용
+        var tileX = $gameMap.canvasToMapX(mx);
+        var tileY = $gameMap.canvasToMapY(my);
+        var tw = $gameMap.tileWidth();
+        var th = $gameMap.tileHeight();
+
+        this._hoverHighlightSprite.x = $gameMap.adjustX(tileX) * tw;
+        this._hoverHighlightSprite.y = $gameMap.adjustY(tileY) * th;
+        this._hoverHighlightSprite.visible = true;
+    };
+
+    Spriteset_Map.prototype.drawHoverHighlight = function() {
+        if (!this._hoverHighlightSprite) return;
+        var bitmap = this._hoverHighlightSprite.bitmap;
+        var ctx = bitmap._context;
+        var w = bitmap.width;
+        var h = bitmap.height;
+
+        bitmap.clear();
+        ctx.save();
+
+        // 검은 외곽선 (두꺼운 바깥 테두리)
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(2, 2, w - 4, h - 4);
+
+        // 흰선 (안쪽 강조선)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(2, 2, w - 4, h - 4);
 
         ctx.restore();
         bitmap._setDirty();
