@@ -157,13 +157,14 @@
   border-radius: 3px;
   margin: 0 1px;
   vertical-align: baseline;
-  cursor: pointer;
+  cursor: grab;
   user-select: none;
   transition: opacity 0.15s;
   max-width: 280px;
 }
 .ete-block:hover { opacity: 0.85; }
 .ete-block.selected { box-shadow: 0 0 0 2px rgba(255,255,255,0.4); }
+.ete-block.ete-block-dragging { opacity: 0.35; cursor: grabbing; outline: 2px dashed #888; }
 .ete-block-label {
   display: inline-block;
   padding: 1px 5px;
