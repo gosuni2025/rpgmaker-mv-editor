@@ -462,6 +462,19 @@
   border-radius: 3px;
   padding: 0 4px;
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.fold-preview {
+  margin-left: 8px;
+  font-size: 11px;
+  color: #7a9fbf;
+  font-style: italic;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
 }
 
 .event-command-row.folded {
