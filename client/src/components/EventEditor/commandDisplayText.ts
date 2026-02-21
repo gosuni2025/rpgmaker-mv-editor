@@ -1,12 +1,51 @@
 import type { EventCommand } from '../../types/rpgMakerMV';
 import { FORMATTERS } from './commandFormatters';
 import { isDisabledComment, deserializeDisabledCommand } from './commandOperations';
+import { CONTINUATION_CODES, BLOCK_END_CODES } from './commandConstants';
 
 export interface CommandDisplayContext {
   t: (key: string) => string;
   systemData: any;
   maps: any;
   currentMap: any;
+}
+
+function clip(s: string, max = 24): string {
+  return s.length > max ? s.slice(0, max) + '…' : s;
+}
+
+/**
+ * 접혔을 때 헤더 행에 표시할 내용 미리보기 문자열.
+ * 연속형: "첫줄 … 끝줄" / 블록형: 내부 첫 번째 실질 커맨드 텍스트
+ */
+export function getFoldPreview(
+  cmd: EventCommand, index: number, commands: EventCommand[], ctx: CommandDisplayContext,
+): string {
+  const contCode = CONTINUATION_CODES[cmd.code];
+  if (contCode !== undefined) {
+    const lines: string[] = [];
+    for (let i = index + 1; i < commands.length; i++) {
+      if (commands[i].code !== contCode) break;
+      const p = commands[i].parameters[0];
+      if (typeof p === 'string' && p) lines.push(p);
+    }
+    if (lines.length === 0) return '';
+    if (lines.length === 1) return `"${clip(lines[0])}"`;
+    return `"${clip(lines[0])}" … "${clip(lines[lines.length - 1])}"`;
+  }
+
+  const endCodes = BLOCK_END_CODES[cmd.code];
+  if (endCodes) {
+    const SKIP = new Set([411, 412, 413, 404, 601, 602, 603, 604]);
+    for (let i = index + 1; i < commands.length; i++) {
+      const c = commands[i];
+      if (c.code === 0 || SKIP.has(c.code)) continue;
+      if (endCodes.includes(c.code) && c.indent === cmd.indent) break;
+      const text = getCommandDisplay(c, ctx);
+      if (text) return clip(text, 36);
+    }
+  }
+  return '';
 }
 
 export function getCommandDisplay(cmd: EventCommand, ctx: CommandDisplayContext): string {

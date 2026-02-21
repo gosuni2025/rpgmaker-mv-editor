@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import type { EventCommandContext } from './EventCommandEditor';
 import TranslateButton from '../common/TranslateButton';
-import { getCommandDisplay, type CommandDisplayContext } from './commandDisplayText';
+import { getCommandDisplay, getFoldPreview, type CommandDisplayContext } from './commandDisplayText';
 import { isDisabledComment } from './commandOperations';
 
 interface CommandRowProps {
@@ -87,6 +87,7 @@ export const CommandRow = React.memo(function CommandRow({
   const { t } = useTranslation();
   const isDisabled = isDisabledComment(cmd);
   const display = getCommandDisplay(cmd, displayCtx);
+  const foldPreview = isFolded ? getFoldPreview(cmd, index, commands, displayCtx) : '';
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const isDragStarted = useRef(false);
 
@@ -184,7 +185,10 @@ export const CommandRow = React.memo(function CommandRow({
         })()
       ) : <span style={{ color: '#555' }}>&loz;</span>}
       {isFolded && foldedCount !== undefined && foldedCount > 0 && (
-        <span className="fold-count-badge">+{foldedCount}줄</span>
+        <>
+          {foldPreview && <span className="fold-preview">{foldPreview}</span>}
+          <span className="fold-count-badge">+{foldedCount}줄</span>
+        </>
       )}
       {context && [101, 102, 105, 320, 324, 325].includes(cmd.code) && (() => {
         const prefix = context.isCommonEvent

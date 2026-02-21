@@ -142,11 +142,31 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       else if (mod && e.key === '/') { e.preventDefault(); e.stopPropagation(); toggleDisabled(); }
       else if (mod && e.key === 'f') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(false); }
       else if (mod && e.key === 'h') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(true); }
-      else if (e.key === ' ') { e.preventDefault(); primaryIndex >= 0 && primaryIndex < commands.length ? handleDoubleClick(primaryIndex) : setShowAddDialog(true); }
+      else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); primaryIndex >= 0 && primaryIndex < commands.length ? handleDoubleClick(primaryIndex) : setShowAddDialog(true); }
+      else if (e.key === 'ArrowDown' && !mod) {
+        e.preventDefault();
+        const visible = commands.map((_, i) => i).filter(i => !hiddenIndices.has(i) && i < commands.length - 1);
+        const cur = visible.indexOf(primaryIndex);
+        const next = cur < visible.length - 1 ? visible[cur + 1] : visible[visible.length - 1];
+        if (next !== undefined) {
+          setSelectedIndices(new Set([next])); setLastClickedIndex(next);
+          listRef.current?.querySelector<HTMLElement>(`[data-cmd-index="${next}"]`)?.scrollIntoView({ block: 'nearest' });
+        }
+      }
+      else if (e.key === 'ArrowUp' && !mod) {
+        e.preventDefault();
+        const visible = commands.map((_, i) => i).filter(i => !hiddenIndices.has(i) && i < commands.length - 1);
+        const cur = visible.indexOf(primaryIndex);
+        const prev = cur > 0 ? visible[cur - 1] : visible[0];
+        if (prev !== undefined) {
+          setSelectedIndices(new Set([prev])); setLastClickedIndex(prev);
+          listRef.current?.querySelector<HTMLElement>(`[data-cmd-index="${prev}"]`)?.scrollIntoView({ block: 'nearest' });
+        }
+      }
     };
     container.addEventListener('keydown', handleKeyDown);
     return () => container.removeEventListener('keydown', handleKeyDown);
-  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, indentSelected, toggleDisabled, showAddDialog, pendingCode, editingIndex, showMoveRoute, selectedIndices, commands, setSelectedIndices, primaryIndex, showFind]);
+  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, indentSelected, toggleDisabled, showAddDialog, pendingCode, editingIndex, showMoveRoute, selectedIndices, commands, setSelectedIndices, setLastClickedIndex, primaryIndex, showFind, hiddenIndices, listRef]);
 
   // Global space key
   useEffect(() => {
