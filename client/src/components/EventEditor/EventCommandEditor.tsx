@@ -146,17 +146,17 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       else if ((mod && e.key === 'f') || e.key === '/') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(false); }
       else if (mod && e.key === 'h') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(true); }
       else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); primaryIndex >= 0 && primaryIndex < commands.length ? handleDoubleClick(primaryIndex) : setShowAddDialog(true); }
-      else if ((e.key === 'ArrowLeft' || (!mod && (e.key === 'a' || e.key === 'h'))) && !mod) {
+      else if (!mod && (e.key === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'KeyH')) {
         e.preventDefault();
         if (primaryIndex >= 0 && foldableIndices.has(primaryIndex) && !foldedSet.has(primaryIndex))
           toggleFold(primaryIndex);
       }
-      else if ((e.key === 'ArrowRight' || (!mod && (e.key === 'd' || e.key === 'l'))) && !mod) {
+      else if (!mod && (e.key === 'ArrowRight' || e.code === 'KeyD' || e.code === 'KeyL')) {
         e.preventDefault();
         if (primaryIndex >= 0 && foldableIndices.has(primaryIndex) && foldedSet.has(primaryIndex))
           toggleFold(primaryIndex);
       }
-      else if ((e.key === 'ArrowDown' || (!mod && (e.key === 's' || e.key === 'j'))) && !mod) {
+      else if (!mod && (e.key === 'ArrowDown' || e.code === 'KeyS' || e.code === 'KeyJ')) {
         e.preventDefault();
         const visible = commands.map((_, i) => i).filter(i => !hiddenIndices.has(i) && i < commands.length - 1);
         const cur = visible.indexOf(primaryIndex);
@@ -166,7 +166,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
           listRef.current?.querySelector<HTMLElement>(`[data-cmd-index="${next}"]`)?.scrollIntoView({ block: 'nearest' });
         }
       }
-      else if ((e.key === 'ArrowUp' || (!mod && (e.key === 'w' || e.key === 'k'))) && !mod) {
+      else if (!mod && (e.key === 'ArrowUp' || e.code === 'KeyW' || e.code === 'KeyK')) {
         e.preventDefault();
         const visible = commands.map((_, i) => i).filter(i => !hiddenIndices.has(i) && i < commands.length - 1);
         const cur = visible.indexOf(primaryIndex);
