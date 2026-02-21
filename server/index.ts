@@ -95,16 +95,20 @@ export function createApp(options: AppOptions = {}) {
                 SceneManager.goto(Scene_Map);
                 this.updateDocumentTitle();
             };
-            // 5초 후에도 로딩 중이면 진단 로그 출력
-            setTimeout(function() {
-                if (SceneManager._scene && !SceneManager._sceneStarted) {
-                    console.warn('[Playtest] 5초 후에도 Now Loading 중. 진단 정보:');
-                    console.warn('  ImageManager.isReady():', ImageManager.isReady());
-                    console.warn('  DataManager.isDatabaseLoaded():', DataManager.isDatabaseLoaded());
-                    console.warn('  Graphics.isFontLoaded(GameFont):', Graphics.isFontLoaded('GameFont'));
-                    console.warn('  Graphics.canUseCssFontLoading():', Graphics.canUseCssFontLoading());
-                    console.warn('  document.fonts.status:', document.fonts.status);
-                    console.warn('  Graphics._fontLoaded:', !!Graphics._fontLoaded);
+            // 5초 후에도 로딩 중이면 진단 로그 출력 (이후 매 5초마다 반복)
+            var _diagTimer = setInterval(function() {
+                var scene = SceneManager._scene;
+                if (!scene || SceneManager._sceneStarted) { clearInterval(_diagTimer); return; }
+                var sceneName = scene.constructor ? scene.constructor.name : String(scene.constructor);
+                console.warn('[Playtest] Now Loading 중. 씬:', sceneName, '/ stopped:', !!SceneManager._stopped);
+                console.warn('  ImageManager.isReady():', ImageManager.isReady());
+                console.warn('  DataManager.isDatabaseLoaded():', DataManager.isDatabaseLoaded());
+                console.warn('  DataManager.isMapLoaded():', DataManager.isMapLoaded());
+                console.warn('  Graphics.isFontLoaded(GameFont):', Graphics.isFontLoaded('GameFont'));
+                console.warn('  scene.isReady():', (function(){ try { return scene.isReady(); } catch(e){ return 'ERROR:'+e; } })());
+                if (sceneName === 'Scene_Map') {
+                    console.warn('  $dataMap:', !!window.$dataMap, '/ $gamePlayer._newMapId:', window.$gamePlayer && window.$gamePlayer._newMapId);
+                    console.warn('  scene._mapLoaded:', scene._mapLoaded, '/ scene._transfer:', scene._transfer);
                 }
             }, 5000);
         })();
