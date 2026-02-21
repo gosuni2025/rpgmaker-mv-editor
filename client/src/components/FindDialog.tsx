@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
 import Dialog from './common/Dialog';
@@ -17,6 +17,7 @@ interface SearchResult {
 export default function FindDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowFindDialog);
+  const handleClose = useCallback(() => setShow(false), [setShow]);
   const selectMap = useEditorStore((s) => s.selectMap);
   const setSelectedEventId = useEditorStore((s) => s.setSelectedEventId);
   const setEditMode = useEditorStore((s) => s.setEditMode);
@@ -72,12 +73,12 @@ export default function FindDialog() {
   return (
     <Dialog
       title={t('find.title')}
-      onClose={() => setShow(false)}
+      onClose={handleClose}
       width={560}
       style={{ height: 420, minHeight: 0 }}
       noBody
       footer={
-        <button className="db-btn" onClick={() => setShow(false)}>{t('common.close')}</button>
+        <button className="db-btn" onClick={handleClose}>{t('common.close')}</button>
       }
     >
       <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, flex: 1, overflow: 'hidden' }}>

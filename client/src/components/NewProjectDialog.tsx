@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
 import Dialog from './common/Dialog';
@@ -6,16 +6,17 @@ import Dialog from './common/Dialog';
 export default function NewProjectDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowNewProjectDialog);
+  const handleClose = useCallback(() => setShow(false), [setShow]);
 
   return (
     <Dialog
       title={t('newProject.title')}
-      onClose={() => setShow(false)}
+      onClose={handleClose}
       width={460}
       style={{ height: 'auto', minHeight: 0 }}
       noBody
       footer={
-        <button className="db-btn" onClick={() => setShow(false)}>{t('common.ok')}</button>
+        <button className="db-btn" onClick={handleClose}>{t('common.ok')}</button>
       }
     >
       <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', textAlign: 'center' }}>

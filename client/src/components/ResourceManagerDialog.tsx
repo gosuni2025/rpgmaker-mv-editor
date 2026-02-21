@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../store/useEditorStore';
 import Dialog from './common/Dialog';
@@ -38,6 +38,7 @@ export default function ResourceManagerDialog() {
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handleClose = useCallback(() => setShowResourceManagerDialog(false), [setShowResourceManagerDialog]);
   const isImageFolder = selectedFolder.startsWith('img/');
 
   useEffect(() => {
@@ -109,11 +110,11 @@ export default function ResourceManagerDialog() {
   return (
     <Dialog
       title={t('resourceManager.title')}
-      onClose={() => setShowResourceManagerDialog(false)}
+      onClose={handleClose}
       width="70vw"
       height="70vh"
       footer={
-        <button className="db-btn" onClick={() => setShowResourceManagerDialog(false)}>{t('common.close')}</button>
+        <button className="db-btn" onClick={handleClose}>{t('common.close')}</button>
       }
     >
       {/* Folder list */}
