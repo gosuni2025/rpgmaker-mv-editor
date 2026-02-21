@@ -214,6 +214,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
   const [selectedPattern, setSelectedPattern] = useState(pattern ?? 1);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('name');
+  const [currentSubDir, setCurrentSubDir] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -223,6 +224,9 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     setSelectedDirection(direction ?? 2);
     setSelectedPattern(pattern ?? 1);
     setSearchQuery('');
+    // value에 폴더가 포함된 경우 해당 폴더에서 시작
+    const lastSlash = value.lastIndexOf('/');
+    setCurrentSubDir(lastSlash !== -1 ? value.substring(0, lastSlash) : '');
     apiClient.get<FileInfo[]>(`/resources/${type}?detail=1`).then(setFiles).catch(() => setFiles([]));
     // 검색 입력창에 포커스
     setTimeout(() => searchInputRef.current?.focus(), 100);
@@ -242,6 +246,42 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     });
     return result;
   }, [files, searchQuery, sortMode]);
+
+  // 현재 폴더 기준 파일/하위폴더 분리 (검색 중에는 전체 표시)
+  const { currentFiles, currentFolders } = useMemo(() => {
+    if (searchQuery) {
+      return { currentFiles: filteredAndSorted, currentFolders: [] };
+    }
+    const prefix = currentSubDir ? currentSubDir + '/' : '';
+    const filesInDir: FileInfo[] = [];
+    const foldersInDir = new Set<string>();
+    for (const f of filteredAndSorted) {
+      if (!f.name.startsWith(prefix)) continue;
+      const rest = f.name.slice(prefix.length);
+      const slashIdx = rest.indexOf('/');
+      if (slashIdx === -1) {
+        filesInDir.push(f);
+      } else {
+        foldersInDir.add(rest.slice(0, slashIdx));
+      }
+    }
+    return {
+      currentFiles: filesInDir,
+      currentFolders: Array.from(foldersInDir).sort(),
+    };
+  }, [filteredAndSorted, currentSubDir, searchQuery]);
+
+  const navigateToFolder = (folderName: string) => {
+    setCurrentSubDir(prev => prev ? `${prev}/${folderName}` : folderName);
+    setSearchQuery('');
+  };
+
+  const navigateUp = () => {
+    setCurrentSubDir(prev => {
+      const slash = prev.lastIndexOf('/');
+      return slash !== -1 ? prev.substring(0, slash) : '';
+    });
+  };
 
   const handleOk = () => {
     onChange(selected.replace(/\.png$/i, ''));
@@ -307,7 +347,38 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
             </div>
             <div className="image-picker-body">
               <div className="image-picker-list">
+                {/* breadcrumb / 상위 폴더 이동 */}
                 {!searchQuery && (
+                  <div className="image-picker-breadcrumb">
+                    <span
+                      className="image-picker-breadcrumb-root"
+                      onClick={() => setCurrentSubDir('')}
+                      title="루트로 이동"
+                    >{type}</span>
+                    {currentSubDir ? currentSubDir.split('/').map((seg, i, arr) => {
+                      const path = arr.slice(0, i + 1).join('/');
+                      return (
+                        <React.Fragment key={path}>
+                          <span className="image-picker-breadcrumb-sep">/</span>
+                          <span
+                            className="image-picker-breadcrumb-seg"
+                            onClick={() => setCurrentSubDir(path)}
+                            title={path}
+                          >{seg}</span>
+                        </React.Fragment>
+                      );
+                    }) : null}
+                  </div>
+                )}
+                {/* 상위 폴더로 이동 */}
+                {!searchQuery && currentSubDir && (
+                  <div className="image-picker-item image-picker-folder-up" onClick={navigateUp}>
+                    <span className="image-picker-folder-icon">⬆</span>
+                    <span className="image-picker-item-name">..</span>
+                  </div>
+                )}
+                {/* (None) */}
+                {!searchQuery && !currentSubDir && (
                   <div
                     className={`image-picker-item${selected === '' ? ' selected' : ''}`}
                     onClick={() => setSelected('')}
@@ -315,8 +386,23 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
                     (None)
                   </div>
                 )}
-                {filteredAndSorted.map(f => {
+                {/* 하위 폴더 목록 */}
+                {currentFolders.map(folder => (
+                  <div
+                    key={folder}
+                    className="image-picker-item image-picker-folder"
+                    onClick={() => navigateToFolder(folder)}
+                    title={folder}
+                  >
+                    <span className="image-picker-folder-icon">📁</span>
+                    <span className="image-picker-item-name">{folder}</span>
+                  </div>
+                ))}
+                {/* 파일 목록 */}
+                {currentFiles.map(f => {
                   const name = f.name.replace(/\.png$/i, '');
+                  const prefix = currentSubDir && !searchQuery ? currentSubDir + '/' : '';
+                  const displayName = name.startsWith(prefix) ? name.slice(prefix.length) : name;
                   const sizeStr = f.size >= 1048576
                     ? (f.size / 1048576).toFixed(1) + ' MB'
                     : f.size >= 1024
@@ -329,7 +415,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
                       onClick={() => setSelected(name)}
                       title={`${name}\n${sizeStr}`}
                     >
-                      <span className="image-picker-item-name">{highlightMatch(name, searchQuery)}</span>
+                      <span className="image-picker-item-name">{highlightMatch(displayName, searchQuery)}</span>
                       <span className="image-picker-item-size">{sizeStr}</span>
                     </div>
                   );
