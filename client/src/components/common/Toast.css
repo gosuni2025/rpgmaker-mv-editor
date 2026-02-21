@@ -92,6 +92,21 @@
   background: #c62828;
 }
 
+.toast-count {
+  display: inline-block;
+  min-width: 20px;
+  height: 18px;
+  line-height: 18px;
+  margin-right: 8px;
+  padding: 0 5px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+  vertical-align: middle;
+}
+
 .toast-age {
   margin-left: 10px;
   font-size: 11px;

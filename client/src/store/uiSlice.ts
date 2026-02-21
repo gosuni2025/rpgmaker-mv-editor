@@ -62,8 +62,14 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   showUpdateCheckDialog: false,
 
   showToast: (message: string, persistent?: boolean) => {
-    const id = Date.now() + Math.random();
-    set({ toastQueue: [...get().toastQueue, { id, message, persistent: !!persistent, createdAt: Date.now() }] });
+    const queue = get().toastQueue;
+    const existing = queue.find(t => t.message === message && t.persistent === !!persistent);
+    if (existing) {
+      set({ toastQueue: queue.map(t => t.id === existing.id ? { ...t, count: t.count + 1, createdAt: Date.now() } : t) });
+    } else {
+      const id = Date.now() + Math.random();
+      set({ toastQueue: [...queue, { id, message, persistent: !!persistent, createdAt: Date.now(), count: 1 }] });
+    }
   },
   dismissToast: (id: number) => {
     set({ toastQueue: get().toastQueue.filter(t => t.id !== id) });
