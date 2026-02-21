@@ -60,22 +60,50 @@
  * @default true
  *
  * @help
+ * ================================================================
  * ■ AutoSave 플러그인
+ * ================================================================
  *
- * 저장/로드 화면 최상단에 오토 세이브 슬롯이 항상 표시됩니다.
- * 오토 세이브 슬롯은 자동으로만 저장되며, 저장 화면에서
+ * 저장/로드 화면 최상단에 전용 오토 세이브 슬롯이 항상 표시됩니다.
+ * 오토 세이브 슬롯은 자동으로만 기록되며, 저장 화면에서
  * 수동으로 덮어쓸 수 없습니다.
  *
- * ■ 자동 저장 조건 (각각 플러그인 파라미터에서 개별 설정 가능)
+ * ----------------------------------------------------------------
+ * ■ 자동 저장 조건 (파라미터에서 개별 활성화/비활성화)
+ * ----------------------------------------------------------------
  *   1. 맵 이동 시
- *   2. 전투 종료(승리·도주) 후
- *   3. 게임 변수 변경 후 (지정 시간 후 저장)
- *   4. ESC 메뉴(아이템·스킬·장비 포함) 닫기 후
+ *      - 장소 이동 이벤트 커맨드로 맵이 전환될 때마다 저장
  *
+ *   2. 전투 종료(승리·도주) 후
+ *      - 전투 승리 또는 도주 성공 후 맵으로 복귀할 때 저장
+ *      - 게임 오버(전멸)는 저장하지 않음
+ *
+ *   3. 게임 변수 변경 시
+ *      - 이벤트 커맨드 등으로 변수가 바뀔 때 저장
+ *      - 연속 변경은 마지막 변경 기준으로 1회만 저장 (디바운스)
+ *      - 기본 비활성화 — 빈번한 저장이 우려되는 경우 주의
+ *
+ *   4. ESC 메뉴 닫기 후
+ *      - 메인 메뉴·아이템·스킬·장비·상태 화면을 닫고
+ *        맵으로 돌아올 때 저장
+ *
+ * ----------------------------------------------------------------
+ * ■ 자동 저장 알림 (화면 우상단)
+ * ----------------------------------------------------------------
+ *   자동 저장이 실행되면 3단계 메시지가 순차 표시됩니다:
+ *     "오토 세이브 저장 시작"  (파란색, 약 0.4초)
+ *     "오토 세이브 저장 중..."  (노란색, 약 0.4초)
+ *     "오토 세이브 저장 완료"  (초록색, 약 1.5초 후 페이드 아웃)
+ *   저장에 실패하면 마지막 메시지가 "저장 실패" (빨간색)로 표시됩니다.
+ *
+ * ----------------------------------------------------------------
  * ■ 플러그인 커맨드
- *   AutoSave           - 즉시 오토 세이브 실행
- *   AutoSaveEnable     - 맵 이동 시 자동 저장 활성화
- *   AutoSaveDisable    - 맵 이동 시 자동 저장 비활성화
+ * ----------------------------------------------------------------
+ *   AutoSave           즉시 오토 세이브 실행
+ *   AutoSaveEnable     맵 이동 시 자동 저장 활성화
+ *   AutoSaveDisable    맵 이동 시 자동 저장 비활성화
+ *
+ * ================================================================
  */
 
 (function() {
@@ -115,26 +143,26 @@
     /**
      * 오토 세이브 실행.
      * $gameSystem.onBeforeSave() 호출 후 fileId=0에 저장한다.
-     * 맵 씬이 활성화된 경우 알림 스프라이트를 표시한다.
+     * 저장 결과를 Scene_Map의 알림 시퀀스에 전달한다.
      * @returns {boolean} 저장 성공 여부
      */
     DataManager.performAutosave = function() {
         if (!$gameSystem || !$dataSystem) return false;
+        var ok = false;
         try {
             $gameSystem.onBeforeSave();
-            if (!this.saveGame(AUTOSAVE_FILE_ID)) return false;
-            StorageManager.cleanBackup(AUTOSAVE_FILE_ID);
+            ok = this.saveGame(AUTOSAVE_FILE_ID);
+            if (ok) StorageManager.cleanBackup(AUTOSAVE_FILE_ID);
         } catch (e) {
             console.warn('[AutoSave] 저장 실패:', e);
-            return false;
         }
         if (param_showNotification) {
             var scene = SceneManager._scene;
-            if (scene && scene.showAutosaveNotification) {
-                scene.showAutosaveNotification();
+            if (scene && scene.startAutosaveNotification) {
+                scene.startAutosaveNotification(ok);
             }
         }
-        return true;
+        return ok;
     };
 
     /** 변수 변경 디바운스 타이머 ID @type {number|null} */
@@ -187,45 +215,91 @@
     };
 
     //=========================================================================
-    // Scene_Map - 자동 저장 알림 표시
+    // Scene_Map - 자동 저장 알림 (3단계 시퀀스)
     //=========================================================================
 
     /**
-     * 화면 우상단에 자동 저장 알림 스프라이트를 표시한다.
-     * 이미 스프라이트가 있으면 재사용하고, 없으면 새로 생성한다.
+     * 알림 단계 정의.
+     * saveOk가 true이면 마지막 단계를 "저장 완료", false이면 "저장 실패"로 설정한다.
+     * @param {boolean} saveOk - 저장 성공 여부
+     * @returns {Array<{text:string, color:string, frames:number}>}
      */
-    Scene_Map.prototype.showAutosaveNotification = function() {
+    function makeNotifyPhases(saveOk) {
+        return [
+            { text: param_slotLabel + ' 저장 시작', color: '#aaaaff', frames: 25 },
+            { text: param_slotLabel + ' 저장 중...',  color: '#ffff88', frames: 25 },
+            {
+                text:   param_slotLabel + (saveOk ? ' 저장 완료' : ' 저장 실패'),
+                color:  saveOk ? '#aaffaa' : '#ff8888',
+                frames: 90   // 1.5초 표시 후 페이드 아웃
+            }
+        ];
+    }
+
+    /**
+     * 알림 스프라이트에 현재 단계 텍스트를 그린다.
+     * @param {Sprite}  sprite - 알림 스프라이트
+     * @param {{text:string, color:string}} phase - 표시할 단계 정보
+     */
+    function drawNotifyPhase(sprite, phase) {
+        var bmp = sprite.bitmap;
+        bmp.clear();
+        bmp.fillRect(0, 0, bmp.width, bmp.height, 'rgba(0,0,0,0.65)');
+        bmp.fontSize   = 18;
+        bmp.textColor  = phase.color;
+        bmp.drawText(phase.text, 8, 6, bmp.width - 16, 32);
+    }
+
+    /**
+     * 3단계 알림 시퀀스를 시작한다.
+     * 저장은 이미 완료된 상태이며, 결과(saveOk)에 따라 마지막 단계 텍스트/색상이 결정된다.
+     * @param {boolean} saveOk - DataManager.performAutosave() 결과
+     */
+    Scene_Map.prototype.startAutosaveNotification = function(saveOk) {
         if (!this._autosaveNotify) {
-            var bmp = new Bitmap(224, 44);
+            var bmp    = new Bitmap(240, 44);
             var sprite = new Sprite(bmp);
-            sprite._notifyTimer = 0;
             this._autosaveNotify = sprite;
             this.addChild(sprite);
         }
-        var sprite = this._autosaveNotify;
-        sprite.bitmap.clear();
-        sprite.bitmap.fillRect(0, 0, sprite.bitmap.width, sprite.bitmap.height,
-                               'rgba(0,0,0,0.65)');
-        sprite.bitmap.fontSize = 18;
-        sprite.bitmap.textColor = '#aaffaa';
-        sprite.bitmap.drawText(param_slotLabel + ' 저장됨', 8, 6,
-                               sprite.bitmap.width - 16, 32);
-        sprite.x       = Graphics.width - sprite.bitmap.width - 12;
-        sprite.y       = 12;
-        sprite.opacity = 255;
-        sprite._notifyTimer = 120; // 2초 (60fps)
+        var sprite        = this._autosaveNotify;
+        sprite.x          = Graphics.width - sprite.bitmap.width - 12;
+        sprite.y          = 12;
+        sprite.opacity    = 255;
+        sprite._phases    = makeNotifyPhases(saveOk);
+        sprite._phaseIdx  = 0;
+        sprite._phaseTimer = sprite._phases[0].frames;
+        drawNotifyPhase(sprite, sprite._phases[0]);
     };
 
     var _Scene_Map_update = Scene_Map.prototype.update;
     Scene_Map.prototype.update = function() {
         _Scene_Map_update.call(this);
-        if (this._autosaveNotify && this._autosaveNotify._notifyTimer > 0) {
-            var sprite = this._autosaveNotify;
-            sprite._notifyTimer--;
-            // 마지막 30프레임(0.5초)에서 페이드 아웃
-            if (sprite._notifyTimer <= 30) {
-                sprite.opacity = Math.floor(sprite._notifyTimer / 30 * 255);
+
+        var sprite = this._autosaveNotify;
+        if (!sprite || !sprite._phases) return;
+
+        sprite._phaseTimer--;
+
+        if (sprite._phaseTimer <= 0) {
+            // 다음 단계로 전환
+            sprite._phaseIdx++;
+            if (sprite._phaseIdx < sprite._phases.length) {
+                var next           = sprite._phases[sprite._phaseIdx];
+                sprite._phaseTimer = next.frames;
+                sprite.opacity     = 255;
+                drawNotifyPhase(sprite, next);
+            } else {
+                // 모든 단계 완료 — 시퀀스 종료
+                sprite._phases = null;
             }
+        }
+
+        // 마지막 단계(저장 완료/실패)에서 페이드 아웃
+        if (sprite._phases &&
+                sprite._phaseIdx === sprite._phases.length - 1 &&
+                sprite._phaseTimer <= 30) {
+            sprite.opacity = Math.floor(sprite._phaseTimer / 30 * 255);
         }
     };
 
