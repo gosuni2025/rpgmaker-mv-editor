@@ -35,7 +35,10 @@ jobs:
           else
             VERSION="0.0.0-test"
           fi
-          npm version $VERSION --no-git-tag-version
+          CURRENT=$(node -p "require('./package.json').version")
+          if [ "$CURRENT" != "$VERSION" ]; then
+            npm version $VERSION --no-git-tag-version
+          fi
         shell: bash
 
       - name: Install root dependencies
