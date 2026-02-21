@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -66,10 +66,14 @@ async function startServer(): Promise<number> {
 }
 
 function createWindow(port: number) {
+  // Electron 기본 네이티브 메뉴 제거 (React 앱의 MenuBar를 사용)
+  Menu.setApplicationMenu(null);
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     title: 'RPG Maker MV Editor',
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -77,6 +81,22 @@ function createWindow(port: number) {
   });
 
   mainWindow.loadURL(`http://127.0.0.1:${port}`);
+
+  // F12 / Ctrl+Shift+I 로 에디터 창 개발자 도구 토글
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' && input.type === 'keyDown') {
+      mainWindow!.webContents.isDevToolsOpened()
+        ? mainWindow!.webContents.closeDevTools()
+        : mainWindow!.webContents.openDevTools();
+      event.preventDefault();
+    }
+    if (input.key === 'I' && input.control && input.shift && input.type === 'keyDown') {
+      mainWindow!.webContents.isDevToolsOpened()
+        ? mainWindow!.webContents.closeDevTools()
+        : mainWindow!.webContents.openDevTools();
+      event.preventDefault();
+    }
+  });
 
   // /game/ URL을 window.open으로 열 때 게임 테스트 창으로 제어
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
