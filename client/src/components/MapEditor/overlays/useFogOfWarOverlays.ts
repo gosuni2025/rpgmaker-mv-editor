@@ -165,9 +165,8 @@ export function useFogOfWar3DVolumeOverlay(refs: FogRefs, rendererReady: number)
       if (!FogOfWar3DVolumeMod._active) return;
 
       if (FogOfWarMod._active) {
-        FogOfWarMod._lerpDisplay(1.0 / 60.0);
-        FogOfWarMod._computeEdgeData(1.0 / 60.0);
-        FogOfWarMod._updateTexture();
+        const changed = FogOfWarMod._lerpDisplay(1.0 / 60.0);
+        if (changed) FogOfWarMod._updateTexture();
       }
 
       const camera = rendererObj.camera;
