@@ -24,7 +24,6 @@ export default function useAutoSave() {
   const settingsRef = useRef<AutoSaveSettings | null>(null);
 
   const doAutoSave = useCallback(async () => {
-    if (document.hidden) return;
     const { currentMapId, currentMap, showToast } = useEditorStore.getState();
     if (!currentMapId || !currentMap) return;
 
@@ -99,21 +98,12 @@ export default function useAutoSave() {
     };
     window.addEventListener('autosave-settings-changed', handleSettingsChange);
 
-    // 탭으로 돌아올 때 타이머 리셋 (백그라운드에서 쌓인 tick 방지)
-    const handleVisibilityChange = () => {
-      if (!document.hidden && settingsRef.current) {
-        startTimer(settingsRef.current);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
       mounted = false;
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
       window.removeEventListener('autosave-settings-changed', handleSettingsChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [startTimer]);
 }
