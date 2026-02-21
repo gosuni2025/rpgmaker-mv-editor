@@ -592,29 +592,36 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
 
     if (offCtx) {
         offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
-        var fontSize   = bmp.fontSize   || 28;
-        var fontFace   = bmp.fontFace   || 'GameFont';
-        var outlineCol = bmp.outlineColor  || 'rgba(0,0,0,0.5)';
-        var baselineY = lh - (lh - fontSize * 0.7) / 2;
+        // 원본 비트맵 내용을 그대로 복사 (그라데이션/외곽선 등 실제 그려진 모습을 텍스처로 사용)
+        var srcBmpCanvas = bmp._canvas || (bmp._context && bmp._context.canvas);
+        if (srcBmpCanvas && srcX >= 0 && srcY >= 0) {
+            offCtx.drawImage(srcBmpCanvas, srcX, srcY, segW, segH, 0, 0, segW, segH);
+        } else {
+            // fallback: 글자 직접 재그리기
+            var fontSize   = bmp.fontSize   || 28;
+            var fontFace   = bmp.fontFace   || 'GameFont';
+            var outlineCol = bmp.outlineColor  || 'rgba(0,0,0,0.5)';
+            var baselineY = lh - (lh - fontSize * 0.7) / 2;
 
-        offCtx.save();
-        offCtx.font = fontSize + 'px ' + fontFace;
-        offCtx.textBaseline = 'alphabetic';
-        offCtx.textAlign    = 'left';
-        offCtx.lineJoin     = 'round';
+            offCtx.save();
+            offCtx.font = fontSize + 'px ' + fontFace;
+            offCtx.textBaseline = 'alphabetic';
+            offCtx.textAlign    = 'left';
+            offCtx.lineJoin     = 'round';
 
-        for (var ci = 0; ci < chars.length; ci++) {
-            var ch = chars[ci];
-            var drawX = ch.x - segX + clearL;
-            if (outlineW > 0) {
-                offCtx.strokeStyle = outlineCol;
-                offCtx.lineWidth   = outlineW;
-                offCtx.strokeText(ch.c, drawX, baselineY);
+            for (var ci = 0; ci < chars.length; ci++) {
+                var ch = chars[ci];
+                var drawX = ch.x - segX + clearL;
+                if (outlineW > 0) {
+                    offCtx.strokeStyle = outlineCol;
+                    offCtx.lineWidth   = outlineW;
+                    offCtx.strokeText(ch.c, drawX, baselineY);
+                }
+                offCtx.fillStyle = ch.finalColor || ch.color || '#ffffff';
+                offCtx.fillText(ch.c, drawX, baselineY);
             }
-            offCtx.fillStyle = ch.finalColor || ch.color || '#ffffff';
-            offCtx.fillText(ch.c, drawX, baselineY);
+            offCtx.restore();
         }
-        offCtx.restore();
         if (bmp.clearRect) bmp.clearRect(srcX, srcY, segW, segH);
     }
 
