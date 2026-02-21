@@ -143,7 +143,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIndices.size > 0) { e.preventDefault(); deleteSelected(); }
       else if (e.key === 'Tab' && selectedIndices.size > 0) { e.preventDefault(); e.stopPropagation(); indentSelected(e.shiftKey ? -1 : 1); }
       else if (mod && e.key === '/') { e.preventDefault(); e.stopPropagation(); toggleDisabled(); }
-      else if (mod && e.key === 'f') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(false); }
+      else if ((mod && e.key === 'f') || e.key === '/') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(false); }
       else if (mod && e.key === 'h') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(true); }
       else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); primaryIndex >= 0 && primaryIndex < commands.length ? handleDoubleClick(primaryIndex) : setShowAddDialog(true); }
       else if (e.key === 'ArrowLeft' && !mod) {
