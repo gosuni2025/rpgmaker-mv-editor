@@ -268,6 +268,7 @@ export interface EditorState {
   toastQueue: { id: number; message: string; persistent: boolean; createdAt: number; count: number }[];
   showToast: (message: string, persistent?: boolean) => void;
   dismissToast: (id: number) => void;
+  dismissAllToasts: () => void;
 
   // Options
   transparentColor: { r: number; g: number; b: number };

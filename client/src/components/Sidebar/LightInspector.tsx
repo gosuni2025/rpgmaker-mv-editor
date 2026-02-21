@@ -118,11 +118,11 @@ export default function LightInspector() {
             { label: 'Z (높이)', key: 'z', step: 1, min: 0, max: 1000, fallback: 40 },
           ].map(({ label, key, step, min, max, fallback }) => (
             <div className="light-inspector-row" key={key}>
-              <DragLabel label={label} value={playerLight[key]} step={step} min={min} max={max}
+              <DragLabel label={label} value={playerLight[key as keyof typeof playerLight] as number} step={step} min={min} max={max}
                 onDragStart={onDragStart} onDragEnd={onDragEnd}
                 onChange={(v) => updatePlayerLight({ [key]: key === 'distance' || key === 'z' ? Math.round(v) : v }, true)} />
               <input type="number" className="light-inspector-input" step={step}
-                value={playerLight[key]}
+                value={playerLight[key as keyof typeof playerLight] as number}
                 onChange={(e) => updatePlayerLight({ [key]: parseFloat(e.target.value) || fallback })}
                 disabled={playerLight.enabled === false} />
             </div>

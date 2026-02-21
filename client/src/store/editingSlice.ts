@@ -26,8 +26,10 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'selectedEventId' | 'selectedEventIds' | 'eventSelectionStart' | 'eventSelectionEnd' | 'isEventPasting' | 'eventPastePreviewPos' |
   'objectSubMode' | 'selectedObjectId' | 'selectedObjectIds' | 'objectSelectionStart' | 'objectSelectionEnd' | 'isObjectPasting' | 'objectPastePreviewPos' |
   'selectedCameraZoneId' | 'selectedCameraZoneIds' | 'undoStack' | 'redoStack' |
-  'passageTool' | 'passageShape' | 'selectedPassageTile' |
+  'passageTool' | 'passageShape' | 'selectedPassageTile' | 'passageSelectionStart' | 'passageSelectionEnd' | 'isPassagePasting' | 'passagePastePreviewPos' |
   'setPassageTool' | 'setPassageShape' | 'setSelectedPassageTile' | 'updateCustomPassage' |
+  'setPassageSelection' | 'clearPassageSelection' | 'setIsPassagePasting' | 'setPassagePastePreviewPos' |
+  'copyPassage' | 'cutPassage' | 'pastePassage' | 'deletePassage' | 'movePassage' |
   'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' | 'shiftMap' |
   'copyTiles' | 'cutTiles' | 'pasteTiles' | 'deleteTiles' | 'moveTiles' |
   'addEvent' | 'copyEvent' | 'cutEvent' | 'pasteEvent' | 'deleteEvent' |
@@ -35,8 +37,8 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'setSelectedEventIds' | 'setEventSelectionStart' | 'setEventSelectionEnd' | 'setIsEventPasting' | 'setEventPastePreviewPos' | 'clearEventSelection' |
   'setObjectSubMode' | 'setSelectedObjectId' | 'setSelectedObjectIds' | 'setObjectSelectionStart' | 'setObjectSelectionEnd' | 'setIsObjectPasting' | 'setObjectPastePreviewPos' | 'clearObjectSelection' |
   'objectPaintTiles' | 'setObjectPaintTiles' |
-  'addObject' | 'addObjectFromTiles' | 'addObjectFromImage' | 'addObjectFromAnimation' | 'expandObjectTiles' | 'shrinkObjectTiles' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' |
-  'setSelectedCameraZoneId' | 'setSelectedCameraZoneIds' | 'addCameraZone' | 'updateCameraZone' | 'deleteCameraZone' | 'deleteCameraZones' | 'moveCameraZones' |
+  'addObject' | 'addObjectFromTiles' | 'addObjectFromImage' | 'addObjectFromAnimation' | 'expandObjectTiles' | 'shrinkObjectTiles' | 'updateObject' | 'deleteObject' | 'copyObjects' | 'pasteObjects' | 'deleteObjects' | 'moveObjects' | 'commitDragUndo' |
+  'setSelectedCameraZoneId' | 'setSelectedCameraZoneIds' | 'addCameraZone' | 'updateCameraZone' | 'deleteCameraZone' | 'deleteCameraZones' | 'moveCameraZones' | 'commitCameraZoneDragUndo' |
   'setEditMode' | 'setSelectedTool' | 'setDrawShape' | 'setSelectedTileId' | 'setSelectedTiles' |
   'setCurrentLayer' | 'setCursorTile' | 'setSelection' | 'setIsPasting' | 'setPastePreviewPos' | 'clearSelection' | 'setSelectedEventId'
 >> = (set, get) => ({
@@ -173,11 +175,11 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   clearPassageSelection: () => set({ passageSelectionStart: null, passageSelectionEnd: null }),
   setIsPassagePasting: (v: boolean) => set({ isPassagePasting: v }),
   setPassagePastePreviewPos: (pos: { x: number; y: number } | null) => set({ passagePastePreviewPos: pos }),
-  copyPassage: (x1, y1, x2, y2) => copyPassageOp(get, set, x1, y1, x2, y2),
-  cutPassage: (x1, y1, x2, y2) => cutPassageOp(get, set, x1, y1, x2, y2),
-  pastePassage: (x, y) => pastePassageOp(get, set, x, y),
-  deletePassage: (x1, y1, x2, y2) => deletePassageOp(get, set, x1, y1, x2, y2),
-  movePassage: (srcX1, srcY1, srcX2, srcY2, destX, destY) => movePassageOp(get, set, srcX1, srcY1, srcX2, srcY2, destX, destY),
+  copyPassage: (x1: number, y1: number, x2: number, y2: number) => copyPassageOp(get, set, x1, y1, x2, y2),
+  cutPassage: (x1: number, y1: number, x2: number, y2: number) => cutPassageOp(get, set, x1, y1, x2, y2),
+  pastePassage: (x: number, y: number) => pastePassageOp(get, set, x, y),
+  deletePassage: (x1: number, y1: number, x2: number, y2: number) => deletePassageOp(get, set, x1, y1, x2, y2),
+  movePassage: (srcX1: number, srcY1: number, srcX2: number, srcY2: number, destX: number, destY: number) => movePassageOp(get, set, srcX1, srcY1, srcX2, srcY2, destX, destY),
   updateCustomPassage: (changes: PassageChange[]) => updateCustomPassageOp(get, set, changes),
 
   // UI setters
