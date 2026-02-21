@@ -493,15 +493,17 @@
 
 /* 주석 처리된 커맨드 — IDE 스타일 */
 .event-command-row.cmd-disabled {
-  background: rgba(78, 201, 78, 0.05);
-  border-left: 3px solid #4a7a4a;
-  opacity: 0.75;
+  background: rgba(78, 201, 78, 0.13);
+  border-left: 3px solid #4ec94e;
+  outline: 1px solid rgba(78, 201, 78, 0.35);
+  outline-offset: -1px;
+  opacity: 0.8;
 }
 .event-command-row.cmd-disabled:hover {
-  background: rgba(78, 201, 78, 0.10);
+  background: rgba(78, 201, 78, 0.20);
 }
 .event-command-row.cmd-disabled > *:not(.indent-guide):not(.fold-toggle):not(.drag-handle):not(.fold-count-badge) {
-  color: #6a9a6a !important;
+  color: #7ec87e !important;
   font-style: italic;
 }
 
