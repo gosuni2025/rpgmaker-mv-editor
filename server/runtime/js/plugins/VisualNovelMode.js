@@ -175,6 +175,7 @@
     // =========================================================================
     function sliceRaw(text, count) {
         var i = 0, visible = 0;
+        var openTags = [];  // 열린 ET 태그 스택 (닫는 태그 자동 보완용)
         while (i < text.length) {
             if (visible >= count) break;
             var c = text[i];
@@ -191,17 +192,31 @@
                         i++;
                     }
                 }
-                // escape 코드는 visible 카운트 증가 안 함
             } else if (c === '<') {
-                // ExtendedText 태그 <color ...> 등 통째로 건너뜀
+                var tagStart = i;
+                i++;
+                var isClose = (i < text.length && text[i] === '/');
                 while (i < text.length && text[i] !== '>') i++;
                 if (i < text.length) i++;
+                if (isClose) {
+                    if (openTags.length > 0) openTags.pop();
+                } else {
+                    // 태그명: < 다음 첫 공백 또는 > 이전까지
+                    var inner = text.substring(tagStart + 1, i - 1);
+                    var tagName = inner.split(/[\s>]/)[0];
+                    if (tagName) openTags.push(tagName);
+                }
             } else {
                 i++;
                 visible++;
             }
         }
-        return text.substring(0, i);
+        // 아직 열린 태그들의 닫는 태그를 역순으로 보완
+        var result = text.substring(0, i);
+        for (var k = openTags.length - 1; k >= 0; k--) {
+            result += '</' + openTags[k] + '>';
+        }
+        return result;
     }
 
     function countVisible(text) {
@@ -727,6 +742,7 @@
     VNController.prototype.close = function () {
         this._state = 'closing';
         this._autoTimer = -1;
+        this._textWin._etClearAllOverlays();
     };
 
     VNController.prototype.getTextWindow = function () { return this._textWin; };
