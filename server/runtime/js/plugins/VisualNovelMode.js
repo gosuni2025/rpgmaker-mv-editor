@@ -589,13 +589,9 @@
 
     // ── update ───────────────────────────────────────────────────────────────
     Window_VNText.prototype.update = function () {
-        Window_Base.prototype.update.call(this);
-
-        // Three.js 런타임에서 Window.updateTransform()이 호출되지 않으므로
-        // pause sign 애니메이션을 직접 구동
-        this._updatePauseSign();
-
-        // 타이프라이터 진행
+        // 타이핑 진행 + _redraw()를 먼저 수행하여 세그먼트를 수집한 뒤,
+        // Window_Base.update() → _etRunAnimPass()가 최신 세그먼트로 오버레이를 생성하도록 함.
+        // (순서가 반대이면 오버레이 생성 직후 같은 프레임에 _redraw()가 dispose하여 효과가 안 보임)
         if (this._isTyping) {
             this._typeShown++;
             if (this._typeShown >= this._typeTotal) {
@@ -609,6 +605,12 @@
             this._scrollY = this._maxScrollY();  // 항상 맨 아래 추적
             this._redraw();
         }
+
+        Window_Base.prototype.update.call(this);
+
+        // Three.js 런타임에서 Window.updateTransform()이 호출되지 않으므로
+        // pause sign 애니메이션을 직접 구동
+        this._updatePauseSign();
 
         // 입력 처리
         if (this._choiceActive) {
