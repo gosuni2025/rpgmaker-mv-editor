@@ -129,6 +129,9 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     const container = containerRef.current;
     if (!container) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      // input/textarea 포커스 중이면 핸들러 무시 (찾기 패널 등)
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (showAddDialog || pendingCode !== null || editingIndex !== null || showMoveRoute !== null) return;
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key === 'c' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); copySelected(); }
