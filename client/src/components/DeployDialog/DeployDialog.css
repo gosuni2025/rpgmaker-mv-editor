@@ -123,3 +123,39 @@
   display: flex;
   justify-content: flex-end;
 }
+
+.deploy-log-panel {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 8px 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.deploy-log-cmd {
+  color: #6cb6ff;
+}
+
+.deploy-log-step {
+  color: #e0e0e0;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.deploy-log-ok {
+  color: #6c6;
+}
+
+.deploy-log-err {
+  color: #e55;
+}
+
+.deploy-log-info {
+  color: #888;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

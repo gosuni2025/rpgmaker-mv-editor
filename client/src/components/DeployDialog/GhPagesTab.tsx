@@ -22,6 +22,14 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
   const [ghBuildId, setGhBuildId] = useState('');
   const [ghCommitHash, setGhCommitHash] = useState('');
   const ghCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const logPanelRef = useRef<HTMLDivElement>(null);
+
+  // 로그 패널 자동 스크롤
+  useEffect(() => {
+    if (logPanelRef.current) {
+      logPanelRef.current.scrollTop = logPanelRef.current.scrollHeight;
+    }
+  }, [dp.logs]);
 
   const runGhCheck = useCallback(() => {
     if (ghCheckTimer.current) clearTimeout(ghCheckTimer.current);
@@ -161,6 +169,22 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
       <ProgressBar progress={dp.progress} color="#2a9a42" />
       <StatusMessage status={dp.status} />
       <ErrorMessage error={dp.error} />
+
+      {dp.logs.length > 0 && (
+        <div className="deploy-log-panel" ref={logPanelRef}>
+          {dp.logs.map((log, i) => (
+            <div key={i} className={
+              log.startsWith('$') ? 'deploy-log-cmd' :
+              log.startsWith('──') ? 'deploy-log-step' :
+              log.startsWith('✓') || log.startsWith('→') ? 'deploy-log-ok' :
+              log.startsWith('✗') ? 'deploy-log-err' :
+              'deploy-log-info'
+            }>
+              {log}
+            </div>
+          ))}
+        </div>
+      )}
 
       {(ghPageUrl || ghCheck?.pageUrl) && (
         <div className="deploy-result-box" style={{ background: '#1e2e1e', borderColor: '#2a4a2a' }}>

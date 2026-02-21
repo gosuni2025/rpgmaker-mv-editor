@@ -1,6 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SSEEvent, DeployProgressState } from './types';
+
+// GH Pages 단계별 진행률
+const GH_PHASE_PROGRESS: Record<string, number> = {
+  copying: 0.10,
+  patching: 0.35,
+  committing: 0.55,
+  pushing: 0.70,
+  'pages-setup': 0.88,
+  'pages-setup-skipped': 0.88,
+};
 
 export default function useDeployProgress() {
   const { t } = useTranslation();
@@ -8,14 +18,22 @@ export default function useDeployProgress() {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [progress, setProgress] = useState<number | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
+  const isGhPagesRef = useRef(false);
 
   const resetStatus = useCallback(() => {
-    setError(''); setStatus(''); setProgress(null);
+    setError(''); setStatus(''); setProgress(null); setLogs([]); isGhPagesRef.current = false;
   }, []);
 
   const handleSSEEvent = useCallback(
     (ev: SSEEvent, totalRef: { current: number }, weights: { copy: number; zip: number }): boolean => {
       const uploadStart = weights.copy + weights.zip;
+
+      if (ev.type === 'log') {
+        setLogs(prev => [...prev, ev.message]);
+        return true;
+      }
+
       if (ev.type === 'status') {
         const phaseMap: Record<string, string> = {
           'creating-site':       t('deploy.netlify.creatingSite'),
@@ -29,6 +47,13 @@ export default function useDeployProgress() {
         };
         if (phaseMap[ev.phase]) setStatus(phaseMap[ev.phase]);
         if (ev.phase === 'pages-setup-skipped' && ev.detail) setError(ev.detail);
+
+        // GH Pages 단계별 진행률 업데이트
+        if (ev.phase in GH_PHASE_PROGRESS) {
+          isGhPagesRef.current = true;
+          setProgress(GH_PHASE_PROGRESS[ev.phase]);
+        }
+
         if (ev.phase === 'zipping')   { setProgress(weights.copy); setStatus(t('deploy.netlify.zipping')); }
         if (ev.phase === 'uploading') { setProgress(uploadStart); setStatus(t('deploy.netlify.uploading')); }
       } else if (ev.type === 'site-created') {
@@ -65,5 +90,5 @@ export default function useDeployProgress() {
 
   const state: DeployProgressState = { busy, status, error, progress };
 
-  return { ...state, setBusy, setStatus, setError, setProgress, resetStatus, handleSSEEvent };
+  return { ...state, logs, setBusy, setStatus, setError, setProgress, resetStatus, handleSSEEvent };
 }

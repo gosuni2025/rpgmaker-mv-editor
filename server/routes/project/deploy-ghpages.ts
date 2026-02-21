@@ -1,22 +1,17 @@
 import express, { Request, Response } from 'express';
 import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import crypto from 'crypto';
 import { execSync } from 'child_process';
 import { promisify } from 'util';
 import { exec } from 'child_process';
 import projectManager from '../../services/projectManager';
 import settingsManager from '../../services/settingsManager';
 import {
-  collectFilesForDeploy,
   applyIndexHtmlRename,
   applyCacheBusting,
   makeBuildId,
   setupSSE,
   sseWrite,
   parseCacheBustQuery,
-  CacheBustOptions,
 } from './deploy';
 
 const router = express.Router();
@@ -104,6 +99,26 @@ function gitExec(cmd: string, opts: { encoding?: BufferEncoding } = {}): string 
   }
 }
 
+// ─── 로그 전송 헬퍼 ─────────────────────────────────────────────────────────
+function sseLog(res: Response, message: string) {
+  sseWrite(res, { type: 'log', message });
+}
+
+function sseLogCmd(res: Response, cmd: string) {
+  // git -C "/path/to/project" ... → git ... 으로 축약하여 표시
+  const displayCmd = cmd.replace(/ -C "[^"]*"/, '');
+  sseWrite(res, { type: 'log', message: `$ ${displayCmd}` });
+}
+
+// git 명령 실행 + 로그 전송
+function gitExecLog(res: Response, cmd: string, opts: { encoding?: BufferEncoding } = {}): string {
+  sseLogCmd(res, cmd);
+  const result = gitExec(cmd, opts);
+  const trimmed = result.trim();
+  if (trimmed) sseLog(res, trimmed);
+  return result;
+}
+
 // ─── GitHub Pages 배포 (SSE) ──────────────────────────────────────────────────
 router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {
@@ -126,6 +141,10 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
   try {
     // ── 1. remote URL 확인 ────────────────────────────────────────────────────
     currentStep = `remote '${remote}' URL 확인`;
+    sseWrite(res, { type: 'status', phase: 'copying' });
+    sseLog(res, `── 1/7: remote '${remote}' URL 확인 ──`);
+
+    sseLogCmd(res, `git -C "${srcPath}" remote get-url ${remote}`);
     const remoteUrl = await getRemoteUrl(srcPath, remote);
     if (!remoteUrl) {
       sseWrite(res, {
@@ -137,12 +156,11 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
       res.end();
       return;
     }
+    sseLog(res, `→ ${remoteUrl}`);
 
     // ── 2. 리모트 gh-pages 브랜치가 로컬보다 앞서있는지 확인 ─────────────────
-    // 비교 기준: 로컬 gh-pages 브랜치 (HEAD가 아님 — 이전 배포 커밋이 항상 걸리므로)
-    // 로컬 gh-pages가 없으면 첫 배포이므로 체크 스킵
-    sseWrite(res, { type: 'status', phase: 'copying' });
     currentStep = `리모트 ${remote}/${DEPLOY_BRANCH} 동기화 확인`;
+    sseLog(res, `── 2/7: 리모트 동기화 확인 ──`);
     try {
       const localGhExists = (() => {
         try {
@@ -151,10 +169,13 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
         } catch { return false; }
       })();
       if (localGhExists) {
-        gitExec(`git -C "${srcPath}" fetch ${remote} ${DEPLOY_BRANCH}`);
+        sseLog(res, `로컬 ${DEPLOY_BRANCH} 브랜치 존재 → fetch 시작`);
+        gitExecLog(res, `git -C "${srcPath}" fetch ${remote} ${DEPLOY_BRANCH}`);
+        sseLogCmd(res, `git -C "${srcPath}" rev-list ${DEPLOY_BRANCH}..${remote}/${DEPLOY_BRANCH} --count`);
         const behind = gitExec(
           `git -C "${srcPath}" rev-list ${DEPLOY_BRANCH}..${remote}/${DEPLOY_BRANCH} --count`,
         ).trim();
+        sseLog(res, `뒤처진 커밋 수: ${behind}`);
         if (parseInt(behind, 10) > 0) {
           const remoteLog = (() => {
             try {
@@ -175,57 +196,82 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
           res.end();
           return;
         }
+      } else {
+        sseLog(res, `로컬 ${DEPLOY_BRANCH} 브랜치 없음 (첫 배포) → 동기화 검사 건너뜀`);
       }
     } catch (fetchErr: unknown) {
-      // 리모트에 gh-pages 브랜치 없음(첫 배포) 등은 무시하고 계속 진행
       const msg = (fetchErr as Error).message || '';
       if (!msg.includes("couldn't find remote ref") && !msg.includes('unknown revision')) {
-        // 예상치 못한 fetch 오류는 경고만 남기고 계속 진행
+        sseLog(res, `fetch 경고 (무시됨): ${msg}`);
         console.warn(`[deploy-ghpages] fetch 경고 (무시됨): ${msg}`);
+      } else {
+        sseLog(res, `리모트에 ${DEPLOY_BRANCH} 브랜치 없음 (첫 배포) → 계속 진행`);
       }
     }
 
     // ── 3. 현재 브랜치 저장 & 미커밋 변경사항 stash ──────────────────────────
     currentStep = '현재 브랜치/상태 저장';
-    originalBranch = gitExec(`git -C "${srcPath}" rev-parse --abbrev-ref HEAD`).trim();
+    sseLog(res, `── 3/7: 현재 상태 저장 ──`);
+    originalBranch = gitExecLog(res, `git -C "${srcPath}" rev-parse --abbrev-ref HEAD`).trim();
 
+    sseLogCmd(res, `git -C "${srcPath}" status --porcelain`);
     const dirty = gitExec(`git -C "${srcPath}" status --porcelain`).trim();
     if (dirty) {
-      gitExec(`git -C "${srcPath}" stash push -m "rpgmv-deploy-stash"`);
+      const changedCount = dirty.split('\n').length;
+      sseLog(res, `미커밋 변경 ${changedCount}개 발견 → stash`);
+      gitExecLog(res, `git -C "${srcPath}" stash push -m "rpgmv-deploy-stash"`);
       stashed = true;
+    } else {
+      sseLog(res, `미커밋 변경 없음`);
     }
 
     // ── 4. gh-pages 브랜치로 전환 (현재 HEAD 기준으로 생성/리셋) ─────────────
     currentStep = `${DEPLOY_BRANCH} 브랜치 전환 (checkout -B)`;
-    gitExec(`git -C "${srcPath}" checkout -B ${DEPLOY_BRANCH}`);
+    sseLog(res, `── 4/7: ${DEPLOY_BRANCH} 브랜치 전환 ──`);
+    gitExecLog(res, `git -C "${srcPath}" checkout -B ${DEPLOY_BRANCH}`);
 
     // ── 5. index_3d.html → index.html + 캐시 버스팅 ─────────────────────────
-    // 이 시점의 working tree = 소스 파일 그대로 (브랜치 전환해도 파일은 동일)
     currentStep = 'index.html 교체 및 캐시 버스팅 적용';
     sseWrite(res, { type: 'status', phase: 'patching' });
+    sseLog(res, `── 5/7: index.html 교체 & 캐시 버스팅 ──`);
+    sseLog(res, `index.html → index_pixi.html (PIXI 원본 백업)`);
+    sseLog(res, `index_3d.html → index.html (Three.js 버전 적용)`);
     applyIndexHtmlRename(srcPath);
     const buildId = makeBuildId();
+    sseLog(res, `캐시 버스팅 적용 (buildId: ${buildId})`);
+    const cbFlags = [
+      opts.scripts !== false ? 'scripts' : null,
+      opts.images !== false ? 'images' : null,
+      opts.audio !== false ? 'audio' : null,
+      opts.video !== false ? 'video' : null,
+      opts.data !== false ? 'data' : null,
+    ].filter(Boolean).join(', ');
+    if (cbFlags) sseLog(res, `  대상: ${cbFlags}`);
     applyCacheBusting(srcPath, buildId, opts);
 
     // ── 6. git commit ─────────────────────────────────────────────────────────
     currentStep = 'git commit';
     sseWrite(res, { type: 'status', phase: 'committing' });
+    sseLog(res, `── 6/7: git commit ──`);
     const now = new Date().toLocaleString('ko-KR');
 
-    gitExec(`git -C "${srcPath}" add -A`);
+    gitExecLog(res, `git -C "${srcPath}" add -A`);
     let commitHash = '';
     try {
-      gitExec(`git -C "${srcPath}" commit -m "Deploy: ${now}"`);
+      gitExecLog(res, `git -C "${srcPath}" commit -m "Deploy: ${now}"`);
       commitHash = gitExec(`git -C "${srcPath}" rev-parse --short HEAD`).trim();
+      sseLog(res, `커밋 완료: ${commitHash}`);
     } catch (e: unknown) {
       const msg = (e as Error).message;
       if (!msg.includes('nothing to commit') && !msg.includes('nothing added')) throw e;
+      sseLog(res, `변경사항 없음 (이전 배포와 동일)`);
     }
 
     // ── 7. push → remote/gh-pages ────────────────────────────────────────────
     currentStep = `git push ${remote} ${DEPLOY_BRANCH} --force`;
     sseWrite(res, { type: 'status', phase: 'pushing' });
-    gitExec(`git -C "${srcPath}" push ${remote} ${DEPLOY_BRANCH} --force`);
+    sseLog(res, `── 7/7: git push ──`);
+    gitExecLog(res, `git -C "${srcPath}" push ${remote} ${DEPLOY_BRANCH} --force`);
 
     // ── 8. GitHub Pages 소스 브랜치 설정 (gh api, 없으면 스킵) ─────────────────
     const pageUrl = derivePageUrl(remoteUrl);
@@ -240,16 +286,22 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
     if (ownerRepo) {
       currentStep = `GitHub Pages 소스 설정 (gh api)`;
       sseWrite(res, { type: 'status', phase: 'pages-setup' });
+      sseLog(res, `── GitHub Pages 소스 브랜치 설정 ──`);
       try {
         // 이미 활성화된 경우 PUT, 처음이면 POST
         try {
+          sseLogCmd(res, `gh api repos/${ownerRepo}/pages -X PUT -f 'source[branch]=${DEPLOY_BRANCH}' -f 'source[path]=/'`);
           gitExec(`gh api repos/${ownerRepo}/pages -X PUT -f 'source[branch]=${DEPLOY_BRANCH}' -f 'source[path]=/'`);
+          sseLog(res, `GitHub Pages 소스 설정 완료`);
         } catch {
+          sseLogCmd(res, `gh api repos/${ownerRepo}/pages -X POST -f 'source[branch]=${DEPLOY_BRANCH}' -f 'source[path]=/'`);
           gitExec(`gh api repos/${ownerRepo}/pages -X POST -f 'source[branch]=${DEPLOY_BRANCH}' -f 'source[path]=/'`);
+          sseLog(res, `GitHub Pages 소스 설정 완료 (신규 생성)`);
         }
       } catch (ghErr: unknown) {
         // gh CLI 없음 또는 권한 없음 — 배포 자체는 성공이므로 경고만
         const ghMsg = (ghErr as Error).message || '';
+        sseLog(res, `GitHub Pages 자동 설정 실패 (무시됨): ${ghMsg}`);
         sseWrite(res, {
           type: 'status',
           phase: 'pages-setup-skipped',
@@ -258,17 +310,30 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
       }
     }
 
+    sseLog(res, `\n✓ 배포 완료! (${pageUrl})`);
     sseWrite(res, { type: 'done', commitHash, pageUrl, buildId });
   } catch (err: unknown) {
     const raw = (err as Error).message || String(err);
+    sseLog(res, `\n✗ 오류 발생: ${raw}`);
     sseWrite(res, {
       type: 'error',
       message: `[${currentStep}] 오류:\n${raw}`,
     });
   } finally {
-    // ── 8. 원래 브랜치로 복귀 & stash 복원 ──────────────────────────────────
-    try { gitExec(`git -C "${srcPath}" checkout ${originalBranch}`); } catch {}
-    if (stashed) try { gitExec(`git -C "${srcPath}" stash pop`); } catch {}
+    // ── 원래 브랜치로 복귀 & stash 복원 ──────────────────────────────────
+    sseLog(res, `\n── 정리: 원래 브랜치로 복귀 ──`);
+    try {
+      sseLogCmd(res, `git -C "${srcPath}" checkout ${originalBranch}`);
+      gitExec(`git -C "${srcPath}" checkout ${originalBranch}`);
+      sseLog(res, `→ ${originalBranch} 브랜치로 복귀 완료`);
+    } catch {}
+    if (stashed) {
+      try {
+        sseLogCmd(res, `git -C "${srcPath}" stash pop`);
+        gitExec(`git -C "${srcPath}" stash pop`);
+        sseLog(res, `→ stash 복원 완료`);
+      } catch {}
+    }
   }
   res.end();
 });
