@@ -147,6 +147,11 @@ export function usePluginManager() {
     catch (e) { setError((e as Error).message); }
   };
 
+  const handleOpenInVSCode = async (pluginName: string) => {
+    try { await apiClient.post('/plugins/open-vscode', { name: pluginName }); }
+    catch (e) { setError((e as Error).message); }
+  };
+
   const handleUpgradePlugin = async (pluginName: string) => {
     try {
       await apiClient.post('/plugins/upgrade', { name: pluginName });
@@ -236,7 +241,7 @@ export function usePluginManager() {
     browseDir, browseFiles, browseDirs,
     updateSetting, toggleStatus, setPluginStatus, updateParam, changePluginName,
     movePlugin, addPlugin, removePlugin,
-    handleOpenPluginFolder, handleUpgradePlugin, handleSave,
+    handleOpenPluginFolder, handleOpenInVSCode, handleUpgradePlugin, handleSave,
     openPicker, hasPickerButton,
   };
 }

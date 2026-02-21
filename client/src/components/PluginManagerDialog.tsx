@@ -55,6 +55,12 @@ export default function PluginManagerDialog() {
                 </div>
                 <div className="pm-open-folder-btn">
                   <button className="db-btn-small" onClick={pm.handleOpenPluginFolder}>{t('pluginManager.openFolder')}</button>
+                  <button className="db-btn-small"
+                    disabled={pm.selectedIndex < 0 || !pm.selectedPlugin?.name}
+                    onClick={() => pm.selectedPlugin?.name && pm.handleOpenInVSCode(pm.selectedPlugin.name)}
+                    title="선택한 플러그인 파일을 VSCode로 열기">
+                    VSCode로 열기
+                  </button>
                 </div>
               </div>
 

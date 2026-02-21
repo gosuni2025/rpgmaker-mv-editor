@@ -294,6 +294,37 @@ router.post('/open-folder', (_req: Request, res: Response) => {
   }
 });
 
+// POST /api/plugins/open-vscode - Open plugin file in VSCode
+// Body: { name: string }
+// 프로젝트 js/plugins/<name>.js 를 우선하고, 없으면 에디터 런타임 plugins/<name>.js 를 연다.
+router.post('/open-vscode', (req: Request, res: Response) => {
+  try {
+    const name = (req.body?.name as string || '').replace(/[^\w-]/g, '');
+    if (!name) return res.status(400).json({ error: 'name required' });
+
+    const projectFile = path.join(projectManager.getJsPath(), 'plugins', `${name}.js`);
+    const runtimeFile = path.join(runtimePath, 'js', 'plugins', `${name}.js`);
+    const filePath = fs.existsSync(projectFile) ? projectFile : runtimeFile;
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: `Plugin file not found: ${name}.js` });
+    }
+
+    const cmd = process.platform === 'darwin'
+      ? `open -a "Visual Studio Code" "${filePath}"`
+      : `code "${filePath}"`;
+    exec(cmd, (err) => {
+      if (err) {
+        // fallback: try plain `code` command on macOS too
+        exec(`code "${filePath}"`);
+      }
+    });
+    res.json({ success: true, path: filePath });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 // Resolve a project-relative text file path safely
 function resolveCreditFilePath(filePath: string): string | null {
   const basePath = projectManager.currentPath;
