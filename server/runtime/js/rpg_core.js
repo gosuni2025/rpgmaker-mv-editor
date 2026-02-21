@@ -5515,9 +5515,25 @@ ShaderTilemap.prototype.refresh = function() {
  * @method updateBitmaps
  */
 ShaderTilemap.prototype.refreshTileset = function() {
+    var self = this;
     var bitmaps = this.bitmaps.map(function(x) { return x._baseTexture ? RendererFactory.createTexture(x._baseTexture) : x; } );
     this.lowerLayer.setBitmaps(bitmaps);
     this.upperLayer.setBitmaps(bitmaps);
+    // 비트맵 로딩 전에 refreshTileset이 호출된 경우 (Windows 첫 실행 등),
+    // 모든 비트맵 로딩 완료 후 텍스처를 재갱신하여 물 타일 투명 렌더링 방지
+    var notReady = this.bitmaps.filter(function(b) { return b && !b.isReady(); });
+    if (notReady.length > 0) {
+        var remaining = notReady.length;
+        notReady.forEach(function(bitmap) {
+            bitmap.addLoadListener(function() {
+                remaining--;
+                if (remaining === 0) {
+                    self.refreshTileset();
+                    self._needsRepaint = true;
+                }
+            });
+        });
+    }
 };
 
 /**
