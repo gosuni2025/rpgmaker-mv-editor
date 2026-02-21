@@ -53,8 +53,7 @@ export function EnhancedTextEditor({
   // 아이콘/이미지 삽입 모달
   const [showIconModal, setShowIconModal] = useState(false);
   const [iconInsertIdx, setIconInsertIdx] = useState(0);
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [imageInsertSrc, setImageInsertSrc] = useState('');
+  const [imagePickerKey, setImagePickerKey] = useState(0);
   // 프로퍼티 패널 상태: TagEntry 배열 + content
   const [propTags, setPropTags] = useState<TagEntry[]>([]);
   const [propContent, setPropContent] = useState('');
@@ -331,17 +330,15 @@ export function EnhancedTextEditor({
   }, [iconInsertIdx, syncToParent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── 이미지 삽입 ───
-  const insertImageBlock = useCallback(() => {
-    if (!imageInsertSrc) return;
-    const html = buildBlockChipHTML([{ tag: 'picture', params: { src: imageInsertSrc, imgtype: 'pictures' } }], '');
-    restoreSelection(); // 모달 열기 전 저장한 커서 위치 복원
+  const insertImageBlock = useCallback((src: string) => {
+    if (!src) return;
+    const html = buildBlockChipHTML([{ tag: 'picture', params: { src, imgtype: 'pictures' } }], '');
+    restoreSelection(); // 다이얼로그 열기 전 저장한 커서 위치 복원
     if (!editorRef.current) return;
     // eslint-disable-next-line @typescript-eslint/no-deprecated
     document.execCommand('insertHTML', false, html);
     syncToParent();
-    setShowImageModal(false);
-    setImageInsertSrc('');
-  }, [imageInsertSrc, syncToParent]);
+  }, [syncToParent]);
 
   // ─── 프로퍼티 패널 적용 (execCommand로 undo 히스토리에 기록) ───
   const applyProps = useCallback(() => {
@@ -441,8 +438,8 @@ export function EnhancedTextEditor({
             </button>
             <button
               className="ete-toolbar-btn"
-              onMouseDown={e => { e.preventDefault(); saveSelection(); setImageInsertSrc(''); setShowImageModal(true); setShowBlockMenu(false); setShowEscMenu(false); }}
-              title="커서 위치에 이미지 삽입 (pictures 폴더)"
+              onMouseDown={e => { e.preventDefault(); saveSelection(); setImagePickerKey(k => k + 1); setShowBlockMenu(false); setShowEscMenu(false); }}
+              title="커서 위치에 이미지 삽입"
             >
               이미지
             </button>
@@ -583,17 +580,16 @@ export function EnhancedTextEditor({
         </div>
       )}
 
-      {/* 이미지 삽입 모달 */}
-      {showImageModal && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowImageModal(false); }}>
-          <div style={{ background: '#2b2b2b', padding: 16, borderRadius: 8, minWidth: 360 }}>
-            <div style={{ color: '#ddd', marginBottom: 8, fontSize: 14, fontWeight: 600 }}>이미지 선택 (pictures)</div>
-            <ImagePicker type="pictures" value={imageInsertSrc} onChange={setImageInsertSrc} />
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
-              <button className="db-btn" onClick={insertImageBlock} disabled={!imageInsertSrc}>삽입</button>
-              <button className="db-btn" onClick={() => setShowImageModal(false)}>취소</button>
-            </div>
-          </div>
+      {/* 이미지 삽입 — ImagePicker를 key로 재마운트하여 다이얼로그 바로 열기 */}
+      {imagePickerKey > 0 && (
+        <div style={{ display: 'none' }}>
+          <ImagePicker
+            key={imagePickerKey}
+            type="pictures"
+            value=""
+            defaultOpen
+            onChange={src => { if (src) insertImageBlock(src); }}
+          />
         </div>
       )}
     </div>
