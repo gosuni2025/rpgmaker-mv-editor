@@ -215,6 +215,8 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
   const [searchQuery, setSearchQuery] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('name');
   const [currentSubDir, setCurrentSubDir] = useState('');
+  // img/ 전체 탐색 모드: type 루트에서 상위로 이동 시 활성화
+  const [fetchType, setFetchType] = useState<string>(type);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -224,10 +226,14 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     setSelectedDirection(direction ?? 2);
     setSelectedPattern(pattern ?? 1);
     setSearchQuery('');
-    // value에 폴더가 포함된 경우 해당 폴더에서 시작
+    // value의 최상위 폴더가 prop type과 다르면 img 전체 탐색 모드로 시작
+    const topFolder = value.includes('/') ? value.split('/')[0] : '';
+    const isImgMode = topFolder !== '' && topFolder !== type;
+    const ft = isImgMode ? 'img' : type;
+    setFetchType(ft);
     const lastSlash = value.lastIndexOf('/');
     setCurrentSubDir(lastSlash !== -1 ? value.substring(0, lastSlash) : '');
-    apiClient.get<FileInfo[]>(`/resources/${type}?detail=1`).then(setFiles).catch(() => setFiles([]));
+    apiClient.get<FileInfo[]>(`/resources/${ft}?detail=1`).then(setFiles).catch(() => setFiles([]));
     // 검색 입력창에 포커스
     setTimeout(() => searchInputRef.current?.focus(), 100);
   }, [open]);
@@ -277,10 +283,20 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
   };
 
   const navigateUp = () => {
-    setCurrentSubDir(prev => {
-      const slash = prev.lastIndexOf('/');
-      return slash !== -1 ? prev.substring(0, slash) : '';
-    });
+    const slash = currentSubDir.lastIndexOf('/');
+    if (slash !== -1) {
+      setCurrentSubDir(currentSubDir.substring(0, slash));
+    } else if (currentSubDir !== '') {
+      setCurrentSubDir('');
+    }
+  };
+
+  // type 루트에서 img/ 전체 탐색 모드로 전환
+  const navigateToImgRoot = () => {
+    setFetchType('img');
+    setCurrentSubDir(type); // img/ 기준에서 기존 type 폴더에서 시작
+    setSearchQuery('');
+    apiClient.get<FileInfo[]>(`/resources/img?detail=1`).then(setFiles).catch(() => setFiles([]));
   };
 
   const handleOk = () => {
@@ -293,7 +309,14 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
 
   const cellCount = getCellCount(type);
   const hasIndex = cellCount > 1;
-  const getImgUrl = (name: string) => `/api/resources/${type}/${name}`;
+  // 다이얼로그 내부용 (fetchType 기반)
+  const getImgUrl = (name: string) => `/api/resources/${fetchType}/${name}`;
+  // 다이얼로그 외부 프리뷰용 (value 기반 — fetchType이 아직 초기화 전일 수 있음)
+  const getPreviewUrl = (name: string) => {
+    const topFolder = name.includes('/') ? name.split('/')[0] : '';
+    const ft = topFolder && topFolder !== type ? 'img' : type;
+    return `/api/resources/${ft}/${name.includes('.') ? name : name + '.png'}`;
+  };
 
   return (
     <div className="image-picker">
@@ -301,7 +324,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
         {value ? (
           hasIndex && index !== undefined ? (
             <CellPreview
-              imgSrc={getImgUrl(value.includes('.') ? value : value + '.png')}
+              imgSrc={getPreviewUrl(value)}
               fileName={value}
               type={type}
               cellIndex={index}
@@ -311,7 +334,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
             />
           ) : (
             <img
-              src={getImgUrl(value.includes('.') ? value : value + '.png')}
+              src={getPreviewUrl(value)}
               alt={value}
               style={{ maxHeight: 48, maxWidth: 96 }}
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -347,34 +370,44 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
             </div>
             <div className="image-picker-body">
               <div className="image-picker-list">
-                {/* breadcrumb / 상위 폴더 이동 */}
-                {!searchQuery && (
-                  <div className="image-picker-breadcrumb">
-                    <span
-                      className="image-picker-breadcrumb-root"
-                      onClick={() => setCurrentSubDir('')}
-                      title="루트로 이동"
-                    >{type}</span>
-                    {currentSubDir ? currentSubDir.split('/').map((seg, i, arr) => {
-                      const path = arr.slice(0, i + 1).join('/');
-                      return (
-                        <React.Fragment key={path}>
-                          <span className="image-picker-breadcrumb-sep">/</span>
-                          <span
-                            className="image-picker-breadcrumb-seg"
-                            onClick={() => setCurrentSubDir(path)}
-                            title={path}
-                          >{seg}</span>
-                        </React.Fragment>
-                      );
-                    }) : null}
-                  </div>
-                )}
+                {/* breadcrumb */}
+                {!searchQuery && (() => {
+                  const rootLabel = fetchType === 'img' ? 'img' : type;
+                  return (
+                    <div className="image-picker-breadcrumb">
+                      <span
+                        className="image-picker-breadcrumb-root"
+                        onClick={() => setCurrentSubDir('')}
+                        title="루트로 이동"
+                      >{rootLabel}</span>
+                      {currentSubDir ? currentSubDir.split('/').map((seg, i, arr) => {
+                        const path = arr.slice(0, i + 1).join('/');
+                        return (
+                          <React.Fragment key={path}>
+                            <span className="image-picker-breadcrumb-sep">/</span>
+                            <span
+                              className="image-picker-breadcrumb-seg"
+                              onClick={() => setCurrentSubDir(path)}
+                              title={path}
+                            >{seg}</span>
+                          </React.Fragment>
+                        );
+                      }) : null}
+                    </div>
+                  );
+                })()}
                 {/* 상위 폴더로 이동 */}
                 {!searchQuery && currentSubDir && (
                   <div className="image-picker-item image-picker-folder-up" onClick={navigateUp}>
                     <span className="image-picker-folder-icon">⬆</span>
                     <span className="image-picker-item-name">..</span>
+                  </div>
+                )}
+                {/* type 루트에서 img/ 전체 탐색 모드로 올라가기 */}
+                {!searchQuery && !currentSubDir && fetchType === type && (
+                  <div className="image-picker-item image-picker-folder-up" onClick={navigateToImgRoot}>
+                    <span className="image-picker-folder-icon">⬆</span>
+                    <span className="image-picker-item-name">img/</span>
                   </div>
                 )}
                 {/* (None) */}
