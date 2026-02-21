@@ -322,20 +322,20 @@ export function EnhancedTextEditor({
   // ─── 아이콘 삽입 ───
   const insertIconBlock = useCallback(() => {
     const html = buildBlockChipHTML([{ tag: 'icon', params: { index: String(iconInsertIdx) } }], '');
+    restoreSelection(); // 모달 열기 전 저장한 커서 위치 복원
     if (!editorRef.current) return;
-    editorRef.current.focus();
     // eslint-disable-next-line @typescript-eslint/no-deprecated
     document.execCommand('insertHTML', false, html);
     syncToParent();
     setShowIconModal(false);
-  }, [iconInsertIdx, syncToParent]);
+  }, [iconInsertIdx, syncToParent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── 이미지 삽입 ───
   const insertImageBlock = useCallback(() => {
     if (!imageInsertSrc) return;
     const html = buildBlockChipHTML([{ tag: 'picture', params: { src: imageInsertSrc, imgtype: 'pictures' } }], '');
+    restoreSelection(); // 모달 열기 전 저장한 커서 위치 복원
     if (!editorRef.current) return;
-    editorRef.current.focus();
     // eslint-disable-next-line @typescript-eslint/no-deprecated
     document.execCommand('insertHTML', false, html);
     syncToParent();
@@ -434,14 +434,14 @@ export function EnhancedTextEditor({
             {/* 아이콘/이미지 삽입 */}
             <button
               className="ete-toolbar-btn"
-              onMouseDown={e => { e.preventDefault(); setShowIconModal(true); setShowBlockMenu(false); setShowEscMenu(false); }}
+              onMouseDown={e => { e.preventDefault(); saveSelection(); setShowIconModal(true); setShowBlockMenu(false); setShowEscMenu(false); }}
               title="커서 위치에 아이콘 삽입"
             >
               아이콘
             </button>
             <button
               className="ete-toolbar-btn"
-              onMouseDown={e => { e.preventDefault(); setImageInsertSrc(''); setShowImageModal(true); setShowBlockMenu(false); setShowEscMenu(false); }}
+              onMouseDown={e => { e.preventDefault(); saveSelection(); setImageInsertSrc(''); setShowImageModal(true); setShowBlockMenu(false); setShowEscMenu(false); }}
               title="커서 위치에 이미지 삽입 (pictures 폴더)"
             >
               이미지
