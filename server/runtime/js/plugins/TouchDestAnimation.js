@@ -86,6 +86,37 @@
     var showHoverHighlight = String(parameters['Show Hover Highlight']) !== 'false';
 
     //=========================================================================
+    // ConfigManager 확장 - showHoverHighlight 저장/복원
+    //=========================================================================
+
+    if (showHoverHighlight) {
+        ConfigManager.showHoverHighlight = true;
+
+        var _ConfigManager_makeData = ConfigManager.makeData;
+        ConfigManager.makeData = function() {
+            var config = _ConfigManager_makeData.call(this);
+            config.showHoverHighlight = this.showHoverHighlight;
+            return config;
+        };
+
+        var _ConfigManager_applyData = ConfigManager.applyData;
+        ConfigManager.applyData = function(config) {
+            _ConfigManager_applyData.call(this, config);
+            // 저장된 값이 없으면 기본값 true
+            this.showHoverHighlight = (config.showHoverHighlight !== undefined)
+                ? !!config.showHoverHighlight
+                : true;
+        };
+
+        // Window_Options에 "마우스 커서 표시" 항목 추가
+        var _Window_Options_addGeneralOptions = Window_Options.prototype.addGeneralOptions;
+        Window_Options.prototype.addGeneralOptions = function() {
+            _Window_Options_addGeneralOptions.call(this);
+            this.addCommand('마우스 커서 표시', 'showHoverHighlight');
+        };
+    }
+
+    //=========================================================================
     // 마우스 좌표 추적 (TouchInput._onMove 억제와 무관하게 실제 위치 추적)
     //=========================================================================
     var _hoverMouseX = -1;
@@ -437,6 +468,11 @@
 
     Spriteset_Map.prototype.updateHoverHighlight = function() {
         if (!this._hoverHighlightSprite) return;
+
+        if (!ConfigManager.showHoverHighlight) {
+            this._hoverHighlightSprite.visible = false;
+            return;
+        }
 
         var mx = _hoverMouseX;
         var my = _hoverMouseY;
