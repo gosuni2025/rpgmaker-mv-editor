@@ -402,7 +402,7 @@ export default function App() {
         <div className="toast-container">
           {toastQueue.map((toast, index) => (
             <ToastItem
-              key={toast.id}
+              key={toast.createdAt}
               toast={toast}
               index={index}
               onDismiss={dismissToast}
