@@ -38,6 +38,42 @@ import useAutoSave from './hooks/useAutoSave';
 import useDialogDrag from './hooks/useDialogDrag';
 import i18n from './i18n';
 
+function formatRelativeTime(createdAt: number, now: number): string {
+  const sec = Math.floor((now - createdAt) / 1000);
+  if (sec < 1) return '방금 전';
+  if (sec < 60) return `${sec}초 전`;
+  return `${Math.floor(sec / 60)}분 전`;
+}
+
+interface ToastItemProps {
+  toast: { id: number; message: string; persistent: boolean; createdAt: number };
+  index: number;
+  onDismiss: (id: number) => void;
+}
+
+function ToastItem({ toast, index, onDismiss }: ToastItemProps) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div
+      className={`toast ${toast.persistent ? 'toast-persistent' : ''}`}
+      style={{ bottom: `${40 + index * 44}px` }}
+      onAnimationEnd={(e) => {
+        if (e.animationName === 'toast-fade') onDismiss(toast.id);
+      }}
+    >
+      {toast.message}
+      <span className="toast-age">{formatRelativeTime(toast.createdAt, now)}</span>
+      {toast.persistent && (
+        <button className="toast-close" onClick={() => onDismiss(toast.id)}>&times;</button>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const projectPath = useEditorStore((s) => s.projectPath);
   const currentMap = useEditorStore((s) => s.currentMap);
@@ -362,21 +398,12 @@ export default function App() {
       {toastQueue.length > 0 && (
         <div className="toast-container">
           {toastQueue.map((toast, index) => (
-            <div
+            <ToastItem
               key={toast.id}
-              className={`toast ${toast.persistent ? 'toast-persistent' : ''}`}
-              style={{ bottom: `${40 + index * 44}px` }}
-              onAnimationEnd={(e) => {
-                if (e.animationName === 'toast-fade') {
-                  dismissToast(toast.id);
-                }
-              }}
-            >
-              {toast.message}
-              {toast.persistent && (
-                <button className="toast-close" onClick={() => dismissToast(toast.id)}>&times;</button>
-              )}
-            </div>
+              toast={toast}
+              index={index}
+              onDismiss={dismissToast}
+            />
           ))}
           {toastQueue.length >= 2 && (
             <button
