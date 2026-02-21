@@ -435,6 +435,16 @@
     // ── 렌더링 ──────────────────────────────────────────────────────────────
     Window_VNText.prototype._redraw = function () {
         if (!this.contents) return;
+
+        // 기존 세그먼트의 시간 상태를 보존 (스크롤 시 애니메이션 재시작 방지)
+        // 텍스트가 바뀌지 않은 스크롤에서는 세그먼트 순서가 동일하므로 인덱스 매칭으로 복원
+        var prevState = (this._etAnimSegs || []).map(function (seg) {
+            return {
+                startTime:        seg.startTime,
+                overlayStartTime: seg._overlayStartTime,
+            };
+        });
+
         this._etClearAllOverlays();
         this.contents.clear();
         var top = this._scrollY;
@@ -458,6 +468,16 @@
         }
 
         if (SHOW_SCROLL_BAR) this._drawScrollBar();
+
+        // startTime / _overlayStartTime 복원
+        var segs = this._etAnimSegs || [];
+        var n = Math.min(segs.length, prevState.length);
+        for (var j = 0; j < n; j++) {
+            if (prevState[j].startTime !== undefined)
+                segs[j].startTime = prevState[j].startTime;
+            if (prevState[j].overlayStartTime !== undefined)
+                segs[j]._overlayStartTime = prevState[j].overlayStartTime;
+        }
     };
 
     Window_VNText.prototype._drawTextEntry = function (e, dy, lh, iw) {
