@@ -330,9 +330,11 @@ export function EnhancedTextEditor({
   }, [iconInsertIdx, syncToParent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── 이미지 삽입 ───
-  const insertImageBlock = useCallback((src: string) => {
+  const insertImageBlock = useCallback((src: string, meta?: { fetchType: string }) => {
     if (!src) return;
-    const html = buildBlockChipHTML([{ tag: 'picture', params: { src, imgtype: 'pictures' } }], '');
+    // fetchType이 'img'이면 img/ 루트 기준 경로로 처리
+    const imgtype = meta?.fetchType === 'img' ? 'img' : 'pictures';
+    const html = buildBlockChipHTML([{ tag: 'picture', params: { src, imgtype } }], '');
     restoreSelection(); // 다이얼로그 열기 전 저장한 커서 위치 복원
     if (!editorRef.current) return;
     // eslint-disable-next-line @typescript-eslint/no-deprecated
@@ -588,7 +590,7 @@ export function EnhancedTextEditor({
             type="pictures"
             value=""
             defaultOpen
-            onChange={src => { if (src) insertImageBlock(src); }}
+            onChange={(src, meta) => { if (src) insertImageBlock(src, meta); }}
           />
         </div>
       )}
