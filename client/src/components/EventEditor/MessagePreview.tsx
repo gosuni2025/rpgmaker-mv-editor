@@ -91,6 +91,10 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
 
   const handleReplay = useCallback(() => { doBuildRenderer(true); }, [doBuildRenderer]);
 
+  // stale closure 방지용 ref — RAF 루프 내에서 최신 doBuildRenderer 호출
+  const doBuildRendererRef = useRef(doBuildRenderer);
+  useEffect(() => { doBuildRendererRef.current = doBuildRenderer; }, [doBuildRenderer]);
+
   // ─── RAF 루프 ───
   useEffect(() => {
     if (!runtimeReady) return;
@@ -116,6 +120,11 @@ export function MessagePreview({ faceName, faceIndex, background, positionType, 
       if (ET) ET._time += 1 / 60;
 
       const r = rendererRef.current;
+      // 인라인 이미지(picture) 비동기 로드 완료 시 재렌더
+      if (r?._etNeedRebuild) {
+        r._etNeedRebuild = false;
+        doBuildRendererRef.current(false);
+      }
       if (r && !r._etScene) r._etScene = t.scene;
       if (r?._etAnimSegs?.length > 0) {
         try { r._etRunAnimPass(); } catch (_) {}

@@ -368,6 +368,11 @@ Window_Base.prototype._etProcessInlineItem = function(textState) {
                 ctx.strokeRect(textState.x + 1, textState.y + 1, phW - 2, lh - 2);
                 ctx.restore();
             }
+            // 비트맵 로드 완료 시 재렌더 요청
+            if (bmp && typeof bmp.addLoadListener === 'function') {
+                var selfWin = this;
+                bmp.addLoadListener(function() { selfWin._etNeedRebuild = true; });
+            }
             textState.x += phW;
         }
     }
