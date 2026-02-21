@@ -764,6 +764,8 @@ Window_Base.prototype._etUpdateOverlayUniforms = function(seg, t) {
 
     var uniforms = seg._overlayMesh.material.uniforms;
     if (uniforms.uTime) uniforms.uTime.value = t;
+    // _overlayStartTime은 스크롤 시 _redraw()에서 복원될 수 있으므로 매 프레임 동기화
+    if (uniforms.uStartTime) uniforms.uStartTime.value = seg._overlayStartTime || 0;
 
     // 완료 판정: dispose 대신 freeze (메시 유지 → 글자가 사라지지 않음)
     // uTime += 1/60 per frame, duration in frames → 60/dur converts frames→seconds ratio
