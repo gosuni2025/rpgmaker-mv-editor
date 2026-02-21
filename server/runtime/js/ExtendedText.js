@@ -733,8 +733,9 @@ Window_Base.prototype._etEnsureShakeMeshes = function(seg, THREE, target) {
         target.parent.add(mesh);
 
         // Bitmap에서 해당 글자 영역 투명화
+        // segH(=lh+amp*2+4)가 아닌 lh만큼만 지워야 아랫줄 텍스트를 침범하지 않음
         if (bmp.clearRect) {
-            bmp.clearRect(ch.x - clearL, ch.y, charW, segH);
+            bmp.clearRect(ch.x - clearL, ch.y, charW, lh);
         }
 
         seg._charMeshes.push({ mesh: mesh, tex: tex, baseX: baseX, baseY: baseY, charIdx: ci });
