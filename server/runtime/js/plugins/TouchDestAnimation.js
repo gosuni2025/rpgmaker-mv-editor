@@ -482,11 +482,25 @@
             return;
         }
 
-        // canvasToMapX/Y는 3D 모드에서 Mode3D.screenToWorld()를 자동 사용
-        var tileX = $gameMap.canvasToMapX(mx);
-        var tileY = $gameMap.canvasToMapY(my);
+        var tileX, tileY;
         var tw = $gameMap.tileWidth();
         var th = $gameMap.tileHeight();
+
+        // 3D 모드: canvasToMapX/Y 내부에서 X계산엔 TouchInput.y, Y계산엔 TouchInput.x를
+        // 혼용하므로, 중심에서 벗어날수록 왜곡 발생. screenToWorld를 직접 호출.
+        if (typeof Mode3D !== 'undefined' &&
+                ConfigManager.mode3d && Mode3D._active && Mode3D._perspCamera) {
+            var world = Mode3D.screenToWorld(mx, my);
+            if (!world) {
+                this._hoverHighlightSprite.visible = false;
+                return;
+            }
+            tileX = $gameMap.roundX(Math.floor(($gameMap._displayX * tw + world.x) / tw));
+            tileY = $gameMap.roundY(Math.floor(($gameMap._displayY * th + world.y) / th));
+        } else {
+            tileX = $gameMap.canvasToMapX(mx);
+            tileY = $gameMap.canvasToMapY(my);
+        }
 
         this._hoverHighlightSprite.x = $gameMap.adjustX(tileX) * tw;
         this._hoverHighlightSprite.y = $gameMap.adjustY(tileY) * th;
