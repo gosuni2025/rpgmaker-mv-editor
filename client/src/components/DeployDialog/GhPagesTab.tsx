@@ -21,6 +21,7 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
   const [ghPageUrl, setGhPageUrl] = useState('');
   const [ghBuildId, setGhBuildId] = useState('');
   const [ghCommitHash, setGhCommitHash] = useState('');
+  const [showProgressModal, setShowProgressModal] = useState(false);
   const ghCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logPanelRef = useRef<HTMLDivElement>(null);
 
@@ -58,6 +59,7 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
     dp.resetStatus();
     dp.setProgress(0);
     dp.setBusy(true);
+    setShowProgressModal(true);
     let completed = false;
     const totalRef = { current: 0 };
     const params = new URLSearchParams(cacheBustToQuery(cbOpts));
@@ -73,7 +75,6 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
         if (ev.buildId) setGhBuildId(ev.buildId);
         if (ev.commitHash) setGhCommitHash(ev.commitHash);
         dp.setBusy(false);
-        setTimeout(() => dp.setProgress(null), 800);
         evtSource.close();
         return;
       }
@@ -105,6 +106,9 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
       <span style={{ color: ok ? '#aaa' : '#e77', fontSize: 12 }}>{label}</span>
     </div>
   );
+
+  const deployDone = !dp.busy && dp.logs.length > 0;
+  const deployFailed = !dp.busy && !!dp.error;
 
   return (
     <>
@@ -166,26 +170,6 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
         {t('deploy.ghPages.deploy')}
       </button>
 
-      <ProgressBar progress={dp.progress} color="#2a9a42" />
-      <StatusMessage status={dp.status} />
-      <ErrorMessage error={dp.error} />
-
-      {dp.logs.length > 0 && (
-        <div className="deploy-log-panel" ref={logPanelRef}>
-          {dp.logs.map((log, i) => (
-            <div key={i} className={
-              log.startsWith('$') ? 'deploy-log-cmd' :
-              log.startsWith('──') ? 'deploy-log-step' :
-              log.startsWith('✓') || log.startsWith('→') ? 'deploy-log-ok' :
-              log.startsWith('✗') ? 'deploy-log-err' :
-              'deploy-log-info'
-            }>
-              {log}
-            </div>
-          ))}
-        </div>
-      )}
-
       {(ghPageUrl || ghCheck?.pageUrl) && (
         <div className="deploy-result-box" style={{ background: '#1e2e1e', borderColor: '#2a4a2a' }}>
           <div style={{ color: '#6c6', fontSize: 11, marginBottom: 4 }}>{t('deploy.ghPages.pageUrl')}</div>
@@ -211,6 +195,57 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
             style={{ marginTop: 8, width: '100%', background: '#0e5f1f', borderColor: '#1a8a30' }}>
             {t('deploy.ghPages.openPage')}
           </button>
+        </div>
+      )}
+
+      {/* 배포 진행 상황 모달 팝업 */}
+      {showProgressModal && (
+        <div className="deploy-progress-overlay">
+          <div className="deploy-progress-modal">
+            <div className="deploy-progress-header">
+              {dp.busy ? '배포 진행 중...' : deployFailed ? '배포 실패' : '배포 완료'}
+              {dp.busy && <span className="deploy-spinner" />}
+            </div>
+
+            {dp.status && (
+              <div className="deploy-progress-status">
+                {dp.status}
+              </div>
+            )}
+
+            <ProgressBar progress={dp.progress} color={deployFailed ? '#e55' : '#2a9a42'} />
+
+            <div className="deploy-log-panel" ref={logPanelRef}>
+              {dp.logs.map((log, i) => (
+                <div key={i} className={
+                  log.startsWith('$') ? 'deploy-log-cmd' :
+                  log.startsWith('──') ? 'deploy-log-step' :
+                  log.startsWith('✓') || log.startsWith('→') ? 'deploy-log-ok' :
+                  log.startsWith('✗') ? 'deploy-log-err' :
+                  'deploy-log-info'
+                }>
+                  {log}
+                </div>
+              ))}
+            </div>
+
+            <ErrorMessage error={dp.error} />
+
+            {/* 완료/실패 시 결과 + 닫기 버튼 */}
+            {!dp.busy && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                {deployDone && !deployFailed && ghPageUrl && (
+                  <button className="db-btn" onClick={() => openUrl(ghPageUrl)}
+                    style={{ marginRight: 8, background: '#0e5f1f', borderColor: '#1a8a30' }}>
+                    페이지 열기 ↗
+                  </button>
+                )}
+                <button className="db-btn" onClick={() => setShowProgressModal(false)}>
+                  닫기
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </>
