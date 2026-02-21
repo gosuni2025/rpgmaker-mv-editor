@@ -6,7 +6,7 @@ import AnimationPreview from './AnimationPreview';
 import type { AnimationPreviewHandle } from './AnimationPreview';
 import DatabaseList from './DatabaseList';
 import { ImageSelectPopup, EnemyImageSelectPopup, MaxFrameDialog, TweenDialog, BatchSettingDialog, ShiftDialog } from './AnimationDialogs';
-import type { TweenOptions, BatchSettingData, ShiftData } from './AnimationDialogs';
+import { applyTween, applyBatchSetting, applyShift } from './animationOperations';
 import './AnimationsTab.css';
 import './AnimationPreview.css';
 
@@ -91,84 +91,19 @@ export default function AnimationsTab({ data, onChange }: AnimationsTabProps) {
     if (selectedFrameIdx >= newMax) setSelectedFrameIdx(newMax - 1);
   };
 
-  const handleTween = (opts: TweenOptions) => {
-    if (!selectedItem || !selectedItem.frames) return;
-    const frames = selectedItem.frames.map(f => f.map(c => [...c]));
-    const fi = opts.frameStart - 1; // 0-based 시작 프레임
-    const fe = opts.frameEnd - 1;   // 0-based 끝 프레임
-    if (fi < 0 || fe >= frames.length || fi >= fe) return;
-    const ci = opts.cellStart - 1;  // 0-based 시작 셀
-    const ce = opts.cellEnd - 1;    // 0-based 끝 셀
-    const totalSteps = fe - fi;
-
-    for (let c = ci; c <= ce; c++) {
-      const startCell = frames[fi]?.[c];
-      const endCell = frames[fe]?.[c];
-      if (!startCell || startCell.length < 8 || !endCell || endCell.length < 8) continue;
-      // cell: [pattern, x, y, scale, rotation, mirror, opacity, blendMode]
-      for (let f = fi + 1; f < fe; f++) {
-        const t = (f - fi) / totalSteps;
-        if (!frames[f]) frames[f] = [];
-        const existing = frames[f][c] ? [...frames[f][c]] : [...startCell];
-        if (opts.pattern) existing[0] = Math.round(startCell[0] + (endCell[0] - startCell[0]) * t);
-        if (opts.x) existing[1] = Math.round(startCell[1] + (endCell[1] - startCell[1]) * t);
-        if (opts.y) existing[2] = Math.round(startCell[2] + (endCell[2] - startCell[2]) * t);
-        if (opts.scale) existing[3] = Math.round(startCell[3] + (endCell[3] - startCell[3]) * t);
-        if (opts.rotation) existing[4] = Math.round(startCell[4] + (endCell[4] - startCell[4]) * t);
-        if (opts.mirror) existing[5] = t < 0.5 ? startCell[5] : endCell[5];
-        if (opts.opacity) existing[6] = Math.round(startCell[6] + (endCell[6] - startCell[6]) * t);
-        if (opts.blendMode) existing[7] = t < 0.5 ? startCell[7] : endCell[7];
-        frames[f][c] = existing;
-      }
-    }
-    handleFieldChange('frames', frames);
+  const handleTween = (opts: Parameters<typeof applyTween>[1]) => {
+    if (!selectedItem?.frames) return;
+    handleFieldChange('frames', applyTween(selectedItem.frames, opts));
   };
 
-  const handleBatchSetting = (batchData: BatchSettingData) => {
-    if (!selectedItem || !selectedItem.frames) return;
-    const frames = selectedItem.frames.map(f => f.map(c => [...c]));
-    const fi = batchData.frameStart - 1;
-    const fe = batchData.frameEnd - 1;
-    const ci = batchData.cellStart - 1;
-    const ce = batchData.cellEnd - 1;
-
-    for (let f = fi; f <= fe && f < frames.length; f++) {
-      if (!frames[f]) frames[f] = [];
-      for (let c = ci; c <= ce; c++) {
-        if (!frames[f][c] || frames[f][c].length < 8) continue;
-        const cell = [...frames[f][c]];
-        // cell: [pattern, x, y, scale, rotation, mirror, opacity, blendMode]
-        if (batchData.patternEnabled) cell[0] = batchData.pattern;
-        if (batchData.xEnabled) cell[1] = batchData.x;
-        if (batchData.yEnabled) cell[2] = batchData.y;
-        if (batchData.scaleEnabled) cell[3] = batchData.scale;
-        if (batchData.rotationEnabled) cell[4] = batchData.rotation;
-        if (batchData.mirrorEnabled) cell[5] = batchData.mirror;
-        if (batchData.opacityEnabled) cell[6] = batchData.opacity;
-        if (batchData.blendModeEnabled) cell[7] = batchData.blendMode;
-        frames[f][c] = cell;
-      }
-    }
-    handleFieldChange('frames', frames);
+  const handleBatchSetting = (batchData: Parameters<typeof applyBatchSetting>[1]) => {
+    if (!selectedItem?.frames) return;
+    handleFieldChange('frames', applyBatchSetting(selectedItem.frames, batchData));
   };
 
-  const handleShift = (shiftData: ShiftData) => {
-    if (!selectedItem || !selectedItem.frames) return;
-    const frames = selectedItem.frames.map(f => f.map(c => [...c]));
-    const fi = shiftData.frameStart - 1;
-    const fe = shiftData.frameEnd - 1;
-    const ci = shiftData.cellStart - 1;
-    const ce = shiftData.cellEnd - 1;
-
-    for (let f = fi; f <= fe && f < frames.length; f++) {
-      if (!frames[f]) continue;
-      for (let c = ci; c <= ce; c++) {
-        if (!frames[f][c] || frames[f][c].length < 8) continue;
-        frames[f][c][1] += shiftData.offsetX; // X
-        frames[f][c][2] += shiftData.offsetY; // Y
-      }
-    }
-    handleFieldChange('frames', frames);
+  const handleShift = (shiftData: Parameters<typeof applyShift>[1]) => {
+    if (!selectedItem?.frames) return;
+    handleFieldChange('frames', applyShift(selectedItem.frames, shiftData));
   };
 
   const handleAddNew = useCallback(() => {
