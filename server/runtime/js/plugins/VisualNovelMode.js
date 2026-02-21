@@ -574,9 +574,6 @@
 
     // ── update ───────────────────────────────────────────────────────────────
     Window_VNText.prototype.update = function () {
-        // ExtendedText 애니메이션 억제
-        this._etAnimSegs    = [];
-        this._etEffectStack = [];
         Window_Base.prototype.update.call(this);
 
         // Three.js 런타임에서 Window.updateTransform()이 호출되지 않으므로
