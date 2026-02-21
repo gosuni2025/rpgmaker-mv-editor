@@ -95,6 +95,18 @@ export function createApp(options: AppOptions = {}) {
                 SceneManager.goto(Scene_Map);
                 this.updateDocumentTitle();
             };
+            // 5초 후에도 로딩 중이면 진단 로그 출력
+            setTimeout(function() {
+                if (SceneManager._scene && !SceneManager._sceneStarted) {
+                    console.warn('[Playtest] 5초 후에도 Now Loading 중. 진단 정보:');
+                    console.warn('  ImageManager.isReady():', ImageManager.isReady());
+                    console.warn('  DataManager.isDatabaseLoaded():', DataManager.isDatabaseLoaded());
+                    console.warn('  Graphics.isFontLoaded(GameFont):', Graphics.isFontLoaded('GameFont'));
+                    console.warn('  Graphics.canUseCssFontLoading():', Graphics.canUseCssFontLoading());
+                    console.warn('  document.fonts.status:', document.fonts.status);
+                    console.warn('  Graphics._fontLoaded:', !!Graphics._fontLoaded);
+                }
+            }, 5000);
         })();
         </script>` : '';
     const cacheBust = `?v=${Date.now()}`;
