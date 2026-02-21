@@ -137,17 +137,36 @@
     var param_showNotification = (parameters['showNotification']       !== 'false');
 
     //=========================================================================
-    // DataManager - 오토 세이브 실행
+    // DataManager - 오토 세이브
     //=========================================================================
 
     /**
-     * 오토 세이브 실행.
-     * $gameSystem.onBeforeSave() 호출 후 fileId=0에 저장한다.
-     * 저장 결과를 Scene_Map의 알림 시퀀스에 전달한다.
-     * @returns {boolean} 저장 성공 여부
+     * 오토 세이브를 요청한다.
+     * 알림이 활성화되어 있고 현재 씬이 Scene_Map이면 update 루프를
+     * 통해 3단계(시작→저장 중→완료)를 각각 별도 프레임에 렌더링한다.
+     * 그 외 경우(씬 없음·알림 비활성)에는 즉시 저장한다.
+     * @returns {boolean} 즉시 저장 시 성공 여부, 큐 방식 시 true
      */
     DataManager.performAutosave = function() {
         if (!$gameSystem || !$dataSystem) return false;
+
+        if (param_showNotification) {
+            var scene = SceneManager._scene;
+            if (scene instanceof Scene_Map && scene.queueAutosave) {
+                scene.queueAutosave(); // 프레임 단위로 진행
+                return true;
+            }
+        }
+        // 알림 없이 즉시 저장
+        return DataManager._doActualSave();
+    };
+
+    /**
+     * 실제 파일 저장을 수행한다.
+     * $gameSystem.onBeforeSave() → saveGame(0) → cleanBackup 순으로 실행.
+     * @returns {boolean} 저장 성공 여부
+     */
+    DataManager._doActualSave = function() {
         var ok = false;
         try {
             $gameSystem.onBeforeSave();
@@ -155,12 +174,6 @@
             if (ok) StorageManager.cleanBackup(AUTOSAVE_FILE_ID);
         } catch (e) {
             console.warn('[AutoSave] 저장 실패:', e);
-        }
-        if (param_showNotification) {
-            var scene = SceneManager._scene;
-            if (scene && scene.startAutosaveNotification) {
-                scene.startAutosaveNotification(ok);
-            }
         }
         return ok;
     };
@@ -215,91 +228,110 @@
     };
 
     //=========================================================================
-    // Scene_Map - 자동 저장 알림 (3단계 시퀀스)
+    // Scene_Map - 자동 저장 알림 (실제 저장 흐름에 동기화된 3단계)
+    //
+    // JS는 싱글스레드라 동기 저장 도중 렌더링이 불가능하다.
+    // update 루프를 이용해 매 프레임 큐(_asQueue) 상태를 진행시켜
+    // 각 단계가 반드시 1프레임 이상 화면에 렌더링되도록 보장한다.
+    //
+    // 큐 상태 흐름:
+    //   'start'  → 프레임 N:   "저장 시작" 렌더링
+    //   'saving' → 프레임 N+1: "저장 중..." 렌더링
+    //   'dosave' → 프레임 N+2: saveGame() 실행 → "저장 완료/실패" 렌더링
+    //   null     → 이후: 타이머 감소 → 페이드 아웃
     //=========================================================================
 
-    /**
-     * 알림 단계 정의.
-     * saveOk가 true이면 마지막 단계를 "저장 완료", false이면 "저장 실패"로 설정한다.
-     * @param {boolean} saveOk - 저장 성공 여부
-     * @returns {Array<{text:string, color:string, frames:number}>}
-     */
-    function makeNotifyPhases(saveOk) {
-        return [
-            { text: param_slotLabel + ' 저장 시작', color: '#aaaaff', frames: 25 },
-            { text: param_slotLabel + ' 저장 중...',  color: '#ffff88', frames: 25 },
-            {
-                text:   param_slotLabel + (saveOk ? ' 저장 완료' : ' 저장 실패'),
-                color:  saveOk ? '#aaffaa' : '#ff8888',
-                frames: 90   // 1.5초 표시 후 페이드 아웃
-            }
-        ];
-    }
+    /** 단계별 표시 텍스트·색상 테이블 */
+    var NOTIFY_STYLE = {
+        'start':    { suffix: ' 저장 시작', color: '#aaaaff' },
+        'saving':   { suffix: ' 저장 중...', color: '#ffff88' },
+        'complete': { suffix: ' 저장 완료',  color: '#aaffaa' },
+        'fail':     { suffix: ' 저장 실패',  color: '#ff8888' },
+    };
 
     /**
-     * 알림 스프라이트에 현재 단계 텍스트를 그린다.
-     * @param {Sprite}  sprite - 알림 스프라이트
-     * @param {{text:string, color:string}} phase - 표시할 단계 정보
+     * 알림 스프라이트가 없으면 생성하고 반환한다.
+     * @returns {Sprite}
      */
-    function drawNotifyPhase(sprite, phase) {
-        var bmp = sprite.bitmap;
-        bmp.clear();
-        bmp.fillRect(0, 0, bmp.width, bmp.height, 'rgba(0,0,0,0.65)');
-        bmp.fontSize   = 18;
-        bmp.textColor  = phase.color;
-        bmp.drawText(phase.text, 8, 6, bmp.width - 16, 32);
-    }
-
-    /**
-     * 3단계 알림 시퀀스를 시작한다.
-     * 저장은 이미 완료된 상태이며, 결과(saveOk)에 따라 마지막 단계 텍스트/색상이 결정된다.
-     * @param {boolean} saveOk - DataManager.performAutosave() 결과
-     */
-    Scene_Map.prototype.startAutosaveNotification = function(saveOk) {
+    Scene_Map.prototype._ensureAutosaveSprite = function() {
         if (!this._autosaveNotify) {
             var bmp    = new Bitmap(240, 44);
             var sprite = new Sprite(bmp);
+            sprite.x   = Graphics.width - bmp.width - 12;
+            sprite.y   = 12;
             this._autosaveNotify = sprite;
             this.addChild(sprite);
         }
-        var sprite        = this._autosaveNotify;
-        sprite.x          = Graphics.width - sprite.bitmap.width - 12;
-        sprite.y          = 12;
-        sprite.opacity    = 255;
-        sprite._phases    = makeNotifyPhases(saveOk);
-        sprite._phaseIdx  = 0;
-        sprite._phaseTimer = sprite._phases[0].frames;
-        drawNotifyPhase(sprite, sprite._phases[0]);
+        return this._autosaveNotify;
+    };
+
+    /**
+     * 알림 스프라이트에 지정 단계 텍스트를 그린다.
+     * @param {'start'|'saving'|'complete'|'fail'} key - 단계 키
+     */
+    Scene_Map.prototype._drawAutosavePhase = function(key) {
+        var sprite = this._ensureAutosaveSprite();
+        var style  = NOTIFY_STYLE[key];
+        var bmp    = sprite.bitmap;
+        bmp.clear();
+        bmp.fillRect(0, 0, bmp.width, bmp.height, 'rgba(0,0,0,0.65)');
+        bmp.fontSize  = 18;
+        bmp.textColor = style.color;
+        bmp.drawText(param_slotLabel + style.suffix, 8, 6, bmp.width - 16, 32);
+        sprite.opacity = 255;
+    };
+
+    /**
+     * 저장 알림 큐를 시작한다.
+     * performAutosave()에서 호출되며, 이후 처리는 update()가 담당한다.
+     */
+    Scene_Map.prototype.queueAutosave = function() {
+        this._asQueue = 'start'; // update() 에서 프레임 단위로 진행
+        this._asTimer = 0;
     };
 
     var _Scene_Map_update = Scene_Map.prototype.update;
     Scene_Map.prototype.update = function() {
         _Scene_Map_update.call(this);
+        this._updateAutosaveQueue();
+        this._updateAutosaveNotify();
+    };
 
-        var sprite = this._autosaveNotify;
-        if (!sprite || !sprite._phases) return;
+    /**
+     * 저장 큐를 1단계씩 진행한다. 매 프레임 1회 호출.
+     *
+     * - 'start'  : "저장 시작" 렌더 → 다음 프레임 'saving' 으로 전환
+     * - 'saving' : "저장 중..." 렌더 → 다음 프레임 'dosave' 으로 전환
+     * - 'dosave' : saveGame() 실행 → 결과에 따라 "저장 완료/실패" 렌더
+     *              → 타이머 설정 후 큐 종료(null)
+     */
+    Scene_Map.prototype._updateAutosaveQueue = function() {
+        if (!this._asQueue) return;
 
-        sprite._phaseTimer--;
+        if (this._asQueue === 'start') {
+            this._drawAutosavePhase('start');
+            this._asQueue = 'saving';
 
-        if (sprite._phaseTimer <= 0) {
-            // 다음 단계로 전환
-            sprite._phaseIdx++;
-            if (sprite._phaseIdx < sprite._phases.length) {
-                var next           = sprite._phases[sprite._phaseIdx];
-                sprite._phaseTimer = next.frames;
-                sprite.opacity     = 255;
-                drawNotifyPhase(sprite, next);
-            } else {
-                // 모든 단계 완료 — 시퀀스 종료
-                sprite._phases = null;
-            }
+        } else if (this._asQueue === 'saving') {
+            this._drawAutosavePhase('saving');
+            this._asQueue = 'dosave';
+
+        } else if (this._asQueue === 'dosave') {
+            var ok = DataManager._doActualSave();
+            this._drawAutosavePhase(ok ? 'complete' : 'fail');
+            this._asTimer = 120; // 2초 표시 후 페이드 아웃
+            this._asQueue = null;
         }
+    };
 
-        // 마지막 단계(저장 완료/실패)에서 페이드 아웃
-        if (sprite._phases &&
-                sprite._phaseIdx === sprite._phases.length - 1 &&
-                sprite._phaseTimer <= 30) {
-            sprite.opacity = Math.floor(sprite._phaseTimer / 30 * 255);
+    /**
+     * "저장 완료/실패" 단계 타이머를 감소시키고 마지막 0.5초에서 페이드 아웃한다.
+     */
+    Scene_Map.prototype._updateAutosaveNotify = function() {
+        if (!this._autosaveNotify || this._asTimer <= 0) return;
+        this._asTimer--;
+        if (this._asTimer <= 30) {
+            this._autosaveNotify.opacity = Math.floor(this._asTimer / 30 * 255);
         }
     };
 
