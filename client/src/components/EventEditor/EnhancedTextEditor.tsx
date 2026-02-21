@@ -104,23 +104,17 @@ export function EnhancedTextEditor({
     editorRef.current.focus();
   };
 
-  // ─── 텍스트/HTML 커서 위치에 삽입 ───
+  // ─── 텍스트/HTML 커서 위치에 삽입 (execCommand로 undo 히스토리에 기록) ───
   const insertAtCursor = useCallback((html: string) => {
     restoreSelection();
-    const sel = window.getSelection();
-    if (!sel || !editorRef.current) return;
-    const range = sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
-    if (!range) return;
-    range.deleteContents();
-    const fragment = document.createRange().createContextualFragment(html);
-    range.insertNode(fragment);
-    range.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(range);
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    document.execCommand('insertHTML', false, html);
     syncToParent();
   }, [syncToParent]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── 선택된 텍스트를 블록으로 래핑 ───
+  // ─── 선택된 텍스트를 블록으로 래핑 (execCommand로 undo 히스토리에 기록) ───
   const wrapSelectionInBlock = useCallback((def: TagDef) => {
     restoreSelection();
     const sel = window.getSelection();
@@ -135,19 +129,16 @@ export function EnhancedTextEditor({
     const tags: TagEntry[] = [{ tag: def.tag, params: defaultParams }];
     const blockHTML = buildBlockChipHTML(tags, selectedText);
 
-    if (range && !range.collapsed) {
-      range.deleteContents();
-      const frag = document.createRange().createContextualFragment(blockHTML);
-      range.insertNode(frag);
-      range.collapse(false);
+    editorRef.current.focus();
+    if (range) {
       sel.removeAllRanges();
       sel.addRange(range);
-    } else {
-      insertAtCursor(blockHTML);
     }
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    document.execCommand('insertHTML', false, blockHTML);
     syncToParent();
     setShowBlockMenu(false);
-  }, [insertAtCursor, syncToParent]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [syncToParent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── 블록 클릭 처리 ───
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
@@ -203,16 +194,28 @@ export function EnhancedTextEditor({
     }
   }, [syncToParent]);
 
-  // ─── 프로퍼티 패널 적용 ───
+  // ─── 프로퍼티 패널 적용 (execCommand로 undo 히스토리에 기록) ───
   const applyProps = useCallback(() => {
     if (!selectedBlock || propTags.length === 0) return;
     const { el } = selectedBlock;
     const newHTML = buildBlockChipHTML(propTags, propContent);
-    const frag = document.createRange().createContextualFragment(newHTML);
-    el.parentNode?.replaceChild(frag, el);
+
+    if (editorRef.current && editorRef.current.contains(el)) {
+      editorRef.current.focus();
+      const range = document.createRange();
+      range.selectNode(el);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      // execCommand를 사용해 브라우저 네이티브 undo 히스토리에 기록 (cmd+z로 되돌리기 가능)
+      // eslint-disable-next-line @typescript-eslint/no-deprecated
+      document.execCommand('insertHTML', false, newHTML);
+    } else {
+      const frag = document.createRange().createContextualFragment(newHTML);
+      el.parentNode?.replaceChild(frag, el);
+    }
     setSelectedBlock(null);
     syncToParent();
-    // 패널 DOM 교체 후 에디터 포커스 복구
     requestAnimationFrame(() => editorRef.current?.focus());
   }, [selectedBlock, propTags, propContent, syncToParent]);
 
