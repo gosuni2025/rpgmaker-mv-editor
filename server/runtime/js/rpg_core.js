@@ -2226,8 +2226,26 @@ Graphics.setVideoVolume = function(value) {
  */
 Graphics.pageToCanvasX = function(x) {
     if (this._canvas) {
-        var left = this._canvas.offsetLeft;
-        return Math.round((x - left) / this._realScale);
+        var rect = this._canvas.getBoundingClientRect();
+        var scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+        // getBCR 기반: X/Y 스케일을 각각 계산 (가로세로 비율이 달라도 정확)
+        var scaleX = rect.width > 0 ? this._width / rect.width : 1 / this._realScale;
+        var result = Math.round((x - scrollX - rect.left) * scaleX);
+        if (!Graphics._touchLogCount) Graphics._touchLogCount = 0;
+        if (Graphics._touchLogCount < 5) {
+            Graphics._touchLogCount++;
+            console.log('[TouchDebug] pageToCanvasX:', {
+                pageX: x,
+                rectLeft: rect.left,
+                rectWidth: rect.width,
+                scrollX: scrollX,
+                realScale: this._realScale,
+                scaleX: scaleX,
+                graphicsWidth: this._width,
+                result: result,
+            });
+        }
+        return result;
     } else {
         return 0;
     }
@@ -2244,8 +2262,24 @@ Graphics.pageToCanvasX = function(x) {
  */
 Graphics.pageToCanvasY = function(y) {
     if (this._canvas) {
-        var top = this._canvas.offsetTop;
-        return Math.round((y - top) / this._realScale);
+        var rect = this._canvas.getBoundingClientRect();
+        var scrollY = window.pageYOffset || document.documentElement.scrollTop;
+        // getBCR 기반: X/Y 스케일을 각각 계산 (가로세로 비율이 달라도 정확)
+        var scaleY = rect.height > 0 ? this._height / rect.height : 1 / this._realScale;
+        var result = Math.round((y - scrollY - rect.top) * scaleY);
+        if (Graphics._touchLogCount <= 5) {
+            console.log('[TouchDebug] pageToCanvasY:', {
+                pageY: y,
+                rectTop: rect.top,
+                rectHeight: rect.height,
+                scrollY: scrollY,
+                realScale: this._realScale,
+                scaleY: scaleY,
+                graphicsHeight: this._height,
+                result: result,
+            });
+        }
+        return result;
     } else {
         return 0;
     }
