@@ -20,6 +20,9 @@ function getUnpackedPath(...segments: string[]) {
 }
 
 async function startServer(): Promise<number> {
+  // 패키징된 앱에서 버전 정보를 서버에 전달 (server/routes/version.ts에서 사용)
+  process.env.APP_VERSION = app.getVersion();
+
   const runtimePath = getUnpackedPath('server', 'runtime');
   const clientDistPath = getAsarPath('client', 'dist');
 

@@ -27,7 +27,12 @@ router.get('/info', (req, res) => {
       res.json({ type: 'git', commitDate: null, commitHash: null });
     }
   } else {
-    // 릴리즈 설치: package.json 버전 반환
+    // 릴리즈 설치: electron main이 주입한 APP_VERSION 우선, fallback으로 package.json
+    const envVersion = process.env.APP_VERSION;
+    if (envVersion) {
+      res.json({ type: 'release', version: envVersion });
+      return;
+    }
     try {
       const pkg = JSON.parse(fs.readFileSync(path.join(editorRoot, 'package.json'), 'utf8'));
       res.json({ type: 'release', version: pkg.version ?? '0.0.0' });
