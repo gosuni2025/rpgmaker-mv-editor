@@ -95,6 +95,36 @@ export function EnhancedTextEditor({
     onChange(raw);
   }, [onChange]);
 
+  // ─── 에디터 내 bare <br> 앞에 개행 마커 스팬 추가 ───
+  const refreshNLMarkers = useCallback(() => {
+    if (!editorRef.current) return;
+    // editorRef.current의 직계 자식인 <br>에만 적용 (Chrome이 생성하는 div 내부 sentinel <br> 제외)
+    const children = Array.from(editorRef.current.childNodes);
+    let inserted = false;
+    children.forEach((node) => {
+      if (node instanceof HTMLElement && node.tagName === 'BR') {
+        const prev = node.previousSibling;
+        const prevEl = prev instanceof HTMLElement ? prev : null;
+        if (!prevEl || !prevEl.classList.contains('ete-nl-mark')) {
+          const span = document.createElement('span');
+          span.className = 'ete-nl-mark';
+          span.contentEditable = 'false';
+          span.textContent = '↵';
+          editorRef.current!.insertBefore(span, node);
+          inserted = true;
+        }
+      }
+    });
+    // 마커 삽입이 있었어도 raw 값은 변하지 않으므로 syncToParent 불필요
+    if (inserted) isInternalUpdate.current = false;
+  }, []);
+
+  // ─── 입력 이벤트: sync + 개행 마커 갱신 ───
+  const handleInput = useCallback(() => {
+    syncToParent();
+    requestAnimationFrame(refreshNLMarkers);
+  }, [syncToParent, refreshNLMarkers]);
+
   // ─── 커서 위치 저장/복원 ───
   const saveSelection = () => {
     const sel = window.getSelection();
@@ -491,7 +521,7 @@ export function EnhancedTextEditor({
               suppressContentEditableWarning
               style={{ minHeight: editorMinHeight }}
               data-placeholder={placeholder}
-              onInput={syncToParent}
+              onInput={handleInput}
               onClick={handleEditorClick}
               onCopy={handleCopy}
               onCut={handleCut}

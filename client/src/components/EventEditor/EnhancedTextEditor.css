@@ -196,6 +196,16 @@
 }
 .ete-block-del:hover { opacity: 1; }
 
+/* 개행 마커 (↵) */
+.ete-nl-mark {
+  color: rgba(160, 160, 160, 0.3);
+  font-size: 10px;
+  pointer-events: none;
+  user-select: none;
+  font-style: normal;
+  letter-spacing: 0;
+}
+
 /* 이스케이프 칩 */
 .ete-escape {
   display: inline-block;
