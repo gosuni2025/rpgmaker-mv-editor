@@ -1,0 +1,112 @@
+.cmd-find-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 50;
+  background: #252526;
+  border: 1px solid #555;
+  border-top: none;
+  border-right: none;
+  border-radius: 0 0 0 6px;
+  padding: 5px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-shadow: -2px 3px 10px rgba(0,0,0,0.5);
+  min-width: 380px;
+}
+
+.cmd-find-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cmd-find-toggle {
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 9px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.cmd-find-toggle:hover { color: #ddd; }
+
+.cmd-find-toggle-spacer { width: 26px; flex-shrink: 0; }
+
+.cmd-find-input-wrap {
+  display: flex;
+  align-items: center;
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.cmd-find-input-wrap:focus-within {
+  border-color: #2675bf;
+}
+
+.cmd-find-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ddd;
+  font-size: 12px;
+  padding: 3px 7px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cmd-find-opt {
+  background: transparent;
+  border: none;
+  border-left: 1px solid #555;
+  color: #888;
+  cursor: pointer;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-family: monospace;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.cmd-find-opt:hover { color: #ddd; background: #4a4a4a; }
+.cmd-find-opt.active { color: #4ec9b0; background: rgba(78,201,176,0.15); }
+
+.cmd-find-count {
+  font-size: 11px;
+  color: #888;
+  min-width: 62px;
+  text-align: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.cmd-find-count.no-match { color: #f44747; }
+
+.cmd-find-nav {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #aaa;
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.cmd-find-nav:hover:not(:disabled) { background: #4a4a4a; border-color: #666; color: #ddd; }
+.cmd-find-nav:disabled { opacity: 0.35; cursor: default; }
+
+.cmd-find-close {
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 2px 7px;
+  font-size: 13px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.cmd-find-close:hover { background: #c42b1c; color: #fff; }

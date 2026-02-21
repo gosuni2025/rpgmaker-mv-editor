@@ -18,6 +18,9 @@ import { useCommandMove } from './useCommandMove';
 import { useCommandFolding } from './useCommandFolding';
 import { CommandRow } from './CommandRow';
 import { buildInsertedCommands, buildUpdatedCommands, buildIndentedCommands, buildToggleDisabledCommands } from './commandOperations';
+import { getCommandDisplay } from './commandDisplayText';
+import CommandFindPanel from './CommandFindPanel';
+import { type FindOptions, findMatchIndices, replaceInCommand, unfoldForMatches } from './commandSearch';
 
 export interface EventCommandContext {
   mapId?: number;
@@ -45,6 +48,13 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
   const systemData = useEditorStore(s => s.systemData);
   const maps = useEditorStore(s => s.maps);
   const currentMap = useEditorStore(s => s.currentMap);
+
+  const [showFind, setShowFind] = useState(false);
+  const [showFindReplace, setShowFindReplace] = useState(false);
+  const [findQuery, setFindQuery] = useState('');
+  const [findOpts, setFindOpts] = useState<FindOptions>({ caseSensitive: false, wholeWord: false, regex: false });
+  const [findMatchList, setFindMatchList] = useState<number[]>([]);
+  const [findCurrentIdx, setFindCurrentIdx] = useState(0);
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [pendingCode, setPendingCode] = useState<number | null>(null);
@@ -130,11 +140,13 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
       else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIndices.size > 0) { e.preventDefault(); deleteSelected(); }
       else if (e.key === 'Tab' && selectedIndices.size > 0) { e.preventDefault(); e.stopPropagation(); indentSelected(e.shiftKey ? -1 : 1); }
       else if (mod && e.key === '/') { e.preventDefault(); e.stopPropagation(); toggleDisabled(); }
+      else if (mod && e.key === 'f') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(false); }
+      else if (mod && e.key === 'h') { e.preventDefault(); e.stopPropagation(); setShowFind(true); setShowFindReplace(true); }
       else if (e.key === ' ') { e.preventDefault(); primaryIndex >= 0 && primaryIndex < commands.length ? handleDoubleClick(primaryIndex) : setShowAddDialog(true); }
     };
     container.addEventListener('keydown', handleKeyDown);
     return () => container.removeEventListener('keydown', handleKeyDown);
-  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, indentSelected, toggleDisabled, showAddDialog, pendingCode, editingIndex, showMoveRoute, selectedIndices, commands, setSelectedIndices, primaryIndex]);
+  }, [copySelected, pasteAtSelection, undo, redo, deleteSelected, indentSelected, toggleDisabled, showAddDialog, pendingCode, editingIndex, showMoveRoute, selectedIndices, commands, setSelectedIndices, primaryIndex, showFind]);
 
   // Global space key
   useEffect(() => {
@@ -203,8 +215,64 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
   const commandDisplayCtx: CommandDisplayContext = { t, systemData, maps, currentMap };
 
+  // 검색용 display text (메모이즈)
+  const displayTexts = useMemo(
+    () => commands.map(cmd => getCommandDisplay(cmd, commandDisplayCtx)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [commands, t, systemData, maps, currentMap],
+  );
+
+  // 찾기 매치 목록 갱신 + 폴딩 내 매치 자동 해제
+  useEffect(() => {
+    if (!showFind) { setFindMatchList([]); setFindCurrentIdx(0); return; }
+    const matches = findMatchIndices(commands, displayTexts, findQuery, findOpts);
+    setFindMatchList(matches);
+    setFindCurrentIdx(0);
+    if (matches.length > 0) {
+      setFoldedSet(prev => unfoldForMatches(commands, prev, foldableIndices, matches));
+    }
+  }, [showFind, findQuery, findOpts, commands, displayTexts, foldableIndices]);
+
+  // 현재 매치로 스크롤
+  useEffect(() => {
+    if (findMatchList.length === 0) return;
+    const cmdIdx = findMatchList[findCurrentIdx];
+    if (cmdIdx === undefined) return;
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-cmd-index="${cmdIdx}"]`);
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [findCurrentIdx, findMatchList]);
+
+  const findNext = useCallback(() => {
+    if (findMatchList.length === 0) return;
+    setFindCurrentIdx(i => (i + 1) % findMatchList.length);
+  }, [findMatchList.length]);
+
+  const findPrev = useCallback(() => {
+    if (findMatchList.length === 0) return;
+    setFindCurrentIdx(i => (i - 1 + findMatchList.length) % findMatchList.length);
+  }, [findMatchList.length]);
+
+  const handleFindReplace = useCallback((replacement: string) => {
+    if (findMatchList.length === 0) return;
+    const cmdIdx = findMatchList[findCurrentIdx];
+    changeWithHistory(commands.map((cmd, i) =>
+      i === cmdIdx ? replaceInCommand(cmd, findQuery, replacement, findOpts) : cmd,
+    ));
+  }, [findMatchList, findCurrentIdx, commands, findQuery, findOpts, changeWithHistory]);
+
+  const handleReplaceAll = useCallback((replacement: string) => {
+    if (findMatchList.length === 0) return;
+    const matchSet = new Set(findMatchList);
+    changeWithHistory(commands.map((cmd, i) =>
+      matchSet.has(i) ? replaceInCommand(cmd, findQuery, replacement, findOpts) : cmd,
+    ));
+  }, [findMatchList, commands, findQuery, findOpts, changeWithHistory]);
+
+  const findMatchSet = useMemo(() => new Set(findMatchList), [findMatchList]);
+  const currentMatchCmdIdx = findMatchList[findCurrentIdx] ?? -1;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }} ref={containerRef} tabIndex={-1}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }} ref={containerRef} tabIndex={-1}>
       <div className="event-commands-list" ref={listRef} onClick={() => containerRef.current?.focus()}>
         {commands.map((cmd, i) => {
           if (hiddenIndices.has(i)) return null;
@@ -223,7 +291,8 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
                 onRowClick={handleRowClick} onDoubleClick={handleDoubleClick} onDragHandleMouseDown={handleDragHandleMouseDown}
                 context={context} commands={commands}
                 isFoldable={foldableIndices.has(i)} isFolded={foldedSet.has(i) && foldableIndices.has(i)}
-                foldedCount={foldedCounts.get(i)} onToggleFold={toggleFold} />
+                foldedCount={foldedCounts.get(i)} onToggleFold={toggleFold}
+                isMatch={findMatchSet.has(i)} isCurrentMatch={i === currentMatchCmdIdx} />
             </React.Fragment>
           );
         })}
@@ -256,6 +325,21 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
         <button className="db-btn-small" onClick={undo} disabled={!canUndo} title="Ctrl+Z">{t('common.undo')}</button>
         <button className="db-btn-small" onClick={redo} disabled={!canRedo} title="Ctrl+Shift+Z">{t('common.redo')}</button>
       </div>
+
+      {showFind && (
+        <CommandFindPanel
+          matchCount={findMatchList.length}
+          currentMatchIndex={findCurrentIdx}
+          showReplace={showFindReplace}
+          onQueryChange={(q, opts) => { setFindQuery(q); setFindOpts(opts); }}
+          onReplace={handleFindReplace}
+          onReplaceAll={handleReplaceAll}
+          onNext={findNext}
+          onPrev={findPrev}
+          onToggleReplace={() => setShowFindReplace(r => !r)}
+          onClose={() => setShowFind(false)}
+        />
+      )}
 
       {showAddDialog && <CommandInsertDialog onSelect={handleCommandSelect} onCancel={() => setShowAddDialog(false)} />}
 
