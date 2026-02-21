@@ -420,6 +420,7 @@
     // ── 렌더링 ──────────────────────────────────────────────────────────────
     Window_VNText.prototype._redraw = function () {
         if (!this.contents) return;
+        this._etClearAllOverlays();
         this.contents.clear();
         var top = this._scrollY;
         var bot = this._scrollY + this._innerH();
@@ -442,10 +443,6 @@
         }
 
         if (SHOW_SCROLL_BAR) this._drawScrollBar();
-
-        // ExtendedText 애니메이션 세그먼트 초기화 (TextLog와 동일한 처리)
-        this._etAnimSegs    = [];
-        this._etEffectStack = [];
     };
 
     Window_VNText.prototype._drawTextEntry = function (e, dy, lh, iw) {
