@@ -20,7 +20,7 @@ import { CommandRow } from './CommandRow';
 import { buildInsertedCommands, buildUpdatedCommands, buildIndentedCommands, buildToggleDisabledCommands } from './commandOperations';
 import { getCommandDisplay } from './commandDisplayText';
 import CommandFindPanel from './CommandFindPanel';
-import { type FindOptions, findMatchIndices, replaceInCommand, unfoldForMatches } from './commandSearch';
+import { type FindOptions, type MatchLocation, findAllMatches, replaceInCommand, unfoldForMatches } from './commandSearch';
 
 export interface EventCommandContext {
   mapId?: number;
@@ -53,7 +53,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [findQuery, setFindQuery] = useState('');
   const [findOpts, setFindOpts] = useState<FindOptions>({ caseSensitive: false, wholeWord: false, regex: false });
-  const [findMatchList, setFindMatchList] = useState<number[]>([]);
+  const [findMatchList, setFindMatchList] = useState<MatchLocation[]>([]);
   const [findCurrentIdx, setFindCurrentIdx] = useState(0);
 
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -258,20 +258,21 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
   // 찾기 매치 목록 갱신 + 폴딩 내 매치 자동 해제
   useEffect(() => {
     if (!showFind) { setFindMatchList([]); setFindCurrentIdx(0); return; }
-    const matches = findMatchIndices(commands, displayTexts, findQuery, findOpts);
+    const matches = findAllMatches(commands, displayTexts, findQuery, findOpts);
     setFindMatchList(matches);
     setFindCurrentIdx(0);
     if (matches.length > 0) {
-      setFoldedSet(prev => unfoldForMatches(commands, prev, foldableIndices, matches));
+      const matchCmdIndices = [...new Set(matches.map(m => m.cmdIndex))];
+      setFoldedSet(prev => unfoldForMatches(commands, prev, foldableIndices, matchCmdIndices));
     }
   }, [showFind, findQuery, findOpts, commands, displayTexts, foldableIndices]);
 
   // 현재 매치로 스크롤
   useEffect(() => {
     if (findMatchList.length === 0) return;
-    const cmdIdx = findMatchList[findCurrentIdx];
-    if (cmdIdx === undefined) return;
-    const el = listRef.current?.querySelector<HTMLElement>(`[data-cmd-index="${cmdIdx}"]`);
+    const loc = findMatchList[findCurrentIdx];
+    if (!loc) return;
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-cmd-index="${loc.cmdIndex}"]`);
     el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [findCurrentIdx, findMatchList]);
 
@@ -287,9 +288,10 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
   const handleFindReplace = useCallback((replacement: string) => {
     if (findMatchList.length === 0) return;
-    const cmdIdx = findMatchList[findCurrentIdx];
+    const loc = findMatchList[findCurrentIdx];
+    if (!loc) return;
     changeWithHistory(commands.map((cmd, i) =>
-      i === cmdIdx ? replaceInCommand(cmd, findQuery, replacement, findOpts) : cmd,
+      i === loc.cmdIndex ? replaceInCommand(cmd, findQuery, replacement, findOpts) : cmd,
     ));
   }, [findMatchList, findCurrentIdx, commands, findQuery, findOpts, changeWithHistory]);
 
@@ -301,8 +303,10 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     ));
   }, [findMatchList, commands, findQuery, findOpts, changeWithHistory]);
 
-  const findMatchSet = useMemo(() => new Set(findMatchList), [findMatchList]);
-  const currentMatchCmdIdx = findMatchList[findCurrentIdx] ?? -1;
+  const findMatchSet = useMemo(() => new Set(findMatchList.map(m => m.cmdIndex)), [findMatchList]);
+  const currentMatchLoc = findMatchList[findCurrentIdx];
+  const currentMatchCmdIdx = currentMatchLoc?.cmdIndex ?? -1;
+  const currentMatchLocalIdx = currentMatchLoc?.matchIndex ?? -1;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }} ref={containerRef} tabIndex={-1}>
@@ -326,7 +330,8 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
                 isFoldable={foldableIndices.has(i)} isFolded={foldedSet.has(i) && foldableIndices.has(i)}
                 foldedCount={foldedCounts.get(i)} onToggleFold={toggleFold}
                 isMatch={findMatchSet.has(i)} isCurrentMatch={i === currentMatchCmdIdx}
-                findQuery={showFind ? findQuery : undefined} findOpts={showFind ? findOpts : undefined} />
+                findQuery={showFind ? findQuery : undefined} findOpts={showFind ? findOpts : undefined}
+                currentMatchLocalIdx={i === currentMatchCmdIdx ? currentMatchLocalIdx : -1} />
             </React.Fragment>
           );
         })}

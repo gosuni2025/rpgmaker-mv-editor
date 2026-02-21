@@ -31,6 +31,7 @@ interface CommandRowProps {
   isCurrentMatch?: boolean;
   findQuery?: string;
   findOpts?: FindOptions;
+  currentMatchLocalIdx?: number; // 이 행에서 현재 커서가 가리키는 매치 순서 (-1이면 현재 아님)
 }
 
 // 커맨드 코드별 텍스트 색상 (주 명령어 코드에만 적용; 부속 코드는 undefined)
@@ -86,6 +87,7 @@ export const CommandRow = React.memo(function CommandRow({
   cmd, index, isSelected, isDragging, isGroupHL, isGroupFirst, isGroupLast, inGroup,
   draggable, displayCtx, onRowClick, onDoubleClick, onDragHandleMouseDown, context, commands,
   isFoldable, isFolded, foldedCount, onToggleFold, isMatch, isCurrentMatch, findQuery, findOpts,
+  currentMatchLocalIdx = -1,
 }: CommandRowProps) {
   const { t } = useTranslation();
   const isDisabled = isDisabledComment(cmd);
@@ -177,33 +179,44 @@ export const CommandRow = React.memo(function CommandRow({
         (() => {
           const shouldHighlight = isMatch && findQuery && findOpts;
 
-          // 텍스트에 찾기 하이라이트 적용 (세그먼트 분리)
-          const renderWithHighlight = (text: string, color?: string) => {
+          // 텍스트 세그먼트를 렌더링, startIdx = 이전 부분에서 소비된 매치 수
+          const renderSegs = (text: string, color: string | undefined, startIdx: number) => {
             if (!shouldHighlight) {
-              return color ? <span style={{ color }}>{text}</span> : <>{text}</>;
+              return {
+                nodes: color ? <span style={{ color }}>{text}</span> : <React.Fragment>{text}</React.Fragment>,
+                count: 0,
+              };
             }
-            const segs = splitByQuery(text, findQuery!, findOpts!);
+            const segs = splitByQuery(text, findQuery!, findOpts!, startIdx);
             const nodes = segs.map((seg, si) => {
-              if (!seg.isMatch) return color ? <span key={si} style={{ color }}>{seg.text}</span> : <React.Fragment key={si}>{seg.text}</React.Fragment>;
-              const bg = isCurrentMatch ? 'rgba(255,140,0,0.85)' : 'rgba(255,215,0,0.55)';
+              if (!seg.isMatch) return color
+                ? <span key={si} style={{ color }}>{seg.text}</span>
+                : <React.Fragment key={si}>{seg.text}</React.Fragment>;
+              const isCurrent = isCurrentMatch && seg.localMatchIndex === currentMatchLocalIdx;
+              const bg = isCurrent ? 'rgba(255,140,0,0.85)' : 'rgba(255,215,0,0.55)';
               return <mark key={si} style={{ background: bg, color: color ?? 'inherit', borderRadius: 2, padding: '0 1px' }}>{seg.text}</mark>;
             });
-            return <>{nodes}</>;
+            const count = segs.filter(s => s.isMatch).length;
+            return { nodes: <>{nodes}</>, count };
           };
 
           // 주석 처리된 커맨드는 CSS(cmd-disabled)가 색상 처리
-          if (isDisabled) return renderWithHighlight(display);
-          const c = getCommandColor(cmd.code);
-          // 댓글(108/408)은 내용 전체 색상
-          if (cmd.code === 108 || cmd.code === 408) return renderWithHighlight(display, c);
-          if (!c) return renderWithHighlight(display);
-          // 나머지: ': ' 앞의 명령어 이름만 색상, 인자값은 기본색
+          const c = isDisabled ? undefined : getCommandColor(cmd.code);
+          const isFullColor = !c || cmd.code === 108 || cmd.code === 408;
+
+          if (isFullColor) {
+            const { nodes } = renderSegs(display, c, 0);
+            return nodes;
+          }
+          // 명령어 이름(색상) + 파라미터(기본색) 분리
           const sep = display.indexOf(': ');
-          if (sep === -1) return renderWithHighlight(display, c);
-          return <>
-            {renderWithHighlight(display.slice(0, sep), c)}
-            {renderWithHighlight(display.slice(sep))}
-          </>;
+          if (sep === -1) {
+            const { nodes } = renderSegs(display, c, 0);
+            return nodes;
+          }
+          const { nodes: prefixNodes, count: prefixCount } = renderSegs(display.slice(0, sep), c, 0);
+          const { nodes: suffixNodes } = renderSegs(display.slice(sep), undefined, prefixCount);
+          return <>{prefixNodes}{suffixNodes}</>;
         })()
       ) : <span style={{ color: '#555' }}>&loz;</span>}
       {isFolded && foldedCount !== undefined && foldedCount > 0 && (
