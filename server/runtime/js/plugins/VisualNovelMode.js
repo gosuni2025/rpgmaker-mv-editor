@@ -509,6 +509,9 @@
         if (SHOW_SCROLL_BAR) this._drawScrollBar();
 
         // 키 기반으로 startTime / _overlayStartTime / 오버레이 메시 복원
+        // 타이핑 중인 엔트리는 메시 재사용 금지 — 글자 수가 매 프레임 변하므로 이전 메시를
+        // 재사용하면 새로 추가된 글자에 효과가 적용되지 않음
+        var typingEntryIdx = this._isTyping ? this._typeEntryIdx : -1;
         var segs = this._etAnimSegs || [];
         for (var j = 0; j < segs.length; j++) {
             var key = _etSegKey(segs[j]);
@@ -522,13 +525,14 @@
                     segs[j]._overlayStartTime = prev.overlayStartTime;
                 if (prev.etFrozen !== undefined)
                     segs[j]._etFrozen = prev.etFrozen;
-                // 오버레이 메시 재사용 (재생성 비용 절약)
-                if (prev.overlayMesh) {
+                // 오버레이 메시 재사용 (타이핑 중인 엔트리 제외 — 글자 수 불일치 방지)
+                var canReuse = (segs[j]._entryIdx !== typingEntryIdx);
+                if (canReuse && prev.overlayMesh) {
                     segs[j]._overlayMesh   = prev.overlayMesh;
                     segs[j]._overlayTex    = prev.overlayTex;
                     segs[j]._overlayParent = prev.overlayParent;
                 }
-                if (prev.charMeshes) {
+                if (canReuse && prev.charMeshes) {
                     segs[j]._charMeshes    = prev.charMeshes;
                     segs[j]._overlayParent = prev.overlayParent;
                 }
