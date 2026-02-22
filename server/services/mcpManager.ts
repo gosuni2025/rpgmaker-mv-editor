@@ -456,6 +456,16 @@ class McpManager extends EventEmitter {
 
       case 'get_event_command_reference': return EVENT_CMD_REF;
 
+      case 'list_resources': {
+        const folder = (args.type as string) ?? 'characters';
+        const files = await this.apiGet<string[]>(`/resources/${folder}`);
+        // 확장자 제거한 이름도 함께 반환 (characterName에 사용하는 형식)
+        return files.map(f => ({
+          filename: f,
+          name: f.replace(/\.[^.]+$/, ''),
+        }));
+      }
+
       default: throw new Error(`알 수 없는 도구: ${name}`);
     }
   }
@@ -479,6 +489,7 @@ class McpManager extends EventEmitter {
       { name: 'get_database_entry', description: 'DB 단일 항목 조회', inputSchema: obj('', { type: { type: 'string' }, id: { type: 'number' } }, ['type', 'id']) },
       { name: 'update_database_entry', description: 'DB 항목 부분 업데이트. fields에 변경할 필드만 전달', inputSchema: obj('', { type: { type: 'string' }, id: { type: 'number' }, fields: { type: 'object' } }, ['type', 'id', 'fields']) },
       { name: 'get_event_command_reference', description: '★ 이벤트 커맨드 형식 레퍼런스. 이벤트 생성 전 먼저 호출하세요.', inputSchema: obj('', {}) },
+      { name: 'list_resources', description: '프로젝트 이미지 파일 목록. type: characters(캐릭터), faces(얼굴), tilesets(타일셋), pictures(그림), sv_actors(사이드뷰 액터), titles1/titles2(타이틀), parallaxes(원경), battlebacks1/battlebacks2(전투배경), enemies(적 이미지), animations(애니메이션), system(시스템), sv_enemies(사이드뷰 적). 반환값 name이 이벤트 image.characterName 등에 사용하는 값.', inputSchema: obj('', { type: { type: 'string', description: 'characters/faces/tilesets/pictures 등' } }, ['type']) },
     ];
   }
 }

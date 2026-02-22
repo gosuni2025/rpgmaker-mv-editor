@@ -91,6 +91,7 @@ claude mcp add rpgmaker-mv-editor --transport sse http://localhost:3002/sse
 | `get_database_entry` | DB 단일 항목 조회 |
 | `update_database_entry` | DB 항목 수정 |
 | `get_event_command_reference` | ★ 이벤트 커맨드 형식 레퍼런스 |
+| `list_resources` | 이미지 파일 목록 (characters/faces/tilesets 등) |
 
 ---
 
