@@ -375,7 +375,8 @@ export function buildBlockChipHTML(tags: TagEntry[], content: string): string {
     else if (t.tag === 'picture') preview = t.params.src || '(없음)';
     else preview = '';
   } else {
-    preview = content || ' ';
+    // content에 Raw 태그(<icon .../> 등)가 포함된 경우 태그를 [▪]로 치환하여 표시
+    preview = content.replace(/<[a-zA-Z][^>]*\/>/g, '[▪]').replace(/<\/?[a-zA-Z][^>]*>/g, '') || ' ';
   }
 
   return (
