@@ -177,6 +177,9 @@ DataManager.onLoad = function(object) {
         }
         this.extractMetadata(object);
         array = object.events;
+        // 맵 JSON 완료 즉시 타일셋/캐릭터 이미지 미리 예약
+        // → DB 로딩과 이미지 로딩 카운트가 합산되어 로딩 바가 한 번만 채워짐
+        this._preloadMapImages(object);
     } else {
         array = object;
     }
@@ -192,6 +195,31 @@ DataManager.onLoad = function(object) {
         Decrypter.hasEncryptedImages = !!object.hasEncryptedImages;
         Decrypter.hasEncryptedAudio = !!object.hasEncryptedAudio;
         Scene_Boot.loadSystemImages();
+    }
+};
+
+DataManager._preloadMapImages = function(mapData) {
+    if (!mapData) return;
+    // 타일셋 이미지
+    if ($dataTilesets && mapData.tilesetId) {
+        var tileset = $dataTilesets[mapData.tilesetId];
+        if (tileset && tileset.tilesetNames) {
+            tileset.tilesetNames.forEach(function(name) {
+                if (name) ImageManager.reserveTileset(name);
+            });
+        }
+    }
+    // 이벤트 캐릭터 이미지
+    if (Array.isArray(mapData.events)) {
+        mapData.events.forEach(function(event) {
+            if (!event || !Array.isArray(event.pages)) return;
+            event.pages.forEach(function(page) {
+                var img = page && page.image;
+                if (img && img.characterName) {
+                    ImageManager.reserveCharacter(img.characterName);
+                }
+            });
+        });
     }
 };
 
