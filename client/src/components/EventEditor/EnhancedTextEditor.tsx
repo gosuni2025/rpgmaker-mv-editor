@@ -216,31 +216,25 @@ export function EnhancedTextEditor({
     }
     if (!range || blockEl.contains(range.commonAncestorContainer)) return;
 
-    // 원래 HTML 저장 (undo 복원 대상)
-    const originalHTML = editorRef.current.innerHTML;
-
-    // DOM 직접 조작으로 목적 상태 임시 생성
-    blockEl.remove();
-    range.insertNode(blockEl);
-    const newHTML = editorRef.current.innerHTML;
-
-    // DOM을 원래 상태로 복원 (syncToParent 트리거 방지)
-    isInternalUpdate.current = true;
-    editorRef.current.innerHTML = originalHTML;
-    isInternalUpdate.current = false;
-
-    // 에디터 전체를 새 HTML로 교체 — 단일 execCommand로 undo 히스토리에 기록
+    const blockHTML = blockEl.outerHTML;
     editorRef.current.focus();
-    const fullRange = document.createRange();
-    fullRange.selectNodeContents(editorRef.current);
     const sel = window.getSelection();
-    if (sel) {
-      sel.removeAllRanges();
-      sel.addRange(fullRange);
-      // eslint-disable-next-line @typescript-eslint/no-deprecated
-      document.execCommand('insertHTML', false, newHTML);
-      sel.collapseToEnd();
-    }
+    if (!sel) return;
+
+    // 1. 원래 블록 선택 후 delete (execCommand — undo 이력에 기록)
+    const removeRange = document.createRange();
+    removeRange.selectNode(blockEl);
+    sel.removeAllRanges();
+    sel.addRange(removeRange);
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    document.execCommand('delete', false);
+
+    // 2. 드롭 위치에 커서 설정 후 insertHTML (execCommand — undo 이력에 기록)
+    // range는 live이므로 blockEl 제거 후 자동 업데이트됨
+    sel.removeAllRanges();
+    sel.addRange(range);
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    document.execCommand('insertHTML', false, blockHTML);
 
     justDroppedRef.current = true;
     setTimeout(() => { justDroppedRef.current = false; }, 100);
