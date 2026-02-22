@@ -316,13 +316,21 @@ export function PicturePreview({ current, from, durationMs = 1000, replayTrigger
         const refs = refsRef.current;
         if (!canvas || !refs || !onPositionDragRef.current) return;
         const { x: gx, y: gy } = toGameCoords(e, canvas);
-        if (hitPicture(gx, gy, refs, currentRef.current)) {
+        const snap = currentRef.current;
+        if (hitPicture(gx, gy, refs, snap)) {
           e.preventDefault();
+          // positionType=2(프리셋)이면 실제 화면 기준 좌표로 변환해서 기록
+          const effPosX = snap.positionType === 2
+            ? (snap.presetX - 1) * GW / 4 + snap.presetOffsetX
+            : snap.posX;
+          const effPosY = snap.positionType === 2
+            ? (snap.presetY - 1) * GH / 4 + snap.presetOffsetY
+            : snap.posY;
           dragRef.current.active = true;
           dragRef.current.startGameX = gx;
           dragRef.current.startGameY = gy;
-          dragRef.current.startPosX = currentRef.current.posX;
-          dragRef.current.startPosY = currentRef.current.posY;
+          dragRef.current.startPosX = effPosX;
+          dragRef.current.startPosY = effPosY;
           canvas.style.cursor = 'grabbing';
         }
       }}
