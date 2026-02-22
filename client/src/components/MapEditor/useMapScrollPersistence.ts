@@ -6,10 +6,11 @@ import { SCROLL_POSITIONS_STORAGE_KEY } from '../../store/types';
 export function useMapScrollPersistence(
   containerRef: React.RefObject<HTMLDivElement | null>,
   currentMapId: number | null,
+  zoomLevel?: number,
 ) {
   const prevMapIdRef = useRef<number | null>(null);
 
-  // 맵 변경 시: 이전 맵 스크롤 저장 + 새 맵 스크롤 복원
+  // 맵 변경 시: 이전 맵 스크롤+줌 저장 + 새 맵 스크롤+줌 복원
   useEffect(() => {
     const el = containerRef.current;
     if (!el || !currentMapId) return;
@@ -18,7 +19,8 @@ export function useMapScrollPersistence(
       try {
         const raw = localStorage.getItem(SCROLL_POSITIONS_STORAGE_KEY);
         const positions = raw ? JSON.parse(raw) : {};
-        positions[prevMapIdRef.current] = { left: el.scrollLeft, top: el.scrollTop };
+        const zoom = useEditorStore.getState().zoomLevel;
+        positions[prevMapIdRef.current] = { left: el.scrollLeft, top: el.scrollTop, zoom };
         localStorage.setItem(SCROLL_POSITIONS_STORAGE_KEY, JSON.stringify(positions));
       } catch {}
     }
@@ -31,6 +33,7 @@ export function useMapScrollPersistence(
         const positions = JSON.parse(raw);
         const saved = positions[currentMapId];
         if (saved) {
+          if (saved.zoom != null) useEditorStore.getState().setZoomLevel(saved.zoom);
           requestAnimationFrame(() => {
             el.scrollLeft = saved.left ?? 0;
             el.scrollTop = saved.top ?? 0;
@@ -40,7 +43,7 @@ export function useMapScrollPersistence(
     } catch {}
   }, [currentMapId]);
 
-  // 스크롤 시 현재 맵의 위치 저장 (debounce)
+  // 스크롤 시 현재 맵의 위치+줌 저장 (debounce)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -53,7 +56,8 @@ export function useMapScrollPersistence(
         try {
           const raw = localStorage.getItem(SCROLL_POSITIONS_STORAGE_KEY);
           const positions = raw ? JSON.parse(raw) : {};
-          positions[mapId] = { left: el.scrollLeft, top: el.scrollTop };
+          const zoom = useEditorStore.getState().zoomLevel;
+          positions[mapId] = { left: el.scrollLeft, top: el.scrollTop, zoom };
           localStorage.setItem(SCROLL_POSITIONS_STORAGE_KEY, JSON.stringify(positions));
         } catch {}
       }, 300);
@@ -61,6 +65,22 @@ export function useMapScrollPersistence(
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => { el.removeEventListener('scroll', onScroll); clearTimeout(timer); };
   }, [currentMapId]);
+
+  // 줌 변경 시 현재 맵의 줌 저장
+  useEffect(() => {
+    if (!currentMapId || zoomLevel == null) return;
+    try {
+      const raw = localStorage.getItem(SCROLL_POSITIONS_STORAGE_KEY);
+      const positions = raw ? JSON.parse(raw) : {};
+      const el = containerRef.current;
+      positions[currentMapId] = {
+        left: el?.scrollLeft ?? positions[currentMapId]?.left ?? 0,
+        top: el?.scrollTop ?? positions[currentMapId]?.top ?? 0,
+        zoom: zoomLevel,
+      };
+      localStorage.setItem(SCROLL_POSITIONS_STORAGE_KEY, JSON.stringify(positions));
+    } catch {}
+  }, [zoomLevel, currentMapId]);
 
   // 이벤트 목록에서 클릭 시 해당 타일로 스크롤
   useEffect(() => {

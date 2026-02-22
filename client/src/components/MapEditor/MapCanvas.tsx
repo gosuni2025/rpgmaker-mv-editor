@@ -120,7 +120,7 @@ export default function MapCanvas() {
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, []);
 
-  useMapScrollPersistence(containerRef, currentMapId);
+  useMapScrollPersistence(containerRef, currentMapId, zoomLevel);
 
   // Tile cursor preview
   useTileCursorPreview(overlayRefs, hoverTile, rendererReady);
