@@ -1,0 +1,22 @@
+{
+  "name": "rpgmaker-mv-editor-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for RPG Maker MV Web Editor — lets Claude control the editor and edit game data without reading runtime source code",
+  "type": "module",
+  "bin": {
+    "rpgmaker-mv-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
