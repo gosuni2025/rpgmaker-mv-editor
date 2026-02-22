@@ -287,7 +287,7 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
                   onClick={() => setShowExpCurve(true)}
                   title={t('paramCurve.clickToEdit', '클릭하여 편집')}
                 >
-                  <ExpMiniGraph expParams={selectedItem.expParams || [30, 20, 30, 30]} />
+                  <ExpMiniGraph key={selectedId} expParams={selectedItem.expParams || [30, 20, 30, 30]} />
                   <span className="classes-exp-mini-values">[{(selectedItem.expParams || [30, 20, 30, 30]).join(', ')}]</span>
                 </div>
               </label>
@@ -296,7 +296,7 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
               <div className="classes-param-grid">
                 {selectedItem.params && PARAM_NAMES.map((name, i) => (
                   <div
-                    key={i}
+                    key={`${selectedId}-${i}`}
                     className="classes-param-mini-wrap"
                     onClick={() => setShowParamCurve(i)}
                     title={t('paramCurve.clickToEdit', '클릭하여 편집')}
