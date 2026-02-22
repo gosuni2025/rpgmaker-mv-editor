@@ -530,8 +530,14 @@ class McpManager extends EventEmitter {
 
       case 'list_resources': {
         const folder = (args.type as string) ?? 'characters';
-        const files = await this.apiGet<string[]>(`/resources/${folder}`);
-        // 확장자 제거한 이름도 함께 반환 (characterName에 사용하는 형식)
+        const AUDIO_TYPES = ['bgm', 'bgs', 'me', 'se'];
+        let files: string[];
+        if (AUDIO_TYPES.includes(folder)) {
+          files = await this.apiGet<string[]>(`/audio/${folder}`);
+        } else {
+          files = await this.apiGet<string[]>(`/resources/${folder}`);
+        }
+        // 확장자 제거한 이름도 함께 반환 (characterName/bgm name 등에 사용하는 형식)
         return files.map(f => ({
           filename: f,
           name: f.replace(/\.[^.]+$/, ''),
@@ -563,7 +569,7 @@ class McpManager extends EventEmitter {
       { name: 'get_event_command_reference', description: '★ 이벤트 커맨드 형식 레퍼런스. 이벤트 생성 전 먼저 호출하세요.', inputSchema: obj('', {}) },
       { name: 'list_plugin_commands', description: '활성 플러그인의 커맨드 요약 목록 + 커스텀 텍스트 태그. 토큰 절약을 위해 간략 버전만 반환. 상세 정보는 get_plugin_detail 사용.', inputSchema: obj('', {}) },
       { name: 'get_plugin_detail', description: '특정 플러그인의 상세 문서 (@help 전문 + 모든 @command/@arg). list_plugin_commands로 목록 확인 후 필요한 플러그인만 조회.', inputSchema: obj('', { name: { type: 'string', description: '플러그인 파일명 (확장자 제외, 예: VisualNovelMode)' } }, ['name']) },
-      { name: 'list_resources', description: '프로젝트 이미지 파일 목록. type: characters(캐릭터), faces(얼굴), tilesets(타일셋), pictures(그림), sv_actors(사이드뷰 액터), titles1/titles2(타이틀), parallaxes(원경), battlebacks1/battlebacks2(전투배경), enemies(적 이미지), animations(애니메이션), system(시스템), sv_enemies(사이드뷰 적). 반환값 name이 이벤트 image.characterName 등에 사용하는 값.', inputSchema: obj('', { type: { type: 'string', description: 'characters/faces/tilesets/pictures 등' } }, ['type']) },
+      { name: 'list_resources', description: '프로젝트 리소스 파일 목록. [이미지] characters(캐릭터), faces(얼굴), tilesets(타일셋), pictures(그림), sv_actors(사이드뷰 액터), titles1/titles2(타이틀), parallaxes(원경), battlebacks1/battlebacks2(전투배경), enemies(적 이미지), animations(애니메이션), system(시스템), sv_enemies(사이드뷰 적). [오디오] bgm(배경음악), bgs(배경환경음), me(음악이펙트), se(효과음). [영상] movies. 반환값 name이 이벤트 audio.name/image.characterName 등에 사용하는 값.', inputSchema: obj('', { type: { type: 'string', description: 'characters/faces/tilesets/bgm/bgs/me/se/movies 등' } }, ['type']) },
     ];
   }
 }
