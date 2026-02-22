@@ -508,7 +508,7 @@ if (require.main === module && !process.versions.electron) {
   const server = http.createServer(app);
   attachWebSocket(server);
 
-  const PORT = parseInt(process.env.PORT || process.env.SERVER_PORT || '3001');
+  const PORT = parseInt(process.env.SERVER_PORT || process.env.PORT || '3001');
   const DEMO_MODE = process.env.DEMO_MODE === 'true';
   // DEMO_MODE: 0.0.0.0으로 수신 (Railway 등 외부 접근), demo-project 자동 오픈
   const host = DEMO_MODE ? '0.0.0.0' : '127.0.0.1';
