@@ -553,6 +553,7 @@ export function attachWebSocket(server: http.Server) {
   const wss = new WebSocketServer({ server });
   wss.on('connection', (ws: WebSocket) => {
     fileWatcher.addClient(ws);
+    mcpManager.addClient(ws);
   });
   return wss;
 }

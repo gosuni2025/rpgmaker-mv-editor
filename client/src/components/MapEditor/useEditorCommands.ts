@@ -140,16 +140,24 @@ export function useEditorCommands() {
     const handleCopy = () => {
       if (editMode === 'map' && selectionStart && selectionEnd) {
         copyTiles(selectionStart.x, selectionStart.y, selectionEnd.x, selectionEnd.y);
-        showToast('선택 영역 복사됨');
+        const w = Math.abs(selectionEnd.x - selectionStart.x) + 1;
+        const h = Math.abs(selectionEnd.y - selectionStart.y) + 1;
+        const sx = Math.min(selectionStart.x, selectionEnd.x);
+        const sy = Math.min(selectionStart.y, selectionEnd.y);
+        showToast(`타일 복사됨: ${w}×${h} 영역 (${sx},${sy})`);
         return;
       }
       if (editMode === 'event') {
         if (selectedEventIds.length > 0) {
           copyEvents(selectedEventIds);
-          showToast(`이벤트 ${selectedEventIds.length}개 복사됨`);
+          const names = selectedEventIds
+            .map(id => currentMap?.events?.[id]?.name || `EV${String(id).padStart(3, '0')}`)
+            .join(', ');
+          showToast(`이벤트 ${selectedEventIds.length}개 복사됨: ${names}`);
         } else if (selectedEventId != null) {
           copyEvent(selectedEventId);
-          showToast('이벤트 복사됨');
+          const name = currentMap?.events?.[selectedEventId]?.name || `EV${String(selectedEventId).padStart(3, '0')}`;
+          showToast(`이벤트 복사됨: "${name}" (ID: ${selectedEventId})`);
         }
         return;
       }
