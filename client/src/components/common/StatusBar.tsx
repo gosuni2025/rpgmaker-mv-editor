@@ -492,11 +492,7 @@ export default function StatusBar() {
   const perf = performance as any;
   const hasMemory = !!perf.memory;
 
-  const versionLabel = versionInfo
-    ? versionInfo.type === 'release'
-      ? `v${versionInfo.version ?? '?'}`
-      : `git (${versionInfo.commitHash ?? '?'})`
-    : null;
+  const versionLabel = versionInfo?.version ? `v${versionInfo.version}` : null;
 
   return (
     <div className="statusbar">
