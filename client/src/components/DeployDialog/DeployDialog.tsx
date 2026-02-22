@@ -7,6 +7,7 @@ import CacheBustSection, { CacheBustOpts, DEFAULT_CACHE_BUST_OPTS } from '../com
 import { Tab } from './types';
 import NetlifyTab from './NetlifyTab';
 import GhPagesTab from './GhPagesTab';
+import ItchioTab from './ItchioTab';
 import LocalTab from './LocalTab';
 import './DeployDialog.css';
 
@@ -22,6 +23,9 @@ export default function DeployDialog() {
   const [initialSiteId, setInitialSiteId] = useState('');
   const [initialSiteUrl, setInitialSiteUrl] = useState('');
   const [initialGhRemote, setInitialGhRemote] = useState('pages');
+  const [initialItchioApiKey, setInitialItchioApiKey] = useState('');
+  const [initialItchioProject, setInitialItchioProject] = useState('');
+  const [initialItchioChannel, setInitialItchioChannel] = useState('html5');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
@@ -33,6 +37,10 @@ export default function DeployDialog() {
       if (netlify?.siteUrl) setInitialSiteUrl(netlify.siteUrl);
       const ghPages = d.ghPages as { remote?: string } | undefined;
       if (ghPages?.remote) setInitialGhRemote(ghPages.remote);
+      const itchio = d.itchio as { apiKey?: string; project?: string; channel?: string } | undefined;
+      if (itchio?.apiKey) setInitialItchioApiKey(itchio.apiKey);
+      if (itchio?.project) setInitialItchioProject(itchio.project);
+      if (itchio?.channel) setInitialItchioChannel(itchio.channel);
     }).catch(() => {}).finally(() => setSettingsLoaded(true));
   }, []);
 
@@ -51,9 +59,14 @@ export default function DeployDialog() {
       }
     >
       <div className="deploy-tabs">
-        {(['netlify', 'ghpages', 'local'] as Tab[]).map((id) => (
+        {(['netlify', 'ghpages', 'itchio', 'local'] as Tab[]).map((id) => (
           <button key={id} className={`deploy-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>
-            {t(id === 'netlify' ? 'deploy.tabNetlify' : id === 'ghpages' ? 'deploy.tabGhPages' : 'deploy.tabLocal')}
+            {t(
+              id === 'netlify' ? 'deploy.tabNetlify' :
+              id === 'ghpages' ? 'deploy.tabGhPages' :
+              id === 'itchio' ? 'deploy.tabItchio' :
+              'deploy.tabLocal'
+            )}
           </button>
         ))}
       </div>
@@ -64,6 +77,9 @@ export default function DeployDialog() {
         )}
         {tab === 'ghpages' && (
           <GhPagesTab cbOpts={cbOpts} initialRemote={initialGhRemote} />
+        )}
+        {tab === 'itchio' && (
+          <ItchioTab cbOpts={cbOpts} initialApiKey={initialItchioApiKey} initialProject={initialItchioProject} initialChannel={initialItchioChannel} />
         )}
         {tab === 'local' && (
           <LocalTab cbOpts={cbOpts} />

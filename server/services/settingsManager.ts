@@ -20,6 +20,12 @@ export interface GhPagesSettings {
   remote: string; // 푸시할 git remote 이름 (예: 'pages')
 }
 
+export interface ItchioSettings {
+  apiKey: string;  // butler API Key (AES-256-CBC 암호화 저장)
+  project: string; // user/game 형식
+  channel: string; // 배포 채널 (기본값: html5)
+}
+
 export interface EditorSettings {
   steamPath: string;
   language: string;
@@ -29,6 +35,7 @@ export interface EditorSettings {
   autoSave: AutoSaveSettings;
   netlify: NetlifySettings;
   ghPages: GhPagesSettings;
+  itchio: ItchioSettings;
 }
 
 const SETTINGS_DIR = path.join(os.homedir(), '.rpg-editor');
@@ -53,6 +60,11 @@ const DEFAULT_SETTINGS: EditorSettings = {
   },
   ghPages: {
     remote: 'pages',
+  },
+  itchio: {
+    apiKey: '',
+    project: '',
+    channel: 'html5',
   },
 };
 
@@ -103,6 +115,9 @@ function load(): EditorSettings {
       if (parsed.netlify?.apiKey) {
         parsed.netlify = { ...parsed.netlify, apiKey: decrypt(parsed.netlify.apiKey) };
       }
+      if (parsed.itchio?.apiKey) {
+        parsed.itchio = { ...parsed.itchio, apiKey: decrypt(parsed.itchio.apiKey) };
+      }
       return { ...DEFAULT_SETTINGS, ...parsed };
     }
   } catch {}
@@ -117,6 +132,9 @@ function save(settings: EditorSettings): void {
   const toSave: EditorSettings = { ...settings };
   if (toSave.netlify?.apiKey) {
     toSave.netlify = { ...toSave.netlify, apiKey: encrypt(toSave.netlify.apiKey) };
+  }
+  if (toSave.itchio?.apiKey) {
+    toSave.itchio = { ...toSave.itchio, apiKey: encrypt(toSave.itchio.apiKey) };
   }
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(toSave, null, 2), 'utf8');
 }
