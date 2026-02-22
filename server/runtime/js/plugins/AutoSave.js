@@ -113,11 +113,11 @@
 
     /**
      * 오토 세이브 전용 파일 ID.
-     * 일반 세이브 슬롯(1~maxSavefiles)과 별개로 관리.
-     * 웹 모드: localStorage['RPG File0'], 로컬: save/file0.rpgsave
+     * 일반 세이브 슬롯(1~maxSavefiles) 및 globalInfo(ID=0)와 충돌하지 않도록
+     * maxSavefiles()+1 을 사용한다. (기본 maxSavefiles=20 → ID=21)
      * @const {number}
      */
-    var AUTOSAVE_FILE_ID = 0;
+    var AUTOSAVE_FILE_ID = DataManager.maxSavefiles() + 1;
 
     var parameters = PluginManager.parameters(PLUGIN_NAME);
 
