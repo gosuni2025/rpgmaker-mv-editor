@@ -42,12 +42,17 @@ export interface PluginsResponse {
   list: ServerPluginEntry[];
 }
 
+export interface PluginParamOption {
+  label: string;
+  value: string;
+}
+
 export interface PluginParamMeta {
   name: string;
   desc: string;
   type: string;
   default: string;
-  options: string[];
+  options: PluginParamOption[];
   dir: string;
   min?: string;
   max?: string;

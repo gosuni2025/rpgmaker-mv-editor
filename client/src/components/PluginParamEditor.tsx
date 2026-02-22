@@ -112,15 +112,16 @@ export function PluginParamInput({
   }
 
   if (paramMeta && (paramMeta.type === 'select' || paramMeta.type === 'combo' || paramMeta.options.length > 0)) {
+    const optionValues = paramMeta.options.map(o => o.value);
     return (
       <select
         value={value}
         onChange={(e) => updateParam(pluginIndex, paramIndex, e.target.value)}
       >
         {paramMeta.options.map((opt) => (
-          <option key={opt} value={opt}>{opt}</option>
+          <option key={opt.value} value={opt.value}>{opt.label || opt.value}</option>
         ))}
-        {value && !paramMeta.options.includes(value) && (
+        {value && !optionValues.includes(value) && (
           <option value={value}>{value}</option>
         )}
       </select>
