@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CacheBustOpts } from '../common/CacheBustSection';
+import { CacheBustOpts, cacheBustToQuery } from '../common/CacheBustSection';
 import apiClient from '../../api/client';
 import { SSEEvent } from './types';
 import useDeployProgress from './useDeployProgress';
@@ -31,6 +31,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [itchUrl, setItchUrl] = useState('');
   const [showProgressModal, setShowProgressModal] = useState(false);
+  const [deployMode, setDeployMode] = useState<'deploy' | 'zip'>('deploy');
 
   useEffect(() => {
     apiClient.get('/project/deploy-itchio-check')
@@ -55,6 +56,39 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
     } catch (e) { dp.setError((e as Error).message); }
   };
 
+  const handleMakeZip = () => {
+    dp.resetStatus();
+    dp.setProgress(0);
+    dp.setBusy(true);
+    setDeployMode('zip');
+    setShowProgressModal(true);
+    let completed = false;
+    const totalRef = { current: 0 };
+    const evtSource = new EventSource(`/api/project/deploy-zip-progress?${cacheBustToQuery(cbOpts)}`);
+    evtSource.onmessage = (e) => {
+      const ev = JSON.parse(e.data) as SSEEvent;
+      if (ev.type === 'done') {
+        completed = true;
+        dp.setProgress(1);
+        dp.setStatus('ZIP 생성 완료. 폴더가 열렸습니다.');
+        dp.setBusy(false);
+        evtSource.close();
+        return;
+      }
+      if (!dp.handleSSEEvent(ev, totalRef, { copy: 0.75, zip: 0.25 })) {
+        completed = true;
+        evtSource.close();
+      }
+    };
+    evtSource.onerror = () => {
+      evtSource.close();
+      if (!completed) {
+        dp.setError('연결 오류');
+        dp.setStatus(''); dp.setProgress(null); dp.setBusy(false);
+      }
+    };
+  };
+
   const handleDeploy = () => {
     if (!project.trim()) { dp.setError(t('deploy.itchio.projectRequired')); return; }
 
@@ -62,6 +96,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
     dp.setProgress(0);
     dp.setBusy(true);
     setItchUrl('');
+    setDeployMode('deploy');
     setShowProgressModal(true);
 
     let completed = false;
@@ -211,6 +246,11 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
         </div>
       )}
 
+      <button className="db-btn" onClick={handleMakeZip} disabled={dp.busy}
+        style={{ width: '100%' }}>
+        ZIP 만들어서 폴더 열기
+      </button>
+
       <button className="db-btn" onClick={handleDeploy} disabled={dp.busy || !prereqOk}
         style={{
           width: '100%',
@@ -243,10 +283,10 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
         error={dp.error}
         progress={dp.progress}
         color="#d94f3c"
-        titleBusy={t('deploy.itchio.deploying')}
-        titleDone={t('deploy.itchio.done')}
-        titleFailed={t('deploy.itchio.failed')}
-        resultUrl={itchUrl}
+        titleBusy={deployMode === 'zip' ? 'ZIP 생성 중...' : t('deploy.itchio.deploying')}
+        titleDone={deployMode === 'zip' ? 'ZIP 생성 완료' : t('deploy.itchio.done')}
+        titleFailed={deployMode === 'zip' ? 'ZIP 생성 실패' : t('deploy.itchio.failed')}
+        resultUrl={deployMode === 'deploy' ? itchUrl : ''}
         resultLabel={t('deploy.itchio.openGame')}
         resultButtonStyle={{ background: '#6b1f1f', borderColor: '#9c2e2e' }}
         onResultClick={() => openUrl(itchUrl)}
