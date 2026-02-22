@@ -26,7 +26,34 @@ export interface AppOptions {
   clientDistPath?: string;
 }
 
+// ── 인메모리 플레이테스트 세션 (DEMO_MODE용) ──────────────────────────────
+interface PlaytestSession {
+  mapId: number;
+  mapData: Record<string, unknown>;
+  expiresAt: number;
+}
+const playtestSessions = new Map<string, PlaytestSession>();
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30분
+const MAX_SESSIONS = 200;
+
+function createPlaytestSession(mapId: number, mapData: Record<string, unknown>): string {
+  // 만료 세션 정리
+  const now = Date.now();
+  for (const [token, session] of playtestSessions) {
+    if (session.expiresAt < now) playtestSessions.delete(token);
+  }
+  // 최대 세션 초과 시 가장 오래된 것 제거
+  if (playtestSessions.size >= MAX_SESSIONS) {
+    const oldest = [...playtestSessions.entries()].sort((a, b) => a[1].expiresAt - b[1].expiresAt)[0];
+    if (oldest) playtestSessions.delete(oldest[0]);
+  }
+  const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  playtestSessions.set(token, { mapId, mapData, expiresAt: now + SESSION_TTL_MS });
+  return token;
+}
+
 export function createApp(options: AppOptions = {}) {
+  const DEMO_MODE = process.env.DEMO_MODE === 'true';
   const resolvedRuntimePath = options.runtimePath || path.join(__dirname, 'runtime');
   setRuntimePath(resolvedRuntimePath);
 
@@ -88,6 +115,7 @@ export function createApp(options: AppOptions = {}) {
     const hasStartPos = req.query.startX !== undefined && req.query.startY !== undefined;
     const startX = req.query.startX ? parseInt(req.query.startX as string, 10) : 0;
     const startY = req.query.startY ? parseInt(req.query.startY as string, 10) : 0;
+    const sessionToken = req.query.session as string | undefined;
     const devScript = isDev ? '\n        <script defer src="js/ThreeDevOverlay.js"></script>\n        <script defer src="js/CameraZoneDevOverlay.js"></script>\n        <script defer src="js/FogOfWarDevPanel.js"></script>\n        <script defer src="js/MemoryDevPanel.js"></script>\n        <script defer src="js/TileIdDevOverlay.js"></script>\n        <script defer src="js/DepthDebugPanel.js"></script>\n        <script defer src="js/RenderModeDevPanel.js"></script>' : '';
     const startMapScript = startMapId > 0 ? `
         <script type="module">
@@ -270,7 +298,33 @@ export function createApp(options: AppOptions = {}) {
         <script defer src="js/FogOfWar.js${cacheBust}"></script>
         <script defer src="js/FogOfWar3DVolume.js${cacheBust}"></script>
         <script defer src="js/ExtendedText.js${cacheBust}"></script>
-        <script defer src="js/plugins.js"></script>${devScript}${startMapScript}
+        <script defer src="js/plugins.js"></script>${devScript}${startMapScript}${sessionToken && startMapId > 0 ? `
+        <script type="module">
+        // 인메모리 세션에서 맵 데이터 로드 (DEMO_MODE 플레이테스트)
+        (function() {
+            var _SESSION_TOKEN = '${sessionToken}';
+            var _SESSION_MAP_ID = ${startMapId};
+            var _orig = DataManager.loadDataFile.bind(DataManager);
+            DataManager.loadDataFile = function(name, src) {
+                var m = src.match(/^Map(\\d{3})\\.json$/);
+                if (m && parseInt(m[1], 10) === _SESSION_MAP_ID) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', 'data/' + src + '?session=' + _SESSION_TOKEN, true);
+                    xhr.overrideMimeType('application/json');
+                    xhr.onload = function() {
+                        if (xhr.status < 400) {
+                            window[name] = JSON.parse(xhr.responseText);
+                            DataManager.onLoad(window[name]);
+                        }
+                    };
+                    window[name] = null;
+                    xhr.send();
+                    return;
+                }
+                _orig(name, src);
+            };
+        })();
+        </script>` : ''}
         <script defer src="js/main.js${cacheBust}"></script>
     </body>
 </html>`;
@@ -316,6 +370,14 @@ export function createApp(options: AppOptions = {}) {
     const effectivePath = req.url.split('?')[0];
     const match = effectivePath.match(mapFilePattern);
     if (match) {
+      // 인메모리 세션 우선 조회 (DEMO_MODE 플레이테스트)
+      const sessionToken = req.query.session as string | undefined;
+      if (sessionToken) {
+        const session = playtestSessions.get(sessionToken);
+        if (session && session.mapId === parseInt(match[1], 10) && session.expiresAt > Date.now()) {
+          return res.json(session.mapData);
+        }
+      }
       try {
         const mapFile = `Map${match[1]}.json`;
         const data = projectManager.readJSON(mapFile) as Record<string, unknown>;
@@ -394,6 +456,16 @@ export function createApp(options: AppOptions = {}) {
     express.static(path.join(projectManager.currentPath!, 'js', 'plugins'))(req, res, next);
   });
 
+  app.get('/api/health', (_req, res) => res.json({ ok: true }));
+  app.get('/api/config', (_req, res) => res.json({ demoMode: DEMO_MODE }));
+  app.post('/api/playtestSession', (req, res) => {
+    if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
+    const { mapId, mapData } = req.body as { mapId: number; mapData: Record<string, unknown> };
+    if (!mapId || !mapData) return res.status(400).json({ error: 'mapId and mapData required' });
+    const sessionToken = createPlaytestSession(mapId, mapData);
+    res.json({ sessionToken });
+  });
+
   app.use('/api/project', projectRoutes);
   app.use('/api/maps', mapsRoutes);
   app.use('/api/database', databaseRoutes);
@@ -437,7 +509,19 @@ if (require.main === module && !process.versions.electron) {
   attachWebSocket(server);
 
   const PORT = parseInt(process.env.SERVER_PORT || '3001');
-  server.listen(PORT, '127.0.0.1', () => {
-    console.log(`Editor server listening on 127.0.0.1:${PORT}`);
+  const DEMO_MODE = process.env.DEMO_MODE === 'true';
+  // DEMO_MODE: 0.0.0.0으로 수신 (Railway 등 외부 접근), demo-project 자동 오픈
+  const host = DEMO_MODE ? '0.0.0.0' : '127.0.0.1';
+  server.listen(PORT, host, () => {
+    console.log(`Editor server listening on ${host}:${PORT}${DEMO_MODE ? ' [DEMO_MODE]' : ''}`);
+    if (DEMO_MODE) {
+      const demoProjectPath = process.env.DEMO_PROJECT_PATH || path.join(process.cwd(), 'demo-project');
+      if (fs.existsSync(demoProjectPath)) {
+        projectManager.open(demoProjectPath);
+        console.log(`Demo project opened: ${demoProjectPath}`);
+      } else {
+        console.warn(`Demo project not found: ${demoProjectPath}`);
+      }
+    }
   });
 }

@@ -39,6 +39,7 @@ export default function MenuBar() {
   const setShowNewProjectDialog = useEditorStore((s) => s.setShowNewProjectDialog);
   const saveCurrentMap = useEditorStore((s) => s.saveCurrentMap);
   const closeProject = useEditorStore((s) => s.closeProject);
+  const demoMode = useEditorStore((s) => s.demoMode);
   const setShowDatabaseDialog = useEditorStore((s) => s.setShowDatabaseDialog);
   const setShowDeployDialog = useEditorStore((s) => s.setShowDeployDialog);
   const setShowFindDialog = useEditorStore((s) => s.setShowFindDialog);
@@ -241,18 +242,30 @@ export default function MenuBar() {
       case 'characterGenerator': setShowCharacterGeneratorDialog(true); break;
       case 'resourceManager': setShowResourceManagerDialog(true); break;
       case 'playtestTitle': saveCurrentMap().then(() => window.open('/game/index.html?dev=true', '_blank')); break;
-      case 'playtestCurrentMap': saveCurrentMap().then(() => {
+      case 'playtestCurrentMap': {
         const state = useEditorStore.getState();
         const mapId = state.currentMapId || 1;
         const testPos = state.currentMap?.testStartPosition;
-        if (testPos) {
-          window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${testPos.x}&startY=${testPos.y}`, '_blank');
+        const centerX = Math.floor((state.currentMap?.width || 1) / 2);
+        const centerY = Math.floor((state.currentMap?.height || 1) / 2);
+        const startX = testPos ? testPos.x : centerX;
+        const startY = testPos ? testPos.y : centerY;
+        if (demoMode) {
+          // 데모 모드: 디스크 저장 없이 인메모리 세션으로 플레이테스트
+          fetch('/api/playtestSession', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mapId, mapData: state.currentMap }),
+          }).then(r => r.json()).then(({ sessionToken }) => {
+            window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}&session=${sessionToken}`, '_blank');
+          });
         } else {
-          const centerX = Math.floor((state.currentMap?.width || 1) / 2);
-          const centerY = Math.floor((state.currentMap?.height || 1) / 2);
-          window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${centerX}&startY=${centerY}`, '_blank');
+          saveCurrentMap().then(() => {
+            window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}`, '_blank');
+          });
         }
-      }); break;
+        break;
+      }
       case 'openFolder': fetch('/api/project/open-folder', { method: 'POST' }); break;
       case 'openProjectFolderTerminal': fetch('/api/project/open-folder-terminal', { method: 'POST' }); break;
       case 'openEditorFolder': fetch('/api/project/open-editor-folder', { method: 'POST' }); break;

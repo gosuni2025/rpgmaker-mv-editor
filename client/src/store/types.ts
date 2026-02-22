@@ -257,6 +257,9 @@ export interface EditorState {
   // Parse errors
   parseErrors: { file: string; error: string }[] | null;
 
+  // Demo mode (DEMO_MODE=true 서버에서 설정)
+  demoMode: boolean;
+
   // Renderer init error
   rendererInitError: RendererInitError | null;
 

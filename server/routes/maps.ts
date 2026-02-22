@@ -129,6 +129,10 @@ router.get('/:id', (req: Request, res: Response) => {
 });
 
 router.put('/:id', (req: Request, res: Response) => {
+  // 데모 모드: 디스크 저장 차단 (클라이언트 state는 유지됨)
+  if (process.env.DEMO_MODE === 'true') {
+    return res.json({ success: true });
+  }
   try {
     const id = String(req.params.id).padStart(3, '0');
     const mapFile = `Map${id}.json`;

@@ -132,3 +132,13 @@
   outline: none;
   box-sizing: border-box;
 }
+
+.statusbar-demo-badge {
+  background: #e65100;
+  color: #fff;
+  font-weight: bold;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
