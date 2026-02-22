@@ -133,13 +133,13 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
                   <TranslateButton csvPath="database/skills.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
                 </div>
               </label>
-              <label style={{ flex: 0, minWidth: 'fit-content' }}>
+              <div className="db-form-field-label" style={{ flex: 0, minWidth: 'fit-content' }}>
                 {t('common.icon')}
                 <IconPicker
                   value={selectedItem.iconIndex || 0}
                   onChange={(v) => handleFieldChange('iconIndex', v)}
                 />
-              </label>
+              </div>
             </div>
 
             <label>
