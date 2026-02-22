@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CacheBustOpts } from '../common/CacheBustSection';
 import apiClient from '../../api/client';
 import { SSEEvent } from './types';
 import useDeployProgress from './useDeployProgress';
-import { ProgressBar, ErrorMessage } from './StatusWidgets';
+import { DeployProgressModal } from './StatusWidgets';
 
 interface ItchioCheck {
   butler: boolean;
@@ -31,20 +31,6 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [itchUrl, setItchUrl] = useState('');
   const [showProgressModal, setShowProgressModal] = useState(false);
-  const [logCopied, setLogCopied] = useState(false);
-  const logPanelRef = useRef<HTMLDivElement>(null);
-
-  const copyLogs = () => {
-    navigator.clipboard.writeText(dp.logs.join('\n'));
-    setLogCopied(true);
-    setTimeout(() => setLogCopied(false), 1500);
-  };
-
-  useEffect(() => {
-    if (logPanelRef.current) {
-      logPanelRef.current.scrollTop = logPanelRef.current.scrollHeight;
-    }
-  }, [dp.logs]);
 
   useEffect(() => {
     apiClient.get('/project/deploy-itchio-check')
@@ -137,8 +123,6 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
   const butlerOk = check?.butler ?? false;
   const loggedIn = check?.loggedIn ?? false;
   const prereqOk = butlerOk && loggedIn;
-  const deployDone = !dp.busy && dp.logs.length > 0;
-  const deployFailed = !dp.busy && !!dp.error;
 
   return (
     <>
@@ -245,63 +229,23 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
         </div>
       )}
 
-      {/* 배포 진행 모달 */}
-      {showProgressModal && (
-        <div className="deploy-progress-overlay">
-          <div className="deploy-progress-modal">
-            <div className="deploy-progress-header">
-              {dp.busy ? t('deploy.itchio.deploying') : deployFailed ? t('deploy.itchio.failed') : t('deploy.itchio.done')}
-              {dp.busy && <span className="deploy-spinner" />}
-            </div>
-
-            {dp.status && <div className="deploy-progress-status">{dp.status}</div>}
-
-            <ProgressBar progress={dp.progress} color={deployFailed ? '#e55' : '#d94f3c'} />
-
-            <div style={{ position: 'relative' }}>
-              {dp.logs.length > 0 && (
-                <button onClick={copyLogs} style={{
-                  position: 'absolute', top: 4, right: 4, zIndex: 1,
-                  padding: '2px 8px', fontSize: 11, cursor: 'pointer',
-                  background: logCopied ? '#1a6e2e' : '#3a3a3a',
-                  border: '1px solid #555', borderRadius: 3, color: '#ccc',
-                }}>
-                  {logCopied ? '✓ 복사됨' : '복사'}
-                </button>
-              )}
-              <div className="deploy-log-panel" ref={logPanelRef}>
-                {dp.logs.map((log, i) => (
-                  <div key={i} className={
-                    log.startsWith('$') ? 'deploy-log-cmd' :
-                    log.startsWith('──') ? 'deploy-log-step' :
-                    log.startsWith('✓') || log.startsWith('→') ? 'deploy-log-ok' :
-                    log.startsWith('✗') ? 'deploy-log-err' :
-                    'deploy-log-info'
-                  }>
-                    {log}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <ErrorMessage error={dp.error} />
-
-            {!dp.busy && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                {deployDone && !deployFailed && itchUrl && (
-                  <button className="db-btn" onClick={() => openUrl(itchUrl)}
-                    style={{ marginRight: 8, background: '#6b1f1f', borderColor: '#9c2e2e' }}>
-                    {t('deploy.itchio.openGame')} ↗
-                  </button>
-                )}
-                <button className="db-btn" onClick={() => setShowProgressModal(false)}>
-                  {t('common.close')}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <DeployProgressModal
+        show={showProgressModal}
+        busy={dp.busy}
+        logs={dp.logs}
+        status={dp.status}
+        error={dp.error}
+        progress={dp.progress}
+        color="#d94f3c"
+        titleBusy={t('deploy.itchio.deploying')}
+        titleDone={t('deploy.itchio.done')}
+        titleFailed={t('deploy.itchio.failed')}
+        resultUrl={itchUrl}
+        resultLabel={t('deploy.itchio.openGame')}
+        resultButtonStyle={{ background: '#6b1f1f', borderColor: '#9c2e2e' }}
+        onResultClick={() => openUrl(itchUrl)}
+        onClose={() => setShowProgressModal(false)}
+      />
     </>
   );
 }

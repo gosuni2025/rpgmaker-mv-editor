@@ -4,7 +4,7 @@ import { CacheBustOpts, cacheBustToQuery } from '../common/CacheBustSection';
 import apiClient from '../../api/client';
 import { SSEEvent, GhPagesCheck } from './types';
 import useDeployProgress from './useDeployProgress';
-import { ProgressBar, StatusMessage, ErrorMessage } from './StatusWidgets';
+import { DeployProgressModal } from './StatusWidgets';
 
 interface Props {
   cbOpts: CacheBustOpts;
@@ -22,22 +22,7 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
   const [ghBuildId, setGhBuildId] = useState('');
   const [ghCommitHash, setGhCommitHash] = useState('');
   const [showProgressModal, setShowProgressModal] = useState(false);
-  const [logCopied, setLogCopied] = useState(false);
   const ghCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const logPanelRef = useRef<HTMLDivElement>(null);
-
-  const copyLogs = () => {
-    navigator.clipboard.writeText(dp.logs.join('\n'));
-    setLogCopied(true);
-    setTimeout(() => setLogCopied(false), 1500);
-  };
-
-  // 로그 패널 자동 스크롤
-  useEffect(() => {
-    if (logPanelRef.current) {
-      logPanelRef.current.scrollTop = logPanelRef.current.scrollHeight;
-    }
-  }, [dp.logs]);
 
   const runGhCheck = useCallback(() => {
     if (ghCheckTimer.current) clearTimeout(ghCheckTimer.current);
@@ -113,9 +98,6 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
       <span style={{ color: ok ? '#aaa' : '#e77', fontSize: 12 }}>{label}</span>
     </div>
   );
-
-  const deployDone = !dp.busy && dp.logs.length > 0;
-  const deployFailed = !dp.busy && !!dp.error;
 
   return (
     <>
@@ -205,68 +187,23 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
         </div>
       )}
 
-      {/* 배포 진행 상황 모달 팝업 */}
-      {showProgressModal && (
-        <div className="deploy-progress-overlay">
-          <div className="deploy-progress-modal">
-            <div className="deploy-progress-header">
-              {dp.busy ? '배포 진행 중...' : deployFailed ? '배포 실패' : '배포 완료'}
-              {dp.busy && <span className="deploy-spinner" />}
-            </div>
-
-            {dp.status && (
-              <div className="deploy-progress-status">
-                {dp.status}
-              </div>
-            )}
-
-            <ProgressBar progress={dp.progress} color={deployFailed ? '#e55' : '#2a9a42'} />
-
-            <div style={{ position: 'relative' }}>
-              {dp.logs.length > 0 && (
-                <button onClick={copyLogs} style={{
-                  position: 'absolute', top: 4, right: 4, zIndex: 1,
-                  padding: '2px 8px', fontSize: 11, cursor: 'pointer',
-                  background: logCopied ? '#1a6e2e' : '#3a3a3a',
-                  border: '1px solid #555', borderRadius: 3, color: '#ccc',
-                }}>
-                  {logCopied ? '✓ 복사됨' : '복사'}
-                </button>
-              )}
-              <div className="deploy-log-panel" ref={logPanelRef}>
-                {dp.logs.map((log, i) => (
-                  <div key={i} className={
-                    log.startsWith('$') ? 'deploy-log-cmd' :
-                    log.startsWith('──') ? 'deploy-log-step' :
-                    log.startsWith('✓') || log.startsWith('→') ? 'deploy-log-ok' :
-                    log.startsWith('✗') ? 'deploy-log-err' :
-                    'deploy-log-info'
-                  }>
-                    {log}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <ErrorMessage error={dp.error} />
-
-            {/* 완료/실패 시 결과 + 닫기 버튼 */}
-            {!dp.busy && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                {deployDone && !deployFailed && ghPageUrl && (
-                  <button className="db-btn" onClick={() => openUrl(ghPageUrl)}
-                    style={{ marginRight: 8, background: '#0e5f1f', borderColor: '#1a8a30' }}>
-                    페이지 열기 ↗
-                  </button>
-                )}
-                <button className="db-btn" onClick={() => setShowProgressModal(false)}>
-                  닫기
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <DeployProgressModal
+        show={showProgressModal}
+        busy={dp.busy}
+        logs={dp.logs}
+        status={dp.status}
+        error={dp.error}
+        progress={dp.progress}
+        color="#2a9a42"
+        titleBusy="배포 진행 중..."
+        titleDone="배포 완료"
+        titleFailed="배포 실패"
+        resultUrl={ghPageUrl}
+        resultLabel="페이지 열기"
+        resultButtonStyle={{ background: '#0e5f1f', borderColor: '#1a8a30' }}
+        onResultClick={() => openUrl(ghPageUrl)}
+        onClose={() => setShowProgressModal(false)}
+      />
     </>
   );
 }

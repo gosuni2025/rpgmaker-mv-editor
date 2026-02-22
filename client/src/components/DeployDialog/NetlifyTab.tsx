@@ -5,7 +5,7 @@ import apiClient from '../../api/client';
 import { SSEEvent } from './types';
 import { readSSEStream } from './sseUtils';
 import useDeployProgress from './useDeployProgress';
-import { ProgressBar, StatusMessage, ErrorMessage } from './StatusWidgets';
+import { DeployProgressModal } from './StatusWidgets';
 
 interface Props {
   cbOpts: CacheBustOpts;
@@ -24,16 +24,14 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
   const [manualSiteId, setManualSiteId] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
-  const [zipFile, setZipFile] = useState('');
   const [deployUrl, setDeployUrl] = useState('');
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [deployMode, setDeployMode] = useState<'zip' | 'netlify'>('netlify');
 
   const handleSSEEventWithSiteId = useCallback(
     (ev: SSEEvent, totalRef: { current: number }, weights: { copy: number; zip: number }): boolean => {
       if (ev.type === 'site-created') {
         setSiteId(ev.siteId);
-      }
-      if (ev.type === 'zip-progress' && ev.name) {
-        setZipFile(ev.name);
       }
       return dp.handleSSEEvent(ev, totalRef, weights);
     },
@@ -50,11 +48,12 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
 
   const handleMakeZip = () => {
     dp.resetStatus();
-    setZipFile('');
     setDeployUrl('');
     dp.setProgress(0);
     dp.setStatus(t('deploy.netlify.analyzing'));
     dp.setBusy(true);
+    setDeployMode('zip');
+    setShowProgressModal(true);
     let completed = false;
     const totalRef = { current: 0 };
     const evtSource = new EventSource(`/api/project/deploy-zip-progress?${cacheBustToQuery(cbOpts)}`);
@@ -65,7 +64,6 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
         dp.setProgress(1);
         dp.setStatus(t('deploy.netlify.zipDone'));
         dp.setBusy(false);
-        setTimeout(() => dp.setProgress(null), 800);
         evtSource.close();
         return;
       }
@@ -86,11 +84,12 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
   const handleAutoDeploy = async () => {
     if (!apiKey.trim()) { dp.setError(t('deploy.netlify.apiKeyRequired')); return; }
     dp.resetStatus();
-    setZipFile('');
     setDeployUrl('');
     dp.setProgress(0);
     dp.setStatus(t('deploy.netlify.analyzing'));
     dp.setBusy(true);
+    setDeployMode('netlify');
+    setShowProgressModal(true);
     const totalRef = { current: 0 };
     try {
       await readSSEStream(
@@ -110,7 +109,6 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
             dp.setStatus(t('deploy.netlify.deployDone'));
             setDeployUrl(ev.deployUrl || '');
             if (ev.siteUrl) setSiteUrl(ev.siteUrl);
-            setTimeout(() => dp.setProgress(null), 800);
             return false;
           }
           return handleSSEEventWithSiteId(ev, totalRef, { copy: 0.55, zip: 0.1 });
@@ -223,12 +221,6 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
         {t('deploy.netlify.autoDeploy')}
       </button>
 
-      <ProgressBar progress={dp.progress} color="#2675bf" />
-      <StatusMessage status={dp.status} />
-      {zipFile && !deployUrl && (
-        <div style={{ color: '#ddd', fontSize: 11, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{zipFile}</div>
-      )}
-      <ErrorMessage error={dp.error} />
       {deployUrl && (
         <div className="deploy-result-box">
           <div style={{ color: '#6c6', fontSize: 11, marginBottom: 4 }}>{t('deploy.netlify.deployUrl')}</div>
@@ -240,6 +232,24 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
           </button>
         </div>
       )}
+
+      <DeployProgressModal
+        show={showProgressModal}
+        busy={dp.busy}
+        logs={dp.logs}
+        status={dp.status}
+        error={dp.error}
+        progress={dp.progress}
+        color="#2675bf"
+        titleBusy={deployMode === 'zip' ? 'ZIP 생성 중...' : '배포 진행 중...'}
+        titleDone={deployMode === 'zip' ? 'ZIP 생성 완료' : '배포 완료'}
+        titleFailed={deployMode === 'zip' ? 'ZIP 생성 실패' : '배포 실패'}
+        resultUrl={deployMode === 'netlify' ? deployUrl : ''}
+        resultLabel={t('deploy.netlify.openSite')}
+        resultButtonStyle={{ background: '#0e5f1f', borderColor: '#1a8a30' }}
+        onResultClick={() => openUrl(deployUrl || siteUrl)}
+        onClose={() => setShowProgressModal(false)}
+      />
     </>
   );
 }

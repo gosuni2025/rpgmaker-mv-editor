@@ -271,9 +271,11 @@ export async function buildDeployZipWithProgress(
   fs.mkdirSync(DEPLOYS_DIR, { recursive: true });
 
   onEvent({ type: 'status', phase: 'counting' });
+  onEvent({ type: 'log', message: '── 파일 수집 ──' });
   const files = collectFilesForDeploy(srcPath);
   const total = files.length;
   onEvent({ type: 'counted', total });
+  onEvent({ type: 'log', message: `파일 ${total}개 수집` });
 
   const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpgdeploy-'));
   try {
@@ -287,16 +289,19 @@ export async function buildDeployZipWithProgress(
         onEvent({ type: 'progress', current, total });
       }
     }
+    onEvent({ type: 'log', message: '✓ 복사 완료' });
 
     applyIndexHtmlRename(stagingDir);
     applyCacheBusting(stagingDir, makeBuildId(), opts);
 
     onEvent({ type: 'status', phase: 'zipping' });
+    onEvent({ type: 'log', message: '── ZIP 압축 중 ──' });
     const safeName = (gameTitle || 'game').replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
     const zipPath = path.join(DEPLOYS_DIR, `${safeName}.zip`);
     await zipStagingWithProgress(stagingDir, zipPath, total, (cur, tot, name) => {
       onEvent({ type: 'zip-progress', current: cur, total: tot, name });
     });
+    onEvent({ type: 'log', message: '✓ ZIP 완료' });
 
     return zipPath;
   } finally {
@@ -350,12 +355,14 @@ router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
 
     if (!resolvedSiteId) {
       sseWrite(res, { type: 'status', phase: 'creating-site' });
+      sseWrite(res, { type: 'log', message: '── 사이트 생성 중 ──' });
       const siteName = toNetlifySiteName(gameTitle);
       const site = await netlifyCreateSite(apiKey.trim(), siteName);
       resolvedSiteId = site.id;
       const current = settingsManager.get();
       settingsManager.update({ netlify: { ...current.netlify, siteId: resolvedSiteId } });
       sseWrite(res, { type: 'site-created', siteId: resolvedSiteId, siteName: site.name });
+      sseWrite(res, { type: 'log', message: `✓ 사이트 생성: ${site.name}.netlify.app` });
     }
 
     const zipPath = await buildDeployZipWithProgress(
@@ -365,6 +372,7 @@ router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
       (data) => sseWrite(res, data),
     );
     sseWrite(res, { type: 'status', phase: 'uploading' });
+    sseWrite(res, { type: 'log', message: '── Netlify 업로드 중 ──' });
     const result = await netlifyUpload(apiKey.trim(), resolvedSiteId, zipPath, (sent, total) => {
       sseWrite(res, { type: 'upload-progress', sent, total });
     });
@@ -372,6 +380,7 @@ router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
     const siteUrl = result.ssl_url || result.url || '';
     const current2 = settingsManager.get();
     settingsManager.update({ netlify: { ...current2.netlify, siteUrl } });
+    sseWrite(res, { type: 'log', message: `✓ 배포 완료: ${deployUrl}` });
     sseWrite(res, { type: 'done', deployUrl, siteUrl, deployId: result.id });
   } catch (err) {
     sseWrite(res, { type: 'error', message: (err as Error).message });
