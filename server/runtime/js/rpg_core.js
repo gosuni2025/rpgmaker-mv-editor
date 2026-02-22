@@ -551,6 +551,31 @@ ImageCache.prototype.isReady = function(){
     });
 };
 
+ImageCache.prototype.getLoadProgress = function(){
+    var items = this._items;
+    var total = 0, loaded = 0;
+    Object.keys(items).forEach(function(key) {
+        var item = items[key];
+        if (!item.bitmap.isRequestOnly()) {
+            total++;
+            if (item.bitmap.isReady()) loaded++;
+        }
+    });
+    return { total: total, loaded: loaded };
+};
+
+ImageCache.prototype.getCurrentLoadingPath = function(){
+    var items = this._items;
+    var keys = Object.keys(items);
+    for (var i = 0; i < keys.length; i++) {
+        var item = items[keys[i]];
+        if (!item.bitmap.isRequestOnly() && !item.bitmap.isReady() && !item.bitmap.isError()) {
+            return item.key;
+        }
+    }
+    return '';
+};
+
 ImageCache.prototype.getErrorBitmap = function(){
     var items = this._items;
     var bitmap = null;
@@ -2607,16 +2632,92 @@ Graphics._clearUpperCanvas = function() {
  */
 Graphics._paintUpperCanvas = function() {
     this._clearUpperCanvas();
-    if (this._loadingImage && this._loadingCount >= 20) {
+    if (this._loadingCount >= 20) {
         var context = this._upperCanvas.getContext('2d');
-        var dx = (this._width - this._loadingImage.width) / 2;
-        var dy = (this._height - this._loadingImage.height) / 2;
         var alpha = ((this._loadingCount - 20) / 30).clamp(0, 1);
         context.save();
         context.globalAlpha = alpha;
-        context.drawImage(this._loadingImage, dx, dy);
+
+        // Loading.png 이미지 (중앙 약간 위로)
+        if (this._loadingImage) {
+            var dx = (this._width - this._loadingImage.width) / 2;
+            var dy = (this._height - this._loadingImage.height) / 2 - 40;
+            context.drawImage(this._loadingImage, dx, dy);
+        }
+
+        // 프로그레스 계산
+        var progress = Graphics._getLoadingProgress();
+        var statusText = Graphics._getLoadingStatusText();
+
+        var barWidth = Math.min(400, this._width * 0.6);
+        var barHeight = 8;
+        var barX = (this._width - barWidth) / 2;
+        var barY = this._height / 2 + 30;
+
+        // 프로그레스 영역 반투명 배경
+        context.fillStyle = 'rgba(0,0,0,0.55)';
+        context.fillRect(barX - 16, barY - 28, barWidth + 32, barHeight + 54);
+
+        // 파일명 텍스트
+        context.font = '13px "Segoe UI", Arial, sans-serif';
+        context.textAlign = 'center';
+        context.fillStyle = '#bbb';
+        context.fillText(statusText, this._width / 2, barY - 10);
+
+        // 프로그레스바 트랙
+        context.fillStyle = '#222';
+        context.fillRect(barX, barY, barWidth, barHeight);
+
+        // 프로그레스바 진행
+        if (progress > 0) {
+            var grad = context.createLinearGradient(barX, 0, barX + barWidth, 0);
+            grad.addColorStop(0, '#2c6fc7');
+            grad.addColorStop(1, '#55aaff');
+            context.fillStyle = grad;
+            context.fillRect(barX, barY, barWidth * progress, barHeight);
+        }
+
+        // 퍼센트
+        context.font = '11px "Segoe UI", Arial, sans-serif';
+        context.fillStyle = '#888';
+        context.fillText(Math.floor(progress * 100) + '%', this._width / 2, barY + barHeight + 16);
+
         context.restore();
     }
+};
+
+Graphics._getLoadingProgress = function() {
+    var dbTotal  = (typeof DataManager !== 'undefined' ? DataManager._dbTotalCount  : 0) || 0;
+    var dbLoaded = (typeof DataManager !== 'undefined' ? DataManager._dbLoadedCount : 0) || 0;
+    var imgTotal = 0, imgLoaded = 0;
+    if (typeof ImageManager !== 'undefined' && ImageManager._imageCache &&
+            typeof ImageManager._imageCache.getLoadProgress === 'function') {
+        var p = ImageManager._imageCache.getLoadProgress();
+        imgTotal  = p.total;
+        imgLoaded = p.loaded;
+    }
+    var total  = dbTotal  + imgTotal;
+    var loaded = dbLoaded + imgLoaded;
+    return total > 0 ? Math.min(loaded / total, 1) : 0;
+};
+
+Graphics._getLoadingStatusText = function() {
+    var dbTotal  = (typeof DataManager !== 'undefined' ? DataManager._dbTotalCount  : 0) || 0;
+    var dbLoaded = (typeof DataManager !== 'undefined' ? DataManager._dbLoadedCount : 0) || 0;
+    if (dbLoaded < dbTotal) {
+        var file = (typeof DataManager !== 'undefined' ? DataManager._currentLoadingFile : '') || '';
+        return file || 'Loading database...';
+    }
+    if (typeof ImageManager !== 'undefined' && ImageManager._imageCache &&
+            typeof ImageManager._imageCache.getCurrentLoadingPath === 'function') {
+        var path = ImageManager._imageCache.getCurrentLoadingPath();
+        if (path) {
+            // "img/tilesets/Forest.png:0" → "Forest.png"
+            var filename = path.split('/').pop().split('?')[0].split(':')[0];
+            return filename;
+        }
+    }
+    return '';
 };
 
 /**
