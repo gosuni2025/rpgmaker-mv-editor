@@ -83,7 +83,17 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
         }
       });
     });
-    return cmds.reverse(); // 최근 커맨드가 위에 오도록 역순 정렬
+    cmds.reverse(); // 최근 커맨드가 위에 오도록 역순 정렬
+
+    // 위치값이 같은 커맨드는 가장 최근(첫 번째) 것만 대표로 표시
+    const seen = new Set<string>();
+    return cmds.filter(cmd => {
+      const pp = cmd.params;
+      const key = [pp[2], pp[3], pp[4], pp[5], pp[6], pp[7], pp[8], JSON.stringify(pp[12])].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }, [currentMap, selectedEventId, pictureNumber]);
 
   // 커맨드 선택 시 시작 위치 자동 설정
