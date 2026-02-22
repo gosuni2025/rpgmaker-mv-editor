@@ -11,6 +11,7 @@ import {
   applyIndexHtmlRename,
   applyCacheBusting,
   makeBuildId,
+  generateBundleFiles,
   setupSSE,
   sseWrite,
   parseCacheBustQuery,
@@ -156,7 +157,7 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
       }
     }
 
-    // ── 2. index.html 교체 + 캐시 버스팅 ─────────────────────────────────────
+    // ── 2. index.html 교체 + 캐시 버스팅 + 번들 생성 ────────────────────────
     sseStatus('patching');
     sseLog('── 2/3: index.html 교체 & 캐시 버스팅 ──');
     sseLog('index.html → index_pixi.html (PIXI 원본 백업)');
@@ -164,6 +165,7 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
     applyIndexHtmlRename(stagingDir);
     sseLog(`캐시 버스팅 적용 (buildId: ${buildId})`);
     applyCacheBusting(stagingDir, buildId, opts);
+    generateBundleFiles(stagingDir, buildId, sseLog);
 
     // ── 3. butler push ────────────────────────────────────────────────────────
     sseStatus('uploading');

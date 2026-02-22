@@ -1,44 +1,31 @@
 /**
- * ServiceWorker — 리소스 번들 캐싱
+ * ServiceWorker — 리소스 캐싱
  *
  * install:
- *   1. /game/bundles/manifest.json 에서 버전 확인
- *   2. 버전이 다르면 img/audio/data.zip 3개를 병렬 다운로드
- *   3. JSZip으로 압축 해제 → Cache API 저장
- *   4. progress를 postMessage로 클라이언트에 전달
+ *   1. bundles/manifest.json 에서 버전 + 파일 목록 확인
+ *   2. 버전이 다르면 img/audio/data 파일을 개별 병렬 fetch
+ *   3. Cache API 저장 + progress postMessage
  *
  * fetch:
- *   /game/img|audio|data/* 요청을 캐시에서 응답 (cache-first)
+ *   img/audio/data/* 요청을 캐시에서 응답 (cache-first)
  */
-
-importScripts('/game/js/libs/jszip.min.js');
 
 const CACHE_PREFIX = 'game-bundle-';
 const META_CACHE = 'game-bundle-meta';
-const INTERCEPT_PATHS = ['/game/img/', '/game/audio/', '/game/data/'];
+const INTERCEPT_DIRS = ['img/', 'audio/', 'data/'];
+const FETCH_CONCURRENCY = 8;
 
-// 번들명 → 캐시 내 경로 prefix 매핑
-const BUNDLE_PREFIXES = {
-  img:   '/game/img/',
-  audio: '/game/audio/',
-  data:  '/game/data/',
-};
-
-// 파일 확장자 → Content-Type
-function mimeType(filename) {
-  const ext = filename.split('.').pop().toLowerCase();
-  const map = {
-    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-    gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
-    ogg: 'audio/ogg', mp3: 'audio/mpeg', m4a: 'audio/mp4',
-    wav: 'audio/wav', opus: 'audio/opus',
-    json: 'application/json', js: 'application/javascript',
-    css: 'text/css', html: 'text/html', txt: 'text/plain',
-  };
-  return map[ext] || 'application/octet-stream';
+/** scope URL에서 pathname base 추출 (e.g. "/game/" or "/repo/game/") */
+function getScopeBase() {
+  try {
+    const p = new URL(self.registration.scope).pathname;
+    // 반드시 /로 끝나도록
+    return p.endsWith('/') ? p : p + '/';
+  } catch {
+    return '/';
+  }
 }
 
-// 모든 클라이언트에게 메시지 전송
 async function broadcast(msg) {
   const clients = await self.clients.matchAll({ includeUncontrolled: true });
   clients.forEach(c => c.postMessage(msg));
@@ -48,27 +35,32 @@ async function broadcast(msg) {
 
 self.addEventListener('install', event => {
   self.skipWaiting();
-  event.waitUntil(installBundles());
+  event.waitUntil(installFromManifest());
 });
 
-async function installBundles() {
+async function installFromManifest() {
+  const base = getScopeBase();
+
   // manifest 로드
   let manifest;
   try {
-    const res = await fetch('/game/bundles/manifest.json', { cache: 'no-store' });
+    const res = await fetch(base + 'bundles/manifest.json', { cache: 'no-store' });
     if (!res.ok) throw new Error('manifest ' + res.status);
     manifest = await res.json();
   } catch (e) {
-    // 번들 API 없으면 SW는 그냥 pass-through로 동작
     await broadcast({ type: 'bundle-skip', reason: String(e) });
     return;
   }
 
-  const { version, bundles } = manifest;
+  const { version, files } = manifest;
+  if (!Array.isArray(files) || files.length === 0) {
+    await broadcast({ type: 'bundle-skip', reason: 'empty file list' });
+    return;
+  }
 
   // 이미 이 버전 캐시가 있으면 스킵
   const metaCache = await caches.open(META_CACHE);
-  const cachedVersionRes = await metaCache.match('/bundle-version');
+  const cachedVersionRes = await metaCache.match('version');
   if (cachedVersionRes) {
     const cachedVersion = await cachedVersionRes.text();
     if (cachedVersion === version) {
@@ -77,63 +69,36 @@ async function installBundles() {
     }
   }
 
-  // 새 캐시 열기
   const cacheName = CACHE_PREFIX + version;
   const dataCache = await caches.open(cacheName);
 
-  await broadcast({ type: 'bundle-start', version, bundles });
+  const total = files.length;
+  let loaded = 0;
+  await broadcast({ type: 'bundle-progress', totalFiles: total, loadedFiles: 0 });
 
-  let totalFiles = 0;
-  let loadedFiles = 0;
-
-  // 3개 ZIP 병렬 다운로드 + 압축 해제
-  await Promise.all(bundles.map(async (bundle) => {
-    const prefix = BUNDLE_PREFIXES[bundle];
-    if (!prefix) return;
-
+  async function fetchAndCache(filePath) {
+    const url = base + filePath;
     try {
-      // 다운로드 (progress 표시용 reader)
-      const res = await fetch('/game/bundles/' + bundle + '.zip', { cache: 'no-store' });
-      if (!res.ok) throw new Error(bundle + '.zip ' + res.status);
-
-      const buffer = await res.arrayBuffer();
-
-      // JSZip 압축 해제
-      const zip = await JSZip.loadAsync(buffer);
-
-      // 파일 목록 수집
-      const fileEntries = [];
-      zip.forEach((relativePath, file) => {
-        if (!file.dir) fileEntries.push({ relativePath, file });
-      });
-      totalFiles += fileEntries.length;
-      await broadcast({ type: 'bundle-progress', bundle, step: 'extract', totalFiles, loadedFiles });
-
-      // Cache API에 저장 (병렬)
-      await Promise.all(fileEntries.map(async ({ relativePath, file }) => {
-        const data = await file.async('arraybuffer');
-        const cacheUrl = prefix + relativePath;
-        await dataCache.put(
-          new Request(cacheUrl),
-          new Response(data, {
-            headers: {
-              'Content-Type': mimeType(relativePath),
-              'Content-Length': String(data.byteLength),
-            },
-          })
-        );
-        loadedFiles++;
-        if (loadedFiles % 5 === 0 || loadedFiles === totalFiles) {
-          await broadcast({ type: 'bundle-progress', totalFiles, loadedFiles });
-        }
-      }));
+      const res = await fetch(url, { cache: 'no-store' });
+      if (res.ok) {
+        await dataCache.put(new Request(url), res);
+      }
     } catch (e) {
-      await broadcast({ type: 'bundle-error', bundle, error: String(e) });
+      console.warn('[SW] fetch failed:', url, String(e));
     }
-  }));
+    loaded++;
+    if (loaded % 10 === 0 || loaded === total) {
+      await broadcast({ type: 'bundle-progress', totalFiles: total, loadedFiles: loaded });
+    }
+  }
+
+  // FETCH_CONCURRENCY개씩 병렬 처리
+  for (let i = 0; i < files.length; i += FETCH_CONCURRENCY) {
+    await Promise.all(files.slice(i, i + FETCH_CONCURRENCY).map(fetchAndCache));
+  }
 
   // 버전 저장
-  await metaCache.put('/bundle-version', new Response(version));
+  await metaCache.put('version', new Response(version));
 
   // 오래된 캐시 삭제
   const allCaches = await caches.keys();
@@ -143,7 +108,7 @@ async function installBundles() {
       .map(k => caches.delete(k))
   );
 
-  await broadcast({ type: 'bundle-ready', version, totalFiles });
+  await broadcast({ type: 'bundle-ready', version, totalFiles: total });
 }
 
 // ── activate ─────────────────────────────────────────────────────────────────
@@ -155,15 +120,25 @@ self.addEventListener('activate', event => {
 // ── fetch ─────────────────────────────────────────────────────────────────────
 
 self.addEventListener('fetch', event => {
-  const { pathname } = new URL(event.request.url);
-  const intercept = INTERCEPT_PATHS.some(p => pathname.startsWith(p));
-  if (!intercept) return;
+  const base = getScopeBase();
+  let pathname;
+  try {
+    pathname = new URL(event.request.url).pathname;
+  } catch {
+    return;
+  }
+
+  // base prefix 이후 상대 경로로 확인
+  const rel = pathname.startsWith(base)
+    ? pathname.slice(base.length)
+    : (pathname.startsWith('/') ? pathname.slice(1) : pathname);
+
+  if (!INTERCEPT_DIRS.some(d => rel.startsWith(d))) return;
 
   event.respondWith(cacheFirst(event.request));
 });
 
 async function cacheFirst(request) {
-  // 모든 버전 캐시에서 검색 (최신 버전 우선)
   const allCacheNames = (await caches.keys())
     .filter(k => k.startsWith(CACHE_PREFIX))
     .sort()
@@ -174,6 +149,5 @@ async function cacheFirst(request) {
     if (cached) return cached;
   }
 
-  // 캐시 미스 → 네트워크
   return fetch(request);
 }

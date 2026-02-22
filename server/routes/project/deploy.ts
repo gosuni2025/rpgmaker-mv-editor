@@ -155,6 +155,55 @@ export function applyCacheBusting(stagingDir: string, buildId: string, opts: Cac
   }
 }
 
+/** 배포 디렉터리에 SW 번들 파일 생성:
+ *  - bundles/manifest.json (버전 + 파일 목록)
+ *  - sw.js (runtime에서 복사, buildId 주석 주입)
+ */
+export function generateBundleFiles(
+  stagingDir: string,
+  buildId: string,
+  log?: (msg: string) => void,
+): void {
+  const l = (msg: string) => { if (log) log(msg); };
+  l('── SW 번들 파일 생성 ──');
+
+  const fileList: string[] = [];
+
+  function walk(dir: string, prefix: string) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith('.')) continue;
+      const rel = `${prefix}/${entry.name}`;
+      if (entry.isDirectory()) {
+        walk(path.join(dir, entry.name), rel);
+      } else {
+        fileList.push(rel.startsWith('/') ? rel.slice(1) : rel);
+      }
+    }
+  }
+
+  for (const dir of ['img', 'audio', 'data']) {
+    walk(path.join(stagingDir, dir), dir);
+  }
+
+  const bundlesDir = path.join(stagingDir, 'bundles');
+  fs.mkdirSync(bundlesDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(bundlesDir, 'manifest.json'),
+    JSON.stringify({ version: buildId, files: fileList }),
+    'utf-8',
+  );
+
+  // sw.js 복사 (buildId 주석 주입 → 배포마다 SW 파일이 달라져 재설치 트리거)
+  const swSrcPath = path.resolve(__dirname, '../../runtime/sw.js');
+  if (fs.existsSync(swSrcPath)) {
+    const swContent = `// build: ${buildId}\n` + fs.readFileSync(swSrcPath, 'utf-8');
+    fs.writeFileSync(path.join(stagingDir, 'sw.js'), swContent, 'utf-8');
+  }
+
+  l(`✓ SW 번들 생성 완료 (${fileList.length}개 파일)`);
+}
+
 export function makeBuildId(): string {
   const now = new Date();
   return [
@@ -435,7 +484,9 @@ export async function buildDeployZipWithProgress(
 
     applyIndexHtmlRename(stagingDir);
     // 프로젝트가 WebP면 convertWebp 플래그를 강제 활성화
-    applyCacheBusting(stagingDir, makeBuildId(), { ...opts, convertWebp: projectIsWebp || opts.convertWebp });
+    const buildId = makeBuildId();
+    applyCacheBusting(stagingDir, buildId, { ...opts, convertWebp: projectIsWebp || opts.convertWebp });
+    generateBundleFiles(stagingDir, buildId, (msg) => onEvent({ type: 'log', message: msg }));
 
     onEvent({ type: 'status', phase: 'zipping' });
     onEvent({ type: 'log', message: '── ZIP 압축 중 ──' });
