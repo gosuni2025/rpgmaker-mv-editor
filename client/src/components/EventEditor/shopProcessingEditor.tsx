@@ -197,6 +197,14 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
         </div>
       </div>
 
+      {/* 재고 색상 도움말 */}
+      <div style={{ fontSize: 11, color: '#888', display: 'flex', gap: 12, paddingLeft: 2 }}>
+        <span><span style={{ color: '#ddd' }}>∞</span> 무제한</span>
+        <span><span style={{ color: '#ddd' }}>흰색</span> 재고 충분</span>
+        <span><span style={{ color: '#ffaa00' }}>주황</span> 재고 부족 (1~3개)</span>
+        <span><span style={{ color: '#ff6666' }}>빨강</span> 품절 (0개)</span>
+      </div>
+
       {/* 옵션 */}
       <label style={{ fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
         <input type="checkbox" checked={purchaseOnly} onChange={e => setPurchaseOnly(e.target.checked)} />
