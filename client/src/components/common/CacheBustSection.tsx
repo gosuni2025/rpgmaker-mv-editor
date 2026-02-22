@@ -7,6 +7,7 @@ export interface CacheBustOpts {
   audio:   boolean;
   video:   boolean;
   data:    boolean;
+  filterUnused: boolean;
 }
 
 export const DEFAULT_CACHE_BUST_OPTS: CacheBustOpts = {
@@ -15,6 +16,7 @@ export const DEFAULT_CACHE_BUST_OPTS: CacheBustOpts = {
   audio:   true,
   video:   true,
   data:    true,
+  filterUnused: false,
 };
 
 export const CB_KEYS = ['scripts', 'images', 'audio', 'video', 'data'] as const;
@@ -25,6 +27,7 @@ export function cacheBustToQuery(opts: CacheBustOpts): string {
   for (const key of CB_KEYS) {
     p.set(`cb${key.charAt(0).toUpperCase()}${key.slice(1)}`, opts[key] ? '1' : '0');
   }
+  p.set('cbFilterUnused', opts.filterUnused ? '1' : '0');
   return p.toString();
 }
 
@@ -36,6 +39,7 @@ interface Props {
 export default function CacheBustSection({ opts, onChange }: Props) {
   const { t } = useTranslation();
   const [helpOpen, setHelpOpen] = useState(false);
+  const [filterHelpOpen, setFilterHelpOpen] = useState(false);
 
   return (
     <div style={{ background: '#2e2e2e', border: '1px solid #3e3e3e', borderRadius: 4, padding: '10px 12px' }}>
@@ -91,6 +95,60 @@ export default function CacheBustSection({ opts, onChange }: Props) {
             <span style={{ color: '#ccc', fontSize: 12 }}>{t(`deploy.cacheBust.${key}`)}</span>
           </label>
         ))}
+      </div>
+
+      {/* ── 미사용 에셋 필터 ── */}
+      <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #3a3a3a' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', flex: 1 }}>
+            <input
+              type="checkbox"
+              checked={opts.filterUnused}
+              onChange={(e) => onChange({ ...opts, filterUnused: e.target.checked })}
+            />
+            <span style={{ color: '#ccc', fontSize: 12 }}>{t('deploy.cacheBust.filterUnused')}</span>
+          </label>
+          <button
+            onClick={() => setFilterHelpOpen((v) => !v)}
+            title={t('deploy.cacheBust.filterUnusedHelp')}
+            style={{
+              background: filterHelpOpen ? '#2675bf' : '#444',
+              border: '1px solid #555',
+              borderRadius: '50%',
+              width: 16,
+              height: 16,
+              color: '#ddd',
+              fontSize: 10,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              lineHeight: 1,
+              flexShrink: 0,
+            }}
+          >?</button>
+        </div>
+
+        {filterHelpOpen && (
+          <div style={{
+            background: '#252525',
+            border: '1px solid #3a3a3a',
+            borderRadius: 3,
+            padding: '8px 10px',
+            marginTop: 6,
+            fontSize: 11,
+            color: '#aaa',
+            lineHeight: 1.7,
+          }}>
+            <div style={{ fontWeight: 600, color: '#ccc', marginBottom: 4 }}>{t('deploy.cacheBust.filterUnusedHelp')}</div>
+            <div>· {t('deploy.cacheBust.filterUnusedDesc1')}</div>
+            <div>· {t('deploy.cacheBust.filterUnusedDesc2')}</div>
+            <div>· {t('deploy.cacheBust.filterUnusedDesc3')}</div>
+            <div style={{ marginTop: 4, color: '#e8a040' }}>⚠ {t('deploy.cacheBust.filterUnusedWarn')}</div>
+            <div style={{ marginTop: 4, color: '#5af' }}>ℹ {t('deploy.cacheBust.filterUnusedItchio')}</div>
+          </div>
+        )}
       </div>
     </div>
   );

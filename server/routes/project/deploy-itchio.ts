@@ -15,6 +15,7 @@ import {
   sseWrite,
   parseCacheBustQuery,
   collectFilesForDeploy,
+  collectUsedAssetNames,
   getGameTitle,
 } from './deploy';
 
@@ -133,10 +134,15 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
     sseStatus('copying');
     sseLog('── 1/3: 파일 수집 및 복사 ──');
 
-    const files = collectFilesForDeploy(srcPath);
+    let usedNames: Set<string> | undefined;
+    if (opts.filterUnused) {
+      sseLog('미사용 에셋 분석 중...');
+      usedNames = collectUsedAssetNames(srcPath);
+    }
+    const files = collectFilesForDeploy(srcPath, '', usedNames);
     const total = files.length;
     sseWrite(res, { type: 'counted', total });
-    sseLog(`파일 ${total}개 수집`);
+    sseLog(`파일 ${total}개 수집${opts.filterUnused ? ' (미사용 에셋 제외됨)' : ''}`);
 
     stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpgdeploy-itchio-'));
     let current = 0;

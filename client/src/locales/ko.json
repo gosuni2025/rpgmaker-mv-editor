@@ -1442,7 +1442,14 @@
       "images": "이미지",
       "audio": "오디오",
       "video": "동영상",
-      "data": "데이터"
+      "data": "데이터",
+      "filterUnused": "미사용 에셋 제외",
+      "filterUnusedHelp": "미사용 에셋 제외란?",
+      "filterUnusedDesc1": "data/*.json을 파싱하여 참조된 파일 이름을 수집합니다",
+      "filterUnusedDesc2": "js/plugins/*.js의 문자열 리터럴도 추가로 스캔합니다",
+      "filterUnusedDesc3": "audio/se, audio/bgm, img/animations, img/characters 등 에셋 폴더의 미참조 파일을 제외합니다. img/system, js, fonts, data 폴더는 항상 포함됩니다",
+      "filterUnusedWarn": "플러그인에서 변수로 파일명을 조합하는 경우 감지하지 못할 수 있습니다. 제외 후 게임이 정상 실행되는지 반드시 확인하세요",
+      "filterUnusedItchio": "itch.io는 파일이 1,000개를 초과하면 웹 플레이어에서 실행이 불가합니다. 파일 수가 많은 경우 이 옵션을 활성화하세요"
     },
     "tabNetlify": "Netlify",
     "tabGhPages": "GitHub Pages",

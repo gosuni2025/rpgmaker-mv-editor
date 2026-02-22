@@ -19,15 +19,73 @@ export const EXCLUDE_FILES = new Set(['.DS_Store', 'Thumbs.db', 'Game.rpgproject
 
 // ─── 캐시 버스팅 옵션 ─────────────────────────────────────────────────────────
 export interface CacheBustOptions {
-  scripts?: boolean; // HTML 정적 script/link + PluginManager 동적 로드
-  images?:  boolean; // img/
-  audio?:   boolean; // audio/
-  video?:   boolean; // movies/
-  data?:    boolean; // data/
+  scripts?:      boolean; // HTML 정적 script/link + PluginManager 동적 로드
+  images?:       boolean; // img/
+  audio?:        boolean; // audio/
+  video?:        boolean; // movies/
+  data?:         boolean; // data/
+  filterUnused?: boolean; // 미사용 에셋 제외
 }
 
-/** 배포할 파일 목록을 상대경로 배열로 반환 */
-export function collectFilesForDeploy(baseDir: string, subDir = ''): string[] {
+// ─── 미사용 에셋 필터링 ───────────────────────────────────────────────────────
+
+/** data/js에서 참조가 감지된 이름만 포함할 디렉터리 (audio/se 등) */
+const FILTERABLE_DIRS = new Set([
+  'audio/se', 'audio/bgm', 'audio/bgs', 'audio/me',
+  'img/animations', 'img/battlebacks1', 'img/battlebacks2',
+  'img/characters', 'img/enemies', 'img/faces', 'img/parallaxes',
+  'img/pictures', 'img/sv_actors', 'img/sv_enemies',
+  'img/titles1', 'img/titles2', 'img/tilesets',
+]);
+
+function extractStringValues(obj: unknown, out: Set<string>): void {
+  if (typeof obj === 'string') {
+    const s = obj.trim();
+    if (s && s.length >= 1 && s.length <= 128 && !s.includes('/') && !s.includes('\\') && !s.includes('\n')) {
+      out.add(s.toLowerCase());
+    }
+  } else if (Array.isArray(obj)) {
+    for (const item of obj) extractStringValues(item, out);
+  } else if (obj !== null && typeof obj === 'object') {
+    for (const val of Object.values(obj as Record<string, unknown>)) extractStringValues(val, out);
+  }
+}
+
+/** data/*.json + js/plugins/*.js 에서 참조되는 에셋 이름(소문자, 확장자 없음) 수집 */
+export function collectUsedAssetNames(projectPath: string): Set<string> {
+  const names = new Set<string>();
+
+  // data/*.json — JSON 구조 전체에서 문자열 값 추출
+  const dataDir = path.join(projectPath, 'data');
+  if (fs.existsSync(dataDir)) {
+    for (const file of fs.readdirSync(dataDir)) {
+      if (!file.endsWith('.json')) continue;
+      try {
+        extractStringValues(JSON.parse(fs.readFileSync(path.join(dataDir, file), 'utf8')), names);
+      } catch {}
+    }
+  }
+
+  // js/plugins/*.js — 따옴표 안 문자열(경로 구분자 없음) 추출
+  const pluginsDir = path.join(projectPath, 'js', 'plugins');
+  if (fs.existsSync(pluginsDir)) {
+    for (const file of fs.readdirSync(pluginsDir)) {
+      if (!file.endsWith('.js')) continue;
+      try {
+        const content = fs.readFileSync(path.join(pluginsDir, file), 'utf8');
+        for (const m of content.matchAll(/["']([^"'\\/\n\r]{1,80})["']/g)) {
+          names.add(m[1].trim().toLowerCase());
+        }
+      } catch {}
+    }
+  }
+
+  return names;
+}
+
+/** 배포할 파일 목록을 상대경로 배열로 반환
+ * usedNames가 주어지면 FILTERABLE_DIRS 안의 파일은 이름이 포함된 것만 포함 */
+export function collectFilesForDeploy(baseDir: string, subDir = '', usedNames?: Set<string>): string[] {
   const currentDir = subDir ? path.join(baseDir, subDir) : baseDir;
   const results: string[] = [];
   for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
@@ -36,8 +94,12 @@ export function collectFilesForDeploy(baseDir: string, subDir = ''): string[] {
     const rel = subDir ? `${subDir}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
       if (EXCLUDE_DIRS_LOWER.has(entry.name.toLowerCase())) continue;
-      results.push(...collectFilesForDeploy(baseDir, rel));
+      results.push(...collectFilesForDeploy(baseDir, rel, usedNames));
     } else {
+      if (usedNames && subDir && FILTERABLE_DIRS.has(subDir.toLowerCase())) {
+        const baseName = path.basename(entry.name, path.extname(entry.name)).toLowerCase();
+        if (!usedNames.has(baseName)) continue;
+      }
       results.push(rel);
     }
   }
@@ -114,7 +176,7 @@ export function sseWrite(res: Response, data: object) {
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-/** query string에서 CacheBustOptions 파싱 (GET SSE용) */
+/** query string에서 CacheBustOptions 파싱 (GET SSE용 / POST body 재사용) */
 export function parseCacheBustQuery(query: Record<string, unknown>): CacheBustOptions {
   const flag = (key: string) => query[key] !== '0';
   return {
@@ -123,6 +185,8 @@ export function parseCacheBustQuery(query: Record<string, unknown>): CacheBustOp
     audio:   flag('cbAudio'),
     video:   flag('cbVideo'),
     data:    flag('cbData'),
+    // GET: cbFilterUnused=1, POST body: filterUnused=true
+    filterUnused: query['cbFilterUnused'] === '1' || query['filterUnused'] === true,
   };
 }
 
@@ -273,10 +337,15 @@ export async function buildDeployZipWithProgress(
 
   onEvent({ type: 'status', phase: 'counting' });
   onEvent({ type: 'log', message: '── 파일 수집 ──' });
-  const files = collectFilesForDeploy(srcPath);
+  let usedNames: Set<string> | undefined;
+  if (opts.filterUnused) {
+    onEvent({ type: 'log', message: '미사용 에셋 분석 중...' });
+    usedNames = collectUsedAssetNames(srcPath);
+  }
+  const files = collectFilesForDeploy(srcPath, '', usedNames);
   const total = files.length;
   onEvent({ type: 'counted', total });
-  onEvent({ type: 'log', message: `파일 ${total}개 수집` });
+  onEvent({ type: 'log', message: `파일 ${total}개 수집${opts.filterUnused ? ' (미사용 에셋 제외됨)' : ''}` });
 
   const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpgdeploy-'));
   try {
