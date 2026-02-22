@@ -227,83 +227,6 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
               <PictureNumberField value={pictureNumber} onChange={setPictureNumber} />
             </Fieldset>
 
-            <Fieldset legend="이동 시작 위치">
-              {pictureCommands.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                  <span style={labelStyle}>커맨드:</span>
-                  <select value={selectedCmdIdx} onChange={e => applyCommandAsFrom(Number(e.target.value))}
-                    style={{ ...selectStyle, flex: 1, fontSize: 11 }}>
-                    <option value={-1}>직접 입력</option>
-                    {pictureCommands.map((cmd, i) => (
-                      <option key={i} value={i}>
-                        {cmd.code === 231 ? '[그림 표시]' : '[그림 이동]'} pg{cmd.pageIndex + 1} #{cmd.cmdIndex + 1}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={labelStyle}>원점:</span>
-                    <label style={radioStyle}>
-                      <input type="radio" name="from-pic-origin" checked={fromOrigin === 0} onChange={() => { setFromOrigin(0); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
-                      왼쪽 위
-                    </label>
-                    <label style={radioStyle}>
-                      <input type="radio" name="from-pic-origin" checked={fromOrigin === 1} onChange={() => { setFromOrigin(1); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
-                      중앙
-                    </label>
-                  </div>
-                  <label style={radioStyle}>
-                    <input type="radio" name="from-pic-pos-type" checked={fromPositionType === 0} onChange={() => { setFromPositionType(0); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
-                    직접 지정
-                  </label>
-                  {fromPositionType === 0 && (
-                    <DirectPositionInputs posX={fromPosX} posY={fromPosY}
-                      onPosXChange={x => { setFromPosX(x); setFromSource('manual'); setSelectedCmdIdx(-1); }}
-                      onPosYChange={y => { setFromPosY(y); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
-                  )}
-                  <label style={radioStyle}>
-                    <input type="radio" name="from-pic-pos-type" checked={fromPositionType === 1} onChange={() => { setFromPositionType(1); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
-                    변수로 지정
-                  </label>
-                  {fromPositionType === 1 && (
-                    <VariablePositionInputs posX={fromPosX} posY={fromPosY}
-                      onPosXChange={x => { setFromPosX(x); setFromSource('manual'); setSelectedCmdIdx(-1); }}
-                      onPosYChange={y => { setFromPosY(y); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
-                  )}
-                  <label style={radioStyle}>
-                    <input type="radio" name="from-pic-pos-type" checked={fromPositionType === 2} onChange={() => { setFromPositionType(2); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
-                    프리셋 지정
-                  </label>
-                  {fromPositionType === 2 && (
-                    <PresetPositionInputs
-                      presetX={fromPresetX} presetY={fromPresetY}
-                      offsetX={fromPresetOffsetX} offsetY={fromPresetOffsetY}
-                      onPresetXChange={v => { setFromPresetX(v); setFromSource('manual'); setSelectedCmdIdx(-1); }}
-                      onPresetYChange={v => { setFromPresetY(v); setFromSource('manual'); setSelectedCmdIdx(-1); }}
-                      onOffsetXChange={v => { setFromPresetOffsetX(v); setFromSource('manual'); setSelectedCmdIdx(-1); }}
-                      onOffsetYChange={v => { setFromPresetOffsetY(v); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
-                  )}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <ScaleFields
-                    width={fromScaleWidth} height={fromScaleHeight}
-                    onWidthChange={w => { setFromScaleWidth(w); setFromSource('manual'); setSelectedCmdIdx(-1); }}
-                    onHeightChange={h => { setFromScaleHeight(h); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
-                  <Fieldset legend="투명도">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={labelStyle}>불투명도:</span>
-                      <input type="number" min={0} max={255} value={fromOpacity}
-                        onChange={e => { setFromOpacity(Math.max(0, Math.min(255, Number(e.target.value)))); setFromSource('manual'); setSelectedCmdIdx(-1); }}
-                        style={{ ...selectStyle, width: 60 }} />
-                    </div>
-                  </Fieldset>
-                </div>
-              </div>
-            </Fieldset>
-
             <div style={{ display: 'flex', gap: 8 }}>
               <Fieldset legend="이동 후 위치" style={{ flex: 1 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -452,6 +375,88 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
                 onPositionDrag={handlePositionDrag}
                 onDragStart={handleDragStart}
               />
+            </div>
+
+            {/* 이동 시작 위치 */}
+            <div style={{ marginTop: 8, overflow: 'auto' }}>
+              <Fieldset legend="이동 시작 위치">
+                {pictureCommands.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <span style={labelStyle}>커맨드:</span>
+                    <select value={selectedCmdIdx} onChange={e => applyCommandAsFrom(Number(e.target.value))}
+                      style={{ ...selectStyle, flex: 1, fontSize: 11 }}>
+                      <option value={-1}>직접 입력</option>
+                      {pictureCommands.map((cmd, i) => (
+                        <option key={i} value={i}>
+                          {cmd.code === 231 ? '[그림 표시]' : '[그림 이동]'} pg{cmd.pageIndex + 1} #{cmd.cmdIndex + 1}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {/* 위치 */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={labelStyle}>원점:</span>
+                      <label style={radioStyle}>
+                        <input type="radio" name="from-pic-origin" checked={fromOrigin === 0} onChange={() => { setFromOrigin(0); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                        왼쪽 위
+                      </label>
+                      <label style={radioStyle}>
+                        <input type="radio" name="from-pic-origin" checked={fromOrigin === 1} onChange={() => { setFromOrigin(1); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                        중앙
+                      </label>
+                    </div>
+                    <label style={radioStyle}>
+                      <input type="radio" name="from-pic-pos-type" checked={fromPositionType === 0} onChange={() => { setFromPositionType(0); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                      직접 지정
+                    </label>
+                    {fromPositionType === 0 && (
+                      <DirectPositionInputs posX={fromPosX} posY={fromPosY}
+                        onPosXChange={x => { setFromPosX(x); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                        onPosYChange={y => { setFromPosY(y); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                    )}
+                    <label style={radioStyle}>
+                      <input type="radio" name="from-pic-pos-type" checked={fromPositionType === 1} onChange={() => { setFromPositionType(1); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                      변수로 지정
+                    </label>
+                    {fromPositionType === 1 && (
+                      <VariablePositionInputs posX={fromPosX} posY={fromPosY}
+                        onPosXChange={x => { setFromPosX(x); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                        onPosYChange={y => { setFromPosY(y); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                    )}
+                    <label style={radioStyle}>
+                      <input type="radio" name="from-pic-pos-type" checked={fromPositionType === 2} onChange={() => { setFromPositionType(2); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                      프리셋 지정
+                    </label>
+                    {fromPositionType === 2 && (
+                      <PresetPositionInputs
+                        presetX={fromPresetX} presetY={fromPresetY}
+                        offsetX={fromPresetOffsetX} offsetY={fromPresetOffsetY}
+                        onPresetXChange={v => { setFromPresetX(v); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                        onPresetYChange={v => { setFromPresetY(v); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                        onOffsetXChange={v => { setFromPresetOffsetX(v); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                        onOffsetYChange={v => { setFromPresetOffsetY(v); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                    )}
+                  </div>
+                  {/* 배율 + 투명도 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <ScaleFields
+                      width={fromScaleWidth} height={fromScaleHeight}
+                      onWidthChange={w => { setFromScaleWidth(w); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                      onHeightChange={h => { setFromScaleHeight(h); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                    <Fieldset legend="투명도">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={labelStyle}>불투명도:</span>
+                        <input type="number" min={0} max={255} value={fromOpacity}
+                          onChange={e => { setFromOpacity(Math.max(0, Math.min(255, Number(e.target.value)))); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                          style={{ ...selectStyle, width: 60 }} />
+                      </div>
+                    </Fieldset>
+                  </div>
+                </div>
+              </Fieldset>
             </div>
           </div>
         </div>
