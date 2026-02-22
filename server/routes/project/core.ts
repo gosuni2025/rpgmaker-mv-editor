@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 import sharp from 'sharp';
 import projectManager from '../../services/projectManager';
 import fileWatcher from '../../services/fileWatcher';
@@ -299,13 +299,11 @@ router.get('/convert-webp-progress', async (req: Request, res: Response) => {
     if (gitBackup) {
       sseWrite(res, { type: 'log', message: '── git 백업 중 ──' });
       try {
-        const { execSync } = await import('child_process');
         execSync('git add img/', { cwd: projectPath, stdio: 'pipe' });
         try {
           execSync('git commit -m "chore: WebP 변환 전 PNG 백업"', { cwd: projectPath, stdio: 'pipe' });
           sseWrite(res, { type: 'log', message: '✓ git commit 완료 (PNG 백업)' });
         } catch {
-          // 변경사항 없으면 commit 실패 — 이미 staged 상태
           sseWrite(res, { type: 'log', message: '✓ 변경사항 없음 (이미 커밋됨)' });
         }
       } catch (gitErr) {
