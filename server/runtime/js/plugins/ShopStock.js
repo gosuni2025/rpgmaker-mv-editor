@@ -19,6 +19,29 @@
  * @type color
  * @default #e04040
  *
+ * @param stockPrefix
+ * @text 재고 표시 접두어
+ * @desc 재고 수 앞에 붙는 텍스트
+ * @type string
+ * @default 재고:
+ *
+ * @param lowStockColor
+ * @text 재고 부족 경고 색상
+ * @desc 재고가 3 이하일 때 표시 색상
+ * @type color
+ * @default #ffaa00
+ *
+ * @param noFundsText
+ * @text 돈 부족 메시지
+ * @desc 상태창에서 골드가 부족할 때 표시할 텍스트
+ * @type string
+ * @default 돈이 부족합니다.
+ *
+ * @param noFundsColor
+ * @text 돈 부족 텍스트 색상
+ * @type color
+ * @default #ffcc00
+ *
  * @command addStock
  * @text 재고 증감
  * @desc 상점 아이템의 재고를 증가하거나 감소합니다. 무제한(-1) 아이템은 변경되지 않습니다.
@@ -179,6 +202,10 @@
   var SOLD_OUT_TEXT        = String(_params['soldOutText']       || '품절');
   var SOLD_OUT_STATUS_TEXT = String(_params['soldOutStatusText'] || '품절입니다.');
   var SOLD_OUT_COLOR       = String(_params['soldOutColor']      || '#e04040');
+  var STOCK_PREFIX         = String(_params['stockPrefix']       || '재고:');
+  var LOW_STOCK_COLOR      = String(_params['lowStockColor']     || '#ffaa00');
+  var NO_FUNDS_TEXT        = String(_params['noFundsText']       || '돈이 부족합니다.');
+  var NO_FUNDS_COLOR       = String(_params['noFundsColor']      || '#ffcc00');
 
   // ══════════════════════════════════════════════════════════════════
   // ShopStockManager - 공개 API
@@ -353,8 +380,8 @@
       var stockWidth = 80;
       _Window_ShopNumber_drawItemName.call(this, item, x, y, width - stockWidth);
       var stock = this._shopStock;
-      this.changeTextColor(stock <= 0 ? SOLD_OUT_COLOR : stock <= 3 ? '#ffaa00' : this.normalColor());
-      this.drawText(stock <= 0 ? SOLD_OUT_TEXT : '재고: ' + stock, x, y, width, 'right');
+      this.changeTextColor(stock <= 0 ? SOLD_OUT_COLOR : stock <= 3 ? LOW_STOCK_COLOR : this.normalColor());
+      this.drawText(stock <= 0 ? SOLD_OUT_TEXT : STOCK_PREFIX + ' ' + stock, x, y, width, 'right');
       this.resetTextColor();
     } else {
       _Window_ShopNumber_drawItemName.call(this, item, x, y, width);
@@ -430,9 +457,9 @@
     var stock = this.getStock(index);
     if (stock !== -1) {
       if (stock === 0)     this.changeTextColor(SOLD_OUT_COLOR);
-      else if (stock <= 3) this.changeTextColor('#ffaa00');
+      else if (stock <= 3) this.changeTextColor(LOW_STOCK_COLOR);
       else                 this.changeTextColor(this.normalColor());
-      this.drawText(stock === 0 ? SOLD_OUT_TEXT : '재고: ' + stock, rect.x + rect.width - stockWidth, rect.y, stockWidth, 'right');
+      this.drawText(stock === 0 ? SOLD_OUT_TEXT : STOCK_PREFIX + ' ' + stock, rect.x + rect.width - stockWidth, rect.y, stockWidth, 'right');
       this.resetTextColor();
     }
 
@@ -458,7 +485,7 @@
         if (stock === 0) {
           reason = SOLD_OUT_STATUS_TEXT;
         } else if (bw.price && bw.price(this._item) > $gameParty.gold()) {
-          reason = '돈이 부족합니다.';
+          reason = NO_FUNDS_TEXT;
         }
       }
     }
@@ -466,7 +493,7 @@
     var x       = this.textPadding();
     var yOffset = 0;
     if (reason) {
-      this.changeTextColor(reason === SOLD_OUT_STATUS_TEXT ? SOLD_OUT_COLOR : this.textColor(14));
+      this.changeTextColor(reason === SOLD_OUT_STATUS_TEXT ? SOLD_OUT_COLOR : NO_FUNDS_COLOR);
       this.drawText(reason, x, 0, this.contentsWidth() - x);
       this.resetTextColor();
       yOffset = this.lineHeight();
