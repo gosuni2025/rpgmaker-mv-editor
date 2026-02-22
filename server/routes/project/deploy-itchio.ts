@@ -1,22 +1,14 @@
 import express, { Request, Response } from 'express';
-import path from 'path';
-import os from 'os';
-import fs from 'fs';
 import https from 'https';
 import { promisify } from 'util';
 import { exec, spawn } from 'child_process';
 import projectManager from '../../services/projectManager';
 import settingsManager from '../../services/settingsManager';
 import {
-  applyIndexHtmlRename,
-  applyCacheBusting,
-  makeBuildId,
-  generateBundleFiles,
+  buildDeployZipWithProgress,
   setupSSE,
   sseWrite,
   parseCacheBustQuery,
-  collectFilesForDeploy,
-  collectUsedAssetNames,
   getGameTitle,
 } from './deploy';
 
@@ -118,72 +110,34 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
   }
 
   const resolvedChannel = channel?.trim() || 'html5';
-  const srcPath = projectManager.currentPath!;
-  const opts = cacheBust
-    ? parseCacheBustQuery(cacheBust as Record<string, unknown>)
-    : parseCacheBustQuery({});
-  const buildId = makeBuildId();
+  const opts = {
+    ...(cacheBust ? parseCacheBustQuery(cacheBust as Record<string, unknown>) : parseCacheBustQuery({})),
+    bundle: !!bundle,
+  };
 
   setupSSE(res);
 
   const sseLog = (message: string) => sseWrite(res, { type: 'log', message });
   const sseStatus = (phase: string) => sseWrite(res, { type: 'status', phase });
 
-  let stagingDir = '';
-
   try {
-    // ── 1. 파일 수집 및 복사 ─────────────────────────────────────────────────
-    sseStatus('copying');
-    sseLog('── 1/3: 파일 수집 및 복사 ──');
-
-    let usedNames: Set<string> | undefined;
-    if (opts.filterUnused) {
-      sseLog('미사용 에셋 분석 중...');
-      usedNames = collectUsedAssetNames(srcPath);
-    }
-    const files = collectFilesForDeploy(srcPath, '', usedNames);
-    const total = files.length;
-    sseWrite(res, { type: 'counted', total });
-    sseLog(`파일 ${total}개 수집${opts.filterUnused ? ' (미사용 에셋 제외됨)' : ''}`);
-
-    stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpgdeploy-itchio-'));
-    let current = 0;
-    for (const rel of files) {
-      const destFile = path.join(stagingDir, rel);
-      fs.mkdirSync(path.dirname(destFile), { recursive: true });
-      fs.copyFileSync(path.join(srcPath, rel), destFile);
-      current++;
-      if (current % 20 === 0 || current === total) {
-        sseWrite(res, { type: 'progress', current, total });
-      }
-    }
-
-    // ── 2. index.html 교체 + 캐시 버스팅 + 번들 생성 ────────────────────────
-    sseStatus('patching');
-    sseLog('── 2/3: index.html 교체 & 캐시 버스팅 ──');
-    sseLog('index.html → index_pixi.html (PIXI 원본 백업)');
-    sseLog('index_3d.html → index.html (Three.js 버전 적용)');
-    applyIndexHtmlRename(stagingDir);
-    sseLog(`캐시 버스팅 적용 (buildId: ${buildId})`);
-    applyCacheBusting(stagingDir, buildId, opts);
-    if (bundle) {
-      await generateBundleFiles(stagingDir, buildId, sseLog);
-      // stagingDir은 임시 폴더이므로 원본 폴더 삭제 안전
-      for (const dir of ['img', 'audio', 'data']) {
-        const dirPath = path.join(stagingDir, dir);
-        if (fs.existsSync(dirPath)) fs.rmSync(dirPath, { recursive: true, force: true });
-      }
-    }
+    // ── 1+2. ZIP 생성 (번들링 포함) ──────────────────────────────────────────
+    const zipPath = await buildDeployZipWithProgress(
+      projectManager.currentPath!,
+      getGameTitle(),
+      opts,
+      (ev) => sseWrite(res, ev),
+    );
 
     // ── 3. butler push ────────────────────────────────────────────────────────
     sseStatus('uploading');
-    sseLog(`── 3/3: butler push → ${project}:${resolvedChannel} ──`);
-    sseLog(`$ butler push <staging> "${project}:${resolvedChannel}" --json`);
+    sseLog(`── butler push → ${project}:${resolvedChannel} ──`);
+    sseLog(`$ butler push <game.zip> "${project}:${resolvedChannel}" --json`);
 
     await new Promise<void>((resolve, reject) => {
       const butler = spawn('butler', [
         'push',
-        stagingDir,
+        zipPath,
         `${project.trim()}:${resolvedChannel}`,
         '--json',
       ]);
@@ -241,16 +195,12 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
 
     const itchUrl = deriveItchUrl(project.trim());
     sseLog(`\n✓ 배포 완료! (${itchUrl})`);
-    sseWrite(res, { type: 'done', pageUrl: itchUrl, buildId });
+    sseWrite(res, { type: 'done', pageUrl: itchUrl });
 
   } catch (err: unknown) {
     const raw = (err as Error).message || String(err);
     sseLog(`\n✗ 오류 발생: ${raw}`);
     sseWrite(res, { type: 'error', message: raw });
-  } finally {
-    if (stagingDir && fs.existsSync(stagingDir)) {
-      fs.rmSync(stagingDir, { recursive: true, force: true });
-    }
   }
 
   res.end();
