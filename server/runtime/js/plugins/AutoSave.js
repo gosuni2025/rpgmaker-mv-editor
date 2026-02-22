@@ -380,10 +380,18 @@
     // Window_SavefileList - 오토 세이브 슬롯을 인덱스 0으로 추가
     //
     // 인덱스 체계:
-    //   index 0  → AUTOSAVE_FILE_ID (0)  — 오토 세이브 슬롯
+    //   index 0  → AUTOSAVE_FILE_ID      — 오토 세이브 슬롯
     //   index 1  → fileId 1              — 일반 슬롯 1
     //   index N  → fileId N              — 일반 슬롯 N
     //=========================================================================
+
+    // refresh 시 캐시 무효화 (새로운 화면에서 최신 파일 목록 반영)
+    var _Window_SavefileList_refresh = Window_SavefileList.prototype.refresh;
+    Window_SavefileList.prototype.refresh = function() {
+        StorageManager._existsCache = null;
+        DataManager._cachedGlobalInfo = null;
+        _Window_SavefileList_refresh.call(this);
+    };
 
     // 슬롯 수 +1
     var _Window_SavefileList_maxItems = Window_SavefileList.prototype.maxItems;
@@ -467,12 +475,24 @@
     };
 
     /**
-     * 로드 씬 초기 커서 위치 (가장 최신 파일).
+     * 로드 씬 초기 커서 위치.
+     * 일반 슬롯(1~maxSavefiles) 중 가장 최신 파일로 이동.
+     * 일반 저장 없으면 오토세이브 슬롯(index=0)으로 이동.
      * @returns {number} 초기 선택 인덱스
      */
     Scene_Load.prototype.firstSavefileIndex = function() {
-        var id = DataManager.latestSavefileId();
-        return (id >= 1) ? id : 1;
+        var globalInfo = DataManager.loadGlobalInfo();
+        var latestId = 0; // 기본: 오토세이브 슬롯 (index 0)
+        var timestamp = -1;
+        if (globalInfo) {
+            for (var i = 1; i <= DataManager.maxSavefiles(); i++) {
+                if (DataManager.isThisGameFile(i) && globalInfo[i] && globalInfo[i].timestamp > timestamp) {
+                    timestamp = globalInfo[i].timestamp;
+                    latestId = i;
+                }
+            }
+        }
+        return latestId;
     };
 
 })();
