@@ -83,7 +83,7 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
         }
       });
     });
-    return cmds;
+    return cmds.reverse(); // 최근 커맨드가 위에 오도록 역순 정렬
   }, [currentMap, selectedEventId, pictureNumber]);
 
   // 커맨드 선택 시 시작 위치 자동 설정
@@ -110,6 +110,15 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
       setFromPresetOffsetY(ep.offsetY ?? 0);
     }
   }, [pictureCommands]);
+
+  // 마운트 시 가장 가까운(최근) 커맨드 자동 선택
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (!autoSelectedRef.current && pictureCommands.length > 0) {
+      autoSelectedRef.current = true;
+      applyCommandAsFrom(0);
+    }
+  }, [pictureCommands, applyCommandAsFrom]);
 
   // 프리뷰 분리선 드래그
   const [previewWidth, setPreviewWidth] = useState(() => {
@@ -176,9 +185,9 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
   // 프리뷰에서는 imageName 없이 위치만 표시 (이미지 없이 위치 박스 표시)
   // 단, 이전 ShowPicture 커맨드에서 imageName을 가져올 수 있음
   const previewImageName = useMemo(() => {
-    // pictureNumber에 해당하는 가장 마지막 231 커맨드의 이미지명
+    // pictureNumber에 해당하는 가장 최근(역순이므로 index 0) 231 커맨드의 이미지명
     const showCmds = pictureCommands.filter(c => c.code === 231);
-    if (showCmds.length > 0) return (showCmds[showCmds.length - 1].params[1] as string) || '';
+    if (showCmds.length > 0) return (showCmds[0].params[1] as string) || '';
     return '';
   }, [pictureCommands]);
 
