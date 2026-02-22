@@ -336,9 +336,27 @@ Window_Base.prototype._etProcessInlineItem = function(textState) {
     var beforeX = textState.x;
 
     if (item.type === 'icon') {
-        // 표준 RPG Maker MV 아이콘 그리기
         var iconIndex = parseInt(item.params.index || '0', 10);
+        var iconBmp = ImageManager.loadSystem('IconSet');
+        var iconPatchX = textState.x + 2;
+        var iconPatchY = textState.y + 2;
+        // 위치 advance는 항상 수행
         this.processDrawIcon(iconIndex, textState);
+        // IconSet 아직 로드 중이면 완료 시 해당 위치에 직접 패치
+        if (iconBmp && !iconBmp.isReady() && typeof iconBmp.addLoadListener === 'function') {
+            var selfWinIcon = this;
+            var capIdx = iconIndex;
+            iconBmp.addLoadListener(function() {
+                if (selfWinIcon.contents && iconBmp.width > 0) {
+                    var pw = Window_Base._iconWidth || 32;
+                    var ph = Window_Base._iconHeight || 32;
+                    var sx = capIdx % 16 * pw;
+                    var sy = Math.floor(capIdx / 16) * ph;
+                    selfWinIcon.contents.blt(iconBmp, sx, sy, pw, ph, iconPatchX, iconPatchY);
+                }
+                selfWinIcon._etNeedRebuild = true;
+            });
+        }
     } else if (item.type === 'picture') {
         var src = item.params.src || '';
         var imgtype = item.params.imgtype || 'pictures';
