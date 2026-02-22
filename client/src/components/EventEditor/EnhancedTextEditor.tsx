@@ -165,13 +165,21 @@ export function EnhancedTextEditor({
     syncToParent();
   }, [syncToParent]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── 선택된 텍스트를 블록으로 래핑 (execCommand로 undo 히스토리에 기록) ───
+  // ─── 선택된 텍스트를 블록으로 래핑 ───
   const wrapSelectionInBlock = useCallback((def: TagDef) => {
     restoreSelection();
     const sel = window.getSelection();
     if (!sel || !editorRef.current) return;
     const range = sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
-    const selectedText = range ? range.toString() : '';
+    // range.toString()은 DOM 텍스트만 반환 → 아이콘/이스케이프 등이 깨짐
+    // cloneContents() → htmlDivToRaw()로 Raw 형식을 올바르게 추출
+    let selectedText = '';
+    if (range) {
+      const frag = range.cloneContents();
+      const tmp = document.createElement('div');
+      tmp.appendChild(frag);
+      selectedText = htmlDivToRaw(tmp);
+    }
 
     const defaultParams: Record<string, string> = {};
     for (const p of def.params) {
@@ -364,8 +372,8 @@ export function EnhancedTextEditor({
   }, [syncToParent]);
 
   // ─── 아이콘 삽입 ───
-  const insertIconBlock = useCallback(() => {
-    const html = buildBlockChipHTML([{ tag: 'icon', params: { index: String(iconInsertIdx) } }], '');
+  const insertIconBlock = useCallback((idx: number) => {
+    const html = buildBlockChipHTML([{ tag: 'icon', params: { index: String(idx) } }], '');
     restoreSelection(); // 모달 열기 전 저장한 커서 위치 복원
     if (!editorRef.current) return;
     // eslint-disable-next-line @typescript-eslint/no-deprecated
@@ -647,17 +655,16 @@ export function EnhancedTextEditor({
 
       <ExtTextHelpPanel />
 
-      {/* 아이콘 삽입 모달 */}
+      {/* 아이콘 삽입 — 버튼 클릭 시 IconPicker를 key로 재마운트하여 바로 그리드 열기 */}
       {showIconModal && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowIconModal(false); }}>
-          <div style={{ background: '#2b2b2b', padding: 16, borderRadius: 8, minWidth: 320 }}>
-            <div style={{ color: '#ddd', marginBottom: 8, fontSize: 14, fontWeight: 600 }}>아이콘 선택</div>
-            <IconPicker value={iconInsertIdx} onChange={setIconInsertIdx} />
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
-              <button className="db-btn" onClick={insertIconBlock}>삽입</button>
-              <button className="db-btn" onClick={() => setShowIconModal(false)}>취소</button>
-            </div>
-          </div>
+        <div style={{ display: 'none' }}>
+          <IconPicker
+            key={showIconModal ? 'open' : 'closed'}
+            value={iconInsertIdx}
+            initialOpen={true}
+            onChange={(idx) => { insertIconBlock(idx); }}
+            onClose={() => setShowIconModal(false)}
+          />
         </div>
       )}
 
