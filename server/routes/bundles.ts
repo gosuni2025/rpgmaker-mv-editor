@@ -19,7 +19,8 @@ import projectManager from '../services/projectManager';
 
 const router = express.Router();
 
-// manifest: 버전(프로젝트 폴더 mtime 기반) + 번들 목록
+// manifest: 버전(프로젝트 폴더 mtime 기반) + 번들 목록 { file, prefix }
+// 서버 모드에서는 분할 없이 폴더당 ZIP 1개
 router.get('/manifest.json', (req, res) => {
   if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
 
@@ -31,9 +32,9 @@ router.get('/manifest.json', (req, res) => {
     version = Date.now().toString(36);
   }
 
-  // 존재하는 번들 폴더만 포함
-  const allBundles = ['img', 'audio', 'data'];
-  const bundles = allBundles.filter(d => fs.existsSync(path.join(projectPath, d)));
+  const bundles = ['img', 'audio', 'data']
+    .filter(d => fs.existsSync(path.join(projectPath, d)))
+    .map(d => ({ file: `${d}.zip`, prefix: `${d}/` }));
 
   res.json({ version, bundles });
 });

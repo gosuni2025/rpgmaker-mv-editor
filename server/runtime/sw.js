@@ -3,20 +3,22 @@
  *
  * install:
  *   1. bundles/manifest.json 에서 버전 + 번들 목록 확인
- *   2. 버전이 다르면 img/audio/data.zip 다운로드 (병렬)
+ *   2. 버전이 다르면 bundles/*.zip 다운로드 (병렬)
  *   3. JSZip으로 압축 해제 → Cache API 저장
  *   4. progress를 postMessage로 클라이언트에 전달
  *
  * fetch:
  *   img/audio/data/* 요청을 캐시에서 응답 (cache-first)
+ *
+ * manifest.json 구조:
+ *   { version, bundles: [{ file: "img.zip", prefix: "img/" }, ...] }
+ *   파일이 99MB를 넘으면 img_2.zip, img_3.zip 등으로 분할될 수 있음.
  */
 
 importScripts('bundles/jszip.min.js');
 
 const CACHE_PREFIX = 'game-bundle-';
 const META_CACHE = 'game-bundle-meta';
-
-const BUNDLE_DIRS = { img: 'img/', audio: 'audio/', data: 'data/' };
 
 /** scope URL에서 pathname base 추출 (e.g. "/game/" or "/repo/") */
 function getScopeBase() {
@@ -68,6 +70,7 @@ async function installBundles() {
   }
 
   const { version, bundles } = manifest;
+  // bundles: [{ file: "img.zip", prefix: "img/" }, ...]
 
   // 이미 이 버전 캐시가 있으면 스킵
   const metaCache = await caches.open(META_CACHE);
@@ -83,32 +86,30 @@ async function installBundles() {
   const cacheName = CACHE_PREFIX + version;
   const dataCache = await caches.open(cacheName);
 
-  await broadcast({ type: 'bundle-start', version, bundles });
+  await broadcast({ type: 'bundle-start', version, total: bundles.length });
 
   let totalFiles = 0;
   let loadedFiles = 0;
 
   // ZIP 병렬 다운로드 + 압축 해제
-  await Promise.all(bundles.map(async (bundle) => {
-    const prefix = BUNDLE_DIRS[bundle];
-    if (!prefix) return;
-
+  await Promise.all(bundles.map(async ({ file, prefix }) => {
     try {
-      const res = await fetch(base + `bundles/${bundle}.zip`, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`${bundle}.zip ${res.status}`);
+      const res = await fetch(base + 'bundles/' + file, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`${file} ${res.status}`);
 
       const buffer = await res.arrayBuffer();
       const zip = await JSZip.loadAsync(buffer);
 
       const fileEntries = [];
-      zip.forEach((relativePath, file) => {
-        if (!file.dir) fileEntries.push({ relativePath, file });
+      zip.forEach((relativePath, zipFile) => {
+        if (!zipFile.dir) fileEntries.push({ relativePath, zipFile });
       });
       totalFiles += fileEntries.length;
       await broadcast({ type: 'bundle-progress', totalFiles, loadedFiles });
 
-      await Promise.all(fileEntries.map(async ({ relativePath, file }) => {
-        const data = await file.async('arraybuffer');
+      await Promise.all(fileEntries.map(async ({ relativePath, zipFile }) => {
+        const data = await zipFile.async('arraybuffer');
+        // prefix = "img/", relativePath = "characters/Actor1.png"
         const cacheUrl = base + prefix + relativePath;
         await dataCache.put(
           new Request(cacheUrl),
@@ -125,7 +126,7 @@ async function installBundles() {
         }
       }));
     } catch (e) {
-      await broadcast({ type: 'bundle-error', bundle, error: String(e) });
+      await broadcast({ type: 'bundle-error', file, error: String(e) });
     }
   }));
 
@@ -156,7 +157,6 @@ self.addEventListener('fetch', event => {
   let pathname;
   try { pathname = new URL(event.request.url).pathname; } catch { return; }
 
-  // base prefix 이후 상대 경로로 intercept 여부 결정
   const rel = pathname.startsWith(base)
     ? pathname.slice(base.length)
     : (pathname.startsWith('/') ? pathname.slice(1) : pathname);

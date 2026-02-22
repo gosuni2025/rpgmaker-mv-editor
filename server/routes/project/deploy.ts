@@ -155,11 +155,49 @@ export function applyCacheBusting(stagingDir: string, buildId: string, opts: Cac
   }
 }
 
+const BUNDLE_MAX_BYTES = 99 * 1024 * 1024; // 99 MB
+
+interface BundleFileEntry {
+  absPath: string;
+  zipName: string; // ZIP 내 상대경로 (디렉터리 prefix 없음)
+  size: number;
+}
+
+function collectBundleEntries(dirPath: string): BundleFileEntry[] {
+  const result: BundleFileEntry[] = [];
+  function walk(dir: string, prefix: string) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith('.')) continue;
+      const full = path.join(dir, entry.name);
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        walk(full, rel);
+      } else {
+        result.push({ absPath: full, zipName: rel, size: fs.statSync(full).size });
+      }
+    }
+  }
+  walk(dirPath, '');
+  return result;
+}
+
+async function writeZip(zipPath: string, entries: BundleFileEntry[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(zipPath);
+    const archive = archiver('zip', { zlib: { level: 0 } }); // store-only
+    archive.on('error', reject);
+    output.on('close', resolve);
+    archive.pipe(output);
+    for (const e of entries) archive.file(e.absPath, { name: e.zipName });
+    archive.finalize();
+  });
+}
+
 /** 배포 디렉터리에 SW 번들 파일 생성:
- *  - bundles/img.zip, audio.zip, data.zip (store-only ZIP)
- *  - bundles/manifest.json (버전 + 번들 목록)
- *  - bundles/jszip.min.js (SW에서 importScripts로 로드)
- *  - sw.js (runtime에서 복사, buildId 주석 주입)
+ *  - bundles/<dir>.zip, <dir>_2.zip ... (99MB 단위 분할, store-only)
+ *  - bundles/manifest.json  { version, bundles: [{ file, prefix }] }
+ *  - bundles/jszip.min.js
+ *  - sw.js (buildId 주석 주입)
  */
 export async function generateBundleFiles(
   stagingDir: string,
@@ -172,45 +210,60 @@ export async function generateBundleFiles(
   const bundlesDir = path.join(stagingDir, 'bundles');
   fs.mkdirSync(bundlesDir, { recursive: true });
 
-  const presentBundles: string[] = [];
+  const manifestBundles: { file: string; prefix: string }[] = [];
 
   for (const dir of ['img', 'audio', 'data']) {
     const dirPath = path.join(stagingDir, dir);
     if (!fs.existsSync(dirPath)) continue;
-    presentBundles.push(dir);
-    const zipPath = path.join(bundlesDir, `${dir}.zip`);
-    l(`  ${dir}/ → bundles/${dir}.zip`);
-    await new Promise<void>((resolve, reject) => {
-      const output = fs.createWriteStream(zipPath);
-      const archive = archiver('zip', { zlib: { level: 0 } }); // store-only
-      archive.on('error', reject);
-      output.on('close', resolve);
-      archive.pipe(output);
-      archive.directory(dirPath, false);
-      archive.finalize();
-    });
+
+    const entries = collectBundleEntries(dirPath);
+    const prefix = `${dir}/`;
+
+    // 99MB 단위로 분할
+    const chunks: BundleFileEntry[][] = [];
+    let chunk: BundleFileEntry[] = [];
+    let chunkSize = 0;
+    for (const entry of entries) {
+      if (chunk.length > 0 && chunkSize + entry.size > BUNDLE_MAX_BYTES) {
+        chunks.push(chunk);
+        chunk = [];
+        chunkSize = 0;
+      }
+      chunk.push(entry);
+      chunkSize += entry.size;
+    }
+    if (chunk.length > 0) chunks.push(chunk);
+
+    for (let i = 0; i < chunks.length; i++) {
+      const fileName = i === 0 ? `${dir}.zip` : `${dir}_${i + 1}.zip`;
+      const zipPath = path.join(bundlesDir, fileName);
+      const sizeMb = (chunks[i].reduce((s, e) => s + e.size, 0) / 1024 / 1024).toFixed(1);
+      l(`  ${dir}/ → bundles/${fileName} (${sizeMb} MB, ${chunks[i].length}개 파일)`);
+      await writeZip(zipPath, chunks[i]);
+      manifestBundles.push({ file: fileName, prefix });
+    }
   }
 
-  // jszip.min.js 복사 (SW가 importScripts('bundles/jszip.min.js')로 로드)
+  // jszip.min.js 복사
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const jszipPath: string = require.resolve('jszip/dist/jszip.min.js');
   fs.copyFileSync(jszipPath, path.join(bundlesDir, 'jszip.min.js'));
 
-  // manifest.json 생성
+  // manifest.json
   fs.writeFileSync(
     path.join(bundlesDir, 'manifest.json'),
-    JSON.stringify({ version: buildId, bundles: presentBundles }),
+    JSON.stringify({ version: buildId, bundles: manifestBundles }),
     'utf-8',
   );
 
-  // sw.js 복사 (buildId 주석 주입 → 배포마다 SW 파일이 달라져 재설치 트리거)
+  // sw.js 복사 + buildId 주석 주입 (배포마다 파일이 달라져 SW 재설치 트리거)
   const swSrcPath = path.resolve(__dirname, '../../runtime/sw.js');
   if (fs.existsSync(swSrcPath)) {
     const swContent = `// build: ${buildId}\n` + fs.readFileSync(swSrcPath, 'utf-8');
     fs.writeFileSync(path.join(stagingDir, 'sw.js'), swContent, 'utf-8');
   }
 
-  l(`✓ 번들 ZIP 생성 완료 (${presentBundles.join(', ')})`);
+  l(`✓ 번들 ZIP 생성 완료 (${manifestBundles.length}개 파일)`);
 }
 
 export function makeBuildId(): string {
