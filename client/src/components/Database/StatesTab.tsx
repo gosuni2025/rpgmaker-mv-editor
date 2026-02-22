@@ -104,13 +104,13 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
                 </div>
               </label>
 
-              <label className="states-label">
+              <div className="db-form-field-label states-label">
                 {t('common.icon')}
                 <IconPicker
                   value={selectedItem.iconIndex || 0}
                   onChange={(idx) => handleFieldChange('iconIndex', idx)}
                 />
-              </label>
+              </div>
 
               <label className="states-label">
                 {t('fields.restriction')}
