@@ -152,6 +152,7 @@ export function createApp(options: AppOptions = {}) {
             }, 5000);
         })();
         </script>` : '';
+    const testSW = req.query.testsw === '1';
     const cacheBust = `?v=${Date.now()}`;
     // 프로젝트가 WebP 이미지를 사용하는지 감지
     const imgDir = path.join(projectManager.currentPath!, 'img');
@@ -375,7 +376,48 @@ export function createApp(options: AppOptions = {}) {
             };
         })();
         </script>` : ''}
-        <script defer src="js/main.js${cacheBust}"></script>
+        ${testSW ? `<script>
+        // ── SW 번들 테스트 모드 (?testsw=1) ──────────────────────────────────
+        (function() {
+            var mainSrc = 'js/main.js${cacheBust}';
+            var mainLoaded = false;
+            function loadMain() {
+                if (mainLoaded) return; mainLoaded = true;
+                removeOverlay();
+                var s = document.createElement('script'); s.src = mainSrc;
+                document.body.appendChild(s);
+            }
+            var overlay = null;
+            function createOverlay() {
+                overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;inset:0;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif;color:#ccc';
+                overlay.innerHTML = '<div style="font-size:15px;margin-bottom:20px">[SW 번들 테스트] 리소스 다운로드 중...</div><div style="width:360px;background:#222;border-radius:4px;overflow:hidden;height:8px"><div id="sw-bar" style="height:8px;width:0%;background:#2c6fc7;transition:width 0.15s"></div></div><div id="sw-txt" style="font-size:12px;margin-top:10px;color:#888"></div>';
+                document.body.appendChild(overlay);
+            }
+            function removeOverlay() { if (overlay) { overlay.remove(); overlay = null; } }
+            function setProgress(loaded, total) {
+                if (!overlay) return;
+                var pct = total > 0 ? Math.round(loaded / total * 100) : 0;
+                document.getElementById('sw-bar').style.width = pct + '%';
+                document.getElementById('sw-txt').textContent = loaded + ' / ' + total + ' (' + pct + '%)';
+            }
+            if (!('serviceWorker' in navigator)) { loadMain(); return; }
+            navigator.serviceWorker.addEventListener('message', function(e) {
+                var msg = e.data; if (!msg) return;
+                console.log('[SW]', msg.type, msg);
+                if (msg.type === 'bundle-progress') setProgress(msg.loadedFiles, msg.totalFiles);
+                else if (msg.type === 'bundle-ready' || msg.type === 'bundle-skip' || msg.type === 'bundle-error') loadMain();
+            });
+            var fallback = setTimeout(function() { console.warn('[SW] fallback timeout'); loadMain(); }, 60000);
+            createOverlay();
+            navigator.serviceWorker.register('sw.js', { scope: './' })
+                .then(function(reg) {
+                    console.log('[SW] registered, active:', reg.active?.state, 'installing:', reg.installing?.state);
+                    if (reg.active && !reg.installing && !reg.waiting) { clearTimeout(fallback); loadMain(); }
+                })
+                .catch(function(err) { console.warn('[SW] 등록 실패:', err); clearTimeout(fallback); loadMain(); });
+        })();
+        </script>` : `<script defer src="js/main.js${cacheBust}"></script>`}
     </body>
 </html>`;
     res.type('html').send(html);
