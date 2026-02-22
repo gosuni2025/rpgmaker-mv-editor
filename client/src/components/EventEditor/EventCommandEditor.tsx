@@ -384,6 +384,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
 
       {pendingCode !== null && (
         <CommandParamEditor code={pendingCode} initialParam={pendingInitialParam}
+          pageIndex={context?.pageIndex}
           onOk={(params, extra) => insertCommandWithParams(pendingCode, params, extra)}
           onCancel={() => { setPendingCode(null); setPendingInitialParam(undefined); }} />
       )}
@@ -407,6 +408,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
         }
         return (
           <CommandParamEditor key={editingIndex} code={editCmd.code} command={editCmd} followCommands={follows} hasElse={editHasElse}
+            commandIndex={editingIndex} pageIndex={context?.pageIndex}
             onOk={(params, extra) => updateCommandParams(editingIndex, params, extra)} onCancel={() => setEditingIndex(null)} />
         );
       })()}

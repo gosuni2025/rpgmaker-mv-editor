@@ -32,11 +32,13 @@ interface CommandParamEditorProps {
   followCommands?: EventCommand[];
   hasElse?: boolean;
   initialParam?: string;
+  commandIndex?: number;
+  pageIndex?: number;
   onOk: (params: unknown[], extraCommands?: EventCommand[]) => void;
   onCancel: () => void;
 }
 
-export default function CommandParamEditor({ code, command, followCommands, hasElse, initialParam, onOk, onCancel }: CommandParamEditorProps) {
+export default function CommandParamEditor({ code, command, followCommands, hasElse, initialParam, commandIndex, pageIndex, onOk, onCancel }: CommandParamEditorProps) {
   useEscClose(onCancel);
   const p = command?.parameters || [];
 
@@ -48,7 +50,7 @@ export default function CommandParamEditor({ code, command, followCommands, hasE
 
   // ShowPicture(231), MovePicture(232)는 프리뷰 전체화면 다이얼로그로 처리
   if (code === 231) return <ShowPictureEditorDialog p={p} onOk={onOk} onCancel={onCancel} />;
-  if (code === 232) return <MovePictureEditorDialog p={p} onOk={onOk} onCancel={onCancel} />;
+  if (code === 232) return <MovePictureEditorDialog p={p} commandIndex={commandIndex} pageIndex={pageIndex} onOk={onOk} onCancel={onCancel} />;
 
   // Script 커맨드는 자체 전체화면 에디터로 처리
   if (code === 355) {

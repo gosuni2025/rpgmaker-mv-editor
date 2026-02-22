@@ -14,8 +14,8 @@ import './ShowChoicesEditor.css';
 // MovePicture(232) parameters:
 // [번호, (unused), 원점, 위치지정방식, X, Y, 넓이%, 높이%, 불투명도, 합성방법, 지속시간, 완료까지대기, 프리셋데이터?, 이동모드?, 셰이더트랜지션?]
 
-export function MovePictureEditorDialog({ p, onOk, onCancel }: {
-  p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void;
+export function MovePictureEditorDialog({ p, commandIndex, pageIndex, onOk, onCancel }: {
+  p: unknown[]; commandIndex?: number; pageIndex?: number; onOk: (params: unknown[]) => void; onCancel: () => void;
 }) {
   const [pictureNumber, setPictureNumber] = useState<number>((p[0] as number) || 1);
   const [origin, setOrigin] = useState<number>((p[2] as number) || 0);
@@ -73,11 +73,15 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
   const pictureCommands = useMemo(() => {
     const event = currentMap?.events?.find(e => e?.id === selectedEventId);
     if (!event) return [];
-    // 모든 페이지에서 해당 pictureNumber의 231/232 커맨드 수집
+    // 현재 페이지에서 현재 커맨드 이전에 있는 231/232 커맨드만 수집
     const cmds: Array<{ code: number; params: unknown[]; pageIndex: number; cmdIndex: number }> = [];
     const pages = (event as any).pages || [];
     pages.forEach((page: any, pi: number) => {
+      // 다른 페이지는 제외 (다른 페이지는 독립적으로 실행되므로 시작 위치와 무관)
+      if (pageIndex !== undefined && pi !== pageIndex) return;
       (page?.list || []).forEach((cmd: any, ci: number) => {
+        // 현재 커맨드 인덱스 이후는 제외 (아직 실행되지 않은 커맨드)
+        if (commandIndex !== undefined && ci >= commandIndex) return;
         if ((cmd.code === 231 || cmd.code === 232) && cmd.parameters?.[0] === pictureNumber) {
           cmds.push({ code: cmd.code, params: cmd.parameters, pageIndex: pi, cmdIndex: ci });
         }
@@ -94,7 +98,7 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
       seen.add(key);
       return true;
     });
-  }, [currentMap, selectedEventId, pictureNumber]);
+  }, [currentMap, selectedEventId, pictureNumber, commandIndex, pageIndex]);
 
   // 커맨드 선택 시 시작 위치 자동 설정
   const [selectedCmdIdx, setSelectedCmdIdx] = useState<number>(-1);
