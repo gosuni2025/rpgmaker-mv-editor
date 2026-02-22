@@ -564,6 +564,7 @@
         var last = this._entries[this._entries.length - 1];
         if (!last || last.type !== 'choice') return;
         this._choiceIndex = (this._choiceIndex - 1 + last.choices.length) % last.choices.length;
+        SoundManager.playCursor();
         this._redraw();
     };
 
@@ -572,6 +573,7 @@
         var last = this._entries[this._entries.length - 1];
         if (!last || last.type !== 'choice') return;
         this._choiceIndex = (this._choiceIndex + 1) % last.choices.length;
+        SoundManager.playCursor();
         this._redraw();
     };
 
@@ -579,6 +581,7 @@
         if (!this._choiceActive) return;
         var last = this._entries[this._entries.length - 1];
         if (!last || last.type !== 'choice') return;
+        SoundManager.playOk();
         last.sel           = this._choiceIndex;
         this._choiceResult = this._choiceIndex;
         this._choiceActive = false;
@@ -592,6 +595,7 @@
         if (!this._choiceActive || this._cancelIndex < 0) return;
         var last = this._entries[this._entries.length - 1];
         if (!last || last.type !== 'choice') return;
+        SoundManager.playCancel();
         last.sel           = this._cancelIndex;
         this._choiceResult = this._cancelIndex;
         this._choiceActive = false;
@@ -618,7 +622,7 @@
             var cy = baseY + j * lh;
             if (ty >= cy && ty < cy + lh) {
                 if (this._choiceIndex === j) { this.confirmChoice(); }
-                else { this._choiceIndex = j; this._redraw(); }
+                else { this._choiceIndex = j; SoundManager.playCursor(); this._redraw(); }
                 return;
             }
         }
