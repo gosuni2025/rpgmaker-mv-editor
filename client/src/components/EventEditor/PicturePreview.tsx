@@ -58,7 +58,7 @@ function lerpSnap(a: PictureSnapshot, b: PictureSnapshot, t: number): PictureSna
 
 interface PicRefs {
   renderer: any; scene: any; camera: any;
-  mapBgMesh: any; pictureMesh: any; windowMesh: any;
+  mapBgMesh: any; pictureMesh: any; fromGhostMesh: any; windowMesh: any;
   mapCanvas: HTMLCanvasElement; mapTexture: any;
   picTexture: any | null;
   lastImageName: string;
@@ -93,6 +93,12 @@ function initScene(canvas: HTMLCanvasElement): PicRefs | null {
   positionMesh(mapBgMesh, 0, 0, GW, GH);
   scene.add(mapBgMesh);
 
+  // 시작 위치 고스트 메시 (반투명, pictureMesh 뒤에 렌더)
+  const fromGhostMesh = makePlaneMesh(THREE, mat({ transparent: true }));
+  fromGhostMesh.renderOrder = 3;
+  fromGhostMesh.visible = false;
+  scene.add(fromGhostMesh);
+
   // 그림 메시
   const pictureMesh = makePlaneMesh(THREE, mat({ transparent: true }));
   pictureMesh.renderOrder = 5;
@@ -116,7 +122,7 @@ function initScene(canvas: HTMLCanvasElement): PicRefs | null {
   positionMesh(windowMesh, 0, GH - WIN_H, GW, WIN_H);
   scene.add(windowMesh);
 
-  const refs: PicRefs = { renderer, scene, camera, mapBgMesh, pictureMesh, windowMesh, mapCanvas, mapTexture, picTexture: null, lastImageName: '', imgNatW: 0, imgNatH: 0 };
+  const refs: PicRefs = { renderer, scene, camera, mapBgMesh, pictureMesh, fromGhostMesh, windowMesh, mapCanvas, mapTexture, picTexture: null, lastImageName: '', imgNatW: 0, imgNatH: 0 };
 
   // Window.png 로드 (비동기)
   const winImg = new Image();
@@ -136,10 +142,11 @@ interface Props {
   durationMs?: number;             // 애니메이션 지속 시간 (ms)
   replayTrigger?: number;          // 변경 시 애니메이션 재시작
   showWindow?: boolean;            // 대화창 표시 여부
+  showFromGhost?: boolean;         // 시작 위치를 반투명 고스트로 표시
   onPositionDrag?: (posX: number, posY: number) => void;  // 드래그로 위치 변경
 }
 
-export function PicturePreview({ current, from, durationMs = 1000, replayTrigger = 0, showWindow = true, onPositionDrag }: Props) {
+export function PicturePreview({ current, from, durationMs = 1000, replayTrigger = 0, showWindow = true, showFromGhost = false, onPositionDrag }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const refsRef = useRef<PicRefs | null>(null);
   const rafRef = useRef(0);
@@ -162,6 +169,8 @@ export function PicturePreview({ current, from, durationMs = 1000, replayTrigger
   durRef.current = durationMs;
   const showWindowRef = useRef(showWindow);
   showWindowRef.current = showWindow;
+  const showFromGhostRef = useRef(showFromGhost);
+  showFromGhostRef.current = showFromGhost;
 
   // 재생 트리거
   useEffect(() => {
@@ -249,6 +258,22 @@ export function PicturePreview({ current, from, durationMs = 1000, replayTrigger
         ctx2d.fillStyle = '#3a4a5a';
         ctx2d.fillRect(0, 0, GW, GH);
         refs.mapTexture.needsUpdate = true;
+      }
+
+      // 시작 위치 고스트
+      const ghostSnap = fromRef.current;
+      if (showFromGhostRef.current && ghostSnap && refs.picTexture && refs.imgNatW > 0) {
+        if (refs.fromGhostMesh.material.map !== refs.picTexture) {
+          refs.fromGhostMesh.material.map = refs.picTexture;
+          refs.fromGhostMesh.material.needsUpdate = true;
+        }
+        const { x: gx, y: gy, w: gw, h: gh } = computePicRect(ghostSnap, refs.imgNatW, refs.imgNatH);
+        positionMesh(refs.fromGhostMesh, gx, gy, gw, gh);
+        refs.fromGhostMesh.material.opacity = 0.35;
+        refs.fromGhostMesh.material.needsUpdate = true;
+        refs.fromGhostMesh.visible = true;
+      } else {
+        refs.fromGhostMesh.visible = false;
       }
 
       // 대화창 visible 제어

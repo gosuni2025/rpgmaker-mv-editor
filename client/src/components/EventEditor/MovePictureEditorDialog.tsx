@@ -349,6 +349,7 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
                 durationMs={moveDurationMs}
                 replayTrigger={replayTrigger}
                 showWindow={showWindow}
+                showFromGhost
                 onPositionDrag={handlePositionDrag}
               />
             </div>
