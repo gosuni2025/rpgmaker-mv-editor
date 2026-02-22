@@ -125,6 +125,15 @@ export const projectSlice: SliceCreator<Pick<EditorState,
       }
     } catch {}
 
+    // 서버에 이미 열린 프로젝트 확인 (DEMO_MODE에서 서버가 자동 오픈)
+    try {
+      const info = await apiClient.get<{ path: string }>('/project/info');
+      if (info?.path) {
+        await get().openProject(info.path);
+        return;
+      }
+    } catch {}
+
     const saved = localStorage.getItem(PROJECT_STORAGE_KEY);
     if (saved) {
       try {
