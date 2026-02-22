@@ -8,11 +8,12 @@ import TranslateButton from '../common/TranslateButton';
 import ParamCurveDialog from './ParamCurveDialog';
 import ExpCurveDialog from './ExpCurveDialog';
 import LearningDialog from './LearningDialog';
+import { getMaxForParam } from './paramCurveUtils';
 
 const PARAM_COLORS = ['#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8', '#4dd0e1', '#fff176', '#a1887f'];
 
 // Single param mini graph (one per parameter)
-function SingleParamGraph({ values, color, label }: { values: number[]; color: string; label: string }) {
+function SingleParamGraph({ values, color, label, paramIdx }: { values: number[]; color: string; label: string; paramIdx: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -28,11 +29,8 @@ function SingleParamGraph({ values, color, label }: { values: number[]; color: s
 
     if (!values || values.length === 0) return;
 
-    let maxVal = 0;
-    for (const v of values) {
-      if (v > maxVal) maxVal = v;
-    }
-    if (maxVal === 0) maxVal = 1;
+    // 파라미터별 고정 최댓값 사용 (HP/MP: 9999, 나머지: 999)
+    const maxVal = getMaxForParam(paramIdx);
 
     const padL = 4, padR = 4, padT = 4, padB = 4;
     const gW = W - padL - padR;
@@ -62,7 +60,7 @@ function SingleParamGraph({ values, color, label }: { values: number[]; color: s
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
-  }, [values, color]);
+  }, [values, color, paramIdx]);
 
   return (
     <div className="classes-param-mini">
@@ -305,6 +303,7 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
                       values={selectedItem.params[i] || []}
                       color={PARAM_COLORS[i]}
                       label={name}
+                      paramIdx={i}
                     />
                   </div>
                 ))}
