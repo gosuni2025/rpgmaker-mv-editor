@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
+import https from 'https';
 import { promisify } from 'util';
 import { exec, spawn } from 'child_process';
 import projectManager from '../../services/projectManager';
@@ -54,6 +55,25 @@ function toItchSlug(title: string): string {
     || 'my-game';
 }
 
+/** itch.io에 해당 게임이 존재하는지 HEAD 요청으로 확인 */
+function checkItchioGameExists(username: string, game: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = https.request({
+      hostname: `${username}.itch.io`,
+      path: `/${game}`,
+      method: 'HEAD',
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeout: 5000,
+    }, (res) => {
+      resolve(res.statusCode !== 404);
+      res.resume();
+    });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.end();
+  });
+}
+
 // ─── 사전 조건 체크 ───────────────────────────────────────────────────────────
 router.get('/deploy-itchio-check', async (_req: Request, res: Response) => {
   const butler = await checkButler();
@@ -61,6 +81,19 @@ router.get('/deploy-itchio-check', async (_req: Request, res: Response) => {
   const savedUsername = settingsManager.get().itchio?.username || '';
   const gameSlug = toItchSlug(getGameTitle());
   res.json({ butler, loggedIn, username: savedUsername, gameSlug });
+});
+
+// ─── itch.io 게임 존재 여부 확인 ─────────────────────────────────────────────
+router.get('/deploy-itchio-game-check', async (req: Request, res: Response) => {
+  const { project } = req.query as { project?: string };
+  if (!project?.trim() || !project.includes('/')) {
+    res.json({ exists: null });
+    return;
+  }
+  const [username, game] = project.trim().split('/');
+  if (!username || !game) { res.json({ exists: null }); return; }
+  const exists = await checkItchioGameExists(username, game);
+  res.json({ exists });
 });
 
 // ─── itch.io 배포 (SSE) ───────────────────────────────────────────────────────

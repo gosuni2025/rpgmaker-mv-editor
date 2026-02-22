@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CacheBustOpts, cacheBustToQuery } from '../common/CacheBustSection';
 import apiClient from '../../api/client';
@@ -32,6 +32,8 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
   const [itchUrl, setItchUrl] = useState('');
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [deployMode, setDeployMode] = useState<'deploy' | 'zip'>('deploy');
+  const [gameExists, setGameExists] = useState<boolean | null | 'checking'>(null);
+  const gameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     apiClient.get('/project/deploy-itchio-check')
@@ -47,6 +49,21 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
       })
       .catch(() => {});
   }, []);
+
+  // project 변경 시 itch.io 게임 존재 여부 확인 (debounce 600ms)
+  useEffect(() => {
+    if (gameCheckTimer.current) clearTimeout(gameCheckTimer.current);
+    if (!project.trim() || !project.includes('/')) {
+      setGameExists(null);
+      return;
+    }
+    setGameExists('checking');
+    gameCheckTimer.current = setTimeout(() => {
+      apiClient.get(`/project/deploy-itchio-game-check?project=${encodeURIComponent(project.trim())}`)
+        .then((d) => setGameExists((d as { exists: boolean | null }).exists))
+        .catch(() => setGameExists(null));
+    }, 600);
+  }, [project]);
 
   const saveSettings = async () => {
     try {
@@ -223,11 +240,25 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
                 새 게임 만들기 ↗
               </button>
             </div>
+            <div style={{ color: '#777', fontSize: 11, marginBottom: 6 }}>
+              butler 배포 전 itch.io에 HTML 타입 게임 페이지가 있어야 합니다. 없으면 위 버튼으로 먼저 생성하세요.
+            </div>
             <input type="text" value={project} onChange={(e) => setProject(e.target.value)}
               placeholder="username/game-name" className="deploy-input" />
             {project && project.includes('/') && (
               <div style={{ marginTop: 5, fontSize: 11, color: '#5af' }}>
                 → https://{project.split('/')[0]}.itch.io/{project.split('/')[1]}
+              </div>
+            )}
+            {gameExists === 'checking' && (
+              <div style={{ marginTop: 4, fontSize: 11, color: '#888' }}>itch.io 게임 확인 중...</div>
+            )}
+            {gameExists === true && (
+              <div style={{ marginTop: 4, fontSize: 11, color: '#6c6' }}>✓ itch.io에서 게임을 찾았습니다</div>
+            )}
+            {gameExists === false && (
+              <div style={{ marginTop: 4, fontSize: 11, color: '#e77' }}>
+                ✗ itch.io에서 게임을 찾을 수 없습니다. '새 게임 만들기'로 먼저 게임 페이지를 생성하세요.
               </div>
             )}
           </div>
@@ -245,6 +276,15 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
           </div>
         </div>
       )}
+
+      <div className="deploy-info-box" style={{ padding: '8px 12px' }}>
+        <div style={{ color: '#e8a040', fontSize: 11, marginBottom: 4 }}>
+          ⚠ itch.io는 파일 수가 1,000개를 초과하면 웹 플레이어에서 실행이 불가합니다.
+        </div>
+        <div style={{ color: '#777', fontSize: 11 }}>
+          최초 업로드 시: ZIP 만들기 → 폴더 열기 → itch.io 게임 편집 페이지에 ZIP 드래그 업로드
+        </div>
+      </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
         <button className="db-btn" onClick={handleMakeZip} disabled={dp.busy} style={{ flex: 1 }}>
