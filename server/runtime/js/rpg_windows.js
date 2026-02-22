@@ -4086,6 +4086,7 @@ Window_NumberInput.prototype.buttonY = function() {
 Window_NumberInput.prototype.update = function() {
     Window_Selectable.prototype.update.call(this);
     this.processDigitChange();
+    this.updateButtonsVisiblity();
 };
 
 Window_NumberInput.prototype.processDigitChange = function() {
