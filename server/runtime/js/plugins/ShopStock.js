@@ -2,6 +2,127 @@
  * @plugindesc 상점 재고 관리 - 상품별 재고, 동적 증감, 상품 추가/제거 지원
  * @author gosuni2025
  *
+ * @command addStock
+ * @text 재고 증감
+ * @desc 상점 아이템의 재고를 증가하거나 감소합니다. 무제한(-1) 아이템은 변경되지 않습니다.
+ *
+ * @arg eventId
+ * @text 이벤트 ID
+ * @type number
+ * @default 1
+ *
+ * @arg cmdIdx
+ * @text 커맨드 인덱스
+ * @desc 이벤트 리스트에서 상점의 처리(302) 커맨드가 위치한 인덱스
+ * @type number
+ * @default 0
+ *
+ * @arg itemIdx
+ * @text 아이템 인덱스
+ * @desc 상점 내 아이템 순서 (0부터 시작)
+ * @type number
+ * @default 0
+ *
+ * @arg amount
+ * @text 수량
+ * @desc 증가할 수량. 음수를 입력하면 감소합니다.
+ * @type number
+ * @default 1
+ *
+ * @command setStock
+ * @text 재고 설정
+ * @desc 상점 아이템의 재고를 지정한 값으로 설정합니다. -1을 입력하면 무제한이 됩니다.
+ *
+ * @arg eventId
+ * @text 이벤트 ID
+ * @type number
+ * @default 1
+ *
+ * @arg cmdIdx
+ * @text 커맨드 인덱스
+ * @type number
+ * @default 0
+ *
+ * @arg itemIdx
+ * @text 아이템 인덱스
+ * @type number
+ * @default 0
+ *
+ * @arg amount
+ * @text 재고 수량 (-1=무제한)
+ * @type number
+ * @default 10
+ *
+ * @command addItem
+ * @text 상품 추가
+ * @desc 상점에 새 상품을 동적으로 추가합니다. 상점을 한 번 열어야 효과가 적용됩니다.
+ *
+ * @arg eventId
+ * @text 이벤트 ID
+ * @type number
+ * @default 1
+ *
+ * @arg cmdIdx
+ * @text 커맨드 인덱스
+ * @type number
+ * @default 0
+ *
+ * @arg type
+ * @text 종류
+ * @type select
+ * @option 아이템
+ * @value 0
+ * @option 무기
+ * @value 1
+ * @option 방어구
+ * @value 2
+ * @default 0
+ *
+ * @arg itemId
+ * @text 아이템 ID
+ * @type number
+ * @default 1
+ *
+ * @arg priceType
+ * @text 가격 타입
+ * @type select
+ * @option 표준 가격
+ * @value 0
+ * @option 지정 가격
+ * @value 1
+ * @default 0
+ *
+ * @arg price
+ * @text 지정 가격
+ * @desc 가격 타입이 "지정 가격"일 때만 사용됩니다.
+ * @type number
+ * @default 0
+ *
+ * @arg stock
+ * @text 재고 (-1=무제한)
+ * @type number
+ * @default -1
+ *
+ * @command removeItem
+ * @text 상품 제거
+ * @desc 상점에서 특정 상품을 제거합니다. 상점을 한 번 열어야 효과가 적용됩니다.
+ *
+ * @arg eventId
+ * @text 이벤트 ID
+ * @type number
+ * @default 1
+ *
+ * @arg cmdIdx
+ * @text 커맨드 인덱스
+ * @type number
+ * @default 0
+ *
+ * @arg itemIdx
+ * @text 아이템 인덱스
+ * @desc 제거할 아이템의 순서 (0부터 시작)
+ * @type number
+ * @default 0
+ *
  * @help
  * ───────────────────────────────────────────────────────────────────
  * 재고 파라미터 (이벤트 에디터 상점의 처리에서 설정)
