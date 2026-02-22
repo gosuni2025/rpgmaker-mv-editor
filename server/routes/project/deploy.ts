@@ -5,6 +5,7 @@ import os from 'os';
 import https from 'https';
 import { exec } from 'child_process';
 import archiver from 'archiver';
+import sharp from 'sharp';
 import projectManager from '../../services/projectManager';
 import settingsManager from '../../services/settingsManager';
 import { openInExplorer } from './helpers';
@@ -25,6 +26,7 @@ export interface CacheBustOptions {
   video?:        boolean; // movies/
   data?:         boolean; // data/
   filterUnused?: boolean; // 미사용 에셋 제외
+  convertWebp?:  boolean; // PNG → WebP 무손실 변환 (배포 용량/트래픽 절감)
 }
 
 // ─── 미사용 에셋 필터링 ───────────────────────────────────────────────────────
@@ -128,6 +130,7 @@ export function applyCacheBusting(stagingDir: string, buildId: string, opts: Cac
     audio:   opts.audio   !== false,
     video:   opts.video   !== false,
     data:    opts.data    !== false,
+    webp:    opts.convertWebp === true,
   });
 
   const htmlFiles = fs.readdirSync(stagingDir).filter((f: string) => f.endsWith('.html'));
@@ -187,7 +190,40 @@ export function parseCacheBustQuery(query: Record<string, unknown>): CacheBustOp
     data:    flag('cbData'),
     // GET: cbFilterUnused=1, POST body: filterUnused=true
     filterUnused: query['cbFilterUnused'] === '1' || query['filterUnused'] === true,
+    // GET: cbConvertWebp=1, POST body: convertWebp=true
+    convertWebp: query['cbConvertWebp'] === '1' || query['convertWebp'] === true,
   };
+}
+
+/** img/ 하위 PNG 파일을 WebP lossless로 변환하고 원본 삭제. 변환 수 반환 */
+async function convertImagesToWebP(
+  stagingDir: string,
+  onLog: (msg: string) => void,
+): Promise<number> {
+  const imgDir = path.join(stagingDir, 'img');
+  if (!fs.existsSync(imgDir)) return 0;
+
+  const pngFiles: string[] = [];
+  function collectPng(dir: string) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) collectPng(full);
+      else if (entry.name.toLowerCase().endsWith('.png')) pngFiles.push(full);
+    }
+  }
+  collectPng(imgDir);
+
+  if (pngFiles.length === 0) return 0;
+  onLog(`PNG → WebP 변환 중 (${pngFiles.length}개)...`);
+
+  let converted = 0;
+  for (const pngPath of pngFiles) {
+    const webpPath = pngPath.slice(0, -4) + '.webp';
+    await sharp(pngPath).webp({ lossless: true }).toFile(webpPath);
+    fs.unlinkSync(pngPath);
+    converted++;
+  }
+  return converted;
 }
 
 async function zipStagingWithProgress(
@@ -360,6 +396,13 @@ export async function buildDeployZipWithProgress(
       }
     }
     onEvent({ type: 'log', message: '✓ 복사 완료' });
+
+    if (opts.convertWebp) {
+      onEvent({ type: 'status', phase: 'patching' });
+      onEvent({ type: 'log', message: '── WebP 변환 중 ──' });
+      const webpCount = await convertImagesToWebP(stagingDir, (msg) => onEvent({ type: 'log', message: msg }));
+      onEvent({ type: 'log', message: `✓ WebP 변환 완료 (${webpCount}개)` });
+    }
 
     applyIndexHtmlRename(stagingDir);
     applyCacheBusting(stagingDir, makeBuildId(), opts);

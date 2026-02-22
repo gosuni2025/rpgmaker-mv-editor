@@ -931,7 +931,8 @@ ImageManager.loadTitle2 = function(filename, hue) {
 
 ImageManager.loadBitmap = function(folder, filename, hue, smooth) {
     if (filename) {
-        var path = folder + encodeURIComponent(filename) + '.png';
+        var _ext = (window.__CACHE_BUST__ && window.__CACHE_BUST__.webp) ? '.webp' : '.png';
+        var path = folder + encodeURIComponent(filename) + _ext;
         var bitmap = this.loadNormalBitmap(path, hue || 0);
         bitmap.smooth = smooth;
         return bitmap;
@@ -1050,7 +1051,8 @@ ImageManager.reserveTitle2 = function(filename, hue, reservationId) {
 
 ImageManager.reserveBitmap = function(folder, filename, hue, smooth, reservationId) {
     if (filename) {
-        var path = folder + encodeURIComponent(filename) + '.png';
+        var _ext = (window.__CACHE_BUST__ && window.__CACHE_BUST__.webp) ? '.webp' : '.png';
+        var path = folder + encodeURIComponent(filename) + _ext;
         var bitmap = this.reserveNormalBitmap(path, hue || 0, reservationId || this._defaultReservationId);
         bitmap.smooth = smooth;
         return bitmap;
@@ -1133,7 +1135,8 @@ ImageManager.requestTitle2 = function(filename, hue) {
 
 ImageManager.requestBitmap = function(folder, filename, hue, smooth) {
     if (filename) {
-        var path = folder + encodeURIComponent(filename) + '.png';
+        var _ext = (window.__CACHE_BUST__ && window.__CACHE_BUST__.webp) ? '.webp' : '.png';
+        var path = folder + encodeURIComponent(filename) + _ext;
         var bitmap = this.requestNormalBitmap(path, hue || 0);
         bitmap.smooth = smooth;
         return bitmap;
@@ -1899,7 +1902,7 @@ SceneManager.initGraphics = function() {
     Graphics.initialize(this._screenWidth, this._screenHeight, type);
     Graphics.boxWidth = this._boxWidth;
     Graphics.boxHeight = this._boxHeight;
-    Graphics.setLoadingImage('img/system/Loading.png');
+    Graphics.setLoadingImage((window.__CACHE_BUST__ && window.__CACHE_BUST__.webp) ? 'img/system/Loading.webp' : 'img/system/Loading.png');
     if (Utils.isOptionValid('showfps')) {
         Graphics.showFps();
     }

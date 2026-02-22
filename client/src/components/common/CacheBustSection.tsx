@@ -8,6 +8,7 @@ export interface CacheBustOpts {
   video:   boolean;
   data:    boolean;
   filterUnused: boolean;
+  convertWebp: boolean;
 }
 
 export const DEFAULT_CACHE_BUST_OPTS: CacheBustOpts = {
@@ -17,6 +18,7 @@ export const DEFAULT_CACHE_BUST_OPTS: CacheBustOpts = {
   video:   true,
   data:    true,
   filterUnused: false,
+  convertWebp: true,
 };
 
 export const CB_KEYS = ['scripts', 'images', 'audio', 'video', 'data'] as const;
@@ -28,6 +30,7 @@ export function cacheBustToQuery(opts: CacheBustOpts): string {
     p.set(`cb${key.charAt(0).toUpperCase()}${key.slice(1)}`, opts[key] ? '1' : '0');
   }
   p.set('cbFilterUnused', opts.filterUnused ? '1' : '0');
+  p.set('cbConvertWebp', opts.convertWebp ? '1' : '0');
   return p.toString();
 }
 
@@ -40,6 +43,7 @@ export default function CacheBustSection({ opts, onChange }: Props) {
   const { t } = useTranslation();
   const [helpOpen, setHelpOpen] = useState(false);
   const [filterHelpOpen, setFilterHelpOpen] = useState(false);
+  const [webpHelpOpen, setWebpHelpOpen] = useState(false);
 
   return (
     <div style={{ background: '#2e2e2e', border: '1px solid #3e3e3e', borderRadius: 4, padding: '10px 12px' }}>
@@ -95,6 +99,58 @@ export default function CacheBustSection({ opts, onChange }: Props) {
             <span style={{ color: '#ccc', fontSize: 12 }}>{t(`deploy.cacheBust.${key}`)}</span>
           </label>
         ))}
+      </div>
+
+      {/* ── WebP 변환 ── */}
+      <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #3a3a3a' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', flex: 1 }}>
+            <input
+              type="checkbox"
+              checked={opts.convertWebp}
+              onChange={(e) => onChange({ ...opts, convertWebp: e.target.checked })}
+            />
+            <span style={{ color: '#ccc', fontSize: 12 }}>{t('deploy.cacheBust.convertWebp')}</span>
+          </label>
+          <button
+            onClick={() => setWebpHelpOpen((v) => !v)}
+            title={t('deploy.cacheBust.convertWebpHelp')}
+            style={{
+              background: webpHelpOpen ? '#2675bf' : '#444',
+              border: '1px solid #555',
+              borderRadius: '50%',
+              width: 16,
+              height: 16,
+              color: '#ddd',
+              fontSize: 10,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              lineHeight: 1,
+              flexShrink: 0,
+            }}
+          >?</button>
+        </div>
+
+        {webpHelpOpen && (
+          <div style={{
+            background: '#252525',
+            border: '1px solid #3a3a3a',
+            borderRadius: 3,
+            padding: '8px 10px',
+            marginTop: 6,
+            fontSize: 11,
+            color: '#aaa',
+            lineHeight: 1.7,
+          }}>
+            <div style={{ fontWeight: 600, color: '#ccc', marginBottom: 4 }}>{t('deploy.cacheBust.convertWebpHelp')}</div>
+            <div>· {t('deploy.cacheBust.convertWebpDesc1')}</div>
+            <div>· {t('deploy.cacheBust.convertWebpDesc2')}</div>
+            <div style={{ marginTop: 4, color: '#5af' }}>ℹ {t('deploy.cacheBust.convertWebpNote')}</div>
+          </div>
+        )}
       </div>
 
       {/* ── 미사용 에셋 필터 ── */}

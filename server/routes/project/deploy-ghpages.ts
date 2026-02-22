@@ -247,7 +247,8 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
       opts.data !== false ? 'data' : null,
     ].filter(Boolean).join(', ');
     if (cbFlags) sseLog(res, `  대상: ${cbFlags}`);
-    applyCacheBusting(srcPath, buildId, opts);
+    // GhPages는 파일 변환 없이 직접 커밋하므로 WebP 플래그 비활성화
+    applyCacheBusting(srcPath, buildId, { ...opts, convertWebp: false });
 
     // ── 6. git commit ─────────────────────────────────────────────────────────
     currentStep = 'git commit';
