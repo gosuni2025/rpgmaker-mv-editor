@@ -417,21 +417,42 @@
     this.changePaintOpacity(true);
   };
 
-  // updateHelp: 구매 불가 이유를 도움말 창에 표시
-  var _Window_ShopBuy_updateHelp = Window_ShopBuy.prototype.updateHelp;
-  Window_ShopBuy.prototype.updateHelp = function () {
-    var item = this.item();
-    if (item && !this.isEnabled(item)) {
-      var stock = this.getStock(this._data.indexOf(item));
-      if (stock === 0) {
-        this._helpWindow.setText('품절입니다.');
-      } else if (this.price(item) > this._money) {
-        this._helpWindow.setText('돈이 부족합니다.');
-      } else {
-        _Window_ShopBuy_updateHelp.call(this);
+  // ══════════════════════════════════════════════════════════════════
+  // Window_ShopStatus
+  // ══════════════════════════════════════════════════════════════════
+
+  // refresh: 구매 불가 이유(색상 텍스트)를 상단에 표시 후 파티 정보 출력
+  Window_ShopStatus.prototype.refresh = function () {
+    this.contents.clear();
+    if (!this._item) return;
+
+    var reason = null;
+    var scene = SceneManager._scene;
+    if (scene && scene._buyWindow) {
+      var bw  = scene._buyWindow;
+      var idx = bw._data ? bw._data.indexOf(this._item) : -1;
+      if (idx >= 0) {
+        var stock = bw.getStock ? bw.getStock(idx) : -1;
+        if (stock === 0) {
+          reason = '품절입니다.';
+        } else if (bw.price && bw.price(this._item) > this._money) {
+          reason = '돈이 부족합니다.';
+        }
       }
-    } else {
-      _Window_ShopBuy_updateHelp.call(this);
+    }
+
+    var x       = this.textPadding();
+    var yOffset = 0;
+    if (reason) {
+      this.changeTextColor(reason === '품절입니다.' ? this.deathColor() : this.textColor(14));
+      this.drawText(reason, x, 0, this.contentsWidth() - x);
+      this.resetTextColor();
+      yOffset = this.lineHeight();
+    }
+
+    this.drawPossession(x, yOffset);
+    if (this.isEquipItem()) {
+      this.drawEquipInfo(x, yOffset + this.lineHeight() * 2);
     }
   };
 
