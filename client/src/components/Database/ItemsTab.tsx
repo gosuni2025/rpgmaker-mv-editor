@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Item, Damage, Effect } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
@@ -8,6 +8,7 @@ import EffectsEditor from '../common/EffectsEditor';
 import AnimationPickerDialog from '../EventEditor/AnimationPickerDialog';
 import DatabaseList from './DatabaseList';
 import apiClient from '../../api/client';
+import { useDatabaseTab } from './useDatabaseTab';
 
 interface ItemsTabProps {
   data: (Item | null)[] | undefined;
@@ -18,10 +19,27 @@ interface RefItem { id: number; name: string }
 
 const DEFAULT_DAMAGE: Damage = { critical: false, elementId: 0, formula: '', type: 0, variance: 20 };
 
+function createNewItem(id: number): Item {
+  return {
+    id, name: '', iconIndex: 0, description: '', itypeId: 1,
+    price: 0, consumable: true, scope: 0, occasion: 0, speed: 0,
+    successRate: 100, repeats: 1, tpGain: 0, hitType: 0, animationId: 0,
+    damage: { type: 0, elementId: 0, formula: '', variance: 20, critical: false },
+    effects: [], note: '',
+  };
+}
+
+function deepCopyItem(source: Item): Partial<Item> {
+  return {
+    damage: { ...source.damage },
+    effects: source.effects.map((e: Effect) => ({ ...e })),
+  };
+}
+
 export default function ItemsTab({ data, onChange }: ItemsTabProps) {
   const { t } = useTranslation();
-  const [selectedId, setSelectedId] = useState(1);
-  const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const { selectedId, setSelectedId, selectedItem, handleFieldChange, handleAdd, handleDelete, handleDuplicate, handleReorder } =
+    useDatabaseTab(data, onChange, createNewItem, deepCopyItem);
   const [animations, setAnimations] = useState<RefItem[]>([]);
   const [showAnimPicker, setShowAnimPicker] = useState(false);
 
@@ -66,98 +84,26 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
     }).catch(() => {});
   }, []);
 
-  const handleFieldChange = (field: keyof Item, value: unknown) => {
-    if (!data) return;
-    const newData = data.map((item) => {
-      if (item && item.id === selectedId) {
-        return { ...item, [field]: value };
-      }
-      return item;
-    });
-    onChange(newData);
-  };
-
-  const handleAddNew = useCallback(() => {
-    if (!data) return;
-    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
-    const newItem: Item = {
-      id: maxId + 1, name: '', iconIndex: 0, description: '', itypeId: 1,
-      price: 0, consumable: true, scope: 0, occasion: 0, speed: 0,
-      successRate: 100, repeats: 1, tpGain: 0, hitType: 0, animationId: 0,
-      damage: { type: 0, elementId: 0, formula: '', variance: 20, critical: false },
-      effects: [], note: '',
-    };
-    const newData = [...data];
-    while (newData.length <= maxId + 1) newData.push(null);
-    newData[maxId + 1] = newItem;
-    onChange(newData);
-    setSelectedId(maxId + 1);
-  }, [data, onChange]);
-
-  const handleDelete = useCallback((id: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as Item[];
-    if (items.length <= 1) return;
-    const newData = data.filter((item) => !item || item.id !== id);
-    onChange(newData);
-    if (id === selectedId) {
-      const remaining = newData.filter(Boolean) as Item[];
-      if (remaining.length > 0) setSelectedId(remaining[0].id);
-    }
-  }, [data, onChange, selectedId]);
-
-  const handleDuplicate = useCallback((id: number) => {
-    if (!data) return;
-    const source = data.find((item) => item && item.id === id);
-    if (!source) return;
-    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
-    const newId = maxId + 1;
-    const newData = [...data];
-    while (newData.length <= newId) newData.push(null);
-    newData[newId] = { ...source, id: newId, damage: { ...source.damage }, effects: source.effects.map(e => ({ ...e })) };
-    onChange(newData);
-    setSelectedId(newId);
-  }, [data, onChange]);
-
-  const handleReorder = useCallback((fromId: number, toId: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as Item[];
-    const fromIdx = items.findIndex(item => item.id === fromId);
-    if (fromIdx < 0) return;
-    const [moved] = items.splice(fromIdx, 1);
-    if (toId === -1) {
-      items.push(moved);
-    } else {
-      const toIdx = items.findIndex(item => item.id === toId);
-      if (toIdx < 0) items.push(moved);
-      else items.splice(toIdx, 0, moved);
-    }
-    onChange([null, ...items]);
-  }, [data, onChange]);
-
   return (
     <div className="db-tab-layout">
       <DatabaseList
         items={data}
         selectedId={selectedId}
         onSelect={setSelectedId}
-        onAdd={handleAddNew}
+        onAdd={handleAdd}
         onDelete={handleDelete}
         onDuplicate={handleDuplicate}
         onReorder={handleReorder}
         title={t('database.tabs.items')}
       />
 
-      {/* 중앙 + 우측: 2컬럼 폼 */}
       {selectedItem && (
         <div className="db-form-columns">
-          {/* 중앙 컬럼: 일반 설정 + 발동 + 대미지 */}
           <div className="db-form-col">
             <div className="db-form-section" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
               {t('skills.generalSettings')}
             </div>
 
-            {/* 이름 + 아이콘 (한 줄) */}
             <div className="db-form-row">
               <label style={{ flex: 2 }}>
                 {t('common.name')}
@@ -173,14 +119,10 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
               </label>
               <div className="db-form-field-label" style={{ flex: 0, minWidth: 'fit-content' }}>
                 {t('common.icon')}
-                <IconPicker
-                  value={selectedItem.iconIndex || 0}
-                  onChange={(v) => handleFieldChange('iconIndex', v)}
-                />
+                <IconPicker value={selectedItem.iconIndex || 0} onChange={(v) => handleFieldChange('iconIndex', v)} />
               </div>
             </div>
 
-            {/* 설명 */}
             <label>
               {t('common.description')}
               <div style={{ display: 'flex', gap: 4, alignItems: 'start' }}>
@@ -194,7 +136,6 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
               </div>
             </label>
 
-            {/* 아이템 유형 / 가격 / 소모 (한 줄) */}
             <div className="db-form-row">
               <label>
                 {t('fields.itemType')}
@@ -204,107 +145,58 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
               </label>
               <label>
                 {t('common.price')}
-                <input
-                  type="number"
-                  value={selectedItem.price || 0}
-                  onChange={(e) => handleFieldChange('price', Number(e.target.value))}
-                  min={0}
-                />
+                <input type="number" value={selectedItem.price || 0} onChange={(e) => handleFieldChange('price', Number(e.target.value))} min={0} />
               </label>
               <label className="db-checkbox-label" style={{ alignSelf: 'flex-end', paddingBottom: 4 }}>
-                <input
-                  type="checkbox"
-                  checked={selectedItem.consumable ?? true}
-                  onChange={(e) => handleFieldChange('consumable', e.target.checked)}
-                />
+                <input type="checkbox" checked={selectedItem.consumable ?? true} onChange={(e) => handleFieldChange('consumable', e.target.checked)} />
                 {t('fields.consumable')}
               </label>
             </div>
 
-            {/* 범위 / 사용 가능시 (한 줄) */}
             <div className="db-form-row">
               <label>
                 {t('fields.scope')}
-                <select
-                  value={selectedItem.scope || 0}
-                  onChange={(e) => handleFieldChange('scope', Number(e.target.value))}
-                >
-                  {SCOPE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
+                <select value={selectedItem.scope || 0} onChange={(e) => handleFieldChange('scope', Number(e.target.value))}>
+                  {SCOPE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </label>
               <label>
                 {t('fields.occasion')}
-                <select
-                  value={selectedItem.occasion || 0}
-                  onChange={(e) => handleFieldChange('occasion', Number(e.target.value))}
-                >
-                  {OCCASION_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
+                <select value={selectedItem.occasion || 0} onChange={(e) => handleFieldChange('occasion', Number(e.target.value))}>
+                  {OCCASION_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </label>
             </div>
 
-            {/* 발동 섹션 */}
             <div className="db-form-section">{t('fields.invocation')}</div>
 
-            {/* 속도 / 성공률 / 연속 횟수 / TP 획득 (한 줄) */}
             <div className="db-form-row">
               <label>
                 {t('fields.speed')}
-                <input
-                  type="number"
-                  value={selectedItem.speed || 0}
-                  onChange={(e) => handleFieldChange('speed', Number(e.target.value))}
-                />
+                <input type="number" value={selectedItem.speed || 0} onChange={(e) => handleFieldChange('speed', Number(e.target.value))} />
               </label>
               <label>
                 {t('fields.successRate')}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <input
-                    type="number"
-                    value={selectedItem.successRate ?? 100}
-                    onChange={(e) => handleFieldChange('successRate', Number(e.target.value))}
-                    min={0}
-                    max={100}
-                    style={{ flex: 1 }}
-                  />
+                  <input type="number" value={selectedItem.successRate ?? 100} onChange={(e) => handleFieldChange('successRate', Number(e.target.value))} min={0} max={100} style={{ flex: 1 }} />
                   <span style={{ color: '#aaa', fontSize: 12 }}>%</span>
                 </div>
               </label>
               <label>
                 {t('fields.repeats')}
-                <input
-                  type="number"
-                  value={selectedItem.repeats || 1}
-                  onChange={(e) => handleFieldChange('repeats', Number(e.target.value))}
-                  min={1}
-                />
+                <input type="number" value={selectedItem.repeats || 1} onChange={(e) => handleFieldChange('repeats', Number(e.target.value))} min={1} />
               </label>
               <label>
                 {t('fields.tpGain')}
-                <input
-                  type="number"
-                  value={selectedItem.tpGain || 0}
-                  onChange={(e) => handleFieldChange('tpGain', Number(e.target.value))}
-                  min={0}
-                />
+                <input type="number" value={selectedItem.tpGain || 0} onChange={(e) => handleFieldChange('tpGain', Number(e.target.value))} min={0} />
               </label>
             </div>
 
-            {/* 히트 유형 / 애니메이션 (한 줄) */}
             <div className="db-form-row">
               <label>
                 {t('fields.hitType')}
-                <select
-                  value={selectedItem.hitType || 0}
-                  onChange={(e) => handleFieldChange('hitType', Number(e.target.value))}
-                >
-                  {HIT_TYPE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
+                <select value={selectedItem.hitType || 0} onChange={(e) => handleFieldChange('hitType', Number(e.target.value))}>
+                  {HIT_TYPE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </label>
               <label>
@@ -316,19 +208,15 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
                 </button>
               </label>
             </div>
-
           </div>
 
-          {/* 우측 컬럼: 손상 + 사용 효과 + 메모 */}
           <div className="db-form-col">
             <DamageEditor
               damage={selectedItem.damage || { ...DEFAULT_DAMAGE }}
               onChange={(damage) => handleFieldChange('damage', damage)}
             />
 
-            <div className="db-form-section">
-              {t('fields.effects')}
-            </div>
+            <div className="db-form-section">{t('fields.effects')}</div>
 
             <EffectsEditor
               effects={selectedItem.effects || []}
@@ -342,17 +230,9 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
               onChange={(e) => handleFieldChange('note', e.target.value)}
               rows={5}
               style={{
-                background: '#2b2b2b',
-                border: '1px solid #555',
-                borderRadius: 3,
-                padding: '4px 8px',
-                color: '#ddd',
-                fontSize: 13,
-                fontFamily: 'inherit',
-                outline: 'none',
-                resize: 'vertical',
-                flex: 1,
-                minHeight: 60,
+                background: '#2b2b2b', border: '1px solid #555', borderRadius: 3,
+                padding: '4px 8px', color: '#ddd', fontSize: 13, fontFamily: 'inherit',
+                outline: 'none', resize: 'vertical', flex: 1, minHeight: 60,
               }}
             />
           </div>

@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import type { State } from '../../types/rpgMakerMV';
+import type { State, Trait } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
 import TraitsEditor from '../common/TraitsEditor';
 import TranslateButton from '../common/TranslateButton';
 import DatabaseList from './DatabaseList';
+import { useDatabaseTab } from './useDatabaseTab';
 import './StatesTab.css';
 
 interface StatesTabProps {
@@ -12,10 +13,41 @@ interface StatesTabProps {
   onChange: (data: (State | null)[]) => void;
 }
 
+function createNewState(id: number): State {
+  return {
+    id,
+    name: '',
+    iconIndex: 0,
+    restriction: 0,
+    priority: 50,
+    removeAtBattleEnd: false,
+    removeByRestriction: false,
+    autoRemovalTiming: 0,
+    minTurns: 1,
+    maxTurns: 1,
+    removeByDamage: false,
+    chanceByDamage: 100,
+    removeByWalking: false,
+    stepsToRemove: 100,
+    message1: '',
+    message2: '',
+    message3: '',
+    message4: '',
+    motion: 0,
+    overlay: 0,
+    traits: [],
+    note: '',
+  };
+}
+
+function deepCopyState(source: State): Partial<State> {
+  return { traits: source.traits.map((t: Trait) => ({ ...t })) };
+}
+
 export default function StatesTab({ data, onChange }: StatesTabProps) {
   const { t } = useTranslation();
-  const [selectedId, setSelectedId] = useState(1);
-  const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const { selectedId, setSelectedId, selectedItem, handleFieldChange, handleAdd, handleDelete, handleDuplicate, handleReorder } =
+    useDatabaseTab(data, onChange, createNewState, deepCopyState);
 
   const SV_MOTION_LABELS: Record<number, string> = {
     0: t('svMotion.normal'),
@@ -37,89 +69,6 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
     9: t('svOverlay.curse'),
   };
 
-  const handleFieldChange = (field: keyof State, value: unknown) => {
-    if (!data) return;
-    const newData = data.map((item) => {
-      if (item && item.id === selectedId) {
-        return { ...item, [field]: value };
-      }
-      return item;
-    });
-    onChange(newData);
-  };
-
-  const addNewState = useCallback(() => {
-    if (!data) return;
-    const existing = data.filter(Boolean) as State[];
-    const maxId = existing.length > 0 ? Math.max(...existing.map(s => s.id)) : 0;
-    const newState: State = {
-      id: maxId + 1,
-      name: '',
-      iconIndex: 0,
-      restriction: 0,
-      priority: 50,
-      removeAtBattleEnd: false,
-      removeByRestriction: false,
-      autoRemovalTiming: 0,
-      minTurns: 1,
-      maxTurns: 1,
-      removeByDamage: false,
-      chanceByDamage: 100,
-      removeByWalking: false,
-      stepsToRemove: 100,
-      message1: '',
-      message2: '',
-      message3: '',
-      message4: '',
-      motion: 0,
-      overlay: 0,
-      traits: [],
-      note: '',
-    };
-    const newData = [...data, newState];
-    onChange(newData);
-    setSelectedId(newState.id);
-  }, [data, onChange]);
-
-  const handleDelete = useCallback((id: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as State[];
-    if (items.length <= 1) return;
-    const newData = data.filter((item) => !item || item.id !== id);
-    onChange(newData);
-    if (id === selectedId) {
-      const remaining = newData.filter(Boolean) as State[];
-      if (remaining.length > 0) setSelectedId(remaining[0].id);
-    }
-  }, [data, onChange, selectedId]);
-
-  const handleDuplicate = useCallback((id: number) => {
-    if (!data) return;
-    const source = data.find((item) => item && item.id === id);
-    if (!source) return;
-    const existing = data.filter(Boolean) as State[];
-    const maxId = existing.length > 0 ? Math.max(...existing.map(s => s.id)) : 0;
-    const newId = maxId + 1;
-    const newData = [...data, { ...source, id: newId, traits: source.traits.map(t => ({ ...t })) }];
-    onChange(newData);
-    setSelectedId(newId);
-  }, [data, onChange]);
-
-  const handleReorder = useCallback((fromId: number, toId: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as State[];
-    const fromIdx = items.findIndex(item => item.id === fromId);
-    if (fromIdx < 0) return;
-    const [moved] = items.splice(fromIdx, 1);
-    if (toId === -1) {
-      items.push(moved);
-    } else {
-      const toIdx = items.findIndex(item => item.id === toId);
-      if (toIdx < 0) items.push(moved);
-      else items.splice(toIdx, 0, moved);
-    }
-    onChange([null, ...items]);
-  }, [data, onChange]);
 
   return (
     <div className="db-tab-layout">
@@ -127,7 +76,7 @@ export default function StatesTab({ data, onChange }: StatesTabProps) {
         items={data}
         selectedId={selectedId}
         onSelect={setSelectedId}
-        onAdd={addNewState}
+        onAdd={handleAdd}
         onDelete={handleDelete}
         onDuplicate={handleDuplicate}
         onReorder={handleReorder}
