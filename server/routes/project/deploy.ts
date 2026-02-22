@@ -350,6 +350,7 @@ async function zipStagingWithProgress(
   zipPath: string,
   fileTotal: number,
   onProgress: (current: number, total: number, name: string) => void,
+  excludeDirs: string[] = [],
 ): Promise<void> {
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
   return new Promise<void>((resolve, reject) => {
@@ -363,7 +364,17 @@ async function zipStagingWithProgress(
     archive.on('error', reject);
     output.on('close', resolve);
     archive.pipe(output);
-    archive.directory(stagingDir, false);
+    if (excludeDirs.length > 0) {
+      // 제외 폴더를 뺀 나머지 항목만 추가
+      for (const entry of fs.readdirSync(stagingDir, { withFileTypes: true })) {
+        if (entry.isDirectory() && excludeDirs.includes(entry.name)) continue;
+        const full = path.join(stagingDir, entry.name);
+        if (entry.isDirectory()) archive.directory(full, entry.name);
+        else archive.file(full, { name: entry.name });
+      }
+    } else {
+      archive.directory(stagingDir, false);
+    }
     archive.finalize();
   });
 }
@@ -553,19 +564,16 @@ export async function buildDeployZipWithProgress(
     applyCacheBusting(stagingDir, buildId, { ...opts, convertWebp: projectIsWebp || opts.convertWebp });
     if (opts.bundle) {
       await generateBundleFiles(stagingDir, buildId, (msg) => onEvent({ type: 'log', message: msg }));
-      for (const dir of ['img', 'audio', 'data']) {
-        const dirPath = path.join(stagingDir, dir);
-        if (fs.existsSync(dirPath)) fs.rmSync(dirPath, { recursive: true, force: true });
-      }
     }
 
     onEvent({ type: 'status', phase: 'zipping' });
     onEvent({ type: 'log', message: '── ZIP 압축 중 ──' });
     const safeName = (gameTitle || 'game').replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
     const zipPath = path.join(DEPLOYS_DIR, `${safeName}.zip`);
+    const zipExcludeDirs = opts.bundle ? ['img', 'audio', 'data'] : [];
     await zipStagingWithProgress(stagingDir, zipPath, total, (cur, tot, name) => {
       onEvent({ type: 'zip-progress', current: cur, total: tot, name });
-    });
+    }, zipExcludeDirs);
     onEvent({ type: 'log', message: '✓ ZIP 완료' });
 
     return zipPath;

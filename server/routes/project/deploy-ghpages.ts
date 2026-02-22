@@ -254,12 +254,6 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
     applyCacheBusting(srcPath, buildId, { ...opts, convertWebp: false });
     if (bundle) {
       await generateBundleFiles(srcPath, buildId, (msg) => sseLog(res, msg));
-      // ZIP으로 묶인 폴더는 git에서 제거 (bundles/*.zip으로 대체됨)
-      sseLog(res, 'img/, audio/, data/ 원본 제거 (bundles/*.zip으로 대체)');
-      for (const dir of ['img', 'audio', 'data']) {
-        const dirPath = path.join(srcPath, dir);
-        if (fs.existsSync(dirPath)) fs.rmSync(dirPath, { recursive: true, force: true });
-      }
     }
 
     // ── 6. git commit ─────────────────────────────────────────────────────────
@@ -269,6 +263,15 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
     const now = new Date().toLocaleString('ko-KR');
 
     gitExecLog(res, `git -C "${srcPath}" add -A`);
+    if (bundle) {
+      // img/audio/data는 bundles/*.zip으로 대체 — 파일은 건드리지 않고 index에서만 제거
+      sseLog(res, 'img/, audio/, data/ → git index에서 제외 (bundles/*.zip으로 대체)');
+      for (const dir of ['img', 'audio', 'data']) {
+        if (fs.existsSync(path.join(srcPath, dir))) {
+          gitExecLog(res, `git -C "${srcPath}" rm -r --cached --ignore-unmatch ${dir}`);
+        }
+      }
+    }
     let commitHash = '';
     try {
       gitExecLog(res, `git -C "${srcPath}" commit -m "Deploy: ${now}"`);
