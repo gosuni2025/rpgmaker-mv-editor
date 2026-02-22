@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
+import apiClient from '../../api/client';
 import './StatusBar.css';
+
+interface VersionInfo {
+  type: 'release' | 'git';
+  version?: string;
+  commitDate?: string;
+  commitHash?: string;
+}
 
 /* ── 메모리 샘플 타입 ── */
 interface MemSample {
@@ -460,8 +468,14 @@ export default function StatusBar() {
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
   const cursorTileX = useEditorStore((s) => s.cursorTileX);
   const cursorTileY = useEditorStore((s) => s.cursorTileY);
+  const setShowUpdateCheckDialog = useEditorStore((s) => s.setShowUpdateCheckDialog);
   const [showGraph, setShowGraph] = useState(false);
   const [, setTick] = useState(0);
+  const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
+
+  useEffect(() => {
+    apiClient.get<VersionInfo>('/version/info').then(setVersionInfo).catch(() => {});
+  }, []);
 
   useEffect(() => {
     startSampler();
@@ -478,8 +492,23 @@ export default function StatusBar() {
   const perf = performance as any;
   const hasMemory = !!perf.memory;
 
+  const versionLabel = versionInfo
+    ? versionInfo.type === 'release'
+      ? `v${versionInfo.version ?? '?'}`
+      : `git (${versionInfo.commitHash ?? '?'})`
+    : null;
+
   return (
     <div className="statusbar">
+      {versionLabel && (
+        <span
+          className="statusbar-item statusbar-version"
+          onClick={() => setShowUpdateCheckDialog(true)}
+          title="클릭하여 업데이트 확인"
+        >
+          {versionLabel}
+        </span>
+      )}
       {demoMode && (
         <span className="statusbar-item statusbar-demo-badge" title="데모 모드: 저장은 이 세션에서만 유효합니다">
           DEMO
