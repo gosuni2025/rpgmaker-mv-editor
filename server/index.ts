@@ -37,6 +37,15 @@ export function createApp(options: AppOptions = {}) {
   // /game/save/* - 게임 세이브 파일 저장/로드 API (config, global, save files)
   const validSaveFile = (name: string) => /^[\w.-]+\.rpgsave(\.bak)?$/.test(name);
 
+  // save/ 폴더의 파일 목록 반환 (StorageManager.exists 배치 최적화용)
+  app.get('/game/save-list', (req, res) => {
+    if (!projectManager.isOpen()) return res.json([]);
+    const saveDir = path.join(projectManager.currentPath!, 'save');
+    if (!fs.existsSync(saveDir)) return res.json([]);
+    const files = fs.readdirSync(saveDir).filter(f => validSaveFile(f));
+    res.json(files);
+  });
+
   app.get('/game/save/:filename', (req, res) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project open');
     if (!validSaveFile(req.params.filename)) return res.status(400).send('Invalid filename');
@@ -164,10 +173,23 @@ export function createApp(options: AppOptions = {}) {
                 return xhr;
             }
 
+            // 파일 존재 여부 캐시: /game/save-list 한 번으로 일괄 로드
+            StorageManager._existsCache = null;
+            StorageManager._loadExistsCache = function() {
+                var xhr = syncRequest('GET', '/game/save-list');
+                var cache = {};
+                if (xhr.status === 200) {
+                    JSON.parse(xhr.responseText).forEach(function(name) { cache[name] = true; });
+                }
+                this._existsCache = cache;
+            };
+
             StorageManager.save = function(savefileId, json) {
                 var data = LZString.compressToBase64(json);
                 var name = saveFileName(savefileId);
                 syncRequest('PUT', '/game/save/' + name, data);
+                if (this._existsCache) this._existsCache[name] = true;
+                DataManager._cachedGlobalInfo = null;
             };
 
             StorageManager.load = function(savefileId) {
@@ -180,17 +202,15 @@ export function createApp(options: AppOptions = {}) {
             };
 
             StorageManager.exists = function(savefileId) {
-                var name = saveFileName(savefileId);
-                var xhr = syncRequest('GET', '/game/save-exists/' + name);
-                if (xhr.status === 200) {
-                    return JSON.parse(xhr.responseText).exists;
-                }
-                return false;
+                if (!this._existsCache) this._loadExistsCache();
+                return !!this._existsCache[saveFileName(savefileId)];
             };
 
             StorageManager.remove = function(savefileId) {
                 var name = saveFileName(savefileId);
                 syncRequest('DELETE', '/game/save/' + name);
+                if (this._existsCache) delete this._existsCache[name];
+                DataManager._cachedGlobalInfo = null;
             };
 
             StorageManager.backup = function(savefileId) {
@@ -199,27 +219,40 @@ export function createApp(options: AppOptions = {}) {
                     var compressed = LZString.compressToBase64(data);
                     var name = saveFileName(savefileId) + '.bak';
                     syncRequest('PUT', '/game/save/' + name, compressed);
+                    if (this._existsCache) this._existsCache[name] = true;
                 }
             };
 
             StorageManager.backupExists = function(savefileId) {
-                var name = saveFileName(savefileId) + '.bak';
-                var xhr = syncRequest('GET', '/game/save-exists/' + name);
-                if (xhr.status === 200) {
-                    return JSON.parse(xhr.responseText).exists;
-                }
-                return false;
+                if (!this._existsCache) this._loadExistsCache();
+                return !!this._existsCache[saveFileName(savefileId) + '.bak'];
             };
 
             StorageManager.cleanBackup = function(savefileId) {
                 if (this.backupExists(savefileId)) {
                     var name = saveFileName(savefileId) + '.bak';
                     syncRequest('DELETE', '/game/save/' + name);
+                    if (this._existsCache) delete this._existsCache[name];
                 }
             };
 
             StorageManager.isLocalMode = function() {
                 return false;
+            };
+
+            // DataManager.loadGlobalInfo 캐싱:
+            // drawItem()이 슬롯마다 호출하므로 refresh 단위로 1회만 XHR 발생하도록 캐싱
+            DataManager._cachedGlobalInfo = null;
+            var _origLoadGlobalInfo = DataManager.loadGlobalInfo;
+            DataManager.loadGlobalInfo = function() {
+                if (this._cachedGlobalInfo) return this._cachedGlobalInfo;
+                this._cachedGlobalInfo = _origLoadGlobalInfo.call(this);
+                return this._cachedGlobalInfo;
+            };
+            var _origSaveGlobalInfo = DataManager.saveGlobalInfo;
+            DataManager.saveGlobalInfo = function(info) {
+                _origSaveGlobalInfo.call(this, info);
+                this._cachedGlobalInfo = info;
             };
         })();
         </script>
