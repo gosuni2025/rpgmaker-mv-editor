@@ -1,8 +1,6 @@
 # RPG Maker MV Editor
 
-**[에디터 데모 페이지](https://web-production-f1e8c.up.railway.app/)** (저장 안됨) | **[데모 프로젝트](https://gosuni2025.github.io/rpgmaker-demo/)**
-
-| 에디터 | 게임 화면 |
+| **[에디터 데모 페이지](https://web-production-f1e8c.up.railway.app/)** (저장 안됨) | **[데모 프로젝트](https://gosuni2025.github.io/rpgmaker-demo/)** |
 |---|---|
 | [![에디터 데모](docs/screenshot-editor.png)](https://web-production-f1e8c.up.railway.app/) | [![데모 프로젝트](docs/screenshot-game.png)](https://gosuni2025.github.io/rpgmaker-demo/) |
 
