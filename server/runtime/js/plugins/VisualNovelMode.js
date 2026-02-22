@@ -55,7 +55,7 @@
  *
  * @param speakerColor
  * @text 화자명 색상
- * @type string
+ * @type color
  * @default #ffe066
  *
  * @param choiceIndicator

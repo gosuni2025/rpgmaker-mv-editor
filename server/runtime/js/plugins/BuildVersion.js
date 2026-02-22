@@ -12,7 +12,7 @@
  *
  * @param textColor
  * @text 텍스트 색상 (CSS color)
- * @type string
+ * @type color
  * @default rgba(255,255,255,0.5)
  *
  * @param marginRight
