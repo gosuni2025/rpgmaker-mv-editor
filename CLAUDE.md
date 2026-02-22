@@ -261,6 +261,17 @@ data/
 - 다크 테마 IDE 스타일 유지 (배경 #2b2b2b, 텍스트 #ddd, 강조 #2675bf)
 - 컴포넌트 스타일은 각 컴포넌트 디렉터리의 CSS 파일로 관리 (App.css는 전역 스타일만)
 
+### MCP 이벤트 커맨드 레퍼런스 업데이트 규칙
+
+`server/services/mcpManager.ts`의 `EVENT_CMD_REF` 및 `list_plugin_commands`의 `textTags` 섹션은 **이벤트 커맨드가 추가/변경될 때마다 반드시 함께 업데이트**해야 한다.
+
+특히 아래 경우에 해당:
+- **새 이벤트 커맨드 추가** (표준 MV 커맨드 또는 커스텀 커맨드) → `EVENT_CMD_REF.commands`에 code와 파라미터 형식 추가
+- **ExtendedText.js 등 커스텀 텍스트 태그 추가/변경** → `callTool('list_plugin_commands')` 내 `textTags.tags` 배열 업데이트
+- **플러그인 커맨드 형식 변경** (예: 인자 추가/제거) → 플러그인 @help/@command 블록에 반영 (자동 파싱되므로 플러그인 파일만 수정하면 됨)
+
+> MCP 레퍼런스가 부정확하면 Claude가 잘못된 형식으로 이벤트를 생성하므로, 에디터 기능 확장 시 항상 확인할 것.
+
 ### 플러그인 수정 시 동기화 규칙
 
 에디터의 플러그인 파일(`server/runtime/js/plugins/` 또는 `server/runtime/js/3d/` 내 플러그인)을 수정한 경우, **테스트 프로젝트의 해당 파일도 반드시 동기화**해야 함:
