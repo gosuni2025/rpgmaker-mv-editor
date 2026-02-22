@@ -6,6 +6,7 @@
 import http from 'http';
 import { EventEmitter } from 'events';
 import crypto from 'crypto';
+import type { WebSocket } from 'ws';
 
 export interface McpLog {
   id: string;
@@ -81,6 +82,47 @@ class McpManager extends EventEmitter {
   private _sessions = new Map<string, Session>();
   private _logs: McpLog[] = [];
   private _startError: string | null = null;
+  private _wsClients = new Set<WebSocket>();
+
+  /** 에디터 WebSocket 클라이언트 등록 (index.ts attachWebSocket에서 호출) */
+  addClient(ws: WebSocket) {
+    this._wsClients.add(ws);
+    ws.on('close', () => this._wsClients.delete(ws));
+  }
+
+  /** 에디터 클라이언트들에게 MCP 도구 호출 결과를 브로드캐스트 */
+  private broadcastToEditor(msg: object) {
+    const data = JSON.stringify(msg);
+    for (const ws of this._wsClients) {
+      try { ws.send(data); } catch { this._wsClients.delete(ws); }
+    }
+  }
+
+  /** 도구 호출 결과를 요약 문자열로 변환 */
+  private summarizeToolCall(tool: string, args: Record<string, unknown>, result: unknown, success: boolean): string {
+    if (!success) return `MCP 오류: ${tool} — ${String(result)}`;
+    const r = result as Record<string, unknown>;
+    switch (tool) {
+      case 'create_event':
+        return `MCP: 이벤트 생성 — "${r?.event ? (r.event as Record<string,unknown>).name : args.name}" (ID: ${r?.eventId}) at (${args.x}, ${args.y}) 맵${args.mapId}`;
+      case 'update_event': {
+        const fields: string[] = [];
+        if (args.name !== undefined) fields.push(`이름="${args.name}"`);
+        if (args.x !== undefined || args.y !== undefined) fields.push(`위치=(${args.x},${args.y})`);
+        if (args.pages !== undefined) fields.push('페이지 수정');
+        if (args.note !== undefined) fields.push('노트 수정');
+        return `MCP: 이벤트 수정 — ID ${args.eventId} 맵${args.mapId}${fields.length ? ' (' + fields.join(', ') + ')' : ''}`;
+      }
+      case 'create_map':
+        return `MCP: 맵 생성 — "${args.name}" (${args.width ?? 17}×${args.height ?? 13})`;
+      case 'update_database_entry': {
+        const fields = args.fields ? Object.keys(args.fields as object).join(', ') : '';
+        return `MCP: DB 수정 — ${args.type}[${args.id}]${fields ? ' (' + fields + ')' : ''}`;
+      }
+      default:
+        return '';
+    }
+  }
 
   get port() { return this._port; }
   get isRunning() { return this._server !== null; }
@@ -260,11 +302,17 @@ class McpManager extends EventEmitter {
         this.addLog({ sessionId: session.id, type: 'response', tool: toolName, result, durationMs });
         const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
         session.send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } });
+        // write 도구: 에디터 클라이언트에 토스트 알림
+        const summary = this.summarizeToolCall(toolName, toolArgs, result, true);
+        if (summary) this.broadcastToEditor({ type: 'mcpToolResult', success: true, summary });
       } catch (err) {
         const durationMs = Date.now() - startMs;
         const errMsg = String(err);
         this.addLog({ sessionId: session.id, type: 'error', tool: toolName, result: errMsg, durationMs });
         session.send({ jsonrpc: '2.0', id, error: { code: -32603, message: errMsg } });
+        // 오류도 알림
+        const summary = this.summarizeToolCall(toolName, toolArgs, errMsg, false);
+        if (summary) this.broadcastToEditor({ type: 'mcpToolResult', success: false, summary });
       }
       return;
     }

@@ -35,6 +35,9 @@ export default function useFileWatcher() {
             handleFileChanged(msg.file);
           } else if (msg.type === 'imageChanged') {
             handleImageChanged(msg.file, msg.folder);
+          } else if (msg.type === 'mcpToolResult') {
+            const store = useEditorStore.getState();
+            store.showToast(msg.summary, !msg.success);
           }
         } catch {
           // ignore parse errors
