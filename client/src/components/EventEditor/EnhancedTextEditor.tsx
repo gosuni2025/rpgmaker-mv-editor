@@ -64,12 +64,17 @@ export function EnhancedTextEditor({
   const savedRange = useRef<Range | null>(null);
   const dragBlockRef = useRef<HTMLElement | null>(null);
   const justDroppedRef = useRef(false);
+  // 커스텀 undo/redo 스택 (native execCommand undo 대신 사용)
+  const undoStackRef = useRef<string[]>([]);
+  const redoStackRef = useRef<string[]>([]);
+  const prevHTMLRef = useRef<string>('');
 
   // ─── raw → HTML 변환 후 div에 주입 ───
   const applyValueToEditor = useCallback((raw: string) => {
     if (!editorRef.current) return;
     isInternalUpdate.current = true;
     editorRef.current.innerHTML = segsToHTML(parseExtendedText(raw));
+    prevHTMLRef.current = editorRef.current.innerHTML; // 외부 변경은 undo 기준점 갱신
     isInternalUpdate.current = false;
   }, []);
 
@@ -87,9 +92,17 @@ export function EnhancedTextEditor({
     }
   }, [value, mode, applyValueToEditor]);
 
-  // ─── div → raw 변환 후 onChange 호출 ───
+  // ─── div → raw 변환 후 onChange 호출 + undo 스택 기록 ───
   const syncToParent = useCallback(() => {
     if (!editorRef.current || isInternalUpdate.current) return;
+    const currentHTML = editorRef.current.innerHTML;
+    // 실제 변경이 있을 때만 undo 스택에 이전 상태 저장
+    if (currentHTML !== prevHTMLRef.current) {
+      undoStackRef.current.push(prevHTMLRef.current);
+      if (undoStackRef.current.length > 100) undoStackRef.current.shift();
+      redoStackRef.current = [];
+      prevHTMLRef.current = currentHTML;
+    }
     const raw = htmlDivToRaw(editorRef.current);
     lastValueRef.current = raw;
     onChange(raw);
@@ -216,30 +229,17 @@ export function EnhancedTextEditor({
     }
     if (!range || blockEl.contains(range.commonAncestorContainer)) return;
 
-    // 원래 HTML 저장 (undo 복원 대상)
-    const originalHTML = editorRef.current.innerHTML;
-
-    // DOM 직접 조작으로 목적 상태 임시 생성
+    // DOM 직접 조작으로 블록 이동 (커스텀 undo 스택이 처리)
     blockEl.remove();
     range.insertNode(blockEl);
-    const newHTML = editorRef.current.innerHTML;
 
-    // DOM을 원래 상태로 복원 (syncToParent 트리거 방지)
-    isInternalUpdate.current = true;
-    editorRef.current.innerHTML = originalHTML;
-    isInternalUpdate.current = false;
-
-    // 에디터 전체를 새 HTML로 교체 — 단일 execCommand로 undo 히스토리에 기록
-    editorRef.current.focus();
-    const fullRange = document.createRange();
-    fullRange.selectNodeContents(editorRef.current);
     const sel = window.getSelection();
     if (sel) {
       sel.removeAllRanges();
-      sel.addRange(fullRange);
-      // eslint-disable-next-line @typescript-eslint/no-deprecated
-      document.execCommand('insertHTML', false, newHTML);
-      sel.collapseToEnd();
+      const r2 = document.createRange();
+      r2.setStartAfter(blockEl);
+      r2.collapse(true);
+      sel.addRange(r2);
     }
 
     justDroppedRef.current = true;
@@ -549,22 +549,39 @@ export function EnhancedTextEditor({
                 if (inline && e.key === 'Enter') {
                   e.preventDefault();
                 }
-                // cmd+z (undo) 후 에디터 전체가 선택된 상태 해제
-                // selectNodeContents+insertHTML 방식의 undo는 "전체 선택된 원래 상태"로 복원되므로
-                // 즉시 selection을 collapse하여 수정 가능 상태로 만든다
+                // 커스텀 undo (cmd+z) — native execCommand undo 대신 HTML 스냅샷 스택 사용
                 if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'z') {
-                  requestAnimationFrame(() => {
-                    const sel = window.getSelection();
-                    if (sel && editorRef.current && sel.rangeCount > 0 && !sel.isCollapsed) {
-                      const r = sel.getRangeAt(0);
-                      if (r.startContainer === editorRef.current && r.startOffset === 0 &&
-                          r.endContainer === editorRef.current &&
-                          r.endOffset === editorRef.current.childNodes.length) {
-                        sel.collapseToEnd();
-                      }
-                    }
-                    syncToParent();
-                  });
+                  e.preventDefault();
+                  if (undoStackRef.current.length > 0 && editorRef.current) {
+                    redoStackRef.current.push(prevHTMLRef.current);
+                    const html = undoStackRef.current.pop()!;
+                    isInternalUpdate.current = true;
+                    editorRef.current.innerHTML = html;
+                    prevHTMLRef.current = html;
+                    isInternalUpdate.current = false;
+                    const raw = htmlDivToRaw(editorRef.current);
+                    lastValueRef.current = raw;
+                    onChange(raw);
+                    editorRef.current.focus();
+                  }
+                  return;
+                }
+                // 커스텀 redo (cmd+shift+z 또는 cmd+y)
+                if ((e.metaKey || e.ctrlKey) && (e.shiftKey ? e.key === 'z' : e.key === 'y')) {
+                  e.preventDefault();
+                  if (redoStackRef.current.length > 0 && editorRef.current) {
+                    undoStackRef.current.push(prevHTMLRef.current);
+                    const html = redoStackRef.current.pop()!;
+                    isInternalUpdate.current = true;
+                    editorRef.current.innerHTML = html;
+                    prevHTMLRef.current = html;
+                    isInternalUpdate.current = false;
+                    const raw = htmlDivToRaw(editorRef.current);
+                    lastValueRef.current = raw;
+                    onChange(raw);
+                    editorRef.current.focus();
+                  }
+                  return;
                 }
                 // ArrowLeft: contenteditable="false" 블록 직후 커서에서 ← 키를 누르면
                 // 브라우저가 블록 전체를 건너뛰어 이전 줄로 점프하는 기본 동작 보정.
