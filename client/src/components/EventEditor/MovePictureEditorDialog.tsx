@@ -141,6 +141,7 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
 
   // 재생 트리거
   const [replayTrigger, setReplayTrigger] = useState(0);
+  const [showWindow, setShowWindow] = useState(true);
 
   // PicturePreview에 전달할 상태들 (이미지명은 현재 커맨드에서 가져올 수 없으므로 빈 문자열)
   // "이미지명"은 ShowPicture에서 설정되므로 MovePicture 에디터에서는 없음
@@ -327,6 +328,13 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
               >
                 ▶ 재생
               </button>
+              <button
+                onClick={() => setShowWindow(w => !w)}
+                style={{ fontSize: 11, padding: '1px 8px', background: showWindow ? '#1a3a2a' : '#2b2b2b', border: `1px solid ${showWindow ? '#3a7a4a' : '#555'}`, borderRadius: 3, color: showWindow ? '#6da' : '#666', cursor: 'pointer' }}
+                title="대화창 표시/숨기기"
+              >
+                창
+              </button>
             </div>
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#111', borderRadius: 4, padding: 6 }}>
               <PicturePreview
@@ -334,6 +342,7 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
                 from={fromSnap}
                 durationMs={moveDurationMs}
                 replayTrigger={replayTrigger}
+                showWindow={showWindow}
               />
             </div>
 

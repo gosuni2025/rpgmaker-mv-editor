@@ -88,6 +88,7 @@ export function ShowPictureEditorDialog({ p, onOk, onCancel }: {
 
   // 재생 트리거 (트랜지션 애니메이션 재생)
   const [replayTrigger, setReplayTrigger] = useState(0);
+  const [showWindow, setShowWindow] = useState(true);
 
   // PicturePreview에 전달할 현재 상태
   const currentSnap: PictureSnapshot = {
@@ -241,6 +242,13 @@ export function ShowPictureEditorDialog({ p, onOk, onCancel }: {
               >
                 ▶ 재생
               </button>
+              <button
+                onClick={() => setShowWindow(w => !w)}
+                style={{ fontSize: 11, padding: '1px 8px', background: showWindow ? '#1a3a2a' : '#2b2b2b', border: `1px solid ${showWindow ? '#3a7a4a' : '#555'}`, borderRadius: 3, color: showWindow ? '#6da' : '#666', cursor: 'pointer' }}
+                title="대화창 표시/숨기기"
+              >
+                창
+              </button>
             </div>
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#111', borderRadius: 4, padding: 6 }}>
               <PicturePreview
@@ -248,6 +256,7 @@ export function ShowPictureEditorDialog({ p, onOk, onCancel }: {
                 from={fromSnap}
                 durationMs={transitionDurationMs}
                 replayTrigger={replayTrigger}
+                showWindow={showWindow}
               />
             </div>
           </div>

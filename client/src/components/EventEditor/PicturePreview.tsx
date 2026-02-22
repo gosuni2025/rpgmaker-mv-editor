@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import useEditorStore from '../../store/useEditorStore';
-import { GW, GH, TILE_SIZE, getThree, makePlaneMesh, positionMesh } from './messagePreviewUtils';
+import { GW, GH, WIN_H, TILE_SIZE, getThree, makePlaneMesh, positionMesh, WINDOW_VERT, WINDOW_FRAG } from './messagePreviewUtils';
 
 export interface PictureSnapshot {
   imageName: string;
@@ -47,7 +47,7 @@ function lerpSnap(a: PictureSnapshot, b: PictureSnapshot, t: number): PictureSna
 
 interface PicRefs {
   renderer: any; scene: any; camera: any;
-  mapBgMesh: any; pictureMesh: any;
+  mapBgMesh: any; pictureMesh: any; windowMesh: any;
   mapCanvas: HTMLCanvasElement; mapTexture: any;
   picTexture: any | null;
   lastImageName: string;
@@ -88,7 +88,35 @@ function initScene(canvas: HTMLCanvasElement): PicRefs | null {
   pictureMesh.visible = false;
   scene.add(pictureMesh);
 
-  return { renderer, scene, camera, mapBgMesh, pictureMesh, mapCanvas, mapTexture, picTexture: null, lastImageName: '', imgNatW: 0, imgNatH: 0 };
+  // 대화창 (9-slice shader, 화면 하단)
+  const windowMat = new THREE.ShaderMaterial({
+    uniforms: {
+      tWindow: { value: new THREE.Texture() },
+      uDstSize: { value: new THREE.Vector2(GW, WIN_H) },
+    },
+    vertexShader: WINDOW_VERT,
+    fragmentShader: WINDOW_FRAG,
+    transparent: true, depthTest: false, depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const windowMesh = makePlaneMesh(THREE, windowMat);
+  windowMesh.renderOrder = 10;
+  windowMesh.visible = false;
+  positionMesh(windowMesh, 0, GH - WIN_H, GW, WIN_H);
+  scene.add(windowMesh);
+
+  const refs: PicRefs = { renderer, scene, camera, mapBgMesh, pictureMesh, windowMesh, mapCanvas, mapTexture, picTexture: null, lastImageName: '', imgNatW: 0, imgNatH: 0 };
+
+  // Window.png 로드 (비동기)
+  const winImg = new Image();
+  winImg.onload = () => {
+    const tex = new THREE.Texture(winImg);
+    tex.flipY = false; tex.needsUpdate = true;
+    windowMesh.material.uniforms.tWindow.value = tex;
+  };
+  winImg.src = '/img/system/Window.png';
+
+  return refs;
 }
 
 interface Props {
@@ -96,9 +124,10 @@ interface Props {
   from?: PictureSnapshot | null;   // 이동 시작 상태
   durationMs?: number;             // 애니메이션 지속 시간 (ms)
   replayTrigger?: number;          // 변경 시 애니메이션 재시작
+  showWindow?: boolean;            // 대화창 표시 여부
 }
 
-export function PicturePreview({ current, from, durationMs = 1000, replayTrigger = 0 }: Props) {
+export function PicturePreview({ current, from, durationMs = 1000, replayTrigger = 0, showWindow = true }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const refsRef = useRef<PicRefs | null>(null);
   const rafRef = useRef(0);
@@ -116,6 +145,8 @@ export function PicturePreview({ current, from, durationMs = 1000, replayTrigger
   fromRef.current = from ?? null;
   const durRef = useRef(durationMs);
   durRef.current = durationMs;
+  const showWindowRef = useRef(showWindow);
+  showWindowRef.current = showWindow;
 
   // 재생 트리거
   useEffect(() => {
@@ -204,6 +235,9 @@ export function PicturePreview({ current, from, durationMs = 1000, replayTrigger
         ctx2d.fillRect(0, 0, GW, GH);
         refs.mapTexture.needsUpdate = true;
       }
+
+      // 대화창 visible 제어
+      refs.windowMesh.visible = showWindowRef.current;
 
       refs.renderer.render(refs.scene, refs.camera);
       const ctx = canvas.getContext('2d');
