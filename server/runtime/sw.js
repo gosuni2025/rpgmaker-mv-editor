@@ -1,29 +1,44 @@
 /**
- * ServiceWorker — 리소스 캐싱
+ * ServiceWorker — 리소스 번들 캐싱
  *
  * install:
- *   1. bundles/manifest.json 에서 버전 + 파일 목록 확인
- *   2. 버전이 다르면 img/audio/data 파일을 개별 병렬 fetch
- *   3. Cache API 저장 + progress postMessage
+ *   1. bundles/manifest.json 에서 버전 + 번들 목록 확인
+ *   2. 버전이 다르면 img/audio/data.zip 다운로드 (병렬)
+ *   3. JSZip으로 압축 해제 → Cache API 저장
+ *   4. progress를 postMessage로 클라이언트에 전달
  *
  * fetch:
  *   img/audio/data/* 요청을 캐시에서 응답 (cache-first)
  */
 
+importScripts('bundles/jszip.min.js');
+
 const CACHE_PREFIX = 'game-bundle-';
 const META_CACHE = 'game-bundle-meta';
-const INTERCEPT_DIRS = ['img/', 'audio/', 'data/'];
-const FETCH_CONCURRENCY = 8;
 
-/** scope URL에서 pathname base 추출 (e.g. "/game/" or "/repo/game/") */
+const BUNDLE_DIRS = { img: 'img/', audio: 'audio/', data: 'data/' };
+
+/** scope URL에서 pathname base 추출 (e.g. "/game/" or "/repo/") */
 function getScopeBase() {
   try {
     const p = new URL(self.registration.scope).pathname;
-    // 반드시 /로 끝나도록
     return p.endsWith('/') ? p : p + '/';
   } catch {
     return '/';
   }
+}
+
+function mimeType(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  const map = {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+    ogg: 'audio/ogg', mp3: 'audio/mpeg', m4a: 'audio/mp4',
+    wav: 'audio/wav', opus: 'audio/opus',
+    json: 'application/json', js: 'application/javascript',
+    css: 'text/css', html: 'text/html', txt: 'text/plain',
+  };
+  return map[ext] || 'application/octet-stream';
 }
 
 async function broadcast(msg) {
@@ -35,10 +50,10 @@ async function broadcast(msg) {
 
 self.addEventListener('install', event => {
   self.skipWaiting();
-  event.waitUntil(installFromManifest());
+  event.waitUntil(installBundles());
 });
 
-async function installFromManifest() {
+async function installBundles() {
   const base = getScopeBase();
 
   // manifest 로드
@@ -52,11 +67,7 @@ async function installFromManifest() {
     return;
   }
 
-  const { version, files } = manifest;
-  if (!Array.isArray(files) || files.length === 0) {
-    await broadcast({ type: 'bundle-skip', reason: 'empty file list' });
-    return;
-  }
+  const { version, bundles } = manifest;
 
   // 이미 이 버전 캐시가 있으면 스킵
   const metaCache = await caches.open(META_CACHE);
@@ -72,30 +83,51 @@ async function installFromManifest() {
   const cacheName = CACHE_PREFIX + version;
   const dataCache = await caches.open(cacheName);
 
-  const total = files.length;
-  let loaded = 0;
-  await broadcast({ type: 'bundle-progress', totalFiles: total, loadedFiles: 0 });
+  await broadcast({ type: 'bundle-start', version, bundles });
 
-  async function fetchAndCache(filePath) {
-    const url = base + filePath;
+  let totalFiles = 0;
+  let loadedFiles = 0;
+
+  // ZIP 병렬 다운로드 + 압축 해제
+  await Promise.all(bundles.map(async (bundle) => {
+    const prefix = BUNDLE_DIRS[bundle];
+    if (!prefix) return;
+
     try {
-      const res = await fetch(url, { cache: 'no-store' });
-      if (res.ok) {
-        await dataCache.put(new Request(url), res);
-      }
-    } catch (e) {
-      console.warn('[SW] fetch failed:', url, String(e));
-    }
-    loaded++;
-    if (loaded % 10 === 0 || loaded === total) {
-      await broadcast({ type: 'bundle-progress', totalFiles: total, loadedFiles: loaded });
-    }
-  }
+      const res = await fetch(base + `bundles/${bundle}.zip`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`${bundle}.zip ${res.status}`);
 
-  // FETCH_CONCURRENCY개씩 병렬 처리
-  for (let i = 0; i < files.length; i += FETCH_CONCURRENCY) {
-    await Promise.all(files.slice(i, i + FETCH_CONCURRENCY).map(fetchAndCache));
-  }
+      const buffer = await res.arrayBuffer();
+      const zip = await JSZip.loadAsync(buffer);
+
+      const fileEntries = [];
+      zip.forEach((relativePath, file) => {
+        if (!file.dir) fileEntries.push({ relativePath, file });
+      });
+      totalFiles += fileEntries.length;
+      await broadcast({ type: 'bundle-progress', totalFiles, loadedFiles });
+
+      await Promise.all(fileEntries.map(async ({ relativePath, file }) => {
+        const data = await file.async('arraybuffer');
+        const cacheUrl = base + prefix + relativePath;
+        await dataCache.put(
+          new Request(cacheUrl),
+          new Response(data, {
+            headers: {
+              'Content-Type': mimeType(relativePath),
+              'Content-Length': String(data.byteLength),
+            },
+          })
+        );
+        loadedFiles++;
+        if (loadedFiles % 5 === 0 || loadedFiles === totalFiles) {
+          await broadcast({ type: 'bundle-progress', totalFiles, loadedFiles });
+        }
+      }));
+    } catch (e) {
+      await broadcast({ type: 'bundle-error', bundle, error: String(e) });
+    }
+  }));
 
   // 버전 저장
   await metaCache.put('version', new Response(version));
@@ -108,7 +140,7 @@ async function installFromManifest() {
       .map(k => caches.delete(k))
   );
 
-  await broadcast({ type: 'bundle-ready', version, totalFiles: total });
+  await broadcast({ type: 'bundle-ready', version, totalFiles });
 }
 
 // ── activate ─────────────────────────────────────────────────────────────────
@@ -122,18 +154,14 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const base = getScopeBase();
   let pathname;
-  try {
-    pathname = new URL(event.request.url).pathname;
-  } catch {
-    return;
-  }
+  try { pathname = new URL(event.request.url).pathname; } catch { return; }
 
-  // base prefix 이후 상대 경로로 확인
+  // base prefix 이후 상대 경로로 intercept 여부 결정
   const rel = pathname.startsWith(base)
     ? pathname.slice(base.length)
     : (pathname.startsWith('/') ? pathname.slice(1) : pathname);
 
-  if (!INTERCEPT_DIRS.some(d => rel.startsWith(d))) return;
+  if (!['img/', 'audio/', 'data/'].some(d => rel.startsWith(d))) return;
 
   event.respondWith(cacheFirst(event.request));
 });
@@ -148,6 +176,5 @@ async function cacheFirst(request) {
     const cached = await caches.open(cacheName).then(c => c.match(request));
     if (cached) return cached;
   }
-
   return fetch(request);
 }

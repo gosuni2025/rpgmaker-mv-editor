@@ -165,7 +165,7 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
     applyIndexHtmlRename(stagingDir);
     sseLog(`캐시 버스팅 적용 (buildId: ${buildId})`);
     applyCacheBusting(stagingDir, buildId, opts);
-    generateBundleFiles(stagingDir, buildId, sseLog);
+    await generateBundleFiles(stagingDir, buildId, sseLog);
 
     // ── 3. butler push ────────────────────────────────────────────────────────
     sseStatus('uploading');

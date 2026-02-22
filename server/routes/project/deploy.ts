@@ -156,41 +156,50 @@ export function applyCacheBusting(stagingDir: string, buildId: string, opts: Cac
 }
 
 /** 배포 디렉터리에 SW 번들 파일 생성:
- *  - bundles/manifest.json (버전 + 파일 목록)
+ *  - bundles/img.zip, audio.zip, data.zip (store-only ZIP)
+ *  - bundles/manifest.json (버전 + 번들 목록)
+ *  - bundles/jszip.min.js (SW에서 importScripts로 로드)
  *  - sw.js (runtime에서 복사, buildId 주석 주입)
  */
-export function generateBundleFiles(
+export async function generateBundleFiles(
   stagingDir: string,
   buildId: string,
   log?: (msg: string) => void,
-): void {
+): Promise<void> {
   const l = (msg: string) => { if (log) log(msg); };
-  l('── SW 번들 파일 생성 ──');
-
-  const fileList: string[] = [];
-
-  function walk(dir: string, prefix: string) {
-    if (!fs.existsSync(dir)) return;
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name.startsWith('.')) continue;
-      const rel = `${prefix}/${entry.name}`;
-      if (entry.isDirectory()) {
-        walk(path.join(dir, entry.name), rel);
-      } else {
-        fileList.push(rel.startsWith('/') ? rel.slice(1) : rel);
-      }
-    }
-  }
-
-  for (const dir of ['img', 'audio', 'data']) {
-    walk(path.join(stagingDir, dir), dir);
-  }
+  l('── SW 번들 ZIP 생성 ──');
 
   const bundlesDir = path.join(stagingDir, 'bundles');
   fs.mkdirSync(bundlesDir, { recursive: true });
+
+  const presentBundles: string[] = [];
+
+  for (const dir of ['img', 'audio', 'data']) {
+    const dirPath = path.join(stagingDir, dir);
+    if (!fs.existsSync(dirPath)) continue;
+    presentBundles.push(dir);
+    const zipPath = path.join(bundlesDir, `${dir}.zip`);
+    l(`  ${dir}/ → bundles/${dir}.zip`);
+    await new Promise<void>((resolve, reject) => {
+      const output = fs.createWriteStream(zipPath);
+      const archive = archiver('zip', { zlib: { level: 0 } }); // store-only
+      archive.on('error', reject);
+      output.on('close', resolve);
+      archive.pipe(output);
+      archive.directory(dirPath, false);
+      archive.finalize();
+    });
+  }
+
+  // jszip.min.js 복사 (SW가 importScripts('bundles/jszip.min.js')로 로드)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const jszipPath: string = require.resolve('jszip/dist/jszip.min.js');
+  fs.copyFileSync(jszipPath, path.join(bundlesDir, 'jszip.min.js'));
+
+  // manifest.json 생성
   fs.writeFileSync(
     path.join(bundlesDir, 'manifest.json'),
-    JSON.stringify({ version: buildId, files: fileList }),
+    JSON.stringify({ version: buildId, bundles: presentBundles }),
     'utf-8',
   );
 
@@ -201,7 +210,7 @@ export function generateBundleFiles(
     fs.writeFileSync(path.join(stagingDir, 'sw.js'), swContent, 'utf-8');
   }
 
-  l(`✓ SW 번들 생성 완료 (${fileList.length}개 파일)`);
+  l(`✓ 번들 ZIP 생성 완료 (${presentBundles.join(', ')})`);
 }
 
 export function makeBuildId(): string {
@@ -486,7 +495,7 @@ export async function buildDeployZipWithProgress(
     // 프로젝트가 WebP면 convertWebp 플래그를 강제 활성화
     const buildId = makeBuildId();
     applyCacheBusting(stagingDir, buildId, { ...opts, convertWebp: projectIsWebp || opts.convertWebp });
-    generateBundleFiles(stagingDir, buildId, (msg) => onEvent({ type: 'log', message: msg }));
+    await generateBundleFiles(stagingDir, buildId, (msg) => onEvent({ type: 'log', message: msg }));
 
     onEvent({ type: 'status', phase: 'zipping' });
     onEvent({ type: 'log', message: '── ZIP 압축 중 ──' });
