@@ -323,6 +323,39 @@ export function createApp(options: AppOptions = {}) {
                 }
                 _orig(name, src);
             };
+
+            // 데모 모드: 이미지 로딩 실패 시 게임 중단 방지
+            // 누락된 에셋(animations 등)이 있어도 플레이 가능하도록
+            var _origCreateLoader = ResourceHandler.createLoader.bind(ResourceHandler);
+            ResourceHandler.createLoader = function(url, retryMethod, resignMethod, retryInterval) {
+                if (url && /\\.(png|jpg|jpeg|gif|webp)(\\?|$)/i.test(url)) {
+                    // 이미지 파일: 재시도 후 실패해도 SceneManager.stop() 하지 않음
+                    var retryArr = retryInterval || ResourceHandler._defaultRetryInterval;
+                    var retryCount = 0;
+                    return function() {
+                        if (retryCount < retryArr.length) {
+                            setTimeout(retryMethod, retryArr[retryCount]);
+                            retryCount++;
+                        } else {
+                            if (resignMethod) resignMethod(); // 에러 상태로 설정
+                            // Graphics.printLoadingError / SceneManager.stop() 생략
+                        }
+                    };
+                }
+                return _origCreateLoader(url, retryMethod, resignMethod, retryInterval);
+            };
+
+            // 에러 상태 비트맵이 ImageCache.isReady()를 영원히 막지 않도록 패치
+            var _origCacheIsReady = ImageCache.prototype.isReady;
+            ImageCache.prototype.isReady = function() {
+                var items = this._items;
+                return !Object.keys(items).some(function(key) {
+                    var bitmap = items[key].bitmap;
+                    // 에러 비트맵은 로딩 완료로 간주 (없는 에셋 무시)
+                    if (bitmap.isError()) return false;
+                    return !bitmap.isRequestOnly() && !bitmap.isReady();
+                });
+            };
         })();
         </script>` : ''}
         <script defer src="js/main.js${cacheBust}"></script>
