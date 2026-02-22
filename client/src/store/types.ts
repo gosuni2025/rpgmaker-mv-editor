@@ -295,6 +295,7 @@ export interface EditorState {
   showMCPStatusDialog: boolean;
   showWebpConvertDialog: boolean;
   useWebp: boolean;
+  webpConverting: boolean;
 
 
   // Actions - Project
@@ -475,6 +476,7 @@ export interface EditorState {
   setShowMCPStatusDialog: (show: boolean) => void;
   setShowWebpConvertDialog: (show: boolean) => void;
   setUseWebp: (v: boolean) => void;
+  setWebpConverting: (v: boolean) => void;
   setTransparentColor: (color: { r: number; g: number; b: number }) => void;
   setMaxUndo: (max: number) => void;
   setZoomStep: (step: number) => void;

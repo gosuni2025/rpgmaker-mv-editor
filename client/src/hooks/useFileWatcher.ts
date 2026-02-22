@@ -112,7 +112,9 @@ function handleImageChanged(basename: string, folder: string) {
     }
   }
 
-  showToast(`이미지 갱신됨: ${folder}/${basename}`, true);
+  if (!store.webpConverting) {
+    showToast(`이미지 갱신됨: ${folder}/${basename}`, true);
+  }
 }
 
 async function handleFileChanged(filename: string) {

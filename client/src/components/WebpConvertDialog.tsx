@@ -9,6 +9,7 @@ export default function WebpConvertDialog() {
   const { t } = useTranslation();
   const setShow = useEditorStore((s) => s.setShowWebpConvertDialog);
   const setUseWebp = useEditorStore((s) => s.setUseWebp);
+  const setWebpConverting = useEditorStore((s) => s.setWebpConverting);
 
   const [phase, setPhase] = useState<Phase>('confirm');
   const [gitBackup, setGitBackup] = useState(true);
@@ -30,6 +31,7 @@ export default function WebpConvertDialog() {
     setLogs([]);
     setProgress(null);
     setCurrentFile('');
+    setWebpConverting(true);
 
     const url = `/api/project/convert-webp-progress?gitBackup=${gitBackup ? '1' : '0'}`;
     const es = new EventSource(url);
@@ -52,10 +54,12 @@ export default function WebpConvertDialog() {
           setCurrentFile('');
           setPhase('done');
           setUseWebp(true);
+          setWebpConverting(false);
           es.close();
         } else if (data.type === 'error') {
           setErrorMsg(data.message);
           setPhase('error');
+          setWebpConverting(false);
           es.close();
         }
       } catch { /* ignore */ }
@@ -65,10 +69,11 @@ export default function WebpConvertDialog() {
       setPhase('error');
       es.close();
     };
-  }, [gitBackup, addLog, setUseWebp]);
+  }, [gitBackup, addLog, setUseWebp, setWebpConverting]);
 
   const close = () => {
     esRef.current?.close();
+    setWebpConverting(false);
     setShow(false);
   };
 

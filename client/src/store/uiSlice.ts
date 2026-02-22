@@ -18,7 +18,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
-  'showUpdateCheckDialog' | 'showMCPStatusDialog' | 'showWebpConvertDialog' | 'useWebp' |
+  'showUpdateCheckDialog' | 'showMCPStatusDialog' | 'showWebpConvertDialog' | 'useWebp' | 'webpConverting' |
   'showToast' | 'dismissToast' | 'dismissAllToasts' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
   'setShowGrid' | 'setShowPassability' | 'setShowTileInfo' | 'setShowRegion' |
@@ -26,7 +26,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
   'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' | 'setShowLocalizationDialog' |
-  'setShowUpdateCheckDialog' | 'setShowMCPStatusDialog' | 'setShowWebpConvertDialog' | 'setUseWebp' |
+  'setShowUpdateCheckDialog' | 'setShowMCPStatusDialog' | 'setShowWebpConvertDialog' | 'setUseWebp' | 'setWebpConverting' |
   'setTransparentColor' | 'setMaxUndo' | 'setZoomStep' | 'demoMode'
 >> = (set, get) => {
   // 서버 config 페치 (1회)
@@ -69,6 +69,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   showMCPStatusDialog: false,
   showWebpConvertDialog: false,
   useWebp: false,
+  webpConverting: false,
 
   showToast: (message: string, persistent?: boolean) => {
     const queue = get().toastQueue;
@@ -185,6 +186,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
     set({ useWebp: v });
     (window as unknown as Record<string, unknown>).__CACHE_BUST__ = { webp: v };
   },
+  setWebpConverting: (v: boolean) => set({ webpConverting: v }),
   setTransparentColor: (color: { r: number; g: number; b: number }) => {
     set({ transparentColor: color });
   },
