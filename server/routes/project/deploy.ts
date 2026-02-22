@@ -527,6 +527,13 @@ export async function buildDeployZipWithProgress(
     }
     onEvent({ type: 'log', message: '✓ 복사 완료' });
 
+    // index_3d.html: 항상 서버 런타임 최신 버전으로 덮어씌움
+    // (프로젝트 폴더의 index_3d.html이 구버전일 수 있으므로)
+    const runtimeIdx3d = path.resolve(__dirname, '../../runtime/index_3d.html');
+    if (fs.existsSync(runtimeIdx3d)) {
+      fs.copyFileSync(runtimeIdx3d, path.join(stagingDir, 'index_3d.html'));
+    }
+
     // 프로젝트가 이미 WebP인지 확인 (PNG 없고 WebP 있으면)
     const stagingImgDir = path.join(stagingDir, 'img');
     let projectIsWebp = false;
