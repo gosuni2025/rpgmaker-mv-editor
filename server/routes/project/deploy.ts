@@ -13,7 +13,8 @@ const router = express.Router();
 
 export const DEPLOYS_DIR = path.join(os.homedir(), '.rpg-editor', 'deploys');
 // Generator: 에디터 전용 캐릭터 생성기 에셋, 웹 배포에 불필요
-export const EXCLUDE_DIRS  = new Set(['save', '.git', 'node_modules', 'Generator']);
+// 소문자로 비교 (macOS/Windows 대소문자 혼용 대응)
+export const EXCLUDE_DIRS_LOWER = new Set(['save', '.git', 'node_modules', 'generator']);
 export const EXCLUDE_FILES = new Set(['.DS_Store', 'Thumbs.db', 'Game.rpgproject']);
 
 // ─── 캐시 버스팅 옵션 ─────────────────────────────────────────────────────────
@@ -34,7 +35,7 @@ export function collectFilesForDeploy(baseDir: string, subDir = ''): string[] {
     if (EXCLUDE_FILES.has(entry.name)) continue;
     const rel = subDir ? `${subDir}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
-      if (EXCLUDE_DIRS.has(entry.name)) continue;
+      if (EXCLUDE_DIRS_LOWER.has(entry.name.toLowerCase())) continue;
       results.push(...collectFilesForDeploy(baseDir, rel));
     } else {
       results.push(rel);

@@ -282,7 +282,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
           ⚠ itch.io는 파일 수가 1,000개를 초과하면 웹 플레이어에서 실행이 불가합니다.
         </div>
         <div style={{ color: '#777', fontSize: 11 }}>
-          최초 업로드 시: ZIP 만들기 → 폴더 열기 → itch.io 게임 편집 페이지에 ZIP 드래그 업로드
+          최초 업로드 시: ZIP 만들기 → 폴더 열기 → itch.io 게임 편집 페이지 → Upload files 버튼으로 ZIP 업로드
         </div>
       </div>
 
