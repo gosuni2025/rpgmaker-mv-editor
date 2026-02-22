@@ -41,14 +41,13 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
     }
   }, [dp.logs]);
 
-  // butler 설치 확인 + API Key가 있으면 whoami도 같이 조회 (debounce 500ms)
-  const runCheck = useCallback((key: string) => {
+  // butler 설치 확인 + whoami (butler 기존 세션 사용)
+  const runCheck = useCallback(() => {
     if (checkTimer.current) clearTimeout(checkTimer.current);
     checkTimer.current = setTimeout(async () => {
       setCheckingKey(true);
       try {
-        const params = key ? `?apiKey=${encodeURIComponent(key)}` : '';
-        const data = await apiClient.get(`/project/deploy-itchio-check${params}`) as ItchioCheck;
+        const data = await apiClient.get('/project/deploy-itchio-check') as ItchioCheck;
         setCheck(data);
         // project가 비어있고 username + gameSlug를 얻으면 자동 채우기
         if (!project.trim()) {
@@ -60,15 +59,13 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
         }
       } catch {}
       finally { setCheckingKey(false); }
-    }, 500);
+    }, 300);
   }, [project]);
 
-  useEffect(() => { runCheck(apiKey); }, []); // 초기 로드
+  useEffect(() => { runCheck(); }, []); // 초기 로드
 
-  // API Key 변경 시 재조회
   const handleApiKeyChange = (val: string) => {
     setApiKey(val);
-    runCheck(val);
   };
 
   const saveSettings = async () => {
@@ -150,7 +147,7 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
     catch (e) { dp.setError((e as Error).message); }
   };
 
-  const prereqOk = check?.butler ?? false;
+  const prereqOk = (check?.butler ?? false) && !!check?.username;
   const deployDone = !dp.busy && dp.logs.length > 0;
   const deployFailed = !dp.busy && !!dp.error;
 
@@ -183,16 +180,6 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
           </div>
           <input type="password" value={apiKey} onChange={(e) => handleApiKeyChange(e.target.value)}
             placeholder={t('deploy.itchio.apiKeyPlaceholder')} className="deploy-input" />
-          {apiKey && (
-            <div style={{ marginTop: 4, fontSize: 11 }}>
-              {checkingKey
-                ? <span style={{ color: '#888' }}>확인 중...</span>
-                : check?.username
-                  ? <span style={{ color: '#6c6' }}>✓ {check.username}</span>
-                  : check && <span style={{ color: '#e77' }}>✗ {t('deploy.itchio.authFailed')}</span>
-              }
-            </div>
-          )}
           <div className="deploy-security-note">
             <div style={{ fontWeight: 600, marginBottom: 2 }}>{t('deploy.itchio.securityTitle')}</div>
             <div>· {t('deploy.itchio.security1')}</div>
@@ -227,9 +214,14 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
       <div className="deploy-info-box" style={{ padding: '10px 12px' }}>
         <div style={{ color: '#bbb', fontSize: 11, fontWeight: 600, marginBottom: 8 }}>{t('deploy.ghPages.prerequisites')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <CheckBadge ok={prereqOk} label={t('deploy.itchio.checkButler')} warn={t('deploy.itchio.butlerMissing')} />
+          <CheckBadge ok={check?.butler ?? false} label={t('deploy.itchio.checkButler')} warn={t('deploy.itchio.butlerMissing')} />
+          <CheckBadge
+            ok={!!check?.username}
+            label={checkingKey ? '확인 중...' : check?.username ? `butler 로그인: ${check.username}` : 'butler 미로그인'}
+            warn="터미널에서 'butler login'을 실행하세요"
+          />
         </div>
-        {!prereqOk && check !== null && (
+        {check?.butler === false && check !== null && (
           <div style={{ marginTop: 8, color: '#e77', fontSize: 11 }}>{t('deploy.itchio.butlerMissing')}</div>
         )}
       </div>

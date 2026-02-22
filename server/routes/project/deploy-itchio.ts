@@ -28,10 +28,10 @@ async function checkButler(): Promise<boolean> {
   return false;
 }
 
-/** butler whoami --json --api-key <key> → username 반환, 실패 시 null */
-async function getButlerUsername(apiKey: string): Promise<string | null> {
+/** butler whoami --json → 기존 로그인 세션으로 username 반환, 미로그인 시 null */
+async function getButlerUsername(): Promise<string | null> {
   try {
-    const { stdout } = await execAsync(`butler whoami --json --api-key "${apiKey}"`);
+    const { stdout } = await execAsync('butler whoami --json');
     const lines = stdout.trim().split('\n').filter(Boolean);
     for (const line of lines) {
       try {
@@ -66,10 +66,9 @@ function toItchSlug(title: string): string {
 }
 
 // ─── 사전 조건 체크 ───────────────────────────────────────────────────────────
-router.get('/deploy-itchio-check', async (req: Request, res: Response) => {
-  const apiKey = (req.query.apiKey as string | undefined)?.trim() || '';
+router.get('/deploy-itchio-check', async (_req: Request, res: Response) => {
   const butler = await checkButler();
-  const username = butler && apiKey ? await getButlerUsername(apiKey) : null;
+  const username = butler ? await getButlerUsername() : null;
   const gameSlug = toItchSlug(getGameTitle());
   res.json({ butler, username, gameSlug });
 });
