@@ -417,6 +417,24 @@
     this.changePaintOpacity(true);
   };
 
+  // updateHelp: 구매 불가 이유를 도움말 창에 표시
+  var _Window_ShopBuy_updateHelp = Window_ShopBuy.prototype.updateHelp;
+  Window_ShopBuy.prototype.updateHelp = function () {
+    var item = this.item();
+    if (item && !this.isEnabled(item)) {
+      var stock = this.getStock(this._data.indexOf(item));
+      if (stock === 0) {
+        this._helpWindow.setText('품절입니다.');
+      } else if (this.price(item) > this._money) {
+        this._helpWindow.setText('돈이 부족합니다.');
+      } else {
+        _Window_ShopBuy_updateHelp.call(this);
+      }
+    } else {
+      _Window_ShopBuy_updateHelp.call(this);
+    }
+  };
+
   // ══════════════════════════════════════════════════════════════════
   // 플러그인 커맨드
   // ══════════════════════════════════════════════════════════════════
