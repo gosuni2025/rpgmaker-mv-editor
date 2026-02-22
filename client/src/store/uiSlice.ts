@@ -27,8 +27,14 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
   'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' | 'setShowLocalizationDialog' |
   'setShowUpdateCheckDialog' |
-  'setTransparentColor' | 'setMaxUndo' | 'setZoomStep'
->> = (set, get) => ({
+  'setTransparentColor' | 'setMaxUndo' | 'setZoomStep' | 'demoMode'
+>> = (set, get) => {
+  // 서버 config 페치 (1회)
+  fetch('/api/config').then(r => r.json()).then((cfg: { demoMode?: boolean }) => {
+    if (cfg.demoMode) set({ demoMode: true });
+  }).catch(() => {});
+
+  return ({
   zoomLevel: 1,
   mode3d: false,
   shadowLight: false,
@@ -181,4 +187,6 @@ export const uiSlice: SliceCreator<Pick<EditorState,
     const clamped = Math.max(1, Math.min(100, step));
     set({ zoomStep: clamped });
   },
-});
+  demoMode: false,
+  });
+};

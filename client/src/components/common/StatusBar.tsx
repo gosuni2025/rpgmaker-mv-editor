@@ -455,6 +455,7 @@ export default function StatusBar() {
   const { t } = useTranslation();
   const projectPath = useEditorStore((s) => s.projectPath);
   const currentMap = useEditorStore((s) => s.currentMap);
+  const demoMode = useEditorStore((s) => s.demoMode);
   const editMode = useEditorStore((s) => s.editMode);
   const zoomLevel = useEditorStore((s) => s.zoomLevel);
   const cursorTileX = useEditorStore((s) => s.cursorTileX);
@@ -479,6 +480,11 @@ export default function StatusBar() {
 
   return (
     <div className="statusbar">
+      {demoMode && (
+        <span className="statusbar-item statusbar-demo-badge" title="데모 모드: 저장은 이 세션에서만 유효합니다">
+          DEMO
+        </span>
+      )}
       <span className="statusbar-item">
         {projectPath || t('statusBar.noProject')}
       </span>
