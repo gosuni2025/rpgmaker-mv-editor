@@ -216,25 +216,31 @@ export function EnhancedTextEditor({
     }
     if (!range || blockEl.contains(range.commonAncestorContainer)) return;
 
-    const blockHTML = blockEl.outerHTML;
+    // 원래 HTML 저장 (undo 복원 대상)
+    const originalHTML = editorRef.current.innerHTML;
+
+    // DOM 직접 조작으로 목적 상태 임시 생성
+    blockEl.remove();
+    range.insertNode(blockEl);
+    const newHTML = editorRef.current.innerHTML;
+
+    // DOM을 원래 상태로 복원 (syncToParent 트리거 방지)
+    isInternalUpdate.current = true;
+    editorRef.current.innerHTML = originalHTML;
+    isInternalUpdate.current = false;
+
+    // 에디터 전체를 새 HTML로 교체 — 단일 execCommand로 undo 히스토리에 기록
     editorRef.current.focus();
+    const fullRange = document.createRange();
+    fullRange.selectNodeContents(editorRef.current);
     const sel = window.getSelection();
-    if (!sel) return;
-
-    // 1. 원래 블록 선택 후 delete (execCommand — undo 이력에 기록)
-    const removeRange = document.createRange();
-    removeRange.selectNode(blockEl);
-    sel.removeAllRanges();
-    sel.addRange(removeRange);
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
-    document.execCommand('delete', false);
-
-    // 2. 드롭 위치에 커서 설정 후 insertHTML (execCommand — undo 이력에 기록)
-    // range는 live이므로 blockEl 제거 후 자동 업데이트됨
-    sel.removeAllRanges();
-    sel.addRange(range);
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
-    document.execCommand('insertHTML', false, blockHTML);
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(fullRange);
+      // eslint-disable-next-line @typescript-eslint/no-deprecated
+      document.execCommand('insertHTML', false, newHTML);
+      sel.collapseToEnd();
+    }
 
     justDroppedRef.current = true;
     setTimeout(() => { justDroppedRef.current = false; }, 100);
@@ -542,6 +548,23 @@ export function EnhancedTextEditor({
               onKeyDown={e => {
                 if (inline && e.key === 'Enter') {
                   e.preventDefault();
+                }
+                // cmd+z (undo) 후 에디터 전체가 선택된 상태 해제
+                // selectNodeContents+insertHTML 방식의 undo는 "전체 선택된 원래 상태"로 복원되므로
+                // 즉시 selection을 collapse하여 수정 가능 상태로 만든다
+                if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'z') {
+                  requestAnimationFrame(() => {
+                    const sel = window.getSelection();
+                    if (sel && editorRef.current && sel.rangeCount > 0 && !sel.isCollapsed) {
+                      const r = sel.getRangeAt(0);
+                      if (r.startContainer === editorRef.current && r.startOffset === 0 &&
+                          r.endContainer === editorRef.current &&
+                          r.endOffset === editorRef.current.childNodes.length) {
+                        sel.collapseToEnd();
+                      }
+                    }
+                    syncToParent();
+                  });
                 }
                 // ArrowLeft: contenteditable="false" 블록 직후 커서에서 ← 키를 누르면
                 // 브라우저가 블록 전체를 건너뛰어 이전 줄로 점프하는 기본 동작 보정.
