@@ -205,6 +205,83 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
               <PictureNumberField value={pictureNumber} onChange={setPictureNumber} />
             </Fieldset>
 
+            <Fieldset legend="이동 시작 위치">
+              {pictureCommands.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <span style={labelStyle}>커맨드:</span>
+                  <select value={selectedCmdIdx} onChange={e => applyCommandAsFrom(Number(e.target.value))}
+                    style={{ ...selectStyle, flex: 1, fontSize: 11 }}>
+                    <option value={-1}>직접 입력</option>
+                    {pictureCommands.map((cmd, i) => (
+                      <option key={i} value={i}>
+                        {cmd.code === 231 ? '[그림 표시]' : '[그림 이동]'} pg{cmd.pageIndex + 1} #{cmd.cmdIndex + 1}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={labelStyle}>원점:</span>
+                    <label style={radioStyle}>
+                      <input type="radio" name="from-pic-origin" checked={fromOrigin === 0} onChange={() => { setFromOrigin(0); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                      왼쪽 위
+                    </label>
+                    <label style={radioStyle}>
+                      <input type="radio" name="from-pic-origin" checked={fromOrigin === 1} onChange={() => { setFromOrigin(1); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                      중앙
+                    </label>
+                  </div>
+                  <label style={radioStyle}>
+                    <input type="radio" name="from-pic-pos-type" checked={fromPositionType === 0} onChange={() => { setFromPositionType(0); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                    직접 지정
+                  </label>
+                  {fromPositionType === 0 && (
+                    <DirectPositionInputs posX={fromPosX} posY={fromPosY}
+                      onPosXChange={x => { setFromPosX(x); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                      onPosYChange={y => { setFromPosY(y); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                  )}
+                  <label style={radioStyle}>
+                    <input type="radio" name="from-pic-pos-type" checked={fromPositionType === 1} onChange={() => { setFromPositionType(1); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                    변수로 지정
+                  </label>
+                  {fromPositionType === 1 && (
+                    <VariablePositionInputs posX={fromPosX} posY={fromPosY}
+                      onPosXChange={x => { setFromPosX(x); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                      onPosYChange={y => { setFromPosY(y); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                  )}
+                  <label style={radioStyle}>
+                    <input type="radio" name="from-pic-pos-type" checked={fromPositionType === 2} onChange={() => { setFromPositionType(2); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                    프리셋 지정
+                  </label>
+                  {fromPositionType === 2 && (
+                    <PresetPositionInputs
+                      presetX={fromPresetX} presetY={fromPresetY}
+                      offsetX={fromPresetOffsetX} offsetY={fromPresetOffsetY}
+                      onPresetXChange={v => { setFromPresetX(v); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                      onPresetYChange={v => { setFromPresetY(v); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                      onOffsetXChange={v => { setFromPresetOffsetX(v); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                      onOffsetYChange={v => { setFromPresetOffsetY(v); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <ScaleFields
+                    width={fromScaleWidth} height={fromScaleHeight}
+                    onWidthChange={w => { setFromScaleWidth(w); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                    onHeightChange={h => { setFromScaleHeight(h); setFromSource('manual'); setSelectedCmdIdx(-1); }} />
+                  <Fieldset legend="투명도">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={labelStyle}>불투명도:</span>
+                      <input type="number" min={0} max={255} value={fromOpacity}
+                        onChange={e => { setFromOpacity(Math.max(0, Math.min(255, Number(e.target.value)))); setFromSource('manual'); setSelectedCmdIdx(-1); }}
+                        style={{ ...selectStyle, width: 60 }} />
+                    </div>
+                  </Fieldset>
+                </div>
+              </div>
+            </Fieldset>
+
             <div style={{ display: 'flex', gap: 8 }}>
               <Fieldset legend="이동 후 위치" style={{ flex: 1 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -352,64 +429,6 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
                 showFromGhost
                 onPositionDrag={handlePositionDrag}
               />
-            </div>
-
-            {/* 시작 위치 설정 */}
-            <div style={{ marginTop: 8, padding: '8px 0', borderTop: '1px solid #333' }}>
-              <div style={{ fontSize: 12, color: '#888', marginBottom: 6, fontWeight: 'bold' }}>이동 시작 위치 (프리뷰용)</div>
-
-              {/* 이벤트 커맨드에서 선택 */}
-              {pictureCommands.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <span style={{ fontSize: 11, color: '#aaa', whiteSpace: 'nowrap' }}>커맨드에서:</span>
-                  <select
-                    value={selectedCmdIdx}
-                    onChange={e => applyCommandAsFrom(Number(e.target.value))}
-                    style={{ ...selectStyle, flex: 1, fontSize: 11 }}
-                  >
-                    <option value={-1}>직접 입력</option>
-                    {pictureCommands.map((cmd, i) => (
-                      <option key={i} value={i}>
-                        {cmd.code === 231 ? '[그림 표시]' : '[그림 이동]'} pg{cmd.pageIndex + 1} #{cmd.cmdIndex + 1}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* 직접 입력 */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <span style={{ ...labelStyle, minWidth: 18 }}>X:</span>
-                  <input type="number" min={-9999} max={9999} value={fromPosX}
-                    onChange={e => { setFromPosX(Number(e.target.value)); setFromSource('manual'); setSelectedCmdIdx(-1); }}
-                    style={{ ...selectStyle, width: 72 }} />
-                  <span style={{ ...labelStyle, minWidth: 18, marginLeft: 8 }}>Y:</span>
-                  <input type="number" min={-9999} max={9999} value={fromPosY}
-                    onChange={e => { setFromPosY(Number(e.target.value)); setFromSource('manual'); setSelectedCmdIdx(-1); }}
-                    style={{ ...selectStyle, width: 72 }} />
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <label style={{ fontSize: 11, color: '#aaa', display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <span>배율W:</span>
-                    <input type="number" min={0} max={2000} value={fromScaleWidth}
-                      onChange={e => { setFromScaleWidth(Number(e.target.value)); setFromSource('manual'); setSelectedCmdIdx(-1); }}
-                      style={{ ...selectStyle, width: 52 }} />%
-                  </label>
-                  <label style={{ fontSize: 11, color: '#aaa', display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <span>H:</span>
-                    <input type="number" min={0} max={2000} value={fromScaleHeight}
-                      onChange={e => { setFromScaleHeight(Number(e.target.value)); setFromSource('manual'); setSelectedCmdIdx(-1); }}
-                      style={{ ...selectStyle, width: 52 }} />%
-                  </label>
-                </div>
-                <label style={{ fontSize: 11, color: '#aaa', display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span>투명도:</span>
-                  <input type="number" min={0} max={255} value={fromOpacity}
-                    onChange={e => { setFromOpacity(Math.max(0, Math.min(255, Number(e.target.value)))); setFromSource('manual'); setSelectedCmdIdx(-1); }}
-                    style={{ ...selectStyle, width: 52 }} />
-                </label>
-              </div>
             </div>
           </div>
         </div>
