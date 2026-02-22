@@ -332,6 +332,13 @@ router.get('/deploy-zip-progress', async (req: Request, res: Response) => {
   res.end();
 });
 
+// ─── deploys 폴더 열기 ────────────────────────────────────────────────────────
+router.post('/open-deploys-dir', (_req: Request, res: Response) => {
+  fs.mkdirSync(DEPLOYS_DIR, { recursive: true });
+  openInExplorer(DEPLOYS_DIR);
+  res.json({ success: true, path: DEPLOYS_DIR });
+});
+
 // ─── Netlify 자동 배포 (SSE) ──────────────────────────────────────────────────
 router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {

@@ -70,7 +70,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
       if (ev.type === 'done') {
         completed = true;
         dp.setProgress(1);
-        dp.setStatus('ZIP 생성 완료. 폴더가 열렸습니다.');
+        dp.setStatus('ZIP 생성 완료.');
         dp.setBusy(false);
         evtSource.close();
         return;
@@ -246,10 +246,14 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
         </div>
       )}
 
-      <button className="db-btn" onClick={handleMakeZip} disabled={dp.busy}
-        style={{ width: '100%' }}>
-        ZIP 만들어서 폴더 열기
-      </button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="db-btn" onClick={handleMakeZip} disabled={dp.busy} style={{ flex: 1 }}>
+          ZIP 만들기
+        </button>
+        <button className="db-btn" onClick={() => apiClient.post('/project/open-deploys-dir', {}).catch((e) => dp.setError((e as Error).message))} style={{ flex: 1 }}>
+          폴더 열기
+        </button>
+      </div>
 
       <button className="db-btn" onClick={handleDeploy} disabled={dp.busy || !prereqOk}
         style={{
