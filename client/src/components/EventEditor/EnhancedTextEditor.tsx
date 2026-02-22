@@ -655,17 +655,15 @@ export function EnhancedTextEditor({
 
       <ExtTextHelpPanel />
 
-      {/* 아이콘 삽입 — 버튼 클릭 시 IconPicker를 key로 재마운트하여 바로 그리드 열기 */}
+      {/* 아이콘 삽입 — 버튼 클릭 시 IconPicker를 재마운트하여 그리드 바로 열기 */}
       {showIconModal && (
-        <div style={{ display: 'none' }}>
-          <IconPicker
-            key={showIconModal ? 'open' : 'closed'}
-            value={iconInsertIdx}
-            initialOpen={true}
-            onChange={(idx) => { insertIconBlock(idx); }}
-            onClose={() => setShowIconModal(false)}
-          />
-        </div>
+        <IconPicker
+          value={iconInsertIdx}
+          initialOpen={true}
+          hidePreview={true}
+          onChange={(idx) => { insertIconBlock(idx); }}
+          onClose={() => setShowIconModal(false)}
+        />
       )}
 
       {/* 이미지 삽입 — ImagePicker를 key로 재마운트하여 다이얼로그 바로 열기 */}
