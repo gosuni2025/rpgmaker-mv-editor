@@ -355,7 +355,7 @@ Window_Base.prototype._etProcessInlineItem = function(textState) {
             } else {
                 bmp = ImageManager.loadPicture(src);
             }
-        } catch(e) { bmp = null; }
+        } catch(e) { console.error('[ExtText] loadBitmap 예외:', e); bmp = null; }
 
         if (bmp && bmp.isReady() && bmp.width > 0 && bmp.height > 0) {
             // 폰트 높이(lh)에 맞춰 원본 비율로 축소
@@ -376,10 +376,20 @@ Window_Base.prototype._etProcessInlineItem = function(textState) {
                 ctx.strokeRect(textState.x + 1, textState.y + 1, phW - 2, lh - 2);
                 ctx.restore();
             }
-            // 비트맵 로드 완료 시 재렌더 요청
+            // 비트맵 로드 완료 시: 캔버스에 직접 패치 + MessagePreview용 rebuild 요청
             if (bmp && typeof bmp.addLoadListener === 'function') {
                 var selfWin = this;
-                bmp.addLoadListener(function() { selfWin._etNeedRebuild = true; });
+                var patchX = textState.x;
+                var patchY = textState.y;
+                var patchLh = lh;
+                bmp.addLoadListener(function() {
+                    if (selfWin.contents && bmp.width > 0 && bmp.height > 0) {
+                        var patchW = Math.round(bmp.width / bmp.height * patchLh);
+                        selfWin.contents.blt(bmp, 0, 0, bmp.width, bmp.height,
+                            patchX, patchY, patchW, patchLh);
+                    }
+                    selfWin._etNeedRebuild = true;
+                });
             }
             textState.x += phW;
         }
