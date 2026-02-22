@@ -21,6 +21,7 @@ import localizationRoutes from './routes/localization';
 import settingsRoutes from './routes/settings';
 import projectSettingsRoutes from './routes/projectSettings';
 import versionRoutes from './routes/version';
+import bundleRoutes from './routes/bundles';
 
 export interface AppOptions {
   runtimePath?: string;
@@ -388,6 +389,22 @@ export function createApp(options: AppOptions = {}) {
   // /game/fonts, /game/icon - 내장 런타임
   app.use('/game/fonts', express.static(path.join(resolvedRuntimePath, 'fonts')));
   app.use('/game/icon', express.static(path.join(resolvedRuntimePath, 'icon')));
+
+  // /game/sw.js - ServiceWorker
+  app.get('/game/sw.js', (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Cache-Control', 'no-store');
+    res.sendFile(path.join(resolvedRuntimePath, 'sw.js'));
+  });
+
+  // /game/js/libs/jszip.min.js - SW에서 importScripts()로 로드
+  app.get('/game/js/libs/jszip.min.js', (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.sendFile(require.resolve('jszip/dist/jszip.min.js'));
+  });
+
+  // /game/bundles/* - 리소스 번들 ZIP API
+  app.use('/game/bundles', bundleRoutes);
 
   // /game/data - 맵 파일은 ext 병합, Test_ prefix는 원본으로 리다이렉트, 나머지는 정적 서빙
   const mapFilePattern = /^\/Map(\d{3})\.json$/;

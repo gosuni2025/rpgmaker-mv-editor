@@ -49,6 +49,105 @@
         <script type="text/javascript" src="js/3d/FogOfWar3DVolume.js"></script>
         <script type="text/javascript" src="js/3d/ExtendedText.js"></script>
         <script type="text/javascript" src="js/plugins.js"></script>
-        <script type="text/javascript" src="js/3d/main.js"></script>
+        <script type="text/javascript">
+        // ── ServiceWorker 번들 초기화 ─────────────────────────────────────────
+        // SW가 img/audio/data ZIP을 Cache API에 저장한 뒤 main.js를 로드.
+        // SW 미지원 환경이거나 번들 API 없으면 바로 main.js 로드.
+        (function() {
+            var overlay = null;
+
+            function createOverlay() {
+                overlay = document.createElement('div');
+                overlay.id = 'bundle-overlay';
+                overlay.style.cssText = [
+                    'position:fixed;inset:0;background:#000;z-index:9999',
+                    'display:flex;flex-direction:column;align-items:center;justify-content:center',
+                    'font-family:"Segoe UI",Arial,sans-serif;color:#ccc',
+                ].join(';');
+                overlay.innerHTML = [
+                    '<div style="font-size:15px;margin-bottom:20px;">리소스 다운로드 중...</div>',
+                    '<div id="bo-bar-wrap" style="width:360px;background:#222;border-radius:4px;overflow:hidden;height:8px">',
+                    '  <div id="bo-bar" style="height:8px;width:0%;background:linear-gradient(90deg,#2c6fc7,#55aaff);transition:width 0.15s"></div>',
+                    '</div>',
+                    '<div id="bo-text" style="font-size:12px;margin-top:10px;color:#888"></div>',
+                ].join('');
+                document.body.appendChild(overlay);
+            }
+
+            function setProgress(loaded, total) {
+                if (!overlay) return;
+                var pct = total > 0 ? Math.round(loaded / total * 100) : 0;
+                document.getElementById('bo-bar').style.width = pct + '%';
+                document.getElementById('bo-text').textContent = loaded + ' / ' + total + '  (' + pct + '%)';
+            }
+
+            function removeOverlay() {
+                if (overlay) { overlay.remove(); overlay = null; }
+            }
+
+            function loadMain() {
+                removeOverlay();
+                var s = document.createElement('script');
+                s.type = 'text/javascript';
+                s.src = 'js/3d/main.js';
+                document.body.appendChild(s);
+            }
+
+            if (!('serviceWorker' in navigator)) {
+                loadMain();
+                return;
+            }
+
+            createOverlay();
+
+            // SW 메시지 수신
+            navigator.serviceWorker.addEventListener('message', function(e) {
+                var msg = e.data;
+                if (!msg) return;
+                if (msg.type === 'bundle-progress') {
+                    setProgress(msg.loadedFiles, msg.totalFiles);
+                } else if (msg.type === 'bundle-ready' || msg.type === 'bundle-skip') {
+                    loadMain();
+                } else if (msg.type === 'bundle-error') {
+                    console.warn('[SW] bundle error:', msg.bundle, msg.error);
+                }
+            });
+
+            navigator.serviceWorker.register('sw.js', { scope: './' })
+                .then(function(reg) {
+                    function waitActivated(sw) {
+                        if (sw.state === 'activated') {
+                            // SW가 이미 활성화된 상태 — 번들 준비 여부를 메시지로 확인
+                            // bundle-ready 메시지가 오거나 타임아웃 시 loadMain
+                            var timer = setTimeout(loadMain, 800);
+                            navigator.serviceWorker.addEventListener('message', function once(e) {
+                                if (e.data && (e.data.type === 'bundle-ready' || e.data.type === 'bundle-skip')) {
+                                    clearTimeout(timer);
+                                    // loadMain은 메시지 핸들러에서 처리됨
+                                    navigator.serviceWorker.removeEventListener('message', once);
+                                }
+                            });
+                            return;
+                        }
+                        sw.addEventListener('statechange', function() {
+                            if (this.state === 'activated') loadMain();
+                        });
+                    }
+
+                    if (reg.active && !reg.installing && !reg.waiting) {
+                        // 이미 활성화된 SW가 있고 설치 중인 것도 없음 → 바로 시작
+                        loadMain();
+                    } else {
+                        var sw = reg.installing || reg.waiting;
+                        if (sw) waitActivated(sw);
+                        else loadMain();
+                    }
+                })
+                .catch(function(err) {
+                    console.warn('[SW] 등록 실패:', err);
+                    loadMain();
+                });
+        })();
+        </script>
     </body>
 </html>

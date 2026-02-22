@@ -17,11 +17,16 @@
     "dist": "electron-builder"
   },
   "devDependencies": {
+    "@types/archiver": "^7.0.0",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^33.0.0",
     "electron-builder": "^25.1.8",
     "esbuild": "^0.24.0",
     "wait-on": "^8.0.5"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "jszip": "^3.10.1"
   }
 }
