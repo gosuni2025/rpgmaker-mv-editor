@@ -508,14 +508,17 @@ if (require.main === module && !process.versions.electron) {
   const server = http.createServer(app);
   attachWebSocket(server);
 
-  const PORT = parseInt(process.env.SERVER_PORT || '3001');
+  const PORT = parseInt(process.env.PORT || process.env.SERVER_PORT || '3001');
   const DEMO_MODE = process.env.DEMO_MODE === 'true';
   // DEMO_MODE: 0.0.0.0으로 수신 (Railway 등 외부 접근), demo-project 자동 오픈
   const host = DEMO_MODE ? '0.0.0.0' : '127.0.0.1';
   server.listen(PORT, host, () => {
     console.log(`Editor server listening on ${host}:${PORT}${DEMO_MODE ? ' [DEMO_MODE]' : ''}`);
     if (DEMO_MODE) {
-      const demoProjectPath = process.env.DEMO_PROJECT_PATH || path.join(process.cwd(), 'demo-project');
+      // __dirname 기준 상위 디렉터리에서 demo-project 탐색 (CWD 독립적)
+      const demoProjectPath = process.env.DEMO_PROJECT_PATH
+        || path.join(path.dirname(__dirname), 'demo-project')
+        || path.join(process.cwd(), 'demo-project');
       if (fs.existsSync(demoProjectPath)) {
         projectManager.open(demoProjectPath);
         console.log(`Demo project opened: ${demoProjectPath}`);
