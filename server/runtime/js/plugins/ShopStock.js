@@ -435,7 +435,7 @@
         var stock = bw.getStock ? bw.getStock(idx) : -1;
         if (stock === 0) {
           reason = '품절입니다.';
-        } else if (bw.price && bw.price(this._item) > this._money) {
+        } else if (bw.price && bw.price(this._item) > $gameParty.gold()) {
           reason = '돈이 부족합니다.';
         }
       }
