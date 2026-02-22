@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
+import https from 'https';
 import { promisify } from 'util';
 import { exec, spawn } from 'child_process';
 import projectManager from '../../services/projectManager';
@@ -28,22 +29,37 @@ async function checkButler(): Promise<boolean> {
   return false;
 }
 
-/** butler whoami --json → 로그인된 username 반환, 미로그인 시 null */
+/** OS별 butler credentials 파일 경로 */
+function getButlerCredsPath(): string {
+  if (process.platform === 'darwin') {
+    return path.join(os.homedir(), 'Library', 'Application Support', 'itch', 'butler_creds');
+  } else if (process.platform === 'win32') {
+    return path.join(process.env.APPDATA || os.homedir(), 'itch', 'butler_creds');
+  }
+  return path.join(os.homedir(), '.config', 'itch', 'butler_creds');
+}
+
+/** credentials 파일에서 API key 읽기 → itch.io API로 username 조회 */
 async function getButlerUsername(): Promise<string | null> {
   try {
-    const { stdout } = await execAsync('butler whoami --json');
-    const lines = stdout.trim().split('\n').filter(Boolean);
-    for (const line of lines) {
-      try {
-        const ev = JSON.parse(line) as Record<string, unknown>;
-        if (ev.type === 'result' && ev.value) {
-          const val = ev.value as Record<string, unknown>;
-          if (typeof val.username === 'string') return val.username;
-        }
-      } catch {}
-    }
-  } catch {}
-  return null;
+    const credsPath = getButlerCredsPath();
+    if (!fs.existsSync(credsPath)) return null;
+    const apiKey = fs.readFileSync(credsPath, 'utf8').trim();
+    if (!apiKey) return null;
+
+    return await new Promise<string | null>((resolve) => {
+      https.get(`https://itch.io/api/1/${apiKey}/credentials/info`, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data) as { user?: { username?: string } };
+            resolve(json.user?.username ?? null);
+          } catch { resolve(null); }
+        });
+      }).on('error', () => resolve(null));
+    });
+  } catch { return null; }
 }
 
 /** user/game → https://user.itch.io/game */
