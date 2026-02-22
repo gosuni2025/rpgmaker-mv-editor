@@ -9,6 +9,7 @@ installErrorOverlay();
 import LandingPage from './pages/LandingPage';
 import FogOfWarTestPage from './pages/FogOfWarTestPage';
 import FogOfWar3DVolumeTestPage from './pages/FogOfWar3DVolumeTestPage';
+import SilhouetteTestPage from './pages/SilhouetteTestPage';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -18,6 +19,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/editor" element={<App />} />
         <Route path="/fogofwar" element={<FogOfWarTestPage />} />
         <Route path="/fogvolume3d" element={<FogOfWar3DVolumeTestPage />} />
+        <Route path="/silhouette" element={<SilhouetteTestPage />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
