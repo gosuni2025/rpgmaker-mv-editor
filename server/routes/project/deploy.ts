@@ -553,6 +553,10 @@ export async function buildDeployZipWithProgress(
     applyCacheBusting(stagingDir, buildId, { ...opts, convertWebp: projectIsWebp || opts.convertWebp });
     if (opts.bundle) {
       await generateBundleFiles(stagingDir, buildId, (msg) => onEvent({ type: 'log', message: msg }));
+      for (const dir of ['img', 'audio', 'data']) {
+        const dirPath = path.join(stagingDir, dir);
+        if (fs.existsSync(dirPath)) fs.rmSync(dirPath, { recursive: true, force: true });
+      }
     }
 
     onEvent({ type: 'status', phase: 'zipping' });
