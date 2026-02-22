@@ -12,6 +12,13 @@ const editorRoot = path.join(__dirname, '..', '..');
 router.get('/info', (req, res) => {
   const hasGit = fs.existsSync(path.join(editorRoot, '.git'));
 
+  // package.json 버전 (git/release 공통으로 포함)
+  let pkgVersion = '0.0.0';
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(editorRoot, 'package.json'), 'utf8'));
+    pkgVersion = pkg.version ?? '0.0.0';
+  } catch {}
+
   if (hasGit) {
     // git clone 설치: 최신 커밋 날짜와 해시 반환
     try {
@@ -22,9 +29,9 @@ router.get('/info', (req, res) => {
         .toString()
         .trim();
       const [commitDate, commitHash] = out.split('|||');
-      res.json({ type: 'git', commitDate, commitHash: commitHash?.slice(0, 7) });
+      res.json({ type: 'git', version: pkgVersion, commitDate, commitHash: commitHash?.slice(0, 7) });
     } catch {
-      res.json({ type: 'git', commitDate: null, commitHash: null });
+      res.json({ type: 'git', version: pkgVersion, commitDate: null, commitHash: null });
     }
   } else {
     // 릴리즈 설치: electron main이 주입한 APP_VERSION 우선, fallback으로 package.json
