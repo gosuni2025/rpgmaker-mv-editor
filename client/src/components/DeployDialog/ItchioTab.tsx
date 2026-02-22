@@ -174,7 +174,13 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
         <div style={{ color: '#bbb', fontSize: 12, fontWeight: 600 }}>{t('deploy.itchio.settingsTitle')}</div>
 
         <div>
-          <div className="deploy-field-label">{t('deploy.itchio.apiKey')}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <span className="deploy-field-label" style={{ marginBottom: 0 }}>{t('deploy.itchio.apiKey')}</span>
+            <button className="db-btn" onClick={() => openUrl('https://itch.io/user/settings/api-keys')}
+              style={{ fontSize: 11, padding: '2px 8px' }}>
+              API Key 발급 ↗
+            </button>
+          </div>
           <input type="password" value={apiKey} onChange={(e) => handleApiKeyChange(e.target.value)}
             placeholder={t('deploy.itchio.apiKeyPlaceholder')} className="deploy-input" />
           {apiKey && (
