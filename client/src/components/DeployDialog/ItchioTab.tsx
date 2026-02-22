@@ -181,7 +181,13 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
           </div>
 
           <div>
-            <div className="deploy-field-label">{t('deploy.itchio.project')}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <span className="deploy-field-label" style={{ marginBottom: 0 }}>{t('deploy.itchio.project')}</span>
+              <button className="db-btn" onClick={() => openUrl('https://itch.io/game/new')}
+                style={{ fontSize: 11, padding: '2px 8px' }}>
+                새 게임 만들기 ↗
+              </button>
+            </div>
             <input type="text" value={project} onChange={(e) => setProject(e.target.value)}
               placeholder="username/game-name" className="deploy-input" />
             {project && project.includes('/') && (
