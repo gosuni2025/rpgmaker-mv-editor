@@ -454,7 +454,7 @@
         // _etScrollY를 현재 스크롤 위치와 동기화 (오버레이 메시 위치 업데이트에 사용)
         this._etScrollY = this._scrollY;
 
-        // 기존 세그먼트의 시간 상태와 오버레이 메시를 키 기반으로 보존 (스크롤 시 재생성 방지)
+        // 기존 세그먼트의 시간 상태를 텍스트+이펙트 키 기반으로 보존 (스크롤 시 애니메이션 재시작 방지)
         // 인덱스 기반 매칭은 뷰포트 밖 텍스트 여부에 따라 순서가 달라져 오작동하므로 키 기반 사용
         var prevMap = {};
         (this._etAnimSegs || []).forEach(function (seg) {
@@ -464,20 +464,10 @@
                 startTime:        seg.startTime,
                 overlayStartTime: seg._overlayStartTime,
                 etFrozen:         seg._etFrozen,
-                // 오버레이 메시 재사용을 위한 참조 보존
-                overlayMesh:      seg._overlayMesh,
-                overlayTex:       seg._overlayTex,
-                charMeshes:       seg._charMeshes,
-                overlayParent:    seg._overlayParent,
             });
-            // 메시 참조를 세그먼트에서 분리 (dispose 없이 — 나중에 재사용 or 폐기)
-            seg._overlayMesh = null;
-            seg._charMeshes  = null;
         });
         var keyCounters = {};
-        var keyUsed     = {};
 
-        // _etClearAllOverlays()는 이제 실제 메시가 null이므로 내부 배열만 초기화
         this._etClearAllOverlays();
         this.contents.clear();
         var top = this._scrollY;
@@ -508,10 +498,7 @@
 
         if (SHOW_SCROLL_BAR) this._drawScrollBar();
 
-        // 키 기반으로 startTime / _overlayStartTime / 오버레이 메시 복원
-        // 타이핑 중인 엔트리는 메시 재사용 금지 — 글자 수가 매 프레임 변하므로 이전 메시를
-        // 재사용하면 새로 추가된 글자에 효과가 적용되지 않음
-        var typingEntryIdx = this._isTyping ? this._typeEntryIdx : -1;
+        // 키 기반으로 startTime / _overlayStartTime 복원
         var segs = this._etAnimSegs || [];
         for (var j = 0; j < segs.length; j++) {
             var key = _etSegKey(segs[j]);
@@ -525,84 +512,6 @@
                     segs[j]._overlayStartTime = prev.overlayStartTime;
                 if (prev.etFrozen !== undefined)
                     segs[j]._etFrozen = prev.etFrozen;
-
-                var canReuse = (segs[j]._entryIdx !== typingEntryIdx);
-                var charsR   = segs[j].chars;
-                if (canReuse && (prev.overlayMesh || prev.charMeshes) &&
-                        charsR && charsR.length > 0) {
-                    var bmpR = this.contents;
-                    // bmp.clearRect 수행 (_etEnsureOverlay/ShakeMeshes 가 호출 안 되므로)
-                    if (bmpR && bmpR.clearRect) {
-                        var outWR   = bmpR.outlineWidth !== undefined ? bmpR.outlineWidth : 4;
-                        var clearLR = Math.ceil(outWR / 2);
-                        var lhR     = charsR[0].h || this.lineHeight();
-                        if (prev.charMeshes) {
-                            for (var ciR = 0; ciR < charsR.length; ciR++) {
-                                var chR   = charsR[ciR];
-                                var rawWR = chR._width !== undefined ? chR._width :
-                                    (this.textWidth ? this.textWidth(chR.c) : (bmpR.fontSize || 28));
-                                var cWR   = Math.max(1, Math.ceil(rawWR) + clearLR * 2);
-                                bmpR.clearRect(chR.x - clearLR, chR.y, cWR, lhR);
-                            }
-                        } else {
-                            var segXR   = charsR[0].x;
-                            var lastChR = charsR[charsR.length - 1];
-                            var lastWR  = lastChR._width !== undefined ? lastChR._width :
-                                (this.textWidth ? this.textWidth(lastChR.c) : (bmpR.fontSize || 28));
-                            var segWR   = Math.max(1, lastChR.x + lastWR - segXR + clearLR * 2);
-                            var segHR   = Math.max(1, lhR + 4);
-                            bmpR.clearRect(segXR - clearLR, charsR[0].y, segWR, segHR);
-                        }
-                    }
-                    // _etBaseWorldY / _etSegH 계산 — 스크롤 독립적 절대 좌표.
-                    // 이것이 없으면 _etUpdateOverlayUniforms()에서 위치 업데이트 안 됨
-                    var tgt = this._etGetOverlayTarget();
-                    if (tgt) {
-                        var lhBase = charsR[0].h || this.lineHeight();
-                        segs[j]._etBaseWorldY = tgt.offsetY + charsR[0].y + tgt.scrollY;
-                        segs[j]._etSegH       = Math.max(1, lhBase + 4);
-                    }
-                    if (prev.overlayMesh) {
-                        segs[j]._overlayMesh   = prev.overlayMesh;
-                        segs[j]._overlayTex    = prev.overlayTex;
-                        segs[j]._overlayParent = prev.overlayParent;
-                    }
-                    if (prev.charMeshes) {
-                        segs[j]._charMeshes    = prev.charMeshes;
-                        segs[j]._overlayParent = prev.overlayParent;
-                    }
-                    // 재사용 성공 시에만 keyUsed 증가
-                    // canReuse=false 또는 메시 없는 경우는 증가 안 함 → dispose 로직에서 처리
-                    if (!keyUsed[key]) keyUsed[key] = 0;
-                    keyUsed[key]++;
-                }
-            }
-        }
-
-        // 재사용되지 않은 기존 메시 dispose (뷰포트 밖으로 나간 항목)
-        var keys = Object.keys(prevMap);
-        for (var ki = 0; ki < keys.length; ki++) {
-            var k    = keys[ki];
-            var used = keyUsed[k] || 0;
-            var list = prevMap[k];
-            for (var li = used; li < list.length; li++) {
-                var item   = list[li];
-                var parent = item.overlayParent || null;
-                if (item.overlayMesh) {
-                    if (parent) parent.remove(item.overlayMesh);
-                    if (item.overlayMesh.geometry) item.overlayMesh.geometry.dispose();
-                    if (item.overlayMesh.material) item.overlayMesh.material.dispose();
-                    if (item.overlayTex) item.overlayTex.dispose();
-                }
-                if (item.charMeshes) {
-                    for (var ci = 0; ci < item.charMeshes.length; ci++) {
-                        var cm = item.charMeshes[ci];
-                        if (parent) parent.remove(cm.mesh);
-                        if (cm.mesh && cm.mesh.geometry) cm.mesh.geometry.dispose();
-                        if (cm.mesh && cm.mesh.material) cm.mesh.material.dispose();
-                        if (cm.tex) cm.tex.dispose();
-                    }
-                }
             }
         }
     };
