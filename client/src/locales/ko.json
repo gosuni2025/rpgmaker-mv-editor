@@ -1473,9 +1473,9 @@
       "checkButler": "butler CLI 설치됨",
       "butlerMissing": "butler가 설치되지 않았습니다. https://itch.io/docs/butler 에서 설치하세요.",
       "deploy": "itch.io에 배포",
-      "deploying": "배포 진행 중...",
-      "done": "배포 완료!",
-      "failed": "배포 실패",
+      "deploying": "itch.io 배포 중...",
+      "done": "itch.io 배포 완료",
+      "failed": "itch.io 배포 실패",
       "gameUrl": "itch.io 게임 URL",
       "openGame": "게임 페이지 열기"
     },

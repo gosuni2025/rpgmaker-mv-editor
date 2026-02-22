@@ -241,9 +241,9 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
         error={dp.error}
         progress={dp.progress}
         color="#2675bf"
-        titleBusy={deployMode === 'zip' ? 'ZIP 생성 중...' : '배포 진행 중...'}
-        titleDone={deployMode === 'zip' ? 'ZIP 생성 완료' : '배포 완료'}
-        titleFailed={deployMode === 'zip' ? 'ZIP 생성 실패' : '배포 실패'}
+        titleBusy={deployMode === 'zip' ? 'ZIP 생성 중...' : 'Netlify 배포 중...'}
+        titleDone={deployMode === 'zip' ? 'ZIP 생성 완료' : 'Netlify 배포 완료'}
+        titleFailed={deployMode === 'zip' ? 'ZIP 생성 실패' : 'Netlify 배포 실패'}
         resultUrl={deployMode === 'netlify' ? deployUrl : ''}
         resultLabel={t('deploy.netlify.openSite')}
         resultButtonStyle={{ background: '#0e5f1f', borderColor: '#1a8a30' }}

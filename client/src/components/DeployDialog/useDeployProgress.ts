@@ -55,7 +55,7 @@ export default function useDeployProgress() {
         }
 
         if (ev.phase === 'zipping')   { setProgress(weights.copy); setStatus(t('deploy.netlify.zipping')); }
-        if (ev.phase === 'uploading') { setProgress(uploadStart); setStatus(t('deploy.netlify.uploading')); }
+        if (ev.phase === 'uploading') { setProgress(uploadStart); setStatus('업로드 중...'); }
       } else if (ev.type === 'site-created') {
         setStatus(`${t('deploy.netlify.siteCreatedMsg')}: ${ev.siteName}.netlify.app`);
         return true;
