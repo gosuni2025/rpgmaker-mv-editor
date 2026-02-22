@@ -11,10 +11,12 @@
  * @default 16
  *
  * @param Text Color
+ * @type color
  * @desc 이름 텍스트 색상 (CSS 색상 코드)
  * @default #ffffff
  *
  * @param Outline Color
+ * @type color
  * @desc 이름 텍스트 외곽선 색상
  * @default rgba(0,0,0,0.85)
  *
