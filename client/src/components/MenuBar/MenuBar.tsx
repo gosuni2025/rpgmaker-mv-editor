@@ -55,7 +55,6 @@ export default function MenuBar() {
 
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
-  const setPassageTool = useEditorStore((s) => s.setPassageTool);
   const setDrawShape = useEditorStore((s) => s.setDrawShape);
   const zoomIn = useEditorStore((s) => s.zoomIn);
   const zoomOut = useEditorStore((s) => s.zoomOut);
@@ -238,7 +237,7 @@ export default function MenuBar() {
       case 'modeLight': setEditMode('light'); break;
       case 'modeObject': setEditMode('object'); break;
       case 'modeCameraZone': setEditMode('cameraZone'); break;
-      case 'modePassage': setEditMode('passage'); setPassageTool('pen'); break;
+      case 'modePassage': setEditMode('passage'); break;
       case 'toolSelect': setSelectedTool('select'); break;
       case 'toolPen': setSelectedTool('pen'); break;
       case 'toolEraser': setSelectedTool('eraser'); break;
