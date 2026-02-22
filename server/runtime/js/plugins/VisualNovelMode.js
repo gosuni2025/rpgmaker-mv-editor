@@ -525,36 +525,42 @@
                     segs[j]._overlayStartTime = prev.overlayStartTime;
                 if (prev.etFrozen !== undefined)
                     segs[j]._etFrozen = prev.etFrozen;
-                // 오버레이 메시 재사용 (타이핑 중인 엔트리 제외 — 글자 수 불일치 방지)
+
                 var canReuse = (segs[j]._entryIdx !== typingEntryIdx);
-                if (canReuse && (prev.overlayMesh || prev.charMeshes)) {
-                    var bmpR   = this.contents;
-                    var charsR = segs[j].chars;
-                    // 메시 재사용 시 _etEnsureOverlay/ShakeMeshes()가 호출되지 않으므로
-                    // bmp.clearRect()를 직접 수행 (원본 글자 겹침 방지)
-                    if (bmpR && bmpR.clearRect && charsR && charsR.length > 0) {
+                var charsR   = segs[j].chars;
+                if (canReuse && (prev.overlayMesh || prev.charMeshes) &&
+                        charsR && charsR.length > 0) {
+                    var bmpR = this.contents;
+                    // bmp.clearRect 수행 (_etEnsureOverlay/ShakeMeshes 가 호출 안 되므로)
+                    if (bmpR && bmpR.clearRect) {
                         var outWR   = bmpR.outlineWidth !== undefined ? bmpR.outlineWidth : 4;
                         var clearLR = Math.ceil(outWR / 2);
                         var lhR     = charsR[0].h || this.lineHeight();
                         if (prev.charMeshes) {
-                            // shake: 글자별 개별 clearRect
                             for (var ciR = 0; ciR < charsR.length; ciR++) {
-                                var chR  = charsR[ciR];
+                                var chR   = charsR[ciR];
                                 var rawWR = chR._width !== undefined ? chR._width :
-                                            (this.textWidth ? this.textWidth(chR.c) : (bmpR.fontSize || 28));
-                                var cWR  = Math.max(1, Math.ceil(rawWR) + clearLR * 2);
+                                    (this.textWidth ? this.textWidth(chR.c) : (bmpR.fontSize || 28));
+                                var cWR   = Math.max(1, Math.ceil(rawWR) + clearLR * 2);
                                 bmpR.clearRect(chR.x - clearLR, chR.y, cWR, lhR);
                             }
                         } else {
-                            // non-shake: 세그먼트 전체 영역 clearRect
                             var segXR   = charsR[0].x;
                             var lastChR = charsR[charsR.length - 1];
                             var lastWR  = lastChR._width !== undefined ? lastChR._width :
-                                          (this.textWidth ? this.textWidth(lastChR.c) : (bmpR.fontSize || 28));
+                                (this.textWidth ? this.textWidth(lastChR.c) : (bmpR.fontSize || 28));
                             var segWR   = Math.max(1, lastChR.x + lastWR - segXR + clearLR * 2);
                             var segHR   = Math.max(1, lhR + 4);
                             bmpR.clearRect(segXR - clearLR, charsR[0].y, segWR, segHR);
                         }
+                    }
+                    // _etBaseWorldY / _etSegH 계산 — 스크롤 독립적 절대 좌표.
+                    // 이것이 없으면 _etUpdateOverlayUniforms()에서 위치 업데이트 안 됨
+                    var tgt = this._etGetOverlayTarget();
+                    if (tgt) {
+                        var lhBase = charsR[0].h || this.lineHeight();
+                        segs[j]._etBaseWorldY = tgt.offsetY + charsR[0].y + tgt.scrollY;
+                        segs[j]._etSegH       = Math.max(1, lhBase + 4);
                     }
                     if (prev.overlayMesh) {
                         segs[j]._overlayMesh   = prev.overlayMesh;
@@ -565,9 +571,11 @@
                         segs[j]._charMeshes    = prev.charMeshes;
                         segs[j]._overlayParent = prev.overlayParent;
                     }
+                    // 재사용 성공 시에만 keyUsed 증가
+                    // canReuse=false 또는 메시 없는 경우는 증가 안 함 → dispose 로직에서 처리
+                    if (!keyUsed[key]) keyUsed[key] = 0;
+                    keyUsed[key]++;
                 }
-                if (!keyUsed[key]) keyUsed[key] = 0;
-                keyUsed[key]++;
             }
         }
 
