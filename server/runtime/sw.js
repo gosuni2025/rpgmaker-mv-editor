@@ -173,7 +173,8 @@ async function cacheFirst(request) {
     .reverse();
 
   for (const cacheName of allCacheNames) {
-    const cached = await caches.open(cacheName).then(c => c.match(request));
+    // ignoreSearch: 캐시 버스팅 쿼리(?v=xxxxx)를 무시하고 경로만 비교
+    const cached = await caches.open(cacheName).then(c => c.match(request, { ignoreSearch: true }));
     if (cached) return cached;
   }
   return fetch(request);
