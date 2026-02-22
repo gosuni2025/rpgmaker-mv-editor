@@ -75,11 +75,17 @@ export default function WebpConvertDialog() {
   const pct = progress && progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
 
   return (
-    <Dialog title={t('webpConvert.title')} onClose={close} width={720}>
+    <Dialog
+      title={t('webpConvert.title')}
+      onClose={close}
+      width={680}
+      style={{ height: 'auto', maxHeight: '90vh' }}
+      bodyStyle={{ display: 'block', overflow: 'auto', padding: '12px 16px' }}
+    >
 
       {/* ── 확인 화면 ── */}
       {phase === 'confirm' && (
-        <div style={{ padding: '8px 0' }}>
+        <div>
           <p style={{ color: '#ddd', marginBottom: 12, lineHeight: 1.7 }}>
             {t('webpConvert.confirmDesc')}
           </p>
@@ -131,7 +137,7 @@ export default function WebpConvertDialog() {
 
       {/* ── 진행 / 완료 / 오류 화면 ── */}
       {(phase === 'running' || phase === 'done' || phase === 'error') && (
-        <div style={{ padding: '8px 0' }}>
+        <div>
 
           {/* 현재 변환 중 파일 표시 */}
           {currentFile && (
