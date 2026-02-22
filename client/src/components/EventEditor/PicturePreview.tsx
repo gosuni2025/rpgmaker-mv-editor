@@ -34,6 +34,17 @@ function computePicRect(snap: PictureSnapshot, imgW: number, imgH: number) {
 
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 
+function toGameCoords(e: { clientX: number; clientY: number }, canvas: HTMLCanvasElement) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: (e.clientX - rect.left) * GW / rect.width, y: (e.clientY - rect.top) * GH / rect.height };
+}
+
+function hitPicture(gx: number, gy: number, refs: PicRefs, snap: PictureSnapshot): boolean {
+  if (!refs.picTexture || refs.imgNatW <= 0) return false;
+  const { x, y, w, h } = computePicRect(snap, refs.imgNatW, refs.imgNatH);
+  return gx >= x && gx <= x + w && gy >= y && gy <= y + h;
+}
+
 function lerpSnap(a: PictureSnapshot, b: PictureSnapshot, t: number): PictureSnapshot {
   return {
     ...b,
@@ -125,13 +136,17 @@ interface Props {
   durationMs?: number;             // 애니메이션 지속 시간 (ms)
   replayTrigger?: number;          // 변경 시 애니메이션 재시작
   showWindow?: boolean;            // 대화창 표시 여부
+  onPositionDrag?: (posX: number, posY: number) => void;  // 드래그로 위치 변경
 }
 
-export function PicturePreview({ current, from, durationMs = 1000, replayTrigger = 0, showWindow = true }: Props) {
+export function PicturePreview({ current, from, durationMs = 1000, replayTrigger = 0, showWindow = true, onPositionDrag }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const refsRef = useRef<PicRefs | null>(null);
   const rafRef = useRef(0);
   const animRef = useRef<{ startTime: number; durationMs: number } | null>(null);
+  const onPositionDragRef = useRef(onPositionDrag);
+  onPositionDragRef.current = onPositionDrag;
+  const dragRef = useRef({ active: false, startGameX: 0, startGameY: 0, startPosX: 0, startPosY: 0 });
 
   const currentMap = useEditorStore(s => s.currentMap);
   const selectedEventId = useEditorStore(s => s.selectedEventId);
@@ -250,6 +265,29 @@ export function PicturePreview({ current, from, durationMs = 1000, replayTrigger
     return () => { running = false; cancelAnimationFrame(rafRef.current); };
   }, []);
 
+  // 드래그 이벤트 (document 레벨)
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag.active) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const { x: gx, y: gy } = toGameCoords(e, canvas);
+      const newPosX = Math.round(drag.startPosX + (gx - drag.startGameX));
+      const newPosY = Math.round(drag.startPosY + (gy - drag.startGameY));
+      onPositionDragRef.current?.(newPosX, newPosY);
+    };
+    const onUp = () => {
+      if (!dragRef.current.active) return;
+      dragRef.current.active = false;
+      const canvas = canvasRef.current;
+      if (canvas) canvas.style.cursor = 'default';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+  }, []);
+
   // 언마운트 정리
   useEffect(() => () => {
     const refs = refsRef.current;
@@ -272,6 +310,31 @@ export function PicturePreview({ current, from, durationMs = 1000, replayTrigger
         display: 'block',
         imageRendering: 'pixelated',
         background: '#222',
+      }}
+      onMouseDown={(e) => {
+        const canvas = canvasRef.current;
+        const refs = refsRef.current;
+        if (!canvas || !refs || !onPositionDragRef.current) return;
+        const { x: gx, y: gy } = toGameCoords(e, canvas);
+        if (hitPicture(gx, gy, refs, currentRef.current)) {
+          e.preventDefault();
+          dragRef.current.active = true;
+          dragRef.current.startGameX = gx;
+          dragRef.current.startGameY = gy;
+          dragRef.current.startPosX = currentRef.current.posX;
+          dragRef.current.startPosY = currentRef.current.posY;
+          canvas.style.cursor = 'grabbing';
+        }
+      }}
+      onMouseMove={(e) => {
+        const canvas = canvasRef.current;
+        const refs = refsRef.current;
+        if (!canvas || !refs || !onPositionDragRef.current || dragRef.current.active) return;
+        const { x: gx, y: gy } = toGameCoords(e, canvas);
+        canvas.style.cursor = hitPicture(gx, gy, refs, currentRef.current) ? 'grab' : 'default';
+      }}
+      onMouseLeave={() => {
+        if (!dragRef.current.active && canvasRef.current) canvasRef.current.style.cursor = 'default';
       }}
     />
   );

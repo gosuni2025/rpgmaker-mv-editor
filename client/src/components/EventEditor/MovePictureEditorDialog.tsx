@@ -143,6 +143,12 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
   const [replayTrigger, setReplayTrigger] = useState(0);
   const [showWindow, setShowWindow] = useState(true);
 
+  const handlePositionDrag = useCallback((x: number, y: number) => {
+    setPositionType(0);
+    setPosX(x);
+    setPosY(y);
+  }, []);
+
   // PicturePreview에 전달할 상태들 (이미지명은 현재 커맨드에서 가져올 수 없으므로 빈 문자열)
   // "이미지명"은 ShowPicture에서 설정되므로 MovePicture 에디터에서는 없음
   // 프리뷰에서는 imageName 없이 위치만 표시 (이미지 없이 위치 박스 표시)
@@ -343,6 +349,7 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
                 durationMs={moveDurationMs}
                 replayTrigger={replayTrigger}
                 showWindow={showWindow}
+                onPositionDrag={handlePositionDrag}
               />
             </div>
 

@@ -90,6 +90,12 @@ export function ShowPictureEditorDialog({ p, onOk, onCancel }: {
   const [replayTrigger, setReplayTrigger] = useState(0);
   const [showWindow, setShowWindow] = useState(true);
 
+  const handlePositionDrag = useCallback((x: number, y: number) => {
+    setPositionType(0);
+    setPosX(x);
+    setPosY(y);
+  }, []);
+
   // PicturePreview에 전달할 현재 상태
   const currentSnap: PictureSnapshot = {
     imageName, origin, positionType, posX, posY,
@@ -257,6 +263,7 @@ export function ShowPictureEditorDialog({ p, onOk, onCancel }: {
                 durationMs={transitionDurationMs}
                 replayTrigger={replayTrigger}
                 showWindow={showWindow}
+                onPositionDrag={handlePositionDrag}
               />
             </div>
           </div>
