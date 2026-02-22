@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import { expandSelectionToGroups } from './commandConstants';
+import useEditorStore from '../../store/useEditorStore';
 
 // 내부 클립보드 (컴포넌트 외부에 두어 리렌더 없이 유지)
 let commandClipboard: EventCommand[] = [];
@@ -49,6 +50,7 @@ export function useCommandClipboard(
     commandClipboard = copied;
     setHasClipboard(true);
     writeCommandsToClipboard(copied);
+    useEditorStore.getState().showToast(`커맨드 ${copied.length}개 복사됨`);
   }, [commands, selectedIndices]);
 
   const doPaste = useCallback((source: EventCommand[]) => {

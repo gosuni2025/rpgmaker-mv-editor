@@ -98,6 +98,33 @@ class McpManager extends EventEmitter {
     }
   }
 
+  /** write 도구 완료 후 클라이언트에 알릴 변경 파일 목록 */
+  private changedFiles(tool: string, args: Record<string, unknown>): string[] {
+    const mapFile = (id: unknown) => `Map${String(id).padStart(3, '0')}.json`;
+    const dbFile = (type: unknown) => {
+      const map: Record<string, string> = {
+        actors: 'Actors.json', classes: 'Classes.json', skills: 'Skills.json',
+        items: 'Items.json', weapons: 'Weapons.json', armors: 'Armors.json',
+        enemies: 'Enemies.json', troops: 'Troops.json', states: 'States.json',
+        animations: 'Animations.json', tilesets: 'Tilesets.json',
+        commonEvents: 'CommonEvents.json', system: 'System.json',
+      };
+      return map[type as string] ?? null;
+    };
+    switch (tool) {
+      case 'create_event':
+      case 'update_event':
+        return [mapFile(args.mapId)];
+      case 'create_map':
+        return ['MapInfos.json'];
+      case 'update_database_entry': {
+        const f = dbFile(args.type);
+        return f ? [f] : [];
+      }
+      default: return [];
+    }
+  }
+
   /** 도구 호출 결과를 요약 문자열로 변환 */
   private summarizeToolCall(tool: string, args: Record<string, unknown>, result: unknown, success: boolean): string {
     if (!success) return `MCP 오류: ${tool} — ${String(result)}`;
@@ -302,9 +329,11 @@ class McpManager extends EventEmitter {
         this.addLog({ sessionId: session.id, type: 'response', tool: toolName, result, durationMs });
         const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
         session.send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } });
-        // write 도구: 에디터 클라이언트에 토스트 알림
+        // write 도구: 에디터 클라이언트에 토스트 + 파일 변경 알림
         const summary = this.summarizeToolCall(toolName, toolArgs, result, true);
         if (summary) this.broadcastToEditor({ type: 'mcpToolResult', success: true, summary });
+        const changed = this.changedFiles(toolName, toolArgs);
+        for (const file of changed) this.broadcastToEditor({ type: 'fileChanged', file });
       } catch (err) {
         const durationMs = Date.now() - startMs;
         const errMsg = String(err);
