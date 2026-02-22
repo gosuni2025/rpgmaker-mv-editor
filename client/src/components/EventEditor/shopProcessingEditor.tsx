@@ -179,21 +179,14 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
             );
           })}
           {/* 빈 행 (더블클릭으로 추가) */}
-          {Array.from({ length: Math.max(1, 4 - goods.length) }).map((_, i) => (
+          {goods.length === 0 && (
             <div
-              key={`empty-${i}`}
-              style={{
-                display: 'flex', cursor: 'pointer',
-                borderBottom: '1px solid #333',
-                background: goods.length + i === selectedIndex ? '#2675bf' : 'transparent',
-              }}
+              style={{ padding: '8px 12px', fontSize: 12, color: '#555', fontStyle: 'italic', cursor: 'pointer' }}
               onDoubleClick={handleRowDoubleClickEmpty}
             >
-              <div style={{ flex: 1, padding: '2px 8px', fontSize: 13, color: '#555', borderRight: '1px solid #333' }}>&nbsp;</div>
-              <div style={{ width: 80, padding: '2px 8px', fontSize: 13, color: '#555', borderRight: '1px solid #333' }}>&nbsp;</div>
-              <div style={{ width: 60, padding: '2px 8px', fontSize: 13, color: '#555' }}>&nbsp;</div>
+              추가 버튼으로 상품을 추가하세요
             </div>
-          ))}
+          )}
         </div>
       </div>
 
@@ -212,14 +205,17 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
       </label>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button
-          className="db-btn"
-          onClick={handleDelete}
-          disabled={selectedIndex < 0 || selectedIndex >= goods.length}
-          style={{ opacity: selectedIndex >= 0 && selectedIndex < goods.length ? 1 : 0.4 }}
-        >
-          삭제
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className="db-btn" onClick={handleRowDoubleClickEmpty}>추가</button>
+          <button
+            className="db-btn"
+            onClick={handleDelete}
+            disabled={selectedIndex < 0 || selectedIndex >= goods.length}
+            style={{ opacity: selectedIndex >= 0 && selectedIndex < goods.length ? 1 : 0.4 }}
+          >
+            제거
+          </button>
+        </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="db-btn" onClick={handleOk}>OK</button>
           <button className="db-btn" onClick={onCancel}>취소</button>
