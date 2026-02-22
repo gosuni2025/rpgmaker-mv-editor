@@ -6,6 +6,7 @@ import cors from 'cors';
 import { WebSocketServer, WebSocket } from 'ws';
 import fileWatcher from './services/fileWatcher';
 import projectManager from './services/projectManager';
+import { mcpManager } from './services/mcpManager';
 
 import projectRoutes from './routes/project';
 import { setRuntimePath } from './routes/project/migrationUtils';
@@ -496,6 +497,22 @@ export function createApp(options: AppOptions = {}) {
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.get('/api/config', (_req, res) => res.json({ demoMode: DEMO_MODE }));
+
+  // MCP 서버 상태 API
+  app.get('/api/mcp/status', (_req, res) => res.json(mcpManager.getStatus()));
+  app.post('/api/mcp/restart', async (req, res) => {
+    try {
+      const port = req.body?.port ? parseInt(req.body.port) : undefined;
+      await mcpManager.restart(port);
+      res.json(mcpManager.getStatus());
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+  app.post('/api/mcp/stop', async (_req, res) => {
+    await mcpManager.stop();
+    res.json(mcpManager.getStatus());
+  });
   app.post('/api/playtestSession', (req, res) => {
     if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
     const { mapId, mapData } = req.body as { mapId: number; mapData: Record<string, unknown> };
@@ -555,6 +572,12 @@ if (require.main === module && !process.versions.electron) {
   const host = DEMO_MODE ? '0.0.0.0' : '127.0.0.1';
   server.listen(PORT, host, () => {
     console.log(`Editor server listening on ${host}:${PORT}${DEMO_MODE ? ' [DEMO_MODE]' : ''}`);
+    // MCP 서버 자동 시작
+    const MCP_PORT = parseInt(process.env.MCP_PORT || '3002');
+    mcpManager.setEditorPort(PORT);
+    mcpManager.start(MCP_PORT).catch(err => {
+      console.warn(`[MCP] 서버 시작 실패: ${err.message}`);
+    });
     if (DEMO_MODE) {
       // __dirname 기준 상위 디렉터리에서 demo-project 탐색 (CWD 독립적)
       const demoProjectPath = process.env.DEMO_PROJECT_PATH

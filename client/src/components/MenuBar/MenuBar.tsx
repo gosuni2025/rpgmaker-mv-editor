@@ -51,6 +51,7 @@ export default function MenuBar() {
   const setShowOptionsDialog = useEditorStore((s) => s.setShowOptionsDialog);
   const setShowLocalizationDialog = useEditorStore((s) => s.setShowLocalizationDialog);
   const setShowUpdateCheckDialog = useEditorStore((s) => s.setShowUpdateCheckDialog);
+  const setShowMCPStatusDialog = useEditorStore((s) => s.setShowMCPStatusDialog);
 
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
@@ -179,6 +180,12 @@ export default function MenuBar() {
       ],
     },
     {
+      label: 'MCP',
+      items: [
+        { label: 'MCP 상태 팝업', action: 'mcpStatus' },
+      ],
+    },
+    {
       label: t('menu.help'),
       items: [
         { label: t('menu.checkUpdate', '업데이트 확인...'), action: 'checkUpdate' },
@@ -297,11 +304,13 @@ export default function MenuBar() {
       case 'reportIssue': window.open('https://github.com/gosuni2025/rpgmaker-mv-editor/issues', '_blank'); break;
       case 'twitter': window.open('https://x.com/gosuni2025', '_blank'); break;
       case 'youtube': window.open('https://www.youtube.com/@gosuni2025', '_blank'); break;
+      case 'mcpStatus': setShowMCPStatusDialog(true); break;
     }
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
       setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
-      setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog, setShowUpdateCheckDialog, setEditMode, setSelectedTool, setDrawShape, zoomIn, zoomOut,
+      setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog,
+      setShowUpdateCheckDialog, setShowMCPStatusDialog, setEditMode, setSelectedTool, setDrawShape, zoomIn, zoomOut,
       zoomActualSize, undo, redo, openProject, projectPath, t, showTileIdOverlay]);
 
   useMenuBarKeyboard(handleAction);

@@ -24,6 +24,7 @@ import CharacterGeneratorDialog from './components/CharacterGenerator/CharacterG
 import OptionsDialog from './components/OptionsDialog';
 import LocalizationDialog from './components/LocalizationDialog';
 import UpdateCheckDialog from './components/UpdateCheckDialog';
+import MCPStatusDialog from './components/MCPStatusDialog';
 
 import AutotileDebugDialog from './components/AutotileDebugDialog';
 import SidebarSplit from './components/SidebarSplit';
@@ -101,6 +102,8 @@ export default function App() {
   const showLocalizationDialog = useEditorStore((s) => s.showLocalizationDialog);
   const showUpdateCheckDialog = useEditorStore((s) => s.showUpdateCheckDialog);
   const setShowUpdateCheckDialog = useEditorStore((s) => s.setShowUpdateCheckDialog);
+  const showMCPStatusDialog = useEditorStore((s) => s.showMCPStatusDialog);
+  const setShowMCPStatusDialog = useEditorStore((s) => s.setShowMCPStatusDialog);
 
   const toastQueue = useEditorStore((s) => s.toastQueue);
   const dismissToast = useEditorStore((s) => s.dismissToast);
@@ -351,6 +354,7 @@ export default function App() {
       {showOptionsDialog && <OptionsDialog />}
       {showLocalizationDialog && <LocalizationDialog />}
       {showUpdateCheckDialog && <UpdateCheckDialog onClose={() => setShowUpdateCheckDialog(false)} />}
+      {showMCPStatusDialog && <MCPStatusDialog onClose={() => setShowMCPStatusDialog(false)} />}
 
       <AutotileDebugDialog open={showAutotileDebug} onClose={() => setShowAutotileDebug(false)} />
       {parseErrors && parseErrors.length > 0 && (

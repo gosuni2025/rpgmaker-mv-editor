@@ -1,0 +1,258 @@
+/* MCP 상태 창 — 항상 위에 떠있는 플로팅 창 */
+
+.mcp-window {
+  position: fixed;
+  z-index: 9998;
+  background: #252526;
+  border: 1px solid #454545;
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  min-width: 380px;
+  min-height: 260px;
+  width: 480px;
+  height: 500px;
+  display: flex;
+  flex-direction: column;
+  /* CSS resize — 우하단 핸들 */
+  resize: both;
+  overflow: hidden;
+}
+
+/* ── 헤더 ─────────────────────────────────────────── */
+.mcp-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background: #2b2b2b;
+  border-bottom: 1px solid #3c3c3c;
+  cursor: move;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.mcp-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ccc;
+}
+
+.mcp-close {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+}
+.mcp-close:hover { color: #fff; }
+
+/* ── 본문 ─────────────────────────────────────────── */
+.mcp-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  gap: 8px;
+}
+
+/* ── 상태 행 ────────────────────────────────────────*/
+.mcp-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mcp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mcp-dot--on  { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+.mcp-dot--off { background: #555; }
+
+.mcp-status-text {
+  font-size: 12px;
+  color: #ccc;
+}
+
+.mcp-error-badge {
+  font-size: 10px;
+  background: #c0392b;
+  color: #fff;
+  border-radius: 3px;
+  padding: 1px 5px;
+  cursor: help;
+}
+
+.mcp-agent-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: #888;
+}
+
+/* ── 포트 행 ────────────────────────────────────────*/
+.mcp-port-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mcp-label {
+  font-size: 11px;
+  color: #888;
+  flex-shrink: 0;
+}
+
+.mcp-port-input {
+  width: 72px;
+  background: #1e1e1e;
+  border: 1px solid #454545;
+  border-radius: 3px;
+  color: #ddd;
+  font-size: 12px;
+  padding: 3px 6px;
+  outline: none;
+}
+.mcp-port-input:focus { border-color: #2675bf; }
+
+.mcp-btn {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 11px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.mcp-btn:hover { background: #4a4a4a; color: #fff; }
+.mcp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mcp-btn--primary { background: #2675bf; border-color: #2675bf; color: #fff; }
+.mcp-btn--primary:hover { background: #3285cf; }
+
+/* ── 접속 주소 ──────────────────────────────────────*/
+.mcp-addr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #1e1e1e;
+  border-radius: 3px;
+  padding: 4px 8px;
+}
+.mcp-addr code {
+  font-size: 11px;
+  color: #4ec9b0;
+  font-family: monospace;
+}
+
+/* ── 로그 헤더 ──────────────────────────────────────*/
+.mcp-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mcp-autoscroll {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #888;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* ── 로그 목록 ──────────────────────────────────────*/
+.mcp-logs {
+  flex: 1;
+  overflow-y: auto;
+  background: #1e1e1e;
+  border: 1px solid #3c3c3c;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+.mcp-logs::-webkit-scrollbar { width: 6px; }
+.mcp-logs::-webkit-scrollbar-track { background: #1e1e1e; }
+.mcp-logs::-webkit-scrollbar-thumb { background: #454545; border-radius: 3px; }
+
+.mcp-log-empty {
+  padding: 12px;
+  color: #555;
+  text-align: center;
+}
+
+.mcp-log-entry {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px 8px;
+  border-bottom: 1px solid #2a2a2a;
+  cursor: default;
+  transition: background 0.1s;
+}
+.mcp-log-entry:hover { background: #252525; }
+.mcp-log-entry:last-child { border-bottom: none; }
+
+/* type별 left border */
+.mcp-log-type--connect    { border-left: 2px solid #555; }
+.mcp-log-type--disconnect { border-left: 2px solid #555; }
+.mcp-log-type--call       { border-left: 2px solid #569cd6; cursor: pointer; }
+.mcp-log-type--response   { border-left: 2px solid #4ec9b0; cursor: pointer; }
+.mcp-log-type--error      { border-left: 2px solid #f44747; cursor: pointer; background: #1f1010; }
+
+.mcp-log-time    { color: #555; flex-shrink: 0; }
+.mcp-log-session { color: #666; flex-shrink: 0; }
+
+.mcp-log-badge {
+  font-size: 10px;
+  border-radius: 2px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+.mcp-log-type--connect .mcp-log-badge,
+.mcp-log-type--disconnect .mcp-log-badge { background: #3c3c3c; color: #888; }
+.mcp-log-type--call .mcp-log-badge       { background: #1e3a5f; color: #569cd6; }
+.mcp-log-type--response .mcp-log-badge   { background: #1a3530; color: #4ec9b0; }
+.mcp-log-type--error .mcp-log-badge      { background: #3f1010; color: #f44747; }
+
+.mcp-log-tool     { color: #dcdcaa; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcp-log-duration { color: #555; flex-shrink: 0; }
+.mcp-log-expand   { color: #555; flex-shrink: 0; font-size: 10px; }
+
+.mcp-log-detail {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.mcp-log-pre {
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 2px;
+  padding: 6px 8px;
+  margin: 2px 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 10px;
+  color: #aaa;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.mcp-pre-label { color: #569cd6; }
+
+/* ── 리사이즈 힌트 ─────────────────────────────────*/
+.mcp-resize-hint {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  cursor: se-resize;
+  background: linear-gradient(135deg, transparent 50%, #454545 50%);
+  pointer-events: none; /* CSS resize 기본 핸들이 처리 */
+}

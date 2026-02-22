@@ -292,6 +292,7 @@ export interface EditorState {
   showOptionsDialog: boolean;
   showLocalizationDialog: boolean;
   showUpdateCheckDialog: boolean;
+  showMCPStatusDialog: boolean;
 
 
   // Actions - Project
@@ -469,6 +470,7 @@ export interface EditorState {
   setShowOptionsDialog: (show: boolean) => void;
   setShowLocalizationDialog: (show: boolean) => void;
   setShowUpdateCheckDialog: (show: boolean) => void;
+  setShowMCPStatusDialog: (show: boolean) => void;
   setTransparentColor: (color: { r: number; g: number; b: number }) => void;
   setMaxUndo: (max: number) => void;
   setZoomStep: (step: number) => void;
