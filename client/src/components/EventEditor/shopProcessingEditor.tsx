@@ -9,13 +9,14 @@ import type { EventCommand } from '../../types/rpgMakerMV';
  *
  * 첫 번째 상품은 code 302의 parameters에, 추가 상품은 code 605 continuation으로 저장됨.
  *
- * parameters 구조 (302 및 605 모두 동일):
+ * parameters 구조:
  *   [0]: 상품 종류 (0=아이템, 1=무기, 2=방어구)
  *   [1]: 아이템 ID
  *   [2]: 가격 타입 (0=표준, 1=지정)
  *   [3]: 지정 가격 (가격 타입=1일 때만 사용)
- *
- * 302의 parameters[4]: 구매 한정 (boolean) - 첫 번째 상품에만 포함
+ *   302의 [4]: 구매 한정 (boolean) - 첫 번째 상품에만
+ *   302의 [5]: 재고 수량 (-1 = 무제한)
+ *   605의 [4]: 재고 수량 (-1 = 무제한)
  */
 
 interface GoodsItem {
@@ -23,6 +24,7 @@ interface GoodsItem {
   itemId: number;
   priceType: number;  // 0=표준, 1=지정
   price: number;
+  stock: number;      // -1 = 무제한, 0 이상 = 재고 수량
 }
 
 const ITEM_TYPE_LABELS = ['아이템', '무기', '방어구'];
@@ -37,19 +39,23 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
   // 기존 상품 목록 파싱
   const initialGoods: GoodsItem[] = [];
   if (p.length > 0) {
+    const stockVal = p[5] as number;
     initialGoods.push({
       itemType: (p[0] as number) || 0,
       itemId: (p[1] as number) || 1,
       priceType: (p[2] as number) || 0,
       price: (p[3] as number) || 0,
+      stock: (typeof stockVal === 'number' && stockVal >= 0) ? stockVal : -1,
     });
     for (const fc of followCommands.filter(c => c.code === 605)) {
       const fp = fc.parameters;
+      const fstockVal = fp[4] as number;
       initialGoods.push({
         itemType: (fp[0] as number) || 0,
         itemId: (fp[1] as number) || 1,
         priceType: (fp[2] as number) || 0,
         price: (fp[3] as number) || 0,
+        stock: (typeof fstockVal === 'number' && fstockVal >= 0) ? fstockVal : -1,
       });
     }
   }
@@ -69,12 +75,15 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
   const getItemLabel = (item: GoodsItem) => {
     const db = dbByType[item.itemType];
     const name = db?.names[item.itemId] || '';
-    const priceStr = item.priceType === 0 ? '표준' : String(item.price);
     return `${ITEM_TYPE_LABELS[item.itemType]}: ${String(item.itemId).padStart(4, '0')} ${name}`;
   };
 
   const getPriceLabel = (item: GoodsItem) => {
     return item.priceType === 0 ? '표준' : String(item.price);
+  };
+
+  const getStockLabel = (item: GoodsItem) => {
+    return item.stock === -1 ? '∞' : String(item.stock);
   };
 
   const handleDoubleClick = (index: number) => {
@@ -83,18 +92,16 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
   };
 
   const handleRowDoubleClickEmpty = () => {
-    setEditingItem({ itemType: 0, itemId: 1, priceType: 0, price: 0 });
+    setEditingItem({ itemType: 0, itemId: 1, priceType: 0, price: 0, stock: -1 });
     setEditingIndex(-1);
   };
 
   const handleEditOk = (item: GoodsItem) => {
     if (editingIndex === -1) {
-      // 신규 추가
       const newGoods = [...goods, item];
       setGoods(newGoods);
       setSelectedIndex(newGoods.length - 1);
     } else {
-      // 수정
       const newGoods = [...goods];
       newGoods[editingIndex] = item;
       setGoods(newGoods);
@@ -112,18 +119,17 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
 
   const handleOk = () => {
     if (goods.length === 0) {
-      // 상품이 없으면 기본 빈 상품 하나
-      onOk([0, 1, 0, 0, purchaseOnly]);
+      onOk([0, 1, 0, 0, purchaseOnly, -1]);
       return;
     }
     const first = goods[0];
-    const params = [first.itemType, first.itemId, first.priceType, first.price, purchaseOnly];
+    const params = [first.itemType, first.itemId, first.priceType, first.price, purchaseOnly, first.stock];
 
     // 추가 상품은 code 605 continuation
     const extra: EventCommand[] = goods.slice(1).map(g => ({
       code: 605,
       indent: 0,
-      parameters: [g.itemType, g.itemId, g.priceType, g.price],
+      parameters: [g.itemType, g.itemId, g.priceType, g.price, g.stock],
     }));
 
     onOk(params, extra);
@@ -136,7 +142,8 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
         {/* 헤더 */}
         <div style={{ display: 'flex', background: '#383838', borderBottom: '1px solid #555' }}>
           <div style={{ flex: 1, padding: '4px 8px', fontSize: 12, color: '#aaa', borderRight: '1px solid #555' }}>상품</div>
-          <div style={{ width: 100, padding: '4px 8px', fontSize: 12, color: '#aaa' }}>가격</div>
+          <div style={{ width: 80, padding: '4px 8px', fontSize: 12, color: '#aaa', borderRight: '1px solid #555', textAlign: 'right' }}>가격</div>
+          <div style={{ width: 60, padding: '4px 8px', fontSize: 12, color: '#aaa', textAlign: 'right' }}>재고</div>
         </div>
         {/* 상품 행들 */}
         <div style={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', background: '#2b2b2b' }}>
@@ -154,8 +161,11 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
               <div style={{ flex: 1, padding: '3px 8px', fontSize: 13, color: '#ddd', borderRight: '1px solid #333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {getItemLabel(item)}
               </div>
-              <div style={{ width: 100, padding: '3px 8px', fontSize: 13, color: '#ddd' }}>
+              <div style={{ width: 80, padding: '3px 8px', fontSize: 13, color: '#ddd', borderRight: '1px solid #333', textAlign: 'right' }}>
                 {getPriceLabel(item)}
+              </div>
+              <div style={{ width: 60, padding: '3px 8px', fontSize: 13, textAlign: 'right', color: item.stock === 0 ? '#ff6666' : item.stock !== -1 && item.stock <= 3 ? '#ffaa00' : '#ddd' }}>
+                {getStockLabel(item)}
               </div>
             </div>
           ))}
@@ -171,7 +181,8 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
               onDoubleClick={handleRowDoubleClickEmpty}
             >
               <div style={{ flex: 1, padding: '3px 8px', fontSize: 13, color: '#666', borderRight: '1px solid #333' }}>&nbsp;</div>
-              <div style={{ width: 100, padding: '3px 8px', fontSize: 13, color: '#666' }}>&nbsp;</div>
+              <div style={{ width: 80, padding: '3px 8px', fontSize: 13, color: '#666', borderRight: '1px solid #333' }}>&nbsp;</div>
+              <div style={{ width: 60, padding: '3px 8px', fontSize: 13, color: '#666' }}>&nbsp;</div>
             </div>
           ))}
         </div>
@@ -183,9 +194,19 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
         구매 한정
       </label>
 
-      <div className="image-picker-footer">
-        <button className="db-btn" onClick={handleOk}>OK</button>
-        <button className="db-btn" onClick={onCancel}>취소</button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <button
+          className="db-btn"
+          onClick={handleDelete}
+          disabled={selectedIndex < 0 || selectedIndex >= goods.length}
+          style={{ opacity: selectedIndex >= 0 && selectedIndex < goods.length ? 1 : 0.4 }}
+        >
+          삭제
+        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="db-btn" onClick={handleOk}>OK</button>
+          <button className="db-btn" onClick={onCancel}>취소</button>
+        </div>
       </div>
 
       {/* 상품 편집 다이얼로그 */}
@@ -212,10 +233,16 @@ function GoodsEditDialog({ item, dbByType, onOk, onCancel }: {
   const [itemId, setItemId] = useState(item.itemId);
   const [priceType, setPriceType] = useState(item.priceType);
   const [price, setPrice] = useState(item.price);
+  const [stockType, setStockType] = useState<'unlimited' | 'limited'>(item.stock === -1 ? 'unlimited' : 'limited');
+  const [stock, setStock] = useState(item.stock === -1 ? 1 : item.stock);
   const [showPicker, setShowPicker] = useState(false);
 
   const db = dbByType[itemType];
   const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
+
+  const handleOk = () => {
+    onOk({ itemType, itemId, priceType, price, stock: stockType === 'unlimited' ? -1 : stock });
+  };
 
   return (
     <div className="modal-overlay" style={{ zIndex: 10001 }}>
@@ -268,10 +295,33 @@ function GoodsEditDialog({ item, dbByType, onOk, onCancel }: {
               </div>
             </div>
           </fieldset>
+
+          {/* 재고 */}
+          <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0 }}>
+            <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>재고</legend>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={radioStyle}>
+                <input type="radio" name="goods-stock" checked={stockType === 'unlimited'} onChange={() => setStockType('unlimited')} />
+                무제한
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label style={radioStyle}>
+                  <input type="radio" name="goods-stock" checked={stockType === 'limited'} onChange={() => setStockType('limited')} />
+                  지정
+                </label>
+                <input
+                  type="number" value={stockType === 'limited' ? stock : 1}
+                  onChange={e => setStock(Math.max(0, Number(e.target.value)))}
+                  min={0} disabled={stockType !== 'limited'}
+                  style={{ ...selectStyle, width: 120, opacity: stockType === 'limited' ? 1 : 0.5 }}
+                />
+              </div>
+            </div>
+          </fieldset>
         </div>
 
         <div className="image-picker-footer">
-          <button className="db-btn" onClick={() => onOk({ itemType, itemId, priceType, price })}>OK</button>
+          <button className="db-btn" onClick={handleOk}>OK</button>
           <button className="db-btn" onClick={onCancel}>취소</button>
         </div>
       </div>
