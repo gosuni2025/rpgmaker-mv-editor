@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { selectStyle } from './messageEditors';
-import { DataListPicker } from './dataListPicker';
+import { DataListPicker, IconSprite } from './dataListPicker';
 import { useDbNamesWithIcons, getLabel } from './actionEditorUtils';
 import type { EventCommand } from '../../types/rpgMakerMV';
 
@@ -78,6 +78,11 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
     return `${ITEM_TYPE_LABELS[item.itemType]}: ${String(item.itemId).padStart(4, '0')} ${name}`;
   };
 
+  const getIconIndex = (item: GoodsItem): number => {
+    const db = dbByType[item.itemType];
+    return db?.iconIndices[item.itemId] ?? 0;
+  };
+
   const getPriceLabel = (item: GoodsItem) => {
     return item.priceType === 0 ? '표준' : String(item.price);
   };
@@ -146,31 +151,35 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
           <div style={{ width: 60, padding: '4px 8px', fontSize: 12, color: '#aaa', textAlign: 'right' }}>재고</div>
         </div>
         {/* 상품 행들 */}
-        <div style={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', background: '#2b2b2b' }}>
-          {goods.map((item, i) => (
-            <div
-              key={i}
-              style={{
-                display: 'flex', cursor: 'pointer',
-                background: i === selectedIndex ? '#2675bf' : 'transparent',
-                borderBottom: '1px solid #333',
-              }}
-              onClick={() => setSelectedIndex(i)}
-              onDoubleClick={() => handleDoubleClick(i)}
-            >
-              <div style={{ flex: 1, padding: '3px 8px', fontSize: 13, color: '#ddd', borderRight: '1px solid #333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {getItemLabel(item)}
+        <div style={{ maxHeight: 300, overflowY: 'auto', background: '#2b2b2b' }}>
+          {goods.map((item, i) => {
+            const iconIdx = getIconIndex(item);
+            return (
+              <div
+                key={i}
+                style={{
+                  display: 'flex', alignItems: 'center', cursor: 'pointer',
+                  background: i === selectedIndex ? '#2675bf' : 'transparent',
+                  borderBottom: '1px solid #333',
+                }}
+                onClick={() => setSelectedIndex(i)}
+                onDoubleClick={() => handleDoubleClick(i)}
+              >
+                <div style={{ flex: 1, padding: '2px 8px', fontSize: 13, color: '#ddd', borderRight: '1px solid #333', display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
+                  {iconIdx > 0 && <div style={{ flexShrink: 0, width: 20, height: 20, overflow: 'hidden' }}><div style={{ transform: 'scale(0.625)', transformOrigin: 'top left', width: 32, height: 32 }}><IconSprite iconIndex={iconIdx} /></div></div>}
+                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getItemLabel(item)}</span>
+                </div>
+                <div style={{ width: 80, padding: '2px 8px', fontSize: 13, color: '#ddd', borderRight: '1px solid #333', textAlign: 'right' }}>
+                  {getPriceLabel(item)}
+                </div>
+                <div style={{ width: 60, padding: '2px 8px', fontSize: 13, textAlign: 'right', color: item.stock === 0 ? '#ff6666' : item.stock !== -1 && item.stock <= 3 ? '#ffaa00' : '#ddd' }}>
+                  {getStockLabel(item)}
+                </div>
               </div>
-              <div style={{ width: 80, padding: '3px 8px', fontSize: 13, color: '#ddd', borderRight: '1px solid #333', textAlign: 'right' }}>
-                {getPriceLabel(item)}
-              </div>
-              <div style={{ width: 60, padding: '3px 8px', fontSize: 13, textAlign: 'right', color: item.stock === 0 ? '#ff6666' : item.stock !== -1 && item.stock <= 3 ? '#ffaa00' : '#ddd' }}>
-                {getStockLabel(item)}
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {/* 빈 행 (더블클릭으로 추가) */}
-          {Array.from({ length: Math.max(1, 8 - goods.length) }).map((_, i) => (
+          {Array.from({ length: Math.max(1, 4 - goods.length) }).map((_, i) => (
             <div
               key={`empty-${i}`}
               style={{
@@ -180,9 +189,9 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
               }}
               onDoubleClick={handleRowDoubleClickEmpty}
             >
-              <div style={{ flex: 1, padding: '3px 8px', fontSize: 13, color: '#666', borderRight: '1px solid #333' }}>&nbsp;</div>
-              <div style={{ width: 80, padding: '3px 8px', fontSize: 13, color: '#666', borderRight: '1px solid #333' }}>&nbsp;</div>
-              <div style={{ width: 60, padding: '3px 8px', fontSize: 13, color: '#666' }}>&nbsp;</div>
+              <div style={{ flex: 1, padding: '2px 8px', fontSize: 13, color: '#555', borderRight: '1px solid #333' }}>&nbsp;</div>
+              <div style={{ width: 80, padding: '2px 8px', fontSize: 13, color: '#555', borderRight: '1px solid #333' }}>&nbsp;</div>
+              <div style={{ width: 60, padding: '2px 8px', fontSize: 13, color: '#555' }}>&nbsp;</div>
             </div>
           ))}
         </div>
