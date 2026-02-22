@@ -168,6 +168,11 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
     applyCacheBusting(stagingDir, buildId, opts);
     if (bundle) {
       await generateBundleFiles(stagingDir, buildId, sseLog);
+      // stagingDir은 임시 폴더이므로 원본 폴더 삭제 안전
+      for (const dir of ['img', 'audio', 'data']) {
+        const dirPath = path.join(stagingDir, dir);
+        if (fs.existsSync(dirPath)) fs.rmSync(dirPath, { recursive: true, force: true });
+      }
     }
 
     // ── 3. butler push ────────────────────────────────────────────────────────
