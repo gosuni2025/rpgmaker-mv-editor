@@ -153,6 +153,20 @@ export function createApp(options: AppOptions = {}) {
         })();
         </script>` : '';
     const cacheBust = `?v=${Date.now()}`;
+    // 프로젝트가 WebP 이미지를 사용하는지 감지
+    const imgDir = path.join(projectManager.currentPath!, 'img');
+    let useWebp = false;
+    if (fs.existsSync(imgDir)) {
+      const checkWebp = (dir: string): boolean => {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (e.isDirectory()) { if (checkWebp(path.join(dir, e.name))) return true; }
+          else if (e.name.toLowerCase().endsWith('.webp')) return true;
+        }
+        return false;
+      };
+      useWebp = checkWebp(imgDir);
+    }
+    const cacheBustScript = `<script>window.__CACHE_BUST__={webp:${useWebp}};</script>`;
     const html = `<!DOCTYPE html>
 <html>
     <head>
@@ -164,6 +178,7 @@ export function createApp(options: AppOptions = {}) {
         <link rel="apple-touch-icon" href="icon/icon.png">
         <link rel="stylesheet" type="text/css" href="fonts/gamefont.css">
         <title>${title} - Playtest</title>
+        ${cacheBustScript}
     </head>
     <body style="background-color: black">
         <script src="js/libs/three.global.min.js"></script>
