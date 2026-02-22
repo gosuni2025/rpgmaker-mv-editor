@@ -2,7 +2,6 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
-import https from 'https';
 import { promisify } from 'util';
 import { exec, spawn } from 'child_process';
 import projectManager from '../../services/projectManager';
@@ -29,37 +28,12 @@ async function checkButler(): Promise<boolean> {
   return false;
 }
 
-/** OS별 butler credentials 파일 경로 */
-function getButlerCredsPath(): string {
-  if (process.platform === 'darwin') {
-    return path.join(os.homedir(), 'Library', 'Application Support', 'itch', 'butler_creds');
-  } else if (process.platform === 'win32') {
-    return path.join(process.env.APPDATA || os.homedir(), 'itch', 'butler_creds');
-  }
-  return path.join(os.homedir(), '.config', 'itch', 'butler_creds');
-}
-
-/** credentials 파일에서 API key 읽기 → itch.io API로 username 조회 */
-async function getButlerUsername(): Promise<string | null> {
+/** butler login 출력으로 로그인 여부 확인 */
+async function checkButlerLogin(): Promise<boolean> {
   try {
-    const credsPath = getButlerCredsPath();
-    if (!fs.existsSync(credsPath)) return null;
-    const apiKey = fs.readFileSync(credsPath, 'utf8').trim();
-    if (!apiKey) return null;
-
-    return await new Promise<string | null>((resolve) => {
-      https.get(`https://itch.io/api/1/${apiKey}/credentials/info`, (res) => {
-        let data = '';
-        res.on('data', (chunk) => { data += chunk; });
-        res.on('end', () => {
-          try {
-            const json = JSON.parse(data) as { user?: { username?: string } };
-            resolve(json.user?.username ?? null);
-          } catch { resolve(null); }
-        });
-      }).on('error', () => resolve(null));
-    });
-  } catch { return null; }
+    const { stdout } = await execAsync('butler login');
+    return stdout.includes('Your local credentials are valid');
+  } catch { return false; }
 }
 
 /** user/game → https://user.itch.io/game */
@@ -83,9 +57,9 @@ function toItchSlug(title: string): string {
 // ─── 사전 조건 체크 ───────────────────────────────────────────────────────────
 router.get('/deploy-itchio-check', async (_req: Request, res: Response) => {
   const butler = await checkButler();
-  const username = butler ? await getButlerUsername() : null;
+  const loggedIn = butler ? await checkButlerLogin() : false;
   const gameSlug = toItchSlug(getGameTitle());
-  res.json({ butler, username, gameSlug });
+  res.json({ butler, loggedIn, gameSlug });
 });
 
 // ─── itch.io 배포 (SSE) ───────────────────────────────────────────────────────

@@ -8,7 +8,7 @@ import { ProgressBar, ErrorMessage } from './StatusWidgets';
 
 interface ItchioCheck {
   butler: boolean;
-  username: string | null;
+  loggedIn: boolean;
   gameSlug: string;
 }
 
@@ -41,9 +41,9 @@ export default function ItchioTab({ cbOpts, initialProject, initialChannel }: Pr
       .then((data) => {
         const d = data as ItchioCheck;
         setCheck(d);
-        // project가 비어있으면 username/gameSlug 자동 채우기
-        if (!project.trim() && d.username) {
-          setProject(`${d.username}/${d.gameSlug}`);
+        // project가 비어있으면 gameSlug 힌트 제공 (username은 사용자가 입력)
+        if (!project.trim() && d.gameSlug) {
+          setProject(`username/${d.gameSlug}`);
         }
       })
       .catch(() => {});
@@ -123,7 +123,7 @@ export default function ItchioTab({ cbOpts, initialProject, initialChannel }: Pr
   };
 
   const butlerOk = check?.butler ?? false;
-  const loggedIn = !!check?.username;
+  const loggedIn = check?.loggedIn ?? false;
   const prereqOk = butlerOk && loggedIn;
   const deployDone = !dp.busy && dp.logs.length > 0;
   const deployFailed = !dp.busy && !!dp.error;
@@ -156,7 +156,7 @@ export default function ItchioTab({ cbOpts, initialProject, initialChannel }: Pr
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ color: loggedIn ? '#6c6' : '#e55', fontSize: 12 }}>{loggedIn ? '✓' : '✗'}</span>
               <span style={{ color: loggedIn ? '#aaa' : '#e77', fontSize: 12 }}>
-                {loggedIn ? `butler 로그인: ${check!.username}` : 'butler 미로그인'}
+                {loggedIn ? 'butler 로그인됨' : 'butler 미로그인'}
               </span>
             </div>
             {!loggedIn && (
