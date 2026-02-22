@@ -163,6 +163,7 @@ export default function MenuBar() {
         { type: 'separator' },
         { label: 'Fog of War 테스트', action: 'fogOfWarTest' },
         { label: 'Fog Volume 3D 테스트', action: 'fogVolume3dTest' },
+        { label: 'OcclusionSilhouette 테스트', action: 'silhouetteTest' },
       ],
     },
     {
@@ -287,6 +288,7 @@ export default function MenuBar() {
       case 'migrate': window.dispatchEvent(new CustomEvent('editor-migrate')); break;
       case 'fogOfWarTest': window.open('/fogofwar', '_blank'); break;
       case 'fogVolume3dTest': window.open('/fogvolume3d', '_blank'); break;
+      case 'silhouetteTest': window.open('/silhouette', '_blank'); break;
 
       case 'options': setShowOptionsDialog(true); break;
       case 'localization': setShowLocalizationDialog(true); break;
