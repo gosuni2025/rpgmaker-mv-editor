@@ -55,6 +55,7 @@
         // SW 미지원 환경이거나 번들 API 없으면 바로 main.js 로드.
         (function() {
             var overlay = null;
+            var mainLoaded = false;  // loadMain() 이중 호출 방지
 
             function createOverlay() {
                 overlay = document.createElement('div');
@@ -86,6 +87,8 @@
             }
 
             function loadMain() {
+                if (mainLoaded) return;
+                mainLoaded = true;
                 removeOverlay();
                 var s = document.createElement('script');
                 s.type = 'text/javascript';
@@ -98,53 +101,37 @@
                 return;
             }
 
-            createOverlay();
-
             // SW 메시지 수신
+            // bundle-ready / bundle-skip / bundle-error → 캐시 준비 완료(또는 스킵) → 게임 시작
+            // bundle-error의 경우도 게임 시작 (캐시 없이 네트워크에서 로드)
             navigator.serviceWorker.addEventListener('message', function(e) {
                 var msg = e.data;
                 if (!msg) return;
                 if (msg.type === 'bundle-progress') {
                     setProgress(msg.loadedFiles, msg.totalFiles);
-                } else if (msg.type === 'bundle-ready' || msg.type === 'bundle-skip') {
+                } else if (msg.type === 'bundle-ready' || msg.type === 'bundle-skip' || msg.type === 'bundle-error') {
+                    if (msg.type === 'bundle-error') console.warn('[SW] bundle error:', msg.bundle, msg.error);
                     loadMain();
-                } else if (msg.type === 'bundle-error') {
-                    console.warn('[SW] bundle error:', msg.bundle, msg.error);
                 }
             });
 
+            // 안전망 타임아웃: SW가 응답하지 않아도 120초 후 게임 강제 시작
+            var fallbackTimer = setTimeout(loadMain, 120000);
+
+            createOverlay();
+
             navigator.serviceWorker.register('sw.js', { scope: './' })
                 .then(function(reg) {
-                    function waitActivated(sw) {
-                        if (sw.state === 'activated') {
-                            // SW가 이미 활성화된 상태 — 번들 준비 여부를 메시지로 확인
-                            // bundle-ready 메시지가 오거나 타임아웃 시 loadMain
-                            var timer = setTimeout(loadMain, 800);
-                            navigator.serviceWorker.addEventListener('message', function once(e) {
-                                if (e.data && (e.data.type === 'bundle-ready' || e.data.type === 'bundle-skip')) {
-                                    clearTimeout(timer);
-                                    // loadMain은 메시지 핸들러에서 처리됨
-                                    navigator.serviceWorker.removeEventListener('message', once);
-                                }
-                            });
-                            return;
-                        }
-                        sw.addEventListener('statechange', function() {
-                            if (this.state === 'activated') loadMain();
-                        });
-                    }
-
                     if (reg.active && !reg.installing && !reg.waiting) {
-                        // 이미 활성화된 SW가 있고 설치 중인 것도 없음 → 바로 시작
+                        // 이미 활성화된 SW, 새 설치 없음 → 번들 캐시 이미 준비됨 → 바로 시작
+                        clearTimeout(fallbackTimer);
                         loadMain();
-                    } else {
-                        var sw = reg.installing || reg.waiting;
-                        if (sw) waitActivated(sw);
-                        else loadMain();
                     }
+                    // installing / waiting → SW install 이벤트에서 bundle-ready 메시지가 오면 loadMain()
                 })
                 .catch(function(err) {
                     console.warn('[SW] 등록 실패:', err);
+                    clearTimeout(fallbackTimer);
                     loadMain();
                 });
         })();
