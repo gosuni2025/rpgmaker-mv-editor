@@ -103,6 +103,11 @@ export function ShopProcessingEditor({ p, followCommands, onOk, onCancel }: {
 
   const handleEditOk = (item: GoodsItem) => {
     if (editingIndex === -1) {
+      const isDuplicate = goods.some(g => g.itemType === item.itemType && g.itemId === item.itemId);
+      if (isDuplicate) {
+        alert(`이미 추가된 상품입니다.`);
+        return;
+      }
       const newGoods = [...goods, item];
       setGoods(newGoods);
       setSelectedIndex(newGoods.length - 1);

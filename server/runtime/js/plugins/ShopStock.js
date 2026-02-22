@@ -196,12 +196,17 @@
     var stocks = $gameSystem._shopStock[key];
     if (!goods || !stocks) return; // 미방문 상점은 조작 불가
 
-    // 이미 동일 상품 있으면 스킵
+    var stockVal = (stock === undefined || stock === null) ? -1 : stock;
+
+    // 이미 동일 상품 있으면 재고만 업데이트
     for (var i = 0; i < goods.length; i++) {
-      if (goods[i][0] === type && goods[i][1] === itemId) return;
+      if (goods[i][0] === type && goods[i][1] === itemId) {
+        stocks[i] = stockVal;
+        return;
+      }
     }
     goods.push([type, itemId, priceType || 0, price || 0]);
-    stocks.push(stock === undefined || stock < 0 ? -1 : stock);
+    stocks.push(stockVal);
   };
 
   /**
