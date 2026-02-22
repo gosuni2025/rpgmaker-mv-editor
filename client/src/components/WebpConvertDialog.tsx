@@ -75,7 +75,7 @@ export default function WebpConvertDialog() {
   const pct = progress && progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
 
   return (
-    <Dialog title={t('webpConvert.title')} onClose={close} width={540}>
+    <Dialog title={t('webpConvert.title')} onClose={close} width={720}>
 
       {/* ── 확인 화면 ── */}
       {phase === 'confirm' && (
@@ -166,7 +166,7 @@ export default function WebpConvertDialog() {
           {/* 로그 */}
           <div style={{
             background: '#1a1a1a', border: '1px solid #333', borderRadius: 4,
-            height: 200, overflowY: 'auto', padding: '6px 8px', fontFamily: 'monospace', fontSize: 11,
+            height: 380, overflowY: 'auto', padding: '6px 8px', fontFamily: 'monospace', fontSize: 12,
           }}>
             {logs.map((l, i) => {
               const isHeader = l.startsWith('──');
