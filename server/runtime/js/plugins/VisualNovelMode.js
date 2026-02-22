@@ -527,14 +527,44 @@
                     segs[j]._etFrozen = prev.etFrozen;
                 // 오버레이 메시 재사용 (타이핑 중인 엔트리 제외 — 글자 수 불일치 방지)
                 var canReuse = (segs[j]._entryIdx !== typingEntryIdx);
-                if (canReuse && prev.overlayMesh) {
-                    segs[j]._overlayMesh   = prev.overlayMesh;
-                    segs[j]._overlayTex    = prev.overlayTex;
-                    segs[j]._overlayParent = prev.overlayParent;
-                }
-                if (canReuse && prev.charMeshes) {
-                    segs[j]._charMeshes    = prev.charMeshes;
-                    segs[j]._overlayParent = prev.overlayParent;
+                if (canReuse && (prev.overlayMesh || prev.charMeshes)) {
+                    var bmpR   = this.contents;
+                    var charsR = segs[j].chars;
+                    // 메시 재사용 시 _etEnsureOverlay/ShakeMeshes()가 호출되지 않으므로
+                    // bmp.clearRect()를 직접 수행 (원본 글자 겹침 방지)
+                    if (bmpR && bmpR.clearRect && charsR && charsR.length > 0) {
+                        var outWR   = bmpR.outlineWidth !== undefined ? bmpR.outlineWidth : 4;
+                        var clearLR = Math.ceil(outWR / 2);
+                        var lhR     = charsR[0].h || this.lineHeight();
+                        if (prev.charMeshes) {
+                            // shake: 글자별 개별 clearRect
+                            for (var ciR = 0; ciR < charsR.length; ciR++) {
+                                var chR  = charsR[ciR];
+                                var rawWR = chR._width !== undefined ? chR._width :
+                                            (this.textWidth ? this.textWidth(chR.c) : (bmpR.fontSize || 28));
+                                var cWR  = Math.max(1, Math.ceil(rawWR) + clearLR * 2);
+                                bmpR.clearRect(chR.x - clearLR, chR.y, cWR, lhR);
+                            }
+                        } else {
+                            // non-shake: 세그먼트 전체 영역 clearRect
+                            var segXR   = charsR[0].x;
+                            var lastChR = charsR[charsR.length - 1];
+                            var lastWR  = lastChR._width !== undefined ? lastChR._width :
+                                          (this.textWidth ? this.textWidth(lastChR.c) : (bmpR.fontSize || 28));
+                            var segWR   = Math.max(1, lastChR.x + lastWR - segXR + clearLR * 2);
+                            var segHR   = Math.max(1, lhR + 4);
+                            bmpR.clearRect(segXR - clearLR, charsR[0].y, segWR, segHR);
+                        }
+                    }
+                    if (prev.overlayMesh) {
+                        segs[j]._overlayMesh   = prev.overlayMesh;
+                        segs[j]._overlayTex    = prev.overlayTex;
+                        segs[j]._overlayParent = prev.overlayParent;
+                    }
+                    if (prev.charMeshes) {
+                        segs[j]._charMeshes    = prev.charMeshes;
+                        segs[j]._overlayParent = prev.overlayParent;
+                    }
                 }
                 if (!keyUsed[key]) keyUsed[key] = 0;
                 keyUsed[key]++;
