@@ -161,14 +161,28 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
         }
       });
 
+      let lastError = '';
       butler.stderr.on('data', (chunk: Buffer) => {
         const text = chunk.toString().trim();
-        if (text) sseLog(text);
+        if (text) {
+          sseLog(text);
+          // 첫 줄(실제 오류 메시지)만 추출
+          const firstLine = text.split('\n')[0].trim();
+          if (firstLine && !firstLine.startsWith('github.com/') && !firstLine.startsWith('runtime.') && !firstLine.startsWith('\t')) {
+            lastError = firstLine;
+          }
+        }
       });
 
       butler.on('close', (code) => {
         if (code === 0) resolve();
-        else reject(new Error(`butler 종료 코드: ${code}`));
+        else {
+          let msg = lastError || `butler 종료 코드: ${code}`;
+          if (msg.includes('invalid game')) {
+            msg = `게임을 찾을 수 없습니다 (invalid game). itch.io에서 먼저 게임 페이지를 만들어 주세요: https://itch.io/game/new`;
+          }
+          reject(new Error(msg));
+        }
       });
 
       butler.on('error', (err) => {
