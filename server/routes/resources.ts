@@ -121,6 +121,15 @@ router.get('/:type/:name(*)', (req: Request<{ type: string; name: string }>, res
       return res.status(403).json({ error: 'Forbidden' });
     }
     if (!fs.existsSync(filePath)) {
+      // PNG ↔ WebP 폴백
+      const ext = path.extname(filePath).toLowerCase();
+      if (ext === '.png' || ext === '.webp') {
+        const altExt = ext === '.png' ? '.webp' : '.png';
+        const altPath = filePath.slice(0, -ext.length) + altExt;
+        if (fs.existsSync(altPath)) {
+          return res.sendFile(altPath);
+        }
+      }
       return res.status(404).json({ error: 'Resource not found' });
     }
     res.sendFile(filePath);

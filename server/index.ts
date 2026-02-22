@@ -460,8 +460,17 @@ export function createApp(options: AppOptions = {}) {
   app.use('/game/img', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
     res.set('Cache-Control', 'no-store');
-    // /game/data와 동일하게 파일 없으면 명시적 404 (next()로 흘리면 요청이 무한 대기 → ImageManager.isReady() 영원히 false)
-    express.static(path.join(projectManager.currentPath!, 'img'))(req, res, () => {
+    const imgDir = path.join(projectManager.currentPath!, 'img');
+    // PNG ↔ WebP 폴백: 요청된 파일 없으면 대체 확장자 시도
+    const ext = path.extname(req.path).toLowerCase();
+    if (ext === '.png' || ext === '.webp') {
+      const altExt = ext === '.png' ? '.webp' : '.png';
+      const reqFile = path.join(imgDir, req.path);
+      if (!fs.existsSync(reqFile) && fs.existsSync(reqFile.slice(0, -ext.length) + altExt)) {
+        req.url = req.url.slice(0, -ext.length) + altExt;
+      }
+    }
+    express.static(imgDir)(req, res, () => {
       if (!res.headersSent) res.status(404).send('Not found');
     });
   });
@@ -490,7 +499,17 @@ export function createApp(options: AppOptions = {}) {
   app.use('/img', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
     res.set('Cache-Control', 'no-store');
-    express.static(path.join(projectManager.currentPath!, 'img'))(req, res, next);
+    const imgDir = path.join(projectManager.currentPath!, 'img');
+    // PNG ↔ WebP 폴백
+    const ext = path.extname(req.path).toLowerCase();
+    if (ext === '.png' || ext === '.webp') {
+      const altExt = ext === '.png' ? '.webp' : '.png';
+      const reqFile = path.join(imgDir, req.path);
+      if (!fs.existsSync(reqFile) && fs.existsSync(reqFile.slice(0, -ext.length) + altExt)) {
+        req.url = req.url.slice(0, -ext.length) + altExt;
+      }
+    }
+    express.static(imgDir)(req, res, next);
   });
   app.use('/data', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
