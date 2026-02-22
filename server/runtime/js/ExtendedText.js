@@ -384,6 +384,10 @@ Window_Base.prototype._etProcessInlineItem = function(textState) {
                 var patchLh = lh;
                 bmp.addLoadListener(function() {
                     if (selfWin.contents && bmp.width > 0 && bmp.height > 0) {
+                        // 플레이스홀더 사각형 지우기
+                        if (selfWin.contents._context) {
+                            selfWin.contents._context.clearRect(patchX, patchY, patchLh, patchLh);
+                        }
                         var patchW = Math.round(bmp.width / bmp.height * patchLh);
                         selfWin.contents.blt(bmp, 0, 0, bmp.width, bmp.height,
                             patchX, patchY, patchW, patchLh);
