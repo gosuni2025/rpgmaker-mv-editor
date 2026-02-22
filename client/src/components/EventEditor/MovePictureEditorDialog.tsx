@@ -143,10 +143,32 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
   const [replayTrigger, setReplayTrigger] = useState(0);
   const [showWindow, setShowWindow] = useState(true);
 
+  // 드래그 undo 스택
+  const undoStack = useRef<{ posX: number; posY: number; positionType: number }[]>([]);
+  const posXRef = useRef(posX); posXRef.current = posX;
+  const posYRef = useRef(posY); posYRef.current = posY;
+  const positionTypeRef = useRef(positionType); positionTypeRef.current = positionType;
+
+  const handleDragStart = useCallback(() => {
+    undoStack.current.push({ posX: posXRef.current, posY: posYRef.current, positionType: positionTypeRef.current });
+  }, []);
+
   const handlePositionDrag = useCallback((x: number, y: number) => {
     setPositionType(0);
     setPosX(x);
     setPosY(y);
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!((e.metaKey || e.ctrlKey) && e.key === 'z')) return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      const prev = undoStack.current.pop();
+      if (prev) { e.preventDefault(); setPositionType(prev.positionType); setPosX(prev.posX); setPosY(prev.posY); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
   // PicturePreview에 전달할 상태들 (이미지명은 현재 커맨드에서 가져올 수 없으므로 빈 문자열)
@@ -414,9 +436,9 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
               <button
                 onClick={() => setShowWindow(w => !w)}
                 style={{ fontSize: 11, padding: '1px 8px', background: showWindow ? '#1a3a2a' : '#2b2b2b', border: `1px solid ${showWindow ? '#3a7a4a' : '#555'}`, borderRadius: 3, color: showWindow ? '#6da' : '#666', cursor: 'pointer' }}
-                title="대화창 표시/숨기기"
+                title="대사창 표시/숨기기"
               >
-                창
+                대사창
               </button>
             </div>
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#111', borderRadius: 4, padding: 6 }}>
@@ -428,6 +450,7 @@ export function MovePictureEditorDialog({ p, onOk, onCancel }: {
                 showWindow={showWindow}
                 showFromGhost
                 onPositionDrag={handlePositionDrag}
+                onDragStart={handleDragStart}
               />
             </div>
           </div>

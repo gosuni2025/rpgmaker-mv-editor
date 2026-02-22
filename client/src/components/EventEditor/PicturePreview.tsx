@@ -144,15 +144,18 @@ interface Props {
   showWindow?: boolean;            // 대화창 표시 여부
   showFromGhost?: boolean;         // 시작 위치를 반투명 고스트로 표시
   onPositionDrag?: (posX: number, posY: number) => void;  // 드래그로 위치 변경
+  onDragStart?: () => void;        // 드래그 시작 시 호출 (undo 스택 저장용)
 }
 
-export function PicturePreview({ current, from, durationMs = 1000, replayTrigger = 0, showWindow = true, showFromGhost = false, onPositionDrag }: Props) {
+export function PicturePreview({ current, from, durationMs = 1000, replayTrigger = 0, showWindow = true, showFromGhost = false, onPositionDrag, onDragStart }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const refsRef = useRef<PicRefs | null>(null);
   const rafRef = useRef(0);
   const animRef = useRef<{ startTime: number; durationMs: number } | null>(null);
   const onPositionDragRef = useRef(onPositionDrag);
   onPositionDragRef.current = onPositionDrag;
+  const onDragStartRef = useRef(onDragStart);
+  onDragStartRef.current = onDragStart;
   const dragRef = useRef({ active: false, startGameX: 0, startGameY: 0, startPosX: 0, startPosY: 0 });
 
   const currentMap = useEditorStore(s => s.currentMap);
@@ -344,6 +347,7 @@ export function PicturePreview({ current, from, durationMs = 1000, replayTrigger
         const snap = currentRef.current;
         if (hitPicture(gx, gy, refs, snap)) {
           e.preventDefault();
+          onDragStartRef.current?.();
           // positionType=2(프리셋)이면 실제 화면 기준 좌표로 변환해서 기록
           const effPosX = snap.positionType === 2
             ? (snap.presetX - 1) * GW / 4 + snap.presetOffsetX
