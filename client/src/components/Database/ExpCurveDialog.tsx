@@ -24,6 +24,14 @@ function expForLevel(level: number, expParams: number[]): number {
 const LEVELS_PER_COL = 20;
 const EXP_PARAM_KEYS = ['baseValue', 'extraValue', 'accelerationA', 'accelerationB'];
 
+// 파라미터별 [min, max] 범위 (RPG Maker MV 기준)
+const EXP_PARAM_RANGES: [number, number][] = [
+  [10, 9999], // baseValue
+  [0, 9999],  // extraValue
+  [0, 99],    // accelerationA
+  [0, 99],    // accelerationB
+];
+
 export default function ExpCurveDialog({ expParams: initial, onConfirm, onCancel }: ExpCurveDialogProps) {
   const { t } = useTranslation();
   useEscClose(onCancel);
@@ -34,6 +42,9 @@ export default function ExpCurveDialog({ expParams: initial, onConfirm, onCancel
   // 다이얼로그 내부 undo/redo
   const undoStackRef = useRef<number[][]>([]);
   const redoStackRef = useRef<number[][]>([]);
+  const expParamsRef = useRef(expParams);
+  expParamsRef.current = expParams;
+  const sliderSnapshotRef = useRef<number[] | null>(null);
 
   const pushUndo = useCallback((snapshot: number[]) => {
     undoStackRef.current = [...undoStackRef.current, [...snapshot]];
@@ -92,6 +103,7 @@ export default function ExpCurveDialog({ expParams: initial, onConfirm, onCancel
     setYZoomMax(1);
   }
 
+  // 숫자 input: 변경마다 undo 기록
   const handleParamChange = useCallback((index: number, value: number) => {
     setExpParams(prev => {
       pushUndo(prev);
@@ -99,6 +111,26 @@ export default function ExpCurveDialog({ expParams: initial, onConfirm, onCancel
       next[index] = value;
       return next;
     });
+  }, [pushUndo]);
+
+  // 슬라이더: drag 시작 시 스냅샷, drag 종료 시 undo push
+  const handleSliderStart = useCallback(() => {
+    sliderSnapshotRef.current = [...expParamsRef.current];
+  }, []);
+
+  const handleSliderChange = useCallback((index: number, value: number) => {
+    setExpParams(prev => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  }, []);
+
+  const handleSliderEnd = useCallback(() => {
+    if (sliderSnapshotRef.current) {
+      pushUndo(sliderSnapshotRef.current);
+      sliderSnapshotRef.current = null;
+    }
   }, [pushUndo]);
 
   // Compute EXP values
@@ -482,17 +514,34 @@ export default function ExpCurveDialog({ expParams: initial, onConfirm, onCancel
 
           {/* Param controls */}
           <div className="exp-curve-params">
-            {PARAM_LABELS.map((label, i) => (
-              <label key={i} className="exp-curve-param">
-                {label}
-                <input
-                  type="number"
-                  value={expParams[i]}
-                  onChange={(e) => handleParamChange(i, Number(e.target.value))}
-                  className="exp-curve-param-input"
-                />
-              </label>
-            ))}
+            {PARAM_LABELS.map((label, i) => {
+              const [min, max] = EXP_PARAM_RANGES[i];
+              return (
+                <div key={i} className="exp-curve-param">
+                  <span className="exp-curve-param-label">{label}</span>
+                  <div className="exp-curve-param-row">
+                    <input
+                      type="number"
+                      value={expParams[i]}
+                      min={min}
+                      max={max}
+                      onChange={(e) => handleParamChange(i, Math.max(min, Math.min(max, Number(e.target.value))))}
+                      className="exp-curve-param-input"
+                    />
+                    <input
+                      type="range"
+                      value={expParams[i]}
+                      min={min}
+                      max={max}
+                      onChange={(e) => handleSliderChange(i, Number(e.target.value))}
+                      onMouseDown={handleSliderStart}
+                      onMouseUp={handleSliderEnd}
+                      className="exp-curve-param-slider"
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
