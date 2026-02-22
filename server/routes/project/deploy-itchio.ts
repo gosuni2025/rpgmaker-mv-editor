@@ -58,8 +58,9 @@ function toItchSlug(title: string): string {
 router.get('/deploy-itchio-check', async (_req: Request, res: Response) => {
   const butler = await checkButler();
   const loggedIn = butler ? await checkButlerLogin() : false;
+  const savedUsername = settingsManager.get().itchio?.username || '';
   const gameSlug = toItchSlug(getGameTitle());
-  res.json({ butler, loggedIn, gameSlug });
+  res.json({ butler, loggedIn, username: savedUsername, gameSlug });
 });
 
 // ─── itch.io 배포 (SSE) ───────────────────────────────────────────────────────
@@ -194,10 +195,11 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
 
 // ─── itch.io 설정 저장 ────────────────────────────────────────────────────────
 router.put('/itchio-settings', (req: Request, res: Response) => {
-  const { project, channel } = req.body as { project?: string; channel?: string };
+  const { username, project, channel } = req.body as { username?: string; project?: string; channel?: string };
   const current = settingsManager.get();
   settingsManager.update({
     itchio: {
+      username: username ?? current.itchio?.username ?? '',
       project: project ?? current.itchio?.project ?? '',
       channel: channel ?? current.itchio?.channel ?? 'html5',
     },

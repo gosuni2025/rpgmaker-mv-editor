@@ -9,19 +9,22 @@ import { ProgressBar, ErrorMessage } from './StatusWidgets';
 interface ItchioCheck {
   butler: boolean;
   loggedIn: boolean;
+  username: string | null;
   gameSlug: string;
 }
 
 interface Props {
   cbOpts: CacheBustOpts;
+  initialUsername: string;
   initialProject: string;
   initialChannel: string;
 }
 
-export default function ItchioTab({ cbOpts, initialProject, initialChannel }: Props) {
+export default function ItchioTab({ cbOpts, initialUsername, initialProject, initialChannel }: Props) {
   const { t } = useTranslation();
   const dp = useDeployProgress();
 
+  const [username, setUsername] = useState(initialUsername);
   const [project, setProject] = useState(initialProject);
   const [channel, setChannel] = useState(initialChannel || 'html5');
   const [check, setCheck] = useState<ItchioCheck | null>(null);
@@ -41,9 +44,11 @@ export default function ItchioTab({ cbOpts, initialProject, initialChannel }: Pr
       .then((data) => {
         const d = data as ItchioCheck;
         setCheck(d);
-        // project가 비어있으면 gameSlug 힌트 제공 (username은 사용자가 입력)
-        if (!project.trim() && d.gameSlug) {
-          setProject(`username/${d.gameSlug}`);
+        // project가 비어있고 username 저장값 있으면 자동완성
+        if (!project.trim() && d.username) {
+          setProject(`${d.username}/${d.gameSlug}`);
+        } else if (!project.trim() && d.gameSlug) {
+          setProject(d.gameSlug);
         }
       })
       .catch(() => {});
@@ -51,7 +56,7 @@ export default function ItchioTab({ cbOpts, initialProject, initialChannel }: Pr
 
   const saveSettings = async () => {
     try {
-      await apiClient.put('/project/itchio-settings', { project, channel });
+      await apiClient.put('/project/itchio-settings', { username, project, channel });
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
     } catch (e) { dp.setError((e as Error).message); }
@@ -156,7 +161,7 @@ export default function ItchioTab({ cbOpts, initialProject, initialChannel }: Pr
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ color: loggedIn ? '#6c6' : '#e55', fontSize: 12 }}>{loggedIn ? '✓' : '✗'}</span>
               <span style={{ color: loggedIn ? '#aaa' : '#e77', fontSize: 12 }}>
-                {loggedIn ? 'butler 로그인됨' : 'butler 미로그인'}
+                {loggedIn ? `butler 로그인: ${check!.username}` : 'butler 미로그인'}
               </span>
             </div>
             {!loggedIn && (
@@ -171,6 +176,19 @@ export default function ItchioTab({ cbOpts, initialProject, initialChannel }: Pr
       {/* ── 설정 (prereq OK일 때만 표시) ── */}
       {prereqOk && (
         <div className="deploy-settings-box">
+          <div>
+            <div className="deploy-field-label">itch.io Username</div>
+            <input type="text" value={username} onChange={(e) => {
+              const u = e.target.value;
+              setUsername(u);
+              // project의 username 부분만 교체
+              setProject((prev) => {
+                const slug = prev.includes('/') ? prev.split('/').slice(1).join('/') : prev;
+                return u ? `${u}/${slug}` : slug;
+              });
+            }} placeholder="your-username" className="deploy-input" />
+          </div>
+
           <div>
             <div className="deploy-field-label">{t('deploy.itchio.project')}</div>
             <input type="text" value={project} onChange={(e) => setProject(e.target.value)}

@@ -21,8 +21,9 @@ export interface GhPagesSettings {
 }
 
 export interface ItchioSettings {
-  project: string; // user/game 형식
-  channel: string; // 배포 채널 (기본값: html5)
+  username: string; // itch.io username (저장해두고 자동완성에 사용)
+  project: string;  // user/game 형식
+  channel: string;  // 배포 채널 (기본값: html5)
 }
 
 export interface EditorSettings {
@@ -61,6 +62,7 @@ const DEFAULT_SETTINGS: EditorSettings = {
     remote: 'pages',
   },
   itchio: {
+    username: '',
     project: '',
     channel: 'html5',
   },

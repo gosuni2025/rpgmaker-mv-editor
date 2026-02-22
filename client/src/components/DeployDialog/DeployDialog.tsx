@@ -23,6 +23,7 @@ export default function DeployDialog() {
   const [initialSiteId, setInitialSiteId] = useState('');
   const [initialSiteUrl, setInitialSiteUrl] = useState('');
   const [initialGhRemote, setInitialGhRemote] = useState('pages');
+  const [initialItchioUsername, setInitialItchioUsername] = useState('');
   const [initialItchioProject, setInitialItchioProject] = useState('');
   const [initialItchioChannel, setInitialItchioChannel] = useState('html5');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -36,7 +37,8 @@ export default function DeployDialog() {
       if (netlify?.siteUrl) setInitialSiteUrl(netlify.siteUrl);
       const ghPages = d.ghPages as { remote?: string } | undefined;
       if (ghPages?.remote) setInitialGhRemote(ghPages.remote);
-      const itchio = d.itchio as { project?: string; channel?: string } | undefined;
+      const itchio = d.itchio as { username?: string; project?: string; channel?: string } | undefined;
+      if (itchio?.username) setInitialItchioUsername(itchio.username);
       if (itchio?.project) setInitialItchioProject(itchio.project);
       if (itchio?.channel) setInitialItchioChannel(itchio.channel);
     }).catch(() => {}).finally(() => setSettingsLoaded(true));
@@ -77,7 +79,7 @@ export default function DeployDialog() {
           <GhPagesTab cbOpts={cbOpts} initialRemote={initialGhRemote} />
         )}
         {tab === 'itchio' && (
-          <ItchioTab cbOpts={cbOpts} initialProject={initialItchioProject} initialChannel={initialItchioChannel} />
+          <ItchioTab cbOpts={cbOpts} initialUsername={initialItchioUsername} initialProject={initialItchioProject} initialChannel={initialItchioChannel} />
         )}
         {tab === 'local' && (
           <LocalTab cbOpts={cbOpts} />
