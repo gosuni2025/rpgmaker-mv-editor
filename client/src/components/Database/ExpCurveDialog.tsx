@@ -30,6 +30,36 @@ export default function ExpCurveDialog({ expParams: initial, onConfirm, onCancel
   const [expParams, setExpParams] = useState<number[]>([...initial]);
   const [viewMode, setViewMode] = useState<'next' | 'total'>('next');
   const [yScale, setYScale] = useState<'linear' | 'log'>('linear');
+
+  // 다이얼로그 내부 undo/redo
+  const undoStackRef = useRef<number[][]>([]);
+  const redoStackRef = useRef<number[][]>([]);
+
+  const pushUndo = useCallback((snapshot: number[]) => {
+    undoStackRef.current = [...undoStackRef.current, [...snapshot]];
+    if (undoStackRef.current.length > 50) undoStackRef.current.shift();
+    redoStackRef.current = [];
+  }, []);
+
+  const internalUndo = useCallback(() => {
+    if (undoStackRef.current.length === 0) return;
+    const prev = undoStackRef.current[undoStackRef.current.length - 1];
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    setExpParams(current => {
+      redoStackRef.current = [...redoStackRef.current, [...current]];
+      return [...prev];
+    });
+  }, []);
+
+  const internalRedo = useCallback(() => {
+    if (redoStackRef.current.length === 0) return;
+    const next = redoStackRef.current[redoStackRef.current.length - 1];
+    redoStackRef.current = redoStackRef.current.slice(0, -1);
+    setExpParams(current => {
+      undoStackRef.current = [...undoStackRef.current, [...current]];
+      return [...next];
+    });
+  }, []);
   // Y축 줌/패닝 상태: yZoomMin ~ yZoomMax (0~1 범위, 전체 데이터 대비 비율)
   const [yZoomMin, setYZoomMin] = useState(0);
   const [yZoomMax, setYZoomMax] = useState(1);
@@ -64,11 +94,12 @@ export default function ExpCurveDialog({ expParams: initial, onConfirm, onCancel
 
   const handleParamChange = useCallback((index: number, value: number) => {
     setExpParams(prev => {
+      pushUndo(prev);
       const next = [...prev];
       next[index] = value;
       return next;
     });
-  }, []);
+  }, [pushUndo]);
 
   // Compute EXP values
   const expValues: number[] = [];
@@ -345,6 +376,30 @@ export default function ExpCurveDialog({ expParams: initial, onConfirm, onCancel
     ro.observe(container);
     return () => ro.disconnect();
   }, [drawGraph]);
+
+  // 다이얼로그 내부 undo/redo 키 핸들러
+  const internalUndoRef = useRef(internalUndo);
+  const internalRedoRef = useRef(internalRedo);
+  internalUndoRef.current = internalUndo;
+  internalRedoRef.current = internalRedo;
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.includes('Mac');
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      if (!mod) return;
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        internalUndoRef.current();
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault();
+        e.stopPropagation();
+        internalRedoRef.current();
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, []);
 
   return (
     <div className="exp-curve-overlay">

@@ -27,7 +27,42 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
   const initialParamsRef = useRef<number[][]>(initialParams.map(arr => [...arr]));
   const modifiedPointsRef = useRef<Set<number>[]>(Array.from({ length: 8 }, () => new Set<number>()));
 
+  // 다이얼로그 내부 undo/redo
+  const undoStackRef = useRef<number[][][]>([]);
+  const redoStackRef = useRef<number[][][]>([]);
+  const dragSnapshotRef = useRef<number[][] | null>(null);
+  const paramsRef = useRef<number[][]>(params);
+  paramsRef.current = params;
+
   useEscClose(onCancel);
+
+  const pushUndo = useCallback((snapshot: number[][]) => {
+    undoStackRef.current = [...undoStackRef.current, snapshot.map(a => [...a])];
+    if (undoStackRef.current.length > 50) undoStackRef.current.shift();
+    redoStackRef.current = [];
+  }, []);
+
+  const internalUndo = useCallback(() => {
+    if (undoStackRef.current.length === 0) return;
+    const prev = undoStackRef.current[undoStackRef.current.length - 1];
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    setParams(current => {
+      redoStackRef.current = [...redoStackRef.current, current.map(a => [...a])];
+      modifiedPointsRef.current = Array.from({ length: 8 }, () => new Set<number>());
+      return prev.map(a => [...a]);
+    });
+  }, []);
+
+  const internalRedo = useCallback(() => {
+    if (redoStackRef.current.length === 0) return;
+    const next = redoStackRef.current[redoStackRef.current.length - 1];
+    redoStackRef.current = redoStackRef.current.slice(0, -1);
+    setParams(current => {
+      undoStackRef.current = [...undoStackRef.current, current.map(a => [...a])];
+      modifiedPointsRef.current = Array.from({ length: 8 }, () => new Set<number>());
+      return next.map(a => [...a]);
+    });
+  }, []);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDragging = useRef(false);
@@ -128,6 +163,7 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     if (e.button !== 0) return;
     const pt = canvasToLvVal(e);
     if (!pt) return;
+    dragSnapshotRef.current = paramsRef.current.map(a => [...a]);
     isDragging.current = true;
     lastDragLv.current = pt.lv;
     applyDragPoint(pt.lv, pt.val);
@@ -162,10 +198,14 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
   }, [canvasToLvVal, applyDragPoint, interpolateDrag]);
 
   const handleMouseUp = useCallback(() => {
+    if (isDragging.current && dragSnapshotRef.current) {
+      pushUndo(dragSnapshotRef.current);
+      dragSnapshotRef.current = null;
+    }
     isDragging.current = false;
     lastDragLv.current = -1;
     isPanningRef.current = false;
-  }, []);
+  }, [pushUndo]);
 
   // Wheel zoom
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
@@ -200,29 +240,56 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
     return () => canvas.removeEventListener('wheel', handler);
   }, []);
 
+  // 다이얼로그 내부 undo/redo 키 핸들러
+  const internalUndoRef = useRef(internalUndo);
+  const internalRedoRef = useRef(internalRedo);
+  internalUndoRef.current = internalUndo;
+  internalRedoRef.current = internalRedo;
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.includes('Mac');
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      if (!mod) return;
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        internalUndoRef.current();
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault();
+        e.stopPropagation();
+        internalRedoRef.current();
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, []);
+
   const handleGenerate = useCallback(() => {
     modifiedPointsRef.current[activeTab].clear();
     setParams(prev => {
+      pushUndo(prev);
       const np = prev.map(a => [...a]);
       np[activeTab] = generateCurve(currentArr[0], currentArr[98], growthType);
       return np;
     });
-  }, [currentArr, growthType, activeTab]);
+  }, [currentArr, growthType, activeTab, pushUndo]);
 
   const applyPreset = useCallback((presetIdx: number) => {
     const preset = PARAM_PRESETS[PARAM_KEYS[activeTab]][presetIdx];
     modifiedPointsRef.current[activeTab].clear();
     setParams(prev => {
+      pushUndo(prev);
       const np = prev.map(a => [...a]);
       np[activeTab] = generateCurve(preset[0], preset[1], 0.5);
       return np;
     });
-  }, [activeTab]);
+  }, [activeTab, pushUndo]);
 
   const handleInterpolate = useCallback(() => {
     const modSet = modifiedPointsRef.current[activeTab];
     if (modSet.size < 2) return;
     setParams(prev => {
+      pushUndo(prev);
       const np = prev.map(a => [...a]);
       const arr = np[activeTab];
       const anchors = Array.from(modSet).sort((a, b) => a - b).map(idx => ({ idx, val: arr[idx] }));
@@ -233,7 +300,7 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
       }
       return np;
     });
-  }, [activeTab, maxVal]);
+  }, [activeTab, maxVal, pushUndo]);
 
   const handleClearAnchors = useCallback(() => {
     modifiedPointsRef.current[activeTab].clear();
@@ -242,11 +309,12 @@ export default function ParamCurveDialog({ params: initialParams, initialTab = 0
 
   const handleValueChange = useCallback((lv: number, val: number) => {
     setParams(prev => {
+      pushUndo(prev);
       const np = prev.map(a => [...a]);
       np[activeTab][lv - 1] = Math.max(0, Math.min(maxVal, val));
       return np;
     });
-  }, [activeTab, maxVal]);
+  }, [activeTab, maxVal, pushUndo]);
 
   const columns: { startLv: number; endLv: number }[] = [];
   for (let start = 1; start <= 99; start += LEVELS_PER_COL) {

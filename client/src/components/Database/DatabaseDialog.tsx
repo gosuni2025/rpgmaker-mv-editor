@@ -154,6 +154,8 @@ export default function DatabaseDialog() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // 서브 다이얼로그(능력치/경험치 곡선)가 열려있으면 해당 다이얼로그가 처리
+      if (document.querySelector('.param-curve-overlay, .exp-curve-overlay')) return;
       const isMac = navigator.platform.includes('Mac');
       const mod = isMac ? e.metaKey : e.ctrlKey;
       if (!mod) return;
