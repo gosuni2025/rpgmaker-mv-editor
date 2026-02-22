@@ -504,12 +504,15 @@ export function attachWebSocket(server: http.Server) {
 
 // dev 모드 직접 실행 시 (Electron 번들 내에서는 실행 안 함)
 if (require.main === module && !process.versions.electron) {
-  const app = createApp();
+  const DEMO_MODE = process.env.DEMO_MODE === 'true';
+  // DEMO_MODE: 빌드된 client/dist 서빙 (서버 디렉터리 기준 상위)
+  const clientDistPath = process.env.CLIENT_DIST_PATH
+    || (DEMO_MODE ? path.join(path.dirname(__dirname), 'client', 'dist') : undefined);
+  const app = createApp({ clientDistPath });
   const server = http.createServer(app);
   attachWebSocket(server);
 
   const PORT = parseInt(process.env.SERVER_PORT || process.env.PORT || '3001');
-  const DEMO_MODE = process.env.DEMO_MODE === 'true';
   // DEMO_MODE: 0.0.0.0으로 수신 (Railway 등 외부 접근), demo-project 자동 오픈
   const host = DEMO_MODE ? '0.0.0.0' : '127.0.0.1';
   server.listen(PORT, host, () => {
