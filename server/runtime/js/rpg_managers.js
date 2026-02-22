@@ -44,6 +44,9 @@ var $testEvent        = null;
 DataManager._globalId       = 'RPGMV';
 DataManager._lastAccessedId = 1;
 DataManager._errorUrl       = null;
+DataManager._dbTotalCount   = 0;
+DataManager._dbLoadedCount  = 0;
+DataManager._currentLoadingFile = '';
 
 DataManager._databaseFiles = [
     { name: '$dataActors',       src: 'Actors.json'       },
@@ -79,11 +82,14 @@ DataManager.loadDataFile = function(name, src) {
     var xhr = new XMLHttpRequest();
     var _cb = window.__CACHE_BUST__;
     var url = 'data/' + src + (_cb && _cb.data ? '?v=' + _cb.buildId : '');
+    DataManager._dbTotalCount++;
+    DataManager._currentLoadingFile = src;
     xhr.open('GET', url);
     xhr.overrideMimeType('application/json');
     xhr.onload = function() {
         if (xhr.status < 400) {
             window[name] = JSON.parse(xhr.responseText);
+            DataManager._dbLoadedCount++;
             DataManager.onLoad(window[name]);
         }
     };
