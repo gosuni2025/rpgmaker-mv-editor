@@ -793,7 +793,7 @@ Window_Base.prototype._etEnsureOverlay = function(seg) {
     seg._overlayTex       = tex;
     seg._overlayStartTime = startT;
     seg._overlayParent    = target.parent;
-    seg._etBaseWorldY = oY + target.scrollY;  // 스크롤 독립적 절대 좌표
+    seg._etBaseWorldY = oY;
     seg._etSegH       = segH;
 };
 
@@ -868,9 +868,9 @@ Window_Base.prototype._etEnsureShakeMeshes = function(seg, THREE, target) {
         mesh.renderOrder = 10000;
         mesh._wrapper = true;  // _syncHierarchy가 renderOrder 덮어쓰기 방지
 
-        // 스크롤 독립적 절대 좌표 — 매 프레임 _etUpdateOverlayUniforms에서 scrollY를 빼서 위치 조정
+        // target 좌표 기반 위치 (스크롤 없음 — 매 프레임 scrollY를 따로 더함)
         var baseX = target.offsetX + ch.x - clearL + charW / 2;
-        var baseY = target.offsetY + ch.y + target.scrollY + segH / 2;
+        var baseY = target.offsetY + ch.y + segH / 2;
         mesh.position.set(baseX, baseY - target.scrollY, 1);
         mesh.scale.set(charW, segH, 1);
         target.parent.add(mesh);
