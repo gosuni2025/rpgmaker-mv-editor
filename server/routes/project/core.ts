@@ -291,16 +291,35 @@ router.get('/convert-webp-progress', async (req: Request, res: Response) => {
   }
   const projectPath = projectManager.currentPath!;
   const imgDir = path.join(projectPath, 'img');
+  const gitBackup = req.query.gitBackup === '1';
   setupSSE(res);
 
   try {
+    // ── git 백업 ──────────────────────────────────────────────────────────────
+    if (gitBackup) {
+      sseWrite(res, { type: 'log', message: '── git 백업 중 ──' });
+      try {
+        const { execSync } = await import('child_process');
+        execSync('git add img/', { cwd: projectPath, stdio: 'pipe' });
+        try {
+          execSync('git commit -m "chore: WebP 변환 전 PNG 백업"', { cwd: projectPath, stdio: 'pipe' });
+          sseWrite(res, { type: 'log', message: '✓ git commit 완료 (PNG 백업)' });
+        } catch {
+          // 변경사항 없으면 commit 실패 — 이미 staged 상태
+          sseWrite(res, { type: 'log', message: '✓ 변경사항 없음 (이미 커밋됨)' });
+        }
+      } catch (gitErr) {
+        sseWrite(res, { type: 'log', message: `⚠ git 백업 실패: ${(gitErr as Error).message.split('\n')[0]}` });
+      }
+    }
+
     if (!fs.existsSync(imgDir)) {
       sseWrite(res, { type: 'done', converted: 0 });
       res.end();
       return;
     }
 
-    // PNG 파일 수집
+    // ── PNG 파일 수집 ─────────────────────────────────────────────────────────
     const pngFiles: string[] = [];
     function collectPng(dir: string) {
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -313,12 +332,13 @@ router.get('/convert-webp-progress', async (req: Request, res: Response) => {
 
     const total = pngFiles.length;
     sseWrite(res, { type: 'counted', total });
-    sseWrite(res, { type: 'log', message: `PNG 파일 ${total}개 변환 시작...` });
+    sseWrite(res, { type: 'log', message: `── PNG → WebP 변환 시작 (${total}개) ──` });
 
     let converted = 0;
     for (const pngPath of pngFiles) {
       const rel = path.relative(imgDir, pngPath);
-      sseWrite(res, { type: 'log', message: `  ${rel}` });
+      // 현재 변환 중 파일 + n/m 정보를 별도 이벤트로 전송
+      sseWrite(res, { type: 'converting', file: rel, current: converted + 1, total });
       sseWrite(res, { type: 'progress', current: converted, total });
       const webpPath = pngPath.slice(0, -4) + '.webp';
       await sharp(pngPath).webp({ lossless: true }).toFile(webpPath);
