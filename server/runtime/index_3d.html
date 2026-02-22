@@ -97,6 +97,7 @@
             }
 
             if (!('serviceWorker' in navigator)) {
+                console.warn('[SW] navigator.serviceWorker 없음 (iframe sandbox 제한 또는 미지원 환경) → 번들 없이 로드');
                 loadMain();
                 return;
             }
@@ -110,7 +111,8 @@
                 if (msg.type === 'bundle-progress') {
                     setProgress(msg.loadedFiles, msg.totalFiles);
                 } else if (msg.type === 'bundle-ready' || msg.type === 'bundle-skip' || msg.type === 'bundle-error') {
-                    if (msg.type === 'bundle-error') console.warn('[SW] bundle error:', msg.bundle, msg.error);
+                    if (msg.type === 'bundle-skip')  console.warn('[SW] bundle-skip (번들 없음 → 직접 네트워크 로드):', msg.reason);
+                    if (msg.type === 'bundle-error') console.warn('[SW] bundle error:', msg.file, msg.error);
                     loadMain();
                 }
             });

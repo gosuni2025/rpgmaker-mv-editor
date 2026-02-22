@@ -34,9 +34,9 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
       if (ev.type === 'site-created') {
         setSiteId(ev.siteId);
       }
-      return dp.handleSSEEvent(ev, totalRef, weights);
+      return dp.handleSSEEvent(ev, totalRef, weights, { uploadLabel: t('deploy.netlify.uploading') });
     },
-    [dp.handleSSEEvent],
+    [dp.handleSSEEvent, t],
   );
 
   const saveSettings = async () => {

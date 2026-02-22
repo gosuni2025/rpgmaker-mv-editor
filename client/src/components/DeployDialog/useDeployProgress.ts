@@ -26,7 +26,7 @@ export default function useDeployProgress() {
   }, []);
 
   const handleSSEEvent = useCallback(
-    (ev: SSEEvent, totalRef: { current: number }, weights: { copy: number; zip: number }): boolean => {
+    (ev: SSEEvent, totalRef: { current: number }, weights: { copy: number; zip: number }, opts?: { uploadLabel?: string }): boolean => {
       const uploadStart = weights.copy + weights.zip;
 
       if (ev.type === 'log') {
@@ -55,7 +55,7 @@ export default function useDeployProgress() {
         }
 
         if (ev.phase === 'zipping')   { setProgress(weights.copy); setStatus(t('deploy.netlify.zipping')); }
-        if (ev.phase === 'uploading') { setProgress(uploadStart); setStatus('업로드 중...'); }
+        if (ev.phase === 'uploading') { setProgress(uploadStart); setStatus(opts?.uploadLabel ?? '업로드 중...'); }
       } else if (ev.type === 'site-created') {
         setStatus(`${t('deploy.netlify.siteCreatedMsg')}: ${ev.siteName}.netlify.app`);
         return true;
@@ -73,9 +73,12 @@ export default function useDeployProgress() {
       } else if (ev.type === 'upload-progress') {
         const pct = ev.sent / Math.max(ev.total, 1);
         setProgress(uploadStart + pct * (1 - uploadStart));
-        const sentMb = (ev.sent / 1048576).toFixed(1);
-        const totalMb = (ev.total / 1048576).toFixed(1);
-        setStatus(`${t('deploy.netlify.uploading')} (${sentMb} / ${totalMb} MB)`);
+        const label = opts?.uploadLabel ?? '업로드 중...';
+        // total > 1000이면 바이트 기반(Netlify), 아니면 비율 기반(butler 0~1000)
+        const statusStr = ev.total > 1000
+          ? `${label} (${(ev.sent / 1048576).toFixed(1)} / ${(ev.total / 1048576).toFixed(1)} MB)`
+          : `${label} (${Math.round(pct * 100)}%)`;
+        setStatus(statusStr);
       } else if (ev.type === 'error') {
         setError(ev.message);
         setStatus('');
