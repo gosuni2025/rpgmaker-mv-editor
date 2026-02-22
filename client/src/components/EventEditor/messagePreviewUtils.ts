@@ -186,9 +186,18 @@ void main() {
   bg.a *= 0.82;
 
   // 프레임: (96, 0)-(192, 96) 영역을 9-slice (UV: x=0.5~1.0, y=0~0.5)
-  vec2 bUV = nineSliceUV(vUv, uDstSize, BORDER);
-  vec2 borderUV = vec2(0.5 + bUV.x * 0.5, bUV.y * 0.5);
-  vec4 border = texture2D(tWindow, borderUV);
+  // RPG Maker MV의 _refreshFrame은 center piece를 그리지 않으므로
+  // 테두리 영역(border strip)에서만 프레임 텍스처를 샘플링, 중앙은 투명
+  float bx = BORDER / uDstSize.x;
+  float by = BORDER / uDstSize.y;
+  bool inBorderStrip = vUv.x < bx || vUv.x > 1.0 - bx || vUv.y < by || vUv.y > 1.0 - by;
+
+  vec4 border = vec4(0.0);
+  if (inBorderStrip) {
+    vec2 bUV = nineSliceUV(vUv, uDstSize, BORDER);
+    vec2 borderUV = vec2(0.5 + bUV.x * 0.5, bUV.y * 0.5);
+    border = texture2D(tWindow, borderUV);
+  }
 
   gl_FragColor = mix(bg, border, border.a);
 }
