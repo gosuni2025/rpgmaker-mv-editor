@@ -27,6 +27,7 @@ export interface CacheBustOptions {
   data?:         boolean; // data/
   filterUnused?: boolean; // 미사용 에셋 제외
   convertWebp?:  boolean; // PNG → WebP 무손실 변환 (배포 용량/트래픽 절감)
+  bundle?:       boolean; // SW 번들 ZIP 생성 (img/audio/data → ZIP)
 }
 
 // ─── 미사용 에셋 필터링 ───────────────────────────────────────────────────────
@@ -303,6 +304,8 @@ export function parseCacheBustQuery(query: Record<string, unknown>): CacheBustOp
     filterUnused: query['cbFilterUnused'] === '1' || query['filterUnused'] === true,
     // GET: cbConvertWebp=1, POST body: convertWebp=true
     convertWebp: query['cbConvertWebp'] === '1' || query['convertWebp'] === true,
+    // GET: bundle=1, POST body: bundle=true
+    bundle: query['bundle'] === '1' || query['bundle'] === true,
   };
 }
 
@@ -548,7 +551,9 @@ export async function buildDeployZipWithProgress(
     // 프로젝트가 WebP면 convertWebp 플래그를 강제 활성화
     const buildId = makeBuildId();
     applyCacheBusting(stagingDir, buildId, { ...opts, convertWebp: projectIsWebp || opts.convertWebp });
-    await generateBundleFiles(stagingDir, buildId, (msg) => onEvent({ type: 'log', message: msg }));
+    if (opts.bundle) {
+      await generateBundleFiles(stagingDir, buildId, (msg) => onEvent({ type: 'log', message: msg }));
+    }
 
     onEvent({ type: 'status', phase: 'zipping' });
     onEvent({ type: 'log', message: '── ZIP 압축 중 ──' });

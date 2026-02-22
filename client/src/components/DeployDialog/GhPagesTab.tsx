@@ -15,6 +15,8 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
   const { t } = useTranslation();
   const dp = useDeployProgress();
 
+  const [bundle, setBundle] = useState(false);
+  const [showBundleHelp, setShowBundleHelp] = useState(false);
   const [ghRemote, setGhRemote] = useState(initialRemote);
   const [ghCheck, setGhCheck] = useState<GhPagesCheck | null>(null);
   const [ghSettingsSaved, setGhSettingsSaved] = useState(false);
@@ -56,6 +58,7 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
     const totalRef = { current: 0 };
     const params = new URLSearchParams(cacheBustToQuery(cbOpts));
     if (ghRemote) params.set('remote', ghRemote);
+    if (bundle) params.set('bundle', '1');
     const evtSource = new EventSource(`/api/project/deploy-ghpages-progress?${params}`);
     evtSource.onmessage = (e) => {
       const ev = JSON.parse(e.data) as SSEEvent;
@@ -148,6 +151,27 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
           <div style={{ marginTop: 8, color: '#e77', fontSize: 11 }}>{t('deploy.ghPages.ghCliMissing')}</div>
         )}
       </div>
+
+      {/* 번들링 옵션 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
+          <input type="checkbox" checked={bundle} onChange={(e) => setBundle(e.target.checked)} />
+          SW 번들링 (img/audio/data → ZIP)
+        </label>
+        <button
+          onClick={() => setShowBundleHelp(v => !v)}
+          style={{ background: 'none', border: '1px solid #555', borderRadius: '50%', width: 16, height: 16,
+            fontSize: 10, color: '#aaa', cursor: 'pointer', lineHeight: '14px', padding: 0, flexShrink: 0 }}>
+          ?
+        </button>
+      </div>
+      {showBundleHelp && (
+        <div style={{ background: '#2a2010', border: '1px solid #664', borderRadius: 4, padding: '8px 10px',
+          fontSize: 11, color: '#e8a040', marginBottom: 4 }}>
+          ⚠ gh-pages는 git 히스토리에 ZIP 파일이 영구 저장됩니다. 배포마다 ZIP이 쌓여 저장소 용량이 지속적으로 늘어나므로 권장하지 않습니다.
+          <br />itch.io나 Netlify 배포 시 번들링을 사용하세요.
+        </div>
+      )}
 
       <button className="db-btn" onClick={handleDeploy} disabled={dp.busy || !ghPrereqOk}
         style={{

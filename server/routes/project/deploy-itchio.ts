@@ -105,10 +105,11 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
     return;
   }
 
-  const { project, channel, cacheBust } = req.body as {
+  const { project, channel, cacheBust, bundle } = req.body as {
     project?: string;
     channel?: string;
     cacheBust?: Record<string, unknown>;
+    bundle?: boolean;
   };
 
   if (!project?.trim()) {
@@ -165,7 +166,9 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
     applyIndexHtmlRename(stagingDir);
     sseLog(`캐시 버스팅 적용 (buildId: ${buildId})`);
     applyCacheBusting(stagingDir, buildId, opts);
-    await generateBundleFiles(stagingDir, buildId, sseLog);
+    if (bundle) {
+      await generateBundleFiles(stagingDir, buildId, sseLog);
+    }
 
     // ── 3. butler push ────────────────────────────────────────────────────────
     sseStatus('uploading');

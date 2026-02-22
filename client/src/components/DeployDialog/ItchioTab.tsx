@@ -32,6 +32,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
   const [itchUrl, setItchUrl] = useState('');
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [deployMode, setDeployMode] = useState<'deploy' | 'zip'>('deploy');
+  const [bundle, setBundle] = useState(true);
   const [gameExists, setGameExists] = useState<boolean | null | 'checking'>(null);
   const gameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -81,7 +82,9 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
     setShowProgressModal(true);
     let completed = false;
     const totalRef = { current: 0 };
-    const evtSource = new EventSource(`/api/project/deploy-zip-progress?${cacheBustToQuery(cbOpts)}`);
+    const params = new URLSearchParams(cacheBustToQuery(cbOpts));
+    if (bundle) params.set('bundle', '1');
+    const evtSource = new EventSource(`/api/project/deploy-zip-progress?${params}`);
     evtSource.onmessage = (e) => {
       const ev = JSON.parse(e.data) as SSEEvent;
       if (ev.type === 'done') {
@@ -122,7 +125,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
     fetch('/api/project/deploy-itchio-progress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project: project.trim(), channel, cacheBust: cbOpts }),
+      body: JSON.stringify({ project: project.trim(), channel, cacheBust: cbOpts, bundle }),
     }).then((response) => {
       if (!response.body) throw new Error('응답 스트림 없음');
       const reader = response.body.getReader();
@@ -284,6 +287,14 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
         <div style={{ color: '#777', fontSize: 11 }}>
           최초 업로드 시: ZIP 만들기 → 폴더 열기 → itch.io 게임 편집 페이지 → Upload files 버튼으로 ZIP 업로드
         </div>
+      </div>
+
+      {/* 번들링 옵션 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
+          <input type="checkbox" checked={bundle} onChange={(e) => setBundle(e.target.checked)} />
+          SW 번들링 (img/audio/data → ZIP)
+        </label>
       </div>
 
       <div style={{ display: 'flex', gap: 8 }}>

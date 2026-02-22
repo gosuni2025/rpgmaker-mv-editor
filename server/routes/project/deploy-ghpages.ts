@@ -132,6 +132,7 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
   const remote = ((req.query.remote as string | undefined) || settings.ghPages?.remote || 'pages').trim();
   const srcPath = projectManager.currentPath!;
   const opts = parseCacheBustQuery(req.query as Record<string, unknown>);
+  const bundle = req.query.bundle === '1';
 
   setupSSE(res);
 
@@ -251,13 +252,14 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
     if (cbFlags) sseLog(res, `  대상: ${cbFlags}`);
     // GhPages는 파일 변환 없이 직접 커밋하므로 WebP 플래그 비활성화
     applyCacheBusting(srcPath, buildId, { ...opts, convertWebp: false });
-    await generateBundleFiles(srcPath, buildId, (msg) => sseLog(res, msg));
-
-    // ZIP으로 묶인 폴더는 git에서 제거 (bundles/*.zip으로 대체됨)
-    sseLog(res, 'img/, audio/, data/ 원본 제거 (bundles/*.zip으로 대체)');
-    for (const dir of ['img', 'audio', 'data']) {
-      const dirPath = path.join(srcPath, dir);
-      if (fs.existsSync(dirPath)) fs.rmSync(dirPath, { recursive: true, force: true });
+    if (bundle) {
+      await generateBundleFiles(srcPath, buildId, (msg) => sseLog(res, msg));
+      // ZIP으로 묶인 폴더는 git에서 제거 (bundles/*.zip으로 대체됨)
+      sseLog(res, 'img/, audio/, data/ 원본 제거 (bundles/*.zip으로 대체)');
+      for (const dir of ['img', 'audio', 'data']) {
+        const dirPath = path.join(srcPath, dir);
+        if (fs.existsSync(dirPath)) fs.rmSync(dirPath, { recursive: true, force: true });
+      }
     }
 
     // ── 6. git commit ─────────────────────────────────────────────────────────
