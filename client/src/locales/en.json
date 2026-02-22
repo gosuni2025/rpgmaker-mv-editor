@@ -1374,6 +1374,7 @@
       "channel": "Channel",
       "channelDesc": "itch.io upload channel name. Usually 'html5' for HTML5 games.",
       "saved": "Saved",
+      "authFailed": "Auth failed — please check your API Key",
       "apiKeyRequired": "Please enter your API Key",
       "projectRequired": "Please enter the project (user/game)",
       "checkButler": "butler CLI installed",

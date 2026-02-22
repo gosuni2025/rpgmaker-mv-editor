@@ -1460,6 +1460,7 @@
       "channel": "채널",
       "channelDesc": "itch.io 업로드 채널명입니다. HTML5 게임의 경우 보통 'html5'를 사용합니다.",
       "saved": "저장됨",
+      "authFailed": "인증 실패 — API Key를 확인해주세요",
       "apiKeyRequired": "API Key를 입력해주세요",
       "projectRequired": "프로젝트 (user/game)를 입력해주세요",
       "checkButler": "butler CLI 설치됨",

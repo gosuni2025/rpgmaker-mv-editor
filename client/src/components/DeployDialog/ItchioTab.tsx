@@ -8,6 +8,8 @@ import { ProgressBar, ErrorMessage } from './StatusWidgets';
 
 interface ItchioCheck {
   butler: boolean;
+  username: string | null;
+  gameSlug: string;
 }
 
 interface Props {
@@ -25,10 +27,12 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
   const [project, setProject] = useState(initialProject);
   const [channel, setChannel] = useState(initialChannel || 'html5');
   const [check, setCheck] = useState<ItchioCheck | null>(null);
+  const [checkingKey, setCheckingKey] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [itchUrl, setItchUrl] = useState('');
   const [showProgressModal, setShowProgressModal] = useState(false);
   const logPanelRef = useRef<HTMLDivElement>(null);
+  const checkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 로그 패널 자동 스크롤
   useEffect(() => {
@@ -37,11 +41,35 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
     }
   }, [dp.logs]);
 
-  useEffect(() => {
-    apiClient.get('/project/deploy-itchio-check')
-      .then((data) => setCheck(data as ItchioCheck))
-      .catch(() => {});
-  }, []);
+  // butler 설치 확인 + API Key가 있으면 whoami도 같이 조회 (debounce 500ms)
+  const runCheck = useCallback((key: string) => {
+    if (checkTimer.current) clearTimeout(checkTimer.current);
+    checkTimer.current = setTimeout(async () => {
+      setCheckingKey(true);
+      try {
+        const params = key ? `?apiKey=${encodeURIComponent(key)}` : '';
+        const data = await apiClient.get(`/project/deploy-itchio-check${params}`) as ItchioCheck;
+        setCheck(data);
+        // project가 비어있고 username + gameSlug를 얻으면 자동 채우기
+        if (!project.trim()) {
+          if (data.username && data.gameSlug) {
+            setProject(`${data.username}/${data.gameSlug}`);
+          } else if (data.username) {
+            setProject(`${data.username}/`);
+          }
+        }
+      } catch {}
+      finally { setCheckingKey(false); }
+    }, 500);
+  }, [project]);
+
+  useEffect(() => { runCheck(apiKey); }, []); // 초기 로드
+
+  // API Key 변경 시 재조회
+  const handleApiKeyChange = (val: string) => {
+    setApiKey(val);
+    runCheck(val);
+  };
 
   const saveSettings = async () => {
     try {
@@ -147,8 +175,18 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
 
         <div>
           <div className="deploy-field-label">{t('deploy.itchio.apiKey')}</div>
-          <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+          <input type="password" value={apiKey} onChange={(e) => handleApiKeyChange(e.target.value)}
             placeholder={t('deploy.itchio.apiKeyPlaceholder')} className="deploy-input" />
+          {apiKey && (
+            <div style={{ marginTop: 4, fontSize: 11 }}>
+              {checkingKey
+                ? <span style={{ color: '#888' }}>확인 중...</span>
+                : check?.username
+                  ? <span style={{ color: '#6c6' }}>✓ {check.username}</span>
+                  : check && <span style={{ color: '#e77' }}>✗ {t('deploy.itchio.authFailed')}</span>
+              }
+            </div>
+          )}
           <div className="deploy-security-note">
             <div style={{ fontWeight: 600, marginBottom: 2 }}>{t('deploy.itchio.securityTitle')}</div>
             <div>· {t('deploy.itchio.security1')}</div>

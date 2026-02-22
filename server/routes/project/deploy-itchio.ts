@@ -14,6 +14,7 @@ import {
   sseWrite,
   parseCacheBustQuery,
   collectFilesForDeploy,
+  getGameTitle,
 } from './deploy';
 
 const router = express.Router();
@@ -27,6 +28,25 @@ async function checkButler(): Promise<boolean> {
   return false;
 }
 
+/** butler whoami --json --api-key <key> → username 반환, 실패 시 null */
+async function getButlerUsername(apiKey: string): Promise<string | null> {
+  try {
+    const { stdout } = await execAsync(`butler whoami --json --api-key "${apiKey}"`);
+    const lines = stdout.trim().split('\n').filter(Boolean);
+    for (const line of lines) {
+      try {
+        const ev = JSON.parse(line) as Record<string, unknown>;
+        // {"type":"result","value":{"username":"...","displayName":"..."}}
+        if (ev.type === 'result' && ev.value) {
+          const val = ev.value as Record<string, unknown>;
+          if (typeof val.username === 'string') return val.username;
+        }
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
+
 /** user/game → https://user.itch.io/game */
 function deriveItchUrl(project: string): string {
   const parts = project.trim().split('/');
@@ -35,10 +55,23 @@ function deriveItchUrl(project: string): string {
   return `https://${user}.itch.io/${game}`;
 }
 
+/** 게임 제목을 itch.io slug 규칙(영소문자+숫자+하이픈)으로 변환 */
+function toItchSlug(title: string): string {
+  return (title || 'my-game')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 50)
+    || 'my-game';
+}
+
 // ─── 사전 조건 체크 ───────────────────────────────────────────────────────────
-router.get('/deploy-itchio-check', async (_req: Request, res: Response) => {
+router.get('/deploy-itchio-check', async (req: Request, res: Response) => {
+  const apiKey = (req.query.apiKey as string | undefined)?.trim() || '';
   const butler = await checkButler();
-  res.json({ butler });
+  const username = butler && apiKey ? await getButlerUsername(apiKey) : null;
+  const gameSlug = toItchSlug(getGameTitle());
+  res.json({ butler, username, gameSlug });
 });
 
 // ─── itch.io 배포 (SSE) ───────────────────────────────────────────────────────
