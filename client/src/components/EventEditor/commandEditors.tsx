@@ -9,6 +9,8 @@ export { ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, Change
 export { ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeActorImagesEditor, ChangeVehicleImageEditor } from './actorEditors';
 export { TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, ScrollMapEditor, GetLocationInfoEditor } from './movementEditors';
 export { ShowPictureEditor, MovePictureEditor, RotatePictureEditor, TintPictureEditor, ErasePictureEditor } from './pictureEditors';
+export { ShowPictureEditorDialog } from './ShowPictureEditorDialog';
+export { MovePictureEditorDialog } from './MovePictureEditorDialog';
 export { TintScreenEditor, FlashScreenEditor, ShakeScreenEditor, SetWeatherEffectEditor, ChangeWindowColorEditor } from './screenEffectEditors';
 export { AudioEditor, VehicleBGMEditor, MovieEditor, FadeoutEditor, ToggleEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeMapNameDisplayEditor, ChangeTilesetEditor, ShowAnimationEditor, ShowBalloonIconEditor, ChangeBattleBackEditor, ChangeParallaxEditor } from './miscActionEditors';
 export { ConditionalBranchEditor } from './conditionalBranchEditor';

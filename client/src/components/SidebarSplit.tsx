@@ -68,6 +68,11 @@ export default function SidebarSplit({ editMode }: { editMode: string }) {
       </div>
     );
   }
+  if (editMode === 'passage') {
+    return (
+      <div className="sidebar-split" ref={containerRef} />
+    );
+  }
 
   return (
     <div className="sidebar-split" ref={containerRef}>

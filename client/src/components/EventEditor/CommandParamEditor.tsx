@@ -9,6 +9,7 @@ import {
   ChangeGoldEditor, ChangeItemEditor, TransferPlayerEditor, SetVehicleLocationEditor, SetEventLocationEditor, AudioEditor, VehicleBGMEditor, MovieEditor, FadeoutEditor,
   ChangePartyMemberEditor, ChangeClassEditor, ChangeEquipmentEditor, ChangeNameEditor, NameInputEditor, ChangeProfileEditor, ChangeActorImagesEditor, ChangeVehicleImageEditor, ChangeTransparencyEditor, ChangeSaveAccessEditor, ChangeMenuAccessEditor, ChangeEncounterEditor, ChangeFormationAccessEditor, ChangePlayerFollowersEditor, ChangeMapNameDisplayEditor, ChangeTilesetEditor, ChangeHPEditor, ChangeMPEditor, ChangeTPEditor, ChangeEXPEditor, ChangeLevelEditor, ChangeStateEditor, ChangeSkillEditor, RecoverAllEditor, ChangeParameterEditor, ShowChoicesEditor, InputNumberEditor, SelectItemEditor, ScrollMapEditor, ShowAnimationEditor, ShowBalloonIconEditor,
   ScrollingTextEditor, ConditionalBranchEditor, ShowPictureEditor, MovePictureEditor, RotatePictureEditor, TintPictureEditor, ErasePictureEditor, TintScreenEditor, FlashScreenEditor, ShakeScreenEditor, SetWeatherEffectEditor, ChangeWindowColorEditor,
+  ShowPictureEditorDialog, MovePictureEditorDialog,
   BattleProcessingEditor,
   ShopProcessingEditor,
   ChangeBattleBackEditor,
@@ -44,6 +45,10 @@ export default function CommandParamEditor({ code, command, followCommands, hasE
     const existingLines = (followCommands || []).filter(c => c.code === 401).map(c => c.parameters[0] as string);
     return <ShowTextEditorDialog p={p} existingLines={existingLines} onOk={onOk} onCancel={onCancel} />;
   }
+
+  // ShowPicture(231), MovePicture(232)는 프리뷰 전체화면 다이얼로그로 처리
+  if (code === 231) return <ShowPictureEditorDialog p={p} onOk={onOk} onCancel={onCancel} />;
+  if (code === 232) return <MovePictureEditorDialog p={p} onOk={onOk} onCancel={onCancel} />;
 
   // Script 커맨드는 자체 전체화면 에디터로 처리
   if (code === 355) {
