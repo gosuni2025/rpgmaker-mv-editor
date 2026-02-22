@@ -160,6 +160,9 @@ export default function MenuBar() {
         { type: 'separator' },
         { label: t('menu.autotileDebug'), action: 'autotileDebug', disabled: () => !hasProject },
         { label: t('menu.tileIdDebug'), action: 'tileIdDebug', checked: () => showTileIdOverlay, disabled: () => !hasProject },
+        { type: 'separator' },
+        { label: 'Fog of War 테스트', action: 'fogOfWarTest' },
+        { label: 'Fog Volume 3D 테스트', action: 'fogVolume3dTest' },
       ],
     },
     {
@@ -282,6 +285,8 @@ export default function MenuBar() {
         break;
       }
       case 'migrate': window.dispatchEvent(new CustomEvent('editor-migrate')); break;
+      case 'fogOfWarTest': window.open('/fogofwar', '_blank'); break;
+      case 'fogVolume3dTest': window.open('/fogvolume3d', '_blank'); break;
 
       case 'options': setShowOptionsDialog(true); break;
       case 'localization': setShowLocalizationDialog(true); break;
