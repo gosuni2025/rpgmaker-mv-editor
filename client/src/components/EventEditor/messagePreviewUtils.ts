@@ -146,6 +146,11 @@ export function positionMesh(mesh: any, x: number, y: number, w: number, h: numb
 }
 
 // ─── Window.png 9-slice ShaderMaterial ───
+// Window.png (192x192) 레이아웃:
+//   (0,0)-(96,96)   : 배경 기본 (stretch)
+//   (0,96)-(96,192) : 배경 타일 패턴
+//   (96,0)-(192,96) : 창 프레임 (9-slice, border=24px)
+//   (96,96)-(144,144): 커서 프레임
 export const WINDOW_VERT = `
 varying vec2 vUv;
 void main() {
@@ -156,7 +161,7 @@ void main() {
 export const WINDOW_FRAG = `
 uniform sampler2D tWindow;
 uniform vec2 uDstSize;
-const float BORDER = 12.0;
+const float BORDER = 24.0;
 
 varying vec2 vUv;
 
@@ -164,23 +169,25 @@ vec2 nineSliceUV(vec2 uv, vec2 dstSize, float border) {
   float bx = border / dstSize.x;
   float by = border / dstSize.y;
   float sx, sy;
-  if (uv.x < bx)            sx = uv.x / bx * (border / 64.0);
-  else if (uv.x > 1.0 - bx) sx = (64.0 - border + (uv.x - (1.0 - bx)) / bx * border) / 64.0;
-  else                       sx = (border + (uv.x - bx) / (1.0 - 2.0 * bx) * (64.0 - 2.0 * border)) / 64.0;
-  if (uv.y < by)            sy = uv.y / by * (border / 64.0);
-  else if (uv.y > 1.0 - by) sy = (64.0 - border + (uv.y - (1.0 - by)) / by * border) / 64.0;
-  else                       sy = (border + (uv.y - by) / (1.0 - 2.0 * by) * (64.0 - 2.0 * border)) / 64.0;
+  if (uv.x < bx)            sx = uv.x / bx * (border / 96.0);
+  else if (uv.x > 1.0 - bx) sx = (96.0 - border + (uv.x - (1.0 - bx)) / bx * border) / 96.0;
+  else                       sx = (border + (uv.x - bx) / (1.0 - 2.0 * bx) * (96.0 - 2.0 * border)) / 96.0;
+  if (uv.y < by)            sy = uv.y / by * (border / 96.0);
+  else if (uv.y > 1.0 - by) sy = (96.0 - border + (uv.y - (1.0 - by)) / by * border) / 96.0;
+  else                       sy = (border + (uv.y - by) / (1.0 - 2.0 * by) * (96.0 - 2.0 * border)) / 96.0;
   return vec2(sx, sy);
 }
 
 void main() {
-  float bgU = mod(vUv.x * uDstSize.x / 64.0, 1.0) * (64.0 / 192.0);
-  float bgV = mod(vUv.y * uDstSize.y / 64.0, 1.0) * (64.0 / 192.0);
+  // 배경: (0, 96)-(96, 192) 영역을 96px 단위로 타일링 (UV: x=0~0.5, y=0.5~1.0)
+  float bgU = mod(vUv.x * uDstSize.x / 96.0, 1.0) * 0.5;
+  float bgV = 0.5 + mod(vUv.y * uDstSize.y / 96.0, 1.0) * 0.5;
   vec4 bg = texture2D(tWindow, vec2(bgU, bgV));
   bg.a *= 0.82;
 
+  // 프레임: (96, 0)-(192, 96) 영역을 9-slice (UV: x=0.5~1.0, y=0~0.5)
   vec2 bUV = nineSliceUV(vUv, uDstSize, BORDER);
-  vec2 borderUV = (vec2(1.0) + bUV) * (64.0 / 192.0);
+  vec2 borderUV = vec2(0.5 + bUV.x * 0.5, bUV.y * 0.5);
   vec4 border = texture2D(tWindow, borderUV);
 
   gl_FragColor = mix(bg, border, border.a);
