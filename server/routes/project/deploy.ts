@@ -198,7 +198,7 @@ export function parseCacheBustQuery(query: Record<string, unknown>): CacheBustOp
 /** img/ 하위 PNG 파일을 WebP lossless로 변환하고 원본 삭제. 변환 수 반환 */
 async function convertImagesToWebP(
   stagingDir: string,
-  onLog: (msg: string) => void,
+  onEvent: (data: object) => void,
 ): Promise<number> {
   const imgDir = path.join(stagingDir, 'img');
   if (!fs.existsSync(imgDir)) return 0;
@@ -214,14 +214,19 @@ async function convertImagesToWebP(
   collectPng(imgDir);
 
   if (pngFiles.length === 0) return 0;
-  onLog(`PNG → WebP 변환 중 (${pngFiles.length}개)...`);
+  onEvent({ type: 'log', message: `PNG → WebP 변환 중 (${pngFiles.length}개)...` });
 
+  const total = pngFiles.length;
   let converted = 0;
   for (const pngPath of pngFiles) {
+    const filename = path.relative(imgDir, pngPath);
+    onEvent({ type: 'log', message: `  ${filename}` });
+    onEvent({ type: 'progress', current: converted, total });
     const webpPath = pngPath.slice(0, -4) + '.webp';
     await sharp(pngPath).webp({ lossless: true }).toFile(webpPath);
     fs.unlinkSync(pngPath);
     converted++;
+    onEvent({ type: 'progress', current: converted, total });
   }
   return converted;
 }
@@ -400,7 +405,7 @@ export async function buildDeployZipWithProgress(
     if (opts.convertWebp) {
       onEvent({ type: 'status', phase: 'patching' });
       onEvent({ type: 'log', message: '── WebP 변환 중 ──' });
-      const webpCount = await convertImagesToWebP(stagingDir, (msg) => onEvent({ type: 'log', message: msg }));
+      const webpCount = await convertImagesToWebP(stagingDir, onEvent);
       onEvent({ type: 'log', message: `✓ WebP 변환 완료 (${webpCount}개)` });
     }
 
