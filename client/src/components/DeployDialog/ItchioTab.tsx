@@ -31,7 +31,14 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [itchUrl, setItchUrl] = useState('');
   const [showProgressModal, setShowProgressModal] = useState(false);
+  const [logCopied, setLogCopied] = useState(false);
   const logPanelRef = useRef<HTMLDivElement>(null);
+
+  const copyLogs = () => {
+    navigator.clipboard.writeText(dp.logs.join('\n'));
+    setLogCopied(true);
+    setTimeout(() => setLogCopied(false), 1500);
+  };
 
   useEffect(() => {
     if (logPanelRef.current) {
@@ -251,18 +258,30 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
 
             <ProgressBar progress={dp.progress} color={deployFailed ? '#e55' : '#d94f3c'} />
 
-            <div className="deploy-log-panel" ref={logPanelRef}>
-              {dp.logs.map((log, i) => (
-                <div key={i} className={
-                  log.startsWith('$') ? 'deploy-log-cmd' :
-                  log.startsWith('──') ? 'deploy-log-step' :
-                  log.startsWith('✓') || log.startsWith('→') ? 'deploy-log-ok' :
-                  log.startsWith('✗') ? 'deploy-log-err' :
-                  'deploy-log-info'
-                }>
-                  {log}
-                </div>
-              ))}
+            <div style={{ position: 'relative' }}>
+              {dp.logs.length > 0 && (
+                <button onClick={copyLogs} style={{
+                  position: 'absolute', top: 4, right: 4, zIndex: 1,
+                  padding: '2px 8px', fontSize: 11, cursor: 'pointer',
+                  background: logCopied ? '#1a6e2e' : '#3a3a3a',
+                  border: '1px solid #555', borderRadius: 3, color: '#ccc',
+                }}>
+                  {logCopied ? '✓ 복사됨' : '복사'}
+                </button>
+              )}
+              <div className="deploy-log-panel" ref={logPanelRef}>
+                {dp.logs.map((log, i) => (
+                  <div key={i} className={
+                    log.startsWith('$') ? 'deploy-log-cmd' :
+                    log.startsWith('──') ? 'deploy-log-step' :
+                    log.startsWith('✓') || log.startsWith('→') ? 'deploy-log-ok' :
+                    log.startsWith('✗') ? 'deploy-log-err' :
+                    'deploy-log-info'
+                  }>
+                    {log}
+                  </div>
+                ))}
+              </div>
             </div>
 
             <ErrorMessage error={dp.error} />
