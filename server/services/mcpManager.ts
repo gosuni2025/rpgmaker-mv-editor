@@ -456,6 +456,78 @@ class McpManager extends EventEmitter {
 
       case 'get_event_command_reference': return EVENT_CMD_REF;
 
+      case 'list_plugin_commands': {
+        // 활성 플러그인 목록 + 파싱된 메타데이터를 결합하여 커맨드 요약 반환
+        const pluginListData = await this.apiGet<{
+          list: { name: string; status: boolean; description: string }[];
+        }>('/plugins');
+        const allMeta = await this.apiGet<Record<string, {
+          plugindesc: string;
+          help: string;
+          commands?: { name: string; text: string; desc: string; args: { name: string; type: string; options: { label: string; value: string }[]; default: string }[] }[];
+        }>>('/plugins/metadata');
+
+        const enabledPlugins = (pluginListData.list || []).filter(p => p.status);
+        const result: {
+          name: string; desc: string;
+          commands: { cmd: string; desc: string; args: string }[];
+          helpExcerpt: string;
+        }[] = [];
+
+        for (const p of enabledPlugins) {
+          const meta = allMeta[p.name];
+          if (!meta) continue;
+          const cmds = (meta.commands || []).map(c => {
+            const argStr = c.args.map(a => {
+              if (a.options && a.options.length > 0) {
+                return `${a.name}=${a.options.map(o => o.value).join('|')}`;
+              }
+              return `${a.name}:${a.type}`;
+            }).join(' ');
+            return { cmd: c.name, desc: c.text || c.desc, args: argStr };
+          });
+          if (cmds.length === 0 && !meta.help.includes('플러그인 커맨드') && !meta.help.toLowerCase().includes('plugin command')) continue;
+          // @help에서 플러그인 커맨드 섹션 추출
+          const helpLines = meta.help.split('\n');
+          let excerpt = '';
+          const cmdSectionIdx = helpLines.findIndex(l => /플러그인 커맨드|plugin command/i.test(l));
+          if (cmdSectionIdx >= 0) {
+            excerpt = helpLines.slice(cmdSectionIdx, cmdSectionIdx + 10).join('\n').trim();
+          } else if (meta.help) {
+            excerpt = meta.help.slice(0, 200).trim();
+          }
+          result.push({ name: p.name, desc: meta.plugindesc || p.description, commands: cmds, helpExcerpt: excerpt });
+        }
+
+        // ExtendedText 커스텀 텍스트 태그 (런타임 내장)
+        const textTags = {
+          note: '메시지 텍스트(401 커맨드)에 사용하는 HTML-like 태그. 닫는 태그 필수(self-close 제외).',
+          tags: [
+            '<shake amplitude=3 speed=1>텍스트</shake>  — 흔들림 (amplitude: 진폭px, speed: 속도)',
+            '<hologram>텍스트</hologram>  — 홀로그램 글리치 효과',
+            '<gradient-wave>텍스트</gradient-wave>  — 무지개 그라디언트 물결',
+            '<gradient from=#ff0000 to=#0000ff>텍스트</gradient>  — 2색 그라디언트',
+            '<fade>텍스트</fade>  — 페이드인 효과',
+            '<dissolve>텍스트</dissolve>  — 분해 효과',
+            '<blur-fade>텍스트</blur-fade>  — 블러 페이드',
+            '<color value=#ffe066>텍스트</color>  — 색상 지정 (hex)',
+            '<icon index="117"/>  — 아이콘 표시 (self-close)',
+            '<picture src="enemies/Actor1_3" imgtype="pictures"/>  — 인라인 이미지 (self-close)',
+          ],
+        };
+
+        return { plugins: result, textTags };
+      }
+
+      case 'get_plugin_detail': {
+        const name = args.name as string;
+        if (!name) throw new Error('name 필수');
+        const allMeta2 = await this.apiGet<Record<string, unknown>>('/plugins/metadata');
+        const meta2 = allMeta2[name];
+        if (!meta2) throw new Error(`플러그인 "${name}" 없음 또는 메타데이터 없음`);
+        return meta2;
+      }
+
       case 'list_resources': {
         const folder = (args.type as string) ?? 'characters';
         const files = await this.apiGet<string[]>(`/resources/${folder}`);
@@ -489,6 +561,8 @@ class McpManager extends EventEmitter {
       { name: 'get_database_entry', description: 'DB 단일 항목 조회', inputSchema: obj('', { type: { type: 'string' }, id: { type: 'number' } }, ['type', 'id']) },
       { name: 'update_database_entry', description: 'DB 항목 부분 업데이트. fields에 변경할 필드만 전달', inputSchema: obj('', { type: { type: 'string' }, id: { type: 'number' }, fields: { type: 'object' } }, ['type', 'id', 'fields']) },
       { name: 'get_event_command_reference', description: '★ 이벤트 커맨드 형식 레퍼런스. 이벤트 생성 전 먼저 호출하세요.', inputSchema: obj('', {}) },
+      { name: 'list_plugin_commands', description: '활성 플러그인의 커맨드 요약 목록 + 커스텀 텍스트 태그. 토큰 절약을 위해 간략 버전만 반환. 상세 정보는 get_plugin_detail 사용.', inputSchema: obj('', {}) },
+      { name: 'get_plugin_detail', description: '특정 플러그인의 상세 문서 (@help 전문 + 모든 @command/@arg). list_plugin_commands로 목록 확인 후 필요한 플러그인만 조회.', inputSchema: obj('', { name: { type: 'string', description: '플러그인 파일명 (확장자 제외, 예: VisualNovelMode)' } }, ['name']) },
       { name: 'list_resources', description: '프로젝트 이미지 파일 목록. type: characters(캐릭터), faces(얼굴), tilesets(타일셋), pictures(그림), sv_actors(사이드뷰 액터), titles1/titles2(타이틀), parallaxes(원경), battlebacks1/battlebacks2(전투배경), enemies(적 이미지), animations(애니메이션), system(시스템), sv_enemies(사이드뷰 적). 반환값 name이 이벤트 image.characterName 등에 사용하는 값.', inputSchema: obj('', { type: { type: 'string', description: 'characters/faces/tilesets/pictures 등' } }, ['type']) },
     ];
   }
