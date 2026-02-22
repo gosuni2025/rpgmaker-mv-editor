@@ -28,7 +28,7 @@ async function checkButler(): Promise<boolean> {
   return false;
 }
 
-/** butler whoami --json → 기존 로그인 세션으로 username 반환, 미로그인 시 null */
+/** butler whoami --json → 로그인된 username 반환, 미로그인 시 null */
 async function getButlerUsername(): Promise<string | null> {
   try {
     const { stdout } = await execAsync('butler whoami --json');
@@ -36,7 +36,6 @@ async function getButlerUsername(): Promise<string | null> {
     for (const line of lines) {
       try {
         const ev = JSON.parse(line) as Record<string, unknown>;
-        // {"type":"result","value":{"username":"...","displayName":"..."}}
         if (ev.type === 'result' && ev.value) {
           const val = ev.value as Record<string, unknown>;
           if (typeof val.username === 'string') return val.username;
@@ -80,17 +79,12 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
     return;
   }
 
-  const { apiKey, project, channel, cacheBust } = req.body as {
-    apiKey?: string;
+  const { project, channel, cacheBust } = req.body as {
     project?: string;
     channel?: string;
     cacheBust?: Record<string, unknown>;
   };
 
-  if (!apiKey?.trim()) {
-    res.status(400).json({ error: 'API Key가 필요합니다' });
-    return;
-  }
   if (!project?.trim()) {
     res.status(400).json({ error: 'Project (user/game)가 필요합니다' });
     return;
@@ -144,7 +138,7 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
     // ── 3. butler push ────────────────────────────────────────────────────────
     sseStatus('uploading');
     sseLog(`── 3/3: butler push → ${project}:${resolvedChannel} ──`);
-    sseLog(`$ butler push <staging> "${project}:${resolvedChannel}" --json --api-key ***`);
+    sseLog(`$ butler push <staging> "${project}:${resolvedChannel}" --json`);
 
     await new Promise<void>((resolve, reject) => {
       const butler = spawn('butler', [
@@ -152,7 +146,6 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
         stagingDir,
         `${project.trim()}:${resolvedChannel}`,
         '--json',
-        '--api-key', apiKey.trim(),
       ]);
 
       butler.stdout.on('data', (chunk: Buffer) => {
@@ -188,7 +181,7 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
       });
 
       butler.on('error', (err) => {
-        reject(new Error(`butler 실행 실패: ${err.message}\nbutler가 설치되어 있는지 확인하세요.`));
+        reject(new Error(`butler 실행 실패: ${err.message}`));
       });
     });
 
@@ -211,15 +204,10 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
 
 // ─── itch.io 설정 저장 ────────────────────────────────────────────────────────
 router.put('/itchio-settings', (req: Request, res: Response) => {
-  const { apiKey, project, channel } = req.body as {
-    apiKey?: string;
-    project?: string;
-    channel?: string;
-  };
+  const { project, channel } = req.body as { project?: string; channel?: string };
   const current = settingsManager.get();
   settingsManager.update({
     itchio: {
-      apiKey: apiKey ?? current.itchio?.apiKey ?? '',
       project: project ?? current.itchio?.project ?? '',
       channel: channel ?? current.itchio?.channel ?? 'html5',
     },

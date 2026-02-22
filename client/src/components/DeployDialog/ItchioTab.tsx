@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CacheBustOpts } from '../common/CacheBustSection';
 import apiClient from '../../api/client';
@@ -14,70 +14,50 @@ interface ItchioCheck {
 
 interface Props {
   cbOpts: CacheBustOpts;
-  initialApiKey: string;
   initialProject: string;
   initialChannel: string;
 }
 
-export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initialChannel }: Props) {
+export default function ItchioTab({ cbOpts, initialProject, initialChannel }: Props) {
   const { t } = useTranslation();
   const dp = useDeployProgress();
 
-  const [apiKey, setApiKey] = useState(initialApiKey);
   const [project, setProject] = useState(initialProject);
   const [channel, setChannel] = useState(initialChannel || 'html5');
   const [check, setCheck] = useState<ItchioCheck | null>(null);
-  const [checkingKey, setCheckingKey] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [itchUrl, setItchUrl] = useState('');
   const [showProgressModal, setShowProgressModal] = useState(false);
   const logPanelRef = useRef<HTMLDivElement>(null);
-  const checkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 로그 패널 자동 스크롤
   useEffect(() => {
     if (logPanelRef.current) {
       logPanelRef.current.scrollTop = logPanelRef.current.scrollHeight;
     }
   }, [dp.logs]);
 
-  // butler 설치 확인 + whoami (butler 기존 세션 사용)
-  const runCheck = useCallback(() => {
-    if (checkTimer.current) clearTimeout(checkTimer.current);
-    checkTimer.current = setTimeout(async () => {
-      setCheckingKey(true);
-      try {
-        const data = await apiClient.get('/project/deploy-itchio-check') as ItchioCheck;
-        setCheck(data);
-        // project가 비어있고 username + gameSlug를 얻으면 자동 채우기
-        if (!project.trim()) {
-          if (data.username && data.gameSlug) {
-            setProject(`${data.username}/${data.gameSlug}`);
-          } else if (data.username) {
-            setProject(`${data.username}/`);
-          }
+  useEffect(() => {
+    apiClient.get('/project/deploy-itchio-check')
+      .then((data) => {
+        const d = data as ItchioCheck;
+        setCheck(d);
+        // project가 비어있으면 username/gameSlug 자동 채우기
+        if (!project.trim() && d.username) {
+          setProject(`${d.username}/${d.gameSlug}`);
         }
-      } catch {}
-      finally { setCheckingKey(false); }
-    }, 300);
-  }, [project]);
-
-  useEffect(() => { runCheck(); }, []); // 초기 로드
-
-  const handleApiKeyChange = (val: string) => {
-    setApiKey(val);
-  };
+      })
+      .catch(() => {});
+  }, []);
 
   const saveSettings = async () => {
     try {
-      await apiClient.put('/project/itchio-settings', { apiKey, project, channel });
+      await apiClient.put('/project/itchio-settings', { project, channel });
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
     } catch (e) { dp.setError((e as Error).message); }
   };
 
-  const handleDeploy = useCallback(() => {
-    if (!apiKey.trim()) { dp.setError(t('deploy.itchio.apiKeyRequired')); return; }
+  const handleDeploy = () => {
     if (!project.trim()) { dp.setError(t('deploy.itchio.projectRequired')); return; }
 
     dp.resetStatus();
@@ -92,7 +72,7 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
     fetch('/api/project/deploy-itchio-progress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey: apiKey.trim(), project: project.trim(), channel, cacheBust: cbOpts }),
+      body: JSON.stringify({ project: project.trim(), channel, cacheBust: cbOpts }),
     }).then((response) => {
       if (!response.body) throw new Error('응답 스트림 없음');
       const reader = response.body.getReader();
@@ -101,10 +81,7 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
 
       const pump = (): Promise<void> =>
         reader.read().then(({ done, value }) => {
-          if (done) {
-            dp.setBusy(false);
-            return;
-          }
+          if (done) { dp.setBusy(false); return; }
           buf += decoder.decode(value, { stream: true });
           const parts = buf.split('\n\n');
           buf = parts.pop() ?? '';
@@ -135,96 +112,89 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
     }).catch((e) => {
       if (!completed) {
         dp.setError((e as Error).message);
-        dp.setStatus('');
-        dp.setProgress(null);
-        dp.setBusy(false);
+        dp.setStatus(''); dp.setProgress(null); dp.setBusy(false);
       }
     });
-  }, [apiKey, project, channel, cbOpts, dp, t]);
+  };
 
   const openUrl = async (url: string) => {
     try { await apiClient.post('/project/open-url', { url }); }
     catch (e) { dp.setError((e as Error).message); }
   };
 
-  const prereqOk = (check?.butler ?? false) && !!check?.username;
+  const butlerOk = check?.butler ?? false;
+  const loggedIn = !!check?.username;
+  const prereqOk = butlerOk && loggedIn;
   const deployDone = !dp.busy && dp.logs.length > 0;
   const deployFailed = !dp.busy && !!dp.error;
 
-  const CheckBadge = ({ ok, label, warn }: { ok: boolean; label: string; warn?: string }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={!ok && warn ? warn : ''}>
-      <span style={{ color: ok ? '#6c6' : '#e55', fontSize: 12 }}>{ok ? '✓' : '✗'}</span>
-      <span style={{ color: ok ? '#aaa' : '#e77', fontSize: 12 }}>{label}</span>
-    </div>
-  );
-
   return (
     <>
-      <div className="deploy-info-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-        <span style={{ color: '#777', fontSize: 11, lineHeight: 1.4 }}>{t('deploy.itchio.disclaimer')}</span>
-        <button className="db-btn" onClick={() => openUrl('https://itch.io')} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-          itch.io ↗
-        </button>
-      </div>
+      {/* ── 사전 조건 ── */}
+      <div className="deploy-info-box" style={{ padding: '10px 12px' }}>
+        <div style={{ color: '#bbb', fontSize: 11, fontWeight: 600, marginBottom: 8 }}>{t('deploy.ghPages.prerequisites')}</div>
 
-      <div className="deploy-settings-box">
-        <div style={{ color: '#bbb', fontSize: 12, fontWeight: 600 }}>{t('deploy.itchio.settingsTitle')}</div>
-
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <span className="deploy-field-label" style={{ marginBottom: 0 }}>{t('deploy.itchio.apiKey')}</span>
-            <button className="db-btn" onClick={() => openUrl('https://itch.io/user/settings/api-keys')}
+        {/* butler 설치 여부 */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ color: butlerOk ? '#6c6' : '#e55', fontSize: 12 }}>{butlerOk ? '✓' : '✗'}</span>
+            <span style={{ color: butlerOk ? '#aaa' : '#e77', fontSize: 12 }}>
+              {check === null ? '확인 중...' : butlerOk ? 'butler 설치됨' : 'butler 미설치'}
+            </span>
+          </div>
+          {check !== null && !butlerOk && (
+            <button className="db-btn" onClick={() => openUrl('https://itchio.itch.io/butler')}
               style={{ fontSize: 11, padding: '2px 8px' }}>
-              API Key 발급 ↗
+              다운로드 ↗
             </button>
-          </div>
-          <input type="password" value={apiKey} onChange={(e) => handleApiKeyChange(e.target.value)}
-            placeholder={t('deploy.itchio.apiKeyPlaceholder')} className="deploy-input" />
-          <div className="deploy-security-note">
-            <div style={{ fontWeight: 600, marginBottom: 2 }}>{t('deploy.itchio.securityTitle')}</div>
-            <div>· {t('deploy.itchio.security1')}</div>
-            <div>· {t('deploy.itchio.security2')}</div>
-          </div>
-        </div>
-
-        <div>
-          <div className="deploy-field-label">{t('deploy.itchio.project')}</div>
-          <input type="text" value={project} onChange={(e) => setProject(e.target.value)}
-            placeholder="username/game-name" className="deploy-input" />
-          {project && project.includes('/') && (
-            <div style={{ marginTop: 5, fontSize: 11, color: '#5af' }}>
-              → https://{project.split('/')[0]}.itch.io/{project.split('/')[1]}
-            </div>
           )}
         </div>
 
-        <div>
-          <div className="deploy-field-label">{t('deploy.itchio.channel')}</div>
-          <input type="text" value={channel} onChange={(e) => setChannel(e.target.value)}
-            placeholder="html5" className="deploy-input" />
-          <div style={{ color: '#666', fontSize: 11, marginTop: 3 }}>{t('deploy.itchio.channelDesc')}</div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
-          {settingsSaved && <span style={{ color: '#6c6', fontSize: 12 }}>{t('deploy.itchio.saved')}</span>}
-          <button className="db-btn" onClick={saveSettings}>{t('common.save')}</button>
-        </div>
-      </div>
-
-      <div className="deploy-info-box" style={{ padding: '10px 12px' }}>
-        <div style={{ color: '#bbb', fontSize: 11, fontWeight: 600, marginBottom: 8 }}>{t('deploy.ghPages.prerequisites')}</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <CheckBadge ok={check?.butler ?? false} label={t('deploy.itchio.checkButler')} warn={t('deploy.itchio.butlerMissing')} />
-          <CheckBadge
-            ok={!!check?.username}
-            label={checkingKey ? '확인 중...' : check?.username ? `butler 로그인: ${check.username}` : 'butler 미로그인'}
-            warn="터미널에서 'butler login'을 실행하세요"
-          />
-        </div>
-        {check?.butler === false && check !== null && (
-          <div style={{ marginTop: 8, color: '#e77', fontSize: 11 }}>{t('deploy.itchio.butlerMissing')}</div>
+        {/* 로그인 여부 */}
+        {butlerOk && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ color: loggedIn ? '#6c6' : '#e55', fontSize: 12 }}>{loggedIn ? '✓' : '✗'}</span>
+              <span style={{ color: loggedIn ? '#aaa' : '#e77', fontSize: 12 }}>
+                {loggedIn ? `butler 로그인: ${check!.username}` : 'butler 미로그인'}
+              </span>
+            </div>
+            {!loggedIn && (
+              <code style={{ fontSize: 11, color: '#fc8', background: '#333', padding: '2px 6px', borderRadius: 3 }}>
+                butler login
+              </code>
+            )}
+          </div>
         )}
       </div>
+
+      {/* ── 설정 (prereq OK일 때만 표시) ── */}
+      {prereqOk && (
+        <div className="deploy-settings-box">
+          <div>
+            <div className="deploy-field-label">{t('deploy.itchio.project')}</div>
+            <input type="text" value={project} onChange={(e) => setProject(e.target.value)}
+              placeholder="username/game-name" className="deploy-input" />
+            {project && project.includes('/') && (
+              <div style={{ marginTop: 5, fontSize: 11, color: '#5af' }}>
+                → https://{project.split('/')[0]}.itch.io/{project.split('/')[1]}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="deploy-field-label">{t('deploy.itchio.channel')}</div>
+            <input type="text" value={channel} onChange={(e) => setChannel(e.target.value)}
+              placeholder="html5" className="deploy-input" />
+            <div style={{ color: '#666', fontSize: 11, marginTop: 3 }}>{t('deploy.itchio.channelDesc')}</div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
+            {settingsSaved && <span style={{ color: '#6c6', fontSize: 12 }}>{t('deploy.itchio.saved')}</span>}
+            <button className="db-btn" onClick={saveSettings}>{t('common.save')}</button>
+          </div>
+        </div>
+      )}
 
       <button className="db-btn" onClick={handleDeploy} disabled={dp.busy || !prereqOk}
         style={{
@@ -259,9 +229,7 @@ export default function ItchioTab({ cbOpts, initialApiKey, initialProject, initi
               {dp.busy && <span className="deploy-spinner" />}
             </div>
 
-            {dp.status && (
-              <div className="deploy-progress-status">{dp.status}</div>
-            )}
+            {dp.status && <div className="deploy-progress-status">{dp.status}</div>}
 
             <ProgressBar progress={dp.progress} color={deployFailed ? '#e55' : '#d94f3c'} />
 
