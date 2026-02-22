@@ -177,6 +177,13 @@ function CellPreview({ imgSrc, fileName, type, cellIndex, direction, pattern, si
         canvas.width = fw;
         canvas.height = fh;
         canvas.getContext('2d')!.drawImage(img, sx, sy, fw, fh, 0, 0, fw, fh);
+      } else if (type === 'sv_actors') {
+        // SV 배틀러: 9열×6행, walk 모션 중앙 프레임 (cx=1, cy=0)
+        const fw = img.naturalWidth / 9;
+        const fh = img.naturalHeight / 6;
+        canvas.width = fw;
+        canvas.height = fh;
+        canvas.getContext('2d')!.drawImage(img, fw, 0, fw, fh, 0, 0, fw, fh);
       } else if (type === 'faces') {
         const cols = 4, rows = 2;
         const cw = img.naturalWidth / cols;
@@ -370,12 +377,12 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     <div className="image-picker">
       <div className="image-picker-preview" onClick={() => setOpen(true)}>
         {value ? (
-          hasIndex && index !== undefined ? (
+          (hasIndex && index !== undefined) || type === 'sv_actors' ? (
             <CellPreview
               imgSrc={getPreviewUrl(value)}
               fileName={value}
               type={type}
-              cellIndex={index}
+              cellIndex={index ?? 0}
               direction={direction}
               pattern={pattern}
               size={48}
