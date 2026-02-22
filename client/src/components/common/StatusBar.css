@@ -133,6 +133,17 @@
   box-sizing: border-box;
 }
 
+.statusbar-version {
+  color: #6a9fd8;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+}
+.statusbar-version:hover {
+  color: #8dbfff;
+  text-decoration: underline;
+}
+
 .statusbar-demo-badge {
   background: #e65100;
   color: #fff;
