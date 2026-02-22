@@ -52,6 +52,8 @@ export default function MenuBar() {
   const setShowLocalizationDialog = useEditorStore((s) => s.setShowLocalizationDialog);
   const setShowUpdateCheckDialog = useEditorStore((s) => s.setShowUpdateCheckDialog);
   const setShowMCPStatusDialog = useEditorStore((s) => s.setShowMCPStatusDialog);
+  const setShowWebpConvertDialog = useEditorStore((s) => s.setShowWebpConvertDialog);
+  const useWebp = useEditorStore((s) => s.useWebp);
 
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
@@ -157,6 +159,8 @@ export default function MenuBar() {
         { label: t('menu.characterGenerator'), action: 'characterGenerator', disabled: () => !hasProject },
         { label: t('menu.resourceManager'), action: 'resourceManager', disabled: () => !hasProject },
         { type: 'separator' },
+        { label: useWebp ? t('menu.convertToWebpDone') : t('menu.convertToWebp'), action: 'convertToWebp', disabled: () => !hasProject || useWebp },
+        { type: 'separator' },
         { label: t('menu.localization'), action: 'localization', disabled: () => !hasProject },
         { type: 'separator' },
         { label: t('menu.autotileDebug'), action: 'autotileDebug', disabled: () => !hasProject },
@@ -254,6 +258,7 @@ export default function MenuBar() {
       case 'eventSearch': setShowEventSearchDialog(true); break;
       case 'characterGenerator': setShowCharacterGeneratorDialog(true); break;
       case 'resourceManager': setShowResourceManagerDialog(true); break;
+      case 'convertToWebp': setShowWebpConvertDialog(true); break;
       case 'playtestTitle': saveCurrentMap().then(() => window.open('/game/index.html?dev=true', '_blank')); break;
       case 'playtestCurrentMap': {
         const state = useEditorStore.getState();

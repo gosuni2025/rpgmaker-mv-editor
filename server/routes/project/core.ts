@@ -2,9 +2,25 @@ import express, { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
+import sharp from 'sharp';
 import projectManager from '../../services/projectManager';
 import fileWatcher from '../../services/fileWatcher';
 import { openInExplorer, openInTerminal } from './helpers';
+import { setupSSE, sseWrite } from './deploy';
+
+/** img/ 폴더에 .webp 파일이 하나라도 있으면 true */
+function hasWebpImages(projectPath: string): boolean {
+  const imgDir = path.join(projectPath, 'img');
+  if (!fs.existsSync(imgDir)) return false;
+  function check(dir: string): boolean {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) { if (check(path.join(dir, entry.name))) return true; }
+      else if (entry.name.toLowerCase().endsWith('.webp')) return true;
+    }
+    return false;
+  }
+  return check(imgDir);
+}
 
 const router = express.Router();
 
@@ -79,7 +95,8 @@ router.post('/open', (req: Request, res: Response) => {
       }
     } catch { /* data dir read error - ignore */ }
 
-    res.json({ path: projectPath, name, system, mapInfos, parseErrors: parseErrors.length > 0 ? parseErrors : undefined });
+    const useWebp = hasWebpImages(projectPath);
+    res.json({ path: projectPath, name, system, mapInfos, useWebp, parseErrors: parseErrors.length > 0 ? parseErrors : undefined });
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }
@@ -264,6 +281,58 @@ router.post('/deploy', (req: Request, res: Response) => {
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message });
   }
+});
+
+// ─── PNG → WebP 일괄 변환 (SSE) ──────────────────────────────────────────────
+router.get('/convert-webp-progress', async (req: Request, res: Response) => {
+  if (!projectManager.isOpen()) {
+    res.status(404).json({ error: '프로젝트가 열려있지 않습니다' });
+    return;
+  }
+  const projectPath = projectManager.currentPath!;
+  const imgDir = path.join(projectPath, 'img');
+  setupSSE(res);
+
+  try {
+    if (!fs.existsSync(imgDir)) {
+      sseWrite(res, { type: 'done', converted: 0 });
+      res.end();
+      return;
+    }
+
+    // PNG 파일 수집
+    const pngFiles: string[] = [];
+    function collectPng(dir: string) {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) collectPng(full);
+        else if (entry.name.toLowerCase().endsWith('.png')) pngFiles.push(full);
+      }
+    }
+    collectPng(imgDir);
+
+    const total = pngFiles.length;
+    sseWrite(res, { type: 'counted', total });
+    sseWrite(res, { type: 'log', message: `PNG 파일 ${total}개 변환 시작...` });
+
+    let converted = 0;
+    for (const pngPath of pngFiles) {
+      const rel = path.relative(imgDir, pngPath);
+      sseWrite(res, { type: 'log', message: `  ${rel}` });
+      sseWrite(res, { type: 'progress', current: converted, total });
+      const webpPath = pngPath.slice(0, -4) + '.webp';
+      await sharp(pngPath).webp({ lossless: true }).toFile(webpPath);
+      fs.unlinkSync(pngPath);
+      converted++;
+      sseWrite(res, { type: 'progress', current: converted, total });
+    }
+
+    sseWrite(res, { type: 'log', message: `✓ 변환 완료 (${converted}개)` });
+    sseWrite(res, { type: 'done', converted });
+  } catch (err) {
+    sseWrite(res, { type: 'error', message: (err as Error).message });
+  }
+  res.end();
 });
 
 export default router;

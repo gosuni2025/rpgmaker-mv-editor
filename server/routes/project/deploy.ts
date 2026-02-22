@@ -402,15 +402,40 @@ export async function buildDeployZipWithProgress(
     }
     onEvent({ type: 'log', message: '✓ 복사 완료' });
 
-    if (opts.convertWebp) {
+    // 프로젝트가 이미 WebP인지 확인 (PNG 없고 WebP 있으면)
+    const stagingImgDir = path.join(stagingDir, 'img');
+    let projectIsWebp = false;
+    if (fs.existsSync(stagingImgDir)) {
+      function hasPng(dir: string): boolean {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (e.isDirectory()) { if (hasPng(path.join(dir, e.name))) return true; }
+          else if (e.name.toLowerCase().endsWith('.png')) return true;
+        }
+        return false;
+      }
+      function hasWebp(dir: string): boolean {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (e.isDirectory()) { if (hasWebp(path.join(dir, e.name))) return true; }
+          else if (e.name.toLowerCase().endsWith('.webp')) return true;
+        }
+        return false;
+      }
+      projectIsWebp = !hasPng(stagingImgDir) && hasWebp(stagingImgDir);
+    }
+
+    if (opts.convertWebp && !projectIsWebp) {
       onEvent({ type: 'status', phase: 'patching' });
       onEvent({ type: 'log', message: '── WebP 변환 중 ──' });
       const webpCount = await convertImagesToWebP(stagingDir, onEvent);
       onEvent({ type: 'log', message: `✓ WebP 변환 완료 (${webpCount}개)` });
+      projectIsWebp = webpCount > 0;
+    } else if (projectIsWebp) {
+      onEvent({ type: 'log', message: '✓ 이미 WebP로 변환된 프로젝트 — 변환 생략' });
     }
 
     applyIndexHtmlRename(stagingDir);
-    applyCacheBusting(stagingDir, makeBuildId(), opts);
+    // 프로젝트가 WebP면 convertWebp 플래그를 강제 활성화
+    applyCacheBusting(stagingDir, makeBuildId(), { ...opts, convertWebp: projectIsWebp || opts.convertWebp });
 
     onEvent({ type: 'status', phase: 'zipping' });
     onEvent({ type: 'log', message: '── ZIP 압축 중 ──' });

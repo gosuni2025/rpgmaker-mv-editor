@@ -61,6 +61,8 @@
     "eventSearch": "이벤트 검색...",
     "characterGenerator": "캐릭터 생성...",
     "resourceManager": "자원 관리...",
+    "convertToWebp": "이미지 WebP 변환...",
+    "convertToWebpDone": "이미지 WebP 변환 (완료됨)",
     "autotileDebug": "오토타일 디버그...",
     "tileIdDebug": "타일 ID 오버레이",
     "playtestTitle": "타이틀부터 테스트",
@@ -1419,6 +1421,16 @@
     "playing": "재생 중: {{name}}",
     "noFiles": "파일 없음",
     "playFailed": "재생 실패"
+  },
+  "webpConvert": {
+    "title": "이미지 WebP 변환",
+    "confirmDesc": "프로젝트의 img/ 폴더에 있는 모든 PNG 파일을 WebP (무손실) 형식으로 변환합니다.",
+    "point1": "배포 용량 및 네트워크 트래픽이 약 25~35% 줄어듭니다",
+    "point2": "투명도가 완벽하게 보존됩니다 (무손실 압축)",
+    "point3": "변환 완료 후 에디터와 배포본 모두 WebP로 동작합니다",
+    "irreversible": "이 작업은 되돌릴 수 없습니다. 원본 PNG 파일이 삭제되며, git 등으로 별도 백업을 권장합니다.",
+    "startButton": "변환 시작",
+    "done": "변환 완료 ({{count}}개)"
   },
   "resourceManager": {
     "title": "자원 관리",

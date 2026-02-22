@@ -25,8 +25,9 @@ export const projectSlice: SliceCreator<Pick<EditorState,
   selectedStartPosition: null,
 
   openProject: async (projectPath: string) => {
-    const res = await apiClient.post<{ name?: string; parseErrors?: { file: string; error: string }[] }>('/project/open', { path: projectPath });
+    const res = await apiClient.post<{ name?: string; parseErrors?: { file: string; error: string }[]; useWebp?: boolean }>('/project/open', { path: projectPath });
     // 기존 맵 상태 초기화 (프로젝트 전환 시 이전 맵이 남는 버그 수정)
+    const useWebp = res.useWebp ?? false;
     set({
       projectPath,
       projectName: res.name || projectPath.split('/').pop() || null,
@@ -38,7 +39,10 @@ export const projectSlice: SliceCreator<Pick<EditorState,
       clipboard: null,
       selectedEventId: null,
       parseErrors: res.parseErrors || null,
+      useWebp,
     });
+    // 에디터 런타임에 WebP 플래그 주입
+    (window as unknown as Record<string, unknown>).__CACHE_BUST__ = { webp: useWebp };
     localStorage.setItem(PROJECT_STORAGE_KEY, projectPath);
 
     await get().loadMaps();

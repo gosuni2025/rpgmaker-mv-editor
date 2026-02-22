@@ -293,6 +293,8 @@ export interface EditorState {
   showLocalizationDialog: boolean;
   showUpdateCheckDialog: boolean;
   showMCPStatusDialog: boolean;
+  showWebpConvertDialog: boolean;
+  useWebp: boolean;
 
 
   // Actions - Project
@@ -471,6 +473,8 @@ export interface EditorState {
   setShowLocalizationDialog: (show: boolean) => void;
   setShowUpdateCheckDialog: (show: boolean) => void;
   setShowMCPStatusDialog: (show: boolean) => void;
+  setShowWebpConvertDialog: (show: boolean) => void;
+  setUseWebp: (v: boolean) => void;
   setTransparentColor: (color: { r: number; g: number; b: number }) => void;
   setMaxUndo: (max: number) => void;
   setZoomStep: (step: number) => void;
