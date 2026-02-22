@@ -5,14 +5,18 @@ import './IconPicker.css';
 interface IconPickerProps {
   value: number;
   onChange: (iconIndex: number) => void;
+  initialOpen?: boolean;
+  onClose?: () => void;
+  hidePreview?: boolean;
 }
 
 const ICON_SIZE = 32;
 const ICONS_PER_ROW = 16;
 
-export default function IconPicker({ value, onChange }: IconPickerProps) {
-  const [open, setOpen] = useState(false);
-  useEscClose(useCallback(() => { if (open) setOpen(false); }, [open]));
+export default function IconPicker({ value, onChange, initialOpen, onClose, hidePreview }: IconPickerProps) {
+  const [open, setOpen] = useState(initialOpen ?? false);
+  const handleClose = useCallback(() => { setOpen(false); onClose?.(); }, [onClose]);
+  useEscClose(useCallback(() => { if (open) handleClose(); }, [open, handleClose]));
   const [iconSheet, setIconSheet] = useState<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
@@ -80,7 +84,7 @@ export default function IconPicker({ value, onChange }: IconPickerProps) {
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const idx = getIdxFromEvent(e);
     onChange(idx);
-    setOpen(false);
+    handleClose();
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -92,16 +96,18 @@ export default function IconPicker({ value, onChange }: IconPickerProps) {
 
   return (
     <div className="icon-picker">
-      <div className="icon-picker-preview" onClick={() => setOpen(!open)}>
-        <canvas ref={previewRef} width={ICON_SIZE} height={ICON_SIZE} />
-        <span>#{value}</span>
-      </div>
+      {!hidePreview && (
+        <div className="icon-picker-preview" onClick={() => open ? handleClose() : setOpen(true)}>
+          <canvas ref={previewRef} width={ICON_SIZE} height={ICON_SIZE} />
+          <span>#{value}</span>
+        </div>
+      )}
       {open && (
-        <div className="icon-picker-overlay" onClick={() => setOpen(false)}>
+        <div className="icon-picker-overlay" onClick={handleClose}>
           <div className="icon-picker-dialog" onClick={e => e.stopPropagation()}>
             <div className="icon-picker-dialog-header">
               <span>아이콘 선택 #{displayIdx}</span>
-              <button className="db-dialog-close" onClick={() => setOpen(false)}>&times;</button>
+              <button className="db-dialog-close" onClick={handleClose}>&times;</button>
             </div>
             <div className="icon-picker-dialog-body">
               <canvas
