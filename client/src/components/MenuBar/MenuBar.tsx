@@ -183,6 +183,8 @@ export default function MenuBar() {
       label: 'MCP',
       items: [
         { label: 'MCP 상태 팝업', action: 'mcpStatus' },
+        { type: 'separator' },
+        { label: 'MCP 설정 매뉴얼', action: 'mcpManual' },
       ],
     },
     {
@@ -305,6 +307,7 @@ export default function MenuBar() {
       case 'twitter': window.open('https://x.com/gosuni2025', '_blank'); break;
       case 'youtube': window.open('https://www.youtube.com/@gosuni2025', '_blank'); break;
       case 'mcpStatus': setShowMCPStatusDialog(true); break;
+      case 'mcpManual': window.open('https://github.com/gosuni2025/rpgmaker-mv-editor/blob/main/docs/mcp-setup.md', '_blank'); break;
     }
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
