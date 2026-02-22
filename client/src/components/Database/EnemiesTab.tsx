@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Enemy, DropItem, EnemyAction } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
@@ -8,6 +8,7 @@ import { DataListPicker, IconSprite } from '../EventEditor/dataListPicker';
 import DatabaseList from './DatabaseList';
 import { useEnemyRefData } from './useEnemyRefData';
 import EnemyDropDialog from './EnemyDropDialog';
+import { useDatabaseTab } from './useDatabaseTab';
 import './EnemiesTab.css';
 
 interface EnemiesTabProps {
@@ -15,10 +16,29 @@ interface EnemiesTabProps {
   onChange: (data: (Enemy | null)[]) => void;
 }
 
+function createNewEnemy(id: number): Enemy {
+  return {
+    id, name: '', battlerName: '', battlerHue: 0,
+    params: [100, 0, 10, 10, 10, 10, 10, 10], exp: 0, gold: 0,
+    dropItems: [{ kind: 0, dataId: 1, denominator: 1 }, { kind: 0, dataId: 1, denominator: 1 }, { kind: 0, dataId: 1, denominator: 1 }],
+    actions: [{ conditionParam1: 0, conditionParam2: 0, conditionType: 0, rating: 5, skillId: 1 }],
+    traits: [], note: '',
+  };
+}
+
+function deepCopyEnemy(source: Enemy): Partial<Enemy> {
+  return {
+    params: [...source.params],
+    dropItems: source.dropItems.map((d: DropItem) => ({ ...d })),
+    actions: source.actions.map((a: EnemyAction) => ({ ...a })),
+    traits: source.traits.map((t) => ({ ...t })),
+  };
+}
+
 export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
   const { t } = useTranslation();
-  const [selectedId, setSelectedId] = useState(1);
-  const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const { selectedId, setSelectedId, selectedItem, handleFieldChange, handleAdd, handleDelete, handleDuplicate, handleReorder } =
+    useDatabaseTab(data, onChange, createNewEnemy, deepCopyEnemy);
   const { skills, items, weapons, armors, skillNames, skillIcons, itemNames, weaponNames, armorNames } = useEnemyRefData();
   const [selectedActionIndex, setSelectedActionIndex] = useState<number>(-1);
   const [skillPickerOpen, setSkillPickerOpen] = useState(false);
@@ -28,11 +48,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
   const CONDITION_TYPE_LABELS: Record<number, string> = {
     0: t('conditionType.always'), 1: t('conditionType.turn'), 2: t('conditionType.hp'),
     3: t('conditionType.mp'), 4: t('conditionType.state'), 5: t('conditionType.partyLevel'), 6: t('conditionType.switch'),
-  };
-
-  const handleFieldChange = (field: keyof Enemy, value: unknown) => {
-    if (!data) return;
-    onChange(data.map(item => item && item.id === selectedId ? { ...item, [field]: value } : item));
   };
 
   const handleParamChange = (index: number, value: number) => {
@@ -65,58 +80,6 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
     if (selectedActionIndex >= actions.length) setSelectedActionIndex(actions.length - 1);
   };
 
-  const addNewEnemy = useCallback(() => {
-    if (!data) return;
-    const existing = data.filter(Boolean) as Enemy[];
-    const maxId = existing.length > 0 ? Math.max(...existing.map(e => e.id)) : 0;
-    const newEnemy: Enemy = {
-      id: maxId + 1, name: '', battlerName: '', battlerHue: 0,
-      params: [100, 0, 10, 10, 10, 10, 10, 10], exp: 0, gold: 0,
-      dropItems: [{ kind: 0, dataId: 1, denominator: 1 }, { kind: 0, dataId: 1, denominator: 1 }, { kind: 0, dataId: 1, denominator: 1 }],
-      actions: [{ conditionParam1: 0, conditionParam2: 0, conditionType: 0, rating: 5, skillId: 1 }],
-      traits: [], note: '',
-    };
-    onChange([...data, newEnemy]);
-    setSelectedId(newEnemy.id);
-  }, [data, onChange]);
-
-  const handleDeleteEnemy = useCallback((id: number) => {
-    if (!data) return;
-    if ((data.filter(Boolean) as Enemy[]).length <= 1) return;
-    const newData = data.filter(item => !item || item.id !== id);
-    onChange(newData);
-    if (id === selectedId) {
-      const remaining = newData.filter(Boolean) as Enemy[];
-      if (remaining.length > 0) setSelectedId(remaining[0].id);
-    }
-  }, [data, onChange, selectedId]);
-
-  const handleDuplicate = useCallback((id: number) => {
-    if (!data) return;
-    const source = data.find(item => item && item.id === id);
-    if (!source) return;
-    const existing = data.filter(Boolean) as Enemy[];
-    const newId = (existing.length > 0 ? Math.max(...existing.map(e => e.id)) : 0) + 1;
-    onChange([...data, {
-      ...source, id: newId, params: [...source.params],
-      dropItems: source.dropItems.map(d => ({ ...d })),
-      actions: source.actions.map(a => ({ ...a })),
-      traits: source.traits.map(t => ({ ...t })),
-    }]);
-    setSelectedId(newId);
-  }, [data, onChange]);
-
-  const handleReorder = useCallback((fromId: number, toId: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as Enemy[];
-    const fromIdx = items.findIndex(item => item.id === fromId);
-    if (fromIdx < 0) return;
-    const [moved] = items.splice(fromIdx, 1);
-    if (toId === -1) items.push(moved);
-    else { const toIdx = items.findIndex(item => item.id === toId); toIdx < 0 ? items.push(moved) : items.splice(toIdx, 0, moved); }
-    onChange([null, ...items]);
-  }, [data, onChange]);
-
   const getDropItemLabel = (drop: DropItem): string => {
     if (drop.kind === 0) return t('common.none');
     const list = drop.kind === 1 ? items : drop.kind === 2 ? weapons : armors;
@@ -137,7 +100,7 @@ export default function EnemiesTab({ data, onChange }: EnemiesTabProps) {
   return (
     <div className="db-tab-layout">
       <DatabaseList items={data} selectedId={selectedId} onSelect={setSelectedId}
-        onAdd={addNewEnemy} onDelete={handleDeleteEnemy} onDuplicate={handleDuplicate} onReorder={handleReorder} />
+        onAdd={handleAdd} onDelete={handleDelete} onDuplicate={handleDuplicate} onReorder={handleReorder} />
 
       {selectedItem && (
         <div className="enemies-main">

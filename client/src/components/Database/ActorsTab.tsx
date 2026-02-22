@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Actor, Trait } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
@@ -6,6 +6,7 @@ import TraitsEditor from '../common/TraitsEditor';
 import TranslateButton from '../common/TranslateButton';
 import DatabaseList from './DatabaseList';
 import apiClient from '../../api/client';
+import { useDatabaseTab } from './useDatabaseTab';
 
 interface ActorsTabProps {
   data: (Actor | null)[] | undefined;
@@ -38,8 +39,8 @@ function createNewActor(id: number): Actor {
 
 export default function ActorsTab({ data, onChange }: ActorsTabProps) {
   const { t } = useTranslation();
-  const [selectedId, setSelectedId] = useState(1);
-  const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const { selectedId, setSelectedId, selectedItem, handleFieldChange, handleAdd, handleDelete, handleDuplicate, handleReorder } =
+    useDatabaseTab(data, onChange, createNewActor);
   const [classes, setClasses] = useState<RefItem[]>([]);
   const [weapons, setWeapons] = useState<RefItem[]>([]);
   const [armors, setArmors] = useState<RefItem[]>([]);
@@ -52,70 +53,11 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
     apiClient.get<(RefItem | null)[]>('/database/armors').then(d => setArmors(d.filter(Boolean) as RefItem[])).catch(() => {});
   }, []);
 
-  const handleFieldChange = (field: keyof Actor, value: unknown) => {
-    if (!data) return;
-    const newData = data.map((item) => {
-      if (item && item.id === selectedId) {
-        return { ...item, [field]: value };
-      }
-      return item;
-    });
-    onChange(newData);
-  };
-
   const handleEquipChange = (index: number, value: number) => {
     const equips = [...(selectedItem?.equips || [0, 0, 0, 0, 0])];
     equips[index] = value;
     handleFieldChange('equips', equips);
   };
-
-  const handleAddActor = useCallback(() => {
-    if (!data) return;
-    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
-    const newId = maxId + 1;
-    const newData = [...data, createNewActor(newId)];
-    onChange(newData);
-    setSelectedId(newId);
-  }, [data, onChange]);
-
-  const handleDeleteActor = useCallback((id: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as Actor[];
-    if (items.length <= 1) return;
-    const newData = data.filter((item) => !item || item.id !== id);
-    onChange(newData);
-    const remaining = newData.filter(Boolean) as Actor[];
-    if (remaining.length > 0 && id === selectedId) {
-      setSelectedId(remaining[0].id);
-    }
-  }, [data, onChange, selectedId]);
-
-  const handleDuplicate = useCallback((id: number) => {
-    if (!data) return;
-    const source = data.find((item) => item && item.id === id);
-    if (!source) return;
-    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
-    const newId = maxId + 1;
-    const newData = [...data, { ...source, id: newId }];
-    onChange(newData);
-    setSelectedId(newId);
-  }, [data, onChange]);
-
-  const handleReorder = useCallback((fromId: number, toId: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as Actor[];
-    const fromIdx = items.findIndex(item => item.id === fromId);
-    if (fromIdx < 0) return;
-    const [moved] = items.splice(fromIdx, 1);
-    if (toId === -1) {
-      items.push(moved);
-    } else {
-      const toIdx = items.findIndex(item => item.id === toId);
-      if (toIdx < 0) items.push(moved);
-      else items.splice(toIdx, 0, moved);
-    }
-    onChange([null, ...items]);
-  }, [data, onChange]);
 
   return (
     <div className="db-tab-layout">
@@ -123,8 +65,8 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
         items={data}
         selectedId={selectedId}
         onSelect={setSelectedId}
-        onAdd={handleAddActor}
-        onDelete={handleDeleteActor}
+        onAdd={handleAdd}
+        onDelete={handleDelete}
         onDuplicate={handleDuplicate}
         onReorder={handleReorder}
       />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Skill, Damage, Effect } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
@@ -8,6 +8,7 @@ import EffectsEditor from '../common/EffectsEditor';
 import AnimationPickerDialog from '../EventEditor/AnimationPickerDialog';
 import DatabaseList from './DatabaseList';
 import apiClient from '../../api/client';
+import { useDatabaseTab } from './useDatabaseTab';
 
 interface SkillsTabProps {
   data: (Skill | null)[] | undefined;
@@ -18,10 +19,44 @@ interface RefItem { id: number; name: string }
 
 const DEFAULT_DAMAGE: Damage = { critical: false, elementId: 0, formula: '', type: 0, variance: 0 };
 
+function createNewSkill(id: number): Skill {
+  return {
+    id,
+    name: '',
+    iconIndex: 0,
+    description: '',
+    stypeId: 1,
+    scope: 0,
+    occasion: 0,
+    mpCost: 0,
+    tpCost: 0,
+    speed: 0,
+    successRate: 100,
+    repeats: 1,
+    tpGain: 0,
+    hitType: 0,
+    animationId: 0,
+    damage: { ...DEFAULT_DAMAGE },
+    effects: [],
+    message1: '',
+    message2: '',
+    note: '',
+    requiredWtypeId1: 0,
+    requiredWtypeId2: 0,
+  };
+}
+
+function deepCopySkill(source: Skill): Partial<Skill> {
+  return {
+    damage: { ...source.damage },
+    effects: source.effects.map((e: Effect) => ({ ...e })),
+  };
+}
+
 export default function SkillsTab({ data, onChange }: SkillsTabProps) {
   const { t } = useTranslation();
-  const [selectedId, setSelectedId] = useState(1);
-  const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const { selectedId, setSelectedId, selectedItem, handleFieldChange, handleAdd, handleDelete, handleDuplicate, handleReorder } =
+    useDatabaseTab(data, onChange, createNewSkill, deepCopySkill);
   const [skillTypes, setSkillTypes] = useState<string[]>([]);
   const [weaponTypes, setWeaponTypes] = useState<string[]>([]);
   const [animations, setAnimations] = useState<RefItem[]>([]);
@@ -65,111 +100,26 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
     }).catch(() => {});
   }, []);
 
-  const handleFieldChange = (field: keyof Skill, value: unknown) => {
-    if (!data) return;
-    const newData = data.map((item) => {
-      if (item && item.id === selectedId) {
-        return { ...item, [field]: value };
-      }
-      return item;
-    });
-    onChange(newData);
-  };
-
-  const handleAddSkill = useCallback(() => {
-    if (!data) return;
-    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
-    const newSkill: Skill = {
-      id: maxId + 1,
-      name: '',
-      iconIndex: 0,
-      description: '',
-      stypeId: 1,
-      scope: 0,
-      occasion: 0,
-      mpCost: 0,
-      tpCost: 0,
-      speed: 0,
-      successRate: 100,
-      repeats: 1,
-      tpGain: 0,
-      hitType: 0,
-      animationId: 0,
-      damage: { ...DEFAULT_DAMAGE },
-      effects: [],
-      message1: '',
-      message2: '',
-      note: '',
-      requiredWtypeId1: 0,
-      requiredWtypeId2: 0,
-    };
-    const newData = [...data, newSkill];
-    onChange(newData);
-    setSelectedId(newSkill.id);
-  }, [data, onChange]);
-
-  const handleDeleteSkill = useCallback((id: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as Skill[];
-    if (items.length <= 1) return;
-    const newData = data.filter((item) => !item || item.id !== id);
-    onChange(newData);
-    if (id === selectedId) {
-      const remaining = newData.filter(Boolean) as Skill[];
-      if (remaining.length > 0) setSelectedId(remaining[0].id);
-    }
-  }, [data, onChange, selectedId]);
-
-  const handleDuplicate = useCallback((id: number) => {
-    if (!data) return;
-    const source = data.find((item) => item && item.id === id);
-    if (!source) return;
-    const maxId = data.reduce((max, item) => (item && item.id > max ? item.id : max), 0);
-    const newId = maxId + 1;
-    const newData = [...data, { ...source, id: newId, damage: { ...source.damage }, effects: source.effects.map(e => ({ ...e })) }];
-    onChange(newData);
-    setSelectedId(newId);
-  }, [data, onChange]);
-
-  const handleReorder = useCallback((fromId: number, toId: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as Skill[];
-    const fromIdx = items.findIndex(item => item.id === fromId);
-    if (fromIdx < 0) return;
-    const [moved] = items.splice(fromIdx, 1);
-    if (toId === -1) {
-      items.push(moved);
-    } else {
-      const toIdx = items.findIndex(item => item.id === toId);
-      if (toIdx < 0) items.push(moved);
-      else items.splice(toIdx, 0, moved);
-    }
-    onChange([null, ...items]);
-  }, [data, onChange]);
-
   return (
     <div className="db-tab-layout">
       <DatabaseList
         items={data}
         selectedId={selectedId}
         onSelect={setSelectedId}
-        onAdd={handleAddSkill}
-        onDelete={handleDeleteSkill}
+        onAdd={handleAdd}
+        onDelete={handleDelete}
         onDuplicate={handleDuplicate}
         onReorder={handleReorder}
         title={t('database.tabs.skills')}
       />
 
-      {/* 중앙 + 우측: 2컬럼 폼 */}
       {selectedItem && (
         <div className="db-form-columns">
-          {/* 중앙 컬럼: 일반 설정 */}
           <div className="db-form-col">
             <div className="db-form-section" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
               {t('skills.generalSettings')}
             </div>
 
-            {/* 이름 + 아이콘 (한 줄) */}
             <div className="db-form-row">
               <label style={{ flex: 2 }}>
                 {t('common.name')}
@@ -192,7 +142,6 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
               </label>
             </div>
 
-            {/* 설명 */}
             <label>
               {t('common.description')}
               <div style={{ display: 'flex', gap: 4, alignItems: 'start' }}>
@@ -206,7 +155,6 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
               </div>
             </label>
 
-            {/* 스킬 타입 / 소비 MP / 소비 TP (한 줄) */}
             <div className="db-form-row">
               <label>
                 {t('fields.skillType')}
@@ -217,108 +165,58 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
               </label>
               <label>
                 {t('fields.mpCost')}
-                <input
-                  type="number"
-                  value={selectedItem.mpCost || 0}
-                  onChange={(e) => handleFieldChange('mpCost', Number(e.target.value))}
-                  min={0}
-                />
+                <input type="number" value={selectedItem.mpCost || 0} onChange={(e) => handleFieldChange('mpCost', Number(e.target.value))} min={0} />
               </label>
               <label>
                 {t('fields.tpCost')}
-                <input
-                  type="number"
-                  value={selectedItem.tpCost || 0}
-                  onChange={(e) => handleFieldChange('tpCost', Number(e.target.value))}
-                  min={0}
-                />
+                <input type="number" value={selectedItem.tpCost || 0} onChange={(e) => handleFieldChange('tpCost', Number(e.target.value))} min={0} />
               </label>
             </div>
 
-            {/* 범위 / 사용 가능시 (한 줄) */}
             <div className="db-form-row">
               <label>
                 {t('fields.scope')}
-                <select
-                  value={selectedItem.scope || 0}
-                  onChange={(e) => handleFieldChange('scope', Number(e.target.value))}
-                >
-                  {SCOPE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
+                <select value={selectedItem.scope || 0} onChange={(e) => handleFieldChange('scope', Number(e.target.value))}>
+                  {SCOPE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </label>
               <label>
                 {t('fields.occasion')}
-                <select
-                  value={selectedItem.occasion || 0}
-                  onChange={(e) => handleFieldChange('occasion', Number(e.target.value))}
-                >
-                  {OCCASION_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
+                <select value={selectedItem.occasion || 0} onChange={(e) => handleFieldChange('occasion', Number(e.target.value))}>
+                  {OCCASION_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </label>
             </div>
 
-            {/* 발동 섹션 */}
             <div className="db-form-section">{t('fields.invocation')}</div>
 
-            {/* 속도 / 성공률 / 연속 횟수 / TP 획득 (한 줄) */}
             <div className="db-form-row">
               <label>
                 {t('fields.speed')}
-                <input
-                  type="number"
-                  value={selectedItem.speed || 0}
-                  onChange={(e) => handleFieldChange('speed', Number(e.target.value))}
-                />
+                <input type="number" value={selectedItem.speed || 0} onChange={(e) => handleFieldChange('speed', Number(e.target.value))} />
               </label>
               <label>
                 {t('fields.successRate')}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <input
-                    type="number"
-                    value={selectedItem.successRate ?? 100}
-                    onChange={(e) => handleFieldChange('successRate', Number(e.target.value))}
-                    min={0}
-                    max={100}
-                    style={{ flex: 1 }}
-                  />
+                  <input type="number" value={selectedItem.successRate ?? 100} onChange={(e) => handleFieldChange('successRate', Number(e.target.value))} min={0} max={100} style={{ flex: 1 }} />
                   <span style={{ color: '#aaa', fontSize: 12 }}>%</span>
                 </div>
               </label>
               <label>
                 {t('fields.repeats')}
-                <input
-                  type="number"
-                  value={selectedItem.repeats || 1}
-                  onChange={(e) => handleFieldChange('repeats', Number(e.target.value))}
-                  min={1}
-                />
+                <input type="number" value={selectedItem.repeats || 1} onChange={(e) => handleFieldChange('repeats', Number(e.target.value))} min={1} />
               </label>
               <label>
                 {t('fields.tpGain')}
-                <input
-                  type="number"
-                  value={selectedItem.tpGain || 0}
-                  onChange={(e) => handleFieldChange('tpGain', Number(e.target.value))}
-                  min={0}
-                />
+                <input type="number" value={selectedItem.tpGain || 0} onChange={(e) => handleFieldChange('tpGain', Number(e.target.value))} min={0} />
               </label>
             </div>
 
-            {/* 히트 유형 / 애니메이션 (한 줄) */}
             <div className="db-form-row">
               <label>
                 {t('fields.hitType')}
-                <select
-                  value={selectedItem.hitType || 0}
-                  onChange={(e) => handleFieldChange('hitType', Number(e.target.value))}
-                >
-                  {HIT_TYPE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
+                <select value={selectedItem.hitType || 0} onChange={(e) => handleFieldChange('hitType', Number(e.target.value))}>
+                  {HIT_TYPE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </label>
               <label>
@@ -331,30 +229,19 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
               </label>
             </div>
 
-            {/* 메시지 섹션 */}
             <div className="db-form-section">{t('fields.message')}</div>
 
             <label>
               ({t('fields.userName')})
               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                <input
-                  type="text"
-                  value={selectedItem.message1 || ''}
-                  onChange={(e) => handleFieldChange('message1', e.target.value)}
-                  style={{ flex: 1 }}
-                />
+                <input type="text" value={selectedItem.message1 || ''} onChange={(e) => handleFieldChange('message1', e.target.value)} style={{ flex: 1 }} />
                 <TranslateButton csvPath="database/skills.csv" entryKey={`${selectedItem.id}.message1`} sourceText={selectedItem.message1 || ''} />
               </div>
             </label>
 
             <label>
               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                <input
-                  type="text"
-                  value={selectedItem.message2 || ''}
-                  onChange={(e) => handleFieldChange('message2', e.target.value)}
-                  style={{ flex: 1 }}
-                />
+                <input type="text" value={selectedItem.message2 || ''} onChange={(e) => handleFieldChange('message2', e.target.value)} style={{ flex: 1 }} />
                 <TranslateButton csvPath="database/skills.csv" entryKey={`${selectedItem.id}.message2`} sourceText={selectedItem.message2 || ''} />
               </div>
             </label>
@@ -374,7 +261,6 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
               ))}
             </div>
 
-            {/* 필요한 무기 섹션 */}
             <div className="db-form-section">{t('fields.requiredWeaponTypes')}</div>
 
             <div className="db-form-row">
@@ -395,7 +281,6 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             </div>
           </div>
 
-          {/* 우측 컬럼: 손상 + 사용 효과 + 메모 */}
           <div className="db-form-col">
             <div className="db-form-section" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
               {t('fields.damage')}
@@ -420,17 +305,9 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
               onChange={(e) => handleFieldChange('note', e.target.value)}
               rows={5}
               style={{
-                background: '#2b2b2b',
-                border: '1px solid #555',
-                borderRadius: 3,
-                padding: '4px 8px',
-                color: '#ddd',
-                fontSize: 13,
-                fontFamily: 'inherit',
-                outline: 'none',
-                resize: 'vertical',
-                flex: 1,
-                minHeight: 60,
+                background: '#2b2b2b', border: '1px solid #555', borderRadius: 3,
+                padding: '4px 8px', color: '#ddd', fontSize: 13, fontFamily: 'inherit',
+                outline: 'none', resize: 'vertical', flex: 1, minHeight: 60,
               }}
             />
           </div>
