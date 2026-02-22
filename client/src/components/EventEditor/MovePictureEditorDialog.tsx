@@ -171,6 +171,16 @@ export function MovePictureEditorDialog({ p, commandIndex, pageIndex, onOk, onCa
   const [replayTrigger, setReplayTrigger] = useState(0);
   const [showWindow, setShowWindow] = useState(true);
 
+  // 고스트 이미지 불투명도 (localStorage 유지)
+  const [ghostOpacity, setGhostOpacity] = useState(() => {
+    const v = localStorage.getItem('movepicture.ghostOpacity');
+    return v !== null ? parseFloat(v) : 0.35;
+  });
+  const handleGhostOpacity = (v: number) => {
+    setGhostOpacity(v);
+    localStorage.setItem('movepicture.ghostOpacity', String(v));
+  };
+
   // 드래그 undo 스택
   const undoStack = useRef<{ posX: number; posY: number; positionType: number }[]>([]);
   const posXRef = useRef(posX); posXRef.current = posX;
@@ -400,6 +410,7 @@ export function MovePictureEditorDialog({ p, commandIndex, pageIndex, onOk, onCa
                 replayTrigger={replayTrigger}
                 showWindow={showWindow}
                 showFromGhost
+                ghostOpacity={ghostOpacity}
                 onPositionDrag={handlePositionDrag}
                 onDragStart={handleDragStart}
               />
@@ -496,6 +507,17 @@ export function MovePictureEditorDialog({ p, commandIndex, pageIndex, onOk, onCa
                       </div>
                     </Fieldset>
                   </div>
+                </div>
+
+                {/* 고스트 불투명도 슬라이더 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 8, borderTop: '1px solid #444' }}>
+                  <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>고스트 불투명도</span>
+                  <input type="range" min={0} max={1} step={0.05} value={ghostOpacity}
+                    onChange={e => handleGhostOpacity(parseFloat(e.target.value))}
+                    style={{ flex: 1 }} />
+                  <span style={{ fontSize: 11, color: '#aaa', width: 34, textAlign: 'right' }}>
+                    {Math.round(ghostOpacity * 100)}%
+                  </span>
                 </div>
               </fieldset>
             </div>

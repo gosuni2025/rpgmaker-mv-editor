@@ -18,6 +18,57 @@ export interface PictureSnapshot {
   blendMode: number;      // 0=일반, 1=추가, 2=곱하기, 3=스크린
 }
 
+// 앵커 포인트: posX/posY 또는 프리셋으로 계산되는 기준 좌표 (origin 보정 없음)
+function computeAnchor(snap: PictureSnapshot): { x: number; y: number } {
+  if (snap.positionType === 2) {
+    return {
+      x: (snap.presetX - 1) * GW / 4 + (snap.presetOffsetX ?? 0),
+      y: (snap.presetY - 1) * GH / 4 + (snap.presetOffsetY ?? 0),
+    };
+  }
+  return { x: snap.posX, y: snap.posY };
+}
+
+// 이동 화살표 (from 앵커 → to 앵커)
+function drawMoveArrow(ctx: CanvasRenderingContext2D, fx: number, fy: number, tx: number, ty: number) {
+  const dx = tx - fx, dy = ty - fy;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 8) return;
+  const angle = Math.atan2(dy, dx);
+  const headLen = 14;
+  const headAngle = Math.PI / 6;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.9)';
+  ctx.shadowBlur = 4;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255,220,60,0.92)';
+  ctx.fillStyle = 'rgba(255,220,60,0.92)';
+
+  // 점선 몸통 (화살머리 직전까지)
+  ctx.setLineDash([6, 3]);
+  ctx.beginPath();
+  ctx.moveTo(fx, fy);
+  ctx.lineTo(tx - headLen * 0.8 * Math.cos(angle), ty - headLen * 0.8 * Math.sin(angle));
+  ctx.stroke();
+
+  // 화살머리 (채운 삼각형)
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(tx - headLen * Math.cos(angle - headAngle), ty - headLen * Math.sin(angle - headAngle));
+  ctx.lineTo(tx - headLen * Math.cos(angle + headAngle), ty - headLen * Math.sin(angle + headAngle));
+  ctx.closePath();
+  ctx.fill();
+
+  // 시작점 원
+  ctx.beginPath();
+  ctx.arc(fx, fy, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 // 게임 좌표에서 Three.js mesh 위치/크기 계산
 function computePicRect(snap: PictureSnapshot, imgW: number, imgH: number) {
   const w = Math.max(1, imgW * snap.scaleWidth / 100);
@@ -143,11 +194,12 @@ interface Props {
   replayTrigger?: number;          // 변경 시 애니메이션 재시작
   showWindow?: boolean;            // 대화창 표시 여부
   showFromGhost?: boolean;         // 시작 위치를 반투명 고스트로 표시
+  ghostOpacity?: number;           // 고스트 이미지 불투명도 (0~1)
   onPositionDrag?: (posX: number, posY: number) => void;  // 드래그로 위치 변경
   onDragStart?: () => void;        // 드래그 시작 시 호출 (undo 스택 저장용)
 }
 
-export function PicturePreview({ current, from, durationMs = 1000, replayTrigger = 0, showWindow = true, showFromGhost = false, onPositionDrag, onDragStart }: Props) {
+export function PicturePreview({ current, from, durationMs = 1000, replayTrigger = 0, showWindow = true, showFromGhost = false, ghostOpacity = 0.35, onPositionDrag, onDragStart }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const refsRef = useRef<PicRefs | null>(null);
   const rafRef = useRef(0);
@@ -174,6 +226,8 @@ export function PicturePreview({ current, from, durationMs = 1000, replayTrigger
   showWindowRef.current = showWindow;
   const showFromGhostRef = useRef(showFromGhost);
   showFromGhostRef.current = showFromGhost;
+  const ghostOpacityRef = useRef(ghostOpacity);
+  ghostOpacityRef.current = ghostOpacity;
 
   // 재생 트리거
   useEffect(() => {
@@ -272,7 +326,7 @@ export function PicturePreview({ current, from, durationMs = 1000, replayTrigger
         }
         const { x: gx, y: gy, w: gw, h: gh } = computePicRect(ghostSnap, refs.imgNatW, refs.imgNatH);
         positionMesh(refs.fromGhostMesh, gx, gy, gw, gh);
-        refs.fromGhostMesh.material.opacity = 0.35;
+        refs.fromGhostMesh.material.opacity = ghostOpacityRef.current;
         refs.fromGhostMesh.material.needsUpdate = true;
         refs.fromGhostMesh.visible = true;
       } else {
@@ -284,7 +338,15 @@ export function PicturePreview({ current, from, durationMs = 1000, replayTrigger
 
       refs.renderer.render(refs.scene, refs.camera);
       const ctx = canvas.getContext('2d');
-      if (ctx) ctx.drawImage(refs.renderer.domElement, 0, 0, GW, GH, 0, 0, GW, GH);
+      if (ctx) {
+        ctx.drawImage(refs.renderer.domElement, 0, 0, GW, GH, 0, 0, GW, GH);
+        // 이동 화살표: from 앵커 → current 앵커
+        if (showFromGhostRef.current && fromRef.current) {
+          const fa = computeAnchor(fromRef.current);
+          const ta = computeAnchor(currentRef.current);
+          drawMoveArrow(ctx, fa.x, fa.y, ta.x, ta.y);
+        }
+      }
 
       rafRef.current = requestAnimationFrame(tick);
     };
