@@ -37,6 +37,7 @@ export default function DrawToolbar() {
   const zoomIn = useEditorStore((s) => s.zoomIn);
   const zoomOut = useEditorStore((s) => s.zoomOut);
   const saveCurrentMap = useEditorStore((s) => s.saveCurrentMap);
+  const demoMode = useEditorStore((s) => s.demoMode);
   const mode3d = useEditorStore((s) => s.mode3d);
   const shadowLight = useEditorStore((s) => s.shadowLight);
   const disableFow = useEditorStore((s) => s.disableFow);
@@ -374,24 +375,34 @@ export default function DrawToolbar() {
 
       <div style={{ flex: 1 }} />
 
-      <button onClick={saveCurrentMap} style={styles.saveBtn}>
-        {t('toolbar.save')}
-      </button>
+      {!demoMode && (
+        <button onClick={saveCurrentMap} style={styles.saveBtn}>
+          {t('toolbar.save')}
+        </button>
+      )}
 
       <button
         onClick={() => {
-          saveCurrentMap().then(() => {
-            const state = useEditorStore.getState();
-            const mapId = state.currentMapId || 1;
-            const testPos = state.currentMap?.testStartPosition;
-            if (testPos) {
-              window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${testPos.x}&startY=${testPos.y}`, '_blank');
-            } else {
-              const centerX = Math.floor((state.currentMap?.width || 1) / 2);
-              const centerY = Math.floor((state.currentMap?.height || 1) / 2);
-              window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${centerX}&startY=${centerY}`, '_blank');
-            }
-          });
+          const state = useEditorStore.getState();
+          const mapId = state.currentMapId || 1;
+          const testPos = state.currentMap?.testStartPosition;
+          const centerX = Math.floor((state.currentMap?.width || 1) / 2);
+          const centerY = Math.floor((state.currentMap?.height || 1) / 2);
+          const startX = testPos ? testPos.x : centerX;
+          const startY = testPos ? testPos.y : centerY;
+          if (demoMode) {
+            fetch('/api/playtestSession', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mapId, mapData: state.currentMap }),
+            }).then(r => r.json()).then(({ sessionToken }) => {
+              window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}&session=${sessionToken}`, '_blank');
+            });
+          } else {
+            saveCurrentMap().then(() => {
+              window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}`, '_blank');
+            });
+          }
         }}
         style={styles.playBtn}
         title="Ctrl+R"

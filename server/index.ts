@@ -400,11 +400,16 @@ export function createApp(options: AppOptions = {}) {
   app.use('/game/img', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
     res.set('Cache-Control', 'no-store');
-    express.static(path.join(projectManager.currentPath!, 'img'))(req, res, next);
+    // /game/data와 동일하게 파일 없으면 명시적 404 (next()로 흘리면 요청이 무한 대기 → ImageManager.isReady() 영원히 false)
+    express.static(path.join(projectManager.currentPath!, 'img'))(req, res, () => {
+      if (!res.headersSent) res.status(404).send('Not found');
+    });
   });
   app.use('/game/audio', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
-    express.static(path.join(projectManager.currentPath!, 'audio'))(req, res, next);
+    express.static(path.join(projectManager.currentPath!, 'audio'))(req, res, () => {
+      if (!res.headersSent) res.status(404).send('Not found');
+    });
   });
   app.use('/game/movies', (req, res, next) => {
     if (!projectManager.isOpen()) return res.status(404).send('No project');
