@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import fs from 'fs';
+import path from 'path';
 import { execSync } from 'child_process';
 import { promisify } from 'util';
 import { exec } from 'child_process';
@@ -251,6 +252,13 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
     // GhPages는 파일 변환 없이 직접 커밋하므로 WebP 플래그 비활성화
     applyCacheBusting(srcPath, buildId, { ...opts, convertWebp: false });
     await generateBundleFiles(srcPath, buildId, (msg) => sseLog(res, msg));
+
+    // ZIP으로 묶인 폴더는 git에서 제거 (bundles/*.zip으로 대체됨)
+    sseLog(res, 'img/, audio/, data/ 원본 제거 (bundles/*.zip으로 대체)');
+    for (const dir of ['img', 'audio', 'data']) {
+      const dirPath = path.join(srcPath, dir);
+      if (fs.existsSync(dirPath)) fs.rmSync(dirPath, { recursive: true, force: true });
+    }
 
     // ── 6. git commit ─────────────────────────────────────────────────────────
     currentStep = 'git commit';
