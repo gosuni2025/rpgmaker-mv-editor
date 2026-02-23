@@ -235,7 +235,21 @@ export default function MenuBar() {
       case 'newProject': setShowNewProjectDialog(true); break;
       case 'openProject': setShowOpenProjectDialog(true); break;
       case 'closeProject': closeProject(); break;
-      case 'save': saveCurrentMap(); break;
+      case 'save':
+        if (editorMode === 'ui') {
+          const s = useEditorStore.getState();
+          fetch('/api/ui-editor/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ overrides: s.uiEditorOverrides }),
+          }).then(() => {
+            s.setUiEditorDirty(false);
+            s.showToast('UI 테마 저장 완료');
+          }).catch(() => s.showToast('저장 실패', true));
+        } else {
+          saveCurrentMap();
+        }
+        break;
       case 'deploy': setShowDeployDialog(true); break;
       case 'undo': undo(); break;
       case 'redo': redo(); break;
