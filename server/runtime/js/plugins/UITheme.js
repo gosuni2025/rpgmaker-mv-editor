@@ -235,9 +235,36 @@
       }
     }
 
+    var blendModeMap = { normal: 0, add: 1, multiply: 2, screen: 3 };
+    this._windowCursorSprite.blendMode = blendModeMap[entry.cursorBlendMode || 'normal'] || 0;
     this._windowCursorSprite.setFrame(0, 0, w, h);
     this._windowCursorSprite.move(x, y);
-    this._windowCursorSprite.alpha = 192 / 255;
+    // alpha는 _updateCursor에서 매 프레임 갱신하므로 여기서는 초기값만 설정
+    this._windowCursorSprite.alpha = (entry.cursorOpacity !== undefined ? entry.cursorOpacity : 192) / 255;
+    // _cursorEntry 캐싱: _updateCursor 오버라이드에서 참조
+    this._uiThemeCursorEntry = entry;
+  };
+
+  //===========================================================================
+  // Window — 커서 업데이트 오버라이드 (opacity / blink 커스터마이징)
+  //===========================================================================
+  var _Window_updateCursor = Window.prototype._updateCursor;
+  Window.prototype._updateCursor = function () {
+    var entry = this._uiThemeCursorEntry;
+    if (!entry || entry.cursorX === undefined) { return _Window_updateCursor.call(this); }
+    var maxOpacity = entry.cursorOpacity !== undefined ? entry.cursorOpacity : 192;
+    var blink = entry.cursorBlink !== false; // 기본 true
+    var blinkCount = this._animationCount % 40;
+    var opacity = this.contentsOpacity * (maxOpacity / 255);
+    if (blink && this.active) {
+      if (blinkCount < 20) {
+        opacity -= blinkCount * 8 * (maxOpacity / 255);
+      } else {
+        opacity -= (40 - blinkCount) * 8 * (maxOpacity / 255);
+      }
+    }
+    this._windowCursorSprite.alpha = Math.max(0, opacity) / 255;
+    this._windowCursorSprite.visible = this.isOpen();
   };
 
   var _ov = _config.overrides || {};

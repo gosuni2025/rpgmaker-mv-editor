@@ -248,8 +248,11 @@ export interface EditorState {
   uiSkinCursorH: number;       // 커서 소스 높이
   uiSkinCursorCornerSize: number; // 커서 9-slice 코너 크기
   uiSkinCursorRenderMode: 'nineSlice' | 'stretch' | 'tile'; // 커서 렌더링 모드
+  uiSkinCursorBlendMode: 'normal' | 'add' | 'multiply' | 'screen'; // 커서 blend mode
+  uiSkinCursorOpacity: number;   // 커서 최대 불투명도 (0~255)
+  uiSkinCursorBlink: boolean;    // 커서 깜박임 on/off
   uiSkinsReloadToken: number;  // 증가하면 스킨 목록 강제 리로드
-  uiSkinUndoStack: Array<{ frameX: number; frameY: number; frameW: number; frameH: number; fillX: number; fillY: number; fillW: number; fillH: number; cornerSize: number; cursorX: number; cursorY: number; cursorW: number; cursorH: number; cursorCornerSize: number; cursorRenderMode: 'nineSlice' | 'stretch' | 'tile' }>;
+  uiSkinUndoStack: Array<{ frameX: number; frameY: number; frameW: number; frameH: number; fillX: number; fillY: number; fillW: number; fillH: number; cornerSize: number; cursorX: number; cursorY: number; cursorW: number; cursorH: number; cursorCornerSize: number; cursorRenderMode: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity: number; cursorBlink: boolean }>;
   uiEditorSelectedElementType: string | null; // 선택된 요소 타입 (actorName, hp 등)
   uiShowSkinLabels: boolean;    // 프레임 캔버스 영역 라벨 표시 여부
   uiShowCheckerboard: boolean;  // 프레임 캔버스 투명 체크보드 표시 여부
@@ -412,6 +415,9 @@ export interface EditorState {
   setUiSkinCursor: (x: number, y: number, w: number, h: number) => void;
   setUiSkinCursorCornerSize: (size: number) => void;
   setUiSkinCursorRenderMode: (mode: 'nineSlice' | 'stretch' | 'tile') => void;
+  setUiSkinCursorBlendMode: (mode: 'normal' | 'add' | 'multiply' | 'screen') => void;
+  setUiSkinCursorOpacity: (v: number) => void;
+  setUiSkinCursorBlink: (v: boolean) => void;
   triggerSkinsReload: () => void;
   pushUiSkinUndo: () => void;
   undoUiSkin: () => void;
