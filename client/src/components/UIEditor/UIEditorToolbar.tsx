@@ -35,6 +35,7 @@ function SkinLabelHelp({ onClose }: { onClose: () => void }) {
 export default function UIEditorToolbar() {
   const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
   const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
+  const uiEditorWindows = useEditorStore((s) => s.uiEditorWindows);
   const uiShowSkinLabels = useEditorStore((s) => s.uiShowSkinLabels);
   const uiShowCheckerboard = useEditorStore((s) => s.uiShowCheckerboard);
   const uiShowRegionOverlay = useEditorStore((s) => s.uiShowRegionOverlay);
@@ -60,6 +61,24 @@ export default function UIEditorToolbar() {
     } catch {
       useEditorStore.getState().showToast('저장 실패', true);
     }
+  };
+
+  const handleResetScene = async () => {
+    const s = useEditorStore.getState();
+    // 현재 씬의 모든 창 오버라이드 제거
+    uiEditorWindows.forEach((win) => s.resetUiEditorOverride(win.className));
+    // 서버에 저장 (비어있는 overrides)
+    const overrides = useEditorStore.getState().uiEditorOverrides;
+    await fetch('/api/ui-editor/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overrides }),
+    });
+    s.setUiEditorDirty(false);
+    // iframe 씬 재로드
+    const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+    iframe?.contentWindow?.postMessage({ type: 'loadScene', sceneName: useEditorStore.getState().uiEditorScene }, '*');
+    s.showToast('씬 초기화 완료 (원본으로 복원)');
   };
 
   const handlePlaytest = () => {
@@ -104,6 +123,19 @@ export default function UIEditorToolbar() {
             프레임 편집
           </button>
         </div>
+
+        {/* 창 편집 전용 옵션 */}
+        {uiEditSubMode === 'window' && (
+          <button
+            className="ui-canvas-toolbar-btn"
+            style={{ fontSize: 11, padding: '2px 8px', color: '#f88' }}
+            disabled={!projectPath || uiEditorWindows.length === 0}
+            onClick={handleResetScene}
+            title="현재 씬의 모든 창 수정을 원본으로 초기화"
+          >
+            씬 초기화
+          </button>
+        )}
 
         {/* 프레임 편집 전용 옵션 */}
         {uiEditSubMode === 'frame' && (
