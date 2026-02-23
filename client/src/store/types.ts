@@ -229,7 +229,11 @@ export interface EditorState {
   // UI Editor 서브모드: 창 배치 편집 vs 프레임(스킨) 편집
   uiEditSubMode: 'window' | 'frame';
   uiSelectedSkin: string;      // 선택된 스킨 파일명 (확장자 제외)
-  uiSkinCornerSize: number;    // 9-slice 코너 크기 px (RPG MV 기본 24)
+  uiSkinCornerSize: number;    // 9-slice 코너 크기 px
+  uiSkinFrameX: number;        // 프레임 영역 X (이미지 픽셀 기준)
+  uiSkinFrameY: number;        // 프레임 영역 Y
+  uiSkinFrameW: number;        // 프레임 영역 너비
+  uiSkinFrameH: number;        // 프레임 영역 높이
   uiEditorSelectedElementType: string | null; // 선택된 요소 타입 (actorName, hp 등)
   uiShowSkinLabels: boolean;   // 프레임 캔버스 영역 라벨 표시 여부
 
@@ -382,6 +386,7 @@ export interface EditorState {
   setUiEditSubMode: (mode: 'window' | 'frame') => void;
   setUiSelectedSkin: (skin: string) => void;
   setUiSkinCornerSize: (size: number) => void;
+  setUiSkinFrame: (x: number, y: number, w: number, h: number) => void;
   setUiEditorSelectedElementType: (type: string | null) => void;
   setUiElementOverride: (className: string, elementType: string, prop: string, value: unknown) => void;
   setUiShowSkinLabels: (show: boolean) => void;

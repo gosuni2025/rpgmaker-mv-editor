@@ -12,12 +12,12 @@ function saveToolbarKeys(keys: Partial<Record<string, unknown>>) {
 export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' |
   'uiEditorSelectedWindowId' | 'uiEditorOverrides' | 'uiEditorDirty' |
-  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSkinCornerSize' | 'uiShowSkinLabels' |
+  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiShowSkinLabels' |
   'uiEditorSelectedElementType' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
-  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSkinCornerSize' | 'setUiShowSkinLabels' |
+  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiShowSkinLabels' |
   'setUiEditorSelectedElementType' | 'setUiElementOverride'
 >> = (set) => ({
   editorMode: 'map',
@@ -30,6 +30,10 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiEditSubMode: 'window',
   uiSelectedSkin: 'Window',
   uiSkinCornerSize: 24,
+  uiSkinFrameX: 96,
+  uiSkinFrameY: 0,
+  uiSkinFrameW: 96,
+  uiSkinFrameH: 96,
   uiShowSkinLabels: false,
   uiEditorSelectedElementType: null,
 
@@ -62,6 +66,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   setUiEditSubMode: (mode) => { saveToolbarKeys({ uiEditSubMode: mode }); set({ uiEditSubMode: mode }); },
   setUiSelectedSkin: (skin) => set({ uiSelectedSkin: skin }),
   setUiSkinCornerSize: (size) => set({ uiSkinCornerSize: size }),
+  setUiSkinFrame: (x, y, w, h) => set({ uiSkinFrameX: x, uiSkinFrameY: y, uiSkinFrameW: w, uiSkinFrameH: h }),
   setUiShowSkinLabels: (show) => set({ uiShowSkinLabels: show }),
   setUiEditorSelectedElementType: (type) => set({ uiEditorSelectedElementType: type }),
   setUiElementOverride: (className, elementType, prop, value) => {

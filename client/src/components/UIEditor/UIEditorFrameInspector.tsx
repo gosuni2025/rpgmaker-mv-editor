@@ -6,18 +6,22 @@ import './UIEditor.css';
 export default function UIEditorFrameInspector() {
   const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
   const uiSkinCornerSize = useEditorStore((s) => s.uiSkinCornerSize);
+  const uiSkinFrameX = useEditorStore((s) => s.uiSkinFrameX);
+  const uiSkinFrameY = useEditorStore((s) => s.uiSkinFrameY);
+  const uiSkinFrameW = useEditorStore((s) => s.uiSkinFrameW);
+  const uiSkinFrameH = useEditorStore((s) => s.uiSkinFrameH);
   const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
+  const setUiSkinFrame = useEditorStore((s) => s.setUiSkinFrame);
   const setUiEditorDirty = useEditorStore((s) => s.setUiEditorDirty);
   const projectPath = useEditorStore((s) => s.projectPath);
 
-  // cornerSize를 UIEditorSkins.json에 저장
-  const saveSkinCornerSize = useCallback(async (size: number) => {
+  const saveSkin = useCallback(async (fields: Record<string, number>) => {
     if (!projectPath || !uiSelectedSkin) return;
     await fetch(`/api/ui-editor/skins/${encodeURIComponent(uiSelectedSkin)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cornerSize: size }),
+      body: JSON.stringify(fields),
     });
   }, [projectPath, uiSelectedSkin]);
 
@@ -30,18 +34,18 @@ export default function UIEditorFrameInspector() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ defaultSkin: uiSelectedSkin }),
       });
-      await saveSkinCornerSize(uiSkinCornerSize);
+      await saveSkin({ cornerSize: uiSkinCornerSize });
       useEditorStore.getState().showToast(`기본 스킨: ${uiSelectedSkin} 설정됨`);
     } catch {
       useEditorStore.getState().showToast('설정 실패', true);
     }
   };
 
-  // 스킨 cornerSize 저장
+  // 스킨 설정 저장 (cornerSize + frame)
   const handleApply = async () => {
     if (!projectPath || !uiSelectedSkin) return;
     try {
-      await saveSkinCornerSize(uiSkinCornerSize);
+      await saveSkin({ cornerSize: uiSkinCornerSize, frameX: uiSkinFrameX, frameY: uiSkinFrameY, frameW: uiSkinFrameW, frameH: uiSkinFrameH });
       setUiEditorDirty(false);
       useEditorStore.getState().showToast('스킨 설정 저장 완료');
     } catch {
@@ -69,24 +73,39 @@ export default function UIEditorFrameInspector() {
           </div>
         </div>
 
+        {/* 프레임 영역 */}
+        <div className="ui-inspector-section">
+          <div className="ui-inspector-section-title">프레임 영역</div>
+          <div className="ui-inspector-row">
+            <DragLabel label="X" value={uiSkinFrameX} min={0} onChange={(v) => { setUiSkinFrame(Math.round(v), uiSkinFrameY, uiSkinFrameW, uiSkinFrameH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ frameX: s.uiSkinFrameX, frameY: s.uiSkinFrameY, frameW: s.uiSkinFrameW, frameH: s.uiSkinFrameH }); }} />
+          </div>
+          <div className="ui-inspector-row">
+            <DragLabel label="Y" value={uiSkinFrameY} min={0} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, Math.round(v), uiSkinFrameW, uiSkinFrameH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ frameX: s.uiSkinFrameX, frameY: s.uiSkinFrameY, frameW: s.uiSkinFrameW, frameH: s.uiSkinFrameH }); }} />
+          </div>
+          <div className="ui-inspector-row">
+            <DragLabel label="너비" value={uiSkinFrameW} min={10} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, uiSkinFrameY, Math.round(v), uiSkinFrameH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ frameX: s.uiSkinFrameX, frameY: s.uiSkinFrameY, frameW: s.uiSkinFrameW, frameH: s.uiSkinFrameH }); }} />
+          </div>
+          <div className="ui-inspector-row">
+            <DragLabel label="높이" value={uiSkinFrameH} min={10} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, Math.round(v)); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ frameX: s.uiSkinFrameX, frameY: s.uiSkinFrameY, frameW: s.uiSkinFrameW, frameH: s.uiSkinFrameH }); }} />
+          </div>
+          <div style={{ padding: '2px 12px 4px', fontSize: 11, color: '#777' }}>
+            캔버스에서 프레임 영역 드래그로 이동/리사이즈 가능
+          </div>
+        </div>
+
         {/* 9-slice 파라미터 */}
         <div className="ui-inspector-section">
-          <div className="ui-inspector-section-title">9-Slice 파라미터</div>
+          <div className="ui-inspector-section-title">9-Slice 코너</div>
           <div className="ui-inspector-row">
             <DragLabel
               label="코너 크기"
               value={uiSkinCornerSize}
               min={1}
-              max={47}
-              onChange={(v) => {
-                setUiSkinCornerSize(Math.round(v));
-                setUiEditorDirty(true);
-              }}
-              onDragEnd={() => saveSkinCornerSize(useEditorStore.getState().uiSkinCornerSize)}
+              onChange={(v) => { setUiSkinCornerSize(Math.round(v)); }}
+              onDragEnd={() => saveSkin({ cornerSize: useEditorStore.getState().uiSkinCornerSize })}
             />
           </div>
-          <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777', lineHeight: 1.5 }}>
-            RPG MV 기본값: 24px<br />
+          <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
             캔버스의 노란 선을 드래그해도 조절 가능
           </div>
         </div>

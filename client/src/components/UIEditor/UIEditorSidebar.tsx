@@ -3,7 +3,7 @@ import useEditorStore from '../../store/useEditorStore';
 import ImagePicker from '../common/ImagePicker';
 import './UIEditor.css';
 
-interface SkinEntry { name: string; cornerSize: number; }
+interface SkinEntry { name: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; }
 
 const AVAILABLE_SCENES = [
   { value: 'Scene_Options', label: '옵션 (Scene_Options)' },
@@ -81,6 +81,7 @@ function SkinList() {
   const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
   const setUiSelectedSkin = useEditorStore((s) => s.setUiSelectedSkin);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
+  const setUiSkinFrame = useEditorStore((s) => s.setUiSkinFrame);
   const [skins, setSkins] = useState<SkinEntry[]>([]);
   const [defaultSkin, setDefaultSkin] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -106,6 +107,7 @@ function SkinList() {
   const handleSelect = (skin: SkinEntry) => {
     setUiSelectedSkin(skin.name);
     setUiSkinCornerSize(skin.cornerSize);
+    setUiSkinFrame(skin.frameX ?? 96, skin.frameY ?? 0, skin.frameW ?? 96, skin.frameH ?? 96);
   };
 
   const handleDelete = async (name: string, e: React.MouseEvent) => {
