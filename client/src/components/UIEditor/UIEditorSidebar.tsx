@@ -151,19 +151,20 @@ function SkinList() {
     );
     if (labelInput === null) return; // 취소
 
-    // name(ID) 생성: 파일명 기반, 중복 시 #1, #2 등 suffix
-    let name = pickedFile;
+    // name(ID) 생성: 사용자 입력 이름 기반, 중복 시 #1, #2 등 suffix
+    const baseName = labelInput.trim() || pickedFile;
+    let name = baseName;
     if (skins.find((s) => s.name === name)) {
       let i = 1;
-      while (skins.find((s) => s.name === `${pickedFile}#${i}`)) i++;
-      name = `${pickedFile}#${i}`;
+      while (skins.find((s) => s.name === `${baseName}#${i}`)) i++;
+      name = `${baseName}#${i}`;
     }
 
     try {
       const res = await fetch('/api/ui-editor/skins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, file: pickedFile, label: labelInput || undefined, cornerSize: 24 }),
+        body: JSON.stringify({ name, file: pickedFile !== name ? pickedFile : undefined, cornerSize: 24 }),
       });
       if (res.ok || res.status === 409) {
         loadSkins();

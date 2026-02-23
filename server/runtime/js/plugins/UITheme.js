@@ -198,6 +198,7 @@
 
     var bitmap = this._windowskin;
     if (!bitmap || !bitmap.isReady() || nw <= 0 || nh <= 0 || m <= 0) return;
+    if (!this._cursorSprite) return;
 
     this._cursorSprite.bitmap = new Bitmap(w, h);
     var dest = this._cursorSprite.bitmap;
