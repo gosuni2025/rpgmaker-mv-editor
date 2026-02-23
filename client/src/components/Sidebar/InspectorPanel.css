@@ -155,6 +155,45 @@
   text-decoration: underline;
 }
 
+.drag-label-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.drag-label-value {
+  font-size: 11px;
+  color: #ddd;
+  cursor: ew-resize;
+  user-select: none;
+  min-width: 32px;
+  text-align: right;
+  flex: 1;
+}
+
+.drag-label-value:hover {
+  color: #fff;
+}
+
+.drag-label-input {
+  flex: 1;
+  min-width: 32px;
+  font-size: 11px;
+  background: #1a1a2e;
+  color: #ddd;
+  border: 1px solid #2675bf;
+  border-radius: 2px;
+  padding: 1px 4px;
+  text-align: right;
+  outline: none;
+}
+
+.drag-label-input::-webkit-outer-spin-button,
+.drag-label-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
 .light-inspector-input {
   background: #2b2b2b;
   border: 1px solid #555;
