@@ -401,6 +401,17 @@ export default function MenuBar() {
                 </a>
               </div>
             </section>
+            <div className="credit-separator" />
+            <section>
+              <h3>Special Thanks</h3>
+              <div className="credit-asset">
+                <div className="credit-asset-name">RPG Maker MV</div>
+                <div className="credit-asset-author">by Kadokawa Corporation / Degica</div>
+                <a className="credit-asset-link" href="https://store.steampowered.com/app/363890/RPG_Maker_MV/" target="_blank" rel="noreferrer">
+                  store.steampowered.com — RPG Maker MV
+                </a>
+              </div>
+            </section>
           </div>
         </div>
       </div>
