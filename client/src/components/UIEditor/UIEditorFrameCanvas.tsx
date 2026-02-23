@@ -21,6 +21,8 @@ type DragState =
   | { type: 'frame_resize'; edge: 'left' | 'right' | 'top' | 'bottom'; startFX: number; startFY: number; startFW: number; startFH: number }
   | { type: 'fill_move'; ox: number; oy: number; startFX: number; startFY: number }
   | { type: 'fill_resize'; edge: 'left' | 'right' | 'top' | 'bottom'; startFX: number; startFY: number; startFW: number; startFH: number }
+  | { type: 'cursor_move'; ox: number; oy: number; startCX: number; startCY: number }
+  | { type: 'cursor_resize'; edge: 'left' | 'right' | 'top' | 'bottom'; startCX: number; startCY: number; startCW: number; startCH: number }
   | null;
 
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
@@ -32,6 +34,8 @@ function drawSkin(
   frameX: number, frameY: number, frameW: number, frameH: number,
   fillX: number, fillY: number, fillW: number, fillH: number,
   cornerSize: number,
+  cursorX: number, cursorY: number, cursorW: number, cursorH: number,
+  cursorCornerSize: number,
   showLabels: boolean,
   showCheckerboard: boolean,
   showRegionOverlay: boolean,
@@ -155,6 +159,40 @@ function drawSkin(
     ctx.strokeRect(c.x * S + 0.5, c.y * S + 0.5, cs * S - 1, cs * S - 1);
   }
 
+  // ── 커서 영역 하이라이트 ───────────────────────────────────────────────────
+  const crx = cursorX * S, cry = cursorY * S, crw = cursorW * S, crh = cursorH * S;
+
+  ctx.fillStyle = 'rgba(255,160,0,0.18)';
+  ctx.fillRect(crx, cry, crw, crh);
+
+  ctx.strokeStyle = 'rgba(255,160,0,0.9)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.strokeRect(crx + 0.5, cry + 0.5, crw - 1, crh - 1);
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = 'rgba(255,160,0,0.9)';
+  ctx.font = `bold ${7 * S}px sans-serif`;
+  ctx.fillText('cursor', crx + 2 * S, cry + 9 * S);
+
+  // 커서 9-slice 경계선
+  if (cursorW >= 4 && cursorH >= 4) {
+    const curMaxCs = Math.floor(Math.min(cursorW, cursorH) / 2) - 1;
+    const ccs = clamp(cursorCornerSize, 1, Math.max(1, curMaxCs));
+    ctx.strokeStyle = 'rgba(255,160,0,0.5)';
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([2, 2]);
+    const cvx1 = (cursorX + ccs) * S + 0.5;
+    const cvx2 = (cursorX + cursorW - ccs) * S + 0.5;
+    const chy1 = (cursorY + ccs) * S + 0.5;
+    const chy2 = (cursorY + cursorH - ccs) * S + 0.5;
+    ctx.beginPath(); ctx.moveTo(cvx1, cry); ctx.lineTo(cvx1, cry + crh); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cvx2, cry); ctx.lineTo(cvx2, cry + crh); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(crx, chy1); ctx.lineTo(crx + crw, chy1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(crx, chy2); ctx.lineTo(crx + crw, chy2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   // 영역 라벨
   if (showLabels && showRegionOverlay && imgW === 192 && imgH === 192) {
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
@@ -182,6 +220,7 @@ function getHit(
   ix: number, iy: number,
   frameX: number, frameY: number, frameW: number, frameH: number,
   fillX: number, fillY: number, fillW: number, fillH: number,
+  cursorX: number, cursorY: number, cursorW: number, cursorH: number,
   cs: number,
 ): DragState {
   const csC = clamp(cs, 1, Math.floor(Math.min(frameW, frameH) / 2) - 1);
@@ -224,14 +263,29 @@ function getHit(
   // fill 내부 — 이동
   if (inFlX && inFlY) return { type: 'fill_move', ox: ix - fillX, oy: iy - fillY, startFX: fillX, startFY: fillY };
 
+  // 커서 영역 테두리 리사이즈
+  const inCrX = ix >= cursorX && ix <= cursorX + cursorW;
+  const inCrY = iy >= cursorY && iy <= cursorY + cursorH;
+  const onCrLeft   = inCrY && Math.abs(ix - cursorX) <= EDGE_HIT;
+  const onCrRight  = inCrY && Math.abs(ix - (cursorX + cursorW)) <= EDGE_HIT;
+  const onCrTop    = inCrX && Math.abs(iy - cursorY) <= EDGE_HIT;
+  const onCrBottom = inCrX && Math.abs(iy - (cursorY + cursorH)) <= EDGE_HIT;
+  if (onCrLeft)   return { type: 'cursor_resize', edge: 'left',   startCX: cursorX, startCY: cursorY, startCW: cursorW, startCH: cursorH };
+  if (onCrRight)  return { type: 'cursor_resize', edge: 'right',  startCX: cursorX, startCY: cursorY, startCW: cursorW, startCH: cursorH };
+  if (onCrTop)    return { type: 'cursor_resize', edge: 'top',    startCX: cursorX, startCY: cursorY, startCW: cursorW, startCH: cursorH };
+  if (onCrBottom) return { type: 'cursor_resize', edge: 'bottom', startCX: cursorX, startCY: cursorY, startCW: cursorW, startCH: cursorH };
+
+  // 커서 내부 — 이동
+  if (inCrX && inCrY) return { type: 'cursor_move', ox: ix - cursorX, oy: iy - cursorY, startCX: cursorX, startCY: cursorY };
+
   return null;
 }
 
 function getCursor(hit: DragState): string {
   if (!hit) return 'default';
   if (hit.type === 'slice') return hit.axis === 'x' ? 'ew-resize' : 'ns-resize';
-  if (hit.type === 'frame_move' || hit.type === 'fill_move') return 'move';
-  if (hit.type === 'frame_resize' || hit.type === 'fill_resize') {
+  if (hit.type === 'frame_move' || hit.type === 'fill_move' || hit.type === 'cursor_move') return 'move';
+  if (hit.type === 'frame_resize' || hit.type === 'fill_resize' || hit.type === 'cursor_resize') {
     if (hit.edge === 'left' || hit.edge === 'right') return 'ew-resize';
     return 'ns-resize';
   }
@@ -249,24 +303,33 @@ export default function UIEditorFrameCanvas() {
   const altKeyRef = useRef(false);
   const [imgSize, setImgSize] = useState({ w: 192, h: 192 });
 
-  const projectPath   = useEditorStore((s) => s.projectPath);
-  const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
+  const projectPath        = useEditorStore((s) => s.projectPath);
+  const uiSelectedSkin     = useEditorStore((s) => s.uiSelectedSkin);
   const uiSelectedSkinFile = useEditorStore((s) => s.uiSelectedSkinFile);
-  const uiSkinCornerSize = useEditorStore((s) => s.uiSkinCornerSize);
-  const uiSkinFrameX  = useEditorStore((s) => s.uiSkinFrameX);
-  const uiSkinFrameY  = useEditorStore((s) => s.uiSkinFrameY);
-  const uiSkinFrameW  = useEditorStore((s) => s.uiSkinFrameW);
-  const uiSkinFrameH  = useEditorStore((s) => s.uiSkinFrameH);
-  const uiSkinFillX   = useEditorStore((s) => s.uiSkinFillX);
-  const uiSkinFillY   = useEditorStore((s) => s.uiSkinFillY);
-  const uiSkinFillW   = useEditorStore((s) => s.uiSkinFillW);
-  const uiSkinFillH   = useEditorStore((s) => s.uiSkinFillH);
-  const uiShowSkinLabels = useEditorStore((s) => s.uiShowSkinLabels);
+  const uiSkinCornerSize   = useEditorStore((s) => s.uiSkinCornerSize);
+  const uiSkinFrameX       = useEditorStore((s) => s.uiSkinFrameX);
+  const uiSkinFrameY       = useEditorStore((s) => s.uiSkinFrameY);
+  const uiSkinFrameW       = useEditorStore((s) => s.uiSkinFrameW);
+  const uiSkinFrameH       = useEditorStore((s) => s.uiSkinFrameH);
+  const uiSkinFillX        = useEditorStore((s) => s.uiSkinFillX);
+  const uiSkinFillY        = useEditorStore((s) => s.uiSkinFillY);
+  const uiSkinFillW        = useEditorStore((s) => s.uiSkinFillW);
+  const uiSkinFillH        = useEditorStore((s) => s.uiSkinFillH);
+  const uiSkinCursorX      = useEditorStore((s) => s.uiSkinCursorX);
+  const uiSkinCursorY      = useEditorStore((s) => s.uiSkinCursorY);
+  const uiSkinCursorW      = useEditorStore((s) => s.uiSkinCursorW);
+  const uiSkinCursorH      = useEditorStore((s) => s.uiSkinCursorH);
+  const uiSkinCursorCornerSize = useEditorStore((s) => s.uiSkinCursorCornerSize);
+  const uiShowSkinLabels   = useEditorStore((s) => s.uiShowSkinLabels);
   const uiShowCheckerboard = useEditorStore((s) => s.uiShowCheckerboard);
   const uiShowRegionOverlay = useEditorStore((s) => s.uiShowRegionOverlay);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
-  const setUiSkinFrame = useEditorStore((s) => s.setUiSkinFrame);
-  const setUiSkinFill  = useEditorStore((s) => s.setUiSkinFill);
+  const setUiSkinFrame     = useEditorStore((s) => s.setUiSkinFrame);
+  const setUiSkinFill      = useEditorStore((s) => s.setUiSkinFill);
+  const setUiSkinCursor    = useEditorStore((s) => s.setUiSkinCursor);
+
+  // suppress unused-var warnings — used via st.setUiSkinXxx() in callbacks
+  void setUiSkinCornerSize; void setUiSkinFrame; void setUiSkinFill; void setUiSkinCursor;
 
   const [zoom, setZoom] = useState(1);
 
@@ -280,7 +343,7 @@ export default function UIEditorFrameCanvas() {
     };
   }, []);
 
-  const saveToServer = useCallback(async (fields: Record<string, number>) => {
+  const saveToServer = useCallback(async (fields: Record<string, number | boolean>) => {
     const { projectPath: pp, uiSelectedSkin: skin } = useEditorStore.getState();
     if (!pp || !skin) return;
     await fetch(`/api/ui-editor/skins/${encodeURIComponent(skin)}`, {
@@ -300,7 +363,9 @@ export default function UIEditorFrameCanvas() {
     drawSkin(ctx, img, imgSize.w, imgSize.h,
       s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH,
       s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH,
-      s.uiSkinCornerSize, s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay,
+      s.uiSkinCornerSize,
+      s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCursorCornerSize,
+      s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay,
       hoverHitRef.current);
   }, [imgSize]);
 
@@ -330,7 +395,9 @@ export default function UIEditorFrameCanvas() {
       drawSkin(ctx, img, w, h,
         s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH,
         s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH,
-        s.uiSkinCornerSize, s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay,
+        s.uiSkinCornerSize,
+        s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCursorCornerSize,
+        s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay,
         hoverHitRef.current);
     };
     img.onerror = () => {
@@ -344,7 +411,7 @@ export default function UIEditorFrameCanvas() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectPath, uiSelectedSkin, uiSelectedSkinFile]);
 
-  useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay]);
+  useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiSkinCursorX, uiSkinCursorY, uiSkinCursorW, uiSkinCursorH, uiSkinCursorCornerSize, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay]);
 
   // 키보드: Alt 커서 + Cmd+Z undo
   useEffect(() => {
@@ -395,7 +462,7 @@ export default function UIEditorFrameCanvas() {
         hit = { type: 'frame_move', ox: coords.ix - s.uiSkinFrameX, oy: coords.iy - s.uiSkinFrameY, startFX: s.uiSkinFrameX, startFY: s.uiSkinFrameY };
       }
     } else {
-      hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCornerSize);
+      hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCornerSize);
       if (!hit) return;
     }
 
@@ -454,6 +521,23 @@ export default function UIEditorFrameCanvas() {
           const newY = clamp(Math.round(c.iy), 0, startFY + startFH - MIN_SZ);
           st.setUiSkinFill(startFX, newY, startFW, startFY + startFH - newY);
         }
+      } else if (drag.type === 'cursor_move') {
+        const nx = clamp(Math.round(c.ix - drag.ox), 0, iw - st.uiSkinCursorW);
+        const ny = clamp(Math.round(c.iy - drag.oy), 0, ih - st.uiSkinCursorH);
+        st.setUiSkinCursor(nx, ny, st.uiSkinCursorW, st.uiSkinCursorH);
+      } else if (drag.type === 'cursor_resize') {
+        const { startCX, startCY, startCW, startCH, edge } = drag;
+        const MIN_SZ = 4;
+        if (edge === 'right')  st.setUiSkinCursor(startCX, startCY, clamp(Math.round(c.ix - startCX), MIN_SZ, iw - startCX), startCH);
+        if (edge === 'bottom') st.setUiSkinCursor(startCX, startCY, startCW, clamp(Math.round(c.iy - startCY), MIN_SZ, ih - startCY));
+        if (edge === 'left') {
+          const newX = clamp(Math.round(c.ix), 0, startCX + startCW - MIN_SZ);
+          st.setUiSkinCursor(newX, startCY, startCX + startCW - newX, startCH);
+        }
+        if (edge === 'top') {
+          const newY = clamp(Math.round(c.iy), 0, startCY + startCH - MIN_SZ);
+          st.setUiSkinCursor(startCX, newY, startCW, startCY + startCH - newY);
+        }
       }
     };
 
@@ -470,6 +554,8 @@ export default function UIEditorFrameCanvas() {
         await saveToServer({ cornerSize: st.uiSkinCornerSize });
       } else if (drag.type === 'fill_move' || drag.type === 'fill_resize') {
         await saveToServer({ fillX: st.uiSkinFillX, fillY: st.uiSkinFillY, fillW: st.uiSkinFillW, fillH: st.uiSkinFillH });
+      } else if (drag.type === 'cursor_move' || drag.type === 'cursor_resize') {
+        await saveToServer({ cursorX: st.uiSkinCursorX, cursorY: st.uiSkinCursorY, cursorW: st.uiSkinCursorW, cursorH: st.uiSkinCursorH });
       } else {
         await saveToServer({ frameX: st.uiSkinFrameX, frameY: st.uiSkinFrameY, frameW: st.uiSkinFrameW, frameH: st.uiSkinFrameH });
       }
@@ -493,7 +579,7 @@ export default function UIEditorFrameCanvas() {
     const coords = toImageCoords(e.clientX, e.clientY);
     if (!coords) return;
     const s = useEditorStore.getState();
-    const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCornerSize);
+    const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCornerSize);
     canvas.style.cursor = getCursor(hit);
 
     // slice 호버 하이라이트 갱신

@@ -3,7 +3,7 @@ import useEditorStore from '../../store/useEditorStore';
 import ImagePicker from '../common/ImagePicker';
 import './UIEditor.css';
 
-interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; }
+interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; }
 
 const AVAILABLE_SCENES = [
   { value: 'Scene_Options', label: '옵션 (Scene_Options)' },
@@ -86,6 +86,8 @@ function SkinList() {
   const setUiSkinFrame = useEditorStore((s) => s.setUiSkinFrame);
   const setUiSkinFill = useEditorStore((s) => s.setUiSkinFill);
   const setUiSkinUseCenterFill = useEditorStore((s) => s.setUiSkinUseCenterFill);
+  const setUiSkinCursor = useEditorStore((s) => s.setUiSkinCursor);
+  const setUiSkinCursorCornerSize = useEditorStore((s) => s.setUiSkinCursorCornerSize);
   const [skins, setSkins] = useState<SkinEntry[]>([]);
   const [defaultSkin, setDefaultSkin] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -128,6 +130,8 @@ function SkinList() {
     if (!(skin.useCenterFill ?? true)) {
       setUiSkinFill(skin.fillX ?? 0, skin.fillY ?? 0, skin.fillW ?? 96, skin.fillH ?? 96);
     }
+    setUiSkinCursor(skin.cursorX ?? 96, skin.cursorY ?? 96, skin.cursorW ?? 48, skin.cursorH ?? 48);
+    setUiSkinCursorCornerSize(skin.cursorCornerSize ?? 4);
   };
 
   const handleDelete = async (name: string, e: React.MouseEvent) => {

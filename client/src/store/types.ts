@@ -242,8 +242,13 @@ export interface EditorState {
   uiSkinFillW: number;         // fill 영역 너비
   uiSkinFillH: number;         // fill 영역 높이
   uiSkinUseCenterFill: boolean; // true: 9-slice 정중앙을 fill로 자동 계산
+  uiSkinCursorX: number;       // 커서 소스 X
+  uiSkinCursorY: number;       // 커서 소스 Y
+  uiSkinCursorW: number;       // 커서 소스 너비
+  uiSkinCursorH: number;       // 커서 소스 높이
+  uiSkinCursorCornerSize: number; // 커서 9-slice 코너 크기
   uiSkinsReloadToken: number;  // 증가하면 스킨 목록 강제 리로드
-  uiSkinUndoStack: Array<{ frameX: number; frameY: number; frameW: number; frameH: number; fillX: number; fillY: number; fillW: number; fillH: number; cornerSize: number }>;
+  uiSkinUndoStack: Array<{ frameX: number; frameY: number; frameW: number; frameH: number; fillX: number; fillY: number; fillW: number; fillH: number; cornerSize: number; cursorX: number; cursorY: number; cursorW: number; cursorH: number; cursorCornerSize: number }>;
   uiEditorSelectedElementType: string | null; // 선택된 요소 타입 (actorName, hp 등)
   uiShowSkinLabels: boolean;    // 프레임 캔버스 영역 라벨 표시 여부
   uiShowCheckerboard: boolean;  // 프레임 캔버스 투명 체크보드 표시 여부
@@ -403,6 +408,8 @@ export interface EditorState {
   setUiSkinFrame: (x: number, y: number, w: number, h: number) => void;
   setUiSkinFill: (x: number, y: number, w: number, h: number) => void;
   setUiSkinUseCenterFill: (v: boolean) => void;
+  setUiSkinCursor: (x: number, y: number, w: number, h: number) => void;
+  setUiSkinCursorCornerSize: (size: number) => void;
   triggerSkinsReload: () => void;
   pushUiSkinUndo: () => void;
   undoUiSkin: () => void;

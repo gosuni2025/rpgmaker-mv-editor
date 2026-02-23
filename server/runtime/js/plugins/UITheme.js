@@ -172,6 +172,54 @@
     }
   };
 
+  //===========================================================================
+  // Window — 커서 9-slice 커스터마이징 (_refreshCursor 오버라이드)
+  //===========================================================================
+  var _Window_refreshCursor = Window.prototype._refreshCursor;
+  Window.prototype._refreshCursor = function () {
+    var skinName = skinNameFromBitmap(this._windowskin);
+    var className = this.constructor && this.constructor.name;
+    var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
+    var entry = skinId ? findSkinEntryById(skinId) : findSkinEntry(skinName);
+    if (!entry || entry.cursorX === undefined) { return _Window_refreshCursor.call(this); }
+
+    var pad = this._padding;
+    var x = this._cursorRect.x + pad - 1;
+    var y = this._cursorRect.y + pad - 1;
+    var w = this._cursorRect.width + 2;
+    var h = this._cursorRect.height + 2;
+    if (w <= 0 || h <= 0) return;
+
+    var p  = entry.cursorX;
+    var q  = entry.cursorY;
+    var nw = entry.cursorW;
+    var nh = entry.cursorH;
+    var m  = entry.cursorCornerSize !== undefined ? entry.cursorCornerSize : 4;
+
+    var bitmap = this._windowskin;
+    if (!bitmap || !bitmap.isReady() || nw <= 0 || nh <= 0 || m <= 0) return;
+
+    this._cursorSprite.bitmap = new Bitmap(w, h);
+    var dest = this._cursorSprite.bitmap;
+    for (var i = 0; i < 9; i++) {
+      var col = i % 3, row = Math.floor(i / 3);
+      var sx = col === 0 ? p : col === 2 ? p + nw - m : p + m;
+      var sy = row === 0 ? q : row === 2 ? q + nh - m : q + m;
+      var sw = col === 0 || col === 2 ? m : nw - m * 2;
+      var sh = row === 0 || row === 2 ? m : nh - m * 2;
+      var dx = col === 0 ? 0 : col === 2 ? w - m : m;
+      var dy = row === 0 ? 0 : row === 2 ? h - m : m;
+      var dw = col === 0 || col === 2 ? m : w - m * 2;
+      var dh = row === 0 || row === 2 ? m : h - m * 2;
+      if (sw > 0 && sh > 0 && dw > 0 && dh > 0) {
+        dest.blt(bitmap, sx, sy, sw, sh, dx, dy, dw, dh);
+      }
+    }
+    this._cursorSprite.setFrame(0, 0, w, h);
+    this._cursorSprite.move(x, y);
+    this._cursorSprite.alpha = 192 / 255;
+  };
+
   var _ov = _config.overrides || {};
 
   /** 전역(Global) 설정값 취득 */
