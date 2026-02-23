@@ -17,70 +17,102 @@ router.get('/preview', (req, res) => {
     return res.status(404).send('<h2>프로젝트가 열려있지 않습니다</h2>');
   }
 
-  const cacheBust = `?v=${Date.now()}`;
+  const cb = `?v=${Date.now()}`;
 
-  // 브릿지 스크립트 (인라인 임베드)
-  // StorageManager 오버라이드는 `/game/` 경로를 사용
+  // WebP 감지 (game.ts와 동일)
+  const imgDir = path.join(projectManager.currentPath!, 'img');
+  let useWebp = false;
+  if (fs.existsSync(imgDir)) {
+    const checkWebp = (dir: string): boolean => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.isDirectory()) { if (checkWebp(path.join(dir, e.name))) return true; }
+        else if (e.name.toLowerCase().endsWith('.webp')) return true;
+      }
+      return false;
+    };
+    useWebp = checkWebp(imgDir);
+  }
+
+  // 핵심: <base href="/game/"> 로 상대 경로를 /game/로 해석하게 함
+  // PluginManager.makeUrl → js/plugins/SkyBox.js → /game/js/plugins/SkyBox.js ✓
+  // DataManager → data/System.json → /game/data/System.json ✓
   const html = `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="UTF-8">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="user-scalable=no">
-    <link rel="stylesheet" type="text/css" href="/game/fonts/gamefont.css">
+    <base href="/game/">
+    <link rel="stylesheet" type="text/css" href="fonts/gamefont.css">
     <title>UI Editor Preview</title>
-    <style>
-      body { margin: 0; background: black; overflow: hidden; }
-    </style>
+    <style>body { margin: 0; background: black; overflow: hidden; }</style>
+    <script>window.__CACHE_BUST__={webp:${useWebp}};</script>
   </head>
   <body>
-    <script src="/game/js/libs/three.global.min.js"></script>
-    <script defer src="/game/js/libs/lz-string.js"></script>
-    <script defer src="/game/js/renderer/RendererFactory.js${cacheBust}"></script>
-    <script defer src="/game/js/renderer/RendererStrategy.js${cacheBust}"></script>
-    <script defer src="/game/js/renderer/three/ThreeRendererFactory.js${cacheBust}"></script>
-    <script defer src="/game/js/renderer/three/ThreeRendererStrategy.js${cacheBust}"></script>
-    <script defer src="/game/js/renderer/three/ThreeContainer.js${cacheBust}"></script>
-    <script defer src="/game/js/renderer/three/ThreeSprite.js${cacheBust}"></script>
-    <script defer src="/game/js/renderer/three/ThreeGraphicsNode.js${cacheBust}"></script>
-    <script defer src="/game/js/renderer/three/ThreeTilemap.js${cacheBust}"></script>
-    <script defer src="/game/js/renderer/three/ThreeWaterShader.js${cacheBust}"></script>
-    <script defer src="/game/js/renderer/three/ThreeFilters.js${cacheBust}"></script>
-    <script defer src="/game/js/rpg_core.js${cacheBust}"></script>
-    <script defer src="/game/js/rpg_managers.js${cacheBust}"></script>
-    <script defer src="/game/js/rpg_objects.js${cacheBust}"></script>
-    <script defer src="/game/js/rpg_scenes.js${cacheBust}"></script>
-    <script defer src="/game/js/rpg_sprites.js${cacheBust}"></script>
-    <script defer src="/game/js/rpg_windows.js${cacheBust}"></script>
-    <script defer src="/game/js/plugins.js"></script>
-
+    <script src="js/libs/three.global.min.js"></script>
+    <script defer src="js/libs/fpsmeter.js"></script>
+    <script defer src="js/libs/lz-string.js"></script>
+    <script defer src="js/libs/iphone-inline-video.browser.js"></script>
+    <script defer src="js/renderer/RendererFactory.js${cb}"></script>
+    <script defer src="js/renderer/RendererStrategy.js${cb}"></script>
+    <script defer src="js/renderer/three/ThreeRendererFactory.js${cb}"></script>
+    <script defer src="js/renderer/three/ThreeRendererStrategy.js${cb}"></script>
+    <script defer src="js/renderer/three/ThreeContainer.js${cb}"></script>
+    <script defer src="js/renderer/three/ThreeSprite.js${cb}"></script>
+    <script defer src="js/renderer/three/ThreeGraphicsNode.js${cb}"></script>
+    <script defer src="js/renderer/three/ThreeTilemap.js${cb}"></script>
+    <script defer src="js/renderer/three/ThreeWaterShader.js${cb}"></script>
+    <script defer src="js/renderer/three/ThreeFilters.js${cb}"></script>
+    <script defer src="js/rpg_core.js${cb}"></script>
+    <script defer src="js/rpg_managers.js${cb}"></script>
     <script type="module">
-    // StorageManager → 서버 API (플레이테스트와 동일)
+    // StorageManager: no-op (UI 에디터는 저장 불필요)
     (function() {
-      StorageManager.save = function() {};
+      function noop() {}
+      StorageManager.save = noop;
       StorageManager.load = function() { return null; };
       StorageManager.exists = function() { return false; };
+      StorageManager.isLocalMode = function() { return false; };
+      // 오디오 억제
+      AudioManager.playBgm = noop;
+      AudioManager.playBgs = noop;
+      AudioManager.playMe = noop;
+      AudioManager.playSe = noop;
+      AudioManager.stopAll = noop;
     })();
+    </script>
+    <script defer src="js/DevPanelUtils.js${cb}"></script>
+    <script defer src="js/rpg_objects.js${cb}"></script>
+    <script defer src="js/rpg_scenes.js${cb}"></script>
+    <script defer src="js/rpg_sprites.js${cb}"></script>
+    <script defer src="js/rpg_windows.js${cb}"></script>
+    <script defer src="js/PluginTween.js${cb}"></script>
+    <script defer src="js/Mode3D.js${cb}"></script>
+    <script defer src="js/ShadowAndLight.js${cb}"></script>
+    <script defer src="js/PostProcessEffects.js${cb}"></script>
+    <script defer src="js/PostProcess.js${cb}"></script>
+    <script defer src="js/PictureShader.js${cb}"></script>
+    <script defer src="js/FogOfWar.js${cb}"></script>
+    <script defer src="js/FogOfWar3DVolume.js${cb}"></script>
+    <script defer src="js/ExtendedText.js${cb}"></script>
+    <script defer src="js/plugins.js"></script>
+    <script type="module">
+    // UI 에디터 브릿지 + Scene_Boot 오버라이드
+    (function() {
+      var _targetScene = 'Scene_Options';
 
-    // 오디오 억제
-    AudioManager.playBgm = function() {};
-    AudioManager.playBgs = function() {};
-    AudioManager.playMe = function() {};
-    AudioManager.playSe = function() {};
-    AudioManager.stopAll = function() {};
+      // Scene_Boot: 타이틀 스킵 후 대상 씬으로
+      Scene_Boot.prototype.start = function() {
+        Scene_Base.prototype.start.call(this);
+        SoundManager.preloadImportantSounds();
+        DataManager.setupNewGame();
+        var SceneCtor = window[_targetScene] || window.Scene_Options;
+        SceneManager.goto(SceneCtor);
+        this.updateDocumentTitle();
+      };
 
-    // Scene_Boot 오버라이드: 타이틀 스킵 후 에디터가 요청한 씬으로
-    var __uiEditorTargetScene = 'Scene_Options';
-    Scene_Boot.prototype.start = function() {
-      Scene_Base.prototype.start.call(this);
-      SoundManager.preloadImportantSounds();
-      DataManager.setupNewGame();
-      var SceneCtor = window[__uiEditorTargetScene] || window.Scene_Options;
-      SceneManager.goto(SceneCtor);
-      this.updateDocumentTitle();
-    };
-
-    // 브릿지 초기화 (모든 defer 스크립트 로드 완료 후)
-    (function initBridge() {
+      // 씬 변경 감지용
       var _prevScene = null;
 
       /** Window 정보 추출 */
@@ -93,9 +125,9 @@ router.get('/preview', (req, res) => {
           y: Math.round(win.y),
           width: Math.round(win.width),
           height: Math.round(win.height),
-          opacity: win.opacity || 255,
-          backOpacity: win.backOpacity || 192,
-          padding: win.padding || 18,
+          opacity: typeof win.opacity !== 'undefined' ? win.opacity : 255,
+          backOpacity: typeof win.backOpacity !== 'undefined' ? win.backOpacity : 192,
+          padding: typeof win._padding !== 'undefined' ? win._padding : 18,
           fontSize: (win.standardFontSize ? win.standardFontSize() : (win.contents && win.contents.fontSize)) || 28,
           fontFace: win.standardFontFace ? win.standardFontFace() : 'GameFont',
           windowskinName: 'Window',
@@ -133,7 +165,7 @@ router.get('/preview', (req, res) => {
         window.parent.postMessage({ type: type || 'windowUpdated', windows: windows }, '*');
       }
 
-      /** windowId → 실제 창 객체 찾기 */
+      /** windowId → 실제 창 객체 */
       function findWindow(windowId) {
         var scene = SceneManager._scene;
         if (!scene) return null;
@@ -215,7 +247,7 @@ router.get('/preview', (req, res) => {
           console.warn('[UIEditorBridge] 씬 없음:', sceneName);
           return;
         }
-        __uiEditorTargetScene = sceneName;
+        _targetScene = sceneName;
         try { SceneManager.goto(SceneCtor); } catch(e) { console.error(e); }
       }
 
@@ -224,9 +256,7 @@ router.get('/preview', (req, res) => {
         var scene = SceneManager._scene;
         if (!scene || scene === _prevScene) return;
         _prevScene = scene;
-        setTimeout(function() {
-          reportWindows('sceneReady');
-        }, 400);
+        setTimeout(function() { reportWindows('sceneReady'); }, 500);
       }, 200);
 
       // postMessage 수신
@@ -251,7 +281,7 @@ router.get('/preview', (req, res) => {
             reportWindows('windowUpdated');
             break;
           case 'refreshScene':
-            loadScene(__uiEditorTargetScene);
+            loadScene(_targetScene);
             break;
         }
       });
@@ -264,8 +294,7 @@ router.get('/preview', (req, res) => {
       window.parent.postMessage({ type: 'bridgeReady' }, '*');
     })();
     </script>
-
-    <script defer src="/game/js/main.js${cacheBust}"></script>
+    <script defer src="js/main.js${cb}"></script>
   </body>
 </html>`;
 
@@ -326,7 +355,6 @@ router.post('/generate-plugin', (req, res) => {
     code += `  ${ctor}.prototype.initialize = function() {\n`;
     code += `    _${ctor}_initialize.apply(this, arguments);\n`;
 
-    // 속성별 코드
     if ('opacity' in props) code += `    this.opacity = ${JSON.stringify(props.opacity)};\n`;
     if ('backOpacity' in props) code += `    this.backOpacity = ${JSON.stringify(props.backOpacity)};\n`;
     if ('colorTone' in props) {
@@ -362,7 +390,6 @@ router.post('/generate-plugin', (req, res) => {
 
   code += `\n})();\n`;
 
-  // 파일 저장
   const pluginsDir = path.join(projectManager.currentPath!, 'js', 'plugins');
   if (!fs.existsSync(pluginsDir)) fs.mkdirSync(pluginsDir, { recursive: true });
   const pluginPath = path.join(pluginsDir, 'UITheme.js');
@@ -373,7 +400,6 @@ router.post('/generate-plugin', (req, res) => {
   if (fs.existsSync(pluginsJsPath)) {
     let pluginsJs = fs.readFileSync(pluginsJsPath, 'utf8');
     if (!pluginsJs.includes('"UITheme"')) {
-      // 배열에 추가
       pluginsJs = pluginsJs.replace(
         /(\$plugins\s*=\s*\[)([\s\S]*?)(\];)/,
         (_, open, content, close) => {
