@@ -53,11 +53,15 @@
     }
   })();
 
-  /** 스킨 bitmap URL에서 스킨 이름 추출 */
+  /** 스킨 bitmap URL에서 스킨 이름 추출 (img/system/ 이후 경로, 확장자 제거) */
   function skinNameFromBitmap(bitmap) {
     if (!bitmap || !bitmap.url) return null;
-    var m = bitmap.url.match(/([^/\\]+?)(?:\.(?:png|webp))?$/i);
-    return m ? m[1] : null;
+    // img/system/ 이후 전체 경로 추출 (경로 포함 스킨 이름 지원)
+    var m = bitmap.url.match(/img\/system\/(.+?)(?:\.(?:png|webp))?(?:\?.*)?$/i);
+    if (m) return m[1];
+    // fallback: 파일명만
+    var m2 = bitmap.url.match(/([^/\\]+?)(?:\.(?:png|webp))?(?:\?.*)?$/i);
+    return m2 ? m2[1] : null;
   }
 
   /** 스킨 이름으로 사전 항목 취득 (없으면 null) */
