@@ -211,9 +211,22 @@
         _orig_onLeftButtonDown.call(this, event);
     };
 
+    // iframe 경계 밖으로 드래그해도 mousemove를 계속 받기 위해 pointer capture 설정
+    document.addEventListener('pointerdown', function(event) {
+        if (event.button === 0 && is3DActive()) {
+            var x = Graphics.pageToCanvasX(event.pageX);
+            var y = Graphics.pageToCanvasY(event.pageY);
+            if (Graphics.isInsideCanvas(x, y)) {
+                try { event.target.setPointerCapture(event.pointerId); } catch(e) {}
+            }
+        }
+    });
+
     var _orig_onMouseMove = TouchInput._onMouseMove;
     TouchInput._onMouseMove = function(event) {
-        if (is3DActive() && _dragState.active && this._mousePressed) {
+        // event.buttons & 1: 현재 왼쪽 버튼이 눌려있는지 직접 확인
+        // (iframe 환경에서 _mousePressed가 설정되지 않는 경우 대응)
+        if (is3DActive() && _dragState.active && (event.buttons & 1)) {
             var dx = event.pageX - _dragState.lastX;
             var dy = event.pageY - _dragState.lastY;
 
