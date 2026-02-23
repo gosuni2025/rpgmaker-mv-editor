@@ -158,10 +158,14 @@ export function SingleNumberEditor({ p, onOk, onCancel, label, min, max }: { p: 
   );
 }
 
+const WAIT_INPUT_MODE_KEY = 'waitEditor.inputMode';
+
 export function WaitEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
   const initFrames = (p[0] as number) || 60;
   const [frames, setFrames] = useState<number>(initFrames);
-  const [inputMode, setInputMode] = useState<'frames' | 'seconds'>('frames');
+  const [inputMode, setInputMode] = useState<'frames' | 'seconds'>(
+    () => (localStorage.getItem(WAIT_INPUT_MODE_KEY) as 'frames' | 'seconds') || 'frames'
+  );
   const [secondsInput, setSecondsInput] = useState<number>(parseFloat((initFrames / 60).toFixed(4)));
 
   const handleFrameChange = (v: number) => {
@@ -175,16 +179,28 @@ export function WaitEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params:
     setFrames(Math.max(1, Math.round(v * 60)));
   };
 
+  const changeMode = (mode: 'frames' | 'seconds') => {
+    setInputMode(mode);
+    localStorage.setItem(WAIT_INPUT_MODE_KEY, mode);
+  };
+
   const secDisplay = parseFloat((frames / 60).toFixed(2));
+  const radioLabel: React.CSSProperties = { fontSize: 12, color: '#ccc', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
 
   return (
     <>
       <div style={{ fontSize: 12, color: '#aaa' }}>지속 시간</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-        <select value={inputMode} onChange={e => setInputMode(e.target.value as 'frames' | 'seconds')} style={{ ...selectStyle, width: 110 }}>
-          <option value="frames">프레임으로 입력</option>
-          <option value="seconds">초로 입력</option>
-        </select>
+      <div style={{ display: 'flex', gap: 12, marginTop: 4, marginBottom: 6 }}>
+        <label style={radioLabel}>
+          <input type="radio" name="waitMode" value="frames" checked={inputMode === 'frames'} onChange={() => changeMode('frames')} />
+          프레임으로 입력
+        </label>
+        <label style={radioLabel}>
+          <input type="radio" name="waitMode" value="seconds" checked={inputMode === 'seconds'} onChange={() => changeMode('seconds')} />
+          초로 입력
+        </label>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {inputMode === 'frames' ? (
           <>
             <input type="number" value={frames} min={1} max={9999} onChange={e => handleFrameChange(Number(e.target.value))} style={{ ...selectStyle, width: 80 }} />
