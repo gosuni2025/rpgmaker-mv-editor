@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
 import './UIEditor.css';
@@ -6,6 +6,13 @@ import './UIEditor.css';
 export default function UIEditorFrameInspector() {
   const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
   const uiSelectedSkinFile = useEditorStore((s) => s.uiSelectedSkinFile);
+  const uiSkinsReloadToken = useEditorStore((s) => s.uiSkinsReloadToken);
+  const triggerSkinsReload = useEditorStore((s) => s.triggerSkinsReload);
+
+  // 라벨 편집 상태
+  const [skinLabel, setSkinLabel] = useState('');
+  const [editingLabel, setEditingLabel] = useState(false);
+  const labelInputRef = useRef<HTMLInputElement>(null);
   const uiSkinCornerSize = useEditorStore((s) => s.uiSkinCornerSize);
   const uiSkinFrameX = useEditorStore((s) => s.uiSkinFrameX);
   const uiSkinFrameY = useEditorStore((s) => s.uiSkinFrameY);
@@ -22,10 +29,9 @@ export default function UIEditorFrameInspector() {
   const setUiSkinFill = useEditorStore((s) => s.setUiSkinFill);
   const setUiSkinUseCenterFill = useEditorStore((s) => s.setUiSkinUseCenterFill);
   const setUiEditorDirty = useEditorStore((s) => s.setUiEditorDirty);
-  const triggerSkinsReload = useEditorStore((s) => s.triggerSkinsReload);
   const projectPath = useEditorStore((s) => s.projectPath);
 
-  const saveSkin = useCallback(async (fields: Record<string, number | boolean>) => {
+  const saveSkin = useCallback(async (fields: Record<string, number | boolean | string | undefined>) => {
     if (!projectPath || !uiSelectedSkin) return;
     await fetch(`/api/ui-editor/skins/${encodeURIComponent(uiSelectedSkin)}`, {
       method: 'PUT',
@@ -33,6 +39,29 @@ export default function UIEditorFrameInspector() {
       body: JSON.stringify(fields),
     });
   }, [projectPath, uiSelectedSkin]);
+
+  // 선택 스킨 변경 시 라벨 로드
+  useEffect(() => {
+    if (!uiSelectedSkin) { setSkinLabel(''); return; }
+    fetch('/api/ui-editor/skins')
+      .then((r) => r.json())
+      .then((d) => {
+        const entry = (d.skins ?? []).find((s: { name: string; label?: string }) => s.name === uiSelectedSkin);
+        setSkinLabel(entry?.label ?? '');
+      })
+      .catch(() => {});
+  }, [uiSelectedSkin, uiSkinsReloadToken]);
+
+  useEffect(() => {
+    if (editingLabel) setTimeout(() => labelInputRef.current?.focus(), 0);
+  }, [editingLabel]);
+
+  const handleLabelSave = async () => {
+    setEditingLabel(false);
+    const trimmed = skinLabel.trim();
+    await saveSkin(trimmed ? { label: trimmed } : { label: '' });
+    triggerSkinsReload();
+  };
 
   // 기본 스킨으로 설정 — UIEditorSkins.json의 defaultSkin 저장
   const handleSetDefault = async () => {
@@ -71,27 +100,50 @@ export default function UIEditorFrameInspector() {
         {/* 현재 스킨 */}
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">선택된 스킨</div>
+
+          {/* 표시 이름 (변경 가능) */}
           <div className="ui-inspector-row">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 11, color: '#888' }}>ID (변경 불가)</span>
-              <span style={{ fontSize: 13, color: '#ddd', fontFamily: 'monospace' }}>{uiSelectedSkin || '—'}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+              <span style={{ fontSize: 11, color: '#888' }}>표시 이름 (변경 가능)</span>
+              {editingLabel ? (
+                <input
+                  ref={labelInputRef}
+                  value={skinLabel}
+                  onChange={(e) => setSkinLabel(e.target.value)}
+                  onBlur={handleLabelSave}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleLabelSave();
+                    else if (e.key === 'Escape') { setEditingLabel(false); }
+                  }}
+                  placeholder="비워두면 ID로 표시"
+                  style={{ fontSize: 13, padding: '2px 6px', background: '#1a1a2e', color: '#ddd', border: '1px solid #4af', borderRadius: 2, outline: 'none' }}
+                />
+              ) : (
+                <span
+                  style={{ fontSize: 13, color: skinLabel ? '#ddd' : '#666', cursor: 'pointer', padding: '1px 0' }}
+                  onClick={() => setEditingLabel(true)}
+                  title="클릭하여 편집"
+                >
+                  {skinLabel || '(없음 — 클릭하여 편집)'}
+                </span>
+              )}
             </div>
           </div>
-          {uiSelectedSkinFile && uiSelectedSkinFile !== uiSelectedSkin && (
-            <div className="ui-inspector-row" style={{ paddingTop: 0 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 11, color: '#888' }}>파일</span>
-                <span style={{ fontSize: 11, color: '#aaa' }}>img/system/{uiSelectedSkinFile}.png</span>
-              </div>
+
+          {/* ID (변경 불가) */}
+          <div className="ui-inspector-row" style={{ paddingTop: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ fontSize: 11, color: '#888' }}>ID (변경 불가)</span>
+              <span style={{ fontSize: 12, color: '#aaa', fontFamily: 'monospace' }}>{uiSelectedSkin || '—'}</span>
             </div>
-          )}
-          {(!uiSelectedSkinFile || uiSelectedSkinFile === uiSelectedSkin) && (
-            <div className="ui-inspector-row" style={{ paddingTop: 0 }}>
-              <div className="ui-inspector-label" style={{ fontSize: 11, color: '#777' }}>
-                img/system/{uiSelectedSkin}.png
-              </div>
+          </div>
+
+          {/* 파일 경로 */}
+          <div className="ui-inspector-row" style={{ paddingTop: 0 }}>
+            <div className="ui-inspector-label" style={{ fontSize: 11, color: '#777' }}>
+              img/system/{uiSelectedSkinFile || uiSelectedSkin}.png
             </div>
-          )}
+          </div>
         </div>
 
         {/* 프레임 영역 */}

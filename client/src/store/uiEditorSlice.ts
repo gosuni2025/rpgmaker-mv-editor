@@ -18,12 +18,12 @@ function calcCenterFill(frameX: number, frameY: number, frameW: number, frameH: 
 export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' |
   'uiEditorSelectedWindowId' | 'uiEditorOverrides' | 'uiEditorDirty' |
-  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
+  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinCursorX' | 'uiSkinCursorY' | 'uiSkinCursorW' | 'uiSkinCursorH' | 'uiSkinCursorCornerSize' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
   'uiEditorSelectedElementType' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
-  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSelectedSkinFile' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiSkinFill' | 'setUiSkinUseCenterFill' | 'triggerSkinsReload' | 'pushUiSkinUndo' | 'undoUiSkin' | 'setUiShowSkinLabels' | 'setUiShowCheckerboard' | 'setUiShowRegionOverlay' |
+  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSelectedSkinFile' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiSkinFill' | 'setUiSkinUseCenterFill' | 'setUiSkinCursor' | 'setUiSkinCursorCornerSize' | 'triggerSkinsReload' | 'pushUiSkinUndo' | 'undoUiSkin' | 'setUiShowSkinLabels' | 'setUiShowCheckerboard' | 'setUiShowRegionOverlay' |
   'setUiEditorSelectedElementType' | 'setUiElementOverride'
 >> = (set) => ({
   editorMode: 'map',
@@ -46,6 +46,11 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiSkinFillW: 48,
   uiSkinFillH: 48,
   uiSkinUseCenterFill: true,
+  uiSkinCursorX: 96,
+  uiSkinCursorY: 96,
+  uiSkinCursorW: 48,
+  uiSkinCursorH: 48,
+  uiSkinCursorCornerSize: 4,
   uiSkinsReloadToken: 0,
   uiSkinUndoStack: [],
   uiShowSkinLabels: false,
@@ -111,6 +116,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
     ...(v ? calcCenterFill(state.uiSkinFrameX, state.uiSkinFrameY, state.uiSkinFrameW, state.uiSkinFrameH, state.uiSkinCornerSize) : {}),
   })),
   triggerSkinsReload: () => set((state) => ({ uiSkinsReloadToken: state.uiSkinsReloadToken + 1 })),
+  setUiSkinCursor: (x, y, w, h) => set({ uiSkinCursorX: x, uiSkinCursorY: y, uiSkinCursorW: w, uiSkinCursorH: h }),
+  setUiSkinCursorCornerSize: (size) => set({ uiSkinCursorCornerSize: size }),
   pushUiSkinUndo: () => set((state) => ({
     uiSkinUndoStack: [...state.uiSkinUndoStack, {
       frameX: state.uiSkinFrameX, frameY: state.uiSkinFrameY,
@@ -118,6 +125,9 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       fillX: state.uiSkinFillX, fillY: state.uiSkinFillY,
       fillW: state.uiSkinFillW, fillH: state.uiSkinFillH,
       cornerSize: state.uiSkinCornerSize,
+      cursorX: state.uiSkinCursorX, cursorY: state.uiSkinCursorY,
+      cursorW: state.uiSkinCursorW, cursorH: state.uiSkinCursorH,
+      cursorCornerSize: state.uiSkinCursorCornerSize,
     }].slice(-50),
   })),
   undoUiSkin: () => set((state) => {
@@ -131,6 +141,9 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       uiSkinFillX: prev.fillX, uiSkinFillY: prev.fillY,
       uiSkinFillW: prev.fillW, uiSkinFillH: prev.fillH,
       uiSkinCornerSize: prev.cornerSize,
+      uiSkinCursorX: prev.cursorX, uiSkinCursorY: prev.cursorY,
+      uiSkinCursorW: prev.cursorW, uiSkinCursorH: prev.cursorH,
+      uiSkinCursorCornerSize: prev.cursorCornerSize,
       uiEditorDirty: true,
     };
   }),
