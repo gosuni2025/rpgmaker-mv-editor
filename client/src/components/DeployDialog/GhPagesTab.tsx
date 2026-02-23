@@ -26,6 +26,7 @@ export default function GhPagesTab({ cbOpts, initialRemote, syncRuntime }: Props
   const [ghCommitHash, setGhCommitHash] = useState('');
   const [showProgressModal, setShowProgressModal] = useState(false);
   const ghCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<(() => void) | null>(null);
 
   const runGhCheck = useCallback(() => {
     if (ghCheckTimer.current) clearTimeout(ghCheckTimer.current);
@@ -64,10 +65,19 @@ export default function GhPagesTab({ cbOpts, initialRemote, syncRuntime }: Props
     if (ghRemote) params.set('remote', ghRemote);
     if (bundle) params.set('bundle', '1');
     const evtSource = new EventSource(`/api/project/deploy-ghpages-progress?${params}`);
+    abortRef.current = () => {
+      evtSource.close();
+      completed = true;
+      abortRef.current = null;
+      dp.setStatus('취소됨');
+      dp.setProgress(null);
+      dp.setBusy(false);
+    };
     evtSource.onmessage = (e) => {
       const ev = JSON.parse(e.data) as SSEEvent;
       if (ev.type === 'done') {
         completed = true;
+        abortRef.current = null;
         dp.setProgress(1);
         dp.setStatus(t('deploy.ghPages.done'));
         if (ev.pageUrl) setGhPageUrl(ev.pageUrl);
@@ -79,11 +89,13 @@ export default function GhPagesTab({ cbOpts, initialRemote, syncRuntime }: Props
       }
       if (!dp.handleSSEEvent(ev, totalRef, { copy: 0.85, zip: 0 })) {
         completed = true;
+        abortRef.current = null;
         evtSource.close();
       }
     };
     evtSource.onerror = () => {
       evtSource.close();
+      abortRef.current = null;
       if (!completed) {
         dp.setError(t('deploy.netlify.connectionError'));
         dp.setStatus(''); dp.setProgress(null); dp.setBusy(false);
@@ -230,6 +242,7 @@ export default function GhPagesTab({ cbOpts, initialRemote, syncRuntime }: Props
         resultLabel="페이지 열기"
         resultButtonStyle={{ background: '#0e5f1f', borderColor: '#1a8a30' }}
         onResultClick={() => openUrl(ghPageUrl)}
+        onCancel={dp.busy ? () => abortRef.current?.() : undefined}
         onClose={() => setShowProgressModal(false)}
       />
     </>

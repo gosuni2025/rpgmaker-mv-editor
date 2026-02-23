@@ -16,7 +16,13 @@ export async function readSSEStream(
   const decoder = new TextDecoder();
   let buffer = '';
   while (true) {
-    const { done, value } = await reader.read();
+    let done: boolean, value: Uint8Array | undefined;
+    try {
+      ({ done, value } = await reader.read());
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return; // 취소
+      throw e;
+    }
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     const parts = buffer.split('\n\n');

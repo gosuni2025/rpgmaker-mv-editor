@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CacheBustOpts, cacheBustToQuery } from '../common/CacheBustSection';
 import apiClient from '../../api/client';
@@ -29,6 +29,7 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [deployMode, setDeployMode] = useState<'zip' | 'netlify'>('netlify');
   const [bundle, setBundle] = useState(true);
+  const abortRef = useRef<(() => void) | null>(null);
 
   const handleSSEEventWithSiteId = useCallback(
     (ev: SSEEvent, totalRef: { current: number }, weights: { copy: number; zip: number }): boolean => {
@@ -61,10 +62,19 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
     const params = new URLSearchParams(cacheBustToQuery(cbOpts));
     if (bundle) params.set('bundle', '1');
     const evtSource = new EventSource(`/api/project/deploy-zip-progress?${params}`);
+    abortRef.current = () => {
+      evtSource.close();
+      completed = true;
+      abortRef.current = null;
+      dp.setStatus('취소됨');
+      dp.setProgress(null);
+      dp.setBusy(false);
+    };
     evtSource.onmessage = (e) => {
       const ev = JSON.parse(e.data) as SSEEvent;
       if (ev.type === 'done') {
         completed = true;
+        abortRef.current = null;
         dp.setProgress(1);
         dp.setStatus(t('deploy.netlify.zipDone'));
         dp.setBusy(false);
@@ -73,11 +83,13 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
       }
       if (!handleSSEEventWithSiteId(ev, totalRef, { copy: 0.75, zip: 0.25 })) {
         completed = true;
+        abortRef.current = null;
         evtSource.close();
       }
     };
     evtSource.onerror = () => {
       evtSource.close();
+      abortRef.current = null;
       if (!completed) {
         dp.setError(t('deploy.netlify.connectionError'));
         dp.setStatus(''); dp.setProgress(null); dp.setBusy(false);
@@ -97,6 +109,14 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
     if (syncRuntime) {
       try { await apiClient.post('/project/sync-runtime', {}); } catch { /* 무시 */ }
     }
+    const abortCtrl = new AbortController();
+    abortRef.current = () => {
+      abortCtrl.abort();
+      abortRef.current = null;
+      dp.setStatus('취소됨');
+      dp.setProgress(null);
+      dp.setBusy(false);
+    };
     const totalRef = { current: 0 };
     try {
       await readSSEStream(
@@ -109,6 +129,7 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
             siteId: manualSiteId ? siteId.trim() : siteId,
             cacheBust: { ...cbOpts, bundle },
           }),
+          signal: abortCtrl.signal,
         },
         (ev) => {
           if (ev.type === 'done') {
@@ -122,10 +143,13 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
         },
       );
     } catch (e) {
-      dp.setError((e as Error).message);
-      dp.setStatus(''); dp.setProgress(null);
+      if (!abortCtrl.signal.aborted) {
+        dp.setError((e as Error).message);
+        dp.setStatus(''); dp.setProgress(null);
+      }
     } finally {
-      dp.setBusy(false);
+      abortRef.current = null;
+      if (!abortCtrl.signal.aborted) dp.setBusy(false);
     }
   };
 
@@ -263,6 +287,7 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
         resultLabel={t('deploy.netlify.openSite')}
         resultButtonStyle={{ background: '#0e5f1f', borderColor: '#1a8a30' }}
         onResultClick={() => openUrl(deployUrl || siteUrl)}
+        onCancel={dp.busy ? () => abortRef.current?.() : undefined}
         onClose={() => setShowProgressModal(false)}
       />
     </>

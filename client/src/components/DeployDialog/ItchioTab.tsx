@@ -38,6 +38,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
   const [gameExists, setGameExists] = useState<boolean | null | 'checking'>(null);
   const [gameId, setGameId] = useState(initialGameId);
   const gameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     apiClient.get('/project/deploy-itchio-check')
@@ -88,10 +89,19 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
     const params = new URLSearchParams(cacheBustToQuery(cbOpts));
     if (bundle) params.set('bundle', '1');
     const evtSource = new EventSource(`/api/project/deploy-zip-progress?${params}`);
+    abortRef.current = () => {
+      evtSource.close();
+      completed = true;
+      abortRef.current = null;
+      dp.setStatus('취소됨');
+      dp.setProgress(null);
+      dp.setBusy(false);
+    };
     evtSource.onmessage = (e) => {
       const ev = JSON.parse(e.data) as SSEEvent;
       if (ev.type === 'done') {
         completed = true;
+        abortRef.current = null;
         dp.setProgress(1);
         dp.setStatus('ZIP 생성 완료.');
         dp.setBusy(false);
@@ -100,11 +110,13 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
       }
       if (!dp.handleSSEEvent(ev, totalRef, { copy: 0.75, zip: 0.25 })) {
         completed = true;
+        abortRef.current = null;
         evtSource.close();
       }
     };
     evtSource.onerror = () => {
       evtSource.close();
+      abortRef.current = null;
       if (!completed) {
         dp.setError('연결 오류');
         dp.setStatus(''); dp.setProgress(null); dp.setBusy(false);
@@ -128,11 +140,21 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
 
     let completed = false;
     const totalRef = { current: 0 };
+    const abortCtrl = new AbortController();
+    abortRef.current = () => {
+      abortCtrl.abort();
+      completed = true;
+      abortRef.current = null;
+      dp.setStatus('취소됨');
+      dp.setProgress(null);
+      dp.setBusy(false);
+    };
 
     fetch('/api/project/deploy-itchio-progress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ project: project.trim(), channel, cacheBust: cbOpts, bundle }),
+      signal: abortCtrl.signal,
     }).then((response) => {
       if (!response.body) throw new Error('응답 스트림 없음');
       const reader = response.body.getReader();
@@ -141,7 +163,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
 
       const pump = (): Promise<void> =>
         reader.read().then(({ done, value }) => {
-          if (done) { dp.setBusy(false); return; }
+          if (done) { abortRef.current = null; dp.setBusy(false); return; }
           buf += decoder.decode(value, { stream: true });
           const parts = buf.split('\n\n');
           buf = parts.pop() ?? '';
@@ -152,6 +174,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
               const ev = JSON.parse(dataLine.slice(5).trim()) as SSEEvent;
               if (ev.type === 'done') {
                 completed = true;
+                abortRef.current = null;
                 dp.setProgress(1);
                 dp.setStatus(t('deploy.itchio.done'));
                 if (ev.pageUrl) setItchUrl(ev.pageUrl);
@@ -164,6 +187,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
               }
               if (!dp.handleSSEEvent(ev, totalRef, { copy: 0.7, zip: 0 })) {
                 completed = true;
+                abortRef.current = null;
                 dp.setBusy(false);
                 return;
               }
@@ -174,7 +198,8 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
 
       return pump();
     }).catch((e) => {
-      if (!completed) {
+      abortRef.current = null;
+      if (!completed && !abortCtrl.signal.aborted) {
         dp.setError((e as Error).message);
         dp.setStatus(''); dp.setProgress(null); dp.setBusy(false);
       }
@@ -378,6 +403,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
         resultLabel={t('deploy.itchio.openGame')}
         resultButtonStyle={{ background: '#6b1f1f', borderColor: '#9c2e2e' }}
         onResultClick={() => openUrl(itchUrl)}
+        onCancel={dp.busy ? () => abortRef.current?.() : undefined}
         onClose={() => setShowProgressModal(false)}
       />
     </>

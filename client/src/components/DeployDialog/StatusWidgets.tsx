@@ -34,6 +34,7 @@ interface DeployProgressModalProps {
   resultLabel?: string;
   resultButtonStyle?: React.CSSProperties;
   onResultClick?: () => void;
+  onCancel?: () => void;
   onClose: () => void;
 }
 
@@ -42,6 +43,7 @@ export function DeployProgressModal({
   color = '#2a9a42',
   titleBusy, titleDone, titleFailed,
   resultUrl, resultLabel, resultButtonStyle, onResultClick,
+  onCancel,
   onClose,
 }: DeployProgressModalProps) {
   const [logCopied, setLogCopied] = useState(false);
@@ -101,6 +103,15 @@ export function DeployProgressModal({
         </div>
 
         <ErrorMessage error={error} />
+
+        {busy && onCancel && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <button className="db-btn" onClick={onCancel}
+              style={{ color: '#e77', borderColor: '#533' }}>
+              취소
+            </button>
+          </div>
+        )}
 
         {!busy && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
