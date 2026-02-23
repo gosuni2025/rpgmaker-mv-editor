@@ -633,6 +633,16 @@ export function createApp(options: AppOptions = {}) {
     });
   }
 
+  // JSON 파싱 에러 로깅 (bad control character 등 디버깅용)
+  app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err instanceof SyntaxError && 'body' in err) {
+      console.error(`[JSON Parse Error] ${req.method} ${req.path} — ${err.message}`);
+      res.status(400).json({ error: 'Invalid JSON', detail: err.message });
+      return;
+    }
+    next(err);
+  });
+
   return app;
 }
 
