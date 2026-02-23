@@ -58,7 +58,7 @@ export default function DeployDialog() {
       className="deploy-dialog"
       noBody
       footer={
-        <button className="db-btn" onClick={() => setShow(false)}>{t('common.close')}</button>
+        <button className="db-btn" onClick={() => setShow(false)}>{t('common.cancel')}</button>
       }
     >
       <div className="deploy-tabs">
