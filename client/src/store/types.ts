@@ -146,6 +146,24 @@ export interface ClipboardData {
   passage?: { x: number; y: number; value: number }[];
 }
 
+export interface UIElementInfo {
+  type: string;       // 'actorName' | 'actorClass' | 'actorFace' | 'actorLevel' | ...
+  label: string;      // 표시 이름 (한국어)
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isPerActor?: boolean; // perActor 레이아웃 (BattleStatus, MenuStatus 등)
+}
+
+export interface UIElementOverride {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  visible?: boolean;
+}
+
 export interface UIWindowInfo {
   id: string;
   className: string;
@@ -161,6 +179,7 @@ export interface UIWindowInfo {
   windowskinName: string;
   colorTone: [number, number, number];
   visible: boolean;
+  elements?: UIElementInfo[];
 }
 
 export interface UIWindowOverride {
@@ -176,6 +195,7 @@ export interface UIWindowOverride {
   fontFace?: string;
   windowskinName?: string;
   colorTone?: [number, number, number];
+  elements?: Record<string, UIElementOverride>;
 }
 
 export interface EditorState {
@@ -210,6 +230,7 @@ export interface EditorState {
   uiEditSubMode: 'window' | 'frame';
   uiSelectedSkin: string;      // 선택된 스킨 파일명 (확장자 제외)
   uiSkinCornerSize: number;    // 9-slice 코너 크기 px (RPG MV 기본 24)
+  uiEditorSelectedElementType: string | null; // 선택된 요소 타입 (actorName, hp 등)
   uiShowSkinLabels: boolean;   // 프레임 캔버스 영역 라벨 표시 여부
 
   // Mode
@@ -361,6 +382,8 @@ export interface EditorState {
   setUiEditSubMode: (mode: 'window' | 'frame') => void;
   setUiSelectedSkin: (skin: string) => void;
   setUiSkinCornerSize: (size: number) => void;
+  setUiEditorSelectedElementType: (type: string | null) => void;
+  setUiElementOverride: (className: string, elementType: string, prop: string, value: unknown) => void;
   setUiShowSkinLabels: (show: boolean) => void;
 
   // Actions - Project

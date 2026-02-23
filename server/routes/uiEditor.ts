@@ -147,6 +147,112 @@ router.get('/preview', (req, res) => {
       // 씬 변경 감지용
       var _prevScene = null;
 
+      // ── 요소 캡처: Window 내부 draw 메서드 계측 ─────────────────────────
+      var PER_ACTOR_WINDOWS = { 'Window_BattleStatus': true, 'Window_MenuStatus': true };
+
+      // drawActorFace(actor, faceName, faceIndex, x, y, width, height) → argX=3
+      // drawActorName/Class/Nickname(actor, x, y, width)               → argX=1
+      // drawActorLevel/Icons/Hp/Mp/Tp(actor, x, y, width?)             → argX=1
+      // drawSimpleStatus(actor, x, y, width)                           → argX=1
+      var ELEM_SPECS = [
+        { method:'drawActorName',     type:'actorName',     label:'이름',        argX:1, argY:2, argW:3, argH:null },
+        { method:'drawActorClass',    type:'actorClass',    label:'직업',        argX:1, argY:2, argW:3, argH:null },
+        { method:'drawActorNickname', type:'actorNickname', label:'별명',        argX:1, argY:2, argW:3, argH:null },
+        { method:'drawActorFace',     type:'actorFace',     label:'페이스',      argX:3, argY:4, argW:5, argH:6   },
+        { method:'drawActorLevel',    type:'actorLevel',    label:'레벨',        argX:1, argY:2, argW:null, argH:null },
+        { method:'drawActorIcons',    type:'actorIcons',    label:'상태 아이콘', argX:1, argY:2, argW:3, argH:null },
+        { method:'drawActorHp',       type:'actorHp',       label:'HP',          argX:1, argY:2, argW:3, argH:null },
+        { method:'drawActorMp',       type:'actorMp',       label:'MP',          argX:1, argY:2, argW:3, argH:null },
+        { method:'drawActorTp',       type:'actorTp',       label:'TP',          argX:1, argY:2, argW:3, argH:null },
+        { method:'drawSimpleStatus',  type:'simpleStatus',  label:'간단 상태',   argX:1, argY:2, argW:3, argH:null },
+      ];
+
+      // Window_Base 원본 메서드 캡처 (UITheme.js 플러그인 적용 전)
+      // module script이므로 defer scripts 이후 실행 → Window_Base 접근 가능
+      var ORIG_BASE_METHODS = {};
+      (function() {
+        if (typeof Window_Base === 'undefined') return;
+        ELEM_SPECS.forEach(function(spec) {
+          var m = Window_Base.prototype[spec.method];
+          if (m) ORIG_BASE_METHODS[spec.method] = m;
+        });
+      })();
+
+      /** Window 내 요소 위치 캡처 (bitmap 클리어 없이 draw 메서드만 인터셉트) */
+      function captureElements(win) {
+        if (!win || !win.constructor) return [];
+        var className = win.constructor.name;
+        var isPerActor = !!PER_ACTOR_WINDOWS[className];
+        var elements = [];
+        var seen = {};
+
+        // 인스턴스 메서드로 오버라이드 (prototype 유지, 캡처 후 delete로 복원)
+        ELEM_SPECS.forEach(function(spec) {
+          var proto = win.constructor.prototype;
+          if (!proto || !proto[spec.method]) return;
+          win[spec.method] = (function(spec) {
+            return function() {
+              if (seen[spec.type]) return;
+              seen[spec.type] = true;
+              var args = Array.prototype.slice.call(arguments);
+              var lh = win.lineHeight ? win.lineHeight() : 36;
+              elements.push({
+                type: spec.type,
+                label: spec.label,
+                x: spec.argX !== null && args[spec.argX] !== undefined ? args[spec.argX] : 0,
+                y: spec.argY !== null && args[spec.argY] !== undefined ? args[spec.argY] : 0,
+                width:  spec.argW !== null && args[spec.argW] !== undefined ? args[spec.argW] : 128,
+                height: spec.argH !== null && args[spec.argH] !== undefined ? args[spec.argH] : lh,
+                isPerActor: isPerActor,
+              });
+            };
+          })(spec);
+        });
+
+        // drawBlock1-4 (Window_Status 계열) 또는 drawItem(0) (리스트 계열) 호출
+        var hadBlock = false;
+        ['drawBlock1','drawBlock2','drawBlock3','drawBlock4'].forEach(function(m) {
+          if (typeof win[m] === 'function') { hadBlock = true; try { win[m](); } catch(e) {} }
+        });
+        if (!hadBlock && typeof win.drawItem === 'function') {
+          try { win.drawItem(0); } catch(e) {}
+        }
+
+        // 인스턴스 오버라이드 제거 → prototype 복원
+        ELEM_SPECS.forEach(function(spec) {
+          if (win.hasOwnProperty(spec.method)) delete win[spec.method];
+        });
+
+        return elements;
+      }
+
+      /** 저장된 요소 오버라이드를 인스턴스 메서드로 설치 후 refresh */
+      function reinstallElemOvs(win) {
+        var ovs = win.__uiElemOvs || {};
+        // 이전 인스턴스 패치 제거
+        ELEM_SPECS.forEach(function(spec) {
+          if (win.hasOwnProperty(spec.method)) delete win[spec.method];
+        });
+        // 새 패치 설치 (Window_Base 원본 메서드 기반 → UITheme.js 우회)
+        ELEM_SPECS.forEach(function(spec) {
+          var cfg = ovs[spec.type];
+          if (!cfg) return;
+          var origBase = ORIG_BASE_METHODS[spec.method];
+          if (!origBase) return;
+          win[spec.method] = (function(orig, cfg, spec) {
+            return function() {
+              var args = Array.prototype.slice.call(arguments);
+              if (cfg.x !== undefined && spec.argX !== null) args[spec.argX] = cfg.x;
+              if (cfg.y !== undefined && spec.argY !== null) args[spec.argY] = cfg.y;
+              if (cfg.width !== undefined && spec.argW !== null) args[spec.argW] = cfg.width;
+              if (cfg.height !== undefined && spec.argH !== null) args[spec.argH] = cfg.height;
+              return orig.apply(this, args);
+            };
+          })(origBase, cfg, spec);
+        });
+        try { if (win.refresh) win.refresh(); } catch(e) {}
+      }
+
       /** Window 정보 추출 */
       function extractWindowInfo(win, id) {
         var tone = win._colorTone || [0, 0, 0, 0];
@@ -165,6 +271,7 @@ router.get('/preview', (req, res) => {
           windowskinName: 'Window',
           colorTone: [tone[0] || 0, tone[1] || 0, tone[2] || 0],
           visible: win.visible !== false,
+          elements: captureElements(win),
         };
       }
 
@@ -236,7 +343,13 @@ router.get('/preview', (req, res) => {
             var child = container.children[i];
             if (!child) continue;
             if (child.constructor && child.constructor.name === className) {
-              applyPropToWindow(child, prop, value);
+              if (prop === 'elements' && value && typeof value === 'object') {
+                // 요소 오버라이드 적용
+                child.__uiElemOvs = value;
+                reinstallElemOvs(child);
+              } else {
+                applyPropToWindow(child, prop, value);
+              }
             }
             traverse(child);
           }
@@ -317,6 +430,17 @@ router.get('/preview', (req, res) => {
             applyOverrideToClass(data.className, data.prop, data.value);
             reportWindows('windowUpdated');
             break;
+          case 'updateElementProp': {
+            var ewin = findWindow(data.windowId);
+            if (ewin) {
+              if (!ewin.__uiElemOvs) ewin.__uiElemOvs = {};
+              if (!ewin.__uiElemOvs[data.elemType]) ewin.__uiElemOvs[data.elemType] = {};
+              ewin.__uiElemOvs[data.elemType][data.prop] = data.value;
+              reinstallElemOvs(ewin);
+              reportWindows('windowUpdated');
+            }
+            break;
+          }
           case 'refreshScene':
             loadScene(_targetScene);
             break;

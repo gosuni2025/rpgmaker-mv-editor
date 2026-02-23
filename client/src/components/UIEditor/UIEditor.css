@@ -218,6 +218,52 @@
 .ui-resize-handle.handle-sw { bottom: -4px; left: -4px; cursor: sw-resize; }
 .ui-resize-handle.handle-w  { top: calc(50% - 4px); left: -4px; cursor: w-resize; }
 
+/* 요소 오버레이 */
+.ui-overlay-element {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed rgba(80, 200, 120, 0.6);
+  background: rgba(80, 200, 120, 0.06);
+  cursor: pointer;
+  pointer-events: all;
+  overflow: hidden;
+}
+.ui-overlay-element:hover {
+  border-color: rgba(80, 200, 120, 1);
+  background: rgba(80, 200, 120, 0.15);
+}
+.ui-overlay-element.selected {
+  border: 1.5px solid rgba(80, 200, 120, 1);
+  background: rgba(80, 200, 120, 0.2);
+}
+.ui-overlay-element-label {
+  font-size: 9px;
+  color: rgba(80, 220, 120, 0.95);
+  padding: 1px 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.3);
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* 요소 인스펙터 뒤로가기 버튼 */
+.ui-inspector-back-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid #444;
+  color: #ccc;
+  font-size: 13px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.ui-inspector-back-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
 .ui-editor-loading {
   position: absolute;
   inset: 0;

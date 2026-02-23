@@ -56,6 +56,32 @@
     return (_ov[className] || {})[key];
   }
 
+  /** 클래스 내 요소 오버라이드 취득 */
+  function getElem(className, elemType) {
+    var classOv = _ov[className];
+    if (!classOv || !classOv.elements) return null;
+    return classOv.elements[elemType] || null;
+  }
+
+  /**
+   * 요소 draw 메서드 오버라이드 설치
+   * argX/Y/W/H: arguments 배열에서 x/y/width/height의 인덱스 (null = 오버라이드 안 함)
+   */
+  function wrapDraw(cls, className, methodName, elemType, argX, argY, argW, argH) {
+    var elemCfg = getElem(className, elemType);
+    if (!elemCfg) return;
+    var orig = cls.prototype[methodName];
+    if (!orig) return;
+    cls.prototype[methodName] = function () {
+      var args = Array.prototype.slice.call(arguments);
+      if (elemCfg.x !== undefined && argX !== null) args[argX] = elemCfg.x;
+      if (elemCfg.y !== undefined && argY !== null) args[argY] = elemCfg.y;
+      if (elemCfg.width !== undefined && argW !== null) args[argW] = elemCfg.width;
+      if (elemCfg.height !== undefined && argH !== null) args[argH] = elemCfg.height;
+      return orig.apply(this, args);
+    };
+  }
+
   //===========================================================================
   // Window_Base — 전역 스타일 (모든 Window에 적용)
   //===========================================================================
@@ -384,5 +410,39 @@
     applyLayout(this._itemWindow,         'Window_BattleItem');
     applyLayout(this._helpWindow,         'Window_Help');
   };
+
+  //===========================================================================
+  // 요소 오버라이드 — 각 Window 내 draw 메서드 위치/크기 커스터마이징
+  //
+  // drawActorFace(actor, faceName, faceIndex, x, y, width, height) → argX=3
+  // drawActorName/Class/Nickname(actor, x, y, width)               → argX=1
+  // drawActorLevel(actor, x, y)                                    → argX=1
+  // drawActorIcons/Hp/Mp/Tp(actor, x, y, width)                    → argX=1
+  // drawSimpleStatus(actor, x, y, width)                           → argX=1
+  //
+  // perActor 창(BattleStatus, MenuStatus)은 y를 오버라이드하지 않음
+  // (y는 행 인덱스에 따라 자동 계산됨)
+  //===========================================================================
+
+  // ── Window_Status (single layout) ─────────────────────────────────────────
+  wrapDraw(Window_Status, 'Window_Status', 'drawActorName',     'actorName',     1, 2, 3, null);
+  wrapDraw(Window_Status, 'Window_Status', 'drawActorClass',    'actorClass',    1, 2, 3, null);
+  wrapDraw(Window_Status, 'Window_Status', 'drawActorNickname', 'actorNickname', 1, 2, 3, null);
+  wrapDraw(Window_Status, 'Window_Status', 'drawActorFace',     'actorFace',     3, 4, 5, 6);
+  wrapDraw(Window_Status, 'Window_Status', 'drawActorLevel',    'actorLevel',    1, 2, null, null);
+  wrapDraw(Window_Status, 'Window_Status', 'drawActorIcons',    'actorIcons',    1, 2, 3, null);
+  wrapDraw(Window_Status, 'Window_Status', 'drawActorHp',       'actorHp',       1, 2, 3, null);
+  wrapDraw(Window_Status, 'Window_Status', 'drawActorMp',       'actorMp',       1, 2, 3, null);
+
+  // ── Window_BattleStatus (perActor — y 오버라이드 안 함) ──────────────────
+  wrapDraw(Window_BattleStatus, 'Window_BattleStatus', 'drawActorName',  'actorName',  1, null, 3, null);
+  wrapDraw(Window_BattleStatus, 'Window_BattleStatus', 'drawActorIcons', 'actorIcons', 1, null, 3, null);
+  wrapDraw(Window_BattleStatus, 'Window_BattleStatus', 'drawActorHp',    'actorHp',    1, null, 3, null);
+  wrapDraw(Window_BattleStatus, 'Window_BattleStatus', 'drawActorMp',    'actorMp',    1, null, 3, null);
+  wrapDraw(Window_BattleStatus, 'Window_BattleStatus', 'drawActorTp',    'actorTp',    1, null, 3, null);
+
+  // ── Window_MenuStatus (perActor — y 오버라이드 안 함) ────────────────────
+  wrapDraw(Window_MenuStatus, 'Window_MenuStatus', 'drawActorFace',    'actorFace',    3, null, 5, 6);
+  wrapDraw(Window_MenuStatus, 'Window_MenuStatus', 'drawSimpleStatus', 'simpleStatus', 1, null, 3, null);
 
 })();

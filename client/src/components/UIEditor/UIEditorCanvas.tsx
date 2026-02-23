@@ -52,7 +52,6 @@ export default function UIEditorCanvas() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  // layout: transform scale + absolute position to center the game container
   const [layout, setLayout] = useState({ scale: 1, left: 0, top: 0 });
   const scaleRef = useRef(1);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -62,11 +61,14 @@ export default function UIEditorCanvas() {
   const uiEditorIframeReady = useEditorStore((s) => s.uiEditorIframeReady);
   const uiEditorWindows = useEditorStore((s) => s.uiEditorWindows);
   const uiEditorSelectedWindowId = useEditorStore((s) => s.uiEditorSelectedWindowId);
+  const uiEditorOverrides = useEditorStore((s) => s.uiEditorOverrides);
+  const uiEditorSelectedElementType = useEditorStore((s) => s.uiEditorSelectedElementType);
   const setUiEditorIframeReady = useEditorStore((s) => s.setUiEditorIframeReady);
   const setUiEditorWindows = useEditorStore((s) => s.setUiEditorWindows);
   const setUiEditorSelectedWindowId = useEditorStore((s) => s.setUiEditorSelectedWindowId);
   const setUiEditorOverride = useEditorStore((s) => s.setUiEditorOverride);
   const loadUiEditorOverrides = useEditorStore((s) => s.loadUiEditorOverrides);
+  const setUiEditorSelectedElementType = useEditorStore((s) => s.setUiEditorSelectedElementType);
 
   // Layout 계산 (ResizeObserver)
   useEffect(() => {
@@ -89,7 +91,7 @@ export default function UIEditorCanvas() {
     return () => ro.disconnect();
   }, []);
 
-  // 저장된 config 로드 (프로젝트 오픈 시, 아직 오버라이드 없을 때)
+  // 저장된 config 로드
   useEffect(() => {
     if (!projectPath) return;
     if (Object.keys(useEditorStore.getState().uiEditorOverrides).length > 0) return;
@@ -141,7 +143,6 @@ export default function UIEditorCanvas() {
   }, [uiEditorIframeReady, uiEditorScene]);
 
   // 드래그 중 커서 스타일 + iframe pointer-events 비활성화
-  // (iframe이 mousemove/mouseup을 흡수하지 않도록)
   useEffect(() => {
     if (!dragState) return;
     const cursor = dragState.handleDir === 'move' ? 'grabbing' : `${dragState.handleDir}-resize`;
@@ -229,7 +230,6 @@ export default function UIEditorCanvas() {
       </div>
 
       <div ref={wrapperRef} className="ui-editor-canvas-wrapper">
-        {/* 816×624 게임 컨테이너 — transform scale로 축소 */}
         <div
           ref={containerRef}
           className="ui-editor-game-container"
@@ -252,6 +252,10 @@ export default function UIEditorCanvas() {
           <div className="ui-overlay-container">
             {uiEditorWindows.map((win) => {
               const isSelected = win.id === uiEditorSelectedWindowId;
+              const windowOverride = uiEditorOverrides[win.className];
+              const padding = win.padding ?? 18;
+              const elements = win.elements ?? [];
+
               return (
                 <div
                   key={win.id}
@@ -260,13 +264,11 @@ export default function UIEditorCanvas() {
                   title={win.className}
                   onMouseDown={(e) => handleWindowMouseDown(e, win)}
                 >
-                  {/* 클래스 이름 레이블 (선택 시) */}
                   {isSelected && (
                     <div className="ui-overlay-label">
                       {win.className.replace(/^Window_/, '')}
                     </div>
                   )}
-                  {/* 리사이즈 핸들 (선택 시만) */}
                   {isSelected && RESIZE_HANDLES.map((dir) => (
                     <div
                       key={dir}
@@ -274,6 +276,35 @@ export default function UIEditorCanvas() {
                       onMouseDown={(e) => handleResizeMouseDown(e, win, dir)}
                     />
                   ))}
+
+                  {/* 요소 오버레이 (창 선택 시 표시) */}
+                  {isSelected && elements.map((elem) => {
+                    const elemOv = windowOverride?.elements?.[elem.type] ?? {};
+                    const ex = elemOv.x ?? elem.x;
+                    const ey = elemOv.y ?? elem.y;
+                    const ew = elemOv.width ?? elem.width;
+                    const eh = elemOv.height ?? elem.height;
+                    const isElemSelected = uiEditorSelectedElementType === elem.type;
+                    return (
+                      <div
+                        key={elem.type}
+                        className={`ui-overlay-element${isElemSelected ? ' selected' : ''}`}
+                        style={{
+                          left: padding + ex,
+                          top: padding + ey,
+                          width: ew,
+                          height: eh,
+                        }}
+                        title={elem.label}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setUiEditorSelectedElementType(isElemSelected ? null : elem.type);
+                        }}
+                      >
+                        <div className="ui-overlay-element-label">{elem.label}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}

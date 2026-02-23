@@ -38,16 +38,21 @@ export default function UIEditorFrameInspector() {
     }
   };
 
-  // 적용 — UITheme.js 생성
+  // 스킨 cornerSize 저장 + config 동기화
   const handleApply = async () => {
     if (!projectPath || !uiSelectedSkin) return;
     try {
       await saveSkinCornerSize(uiSkinCornerSize);
-      await fetch('/api/ui-editor/generate-plugin', { method: 'POST' });
+      const config = useEditorStore.getState().uiEditorOverrides;
+      await fetch('/api/ui-editor/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overrides: config, defaultSkin: uiSelectedSkin }),
+      });
       setUiEditorDirty(false);
-      useEditorStore.getState().showToast('UITheme.js 생성 완료');
+      useEditorStore.getState().showToast('스킨 설정 저장 완료');
     } catch {
-      useEditorStore.getState().showToast('적용 실패', true);
+      useEditorStore.getState().showToast('저장 실패', true);
     }
   };
 

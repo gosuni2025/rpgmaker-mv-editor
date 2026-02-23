@@ -4,10 +4,12 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' |
   'uiEditorSelectedWindowId' | 'uiEditorOverrides' | 'uiEditorDirty' |
   'uiEditSubMode' | 'uiSelectedSkin' | 'uiSkinCornerSize' | 'uiShowSkinLabels' |
+  'uiEditorSelectedElementType' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
-  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSkinCornerSize' | 'setUiShowSkinLabels'
+  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSkinCornerSize' | 'setUiShowSkinLabels' |
+  'setUiEditorSelectedElementType' | 'setUiElementOverride'
 >> = (set) => ({
   editorMode: 'map',
   uiEditorScene: 'Scene_Options',
@@ -20,12 +22,13 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiSelectedSkin: 'Window',
   uiSkinCornerSize: 24,
   uiShowSkinLabels: false,
+  uiEditorSelectedElementType: null,
 
   setEditorMode: (mode) => set({ editorMode: mode }),
-  setUiEditorScene: (scene) => set({ uiEditorScene: scene, uiEditorWindows: [], uiEditorSelectedWindowId: null }),
+  setUiEditorScene: (scene) => set({ uiEditorScene: scene, uiEditorWindows: [], uiEditorSelectedWindowId: null, uiEditorSelectedElementType: null }),
   setUiEditorIframeReady: (ready) => set({ uiEditorIframeReady: ready }),
   setUiEditorWindows: (windows: UIWindowInfo[]) => set({ uiEditorWindows: windows }),
-  setUiEditorSelectedWindowId: (id) => set({ uiEditorSelectedWindowId: id }),
+  setUiEditorSelectedWindowId: (id) => set({ uiEditorSelectedWindowId: id, uiEditorSelectedElementType: null }),
   setUiEditorOverride: (className, prop, value) => {
     set((state) => {
       const prev = state.uiEditorOverrides[className] || { className };
@@ -51,4 +54,25 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   setUiSelectedSkin: (skin) => set({ uiSelectedSkin: skin }),
   setUiSkinCornerSize: (size) => set({ uiSkinCornerSize: size }),
   setUiShowSkinLabels: (show) => set({ uiShowSkinLabels: show }),
+  setUiEditorSelectedElementType: (type) => set({ uiEditorSelectedElementType: type }),
+  setUiElementOverride: (className, elementType, prop, value) => {
+    set((state) => {
+      const prev = state.uiEditorOverrides[className] || { className };
+      const prevElems = prev.elements || {};
+      const prevElem = prevElems[elementType] || {};
+      return {
+        uiEditorOverrides: {
+          ...state.uiEditorOverrides,
+          [className]: {
+            ...prev,
+            elements: {
+              ...prevElems,
+              [elementType]: { ...prevElem, [prop]: value },
+            },
+          } as UIWindowOverride,
+        },
+        uiEditorDirty: true,
+      };
+    });
+  },
 });
