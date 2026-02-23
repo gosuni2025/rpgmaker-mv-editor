@@ -172,7 +172,11 @@ export function usePluginManager() {
       ]);
       setEditorPlugins(updatedEp || []);
       setMetadata(meta);
-      const newEntry = { name: pluginName, status: true, description: '', parameters: [] };
+      const pluginMeta = meta[pluginName];
+      const params = pluginMeta?.params
+        ? pluginMeta.params.map(pm => ({ name: pm.name, value: pm.default }))
+        : [];
+      const newEntry = { name: pluginName, status: true, description: pluginMeta?.plugindesc || '', parameters: params };
       const updated = [...plugins, newEntry];
       setPlugins(updated);
       setSelectedIndex(updated.length - 1);
