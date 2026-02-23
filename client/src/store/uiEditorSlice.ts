@@ -58,6 +58,17 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   setUiEditorOverride: (className, prop, value) => {
     set((state) => {
       const prev = state.uiEditorOverrides[className] || { className };
+      if (value === undefined) {
+        const next = { ...prev } as Record<string, unknown>;
+        delete next[prop as string];
+        return {
+          uiEditorOverrides: {
+            ...state.uiEditorOverrides,
+            [className]: next as unknown as UIWindowOverride,
+          },
+          uiEditorDirty: true,
+        };
+      }
       return {
         uiEditorOverrides: {
           ...state.uiEditorOverrides,

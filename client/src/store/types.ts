@@ -184,6 +184,7 @@ export interface UIWindowInfo {
 
 export interface UIWindowOverride {
   className: string;
+  windowStyle?: 'default' | 'frame' | 'image';
   x?: number;
   y?: number;
   width?: number;

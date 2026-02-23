@@ -1,8 +1,68 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { UIWindowInfo, UIWindowOverride, UIElementInfo } from '../../store/types';
 import DragLabel from '../common/DragLabel';
 import './UIEditor.css';
+
+// ── 프레임 선택 팝업 ──────────────────────────────────────────────────────────
+
+interface SkinEntryBasic { name: string; cornerSize: number; }
+
+function FramePickerDialog({ open, current, onClose, onSelect }: {
+  open: boolean;
+  current: string;
+  onClose: () => void;
+  onSelect: (name: string) => void;
+}) {
+  const [skins, setSkins] = useState<SkinEntryBasic[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch('/api/ui-editor/skins')
+      .then((r) => r.json())
+      .then((d) => setSkins(d.skins ?? []))
+      .catch(() => {});
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div className="ui-frame-picker-overlay" onClick={onClose}>
+      <div className="ui-frame-picker-dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="ui-frame-picker-header">
+          <span>프레임 선택</span>
+          <button className="ui-help-close" onClick={onClose}>×</button>
+        </div>
+        {skins.length === 0 ? (
+          <div className="ui-frame-picker-empty">
+            등록된 스킨이 없습니다.<br />
+            프레임 편집 탭에서 먼저 스킨을 등록하세요.
+          </div>
+        ) : (
+          <div className="ui-frame-picker-grid">
+            {skins.map((skin) => (
+              <div
+                key={skin.name}
+                className={`ui-frame-picker-item${current === skin.name ? ' selected' : ''}`}
+                onClick={() => { onSelect(skin.name); onClose(); }}
+              >
+                <div className="ui-frame-picker-img-wrap">
+                  <img
+                    src={`/img/system/${skin.name}.png`}
+                    alt={skin.name}
+                    className="ui-frame-picker-img"
+                    onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
+                  />
+                </div>
+                <span className="ui-frame-picker-name">{skin.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── 창 인스펙터 ───────────────────────────────────────────────────────────────
 
@@ -14,6 +74,8 @@ function WindowInspector({ selectedWindow, override }: {
   const projectPath = useEditorStore((s) => s.projectPath);
   const setUiEditorOverride = useEditorStore((s) => s.setUiEditorOverride);
   const resetUiEditorOverride = useEditorStore((s) => s.resetUiEditorOverride);
+
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const getProp = useCallback(<K extends keyof UIWindowInfo>(
     key: K, win: UIWindowInfo, ov: UIWindowOverride | null,
@@ -29,6 +91,27 @@ function WindowInspector({ selectedWindow, override }: {
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
     iframe?.contentWindow?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop, value }, '*');
   }, [selectedWindow, setUiEditorOverride]);
+
+  // 프레임 스타일 메타 (iframe 업데이트 불필요)
+  const setMeta = useCallback((prop: keyof Omit<UIWindowOverride, 'className' | 'elements'>, value: unknown) => {
+    setUiEditorOverride(selectedWindow.className, prop, value);
+  }, [selectedWindow, setUiEditorOverride]);
+
+  const windowStyle = override?.windowStyle ?? 'default';
+
+  const handleStyleChange = (style: 'default' | 'frame' | 'image') => {
+    setMeta('windowStyle', style === 'default' ? undefined : style);
+    if (style === 'default') {
+      // windowskinName 오버라이드 제거
+      setMeta('windowskinName', undefined);
+      const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+      iframe?.contentWindow?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'windowskinName', value: selectedWindow.windowskinName }, '*');
+    }
+  };
+
+  const handleFrameSelect = (name: string) => {
+    set('windowskinName', name);
+  };
 
   const handleSave = async () => {
     if (!projectPath) return;
@@ -58,10 +141,78 @@ function WindowInspector({ selectedWindow, override }: {
 
   return (
     <>
+      <FramePickerDialog
+        open={pickerOpen}
+        current={override?.windowskinName ?? selectedWindow.windowskinName}
+        onClose={() => setPickerOpen(false)}
+        onSelect={handleFrameSelect}
+      />
+
       <div className="ui-editor-inspector-header">
         {selectedWindow.className.replace(/^Window_/, '')}
       </div>
       <div className="ui-editor-inspector-body">
+
+        {/* ── 창 프레임 스타일 ── */}
+        <div className="ui-inspector-section">
+          <div className="ui-inspector-section-title">창 프레임 스타일</div>
+          <div className="ui-window-style-radios">
+            {(['default', 'frame', 'image'] as const).map((style) => (
+              <label key={style} className={`ui-radio-label${windowStyle === style ? ' active' : ''}`}>
+                <input
+                  type="radio"
+                  name={`win-style-${selectedWindow.id}`}
+                  value={style}
+                  checked={windowStyle === style}
+                  onChange={() => handleStyleChange(style)}
+                />
+                {style === 'default' ? '기본' : style === 'frame' ? '프레임 변경' : '이미지로 변경'}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* ── 프레임 변경 설정 ── */}
+        {windowStyle === 'frame' && (
+          <div className="ui-inspector-section">
+            <div className="ui-inspector-section-title">프레임 설정</div>
+            <div className="ui-inspector-row">
+              <span className="ui-inspector-label">선택된 프레임</span>
+              <span className="ui-frame-selected-name">
+                {override?.windowskinName ?? selectedWindow.windowskinName ?? '(없음)'}
+              </span>
+            </div>
+            <div className="ui-inspector-row">
+              <button className="ui-frame-pick-btn" onClick={() => setPickerOpen(true)}>
+                프레임 선택…
+              </button>
+            </div>
+            <div className="ui-inspector-section-title" style={{ marginTop: 6 }}>색조 (R / G / B)</div>
+            <div className="ui-inspector-row">
+              <DragLabel label="R" value={colorTone[0]} min={-255} max={255}
+                onChange={(v) => set('colorTone', [Math.round(v), colorTone[1], colorTone[2]] as [number, number, number])} />
+            </div>
+            <div className="ui-inspector-row">
+              <DragLabel label="G" value={colorTone[1]} min={-255} max={255}
+                onChange={(v) => set('colorTone', [colorTone[0], Math.round(v), colorTone[2]] as [number, number, number])} />
+            </div>
+            <div className="ui-inspector-row">
+              <DragLabel label="B" value={colorTone[2]} min={-255} max={255}
+                onChange={(v) => set('colorTone', [colorTone[0], colorTone[1], Math.round(v)] as [number, number, number])} />
+            </div>
+          </div>
+        )}
+
+        {/* ── 이미지로 변경 (미구현) ── */}
+        {windowStyle === 'image' && (
+          <div className="ui-inspector-section">
+            <div className="ui-inspector-section-title">이미지 설정</div>
+            <div style={{ padding: '8px 12px', fontSize: 12, color: '#777', fontStyle: 'italic' }}>
+              준비 중입니다.
+            </div>
+          </div>
+        )}
+
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">위치 / 크기</div>
           <div className="ui-inspector-row">
@@ -98,21 +249,23 @@ function WindowInspector({ selectedWindow, override }: {
           </div>
         </div>
 
-        <div className="ui-inspector-section">
-          <div className="ui-inspector-section-title">색조 (R / G / B)</div>
-          <div className="ui-inspector-row">
-            <DragLabel label="R" value={colorTone[0]} min={-255} max={255}
-              onChange={(v) => set('colorTone', [Math.round(v), colorTone[1], colorTone[2]] as [number, number, number])} />
+        {windowStyle !== 'frame' && (
+          <div className="ui-inspector-section">
+            <div className="ui-inspector-section-title">색조 (R / G / B)</div>
+            <div className="ui-inspector-row">
+              <DragLabel label="R" value={colorTone[0]} min={-255} max={255}
+                onChange={(v) => set('colorTone', [Math.round(v), colorTone[1], colorTone[2]] as [number, number, number])} />
+            </div>
+            <div className="ui-inspector-row">
+              <DragLabel label="G" value={colorTone[1]} min={-255} max={255}
+                onChange={(v) => set('colorTone', [colorTone[0], Math.round(v), colorTone[2]] as [number, number, number])} />
+            </div>
+            <div className="ui-inspector-row">
+              <DragLabel label="B" value={colorTone[2]} min={-255} max={255}
+                onChange={(v) => set('colorTone', [colorTone[0], colorTone[1], Math.round(v)] as [number, number, number])} />
+            </div>
           </div>
-          <div className="ui-inspector-row">
-            <DragLabel label="G" value={colorTone[1]} min={-255} max={255}
-              onChange={(v) => set('colorTone', [colorTone[0], Math.round(v), colorTone[2]] as [number, number, number])} />
-          </div>
-          <div className="ui-inspector-row">
-            <DragLabel label="B" value={colorTone[2]} min={-255} max={255}
-              onChange={(v) => set('colorTone', [colorTone[0], colorTone[1], Math.round(v)] as [number, number, number])} />
-          </div>
-        </div>
+        )}
 
         {!!override && (
           <div className="ui-inspector-row" style={{ marginTop: 8 }}>
