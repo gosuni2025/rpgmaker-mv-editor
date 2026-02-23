@@ -5,13 +5,9 @@ import IconPicker from '../common/IconPicker';
 import TraitsEditor from '../common/TraitsEditor';
 import TranslateButton from '../common/TranslateButton';
 import DatabaseList from './DatabaseList';
+import DbParamsGrid from './DbParamsGrid';
 import apiClient from '../../api/client';
 import { useDatabaseTab } from './useDatabaseTab';
-
-interface ArmorsTabProps {
-  data: (Armor | null)[] | undefined;
-  onChange: (data: (Armor | null)[]) => void;
-}
 
 function createNewArmor(id: number): Armor {
   return {
@@ -28,14 +24,17 @@ function deepCopyArmor(source: Armor): Partial<Armor> {
   };
 }
 
+interface ArmorsTabProps {
+  data: (Armor | null)[] | undefined;
+  onChange: (data: (Armor | null)[]) => void;
+}
+
 export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
   const { t } = useTranslation();
   const { selectedId, setSelectedId, selectedItem, handleFieldChange, handleAdd, handleDelete, handleDuplicate, handleReorder } =
     useDatabaseTab(data, onChange, createNewArmor, deepCopyArmor);
   const [armorTypes, setArmorTypes] = useState<string[]>([]);
   const [equipTypes, setEquipTypes] = useState<string[]>([]);
-
-  const PARAM_NAMES = [t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'), t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck')];
 
   useEffect(() => {
     apiClient.get<{ armorTypes?: string[]; equipTypes?: string[] }>('/database/system').then(sys => {
@@ -116,18 +115,7 @@ export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
 
             <div className="db-form-section">{t('fields.parameters')}</div>
 
-            <div className="db-form-row">
-              <label>{PARAM_NAMES[0]}<input type="number" value={selectedItem.params?.[0] ?? 0} onChange={(e) => handleParamChange(0, Number(e.target.value))} /></label>
-              <label>{PARAM_NAMES[2]}<input type="number" value={selectedItem.params?.[2] ?? 0} onChange={(e) => handleParamChange(2, Number(e.target.value))} /></label>
-              <label>{PARAM_NAMES[4]}<input type="number" value={selectedItem.params?.[4] ?? 0} onChange={(e) => handleParamChange(4, Number(e.target.value))} /></label>
-              <label>{PARAM_NAMES[6]}<input type="number" value={selectedItem.params?.[6] ?? 0} onChange={(e) => handleParamChange(6, Number(e.target.value))} /></label>
-            </div>
-            <div className="db-form-row">
-              <label>{PARAM_NAMES[1]}<input type="number" value={selectedItem.params?.[1] ?? 0} onChange={(e) => handleParamChange(1, Number(e.target.value))} /></label>
-              <label>{PARAM_NAMES[3]}<input type="number" value={selectedItem.params?.[3] ?? 0} onChange={(e) => handleParamChange(3, Number(e.target.value))} /></label>
-              <label>{PARAM_NAMES[5]}<input type="number" value={selectedItem.params?.[5] ?? 0} onChange={(e) => handleParamChange(5, Number(e.target.value))} /></label>
-              <label>{PARAM_NAMES[7]}<input type="number" value={selectedItem.params?.[7] ?? 0} onChange={(e) => handleParamChange(7, Number(e.target.value))} /></label>
-            </div>
+            <DbParamsGrid params={selectedItem.params || [0, 0, 0, 0, 0, 0, 0, 0]} onChange={handleParamChange} />
           </div>
 
           <div className="db-form-col">
@@ -143,14 +131,10 @@ export default function ArmorsTab({ data, onChange }: ArmorsTabProps) {
             <div className="db-form-section">{t('common.note')}</div>
 
             <textarea
+              className="db-note-textarea"
               value={selectedItem.note || ''}
               onChange={(e) => handleFieldChange('note', e.target.value)}
               rows={5}
-              style={{
-                background: '#2b2b2b', border: '1px solid #555', borderRadius: 3,
-                padding: '4px 8px', color: '#ddd', fontSize: 13, fontFamily: 'inherit',
-                outline: 'none', resize: 'vertical', flex: 1, minHeight: 60,
-              }}
             />
           </div>
         </div>

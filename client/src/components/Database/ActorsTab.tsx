@@ -7,13 +7,12 @@ import TranslateButton from '../common/TranslateButton';
 import DatabaseList from './DatabaseList';
 import apiClient from '../../api/client';
 import { useDatabaseTab } from './useDatabaseTab';
+import type { RefItem } from './dbConstants';
 
 interface ActorsTabProps {
   data: (Actor | null)[] | undefined;
   onChange: (data: (Actor | null)[]) => void;
 }
-
-interface RefItem { id: number; name: string }
 
 const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, width: '100%' };
 

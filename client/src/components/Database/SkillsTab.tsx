@@ -9,13 +9,8 @@ import AnimationPickerDialog from '../EventEditor/AnimationPickerDialog';
 import DatabaseList from './DatabaseList';
 import apiClient from '../../api/client';
 import { useDatabaseTab } from './useDatabaseTab';
-
-interface SkillsTabProps {
-  data: (Skill | null)[] | undefined;
-  onChange: (data: (Skill | null)[]) => void;
-}
-
-interface RefItem { id: number; name: string }
+import { makeScopeOptions, makeOccasionOptions, makeHitTypeOptions } from './dbConstants';
+import type { RefItem } from './dbConstants';
 
 const DEFAULT_DAMAGE: Damage = { critical: false, elementId: 0, formula: '', type: 0, variance: 0 };
 
@@ -53,6 +48,11 @@ function deepCopySkill(source: Skill): Partial<Skill> {
   };
 }
 
+interface SkillsTabProps {
+  data: (Skill | null)[] | undefined;
+  onChange: (data: (Skill | null)[]) => void;
+}
+
 export default function SkillsTab({ data, onChange }: SkillsTabProps) {
   const { t } = useTranslation();
   const { selectedId, setSelectedId, selectedItem, handleFieldChange, handleAdd, handleDelete, handleDuplicate, handleReorder } =
@@ -62,33 +62,9 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
   const [animations, setAnimations] = useState<RefItem[]>([]);
   const [showAnimPicker, setShowAnimPicker] = useState(false);
 
-  const SCOPE_OPTIONS = [
-    { value: 0, label: t('scope.none') },
-    { value: 1, label: t('scope.oneEnemy') },
-    { value: 2, label: t('scope.allEnemies') },
-    { value: 3, label: t('scope.randomEnemy1') },
-    { value: 4, label: t('scope.randomEnemy2') },
-    { value: 5, label: t('scope.randomEnemy3') },
-    { value: 6, label: t('scope.randomEnemy4') },
-    { value: 7, label: t('scope.oneAlly') },
-    { value: 8, label: t('scope.allAllies') },
-    { value: 9, label: t('scope.oneAllyDead') },
-    { value: 10, label: t('scope.allAlliesDead') },
-    { value: 11, label: t('scope.theUser') },
-  ];
-
-  const OCCASION_OPTIONS = [
-    { value: 0, label: t('occasion.always') },
-    { value: 1, label: t('occasion.onlyInBattle') },
-    { value: 2, label: t('occasion.onlyFromMenu') },
-    { value: 3, label: t('occasion.never') },
-  ];
-
-  const HIT_TYPE_OPTIONS = [
-    { value: 0, label: t('hitType.certainHit') },
-    { value: 1, label: t('hitType.physicalAttack') },
-    { value: 2, label: t('hitType.magicalAttack') },
-  ];
+  const SCOPE_OPTIONS = makeScopeOptions(t);
+  const OCCASION_OPTIONS = makeOccasionOptions(t);
+  const HIT_TYPE_OPTIONS = makeHitTypeOptions(t);
 
   useEffect(() => {
     apiClient.get<{ skillTypes?: string[]; weaponTypes?: string[] }>('/database/system').then(sys => {
@@ -301,14 +277,10 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
             <div className="db-form-section">{t('common.note')}</div>
 
             <textarea
+              className="db-note-textarea"
               value={selectedItem.note || ''}
               onChange={(e) => handleFieldChange('note', e.target.value)}
               rows={5}
-              style={{
-                background: '#2b2b2b', border: '1px solid #555', borderRadius: 3,
-                padding: '4px 8px', color: '#ddd', fontSize: 13, fontFamily: 'inherit',
-                outline: 'none', resize: 'vertical', flex: 1, minHeight: 60,
-              }}
             />
           </div>
         </div>

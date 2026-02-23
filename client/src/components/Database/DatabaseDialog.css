@@ -177,6 +177,11 @@
   resize: vertical;
 }
 
+.db-note-textarea {
+  flex: 1;
+  min-height: 60px;
+}
+
 .db-form-columns select {
   background: #2b2b2b;
   border: 1px solid #555;
