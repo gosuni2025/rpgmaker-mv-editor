@@ -280,21 +280,28 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
         </div>
       )}
 
-      <div className="deploy-info-box" style={{ padding: '8px 12px' }}>
-        <div style={{ color: '#e8a040', fontSize: 11, marginBottom: 4 }}>
-          ⚠ itch.io는 파일 수가 1,000개를 초과하면 웹 플레이어에서 실행이 불가합니다.
-        </div>
-        <div style={{ color: '#777', fontSize: 11 }}>
-          최초 업로드 시: ZIP 만들기 → 폴더 열기 → itch.io 게임 편집 페이지 → Upload files 버튼으로 ZIP 업로드
-        </div>
-      </div>
-
       {/* 번들링 옵션 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
           <input type="checkbox" checked={bundle} onChange={(e) => setBundle(e.target.checked)} />
           SW 번들링 (img/audio/data → ZIP)
         </label>
+      </div>
+
+      {!bundle && (
+        <div className="deploy-info-box" style={{ padding: '8px 12px' }}>
+          <div style={{ color: '#e8a040', fontSize: 11, marginBottom: 4 }}>
+            ⚠ itch.io는 파일 수가 1,000개를 초과하면 웹 플레이어에서 실행이 불가합니다.
+          </div>
+          <div style={{ color: '#777', fontSize: 11 }}>
+            최초 업로드 시: ZIP 만들기 → 폴더 열기 → itch.io 게임 편집 페이지 → Upload files 버튼으로 ZIP 업로드
+          </div>
+        </div>
+      )}
+
+      <div style={{ padding: '5px 9px', background: '#1a1a2a', borderRadius: 4, fontSize: 11, color: '#aab', lineHeight: 1.6 }}>
+        💡 배포 후 itch.io 게임 페이지 설정: Edit Game → Embed in page → Kind: <strong style={{ color: '#fff' }}>HTML</strong>,
+        Viewport: 최소 <strong style={{ color: '#ff9' }}>816 × 624</strong>
       </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
@@ -327,11 +334,6 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
             style={{ marginTop: 8, width: '100%', background: '#6b1f1f', borderColor: '#9c2e2e' }}>
             {t('deploy.itchio.openGame')} ↗
           </button>
-          <div style={{ marginTop: 10, padding: '7px 9px', background: '#1a1a2a', borderRadius: 4, fontSize: 11, color: '#aab', lineHeight: 1.6 }}>
-            💡 <strong style={{ color: '#ccd' }}>itch.io 게임 페이지 설정 필요</strong><br />
-            Edit Game → Embed in page → Kind: <strong style={{ color: '#fff' }}>HTML</strong><br />
-            Viewport dimensions: 최소 <strong style={{ color: '#ff9' }}>816 × 624</strong>
-          </div>
         </div>
       )}
 
