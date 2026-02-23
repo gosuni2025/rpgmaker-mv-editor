@@ -1,5 +1,6 @@
 import React, { useRef, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
+import { useShallow } from 'zustand/react/shallow';
 import type { TileChange } from '../../store/useEditorStore';
 import type { RPGEvent } from '../../types/rpgMakerMV';
 import { placeAutotileAtPure } from './mapToolAlgorithms';
@@ -62,20 +63,16 @@ export function useMouseHandlers(
   tools: MapToolsResult,
   pendingChanges: React.MutableRefObject<TileChange[]>,
 ): MouseHandlersResult {
-  const currentMap = useEditorStore((s) => s.currentMap);
-  const selectedTool = useEditorStore((s) => s.selectedTool);
-  const drawShape = useEditorStore((s) => s.drawShape);
-  const currentLayer = useEditorStore((s) => s.currentLayer);
-  const editMode = useEditorStore((s) => s.editMode);
-  const zoomLevel = useEditorStore((s) => s.zoomLevel);
-  const mode3d = useEditorStore((s) => s.mode3d);
-  const updateMapTiles = useEditorStore((s) => s.updateMapTiles);
-  const pushUndo = useEditorStore((s) => s.pushUndo);
-  const setCursorTile = useEditorStore((s) => s.setCursorTile);
-  const clearSelection = useEditorStore((s) => s.clearSelection);
-  const lightEditMode = useEditorStore((s) => s.lightEditMode);
-  const selectedLightType = useEditorStore((s) => s.selectedLightType);
-  const resizeMap = useEditorStore((s) => s.resizeMap);
+  const {
+    currentMap, selectedTool, drawShape, currentLayer, editMode, zoomLevel, mode3d,
+    updateMapTiles, pushUndo, setCursorTile, clearSelection, lightEditMode, selectedLightType, resizeMap,
+  } = useEditorStore(useShallow((s) => ({
+    currentMap: s.currentMap, selectedTool: s.selectedTool, drawShape: s.drawShape,
+    currentLayer: s.currentLayer, editMode: s.editMode, zoomLevel: s.zoomLevel, mode3d: s.mode3d,
+    updateMapTiles: s.updateMapTiles, pushUndo: s.pushUndo, setCursorTile: s.setCursorTile,
+    clearSelection: s.clearSelection, lightEditMode: s.lightEditMode,
+    selectedLightType: s.selectedLightType, resizeMap: s.resizeMap,
+  })));
 
   // Sub-hooks
   const cameraZone = useCameraZoneHandlers(webglCanvasRef);

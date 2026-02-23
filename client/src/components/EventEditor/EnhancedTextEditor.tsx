@@ -155,6 +155,29 @@ export function EnhancedTextEditor({
     editorRef.current.focus();
   };
 
+  // ─── HTML 스냅샷 복원 (undo/redo 공통) ───
+  const restoreHTML = useCallback((html: string) => {
+    if (!editorRef.current) return;
+    isInternalUpdate.current = true;
+    editorRef.current.innerHTML = html;
+    prevHTMLRef.current = html;
+    isInternalUpdate.current = false;
+    const raw = htmlDivToRaw(editorRef.current);
+    lastValueRef.current = raw;
+    onChange(raw);
+    editorRef.current.focus();
+  }, [onChange]);
+
+  // ─── DOM 선택 영역 → raw 문자열 ───
+  function selectionToRaw(): string | null {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+    const frag = sel.getRangeAt(0).cloneContents();
+    const tmp = document.createElement('div');
+    tmp.appendChild(frag);
+    return htmlDivToRaw(tmp);
+  }
+
   // ─── 텍스트/HTML 커서 위치에 삽입 (execCommand로 undo 히스토리에 기록) ───
   const insertAtCursor = useCallback((html: string) => {
     restoreSelection();
@@ -264,12 +287,9 @@ export function EnhancedTextEditor({
 
   // ─── 클립보드 (복사/잘라내기/붙여넣기) ───
   const handleCopy = useCallback((e: React.ClipboardEvent) => {
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
-      const frag = sel.getRangeAt(0).cloneContents();
-      const tmp = document.createElement('div');
-      tmp.appendChild(frag);
-      e.clipboardData.setData('text/plain', htmlDivToRaw(tmp));
+    const raw = selectionToRaw();
+    if (raw !== null) {
+      e.clipboardData.setData('text/plain', raw);
       e.preventDefault();
       return;
     }
@@ -280,12 +300,9 @@ export function EnhancedTextEditor({
   }, [selectedBlock]);
 
   const handleCut = useCallback((e: React.ClipboardEvent) => {
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
-      const frag = sel.getRangeAt(0).cloneContents();
-      const tmp = document.createElement('div');
-      tmp.appendChild(frag);
-      e.clipboardData.setData('text/plain', htmlDivToRaw(tmp));
+    const raw = selectionToRaw();
+    if (raw !== null) {
+      e.clipboardData.setData('text/plain', raw);
       // eslint-disable-next-line @typescript-eslint/no-deprecated
       document.execCommand('delete', false);
       syncToParent();
@@ -560,34 +577,18 @@ export function EnhancedTextEditor({
                 // 커스텀 undo (cmd+z) — native execCommand undo 대신 HTML 스냅샷 스택 사용
                 if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'z') {
                   e.preventDefault();
-                  if (undoStackRef.current.length > 0 && editorRef.current) {
+                  if (undoStackRef.current.length > 0) {
                     redoStackRef.current.push(prevHTMLRef.current);
-                    const html = undoStackRef.current.pop()!;
-                    isInternalUpdate.current = true;
-                    editorRef.current.innerHTML = html;
-                    prevHTMLRef.current = html;
-                    isInternalUpdate.current = false;
-                    const raw = htmlDivToRaw(editorRef.current);
-                    lastValueRef.current = raw;
-                    onChange(raw);
-                    editorRef.current.focus();
+                    restoreHTML(undoStackRef.current.pop()!);
                   }
                   return;
                 }
                 // 커스텀 redo (cmd+shift+z 또는 cmd+y)
                 if ((e.metaKey || e.ctrlKey) && (e.shiftKey ? e.key === 'z' : e.key === 'y')) {
                   e.preventDefault();
-                  if (redoStackRef.current.length > 0 && editorRef.current) {
+                  if (redoStackRef.current.length > 0) {
                     undoStackRef.current.push(prevHTMLRef.current);
-                    const html = redoStackRef.current.pop()!;
-                    isInternalUpdate.current = true;
-                    editorRef.current.innerHTML = html;
-                    prevHTMLRef.current = html;
-                    isInternalUpdate.current = false;
-                    const raw = htmlDivToRaw(editorRef.current);
-                    lastValueRef.current = raw;
-                    onChange(raw);
-                    editorRef.current.focus();
+                    restoreHTML(redoStackRef.current.pop()!);
                   }
                   return;
                 }

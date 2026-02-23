@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { TileChange } from '../../store/useEditorStore';
+import { useShallow } from 'zustand/react/shallow';
 import { posToTile, TILE_SIZE_PX, isAutotile, getAutotileKindExported, makeAutotileId, TILE_ID_B, TILE_ID_C, TILE_ID_D, TILE_ID_E, TILE_ID_A5, TILE_ID_A1, isGroundDecorationTile, isUpperLayerTile } from '../../utils/tileHelper';
 import { placeAutotileAtPure, floodFillRegion, floodFillTile, batchPlaceWithAutotilePure, getRectanglePositions, getEllipsePositions, resolveUpperLayerPlacement, resolveUpperLayerErase } from './mapToolAlgorithms';
 import { useDrawingOverlay } from './useDrawingOverlay';
@@ -43,20 +44,16 @@ export function useMapTools(
   stageRef: React.MutableRefObject<any>,
   renderRequestedRef: React.MutableRefObject<boolean>,
 ): MapToolsResult {
-  const currentMap = useEditorStore((s) => s.currentMap);
-  const selectedTool = useEditorStore((s) => s.selectedTool);
-  const drawShape = useEditorStore((s) => s.drawShape);
-  const selectedTileId = useEditorStore((s) => s.selectedTileId);
-  const currentLayer = useEditorStore((s) => s.currentLayer);
-  const zoomLevel = useEditorStore((s) => s.zoomLevel);
-  const mode3d = useEditorStore((s) => s.mode3d);
-  const updateMapTile = useEditorStore((s) => s.updateMapTile);
-  const updateMapTiles = useEditorStore((s) => s.updateMapTiles);
-  const pushUndo = useEditorStore((s) => s.pushUndo);
-  const setSelectedTileId = useEditorStore((s) => s.setSelectedTileId);
-  const setCurrentLayer = useEditorStore((s) => s.setCurrentLayer);
-  const setPaletteTab = useEditorStore((s) => s.setPaletteTab);
-  const showToast = useEditorStore((s) => s.showToast);
+  const {
+    currentMap, selectedTool, drawShape, selectedTileId, currentLayer, zoomLevel, mode3d,
+    updateMapTile, updateMapTiles, pushUndo, setSelectedTileId, setCurrentLayer, setPaletteTab, showToast,
+  } = useEditorStore(useShallow((s) => ({
+    currentMap: s.currentMap, selectedTool: s.selectedTool, drawShape: s.drawShape,
+    selectedTileId: s.selectedTileId, currentLayer: s.currentLayer, zoomLevel: s.zoomLevel, mode3d: s.mode3d,
+    updateMapTile: s.updateMapTile, updateMapTiles: s.updateMapTiles, pushUndo: s.pushUndo,
+    setSelectedTileId: s.setSelectedTileId, setCurrentLayer: s.setCurrentLayer,
+    setPaletteTab: s.setPaletteTab, showToast: s.showToast,
+  })));
 
   // Drawing overlay (Three.js preview meshes)
   const overlayRefs: DrawingOverlayRefs = { toolPreviewMeshesRef, rendererObjRef, stageRef, renderRequestedRef };
