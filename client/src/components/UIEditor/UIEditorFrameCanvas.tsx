@@ -345,12 +345,16 @@ export default function UIEditorFrameCanvas() {
 
   useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay]);
 
-  // Alt 키 트래킹 — 눌리면 grab 커서, 떼면 default 복원
+  // 키보드: Alt 커서 + Cmd+Z undo
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Alt') return;
-      altKeyRef.current = true;
-      if (canvasRef.current && !dragRef.current) canvasRef.current.style.cursor = 'grab';
+      if (e.key === 'Alt') {
+        altKeyRef.current = true;
+        if (canvasRef.current && !dragRef.current) canvasRef.current.style.cursor = 'grab';
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        useEditorStore.getState().undoUiSkin();
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key !== 'Alt') return;
@@ -395,6 +399,7 @@ export default function UIEditorFrameCanvas() {
     }
 
     e.preventDefault();
+    useEditorStore.getState().pushUiSkinUndo();
     dragRef.current = hit;
     document.body.style.cursor = altKeyRef.current ? 'grabbing' : getCursor(hit);
 

@@ -463,7 +463,7 @@ router.put('/config', (req, res) => {
 interface SkinEntry { name: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; }
 interface SkinsData { defaultSkin: string; skins: SkinEntry[]; }
 
-const DEFAULT_SKINS: SkinEntry[] = [{ name: 'Window', cornerSize: 24 }];
+const DEFAULT_SKINS: SkinEntry[] = [{ name: 'Window', cornerSize: 24, useCenterFill: false }];
 const DEFAULT_SKINS_DATA: SkinsData = { defaultSkin: 'Window', skins: DEFAULT_SKINS };
 
 function getSkinsPath(): string | null {
@@ -477,6 +477,9 @@ function readSkinsData(): SkinsData {
   try {
     const data = JSON.parse(fs.readFileSync(p, 'utf8'));
     const skins = Array.isArray(data.skins) && data.skins.length > 0 ? data.skins : [...DEFAULT_SKINS];
+    // Window 스킨: 기존 JSON에 useCenterFill 없으면 false로 패치 (RPG MV 기본 배경은 별도 영역)
+    const windowSkin = skins.find((s) => s.name === 'Window');
+    if (windowSkin && windowSkin.useCenterFill === undefined) windowSkin.useCenterFill = false;
     return { defaultSkin: data.defaultSkin || 'Window', skins };
   } catch {}
   return { ...DEFAULT_SKINS_DATA, skins: [...DEFAULT_SKINS] };

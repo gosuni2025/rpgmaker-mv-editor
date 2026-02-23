@@ -21,6 +21,7 @@ export default function UIEditorFrameInspector() {
   const setUiSkinFill = useEditorStore((s) => s.setUiSkinFill);
   const setUiSkinUseCenterFill = useEditorStore((s) => s.setUiSkinUseCenterFill);
   const setUiEditorDirty = useEditorStore((s) => s.setUiEditorDirty);
+  const triggerSkinsReload = useEditorStore((s) => s.triggerSkinsReload);
   const projectPath = useEditorStore((s) => s.projectPath);
 
   const saveSkin = useCallback(async (fields: Record<string, number | boolean>) => {
@@ -42,6 +43,7 @@ export default function UIEditorFrameInspector() {
         body: JSON.stringify({ defaultSkin: uiSelectedSkin }),
       });
       await saveSkin({ cornerSize: uiSkinCornerSize });
+      triggerSkinsReload();
       useEditorStore.getState().showToast(`기본 스킨: ${uiSelectedSkin} 설정됨`);
     } catch {
       useEditorStore.getState().showToast('설정 실패', true);

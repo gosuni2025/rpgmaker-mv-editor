@@ -79,6 +79,7 @@ function WindowList() {
 function SkinList() {
   const projectPath = useEditorStore((s) => s.projectPath);
   const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
+  const uiSkinsReloadToken = useEditorStore((s) => s.uiSkinsReloadToken);
   const setUiSelectedSkin = useEditorStore((s) => s.setUiSelectedSkin);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
   const setUiSkinFrame = useEditorStore((s) => s.setUiSkinFrame);
@@ -104,7 +105,7 @@ function SkinList() {
       .finally(() => setLoading(false));
   }, [projectPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { loadSkins(); }, [loadSkins]);
+  useEffect(() => { loadSkins(); }, [loadSkins, uiSkinsReloadToken]);
 
   const handleSelect = (skin: SkinEntry) => {
     setUiSelectedSkin(skin.name);
