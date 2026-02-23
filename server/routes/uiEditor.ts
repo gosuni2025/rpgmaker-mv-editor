@@ -469,7 +469,7 @@ router.put('/config', (req, res) => {
 
 // ─── UIEditorSkins.json 관리 ─────────────────────────────────────────────────
 
-interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; }
+interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number; cursorToneR?: number; cursorToneG?: number; cursorToneB?: number; }
 interface SkinsData { defaultSkin: string; skins: SkinEntry[]; }
 
 const DEFAULT_SKINS: SkinEntry[] = [{ name: 'Window', file: 'Window', cornerSize: 24, useCenterFill: false }];
@@ -544,7 +544,7 @@ router.put('/skins/:name', (req, res) => {
   const data = readSkinsData();
   const idx = data.skins.findIndex((s) => s.name === req.params.name);
   if (idx < 0) return res.status(404).json({ error: 'Not found' });
-  const { cornerSize, label, frameX, frameY, frameW, frameH, fillX, fillY, fillW, fillH, useCenterFill, cursorX, cursorY, cursorW, cursorH, cursorCornerSize, cursorRenderMode, cursorBlendMode, cursorOpacity, cursorBlink } = req.body as { cornerSize?: number; label?: string; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean };
+  const { cornerSize, label, frameX, frameY, frameW, frameH, fillX, fillY, fillW, fillH, useCenterFill, cursorX, cursorY, cursorW, cursorH, cursorCornerSize, cursorRenderMode, cursorBlendMode, cursorOpacity, cursorBlink } = req.body as { cornerSize?: number; label?: string; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number; cursorToneR?: number; cursorToneG?: number; cursorToneB?: number };
   if (cornerSize !== undefined) data.skins[idx].cornerSize = cornerSize;
   if (label !== undefined) data.skins[idx].label = label;
   if (frameX !== undefined) data.skins[idx].frameX = frameX;
@@ -565,6 +565,10 @@ router.put('/skins/:name', (req, res) => {
   if (cursorBlendMode !== undefined) data.skins[idx].cursorBlendMode = cursorBlendMode;
   if (cursorOpacity !== undefined) data.skins[idx].cursorOpacity = cursorOpacity;
   if (cursorBlink !== undefined) data.skins[idx].cursorBlink = cursorBlink;
+  if (cursorPadding !== undefined) data.skins[idx].cursorPadding = cursorPadding;
+  if (cursorToneR !== undefined) data.skins[idx].cursorToneR = cursorToneR;
+  if (cursorToneG !== undefined) data.skins[idx].cursorToneG = cursorToneG;
+  if (cursorToneB !== undefined) data.skins[idx].cursorToneB = cursorToneB;
   writeSkinsData(data);
   res.json({ ok: true });
 });

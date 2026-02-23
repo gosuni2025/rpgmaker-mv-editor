@@ -186,11 +186,12 @@
     var pad = this._padding;
     var ox = this.origin ? this.origin.x : 0;
     var oy = this.origin ? this.origin.y : 0;
-    var x = this._cursorRect.x + pad - ox;
-    var y = this._cursorRect.y + pad - oy;
-    var w = this._cursorRect.width + 2;
-    var h = this._cursorRect.height + 2;
-    if (w <= 2 || h <= 2) return;
+    var cp = entry.cursorPadding !== undefined ? entry.cursorPadding : 2;
+    var x = this._cursorRect.x + pad - ox - Math.floor(cp / 2);
+    var y = this._cursorRect.y + pad - oy - Math.floor(cp / 2);
+    var w = this._cursorRect.width + cp;
+    var h = this._cursorRect.height + cp;
+    if (w <= 0 || h <= 0) return;
 
     var p  = entry.cursorX;
     var q  = entry.cursorY;
@@ -234,6 +235,10 @@
         }
       }
     }
+
+    // 색조 적용
+    var tr = entry.cursorToneR || 0, tg = entry.cursorToneG || 0, tb = entry.cursorToneB || 0;
+    if (tr !== 0 || tg !== 0 || tb !== 0) { dest.adjustTone(tr, tg, tb); }
 
     var blendModeMap = { normal: 0, add: 1, multiply: 2, screen: 3 };
     this._windowCursorSprite.blendMode = blendModeMap[entry.cursorBlendMode || 'normal'] || 0;

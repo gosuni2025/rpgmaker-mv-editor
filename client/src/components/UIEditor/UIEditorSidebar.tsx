@@ -3,7 +3,7 @@ import useEditorStore from '../../store/useEditorStore';
 import ImagePicker from '../common/ImagePicker';
 import './UIEditor.css';
 
-interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; }
+interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number; cursorToneR?: number; cursorToneG?: number; cursorToneB?: number; }
 
 const AVAILABLE_SCENES = [
   { value: 'Scene_Options', label: '옵션 (Scene_Options)' },
@@ -92,6 +92,8 @@ function SkinList() {
   const setUiSkinCursorBlendMode = useEditorStore((s) => s.setUiSkinCursorBlendMode);
   const setUiSkinCursorOpacity = useEditorStore((s) => s.setUiSkinCursorOpacity);
   const setUiSkinCursorBlink = useEditorStore((s) => s.setUiSkinCursorBlink);
+  const setUiSkinCursorPadding = useEditorStore((s) => s.setUiSkinCursorPadding);
+  const setUiSkinCursorTone = useEditorStore((s) => s.setUiSkinCursorTone);
   const [skins, setSkins] = useState<SkinEntry[]>([]);
   const [defaultSkin, setDefaultSkin] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -140,6 +142,8 @@ function SkinList() {
     setUiSkinCursorBlendMode(skin.cursorBlendMode ?? 'normal');
     setUiSkinCursorOpacity(skin.cursorOpacity ?? 192);
     setUiSkinCursorBlink(skin.cursorBlink ?? true);
+    setUiSkinCursorPadding(skin.cursorPadding ?? 2);
+    setUiSkinCursorTone(skin.cursorToneR ?? 0, skin.cursorToneG ?? 0, skin.cursorToneB ?? 0);
   };
 
   const handleDelete = async (name: string, e: React.MouseEvent) => {

@@ -32,6 +32,10 @@ export default function UIEditorFrameInspector() {
   const uiSkinCursorBlendMode = useEditorStore((s) => s.uiSkinCursorBlendMode);
   const uiSkinCursorOpacity = useEditorStore((s) => s.uiSkinCursorOpacity);
   const uiSkinCursorBlink = useEditorStore((s) => s.uiSkinCursorBlink);
+  const uiSkinCursorPadding = useEditorStore((s) => s.uiSkinCursorPadding);
+  const uiSkinCursorToneR = useEditorStore((s) => s.uiSkinCursorToneR);
+  const uiSkinCursorToneG = useEditorStore((s) => s.uiSkinCursorToneG);
+  const uiSkinCursorToneB = useEditorStore((s) => s.uiSkinCursorToneB);
   const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
   const setUiSkinFrame = useEditorStore((s) => s.setUiSkinFrame);
@@ -43,6 +47,8 @@ export default function UIEditorFrameInspector() {
   const setUiSkinCursorBlendMode = useEditorStore((s) => s.setUiSkinCursorBlendMode);
   const setUiSkinCursorOpacity = useEditorStore((s) => s.setUiSkinCursorOpacity);
   const setUiSkinCursorBlink = useEditorStore((s) => s.setUiSkinCursorBlink);
+  const setUiSkinCursorPadding = useEditorStore((s) => s.setUiSkinCursorPadding);
+  const setUiSkinCursorTone = useEditorStore((s) => s.setUiSkinCursorTone);
   const setUiEditorDirty = useEditorStore((s) => s.setUiEditorDirty);
   const projectPath = useEditorStore((s) => s.projectPath);
 
@@ -99,7 +105,7 @@ export default function UIEditorFrameInspector() {
   const handleApply = async () => {
     if (!projectPath || !uiSelectedSkin) return;
     try {
-      await saveSkin({ cornerSize: uiSkinCornerSize, frameX: uiSkinFrameX, frameY: uiSkinFrameY, frameW: uiSkinFrameW, frameH: uiSkinFrameH, fillX: uiSkinFillX, fillY: uiSkinFillY, fillW: uiSkinFillW, fillH: uiSkinFillH, useCenterFill: uiSkinUseCenterFill, cursorX: uiSkinCursorX, cursorY: uiSkinCursorY, cursorW: uiSkinCursorW, cursorH: uiSkinCursorH, cursorCornerSize: uiSkinCursorCornerSize, cursorRenderMode: uiSkinCursorRenderMode, cursorBlendMode: uiSkinCursorBlendMode, cursorOpacity: uiSkinCursorOpacity, cursorBlink: uiSkinCursorBlink });
+      await saveSkin({ cornerSize: uiSkinCornerSize, frameX: uiSkinFrameX, frameY: uiSkinFrameY, frameW: uiSkinFrameW, frameH: uiSkinFrameH, fillX: uiSkinFillX, fillY: uiSkinFillY, fillW: uiSkinFillW, fillH: uiSkinFillH, useCenterFill: uiSkinUseCenterFill, cursorX: uiSkinCursorX, cursorY: uiSkinCursorY, cursorW: uiSkinCursorW, cursorH: uiSkinCursorH, cursorCornerSize: uiSkinCursorCornerSize, cursorRenderMode: uiSkinCursorRenderMode, cursorBlendMode: uiSkinCursorBlendMode, cursorOpacity: uiSkinCursorOpacity, cursorBlink: uiSkinCursorBlink, cursorPadding: uiSkinCursorPadding, cursorToneR: uiSkinCursorToneR, cursorToneG: uiSkinCursorToneG, cursorToneB: uiSkinCursorToneB });
       setUiEditorDirty(false);
       useEditorStore.getState().showToast('스킨 설정 저장 완료');
     } catch {
@@ -307,6 +313,33 @@ export default function UIEditorFrameInspector() {
             />
             깜박임 (Blink)
           </label>
+          <div className="ui-inspector-row">
+            <DragLabel
+              label="패딩"
+              value={uiSkinCursorPadding}
+              min={-20}
+              onChange={(v) => { setUiSkinCursorPadding(Math.round(v)); }}
+              onDragEnd={() => saveSkin({ cursorPadding: useEditorStore.getState().uiSkinCursorPadding })}
+            />
+          </div>
+          <div className="ui-inspector-row" style={{ flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 11, color: '#888', paddingLeft: 2 }}>색조 (Tone R/G/B)</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <DragLabel label="R" value={uiSkinCursorToneR} min={-255} max={255}
+                onChange={(v) => setUiSkinCursorTone(Math.round(Math.min(255, Math.max(-255, v))), uiSkinCursorToneG, uiSkinCursorToneB)}
+                onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ cursorToneR: s.uiSkinCursorToneR, cursorToneG: s.uiSkinCursorToneG, cursorToneB: s.uiSkinCursorToneB }); }}
+              />
+              <DragLabel label="G" value={uiSkinCursorToneG} min={-255} max={255}
+                onChange={(v) => setUiSkinCursorTone(uiSkinCursorToneR, Math.round(Math.min(255, Math.max(-255, v))), uiSkinCursorToneB)}
+                onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ cursorToneR: s.uiSkinCursorToneR, cursorToneG: s.uiSkinCursorToneG, cursorToneB: s.uiSkinCursorToneB }); }}
+              />
+              <DragLabel label="B" value={uiSkinCursorToneB} min={-255} max={255}
+                onChange={(v) => setUiSkinCursorTone(uiSkinCursorToneR, uiSkinCursorToneG, Math.round(Math.min(255, Math.max(-255, v))))
+                }
+                onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ cursorToneR: s.uiSkinCursorToneR, cursorToneG: s.uiSkinCursorToneG, cursorToneB: s.uiSkinCursorToneB }); }}
+              />
+            </div>
+          </div>
           <div style={{ padding: '2px 12px 4px', fontSize: 11, color: '#777' }}>
             캔버스에서 주황 영역 드래그로 이동/리사이즈 가능
           </div>
