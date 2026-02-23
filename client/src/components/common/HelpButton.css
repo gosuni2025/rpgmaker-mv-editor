@@ -32,6 +32,7 @@ button.help-btn-icon.active {
   border-color: #2675bf;
 }
 
+/* ── hover 모드 ── */
 .help-btn-hover .help-btn-icon {
   cursor: help;
 }
@@ -53,7 +54,6 @@ button.help-btn-icon.active {
   pointer-events: none;
 }
 
-/* 팝업 방향 */
 .help-btn-right .help-btn-popup {
   left: calc(100% + 4px);
   top: 50%;
@@ -70,4 +70,58 @@ button.help-btn-icon.active {
   right: calc(100% + 4px);
   top: 50%;
   transform: translateY(-50%);
+}
+
+/* ── click 모드: 중앙 모달 ── */
+.help-btn-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-btn-modal {
+  position: relative;
+  background: #2e2e2e;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 20px 24px 16px;
+  max-width: 440px;
+  width: 90%;
+  font-size: 12px;
+  color: #ccc;
+  line-height: 1.7;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.7);
+}
+
+.help-btn-modal-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #777;
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.help-btn-modal-close:hover {
+  color: #ddd;
+}
+
+.help-btn-modal-content strong {
+  color: #eee;
+}
+
+.help-btn-modal-content code {
+  background: #222;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 11px;
+  color: #aad;
 }
