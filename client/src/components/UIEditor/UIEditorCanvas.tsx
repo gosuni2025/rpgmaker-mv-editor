@@ -114,7 +114,16 @@ export default function UIEditorCanvas() {
       if (type === 'bridgeReady') {
         setUiEditorIframeReady(true);
       } else if (type === 'sceneReady') {
-        setUiEditorWindows(e.data.windows ?? []);
+        const wins: UIWindowInfo[] = e.data.windows ?? [];
+        setUiEditorWindows(wins);
+        // originalX/Y/W/H는 UITheme.js가 applyLayout 전 저장한 진짜 RMMV 원본값
+        useEditorStore.getState().setUiEditorOriginalWindows(
+          wins.map((w) => ({
+            ...w,
+            x: w.originalX ?? w.x, y: w.originalY ?? w.y,
+            width: w.originalWidth ?? w.width, height: w.originalHeight ?? w.height,
+          }))
+        );
         // 씬 로드 후 저장된 오버라이드를 iframe에 적용
         const overrides = useEditorStore.getState().uiEditorOverrides;
         Object.values(overrides).forEach((ov) => {

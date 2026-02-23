@@ -180,6 +180,10 @@ export interface UIWindowInfo {
   colorTone: [number, number, number];
   visible: boolean;
   elements?: UIElementInfo[];
+  originalX?: number;
+  originalY?: number;
+  originalWidth?: number;
+  originalHeight?: number;
 }
 
 export interface UIWindowOverride {
@@ -225,6 +229,7 @@ export interface EditorState {
   uiEditorScene: string;
   uiEditorIframeReady: boolean;
   uiEditorWindows: UIWindowInfo[];
+  uiEditorOriginalWindows: UIWindowInfo[];
   uiEditorSelectedWindowId: string | null;
   uiEditorOverrides: Record<string, UIWindowOverride>;
   uiEditorDirty: boolean;
@@ -404,6 +409,7 @@ export interface EditorState {
   setUiEditorScene: (scene: string) => void;
   setUiEditorIframeReady: (ready: boolean) => void;
   setUiEditorWindows: (windows: UIWindowInfo[]) => void;
+  setUiEditorOriginalWindows: (windows: UIWindowInfo[]) => void;
   setUiEditorSelectedWindowId: (id: string | null) => void;
   setUiEditorOverride: (className: string, prop: keyof Omit<UIWindowOverride, 'className'>, value: unknown) => void;
   resetUiEditorOverride: (className: string) => void;

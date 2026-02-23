@@ -27,6 +27,7 @@
 
   /** Window 정보를 추출한다 */
   function extractWindowInfo(win, id) {
+    var orig = win._uiThemeOriginal;
     return {
       id: id,
       className: win.constructor ? win.constructor.name : 'Unknown',
@@ -42,6 +43,10 @@
       windowskinName: win._windowskin ? (win._windowskin._url || '').replace(/.*\//, '').replace(/\.\w+$/, '') : 'Window',
       colorTone: win._colorTone ? [win._colorTone[0], win._colorTone[1], win._colorTone[2]] : [0, 0, 0],
       visible: win.visible,
+      originalX: orig ? Math.round(orig.x) : Math.round(win.x),
+      originalY: orig ? Math.round(orig.y) : Math.round(win.y),
+      originalWidth: orig ? Math.round(orig.width) : Math.round(win.width),
+      originalHeight: orig ? Math.round(orig.height) : Math.round(win.height),
     };
   }
 

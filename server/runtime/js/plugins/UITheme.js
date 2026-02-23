@@ -404,6 +404,11 @@
     if (!win || !hasOv(className)) return;
     var ov = _ov[className];
 
+    // 오버라이드 적용 전 RMMV 원본값 보존 (최초 1회)
+    if (!win._uiThemeOriginal) {
+      win._uiThemeOriginal = { x: win.x, y: win.y, width: win.width, height: win.height };
+    }
+
     if (ov.x !== undefined) win.x = ov.x;
     if (ov.y !== undefined) win.y = ov.y;
 

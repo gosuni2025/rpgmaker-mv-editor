@@ -16,11 +16,11 @@ function calcCenterFill(frameX: number, frameY: number, frameW: number, frameH: 
 }
 
 export const uiEditorSlice: SliceCreator<Pick<EditorState,
-  'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' |
+  'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' | 'uiEditorOriginalWindows' |
   'uiEditorSelectedWindowId' | 'uiEditorOverrides' | 'uiEditorDirty' |
   'uiEditSubMode' | 'uiSelectedSkin' | 'uiSelectedSkinFile' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiSkinCursorX' | 'uiSkinCursorY' | 'uiSkinCursorW' | 'uiSkinCursorH' | 'uiSkinCursorCornerSize' | 'uiSkinCursorRenderMode' | 'uiSkinCursorBlendMode' | 'uiSkinCursorOpacity' | 'uiSkinCursorBlink' | 'uiSkinCursorPadding' | 'uiSkinCursorToneR' | 'uiSkinCursorToneG' | 'uiSkinCursorToneB' | 'uiSkinsReloadToken' | 'uiSkinUndoStack' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
   'uiEditorSelectedElementType' |
-  'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' |
+  'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' | 'setUiEditorOriginalWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
   'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSelectedSkinFile' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiSkinFill' | 'setUiSkinUseCenterFill' | 'setUiSkinCursor' | 'setUiSkinCursorCornerSize' | 'setUiSkinCursorRenderMode' | 'setUiSkinCursorBlendMode' | 'setUiSkinCursorOpacity' | 'setUiSkinCursorBlink' | 'setUiSkinCursorPadding' | 'setUiSkinCursorTone' | 'triggerSkinsReload' | 'pushUiSkinUndo' | 'undoUiSkin' | 'setUiShowSkinLabels' | 'setUiShowCheckerboard' | 'setUiShowRegionOverlay' |
@@ -30,6 +30,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiEditorScene: 'Scene_Options',
   uiEditorIframeReady: false,
   uiEditorWindows: [],
+  uiEditorOriginalWindows: [],
   uiEditorSelectedWindowId: null,
   uiEditorOverrides: {},
   uiEditorDirty: false,
@@ -67,9 +68,10 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiEditorSelectedElementType: null,
 
   setEditorMode: (mode) => { saveToolbarKeys({ editorMode: mode }); set({ editorMode: mode }); },
-  setUiEditorScene: (scene) => set({ uiEditorScene: scene, uiEditorWindows: [], uiEditorSelectedWindowId: null, uiEditorSelectedElementType: null }),
+  setUiEditorScene: (scene) => set({ uiEditorScene: scene, uiEditorWindows: [], uiEditorOriginalWindows: [], uiEditorSelectedWindowId: null, uiEditorSelectedElementType: null }),
   setUiEditorIframeReady: (ready) => set({ uiEditorIframeReady: ready }),
   setUiEditorWindows: (windows: UIWindowInfo[]) => set({ uiEditorWindows: windows }),
+  setUiEditorOriginalWindows: (windows: UIWindowInfo[]) => set({ uiEditorOriginalWindows: windows }),
   setUiEditorSelectedWindowId: (id) => set({ uiEditorSelectedWindowId: id, uiEditorSelectedElementType: null }),
   setUiEditorOverride: (className, prop, value) => {
     set((state) => {

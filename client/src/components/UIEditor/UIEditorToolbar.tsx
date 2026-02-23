@@ -36,6 +36,7 @@ export default function UIEditorToolbar() {
   const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
   const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
   const uiEditorWindows = useEditorStore((s) => s.uiEditorWindows);
+  const uiEditorOriginalWindows = useEditorStore((s) => s.uiEditorOriginalWindows);
   const uiShowSkinLabels = useEditorStore((s) => s.uiShowSkinLabels);
   const uiShowCheckerboard = useEditorStore((s) => s.uiShowCheckerboard);
   const uiShowRegionOverlay = useEditorStore((s) => s.uiShowRegionOverlay);
@@ -65,8 +66,8 @@ export default function UIEditorToolbar() {
 
   const handleResetScene = async () => {
     const s = useEditorStore.getState();
-    // RPG Maker MV 원본값을 오버라이드로 덮어쓰기
-    uiEditorWindows.forEach((win) => {
+    // UITheme.js가 applyLayout 전 저장한 진짜 RMMV 원본값을 오버라이드로 설정
+    uiEditorOriginalWindows.forEach((win) => {
       (['x', 'y', 'width', 'height', 'opacity', 'backOpacity', 'padding', 'fontSize'] as const).forEach((prop) => {
         s.setUiEditorOverride(win.className, prop, win[prop]);
       });
@@ -81,7 +82,7 @@ export default function UIEditorToolbar() {
     s.setUiEditorDirty(false);
     // iframe에 적용
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
-    uiEditorWindows.forEach((win) => {
+    uiEditorOriginalWindows.forEach((win) => {
       (['x', 'y', 'width', 'height', 'opacity', 'backOpacity', 'padding', 'fontSize'] as const).forEach((prop) => {
         iframe?.contentWindow?.postMessage({ type: 'updateWindowProp', windowId: win.id, prop, value: win[prop] }, '*');
       });
