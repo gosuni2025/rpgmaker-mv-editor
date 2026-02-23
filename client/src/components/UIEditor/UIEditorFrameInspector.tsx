@@ -131,6 +131,22 @@ export default function UIEditorFrameInspector() {
               캔버스에서 초록 영역 드래그로 이동/리사이즈 가능
             </div>
           )}
+          <div className="ui-inspector-row">
+            <button
+              className="ui-canvas-toolbar-btn"
+              style={{ flex: 1, fontSize: 11 }}
+              onClick={async () => {
+                setUiSkinFrame(96, 0, 96, 96);
+                setUiSkinUseCenterFill(false);
+                setUiSkinFill(0, 0, 96, 96);
+                setUiSkinCornerSize(24);
+                await saveSkin({ frameX: 96, frameY: 0, frameW: 96, frameH: 96, cornerSize: 24, fillX: 0, fillY: 0, fillW: 96, fillH: 96, useCenterFill: false });
+                useEditorStore.getState().showToast('RPG Maker MV 기본값으로 설정됨');
+              }}
+            >
+              RPG Maker MV 기본값으로 설정
+            </button>
+          </div>
         </div>
 
         {/* 9-slice 파라미터 */}
