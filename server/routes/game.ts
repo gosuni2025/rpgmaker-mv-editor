@@ -372,9 +372,17 @@ export function createGameRouter(resolvedRuntimePath: string): express.Router {
     const ext = path.extname(req.path).toLowerCase();
     if (ext === '.png' || ext === '.webp') {
       const altExt = ext === '.png' ? '.webp' : '.png';
-      const reqFile = path.join(imgDir, req.path);
+      const decodedPath = decodeURIComponent(req.path);
+      const reqFile = path.join(imgDir, decodedPath);
       if (!fs.existsSync(reqFile) && fs.existsSync(reqFile.slice(0, -ext.length) + altExt)) {
-        req.url = req.url.slice(0, -ext.length) + altExt;
+        const queryIdx = req.url.indexOf('?');
+        if (queryIdx >= 0) {
+          const urlPath = req.url.slice(0, queryIdx);
+          const query = req.url.slice(queryIdx);
+          req.url = urlPath.slice(0, -ext.length) + altExt + query;
+        } else {
+          req.url = req.url.slice(0, -ext.length) + altExt;
+        }
       }
     }
     express.static(imgDir)(req, res, () => { if (!res.headersSent) res.status(404).send('Not found'); });

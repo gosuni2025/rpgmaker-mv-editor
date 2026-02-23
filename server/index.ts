@@ -59,7 +59,8 @@ export function createApp(options: AppOptions = {}) {
     const ext = path.extname(req.path).toLowerCase();
     if (ext === '.png' || ext === '.webp') {
       const altExt = ext === '.png' ? '.webp' : '.png';
-      const reqFile = path.join(imgDir, req.path);
+      const decodedPath = decodeURIComponent(req.path);
+      const reqFile = path.join(imgDir, decodedPath);
       if (!fs.existsSync(reqFile) && fs.existsSync(reqFile.slice(0, -ext.length) + altExt)) {
         // 쿼리 파라미터(?v=...)가 있을 경우 경로 부분만 확장자 교체
         const queryIdx = req.url.indexOf('?');
