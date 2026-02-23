@@ -469,6 +469,53 @@ class SampleMapExtractor {
     };
   }
 
+  /** RPG Maker MV BaseResource/img 경로 찾기 */
+  findBaseResourceImgPath(): string | null {
+    const candidates = [
+      path.join(process.env.HOME || '', 'Library/Application Support/Steam/steamapps/common/RPG Maker MV/dlc/BaseResource/img'),
+      path.join(process.env.HOME || '', 'Library/Application Support/Steam/steamapps/common/RPG Maker MV/dlc/BaseResource_Compressed/img'),
+    ];
+    for (const p of candidates) {
+      if (fs.existsSync(p)) return p;
+    }
+    return null;
+  }
+
+  /**
+   * BaseResource/img 에서 프로젝트 img 폴더로 누락된 파일만 복사
+   * @returns 복사된 파일 경로 목록
+   */
+  copyMissingResources(projectImgDir: string): string[] {
+    const srcBase = this.findBaseResourceImgPath();
+    if (!srcBase) return [];
+
+    const copied: string[] = [];
+
+    const copyDir = (srcDir: string, dstDir: string) => {
+      if (!fs.existsSync(srcDir)) return;
+      const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const srcPath = path.join(srcDir, entry.name);
+        const dstPath = path.join(dstDir, entry.name);
+        if (entry.isDirectory()) {
+          copyDir(srcPath, dstPath);
+        } else {
+          // 이미 존재하면 스킵 (webp 변환본도 있으면 스킵)
+          const ext = path.extname(entry.name).toLowerCase();
+          const altExt = ext === '.png' ? '.webp' : ext === '.webp' ? '.png' : '';
+          const altPath = altExt ? dstPath.slice(0, -ext.length) + altExt : '';
+          if (fs.existsSync(dstPath) || (altPath && fs.existsSync(altPath))) continue;
+          fs.mkdirSync(dstDir, { recursive: true });
+          fs.copyFileSync(srcPath, dstPath);
+          copied.push(path.relative(projectImgDir, dstPath));
+        }
+      }
+    };
+
+    copyDir(srcBase, projectImgDir);
+    return copied;
+  }
+
   /** 캐시 초기화 */
   clearCache(): void {
     this.mapCache = null;

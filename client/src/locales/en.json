@@ -978,7 +978,8 @@
     "pathPlaceholder": "RPG Maker MV executable path...",
     "extract": "Extract",
     "extracting": "Extracting...",
-    "extractSuccess": "Sample maps extracted successfully"
+    "extractSuccess": "Sample maps extracted successfully",
+    "resourcesCopied": "{{count}} base resources copied"
   },
   "mapCtx": {
     "editMode": "Edit...",

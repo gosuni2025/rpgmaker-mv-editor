@@ -1054,7 +1054,8 @@
     "pathPlaceholder": "RPG Maker MV 실행 파일 경로...",
     "extract": "추출",
     "extracting": "추출 중...",
-    "extractSuccess": "샘플 맵 추출 완료"
+    "extractSuccess": "샘플 맵 추출 완료",
+    "resourcesCopied": "기본 리소스 {{count}}개 복사 완료"
   },
   "mapCtx": {
     "editMode": "편집...",

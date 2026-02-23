@@ -1052,7 +1052,8 @@
     "pathPlaceholder": "RPG Maker MV実行ファイルのパス...",
     "extract": "抽出",
     "extracting": "抽出中...",
-    "extractSuccess": "サンプルマップの抽出が完了しました"
+    "extractSuccess": "サンプルマップの抽出が完了しました",
+    "resourcesCopied": "基本リソース{{count}}個をコピーしました"
   },
   "mapCtx": {
     "editMode": "編集...",

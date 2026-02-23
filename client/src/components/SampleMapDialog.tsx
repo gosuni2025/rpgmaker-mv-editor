@@ -100,7 +100,15 @@ export default function SampleMapDialog({ parentId = 0, onClose }: Props) {
       const sampleData = await apiClient.get<Record<string, unknown>>(`/maps/sample-maps/${selectedId}`);
       await apiClient.put(`/maps/${newMapId}`, sampleData);
 
-      // 3. 새 맵으로 이동
+      // 3. BaseResource 누락 이미지 복사
+      try {
+        const result = await apiClient.post<{ copied: number }>('/maps/sample-maps/copy-resources', {});
+        if (result.copied > 0) {
+          showToast(t('sampleMap.resourcesCopied', { count: result.copied }));
+        }
+      } catch { /* 복사 실패는 치명적이지 않으므로 무시 */ }
+
+      // 4. 새 맵으로 이동
       await selectMap(newMapId);
       showToast(t('sampleMap.applied', { name: selectedMap.name }));
       onClose();

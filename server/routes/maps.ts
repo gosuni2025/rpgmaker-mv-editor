@@ -93,6 +93,20 @@ router.get('/sample-maps/:id', (req: Request, res: Response) => {
   }
 });
 
+/** BaseResource → 프로젝트로 누락 이미지 복사 */
+router.post('/sample-maps/copy-resources', (_req: Request, res: Response) => {
+  try {
+    if (!projectManager.isOpen()) {
+      return res.status(400).json({ error: 'No project open' });
+    }
+    const projectImgDir = path.join(projectManager.currentPath!, 'img');
+    const copied = sampleMapExtractor.copyMissingResources(projectImgDir);
+    res.json({ copied: copied.length, files: copied });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 /** 바이너리 경로 설정 후 재로드 */
 router.post('/sample-maps/set-binary-path', (req: Request, res: Response) => {
   try {
