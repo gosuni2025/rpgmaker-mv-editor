@@ -322,7 +322,6 @@ router.get('/convert-png-progress', async (req: Request, res: Response) => {
       sseWrite(res, { type: 'progress', current: converted, total });
       const pngPath = webpPath.slice(0, -5) + '.png';
       await sharp(webpPath).png().toFile(pngPath);
-      fs.unlinkSync(webpPath);
       converted++;
       sseWrite(res, { type: 'progress', current: converted, total });
     }

@@ -1427,9 +1427,9 @@
   },
   "pngConvert": {
     "title": "이미지 PNG 복원",
-    "confirmDesc": "프로젝트의 img/ 폴더에 있는 모든 WebP 파일을 PNG 형식으로 복원합니다.",
-    "point1": "WebP 파일이 PNG로 변환되고 원본 WebP 파일은 삭제됩니다",
-    "point2": "파일 용량은 늘어나지만 모든 프로그램과의 호환성이 보장됩니다",
+    "confirmDesc": "프로젝트의 img/ 폴더에 있는 WebP 파일과 동일한 이름의 PNG 파일을 생성합니다.",
+    "point1": "WebP 파일은 삭제되지 않고 PNG가 추가로 생성됩니다",
+    "point2": "RPG Maker MV 에디터는 PNG를, 웹 배포본은 WebP를 계속 사용할 수 있습니다",
     "rpgmakerNote": "RPG Maker MV 기본 에디터(스팀판)는 PNG 파일만 인식합니다. WebP로 변환한 경우 반드시 PNG로 복원한 후 기본 에디터에서 열어야 합니다.",
     "startButton": "PNG 복원 시작",
     "done": "복원 완료 ({{count}}개)"
