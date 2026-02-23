@@ -31,8 +31,29 @@ export default function UIEditorToolbar() {
     window.open(`/api/ui-editor/preview?scene=${encodeURIComponent(scene)}`, '_blank');
   };
 
+  const setUiEditSubMode = useEditorStore((s) => s.setUiEditSubMode);
+
   return (
     <div className="ui-editor-toolbar">
+      {/* 서브모드 토글 — 왼쪽 */}
+      <div className="ui-toolbar-mode-group">
+        <button
+          className={`ui-toolbar-btn${uiEditSubMode === 'window' ? ' active' : ''}`}
+          onClick={() => setUiEditSubMode('window')}
+        >
+          창 편집
+        </button>
+        <button
+          className={`ui-toolbar-btn${uiEditSubMode === 'frame' ? ' active' : ''}`}
+          onClick={() => setUiEditSubMode('frame')}
+        >
+          프레임 편집
+        </button>
+      </div>
+
+      <div style={{ flex: 1 }} />
+
+      {/* 저장 / 플레이테스트 — 오른쪽 */}
       <button
         className={`ui-toolbar-btn${uiEditorDirty ? ' dirty' : ''}`}
         onClick={handleSave}

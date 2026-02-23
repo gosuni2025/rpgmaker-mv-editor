@@ -503,6 +503,17 @@
   cursor: not-allowed;
 }
 
+.ui-toolbar-btn.active {
+  background: #2675bf;
+  border-color: #2675bf;
+  color: #fff;
+}
+
+.ui-toolbar-mode-group {
+  display: flex;
+  gap: 2px;
+}
+
 .ui-toolbar-btn.dirty {
   border-color: #f0a020;
   color: #f0a020;

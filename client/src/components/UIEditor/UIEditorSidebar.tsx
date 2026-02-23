@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import './UIEditor.css';
 
+
 const AVAILABLE_SCENES = [
   { value: 'Scene_Options', label: '옵션 (Scene_Options)' },
   { value: 'Scene_Menu', label: '메뉴 (Scene_Menu)' },
@@ -135,26 +136,8 @@ function SkinList() {
 
 export default function UIEditorSidebar() {
   const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
-  const setUiEditSubMode = useEditorStore((s) => s.setUiEditSubMode);
-
   return (
     <div className="ui-editor-sidebar">
-      {/* 서브모드 탭 */}
-      <div className="ui-sidebar-tabs">
-        <button
-          className={`ui-sidebar-tab${uiEditSubMode === 'window' ? ' active' : ''}`}
-          onClick={() => setUiEditSubMode('window')}
-        >
-          창 편집
-        </button>
-        <button
-          className={`ui-sidebar-tab${uiEditSubMode === 'frame' ? ' active' : ''}`}
-          onClick={() => setUiEditSubMode('frame')}
-        >
-          프레임
-        </button>
-      </div>
-
       {uiEditSubMode === 'window' ? <WindowList /> : <SkinList />}
     </div>
   );
