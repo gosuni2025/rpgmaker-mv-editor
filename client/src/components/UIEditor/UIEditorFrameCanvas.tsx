@@ -344,9 +344,9 @@ export default function UIEditorFrameCanvas() {
 
   useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay]);
 
-  // 휠 줌 — canvas에 직접 달아야 bubble 차단 없이 확실히 동작함
+  // 휠 줌 — scroll 컨테이너에 달아야 zoom 관계없이 전체 영역에서 동작
   useEffect(() => {
-    const el = canvasRef.current;
+    const el = scrollRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -476,27 +476,24 @@ export default function UIEditorFrameCanvas() {
   return (
     <div className="ui-frame-canvas-area">
       <div ref={scrollRef} className="ui-frame-canvas-scroll">
-        <div style={{ width: canvasCssW * zoom, height: canvasCssH * zoom, position: 'relative', flexShrink: 0 }}>
-          <canvas
-            ref={canvasRef}
-            className="ui-frame-canvas"
-            style={{
-              imageRendering: 'pixelated',
-              display: 'block',
-              position: 'absolute',
-              top: 0, left: 0,
-              transform: `scale(${zoom})`,
-              transformOrigin: 'top left',
-            }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleCanvasMouseMove}
-            onMouseLeave={() => {
-              if (canvasRef.current) canvasRef.current.style.cursor = 'default';
-              if (hoverHitRef.current?.type === 'slice') { hoverHitRef.current = null; redraw(); }
-              else hoverHitRef.current = null;
-            }}
-          />
-        </div>
+        <canvas
+          ref={canvasRef}
+          className="ui-frame-canvas"
+          style={{
+            imageRendering: 'pixelated',
+            display: 'block',
+            width: canvasCssW * zoom,
+            height: canvasCssH * zoom,
+            flexShrink: 0,
+          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseLeave={() => {
+            if (canvasRef.current) canvasRef.current.style.cursor = 'default';
+            if (hoverHitRef.current?.type === 'slice') { hoverHitRef.current = null; redraw(); }
+            else hoverHitRef.current = null;
+          }}
+        />
       </div>
       <div className="ui-frame-canvas-legend">
         <span style={{ fontSize: 11, color: '#888', marginRight: 8 }}>
