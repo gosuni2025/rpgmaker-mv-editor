@@ -29,7 +29,7 @@
   (function () {
     try {
       var xhr = new XMLHttpRequest();
-      xhr.open('GET', 'data/UIEditorConfig.json', false);
+      xhr.open('GET', 'data/UIEditorConfig.json?_=' + Date.now(), false);
       xhr.send();
       if (xhr.status === 200 || xhr.status === 0) {
         _config = JSON.parse(xhr.responseText);
@@ -43,7 +43,7 @@
   (function () {
     try {
       var xhr = new XMLHttpRequest();
-      xhr.open('GET', 'data/UIEditorSkins.json', false);
+      xhr.open('GET', 'data/UIEditorSkins.json?_=' + Date.now(), false);
       xhr.send();
       if (xhr.status === 200 || xhr.status === 0) {
         _skins = JSON.parse(xhr.responseText);
