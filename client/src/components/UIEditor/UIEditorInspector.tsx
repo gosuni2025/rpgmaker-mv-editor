@@ -233,6 +233,49 @@ function WindowInspector({ selectedWindow, override }: {
           <div className="ui-inspector-row">
             <DragLabel label="높이" value={height} min={32} onChange={(v) => set('height', Math.round(v))} />
           </div>
+          <div className="ui-inspector-row" style={{ gap: 4 }}>
+            <button
+              className="ui-canvas-toolbar-btn"
+              style={{ flex: 1, fontSize: 11 }}
+              title="화면 가로 중앙"
+              onClick={() => {
+                const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+                const g = (iframe?.contentWindow as unknown as { Graphics?: { width?: number } } | null)?.Graphics;
+                const sw = g?.width ?? 816;
+                set('x', Math.round((sw - width) / 2));
+              }}
+            >
+              가로 중앙
+            </button>
+            <button
+              className="ui-canvas-toolbar-btn"
+              style={{ flex: 1, fontSize: 11 }}
+              title="화면 세로 중앙"
+              onClick={() => {
+                const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+                const g = (iframe?.contentWindow as unknown as { Graphics?: { height?: number } } | null)?.Graphics;
+                const sh = g?.height ?? 624;
+                set('y', Math.round((sh - height) / 2));
+              }}
+            >
+              세로 중앙
+            </button>
+            <button
+              className="ui-canvas-toolbar-btn"
+              style={{ flex: 1, fontSize: 11 }}
+              title="화면 정중앙"
+              onClick={() => {
+                const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+                const g = (iframe?.contentWindow as unknown as { Graphics?: { width?: number; height?: number } } | null)?.Graphics;
+                const sw = g?.width ?? 816;
+                const sh = g?.height ?? 624;
+                set('x', Math.round((sw - width) / 2));
+                set('y', Math.round((sh - height) / 2));
+              }}
+            >
+              정중앙
+            </button>
+          </div>
         </div>
 
         <div className="ui-inspector-section">
