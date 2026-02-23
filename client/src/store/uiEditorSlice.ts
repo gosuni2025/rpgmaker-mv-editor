@@ -48,8 +48,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiSkinsReloadToken: 0,
   uiSkinUndoStack: [],
   uiShowSkinLabels: false,
-  uiShowCheckerboard: true,
-  uiShowRegionOverlay: true,
+  uiShowCheckerboard: false,
+  uiShowRegionOverlay: false,
   uiEditorSelectedElementType: null,
 
   setEditorMode: (mode) => { saveToolbarKeys({ editorMode: mode }); set({ editorMode: mode }); },
@@ -132,9 +132,9 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       uiEditorDirty: true,
     };
   }),
-  setUiShowSkinLabels: (show) => set({ uiShowSkinLabels: show }),
-  setUiShowCheckerboard: (show) => set({ uiShowCheckerboard: show }),
-  setUiShowRegionOverlay: (show) => set({ uiShowRegionOverlay: show }),
+  setUiShowSkinLabels: (show) => { saveToolbarKeys({ uiShowSkinLabels: show }); set({ uiShowSkinLabels: show }); },
+  setUiShowCheckerboard: (show) => { saveToolbarKeys({ uiShowCheckerboard: show }); set({ uiShowCheckerboard: show }); },
+  setUiShowRegionOverlay: (show) => { saveToolbarKeys({ uiShowRegionOverlay: show }); set({ uiShowRegionOverlay: show }); },
   setUiEditorSelectedElementType: (type) => set({ uiEditorSelectedElementType: type }),
   setUiElementOverride: (className, elementType, prop, value) => {
     set((state) => {
