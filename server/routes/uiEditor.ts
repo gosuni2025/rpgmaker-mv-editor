@@ -421,4 +421,36 @@ router.post('/generate-plugin', (req, res) => {
   res.json({ ok: true, pluginPath });
 });
 
+/** GET /api/ui-editor/skins — img/system/ 에서 윈도우스킨 후보 PNG 목록 */
+router.get('/skins', (req, res) => {
+  if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
+  const systemDir = path.join(projectManager.currentPath!, 'img', 'system');
+  if (!fs.existsSync(systemDir)) return res.json({ skins: [] });
+  try {
+    const files = fs.readdirSync(systemDir)
+      .filter((f) => /\.(png|webp)$/i.test(f))
+      .map((f) => f.replace(/\.(png|webp)$/i, ''));
+    // 중복 제거 (png + webp 동명)
+    res.json({ skins: [...new Set(files)] });
+  } catch {
+    res.json({ skins: [] });
+  }
+});
+
+/** POST /api/ui-editor/upload-skin — 새 윈도우스킨 PNG 업로드 */
+router.post('/upload-skin', express.raw({ type: 'image/png', limit: '10mb' }), (req, res) => {
+  if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
+  const name = (req.query.name as string || '').replace(/[^a-zA-Z0-9_\-가-힣]/g, '');
+  if (!name) return res.status(400).json({ error: 'name required' });
+  const systemDir = path.join(projectManager.currentPath!, 'img', 'system');
+  if (!fs.existsSync(systemDir)) fs.mkdirSync(systemDir, { recursive: true });
+  const dest = path.join(systemDir, `${name}.png`);
+  try {
+    fs.writeFileSync(dest, req.body as Buffer);
+    res.json({ ok: true, name });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 export default router;

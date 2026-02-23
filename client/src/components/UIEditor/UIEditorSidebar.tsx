@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import './UIEditor.css';
 
@@ -16,17 +16,17 @@ const AVAILABLE_SCENES = [
   { value: 'Scene_Battle', label: '배틀 (Scene_Battle)' },
 ];
 
-export default function UIEditorSidebar() {
-  const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
+function WindowList() {
   const uiEditorWindows = useEditorStore((s) => s.uiEditorWindows);
   const uiEditorSelectedWindowId = useEditorStore((s) => s.uiEditorSelectedWindowId);
   const uiEditorOverrides = useEditorStore((s) => s.uiEditorOverrides);
+  const uiEditorIframeReady = useEditorStore((s) => s.uiEditorIframeReady);
+  const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
   const setUiEditorScene = useEditorStore((s) => s.setUiEditorScene);
   const setUiEditorSelectedWindowId = useEditorStore((s) => s.setUiEditorSelectedWindowId);
-  const uiEditorIframeReady = useEditorStore((s) => s.uiEditorIframeReady);
 
   return (
-    <div className="ui-editor-sidebar">
+    <>
       <div className="ui-editor-sidebar-section">
         <label>씬 선택</label>
         <select
@@ -69,6 +69,93 @@ export default function UIEditorSidebar() {
           })
         )}
       </div>
+    </>
+  );
+}
+
+function SkinList() {
+  const projectPath = useEditorStore((s) => s.projectPath);
+  const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
+  const setUiSelectedSkin = useEditorStore((s) => s.setUiSelectedSkin);
+  const [skins, setSkins] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadSkins = useCallback(() => {
+    if (!projectPath) return;
+    setLoading(true);
+    fetch('/api/ui-editor/skins')
+      .then((r) => r.json())
+      .then((data) => setSkins(data.skins ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [projectPath]);
+
+  useEffect(() => { loadSkins(); }, [loadSkins]);
+
+  // 업로드 후 자동 갱신
+  useEffect(() => {
+    window.addEventListener('ui-skin-uploaded', loadSkins);
+    return () => window.removeEventListener('ui-skin-uploaded', loadSkins);
+  }, [loadSkins]);
+
+  return (
+    <>
+      <div className="ui-editor-sidebar-section" style={{ borderBottom: 'none', padding: '6px 8px 4px' }}>
+        <label>스킨 목록{loading ? ' (로딩...)' : ''}</label>
+      </div>
+      <div className="ui-editor-window-list">
+        {skins.length === 0 ? (
+          <div className="ui-editor-no-windows">
+            {loading ? '불러오는 중...' : 'img/system/ 에 PNG 없음'}
+          </div>
+        ) : (
+          skins.map((skin) => (
+            <div
+              key={skin}
+              className={`ui-editor-window-item${uiSelectedSkin === skin ? ' selected' : ''}`}
+              onClick={() => setUiSelectedSkin(skin)}
+            >
+              <img
+                src={`/img/system/${skin}.png`}
+                alt={skin}
+                className="ui-skin-thumb"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+              <div>
+                <div>{skin}</div>
+                <div className="window-class">img/system/{skin}.png</div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </>
+  );
+}
+
+export default function UIEditorSidebar() {
+  const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
+  const setUiEditSubMode = useEditorStore((s) => s.setUiEditSubMode);
+
+  return (
+    <div className="ui-editor-sidebar">
+      {/* 서브모드 탭 */}
+      <div className="ui-sidebar-tabs">
+        <button
+          className={`ui-sidebar-tab${uiEditSubMode === 'window' ? ' active' : ''}`}
+          onClick={() => setUiEditSubMode('window')}
+        >
+          창 편집
+        </button>
+        <button
+          className={`ui-sidebar-tab${uiEditSubMode === 'frame' ? ' active' : ''}`}
+          onClick={() => setUiEditSubMode('frame')}
+        >
+          프레임
+        </button>
+      </div>
+
+      {uiEditSubMode === 'window' ? <WindowList /> : <SkinList />}
     </div>
   );
 }

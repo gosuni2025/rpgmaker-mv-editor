@@ -5,6 +5,7 @@ import './UIEditor.css';
 export default function UIEditorToolbar() {
   const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
   const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
+  const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
   const projectPath = useEditorStore((s) => s.projectPath);
 
   const handleSave = async () => {
@@ -26,8 +27,8 @@ export default function UIEditorToolbar() {
 
   const handlePlaytest = () => {
     if (!projectPath) return;
-    // 저장된 config가 있으면 적용된 상태로 새 탭에서 열림
-    window.open(`/api/ui-editor/preview?scene=${encodeURIComponent(uiEditorScene)}`, '_blank');
+    const scene = uiEditSubMode === 'frame' ? 'Scene_Options' : uiEditorScene;
+    window.open(`/api/ui-editor/preview?scene=${encodeURIComponent(scene)}`, '_blank');
   };
 
   return (

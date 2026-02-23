@@ -206,6 +206,10 @@ export interface EditorState {
   uiEditorSelectedWindowId: string | null;
   uiEditorOverrides: Record<string, UIWindowOverride>;
   uiEditorDirty: boolean;
+  // UI Editor 서브모드: 창 배치 편집 vs 프레임(스킨) 편집
+  uiEditSubMode: 'window' | 'frame';
+  uiSelectedSkin: string;      // 선택된 스킨 파일명 (확장자 제외)
+  uiSkinCornerSize: number;    // 9-slice 코너 크기 px (RPG MV 기본 24)
 
   // Mode
   editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage';
@@ -353,6 +357,9 @@ export interface EditorState {
   resetUiEditorOverride: (className: string) => void;
   loadUiEditorOverrides: (overrides: Record<string, UIWindowOverride>) => void;
   setUiEditorDirty: (dirty: boolean) => void;
+  setUiEditSubMode: (mode: 'window' | 'frame') => void;
+  setUiSelectedSkin: (skin: string) => void;
+  setUiSkinCornerSize: (size: number) => void;
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;

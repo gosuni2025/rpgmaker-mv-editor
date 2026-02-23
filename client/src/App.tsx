@@ -43,6 +43,8 @@ import UIEditorCanvas from './components/UIEditor/UIEditorCanvas';
 import UIEditorSidebar from './components/UIEditor/UIEditorSidebar';
 import UIEditorInspector from './components/UIEditor/UIEditorInspector';
 import UIEditorToolbar from './components/UIEditor/UIEditorToolbar';
+import UIEditorFrameCanvas from './components/UIEditor/UIEditorFrameCanvas';
+import UIEditorFrameInspector from './components/UIEditor/UIEditorFrameInspector';
 
 function formatRelativeTime(createdAt: number, now: number): string {
   const sec = Math.floor((now - createdAt) / 1000);
@@ -94,6 +96,7 @@ export default function App() {
   const currentMap = useEditorStore((s) => s.currentMap);
   const editMode = useEditorStore((s) => s.editMode);
   const editorMode = useEditorStore((s) => s.editorMode);
+  const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
   const showDatabaseDialog = useEditorStore((s) => s.showDatabaseDialog);
   const showOpenProjectDialog = useEditorStore((s) => s.showOpenProjectDialog);
   const showNewProjectDialog = useEditorStore((s) => s.showNewProjectDialog);
@@ -284,11 +287,11 @@ export default function App() {
             <UIEditorToolbar />
           </div>
           <div className="main-area">
-            <UIEditorCanvas />
+            {uiEditSubMode === 'frame' ? <UIEditorFrameCanvas /> : <UIEditorCanvas />}
           </div>
           <div className="inspector-area">
             <ResizablePanel defaultWidth={280} minWidth={200} maxWidth={500} side="left">
-              <UIEditorInspector />
+              {uiEditSubMode === 'frame' ? <UIEditorFrameInspector /> : <UIEditorInspector />}
             </ResizablePanel>
           </div>
         </>
