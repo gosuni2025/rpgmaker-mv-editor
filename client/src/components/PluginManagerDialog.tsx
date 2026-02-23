@@ -80,6 +80,27 @@ export default function PluginManagerDialog() {
                   </div>
                 ))}
               </div>
+              {/* 미설치 에디터 플러그인 섹션 */}
+              {pm.editorPlugins.filter(ep => !pm.usedPluginNames.has(ep.name)).length > 0 && (
+                <div className="pm-uninstalled-section">
+                  <div className="pm-uninstalled-header">에디터 플러그인 (미설치)</div>
+                  {pm.editorPlugins
+                    .filter(ep => !pm.usedPluginNames.has(ep.name))
+                    .map(ep => (
+                      <div key={ep.name} className="pm-uninstalled-item">
+                        <span className="pm-uninstalled-name">
+                          {pm.metadata[ep.name]?.pluginname || ep.name}
+                        </span>
+                        <button
+                          className="db-btn-small pm-install-btn"
+                          onClick={() => pm.installEditorPlugin(ep.name)}
+                          title={`${ep.name} 플러그인 설치`}
+                        >+ 설치</button>
+                      </div>
+                    ))
+                  }
+                </div>
+              )}
               <div className="pm-plugin-buttons">
                 <button className="db-btn-small" onClick={() => pm.movePlugin(-1)} disabled={pm.selectedIndex <= 0} title={t('pluginManager.moveUp')}>↑</button>
                 <button className="db-btn-small" onClick={() => pm.movePlugin(1)} disabled={pm.selectedIndex < 0 || pm.selectedIndex >= pm.plugins.length - 1} title={t('pluginManager.moveDown')}>↓</button>

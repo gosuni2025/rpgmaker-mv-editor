@@ -162,6 +162,24 @@ export function usePluginManager() {
     } catch (e) { setError((e as Error).message); }
   };
 
+  // 에디터 플러그인을 프로젝트에 설치 (파일 복사 + plugins.js 목록에 추가)
+  const installEditorPlugin = async (pluginName: string) => {
+    try {
+      await apiClient.post('/plugins/upgrade', { name: pluginName });
+      const [updatedEp, meta] = await Promise.all([
+        apiClient.get<EditorPluginInfo[]>('/plugins/editor-plugins'),
+        apiClient.get<Record<string, PluginMetadata>>(`/plugins/metadata?locale=${locale}`),
+      ]);
+      setEditorPlugins(updatedEp || []);
+      setMetadata(meta);
+      const newEntry = { name: pluginName, status: true, description: '', parameters: [] };
+      const updated = [...plugins, newEntry];
+      setPlugins(updated);
+      setSelectedIndex(updated.length - 1);
+      setDirty(true);
+    } catch (e) { setError((e as Error).message); }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError('');
@@ -236,13 +254,14 @@ export function usePluginManager() {
   return {
     plugins, availableFiles, metadata, settings, selectedIndex, setSelectedIndex,
     editingParamIndex, setEditingParamIndex, loading, saving, error, dirty,
-    selectedPlugin, selectedMeta, usedPluginNames, editorPluginMap,
+    selectedPlugin, selectedMeta, usedPluginNames, editorPluginMap, editorPlugins,
     pickerType, setPickerType, pickerParamIndex, dataListItems, dataListTitle,
     browseDir, browseFiles, browseDirs,
     updateSetting, toggleStatus, setPluginStatus, updateParam, changePluginName,
     movePlugin, addPlugin, removePlugin,
     handleOpenPluginFolder, handleOpenInVSCode, handleUpgradePlugin, handleSave,
     openPicker, hasPickerButton,
+    installEditorPlugin,
 
     openParamFolder: async (dir: string) => {
       // "img/system/" → "img_system" 형태로 변환하여 /api/resources/:type/open-folder 호출

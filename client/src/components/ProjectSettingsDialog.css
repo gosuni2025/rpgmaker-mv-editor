@@ -270,6 +270,52 @@
   background: #a07830 !important;
 }
 
+.pm-uninstalled-section {
+  border-top: 1px solid #444;
+  padding: 4px 0 2px;
+}
+
+.pm-uninstalled-header {
+  font-size: 10px;
+  color: #888;
+  padding: 3px 8px 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pm-uninstalled-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+}
+
+.pm-uninstalled-item:hover {
+  background: #333;
+}
+
+.pm-uninstalled-name {
+  flex: 1;
+  font-size: 12px;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-install-btn {
+  background: #2a4a2a !important;
+  border-color: #3a6a3a !important;
+  color: #8c8 !important;
+  font-size: 10px !important;
+  padding: 1px 6px !important;
+  flex-shrink: 0;
+}
+
+.pm-install-btn:hover {
+  background: #3a5a3a !important;
+}
+
 .pm-plugin-buttons {
   display: flex;
   gap: 4px;
