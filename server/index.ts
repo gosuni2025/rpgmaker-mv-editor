@@ -61,7 +61,15 @@ export function createApp(options: AppOptions = {}) {
       const altExt = ext === '.png' ? '.webp' : '.png';
       const reqFile = path.join(imgDir, req.path);
       if (!fs.existsSync(reqFile) && fs.existsSync(reqFile.slice(0, -ext.length) + altExt)) {
-        req.url = req.url.slice(0, -ext.length) + altExt;
+        // 쿼리 파라미터(?v=...)가 있을 경우 경로 부분만 확장자 교체
+        const queryIdx = req.url.indexOf('?');
+        if (queryIdx >= 0) {
+          const urlPath = req.url.slice(0, queryIdx);
+          const query = req.url.slice(queryIdx);
+          req.url = urlPath.slice(0, -ext.length) + altExt + query;
+        } else {
+          req.url = req.url.slice(0, -ext.length) + altExt;
+        }
       }
     }
     express.static(imgDir)(req, res, next);
