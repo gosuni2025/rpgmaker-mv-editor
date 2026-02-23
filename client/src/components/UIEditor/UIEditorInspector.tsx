@@ -6,13 +6,13 @@ import './UIEditor.css';
 
 // ── 프레임 선택 팝업 ──────────────────────────────────────────────────────────
 
-interface SkinEntryBasic { name: string; cornerSize: number; }
+interface SkinEntryBasic { name: string; label?: string; file?: string; cornerSize: number; }
 
 function FramePickerDialog({ open, current, onClose, onSelect }: {
   open: boolean;
   current: string;
   onClose: () => void;
-  onSelect: (name: string) => void;
+  onSelect: (skinName: string, skinFile: string) => void;
 }) {
   const [skins, setSkins] = useState<SkinEntryBasic[]>([]);
 
@@ -40,23 +40,27 @@ function FramePickerDialog({ open, current, onClose, onSelect }: {
           </div>
         ) : (
           <div className="ui-frame-picker-grid">
-            {skins.map((skin) => (
-              <div
-                key={skin.name}
-                className={`ui-frame-picker-item${current === skin.name ? ' selected' : ''}`}
-                onClick={() => { onSelect(skin.name); onClose(); }}
-              >
-                <div className="ui-frame-picker-img-wrap">
-                  <img
-                    src={`/img/system/${skin.name}.png`}
-                    alt={skin.name}
-                    className="ui-frame-picker-img"
-                    onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
-                  />
+            {skins.map((skin) => {
+              const skinFile = skin.file || skin.name;
+              const skinLabel = skin.label || skin.name;
+              return (
+                <div
+                  key={skin.name}
+                  className={`ui-frame-picker-item${current === skin.name ? ' selected' : ''}`}
+                  onClick={() => { onSelect(skin.name, skinFile); onClose(); }}
+                >
+                  <div className="ui-frame-picker-img-wrap">
+                    <img
+                      src={`/img/system/${skinFile}.png`}
+                      alt={skinLabel}
+                      className="ui-frame-picker-img"
+                      onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
+                    />
+                  </div>
+                  <span className="ui-frame-picker-name">{skinLabel}</span>
                 </div>
-                <span className="ui-frame-picker-name">{skin.name}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -102,15 +106,17 @@ function WindowInspector({ selectedWindow, override }: {
   const handleStyleChange = (style: 'default' | 'frame' | 'image') => {
     setMeta('windowStyle', style === 'default' ? undefined : style);
     if (style === 'default') {
-      // windowskinName 오버라이드 제거
+      // windowskinName, skinId 오버라이드 제거
       setMeta('windowskinName', undefined);
+      setMeta('skinId', undefined);
       const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
       iframe?.contentWindow?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'windowskinName', value: selectedWindow.windowskinName }, '*');
     }
   };
 
-  const handleFrameSelect = (name: string) => {
-    set('windowskinName', name);
+  const handleFrameSelect = (skinName: string, skinFile: string) => {
+    set('windowskinName', skinFile);
+    setMeta('skinId', skinName);
   };
 
   const handleSave = async () => {
@@ -143,7 +149,7 @@ function WindowInspector({ selectedWindow, override }: {
     <>
       <FramePickerDialog
         open={pickerOpen}
-        current={override?.windowskinName ?? selectedWindow.windowskinName}
+        current={override?.skinId ?? ''}
         onClose={() => setPickerOpen(false)}
         onSelect={handleFrameSelect}
       />
@@ -179,7 +185,7 @@ function WindowInspector({ selectedWindow, override }: {
             <div className="ui-inspector-row">
               <span className="ui-inspector-label">선택된 프레임</span>
               <span className="ui-frame-selected-name">
-                {override?.windowskinName ?? selectedWindow.windowskinName ?? '(없음)'}
+                {override?.skinId ?? override?.windowskinName ?? selectedWindow.windowskinName ?? '(없음)'}
               </span>
             </div>
             <div className="ui-inspector-row">

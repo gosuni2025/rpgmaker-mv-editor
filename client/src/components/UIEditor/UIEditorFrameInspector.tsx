@@ -5,6 +5,7 @@ import './UIEditor.css';
 
 export default function UIEditorFrameInspector() {
   const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
+  const uiSelectedSkinFile = useEditorStore((s) => s.uiSelectedSkinFile);
   const uiSkinCornerSize = useEditorStore((s) => s.uiSkinCornerSize);
   const uiSkinFrameX = useEditorStore((s) => s.uiSkinFrameX);
   const uiSkinFrameY = useEditorStore((s) => s.uiSkinFrameY);
@@ -77,7 +78,7 @@ export default function UIEditorFrameInspector() {
           </div>
           <div className="ui-inspector-row" style={{ paddingTop: 0 }}>
             <div className="ui-inspector-label" style={{ fontSize: 11, color: '#777' }}>
-              img/system/{uiSelectedSkin}.png
+              img/system/{uiSelectedSkinFile || uiSelectedSkin}.png
             </div>
           </div>
         </div>

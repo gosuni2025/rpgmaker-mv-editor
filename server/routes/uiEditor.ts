@@ -469,10 +469,10 @@ router.put('/config', (req, res) => {
 
 // ─── UIEditorSkins.json 관리 ─────────────────────────────────────────────────
 
-interface SkinEntry { name: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; }
+interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; }
 interface SkinsData { defaultSkin: string; skins: SkinEntry[]; }
 
-const DEFAULT_SKINS: SkinEntry[] = [{ name: 'Window', cornerSize: 24, useCenterFill: false }];
+const DEFAULT_SKINS: SkinEntry[] = [{ name: 'Window', file: 'Window', cornerSize: 24, useCenterFill: false }];
 const DEFAULT_SKINS_DATA: SkinsData = { defaultSkin: 'Window', skins: DEFAULT_SKINS };
 
 function getSkinsPath(): string | null {
@@ -487,8 +487,12 @@ function readSkinsData(): SkinsData {
     const data = JSON.parse(fs.readFileSync(p, 'utf8'));
     const skins = Array.isArray(data.skins) && data.skins.length > 0 ? data.skins : [...DEFAULT_SKINS];
     // Window 스킨: 기존 JSON에 useCenterFill 없으면 false로 패치 (RPG MV 기본 배경은 별도 영역)
-    const windowSkin = skins.find((s) => s.name === 'Window');
+    const windowSkin = skins.find((s: SkinEntry) => s.name === 'Window');
     if (windowSkin && windowSkin.useCenterFill === undefined) windowSkin.useCenterFill = false;
+    // 마이그레이션: file 없는 항목에 file = name 자동 패치
+    for (const s of skins) {
+      if (!s.file) s.file = s.name;
+    }
     return { defaultSkin: data.defaultSkin || 'Window', skins };
   } catch {}
   return { ...DEFAULT_SKINS_DATA, skins: [...DEFAULT_SKINS] };
@@ -522,11 +526,14 @@ router.put('/skins/default', (req, res) => {
 /** POST /api/ui-editor/skins — 스킨 등록 */
 router.post('/skins', (req, res) => {
   if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
-  const { name, cornerSize = 24 } = req.body as { name?: string; cornerSize?: number };
+  const { name, file, label, cornerSize = 24 } = req.body as { name?: string; file?: string; label?: string; cornerSize?: number };
   if (!name) return res.status(400).json({ error: 'name required' });
   const data = readSkinsData();
   if (data.skins.find((s) => s.name === name)) return res.status(409).json({ error: 'Already exists' });
-  data.skins.push({ name, cornerSize });
+  const entry: SkinEntry = { name, cornerSize };
+  if (file) entry.file = file;
+  if (label) entry.label = label;
+  data.skins.push(entry);
   writeSkinsData(data);
   res.json({ ok: true });
 });
@@ -537,8 +544,9 @@ router.put('/skins/:name', (req, res) => {
   const data = readSkinsData();
   const idx = data.skins.findIndex((s) => s.name === req.params.name);
   if (idx < 0) return res.status(404).json({ error: 'Not found' });
-  const { cornerSize, frameX, frameY, frameW, frameH, fillX, fillY, fillW, fillH, useCenterFill } = req.body as { cornerSize?: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean };
+  const { cornerSize, label, frameX, frameY, frameW, frameH, fillX, fillY, fillW, fillH, useCenterFill } = req.body as { cornerSize?: number; label?: string; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean };
   if (cornerSize !== undefined) data.skins[idx].cornerSize = cornerSize;
+  if (label !== undefined) data.skins[idx].label = label;
   if (frameX !== undefined) data.skins[idx].frameX = frameX;
   if (frameY !== undefined) data.skins[idx].frameY = frameY;
   if (frameW !== undefined) data.skins[idx].frameW = frameW;

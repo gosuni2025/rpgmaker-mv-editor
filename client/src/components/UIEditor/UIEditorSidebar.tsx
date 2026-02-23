@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import ImagePicker from '../common/ImagePicker';
 import './UIEditor.css';
 
-interface SkinEntry { name: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; }
+interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; }
 
 const AVAILABLE_SCENES = [
   { value: 'Scene_Options', label: '옵션 (Scene_Options)' },
@@ -81,6 +81,7 @@ function SkinList() {
   const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
   const uiSkinsReloadToken = useEditorStore((s) => s.uiSkinsReloadToken);
   const setUiSelectedSkin = useEditorStore((s) => s.setUiSelectedSkin);
+  const setUiSelectedSkinFile = useEditorStore((s) => s.setUiSelectedSkinFile);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
   const setUiSkinFrame = useEditorStore((s) => s.setUiSkinFrame);
   const setUiSkinFill = useEditorStore((s) => s.setUiSkinFill);
@@ -89,6 +90,10 @@ function SkinList() {
   const [defaultSkin, setDefaultSkin] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // 인라인 라벨 편집 상태
+  const [editingLabelFor, setEditingLabelFor] = useState<string | null>(null);
+  const [editLabelValue, setEditLabelValue] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   const loadSkins = useCallback(() => {
     if (!projectPath) return;
@@ -107,8 +112,16 @@ function SkinList() {
 
   useEffect(() => { loadSkins(); }, [loadSkins, uiSkinsReloadToken]);
 
+  // 편집 input이 열리면 포커스
+  useEffect(() => {
+    if (editingLabelFor !== null) {
+      setTimeout(() => editInputRef.current?.focus(), 0);
+    }
+  }, [editingLabelFor]);
+
   const handleSelect = (skin: SkinEntry) => {
     setUiSelectedSkin(skin.name);
+    setUiSelectedSkinFile(skin.file || skin.name);
     setUiSkinCornerSize(skin.cornerSize);
     setUiSkinFrame(skin.frameX ?? 96, skin.frameY ?? 0, skin.frameW ?? 96, skin.frameH ?? 96);
     setUiSkinUseCenterFill(skin.useCenterFill ?? true);
@@ -123,22 +136,58 @@ function SkinList() {
     loadSkins();
   };
 
-  const handlePick = async (name: string) => {
+  const handlePick = async (pickedFile: string) => {
     setPickerOpen(false);
-    if (!name) return;
+    if (!pickedFile) return;
+
+    // 라벨 입력 프롬프트
+    const labelInput = window.prompt(
+      `스킨 표시 이름 입력\n(파일: img/system/${pickedFile}.png)\n비워두면 파일명 사용`,
+      pickedFile,
+    );
+    if (labelInput === null) return; // 취소
+
+    // name(ID) 생성: 파일명 기반, 중복 시 #1, #2 등 suffix
+    let name = pickedFile;
+    if (skins.find((s) => s.name === name)) {
+      let i = 1;
+      while (skins.find((s) => s.name === `${pickedFile}#${i}`)) i++;
+      name = `${pickedFile}#${i}`;
+    }
+
     try {
       const res = await fetch('/api/ui-editor/skins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, cornerSize: 24 }),
+        body: JSON.stringify({ name, file: pickedFile, label: labelInput || undefined, cornerSize: 24 }),
       });
-      // 409 = 이미 등록된 스킨 (무시)
       if (res.ok || res.status === 409) {
         loadSkins();
-        if (res.ok) useEditorStore.getState().showToast(`스킨 등록: ${name}`);
+        if (res.ok) useEditorStore.getState().showToast(`스킨 등록: ${labelInput || name}`);
       }
     } catch {
       useEditorStore.getState().showToast('등록 실패', true);
+    }
+  };
+
+  const handleLabelDoubleClick = (skin: SkinEntry, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingLabelFor(skin.name);
+    setEditLabelValue(skin.label || skin.name);
+  };
+
+  const handleLabelSave = async (skinName: string) => {
+    setEditingLabelFor(null);
+    const newLabel = editLabelValue.trim();
+    try {
+      await fetch(`/api/ui-editor/skins/${encodeURIComponent(skinName)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: newLabel || undefined }),
+      });
+      loadSkins();
+    } catch {
+      useEditorStore.getState().showToast('라벨 저장 실패', true);
     }
   };
 
@@ -163,19 +212,44 @@ function SkinList() {
               onClick={() => handleSelect(skin)}
             >
               <img
-                src={`/img/system/${skin.name}.png`}
-                alt={skin.name}
+                src={`/img/system/${skin.file || skin.name}.png`}
+                alt={skin.label || skin.name}
                 className="ui-skin-thumb"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {skin.name}
+                  {editingLabelFor === skin.name ? (
+                    <input
+                      ref={editInputRef}
+                      className="ui-skin-label-input"
+                      value={editLabelValue}
+                      onChange={(e) => setEditLabelValue(e.target.value)}
+                      onBlur={() => handleLabelSave(skin.name)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleLabelSave(skin.name);
+                        else if (e.key === 'Escape') setEditingLabelFor(null);
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ flex: 1, minWidth: 0, fontSize: 12, padding: '1px 4px', background: '#1a1a2e', color: '#ddd', border: '1px solid #4af', borderRadius: 2, outline: 'none' }}
+                    />
+                  ) : (
+                    <span
+                      onDoubleClick={(e) => handleLabelDoubleClick(skin, e)}
+                      title="더블클릭으로 이름 편집"
+                      style={{ cursor: 'text' }}
+                    >
+                      {skin.label || skin.name}
+                    </span>
+                  )}
                   {defaultSkin === skin.name && (
                     <span className="ui-skin-default-badge">기본</span>
                   )}
                 </div>
-                <div className="window-class">코너: {skin.cornerSize}px</div>
+                <div className="window-class">
+                  {skin.file && skin.file !== skin.name ? `${skin.file} · ` : ''}코너: {skin.cornerSize}px
+                </div>
               </div>
               <button
                 className="ui-skin-delete-btn"

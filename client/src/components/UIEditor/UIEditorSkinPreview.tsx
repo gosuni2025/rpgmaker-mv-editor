@@ -124,16 +124,18 @@ function PreviewItem({ label, width, height, skinImg }: PreviewItemProps) {
 export default function UIEditorSkinPreview() {
   const projectPath  = useEditorStore((s) => s.projectPath);
   const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
+  const uiSelectedSkinFile = useEditorStore((s) => s.uiSelectedSkinFile);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [, forceUpdate] = React.useState(0);
 
   useEffect(() => {
     if (!projectPath || !uiSelectedSkin) { imgRef.current = null; forceUpdate(n => n + 1); return; }
+    const file = uiSelectedSkinFile || uiSelectedSkin;
     const img = new Image();
     img.onload = () => { imgRef.current = img; forceUpdate(n => n + 1); };
     img.onerror = () => { imgRef.current = null; forceUpdate(n => n + 1); };
-    img.src = `/img/system/${uiSelectedSkin}.png?v=${Date.now()}`;
-  }, [projectPath, uiSelectedSkin]);
+    img.src = `/img/system/${file}.png?v=${Date.now()}`;
+  }, [projectPath, uiSelectedSkin, uiSelectedSkinFile]);
 
   return (
     <div className="ui-skin-preview-panel">

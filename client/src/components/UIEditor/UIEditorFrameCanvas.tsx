@@ -251,6 +251,7 @@ export default function UIEditorFrameCanvas() {
 
   const projectPath   = useEditorStore((s) => s.projectPath);
   const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
+  const uiSelectedSkinFile = useEditorStore((s) => s.uiSelectedSkinFile);
   const uiSkinCornerSize = useEditorStore((s) => s.uiSkinCornerSize);
   const uiSkinFrameX  = useEditorStore((s) => s.uiSkinFrameX);
   const uiSkinFrameY  = useEditorStore((s) => s.uiSkinFrameY);
@@ -337,11 +338,11 @@ export default function UIEditorFrameCanvas() {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#f66';
       ctx.font = '14px sans-serif';
-      ctx.fillText(`스킨을 불러올 수 없음: ${uiSelectedSkin}`, 8, 20);
+      ctx.fillText(`스킨을 불러올 수 없음: ${uiSelectedSkinFile}`, 8, 20);
     };
-    img.src = `/img/system/${uiSelectedSkin}.png?v=${Date.now()}`;
+    img.src = `/img/system/${uiSelectedSkinFile}.png?v=${Date.now()}`;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectPath, uiSelectedSkin]);
+  }, [projectPath, uiSelectedSkin, uiSelectedSkinFile]);
 
   useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay]);
 

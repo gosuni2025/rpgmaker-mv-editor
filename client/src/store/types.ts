@@ -185,6 +185,7 @@ export interface UIWindowInfo {
 export interface UIWindowOverride {
   className: string;
   windowStyle?: 'default' | 'frame' | 'image';
+  skinId?: string;
   x?: number;
   y?: number;
   width?: number;
@@ -229,7 +230,8 @@ export interface EditorState {
   uiEditorDirty: boolean;
   // UI Editor 서브모드: 창 배치 편집 vs 프레임(스킨) 편집
   uiEditSubMode: 'window' | 'frame';
-  uiSelectedSkin: string;      // 선택된 스킨 파일명 (확장자 제외)
+  uiSelectedSkin: string;      // 선택된 스킨 ID (name 필드)
+  uiSelectedSkinFile: string;  // 선택된 스킨의 이미지 파일 경로 (확장자 제외)
   uiSkinCornerSize: number;    // 9-slice 코너 크기 px
   uiSkinFrameX: number;        // 프레임 영역 X (이미지 픽셀 기준)
   uiSkinFrameY: number;        // 프레임 영역 Y
@@ -396,6 +398,7 @@ export interface EditorState {
   setUiEditorDirty: (dirty: boolean) => void;
   setUiEditSubMode: (mode: 'window' | 'frame') => void;
   setUiSelectedSkin: (skin: string) => void;
+  setUiSelectedSkinFile: (file: string) => void;
   setUiSkinCornerSize: (size: number) => void;
   setUiSkinFrame: (x: number, y: number, w: number, h: number) => void;
   setUiSkinFill: (x: number, y: number, w: number, h: number) => void;

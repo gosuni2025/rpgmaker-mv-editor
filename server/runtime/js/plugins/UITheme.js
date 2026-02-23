@@ -64,17 +64,24 @@
     return m2 ? m2[1] : null;
   }
 
-  /** 스킨 이름으로 사전 항목 취득 (없으면 null) */
+  /** 스킨 파일 경로로 사전 항목 취득 (file 필드 또는 name 매칭, 없으면 null) */
   function findSkinEntry(skinName) {
     if (!Array.isArray(_skins.skins)) return null;
     var name = skinName || _skins.defaultSkin;
     if (!name) return null;
-    return _skins.skins.filter(function (s) { return s.name === name; })[0] || null;
+    return _skins.skins.filter(function (s) { return (s.file || s.name) === name; })[0] || null;
   }
 
-  /** fill 영역 정보 취득 (없으면 MV 기본값 0,0,96,96) */
-  function getFillRect(skinName) {
-    var entry = findSkinEntry(skinName);
+  /** 스킨 ID로 사전 항목 취득 (name 필드 정확 매칭, 없으면 null) */
+  function findSkinEntryById(id) {
+    if (!Array.isArray(_skins.skins)) return null;
+    if (!id) return null;
+    return _skins.skins.filter(function (s) { return s.name === id; })[0] || null;
+  }
+
+  /** fill 영역 정보 취득 (entry 객체 직접 전달, 없으면 MV 기본값 0,0,96,96) */
+  function getFillRect(entryOrId) {
+    var entry = typeof entryOrId === 'string' ? findSkinEntryById(entryOrId) : entryOrId;
     if (!entry) return { x: 0, y: 0, w: 96, h: 96 };
     return {
       x: entry.fillX !== undefined ? entry.fillX : 0,
@@ -84,9 +91,9 @@
     };
   }
 
-  /** 프레임 영역 정보 취득 (없으면 MV 기본값 x:96,y:0,w:96,h:96,cs:24) */
-  function getFrameInfo(skinName) {
-    var entry = findSkinEntry(skinName);
+  /** 프레임 영역 정보 취득 (entry 객체 직접 전달, 없으면 MV 기본값 x:96,y:0,w:96,h:96,cs:24) */
+  function getFrameInfo(entryOrId) {
+    var entry = typeof entryOrId === 'string' ? findSkinEntryById(entryOrId) : entryOrId;
     if (!entry) return { x: 96, y: 0, w: 96, h: 96, cs: 24 };
     return {
       x:  entry.frameX      !== undefined ? entry.frameX      : 96,
@@ -103,12 +110,15 @@
   var _Window_refreshBack = Window.prototype._refreshBack;
   Window.prototype._refreshBack = function () {
     var skinName = skinNameFromBitmap(this._windowskin);
-    var entry = findSkinEntry(skinName);
+    // skinId 확인: config override에 skinId가 있으면 ID로 정확 매칭, 없으면 파일 경로로 매칭
+    var className = this.constructor && this.constructor.name;
+    var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
+    var entry = skinId ? findSkinEntryById(skinId) : findSkinEntry(skinName);
     // 스킨 항목이 없으면 원본 호출
     if (!entry) {
       return _Window_refreshBack.call(this);
     }
-    var fill = getFillRect(skinName);
+    var fill = getFillRect(entry);
     var m = this._margin;
     var w = this._width - m * 2;
     var h = this._height - m * 2;
@@ -130,12 +140,15 @@
   var _Window_refreshFrame = Window.prototype._refreshFrame;
   Window.prototype._refreshFrame = function () {
     var skinName = skinNameFromBitmap(this._windowskin);
-    var entry = findSkinEntry(skinName);
+    // skinId 확인: config override에 skinId가 있으면 ID로 정확 매칭, 없으면 파일 경로로 매칭
+    var className = this.constructor && this.constructor.name;
+    var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
+    var entry = skinId ? findSkinEntryById(skinId) : findSkinEntry(skinName);
     // 스킨 항목이 없으면 원본 호출
     if (!entry) {
       return _Window_refreshFrame.call(this);
     }
-    var f = getFrameInfo(skinName);
+    var f = getFrameInfo(entry);
     var w = this._width;
     var h = this._height;
     if (w <= 0 || h <= 0) return;
