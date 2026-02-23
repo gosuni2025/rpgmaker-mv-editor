@@ -53,11 +53,24 @@
     }
   })();
 
-  /** 현재 defaultSkin 의 fill 영역 정보 취득 (없으면 MV 기본값 0,0,96,96) */
-  function getDefaultFillRect() {
-    var skinName = _skins.defaultSkin;
-    if (!skinName || !Array.isArray(_skins.skins)) return { x: 0, y: 0, w: 96, h: 96 };
-    var entry = _skins.skins.filter(function (s) { return s.name === skinName; })[0];
+  /** 스킨 bitmap URL에서 스킨 이름 추출 */
+  function skinNameFromBitmap(bitmap) {
+    if (!bitmap || !bitmap.url) return null;
+    var m = bitmap.url.match(/([^/\\]+?)(?:\.(?:png|webp))?$/i);
+    return m ? m[1] : null;
+  }
+
+  /** 스킨 이름으로 사전 항목 취득 (없으면 null) */
+  function findSkinEntry(skinName) {
+    if (!Array.isArray(_skins.skins)) return null;
+    var name = skinName || _skins.defaultSkin;
+    if (!name) return null;
+    return _skins.skins.filter(function (s) { return s.name === name; })[0] || null;
+  }
+
+  /** fill 영역 정보 취득 (없으면 MV 기본값 0,0,96,96) */
+  function getFillRect(skinName) {
+    var entry = findSkinEntry(skinName);
     if (!entry) return { x: 0, y: 0, w: 96, h: 96 };
     return {
       x: entry.fillX !== undefined ? entry.fillX : 0,
@@ -67,13 +80,27 @@
     };
   }
 
+  /** 프레임 영역 정보 취득 (없으면 MV 기본값 x:96,y:0,w:96,h:96,cs:24) */
+  function getFrameInfo(skinName) {
+    var entry = findSkinEntry(skinName);
+    if (!entry) return { x: 96, y: 0, w: 96, h: 96, cs: 24 };
+    return {
+      x:  entry.frameX      !== undefined ? entry.frameX      : 96,
+      y:  entry.frameY      !== undefined ? entry.frameY      : 0,
+      w:  entry.frameW      !== undefined ? entry.frameW      : 96,
+      h:  entry.frameH      !== undefined ? entry.frameH      : 96,
+      cs: entry.cornerSize  !== undefined ? entry.cornerSize  : 24,
+    };
+  }
+
   //===========================================================================
   // Window — fill 영역 커스터마이징 (_refreshBack 오버라이드)
   //===========================================================================
   var _Window_refreshBack = Window.prototype._refreshBack;
   Window.prototype._refreshBack = function () {
-    var fill = getDefaultFillRect();
-    // MV 기본값(0,0,96,96)이면 원본 호출
+    var skinName = skinNameFromBitmap(this._windowskin);
+    var fill = getFillRect(skinName);
+    // MV 기본값이면 원본 호출
     if (fill.x === 0 && fill.y === 0 && fill.w === 96 && fill.h === 96) {
       return _Window_refreshBack.call(this);
     }
@@ -82,12 +109,48 @@
     var h = this._height - m * 2;
     if (w <= 0 || h <= 0) return;
     var bitmap = new Bitmap(w, h);
-    this._backSprite.bitmap = bitmap;
-    this._backSprite.setFrame(0, 0, w, h);
-    this._backSprite.move(m, m);
-    // fill 영역을 stretch로 배경 전체에 그림
-    bitmap.blt(this._windowskin, fill.x, fill.y, fill.w, fill.h, 0, 0, w, h);
-    bitmap.paintOpacity = this.backOpacity;
+    this._windowBackSprite.bitmap = bitmap;
+    this._windowBackSprite.setFrame(0, 0, w, h);
+    this._windowBackSprite.move(m, m);
+    if (this._windowskin) {
+      bitmap.blt(this._windowskin, fill.x, fill.y, fill.w, fill.h, 0, 0, w, h);
+      var tone = this._colorTone;
+      bitmap.adjustTone(tone[0], tone[1], tone[2]);
+    }
+  };
+
+  //===========================================================================
+  // Window — 9-slice 프레임 커스터마이징 (_refreshFrame 오버라이드)
+  //===========================================================================
+  var _Window_refreshFrame = Window.prototype._refreshFrame;
+  Window.prototype._refreshFrame = function () {
+    var skinName = skinNameFromBitmap(this._windowskin);
+    var f = getFrameInfo(skinName);
+    // MV 기본값이면 원본 호출
+    if (f.x === 96 && f.y === 0 && f.w === 96 && f.h === 96 && f.cs === 24) {
+      return _Window_refreshFrame.call(this);
+    }
+    var w = this._width;
+    var h = this._height;
+    if (w <= 0 || h <= 0) return;
+    var bitmap = new Bitmap(w, h);
+    this._windowFrameSprite.bitmap = bitmap;
+    this._windowFrameSprite.setFrame(0, 0, w, h);
+    if (this._windowskin) {
+      var skin = this._windowskin;
+      var fx = f.x, fy = f.y, fw = f.w, fh = f.h, cs = f.cs;
+      // top / bottom edges
+      bitmap.blt(skin, fx + cs,      fy,           fw - cs * 2, cs,      cs,      0,      w - cs * 2, cs);
+      bitmap.blt(skin, fx + cs,      fy + fh - cs, fw - cs * 2, cs,      cs,      h - cs, w - cs * 2, cs);
+      // left / right edges
+      bitmap.blt(skin, fx,           fy + cs,      cs,          fh - cs * 2, 0,      cs,      cs,          h - cs * 2);
+      bitmap.blt(skin, fx + fw - cs, fy + cs,      cs,          fh - cs * 2, w - cs, cs,      cs,          h - cs * 2);
+      // corners
+      bitmap.blt(skin, fx,           fy,           cs, cs, 0,      0,      cs, cs);
+      bitmap.blt(skin, fx + fw - cs, fy,           cs, cs, w - cs, 0,      cs, cs);
+      bitmap.blt(skin, fx,           fy + fh - cs, cs, cs, 0,      h - cs, cs, cs);
+      bitmap.blt(skin, fx + fw - cs, fy + fh - cs, cs, cs, w - cs, h - cs, cs, cs);
+    }
   };
 
   var _ov = _config.overrides || {};
@@ -192,6 +255,11 @@
     }
     if (ov.padding !== undefined) {
       cls.prototype.standardPadding = function () { return ov.padding; };
+    }
+    if (ov.windowskinName !== undefined) {
+      cls.prototype.loadWindowskin = function () {
+        this.windowskin = ImageManager.loadSystem(ov.windowskinName);
+      };
     }
     if (ov.opacity !== undefined || ov.colorTone) {
       var _orig = cls.prototype.initialize;

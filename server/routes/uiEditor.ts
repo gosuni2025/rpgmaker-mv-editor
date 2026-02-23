@@ -355,6 +355,15 @@ router.get('/preview', (req, res) => {
             case 'colorTone':
               if (win.setTone) win.setTone(value[0], value[1], value[2]);
               break;
+            case 'windowskinName':
+              if (typeof ImageManager !== 'undefined' && value) {
+                var newSkin = ImageManager.loadSystem(value);
+                newSkin.addLoadListener(function() {
+                  win.windowskin = newSkin;
+                  if (win._refreshAllParts) win._refreshAllParts();
+                });
+              }
+              break;
           }
         } catch (e) {
           console.warn('[UIEditorBridge] applyProp error:', prop, e);
