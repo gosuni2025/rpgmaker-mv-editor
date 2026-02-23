@@ -111,6 +111,7 @@ router.get('/preview', (req, res) => {
         DataManager.setupNewGame();
         var SceneCtor = window[_targetScene] || window.Scene_Options;
         SceneManager.goto(SceneCtor);
+        _prepareScene(_targetScene);
         this.updateDocumentTitle();
       };
 
@@ -370,6 +371,15 @@ router.get('/preview', (req, res) => {
         }
       }
 
+      /** prepare()가 필요한 씬에 더미 데이터 전달 */
+      function _prepareScene(sceneName) {
+        if (sceneName === 'Scene_Shop') {
+          SceneManager.prepareNextScene([], false);
+        } else if (sceneName === 'Scene_Name') {
+          SceneManager.prepareNextScene(1, 12);
+        }
+      }
+
       function loadScene(sceneName) {
         var SceneCtor = window[sceneName];
         if (!SceneCtor) {
@@ -377,7 +387,10 @@ router.get('/preview', (req, res) => {
           return;
         }
         _targetScene = sceneName;
-        try { SceneManager.goto(SceneCtor); } catch(e) { console.error(e); }
+        try {
+          SceneManager.goto(SceneCtor);
+          _prepareScene(sceneName);
+        } catch(e) { console.error(e); }
       }
 
       // 씬 변경 감지 (200ms 폴링)
