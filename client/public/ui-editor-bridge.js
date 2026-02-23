@@ -84,6 +84,12 @@
     try {
       _suppressAudio();
       SceneManager.goto(SceneCtor);
+      // prepare()가 필요한 씬: goto() 직후 _nextScene에 더미 데이터 전달
+      if (sceneName === 'Scene_Shop') {
+        SceneManager.prepareNextScene([], false);
+      } else if (sceneName === 'Scene_Name') {
+        SceneManager.prepareNextScene(1, 12);
+      }
     } catch (e) {
       console.error('[UIEditorBridge] loadScene error:', e);
     }
