@@ -296,6 +296,11 @@
     _ov[className][prop] = value;
   };
 
+  /** 런타임에서 _ov 항목 삭제 (RMMV 기본값으로 리셋 시 사용) */
+  window._uiThemeClearOv = function(className) {
+    delete _ov[className];
+  };
+
   /** 클래스 내 요소 오버라이드 취득 */
   function getElem(className, elemType) {
     var classOv = _ov[className];

@@ -214,6 +214,10 @@
         // UITheme.js의 _ov를 런타임에서 업데이트 (updatePlacement 재적용 시 새 값 사용)
         if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(data.className, data.prop, data.value);
         break;
+      case 'clearRuntimeOverride':
+        // UITheme.js의 _ov에서 항목 삭제 (RMMV 기본값으로 리셋)
+        if (window._uiThemeClearOv) window._uiThemeClearOv(data.className);
+        break;
       case 'refreshScene':
         loadScene(SceneManager._scene ? SceneManager._scene.constructor.name : 'Scene_Options');
         break;

@@ -36,7 +36,6 @@ export default function UIEditorToolbar() {
   const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
   const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
   const uiEditorWindows = useEditorStore((s) => s.uiEditorWindows);
-  const uiEditorOriginalWindows = useEditorStore((s) => s.uiEditorOriginalWindows);
   const uiShowSkinLabels = useEditorStore((s) => s.uiShowSkinLabels);
   const uiShowCheckerboard = useEditorStore((s) => s.uiShowCheckerboard);
   const uiShowRegionOverlay = useEditorStore((s) => s.uiShowRegionOverlay);
@@ -66,12 +65,9 @@ export default function UIEditorToolbar() {
 
   const handleResetScene = async () => {
     const s = useEditorStore.getState();
-    // UITheme.js가 applyLayout 전 저장한 진짜 RMMV 원본값을 오버라이드로 설정
-    uiEditorOriginalWindows.forEach((win) => {
-      (['x', 'y', 'width', 'height', 'opacity', 'backOpacity', 'padding', 'fontSize'] as const).forEach((prop) => {
-        s.setUiEditorOverride(win.className, prop, win[prop]);
-      });
-    });
+    // 현재 씬 창들의 오버라이드 삭제 → UITheme.js가 RMMV 기본값 사용
+    const classNames = [...new Set(uiEditorWindows.map((w) => w.className))];
+    classNames.forEach((cls) => s.resetUiEditorOverride(cls));
     // 서버에 저장
     const overrides = useEditorStore.getState().uiEditorOverrides;
     await fetch('/api/ui-editor/config', {
@@ -80,17 +76,13 @@ export default function UIEditorToolbar() {
       body: JSON.stringify({ overrides }),
     });
     s.setUiEditorDirty(false);
-    // 오버레이 즉시 갱신 (씬 재로드 전에 미리 반영)
-    s.setUiEditorWindows(uiEditorOriginalWindows);
-    // iframe의 _ov 업데이트 후 씬 재로드 (updatePlacement가 새 값 사용하도록)
+    // iframe의 _ov에서 해당 클래스 삭제 후 씬 재로드
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
-    uiEditorOriginalWindows.forEach((win) => {
-      (['x', 'y', 'width', 'height', 'opacity', 'backOpacity', 'padding', 'fontSize'] as const).forEach((prop) => {
-        iframe?.contentWindow?.postMessage({ type: 'updateRuntimeOverride', className: win.className, prop, value: win[prop] }, '*');
-      });
+    classNames.forEach((cls) => {
+      iframe?.contentWindow?.postMessage({ type: 'clearRuntimeOverride', className: cls }, '*');
     });
     iframe?.contentWindow?.postMessage({ type: 'refreshScene' }, '*');
-    s.showToast('RPG Maker MV 원본값으로 덮어씀');
+    s.showToast('RMMV 기본값으로 리셋');
   };
 
   const handlePlaytest = () => {

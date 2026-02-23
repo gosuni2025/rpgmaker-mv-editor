@@ -74,7 +74,6 @@ function WindowInspector({ selectedWindow, override }: {
   selectedWindow: UIWindowInfo;
   override: UIWindowOverride | null;
 }) {
-  const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
   const projectPath = useEditorStore((s) => s.projectPath);
   const setUiEditorOverride = useEditorStore((s) => s.setUiEditorOverride);
   const resetUiEditorOverride = useEditorStore((s) => s.resetUiEditorOverride);
@@ -117,22 +116,6 @@ function WindowInspector({ selectedWindow, override }: {
   const handleFrameSelect = (skinName: string, skinFile: string) => {
     set('windowskinName', skinFile);
     setMeta('skinId', skinName);
-  };
-
-  const handleSave = async () => {
-    if (!projectPath) return;
-    try {
-      const config = useEditorStore.getState().uiEditorOverrides;
-      await fetch('/api/ui-editor/config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ overrides: config }),
-      });
-      useEditorStore.getState().setUiEditorDirty(false);
-      useEditorStore.getState().showToast('UI 테마 저장 완료');
-    } catch {
-      useEditorStore.getState().showToast('저장 실패', true);
-    }
   };
 
   const x = getProp('x', selectedWindow, override);
@@ -332,11 +315,6 @@ function WindowInspector({ selectedWindow, override }: {
         )}
       </div>
 
-      <div className="ui-inspector-footer">
-        <button className="ui-inspector-save-btn" disabled={!uiEditorDirty} onClick={handleSave}>
-          {uiEditorDirty ? '저장' : '저장됨'}
-        </button>
-      </div>
     </>
   );
 }
@@ -347,7 +325,6 @@ function ElementInspector({ selectedWindow, elem }: {
   selectedWindow: UIWindowInfo;
   elem: UIElementInfo;
 }) {
-  const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
   const projectPath = useEditorStore((s) => s.projectPath);
   const uiEditorOverrides = useEditorStore((s) => s.uiEditorOverrides);
   const setUiElementOverride = useEditorStore((s) => s.setUiElementOverride);
@@ -370,22 +347,6 @@ function ElementInspector({ selectedWindow, elem }: {
       value,
     }, '*');
   }, [selectedWindow, elem.type, setUiElementOverride]);
-
-  const handleSave = async () => {
-    if (!projectPath) return;
-    try {
-      const config = useEditorStore.getState().uiEditorOverrides;
-      await fetch('/api/ui-editor/config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ overrides: config }),
-      });
-      useEditorStore.getState().setUiEditorDirty(false);
-      useEditorStore.getState().showToast('UI 테마 저장 완료');
-    } catch {
-      useEditorStore.getState().showToast('저장 실패', true);
-    }
-  };
 
   return (
     <>
@@ -452,11 +413,6 @@ function ElementInspector({ selectedWindow, elem }: {
         )}
       </div>
 
-      <div className="ui-inspector-footer">
-        <button className="ui-inspector-save-btn" disabled={!uiEditorDirty} onClick={handleSave}>
-          {uiEditorDirty ? '저장' : '저장됨'}
-        </button>
-      </div>
     </>
   );
 }
