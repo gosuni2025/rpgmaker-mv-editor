@@ -381,16 +381,6 @@ export default function MenuBar() {
           </div>
           <div className="credit-dialog-body">
             <section>
-              <h3>RPG Maker MV Web Editor</h3>
-              <p>오픈소스 웹 기반 RPG Maker MV 에디터</p>
-              <p>
-                <a href="https://github.com/gosuni2025/rpgmaker-mv-editor" target="_blank" rel="noreferrer">
-                  github.com/gosuni2025/rpgmaker-mv-editor
-                </a>
-              </p>
-            </section>
-            <div className="credit-separator" />
-            <section>
               <h3>샘플 에셋</h3>
               <div className="credit-asset">
                 <div className="credit-asset-name">UI Pack — Pixel Adventure</div>
