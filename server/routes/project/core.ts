@@ -321,8 +321,11 @@ router.get('/convert-png-progress', async (req: Request, res: Response) => {
       sseWrite(res, { type: 'converting', file: rel, current: converted + 1, total });
       sseWrite(res, { type: 'progress', current: converted, total });
       const pngPath = webpPath.slice(0, -5) + '.png';
+      const t0 = Date.now();
       await sharp(webpPath).png().toFile(pngPath);
+      const ms = Date.now() - t0;
       converted++;
+      sseWrite(res, { type: 'log', message: `  ${rel}  →  PNG  (${(ms / 1000).toFixed(2)}s)` });
       sseWrite(res, { type: 'progress', current: converted, total });
     }
 
@@ -390,9 +393,12 @@ router.get('/convert-webp-progress', async (req: Request, res: Response) => {
       sseWrite(res, { type: 'converting', file: rel, current: converted + 1, total });
       sseWrite(res, { type: 'progress', current: converted, total });
       const webpPath = pngPath.slice(0, -4) + '.webp';
+      const t0 = Date.now();
       await sharp(pngPath).webp({ lossless: true }).toFile(webpPath);
+      const ms = Date.now() - t0;
       fs.unlinkSync(pngPath);
       converted++;
+      sseWrite(res, { type: 'log', message: `  ${rel}  →  WebP  (${(ms / 1000).toFixed(2)}s)` });
       sseWrite(res, { type: 'progress', current: converted, total });
     }
 
