@@ -1,0 +1,98 @@
+.draw-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #2a2a2a;
+  border-bottom: 1px solid #444;
+  height: 36px;
+}
+
+.draw-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.draw-toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: #555;
+  margin: 0 6px;
+}
+
+.draw-toolbar-btn {
+  background: #3a3a3a;
+  color: #ccc;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.draw-toolbar-btn.active {
+  background: #0078d4;
+  color: #fff;
+  border-color: #0078d4;
+}
+
+.draw-toolbar-btn.eraser-active {
+  background: #d43a0e;
+  color: #fff;
+  border-color: #d43a0e;
+}
+
+.draw-toolbar-btn.ext {
+  background: #352f4a;
+  border-color: #5a4f7a;
+}
+
+.draw-toolbar-btn.ext.active {
+  background: #5a3fb5;
+  color: #fff;
+  border-color: #5a3fb5;
+}
+
+.draw-toolbar-btn.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.draw-toolbar-shortcut {
+  color: #888;
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+.draw-toolbar-zoom-label {
+  color: #ccc;
+  font-size: 12px;
+  min-width: 40px;
+  text-align: center;
+}
+
+.draw-toolbar-spacer {
+  flex: 1;
+}
+
+.draw-toolbar-play-btn {
+  background: #2ea043;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.draw-toolbar-save-btn {
+  background: #0078d4;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
