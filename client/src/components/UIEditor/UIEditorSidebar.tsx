@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
+import ImagePicker from '../common/ImagePicker';
 import './UIEditor.css';
 
 interface SkinEntry { name: string; cornerSize: number; }
@@ -83,7 +84,7 @@ function SkinList() {
   const [skins, setSkins] = useState<SkinEntry[]>([]);
   const [defaultSkin, setDefaultSkin] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const loadSkins = useCallback(() => {
     if (!projectPath) return;
@@ -102,11 +103,6 @@ function SkinList() {
 
   useEffect(() => { loadSkins(); }, [loadSkins]);
 
-  useEffect(() => {
-    window.addEventListener('ui-skin-uploaded', loadSkins);
-    return () => window.removeEventListener('ui-skin-uploaded', loadSkins);
-  }, [loadSkins]);
-
   const handleSelect = (skin: SkinEntry) => {
     setUiSelectedSkin(skin.name);
     setUiSkinCornerSize(skin.cornerSize);
@@ -118,29 +114,29 @@ function SkinList() {
     loadSkins();
   };
 
-  // 파일 선택 → 업로드 → 스킨 목록 자동 등록
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const nameRaw = file.name.replace(/\.(png|webp)$/i, '');
-    const name = nameRaw.replace(/[^a-zA-Z0-9_\-가-힣]/g, '_') || 'CustomSkin';
+  const handlePick = async (name: string) => {
+    setPickerOpen(false);
+    if (!name) return;
     try {
-      const buf = await file.arrayBuffer();
-      const res = await fetch(`/api/ui-editor/upload-skin?name=${encodeURIComponent(name)}`, {
+      const res = await fetch('/api/ui-editor/skins', {
         method: 'POST',
-        headers: { 'Content-Type': 'image/png' },
-        body: buf,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, cornerSize: 24 }),
       });
-      if (!res.ok) throw new Error((await res.json()).error);
-      loadSkins();
-    } catch (err) {
-      useEditorStore.getState().showToast(`업로드 실패: ${(err as Error).message}`, true);
+      // 409 = 이미 등록된 스킨 (무시)
+      if (res.ok || res.status === 409) {
+        loadSkins();
+        if (res.ok) useEditorStore.getState().showToast(`스킨 등록: ${name}`);
+      }
+    } catch {
+      useEditorStore.getState().showToast('등록 실패', true);
     }
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
     <>
+      <ImagePicker type="system" value="" open={pickerOpen} onClose={() => setPickerOpen(false)} onChange={handlePick} />
+
       <div className="ui-editor-sidebar-section" style={{ borderBottom: 'none', padding: '6px 8px 4px' }}>
         <label>9-Slice 스킨 목록{loading ? ' (로딩...)' : ''}</label>
       </div>
@@ -183,18 +179,11 @@ function SkinList() {
       </div>
 
       <div className="ui-editor-sidebar-section" style={{ padding: '6px 8px' }}>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".png,.webp,image/png,image/webp"
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-        />
         <button
           className="ui-canvas-toolbar-btn"
           style={{ width: '100%' }}
           disabled={!projectPath}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => setPickerOpen(true)}
         >
           + 스킨 등록…
         </button>

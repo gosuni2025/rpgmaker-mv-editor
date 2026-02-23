@@ -6,7 +6,7 @@ import { highlightMatch } from '../../utils/highlightMatch';
 import './ImagePicker.css';
 
 interface ImagePickerProps {
-  type: 'faces' | 'characters' | 'sv_actors' | 'sv_enemies' | 'enemies' | 'battlebacks1' | 'battlebacks2' | 'parallaxes' | 'tilesets' | 'titles1' | 'titles2' | 'animations' | 'pictures';
+  type: 'faces' | 'characters' | 'sv_actors' | 'sv_enemies' | 'enemies' | 'battlebacks1' | 'battlebacks2' | 'parallaxes' | 'tilesets' | 'titles1' | 'titles2' | 'animations' | 'pictures' | 'system';
   value: string;
   onChange: (name: string, meta?: { fetchType: string }) => void;
   index?: number;
@@ -16,6 +16,9 @@ interface ImagePickerProps {
   pattern?: number;
   onPatternChange?: (pattern: number) => void;
   defaultOpen?: boolean;
+  /** 외부에서 open 상태를 제어할 때 사용 (이 prop이 있으면 preview 트리거 숨김) */
+  open?: boolean;
+  onClose?: () => void;
 }
 
 interface FileInfo {
@@ -219,9 +222,12 @@ function formatFileSize(bytes: number): string {
   return bytes + ' B';
 }
 
-export default function ImagePicker({ type, value, onChange, index, onIndexChange, direction, onDirectionChange, pattern, onPatternChange, defaultOpen }: ImagePickerProps) {
+export default function ImagePicker({ type, value, onChange, index, onIndexChange, direction, onDirectionChange, pattern, onPatternChange, defaultOpen, open: openProp, onClose }: ImagePickerProps) {
+  const controlled = openProp !== undefined;
   const [open, setOpen] = useState(defaultOpen ?? false);
-  useEscClose(useCallback(() => { if (open) setOpen(false); }, [open]));
+  const isOpen = controlled ? openProp! : open;
+  const closeModal = () => { if (!controlled) setOpen(false); onClose?.(); };
+  useEscClose(useCallback(() => { if (isOpen) closeModal(); }, [isOpen])); // eslint-disable-line react-hooks/exhaustive-deps
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [selected, setSelected] = useState(value);
   const [selectedIndex, setSelectedIndex] = useState(index ?? 0);
@@ -244,7 +250,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     setSelected(value);
     setSelectedIndex(index ?? 0);
     setSelectedDirection(direction ?? 2);
@@ -273,7 +279,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     });
     // 검색 입력창에 포커스
     setTimeout(() => searchInputRef.current?.focus(), 100);
-  }, [open]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredAndSorted = useMemo(() => {
     let result = files;
@@ -365,7 +371,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     if (onIndexChange) onIndexChange(selectedIndex);
     if (onDirectionChange) onDirectionChange(selectedDirection);
     if (onPatternChange) onPatternChange(selectedPattern);
-    setOpen(false);
+    closeModal();
   };
 
   const cellCount = getCellCount(type);
@@ -381,7 +387,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
 
   return (
     <div className="image-picker">
-      <div className="image-picker-preview" onClick={() => setOpen(true)}>
+      {!controlled && <div className="image-picker-preview" onClick={() => setOpen(true)}>
         {value ? (
           (hasIndex && index !== undefined) || type === 'sv_actors' ? (
             <CellPreview
@@ -405,8 +411,8 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
           <span className="image-picker-none">(None)</span>
         )}
         <span className="image-picker-name">{value || '(None)'}</span>
-      </div>
-      {open && (
+      </div>}
+      {isOpen && (
         <div className="modal-overlay">
           <div className="image-picker-dialog">
             <div className="image-picker-header">Select {type}</div>
@@ -545,7 +551,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
               }} title="폴더 열기" style={{ marginRight: 'auto' }}>폴더 열기</button>
               <span style={{ color: '#8bc34a', fontSize: '0.8em', marginRight: 'auto' }}>PNG 파일(.png)만 인식 · 하위 폴더도 자동으로 탐색됩니다</span>
               <button className="db-btn" onClick={handleOk}>OK</button>
-              <button className="db-btn" onClick={() => setOpen(false)}>Cancel</button>
+              <button className="db-btn" onClick={closeModal}>Cancel</button>
             </div>
           </div>
         </div>
