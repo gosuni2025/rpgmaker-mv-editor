@@ -329,22 +329,6 @@
   border-color: #2675bf;
 }
 
-.ui-inspector-input-num {
-  width: 70px;
-  background: #3c3c3c;
-  border: 1px solid #555;
-  color: #ddd;
-  padding: 3px 6px;
-  font-size: 12px;
-  border-radius: 2px;
-  text-align: right;
-}
-
-.ui-inspector-input-num:focus {
-  outline: none;
-  border-color: #2675bf;
-}
-
 .ui-inspector-reset-btn {
   padding: 2px 6px;
   font-size: 11px;
@@ -422,22 +406,3 @@
   color: #fff;
 }
 
-/* 색조 슬라이더 */
-.ui-inspector-tone-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 1;
-}
-
-.ui-inspector-tone-label {
-  font-size: 11px;
-  color: #888;
-  width: 14px;
-  text-align: center;
-}
-
-.ui-inspector-tone-slider {
-  flex: 1;
-  accent-color: #2675bf;
-}

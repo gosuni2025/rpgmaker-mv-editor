@@ -1,33 +1,8 @@
 import React, { useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { UIWindowInfo, UIWindowOverride } from '../../store/types';
+import DragLabel from '../common/DragLabel';
 import './UIEditor.css';
-
-function NumInput({
-  value,
-  onChange,
-  min,
-  max,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-  max?: number;
-}) {
-  return (
-    <input
-      type="number"
-      className="ui-inspector-input-num"
-      value={value}
-      min={min}
-      max={max}
-      onChange={(e) => {
-        const v = parseInt(e.target.value, 10);
-        if (!isNaN(v)) onChange(v);
-      }}
-    />
-  );
-}
 
 export default function UIEditorInspector() {
   const uiEditorWindows = useEditorStore((s) => s.uiEditorWindows);
@@ -55,7 +30,6 @@ export default function UIEditorInspector() {
   const set = useCallback((prop: keyof Omit<UIWindowOverride, 'className'>, value: unknown) => {
     if (!selectedWindow) return;
     setUiEditorOverride(selectedWindow.className, prop, value);
-    // postMessage로 iframe에 실시간 반영
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
     iframe?.contentWindow?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop, value }, '*');
   }, [selectedWindow, setUiEditorOverride]);
@@ -69,7 +43,6 @@ export default function UIEditorInspector() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ overrides: config }),
       });
-      // 플러그인 생성
       await fetch('/api/ui-editor/generate-plugin', { method: 'POST' });
       useEditorStore.getState().setUiEditorDirty(false);
       useEditorStore.getState().showToast('UI 테마 저장 완료');
@@ -108,32 +81,20 @@ export default function UIEditorInspector() {
       </div>
       <div className="ui-editor-inspector-body">
 
-        {/* 위치 */}
+        {/* 위치 / 크기 */}
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">위치 / 크기</div>
           <div className="ui-inspector-row">
-            <div className="ui-inspector-label">X</div>
-            <div className="ui-inspector-value">
-              <NumInput value={x} onChange={(v) => set('x', v)} />
-            </div>
+            <DragLabel label="X" value={x} onChange={(v) => set('x', Math.round(v))} />
           </div>
           <div className="ui-inspector-row">
-            <div className="ui-inspector-label">Y</div>
-            <div className="ui-inspector-value">
-              <NumInput value={y} onChange={(v) => set('y', v)} />
-            </div>
+            <DragLabel label="Y" value={y} onChange={(v) => set('y', Math.round(v))} />
           </div>
           <div className="ui-inspector-row">
-            <div className="ui-inspector-label">너비</div>
-            <div className="ui-inspector-value">
-              <NumInput value={width} min={32} onChange={(v) => set('width', v)} />
-            </div>
+            <DragLabel label="너비" value={width} min={32} onChange={(v) => set('width', Math.round(v))} />
           </div>
           <div className="ui-inspector-row">
-            <div className="ui-inspector-label">높이</div>
-            <div className="ui-inspector-value">
-              <NumInput value={height} min={32} onChange={(v) => set('height', v)} />
-            </div>
+            <DragLabel label="높이" value={height} min={32} onChange={(v) => set('height', Math.round(v))} />
           </div>
         </div>
 
@@ -141,22 +102,13 @@ export default function UIEditorInspector() {
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">투명도</div>
           <div className="ui-inspector-row">
-            <div className="ui-inspector-label">창 투명도</div>
-            <div className="ui-inspector-value">
-              <NumInput value={opacity} min={0} max={255} onChange={(v) => set('opacity', v)} />
-            </div>
+            <DragLabel label="창 투명도" value={opacity} min={0} max={255} onChange={(v) => set('opacity', Math.round(v))} />
           </div>
           <div className="ui-inspector-row">
-            <div className="ui-inspector-label">배경 투명도</div>
-            <div className="ui-inspector-value">
-              <NumInput value={backOpacity} min={0} max={255} onChange={(v) => set('backOpacity', v)} />
-            </div>
+            <DragLabel label="배경 투명도" value={backOpacity} min={0} max={255} onChange={(v) => set('backOpacity', Math.round(v))} />
           </div>
           <div className="ui-inspector-row">
-            <div className="ui-inspector-label">패딩</div>
-            <div className="ui-inspector-value">
-              <NumInput value={padding} min={0} max={64} onChange={(v) => set('padding', v)} />
-            </div>
+            <DragLabel label="패딩" value={padding} min={0} max={64} onChange={(v) => set('padding', Math.round(v))} />
           </div>
         </div>
 
@@ -164,10 +116,7 @@ export default function UIEditorInspector() {
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">폰트</div>
           <div className="ui-inspector-row">
-            <div className="ui-inspector-label">크기</div>
-            <div className="ui-inspector-value">
-              <NumInput value={fontSize} min={8} max={72} onChange={(v) => set('fontSize', v)} />
-            </div>
+            <DragLabel label="크기" value={fontSize} min={8} max={72} onChange={(v) => set('fontSize', Math.round(v))} />
           </div>
         </div>
 
@@ -175,72 +124,47 @@ export default function UIEditorInspector() {
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">색조 (R / G / B)</div>
           <div className="ui-inspector-row">
-            <div className="ui-inspector-label">R</div>
-            <div className="ui-inspector-value">
-              <div className="ui-inspector-tone-row">
-                <span className="ui-inspector-tone-label">{colorTone[0]}</span>
-                <input
-                  type="range"
-                  className="ui-inspector-tone-slider"
-                  min={-255}
-                  max={255}
-                  value={colorTone[0]}
-                  onChange={(e) => set('colorTone', [parseInt(e.target.value, 10), colorTone[1], colorTone[2]] as [number, number, number])}
-                />
-              </div>
-            </div>
+            <DragLabel
+              label="R"
+              value={colorTone[0]}
+              min={-255}
+              max={255}
+              onChange={(v) => set('colorTone', [Math.round(v), colorTone[1], colorTone[2]] as [number, number, number])}
+            />
           </div>
           <div className="ui-inspector-row">
-            <div className="ui-inspector-label">G</div>
-            <div className="ui-inspector-value">
-              <div className="ui-inspector-tone-row">
-                <span className="ui-inspector-tone-label">{colorTone[1]}</span>
-                <input
-                  type="range"
-                  className="ui-inspector-tone-slider"
-                  min={-255}
-                  max={255}
-                  value={colorTone[1]}
-                  onChange={(e) => set('colorTone', [colorTone[0], parseInt(e.target.value, 10), colorTone[2]] as [number, number, number])}
-                />
-              </div>
-            </div>
+            <DragLabel
+              label="G"
+              value={colorTone[1]}
+              min={-255}
+              max={255}
+              onChange={(v) => set('colorTone', [colorTone[0], Math.round(v), colorTone[2]] as [number, number, number])}
+            />
           </div>
           <div className="ui-inspector-row">
-            <div className="ui-inspector-label">B</div>
-            <div className="ui-inspector-value">
-              <div className="ui-inspector-tone-row">
-                <span className="ui-inspector-tone-label">{colorTone[2]}</span>
-                <input
-                  type="range"
-                  className="ui-inspector-tone-slider"
-                  min={-255}
-                  max={255}
-                  value={colorTone[2]}
-                  onChange={(e) => set('colorTone', [colorTone[0], colorTone[1], parseInt(e.target.value, 10)] as [number, number, number])}
-                />
-              </div>
-            </div>
+            <DragLabel
+              label="B"
+              value={colorTone[2]}
+              min={-255}
+              max={255}
+              onChange={(v) => set('colorTone', [colorTone[0], colorTone[1], Math.round(v)] as [number, number, number])}
+            />
           </div>
         </div>
 
         {/* 리셋 */}
         {hasAnyOverride && (
           <div className="ui-inspector-row" style={{ marginTop: 8 }}>
-            <div className="ui-inspector-label" />
-            <div className="ui-inspector-value">
-              <button
-                className="ui-inspector-reset-btn"
-                onClick={() => {
-                  if (selectedWindow) resetUiEditorOverride(selectedWindow.className);
-                  // 리셋: iframe에 씬 새로고침 요청
-                  const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
-                  iframe?.contentWindow?.postMessage({ type: 'refreshScene' }, '*');
-                }}
-              >
-                기본값으로 리셋
-              </button>
-            </div>
+            <button
+              className="ui-inspector-reset-btn"
+              onClick={() => {
+                if (selectedWindow) resetUiEditorOverride(selectedWindow.className);
+                const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+                iframe?.contentWindow?.postMessage({ type: 'refreshScene' }, '*');
+              }}
+            >
+              기본값으로 리셋
+            </button>
           </div>
         )}
       </div>
