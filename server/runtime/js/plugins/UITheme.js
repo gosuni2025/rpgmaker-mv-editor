@@ -184,11 +184,13 @@
     if (!entry || entry.cursorX === undefined) { return _Window_refreshCursor.call(this); }
 
     var pad = this._padding;
-    var x = this._cursorRect.x + pad - 1;
-    var y = this._cursorRect.y + pad - 1;
+    var ox = this.origin ? this.origin.x : 0;
+    var oy = this.origin ? this.origin.y : 0;
+    var x = this._cursorRect.x + pad - ox;
+    var y = this._cursorRect.y + pad - oy;
     var w = this._cursorRect.width + 2;
     var h = this._cursorRect.height + 2;
-    if (w <= 0 || h <= 0) return;
+    if (w <= 2 || h <= 2) return;
 
     var p  = entry.cursorX;
     var q  = entry.cursorY;
@@ -198,10 +200,10 @@
 
     var bitmap = this._windowskin;
     if (!bitmap || !bitmap.isReady() || nw <= 0 || nh <= 0 || m <= 0) return;
-    if (!this._cursorSprite) return;
+    if (!this._windowCursorSprite) return;
 
-    this._cursorSprite.bitmap = new Bitmap(w, h);
-    var dest = this._cursorSprite.bitmap;
+    this._windowCursorSprite.bitmap = new Bitmap(w, h);
+    var dest = this._windowCursorSprite.bitmap;
     for (var i = 0; i < 9; i++) {
       var col = i % 3, row = Math.floor(i / 3);
       var sx = col === 0 ? p : col === 2 ? p + nw - m : p + m;
@@ -216,9 +218,9 @@
         dest.blt(bitmap, sx, sy, sw, sh, dx, dy, dw, dh);
       }
     }
-    this._cursorSprite.setFrame(0, 0, w, h);
-    this._cursorSprite.move(x, y);
-    this._cursorSprite.alpha = 192 / 255;
+    this._windowCursorSprite.setFrame(0, 0, w, h);
+    this._windowCursorSprite.move(x, y);
+    this._windowCursorSprite.alpha = 192 / 255;
   };
 
   var _ov = _config.overrides || {};
