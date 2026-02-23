@@ -19,7 +19,6 @@ export default function UIEditorToolbar() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ overrides: config }),
       });
-      await fetch('/api/ui-editor/generate-plugin', { method: 'POST' });
       useEditorStore.getState().setUiEditorDirty(false);
       useEditorStore.getState().showToast('UI 테마 저장 완료');
     } catch {

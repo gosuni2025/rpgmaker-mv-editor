@@ -12,12 +12,11 @@ export default function UIEditorFrameInspector() {
   const projectPath = useEditorStore((s) => s.projectPath);
   const uploadRef = useRef<HTMLInputElement>(null);
 
-  // 기본 스킨 설정 → UIEditorConfig + UITheme.js 생성
+  // 기본 스킨 설정 → UIEditorConfig 저장 (UITheme.js는 서버에서 자동 동기화)
   const handleSetDefault = async () => {
     if (!projectPath || !uiSelectedSkin) return;
     try {
       const config = useEditorStore.getState().uiEditorOverrides;
-      // config에 defaultSkin 추가
       await fetch('/api/ui-editor/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -27,7 +26,6 @@ export default function UIEditorFrameInspector() {
           skinCornerSize: uiSkinCornerSize,
         }),
       });
-      await fetch('/api/ui-editor/generate-plugin', { method: 'POST' });
       setUiEditorDirty(false);
       useEditorStore.getState().showToast(`기본 스킨: ${uiSelectedSkin} 설정 완료`);
     } catch {
