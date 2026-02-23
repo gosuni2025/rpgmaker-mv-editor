@@ -128,6 +128,16 @@ export default function UIEditorCanvas() {
         setUiEditorWindows(e.data.windows ?? []);
       } else if (type === 'windowClicked') {
         setUiEditorSelectedWindowId(e.data.windowId ?? null);
+      } else if (type === 'cmdSave') {
+        const s = useEditorStore.getState();
+        fetch('/api/ui-editor/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ overrides: s.uiEditorOverrides }),
+        }).then(() => {
+          s.setUiEditorDirty(false);
+          s.showToast('UI 테마 저장 완료');
+        }).catch(() => s.showToast('저장 실패', true));
       }
     };
     window.addEventListener('message', handler);

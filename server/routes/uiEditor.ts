@@ -426,8 +426,14 @@ router.get('/preview', (req, res) => {
         }
       });
 
-      // 키보드 입력 억제
-      window.addEventListener('keydown', function(e) { e.stopPropagation(); }, true);
+      // 키보드 입력 억제 + Cmd/Ctrl+S → 부모 창 저장 위임
+      window.addEventListener('keydown', function(e) {
+        e.stopPropagation();
+        if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.code === 'KeyS')) {
+          e.preventDefault();
+          window.parent.postMessage({ type: 'cmdSave' }, '*');
+        }
+      }, true);
       window.addEventListener('keyup', function(e) { e.stopPropagation(); }, true);
 
       // 브릿지 준비 알림
