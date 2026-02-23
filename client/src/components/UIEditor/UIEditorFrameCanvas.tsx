@@ -35,6 +35,7 @@ function drawSkin(
   showLabels: boolean,
   showCheckerboard: boolean,
   showRegionOverlay: boolean,
+  hoverHit: DragState,
 ) {
   const S = DISPLAY_SCALE;
   const cw = imgW * S;
@@ -123,6 +124,24 @@ function drawSkin(
   ctx.beginPath(); ctx.moveTo(fx, hy2); ctx.lineTo(fx + fw, hy2); ctx.stroke();
 
   ctx.setLineDash([]);
+
+  // ── slice 라인 호버 하이라이트 ─────────────────────────────────────────────
+  if (hoverHit?.type === 'slice') {
+    const HW = SLICE_HIT * S;  // 하이라이트 너비 (픽셀)
+    ctx.fillStyle = 'rgba(80,255,120,0.25)';
+    ctx.strokeStyle = 'rgba(80,255,120,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    if (hoverHit.axis === 'x') {
+      const lx = (hoverHit.nearFirst ? vx1 : vx2) - HW / 2;
+      ctx.fillRect(lx, fy, HW, fh);
+      ctx.strokeRect(lx + 0.5, fy + 0.5, HW - 1, fh - 1);
+    } else {
+      const ly = (hoverHit.nearFirst ? hy1 : hy2) - HW / 2;
+      ctx.fillRect(fx, ly, fw, HW);
+      ctx.strokeRect(fx + 0.5, ly + 0.5, fw - 1, HW - 1);
+    }
+  }
 
   // 코너 강조 박스
   ctx.strokeStyle = 'rgba(255,220,0,0.6)';
@@ -226,6 +245,7 @@ export default function UIEditorFrameCanvas() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const dragRef = useRef<DragState>(null);
+  const hoverHitRef = useRef<DragState>(null);
   const [imgSize, setImgSize] = useState({ w: 192, h: 192 });
 
   const projectPath   = useEditorStore((s) => s.projectPath);
@@ -278,7 +298,8 @@ export default function UIEditorFrameCanvas() {
     drawSkin(ctx, img, imgSize.w, imgSize.h,
       s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH,
       s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH,
-      s.uiSkinCornerSize, s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay);
+      s.uiSkinCornerSize, s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay,
+      hoverHitRef.current);
   }, [imgSize]);
 
   // 스킨 이미지 로드 — 실제 naturalWidth/Height 기반으로 캔버스 크기 설정
@@ -307,7 +328,8 @@ export default function UIEditorFrameCanvas() {
       drawSkin(ctx, img, w, h,
         s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH,
         s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH,
-        s.uiSkinCornerSize, s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay);
+        s.uiSkinCornerSize, s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay,
+        hoverHitRef.current);
     };
     img.onerror = () => {
       ctx.fillStyle = '#1a1a1a';
@@ -427,7 +449,18 @@ export default function UIEditorFrameCanvas() {
     const s = useEditorStore.getState();
     const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCornerSize);
     canvas.style.cursor = getCursor(hit);
-  }, [toImageCoords]);
+
+    // slice 호버 하이라이트 갱신
+    const prevIsSlice = hoverHitRef.current?.type === 'slice';
+    const nextIsSlice = hit?.type === 'slice';
+    const changed = prevIsSlice !== nextIsSlice ||
+      (nextIsSlice && (
+        (hit as Extract<DragState, { type: 'slice' }>).axis !== (hoverHitRef.current as Extract<DragState, { type: 'slice' }>).axis ||
+        (hit as Extract<DragState, { type: 'slice' }>).nearFirst !== (hoverHitRef.current as Extract<DragState, { type: 'slice' }>).nearFirst
+      ));
+    hoverHitRef.current = hit;
+    if (changed) redraw();
+  }, [toImageCoords, redraw]);
 
   if (!projectPath) {
     return (
@@ -457,7 +490,11 @@ export default function UIEditorFrameCanvas() {
             }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleCanvasMouseMove}
-            onMouseLeave={() => { if (canvasRef.current) canvasRef.current.style.cursor = 'default'; }}
+            onMouseLeave={() => {
+              if (canvasRef.current) canvasRef.current.style.cursor = 'default';
+              if (hoverHitRef.current?.type === 'slice') { hoverHitRef.current = null; redraw(); }
+              else hoverHitRef.current = null;
+            }}
           />
         </div>
       </div>
