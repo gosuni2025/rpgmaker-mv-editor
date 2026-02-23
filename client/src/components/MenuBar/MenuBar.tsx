@@ -31,7 +31,7 @@ export default function MenuBar() {
 
   const {
     projectPath, editMode, editorMode, selectedTool, drawShape,
-    undoStack, redoStack, demoMode, useWebp,
+    undoStack, redoStack, demoMode,
     setEditorMode, setEditMode, setSelectedTool, setDrawShape,
     zoomIn, zoomOut, zoomActualSize, undo, redo,
     saveCurrentMap, closeProject, openProject, setUninitializedProjectPath,
@@ -45,7 +45,7 @@ export default function MenuBar() {
     editMode: s.editMode, editorMode: s.editorMode,
     selectedTool: s.selectedTool, drawShape: s.drawShape,
     undoStack: s.undoStack, redoStack: s.redoStack,
-    demoMode: s.demoMode, useWebp: s.useWebp,
+    demoMode: s.demoMode,
     setEditorMode: s.setEditorMode, setEditMode: s.setEditMode,
     setSelectedTool: s.setSelectedTool, setDrawShape: s.setDrawShape,
     zoomIn: s.zoomIn, zoomOut: s.zoomOut, zoomActualSize: s.zoomActualSize,
@@ -164,8 +164,8 @@ export default function MenuBar() {
         { label: t('menu.characterGenerator'), action: 'characterGenerator', disabled: () => !hasProject },
         { label: t('menu.resourceManager'), action: 'resourceManager', disabled: () => !hasProject },
         { type: 'separator' },
-        { label: useWebp ? t('menu.convertToWebpDone') : t('menu.convertToWebp'), action: 'convertToWebp', disabled: () => !hasProject || useWebp },
-        { label: useWebp ? t('menu.convertToPng') : t('menu.convertToPngDisabled'), action: 'convertToPng', disabled: () => !hasProject || !useWebp },
+        { label: t('menu.convertToWebp'), action: 'convertToWebp', disabled: () => !hasProject },
+        { label: t('menu.convertToPng'), action: 'convertToPng', disabled: () => !hasProject },
         { type: 'separator' },
         { label: t('menu.localization'), action: 'localization', disabled: () => !hasProject },
         { type: 'separator' },
