@@ -238,6 +238,7 @@ export interface EditorState {
   uiSkinFillY: number;         // fill 영역 Y
   uiSkinFillW: number;         // fill 영역 너비
   uiSkinFillH: number;         // fill 영역 높이
+  uiSkinUseCenterFill: boolean; // true: 9-slice 정중앙을 fill로 자동 계산
   uiEditorSelectedElementType: string | null; // 선택된 요소 타입 (actorName, hp 등)
   uiShowSkinLabels: boolean;    // 프레임 캔버스 영역 라벨 표시 여부
   uiShowCheckerboard: boolean;  // 프레임 캔버스 투명 체크보드 표시 여부
@@ -394,6 +395,7 @@ export interface EditorState {
   setUiSkinCornerSize: (size: number) => void;
   setUiSkinFrame: (x: number, y: number, w: number, h: number) => void;
   setUiSkinFill: (x: number, y: number, w: number, h: number) => void;
+  setUiSkinUseCenterFill: (v: boolean) => void;
   setUiEditorSelectedElementType: (type: string | null) => void;
   setUiElementOverride: (className: string, elementType: string, prop: string, value: unknown) => void;
   setUiShowSkinLabels: (show: boolean) => void;

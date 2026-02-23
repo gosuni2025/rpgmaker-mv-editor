@@ -9,15 +9,21 @@ function saveToolbarKeys(keys: Partial<Record<string, unknown>>) {
   } catch {}
 }
 
+/** 9-slice 정중앙 fill 좌표 자동 계산 */
+function calcCenterFill(frameX: number, frameY: number, frameW: number, frameH: number, cs: number) {
+  const c = Math.max(1, Math.min(Math.floor(Math.min(frameW, frameH) / 2) - 1, cs));
+  return { uiSkinFillX: frameX + c, uiSkinFillY: frameY + c, uiSkinFillW: frameW - 2 * c, uiSkinFillH: frameH - 2 * c };
+}
+
 export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' |
   'uiEditorSelectedWindowId' | 'uiEditorOverrides' | 'uiEditorDirty' |
-  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
+  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiSkinUseCenterFill' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
   'uiEditorSelectedElementType' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
-  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiSkinFill' | 'setUiShowSkinLabels' | 'setUiShowCheckerboard' | 'setUiShowRegionOverlay' |
+  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiSkinFill' | 'setUiSkinUseCenterFill' | 'setUiShowSkinLabels' | 'setUiShowCheckerboard' | 'setUiShowRegionOverlay' |
   'setUiEditorSelectedElementType' | 'setUiElementOverride'
 >> = (set) => ({
   editorMode: 'map',
@@ -34,10 +40,11 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiSkinFrameY: 0,
   uiSkinFrameW: 96,
   uiSkinFrameH: 96,
-  uiSkinFillX: 0,
-  uiSkinFillY: 0,
-  uiSkinFillW: 96,
-  uiSkinFillH: 96,
+  uiSkinFillX: 120,  // calcCenterFill(96,0,96,96,24) → 120,24,48,48
+  uiSkinFillY: 24,
+  uiSkinFillW: 48,
+  uiSkinFillH: 48,
+  uiSkinUseCenterFill: true,
   uiShowSkinLabels: false,
   uiShowCheckerboard: true,
   uiShowRegionOverlay: true,
@@ -71,9 +78,23 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   setUiEditorDirty: (dirty) => set({ uiEditorDirty: dirty }),
   setUiEditSubMode: (mode) => { saveToolbarKeys({ uiEditSubMode: mode }); set({ uiEditSubMode: mode }); },
   setUiSelectedSkin: (skin) => set({ uiSelectedSkin: skin }),
-  setUiSkinCornerSize: (size) => set({ uiSkinCornerSize: size }),
-  setUiSkinFrame: (x, y, w, h) => set({ uiSkinFrameX: x, uiSkinFrameY: y, uiSkinFrameW: w, uiSkinFrameH: h }),
+  setUiSkinCornerSize: (size) => set((state) => ({
+    uiSkinCornerSize: size,
+    ...(state.uiSkinUseCenterFill
+      ? calcCenterFill(state.uiSkinFrameX, state.uiSkinFrameY, state.uiSkinFrameW, state.uiSkinFrameH, size)
+      : {}),
+  })),
+  setUiSkinFrame: (x, y, w, h) => set((state) => ({
+    uiSkinFrameX: x, uiSkinFrameY: y, uiSkinFrameW: w, uiSkinFrameH: h,
+    ...(state.uiSkinUseCenterFill
+      ? calcCenterFill(x, y, w, h, state.uiSkinCornerSize)
+      : {}),
+  })),
   setUiSkinFill: (x, y, w, h) => set({ uiSkinFillX: x, uiSkinFillY: y, uiSkinFillW: w, uiSkinFillH: h }),
+  setUiSkinUseCenterFill: (v) => set((state) => ({
+    uiSkinUseCenterFill: v,
+    ...(v ? calcCenterFill(state.uiSkinFrameX, state.uiSkinFrameY, state.uiSkinFrameW, state.uiSkinFrameH, state.uiSkinCornerSize) : {}),
+  })),
   setUiShowSkinLabels: (show) => set({ uiShowSkinLabels: show }),
   setUiShowCheckerboard: (show) => set({ uiShowCheckerboard: show }),
   setUiShowRegionOverlay: (show) => set({ uiShowRegionOverlay: show }),
