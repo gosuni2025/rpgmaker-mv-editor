@@ -436,6 +436,11 @@ const FORMATTERS: Map<number, { minParams: number; fn: Formatter }> = new Map([
   [216, { minParams: 1, fn: fmtOnOff('ON', 'OFF') }],
   [223, { minParams: 3, fn: fmt223 }],
   [225, { minParams: 4, fn: fmt225 }],
+  [230, { minParams: 1, fn: (cmd, text) => {
+    const frames = cmd.parameters![0] as number;
+    const sec = parseFloat((frames / 60).toFixed(2));
+    return text + `: ${frames} (${sec}초)`;
+  }}],
   [231, { minParams: 10, fn: fmt231 }],
   [232, { minParams: 12, fn: fmt232 }],
   [233, { minParams: 2, fn: (cmd, text) => text + `: #${cmd.parameters![0]}, 속도 ${cmd.parameters![1]}` }],

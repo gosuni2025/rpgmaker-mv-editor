@@ -159,15 +159,45 @@ export function SingleNumberEditor({ p, onOk, onCancel, label, min, max }: { p: 
 }
 
 export function WaitEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (params: unknown[]) => void; onCancel: () => void }) {
-  const [value, setValue] = useState<number>((p[0] as number) || 60);
+  const initFrames = (p[0] as number) || 60;
+  const [frames, setFrames] = useState<number>(initFrames);
+  const [inputMode, setInputMode] = useState<'frames' | 'seconds'>('frames');
+  const [secondsInput, setSecondsInput] = useState<number>(parseFloat((initFrames / 60).toFixed(4)));
+
+  const handleFrameChange = (v: number) => {
+    const f = Math.max(1, Math.round(v));
+    setFrames(f);
+    setSecondsInput(parseFloat((f / 60).toFixed(4)));
+  };
+
+  const handleSecondsChange = (v: number) => {
+    setSecondsInput(v);
+    setFrames(Math.max(1, Math.round(v * 60)));
+  };
+
+  const secDisplay = parseFloat((frames / 60).toFixed(2));
+
   return (
     <>
       <div style={{ fontSize: 12, color: '#aaa' }}>지속 시간</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-        <input type="number" value={value} min={1} max={999} onChange={e => setValue(Number(e.target.value))} style={{ ...selectStyle, width: 80 }} />
-        <span style={{ fontSize: 12, color: '#aaa' }}>프레임 (1/60 초)</span>
+        <select value={inputMode} onChange={e => setInputMode(e.target.value as 'frames' | 'seconds')} style={{ ...selectStyle, width: 110 }}>
+          <option value="frames">프레임으로 입력</option>
+          <option value="seconds">초로 입력</option>
+        </select>
+        {inputMode === 'frames' ? (
+          <>
+            <input type="number" value={frames} min={1} max={9999} onChange={e => handleFrameChange(Number(e.target.value))} style={{ ...selectStyle, width: 80 }} />
+            <span style={{ fontSize: 12, color: '#aaa' }}>프레임 ({secDisplay}초)</span>
+          </>
+        ) : (
+          <>
+            <input type="number" value={secondsInput} min={0.017} step={0.1} onChange={e => handleSecondsChange(Number(e.target.value))} style={{ ...selectStyle, width: 80 }} />
+            <span style={{ fontSize: 12, color: '#aaa' }}>초 → {frames}프레임</span>
+          </>
+        )}
       </div>
-      <div className="image-picker-footer"><button className="db-btn" onClick={() => onOk([value])}>OK</button><button className="db-btn" onClick={onCancel}>취소</button></div>
+      <div className="image-picker-footer"><button className="db-btn" onClick={() => onOk([frames])}>OK</button><button className="db-btn" onClick={onCancel}>취소</button></div>
     </>
   );
 }
