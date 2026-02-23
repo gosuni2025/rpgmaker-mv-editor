@@ -257,6 +257,7 @@ export default function MenuBar() {
               }),
             }).then(() => {
               s.setUiEditorDirty(false);
+              s.triggerSkinsReload();
               s.showToast('스킨 설정 저장 완료');
             }).catch(() => s.showToast('저장 실패', true));
           } else {
