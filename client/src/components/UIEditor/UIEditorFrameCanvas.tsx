@@ -246,6 +246,7 @@ export default function UIEditorFrameCanvas() {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const dragRef = useRef<DragState>(null);
   const hoverHitRef = useRef<DragState>(null);
+  const altKeyRef = useRef(false);
   const [imgSize, setImgSize] = useState({ w: 192, h: 192 });
 
   const projectPath   = useEditorStore((s) => s.projectPath);
@@ -344,6 +345,23 @@ export default function UIEditorFrameCanvas() {
 
   useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay]);
 
+  // Alt 키 트래킹 — 눌리면 grab 커서, 떼면 default 복원
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Alt') return;
+      altKeyRef.current = true;
+      if (canvasRef.current && !dragRef.current) canvasRef.current.style.cursor = 'grab';
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key !== 'Alt') return;
+      altKeyRef.current = false;
+      if (canvasRef.current && !dragRef.current) canvasRef.current.style.cursor = 'default';
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); };
+  }, []);
+
   // 휠 줌 — scroll 컨테이너에 달아야 zoom 관계없이 전체 영역에서 동작
   useEffect(() => {
     const el = scrollRef.current;
@@ -360,11 +378,25 @@ export default function UIEditorFrameCanvas() {
     const coords = toImageCoords(e.clientX, e.clientY);
     if (!coords) return;
     const s = useEditorStore.getState();
-    const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCornerSize);
-    if (!hit) return;
+
+    let hit: DragState;
+    if (altKeyRef.current) {
+      // Alt 모드: fill 영역 내부면 fill 이동, 아니면 frame 이동
+      const inFill = coords.ix >= s.uiSkinFillX && coords.ix <= s.uiSkinFillX + s.uiSkinFillW
+                  && coords.iy >= s.uiSkinFillY && coords.iy <= s.uiSkinFillY + s.uiSkinFillH;
+      if (inFill) {
+        hit = { type: 'fill_move', ox: coords.ix - s.uiSkinFillX, oy: coords.iy - s.uiSkinFillY, startFX: s.uiSkinFillX, startFY: s.uiSkinFillY };
+      } else {
+        hit = { type: 'frame_move', ox: coords.ix - s.uiSkinFrameX, oy: coords.iy - s.uiSkinFrameY, startFX: s.uiSkinFrameX, startFY: s.uiSkinFrameY };
+      }
+    } else {
+      hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCornerSize);
+      if (!hit) return;
+    }
+
     e.preventDefault();
     dragRef.current = hit;
-    document.body.style.cursor = getCursor(hit);
+    document.body.style.cursor = altKeyRef.current ? 'grabbing' : getCursor(hit);
 
     const onMove = (ev: MouseEvent) => {
       const drag = dragRef.current;
@@ -424,6 +456,7 @@ export default function UIEditorFrameCanvas() {
       if (!drag) return;
       dragRef.current = null;
       document.body.style.cursor = '';
+      if (canvasRef.current) canvasRef.current.style.cursor = altKeyRef.current ? 'grab' : 'default';
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       const st = useEditorStore.getState();
@@ -444,6 +477,13 @@ export default function UIEditorFrameCanvas() {
     if (dragRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    if (altKeyRef.current) {
+      canvas.style.cursor = 'grab';
+      if (hoverHitRef.current?.type === 'slice') { hoverHitRef.current = null; redraw(); }
+      return;
+    }
+
     const coords = toImageCoords(e.clientX, e.clientY);
     if (!coords) return;
     const s = useEditorStore.getState();
