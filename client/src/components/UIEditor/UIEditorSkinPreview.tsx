@@ -32,30 +32,32 @@ function drawPreview(
 
   // 2. 9-slice 프레임
   const cs = clamp(cornerSize, 1, Math.floor(Math.min(frameW, frameH) / 2) - 1);
-  const tc = Math.min(cs, Math.floor(Math.min(tw, th) / 2) - 1);  // 타겟에 맞게 코너 축소
+  // 가로/세로 방향 독립적으로 클램핑 (한쪽이 짧아도 다른 방향 코너 크기는 유지)
+  const tcX = Math.min(cs, Math.floor(tw / 2) - 1);
+  const tcY = Math.min(cs, Math.floor(th / 2) - 1);
 
   // 소스 좌표
-  const sx1 = frameX, sx2 = frameX + cs, sx3 = frameX + frameW - cs, sx4 = frameX + frameW;
-  const sy1 = frameY, sy2 = frameY + cs, sy3 = frameY + frameH - cs, sy4 = frameY + frameH;
+  const sx1 = frameX, sx2 = frameX + cs, sx3 = frameX + frameW - cs;
+  const sy1 = frameY, sy2 = frameY + cs, sy3 = frameY + frameH - cs;
 
   // 타겟 좌표
-  const tx2 = tc, tx3 = tw - tc;
-  const ty2 = tc, ty3 = th - tc;
+  const tx2 = tcX, tx3 = tw - tcX;
+  const ty2 = tcY, ty3 = th - tcY;
 
   // 코너 4개
-  ctx.drawImage(skin, sx1, sy1, cs, cs, 0,   0,   tc, tc);
-  ctx.drawImage(skin, sx3, sy1, cs, cs, tx3, 0,   tc, tc);
-  ctx.drawImage(skin, sx1, sy3, cs, cs, 0,   ty3, tc, tc);
-  ctx.drawImage(skin, sx3, sy3, cs, cs, tx3, ty3, tc, tc);
+  ctx.drawImage(skin, sx1, sy1, cs, cs, 0,   0,   tcX, tcY);
+  ctx.drawImage(skin, sx3, sy1, cs, cs, tx3, 0,   tcX, tcY);
+  ctx.drawImage(skin, sx1, sy3, cs, cs, 0,   ty3, tcX, tcY);
+  ctx.drawImage(skin, sx3, sy3, cs, cs, tx3, ty3, tcX, tcY);
 
   // 엣지 4개 (stretch)
   if (tx3 > tx2) {
-    ctx.drawImage(skin, sx2, sy1, sx3 - sx2, cs, tx2, 0,   tx3 - tx2, tc);
-    ctx.drawImage(skin, sx2, sy3, sx3 - sx2, cs, tx2, ty3, tx3 - tx2, tc);
+    ctx.drawImage(skin, sx2, sy1, sx3 - sx2, cs, tx2, 0,   tx3 - tx2, tcY);
+    ctx.drawImage(skin, sx2, sy3, sx3 - sx2, cs, tx2, ty3, tx3 - tx2, tcY);
   }
   if (ty3 > ty2) {
-    ctx.drawImage(skin, sx1, sy2, cs, sy3 - sy2, 0,   ty2, tc, ty3 - ty2);
-    ctx.drawImage(skin, sx3, sy2, cs, sy3 - sy2, tx3, ty2, tc, ty3 - ty2);
+    ctx.drawImage(skin, sx1, sy2, cs, sy3 - sy2, 0,   ty2, tcX, ty3 - ty2);
+    ctx.drawImage(skin, sx3, sy2, cs, sy3 - sy2, tx3, ty2, tcX, ty3 - ty2);
   }
 }
 
