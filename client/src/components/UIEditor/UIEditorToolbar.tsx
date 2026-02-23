@@ -141,7 +141,7 @@ export default function UIEditorToolbar() {
           disabled={!projectPath}
           title={`현재 씬(${uiEditorScene}) 플레이테스트`}
         >
-          ▶ UI 플레이테스트
+          ▶ 현재 맵에서 테스트
         </button>
       </div>
 
