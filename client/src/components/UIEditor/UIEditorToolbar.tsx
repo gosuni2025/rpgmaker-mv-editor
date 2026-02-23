@@ -135,9 +135,9 @@ export default function UIEditorToolbar() {
             style={{ fontSize: 11, padding: '2px 8px', color: '#f88' }}
             disabled={!projectPath || uiEditorWindows.length === 0}
             onClick={handleResetScene}
-            title="RPG Maker MV 원본 위치/크기를 오버라이드로 덮어쓰기"
+            title="현재 씬 모든 창의 오버라이드를 삭제하고 RMMV 기본값으로 복원"
           >
-            원본값 가져오기
+            씬 레이아웃 초기화
           </button>
         )}
 

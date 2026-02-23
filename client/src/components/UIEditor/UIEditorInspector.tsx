@@ -76,7 +76,6 @@ function WindowInspector({ selectedWindow, override }: {
 }) {
   const projectPath = useEditorStore((s) => s.projectPath);
   const setUiEditorOverride = useEditorStore((s) => s.setUiEditorOverride);
-  const resetUiEditorOverride = useEditorStore((s) => s.resetUiEditorOverride);
 
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -299,20 +298,6 @@ function WindowInspector({ selectedWindow, override }: {
           </div>
         )}
 
-        {!!override && (
-          <div className="ui-inspector-row" style={{ marginTop: 8 }}>
-            <button
-              className="ui-inspector-reset-btn"
-              onClick={() => {
-                resetUiEditorOverride(selectedWindow.className);
-                const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
-                iframe?.contentWindow?.postMessage({ type: 'refreshScene' }, '*');
-              }}
-            >
-              기본값으로 리셋
-            </button>
-          </div>
-        )}
       </div>
 
     </>
@@ -390,27 +375,6 @@ function ElementInspector({ selectedWindow, elem }: {
           </div>
         )}
 
-        {Object.keys(elemOv).length > 0 && (
-          <div className="ui-inspector-row" style={{ marginTop: 8 }}>
-            <button
-              className="ui-inspector-reset-btn"
-              onClick={() => {
-                // 요소 오버라이드만 초기화
-                const state = useEditorStore.getState();
-                const classOv = state.uiEditorOverrides[selectedWindow.className];
-                if (classOv?.elements) {
-                  const newElems = { ...classOv.elements };
-                  delete newElems[elem.type];
-                  state.setUiEditorOverride(selectedWindow.className, 'elements' as any, newElems);
-                }
-                const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
-                iframe?.contentWindow?.postMessage({ type: 'refreshScene' }, '*');
-              }}
-            >
-              요소 기본값으로 리셋
-            </button>
-          </div>
-        )}
       </div>
 
     </>
