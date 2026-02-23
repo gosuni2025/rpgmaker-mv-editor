@@ -110,7 +110,9 @@ async function installBundles() {
       await Promise.all(fileEntries.map(async ({ relativePath, zipFile }) => {
         const data = await zipFile.async('arraybuffer');
         // prefix = "img/", relativePath = "characters/Actor1.png"
-        const cacheUrl = base + prefix + relativePath;
+        // WebP 변환된 프로젝트: .webp 파일을 .png 키로 저장 → 게임의 .png 요청과 매칭
+        const cacheKey = relativePath.replace(/\.webp$/i, '.png');
+        const cacheUrl = base + prefix + cacheKey;
         await dataCache.put(
           new Request(cacheUrl),
           new Response(data, {
