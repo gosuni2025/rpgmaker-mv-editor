@@ -28,6 +28,7 @@ export default function UIEditorFrameInspector() {
   const uiSkinCursorW = useEditorStore((s) => s.uiSkinCursorW);
   const uiSkinCursorH = useEditorStore((s) => s.uiSkinCursorH);
   const uiSkinCursorCornerSize = useEditorStore((s) => s.uiSkinCursorCornerSize);
+  const uiSkinCursorRenderMode = useEditorStore((s) => s.uiSkinCursorRenderMode);
   const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
   const setUiSkinFrame = useEditorStore((s) => s.setUiSkinFrame);
@@ -35,6 +36,7 @@ export default function UIEditorFrameInspector() {
   const setUiSkinUseCenterFill = useEditorStore((s) => s.setUiSkinUseCenterFill);
   const setUiSkinCursor = useEditorStore((s) => s.setUiSkinCursor);
   const setUiSkinCursorCornerSize = useEditorStore((s) => s.setUiSkinCursorCornerSize);
+  const setUiSkinCursorRenderMode = useEditorStore((s) => s.setUiSkinCursorRenderMode);
   const setUiEditorDirty = useEditorStore((s) => s.setUiEditorDirty);
   const projectPath = useEditorStore((s) => s.projectPath);
 
@@ -91,7 +93,7 @@ export default function UIEditorFrameInspector() {
   const handleApply = async () => {
     if (!projectPath || !uiSelectedSkin) return;
     try {
-      await saveSkin({ cornerSize: uiSkinCornerSize, frameX: uiSkinFrameX, frameY: uiSkinFrameY, frameW: uiSkinFrameW, frameH: uiSkinFrameH, fillX: uiSkinFillX, fillY: uiSkinFillY, fillW: uiSkinFillW, fillH: uiSkinFillH, useCenterFill: uiSkinUseCenterFill, cursorX: uiSkinCursorX, cursorY: uiSkinCursorY, cursorW: uiSkinCursorW, cursorH: uiSkinCursorH, cursorCornerSize: uiSkinCursorCornerSize });
+      await saveSkin({ cornerSize: uiSkinCornerSize, frameX: uiSkinFrameX, frameY: uiSkinFrameY, frameW: uiSkinFrameW, frameH: uiSkinFrameH, fillX: uiSkinFillX, fillY: uiSkinFillY, fillW: uiSkinFillW, fillH: uiSkinFillH, useCenterFill: uiSkinUseCenterFill, cursorX: uiSkinCursorX, cursorY: uiSkinCursorY, cursorW: uiSkinCursorW, cursorH: uiSkinCursorH, cursorCornerSize: uiSkinCursorCornerSize, cursorRenderMode: uiSkinCursorRenderMode });
       setUiEditorDirty(false);
       useEditorStore.getState().showToast('스킨 설정 저장 완료');
     } catch {
@@ -235,7 +237,23 @@ export default function UIEditorFrameInspector() {
           <div className="ui-inspector-row">
             <DragLabel label="높이" value={uiSkinCursorH} min={4} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, uiSkinCursorY, uiSkinCursorW, Math.round(v)); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ cursorX: s.uiSkinCursorX, cursorY: s.uiSkinCursorY, cursorW: s.uiSkinCursorW, cursorH: s.uiSkinCursorH }); }} />
           </div>
-          <div className="ui-inspector-row">
+          <div className="ui-inspector-row" style={{ flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 11, color: '#888', paddingLeft: 2 }}>렌더링 모드</span>
+            <select
+              value={uiSkinCursorRenderMode}
+              onChange={(e) => {
+                const mode = e.target.value as 'nineSlice' | 'stretch' | 'tile';
+                setUiSkinCursorRenderMode(mode);
+                saveSkin({ cursorRenderMode: mode });
+              }}
+              style={{ fontSize: 12, padding: '2px 4px', background: '#1a1a2e', color: '#ddd', border: '1px solid #555', borderRadius: 2, width: '100%' }}
+            >
+              <option value="nineSlice">9-Slice (코너 유지)</option>
+              <option value="stretch">Stretch (늘리기)</option>
+              <option value="tile">Tile (반복)</option>
+            </select>
+          </div>
+          <div className="ui-inspector-row" style={uiSkinCursorRenderMode !== 'nineSlice' ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
             <DragLabel
               label="코너 크기"
               value={uiSkinCursorCornerSize}

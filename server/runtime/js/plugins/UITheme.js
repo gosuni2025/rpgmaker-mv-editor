@@ -198,26 +198,43 @@
     var nh = entry.cursorH;
     var m  = entry.cursorCornerSize !== undefined ? entry.cursorCornerSize : 4;
 
+    var renderMode = entry.cursorRenderMode || 'nineSlice';
     var bitmap = this._windowskin;
-    if (!bitmap || !bitmap.isReady() || nw <= 0 || nh <= 0 || m <= 0) return;
+    if (!bitmap || !bitmap.isReady() || nw <= 0 || nh <= 0) return;
     if (!this._windowCursorSprite) return;
 
     this._windowCursorSprite.bitmap = new Bitmap(w, h);
     var dest = this._windowCursorSprite.bitmap;
-    for (var i = 0; i < 9; i++) {
-      var col = i % 3, row = Math.floor(i / 3);
-      var sx = col === 0 ? p : col === 2 ? p + nw - m : p + m;
-      var sy = row === 0 ? q : row === 2 ? q + nh - m : q + m;
-      var sw = col === 0 || col === 2 ? m : nw - m * 2;
-      var sh = row === 0 || row === 2 ? m : nh - m * 2;
-      var dx = col === 0 ? 0 : col === 2 ? w - m : m;
-      var dy = row === 0 ? 0 : row === 2 ? h - m : m;
-      var dw = col === 0 || col === 2 ? m : w - m * 2;
-      var dh = row === 0 || row === 2 ? m : h - m * 2;
-      if (sw > 0 && sh > 0 && dw > 0 && dh > 0) {
-        dest.blt(bitmap, sx, sy, sw, sh, dx, dy, dw, dh);
+
+    if (renderMode === 'stretch') {
+      dest.blt(bitmap, p, q, nw, nh, 0, 0, w, h);
+    } else if (renderMode === 'tile') {
+      for (var ty = 0; ty < h; ty += nh) {
+        for (var tx = 0; tx < w; tx += nw) {
+          var tw = Math.min(nw, w - tx);
+          var th = Math.min(nh, h - ty);
+          dest.blt(bitmap, p, q, tw, th, tx, ty, tw, th);
+        }
+      }
+    } else {
+      // nineSlice (기본)
+      if (m <= 0) m = 4;
+      for (var i = 0; i < 9; i++) {
+        var col = i % 3, row = Math.floor(i / 3);
+        var sx = col === 0 ? p : col === 2 ? p + nw - m : p + m;
+        var sy = row === 0 ? q : row === 2 ? q + nh - m : q + m;
+        var sw = col === 0 || col === 2 ? m : nw - m * 2;
+        var sh = row === 0 || row === 2 ? m : nh - m * 2;
+        var dx = col === 0 ? 0 : col === 2 ? w - m : m;
+        var dy = row === 0 ? 0 : row === 2 ? h - m : m;
+        var dw = col === 0 || col === 2 ? m : w - m * 2;
+        var dh = row === 0 || row === 2 ? m : h - m * 2;
+        if (sw > 0 && sh > 0 && dw > 0 && dh > 0) {
+          dest.blt(bitmap, sx, sy, sw, sh, dx, dy, dw, dh);
+        }
       }
     }
+
     this._windowCursorSprite.setFrame(0, 0, w, h);
     this._windowCursorSprite.move(x, y);
     this._windowCursorSprite.alpha = 192 / 255;
