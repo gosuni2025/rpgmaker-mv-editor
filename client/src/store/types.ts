@@ -351,6 +351,7 @@ export interface EditorState {
   setUiEditorSelectedWindowId: (id: string | null) => void;
   setUiEditorOverride: (className: string, prop: keyof Omit<UIWindowOverride, 'className'>, value: unknown) => void;
   resetUiEditorOverride: (className: string) => void;
+  loadUiEditorOverrides: (overrides: Record<string, UIWindowOverride>) => void;
   setUiEditorDirty: (dirty: boolean) => void;
 
   // Actions - Project

@@ -4,7 +4,8 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' |
   'uiEditorSelectedWindowId' | 'uiEditorOverrides' | 'uiEditorDirty' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' |
-  'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' | 'setUiEditorDirty'
+  'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
+  'loadUiEditorOverrides' | 'setUiEditorDirty'
 >> = (set) => ({
   editorMode: 'map',
   uiEditorScene: 'Scene_Options',
@@ -38,5 +39,6 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
       return { uiEditorOverrides: next, uiEditorDirty: true };
     });
   },
+  loadUiEditorOverrides: (overrides) => set({ uiEditorOverrides: overrides, uiEditorDirty: false }),
   setUiEditorDirty: (dirty) => set({ uiEditorDirty: dirty }),
 });

@@ -111,30 +111,112 @@
   flex-shrink: 0;
 }
 
-.ui-editor-canvas-toolbar span {
+.ui-canvas-scene-label {
   font-size: 12px;
   color: #aaa;
+  flex: 1;
+}
+
+.ui-canvas-toolbar-btn {
+  padding: 2px 8px;
+  font-size: 12px;
+  background: #3c3c3c;
+  border: 1px solid #555;
+  color: #ddd;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.ui-canvas-toolbar-btn:hover {
+  background: #4a4a4a;
 }
 
 .ui-editor-canvas-wrapper {
   flex: 1;
   position: relative;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+}
+
+/* 게임 컨테이너: 816×624, transform scale로 축소 */
+.ui-editor-game-container {
+  position: absolute;
+  width: 816px;
+  height: 624px;
 }
 
 .ui-editor-iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   border: none;
   display: block;
   background: black;
-  /* 게임 해상도 816×624를 기본으로 */
-  width: 816px;
-  height: 624px;
-  max-width: 100%;
-  max-height: 100%;
 }
+
+/* 오버레이 컨테이너: 창 박스/핸들만 pointer-events: auto */
+.ui-overlay-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* 창 박스 */
+.ui-overlay-window {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: auto;
+  cursor: grab;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  transition: border-color 0.1s;
+}
+.ui-overlay-window:hover {
+  border-color: rgba(255, 200, 60, 0.7);
+  background: rgba(255, 200, 60, 0.04);
+}
+.ui-overlay-window.selected {
+  border: 1.5px solid #2675bf;
+  background: rgba(38, 117, 191, 0.06);
+  cursor: grab;
+}
+.ui-overlay-window.selected:active {
+  cursor: grabbing;
+}
+
+/* 창 이름 레이블 */
+.ui-overlay-label {
+  position: absolute;
+  top: -18px;
+  left: 0;
+  background: #2675bf;
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 2px 2px 0 0;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 리사이즈 핸들 */
+.ui-resize-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border: 1.5px solid #2675bf;
+  box-sizing: border-box;
+  pointer-events: auto;
+  z-index: 1;
+}
+.ui-resize-handle.handle-nw { top: -4px; left: -4px; cursor: nw-resize; }
+.ui-resize-handle.handle-n  { top: -4px; left: calc(50% - 4px); cursor: n-resize; }
+.ui-resize-handle.handle-ne { top: -4px; right: -4px; cursor: ne-resize; }
+.ui-resize-handle.handle-e  { top: calc(50% - 4px); right: -4px; cursor: e-resize; }
+.ui-resize-handle.handle-se { bottom: -4px; right: -4px; cursor: se-resize; }
+.ui-resize-handle.handle-s  { bottom: -4px; left: calc(50% - 4px); cursor: s-resize; }
+.ui-resize-handle.handle-sw { bottom: -4px; left: -4px; cursor: sw-resize; }
+.ui-resize-handle.handle-w  { top: calc(50% - 4px); left: -4px; cursor: w-resize; }
 
 .ui-editor-loading {
   position: absolute;
@@ -146,6 +228,7 @@
   color: #aaa;
   font-size: 14px;
   pointer-events: none;
+  z-index: 20;
 }
 
 .ui-editor-no-project {

@@ -1,32 +1,129 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { UIWindowInfo } from '../../store/types';
 import './UIEditor.css';
 
+const GAME_W = 816;
+const GAME_H = 624;
+type HandleDir = 'move' | 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se';
+const RESIZE_HANDLES: HandleDir[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+
+interface DragState {
+  windowId: string;
+  className: string;
+  handleDir: HandleDir;
+  startClientX: number;
+  startClientY: number;
+  startWin: { x: number; y: number; width: number; height: number };
+}
+
+function computeUpdates(
+  dir: HandleDir,
+  dx: number,
+  dy: number,
+  { x: wx, y: wy, width: ww, height: wh }: { x: number; y: number; width: number; height: number },
+): Partial<Record<'x' | 'y' | 'width' | 'height', number>> {
+  const updates: Partial<Record<'x' | 'y' | 'width' | 'height', number>> = {};
+  if (dir === 'move') {
+    updates.x = Math.round(wx + dx);
+    updates.y = Math.round(wy + dy);
+    return updates;
+  }
+  if (dir === 'w' || dir === 'nw' || dir === 'sw') {
+    const newW = Math.max(32, ww - dx);
+    updates.x = Math.round(wx + ww - newW);
+    updates.width = Math.round(newW);
+  }
+  if (dir === 'e' || dir === 'ne' || dir === 'se') {
+    updates.width = Math.max(32, Math.round(ww + dx));
+  }
+  if (dir === 'n' || dir === 'nw' || dir === 'ne') {
+    const newH = Math.max(32, wh - dy);
+    updates.y = Math.round(wy + wh - newH);
+    updates.height = Math.round(newH);
+  }
+  if (dir === 's' || dir === 'sw' || dir === 'se') {
+    updates.height = Math.max(32, Math.round(wh + dy));
+  }
+  return updates;
+}
+
 export default function UIEditorCanvas() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  // layout: transform scale + absolute position to center the game container
+  const [layout, setLayout] = useState({ scale: 1, left: 0, top: 0 });
+  const scaleRef = useRef(1);
+  const [dragState, setDragState] = useState<DragState | null>(null);
+
   const projectPath = useEditorStore((s) => s.projectPath);
   const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
   const uiEditorIframeReady = useEditorStore((s) => s.uiEditorIframeReady);
-  const uiEditorOverrides = useEditorStore((s) => s.uiEditorOverrides);
+  const uiEditorWindows = useEditorStore((s) => s.uiEditorWindows);
+  const uiEditorSelectedWindowId = useEditorStore((s) => s.uiEditorSelectedWindowId);
   const setUiEditorIframeReady = useEditorStore((s) => s.setUiEditorIframeReady);
   const setUiEditorWindows = useEditorStore((s) => s.setUiEditorWindows);
   const setUiEditorSelectedWindowId = useEditorStore((s) => s.setUiEditorSelectedWindowId);
+  const setUiEditorOverride = useEditorStore((s) => s.setUiEditorOverride);
+  const loadUiEditorOverrides = useEditorStore((s) => s.loadUiEditorOverrides);
+
+  // Layout 계산 (ResizeObserver)
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const update = () => {
+      const sw = wrapper.clientWidth / GAME_W;
+      const sh = wrapper.clientHeight / GAME_H;
+      const s = Math.min(sw, sh, 1);
+      scaleRef.current = s;
+      setLayout({
+        scale: s,
+        left: Math.max(0, (wrapper.clientWidth - GAME_W * s) / 2),
+        top: Math.max(0, (wrapper.clientHeight - GAME_H * s) / 2),
+      });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(wrapper);
+    return () => ro.disconnect();
+  }, []);
+
+  // 저장된 config 로드 (프로젝트 오픈 시, 아직 오버라이드 없을 때)
+  useEffect(() => {
+    if (!projectPath) return;
+    if (Object.keys(useEditorStore.getState().uiEditorOverrides).length > 0) return;
+    fetch('/api/ui-editor/config')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.overrides && Object.keys(data.overrides).length > 0) {
+          loadUiEditorOverrides(data.overrides);
+        }
+      })
+      .catch(() => {});
+  }, [projectPath, loadUiEditorOverrides]);
 
   // postMessage 수신
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.source !== iframeRef.current?.contentWindow) return;
       const { type } = e.data ?? {};
-
       if (type === 'bridgeReady') {
         setUiEditorIframeReady(true);
       } else if (type === 'sceneReady') {
-        const windows: UIWindowInfo[] = e.data.windows ?? [];
-        setUiEditorWindows(windows);
+        setUiEditorWindows(e.data.windows ?? []);
+        // 씬 로드 후 저장된 오버라이드를 iframe에 적용
+        const overrides = useEditorStore.getState().uiEditorOverrides;
+        Object.values(overrides).forEach((ov) => {
+          Object.entries(ov).forEach(([prop, value]) => {
+            if (prop === 'className') return;
+            iframeRef.current?.contentWindow?.postMessage(
+              { type: 'applyOverride', className: ov.className, prop, value }, '*'
+            );
+          });
+        });
       } else if (type === 'windowUpdated') {
-        const windows: UIWindowInfo[] = e.data.windows ?? [];
-        setUiEditorWindows(windows);
+        setUiEditorWindows(e.data.windows ?? []);
       } else if (type === 'windowClicked') {
         setUiEditorSelectedWindowId(e.data.windowId ?? null);
       }
@@ -39,41 +136,77 @@ export default function UIEditorCanvas() {
   useEffect(() => {
     if (!uiEditorIframeReady) return;
     iframeRef.current?.contentWindow?.postMessage(
-      { type: 'loadScene', sceneName: uiEditorScene },
-      '*'
+      { type: 'loadScene', sceneName: uiEditorScene }, '*'
     );
   }, [uiEditorIframeReady, uiEditorScene]);
 
-  // 씬 변경 시 iframe에 알림 (이미 ready인 경우)
-  const prevScene = useRef('');
+  // 드래그 중 커서 스타일
   useEffect(() => {
-    if (prevScene.current === uiEditorScene) return;
-    prevScene.current = uiEditorScene;
-    if (!uiEditorIframeReady) return;
-    iframeRef.current?.contentWindow?.postMessage(
-      { type: 'loadScene', sceneName: uiEditorScene },
-      '*'
-    );
-  }, [uiEditorScene, uiEditorIframeReady]);
+    if (!dragState) return;
+    const cursor = dragState.handleDir === 'move' ? 'grabbing' : `${dragState.handleDir}-resize`;
+    document.body.style.cursor = cursor;
+    return () => { document.body.style.cursor = ''; };
+  }, [dragState]);
 
-  // 씬 새로고침 시 현재 오버라이드 적용
-  const applyOverrides = useCallback(() => {
-    if (!uiEditorIframeReady) return;
-    Object.values(uiEditorOverrides).forEach((ov) => {
-      Object.entries(ov).forEach(([prop, value]) => {
-        if (prop === 'className') return;
-        iframeRef.current?.contentWindow?.postMessage(
-          { type: 'applyOverride', className: ov.className, prop, value },
-          '*'
+  // 드래그/리사이즈 마우스 이벤트
+  useEffect(() => {
+    if (!dragState) return;
+    const onMouseMove = (e: MouseEvent) => {
+      const s = scaleRef.current;
+      const dx = (e.clientX - dragState.startClientX) / s;
+      const dy = (e.clientY - dragState.startClientY) / s;
+      const updates = computeUpdates(dragState.handleDir, dx, dy, dragState.startWin);
+      const iframe = iframeRef.current?.contentWindow;
+      for (const [prop, value] of Object.entries(updates) as ['x' | 'y' | 'width' | 'height', number][]) {
+        setUiEditorOverride(dragState.className, prop, value);
+        iframe?.postMessage(
+          { type: 'updateWindowProp', windowId: dragState.windowId, prop, value }, '*'
         );
-      });
-    });
-  }, [uiEditorIframeReady, uiEditorOverrides]);
+      }
+    };
+    const onMouseUp = () => setDragState(null);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [dragState, setUiEditorOverride]);
 
-  // 오버라이드 변경 시 iframe 반영 (씬 새로고침 후 적용은 bridge에서 처리)
-  useEffect(() => {
-    applyOverrides();
-  }, [applyOverrides]);
+  const handleWindowMouseDown = useCallback((e: React.MouseEvent, win: UIWindowInfo) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setUiEditorSelectedWindowId(win.id);
+    setDragState({
+      windowId: win.id,
+      className: win.className,
+      handleDir: 'move',
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startWin: { x: win.x, y: win.y, width: win.width, height: win.height },
+    });
+  }, [setUiEditorSelectedWindowId]);
+
+  const handleResizeMouseDown = useCallback((
+    e: React.MouseEvent, win: UIWindowInfo, dir: HandleDir
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setDragState({
+      windowId: win.id,
+      className: win.className,
+      handleDir: dir,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startWin: { x: win.x, y: win.y, width: win.width, height: win.height },
+    });
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setUiEditorIframeReady(false);
+    setUiEditorWindows([]);
+    if (iframeRef.current) iframeRef.current.src = iframeRef.current.src;
+  }, [setUiEditorIframeReady, setUiEditorWindows]);
 
   if (!projectPath) {
     return (
@@ -86,28 +219,62 @@ export default function UIEditorCanvas() {
   return (
     <div className="ui-editor-canvas">
       <div className="ui-editor-canvas-toolbar">
-        <span>씬: {uiEditorScene}</span>
-        <button
-          style={{ marginLeft: 'auto', padding: '2px 8px', fontSize: 12, background: '#3c3c3c', border: '1px solid #555', color: '#ddd', borderRadius: 2, cursor: 'pointer' }}
-          onClick={() => {
-            setUiEditorIframeReady(false);
-            if (iframeRef.current) {
-              // 새로고침
-              iframeRef.current.src = iframeRef.current.src;
-            }
+        <span className="ui-canvas-scene-label">씬: {uiEditorScene}</span>
+        <button className="ui-canvas-toolbar-btn" onClick={handleRefresh}>새로고침</button>
+      </div>
+
+      <div ref={wrapperRef} className="ui-editor-canvas-wrapper">
+        {/* 816×624 게임 컨테이너 — transform scale로 축소 */}
+        <div
+          ref={containerRef}
+          className="ui-editor-game-container"
+          style={{
+            transform: `scale(${layout.scale})`,
+            transformOrigin: 'top left',
+            left: layout.left,
+            top: layout.top,
           }}
         >
-          새로고침
-        </button>
-      </div>
-      <div className="ui-editor-canvas-wrapper">
-        <iframe
-          id="ui-editor-iframe"
-          ref={iframeRef}
-          className="ui-editor-iframe"
-          src="/api/ui-editor/preview"
-          title="UI 에디터 미리보기"
-        />
+          <iframe
+            id="ui-editor-iframe"
+            ref={iframeRef}
+            className="ui-editor-iframe"
+            src="/api/ui-editor/preview"
+            title="UI 에디터 미리보기"
+          />
+
+          {/* 창 선택/드래그 오버레이 */}
+          <div className="ui-overlay-container">
+            {uiEditorWindows.map((win) => {
+              const isSelected = win.id === uiEditorSelectedWindowId;
+              return (
+                <div
+                  key={win.id}
+                  className={`ui-overlay-window${isSelected ? ' selected' : ''}`}
+                  style={{ left: win.x, top: win.y, width: win.width, height: win.height }}
+                  title={win.className}
+                  onMouseDown={(e) => handleWindowMouseDown(e, win)}
+                >
+                  {/* 클래스 이름 레이블 (선택 시) */}
+                  {isSelected && (
+                    <div className="ui-overlay-label">
+                      {win.className.replace(/^Window_/, '')}
+                    </div>
+                  )}
+                  {/* 리사이즈 핸들 (선택 시만) */}
+                  {isSelected && RESIZE_HANDLES.map((dir) => (
+                    <div
+                      key={dir}
+                      className={`ui-resize-handle handle-${dir}`}
+                      onMouseDown={(e) => handleResizeMouseDown(e, win, dir)}
+                    />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {!uiEditorIframeReady && (
           <div className="ui-editor-loading">게임 런타임 로딩 중...</div>
         )}

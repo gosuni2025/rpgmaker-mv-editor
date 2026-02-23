@@ -162,7 +162,12 @@ router.get('/preview', (req, res) => {
       /** 창 목록을 에디터에 보고 */
       function reportWindows(type) {
         var windows = collectWindows(SceneManager._scene);
-        window.parent.postMessage({ type: type || 'windowUpdated', windows: windows }, '*');
+        var msg = { type: type || 'windowUpdated', windows: windows };
+        if (type === 'sceneReady') {
+          msg.gameWidth = (typeof Graphics !== 'undefined' ? Graphics.width : null) || 816;
+          msg.gameHeight = (typeof Graphics !== 'undefined' ? Graphics.height : null) || 624;
+        }
+        window.parent.postMessage(msg, '*');
       }
 
       /** windowId → 실제 창 객체 */
