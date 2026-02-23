@@ -100,7 +100,9 @@ router.get('/preview', (req, res) => {
     <script type="module">
     // UI 에디터 브릿지 + Scene_Boot 오버라이드
     (function() {
-      var _targetScene = 'Scene_Options';
+      // URL params에서 초기 씬 결정 (새 탭 standalone 지원)
+      var _urlParams = new URLSearchParams(window.location.search);
+      var _targetScene = _urlParams.get('scene') || 'Scene_Options';
 
       // Scene_Boot: 타이틀 스킵 후 대상 씬으로
       Scene_Boot.prototype.start = function() {

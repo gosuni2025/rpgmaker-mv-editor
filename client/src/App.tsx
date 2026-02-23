@@ -42,6 +42,7 @@ import i18n from './i18n';
 import UIEditorCanvas from './components/UIEditor/UIEditorCanvas';
 import UIEditorSidebar from './components/UIEditor/UIEditorSidebar';
 import UIEditorInspector from './components/UIEditor/UIEditorInspector';
+import UIEditorToolbar from './components/UIEditor/UIEditorToolbar';
 
 function formatRelativeTime(createdAt: number, now: number): string {
   const sec = Math.floor((now - createdAt) / 1000);
@@ -278,6 +279,9 @@ export default function App() {
             <ResizablePanel defaultWidth={220} minWidth={150} maxWidth={400}>
               <UIEditorSidebar />
             </ResizablePanel>
+          </div>
+          <div className="toolbar-area">
+            <UIEditorToolbar />
           </div>
           <div className="main-area">
             <UIEditorCanvas />
