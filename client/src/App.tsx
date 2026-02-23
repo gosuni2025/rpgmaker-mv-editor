@@ -45,6 +45,7 @@ import UIEditorInspector from './components/UIEditor/UIEditorInspector';
 import UIEditorToolbar from './components/UIEditor/UIEditorToolbar';
 import UIEditorFrameCanvas from './components/UIEditor/UIEditorFrameCanvas';
 import UIEditorFrameInspector from './components/UIEditor/UIEditorFrameInspector';
+import UIEditorSkinPreview from './components/UIEditor/UIEditorSkinPreview';
 
 function formatRelativeTime(createdAt: number, now: number): string {
   const sec = Math.floor((now - createdAt) / 1000);
@@ -286,8 +287,13 @@ export default function App() {
           <div className="toolbar-area">
             <UIEditorToolbar />
           </div>
-          <div className="main-area">
-            {uiEditSubMode === 'frame' ? <UIEditorFrameCanvas /> : <UIEditorCanvas />}
+          <div className="main-area" style={uiEditSubMode === 'frame' ? { display: 'flex', overflow: 'hidden' } : undefined}>
+            {uiEditSubMode === 'frame' ? (
+              <>
+                <UIEditorFrameCanvas />
+                <UIEditorSkinPreview />
+              </>
+            ) : <UIEditorCanvas />}
           </div>
           <div className="inspector-area">
             <ResizablePanel defaultWidth={280} minWidth={200} maxWidth={500} side="left">
