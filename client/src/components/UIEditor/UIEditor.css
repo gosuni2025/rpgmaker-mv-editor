@@ -589,12 +589,14 @@
 .ui-skin-default-badge {
   font-size: 10px;
   font-weight: bold;
-  background: #2675bf;
-  color: #fff;
+  background: #e8a020;
+  color: #1a1a1a;
   border-radius: 3px;
-  padding: 1px 5px;
+  padding: 1px 6px;
   flex-shrink: 0;
   line-height: 1.4;
+  letter-spacing: 0.03em;
+  box-shadow: 0 0 6px rgba(232, 160, 32, 0.5);
 }
 
 /* 영역 라벨 도움말 ? 버튼 */
