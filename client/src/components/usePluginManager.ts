@@ -243,5 +243,15 @@ export function usePluginManager() {
     movePlugin, addPlugin, removePlugin,
     handleOpenPluginFolder, handleOpenInVSCode, handleUpgradePlugin, handleSave,
     openPicker, hasPickerButton,
+
+    openParamFolder: async (dir: string) => {
+      // "img/system/" → "img_system" 형태로 변환하여 /api/resources/:type/open-folder 호출
+      const type = dir.replace(/\/+$/, '').replace(/\//g, '_');
+      try {
+        await apiClient.post(`/resources/${type}/open-folder`, {});
+      } catch (err) {
+        console.error('Open folder failed:', err);
+      }
+    },
   };
 }

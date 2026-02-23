@@ -167,7 +167,8 @@ export default function PluginManagerDialog() {
                             plugin={pm.selectedPlugin!} pluginIndex={pm.selectedIndex}
                             paramIndex={paramIndex} paramMeta={paramMeta}
                             editingParamIndex={pm.editingParamIndex} setEditingParamIndex={pm.setEditingParamIndex}
-                            updateParam={pm.updateParam} hasPickerButton={pm.hasPickerButton} openPicker={pm.openPicker} />
+                            updateParam={pm.updateParam} hasPickerButton={pm.hasPickerButton} openPicker={pm.openPicker}
+                            openParamFolder={pm.openParamFolder} />
                         ))}
                       </tbody>
                     </table>

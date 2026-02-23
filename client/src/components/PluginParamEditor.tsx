@@ -163,12 +163,13 @@ interface ParamRowProps {
   updateParam: (pluginIndex: number, paramIndex: number, value: string) => void;
   hasPickerButton: (paramMeta: PluginParamMeta | undefined) => boolean;
   openPicker: (paramMeta: PluginParamMeta, paramIndex: number) => void;
+  openParamFolder?: (dir: string) => void;
 }
 
 /** Renders a single parameter row (tr) in the params table, including optional text file editor */
 export function PluginParamRow({
   plugin, pluginIndex, paramIndex, paramMeta, editingParamIndex,
-  setEditingParamIndex, updateParam, hasPickerButton, openPicker,
+  setEditingParamIndex, updateParam, hasPickerButton, openPicker, openParamFolder,
 }: ParamRowProps) {
   const param = plugin.parameters[paramIndex];
   if (!param) return null;
@@ -219,6 +220,14 @@ export function PluginParamRow({
                 onClick={() => openPicker(paramMeta!, paramIndex)}
                 title={paramMeta?.type}
               >...</button>
+            )}
+            {paramMeta?.type === 'file' && paramMeta?.dir && openParamFolder && (
+              <button
+                className="db-btn-small"
+                style={{ padding: '1px 4px', fontSize: 11, flexShrink: 0 }}
+                onClick={() => openParamFolder(paramMeta!.dir)}
+                title={`폴더 열기: ${paramMeta!.dir}`}
+              >📂</button>
             )}
           </div>
         </td>
