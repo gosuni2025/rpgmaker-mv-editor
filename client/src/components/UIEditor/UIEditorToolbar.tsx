@@ -80,6 +80,8 @@ export default function UIEditorToolbar() {
       body: JSON.stringify({ overrides }),
     });
     s.setUiEditorDirty(false);
+    // 오버레이 즉시 갱신 (씬 재로드 전에 미리 반영)
+    s.setUiEditorWindows(uiEditorOriginalWindows);
     // iframe의 _ov 업데이트 후 씬 재로드 (updatePlacement가 새 값 사용하도록)
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
     uiEditorOriginalWindows.forEach((win) => {
