@@ -327,6 +327,11 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
             style={{ marginTop: 8, width: '100%', background: '#6b1f1f', borderColor: '#9c2e2e' }}>
             {t('deploy.itchio.openGame')} ↗
           </button>
+          <div style={{ marginTop: 10, padding: '7px 9px', background: '#1a1a2a', borderRadius: 4, fontSize: 11, color: '#aab', lineHeight: 1.6 }}>
+            💡 <strong style={{ color: '#ccd' }}>itch.io 게임 페이지 설정 필요</strong><br />
+            Edit Game → Embed in page → Kind: <strong style={{ color: '#fff' }}>HTML</strong><br />
+            Viewport dimensions: 최소 <strong style={{ color: '#ff9' }}>816 × 624</strong>
+          </div>
         </div>
       )}
 
