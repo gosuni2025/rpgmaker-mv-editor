@@ -18,9 +18,10 @@ interface Props {
   initialUsername: string;
   initialProject: string;
   initialChannel: string;
+  initialGameId: string;
 }
 
-export default function ItchioTab({ cbOpts, initialUsername, initialProject, initialChannel }: Props) {
+export default function ItchioTab({ cbOpts, initialUsername, initialProject, initialChannel, initialGameId }: Props) {
   const { t } = useTranslation();
   const dp = useDeployProgress();
 
@@ -34,6 +35,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
   const [deployMode, setDeployMode] = useState<'deploy' | 'zip'>('deploy');
   const [bundle, setBundle] = useState(true);
   const [gameExists, setGameExists] = useState<boolean | null | 'checking'>(null);
+  const [gameId, setGameId] = useState(initialGameId);
   const gameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -68,7 +70,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
 
   const saveSettings = async () => {
     try {
-      await apiClient.put('/project/itchio-settings', { username, project, channel });
+      await apiClient.put('/project/itchio-settings', { username, project, channel, gameId });
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
     } catch (e) { dp.setError((e as Error).message); }
@@ -148,6 +150,10 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
                 dp.setProgress(1);
                 dp.setStatus(t('deploy.itchio.done'));
                 if (ev.pageUrl) setItchUrl(ev.pageUrl);
+                if (ev.gameId) {
+                  setGameId(ev.gameId);
+                  apiClient.put('/project/itchio-settings', { gameId: ev.gameId }).catch(() => {});
+                }
                 dp.setBusy(false);
                 return;
               }
@@ -271,6 +277,21 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
             <input type="text" value={channel} onChange={(e) => setChannel(e.target.value)}
               placeholder="html5" className="deploy-input" />
             <div style={{ color: '#666', fontSize: 11, marginTop: 3 }}>{t('deploy.itchio.channelDesc')}</div>
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <span className="deploy-field-label" style={{ marginBottom: 0 }}>Game ID</span>
+              {gameId && (
+                <button className="db-btn" onClick={() => openUrl(`https://itch.io/game/edit/${gameId}`)}
+                  style={{ fontSize: 11, padding: '2px 8px' }}>
+                  게임 편집 ↗
+                </button>
+              )}
+            </div>
+            <input type="text" value={gameId} onChange={(e) => setGameId(e.target.value.replace(/\D/g, ''))}
+              placeholder="자동 입력 (배포 후)" className="deploy-input" />
+            <div style={{ color: '#666', fontSize: 11, marginTop: 3 }}>배포 시 자동 저장됩니다. itch.io/game/edit/{'{id}'}</div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>

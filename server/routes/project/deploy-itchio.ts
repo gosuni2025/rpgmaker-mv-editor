@@ -157,6 +157,15 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
               if (val?.state === 'error') {
                 reject(new Error(String(val.message ?? 'butler 오류')));
               }
+              // gameId 자동 파싱: result.value.game.id 또는 result.value.build.game_id
+              const rawGame = (val?.game ?? (val?.build as Record<string,unknown>)?.game) as Record<string,unknown> | undefined;
+              const parsedGameId = String(rawGame?.id ?? val?.gameId ?? '').replace(/\D/g, '');
+              if (parsedGameId) {
+                const settings = settingsManager.get();
+                if (!settings.itchio.gameId) {
+                  settingsManager.update({ itchio: { ...settings.itchio, gameId: parsedGameId } });
+                }
+              }
             }
           } catch {
             sseLog(line);
@@ -195,7 +204,8 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
 
     const itchUrl = deriveItchUrl(project.trim());
     sseLog(`\n✓ 배포 완료! (${itchUrl})`);
-    sseWrite(res, { type: 'done', pageUrl: itchUrl });
+    const currentGameId = settingsManager.get().itchio.gameId;
+    sseWrite(res, { type: 'done', pageUrl: itchUrl, gameId: currentGameId || undefined });
 
   } catch (err: unknown) {
     const raw = (err as Error).message || String(err);
@@ -208,13 +218,14 @@ router.post('/deploy-itchio-progress', async (req: Request, res: Response) => {
 
 // ─── itch.io 설정 저장 ────────────────────────────────────────────────────────
 router.put('/itchio-settings', (req: Request, res: Response) => {
-  const { username, project, channel } = req.body as { username?: string; project?: string; channel?: string };
+  const { username, project, channel, gameId } = req.body as { username?: string; project?: string; channel?: string; gameId?: string };
   const current = settingsManager.get();
   settingsManager.update({
     itchio: {
       username: username ?? current.itchio?.username ?? '',
       project: project ?? current.itchio?.project ?? '',
       channel: channel ?? current.itchio?.channel ?? 'html5',
+      gameId: gameId ?? current.itchio?.gameId ?? '',
     },
   });
   res.json({ success: true });

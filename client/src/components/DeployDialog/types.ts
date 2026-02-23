@@ -8,7 +8,7 @@ export type SSEEvent =
   | { type: 'zip-progress'; current: number; total: number; name: string }
   | { type: 'upload-progress'; sent: number; total: number }
   | { type: 'site-created'; siteId: string; siteName: string }
-  | { type: 'done'; zipPath?: string; deployUrl?: string; siteUrl?: string; commitHash?: string; pageUrl?: string; buildId?: string }
+  | { type: 'done'; zipPath?: string; deployUrl?: string; siteUrl?: string; commitHash?: string; pageUrl?: string; buildId?: string; gameId?: string }
   | { type: 'error'; message: string };
 
 export interface GhPagesRemote {

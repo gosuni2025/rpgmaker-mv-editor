@@ -24,6 +24,7 @@ export interface ItchioSettings {
   username: string; // itch.io username (저장해두고 자동완성에 사용)
   project: string;  // user/game 형식
   channel: string;  // 배포 채널 (기본값: html5)
+  gameId: string;   // itch.io 게임 ID (편집 페이지 URL용: /game/edit/{id})
 }
 
 export interface EditorSettings {
@@ -65,6 +66,7 @@ const DEFAULT_SETTINGS: EditorSettings = {
     username: '',
     project: '',
     channel: 'html5',
+    gameId: '',
   },
 };
 
