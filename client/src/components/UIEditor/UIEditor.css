@@ -469,72 +469,17 @@
 .legend-ui::before    { background: rgba(200,120,0,0.5); }
 .legend-slice::before { background: rgba(255,220,0,0.9); width: 14px; height: 2px; border-radius: 0; }
 
-/* UI 에디터 툴바 */
-.ui-editor-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  padding: 3px 6px;
-  background: #2b2b2b;
-  border-bottom: 1px solid #444;
-  height: 100%;
-  box-sizing: border-box;
+/* draw-toolbar-save-btn dirty 상태 (UI 에디터) */
+.draw-toolbar-save-btn.dirty {
+  background: #9a5c00;
+  border-color: #f0a020;
+  color: #f0c060;
 }
 
-.ui-toolbar-btn {
-  padding: 3px 10px;
-  font-size: 12px;
-  background: #3c3c3c;
-  border: 1px solid #555;
-  color: #ccc;
-  border-radius: 2px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.ui-toolbar-btn:hover:not(:disabled) {
-  background: #4a4a4a;
-  color: #fff;
-}
-
-.ui-toolbar-btn:disabled {
+.draw-toolbar-save-btn:disabled,
+.draw-toolbar-play-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.ui-toolbar-btn.active {
-  background: #2675bf;
-  border-color: #2675bf;
-  color: #fff;
-}
-
-.ui-toolbar-mode-group {
-  display: flex;
-  gap: 2px;
-}
-
-.ui-toolbar-btn.dirty {
-  border-color: #f0a020;
-  color: #f0a020;
-}
-
-.ui-toolbar-btn-play {
-  background: #1e5a1e;
-  border-color: #2a8a2a;
-  color: #8eff8e;
-}
-
-.ui-toolbar-btn-play:hover:not(:disabled) {
-  background: #246024;
-  color: #b0ffb0;
-}
-
-.ui-toolbar-sep {
-  width: 1px;
-  height: 16px;
-  background: #555;
-  margin: 0 2px;
 }
 
 /* 메뉴바 UI 편집 모드 토글 */

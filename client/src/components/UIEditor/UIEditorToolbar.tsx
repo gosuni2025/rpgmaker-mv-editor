@@ -1,5 +1,6 @@
 import React from 'react';
 import useEditorStore from '../../store/useEditorStore';
+import '../MapEditor/DrawToolbar.css';
 import './UIEditor.css';
 
 export default function UIEditorToolbar() {
@@ -7,6 +8,7 @@ export default function UIEditorToolbar() {
   const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
   const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
   const projectPath = useEditorStore((s) => s.projectPath);
+  const setUiEditSubMode = useEditorStore((s) => s.setUiEditSubMode);
 
   const handleSave = async () => {
     if (!projectPath) return;
@@ -31,31 +33,29 @@ export default function UIEditorToolbar() {
     window.open(`/api/ui-editor/preview?scene=${encodeURIComponent(scene)}`, '_blank');
   };
 
-  const setUiEditSubMode = useEditorStore((s) => s.setUiEditSubMode);
-
   return (
-    <div className="ui-editor-toolbar">
+    <div className="draw-toolbar">
       {/* 서브모드 토글 — 왼쪽 */}
-      <div className="ui-toolbar-mode-group">
+      <div className="draw-toolbar-group">
         <button
-          className={`ui-toolbar-btn${uiEditSubMode === 'window' ? ' active' : ''}`}
+          className={`draw-toolbar-btn${uiEditSubMode === 'window' ? ' active' : ''}`}
           onClick={() => setUiEditSubMode('window')}
         >
           창 편집
         </button>
         <button
-          className={`ui-toolbar-btn${uiEditSubMode === 'frame' ? ' active' : ''}`}
+          className={`draw-toolbar-btn${uiEditSubMode === 'frame' ? ' active' : ''}`}
           onClick={() => setUiEditSubMode('frame')}
         >
           프레임 편집
         </button>
       </div>
 
-      <div style={{ flex: 1 }} />
+      <div className="draw-toolbar-spacer" />
 
       {/* 저장 / 플레이테스트 — 오른쪽 */}
       <button
-        className={`ui-toolbar-btn${uiEditorDirty ? ' dirty' : ''}`}
+        className={`draw-toolbar-save-btn${uiEditorDirty ? ' dirty' : ''}`}
         onClick={handleSave}
         disabled={!projectPath}
         title="UI 테마 저장 (Ctrl+S)"
@@ -63,10 +63,8 @@ export default function UIEditorToolbar() {
         저장{uiEditorDirty ? ' *' : ''}
       </button>
 
-      <div className="ui-toolbar-sep" />
-
       <button
-        className="ui-toolbar-btn ui-toolbar-btn-play"
+        className="draw-toolbar-play-btn"
         onClick={handlePlaytest}
         disabled={!projectPath}
         title={`현재 씬(${uiEditorScene}) 플레이테스트`}
