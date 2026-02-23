@@ -47,7 +47,7 @@ export default function CacheBustSection({ opts, onChange }: Props) {
     <div style={{ background: '#2e2e2e', border: '1px solid #3e3e3e', borderRadius: 4, padding: '10px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <span style={{ color: '#bbb', fontSize: 12, fontWeight: 600 }}>{t('deploy.cacheBust.title')}</span>
-        <HelpButton placement="bottom">
+        <HelpButton>
           <div style={{ fontWeight: 600, color: '#ccc', marginBottom: 2 }}>{t('deploy.cacheBust.helpTitle')}</div>
           <div>{t('deploy.cacheBust.helpDesc')}</div>
           <div style={{ marginTop: 4, color: '#e8a040' }}>⚠ {t('deploy.cacheBust.helpDisabled')}</div>
@@ -78,7 +78,7 @@ export default function CacheBustSection({ opts, onChange }: Props) {
             />
             <span style={{ color: '#ccc', fontSize: 12 }}>{t('deploy.cacheBust.convertWebp')}</span>
           </label>
-          <HelpButton placement="bottom">
+          <HelpButton>
             <div style={{ fontWeight: 600, color: '#ccc', marginBottom: 4 }}>{t('deploy.cacheBust.convertWebpHelp')}</div>
             <div>· {t('deploy.cacheBust.convertWebpDesc1')}</div>
             <div>· {t('deploy.cacheBust.convertWebpDesc2')}</div>
@@ -98,7 +98,7 @@ export default function CacheBustSection({ opts, onChange }: Props) {
             />
             <span style={{ color: '#ccc', fontSize: 12 }}>{t('deploy.cacheBust.filterUnused')}</span>
           </label>
-          <HelpButton placement="bottom">
+          <HelpButton>
             <div style={{ fontWeight: 600, color: '#ccc', marginBottom: 4 }}>{t('deploy.cacheBust.filterUnusedHelp')}</div>
             <div>· {t('deploy.cacheBust.filterUnusedDesc1')}</div>
             <div>· {t('deploy.cacheBust.filterUnusedDesc2')}</div>

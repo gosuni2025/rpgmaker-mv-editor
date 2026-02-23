@@ -231,7 +231,7 @@ export function AnimSlider({ label, value, min, max, step, onChange, tooltip }: 
     <div className="anim-tile-slider-row">
       <span className="anim-tile-slider-label">
         {label}
-        {tooltip && <HelpButton text={tooltip} mode="hover" />}
+        {tooltip && <HelpButton text={tooltip} />}
       </span>
       <input type="range" min={min} max={max} step={step} value={value}
         className="anim-tile-slider"

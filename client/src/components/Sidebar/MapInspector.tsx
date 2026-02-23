@@ -307,7 +307,7 @@ export default function MapInspector() {
           >
             Sky Sphere
           </button>
-          <HelpButton placement="bottom">
+          <HelpButton>
             <strong>Sky Sphere</strong>는 에디터 확장 기능입니다.<br />
             3D 모드에서 파노라마 이미지를 구체에 매핑하여 하늘 배경을 표현합니다.<br /><br />
             이 데이터는 별도의 확장 파일(<code style={{ background: '#222', padding: '0 3px', borderRadius: 2 }}>_ext.json</code>)에 저장되므로 RPG Maker MV 원본 에디터와 호환됩니다.

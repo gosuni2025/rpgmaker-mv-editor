@@ -5,19 +5,17 @@ import './HelpButton.css';
 interface HelpButtonProps {
   text?: string;
   children?: React.ReactNode;
-  placement?: 'right' | 'bottom' | 'left'; // hover 모드에서만 사용
-  mode?: 'click' | 'hover';
 }
 
-export default function HelpButton({ text, children, placement = 'right', mode = 'click' }: HelpButtonProps) {
+export default function HelpButton({ text, children }: HelpButtonProps) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    if (!show || mode !== 'click') return;
+    if (!show) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShow(false); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [show, mode]);
+  }, [show]);
 
   const content = children ?? (text
     ? text.split(/\\n|\n/).map((line, i, arr) => (
@@ -29,19 +27,6 @@ export default function HelpButton({ text, children, placement = 'right', mode =
     : null);
 
   if (!content) return null;
-
-  if (mode === 'hover') {
-    return (
-      <span
-        className={`help-btn-wrap help-btn-${placement} help-btn-hover`}
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
-      >
-        <span className="help-btn-icon">?</span>
-        {show && <div className="help-btn-popup">{content}</div>}
-      </span>
-    );
-  }
 
   return (
     <>

@@ -118,7 +118,7 @@ export function ObjectImagePreviewSection({ selectedObj, updateObject, onDragSta
       <div className="light-inspector-section">
         <div className="light-inspector-title">
           앵커
-          <HelpButton placement="bottom">
+          <HelpButton>
             <strong>앵커</strong>는 3D 모드에서 이미지가 타일 맵과 수직으로 세워질 때의 <strong>기준점</strong>입니다.<br/><br/>
             <strong>1.0 (하단)</strong>: 이미지 하단이 지면에 닿음 — 나무, 건물 등<br/>
             <strong>0.5 (중앙)</strong>: 이미지 중심이 지면 높이 — 공중 부유 오브젝트<br/>
