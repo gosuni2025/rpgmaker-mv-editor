@@ -1,5 +1,5 @@
 /*:
- * @plugindesc [v1.0] 대사창 커스터마이징 - 크기, 위치, 폰트, 투명도 설정
+ * @plugindesc [v1.1] 대사창 커스터마이징 - 크기, 위치, 폰트, 투명도, 색조, 스킨 설정
  * @author RPG Maker MV Web Editor
  *
  * @param windowWidth
@@ -34,11 +34,20 @@
  * @desc 창 테두리와 텍스트 사이 여백
  *
  * @param opacity
- * @text 창 프레임 투명도
+ * @text 창 전체 투명도
  * @type number
  * @min 0
  * @max 255
  * @default 255
+ * @desc 창 전체(테두리+배경)의 투명도
+ *
+ * @param frameOpacity
+ * @text 테두리 투명도
+ * @type number
+ * @min 0
+ * @max 255
+ * @default 255
+ * @desc 테두리(frame)만의 투명도. 배경 투명도와 독립 설정.
  *
  * @param backOpacity
  * @text 배경 투명도
@@ -46,6 +55,37 @@
  * @min 0
  * @max 255
  * @default 192
+ *
+ * @param toneR
+ * @text 배경 색조 R
+ * @type number
+ * @min -255
+ * @max 255
+ * @default 0
+ * @desc 배경(채우기)의 빨강 색조. -255~255
+ *
+ * @param toneG
+ * @text 배경 색조 G
+ * @type number
+ * @min -255
+ * @max 255
+ * @default 0
+ * @desc 배경(채우기)의 초록 색조. -255~255
+ *
+ * @param toneB
+ * @text 배경 색조 B
+ * @type number
+ * @min -255
+ * @max 255
+ * @default 0
+ * @desc 배경(채우기)의 파랑 색조. -255~255
+ *
+ * @param windowskinName
+ * @text 윈도우 스킨
+ * @type file
+ * @dir img/system/
+ * @default Window
+ * @desc img/system/ 폴더 내 스킨 이미지 파일명 (확장자 제외)
  *
  * @param windowX
  * @text 창 X 위치
@@ -92,7 +132,15 @@
  * @default 18
  *
  * @command opacity
- * @text 프레임 투명도 변경
+ * @text 창 전체 투명도 변경
+ * @arg value
+ * @type number
+ * @min 0
+ * @max 255
+ * @default 255
+ *
+ * @command frameOpacity
+ * @text 테두리 투명도 변경
  * @arg value
  * @type number
  * @min 0
@@ -106,6 +154,32 @@
  * @min 0
  * @max 255
  * @default 192
+ *
+ * @command tone
+ * @text 배경 색조 변경
+ * @desc 배경(채우기)의 RGB 색조를 변경합니다. -255~255
+ * @arg r
+ * @type number
+ * @min -255
+ * @max 255
+ * @default 0
+ * @arg g
+ * @type number
+ * @min -255
+ * @max 255
+ * @default 0
+ * @arg b
+ * @type number
+ * @min -255
+ * @max 255
+ * @default 0
+ *
+ * @command skin
+ * @text 윈도우 스킨 변경
+ * @desc img/system/ 폴더 내 파일명 (확장자 제외). "Window" 이면 기본 스킨.
+ * @arg name
+ * @type string
+ * @default Window
  *
  * @command position
  * @text 창 위치 지정
@@ -123,22 +197,31 @@
  *
  * @help
  * ============================================================================
- * 대사창 커스터마이징 플러그인 v1.0
+ * 대사창 커스터마이징 플러그인 v1.1
  * ============================================================================
  * 플러그인 파라미터로 기본 외관을 설정하고,
  * 플러그인 커맨드로 이벤트 중 동적으로 변경할 수 있습니다.
  * 변경 사항은 세이브/로드 시 유지됩니다.
  *
  * [플러그인 커맨드]
- *   MessageWindow width 600        (창 너비, 0 = 화면 너비)
- *   MessageWindow rows 3           (표시 행수)
- *   MessageWindow fontSize 24      (폰트 크기)
- *   MessageWindow padding 12       (내부 여백)
- *   MessageWindow opacity 200      (프레임 투명도 0~255)
- *   MessageWindow backOpacity 128  (배경 투명도 0~255)
- *   MessageWindow position 100 400 (X Y 직접 지정)
+ *   MessageWindow width 600          (창 너비, 0 = 화면 너비)
+ *   MessageWindow rows 3             (표시 행수)
+ *   MessageWindow fontSize 24        (폰트 크기)
+ *   MessageWindow padding 12         (내부 여백)
+ *   MessageWindow opacity 200        (창 전체 투명도 0~255)
+ *   MessageWindow frameOpacity 128   (테두리만 투명도 0~255)
+ *   MessageWindow backOpacity 128    (배경 투명도 0~255)
+ *   MessageWindow tone 0 -50 100     (배경 색조 R G B, -255~255)
+ *   MessageWindow skin MyWindow      (img/system/MyWindow.png 사용)
+ *   MessageWindow skin Window        (기본 스킨으로 복귀)
+ *   MessageWindow position 100 400   (X Y 직접 지정)
  *   MessageWindow position auto auto (자동으로 복귀)
- *   MessageWindow reset            (모든 설정 초기화)
+ *   MessageWindow reset              (모든 설정 초기화)
+ *
+ * [배경 색조(tone) 사용 예]
+ *   MessageWindow tone 100 0 0       (붉은 색조)
+ *   MessageWindow tone 0 0 100       (푸른 색조)
+ *   MessageWindow tone -100 -100 -100 (어둡게)
  * ============================================================================
  */
 
@@ -161,14 +244,19 @@
     }
 
     var DEFAULT_CONFIG = {
-        windowWidth:  parseIntParam(params['windowWidth'],  0),
-        windowRows:   parseIntParam(params['windowRows'],   4),
-        fontSize:     parseIntParam(params['fontSize'],     28),
-        padding:      parseIntParam(params['padding'],      18),
-        opacity:      parseIntParam(params['opacity'],      255),
-        backOpacity:  parseIntParam(params['backOpacity'],  192),
-        windowX:      parseXYParam(params['windowX'],  null),
-        windowY:      parseXYParam(params['windowY'],  null)
+        windowWidth:    parseIntParam(params['windowWidth'],   0),
+        windowRows:     parseIntParam(params['windowRows'],    4),
+        fontSize:       parseIntParam(params['fontSize'],      28),
+        padding:        parseIntParam(params['padding'],       18),
+        opacity:        parseIntParam(params['opacity'],       255),
+        frameOpacity:   parseIntParam(params['frameOpacity'],  255),
+        backOpacity:    parseIntParam(params['backOpacity'],   192),
+        toneR:          parseIntParam(params['toneR'],         0),
+        toneG:          parseIntParam(params['toneG'],         0),
+        toneB:          parseIntParam(params['toneB'],         0),
+        windowskinName: String(params['windowskinName'] || 'Window'),
+        windowX:        parseXYParam(params['windowX'], null),
+        windowY:        parseXYParam(params['windowY'], null)
     };
 
     // $gameSystem에 설정 저장 (세이브/로드 연동)
@@ -201,6 +289,14 @@
         return getConfig().padding;
     };
 
+    // loadWindowskin: 스킨 이름이 변경된 경우 해당 이미지 로드
+    var _loadWindowskin = Window_Message.prototype.loadWindowskin;
+    Window_Message.prototype.loadWindowskin = function () {
+        var cfg = getConfig();
+        var skinName = (cfg.windowskinName && cfg.windowskinName !== '') ? cfg.windowskinName : 'Window';
+        this.windowskin = ImageManager.loadSystem(skinName);
+    };
+
     // 위치 결정: 기존 positionType 로직 실행 후 커스텀 X/Y 덮어쓰기
     var _updatePlacement = Window_Message.prototype.updatePlacement;
     Window_Message.prototype.updatePlacement = function () {
@@ -217,10 +313,12 @@
         }
     };
 
-    // 메시지 시작 시 크기/투명도 적용
+    // 메시지 시작 시 크기/투명도/색조/스킨 적용
     var _startMessage = Window_Message.prototype.startMessage;
     Window_Message.prototype.startMessage = function () {
         var cfg = getConfig();
+
+        // 크기 변경
         var newWidth  = (cfg.windowWidth > 0) ? cfg.windowWidth : Graphics.boxWidth;
         var newHeight = this.fittingHeight(cfg.windowRows);
         if (this.width !== newWidth || this.height !== newHeight) {
@@ -228,8 +326,25 @@
             this.height = newHeight;
             this.createContents();
         }
-        this.opacity      = cfg.opacity;
-        this.backOpacity  = cfg.backOpacity;
+
+        // 투명도
+        this.opacity     = cfg.opacity;
+        this.backOpacity = cfg.backOpacity;
+
+        // 테두리 투명도 (frameSprite에 직접 적용)
+        if (this._windowFrameSprite) {
+            this._windowFrameSprite.alpha = cfg.frameOpacity / 255;
+        }
+
+        // 배경 색조
+        this.setTone(cfg.toneR, cfg.toneG, cfg.toneB);
+
+        // 스킨
+        var skinName = (cfg.windowskinName && cfg.windowskinName !== '') ? cfg.windowskinName : 'Window';
+        if (!this.windowskin || this.windowskin.name !== skinName) {
+            this.windowskin = ImageManager.loadSystem(skinName);
+        }
+
         _startMessage.call(this);
     };
 
@@ -242,10 +357,11 @@
         _pluginCommand.call(this, command, args);
         if (command !== 'MessageWindow') return;
 
-        var cfg   = getConfig();
-        var sub   = String(args[0] || '').trim();
-        var val1  = String(args[1] || '').trim();
-        var val2  = String(args[2] || '').trim();
+        var cfg  = getConfig();
+        var sub  = String(args[0] || '').trim();
+        var val1 = String(args[1] || '').trim();
+        var val2 = String(args[2] || '').trim();
+        var val3 = String(args[3] || '').trim();
 
         switch (sub) {
             case 'width':
@@ -263,8 +379,19 @@
             case 'opacity':
                 cfg.opacity = Math.min(255, Math.max(0, parseInt(val1, 10)));
                 break;
+            case 'frameOpacity':
+                cfg.frameOpacity = Math.min(255, Math.max(0, parseInt(val1, 10)));
+                break;
             case 'backOpacity':
                 cfg.backOpacity = Math.min(255, Math.max(0, parseInt(val1, 10)));
+                break;
+            case 'tone':
+                cfg.toneR = Math.min(255, Math.max(-255, parseInt(val1, 10) || 0));
+                cfg.toneG = Math.min(255, Math.max(-255, parseInt(val2, 10) || 0));
+                cfg.toneB = Math.min(255, Math.max(-255, parseInt(val3, 10) || 0));
+                break;
+            case 'skin':
+                cfg.windowskinName = val1 || 'Window';
                 break;
             case 'position':
                 cfg.windowX = (val1 === 'auto' || val1 === '') ? null : (parseInt(val1, 10) || 0);
