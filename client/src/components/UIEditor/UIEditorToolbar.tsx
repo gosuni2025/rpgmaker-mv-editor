@@ -34,7 +34,6 @@ function SkinLabelHelp({ onClose }: { onClose: () => void }) {
 
 export default function UIEditorToolbar() {
   const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
-  const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
   const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
   const uiShowSkinLabels = useEditorStore((s) => s.uiShowSkinLabels);
   const uiShowCheckerboard = useEditorStore((s) => s.uiShowCheckerboard);
@@ -65,8 +64,26 @@ export default function UIEditorToolbar() {
 
   const handlePlaytest = () => {
     if (!projectPath) return;
-    const scene = uiEditSubMode === 'frame' ? 'Scene_Options' : uiEditorScene;
-    window.open(`/api/ui-editor/preview?scene=${encodeURIComponent(scene)}`, '_blank');
+    const s = useEditorStore.getState();
+    const mapId = s.currentMapId || 1;
+    const testPos = s.currentMap?.testStartPosition;
+    const centerX = Math.floor((s.currentMap?.width || 1) / 2);
+    const centerY = Math.floor((s.currentMap?.height || 1) / 2);
+    const startX = testPos ? testPos.x : centerX;
+    const startY = testPos ? testPos.y : centerY;
+    if (s.demoMode) {
+      fetch('/api/playtestSession', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mapId, mapData: s.currentMap }),
+      }).then(r => r.json()).then(({ sessionToken }) => {
+        window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}&session=${sessionToken}`, '_blank');
+      });
+    } else {
+      s.saveCurrentMap().then(() => {
+        window.open(`/game/index.html?dev=true&startMapId=${mapId}&startX=${startX}&startY=${startY}`, '_blank');
+      });
+    }
   };
 
   return (
@@ -139,7 +156,7 @@ export default function UIEditorToolbar() {
           className="draw-toolbar-play-btn"
           onClick={handlePlaytest}
           disabled={!projectPath}
-          title={`현재 씬(${uiEditorScene}) 플레이테스트`}
+          title="현재 맵에서 테스트 (Ctrl+R)"
         >
           ▶ 현재 맵에서 테스트
         </button>
