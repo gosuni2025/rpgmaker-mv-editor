@@ -402,6 +402,30 @@
   border-bottom-color: #2675bf;
 }
 
+/* 스킨 목록 삭제 버튼 */
+.ui-skin-delete-btn {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  line-height: 16px;
+  text-align: center;
+  font-size: 13px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  border-radius: 3px;
+  visibility: hidden;
+}
+.ui-editor-window-item:hover .ui-skin-delete-btn {
+  visibility: visible;
+}
+.ui-skin-delete-btn:hover {
+  background: #c0392b;
+  color: #fff;
+}
+
 /* 스킨 썸네일 */
 .ui-skin-thumb {
   width: 32px;

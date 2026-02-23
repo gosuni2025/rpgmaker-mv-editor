@@ -365,23 +365,77 @@ router.put('/config', (req, res) => {
 });
 
 
-/** GET /api/ui-editor/skins — img/system/ 에서 윈도우스킨 후보 PNG 목록 */
+// ─── UIEditorSkins.json 관리 ─────────────────────────────────────────────────
+
+interface SkinEntry { name: string; cornerSize: number; }
+
+const DEFAULT_SKINS: SkinEntry[] = [{ name: 'Window', cornerSize: 24 }];
+
+function getSkinsPath(): string | null {
+  if (!projectManager.isOpen()) return null;
+  return path.join(projectManager.currentPath!, 'data', 'UIEditorSkins.json');
+}
+
+function readSkins(): SkinEntry[] {
+  const p = getSkinsPath();
+  if (!p || !fs.existsSync(p)) return [...DEFAULT_SKINS];
+  try {
+    const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (Array.isArray(data.skins) && data.skins.length > 0) return data.skins;
+  } catch {}
+  return [...DEFAULT_SKINS];
+}
+
+function writeSkins(skins: SkinEntry[]): void {
+  const p = getSkinsPath();
+  if (!p) return;
+  fs.writeFileSync(p, JSON.stringify({ skins }, null, 2), 'utf8');
+}
+
+// ─── 스킨 CRUD ────────────────────────────────────────────────────────────────
+
+/** GET /api/ui-editor/skins — UIEditorSkins.json 의 등록된 9-slice 스킨 목록 */
 router.get('/skins', (req, res) => {
   if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
-  const systemDir = path.join(projectManager.currentPath!, 'img', 'system');
-  if (!fs.existsSync(systemDir)) return res.json({ skins: [] });
-  try {
-    const files = fs.readdirSync(systemDir)
-      .filter((f) => /\.(png|webp)$/i.test(f))
-      .map((f) => f.replace(/\.(png|webp)$/i, ''));
-    // 중복 제거 (png + webp 동명)
-    res.json({ skins: [...new Set(files)] });
-  } catch {
-    res.json({ skins: [] });
-  }
+  res.json({ skins: readSkins() });
 });
 
-/** POST /api/ui-editor/upload-skin — 새 윈도우스킨 PNG 업로드 */
+/** POST /api/ui-editor/skins — 스킨 등록 */
+router.post('/skins', (req, res) => {
+  if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
+  const { name, cornerSize = 24 } = req.body as { name?: string; cornerSize?: number };
+  if (!name) return res.status(400).json({ error: 'name required' });
+  const skins = readSkins();
+  if (skins.find((s) => s.name === name)) return res.status(409).json({ error: 'Already exists' });
+  skins.push({ name, cornerSize });
+  writeSkins(skins);
+  res.json({ ok: true });
+});
+
+/** PUT /api/ui-editor/skins/:name — cornerSize 업데이트 */
+router.put('/skins/:name', (req, res) => {
+  if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
+  const skins = readSkins();
+  const idx = skins.findIndex((s) => s.name === req.params.name);
+  if (idx < 0) return res.status(404).json({ error: 'Not found' });
+  const { cornerSize } = req.body as { cornerSize?: number };
+  if (cornerSize !== undefined) skins[idx].cornerSize = cornerSize;
+  writeSkins(skins);
+  res.json({ ok: true });
+});
+
+/** DELETE /api/ui-editor/skins/:name — 스킨 삭제 */
+router.delete('/skins/:name', (req, res) => {
+  if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
+  const skins = readSkins();
+  const idx = skins.findIndex((s) => s.name === req.params.name);
+  if (idx < 0) return res.status(404).json({ error: 'Not found' });
+  skins.splice(idx, 1);
+  writeSkins(skins);
+  res.json({ ok: true });
+});
+
+/** POST /api/ui-editor/upload-skin — 새 윈도우스킨 PNG 업로드 + 스킨 목록에 자동 등록 */
 router.post('/upload-skin', express.raw({ type: 'image/png', limit: '10mb' }), (req, res) => {
   if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
   const name = (req.query.name as string || '').replace(/[^a-zA-Z0-9_\-가-힣]/g, '');
@@ -391,6 +445,12 @@ router.post('/upload-skin', express.raw({ type: 'image/png', limit: '10mb' }), (
   const dest = path.join(systemDir, `${name}.png`);
   try {
     fs.writeFileSync(dest, req.body as Buffer);
+    // 스킨 목록에 자동 등록 (이미 있으면 스킵)
+    const skins = readSkins();
+    if (!skins.find((s) => s.name === name)) {
+      skins.push({ name, cornerSize: 24 });
+      writeSkins(skins);
+    }
     res.json({ ok: true, name });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });

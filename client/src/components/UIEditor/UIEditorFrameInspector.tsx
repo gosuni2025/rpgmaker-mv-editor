@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
 import './UIEditor.css';
@@ -12,7 +12,17 @@ export default function UIEditorFrameInspector() {
   const projectPath = useEditorStore((s) => s.projectPath);
   const uploadRef = useRef<HTMLInputElement>(null);
 
-  // 기본 스킨 설정 → UIEditorConfig 저장 (UITheme.js는 서버에서 자동 동기화)
+  // cornerSize를 UIEditorSkins.json에 저장
+  const saveSkinCornerSize = useCallback(async (size: number) => {
+    if (!projectPath || !uiSelectedSkin) return;
+    await fetch(`/api/ui-editor/skins/${encodeURIComponent(uiSelectedSkin)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cornerSize: size }),
+    });
+  }, [projectPath, uiSelectedSkin]);
+
+  // 기본 스킨 설정 → UIEditorConfig + cornerSize 저장 + UITheme.js 생성
   const handleSetDefault = async () => {
     if (!projectPath || !uiSelectedSkin) return;
     try {
@@ -20,12 +30,10 @@ export default function UIEditorFrameInspector() {
       await fetch('/api/ui-editor/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          overrides: config,
-          defaultSkin: uiSelectedSkin,
-          skinCornerSize: uiSkinCornerSize,
-        }),
+        body: JSON.stringify({ overrides: config, defaultSkin: uiSelectedSkin }),
       });
+      await saveSkinCornerSize(uiSkinCornerSize);
+      await fetch('/api/ui-editor/generate-plugin', { method: 'POST' });
       setUiEditorDirty(false);
       useEditorStore.getState().showToast(`기본 스킨: ${uiSelectedSkin} 설정 완료`);
     } catch {
@@ -33,7 +41,7 @@ export default function UIEditorFrameInspector() {
     }
   };
 
-  // PNG 업로드
+  // PNG 업로드 (서버에서 자동으로 스킨 목록에 등록됨)
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -48,7 +56,6 @@ export default function UIEditorFrameInspector() {
       });
       if (!res.ok) throw new Error((await res.json()).error);
       useEditorStore.getState().showToast(`스킨 업로드: ${name}`);
-      // 사이드바 목록 갱신은 자동으로 fetch 다시 하면 됨
       window.dispatchEvent(new Event('ui-skin-uploaded'));
     } catch (err) {
       useEditorStore.getState().showToast(`업로드 실패: ${(err as Error).message}`, true);
@@ -89,6 +96,7 @@ export default function UIEditorFrameInspector() {
                 setUiSkinCornerSize(Math.round(v));
                 setUiEditorDirty(true);
               }}
+              onDragEnd={() => saveSkinCornerSize(useEditorStore.getState().uiSkinCornerSize)}
             />
           </div>
           <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777', lineHeight: 1.5 }}>
@@ -133,7 +141,7 @@ export default function UIEditorFrameInspector() {
             </button>
           </div>
           <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
-            192×192px PNG, img/system/에 저장됨
+            192×192px PNG, img/system/에 저장 + 목록 자동 등록
           </div>
         </div>
 
