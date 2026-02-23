@@ -140,12 +140,17 @@ export default function UIEditorCanvas() {
     );
   }, [uiEditorIframeReady, uiEditorScene]);
 
-  // 드래그 중 커서 스타일
+  // 드래그 중 커서 스타일 + iframe pointer-events 비활성화
+  // (iframe이 mousemove/mouseup을 흡수하지 않도록)
   useEffect(() => {
     if (!dragState) return;
     const cursor = dragState.handleDir === 'move' ? 'grabbing' : `${dragState.handleDir}-resize`;
     document.body.style.cursor = cursor;
-    return () => { document.body.style.cursor = ''; };
+    if (iframeRef.current) iframeRef.current.style.pointerEvents = 'none';
+    return () => {
+      document.body.style.cursor = '';
+      if (iframeRef.current) iframeRef.current.style.pointerEvents = '';
+    };
   }, [dragState]);
 
   // 드래그/리사이즈 마우스 이벤트
