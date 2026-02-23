@@ -287,11 +287,13 @@ export default function App() {
           <div className="toolbar-area">
             <UIEditorToolbar />
           </div>
-          <div className="main-area" style={uiEditSubMode === 'frame' ? { display: 'flex', overflow: 'hidden' } : undefined}>
+          <div className="main-area" style={uiEditSubMode === 'frame' ? { flexDirection: 'row' } : undefined}>
             {uiEditSubMode === 'frame' ? (
               <>
                 <UIEditorFrameCanvas />
-                <UIEditorSkinPreview />
+                <ResizablePanel defaultWidth={240} minWidth={160} maxWidth={420} side="left">
+                  <UIEditorSkinPreview />
+                </ResizablePanel>
               </>
             ) : <UIEditorCanvas />}
           </div>
