@@ -85,7 +85,7 @@ export default function DrawToolbar() {
         ].map(({ id, label, key, ext }) => (
           <button
             key={id}
-            onClick={() => setEditMode(id)}
+            onClick={() => setEditMode(id as any)}
             className={btn(editMode === id, ext)}
             title={key}
           >
@@ -143,7 +143,7 @@ export default function DrawToolbar() {
             ].map(({ id, label, eraser }) => (
               <button
                 key={id}
-                onClick={() => setPassageTool(id)}
+                onClick={() => setPassageTool(id as any)}
                 className={btn(passageTool === id, false, !!eraser)}
               >
                 {label}
@@ -180,7 +180,7 @@ export default function DrawToolbar() {
               { id: 'select', label: t('toolbar.select') },
               { id: 'create', label: t('toolbar.create') },
             ].map(({ id, label }) => (
-              <button key={id} onClick={() => setObjectSubMode(id)} className={btn(objectSubMode === id)}>
+              <button key={id} onClick={() => setObjectSubMode(id as any)} className={btn(objectSubMode === id)}>
                 {label}
               </button>
             ))}
