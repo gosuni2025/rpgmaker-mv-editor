@@ -37,9 +37,13 @@ export default function UIEditorToolbar() {
   const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
   const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
   const uiShowSkinLabels = useEditorStore((s) => s.uiShowSkinLabels);
+  const uiShowCheckerboard = useEditorStore((s) => s.uiShowCheckerboard);
+  const uiShowRegionOverlay = useEditorStore((s) => s.uiShowRegionOverlay);
   const projectPath = useEditorStore((s) => s.projectPath);
   const setUiEditSubMode = useEditorStore((s) => s.setUiEditSubMode);
   const setUiShowSkinLabels = useEditorStore((s) => s.setUiShowSkinLabels);
+  const setUiShowCheckerboard = useEditorStore((s) => s.setUiShowCheckerboard);
+  const setUiShowRegionOverlay = useEditorStore((s) => s.setUiShowRegionOverlay);
 
   const [showHelp, setShowHelp] = useState(false);
 
@@ -86,7 +90,23 @@ export default function UIEditorToolbar() {
 
         {/* 프레임 편집 전용 옵션 */}
         {uiEditSubMode === 'frame' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label className="draw-toolbar-checkbox-label" title="투명 영역을 체크무늬로 표시">
+              <input
+                type="checkbox"
+                checked={uiShowCheckerboard}
+                onChange={(e) => setUiShowCheckerboard(e.target.checked)}
+              />
+              체커보드
+            </label>
+            <label className="draw-toolbar-checkbox-label" title="영역별 컬러 오버레이 표시 (배경/프레임/커서)">
+              <input
+                type="checkbox"
+                checked={uiShowRegionOverlay}
+                onChange={(e) => setUiShowRegionOverlay(e.target.checked)}
+              />
+              영역 오버레이
+            </label>
             <label className="draw-toolbar-checkbox-label">
               <input
                 type="checkbox"

@@ -30,6 +30,8 @@ function drawSkin(
   frameX: number, frameY: number, frameW: number, frameH: number,
   cornerSize: number,
   showLabels: boolean,
+  showCheckerboard: boolean,
+  showRegionOverlay: boolean,
 ) {
   const S = DISPLAY_SCALE;
   const cw = imgW * S;
@@ -40,11 +42,13 @@ function drawSkin(
   // 체커보드 배경
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, 0, cw, ch);
-  for (let cy = 0; cy < imgH; cy += 8) {
-    for (let cx = 0; cx < imgW; cx += 8) {
-      if ((Math.floor(cx / 8) + Math.floor(cy / 8)) % 2 === 0) {
-        ctx.fillStyle = '#222';
-        ctx.fillRect(cx * S, cy * S, 8 * S, 8 * S);
+  if (showCheckerboard) {
+    for (let cy = 0; cy < imgH; cy += 8) {
+      for (let cx = 0; cx < imgW; cx += 8) {
+        if ((Math.floor(cx / 8) + Math.floor(cy / 8)) % 2 === 0) {
+          ctx.fillStyle = '#222';
+          ctx.fillRect(cx * S, cy * S, 8 * S, 8 * S);
+        }
       }
     }
   }
@@ -53,7 +57,7 @@ function drawSkin(
   ctx.drawImage(img, 0, 0, cw, ch);
 
   // RPG MV 표준 192×192일 때만 영역 컬러 오버레이 표시
-  if (imgW === 192 && imgH === 192) {
+  if (showRegionOverlay && imgW === 192 && imgH === 192) {
     for (const r of MV_REGIONS) {
       ctx.fillStyle = r.color;
       ctx.fillRect(r.x * S, r.y * S, r.w * S, r.h * S);
@@ -114,7 +118,7 @@ function drawSkin(
   }
 
   // 영역 라벨
-  if (showLabels && imgW === 192 && imgH === 192) {
+  if (showLabels && showRegionOverlay && imgW === 192 && imgH === 192) {
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.font = `bold ${9 * S}px sans-serif`;
     ctx.fillText('배경', 4 * S, 11 * S);
@@ -197,6 +201,8 @@ export default function UIEditorFrameCanvas() {
   const uiSkinFrameW  = useEditorStore((s) => s.uiSkinFrameW);
   const uiSkinFrameH  = useEditorStore((s) => s.uiSkinFrameH);
   const uiShowSkinLabels = useEditorStore((s) => s.uiShowSkinLabels);
+  const uiShowCheckerboard = useEditorStore((s) => s.uiShowCheckerboard);
+  const uiShowRegionOverlay = useEditorStore((s) => s.uiShowRegionOverlay);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
   const setUiSkinFrame = useEditorStore((s) => s.setUiSkinFrame);
 
@@ -231,7 +237,7 @@ export default function UIEditorFrameCanvas() {
     const s = useEditorStore.getState();
     drawSkin(ctx, img, imgSize.w, imgSize.h,
       s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH,
-      s.uiSkinCornerSize, s.uiShowSkinLabels);
+      s.uiSkinCornerSize, s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay);
   }, [imgSize]);
 
   // 스킨 이미지 로드 — 실제 naturalWidth/Height 기반으로 캔버스 크기 설정
@@ -259,7 +265,7 @@ export default function UIEditorFrameCanvas() {
       const s = useEditorStore.getState();
       drawSkin(ctx, img, w, h,
         s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH,
-        s.uiSkinCornerSize, s.uiShowSkinLabels);
+        s.uiSkinCornerSize, s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay);
     };
     img.onerror = () => {
       ctx.fillStyle = '#1a1a1a';
@@ -272,7 +278,7 @@ export default function UIEditorFrameCanvas() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectPath, uiSelectedSkin]);
 
-  useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiShowSkinLabels]);
+  useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay]);
 
   // 휠 줌
   useEffect(() => {
