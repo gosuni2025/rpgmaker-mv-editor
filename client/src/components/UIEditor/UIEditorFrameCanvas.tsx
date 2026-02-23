@@ -19,7 +19,7 @@ const REGIONS: Region[] = [
   { x: 96, y: 96, w: 96, h: 96,  color: 'rgba(200,120,0,0.14)',   label: '커서/화살표' },
 ];
 
-function drawSkin(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cornerSize: number) {
+function drawSkin(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cornerSize: number, showLabels: boolean) {
   const S = DISPLAY_SCALE;
   const cw = SKIN_W * S;
   const ch = SKIN_H * S;
@@ -88,15 +88,17 @@ function drawSkin(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cornerSi
     ctx.strokeRect(c.x * S + 0.5, c.y * S + 0.5, cs * S - 1, cs * S - 1);
   }
 
-  // 영역 라벨
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.font = `bold ${9 * S}px sans-serif`;
-  ctx.fillText('배경', 4 * S, 11 * S);
-  ctx.fillText('배경 반복', 4 * S, 100 * S);
-  ctx.fillText('프레임', 100 * S, 11 * S);
-  ctx.fillText('커서/화살표', 100 * S, 100 * S);
+  // 영역 라벨 (토글 가능)
+  if (showLabels) {
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.font = `bold ${9 * S}px sans-serif`;
+    ctx.fillText('배경', 4 * S, 11 * S);
+    ctx.fillText('배경 반복', 4 * S, 100 * S);
+    ctx.fillText('프레임', 100 * S, 11 * S);
+    ctx.fillText('커서/화살표', 100 * S, 100 * S);
+  }
 
-  // cornerSize 수치 표시
+  // cornerSize 수치 표시 (항상)
   ctx.fillStyle = 'rgba(255,220,0,0.9)';
   ctx.font = `${7 * S}px sans-serif`;
   ctx.fillText(`${cs}px`, (FRAME_X + 1) * S, (cs / 2 + 1) * S);
@@ -138,6 +140,7 @@ export default function UIEditorFrameCanvas() {
   const projectPath = useEditorStore((s) => s.projectPath);
   const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
   const uiSkinCornerSize = useEditorStore((s) => s.uiSkinCornerSize);
+  const uiShowSkinLabels = useEditorStore((s) => s.uiShowSkinLabels);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
 
   const [zoom, setZoom] = useState(1);
@@ -159,8 +162,8 @@ export default function UIEditorFrameCanvas() {
     if (!canvas || !img) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawSkin(ctx, img, uiSkinCornerSize);
-  }, [uiSkinCornerSize]);
+    drawSkin(ctx, img, uiSkinCornerSize, uiShowSkinLabels);
+  }, [uiSkinCornerSize, uiShowSkinLabels]);
 
   // 스킨 이미지 로드
   useEffect(() => {
@@ -179,7 +182,11 @@ export default function UIEditorFrameCanvas() {
     ctx.fillText('Loading...', 8, 20);
 
     const img = new Image();
-    img.onload = () => { imgRef.current = img; drawSkin(ctx, img, uiSkinCornerSize); };
+    img.onload = () => {
+      imgRef.current = img;
+      const s = useEditorStore.getState();
+      drawSkin(ctx, img, s.uiSkinCornerSize, s.uiShowSkinLabels);
+    };
     img.onerror = () => {
       ctx.fillStyle = '#1a1a1a';
       ctx.fillRect(0, 0, canvas.width, canvas.height);

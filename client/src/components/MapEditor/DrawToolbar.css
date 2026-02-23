@@ -76,6 +76,22 @@
   flex: 1;
 }
 
+.draw-toolbar-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #bbb;
+  cursor: pointer;
+  user-select: none;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+.draw-toolbar-checkbox-label input[type="checkbox"] {
+  accent-color: #2675bf;
+  cursor: pointer;
+}
+
 .draw-toolbar-play-btn {
   background: #2ea043;
   color: #fff;

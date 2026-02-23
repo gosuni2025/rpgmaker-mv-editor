@@ -7,8 +7,10 @@ export default function UIEditorToolbar() {
   const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
   const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
   const uiEditSubMode = useEditorStore((s) => s.uiEditSubMode);
+  const uiShowSkinLabels = useEditorStore((s) => s.uiShowSkinLabels);
   const projectPath = useEditorStore((s) => s.projectPath);
   const setUiEditSubMode = useEditorStore((s) => s.setUiEditSubMode);
+  const setUiShowSkinLabels = useEditorStore((s) => s.setUiShowSkinLabels);
 
   const handleSave = async () => {
     if (!projectPath) return;
@@ -49,6 +51,18 @@ export default function UIEditorToolbar() {
           프레임 편집
         </button>
       </div>
+
+      {/* 프레임 편집 전용 옵션 */}
+      {uiEditSubMode === 'frame' && (
+        <label className="draw-toolbar-checkbox-label">
+          <input
+            type="checkbox"
+            checked={uiShowSkinLabels}
+            onChange={(e) => setUiShowSkinLabels(e.target.checked)}
+          />
+          영역 라벨 표시
+        </label>
+      )}
 
       <div className="draw-toolbar-spacer" />
 

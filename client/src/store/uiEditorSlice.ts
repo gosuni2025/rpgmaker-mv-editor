@@ -3,11 +3,11 @@ import type { EditorState, SliceCreator, UIWindowInfo, UIWindowOverride } from '
 export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' |
   'uiEditorSelectedWindowId' | 'uiEditorOverrides' | 'uiEditorDirty' |
-  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSkinCornerSize' |
+  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSkinCornerSize' | 'uiShowSkinLabels' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
-  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSkinCornerSize'
+  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSkinCornerSize' | 'setUiShowSkinLabels'
 >> = (set) => ({
   editorMode: 'map',
   uiEditorScene: 'Scene_Options',
@@ -19,6 +19,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiEditSubMode: 'window',
   uiSelectedSkin: 'Window',
   uiSkinCornerSize: 24,
+  uiShowSkinLabels: false,
 
   setEditorMode: (mode) => set({ editorMode: mode }),
   setUiEditorScene: (scene) => set({ uiEditorScene: scene, uiEditorWindows: [], uiEditorSelectedWindowId: null }),
@@ -49,4 +50,5 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   setUiEditSubMode: (mode) => set({ uiEditSubMode: mode }),
   setUiSelectedSkin: (skin) => set({ uiSelectedSkin: skin }),
   setUiSkinCornerSize: (size) => set({ uiSkinCornerSize: size }),
+  setUiShowSkinLabels: (show) => set({ uiShowSkinLabels: show }),
 });

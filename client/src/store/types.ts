@@ -210,6 +210,7 @@ export interface EditorState {
   uiEditSubMode: 'window' | 'frame';
   uiSelectedSkin: string;      // 선택된 스킨 파일명 (확장자 제외)
   uiSkinCornerSize: number;    // 9-slice 코너 크기 px (RPG MV 기본 24)
+  uiShowSkinLabels: boolean;   // 프레임 캔버스 영역 라벨 표시 여부
 
   // Mode
   editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage';
@@ -360,6 +361,7 @@ export interface EditorState {
   setUiEditSubMode: (mode: 'window' | 'frame') => void;
   setUiSelectedSkin: (skin: string) => void;
   setUiSkinCornerSize: (size: number) => void;
+  setUiShowSkinLabels: (show: boolean) => void;
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;
