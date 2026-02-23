@@ -360,16 +360,6 @@ export function createGameRouter(resolvedRuntimePath: string): express.Router {
       }
       return;
     }
-    // UIEditor 전용 파일: 없으면 404 대신 기본값 반환 (브라우저 콘솔 에러 방지)
-    if (effectivePath === '/UIEditorConfig.json') {
-      const fp = path.join(projectManager.currentPath!, 'data', 'UIEditorConfig.json');
-      if (!fs.existsSync(fp)) return res.json({ overrides: {} });
-    }
-    if (effectivePath === '/UIEditorSkins.json') {
-      const fp = path.join(projectManager.currentPath!, 'data', 'UIEditorSkins.json');
-      if (!fs.existsSync(fp)) return res.json({ defaultSkin: 'Window', skins: [{ name: 'Window', cornerSize: 24, useCenterFill: false }] });
-    }
-
     express.static(path.join(projectManager.currentPath!, 'data'))(req, res, () => {
       if (!res.headersSent) res.status(404).send('Not found');
     });

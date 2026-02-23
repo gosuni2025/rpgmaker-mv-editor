@@ -99,11 +99,12 @@
   var _Window_refreshBack = Window.prototype._refreshBack;
   Window.prototype._refreshBack = function () {
     var skinName = skinNameFromBitmap(this._windowskin);
-    var fill = getFillRect(skinName);
-    // MV 기본값이면 원본 호출
-    if (fill.x === 0 && fill.y === 0 && fill.w === 96 && fill.h === 96) {
+    var entry = findSkinEntry(skinName);
+    // 스킨 항목이 없으면 원본 호출
+    if (!entry) {
       return _Window_refreshBack.call(this);
     }
+    var fill = getFillRect(skinName);
     var m = this._margin;
     var w = this._width - m * 2;
     var h = this._height - m * 2;
@@ -125,11 +126,12 @@
   var _Window_refreshFrame = Window.prototype._refreshFrame;
   Window.prototype._refreshFrame = function () {
     var skinName = skinNameFromBitmap(this._windowskin);
-    var f = getFrameInfo(skinName);
-    // MV 기본값이면 원본 호출
-    if (f.x === 96 && f.y === 0 && f.w === 96 && f.h === 96 && f.cs === 24) {
+    var entry = findSkinEntry(skinName);
+    // 스킨 항목이 없으면 원본 호출
+    if (!entry) {
       return _Window_refreshFrame.call(this);
     }
+    var f = getFrameInfo(skinName);
     var w = this._width;
     var h = this._height;
     if (w <= 0 || h <= 0) return;
