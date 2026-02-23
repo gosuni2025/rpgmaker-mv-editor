@@ -420,6 +420,12 @@ router.get('/preview', (req, res) => {
             }
             break;
           }
+          case 'updateRuntimeOverride':
+            if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(data.className, data.prop, data.value);
+            break;
+          case 'clearRuntimeOverride':
+            if (window._uiThemeClearOv) window._uiThemeClearOv(data.className);
+            break;
           case 'refreshScene':
             loadScene(_targetScene);
             break;
