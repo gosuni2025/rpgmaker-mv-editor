@@ -45,6 +45,8 @@ export default function TilesetPalette() {
   const setActiveTab = setPaletteTab;
   const [tilesetImages, setTilesetImages] = useState<Record<number, HTMLImageElement>>({});
   const [selectedRegion, setSelectedRegion] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const dragStartCell = useRef<{ col: number; row: number } | null>(null);
   const [dragCurrentCell, setDragCurrentCell] = useState<{ col: number; row: number } | null>(null);
@@ -54,6 +56,17 @@ export default function TilesetPalette() {
     if (!currentMap || !currentMap.tilesetNames) { setTilesetImages({}); return; }
     return loadTilesetImages(currentMap.tilesetNames, setTilesetImages);
   }, [currentMap?.tilesetId, currentMap?.tilesetNames]);
+
+  useEffect(() => {
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setContainerWidth(Math.floor(w));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Main render
   useEffect(() => {
@@ -65,11 +78,11 @@ export default function TilesetPalette() {
       dragCurrent: dragCurrentCell,
     };
     if (activeTab === 'A') {
-      renderATab(canvas, tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, transparentColor, { ctx: null as any, ...highlight });
+      renderATab(canvas, tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, transparentColor, { ctx: null as any, ...highlight }, containerWidth);
     } else {
-      renderNormalTab(canvas, activeTab, tilesetImages, TAB_SHEET_INDEX, TAB_TILE_OFFSET, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, transparentColor, { ctx: null as any, ...highlight });
+      renderNormalTab(canvas, activeTab, tilesetImages, TAB_SHEET_INDEX, TAB_TILE_OFFSET, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, transparentColor, { ctx: null as any, ...highlight }, containerWidth);
     }
-  }, [activeTab, tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, dragCurrentCell, transparentColor]);
+  }, [activeTab, tilesetImages, selectedTileId, selectedTiles, selectedTilesWidth, selectedTilesHeight, dragCurrentCell, transparentColor, containerWidth]);
 
   const canvasToCell = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -245,7 +258,7 @@ export default function TilesetPalette() {
           <div style={styles.openFolderBtn} title="타일셋 폴더 열기"
             onClick={() => { apiClient.post('/resources/img_tilesets/open-folder', {}).catch(() => {}); }}>📂</div>
         </div>
-        <div style={styles.scrollArea}>
+        <div ref={scrollAreaRef} style={styles.scrollArea}>
           {activeTab === 'R' ? (
             <div className="region-palette">
               {Array.from({ length: 256 }, (_, i) => (

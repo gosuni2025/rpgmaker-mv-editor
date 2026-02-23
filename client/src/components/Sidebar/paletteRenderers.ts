@@ -38,33 +38,6 @@ interface SelectionHighlightParams {
   dragCurrent: { col: number; row: number } | null;
 }
 
-function drawDragHighlight(ctx: CanvasRenderingContext2D, start: { col: number; row: number }, current: { col: number; row: number }) {
-  const minCol = Math.min(start.col, current.col);
-  const maxCol = Math.max(start.col, current.col);
-  const minRow = Math.min(start.row, current.row);
-  const maxRow = Math.max(start.row, current.row);
-  ctx.strokeStyle = '#ff0000';
-  ctx.lineWidth = 2;
-  ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
-  const rx = minCol * TILE_SIZE_PX + 1;
-  const ry = minRow * TILE_SIZE_PX + 1;
-  const rw = (maxCol - minCol + 1) * TILE_SIZE_PX - 2;
-  const rh = (maxRow - minRow + 1) * TILE_SIZE_PX - 2;
-  ctx.fillRect(rx, ry, rw, rh);
-  ctx.strokeRect(rx, ry, rw, rh);
-}
-
-function drawMultiHighlight(ctx: CanvasRenderingContext2D, startCol: number, startRow: number, w: number, h: number) {
-  ctx.strokeStyle = '#ff0000';
-  ctx.lineWidth = 2;
-  ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
-  const rx = startCol * TILE_SIZE_PX + 1;
-  const ry = startRow * TILE_SIZE_PX + 1;
-  const rw = w * TILE_SIZE_PX - 2;
-  const rh = h * TILE_SIZE_PX - 2;
-  ctx.fillRect(rx, ry, rw, rh);
-  ctx.strokeRect(rx, ry, rw, rh);
-}
 
 export function renderNormalTab(
   canvas: HTMLCanvasElement,
@@ -78,6 +51,7 @@ export function renderNormalTab(
   selectedTilesHeight: number,
   transparentColor: { r: number; g: number; b: number },
   highlight: SelectionHighlightParams,
+  containerWidth = 0,
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -96,20 +70,41 @@ export function renderNormalTab(
     return;
   }
 
-  canvas.width = img.width;
-  canvas.height = img.height;
-  drawCheckerboard(ctx, canvas.width, canvas.height, transparentColor);
-  ctx.drawImage(img, 0, 0);
+  const scale = containerWidth > 0 ? containerWidth / img.width : 1;
+  const cw = Math.round(img.width * scale);
+  const ch = Math.round(img.height * scale);
+  const ts = TILE_SIZE_PX * scale;
+
+  canvas.width = cw;
+  canvas.height = ch;
+  drawCheckerboard(ctx, cw, ch, transparentColor, 8 * scale);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, 0, 0, cw, ch);
 
   const offset = tabTileOffset[activeTab] ?? 0;
 
   if (highlight.isDragging && highlight.dragStart && highlight.dragCurrent) {
-    drawDragHighlight(ctx, highlight.dragStart, highlight.dragCurrent);
+    const { dragStart: s, dragCurrent: e } = highlight;
+    const minCol = Math.min(s.col, e.col), maxCol = Math.max(s.col, e.col);
+    const minRow = Math.min(s.row, e.row), maxRow = Math.max(s.row, e.row);
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 2;
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+    const rx = minCol * ts + 1, ry = minRow * ts + 1;
+    const rw = (maxCol - minCol + 1) * ts - 2, rh = (maxRow - minRow + 1) * ts - 2;
+    ctx.fillRect(rx, ry, rw, rh);
+    ctx.strokeRect(rx, ry, rw, rh);
   } else if (selectedTiles && (selectedTilesWidth > 1 || selectedTilesHeight > 1)) {
     const localId = selectedTileId - offset;
     if (localId >= 0 && localId < 256) {
       const cell = localIdToCell(localId);
-      drawMultiHighlight(ctx, cell.col, cell.row, selectedTilesWidth, selectedTilesHeight);
+      ctx.strokeStyle = '#ff0000';
+      ctx.lineWidth = 2;
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+      const rx = cell.col * ts + 1, ry = cell.row * ts + 1;
+      const rw = selectedTilesWidth * ts - 2, rh = selectedTilesHeight * ts - 2;
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeRect(rx, ry, rw, rh);
     }
   } else {
     const localId = selectedTileId - offset;
@@ -117,7 +112,7 @@ export function renderNormalTab(
       const cell = localIdToCell(localId);
       ctx.strokeStyle = '#ff0000';
       ctx.lineWidth = 2;
-      ctx.strokeRect(cell.col * TILE_SIZE_PX + 1, cell.row * TILE_SIZE_PX + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
+      ctx.strokeRect(cell.col * ts + 1, cell.row * ts + 1, ts - 2, ts - 2);
     }
   }
 }
@@ -131,6 +126,7 @@ export function renderATab(
   selectedTilesHeight: number,
   transparentColor: { r: number; g: number; b: number },
   highlight: SelectionHighlightParams,
+  containerWidth = 0,
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -138,19 +134,25 @@ export function renderATab(
   const cols = 8;
   const totalEntries = A_TILE_ENTRIES.length;
   const rows = Math.ceil(totalEntries / cols);
-  const cw = cols * TILE_SIZE_PX;
-  const ch = rows * TILE_SIZE_PX;
+  const baseW = cols * TILE_SIZE_PX;
+  const baseH = rows * TILE_SIZE_PX;
+  const scale = containerWidth > 0 ? containerWidth / baseW : 1;
+  const ts = TILE_SIZE_PX * scale;
+  const half = HALF * scale;
+  const cw = Math.round(baseW * scale);
+  const ch = Math.round(baseH * scale);
   canvas.width = cw;
   canvas.height = ch;
 
-  drawCheckerboard(ctx, cw, ch, transparentColor);
+  drawCheckerboard(ctx, cw, ch, transparentColor, 8 * scale);
+  ctx.imageSmoothingEnabled = false;
 
   for (let i = 0; i < totalEntries; i++) {
     const entry = A_TILE_ENTRIES[i];
     const col = i % cols;
     const row = Math.floor(i / cols);
-    const dx = col * TILE_SIZE_PX;
-    const dy = row * TILE_SIZE_PX;
+    const dx = col * ts;
+    const dy = row * ts;
 
     const img = tilesetImages[entry.sheet];
     if (!img) continue;
@@ -159,25 +161,40 @@ export function renderATab(
     if (!info) continue;
 
     if (info.type === 'normal') {
-      ctx.drawImage(img, info.sx, info.sy, info.sw, info.sh, dx, dy, TILE_SIZE_PX, TILE_SIZE_PX);
+      ctx.drawImage(img, info.sx, info.sy, info.sw, info.sh, dx, dy, ts, ts);
     } else {
       const q = info.quarters;
       for (let j = 0; j < 4; j++) {
         const qimg = tilesetImages[q[j].sheet];
         if (!qimg) continue;
-        const qdx = dx + (j % 2) * HALF;
-        const qdy = dy + Math.floor(j / 2) * HALF;
-        ctx.drawImage(qimg, q[j].sx, q[j].sy, HALF, HALF, qdx, qdy, HALF, HALF);
+        const qdx = dx + (j % 2) * half;
+        const qdy = dy + Math.floor(j / 2) * half;
+        ctx.drawImage(qimg, q[j].sx, q[j].sy, HALF, HALF, qdx, qdy, half, half);
       }
     }
   }
 
   if (highlight.isDragging && highlight.dragStart && highlight.dragCurrent) {
-    drawDragHighlight(ctx, highlight.dragStart, highlight.dragCurrent);
+    const { dragStart: s, dragCurrent: e } = highlight;
+    const minCol = Math.min(s.col, e.col), maxCol = Math.max(s.col, e.col);
+    const minRow = Math.min(s.row, e.row), maxRow = Math.max(s.row, e.row);
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 2;
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+    const rx = minCol * ts + 1, ry = minRow * ts + 1;
+    const rw = (maxCol - minCol + 1) * ts - 2, rh = (maxRow - minRow + 1) * ts - 2;
+    ctx.fillRect(rx, ry, rw, rh);
+    ctx.strokeRect(rx, ry, rw, rh);
   } else if (selectedTiles && (selectedTilesWidth > 1 || selectedTilesHeight > 1)) {
     const startIdx = A_TILE_ENTRIES.findIndex(e => e.tileId === selectedTileId);
     if (startIdx >= 0) {
-      drawMultiHighlight(ctx, startIdx % cols, Math.floor(startIdx / cols), selectedTilesWidth, selectedTilesHeight);
+      ctx.strokeStyle = '#ff0000';
+      ctx.lineWidth = 2;
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+      const rx = (startIdx % cols) * ts + 1, ry = Math.floor(startIdx / cols) * ts + 1;
+      const rw = selectedTilesWidth * ts - 2, rh = selectedTilesHeight * ts - 2;
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeRect(rx, ry, rw, rh);
     }
   } else {
     for (let i = 0; i < totalEntries; i++) {
@@ -186,7 +203,7 @@ export function renderATab(
         const sr = Math.floor(i / cols);
         ctx.strokeStyle = '#ff0000';
         ctx.lineWidth = 2;
-        ctx.strokeRect(sc * TILE_SIZE_PX + 1, sr * TILE_SIZE_PX + 1, TILE_SIZE_PX - 2, TILE_SIZE_PX - 2);
+        ctx.strokeRect(sc * ts + 1, sr * ts + 1, ts - 2, ts - 2);
         break;
       }
     }
