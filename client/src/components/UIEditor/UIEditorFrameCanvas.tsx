@@ -322,9 +322,9 @@ export default function UIEditorFrameCanvas() {
 
   useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay]);
 
-  // 휠 줌
+  // 휠 줌 — canvas에 직접 달아야 bubble 차단 없이 확실히 동작함
   useEffect(() => {
-    const el = scrollRef.current;
+    const el = canvasRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
