@@ -3,6 +3,7 @@ import type { AnimTileShaderSettings } from '../../types/rpgMakerMV';
 import { DEFAULT_WATER_SETTINGS, DEFAULT_WATERFALL_SETTINGS } from '../../types/rpgMakerMV';
 import ExtBadge from '../common/ExtBadge';
 import { getA1KindName, getA1KindType, getUsedA1Kinds } from '../../utils/tileHelper';
+import HelpButton from '../common/HelpButton';
 
 function getDefaultForKind(kind: number): AnimTileShaderSettings {
   const type = getA1KindType(kind);
@@ -230,12 +231,7 @@ export function AnimSlider({ label, value, min, max, step, onChange, tooltip }: 
     <div className="anim-tile-slider-row">
       <span className="anim-tile-slider-label">
         {label}
-        {tooltip && (
-          <span className="anim-slider-tooltip-wrap">
-            <span className="anim-slider-tooltip-btn">?</span>
-            <span className="anim-slider-tooltip-box">{tooltip}</span>
-          </span>
-        )}
+        {tooltip && <HelpButton text={tooltip} mode="hover" />}
       </span>
       <input type="range" min={min} max={max} step={step} value={value}
         className="anim-tile-slider"

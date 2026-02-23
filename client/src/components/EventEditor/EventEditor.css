@@ -296,27 +296,6 @@
   font-size: 11px;
 }
 
-.event-editor-tooltip-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #555;
-  color: #ccc;
-  font-size: 10px;
-  font-weight: bold;
-  cursor: help;
-  user-select: none;
-  flex-shrink: 0;
-}
-
-.event-editor-tooltip-icon:hover {
-  background: #2675bf;
-  color: #fff;
-}
-
 /* Right panel */
 .event-editor-right {
   flex: 1;

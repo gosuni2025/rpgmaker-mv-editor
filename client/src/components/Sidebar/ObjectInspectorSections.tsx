@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import DragLabel from '../common/DragLabel';
+import HelpButton from '../common/HelpButton';
 import { ShaderEditorDialog, ShaderEntry } from '../EventEditor/shaderEditor';
 import { SHADER_DEFINITIONS } from '../EventEditor/shaderDefinitions';
 import AnimationPickerDialog from '../EventEditor/AnimationPickerDialog';
@@ -81,7 +82,6 @@ export function ObjectAnimSection({ selectedObj, updateObject, showAnimationPick
 
 // ─── Image Preview + Anchor ───
 export function ObjectImagePreviewSection({ selectedObj, updateObject, onDragStart, onDragEnd }: ObjSectionProps) {
-  const [showAnchorHelp, setShowAnchorHelp] = useState(false);
   const anchorY = selectedObj.anchorY ?? 1.0;
 
   return (
@@ -118,18 +118,14 @@ export function ObjectImagePreviewSection({ selectedObj, updateObject, onDragSta
       <div className="light-inspector-section">
         <div className="light-inspector-title">
           앵커
-          <button className="sky-type-help" style={{ marginLeft: 6 }}
-            onClick={() => setShowAnchorHelp(!showAnchorHelp)} title="앵커 도움말">?</button>
-        </div>
-        {showAnchorHelp && (
-          <div className="sky-help-popup" onClick={() => setShowAnchorHelp(false)}>
+          <HelpButton placement="bottom">
             <strong>앵커</strong>는 3D 모드에서 이미지가 타일 맵과 수직으로 세워질 때의 <strong>기준점</strong>입니다.<br/><br/>
             <strong>1.0 (하단)</strong>: 이미지 하단이 지면에 닿음 — 나무, 건물 등<br/>
             <strong>0.5 (중앙)</strong>: 이미지 중심이 지면 높이 — 공중 부유 오브젝트<br/>
             <strong>0.0 (상단)</strong>: 이미지 상단이 지면 높이<br/><br/>
             프리뷰의 <span style={{ color: '#ff3232' }}>빨간 원</span>이 앵커 위치입니다.
-          </div>
-        )}
+          </HelpButton>
+        </div>
         <div className="light-inspector-row">
           <DragLabel label="Y" value={anchorY} step={0.05} min={0} max={1}
             onDragStart={onDragStart} onDragEnd={onDragEnd}

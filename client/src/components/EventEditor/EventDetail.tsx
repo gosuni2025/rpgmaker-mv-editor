@@ -8,6 +8,7 @@ import ImagePicker from '../common/ImagePicker';
 import MoveRouteDialog from './MoveRouteDialog';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import ExtBadge from '../common/ExtBadge';
+import HelpButton from '../common/HelpButton';
 import { useEventEditor } from './useEventEditor';
 import './EventEditor.css';
 
@@ -167,14 +168,14 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
                   <label className="event-editor-checkbox event-editor-billboard-row">
                     <input type="checkbox" checked={page.billboard !== false} onChange={e => updatePage(activePage, { billboard: e.target.checked })} />
                     {t('eventDetail.billboard3d')}
-                    <span className="event-editor-tooltip-icon" title={t('eventDetail.billboard3dTooltip')}>?</span>
+                    <HelpButton text={t('eventDetail.billboard3dTooltip')} mode="hover" />
                   </label>
                   {page.billboard !== false && (
                     <div className="event-editor-billboard-z-row">
                       <span className="event-editor-form-label">{t('eventDetail.billboardZ')}</span>
                       <input type="number" value={page.billboardZ ?? 0} step={0.1} onChange={e => updatePage(activePage, { billboardZ: Number(e.target.value) })} className="event-editor-input event-editor-input-sm" style={{ width: 60 }} />
                       <span className="event-editor-billboard-z-unit">{t('eventDetail.billboardZUnit')}</span>
-                      <span className="event-editor-tooltip-icon" title={t('eventDetail.billboardZTooltip')}>?</span>
+                      <HelpButton text={t('eventDetail.billboardZTooltip')} mode="hover" />
                     </div>
                   )}
                 </fieldset>

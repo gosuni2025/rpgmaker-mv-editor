@@ -1,34 +1,49 @@
 import React, { useState } from 'react';
+import './HelpButton.css';
 
-export default function HelpButton({ text }: { text: string }) {
+interface HelpButtonProps {
+  text?: string;
+  children?: React.ReactNode;
+  placement?: 'right' | 'bottom' | 'left';
+  mode?: 'click' | 'hover';
+}
+
+export default function HelpButton({ text, children, placement = 'right', mode = 'click' }: HelpButtonProps) {
   const [show, setShow] = useState(false);
+
+  const content = children ?? (text
+    ? text.split(/\\n|\n/).map((line, i, arr) => (
+        <React.Fragment key={i}>
+          {line}
+          {i < arr.length - 1 && <br />}
+        </React.Fragment>
+      ))
+    : null);
+
+  if (!content) return null;
+
+  if (mode === 'hover') {
+    return (
+      <span
+        className={`help-btn-wrap help-btn-${placement} help-btn-hover`}
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+      >
+        <span className="help-btn-icon">?</span>
+        {show && <div className="help-btn-popup">{content}</div>}
+      </span>
+    );
+  }
+
   return (
-    <span style={{ position: 'relative', display: 'inline-block', marginLeft: 4 }}>
+    <span className={`help-btn-wrap help-btn-${placement}`}>
       <button
-        style={{
-          width: 16, height: 16, borderRadius: '50%', border: '1px solid #666',
-          background: '#383838', color: '#aaa', fontSize: 10, lineHeight: '14px',
-          padding: 0, cursor: 'pointer', verticalAlign: 'middle',
-        }}
-        onClick={() => setShow(!show)}
+        className={`help-btn-icon${show ? ' active' : ''}`}
+        onClick={() => setShow(v => !v)}
         onBlur={() => setShow(false)}
         title={text}
       >?</button>
-      {show && (
-        <div style={{
-          position: 'absolute', left: 20, top: -4, zIndex: 100,
-          background: '#333', border: '1px solid #555', borderRadius: 4,
-          padding: '6px 10px', fontSize: 11, color: '#ccc',
-          minWidth: 180, maxWidth: 260, boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-        }}>
-          {text.split(/\\n|\n/).map((line, i, arr) => (
-            <React.Fragment key={i}>
-              {line}
-              {i < arr.length - 1 && <br />}
-            </React.Fragment>
-          ))}
-        </div>
-      )}
+      {show && <div className="help-btn-popup">{content}</div>}
     </span>
   );
 }

@@ -1,0 +1,73 @@
+.help-btn-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.help-btn-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #666;
+  background: #383838;
+  color: #aaa;
+  font-size: 10px;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  user-select: none;
+}
+
+button.help-btn-icon:hover,
+button.help-btn-icon.active {
+  background: #2675bf;
+  color: #fff;
+  border-color: #2675bf;
+}
+
+.help-btn-hover .help-btn-icon {
+  cursor: help;
+}
+
+.help-btn-popup {
+  position: absolute;
+  z-index: 1000;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #ccc;
+  min-width: 180px;
+  max-width: 300px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  line-height: 1.6;
+  white-space: normal;
+  pointer-events: none;
+}
+
+/* 팝업 방향 */
+.help-btn-right .help-btn-popup {
+  left: calc(100% + 4px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.help-btn-bottom .help-btn-popup {
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+}
+
+.help-btn-left .help-btn-popup {
+  right: calc(100% + 4px);
+  top: 50%;
+  transform: translateY(-50%);
+}

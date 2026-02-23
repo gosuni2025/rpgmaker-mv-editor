@@ -6,6 +6,7 @@ import AudioPicker from '../common/AudioPicker';
 import BattlebackPicker from '../common/BattlebackPicker';
 import SkyBackgroundPicker from '../common/SkyBackgroundPicker';
 import ExtBadge from '../common/ExtBadge';
+import HelpButton from '../common/HelpButton';
 import type { AudioFile, DofConfig } from '../../types/rpgMakerMV';
 import { DEFAULT_DOF_CONFIG } from '../../types/rpgMakerMV';
 import { AnimTileShaderSection } from './AnimTileShaderSection';
@@ -30,7 +31,6 @@ export default function MapInspector() {
   // Inline name editing
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
-  const [showSkyHelp, setShowSkyHelp] = useState(false);
 
   // Tilesets
   const [tilesets, setTilesets] = useState<TilesetEntry[]>([]);
@@ -307,20 +307,12 @@ export default function MapInspector() {
           >
             Sky Sphere
           </button>
-          <span
-            className="sky-type-help"
-            onClick={() => setShowSkyHelp(!showSkyHelp)}
-          >
-            ?
-          </span>
-        </div>
-        {showSkyHelp && (
-          <div className="sky-help-popup" onClick={() => setShowSkyHelp(false)}>
+          <HelpButton placement="bottom">
             <strong>Sky Sphere</strong>는 에디터 확장 기능입니다.<br />
             3D 모드에서 파노라마 이미지를 구체에 매핑하여 하늘 배경을 표현합니다.<br /><br />
-            이 데이터는 별도의 확장 파일(<code>_ext.json</code>)에 저장되므로 RPG Maker MV 원본 에디터와 호환됩니다.
-          </div>
-        )}
+            이 데이터는 별도의 확장 파일(<code style={{ background: '#222', padding: '0 3px', borderRadius: 2 }}>_ext.json</code>)에 저장되므로 RPG Maker MV 원본 에디터와 호환됩니다.
+          </HelpButton>
+        </div>
 
         {/* Parallax mode (default MV) */}
         {(!currentMap.skyBackground || currentMap.skyBackground.type === 'parallax') && (
