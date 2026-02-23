@@ -59,6 +59,7 @@ export default function UIEditorCanvas() {
   const projectPath = useEditorStore((s) => s.projectPath);
   const uiEditorScene = useEditorStore((s) => s.uiEditorScene);
   const uiEditorIframeReady = useEditorStore((s) => s.uiEditorIframeReady);
+  const uiSkinsReloadToken = useEditorStore((s) => s.uiSkinsReloadToken);
   const uiEditorWindows = useEditorStore((s) => s.uiEditorWindows);
   const uiEditorSelectedWindowId = useEditorStore((s) => s.uiEditorSelectedWindowId);
   const uiEditorOverrides = useEditorStore((s) => s.uiEditorOverrides);
@@ -151,6 +152,16 @@ export default function UIEditorCanvas() {
       { type: 'loadScene', sceneName: uiEditorScene }, '*'
     );
   }, [uiEditorIframeReady, uiEditorScene]);
+
+  // 스킨 데이터 변경(기본 스킨 변경 등) 시 씬 재로드
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (!uiEditorIframeReady) return;
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: 'loadScene', sceneName: uiEditorScene }, '*'
+    );
+  }, [uiSkinsReloadToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 드래그 중 커서 스타일 + iframe pointer-events 비활성화
   useEffect(() => {
