@@ -88,47 +88,53 @@ async function installBundles() {
 
   await broadcast({ type: 'bundle-start', version, total: bundles.length });
 
-  let totalFiles = 0;
+  // Phase 1: 모든 ZIP 병렬 다운로드 (이 단계에서는 totalFiles 미확정)
+  const zipList = await Promise.all(bundles.map(async ({ file, prefix }) => {
+    const res = await fetch(base + 'bundles/' + file, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`${file} ${res.status}`);
+    const buffer = await res.arrayBuffer();
+    const zip = await JSZip.loadAsync(buffer);
+    return { prefix, zip, file };
+  })).catch(async (e) => {
+    await broadcast({ type: 'bundle-error', file: '', error: String(e) });
+    return null;
+  });
+  if (!zipList) return;
+
+  // Phase 2: 전체 파일 목록을 먼저 수집 → totalFiles 확정 (진행률 역주행 방지)
+  const allEntries = [];
+  for (const { prefix, zip } of zipList) {
+    zip.forEach((relativePath, zipFile) => {
+      if (!zipFile.dir) allEntries.push({ prefix, relativePath, zipFile });
+    });
+  }
+  const totalFiles = allEntries.length;
   let loadedFiles = 0;
+  await broadcast({ type: 'bundle-progress', totalFiles, loadedFiles });
 
-  // ZIP 병렬 다운로드 + 압축 해제
-  await Promise.all(bundles.map(async ({ file, prefix }) => {
+  // Phase 3: 전체 파일 병렬 추출 → 캐시 저장
+  await Promise.all(allEntries.map(async ({ prefix, relativePath, zipFile }) => {
     try {
-      const res = await fetch(base + 'bundles/' + file, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`${file} ${res.status}`);
-
-      const buffer = await res.arrayBuffer();
-      const zip = await JSZip.loadAsync(buffer);
-
-      const fileEntries = [];
-      zip.forEach((relativePath, zipFile) => {
-        if (!zipFile.dir) fileEntries.push({ relativePath, zipFile });
-      });
-      totalFiles += fileEntries.length;
-      await broadcast({ type: 'bundle-progress', totalFiles, loadedFiles });
-
-      await Promise.all(fileEntries.map(async ({ relativePath, zipFile }) => {
-        const data = await zipFile.async('arraybuffer');
-        // prefix = "img/", relativePath = "characters/Actor1.png"
-        // WebP 변환된 프로젝트: .webp 파일을 .png 키로 저장 → 게임의 .png 요청과 매칭
-        const cacheKey = relativePath.replace(/\.webp$/i, '.png');
-        const cacheUrl = base + prefix + cacheKey;
-        await dataCache.put(
-          new Request(cacheUrl),
-          new Response(data, {
-            headers: {
-              'Content-Type': mimeType(relativePath),
-              'Content-Length': String(data.byteLength),
-            },
-          })
-        );
-        loadedFiles++;
-        if (loadedFiles % 5 === 0 || loadedFiles === totalFiles) {
-          await broadcast({ type: 'bundle-progress', totalFiles, loadedFiles });
-        }
-      }));
+      const data = await zipFile.async('arraybuffer');
+      // prefix = "img/", relativePath = "characters/Actor1.png"
+      // WebP 변환된 프로젝트: .webp 파일을 .png 키로 저장 → 게임의 .png 요청과 매칭
+      const cacheKey = relativePath.replace(/\.webp$/i, '.png');
+      const cacheUrl = base + prefix + cacheKey;
+      await dataCache.put(
+        new Request(cacheUrl),
+        new Response(data, {
+          headers: {
+            'Content-Type': mimeType(relativePath),
+            'Content-Length': String(data.byteLength),
+          },
+        })
+      );
+      loadedFiles++;
+      if (loadedFiles % 5 === 0 || loadedFiles === totalFiles) {
+        await broadcast({ type: 'bundle-progress', totalFiles, loadedFiles });
+      }
     } catch (e) {
-      await broadcast({ type: 'bundle-error', file, error: String(e) });
+      await broadcast({ type: 'bundle-error', file: relativePath, error: String(e) });
     }
   }));
 
