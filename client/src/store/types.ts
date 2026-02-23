@@ -146,6 +146,38 @@ export interface ClipboardData {
   passage?: { x: number; y: number; value: number }[];
 }
 
+export interface UIWindowInfo {
+  id: string;
+  className: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  opacity: number;
+  backOpacity: number;
+  padding: number;
+  fontSize: number;
+  fontFace: string;
+  windowskinName: string;
+  colorTone: [number, number, number];
+  visible: boolean;
+}
+
+export interface UIWindowOverride {
+  className: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  opacity?: number;
+  backOpacity?: number;
+  padding?: number;
+  fontSize?: number;
+  fontFace?: string;
+  windowskinName?: string;
+  colorTone?: [number, number, number];
+}
+
 export interface EditorState {
   // Project
   projectPath: string | null;
@@ -163,6 +195,17 @@ export interface EditorState {
   systemData: SystemData | null;
   playerCharacterName: string | null;
   playerCharacterIndex: number;
+
+  // Top-level editor mode
+  editorMode: 'map' | 'ui';
+
+  // UI Editor state
+  uiEditorScene: string;
+  uiEditorIframeReady: boolean;
+  uiEditorWindows: UIWindowInfo[];
+  uiEditorSelectedWindowId: string | null;
+  uiEditorOverrides: Record<string, UIWindowOverride>;
+  uiEditorDirty: boolean;
 
   // Mode
   editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage';
@@ -297,6 +340,18 @@ export interface EditorState {
   useWebp: boolean;
   webpConverting: boolean;
 
+
+  // Actions - Editor mode
+  setEditorMode: (mode: 'map' | 'ui') => void;
+
+  // Actions - UI Editor
+  setUiEditorScene: (scene: string) => void;
+  setUiEditorIframeReady: (ready: boolean) => void;
+  setUiEditorWindows: (windows: UIWindowInfo[]) => void;
+  setUiEditorSelectedWindowId: (id: string | null) => void;
+  setUiEditorOverride: (className: string, prop: keyof Omit<UIWindowOverride, 'className'>, value: unknown) => void;
+  resetUiEditorOverride: (className: string) => void;
+  setUiEditorDirty: (dirty: boolean) => void;
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;

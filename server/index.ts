@@ -21,38 +21,14 @@ import localizationRoutes from './routes/localization';
 import settingsRoutes from './routes/settings';
 import projectSettingsRoutes from './routes/projectSettings';
 import versionRoutes from './routes/version';
-import bundleRoutes from './routes/bundles';
+import uiEditorRoutes from './routes/uiEditor';
+import gameRoutes, { createPlaytestSession, attachGameStatic, buildGameHtml } from './routes/game';
 
 export interface AppOptions {
   runtimePath?: string;
   clientDistPath?: string;
 }
 
-// ── 인메모리 플레이테스트 세션 (DEMO_MODE용) ──────────────────────────────
-interface PlaytestSession {
-  mapId: number;
-  mapData: Record<string, unknown>;
-  expiresAt: number;
-}
-const playtestSessions = new Map<string, PlaytestSession>();
-const SESSION_TTL_MS = 30 * 60 * 1000; // 30분
-const MAX_SESSIONS = 200;
-
-function createPlaytestSession(mapId: number, mapData: Record<string, unknown>): string {
-  // 만료 세션 정리
-  const now = Date.now();
-  for (const [token, session] of playtestSessions) {
-    if (session.expiresAt < now) playtestSessions.delete(token);
-  }
-  // 최대 세션 초과 시 가장 오래된 것 제거
-  if (playtestSessions.size >= MAX_SESSIONS) {
-    const oldest = [...playtestSessions.entries()].sort((a, b) => a[1].expiresAt - b[1].expiresAt)[0];
-    if (oldest) playtestSessions.delete(oldest[0]);
-  }
-  const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-  playtestSessions.set(token, { mapId, mapData, expiresAt: now + SESSION_TTL_MS });
-  return token;
-}
 
 export function createApp(options: AppOptions = {}) {
   const DEMO_MODE = process.env.DEMO_MODE === 'true';
@@ -620,6 +596,7 @@ export function createApp(options: AppOptions = {}) {
   app.use('/api/settings', settingsRoutes);
   app.use('/api/project-settings', projectSettingsRoutes);
   app.use('/api/version', versionRoutes);
+  app.use('/api/ui-editor', uiEditorRoutes);
 
   // Electron 패키징 시 클라이언트 정적 파일 서빙
   if (options.clientDistPath) {

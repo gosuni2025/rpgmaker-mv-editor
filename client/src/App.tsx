@@ -39,6 +39,9 @@ import useFileWatcher from './hooks/useFileWatcher';
 import useAutoSave from './hooks/useAutoSave';
 import useDialogDrag from './hooks/useDialogDrag';
 import i18n from './i18n';
+import UIEditorCanvas from './components/UIEditor/UIEditorCanvas';
+import UIEditorSidebar from './components/UIEditor/UIEditorSidebar';
+import UIEditorInspector from './components/UIEditor/UIEditorInspector';
 
 function formatRelativeTime(createdAt: number, now: number): string {
   const sec = Math.floor((now - createdAt) / 1000);
@@ -89,6 +92,7 @@ export default function App() {
   const projectPath = useEditorStore((s) => s.projectPath);
   const currentMap = useEditorStore((s) => s.currentMap);
   const editMode = useEditorStore((s) => s.editMode);
+  const editorMode = useEditorStore((s) => s.editorMode);
   const showDatabaseDialog = useEditorStore((s) => s.showDatabaseDialog);
   const showOpenProjectDialog = useEditorStore((s) => s.showOpenProjectDialog);
   const showNewProjectDialog = useEditorStore((s) => s.showNewProjectDialog);
@@ -265,47 +269,67 @@ export default function App() {
   };
 
   return (
-    <div className={`app-layout${currentMap ? ' with-inspector' : ''}`}>
+    <div className={`app-layout${editorMode === 'map' && currentMap ? ' with-inspector' : ''}${editorMode === 'ui' ? ' with-inspector' : ''}`}>
       <MenuBar />
 
-      <div className="sidebar">
-        <ResizablePanel defaultWidth={260} minWidth={150} maxWidth={500}>
-          <SidebarSplit editMode={editMode} />
-        </ResizablePanel>
-      </div>
-
-      {currentMap && (
-        <div className="toolbar-area">
-          <DrawToolbar />
-        </div>
-      )}
-
-      <div className="main-area">
-        {!projectPath ? (
-          <div className="main-placeholder">
-            <h2>RPG Maker MV Editor</h2>
-            <p>파일 &gt; 프로젝트 열기로 프로젝트를 열어주세요</p>
+      {editorMode === 'ui' ? (
+        <>
+          <div className="sidebar">
+            <ResizablePanel defaultWidth={220} minWidth={150} maxWidth={400}>
+              <UIEditorSidebar />
+            </ResizablePanel>
           </div>
-        ) : !currentMap ? (
-          <div className="main-placeholder">
-            <p>맵을 선택해주세요</p>
+          <div className="main-area">
+            <UIEditorCanvas />
           </div>
-        ) : (
-          <MapCanvas />
-        )}
-      </div>
+          <div className="inspector-area">
+            <ResizablePanel defaultWidth={280} minWidth={200} maxWidth={500} side="left">
+              <UIEditorInspector />
+            </ResizablePanel>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="sidebar">
+            <ResizablePanel defaultWidth={260} minWidth={150} maxWidth={500}>
+              <SidebarSplit editMode={editMode} />
+            </ResizablePanel>
+          </div>
 
-      {currentMap && (
-        <div className="inspector-area">
-          <ResizablePanel defaultWidth={280} minWidth={200} maxWidth={500} side="left">
-            {editMode === 'event' ? <EventInspector />
-              : editMode === 'object' ? <ObjectInspector />
-              : editMode === 'cameraZone' ? <CameraZoneInspector />
-              : editMode === 'passage' ? <PassageInspector />
-              : lightEditMode ? <LightInspector />
-              : <MapInspector />}
-          </ResizablePanel>
-        </div>
+          {currentMap && (
+            <div className="toolbar-area">
+              <DrawToolbar />
+            </div>
+          )}
+
+          <div className="main-area">
+            {!projectPath ? (
+              <div className="main-placeholder">
+                <h2>RPG Maker MV Editor</h2>
+                <p>파일 &gt; 프로젝트 열기로 프로젝트를 열어주세요</p>
+              </div>
+            ) : !currentMap ? (
+              <div className="main-placeholder">
+                <p>맵을 선택해주세요</p>
+              </div>
+            ) : (
+              <MapCanvas />
+            )}
+          </div>
+
+          {currentMap && (
+            <div className="inspector-area">
+              <ResizablePanel defaultWidth={280} minWidth={200} maxWidth={500} side="left">
+                {editMode === 'event' ? <EventInspector />
+                  : editMode === 'object' ? <ObjectInspector />
+                  : editMode === 'cameraZone' ? <CameraZoneInspector />
+                  : editMode === 'passage' ? <PassageInspector />
+                  : lightEditMode ? <LightInspector />
+                  : <MapInspector />}
+              </ResizablePanel>
+            </div>
+          )}
+        </>
       )}
 
       <StatusBar />

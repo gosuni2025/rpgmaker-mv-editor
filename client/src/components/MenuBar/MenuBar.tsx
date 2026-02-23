@@ -6,6 +6,7 @@ import apiClient, { ApiError } from '../../api/client';
 import { getRecentProjects, removeRecentProject } from '../OpenProjectDialog';
 import { useMenuBarKeyboard } from './useMenuBarKeyboard';
 import './MenuBar.css';
+import '../UIEditor/UIEditor.css';
 
 interface MenuItem {
   label?: string;
@@ -30,6 +31,8 @@ export default function MenuBar() {
   const projectPath = useEditorStore((s) => s.projectPath);
   const currentMapId = useEditorStore((s) => s.currentMapId);
   const editMode = useEditorStore((s) => s.editMode);
+  const editorMode = useEditorStore((s) => s.editorMode);
+  const setEditorMode = useEditorStore((s) => s.setEditorMode);
   const selectedTool = useEditorStore((s) => s.selectedTool);
   const drawShape = useEditorStore((s) => s.drawShape);
   const undoStack = useEditorStore((s) => s.undoStack);
@@ -380,6 +383,22 @@ export default function MenuBar() {
           )}
         </div>
       ))}
+      <div className="menubar-mode-toggle">
+        <button
+          className={`menubar-mode-btn${editorMode === 'map' ? ' active' : ''}`}
+          onMouseDown={(e) => { e.stopPropagation(); setEditorMode('map'); }}
+          title="맵 편집 모드"
+        >
+          맵
+        </button>
+        <button
+          className={`menubar-mode-btn${editorMode === 'ui' ? ' active' : ''}`}
+          onMouseDown={(e) => { e.stopPropagation(); setEditorMode('ui'); }}
+          title="UI 편집 모드"
+        >
+          UI
+        </button>
+      </div>
     </div>
   );
 }
