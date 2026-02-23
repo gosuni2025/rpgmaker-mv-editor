@@ -72,15 +72,26 @@ export default function UIEditorFrameInspector() {
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">선택된 스킨</div>
           <div className="ui-inspector-row">
-            <div className="ui-inspector-label" style={{ fontSize: 13, color: '#ddd' }}>
-              {uiSelectedSkin || '—'}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ fontSize: 11, color: '#888' }}>ID (변경 불가)</span>
+              <span style={{ fontSize: 13, color: '#ddd', fontFamily: 'monospace' }}>{uiSelectedSkin || '—'}</span>
             </div>
           </div>
-          <div className="ui-inspector-row" style={{ paddingTop: 0 }}>
-            <div className="ui-inspector-label" style={{ fontSize: 11, color: '#777' }}>
-              img/system/{uiSelectedSkinFile || uiSelectedSkin}.png
+          {uiSelectedSkinFile && uiSelectedSkinFile !== uiSelectedSkin && (
+            <div className="ui-inspector-row" style={{ paddingTop: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 11, color: '#888' }}>파일</span>
+                <span style={{ fontSize: 11, color: '#aaa' }}>img/system/{uiSelectedSkinFile}.png</span>
+              </div>
             </div>
-          </div>
+          )}
+          {(!uiSelectedSkinFile || uiSelectedSkinFile === uiSelectedSkin) && (
+            <div className="ui-inspector-row" style={{ paddingTop: 0 }}>
+              <div className="ui-inspector-label" style={{ fontSize: 11, color: '#777' }}>
+                img/system/{uiSelectedSkin}.png
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 프레임 영역 */}

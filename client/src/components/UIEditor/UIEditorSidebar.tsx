@@ -248,7 +248,7 @@ function SkinList() {
                   )}
                 </div>
                 <div className="window-class">
-                  {skin.file && skin.file !== skin.name ? `${skin.file} · ` : ''}코너: {skin.cornerSize}px
+                  ID: {skin.name}{skin.file && skin.file !== skin.name ? ` · 파일: ${skin.file}` : ''} · 코너: {skin.cornerSize}px
                 </div>
               </div>
               <button
