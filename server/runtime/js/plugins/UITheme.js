@@ -53,6 +53,43 @@
     }
   })();
 
+  /** 현재 defaultSkin 의 fill 영역 정보 취득 (없으면 MV 기본값 0,0,96,96) */
+  function getDefaultFillRect() {
+    var skinName = _skins.defaultSkin;
+    if (!skinName || !Array.isArray(_skins.skins)) return { x: 0, y: 0, w: 96, h: 96 };
+    var entry = _skins.skins.filter(function (s) { return s.name === skinName; })[0];
+    if (!entry) return { x: 0, y: 0, w: 96, h: 96 };
+    return {
+      x: entry.fillX !== undefined ? entry.fillX : 0,
+      y: entry.fillY !== undefined ? entry.fillY : 0,
+      w: entry.fillW !== undefined ? entry.fillW : 96,
+      h: entry.fillH !== undefined ? entry.fillH : 96,
+    };
+  }
+
+  //===========================================================================
+  // Window — fill 영역 커스터마이징 (_refreshBack 오버라이드)
+  //===========================================================================
+  var _Window_refreshBack = Window.prototype._refreshBack;
+  Window.prototype._refreshBack = function () {
+    var fill = getDefaultFillRect();
+    // MV 기본값(0,0,96,96)이면 원본 호출
+    if (fill.x === 0 && fill.y === 0 && fill.w === 96 && fill.h === 96) {
+      return _Window_refreshBack.call(this);
+    }
+    var m = this._margin;
+    var w = this._width - m * 2;
+    var h = this._height - m * 2;
+    if (w <= 0 || h <= 0) return;
+    var bitmap = new Bitmap(w, h);
+    this._backSprite.bitmap = bitmap;
+    this._backSprite.setFrame(0, 0, w, h);
+    this._backSprite.move(m, m);
+    // fill 영역을 stretch로 배경 전체에 그림
+    bitmap.blt(this._windowskin, fill.x, fill.y, fill.w, fill.h, 0, 0, w, h);
+    bitmap.paintOpacity = this.backOpacity;
+  };
+
   var _ov = _config.overrides || {};
 
   /** 전역(Global) 설정값 취득 */

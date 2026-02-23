@@ -234,8 +234,14 @@ export interface EditorState {
   uiSkinFrameY: number;        // 프레임 영역 Y
   uiSkinFrameW: number;        // 프레임 영역 너비
   uiSkinFrameH: number;        // 프레임 영역 높이
+  uiSkinFillX: number;         // fill 영역 X
+  uiSkinFillY: number;         // fill 영역 Y
+  uiSkinFillW: number;         // fill 영역 너비
+  uiSkinFillH: number;         // fill 영역 높이
   uiEditorSelectedElementType: string | null; // 선택된 요소 타입 (actorName, hp 등)
-  uiShowSkinLabels: boolean;   // 프레임 캔버스 영역 라벨 표시 여부
+  uiShowSkinLabels: boolean;    // 프레임 캔버스 영역 라벨 표시 여부
+  uiShowCheckerboard: boolean;  // 프레임 캔버스 투명 체크보드 표시 여부
+  uiShowRegionOverlay: boolean; // 프레임 캔버스 영역 컬러 오버레이 표시 여부
 
   // Mode
   editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage';
@@ -387,9 +393,12 @@ export interface EditorState {
   setUiSelectedSkin: (skin: string) => void;
   setUiSkinCornerSize: (size: number) => void;
   setUiSkinFrame: (x: number, y: number, w: number, h: number) => void;
+  setUiSkinFill: (x: number, y: number, w: number, h: number) => void;
   setUiEditorSelectedElementType: (type: string | null) => void;
   setUiElementOverride: (className: string, elementType: string, prop: string, value: unknown) => void;
   setUiShowSkinLabels: (show: boolean) => void;
+  setUiShowCheckerboard: (show: boolean) => void;
+  setUiShowRegionOverlay: (show: boolean) => void;
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;

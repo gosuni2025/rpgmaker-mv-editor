@@ -460,7 +460,7 @@ router.put('/config', (req, res) => {
 
 // ─── UIEditorSkins.json 관리 ─────────────────────────────────────────────────
 
-interface SkinEntry { name: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; }
+interface SkinEntry { name: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; }
 interface SkinsData { defaultSkin: string; skins: SkinEntry[]; }
 
 const DEFAULT_SKINS: SkinEntry[] = [{ name: 'Window', cornerSize: 24 }];
@@ -525,12 +525,16 @@ router.put('/skins/:name', (req, res) => {
   const data = readSkinsData();
   const idx = data.skins.findIndex((s) => s.name === req.params.name);
   if (idx < 0) return res.status(404).json({ error: 'Not found' });
-  const { cornerSize, frameX, frameY, frameW, frameH } = req.body as { cornerSize?: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number };
+  const { cornerSize, frameX, frameY, frameW, frameH, fillX, fillY, fillW, fillH } = req.body as { cornerSize?: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number };
   if (cornerSize !== undefined) data.skins[idx].cornerSize = cornerSize;
   if (frameX !== undefined) data.skins[idx].frameX = frameX;
   if (frameY !== undefined) data.skins[idx].frameY = frameY;
   if (frameW !== undefined) data.skins[idx].frameW = frameW;
   if (frameH !== undefined) data.skins[idx].frameH = frameH;
+  if (fillX !== undefined) data.skins[idx].fillX = fillX;
+  if (fillY !== undefined) data.skins[idx].fillY = fillY;
+  if (fillW !== undefined) data.skins[idx].fillW = fillW;
+  if (fillH !== undefined) data.skins[idx].fillH = fillH;
   writeSkinsData(data);
   res.json({ ok: true });
 });

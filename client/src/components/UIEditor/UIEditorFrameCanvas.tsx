@@ -19,6 +19,8 @@ type DragState =
   | { type: 'slice'; axis: 'x' | 'y'; nearFirst: boolean }
   | { type: 'frame_move'; ox: number; oy: number; startFX: number; startFY: number }
   | { type: 'frame_resize'; edge: 'left' | 'right' | 'top' | 'bottom'; startFX: number; startFY: number; startFW: number; startFH: number }
+  | { type: 'fill_move'; ox: number; oy: number; startFX: number; startFY: number }
+  | { type: 'fill_resize'; edge: 'left' | 'right' | 'top' | 'bottom'; startFX: number; startFY: number; startFW: number; startFH: number }
   | null;
 
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
@@ -28,6 +30,7 @@ function drawSkin(
   img: HTMLImageElement,
   imgW: number, imgH: number,
   frameX: number, frameY: number, frameW: number, frameH: number,
+  fillX: number, fillY: number, fillW: number, fillH: number,
   cornerSize: number,
   showLabels: boolean,
   showCheckerboard: boolean,
@@ -71,6 +74,22 @@ function drawSkin(
     ctx.moveTo(0, 96 * S + 0.5); ctx.lineTo(cw, 96 * S + 0.5);
     ctx.stroke();
   }
+
+  // ── fill 영역 하이라이트 ───────────────────────────────────────────────────
+  const flx = fillX * S, fly = fillY * S, flw = fillW * S, flh = fillH * S;
+
+  ctx.fillStyle = 'rgba(80,200,100,0.2)';
+  ctx.fillRect(flx, fly, flw, flh);
+
+  ctx.strokeStyle = 'rgba(80,220,80,0.8)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  ctx.strokeRect(flx + 0.5, fly + 0.5, flw - 1, flh - 1);
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = 'rgba(80,220,80,0.85)';
+  ctx.font = `bold ${7 * S}px sans-serif`;
+  ctx.fillText('fill', flx + 2 * S, fly + 9 * S);
 
   // ── 프레임 영역 하이라이트 ─────────────────────────────────────────────────
   const fx = frameX * S, fy = frameY * S, fw = frameW * S, fh = frameH * S;
@@ -143,6 +162,7 @@ function drawSkin(
 function getHit(
   ix: number, iy: number,
   frameX: number, frameY: number, frameW: number, frameH: number,
+  fillX: number, fillY: number, fillW: number, fillH: number,
   cs: number,
 ): DragState {
   const csC = clamp(cs, 1, Math.floor(Math.min(frameW, frameH) / 2) - 1);
@@ -170,14 +190,29 @@ function getHit(
   // 프레임 내부 — 이동
   if (inFX && inFY) return { type: 'frame_move', ox: ix - frameX, oy: iy - frameY, startFX: frameX, startFY: frameY };
 
+  // fill 영역 테두리 리사이즈
+  const inFlX = ix >= fillX && ix <= fillX + fillW;
+  const inFlY = iy >= fillY && iy <= fillY + fillH;
+  const onFlLeft   = inFlY && Math.abs(ix - fillX) <= EDGE_HIT;
+  const onFlRight  = inFlY && Math.abs(ix - (fillX + fillW)) <= EDGE_HIT;
+  const onFlTop    = inFlX && Math.abs(iy - fillY) <= EDGE_HIT;
+  const onFlBottom = inFlX && Math.abs(iy - (fillY + fillH)) <= EDGE_HIT;
+  if (onFlLeft)   return { type: 'fill_resize', edge: 'left',   startFX: fillX, startFY: fillY, startFW: fillW, startFH: fillH };
+  if (onFlRight)  return { type: 'fill_resize', edge: 'right',  startFX: fillX, startFY: fillY, startFW: fillW, startFH: fillH };
+  if (onFlTop)    return { type: 'fill_resize', edge: 'top',    startFX: fillX, startFY: fillY, startFW: fillW, startFH: fillH };
+  if (onFlBottom) return { type: 'fill_resize', edge: 'bottom', startFX: fillX, startFY: fillY, startFW: fillW, startFH: fillH };
+
+  // fill 내부 — 이동
+  if (inFlX && inFlY) return { type: 'fill_move', ox: ix - fillX, oy: iy - fillY, startFX: fillX, startFY: fillY };
+
   return null;
 }
 
 function getCursor(hit: DragState): string {
   if (!hit) return 'default';
   if (hit.type === 'slice') return hit.axis === 'x' ? 'ew-resize' : 'ns-resize';
-  if (hit.type === 'frame_move') return 'move';
-  if (hit.type === 'frame_resize') {
+  if (hit.type === 'frame_move' || hit.type === 'fill_move') return 'move';
+  if (hit.type === 'frame_resize' || hit.type === 'fill_resize') {
     if (hit.edge === 'left' || hit.edge === 'right') return 'ew-resize';
     return 'ns-resize';
   }
@@ -200,11 +235,16 @@ export default function UIEditorFrameCanvas() {
   const uiSkinFrameY  = useEditorStore((s) => s.uiSkinFrameY);
   const uiSkinFrameW  = useEditorStore((s) => s.uiSkinFrameW);
   const uiSkinFrameH  = useEditorStore((s) => s.uiSkinFrameH);
+  const uiSkinFillX   = useEditorStore((s) => s.uiSkinFillX);
+  const uiSkinFillY   = useEditorStore((s) => s.uiSkinFillY);
+  const uiSkinFillW   = useEditorStore((s) => s.uiSkinFillW);
+  const uiSkinFillH   = useEditorStore((s) => s.uiSkinFillH);
   const uiShowSkinLabels = useEditorStore((s) => s.uiShowSkinLabels);
   const uiShowCheckerboard = useEditorStore((s) => s.uiShowCheckerboard);
   const uiShowRegionOverlay = useEditorStore((s) => s.uiShowRegionOverlay);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
   const setUiSkinFrame = useEditorStore((s) => s.setUiSkinFrame);
+  const setUiSkinFill  = useEditorStore((s) => s.setUiSkinFill);
 
   const [zoom, setZoom] = useState(1);
 
@@ -237,6 +277,7 @@ export default function UIEditorFrameCanvas() {
     const s = useEditorStore.getState();
     drawSkin(ctx, img, imgSize.w, imgSize.h,
       s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH,
+      s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH,
       s.uiSkinCornerSize, s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay);
   }, [imgSize]);
 
@@ -265,6 +306,7 @@ export default function UIEditorFrameCanvas() {
       const s = useEditorStore.getState();
       drawSkin(ctx, img, w, h,
         s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH,
+        s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH,
         s.uiSkinCornerSize, s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay);
     };
     img.onerror = () => {
@@ -278,7 +320,7 @@ export default function UIEditorFrameCanvas() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectPath, uiSelectedSkin]);
 
-  useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay]);
+  useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay]);
 
   // 휠 줌
   useEffect(() => {
@@ -296,7 +338,7 @@ export default function UIEditorFrameCanvas() {
     const coords = toImageCoords(e.clientX, e.clientY);
     if (!coords) return;
     const s = useEditorStore.getState();
-    const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinCornerSize);
+    const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCornerSize);
     if (!hit) return;
     e.preventDefault();
     dragRef.current = hit;
@@ -335,6 +377,23 @@ export default function UIEditorFrameCanvas() {
           const newY = clamp(Math.round(c.iy), 0, startFY + startFH - MIN_SZ);
           st.setUiSkinFrame(startFX, newY, startFW, startFY + startFH - newY);
         }
+      } else if (drag.type === 'fill_move') {
+        const nx = clamp(Math.round(c.ix - drag.ox), 0, iw - st.uiSkinFillW);
+        const ny = clamp(Math.round(c.iy - drag.oy), 0, ih - st.uiSkinFillH);
+        st.setUiSkinFill(nx, ny, st.uiSkinFillW, st.uiSkinFillH);
+      } else if (drag.type === 'fill_resize') {
+        const { startFX, startFY, startFW, startFH, edge } = drag;
+        const MIN_SZ = 8;
+        if (edge === 'right')  st.setUiSkinFill(startFX, startFY, clamp(Math.round(c.ix - startFX), MIN_SZ, iw - startFX), startFH);
+        if (edge === 'bottom') st.setUiSkinFill(startFX, startFY, startFW, clamp(Math.round(c.iy - startFY), MIN_SZ, ih - startFY));
+        if (edge === 'left') {
+          const newX = clamp(Math.round(c.ix), 0, startFX + startFW - MIN_SZ);
+          st.setUiSkinFill(newX, startFY, startFX + startFW - newX, startFH);
+        }
+        if (edge === 'top') {
+          const newY = clamp(Math.round(c.iy), 0, startFY + startFH - MIN_SZ);
+          st.setUiSkinFill(startFX, newY, startFW, startFY + startFH - newY);
+        }
       }
     };
 
@@ -348,6 +407,8 @@ export default function UIEditorFrameCanvas() {
       const st = useEditorStore.getState();
       if (drag.type === 'slice') {
         await saveToServer({ cornerSize: st.uiSkinCornerSize });
+      } else if (drag.type === 'fill_move' || drag.type === 'fill_resize') {
+        await saveToServer({ fillX: st.uiSkinFillX, fillY: st.uiSkinFillY, fillW: st.uiSkinFillW, fillH: st.uiSkinFillH });
       } else {
         await saveToServer({ frameX: st.uiSkinFrameX, frameY: st.uiSkinFrameY, frameW: st.uiSkinFrameW, frameH: st.uiSkinFrameH });
       }
@@ -364,7 +425,7 @@ export default function UIEditorFrameCanvas() {
     const coords = toImageCoords(e.clientX, e.clientY);
     if (!coords) return;
     const s = useEditorStore.getState();
-    const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinCornerSize);
+    const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCornerSize);
     canvas.style.cursor = getCursor(hit);
   }, [toImageCoords]);
 

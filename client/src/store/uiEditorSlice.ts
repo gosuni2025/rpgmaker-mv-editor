@@ -12,12 +12,12 @@ function saveToolbarKeys(keys: Partial<Record<string, unknown>>) {
 export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' |
   'uiEditorSelectedWindowId' | 'uiEditorOverrides' | 'uiEditorDirty' |
-  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiShowSkinLabels' |
+  'uiEditSubMode' | 'uiSelectedSkin' | 'uiSkinCornerSize' | 'uiSkinFrameX' | 'uiSkinFrameY' | 'uiSkinFrameW' | 'uiSkinFrameH' | 'uiSkinFillX' | 'uiSkinFillY' | 'uiSkinFillW' | 'uiSkinFillH' | 'uiShowSkinLabels' | 'uiShowCheckerboard' | 'uiShowRegionOverlay' |
   'uiEditorSelectedElementType' |
   'setEditorMode' | 'setUiEditorScene' | 'setUiEditorIframeReady' | 'setUiEditorWindows' |
   'setUiEditorSelectedWindowId' | 'setUiEditorOverride' | 'resetUiEditorOverride' |
   'loadUiEditorOverrides' | 'setUiEditorDirty' |
-  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiShowSkinLabels' |
+  'setUiEditSubMode' | 'setUiSelectedSkin' | 'setUiSkinCornerSize' | 'setUiSkinFrame' | 'setUiSkinFill' | 'setUiShowSkinLabels' | 'setUiShowCheckerboard' | 'setUiShowRegionOverlay' |
   'setUiEditorSelectedElementType' | 'setUiElementOverride'
 >> = (set) => ({
   editorMode: 'map',
@@ -34,7 +34,13 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiSkinFrameY: 0,
   uiSkinFrameW: 96,
   uiSkinFrameH: 96,
+  uiSkinFillX: 0,
+  uiSkinFillY: 0,
+  uiSkinFillW: 96,
+  uiSkinFillH: 96,
   uiShowSkinLabels: false,
+  uiShowCheckerboard: true,
+  uiShowRegionOverlay: true,
   uiEditorSelectedElementType: null,
 
   setEditorMode: (mode) => { saveToolbarKeys({ editorMode: mode }); set({ editorMode: mode }); },
@@ -67,7 +73,10 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   setUiSelectedSkin: (skin) => set({ uiSelectedSkin: skin }),
   setUiSkinCornerSize: (size) => set({ uiSkinCornerSize: size }),
   setUiSkinFrame: (x, y, w, h) => set({ uiSkinFrameX: x, uiSkinFrameY: y, uiSkinFrameW: w, uiSkinFrameH: h }),
+  setUiSkinFill: (x, y, w, h) => set({ uiSkinFillX: x, uiSkinFillY: y, uiSkinFillW: w, uiSkinFillH: h }),
   setUiShowSkinLabels: (show) => set({ uiShowSkinLabels: show }),
+  setUiShowCheckerboard: (show) => set({ uiShowCheckerboard: show }),
+  setUiShowRegionOverlay: (show) => set({ uiShowRegionOverlay: show }),
   setUiEditorSelectedElementType: (type) => set({ uiEditorSelectedElementType: type }),
   setUiElementOverride: (className, elementType, prop, value) => {
     set((state) => {

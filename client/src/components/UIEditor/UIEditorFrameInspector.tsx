@@ -10,9 +10,14 @@ export default function UIEditorFrameInspector() {
   const uiSkinFrameY = useEditorStore((s) => s.uiSkinFrameY);
   const uiSkinFrameW = useEditorStore((s) => s.uiSkinFrameW);
   const uiSkinFrameH = useEditorStore((s) => s.uiSkinFrameH);
+  const uiSkinFillX = useEditorStore((s) => s.uiSkinFillX);
+  const uiSkinFillY = useEditorStore((s) => s.uiSkinFillY);
+  const uiSkinFillW = useEditorStore((s) => s.uiSkinFillW);
+  const uiSkinFillH = useEditorStore((s) => s.uiSkinFillH);
   const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
   const setUiSkinFrame = useEditorStore((s) => s.setUiSkinFrame);
+  const setUiSkinFill = useEditorStore((s) => s.setUiSkinFill);
   const setUiEditorDirty = useEditorStore((s) => s.setUiEditorDirty);
   const projectPath = useEditorStore((s) => s.projectPath);
 
@@ -45,7 +50,7 @@ export default function UIEditorFrameInspector() {
   const handleApply = async () => {
     if (!projectPath || !uiSelectedSkin) return;
     try {
-      await saveSkin({ cornerSize: uiSkinCornerSize, frameX: uiSkinFrameX, frameY: uiSkinFrameY, frameW: uiSkinFrameW, frameH: uiSkinFrameH });
+      await saveSkin({ cornerSize: uiSkinCornerSize, frameX: uiSkinFrameX, frameY: uiSkinFrameY, frameW: uiSkinFrameW, frameH: uiSkinFrameH, fillX: uiSkinFillX, fillY: uiSkinFillY, fillW: uiSkinFillW, fillH: uiSkinFillH });
       setUiEditorDirty(false);
       useEditorStore.getState().showToast('스킨 설정 저장 완료');
     } catch {
@@ -90,6 +95,26 @@ export default function UIEditorFrameInspector() {
           </div>
           <div style={{ padding: '2px 12px 4px', fontSize: 11, color: '#777' }}>
             캔버스에서 프레임 영역 드래그로 이동/리사이즈 가능
+          </div>
+        </div>
+
+        {/* fill 영역 */}
+        <div className="ui-inspector-section">
+          <div className="ui-inspector-section-title">Fill 영역 (배경)</div>
+          <div className="ui-inspector-row">
+            <DragLabel label="X" value={uiSkinFillX} min={0} onChange={(v) => { setUiSkinFill(Math.round(v), uiSkinFillY, uiSkinFillW, uiSkinFillH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ fillX: s.uiSkinFillX, fillY: s.uiSkinFillY, fillW: s.uiSkinFillW, fillH: s.uiSkinFillH }); }} />
+          </div>
+          <div className="ui-inspector-row">
+            <DragLabel label="Y" value={uiSkinFillY} min={0} onChange={(v) => { setUiSkinFill(uiSkinFillX, Math.round(v), uiSkinFillW, uiSkinFillH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ fillX: s.uiSkinFillX, fillY: s.uiSkinFillY, fillW: s.uiSkinFillW, fillH: s.uiSkinFillH }); }} />
+          </div>
+          <div className="ui-inspector-row">
+            <DragLabel label="너비" value={uiSkinFillW} min={4} onChange={(v) => { setUiSkinFill(uiSkinFillX, uiSkinFillY, Math.round(v), uiSkinFillH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ fillX: s.uiSkinFillX, fillY: s.uiSkinFillY, fillW: s.uiSkinFillW, fillH: s.uiSkinFillH }); }} />
+          </div>
+          <div className="ui-inspector-row">
+            <DragLabel label="높이" value={uiSkinFillH} min={4} onChange={(v) => { setUiSkinFill(uiSkinFillX, uiSkinFillY, uiSkinFillW, Math.round(v)); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ fillX: s.uiSkinFillX, fillY: s.uiSkinFillY, fillW: s.uiSkinFillW, fillH: s.uiSkinFillH }); }} />
+          </div>
+          <div style={{ padding: '2px 12px 4px', fontSize: 11, color: '#777' }}>
+            캔버스에서 초록 영역 드래그로 이동/리사이즈 가능
           </div>
         </div>
 
