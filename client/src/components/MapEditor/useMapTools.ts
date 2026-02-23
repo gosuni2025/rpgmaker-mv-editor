@@ -62,14 +62,21 @@ export function useMapTools(
   // =========================================================================
   // Coordinate conversion
   // =========================================================================
-  const canvasToTile = useCallback((e: React.MouseEvent<HTMLElement>, unclamped = false) => {
+
+  /** canvas 컨테이너 기준 스크린 좌표 반환 (공통 헬퍼) */
+  const getScreenPos = useCallback((e: React.MouseEvent<HTMLElement>) => {
     const canvas = webglCanvasRef.current;
     if (!canvas) return null;
     const container = canvas.parentElement;
     if (!container) return null;
     const rect = container.getBoundingClientRect();
-    const screenX = (e.clientX - rect.left) / zoomLevel;
-    const screenY = (e.clientY - rect.top) / zoomLevel;
+    return { x: (e.clientX - rect.left) / zoomLevel, y: (e.clientY - rect.top) / zoomLevel };
+  }, [zoomLevel]);
+
+  const canvasToTile = useCallback((e: React.MouseEvent<HTMLElement>, unclamped = false) => {
+    const pos = getScreenPos(e);
+    if (!pos) return null;
+    const { x: screenX, y: screenY } = pos;
 
     if (mode3d && ConfigManager.mode3d && Mode3D._perspCamera) {
       const world = Mode3D.screenToWorld(screenX, screenY);
@@ -84,16 +91,12 @@ export function useMapTools(
     }
 
     return posToTile(screenX, screenY);
-  }, [zoomLevel, mode3d, currentMap]);
+  }, [getScreenPos, mode3d, currentMap]);
 
   const canvasToSubTile = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    const canvas = webglCanvasRef.current;
-    if (!canvas) return null;
-    const container = canvas.parentElement;
-    if (!container) return null;
-    const rect = container.getBoundingClientRect();
-    const screenX = (e.clientX - rect.left) / zoomLevel;
-    const screenY = (e.clientY - rect.top) / zoomLevel;
+    const pos = getScreenPos(e);
+    if (!pos) return null;
+    const { x: screenX, y: screenY } = pos;
 
     if (mode3d && ConfigManager.mode3d && Mode3D._perspCamera) {
       const world = Mode3D.screenToWorld(screenX, screenY);
@@ -108,10 +111,8 @@ export function useMapTools(
 
     const tile = posToTile(screenX, screenY);
     if (!tile) return null;
-    const subX = screenX - tile.x * TILE_SIZE_PX;
-    const subY = screenY - tile.y * TILE_SIZE_PX;
-    return { ...tile, subX, subY };
-  }, [zoomLevel, mode3d, currentMap]);
+    return { ...tile, subX: screenX - tile.x * TILE_SIZE_PX, subY: screenY - tile.y * TILE_SIZE_PX };
+  }, [getScreenPos, mode3d, currentMap]);
 
   // =========================================================================
   // Eyedropper (스포이드)
@@ -203,24 +204,12 @@ export function useMapTools(
     }
   };
 
-  const getCanvasPx = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    const canvas = webglCanvasRef.current;
-    if (!canvas) return null;
-    const container = canvas.parentElement;
-    if (!container) return null;
-    const rect = container.getBoundingClientRect();
-    return { x: (e.clientX - rect.left) / zoomLevel, y: (e.clientY - rect.top) / zoomLevel };
-  }, [zoomLevel]);
+  const getCanvasPx = getScreenPos;
 
   // =========================================================================
   // Tool wrappers (delegate to pure algorithms)
   // =========================================================================
-  const placeAutotileAt = useCallback(
-    (x: number, y: number, z: number, tileId: number, data: number[], width: number, height: number, changes: TileChange[], updates: { x: number; y: number; z: number; tileId: number }[]) => {
-      placeAutotileAtPure(x, y, z, tileId, data, width, height, changes, updates);
-    },
-    []
-  );
+  const placeAutotileAt = placeAutotileAtPure;
 
   const floodFill = useCallback(
     (startX: number, startY: number) => {
@@ -439,26 +428,25 @@ export function useMapTools(
     [selectedTool, drawShape, selectedTileId, currentLayer, updateMapTiles, placeAutotileAt]
   );
 
-  const drawRectangle = useCallback(
-    (start: { x: number; y: number }, end: { x: number; y: number }) => {
+  type PosFn = (s: { x: number; y: number }, e: { x: number; y: number }, w: number, h: number) => { x: number; y: number }[];
+  const drawWithPositions = useCallback(
+    (getPositions: PosFn, start: { x: number; y: number }, end: { x: number; y: number }) => {
       const latestMap = useEditorStore.getState().currentMap;
       if (!latestMap) return;
       const tileId = useEditorStore.getState().selectedTool === 'eraser' ? 0 : selectedTileId;
-      const positions = getRectanglePositions(start, end, latestMap.width, latestMap.height);
-      batchPlaceWithAutotile(positions, tileId);
+      batchPlaceWithAutotile(getPositions(start, end, latestMap.width, latestMap.height), tileId);
     },
     [selectedTileId, batchPlaceWithAutotile]
   );
 
+  const drawRectangle = useCallback(
+    (start: { x: number; y: number }, end: { x: number; y: number }) => drawWithPositions(getRectanglePositions, start, end),
+    [drawWithPositions]
+  );
+
   const drawEllipse = useCallback(
-    (start: { x: number; y: number }, end: { x: number; y: number }) => {
-      const latestMap = useEditorStore.getState().currentMap;
-      if (!latestMap) return;
-      const tileId = useEditorStore.getState().selectedTool === 'eraser' ? 0 : selectedTileId;
-      const positions = getEllipsePositions(start, end, latestMap.width, latestMap.height);
-      batchPlaceWithAutotile(positions, tileId);
-    },
-    [selectedTileId, batchPlaceWithAutotile]
+    (start: { x: number; y: number }, end: { x: number; y: number }) => drawWithPositions(getEllipsePositions, start, end),
+    [drawWithPositions]
   );
 
   return {
