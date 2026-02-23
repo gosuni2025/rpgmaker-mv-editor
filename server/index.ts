@@ -665,6 +665,14 @@ if (require.main === module && !process.versions.electron) {
   const server = http.createServer(app);
   attachWebSocket(server);
 
+  const shutdown = async () => {
+    await mcpManager.stop();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 3000); // 3초 안에 안 닫히면 강제 종료
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+
   const PORT = parseInt(process.env.SERVER_PORT || process.env.PORT || '3001');
   // DEMO_MODE: 0.0.0.0으로 수신 (Railway 등 외부 접근), demo-project 자동 오픈
   const host = DEMO_MODE ? '0.0.0.0' : '127.0.0.1';

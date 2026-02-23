@@ -3,6 +3,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { createApp, attachWebSocket } from '../server/index';
+import { mcpManager } from '../server/services/mcpManager';
 
 // 게임 테스트 창 크기 저장 경로
 const gameWindowSizeFile = () => path.join(app.getPath('userData'), 'game-window-size.json');
@@ -163,7 +164,8 @@ app.on('ready', async () => {
   createWindow(port);
 });
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
+  await mcpManager.stop();
   if (server) {
     server.close();
     server = null;

@@ -23,6 +23,7 @@ interface Session {
   id: string;
   connectedAt: number;
   send: (data: unknown) => void;
+  destroy: () => void;
 }
 
 const PROTOCOL_VERSION = '2024-11-05';
@@ -218,6 +219,10 @@ class McpManager extends EventEmitter {
   stop(): Promise<void> {
     return new Promise((resolve) => {
       if (!this._server) { resolve(); return; }
+      // 활성 SSE 연결을 강제로 닫아야 server.close() 콜백이 호출됨
+      for (const session of this._sessions.values()) {
+        try { session.destroy(); } catch {}
+      }
       this._sessions.clear();
       this._server.close(() => {
         this._server = null;
@@ -256,6 +261,7 @@ class McpManager extends EventEmitter {
       id: sessionId,
       connectedAt: Date.now(),
       send: (data: unknown) => sendEvent('message', data),
+      destroy: () => { clearInterval(ping); res.destroy(); },
     };
     this._sessions.set(sessionId, session);
     this.addLog({ sessionId, type: 'connect' });
