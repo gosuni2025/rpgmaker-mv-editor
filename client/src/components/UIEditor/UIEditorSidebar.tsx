@@ -88,14 +88,11 @@ function SkinList() {
   const loadSkins = useCallback(() => {
     if (!projectPath) return;
     setLoading(true);
-    Promise.all([
-      fetch('/api/ui-editor/skins').then((r) => r.json()),
-      fetch('/api/ui-editor/config').then((r) => r.json()),
-    ])
-      .then(([skinsData, configData]) => {
+    fetch('/api/ui-editor/skins').then((r) => r.json())
+      .then((skinsData) => {
         const list: SkinEntry[] = skinsData.skins ?? [];
         setSkins(list);
-        setDefaultSkin(configData.defaultSkin ?? '');
+        setDefaultSkin(skinsData.defaultSkin ?? '');
         const current = list.find((s) => s.name === uiSelectedSkin);
         if (current) setUiSkinCornerSize(current.cornerSize);
       })

@@ -3,36 +3,6 @@ import path from 'path';
 import express from 'express';
 import projectManager from '../services/projectManager';
 
-const RUNTIME_PLUGIN_SRC = path.join(__dirname, '..', 'runtime', 'js', 'plugins', 'UITheme.js');
-
-/** UITheme.js를 프로젝트에 복사하고 plugins.js에 등록 */
-function ensureUIThemePlugin(): void {
-  if (!projectManager.isOpen()) return;
-  const projectPath = projectManager.currentPath!;
-
-  // 1. js/plugins/UITheme.js 복사 (항상 최신 버전으로 덮어씀)
-  const pluginsDir = path.join(projectPath, 'js', 'plugins');
-  if (!fs.existsSync(pluginsDir)) fs.mkdirSync(pluginsDir, { recursive: true });
-  const dest = path.join(pluginsDir, 'UITheme.js');
-  if (fs.existsSync(RUNTIME_PLUGIN_SRC)) {
-    fs.copyFileSync(RUNTIME_PLUGIN_SRC, dest);
-  }
-
-  // 2. plugins.js에 UITheme 등록 (없을 때만)
-  const pluginsJsPath = path.join(projectPath, 'js', 'plugins.js');
-  if (!fs.existsSync(pluginsJsPath)) return;
-  let pluginsJs = fs.readFileSync(pluginsJsPath, 'utf8');
-  if (pluginsJs.includes('"UITheme"')) return;
-  pluginsJs = pluginsJs.replace(
-    /(\$plugins\s*=\s*\[)([\s\S]*?)(\];)/,
-    (_, open, content, close) => {
-      const entry = `\n{"name":"UITheme","status":true,"description":"UI 테마 (에디터 관리)","parameters":{}},`;
-      return open + entry + content + close;
-    }
-  );
-  fs.writeFileSync(pluginsJsPath, pluginsJs, 'utf8');
-}
-
 const router = express.Router();
 
 /** UI 에디터 config 파일 경로 */
@@ -475,13 +445,12 @@ router.get('/config', (req, res) => {
   }
 });
 
-/** PUT /api/ui-editor/config — UIEditorConfig.json 저장 + UITheme.js 동기화 */
+/** PUT /api/ui-editor/config — UIEditorConfig.json 저장 */
 router.put('/config', (req, res) => {
   const configPath = getConfigPath();
   if (!configPath) return res.status(404).json({ error: 'No project' });
   try {
     fs.writeFileSync(configPath, JSON.stringify(req.body, null, 2), 'utf8');
-    ensureUIThemePlugin();
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
@@ -492,36 +461,50 @@ router.put('/config', (req, res) => {
 // ─── UIEditorSkins.json 관리 ─────────────────────────────────────────────────
 
 interface SkinEntry { name: string; cornerSize: number; }
+interface SkinsData { defaultSkin: string; skins: SkinEntry[]; }
 
 const DEFAULT_SKINS: SkinEntry[] = [{ name: 'Window', cornerSize: 24 }];
+const DEFAULT_SKINS_DATA: SkinsData = { defaultSkin: 'Window', skins: DEFAULT_SKINS };
 
 function getSkinsPath(): string | null {
   if (!projectManager.isOpen()) return null;
   return path.join(projectManager.currentPath!, 'data', 'UIEditorSkins.json');
 }
 
-function readSkins(): SkinEntry[] {
+function readSkinsData(): SkinsData {
   const p = getSkinsPath();
-  if (!p || !fs.existsSync(p)) return [...DEFAULT_SKINS];
+  if (!p || !fs.existsSync(p)) return { ...DEFAULT_SKINS_DATA, skins: [...DEFAULT_SKINS] };
   try {
     const data = JSON.parse(fs.readFileSync(p, 'utf8'));
-    if (Array.isArray(data.skins) && data.skins.length > 0) return data.skins;
+    const skins = Array.isArray(data.skins) && data.skins.length > 0 ? data.skins : [...DEFAULT_SKINS];
+    return { defaultSkin: data.defaultSkin || 'Window', skins };
   } catch {}
-  return [...DEFAULT_SKINS];
+  return { ...DEFAULT_SKINS_DATA, skins: [...DEFAULT_SKINS] };
 }
 
-function writeSkins(skins: SkinEntry[]): void {
+function writeSkinsData(data: SkinsData): void {
   const p = getSkinsPath();
   if (!p) return;
-  fs.writeFileSync(p, JSON.stringify({ skins }, null, 2), 'utf8');
+  fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf8');
 }
 
 // ─── 스킨 CRUD ────────────────────────────────────────────────────────────────
 
-/** GET /api/ui-editor/skins — UIEditorSkins.json 의 등록된 9-slice 스킨 목록 */
+/** GET /api/ui-editor/skins — UIEditorSkins.json ({ defaultSkin, skins }) */
 router.get('/skins', (req, res) => {
   if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
-  res.json({ skins: readSkins() });
+  res.json(readSkinsData());
+});
+
+/** PUT /api/ui-editor/skins/default — defaultSkin 변경 */
+router.put('/skins/default', (req, res) => {
+  if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
+  const { defaultSkin } = req.body as { defaultSkin?: string };
+  if (!defaultSkin) return res.status(400).json({ error: 'defaultSkin required' });
+  const data = readSkinsData();
+  data.defaultSkin = defaultSkin;
+  writeSkinsData(data);
+  res.json({ ok: true });
 });
 
 /** POST /api/ui-editor/skins — 스킨 등록 */
@@ -529,33 +512,33 @@ router.post('/skins', (req, res) => {
   if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
   const { name, cornerSize = 24 } = req.body as { name?: string; cornerSize?: number };
   if (!name) return res.status(400).json({ error: 'name required' });
-  const skins = readSkins();
-  if (skins.find((s) => s.name === name)) return res.status(409).json({ error: 'Already exists' });
-  skins.push({ name, cornerSize });
-  writeSkins(skins);
+  const data = readSkinsData();
+  if (data.skins.find((s) => s.name === name)) return res.status(409).json({ error: 'Already exists' });
+  data.skins.push({ name, cornerSize });
+  writeSkinsData(data);
   res.json({ ok: true });
 });
 
 /** PUT /api/ui-editor/skins/:name — cornerSize 업데이트 */
 router.put('/skins/:name', (req, res) => {
   if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
-  const skins = readSkins();
-  const idx = skins.findIndex((s) => s.name === req.params.name);
+  const data = readSkinsData();
+  const idx = data.skins.findIndex((s) => s.name === req.params.name);
   if (idx < 0) return res.status(404).json({ error: 'Not found' });
   const { cornerSize } = req.body as { cornerSize?: number };
-  if (cornerSize !== undefined) skins[idx].cornerSize = cornerSize;
-  writeSkins(skins);
+  if (cornerSize !== undefined) data.skins[idx].cornerSize = cornerSize;
+  writeSkinsData(data);
   res.json({ ok: true });
 });
 
 /** DELETE /api/ui-editor/skins/:name — 스킨 삭제 */
 router.delete('/skins/:name', (req, res) => {
   if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
-  const skins = readSkins();
-  const idx = skins.findIndex((s) => s.name === req.params.name);
+  const data = readSkinsData();
+  const idx = data.skins.findIndex((s) => s.name === req.params.name);
   if (idx < 0) return res.status(404).json({ error: 'Not found' });
-  skins.splice(idx, 1);
-  writeSkins(skins);
+  data.skins.splice(idx, 1);
+  writeSkinsData(data);
   res.json({ ok: true });
 });
 
@@ -570,10 +553,10 @@ router.post('/upload-skin', express.raw({ type: 'image/png', limit: '10mb' }), (
   try {
     fs.writeFileSync(dest, req.body as Buffer);
     // 스킨 목록에 자동 등록 (이미 있으면 스킵)
-    const skins = readSkins();
-    if (!skins.find((s) => s.name === name)) {
-      skins.push({ name, cornerSize: 24 });
-      writeSkins(skins);
+    const data = readSkinsData();
+    if (!data.skins.find((s) => s.name === name)) {
+      data.skins.push({ name, cornerSize: 24 });
+      writeSkinsData(data);
     }
     res.json({ ok: true, name });
   } catch (err) {

@@ -21,15 +21,14 @@ export default function UIEditorFrameInspector() {
     });
   }, [projectPath, uiSelectedSkin]);
 
-  // 기본 스킨으로 설정 — UIEditorConfig.json의 defaultSkin 저장 + cornerSize 저장
+  // 기본 스킨으로 설정 — UIEditorSkins.json의 defaultSkin 저장
   const handleSetDefault = async () => {
     if (!projectPath || !uiSelectedSkin) return;
     try {
-      const config = useEditorStore.getState().uiEditorOverrides;
-      await fetch('/api/ui-editor/config', {
+      await fetch('/api/ui-editor/skins/default', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ overrides: config, defaultSkin: uiSelectedSkin }),
+        body: JSON.stringify({ defaultSkin: uiSelectedSkin }),
       });
       await saveSkinCornerSize(uiSkinCornerSize);
       useEditorStore.getState().showToast(`기본 스킨: ${uiSelectedSkin} 설정됨`);
@@ -38,17 +37,11 @@ export default function UIEditorFrameInspector() {
     }
   };
 
-  // 스킨 cornerSize 저장 + config 동기화
+  // 스킨 cornerSize 저장
   const handleApply = async () => {
     if (!projectPath || !uiSelectedSkin) return;
     try {
       await saveSkinCornerSize(uiSkinCornerSize);
-      const config = useEditorStore.getState().uiEditorOverrides;
-      await fetch('/api/ui-editor/config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ overrides: config, defaultSkin: uiSelectedSkin }),
-      });
       setUiEditorDirty(false);
       useEditorStore.getState().showToast('스킨 설정 저장 완료');
     } catch {
@@ -112,7 +105,7 @@ export default function UIEditorFrameInspector() {
             </button>
           </div>
           <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
-            UIEditorConfig.json에 defaultSkin 저장
+            UIEditorSkins.json에 defaultSkin 저장
           </div>
         </div>
 
@@ -126,11 +119,11 @@ export default function UIEditorFrameInspector() {
               disabled={!projectPath || !uiSelectedSkin}
               onClick={handleApply}
             >
-              적용 (UITheme.js 생성)
+              저장
             </button>
           </div>
           <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
-            스킨 설정을 플러그인으로 내보내기
+            스킨 cornerSize를 UIEditorSkins.json에 저장
           </div>
         </div>
 

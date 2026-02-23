@@ -21,7 +21,8 @@
   'use strict';
 
   //===========================================================================
-  // UIEditorConfig.json 로드
+  // UIEditorConfig.json 로드 (window 레이아웃 오버라이드)
+  // UIEditorSkins.json 로드 (스킨 정의: defaultSkin, cornerSize)
   // 동기 XHR: NW.js(로컬 파일) + 브라우저(서버) 양쪽 호환
   //===========================================================================
   var _config = {};
@@ -32,6 +33,20 @@
       xhr.send();
       if (xhr.status === 200 || xhr.status === 0) {
         _config = JSON.parse(xhr.responseText);
+      }
+    } catch (e) {
+      // 파일 없음 → 기본값 사용
+    }
+  })();
+
+  var _skins = {};
+  (function () {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', 'data/UIEditorSkins.json', false);
+      xhr.send();
+      if (xhr.status === 200 || xhr.status === 0) {
+        _skins = JSON.parse(xhr.responseText);
       }
     } catch (e) {
       // 파일 없음 → 기본값 사용
@@ -99,7 +114,7 @@
   };
 
   Window_Base.prototype.loadWindowskin = function () {
-    var skin = _config.defaultSkin || G('windowskin', 'Window');
+    var skin = _skins.defaultSkin || G('windowskin', 'Window');
     this.windowskin = ImageManager.loadSystem(skin);
   };
 
