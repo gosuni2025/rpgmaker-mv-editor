@@ -1,4 +1,13 @@
 import type { EditorState, SliceCreator, UIWindowInfo, UIWindowOverride } from './types';
+import { TOOLBAR_STORAGE_KEY } from './types';
+
+function saveToolbarKeys(keys: Partial<Record<string, unknown>>) {
+  try {
+    const raw = localStorage.getItem(TOOLBAR_STORAGE_KEY);
+    const tb = raw ? JSON.parse(raw) : {};
+    localStorage.setItem(TOOLBAR_STORAGE_KEY, JSON.stringify({ ...tb, ...keys }));
+  } catch {}
+}
 
 export const uiEditorSlice: SliceCreator<Pick<EditorState,
   'editorMode' | 'uiEditorScene' | 'uiEditorIframeReady' | 'uiEditorWindows' |
@@ -24,7 +33,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   uiShowSkinLabels: false,
   uiEditorSelectedElementType: null,
 
-  setEditorMode: (mode) => set({ editorMode: mode }),
+  setEditorMode: (mode) => { saveToolbarKeys({ editorMode: mode }); set({ editorMode: mode }); },
   setUiEditorScene: (scene) => set({ uiEditorScene: scene, uiEditorWindows: [], uiEditorSelectedWindowId: null, uiEditorSelectedElementType: null }),
   setUiEditorIframeReady: (ready) => set({ uiEditorIframeReady: ready }),
   setUiEditorWindows: (windows: UIWindowInfo[]) => set({ uiEditorWindows: windows }),
@@ -50,7 +59,7 @@ export const uiEditorSlice: SliceCreator<Pick<EditorState,
   },
   loadUiEditorOverrides: (overrides) => set({ uiEditorOverrides: overrides, uiEditorDirty: false }),
   setUiEditorDirty: (dirty) => set({ uiEditorDirty: dirty }),
-  setUiEditSubMode: (mode) => set({ uiEditSubMode: mode }),
+  setUiEditSubMode: (mode) => { saveToolbarKeys({ uiEditSubMode: mode }); set({ uiEditSubMode: mode }); },
   setUiSelectedSkin: (skin) => set({ uiSelectedSkin: skin }),
   setUiSkinCornerSize: (size) => set({ uiSkinCornerSize: size }),
   setUiShowSkinLabels: (show) => set({ uiShowSkinLabels: show }),

@@ -125,6 +125,8 @@ export const projectSlice: SliceCreator<Pick<EditorState,
         if (typeof tb.showGrid === 'boolean') updates.showGrid = tb.showGrid;
         if (typeof tb.showPassability === 'boolean') updates.showPassability = tb.showPassability;
         if (typeof tb.showRegion === 'boolean') updates.showRegion = tb.showRegion;
+        if (typeof tb.editorMode === 'string' && ['map', 'ui'].includes(tb.editorMode)) updates.editorMode = tb.editorMode as EditorState['editorMode'];
+        if (typeof tb.uiEditSubMode === 'string' && ['window', 'frame'].includes(tb.uiEditSubMode)) updates.uiEditSubMode = tb.uiEditSubMode as EditorState['uiEditSubMode'];
         set(updates);
       }
     } catch {}
