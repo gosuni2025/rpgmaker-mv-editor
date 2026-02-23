@@ -71,6 +71,7 @@ export default function MenuBar() {
 
   const hasProject = !!projectPath;
   const [showTileIdOverlay, setShowTileIdOverlay] = useState(false);
+  const [showCreditDialog, setShowCreditDialog] = useState(false);
 
   const recentProjects = getRecentProjects().slice(0, 10);
   const recentItems: MenuItem[] = recentProjects.length > 0
@@ -204,6 +205,8 @@ export default function MenuBar() {
         { type: 'separator' },
         { label: t('menu.twitter'), action: 'twitter' },
         { label: t('menu.youtube'), action: 'youtube' },
+        { type: 'separator' },
+        { label: t('menu.credits', '크레딧...'), action: 'credits' },
       ],
     },
   ];
@@ -316,6 +319,7 @@ export default function MenuBar() {
       case 'youtube': window.open('https://www.youtube.com/@gosuni2025', '_blank'); break;
       case 'mcpStatus': setShowMCPStatusDialog(true); break;
       case 'mcpManual': window.open('https://github.com/gosuni2025/rpgmaker-mv-editor/blob/main/docs/mcp-setup.md', '_blank'); break;
+      case 'credits': setShowCreditDialog(true); break;
     }
   }, [setShowOpenProjectDialog, setShowNewProjectDialog, saveCurrentMap, closeProject,
       setShowDatabaseDialog, setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
@@ -367,6 +371,40 @@ export default function MenuBar() {
     );
 
   return (
+    <>
+    {showCreditDialog && (
+      <div className="modal-overlay" onMouseDown={() => setShowCreditDialog(false)}>
+        <div className="modal-content credit-dialog" onMouseDown={e => e.stopPropagation()}>
+          <div className="credit-dialog-header">
+            <span>크레딧</span>
+            <button className="credit-dialog-close" onClick={() => setShowCreditDialog(false)}>✕</button>
+          </div>
+          <div className="credit-dialog-body">
+            <section>
+              <h3>RPG Maker MV Web Editor</h3>
+              <p>오픈소스 웹 기반 RPG Maker MV 에디터</p>
+              <p>
+                <a href="https://github.com/gosuni2025/rpgmaker-mv-editor" target="_blank" rel="noreferrer">
+                  github.com/gosuni2025/rpgmaker-mv-editor
+                </a>
+              </p>
+            </section>
+            <div className="credit-separator" />
+            <section>
+              <h3>샘플 에셋</h3>
+              <div className="credit-asset">
+                <div className="credit-asset-name">UI Pack — Pixel Adventure</div>
+                <div className="credit-asset-author">by Kenney (kenney.nl)</div>
+                <div className="credit-asset-license">License: CC0 1.0 (Public Domain)</div>
+                <a className="credit-asset-link" href="https://kenney.nl/assets/ui-pack-pixel-adventure" target="_blank" rel="noreferrer">
+                  kenney.nl/assets/ui-pack-pixel-adventure
+                </a>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="menubar" ref={menuRef}>
       {menus.map((menu, i) => (
         <div
@@ -400,5 +438,6 @@ export default function MenuBar() {
         </button>
       </div>
     </div>
+    </>
   );
 }
