@@ -36,7 +36,6 @@ export default function UIEditorFrameInspector() {
   const uiSkinCursorToneR = useEditorStore((s) => s.uiSkinCursorToneR);
   const uiSkinCursorToneG = useEditorStore((s) => s.uiSkinCursorToneG);
   const uiSkinCursorToneB = useEditorStore((s) => s.uiSkinCursorToneB);
-  const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
   const setUiSkinFrame = useEditorStore((s) => s.setUiSkinFrame);
   const setUiSkinFill = useEditorStore((s) => s.setUiSkinFill);
@@ -49,7 +48,6 @@ export default function UIEditorFrameInspector() {
   const setUiSkinCursorBlink = useEditorStore((s) => s.setUiSkinCursorBlink);
   const setUiSkinCursorPadding = useEditorStore((s) => s.setUiSkinCursorPadding);
   const setUiSkinCursorTone = useEditorStore((s) => s.setUiSkinCursorTone);
-  const setUiEditorDirty = useEditorStore((s) => s.setUiEditorDirty);
   const projectPath = useEditorStore((s) => s.projectPath);
 
   const saveSkin = useCallback(async (fields: Record<string, number | boolean | string | undefined>) => {
@@ -93,23 +91,10 @@ export default function UIEditorFrameInspector() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ defaultSkin: uiSelectedSkin }),
       });
-      await saveSkin({ cornerSize: uiSkinCornerSize });
       triggerSkinsReload();
       useEditorStore.getState().showToast(`기본 스킨: ${uiSelectedSkin} 설정됨`);
     } catch {
       useEditorStore.getState().showToast('설정 실패', true);
-    }
-  };
-
-  // 스킨 설정 저장 (cornerSize + frame)
-  const handleApply = async () => {
-    if (!projectPath || !uiSelectedSkin) return;
-    try {
-      await saveSkin({ cornerSize: uiSkinCornerSize, frameX: uiSkinFrameX, frameY: uiSkinFrameY, frameW: uiSkinFrameW, frameH: uiSkinFrameH, fillX: uiSkinFillX, fillY: uiSkinFillY, fillW: uiSkinFillW, fillH: uiSkinFillH, useCenterFill: uiSkinUseCenterFill, cursorX: uiSkinCursorX, cursorY: uiSkinCursorY, cursorW: uiSkinCursorW, cursorH: uiSkinCursorH, cursorCornerSize: uiSkinCursorCornerSize, cursorRenderMode: uiSkinCursorRenderMode, cursorBlendMode: uiSkinCursorBlendMode, cursorOpacity: uiSkinCursorOpacity, cursorBlink: uiSkinCursorBlink, cursorPadding: uiSkinCursorPadding, cursorToneR: uiSkinCursorToneR, cursorToneG: uiSkinCursorToneG, cursorToneB: uiSkinCursorToneB });
-      setUiEditorDirty(false);
-      useEditorStore.getState().showToast('스킨 설정 저장 완료');
-    } catch {
-      useEditorStore.getState().showToast('저장 실패', true);
     }
   };
 
@@ -171,16 +156,16 @@ export default function UIEditorFrameInspector() {
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">프레임 영역</div>
           <div className="ui-inspector-row">
-            <DragLabel label="X" value={uiSkinFrameX} min={0} onChange={(v) => { setUiSkinFrame(Math.round(v), uiSkinFrameY, uiSkinFrameW, uiSkinFrameH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ frameX: s.uiSkinFrameX, frameY: s.uiSkinFrameY, frameW: s.uiSkinFrameW, frameH: s.uiSkinFrameH }); }} />
+            <DragLabel label="X" value={uiSkinFrameX} min={0} onChange={(v) => { setUiSkinFrame(Math.round(v), uiSkinFrameY, uiSkinFrameW, uiSkinFrameH); }} />
           </div>
           <div className="ui-inspector-row">
-            <DragLabel label="Y" value={uiSkinFrameY} min={0} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, Math.round(v), uiSkinFrameW, uiSkinFrameH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ frameX: s.uiSkinFrameX, frameY: s.uiSkinFrameY, frameW: s.uiSkinFrameW, frameH: s.uiSkinFrameH }); }} />
+            <DragLabel label="Y" value={uiSkinFrameY} min={0} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, Math.round(v), uiSkinFrameW, uiSkinFrameH); }} />
           </div>
           <div className="ui-inspector-row">
-            <DragLabel label="너비" value={uiSkinFrameW} min={10} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, uiSkinFrameY, Math.round(v), uiSkinFrameH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ frameX: s.uiSkinFrameX, frameY: s.uiSkinFrameY, frameW: s.uiSkinFrameW, frameH: s.uiSkinFrameH }); }} />
+            <DragLabel label="너비" value={uiSkinFrameW} min={10} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, uiSkinFrameY, Math.round(v), uiSkinFrameH); }} />
           </div>
           <div className="ui-inspector-row">
-            <DragLabel label="높이" value={uiSkinFrameH} min={10} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, Math.round(v)); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ frameX: s.uiSkinFrameX, frameY: s.uiSkinFrameY, frameW: s.uiSkinFrameW, frameH: s.uiSkinFrameH }); }} />
+            <DragLabel label="높이" value={uiSkinFrameH} min={10} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, Math.round(v)); }} />
           </div>
           <div style={{ padding: '2px 12px 4px', fontSize: 11, color: '#777' }}>
             캔버스에서 프레임 영역 드래그로 이동/리사이즈 가능
@@ -191,16 +176,16 @@ export default function UIEditorFrameInspector() {
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">Fill 영역 (배경)</div>
           <div className="ui-inspector-row" style={uiSkinUseCenterFill ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
-            <DragLabel label="X" value={uiSkinFillX} min={0} onChange={(v) => { setUiSkinFill(Math.round(v), uiSkinFillY, uiSkinFillW, uiSkinFillH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ fillX: s.uiSkinFillX, fillY: s.uiSkinFillY, fillW: s.uiSkinFillW, fillH: s.uiSkinFillH }); }} />
+            <DragLabel label="X" value={uiSkinFillX} min={0} onChange={(v) => { setUiSkinFill(Math.round(v), uiSkinFillY, uiSkinFillW, uiSkinFillH); }} />
           </div>
           <div className="ui-inspector-row" style={uiSkinUseCenterFill ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
-            <DragLabel label="Y" value={uiSkinFillY} min={0} onChange={(v) => { setUiSkinFill(uiSkinFillX, Math.round(v), uiSkinFillW, uiSkinFillH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ fillX: s.uiSkinFillX, fillY: s.uiSkinFillY, fillW: s.uiSkinFillW, fillH: s.uiSkinFillH }); }} />
+            <DragLabel label="Y" value={uiSkinFillY} min={0} onChange={(v) => { setUiSkinFill(uiSkinFillX, Math.round(v), uiSkinFillW, uiSkinFillH); }} />
           </div>
           <div className="ui-inspector-row" style={uiSkinUseCenterFill ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
-            <DragLabel label="너비" value={uiSkinFillW} min={4} onChange={(v) => { setUiSkinFill(uiSkinFillX, uiSkinFillY, Math.round(v), uiSkinFillH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ fillX: s.uiSkinFillX, fillY: s.uiSkinFillY, fillW: s.uiSkinFillW, fillH: s.uiSkinFillH }); }} />
+            <DragLabel label="너비" value={uiSkinFillW} min={4} onChange={(v) => { setUiSkinFill(uiSkinFillX, uiSkinFillY, Math.round(v), uiSkinFillH); }} />
           </div>
           <div className="ui-inspector-row" style={uiSkinUseCenterFill ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
-            <DragLabel label="높이" value={uiSkinFillH} min={4} onChange={(v) => { setUiSkinFill(uiSkinFillX, uiSkinFillY, uiSkinFillW, Math.round(v)); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ fillX: s.uiSkinFillX, fillY: s.uiSkinFillY, fillW: s.uiSkinFillW, fillH: s.uiSkinFillH }); }} />
+            <DragLabel label="높이" value={uiSkinFillH} min={4} onChange={(v) => { setUiSkinFill(uiSkinFillX, uiSkinFillY, uiSkinFillW, Math.round(v)); }} />
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px 6px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
             <input
@@ -225,8 +210,7 @@ export default function UIEditorFrameInspector() {
                 setUiSkinUseCenterFill(false);
                 setUiSkinFill(0, 0, 96, 96);
                 setUiSkinCornerSize(24);
-                await saveSkin({ frameX: 96, frameY: 0, frameW: 96, frameH: 96, cornerSize: 24, fillX: 0, fillY: 0, fillW: 96, fillH: 96, useCenterFill: false });
-                useEditorStore.getState().showToast('RPG Maker MV 기본값으로 설정됨');
+                useEditorStore.getState().showToast('RPG Maker MV 기본값으로 설정됨 (Cmd+S로 저장)');
               }}
             >
               RPG Maker MV 기본값으로 설정
@@ -238,25 +222,23 @@ export default function UIEditorFrameInspector() {
         <div className="ui-inspector-section">
           <div className="ui-inspector-section-title">커서 영역</div>
           <div className="ui-inspector-row">
-            <DragLabel label="X" value={uiSkinCursorX} min={0} onChange={(v) => { setUiSkinCursor(Math.round(v), uiSkinCursorY, uiSkinCursorW, uiSkinCursorH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ cursorX: s.uiSkinCursorX, cursorY: s.uiSkinCursorY, cursorW: s.uiSkinCursorW, cursorH: s.uiSkinCursorH }); }} />
+            <DragLabel label="X" value={uiSkinCursorX} min={0} onChange={(v) => { setUiSkinCursor(Math.round(v), uiSkinCursorY, uiSkinCursorW, uiSkinCursorH); }} />
           </div>
           <div className="ui-inspector-row">
-            <DragLabel label="Y" value={uiSkinCursorY} min={0} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, Math.round(v), uiSkinCursorW, uiSkinCursorH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ cursorX: s.uiSkinCursorX, cursorY: s.uiSkinCursorY, cursorW: s.uiSkinCursorW, cursorH: s.uiSkinCursorH }); }} />
+            <DragLabel label="Y" value={uiSkinCursorY} min={0} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, Math.round(v), uiSkinCursorW, uiSkinCursorH); }} />
           </div>
           <div className="ui-inspector-row">
-            <DragLabel label="너비" value={uiSkinCursorW} min={4} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, uiSkinCursorY, Math.round(v), uiSkinCursorH); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ cursorX: s.uiSkinCursorX, cursorY: s.uiSkinCursorY, cursorW: s.uiSkinCursorW, cursorH: s.uiSkinCursorH }); }} />
+            <DragLabel label="너비" value={uiSkinCursorW} min={4} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, uiSkinCursorY, Math.round(v), uiSkinCursorH); }} />
           </div>
           <div className="ui-inspector-row">
-            <DragLabel label="높이" value={uiSkinCursorH} min={4} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, uiSkinCursorY, uiSkinCursorW, Math.round(v)); }} onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ cursorX: s.uiSkinCursorX, cursorY: s.uiSkinCursorY, cursorW: s.uiSkinCursorW, cursorH: s.uiSkinCursorH }); }} />
+            <DragLabel label="높이" value={uiSkinCursorH} min={4} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, uiSkinCursorY, uiSkinCursorW, Math.round(v)); }} />
           </div>
           <div className="ui-inspector-row" style={{ flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 11, color: '#888', paddingLeft: 2 }}>렌더링 모드</span>
             <select
               value={uiSkinCursorRenderMode}
               onChange={(e) => {
-                const mode = e.target.value as 'nineSlice' | 'stretch' | 'tile';
-                setUiSkinCursorRenderMode(mode);
-                saveSkin({ cursorRenderMode: mode });
+                setUiSkinCursorRenderMode(e.target.value as 'nineSlice' | 'stretch' | 'tile');
               }}
               style={{ fontSize: 12, padding: '2px 4px', background: '#1a1a2e', color: '#ddd', border: '1px solid #555', borderRadius: 2, width: '100%' }}
             >
@@ -271,7 +253,6 @@ export default function UIEditorFrameInspector() {
               value={uiSkinCursorCornerSize}
               min={1}
               onChange={(v) => { setUiSkinCursorCornerSize(Math.round(v)); }}
-              onDragEnd={() => saveSkin({ cursorCornerSize: useEditorStore.getState().uiSkinCursorCornerSize })}
             />
           </div>
           <div className="ui-inspector-row" style={{ flexDirection: 'column', gap: 4 }}>
@@ -279,9 +260,7 @@ export default function UIEditorFrameInspector() {
             <select
               value={uiSkinCursorBlendMode}
               onChange={(e) => {
-                const mode = e.target.value as 'normal' | 'add' | 'multiply' | 'screen';
-                setUiSkinCursorBlendMode(mode);
-                saveSkin({ cursorBlendMode: mode });
+                setUiSkinCursorBlendMode(e.target.value as 'normal' | 'add' | 'multiply' | 'screen');
               }}
               style={{ fontSize: 12, padding: '2px 4px', background: '#1a1a2e', color: '#ddd', border: '1px solid #555', borderRadius: 2, width: '100%' }}
             >
@@ -298,7 +277,6 @@ export default function UIEditorFrameInspector() {
               min={0}
               max={255}
               onChange={(v) => { setUiSkinCursorOpacity(Math.round(Math.min(255, Math.max(0, v)))); }}
-              onDragEnd={() => saveSkin({ cursorOpacity: useEditorStore.getState().uiSkinCursorOpacity })}
             />
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 12px 4px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
@@ -307,7 +285,6 @@ export default function UIEditorFrameInspector() {
               checked={uiSkinCursorBlink}
               onChange={(e) => {
                 setUiSkinCursorBlink(e.target.checked);
-                saveSkin({ cursorBlink: e.target.checked });
               }}
               style={{ accentColor: '#4af', cursor: 'pointer' }}
             />
@@ -319,7 +296,6 @@ export default function UIEditorFrameInspector() {
               value={uiSkinCursorPadding}
               min={-20}
               onChange={(v) => { setUiSkinCursorPadding(Math.round(v)); }}
-              onDragEnd={() => saveSkin({ cursorPadding: useEditorStore.getState().uiSkinCursorPadding })}
             />
           </div>
           <div className="ui-inspector-row" style={{ flexDirection: 'column', gap: 4 }}>
@@ -327,16 +303,12 @@ export default function UIEditorFrameInspector() {
             <div style={{ display: 'flex', gap: 4 }}>
               <DragLabel label="R" value={uiSkinCursorToneR} min={-255} max={255}
                 onChange={(v) => setUiSkinCursorTone(Math.round(Math.min(255, Math.max(-255, v))), uiSkinCursorToneG, uiSkinCursorToneB)}
-                onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ cursorToneR: s.uiSkinCursorToneR, cursorToneG: s.uiSkinCursorToneG, cursorToneB: s.uiSkinCursorToneB }); }}
               />
               <DragLabel label="G" value={uiSkinCursorToneG} min={-255} max={255}
                 onChange={(v) => setUiSkinCursorTone(uiSkinCursorToneR, Math.round(Math.min(255, Math.max(-255, v))), uiSkinCursorToneB)}
-                onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ cursorToneR: s.uiSkinCursorToneR, cursorToneG: s.uiSkinCursorToneG, cursorToneB: s.uiSkinCursorToneB }); }}
               />
               <DragLabel label="B" value={uiSkinCursorToneB} min={-255} max={255}
-                onChange={(v) => setUiSkinCursorTone(uiSkinCursorToneR, uiSkinCursorToneG, Math.round(Math.min(255, Math.max(-255, v))))
-                }
-                onDragEnd={() => { const s = useEditorStore.getState(); saveSkin({ cursorToneR: s.uiSkinCursorToneR, cursorToneG: s.uiSkinCursorToneG, cursorToneB: s.uiSkinCursorToneB }); }}
+                onChange={(v) => setUiSkinCursorTone(uiSkinCursorToneR, uiSkinCursorToneG, Math.round(Math.min(255, Math.max(-255, v))))}
               />
             </div>
           </div>
@@ -354,7 +326,6 @@ export default function UIEditorFrameInspector() {
               value={uiSkinCornerSize}
               min={1}
               onChange={(v) => { setUiSkinCornerSize(Math.round(v)); }}
-              onDragEnd={() => saveSkin({ cornerSize: useEditorStore.getState().uiSkinCornerSize })}
             />
           </div>
           <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
@@ -380,34 +351,6 @@ export default function UIEditorFrameInspector() {
           </div>
         </div>
 
-        {/* 적용 */}
-        <div className="ui-inspector-section">
-          <div className="ui-inspector-section-title">적용</div>
-          <div className="ui-inspector-row">
-            <button
-              className="ui-inspector-save-btn"
-              style={{ flex: 1 }}
-              disabled={!projectPath || !uiSelectedSkin}
-              onClick={handleApply}
-            >
-              저장
-            </button>
-          </div>
-          <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
-            스킨 cornerSize를 UIEditorSkins.json에 저장
-          </div>
-        </div>
-
-      </div>
-
-      <div className="ui-inspector-footer">
-        <button
-          className="ui-inspector-save-btn"
-          disabled={!uiEditorDirty}
-          onClick={handleApply}
-        >
-          {uiEditorDirty ? '적용 *' : '적용됨'}
-        </button>
       </div>
     </div>
   );

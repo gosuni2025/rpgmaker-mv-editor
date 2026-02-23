@@ -238,14 +238,37 @@ export default function MenuBar() {
       case 'save':
         if (editorMode === 'ui') {
           const s = useEditorStore.getState();
-          fetch('/api/ui-editor/config', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ overrides: s.uiEditorOverrides }),
-          }).then(() => {
-            s.setUiEditorDirty(false);
-            s.showToast('UI 테마 저장 완료');
-          }).catch(() => s.showToast('저장 실패', true));
+          if (s.uiEditSubMode === 'frame') {
+            if (!s.uiSelectedSkin) break;
+            fetch(`/api/ui-editor/skins/${encodeURIComponent(s.uiSelectedSkin)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                cornerSize: s.uiSkinCornerSize,
+                frameX: s.uiSkinFrameX, frameY: s.uiSkinFrameY, frameW: s.uiSkinFrameW, frameH: s.uiSkinFrameH,
+                fillX: s.uiSkinFillX, fillY: s.uiSkinFillY, fillW: s.uiSkinFillW, fillH: s.uiSkinFillH,
+                useCenterFill: s.uiSkinUseCenterFill,
+                cursorX: s.uiSkinCursorX, cursorY: s.uiSkinCursorY, cursorW: s.uiSkinCursorW, cursorH: s.uiSkinCursorH,
+                cursorCornerSize: s.uiSkinCursorCornerSize,
+                cursorRenderMode: s.uiSkinCursorRenderMode, cursorBlendMode: s.uiSkinCursorBlendMode,
+                cursorOpacity: s.uiSkinCursorOpacity, cursorBlink: s.uiSkinCursorBlink,
+                cursorPadding: s.uiSkinCursorPadding,
+                cursorToneR: s.uiSkinCursorToneR, cursorToneG: s.uiSkinCursorToneG, cursorToneB: s.uiSkinCursorToneB,
+              }),
+            }).then(() => {
+              s.setUiEditorDirty(false);
+              s.showToast('스킨 설정 저장 완료');
+            }).catch(() => s.showToast('저장 실패', true));
+          } else {
+            fetch('/api/ui-editor/config', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ overrides: s.uiEditorOverrides }),
+            }).then(() => {
+              s.setUiEditorDirty(false);
+              s.showToast('UI 테마 저장 완료');
+            }).catch(() => s.showToast('저장 실패', true));
+          }
         } else {
           saveCurrentMap();
         }
