@@ -28,6 +28,7 @@ export default function DeployDialog() {
   const [initialItchioChannel, setInitialItchioChannel] = useState('html5');
   const [initialItchioGameId, setInitialItchioGameId] = useState('');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [syncRuntime, setSyncRuntime] = useState(false);
 
   useEffect(() => {
     apiClient.get('/settings').then((data) => {
@@ -75,17 +76,24 @@ export default function DeployDialog() {
 
       <div className="deploy-content">
         {tab === 'netlify' && (
-          <NetlifyTab cbOpts={cbOpts} initialApiKey={initialApiKey} initialSiteId={initialSiteId} initialSiteUrl={initialSiteUrl} />
+          <NetlifyTab cbOpts={cbOpts} initialApiKey={initialApiKey} initialSiteId={initialSiteId} initialSiteUrl={initialSiteUrl} syncRuntime={syncRuntime} />
         )}
         {tab === 'ghpages' && (
-          <GhPagesTab cbOpts={cbOpts} initialRemote={initialGhRemote} />
+          <GhPagesTab cbOpts={cbOpts} initialRemote={initialGhRemote} syncRuntime={syncRuntime} />
         )}
         {tab === 'itchio' && (
-          <ItchioTab cbOpts={cbOpts} initialUsername={initialItchioUsername} initialProject={initialItchioProject} initialChannel={initialItchioChannel} initialGameId={initialItchioGameId} />
+          <ItchioTab cbOpts={cbOpts} initialUsername={initialItchioUsername} initialProject={initialItchioProject} initialChannel={initialItchioChannel} initialGameId={initialItchioGameId} syncRuntime={syncRuntime} />
         )}
         {tab === 'local' && (
-          <LocalTab cbOpts={cbOpts} />
+          <LocalTab cbOpts={cbOpts} syncRuntime={syncRuntime} />
         )}
+
+        <div style={{ borderTop: '1px solid #333', paddingTop: 8, marginTop: 4 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: '#aaa' }}>
+            <input type="checkbox" checked={syncRuntime} onChange={(e) => setSyncRuntime(e.target.checked)} />
+            배포 시 프로젝트 js/3d/ 런타임 동기화
+          </label>
+        </div>
 
         <CacheBustSection opts={cbOpts} onChange={setCbOpts} />
       </div>

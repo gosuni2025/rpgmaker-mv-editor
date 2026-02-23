@@ -9,9 +9,10 @@ import { DeployProgressModal } from './StatusWidgets';
 interface Props {
   cbOpts: CacheBustOpts;
   initialRemote: string;
+  syncRuntime: boolean;
 }
 
-export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
+export default function GhPagesTab({ cbOpts, initialRemote, syncRuntime }: Props) {
   const { t } = useTranslation();
   const dp = useDeployProgress();
 
@@ -49,11 +50,14 @@ export default function GhPagesTab({ cbOpts, initialRemote }: Props) {
     } catch (e) { dp.setError((e as Error).message); }
   };
 
-  const handleDeploy = () => {
+  const handleDeploy = async () => {
     dp.resetStatus();
     dp.setProgress(0);
     dp.setBusy(true);
     setShowProgressModal(true);
+    if (syncRuntime) {
+      try { await apiClient.post('/project/sync-runtime', {}); } catch { /* 무시 */ }
+    }
     let completed = false;
     const totalRef = { current: 0 };
     const params = new URLSearchParams(cacheBustToQuery(cbOpts));

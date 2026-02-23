@@ -19,9 +19,10 @@ interface Props {
   initialProject: string;
   initialChannel: string;
   initialGameId: string;
+  syncRuntime: boolean;
 }
 
-export default function ItchioTab({ cbOpts, initialUsername, initialProject, initialChannel, initialGameId }: Props) {
+export default function ItchioTab({ cbOpts, initialUsername, initialProject, initialChannel, initialGameId, syncRuntime }: Props) {
   const { t } = useTranslation();
   const dp = useDeployProgress();
 
@@ -111,7 +112,7 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
     };
   };
 
-  const handleDeploy = () => {
+  const handleDeploy = async () => {
     if (!project.trim()) { dp.setError(t('deploy.itchio.projectRequired')); return; }
 
     dp.resetStatus();
@@ -120,6 +121,10 @@ export default function ItchioTab({ cbOpts, initialUsername, initialProject, ini
     setItchUrl('');
     setDeployMode('deploy');
     setShowProgressModal(true);
+
+    if (syncRuntime) {
+      try { await apiClient.post('/project/sync-runtime', {}); } catch { /* 무시 */ }
+    }
 
     let completed = false;
     const totalRef = { current: 0 };

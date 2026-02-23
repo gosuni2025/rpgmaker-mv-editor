@@ -8,9 +8,10 @@ import { StatusMessage, ErrorMessage } from './StatusWidgets';
 
 interface Props {
   cbOpts: CacheBustOpts;
+  syncRuntime: boolean;
 }
 
-export default function LocalTab({ cbOpts }: Props) {
+export default function LocalTab({ cbOpts, syncRuntime }: Props) {
   const { t } = useTranslation();
   const dp = useDeployProgress();
 
@@ -24,6 +25,7 @@ export default function LocalTab({ cbOpts }: Props) {
     dp.setStatus(t('deploy.preparing'));
     dp.setBusy(true);
     try {
+      if (syncRuntime) await apiClient.post('/project/sync-runtime', {});
       await apiClient.post('/project/deploy', { platform: 'web', outputPath, cacheBust: cbOpts });
       dp.setStatus(t('deploy.complete'));
     } catch (e) {

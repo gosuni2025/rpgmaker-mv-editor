@@ -672,6 +672,20 @@ router.post('/open-deploys-dir', (_req: Request, res: Response) => {
   res.json({ success: true, path: DEPLOYS_DIR });
 });
 
+// ─── 런타임 → 프로젝트 js/3d/ 동기화 ────────────────────────────────────────
+router.post('/sync-runtime', (req: Request, res: Response) => {
+  if (!projectManager.isOpen()) {
+    res.status(404).json({ error: '프로젝트가 열려있지 않습니다' });
+    return;
+  }
+  try {
+    syncRuntimeFiles(projectManager.currentPath!);
+    res.json({ success: true });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 // ─── Netlify 자동 배포 (SSE) ──────────────────────────────────────────────────
 router.post('/deploy-netlify-progress', async (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {

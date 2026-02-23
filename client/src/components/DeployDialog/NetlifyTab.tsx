@@ -12,9 +12,10 @@ interface Props {
   initialApiKey: string;
   initialSiteId: string;
   initialSiteUrl: string;
+  syncRuntime: boolean;
 }
 
-export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initialSiteUrl }: Props) {
+export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initialSiteUrl, syncRuntime }: Props) {
   const { t } = useTranslation();
   const dp = useDeployProgress();
 
@@ -93,6 +94,9 @@ export default function NetlifyTab({ cbOpts, initialApiKey, initialSiteId, initi
     dp.setBusy(true);
     setDeployMode('netlify');
     setShowProgressModal(true);
+    if (syncRuntime) {
+      try { await apiClient.post('/project/sync-runtime', {}); } catch { /* 무시 */ }
+    }
     const totalRef = { current: 0 };
     try {
       await readSSEStream(
