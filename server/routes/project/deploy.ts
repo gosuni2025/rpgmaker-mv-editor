@@ -109,6 +109,62 @@ export function collectFilesForDeploy(baseDir: string, subDir = '', usedNames?: 
   return results;
 }
 
+/**
+ * 런타임 JS 파일을 대상 디렉터리에 동기화.
+ * server/runtime/js/ → destRoot/js/3d/ (plugins 제외)
+ * server/runtime/js/libs/ → destRoot/js/libs/
+ * server/runtime/index_3d.html → destRoot/index_3d.html
+ */
+export function syncRuntimeFiles(destRoot: string): void {
+  const runtimeJsDir = path.resolve(__dirname, '../../runtime/js');
+  if (!fs.existsSync(runtimeJsDir)) return;
+
+  function copyDir(srcDir: string, destDir: string) {
+    for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+      const srcFull = path.join(srcDir, entry.name);
+      const destFull = path.join(destDir, entry.name);
+      // plugins/ 는 프로젝트 것 그대로 사용
+      const rel = path.relative(runtimeJsDir, srcFull);
+      if (rel === 'plugins' || rel.startsWith('plugins' + path.sep) || rel === 'plugins.js') continue;
+      if (entry.isDirectory()) {
+        fs.mkdirSync(destFull, { recursive: true });
+        copyDir(srcFull, destFull);
+      } else {
+        fs.mkdirSync(path.dirname(destFull), { recursive: true });
+        fs.copyFileSync(srcFull, destFull);
+      }
+    }
+  }
+
+  const js3dDir = path.join(destRoot, 'js', '3d');
+  fs.mkdirSync(js3dDir, { recursive: true });
+
+  for (const entry of fs.readdirSync(runtimeJsDir, { withFileTypes: true })) {
+    if (entry.name === 'plugins' || entry.name === 'plugins.js') continue;
+    const srcFull = path.join(runtimeJsDir, entry.name);
+    if (entry.name === 'libs') {
+      // libs/ → destRoot/js/libs/ (three.global.min.js 등, PIXI 파일은 이미 있으므로 덮어쓰기만)
+      const destFull = path.join(destRoot, 'js', 'libs');
+      fs.mkdirSync(destFull, { recursive: true });
+      if (entry.isDirectory()) copyDir(srcFull, destFull);
+    } else {
+      const destFull = path.join(js3dDir, entry.name);
+      if (entry.isDirectory()) {
+        fs.mkdirSync(destFull, { recursive: true });
+        copyDir(srcFull, destFull);
+      } else {
+        fs.copyFileSync(srcFull, destFull);
+      }
+    }
+  }
+
+  // index_3d.html 덮어씌움
+  const runtimeIdx3d = path.resolve(__dirname, '../../runtime/index_3d.html');
+  if (fs.existsSync(runtimeIdx3d)) {
+    fs.copyFileSync(runtimeIdx3d, path.join(destRoot, 'index_3d.html'));
+  }
+}
+
 export function applyIndexHtmlRename(stagingDir: string) {
   const idx3d = path.join(stagingDir, 'index_3d.html');
   const idxMain = path.join(stagingDir, 'index.html');
@@ -527,12 +583,9 @@ export async function buildDeployZipWithProgress(
     }
     onEvent({ type: 'log', message: '✓ 복사 완료' });
 
-    // index_3d.html: 항상 서버 런타임 최신 버전으로 덮어씌움
-    // (프로젝트 폴더의 index_3d.html이 구버전일 수 있으므로)
-    const runtimeIdx3d = path.resolve(__dirname, '../../runtime/index_3d.html');
-    if (fs.existsSync(runtimeIdx3d)) {
-      fs.copyFileSync(runtimeIdx3d, path.join(stagingDir, 'index_3d.html'));
-    }
+    // 런타임 JS 파일 동기화 (js/3d/, js/libs/, index_3d.html)
+    // 프로젝트 js/3d/가 구버전이어도 배포에는 항상 최신 런타임이 포함됨
+    syncRuntimeFiles(stagingDir);
 
     // 프로젝트가 이미 WebP인지 확인 (PNG 없고 WebP 있으면)
     const stagingImgDir = path.join(stagingDir, 'img');

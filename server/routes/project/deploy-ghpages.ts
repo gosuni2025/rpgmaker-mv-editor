@@ -14,6 +14,7 @@ import {
   setupSSE,
   sseWrite,
   parseCacheBustQuery,
+  syncRuntimeFiles,
 } from './deploy';
 
 const router = express.Router();
@@ -232,6 +233,11 @@ router.get('/deploy-ghpages-progress', async (req: Request, res: Response) => {
     currentStep = `${DEPLOY_BRANCH} 브랜치 전환 (checkout -B)`;
     sseLog(res, `── 4/7: ${DEPLOY_BRANCH} 브랜치 전환 ──`);
     gitExecLog(res, `git -C "${srcPath}" checkout -B ${DEPLOY_BRANCH}`);
+
+    // ── 4.5. 런타임 JS 파일 동기화 ────────────────────────────────────────────
+    sseLog(res, `── 런타임 JS 파일 동기화 (js/3d/, js/libs/, index_3d.html) ──`);
+    syncRuntimeFiles(srcPath);
+    sseLog(res, `✓ 런타임 동기화 완료`);
 
     // ── 5. index_3d.html → index.html + 캐시 버스팅 ─────────────────────────
     currentStep = 'index.html 교체 및 캐시 버스팅 적용';
