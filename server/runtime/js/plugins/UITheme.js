@@ -328,7 +328,9 @@
   };
 
   Window_Base.prototype.loadWindowskin = function () {
-    var skin = _skins.defaultSkin || G('windowskin', 'Window');
+    var skinId = _skins.defaultSkin || G('windowskin', 'Window');
+    var entry = findSkinEntryById(skinId) || findSkinEntry(skinId);
+    var skin = (entry && entry.file) ? entry.file : skinId;
     this.windowskin = ImageManager.loadSystem(skin);
   };
 
