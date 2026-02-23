@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RPGClass, Learning } from '../../types/rpgMakerMV';
 import TraitsEditor from '../common/TraitsEditor';
@@ -8,11 +8,12 @@ import TranslateButton from '../common/TranslateButton';
 import ParamCurveDialog from './ParamCurveDialog';
 import ExpCurveDialog from './ExpCurveDialog';
 import LearningDialog from './LearningDialog';
+import { useDatabaseTab } from './useDatabaseTab';
+import { makeParamNames } from './dbConstants';
 import { getMaxForParam } from './paramCurveUtils';
 
 const PARAM_COLORS = ['#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8', '#4dd0e1', '#fff176', '#a1887f'];
 
-// Single param mini graph (one per parameter)
 function SingleParamGraph({ values, color, label, paramIdx }: { values: number[]; color: string; label: string; paramIdx: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -23,20 +24,16 @@ function SingleParamGraph({ values, color, label, paramIdx }: { values: number[]
     if (!ctx) return;
     const W = canvas.width, H = canvas.height;
 
-    // Background
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(0, 0, W, H);
 
     if (!values || values.length === 0) return;
 
-    // 파라미터별 고정 최댓값 사용 (HP/MP: 9999, 나머지: 999)
     const maxVal = getMaxForParam(paramIdx);
-
     const padL = 4, padR = 4, padT = 4, padB = 4;
     const gW = W - padL - padR;
     const gH = H - padT - padB;
 
-    // Fill under curve
     ctx.fillStyle = color + '50';
     ctx.beginPath();
     ctx.moveTo(padL, padT + gH);
@@ -49,7 +46,6 @@ function SingleParamGraph({ values, color, label, paramIdx }: { values: number[]
     ctx.closePath();
     ctx.fill();
 
-    // Curve line
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -82,7 +78,6 @@ function expForLevel(level: number, expParams: number[]): number {
   );
 }
 
-// EXP mini graph for the main classes tab
 function ExpMiniGraph({ expParams }: { expParams: number[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -134,39 +129,45 @@ function ExpMiniGraph({ expParams }: { expParams: number[] }) {
   return <canvas ref={canvasRef} width={140} height={60} className="classes-param-mini-canvas" />;
 }
 
+function createNewClass(id: number): RPGClass {
+  const defaultParams = Array.from({ length: 8 }, () => {
+    const arr = new Array(99).fill(0);
+    arr[0] = 1;
+    return arr;
+  });
+  return { id, name: '', expParams: [30, 20, 30, 30], params: defaultParams, learnings: [], traits: [], note: '' };
+}
+
+function deepCopyClass(source: RPGClass): Partial<RPGClass> {
+  return {
+    params: source.params.map(p => [...p]),
+    learnings: source.learnings.map(l => ({ ...l })),
+    traits: source.traits.map(t => ({ ...t })),
+  };
+}
+
 interface ClassesTabProps {
   data: (RPGClass | null)[] | undefined;
   onChange: (data: (RPGClass | null)[]) => void;
 }
 
-const selectStyle: React.CSSProperties = { background: '#2b2b2b', border: '1px solid #555', borderRadius: 3, padding: '4px 8px', color: '#ddd', fontSize: 13, flex: 1 };
-
 export default function ClassesTab({ data, onChange }: ClassesTabProps) {
   const { t } = useTranslation();
-  const [selectedId, setSelectedId] = useState(1);
-  const selectedItem = data?.find((item) => item && item.id === selectedId);
+  const { selectedId, setSelectedId, selectedItem, handleFieldChange, handleAdd, handleDelete, handleDuplicate, handleReorder } =
+    useDatabaseTab(data, onChange, createNewClass, deepCopyClass);
   const [skills, setSkills] = useState<{ id: number; name: string; iconIndex?: number }[]>([]);
-  const [showParamCurve, setShowParamCurve] = useState<number | null>(null); // null=closed, number=initial tab index
+  const [showParamCurve, setShowParamCurve] = useState<number | null>(null);
   const [showExpCurve, setShowExpCurve] = useState(false);
   const [editingLearning, setEditingLearning] = useState<{ index: number; learning: Learning } | null>(null);
   const [selectedLearningIdx, setSelectedLearningIdx] = useState(-1);
+
+  const PARAM_NAMES = makeParamNames(t);
 
   useEffect(() => {
     apiClient.get<({ id: number; name: string; iconIndex?: number } | null)[]>('/database/skills').then(d => {
       setSkills((d.filter(Boolean) as { id: number; name: string; iconIndex?: number }[]).map(s => ({ id: s.id, name: s.name, iconIndex: s.iconIndex })));
     }).catch(() => {});
   }, []);
-
-  const handleFieldChange = (field: keyof RPGClass, value: unknown) => {
-    if (!data) return;
-    const newData = data.map((item) => {
-      if (item && item.id === selectedId) {
-        return { ...item, [field]: value };
-      }
-      return item;
-    });
-    onChange(newData);
-  };
 
   const handleLearningChange = (index: number, field: string, value: number | string) => {
     if (!selectedItem) return;
@@ -185,95 +186,29 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
     handleFieldChange('learnings', learnings);
   };
 
-  const addNewClass = useCallback(() => {
-    if (!data) return;
-    const existing = data.filter(Boolean) as RPGClass[];
-    const maxId = existing.length > 0 ? Math.max(...existing.map(c => c.id)) : 0;
-    const defaultParams = Array.from({ length: 8 }, () => {
-      const arr = new Array(99).fill(0);
-      arr[0] = 1;
-      return arr;
-    });
-    const newClass: RPGClass = {
-      id: maxId + 1,
-      name: '',
-      expParams: [30, 20, 30, 30],
-      params: defaultParams,
-      learnings: [],
-      traits: [],
-      note: '',
-    };
-    const newData = [...data, newClass];
-    onChange(newData);
-    setSelectedId(newClass.id);
-  }, [data, onChange]);
-
-  const handleDeleteClass = useCallback((id: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as RPGClass[];
-    if (items.length <= 1) return;
-    const newData = data.filter((item) => !item || item.id !== id);
-    onChange(newData);
-    if (id === selectedId) {
-      const remaining = newData.filter(Boolean) as RPGClass[];
-      if (remaining.length > 0) setSelectedId(remaining[0].id);
-    }
-  }, [data, onChange, selectedId]);
-
-  const handleDuplicate = useCallback((id: number) => {
-    if (!data) return;
-    const source = data.find((item) => item && item.id === id);
-    if (!source) return;
-    const existing = data.filter(Boolean) as RPGClass[];
-    const maxId = existing.length > 0 ? Math.max(...existing.map(c => c.id)) : 0;
-    const newId = maxId + 1;
-    const newData = [...data, { ...source, id: newId, params: source.params.map(p => [...p]), learnings: source.learnings.map(l => ({ ...l })), traits: source.traits.map(t => ({ ...t })) }];
-    onChange(newData);
-    setSelectedId(newId);
-  }, [data, onChange]);
-
-  const handleReorder = useCallback((fromId: number, toId: number) => {
-    if (!data) return;
-    const items = data.filter(Boolean) as RPGClass[];
-    const fromIdx = items.findIndex(item => item.id === fromId);
-    if (fromIdx < 0) return;
-    const [moved] = items.splice(fromIdx, 1);
-    if (toId === -1) {
-      items.push(moved);
-    } else {
-      const toIdx = items.findIndex(item => item.id === toId);
-      if (toIdx < 0) items.push(moved);
-      else items.splice(toIdx, 0, moved);
-    }
-    onChange([null, ...items]);
-  }, [data, onChange]);
-
-  const PARAM_NAMES = [t('params.maxHP'), t('params.maxMP'), t('params.attack'), t('params.defense'), t('params.mAttack'), t('params.mDefense'), t('params.agility'), t('params.luck')];
-
   return (
     <div className="db-tab-layout">
       <DatabaseList
         items={data}
         selectedId={selectedId}
         onSelect={setSelectedId}
-        onAdd={addNewClass}
-        onDelete={handleDeleteClass}
+        onAdd={handleAdd}
+        onDelete={handleDelete}
         onDuplicate={handleDuplicate}
         onReorder={handleReorder}
       />
       <div className="db-form-columns">
         {selectedItem && (
           <>
-            {/* 왼쪽 컬럼: 이름, 경험치 곡선, 능력치 곡선 */}
             <div className="db-form-col">
               <label>
                 {t('common.name')}
-                <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                   <input
                     type="text"
                     value={selectedItem.name || ''}
                     onChange={(e) => handleFieldChange('name', e.target.value)}
-                    style={{flex:1}}
+                    style={{ flex: 1 }}
                   />
                   <TranslateButton csvPath="database/classes.csv" entryKey={`${selectedItem.id}.name`} sourceText={selectedItem.name || ''} />
                 </div>
@@ -310,7 +245,6 @@ export default function ClassesTab({ data, onChange }: ClassesTabProps) {
               </div>
             </div>
 
-            {/* 오른쪽 컬럼: 습득 스킬, 특성, 메모 */}
             <div className="db-form-col">
               <div className="db-form-section" style={{ borderTop: 'none', paddingTop: 0, marginTop: 0 }}>
                 {t('fields.learnings')}
