@@ -283,6 +283,58 @@ router.post('/deploy', (req: Request, res: Response) => {
   }
 });
 
+// ─── WebP → PNG 일괄 복원 (SSE) ──────────────────────────────────────────────
+router.get('/convert-png-progress', async (req: Request, res: Response) => {
+  if (!projectManager.isOpen()) {
+    res.status(404).json({ error: '프로젝트가 열려있지 않습니다' });
+    return;
+  }
+  const projectPath = projectManager.currentPath!;
+  const imgDir = path.join(projectPath, 'img');
+  setupSSE(res);
+
+  try {
+    if (!fs.existsSync(imgDir)) {
+      sseWrite(res, { type: 'done', converted: 0 });
+      res.end();
+      return;
+    }
+
+    // ── WebP 파일 수집 ─────────────────────────────────────────────────────────
+    const webpFiles: string[] = [];
+    function collectWebp(dir: string) {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) collectWebp(full);
+        else if (entry.name.toLowerCase().endsWith('.webp')) webpFiles.push(full);
+      }
+    }
+    collectWebp(imgDir);
+
+    const total = webpFiles.length;
+    sseWrite(res, { type: 'counted', total });
+    sseWrite(res, { type: 'log', message: `── WebP → PNG 변환 시작 (${total}개) ──` });
+
+    let converted = 0;
+    for (const webpPath of webpFiles) {
+      const rel = path.relative(imgDir, webpPath);
+      sseWrite(res, { type: 'converting', file: rel, current: converted + 1, total });
+      sseWrite(res, { type: 'progress', current: converted, total });
+      const pngPath = webpPath.slice(0, -5) + '.png';
+      await sharp(webpPath).png().toFile(pngPath);
+      fs.unlinkSync(webpPath);
+      converted++;
+      sseWrite(res, { type: 'progress', current: converted, total });
+    }
+
+    sseWrite(res, { type: 'log', message: `✓ 변환 완료 (${converted}개)` });
+    sseWrite(res, { type: 'done', converted });
+  } catch (err) {
+    sseWrite(res, { type: 'error', message: (err as Error).message });
+  }
+  res.end();
+});
+
 // ─── PNG → WebP 일괄 변환 (SSE) ──────────────────────────────────────────────
 router.get('/convert-webp-progress', async (req: Request, res: Response) => {
   if (!projectManager.isOpen()) {

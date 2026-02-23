@@ -18,7 +18,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'showOpenProjectDialog' | 'showNewProjectDialog' | 'showDatabaseDialog' | 'showDeployDialog' |
   'showFindDialog' | 'showPluginManagerDialog' | 'showSoundTestDialog' | 'showEventSearchDialog' |
   'showResourceManagerDialog' | 'showCharacterGeneratorDialog' | 'showOptionsDialog' | 'showLocalizationDialog' |
-  'showUpdateCheckDialog' | 'showMCPStatusDialog' | 'showWebpConvertDialog' | 'useWebp' | 'webpConverting' |
+  'showUpdateCheckDialog' | 'showMCPStatusDialog' | 'showWebpConvertDialog' | 'showPngConvertDialog' | 'useWebp' | 'webpConverting' |
   'showToast' | 'dismissToast' | 'dismissAllToasts' | 'setZoomLevel' | 'zoomIn' | 'zoomOut' | 'zoomActualSize' |
   'postProcessConfig' | 'setPostProcessConfig' | 'updatePostProcessEffect' |
   'setShowGrid' | 'setShowPassability' | 'setShowTileInfo' | 'setShowRegion' |
@@ -26,7 +26,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'setShowOpenProjectDialog' | 'setShowNewProjectDialog' | 'setShowDatabaseDialog' | 'setShowDeployDialog' |
   'setShowFindDialog' | 'setShowPluginManagerDialog' | 'setShowSoundTestDialog' | 'setShowEventSearchDialog' |
   'setShowResourceManagerDialog' | 'setShowCharacterGeneratorDialog' | 'setShowOptionsDialog' | 'setShowLocalizationDialog' |
-  'setShowUpdateCheckDialog' | 'setShowMCPStatusDialog' | 'setShowWebpConvertDialog' | 'setUseWebp' | 'setWebpConverting' |
+  'setShowUpdateCheckDialog' | 'setShowMCPStatusDialog' | 'setShowWebpConvertDialog' | 'setShowPngConvertDialog' | 'setUseWebp' | 'setWebpConverting' |
   'setTransparentColor' | 'setMaxUndo' | 'setZoomStep' | 'demoMode'
 >> = (set, get) => {
   // 서버 config 페치 (1회)
@@ -68,6 +68,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   showUpdateCheckDialog: false,
   showMCPStatusDialog: false,
   showWebpConvertDialog: false,
+  showPngConvertDialog: false,
   useWebp: false,
   webpConverting: false,
 
@@ -182,6 +183,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   setShowUpdateCheckDialog: (show: boolean) => set({ showUpdateCheckDialog: show }),
   setShowMCPStatusDialog: (show: boolean) => set({ showMCPStatusDialog: show }),
   setShowWebpConvertDialog: (show: boolean) => set({ showWebpConvertDialog: show }),
+  setShowPngConvertDialog: (show: boolean) => set({ showPngConvertDialog: show }),
   setUseWebp: (v: boolean) => {
     set({ useWebp: v });
     (window as unknown as Record<string, unknown>).__CACHE_BUST__ = { webp: v };

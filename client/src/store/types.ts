@@ -377,6 +377,7 @@ export interface EditorState {
   showUpdateCheckDialog: boolean;
   showMCPStatusDialog: boolean;
   showWebpConvertDialog: boolean;
+  showPngConvertDialog: boolean;
   useWebp: boolean;
   webpConverting: boolean;
 
@@ -585,6 +586,7 @@ export interface EditorState {
   setShowUpdateCheckDialog: (show: boolean) => void;
   setShowMCPStatusDialog: (show: boolean) => void;
   setShowWebpConvertDialog: (show: boolean) => void;
+  setShowPngConvertDialog: (show: boolean) => void;
   setUseWebp: (v: boolean) => void;
   setWebpConverting: (v: boolean) => void;
   setTransparentColor: (color: { r: number; g: number; b: number }) => void;

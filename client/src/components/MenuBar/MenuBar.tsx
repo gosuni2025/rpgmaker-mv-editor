@@ -39,7 +39,7 @@ export default function MenuBar() {
     setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
     setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
     setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog,
-    setShowUpdateCheckDialog, setShowMCPStatusDialog, setShowWebpConvertDialog,
+    setShowUpdateCheckDialog, setShowMCPStatusDialog, setShowWebpConvertDialog, setShowPngConvertDialog,
   } = useEditorStore(useShallow(s => ({
     projectPath: s.projectPath,
     editMode: s.editMode, editorMode: s.editorMode,
@@ -67,6 +67,7 @@ export default function MenuBar() {
     setShowUpdateCheckDialog: s.setShowUpdateCheckDialog,
     setShowMCPStatusDialog: s.setShowMCPStatusDialog,
     setShowWebpConvertDialog: s.setShowWebpConvertDialog,
+    setShowPngConvertDialog: s.setShowPngConvertDialog,
   })));
 
   const hasProject = !!projectPath;
@@ -164,6 +165,7 @@ export default function MenuBar() {
         { label: t('menu.resourceManager'), action: 'resourceManager', disabled: () => !hasProject },
         { type: 'separator' },
         { label: useWebp ? t('menu.convertToWebpDone') : t('menu.convertToWebp'), action: 'convertToWebp', disabled: () => !hasProject || useWebp },
+        { label: useWebp ? t('menu.convertToPng') : t('menu.convertToPngDisabled'), action: 'convertToPng', disabled: () => !hasProject || !useWebp },
         { type: 'separator' },
         { label: t('menu.localization'), action: 'localization', disabled: () => !hasProject },
         { type: 'separator' },
@@ -265,6 +267,7 @@ export default function MenuBar() {
       case 'characterGenerator': setShowCharacterGeneratorDialog(true); break;
       case 'resourceManager': setShowResourceManagerDialog(true); break;
       case 'convertToWebp': setShowWebpConvertDialog(true); break;
+      case 'convertToPng': setShowPngConvertDialog(true); break;
       case 'playtestTitle': saveCurrentMap().then(() => window.open('/game/index.html?dev=true', '_blank')); break;
       case 'playtestCurrentMap': {
         const state = useEditorStore.getState();

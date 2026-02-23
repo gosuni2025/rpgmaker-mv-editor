@@ -26,6 +26,7 @@ import LocalizationDialog from './components/LocalizationDialog';
 import UpdateCheckDialog from './components/UpdateCheckDialog';
 import MCPStatusDialog from './components/MCPStatusDialog';
 import WebpConvertDialog from './components/WebpConvertDialog';
+import PngConvertDialog from './components/PngConvertDialog';
 
 import AutotileDebugDialog from './components/AutotileDebugDialog';
 import SidebarSplit from './components/SidebarSplit';
@@ -115,6 +116,7 @@ export default function App() {
   const showMCPStatusDialog = useEditorStore((s) => s.showMCPStatusDialog);
   const setShowMCPStatusDialog = useEditorStore((s) => s.setShowMCPStatusDialog);
   const showWebpConvertDialog = useEditorStore((s) => s.showWebpConvertDialog);
+  const showPngConvertDialog = useEditorStore((s) => s.showPngConvertDialog);
 
   const toastQueue = useEditorStore((s) => s.toastQueue);
   const dismissToast = useEditorStore((s) => s.dismissToast);
@@ -393,6 +395,7 @@ export default function App() {
       {showResourceManagerDialog && <ResourceManagerDialog />}
       {showCharacterGeneratorDialog && <CharacterGeneratorDialog />}
       {showWebpConvertDialog && <WebpConvertDialog />}
+      {showPngConvertDialog && <PngConvertDialog />}
       {showOptionsDialog && <OptionsDialog />}
       {showLocalizationDialog && <LocalizationDialog />}
       {showUpdateCheckDialog && <UpdateCheckDialog onClose={() => setShowUpdateCheckDialog(false)} />}
