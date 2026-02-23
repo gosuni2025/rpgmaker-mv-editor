@@ -174,10 +174,31 @@ async function cacheFirst(request) {
     .sort()
     .reverse();
 
+  // .webp↔.png 대체 URL 생성 (WebP 변환 프로젝트 호환)
+  // 게임이 .png 요청 → 캐시에 .webp만 있을 수도 있고, 반대도 마찬가지
+  let altRequest = null;
+  try {
+    const u = new URL(request.url);
+    const p = u.pathname;
+    if (p.endsWith('.webp')) {
+      u.pathname = p.slice(0, -5) + '.png';
+      altRequest = new Request(u.toString());
+    } else if (p.endsWith('.png')) {
+      u.pathname = p.slice(0, -4) + '.webp';
+      altRequest = new Request(u.toString());
+    }
+  } catch {}
+
   for (const cacheName of allCacheNames) {
+    const cache = await caches.open(cacheName);
     // ignoreSearch: 캐시 버스팅 쿼리(?v=xxxxx)를 무시하고 경로만 비교
-    const cached = await caches.open(cacheName).then(c => c.match(request, { ignoreSearch: true }));
+    const cached = await cache.match(request, { ignoreSearch: true });
     if (cached) return cached;
+    // 대체 확장자(.webp↔.png)로도 조회
+    if (altRequest) {
+      const altCached = await cache.match(altRequest, { ignoreSearch: true });
+      if (altCached) return altCached;
+    }
   }
   return fetch(request);
 }
