@@ -1,42 +1,26 @@
 import fs from 'fs';
 import path from 'path';
 import express from 'express';
-import projectManager from '../services/projectManager';
+import projectManager from '../../services/projectManager';
 
 const router = express.Router();
 
-/** UI 에디터 config 파일 경로 */
-function getConfigPath(): string | null {
-  if (!projectManager.isOpen()) return null;
-  return path.join(projectManager.currentPath!, 'data', 'UIEditorConfig.json');
+function detectWebp(): boolean {
+  const imgDir = path.join(projectManager.currentPath!, 'img');
+  if (!fs.existsSync(imgDir)) return false;
+  const check = (dir: string): boolean => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) { if (check(path.join(dir, e.name))) return true; }
+      else if (e.name.toLowerCase().endsWith('.webp')) return true;
+    }
+    return false;
+  };
+  return check(imgDir);
 }
 
-/** GET /api/ui-editor/preview — iframe 내에서 게임 런타임을 구동하는 HTML */
-router.get('/preview', (req, res) => {
-  if (!projectManager.isOpen()) {
-    return res.status(404).send('<h2>프로젝트가 열려있지 않습니다</h2>');
-  }
-
+function buildPreviewHTML(useWebp: boolean): string {
   const cb = `?v=${Date.now()}`;
-
-  // WebP 감지 (game.ts와 동일)
-  const imgDir = path.join(projectManager.currentPath!, 'img');
-  let useWebp = false;
-  if (fs.existsSync(imgDir)) {
-    const checkWebp = (dir: string): boolean => {
-      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (e.isDirectory()) { if (checkWebp(path.join(dir, e.name))) return true; }
-        else if (e.name.toLowerCase().endsWith('.webp')) return true;
-      }
-      return false;
-    };
-    useWebp = checkWebp(imgDir);
-  }
-
-  // 핵심: <base href="/game/"> 로 상대 경로를 /game/로 해석하게 함
-  // PluginManager.makeUrl → js/plugins/SkyBox.js → /game/js/plugins/SkyBox.js ✓
-  // DataManager → data/System.json → /game/data/System.json ✓
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="UTF-8">
@@ -121,10 +105,6 @@ router.get('/preview', (req, res) => {
       // ── 요소 캡처: Window 내부 draw 메서드 계측 ─────────────────────────
       var PER_ACTOR_WINDOWS = { 'Window_BattleStatus': true, 'Window_MenuStatus': true };
 
-      // drawActorFace(actor, faceName, faceIndex, x, y, width, height) → argX=3
-      // drawActorName/Class/Nickname(actor, x, y, width)               → argX=1
-      // drawActorLevel/Icons/Hp/Mp/Tp(actor, x, y, width?)             → argX=1
-      // drawSimpleStatus(actor, x, y, width)                           → argX=1
       var ELEM_SPECS = [
         { method:'drawActorName',     type:'actorName',     label:'이름',        argX:1, argY:2, argW:3, argH:null },
         { method:'drawActorClass',    type:'actorClass',    label:'직업',        argX:1, argY:2, argW:3, argH:null },
@@ -138,8 +118,6 @@ router.get('/preview', (req, res) => {
         { method:'drawSimpleStatus',  type:'simpleStatus',  label:'간단 상태',   argX:1, argY:2, argW:3, argH:null },
       ];
 
-      // Window_Base 원본 메서드 캡처 (UITheme.js 플러그인 적용 전)
-      // module script이므로 defer scripts 이후 실행 → Window_Base 접근 가능
       var ORIG_BASE_METHODS = {};
       (function() {
         if (typeof Window_Base === 'undefined') return;
@@ -149,15 +127,12 @@ router.get('/preview', (req, res) => {
         });
       })();
 
-      /** Window 내 요소 위치 캡처 (bitmap 클리어 없이 draw 메서드만 인터셉트) */
       function captureElements(win) {
         if (!win || !win.constructor) return [];
         var className = win.constructor.name;
         var isPerActor = !!PER_ACTOR_WINDOWS[className];
         var elements = [];
         var seen = {};
-
-        // 인스턴스 메서드로 오버라이드 (prototype 유지, 캡처 후 delete로 복원)
         ELEM_SPECS.forEach(function(spec) {
           var proto = win.constructor.prototype;
           if (!proto || !proto[spec.method]) return;
@@ -168,8 +143,7 @@ router.get('/preview', (req, res) => {
               var args = Array.prototype.slice.call(arguments);
               var lh = win.lineHeight ? win.lineHeight() : 36;
               elements.push({
-                type: spec.type,
-                label: spec.label,
+                type: spec.type, label: spec.label,
                 x: spec.argX !== null && args[spec.argX] !== undefined ? args[spec.argX] : 0,
                 y: spec.argY !== null && args[spec.argY] !== undefined ? args[spec.argY] : 0,
                 width:  spec.argW !== null && args[spec.argW] !== undefined ? args[spec.argW] : 128,
@@ -179,8 +153,6 @@ router.get('/preview', (req, res) => {
             };
           })(spec);
         });
-
-        // drawBlock1-4 (Window_Status 계열) 또는 drawItem(0) (리스트 계열) 호출
         var hadBlock = false;
         ['drawBlock1','drawBlock2','drawBlock3','drawBlock4'].forEach(function(m) {
           if (typeof win[m] === 'function') { hadBlock = true; try { win[m](); } catch(e) {} }
@@ -188,23 +160,17 @@ router.get('/preview', (req, res) => {
         if (!hadBlock && typeof win.drawItem === 'function') {
           try { win.drawItem(0); } catch(e) {}
         }
-
-        // 인스턴스 오버라이드 제거 → prototype 복원
         ELEM_SPECS.forEach(function(spec) {
           if (win.hasOwnProperty(spec.method)) delete win[spec.method];
         });
-
         return elements;
       }
 
-      /** 저장된 요소 오버라이드를 인스턴스 메서드로 설치 후 refresh */
       function reinstallElemOvs(win) {
         var ovs = win.__uiElemOvs || {};
-        // 이전 인스턴스 패치 제거
         ELEM_SPECS.forEach(function(spec) {
           if (win.hasOwnProperty(spec.method)) delete win[spec.method];
         });
-        // 새 패치 설치 (Window_Base 원본 메서드 기반 → UITheme.js 우회)
         ELEM_SPECS.forEach(function(spec) {
           var cfg = ovs[spec.type];
           if (!cfg) return;
@@ -224,16 +190,13 @@ router.get('/preview', (req, res) => {
         try { if (win.refresh) win.refresh(); } catch(e) {}
       }
 
-      /** Window 정보 추출 */
       function extractWindowInfo(win, id) {
         var tone = win._colorTone || [0, 0, 0, 0];
         return {
           id: id,
           className: win.constructor ? win.constructor.name : 'Unknown',
-          x: Math.round(win.x),
-          y: Math.round(win.y),
-          width: Math.round(win.width),
-          height: Math.round(win.height),
+          x: Math.round(win.x), y: Math.round(win.y),
+          width: Math.round(win.width), height: Math.round(win.height),
           opacity: typeof win.opacity !== 'undefined' ? win.opacity : 255,
           backOpacity: typeof win.backOpacity !== 'undefined' ? win.backOpacity : 192,
           padding: typeof win._padding !== 'undefined' ? win._padding : 18,
@@ -246,7 +209,6 @@ router.get('/preview', (req, res) => {
         };
       }
 
-      /** 씬에서 Window_* 목록 수집 */
       function collectWindows(scene) {
         if (!scene) return [];
         var windows = [];
@@ -269,7 +231,6 @@ router.get('/preview', (req, res) => {
         return windows;
       }
 
-      /** 창 목록을 에디터에 보고 */
       function reportWindows(type) {
         var windows = collectWindows(SceneManager._scene);
         var msg = { type: type || 'windowUpdated', windows: windows };
@@ -280,7 +241,6 @@ router.get('/preview', (req, res) => {
         window.parent.postMessage(msg, '*');
       }
 
-      /** windowId → 실제 창 객체 */
       function findWindow(windowId) {
         var scene = SceneManager._scene;
         if (!scene) return null;
@@ -302,30 +262,6 @@ router.get('/preview', (req, res) => {
         }
         traverse(scene);
         return found;
-      }
-
-      /** className 기준 모든 창에 속성 적용 */
-      function applyOverrideToClass(className, prop, value) {
-        var scene = SceneManager._scene;
-        if (!scene) return;
-        function traverse(container) {
-          if (!container || !container.children) return;
-          for (var i = 0; i < container.children.length; i++) {
-            var child = container.children[i];
-            if (!child) continue;
-            if (child.constructor && child.constructor.name === className) {
-              if (prop === 'elements' && value && typeof value === 'object') {
-                // 요소 오버라이드 적용
-                child.__uiElemOvs = value;
-                reinstallElemOvs(child);
-              } else {
-                applyPropToWindow(child, prop, value);
-              }
-            }
-            traverse(child);
-          }
-        }
-        traverse(scene);
       }
 
       function applyPropToWindow(win, prop, value) {
@@ -371,7 +307,28 @@ router.get('/preview', (req, res) => {
         }
       }
 
-      /** prepare()가 필요한 씬에 더미 데이터 전달 */
+      function applyOverrideToClass(className, prop, value) {
+        var scene = SceneManager._scene;
+        if (!scene) return;
+        function traverse(container) {
+          if (!container || !container.children) return;
+          for (var i = 0; i < container.children.length; i++) {
+            var child = container.children[i];
+            if (!child) continue;
+            if (child.constructor && child.constructor.name === className) {
+              if (prop === 'elements' && value && typeof value === 'object') {
+                child.__uiElemOvs = value;
+                reinstallElemOvs(child);
+              } else {
+                applyPropToWindow(child, prop, value);
+              }
+            }
+            traverse(child);
+          }
+        }
+        traverse(scene);
+      }
+
       function _prepareScene(sceneName) {
         if (sceneName === 'Scene_Shop') {
           SceneManager.prepareNextScene([], false);
@@ -462,173 +419,14 @@ router.get('/preview', (req, res) => {
     <script defer src="js/main.js${cb}"></script>
   </body>
 </html>`;
-
-  res.type('html').send(html);
-});
-
-/** GET /api/ui-editor/config — UIEditorConfig.json 읽기 */
-router.get('/config', (req, res) => {
-  const configPath = getConfigPath();
-  if (!configPath) return res.status(404).json({ error: 'No project' });
-  if (!fs.existsSync(configPath)) return res.json({ overrides: {} });
-  try {
-    const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    res.json(data);
-  } catch {
-    res.json({ overrides: {} });
-  }
-});
-
-/** PUT /api/ui-editor/config — UIEditorConfig.json 저장 */
-router.put('/config', (req, res) => {
-  const configPath = getConfigPath();
-  if (!configPath) return res.status(404).json({ error: 'No project' });
-  try {
-    fs.writeFileSync(configPath, JSON.stringify(req.body, null, 2), 'utf8');
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: (err as Error).message });
-  }
-});
-
-
-// ─── UIEditorSkins.json 관리 ─────────────────────────────────────────────────
-
-interface SkinEntry { name: string; label?: string; file?: string; cornerSize: number; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number; cursorToneR?: number; cursorToneG?: number; cursorToneB?: number; }
-interface SkinsData { defaultSkin: string; skins: SkinEntry[]; }
-
-const DEFAULT_SKINS: SkinEntry[] = [{ name: 'Window', file: 'Window', cornerSize: 24, useCenterFill: false }];
-const DEFAULT_SKINS_DATA: SkinsData = { defaultSkin: 'Window', skins: DEFAULT_SKINS };
-
-function getSkinsPath(): string | null {
-  if (!projectManager.isOpen()) return null;
-  return path.join(projectManager.currentPath!, 'data', 'UIEditorSkins.json');
 }
 
-function readSkinsData(): SkinsData {
-  const p = getSkinsPath();
-  if (!p || !fs.existsSync(p)) return { ...DEFAULT_SKINS_DATA, skins: [...DEFAULT_SKINS] };
-  try {
-    const data = JSON.parse(fs.readFileSync(p, 'utf8'));
-    const skins = Array.isArray(data.skins) && data.skins.length > 0 ? data.skins : [...DEFAULT_SKINS];
-    // Window 스킨: 기존 JSON에 useCenterFill 없으면 false로 패치 (RPG MV 기본 배경은 별도 영역)
-    const windowSkin = skins.find((s: SkinEntry) => s.name === 'Window');
-    if (windowSkin && windowSkin.useCenterFill === undefined) windowSkin.useCenterFill = false;
-    // 마이그레이션: file 없는 항목에 file = name 자동 패치
-    for (const s of skins) {
-      if (!s.file) s.file = s.name;
-    }
-    return { defaultSkin: data.defaultSkin || 'Window', skins };
-  } catch {}
-  return { ...DEFAULT_SKINS_DATA, skins: [...DEFAULT_SKINS] };
-}
-
-function writeSkinsData(data: SkinsData): void {
-  const p = getSkinsPath();
-  if (!p) return;
-  fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf8');
-}
-
-// ─── 스킨 CRUD ────────────────────────────────────────────────────────────────
-
-/** GET /api/ui-editor/skins — UIEditorSkins.json ({ defaultSkin, skins }) */
-router.get('/skins', (req, res) => {
-  if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
-  res.json(readSkinsData());
-});
-
-/** PUT /api/ui-editor/skins/default — defaultSkin 변경 */
-router.put('/skins/default', (req, res) => {
-  if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
-  const { defaultSkin } = req.body as { defaultSkin?: string };
-  if (!defaultSkin) return res.status(400).json({ error: 'defaultSkin required' });
-  const data = readSkinsData();
-  data.defaultSkin = defaultSkin;
-  writeSkinsData(data);
-  res.json({ ok: true });
-});
-
-/** POST /api/ui-editor/skins — 스킨 등록 */
-router.post('/skins', (req, res) => {
-  if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
-  const { name, file, label, cornerSize = 24 } = req.body as { name?: string; file?: string; label?: string; cornerSize?: number };
-  if (!name) return res.status(400).json({ error: 'name required' });
-  const data = readSkinsData();
-  if (data.skins.find((s) => s.name === name)) return res.status(409).json({ error: 'Already exists' });
-  const entry: SkinEntry = { name, cornerSize };
-  if (file) entry.file = file;
-  if (label) entry.label = label;
-  data.skins.push(entry);
-  writeSkinsData(data);
-  res.json({ ok: true });
-});
-
-/** PUT /api/ui-editor/skins/:name — cornerSize 업데이트 */
-router.put('/skins/:name', (req, res) => {
-  if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
-  const data = readSkinsData();
-  const idx = data.skins.findIndex((s) => s.name === req.params.name);
-  if (idx < 0) return res.status(404).json({ error: 'Not found' });
-  const { cornerSize, label, frameX, frameY, frameW, frameH, fillX, fillY, fillW, fillH, useCenterFill, cursorX, cursorY, cursorW, cursorH, cursorCornerSize, cursorRenderMode, cursorBlendMode, cursorOpacity, cursorBlink, cursorPadding, cursorToneR, cursorToneG, cursorToneB } = req.body as { cornerSize?: number; label?: string; frameX?: number; frameY?: number; frameW?: number; frameH?: number; fillX?: number; fillY?: number; fillW?: number; fillH?: number; useCenterFill?: boolean; cursorX?: number; cursorY?: number; cursorW?: number; cursorH?: number; cursorCornerSize?: number; cursorRenderMode?: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode?: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number; cursorToneR?: number; cursorToneG?: number; cursorToneB?: number };
-  if (cornerSize !== undefined) data.skins[idx].cornerSize = cornerSize;
-  if (label !== undefined) data.skins[idx].label = label;
-  if (frameX !== undefined) data.skins[idx].frameX = frameX;
-  if (frameY !== undefined) data.skins[idx].frameY = frameY;
-  if (frameW !== undefined) data.skins[idx].frameW = frameW;
-  if (frameH !== undefined) data.skins[idx].frameH = frameH;
-  if (fillX !== undefined) data.skins[idx].fillX = fillX;
-  if (fillY !== undefined) data.skins[idx].fillY = fillY;
-  if (fillW !== undefined) data.skins[idx].fillW = fillW;
-  if (fillH !== undefined) data.skins[idx].fillH = fillH;
-  if (useCenterFill !== undefined) data.skins[idx].useCenterFill = useCenterFill;
-  if (cursorX !== undefined) data.skins[idx].cursorX = cursorX;
-  if (cursorY !== undefined) data.skins[idx].cursorY = cursorY;
-  if (cursorW !== undefined) data.skins[idx].cursorW = cursorW;
-  if (cursorH !== undefined) data.skins[idx].cursorH = cursorH;
-  if (cursorCornerSize !== undefined) data.skins[idx].cursorCornerSize = cursorCornerSize;
-  if (cursorRenderMode !== undefined) data.skins[idx].cursorRenderMode = cursorRenderMode;
-  if (cursorBlendMode !== undefined) data.skins[idx].cursorBlendMode = cursorBlendMode;
-  if (cursorOpacity !== undefined) data.skins[idx].cursorOpacity = cursorOpacity;
-  if (cursorBlink !== undefined) data.skins[idx].cursorBlink = cursorBlink;
-  if (cursorPadding !== undefined) data.skins[idx].cursorPadding = cursorPadding;
-  if (cursorToneR !== undefined) data.skins[idx].cursorToneR = cursorToneR;
-  if (cursorToneG !== undefined) data.skins[idx].cursorToneG = cursorToneG;
-  if (cursorToneB !== undefined) data.skins[idx].cursorToneB = cursorToneB;
-  writeSkinsData(data);
-  res.json({ ok: true });
-});
-
-/** DELETE /api/ui-editor/skins/:name — 스킨 삭제 */
-router.delete('/skins/:name', (req, res) => {
-  if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
-  const data = readSkinsData();
-  const idx = data.skins.findIndex((s) => s.name === req.params.name);
-  if (idx < 0) return res.status(404).json({ error: 'Not found' });
-  data.skins.splice(idx, 1);
-  writeSkinsData(data);
-  res.json({ ok: true });
-});
-
-/** POST /api/ui-editor/upload-skin — 새 윈도우스킨 PNG 업로드 + 스킨 목록에 자동 등록 */
-router.post('/upload-skin', express.raw({ type: 'image/png', limit: '10mb' }), (req, res) => {
-  if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
-  const name = (req.query.name as string || '').replace(/[^a-zA-Z0-9_\-가-힣]/g, '');
-  if (!name) return res.status(400).json({ error: 'name required' });
-  const systemDir = path.join(projectManager.currentPath!, 'img', 'system');
-  if (!fs.existsSync(systemDir)) fs.mkdirSync(systemDir, { recursive: true });
-  const dest = path.join(systemDir, `${name}.png`);
-  try {
-    fs.writeFileSync(dest, req.body as Buffer);
-    // 스킨 목록에 자동 등록 (이미 있으면 스킵)
-    const data = readSkinsData();
-    if (!data.skins.find((s) => s.name === name)) {
-      data.skins.push({ name, cornerSize: 24 });
-      writeSkinsData(data);
-    }
-    res.json({ ok: true, name });
-  } catch (err) {
-    res.status(500).json({ error: (err as Error).message });
+/** GET /api/ui-editor/preview — iframe 내에서 게임 런타임을 구동하는 HTML */
+router.get('/', (req, res) => {
+  if (!projectManager.isOpen()) {
+    return res.status(404).send('<h2>프로젝트가 열려있지 않습니다</h2>');
   }
+  res.type('html').send(buildPreviewHTML(detectWebp()));
 });
 
 export default router;

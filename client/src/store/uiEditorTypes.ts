@@ -1,0 +1,71 @@
+export interface UIElementInfo {
+  type: string;       // 'actorName' | 'actorClass' | 'actorFace' | 'actorLevel' | ...
+  label: string;      // 표시 이름 (한국어)
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isPerActor?: boolean; // perActor 레이아웃 (BattleStatus, MenuStatus 등)
+}
+
+export interface UIElementOverride {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  visible?: boolean;
+}
+
+export interface UIWindowInfo {
+  id: string;
+  className: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  opacity: number;
+  backOpacity: number;
+  padding: number;
+  fontSize: number;
+  fontFace: string;
+  windowskinName: string;
+  colorTone: [number, number, number];
+  visible: boolean;
+  elements?: UIElementInfo[];
+  originalX?: number;
+  originalY?: number;
+  originalWidth?: number;
+  originalHeight?: number;
+}
+
+export interface UIWindowOverride {
+  className: string;
+  windowStyle?: 'default' | 'frame' | 'image';
+  skinId?: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  opacity?: number;
+  backOpacity?: number;
+  padding?: number;
+  fontSize?: number;
+  fontFace?: string;
+  windowskinName?: string;
+  colorTone?: [number, number, number];
+  elements?: Record<string, UIElementOverride>;
+}
+
+export type UiSkinUndoEntry = {
+  frameX: number; frameY: number; frameW: number; frameH: number;
+  fillX: number; fillY: number; fillW: number; fillH: number;
+  cornerSize: number;
+  cursorX: number; cursorY: number; cursorW: number; cursorH: number;
+  cursorCornerSize: number;
+  cursorRenderMode: 'nineSlice' | 'stretch' | 'tile';
+  cursorBlendMode: 'normal' | 'add' | 'multiply' | 'screen';
+  cursorOpacity: number;
+  cursorBlink: boolean;
+  cursorPadding: number;
+  cursorToneR: number; cursorToneG: number; cursorToneB: number;
+};

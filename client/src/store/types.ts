@@ -1,15 +1,14 @@
 import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, EditorAmbientLight, EditorDirectionalLight, EditorPlayerLight, EditorSpotLight, EditorShadowSettings, EditorLights, MapObject, RPGEvent, CameraZone } from '../types/rpgMakerMV';
 
-export const PROJECT_STORAGE_KEY = 'rpg-editor-current-project';
-export const MAP_STORAGE_KEY = 'rpg-editor-current-map';
-export const EDIT_MODE_STORAGE_KEY = 'rpg-editor-edit-mode';
-export const TOOLBAR_STORAGE_KEY = 'rpg-editor-toolbar';
-export const SCROLL_POSITIONS_STORAGE_KEY = 'rpg-editor-scroll-positions';
-export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4];
-export const DEFAULT_MAX_UNDO = 100;
-export const DEFAULT_ZOOM_STEP = 10; // percent
-export const MIN_ZOOM = 0.1;
-export const MAX_ZOOM = 8;
+// Re-exports — 기존 import 경로 유지를 위해
+export * from './constants';
+export * from './historyTypes';
+export * from './clipboardTypes';
+export * from './uiEditorTypes';
+
+import type { HistoryEntry, TileChange, PassageChange } from './historyTypes';
+import type { ClipboardData } from './clipboardTypes';
+import type { UIWindowInfo, UIWindowOverride, UiSkinUndoEntry } from './uiEditorTypes';
 
 export interface RendererInitError {
   title: string;
@@ -17,191 +16,6 @@ export interface RendererInitError {
   browserInfo: string;
   webglSupport: string;
   originalError?: string;
-}
-
-export interface TileChange {
-  x: number;
-  y: number;
-  z: number;
-  oldTileId: number;
-  newTileId: number;
-}
-
-export interface TileHistoryEntry {
-  mapId: number;
-  type?: 'tile';
-  changes: TileChange[];
-}
-
-export interface ResizeHistoryEntry {
-  mapId: number;
-  type: 'resize';
-  oldWidth: number;
-  oldHeight: number;
-  oldData: number[];
-  oldEvents: (RPGEvent | null)[];
-  oldEditorLights?: EditorLights;
-  oldObjects?: MapObject[];
-  oldCameraZones?: CameraZone[];
-  oldStartX?: number;
-  oldStartY?: number;
-  newWidth: number;
-  newHeight: number;
-  newData: number[];
-  newEvents: (RPGEvent | null)[];
-  newEditorLights?: EditorLights;
-  newObjects?: MapObject[];
-  newCameraZones?: CameraZone[];
-  newStartX?: number;
-  newStartY?: number;
-}
-
-export interface ObjectHistoryEntry {
-  mapId: number;
-  type: 'object';
-  oldObjects: MapObject[];
-  newObjects: MapObject[];
-  oldSelectedObjectId: number | null;
-  oldSelectedObjectIds: number[];
-}
-
-export interface LightHistoryEntry {
-  mapId: number;
-  type: 'light';
-  oldLights: EditorLights;
-  newLights: EditorLights;
-  oldSelectedLightId: number | null;
-  oldSelectedLightIds: number[];
-}
-
-export interface CameraZoneHistoryEntry {
-  mapId: number;
-  type: 'cameraZone';
-  oldZones: CameraZone[];
-  newZones: CameraZone[];
-  oldSelectedCameraZoneId: number | null;
-  oldSelectedCameraZoneIds: number[];
-}
-
-export interface EventHistoryEntry {
-  mapId: number;
-  type: 'event';
-  oldEvents: (RPGEvent | null)[];
-  newEvents: (RPGEvent | null)[];
-  oldSelectedEventId: number | null;
-  oldSelectedEventIds: number[];
-}
-
-export interface PlayerStartHistoryEntry {
-  mapId: number;
-  type: 'playerStart';
-  oldMapId: number;
-  oldX: number;
-  oldY: number;
-  newMapId: number;
-  newX: number;
-  newY: number;
-}
-
-export interface PassageChange {
-  x: number;
-  y: number;
-  oldValue: number;
-  newValue: number;
-}
-
-export interface PassageHistoryEntry {
-  mapId: number;
-  type: 'passage';
-  changes: PassageChange[];
-}
-
-export interface MapDeleteHistoryEntry {
-  mapId: number;
-  type: 'mapDelete';
-  mapInfo: any;
-  mapData: any;
-  extData: any;
-}
-
-export interface MapRenameHistoryEntry {
-  mapId: number;
-  type: 'mapRename';
-  oldName: string;
-  newName: string;
-}
-
-export type HistoryEntry = TileHistoryEntry | ResizeHistoryEntry | ObjectHistoryEntry | LightHistoryEntry | CameraZoneHistoryEntry | EventHistoryEntry | PlayerStartHistoryEntry | PassageHistoryEntry | MapDeleteHistoryEntry | MapRenameHistoryEntry;
-
-export interface ClipboardData {
-  type: 'tiles' | 'event' | 'events' | 'lights' | 'objects' | 'passage';
-  tiles?: { x: number; y: number; z: number; tileId: number }[];
-  width?: number;
-  height?: number;
-  event?: unknown;
-  events?: unknown[];
-  npcData?: Record<number, { name: string; showName: boolean }>;
-  lights?: unknown[];
-  objects?: unknown[];
-  passage?: { x: number; y: number; value: number }[];
-}
-
-export interface UIElementInfo {
-  type: string;       // 'actorName' | 'actorClass' | 'actorFace' | 'actorLevel' | ...
-  label: string;      // 표시 이름 (한국어)
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  isPerActor?: boolean; // perActor 레이아웃 (BattleStatus, MenuStatus 등)
-}
-
-export interface UIElementOverride {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  visible?: boolean;
-}
-
-export interface UIWindowInfo {
-  id: string;
-  className: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  opacity: number;
-  backOpacity: number;
-  padding: number;
-  fontSize: number;
-  fontFace: string;
-  windowskinName: string;
-  colorTone: [number, number, number];
-  visible: boolean;
-  elements?: UIElementInfo[];
-  originalX?: number;
-  originalY?: number;
-  originalWidth?: number;
-  originalHeight?: number;
-}
-
-export interface UIWindowOverride {
-  className: string;
-  windowStyle?: 'default' | 'frame' | 'image';
-  skinId?: string;
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  opacity?: number;
-  backOpacity?: number;
-  padding?: number;
-  fontSize?: number;
-  fontFace?: string;
-  windowskinName?: string;
-  colorTone?: [number, number, number];
-  elements?: Record<string, UIElementOverride>;
 }
 
 export interface EditorState {
@@ -261,7 +75,7 @@ export interface EditorState {
   uiSkinCursorToneG: number;     // 색조 G (-255~255)
   uiSkinCursorToneB: number;     // 색조 B (-255~255)
   uiSkinsReloadToken: number;  // 증가하면 스킨 목록 강제 리로드
-  uiSkinUndoStack: Array<{ frameX: number; frameY: number; frameW: number; frameH: number; fillX: number; fillY: number; fillW: number; fillH: number; cornerSize: number; cursorX: number; cursorY: number; cursorW: number; cursorH: number; cursorCornerSize: number; cursorRenderMode: 'nineSlice' | 'stretch' | 'tile'; cursorBlendMode: 'normal' | 'add' | 'multiply' | 'screen'; cursorOpacity: number; cursorBlink: boolean; cursorPadding: number; cursorToneR: number; cursorToneG: number; cursorToneB: number }>;
+  uiSkinUndoStack: UiSkinUndoEntry[];
   uiEditorSelectedElementType: string | null; // 선택된 요소 타입 (actorName, hp 등)
   uiShowSkinLabels: boolean;    // 프레임 캔버스 영역 라벨 표시 여부
   uiShowCheckerboard: boolean;  // 프레임 캔버스 투명 체크보드 표시 여부

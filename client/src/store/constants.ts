@@ -1,0 +1,10 @@
+export const PROJECT_STORAGE_KEY = 'rpg-editor-current-project';
+export const MAP_STORAGE_KEY = 'rpg-editor-current-map';
+export const EDIT_MODE_STORAGE_KEY = 'rpg-editor-edit-mode';
+export const TOOLBAR_STORAGE_KEY = 'rpg-editor-toolbar';
+export const SCROLL_POSITIONS_STORAGE_KEY = 'rpg-editor-scroll-positions';
+export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4];
+export const DEFAULT_MAX_UNDO = 100;
+export const DEFAULT_ZOOM_STEP = 10; // percent
+export const MIN_ZOOM = 0.1;
+export const MAX_ZOOM = 8;
