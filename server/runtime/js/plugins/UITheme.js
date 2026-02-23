@@ -290,6 +290,12 @@
     return (_ov[className] || {})[key];
   }
 
+  /** 런타임에서 _ov 업데이트 (에디터 원본값 가져오기 시 사용) */
+  window._uiThemeUpdateOv = function(className, prop, value) {
+    if (!_ov[className]) _ov[className] = { className: className };
+    _ov[className][prop] = value;
+  };
+
   /** 클래스 내 요소 오버라이드 취득 */
   function getElem(className, elemType) {
     var classOv = _ov[className];
@@ -513,6 +519,10 @@
     var _WOpt_up = Window_Options.prototype.updatePlacement;
     Window_Options.prototype.updatePlacement = function () {
       _WOpt_up.call(this);
+      // RMMV 원본값 보존 (오버라이드 적용 전, 최초 1회)
+      if (!this._uiThemeOriginal) {
+        this._uiThemeOriginal = { x: this.x, y: this.y, width: this.width, height: this.height };
+      }
       var x = OV('Window_Options', 'x'), y = OV('Window_Options', 'y');
       if (x !== undefined) this.x = x;
       if (y !== undefined) this.y = y;
@@ -524,6 +534,9 @@
     var _WTC_up = Window_TitleCommand.prototype.updatePlacement;
     Window_TitleCommand.prototype.updatePlacement = function () {
       _WTC_up.call(this);
+      if (!this._uiThemeOriginal) {
+        this._uiThemeOriginal = { x: this.x, y: this.y, width: this.width, height: this.height };
+      }
       var x = OV('Window_TitleCommand', 'x'), y = OV('Window_TitleCommand', 'y');
       if (x !== undefined) this.x = x;
       if (y !== undefined) this.y = y;
@@ -535,6 +548,9 @@
     var _WGE_up = Window_GameEnd.prototype.updatePlacement;
     Window_GameEnd.prototype.updatePlacement = function () {
       _WGE_up.call(this);
+      if (!this._uiThemeOriginal) {
+        this._uiThemeOriginal = { x: this.x, y: this.y, width: this.width, height: this.height };
+      }
       var x = OV('Window_GameEnd', 'x'), y = OV('Window_GameEnd', 'y');
       if (x !== undefined) this.x = x;
       if (y !== undefined) this.y = y;

@@ -80,13 +80,14 @@ export default function UIEditorToolbar() {
       body: JSON.stringify({ overrides }),
     });
     s.setUiEditorDirty(false);
-    // iframe에 적용
+    // iframe의 _ov 업데이트 후 씬 재로드 (updatePlacement가 새 값 사용하도록)
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
     uiEditorOriginalWindows.forEach((win) => {
       (['x', 'y', 'width', 'height', 'opacity', 'backOpacity', 'padding', 'fontSize'] as const).forEach((prop) => {
-        iframe?.contentWindow?.postMessage({ type: 'updateWindowProp', windowId: win.id, prop, value: win[prop] }, '*');
+        iframe?.contentWindow?.postMessage({ type: 'updateRuntimeOverride', className: win.className, prop, value: win[prop] }, '*');
       });
     });
+    iframe?.contentWindow?.postMessage({ type: 'refreshScene' }, '*');
     s.showToast('RPG Maker MV 원본값으로 덮어씀');
   };
 
