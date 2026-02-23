@@ -346,6 +346,7 @@ router.get('/convert-webp-progress', async (req: Request, res: Response) => {
   const projectPath = projectManager.currentPath!;
   const imgDir = path.join(projectPath, 'img');
   const gitBackup = req.query.gitBackup === '1';
+  const deletePng = req.query.deletePng === '1';
   setupSSE(res);
 
   try {
@@ -396,7 +397,7 @@ router.get('/convert-webp-progress', async (req: Request, res: Response) => {
       const t0 = Date.now();
       await sharp(pngPath).webp({ lossless: true }).toFile(webpPath);
       const ms = Date.now() - t0;
-      fs.unlinkSync(pngPath);
+      if (deletePng) fs.unlinkSync(pngPath);
       converted++;
       sseWrite(res, { type: 'log', message: `  ${rel}  →  WebP  (${(ms / 1000).toFixed(2)}s)` });
       sseWrite(res, { type: 'progress', current: converted, total });

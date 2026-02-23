@@ -13,6 +13,7 @@ export default function WebpConvertDialog() {
 
   const [phase, setPhase] = useState<Phase>('confirm');
   const [gitBackup, setGitBackup] = useState(true);
+  const [deletePng, setDeletePng] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [currentFile, setCurrentFile] = useState('');
@@ -33,7 +34,7 @@ export default function WebpConvertDialog() {
     setCurrentFile('');
     setWebpConverting(true);
 
-    const url = `/api/project/convert-webp-progress?gitBackup=${gitBackup ? '1' : '0'}`;
+    const url = `/api/project/convert-webp-progress?gitBackup=${gitBackup ? '1' : '0'}&deletePng=${deletePng ? '1' : '0'}`;
     const es = new EventSource(url);
     esRef.current = es;
 
@@ -69,7 +70,7 @@ export default function WebpConvertDialog() {
       setPhase('error');
       es.close();
     };
-  }, [gitBackup, addLog, setUseWebp, setWebpConverting]);
+  }, [gitBackup, deletePng, addLog, setUseWebp, setWebpConverting]);
 
   const close = () => {
     esRef.current?.close();
@@ -100,10 +101,10 @@ export default function WebpConvertDialog() {
             <li>{t('webpConvert.point3')}</li>
           </ul>
 
-          {/* git 백업 체크박스 */}
+          {/* 체크박스 영역 */}
           <div style={{
             background: '#252525', border: '1px solid #3a3a3a', borderRadius: 4,
-            padding: '10px 12px', marginBottom: 12,
+            padding: '10px 12px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 10,
           }}>
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
               <input
@@ -121,14 +122,32 @@ export default function WebpConvertDialog() {
                 </div>
               </div>
             </label>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={deletePng}
+                onChange={(e) => setDeletePng(e.target.checked)}
+                style={{ marginTop: 2, flexShrink: 0 }}
+              />
+              <div>
+                <div style={{ color: '#ddd', fontSize: 12, fontWeight: 600, marginBottom: 2 }}>
+                  {t('webpConvert.deletePng')}
+                </div>
+                <div style={{ color: '#999', fontSize: 11, lineHeight: 1.6 }}>
+                  {t('webpConvert.deletePngDesc')}
+                </div>
+              </div>
+            </label>
           </div>
 
-          <div style={{
-            background: '#3a2a1a', border: '1px solid #7a5c30', borderRadius: 4,
-            padding: '8px 12px', marginBottom: 16, fontSize: 12, color: '#e8a040',
-          }}>
-            ⚠ {t('webpConvert.irreversible')}
-          </div>
+          {deletePng && (
+            <div style={{
+              background: '#3a2a1a', border: '1px solid #7a5c30', borderRadius: 4,
+              padding: '8px 12px', marginBottom: 16, fontSize: 12, color: '#e8a040',
+            }}>
+              ⚠ {t('webpConvert.irreversible')}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button onClick={close} style={btnStyle('#444')}>
               {t('common.cancel')}
