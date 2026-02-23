@@ -82,10 +82,7 @@ function SkinList() {
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
   const [skins, setSkins] = useState<SkinEntry[]>([]);
   const [loading, setLoading] = useState(false);
-  // 스킨 추가 UI 상태
-  const [showAdd, setShowAdd] = useState(false);
-  const [availableFiles, setAvailableFiles] = useState<string[]>([]);
-  const [selectedAdd, setSelectedAdd] = useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const loadSkins = useCallback(() => {
     if (!projectPath) return;
@@ -95,7 +92,6 @@ function SkinList() {
       .then((data) => {
         const list: SkinEntry[] = data.skins ?? [];
         setSkins(list);
-        // 현재 선택된 스킨의 cornerSize를 스토어에 동기화
         const current = list.find((s) => s.name === uiSelectedSkin);
         if (current) setUiSkinCornerSize(current.cornerSize);
       })
@@ -105,51 +101,41 @@ function SkinList() {
 
   useEffect(() => { loadSkins(); }, [loadSkins]);
 
-  // 업로드 후 목록 갱신
   useEffect(() => {
     window.addEventListener('ui-skin-uploaded', loadSkins);
     return () => window.removeEventListener('ui-skin-uploaded', loadSkins);
   }, [loadSkins]);
 
-  // 스킨 선택
   const handleSelect = (skin: SkinEntry) => {
     setUiSelectedSkin(skin.name);
     setUiSkinCornerSize(skin.cornerSize);
   };
 
-  // 스킨 삭제
   const handleDelete = async (name: string, e: React.MouseEvent) => {
     e.stopPropagation();
     await fetch(`/api/ui-editor/skins/${encodeURIComponent(name)}`, { method: 'DELETE' });
     loadSkins();
   };
 
-  // "스킨 추가" 버튼 → img/system/의 미등록 파일 목록 로드
-  const handleShowAdd = () => {
-    fetch('/api/resources/system')
-      .then((r) => r.json())
-      .then((files: string[]) => {
-        const registered = new Set(skins.map((s) => s.name));
-        const unregistered = [...new Set(
-          files.map((f) => f.replace(/\.(png|webp)$/i, ''))
-        )].filter((n) => !registered.has(n)).sort();
-        setAvailableFiles(unregistered);
-        setSelectedAdd(unregistered[0] ?? '');
-        setShowAdd(true);
-      })
-      .catch(() => { setAvailableFiles([]); setShowAdd(true); });
-  };
-
-  // 스킨 등록 확정
-  const handleAdd = async () => {
-    if (!selectedAdd) return;
-    await fetch('/api/ui-editor/skins', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: selectedAdd, cornerSize: 24 }),
-    });
-    setShowAdd(false);
-    loadSkins();
+  // 파일 선택 → 업로드 → 스킨 목록 자동 등록
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const nameRaw = file.name.replace(/\.(png|webp)$/i, '');
+    const name = nameRaw.replace(/[^a-zA-Z0-9_\-가-힣]/g, '_') || 'CustomSkin';
+    try {
+      const buf = await file.arrayBuffer();
+      const res = await fetch(`/api/ui-editor/upload-skin?name=${encodeURIComponent(name)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'image/png' },
+        body: buf,
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      loadSkins();
+    } catch (err) {
+      useEditorStore.getState().showToast(`업로드 실패: ${(err as Error).message}`, true);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -190,36 +176,22 @@ function SkinList() {
         )}
       </div>
 
-      {/* 스킨 추가 영역 */}
       <div className="ui-editor-sidebar-section" style={{ padding: '6px 8px' }}>
-        {showAdd ? (
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            {availableFiles.length > 0 ? (
-              <select
-                value={selectedAdd}
-                onChange={(e) => setSelectedAdd(e.target.value)}
-                style={{ flex: 1, fontSize: 12, background: '#3a3a3a', color: '#ddd', border: '1px solid #555', borderRadius: 3, padding: '2px 4px' }}
-              >
-                {availableFiles.map((f) => <option key={f} value={f}>{f}</option>)}
-              </select>
-            ) : (
-              <span style={{ flex: 1, fontSize: 11, color: '#777' }}>미등록 파일 없음</span>
-            )}
-            {availableFiles.length > 0 && (
-              <button className="ui-canvas-toolbar-btn" onClick={handleAdd}>추가</button>
-            )}
-            <button className="ui-canvas-toolbar-btn" onClick={() => setShowAdd(false)}>취소</button>
-          </div>
-        ) : (
-          <button
-            className="ui-canvas-toolbar-btn"
-            style={{ width: '100%' }}
-            disabled={!projectPath}
-            onClick={handleShowAdd}
-          >
-            + 스킨 등록
-          </button>
-        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".png,.webp,image/png,image/webp"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
+        <button
+          className="ui-canvas-toolbar-btn"
+          style={{ width: '100%' }}
+          disabled={!projectPath}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          + 스킨 등록…
+        </button>
       </div>
     </>
   );
