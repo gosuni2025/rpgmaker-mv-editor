@@ -81,17 +81,21 @@ function SkinList() {
   const setUiSelectedSkin = useEditorStore((s) => s.setUiSelectedSkin);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
   const [skins, setSkins] = useState<SkinEntry[]>([]);
+  const [defaultSkin, setDefaultSkin] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const loadSkins = useCallback(() => {
     if (!projectPath) return;
     setLoading(true);
-    fetch('/api/ui-editor/skins')
-      .then((r) => r.json())
-      .then((data) => {
-        const list: SkinEntry[] = data.skins ?? [];
+    Promise.all([
+      fetch('/api/ui-editor/skins').then((r) => r.json()),
+      fetch('/api/ui-editor/config').then((r) => r.json()),
+    ])
+      .then(([skinsData, configData]) => {
+        const list: SkinEntry[] = skinsData.skins ?? [];
         setSkins(list);
+        setDefaultSkin(configData.defaultSkin ?? '');
         const current = list.find((s) => s.name === uiSelectedSkin);
         if (current) setUiSkinCornerSize(current.cornerSize);
       })
@@ -163,7 +167,12 @@ function SkinList() {
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div>{skin.name}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {skin.name}
+                  {defaultSkin === skin.name && (
+                    <span className="ui-skin-default-badge">기본</span>
+                  )}
+                </div>
                 <div className="window-class">코너: {skin.cornerSize}px</div>
               </div>
               <button

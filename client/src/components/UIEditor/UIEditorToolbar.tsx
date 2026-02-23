@@ -1,7 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import '../MapEditor/DrawToolbar.css';
 import './UIEditor.css';
+
+function SkinLabelHelp({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="ui-help-overlay" onClick={onClose}>
+      <div className="ui-help-popup" onClick={(e) => e.stopPropagation()}>
+        <div className="ui-help-header">
+          영역 라벨 표시란?
+          <button className="ui-help-close" onClick={onClose}>×</button>
+        </div>
+        <div className="ui-help-body">
+          <p>
+            RPG Maker MV의 내장 <strong>Window.png</strong>는 192×192 이미지로,
+            엔진 내부에 4개 사분면 구조가 하드코딩되어 있습니다.
+          </p>
+          <div className="ui-help-grid">
+            <div className="ui-help-cell" style={{ background: 'rgba(80,200,100,0.25)' }}>배경<br /><small>좌상 96×96</small></div>
+            <div className="ui-help-cell" style={{ background: 'rgba(38,117,191,0.25)' }}>프레임 (9-slice)<br /><small>우상 96×96</small></div>
+            <div className="ui-help-cell" style={{ background: 'rgba(50,160,80,0.2)' }}>배경 반복<br /><small>좌하 96×96</small></div>
+            <div className="ui-help-cell" style={{ background: 'rgba(200,120,0,0.2)' }}>커서/화살표<br /><small>우하 96×96</small></div>
+          </div>
+          <p style={{ marginTop: 10, color: '#aaa', fontSize: 12 }}>
+            이 영역 구분은 <strong>RPG Maker MV 내장 Window를 사용하는 경우에만</strong> 의미가 있습니다.<br />
+            커스텀 프레임 이미지만 사용한다면 이 라벨은 필요 없습니다.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function UIEditorToolbar() {
   const uiEditorDirty = useEditorStore((s) => s.uiEditorDirty);
@@ -11,6 +40,8 @@ export default function UIEditorToolbar() {
   const projectPath = useEditorStore((s) => s.projectPath);
   const setUiEditSubMode = useEditorStore((s) => s.setUiEditSubMode);
   const setUiShowSkinLabels = useEditorStore((s) => s.setUiShowSkinLabels);
+
+  const [showHelp, setShowHelp] = useState(false);
 
   const handleSave = async () => {
     if (!projectPath) return;
@@ -35,55 +66,66 @@ export default function UIEditorToolbar() {
   };
 
   return (
-    <div className="draw-toolbar">
-      {/* 서브모드 토글 — 왼쪽 */}
-      <div className="draw-toolbar-group">
+    <>
+      <div className="draw-toolbar">
+        {/* 서브모드 토글 — 왼쪽 */}
+        <div className="draw-toolbar-group">
+          <button
+            className={`draw-toolbar-btn${uiEditSubMode === 'window' ? ' active' : ''}`}
+            onClick={() => setUiEditSubMode('window')}
+          >
+            창 편집
+          </button>
+          <button
+            className={`draw-toolbar-btn${uiEditSubMode === 'frame' ? ' active' : ''}`}
+            onClick={() => setUiEditSubMode('frame')}
+          >
+            프레임 편집
+          </button>
+        </div>
+
+        {/* 프레임 편집 전용 옵션 */}
+        {uiEditSubMode === 'frame' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <label className="draw-toolbar-checkbox-label">
+              <input
+                type="checkbox"
+                checked={uiShowSkinLabels}
+                onChange={(e) => setUiShowSkinLabels(e.target.checked)}
+              />
+              영역 라벨 표시
+            </label>
+            <button
+              className="ui-help-trigger"
+              onClick={() => setShowHelp(true)}
+              title="영역 라벨이란?"
+            >?</button>
+          </div>
+        )}
+
+        <div className="draw-toolbar-spacer" />
+
+        {/* 저장 / 플레이테스트 — 오른쪽 */}
         <button
-          className={`draw-toolbar-btn${uiEditSubMode === 'window' ? ' active' : ''}`}
-          onClick={() => setUiEditSubMode('window')}
+          className={`draw-toolbar-save-btn${uiEditorDirty ? ' dirty' : ''}`}
+          onClick={handleSave}
+          disabled={!projectPath}
+          title="UI 테마 저장 (Ctrl+S)"
         >
-          창 편집
+          저장{uiEditorDirty ? ' *' : ''}
         </button>
+
         <button
-          className={`draw-toolbar-btn${uiEditSubMode === 'frame' ? ' active' : ''}`}
-          onClick={() => setUiEditSubMode('frame')}
+          className="draw-toolbar-play-btn"
+          onClick={handlePlaytest}
+          disabled={!projectPath}
+          title={`현재 씬(${uiEditorScene}) 플레이테스트`}
         >
-          프레임 편집
+          ▶ UI 플레이테스트
         </button>
       </div>
 
-      {/* 프레임 편집 전용 옵션 */}
-      {uiEditSubMode === 'frame' && (
-        <label className="draw-toolbar-checkbox-label">
-          <input
-            type="checkbox"
-            checked={uiShowSkinLabels}
-            onChange={(e) => setUiShowSkinLabels(e.target.checked)}
-          />
-          영역 라벨 표시
-        </label>
-      )}
-
-      <div className="draw-toolbar-spacer" />
-
-      {/* 저장 / 플레이테스트 — 오른쪽 */}
-      <button
-        className={`draw-toolbar-save-btn${uiEditorDirty ? ' dirty' : ''}`}
-        onClick={handleSave}
-        disabled={!projectPath}
-        title="UI 테마 저장 (Ctrl+S)"
-      >
-        저장{uiEditorDirty ? ' *' : ''}
-      </button>
-
-      <button
-        className="draw-toolbar-play-btn"
-        onClick={handlePlaytest}
-        disabled={!projectPath}
-        title={`현재 씬(${uiEditorScene}) 플레이테스트`}
-      >
-        ▶ UI 플레이테스트
-      </button>
-    </div>
+      {showHelp && <SkinLabelHelp onClose={() => setShowHelp(false)} />}
+    </>
   );
 }
