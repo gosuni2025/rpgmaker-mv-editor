@@ -199,6 +199,12 @@ export default function UIEditorCanvas() {
           { type: 'updateWindowProp', windowId: dragState.windowId, prop, value }, '*'
         );
       }
+      // 오버레이 즉시 업데이트 (iframe windowUpdated round-trip 대기 없이)
+      setUiEditorWindows(
+        useEditorStore.getState().uiEditorWindows.map((w) =>
+          w.id === dragState.windowId ? { ...w, ...updates } : w
+        )
+      );
     };
     const onMouseUp = () => setDragState(null);
     document.addEventListener('mousemove', onMouseMove);
