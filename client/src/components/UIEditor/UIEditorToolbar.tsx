@@ -65,9 +65,13 @@ export default function UIEditorToolbar() {
 
   const handleResetScene = async () => {
     const s = useEditorStore.getState();
-    // 현재 씬의 모든 창 오버라이드 제거
-    uiEditorWindows.forEach((win) => s.resetUiEditorOverride(win.className));
-    // 서버에 저장 (비어있는 overrides)
+    // RPG Maker MV 원본값을 오버라이드로 덮어쓰기
+    uiEditorWindows.forEach((win) => {
+      (['x', 'y', 'width', 'height', 'opacity', 'backOpacity', 'padding', 'fontSize'] as const).forEach((prop) => {
+        s.setUiEditorOverride(win.className, prop, win[prop]);
+      });
+    });
+    // 서버에 저장
     const overrides = useEditorStore.getState().uiEditorOverrides;
     await fetch('/api/ui-editor/config', {
       method: 'PUT',
@@ -75,10 +79,14 @@ export default function UIEditorToolbar() {
       body: JSON.stringify({ overrides }),
     });
     s.setUiEditorDirty(false);
-    // iframe 씬 재로드
+    // iframe에 적용
     const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
-    iframe?.contentWindow?.postMessage({ type: 'loadScene', sceneName: useEditorStore.getState().uiEditorScene }, '*');
-    s.showToast('씬 초기화 완료 (원본으로 복원)');
+    uiEditorWindows.forEach((win) => {
+      (['x', 'y', 'width', 'height', 'opacity', 'backOpacity', 'padding', 'fontSize'] as const).forEach((prop) => {
+        iframe?.contentWindow?.postMessage({ type: 'updateWindowProp', windowId: win.id, prop, value: win[prop] }, '*');
+      });
+    });
+    s.showToast('RPG Maker MV 원본값으로 덮어씀');
   };
 
   const handlePlaytest = () => {
@@ -131,9 +139,9 @@ export default function UIEditorToolbar() {
             style={{ fontSize: 11, padding: '2px 8px', color: '#f88' }}
             disabled={!projectPath || uiEditorWindows.length === 0}
             onClick={handleResetScene}
-            title="현재 씬의 모든 창 수정을 원본으로 초기화"
+            title="RPG Maker MV 원본 위치/크기를 오버라이드로 덮어쓰기"
           >
-            씬 초기화
+            원본값 가져오기
           </button>
         )}
 
