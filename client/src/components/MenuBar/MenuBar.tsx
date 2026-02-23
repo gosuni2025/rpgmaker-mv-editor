@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import i18n from '../../i18n';
 import useEditorStore from '../../store/useEditorStore';
 import apiClient, { ApiError } from '../../api/client';
@@ -28,48 +29,47 @@ export default function MenuBar() {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const projectPath = useEditorStore((s) => s.projectPath);
-  const currentMapId = useEditorStore((s) => s.currentMapId);
-  const editMode = useEditorStore((s) => s.editMode);
-  const editorMode = useEditorStore((s) => s.editorMode);
-  const setEditorMode = useEditorStore((s) => s.setEditorMode);
-  const selectedTool = useEditorStore((s) => s.selectedTool);
-  const drawShape = useEditorStore((s) => s.drawShape);
-  const undoStack = useEditorStore((s) => s.undoStack);
-  const redoStack = useEditorStore((s) => s.redoStack);
-
-  const setShowOpenProjectDialog = useEditorStore((s) => s.setShowOpenProjectDialog);
-  const setShowNewProjectDialog = useEditorStore((s) => s.setShowNewProjectDialog);
-  const saveCurrentMap = useEditorStore((s) => s.saveCurrentMap);
-  const closeProject = useEditorStore((s) => s.closeProject);
-  const demoMode = useEditorStore((s) => s.demoMode);
-  const setShowDatabaseDialog = useEditorStore((s) => s.setShowDatabaseDialog);
-  const setShowDeployDialog = useEditorStore((s) => s.setShowDeployDialog);
-  const setShowFindDialog = useEditorStore((s) => s.setShowFindDialog);
-  const setShowPluginManagerDialog = useEditorStore((s) => s.setShowPluginManagerDialog);
-  const setShowSoundTestDialog = useEditorStore((s) => s.setShowSoundTestDialog);
-  const setShowEventSearchDialog = useEditorStore((s) => s.setShowEventSearchDialog);
-  const setShowResourceManagerDialog = useEditorStore((s) => s.setShowResourceManagerDialog);
-  const setShowCharacterGeneratorDialog = useEditorStore((s) => s.setShowCharacterGeneratorDialog);
-  const setShowOptionsDialog = useEditorStore((s) => s.setShowOptionsDialog);
-  const setShowLocalizationDialog = useEditorStore((s) => s.setShowLocalizationDialog);
-  const setShowUpdateCheckDialog = useEditorStore((s) => s.setShowUpdateCheckDialog);
-  const setShowMCPStatusDialog = useEditorStore((s) => s.setShowMCPStatusDialog);
-  const setShowWebpConvertDialog = useEditorStore((s) => s.setShowWebpConvertDialog);
-  const useWebp = useEditorStore((s) => s.useWebp);
-
-  const setEditMode = useEditorStore((s) => s.setEditMode);
-  const setSelectedTool = useEditorStore((s) => s.setSelectedTool);
-  const setDrawShape = useEditorStore((s) => s.setDrawShape);
-  const zoomIn = useEditorStore((s) => s.zoomIn);
-  const zoomOut = useEditorStore((s) => s.zoomOut);
-  const zoomActualSize = useEditorStore((s) => s.zoomActualSize);
-  const undo = useEditorStore((s) => s.undo);
-  const redo = useEditorStore((s) => s.redo);
+  const {
+    projectPath, editMode, editorMode, selectedTool, drawShape,
+    undoStack, redoStack, demoMode, useWebp,
+    setEditorMode, setEditMode, setSelectedTool, setDrawShape,
+    zoomIn, zoomOut, zoomActualSize, undo, redo,
+    saveCurrentMap, closeProject, openProject, setUninitializedProjectPath,
+    setShowOpenProjectDialog, setShowNewProjectDialog, setShowDatabaseDialog,
+    setShowDeployDialog, setShowFindDialog, setShowPluginManagerDialog,
+    setShowSoundTestDialog, setShowEventSearchDialog, setShowResourceManagerDialog,
+    setShowCharacterGeneratorDialog, setShowOptionsDialog, setShowLocalizationDialog,
+    setShowUpdateCheckDialog, setShowMCPStatusDialog, setShowWebpConvertDialog,
+  } = useEditorStore(useShallow(s => ({
+    projectPath: s.projectPath,
+    editMode: s.editMode, editorMode: s.editorMode,
+    selectedTool: s.selectedTool, drawShape: s.drawShape,
+    undoStack: s.undoStack, redoStack: s.redoStack,
+    demoMode: s.demoMode, useWebp: s.useWebp,
+    setEditorMode: s.setEditorMode, setEditMode: s.setEditMode,
+    setSelectedTool: s.setSelectedTool, setDrawShape: s.setDrawShape,
+    zoomIn: s.zoomIn, zoomOut: s.zoomOut, zoomActualSize: s.zoomActualSize,
+    undo: s.undo, redo: s.redo,
+    saveCurrentMap: s.saveCurrentMap, closeProject: s.closeProject,
+    openProject: s.openProject, setUninitializedProjectPath: s.setUninitializedProjectPath,
+    setShowOpenProjectDialog: s.setShowOpenProjectDialog,
+    setShowNewProjectDialog: s.setShowNewProjectDialog,
+    setShowDatabaseDialog: s.setShowDatabaseDialog,
+    setShowDeployDialog: s.setShowDeployDialog,
+    setShowFindDialog: s.setShowFindDialog,
+    setShowPluginManagerDialog: s.setShowPluginManagerDialog,
+    setShowSoundTestDialog: s.setShowSoundTestDialog,
+    setShowEventSearchDialog: s.setShowEventSearchDialog,
+    setShowResourceManagerDialog: s.setShowResourceManagerDialog,
+    setShowCharacterGeneratorDialog: s.setShowCharacterGeneratorDialog,
+    setShowOptionsDialog: s.setShowOptionsDialog,
+    setShowLocalizationDialog: s.setShowLocalizationDialog,
+    setShowUpdateCheckDialog: s.setShowUpdateCheckDialog,
+    setShowMCPStatusDialog: s.setShowMCPStatusDialog,
+    setShowWebpConvertDialog: s.setShowWebpConvertDialog,
+  })));
 
   const hasProject = !!projectPath;
-  const openProject = useEditorStore((s) => s.openProject);
-  const setUninitializedProjectPath = useEditorStore((s) => s.setUninitializedProjectPath);
   const [showTileIdOverlay, setShowTileIdOverlay] = useState(false);
 
   const recentProjects = getRecentProjects().slice(0, 10);

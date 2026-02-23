@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import type { EventCommand, MoveRoute } from '../../types/rpgMakerMV';
 import CommandParamEditor from './CommandParamEditor';
 import CommandInsertDialog from './CommandInsertDialog';
@@ -45,9 +46,11 @@ function makeFoldKey(ctx?: EventCommandContext): string | null {
 
 export default function EventCommandEditor({ commands, onChange, context }: EventCommandEditorProps) {
   const { t } = useTranslation();
-  const systemData = useEditorStore(s => s.systemData);
-  const maps = useEditorStore(s => s.maps);
-  const currentMap = useEditorStore(s => s.currentMap);
+  const { systemData, maps, currentMap } = useEditorStore(useShallow(s => ({
+    systemData: s.systemData,
+    maps: s.maps,
+    currentMap: s.currentMap,
+  })));
 
   const [showFind, setShowFind] = useState(false);
   const [showFindReplace, setShowFindReplace] = useState(false);

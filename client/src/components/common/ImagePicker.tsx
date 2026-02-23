@@ -213,6 +213,12 @@ function getCellCount(type: string) {
   return 0;
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+  if (bytes >= 1024) return Math.round(bytes / 1024) + ' KB';
+  return bytes + ' B';
+}
+
 export default function ImagePicker({ type, value, onChange, index, onIndexChange, direction, onDirectionChange, pattern, onPatternChange, defaultOpen }: ImagePickerProps) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   useEscClose(useCallback(() => { if (open) setOpen(false); }, [open]));
@@ -434,31 +440,22 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
             <div className="image-picker-body">
               <div className="image-picker-list">
                 {/* breadcrumb */}
-                {!searchQuery && (() => {
-                  const rootLabel = fetchType === 'img' ? 'img' : type;
-                  return (
-                    <div className="image-picker-breadcrumb">
-                      <span
-                        className="image-picker-breadcrumb-root"
-                        onClick={() => setCurrentSubDir('')}
-                        title="루트로 이동"
-                      >{rootLabel}</span>
-                      {currentSubDir ? currentSubDir.split('/').map((seg, i, arr) => {
-                        const path = arr.slice(0, i + 1).join('/');
-                        return (
-                          <React.Fragment key={path}>
-                            <span className="image-picker-breadcrumb-sep">/</span>
-                            <span
-                              className="image-picker-breadcrumb-seg"
-                              onClick={() => setCurrentSubDir(path)}
-                              title={path}
-                            >{seg}</span>
-                          </React.Fragment>
-                        );
-                      }) : null}
-                    </div>
-                  );
-                })()}
+                {!searchQuery && (
+                  <div className="image-picker-breadcrumb">
+                    <span className="image-picker-breadcrumb-root" onClick={() => setCurrentSubDir('')} title="루트로 이동">
+                      {fetchType === 'img' ? 'img' : type}
+                    </span>
+                    {currentSubDir && currentSubDir.split('/').map((seg, i, arr) => {
+                      const path = arr.slice(0, i + 1).join('/');
+                      return (
+                        <React.Fragment key={path}>
+                          <span className="image-picker-breadcrumb-sep">/</span>
+                          <span className="image-picker-breadcrumb-seg" onClick={() => setCurrentSubDir(path)} title={path}>{seg}</span>
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                )}
                 {/* 상위 폴더로 이동 */}
                 {!searchQuery && currentSubDir && (
                   <div className="image-picker-item image-picker-folder-up" onClick={navigateUp}>
@@ -503,11 +500,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
                   const fullPath = !prefetchSubdirs && currentSubDir && !searchQuery
                     ? `${currentSubDir}/${name}`
                     : name;
-                  const sizeStr = f.size >= 1048576
-                    ? (f.size / 1048576).toFixed(1) + ' MB'
-                    : f.size >= 1024
-                    ? Math.round(f.size / 1024) + ' KB'
-                    : f.size + ' B';
+                  const sizeStr = formatFileSize(f.size);
                   return (
                     <div
                       key={f.name}
