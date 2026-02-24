@@ -308,6 +308,10 @@ function buildPreviewHTML(useWebp: boolean): string {
               if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'imageRenderMode', value);
               if (win._refreshAllParts) win._refreshAllParts();
               break;
+            case 'windowStyle':
+              if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'windowStyle', value);
+              if (win._refreshAllParts) win._refreshAllParts();
+              break;
           }
         } catch (e) {
           console.warn('[UIEditorBridge] applyProp error:', prop, e);

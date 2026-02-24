@@ -163,12 +163,21 @@ function WindowInspector({ selectedWindow, override }: {
   const windowStyle = override?.windowStyle ?? 'default';
 
   const handleStyleChange = (style: 'default' | 'frame' | 'image') => {
-    setMeta('windowStyle', style === 'default' ? undefined : style);
+    const newStyle = style === 'default' ? undefined : style;
+    setMeta('windowStyle', newStyle);
+
+    const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+    const iw = iframe?.contentWindow;
+
+    // windowStyle 변경을 iframe에 전달 → UITheme._ov 업데이트 + _refreshAllParts
+    iw?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'windowStyle', value: newStyle }, '*');
+
     if (style === 'default') {
-      // windowskinName/skinId/imageRenderMode는 유지 (나중에 복원 가능하도록)
-      // iframe에만 원본 windowskin 복원
-      const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
-      iframe?.contentWindow?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'windowskinName', value: selectedWindow.windowskinName }, '*');
+      // 원본 windowskin 복원
+      iw?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'windowskinName', value: selectedWindow.windowskinName }, '*');
+    } else if (override?.windowskinName) {
+      // 저장된 이미지/스킨 이름 복원
+      iw?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'windowskinName', value: override.windowskinName }, '*');
     }
   };
 
