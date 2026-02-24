@@ -109,23 +109,33 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
           const words = existingText.trim().split(/\s+/);
           const firstWord = words[0] || '';
 
-          // core 파일에서 커맨드 prefix 매칭
-          const coreMatch = Object.entries(coreRes || {}).find(([, m]) =>
+          // core 파일에서 커맨드 매칭:
+          // 1) plugincommand prefix 매칭 (예: "FogOfWar Enable" → firstWord="FogOfWar")
+          // 2) flat 커맨드명 매칭 (예: "PictureShaderLavaOn 1 1.5" → firstWord=cmd.name)
+          let coreMatch = Object.entries(coreRes || {}).find(([, m]) =>
             (m.plugincommand || '') === firstWord
           );
+          if (!coreMatch) {
+            coreMatch = Object.entries(coreRes || {}).find(([, m]) =>
+              m.commands?.some((c: PluginCommandMeta) => c.name === firstWord)
+            );
+          }
           if (coreMatch) {
             const [fileName] = coreMatch;
-            const addonKey = coreMatch[1].plugincommand || fileName;
+            const meta = coreMatch[1];
+            const addonKey = meta.plugincommand || fileName;
             if (addonKeySet.has(addonKey)) {
               setSelectedGroup('__addon__' + addonKey);
             } else {
               setSelectedGroup('__core__' + fileName);
-              const meta = coreMatch[1];
-              const cmdName = words[1] || '';
+              // prefix 매칭이면 subCmd는 words[1], flat 매칭이면 firstWord가 cmdName
+              const isPrefix = (meta.plugincommand || '') === firstWord;
+              const cmdName = isPrefix ? (words[1] || '') : firstWord;
+              const argOffset = isPrefix ? 2 : 1;
               const cmd = meta.commands?.find((c: PluginCommandMeta) => c.name === cmdName);
               if (cmd) {
                 setSelectedCmd(cmd);
-                setArgValues(cmd.args.map((a: PluginArgMeta, i: number) => words[i + 2] ?? a.default));
+                setArgValues(cmd.args.map((a: PluginArgMeta, i: number) => words[i + argOffset] ?? a.default));
               }
             }
           } else {
@@ -176,7 +186,12 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
   }, [dbCache]);
 
   const buildCmdText = useCallback((prefix: string, cmd: PluginCommandMeta, values: string[]) => {
-    const parts = [prefix, cmd.name, ...values.filter(v => v !== '')];
+    // cmd.name이 prefix로 시작하면 "flat" 커맨드 (예: PictureShaderLavaOn)
+    // → prefix를 생략해야 올바른 플러그인 커맨드 텍스트가 됨
+    const needsPrefix = prefix && !cmd.name.startsWith(prefix);
+    const parts = needsPrefix
+      ? [prefix, cmd.name, ...values.filter(v => v !== '')]
+      : [cmd.name, ...values.filter(v => v !== '')];
     return parts.join(' ');
   }, []);
 
@@ -292,7 +307,9 @@ export default function PluginCommandDialog({ existingText, onOk, onCancel }: Pl
               onClick={() => handleCmdSelect(cmd)}
             >
               <span className="pcmd-cmd-name">{cmd.text || cmd.name}</span>
-              <span className="pcmd-cmd-sub">{cmdPrefix} {cmd.name}</span>
+              <span className="pcmd-cmd-sub">
+                {cmd.name.startsWith(cmdPrefix) ? cmd.name : `${cmdPrefix} ${cmd.name}`}
+              </span>
               {cmd.desc && <span className="pcmd-cmd-desc">{cmd.desc}</span>}
             </div>
           ))}
