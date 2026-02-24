@@ -115,3 +115,11 @@ jobs:
               -p 3100:3001 -e DEMO_MODE=true rpgmaker-demo &&
             echo 'Deploy complete'
           "
+
+      - name: Trigger claudetest Netlify deploy
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.DEMO_REPO_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/gosuni2025/rpgmaker-mv-claudetest/actions/workflows/deploy-netlify.yml/dispatches \
+            -d '{"ref":"main"}'
