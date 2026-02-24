@@ -1,3 +1,154 @@
+/*:
+ * @plugindesc 그림(Picture) 셰이더 애니메이션 플러그인
+ * @author RPG Maker MV Web Editor
+ * @plugincommand PictureShader
+ *
+ * @command PictureShaderLavaOn
+ * @text [Lava] 용암 효과 켜기
+ * @desc 지정한 그림에 용암(Lava) 셰이더를 적용합니다. strength가 0→1로 부드럽게 전환됩니다.
+ *
+ * @arg picId
+ * @text 그림 번호
+ * @type number
+ * @min 1
+ * @max 100
+ * @default 1
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @decimals 2
+ * @default 0.5
+ *
+ * @command PictureShaderLavaOff
+ * @text [Lava] 용암 효과 끄기
+ * @desc 지정한 그림의 용암(Lava) 효과를 끕니다. strength가 1→0으로 부드럽게 전환됩니다.
+ *
+ * @arg picId
+ * @text 그림 번호
+ * @type number
+ * @min 1
+ * @max 100
+ * @default 1
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @decimals 2
+ * @default 0.5
+ *
+ * @command PictureShaderLavaParam
+ * @text [Lava] 용암 파라미터 설정
+ * @desc 용암 셰이더의 파라미터를 보간하여 변경합니다. (param: speed / scale / intensity / strength / color1R~B / color2R~B)
+ *
+ * @arg picId
+ * @text 그림 번호
+ * @type number
+ * @min 1
+ * @max 100
+ * @default 1
+ *
+ * @arg param
+ * @text 파라미터 이름
+ * @desc speed / scale / intensity / strength / color1R / color1G / color1B / color2R / color2G / color2B
+ * @type string
+ * @default speed
+ *
+ * @arg value
+ * @text 목표 값
+ * @type number
+ * @decimals 3
+ * @default 1.0
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @decimals 2
+ * @default 0
+ *
+ * @command PictureShaderFireOn
+ * @text [Fire] 불꽃 효과 켜기
+ * @desc 지정한 그림에 불꽃(Fire) 셰이더를 적용합니다. strength가 0→1로 부드럽게 전환됩니다.
+ *
+ * @arg picId
+ * @text 그림 번호
+ * @type number
+ * @min 1
+ * @max 100
+ * @default 1
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @decimals 2
+ * @default 0.5
+ *
+ * @command PictureShaderFireOff
+ * @text [Fire] 불꽃 효과 끄기
+ * @desc 지정한 그림의 불꽃(Fire) 효과를 끕니다. strength가 1→0으로 부드럽게 전환됩니다.
+ *
+ * @arg picId
+ * @text 그림 번호
+ * @type number
+ * @min 1
+ * @max 100
+ * @default 1
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @decimals 2
+ * @default 0.5
+ *
+ * @command PictureShaderFireParam
+ * @text [Fire] 불꽃 파라미터 설정
+ * @desc 불꽃 셰이더의 파라미터를 보간하여 변경합니다. (param: speed / intensity / height / strength / baseColorR~B / tipColorR~B)
+ *
+ * @arg picId
+ * @text 그림 번호
+ * @type number
+ * @min 1
+ * @max 100
+ * @default 1
+ *
+ * @arg param
+ * @text 파라미터 이름
+ * @desc speed / intensity / height / strength / baseColorR / baseColorG / baseColorB / tipColorR / tipColorG / tipColorB
+ * @type string
+ * @default intensity
+ *
+ * @arg value
+ * @text 목표 값
+ * @type number
+ * @decimals 3
+ * @default 1.0
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @decimals 2
+ * @default 0
+ *
+ * ■ 사용 예시:
+ *   PictureShaderLavaOn 1 1.5     → 그림1에 용암 효과를 1.5초에 걸쳐 켜기
+ *   PictureShaderLavaOff 1 1.0   → 그림1의 용암 효과를 1초에 걸쳐 끄기
+ *   PictureShaderLavaParam 1 speed 2.0 0.5  → 속도를 0.5초 동안 2.0으로 보간
+ *   PictureShaderFireOn 2 2.0     → 그림2에 불꽃 효과를 2초에 걸쳐 켜기
+ *   PictureShaderFireOff 2 1.0   → 그림2의 불꽃 효과를 1초에 걸쳐 끄기
+ *   PictureShaderFireParam 2 height 0.7 0.5 → 불꽃 높이를 0.5초 동안 0.7로 보간
+ */
 //=============================================================================
 // PictureShader.js - 그림(Picture) 셰이더 애니메이션 플러그인
 //=============================================================================
@@ -1382,6 +1533,7 @@ PictureShader._FRAGMENT_LAVA = [
     'uniform float uSpeed;',
     'uniform float uScale;',
     'uniform float uIntensity;',
+    'uniform float uStrength;',
     'uniform vec3 uColor1;',  // 뜨거운 색 (주황/노랑)
     'uniform vec3 uColor2;',  // 차가운 색 (어두운 빨강/갈색)
     'varying vec2 vUv;',
@@ -1406,7 +1558,7 @@ PictureShader._FRAGMENT_LAVA = [
     '    lavaColor.r = min(1.0, lavaColor.r + excess * 0.5);',
     '    lavaColor.g = min(1.0, lavaColor.g + excess * 0.3);',
     '    lavaColor.b = min(1.0, lavaColor.b + excess * 0.1);',
-    '    col.rgb = mix(col.rgb, lavaColor, uIntensity * col.a);',
+    '    col.rgb = mix(col.rgb, lavaColor, uIntensity * uStrength * col.a);',
     '    col.a *= opacity;',
     '    gl_FragColor = col;',
     '}',
@@ -1419,6 +1571,7 @@ PictureShader._FRAGMENT_FIRE = [
     'uniform float uTime;',
     'uniform float uSpeed;',
     'uniform float uIntensity;',
+    'uniform float uStrength;',
     'uniform float uHeight;',   // 불꽃 높이 (0~1)
     'uniform vec3 uBaseColor;', // 기저 색 (주황)
     'uniform vec3 uTipColor;',  // 끝 색 (노랑)
@@ -1438,7 +1591,7 @@ PictureShader._FRAGMENT_FIRE = [
     '    float fireIntensity = smoothstep(uHeight, 0.0, 1.0 - baseY);',
     '    float colorBlend = clamp((1.0 - baseY) / max(uHeight, 0.001), 0.0, 1.0);',
     '    vec3 fireColor = mix(uTipColor, uBaseColor, colorBlend);',
-    '    col.rgb += fireColor * fireIntensity * uIntensity * col.a;',
+    '    col.rgb += fireColor * fireIntensity * uIntensity * uStrength * col.a;',
     '    col.a *= opacity;',
     '    gl_FragColor = col;',
     '}',
@@ -1598,8 +1751,8 @@ PictureShader._DEFAULT_PARAMS = {
     'circleWipe': { threshold: 0, softness: 0.05, centerX: 0.5, centerY: 0.5 },
     'blinds':    { threshold: 0, count: 8, direction: 0 },
     'pixelDissolve': { threshold: 0, pixelSize: 32 },
-    'lava':  { speed: 1.0, scale: 4.0, intensity: 0.8, color1R: 1.0, color1G: 0.5, color1B: 0.0, color2R: 0.5, color2G: 0.1, color2B: 0.0 },
-    'fire':  { speed: 1.5, intensity: 1.0, height: 0.4, baseColorR: 1.0, baseColorG: 0.3, baseColorB: 0.0, tipColorR: 1.0, tipColorG: 0.9, tipColorB: 0.3 },
+    'lava':  { speed: 1.0, scale: 4.0, intensity: 0.8, strength: 1.0, color1R: 1.0, color1G: 0.5, color1B: 0.0, color2R: 0.5, color2G: 0.1, color2B: 0.0 },
+    'fire':  { speed: 1.5, intensity: 1.0, height: 0.4, strength: 1.0, baseColorR: 1.0, baseColorG: 0.3, baseColorB: 0.0, tipColorR: 1.0, tipColorG: 0.9, tipColorB: 0.3 },
     'parallaxUV': { scale: 0.08, animSpeed: 0.5, angleX: 0, angleY: 0, invert: 0, layers: 3 },
 };
 
@@ -1661,8 +1814,8 @@ PictureShader._UNIFORM_MAP = {
     'circleWipe': [ ['threshold','uThreshold'], ['softness','uSoftness'], ['centerX','uCenterX'], ['centerY','uCenterY'] ],
     'blinds':    [ ['threshold','uThreshold'], ['count','uCount'], ['direction','uDirection'] ],
     'pixelDissolve': [ ['threshold','uThreshold'], ['pixelSize','uPixelSize'] ],
-    'lava': [ ['speed','uSpeed'], ['scale','uScale'], ['intensity','uIntensity'], {u:'uColor1',vec3:['color1R','color1G','color1B']}, {u:'uColor2',vec3:['color2R','color2G','color2B']} ],
-    'fire': [ ['speed','uSpeed'], ['intensity','uIntensity'], ['height','uHeight'], {u:'uBaseColor',vec3:['baseColorR','baseColorG','baseColorB']}, {u:'uTipColor',vec3:['tipColorR','tipColorG','tipColorB']} ],
+    'lava': [ ['speed','uSpeed'], ['scale','uScale'], ['intensity','uIntensity'], ['strength','uStrength'], {u:'uColor1',vec3:['color1R','color1G','color1B']}, {u:'uColor2',vec3:['color2R','color2G','color2B']} ],
+    'fire': [ ['speed','uSpeed'], ['intensity','uIntensity'], ['height','uHeight'], ['strength','uStrength'], {u:'uBaseColor',vec3:['baseColorR','baseColorG','baseColorB']}, {u:'uTipColor',vec3:['tipColorR','tipColorG','tipColorB']} ],
     'parallaxUV': [ ['scale','uScale'], ['animSpeed','uAnimSpeed'], ['angleX','uAngleX'], ['angleY','uAngleY'], ['invert','uInvert'], ['layers','uLayers'] ],
 };
 
@@ -2353,6 +2506,111 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
         // Three.js 렌더러 참조 캐싱
         if (!PictureShader._renderer && Graphics._renderer && Graphics._renderer.renderer) {
             PictureShader._renderer = Graphics._renderer.renderer;
+        }
+    };
+})();
+
+//=============================================================================
+// 플러그인 커맨드 (Lava / Fire 효과 제어)
+//=============================================================================
+
+(function() {
+    // 그림의 shaderData에서 type 엔트리를 찾거나 신규 생성
+    function _getOrCreateShaderEntry(picId, type) {
+        var realId = $gameScreen.realPictureId(picId);
+        var picture = $gameScreen._pictures[realId];
+        if (!picture) return null;
+        var defaults = PictureShader._DEFAULT_PARAMS[type] || {};
+        var copyDefaults = function() {
+            var p = {}; for (var k in defaults) p[k] = defaults[k]; return p;
+        };
+        var data = picture._shaderData;
+        if (!data) {
+            var entry = { type: type, enabled: true, params: copyDefaults() };
+            picture._shaderData = entry;
+            return entry;
+        }
+        var list = Array.isArray(data) ? data : [data];
+        for (var i = 0; i < list.length; i++) {
+            if (list[i] && list[i].type === type) return list[i];
+        }
+        // 없으면 배열에 추가
+        var newEntry = { type: type, enabled: true, params: copyDefaults() };
+        if (Array.isArray(picture._shaderData)) {
+            picture._shaderData.push(newEntry);
+        } else {
+            picture._shaderData = [picture._shaderData, newEntry];
+        }
+        return newEntry;
+    }
+
+    // 그림의 shaderData에서 type 엔트리를 찾아 반환 (없으면 null)
+    function _findShaderEntry(picId, type) {
+        var realId = $gameScreen.realPictureId(picId);
+        var picture = $gameScreen._pictures[realId];
+        if (!picture || !picture._shaderData) return null;
+        var list = Array.isArray(picture._shaderData) ? picture._shaderData : [picture._shaderData];
+        for (var i = 0; i < list.length; i++) {
+            if (list[i] && list[i].type === type) return list[i];
+        }
+        return null;
+    }
+
+    var _pluginCommand = Game_Interpreter.prototype.pluginCommand;
+    Game_Interpreter.prototype.pluginCommand = function(command, args) {
+        _pluginCommand.call(this, command, args);
+
+        var isLavaCmd = (command === 'PictureShaderLavaOn' || command === 'PictureShaderLavaOff' || command === 'PictureShaderLavaParam');
+        var isFireCmd = (command === 'PictureShaderFireOn' || command === 'PictureShaderFireOff' || command === 'PictureShaderFireParam');
+        if (!isLavaCmd && !isFireCmd) return;
+
+        var type = isLavaCmd ? 'lava' : 'fire';
+        var picId = parseInt(args[0]) || 1;
+
+        // PictureShaderLavaOn / PictureShaderFireOn
+        if (command === 'PictureShaderLavaOn' || command === 'PictureShaderFireOn') {
+            var dur = parseFloat(args[1]) || 0;
+            var entry = _getOrCreateShaderEntry(picId, type);
+            if (!entry) return;
+            entry.enabled = true;
+            entry.params.strength = 0;
+            if (dur > 0 && window.PluginTween) {
+                PluginTween.add({ target: entry.params, key: 'strength', from: 0, to: 1, duration: dur });
+            } else {
+                entry.params.strength = 1;
+            }
+            return;
+        }
+
+        // PictureShaderLavaOff / PictureShaderFireOff
+        if (command === 'PictureShaderLavaOff' || command === 'PictureShaderFireOff') {
+            var dur = parseFloat(args[1]) || 0;
+            var entry = _findShaderEntry(picId, type);
+            if (!entry) return;
+            if (dur > 0 && window.PluginTween) {
+                PluginTween.add({ target: entry.params, key: 'strength', to: 0, duration: dur, onComplete: function() {
+                    entry.enabled = false;
+                }});
+            } else {
+                entry.params.strength = 0;
+                entry.enabled = false;
+            }
+            return;
+        }
+
+        // PictureShaderLavaParam / PictureShaderFireParam
+        if (command === 'PictureShaderLavaParam' || command === 'PictureShaderFireParam') {
+            var paramName = args[1];
+            var value = parseFloat(args[2]);
+            var dur = parseFloat(args[3]) || 0;
+            var entry = _getOrCreateShaderEntry(picId, type);
+            if (!entry || !paramName) return;
+            if (dur > 0 && window.PluginTween) {
+                PluginTween.add({ target: entry.params, key: paramName, to: value, duration: dur });
+            } else {
+                entry.params[paramName] = value;
+            }
+            return;
         }
     };
 })();
