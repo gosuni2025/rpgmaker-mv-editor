@@ -1010,3 +1010,9 @@
   outline: none;
   border-color: #2675bf;
 }
+
+/* 미리보기 버튼 */
+.ui-preview-entrance-btn { color: #7ec8e3; }
+.ui-preview-entrance-btn:hover { color: #a8dff0; }
+.ui-preview-exit-btn { color: #e8a070; }
+.ui-preview-exit-btn:hover { color: #f0b890; }

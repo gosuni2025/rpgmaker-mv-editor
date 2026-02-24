@@ -959,10 +959,24 @@
     return true;
   }
 
-  /** Window_Base.prototype.update 훅 — 매 프레임 등장 애니메이션 처리 */
+  /** Window_Base.prototype.update 훅 — 매 프레임 등장/퇴장 애니메이션 처리 */
   var _WB_update = Window_Base.prototype.update;
   Window_Base.prototype.update = function () {
     _WB_update.call(this);
+
+    // ── 퇴장 ──
+    if (this._uiExit) {
+      var xs = this._uiExit;
+      xs.elapsed += 1000 / 60;
+      if (_isEntranceDone(xs.elapsed, xs.effects)) {
+        this.alpha = 0;
+        this._uiExit = null;
+      } else {
+        _applyExitFrame(this, xs.elapsed);
+      }
+    }
+
+    // ── 등장 ──
     if (!this._uiEntrance) return;
     var state = this._uiEntrance;
     state.elapsed += 1000 / 60;
@@ -984,5 +998,215 @@
       _applyEntranceFrame(this, state.elapsed);
     }
   };
+
+  //===========================================================================
+  // 퇴장 애니메이션 (exit)
+  //===========================================================================
+
+  /** 창의 현재 화면 좌표 취득 (pivot 보정 포함) */
+  function getWinScreenX(win) { return win.x - (win.pivot ? win.pivot.x : 0); }
+  function getWinScreenY(win) { return win.y - (win.pivot ? win.pivot.y : 0); }
+
+  /** 퇴장 애니메이션 시작 */
+  function startExitAnimation(win, exits, className) {
+    if (!exits || exits.length === 0) return;
+
+    var needPivot = exits.some(function (e) {
+      return e.type === 'zoom' || e.type === 'rotate' || e.type === 'bounce';
+    });
+    var pivotX = 0, pivotY = 0;
+    var screenX = getWinScreenX(win);
+    var screenY = getWinScreenY(win);
+    if (needPivot && win.pivot) {
+      pivotX = Math.floor((win.width || 0) / 2);
+      pivotY = Math.floor((win.height || 0) / 2);
+      win.pivot.x = pivotX;
+      win.pivot.y = pivotY;
+      win.x = screenX + pivotX;
+      win.y = screenY + pivotY;
+    }
+
+    win._uiEntrance = null; // 등장 중이었으면 취소
+    win._uiExit = {
+      effects: exits,
+      elapsed: 0,
+      screenX: screenX,
+      screenY: screenY,
+      baseAlpha: win.alpha !== undefined ? win.alpha : 1,
+      pivotX: pivotX,
+      pivotY: pivotY,
+      className: className,
+    };
+    _applyExitFrame(win, 0);
+  }
+
+  /** 퇴장 프레임 적용 (등장의 반대 방향) */
+  function _applyExitFrame(win, elapsed) {
+    var state = win._uiExit;
+    if (!state) return;
+
+    var effects = state.effects;
+    var totalX = state.screenX, totalY = state.screenY;
+    var totalAlpha = 1;
+    var totalScaleX = 1, totalScaleY = 1;
+    var totalRotation = 0;
+    var sw = (typeof Graphics !== 'undefined' ? Graphics.width : 816);
+    var sh = (typeof Graphics !== 'undefined' ? Graphics.height : 624);
+
+    for (var i = 0; i < effects.length; i++) {
+      var eff = effects[i];
+      var delay = eff.delay || 0;
+      var localElapsed = elapsed - delay;
+      // p: 0=시작(원래 상태) → 1=끝(사라진 상태)
+      var p = localElapsed <= 0 ? 0 : uiEase(Math.min(localElapsed / eff.duration, 1), eff.easing);
+
+      switch (eff.type) {
+        case 'fade':
+          totalAlpha *= (1 - p);
+          break;
+        case 'slideLeft':
+          totalX += -p * (state.screenX + (win.width || 0));
+          break;
+        case 'slideRight':
+          totalX += p * (sw - state.screenX);
+          break;
+        case 'slideTop':
+          totalY += -p * (state.screenY + (win.height || 0));
+          break;
+        case 'slideBottom':
+          totalY += p * (sh - state.screenY);
+          break;
+        case 'zoom':
+        case 'bounce': {
+          var to = (eff.fromScale !== undefined ? eff.fromScale : 0);
+          var s = 1 - p * (1 - to);
+          totalScaleX *= s; totalScaleY *= s;
+          break;
+        }
+        case 'rotate': {
+          var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 180);
+          totalRotation += angle * p * Math.PI / 180;
+          break;
+        }
+      }
+    }
+
+    win.alpha = state.baseAlpha * totalAlpha;
+    win.x = Math.round(totalX) + state.pivotX;
+    win.y = Math.round(totalY) + state.pivotY;
+    if (win.scale) { win.scale.x = totalScaleX; win.scale.y = totalScaleY; }
+    win.rotation = totalRotation;
+  }
+
+  //===========================================================================
+  // 씬 퇴장 시 exit 애니메이션 자동 실행
+  //===========================================================================
+
+  /** 씬 컨테이너에서 Window_Base 인스턴스 수집 */
+  function collectSceneWindows(scene) {
+    var wins = [];
+    function traverse(obj) {
+      if (!obj || !obj.children) return;
+      for (var i = 0; i < obj.children.length; i++) {
+        var child = obj.children[i];
+        if (child instanceof Window_Base) wins.push(child);
+        traverse(child);
+      }
+    }
+    traverse(scene);
+    return wins;
+  }
+
+  /** 씬에 exit 애니메이션 시작, 최대 duration 반환 (ms) */
+  function startSceneExitAnimations(scene) {
+    var wins = collectSceneWindows(scene);
+    var maxMs = 0;
+    wins.forEach(function (win) {
+      var className = win.constructor && win.constructor.name;
+      var ov = (_config.overrides || {})[className];
+      if (ov && Array.isArray(ov.exits) && ov.exits.length > 0) {
+        startExitAnimation(win, ov.exits, className);
+        var dur = ov.exits.reduce(function (acc, e) {
+          return Math.max(acc, (e.delay || 0) + e.duration);
+        }, 0);
+        maxMs = Math.max(maxMs, dur);
+      }
+    });
+    return maxMs;
+  }
+
+  var _SBase_stop = Scene_Base.prototype.stop;
+  Scene_Base.prototype.stop = function () {
+    _SBase_stop.call(this);
+    var maxMs = startSceneExitAnimations(this);
+    if (maxMs > 0) {
+      this._uiExiting = true;
+      this._uiExitMaxMs = maxMs;
+      this._uiExitElapsed = 0;
+    }
+  };
+
+  var _SBase_isBusy = Scene_Base.prototype.isBusy;
+  Scene_Base.prototype.isBusy = function () {
+    if (this._uiExiting) return true;
+    return _SBase_isBusy.call(this);
+  };
+
+  var _SBase_update = Scene_Base.prototype.update;
+  Scene_Base.prototype.update = function () {
+    _SBase_update.call(this);
+    if (this._uiExiting) {
+      this._uiExitElapsed += 1000 / 60;
+      if (this._uiExitElapsed >= this._uiExitMaxMs) {
+        this._uiExiting = false;
+      }
+    }
+  };
+
+  //===========================================================================
+  // postMessage — 에디터에서 미리보기 트리거
+  //===========================================================================
+  window.addEventListener('message', function (e) {
+    var data = e.data;
+    if (!data || !data.type) return;
+
+    if (data.type === 'previewEntrance') {
+      var scene = typeof SceneManager !== 'undefined' ? SceneManager._scene : null;
+      if (!scene) return;
+      collectSceneWindows(scene).forEach(function (win) {
+        var className = win.constructor && win.constructor.name;
+        if (data.className && className !== data.className) return;
+        var ov = (_config.overrides || {})[className];
+        if (!ov || !Array.isArray(ov.entrances) || ov.entrances.length === 0) return;
+        // 기존 애니메이션/pivot 초기화
+        if (win._uiEntrance && win.pivot) {
+          win.pivot.x = 0; win.pivot.y = 0;
+          win.x = win._uiEntrance.screenX;
+          win.y = win._uiEntrance.screenY;
+        }
+        win._uiEntrance = null;
+        win._uiExit = null;
+        win.alpha = 1;
+        if (win.scale) { win.scale.x = 1; win.scale.y = 1; }
+        win.rotation = 0;
+        startEntranceAnimation(win, ov.entrances, className);
+      });
+      return;
+    }
+
+    if (data.type === 'previewExit') {
+      var scene = typeof SceneManager !== 'undefined' ? SceneManager._scene : null;
+      if (!scene) return;
+      collectSceneWindows(scene).forEach(function (win) {
+        var className = win.constructor && win.constructor.name;
+        if (data.className && className !== data.className) return;
+        var ov = (_config.overrides || {})[className];
+        if (!ov || !Array.isArray(ov.exits) || ov.exits.length === 0) return;
+        win._uiEntrance = null;
+        startExitAnimation(win, ov.exits, className);
+      });
+      return;
+    }
+  });
 
 })();

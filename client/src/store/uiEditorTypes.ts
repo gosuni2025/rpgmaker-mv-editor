@@ -82,6 +82,7 @@ export interface UIWindowOverride {
   colorTone?: [number, number, number];
   elements?: Record<string, UIElementOverride>;
   entrances?: UIWindowEntranceEffect[];
+  exits?: UIWindowEntranceEffect[];
 }
 
 export type UiSkinUndoEntry = {

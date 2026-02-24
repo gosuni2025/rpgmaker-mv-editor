@@ -250,6 +250,23 @@ export default function UIEditorCanvas() {
     if (iframeRef.current) iframeRef.current.src = iframeRef.current.src;
   }, [setUiEditorIframeReady, setUiEditorWindows]);
 
+  const getIframe = () =>
+    (document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null)?.contentWindow ?? null;
+
+  const handlePreviewEntrance = useCallback(() => {
+    const selectedId = useEditorStore.getState().uiEditorSelectedWindowId;
+    const wins = useEditorStore.getState().uiEditorWindows;
+    const className = wins.find((w) => w.id === selectedId)?.className ?? null;
+    getIframe()?.postMessage({ type: 'previewEntrance', className }, '*');
+  }, []);
+
+  const handlePreviewExit = useCallback(() => {
+    const selectedId = useEditorStore.getState().uiEditorSelectedWindowId;
+    const wins = useEditorStore.getState().uiEditorWindows;
+    const className = wins.find((w) => w.id === selectedId)?.className ?? null;
+    getIframe()?.postMessage({ type: 'previewExit', className }, '*');
+  }, []);
+
   if (!projectPath) {
     return (
       <div className="ui-editor-canvas">
@@ -263,6 +280,16 @@ export default function UIEditorCanvas() {
       <div className="ui-editor-canvas-toolbar">
         <span className="ui-canvas-scene-label">씬: {uiEditorScene}</span>
         <button className="ui-canvas-toolbar-btn" onClick={handleRefresh}>새로고침</button>
+        <button
+          className="ui-canvas-toolbar-btn ui-preview-entrance-btn"
+          title="선택한 창(없으면 씬 전체)의 등장 애니메이션 재생"
+          onClick={handlePreviewEntrance}
+        >▶ 등장</button>
+        <button
+          className="ui-canvas-toolbar-btn ui-preview-exit-btn"
+          title="선택한 창(없으면 씬 전체)의 퇴장 애니메이션 재생"
+          onClick={handlePreviewExit}
+        >◀ 퇴장</button>
       </div>
 
       <div ref={wrapperRef} className="ui-editor-canvas-wrapper">
