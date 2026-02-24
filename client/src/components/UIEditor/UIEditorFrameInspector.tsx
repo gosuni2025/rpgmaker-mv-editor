@@ -8,6 +8,8 @@ export default function UIEditorFrameInspector() {
   const uiSelectedSkinFile = useEditorStore((s) => s.uiSelectedSkinFile);
   const uiSkinsReloadToken = useEditorStore((s) => s.uiSkinsReloadToken);
   const triggerSkinsReload = useEditorStore((s) => s.triggerSkinsReload);
+  const uiSkinEditorTab = useEditorStore((s) => s.uiSkinEditorTab);
+  const setUiSkinEditorTab = useEditorStore((s) => s.setUiSkinEditorTab);
 
   // 라벨 편집 상태
   const [skinLabel, setSkinLabel] = useState('');
@@ -100,256 +102,284 @@ export default function UIEditorFrameInspector() {
 
   return (
     <div className="ui-editor-inspector">
-      <div className="ui-editor-inspector-header">프레임 인스펙터</div>
+      {/* 탭 헤더 */}
+      <div className="ui-skin-editor-tabs">
+        <button
+          className={`ui-skin-editor-tab${uiSkinEditorTab === 'frame' ? ' active' : ''}`}
+          onClick={() => setUiSkinEditorTab('frame')}
+        >
+          프레임
+        </button>
+        <button
+          className={`ui-skin-editor-tab${uiSkinEditorTab === 'cursor' ? ' active' : ''}`}
+          onClick={() => setUiSkinEditorTab('cursor')}
+        >
+          커서
+        </button>
+      </div>
+
       <div className="ui-editor-inspector-body">
 
-        {/* 현재 스킨 */}
-        <div className="ui-inspector-section">
-          <div className="ui-inspector-section-title">선택된 스킨</div>
+        {/* ── 프레임 탭 ── */}
+        {uiSkinEditorTab === 'frame' && <>
 
-          {/* 표시 이름 (변경 가능) */}
-          <div className="ui-inspector-row">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
-              <span style={{ fontSize: 11, color: '#888' }}>표시 이름 (변경 가능)</span>
-              {editingLabel ? (
-                <input
-                  ref={labelInputRef}
-                  value={skinLabel}
-                  onChange={(e) => setSkinLabel(e.target.value)}
-                  onBlur={handleLabelSave}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleLabelSave();
-                    else if (e.key === 'Escape') { setEditingLabel(false); }
-                  }}
-                  placeholder="비워두면 ID로 표시"
-                  style={{ fontSize: 13, padding: '2px 6px', background: '#1a1a2e', color: '#ddd', border: '1px solid #4af', borderRadius: 2, outline: 'none' }}
+          {/* 현재 스킨 */}
+          <div className="ui-inspector-section">
+            <div className="ui-inspector-section-title">선택된 스킨</div>
+
+            {/* 표시 이름 (변경 가능) */}
+            <div className="ui-inspector-row">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+                <span style={{ fontSize: 11, color: '#888' }}>표시 이름 (변경 가능)</span>
+                {editingLabel ? (
+                  <input
+                    ref={labelInputRef}
+                    value={skinLabel}
+                    onChange={(e) => setSkinLabel(e.target.value)}
+                    onBlur={handleLabelSave}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleLabelSave();
+                      else if (e.key === 'Escape') { setEditingLabel(false); }
+                    }}
+                    placeholder="비워두면 ID로 표시"
+                    style={{ fontSize: 13, padding: '2px 6px', background: '#1a1a2e', color: '#ddd', border: '1px solid #4af', borderRadius: 2, outline: 'none' }}
+                  />
+                ) : (
+                  <span
+                    style={{ fontSize: 13, color: skinLabel ? '#ddd' : '#666', cursor: 'pointer', padding: '1px 0' }}
+                    onClick={() => setEditingLabel(true)}
+                    title="클릭하여 편집"
+                  >
+                    {skinLabel || '(없음 — 클릭하여 편집)'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* ID (변경 불가) */}
+            <div className="ui-inspector-row" style={{ paddingTop: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 11, color: '#888' }}>ID (변경 불가)</span>
+                <span style={{ fontSize: 12, color: '#aaa', fontFamily: 'monospace' }}>{uiSelectedSkin || '—'}</span>
+              </div>
+            </div>
+
+            {/* 파일 경로 */}
+            <div className="ui-inspector-row" style={{ paddingTop: 0 }}>
+              <div className="ui-inspector-label" style={{ fontSize: 11, color: '#777' }}>
+                img/system/{uiSelectedSkinFile || uiSelectedSkin}.png
+              </div>
+            </div>
+          </div>
+
+          {/* 프레임 영역 */}
+          <div className="ui-inspector-section">
+            <div className="ui-inspector-section-title">프레임 영역</div>
+            <div className="ui-inspector-row">
+              <DragLabel label="X" value={uiSkinFrameX} min={0} onChange={(v) => { setUiSkinFrame(Math.round(v), uiSkinFrameY, uiSkinFrameW, uiSkinFrameH); }} />
+            </div>
+            <div className="ui-inspector-row">
+              <DragLabel label="Y" value={uiSkinFrameY} min={0} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, Math.round(v), uiSkinFrameW, uiSkinFrameH); }} />
+            </div>
+            <div className="ui-inspector-row">
+              <DragLabel label="너비" value={uiSkinFrameW} min={10} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, uiSkinFrameY, Math.round(v), uiSkinFrameH); }} />
+            </div>
+            <div className="ui-inspector-row">
+              <DragLabel label="높이" value={uiSkinFrameH} min={10} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, Math.round(v)); }} />
+            </div>
+            <div style={{ padding: '2px 12px 4px', fontSize: 11, color: '#777' }}>
+              캔버스에서 프레임 영역 드래그로 이동/리사이즈 가능
+            </div>
+          </div>
+
+          {/* fill 영역 */}
+          <div className="ui-inspector-section">
+            <div className="ui-inspector-section-title">Fill 영역 (배경)</div>
+            <div className="ui-inspector-row" style={uiSkinUseCenterFill ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
+              <DragLabel label="X" value={uiSkinFillX} min={0} onChange={(v) => { setUiSkinFill(Math.round(v), uiSkinFillY, uiSkinFillW, uiSkinFillH); }} />
+            </div>
+            <div className="ui-inspector-row" style={uiSkinUseCenterFill ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
+              <DragLabel label="Y" value={uiSkinFillY} min={0} onChange={(v) => { setUiSkinFill(uiSkinFillX, Math.round(v), uiSkinFillW, uiSkinFillH); }} />
+            </div>
+            <div className="ui-inspector-row" style={uiSkinUseCenterFill ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
+              <DragLabel label="너비" value={uiSkinFillW} min={4} onChange={(v) => { setUiSkinFill(uiSkinFillX, uiSkinFillY, Math.round(v), uiSkinFillH); }} />
+            </div>
+            <div className="ui-inspector-row" style={uiSkinUseCenterFill ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
+              <DragLabel label="높이" value={uiSkinFillH} min={4} onChange={(v) => { setUiSkinFill(uiSkinFillX, uiSkinFillY, uiSkinFillW, Math.round(v)); }} />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px 6px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={uiSkinUseCenterFill}
+                onChange={(e) => setUiSkinUseCenterFill(e.target.checked)}
+                style={{ accentColor: '#4af', cursor: 'pointer' }}
+              />
+              9Slice 정중앙을 Fill로 사용
+            </label>
+            {!uiSkinUseCenterFill && (
+              <div style={{ padding: '0 12px 4px', fontSize: 11, color: '#777' }}>
+                캔버스에서 초록 영역 드래그로 이동/리사이즈 가능
+              </div>
+            )}
+            <div className="ui-inspector-row">
+              <button
+                className="ui-canvas-toolbar-btn"
+                style={{ flex: 1, fontSize: 11 }}
+                onClick={async () => {
+                  setUiSkinFrame(96, 0, 96, 96);
+                  setUiSkinUseCenterFill(false);
+                  setUiSkinFill(0, 0, 96, 96);
+                  setUiSkinCornerSize(24);
+                  useEditorStore.getState().showToast('RPG Maker MV 기본값으로 설정됨 (Cmd+S로 저장)');
+                }}
+              >
+                RPG Maker MV 기본값으로 설정
+              </button>
+            </div>
+          </div>
+
+          {/* 9-slice 파라미터 */}
+          <div className="ui-inspector-section">
+            <div className="ui-inspector-section-title">9-Slice 코너</div>
+            <div className="ui-inspector-row">
+              <DragLabel
+                label="코너 크기"
+                value={uiSkinCornerSize}
+                min={1}
+                onChange={(v) => { setUiSkinCornerSize(Math.round(v)); }}
+              />
+            </div>
+            <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
+              캔버스의 노란 선을 드래그해도 조절 가능
+            </div>
+          </div>
+
+          {/* 기본 스킨 설정 */}
+          <div className="ui-inspector-section">
+            <div className="ui-inspector-section-title">기본 스킨 설정</div>
+            <div className="ui-inspector-row">
+              <button
+                className="ui-canvas-toolbar-btn"
+                style={{ flex: 1 }}
+                disabled={!projectPath || !uiSelectedSkin}
+                onClick={handleSetDefault}
+              >
+                기본 스킨으로 설정
+              </button>
+            </div>
+            <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
+              UIEditorSkins.json에 defaultSkin 저장
+            </div>
+          </div>
+
+        </>}
+
+        {/* ── 커서 탭 ── */}
+        {uiSkinEditorTab === 'cursor' && <>
+
+          <div className="ui-inspector-section">
+            <div className="ui-inspector-section-title">커서 영역</div>
+            <div className="ui-inspector-row">
+              <DragLabel label="X" value={uiSkinCursorX} min={0} onChange={(v) => { setUiSkinCursor(Math.round(v), uiSkinCursorY, uiSkinCursorW, uiSkinCursorH); }} />
+            </div>
+            <div className="ui-inspector-row">
+              <DragLabel label="Y" value={uiSkinCursorY} min={0} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, Math.round(v), uiSkinCursorW, uiSkinCursorH); }} />
+            </div>
+            <div className="ui-inspector-row">
+              <DragLabel label="너비" value={uiSkinCursorW} min={4} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, uiSkinCursorY, Math.round(v), uiSkinCursorH); }} />
+            </div>
+            <div className="ui-inspector-row">
+              <DragLabel label="높이" value={uiSkinCursorH} min={4} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, uiSkinCursorY, uiSkinCursorW, Math.round(v)); }} />
+            </div>
+            <div style={{ padding: '2px 12px 4px', fontSize: 11, color: '#777' }}>
+              캔버스에서 주황 영역 드래그로 이동/리사이즈 가능
+            </div>
+          </div>
+
+          <div className="ui-inspector-section">
+            <div className="ui-inspector-section-title">커서 렌더링</div>
+            <div className="ui-inspector-row" style={{ flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 11, color: '#888', paddingLeft: 2 }}>렌더링 모드</span>
+              <select
+                value={uiSkinCursorRenderMode}
+                onChange={(e) => {
+                  setUiSkinCursorRenderMode(e.target.value as 'nineSlice' | 'stretch' | 'tile');
+                }}
+                style={{ fontSize: 12, padding: '2px 4px', background: '#1a1a2e', color: '#ddd', border: '1px solid #555', borderRadius: 2, width: '100%' }}
+              >
+                <option value="nineSlice">9-Slice (코너 유지)</option>
+                <option value="stretch">Stretch (늘리기)</option>
+                <option value="tile">Tile (반복)</option>
+              </select>
+            </div>
+            <div className="ui-inspector-row" style={uiSkinCursorRenderMode !== 'nineSlice' ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
+              <DragLabel
+                label="코너 크기"
+                value={uiSkinCursorCornerSize}
+                min={1}
+                onChange={(v) => { setUiSkinCursorCornerSize(Math.round(v)); }}
+              />
+            </div>
+            <div className="ui-inspector-row" style={{ flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 11, color: '#888', paddingLeft: 2 }}>Blend Mode</span>
+              <select
+                value={uiSkinCursorBlendMode}
+                onChange={(e) => {
+                  setUiSkinCursorBlendMode(e.target.value as 'normal' | 'add' | 'multiply' | 'screen');
+                }}
+                style={{ fontSize: 12, padding: '2px 4px', background: '#1a1a2e', color: '#ddd', border: '1px solid #555', borderRadius: 2, width: '100%' }}
+              >
+                <option value="normal">Normal</option>
+                <option value="add">Add (발광)</option>
+                <option value="multiply">Multiply</option>
+                <option value="screen">Screen</option>
+              </select>
+            </div>
+            <div className="ui-inspector-row">
+              <DragLabel
+                label="불투명도"
+                value={uiSkinCursorOpacity}
+                min={0}
+                max={255}
+                onChange={(v) => { setUiSkinCursorOpacity(Math.round(Math.min(255, Math.max(0, v)))); }}
+              />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 12px 4px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={uiSkinCursorBlink}
+                onChange={(e) => {
+                  setUiSkinCursorBlink(e.target.checked);
+                }}
+                style={{ accentColor: '#4af', cursor: 'pointer' }}
+              />
+              깜박임 (Blink)
+            </label>
+            <div className="ui-inspector-row">
+              <DragLabel
+                label="패딩"
+                value={uiSkinCursorPadding}
+                min={-20}
+                onChange={(v) => { setUiSkinCursorPadding(Math.round(v)); }}
+              />
+            </div>
+            <div className="ui-inspector-row" style={{ flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 11, color: '#888', paddingLeft: 2 }}>색조 (Tone R/G/B)</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <DragLabel label="R" value={uiSkinCursorToneR} min={-255} max={255}
+                  onChange={(v) => setUiSkinCursorTone(Math.round(Math.min(255, Math.max(-255, v))), uiSkinCursorToneG, uiSkinCursorToneB)}
                 />
-              ) : (
-                <span
-                  style={{ fontSize: 13, color: skinLabel ? '#ddd' : '#666', cursor: 'pointer', padding: '1px 0' }}
-                  onClick={() => setEditingLabel(true)}
-                  title="클릭하여 편집"
-                >
-                  {skinLabel || '(없음 — 클릭하여 편집)'}
-                </span>
-              )}
+                <DragLabel label="G" value={uiSkinCursorToneG} min={-255} max={255}
+                  onChange={(v) => setUiSkinCursorTone(uiSkinCursorToneR, Math.round(Math.min(255, Math.max(-255, v))), uiSkinCursorToneB)}
+                />
+                <DragLabel label="B" value={uiSkinCursorToneB} min={-255} max={255}
+                  onChange={(v) => setUiSkinCursorTone(uiSkinCursorToneR, uiSkinCursorToneG, Math.round(Math.min(255, Math.max(-255, v))))}
+                />
+              </div>
             </div>
           </div>
 
-          {/* ID (변경 불가) */}
-          <div className="ui-inspector-row" style={{ paddingTop: 0 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 11, color: '#888' }}>ID (변경 불가)</span>
-              <span style={{ fontSize: 12, color: '#aaa', fontFamily: 'monospace' }}>{uiSelectedSkin || '—'}</span>
-            </div>
-          </div>
-
-          {/* 파일 경로 */}
-          <div className="ui-inspector-row" style={{ paddingTop: 0 }}>
-            <div className="ui-inspector-label" style={{ fontSize: 11, color: '#777' }}>
-              img/system/{uiSelectedSkinFile || uiSelectedSkin}.png
-            </div>
-          </div>
-        </div>
-
-        {/* 프레임 영역 */}
-        <div className="ui-inspector-section">
-          <div className="ui-inspector-section-title">프레임 영역</div>
-          <div className="ui-inspector-row">
-            <DragLabel label="X" value={uiSkinFrameX} min={0} onChange={(v) => { setUiSkinFrame(Math.round(v), uiSkinFrameY, uiSkinFrameW, uiSkinFrameH); }} />
-          </div>
-          <div className="ui-inspector-row">
-            <DragLabel label="Y" value={uiSkinFrameY} min={0} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, Math.round(v), uiSkinFrameW, uiSkinFrameH); }} />
-          </div>
-          <div className="ui-inspector-row">
-            <DragLabel label="너비" value={uiSkinFrameW} min={10} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, uiSkinFrameY, Math.round(v), uiSkinFrameH); }} />
-          </div>
-          <div className="ui-inspector-row">
-            <DragLabel label="높이" value={uiSkinFrameH} min={10} onChange={(v) => { setUiSkinFrame(uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, Math.round(v)); }} />
-          </div>
-          <div style={{ padding: '2px 12px 4px', fontSize: 11, color: '#777' }}>
-            캔버스에서 프레임 영역 드래그로 이동/리사이즈 가능
-          </div>
-        </div>
-
-        {/* fill 영역 */}
-        <div className="ui-inspector-section">
-          <div className="ui-inspector-section-title">Fill 영역 (배경)</div>
-          <div className="ui-inspector-row" style={uiSkinUseCenterFill ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
-            <DragLabel label="X" value={uiSkinFillX} min={0} onChange={(v) => { setUiSkinFill(Math.round(v), uiSkinFillY, uiSkinFillW, uiSkinFillH); }} />
-          </div>
-          <div className="ui-inspector-row" style={uiSkinUseCenterFill ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
-            <DragLabel label="Y" value={uiSkinFillY} min={0} onChange={(v) => { setUiSkinFill(uiSkinFillX, Math.round(v), uiSkinFillW, uiSkinFillH); }} />
-          </div>
-          <div className="ui-inspector-row" style={uiSkinUseCenterFill ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
-            <DragLabel label="너비" value={uiSkinFillW} min={4} onChange={(v) => { setUiSkinFill(uiSkinFillX, uiSkinFillY, Math.round(v), uiSkinFillH); }} />
-          </div>
-          <div className="ui-inspector-row" style={uiSkinUseCenterFill ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
-            <DragLabel label="높이" value={uiSkinFillH} min={4} onChange={(v) => { setUiSkinFill(uiSkinFillX, uiSkinFillY, uiSkinFillW, Math.round(v)); }} />
-          </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px 6px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
-            <input
-              type="checkbox"
-              checked={uiSkinUseCenterFill}
-              onChange={(e) => setUiSkinUseCenterFill(e.target.checked)}
-              style={{ accentColor: '#4af', cursor: 'pointer' }}
-            />
-            9Slice 정중앙을 Fill로 사용
-          </label>
-          {!uiSkinUseCenterFill && (
-            <div style={{ padding: '0 12px 4px', fontSize: 11, color: '#777' }}>
-              캔버스에서 초록 영역 드래그로 이동/리사이즈 가능
-            </div>
-          )}
-          <div className="ui-inspector-row">
-            <button
-              className="ui-canvas-toolbar-btn"
-              style={{ flex: 1, fontSize: 11 }}
-              onClick={async () => {
-                setUiSkinFrame(96, 0, 96, 96);
-                setUiSkinUseCenterFill(false);
-                setUiSkinFill(0, 0, 96, 96);
-                setUiSkinCornerSize(24);
-                useEditorStore.getState().showToast('RPG Maker MV 기본값으로 설정됨 (Cmd+S로 저장)');
-              }}
-            >
-              RPG Maker MV 기본값으로 설정
-            </button>
-          </div>
-        </div>
-
-        {/* 커서 영역 */}
-        <div className="ui-inspector-section">
-          <div className="ui-inspector-section-title">커서 영역</div>
-          <div className="ui-inspector-row">
-            <DragLabel label="X" value={uiSkinCursorX} min={0} onChange={(v) => { setUiSkinCursor(Math.round(v), uiSkinCursorY, uiSkinCursorW, uiSkinCursorH); }} />
-          </div>
-          <div className="ui-inspector-row">
-            <DragLabel label="Y" value={uiSkinCursorY} min={0} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, Math.round(v), uiSkinCursorW, uiSkinCursorH); }} />
-          </div>
-          <div className="ui-inspector-row">
-            <DragLabel label="너비" value={uiSkinCursorW} min={4} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, uiSkinCursorY, Math.round(v), uiSkinCursorH); }} />
-          </div>
-          <div className="ui-inspector-row">
-            <DragLabel label="높이" value={uiSkinCursorH} min={4} onChange={(v) => { setUiSkinCursor(uiSkinCursorX, uiSkinCursorY, uiSkinCursorW, Math.round(v)); }} />
-          </div>
-          <div className="ui-inspector-row" style={{ flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 11, color: '#888', paddingLeft: 2 }}>렌더링 모드</span>
-            <select
-              value={uiSkinCursorRenderMode}
-              onChange={(e) => {
-                setUiSkinCursorRenderMode(e.target.value as 'nineSlice' | 'stretch' | 'tile');
-              }}
-              style={{ fontSize: 12, padding: '2px 4px', background: '#1a1a2e', color: '#ddd', border: '1px solid #555', borderRadius: 2, width: '100%' }}
-            >
-              <option value="nineSlice">9-Slice (코너 유지)</option>
-              <option value="stretch">Stretch (늘리기)</option>
-              <option value="tile">Tile (반복)</option>
-            </select>
-          </div>
-          <div className="ui-inspector-row" style={uiSkinCursorRenderMode !== 'nineSlice' ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
-            <DragLabel
-              label="코너 크기"
-              value={uiSkinCursorCornerSize}
-              min={1}
-              onChange={(v) => { setUiSkinCursorCornerSize(Math.round(v)); }}
-            />
-          </div>
-          <div className="ui-inspector-row" style={{ flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 11, color: '#888', paddingLeft: 2 }}>Blend Mode</span>
-            <select
-              value={uiSkinCursorBlendMode}
-              onChange={(e) => {
-                setUiSkinCursorBlendMode(e.target.value as 'normal' | 'add' | 'multiply' | 'screen');
-              }}
-              style={{ fontSize: 12, padding: '2px 4px', background: '#1a1a2e', color: '#ddd', border: '1px solid #555', borderRadius: 2, width: '100%' }}
-            >
-              <option value="normal">Normal</option>
-              <option value="add">Add (발광)</option>
-              <option value="multiply">Multiply</option>
-              <option value="screen">Screen</option>
-            </select>
-          </div>
-          <div className="ui-inspector-row">
-            <DragLabel
-              label="불투명도"
-              value={uiSkinCursorOpacity}
-              min={0}
-              max={255}
-              onChange={(v) => { setUiSkinCursorOpacity(Math.round(Math.min(255, Math.max(0, v)))); }}
-            />
-          </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 12px 4px', fontSize: 11, color: '#bbb', cursor: 'pointer', userSelect: 'none' }}>
-            <input
-              type="checkbox"
-              checked={uiSkinCursorBlink}
-              onChange={(e) => {
-                setUiSkinCursorBlink(e.target.checked);
-              }}
-              style={{ accentColor: '#4af', cursor: 'pointer' }}
-            />
-            깜박임 (Blink)
-          </label>
-          <div className="ui-inspector-row">
-            <DragLabel
-              label="패딩"
-              value={uiSkinCursorPadding}
-              min={-20}
-              onChange={(v) => { setUiSkinCursorPadding(Math.round(v)); }}
-            />
-          </div>
-          <div className="ui-inspector-row" style={{ flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 11, color: '#888', paddingLeft: 2 }}>색조 (Tone R/G/B)</span>
-            <div style={{ display: 'flex', gap: 4 }}>
-              <DragLabel label="R" value={uiSkinCursorToneR} min={-255} max={255}
-                onChange={(v) => setUiSkinCursorTone(Math.round(Math.min(255, Math.max(-255, v))), uiSkinCursorToneG, uiSkinCursorToneB)}
-              />
-              <DragLabel label="G" value={uiSkinCursorToneG} min={-255} max={255}
-                onChange={(v) => setUiSkinCursorTone(uiSkinCursorToneR, Math.round(Math.min(255, Math.max(-255, v))), uiSkinCursorToneB)}
-              />
-              <DragLabel label="B" value={uiSkinCursorToneB} min={-255} max={255}
-                onChange={(v) => setUiSkinCursorTone(uiSkinCursorToneR, uiSkinCursorToneG, Math.round(Math.min(255, Math.max(-255, v))))}
-              />
-            </div>
-          </div>
-          <div style={{ padding: '2px 12px 4px', fontSize: 11, color: '#777' }}>
-            캔버스에서 주황 영역 드래그로 이동/리사이즈 가능
-          </div>
-        </div>
-
-        {/* 9-slice 파라미터 */}
-        <div className="ui-inspector-section">
-          <div className="ui-inspector-section-title">9-Slice 코너</div>
-          <div className="ui-inspector-row">
-            <DragLabel
-              label="코너 크기"
-              value={uiSkinCornerSize}
-              min={1}
-              onChange={(v) => { setUiSkinCornerSize(Math.round(v)); }}
-            />
-          </div>
-          <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
-            캔버스의 노란 선을 드래그해도 조절 가능
-          </div>
-        </div>
-
-        {/* 기본 스킨 설정 */}
-        <div className="ui-inspector-section">
-          <div className="ui-inspector-section-title">기본 스킨 설정</div>
-          <div className="ui-inspector-row">
-            <button
-              className="ui-canvas-toolbar-btn"
-              style={{ flex: 1 }}
-              disabled={!projectPath || !uiSelectedSkin}
-              onClick={handleSetDefault}
-            >
-              기본 스킨으로 설정
-            </button>
-          </div>
-          <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
-            UIEditorSkins.json에 defaultSkin 저장
-          </div>
-        </div>
+        </>}
 
       </div>
     </div>

@@ -296,6 +296,35 @@
   color: #ddd;
 }
 
+.ui-skin-editor-tabs {
+  display: flex;
+  border-bottom: 1px solid #444;
+  background: #222;
+  flex-shrink: 0;
+}
+
+.ui-skin-editor-tab {
+  flex: 1;
+  padding: 7px 0;
+  font-size: 12px;
+  font-weight: bold;
+  color: #888;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.ui-skin-editor-tab:hover {
+  color: #bbb;
+}
+
+.ui-skin-editor-tab.active {
+  color: #4af;
+  border-bottom-color: #4af;
+}
+
 .ui-editor-inspector-header {
   padding: 8px 12px;
   font-size: 12px;

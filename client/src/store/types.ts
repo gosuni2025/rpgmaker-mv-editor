@@ -80,6 +80,7 @@ export interface EditorState {
   uiShowSkinLabels: boolean;    // 프레임 캔버스 영역 라벨 표시 여부
   uiShowCheckerboard: boolean;  // 프레임 캔버스 투명 체크보드 표시 여부
   uiShowRegionOverlay: boolean; // 프레임 캔버스 영역 컬러 오버레이 표시 여부
+  uiSkinEditorTab: 'frame' | 'cursor'; // 프레임 인스펙터 탭
 
   // Mode
   editMode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage';
@@ -252,6 +253,7 @@ export interface EditorState {
   setUiShowSkinLabels: (show: boolean) => void;
   setUiShowCheckerboard: (show: boolean) => void;
   setUiShowRegionOverlay: (show: boolean) => void;
+  setUiSkinEditorTab: (tab: 'frame' | 'cursor') => void;
 
   // Actions - Project
   openProject: (path: string) => Promise<void>;

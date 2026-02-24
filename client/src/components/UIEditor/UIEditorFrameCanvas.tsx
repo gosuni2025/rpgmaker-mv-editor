@@ -40,6 +40,7 @@ function drawSkin(
   showCheckerboard: boolean,
   showRegionOverlay: boolean,
   hoverHit: DragState,
+  activeTab: 'frame' | 'cursor',
 ) {
   const S = DISPLAY_SCALE;
   const cw = imgW * S;
@@ -80,7 +81,12 @@ function drawSkin(
     ctx.stroke();
   }
 
+  // 비활성 탭 영역은 흐리게
+  const frameAlpha = activeTab === 'frame' ? 1 : 0.25;
+  const cursorAlpha = activeTab === 'cursor' ? 1 : 0.25;
+
   // ── fill 영역 하이라이트 ───────────────────────────────────────────────────
+  ctx.globalAlpha = frameAlpha;
   const flx = fillX * S, fly = fillY * S, flw = fillW * S, flh = fillH * S;
 
   ctx.fillStyle = 'rgba(80,200,100,0.2)';
@@ -160,6 +166,7 @@ function drawSkin(
   }
 
   // ── 커서 영역 하이라이트 ───────────────────────────────────────────────────
+  ctx.globalAlpha = cursorAlpha;
   const crx = cursorX * S, cry = cursorY * S, crw = cursorW * S, crh = cursorH * S;
 
   ctx.fillStyle = 'rgba(255,160,0,0.18)';
@@ -193,6 +200,7 @@ function drawSkin(
     ctx.setLineDash([]);
   }
 
+  ctx.globalAlpha = frameAlpha;
   // 영역 라벨
   if (showLabels && showRegionOverlay && imgW === 192 && imgH === 192) {
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
@@ -212,6 +220,8 @@ function drawSkin(
   ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.font = `${6 * S}px sans-serif`;
   ctx.fillText(`${frameW}×${frameH}`, fx + 2, fy + fh - 3 * S);
+
+  ctx.globalAlpha = 1;
 }
 
 // ─── 히트 판정 ────────────────────────────────────────────────────────────────
@@ -222,10 +232,27 @@ function getHit(
   fillX: number, fillY: number, fillW: number, fillH: number,
   cursorX: number, cursorY: number, cursorW: number, cursorH: number,
   cs: number,
+  activeTab: 'frame' | 'cursor',
 ): DragState {
   const csC = clamp(cs, 1, Math.floor(Math.min(frameW, frameH) / 2) - 1);
   const inFX = ix >= frameX && ix <= frameX + frameW;
   const inFY = iy >= frameY && iy <= frameY + frameH;
+
+  // 커서 탭에서는 프레임/fill 드래그 비활성화
+  if (activeTab === 'cursor') {
+    const inCrX = ix >= cursorX && ix <= cursorX + cursorW;
+    const inCrY = iy >= cursorY && iy <= cursorY + cursorH;
+    const onCrLeft   = inCrY && Math.abs(ix - cursorX) <= EDGE_HIT;
+    const onCrRight  = inCrY && Math.abs(ix - (cursorX + cursorW)) <= EDGE_HIT;
+    const onCrTop    = inCrX && Math.abs(iy - cursorY) <= EDGE_HIT;
+    const onCrBottom = inCrX && Math.abs(iy - (cursorY + cursorH)) <= EDGE_HIT;
+    if (onCrLeft)   return { type: 'cursor_resize', edge: 'left',   startCX: cursorX, startCY: cursorY, startCW: cursorW, startCH: cursorH };
+    if (onCrRight)  return { type: 'cursor_resize', edge: 'right',  startCX: cursorX, startCY: cursorY, startCW: cursorW, startCH: cursorH };
+    if (onCrTop)    return { type: 'cursor_resize', edge: 'top',    startCX: cursorX, startCY: cursorY, startCW: cursorW, startCH: cursorH };
+    if (onCrBottom) return { type: 'cursor_resize', edge: 'bottom', startCX: cursorX, startCY: cursorY, startCW: cursorW, startCH: cursorH };
+    if (inCrX && inCrY) return { type: 'cursor_move', ox: ix - cursorX, oy: iy - cursorY, startCX: cursorX, startCY: cursorY };
+    return null;
+  }
 
   // 9-slice 경계선 (프레임 내부)
   const vx1 = frameX + csC, vx2 = frameX + frameW - csC;
@@ -323,6 +350,7 @@ export default function UIEditorFrameCanvas() {
   const uiShowSkinLabels   = useEditorStore((s) => s.uiShowSkinLabels);
   const uiShowCheckerboard = useEditorStore((s) => s.uiShowCheckerboard);
   const uiShowRegionOverlay = useEditorStore((s) => s.uiShowRegionOverlay);
+  const uiSkinEditorTab    = useEditorStore((s) => s.uiSkinEditorTab);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
   const setUiSkinFrame     = useEditorStore((s) => s.setUiSkinFrame);
   const setUiSkinFill      = useEditorStore((s) => s.setUiSkinFill);
@@ -366,7 +394,7 @@ export default function UIEditorFrameCanvas() {
       s.uiSkinCornerSize,
       s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCursorCornerSize,
       s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay,
-      hoverHitRef.current);
+      hoverHitRef.current, s.uiSkinEditorTab);
   }, [imgSize]);
 
   // 스킨 이미지 로드 — 실제 naturalWidth/Height 기반으로 캔버스 크기 설정
@@ -398,7 +426,7 @@ export default function UIEditorFrameCanvas() {
         s.uiSkinCornerSize,
         s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCursorCornerSize,
         s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay,
-        hoverHitRef.current);
+        hoverHitRef.current, s.uiSkinEditorTab);
     };
     img.onerror = () => {
       ctx.fillStyle = '#1a1a1a';
@@ -411,7 +439,7 @@ export default function UIEditorFrameCanvas() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectPath, uiSelectedSkin, uiSelectedSkinFile]);
 
-  useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiSkinCursorX, uiSkinCursorY, uiSkinCursorW, uiSkinCursorH, uiSkinCursorCornerSize, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay]);
+  useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiSkinCursorX, uiSkinCursorY, uiSkinCursorW, uiSkinCursorH, uiSkinCursorCornerSize, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay, uiSkinEditorTab]);
 
   // 키보드: Alt 커서 + Cmd+Z undo
   useEffect(() => {
@@ -462,7 +490,7 @@ export default function UIEditorFrameCanvas() {
         hit = { type: 'frame_move', ox: coords.ix - s.uiSkinFrameX, oy: coords.iy - s.uiSkinFrameY, startFX: s.uiSkinFrameX, startFY: s.uiSkinFrameY };
       }
     } else {
-      hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCornerSize);
+      hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCornerSize, s.uiSkinEditorTab);
       if (!hit) return;
     }
 
@@ -579,7 +607,7 @@ export default function UIEditorFrameCanvas() {
     const coords = toImageCoords(e.clientX, e.clientY);
     if (!coords) return;
     const s = useEditorStore.getState();
-    const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCornerSize);
+    const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCornerSize, s.uiSkinEditorTab);
     canvas.style.cursor = getCursor(hit);
 
     // slice 호버 하이라이트 갱신
