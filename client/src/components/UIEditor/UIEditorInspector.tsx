@@ -193,11 +193,29 @@ function AnimEffectSection({ label, fieldKey, override, setMeta }: {
     setMeta(fieldKey, next);
   };
 
+  const SLIDE_REVERSE: Partial<Record<EntranceEffectType, EntranceEffectType>> = {
+    slideLeft: 'slideRight', slideRight: 'slideLeft',
+    slideTop: 'slideBottom', slideBottom: 'slideTop',
+  };
+  const copyFromEntranceReversed = () => {
+    const src = override?.entrances ?? [];
+    if (src.length === 0) return;
+    setMeta('exits', src.map((e) => ({ ...e, type: SLIDE_REVERSE[e.type] ?? e.type })));
+  };
+
   return (
     <div className="ui-inspector-section">
       <div className="ui-inspector-section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span>{label}</span>
-        <div style={{ position: 'relative' }}>
+        <div style={{ display: 'flex', gap: 4, position: 'relative' }}>
+          {fieldKey === 'exits' && (
+            <button
+              className="ui-canvas-toolbar-btn"
+              style={{ fontSize: 11, padding: '1px 7px' }}
+              title="등장 효과를 반전시켜 퇴장 효과로 복사"
+              onClick={copyFromEntranceReversed}
+            >↩ 반전</button>
+          )}
           <button
             className="ui-canvas-toolbar-btn"
             style={{ fontSize: 11, padding: '1px 7px' }}
