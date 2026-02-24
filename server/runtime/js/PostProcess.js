@@ -2633,6 +2633,15 @@ _ThreeStrategy.render = function(rendererObj, stage) {
 
         PostProcess._composer.render();
     }
+
+    // snapForBackground를 위해 마지막 렌더 프레임을 2D 캔버스에 즉시 복사.
+    // preserveDrawingBuffer=false여도 같은 rAF 콜백 안에서는 WebGL 캔버스 내용이 살아있음.
+    var threeRenderer = rendererObj.renderer;
+    if (threeRenderer && threeRenderer.domElement) {
+        var cw = rendererObj._width || threeRenderer.domElement.width;
+        var ch = rendererObj._height || threeRenderer.domElement.height;
+        PostProcess._captureLastFrame(threeRenderer.domElement, cw, ch);
+    }
 };
 
 //=============================================================================
@@ -2654,30 +2663,43 @@ Spriteset_Map.prototype.update = function() {
 };
 
 //=============================================================================
+// PostProcess._captureLastFrame
+// rAF 콜백 내에서 WebGL 캔버스를 2D 캔버스에 복사 (snapForBackground용)
+//=============================================================================
+
+PostProcess._captureLastFrame = function(domElement, w, h) {
+    if (!this._captureCanvas) {
+        this._captureCanvas = document.createElement('canvas');
+    }
+    var c = this._captureCanvas;
+    if (c.width !== w || c.height !== h) {
+        c.width = w;
+        c.height = h;
+    }
+    try {
+        c.getContext('2d').drawImage(domElement, 0, 0);
+    } catch(e) {}
+};
+
+//=============================================================================
 // SceneManager.snapForBackground 오버라이드
-// 기존 renderToCanvas()는 WebGL 상태 간섭으로 검은 이미지가 나옴.
-// 대신 PostProcess composer가 렌더한 실제 WebGL 캔버스를 직접 캡처.
+// 매 프레임 _captureCanvas에 미리 복사해 둔 이미지를 배경 비트맵으로 사용.
+// (WebGL 캔버스를 snapForBackground 시점에 직접 읽으면 preserveDrawingBuffer=false로 검은 화면)
 //=============================================================================
 
 if (typeof SceneManager !== 'undefined') {
     var _SceneManager_snapForBackground = SceneManager.snapForBackground;
     SceneManager.snapForBackground = function() {
-        var renderer = typeof Graphics !== 'undefined' &&
-                       Graphics._renderer && Graphics._renderer.renderer;
-        if (renderer && renderer.domElement) {
+        var cap = PostProcess._captureCanvas;
+        if (cap && cap.width > 0 && cap.height > 0) {
             try {
-                var canvas = renderer.domElement;
-                var w = canvas.width;
-                var h = canvas.height;
-                var bitmap = new Bitmap(w, h);
-                bitmap._context.drawImage(canvas, 0, 0);
+                var bitmap = new Bitmap(cap.width, cap.height);
+                bitmap._context.drawImage(cap, 0, 0);
                 bitmap._setDirty();
                 bitmap.blur();
                 this._backgroundBitmap = bitmap;
                 return;
-            } catch(e) {
-                // fallback
-            }
+            } catch(e) {}
         }
         _SceneManager_snapForBackground.call(this);
     };
