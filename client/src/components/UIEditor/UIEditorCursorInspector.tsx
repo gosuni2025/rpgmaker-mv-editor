@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
 import './UIEditor.css';
 
 export default function UIEditorCursorInspector() {
+  const projectPath = useEditorStore((s) => s.projectPath);
+  const uiSelectedSkin = useEditorStore((s) => s.uiSelectedSkin);
+  const triggerSkinsReload = useEditorStore((s) => s.triggerSkinsReload);
   const uiSkinCursorX = useEditorStore((s) => s.uiSkinCursorX);
   const uiSkinCursorY = useEditorStore((s) => s.uiSkinCursorY);
   const uiSkinCursorW = useEditorStore((s) => s.uiSkinCursorW);
@@ -25,6 +28,50 @@ export default function UIEditorCursorInspector() {
   const setUiSkinCursorBlink = useEditorStore((s) => s.setUiSkinCursorBlink);
   const setUiSkinCursorPadding = useEditorStore((s) => s.setUiSkinCursorPadding);
   const setUiSkinCursorTone = useEditorStore((s) => s.setUiSkinCursorTone);
+
+  const saveSkin = useCallback(async (fields: Record<string, number | boolean | string | undefined>) => {
+    if (!projectPath || !uiSelectedSkin) return;
+    await fetch(`/api/ui-editor/skins/${encodeURIComponent(uiSelectedSkin)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fields),
+    });
+  }, [projectPath, uiSelectedSkin]);
+
+  const handleResetDefaults = async () => {
+    const s = useEditorStore.getState();
+    s.setUiSkinCursor(96, 96, 48, 48);
+    s.setUiSkinCursorCornerSize(4);
+    s.setUiSkinCursorRenderMode('nineSlice');
+    s.setUiSkinCursorBlendMode('normal');
+    s.setUiSkinCursorOpacity(192);
+    s.setUiSkinCursorBlink(true);
+    s.setUiSkinCursorPadding(2);
+    s.setUiSkinCursorTone(0, 0, 0);
+    await saveSkin({
+      cursorX: 96, cursorY: 96, cursorW: 48, cursorH: 48,
+      cursorCornerSize: 4, cursorRenderMode: 'nineSlice',
+      cursorBlendMode: 'normal', cursorOpacity: 192,
+      cursorBlink: true, cursorPadding: 2,
+      cursorToneR: 0, cursorToneG: 0, cursorToneB: 0,
+    });
+    s.showToast('RPG Maker MV 커서 기본값으로 설정됨');
+  };
+
+  const handleSetDefault = async () => {
+    if (!projectPath || !uiSelectedSkin) return;
+    try {
+      await fetch('/api/ui-editor/skins/default', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultSkin: uiSelectedSkin }),
+      });
+      triggerSkinsReload();
+      useEditorStore.getState().showToast(`기본 스킨: ${uiSelectedSkin} 설정됨`);
+    } catch {
+      useEditorStore.getState().showToast('설정 실패', true);
+    }
+  };
 
   return (
     <div className="ui-editor-inspector">
@@ -131,6 +178,34 @@ export default function UIEditorCursorInspector() {
         </div>
 
       </div>
+
+        <div className="ui-inspector-section">
+          <div className="ui-inspector-section-title">기본값</div>
+          <div className="ui-inspector-row">
+            <button
+              className="ui-canvas-toolbar-btn"
+              style={{ flex: 1, fontSize: 11 }}
+              disabled={!projectPath || !uiSelectedSkin}
+              onClick={handleResetDefaults}
+            >
+              RPG Maker MV 기본값으로 설정
+            </button>
+          </div>
+          <div className="ui-inspector-row">
+            <button
+              className="ui-canvas-toolbar-btn"
+              style={{ flex: 1 }}
+              disabled={!projectPath || !uiSelectedSkin}
+              onClick={handleSetDefault}
+            >
+              기본 스킨으로 설정
+            </button>
+          </div>
+          <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
+            UIEditorSkins.json에 defaultSkin 저장
+          </div>
+        </div>
+
     </div>
   );
 }
