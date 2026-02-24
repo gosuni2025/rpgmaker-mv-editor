@@ -26,7 +26,7 @@ type RouteMode = 'classic' | 'waypoint';
 
 export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId, onOkWithCharacter, mapEvents, onWaypointMode }: MoveRouteDialogProps) {
   const { t } = useTranslation();
-  const [routeMode, setRouteMode] = useState<RouteMode>('classic');
+  const [routeMode, setRouteMode] = useState<RouteMode>(onWaypointMode ? 'waypoint' : 'classic');
   const [charId, setCharId] = useState(characterId ?? -1);
   const [commands, setCommands] = useState<MoveCommand[]>(() => {
     const cmds = [...moveRoute.list];
@@ -119,16 +119,16 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId
         {onWaypointMode && (
           <div className="move-route-mode-tabs">
             <button
-              className={`move-route-mode-tab${routeMode === 'classic' ? ' active' : ''}`}
-              onClick={() => setRouteMode('classic')}
-            >
-              클래식
-            </button>
-            <button
               className={`move-route-mode-tab${routeMode === 'waypoint' ? ' active' : ''}`}
               onClick={() => setRouteMode('waypoint')}
             >
               웨이포인트
+            </button>
+            <button
+              className={`move-route-mode-tab${routeMode === 'classic' ? ' active' : ''}`}
+              onClick={() => setRouteMode('classic')}
+            >
+              클래식
             </button>
           </div>
         )}
