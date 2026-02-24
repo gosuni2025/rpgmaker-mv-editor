@@ -2489,6 +2489,12 @@ var _prevRender = _ThreeStrategy.render;
 _ThreeStrategy.render = function(rendererObj, stage) {
     if (!rendererObj || !stage) return;
 
+    // 새 Scene_Map이 아직 로드 중인 경우 (씬 전환 과도기) 렌더링 스킵 → 이전 프레임 유지 (검은 화면 방지)
+    if (typeof SceneManager !== 'undefined' && typeof Scene_Map !== 'undefined' &&
+        SceneManager._scene instanceof Scene_Map && !SceneManager._scene._mapLoaded) {
+        return;
+    }
+
     var is3D = ConfigManager.mode3d && Mode3D._spriteset;
 
     if (is3D) {
