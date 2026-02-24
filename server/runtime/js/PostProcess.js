@@ -1656,7 +1656,7 @@ Simple2DRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuf
     var stage = this._stage;
     if (!rendererObj || !stage) return;
 
-    // UI 요소를 숨겨서 맵만 렌더 (블룸이 UI에 먹지 않도록)
+    // UI 요소를 숨겨서 맵만 렌더 (블룸/배럴 왜곡 등 PP가 UI에 적용되지 않도록)
     var spriteset = Mode3D._spriteset || (stage.children && stage.children[0]);
     var uiInfo = null;
     if (spriteset) {
@@ -1681,6 +1681,23 @@ Simple2DRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuf
             fadeObj: fadeObj, fadeWasVisible: fadeWasVisible,
             flashObj: flashObj, flashWasVisible: flashWasVisible
         };
+    }
+
+    // stage의 spriteset 외 자식들(windowLayer 등 UI)을 숨김
+    // 배럴 왜곡 등 PP가 적용된 결과에 대사창이 포함되면 Simple2DUIRenderPass에서
+    // 다시 렌더할 때 2중으로 보이므로, 이 pass에서는 맵(spriteset)만 렌더해야 함
+    var stageObj = stage._threeObj;
+    var spritesetObj = spriteset && spriteset._threeObj;
+    var stageNonSpriteChildren = [];
+    var stageNonSpriteVisibility = [];
+    if (stageObj && spritesetObj) {
+        for (var ni = 0; ni < stageObj.children.length; ni++) {
+            if (stageObj.children[ni] !== spritesetObj) {
+                stageNonSpriteChildren.push(stageObj.children[ni]);
+                stageNonSpriteVisibility.push(stageObj.children[ni].visible);
+                stageObj.children[ni].visible = false;
+            }
+        }
     }
 
     // _prevRender (Mode3D render)는 2D 모드에서 renderer.render(scene, camera) 호출
@@ -1716,6 +1733,11 @@ Simple2DRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuf
 
     // FOW 가시성 복원
     if (fowMesh2dRender) fowMesh2dRender.visible = fowWasVisible2dRender;
+
+    // stage 비spriteset 자식 가시성 복원
+    for (var ni = 0; ni < stageNonSpriteChildren.length; ni++) {
+        stageNonSpriteChildren[ni].visible = stageNonSpriteVisibility[ni];
+    }
 
     // UI 가시성 복원
     if (uiInfo) {
