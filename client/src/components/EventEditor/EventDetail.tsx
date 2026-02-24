@@ -100,7 +100,12 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
             {t('eventDetail.npcName')}:
             <input type="text" value={npcName} onChange={e => setNpcName(e.target.value)} className="event-editor-input" style={{ width: 120 }} placeholder={t('eventDetail.npcNamePlaceholder')} />
             <label className="event-editor-npc-show-check">
-              <input type="checkbox" checked={showNpcName} onChange={e => setShowNpcName(e.target.checked)} />
+              <input type="checkbox" checked={showNpcName} onChange={e => {
+                setShowNpcName(e.target.checked);
+                if (e.target.checked && !npcName.trim()) {
+                  setNpcName(editEvent.name || '');
+                }
+              }} />
               {t('eventDetail.showNpcName')}
               <ExtBadge inline />
             </label>
