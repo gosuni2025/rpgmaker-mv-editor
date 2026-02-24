@@ -755,7 +755,8 @@ PostProcessEffects.HeatHazeShader = {
         uAmplitude:  { value: 0.003 },
         uFrequencyX: { value: 15.0 },
         uFrequencyY: { value: 10.0 },
-        uSpeed:      { value: 1.0 }
+        uSpeed:      { value: 1.0 },
+        uStrength:   { value: 1.0 }  // 0=미적용, 1=완전 적용 (on/off 보간용)
     },
     vertexShader: VERT,
     fragmentShader: [
@@ -765,13 +766,14 @@ PostProcessEffects.HeatHazeShader = {
         'uniform float uFrequencyX;',
         'uniform float uFrequencyY;',
         'uniform float uSpeed;',
+        'uniform float uStrength;',
         'varying vec2 vUv;',
         'void main() {',
         '    float t = uTime * uSpeed;',
         // 이중 독립 UV 스크롤 노이즈 (lava 예제 기법 응용)
         '    float n1 = sin(vUv.y * uFrequencyX + t * 1.1) * cos(vUv.x * uFrequencyY * 0.7 + t * 0.7);',
         '    float n2 = cos(vUv.y * uFrequencyY * 0.8 + t * 0.9) * sin(vUv.x * uFrequencyX * 0.5 + t * 1.3);',
-        '    vec2 offset = vec2(n1 * uAmplitude, n2 * uAmplitude * 0.6);',
+        '    vec2 offset = vec2(n1 * uAmplitude, n2 * uAmplitude * 0.6) * uStrength;',
         '    gl_FragColor = texture2D(tColor, clamp(vUv + offset, 0.0, 1.0));',
         '}'
     ].join('\n')
@@ -784,6 +786,7 @@ PostProcessEffects.createHeatHazePass = function(params) {
         if (params.frequencyX != null) pass.uniforms.uFrequencyX.value = params.frequencyX;
         if (params.frequencyY != null) pass.uniforms.uFrequencyY.value = params.frequencyY;
         if (params.speed      != null) pass.uniforms.uSpeed.value      = params.speed;
+        if (params.strength   != null) pass.uniforms.uStrength.value   = params.strength;
     }
     return pass;
 };
@@ -840,17 +843,19 @@ PostProcessEffects.createScanlinesPass = function(params) {
 PostProcessEffects.PosterizeShader = {
     uniforms: {
         tColor:  { value: null },
-        uSteps:  { value: 8.0 }
+        uSteps:  { value: 8.0 },
+        uBlend:  { value: 1.0 }  // 0=원본, 1=완전 포스터화 (on/off 전환용)
     },
     vertexShader: VERT,
     fragmentShader: [
         'uniform sampler2D tColor;',
         'uniform float uSteps;',
+        'uniform float uBlend;',
         'varying vec2 vUv;',
         'void main() {',
         '    vec4 tex = texture2D(tColor, vUv);',
-        '    vec3 col = floor(tex.rgb * uSteps + 0.5) / uSteps;',
-        '    gl_FragColor = vec4(col, tex.a);',
+        '    vec3 posterized = floor(tex.rgb * uSteps + 0.5) / uSteps;',
+        '    gl_FragColor = vec4(mix(tex.rgb, posterized, uBlend), tex.a);',
         '}'
     ].join('\n')
 };
@@ -859,6 +864,7 @@ PostProcessEffects.createPosterizePass = function(params) {
     var pass = createPass(this.PosterizeShader);
     if (params) {
         if (params.steps != null) pass.uniforms.uSteps.value = params.steps;
+        if (params.blend != null) pass.uniforms.uBlend.value = params.blend;
     }
     return pass;
 };
@@ -908,27 +914,29 @@ PostProcessEffects.AnaglyphShader = {
     uniforms: {
         tColor:      { value: null },
         uSeparation: { value: 0.005 },
-        uMode:       { value: 0 }
+        uMode:       { value: 0 },
+        uBlend:      { value: 1.0 }
     },
     vertexShader: VERT,
     fragmentShader: [
         'uniform sampler2D tColor;',
         'uniform float uSeparation;',
         'uniform int uMode;',
+        'uniform float uBlend;',
         'varying vec2 vUv;',
         'void main() {',
+        '    vec4 original = texture2D(tColor, vUv);',
         '    vec4 left  = texture2D(tColor, vUv + vec2(-uSeparation, 0.0));',
         '    vec4 right = texture2D(tColor, vUv + vec2( uSeparation, 0.0));',
+        '    vec4 anaglyph;',
         '    if (uMode == 1) {',
-        '        // Red-Green',
-        '        gl_FragColor = vec4(left.r, right.g, 0.0, 1.0);',
+        '        anaglyph = vec4(left.r, right.g, 0.0, 1.0);',
         '    } else if (uMode == 2) {',
-        '        // Magenta-Green',
-        '        gl_FragColor = vec4(left.r, right.g, left.b, 1.0);',
+        '        anaglyph = vec4(left.r, right.g, left.b, 1.0);',
         '    } else {',
-        '        // Red-Cyan (default)',
-        '        gl_FragColor = vec4(left.r, right.g, right.b, 1.0);',
+        '        anaglyph = vec4(left.r, right.g, right.b, 1.0);',
         '    }',
+        '    gl_FragColor = mix(original, anaglyph, uBlend);',
         '}'
     ].join('\n')
 };
@@ -938,6 +946,7 @@ PostProcessEffects.createAnaglyphPass = function(params) {
     if (params) {
         if (params.separation != null) pass.uniforms.uSeparation.value = params.separation;
         if (params.mode != null) pass.uniforms.uMode.value = params.mode;
+        if (params.blend != null) pass.uniforms.uBlend.value = params.blend;
     }
     return pass;
 };
@@ -1046,7 +1055,8 @@ PostProcessEffects.EFFECT_PARAMS = {
         { key: 'bias',      label: '바이어스', min: 0, max: 0.2, step: 0.005, default: 0.05 }
     ],
     heatHaze: [
-        { key: 'amplitude',  label: '왜곡 강도',  min: 0, max: 0.02, step: 0.001, default: 0.003 },
+        { key: 'strength',   label: '강도',       min: 0, max: 1,    step: 0.01,  default: 1 },
+        { key: 'amplitude',  label: '왜곡 진폭',  min: 0, max: 0.02, step: 0.001, default: 0.003 },
         { key: 'frequencyX', label: '주파수 X',   min: 1, max: 40,   step: 1,     default: 15 },
         { key: 'frequencyY', label: '주파수 Y',   min: 1, max: 40,   step: 1,     default: 10 },
         { key: 'speed',      label: '속도',       min: 0, max: 5,    step: 0.1,   default: 1 }
@@ -1057,14 +1067,16 @@ PostProcessEffects.EFFECT_PARAMS = {
         { key: 'speed',     label: '스크롤', min: 0,    max: 0.1, step: 0.005, default: 0.0 }
     ],
     posterize: [
-        { key: 'steps', label: '색상 단계', min: 2, max: 32, step: 1, default: 8 }
+        { key: 'steps', label: '색상 단계', min: 2, max: 32, step: 1, default: 8 },
+        { key: 'blend', label: '혼합 강도', min: 0, max: 1, step: 0.05, default: 1.0 }
     ],
     barrelDistort: [
         { key: 'curvature', label: '곡면 강도', min: 0, max: 0.3, step: 0.01, default: 0.05 }
     ],
     anaglyph: [
         { key: 'separation', label: '채널 분리', min: 0, max: 0.03, step: 0.001, default: 0.005 },
-        { key: 'mode',       label: '색상 모드', type: 'select', options: [{v:0,l:'Red-Cyan'},{v:1,l:'Red-Green'},{v:2,l:'Magenta-Green'}], default: 0 }
+        { key: 'mode',       label: '색상 모드', type: 'select', options: [{v:0,l:'Red-Cyan'},{v:1,l:'Red-Green'},{v:2,l:'Magenta-Green'}], default: 0 },
+        { key: 'blend',      label: '블렌드',    min: 0, max: 1,    step: 0.01,  default: 1 }
     ]
 };
 
@@ -1089,11 +1101,11 @@ PostProcessEffects._UNIFORM_MAP = {
     colorInversion: { strength: 'uStrength' },
     edgeDetection: { strength: 'uStrength', threshold: 'uThreshold', overlay: 'uOverlay' },
     ssao:         { radius: 'uRadius', intensity: 'uIntensity', bias: 'uBias' },
-    heatHaze:     { amplitude: 'uAmplitude', frequencyX: 'uFrequencyX', frequencyY: 'uFrequencyY', speed: 'uSpeed' },
+    heatHaze:     { strength: 'uStrength', amplitude: 'uAmplitude', frequencyX: 'uFrequencyX', frequencyY: 'uFrequencyY', speed: 'uSpeed' },
     scanlines:    { intensity: 'uIntensity', density: 'uDensity', speed: 'uSpeed' },
-    posterize:    { steps: 'uSteps' },
+    posterize:    { steps: 'uSteps', blend: 'uBlend' },
     barrelDistort: { curvature: 'uCurvature' },
-    anaglyph:      { separation: 'uSeparation', mode: 'uMode' }
+    anaglyph:      { separation: 'uSeparation', mode: 'uMode', blend: 'uBlend' }
 };
 
 // 런타임에서 파라미터를 pass의 uniform에 적용

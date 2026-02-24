@@ -83,10 +83,95 @@
  * @max 60
  * @default 0
  *
+ * @command PPEffectAnaglyphOn
+ * @text 애너글리프 켜기
+ * @desc 애너글리프 3D 이펙트를 활성화합니다. 블렌드를 0→1로 서서히 전환합니다.
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 1
+ *
+ * @command PPEffectAnaglyphOff
+ * @text 애너글리프 끄기
+ * @desc 애너글리프 3D 이펙트를 비활성화합니다. 블렌드를 1→0으로 서서히 전환합니다.
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 1
+ *
+ * @command PPEffectAnaglyphSeparation
+ * @text 애너글리프 채널 분리
+ * @desc Red와 Cyan 채널의 수평 분리 거리를 설정합니다. 값이 클수록 입체감이 강해집니다.
+ *
+ * @arg value
+ * @text 분리 거리
+ * @type number
+ * @min 0
+ * @max 0.03
+ * @decimals 3
+ * @default 0.005
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 0
+ *
+ * @command PPEffectAnaglyphMode
+ * @text 애너글리프 색상 모드
+ * @desc 애너글리프의 색상 분리 방식을 설정합니다.
+ *
+ * @arg mode
+ * @text 모드
+ * @type select
+ * @option Red-Cyan (빨간-청록, 기본)
+ * @value 0
+ * @option Red-Green (빨간-초록)
+ * @value 1
+ * @option Magenta-Green (마젠타-초록)
+ * @value 2
+ * @default 0
+ *
+ * @command PPEffectAnaglyphBlend
+ * @text 애너글리프 블렌드 강도
+ * @desc 원본 이미지와 애너글리프 이펙트의 혼합 비율을 설정합니다. (0=원본, 1=완전 적용)
+ *
+ * @arg value
+ * @text 블렌드 (0~1)
+ * @type number
+ * @min 0
+ * @max 1
+ * @decimals 2
+ * @default 1
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 0
+ *
  * @help
  * PostProcess.js는 에디터 코어 파일로 자동으로 로드됩니다.
  * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
  * 커맨드 이름으로 DoF, DepthOfField, PostProcess 모두 사용 가능합니다.
+ *
+ * ■ 애너글리프 커맨드 예시 (PPEffectAnaglyph):
+ *   PPEffectAnaglyphOn 1      → 1초에 걸쳐 서서히 켜기
+ *   PPEffectAnaglyphOff 0.5   → 0.5초에 걸쳐 서서히 끄기
+ *   PPEffectAnaglyphSeparation 0.01 0.5  → 채널 분리를 0.01로 0.5초 동안 보간
+ *   PPEffectAnaglyphMode 0    → Red-Cyan 모드로 변경
  */
 //=============================================================================
 // PostProcess.js - 포스트 프로세싱 파이프라인 (Bloom, DoF, PP Effects)
@@ -2234,6 +2319,73 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 } else {
                     PPE.applyParam(effectKey, pass, action, ppEffVal);
                 }
+            }
+        }
+    }
+
+    // ── 애너글리프 전용 커맨드 (부드러운 블렌드 on/off 포함) ──────────────────
+    // PPEffectAnaglyphOn [duration]
+    // PPEffectAnaglyphOff [duration]
+    // PPEffectAnaglyphSeparation <value> [duration]
+    // PPEffectAnaglyphMode <0|1|2>
+    // PPEffectAnaglyphBlend <value> [duration]
+    var isAnaCmd = (command === 'PPEffectAnaglyphOn' || command === 'PPEffectAnaglyphOff' ||
+                    command === 'PPEffectAnaglyphSeparation' || command === 'PPEffectAnaglyphMode' ||
+                    command === 'PPEffectAnaglyphBlend');
+    if (isAnaCmd) {
+        var PPE2 = window.PostProcessEffects;
+        if (PostProcess._ppPasses && PostProcess._ppPasses['anaglyph'] && PPE2) {
+            var anaPass = PostProcess._ppPasses['anaglyph'];
+
+            // 블렌드 트윈 헬퍼
+            function _anaBlendTween(targetVal, dur, onDone) {
+                var proxy = { value: anaPass.uniforms.uBlend.value };
+                if (dur > 0 && window.PluginTween) {
+                    PluginTween.add({
+                        target: proxy, key: 'value', to: targetVal, duration: dur,
+                        onUpdate: function(v) { anaPass.uniforms.uBlend.value = v; },
+                        onComplete: onDone || null
+                    });
+                } else {
+                    anaPass.uniforms.uBlend.value = targetVal;
+                    if (onDone) onDone();
+                }
+            }
+
+            if (command === 'PPEffectAnaglyphOn') {
+                var dur = args[0] ? parseFloat(args[0]) : 0;
+                anaPass.uniforms.uBlend.value = 0;
+                anaPass.enabled = true;
+                PostProcess._updateRenderToScreen();
+                _anaBlendTween(1, dur, null);
+
+            } else if (command === 'PPEffectAnaglyphOff') {
+                var dur = args[0] ? parseFloat(args[0]) : 0;
+                _anaBlendTween(0, dur, function() {
+                    anaPass.enabled = false;
+                    PostProcess._updateRenderToScreen();
+                });
+
+            } else if (command === 'PPEffectAnaglyphSeparation') {
+                var val = args[0] ? parseFloat(args[0]) : 0.005;
+                var dur = args[1] ? parseFloat(args[1]) : 0;
+                PPE2.applyParam('anaglyph', anaPass, 'separation', val);
+                if (dur > 0 && window.PluginTween) {
+                    var proxy2 = { value: anaPass.uniforms.uSeparation.value };
+                    PluginTween.add({
+                        target: proxy2, key: 'value', to: val, duration: dur,
+                        onUpdate: function(v) { anaPass.uniforms.uSeparation.value = v; }
+                    });
+                }
+
+            } else if (command === 'PPEffectAnaglyphMode') {
+                var modeVal = args[0] ? parseInt(args[0]) : 0;
+                anaPass.uniforms.uMode.value = modeVal;
+
+            } else if (command === 'PPEffectAnaglyphBlend') {
+                var val = args[0] ? parseFloat(args[0]) : 1;
+                var dur = args[1] ? parseFloat(args[1]) : 0;
+                _anaBlendTween(val, dur, null);
             }
         }
     }
