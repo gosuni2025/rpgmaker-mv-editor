@@ -1828,6 +1828,8 @@ _ThreeStrategy.render = function(rendererObj, stage) {
             var pp = PostProcess._ppPasses;
             if (pp.filmGrain && pp.filmGrain.enabled) pp.filmGrain.uniforms.uTime.value = ppTime;
             if (pp.waveDistortion && pp.waveDistortion.enabled) pp.waveDistortion.uniforms.uTime.value = ppTime;
+            if (pp.heatHaze && pp.heatHaze.enabled) pp.heatHaze.uniforms.uTime.value = ppTime;
+            if (pp.scanlines && pp.scanlines.enabled) pp.scanlines.uniforms.uTime.value = ppTime;
         }
 
         var scene = rendererObj.scene;
@@ -1916,6 +1918,8 @@ _ThreeStrategy.render = function(rendererObj, stage) {
             var pp = PostProcess._ppPasses;
             if (pp.filmGrain && pp.filmGrain.enabled) pp.filmGrain.uniforms.uTime.value = ppTime;
             if (pp.waveDistortion && pp.waveDistortion.enabled) pp.waveDistortion.uniforms.uTime.value = ppTime;
+            if (pp.heatHaze && pp.heatHaze.enabled) pp.heatHaze.uniforms.uTime.value = ppTime;
+            if (pp.scanlines && pp.scanlines.enabled) pp.scanlines.uniforms.uTime.value = ppTime;
         }
 
         // Composer 크기 동기화

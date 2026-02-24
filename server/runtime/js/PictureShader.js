@@ -1374,6 +1374,76 @@ PictureShader._FRAGMENT_PIXELDISSOLVE = [
     '}',
 ].join('\n');
 
+// Lava (용암) - 이중 UV 스크롤 + 채널 오버플로우 재분배 (lava 예제 기법)
+PictureShader._FRAGMENT_LAVA = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uSpeed;',
+    'uniform float uScale;',
+    'uniform float uIntensity;',
+    'uniform vec3 uColor1;',  // 뜨거운 색 (주황/노랑)
+    'uniform vec3 uColor2;',  // 차가운 색 (어두운 빨강/갈색)
+    'varying vec2 vUv;',
+    'float lavaHash(vec2 p) {',
+    '    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);',
+    '}',
+    'float lavaNoise(vec2 p) {',
+    '    vec2 i = floor(p); vec2 f = fract(p);',
+    '    f = f * f * (3.0 - 2.0 * f);',
+    '    return mix(mix(lavaHash(i), lavaHash(i+vec2(1,0)), f.x), mix(lavaHash(i+vec2(0,1)), lavaHash(i+vec2(1,1)), f.x), f.y);',
+    '}',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    float t = uTime * uSpeed;',
+    // 이중 독립 UV 스크롤
+    '    vec2 T1 = vUv * uScale + vec2(t * 0.3, t * 0.4);',
+    '    vec2 T2 = vUv * uScale * 0.7 + vec2(-t * 0.2, t * 0.5);',
+    '    float lava = (lavaNoise(T1) + lavaNoise(T2)) * 0.5;',
+    // 채널 오버플로우 재분배 (lava 예제 기법: 뜨거운 빛 효과)
+    '    vec3 lavaColor = mix(uColor2, uColor1, lava);',
+    '    float excess = max(0.0, (lavaColor.r + lavaColor.g + lavaColor.b) - 2.0);',
+    '    lavaColor.r = min(1.0, lavaColor.r + excess * 0.5);',
+    '    lavaColor.g = min(1.0, lavaColor.g + excess * 0.3);',
+    '    lavaColor.b = min(1.0, lavaColor.b + excess * 0.1);',
+    '    col.rgb = mix(col.rgb, lavaColor, uIntensity * col.a);',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
+// Fire (불꽃) - 아래→위로 타오르는 불꽃 오버레이
+PictureShader._FRAGMENT_FIRE = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uSpeed;',
+    'uniform float uIntensity;',
+    'uniform float uHeight;',   // 불꽃 높이 (0~1)
+    'uniform vec3 uBaseColor;', // 기저 색 (주황)
+    'uniform vec3 uTipColor;',  // 끝 색 (노랑)
+    'varying vec2 vUv;',
+    'float fireRand(vec2 co) {',
+    '    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);',
+    '}',
+    'void main() {',
+    '    vec4 col = texture2D(map, vUv);',
+    '    float t = uTime * uSpeed;',
+    // x방향 불꽃 흔들림 (화면 하단에 가까울수록 강함)
+    '    float f1 = sin(vUv.x * 18.0 + t * 3.7) * 0.04;',
+    '    float f2 = sin(vUv.x * 9.0 - t * 5.1) * 0.03;',
+    '    float f3 = fireRand(vec2(floor(t * 12.0), floor(vUv.x * 8.0))) * 0.02;',
+    '    float baseY = vUv.y + (f1 + f2 + f3) * vUv.y;',
+    // 아래→위 그라디언트 (y=1이 화면 하단, y=0이 상단)
+    '    float fireIntensity = smoothstep(uHeight, 0.0, 1.0 - baseY);',
+    '    float colorBlend = clamp((1.0 - baseY) / max(uHeight, 0.001), 0.0, 1.0);',
+    '    vec3 fireColor = mix(uTipColor, uBaseColor, colorBlend);',
+    '    col.rgb += fireColor * fireIntensity * uIntensity * col.a;',
+    '    col.a *= opacity;',
+    '    gl_FragColor = col;',
+    '}',
+].join('\n');
+
 //=============================================================================
 // 셰이더 타입별 fragment shader 매핑
 //=============================================================================
@@ -1431,6 +1501,8 @@ PictureShader._FRAGMENT_SHADERS = {
     'circleWipe':     PictureShader._FRAGMENT_CIRCLEWIPE,
     'blinds':         PictureShader._FRAGMENT_BLINDS,
     'pixelDissolve':  PictureShader._FRAGMENT_PIXELDISSOLVE,
+    'lava':           PictureShader._FRAGMENT_LAVA,
+    'fire':           PictureShader._FRAGMENT_FIRE,
 };
 
 //=============================================================================
@@ -1490,6 +1562,8 @@ PictureShader._DEFAULT_PARAMS = {
     'circleWipe': { threshold: 0, softness: 0.05, centerX: 0.5, centerY: 0.5 },
     'blinds':    { threshold: 0, count: 8, direction: 0 },
     'pixelDissolve': { threshold: 0, pixelSize: 32 },
+    'lava':  { speed: 1.0, scale: 4.0, intensity: 0.8, color1R: 1.0, color1G: 0.5, color1B: 0.0, color2R: 0.5, color2G: 0.1, color2B: 0.0 },
+    'fire':  { speed: 1.5, intensity: 1.0, height: 0.4, baseColorR: 1.0, baseColorG: 0.3, baseColorB: 0.0, tipColorR: 1.0, tipColorG: 0.9, tipColorB: 0.3 },
 };
 
 //=============================================================================
@@ -1550,6 +1624,8 @@ PictureShader._UNIFORM_MAP = {
     'circleWipe': [ ['threshold','uThreshold'], ['softness','uSoftness'], ['centerX','uCenterX'], ['centerY','uCenterY'] ],
     'blinds':    [ ['threshold','uThreshold'], ['count','uCount'], ['direction','uDirection'] ],
     'pixelDissolve': [ ['threshold','uThreshold'], ['pixelSize','uPixelSize'] ],
+    'lava': [ ['speed','uSpeed'], ['scale','uScale'], ['intensity','uIntensity'], {u:'uColor1',vec3:['color1R','color1G','color1B']}, {u:'uColor2',vec3:['color2R','color2G','color2B']} ],
+    'fire': [ ['speed','uSpeed'], ['intensity','uIntensity'], ['height','uHeight'], {u:'uBaseColor',vec3:['baseColorR','baseColorG','baseColorB']}, {u:'uTipColor',vec3:['tipColorR','tipColorG','tipColorB']} ],
 };
 
 //=============================================================================

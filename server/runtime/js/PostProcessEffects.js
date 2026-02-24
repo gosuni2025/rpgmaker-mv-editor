@@ -744,6 +744,164 @@ PostProcessEffects.createSSAOPass = function(params) {
 };
 
 //=============================================================================
+// 16. Heat Haze - 아지랑이 (열기 UV 왜곡)
+// lava 예제의 이중 UV 스크롤 기법을 응용한 포스트 프로세싱 패스.
+// 사막, 화산, 여름 맵 등에서 열기 왜곡 연출에 활용.
+//=============================================================================
+PostProcessEffects.HeatHazeShader = {
+    uniforms: {
+        tColor:      { value: null },
+        uTime:       { value: 0.0 },
+        uAmplitude:  { value: 0.003 },
+        uFrequencyX: { value: 15.0 },
+        uFrequencyY: { value: 10.0 },
+        uSpeed:      { value: 1.0 }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float uTime;',
+        'uniform float uAmplitude;',
+        'uniform float uFrequencyX;',
+        'uniform float uFrequencyY;',
+        'uniform float uSpeed;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    float t = uTime * uSpeed;',
+        // 이중 독립 UV 스크롤 노이즈 (lava 예제 기법 응용)
+        '    float n1 = sin(vUv.y * uFrequencyX + t * 1.1) * cos(vUv.x * uFrequencyY * 0.7 + t * 0.7);',
+        '    float n2 = cos(vUv.y * uFrequencyY * 0.8 + t * 0.9) * sin(vUv.x * uFrequencyX * 0.5 + t * 1.3);',
+        '    vec2 offset = vec2(n1 * uAmplitude, n2 * uAmplitude * 0.6);',
+        '    gl_FragColor = texture2D(tColor, clamp(vUv + offset, 0.0, 1.0));',
+        '}'
+    ].join('\n')
+};
+
+PostProcessEffects.createHeatHazePass = function(params) {
+    var pass = createPass(this.HeatHazeShader);
+    if (params) {
+        if (params.amplitude  != null) pass.uniforms.uAmplitude.value  = params.amplitude;
+        if (params.frequencyX != null) pass.uniforms.uFrequencyX.value = params.frequencyX;
+        if (params.frequencyY != null) pass.uniforms.uFrequencyY.value = params.frequencyY;
+        if (params.speed      != null) pass.uniforms.uSpeed.value      = params.speed;
+    }
+    return pass;
+};
+
+//=============================================================================
+// 17. Scanlines - CRT 스캔라인
+//=============================================================================
+PostProcessEffects.ScanlinesShader = {
+    uniforms: {
+        tColor:      { value: null },
+        uTime:       { value: 0.0 },
+        uResolution: { value: new THREE.Vector2(816, 624) },
+        uIntensity:  { value: 0.3 },
+        uDensity:    { value: 1.0 },
+        uSpeed:      { value: 0.0 }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float uTime;',
+        'uniform vec2 uResolution;',
+        'uniform float uIntensity;',
+        'uniform float uDensity;',
+        'uniform float uSpeed;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 tex = texture2D(tColor, vUv);',
+        '    float scrollY = vUv.y + uTime * uSpeed;',
+        '    float lines = uResolution.y * uDensity;',
+        '    float scan = sin(scrollY * lines * 3.14159265) * 0.5 + 0.5;',
+        '    scan = pow(scan, 1.5);',
+        '    float scanFactor = 1.0 - scan * uIntensity;',
+        '    gl_FragColor = vec4(tex.rgb * scanFactor, tex.a);',
+        '}'
+    ].join('\n')
+};
+
+PostProcessEffects.createScanlinesPass = function(params) {
+    var pass = createPass(this.ScanlinesShader);
+    if (params) {
+        if (params.intensity != null) pass.uniforms.uIntensity.value = params.intensity;
+        if (params.density   != null) pass.uniforms.uDensity.value   = params.density;
+        if (params.speed     != null) pass.uniforms.uSpeed.value     = params.speed;
+    }
+    pass.setSize = function(w, h) {
+        this.uniforms.uResolution.value.set(w, h);
+    };
+    return pass;
+};
+
+//=============================================================================
+// 18. Posterize - 포스터화 (색상 단계 감소)
+//=============================================================================
+PostProcessEffects.PosterizeShader = {
+    uniforms: {
+        tColor:  { value: null },
+        uSteps:  { value: 8.0 }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float uSteps;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 tex = texture2D(tColor, vUv);',
+        '    vec3 col = floor(tex.rgb * uSteps + 0.5) / uSteps;',
+        '    gl_FragColor = vec4(col, tex.a);',
+        '}'
+    ].join('\n')
+};
+
+PostProcessEffects.createPosterizePass = function(params) {
+    var pass = createPass(this.PosterizeShader);
+    if (params) {
+        if (params.steps != null) pass.uniforms.uSteps.value = params.steps;
+    }
+    return pass;
+};
+
+//=============================================================================
+// 19. Barrel Distortion - CRT 배럴 왜곡 (볼록 곡면 시뮬레이션)
+//=============================================================================
+PostProcessEffects.BarrelDistortShader = {
+    uniforms: {
+        tColor:     { value: null },
+        uCurvature: { value: 0.05 }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float uCurvature;',
+        'varying vec2 vUv;',
+        'vec2 barrelUV(vec2 uv, float k) {',
+        '    uv = uv * 2.0 - 1.0;',
+        '    float r2 = uv.x * uv.x + uv.y * uv.y;',
+        '    uv *= 1.0 + k * r2;',
+        '    return uv * 0.5 + 0.5;',
+        '}',
+        'void main() {',
+        '    vec2 distUV = barrelUV(vUv, uCurvature);',
+        '    if (distUV.x < 0.0 || distUV.x > 1.0 || distUV.y < 0.0 || distUV.y > 1.0) {',
+        '        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);',
+        '        return;',
+        '    }',
+        '    gl_FragColor = texture2D(tColor, distUV);',
+        '}'
+    ].join('\n')
+};
+
+PostProcessEffects.createBarrelDistortPass = function(params) {
+    var pass = createPass(this.BarrelDistortShader);
+    if (params) {
+        if (params.curvature != null) pass.uniforms.uCurvature.value = params.curvature;
+    }
+    return pass;
+};
+
+//=============================================================================
 // 이펙트 목록 레지스트리 (에디터 UI에서 사용)
 //=============================================================================
 PostProcessEffects.EFFECT_LIST = [
@@ -761,7 +919,11 @@ PostProcessEffects.EFFECT_LIST = [
     { key: 'pixelation',   name: '픽셀화',         create: 'createPixelationPass' },
     { key: 'colorInversion', name: '색반전',       create: 'createColorInversionPass' },
     { key: 'edgeDetection', name: '외곽선 검출',   create: 'createEdgeDetectionPass' },
-    { key: 'ssao',          name: 'SSAO',          create: 'createSSAOPass' }
+    { key: 'ssao',          name: 'SSAO',          create: 'createSSAOPass' },
+    { key: 'heatHaze',      name: '아지랑이',      create: 'createHeatHazePass' },
+    { key: 'scanlines',     name: '스캔라인',      create: 'createScanlinesPass' },
+    { key: 'posterize',     name: '포스터화',      create: 'createPosterizePass' },
+    { key: 'barrelDistort', name: 'CRT 배럴 왜곡', create: 'createBarrelDistortPass' }
 ];
 
 // 이펙트별 파라미터 정의 (에디터 인스펙터용)
@@ -840,6 +1002,23 @@ PostProcessEffects.EFFECT_PARAMS = {
         { key: 'radius',    label: '반경', min: 1, max: 20, step: 0.5, default: 5 },
         { key: 'intensity', label: '강도', min: 0, max: 2,  step: 0.05, default: 0.5 },
         { key: 'bias',      label: '바이어스', min: 0, max: 0.2, step: 0.005, default: 0.05 }
+    ],
+    heatHaze: [
+        { key: 'amplitude',  label: '왜곡 강도',  min: 0, max: 0.02, step: 0.001, default: 0.003 },
+        { key: 'frequencyX', label: '주파수 X',   min: 1, max: 40,   step: 1,     default: 15 },
+        { key: 'frequencyY', label: '주파수 Y',   min: 1, max: 40,   step: 1,     default: 10 },
+        { key: 'speed',      label: '속도',       min: 0, max: 5,    step: 0.1,   default: 1 }
+    ],
+    scanlines: [
+        { key: 'intensity', label: '강도',   min: 0,    max: 1,   step: 0.05,  default: 0.3 },
+        { key: 'density',   label: '밀도',   min: 0.02, max: 1,   step: 0.02,  default: 1.0 },
+        { key: 'speed',     label: '스크롤', min: 0,    max: 0.1, step: 0.005, default: 0.0 }
+    ],
+    posterize: [
+        { key: 'steps', label: '색상 단계', min: 2, max: 32, step: 1, default: 8 }
+    ],
+    barrelDistort: [
+        { key: 'curvature', label: '곡면 강도', min: 0, max: 0.3, step: 0.01, default: 0.05 }
     ]
 };
 
@@ -863,7 +1042,11 @@ PostProcessEffects._UNIFORM_MAP = {
     pixelation:   { pixelSize: 'uPixelSize' },
     colorInversion: { strength: 'uStrength' },
     edgeDetection: { strength: 'uStrength', threshold: 'uThreshold', overlay: 'uOverlay' },
-    ssao:         { radius: 'uRadius', intensity: 'uIntensity', bias: 'uBias' }
+    ssao:         { radius: 'uRadius', intensity: 'uIntensity', bias: 'uBias' },
+    heatHaze:     { amplitude: 'uAmplitude', frequencyX: 'uFrequencyX', frequencyY: 'uFrequencyY', speed: 'uSpeed' },
+    scanlines:    { intensity: 'uIntensity', density: 'uDensity', speed: 'uSpeed' },
+    posterize:    { steps: 'uSteps' },
+    barrelDistort: { curvature: 'uCurvature' }
 };
 
 // 런타임에서 파라미터를 pass의 uniform에 적용
