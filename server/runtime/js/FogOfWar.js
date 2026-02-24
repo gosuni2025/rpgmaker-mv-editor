@@ -1843,8 +1843,8 @@ PostProcess._updateUniforms = function() {
     }
     if (FogOfWar._fogGroup) FogOfWar._fogGroup.visible = true;
 
-    // 메쉬가 아직 생성되지 않았으면 scene에 lazy 추가
-    if (!FogOfWar._fogGroup && FogOfWar._fogTexture) {
+    // 메쉬가 아직 생성되지 않았거나 scene이 재생성된 경우 scene에 (재)추가
+    if (FogOfWar._fogTexture) {
         var scene = null;
         if (this._renderPass) {
             scene = this._renderPass.scene;
@@ -1852,9 +1852,15 @@ PostProcess._updateUniforms = function() {
             scene = PostProcess._2dRenderPass._rendererObj.scene;
         }
         if (scene) {
-            var mesh = FogOfWar._createMesh();
-            if (mesh) {
-                scene.add(mesh);
+            if (!FogOfWar._fogGroup) {
+                // 메쉬 신규 생성
+                var mesh = FogOfWar._createMesh();
+                if (mesh) {
+                    scene.add(mesh);
+                }
+            } else if (FogOfWar._fogGroup.parent !== scene) {
+                // scene이 재생성됨 (메뉴/전투 복귀) → 현재 scene에 재추가
+                scene.add(FogOfWar._fogGroup);
             }
         }
     }
@@ -1924,10 +1930,19 @@ PostProcess._applyMapSettings = function() {
 
     var fow = $dataMap.fogOfWar;
     if (fow && (fow.enabled2D || fow.enabled3D)) {
+        var currMapId = (typeof $gameMap !== 'undefined' && $gameMap) ? $gameMap.mapId() : -1;
+        // 같은 맵으로 복귀(메뉴/전투) 시 setup 스킵 → _exploredData 보존, 검은 화면 플래시 방지
+        if (FogOfWar._active && FogOfWar._setupMapId === currMapId && currMapId > 0) {
+            FogOfWar._enabled2D = !!fow.enabled2D;
+            FogOfWar._enabled3D = !!fow.enabled3D;
+            return;
+        }
+        FogOfWar._setupMapId = currMapId;
         FogOfWar.setup($dataMap.width, $dataMap.height, fow);
         FogOfWar._enabled2D = !!fow.enabled2D;
         FogOfWar._enabled3D = !!fow.enabled3D;
     } else {
+        FogOfWar._setupMapId = -1;
         FogOfWar.dispose();
     }
 };
