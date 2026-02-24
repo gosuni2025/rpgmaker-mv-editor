@@ -435,20 +435,31 @@ function buildPreviewHTML(useWebp: boolean): string {
             // 2. 캐시 버스팅 URL로 새 Bitmap 강제 로드
             var reloadBitmap = Bitmap.load('img/system/' + fname + '.png?_t=' + Date.now());
             reloadBitmap.addLoadListener(function() {
-              // 3. 씬의 모든 Window 중 해당 windowskin을 사용하는 것을 교체 + refresh
+              // 3. 씬의 모든 Window 중 해당 이미지를 사용하는 것을 교체 + refresh
+              // UITheme.js는 windowskin 대신 _themeSkin으로 렌더링하므로 둘 다 체크
               var scene = SceneManager._scene;
               if (!scene) return;
+              function urlMatches(bitmap) {
+                if (!bitmap || typeof bitmap._url !== 'string') return false;
+                return bitmap._url.indexOf('img/system/' + fname) !== -1;
+              }
               function refreshWindows(container) {
                 if (!container || !container.children) return;
                 for (var i = 0; i < container.children.length; i++) {
                   var child = container.children[i];
                   if (!child) continue;
                   if (child.constructor && child.constructor.name &&
-                      child.constructor.name.startsWith('Window_') &&
-                      child.windowskin && typeof child.windowskin._url === 'string' &&
-                      child.windowskin._url.indexOf('img/system/' + fname) !== -1) {
-                    child.windowskin = reloadBitmap;
-                    if (child._refreshAllParts) child._refreshAllParts();
+                      child.constructor.name.startsWith('Window_')) {
+                    var needRefresh = false;
+                    if (urlMatches(child.windowskin)) {
+                      child.windowskin = reloadBitmap;
+                      needRefresh = true;
+                    }
+                    if (urlMatches(child._themeSkin)) {
+                      child._themeSkin = reloadBitmap;
+                      needRefresh = true;
+                    }
+                    if (needRefresh && child._refreshAllParts) child._refreshAllParts();
                   }
                   refreshWindows(child);
                 }
