@@ -162,6 +162,70 @@
  * @decimals 1
  * @default 0
  *
+ * @command PPEffectHeatHazeOn
+ * @text 아지랑이 켜기
+ * @desc 아지랑이(열기 왜곡) 이펙트를 활성화합니다. strength를 0→1로 서서히 전환합니다.
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 1
+ *
+ * @command PPEffectHeatHazeOff
+ * @text 아지랑이 끄기
+ * @desc 아지랑이 이펙트를 비활성화합니다. strength를 1→0으로 서서히 전환합니다.
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 1
+ *
+ * @command PPEffectHeatHazeAmplitude
+ * @text 아지랑이 왜곡 진폭
+ * @desc 아지랑이 왜곡 진폭을 설정합니다. 값이 클수록 흔들림이 강해집니다.
+ *
+ * @arg value
+ * @text 진폭 (0~0.02)
+ * @type number
+ * @min 0
+ * @max 0.02
+ * @decimals 4
+ * @default 0.003
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 0
+ *
+ * @command PPEffectHeatHazeSpeed
+ * @text 아지랑이 속도
+ * @desc 아지랑이 왜곡 애니메이션 속도를 설정합니다.
+ *
+ * @arg value
+ * @text 속도 (0~5)
+ * @type number
+ * @min 0
+ * @max 5
+ * @decimals 1
+ * @default 1
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 0
+ *
  * @help
  * PostProcess.js는 에디터 코어 파일로 자동으로 로드됩니다.
  * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
@@ -172,6 +236,12 @@
  *   PPEffectAnaglyphOff 0.5   → 0.5초에 걸쳐 서서히 끄기
  *   PPEffectAnaglyphSeparation 0.01 0.5  → 채널 분리를 0.01로 0.5초 동안 보간
  *   PPEffectAnaglyphMode 0    → Red-Cyan 모드로 변경
+ *
+ * ■ 아지랑이 커맨드 예시 (PPEffectHeatHaze):
+ *   PPEffectHeatHazeOn 1.5    → 1.5초에 걸쳐 서서히 켜기
+ *   PPEffectHeatHazeOff 1     → 1초에 걸쳐 서서히 끄기
+ *   PPEffectHeatHazeAmplitude 0.006 0.5  → 진폭을 0.006으로 0.5초 보간
+ *   PPEffectHeatHazeSpeed 2   → 속도 2로 즉시 변경
  */
 //=============================================================================
 // PostProcess.js - 포스트 프로세싱 파이프라인 (Bloom, DoF, PP Effects)
@@ -2386,6 +2456,76 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 var val = args[0] ? parseFloat(args[0]) : 1;
                 var dur = args[1] ? parseFloat(args[1]) : 0;
                 _anaBlendTween(val, dur, null);
+            }
+        }
+    }
+
+    // ── HeatHaze 전용 커맨드 (strength 0↔1 부드러운 on/off) ──────────────────
+    // PPEffectHeatHazeOn [duration]
+    // PPEffectHeatHazeOff [duration]
+    // PPEffectHeatHazeAmplitude <value> [duration]
+    // PPEffectHeatHazeSpeed <value> [duration]
+    var isHeatHazeCmd = (command === 'PPEffectHeatHazeOn' || command === 'PPEffectHeatHazeOff' ||
+                         command === 'PPEffectHeatHazeAmplitude' || command === 'PPEffectHeatHazeSpeed');
+    if (isHeatHazeCmd) {
+        var PPE3 = window.PostProcessEffects;
+        if (PostProcess._ppPasses && PostProcess._ppPasses['heatHaze'] && PPE3) {
+            var hhPass = PostProcess._ppPasses['heatHaze'];
+
+            // strength 0↔1 보간 헬퍼
+            function _hhStrengthTween(toVal, dur, onDone) {
+                if (dur > 0 && window.PluginTween) {
+                    var proxy = { value: hhPass.uniforms.uStrength.value };
+                    PluginTween.add({
+                        target: proxy, key: 'value', to: toVal, duration: dur,
+                        onUpdate: function(v) { hhPass.uniforms.uStrength.value = v; },
+                        onComplete: onDone || null
+                    });
+                } else {
+                    hhPass.uniforms.uStrength.value = toVal;
+                    if (onDone) onDone();
+                }
+            }
+
+            if (command === 'PPEffectHeatHazeOn') {
+                var dur = args[0] ? parseFloat(args[0]) : 0;
+                hhPass.uniforms.uStrength.value = 0;
+                hhPass.enabled = true;
+                PostProcess._updateRenderToScreen();
+                _hhStrengthTween(1, dur, null);
+
+            } else if (command === 'PPEffectHeatHazeOff') {
+                var dur = args[0] ? parseFloat(args[0]) : 0;
+                _hhStrengthTween(0, dur, function() {
+                    hhPass.enabled = false;
+                    PostProcess._updateRenderToScreen();
+                });
+
+            } else if (command === 'PPEffectHeatHazeAmplitude') {
+                var val = args[0] ? parseFloat(args[0]) : 0.003;
+                var dur = args[1] ? parseFloat(args[1]) : 0;
+                if (dur > 0 && window.PluginTween) {
+                    var proxy = { value: hhPass.uniforms.uAmplitude.value };
+                    PluginTween.add({
+                        target: proxy, key: 'value', to: val, duration: dur,
+                        onUpdate: function(v) { hhPass.uniforms.uAmplitude.value = v; }
+                    });
+                } else {
+                    hhPass.uniforms.uAmplitude.value = val;
+                }
+
+            } else if (command === 'PPEffectHeatHazeSpeed') {
+                var val = args[0] ? parseFloat(args[0]) : 1;
+                var dur = args[1] ? parseFloat(args[1]) : 0;
+                if (dur > 0 && window.PluginTween) {
+                    var proxy = { value: hhPass.uniforms.uSpeed.value };
+                    PluginTween.add({
+                        target: proxy, key: 'value', to: val, duration: dur,
+                        onUpdate: function(v) { hhPass.uniforms.uSpeed.value = v; }
+                    });
+                } else {
+                    hhPass.uniforms.uSpeed.value = val;
+                }
             }
         }
     }

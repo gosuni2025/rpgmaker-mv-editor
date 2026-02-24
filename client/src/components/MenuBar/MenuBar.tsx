@@ -175,6 +175,7 @@ export default function MenuBar() {
         { label: 'Fog of War 테스트', action: 'fogOfWarTest' },
         { label: 'Fog Volume 3D 테스트', action: 'fogVolume3dTest' },
         { label: 'OcclusionSilhouette 테스트', action: 'silhouetteTest' },
+        { label: 'Parallax UV 테스트', action: 'parallaxUVTest' },
       ],
     },
     {
@@ -350,6 +351,7 @@ export default function MenuBar() {
       case 'fogOfWarTest': window.open('/fogofwar', '_blank'); break;
       case 'fogVolume3dTest': window.open('/fogvolume3d', '_blank'); break;
       case 'silhouetteTest': window.open('/silhouette', '_blank'); break;
+      case 'parallaxUVTest': window.open('/parallaxuv', '_blank'); break;
 
       case 'options': setShowOptionsDialog(true); break;
       case 'localization': setShowLocalizationDialog(true); break;

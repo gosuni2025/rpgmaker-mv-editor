@@ -10,6 +10,7 @@ import LandingPage from './pages/LandingPage';
 import FogOfWarTestPage from './pages/FogOfWarTestPage';
 import FogOfWar3DVolumeTestPage from './pages/FogOfWar3DVolumeTestPage';
 import SilhouetteTestPage from './pages/SilhouetteTestPage';
+import ParallaxUVTestPage from './pages/ParallaxUVTestPage';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -20,6 +21,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/fogofwar" element={<FogOfWarTestPage />} />
         <Route path="/fogvolume3d" element={<FogOfWar3DVolumeTestPage />} />
         <Route path="/silhouette" element={<SilhouetteTestPage />} />
+        <Route path="/parallaxuv" element={<ParallaxUVTestPage />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

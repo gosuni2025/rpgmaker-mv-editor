@@ -1444,6 +1444,41 @@ PictureShader._FRAGMENT_FIRE = [
     '}',
 ].join('\n');
 
+// ParallaxUV (시차 UV) - 텍스처 휘도를 높이맵으로 사용한 시차 효과
+PictureShader._FRAGMENT_PARALLAXUV = [
+    'uniform sampler2D map;',
+    'uniform float opacity;',
+    'uniform float uTime;',
+    'uniform float uScale;',       // 시차 깊이 (0.0 ~ 0.15)
+    'uniform float uAnimSpeed;',   // 자동 회전 속도 (0 = 수동)
+    'uniform float uAngleX;',      // 수동 시선 X (-1 ~ 1)
+    'uniform float uAngleY;',      // 수동 시선 Y (-1 ~ 1)
+    'uniform float uInvert;',      // 높이맵 반전
+    'uniform float uLayers;',      // 반복 샘플 수 (1~4, 클수록 정확)
+    'varying vec2 vUv;',
+    'void main() {',
+    '    vec2 viewDir;',
+    '    if (uAnimSpeed > 0.0) {',
+    '        viewDir = vec2(sin(uTime * uAnimSpeed), cos(uTime * uAnimSpeed * 0.7)) * 0.5;',
+    '    } else {',
+    '        viewDir = vec2(uAngleX, uAngleY);',
+    '    }',
+    '    vec2 uv = vUv;',
+    '    float h;',
+    // 반복 샘플로 정확도 향상 (최대 4회)
+    '    int steps = int(clamp(uLayers, 1.0, 4.0));',
+    '    for (int i = 0; i < 4; i++) {',
+    '        if (i >= steps) break;',
+    '        h = dot(texture2D(map, uv).rgb, vec3(0.299, 0.587, 0.114));',
+    '        if (uInvert > 0.5) h = 1.0 - h;',
+    '        uv = vUv - viewDir * h * uScale;',
+    '    }',
+    '    vec4 color = texture2D(map, uv);',
+    '    color.a *= opacity;',
+    '    gl_FragColor = color;',
+    '}',
+].join('\n');
+
 //=============================================================================
 // 셰이더 타입별 fragment shader 매핑
 //=============================================================================
@@ -1503,6 +1538,7 @@ PictureShader._FRAGMENT_SHADERS = {
     'pixelDissolve':  PictureShader._FRAGMENT_PIXELDISSOLVE,
     'lava':           PictureShader._FRAGMENT_LAVA,
     'fire':           PictureShader._FRAGMENT_FIRE,
+    'parallaxUV':     PictureShader._FRAGMENT_PARALLAXUV,
 };
 
 //=============================================================================
@@ -1564,6 +1600,7 @@ PictureShader._DEFAULT_PARAMS = {
     'pixelDissolve': { threshold: 0, pixelSize: 32 },
     'lava':  { speed: 1.0, scale: 4.0, intensity: 0.8, color1R: 1.0, color1G: 0.5, color1B: 0.0, color2R: 0.5, color2G: 0.1, color2B: 0.0 },
     'fire':  { speed: 1.5, intensity: 1.0, height: 0.4, baseColorR: 1.0, baseColorG: 0.3, baseColorB: 0.0, tipColorR: 1.0, tipColorG: 0.9, tipColorB: 0.3 },
+    'parallaxUV': { scale: 0.08, animSpeed: 0.5, angleX: 0, angleY: 0, invert: 0, layers: 3 },
 };
 
 //=============================================================================
@@ -1626,6 +1663,7 @@ PictureShader._UNIFORM_MAP = {
     'pixelDissolve': [ ['threshold','uThreshold'], ['pixelSize','uPixelSize'] ],
     'lava': [ ['speed','uSpeed'], ['scale','uScale'], ['intensity','uIntensity'], {u:'uColor1',vec3:['color1R','color1G','color1B']}, {u:'uColor2',vec3:['color2R','color2G','color2B']} ],
     'fire': [ ['speed','uSpeed'], ['intensity','uIntensity'], ['height','uHeight'], {u:'uBaseColor',vec3:['baseColorR','baseColorG','baseColorB']}, {u:'uTipColor',vec3:['tipColorR','tipColorG','tipColorB']} ],
+    'parallaxUV': [ ['scale','uScale'], ['animSpeed','uAnimSpeed'], ['angleX','uAngleX'], ['angleY','uAngleY'], ['invert','uInvert'], ['layers','uLayers'] ],
 };
 
 //=============================================================================
