@@ -2655,9 +2655,14 @@ if (typeof Scene_Map !== 'undefined') {
     var _Scene_Map_onMapLoaded_dof = Scene_Map.prototype.onMapLoaded;
     Scene_Map.prototype.onMapLoaded = function() {
         _Scene_Map_onMapLoaded_dof.call(this);
-        // 새 맵 진입 시 이벤트 override 초기화 (이벤트로 변경된 PP 상태를 맵 설정으로 리셋)
-        if (typeof $gameSystem !== 'undefined' && $gameSystem) {
-            $gameSystem._ppEventOverrides = {};
+        // 다른 맵으로 이동한 경우에만 이벤트 override 초기화
+        // 메뉴/전투 씬에서 돌아오는 경우는 같은 맵 ID이므로 override 유지
+        var currMapId = (typeof $gameMap !== 'undefined' && $gameMap) ? $gameMap.mapId() : -1;
+        if (PostProcess._lastLoadedMapId !== currMapId) {
+            PostProcess._lastLoadedMapId = currMapId;
+            if (typeof $gameSystem !== 'undefined' && $gameSystem) {
+                $gameSystem._ppEventOverrides = {};
+            }
         }
         PostProcess._applyMapSettings();
     };
