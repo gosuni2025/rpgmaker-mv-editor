@@ -279,3 +279,12 @@ data/
 - **대상 경로**: `CLAUDE.local.md`에 기재된 테스트 프로젝트의 `js/plugins/` 또는 `js/3d/` 폴더
 - **방법**: 수정한 파일을 프로젝트 폴더의 동일 상대 경로에 복사
 - **이유**: 에디터 플레이테스트는 `server/runtime/js/`에서 직접 서빙하지만, 실제 게임 실행(스팀판 등)은 프로젝트 폴더의 파일을 사용하므로 두 곳이 항상 일치해야 함
+
+### 에디터 레포 push 시 샘플 프로젝트 동기화 규칙
+
+에디터 레포(`rpgmaker-mv-editor`)를 push할 때는 **샘플 프로젝트(`claudetest`)도 반드시 함께 커밋/push**해야 함:
+
+- **확인 대상**: 테스트 프로젝트(`CLAUDE.local.md`의 경로)에 수정/미커밋 파일이 있는지 확인
+- **있으면**: 커밋 후 `git push origin main` 실행
+- **이유**: 에디터 push → GitHub Actions(`sync-demo.yml`) → 데모 레포 동기화 흐름에서, 샘플 프로젝트가 push되지 않으면 데모 페이지에 최신 데이터가 반영되지 않음
+- **샘플 프로젝트 레포**: `gosuni2025/rpgmaker-mv-claudetest` (경로는 `CLAUDE.local.md` 참조)
