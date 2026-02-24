@@ -254,17 +254,17 @@ export default function UIEditorCanvas() {
     (document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null)?.contentWindow ?? null;
 
   const handlePreviewEntrance = useCallback(() => {
-    const selectedId = useEditorStore.getState().uiEditorSelectedWindowId;
-    const wins = useEditorStore.getState().uiEditorWindows;
-    const className = wins.find((w) => w.id === selectedId)?.className ?? null;
-    getIframe()?.postMessage({ type: 'previewEntrance', className }, '*');
+    const s = useEditorStore.getState();
+    const className = s.uiEditorWindows.find((w) => w.id === s.uiEditorSelectedWindowId)?.className ?? null;
+    const override = className ? (s.uiEditorOverrides[className] ?? null) : null;
+    getIframe()?.postMessage({ type: 'previewEntrance', className, override }, '*');
   }, []);
 
   const handlePreviewExit = useCallback(() => {
-    const selectedId = useEditorStore.getState().uiEditorSelectedWindowId;
-    const wins = useEditorStore.getState().uiEditorWindows;
-    const className = wins.find((w) => w.id === selectedId)?.className ?? null;
-    getIframe()?.postMessage({ type: 'previewExit', className }, '*');
+    const s = useEditorStore.getState();
+    const className = s.uiEditorWindows.find((w) => w.id === s.uiEditorSelectedWindowId)?.className ?? null;
+    const override = className ? (s.uiEditorOverrides[className] ?? null) : null;
+    getIframe()?.postMessage({ type: 'previewExit', className, override }, '*');
   }, []);
 
   if (!projectPath) {

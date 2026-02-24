@@ -1205,7 +1205,8 @@
       collectSceneWindows(scene).forEach(function (win) {
         var className = win.constructor && win.constructor.name;
         if (data.className && className !== data.className) return;
-        var ov = (_config.overrides || {})[className];
+        var ov = (data.override && data.override.className === className)
+          ? data.override : (_config.overrides || {})[className];
         if (!ov || !Array.isArray(ov.entrances) || ov.entrances.length === 0) return;
         // 기존 애니메이션/pivot 초기화
         if (win._uiEntrance && win.pivot) {
@@ -1229,7 +1230,8 @@
       collectSceneWindows(scene).forEach(function (win) {
         var className = win.constructor && win.constructor.name;
         if (data.className && className !== data.className) return;
-        var ov = (_config.overrides || {})[className];
+        var ov = (data.override && data.override.className === className)
+          ? data.override : (_config.overrides || {})[className];
         if (!ov || !Array.isArray(ov.exits) || ov.exits.length === 0) return;
         win._uiEntrance = null;
         startExitAnimation(win, ov.exits, className);
