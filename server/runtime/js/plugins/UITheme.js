@@ -884,7 +884,8 @@
 
     // zoom / bounce / rotate 효과가 있으면 창 중심 pivot 설정
     var needPivot = entrances.some(function (e) {
-      return e.type === 'zoom' || e.type === 'rotate' || e.type === 'bounce';
+      return e.type === 'zoom' || e.type === 'rotate' || e.type === 'bounce' ||
+             e.type === 'rotateX' || e.type === 'rotateY';
     });
     var pivotX = 0, pivotY = 0;
     var originalX = win.x, originalY = win.y;
@@ -923,7 +924,7 @@
     var totalX = state.screenX, totalY = state.screenY;
     var totalAlpha = 1;
     var totalScaleX = 1, totalScaleY = 1;
-    var totalRotation = 0;
+    var totalRotation = 0, totalRotationX = 0, totalRotationY = 0;
     var sw = (typeof Graphics !== 'undefined' ? Graphics.width : 816);
     var sh = (typeof Graphics !== 'undefined' ? Graphics.height : 624);
 
@@ -965,6 +966,16 @@
           totalRotation += angle * (1 - p) * Math.PI / 180;
           break;
         }
+        case 'rotateX': {
+          var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 90);
+          totalRotationX += angle * (1 - p) * Math.PI / 180;
+          break;
+        }
+        case 'rotateY': {
+          var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 90);
+          totalRotationY += angle * (1 - p) * Math.PI / 180;
+          break;
+        }
       }
     }
 
@@ -975,6 +986,8 @@
     win.y = Math.round(totalY) + state.pivotY;
     if (win.scale) { win.scale.x = totalScaleX; win.scale.y = totalScaleY; }
     win.rotation = totalRotation;
+    if (win.rotationX !== undefined) win.rotationX = totalRotationX;
+    if (win.rotationY !== undefined) win.rotationY = totalRotationY;
   }
 
   /** 등장 애니메이션이 완전히 끝났는지 확인 */
@@ -996,6 +1009,9 @@
       xs.elapsed += 1000 / 60;
       if (_isEntranceDone(xs.elapsed, xs.effects)) {
         this.alpha = 0;
+        this.rotation = 0;
+        if (this.rotationX !== undefined) this.rotationX = 0;
+        if (this.rotationY !== undefined) this.rotationY = 0;
         this._uiExit = null;
       } else {
         _applyExitFrame(this, xs.elapsed);
@@ -1019,6 +1035,8 @@
       this.alpha = state.baseAlpha;
       if (this.scale) { this.scale.x = 1; this.scale.y = 1; }
       this.rotation = 0;
+      if (this.rotationX !== undefined) this.rotationX = 0;
+      if (this.rotationY !== undefined) this.rotationY = 0;
       this._uiEntrance = null;
     } else {
       _applyEntranceFrame(this, state.elapsed);
@@ -1038,7 +1056,8 @@
     if (!exits || exits.length === 0) return;
 
     var needPivot = exits.some(function (e) {
-      return e.type === 'zoom' || e.type === 'rotate' || e.type === 'bounce';
+      return e.type === 'zoom' || e.type === 'rotate' || e.type === 'bounce' ||
+             e.type === 'rotateX' || e.type === 'rotateY';
     });
     var pivotX = 0, pivotY = 0;
     var screenX = getWinScreenX(win);
@@ -1075,7 +1094,7 @@
     var totalX = state.screenX, totalY = state.screenY;
     var totalAlpha = 1;
     var totalScaleX = 1, totalScaleY = 1;
-    var totalRotation = 0;
+    var totalRotation = 0, totalRotationX = 0, totalRotationY = 0;
     var sw = (typeof Graphics !== 'undefined' ? Graphics.width : 816);
     var sh = (typeof Graphics !== 'undefined' ? Graphics.height : 624);
 
@@ -1117,6 +1136,16 @@
           totalRotation += angle * p * Math.PI / 180;
           break;
         }
+        case 'rotateX': {
+          var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 90);
+          totalRotationX += angle * p * Math.PI / 180;
+          break;
+        }
+        case 'rotateY': {
+          var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 90);
+          totalRotationY += angle * p * Math.PI / 180;
+          break;
+        }
       }
     }
 
@@ -1125,6 +1154,8 @@
     win.y = Math.round(totalY) + state.pivotY;
     if (win.scale) { win.scale.x = totalScaleX; win.scale.y = totalScaleY; }
     win.rotation = totalRotation;
+    if (win.rotationX !== undefined) win.rotationX = totalRotationX;
+    if (win.rotationY !== undefined) win.rotationY = totalRotationY;
   }
 
   //===========================================================================

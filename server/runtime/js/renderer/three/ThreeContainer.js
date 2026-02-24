@@ -25,8 +25,10 @@ function ThreeContainer() {
     this._scaleY = 1;
     this.scale = this._createScaleProxy();
 
-    // Rotation in radians
+    // Rotation in radians (Z=2D plane, X/Y=3D flip effects)
     this._rotation = 0;
+    this._rotationX = 0;
+    this._rotationY = 0;
 
     // Pivot point (center of rotation/scaling, in local coords)
     this._pivotX = 0;
@@ -90,6 +92,26 @@ Object.defineProperties(ThreeContainer.prototype, {
         set: function(value) {
             if (this._rotation !== value) {
                 this._rotation = value;
+                this._transformDirty = true;
+            }
+        },
+        configurable: true
+    },
+    rotationX: {
+        get: function() { return this._rotationX; },
+        set: function(value) {
+            if (this._rotationX !== value) {
+                this._rotationX = value;
+                this._transformDirty = true;
+            }
+        },
+        configurable: true
+    },
+    rotationY: {
+        get: function() { return this._rotationY; },
+        set: function(value) {
+            if (this._rotationY !== value) {
+                this._rotationY = value;
                 this._transformDirty = true;
             }
         },
@@ -298,8 +320,10 @@ ThreeContainer.prototype.swapChildren = function(child1, child2) {
  */
 ThreeContainer.prototype.syncTransform = function() {
     var obj = this._threeObj;
-    // Rotation (around Z axis for 2D)
+    // Rotation
     var r = this._rotation;
+    obj.rotation.x = this._rotationX;
+    obj.rotation.y = this._rotationY;
     obj.rotation.z = -r; // negate because Three.js Z rotation is CCW, PIXI is CW
 
     // Position: PIXI pivot semantics — x/y is world position of pivot point.

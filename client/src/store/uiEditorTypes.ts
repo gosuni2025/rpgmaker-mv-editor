@@ -49,7 +49,9 @@ export type EntranceEffectType =
   | 'slideBottom'
   | 'zoom'
   | 'bounce'
-  | 'rotate';
+  | 'rotate'
+  | 'rotateX'
+  | 'rotateY';
 
 export type EntranceEasing = 'easeOut' | 'easeIn' | 'easeInOut' | 'linear' | 'bounce';
 

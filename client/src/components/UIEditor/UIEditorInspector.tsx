@@ -138,7 +138,9 @@ const EFFECT_LABELS: Record<EntranceEffectType, string> = {
   slideBottom: '아래에서 슬라이드',
   zoom:        '확대 등장',
   bounce:      '바운스 등장',
-  rotate:      '회전 등장',
+  rotate:      '회전 (Z축)',
+  rotateX:     '회전 (X축 — 상하)',
+  rotateY:     '회전 (Y축 — 좌우)',
 };
 
 const EXIT_EFFECT_LABELS: Record<EntranceEffectType, string> = {
@@ -150,7 +152,9 @@ const EXIT_EFFECT_LABELS: Record<EntranceEffectType, string> = {
   slideBottom: '아래로 퇴장',
   zoom:        '축소 퇴장',
   bounce:      '바운스 퇴장',
-  rotate:      '회전 퇴장',
+  rotate:      '회전 퇴장 (Z축)',
+  rotateX:     '회전 퇴장 (X축)',
+  rotateY:     '회전 퇴장 (Y축)',
 };
 
 const EASING_LABELS: Record<EntranceEasing, string> = {
