@@ -1654,22 +1654,18 @@
     "param_value": "値",
     "param_degrees": "角度",
     "param_color": "色",
-
     "applyMode": "適用方法",
     "applyInstant": "即時適用",
     "applyInterpolate": "補間適用",
     "duration": "所要時間",
     "seconds": "秒",
     "seconds_short": "秒",
-
     "ppEffect_on": "オン",
     "ppEffect_off": "オフ",
-
     "pp_vignette": "ビネット",
     "pp_vignette_intensity": "強度",
     "pp_vignette_softness": "柔らかさ",
     "pp_vignette_radius": "半径",
-
     "pp_colorGrading": "カラーグレーディング",
     "pp_colorGrading_brightness": "明るさ",
     "pp_colorGrading_contrast": "コントラスト",
@@ -1677,24 +1673,19 @@
     "pp_colorGrading_temperature": "色温度",
     "pp_colorGrading_tint": "ティント",
     "pp_colorGrading_gamma": "ガンマ",
-
     "pp_chromatic": "色収差",
     "pp_chromatic_strength": "強度",
     "pp_chromatic_radial": "放射状",
-
     "pp_filmGrain": "フィルムグレイン",
     "pp_filmGrain_intensity": "強度",
     "pp_filmGrain_size": "サイズ",
-
     "pp_toneMapping": "トーンマッピング",
     "pp_toneMapping_exposure": "露出",
     "pp_toneMapping_mode": "モード (0:ACES, 1:Reinhard, 2:Linear)",
-
     "pp_fog": "フォグ",
     "pp_fog_density": "密度",
     "pp_fog_start": "開始",
     "pp_fog_end": "終了",
-
     "pp_godRays": "ゴッドレイ",
     "pp_godRays_lightPosX": "光源X",
     "pp_godRays_lightPosY": "光源Y",
@@ -1702,42 +1693,33 @@
     "pp_godRays_decay": "減衰",
     "pp_godRays_density": "密度",
     "pp_godRays_weight": "重み",
-
     "pp_radialBlur": "放射状ブラー",
     "pp_radialBlur_centerX": "中心X",
     "pp_radialBlur_centerY": "中心Y",
     "pp_radialBlur_strength": "強度",
-
     "pp_waveDistortion": "衝撃波歪み",
     "pp_waveDistortion_amplitude": "振幅",
     "pp_waveDistortion_waveWidth": "波長幅",
     "pp_waveDistortion_speed": "速度",
-
     "pp_anamorphic": "アナモルフィックフレア",
     "pp_anamorphic_threshold": "閾値",
     "pp_anamorphic_intensity": "強度",
     "pp_anamorphic_streakLength": "ストリーク長",
-
     "pp_motionBlur": "モーションブラー",
     "pp_motionBlur_velocityX": "速度X",
     "pp_motionBlur_velocityY": "速度Y",
-
     "pp_pixelation": "ピクセル化",
     "pp_pixelation_pixelSize": "ピクセルサイズ",
-
     "pp_colorInversion": "色反転",
     "pp_colorInversion_strength": "強度",
-
     "pp_edgeDetection": "エッジ検出",
     "pp_edgeDetection_strength": "強度",
     "pp_edgeDetection_threshold": "閾値",
     "pp_edgeDetection_overlay": "オーバーレイ",
-
     "pp_ssao": "SSAO",
     "pp_ssao_radius": "半径",
     "pp_ssao_intensity": "強度",
     "pp_ssao_bias": "バイアス",
-
     "shadowLight_pointLight_intensity": "点光源強度",
     "shadowLight_pointLight_color": "点光源色",
     "shadowLight_pointLight_distance": "点光源距離",
@@ -1749,7 +1731,6 @@
     "eventList": "イベントリスト",
     "selected": "選択中",
     "selectPointLightHint": "マップの点光源をクリックしてください",
-
     "mapObject": "オブジェクト制御",
     "mapObject_show": "表示",
     "mapObject_hide": "非表示",
@@ -1766,6 +1747,20 @@
     "param_object": "オブジェクト",
     "param_shaderType": "シェーダー",
     "param_shaderParam": "パラメータ",
-    "param_onOff": "ON/OFF"
+    "param_onOff": "ON/OFF",
+    "pp_heatHaze": "陽炎",
+    "pp_heatHaze_amplitude": "歪み強度",
+    "pp_heatHaze_frequencyX": "周波数 X",
+    "pp_heatHaze_frequencyY": "周波数 Y",
+    "pp_heatHaze_speed": "速度",
+    "pp_scanlines": "スキャンライン (CRT)",
+    "pp_scanlines_intensity": "強度",
+    "pp_scanlines_density": "密度",
+    "pp_scanlines_speed": "スクロール速度",
+    "pp_posterize": "ポスタリゼーション",
+    "pp_posterize_steps": "色数ステップ",
+    "pp_posterize_blend": "ブレンド強度",
+    "pp_barrelDistort": "CRT バレル歪み",
+    "pp_barrelDistort_curvature": "曲面強度"
   }
 }

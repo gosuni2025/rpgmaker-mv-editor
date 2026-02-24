@@ -1,5 +1,5 @@
 /*:
- * @plugindesc 포스트 프로세싱 파이프라인 (피사계 심도 + 이펙트)
+ * @plugindesc 포스트 프로세싱 파이프라인 (피사계 심도)
  * @author RPG Maker MV Web Editor
  * @plugincommand PostProcess
  *
@@ -2567,12 +2567,46 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
         var PPE = window.PostProcessEffects;
         if (effectKey && action && PostProcess._ppPasses && PostProcess._ppPasses[effectKey]) {
             var pass = PostProcess._ppPasses[effectKey];
+            // 부드러운 fade in/out을 지원하는 효과 (on/off duration 인자 활용)
+            var _smoothFadeMap = {
+                scanlines:    { uniform: 'uIntensity', defaultVal: 0.4 },
+                posterize:    { uniform: 'uBlend',     defaultVal: 1.0 },
+                barrelDistort:{ uniform: 'uCurvature', defaultVal: 0.08 }
+            };
             if (action === 'on') {
-                pass.enabled = true;
-                PostProcess._updateRenderToScreen();
+                var _fadeInfo = _smoothFadeMap[effectKey];
+                var _onDur = args[2] ? parseFloat(args[2]) : 0;
+                if (_fadeInfo && _onDur > 0 && window.PluginTween) {
+                    pass.uniforms[_fadeInfo.uniform].value = 0;
+                    pass.enabled = true;
+                    PostProcess._updateRenderToScreen();
+                    (function(uname, targetV, pss) {
+                        var _pr = { value: 0 };
+                        PluginTween.add({
+                            target: _pr, key: 'value', to: targetV, duration: _onDur,
+                            onUpdate: function(v) { pss.uniforms[uname].value = v; }
+                        });
+                    })(_fadeInfo.uniform, _fadeInfo.defaultVal, pass);
+                } else {
+                    pass.enabled = true;
+                    PostProcess._updateRenderToScreen();
+                }
             } else if (action === 'off') {
-                pass.enabled = false;
-                PostProcess._updateRenderToScreen();
+                var _fadeInfoOff = _smoothFadeMap[effectKey];
+                var _offDur = args[2] ? parseFloat(args[2]) : 0;
+                if (_fadeInfoOff && _offDur > 0 && window.PluginTween) {
+                    (function(uname, pss) {
+                        var _prOff = { value: pss.uniforms[uname].value };
+                        PluginTween.add({
+                            target: _prOff, key: 'value', to: 0, duration: _offDur,
+                            onUpdate: function(v) { pss.uniforms[uname].value = v; },
+                            onComplete: function() { pss.enabled = false; PostProcess._updateRenderToScreen(); }
+                        });
+                    })(_fadeInfoOff.uniform, pass);
+                } else {
+                    pass.enabled = false;
+                    PostProcess._updateRenderToScreen();
+                }
             } else if (args[2] != null && PPE) {
                 var ppEffVal = parseFloat(args[2]);
                 var ppEffDur = args[3] ? parseFloat(args[3]) : 0;

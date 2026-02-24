@@ -3,8 +3,8 @@ import type { AddonParam, AddonSubCommand, AddonCommandDef } from './addonComman
 // PPEffect 이펙트별 서브커맨드 생성 헬퍼
 function ppEffect(effectKey: string, label: string, params: AddonParam[]): AddonCommandDef {
   const subCommands: AddonSubCommand[] = [
-    { id: `${effectKey} on`, label: 'addonCommands.ppEffect_on', params: [] },
-    { id: `${effectKey} off`, label: 'addonCommands.ppEffect_off', params: [] },
+    { id: `${effectKey} on`, label: 'addonCommands.ppEffect_on', params: [], supportsDuration: true },
+    { id: `${effectKey} off`, label: 'addonCommands.ppEffect_off', params: [], supportsDuration: true },
   ];
   for (const p of params) {
     subCommands.push({
@@ -271,6 +271,24 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
     { name: 'radius', type: 'float', label: 'addonCommands.pp_ssao_radius', min: 1, max: 20, step: 0.5, default: 5 },
     { name: 'intensity', type: 'float', label: 'addonCommands.pp_ssao_intensity', min: 0, max: 2, step: 0.05, default: 0.5 },
     { name: 'bias', type: 'float', label: 'addonCommands.pp_ssao_bias', min: 0, max: 0.2, step: 0.005, default: 0.05 },
+  ]),
+  ppEffect('heatHaze', 'addonCommands.pp_heatHaze', [
+    { name: 'amplitude', type: 'float', label: 'addonCommands.pp_heatHaze_amplitude', min: 0, max: 0.02, step: 0.001, default: 0.003 },
+    { name: 'frequencyX', type: 'float', label: 'addonCommands.pp_heatHaze_frequencyX', min: 1, max: 40, step: 1, default: 15 },
+    { name: 'frequencyY', type: 'float', label: 'addonCommands.pp_heatHaze_frequencyY', min: 1, max: 40, step: 1, default: 10 },
+    { name: 'speed', type: 'float', label: 'addonCommands.pp_heatHaze_speed', min: 0, max: 5, step: 0.1, default: 1 },
+  ]),
+  ppEffect('scanlines', 'addonCommands.pp_scanlines', [
+    { name: 'intensity', type: 'float', label: 'addonCommands.pp_scanlines_intensity', min: 0, max: 1, step: 0.05, default: 0.4 },
+    { name: 'density', type: 'float', label: 'addonCommands.pp_scanlines_density', min: 0.02, max: 1, step: 0.02, default: 1 },
+    { name: 'speed', type: 'float', label: 'addonCommands.pp_scanlines_speed', min: 0, max: 0.1, step: 0.005, default: 0 },
+  ]),
+  ppEffect('posterize', 'addonCommands.pp_posterize', [
+    { name: 'steps', type: 'float', label: 'addonCommands.pp_posterize_steps', min: 2, max: 32, step: 1, default: 8 },
+    { name: 'blend', type: 'float', label: 'addonCommands.pp_posterize_blend', min: 0, max: 1, step: 0.05, default: 1 },
+  ]),
+  ppEffect('barrelDistort', 'addonCommands.pp_barrelDistort', [
+    { name: 'curvature', type: 'float', label: 'addonCommands.pp_barrelDistort_curvature', min: 0, max: 0.3, step: 0.01, default: 0.08 },
   ]),
 
   // --- 맵 오브젝트 제어 ---
