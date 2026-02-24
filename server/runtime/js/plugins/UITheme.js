@@ -555,6 +555,11 @@
       if (win.createContents) win.createContents();
       if (win.refresh) win.refresh();
     }
+
+    // 등장 효과 시작
+    if (Array.isArray(ov.entrances) && ov.entrances.length > 0) {
+      startEntranceAnimation(win, ov.entrances, className);
+    }
   }
 
   //===========================================================================
@@ -830,5 +835,156 @@
   // ── Window_MenuStatus (perActor — y 오버라이드 안 함) ────────────────────
   wrapDraw(Window_MenuStatus, 'Window_MenuStatus', 'drawActorFace',    'actorFace',    3, null, 5, 6);
   wrapDraw(Window_MenuStatus, 'Window_MenuStatus', 'drawSimpleStatus', 'simpleStatus', 1, null, 3, null);
+
+  //===========================================================================
+  // 창 등장 효과 (Entrance Animation)
+  //===========================================================================
+
+  /** 이징 함수 */
+  function uiEase(t, easing) {
+    t = Math.max(0, Math.min(1, t));
+    switch (easing) {
+      case 'linear':   return t;
+      case 'easeIn':   return t * t;
+      case 'easeInOut':return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+      case 'bounce':
+        if (t < 1 / 2.75)       return 7.5625 * t * t;
+        else if (t < 2 / 2.75)  return 7.5625 * (t -= 1.5 / 2.75) * t + 0.75;
+        else if (t < 2.5 / 2.75)return 7.5625 * (t -= 2.25 / 2.75) * t + 0.9375;
+        else                     return 7.5625 * (t -= 2.625 / 2.75) * t + 0.984375;
+      default: /* easeOut */     return 1 - (1 - t) * (1 - t);
+    }
+  }
+
+  /** 등장 애니메이션 시작 — applyLayout 후 호출 */
+  function startEntranceAnimation(win, entrances, className) {
+    if (!entrances || entrances.length === 0) return;
+    win._uiEntrance = {
+      effects: entrances,
+      elapsed: 0,
+      baseX: win.x,
+      baseY: win.y,
+      baseOpacity: win.opacity,
+      className: className,
+    };
+    // 초기 상태 적용 (딜레이 0인 효과 기준)
+    _applyEntranceFrame(win, 0);
+  }
+
+  /** 매 프레임 등장 상태 계산 및 적용 */
+  function _applyEntranceFrame(win, elapsed) {
+    var state = win._uiEntrance;
+    if (!state) return;
+
+    var effects = state.effects;
+    var totalX = state.baseX, totalY = state.baseY;
+    var totalAlpha = 1;
+    var totalScaleX = 1, totalScaleY = 1;
+    var totalRotation = 0;
+    var sw = (typeof Graphics !== 'undefined' ? Graphics.width : 816);
+    var sh = (typeof Graphics !== 'undefined' ? Graphics.height : 624);
+
+    for (var i = 0; i < effects.length; i++) {
+      var eff = effects[i];
+      var delay = eff.delay || 0;
+      var localElapsed = elapsed - delay;
+      if (localElapsed <= 0) {
+        // 아직 딜레이 중 — 효과 초기 상태
+        var t0 = 0;
+        var p0 = uiEase(0, eff.easing);
+        if (eff.type === 'fade') {
+          totalAlpha *= p0;
+        } else if (eff.type === 'slideLeft') {
+          var dist0 = (state.baseX + (win.width || 0));
+          totalX += -(1 - p0) * dist0;
+        } else if (eff.type === 'slideRight') {
+          var dist0 = (sw - state.baseX);
+          totalX += (1 - p0) * dist0;
+        } else if (eff.type === 'slideTop') {
+          var dist0 = (state.baseY + (win.height || 0));
+          totalY += -(1 - p0) * dist0;
+        } else if (eff.type === 'slideBottom') {
+          var dist0 = (sh - state.baseY);
+          totalY += (1 - p0) * dist0;
+        } else if (eff.type === 'zoom' || eff.type === 'bounce') {
+          var from0 = (eff.fromScale !== undefined ? eff.fromScale : 0);
+          var s0 = from0 + p0 * (1 - from0);
+          totalScaleX *= s0; totalScaleY *= s0;
+        } else if (eff.type === 'rotate') {
+          totalRotation += (eff.fromAngle !== undefined ? eff.fromAngle : 180) * (1 - p0) * Math.PI / 180;
+        }
+        continue;
+      }
+      var raw = Math.min(localElapsed / eff.duration, 1);
+      var p = uiEase(raw, eff.easing);
+
+      switch (eff.type) {
+        case 'fade':
+          totalAlpha *= p;
+          break;
+        case 'slideLeft':
+          var dist = (state.baseX + (win.width || 0));
+          totalX += -(1 - p) * dist;
+          break;
+        case 'slideRight':
+          dist = (sw - state.baseX);
+          totalX += (1 - p) * dist;
+          break;
+        case 'slideTop':
+          dist = (state.baseY + (win.height || 0));
+          totalY += -(1 - p) * dist;
+          break;
+        case 'slideBottom':
+          dist = (sh - state.baseY);
+          totalY += (1 - p) * dist;
+          break;
+        case 'zoom':
+        case 'bounce':
+          var from = (eff.fromScale !== undefined ? eff.fromScale : 0);
+          var s = from + p * (1 - from);
+          totalScaleX *= s; totalScaleY *= s;
+          break;
+        case 'rotate':
+          var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 180);
+          totalRotation += angle * (1 - p) * Math.PI / 180;
+          break;
+      }
+    }
+
+    win.x = Math.round(totalX);
+    win.y = Math.round(totalY);
+    win.opacity = Math.round(state.baseOpacity * totalAlpha);
+    if (win.scale) { win.scale.x = totalScaleX; win.scale.y = totalScaleY; }
+    win.rotation = totalRotation;
+  }
+
+  /** 등장 애니메이션이 완전히 끝났는지 확인 */
+  function _isEntranceDone(win, elapsed) {
+    var effects = win._uiEntrance.effects;
+    for (var i = 0; i < effects.length; i++) {
+      var eff = effects[i];
+      if (elapsed < (eff.delay || 0) + eff.duration) return false;
+    }
+    return true;
+  }
+
+  /** Window_Base.prototype.update 훅 — 매 프레임 등장 애니메이션 처리 */
+  var _WB_update = Window_Base.prototype.update;
+  Window_Base.prototype.update = function () {
+    _WB_update.call(this);
+    if (!this._uiEntrance) return;
+    this._uiEntrance.elapsed += 1000 / 60;
+    if (_isEntranceDone(this, this._uiEntrance.elapsed)) {
+      // 최종값으로 정리
+      this.x = this._uiEntrance.baseX;
+      this.y = this._uiEntrance.baseY;
+      this.opacity = this._uiEntrance.baseOpacity;
+      if (this.scale) { this.scale.x = 1; this.scale.y = 1; }
+      this.rotation = 0;
+      this._uiEntrance = null;
+    } else {
+      _applyEntranceFrame(this, this._uiEntrance.elapsed);
+    }
+  };
 
 })();

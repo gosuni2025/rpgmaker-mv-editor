@@ -40,6 +40,29 @@ export interface UIWindowInfo {
 
 export type ImageRenderMode = 'center' | 'stretch' | 'tile' | 'fit' | 'cover';
 
+export type EntranceEffectType =
+  | 'fade'
+  | 'slideLeft'
+  | 'slideRight'
+  | 'slideTop'
+  | 'slideBottom'
+  | 'zoom'
+  | 'bounce'
+  | 'rotate';
+
+export type EntranceEasing = 'easeOut' | 'easeIn' | 'easeInOut' | 'linear' | 'bounce';
+
+export interface UIWindowEntranceEffect {
+  type: EntranceEffectType;
+  duration: number;    // ms (기본: 300)
+  easing: EntranceEasing;
+  delay?: number;      // ms (기본: 0)
+  // zoom 전용
+  fromScale?: number;  // 시작 스케일 0~1 (기본: 0)
+  // rotate 전용
+  fromAngle?: number;  // 시작 각도 도 (기본: 180)
+}
+
 export interface UIWindowOverride {
   className: string;
   windowStyle?: 'default' | 'frame' | 'image';
@@ -58,6 +81,7 @@ export interface UIWindowOverride {
   windowskinName?: string;
   colorTone?: [number, number, number];
   elements?: Record<string, UIElementOverride>;
+  entrances?: UIWindowEntranceEffect[];
 }
 
 export type UiSkinUndoEntry = {

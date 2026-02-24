@@ -910,3 +910,103 @@
   color: #666;
   line-height: 1.8;
 }
+
+/* ── 등장 효과 섹션 ──────────────────────────────────────────────────────────── */
+
+.ui-entrance-add-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #2b2b2b;
+  border: 1px solid #444;
+  border-radius: 4px;
+  z-index: 200;
+  min-width: 150px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.ui-entrance-add-item {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #ccc;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ui-entrance-add-item:hover {
+  background: #3a3a3a;
+  color: #fff;
+}
+
+.ui-entrance-effect-card {
+  background: #252525;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-top: 6px;
+}
+
+.ui-entrance-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.ui-entrance-card-label {
+  font-size: 11px;
+  color: #90b8e8;
+  font-weight: 600;
+}
+
+.ui-entrance-card-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.ui-entrance-card-actions button {
+  background: none;
+  border: 1px solid #444;
+  color: #999;
+  font-size: 10px;
+  padding: 1px 5px;
+  cursor: pointer;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+.ui-entrance-card-actions button:hover:not(:disabled) {
+  background: #3a3a3a;
+  color: #ccc;
+}
+
+.ui-entrance-card-actions button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.ui-entrance-card-remove {
+  color: #c05050 !important;
+  border-color: #5a3030 !important;
+}
+
+.ui-entrance-card-remove:hover {
+  background: #3a2020 !important;
+  color: #e06060 !important;
+}
+
+.ui-entrance-select {
+  flex: 1;
+  background: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 3px;
+  color: #ddd;
+  font-size: 11px;
+  padding: 2px 4px;
+  height: 22px;
+}
+
+.ui-entrance-select:focus {
+  outline: none;
+  border-color: #2675bf;
+}

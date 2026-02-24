@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
-import type { UIWindowInfo, UIWindowOverride, UIElementInfo, ImageRenderMode } from '../../store/types';
+import type { UIWindowInfo, UIWindowOverride, UIElementInfo, ImageRenderMode, UIWindowEntranceEffect, EntranceEffectType, EntranceEasing } from '../../store/types';
 import DragLabel from '../common/DragLabel';
 import HelpButton from '../common/HelpButton';
 import './UIEditor.css';
@@ -123,6 +123,178 @@ function ImagePickerDialog({ open, current, onClose, onSelect }: {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── 등장 효과 섹션 ────────────────────────────────────────────────────────────
+
+const EFFECT_LABELS: Record<EntranceEffectType, string> = {
+  fade:        '페이드 인',
+  slideLeft:   '왼쪽에서 슬라이드',
+  slideRight:  '오른쪽에서 슬라이드',
+  slideTop:    '위에서 슬라이드',
+  slideBottom: '아래에서 슬라이드',
+  zoom:        '확대 등장',
+  bounce:      '바운스 등장',
+  rotate:      '회전 등장',
+};
+
+const EASING_LABELS: Record<EntranceEasing, string> = {
+  easeOut:   'EaseOut (감속)',
+  easeIn:    'EaseIn (가속)',
+  easeInOut: 'EaseInOut',
+  linear:    '선형',
+  bounce:    '바운스',
+};
+
+const EFFECT_TYPES = Object.keys(EFFECT_LABELS) as EntranceEffectType[];
+const EASING_TYPES = Object.keys(EASING_LABELS) as EntranceEasing[];
+
+function makeDefaultEffect(type: EntranceEffectType): UIWindowEntranceEffect {
+  return { type, duration: 300, easing: 'easeOut', delay: 0 };
+}
+
+function EntranceEffectSection({ override, setMeta }: {
+  override: UIWindowOverride | null;
+  setMeta: (prop: keyof Omit<UIWindowOverride, 'className' | 'elements'>, value: unknown) => void;
+}) {
+  const entrances = override?.entrances ?? [];
+
+  const addEffect = (type: EntranceEffectType) => {
+    setMeta('entrances', [...entrances, makeDefaultEffect(type)]);
+  };
+
+  const removeEffect = (idx: number) => {
+    setMeta('entrances', entrances.filter((_, i) => i !== idx));
+  };
+
+  const updateEffect = (idx: number, patch: Partial<UIWindowEntranceEffect>) => {
+    setMeta('entrances', entrances.map((e, i) => i === idx ? { ...e, ...patch } : e));
+  };
+
+  const moveEffect = (idx: number, dir: -1 | 1) => {
+    const next = [...entrances];
+    const swap = idx + dir;
+    if (swap < 0 || swap >= next.length) return;
+    [next[idx], next[swap]] = [next[swap], next[idx]];
+    setMeta('entrances', next);
+  };
+
+  const [addOpen, setAddOpen] = useState(false);
+
+  return (
+    <div className="ui-inspector-section">
+      <div className="ui-inspector-section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>등장 효과</span>
+        <div style={{ position: 'relative' }}>
+          <button
+            className="ui-canvas-toolbar-btn"
+            style={{ fontSize: 11, padding: '1px 7px' }}
+            onClick={() => setAddOpen((v) => !v)}
+          >＋ 추가</button>
+          {addOpen && (
+            <div className="ui-entrance-add-menu">
+              {EFFECT_TYPES.map((t) => (
+                <div
+                  key={t}
+                  className="ui-entrance-add-item"
+                  onClick={() => { addEffect(t); setAddOpen(false); }}
+                >
+                  {EFFECT_LABELS[t]}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {entrances.length === 0 ? (
+        <div style={{ padding: '4px 0', fontSize: 11, color: '#666' }}>
+          효과 없음 (즉시 표시)
+        </div>
+      ) : (
+        entrances.map((eff, idx) => (
+          <div key={idx} className="ui-entrance-effect-card">
+            <div className="ui-entrance-card-header">
+              <span className="ui-entrance-card-label">{EFFECT_LABELS[eff.type]}</span>
+              <div className="ui-entrance-card-actions">
+                <button title="위로" onClick={() => moveEffect(idx, -1)} disabled={idx === 0}>▲</button>
+                <button title="아래로" onClick={() => moveEffect(idx, 1)} disabled={idx === entrances.length - 1}>▼</button>
+                <button title="삭제" className="ui-entrance-card-remove" onClick={() => removeEffect(idx)}>×</button>
+              </div>
+            </div>
+
+            <div className="ui-inspector-row" style={{ marginTop: 4 }}>
+              <span className="ui-inspector-label" style={{ width: 48 }}>효과</span>
+              <select
+                className="ui-entrance-select"
+                value={eff.type}
+                onChange={(e) => updateEffect(idx, { type: e.target.value as EntranceEffectType })}
+              >
+                {EFFECT_TYPES.map((t) => (
+                  <option key={t} value={t}>{EFFECT_LABELS[t]}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="ui-inspector-row">
+              <span className="ui-inspector-label" style={{ width: 48 }}>이징</span>
+              <select
+                className="ui-entrance-select"
+                value={eff.easing}
+                onChange={(e) => updateEffect(idx, { easing: e.target.value as EntranceEasing })}
+              >
+                {EASING_TYPES.map((t) => (
+                  <option key={t} value={t}>{EASING_LABELS[t]}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="ui-inspector-row">
+              <DragLabel
+                label="지속 (ms)"
+                value={eff.duration}
+                min={50} max={3000}
+                onChange={(v) => updateEffect(idx, { duration: Math.round(v) })}
+              />
+            </div>
+
+            <div className="ui-inspector-row">
+              <DragLabel
+                label="딜레이 (ms)"
+                value={eff.delay ?? 0}
+                min={0} max={3000}
+                onChange={(v) => updateEffect(idx, { delay: Math.round(v) })}
+              />
+            </div>
+
+            {eff.type === 'zoom' && (
+              <div className="ui-inspector-row">
+                <DragLabel
+                  label="시작 크기"
+                  value={Math.round((eff.fromScale ?? 0) * 100)}
+                  min={0} max={100}
+                  onChange={(v) => updateEffect(idx, { fromScale: v / 100 })}
+                />
+                <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>%</span>
+              </div>
+            )}
+
+            {eff.type === 'rotate' && (
+              <div className="ui-inspector-row">
+                <DragLabel
+                  label="시작 각도"
+                  value={eff.fromAngle ?? 180}
+                  min={-720} max={720}
+                  onChange={(v) => updateEffect(idx, { fromAngle: Math.round(v) })}
+                />
+                <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>°</span>
+              </div>
+            )}
+          </div>
+        ))
+      )}
     </div>
   );
 }
@@ -462,6 +634,8 @@ function WindowInspector({ selectedWindow, override }: {
             </div>
           </div>
         )}
+
+        <EntranceEffectSection override={override} setMeta={setMeta} />
 
       </div>
 
