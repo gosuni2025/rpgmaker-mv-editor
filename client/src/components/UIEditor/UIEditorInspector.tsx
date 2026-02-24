@@ -68,6 +68,64 @@ function FramePickerDialog({ open, current, onClose, onSelect }: {
   );
 }
 
+// ── 이미지 선택 팝업 ──────────────────────────────────────────────────────────
+
+function ImagePickerDialog({ open, current, onClose, onSelect }: {
+  open: boolean;
+  current: string;
+  onClose: () => void;
+  onSelect: (filename: string) => void;
+}) {
+  const [files, setFiles] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch('/api/ui-editor/images/list')
+      .then((r) => r.json())
+      .then((d) => setFiles(d.files ?? []))
+      .catch(() => {});
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div className="ui-frame-picker-overlay" onClick={onClose}>
+      <div className="ui-frame-picker-dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="ui-frame-picker-header">
+          <span>이미지 선택</span>
+          <button className="ui-help-close" onClick={onClose}>×</button>
+        </div>
+        {files.length === 0 ? (
+          <div className="ui-frame-picker-empty">
+            img/system/ 폴더에 PNG 파일이 없습니다.<br />
+            플레이스홀더 생성 버튼으로 먼저 파일을 만드세요.
+          </div>
+        ) : (
+          <div className="ui-frame-picker-grid">
+            {files.map((f) => (
+              <div
+                key={f}
+                className={`ui-frame-picker-item${current === f ? ' selected' : ''}`}
+                onClick={() => { onSelect(f); onClose(); }}
+              >
+                <div className="ui-frame-picker-img-wrap">
+                  <img
+                    src={`/img/system/${f}.png`}
+                    alt={f}
+                    className="ui-frame-picker-img"
+                    onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
+                  />
+                </div>
+                <span className="ui-frame-picker-name">{f}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── 창 인스펙터 ───────────────────────────────────────────────────────────────
 
 function WindowInspector({ selectedWindow, override }: {
@@ -78,6 +136,8 @@ function WindowInspector({ selectedWindow, override }: {
   const setUiEditorOverride = useEditorStore((s) => s.setUiEditorOverride);
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
+  const [placeholderBusy, setPlaceholderBusy] = useState(false);
 
   const getProp = useCallback(<K extends keyof UIWindowInfo>(
     key: K, win: UIWindowInfo, ov: UIWindowOverride | null,
@@ -117,6 +177,34 @@ function WindowInspector({ selectedWindow, override }: {
     setMeta('skinId', skinName);
   };
 
+  const handleImageSelect = (filename: string) => {
+    set('windowskinName', filename);
+  };
+
+  const handleCreatePlaceholder = async () => {
+    setPlaceholderBusy(true);
+    try {
+      const res = await fetch('/api/ui-editor/images/create-placeholder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          className: selectedWindow.className,
+          width: override?.width ?? selectedWindow.width,
+          height: override?.height ?? selectedWindow.height,
+        }),
+      });
+      const d = await res.json();
+      if (d.filename) {
+        set('windowskinName', d.filename);
+      }
+    } catch {}
+    setPlaceholderBusy(false);
+  };
+
+  const handleOpenFolder = () => {
+    fetch('/api/ui-editor/images/open-folder', { method: 'POST' }).catch(() => {});
+  };
+
   const x = getProp('x', selectedWindow, override);
   const y = getProp('y', selectedWindow, override);
   const width = getProp('width', selectedWindow, override);
@@ -134,6 +222,12 @@ function WindowInspector({ selectedWindow, override }: {
         current={override?.skinId ?? ''}
         onClose={() => setPickerOpen(false)}
         onSelect={handleFrameSelect}
+      />
+      <ImagePickerDialog
+        open={imagePickerOpen}
+        current={override?.windowskinName ?? ''}
+        onClose={() => setImagePickerOpen(false)}
+        onSelect={handleImageSelect}
       />
 
       <div className="ui-editor-inspector-header">
@@ -191,12 +285,34 @@ function WindowInspector({ selectedWindow, override }: {
           </div>
         )}
 
-        {/* ── 이미지로 변경 (미구현) ── */}
+        {/* ── 이미지로 변경 ── */}
         {windowStyle === 'image' && (
           <div className="ui-inspector-section">
             <div className="ui-inspector-section-title">이미지 설정</div>
-            <div style={{ padding: '8px 12px', fontSize: 12, color: '#777', fontStyle: 'italic' }}>
-              준비 중입니다.
+            <div className="ui-inspector-row">
+              <span className="ui-inspector-label">선택된 파일</span>
+              <span className="ui-frame-selected-name" title={override?.windowskinName ?? ''}>
+                {override?.windowskinName ?? '(없음)'}
+              </span>
+            </div>
+            <div className="ui-inspector-row" style={{ gap: 4 }}>
+              <button className="ui-frame-pick-btn" style={{ flex: 1 }} onClick={() => setImagePickerOpen(true)}>
+                파일 선택…
+              </button>
+              <button className="ui-frame-pick-btn" style={{ flex: 1 }} onClick={handleOpenFolder} title="img/system 폴더 열기">
+                폴더 열기
+              </button>
+            </div>
+            <div className="ui-inspector-row">
+              <button
+                className="ui-frame-pick-btn"
+                style={{ width: '100%', opacity: placeholderBusy ? 0.6 : 1 }}
+                disabled={placeholderBusy}
+                onClick={handleCreatePlaceholder}
+                title="현재 창 크기로 플레이스홀더 PNG를 img/system에 생성합니다"
+              >
+                {placeholderBusy ? '생성 중…' : '플레이스홀더 생성'}
+              </button>
             </div>
           </div>
         )}
