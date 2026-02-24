@@ -274,16 +274,16 @@ function AnimEffectSection({ label, fieldKey, override, setMeta }: {
               <DragLabel label="딜레이 (ms)" value={eff.delay ?? 0} min={0} max={3000}
                 onChange={(v) => updateEffect(idx, { delay: Math.round(v) })} />
             </div>
-            {eff.type === 'zoom' && (
+            {(eff.type === 'zoom' || eff.type === 'bounce') && (
               <div className="ui-inspector-row">
-                <DragLabel label="크기" value={Math.round((eff.fromScale ?? 0) * 100)} min={0} max={100}
+                <DragLabel label="시작 크기" value={Math.round((eff.fromScale ?? 0) * 100)} min={0} max={200}
                   onChange={(v) => updateEffect(idx, { fromScale: v / 100 })} />
                 <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>%</span>
               </div>
             )}
-            {eff.type === 'rotate' && (
+            {(eff.type === 'rotate' || eff.type === 'rotateX' || eff.type === 'rotateY') && (
               <div className="ui-inspector-row">
-                <DragLabel label="각도" value={eff.fromAngle ?? 180} min={-720} max={720}
+                <DragLabel label="각도" value={eff.fromAngle ?? (eff.type === 'rotate' ? 180 : 90)} min={-720} max={720}
                   onChange={(v) => updateEffect(idx, { fromAngle: Math.round(v) })} />
                 <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>°</span>
               </div>
