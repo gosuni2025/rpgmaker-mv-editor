@@ -38,6 +38,8 @@ interface EventCommandEditorProps {
   commands: EventCommand[];
   onChange: (commands: EventCommand[]) => void;
   context?: EventCommandContext;
+  /** 웨이포인트 편집 시작 시 호출 — 부모 창을 닫는 데 사용 */
+  onWaypointModeStart?: () => void;
 }
 
 function makeFoldKey(ctx?: EventCommandContext): string | null {
@@ -47,7 +49,7 @@ function makeFoldKey(ctx?: EventCommandContext): string | null {
   return null;
 }
 
-export default function EventCommandEditor({ commands, onChange, context }: EventCommandEditorProps) {
+export default function EventCommandEditor({ commands, onChange, context, onWaypointModeStart }: EventCommandEditorProps) {
   const { t } = useTranslation();
   const { systemData, maps, currentMap } = useEditorStore(useShallow(s => ({
     systemData: s.systemData,
@@ -483,6 +485,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
             pushWaypointHistory(session); // 초기 상태 스냅샷
             emitWaypointSessionChange();
             setShowMoveRoute(null);
+            onWaypointModeStart?.(); // 부모 창(EventDetail 등) 닫기
           }}
         />
       )}

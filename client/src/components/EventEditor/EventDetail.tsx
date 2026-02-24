@@ -243,7 +243,8 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
             <div className="event-editor-right">
               <div className="event-editor-right-header">{t('eventCommands.title', '실행 내용')}</div>
               <EventCommandEditor commands={page.list || []} onChange={newList => updatePage(activePage, { list: newList })}
-                context={{ mapId: currentMapId || undefined, eventId: resolvedEventId, pageIndex: activePage }} />
+                context={{ mapId: currentMapId || undefined, eventId: resolvedEventId, pageIndex: activePage }}
+                onWaypointModeStart={handleOk} />
             </div>
           </div>
         )}
