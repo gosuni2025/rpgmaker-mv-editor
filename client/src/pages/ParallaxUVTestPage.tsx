@@ -31,7 +31,7 @@ const PARALLAX_FRAG = `
   void main() {
     vec2 viewDir;
     if (uAnimSpeed > 0.0) {
-      viewDir = vec2(sin(uTime * uAnimSpeed), cos(uTime * uAnimSpeed * 0.7)) * 0.5;
+      viewDir = vec2(cos(uTime * uAnimSpeed), sin(uTime * uAnimSpeed));
     } else {
       viewDir = vec2(uAngleX, uAngleY);
     }

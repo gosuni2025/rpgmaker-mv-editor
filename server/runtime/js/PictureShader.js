@@ -192,9 +192,29 @@
  *
  * @arg param
  * @text 파라미터 이름
- * @desc scale / strength / animSpeed / angleX / angleY / invert / layers
- * @type string
+ * @type select
  * @default scale
+ *
+ * @option 깊이 (scale)
+ * @value scale
+ *
+ * @option 강도 (strength)
+ * @value strength
+ *
+ * @option 자동 회전 속도 (animSpeed)
+ * @value animSpeed
+ *
+ * @option 시선 X (angleX)
+ * @value angleX
+ *
+ * @option 시선 Y (angleY)
+ * @value angleY
+ *
+ * @option 높이맵 반전 (invert, 0/1)
+ * @value invert
+ *
+ * @option 샘플 수 (layers)
+ * @value layers
  *
  * @arg value
  * @text 목표 값
@@ -1687,7 +1707,7 @@ PictureShader._FRAGMENT_PARALLAXUV = [
     'void main() {',
     '    vec2 viewDir;',
     '    if (uAnimSpeed > 0.0) {',
-    '        viewDir = vec2(sin(uTime * uAnimSpeed), cos(uTime * uAnimSpeed * 0.7)) * 0.5;',
+    '        viewDir = vec2(cos(uTime * uAnimSpeed), sin(uTime * uAnimSpeed));',  // 원형 회전: 크기 항상 1
     '    } else {',
     '        viewDir = vec2(uAngleX, uAngleY);',
     '    }',
