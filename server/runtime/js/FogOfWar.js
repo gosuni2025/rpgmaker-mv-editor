@@ -1833,7 +1833,10 @@ PostProcess._updateUniforms = function() {
     }
 
     // enabled2D/enabled3D에 따라 현재 모드에서 FoW를 숨김
-    var _is3D = typeof Mode3D !== 'undefined' && Mode3D._active;
+    // Mode3D._active === null: 씬 전환 중 초기화 대기 상태 → ConfigManager.mode3d로 보조 판단
+    var _is3D = typeof Mode3D !== 'undefined' &&
+        (Mode3D._active === true ||
+         (Mode3D._active === null && typeof ConfigManager !== 'undefined' && ConfigManager.mode3d));
     if ((_is3D && !FogOfWar._enabled3D) || (!_is3D && !FogOfWar._enabled2D)) {
         if (FogOfWar._fogGroup) FogOfWar._fogGroup.visible = false;
         _fowProf.total += performance.now() - _t0;
