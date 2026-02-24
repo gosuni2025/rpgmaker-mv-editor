@@ -83,9 +83,19 @@
  * @max 60
  * @default 0
  *
- * @command PPEffectAnaglyphOn
- * @text 애너글리프 켜기
- * @desc 애너글리프 3D 이펙트를 활성화합니다. 블렌드를 0→1로 서서히 전환합니다.
+ * @help
+ * PostProcess.js는 에디터 코어 파일로 자동으로 로드됩니다.
+ * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
+ * 커맨드 이름으로 DoF, DepthOfField, PostProcess 모두 사용 가능합니다.
+ */
+
+/*:
+ * @plugindesc 애너글리프 3D 이펙트 커맨드
+ * @plugincommand PPEffectAnaglyph
+ *
+ * @command on
+ * @text 켜기
+ * @desc 애너글리프 3D 이펙트를 활성화합니다. 블렌드 0→1로 서서히 전환합니다.
  *
  * @arg duration
  * @text 전환 시간 (초)
@@ -95,9 +105,9 @@
  * @decimals 1
  * @default 1
  *
- * @command PPEffectAnaglyphOff
- * @text 애너글리프 끄기
- * @desc 애너글리프 3D 이펙트를 비활성화합니다. 블렌드를 1→0으로 서서히 전환합니다.
+ * @command off
+ * @text 끄기
+ * @desc 애너글리프 3D 이펙트를 비활성화합니다. 블렌드 1→0으로 서서히 전환합니다.
  *
  * @arg duration
  * @text 전환 시간 (초)
@@ -107,12 +117,12 @@
  * @decimals 1
  * @default 1
  *
- * @command PPEffectAnaglyphSeparation
- * @text 애너글리프 채널 분리
- * @desc Red와 Cyan 채널의 수평 분리 거리를 설정합니다. 값이 클수록 입체감이 강해집니다.
+ * @command separation
+ * @text 채널 분리
+ * @desc Red와 Cyan 채널의 수평 분리 거리를 설정합니다.
  *
  * @arg value
- * @text 분리 거리
+ * @text 분리 거리 (0~0.03)
  * @type number
  * @min 0
  * @max 0.03
@@ -127,11 +137,11 @@
  * @decimals 1
  * @default 0
  *
- * @command PPEffectAnaglyphMode
- * @text 애너글리프 색상 모드
- * @desc 애너글리프의 색상 분리 방식을 설정합니다.
+ * @command mode
+ * @text 색상 모드
+ * @desc 채널 분리 색상 방식을 선택합니다.
  *
- * @arg mode
+ * @arg value
  * @text 모드
  * @type select
  * @option Red-Cyan (빨간-청록, 기본)
@@ -142,9 +152,9 @@
  * @value 2
  * @default 0
  *
- * @command PPEffectAnaglyphBlend
- * @text 애너글리프 블렌드 강도
- * @desc 원본 이미지와 애너글리프 이펙트의 혼합 비율을 설정합니다. (0=원본, 1=완전 적용)
+ * @command blend
+ * @text 블렌드 강도
+ * @desc 원본과 애너글리프의 혼합 비율입니다. (0=원본, 1=완전 적용)
  *
  * @arg value
  * @text 블렌드 (0~1)
@@ -162,9 +172,21 @@
  * @decimals 1
  * @default 0
  *
- * @command PPEffectHeatHazeOn
- * @text 아지랑이 켜기
- * @desc 아지랑이(열기 왜곡) 이펙트를 활성화합니다. strength를 0→1로 서서히 전환합니다.
+ * @help
+ * PPEffectAnaglyph on 1              → 1초에 걸쳐 서서히 켜기
+ * PPEffectAnaglyph off 0.5           → 0.5초에 걸쳐 서서히 끄기
+ * PPEffectAnaglyph separation 0.01 0.5  → 채널 분리를 0.01로 0.5초 보간
+ * PPEffectAnaglyph mode 0            → Red-Cyan 모드로 변경
+ * PPEffectAnaglyph blend 0.5 1       → 블렌드를 0.5로 1초 보간
+ */
+
+/*:
+ * @plugindesc 아지랑이 이펙트 커맨드
+ * @plugincommand PPEffectHeatHaze
+ *
+ * @command on
+ * @text 켜기
+ * @desc 아지랑이 이펙트를 활성화합니다. strength 0→1로 서서히 전환합니다.
  *
  * @arg duration
  * @text 전환 시간 (초)
@@ -174,9 +196,9 @@
  * @decimals 1
  * @default 1
  *
- * @command PPEffectHeatHazeOff
- * @text 아지랑이 끄기
- * @desc 아지랑이 이펙트를 비활성화합니다. strength를 1→0으로 서서히 전환합니다.
+ * @command off
+ * @text 끄기
+ * @desc 아지랑이 이펙트를 비활성화합니다. strength 1→0으로 서서히 전환합니다.
  *
  * @arg duration
  * @text 전환 시간 (초)
@@ -186,9 +208,9 @@
  * @decimals 1
  * @default 1
  *
- * @command PPEffectHeatHazeAmplitude
- * @text 아지랑이 왜곡 진폭
- * @desc 아지랑이 왜곡 진폭을 설정합니다. 값이 클수록 흔들림이 강해집니다.
+ * @command amplitude
+ * @text 왜곡 진폭
+ * @desc 아지랑이 왜곡 진폭을 설정합니다.
  *
  * @arg value
  * @text 진폭 (0~0.02)
@@ -206,8 +228,8 @@
  * @decimals 1
  * @default 0
  *
- * @command PPEffectHeatHazeSpeed
- * @text 아지랑이 속도
+ * @command speed
+ * @text 속도
  * @desc 아지랑이 왜곡 애니메이션 속도를 설정합니다.
  *
  * @arg value
@@ -225,10 +247,21 @@
  * @max 10
  * @decimals 1
  * @default 0
- * *
- * @command PPEffectScanlinesOn
- * @text 스캔라인 켜기
- * @desc CRT 스캔라인 효과를 활성화합니다. intensity를 0에서 목표값으로 서서히 전환합니다.
+ *
+ * @help
+ * PPEffectHeatHaze on 1.5            → 1.5초에 걸쳐 서서히 켜기
+ * PPEffectHeatHaze off 1             → 1초에 걸쳐 서서히 끄기
+ * PPEffectHeatHaze amplitude 0.006 0.5  → 진폭을 0.006으로 0.5초 보간
+ * PPEffectHeatHaze speed 2           → 속도 2로 즉시 변경
+ */
+
+/*:
+ * @plugindesc CRT 스캔라인 이펙트 커맨드
+ * @plugincommand PPEffectScanlines
+ *
+ * @command on
+ * @text 켜기
+ * @desc CRT 스캔라인 효과를 활성화합니다. intensity를 0에서 목표값으로 전환합니다.
  *
  * @arg intensity
  * @text 강도 (0~1)
@@ -246,8 +279,8 @@
  * @decimals 1
  * @default 1
  *
- * @command PPEffectScanlinesOff
- * @text 스캔라인 끄기
+ * @command off
+ * @text 끄기
  * @desc CRT 스캔라인 효과를 비활성화합니다. intensity를 0으로 서서히 전환 후 끕니다.
  *
  * @arg duration
@@ -258,12 +291,12 @@
  * @decimals 1
  * @default 1
  *
- * @command PPEffectScanlinesIntensity
- * @text 스캔라인 강도 설정
- * @desc 스캔라인 어두움 강도를 설정합니다. (0=없음, 1=최대)
+ * @command intensity
+ * @text 강도 설정
+ * @desc 스캔라인 어두움 강도를 설정합니다.
  *
  * @arg value
- * @text 강도
+ * @text 강도 (0~1)
  * @type number
  * @min 0
  * @max 1
@@ -278,12 +311,12 @@
  * @decimals 1
  * @default 0
  *
- * @command PPEffectScanlinesDensity
- * @text 스캔라인 밀도 설정
- * @desc 스캔라인 간격 밀도를 설정합니다. (1=1줄씩, 0.5=2줄 건너)
+ * @command density
+ * @text 밀도 설정
+ * @desc 스캔라인 간격 밀도를 설정합니다.
  *
  * @arg value
- * @text 밀도
+ * @text 밀도 (0.02~1)
  * @type number
  * @min 0.02
  * @max 1
@@ -298,21 +331,32 @@
  * @decimals 1
  * @default 0
  *
- * @command PPEffectScanlinesSpeed
- * @text 스캔라인 스크롤 속도
- * @desc 스캔라인이 위아래로 흐르는 속도입니다. (0=정적)
+ * @command speed
+ * @text 스크롤 속도
+ * @desc 스캔라인이 위아래로 흐르는 속도입니다.
  *
  * @arg value
- * @text 속도
+ * @text 속도 (0~0.1)
  * @type number
  * @min 0
  * @max 0.1
  * @decimals 3
  * @default 0
  *
- * @command PPEffectPosterizeOn
- * @text 포스터화 켜기
- * @desc 포스터화 효과를 활성화합니다. blend를 0에서 1로 서서히 전환합니다.
+ * @help
+ * PPEffectScanlines on 0.4 1         → 강도 0.4로 1초에 걸쳐 켜기
+ * PPEffectScanlines off 1            → 1초에 걸쳐 서서히 끄기
+ * PPEffectScanlines intensity 0.6 0.5 → 강도를 0.6으로 0.5초 보간
+ * PPEffectScanlines density 0.5      → 밀도를 0.5로 즉시 변경
+ */
+
+/*:
+ * @plugindesc 포스터화 이펙트 커맨드
+ * @plugincommand PPEffectPosterize
+ *
+ * @command on
+ * @text 켜기
+ * @desc 포스터화 효과를 활성화합니다. blend 0→1로 서서히 전환합니다.
  *
  * @arg steps
  * @text 색상 단계 (2~32)
@@ -330,8 +374,8 @@
  * @decimals 1
  * @default 1
  *
- * @command PPEffectPosterizeOff
- * @text 포스터화 끄기
+ * @command off
+ * @text 끄기
  * @desc 포스터화 효과를 비활성화합니다. blend를 0으로 서서히 전환 후 끕니다.
  *
  * @arg duration
@@ -342,12 +386,12 @@
  * @decimals 1
  * @default 1
  *
- * @command PPEffectPosterizeSteps
- * @text 포스터화 색상 단계 설정
+ * @command steps
+ * @text 색상 단계 설정
  * @desc 색상을 몇 단계로 나눌지 설정합니다. 낮을수록 레트로 느낌이 강해집니다.
  *
  * @arg value
- * @text 단계 수
+ * @text 단계 수 (2~32)
  * @type number
  * @min 2
  * @max 32
@@ -362,12 +406,12 @@
  * @decimals 1
  * @default 0
  *
- * @command PPEffectPosterizeBlend
- * @text 포스터화 혼합 강도 설정
- * @desc 원본과 포스터화 이미지의 혼합 비율입니다. (0=원본, 1=완전 포스터화)
+ * @command blend
+ * @text 혼합 강도 설정
+ * @desc 원본과 포스터화 이미지의 혼합 비율입니다.
  *
  * @arg value
- * @text 혼합 강도
+ * @text 혼합 강도 (0~1)
  * @type number
  * @min 0
  * @max 1
@@ -382,9 +426,19 @@
  * @decimals 1
  * @default 0
  *
- * @command PPEffectBarrelOn
- * @text CRT 배럴 왜곡 켜기
- * @desc CRT 모니터 볼록 왜곡 효과를 활성화합니다. curvature를 0에서 목표값으로 서서히 전환합니다.
+ * @help
+ * PPEffectPosterize on 8 1           → 8단계로 1초에 걸쳐 켜기
+ * PPEffectPosterize off 1            → 1초에 걸쳐 서서히 끄기
+ * PPEffectPosterize steps 4 0.5      → 4단계로 0.5초 보간
+ */
+
+/*:
+ * @plugindesc CRT 배럴 왜곡 이펙트 커맨드
+ * @plugincommand PPEffectBarrel
+ *
+ * @command on
+ * @text 켜기
+ * @desc CRT 볼록 왜곡 효과를 활성화합니다. curvature를 0에서 목표값으로 전환합니다.
  *
  * @arg curvature
  * @text 곡면 강도 (0~0.3)
@@ -402,8 +456,8 @@
  * @decimals 1
  * @default 1
  *
- * @command PPEffectBarrelOff
- * @text CRT 배럴 왜곡 끄기
+ * @command off
+ * @text 끄기
  * @desc CRT 배럴 왜곡 효과를 비활성화합니다. curvature를 0으로 서서히 전환 후 끕니다.
  *
  * @arg duration
@@ -414,12 +468,12 @@
  * @decimals 1
  * @default 1
  *
- * @command PPEffectBarrelCurvature
- * @text CRT 배럴 곡면 강도 설정
- * @desc CRT 모니터 볼록 왜곡의 강도를 설정합니다. (0=없음, 0.3=강한 왜곡)
+ * @command curvature
+ * @text 곡면 강도 설정
+ * @desc CRT 모니터 볼록 왜곡의 강도를 설정합니다.
  *
  * @arg value
- * @text 곡면 강도
+ * @text 곡면 강도 (0~0.3)
  * @type number
  * @min 0
  * @max 0.3
@@ -435,21 +489,9 @@
  * @default 0
  *
  * @help
- * PostProcess.js는 에디터 코어 파일로 자동으로 로드됩니다.
- * 플러그인 매니저에서 별도 추가 없이 3D 모드에서 사용 가능합니다.
- * 커맨드 이름으로 DoF, DepthOfField, PostProcess 모두 사용 가능합니다.
- *
- * ■ 애너글리프 커맨드 예시 (PPEffectAnaglyph):
- *   PPEffectAnaglyphOn 1      → 1초에 걸쳐 서서히 켜기
- *   PPEffectAnaglyphOff 0.5   → 0.5초에 걸쳐 서서히 끄기
- *   PPEffectAnaglyphSeparation 0.01 0.5  → 채널 분리를 0.01로 0.5초 동안 보간
- *   PPEffectAnaglyphMode 0    → Red-Cyan 모드로 변경
- *
- * ■ 아지랑이 커맨드 예시 (PPEffectHeatHaze):
- *   PPEffectHeatHazeOn 1.5    → 1.5초에 걸쳐 서서히 켜기
- *   PPEffectHeatHazeOff 1     → 1초에 걸쳐 서서히 끄기
- *   PPEffectHeatHazeAmplitude 0.006 0.5  → 진폭을 0.006으로 0.5초 보간
- *   PPEffectHeatHazeSpeed 2   → 속도 2로 즉시 변경
+ * PPEffectBarrel on 0.08 1           → 강도 0.08로 1초에 걸쳐 켜기
+ * PPEffectBarrel off 1               → 1초에 걸쳐 서서히 끄기
+ * PPEffectBarrel curvature 0.15 0.5  → 강도를 0.15로 0.5초 보간
  */
 //=============================================================================
 // PostProcess.js - 포스트 프로세싱 파이프라인 (Bloom, DoF, PP Effects)
@@ -2641,307 +2683,150 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
         }
     }
 
-    // ── 애너글리프 전용 커맨드 (부드러운 블렌드 on/off 포함) ──────────────────
-    // PPEffectAnaglyphOn [duration]
-    // PPEffectAnaglyphOff [duration]
-    // PPEffectAnaglyphSeparation <value> [duration]
-    // PPEffectAnaglyphMode <0|1|2>
-    // PPEffectAnaglyphBlend <value> [duration]
-    var isAnaCmd = (command === 'PPEffectAnaglyphOn' || command === 'PPEffectAnaglyphOff' ||
-                    command === 'PPEffectAnaglyphSeparation' || command === 'PPEffectAnaglyphMode' ||
-                    command === 'PPEffectAnaglyphBlend');
-    if (isAnaCmd) {
-        var PPE2 = window.PostProcessEffects;
-        if (PostProcess._ppPasses && PostProcess._ppPasses['anaglyph'] && PPE2) {
+    // ── 애너글리프: PPEffectAnaglyph on/off/separation/mode/blend ────────────
+    if (command === 'PPEffectAnaglyph') {
+        var sub = args[0];
+        if (PostProcess._ppPasses && PostProcess._ppPasses['anaglyph']) {
             var anaPass = PostProcess._ppPasses['anaglyph'];
-
-            // 블렌드 트윈 헬퍼
             function _anaBlendTween(targetVal, dur, onDone) {
                 var proxy = { value: anaPass.uniforms.uBlend.value };
                 if (dur > 0 && window.PluginTween) {
-                    PluginTween.add({
-                        target: proxy, key: 'value', to: targetVal, duration: dur,
-                        onUpdate: function(v) { anaPass.uniforms.uBlend.value = v; },
-                        onComplete: onDone || null
-                    });
-                } else {
-                    anaPass.uniforms.uBlend.value = targetVal;
-                    if (onDone) onDone();
-                }
+                    PluginTween.add({ target: proxy, key: 'value', to: targetVal, duration: dur,
+                        onUpdate: function(v) { anaPass.uniforms.uBlend.value = v; }, onComplete: onDone || null });
+                } else { anaPass.uniforms.uBlend.value = targetVal; if (onDone) onDone(); }
             }
-
-            if (command === 'PPEffectAnaglyphOn') {
-                var dur = args[0] ? parseFloat(args[0]) : 0;
-                anaPass.uniforms.uBlend.value = 0;
-                anaPass.enabled = true;
-                PostProcess._updateRenderToScreen();
-                _anaBlendTween(1, dur, null);
-
-            } else if (command === 'PPEffectAnaglyphOff') {
-                var dur = args[0] ? parseFloat(args[0]) : 0;
-                _anaBlendTween(0, dur, function() {
-                    anaPass.enabled = false;
-                    PostProcess._updateRenderToScreen();
-                });
-
-            } else if (command === 'PPEffectAnaglyphSeparation') {
-                var val = args[0] ? parseFloat(args[0]) : 0.005;
+            if (sub === 'on') {
                 var dur = args[1] ? parseFloat(args[1]) : 0;
-                PPE2.applyParam('anaglyph', anaPass, 'separation', val);
+                anaPass.uniforms.uBlend.value = 0; anaPass.enabled = true;
+                PostProcess._updateRenderToScreen(); _anaBlendTween(1, dur, null);
+            } else if (sub === 'off') {
+                var dur = args[1] ? parseFloat(args[1]) : 0;
+                _anaBlendTween(0, dur, function() { anaPass.enabled = false; PostProcess._updateRenderToScreen(); });
+            } else if (sub === 'separation') {
+                var val = args[1] ? parseFloat(args[1]) : 0.005, dur = args[2] ? parseFloat(args[2]) : 0;
                 if (dur > 0 && window.PluginTween) {
-                    var proxy2 = { value: anaPass.uniforms.uSeparation.value };
-                    PluginTween.add({
-                        target: proxy2, key: 'value', to: val, duration: dur,
-                        onUpdate: function(v) { anaPass.uniforms.uSeparation.value = v; }
-                    });
-                }
-
-            } else if (command === 'PPEffectAnaglyphMode') {
-                var modeVal = args[0] ? parseInt(args[0]) : 0;
-                anaPass.uniforms.uMode.value = modeVal;
-
-            } else if (command === 'PPEffectAnaglyphBlend') {
-                var val = args[0] ? parseFloat(args[0]) : 1;
-                var dur = args[1] ? parseFloat(args[1]) : 0;
+                    var p2 = { value: anaPass.uniforms.uSeparation.value };
+                    PluginTween.add({ target: p2, key: 'value', to: val, duration: dur,
+                        onUpdate: function(v) { anaPass.uniforms.uSeparation.value = v; } });
+                } else { anaPass.uniforms.uSeparation.value = val; }
+            } else if (sub === 'mode') {
+                anaPass.uniforms.uMode.value = args[1] ? parseInt(args[1]) : 0;
+            } else if (sub === 'blend') {
+                var val = args[1] ? parseFloat(args[1]) : 1, dur = args[2] ? parseFloat(args[2]) : 0;
                 _anaBlendTween(val, dur, null);
             }
         }
     }
 
-    // ── HeatHaze 전용 커맨드 (strength 0↔1 부드러운 on/off) ──────────────────
-    // PPEffectHeatHazeOn [duration]
-    // PPEffectHeatHazeOff [duration]
-    // PPEffectHeatHazeAmplitude <value> [duration]
-    // PPEffectHeatHazeSpeed <value> [duration]
-    var isHeatHazeCmd = (command === 'PPEffectHeatHazeOn' || command === 'PPEffectHeatHazeOff' ||
-                         command === 'PPEffectHeatHazeAmplitude' || command === 'PPEffectHeatHazeSpeed');
-    if (isHeatHazeCmd) {
-        var PPE3 = window.PostProcessEffects;
-        if (PostProcess._ppPasses && PostProcess._ppPasses['heatHaze'] && PPE3) {
+    // ── 아지랑이: PPEffectHeatHaze on/off/amplitude/speed ────────────────────
+    if (command === 'PPEffectHeatHaze') {
+        var sub = args[0];
+        if (PostProcess._ppPasses && PostProcess._ppPasses['heatHaze']) {
             var hhPass = PostProcess._ppPasses['heatHaze'];
-
-            // strength 0↔1 보간 헬퍼
-            function _hhStrengthTween(toVal, dur, onDone) {
+            function _hhTween(uniform, toVal, dur, onDone) {
+                var proxy = { value: hhPass.uniforms[uniform].value };
                 if (dur > 0 && window.PluginTween) {
-                    var proxy = { value: hhPass.uniforms.uStrength.value };
-                    PluginTween.add({
-                        target: proxy, key: 'value', to: toVal, duration: dur,
-                        onUpdate: function(v) { hhPass.uniforms.uStrength.value = v; },
-                        onComplete: onDone || null
-                    });
-                } else {
-                    hhPass.uniforms.uStrength.value = toVal;
-                    if (onDone) onDone();
-                }
+                    PluginTween.add({ target: proxy, key: 'value', to: toVal, duration: dur,
+                        onUpdate: function(v) { hhPass.uniforms[uniform].value = v; }, onComplete: onDone || null });
+                } else { hhPass.uniforms[uniform].value = toVal; if (onDone) onDone(); }
             }
-
-            if (command === 'PPEffectHeatHazeOn') {
-                var dur = args[0] ? parseFloat(args[0]) : 0;
-                hhPass.uniforms.uStrength.value = 0;
-                hhPass.enabled = true;
-                PostProcess._updateRenderToScreen();
-                _hhStrengthTween(1, dur, null);
-
-            } else if (command === 'PPEffectHeatHazeOff') {
-                var dur = args[0] ? parseFloat(args[0]) : 0;
-                _hhStrengthTween(0, dur, function() {
-                    hhPass.enabled = false;
-                    PostProcess._updateRenderToScreen();
-                });
-
-            } else if (command === 'PPEffectHeatHazeAmplitude') {
-                var val = args[0] ? parseFloat(args[0]) : 0.003;
+            if (sub === 'on') {
                 var dur = args[1] ? parseFloat(args[1]) : 0;
-                if (dur > 0 && window.PluginTween) {
-                    var proxy = { value: hhPass.uniforms.uAmplitude.value };
-                    PluginTween.add({
-                        target: proxy, key: 'value', to: val, duration: dur,
-                        onUpdate: function(v) { hhPass.uniforms.uAmplitude.value = v; }
-                    });
-                } else {
-                    hhPass.uniforms.uAmplitude.value = val;
-                }
-
-            } else if (command === 'PPEffectHeatHazeSpeed') {
-                var val = args[0] ? parseFloat(args[0]) : 1;
+                hhPass.uniforms.uStrength.value = 0; hhPass.enabled = true;
+                PostProcess._updateRenderToScreen(); _hhTween('uStrength', 1, dur, null);
+            } else if (sub === 'off') {
                 var dur = args[1] ? parseFloat(args[1]) : 0;
-                if (dur > 0 && window.PluginTween) {
-                    var proxy = { value: hhPass.uniforms.uSpeed.value };
-                    PluginTween.add({
-                        target: proxy, key: 'value', to: val, duration: dur,
-                        onUpdate: function(v) { hhPass.uniforms.uSpeed.value = v; }
-                    });
-                } else {
-                    hhPass.uniforms.uSpeed.value = val;
-                }
+                _hhTween('uStrength', 0, dur, function() { hhPass.enabled = false; PostProcess._updateRenderToScreen(); });
+            } else if (sub === 'amplitude') {
+                _hhTween('uAmplitude', args[1] ? parseFloat(args[1]) : 0.003, args[2] ? parseFloat(args[2]) : 0, null);
+            } else if (sub === 'speed') {
+                _hhTween('uSpeed', args[1] ? parseFloat(args[1]) : 1, args[2] ? parseFloat(args[2]) : 0, null);
             }
         }
     }
 
-    // ── 스캔라인 전용 커맨드 ──────────────────────────────────────────────────
-    // PPEffectScanlinesOn [intensity] [duration]
-    // PPEffectScanlinesOff [duration]
-    // PPEffectScanlinesIntensity <value> [duration]
-    // PPEffectScanlinesDensity <value> [duration]
-    // PPEffectScanlinesSpeed <value>
-    var isScanCmd = (command === 'PPEffectScanlinesOn' || command === 'PPEffectScanlinesOff' ||
-                     command === 'PPEffectScanlinesIntensity' || command === 'PPEffectScanlinesDensity' ||
-                     command === 'PPEffectScanlinesSpeed');
-    if (isScanCmd) {
-        var PPE3 = window.PostProcessEffects;
-        if (PostProcess._ppPasses && PostProcess._ppPasses['scanlines'] && PPE3) {
+    // ── 스캔라인: PPEffectScanlines on/off/intensity/density/speed ───────────
+    if (command === 'PPEffectScanlines') {
+        var sub = args[0];
+        if (PostProcess._ppPasses && PostProcess._ppPasses['scanlines']) {
             var scanPass = PostProcess._ppPasses['scanlines'];
-
-            function _scanParamTween(uniformName, targetVal, dur) {
-                var proxy = { value: scanPass.uniforms[uniformName].value };
+            function _scanTween(uniform, toVal, dur, onDone) {
+                var proxy = { value: scanPass.uniforms[uniform].value };
                 if (dur > 0 && window.PluginTween) {
-                    PluginTween.add({
-                        target: proxy, key: 'value', to: targetVal, duration: dur,
-                        onUpdate: function(v) { scanPass.uniforms[uniformName].value = v; }
-                    });
-                } else {
-                    scanPass.uniforms[uniformName].value = targetVal;
-                }
+                    PluginTween.add({ target: proxy, key: 'value', to: toVal, duration: dur,
+                        onUpdate: function(v) { scanPass.uniforms[uniform].value = v; }, onComplete: onDone || null });
+                } else { scanPass.uniforms[uniform].value = toVal; if (onDone) onDone(); }
             }
-
-            if (command === 'PPEffectScanlinesOn') {
-                var targetIntensity = args[0] ? parseFloat(args[0]) : 0.4;
-                var scanDur = args[1] ? parseFloat(args[1]) : 1;
-                scanPass.uniforms.uIntensity.value = 0;
-                scanPass.enabled = true;
-                PostProcess._updateRenderToScreen();
-                _scanParamTween('uIntensity', targetIntensity, scanDur);
-
-            } else if (command === 'PPEffectScanlinesOff') {
-                var scanDurOff = args[0] ? parseFloat(args[0]) : 1;
-                var scanProxy = { value: scanPass.uniforms.uIntensity.value };
-                if (scanDurOff > 0 && window.PluginTween) {
-                    PluginTween.add({
-                        target: scanProxy, key: 'value', to: 0, duration: scanDurOff,
-                        onUpdate: function(v) { scanPass.uniforms.uIntensity.value = v; },
-                        onComplete: function() { scanPass.enabled = false; PostProcess._updateRenderToScreen(); }
-                    });
-                } else {
-                    scanPass.uniforms.uIntensity.value = 0;
-                    scanPass.enabled = false;
-                    PostProcess._updateRenderToScreen();
-                }
-
-            } else if (command === 'PPEffectScanlinesIntensity') {
-                _scanParamTween('uIntensity', args[0] ? parseFloat(args[0]) : 0.4, args[1] ? parseFloat(args[1]) : 0);
-
-            } else if (command === 'PPEffectScanlinesDensity') {
-                _scanParamTween('uDensity', args[0] ? parseFloat(args[0]) : 1.0, args[1] ? parseFloat(args[1]) : 0);
-
-            } else if (command === 'PPEffectScanlinesSpeed') {
-                scanPass.uniforms.uSpeed.value = args[0] ? parseFloat(args[0]) : 0;
+            if (sub === 'on') {
+                var intensity = args[1] ? parseFloat(args[1]) : 0.4, dur = args[2] ? parseFloat(args[2]) : 1;
+                scanPass.uniforms.uIntensity.value = 0; scanPass.enabled = true;
+                PostProcess._updateRenderToScreen(); _scanTween('uIntensity', intensity, dur, null);
+            } else if (sub === 'off') {
+                var dur = args[1] ? parseFloat(args[1]) : 1;
+                _scanTween('uIntensity', 0, dur, function() { scanPass.enabled = false; PostProcess._updateRenderToScreen(); });
+            } else if (sub === 'intensity') {
+                _scanTween('uIntensity', args[1] ? parseFloat(args[1]) : 0.4, args[2] ? parseFloat(args[2]) : 0, null);
+            } else if (sub === 'density') {
+                _scanTween('uDensity', args[1] ? parseFloat(args[1]) : 1.0, args[2] ? parseFloat(args[2]) : 0, null);
+            } else if (sub === 'speed') {
+                scanPass.uniforms.uSpeed.value = args[1] ? parseFloat(args[1]) : 0;
             }
         }
     }
 
-    // ── 포스터화 전용 커맨드 ──────────────────────────────────────────────────
-    // PPEffectPosterizeOn [steps] [duration]
-    // PPEffectPosterizeOff [duration]
-    // PPEffectPosterizeSteps <value> [duration]
-    // PPEffectPosterizeBlend <value> [duration]
-    var isPostCmd = (command === 'PPEffectPosterizeOn' || command === 'PPEffectPosterizeOff' ||
-                     command === 'PPEffectPosterizeSteps' || command === 'PPEffectPosterizeBlend');
-    if (isPostCmd) {
-        var PPE4 = window.PostProcessEffects;
-        if (PostProcess._ppPasses && PostProcess._ppPasses['posterize'] && PPE4) {
+    // ── 포스터화: PPEffectPosterize on/off/steps/blend ───────────────────────
+    if (command === 'PPEffectPosterize') {
+        var sub = args[0];
+        if (PostProcess._ppPasses && PostProcess._ppPasses['posterize']) {
             var postPass = PostProcess._ppPasses['posterize'];
-
-            function _postBlendTween(targetVal, dur, onDone) {
+            function _postBlendTween(toVal, dur, onDone) {
                 var proxy = { value: postPass.uniforms.uBlend.value };
                 if (dur > 0 && window.PluginTween) {
-                    PluginTween.add({
-                        target: proxy, key: 'value', to: targetVal, duration: dur,
-                        onUpdate: function(v) { postPass.uniforms.uBlend.value = v; },
-                        onComplete: onDone || null
-                    });
-                } else {
-                    postPass.uniforms.uBlend.value = targetVal;
-                    if (onDone) onDone();
-                }
+                    PluginTween.add({ target: proxy, key: 'value', to: toVal, duration: dur,
+                        onUpdate: function(v) { postPass.uniforms.uBlend.value = v; }, onComplete: onDone || null });
+                } else { postPass.uniforms.uBlend.value = toVal; if (onDone) onDone(); }
             }
-
-            if (command === 'PPEffectPosterizeOn') {
-                var targetSteps = args[0] ? parseFloat(args[0]) : 8;
-                var postDur = args[1] ? parseFloat(args[1]) : 1;
-                postPass.uniforms.uSteps.value = targetSteps;
-                postPass.uniforms.uBlend.value = 0;
-                postPass.enabled = true;
-                PostProcess._updateRenderToScreen();
-                _postBlendTween(1, postDur, null);
-
-            } else if (command === 'PPEffectPosterizeOff') {
-                var postDurOff = args[0] ? parseFloat(args[0]) : 1;
-                _postBlendTween(0, postDurOff, function() {
-                    postPass.enabled = false;
-                    PostProcess._updateRenderToScreen();
-                });
-
-            } else if (command === 'PPEffectPosterizeSteps') {
-                var stepsVal = args[0] ? parseFloat(args[0]) : 8;
-                var stepsDur = args[1] ? parseFloat(args[1]) : 0;
-                if (stepsDur > 0 && window.PluginTween) {
-                    var stepsProxy = { value: postPass.uniforms.uSteps.value };
-                    PluginTween.add({
-                        target: stepsProxy, key: 'value', to: stepsVal, duration: stepsDur,
-                        onUpdate: function(v) { postPass.uniforms.uSteps.value = v; }
-                    });
-                } else {
-                    postPass.uniforms.uSteps.value = stepsVal;
-                }
-
-            } else if (command === 'PPEffectPosterizeBlend') {
-                _postBlendTween(args[0] ? parseFloat(args[0]) : 1, args[1] ? parseFloat(args[1]) : 0, null);
+            if (sub === 'on') {
+                var steps = args[1] ? parseFloat(args[1]) : 8, dur = args[2] ? parseFloat(args[2]) : 1;
+                postPass.uniforms.uSteps.value = steps; postPass.uniforms.uBlend.value = 0;
+                postPass.enabled = true; PostProcess._updateRenderToScreen(); _postBlendTween(1, dur, null);
+            } else if (sub === 'off') {
+                var dur = args[1] ? parseFloat(args[1]) : 1;
+                _postBlendTween(0, dur, function() { postPass.enabled = false; PostProcess._updateRenderToScreen(); });
+            } else if (sub === 'steps') {
+                var val = args[1] ? parseFloat(args[1]) : 8, dur = args[2] ? parseFloat(args[2]) : 0;
+                if (dur > 0 && window.PluginTween) {
+                    var sp = { value: postPass.uniforms.uSteps.value };
+                    PluginTween.add({ target: sp, key: 'value', to: val, duration: dur,
+                        onUpdate: function(v) { postPass.uniforms.uSteps.value = v; } });
+                } else { postPass.uniforms.uSteps.value = val; }
+            } else if (sub === 'blend') {
+                _postBlendTween(args[1] ? parseFloat(args[1]) : 1, args[2] ? parseFloat(args[2]) : 0, null);
             }
         }
     }
 
-    // ── CRT 배럴 왜곡 전용 커맨드 ────────────────────────────────────────────
-    // PPEffectBarrelOn [curvature] [duration]
-    // PPEffectBarrelOff [duration]
-    // PPEffectBarrelCurvature <value> [duration]
-    var isBarrelCmd = (command === 'PPEffectBarrelOn' || command === 'PPEffectBarrelOff' ||
-                       command === 'PPEffectBarrelCurvature');
-    if (isBarrelCmd) {
-        var PPE5 = window.PostProcessEffects;
-        if (PostProcess._ppPasses && PostProcess._ppPasses['barrelDistort'] && PPE5) {
+    // ── 배럴 왜곡: PPEffectBarrel on/off/curvature ───────────────────────────
+    if (command === 'PPEffectBarrel') {
+        var sub = args[0];
+        if (PostProcess._ppPasses && PostProcess._ppPasses['barrelDistort']) {
             var barrelPass = PostProcess._ppPasses['barrelDistort'];
-
-            function _barrelCurvTween(targetVal, dur, onDone) {
+            function _barrelTween(toVal, dur, onDone) {
                 var proxy = { value: barrelPass.uniforms.uCurvature.value };
                 if (dur > 0 && window.PluginTween) {
-                    PluginTween.add({
-                        target: proxy, key: 'value', to: targetVal, duration: dur,
-                        onUpdate: function(v) { barrelPass.uniforms.uCurvature.value = v; },
-                        onComplete: onDone || null
-                    });
-                } else {
-                    barrelPass.uniforms.uCurvature.value = targetVal;
-                    if (onDone) onDone();
-                }
+                    PluginTween.add({ target: proxy, key: 'value', to: toVal, duration: dur,
+                        onUpdate: function(v) { barrelPass.uniforms.uCurvature.value = v; }, onComplete: onDone || null });
+                } else { barrelPass.uniforms.uCurvature.value = toVal; if (onDone) onDone(); }
             }
-
-            if (command === 'PPEffectBarrelOn') {
-                var targetCurv = args[0] ? parseFloat(args[0]) : 0.08;
-                var barrelDur = args[1] ? parseFloat(args[1]) : 1;
-                barrelPass.uniforms.uCurvature.value = 0;
-                barrelPass.enabled = true;
-                PostProcess._updateRenderToScreen();
-                _barrelCurvTween(targetCurv, barrelDur, null);
-
-            } else if (command === 'PPEffectBarrelOff') {
-                var barrelDurOff = args[0] ? parseFloat(args[0]) : 1;
-                _barrelCurvTween(0, barrelDurOff, function() {
-                    barrelPass.enabled = false;
-                    PostProcess._updateRenderToScreen();
-                });
-
-            } else if (command === 'PPEffectBarrelCurvature') {
-                _barrelCurvTween(args[0] ? parseFloat(args[0]) : 0.08, args[1] ? parseFloat(args[1]) : 0, null);
+            if (sub === 'on') {
+                var curv = args[1] ? parseFloat(args[1]) : 0.08, dur = args[2] ? parseFloat(args[2]) : 1;
+                barrelPass.uniforms.uCurvature.value = 0; barrelPass.enabled = true;
+                PostProcess._updateRenderToScreen(); _barrelTween(curv, dur, null);
+            } else if (sub === 'off') {
+                var dur = args[1] ? parseFloat(args[1]) : 1;
+                _barrelTween(0, dur, function() { barrelPass.enabled = false; PostProcess._updateRenderToScreen(); });
+            } else if (sub === 'curvature') {
+                _barrelTween(args[1] ? parseFloat(args[1]) : 0.08, args[2] ? parseFloat(args[2]) : 0, null);
             }
         }
     }
