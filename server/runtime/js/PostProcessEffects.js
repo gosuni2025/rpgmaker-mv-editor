@@ -1078,6 +1078,289 @@ PostProcessEffects.createAnaglyphPass = function(params) {
 };
 
 //=============================================================================
+// 21. CRT Phosphor Mask - 형광체 RGB 픽셀 마스크
+//=============================================================================
+PostProcessEffects.CRTPhosphorShader = {
+    uniforms: {
+        tColor:      { value: null },
+        uStrength:   { value: 0.3 },
+        uScale:      { value: 1.0 },
+        uType:       { value: 0.0 },   // 0=Shadow Mask, 1=Aperture Grille
+        uResolution: { value: new THREE.Vector2(816, 624) }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float uStrength;',
+        'uniform float uScale;',
+        'uniform float uType;',
+        'uniform vec2 uResolution;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 tex = texture2D(tColor, vUv);',
+        '    vec2 pixel = vUv * uResolution / uScale;',
+        '    vec3 mask;',
+        '    if (uType < 0.5) {',
+        // Shadow Mask: 홀수행은 0.5픽셀 오프셋된 RGB 삼각 배열
+        '        float col = mod(floor(pixel.x), 3.0);',
+        '        float row = mod(floor(pixel.y), 2.0);',
+        '        if (row > 0.5) col = mod(col + 1.5, 3.0);',
+        '        if (col < 0.5)       mask = vec3(1.0, 0.25, 0.25);',
+        '        else if (col < 1.5)  mask = vec3(0.25, 1.0, 0.25);',
+        '        else                 mask = vec3(0.25, 0.25, 1.0);',
+        '    } else {',
+        // Aperture Grille: 수직 RGB 스트라이프
+        '        float col = mod(floor(pixel.x), 3.0);',
+        '        if (col < 0.5)       mask = vec3(1.0, 0.2, 0.2);',
+        '        else if (col < 1.5)  mask = vec3(0.2, 1.0, 0.2);',
+        '        else                 mask = vec3(0.2, 0.2, 1.0);',
+        '    }',
+        // 마스크 적용 + 평균 휘도 보정 (shadow: 0.583, aperture: 0.467)
+        '    float avgMask = (uType < 0.5) ? 0.583 : 0.467;',
+        '    vec3 result = tex.rgb * mix(vec3(1.0), mask, uStrength);',
+        '    result /= mix(1.0, avgMask, uStrength);',
+        '    gl_FragColor = vec4(clamp(result, 0.0, 1.0), tex.a);',
+        '}'
+    ].join('\n')
+};
+
+PostProcessEffects.createCRTPhosphorPass = function(params) {
+    var pass = createPass(this.CRTPhosphorShader);
+    if (params) {
+        if (params.strength != null) pass.uniforms.uStrength.value = params.strength;
+        if (params.scale    != null) pass.uniforms.uScale.value    = params.scale;
+        if (params.type     != null) pass.uniforms.uType.value     = params.type;
+    }
+    pass.setSize = function(w, h) { this.uniforms.uResolution.value.set(w, h); };
+    return pass;
+};
+
+//=============================================================================
+// 22. CRT Screen Glare - 화면 유리 반사광
+//=============================================================================
+PostProcessEffects.CRTGlareShader = {
+    uniforms: {
+        tColor:      { value: null },
+        uPosX:       { value: 0.15 },
+        uPosY:       { value: 0.18 },
+        uRadiusX:    { value: 0.20 },
+        uRadiusY:    { value: 0.12 },
+        uIntensity:  { value: 0.25 },
+        uColor:      { value: new THREE.Vector3(1.0, 1.0, 1.0) }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float uPosX;',
+        'uniform float uPosY;',
+        'uniform float uRadiusX;',
+        'uniform float uRadiusY;',
+        'uniform float uIntensity;',
+        'uniform vec3 uColor;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 tex = texture2D(tColor, vUv);',
+        // 주 반사광: 타원형 강한 하이라이트
+        '    vec2 d1 = (vUv - vec2(uPosX, uPosY)) / vec2(uRadiusX, uRadiusY);',
+        '    float g1 = exp(-dot(d1, d1) * 3.5) * uIntensity;',
+        // 보조 반사광: 좀 더 크고 은은한 빛 (실제 CRT의 두 번째 반사)
+        '    vec2 d2 = (vUv - vec2(uPosX + 0.04, uPosY + 0.07)) / vec2(uRadiusX * 1.8, uRadiusY * 2.2);',
+        '    float g2 = exp(-dot(d2, d2) * 2.5) * uIntensity * 0.35;',
+        '    float glare = g1 + g2;',
+        '    gl_FragColor = vec4(clamp(tex.rgb + uColor * glare, 0.0, 1.5), tex.a);',
+        '}'
+    ].join('\n')
+};
+
+PostProcessEffects.createCRTGlarePass = function(params) {
+    var pass = createPass(this.CRTGlareShader);
+    if (params) {
+        if (params.posX      != null) pass.uniforms.uPosX.value      = params.posX;
+        if (params.posY      != null) pass.uniforms.uPosY.value      = params.posY;
+        if (params.radiusX   != null) pass.uniforms.uRadiusX.value   = params.radiusX;
+        if (params.radiusY   != null) pass.uniforms.uRadiusY.value   = params.radiusY;
+        if (params.intensity != null) pass.uniforms.uIntensity.value = params.intensity;
+        if (params.color != null && typeof params.color === 'string' && params.color[0] === '#') {
+            var r = parseInt(params.color.substr(1,2),16)/255;
+            var g = parseInt(params.color.substr(3,2),16)/255;
+            var b = parseInt(params.color.substr(5,2),16)/255;
+            pass.uniforms.uColor.value.set(r, g, b);
+        }
+    }
+    return pass;
+};
+
+//=============================================================================
+// 23. CRT Phosphor Glow - 형광체 번짐 (밝은 영역 글로우)
+//=============================================================================
+PostProcessEffects.CRTGlowShader = {
+    uniforms: {
+        tColor:      { value: null },
+        uIntensity:  { value: 0.5 },
+        uRadius:     { value: 2.0 },
+        uThreshold:  { value: 0.6 },
+        uGlowColor:  { value: new THREE.Vector3(0.7, 0.9, 1.0) },
+        uResolution: { value: new THREE.Vector2(816, 624) }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float uIntensity;',
+        'uniform float uRadius;',
+        'uniform float uThreshold;',
+        'uniform vec3 uGlowColor;',
+        'uniform vec2 uResolution;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 tex = texture2D(tColor, vUv);',
+        '    vec2 texel = uRadius / uResolution;',
+        // 8방향 샘플링으로 글로우 근사
+        '    vec3 glow = vec3(0.0);',
+        '    vec2 o0 = vec2( 1.0,  0.0) * texel;',
+        '    vec2 o1 = vec2(-1.0,  0.0) * texel;',
+        '    vec2 o2 = vec2( 0.0,  1.0) * texel;',
+        '    vec2 o3 = vec2( 0.0, -1.0) * texel;',
+        '    vec2 o4 = vec2( 0.707,  0.707) * texel;',
+        '    vec2 o5 = vec2(-0.707,  0.707) * texel;',
+        '    vec2 o6 = vec2( 0.707, -0.707) * texel;',
+        '    vec2 o7 = vec2(-0.707, -0.707) * texel;',
+        '    vec3 s0 = texture2D(tColor, vUv + o0).rgb;',
+        '    vec3 s1 = texture2D(tColor, vUv + o1).rgb;',
+        '    vec3 s2 = texture2D(tColor, vUv + o2).rgb;',
+        '    vec3 s3 = texture2D(tColor, vUv + o3).rgb;',
+        '    vec3 s4 = texture2D(tColor, vUv + o4).rgb;',
+        '    vec3 s5 = texture2D(tColor, vUv + o5).rgb;',
+        '    vec3 s6 = texture2D(tColor, vUv + o6).rgb;',
+        '    vec3 s7 = texture2D(tColor, vUv + o7).rgb;',
+        '    float inv = 1.0 - uThreshold;',
+        '    glow += s0 * max(0.0, dot(s0, vec3(0.299,0.587,0.114)) - uThreshold) / inv;',
+        '    glow += s1 * max(0.0, dot(s1, vec3(0.299,0.587,0.114)) - uThreshold) / inv;',
+        '    glow += s2 * max(0.0, dot(s2, vec3(0.299,0.587,0.114)) - uThreshold) / inv;',
+        '    glow += s3 * max(0.0, dot(s3, vec3(0.299,0.587,0.114)) - uThreshold) / inv;',
+        '    glow += s4 * max(0.0, dot(s4, vec3(0.299,0.587,0.114)) - uThreshold) / inv;',
+        '    glow += s5 * max(0.0, dot(s5, vec3(0.299,0.587,0.114)) - uThreshold) / inv;',
+        '    glow += s6 * max(0.0, dot(s6, vec3(0.299,0.587,0.114)) - uThreshold) / inv;',
+        '    glow += s7 * max(0.0, dot(s7, vec3(0.299,0.587,0.114)) - uThreshold) / inv;',
+        '    glow /= 8.0;',
+        '    vec3 result = tex.rgb + glow * uGlowColor * uIntensity;',
+        '    gl_FragColor = vec4(clamp(result, 0.0, 1.0), tex.a);',
+        '}'
+    ].join('\n')
+};
+
+PostProcessEffects.createCRTGlowPass = function(params) {
+    var pass = createPass(this.CRTGlowShader);
+    if (params) {
+        if (params.intensity  != null) pass.uniforms.uIntensity.value  = params.intensity;
+        if (params.radius     != null) pass.uniforms.uRadius.value     = params.radius;
+        if (params.threshold  != null) pass.uniforms.uThreshold.value  = params.threshold;
+        if (params.glowColor != null && typeof params.glowColor === 'string' && params.glowColor[0] === '#') {
+            var r = parseInt(params.glowColor.substr(1,2),16)/255;
+            var g = parseInt(params.glowColor.substr(3,2),16)/255;
+            var b = parseInt(params.glowColor.substr(5,2),16)/255;
+            pass.uniforms.uGlowColor.value.set(r, g, b);
+        }
+    }
+    pass.setSize = function(w, h) { this.uniforms.uResolution.value.set(w, h); };
+    return pass;
+};
+
+//=============================================================================
+// 24. CRT Signal Noise - 수평 지터 + 신호 잡음
+//=============================================================================
+PostProcessEffects.CRTNoiseShader = {
+    uniforms: {
+        tColor:      { value: null },
+        uTime:       { value: 0.0 },
+        uJitter:     { value: 0.003 },
+        uNoise:      { value: 0.04 },
+        uSpeed:      { value: 8.0 },
+        uResolution: { value: new THREE.Vector2(816, 624) }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float uTime;',
+        'uniform float uJitter;',
+        'uniform float uNoise;',
+        'uniform float uSpeed;',
+        'uniform vec2 uResolution;',
+        'varying vec2 vUv;',
+        'float rand(vec2 co) {',
+        '    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);',
+        '}',
+        'void main() {',
+        '    vec2 uv = vUv;',
+        '    float t = floor(uTime * uSpeed);',
+        // 수평 지터: 일부 스캔라인만 수평 이동
+        '    float row = floor(uv.y * uResolution.y);',
+        '    float jitterMask = step(0.96, rand(vec2(row * 0.13, t * 0.37)));',
+        '    float jitterAmt = (rand(vec2(row, t)) * 2.0 - 1.0) * uJitter * jitterMask;',
+        '    uv.x = clamp(uv.x + jitterAmt, 0.0, 1.0);',
+        '    vec4 tex = texture2D(tColor, uv);',
+        // 화이트 노이즈
+        '    float n = rand(uv + vec2(fract(uTime * 0.1), fract(uTime * 0.073)));',
+        '    n = (n - 0.5) * uNoise;',
+        '    gl_FragColor = vec4(clamp(tex.rgb + n, 0.0, 1.0), tex.a);',
+        '}'
+    ].join('\n')
+};
+
+PostProcessEffects.createCRTNoisePass = function(params) {
+    var pass = createPass(this.CRTNoiseShader);
+    if (params) {
+        if (params.jitter != null) pass.uniforms.uJitter.value = params.jitter;
+        if (params.noise  != null) pass.uniforms.uNoise.value  = params.noise;
+        if (params.speed  != null) pass.uniforms.uSpeed.value  = params.speed;
+    }
+    pass.setSize = function(w, h) { this.uniforms.uResolution.value.set(w, h); };
+    return pass;
+};
+
+//=============================================================================
+// 25. CRT Corner Mask - 둥근 모서리 마스크
+//=============================================================================
+PostProcessEffects.CRTCornerShader = {
+    uniforms: {
+        tColor:    { value: null },
+        uRadius:   { value: 0.05 },
+        uSoftness: { value: 0.02 },
+        uResolution: { value: new THREE.Vector2(816, 624) }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float uRadius;',
+        'uniform float uSoftness;',
+        'uniform vec2 uResolution;',
+        'varying vec2 vUv;',
+        'float roundedBoxSDF(vec2 p, vec2 b, float r) {',
+        '    vec2 d = abs(p) - b + r;',
+        '    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - r;',
+        '}',
+        'void main() {',
+        '    vec4 tex = texture2D(tColor, vUv);',
+        // 화면 비율 보정: x 좌표를 aspect 기준으로 스케일
+        '    float aspect = uResolution.x / uResolution.y;',
+        '    vec2 p = (vUv * 2.0 - 1.0) * vec2(aspect, 1.0);',
+        '    float dist = roundedBoxSDF(p, vec2(aspect, 1.0), uRadius);',
+        '    float mask = 1.0 - smoothstep(-uSoftness, uSoftness * 0.5, dist);',
+        '    gl_FragColor = vec4(tex.rgb * mask, tex.a);',
+        '}'
+    ].join('\n')
+};
+
+PostProcessEffects.createCRTCornerPass = function(params) {
+    var pass = createPass(this.CRTCornerShader);
+    if (params) {
+        if (params.radius   != null) pass.uniforms.uRadius.value   = params.radius;
+        if (params.softness != null) pass.uniforms.uSoftness.value = params.softness;
+    }
+    pass.setSize = function(w, h) { this.uniforms.uResolution.value.set(w, h); };
+    return pass;
+};
+
+//=============================================================================
 // 이펙트 목록 레지스트리 (에디터 UI에서 사용)
 //=============================================================================
 PostProcessEffects.EFFECT_LIST = [
@@ -1097,10 +1380,15 @@ PostProcessEffects.EFFECT_LIST = [
     { key: 'edgeDetection', name: '외곽선 검출',   create: 'createEdgeDetectionPass' },
     { key: 'ssao',          name: 'SSAO',          create: 'createSSAOPass' },
     { key: 'heatHaze',      name: '아지랑이',      create: 'createHeatHazePass' },
-    { key: 'scanlines',     name: '스캔라인',      create: 'createScanlinesPass' },
-    { key: 'posterize',     name: '포스터화',      create: 'createPosterizePass' },
-    { key: 'barrelDistort', name: 'CRT 배럴 왜곡', create: 'createBarrelDistortPass', defaultApplyOverUI: true },
-    { key: 'anaglyph',      name: '애너글리프 3D', create: 'createAnaglyphPass' }
+    { key: 'scanlines',     name: '스캔라인',          create: 'createScanlinesPass' },
+    { key: 'posterize',     name: '포스터화',          create: 'createPosterizePass' },
+    { key: 'barrelDistort', name: 'CRT 배럴 왜곡',     create: 'createBarrelDistortPass', defaultApplyOverUI: true },
+    { key: 'anaglyph',      name: '애너글리프 3D',     create: 'createAnaglyphPass' },
+    { key: 'crtPhosphor',   name: 'CRT 형광체 마스크', create: 'createCRTPhosphorPass', defaultApplyOverUI: true },
+    { key: 'crtGlare',      name: 'CRT 반사광',        create: 'createCRTGlarePass',    defaultApplyOverUI: true },
+    { key: 'crtGlow',       name: 'CRT 형광 번짐',     create: 'createCRTGlowPass' },
+    { key: 'crtNoise',      name: 'CRT 신호 잡음',     create: 'createCRTNoisePass' },
+    { key: 'crtCorner',     name: 'CRT 모서리 마스크', create: 'createCRTCornerPass',   defaultApplyOverUI: true }
 ];
 
 // 이펙트별 파라미터 정의 (에디터 인스펙터용)
@@ -1227,6 +1515,39 @@ PostProcessEffects.EFFECT_PARAMS = {
         { key: 'mode',       label: '색상 모드', type: 'select', options: [{v:0,l:'Red-Cyan'},{v:1,l:'Red-Green'},{v:2,l:'Magenta-Green'}], default: 0 },
         { key: 'blend',      label: '블렌드',    min: 0, max: 1,    step: 0.01,  default: 1 },
         { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
+    ],
+    crtPhosphor: [
+        { key: 'type',     label: '마스크 유형', type: 'select', options: [{v:0,l:'Shadow Mask'},{v:1,l:'Aperture Grille'}], default: 0 },
+        { key: 'strength', label: '강도',       min: 0,   max: 1,   step: 0.05,  default: 0.3 },
+        { key: 'scale',    label: '픽셀 배율',  min: 0.5, max: 4,   step: 0.25,  default: 1 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: true }
+    ],
+    crtGlare: [
+        { key: 'posX',      label: '위치 X',    min: 0, max: 1,   step: 0.01,  default: 0.15 },
+        { key: 'posY',      label: '위치 Y',    min: 0, max: 1,   step: 0.01,  default: 0.18 },
+        { key: 'radiusX',   label: '반경 X',    min: 0, max: 0.5, step: 0.01,  default: 0.20 },
+        { key: 'radiusY',   label: '반경 Y',    min: 0, max: 0.5, step: 0.01,  default: 0.12 },
+        { key: 'intensity', label: '강도',      min: 0, max: 1,   step: 0.05,  default: 0.25 },
+        { key: 'color',     label: '반사 색상', type: 'color', default: '#ffffff' },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: true }
+    ],
+    crtGlow: [
+        { key: 'intensity',  label: '강도',       min: 0, max: 2,  step: 0.05, default: 0.5 },
+        { key: 'radius',     label: '번짐 반경',  min: 1, max: 20, step: 0.5,  default: 2 },
+        { key: 'threshold',  label: '임계 밝기',  min: 0, max: 1,  step: 0.05, default: 0.6 },
+        { key: 'glowColor',  label: '빛 색상',    type: 'color', default: '#b3e5ff' },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
+    ],
+    crtNoise: [
+        { key: 'jitter', label: '수평 지터', min: 0, max: 0.02, step: 0.001, default: 0.003 },
+        { key: 'noise',  label: '노이즈',    min: 0, max: 0.2,  step: 0.01,  default: 0.04 },
+        { key: 'speed',  label: '속도',      min: 0, max: 20,   step: 1,     default: 8 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
+    ],
+    crtCorner: [
+        { key: 'radius',   label: '모서리 반경',   min: 0, max: 0.2,  step: 0.01,  default: 0.05 },
+        { key: 'softness', label: '경계 부드러움', min: 0, max: 0.05, step: 0.005, default: 0.02 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: true }
     ]
 };
 
@@ -1257,7 +1578,12 @@ PostProcessEffects._UNIFORM_MAP = {
     scanlines:    { intensity: 'uIntensity', density: 'uDensity', speed: 'uSpeed' },
     posterize:    { steps: 'uSteps', blend: 'uBlend' },
     barrelDistort: { curvature: 'uCurvature' },
-    anaglyph:      { separation: 'uSeparation', mode: 'uMode', blend: 'uBlend' }
+    anaglyph:      { separation: 'uSeparation', mode: 'uMode', blend: 'uBlend' },
+    crtPhosphor:   { strength: 'uStrength', scale: 'uScale', type: 'uType' },
+    crtGlare:      { posX: 'uPosX', posY: 'uPosY', radiusX: 'uRadiusX', radiusY: 'uRadiusY', intensity: 'uIntensity', color: 'uColor' },
+    crtGlow:       { intensity: 'uIntensity', radius: 'uRadius', threshold: 'uThreshold', glowColor: 'uGlowColor' },
+    crtNoise:      { jitter: 'uJitter', noise: 'uNoise', speed: 'uSpeed' },
+    crtCorner:     { radius: 'uRadius', softness: 'uSoftness' }
 };
 
 // 런타임에서 파라미터를 pass의 uniform에 적용

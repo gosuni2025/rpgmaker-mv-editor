@@ -175,9 +175,25 @@
     var ov = (_config.overrides || {})[className];
     // 이미지 모드 처리
     if (ov && ov.windowStyle === 'image') {
+      var m = this._margin;
+      var w = this._width - m * 2, h = this._height - m * 2;
+      if (w <= 0 || h <= 0) return;
+      // imageFile이 없으면 "No Image" 안내 표시
+      if (!ov.imageFile) {
+        var noBitmap = new Bitmap(w, h);
+        this._windowBackSprite.bitmap = noBitmap;
+        this._windowBackSprite.setFrame(0, 0, w, h);
+        this._windowBackSprite.move(m, m);
+        noBitmap.fillRect(0, 0, w, h, '#1a1a1a');
+        var fs = Math.max(10, Math.min(18, Math.floor(h / 5)));
+        noBitmap.fontSize = fs;
+        noBitmap.textColor = '#555555';
+        noBitmap.drawText('No Image', 0, Math.floor((h - fs) / 2), w, fs + 4, 'center');
+        return;
+      }
       // _themeSkin이 imageFile과 다르면 (모드 전환 직후 등) 다시 로드
-      if (ov.imageFile && (!this._themeSkin ||
-          (this._themeSkin._url && this._themeSkin._url.indexOf(ov.imageFile) === -1))) {
+      if (!this._themeSkin ||
+          (this._themeSkin._url && this._themeSkin._url.indexOf(ov.imageFile) === -1)) {
         this._themeSkin = ImageManager.loadSystem(ov.imageFile);
       }
       var src = this._themeSkin;
@@ -185,9 +201,6 @@
         if (src) src.addLoadListener(this._refreshAllParts.bind(this));
         return;
       }
-      var m = this._margin;
-      var w = this._width - m * 2, h = this._height - m * 2;
-      if (w <= 0 || h <= 0) return;
       var bitmap = new Bitmap(w, h);
       this._windowBackSprite.bitmap = bitmap;
       this._windowBackSprite.setFrame(0, 0, w, h);
