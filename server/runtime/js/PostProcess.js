@@ -2228,7 +2228,7 @@ _ThreeStrategy.render = function(rendererObj, stage) {
         PostProcess._updateRenderToScreen();
 
         // PP 패스 시간 업데이트 (filmGrain, waveDistortion 등)
-        if (PostProcess._ppNeedsTimeUpdate && PostProcess._ppPasses) {
+        if (PostProcess._ppPasses) {
             var ppTime = (typeof ThreeWaterShader !== 'undefined') ? ThreeWaterShader._time : (Date.now() / 1000);
             var pp = PostProcess._ppPasses;
             if (pp.filmGrain && pp.filmGrain.enabled) pp.filmGrain.uniforms.uTime.value = ppTime;
@@ -2324,7 +2324,7 @@ _ThreeStrategy.render = function(rendererObj, stage) {
         PostProcess._updateUniforms();
 
         // PP 패스 시간 업데이트
-        if (PostProcess._ppNeedsTimeUpdate && PostProcess._ppPasses) {
+        if (PostProcess._ppPasses) {
             var ppTime = (typeof ThreeWaterShader !== 'undefined') ? ThreeWaterShader._time : (Date.now() / 1000);
             var pp = PostProcess._ppPasses;
             if (pp.filmGrain && pp.filmGrain.enabled) pp.filmGrain.uniforms.uTime.value = ppTime;
