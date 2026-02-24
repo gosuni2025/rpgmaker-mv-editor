@@ -3124,6 +3124,102 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
             }
         }
     }
+
+    // ── CRT 형광체 마스크: PPEffectCRTPhosphor on/off/strength ──────────────
+    if (command === 'PPEffectCRTPhosphor') {
+        var sub = args[0];
+        if (PostProcess._ppPasses && PostProcess._ppPasses['crtPhosphor']) {
+            var phosphorPass = PostProcess._ppPasses['crtPhosphor'];
+            if (sub === 'on') {
+                if (args[1] != null) phosphorPass.uniforms.uType.value     = parseFloat(args[1]);
+                if (args[2] != null) phosphorPass.uniforms.uStrength.value = parseFloat(args[2]);
+                phosphorPass.enabled = true; PostProcess._updateRenderToScreen();
+            } else if (sub === 'off') {
+                phosphorPass.enabled = false; PostProcess._updateRenderToScreen();
+            } else if (sub === 'strength') {
+                if (args[1] != null) phosphorPass.uniforms.uStrength.value = parseFloat(args[1]);
+            } else if (sub === 'type') {
+                if (args[1] != null) phosphorPass.uniforms.uType.value = parseFloat(args[1]);
+            } else if (sub === 'scale') {
+                if (args[1] != null) phosphorPass.uniforms.uScale.value = parseFloat(args[1]);
+            }
+        }
+    }
+
+    // ── CRT 반사광: PPEffectCRTGlare on/off/intensity ────────────────────────
+    if (command === 'PPEffectCRTGlare') {
+        var sub = args[0];
+        if (PostProcess._ppPasses && PostProcess._ppPasses['crtGlare']) {
+            var glarePass = PostProcess._ppPasses['crtGlare'];
+            if (sub === 'on') {
+                if (args[1] != null) glarePass.uniforms.uIntensity.value = parseFloat(args[1]);
+                glarePass.enabled = true; PostProcess._updateRenderToScreen();
+            } else if (sub === 'off') {
+                glarePass.enabled = false; PostProcess._updateRenderToScreen();
+            } else if (sub === 'intensity') {
+                if (args[1] != null) glarePass.uniforms.uIntensity.value = parseFloat(args[1]);
+            } else if (sub === 'posX') {
+                if (args[1] != null) glarePass.uniforms.uPosX.value = parseFloat(args[1]);
+            } else if (sub === 'posY') {
+                if (args[1] != null) glarePass.uniforms.uPosY.value = parseFloat(args[1]);
+            }
+        }
+    }
+
+    // ── CRT 형광 번짐: PPEffectCRTGlow on/off/intensity ──────────────────────
+    if (command === 'PPEffectCRTGlow') {
+        var sub = args[0];
+        if (PostProcess._ppPasses && PostProcess._ppPasses['crtGlow']) {
+            var glowPass = PostProcess._ppPasses['crtGlow'];
+            if (sub === 'on') {
+                if (args[1] != null) glowPass.uniforms.uIntensity.value = parseFloat(args[1]);
+                glowPass.enabled = true; PostProcess._updateRenderToScreen();
+            } else if (sub === 'off') {
+                glowPass.enabled = false; PostProcess._updateRenderToScreen();
+            } else if (sub === 'intensity') {
+                if (args[1] != null) glowPass.uniforms.uIntensity.value = parseFloat(args[1]);
+            } else if (sub === 'threshold') {
+                if (args[1] != null) glowPass.uniforms.uThreshold.value = parseFloat(args[1]);
+            }
+        }
+    }
+
+    // ── CRT 신호 잡음: PPEffectCRTNoise on/off/jitter/noise ──────────────────
+    if (command === 'PPEffectCRTNoise') {
+        var sub = args[0];
+        if (PostProcess._ppPasses && PostProcess._ppPasses['crtNoise']) {
+            var noisePass = PostProcess._ppPasses['crtNoise'];
+            if (sub === 'on') {
+                if (args[1] != null) noisePass.uniforms.uJitter.value = parseFloat(args[1]);
+                if (args[2] != null) noisePass.uniforms.uNoise.value  = parseFloat(args[2]);
+                noisePass.enabled = true; PostProcess._updateRenderToScreen();
+            } else if (sub === 'off') {
+                noisePass.enabled = false; PostProcess._updateRenderToScreen();
+            } else if (sub === 'jitter') {
+                if (args[1] != null) noisePass.uniforms.uJitter.value = parseFloat(args[1]);
+            } else if (sub === 'noise') {
+                if (args[1] != null) noisePass.uniforms.uNoise.value = parseFloat(args[1]);
+            }
+        }
+    }
+
+    // ── CRT 모서리 마스크: PPEffectCRTCorner on/off/radius ────────────────────
+    if (command === 'PPEffectCRTCorner') {
+        var sub = args[0];
+        if (PostProcess._ppPasses && PostProcess._ppPasses['crtCorner']) {
+            var cornerPass = PostProcess._ppPasses['crtCorner'];
+            if (sub === 'on') {
+                if (args[1] != null) cornerPass.uniforms.uRadius.value = parseFloat(args[1]);
+                cornerPass.enabled = true; PostProcess._updateRenderToScreen();
+            } else if (sub === 'off') {
+                cornerPass.enabled = false; PostProcess._updateRenderToScreen();
+            } else if (sub === 'radius') {
+                if (args[1] != null) cornerPass.uniforms.uRadius.value = parseFloat(args[1]);
+            } else if (sub === 'softness') {
+                if (args[1] != null) cornerPass.uniforms.uSoftness.value = parseFloat(args[1]);
+            }
+        }
+    }
 };
 
 })();

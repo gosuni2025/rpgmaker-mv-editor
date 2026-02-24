@@ -1692,6 +1692,22 @@
     "pp_posterize_steps": "Color Steps",
     "pp_posterize_blend": "Blend",
     "pp_barrelDistort": "CRT Barrel Distort",
-    "pp_barrelDistort_curvature": "Curvature"
+    "pp_barrelDistort_curvature": "Curvature",
+    "pp_crtPhosphor": "CRT Phosphor Mask",
+    "pp_crtPhosphor_type": "Mask Type",
+    "pp_crtPhosphor_strength": "Strength",
+    "pp_crtPhosphor_scale": "Pixel Scale",
+    "pp_crtGlare": "CRT Screen Glare",
+    "pp_crtGlare_posX": "Position X",
+    "pp_crtGlare_posY": "Position Y",
+    "pp_crtGlare_intensity": "Intensity",
+    "pp_crtGlow": "CRT Phosphor Glow",
+    "pp_crtGlow_intensity": "Intensity",
+    "pp_crtGlow_threshold": "Threshold",
+    "pp_crtNoise": "CRT Signal Noise",
+    "pp_crtNoise_jitter": "H-Jitter",
+    "pp_crtNoise_noise": "Noise",
+    "pp_crtCorner": "CRT Corner Mask",
+    "pp_crtCorner_radius": "Corner Radius"
   }
 }

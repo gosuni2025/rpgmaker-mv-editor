@@ -296,6 +296,27 @@ export const ADDON_COMMANDS: AddonCommandDef[] = [
   ppEffect('barrelDistort', 'addonCommands.pp_barrelDistort', [
     { name: 'curvature', type: 'float', label: 'addonCommands.pp_barrelDistort_curvature', min: 0, max: 0.3, step: 0.01, default: 0.08 },
   ]),
+  ppEffect('crtPhosphor', 'addonCommands.pp_crtPhosphor', [
+    { name: 'type',     type: 'float', label: 'addonCommands.pp_crtPhosphor_type',     min: 0, max: 1,   step: 1,    default: 0 },
+    { name: 'strength', type: 'float', label: 'addonCommands.pp_crtPhosphor_strength', min: 0, max: 1,   step: 0.05, default: 0.3 },
+    { name: 'scale',    type: 'float', label: 'addonCommands.pp_crtPhosphor_scale',    min: 0.5, max: 4, step: 0.25, default: 1 },
+  ]),
+  ppEffect('crtGlare', 'addonCommands.pp_crtGlare', [
+    { name: 'posX',      type: 'float', label: 'addonCommands.pp_crtGlare_posX',      min: 0, max: 1,   step: 0.01,  default: 0.15 },
+    { name: 'posY',      type: 'float', label: 'addonCommands.pp_crtGlare_posY',      min: 0, max: 1,   step: 0.01,  default: 0.18 },
+    { name: 'intensity', type: 'float', label: 'addonCommands.pp_crtGlare_intensity', min: 0, max: 1,   step: 0.05,  default: 0.25 },
+  ]),
+  ppEffect('crtGlow', 'addonCommands.pp_crtGlow', [
+    { name: 'intensity', type: 'float', label: 'addonCommands.pp_crtGlow_intensity',  min: 0, max: 2,  step: 0.05, default: 0.5 },
+    { name: 'threshold', type: 'float', label: 'addonCommands.pp_crtGlow_threshold', min: 0, max: 1,  step: 0.05, default: 0.6 },
+  ]),
+  ppEffect('crtNoise', 'addonCommands.pp_crtNoise', [
+    { name: 'jitter', type: 'float', label: 'addonCommands.pp_crtNoise_jitter', min: 0, max: 0.02, step: 0.001, default: 0.003 },
+    { name: 'noise',  type: 'float', label: 'addonCommands.pp_crtNoise_noise',  min: 0, max: 0.2,  step: 0.01,  default: 0.04 },
+  ]),
+  ppEffect('crtCorner', 'addonCommands.pp_crtCorner', [
+    { name: 'radius', type: 'float', label: 'addonCommands.pp_crtCorner_radius', min: 0, max: 0.2, step: 0.01, default: 0.05 },
+  ]),
 
   // --- 맵 오브젝트 제어 ---
   {

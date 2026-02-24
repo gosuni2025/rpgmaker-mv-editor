@@ -1761,6 +1761,22 @@
     "pp_posterize_steps": "色数ステップ",
     "pp_posterize_blend": "ブレンド強度",
     "pp_barrelDistort": "CRT バレル歪み",
-    "pp_barrelDistort_curvature": "曲面強度"
+    "pp_barrelDistort_curvature": "曲面強度",
+    "pp_crtPhosphor": "CRT 蛍光体マスク",
+    "pp_crtPhosphor_type": "マスクタイプ",
+    "pp_crtPhosphor_strength": "強度",
+    "pp_crtPhosphor_scale": "ピクセルスケール",
+    "pp_crtGlare": "CRT 画面反射光",
+    "pp_crtGlare_posX": "位置 X",
+    "pp_crtGlare_posY": "位置 Y",
+    "pp_crtGlare_intensity": "強度",
+    "pp_crtGlow": "CRT 蛍光体グロー",
+    "pp_crtGlow_intensity": "強度",
+    "pp_crtGlow_threshold": "閾値",
+    "pp_crtNoise": "CRT 信号ノイズ",
+    "pp_crtNoise_jitter": "水平ジッター",
+    "pp_crtNoise_noise": "ノイズ",
+    "pp_crtCorner": "CRT コーナーマスク",
+    "pp_crtCorner_radius": "角丸半径"
   }
 }

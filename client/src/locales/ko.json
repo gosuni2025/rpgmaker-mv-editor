@@ -1843,6 +1843,22 @@
     "pp_posterize_steps": "색상 단계",
     "pp_posterize_blend": "혼합 강도",
     "pp_barrelDistort": "CRT 배럴 왜곡",
-    "pp_barrelDistort_curvature": "곡면 강도"
+    "pp_barrelDistort_curvature": "곡면 강도",
+    "pp_crtPhosphor": "CRT 형광체 마스크",
+    "pp_crtPhosphor_type": "마스크 유형",
+    "pp_crtPhosphor_strength": "강도",
+    "pp_crtPhosphor_scale": "픽셀 배율",
+    "pp_crtGlare": "CRT 반사광",
+    "pp_crtGlare_posX": "위치 X",
+    "pp_crtGlare_posY": "위치 Y",
+    "pp_crtGlare_intensity": "강도",
+    "pp_crtGlow": "CRT 형광 번짐",
+    "pp_crtGlow_intensity": "강도",
+    "pp_crtGlow_threshold": "임계 밝기",
+    "pp_crtNoise": "CRT 신호 잡음",
+    "pp_crtNoise_jitter": "수평 지터",
+    "pp_crtNoise_noise": "노이즈",
+    "pp_crtCorner": "CRT 모서리 마스크",
+    "pp_crtCorner_radius": "모서리 반경"
   }
 }
