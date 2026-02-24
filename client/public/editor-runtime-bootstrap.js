@@ -268,6 +268,13 @@ if (typeof Window_Base === 'undefined') {
     window.Window_Base = Window_Base;
 }
 
+// --- Scene_Map stub (Mode3D.js, ShadowAndLight.js에서 프로토타입 확장) ---
+if (typeof Scene_Map === 'undefined') {
+    function Scene_Map() {}
+    Scene_Map.prototype.terminate = function() {};
+    window.Scene_Map = Scene_Map;
+}
+
 // 런타임 로드 완료 플래그
 window._editorRuntimeReady = false;
 
