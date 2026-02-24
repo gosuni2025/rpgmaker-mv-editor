@@ -965,12 +965,23 @@
             renderer.shadowMap.autoUpdate = prevShadowAutoUpdate;
 
         } else {
-            // 3D 해제
+            // 3D 해제 (또는 spriteset 없는 메뉴 씬)
             if (Mode3D._active) {
                 Mode3D._resetBillboards();
                 Mode3D._perspCamera = null;
             }
+            // UI persp 창(layer 1)이 있을 경우를 위해 ortho는 layer 0만 렌더
+            camera.layers.set(0);
             renderer.render(scene, camera);
+            // Pass 1.5: UI PerspectiveCamera로 layer 1 창 렌더 (메뉴/옵션 씬 포함)
+            if (!Mode3D._uiPerspCamera) {
+                Mode3D._uiPerspCamera = Mode3D._createUiPerspCamera(w, h);
+            } else {
+                Mode3D._positionUiPerspCamera(Mode3D._uiPerspCamera, w, h);
+            }
+            renderer.autoClear = false;
+            renderer.render(scene, Mode3D._uiPerspCamera);
+            renderer.autoClear = true;
         }
 
         Mode3D._active = is3D;
