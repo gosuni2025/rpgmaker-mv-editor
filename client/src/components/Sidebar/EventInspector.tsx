@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent, MoveRoute } from '../../types/rpgMakerMV';
-import type { WaypointSession } from '../../utils/astar';
-import { runAstar, pathToMvCommands } from '../../utils/astar';
+import type { WaypointSession, WaypointPos } from '../../utils/astar';
+import { runAstar, pathToMvCommands, findNearestReachableTile } from '../../utils/astar';
 import { emitWaypointSessionChange, pushWaypointHistory } from '../MapEditor/useWaypointMode';
 import './InspectorPanel.css';
 
@@ -39,6 +39,29 @@ function getCharacterName(charId: number, events: (RPGEvent | null)[] | undefine
     return `EV${String(charId).padStart(3, '0')}`;
   }
   return `이벤트 ${charId}`;
+}
+
+/** 이동 루트 커맨드를 시뮬레이션하여 최종 위치 반환 */
+function simulateMoveRoute(
+  commands: { code: number }[],
+  startX: number,
+  startY: number,
+): { x: number; y: number } {
+  let x = startX;
+  let y = startY;
+  for (const cmd of commands) {
+    switch (cmd.code) {
+      case 1: y++; break;        // 아래
+      case 2: x--; break;        // 왼쪽
+      case 3: x++; break;        // 오른쪽
+      case 4: y--; break;        // 위
+      case 5: x--; y++; break;   // 좌하
+      case 6: x++; y++; break;   // 우하
+      case 7: x--; y--; break;   // 좌상
+      case 8: x++; y--; break;   // 우상
+    }
+  }
+  return { x, y };
 }
 
 /** 이벤트의 모든 페이지에서 경로를 추출 */
@@ -255,6 +278,88 @@ export default function EventInspector() {
     });
   }, []);
 
+  /** 기존 경로를 웨이포인트 편집 모드로 재설정 */
+  const startWaypointFromRoute = useCallback((entry: RouteEntry) => {
+    if (waypointSession) return;
+    if (!event || !currentMap) return;
+
+    // 캐릭터 시작 위치 결정
+    let startX = event.x;
+    let startY = event.y;
+    if (entry.characterId != null && entry.characterId > 0) {
+      const charEv = currentMap.events?.find((e: RPGEvent | null) => e && e.id === entry.characterId) as RPGEvent | undefined;
+      if (charEv) { startX = charEv.x; startY = charEv.y; }
+    }
+
+    // 기존 경로 시뮬레이션으로 최종 목적지 파악
+    const moveCmds = entry.moveRoute.list.filter(c => c.code !== 0);
+    const dest = simulateMoveRoute(moveCmds, startX, startY);
+
+    // 최종 목적지가 시작점과 다르면 목적지를 초기 웨이포인트로
+    let initialWaypoints: WaypointPos[] = [];
+    if (dest.x !== startX || dest.y !== startY) {
+      initialWaypoints = [{ id: crypto.randomUUID(), x: dest.x, y: dest.y }];
+    } else {
+      const ms = useEditorStore.getState();
+      const tf = ms.tilesetInfo;
+      if (tf) {
+        const nearby = findNearestReachableTile(startX, startY, currentMap.data, currentMap.width, currentMap.height, tf.flags);
+        if (nearby) initialWaypoints = [{ id: crypto.randomUUID(), x: nearby.x, y: nearby.y }];
+      }
+    }
+
+    const capturedEventId = event.id;
+    const session: WaypointSession = {
+      eventId: capturedEventId,
+      routeKey: entry.id,
+      type: entry.type,
+      pageIndex: entry.pageIndex,
+      commandIndex: entry.commandIndex,
+      characterId: entry.characterId ?? 0,
+      startX,
+      startY,
+      waypoints: initialWaypoints,
+      allowDiagonal: false,
+      avoidEvents: false,
+      ignorePassability: false,
+      onConfirm: (commands) => {
+        const route = {
+          list: [...commands, { code: 0 }],
+          repeat: entry.moveRoute.repeat,
+          skippable: entry.moveRoute.skippable,
+          wait: entry.moveRoute.wait,
+        };
+        const st = useEditorStore.getState();
+        if (!st.currentMap) return;
+        const evs = [...(st.currentMap.events || [])];
+        const evIdx = evs.findIndex(e => e && e.id === capturedEventId);
+        if (evIdx < 0 || !evs[evIdx]) return;
+        const evCopy = { ...evs[evIdx]! };
+        const pagesCopy = [...evCopy.pages];
+        if (entry.type === 'autonomous') {
+          pagesCopy[entry.pageIndex] = { ...pagesCopy[entry.pageIndex], moveRoute: route };
+        } else if (entry.commandIndex !== undefined) {
+          const listCopy = [...(pagesCopy[entry.pageIndex]?.list || [])];
+          const cmd = listCopy[entry.commandIndex];
+          if (cmd) {
+            listCopy[entry.commandIndex] = { ...cmd, parameters: [entry.characterId ?? 0, route] };
+            pagesCopy[entry.pageIndex] = { ...pagesCopy[entry.pageIndex], list: listCopy };
+          }
+        }
+        evCopy.pages = pagesCopy;
+        evs[evIdx] = evCopy;
+        useEditorStore.setState({ currentMap: { ...st.currentMap, events: evs } as any });
+      },
+    };
+
+    // 재설정할 경로가 숨겨져 있으면 표시로 변경
+    setRouteVisibility(prev => ({ ...prev, [entry.id]: true }));
+
+    (window as any)._editorWaypointSession = session;
+    pushWaypointHistory(session);
+    emitWaypointSessionChange();
+  }, [waypointSession, event, currentMap]);
+
   // 이벤트 미선택
   if (!event) {
     return (
@@ -456,6 +561,14 @@ export default function EventInspector() {
                 <span className="event-route-count">
                   {entry.moveRoute.list.filter(c => c.code !== 0).length}개
                 </span>
+                <button
+                  className="event-route-reset-btn"
+                  onClick={(e) => { e.stopPropagation(); startWaypointFromRoute(entry); }}
+                  disabled={!!waypointSession}
+                  title="웨이포인트로 경로 재설정"
+                >
+                  재설정
+                </button>
               </div>
             ))}
           </div>

@@ -613,6 +613,28 @@
   color: #ddd;
 }
 
+.event-route-reset-btn {
+  background: #2a3a50;
+  color: #7ab;
+  border: 1px solid #3a5a7a;
+  border-radius: 2px;
+  padding: 1px 5px;
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.event-route-reset-btn:hover:not(:disabled) {
+  background: #3a4a60;
+  color: #acd;
+}
+
+.event-route-reset-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* --- Waypoint Panel --- */
 .waypoint-panel {
   border: 2px solid #2675bf;
