@@ -112,8 +112,27 @@ jobs:
             docker build -t rpgmaker-demo . &&
             docker stop rpgmaker-demo && docker rm rpgmaker-demo &&
             docker run -d --name rpgmaker-demo --restart unless-stopped \
+              --label autoheal=true \
               -p 3100:3001 -e DEMO_MODE=true rpgmaker-demo &&
             echo 'Deploy complete'
+          "
+
+      - name: Ensure autoheal container is running
+        env:
+          DEPLOY_TARGET: ${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}
+        run: |
+          ssh $DEPLOY_TARGET "
+            if ! docker ps --filter name=autoheal --filter status=running -q | grep -q .; then
+              echo 'Starting autoheal container...'
+              docker rm -f autoheal 2>/dev/null || true
+              docker run -d --name autoheal --restart unless-stopped \
+                -e AUTOHEAL_CONTAINER_LABEL=autoheal \
+                -e AUTOHEAL_INTERVAL=30 \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                willfarrell/autoheal:latest
+            else
+              echo 'autoheal already running'
+            fi
           "
 
       - name: Trigger claudetest Netlify deploy
