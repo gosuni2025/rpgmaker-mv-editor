@@ -1,4 +1,5 @@
 import React from 'react';
+import ExtBadge from '../common/ExtBadge';
 import { selectStyle } from './messageEditors';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import type { ShaderEntry } from './shaderEditor';
@@ -28,7 +29,7 @@ export const inputStyle: React.CSSProperties = { ...selectStyle, width: 80 };
 
 // ─── 공통 컴포넌트 ───
 
-export function Fieldset({ legend, children, style }: { legend: string; children: React.ReactNode; style?: React.CSSProperties }) {
+export function Fieldset({ legend, children, style }: { legend: React.ReactNode; children: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <fieldset style={{ border: '1px solid #555', borderRadius: 4, padding: '8px 12px', margin: 0, ...style }}>
       <legend style={{ fontSize: 12, color: '#aaa', padding: '0 4px' }}>{legend}</legend>
@@ -180,7 +181,7 @@ export function TransformFields({ transform, onChange }: {
   const set = (key: keyof PictureTransform, val: boolean | number) =>
     onChange({ ...transform, [key]: val });
   return (
-    <Fieldset legend="변환 (에디터 전용)">
+    <Fieldset legend={<>변환 <ExtBadge inline /></>}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'flex', gap: 16 }}>
           <label style={radioStyle}>
