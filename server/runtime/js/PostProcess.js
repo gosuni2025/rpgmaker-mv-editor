@@ -2155,8 +2155,8 @@ PostProcess._createComposer = function(rendererObj, stage) {
     this._lastStage = stage;
     this._composerMode = '3d';
 
-    // composer 재생성 후 맵별 설정 재적용 (이벤트 override 유지)
-    this._applyMapSettings({ keepOverrides: true });
+    // composer 재생성 후 맵별 설정 재적용 (applyPostProcessConfig 내에서 override 자동 유지)
+    this._applyMapSettings();
 };
 
 PostProcess._createComposer2D = function(rendererObj, stage) {
@@ -2204,8 +2204,8 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
     this._lastStage = stage;
     this._composerMode = '2d';
 
-    // composer 재생성 후 맵별 설정 재적용 (이벤트 override 유지)
-    this._applyMapSettings({ keepOverrides: true });
+    // composer 재생성 후 맵별 설정 재적용 (applyPostProcessConfig 내에서 override 자동 유지)
+    this._applyMapSettings();
 };
 
 // PostProcessEffects 패스 일괄 생성 헬퍼
@@ -2270,6 +2270,12 @@ PostProcess.applyPostProcessConfig = function(config) {
     // godRays base lightPos 갱신 플래그
     if (this._ppPasses.godRays) {
         this._ppPasses.godRays._baseDirty = true;
+    }
+
+    // 게임 플레이 시: 이벤트 override 재적용 (씬 전환으로 config가 재적용되어도 override 유지)
+    // 에디터 모드에서는 override 없이 맵 설정 그대로 적용
+    if (!window.__editorMode) {
+        this._reapplyEventOverrides();
     }
 
     // applyOverUI 변경에 따라 패스 순서 재구성 후 renderToScreen 재조정
@@ -2649,6 +2655,10 @@ if (typeof Scene_Map !== 'undefined') {
     var _Scene_Map_onMapLoaded_dof = Scene_Map.prototype.onMapLoaded;
     Scene_Map.prototype.onMapLoaded = function() {
         _Scene_Map_onMapLoaded_dof.call(this);
+        // 새 맵 진입 시 이벤트 override 초기화 (이벤트로 변경된 PP 상태를 맵 설정으로 리셋)
+        if (typeof $gameSystem !== 'undefined' && $gameSystem) {
+            $gameSystem._ppEventOverrides = {};
+        }
         PostProcess._applyMapSettings();
     };
 }
@@ -2680,16 +2690,11 @@ PostProcess._reapplyEventOverrides = function() {
     if (changed) PostProcess._updateRenderToScreen();
 };
 
-// opts.keepOverrides = true → 맵 설정 적용 후 이벤트 override 재적용 (composer 재생성 시)
-// opts.keepOverrides 없음   → 맵 이동 시: override 초기화 후 맵 설정만 적용
-PostProcess._applyMapSettings = function(opts) {
+// 맵 설정 적용 (bloomConfig, dofConfig, postProcessConfig)
+// applyPostProcessConfig 내에서 _reapplyEventOverrides가 자동 호출되므로 override가 유지됨
+// override 초기화는 onMapLoaded에서만 수행
+PostProcess._applyMapSettings = function() {
     if (!$dataMap) return;
-    var keepOverrides = opts && opts.keepOverrides;
-
-    // 맵 이동 시 이벤트 override 초기화
-    if (!keepOverrides && typeof $gameSystem !== 'undefined' && $gameSystem) {
-        $gameSystem._ppEventOverrides = {};
-    }
 
     // bloomConfig 적용
     var bc = $dataMap.bloomConfig;
@@ -2728,18 +2733,13 @@ PostProcess._applyMapSettings = function(opts) {
         ConfigManager.depthOfField = false;
     }
 
-    // postProcessConfig 적용
+    // postProcessConfig 적용 (applyPostProcessConfig 내에서 _reapplyEventOverrides 자동 호출됨)
     var ppc = $dataMap.postProcessConfig;
     if (ppc) {
         this.applyPostProcessConfig(ppc);
     } else {
         // 모든 PP 패스 비활성화
         this.applyPostProcessConfig({});
-    }
-
-    // composer 재생성 시: 이벤트 override 재적용
-    if (keepOverrides) {
-        this._reapplyEventOverrides();
     }
 };
 
