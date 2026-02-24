@@ -98,6 +98,45 @@
 
     // ── 후처리 비트맵 생성 ────────────────────────────────────────────────────
     // rawBitmap 을 받아 CSS filter + 오버레이를 적용한 새 Bitmap 반환.
+    //
+    // 주의: Bitmap._context 는 willReadFrequently:true 로 생성되어 CSS filter 미지원 가능.
+    // → 별도 regular canvas 에서 blur 처리 후 dst 에 복사.
+
+    function applyFilteredDraw(dstCtx, srcCvs, w, h, filterStr, blurPx) {
+        var tempCvs = document.createElement('canvas');
+        tempCvs.width  = w;
+        tempCvs.height = h;
+        var tempCtx = tempCvs.getContext('2d');
+
+        tempCtx.filter = filterStr;
+        var supported = (tempCtx.filter !== 'none' && tempCtx.filter !== '');
+
+        if (supported) {
+            // CSS filter 가 지원되면 엣지 번짐 방지를 위해 약간 크게 그린 후 복사
+            var ex = blurPx * 2;
+            tempCtx.drawImage(srcCvs, -ex, -ex, w + ex * 2, h + ex * 2);
+            tempCtx.filter = 'none';
+            dstCtx.drawImage(tempCvs, 0, 0);
+        } else {
+            // Fallback: 여러 오프셋 drawImage 로 블러 근사
+            console.warn('[MT] ctx.filter 미지원 → JS 멀티샘플 블러 사용');
+            var r      = blurPx * 0.6 | 0;
+            var step   = Math.max(2, r / 4 | 0);
+            var pairs  = [];
+            for (var ox = -r; ox <= r; ox += step) {
+                for (var oy = -r; oy <= r; oy += step) {
+                    if (ox * ox + oy * oy <= r * r) pairs.push([ox, oy]);
+                }
+            }
+            if (!pairs.length) pairs.push([0, 0]);
+            var a = 1 / pairs.length;
+            dstCtx.globalAlpha = a;
+            for (var i = 0; i < pairs.length; i++) {
+                dstCtx.drawImage(srcCvs, pairs[i][0], pairs[i][1]);
+            }
+            dstCtx.globalAlpha = 1;
+        }
+    }
 
     function buildProcessedBitmap(rawBitmap) {
         var w = rawBitmap.width, h = rawBitmap.height;
@@ -109,30 +148,29 @@
 
         // --- CSS filter 결정 ---
         var filterStr = '';
+        var blurPx    = 0;
         switch (Cfg.effect) {
             case 'blur+overlay':
             case 'blurOnly':
-                if (Cfg.blur > 0) filterStr = 'blur(' + Cfg.blur + 'px)';
+                blurPx    = Cfg.blur;
+                if (blurPx > 0) filterStr = 'blur(' + blurPx + 'px)';
                 break;
             case 'desaturate':
-                // 채도 제거 + 약한 블러
-                filterStr = 'saturate(15%)' +
-                    (Cfg.blur > 0 ? ' blur(' + (Cfg.blur * 0.4 | 0) + 'px)' : '');
+                blurPx    = (Cfg.blur * 0.4) | 0;
+                filterStr = 'saturate(15%)' + (blurPx > 0 ? ' blur(' + blurPx + 'px)' : '');
                 break;
             case 'frosted':
-                filterStr = 'blur(' + Math.max(Cfg.blur, 14) + 'px) brightness(1.05)';
+                blurPx    = Math.max(Cfg.blur, 14);
+                filterStr = 'blur(' + blurPx + 'px) brightness(1.05)';
                 break;
             case 'overlayOnly':
                 filterStr = '';
                 break;
         }
 
-        // --- 그리기 (blur 엣지 번짐 방지: 약간 크게 drawImage) ---
+        // --- 그리기 ---
         if (filterStr) {
-            ctx.filter = filterStr;
-            var ex = Cfg.blur * 2;
-            ctx.drawImage(srcCvs, -ex, -ex, w + ex * 2, h + ex * 2);
-            ctx.filter = 'none';
+            applyFilteredDraw(ctx, srcCvs, w, h, filterStr, blurPx);
         } else {
             ctx.drawImage(srcCvs, 0, 0);
         }
@@ -149,11 +187,9 @@
                 }
                 break;
             case 'frosted':
-                // 밝은 반투명 오버레이
                 ctx.fillStyle = 'rgba(255,255,255,0.15)';
                 ctx.fillRect(0, 0, w, h);
                 break;
-            // blurOnly: 오버레이 없음
         }
 
         dst._setDirty();
@@ -177,6 +213,19 @@
         this._mtDone        = false;
         this._mtCloseCb     = null;
         _SMB_create.call(this);
+    };
+
+    // startFadeIn 오버라이드: MT 애니메이션이 열기/닫기를 담당하므로
+    // Scene_MenuBase 의 검은 화면 fade-in 을 즉시(1프레임)로 단축.
+    // 그래야 MT overlay 가 처음부터 보임.
+    var _SMB_startFadeIn = Scene_MenuBase.prototype.startFadeIn;
+    Scene_MenuBase.prototype.startFadeIn = function (duration, white) {
+        if (this._mtOverlay && !this._mtClosing) {
+            // MT 오버레이가 열기 애니메이션 역할 → fade-in 을 1프레임으로 단축
+            _SMB_startFadeIn.call(this, 1, white);
+        } else {
+            _SMB_startFadeIn.call(this, duration, white);
+        }
     };
 
     // createBackground: 원본 스프라이트(불투명) + 후처리 스프라이트(opacity 0→255)
