@@ -292,7 +292,21 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
                     skippable: page.moveRoute?.skippable ?? false,
                     wait: page.moveRoute?.wait ?? true,
                   };
-                  updatePage(activePage, { moveRoute: route });
+                  // 컴포넌트가 이미 언마운트된 상태이므로 스토어를 직접 업데이트
+                  const st = useEditorStore.getState();
+                  if (!st.currentMap) return;
+                  const evs = [...(st.currentMap.events || [])];
+                  const evIdx = evs.findIndex(e => e && e.id === resolvedEventId);
+                  if (evIdx >= 0 && evs[evIdx]) {
+                    const evCopy = { ...evs[evIdx]! };
+                    const pagesCopy = [...evCopy.pages];
+                    pagesCopy[activePage] = { ...pagesCopy[activePage], moveRoute: route };
+                    evCopy.pages = pagesCopy;
+                    evs[evIdx] = evCopy;
+                    useEditorStore.setState({
+                      currentMap: { ...st.currentMap, events: evs } as any,
+                    });
+                  }
                 },
               };
               (window as any)._editorWaypointSession = session;
