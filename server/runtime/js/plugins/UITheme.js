@@ -915,17 +915,18 @@
         case 'fade':
           totalAlpha *= p;
           break;
+        // 화면 크기 기준: win.width/height 의존 제거
         case 'slideLeft':
-          totalX += -(1 - p) * (state.screenX + (win.width || 0));
+          totalX = state.screenX - (1 - p) * (state.screenX + sw);
           break;
         case 'slideRight':
-          totalX += (1 - p) * (sw - state.screenX);
+          totalX = state.screenX + (1 - p) * sw;
           break;
         case 'slideTop':
-          totalY += -(1 - p) * (state.screenY + (win.height || 0));
+          totalY = state.screenY - (1 - p) * (state.screenY + sh);
           break;
         case 'slideBottom':
-          totalY += (1 - p) * (sh - state.screenY);
+          totalY = state.screenY + (1 - p) * sh;
           break;
         case 'zoom':
         case 'bounce': {
@@ -1065,16 +1066,16 @@
           totalAlpha *= (1 - p);
           break;
         case 'slideLeft':
-          totalX += -p * (state.screenX + (win.width || 0));
+          totalX = state.screenX - p * (state.screenX + sw);
           break;
         case 'slideRight':
-          totalX += p * (sw - state.screenX);
+          totalX = state.screenX + p * sw;
           break;
         case 'slideTop':
-          totalY += -p * (state.screenY + (win.height || 0));
+          totalY = state.screenY - p * (state.screenY + sh);
           break;
         case 'slideBottom':
-          totalY += p * (sh - state.screenY);
+          totalY = state.screenY + p * sh;
           break;
         case 'zoom':
         case 'bounce': {

@@ -140,6 +140,17 @@ const EFFECT_LABELS: Record<EntranceEffectType, string> = {
   rotate:      '회전 등장',
 };
 
+const EXIT_EFFECT_LABELS: Record<EntranceEffectType, string> = {
+  fade:        '페이드 아웃',
+  slideLeft:   '왼쪽으로 퇴장',
+  slideRight:  '오른쪽으로 퇴장',
+  slideTop:    '위로 퇴장',
+  slideBottom: '아래로 퇴장',
+  zoom:        '축소 퇴장',
+  bounce:      '바운스 퇴장',
+  rotate:      '회전 퇴장',
+};
+
 const EASING_LABELS: Record<EntranceEasing, string> = {
   easeOut:   'EaseOut (감속)',
   easeIn:    'EaseIn (가속)',
@@ -163,6 +174,7 @@ function AnimEffectSection({ label, fieldKey, override, setMeta }: {
 }) {
   const effects = override?.[fieldKey] ?? [];
   const [addOpen, setAddOpen] = useState(false);
+  const effectLabels = fieldKey === 'exits' ? EXIT_EFFECT_LABELS : EFFECT_LABELS;
 
   const addEffect = (type: EntranceEffectType) => {
     setMeta(fieldKey, [...effects, makeDefaultEffect(type)]);
@@ -196,7 +208,7 @@ function AnimEffectSection({ label, fieldKey, override, setMeta }: {
               {EFFECT_TYPES.map((t) => (
                 <div key={t} className="ui-entrance-add-item"
                   onClick={() => { addEffect(t); setAddOpen(false); }}>
-                  {EFFECT_LABELS[t]}
+                  {effectLabels[t]}
                 </div>
               ))}
             </div>
@@ -210,7 +222,7 @@ function AnimEffectSection({ label, fieldKey, override, setMeta }: {
         effects.map((eff, idx) => (
           <div key={idx} className="ui-entrance-effect-card">
             <div className="ui-entrance-card-header">
-              <span className="ui-entrance-card-label">{EFFECT_LABELS[eff.type]}</span>
+              <span className="ui-entrance-card-label">{effectLabels[eff.type]}</span>
               <div className="ui-entrance-card-actions">
                 <button title="위로" onClick={() => moveEffect(idx, -1)} disabled={idx === 0}>▲</button>
                 <button title="아래로" onClick={() => moveEffect(idx, 1)} disabled={idx === effects.length - 1}>▼</button>
@@ -221,7 +233,7 @@ function AnimEffectSection({ label, fieldKey, override, setMeta }: {
               <span className="ui-inspector-label" style={{ width: 48 }}>효과</span>
               <select className="ui-entrance-select" value={eff.type}
                 onChange={(e) => updateEffect(idx, { type: e.target.value as EntranceEffectType })}>
-                {EFFECT_TYPES.map((t) => <option key={t} value={t}>{EFFECT_LABELS[t]}</option>)}
+                {EFFECT_TYPES.map((t) => <option key={t} value={t}>{effectLabels[t]}</option>)}
               </select>
             </div>
             <div className="ui-inspector-row">
