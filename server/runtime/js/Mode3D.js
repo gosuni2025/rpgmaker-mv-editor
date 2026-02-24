@@ -101,7 +101,6 @@
     Mode3D._editorPanX = 0;
     Mode3D._editorPanY = 0;
     Mode3D._editorPanZ = 0; // 높이 오프셋
-    Mode3D._transitionActive = false; // 모드 전환 트윈 진행 중 플래그
     window.Mode3D = Mode3D;
 
     //=========================================================================
@@ -1188,7 +1187,6 @@
     Mode3D._updateCameraZoneParams = function() {
         if (!this._perspCamera) return;
         if (window.__editorMode) return; // 에디터에서는 적용하지 않음
-        if (this._transitionActive) return; // 모드 전환 트윈 중에는 카메라 존 lerp 차단
 
         var nowActiveId = ($gameMap && $gameMap._activeCameraZoneId != null)
             ? $gameMap._activeCameraZoneId : null;
@@ -1336,84 +1334,53 @@
                 }
             }
 
-            // transition_on: 2D → 3D 자연스러운 전환
-            // 사용법: Mode3D transition_on [duration_sec]   (기본 1.0초)
-            if (args[0] === 'transition_on') {
-                var dur = args[1] ? parseFloat(args[1]) : 1.0;
-                if (!window.PluginTween) {
-                    // PluginTween 없으면 즉시 전환
-                    ConfigManager.mode3d = true;
-                    if ($gameSystem) $gameSystem._mode3dOverride = true;
-                } else {
-                    // 전환 전 목표 tilt 저장 (이미 3D였다면 현재값, 아니면 기본 60)
-                    var targetTilt = (Mode3D._tiltDeg != null) ? Mode3D._tiltDeg : 60;
-                    // 탑다운 시점에서 시작 (2D처럼 보이는 카메라)
-                    Mode3D._tiltDeg = 90;
-                    Mode3D._tiltRad = Math.PI / 2;
-                    Mode3D._yawDeg  = 0;
-                    Mode3D._yawRad  = 0;
-                    // 3D 활성화
-                    ConfigManager.mode3d = true;
-                    if ($gameSystem) $gameSystem._mode3dOverride = true;
-                    // 카메라 존 lerp 차단 후 트윈 시작
-                    Mode3D._transitionActive = true;
-                    // lerp 현재값도 동기화 (카메라 존 복귀 시 90에서 시작 방지)
-                    Mode3D._currentTilt = 90;
-                    Mode3D._currentYaw  = 0;
-                    PluginTween.add({
-                        target: Mode3D, key: '_tiltDeg', to: targetTilt, duration: dur,
-                        onUpdate: function() { Mode3D._tiltRad = Mode3D._tiltDeg * Math.PI / 180; },
-                        onComplete: function() {
-                            Mode3D._transitionActive = false;
-                            // lerp 현재값도 최종값에 맞춤
-                            Mode3D._currentTilt = targetTilt;
-                        }
-                    });
-                }
-            }
-
-            // transition_off: 3D → 2D 자연스러운 전환
-            // 사용법: Mode3D transition_off [duration_sec]  (기본 1.0초)
-            if (args[0] === 'transition_off') {
-                var dur = args[1] ? parseFloat(args[1]) : 1.0;
-                if (!window.PluginTween || !ConfigManager.mode3d) {
-                    // PluginTween 없거나 이미 2D면 즉시 전환
-                    ConfigManager.mode3d = false;
-                    if ($gameSystem) $gameSystem._mode3dOverride = false;
-                } else {
-                    Mode3D._transitionActive = true;
-                    var _tiltTweenDone = false;
-                    var _yawTweenDone  = false;
-                    function _checkBothDone() {
-                        if (_tiltTweenDone && _yawTweenDone) {
-                            Mode3D._transitionActive = false;
-                            ConfigManager.mode3d = false;
-                            if ($gameSystem) $gameSystem._mode3dOverride = false;
-                        }
-                    }
-                    // tilt → 90 (탑다운 시점)
-                    PluginTween.add({
-                        target: Mode3D, key: '_tiltDeg', to: 90, duration: dur,
-                        onUpdate: function() { Mode3D._tiltRad = Mode3D._tiltDeg * Math.PI / 180; },
-                        onComplete: function() {
-                            Mode3D._currentTilt = 90;
-                            _tiltTweenDone = true;
-                            _checkBothDone();
-                        }
-                    });
-                    // yaw → 0 (정면 시점)
-                    PluginTween.add({
-                        target: Mode3D, key: '_yawDeg', to: 0, duration: dur,
-                        onUpdate: function() { Mode3D._yawRad = Mode3D._yawDeg * Math.PI / 180; },
-                        onComplete: function() {
-                            Mode3D._currentYaw = 0;
-                            _yawTweenDone = true;
-                            _checkBothDone();
-                        }
-                    });
-                }
+            // transition_on / transition_off: 페이드 아웃 → 모드 전환 → 페이드 인
+            // 사용법: Mode3D transition_on [frames]   (기본 30프레임, 페이드 아웃+인 각각)
+            //         Mode3D transition_off [frames]
+            if (args[0] === 'transition_on' || args[0] === 'transition_off') {
+                var dur = args[1] ? parseInt(args[1]) : 30;
+                var toOn = (args[0] === 'transition_on');
+                $gameScreen.startFadeOut(dur);
+                this._mode3dTransitionTo = toOn;
+                this._mode3dFadeDur = dur;
+                this.setWaitMode('mode3dFade');
             }
         }
+    };
+
+    //=========================================================================
+    // Game_Interpreter.updateWaitMode — mode3dFade 대기 처리
+    // 페이드 아웃 완료 시 모드 전환 후 페이드 인, 페이드 인 완료 시 대기 해제
+    //=========================================================================
+    var _updateWaitMode_m3d = Game_Interpreter.prototype.updateWaitMode;
+    Game_Interpreter.prototype.updateWaitMode = function() {
+        if (this._waitMode === 'mode3dFade') {
+            if ($gameScreen.brightness() > 0) {
+                // 아직 페이드 아웃 중 — 대기
+                return true;
+            }
+            // 화면이 완전히 검어짐 → 모드 전환
+            if (this._mode3dTransitionTo) {
+                ConfigManager.mode3d = true;
+                if ($gameSystem) $gameSystem._mode3dOverride = true;
+            } else {
+                ConfigManager.mode3d = false;
+                if ($gameSystem) $gameSystem._mode3dOverride = false;
+            }
+            $gameScreen.startFadeIn(this._mode3dFadeDur);
+            this._waitMode = 'mode3dFadeIn';
+            return true;
+        }
+        if (this._waitMode === 'mode3dFadeIn') {
+            if ($gameScreen.brightness() < 255) {
+                // 아직 페이드 인 중 — 대기
+                return true;
+            }
+            // 페이드 인 완료
+            this._waitMode = '';
+            return false;
+        }
+        return _updateWaitMode_m3d.call(this);
     };
 
 })();
