@@ -74,6 +74,18 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
     return names.filter(n => fuzzyMatch(n, searchQuery));
   }, [files, searchQuery]);
 
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const allItems = searchQuery ? fileNames : ['', ...fileNames];
+    const idx = allItems.indexOf(selected);
+    const base = idx < 0 ? (e.key === 'ArrowDown' ? -1 : 0) : idx;
+    const next = e.key === 'ArrowUp'
+      ? Math.max(0, base - 1)
+      : Math.min(allItems.length - 1, base + 1);
+    setSelected(allItems[next]);
+  }, [fileNames, selected, searchQuery]);
+
   const play = (name?: string) => {
     const n = name || selected;
     if (!n) return;
@@ -118,6 +130,7 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
           placeholder="검색 (초성 지원: ㄱㄴㄷ)"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
         />
       </div>
       <div className="audio-picker-body">

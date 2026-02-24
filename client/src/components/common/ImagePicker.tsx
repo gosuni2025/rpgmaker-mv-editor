@@ -241,6 +241,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
   // 하위폴더 미리 읽기 (false = 현재 폴더만, true = 전체 재귀)
   const [prefetchSubdirs, setPrefetchSubdirs] = useState(true);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // non-recursive 모드에서 폴더 이동 시 서버에 재요청
   const fetchShallow = useCallback((ft: string, subdir: string) => {
@@ -366,6 +367,37 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     }
   };
 
+  // 파일 목록의 fullPath 배열 (키보드 이동용)
+  const fileFullPaths = useMemo(() => {
+    const paths: string[] = [];
+    if (!searchQuery && !currentSubDir) paths.push(''); // (None)
+    currentFiles.forEach(f => {
+      const name = f.name.replace(/\.png$/i, '');
+      const fullPath = !prefetchSubdirs && currentSubDir && !searchQuery
+        ? `${currentSubDir}/${name}`
+        : name;
+      paths.push(fullPath);
+    });
+    return paths;
+  }, [currentFiles, searchQuery, currentSubDir, prefetchSubdirs]);
+
+  useEffect(() => {
+    if (!listRef.current) return;
+    const el = listRef.current.querySelector('.image-picker-item.selected');
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [selected]);
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const idx = fileFullPaths.indexOf(selected);
+    const base = idx < 0 ? (e.key === 'ArrowDown' ? -1 : 0) : idx;
+    const next = e.key === 'ArrowUp'
+      ? Math.max(0, base - 1)
+      : Math.min(fileFullPaths.length - 1, base + 1);
+    setSelected(fileFullPaths[next]);
+  }, [fileFullPaths, selected]);
+
   const handleOk = () => {
     onChange(selected.replace(/\.png$/i, ''), { fetchType });
     if (onIndexChange) onIndexChange(selectedIndex);
@@ -424,6 +456,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
                 placeholder="검색 (초성 지원: ㄱㄴㄷ)"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
               />
               <select
                 className="image-picker-sort"
@@ -444,7 +477,7 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
               </label>
             </div>
             <div className="image-picker-body">
-              <div className="image-picker-list">
+              <div className="image-picker-list" ref={listRef}>
                 {/* breadcrumb */}
                 {!searchQuery && (
                   <div className="image-picker-breadcrumb">

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 
 export interface DatabaseListItem {
   id: number;
@@ -29,8 +29,27 @@ export default function DatabaseList<T extends DatabaseListItem>({
   const [dragOverId, setDragOverId] = useState<number | null>(null);
   const [dragOverPos, setDragOverPos] = useState<'above' | 'below' | null>(null);
   const dragSourceId = useRef<number | null>(null);
+  const listContainerRef = useRef<HTMLDivElement>(null);
 
   const filteredItems = items?.filter(Boolean) as T[] | undefined;
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!filteredItems || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    e.preventDefault();
+    const idx = filteredItems.findIndex(item => item.id === selectedId);
+    if (idx < 0) return;
+    const next = e.key === 'ArrowUp'
+      ? Math.max(0, idx - 1)
+      : Math.min(filteredItems.length - 1, idx + 1);
+    if (next !== idx) onSelect(filteredItems[next].id);
+  }, [filteredItems, selectedId, onSelect]);
+
+  useEffect(() => {
+    const container = listContainerRef.current;
+    if (!container) return;
+    const el = container.querySelector('.db-list-item.selected');
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [selectedId]);
 
   const handleDragStart = useCallback((e: React.DragEvent, id: number) => {
     dragSourceId.current = id;
@@ -136,7 +155,7 @@ export default function DatabaseList<T extends DatabaseListItem>({
   }, [onSelect, onDuplicate, onDelete, filteredItems]);
 
   return (
-    <div className="db-list">
+    <div className="db-list" ref={listContainerRef} tabIndex={0} onKeyDown={handleKeyDown} style={{ outline: 'none' }}>
       <div className="db-list-header">
         {title && <span>{title}</span>}
         <button className="db-btn-small" onClick={onAdd} title="추가">+</button>

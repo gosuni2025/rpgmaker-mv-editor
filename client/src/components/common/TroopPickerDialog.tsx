@@ -3,7 +3,7 @@
  * 적 군단 선택 공용 다이얼로그.
  * 좌측: 군단 목록, 우측: 선택된 군단의 배치 미리보기
  */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import apiClient from '../../api/client';
 import TroopPreview from './TroopPreview';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
@@ -31,6 +31,7 @@ export default function TroopPickerDialog({ value, onChange, onClose, title = '�
   const [battleback2, setBattleback2] = useState('');
   const [selected, setSelected] = useState(value);
   const [searchQuery, setSearchQuery] = useState('');
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     Promise.all([
@@ -59,6 +60,24 @@ export default function TroopPickerDialog({ value, onChange, onClose, title = '�
     [troops, selected]
   );
 
+  useEffect(() => {
+    if (!listRef.current) return;
+    const el = listRef.current.querySelector('.audio-picker-item.selected');
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [selected]);
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const idx = validTroops.findIndex(t => t.id === selected);
+    const base = idx < 0 ? (e.key === 'ArrowDown' ? -1 : 0) : idx;
+    const next = e.key === 'ArrowUp'
+      ? Math.max(0, base - 1)
+      : Math.min(validTroops.length - 1, base + 1);
+    const nextItem = validTroops[next];
+    if (nextItem) setSelected(nextItem.id);
+  }, [validTroops, selected]);
+
   const handleSelect = (id: number) => setSelected(id);
 
   const handleOk = () => {
@@ -81,10 +100,11 @@ export default function TroopPickerDialog({ value, onChange, onClose, title = '�
                 placeholder="검색 (초성 지원: ㄱㄴㄷ)"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 autoFocus
               />
             </div>
-            <div className="audio-picker-list troop-picker-list">
+            <div className="audio-picker-list troop-picker-list" ref={listRef}>
               {validTroops.map(troop => (
                 <div
                   key={troop.id}
