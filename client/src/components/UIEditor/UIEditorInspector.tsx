@@ -197,8 +197,6 @@ function AnimEffectSection({ label, fieldKey, override, setMeta }: {
 
   const SLIDE_REVERSE: Partial<Record<EntranceEffectType, EntranceEffectType>> = {
     fadeIn: 'fadeOut', fadeOut: 'fadeIn',
-    slideLeft: 'slideRight', slideRight: 'slideLeft',
-    slideTop: 'slideBottom', slideBottom: 'slideTop',
   };
   const copyFromEntranceReversed = () => {
     const src = override?.entrances ?? [];
