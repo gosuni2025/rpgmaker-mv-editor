@@ -1777,6 +1777,18 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
     // 블러된 맵 + FOW 위에 UI를 합성 (clear 하지 않음)
     renderer.render(scene, this.camera);
 
+    // layer 1 (perspective) UI 창 렌더 (renderCamera='perspective' 설정 창)
+    if (window.Mode3D) {
+        var _sz = new THREE.Vector2();
+        renderer.getSize(_sz);
+        if (!Mode3D._uiPerspCamera) {
+            Mode3D._uiPerspCamera = Mode3D._createUiPerspCamera(_sz.x, _sz.y);
+        } else {
+            Mode3D._positionUiPerspCamera(Mode3D._uiPerspCamera, _sz.x, _sz.y);
+        }
+        renderer.render(scene, Mode3D._uiPerspCamera);
+    }
+
     renderer.autoClear = prevAutoClear;
 
     // Picture를 원래 spritesetObj로 복원
@@ -2059,6 +2071,18 @@ Simple2DUIRenderPass.prototype.render = function(renderer, writeBuffer, readBuff
 
     // UI 렌더 (블룸 맵 + FOW 위에 합성)
     renderer.render(scene, camera);
+
+    // layer 1 (perspective) UI 창 렌더 (renderCamera='perspective' 설정 창)
+    if (window.Mode3D) {
+        var _sz = new THREE.Vector2();
+        renderer.getSize(_sz);
+        if (!Mode3D._uiPerspCamera) {
+            Mode3D._uiPerspCamera = Mode3D._createUiPerspCamera(_sz.x, _sz.y);
+        } else {
+            Mode3D._positionUiPerspCamera(Mode3D._uiPerspCamera, _sz.x, _sz.y);
+        }
+        renderer.render(scene, Mode3D._uiPerspCamera);
+    }
 
     // FOW 메쉬 가시성 복원
     if (fowMesh2d) fowMesh2d.visible = fowWasVisible2d;
