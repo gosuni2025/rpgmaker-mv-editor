@@ -67,6 +67,8 @@
     "tileIdDebug": "타일 ID 오버레이",
     "playtestTitle": "타이틀부터 테스트",
     "playtestCurrentMap": "현재 맵에서 테스트",
+    "playtestTitlePixi": "PIXI — 타이틀부터 테스트",
+    "playtestCurrentMapPixi": "PIXI — 현재 맵에서 테스트",
     "openFolder": "폴더 열기",
     "openProjectFolder": "프로젝트 폴더 열기",
     "openProjectFolderTerminal": "프로젝트 폴더 커맨드라인 열기",

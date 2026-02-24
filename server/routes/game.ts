@@ -266,6 +266,67 @@ function buildGameHtml(req: Request, res: Response, resolvedRuntimePath: string)
 </html>`);
 }
 
+// ── /game/index_pixi.html 동적 생성 (PIXI 런타임) ────────────────────────────
+function buildPixiGameHtml(req: Request, res: Response): void {
+  if (!projectManager.isOpen()) { res.status(404).send('No project open'); return; }
+
+  const title = path.basename(projectManager.currentPath!);
+  const startMapId = req.query.startMapId ? parseInt(req.query.startMapId as string, 10) : 0;
+  const hasStartPos = req.query.startX !== undefined && req.query.startY !== undefined;
+  const startX = req.query.startX ? parseInt(req.query.startX as string, 10) : 0;
+  const startY = req.query.startY ? parseInt(req.query.startY as string, 10) : 0;
+  const cacheBust = `?v=${Date.now()}`;
+
+  // startMapId 지정 시 Scene_Boot.start 오버라이드 (plugins, rpg_scenes 로드 후 실행)
+  const startMapScript = startMapId > 0 ? `
+        <script>
+        (function() {
+            var _Scene_Boot_start = Scene_Boot.prototype.start;
+            Scene_Boot.prototype.start = function() {
+                Scene_Base.prototype.start.call(this);
+                SoundManager.preloadImportantSounds();
+                DataManager.setupNewGame();
+                ${hasStartPos
+                  ? `$gamePlayer.reserveTransfer(${startMapId}, ${startX}, ${startY});`
+                  : `$gamePlayer.reserveTransfer(${startMapId}, $dataSystem.startX, $dataSystem.startY);`}
+                SceneManager.goto(Scene_Map);
+                this.updateDocumentTitle();
+            };
+        })();
+        </script>` : '';
+
+  res.type('html').send(`<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="viewport" content="user-scalable=no">
+        <link rel="icon" href="icon/icon.png" type="image/png">
+        <link rel="apple-touch-icon" href="icon/icon.png">
+        <link rel="stylesheet" type="text/css" href="fonts/gamefont.css">
+        <title>${title} - Playtest (PIXI)</title>
+    </head>
+    <body style="background-color: black">
+        <script type="text/javascript" src="pixi_js/libs/pixi.js${cacheBust}"></script>
+        <script type="text/javascript" src="pixi_js/libs/pixi-tilemap.js${cacheBust}"></script>
+        <script type="text/javascript" src="pixi_js/libs/pixi-picture.js${cacheBust}"></script>
+        <script type="text/javascript" src="pixi_js/libs/fpsmeter.js${cacheBust}"></script>
+        <script type="text/javascript" src="pixi_js/libs/lz-string.js${cacheBust}"></script>
+        <script type="text/javascript" src="pixi_js/libs/iphone-inline-video.browser.js${cacheBust}"></script>
+        <script type="text/javascript" src="pixi_js/rpg_core.js${cacheBust}"></script>
+        <script type="text/javascript" src="pixi_js/rpg_managers.js${cacheBust}"></script>
+        <script type="text/javascript" src="pixi_js/rpg_objects.js${cacheBust}"></script>
+        <script type="text/javascript" src="pixi_js/rpg_scenes.js${cacheBust}"></script>
+        <script type="text/javascript" src="pixi_js/rpg_sprites.js${cacheBust}"></script>
+        <script type="text/javascript" src="pixi_js/rpg_windows.js${cacheBust}"></script>
+        <script type="text/javascript" src="pixi_js/plugins.js${cacheBust}"></script>
+        ${startMapScript}
+        <script type="text/javascript" src="pixi_js/main.js${cacheBust}"></script>
+    </body>
+</html>`);
+}
+
 // ── 팩토리: /game/* 라우터 생성 ──────────────────────────────────────────────
 export function createGameRouter(resolvedRuntimePath: string): express.Router {
   const router = express.Router();
@@ -308,8 +369,20 @@ export function createGameRouter(resolvedRuntimePath: string): express.Router {
     res.json({ exists: fs.existsSync(path.join(projectManager.currentPath!, 'save', req.params.filename)) });
   });
 
-  // index.html 동적 생성
+  // index.html 동적 생성 (Three.js 런타임)
   router.get('/index.html', (req, res) => buildGameHtml(req, res, resolvedRuntimePath));
+
+  // index_pixi.html 동적 생성 (PIXI 런타임)
+  router.get('/index_pixi.html', (req, res) => buildPixiGameHtml(req, res));
+
+  // PIXI 버전 JS 서빙 (프로젝트 원본 js/ 폴더)
+  router.use('/pixi_js', (req, res, next) => {
+    if (!projectManager.isOpen()) return res.status(404).send('No project');
+    res.set('Cache-Control', 'no-store');
+    express.static(path.join(projectManager.currentPath!, 'js'))(req, res, () => {
+      if (!res.headersSent) res.status(404).send('Not found');
+    });
+  });
 
   // 번들
   router.use('/bundles', bundleRoutes);

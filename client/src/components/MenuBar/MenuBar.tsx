@@ -184,6 +184,9 @@ export default function MenuBar() {
         { label: t('menu.playtestTitle'), action: 'playtestTitle', shortcut: 'Ctrl+Shift+R', disabled: () => !hasProject },
         { label: t('menu.playtestCurrentMap'), action: 'playtestCurrentMap', shortcut: 'Ctrl+R', disabled: () => !hasProject },
         { type: 'separator' },
+        { label: t('menu.playtestTitlePixi'), action: 'playtestTitlePixi', disabled: () => !hasProject },
+        { label: t('menu.playtestCurrentMapPixi'), action: 'playtestCurrentMapPixi', disabled: () => !hasProject },
+        { type: 'separator' },
         { label: t('menu.openProjectFolder'), action: 'openFolder', disabled: () => !hasProject || demoMode },
         { label: t('menu.openProjectFolderTerminal'), action: 'openProjectFolderTerminal', disabled: () => !hasProject || demoMode },
         { type: 'separator' },
@@ -308,6 +311,20 @@ export default function MenuBar() {
       case 'convertToWebp': setShowWebpConvertDialog(true); break;
       case 'convertToPng': setShowPngConvertDialog(true); break;
       case 'playtestTitle': saveCurrentMap().then(() => window.open('/game/index.html?dev=true', '_blank')); break;
+      case 'playtestTitlePixi': saveCurrentMap().then(() => window.open('/game/index_pixi.html', '_blank')); break;
+      case 'playtestCurrentMapPixi': {
+        const state = useEditorStore.getState();
+        const mapId = state.currentMapId || 1;
+        const testPos = state.currentMap?.testStartPosition;
+        const centerX = Math.floor((state.currentMap?.width || 1) / 2);
+        const centerY = Math.floor((state.currentMap?.height || 1) / 2);
+        const startX = testPos ? testPos.x : centerX;
+        const startY = testPos ? testPos.y : centerY;
+        saveCurrentMap().then(() => {
+          window.open(`/game/index_pixi.html?startMapId=${mapId}&startX=${startX}&startY=${startY}`, '_blank');
+        });
+        break;
+      }
       case 'playtestCurrentMap': {
         const state = useEditorStore.getState();
         const mapId = state.currentMapId || 1;

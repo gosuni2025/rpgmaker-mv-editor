@@ -65,6 +65,8 @@
     "tileIdDebug": "Tile ID Overlay",
     "playtestTitle": "Playtest from Title",
     "playtestCurrentMap": "Playtest Current Map",
+    "playtestTitlePixi": "PIXI — Playtest from Title",
+    "playtestCurrentMapPixi": "PIXI — Playtest Current Map",
     "openFolder": "Open Folder",
     "openProjectFolder": "Open Project Folder",
     "openProjectFolderTerminal": "Open Project Folder in Terminal",

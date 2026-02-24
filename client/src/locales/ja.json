@@ -65,6 +65,8 @@
     "tileIdDebug": "タイルIDオーバーレイ",
     "playtestTitle": "タイトルからテスト",
     "playtestCurrentMap": "現在のマップからテスト",
+    "playtestTitlePixi": "PIXI — タイトルからテスト",
+    "playtestCurrentMapPixi": "PIXI — 現在のマップからテスト",
     "openFolder": "フォルダを開く",
     "openProjectFolder": "プロジェクトフォルダを開く",
     "openProjectFolderTerminal": "プロジェクトフォルダをターミナルで開く",
