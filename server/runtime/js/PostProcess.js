@@ -1683,19 +1683,18 @@ Simple2DRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuf
         };
     }
 
-    // stage의 spriteset 외 자식들(windowLayer 등 UI)을 숨김
+    // stage의 spriteset 외 자식들(windowLayer 등 UI)을 렌더에서만 제외
     // 배럴 왜곡 등 PP가 적용된 결과에 대사창이 포함되면 Simple2DUIRenderPass에서
     // 다시 렌더할 때 2중으로 보이므로, 이 pass에서는 맵(spriteset)만 렌더해야 함
-    // ※ _syncHierarchy가 PIXI.visible → Three.js.visible을 덮어쓰므로
-    //   Three.js Object3D가 아닌 PIXI 호환 stage.children의 visible을 설정해야 함
-    var stageNonSpriteChildren = [];
-    var stageNonSpriteVisibility = [];
+    // ※ PIXI visible을 false로 하면 _syncHierarchy가 비트맵 업데이트를 건너뛰어
+    //   이전 대사창 내용이 남는 버그가 생김.
+    //   → renderer.render 직전에만 Three.js 오브젝트를 숨기고, 직후 복원
+    //   → _syncHierarchy는 정상 실행(비트맵 업데이트), 실제 렌더에서만 UI 제외
+    var nonSpriteThreeObjs = [];
     if (spriteset && stage.children) {
         for (var ni = 0; ni < stage.children.length; ni++) {
-            if (stage.children[ni] !== spriteset) {
-                stageNonSpriteChildren.push(stage.children[ni]);
-                stageNonSpriteVisibility.push(stage.children[ni].visible);
-                stage.children[ni].visible = false;
+            if (stage.children[ni] !== spriteset && stage.children[ni]._threeObj) {
+                nonSpriteThreeObjs.push(stage.children[ni]._threeObj);
             }
         }
     }
@@ -1708,6 +1707,14 @@ Simple2DRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuf
     var wb = writeBuffer;
     renderer.setRenderTarget = function(target) {
         origSetRT(target === null ? wb : target);
+    };
+
+    // renderer.render를 래핑하여 UI Three.js 오브젝트를 직전에 숨기고 직후 복원
+    var origRenderFn = renderer.render;
+    renderer.render = function(scene, camera) {
+        for (var i = 0; i < nonSpriteThreeObjs.length; i++) nonSpriteThreeObjs[i].visible = false;
+        origRenderFn.call(renderer, scene, camera);
+        for (var i = 0; i < nonSpriteThreeObjs.length; i++) nonSpriteThreeObjs[i].visible = true;
     };
 
     // FOW 메쉬 숨김 (bloom 전에 렌더되지 않도록)
@@ -1729,15 +1736,11 @@ Simple2DRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuf
 
     this._prevRender.call(this._strategy, rendererObj, stage);
 
+    renderer.render = origRenderFn;
     renderer.setRenderTarget = origSetRT;
 
     // FOW 가시성 복원
     if (fowMesh2dRender) fowMesh2dRender.visible = fowWasVisible2dRender;
-
-    // stage 비spriteset 자식 가시성 복원
-    for (var ni = 0; ni < stageNonSpriteChildren.length; ni++) {
-        stageNonSpriteChildren[ni].visible = stageNonSpriteVisibility[ni];
-    }
 
     // UI 가시성 복원
     if (uiInfo) {
