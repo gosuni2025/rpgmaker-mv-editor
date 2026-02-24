@@ -639,9 +639,14 @@ function WindowInspector({ selectedWindow, override }: {
               value={override?.renderCamera ?? 'orthographic'}
               onChange={(e) => {
                 const val = e.target.value as 'orthographic' | 'perspective';
-                setMeta('renderCamera', val === 'orthographic' ? undefined : val);
+                const camVal = val === 'orthographic' ? undefined : val;
+                setMeta('renderCamera', camVal);
                 const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
-                iframe?.contentWindow?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'renderCamera', value: val === 'orthographic' ? undefined : val }, '*');
+                const iw = iframe?.contentWindow;
+                // 즉시 레이어 적용
+                iw?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'renderCamera', value: camVal }, '*');
+                // _ov 업데이트 → 씬 리프레시 후에도 설정 유지
+                iw?.postMessage({ type: 'updateRuntimeOverride', className: selectedWindow.className, prop: 'renderCamera', value: camVal }, '*');
               }}
               style={{ fontSize: 11, background: '#333', color: '#ddd', border: '1px solid #555', padding: '2px 4px', borderRadius: 3 }}
             >

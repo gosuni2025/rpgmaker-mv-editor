@@ -331,17 +331,25 @@
     };
 
     Mode3D._positionUiPerspCamera = function(camera, w, h) {
+        var near = 0.1;
+        var far = h * 20;
         var z_cam = h; // 화면 높이 = 카메라 거리 (z=0 평면을 꽉 채움)
-        var fov = 2 * Math.atan(0.5) * 180 / Math.PI;
-        camera.fov = fov;
+        camera.fov = 2 * Math.atan(0.5) * 180 / Math.PI; // FOV ≈ 53.13°
         camera.aspect = w / h;
-        camera.near = 0.1;
-        camera.far = h * 20;
+        camera.near = near;
+        camera.far = far;
         camera.position.set(w / 2, h / 2, z_cam);
         camera.up.set(0, 1, 0);
         camera.lookAt(w / 2, h / 2, 0);
-        camera.updateProjectionMatrix();
-        // Y-flip 불필요: 카메라 중심(h/2)에서 바라보므로 Y=0→상단, Y=h→하단이 자연스럽게 성립
+        camera.updateProjectionMatrix(); // view matrix 갱신용
+
+        // Y-down perspective: ortho 카메라(top=0, bottom=h)의 Y-down 좌표계와 동일하게 맞춤
+        // tan(fov/2) = 0.5 → t = near * 0.5
+        // makePerspective에서 top < bottom으로 설정하면 m[5] < 0 (ortho와 동일한 Y-down)
+        var t = near * 0.5;
+        var lr = t * (w / h);
+        camera.projectionMatrix.makePerspective(-lr, lr, -t, t, near, far);
+        camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
     };
 
     //=========================================================================

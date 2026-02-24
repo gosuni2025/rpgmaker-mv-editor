@@ -3,15 +3,13 @@
  * @author RPG Maker MV Web Editor
  *
  * @help
- * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 배경이 부드럽게 전환됩니다.
- * PostProcess.js 이후에 로드해야 합니다.
+ * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 배경이 부드럽게 블러+페이드됩니다.
+ * RendererStrategy.render 를 후킹하여 실제 렌더 출력에 GPU 블러를 적용합니다.
  *
  * === 효과 종류 (effect) ===
  *   blur+overlay   : 가우시안 블러 + 어두운 오버레이 (기본값)
  *   blurOnly       : 블러만
- *   overlayOnly    : 선명한 배경 + 어둡게
- *   desaturate     : 채도 제거 + 약한 블러 + 어두운 오버레이
- *   frosted        : 강한 블러 + 밝은 반투명 오버레이 (iOS 스타일)
+ *   overlayOnly    : 블러 없이 어둡게만
  *
  * === 이징 (easing) ===
  *   easeOut / easeIn / easeInOut / linear
@@ -22,16 +20,14 @@
  * @option blur+overlay
  * @option blurOnly
  * @option overlayOnly
- * @option desaturate
- * @option frosted
  * @default blur+overlay
  *
  * @param blur
- * @text 블러 강도 (px)
+ * @text 블러 강도 (0-100)
  * @type number
  * @min 0
- * @max 200
- * @default 24
+ * @max 100
+ * @default 40
  *
  * @param overlayColor
  * @text 오버레이 색상 (R,G,B)
@@ -43,7 +39,7 @@
  * @type number
  * @min 0
  * @max 255
- * @default 120
+ * @default 100
  *
  * @param duration
  * @text 전환 시간 (프레임, 60fps 기준)
@@ -74,13 +70,20 @@
 
     var Cfg = {
         effect:       String(params.effect       || 'blur+overlay'),
-        blur:         Number(params.blur)         || 12,
+        blur:         Number(params.blur)         >= 0 ? Number(params.blur) : 40,
         overlayColor: String(params.overlayColor  || '0,0,0'),
-        overlayAlpha: Number(params.overlayAlpha) >= 0 ? Number(params.overlayAlpha) : 120,
+        overlayAlpha: Number(params.overlayAlpha) >= 0 ? Number(params.overlayAlpha) : 100,
         duration:     Number(params.duration)     || 20,
         easing:       String(params.easing        || 'easeOut'),
         closeAnim:    String(params.closeAnim) !== 'false'
     };
+
+    // overlayColor → [r, g, b] (0-1)
+    var _overlayRGB = (function () {
+        var parts = Cfg.overlayColor.split(',').map(function (s) { return Math.max(0, Math.min(255, Number(s) || 0)) / 255; });
+        while (parts.length < 3) parts.push(0);
+        return parts;
+    })();
 
     // ── Easing ────────────────────────────────────────────────────────────────
 
@@ -96,291 +99,347 @@
         return (EasingFn[Cfg.easing] || EasingFn.easeOut)(t);
     }
 
-    // ── Three.js Multi-pass Gaussian Blur ────────────────────────────────────
-    // PostProcess._composer.renderer (THREE.WebGLRenderer) 로 렌더링.
-    // flipY=false → readRenderTargetPixels 에서 Y flip 불필요.
-    // 3회 H+V 반복: sigma_total = sigma_per_pass * sqrt(3) → 강한 블러.
+    // ── GLSL Shaders ──────────────────────────────────────────────────────────
 
-    var _BLUR_VS = [
+    var _VS = [
         'varying vec2 vUv;',
-        'void main() {',
-        '    vUv = uv;',
-        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
-        '}'
+        'void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }'
     ].join('\n');
 
-    // 41-tap 가우시안: sigma = blurPx / 2.0, ±20 샘플
+    var _COPY_FS = [
+        'uniform sampler2D tDiffuse; varying vec2 vUv;',
+        'void main() { gl_FragColor = texture2D(tDiffuse, vUv); }'
+    ].join('\n');
+
+    // 41-tap 가우시안 블러 (±20 샘플)
     var _BLUR_H_FS = [
-        'uniform sampler2D tDiffuse;',
-        'uniform float sigma;',
-        'uniform float stepX;',
-        'varying vec2 vUv;',
+        'uniform sampler2D tDiffuse; uniform float sigma; uniform float stepX; varying vec2 vUv;',
         'void main() {',
         '    vec4 c = vec4(0.0); float t = 0.0;',
         '    for (int i = -20; i <= 20; i++) {',
-        '        float w = exp(-float(i * i) / (2.0 * sigma * sigma));',
-        '        c += texture2D(tDiffuse, vUv + vec2(float(i) * stepX, 0.0)) * w;',
-        '        t += w;',
+        '        float w = exp(-float(i*i)/(2.0*sigma*sigma));',
+        '        float u = clamp(vUv.x + float(i)*stepX, 0.0, 1.0);',
+        '        c += texture2D(tDiffuse, vec2(u, vUv.y)) * w; t += w;',
         '    }',
         '    gl_FragColor = c / t;',
         '}'
     ].join('\n');
 
     var _BLUR_V_FS = [
-        'uniform sampler2D tDiffuse;',
-        'uniform float sigma;',
-        'uniform float stepY;',
-        'varying vec2 vUv;',
+        'uniform sampler2D tDiffuse; uniform float sigma; uniform float stepY; varying vec2 vUv;',
         'void main() {',
         '    vec4 c = vec4(0.0); float t = 0.0;',
         '    for (int i = -20; i <= 20; i++) {',
-        '        float w = exp(-float(i * i) / (2.0 * sigma * sigma));',
-        '        c += texture2D(tDiffuse, vUv + vec2(0.0, float(i) * stepY)) * w;',
-        '        t += w;',
+        '        float w = exp(-float(i*i)/(2.0*sigma*sigma));',
+        '        float v = clamp(vUv.y + float(i)*stepY, 0.0, 1.0);',
+        '        c += texture2D(tDiffuse, vec2(vUv.x, v)) * w; t += w;',
         '    }',
         '    gl_FragColor = c / t;',
         '}'
     ].join('\n');
 
-    function blurBitmapThreeJS(srcBitmap, blurPx) {
-        var composer = PostProcess._composer;
-        var renderer = composer && composer.renderer;
-        if (!renderer) return null;
+    // 최종 합성: 블러 결과 + 오버레이
+    var _COMPOSITE_FS = [
+        'uniform sampler2D tDiffuse;',
+        'uniform float blurMix;',    // 0=원본, 1=완전블러
+        'uniform float overlayAlpha;', // 0-1
+        'uniform vec3 overlayColor;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 c = texture2D(tDiffuse, vUv);',
+        // blurMix: 블러 텍스처를 원본에 알파 블렌딩 (blurMix=1 이면 완전 블러)
+        // overlayAlpha: 위에 추가로 어두운 오버레이
+        '    vec3 col = c.rgb;',
+        '    col = mix(col, overlayColor, overlayAlpha);',
+        '    gl_FragColor = vec4(col, 1.0);',
+        '}'
+    ].join('\n');
 
-        var w = srcBitmap.width, h = srcBitmap.height;
+    // ── 렌더 훅 전역 상태 ────────────────────────────────────────────────────
 
-        // flipY=false: readback 시 Y flip 불필요
-        var srcTex = new THREE.CanvasTexture(srcBitmap._canvas);
-        srcTex.flipY = false;
-        srcTex.minFilter = THREE.LinearFilter;
-        srcTex.magFilter = THREE.LinearFilter;
-        srcTex.needsUpdate = true;
+    var _hookInstalled = false;
+    var _origRSRender  = null;
 
+    // 메뉴 블러 상태 (0=비활성, 1=열기 중, 2=열려있음, 3=닫기 중)
+    var _MT_phase     = 0;
+    var _MT_startTime = 0;
+    var _MT_t         = 0;   // 현재 진행 (0→1)
+    var _MT_closeCb   = null;
+
+    // Three.js 리소스
+    var _MT_captureRT = null;  // 원본 렌더 캡처
+    var _MT_blurRT1   = null;  // 소형 텍스처 A
+    var _MT_blurRT2   = null;  // 소형 텍스처 B
+    var _MT_outputRT  = null;  // 블러 결과 (원본 사이즈)
+
+    var _MT_fsq       = null;
+    var _MT_hMat      = null;
+    var _MT_vMat      = null;
+    var _MT_copyMat   = null;
+    var _MT_compMat   = null;  // composite material
+
+    // ── GPU 리소스 초기화/해제 ────────────────────────────────────────────────
+
+    function MT_initResources(renderer, w, h) {
         var rtOpts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
-        var rt1 = new THREE.WebGLRenderTarget(w, h, rtOpts);
-        var rt2 = new THREE.WebGLRenderTarget(w, h, rtOpts);
 
-        // sigma 크게 — 3회 반복이므로 sigma_total = sigma * sqrt(3)
-        var sigma = Math.max(1.0, blurPx / 2.0);
-        var PASSES = 3;
+        // 1/32 다운스케일 — 실효 블러 반경 ≈ sigma_small * sqrt(passes) * 32 전체픽셀
+        var SCALE = 32;
+        var sw = Math.max(1, Math.round(w / SCALE));
+        var sh = Math.max(1, Math.round(h / SCALE));
 
-        var fsq = new FullScreenQuad(new THREE.MeshBasicMaterial());
+        function needsNew(rt, pw, ph) { return !rt || rt.width !== pw || rt.height !== ph; }
 
-        for (var pass = 0; pass < PASSES; pass++) {
-            var inputTex = (pass === 0) ? srcTex : rt2.texture;
-
-            // H pass: input → rt1
-            var hMat = new THREE.ShaderMaterial({
-                uniforms: {
-                    tDiffuse: { value: inputTex },
-                    sigma:    { value: sigma },
-                    stepX:    { value: 1.0 / w }
-                },
-                vertexShader:   _BLUR_VS,
-                fragmentShader: _BLUR_H_FS,
-                depthTest: false, depthWrite: false
-            });
-            fsq.material = hMat;
-            renderer.setRenderTarget(rt1);
-            renderer.clear();
-            fsq.render(renderer);
-            hMat.dispose();
-
-            // V pass: rt1 → rt2
-            var vMat = new THREE.ShaderMaterial({
-                uniforms: {
-                    tDiffuse: { value: rt1.texture },
-                    sigma:    { value: sigma },
-                    stepY:    { value: 1.0 / h }
-                },
-                vertexShader:   _BLUR_VS,
-                fragmentShader: _BLUR_V_FS,
-                depthTest: false, depthWrite: false
-            });
-            fsq.material = vMat;
-            renderer.setRenderTarget(rt2);
-            renderer.clear();
-            fsq.render(renderer);
-            vMat.dispose();
+        if (needsNew(_MT_captureRT, w, h)) {
+            if (_MT_captureRT) _MT_captureRT.dispose();
+            _MT_captureRT = new THREE.WebGLRenderTarget(w, h, rtOpts);
+        }
+        if (needsNew(_MT_blurRT1, sw, sh)) {
+            if (_MT_blurRT1) _MT_blurRT1.dispose();
+            _MT_blurRT1 = new THREE.WebGLRenderTarget(sw, sh, rtOpts);
+        }
+        if (needsNew(_MT_blurRT2, sw, sh)) {
+            if (_MT_blurRT2) _MT_blurRT2.dispose();
+            _MT_blurRT2 = new THREE.WebGLRenderTarget(sw, sh, rtOpts);
+        }
+        if (needsNew(_MT_outputRT, w, h)) {
+            if (_MT_outputRT) _MT_outputRT.dispose();
+            _MT_outputRT = new THREE.WebGLRenderTarget(w, h, rtOpts);
         }
 
-        renderer.setRenderTarget(null);
+        if (!_MT_fsq) {
+            _MT_fsq = new FullScreenQuad(new THREE.MeshBasicMaterial());
+        }
 
-        // 픽셀 읽기 (rt2 → Uint8Array → Bitmap)
-        var pixels = new Uint8Array(w * h * 4);
-        renderer.readRenderTargetPixels(rt2, 0, 0, w, h, pixels);
+        var sigma = 5.0;  // 소형 텍스처에서의 sigma → full-res ≈ sigma * sqrt(passes) * SCALE
 
-        var dst = new Bitmap(w, h);
-        var imgData = dst._context.createImageData(w, h);
-        imgData.data.set(pixels);
-        dst._context.putImageData(imgData, 0, 0);
-        dst._setDirty();
-
-        rt1.dispose(); rt2.dispose();
-        srcTex.dispose(); fsq.dispose();
-
-        return dst;
+        if (!_MT_copyMat) {
+            _MT_copyMat = new THREE.ShaderMaterial({
+                uniforms: { tDiffuse: { value: null } },
+                vertexShader: _VS, fragmentShader: _COPY_FS,
+                depthTest: false, depthWrite: false
+            });
+        }
+        if (!_MT_hMat) {
+            _MT_hMat = new THREE.ShaderMaterial({
+                uniforms: { tDiffuse: { value: null }, sigma: { value: sigma }, stepX: { value: 1.0 / sw } },
+                vertexShader: _VS, fragmentShader: _BLUR_H_FS,
+                depthTest: false, depthWrite: false
+            });
+        } else {
+            _MT_hMat.uniforms.sigma.value = sigma;
+            _MT_hMat.uniforms.stepX.value = 1.0 / sw;
+        }
+        if (!_MT_vMat) {
+            _MT_vMat = new THREE.ShaderMaterial({
+                uniforms: { tDiffuse: { value: null }, sigma: { value: sigma }, stepY: { value: 1.0 / sh } },
+                vertexShader: _VS, fragmentShader: _BLUR_V_FS,
+                depthTest: false, depthWrite: false
+            });
+        } else {
+            _MT_vMat.uniforms.sigma.value = sigma;
+            _MT_vMat.uniforms.stepY.value = 1.0 / sh;
+        }
+        if (!_MT_compMat) {
+            _MT_compMat = new THREE.ShaderMaterial({
+                uniforms: {
+                    tDiffuse:     { value: null },
+                    blurMix:      { value: 0 },
+                    overlayAlpha: { value: 0 },
+                    overlayColor: { value: new THREE.Vector3(_overlayRGB[0], _overlayRGB[1], _overlayRGB[2]) }
+                },
+                vertexShader: _VS, fragmentShader: _COMPOSITE_FS,
+                depthTest: false, depthWrite: false
+            });
+        }
     }
 
-    // ── 후처리 비트맵 생성 ────────────────────────────────────────────────────
-    // blur: Three.js 렌더 패스, overlay: canvas 2D fillRect
+    // captureRT → blurRT1/2 (PASSES회 H+V) → outputRT
+    function MT_applyBlur(renderer, PASSES) {
+        var sw = _MT_blurRT1.width, sh = _MT_blurRT1.height;
 
-    function buildProcessedBitmap(rawBitmap) {
-        var w = rawBitmap.width, h = rawBitmap.height;
-        if (!w || !h) return null;
+        // 1. captureRT → blurRT1 (다운스케일)
+        _MT_copyMat.uniforms.tDiffuse.value = _MT_captureRT.texture;
+        _MT_fsq.material = _MT_copyMat;
+        renderer.setRenderTarget(_MT_blurRT1);
+        renderer.clear();
+        _MT_fsq.render(renderer);
 
-        // --- 블러 강도 결정 ---
-        var blurPx = 0;
-        switch (Cfg.effect) {
-            case 'blur+overlay': case 'blurOnly':
-                blurPx = Cfg.blur;
-                break;
-            case 'desaturate':
-                blurPx = (Cfg.blur * 0.4) | 0;
-                break;
-            case 'frosted':
-                blurPx = Math.max(Cfg.blur, 14);
-                break;
+        // 2. 소형 텍스처에서 PASSES회 H+V 블러 (ping-pong blurRT1 ↔ blurRT2)
+        for (var p = 0; p < PASSES; p++) {
+            // H: blurRT1 → blurRT2
+            _MT_hMat.uniforms.tDiffuse.value = _MT_blurRT1.texture;
+            _MT_hMat.uniforms.stepX.value = 1.0 / sw;
+            _MT_fsq.material = _MT_hMat;
+            renderer.setRenderTarget(_MT_blurRT2);
+            renderer.clear();
+            _MT_fsq.render(renderer);
+
+            // V: blurRT2 → blurRT1
+            _MT_vMat.uniforms.tDiffuse.value = _MT_blurRT2.texture;
+            _MT_vMat.uniforms.stepY.value = 1.0 / sh;
+            _MT_fsq.material = _MT_vMat;
+            renderer.setRenderTarget(_MT_blurRT1);
+            renderer.clear();
+            _MT_fsq.render(renderer);
         }
+        // 결과: blurRT1
 
-        // --- Three.js blur ---
-        var blurredBitmap = (blurPx > 0) ? blurBitmapThreeJS(rawBitmap, blurPx) : null;
-        var srcBitmap = blurredBitmap || rawBitmap;
+        // 3. blurRT1 → outputRT (업스케일)
+        _MT_copyMat.uniforms.tDiffuse.value = _MT_blurRT1.texture;
+        _MT_fsq.material = _MT_copyMat;
+        renderer.setRenderTarget(_MT_outputRT);
+        renderer.clear();
+        _MT_fsq.render(renderer);
+    }
 
-        // --- dst 에 복사 + 오버레이 ---
-        var dst = new Bitmap(w, h);
-        var ctx = dst._context;
+    // ── RendererStrategy.render 후킹 ─────────────────────────────────────────
+    // ThreeRendererStrategy.js 의 color matrix 후킹과 동일한 패턴.
+    // setRenderTarget(null) 를 가로채 → 오프스크린 RT에 렌더 → 블러+오버레이 합성 → 화면 출력.
 
-        // desaturate: CSS saturate 필터 (blur 와 달리 간단한 색상 변환이므로 canvas filter 사용)
-        if (Cfg.effect === 'desaturate') {
-            var tmp = document.createElement('canvas');
-            tmp.width = w; tmp.height = h;
-            var tctx = tmp.getContext('2d');
-            tctx.filter = 'saturate(15%)';
-            tctx.drawImage(srcBitmap._canvas, 0, 0);
-            tctx.filter = 'none';
-            ctx.drawImage(tmp, 0, 0);
-        } else {
-            ctx.drawImage(srcBitmap._canvas, 0, 0);
+    function MT_installHook() {
+        if (_hookInstalled) return;
+        _hookInstalled = true;
+
+        _origRSRender = RendererStrategy.render;
+        RendererStrategy.render = function (rendererObj, stage) {
+            // MT 비활성: 원본 렌더 그대로
+            if (_MT_phase === 0 || _MT_t <= 0) {
+                _origRSRender.call(this, rendererObj, stage);
+                return;
+            }
+
+            var renderer = rendererObj && rendererObj.renderer;
+            if (!renderer) {
+                _origRSRender.call(this, rendererObj, stage);
+                return;
+            }
+
+            var w = rendererObj._width;
+            var h = rendererObj._height;
+
+            // GPU 리소스 준비
+            MT_initResources(renderer, w, h);
+
+            // setRenderTarget(null) 인터셉트 → _MT_captureRT 로 리다이렉트
+            var origSetRT = renderer.setRenderTarget.bind(renderer);
+            renderer.setRenderTarget = function (target) {
+                origSetRT(target === null ? _MT_captureRT : target);
+            };
+
+            _origRSRender.call(this, rendererObj, stage);
+
+            renderer.setRenderTarget = origSetRT;
+            // 이제 _MT_captureRT 에 이번 프레임 전체가 렌더돼 있음
+
+            // blurPx 에 따른 블러 패스 수 (0이면 패스 없음)
+            var needBlur = (Cfg.effect !== 'overlayOnly') && (Cfg.blur > 0);
+            if (needBlur) {
+                var PASSES = Math.max(1, Math.round(Cfg.blur / 20));  // blur 20 → 1pass, 80 → 4pass
+                MT_applyBlur(renderer, PASSES);
+            }
+
+            // 합성: (블러 결과 OR 원본) + 오버레이 → 화면
+            var t = _MT_t;
+            var blurTex  = needBlur ? _MT_outputRT.texture : _MT_captureRT.texture;
+            var oa = (Cfg.effect === 'blurOnly') ? 0 : (Cfg.overlayAlpha / 255 * t);
+
+            _MT_compMat.uniforms.tDiffuse.value     = blurTex;
+            _MT_compMat.uniforms.blurMix.value      = t;
+            _MT_compMat.uniforms.overlayAlpha.value = oa;
+
+            _MT_fsq.material = _MT_compMat;
+            renderer.setRenderTarget(null);
+            renderer.render(_MT_fsq._scene, _MT_fsq._camera);
+        };
+    }
+
+    // ── 애니메이션 타이머 (requestAnimationFrame 기반) ───────────────────────
+
+    var _MT_animRafId = null;
+    var _MT_durationMs = 0;
+
+    function MT_tick() {
+        _MT_animRafId = null;
+        if (_MT_phase === 0) return;
+
+        var now = Date.now();
+        var elapsed = now - _MT_startTime;
+        var raw = Math.min(1, elapsed / Math.max(1, _MT_durationMs));
+
+        if (_MT_phase === 1) {
+            // 열기
+            _MT_t = applyEase(raw);
+            if (raw < 1) {
+                _MT_animRafId = requestAnimationFrame(MT_tick);
+            } else {
+                _MT_t = 1;
+                _MT_phase = 2;
+            }
+        } else if (_MT_phase === 3) {
+            // 닫기
+            _MT_t = applyEase(1 - raw);
+            if (raw < 1) {
+                _MT_animRafId = requestAnimationFrame(MT_tick);
+            } else {
+                _MT_t = 0;
+                _MT_phase = 0;
+                if (_MT_closeCb) { var cb = _MT_closeCb; _MT_closeCb = null; cb(); }
+            }
         }
+    }
 
-        // 오버레이 색상 (canvas 2D fillRect — filter 불필요)
-        var a = Cfg.overlayAlpha / 255;
-        switch (Cfg.effect) {
-            case 'blur+overlay': case 'overlayOnly': case 'desaturate':
-                if (a > 0) {
-                    ctx.fillStyle = 'rgba(' + Cfg.overlayColor + ',' + a.toFixed(3) + ')';
-                    ctx.fillRect(0, 0, w, h);
-                }
-                break;
-            case 'frosted':
-                ctx.fillStyle = 'rgba(255,255,255,0.15)';
-                ctx.fillRect(0, 0, w, h);
-                break;
-        }
+    function MT_startOpen(durationMs) {
+        if (_MT_animRafId) cancelAnimationFrame(_MT_animRafId);
+        _MT_durationMs = durationMs;
+        _MT_startTime  = Date.now();
+        _MT_phase      = 1;
+        _MT_t          = 0;
+        _MT_animRafId  = requestAnimationFrame(MT_tick);
+    }
 
-        dst._setDirty();
-        return dst;
+    function MT_startClose(durationMs, cb) {
+        if (_MT_phase === 0) { if (cb) cb(); return; }
+        if (_MT_animRafId) cancelAnimationFrame(_MT_animRafId);
+        _MT_durationMs = durationMs;
+        _MT_startTime  = Date.now();
+        _MT_phase      = 3;
+        _MT_closeCb    = cb || null;
+        _MT_animRafId  = requestAnimationFrame(MT_tick);
     }
 
     // ── Scene_MenuBase 오버라이드 ─────────────────────────────────────────────
-    // 주의: SceneManager.updateMain의 while 루프가 한 프레임에 최대 15회 update()를
-    // 호출하므로 프레임 카운트 방식은 animation이 즉시 완료되어버림.
-    // 반드시 Date.now() 기반 wall-clock 타이밍을 사용해야 함.
 
     var _SMB_create = Scene_MenuBase.prototype.create;
     Scene_MenuBase.prototype.create = function () {
-        // _SMB_create 내부에서 createBackground()가 호출되므로
-        // 반드시 먼저 초기화해야 함
-        this._mtDurationMs  = Cfg.duration * (1000 / 60); // 프레임 → ms 변환
-        this._mtStartTime   = null;   // 첫 _updateMT 호출 시 기록
-        this._mtClosing     = false;
-        this._mtCloseTime   = null;   // 닫기 시작 시각
-        this._mtCloseFrom   = 255;    // 닫기 시작 시점의 overlay opacity
-        this._mtDone        = false;
-        this._mtCloseCb     = null;
+        MT_installHook();
+        var durationMs = Cfg.duration * (1000 / 60);
+        MT_startOpen(durationMs);
         _SMB_create.call(this);
     };
 
-    // startFadeIn 오버라이드: MT 애니메이션이 열기를 담당하므로
-    // Scene_MenuBase 의 검은 화면 fade-in 을 1프레임으로 단축.
+    // startFadeIn: MT가 열기 애니메이션을 담당 → 검은 화면 페이드인 즉시 완료
     var _SMB_startFadeIn = Scene_MenuBase.prototype.startFadeIn;
     Scene_MenuBase.prototype.startFadeIn = function (duration, white) {
-        if (this._mtOverlay && !this._mtClosing) {
+        if (_MT_phase === 1 || _MT_phase === 2) {
             _SMB_startFadeIn.call(this, 1, white);
         } else {
             _SMB_startFadeIn.call(this, duration, white);
         }
     };
 
-    // createBackground: 원본 스프라이트(불투명) + 후처리 스프라이트(opacity 0→255)
-    Scene_MenuBase.prototype.createBackground = function () {
-        var raw = SceneManager.backgroundBitmap();
-        this._backgroundSprite = new Sprite();
-        this._backgroundSprite.bitmap = raw;
-        this.addChild(this._backgroundSprite);
-
-        if (raw && raw.width > 0) {
-            var processed = buildProcessedBitmap(raw);
-            if (processed) {
-                this._mtOverlay = new Sprite();
-                this._mtOverlay.bitmap = processed;
-                this._mtOverlay.opacity = 0;
-                this.addChild(this._mtOverlay);
-            }
-        }
-    };
-
-    var _SMB_update = Scene_MenuBase.prototype.update;
-    Scene_MenuBase.prototype.update = function () {
-        _SMB_update.call(this);
-        this._updateMT();
-    };
-
-    Scene_MenuBase.prototype._updateMT = function () {
-        var spr = this._mtOverlay;
-        if (!spr) return;
-
-        var now = Date.now();
-
-        if (!this._mtClosing) {
-            // ── 열기 애니메이션: wall-clock 기반
-            if (!this._mtStartTime) this._mtStartTime = now;
-            var t = Math.min(1, (now - this._mtStartTime) / this._mtDurationMs);
-            var newOp = Math.round(applyEase(t) * 255);
-            spr.opacity = newOp;
-        } else {
-            // ── 닫기 애니메이션: 시작 시각 기록 후 역방향
-            if (!this._mtCloseTime) {
-                this._mtCloseTime = now;
-                this._mtCloseFrom = spr.opacity;
-            }
-            var tc = Math.min(1, (now - this._mtCloseTime) / this._mtDurationMs);
-            spr.opacity = Math.round((1 - applyEase(tc)) * this._mtCloseFrom);
-            if (tc >= 1 && !this._mtDone) {
-                this._mtDone = true;
-                if (this._mtCloseCb) {
-                    var cb = this._mtCloseCb;
-                    this._mtCloseCb = null;
-                    cb();
-                }
-            }
-        }
-    };
-
     // ── SceneManager.pop 오버라이드 (닫기 애니메이션) ────────────────────────
-    // pop() 호출 시 Scene_MenuBase 계열이면 닫기 애니메이션 먼저 실행 후 실제 pop.
 
     if (Cfg.closeAnim && typeof SceneManager !== 'undefined') {
         var _pop = SceneManager.pop;
         SceneManager.pop = function () {
             var scene = this._scene;
-            if (scene instanceof Scene_MenuBase &&
-                    scene._mtDurationMs > 0 && !scene._mtClosing) {
-                scene._active    = false;   // 입력 비활성화 (씬은 계속 update)
-                scene._mtClosing = true;
+            if (scene instanceof Scene_MenuBase && _MT_phase !== 3) {
+                scene._active = false;
                 var mgr = this;
-                scene._mtCloseCb = function () { _pop.call(mgr); };
+                MT_startClose(Cfg.duration * (1000 / 60), function () {
+                    _pop.call(mgr);
+                });
             } else {
                 _pop.call(this);
             }

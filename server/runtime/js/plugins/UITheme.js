@@ -434,8 +434,9 @@
    * layer=0: OrthographicCamera(기본 UI), layer=1: UI PerspectiveCamera(3D 회전 효과)
    */
   function _setWindowLayer(win, layer) {
-    if (!win || !win._threeObj || !win._threeObj.traverse) return;
-    win._threeObj.traverse(function(child) { child.layers.set(layer); });
+    if (win && win._threeObj && win._threeObj.traverse) {
+      win._threeObj.traverse(function(child) { child.layers.set(layer); });
+    }
   }
   window._uiSetWindowLayer = _setWindowLayer;
 
