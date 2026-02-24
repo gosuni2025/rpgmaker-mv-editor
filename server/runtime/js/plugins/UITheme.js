@@ -859,15 +859,35 @@
   /** 등장 애니메이션 시작 — applyLayout 후 호출 */
   function startEntranceAnimation(win, entrances, className) {
     if (!entrances || entrances.length === 0) return;
+
+    // zoom / bounce / rotate 효과가 있으면 창 중심 pivot 설정
+    var needPivot = entrances.some(function (e) {
+      return e.type === 'zoom' || e.type === 'rotate' || e.type === 'bounce';
+    });
+    var pivotX = 0, pivotY = 0;
+    var originalX = win.x, originalY = win.y;
+    if (needPivot && win.pivot) {
+      pivotX = Math.floor((win.width || 0) / 2);
+      pivotY = Math.floor((win.height || 0) / 2);
+      win.pivot.x = pivotX;
+      win.pivot.y = pivotY;
+      // pivot 변경 시 화면 위치 보정
+      win.x = originalX + pivotX;
+      win.y = originalY + pivotY;
+    }
+
     win._uiEntrance = {
       effects: entrances,
       elapsed: 0,
-      baseX: win.x,
+      screenX: originalX,          // 원래 화면 좌표 (slide 기준)
+      screenY: originalY,
+      baseX: win.x,                // pivot 보정 후 x
       baseY: win.y,
-      baseOpacity: win.opacity,
+      baseAlpha: win.alpha !== undefined ? win.alpha : 1,
+      pivotX: pivotX,
+      pivotY: pivotY,
       className: className,
     };
-    // 초기 상태 적용 (딜레이 0인 효과 기준)
     _applyEntranceFrame(win, 0);
   }
 
@@ -877,7 +897,8 @@
     if (!state) return;
 
     var effects = state.effects;
-    var totalX = state.baseX, totalY = state.baseY;
+    // slide 계산은 pivot 보정 전 화면 좌표 기준
+    var totalX = state.screenX, totalY = state.screenY;
     var totalAlpha = 1;
     var totalScaleX = 1, totalScaleY = 1;
     var totalRotation = 0;
@@ -888,82 +909,52 @@
       var eff = effects[i];
       var delay = eff.delay || 0;
       var localElapsed = elapsed - delay;
-      if (localElapsed <= 0) {
-        // 아직 딜레이 중 — 효과 초기 상태
-        var t0 = 0;
-        var p0 = uiEase(0, eff.easing);
-        if (eff.type === 'fade') {
-          totalAlpha *= p0;
-        } else if (eff.type === 'slideLeft') {
-          var dist0 = (state.baseX + (win.width || 0));
-          totalX += -(1 - p0) * dist0;
-        } else if (eff.type === 'slideRight') {
-          var dist0 = (sw - state.baseX);
-          totalX += (1 - p0) * dist0;
-        } else if (eff.type === 'slideTop') {
-          var dist0 = (state.baseY + (win.height || 0));
-          totalY += -(1 - p0) * dist0;
-        } else if (eff.type === 'slideBottom') {
-          var dist0 = (sh - state.baseY);
-          totalY += (1 - p0) * dist0;
-        } else if (eff.type === 'zoom' || eff.type === 'bounce') {
-          var from0 = (eff.fromScale !== undefined ? eff.fromScale : 0);
-          var s0 = from0 + p0 * (1 - from0);
-          totalScaleX *= s0; totalScaleY *= s0;
-        } else if (eff.type === 'rotate') {
-          totalRotation += (eff.fromAngle !== undefined ? eff.fromAngle : 180) * (1 - p0) * Math.PI / 180;
-        }
-        continue;
-      }
-      var raw = Math.min(localElapsed / eff.duration, 1);
-      var p = uiEase(raw, eff.easing);
+      var p = localElapsed <= 0 ? 0 : uiEase(Math.min(localElapsed / eff.duration, 1), eff.easing);
 
       switch (eff.type) {
         case 'fade':
           totalAlpha *= p;
           break;
         case 'slideLeft':
-          var dist = (state.baseX + (win.width || 0));
-          totalX += -(1 - p) * dist;
+          totalX += -(1 - p) * (state.screenX + (win.width || 0));
           break;
         case 'slideRight':
-          dist = (sw - state.baseX);
-          totalX += (1 - p) * dist;
+          totalX += (1 - p) * (sw - state.screenX);
           break;
         case 'slideTop':
-          dist = (state.baseY + (win.height || 0));
-          totalY += -(1 - p) * dist;
+          totalY += -(1 - p) * (state.screenY + (win.height || 0));
           break;
         case 'slideBottom':
-          dist = (sh - state.baseY);
-          totalY += (1 - p) * dist;
+          totalY += (1 - p) * (sh - state.screenY);
           break;
         case 'zoom':
-        case 'bounce':
+        case 'bounce': {
           var from = (eff.fromScale !== undefined ? eff.fromScale : 0);
           var s = from + p * (1 - from);
           totalScaleX *= s; totalScaleY *= s;
           break;
-        case 'rotate':
+        }
+        case 'rotate': {
           var angle = (eff.fromAngle !== undefined ? eff.fromAngle : 180);
           totalRotation += angle * (1 - p) * Math.PI / 180;
           break;
+        }
       }
     }
 
-    win.x = Math.round(totalX);
-    win.y = Math.round(totalY);
-    win.opacity = Math.round(state.baseOpacity * totalAlpha);
+    // 전체 alpha — win.alpha로 컨텐츠 포함 모든 자식에 적용
+    win.alpha = state.baseAlpha * totalAlpha;
+    // 위치: pivot 보정 복원
+    win.x = Math.round(totalX) + state.pivotX;
+    win.y = Math.round(totalY) + state.pivotY;
     if (win.scale) { win.scale.x = totalScaleX; win.scale.y = totalScaleY; }
     win.rotation = totalRotation;
   }
 
   /** 등장 애니메이션이 완전히 끝났는지 확인 */
-  function _isEntranceDone(win, elapsed) {
-    var effects = win._uiEntrance.effects;
+  function _isEntranceDone(elapsed, effects) {
     for (var i = 0; i < effects.length; i++) {
-      var eff = effects[i];
-      if (elapsed < (eff.delay || 0) + eff.duration) return false;
+      if (elapsed < (effects[i].delay || 0) + effects[i].duration) return false;
     }
     return true;
   }
@@ -973,17 +964,24 @@
   Window_Base.prototype.update = function () {
     _WB_update.call(this);
     if (!this._uiEntrance) return;
-    this._uiEntrance.elapsed += 1000 / 60;
-    if (_isEntranceDone(this, this._uiEntrance.elapsed)) {
-      // 최종값으로 정리
-      this.x = this._uiEntrance.baseX;
-      this.y = this._uiEntrance.baseY;
-      this.opacity = this._uiEntrance.baseOpacity;
+    var state = this._uiEntrance;
+    state.elapsed += 1000 / 60;
+    if (_isEntranceDone(state.elapsed, state.effects)) {
+      // 최종값으로 정리 + pivot 복원
+      if (this.pivot && state.pivotX) {
+        this.pivot.x = 0; this.pivot.y = 0;
+        this.x = state.screenX;
+        this.y = state.screenY;
+      } else {
+        this.x = state.baseX;
+        this.y = state.baseY;
+      }
+      this.alpha = state.baseAlpha;
       if (this.scale) { this.scale.x = 1; this.scale.y = 1; }
       this.rotation = 0;
       this._uiEntrance = null;
     } else {
-      _applyEntranceFrame(this, this._uiEntrance.elapsed);
+      _applyEntranceFrame(this, state.elapsed);
     }
   };
 
