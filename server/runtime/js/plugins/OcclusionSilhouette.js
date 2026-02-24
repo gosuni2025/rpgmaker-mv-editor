@@ -70,6 +70,10 @@
 (function() {
     'use strict';
 
+    // Three.js 없는 환경(PIXI 런타임)에서는 로드 스킵
+    if (typeof THREE === 'undefined') return;
+
+
     // 플러그인 파라미터 읽기
     var parameters = PluginManager.parameters('OcclusionSilhouette');
 
