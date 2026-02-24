@@ -38,10 +38,13 @@ export interface UIWindowInfo {
   originalHeight?: number;
 }
 
+export type ImageRenderMode = 'center' | 'stretch' | 'tile' | 'fit' | 'cover';
+
 export interface UIWindowOverride {
   className: string;
   windowStyle?: 'default' | 'frame' | 'image';
   skinId?: string;
+  imageRenderMode?: ImageRenderMode;
   x?: number;
   y?: number;
   width?: number;

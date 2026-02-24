@@ -294,12 +294,19 @@ function buildPreviewHTML(useWebp: boolean): string {
               break;
             case 'windowskinName':
               if (typeof ImageManager !== 'undefined' && value) {
+                // _ov 업데이트 (UITheme.js의 image 모드 렌더링에 필요)
+                if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'windowskinName', value);
                 var newSkin = ImageManager.loadSystem(value);
+                win._themeSkin = newSkin;
                 newSkin.addLoadListener(function() {
                   win.windowskin = newSkin;
                   if (win._refreshAllParts) win._refreshAllParts();
                 });
               }
+              break;
+            case 'imageRenderMode':
+              if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'imageRenderMode', value);
+              if (win._refreshAllParts) win._refreshAllParts();
               break;
           }
         } catch (e) {

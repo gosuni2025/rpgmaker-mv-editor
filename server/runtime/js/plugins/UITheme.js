@@ -124,10 +124,71 @@
   }
 
   //===========================================================================
+  // 이미지 모드 — 렌더링 방식별 blt 헬퍼
+  //===========================================================================
+  function drawImageMode(bitmap, src, mode, w, h) {
+    var iw = src.width, ih = src.height;
+    if (iw <= 0 || ih <= 0) return;
+    if (mode === 'stretch') {
+      // 늘림: 이미지를 창 크기로 강제 늘림
+      bitmap.blt(src, 0, 0, iw, ih, 0, 0, w, h);
+    } else if (mode === 'tile') {
+      // 타일 반복: 이미지를 패턴처럼 반복
+      for (var ty = 0; ty < h; ty += ih) {
+        for (var tx = 0; tx < w; tx += iw) {
+          var tw = Math.min(iw, w - tx);
+          var th = Math.min(ih, h - ty);
+          bitmap.blt(src, 0, 0, tw, th, tx, ty, tw, th);
+        }
+      }
+    } else if (mode === 'fit') {
+      // 비율 맞춤: 비율 유지하며 창 안에 맞춤 (빈 가장자리 생길 수 있음)
+      var fitScale = Math.min(w / iw, h / ih);
+      var fitW = Math.floor(iw * fitScale), fitH = Math.floor(ih * fitScale);
+      var fitX = Math.floor((w - fitW) / 2), fitY = Math.floor((h - fitH) / 2);
+      bitmap.blt(src, 0, 0, iw, ih, fitX, fitY, fitW, fitH);
+    } else if (mode === 'cover') {
+      // 비율 채움: 비율 유지하며 꽉 채움 (가장자리 잘릴 수 있음)
+      var covScale = Math.max(w / iw, h / ih);
+      var covSW = Math.floor(w / covScale), covSH = Math.floor(h / covScale);
+      var covSX = Math.floor((iw - covSW) / 2), covSY = Math.floor((ih - covSH) / 2);
+      bitmap.blt(src, covSX, covSY, covSW, covSH, 0, 0, w, h);
+    } else {
+      // center (기본): 원본 크기로 중앙 배치, 창 밖 영역 클리핑
+      var ox = Math.floor((w - iw) / 2), oy = Math.floor((h - ih) / 2);
+      var sx = 0, sy = 0, sw = iw, sh = ih;
+      var dx = ox, dy = oy, dw = iw, dh = ih;
+      if (dx < 0) { sx -= dx; sw += dx; dw += dx; dx = 0; }
+      if (dy < 0) { sy -= dy; sh += dy; dh += dy; dy = 0; }
+      if (dx + dw > w) { sw -= (dx + dw - w); dw = w - dx; }
+      if (dy + dh > h) { sh -= (dy + dh - h); dh = h - dy; }
+      if (sw > 0 && sh > 0 && dw > 0 && dh > 0) bitmap.blt(src, sx, sy, sw, sh, dx, dy, dw, dh);
+    }
+  }
+
+  //===========================================================================
   // Window — fill 영역 커스터마이징 (_refreshBack 오버라이드)
   //===========================================================================
   var _Window_refreshBack = Window.prototype._refreshBack;
   Window.prototype._refreshBack = function () {
+    var className = this.constructor && this.constructor.name;
+    var ov = (_config.overrides || {})[className];
+    // 이미지 모드 처리
+    if (ov && ov.windowStyle === 'image' && this._themeSkin) {
+      var src = this._themeSkin;
+      if (!src.isReady()) { src.addLoadListener(this._refreshAllParts.bind(this)); return; }
+      var m = this._margin;
+      var w = this._width - m * 2, h = this._height - m * 2;
+      if (w <= 0 || h <= 0) return;
+      var bitmap = new Bitmap(w, h);
+      this._windowBackSprite.bitmap = bitmap;
+      this._windowBackSprite.setFrame(0, 0, w, h);
+      this._windowBackSprite.move(m, m);
+      drawImageMode(bitmap, src, ov.imageRenderMode || 'center', w, h);
+      var tone = this._colorTone;
+      if (tone) bitmap.adjustTone(tone[0], tone[1], tone[2]);
+      return;
+    }
     var entry = getThemeSkinEntry(this);
     // 스킨 항목이 없으면 원본 호출
     if (!entry) {
@@ -155,6 +216,17 @@
   //===========================================================================
   var _Window_refreshFrame = Window.prototype._refreshFrame;
   Window.prototype._refreshFrame = function () {
+    var className = this.constructor && this.constructor.name;
+    var ov = (_config.overrides || {})[className];
+    // 이미지 모드: 프레임 그리지 않음 (빈 비트맵)
+    if (ov && ov.windowStyle === 'image') {
+      var w = this._width, h = this._height;
+      if (w > 0 && h > 0) {
+        this._windowFrameSprite.bitmap = new Bitmap(w, h);
+        this._windowFrameSprite.setFrame(0, 0, w, h);
+      }
+      return;
+    }
     var entry = getThemeSkinEntry(this);
     // 스킨 항목이 없으면 원본 호출
     if (!entry) {
