@@ -112,6 +112,12 @@ function handleImageChanged(basename: string, folder: string) {
     }
   }
 
+  // UI 에디터 iframe에도 알림 (img/system/ 변경 → windowskin 재로드)
+  if (folder === 'system') {
+    const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+    iframe?.contentWindow?.postMessage({ type: 'reloadWindowskin', filename: basename }, '*');
+  }
+
   if (!store.webpConverting) {
     showToast(`이미지 갱신됨: ${folder}/${basename}`, true);
   }

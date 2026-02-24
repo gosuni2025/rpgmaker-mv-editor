@@ -399,6 +399,44 @@ function buildPreviewHTML(useWebp: boolean): string {
           case 'refreshScene':
             loadScene(_targetScene);
             break;
+          case 'reloadWindowskin': {
+            if (typeof ImageManager === 'undefined' || typeof SceneManager === 'undefined') break;
+            var fname = data.filename;
+            // 1. ImageManager 캐시에서 해당 항목 제거
+            var cache = ImageManager._imageCache;
+            if (cache && cache._items) {
+              Object.keys(cache._items).forEach(function(key) {
+                if (key.indexOf('img/system/' + fname) !== -1 ||
+                    key.indexOf('img/system/' + encodeURIComponent(fname)) !== -1) {
+                  delete cache._items[key];
+                }
+              });
+            }
+            // 2. 캐시 버스팅 URL로 새 Bitmap 강제 로드
+            var reloadBitmap = Bitmap.load('img/system/' + fname + '.png?_t=' + Date.now());
+            reloadBitmap.addLoadListener(function() {
+              // 3. 씬의 모든 Window 중 해당 windowskin을 사용하는 것을 교체 + refresh
+              var scene = SceneManager._scene;
+              if (!scene) return;
+              function refreshWindows(container) {
+                if (!container || !container.children) return;
+                for (var i = 0; i < container.children.length; i++) {
+                  var child = container.children[i];
+                  if (!child) continue;
+                  if (child.constructor && child.constructor.name &&
+                      child.constructor.name.startsWith('Window_') &&
+                      child.windowskin && typeof child.windowskin._url === 'string' &&
+                      child.windowskin._url.indexOf('img/system/' + fname) !== -1) {
+                    child.windowskin = reloadBitmap;
+                    if (child._refreshAllParts) child._refreshAllParts();
+                  }
+                  refreshWindows(child);
+                }
+              }
+              refreshWindows(scene);
+            });
+            break;
+          }
         }
       });
 
