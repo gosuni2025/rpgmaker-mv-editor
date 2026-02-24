@@ -298,17 +298,28 @@ ThreeContainer.prototype.swapChildren = function(child1, child2) {
  */
 ThreeContainer.prototype.syncTransform = function() {
     var obj = this._threeObj;
-    // Position: x, y in screen coords; z for draw order
-    obj.position.x = this._x - this._pivotX;
-    obj.position.y = this._y - this._pivotY;
+    // Rotation (around Z axis for 2D)
+    var r = this._rotation;
+    obj.rotation.z = -r; // negate because Three.js Z rotation is CCW, PIXI is CW
+
+    // Position: PIXI pivot semantics — x/y is world position of pivot point.
+    // Three.js Group rotates around its own local (0,0), so we must offset the
+    // group position to make local(pivotX, pivotY) land at world(x, y) after rotation.
+    // Formula: pos = (x - px*cos(r) - py*sin(r), y + px*sin(r) - py*cos(r))
+    var px = this._pivotX, py = this._pivotY;
+    if (px !== 0 || py !== 0) {
+        var c = Math.cos(r), s = Math.sin(r);
+        obj.position.x = this._x - px * c - py * s;
+        obj.position.y = this._y + px * s - py * c;
+    } else {
+        obj.position.x = this._x;
+        obj.position.y = this._y;
+    }
     obj.position.z = this._zIndex;
 
     // Scale
     obj.scale.x = this._scaleX;
     obj.scale.y = this._scaleY;
-
-    // Rotation (around Z axis for 2D)
-    obj.rotation.z = -this._rotation; // negate because Three.js Z rotation is CCW, PIXI is CW
 
     // Visibility
     obj.visible = this._visible;
