@@ -443,6 +443,10 @@ export default function EventCommandEditor({ commands, onChange, context, onWayp
             const startX = currentEvent?.x ?? 0;
             const startY = currentEvent?.y ?? 0;
             const editingIdx = showMoveRoute.editing;
+            // 새 커맨드 삽입 위치 (onWaypointModeStart로 컴포넌트가 언마운트된 후에도 사용)
+            const capturedInsertAt = primaryIndex >= 0 ? primaryIndex : commands.length - 1;
+            const capturedEventId = context?.eventId;
+            const capturedPageIndex = context?.pageIndex ?? 0;
             const session: WaypointSession = {
               eventId: context?.eventId ?? 0,
               routeKey: editingIdx !== undefined ? `cmd_p${context?.pageIndex ?? 0}_c${editingIdx}` : 'cmd_new',
@@ -473,11 +477,33 @@ export default function EventCommandEditor({ commands, onChange, context, onWayp
                   skippable: false,
                   wait: true,
                 };
-                // waypointConfirmRef.current를 사용하여 항상 최신 함수 호출 (stale closure 방지)
-                if (editingIdx !== undefined) {
-                  waypointConfirmRef.current?.updateCommandParams(editingIdx, [charId, route]);
+                if (capturedEventId != null) {
+                  // 맵 이벤트: onWaypointModeStart로 컴포넌트가 언마운트되므로 직접 스토어 업데이트
+                  const st = useEditorStore.getState();
+                  if (!st.currentMap) return;
+                  const evs = [...(st.currentMap.events || [])];
+                  const evIdx = evs.findIndex(e => e && e.id === capturedEventId);
+                  if (evIdx >= 0 && evs[evIdx]) {
+                    const evCopy = { ...evs[evIdx]! };
+                    const pagesCopy = [...evCopy.pages];
+                    const listCopy = [...(pagesCopy[capturedPageIndex]?.list || [])];
+                    if (editingIdx !== undefined) {
+                      listCopy[editingIdx] = { ...listCopy[editingIdx], parameters: [charId, route] };
+                    } else {
+                      listCopy.splice(capturedInsertAt, 0, { code: 205, indent: 0, parameters: [charId, route] });
+                    }
+                    pagesCopy[capturedPageIndex] = { ...pagesCopy[capturedPageIndex], list: listCopy };
+                    evCopy.pages = pagesCopy;
+                    evs[evIdx] = evCopy;
+                    useEditorStore.setState({ currentMap: { ...st.currentMap, events: evs } as any });
+                  }
                 } else {
-                  waypointConfirmRef.current?.insertCommandWithParams(205, [charId, route]);
+                  // 커먼 이벤트 등: 컴포넌트가 마운트 상태이므로 ref 경유
+                  if (editingIdx !== undefined) {
+                    waypointConfirmRef.current?.updateCommandParams(editingIdx, [charId, route]);
+                  } else {
+                    waypointConfirmRef.current?.insertCommandWithParams(205, [charId, route]);
+                  }
                 }
               },
             };
