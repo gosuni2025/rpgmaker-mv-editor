@@ -2334,21 +2334,34 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
 
     Sprite_Picture.prototype.updatePictureTransform = function() {
         var picture = this.picture();
-        if (!picture || !this._pictureName) return;
+        if (!picture || !this._pictureName) {
+            // 그림 없음: 3D rotation 잔류값 초기화
+            if (this._threeObj) {
+                this._threeObj.rotation.x = 0;
+                this._threeObj.rotation.y = 0;
+            }
+            return;
+        }
         var t = picture.transform();
-        if (!t) return;
+        if (!t) {
+            if (this._threeObj) {
+                this._threeObj.rotation.x = 0;
+                this._threeObj.rotation.y = 0;
+            }
+            return;
+        }
 
         // 좌우/상하 반전: scale 부호 반전
         if (t.flipH) this.scale.x = -Math.abs(this.scale.x);
         if (t.flipV) this.scale.y = -Math.abs(this.scale.y);
 
-        // Z축 고정 회전 (this.rotation은 updateOther에서 angle 기준으로 설정된 값에 추가)
-        if (t.rotZ) this.rotation += t.rotZ * Math.PI / 180;
+        // Z축 고정 회전: updateOther의 angle() 기반 값에 고정 오프셋 더함 (매 프레임 += 아님)
+        if (t.rotZ) this.rotation = picture.angle() * Math.PI / 180 + t.rotZ * Math.PI / 180;
 
-        // X/Y축 회전: Three.js 3D 모드 전용 (_threeObj에 직접 적용)
+        // X/Y축 회전: Three.js 3D 모드 전용
         if (this._threeObj) {
-            if (t.rotX) this._threeObj.rotation.x = t.rotX * Math.PI / 180;
-            if (t.rotY) this._threeObj.rotation.y = t.rotY * Math.PI / 180;
+            this._threeObj.rotation.x = t.rotX ? t.rotX * Math.PI / 180 : 0;
+            this._threeObj.rotation.y = t.rotY ? t.rotY * Math.PI / 180 : 0;
         }
     };
 
