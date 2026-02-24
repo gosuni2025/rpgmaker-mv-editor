@@ -2155,8 +2155,8 @@ PostProcess._createComposer = function(rendererObj, stage) {
     this._lastStage = stage;
     this._composerMode = '3d';
 
-    // composer 재생성 후 맵별 설정 재적용
-    this._applyMapSettings();
+    // composer 재생성 후 맵별 설정 재적용 (이벤트 override 유지)
+    this._applyMapSettings({ keepOverrides: true });
 };
 
 PostProcess._createComposer2D = function(rendererObj, stage) {
@@ -2204,8 +2204,8 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
     this._lastStage = stage;
     this._composerMode = '2d';
 
-    // composer 재생성 후 맵별 설정 재적용
-    this._applyMapSettings();
+    // composer 재생성 후 맵별 설정 재적용 (이벤트 override 유지)
+    this._applyMapSettings({ keepOverrides: true });
 };
 
 // PostProcessEffects 패스 일괄 생성 헬퍼
@@ -2653,8 +2653,43 @@ if (typeof Scene_Map !== 'undefined') {
     };
 }
 
-PostProcess._applyMapSettings = function() {
+// 이벤트 커맨드로 변경된 PP 이펙트 활성/비활성 상태를 저장
+// Mode3D의 $gameSystem._mode3dOverride 패턴과 동일
+PostProcess._saveEventOverride = function(effectKey, enabled) {
+    if (typeof $gameSystem !== 'undefined' && $gameSystem) {
+        if (!$gameSystem._ppEventOverrides) $gameSystem._ppEventOverrides = {};
+        $gameSystem._ppEventOverrides[effectKey] = { enabled: enabled };
+    }
+};
+
+// 저장된 이벤트 override를 현재 패스에 재적용
+PostProcess._reapplyEventOverrides = function() {
+    if (typeof $gameSystem === 'undefined' || !$gameSystem) return;
+    if (!$gameSystem._ppEventOverrides) return;
+    var overrides = $gameSystem._ppEventOverrides;
+    var passes = this._ppPasses;
+    if (!passes) return;
+    var changed = false;
+    Object.keys(overrides).forEach(function(key) {
+        var ov = overrides[key];
+        if (passes[key] && ov.enabled !== undefined) {
+            passes[key].enabled = ov.enabled;
+            changed = true;
+        }
+    });
+    if (changed) PostProcess._updateRenderToScreen();
+};
+
+// opts.keepOverrides = true → 맵 설정 적용 후 이벤트 override 재적용 (composer 재생성 시)
+// opts.keepOverrides 없음   → 맵 이동 시: override 초기화 후 맵 설정만 적용
+PostProcess._applyMapSettings = function(opts) {
     if (!$dataMap) return;
+    var keepOverrides = opts && opts.keepOverrides;
+
+    // 맵 이동 시 이벤트 override 초기화
+    if (!keepOverrides && typeof $gameSystem !== 'undefined' && $gameSystem) {
+        $gameSystem._ppEventOverrides = {};
+    }
 
     // bloomConfig 적용
     var bc = $dataMap.bloomConfig;
@@ -2700,6 +2735,11 @@ PostProcess._applyMapSettings = function() {
     } else {
         // 모든 PP 패스 비활성화
         this.applyPostProcessConfig({});
+    }
+
+    // composer 재생성 시: 이벤트 override 재적용
+    if (keepOverrides) {
+        this._reapplyEventOverrides();
     }
 };
 
@@ -2908,6 +2948,7 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                     pass.enabled = true;
                     PostProcess._updateRenderToScreen();
                 }
+                PostProcess._saveEventOverride(effectKey, true);
             } else if (action === 'off') {
                 var _fadeInfoOff = _smoothFadeMap[effectKey];
                 var _offDur = args[2] ? parseFloat(args[2]) : 0;
@@ -2924,6 +2965,7 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                     pass.enabled = false;
                     PostProcess._updateRenderToScreen();
                 }
+                PostProcess._saveEventOverride(effectKey, false);
             } else if (action === 'applyOverUI' && args[2] != null) {
                 pass._applyOverUI = (args[2] === 'true' || args[2] === '1');
                 PostProcess._rebuildPassOrder();
@@ -2978,9 +3020,11 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 var dur = args[1] ? parseFloat(args[1]) : 0;
                 anaPass.uniforms.uBlend.value = 0; anaPass.enabled = true;
                 PostProcess._updateRenderToScreen(); _anaBlendTween(1, dur, null);
+                PostProcess._saveEventOverride('anaglyph', true);
             } else if (sub === 'off') {
                 var dur = args[1] ? parseFloat(args[1]) : 0;
                 _anaBlendTween(0, dur, function() { anaPass.enabled = false; PostProcess._updateRenderToScreen(); });
+                PostProcess._saveEventOverride('anaglyph', false);
             } else if (sub === 'separation') {
                 var val = args[1] ? parseFloat(args[1]) : 0.005, dur = args[2] ? parseFloat(args[2]) : 0;
                 if (dur > 0 && window.PluginTween) {
@@ -3016,9 +3060,11 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 var dur = args[1] ? parseFloat(args[1]) : 0;
                 hhPass.uniforms.uStrength.value = 0; hhPass.enabled = true;
                 PostProcess._updateRenderToScreen(); _hhTween('uStrength', 1, dur, null);
+                PostProcess._saveEventOverride('heatHaze', true);
             } else if (sub === 'off') {
                 var dur = args[1] ? parseFloat(args[1]) : 0;
                 _hhTween('uStrength', 0, dur, function() { hhPass.enabled = false; PostProcess._updateRenderToScreen(); });
+                PostProcess._saveEventOverride('heatHaze', false);
             } else if (sub === 'amplitude') {
                 _hhTween('uAmplitude', args[1] ? parseFloat(args[1]) : 0.003, args[2] ? parseFloat(args[2]) : 0, null);
             } else if (sub === 'speed') {
@@ -3046,9 +3092,11 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 var intensity = args[1] ? parseFloat(args[1]) : 0.4, dur = args[2] ? parseFloat(args[2]) : 1;
                 scanPass.uniforms.uIntensity.value = 0; scanPass.enabled = true;
                 PostProcess._updateRenderToScreen(); _scanTween('uIntensity', intensity, dur, null);
+                PostProcess._saveEventOverride('scanlines', true);
             } else if (sub === 'off') {
                 var dur = args[1] ? parseFloat(args[1]) : 1;
                 _scanTween('uIntensity', 0, dur, function() { scanPass.enabled = false; PostProcess._updateRenderToScreen(); });
+                PostProcess._saveEventOverride('scanlines', false);
             } else if (sub === 'intensity') {
                 _scanTween('uIntensity', args[1] ? parseFloat(args[1]) : 0.4, args[2] ? parseFloat(args[2]) : 0, null);
             } else if (sub === 'density') {
@@ -3078,9 +3126,11 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 var steps = args[1] ? parseFloat(args[1]) : 8, dur = args[2] ? parseFloat(args[2]) : 1;
                 postPass.uniforms.uSteps.value = steps; postPass.uniforms.uBlend.value = 0;
                 postPass.enabled = true; PostProcess._updateRenderToScreen(); _postBlendTween(1, dur, null);
+                PostProcess._saveEventOverride('posterize', true);
             } else if (sub === 'off') {
                 var dur = args[1] ? parseFloat(args[1]) : 1;
                 _postBlendTween(0, dur, function() { postPass.enabled = false; PostProcess._updateRenderToScreen(); });
+                PostProcess._saveEventOverride('posterize', false);
             } else if (sub === 'steps') {
                 var val = args[1] ? parseFloat(args[1]) : 8, dur = args[2] ? parseFloat(args[2]) : 0;
                 if (dur > 0 && window.PluginTween) {
@@ -3113,9 +3163,11 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 var curv = args[1] ? parseFloat(args[1]) : 0.08, dur = args[2] ? parseFloat(args[2]) : 1;
                 barrelPass.uniforms.uCurvature.value = 0; barrelPass.enabled = true;
                 PostProcess._updateRenderToScreen(); _barrelTween(curv, dur, null);
+                PostProcess._saveEventOverride('barrelDistort', true);
             } else if (sub === 'off') {
                 var dur = args[1] ? parseFloat(args[1]) : 1;
                 _barrelTween(0, dur, function() { barrelPass.enabled = false; PostProcess._updateRenderToScreen(); });
+                PostProcess._saveEventOverride('barrelDistort', false);
             } else if (sub === 'curvature') {
                 _barrelTween(args[1] ? parseFloat(args[1]) : 0.08, args[2] ? parseFloat(args[2]) : 0, null);
             } else if (sub === 'applyOverUI') {
@@ -3134,8 +3186,10 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 if (args[1] != null) phosphorPass.uniforms.uType.value     = parseFloat(args[1]);
                 if (args[2] != null) phosphorPass.uniforms.uStrength.value = parseFloat(args[2]);
                 phosphorPass.enabled = true; PostProcess._updateRenderToScreen();
+                PostProcess._saveEventOverride('crtPhosphor', true);
             } else if (sub === 'off') {
                 phosphorPass.enabled = false; PostProcess._updateRenderToScreen();
+                PostProcess._saveEventOverride('crtPhosphor', false);
             } else if (sub === 'strength') {
                 if (args[1] != null) phosphorPass.uniforms.uStrength.value = parseFloat(args[1]);
             } else if (sub === 'type') {
@@ -3154,8 +3208,10 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
             if (sub === 'on') {
                 if (args[1] != null) glarePass.uniforms.uIntensity.value = parseFloat(args[1]);
                 glarePass.enabled = true; PostProcess._updateRenderToScreen();
+                PostProcess._saveEventOverride('crtGlare', true);
             } else if (sub === 'off') {
                 glarePass.enabled = false; PostProcess._updateRenderToScreen();
+                PostProcess._saveEventOverride('crtGlare', false);
             } else if (sub === 'intensity') {
                 if (args[1] != null) glarePass.uniforms.uIntensity.value = parseFloat(args[1]);
             } else if (sub === 'posX') {
@@ -3174,8 +3230,10 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
             if (sub === 'on') {
                 if (args[1] != null) glowPass.uniforms.uIntensity.value = parseFloat(args[1]);
                 glowPass.enabled = true; PostProcess._updateRenderToScreen();
+                PostProcess._saveEventOverride('crtGlow', true);
             } else if (sub === 'off') {
                 glowPass.enabled = false; PostProcess._updateRenderToScreen();
+                PostProcess._saveEventOverride('crtGlow', false);
             } else if (sub === 'intensity') {
                 if (args[1] != null) glowPass.uniforms.uIntensity.value = parseFloat(args[1]);
             } else if (sub === 'threshold') {
@@ -3193,8 +3251,10 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 if (args[1] != null) noisePass.uniforms.uJitter.value = parseFloat(args[1]);
                 if (args[2] != null) noisePass.uniforms.uNoise.value  = parseFloat(args[2]);
                 noisePass.enabled = true; PostProcess._updateRenderToScreen();
+                PostProcess._saveEventOverride('crtNoise', true);
             } else if (sub === 'off') {
                 noisePass.enabled = false; PostProcess._updateRenderToScreen();
+                PostProcess._saveEventOverride('crtNoise', false);
             } else if (sub === 'jitter') {
                 if (args[1] != null) noisePass.uniforms.uJitter.value = parseFloat(args[1]);
             } else if (sub === 'noise') {
@@ -3211,8 +3271,10 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
             if (sub === 'on') {
                 if (args[1] != null) cornerPass.uniforms.uRadius.value = parseFloat(args[1]);
                 cornerPass.enabled = true; PostProcess._updateRenderToScreen();
+                PostProcess._saveEventOverride('crtCorner', true);
             } else if (sub === 'off') {
                 cornerPass.enabled = false; PostProcess._updateRenderToScreen();
+                PostProcess._saveEventOverride('crtCorner', false);
             } else if (sub === 'radius') {
                 if (args[1] != null) cornerPass.uniforms.uRadius.value = parseFloat(args[1]);
             } else if (sub === 'softness') {
