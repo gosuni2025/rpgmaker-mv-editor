@@ -130,7 +130,8 @@ function ImagePickerDialog({ open, current, onClose, onSelect }: {
 // ── 등장 효과 섹션 ────────────────────────────────────────────────────────────
 
 const EFFECT_LABELS: Record<EntranceEffectType, string> = {
-  fade:        '페이드 인',
+  fadeIn:      '페이드 인',
+  fadeOut:     '페이드 아웃',
   slideLeft:   '왼쪽에서 슬라이드',
   slideRight:  '오른쪽에서 슬라이드',
   slideTop:    '위에서 슬라이드',
@@ -141,7 +142,8 @@ const EFFECT_LABELS: Record<EntranceEffectType, string> = {
 };
 
 const EXIT_EFFECT_LABELS: Record<EntranceEffectType, string> = {
-  fade:        '페이드 아웃',
+  fadeIn:      '페이드 인',
+  fadeOut:     '페이드 아웃',
   slideLeft:   '왼쪽으로 퇴장',
   slideRight:  '오른쪽으로 퇴장',
   slideTop:    '위로 퇴장',
@@ -194,6 +196,7 @@ function AnimEffectSection({ label, fieldKey, override, setMeta }: {
   };
 
   const SLIDE_REVERSE: Partial<Record<EntranceEffectType, EntranceEffectType>> = {
+    fadeIn: 'fadeOut', fadeOut: 'fadeIn',
     slideLeft: 'slideRight', slideRight: 'slideLeft',
     slideTop: 'slideBottom', slideBottom: 'slideTop',
   };

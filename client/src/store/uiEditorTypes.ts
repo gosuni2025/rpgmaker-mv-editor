@@ -41,7 +41,8 @@ export interface UIWindowInfo {
 export type ImageRenderMode = 'center' | 'stretch' | 'tile' | 'fit' | 'cover';
 
 export type EntranceEffectType =
-  | 'fade'
+  | 'fadeIn'
+  | 'fadeOut'
   | 'slideLeft'
   | 'slideRight'
   | 'slideTop'

@@ -912,8 +912,11 @@
       var p = localElapsed <= 0 ? 0 : uiEase(Math.min(localElapsed / eff.duration, 1), eff.easing);
 
       switch (eff.type) {
-        case 'fade':
+        case 'fade': case 'fadeIn':
           totalAlpha *= p;
+          break;
+        case 'fadeOut':
+          totalAlpha *= (1 - p);
           break;
         // 화면 크기 기준: win.width/height 의존 제거
         case 'slideLeft':
@@ -1062,8 +1065,11 @@
       var p = localElapsed <= 0 ? 0 : uiEase(Math.min(localElapsed / eff.duration, 1), eff.easing);
 
       switch (eff.type) {
-        case 'fade':
+        case 'fade': case 'fadeOut':
           totalAlpha *= (1 - p);
+          break;
+        case 'fadeIn':
+          totalAlpha *= p;
           break;
         case 'slideLeft':
           totalX = state.screenX - p * (state.screenX + sw);
