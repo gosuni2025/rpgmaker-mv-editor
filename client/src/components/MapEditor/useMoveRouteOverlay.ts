@@ -300,9 +300,10 @@ function renderWaypointSession(
     if (mapData && flags) {
       const path = runAstar(
         prevX, prevY, wp.x, wp.y, mapData, mapWidth, mapHeight, flags,
-        session.allowDiagonal, 500, blockedTiles, session.ignorePassability,
+        session.allowDiagonal, 3000, blockedTiles, session.ignorePassability,
       );
       if (path.length >= 2) {
+        // A* 성공: 경로를 따라 파선 그리기
         for (let j = 0; j < path.length - 1; j++) {
           const [x1, y1] = tileCenter({ x: path[j].x, y: path[j].y });
           const [x2, y2] = tileCenter({ x: path[j + 1].x, y: path[j + 1].y });
@@ -322,24 +323,24 @@ function renderWaypointSession(
           meshes.push(line);
         }
       } else {
-        // 경로 없음 → 직선 (빨간 점선) + 마커 경고 표시
+        // 경로 없음(도달 불가) → 마커에 경고 표시 + 타일에 X 표시
         unreachable = true;
-        const [x1, y1] = tileCenter({ x: prevX, y: prevY });
-        const [x2, y2] = tileCenter({ x: wp.x, y: wp.y });
-        const pts = [new THREE.Vector3(x1, y1, Z), new THREE.Vector3(x2, y2, Z)];
-        const geom = new THREE.BufferGeometry().setFromPoints(pts);
-        const mat = new THREE.LineDashedMaterial({
-          color: 0xff2222, depthTest: false, transparent: true, opacity: 0.5,
-          dashSize: 4, gapSize: 4,
-        });
-        const line = new THREE.Line(geom, mat);
-        line.computeLineDistances();
-        line.renderOrder = LINE_ORDER;
-        line.frustumCulled = false;
-        line.userData.editorGrid = true;
-        scene.add(line);
-        meshes.push(line);
       }
+    } else {
+      // passability 데이터 없음 → 얇은 회색 직선으로 연결 (A* 미동작 표시)
+      const [x1, y1] = tileCenter({ x: prevX, y: prevY });
+      const [x2, y2] = tileCenter({ x: wp.x, y: wp.y });
+      const pts = [new THREE.Vector3(x1, y1, Z), new THREE.Vector3(x2, y2, Z)];
+      const geom = new THREE.BufferGeometry().setFromPoints(pts);
+      const mat = new THREE.LineBasicMaterial({
+        color: 0x888888, depthTest: false, transparent: true, opacity: 0.4,
+      });
+      const line = new THREE.Line(geom, mat);
+      line.renderOrder = LINE_ORDER;
+      line.frustumCulled = false;
+      line.userData.editorGrid = true;
+      scene.add(line);
+      meshes.push(line);
     }
 
     // 웨이포인트 마커
@@ -400,6 +401,33 @@ function renderWaypointSession(
     lMesh.userData.editorGrid = true;
     scene.add(lMesh);
     meshes.push(lMesh);
+
+    // 도달 불가: 타일 위에 빨간 X 선 그리기
+    if (unreachable) {
+      const tx = wp.x * TILE_SIZE_PX;
+      const ty = wp.y * TILE_SIZE_PX;
+      const ts = TILE_SIZE_PX;
+      const pad = 4;
+      const xLines: [number, number, number, number][] = [
+        [tx + pad, ty + pad, tx + ts - pad, ty + ts - pad],
+        [tx + pad, ty + ts - pad, tx + ts - pad, ty + pad],
+      ];
+      for (const [x1, y1, x2, y2] of xLines) {
+        const geom = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(x1, y1, Z + 0.03),
+          new THREE.Vector3(x2, y2, Z + 0.03),
+        ]);
+        const mat = new THREE.LineBasicMaterial({
+          color: 0xff2200, depthTest: false, transparent: true, opacity: 0.9,
+        });
+        const xLine = new THREE.Line(geom, mat);
+        xLine.renderOrder = LABEL_ORDER + 1;
+        xLine.frustumCulled = false;
+        xLine.userData.editorGrid = true;
+        scene.add(xLine);
+        meshes.push(xLine);
+      }
+    }
 
     prevX = wp.x;
     prevY = wp.y;
