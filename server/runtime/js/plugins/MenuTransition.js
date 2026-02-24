@@ -167,7 +167,8 @@
 
     var _SMB_create = Scene_MenuBase.prototype.create;
     Scene_MenuBase.prototype.create = function () {
-        _SMB_create.call(this);
+        // _SMB_create 내부에서 createBackground()가 호출되므로
+        // 반드시 먼저 초기화해야 함
         this._mtDurationMs  = Cfg.duration * (1000 / 60); // 프레임 → ms 변환
         this._mtStartTime   = null;   // 첫 _updateMT 호출 시 기록
         this._mtClosing     = false;
@@ -175,6 +176,7 @@
         this._mtCloseFrom   = 255;    // 닫기 시작 시점의 overlay opacity
         this._mtDone        = false;
         this._mtCloseCb     = null;
+        _SMB_create.call(this);
     };
 
     // createBackground: 원본 스프라이트(불투명) + 후처리 스프라이트(opacity 0→255)
@@ -184,6 +186,8 @@
         this._backgroundSprite.bitmap = raw;
         this.addChild(this._backgroundSprite);
 
+        console.log('[MT] createBackground raw:', raw && raw.width, raw && raw.height);
+
         if (raw && raw.width > 0) {
             var processed = buildProcessedBitmap(raw);
             if (processed) {
@@ -191,6 +195,9 @@
                 this._mtOverlay.bitmap = processed;
                 this._mtOverlay.opacity = 0;
                 this.addChild(this._mtOverlay);
+                console.log('[MT] overlay created, opacity=0, durationMs=', this._mtDurationMs);
+            } else {
+                console.log('[MT] buildProcessedBitmap returned null');
             }
         }
     };

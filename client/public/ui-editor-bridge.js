@@ -166,6 +166,11 @@
         case 'colorTone':
           if (win.setTone) win.setTone(value[0], value[1], value[2]);
           break;
+        case 'renderCamera':
+          if (window._uiSetWindowLayer) {
+            window._uiSetWindowLayer(win, value === 'perspective' ? 1 : 0);
+          }
+          break;
         default: break;
       }
     } catch (e) {

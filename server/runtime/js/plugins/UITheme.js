@@ -429,6 +429,16 @@
     _ov[className][prop] = value;
   };
 
+  /**
+   * 창의 Three.js 오브젝트 전체 레이어 설정.
+   * layer=0: OrthographicCamera(기본 UI), layer=1: UI PerspectiveCamera(3D 회전 효과)
+   */
+  function _setWindowLayer(win, layer) {
+    if (!win || !win._threeObj || !win._threeObj.traverse) return;
+    win._threeObj.traverse(function(child) { child.layers.set(layer); });
+  }
+  window._uiSetWindowLayer = _setWindowLayer;
+
   /** 런타임에서 _ov 항목 삭제 (RMMV 기본값으로 리셋 시 사용) */
   window._uiThemeClearOv = function(className) {
     delete _ov[className];
@@ -577,6 +587,10 @@
       if (win.createContents) win.createContents();
       if (win.refresh) win.refresh();
     }
+
+    // 렌더 카메라 (perspective / orthographic)
+    var renderCam = ov.renderCamera || 'orthographic';
+    _setWindowLayer(win, renderCam === 'perspective' ? 1 : 0);
 
     // 등장 효과 시작
     if (Array.isArray(ov.entrances) && ov.entrances.length > 0) {

@@ -631,6 +631,26 @@ function WindowInspector({ selectedWindow, override }: {
           </div>
         )}
 
+        <div className="ui-inspector-section">
+          <div className="ui-inspector-section-title">3D 렌더</div>
+          <div className="ui-inspector-row">
+            <span className="ui-inspector-label">카메라</span>
+            <select
+              value={override?.renderCamera ?? 'orthographic'}
+              onChange={(e) => {
+                const val = e.target.value as 'orthographic' | 'perspective';
+                setMeta('renderCamera', val === 'orthographic' ? undefined : val);
+                const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
+                iframe?.contentWindow?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'renderCamera', value: val === 'orthographic' ? undefined : val }, '*');
+              }}
+              style={{ fontSize: 11, background: '#333', color: '#ddd', border: '1px solid #555', padding: '2px 4px', borderRadius: 3 }}
+            >
+              <option value="orthographic">오소그래픽 (기본)</option>
+              <option value="perspective">퍼스펙티브 (3D 회전 효과)</option>
+            </select>
+          </div>
+        </div>
+
         <AnimEffectSection label="등장 효과" fieldKey="entrances" override={override} setMeta={setMeta} />
         <AnimEffectSection label="퇴장 효과" fieldKey="exits" override={override} setMeta={setMeta} />
 

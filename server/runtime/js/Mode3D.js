@@ -94,6 +94,7 @@
     Mode3D._billboardTargets = [];
     Mode3D._spriteset = null;
     Mode3D._perspCamera = null;
+    Mode3D._uiPerspCamera = null;
     Mode3D._extraRows = 6;  // 에디터에서 참조
     Mode3D._extraCols = 4;  // 에디터에서 참조
     // 에디터 카메라 팬 오프셋 (픽셀 단위)
@@ -310,6 +311,38 @@
         camera.updateProjectionMatrix();
 
         // Y-down 좌표계: projectionMatrix의 Y축 반전
+        var m = camera.projectionMatrix.elements;
+        m[5] = -m[5];
+        camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+    };
+
+    //=========================================================================
+    // UI PerspectiveCamera — 창별 퍼스펙티브 3D 회전 효과용
+    // layer 1 객체만 렌더, 화면 중앙 정면 바라보는 원근 카메라
+    //=========================================================================
+
+    Mode3D._createUiPerspCamera = function(w, h) {
+        // z=0 평면을 꽉 채우는 FOV: tan(FOV/2) = (h/2) / h = 0.5  →  FOV ≈ 53.13°
+        var fov = 2 * Math.atan(0.5) * 180 / Math.PI;
+        var cam = new THREE.PerspectiveCamera(fov, w / h, 0.1, h * 20);
+        Mode3D._positionUiPerspCamera(cam, w, h);
+        cam.layers.set(1); // layer 1만 봄
+        return cam;
+    };
+
+    Mode3D._positionUiPerspCamera = function(camera, w, h) {
+        var z_cam = h; // 화면 높이 = 카메라 거리 (z=0 평면을 꽉 채움)
+        var fov = 2 * Math.atan(0.5) * 180 / Math.PI;
+        camera.fov = fov;
+        camera.aspect = w / h;
+        camera.near = 0.1;
+        camera.far = h * 20;
+        camera.updateProjectionMatrix();
+        camera.position.set(w / 2, h / 2, z_cam);
+        camera.up.set(0, 1, 0);
+        camera.lookAt(w / 2, h / 2, 0);
+        camera.updateProjectionMatrix();
+        // Y-down 좌표계 보정 (_positionCamera와 동일)
         var m = camera.projectionMatrix.elements;
         m[5] = -m[5];
         camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
@@ -698,6 +731,8 @@
 
             Mode3D._updateCameraZoneParams();
             Mode3D._positionCamera(Mode3D._perspCamera, w, h);
+            // Pass 1: layer 0만 렌더 (layer 1의 perspective UI 창은 Pass 1.5에서 처리)
+            Mode3D._perspCamera.layers.set(0);
             Mode3D._applyBillboards();
             Mode3D._enforceNearestFilter(scene);
 
@@ -872,6 +907,19 @@
                 }
             }
 
+            // --- Pass 1.5: UI PerspectiveCamera로 Perspective 창 렌더 ---
+            // layer 1에 설정된 창들(renderCamera='perspective')만 렌더
+            if (!Mode3D._uiPerspCamera) {
+                Mode3D._uiPerspCamera = Mode3D._createUiPerspCamera(w, h);
+            } else {
+                Mode3D._positionUiPerspCamera(Mode3D._uiPerspCamera, w, h);
+            }
+            renderer.autoClear = false;
+            renderer.render(scene, Mode3D._uiPerspCamera);
+
+            // --- Pass 2: OrthographicCamera로 UI 렌더 (합성) ---
+            // ortho camera는 layer 0만 봄 (perspective 창 제외)
+            camera.layers.set(0);
             renderer.autoClear = false;
             renderer.render(scene, camera);
 
@@ -937,6 +985,9 @@
         _ThreeStrategy_resize.call(this, rendererObj, width, height);
         if (Mode3D._perspCamera) {
             Mode3D._perspCamera = Mode3D._createPerspCamera(width, height);
+        }
+        if (Mode3D._uiPerspCamera) {
+            Mode3D._positionUiPerspCamera(Mode3D._uiPerspCamera, width, height);
         }
     };
 
