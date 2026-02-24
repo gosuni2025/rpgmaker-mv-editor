@@ -2233,6 +2233,12 @@ _ThreeStrategy.render = function(rendererObj, stage) {
         PostProcess._uiPass.scene = scene;
         PostProcess._uiPass.camera = camera;
 
+        // godRays 오클루전 패스에 3D scene/camera 참조 전달 (2패스 오클루전용)
+        if (PostProcess._ppPasses && PostProcess._ppPasses.godRays) {
+            PostProcess._ppPasses.godRays._sceneRef = scene;
+            PostProcess._ppPasses.godRays._perspCameraRef = Mode3D._perspCamera;
+        }
+
         // uniform 갱신
         PostProcess._updateUniforms();
 

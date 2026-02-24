@@ -1242,6 +1242,12 @@ PostProcessEffects._UNIFORM_MAP = {
 
 // 런타임에서 파라미터를 pass의 uniform에 적용
 PostProcessEffects.applyParam = function(effectKey, pass, paramKey, value) {
+    // godRays 특수 처리: useOcclusion은 uniform이 아닌 pass 플래그
+    if (effectKey === 'godRays' && paramKey === 'useOcclusion') {
+        if (pass._occlusionEnabled !== undefined) pass._occlusionEnabled = !!value;
+        return;
+    }
+
     var map = this._UNIFORM_MAP[effectKey];
     if (!map) return;
     var uniformName = map[paramKey];
@@ -1255,14 +1261,12 @@ PostProcessEffects.applyParam = function(effectKey, pass, paramKey, value) {
         } else if (paramKey.endsWith('Y') || paramKey === 'lightPosY' || paramKey === 'centerY') {
             u.value.y = value;
         }
-    } else if (uniformName === 'uColor' && u.value && u.value.isVector3) {
-        // fog color: parse hex string
-        if (typeof value === 'string' && value[0] === '#') {
-            var r = parseInt(value.substr(1,2),16)/255;
-            var g = parseInt(value.substr(3,2),16)/255;
-            var b = parseInt(value.substr(5,2),16)/255;
-            u.value.set(r, g, b);
-        }
+    } else if (u.value && u.value.isVector3 && typeof value === 'string' && value[0] === '#') {
+        // Vector3 색상 uniform: hex 문자열 파싱 (uColor, uRayColor 등 모든 색상 uniform에 적용)
+        var r = parseInt(value.substr(1,2),16)/255;
+        var g = parseInt(value.substr(3,2),16)/255;
+        var b = parseInt(value.substr(5,2),16)/255;
+        u.value.set(r, g, b);
     } else {
         u.value = value;
     }
