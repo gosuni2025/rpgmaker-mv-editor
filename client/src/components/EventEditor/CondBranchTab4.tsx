@@ -2,6 +2,8 @@ import React from 'react';
 import { selectStyle } from './messageEditors';
 import { DataListPicker } from './dataListPicker';
 import { radioStyle, rowStyle, disabledOpacity, getLabel, useDbNamesWithIcons } from './condBranchHelpers';
+import { ScriptSampleDialog } from './ScriptSampleDialog';
+import { COND_BRANCH_SAMPLES } from './scriptSamples';
 
 interface Props {
   condType: number;
@@ -15,6 +17,7 @@ interface Props {
   armorIncludeEquip: boolean; setArmorIncludeEquip: (v: boolean) => void;
   buttonName: string; setButtonName: (v: string) => void;
   scriptText: string; setScriptText: (v: string) => void;
+  scriptComment: string; setScriptComment: (v: string) => void;
 }
 
 export function CondBranchTab4({
@@ -25,11 +28,13 @@ export function CondBranchTab4({
   armorId, setArmorId, armorIncludeEquip, setArmorIncludeEquip,
   buttonName, setButtonName,
   scriptText, setScriptText,
+  scriptComment, setScriptComment,
 }: Props) {
   const { names: items, iconIndices: itemIcons } = useDbNamesWithIcons('items');
   const { names: weapons, iconIndices: weaponIcons } = useDbNamesWithIcons('weapons');
   const { names: armors, iconIndices: armorIcons } = useDbNamesWithIcons('armors');
   const [showPicker, setShowPicker] = React.useState<string | null>(null);
+  const [showSampleDialog, setShowSampleDialog] = React.useState(false);
 
   return (
     <>
@@ -120,14 +125,44 @@ export function CondBranchTab4({
         </div>
 
         {/* 스크립트 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={radioStyle}>
             <input type="radio" name="cb-type4" checked={condType === 12} onChange={() => onCondTypeChange(12)} />
             스크립트
           </label>
           {condType === 12 && (
-            <input type="text" value={scriptText} onChange={e => setScriptText(e.target.value)}
-              placeholder="JavaScript 식" style={{ ...selectStyle, width: '100%', marginLeft: 20, boxSizing: 'border-box' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginLeft: 20 }}>
+              {/* 주석 입력 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 11, color: '#777', whiteSpace: 'nowrap', width: 30 }}>메모</span>
+                <input
+                  type="text"
+                  value={scriptComment}
+                  onChange={e => setScriptComment(e.target.value)}
+                  placeholder="이 조건의 의미를 간단히 메모..."
+                  style={{ ...selectStyle, flex: 1, fontSize: 12, color: '#aaa', boxSizing: 'border-box' }}
+                />
+              </div>
+              {/* 스크립트 식 입력 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 11, color: '#777', whiteSpace: 'nowrap', width: 30 }}>식</span>
+                <input
+                  type="text"
+                  value={scriptText}
+                  onChange={e => setScriptText(e.target.value)}
+                  placeholder="JavaScript 조건식 (true/false 반환)"
+                  style={{ ...selectStyle, flex: 1, fontFamily: 'monospace', boxSizing: 'border-box' }}
+                />
+                <button
+                  className="db-btn"
+                  style={{ padding: '4px 8px', flexShrink: 0 }}
+                  title="샘플 코드 보기"
+                  onClick={() => setShowSampleDialog(true)}
+                >
+                  ...
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -143,6 +178,17 @@ export function CondBranchTab4({
       {showPicker === 'armor' && (
         <DataListPicker items={armors} value={armorId} onChange={setArmorId}
           onClose={() => setShowPicker(null)} title="방어구 선택" iconIndices={armorIcons} />
+      )}
+      {showSampleDialog && (
+        <ScriptSampleDialog
+          samples={COND_BRANCH_SAMPLES}
+          onInsert={(code, comment) => {
+            setScriptText(code);
+            if (comment) setScriptComment(comment);
+            setShowSampleDialog(false);
+          }}
+          onClose={() => setShowSampleDialog(false)}
+        />
       )}
     </>
   );

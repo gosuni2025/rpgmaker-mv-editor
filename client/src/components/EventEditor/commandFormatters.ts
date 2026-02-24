@@ -107,7 +107,11 @@ function formatConditionalBranch(params: unknown[], ctx: CommandDisplayContext):
     case 9: return `무기 ${fmtId(params[1] as number)} 소지${params[2] ? ' (장비 포함)' : ''}`;
     case 10: return `방어구 ${fmtId(params[1] as number)} 소지${params[2] ? ' (장비 포함)' : ''}`;
     case 11: return `버튼 [${params[1]}] 눌려있다`;
-    case 12: return `스크립트: ${params[1]}`;
+    case 12: {
+      const comment = params[2] as string | undefined;
+      const script = params[1] as string;
+      return comment ? `스크립트: ${script}  ← ${comment}` : `스크립트: ${script}`;
+    }
     case 13: return `${VEHICLE_NAMES[params[1] as number] || '차량'} 운행되었습니다`;
     default: return JSON.stringify(params);
   }

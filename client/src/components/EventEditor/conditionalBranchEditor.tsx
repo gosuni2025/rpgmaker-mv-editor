@@ -63,6 +63,7 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
   const [buttonName, setButtonName] = useState(initType === 11 ? ((p[1] as string) || 'ok') : 'ok');
   // --- 탭4: 스크립트 (type=12) ---
   const [scriptText, setScriptText] = useState(initType === 12 ? ((p[1] as string) || '') : '');
+  const [scriptComment, setScriptComment] = useState(initType === 12 ? ((p[2] as string) || '') : '');
 
   const handleOk = () => {
     let params: unknown[];
@@ -79,7 +80,7 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
       case 9: params = [9, weaponId, weaponIncludeEquip]; break;
       case 10: params = [10, armorId, armorIncludeEquip]; break;
       case 11: params = [11, buttonName]; break;
-      case 12: params = [12, scriptText]; break;
+      case 12: params = scriptComment ? [12, scriptText, scriptComment] : [12, scriptText]; break;
       case 13: params = [13, vehicleId]; break;
       default: params = [condType]; break;
     }
@@ -148,6 +149,7 @@ export function ConditionalBranchEditor({ p, onOk, onCancel, hasElse: initHasEls
             armorIncludeEquip={armorIncludeEquip} setArmorIncludeEquip={setArmorIncludeEquip}
             buttonName={buttonName} setButtonName={setButtonName}
             scriptText={scriptText} setScriptText={setScriptText}
+            scriptComment={scriptComment} setScriptComment={setScriptComment}
           />
         )}
       </div>
