@@ -773,11 +773,13 @@
 
         this._textWin = new Window_VNText();
         this._textWin.contentsOpacity = 0;
+        this._textWin.visible = false;  // VN 비활성 시 WindowLayer 클리어 방지
         scene.addWindow(this._textWin);
     }
 
     VNController.prototype.open = function () {
         this._overlay.visible = true;
+        this._textWin.visible = true;
         this._state = 'opening';
         this._autoTimer = -1;
         // 새 VN 세션 시작 시 이전 텍스트 초기화
@@ -832,6 +834,7 @@
             if (this._alpha <= 0) {
                 this._alpha = 0; this._state = 'closed';
                 this._overlay.visible = false;
+                this._textWin.visible = false;  // VN 종료 후 WindowLayer 클리어 방지
             }
         }
 
