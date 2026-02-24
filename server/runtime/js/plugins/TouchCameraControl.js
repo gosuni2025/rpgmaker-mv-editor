@@ -269,77 +269,103 @@
     };
 
     //=========================================================================
-    // 터치 이벤트 후킹 (드래그 회전 + 핀치 줌)
+    // 터치 이벤트 처리 (모바일 기기 대응)
+    //
+    // 원본 rpg_core의 _onTouchStart/_onTouchMove/_onTouchEnd/_onTouchCancel을
+    // 완전히 대체함. 이유:
+    //   1. 원본은 isInsideCanvas() 체크가 실패하면 아무것도 하지 않음.
+    //      실제 기기에서 viewport/DPR 오차로 체크가 실패하는 경우가 있음.
+    //   2. 원본 _onTouchMove에는 event.preventDefault()가 없어서
+    //      브라우저가 pan(스크롤)을 시작하고 touchcancel이 발생함.
+    // 해결책: 좌표를 게임 해상도로 클램프 + 항상 event.preventDefault()
     //=========================================================================
 
-    var _orig_onTouchStart = TouchInput._onTouchStart;
+    function canvasClamp(rawX, rawY) {
+        var w = (Graphics && Graphics.width)  ? Graphics.width  : 816;
+        var h = (Graphics && Graphics.height) ? Graphics.height : 624;
+        return {
+            x: Math.max(0, Math.min(rawX, w - 1)),
+            y: Math.max(0, Math.min(rawY, h - 1))
+        };
+    }
+
     TouchInput._onTouchStart = function(event) {
+        // 항상 preventDefault: touchcancel·pan·zoom 원천 차단
+        event.preventDefault();
+
+        for (var i = 0; i < event.changedTouches.length; i++) {
+            var t = event.changedTouches[i];
+            var p = canvasClamp(
+                Graphics.pageToCanvasX(t.pageX),
+                Graphics.pageToCanvasY(t.pageY)
+            );
+            this._screenPressed = true;
+            this._pressedTime = 0;
+            if (event.touches.length >= 2) {
+                this._onCancel(p.x, p.y);
+            } else {
+                this._onTrigger(p.x, p.y);
+            }
+        }
+
         if (is3DActive()) {
             if (event.touches.length === 1) {
                 var touch = event.touches[0];
                 _dragState.active = true;
                 _dragState.startX = touch.pageX;
                 _dragState.startY = touch.pageY;
-                _dragState.lastX = touch.pageX;
-                _dragState.lastY = touch.pageY;
-                _dragState.moved = false;
+                _dragState.lastX  = touch.pageX;
+                _dragState.lastY  = touch.pageY;
+                _dragState.moved  = false;
                 _suppressNextDestination = false;
                 var scene = SceneManager._scene;
-                var mapTouchOk = scene && scene.isActive &&
-                                 scene.isActive() && $gamePlayer && $gamePlayer.canMove();
-                _mapTouchTriggered = !!mapTouchOk;
+                _mapTouchTriggered = !!(scene && scene.isActive && scene.isActive() &&
+                                        $gamePlayer && $gamePlayer.canMove());
             } else if (event.touches.length >= 2) {
-                // 핀치 시작
                 _dragState.active = false;
-                _dragState.moved = true; // 핀치 → 이동 억제
+                _dragState.moved  = true;   // 핀치 → 이동 억제
                 _suppressNextDestination = true;
                 _mapTouchTriggered = false;
-                _pinchState.active = true;
+                _pinchState.active   = true;
                 _pinchState.lastDist = getTouchDist(event.touches);
             }
         }
-        _orig_onTouchStart.call(this, event);
     };
 
-    var _orig_onTouchMove = TouchInput._onTouchMove;
     TouchInput._onTouchMove = function(event) {
         if (is3DActive()) {
+            // 핀치 줌
             if (_pinchState.active && event.touches.length >= 2) {
-                // 핀치 줌
-                var dist = getTouchDist(event.touches);
-                var delta = (dist - _pinchState.lastDist) * ZOOM_SPEED;
-                applyZoom(delta);
+                var dist  = getTouchDist(event.touches);
+                applyZoom((dist - _pinchState.lastDist) * ZOOM_SPEED);
                 _pinchState.lastDist = dist;
                 event.preventDefault();
-                return; // 원본 호출 안함
+                return;
             }
 
+            // 1-손가락 드래그
             if (_dragState.active && event.touches.length === 1) {
                 var touch = event.touches[0];
+                event.preventDefault();
+
                 var dx = touch.pageX - _dragState.lastX;
                 var dy = touch.pageY - _dragState.lastY;
 
-                // 드래그 active 상태이면 항상 preventDefault() — 브라우저 pan/scroll 방지
-                // (실제 기기에서 touchcancel이 발생하지 않도록)
-                event.preventDefault();
-
-                // 카메라 존 밖에서만 드래그 회전 처리
                 if (!isCameraZoneActive()) {
-                    var totalDx = touch.pageX - _dragState.startX;
-                    var totalDy = touch.pageY - _dragState.startY;
                     if (!_dragState.moved) {
-                        if (Math.sqrt(totalDx * totalDx + totalDy * totalDy) > DRAG_THRESHOLD) {
+                        var tdx = touch.pageX - _dragState.startX;
+                        var tdy = touch.pageY - _dragState.startY;
+                        if (Math.sqrt(tdx * tdx + tdy * tdy) > DRAG_THRESHOLD) {
                             _dragState.moved = true;
                             _suppressNextDestination = true;
                         }
                     }
-
                     if (_dragState.moved) {
                         applyYaw(-dx * ROTATION_SPEED);
                         applyTilt(dy * ROTATION_SPEED);
                         _dragState.lastX = touch.pageX;
                         _dragState.lastY = touch.pageY;
-                        return; // 원본 호출 안함
+                        return;
                     }
                 }
 
@@ -347,31 +373,41 @@
                 _dragState.lastY = touch.pageY;
             }
         }
-        _orig_onTouchMove.call(this, event);
+
+        // 이동 좌표 갱신 (클램프 적용)
+        for (var i = 0; i < event.changedTouches.length; i++) {
+            var t = event.changedTouches[i];
+            var p = canvasClamp(
+                Graphics.pageToCanvasX(t.pageX),
+                Graphics.pageToCanvasY(t.pageY)
+            );
+            this._onMove(p.x, p.y);
+        }
     };
 
-    var _orig_onTouchEnd = TouchInput._onTouchEnd;
     TouchInput._onTouchEnd = function(event) {
         if (is3DActive()) {
-            if (event.touches.length < 2) {
-                _pinchState.active = false;
-            }
-            if (event.touches.length === 0) {
-                _dragState.active = false;
-            }
+            if (event.touches.length < 2) _pinchState.active = false;
+            if (event.touches.length === 0) _dragState.active = false;
         }
-        _orig_onTouchEnd.call(this, event);
+        for (var i = 0; i < event.changedTouches.length; i++) {
+            var t = event.changedTouches[i];
+            var p = canvasClamp(
+                Graphics.pageToCanvasX(t.pageX),
+                Graphics.pageToCanvasY(t.pageY)
+            );
+            this._screenPressed = false;
+            this._onRelease(p.x, p.y);
+        }
     };
 
-    // touchcancel: 브라우저가 터치를 취소할 때(스크롤 시작 등) drag/pinch state 초기화
-    var _orig_onTouchCancel = TouchInput._onTouchCancel;
-    TouchInput._onTouchCancel = function(event) {
-        _dragState.active = false;
-        _dragState.moved = false;
-        _pinchState.active = false;
+    TouchInput._onTouchCancel = function(/*event*/) {
+        _dragState.active    = false;
+        _dragState.moved     = false;
+        _pinchState.active   = false;
         _suppressNextDestination = false;
-        _mapTouchTriggered = false;
-        _orig_onTouchCancel.call(this, event);
+        _mapTouchTriggered   = false;
+        this._screenPressed  = false;
     };
 
     //=========================================================================

@@ -146,48 +146,71 @@
         var dragStartX = 0, dragStartY = 0;
         var panelStartX = 0, panelStartY = 0;
 
-        function onMouseDown(e) {
-            // Only drag from title bar, ignore buttons/inputs
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' ||
-                e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA') return;
-            // Ignore collapse/reset button clicks
-            if (e.target === collapseBtn || e.target === resetBtn) return;
+        function isIgnoredTarget(target) {
+            var tag = target.tagName;
+            return tag === 'INPUT' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'TEXTAREA' ||
+                   target === collapseBtn || target === resetBtn;
+        }
 
+        function startDrag(clientX, clientY) {
             isDragging = true;
-            dragStartX = e.clientX;
-            dragStartY = e.clientY;
+            dragStartX = clientX;
+            dragStartY = clientY;
             panelStartX = posX;
             panelStartY = posY;
+        }
+
+        function moveDrag(clientX, clientY) {
+            if (!isDragging) return;
+            posX = Math.max(0, Math.min(panelStartX + clientX - dragStartX, window.innerWidth  - 40));
+            posY = Math.max(0, Math.min(panelStartY + clientY - dragStartY, window.innerHeight - 20));
+            panel.style.left = posX + 'px';
+            panel.style.top  = posY + 'px';
+        }
+
+        function endDrag() {
+            if (isDragging) { isDragging = false; persist(); }
+        }
+
+        // Mouse
+        function onMouseDown(e) {
+            if (isIgnoredTarget(e.target)) return;
+            startDrag(e.clientX, e.clientY);
             e.preventDefault();
         }
+        function onMouseMove(e) { moveDrag(e.clientX, e.clientY); }
+        function onMouseUp()    { endDrag(); }
 
-        function onMouseMove(e) {
-            if (!isDragging) return;
-            var dx = e.clientX - dragStartX;
-            var dy = e.clientY - dragStartY;
-            posX = panelStartX + dx;
-            posY = panelStartY + dy;
-
-            // Clamp to viewport
-            posX = Math.max(0, Math.min(posX, window.innerWidth - 40));
-            posY = Math.max(0, Math.min(posY, window.innerHeight - 20));
-
-            panel.style.left = posX + 'px';
-            panel.style.top = posY + 'px';
+        // Touch (mobile)
+        function onTouchStart(e) {
+            if (e.touches.length !== 1) return;
+            if (isIgnoredTarget(e.target)) return;
+            startDrag(e.touches[0].clientX, e.touches[0].clientY);
+            e.preventDefault();
+            e.stopPropagation(); // game TouchInput에 전파 방지
         }
-
-        function onMouseUp() {
-            if (isDragging) {
-                isDragging = false;
-                persist();
-            }
+        function onTouchMove(e) {
+            if (!isDragging || e.touches.length !== 1) return;
+            moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        function onTouchEnd(e) {
+            endDrag();
+            e.stopPropagation();
         }
 
         if (titleBar) {
             titleBar.addEventListener('mousedown', onMouseDown);
+            titleBar.addEventListener('touchstart', onTouchStart, { passive: false });
         }
         document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+        document.addEventListener('mouseup',   onMouseUp);
+        document.addEventListener('touchmove', onTouchMove, { passive: false });
+        document.addEventListener('touchend',  onTouchEnd);
+
+        // 패널 전체 터치 → 게임 TouchInput에 전달되지 않도록 차단
+        panel.addEventListener('touchstart', function(e) { e.stopPropagation(); }, { passive: false });
 
         function persist() {
             savePanelState(panelId, {
