@@ -1817,6 +1817,18 @@ PostProcess._updateUniforms = function() {
         return;
     }
 
+    // Scene_Map이 활성 씬이 아닌 경우 (메뉴/전투 등) FoW를 숨김
+    var _isMapScene = typeof SceneManager !== 'undefined' &&
+                      typeof Scene_Map !== 'undefined' &&
+                      SceneManager._scene instanceof Scene_Map;
+    if (!_isMapScene) {
+        if (FogOfWar._fogGroup) FogOfWar._fogGroup.visible = false;
+        _fowProf.total += performance.now() - _t0;
+        _fowProf.frameCount++;
+        _fowProf.log();
+        return;
+    }
+
     // enabled2D/enabled3D에 따라 현재 모드에서 FoW를 숨김
     var _is3D = typeof Mode3D !== 'undefined' && Mode3D._active;
     if ((_is3D && !FogOfWar._enabled3D) || (!_is3D && !FogOfWar._enabled2D)) {
