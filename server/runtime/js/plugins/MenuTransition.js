@@ -96,91 +96,170 @@
         return (EasingFn[Cfg.easing] || EasingFn.easeOut)(t);
     }
 
-    // ── 후처리 비트맵 생성 ────────────────────────────────────────────────────
-    // rawBitmap 을 받아 CSS filter + 오버레이를 적용한 새 Bitmap 반환.
-    //
-    // 주의: Bitmap._context 는 willReadFrequently:true 로 생성되어 CSS filter 미지원 가능.
-    // → 별도 regular canvas 에서 blur 처리 후 dst 에 복사.
+    // ── Three.js 2-pass Gaussian Blur ─────────────────────────────────────────
+    // PostProcess._composer.renderer (THREE.WebGLRenderer) 로 렌더링.
+    // flipY=false → readRenderTargetPixels 에서 Y flip 불필요.
 
-    function applyFilteredDraw(dstCtx, srcCvs, w, h, filterStr, blurPx) {
-        var tempCvs = document.createElement('canvas');
-        tempCvs.width  = w;
-        tempCvs.height = h;
-        var tempCtx = tempCvs.getContext('2d');
+    var _BLUR_VS = [
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vUv = uv;',
+        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+    ].join('\n');
 
-        tempCtx.filter = filterStr;
-        var supported = (tempCtx.filter !== 'none' && tempCtx.filter !== '');
+    // 25-tap 가우시안: sigma = blurPx / 3.5, ±12 샘플
+    var _BLUR_H_FS = [
+        'uniform sampler2D tDiffuse;',
+        'uniform float sigma;',
+        'uniform float stepX;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 c = vec4(0.0); float t = 0.0;',
+        '    for (int i = -12; i <= 12; i++) {',
+        '        float w = exp(-float(i * i) / (2.0 * sigma * sigma));',
+        '        c += texture2D(tDiffuse, vUv + vec2(float(i) * stepX, 0.0)) * w;',
+        '        t += w;',
+        '    }',
+        '    gl_FragColor = c / t;',
+        '}'
+    ].join('\n');
 
-        if (supported) {
-            // CSS filter 가 지원되면 엣지 번짐 방지를 위해 약간 크게 그린 후 복사
-            var ex = blurPx * 2;
-            tempCtx.drawImage(srcCvs, -ex, -ex, w + ex * 2, h + ex * 2);
-            tempCtx.filter = 'none';
-            dstCtx.drawImage(tempCvs, 0, 0);
-        } else {
-            // Fallback: 여러 오프셋 drawImage 로 블러 근사
-            console.warn('[MT] ctx.filter 미지원 → JS 멀티샘플 블러 사용');
-            var r      = blurPx * 0.6 | 0;
-            var step   = Math.max(2, r / 4 | 0);
-            var pairs  = [];
-            for (var ox = -r; ox <= r; ox += step) {
-                for (var oy = -r; oy <= r; oy += step) {
-                    if (ox * ox + oy * oy <= r * r) pairs.push([ox, oy]);
-                }
-            }
-            if (!pairs.length) pairs.push([0, 0]);
-            var a = 1 / pairs.length;
-            dstCtx.globalAlpha = a;
-            for (var i = 0; i < pairs.length; i++) {
-                dstCtx.drawImage(srcCvs, pairs[i][0], pairs[i][1]);
-            }
-            dstCtx.globalAlpha = 1;
+    var _BLUR_V_FS = [
+        'uniform sampler2D tDiffuse;',
+        'uniform float sigma;',
+        'uniform float stepY;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 c = vec4(0.0); float t = 0.0;',
+        '    for (int i = -12; i <= 12; i++) {',
+        '        float w = exp(-float(i * i) / (2.0 * sigma * sigma));',
+        '        c += texture2D(tDiffuse, vUv + vec2(0.0, float(i) * stepY)) * w;',
+        '        t += w;',
+        '    }',
+        '    gl_FragColor = c / t;',
+        '}'
+    ].join('\n');
+
+    function blurBitmapThreeJS(srcBitmap, blurPx) {
+        var renderer = PostProcess._composer && PostProcess._composer.renderer;
+        if (!renderer) {
+            console.warn('[MT] renderer 없음 → 블러 스킵');
+            return null;
         }
+
+        var w = srcBitmap.width, h = srcBitmap.height;
+        if (!w || !h) return null;
+
+        // flipY=false: canvas top → GPU bottom → readback 시 y=0 = canvas top (flip 불필요)
+        var srcTex = new THREE.CanvasTexture(srcBitmap._canvas);
+        srcTex.flipY = false;
+        srcTex.minFilter = THREE.LinearFilter;
+        srcTex.magFilter = THREE.LinearFilter;
+        srcTex.needsUpdate = true;
+
+        var rtOpts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
+        var rt1 = new THREE.WebGLRenderTarget(w, h, rtOpts);
+        var rt2 = new THREE.WebGLRenderTarget(w, h, rtOpts);
+
+        var sigma = Math.max(1.0, blurPx / 3.5);
+
+        // Pass 1: 수평 블러
+        var hMat = new THREE.ShaderMaterial({
+            uniforms: {
+                tDiffuse: { value: srcTex },
+                sigma:    { value: sigma },
+                stepX:    { value: 1.0 / w }
+            },
+            vertexShader:   _BLUR_VS,
+            fragmentShader: _BLUR_H_FS,
+            depthTest: false, depthWrite: false
+        });
+        var fsq = new FullScreenQuad(hMat);
+        renderer.setRenderTarget(rt1);
+        renderer.clear();
+        fsq.render(renderer);
+
+        // Pass 2: 수직 블러
+        var vMat = new THREE.ShaderMaterial({
+            uniforms: {
+                tDiffuse: { value: rt1.texture },
+                sigma:    { value: sigma },
+                stepY:    { value: 1.0 / h }
+            },
+            vertexShader:   _BLUR_VS,
+            fragmentShader: _BLUR_V_FS,
+            depthTest: false, depthWrite: false
+        });
+        fsq.material = vMat;
+        renderer.setRenderTarget(rt2);
+        renderer.clear();
+        fsq.render(renderer);
+        renderer.setRenderTarget(null);
+
+        // 픽셀 읽기 (flipY=false → y=0 이 canvas 상단, Y flip 불필요)
+        var pixels = new Uint8Array(w * h * 4);
+        renderer.readRenderTargetPixels(rt2, 0, 0, w, h, pixels);
+
+        var dst = new Bitmap(w, h);
+        var imgData = dst._context.createImageData(w, h);
+        imgData.data.set(pixels);
+        dst._context.putImageData(imgData, 0, 0);
+        dst._setDirty();
+
+        // 정리
+        rt1.dispose(); rt2.dispose();
+        srcTex.dispose(); hMat.dispose(); vMat.dispose(); fsq.dispose();
+
+        return dst;
     }
+
+    // ── 후처리 비트맵 생성 ────────────────────────────────────────────────────
+    // blur: Three.js 렌더 패스, overlay: canvas 2D fillRect
 
     function buildProcessedBitmap(rawBitmap) {
         var w = rawBitmap.width, h = rawBitmap.height;
         if (!w || !h) return null;
 
-        var dst    = new Bitmap(w, h);
-        var ctx    = dst._context;
-        var srcCvs = rawBitmap._canvas;
-
-        // --- CSS filter 결정 ---
-        var filterStr = '';
-        var blurPx    = 0;
+        // --- 블러 강도 결정 ---
+        var blurPx = 0;
         switch (Cfg.effect) {
-            case 'blur+overlay':
-            case 'blurOnly':
-                blurPx    = Cfg.blur;
-                if (blurPx > 0) filterStr = 'blur(' + blurPx + 'px)';
+            case 'blur+overlay': case 'blurOnly':
+                blurPx = Cfg.blur;
                 break;
             case 'desaturate':
-                blurPx    = (Cfg.blur * 0.4) | 0;
-                filterStr = 'saturate(15%)' + (blurPx > 0 ? ' blur(' + blurPx + 'px)' : '');
+                blurPx = (Cfg.blur * 0.4) | 0;
                 break;
             case 'frosted':
-                blurPx    = Math.max(Cfg.blur, 14);
-                filterStr = 'blur(' + blurPx + 'px) brightness(1.05)';
-                break;
-            case 'overlayOnly':
-                filterStr = '';
+                blurPx = Math.max(Cfg.blur, 14);
                 break;
         }
 
-        // --- 그리기 ---
-        if (filterStr) {
-            applyFilteredDraw(ctx, srcCvs, w, h, filterStr, blurPx);
+        // --- Three.js blur ---
+        var blurredBitmap = (blurPx > 0) ? blurBitmapThreeJS(rawBitmap, blurPx) : null;
+        var srcBitmap = blurredBitmap || rawBitmap;
+
+        // --- dst 에 복사 + 오버레이 ---
+        var dst = new Bitmap(w, h);
+        var ctx = dst._context;
+
+        // desaturate: CSS saturate 필터 (blur 와 달리 간단한 색상 변환이므로 canvas filter 사용)
+        if (Cfg.effect === 'desaturate') {
+            var tmp = document.createElement('canvas');
+            tmp.width = w; tmp.height = h;
+            var tctx = tmp.getContext('2d');
+            tctx.filter = 'saturate(15%)';
+            tctx.drawImage(srcBitmap._canvas, 0, 0);
+            tctx.filter = 'none';
+            ctx.drawImage(tmp, 0, 0);
         } else {
-            ctx.drawImage(srcCvs, 0, 0);
+            ctx.drawImage(srcBitmap._canvas, 0, 0);
         }
 
-        // --- 오버레이 ---
+        // 오버레이 색상 (canvas 2D fillRect — filter 불필요)
         var a = Cfg.overlayAlpha / 255;
         switch (Cfg.effect) {
-            case 'blur+overlay':
-            case 'overlayOnly':
-            case 'desaturate':
+            case 'blur+overlay': case 'overlayOnly': case 'desaturate':
                 if (a > 0) {
                     ctx.fillStyle = 'rgba(' + Cfg.overlayColor + ',' + a.toFixed(3) + ')';
                     ctx.fillRect(0, 0, w, h);
@@ -215,13 +294,11 @@
         _SMB_create.call(this);
     };
 
-    // startFadeIn 오버라이드: MT 애니메이션이 열기/닫기를 담당하므로
-    // Scene_MenuBase 의 검은 화면 fade-in 을 즉시(1프레임)로 단축.
-    // 그래야 MT overlay 가 처음부터 보임.
+    // startFadeIn 오버라이드: MT 애니메이션이 열기를 담당하므로
+    // Scene_MenuBase 의 검은 화면 fade-in 을 1프레임으로 단축.
     var _SMB_startFadeIn = Scene_MenuBase.prototype.startFadeIn;
     Scene_MenuBase.prototype.startFadeIn = function (duration, white) {
         if (this._mtOverlay && !this._mtClosing) {
-            // MT 오버레이가 열기 애니메이션 역할 → fade-in 을 1프레임으로 단축
             _SMB_startFadeIn.call(this, 1, white);
         } else {
             _SMB_startFadeIn.call(this, duration, white);
@@ -235,8 +312,6 @@
         this._backgroundSprite.bitmap = raw;
         this.addChild(this._backgroundSprite);
 
-        console.log('[MT] createBackground raw:', raw && raw.width, raw && raw.height);
-
         if (raw && raw.width > 0) {
             var processed = buildProcessedBitmap(raw);
             if (processed) {
@@ -244,9 +319,6 @@
                 this._mtOverlay.bitmap = processed;
                 this._mtOverlay.opacity = 0;
                 this.addChild(this._mtOverlay);
-                console.log('[MT] overlay created, opacity=0, durationMs=', this._mtDurationMs);
-            } else {
-                console.log('[MT] buildProcessedBitmap returned null');
             }
         }
     };
