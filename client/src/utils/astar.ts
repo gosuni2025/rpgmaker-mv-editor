@@ -53,7 +53,9 @@ function checkPassageForTile(
   mapWidth: number, mapHeight: number,
   flags: number[],
 ): boolean {
-  for (let z = 0; z < 4; z++) {
+  // RPG Maker MV의 checkPassage와 동일하게 상단 레이어(z=3)에서 하단(z=0) 순으로 확인.
+  // 바닥(z=0)보다 벽/장식(z=1~3)을 먼저 판단해야 올바른 결과를 얻을 수 있음.
+  for (let z = 3; z >= 0; z--) {
     const tileId = getTileId(data, x, y, z, mapWidth, mapHeight);
     if (tileId === 0) continue; // 빈 타일은 건너뜀
     const flag = flags[tileId] ?? 0x0f;
