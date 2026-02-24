@@ -350,7 +350,7 @@ export default function UIEditorFrameCanvas() {
   const uiShowSkinLabels   = useEditorStore((s) => s.uiShowSkinLabels);
   const uiShowCheckerboard = useEditorStore((s) => s.uiShowCheckerboard);
   const uiShowRegionOverlay = useEditorStore((s) => s.uiShowRegionOverlay);
-  const uiSkinEditorTab    = useEditorStore((s) => s.uiSkinEditorTab);
+  const uiEditSubMode      = useEditorStore((s) => s.uiEditSubMode);
   const setUiSkinCornerSize = useEditorStore((s) => s.setUiSkinCornerSize);
   const setUiSkinFrame     = useEditorStore((s) => s.setUiSkinFrame);
   const setUiSkinFill      = useEditorStore((s) => s.setUiSkinFill);
@@ -394,7 +394,7 @@ export default function UIEditorFrameCanvas() {
       s.uiSkinCornerSize,
       s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCursorCornerSize,
       s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay,
-      hoverHitRef.current, s.uiSkinEditorTab);
+      hoverHitRef.current, s.uiEditSubMode === 'cursor' ? 'cursor' : 'frame');
   }, [imgSize]);
 
   // 스킨 이미지 로드 — 실제 naturalWidth/Height 기반으로 캔버스 크기 설정
@@ -426,7 +426,7 @@ export default function UIEditorFrameCanvas() {
         s.uiSkinCornerSize,
         s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCursorCornerSize,
         s.uiShowSkinLabels, s.uiShowCheckerboard, s.uiShowRegionOverlay,
-        hoverHitRef.current, s.uiSkinEditorTab);
+        hoverHitRef.current, s.uiEditSubMode === 'cursor' ? 'cursor' : 'frame');
     };
     img.onerror = () => {
       ctx.fillStyle = '#1a1a1a';
@@ -439,7 +439,7 @@ export default function UIEditorFrameCanvas() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectPath, uiSelectedSkin, uiSelectedSkinFile]);
 
-  useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiSkinCursorX, uiSkinCursorY, uiSkinCursorW, uiSkinCursorH, uiSkinCursorCornerSize, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay, uiSkinEditorTab]);
+  useEffect(() => { redraw(); }, [redraw, uiSkinCornerSize, uiSkinFrameX, uiSkinFrameY, uiSkinFrameW, uiSkinFrameH, uiSkinFillX, uiSkinFillY, uiSkinFillW, uiSkinFillH, uiSkinCursorX, uiSkinCursorY, uiSkinCursorW, uiSkinCursorH, uiSkinCursorCornerSize, uiShowSkinLabels, uiShowCheckerboard, uiShowRegionOverlay, uiEditSubMode]);
 
   // 키보드: Alt 커서 + Cmd+Z undo
   useEffect(() => {
@@ -490,7 +490,7 @@ export default function UIEditorFrameCanvas() {
         hit = { type: 'frame_move', ox: coords.ix - s.uiSkinFrameX, oy: coords.iy - s.uiSkinFrameY, startFX: s.uiSkinFrameX, startFY: s.uiSkinFrameY };
       }
     } else {
-      hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCornerSize, s.uiSkinEditorTab);
+      hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCornerSize, s.uiEditSubMode === 'cursor' ? 'cursor' : 'frame');
       if (!hit) return;
     }
 
@@ -607,7 +607,7 @@ export default function UIEditorFrameCanvas() {
     const coords = toImageCoords(e.clientX, e.clientY);
     if (!coords) return;
     const s = useEditorStore.getState();
-    const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCornerSize, s.uiSkinEditorTab);
+    const hit = getHit(coords.ix, coords.iy, s.uiSkinFrameX, s.uiSkinFrameY, s.uiSkinFrameW, s.uiSkinFrameH, s.uiSkinFillX, s.uiSkinFillY, s.uiSkinFillW, s.uiSkinFillH, s.uiSkinCursorX, s.uiSkinCursorY, s.uiSkinCursorW, s.uiSkinCursorH, s.uiSkinCornerSize, s.uiEditSubMode === 'cursor' ? 'cursor' : 'frame');
     canvas.style.cursor = getCursor(hit);
 
     // slice 호버 하이라이트 갱신

@@ -46,6 +46,7 @@ import UIEditorInspector from './components/UIEditor/UIEditorInspector';
 import UIEditorToolbar from './components/UIEditor/UIEditorToolbar';
 import UIEditorFrameCanvas from './components/UIEditor/UIEditorFrameCanvas';
 import UIEditorFrameInspector from './components/UIEditor/UIEditorFrameInspector';
+import UIEditorCursorInspector from './components/UIEditor/UIEditorCursorInspector';
 import UIEditorSkinPreview from './components/UIEditor/UIEditorSkinPreview';
 
 function formatRelativeTime(createdAt: number, now: number): string {
@@ -289,8 +290,8 @@ export default function App() {
           <div className="toolbar-area">
             <UIEditorToolbar />
           </div>
-          <div className="main-area" style={uiEditSubMode === 'frame' ? { flexDirection: 'row' } : undefined}>
-            {uiEditSubMode === 'frame' ? (
+          <div className="main-area" style={(uiEditSubMode === 'frame' || uiEditSubMode === 'cursor') ? { flexDirection: 'row' } : undefined}>
+            {(uiEditSubMode === 'frame' || uiEditSubMode === 'cursor') ? (
               <>
                 <UIEditorFrameCanvas />
                 <ResizablePanel defaultWidth={240} minWidth={160} maxWidth={420} side="left">
@@ -301,7 +302,9 @@ export default function App() {
           </div>
           <div className="inspector-area">
             <ResizablePanel defaultWidth={280} minWidth={200} maxWidth={500} side="left">
-              {uiEditSubMode === 'frame' ? <UIEditorFrameInspector /> : <UIEditorInspector />}
+              {uiEditSubMode === 'frame' ? <UIEditorFrameInspector /> :
+               uiEditSubMode === 'cursor' ? <UIEditorCursorInspector /> :
+               <UIEditorInspector />}
             </ResizablePanel>
           </div>
         </>
