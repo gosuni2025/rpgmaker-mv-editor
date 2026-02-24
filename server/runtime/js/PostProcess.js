@@ -2654,6 +2654,36 @@ Spriteset_Map.prototype.update = function() {
 };
 
 //=============================================================================
+// SceneManager.snapForBackground 오버라이드
+// 기존 renderToCanvas()는 WebGL 상태 간섭으로 검은 이미지가 나옴.
+// 대신 PostProcess composer가 렌더한 실제 WebGL 캔버스를 직접 캡처.
+//=============================================================================
+
+if (typeof SceneManager !== 'undefined') {
+    var _SceneManager_snapForBackground = SceneManager.snapForBackground;
+    SceneManager.snapForBackground = function() {
+        var renderer = typeof Graphics !== 'undefined' &&
+                       Graphics._renderer && Graphics._renderer.renderer;
+        if (renderer && renderer.domElement) {
+            try {
+                var canvas = renderer.domElement;
+                var w = canvas.width;
+                var h = canvas.height;
+                var bitmap = new Bitmap(w, h);
+                bitmap._context.drawImage(canvas, 0, 0);
+                bitmap._setDirty();
+                bitmap.blur();
+                this._backgroundBitmap = bitmap;
+                return;
+            } catch(e) {
+                // fallback
+            }
+        }
+        _SceneManager_snapForBackground.call(this);
+    };
+}
+
+//=============================================================================
 // Scene_Map.onMapLoaded - 맵 데이터에서 bloomConfig, postProcessConfig 로드
 //=============================================================================
 
