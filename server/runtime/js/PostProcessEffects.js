@@ -902,6 +902,47 @@ PostProcessEffects.createBarrelDistortPass = function(params) {
 };
 
 //=============================================================================
+// 20. Anaglyph - 애너글리프 3D (빨간-청록 입체 효과)
+//=============================================================================
+PostProcessEffects.AnaglyphShader = {
+    uniforms: {
+        tColor:      { value: null },
+        uSeparation: { value: 0.005 },
+        uMode:       { value: 0 }
+    },
+    vertexShader: VERT,
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float uSeparation;',
+        'uniform int uMode;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 left  = texture2D(tColor, vUv + vec2(-uSeparation, 0.0));',
+        '    vec4 right = texture2D(tColor, vUv + vec2( uSeparation, 0.0));',
+        '    if (uMode == 1) {',
+        '        // Red-Green',
+        '        gl_FragColor = vec4(left.r, right.g, 0.0, 1.0);',
+        '    } else if (uMode == 2) {',
+        '        // Magenta-Green',
+        '        gl_FragColor = vec4(left.r, right.g, left.b, 1.0);',
+        '    } else {',
+        '        // Red-Cyan (default)',
+        '        gl_FragColor = vec4(left.r, right.g, right.b, 1.0);',
+        '    }',
+        '}'
+    ].join('\n')
+};
+
+PostProcessEffects.createAnaglyphPass = function(params) {
+    var pass = createPass(this.AnaglyphShader);
+    if (params) {
+        if (params.separation != null) pass.uniforms.uSeparation.value = params.separation;
+        if (params.mode != null) pass.uniforms.uMode.value = params.mode;
+    }
+    return pass;
+};
+
+//=============================================================================
 // 이펙트 목록 레지스트리 (에디터 UI에서 사용)
 //=============================================================================
 PostProcessEffects.EFFECT_LIST = [
@@ -923,7 +964,8 @@ PostProcessEffects.EFFECT_LIST = [
     { key: 'heatHaze',      name: '아지랑이',      create: 'createHeatHazePass' },
     { key: 'scanlines',     name: '스캔라인',      create: 'createScanlinesPass' },
     { key: 'posterize',     name: '포스터화',      create: 'createPosterizePass' },
-    { key: 'barrelDistort', name: 'CRT 배럴 왜곡', create: 'createBarrelDistortPass' }
+    { key: 'barrelDistort', name: 'CRT 배럴 왜곡', create: 'createBarrelDistortPass' },
+    { key: 'anaglyph',      name: '애너글리프 3D', create: 'createAnaglyphPass' }
 ];
 
 // 이펙트별 파라미터 정의 (에디터 인스펙터용)
@@ -1019,6 +1061,10 @@ PostProcessEffects.EFFECT_PARAMS = {
     ],
     barrelDistort: [
         { key: 'curvature', label: '곡면 강도', min: 0, max: 0.3, step: 0.01, default: 0.05 }
+    ],
+    anaglyph: [
+        { key: 'separation', label: '채널 분리', min: 0, max: 0.03, step: 0.001, default: 0.005 },
+        { key: 'mode',       label: '색상 모드', type: 'select', options: [{v:0,l:'Red-Cyan'},{v:1,l:'Red-Green'},{v:2,l:'Magenta-Green'}], default: 0 }
     ]
 };
 
@@ -1046,7 +1092,8 @@ PostProcessEffects._UNIFORM_MAP = {
     heatHaze:     { amplitude: 'uAmplitude', frequencyX: 'uFrequencyX', frequencyY: 'uFrequencyY', speed: 'uSpeed' },
     scanlines:    { intensity: 'uIntensity', density: 'uDensity', speed: 'uSpeed' },
     posterize:    { steps: 'uSteps' },
-    barrelDistort: { curvature: 'uCurvature' }
+    barrelDistort: { curvature: 'uCurvature' },
+    anaglyph:      { separation: 'uSeparation', mode: 'uMode' }
 };
 
 // 런타임에서 파라미터를 pass의 uniform에 적용
