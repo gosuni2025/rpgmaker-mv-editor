@@ -161,6 +161,7 @@ export function runAstar(
   allowDiagonal: boolean,
   maxNodes = 2000,
   blockedTiles?: ReadonlySet<string>,
+  ignorePassability = false,
 ): { x: number; y: number }[] {
   if (startX === endX && startY === endY) return [{ x: startX, y: startY }];
 
@@ -211,7 +212,7 @@ export function runAstar(
       if (closedSet.has(key)) continue;
       // 목적지가 blockedTile이어도 도달은 허용
       if (blockedTiles?.has(`${nx},${ny}`) && !(nx === endX && ny === endY)) continue;
-      if (!isPassable(current.x, current.y, dx, dy, data, mapWidth, mapHeight, flags)) continue;
+      if (!ignorePassability && !isPassable(current.x, current.y, dx, dy, data, mapWidth, mapHeight, flags)) continue;
 
       const g = current.g + 1;
       const existing = openSet.get(key);
@@ -237,7 +238,7 @@ export function runAstar(
         const key = nodeKey(nx, ny);
         if (closedSet.has(key)) continue;
         if (blockedTiles?.has(`${nx},${ny}`) && !(nx === endX && ny === endY)) continue;
-        if (!isDiagonalPassable(current.x, current.y, dx, dy, data, mapWidth, mapHeight, flags)) continue;
+        if (!ignorePassability && !isDiagonalPassable(current.x, current.y, dx, dy, data, mapWidth, mapHeight, flags)) continue;
 
         const g = current.g + Math.SQRT2;
         const existing = openSet.get(key);
@@ -383,7 +384,8 @@ export interface WaypointSession {
   startY: number;
   waypoints: WaypointPos[];
   allowDiagonal: boolean;
-  avoidEvents: boolean;    // 맵 이벤트 위치를 장애물로 처리
+  avoidEvents: boolean;        // 맵 이벤트 위치를 장애물로 처리
+  ignorePassability: boolean;  // true면 통과불가 타일 무시
   onConfirm?: (commands: MoveCommand[]) => void;
   /** undo/redo 히스토리 (내부 전용) */
   _history?: WaypointPos[][];

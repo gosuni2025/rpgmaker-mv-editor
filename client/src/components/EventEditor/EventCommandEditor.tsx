@@ -455,6 +455,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
               })(),
               allowDiagonal: false,
               avoidEvents: false,
+              ignorePassability: false,
               onConfirm: (commands) => {
                 const route = {
                   list: [...commands, { code: 0 }],

@@ -284,6 +284,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
                 waypoints: initialWaypoints,
                 allowDiagonal: false,
                 avoidEvents: false,
+                ignorePassability: false,
                 onConfirm: (commands) => {
                   const route = {
                     list: [...commands, { code: 0 }],

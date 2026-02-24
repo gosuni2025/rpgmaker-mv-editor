@@ -177,7 +177,7 @@ export default function EventInspector() {
     let cy = s.startY;
 
     for (const wp of s.waypoints) {
-      const path = runAstar(cx, cy, wp.x, wp.y, data, width, height, flags, s.allowDiagonal, 2000, blockedTiles);
+      const path = runAstar(cx, cy, wp.x, wp.y, data, width, height, flags, s.allowDiagonal, 2000, blockedTiles, s.ignorePassability);
       if (path.length >= 2) {
         allCommands.push(...pathToMvCommands(path));
       } else if (path.length === 0) {
@@ -314,6 +314,14 @@ export default function EventInspector() {
                 onChange={e => updateSessionField('avoidEvents', e.target.checked)}
               />
               이벤트 위치 회피
+            </label>
+            <label className="waypoint-checkbox" style={{ marginTop: 4 }}>
+              <input
+                type="checkbox"
+                checked={waypointSession.ignorePassability}
+                onChange={e => updateSessionField('ignorePassability', e.target.checked)}
+              />
+              이동 불가 타일 무시
             </label>
           </div>
 

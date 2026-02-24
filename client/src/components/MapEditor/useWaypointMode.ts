@@ -92,7 +92,7 @@ function findSegmentIndex(
     const path = runAstar(
       prevX, prevY, wp.x, wp.y,
       data, mapWidth, mapHeight, flags,
-      session.allowDiagonal, 400, blockedTiles,
+      session.allowDiagonal, 400, blockedTiles, session.ignorePassability,
     );
     for (let j = 1; j < path.length - 1; j++) {
       if (path[j].x === clickX && path[j].y === clickY) return i;

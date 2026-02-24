@@ -296,8 +296,12 @@ function renderWaypointSession(
     const isLast = i === wps.length - 1;
 
     // A* 경로 미리보기 선
+    let unreachable = false;
     if (mapData && flags) {
-      const path = runAstar(prevX, prevY, wp.x, wp.y, mapData, mapWidth, mapHeight, flags, session.allowDiagonal, 500, blockedTiles);
+      const path = runAstar(
+        prevX, prevY, wp.x, wp.y, mapData, mapWidth, mapHeight, flags,
+        session.allowDiagonal, 500, blockedTiles, session.ignorePassability,
+      );
       if (path.length >= 2) {
         for (let j = 0; j < path.length - 1; j++) {
           const [x1, y1] = tileCenter({ x: path[j].x, y: path[j].y });
@@ -318,7 +322,8 @@ function renderWaypointSession(
           meshes.push(line);
         }
       } else {
-        // 경로 없음 → 직선 (빨간 점선)
+        // 경로 없음 → 직선 (빨간 점선) + 마커 경고 표시
+        unreachable = true;
         const [x1, y1] = tileCenter({ x: prevX, y: prevY });
         const [x2, y2] = tileCenter({ x: wp.x, y: wp.y });
         const pts = [new THREE.Vector3(x1, y1, Z), new THREE.Vector3(x2, y2, Z)];
@@ -339,7 +344,8 @@ function renderWaypointSession(
 
     // 웨이포인트 마커
     const [mx, my] = tileCenter({ x: wp.x, y: wp.y });
-    const markerColor = isLast ? 0xff4444 : 0xffaa00;
+    // 도달불가이면 회색 계열로 표시
+    const markerColor = unreachable ? 0x666666 : (isLast ? 0xff4444 : 0xffaa00);
     const circGeom = new THREE.CircleGeometry(TILE_SIZE_PX * 0.28, 20);
     const circMat = new THREE.MeshBasicMaterial({
       color: markerColor, depthTest: false, transparent: true, opacity: 0.85, side: THREE.DoubleSide,
@@ -353,10 +359,11 @@ function renderWaypointSession(
     scene.add(circle);
     meshes.push(circle);
 
-    // 테두리 링
+    // 테두리 링 (도달불가이면 주황색)
     const ringGeom = new THREE.RingGeometry(TILE_SIZE_PX * 0.28, TILE_SIZE_PX * 0.33, 20);
     const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff, depthTest: false, transparent: true, opacity: 0.6, side: THREE.DoubleSide,
+      color: unreachable ? 0xff6600 : 0xffffff,
+      depthTest: false, transparent: true, opacity: unreachable ? 0.9 : 0.6, side: THREE.DoubleSide,
     });
     const ring = new THREE.Mesh(ringGeom, ringMat);
     ring.position.set(mx, my, Z + 0.01);
@@ -366,8 +373,8 @@ function renderWaypointSession(
     scene.add(ring);
     meshes.push(ring);
 
-    // 라벨
-    const label = isLast ? '목' : String(i + 1);
+    // 라벨 (도달불가이면 "!")
+    const label = unreachable ? '!' : (isLast ? '목' : String(i + 1));
     const canvas = document.createElement('canvas');
     canvas.width = 32; canvas.height = 32;
     const ctx = canvas.getContext('2d')!;
@@ -375,7 +382,7 @@ function renderWaypointSession(
     ctx.save();
     ctx.translate(0, 32);
     ctx.scale(1, -1);
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = unreachable ? '#ff6600' : '#fff';
     ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -479,42 +486,33 @@ export function useMoveRouteOverlay(
         const path = computeMoveRoutePath(startX, startY, entry.moveRoute);
         renderRoute(THREE, rObj.scene, meshes, path, entry.moveRoute, entry.color, idx);
       });
+    } else {
+      // 인스펙터 데이터가 없을 때 기존 폴백: 호버/선택 이벤트의 자율이동 경로
+      let targetEvent: any = null;
 
-      triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
-      return;
+      if (selectedEventIds.length === 1) {
+        const ev = events.find(e => e && e.id === selectedEventIds[0]);
+        if (ev) targetEvent = ev;
+      }
+
+      if (!targetEvent && (selectedEventIds.length === 0 || selectedEventIds.length > 1) && hoverTile) {
+        targetEvent = events.find(
+          e => e && e.x === hoverTile.x && e.y === hoverTile.y
+        );
+      }
+
+      if (targetEvent?.pages?.length > 0) {
+        const page = targetEvent.pages[0];
+        if (page.moveType === 3 && page.moveRoute?.list?.length > 0) {
+          const path = computeMoveRoutePath(targetEvent.x, targetEvent.y, page.moveRoute);
+          renderRoute(THREE, rObj.scene, meshes, path, page.moveRoute, '#ff8800', 0);
+        }
+      }
     }
 
-    // 인스펙터 데이터가 없을 때 기존 폴백: 호버/선택 이벤트의 자율이동 경로
-    let targetEvent: any = null;
-
-    if (selectedEventIds.length === 1) {
-      const ev = events.find(e => e && e.id === selectedEventIds[0]);
-      if (ev) targetEvent = ev;
-    }
-
-    if (!targetEvent && (selectedEventIds.length === 0 || selectedEventIds.length > 1) && hoverTile) {
-      targetEvent = events.find(
-        e => e && e.x === hoverTile.x && e.y === hoverTile.y
-      );
-    }
-
-    if (!targetEvent || !targetEvent.pages || targetEvent.pages.length === 0) {
-      triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
-      return;
-    }
-
-    const page = targetEvent.pages[0];
-    if (page.moveType !== 3 || !page.moveRoute || !page.moveRoute.list || page.moveRoute.list.length === 0) {
-      triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
-      return;
-    }
-
-    const path = computeMoveRoutePath(targetEvent.x, targetEvent.y, page.moveRoute);
-    renderRoute(THREE, rObj.scene, meshes, path, page.moveRoute, '#ff8800', 0);
-
-    // 웨이포인트 세션 렌더링
+    // 웨이포인트 세션 렌더링 (항상 수행)
     const session = (window as any)._editorWaypointSession as WaypointSession | null;
-    if (session && editMode === 'event') {
+    if (session) {
       renderWaypointSession(
         THREE, rObj.scene, meshes, session,
         currentMap?.data, currentMap?.width ?? 0, currentMap?.height ?? 0,
