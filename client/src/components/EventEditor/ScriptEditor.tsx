@@ -5,7 +5,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { linter, lintGutter, type Diagnostic } from '@codemirror/lint';
 import type { EventCommand } from '../../types/rpgMakerMV';
 import useEscClose from '../../hooks/useEscClose';
-import { SCRIPT_SAMPLES, SAMPLE_GROUPS } from './scriptSamples';
+import { ScriptSampleDialog } from './ScriptSampleDialog';
 import './ScriptEditor.css';
 
 // 파일 참조 마커 패턴
@@ -34,8 +34,6 @@ function jsLinter(view: EditorView): Diagnostic[] {
   } catch (e) {
     if (!(e instanceof SyntaxError)) return [];
     const msg = (e as SyntaxError).message;
-    // Chrome/V8의 SyntaxError는 위치 정보를 제공하지 않으므로
-    // 전체 문서 첫 번째 문자에 마커 표시
     return [{ from: 0, to: Math.min(code.length, 100), severity: 'error', message: msg }];
   }
 }
@@ -60,6 +58,7 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
 
   const initialFileRef = extractFileRef(initialCode);
   const [activeTab, setActiveTab] = useState<'inline' | 'file'>(initialFileRef ? 'file' : 'inline');
+  const [showSampleDialog, setShowSampleDialog] = useState(false);
 
   // 인라인 에디터
   const inlineContainerRef = useRef<HTMLDivElement>(null);
@@ -85,7 +84,6 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
     const container = inlineContainerRef.current;
     if (!container) return;
 
-    // 이미 있으면 destroy
     if (inlineViewRef.current) {
       inlineViewRef.current.destroy();
       inlineViewRef.current = null;
@@ -118,7 +116,6 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
     });
 
     inlineViewRef.current = view;
-    // 초기 lint 체크
     if (inlineInitCode.trim()) {
       try {
         // eslint-disable-next-line no-new-func
@@ -245,20 +242,25 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
         {/* 헤더 */}
         <div className="script-editor-header">
           <span>Script</span>
-          <div className="script-editor-tabs">
-            <button
-              className={`script-editor-tab${activeTab === 'inline' ? ' active' : ''}`}
-              onClick={() => setActiveTab('inline')}
-            >
-              직접 입력
-            </button>
-            <button
-              className={`script-editor-tab${activeTab === 'file' ? ' active' : ''}`}
-              onClick={() => setActiveTab('file')}
-            >
-              파일 참조<span className="ext-badge">EXT</span>
-            </button>
-          </div>
+        </div>
+
+        {/* 툴바 */}
+        <div className="script-editor-toolbar">
+          <button
+            className="db-btn"
+            onClick={() => setShowSampleDialog(true)}
+            disabled={activeTab !== 'inline'}
+            title="스크립트 샘플을 선택하여 삽입"
+          >
+            샘플 삽입
+          </button>
+          <button
+            className={`script-toolbar-tab${activeTab === 'file' ? ' active' : ''}`}
+            onClick={() => setActiveTab(activeTab === 'file' ? 'inline' : 'file')}
+            title="JS 파일을 참조하여 실행"
+          >
+            파일 참조<span className="ext-badge">EXT</span>
+          </button>
         </div>
 
         {/* 본문 */}
@@ -266,30 +268,6 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
           {/* 인라인 탭 */}
           {activeTab === 'inline' && (
             <div className="script-editor-inline">
-              {/* 샘플 삽입 툴바 */}
-              <div className="script-sample-toolbar">
-                <span className="script-sample-label">샘플 삽입:</span>
-                <select
-                  className="script-sample-select"
-                  value=""
-                  onChange={e => {
-                    const val = e.target.value;
-                    if (!val) return;
-                    const sample = SCRIPT_SAMPLES.find(s => s.group + '\0' + s.label === val);
-                    if (sample) handleInsertSample(sample.code);
-                    e.target.value = '';
-                  }}
-                >
-                  <option value="">-- 샘플 코드 선택 --</option>
-                  {SAMPLE_GROUPS.map(group => (
-                    <optgroup key={group} label={group}>
-                      {SCRIPT_SAMPLES.filter(s => s.group === group).map(s => (
-                        <option key={s.label} value={group + '\0' + s.label}>{s.label}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </div>
               <div ref={inlineContainerRef} className="script-cm-container" />
               {lintErrors.length > 0 && (
                 <div className="script-lint-panel">
@@ -353,6 +331,17 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
           <button className="db-btn" onClick={onCancel}>취소</button>
         </div>
       </div>
+
+      {/* 샘플 삽입 다이얼로그 */}
+      {showSampleDialog && (
+        <ScriptSampleDialog
+          onInsert={(code) => {
+            handleInsertSample(code);
+            setShowSampleDialog(false);
+          }}
+          onClose={() => setShowSampleDialog(false)}
+        />
+      )}
     </div>
   );
 }

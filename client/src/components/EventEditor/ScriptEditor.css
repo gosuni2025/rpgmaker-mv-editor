@@ -10,47 +10,54 @@
 }
 
 .script-editor-header {
-  padding: 10px 16px;
+  padding: 8px 16px;
   background: #383838;
   border-bottom: 1px solid #555;
   display: flex;
   align-items: center;
-  gap: 16px;
   color: #ddd;
   font-size: 14px;
   font-weight: 600;
   flex-shrink: 0;
 }
 
-.script-editor-tabs {
+.script-editor-toolbar {
   display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #2f2f2f;
+  border-bottom: 1px solid #444;
+  flex-shrink: 0;
+}
+
+.script-toolbar-tab {
+  background: #3a3a3a;
+  border: 1px solid #555;
+  color: #aaa;
+  padding: 4px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
   gap: 4px;
 }
 
-.script-editor-tab {
-  background: #2b2b2b;
-  border: 1px solid #555;
-  color: #aaa;
-  padding: 4px 14px;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: background 0.15s;
-}
-
-.script-editor-tab:hover {
-  background: #3a3a3a;
+.script-toolbar-tab:hover {
+  background: #444;
   color: #ddd;
 }
 
-.script-editor-tab.active {
-  background: #2675bf;
-  color: #fff;
+.script-toolbar-tab.active {
+  background: #1e4a7a;
+  color: #8bc4f0;
   border-color: #2675bf;
 }
 
-.script-editor-tab.active .ext-badge {
-  background: rgba(255, 255, 255, 0.25);
+.script-toolbar-tab.active .ext-badge {
+  background: rgba(38, 117, 191, 0.4);
 }
 
 .script-editor-body {
@@ -106,41 +113,6 @@
   padding: 2px 0;
 }
 
-.script-sample-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  background: #2f2f2f;
-  border-bottom: 1px solid #444;
-  flex-shrink: 0;
-}
-
-.script-sample-label {
-  font-size: 12px;
-  color: #888;
-  white-space: nowrap;
-}
-
-.script-sample-select {
-  flex: 1;
-  max-width: 320px;
-  background: #3a3a3a;
-  border: 1px solid #555;
-  color: #ddd;
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.script-sample-select:hover {
-  border-color: #777;
-}
-
-.script-sample-select:focus {
-  outline: 1px solid #2675bf;
-}
 
 .script-file-toolbar {
   display: flex;
