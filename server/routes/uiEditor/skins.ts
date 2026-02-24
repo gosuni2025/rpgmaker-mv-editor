@@ -16,7 +16,7 @@ interface SkinEntry {
   cursorOpacity?: number; cursorBlink?: boolean; cursorPadding?: number;
   cursorToneR?: number; cursorToneG?: number; cursorToneB?: number;
 }
-interface SkinsData { defaultSkin: string; skins: SkinEntry[]; }
+interface SkinsData { defaultSkin: string; defaultFrameSkin?: string; defaultCursorSkin?: string; skins: SkinEntry[]; }
 
 const DEFAULT_SKINS: SkinEntry[] = [{ name: 'Window', file: 'Window', cornerSize: 24, useCenterFill: false }];
 const DEFAULT_SKINS_DATA: SkinsData = { defaultSkin: 'Window', skins: DEFAULT_SKINS };
@@ -35,7 +35,7 @@ function readSkinsData(): SkinsData {
     const windowSkin = skins.find((s: SkinEntry) => s.name === 'Window');
     if (windowSkin && windowSkin.useCenterFill === undefined) windowSkin.useCenterFill = false;
     for (const s of skins) { if (!s.file) s.file = s.name; }
-    return { defaultSkin: data.defaultSkin || 'Window', skins };
+    return { defaultSkin: data.defaultSkin || 'Window', defaultFrameSkin: data.defaultFrameSkin, defaultCursorSkin: data.defaultCursorSkin, skins };
   } catch {}
   return { ...DEFAULT_SKINS_DATA, skins: [...DEFAULT_SKINS] };
 }
@@ -57,10 +57,14 @@ router.get('/', (req, res) => {
 /** PUT /api/ui-editor/skins/default */
 router.put('/default', (req, res) => {
   if (!projectManager.isOpen()) return res.status(404).json({ error: 'No project' });
-  const { defaultSkin } = req.body as { defaultSkin?: string };
-  if (!defaultSkin) return res.status(400).json({ error: 'defaultSkin required' });
+  const body = req.body as { defaultSkin?: string; defaultFrameSkin?: string; defaultCursorSkin?: string };
   const data = readSkinsData();
-  data.defaultSkin = defaultSkin;
+  if (body.defaultSkin) data.defaultSkin = body.defaultSkin;
+  if (body.defaultFrameSkin !== undefined) data.defaultFrameSkin = body.defaultFrameSkin || undefined;
+  if (body.defaultCursorSkin !== undefined) data.defaultCursorSkin = body.defaultCursorSkin || undefined;
+  if (!body.defaultSkin && !body.defaultFrameSkin && !body.defaultCursorSkin) {
+    return res.status(400).json({ error: 'at least one default field required' });
+  }
   writeSkinsData(data);
   res.json({ ok: true });
 });

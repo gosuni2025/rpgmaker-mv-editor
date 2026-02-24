@@ -65,9 +65,9 @@
   }
 
   /** 스킨 파일 경로로 사전 항목 취득 (file 필드 또는 name 매칭, 없으면 null) */
-  function findSkinEntry(skinName) {
+  function findSkinEntry(skinName, defaultKey) {
     if (!Array.isArray(_skins.skins)) return null;
-    var name = skinName || _skins.defaultSkin;
+    var name = skinName || (defaultKey && _skins[defaultKey]) || _skins.defaultSkin;
     if (!name) return null;
     return _skins.skins.filter(function (s) { return (s.file || s.name) === name; })[0] || null;
   }
@@ -112,10 +112,18 @@
   function getThemeSkinEntry(win) {
     var className = win.constructor && win.constructor.name;
     var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
-    // skinId가 있으면 ID로 정확 매칭, 없으면 _themeSkin 파일 경로로 매칭
     if (skinId) return findSkinEntryById(skinId);
     var themeSkinName = skinNameFromBitmap(win._themeSkin);
-    return findSkinEntry(themeSkinName);
+    return findSkinEntry(themeSkinName, 'defaultFrameSkin');
+  }
+
+  /** 커서 전용 스킨 항목 취득 — defaultCursorSkin 폴백 */
+  function getThemeCursorEntry(win) {
+    var className = win.constructor && win.constructor.name;
+    var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
+    if (skinId) return findSkinEntryById(skinId);
+    var themeSkinName = skinNameFromBitmap(win._themeSkin);
+    return findSkinEntry(themeSkinName, 'defaultCursorSkin');
   }
 
   /** 렌더링용 스킨 비트맵 반환 (_themeSkin 우선, 없으면 _windowskin) */
@@ -283,7 +291,7 @@
   //===========================================================================
   var _Window_refreshCursor = Window.prototype._refreshCursor;
   Window.prototype._refreshCursor = function () {
-    var entry = getThemeSkinEntry(this);
+    var entry = getThemeCursorEntry(this);
     if (!entry || entry.cursorX === undefined) { return _Window_refreshCursor.call(this); }
 
     var pad = this._padding;

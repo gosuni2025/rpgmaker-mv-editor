@@ -96,6 +96,8 @@ function SkinList() {
   const setUiSkinCursorTone = useEditorStore((s) => s.setUiSkinCursorTone);
   const [skins, setSkins] = useState<SkinEntry[]>([]);
   const [defaultSkin, setDefaultSkin] = useState<string>('');
+  const [defaultFrameSkin, setDefaultFrameSkin] = useState<string>('');
+  const [defaultCursorSkin, setDefaultCursorSkin] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   // 인라인 라벨 편집 상태
@@ -111,6 +113,8 @@ function SkinList() {
         const list: SkinEntry[] = skinsData.skins ?? [];
         setSkins(list);
         setDefaultSkin(skinsData.defaultSkin ?? '');
+        setDefaultFrameSkin(skinsData.defaultFrameSkin ?? '');
+        setDefaultCursorSkin(skinsData.defaultCursorSkin ?? '');
         const current = list.find((s) => s.name === uiSelectedSkin);
         if (current) setUiSkinCornerSize(current.cornerSize);
       })
@@ -260,8 +264,14 @@ function SkinList() {
                       {skin.label || skin.name}
                     </span>
                   )}
-                  {defaultSkin === skin.name && (
+                  {defaultSkin === skin.name && !defaultFrameSkin && !defaultCursorSkin && (
                     <span className="ui-skin-default-badge">기본</span>
+                  )}
+                  {defaultFrameSkin === skin.name && (
+                    <span className="ui-skin-default-badge" style={{ background: '#2675bf' }}>프레임</span>
+                  )}
+                  {defaultCursorSkin === skin.name && (
+                    <span className="ui-skin-default-badge" style={{ background: '#b06020' }}>커서</span>
                   )}
                 </div>
                 <div className="window-class">

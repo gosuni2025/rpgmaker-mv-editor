@@ -64,10 +64,10 @@ export default function UIEditorCursorInspector() {
       await fetch('/api/ui-editor/skins/default', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ defaultSkin: uiSelectedSkin }),
+        body: JSON.stringify({ defaultCursorSkin: uiSelectedSkin }),
       });
       triggerSkinsReload();
-      useEditorStore.getState().showToast(`기본 스킨: ${uiSelectedSkin} 설정됨`);
+      useEditorStore.getState().showToast(`커서 기본 스킨: ${uiSelectedSkin} 설정됨`);
     } catch {
       useEditorStore.getState().showToast('설정 실패', true);
     }
@@ -202,7 +202,7 @@ export default function UIEditorCursorInspector() {
             </button>
           </div>
           <div style={{ padding: '2px 12px 6px', fontSize: 11, color: '#777' }}>
-            UIEditorSkins.json에 defaultSkin 저장
+            UIEditorSkins.json에 defaultCursorSkin 저장
           </div>
         </div>
 
