@@ -254,6 +254,19 @@ export function PostProcessSection({ currentMap, updateMapField }: {
                   <span>활성화</span>
                 </label>
                 {config.enabled && params.map(p => {
+                  if (p.type === 'checkbox') {
+                    const val = config[p.key] ?? p.default;
+                    return (
+                      <label key={p.key} className="map-inspector-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={!!val}
+                          onChange={(e) => handleParamChange(effect.key, p.key, e.target.checked)}
+                        />
+                        <span>{p.label}</span>
+                      </label>
+                    );
+                  }
                   if (p.type === 'select' && p.options) {
                     const val = config[p.key] ?? p.default;
                     return (

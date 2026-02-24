@@ -1099,7 +1099,7 @@ PostProcessEffects.EFFECT_LIST = [
     { key: 'heatHaze',      name: '아지랑이',      create: 'createHeatHazePass' },
     { key: 'scanlines',     name: '스캔라인',      create: 'createScanlinesPass' },
     { key: 'posterize',     name: '포스터화',      create: 'createPosterizePass' },
-    { key: 'barrelDistort', name: 'CRT 배럴 왜곡', create: 'createBarrelDistortPass' },
+    { key: 'barrelDistort', name: 'CRT 배럴 왜곡', create: 'createBarrelDistortPass', defaultApplyOverUI: true },
     { key: 'anaglyph',      name: '애너글리프 3D', create: 'createAnaglyphPass' }
 ];
 
@@ -1109,7 +1109,8 @@ PostProcessEffects.EFFECT_PARAMS = {
         { key: 'intensity', label: '강도',    min: 0, max: 2,   step: 0.05, default: 0.5 },
         { key: 'softness',  label: '부드러움', min: 0, max: 0.5, step: 0.05, default: 0.3 },
         { key: 'radius',    label: '반경',    min: 0, max: 0.7, step: 0.05, default: 0.4 },
-        { key: 'color',     label: '색상',    type: 'color', default: '#000000' }
+        { key: 'color',     label: '색상',    type: 'color', default: '#000000' },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     colorGrading: [
         { key: 'brightness',  label: '밝기',    min: -0.5, max: 0.5, step: 0.01, default: 0 },
@@ -1117,25 +1118,30 @@ PostProcessEffects.EFFECT_PARAMS = {
         { key: 'saturation',  label: '채도',    min: 0,    max: 3,   step: 0.05, default: 1 },
         { key: 'temperature', label: '색온도',  min: -1,   max: 1,   step: 0.05, default: 0 },
         { key: 'tint',        label: '틴트',    min: -1,   max: 1,   step: 0.05, default: 0 },
-        { key: 'gamma',       label: '감마',    min: 0.5,  max: 2.5, step: 0.05, default: 1 }
+        { key: 'gamma',       label: '감마',    min: 0.5,  max: 2.5, step: 0.05, default: 1 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     chromatic: [
         { key: 'strength', label: '강도', min: 0, max: 0.05, step: 0.001, default: 0.005 },
-        { key: 'radial',   label: '방사', min: 0, max: 3,    step: 0.1,   default: 1 }
+        { key: 'radial',   label: '방사', min: 0, max: 3,    step: 0.1,   default: 1 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     filmGrain: [
         { key: 'intensity', label: '강도', min: 0, max: 0.5, step: 0.01, default: 0.1 },
-        { key: 'size',      label: '크기', min: 0.5, max: 4, step: 0.1,  default: 1 }
+        { key: 'size',      label: '크기', min: 0.5, max: 4, step: 0.1,  default: 1 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     toneMapping: [
         { key: 'exposure', label: '노출', min: 0.1, max: 3, step: 0.05, default: 1 },
-        { key: 'mode',     label: '모드', type: 'select', options: [{v:0,l:'ACES'},{v:1,l:'Reinhard'},{v:2,l:'Linear'}], default: 0 }
+        { key: 'mode',     label: '모드', type: 'select', options: [{v:0,l:'ACES'},{v:1,l:'Reinhard'},{v:2,l:'Linear'}], default: 0 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     fog: [
         { key: 'density', label: '밀도',     min: 0, max: 1,   step: 0.05, default: 0.3 },
         { key: 'start',   label: '시작',     min: 0, max: 1,   step: 0.05, default: 0 },
         { key: 'end',     label: '끝',       min: 0, max: 1,   step: 0.05, default: 1 },
-        { key: 'color',   label: '안개 색상', type: 'color', default: '#ccd9e6' }
+        { key: 'color',   label: '안개 색상', type: 'color', default: '#ccd9e6' },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     godRays: [
         { key: 'lightPosX',    label: '조명 X',    min: 0, max: 1,   step: 0.01,  default: 0.5 },
@@ -1147,66 +1153,80 @@ PostProcessEffects.EFFECT_PARAMS = {
         { key: 'threshold',    label: '임계값',    min: 0, max: 1,   step: 0.05,  default: 0.5 },
         { key: 'rayColor',     label: '빛 색상',   type: 'color',    default: '#ffe8c0' },
         { key: 'maxDistance',  label: '거리 감쇠', min: 0.3, max: 3, step: 0.1,   default: 1.5 },
-        { key: 'useOcclusion', label: '오클루전',  type: 'select', options: [{v:0,l:'루미넌스'},{v:1,l:'오클루전(3D)'}], default: 0 }
+        { key: 'useOcclusion', label: '오클루전',  type: 'select', options: [{v:0,l:'루미넌스'},{v:1,l:'오클루전(3D)'}], default: 0 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     radialBlur: [
         { key: 'centerX',  label: '중심 X', min: 0, max: 1, step: 0.01, default: 0.5 },
         { key: 'centerY',  label: '중심 Y', min: 0, max: 1, step: 0.01, default: 0.5 },
-        { key: 'strength', label: '강도',   min: 0, max: 0.5, step: 0.01, default: 0.1 }
+        { key: 'strength', label: '강도',   min: 0, max: 0.5, step: 0.01, default: 0.1 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     waveDistortion: [
         { key: 'amplitude', label: '진폭',    min: 0, max: 0.1, step: 0.005, default: 0.03 },
         { key: 'waveWidth', label: '파폭',    min: 0, max: 0.5, step: 0.01,  default: 0.15 },
-        { key: 'speed',     label: '속도',    min: 0, max: 5,   step: 0.1,   default: 1.5 }
+        { key: 'speed',     label: '속도',    min: 0, max: 5,   step: 0.1,   default: 1.5 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     anamorphic: [
         { key: 'threshold',    label: '임계값',  min: 0, max: 1,   step: 0.05, default: 0.7 },
         { key: 'intensity',    label: '강도',    min: 0, max: 2,   step: 0.05, default: 0.5 },
-        { key: 'streakLength', label: '줄 길이', min: 0, max: 2,   step: 0.05, default: 0.5 }
+        { key: 'streakLength', label: '줄 길이', min: 0, max: 2,   step: 0.05, default: 0.5 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     motionBlur: [
         { key: 'velocityX', label: '속도 X', min: -0.05, max: 0.05, step: 0.001, default: 0 },
-        { key: 'velocityY', label: '속도 Y', min: -0.05, max: 0.05, step: 0.001, default: 0 }
+        { key: 'velocityY', label: '속도 Y', min: -0.05, max: 0.05, step: 0.001, default: 0 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     pixelation: [
-        { key: 'pixelSize', label: '픽셀 크기', min: 1, max: 32, step: 1, default: 4 }
+        { key: 'pixelSize', label: '픽셀 크기', min: 1, max: 32, step: 1, default: 4 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     colorInversion: [
-        { key: 'strength', label: '강도', min: 0, max: 1, step: 0.05, default: 1 }
+        { key: 'strength', label: '강도', min: 0, max: 1, step: 0.05, default: 1 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     edgeDetection: [
         { key: 'strength',  label: '강도',    min: 0, max: 3, step: 0.1,  default: 1 },
         { key: 'threshold', label: '임계값',  min: 0, max: 0.5, step: 0.01, default: 0.1 },
-        { key: 'overlay',   label: '오버레이', min: 0, max: 1, step: 0.1,  default: 1 }
+        { key: 'overlay',   label: '오버레이', min: 0, max: 1, step: 0.1,  default: 1 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     ssao: [
         { key: 'radius',    label: '반경', min: 1, max: 20, step: 0.5, default: 5 },
         { key: 'intensity', label: '강도', min: 0, max: 2,  step: 0.05, default: 0.5 },
-        { key: 'bias',      label: '바이어스', min: 0, max: 0.2, step: 0.005, default: 0.05 }
+        { key: 'bias',      label: '바이어스', min: 0, max: 0.2, step: 0.005, default: 0.05 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     heatHaze: [
         { key: 'strength',   label: '강도',       min: 0, max: 1,    step: 0.01,  default: 1 },
         { key: 'amplitude',  label: '왜곡 진폭',  min: 0, max: 0.02, step: 0.001, default: 0.003 },
         { key: 'frequencyX', label: '주파수 X',   min: 1, max: 40,   step: 1,     default: 15 },
         { key: 'frequencyY', label: '주파수 Y',   min: 1, max: 40,   step: 1,     default: 10 },
-        { key: 'speed',      label: '속도',       min: 0, max: 5,    step: 0.1,   default: 1 }
+        { key: 'speed',      label: '속도',       min: 0, max: 5,    step: 0.1,   default: 1 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     scanlines: [
         { key: 'intensity', label: '강도',   min: 0,    max: 1,   step: 0.05,  default: 0.3 },
         { key: 'density',   label: '밀도',   min: 0.02, max: 1,   step: 0.02,  default: 1.0 },
-        { key: 'speed',     label: '스크롤', min: 0,    max: 0.1, step: 0.005, default: 0.0 }
+        { key: 'speed',     label: '스크롤', min: 0,    max: 0.1, step: 0.005, default: 0.0 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     posterize: [
         { key: 'steps', label: '색상 단계', min: 2, max: 32, step: 1, default: 8 },
-        { key: 'blend', label: '혼합 강도', min: 0, max: 1, step: 0.05, default: 1.0 }
+        { key: 'blend', label: '혼합 강도', min: 0, max: 1, step: 0.05, default: 1.0 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ],
     barrelDistort: [
-        { key: 'curvature', label: '곡면 강도', min: 0, max: 0.3, step: 0.01, default: 0.05 }
+        { key: 'curvature', label: '곡면 강도', min: 0, max: 0.3, step: 0.01, default: 0.05 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: true }
     ],
     anaglyph: [
         { key: 'separation', label: '채널 분리', min: 0, max: 0.03, step: 0.001, default: 0.005 },
         { key: 'mode',       label: '색상 모드', type: 'select', options: [{v:0,l:'Red-Cyan'},{v:1,l:'Red-Green'},{v:2,l:'Magenta-Green'}], default: 0 },
-        { key: 'blend',      label: '블렌드',    min: 0, max: 1,    step: 0.01,  default: 1 }
+        { key: 'blend',      label: '블렌드',    min: 0, max: 1,    step: 0.01,  default: 1 },
+        { key: 'applyOverUI', label: 'UI에도 적용', type: 'checkbox', default: false }
     ]
 };
 

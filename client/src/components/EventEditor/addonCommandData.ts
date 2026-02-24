@@ -14,6 +14,12 @@ function ppEffect(effectKey: string, label: string, params: AddonParam[]): Addon
       supportsDuration: true,
     });
   }
+  subCommands.push({
+    id: `${effectKey} applyOverUI`,
+    label: 'addonCommands.ppEffect_applyOverUI',
+    params: [{ name: 'value', type: 'boolean', label: 'addonCommands.param_value' }],
+    supportsDuration: false,
+  });
   return { pluginCommand: 'PPEffect', label, subCommands };
 }
 

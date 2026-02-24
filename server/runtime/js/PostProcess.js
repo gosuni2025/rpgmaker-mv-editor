@@ -1559,9 +1559,11 @@ UIRenderPass.prototype.render = function(renderer, writeBuffer, readBuffer) {
         }
     }
 
-    // readBuffer(맵+bloom+tiltshift 결과)를 화면에 복사
+    // readBuffer(맵+bloom+tiltshift 결과)를 출력 타겟에 복사
+    // renderToScreen=false 시 writeBuffer에 렌더 (다음 패스가 applyOverUI PP)
     var prevAutoClear = renderer.autoClear;
-    renderer.setRenderTarget(null);
+    var _uiTarget = this.renderToScreen ? null : writeBuffer;
+    renderer.setRenderTarget(_uiTarget);
     renderer.autoClear = true;
     this._copyMaterial.uniforms.tDiffuse.value = readBuffer.texture;
     this._copyQuad.render(renderer);
@@ -1787,9 +1789,11 @@ Simple2DUIRenderPass.prototype.render = function(renderer, writeBuffer, readBuff
     var rendererObj = this._rendererObj;
     var stage = this._stage;
 
-    // 1) 블룸 적용된 맵을 화면에 복사
+    // 1) 블룸 적용된 맵을 출력 타겟에 복사
+    // renderToScreen=false 시 writeBuffer에 렌더 (다음 패스가 applyOverUI PP)
     this._copyMaterial.uniforms.tDiffuse.value = readBuffer.texture;
-    renderer.setRenderTarget(null);
+    var _2dUITarget = this.renderToScreen ? null : writeBuffer;
+    renderer.setRenderTarget(_2dUITarget);
     renderer.autoClear = true;
     this._copyQuad.render(renderer);
 
@@ -2024,6 +2028,8 @@ PostProcess._createPPPasses = function(composer) {
             var entry = list[i];
             var pass = PPE[entry.create]();
             pass.enabled = false;
+            pass._ppKey = entry.key;
+            pass._applyOverUI = entry.defaultApplyOverUI || false;
             composer.addPass(pass);
             ppPasses[entry.key] = pass;
         }
@@ -2041,6 +2047,10 @@ PostProcess.applyPostProcessConfig = function(config) {
     for (var key in this._ppPasses) {
         var pass = this._ppPasses[key];
         var effectCfg = config && config[key];
+        // applyOverUI는 enabled 여부와 무관하게 항상 갱신
+        if (effectCfg && effectCfg.applyOverUI !== undefined) {
+            pass._applyOverUI = !!effectCfg.applyOverUI;
+        }
         if (effectCfg && effectCfg.enabled) {
             pass.enabled = true;
             anyEnabled = true;
@@ -2051,7 +2061,11 @@ PostProcess.applyPostProcessConfig = function(config) {
                     var p = params[pi];
                     var val = effectCfg[p.key];
                     if (val != null) {
-                        PPE.applyParam(key, pass, p.key, val);
+                        if (p.key === 'applyOverUI') {
+                            // 이미 위에서 처리됨
+                        } else {
+                            PPE.applyParam(key, pass, p.key, val);
+                        }
                     }
                 }
             }
@@ -2068,47 +2082,91 @@ PostProcess.applyPostProcessConfig = function(config) {
         this._ppPasses.godRays._baseDirty = true;
     }
 
-    // 3D: renderToScreen 재조정
+    // applyOverUI 변경에 따라 패스 순서 재구성 후 renderToScreen 재조정
+    this._rebuildPassOrder();
     this._updateRenderToScreen();
+};
+
+// passes 배열을 재구성: applyOverUI 패스는 UI 패스 이후에 배치
+PostProcess._rebuildPassOrder = function() {
+    if (!this._composer || !this._ppPasses) return;
+    var PPE = window.PostProcessEffects;
+    var list = PPE ? PPE.EFFECT_LIST : [];
+
+    var ppNonUI = [];
+    var ppOverUI = [];
+    for (var i = 0; i < list.length; i++) {
+        var pass = this._ppPasses[list[i].key];
+        if (pass) {
+            if (pass._applyOverUI) {
+                ppOverUI.push(pass);
+            } else {
+                ppNonUI.push(pass);
+            }
+        }
+    }
+
+    var newPasses = [];
+    if (this._composerMode === '3d') {
+        if (this._renderPass) newPasses.push(this._renderPass);
+        if (this._bloomPass) newPasses.push(this._bloomPass);
+        for (var i = 0; i < ppNonUI.length; i++) newPasses.push(ppNonUI[i]);
+        if (this._tiltShiftPass) newPasses.push(this._tiltShiftPass);
+        if (this._uiPass) newPasses.push(this._uiPass);
+        for (var i = 0; i < ppOverUI.length; i++) newPasses.push(ppOverUI[i]);
+    } else if (this._composerMode === '2d') {
+        if (this._2dRenderPass) newPasses.push(this._2dRenderPass);
+        if (this._bloomPass) newPasses.push(this._bloomPass);
+        for (var i = 0; i < ppNonUI.length; i++) newPasses.push(ppNonUI[i]);
+        if (this._2dUIRenderPass) newPasses.push(this._2dUIRenderPass);
+        for (var i = 0; i < ppOverUI.length; i++) newPasses.push(ppOverUI[i]);
+    }
+    if (newPasses.length > 0) {
+        this._composer.passes = newPasses;
+    }
 };
 
 // renderToScreen 플래그를 올바르게 재조정
 PostProcess._updateRenderToScreen = function() {
     if (!this._composer) return;
-    var passes = this._composer.passes;
-    // 마지막으로 활성화된 "화면 출력" 패스를 찾아 renderToScreen 설정
-    // UIRenderPass(3D) 또는 Simple2DUIRenderPass(2D)가 항상 마지막
-    // 그 사이의 PP 패스들은 needsSwap=true로 ping-pong
 
     // bloom의 renderToScreen을 false로 (PP 패스가 뒤에 올 수 있으므로)
     if (this._bloomPass) {
         this._bloomPass.renderToScreen = false;
     }
 
+    // 활성화된 applyOverUI PP 패스 목록 (EFFECT_LIST 순서 유지)
+    var PPE = window.PostProcessEffects;
+    var list = PPE ? PPE.EFFECT_LIST : [];
+    var enabledOverUIPasses = [];
+    for (var i = 0; i < list.length; i++) {
+        var pass = this._ppPasses && this._ppPasses[list[i].key];
+        if (pass && pass.enabled && pass._applyOverUI) {
+            enabledOverUIPasses.push(pass);
+        }
+    }
+    var hasEnabledOverUI = enabledOverUIPasses.length > 0;
+
     if (this._composerMode === '3d') {
-        // 3D: TiltShift/UIPass가 최종 출력
-        // TiltShift는 DoF 활성 시에만 renderToScreen
-        var isDoF = ConfigManager.depthOfField;
-
-        // PP 패스 중 마지막으로 활성화된 것을 찾기
-        var lastEnabledPP = null;
-        for (var key in this._ppPasses) {
-            if (this._ppPasses[key].enabled) lastEnabledPP = this._ppPasses[key];
-        }
-
         if (this._tiltShiftPass) {
-            // DoF가 활성이면 tiltShift가 PP보다 앞에 있으므로 renderToScreen 아님
-            // PP 패스들은 bloom → PP → tiltShift → UI 순서
-            // 실제로 패스 순서: render → bloom → [PP passes] → tiltShift → UI
             this._tiltShiftPass.renderToScreen = false;
-            this._tiltShiftPass.enabled = isDoF;
+            this._tiltShiftPass.enabled = ConfigManager.depthOfField;
         }
-        // UI pass가 항상 최종 출력 (renderToScreen=true, needsSwap=false)
+        // UI pass: applyOverUI 패스가 있으면 writeBuffer에 출력(needsSwap=true), 없으면 화면에 직접
+        if (this._uiPass) {
+            this._uiPass.renderToScreen = !hasEnabledOverUI;
+            this._uiPass.needsSwap = hasEnabledOverUI;
+        }
     } else if (this._composerMode === '2d') {
-        // 2D: Simple2DUIRenderPass가 최종 출력
         if (this._2dUIRenderPass) {
-            this._2dUIRenderPass.renderToScreen = true;
+            this._2dUIRenderPass.renderToScreen = !hasEnabledOverUI;
+            this._2dUIRenderPass.needsSwap = hasEnabledOverUI;
         }
+    }
+
+    // applyOverUI PP 패스 중 마지막만 화면에 출력
+    for (var i = 0; i < enabledOverUIPasses.length; i++) {
+        enabledOverUIPasses[i].renderToScreen = (i === enabledOverUIPasses.length - 1);
     }
 };
 
@@ -2674,6 +2732,10 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                     pass.enabled = false;
                     PostProcess._updateRenderToScreen();
                 }
+            } else if (action === 'applyOverUI' && args[2] != null) {
+                pass._applyOverUI = (args[2] === 'true' || args[2] === '1');
+                PostProcess._rebuildPassOrder();
+                PostProcess._updateRenderToScreen();
             } else if (args[2] != null && PPE) {
                 var ppEffVal = parseFloat(args[2]);
                 var ppEffDur = args[3] ? parseFloat(args[3]) : 0;
@@ -2739,6 +2801,9 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
             } else if (sub === 'blend') {
                 var val = args[1] ? parseFloat(args[1]) : 1, dur = args[2] ? parseFloat(args[2]) : 0;
                 _anaBlendTween(val, dur, null);
+            } else if (sub === 'applyOverUI') {
+                anaPass._applyOverUI = (args[1] === 'true' || args[1] === '1');
+                PostProcess._rebuildPassOrder(); PostProcess._updateRenderToScreen();
             }
         }
     }
@@ -2766,6 +2831,9 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 _hhTween('uAmplitude', args[1] ? parseFloat(args[1]) : 0.003, args[2] ? parseFloat(args[2]) : 0, null);
             } else if (sub === 'speed') {
                 _hhTween('uSpeed', args[1] ? parseFloat(args[1]) : 1, args[2] ? parseFloat(args[2]) : 0, null);
+            } else if (sub === 'applyOverUI') {
+                hhPass._applyOverUI = (args[1] === 'true' || args[1] === '1');
+                PostProcess._rebuildPassOrder(); PostProcess._updateRenderToScreen();
             }
         }
     }
@@ -2795,6 +2863,9 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 _scanTween('uDensity', args[1] ? parseFloat(args[1]) : 1.0, args[2] ? parseFloat(args[2]) : 0, null);
             } else if (sub === 'speed') {
                 scanPass.uniforms.uSpeed.value = args[1] ? parseFloat(args[1]) : 0;
+            } else if (sub === 'applyOverUI') {
+                scanPass._applyOverUI = (args[1] === 'true' || args[1] === '1');
+                PostProcess._rebuildPassOrder(); PostProcess._updateRenderToScreen();
             }
         }
     }
@@ -2827,6 +2898,9 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 } else { postPass.uniforms.uSteps.value = val; }
             } else if (sub === 'blend') {
                 _postBlendTween(args[1] ? parseFloat(args[1]) : 1, args[2] ? parseFloat(args[2]) : 0, null);
+            } else if (sub === 'applyOverUI') {
+                postPass._applyOverUI = (args[1] === 'true' || args[1] === '1');
+                PostProcess._rebuildPassOrder(); PostProcess._updateRenderToScreen();
             }
         }
     }
@@ -2852,6 +2926,9 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 _barrelTween(0, dur, function() { barrelPass.enabled = false; PostProcess._updateRenderToScreen(); });
             } else if (sub === 'curvature') {
                 _barrelTween(args[1] ? parseFloat(args[1]) : 0.08, args[2] ? parseFloat(args[2]) : 0, null);
+            } else if (sub === 'applyOverUI') {
+                barrelPass._applyOverUI = (args[1] === 'true' || args[1] === '1');
+                PostProcess._rebuildPassOrder(); PostProcess._updateRenderToScreen();
             }
         }
     }
