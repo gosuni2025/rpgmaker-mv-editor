@@ -2696,7 +2696,7 @@ if (typeof SceneManager !== 'undefined') {
                 var bitmap = new Bitmap(cap.width, cap.height);
                 bitmap._context.drawImage(cap, 0, 0);
                 bitmap._setDirty();
-                bitmap.blur();
+                // blur은 MenuTransition.js가 애니메이션과 함께 처리
                 this._backgroundBitmap = bitmap;
                 return;
             } catch(e) {}
