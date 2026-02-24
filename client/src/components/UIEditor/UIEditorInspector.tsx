@@ -175,9 +175,12 @@ function WindowInspector({ selectedWindow, override }: {
     if (style === 'default') {
       // 원본 windowskin 복원
       iw?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'windowskinName', value: selectedWindow.windowskinName }, '*');
-    } else if (override?.windowskinName) {
-      // 저장된 이미지/스킨 이름 복원
+    } else if (style === 'frame' && override?.windowskinName) {
+      // frame 모드: 스킨 파일 복원
       iw?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'windowskinName', value: override.windowskinName }, '*');
+    } else if (style === 'image' && override?.imageFile) {
+      // image 모드: 이미지 파일 복원 (frame의 windowskinName과 분리된 필드)
+      iw?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'imageFile', value: override.imageFile }, '*');
     }
   };
 
@@ -187,7 +190,7 @@ function WindowInspector({ selectedWindow, override }: {
   };
 
   const handleImageSelect = (filename: string) => {
-    set('windowskinName', filename);
+    set('imageFile', filename);
   };
 
   const handleCreatePlaceholder = async () => {
@@ -204,7 +207,7 @@ function WindowInspector({ selectedWindow, override }: {
       });
       const d = await res.json();
       if (d.filename) {
-        set('windowskinName', d.filename);
+        set('imageFile', d.filename);
       }
     } catch {}
     setPlaceholderBusy(false);
@@ -234,7 +237,7 @@ function WindowInspector({ selectedWindow, override }: {
       />
       <ImagePickerDialog
         open={imagePickerOpen}
-        current={override?.windowskinName ?? ''}
+        current={override?.imageFile ?? ''}
         onClose={() => setImagePickerOpen(false)}
         onSelect={handleImageSelect}
       />
@@ -313,8 +316,8 @@ function WindowInspector({ selectedWindow, override }: {
             </div>
             <div className="ui-inspector-row">
               <span className="ui-inspector-label">선택된 파일</span>
-              <span className="ui-frame-selected-name" title={override?.windowskinName ?? ''}>
-                {override?.windowskinName ?? '(없음)'}
+              <span className="ui-frame-selected-name" title={override?.imageFile ?? ''}>
+                {override?.imageFile ?? '(없음)'}
               </span>
             </div>
             <div className="ui-inspector-row" style={{ gap: 4 }}>

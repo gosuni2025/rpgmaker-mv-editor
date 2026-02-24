@@ -174,9 +174,17 @@
     var className = this.constructor && this.constructor.name;
     var ov = (_config.overrides || {})[className];
     // 이미지 모드 처리
-    if (ov && ov.windowStyle === 'image' && this._themeSkin) {
+    if (ov && ov.windowStyle === 'image') {
+      // _themeSkin이 imageFile과 다르면 (모드 전환 직후 등) 다시 로드
+      if (ov.imageFile && (!this._themeSkin ||
+          (this._themeSkin._url && this._themeSkin._url.indexOf(ov.imageFile) === -1))) {
+        this._themeSkin = ImageManager.loadSystem(ov.imageFile);
+      }
       var src = this._themeSkin;
-      if (!src.isReady()) { src.addLoadListener(this._refreshAllParts.bind(this)); return; }
+      if (!src || !src.isReady()) {
+        if (src) src.addLoadListener(this._refreshAllParts.bind(this));
+        return;
+      }
       var m = this._margin;
       var w = this._width - m * 2, h = this._height - m * 2;
       if (w <= 0 || h <= 0) return;
@@ -473,12 +481,14 @@
     if (ov.padding !== undefined) {
       cls.prototype.standardPadding = function () { return ov.padding; };
     }
-    if (ov.windowskinName !== undefined) {
+    if (ov.windowskinName !== undefined || ov.imageFile !== undefined) {
       cls.prototype.loadWindowskin = function () {
         // textColor 팔레트용 windowskin은 항상 원본 'Window' 이미지 유지
         this.windowskin = ImageManager.loadSystem('Window');
-        this._themeSkin = (ov.windowskinName !== 'Window')
-          ? ImageManager.loadSystem(ov.windowskinName) : null;
+        // image 모드는 imageFile, frame/default 모드는 windowskinName 사용
+        var skinFile = ov.windowStyle === 'image' ? ov.imageFile : ov.windowskinName;
+        this._themeSkin = skinFile && skinFile !== 'Window'
+          ? ImageManager.loadSystem(skinFile) : null;
       };
     }
     if (ov.opacity !== undefined || ov.colorTone) {

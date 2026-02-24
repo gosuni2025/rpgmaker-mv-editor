@@ -43,7 +43,8 @@ export type ImageRenderMode = 'center' | 'stretch' | 'tile' | 'fit' | 'cover';
 export interface UIWindowOverride {
   className: string;
   windowStyle?: 'default' | 'frame' | 'image';
-  skinId?: string;
+  skinId?: string;           // frame 모드 전용 — UIEditorSkins.json의 스킨 ID
+  imageFile?: string;        // image 모드 전용 — img/system/ 파일명 (확장자 제외)
   imageRenderMode?: ImageRenderMode;
   x?: number;
   y?: number;
