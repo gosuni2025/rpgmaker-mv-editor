@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { selectStyle } from './messageEditors';
 import { ShaderEditorDialog, ShaderEntry, SHADER_DEFINITIONS } from './shaderEditor';
-import type { ShaderTransition } from './pictureEditorCommon';
+import type { ShaderTransition, PictureTransform } from './pictureEditorCommon';
 import {
   radioStyle, labelStyle, Fieldset, PictureNumberField,
   ScaleFields, BlendFields, EditorFooter,
   DirectPositionInputs, VariablePositionInputs, PresetPositionInputs,
+  TransformFields, DEFAULT_TRANSFORM,
 } from './pictureEditorCommon';
 
 // ─── 그림 이동 (Move Picture, code 232) ───
@@ -48,6 +49,11 @@ export function MovePictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
   );
   const [transitionDuration, setTransitionDuration] = useState<number>(existingTransition?.duration ?? 1);
   const [showTransitionShaderDialog, setShowTransitionShaderDialog] = useState(false);
+
+  // 변환 (p[15])
+  const [transform, setTransform] = useState<PictureTransform>(
+    (p[15] as PictureTransform | null) ?? DEFAULT_TRANSFORM
+  );
 
   return (
     <>
@@ -195,13 +201,16 @@ export function MovePictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
         </>
       )}
 
+      <TransformFields transform={transform} onChange={setTransform} />
+
       <EditorFooter onCancel={onCancel} onOk={() => {
         const presetData = positionType === 2 ? { presetX, presetY, offsetX: presetOffsetX, offsetY: presetOffsetY } : null;
         const effectiveDuration = moveMode === 'instant' ? 1 : duration;
         const transitionData: ShaderTransition | null = moveMode === 'interpolate' && transitionEnabled && transitionShaderList.length > 0
           ? { shaderList: transitionShaderList.map(s => ({ ...s, params: { ...s.params } })), applyMode: transitionApplyMode, duration: transitionApplyMode === 'interpolate' ? transitionDuration : 0 }
           : null;
-        onOk([pictureNumber, '', origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode, effectiveDuration, waitForCompletion, presetData, moveMode, transitionData]);
+        const transformData = (transform.flipH || transform.flipV || transform.rotX || transform.rotY || transform.rotZ) ? transform : null;
+        onOk([pictureNumber, '', origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode, effectiveDuration, waitForCompletion, presetData, moveMode, transitionData, transformData]);
       }} />
     </>
   );

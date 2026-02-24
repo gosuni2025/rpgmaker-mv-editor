@@ -10,6 +10,17 @@ export interface ShaderTransition {
   duration: number;
 }
 
+// ─── 그림 변환 타입 ───
+export interface PictureTransform {
+  flipH: boolean;
+  flipV: boolean;
+  rotX: number;  // 도(-180~180), 3D 전용
+  rotY: number;  // 도(-180~180), 3D 전용
+  rotZ: number;  // 도(-180~180)
+}
+
+export const DEFAULT_TRANSFORM: PictureTransform = { flipH: false, flipV: false, rotX: 0, rotY: 0, rotZ: 0 };
+
 // ─── 공통 스타일 ───
 export const radioStyle: React.CSSProperties = { fontSize: 13, color: '#ddd', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' };
 export const labelStyle: React.CSSProperties = { fontSize: 12, color: '#aaa' };
@@ -161,6 +172,48 @@ export const PRESET_OPTIONS = [
   { value: 4, label: '75%' },
   { value: 5, label: '100%' },
 ];
+
+export function TransformFields({ transform, onChange }: {
+  transform: PictureTransform;
+  onChange: (t: PictureTransform) => void;
+}) {
+  const set = (key: keyof PictureTransform, val: boolean | number) =>
+    onChange({ ...transform, [key]: val });
+  return (
+    <Fieldset legend="변환 (에디터 전용)">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <label style={radioStyle}>
+            <input type="checkbox" checked={transform.flipH} onChange={e => set('flipH', e.target.checked)} />
+            좌우 반전
+          </label>
+          <label style={radioStyle}>
+            <input type="checkbox" checked={transform.flipV} onChange={e => set('flipV', e.target.checked)} />
+            상하 반전
+          </label>
+        </div>
+        {([
+          { key: 'rotZ', label: 'Z축 회전' },
+          { key: 'rotX', label: 'X축 회전 (3D 전용)' },
+          { key: 'rotY', label: 'Y축 회전 (3D 전용)' },
+        ] as { key: keyof PictureTransform; label: string }[]).map(({ key, label }) => (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ ...labelStyle, minWidth: 110 }}>{label}:</span>
+            <input type="range" min={-180} max={180}
+              value={transform[key] as number}
+              onChange={e => set(key, Number(e.target.value))}
+              style={{ flex: 1, minWidth: 80 }} />
+            <input type="number" min={-180} max={180}
+              value={transform[key] as number}
+              onChange={e => set(key, Math.max(-180, Math.min(180, Number(e.target.value))))}
+              style={{ ...selectStyle, width: 60 }} />
+            <span style={{ fontSize: 12, color: '#aaa' }}>°</span>
+          </div>
+        ))}
+      </div>
+    </Fieldset>
+  );
+}
 
 export function PresetPositionInputs({ presetX, presetY, offsetX, offsetY, onPresetXChange, onPresetYChange, onOffsetXChange, onOffsetYChange }: {
   presetX: number; presetY: number; offsetX: number; offsetY: number;

@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { selectStyle } from './messageEditors';
 import { ShaderEditorDialog, ShaderEntry, SHADER_DEFINITIONS } from './shaderEditor';
 import ImagePicker from '../common/ImagePicker';
-import type { ShaderTransition } from './pictureEditorCommon';
+import type { ShaderTransition, PictureTransform } from './pictureEditorCommon';
 import {
   radioStyle, labelStyle, Fieldset, PictureNumberField,
   ScaleFields, BlendFields, EditorFooter,
   DirectPositionInputs, VariablePositionInputs, PresetPositionInputs,
+  TransformFields, DEFAULT_TRANSFORM,
 } from './pictureEditorCommon';
 
 // ─── 그림 표시 (Show Picture, code 231) ───
@@ -53,6 +54,11 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
   );
   const [transitionDuration, setTransitionDuration] = useState<number>(existingTransition?.duration ?? 1);
   const [showTransitionShaderDialog, setShowTransitionShaderDialog] = useState(false);
+
+  // 변환 (p[13])
+  const [transform, setTransform] = useState<PictureTransform>(
+    (p[13] as PictureTransform | null) ?? DEFAULT_TRANSFORM
+  );
 
   return (
     <>
@@ -200,13 +206,16 @@ export function ShowPictureEditor({ p, onOk, onCancel }: { p: unknown[]; onOk: (
         />
       )}
 
+      <TransformFields transform={transform} onChange={setTransform} />
+
       <EditorFooter onCancel={onCancel} onOk={() => {
         const shaderData = shaderList.length > 0 ? shaderList.map(s => ({ type: s.type, enabled: true, params: { ...s.params } })) : null;
         const presetData = positionType === 2 ? { presetX, presetY, offsetX: presetOffsetX, offsetY: presetOffsetY } : null;
         const transitionData: ShaderTransition | null = transitionEnabled && transitionShaderList.length > 0
           ? { shaderList: transitionShaderList.map(s => ({ ...s, params: { ...s.params } })), applyMode: transitionApplyMode, duration: transitionApplyMode === 'interpolate' ? transitionDuration : 0 }
           : null;
-        onOk([pictureNumber, imageName, origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode, shaderData, presetData, transitionData]);
+        const transformData = (transform.flipH || transform.flipV || transform.rotX || transform.rotY || transform.rotZ) ? transform : null;
+        onOk([pictureNumber, imageName, origin, positionType, posX, posY, scaleWidth, scaleHeight, opacity, blendMode, shaderData, presetData, transitionData, transformData]);
       }} />
     </>
   );

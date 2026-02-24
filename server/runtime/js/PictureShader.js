@@ -1981,6 +1981,7 @@ PictureShader.createMaterial = function(type, params, texture) {
         _Game_Picture_initialize.call(this);
         this._shaderData = null;
         this._transition = null; // { shaderList, direction, applyMode, duration, elapsed, onComplete }
+        this._transform = null;  // { flipH, flipV, rotX, rotY, rotZ }
     };
 
     var _Game_Picture_show = Game_Picture.prototype.show;
@@ -2007,6 +2008,14 @@ PictureShader.createMaterial = function(type, params, texture) {
 
     Game_Picture.prototype.setShaderData = function(data) {
         this._shaderData = data;
+    };
+
+    Game_Picture.prototype.transform = function() {
+        return this._transform;
+    };
+
+    Game_Picture.prototype.setTransform = function(data) {
+        this._transform = data || null;
     };
 
     // fade: threshold 높으면 보임 (0=투명, 1=불투명)
@@ -2106,6 +2115,7 @@ PictureShader.createMaterial = function(type, params, texture) {
         }
         this._shaderData = null;
         this._transition = null;
+        this._transform = null;
     };
 })();
 
@@ -2195,15 +2205,18 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
 
         // parameters[12]에 트랜지션 데이터가 있으면 나타나기 트랜지션 시작
         var transitionData = PictureShader._cloneTransitionShaders(this._params[12]);
-        if (transitionData) {
-            var realPictureId = $gameScreen.realPictureId(this._params[0]);
-            var picture = $gameScreen._pictures[realPictureId];
-            if (picture) {
-                picture.startTransition(
+        // parameters[13]에 변환 데이터가 있으면 적용
+        var transformData231 = this._params[13] || null;
+        var realPictureId231 = $gameScreen.realPictureId(this._params[0]);
+        var picture231 = $gameScreen._pictures[realPictureId231];
+        if (picture231) {
+            if (transitionData) {
+                picture231.startTransition(
                     transitionData.shaderList, 'in',
                     transitionData.applyMode, transitionData.duration
                 );
             }
+            picture231.setTransform(transformData231);
         }
         return true;
     };
@@ -2232,6 +2245,14 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
 
         $gameScreen.movePicture(this._params[0], this._params[2], x, y,
             this._params[6], this._params[7], this._params[8], this._params[9], duration);
+
+        // parameters[15]에 변환 데이터가 있으면 적용
+        var transformData232 = this._params[15] || null;
+        var realPictureId232 = $gameScreen.realPictureId(this._params[0]);
+        var picture232 = $gameScreen._pictures[realPictureId232];
+        if (picture232) {
+            picture232.setTransform(transformData232);
+        }
 
         // 보간 이동 시 트랜지션 셰이더
         if (moveMode === 'interpolate') {
@@ -2308,6 +2329,27 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
     Sprite_Picture.prototype.update = function() {
         _Sprite_Picture_update.call(this);
         this.updateShader();
+        this.updatePictureTransform();
+    };
+
+    Sprite_Picture.prototype.updatePictureTransform = function() {
+        var picture = this.picture();
+        if (!picture || !this._pictureName) return;
+        var t = picture.transform();
+        if (!t) return;
+
+        // 좌우/상하 반전: scale 부호 반전
+        if (t.flipH) this.scale.x = -Math.abs(this.scale.x);
+        if (t.flipV) this.scale.y = -Math.abs(this.scale.y);
+
+        // Z축 고정 회전 (this.rotation은 updateOther에서 angle 기준으로 설정된 값에 추가)
+        if (t.rotZ) this.rotation += t.rotZ * Math.PI / 180;
+
+        // X/Y축 회전: Three.js 3D 모드 전용 (_threeObj에 직접 적용)
+        if (this._threeObj) {
+            if (t.rotX) this._threeObj.rotation.x = t.rotX * Math.PI / 180;
+            if (t.rotY) this._threeObj.rotation.y = t.rotY * Math.PI / 180;
+        }
     };
 
     /**
