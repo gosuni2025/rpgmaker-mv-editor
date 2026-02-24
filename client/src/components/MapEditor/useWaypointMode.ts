@@ -160,6 +160,7 @@ export function useWaypointMode(webglCanvasRef: React.RefObject<HTMLCanvasElemen
 
     // ── 마우스 ────────────────────────────────────────────────────
     const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return; // 좌클릭만 처리 (휠·우클릭은 맵 패닝에 양보)
       const session = (window as any)._editorWaypointSession as WaypointSession | null;
       if (!session) return;
 
