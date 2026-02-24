@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useListKeyNav } from '../hooks/useListKeyNav';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../api/client';
 import useEditorStore from '../store/useEditorStore';
@@ -36,6 +37,8 @@ export default function SampleMapDialog({ parentId = 0, onClose }: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [applying, setApplying] = useState(false);
   const [category, setCategory] = useState<string>('all');
+
+  const listRef = useRef<HTMLDivElement>(null);
 
   // 바이너리 경로 설정 상태
   const [needsSetup, setNeedsSetup] = useState(false);
@@ -81,6 +84,14 @@ export default function SampleMapDialog({ parentId = 0, onClose }: Props) {
     : maps.filter(m => m.category === category);
 
   const selectedMap = maps.find(m => m.id === selectedId);
+
+  const { handleKeyDown } = useListKeyNav({
+    items: filteredMaps,
+    selectedKey: selectedId,
+    getKey: (m: SampleMapInfo) => m.id,
+    onSelect: setSelectedId,
+    listRef,
+  });
 
   const handleApply = async () => {
     if (!selectedId || !selectedMap) return;
@@ -214,7 +225,12 @@ export default function SampleMapDialog({ parentId = 0, onClose }: Props) {
 
           <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
             {/* 맵 목록 */}
-            <div style={{ width: 260, overflowY: 'auto', borderRight: '1px solid #555' }}>
+            <div
+              ref={listRef}
+              tabIndex={0}
+              style={{ width: 260, overflowY: 'auto', borderRight: '1px solid #555', outline: 'none' }}
+              onKeyDown={handleKeyDown}
+            >
               {loading && <div className="db-loading">{t('sampleMap.loading')}</div>}
               {error && <div style={{ padding: 8, color: '#e55', fontSize: 12 }}>{error}</div>}
               {!loading && filteredMaps.map((m, i) => (

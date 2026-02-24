@@ -3,7 +3,8 @@
  * 적 군단 선택 공용 다이얼로그.
  * 좌측: 군단 목록, 우측: 선택된 군단의 배치 미리보기
  */
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useListKeyNav } from '../../hooks/useListKeyNav';
 import apiClient from '../../api/client';
 import TroopPreview from './TroopPreview';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
@@ -60,23 +61,13 @@ export default function TroopPickerDialog({ value, onChange, onClose, title = '�
     [troops, selected]
   );
 
-  useEffect(() => {
-    if (!listRef.current) return;
-    const el = listRef.current.querySelector('.audio-picker-item.selected');
-    if (el) el.scrollIntoView({ block: 'nearest' });
-  }, [selected]);
-
-  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-    e.preventDefault();
-    const idx = validTroops.findIndex(t => t.id === selected);
-    const base = idx < 0 ? (e.key === 'ArrowDown' ? -1 : 0) : idx;
-    const next = e.key === 'ArrowUp'
-      ? Math.max(0, base - 1)
-      : Math.min(validTroops.length - 1, base + 1);
-    const nextItem = validTroops[next];
-    if (nextItem) setSelected(nextItem.id);
-  }, [validTroops, selected]);
+  const { handleKeyDown: handleSearchKeyDown } = useListKeyNav({
+    items: validTroops,
+    selectedKey: selected,
+    getKey: (t: Troop) => t.id,
+    onSelect: setSelected,
+    listRef,
+  });
 
   const handleSelect = (id: number) => setSelected(id);
 

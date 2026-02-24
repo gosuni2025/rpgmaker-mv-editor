@@ -1,4 +1,5 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
+import { useListKeyNav } from '../../hooks/useListKeyNav';
 
 export interface DatabaseListItem {
   id: number;
@@ -33,23 +34,13 @@ export default function DatabaseList<T extends DatabaseListItem>({
 
   const filteredItems = items?.filter(Boolean) as T[] | undefined;
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!filteredItems || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
-    e.preventDefault();
-    const idx = filteredItems.findIndex(item => item.id === selectedId);
-    if (idx < 0) return;
-    const next = e.key === 'ArrowUp'
-      ? Math.max(0, idx - 1)
-      : Math.min(filteredItems.length - 1, idx + 1);
-    if (next !== idx) onSelect(filteredItems[next].id);
-  }, [filteredItems, selectedId, onSelect]);
-
-  useEffect(() => {
-    const container = listContainerRef.current;
-    if (!container) return;
-    const el = container.querySelector('.db-list-item.selected');
-    if (el) el.scrollIntoView({ block: 'nearest' });
-  }, [selectedId]);
+  const { handleKeyDown } = useListKeyNav({
+    items: filteredItems ?? [],
+    selectedKey: selectedId,
+    getKey: (item: T) => item.id,
+    onSelect,
+    listRef: listContainerRef,
+  });
 
   const handleDragStart = useCallback((e: React.DragEvent, id: number) => {
     dragSourceId.current = id;

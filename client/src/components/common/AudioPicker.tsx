@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useListKeyNav } from '../../hooks/useListKeyNav';
 import apiClient from '../../api/client';
 import type { AudioFile } from '../../types/rpgMakerMV';
 import useEscClose from '../../hooks/useEscClose';
@@ -58,15 +59,15 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
     };
   }, []);
 
-  // Scroll selected item into view when list loads
+  // 파일 목록 로드 완료 시 선택 항목으로 스크롤 (selected 변경 시는 hook이 처리)
   useEffect(() => {
-    if (!active || !listRef.current || !selected) return;
+    if (!active || !listRef.current) return;
     const timer = setTimeout(() => {
       const el = listRef.current?.querySelector('.audio-picker-item.selected');
       if (el) el.scrollIntoView({ block: 'nearest' });
     }, 50);
     return () => clearTimeout(timer);
-  }, [active, files, selected]);
+  }, [active, files]);
 
   const fileNames = useMemo(() => {
     const names = [...new Set(files.map(f => f.replace(/\.(ogg|m4a|wav|mp3)$/i, '')))];
@@ -74,17 +75,17 @@ export default function AudioPicker({ type, value, onChange, inline }: AudioPick
     return names.filter(n => fuzzyMatch(n, searchQuery));
   }, [files, searchQuery]);
 
-  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-    e.preventDefault();
-    const allItems = searchQuery ? fileNames : ['', ...fileNames];
-    const idx = allItems.indexOf(selected);
-    const base = idx < 0 ? (e.key === 'ArrowDown' ? -1 : 0) : idx;
-    const next = e.key === 'ArrowUp'
-      ? Math.max(0, base - 1)
-      : Math.min(allItems.length - 1, base + 1);
-    setSelected(allItems[next]);
-  }, [fileNames, selected, searchQuery]);
+  const allAudioItems = useMemo(() =>
+    searchQuery ? fileNames : ['', ...fileNames],
+    [fileNames, searchQuery]);
+
+  const { handleKeyDown: handleSearchKeyDown } = useListKeyNav({
+    items: allAudioItems,
+    selectedKey: selected,
+    getKey: (x: string) => x,
+    onSelect: setSelected,
+    listRef,
+  });
 
   const play = (name?: string) => {
     const n = name || selected;

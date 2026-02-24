@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useListKeyNav } from '../../hooks/useListKeyNav';
 import apiClient from '../../api/client';
 import useEscClose from '../../hooks/useEscClose';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
@@ -381,22 +382,13 @@ export default function ImagePicker({ type, value, onChange, index, onIndexChang
     return paths;
   }, [currentFiles, searchQuery, currentSubDir, prefetchSubdirs]);
 
-  useEffect(() => {
-    if (!listRef.current) return;
-    const el = listRef.current.querySelector('.image-picker-item.selected');
-    if (el) el.scrollIntoView({ block: 'nearest' });
-  }, [selected]);
-
-  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-    e.preventDefault();
-    const idx = fileFullPaths.indexOf(selected);
-    const base = idx < 0 ? (e.key === 'ArrowDown' ? -1 : 0) : idx;
-    const next = e.key === 'ArrowUp'
-      ? Math.max(0, base - 1)
-      : Math.min(fileFullPaths.length - 1, base + 1);
-    setSelected(fileFullPaths[next]);
-  }, [fileFullPaths, selected]);
+  const { handleKeyDown: handleSearchKeyDown } = useListKeyNav({
+    items: fileFullPaths,
+    selectedKey: selected,
+    getKey: (x: string) => x,
+    onSelect: setSelected,
+    listRef,
+  });
 
   const handleOk = () => {
     onChange(selected.replace(/\.png$/i, ''), { fetchType });
