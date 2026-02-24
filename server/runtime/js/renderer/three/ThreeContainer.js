@@ -322,7 +322,7 @@ ThreeContainer.prototype.syncTransform = function() {
     var obj = this._threeObj;
     // Rotation
     var r = this._rotation;
-    obj.rotation.x = this._rotationX;
+    obj.rotation.x = -this._rotationX; // negate for Y-flip projection matrix (Mode3D)
     obj.rotation.y = this._rotationY;
     obj.rotation.z = -r; // negate because Three.js Z rotation is CCW, PIXI is CW
 
