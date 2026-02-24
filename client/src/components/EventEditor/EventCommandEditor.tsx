@@ -7,7 +7,7 @@ import CommandInsertDialog from './CommandInsertDialog';
 import MoveRouteDialog from './MoveRouteDialog';
 import type { WaypointSession, WaypointPos } from '../../utils/astar';
 import { findNearestReachableTile } from '../../utils/astar';
-import { emitWaypointSessionChange } from '../MapEditor/useWaypointMode';
+import { emitWaypointSessionChange, pushWaypointHistory } from '../MapEditor/useWaypointMode';
 import useEditorStore from '../../store/useEditorStore';
 import {
   NO_PARAM_CODES, CONTINUATION_CODES, BLOCK_END_CODES, CHILD_TO_PARENT,
@@ -470,6 +470,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
               },
             };
             (window as any)._editorWaypointSession = session;
+            pushWaypointHistory(session); // 초기 상태 스냅샷
             emitWaypointSessionChange();
             setShowMoveRoute(null);
           }}

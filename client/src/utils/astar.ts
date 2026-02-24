@@ -385,4 +385,7 @@ export interface WaypointSession {
   allowDiagonal: boolean;
   avoidEvents: boolean;    // 맵 이벤트 위치를 장애물로 처리
   onConfirm?: (commands: MoveCommand[]) => void;
+  /** undo/redo 히스토리 (내부 전용) */
+  _history?: WaypointPos[][];
+  _historyIdx?: number;
 }

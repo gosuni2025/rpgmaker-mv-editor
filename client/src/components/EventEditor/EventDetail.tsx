@@ -8,7 +8,7 @@ import ImagePicker from '../common/ImagePicker';
 import MoveRouteDialog from './MoveRouteDialog';
 import type { WaypointSession, WaypointPos } from '../../utils/astar';
 import { findNearestReachableTile } from '../../utils/astar';
-import { emitWaypointSessionChange } from '../MapEditor/useWaypointMode';
+import { emitWaypointSessionChange, pushWaypointHistory } from '../MapEditor/useWaypointMode';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import ExtBadge from '../common/ExtBadge';
 import HelpButton from '../common/HelpButton';
@@ -295,6 +295,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
                 },
               };
               (window as any)._editorWaypointSession = session;
+              pushWaypointHistory(session); // 초기 상태 스냅샷 (undo로 빈 상태로 복원 가능)
               emitWaypointSessionChange();
               setShowMoveRoute(false);
               // 이벤트 에디터 저장 후 닫기

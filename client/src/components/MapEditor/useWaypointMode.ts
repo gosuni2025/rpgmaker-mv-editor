@@ -6,6 +6,8 @@
  * - A* 경로 선분 위 클릭: 해당 구간에 웨이포인트 삽입
  * - 그 외 빈 공간 클릭: 마지막에 추가
  * - 드래그: 웨이포인트 위치 업데이트
+ * - Cmd+Z / Ctrl+Z: undo
+ * - Cmd+Shift+Z / Ctrl+Shift+Z: redo
  */
 
 import React from 'react';
@@ -13,6 +15,47 @@ import useEditorStore from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
 import type { WaypointSession, WaypointPos } from '../../utils/astar';
 import { runAstar } from '../../utils/astar';
+
+// ===================================================================
+// 히스토리
+// ===================================================================
+
+/** 변경 전 현재 waypoints 상태를 히스토리에 저장 */
+export function pushWaypointHistory(session: WaypointSession) {
+  if (!session._history) {
+    session._history = [];
+    session._historyIdx = -1;
+  }
+  // 현재 인덱스 이후의 redo 스택 제거
+  const idx = session._historyIdx ?? -1;
+  session._history = session._history.slice(0, idx + 1);
+  session._history.push(session.waypoints.map(wp => ({ ...wp })));
+  session._historyIdx = session._history.length - 1;
+}
+
+function undoWaypoint() {
+  const session = (window as any)._editorWaypointSession as WaypointSession | null;
+  if (!session?._history || session._historyIdx == null) return;
+  if (session._historyIdx <= 0) return;
+
+  session._historyIdx--;
+  session.waypoints = session._history[session._historyIdx].map(wp => ({ ...wp }));
+  emitWaypointUpdated();
+}
+
+function redoWaypoint() {
+  const session = (window as any)._editorWaypointSession as WaypointSession | null;
+  if (!session?._history || session._historyIdx == null) return;
+  if (session._historyIdx >= session._history.length - 1) return;
+
+  session._historyIdx++;
+  session.waypoints = session._history[session._historyIdx].map(wp => ({ ...wp }));
+  emitWaypointUpdated();
+}
+
+// ===================================================================
+// 유틸
+// ===================================================================
 
 function canvasToTile(
   e: MouseEvent,
@@ -30,15 +73,10 @@ function canvasToTile(
   };
 }
 
-/** 타일 위치와 웨이포인트가 일치하면 반환 */
 function findWaypointAt(session: WaypointSession, tx: number, ty: number): WaypointPos | null {
   return session.waypoints.find(wp => wp.x === tx && wp.y === ty) ?? null;
 }
 
-/**
- * 클릭한 타일이 어느 구간의 A* 경로 위에 속하는지 확인.
- * @returns 삽입할 인덱스 (i번째 웨이포인트 앞에 삽입), 경로 위가 아니면 -1
- */
 function findSegmentIndex(
   session: WaypointSession,
   clickX: number, clickY: number,
@@ -56,17 +94,12 @@ function findSegmentIndex(
       data, mapWidth, mapHeight, flags,
       session.allowDiagonal, 400, blockedTiles,
     );
-    // 경로 위 타일 집합에 클릭 위치가 있으면 해당 구간에 삽입
-    // (시작점과 끝점은 제외 — 드래그 대상이므로)
     for (let j = 1; j < path.length - 1; j++) {
-      if (path[j].x === clickX && path[j].y === clickY) {
-        return i; // i번째 WP 앞에 삽입
-      }
+      if (path[j].x === clickX && path[j].y === clickY) return i;
     }
     prevX = wp.x;
     prevY = wp.y;
   }
-
   return -1;
 }
 
@@ -74,12 +107,14 @@ function buildBlockedTiles(session: WaypointSession, events: any[] | null): Set<
   if (!session.avoidEvents || !events) return undefined;
   const s = new Set<string>();
   for (const ev of events) {
-    if (ev && ev.id !== session.eventId) {
-      s.add(`${ev.x},${ev.y}`);
-    }
+    if (ev && ev.id !== session.eventId) s.add(`${ev.x},${ev.y}`);
   }
   return s;
 }
+
+// ===================================================================
+// 공개 이벤트 헬퍼
+// ===================================================================
 
 export function emitWaypointUpdated() {
   window.dispatchEvent(new CustomEvent('editor-waypoint-updated'));
@@ -89,6 +124,10 @@ export function emitWaypointSessionChange() {
   window.dispatchEvent(new CustomEvent('editor-waypoint-session-change'));
 }
 
+// ===================================================================
+// 훅
+// ===================================================================
+
 export function useWaypointMode(webglCanvasRef: React.RefObject<HTMLCanvasElement | null>) {
   const editMode = useEditorStore(s => s.editMode);
   const draggingIdRef = React.useRef<string | null>(null);
@@ -97,6 +136,29 @@ export function useWaypointMode(webglCanvasRef: React.RefObject<HTMLCanvasElemen
     const canvas = webglCanvasRef.current;
     if (!canvas || editMode !== 'event') return;
 
+    // ── 키보드: Cmd+Z / Cmd+Shift+Z ──────────────────────────────
+    const onKeyDown = (e: KeyboardEvent) => {
+      const session = (window as any)._editorWaypointSession as WaypointSession | null;
+      if (!session) return;
+
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        undoWaypoint();
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault();
+        e.stopPropagation();
+        redoWaypoint();
+      }
+    };
+
+    // capture=true로 에디터 전역 Cmd+Z보다 먼저 처리
+    window.addEventListener('keydown', onKeyDown, true);
+
+    // ── 마우스 ────────────────────────────────────────────────────
     const onMouseDown = (e: MouseEvent) => {
       const session = (window as any)._editorWaypointSession as WaypointSession | null;
       if (!session) return;
@@ -104,15 +166,15 @@ export function useWaypointMode(webglCanvasRef: React.RefObject<HTMLCanvasElemen
       const tile = canvasToTile(e, canvas);
       if (!tile) return;
 
-      // 기존 웨이포인트 위 → 드래그
       const existing = findWaypointAt(session, tile.x, tile.y);
       if (existing) {
+        // 드래그 시작 전 스냅샷 저장
+        pushWaypointHistory(session);
         draggingIdRef.current = existing.id;
         e.stopPropagation();
         return;
       }
 
-      // 시작 위치 클릭 → 무시
       if (tile.x === session.startX && tile.y === session.startY) {
         e.stopPropagation();
         return;
@@ -125,16 +187,16 @@ export function useWaypointMode(webglCanvasRef: React.RefObject<HTMLCanvasElemen
 
       const newWp: WaypointPos = { id: crypto.randomUUID(), x: tile.x, y: tile.y };
 
+      // 변경 전 스냅샷 저장
+      pushWaypointHistory(session);
+
       if (currentMap && tilesetInfo) {
         const blocked = buildBlockedTiles(session, events);
-
-        // A* 경로 선분 위인지 확인 → 중간 삽입
         const segIdx = findSegmentIndex(
           session, tile.x, tile.y,
           currentMap.data, currentMap.width, currentMap.height,
           tilesetInfo.flags, blocked,
         );
-
         if (segIdx >= 0) {
           session.waypoints.splice(segIdx, 0, newWp);
         } else {
@@ -172,12 +234,12 @@ export function useWaypointMode(webglCanvasRef: React.RefObject<HTMLCanvasElemen
       draggingIdRef.current = null;
     };
 
-    // capture=true: React 이벤트보다 먼저 실행되어 이벤트 선택 등을 차단
     canvas.addEventListener('mousedown', onMouseDown, true);
     canvas.addEventListener('mousemove', onMouseMove, true);
     canvas.addEventListener('mouseup', onMouseUp, true);
 
     return () => {
+      window.removeEventListener('keydown', onKeyDown, true);
       canvas.removeEventListener('mousedown', onMouseDown, true);
       canvas.removeEventListener('mousemove', onMouseMove, true);
       canvas.removeEventListener('mouseup', onMouseUp, true);

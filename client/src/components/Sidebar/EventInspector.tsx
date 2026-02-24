@@ -3,7 +3,7 @@ import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent, MoveRoute } from '../../types/rpgMakerMV';
 import type { WaypointSession } from '../../utils/astar';
 import { runAstar, pathToMvCommands } from '../../utils/astar';
-import { emitWaypointSessionChange } from '../MapEditor/useWaypointMode';
+import { emitWaypointSessionChange, pushWaypointHistory } from '../MapEditor/useWaypointMode';
 import './InspectorPanel.css';
 
 /** 경로 엔트리: 자율이동 or 실행내용(코드 205) */
@@ -142,6 +142,7 @@ export default function EventInspector() {
   const deleteWaypoint = useCallback((id: string) => {
     const s = (window as any)._editorWaypointSession as WaypointSession | null;
     if (!s) return;
+    pushWaypointHistory(s);
     s.waypoints = s.waypoints.filter(w => w.id !== id);
     (window as any)._editorWaypointSession = s;
     setWaypointSession({ ...s, waypoints: [...s.waypoints] });
