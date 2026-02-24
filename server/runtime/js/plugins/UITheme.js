@@ -223,6 +223,20 @@
     if (!entry) {
       return _Window_refreshBack.call(this);
     }
+    // 스킨 파일이 Window.png가 아닌 경우 _themeSkin 자동 로드
+    var entryFile = entry.file || 'Window';
+    if (entryFile !== 'Window') {
+      if (!this._themeSkin ||
+          (this._themeSkin._url && this._themeSkin._url.indexOf(entryFile) === -1)) {
+        this._themeSkin = ImageManager.loadSystem(entryFile);
+      }
+    }
+    var renderSkin = getRenderSkin(this);
+    // renderSkin 미로드 시 원본 렌더링 fallback + 로드 완료 후 재렌더링
+    if (!renderSkin || !renderSkin.isReady()) {
+      if (renderSkin) renderSkin.addLoadListener(this._refreshAllParts.bind(this));
+      return _Window_refreshBack.call(this);
+    }
     var fill = getFillRect(entry);
     var m = this._margin;
     var w = this._width - m * 2;
@@ -232,12 +246,9 @@
     this._windowBackSprite.bitmap = bitmap;
     this._windowBackSprite.setFrame(0, 0, w, h);
     this._windowBackSprite.move(m, m);
-    var renderSkin = getRenderSkin(this);
-    if (renderSkin) {
-      bitmap.blt(renderSkin, fill.x, fill.y, fill.w, fill.h, 0, 0, w, h);
-      var tone = this._colorTone;
-      bitmap.adjustTone(tone[0], tone[1], tone[2]);
-    }
+    bitmap.blt(renderSkin, fill.x, fill.y, fill.w, fill.h, 0, 0, w, h);
+    var tone = this._colorTone;
+    bitmap.adjustTone(tone[0], tone[1], tone[2]);
   };
 
   //===========================================================================
@@ -261,6 +272,20 @@
     if (!entry) {
       return _Window_refreshFrame.call(this);
     }
+    // 스킨 파일이 Window.png가 아닌 경우 _themeSkin 자동 로드
+    var entryFile = entry.file || 'Window';
+    if (entryFile !== 'Window') {
+      if (!this._themeSkin ||
+          (this._themeSkin._url && this._themeSkin._url.indexOf(entryFile) === -1)) {
+        this._themeSkin = ImageManager.loadSystem(entryFile);
+      }
+    }
+    var renderSkin = getRenderSkin(this);
+    // renderSkin 미로드 시 원본 렌더링 fallback + 로드 완료 후 재렌더링
+    if (!renderSkin || !renderSkin.isReady()) {
+      if (renderSkin) renderSkin.addLoadListener(this._refreshAllParts.bind(this));
+      return _Window_refreshFrame.call(this);
+    }
     var f = getFrameInfo(entry);
     var w = this._width;
     var h = this._height;
@@ -268,22 +293,19 @@
     var bitmap = new Bitmap(w, h);
     this._windowFrameSprite.bitmap = bitmap;
     this._windowFrameSprite.setFrame(0, 0, w, h);
-    var renderSkin = getRenderSkin(this);
-    if (renderSkin) {
-      var skin = renderSkin;
-      var fx = f.x, fy = f.y, fw = f.w, fh = f.h, cs = f.cs;
-      // top / bottom edges
-      bitmap.blt(skin, fx + cs,      fy,           fw - cs * 2, cs,      cs,      0,      w - cs * 2, cs);
-      bitmap.blt(skin, fx + cs,      fy + fh - cs, fw - cs * 2, cs,      cs,      h - cs, w - cs * 2, cs);
-      // left / right edges
-      bitmap.blt(skin, fx,           fy + cs,      cs,          fh - cs * 2, 0,      cs,      cs,          h - cs * 2);
-      bitmap.blt(skin, fx + fw - cs, fy + cs,      cs,          fh - cs * 2, w - cs, cs,      cs,          h - cs * 2);
-      // corners
-      bitmap.blt(skin, fx,           fy,           cs, cs, 0,      0,      cs, cs);
-      bitmap.blt(skin, fx + fw - cs, fy,           cs, cs, w - cs, 0,      cs, cs);
-      bitmap.blt(skin, fx,           fy + fh - cs, cs, cs, 0,      h - cs, cs, cs);
-      bitmap.blt(skin, fx + fw - cs, fy + fh - cs, cs, cs, w - cs, h - cs, cs, cs);
-    }
+    var skin = renderSkin;
+    var fx = f.x, fy = f.y, fw = f.w, fh = f.h, cs = f.cs;
+    // top / bottom edges
+    bitmap.blt(skin, fx + cs,      fy,           fw - cs * 2, cs,      cs,      0,      w - cs * 2, cs);
+    bitmap.blt(skin, fx + cs,      fy + fh - cs, fw - cs * 2, cs,      cs,      h - cs, w - cs * 2, cs);
+    // left / right edges
+    bitmap.blt(skin, fx,           fy + cs,      cs,          fh - cs * 2, 0,      cs,      cs,          h - cs * 2);
+    bitmap.blt(skin, fx + fw - cs, fy + cs,      cs,          fh - cs * 2, w - cs, cs,      cs,          h - cs * 2);
+    // corners
+    bitmap.blt(skin, fx,           fy,           cs, cs, 0,      0,      cs, cs);
+    bitmap.blt(skin, fx + fw - cs, fy,           cs, cs, w - cs, 0,      cs, cs);
+    bitmap.blt(skin, fx,           fy + fh - cs, cs, cs, 0,      h - cs, cs, cs);
+    bitmap.blt(skin, fx + fw - cs, fy + fh - cs, cs, cs, w - cs, h - cs, cs, cs);
   };
 
   //===========================================================================
