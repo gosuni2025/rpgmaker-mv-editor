@@ -165,9 +165,8 @@ function WindowInspector({ selectedWindow, override }: {
   const handleStyleChange = (style: 'default' | 'frame' | 'image') => {
     setMeta('windowStyle', style === 'default' ? undefined : style);
     if (style === 'default') {
-      // windowskinName, skinId 오버라이드 제거
-      setMeta('windowskinName', undefined);
-      setMeta('skinId', undefined);
+      // windowskinName/skinId/imageRenderMode는 유지 (나중에 복원 가능하도록)
+      // iframe에만 원본 windowskin 복원
       const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
       iframe?.contentWindow?.postMessage({ type: 'updateWindowProp', windowId: selectedWindow.id, prop: 'windowskinName', value: selectedWindow.windowskinName }, '*');
     }
