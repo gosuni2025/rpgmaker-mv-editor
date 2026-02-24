@@ -105,15 +105,30 @@
   }
 
   //===========================================================================
+  // 창별 테마 스킨 항목 취득 헬퍼
+  // windowskin은 항상 원본 'Window' 이미지(textColor 팔레트용)로 유지하고,
+  // 커스텀 스킨 이미지는 _themeSkin에 분리 저장하여 렌더링에만 사용한다.
+  //===========================================================================
+  function getThemeSkinEntry(win) {
+    var className = win.constructor && win.constructor.name;
+    var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
+    // skinId가 있으면 ID로 정확 매칭, 없으면 _themeSkin 파일 경로로 매칭
+    if (skinId) return findSkinEntryById(skinId);
+    var themeSkinName = skinNameFromBitmap(win._themeSkin);
+    return findSkinEntry(themeSkinName);
+  }
+
+  /** 렌더링용 스킨 비트맵 반환 (_themeSkin 우선, 없으면 _windowskin) */
+  function getRenderSkin(win) {
+    return win._themeSkin || win._windowskin;
+  }
+
+  //===========================================================================
   // Window — fill 영역 커스터마이징 (_refreshBack 오버라이드)
   //===========================================================================
   var _Window_refreshBack = Window.prototype._refreshBack;
   Window.prototype._refreshBack = function () {
-    var skinName = skinNameFromBitmap(this._windowskin);
-    // skinId 확인: config override에 skinId가 있으면 ID로 정확 매칭, 없으면 파일 경로로 매칭
-    var className = this.constructor && this.constructor.name;
-    var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
-    var entry = skinId ? findSkinEntryById(skinId) : findSkinEntry(skinName);
+    var entry = getThemeSkinEntry(this);
     // 스킨 항목이 없으면 원본 호출
     if (!entry) {
       return _Window_refreshBack.call(this);
@@ -127,8 +142,9 @@
     this._windowBackSprite.bitmap = bitmap;
     this._windowBackSprite.setFrame(0, 0, w, h);
     this._windowBackSprite.move(m, m);
-    if (this._windowskin) {
-      bitmap.blt(this._windowskin, fill.x, fill.y, fill.w, fill.h, 0, 0, w, h);
+    var renderSkin = getRenderSkin(this);
+    if (renderSkin) {
+      bitmap.blt(renderSkin, fill.x, fill.y, fill.w, fill.h, 0, 0, w, h);
       var tone = this._colorTone;
       bitmap.adjustTone(tone[0], tone[1], tone[2]);
     }
@@ -139,11 +155,7 @@
   //===========================================================================
   var _Window_refreshFrame = Window.prototype._refreshFrame;
   Window.prototype._refreshFrame = function () {
-    var skinName = skinNameFromBitmap(this._windowskin);
-    // skinId 확인: config override에 skinId가 있으면 ID로 정확 매칭, 없으면 파일 경로로 매칭
-    var className = this.constructor && this.constructor.name;
-    var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
-    var entry = skinId ? findSkinEntryById(skinId) : findSkinEntry(skinName);
+    var entry = getThemeSkinEntry(this);
     // 스킨 항목이 없으면 원본 호출
     if (!entry) {
       return _Window_refreshFrame.call(this);
@@ -155,8 +167,9 @@
     var bitmap = new Bitmap(w, h);
     this._windowFrameSprite.bitmap = bitmap;
     this._windowFrameSprite.setFrame(0, 0, w, h);
-    if (this._windowskin) {
-      var skin = this._windowskin;
+    var renderSkin = getRenderSkin(this);
+    if (renderSkin) {
+      var skin = renderSkin;
       var fx = f.x, fy = f.y, fw = f.w, fh = f.h, cs = f.cs;
       // top / bottom edges
       bitmap.blt(skin, fx + cs,      fy,           fw - cs * 2, cs,      cs,      0,      w - cs * 2, cs);
@@ -177,10 +190,7 @@
   //===========================================================================
   var _Window_refreshCursor = Window.prototype._refreshCursor;
   Window.prototype._refreshCursor = function () {
-    var skinName = skinNameFromBitmap(this._windowskin);
-    var className = this.constructor && this.constructor.name;
-    var skinId = className ? ((_config.overrides || {})[className] || {}).skinId : undefined;
-    var entry = skinId ? findSkinEntryById(skinId) : findSkinEntry(skinName);
+    var entry = getThemeSkinEntry(this);
     if (!entry || entry.cursorX === undefined) { return _Window_refreshCursor.call(this); }
 
     var pad = this._padding;
@@ -200,7 +210,7 @@
     var m  = entry.cursorCornerSize !== undefined ? entry.cursorCornerSize : 4;
 
     var renderMode = entry.cursorRenderMode || 'nineSlice';
-    var bitmap = this._windowskin;
+    var bitmap = getRenderSkin(this);
     if (!bitmap || !bitmap.isReady() || nw <= 0 || nh <= 0) return;
     if (!this._windowCursorSprite) return;
 
@@ -346,8 +356,11 @@
   Window_Base.prototype.loadWindowskin = function () {
     var skinId = _skins.defaultSkin || G('windowskin', 'Window');
     var entry = findSkinEntryById(skinId) || findSkinEntry(skinId);
-    var skin = (entry && entry.file) ? entry.file : skinId;
-    this.windowskin = ImageManager.loadSystem(skin);
+    var skinFile = (entry && entry.file) ? entry.file : skinId;
+    // textColor 팔레트용 windowskin은 항상 원본 'Window' 이미지 유지
+    this.windowskin = ImageManager.loadSystem('Window');
+    // 커스텀 스킨 이미지를 _themeSkin에 별도 보관 (렌더링용)
+    this._themeSkin = (skinFile !== 'Window') ? ImageManager.loadSystem(skinFile) : null;
   };
 
   // 전역 colorTone / opacity
@@ -390,7 +403,10 @@
     }
     if (ov.windowskinName !== undefined) {
       cls.prototype.loadWindowskin = function () {
-        this.windowskin = ImageManager.loadSystem(ov.windowskinName);
+        // textColor 팔레트용 windowskin은 항상 원본 'Window' 이미지 유지
+        this.windowskin = ImageManager.loadSystem('Window');
+        this._themeSkin = (ov.windowskinName !== 'Window')
+          ? ImageManager.loadSystem(ov.windowskinName) : null;
       };
     }
     if (ov.opacity !== undefined || ov.colorTone) {
