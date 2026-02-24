@@ -188,9 +188,9 @@
     function MT_initResources(renderer, w, h) {
         var rtOpts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
 
-        // 1/8 다운스케일 — 실효 블러 반경 ≈ sigma_small * sqrt(passes) * 8 전체픽셀
-        // SCALE=32 는 26×20px → 전체 평균색(회색)이 되므로 SCALE=8 사용
-        var SCALE = 8;
+        // 1/4 다운스케일 — SCALE=8 은 너무 뭉개짐, SCALE=4 로 형태 보존
+        // 실효 블러 반경 ≈ sigma_small * sqrt(passes) * SCALE 전체픽셀
+        var SCALE = 4;
         var sw = Math.max(1, Math.round(w / SCALE));
         var sh = Math.max(1, Math.round(h / SCALE));
 
@@ -217,7 +217,8 @@
             _MT_fsq = new FullScreenQuad(new THREE.MeshBasicMaterial());
         }
 
-        var sigma = 5.0;  // 소형 텍스처에서의 sigma → full-res ≈ sigma * sqrt(passes) * SCALE
+        // sigma = blur / 100 * 8  →  blur=0 : 0(스킵), blur=30 : 2.4, blur=100 : 8
+        var sigma = Math.max(0.1, Cfg.blur / 100 * 8);
 
         if (!_MT_copyMat) {
             _MT_copyMat = new THREE.ShaderMaterial({
@@ -321,8 +322,10 @@
         _MT_fsq.render(renderer);
 
         // 블러 적용 → _MT_outputRT
+        // blur=0 이면 생략, passes = blur/25 올림 (blur=25→1, blur=50→2, blur=100→4)
         if (Cfg.effect !== 'overlayOnly' && Cfg.blur > 0) {
-            MT_applyBlur(renderer, Math.max(1, Math.round(Cfg.blur / 20)));
+            var passes = Math.max(1, Math.ceil(Cfg.blur / 25));
+            MT_applyBlur(renderer, passes);
         }
 
         _MT_bgCaptured = true;
