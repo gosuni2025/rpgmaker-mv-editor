@@ -326,50 +326,165 @@ PostProcessEffects.createFogPass = function(params) {
 
 //=============================================================================
 // 7. God Rays (Volumetric Light) - 빛줄기
+//   개선사항:
+//   - uThreshold:    루미넌스 모드에서 이 값 이상의 밝은 픽셀만 광원으로 기여
+//   - uRayColor:     빛줄기 색상 (따뜻한 흰색 기본값)
+//   - uMaxDistance:  광원 UV에서 멀어질수록 효과 감쇠
+//   - tOcclusion/uUseOcclusion: 2패스 오클루전 모드 (3D 전용)
+//     → 배경(하늘)=흰색, 오브젝트=검정 마스크를 radial blur해 정확한 빛줄기 생성
 //=============================================================================
 PostProcessEffects.GodRaysShader = {
     uniforms: {
-        tColor:      { value: null },
-        uLightPos:   { value: new THREE.Vector2(0.5, 0.0) },
-        uExposure:   { value: 0.3 },
-        uDecay:      { value: 0.95 },
-        uDensity:    { value: 0.8 },
-        uWeight:     { value: 0.4 },
-        uSamples:    { value: 50 }
+        tColor:        { value: null },
+        tOcclusion:    { value: null },
+        uLightPos:     { value: new THREE.Vector2(0.5, 0.0) },
+        uExposure:     { value: 0.3 },
+        uDecay:        { value: 0.95 },
+        uDensity:      { value: 0.8 },
+        uWeight:       { value: 0.4 },
+        uSamples:      { value: 50 },
+        uThreshold:    { value: 0.5 },
+        uRayColor:     { value: new THREE.Vector3(1.0, 0.95, 0.8) },
+        uMaxDistance:  { value: 1.5 },
+        uUseOcclusion: { value: 0.0 }
     },
     vertexShader: VERT,
     fragmentShader: [
         'uniform sampler2D tColor;',
+        'uniform sampler2D tOcclusion;',
         'uniform vec2 uLightPos;',
         'uniform float uExposure;',
         'uniform float uDecay;',
         'uniform float uDensity;',
         'uniform float uWeight;',
         'uniform int uSamples;',
+        'uniform float uThreshold;',
+        'uniform vec3 uRayColor;',
+        'uniform float uMaxDistance;',
+        'uniform float uUseOcclusion;',
         'varying vec2 vUv;',
         'void main() {',
         '    vec2 texCoord = vUv;',
         '    vec2 deltaTexCoord = (texCoord - uLightPos) * (1.0 / float(uSamples)) * uDensity;',
         '    vec4 color = texture2D(tColor, texCoord);',
         '    float illuminationDecay = 1.0;',
-        '    vec4 accum = vec4(0.0);',
+        '    float accum = 0.0;',
         '    for (int i = 0; i < 50; i++) {',
         '        if (i >= uSamples) break;',
         '        texCoord -= deltaTexCoord;',
-        '        vec4 sample0 = texture2D(tColor, clamp(texCoord, 0.0, 1.0));',
-        '        float lum = dot(sample0.rgb, vec3(0.299, 0.587, 0.114));',
-        '        sample0 *= lum * illuminationDecay * uWeight;',
-        '        accum += sample0;',
+        '        vec2 clampedUV = clamp(texCoord, 0.0, 1.0);',
+        // 루미넌스 모드: 임계값 이상의 밝기만 기여
+        '        float lum = dot(texture2D(tColor, clampedUV).rgb, vec3(0.299, 0.587, 0.114));',
+        '        float lumContrib = max(0.0, lum - uThreshold);',
+        // 오클루전 모드: 오클루전 마스크(흰=광원, 검=차폐) radial blur
+        '        float occContrib = texture2D(tOcclusion, clampedUV).r;',
+        // mix로 분기 없이 전환 (tOcclusion null → occContrib≈0 → lumContrib 사용)
+        '        float contrib = mix(lumContrib, occContrib, uUseOcclusion);',
+        '        accum += contrib * illuminationDecay * uWeight;',
         '        illuminationDecay *= uDecay;',
         '    }',
-        '    gl_FragColor = color + accum * uExposure;',
-        '    gl_FragColor.a = color.a;',
+        // 광원 거리 기반 감쇠 + 빛줄기 색상 적용
+        '    float distFade = 1.0 - smoothstep(0.0, uMaxDistance, length(vUv - uLightPos));',
+        '    vec3 rays = accum * uExposure * distFade * uRayColor;',
+        '    gl_FragColor = vec4(color.rgb + rays, color.a);',
         '}'
     ].join('\n')
 };
 
 PostProcessEffects.createGodRaysPass = function(params) {
-    var pass = createPass(this.GodRaysShader);
+    var shader = this.GodRaysShader;
+    var pass = {};
+    pass.enabled = false;
+    pass.needsSwap = true;
+    pass.renderToScreen = false;
+    pass.uniforms = THREE.UniformsUtils.clone(shader.uniforms);
+    pass.material = new THREE.ShaderMaterial({
+        uniforms: pass.uniforms,
+        vertexShader: shader.vertexShader,
+        fragmentShader: shader.fragmentShader
+    });
+    var _geom = new THREE.PlaneGeometry(2, 2);
+    pass._mesh = new THREE.Mesh(_geom, pass.material);
+    pass._scene2d = new THREE.Scene();
+    pass._scene2d.add(pass._mesh);
+    pass._camera2d = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    // 2패스 오클루전 지원 (3D 전용)
+    pass._occlusionEnabled = false;
+    pass._sceneRef = null;
+    pass._perspCameraRef = null;
+    pass._occlusionTarget = null;
+    pass._occlusionMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+    pass._getOcclusionTarget = function(w, h) {
+        if (!this._occlusionTarget ||
+            this._occlusionTarget.width !== w ||
+            this._occlusionTarget.height !== h) {
+            if (this._occlusionTarget) this._occlusionTarget.dispose();
+            this._occlusionTarget = new THREE.WebGLRenderTarget(w, h, {
+                minFilter: THREE.LinearFilter,
+                magFilter: THREE.LinearFilter,
+                format: THREE.RGBAFormat
+            });
+        }
+        return this._occlusionTarget;
+    };
+
+    // scene.overrideMaterial=검정 + background=흰색 → 오클루전 마스크 렌더
+    pass._renderOcclusion = function(renderer, w, h) {
+        if (!this._sceneRef || !this._perspCameraRef) return;
+        var scene = this._sceneRef;
+        var camera = this._perspCameraRef;
+        var target = this._getOcclusionTarget(w, h);
+
+        var savedBackground = scene.background;
+        var savedOverride = scene.overrideMaterial;
+        var savedClearColor = new THREE.Color();
+        var savedClearAlpha = renderer.getClearAlpha();
+        renderer.getClearColor(savedClearColor);
+
+        scene.overrideMaterial = this._occlusionMaterial;
+        scene.background = new THREE.Color(0xffffff);
+        renderer.setRenderTarget(target);
+        renderer.setClearColor(0xffffff, 1);
+        renderer.clear();
+        renderer.render(scene, camera);
+
+        renderer.setClearColor(savedClearColor, savedClearAlpha);
+        renderer.setRenderTarget(null);
+        scene.overrideMaterial = savedOverride;
+        scene.background = savedBackground;
+
+        this.uniforms.tOcclusion.value = target.texture;
+        this.uniforms.uUseOcclusion.value = 1.0;
+    };
+
+    pass.render = function(renderer, writeBuffer, readBuffer) {
+        this.uniforms.uUseOcclusion.value = 0.0;
+        if (this._occlusionEnabled) {
+            this._renderOcclusion(renderer, readBuffer.width, readBuffer.height);
+        }
+        this.uniforms.tColor.value = readBuffer.texture;
+        if (this.renderToScreen) {
+            renderer.setRenderTarget(null);
+        } else {
+            renderer.setRenderTarget(writeBuffer);
+            renderer.clear();
+        }
+        renderer.render(this._scene2d, this._camera2d);
+    };
+
+    pass.setSize = function() {};
+    pass.dispose = function() {
+        this.material.dispose();
+        this._mesh.geometry.dispose();
+        this._occlusionMaterial.dispose();
+        if (this._occlusionTarget) {
+            this._occlusionTarget.dispose();
+            this._occlusionTarget = null;
+        }
+    };
+
     if (params) {
         if (params.lightPosX != null) pass.uniforms.uLightPos.value.x = params.lightPosX;
         if (params.lightPosY != null) pass.uniforms.uLightPos.value.y = params.lightPosY;
@@ -377,7 +492,18 @@ PostProcessEffects.createGodRaysPass = function(params) {
         if (params.decay != null) pass.uniforms.uDecay.value = params.decay;
         if (params.density != null) pass.uniforms.uDensity.value = params.density;
         if (params.weight != null) pass.uniforms.uWeight.value = params.weight;
+        if (params.threshold != null) pass.uniforms.uThreshold.value = params.threshold;
+        if (params.maxDistance != null) pass.uniforms.uMaxDistance.value = params.maxDistance;
+        if (params.rayColor != null && typeof params.rayColor === 'string' && params.rayColor[0] === '#') {
+            pass.uniforms.uRayColor.value.set(
+                parseInt(params.rayColor.substr(1,2),16)/255,
+                parseInt(params.rayColor.substr(3,2),16)/255,
+                parseInt(params.rayColor.substr(5,2),16)/255
+            );
+        }
+        if (params.useOcclusion != null) pass._occlusionEnabled = !!params.useOcclusion;
     }
+
     return pass;
 };
 
@@ -1012,12 +1138,16 @@ PostProcessEffects.EFFECT_PARAMS = {
         { key: 'color',   label: '안개 색상', type: 'color', default: '#ccd9e6' }
     ],
     godRays: [
-        { key: 'lightPosX', label: '조명 X', min: 0, max: 1, step: 0.01, default: 0.5 },
-        { key: 'lightPosY', label: '조명 Y', min: 0, max: 1, step: 0.01, default: 0 },
-        { key: 'exposure',  label: '노출',   min: 0, max: 1, step: 0.01, default: 0.3 },
-        { key: 'decay',     label: '감쇠',   min: 0.8, max: 1, step: 0.005, default: 0.95 },
-        { key: 'density',   label: '밀도',   min: 0, max: 2, step: 0.05, default: 0.8 },
-        { key: 'weight',    label: '가중치', min: 0, max: 1, step: 0.05, default: 0.4 }
+        { key: 'lightPosX',    label: '조명 X',    min: 0, max: 1,   step: 0.01,  default: 0.5 },
+        { key: 'lightPosY',    label: '조명 Y',    min: 0, max: 1,   step: 0.01,  default: 0 },
+        { key: 'exposure',     label: '노출',      min: 0, max: 1,   step: 0.01,  default: 0.3 },
+        { key: 'decay',        label: '감쇠',      min: 0.8, max: 1, step: 0.005, default: 0.95 },
+        { key: 'density',      label: '밀도',      min: 0, max: 2,   step: 0.05,  default: 0.8 },
+        { key: 'weight',       label: '가중치',    min: 0, max: 1,   step: 0.05,  default: 0.4 },
+        { key: 'threshold',    label: '임계값',    min: 0, max: 1,   step: 0.05,  default: 0.5 },
+        { key: 'rayColor',     label: '빛 색상',   type: 'color',    default: '#ffe8c0' },
+        { key: 'maxDistance',  label: '거리 감쇠', min: 0.3, max: 3, step: 0.1,   default: 1.5 },
+        { key: 'useOcclusion', label: '오클루전',  type: 'select', options: [{v:0,l:'루미넌스'},{v:1,l:'오클루전(3D)'}], default: 0 }
     ],
     radialBlur: [
         { key: 'centerX',  label: '중심 X', min: 0, max: 1, step: 0.01, default: 0.5 },
@@ -1092,7 +1222,9 @@ PostProcessEffects._UNIFORM_MAP = {
     toneMapping:  { exposure: 'uExposure', mode: 'uMode' },
     fog:          { density: 'uDensity', start: 'uStart', end: 'uEnd' },
     godRays:      { lightPosX: 'uLightPos', lightPosY: 'uLightPos', exposure: 'uExposure',
-                    decay: 'uDecay', density: 'uDensity', weight: 'uWeight' },
+                    decay: 'uDecay', density: 'uDensity', weight: 'uWeight',
+                    threshold: 'uThreshold', rayColor: 'uRayColor', maxDistance: 'uMaxDistance'
+                    /* useOcclusion: pass 플래그 — applyParam에서 특수 처리 */ },
     radialBlur:   { centerX: 'uCenter', centerY: 'uCenter', strength: 'uStrength' },
     waveDistortion: { amplitude: 'uAmplitude', waveWidth: 'uWaveWidth', speed: 'uSpeed' },
     anamorphic:   { threshold: 'uThreshold', intensity: 'uIntensity', streakLength: 'uStreakLength' },

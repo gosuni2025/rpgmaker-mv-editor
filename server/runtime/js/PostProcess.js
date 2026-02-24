@@ -225,6 +225,214 @@
  * @max 10
  * @decimals 1
  * @default 0
+ * *
+ * @command PPEffectScanlinesOn
+ * @text 스캔라인 켜기
+ * @desc CRT 스캔라인 효과를 활성화합니다. intensity를 0에서 목표값으로 서서히 전환합니다.
+ *
+ * @arg intensity
+ * @text 강도 (0~1)
+ * @type number
+ * @min 0
+ * @max 1
+ * @decimals 2
+ * @default 0.4
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 1
+ *
+ * @command PPEffectScanlinesOff
+ * @text 스캔라인 끄기
+ * @desc CRT 스캔라인 효과를 비활성화합니다. intensity를 0으로 서서히 전환 후 끕니다.
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 1
+ *
+ * @command PPEffectScanlinesIntensity
+ * @text 스캔라인 강도 설정
+ * @desc 스캔라인 어두움 강도를 설정합니다. (0=없음, 1=최대)
+ *
+ * @arg value
+ * @text 강도
+ * @type number
+ * @min 0
+ * @max 1
+ * @decimals 2
+ * @default 0.4
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 0
+ *
+ * @command PPEffectScanlinesDensity
+ * @text 스캔라인 밀도 설정
+ * @desc 스캔라인 간격 밀도를 설정합니다. (1=1줄씩, 0.5=2줄 건너)
+ *
+ * @arg value
+ * @text 밀도
+ * @type number
+ * @min 0.02
+ * @max 1
+ * @decimals 2
+ * @default 1
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 0
+ *
+ * @command PPEffectScanlinesSpeed
+ * @text 스캔라인 스크롤 속도
+ * @desc 스캔라인이 위아래로 흐르는 속도입니다. (0=정적)
+ *
+ * @arg value
+ * @text 속도
+ * @type number
+ * @min 0
+ * @max 0.1
+ * @decimals 3
+ * @default 0
+ *
+ * @command PPEffectPosterizeOn
+ * @text 포스터화 켜기
+ * @desc 포스터화 효과를 활성화합니다. blend를 0에서 1로 서서히 전환합니다.
+ *
+ * @arg steps
+ * @text 색상 단계 (2~32)
+ * @type number
+ * @min 2
+ * @max 32
+ * @decimals 0
+ * @default 8
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 1
+ *
+ * @command PPEffectPosterizeOff
+ * @text 포스터화 끄기
+ * @desc 포스터화 효과를 비활성화합니다. blend를 0으로 서서히 전환 후 끕니다.
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 1
+ *
+ * @command PPEffectPosterizeSteps
+ * @text 포스터화 색상 단계 설정
+ * @desc 색상을 몇 단계로 나눌지 설정합니다. 낮을수록 레트로 느낌이 강해집니다.
+ *
+ * @arg value
+ * @text 단계 수
+ * @type number
+ * @min 2
+ * @max 32
+ * @decimals 0
+ * @default 8
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 0
+ *
+ * @command PPEffectPosterizeBlend
+ * @text 포스터화 혼합 강도 설정
+ * @desc 원본과 포스터화 이미지의 혼합 비율입니다. (0=원본, 1=완전 포스터화)
+ *
+ * @arg value
+ * @text 혼합 강도
+ * @type number
+ * @min 0
+ * @max 1
+ * @decimals 2
+ * @default 1
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 0
+ *
+ * @command PPEffectBarrelOn
+ * @text CRT 배럴 왜곡 켜기
+ * @desc CRT 모니터 볼록 왜곡 효과를 활성화합니다. curvature를 0에서 목표값으로 서서히 전환합니다.
+ *
+ * @arg curvature
+ * @text 곡면 강도 (0~0.3)
+ * @type number
+ * @min 0
+ * @max 0.3
+ * @decimals 3
+ * @default 0.08
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 1
+ *
+ * @command PPEffectBarrelOff
+ * @text CRT 배럴 왜곡 끄기
+ * @desc CRT 배럴 왜곡 효과를 비활성화합니다. curvature를 0으로 서서히 전환 후 끕니다.
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 1
+ *
+ * @command PPEffectBarrelCurvature
+ * @text CRT 배럴 곡면 강도 설정
+ * @desc CRT 모니터 볼록 왜곡의 강도를 설정합니다. (0=없음, 0.3=강한 왜곡)
+ *
+ * @arg value
+ * @text 곡면 강도
+ * @type number
+ * @min 0
+ * @max 0.3
+ * @decimals 3
+ * @default 0.08
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 10
+ * @decimals 1
+ * @default 0
  *
  * @help
  * PostProcess.js는 에디터 코어 파일로 자동으로 로드됩니다.
@@ -2526,6 +2734,174 @@ Game_Interpreter.prototype.pluginCommand = function(command, args) {
                 } else {
                     hhPass.uniforms.uSpeed.value = val;
                 }
+            }
+        }
+    }
+
+    // ── 스캔라인 전용 커맨드 ──────────────────────────────────────────────────
+    // PPEffectScanlinesOn [intensity] [duration]
+    // PPEffectScanlinesOff [duration]
+    // PPEffectScanlinesIntensity <value> [duration]
+    // PPEffectScanlinesDensity <value> [duration]
+    // PPEffectScanlinesSpeed <value>
+    var isScanCmd = (command === 'PPEffectScanlinesOn' || command === 'PPEffectScanlinesOff' ||
+                     command === 'PPEffectScanlinesIntensity' || command === 'PPEffectScanlinesDensity' ||
+                     command === 'PPEffectScanlinesSpeed');
+    if (isScanCmd) {
+        var PPE3 = window.PostProcessEffects;
+        if (PostProcess._ppPasses && PostProcess._ppPasses['scanlines'] && PPE3) {
+            var scanPass = PostProcess._ppPasses['scanlines'];
+
+            function _scanParamTween(uniformName, targetVal, dur) {
+                var proxy = { value: scanPass.uniforms[uniformName].value };
+                if (dur > 0 && window.PluginTween) {
+                    PluginTween.add({
+                        target: proxy, key: 'value', to: targetVal, duration: dur,
+                        onUpdate: function(v) { scanPass.uniforms[uniformName].value = v; }
+                    });
+                } else {
+                    scanPass.uniforms[uniformName].value = targetVal;
+                }
+            }
+
+            if (command === 'PPEffectScanlinesOn') {
+                var targetIntensity = args[0] ? parseFloat(args[0]) : 0.4;
+                var scanDur = args[1] ? parseFloat(args[1]) : 1;
+                scanPass.uniforms.uIntensity.value = 0;
+                scanPass.enabled = true;
+                PostProcess._updateRenderToScreen();
+                _scanParamTween('uIntensity', targetIntensity, scanDur);
+
+            } else if (command === 'PPEffectScanlinesOff') {
+                var scanDurOff = args[0] ? parseFloat(args[0]) : 1;
+                var scanProxy = { value: scanPass.uniforms.uIntensity.value };
+                if (scanDurOff > 0 && window.PluginTween) {
+                    PluginTween.add({
+                        target: scanProxy, key: 'value', to: 0, duration: scanDurOff,
+                        onUpdate: function(v) { scanPass.uniforms.uIntensity.value = v; },
+                        onComplete: function() { scanPass.enabled = false; PostProcess._updateRenderToScreen(); }
+                    });
+                } else {
+                    scanPass.uniforms.uIntensity.value = 0;
+                    scanPass.enabled = false;
+                    PostProcess._updateRenderToScreen();
+                }
+
+            } else if (command === 'PPEffectScanlinesIntensity') {
+                _scanParamTween('uIntensity', args[0] ? parseFloat(args[0]) : 0.4, args[1] ? parseFloat(args[1]) : 0);
+
+            } else if (command === 'PPEffectScanlinesDensity') {
+                _scanParamTween('uDensity', args[0] ? parseFloat(args[0]) : 1.0, args[1] ? parseFloat(args[1]) : 0);
+
+            } else if (command === 'PPEffectScanlinesSpeed') {
+                scanPass.uniforms.uSpeed.value = args[0] ? parseFloat(args[0]) : 0;
+            }
+        }
+    }
+
+    // ── 포스터화 전용 커맨드 ──────────────────────────────────────────────────
+    // PPEffectPosterizeOn [steps] [duration]
+    // PPEffectPosterizeOff [duration]
+    // PPEffectPosterizeSteps <value> [duration]
+    // PPEffectPosterizeBlend <value> [duration]
+    var isPostCmd = (command === 'PPEffectPosterizeOn' || command === 'PPEffectPosterizeOff' ||
+                     command === 'PPEffectPosterizeSteps' || command === 'PPEffectPosterizeBlend');
+    if (isPostCmd) {
+        var PPE4 = window.PostProcessEffects;
+        if (PostProcess._ppPasses && PostProcess._ppPasses['posterize'] && PPE4) {
+            var postPass = PostProcess._ppPasses['posterize'];
+
+            function _postBlendTween(targetVal, dur, onDone) {
+                var proxy = { value: postPass.uniforms.uBlend.value };
+                if (dur > 0 && window.PluginTween) {
+                    PluginTween.add({
+                        target: proxy, key: 'value', to: targetVal, duration: dur,
+                        onUpdate: function(v) { postPass.uniforms.uBlend.value = v; },
+                        onComplete: onDone || null
+                    });
+                } else {
+                    postPass.uniforms.uBlend.value = targetVal;
+                    if (onDone) onDone();
+                }
+            }
+
+            if (command === 'PPEffectPosterizeOn') {
+                var targetSteps = args[0] ? parseFloat(args[0]) : 8;
+                var postDur = args[1] ? parseFloat(args[1]) : 1;
+                postPass.uniforms.uSteps.value = targetSteps;
+                postPass.uniforms.uBlend.value = 0;
+                postPass.enabled = true;
+                PostProcess._updateRenderToScreen();
+                _postBlendTween(1, postDur, null);
+
+            } else if (command === 'PPEffectPosterizeOff') {
+                var postDurOff = args[0] ? parseFloat(args[0]) : 1;
+                _postBlendTween(0, postDurOff, function() {
+                    postPass.enabled = false;
+                    PostProcess._updateRenderToScreen();
+                });
+
+            } else if (command === 'PPEffectPosterizeSteps') {
+                var stepsVal = args[0] ? parseFloat(args[0]) : 8;
+                var stepsDur = args[1] ? parseFloat(args[1]) : 0;
+                if (stepsDur > 0 && window.PluginTween) {
+                    var stepsProxy = { value: postPass.uniforms.uSteps.value };
+                    PluginTween.add({
+                        target: stepsProxy, key: 'value', to: stepsVal, duration: stepsDur,
+                        onUpdate: function(v) { postPass.uniforms.uSteps.value = v; }
+                    });
+                } else {
+                    postPass.uniforms.uSteps.value = stepsVal;
+                }
+
+            } else if (command === 'PPEffectPosterizeBlend') {
+                _postBlendTween(args[0] ? parseFloat(args[0]) : 1, args[1] ? parseFloat(args[1]) : 0, null);
+            }
+        }
+    }
+
+    // ── CRT 배럴 왜곡 전용 커맨드 ────────────────────────────────────────────
+    // PPEffectBarrelOn [curvature] [duration]
+    // PPEffectBarrelOff [duration]
+    // PPEffectBarrelCurvature <value> [duration]
+    var isBarrelCmd = (command === 'PPEffectBarrelOn' || command === 'PPEffectBarrelOff' ||
+                       command === 'PPEffectBarrelCurvature');
+    if (isBarrelCmd) {
+        var PPE5 = window.PostProcessEffects;
+        if (PostProcess._ppPasses && PostProcess._ppPasses['barrelDistort'] && PPE5) {
+            var barrelPass = PostProcess._ppPasses['barrelDistort'];
+
+            function _barrelCurvTween(targetVal, dur, onDone) {
+                var proxy = { value: barrelPass.uniforms.uCurvature.value };
+                if (dur > 0 && window.PluginTween) {
+                    PluginTween.add({
+                        target: proxy, key: 'value', to: targetVal, duration: dur,
+                        onUpdate: function(v) { barrelPass.uniforms.uCurvature.value = v; },
+                        onComplete: onDone || null
+                    });
+                } else {
+                    barrelPass.uniforms.uCurvature.value = targetVal;
+                    if (onDone) onDone();
+                }
+            }
+
+            if (command === 'PPEffectBarrelOn') {
+                var targetCurv = args[0] ? parseFloat(args[0]) : 0.08;
+                var barrelDur = args[1] ? parseFloat(args[1]) : 1;
+                barrelPass.uniforms.uCurvature.value = 0;
+                barrelPass.enabled = true;
+                PostProcess._updateRenderToScreen();
+                _barrelCurvTween(targetCurv, barrelDur, null);
+
+            } else if (command === 'PPEffectBarrelOff') {
+                var barrelDurOff = args[0] ? parseFloat(args[0]) : 1;
+                _barrelCurvTween(0, barrelDurOff, function() {
+                    barrelPass.enabled = false;
+                    PostProcess._updateRenderToScreen();
+                });
+
+            } else if (command === 'PPEffectBarrelCurvature') {
+                _barrelCurvTween(args[0] ? parseFloat(args[0]) : 0.08, args[1] ? parseFloat(args[1]) : 0, null);
             }
         }
     }
