@@ -456,11 +456,21 @@ router.get('/core-metadata', (_req: Request, res: Response) => {
 
     for (const file of coreFiles) {
       const content = fs.readFileSync(path.join(coreDir, file), 'utf8');
-      // Only include files that have a /*: block with @command tags
-      const meta = parsePluginMetadata(content);
-      if (meta.commands && meta.commands.length > 0) {
-        const name = file.replace('.js', '');
-        result[name] = meta;
+      const baseName = file.replace('.js', '');
+
+      // 파일 내 모든 /*: ... */ 블록을 추출하여 각각 파싱
+      // 같은 파일에 여러 @plugincommand 블록이 있을 경우 각각을 독립 엔트리로 등록
+      const allBlocks = content.match(/\/\*:[\s\S]*?\*\//g) || [];
+      let blockIndex = 0;
+      for (const rawBlock of allBlocks) {
+        const meta = parsePluginMetadata(rawBlock);
+        if (!meta.commands || meta.commands.length === 0) continue;
+        // 엔트리 키: 첫 블록은 파일명, 추가 블록은 plugincommand 값 또는 파일명+인덱스
+        const entryKey = blockIndex === 0
+          ? baseName
+          : (meta.plugincommand || `${baseName}_${blockIndex}`);
+        result[entryKey] = meta;
+        blockIndex++;
       }
     }
 

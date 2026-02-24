@@ -141,6 +141,75 @@
  * @decimals 2
  * @default 0
  *
+ * @command PictureShaderParallaxOn
+ * @text [ParallaxUV] 시차 효과 켜기
+ * @desc 지정한 그림에 시차 UV(ParallaxUV) 셰이더를 적용합니다. strength가 0→1로 부드럽게 전환됩니다.
+ *
+ * @arg picId
+ * @text 그림 번호
+ * @type number
+ * @min 1
+ * @max 100
+ * @default 1
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @decimals 2
+ * @default 0.5
+ *
+ * @command PictureShaderParallaxOff
+ * @text [ParallaxUV] 시차 효과 끄기
+ * @desc 지정한 그림의 시차 UV 효과를 끕니다. strength가 1→0으로 부드럽게 전환됩니다.
+ *
+ * @arg picId
+ * @text 그림 번호
+ * @type number
+ * @min 1
+ * @max 100
+ * @default 1
+ *
+ * @arg duration
+ * @text 전환 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @decimals 2
+ * @default 0.5
+ *
+ * @command PictureShaderParallaxParam
+ * @text [ParallaxUV] 시차 파라미터 설정
+ * @desc 시차 셰이더의 파라미터를 보간하여 변경합니다.
+ *
+ * @arg picId
+ * @text 그림 번호
+ * @type number
+ * @min 1
+ * @max 100
+ * @default 1
+ *
+ * @arg param
+ * @text 파라미터 이름
+ * @desc scale / strength / animSpeed / angleX / angleY / invert / layers
+ * @type string
+ * @default scale
+ *
+ * @arg value
+ * @text 목표 값
+ * @type number
+ * @decimals 3
+ * @default 0.08
+ *
+ * @arg duration
+ * @text 보간 시간 (초)
+ * @type number
+ * @min 0
+ * @max 60
+ * @decimals 2
+ * @default 0
+ *
  * ■ 사용 예시:
  *   PictureShaderLavaOn 1 1.5     → 그림1에 용암 효과를 1.5초에 걸쳐 켜기
  *   PictureShaderLavaOff 1 1.0   → 그림1의 용암 효과를 1초에 걸쳐 끄기
@@ -148,6 +217,11 @@
  *   PictureShaderFireOn 2 2.0     → 그림2에 불꽃 효과를 2초에 걸쳐 켜기
  *   PictureShaderFireOff 2 1.0   → 그림2의 불꽃 효과를 1초에 걸쳐 끄기
  *   PictureShaderFireParam 2 height 0.7 0.5 → 불꽃 높이를 0.5초 동안 0.7로 보간
+ *   PictureShaderParallaxOn 1 1.0  → 그림1에 시차 효과를 1초에 걸쳐 켜기
+ *   PictureShaderParallaxOff 1 0.5 → 그림1의 시차 효과를 0.5초에 걸쳐 끄기
+ *   PictureShaderParallaxParam 1 scale 0.12 0.3 → 깊이를 0.3초 동안 0.12로 보간
+ *   PictureShaderParallaxParam 1 animSpeed 0 0  → 자동 회전 끄기 (수동 모드)
+ *   PictureShaderParallaxParam 1 angleX 0.5 0.5 → 시선 X를 0.5초에 걸쳐 이동
  */
 //=============================================================================
 // PictureShader.js - 그림(Picture) 셰이더 애니메이션 플러그인
@@ -1603,6 +1677,7 @@ PictureShader._FRAGMENT_PARALLAXUV = [
     'uniform float opacity;',
     'uniform float uTime;',
     'uniform float uScale;',       // 시차 깊이 (0.0 ~ 0.15)
+    'uniform float uStrength;',    // 효과 강도 (0=꺼짐, 1=최대)
     'uniform float uAnimSpeed;',   // 자동 회전 속도 (0 = 수동)
     'uniform float uAngleX;',      // 수동 시선 X (-1 ~ 1)
     'uniform float uAngleY;',      // 수동 시선 Y (-1 ~ 1)
@@ -1618,13 +1693,14 @@ PictureShader._FRAGMENT_PARALLAXUV = [
     '    }',
     '    vec2 uv = vUv;',
     '    float h;',
+    '    float effectiveScale = uScale * uStrength;',
     // 반복 샘플로 정확도 향상 (최대 4회)
     '    int steps = int(clamp(uLayers, 1.0, 4.0));',
     '    for (int i = 0; i < 4; i++) {',
     '        if (i >= steps) break;',
     '        h = dot(texture2D(map, uv).rgb, vec3(0.299, 0.587, 0.114));',
     '        if (uInvert > 0.5) h = 1.0 - h;',
-    '        uv = vUv - viewDir * h * uScale;',
+    '        uv = vUv - viewDir * h * effectiveScale;',
     '    }',
     '    vec4 color = texture2D(map, uv);',
     '    color.a *= opacity;',
@@ -1753,7 +1829,7 @@ PictureShader._DEFAULT_PARAMS = {
     'pixelDissolve': { threshold: 0, pixelSize: 32 },
     'lava':  { speed: 1.0, scale: 4.0, intensity: 0.8, strength: 1.0, color1R: 1.0, color1G: 0.5, color1B: 0.0, color2R: 0.5, color2G: 0.1, color2B: 0.0 },
     'fire':  { speed: 1.5, intensity: 1.0, height: 0.4, strength: 1.0, baseColorR: 1.0, baseColorG: 0.3, baseColorB: 0.0, tipColorR: 1.0, tipColorG: 0.9, tipColorB: 0.3 },
-    'parallaxUV': { scale: 0.08, animSpeed: 0.5, angleX: 0, angleY: 0, invert: 0, layers: 3 },
+    'parallaxUV': { scale: 0.08, strength: 1.0, animSpeed: 0.5, angleX: 0, angleY: 0, invert: 0, layers: 3 },
 };
 
 //=============================================================================
@@ -1816,7 +1892,7 @@ PictureShader._UNIFORM_MAP = {
     'pixelDissolve': [ ['threshold','uThreshold'], ['pixelSize','uPixelSize'] ],
     'lava': [ ['speed','uSpeed'], ['scale','uScale'], ['intensity','uIntensity'], ['strength','uStrength'], {u:'uColor1',vec3:['color1R','color1G','color1B']}, {u:'uColor2',vec3:['color2R','color2G','color2B']} ],
     'fire': [ ['speed','uSpeed'], ['intensity','uIntensity'], ['height','uHeight'], ['strength','uStrength'], {u:'uBaseColor',vec3:['baseColorR','baseColorG','baseColorB']}, {u:'uTipColor',vec3:['tipColorR','tipColorG','tipColorB']} ],
-    'parallaxUV': [ ['scale','uScale'], ['animSpeed','uAnimSpeed'], ['angleX','uAngleX'], ['angleY','uAngleY'], ['invert','uInvert'], ['layers','uLayers'] ],
+    'parallaxUV': [ ['scale','uScale'], ['strength','uStrength'], ['animSpeed','uAnimSpeed'], ['angleX','uAngleX'], ['angleY','uAngleY'], ['invert','uInvert'], ['layers','uLayers'] ],
 };
 
 //=============================================================================
@@ -2560,15 +2636,16 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
     Game_Interpreter.prototype.pluginCommand = function(command, args) {
         _pluginCommand.call(this, command, args);
 
-        var isLavaCmd = (command === 'PictureShaderLavaOn' || command === 'PictureShaderLavaOff' || command === 'PictureShaderLavaParam');
-        var isFireCmd = (command === 'PictureShaderFireOn' || command === 'PictureShaderFireOff' || command === 'PictureShaderFireParam');
-        if (!isLavaCmd && !isFireCmd) return;
+        var isLavaCmd     = (command === 'PictureShaderLavaOn'     || command === 'PictureShaderLavaOff'     || command === 'PictureShaderLavaParam');
+        var isFireCmd     = (command === 'PictureShaderFireOn'     || command === 'PictureShaderFireOff'     || command === 'PictureShaderFireParam');
+        var isParallaxCmd = (command === 'PictureShaderParallaxOn' || command === 'PictureShaderParallaxOff' || command === 'PictureShaderParallaxParam');
+        if (!isLavaCmd && !isFireCmd && !isParallaxCmd) return;
 
-        var type = isLavaCmd ? 'lava' : 'fire';
+        var type  = isLavaCmd ? 'lava' : isFireCmd ? 'fire' : 'parallaxUV';
         var picId = parseInt(args[0]) || 1;
 
-        // PictureShaderLavaOn / PictureShaderFireOn
-        if (command === 'PictureShaderLavaOn' || command === 'PictureShaderFireOn') {
+        // On
+        if (command === 'PictureShaderLavaOn' || command === 'PictureShaderFireOn' || command === 'PictureShaderParallaxOn') {
             var dur = parseFloat(args[1]) || 0;
             var entry = _getOrCreateShaderEntry(picId, type);
             if (!entry) return;
@@ -2582,8 +2659,8 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
             return;
         }
 
-        // PictureShaderLavaOff / PictureShaderFireOff
-        if (command === 'PictureShaderLavaOff' || command === 'PictureShaderFireOff') {
+        // Off
+        if (command === 'PictureShaderLavaOff' || command === 'PictureShaderFireOff' || command === 'PictureShaderParallaxOff') {
             var dur = parseFloat(args[1]) || 0;
             var entry = _findShaderEntry(picId, type);
             if (!entry) return;
@@ -2598,8 +2675,8 @@ PictureShader._cloneTransitionShaders = function(transitionData) {
             return;
         }
 
-        // PictureShaderLavaParam / PictureShaderFireParam
-        if (command === 'PictureShaderLavaParam' || command === 'PictureShaderFireParam') {
+        // Param
+        if (command === 'PictureShaderLavaParam' || command === 'PictureShaderFireParam' || command === 'PictureShaderParallaxParam') {
             var paramName = args[1];
             var value = parseFloat(args[2]);
             var dur = parseFloat(args[3]) || 0;

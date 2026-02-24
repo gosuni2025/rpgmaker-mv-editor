@@ -19,6 +19,7 @@ const PARALLAX_FRAG = `
   uniform sampler2D map;
   uniform float uTime;
   uniform float uScale;
+  uniform float uStrength;
   uniform float uAnimSpeed;
   uniform float uAngleX;
   uniform float uAngleY;
@@ -38,12 +39,13 @@ const PARALLAX_FRAG = `
     // 반복 샘플로 정확도 향상
     vec2 uv = vUv;
     float h;
+    float effectiveScale = uScale * uStrength;
     int steps = int(clamp(uLayers, 1.0, 4.0));
     for (int i = 0; i < 4; i++) {
       if (i >= steps) break;
       h = dot(texture2D(map, uv).rgb, vec3(0.299, 0.587, 0.114));
       if (uInvert > 0.5) h = 1.0 - h;
-      uv = vUv - viewDir * h * uScale;
+      uv = vUv - viewDir * h * effectiveScale;
     }
 
     if (uShowHeight > 0.5) {
@@ -251,6 +253,7 @@ export default function ParallaxUVTestPage() {
         map:         { value: texture },
         uTime:       { value: 0 },
         uScale:      { value: paramsRef.current.scale },
+        uStrength:   { value: 1.0 },
         uAnimSpeed:  { value: paramsRef.current.animSpeed },
         uAngleX:     { value: paramsRef.current.angleX },
         uAngleY:     { value: paramsRef.current.angleY },
