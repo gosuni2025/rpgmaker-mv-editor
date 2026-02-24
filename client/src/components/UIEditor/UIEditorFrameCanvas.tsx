@@ -81,88 +81,79 @@ function drawSkin(
     ctx.stroke();
   }
 
-  // 비활성 탭 영역은 흐리게
-  const frameAlpha = activeTab === 'frame' ? 1 : 0.25;
+  // 비활성 탭 영역: 커서 모드에서는 프레임/fill 숨김, 프레임 모드에서는 커서 흐리게
   const cursorAlpha = activeTab === 'cursor' ? 1 : 0.25;
 
-  // ── fill 영역 하이라이트 ───────────────────────────────────────────────────
-  ctx.globalAlpha = frameAlpha;
-  const flx = fillX * S, fly = fillY * S, flw = fillW * S, flh = fillH * S;
-
-  ctx.fillStyle = 'rgba(80,200,100,0.2)';
-  ctx.fillRect(flx, fly, flw, flh);
-
-  ctx.strokeStyle = 'rgba(80,220,80,0.8)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 3]);
-  ctx.strokeRect(flx + 0.5, fly + 0.5, flw - 1, flh - 1);
-  ctx.setLineDash([]);
-
-  ctx.fillStyle = 'rgba(80,220,80,0.85)';
-  ctx.font = `bold ${7 * S}px sans-serif`;
-  ctx.fillText('fill', flx + 2 * S, fly + 9 * S);
-
-  // ── 프레임 영역 하이라이트 ─────────────────────────────────────────────────
+  // ── fill/프레임/9-slice 하이라이트 (프레임 탭에서만 표시) ──────────────────
+  const cs_val = clamp(cornerSize, 1, Math.max(1, Math.floor(Math.min(frameW, frameH) / 2) - 1));
   const fx = frameX * S, fy = frameY * S, fw = frameW * S, fh = frameH * S;
+  const vx1 = (frameX + cs_val) * S + 0.5;
+  const vx2 = (frameX + frameW - cs_val) * S + 0.5;
+  const hy1 = (frameY + cs_val) * S + 0.5;
+  const hy2 = (frameY + frameH - cs_val) * S + 0.5;
 
-  // 프레임 반투명 오버레이
-  ctx.fillStyle = 'rgba(38,117,191,0.22)';
-  ctx.fillRect(fx, fy, fw, fh);
+  if (activeTab === 'frame') {
+    const flx = fillX * S, fly = fillY * S, flw = fillW * S, flh = fillH * S;
 
-  // 프레임 테두리 (흰색 실선)
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([]);
-  ctx.strokeRect(fx + 0.5, fy + 0.5, fw - 1, fh - 1);
-
-  // ── 9-slice 경계선 (프레임 내부) ──────────────────────────────────────────
-  const maxCs = Math.floor(Math.min(frameW, frameH) / 2) - 1;
-  const cs = clamp(cornerSize, 1, Math.max(1, maxCs));
-
-  ctx.strokeStyle = 'rgba(255, 220, 0, 0.95)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 3]);
-
-  const vx1 = (frameX + cs) * S + 0.5;
-  const vx2 = (frameX + frameW - cs) * S + 0.5;
-  ctx.beginPath(); ctx.moveTo(vx1, fy); ctx.lineTo(vx1, fy + fh); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(vx2, fy); ctx.lineTo(vx2, fy + fh); ctx.stroke();
-
-  const hy1 = (frameY + cs) * S + 0.5;
-  const hy2 = (frameY + frameH - cs) * S + 0.5;
-  ctx.beginPath(); ctx.moveTo(fx, hy1); ctx.lineTo(fx + fw, hy1); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(fx, hy2); ctx.lineTo(fx + fw, hy2); ctx.stroke();
-
-  ctx.setLineDash([]);
-
-  // ── slice 라인 호버 하이라이트 ─────────────────────────────────────────────
-  if (hoverHit?.type === 'slice') {
-    const HW = SLICE_HIT * S;  // 하이라이트 너비 (픽셀)
-    ctx.fillStyle = 'rgba(80,255,120,0.25)';
-    ctx.strokeStyle = 'rgba(80,255,120,0.9)';
-    ctx.lineWidth = 1.5;
+    // fill 영역
+    ctx.fillStyle = 'rgba(80,200,100,0.2)';
+    ctx.fillRect(flx, fly, flw, flh);
+    ctx.strokeStyle = 'rgba(80,220,80,0.8)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(flx + 0.5, fly + 0.5, flw - 1, flh - 1);
     ctx.setLineDash([]);
-    if (hoverHit.axis === 'x') {
-      const lx = (hoverHit.nearFirst ? vx1 : vx2) - HW / 2;
-      ctx.fillRect(lx, fy, HW, fh);
-      ctx.strokeRect(lx + 0.5, fy + 0.5, HW - 1, fh - 1);
-    } else {
-      const ly = (hoverHit.nearFirst ? hy1 : hy2) - HW / 2;
-      ctx.fillRect(fx, ly, fw, HW);
-      ctx.strokeRect(fx + 0.5, ly + 0.5, fw - 1, HW - 1);
-    }
-  }
+    ctx.fillStyle = 'rgba(80,220,80,0.85)';
+    ctx.font = `bold ${7 * S}px sans-serif`;
+    ctx.fillText('fill', flx + 2 * S, fly + 9 * S);
 
-  // 코너 강조 박스
-  ctx.strokeStyle = 'rgba(255,220,0,0.6)';
-  ctx.lineWidth = 0.5;
-  for (const c of [
-    { x: frameX, y: frameY },
-    { x: frameX + frameW - cs, y: frameY },
-    { x: frameX, y: frameY + frameH - cs },
-    { x: frameX + frameW - cs, y: frameY + frameH - cs },
-  ]) {
-    ctx.strokeRect(c.x * S + 0.5, c.y * S + 0.5, cs * S - 1, cs * S - 1);
+    // 프레임 반투명 오버레이
+    ctx.fillStyle = 'rgba(38,117,191,0.22)';
+    ctx.fillRect(fx, fy, fw, fh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.strokeRect(fx + 0.5, fy + 0.5, fw - 1, fh - 1);
+
+    // 9-slice 경계선
+    ctx.strokeStyle = 'rgba(255, 220, 0, 0.95)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(vx1, fy); ctx.lineTo(vx1, fy + fh); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(vx2, fy); ctx.lineTo(vx2, fy + fh); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fx, hy1); ctx.lineTo(fx + fw, hy1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fx, hy2); ctx.lineTo(fx + fw, hy2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // slice 호버 하이라이트
+    if (hoverHit?.type === 'slice') {
+      const HW = SLICE_HIT * S;
+      ctx.fillStyle = 'rgba(80,255,120,0.25)';
+      ctx.strokeStyle = 'rgba(80,255,120,0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]);
+      if (hoverHit.axis === 'x') {
+        const lx = (hoverHit.nearFirst ? vx1 : vx2) - HW / 2;
+        ctx.fillRect(lx, fy, HW, fh);
+        ctx.strokeRect(lx + 0.5, fy + 0.5, HW - 1, fh - 1);
+      } else {
+        const ly = (hoverHit.nearFirst ? hy1 : hy2) - HW / 2;
+        ctx.fillRect(fx, ly, fw, HW);
+        ctx.strokeRect(fx + 0.5, ly + 0.5, fw - 1, HW - 1);
+      }
+    }
+
+    // 코너 강조 박스
+    ctx.strokeStyle = 'rgba(255,220,0,0.6)';
+    ctx.lineWidth = 0.5;
+    for (const c of [
+      { x: frameX, y: frameY },
+      { x: frameX + frameW - cs_val, y: frameY },
+      { x: frameX, y: frameY + frameH - cs_val },
+      { x: frameX + frameW - cs_val, y: frameY + frameH - cs_val },
+    ]) {
+      ctx.strokeRect(c.x * S + 0.5, c.y * S + 0.5, cs_val * S - 1, cs_val * S - 1);
+    }
   }
 
   // ── 커서 영역 하이라이트 ───────────────────────────────────────────────────
@@ -200,9 +191,9 @@ function drawSkin(
     ctx.setLineDash([]);
   }
 
-  ctx.globalAlpha = frameAlpha;
-  // 영역 라벨
-  if (showLabels && showRegionOverlay && imgW === 192 && imgH === 192) {
+  ctx.globalAlpha = 1;
+  // 영역 라벨 (프레임 탭에서만)
+  if (activeTab === 'frame' && showLabels && showRegionOverlay && imgW === 192 && imgH === 192) {
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.font = `bold ${9 * S}px sans-serif`;
     ctx.fillText('배경', 4 * S, 11 * S);
@@ -211,17 +202,16 @@ function drawSkin(
     ctx.fillText('커서/화살표', 100 * S, 100 * S);
   }
 
-  // cornerSize 수치 표시
-  ctx.fillStyle = 'rgba(255,220,0,0.9)';
-  ctx.font = `${7 * S}px sans-serif`;
-  ctx.fillText(`${cs}px`, (frameX + 1) * S, (frameY + cs / 2 + 4) * S);
+  // cornerSize / 프레임 크기 수치 표시 (프레임 탭에서만)
+  if (activeTab === 'frame') {
+    ctx.fillStyle = 'rgba(255,220,0,0.9)';
+    ctx.font = `${7 * S}px sans-serif`;
+    ctx.fillText(`${cs_val}px`, (frameX + 1) * S, (frameY + cs_val / 2 + 4) * S);
 
-  // 프레임 크기 수치 표시
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.font = `${6 * S}px sans-serif`;
-  ctx.fillText(`${frameW}×${frameH}`, fx + 2, fy + fh - 3 * S);
-
-  ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = `${6 * S}px sans-serif`;
+    ctx.fillText(`${frameW}×${frameH}`, fx + 2, fy + fh - 3 * S);
+  }
 }
 
 // ─── 히트 판정 ────────────────────────────────────────────────────────────────
