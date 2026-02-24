@@ -319,6 +319,10 @@
                 var dx = touch.pageX - _dragState.lastX;
                 var dy = touch.pageY - _dragState.lastY;
 
+                // 드래그 active 상태이면 항상 preventDefault() — 브라우저 pan/scroll 방지
+                // (실제 기기에서 touchcancel이 발생하지 않도록)
+                event.preventDefault();
+
                 // 카메라 존 밖에서만 드래그 회전 처리
                 if (!isCameraZoneActive()) {
                     var totalDx = touch.pageX - _dragState.startX;
@@ -335,7 +339,6 @@
                         applyTilt(dy * ROTATION_SPEED);
                         _dragState.lastX = touch.pageX;
                         _dragState.lastY = touch.pageY;
-                        event.preventDefault();
                         return; // 원본 호출 안함
                     }
                 }
@@ -358,6 +361,17 @@
             }
         }
         _orig_onTouchEnd.call(this, event);
+    };
+
+    // touchcancel: 브라우저가 터치를 취소할 때(스크롤 시작 등) drag/pinch state 초기화
+    var _orig_onTouchCancel = TouchInput._onTouchCancel;
+    TouchInput._onTouchCancel = function(event) {
+        _dragState.active = false;
+        _dragState.moved = false;
+        _pinchState.active = false;
+        _suppressNextDestination = false;
+        _mapTouchTriggered = false;
+        _orig_onTouchCancel.call(this, event);
     };
 
     //=========================================================================
