@@ -218,8 +218,13 @@ export default function EventInspector() {
       cy = wp.y;
     }
 
+    const confirmedRouteKey = s.routeKey;
     s.onConfirm?.(allCommands);
     cancelWaypoint();
+    // 확정된 경로 표시 활성화
+    if (confirmedRouteKey) {
+      setRouteVisibility(prev => ({ ...prev, [confirmedRouteKey]: true }));
+    }
   }, [currentMap, tilesetInfo, cancelWaypoint]);
 
   const event = useMemo(() => {

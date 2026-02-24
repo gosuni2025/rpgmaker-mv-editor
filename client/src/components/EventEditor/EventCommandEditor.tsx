@@ -449,7 +449,7 @@ export default function EventCommandEditor({ commands, onChange, context, onWayp
             const capturedPageIndex = context?.pageIndex ?? 0;
             const session: WaypointSession = {
               eventId: context?.eventId ?? 0,
-              routeKey: editingIdx !== undefined ? `cmd_p${context?.pageIndex ?? 0}_c${editingIdx}` : 'cmd_new',
+              routeKey: editingIdx !== undefined ? `cmd_p${context?.pageIndex ?? 0}_c${editingIdx}` : `cmd_p${context?.pageIndex ?? 0}_c${capturedInsertAt}`,
               type: 'command',
               pageIndex: context?.pageIndex ?? 0,
               commandIndex: editingIdx,
