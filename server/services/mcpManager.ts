@@ -72,6 +72,11 @@ class McpManager extends EventEmitter {
         return [mapFile(args.mapId)];
       case 'create_map':
         return ['MapInfos.json'];
+      case 'update_map_properties':
+      case 'set_map_tiles':
+        return [mapFile(args.mapId)];
+      case 'set_start_position':
+        return ['System.json'];
       case 'update_database_entry': {
         const f = dbFile(args.type);
         return f ? [f] : [];
@@ -97,6 +102,16 @@ class McpManager extends EventEmitter {
       }
       case 'create_map':
         return `MCP: 맵 생성 — "${args.name}" (${args.width ?? 17}×${args.height ?? 13})`;
+      case 'update_map_properties': {
+        const fields = args.properties ? Object.keys(args.properties as object).join(', ') : '';
+        return `MCP: 맵 속성 수정 — 맵${args.mapId}${fields ? ' (' + fields + ')' : ''}`;
+      }
+      case 'set_map_tiles': {
+        const count = Array.isArray(args.tiles) ? args.tiles.length : 0;
+        return `MCP: 타일 배치 — 맵${args.mapId} ${count}개 타일`;
+      }
+      case 'set_start_position':
+        return `MCP: 시작 위치 설정 — 맵${args.mapId} (${args.x}, ${args.y})`;
       case 'update_database_entry': {
         const fields = args.fields ? Object.keys(args.fields as object).join(', ') : '';
         return `MCP: DB 수정 — ${args.type}[${args.id}]${fields ? ' (' + fields + ')' : ''}`;
@@ -469,6 +484,43 @@ class McpManager extends EventEmitter {
         const meta2 = allMeta2[name];
         if (!meta2) throw new Error(`플러그인 "${name}" 없음 또는 메타데이터 없음`);
         return meta2;
+      }
+
+      case 'update_map_properties': {
+        const map = await this.apiGet<Record<string, unknown>>(`/maps/${args.mapId}`);
+        const props = args.properties as Record<string, unknown>;
+        if (!props || typeof props !== 'object') throw new Error('properties 필드 필요');
+        const updated = { ...map, ...props };
+        // data 배열이 없으면 서버가 덮어쓰지 않도록 유지
+        await this.apiPut(`/maps/${args.mapId}`, updated);
+        return { success: true, mapId: args.mapId, updated: Object.keys(props) };
+      }
+
+      case 'set_map_tiles': {
+        const mapData = await this.apiGet<Record<string, unknown>>(`/maps/${args.mapId}`);
+        const tiles = args.tiles as { x: number; y: number; z: number; tileId: number }[];
+        if (!Array.isArray(tiles) || tiles.length === 0) throw new Error('tiles 배열 필요');
+        const width = mapData.width as number;
+        const height = mapData.height as number;
+        const data = mapData.data as number[];
+        if (!data) throw new Error('맵 data 배열 없음 (includeTiles 필요)');
+        for (const t of tiles) {
+          const idx = (t.z * height + t.y) * width + t.x;
+          if (idx < 0 || idx >= data.length) throw new Error(`범위 초과: (${t.x},${t.y},z=${t.z})`);
+          data[idx] = t.tileId;
+        }
+        mapData.data = data;
+        await this.apiPut(`/maps/${args.mapId}`, mapData);
+        return { success: true, mapId: args.mapId, count: tiles.length };
+      }
+
+      case 'set_start_position': {
+        const sys = await this.apiGet<Record<string, unknown>>('/database/system');
+        sys['startMapId'] = args.mapId;
+        sys['startX'] = args.x;
+        sys['startY'] = args.y;
+        await this.apiPut('/database/system', sys);
+        return { success: true, startMapId: args.mapId, startX: args.x, startY: args.y };
       }
 
       case 'list_resources': {

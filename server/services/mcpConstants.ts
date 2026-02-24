@@ -86,4 +86,29 @@ export const MCP_TOOLS = [
   { name: 'list_plugin_commands', description: '활성 플러그인의 커맨드 요약 목록 + 커스텀 텍스트 태그. 토큰 절약을 위해 간략 버전만 반환. 상세 정보는 get_plugin_detail 사용.', inputSchema: obj({}) },
   { name: 'get_plugin_detail', description: '특정 플러그인의 상세 문서 (@help 전문 + 모든 @command/@arg). list_plugin_commands로 목록 확인 후 필요한 플러그인만 조회.', inputSchema: obj({ name: { type: 'string', description: '플러그인 파일명 (확장자 제외, 예: VisualNovelMode)' } }, ['name']) },
   { name: 'list_resources', description: '프로젝트 리소스 파일 목록. [이미지] characters(캐릭터), faces(얼굴), tilesets(타일셋), pictures(그림), sv_actors(사이드뷰 액터), titles1/titles2(타이틀), parallaxes(원경), battlebacks1/battlebacks2(전투배경), enemies(적 이미지), animations(애니메이션), system(시스템), sv_enemies(사이드뷰 적). [오디오] bgm(배경음악), bgs(배경환경음), me(음악이펙트), se(효과음). [영상] movies. 반환값 name이 이벤트 audio.name/image.characterName 등에 사용하는 값.', inputSchema: obj({ type: { type: 'string', description: 'characters/faces/tilesets/bgm/bgs/me/se/movies 등' } }, ['type']) },
+  {
+    name: 'update_map_properties',
+    description: '맵 속성 부분 업데이트. BGM, 전투배경, 표시 이름 등 맵 메타 필드를 변경. 타일 데이터(data[])는 건드리지 않음.',
+    inputSchema: obj({
+      mapId: { type: 'number' },
+      properties: { type: 'object', description: '변경할 필드. bgm={name,volume,pitch,pan}, bgs={name,volume,pitch,pan}, autoplayBgm=bool, autoplayBgs=bool, battleback1Name=string, battleback2Name=string, specifyBattleback=bool, displayName=string, note=string, encounterStep=number, tilesetId=number, scrollType=number(0=없음,1=수평루프,2=수직루프,3=전방향루프), disableDashing=bool, parallaxName=string, parallaxLoopX=bool, parallaxLoopY=bool, parallaxSx=number, parallaxSy=number, parallaxShow=bool' },
+    }, ['mapId', 'properties']),
+  },
+  {
+    name: 'set_map_tiles',
+    description: '맵 타일 배치. tiles 배열로 여러 좌표를 한 번에 설정 가능. z 레이어: 0~3=타일, 4=섀도우, 5=리전. 타일ID: 0=빈칸, A1(바다/물)=2048~, A2(지형)=2816~, A3(건물외벽)=4352~, A4(건물벽)=5888~, A5=1536~, B=256~511, C=512~767, D=768~1023, E=1024~1279.',
+    inputSchema: obj({
+      mapId: { type: 'number' },
+      tiles: { type: 'array', description: '배치할 타일 목록. 각 항목: {x:number, y:number, z:number(레이어0~5), tileId:number}' },
+    }, ['mapId', 'tiles']),
+  },
+  {
+    name: 'set_start_position',
+    description: '게임 시작 위치 설정 (System.json의 startMapId, startX, startY 수정).',
+    inputSchema: obj({
+      mapId: { type: 'number', description: '시작 맵 ID' },
+      x: { type: 'number', description: '시작 X 좌표' },
+      y: { type: 'number', description: '시작 Y 좌표' },
+    }, ['mapId', 'x', 'y']),
+  },
 ];
