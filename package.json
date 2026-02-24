@@ -5,6 +5,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "postinstall": "cd client && npm install && cd ../server && npm install && cd ../mcp-server && npm install",
+    "predev": "lsof -ti:3001 -ti:5173 | xargs kill -9 2>/dev/null; true",
     "dev": "cross-env SERVER_PORT=3001 CLIENT_PORT=5173 concurrently \"npm run dev:server\" \"npm run dev:client:wait\"",
     "dev:server": "cd server && npx tsx --watch index.ts",
     "dev:client": "cd client && npm run dev",
