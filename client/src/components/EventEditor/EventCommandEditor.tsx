@@ -5,7 +5,8 @@ import type { EventCommand, MoveRoute } from '../../types/rpgMakerMV';
 import CommandParamEditor from './CommandParamEditor';
 import CommandInsertDialog from './CommandInsertDialog';
 import MoveRouteDialog from './MoveRouteDialog';
-import type { WaypointSession } from '../../utils/astar';
+import type { WaypointSession, WaypointPos } from '../../utils/astar';
+import { findNearestReachableTile } from '../../utils/astar';
 import { emitWaypointSessionChange } from '../MapEditor/useWaypointMode';
 import useEditorStore from '../../store/useEditorStore';
 import {
@@ -441,7 +442,17 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
               characterId: charId,
               startX,
               startY,
-              waypoints: [],
+              waypoints: (() => {
+                const initial: WaypointPos[] = [];
+                const ms = useEditorStore.getState();
+                const md = ms.currentMap;
+                const tf = ms.tilesetInfo;
+                if (md && tf) {
+                  const nearby = findNearestReachableTile(startX, startY, md.data, md.width, md.height, tf.flags);
+                  if (nearby) initial.push({ id: crypto.randomUUID(), x: nearby.x, y: nearby.y });
+                }
+                return initial;
+              })(),
               allowDiagonal: false,
               avoidEvents: false,
               onConfirm: (commands) => {

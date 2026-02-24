@@ -6,7 +6,8 @@ import type { RPGEvent, EventPage } from '../../types/rpgMakerMV';
 import EventCommandEditor from './EventCommandEditor';
 import ImagePicker from '../common/ImagePicker';
 import MoveRouteDialog from './MoveRouteDialog';
-import type { WaypointSession } from '../../utils/astar';
+import type { WaypointSession, WaypointPos } from '../../utils/astar';
+import { findNearestReachableTile } from '../../utils/astar';
 import { emitWaypointSessionChange } from '../MapEditor/useWaypointMode';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import ExtBadge from '../common/ExtBadge';
@@ -258,6 +259,20 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
             onOk={route => { updatePage(activePage, { moveRoute: route }); setShowMoveRoute(false); }}
             onCancel={() => setShowMoveRoute(false)}
             onWaypointMode={(charId) => {
+              // 이벤트 주변 가장 가까운 빈 공간을 초기 목적지로 자동 설정
+              const mapState = useEditorStore.getState();
+              const mapData = mapState.currentMap;
+              const tf = mapState.tilesetInfo;
+              const initialWaypoints: WaypointPos[] = [];
+              if (mapData && tf) {
+                const nearby = findNearestReachableTile(
+                  event.x, event.y,
+                  mapData.data, mapData.width, mapData.height, tf.flags,
+                );
+                if (nearby) {
+                  initialWaypoints.push({ id: crypto.randomUUID(), x: nearby.x, y: nearby.y });
+                }
+              }
               const session: WaypointSession = {
                 eventId: event.id,
                 routeKey: `auto_p${activePage}`,
@@ -266,7 +281,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
                 characterId: charId,
                 startX: event.x,
                 startY: event.y,
-                waypoints: [],
+                waypoints: initialWaypoints,
                 allowDiagonal: false,
                 avoidEvents: false,
                 onConfirm: (commands) => {

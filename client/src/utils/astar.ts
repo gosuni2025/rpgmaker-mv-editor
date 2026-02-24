@@ -261,6 +261,70 @@ export function runAstar(
 }
 
 // ===================================================================
+// 주변 빈 공간 탐색
+// ===================================================================
+
+/**
+ * (cx, cy)에서 이동 가능한 가장 가까운 인접 타일을 BFS로 탐색.
+ * 탐색 방향 우선순위: 상하좌우 → 대각선.
+ * @param maxRadius 탐색 최대 반경 (기본 5타일)
+ */
+export function findNearestReachableTile(
+  cx: number, cy: number,
+  data: number[], mapWidth: number, mapHeight: number,
+  flags: number[],
+  maxRadius = 5,
+  blockedTiles?: ReadonlySet<string>,
+): { x: number; y: number } | null {
+  const visited = new Set<string>();
+  const queue: { x: number; y: number; dist: number }[] = [];
+
+  const enqueue = (x: number, y: number, dist: number) => {
+    const k = `${x},${y}`;
+    if (!visited.has(k)) {
+      visited.add(k);
+      queue.push({ x, y, dist });
+    }
+  };
+
+  // 시작 위치 자체는 건너뜀 (이벤트가 있는 위치)
+  visited.add(`${cx},${cy}`);
+
+  // 직선 4방향 우선, 그 다음 대각선
+  for (const [dx, dy] of [...STRAIGHT_DIRS, ...DIAGONAL_DIRS]) {
+    enqueue(cx + dx, cy + dy, 1);
+  }
+
+  while (queue.length > 0) {
+    queue.sort((a, b) => a.dist - b.dist);
+    const cur = queue.shift()!;
+    if (cur.dist > maxRadius) break;
+    if (cur.x < 0 || cur.x >= mapWidth || cur.y < 0 || cur.y >= mapHeight) continue;
+    if (blockedTiles?.has(`${cur.x},${cur.y}`)) continue;
+
+    // 이 위치로 진입 가능한지: 이전 위치(cx,cy)가 아닌 어떤 방향에서든 접근 가능하면 됨
+    // 간단히: 이 타일에서 최소 한 방향으로 이동 가능한지 확인
+    let reachable = false;
+    for (const [dx, dy] of STRAIGHT_DIRS) {
+      const nx = cur.x + dx;
+      const ny = cur.y + dy;
+      if (isPassable(nx, ny, -dx, -dy, data, mapWidth, mapHeight, flags)) {
+        reachable = true;
+        break;
+      }
+    }
+    if (reachable) return { x: cur.x, y: cur.y };
+
+    // 주변 탐색 확장
+    for (const [dx, dy] of [...STRAIGHT_DIRS, ...DIAGONAL_DIRS]) {
+      enqueue(cur.x + dx, cur.y + dy, cur.dist + 1);
+    }
+  }
+
+  return null;
+}
+
+// ===================================================================
 // 경로 → RPG Maker MV 이동 커맨드 변환
 // ===================================================================
 
