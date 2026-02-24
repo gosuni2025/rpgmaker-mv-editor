@@ -31,7 +31,7 @@
  * @type number
  * @min 0
  * @max 30
- * @default 8
+ * @default 12
  *
  * @param overlayColor
  * @text 오버레이 색상 (R,G,B)
@@ -43,14 +43,14 @@
  * @type number
  * @min 0
  * @max 255
- * @default 100
+ * @default 120
  *
  * @param duration
  * @text 전환 시간 (프레임, 60fps 기준)
  * @type number
  * @min 1
  * @max 120
- * @default 18
+ * @default 20
  *
  * @param easing
  * @text 이징
@@ -74,10 +74,10 @@
 
     var Cfg = {
         effect:       String(params.effect       || 'blur+overlay'),
-        blur:         Number(params.blur)         || 8,
+        blur:         Number(params.blur)         || 12,
         overlayColor: String(params.overlayColor  || '0,0,0'),
-        overlayAlpha: Number(params.overlayAlpha) >= 0 ? Number(params.overlayAlpha) : 100,
-        duration:     Number(params.duration)     || 18,
+        overlayAlpha: Number(params.overlayAlpha) >= 0 ? Number(params.overlayAlpha) : 120,
+        duration:     Number(params.duration)     || 20,
         easing:       String(params.easing        || 'easeOut'),
         closeAnim:    String(params.closeAnim) !== 'false'
     };
@@ -161,28 +161,34 @@
     }
 
     // ── Scene_MenuBase 오버라이드 ─────────────────────────────────────────────
+    // 주의: SceneManager.updateMain의 while 루프가 한 프레임에 최대 15회 update()를
+    // 호출하므로 프레임 카운트 방식은 animation이 즉시 완료되어버림.
+    // 반드시 Date.now() 기반 wall-clock 타이밍을 사용해야 함.
 
     var _SMB_create = Scene_MenuBase.prototype.create;
     Scene_MenuBase.prototype.create = function () {
         _SMB_create.call(this);
-        this._mtProgress = 0;
-        this._mtDuration = Cfg.duration;
-        this._mtClosing  = false;
-        this._mtDone     = false;
-        this._mtCloseCb  = null;
+        this._mtDurationMs  = Cfg.duration * (1000 / 60); // 프레임 → ms 변환
+        this._mtStartTime   = null;   // 첫 _updateMT 호출 시 기록
+        this._mtClosing     = false;
+        this._mtCloseTime   = null;   // 닫기 시작 시각
+        this._mtCloseFrom   = 255;    // 닫기 시작 시점의 overlay opacity
+        this._mtDone        = false;
+        this._mtCloseCb     = null;
     };
 
     // createBackground: 원본 스프라이트(불투명) + 후처리 스프라이트(opacity 0→255)
-    var _SMB_createBg = Scene_MenuBase.prototype.createBackground;
     Scene_MenuBase.prototype.createBackground = function () {
         var raw = SceneManager.backgroundBitmap();
-        this._backgroundSprite = new Sprite(raw);
+        this._backgroundSprite = new Sprite();
+        this._backgroundSprite.bitmap = raw;
         this.addChild(this._backgroundSprite);
 
         if (raw && raw.width > 0) {
             var processed = buildProcessedBitmap(raw);
             if (processed) {
-                this._mtOverlay = new Sprite(processed);
+                this._mtOverlay = new Sprite();
+                this._mtOverlay.bitmap = processed;
                 this._mtOverlay.opacity = 0;
                 this.addChild(this._mtOverlay);
             }
@@ -199,18 +205,22 @@
         var spr = this._mtOverlay;
         if (!spr) return;
 
+        var now = Date.now();
+
         if (!this._mtClosing) {
-            // ── 열기 애니메이션 (0 → duration)
-            if (this._mtProgress < this._mtDuration) {
-                this._mtProgress++;
-                spr.opacity = Math.round(applyEase(this._mtProgress / this._mtDuration) * 255);
-            }
+            // ── 열기 애니메이션: wall-clock 기반
+            if (!this._mtStartTime) this._mtStartTime = now;
+            var t = Math.min(1, (now - this._mtStartTime) / this._mtDurationMs);
+            spr.opacity = Math.round(applyEase(t) * 255);
         } else {
-            // ── 닫기 애니메이션 (duration → 0)
-            if (this._mtProgress > 0) {
-                this._mtProgress--;
-                spr.opacity = Math.round(applyEase(this._mtProgress / this._mtDuration) * 255);
-            } else if (!this._mtDone) {
+            // ── 닫기 애니메이션: 시작 시각 기록 후 역방향
+            if (!this._mtCloseTime) {
+                this._mtCloseTime = now;
+                this._mtCloseFrom = spr.opacity;
+            }
+            var tc = Math.min(1, (now - this._mtCloseTime) / this._mtDurationMs);
+            spr.opacity = Math.round((1 - applyEase(tc)) * this._mtCloseFrom);
+            if (tc >= 1 && !this._mtDone) {
                 this._mtDone = true;
                 if (this._mtCloseCb) {
                     var cb = this._mtCloseCb;
@@ -229,8 +239,8 @@
         SceneManager.pop = function () {
             var scene = this._scene;
             if (scene instanceof Scene_MenuBase &&
-                    scene._mtDuration > 0 && !scene._mtClosing) {
-                scene._active  = false;   // 입력 비활성화 (씬은 계속 update)
+                    scene._mtDurationMs > 0 && !scene._mtClosing) {
+                scene._active    = false;   // 입력 비활성화 (씬은 계속 update)
                 scene._mtClosing = true;
                 var mgr = this;
                 scene._mtCloseCb = function () { _pop.call(mgr); };
