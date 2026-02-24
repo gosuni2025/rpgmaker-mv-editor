@@ -69,6 +69,11 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
   const [showMoveRoute, setShowMoveRoute] = useState<{ editing?: number; characterId: number; moveRoute: MoveRoute } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  // 웨이포인트 onConfirm에서 항상 최신 함수를 사용하기 위한 ref (stale closure 방지)
+  const waypointConfirmRef = useRef<{
+    updateCommandParams: (idx: number, params: unknown[], extra?: EventCommand[]) => void;
+    insertCommandWithParams: (code: number, params: unknown[], extra?: EventCommand[]) => void;
+  } | null>(null);
 
   const { changeWithHistory, undo: rawUndo, redo: rawRedo, canUndo, canRedo } = useCommandHistory(commands, onChange);
   const { selectedIndices, setSelectedIndices, lastClickedIndex, setLastClickedIndex, primaryIndex, handleRowClick, groupStart, groupEnd } = useCommandSelection(commands);
@@ -230,6 +235,9 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
     changeWithHistory(buildUpdatedCommands(commands, index, params, extra));
     setEditingIndex(null);
   };
+
+  // 매 렌더마다 최신 함수로 갱신
+  waypointConfirmRef.current = { updateCommandParams, insertCommandWithParams };
 
   const handleDoubleClick = (index: number) => {
     const cmd = commands[index];
@@ -463,10 +471,11 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
                   skippable: false,
                   wait: true,
                 };
+                // waypointConfirmRef.current를 사용하여 항상 최신 함수 호출 (stale closure 방지)
                 if (editingIdx !== undefined) {
-                  updateCommandParams(editingIdx, [charId, route]);
+                  waypointConfirmRef.current?.updateCommandParams(editingIdx, [charId, route]);
                 } else {
-                  insertCommandWithParams(205, [charId, route]);
+                  waypointConfirmRef.current?.insertCommandWithParams(205, [charId, route]);
                 }
               },
             };
