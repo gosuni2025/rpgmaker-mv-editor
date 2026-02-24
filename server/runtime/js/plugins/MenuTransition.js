@@ -183,8 +183,9 @@
     function MT_initResources(renderer, w, h) {
         var rtOpts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
 
-        // 1/32 다운스케일 — 실효 블러 반경 ≈ sigma_small * sqrt(passes) * 32 전체픽셀
-        var SCALE = 32;
+        // 1/8 다운스케일 — 실효 블러 반경 ≈ sigma_small * sqrt(passes) * 8 전체픽셀
+        // SCALE=32 는 26×20px → 전체 평균색(회색)이 되므로 SCALE=8 사용
+        var SCALE = 8;
         var sw = Math.max(1, Math.round(w / SCALE));
         var sh = Math.max(1, Math.round(h / SCALE));
 
@@ -350,7 +351,7 @@
 
             _MT_fsq.material = _MT_compMat;
             renderer.setRenderTarget(null);
-            renderer.render(_MT_fsq._scene, _MT_fsq._camera);
+            _MT_fsq.render(renderer);
         };
     }
 
