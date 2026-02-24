@@ -12,6 +12,7 @@ import { useMapTools } from './useMapTools';
 import { useMouseHandlers } from './useMouseHandlers';
 import { useEventSelectionOverlays, useLightSelectionOverlays, useObjectSelectionOverlays } from './useEntitySelectionOverlays';
 import { useMoveRouteOverlay } from './useMoveRouteOverlay';
+import { useWaypointMode } from './useWaypointMode';
 import { useSelectionRectOverlay, usePastePreviewOverlay } from './useSelectionOverlays';
 import { useCameraZoneOverlay } from './overlays';
 import { useTileCursorPreview } from './useTileCursorPreview';
@@ -105,6 +106,7 @@ export default function MapCanvas() {
   useObjectSelectionOverlays(overlayRefs, rendererReady);
   useMoveRouteOverlay(overlayRefs, hoverTile, rendererReady);
   useCameraZoneOverlay(overlayRefs, rendererReady, cameraZoneMultiDragDelta, cameraZoneDragPreview);
+  useWaypointMode(webglCanvasRef);
 
   // 맵 캔버스 외부 클릭 시 시작 위치 선택 해제
   useEffect(() => {

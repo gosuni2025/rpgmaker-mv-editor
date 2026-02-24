@@ -3,6 +3,8 @@ import useEditorStore from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
 import type { MoveRoute } from '../../types/rpgMakerMV';
 import type { RouteEntry } from '../Sidebar/EventInspector';
+import type { WaypointSession } from '../../utils/astar';
+import { runAstar } from '../../utils/astar';
 
 const GLOBAL_KEY = '_editorMoveRouteMeshes';
 
@@ -257,6 +259,136 @@ function renderRoute(
   }
 }
 
+/** 웨이포인트 세션을 3D 씬에 렌더링 */
+function renderWaypointSession(
+  THREE: any,
+  scene: any,
+  meshes: any[],
+  session: WaypointSession,
+  mapData: number[] | undefined,
+  mapWidth: number,
+  mapHeight: number,
+  flags: number[] | undefined,
+) {
+  const Z = 7.5;
+  const LINE_ORDER = 9960;
+  const MARKER_ORDER = 9961;
+  const LABEL_ORDER = 9962;
+
+  const wps = session.waypoints;
+
+  // 시작점 → 각 웨이포인트까지 A* 경로 그리기
+  let prevX = session.startX;
+  let prevY = session.startY;
+
+  for (let i = 0; i < wps.length; i++) {
+    const wp = wps[i];
+    const isLast = i === wps.length - 1;
+
+    // A* 경로 미리보기 선
+    if (mapData && flags) {
+      const path = runAstar(prevX, prevY, wp.x, wp.y, mapData, mapWidth, mapHeight, flags, session.allowDiagonal, 500);
+      if (path.length >= 2) {
+        for (let j = 0; j < path.length - 1; j++) {
+          const [x1, y1] = tileCenter({ x: path[j].x, y: path[j].y });
+          const [x2, y2] = tileCenter({ x: path[j + 1].x, y: path[j + 1].y });
+          const pts = [new THREE.Vector3(x1, y1, Z), new THREE.Vector3(x2, y2, Z)];
+          const geom = new THREE.BufferGeometry().setFromPoints(pts);
+          const mat = new THREE.LineDashedMaterial({
+            color: isLast ? 0xff4444 : 0xffaa00,
+            depthTest: false, transparent: true, opacity: 0.7,
+            dashSize: 6, gapSize: 4,
+          });
+          const line = new THREE.Line(geom, mat);
+          line.computeLineDistances();
+          line.renderOrder = LINE_ORDER;
+          line.frustumCulled = false;
+          line.userData.editorGrid = true;
+          scene.add(line);
+          meshes.push(line);
+        }
+      } else {
+        // 경로 없음 → 직선 (빨간 점선)
+        const [x1, y1] = tileCenter({ x: prevX, y: prevY });
+        const [x2, y2] = tileCenter({ x: wp.x, y: wp.y });
+        const pts = [new THREE.Vector3(x1, y1, Z), new THREE.Vector3(x2, y2, Z)];
+        const geom = new THREE.BufferGeometry().setFromPoints(pts);
+        const mat = new THREE.LineDashedMaterial({
+          color: 0xff2222, depthTest: false, transparent: true, opacity: 0.5,
+          dashSize: 4, gapSize: 4,
+        });
+        const line = new THREE.Line(geom, mat);
+        line.computeLineDistances();
+        line.renderOrder = LINE_ORDER;
+        line.frustumCulled = false;
+        line.userData.editorGrid = true;
+        scene.add(line);
+        meshes.push(line);
+      }
+    }
+
+    // 웨이포인트 마커
+    const [mx, my] = tileCenter({ x: wp.x, y: wp.y });
+    const markerColor = isLast ? 0xff4444 : 0xffaa00;
+    const circGeom = new THREE.CircleGeometry(TILE_SIZE_PX * 0.28, 20);
+    const circMat = new THREE.MeshBasicMaterial({
+      color: markerColor, depthTest: false, transparent: true, opacity: 0.85, side: THREE.DoubleSide,
+    });
+    const circle = new THREE.Mesh(circGeom, circMat);
+    circle.position.set(mx, my, Z);
+    circle.renderOrder = MARKER_ORDER;
+    circle.frustumCulled = false;
+    circle.userData.editorGrid = true;
+    circle.userData.waypointId = wp.id;
+    scene.add(circle);
+    meshes.push(circle);
+
+    // 테두리 링
+    const ringGeom = new THREE.RingGeometry(TILE_SIZE_PX * 0.28, TILE_SIZE_PX * 0.33, 20);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff, depthTest: false, transparent: true, opacity: 0.6, side: THREE.DoubleSide,
+    });
+    const ring = new THREE.Mesh(ringGeom, ringMat);
+    ring.position.set(mx, my, Z + 0.01);
+    ring.renderOrder = MARKER_ORDER + 1;
+    ring.frustumCulled = false;
+    ring.userData.editorGrid = true;
+    scene.add(ring);
+    meshes.push(ring);
+
+    // 라벨
+    const label = isLast ? '목' : String(i + 1);
+    const canvas = document.createElement('canvas');
+    canvas.width = 32; canvas.height = 32;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 32, 32);
+    ctx.save();
+    ctx.translate(0, 32);
+    ctx.scale(1, -1);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, 16, 16);
+    ctx.restore();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    const lGeom = new THREE.PlaneGeometry(18, 18);
+    const lMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, side: THREE.DoubleSide });
+    const lMesh = new THREE.Mesh(lGeom, lMat);
+    lMesh.position.set(mx, my, Z + 0.02);
+    lMesh.renderOrder = LABEL_ORDER;
+    lMesh.frustumCulled = false;
+    lMesh.userData.editorGrid = true;
+    scene.add(lMesh);
+    meshes.push(lMesh);
+
+    prevX = wp.x;
+    prevY = wp.y;
+  }
+}
+
 interface OverlayRefs {
   rendererObjRef: React.MutableRefObject<any>;
   stageRef: React.MutableRefObject<any>;
@@ -272,13 +404,21 @@ export function useMoveRouteOverlay(
   const selectedEventIds = useEditorStore((s) => s.selectedEventIds);
   // events 배열 참조만 추적 (currentMap 전체가 아닌)
   const events = useEditorStore((s) => s.currentMap?.events ?? null);
+  const currentMap = useEditorStore((s) => s.currentMap);
+  const tilesetInfo = useEditorStore((s) => s.tilesetInfo);
 
   // 인스펙터에서 오는 경로 가시성 변경 감지
   const [routeVersion, setRouteVersion] = React.useState(0);
   React.useEffect(() => {
     const handler = () => setRouteVersion(v => v + 1);
     window.addEventListener('editor-route-visibility-change', handler);
-    return () => window.removeEventListener('editor-route-visibility-change', handler);
+    window.addEventListener('editor-waypoint-updated', handler);
+    window.addEventListener('editor-waypoint-session-change', handler);
+    return () => {
+      window.removeEventListener('editor-route-visibility-change', handler);
+      window.removeEventListener('editor-waypoint-updated', handler);
+      window.removeEventListener('editor-waypoint-session-change', handler);
+    };
   }, []);
 
   React.useEffect(() => {
@@ -362,6 +502,16 @@ export function useMoveRouteOverlay(
     const path = computeMoveRoutePath(targetEvent.x, targetEvent.y, page.moveRoute);
     renderRoute(THREE, rObj.scene, meshes, path, page.moveRoute, '#ff8800', 0);
 
+    // 웨이포인트 세션 렌더링
+    const session = (window as any)._editorWaypointSession as WaypointSession | null;
+    if (session && editMode === 'event') {
+      renderWaypointSession(
+        THREE, rObj.scene, meshes, session,
+        currentMap?.data, currentMap?.width ?? 0, currentMap?.height ?? 0,
+        tilesetInfo?.flags,
+      );
+    }
+
     triggerRender(refs.renderRequestedRef, refs.rendererObjRef, refs.stageRef);
-  }, [editMode, selectedEventIds, events, hoverTile, rendererReady, routeVersion]);
+  }, [editMode, selectedEventIds, events, hoverTile, rendererReady, routeVersion, currentMap, tilesetInfo]);
 }

@@ -613,6 +613,112 @@
   color: #ddd;
 }
 
+/* --- Waypoint Panel --- */
+.waypoint-panel {
+  border: 2px solid #2675bf;
+  border-radius: 4px;
+  margin: 6px;
+  background: #1e2a3a;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.waypoint-panel-title {
+  background: #2675bf;
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.waypoint-panel-option {
+  padding: 6px 10px;
+  border-bottom: 1px solid #2a3c52;
+}
+
+.waypoint-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ccc;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.waypoint-list {
+  padding: 4px 6px;
+  min-height: 40px;
+  max-height: 120px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.waypoint-empty {
+  color: #666;
+  font-size: 11px;
+  padding: 4px 4px;
+  text-align: center;
+}
+
+.waypoint-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: #253040;
+  font-size: 11px;
+}
+
+.waypoint-item-label {
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 50px;
+}
+
+.waypoint-item-pos {
+  flex: 1;
+  color: #aaa;
+  font-family: monospace;
+}
+
+.waypoint-delete-btn {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.waypoint-delete-btn:hover {
+  color: #f44;
+}
+
+.waypoint-panel-hint {
+  color: #556;
+  font-size: 10px;
+  padding: 3px 10px;
+  border-top: 1px solid #2a3c52;
+  text-align: center;
+}
+
+.waypoint-panel-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 6px 10px;
+  border-top: 1px solid #2a3c52;
+}
+
 /* --- Anim Tile Shader Section --- */
 .anim-tile-kind-panel {
   margin-bottom: 2px;

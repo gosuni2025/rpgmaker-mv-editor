@@ -5,6 +5,8 @@ import type { EventCommand, MoveRoute } from '../../types/rpgMakerMV';
 import CommandParamEditor from './CommandParamEditor';
 import CommandInsertDialog from './CommandInsertDialog';
 import MoveRouteDialog from './MoveRouteDialog';
+import type { WaypointSession } from '../../utils/astar';
+import { emitWaypointSessionChange } from '../MapEditor/useWaypointMode';
 import useEditorStore from '../../store/useEditorStore';
 import {
   NO_PARAM_CODES, CONTINUATION_CODES, BLOCK_END_CODES, CHILD_TO_PARENT,
@@ -421,7 +423,45 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
           onOk={() => {}} onOkWithCharacter={(charId, route) => {
             showMoveRoute.editing !== undefined ? updateCommandParams(showMoveRoute.editing, [charId, route]) : insertCommandWithParams(205, [charId, route]);
             setShowMoveRoute(null);
-          }} onCancel={() => setShowMoveRoute(null)} />
+          }} onCancel={() => setShowMoveRoute(null)}
+          onWaypointMode={(charId) => {
+            const mapEvents = useEditorStore.getState().currentMap?.events ?? [];
+            const currentEvent = context?.eventId != null
+              ? (mapEvents.find(e => e && e.id === context.eventId) as any)
+              : null;
+            const startX = currentEvent?.x ?? 0;
+            const startY = currentEvent?.y ?? 0;
+            const editingIdx = showMoveRoute.editing;
+            const session: WaypointSession = {
+              eventId: context?.eventId ?? 0,
+              routeKey: editingIdx !== undefined ? `cmd_p${context?.pageIndex ?? 0}_c${editingIdx}` : 'cmd_new',
+              type: 'command',
+              pageIndex: context?.pageIndex ?? 0,
+              commandIndex: editingIdx,
+              characterId: charId,
+              startX,
+              startY,
+              waypoints: [],
+              allowDiagonal: false,
+              onConfirm: (commands) => {
+                const route = {
+                  list: [...commands, { code: 0 }],
+                  repeat: false,
+                  skippable: false,
+                  wait: true,
+                };
+                if (editingIdx !== undefined) {
+                  updateCommandParams(editingIdx, [charId, route]);
+                } else {
+                  insertCommandWithParams(205, [charId, route]);
+                }
+              },
+            };
+            (window as any)._editorWaypointSession = session;
+            emitWaypointSessionChange();
+            setShowMoveRoute(null);
+          }}
+        />
       )}
     </div>
   );

@@ -1,6 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import type { RPGEvent, MoveRoute } from '../../types/rpgMakerMV';
+import type { WaypointSession } from '../../utils/astar';
+import { runAstar, pathToMvCommands } from '../../utils/astar';
+import { emitWaypointSessionChange } from '../MapEditor/useWaypointMode';
 import './InspectorPanel.css';
 
 /** 경로 엔트리: 자율이동 or 실행내용(코드 205) */
@@ -100,7 +103,91 @@ function clearRouteVisibility() {
 
 export default function EventInspector() {
   const currentMap = useEditorStore((s) => s.currentMap);
+  const tilesetInfo = useEditorStore((s) => s.tilesetInfo);
   const selectedEventIds = useEditorStore((s) => s.selectedEventIds);
+
+  // 웨이포인트 세션 상태
+  const [waypointSession, setWaypointSession] = useState<WaypointSession | null>(null);
+  const sessionRef = useRef<WaypointSession | null>(null);
+
+  // editor-waypoint-updated: 세션 내 waypoints가 변경됨 → 리렌더링 트리거
+  useEffect(() => {
+    const onUpdated = () => {
+      const s = (window as any)._editorWaypointSession as WaypointSession | null;
+      if (s) setWaypointSession({ ...s, waypoints: [...s.waypoints] });
+    };
+    const onSessionChange = () => {
+      const s = (window as any)._editorWaypointSession as WaypointSession | null;
+      sessionRef.current = s;
+      setWaypointSession(s ? { ...s } : null);
+    };
+    window.addEventListener('editor-waypoint-updated', onUpdated);
+    window.addEventListener('editor-waypoint-session-change', onSessionChange);
+    return () => {
+      window.removeEventListener('editor-waypoint-updated', onUpdated);
+      window.removeEventListener('editor-waypoint-session-change', onSessionChange);
+    };
+  }, []);
+
+  const updateSessionField = useCallback(<K extends keyof WaypointSession>(key: K, value: WaypointSession[K]) => {
+    const s = (window as any)._editorWaypointSession as WaypointSession | null;
+    if (!s) return;
+    (s as any)[key] = value;
+    (window as any)._editorWaypointSession = s;
+    setWaypointSession({ ...s });
+    // 오버레이에 변경 알림
+    window.dispatchEvent(new CustomEvent('editor-waypoint-updated'));
+  }, []);
+
+  const deleteWaypoint = useCallback((id: string) => {
+    const s = (window as any)._editorWaypointSession as WaypointSession | null;
+    if (!s) return;
+    s.waypoints = s.waypoints.filter(w => w.id !== id);
+    (window as any)._editorWaypointSession = s;
+    setWaypointSession({ ...s, waypoints: [...s.waypoints] });
+    window.dispatchEvent(new CustomEvent('editor-waypoint-updated'));
+  }, []);
+
+  const cancelWaypoint = useCallback(() => {
+    (window as any)._editorWaypointSession = null;
+    emitWaypointSessionChange();
+  }, []);
+
+  const confirmWaypoint = useCallback(() => {
+    const s = (window as any)._editorWaypointSession as WaypointSession | null;
+    if (!s || s.waypoints.length === 0) return;
+    if (!currentMap || !tilesetInfo) return;
+
+    const { data, width, height } = currentMap;
+    const { flags } = tilesetInfo;
+
+    // 시작점 → WP1 → ... → 마지막 WP 순서로 A* 계산
+    const allCommands: ReturnType<typeof pathToMvCommands> = [];
+    let cx = s.startX;
+    let cy = s.startY;
+
+    for (const wp of s.waypoints) {
+      const path = runAstar(cx, cy, wp.x, wp.y, data, width, height, flags, s.allowDiagonal);
+      if (path.length >= 2) {
+        allCommands.push(...pathToMvCommands(path));
+      } else if (path.length === 0) {
+        // 경로를 찾지 못한 경우 — 직접 이동 (장애물 무시)
+        const dx = wp.x - cx;
+        const dy = wp.y - cy;
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+        const signX = Math.sign(dx);
+        const signY = Math.sign(dy);
+        for (let i = 0; i < absDx; i++) allCommands.push({ code: signX > 0 ? 3 : 2 });
+        for (let i = 0; i < absDy; i++) allCommands.push({ code: signY > 0 ? 1 : 4 });
+      }
+      cx = wp.x;
+      cy = wp.y;
+    }
+
+    s.onConfirm?.(allCommands);
+    cancelWaypoint();
+  }, [currentMap, tilesetInfo, cancelWaypoint]);
 
   const event = useMemo(() => {
     if (selectedEventIds.length !== 1 || !currentMap?.events) return null;
@@ -190,6 +277,64 @@ export default function EventInspector() {
 
   return (
     <div className="light-inspector">
+
+      {/* 웨이포인트 편집 패널 */}
+      {waypointSession && (
+        <div className="waypoint-panel">
+          <div className="waypoint-panel-title">
+            <span>웨이포인트 편집</span>
+            <span style={{ fontSize: 10, color: '#aaa', fontWeight: 'normal' }}>
+              {waypointSession.type === 'autonomous' ? '자율이동' : '이동루트 커맨드'}
+            </span>
+          </div>
+
+          <div className="waypoint-panel-option">
+            <label className="waypoint-checkbox">
+              <input
+                type="checkbox"
+                checked={waypointSession.allowDiagonal}
+                onChange={e => updateSessionField('allowDiagonal', e.target.checked)}
+              />
+              대각선 이동 허용
+            </label>
+          </div>
+
+          <div className="waypoint-list">
+            {waypointSession.waypoints.length === 0 ? (
+              <div className="waypoint-empty">맵을 클릭해 경유지/목적지를 추가하세요</div>
+            ) : (
+              waypointSession.waypoints.map((wp, i) => (
+                <div key={wp.id} className="waypoint-item">
+                  <span className="waypoint-item-label">
+                    {i === waypointSession.waypoints.length - 1
+                      ? <span style={{ color: '#f77' }}>목적지</span>
+                      : <span style={{ color: '#fa0' }}>경유 {i + 1}</span>
+                    }
+                  </span>
+                  <span className="waypoint-item-pos">({wp.x}, {wp.y})</span>
+                  <button className="waypoint-delete-btn" onClick={() => deleteWaypoint(wp.id)} title="삭제">✕</button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="waypoint-panel-hint">
+            드래그로 위치 조정 가능 · 마지막 웨이포인트가 최종 목적지
+          </div>
+
+          <div className="waypoint-panel-buttons">
+            <button className="db-btn" onClick={cancelWaypoint}>취소</button>
+            <button
+              className="db-btn db-btn-primary"
+              onClick={confirmWaypoint}
+              disabled={waypointSession.waypoints.length === 0}
+            >
+              확정
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="light-inspector-section">
         <div className="light-inspector-title">

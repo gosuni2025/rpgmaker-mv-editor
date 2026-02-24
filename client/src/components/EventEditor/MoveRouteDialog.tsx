@@ -18,10 +18,15 @@ interface MoveRouteDialogProps {
   onOkWithCharacter?: (characterId: number, route: MoveRoute) => void;
   /** 현재 맵의 이벤트 목록 (캐릭터 선택 드롭다운용) */
   mapEvents?: { id: number; name: string }[];
+  /** 웨이포인트 방식 시작 콜백 (제공 시 "웨이포인트" 탭 활성화) */
+  onWaypointMode?: (characterId: number) => void;
 }
 
-export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId, onOkWithCharacter, mapEvents }: MoveRouteDialogProps) {
+type RouteMode = 'classic' | 'waypoint';
+
+export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId, onOkWithCharacter, mapEvents, onWaypointMode }: MoveRouteDialogProps) {
   const { t } = useTranslation();
+  const [routeMode, setRouteMode] = useState<RouteMode>('classic');
   const [charId, setCharId] = useState(characterId ?? -1);
   const [commands, setCommands] = useState<MoveCommand[]>(() => {
     const cmds = [...moveRoute.list];
@@ -109,6 +114,69 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId
     <div className="move-route-overlay">
       <div className="move-route-dialog">
         <div className="move-route-titlebar">{t('moveRoute.title')}</div>
+
+        {/* 방식 선택 탭 (웨이포인트 기능이 제공될 때만) */}
+        {onWaypointMode && (
+          <div className="move-route-mode-tabs">
+            <button
+              className={`move-route-mode-tab${routeMode === 'classic' ? ' active' : ''}`}
+              onClick={() => setRouteMode('classic')}
+            >
+              클래식
+            </button>
+            <button
+              className={`move-route-mode-tab${routeMode === 'waypoint' ? ' active' : ''}`}
+              onClick={() => setRouteMode('waypoint')}
+            >
+              웨이포인트
+            </button>
+          </div>
+        )}
+
+        {/* 웨이포인트 탭 내용 */}
+        {routeMode === 'waypoint' && onWaypointMode ? (
+          <div className="move-route-waypoint-tab">
+            {showCharacterSelect && (
+              <div className="move-route-character-select" style={{ borderBottom: '1px solid #555', marginBottom: 8 }}>
+                <label>{t('moveRoute.character')}
+                  <select
+                    value={charId}
+                    onChange={e => setCharId(Number(e.target.value))}
+                    className="event-editor-select"
+                    style={{ marginLeft: 8, flex: 1 }}
+                  >
+                    <option value={-1}>{t('moveRoute.player')}</option>
+                    <option value={0}>{t('moveRoute.thisEvent')}</option>
+                    {mapEvents?.map(ev => (
+                      <option key={ev.id} value={ev.id}>{`${String(ev.id).padStart(3, '0')}: ${ev.name}`}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+            <div className="move-route-waypoint-desc">
+              <div style={{ fontSize: 13, color: '#ddd', marginBottom: 8, fontWeight: 'bold' }}>웨이포인트 경로 편집</div>
+              <div style={{ color: '#aaa', fontSize: 12, lineHeight: 1.7 }}>
+                맵에서 목적지와 경유지를 직접 클릭하여 이동 경로를 설정합니다.<br />
+                A* 알고리즘이 자동으로 장애물을 피해 최단 경로를 계산합니다.<br /><br />
+                <span style={{ color: '#8cf' }}>① 편집 시작</span> 버튼을 클릭하면 이 창이 닫히고<br />
+                맵 캔버스에서 웨이포인트 편집 모드가 활성화됩니다.<br /><br />
+                인스펙터 패널의 <span style={{ color: '#8cf' }}>확정</span> 버튼을 누르면<br />
+                경로가 이동 루트 커맨드로 변환되어 저장됩니다.
+              </div>
+            </div>
+            <div className="move-route-waypoint-start-btn">
+              <button
+                className="db-btn db-btn-primary"
+                onClick={() => onWaypointMode(charId)}
+              >
+                편집 시작
+              </button>
+              <button className="db-btn" onClick={onCancel}>취소</button>
+            </div>
+          </div>
+        ) : (
+        <>
         <div className="move-route-body">
           {showCharacterSelect && (
             <div className="move-route-character-select">
@@ -180,6 +248,8 @@ export default function MoveRouteDialog({ moveRoute, onOk, onCancel, characterId
           <button className="db-btn" onClick={handleOk}>{t('common.ok')}</button>
           <button className="db-btn" onClick={onCancel}>{t('common.cancel')}</button>
         </div>
+        </>
+        )}
       </div>
       {paramEdit && (
         <ParamInputDialog

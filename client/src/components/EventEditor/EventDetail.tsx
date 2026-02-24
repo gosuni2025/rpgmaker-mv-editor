@@ -6,6 +6,8 @@ import type { RPGEvent, EventPage } from '../../types/rpgMakerMV';
 import EventCommandEditor from './EventCommandEditor';
 import ImagePicker from '../common/ImagePicker';
 import MoveRouteDialog from './MoveRouteDialog';
+import type { WaypointSession } from '../../utils/astar';
+import { emitWaypointSessionChange } from '../MapEditor/useWaypointMode';
 import { VariableSwitchPicker } from './VariableSwitchSelector';
 import ExtBadge from '../common/ExtBadge';
 import HelpButton from '../common/HelpButton';
@@ -251,10 +253,36 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
           <button className="db-btn" onClick={handleApply} disabled={isNew}>{t('common.apply', '적용')}</button>
         </div>
 
-        {showMoveRoute && page && (
+        {showMoveRoute && page && event && (
           <MoveRouteDialog moveRoute={page.moveRoute}
             onOk={route => { updatePage(activePage, { moveRoute: route }); setShowMoveRoute(false); }}
-            onCancel={() => setShowMoveRoute(false)} />
+            onCancel={() => setShowMoveRoute(false)}
+            onWaypointMode={(charId) => {
+              const session: WaypointSession = {
+                eventId: event.id,
+                routeKey: `auto_p${activePage}`,
+                type: 'autonomous',
+                pageIndex: activePage,
+                characterId: charId,
+                startX: event.x,
+                startY: event.y,
+                waypoints: [],
+                allowDiagonal: false,
+                onConfirm: (commands) => {
+                  const route = {
+                    list: [...commands, { code: 0 }],
+                    repeat: page.moveRoute?.repeat ?? false,
+                    skippable: page.moveRoute?.skippable ?? false,
+                    wait: page.moveRoute?.wait ?? true,
+                  };
+                  updatePage(activePage, { moveRoute: route });
+                },
+              };
+              (window as any)._editorWaypointSession = session;
+              emitWaypointSessionChange();
+              setShowMoveRoute(false);
+            }}
+          />
         )}
       </div>
     </div>

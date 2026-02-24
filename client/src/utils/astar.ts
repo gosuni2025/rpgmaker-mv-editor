@@ -1,0 +1,318 @@
+/**
+ * A* 경로 탐색 - RPG Maker MV 맵 기반
+ *
+ * Tileset flags 비트 의미 (Game_Map.prototype.checkPassage 기준):
+ *   bit 0 (0x01): 아래 방향 통과 불가
+ *   bit 1 (0x02): 왼쪽 방향 통과 불가
+ *   bit 2 (0x04): 오른쪽 방향 통과 불가
+ *   bit 3 (0x08): 위 방향 통과 불가
+ *   bit 4 (0x10): ☆ 타일 — 통과에 영향 없음 (건너뜀)
+ */
+
+import type { MoveCommand } from '../types/rpgMakerMV';
+
+// ===================================================================
+// 타일셋 통과 판단
+// ===================================================================
+
+/** 이동 방향(dx,dy) → 현재 타일에서 나가는 방향 비트 */
+function exitBit(dx: number, dy: number): number {
+  if (dy > 0) return 0x01; // 아래
+  if (dx < 0) return 0x02; // 왼쪽
+  if (dx > 0) return 0x04; // 오른쪽
+  if (dy < 0) return 0x08; // 위
+  return 0;
+}
+
+/** 이동 방향(dx,dy) → 목적 타일에서 들어오는 방향 비트 (반대 방향) */
+function enterBit(dx: number, dy: number): number {
+  return exitBit(-dx, -dy);
+}
+
+function getTileId(
+  data: number[],
+  x: number, y: number, z: number,
+  mapWidth: number, mapHeight: number,
+): number {
+  if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) return 0;
+  return data[(z * mapHeight + y) * mapWidth + x] ?? 0;
+}
+
+/**
+ * checkPassage: 한 타일의 특정 방향 비트에 대해 통과 가능 여부 반환.
+ * flags[tileId]에서:
+ *   ☆ 타일(0x10)이면 건너뜀
+ *   bit == 0 → 통과 가능 (o)
+ *   bit == set → 통과 불가 (x)
+ * 레이어가 모두 ☆ 이거나 데이터가 없으면 통과 불가 처리.
+ */
+function checkPassageForTile(
+  data: number[],
+  x: number, y: number,
+  bit: number,
+  mapWidth: number, mapHeight: number,
+  flags: number[],
+): boolean {
+  for (let z = 0; z < 4; z++) {
+    const tileId = getTileId(data, x, y, z, mapWidth, mapHeight);
+    if (tileId === 0) continue; // 빈 타일은 건너뜀
+    const flag = flags[tileId] ?? 0x0f;
+    if ((flag & 0x10) !== 0) continue; // ☆ 타일: 통과 여부 무관
+    if ((flag & bit) === 0) return true;   // 통과 가능
+    if ((flag & bit) === bit) return false; // 통과 불가
+  }
+  return false; // 모두 ☆이거나 빈 타일 → 통과 불가로 처리
+}
+
+/** (x,y) → (x+dx, y+dy) 이동이 가능한지 확인 */
+function isPassable(
+  x: number, y: number,
+  dx: number, dy: number,
+  data: number[], mapWidth: number, mapHeight: number,
+  flags: number[],
+): boolean {
+  const nx = x + dx;
+  const ny = y + dy;
+  if (nx < 0 || nx >= mapWidth || ny < 0 || ny >= mapHeight) return false;
+
+  const from = exitBit(dx, dy);
+  const to   = enterBit(dx, dy);
+
+  // 현재 타일에서 나가는 방향 체크
+  if (!checkPassageForTile(data, x, y, from, mapWidth, mapHeight, flags)) return false;
+  // 목적 타일에서 들어오는 방향 체크
+  if (!checkPassageForTile(data, nx, ny, to, mapWidth, mapHeight, flags)) return false;
+
+  return true;
+}
+
+/** 대각선 이동 가능 여부: 코너 커팅 없이, 두 직선 방향 모두 가능해야 함 */
+function isDiagonalPassable(
+  x: number, y: number,
+  dx: number, dy: number,
+  data: number[], mapWidth: number, mapHeight: number,
+  flags: number[],
+): boolean {
+  // 두 직선 방향 중 하나라도 통과 가능해야 함 (RPG Maker MV 방식)
+  const canH = isPassable(x, y, dx, 0, data, mapWidth, mapHeight, flags);
+  const canV = isPassable(x, y, 0, dy, data, mapWidth, mapHeight, flags);
+  if (!canH && !canV) return false;
+
+  // 목적 타일에서도 두 직선 방향 체크
+  const nx = x + dx;
+  const ny = y + dy;
+  const canHrev = isPassable(nx, ny, -dx, 0, data, mapWidth, mapHeight, flags);
+  const canVrev = isPassable(nx, ny, 0, -dy, data, mapWidth, mapHeight, flags);
+  return (canH || canHrev) && (canV || canVrev);
+}
+
+// ===================================================================
+// A* 알고리즘
+// ===================================================================
+
+interface Node {
+  x: number;
+  y: number;
+  g: number;
+  h: number;
+  f: number;
+  parent: Node | null;
+}
+
+function heuristic(ax: number, ay: number, bx: number, by: number, allowDiagonal: boolean): number {
+  const dx = Math.abs(ax - bx);
+  const dy = Math.abs(ay - by);
+  if (allowDiagonal) {
+    // Octile distance: diagonal cost = √2 ≈ 1.414
+    return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
+  }
+  return dx + dy; // Manhattan distance
+}
+
+function nodeKey(x: number, y: number): number {
+  return x * 100000 + y;
+}
+
+const STRAIGHT_DIRS = [
+  [0, 1],  // 아래
+  [0, -1], // 위
+  [-1, 0], // 왼쪽
+  [1, 0],  // 오른쪽
+];
+
+const DIAGONAL_DIRS = [
+  [-1, 1],  // 좌하
+  [1, 1],   // 우하
+  [-1, -1], // 좌상
+  [1, -1],  // 우상
+];
+
+/**
+ * A* 경로 탐색.
+ * @returns 시작점을 포함한 경로 배열. 경로를 찾지 못하면 빈 배열.
+ */
+export function runAstar(
+  startX: number, startY: number,
+  endX: number, endY: number,
+  data: number[],
+  mapWidth: number, mapHeight: number,
+  flags: number[],
+  allowDiagonal: boolean,
+  maxNodes = 2000,
+): { x: number; y: number }[] {
+  if (startX === endX && startY === endY) return [{ x: startX, y: startY }];
+
+  const openList: Node[] = [];
+  const openSet = new Map<number, Node>();
+  const closedSet = new Set<number>();
+
+  const startNode: Node = {
+    x: startX, y: startY, g: 0,
+    h: heuristic(startX, startY, endX, endY, allowDiagonal),
+    f: 0, parent: null,
+  };
+  startNode.f = startNode.g + startNode.h;
+  openList.push(startNode);
+  openSet.set(nodeKey(startX, startY), startNode);
+
+  let iterations = 0;
+
+  while (openList.length > 0) {
+    if (++iterations > maxNodes) break;
+
+    // 가장 작은 f 값 노드 선택
+    let bestIdx = 0;
+    for (let i = 1; i < openList.length; i++) {
+      if (openList[i].f < openList[bestIdx].f) bestIdx = i;
+    }
+    const current = openList[bestIdx];
+    openList.splice(bestIdx, 1);
+    openSet.delete(nodeKey(current.x, current.y));
+    closedSet.add(nodeKey(current.x, current.y));
+
+    if (current.x === endX && current.y === endY) {
+      // 경로 복원
+      const path: { x: number; y: number }[] = [];
+      let node: Node | null = current;
+      while (node) {
+        path.unshift({ x: node.x, y: node.y });
+        node = node.parent;
+      }
+      return path;
+    }
+
+    // 직선 이동
+    for (const [dx, dy] of STRAIGHT_DIRS) {
+      const nx = current.x + dx;
+      const ny = current.y + dy;
+      const key = nodeKey(nx, ny);
+      if (closedSet.has(key)) continue;
+      if (!isPassable(current.x, current.y, dx, dy, data, mapWidth, mapHeight, flags)) continue;
+
+      const g = current.g + 1;
+      const existing = openSet.get(key);
+      if (existing) {
+        if (g < existing.g) {
+          existing.g = g;
+          existing.f = g + existing.h;
+          existing.parent = current;
+        }
+      } else {
+        const h = heuristic(nx, ny, endX, endY, allowDiagonal);
+        const node: Node = { x: nx, y: ny, g, h, f: g + h, parent: current };
+        openList.push(node);
+        openSet.set(key, node);
+      }
+    }
+
+    // 대각선 이동
+    if (allowDiagonal) {
+      for (const [dx, dy] of DIAGONAL_DIRS) {
+        const nx = current.x + dx;
+        const ny = current.y + dy;
+        const key = nodeKey(nx, ny);
+        if (closedSet.has(key)) continue;
+        if (!isDiagonalPassable(current.x, current.y, dx, dy, data, mapWidth, mapHeight, flags)) continue;
+
+        const g = current.g + Math.SQRT2;
+        const existing = openSet.get(key);
+        if (existing) {
+          if (g < existing.g) {
+            existing.g = g;
+            existing.f = g + existing.h;
+            existing.parent = current;
+          }
+        } else {
+          const h = heuristic(nx, ny, endX, endY, allowDiagonal);
+          const node: Node = { x: nx, y: ny, g, h, f: g + h, parent: current };
+          openList.push(node);
+          openSet.set(key, node);
+        }
+      }
+    }
+  }
+
+  return []; // 경로 없음
+}
+
+// ===================================================================
+// 경로 → RPG Maker MV 이동 커맨드 변환
+// ===================================================================
+
+/**
+ * (dx, dy) → RPG Maker MV ROUTE_MOVE_* 코드
+ * 직선: 1=아래, 2=왼쪽, 3=오른쪽, 4=위
+ * 대각선: 5=좌하, 6=우하, 7=좌상, 8=우상
+ */
+function dirToCode(dx: number, dy: number): number {
+  if (dx === 0  && dy === 1)  return 1; // 아래
+  if (dx === -1 && dy === 0)  return 2; // 왼쪽
+  if (dx === 1  && dy === 0)  return 3; // 오른쪽
+  if (dx === 0  && dy === -1) return 4; // 위
+  if (dx === -1 && dy === 1)  return 5; // 좌하
+  if (dx === 1  && dy === 1)  return 6; // 우하
+  if (dx === -1 && dy === -1) return 7; // 좌상
+  if (dx === 1  && dy === -1) return 8; // 우상
+  return 0;
+}
+
+/**
+ * 경로 배열(시작점 포함)을 RPG Maker MV 이동 커맨드 배열로 변환.
+ * 마지막 ROUTE_END(code=0)는 포함하지 않음.
+ */
+export function pathToMvCommands(path: { x: number; y: number }[]): MoveCommand[] {
+  const cmds: MoveCommand[] = [];
+  for (let i = 0; i < path.length - 1; i++) {
+    const dx = path[i + 1].x - path[i].x;
+    const dy = path[i + 1].y - path[i].y;
+    const code = dirToCode(dx, dy);
+    if (code > 0) {
+      cmds.push({ code });
+    }
+  }
+  return cmds;
+}
+
+// ===================================================================
+// 웨이포인트 세션 타입
+// ===================================================================
+
+export interface WaypointPos {
+  id: string;
+  x: number;
+  y: number;
+}
+
+export interface WaypointSession {
+  eventId: number;
+  routeKey: string;        // 'auto_p0', 'cmd_p0_c1' 등
+  type: 'autonomous' | 'command';
+  pageIndex: number;
+  commandIndex?: number;
+  characterId: number;     // -1=플레이어, 0=해당 이벤트, N=다른 이벤트
+  startX: number;
+  startY: number;
+  waypoints: WaypointPos[];
+  allowDiagonal: boolean;
+  onConfirm?: (commands: MoveCommand[]) => void;
+}
