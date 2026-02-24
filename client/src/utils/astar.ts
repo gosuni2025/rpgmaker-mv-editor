@@ -149,6 +149,7 @@ const DIAGONAL_DIRS = [
 
 /**
  * A* 경로 탐색.
+ * @param blockedTiles - "x,y" 형태의 추가 장애물 타일 집합 (예: 이벤트 위치)
  * @returns 시작점을 포함한 경로 배열. 경로를 찾지 못하면 빈 배열.
  */
 export function runAstar(
@@ -159,6 +160,7 @@ export function runAstar(
   flags: number[],
   allowDiagonal: boolean,
   maxNodes = 2000,
+  blockedTiles?: ReadonlySet<string>,
 ): { x: number; y: number }[] {
   if (startX === endX && startY === endY) return [{ x: startX, y: startY }];
 
@@ -207,6 +209,8 @@ export function runAstar(
       const ny = current.y + dy;
       const key = nodeKey(nx, ny);
       if (closedSet.has(key)) continue;
+      // 목적지가 blockedTile이어도 도달은 허용
+      if (blockedTiles?.has(`${nx},${ny}`) && !(nx === endX && ny === endY)) continue;
       if (!isPassable(current.x, current.y, dx, dy, data, mapWidth, mapHeight, flags)) continue;
 
       const g = current.g + 1;
@@ -232,6 +236,7 @@ export function runAstar(
         const ny = current.y + dy;
         const key = nodeKey(nx, ny);
         if (closedSet.has(key)) continue;
+        if (blockedTiles?.has(`${nx},${ny}`) && !(nx === endX && ny === endY)) continue;
         if (!isDiagonalPassable(current.x, current.y, dx, dy, data, mapWidth, mapHeight, flags)) continue;
 
         const g = current.g + Math.SQRT2;
@@ -314,5 +319,6 @@ export interface WaypointSession {
   startY: number;
   waypoints: WaypointPos[];
   allowDiagonal: boolean;
+  avoidEvents: boolean;    // 맵 이벤트 위치를 장애물로 처리
   onConfirm?: (commands: MoveCommand[]) => void;
 }

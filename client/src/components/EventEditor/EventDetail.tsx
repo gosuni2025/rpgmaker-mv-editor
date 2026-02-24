@@ -268,6 +268,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
                 startY: event.y,
                 waypoints: [],
                 allowDiagonal: false,
+                avoidEvents: false,
                 onConfirm: (commands) => {
                   const route = {
                     list: [...commands, { code: 0 }],
@@ -281,6 +282,8 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
               (window as any)._editorWaypointSession = session;
               emitWaypointSessionChange();
               setShowMoveRoute(false);
+              // 이벤트 에디터 저장 후 닫기
+              handleOk();
             }}
           />
         )}

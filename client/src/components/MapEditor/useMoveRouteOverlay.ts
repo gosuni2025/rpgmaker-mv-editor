@@ -269,11 +269,21 @@ function renderWaypointSession(
   mapWidth: number,
   mapHeight: number,
   flags: number[] | undefined,
+  events: any[] | null,
 ) {
   const Z = 7.5;
   const LINE_ORDER = 9960;
   const MARKER_ORDER = 9961;
   const LABEL_ORDER = 9962;
+
+  // avoidEvents: 이벤트 위치를 장애물로
+  let blockedTiles: Set<string> | undefined;
+  if (session.avoidEvents && events) {
+    blockedTiles = new Set<string>();
+    for (const ev of events) {
+      if (ev && ev.id !== session.eventId) blockedTiles.add(`${ev.x},${ev.y}`);
+    }
+  }
 
   const wps = session.waypoints;
 
@@ -287,7 +297,7 @@ function renderWaypointSession(
 
     // A* 경로 미리보기 선
     if (mapData && flags) {
-      const path = runAstar(prevX, prevY, wp.x, wp.y, mapData, mapWidth, mapHeight, flags, session.allowDiagonal, 500);
+      const path = runAstar(prevX, prevY, wp.x, wp.y, mapData, mapWidth, mapHeight, flags, session.allowDiagonal, 500, blockedTiles);
       if (path.length >= 2) {
         for (let j = 0; j < path.length - 1; j++) {
           const [x1, y1] = tileCenter({ x: path[j].x, y: path[j].y });
@@ -508,7 +518,7 @@ export function useMoveRouteOverlay(
       renderWaypointSession(
         THREE, rObj.scene, meshes, session,
         currentMap?.data, currentMap?.width ?? 0, currentMap?.height ?? 0,
-        tilesetInfo?.flags,
+        tilesetInfo?.flags, events,
       );
     }
 

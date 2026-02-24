@@ -443,6 +443,7 @@ export default function EventCommandEditor({ commands, onChange, context }: Even
               startY,
               waypoints: [],
               allowDiagonal: false,
+              avoidEvents: false,
               onConfirm: (commands) => {
                 const route = {
                   list: [...commands, { code: 0 }],

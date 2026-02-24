@@ -161,13 +161,22 @@ export default function EventInspector() {
     const { data, width, height } = currentMap;
     const { flags } = tilesetInfo;
 
+    // avoidEvents 옵션: 현재 이벤트를 제외한 이벤트 위치를 장애물로
+    let blockedTiles: Set<string> | undefined;
+    if (s.avoidEvents && currentMap.events) {
+      blockedTiles = new Set<string>();
+      for (const ev of currentMap.events) {
+        if (ev && ev.id !== s.eventId) blockedTiles.add(`${ev.x},${ev.y}`);
+      }
+    }
+
     // 시작점 → WP1 → ... → 마지막 WP 순서로 A* 계산
     const allCommands: ReturnType<typeof pathToMvCommands> = [];
     let cx = s.startX;
     let cy = s.startY;
 
     for (const wp of s.waypoints) {
-      const path = runAstar(cx, cy, wp.x, wp.y, data, width, height, flags, s.allowDiagonal);
+      const path = runAstar(cx, cy, wp.x, wp.y, data, width, height, flags, s.allowDiagonal, 2000, blockedTiles);
       if (path.length >= 2) {
         allCommands.push(...pathToMvCommands(path));
       } else if (path.length === 0) {
@@ -296,6 +305,14 @@ export default function EventInspector() {
                 onChange={e => updateSessionField('allowDiagonal', e.target.checked)}
               />
               대각선 이동 허용
+            </label>
+            <label className="waypoint-checkbox" style={{ marginTop: 4 }}>
+              <input
+                type="checkbox"
+                checked={waypointSession.avoidEvents}
+                onChange={e => updateSessionField('avoidEvents', e.target.checked)}
+              />
+              이벤트 위치 회피
             </label>
           </div>
 
