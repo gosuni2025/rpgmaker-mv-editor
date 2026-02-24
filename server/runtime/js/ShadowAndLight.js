@@ -2006,6 +2006,16 @@ Spriteset_Map.prototype.update = function() {
     this._updateShadowLight();
 };
 
+// Scene_Map 종료 시 광원을 명시적으로 제거 (메뉴/전투 씬에서 광원 잔류 방지)
+var _Scene_Map_terminate_shadowLight = Scene_Map.prototype.terminate;
+Scene_Map.prototype.terminate = function() {
+    if (ShadowLight._active && this._spriteset) {
+        this._spriteset._deactivateShadowLight();
+        ShadowLight._active = false;
+    }
+    _Scene_Map_terminate_shadowLight.call(this);
+};
+
 Spriteset_Map.prototype._updateShadowLight = function() {
     var enabled = ConfigManager.shadowLight;
 

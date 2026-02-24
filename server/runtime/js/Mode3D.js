@@ -219,6 +219,15 @@
         Mode3D._spriteset = this;
     };
 
+    // Scene_Map 종료 시 Mode3D._spriteset을 null로 리셋
+    // 리셋하지 않으면 메뉴/전투 씬에서도 is3D=true가 되어 PerspCamera 패스 및
+    // 스카이박스가 렌더링되는 문제 발생
+    var _Scene_Map_terminate_mode3d = Scene_Map.prototype.terminate;
+    Scene_Map.prototype.terminate = function() {
+        _Scene_Map_terminate_mode3d.call(this);
+        Mode3D._spriteset = null;
+    };
+
     //=========================================================================
     // PerspectiveCamera 생성
     // dist = (h/2) / tan(fov/2)로 OrthographicCamera와 같은 영역 커버
