@@ -146,9 +146,10 @@
   var _initMembers = Sprite_Character.prototype.initMembers;
   Sprite_Character.prototype.initMembers = function () {
     _initMembers.call(this);
-    this._npcNameSprite  = null;
-    this._npcNameCurrent = null;
-    this._npcIconPending = false;
+    this._npcNameSprite       = null;
+    this._npcNameCurrent      = null;
+    this._npcIconPending      = false;
+    this._npcNameMarkerOffset = 0;
   };
 
   var _update = Sprite_Character.prototype.update;
@@ -195,7 +196,7 @@
     }
 
     if (this._npcNameSprite) {
-      this._npcNameSprite.x = 0;
+      this._npcNameSprite.x = this._npcNameMarkerOffset;
       var h = (this.bitmap ? this.patternHeight() : 48);
       this._npcNameSprite.y = -h + offsetY;
     }
@@ -229,14 +230,18 @@
     bitmap.outlineColor = outlineColor;
     bitmap.outlineWidth = outlineWidth;
     bitmap.textColor    = textColor;
+    // 텍스트는 항상 'center' 정렬 — sprite.x 보정과 함께 캐릭터 중앙에 위치
     var textX = hasMarker ? MARKER_D + MARKER_GAP : 0;
-    bitmap.drawText(name, textX, 0, BITMAP_W, BITMAP_H, hasMarker ? 'left' : 'center');
+    bitmap.drawText(name, textX, 0, BITMAP_W, BITMAP_H, 'center');
 
     var sprite    = new Sprite(bitmap);
     sprite.anchor.x = 0.5;
     sprite.anchor.y = 1.0;
     this.addChild(sprite);
     this._npcNameSprite = sprite;
+    // 마커로 bitmap이 왼쪽으로 확장됐으므로, 텍스트 중앙을 캐릭터 중앙에 맞추기 위해
+    // anchor.x=0.5 기준으로 +12.5 이동된 텍스트를 -12.5 보정 → sprite.x = -(MARKER_D+GAP)/2
+    this._npcNameMarkerOffset = hasMarker ? -Math.round((MARKER_D + MARKER_GAP) / 2) : 0;
   };
 
   Sprite_Character.prototype._destroyNpcName = function () {
