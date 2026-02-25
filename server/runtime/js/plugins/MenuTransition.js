@@ -1,19 +1,16 @@
 /*:
- * @plugindesc [MenuTransition] 메뉴/UI 씬 배경 전환 효과 (canvas blur 애니메이션)
+ * @plugindesc [MenuTransition] 메뉴/UI 씬 배경 전환 효과 (PostProcess 셰이더)
  * @author RPG Maker MV Web Editor
  *
  * @help
- * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 지정한 전환 효과로 맵 화면이 변화하며
- * 메뉴 UI가 표시됩니다. 메뉴를 닫으면 PostProcess 셰이더로 역방향 효과를 해제합니다.
+ * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 PostProcess 셰이더로 맵 화면에 효과를 적용한 뒤
+ * 스냅샷을 찍어 배경으로 사용합니다. 메뉴를 닫으면 역방향 효과로 자연스럽게 해제됩니다.
  *
  * 렌더링 방식:
- *   열기: snapForBackground 스냅샷에 canvas 2D 효과 적용 (0→최대)
- *   닫기: PostProcess.setTransitionEffect()로 동일 효과 적용 (최대→0)
- *         라이브 게임이 효과 뒤에서 실행 → 부활 글리치가 가려짐
- *
- * 타이밍 방식:
- *   - Scene_MenuBase.update() / Scene_Base.update() 호출마다 프레임 카운터 증가
- *   - 게임 루프가 블로킹되면 애니메이션도 일시정지 → 재개 시 이어서 진행
+ *   열기: SceneManager.push 가로채기 → PostProcess로 효과 0→최대 적용 (게임씬에서)
+ *         효과 최대 시점에 스냅샷 → 메뉴 배경으로 표시 (정적 이미지)
+ *   닫기: 게임씬 복귀 시 PostProcess 효과 최대→0 페이드 아웃
+ *         라이브 게임이 뒤에서 실행되므로 "부활 글리치" 가려짐
  *
  * === 전환 효과 종류 (transitionEffect) ===
  *   blur        : 가우시안 블러 (기본값)
@@ -100,7 +97,6 @@
         closeAnim:    String(params.closeAnim) !== 'false'
     };
 
-    // overlayColor 'r,g,b' → [r, g, b]
     var _overlayRGB = (function () {
         var parts = Cfg.overlayColor.split(',').map(function (s) {
             return Math.max(0, Math.min(255, Number(s) || 0));
@@ -123,189 +119,214 @@
         return (EasingFn[Cfg.easing] || EasingFn.easeOut)(t);
     }
 
-    // ── 상태 ─────────────────────────────────────────────────────────────────
+    // ── 상태 변수 ─────────────────────────────────────────────────────────────
 
-    var _phase   = 0;   // 0=비활성, 1=열기, 2=열림
+    // _phase: 0=비활성, 1=열기 사전 애니메이션(게임씬), 2=메뉴 열림
+    var _phase   = 0;
     var _t       = 0;
     var _elapsed = 0;
 
-    var _srcCanvas = null;  // 스냅샷 캔버스 (열기 애니메이션용)
+    var _pendingPushClass = null;   // push 지연 중인 씬 클래스
+    var _srcCanvas        = null;   // 스냅샷 캔버스 (메뉴 배경용)
 
-    var _suppressNextFadeOut = false;
-    var _suppressNextFadeIn  = false;
+    // 페이드 억제 플래그
+    var _suppressMenuFadeIn  = false;  // 메뉴 열릴 때 fade-in 억제
+    var _suppressMenuFadeOut = false;  // 메뉴 닫힐 때 fade-out 억제
+    var _suppressGameFadeOut = false;  // 게임씬 종료 시 fade-out 억제
+    var _suppressGameFadeIn  = false;  // 게임씬 복귀 시 fade-in 억제
 
     // 닫기 PostProcess 상태
-    var _mapBlurPending = false;  // 다음 씬 start()에서 효과 시작
-    var _mapBlurStartT  = 1;      // 닫힐 때의 _t (시작 강도)
-    var _mapBlurPhase   = false;  // 게임씬에서 효과 페이드 중
+    var _mapBlurPending = false;
+    var _mapBlurStartT  = 1;
+    var _mapBlurPhase   = false;
 
-    // ── PostProcess transition effect 헬퍼 (닫기용) ───────────────────────────
+    // ── PostProcess 유틸 ──────────────────────────────────────────────────────
 
-    // t: 0~1 (1=최대 강도, 0=효과 없음)
-    // PostProcess 없을 때는 blur CSS fallback
-    function _applyTransitionEffect(t) {
-        if (typeof PostProcess !== 'undefined' && PostProcess.setTransitionEffect) {
-            if (t <= 0.001) {
-                PostProcess.clearTransitionEffects();
-                return;
-            }
-            var type = Cfg.transitionEffect || 'blur';
-            if (type === 'blur') {
-                PostProcess.setTransitionBlur(t * Cfg.blur / 100 * 20);
-            } else {
-                PostProcess.setTransitionEffect(type, t);
-                if (type === 'ripple') PostProcess.setTransitionRippleTime(t);
-            }
+    function _hasPostProcess() {
+        return typeof PostProcess !== 'undefined' && !!PostProcess.clearTransitionEffects;
+    }
+
+    // t: 0=효과 없음, 1=최대 강도
+    function _applyEffect(t) {
+        if (!_hasPostProcess()) return;
+        if (t <= 0.001) {
+            PostProcess.clearTransitionEffects();
+            return;
+        }
+        var type = Cfg.transitionEffect || 'blur';
+        if (type === 'blur') {
+            PostProcess.setTransitionBlur(t * (Cfg.blur / 100) * 20);
         } else {
-            // PostProcess 없을 때 CSS blur fallback
-            var px = t > 0.001 ? t * Cfg.blur / 100 * 20 : 0;
-            var canvas = Graphics._canvas;
-            if (canvas) canvas.style.filter = px > 0 ? 'blur(' + px.toFixed(2) + 'px)' : '';
+            PostProcess.setTransitionEffect(type, t);
+            if (type === 'ripple') PostProcess.setTransitionRippleTime(t);
         }
     }
 
-    // ── PostProcess.menuBgHook: 메뉴 씬 렌더링 중 bloom만 비활성화 ─────────────
+    // ── Bloom 비활성화 훅 (메뉴 씬 중) ───────────────────────────────────────
 
     function _setMenuBgHook(active) {
         if (typeof PostProcess === 'undefined') return;
-        if (active) {
-            PostProcess.menuBgHook = {
-                preRender: function (renderer, composer) {
-                    if (PostProcess._bloomPass) {
-                        PostProcess._bloomPass._mt_was = PostProcess._bloomPass.enabled;
-                        PostProcess._bloomPass.enabled = false;
-                    }
-                },
-                postRender: function () {
-                    if (PostProcess._bloomPass && '_mt_was' in PostProcess._bloomPass) {
-                        PostProcess._bloomPass.enabled = PostProcess._bloomPass._mt_was;
-                        delete PostProcess._bloomPass._mt_was;
-                    }
+        PostProcess.menuBgHook = active ? {
+            preRender: function () {
+                if (PostProcess._bloomPass) {
+                    PostProcess._bloomPass._mt_was = PostProcess._bloomPass.enabled;
+                    PostProcess._bloomPass.enabled = false;
                 }
-            };
-        } else {
-            PostProcess.menuBgHook = null;
-        }
+            },
+            postRender: function () {
+                if (PostProcess._bloomPass && '_mt_was' in PostProcess._bloomPass) {
+                    PostProcess._bloomPass.enabled = PostProcess._bloomPass._mt_was;
+                    delete PostProcess._bloomPass._mt_was;
+                }
+            }
+        } : null;
     }
 
-    // ── 열기 애니메이션 ───────────────────────────────────────────────────────
+    // ── 배경 비트맵: 스냅샷 + 오버레이 ──────────────────────────────────────
+    // PostProcess로 효과가 적용된 상태에서 스냅샷을 찍었으므로
+    // 추가 canvas 2D 효과 없이 그대로 그리면 됨
 
-    function startOpen() {
-        _elapsed = 0;
-        _phase = 1;
-        _t = 0;
-        _mapBlurPending = false;
-        _applyTransitionEffect(0);  // 혹시 남아있는 PostProcess 효과 제거
-        _setMenuBgHook(true);
-    }
-
-    // ── 배경 비트맵 업데이트 (열기 — canvas 2D 효과) ─────────────────────────
-
-    // 효과별 CSS filter 문자열 반환 (null이면 filter 없음)
-    function _openCssFilter(type, t) {
-        var blurPx = (t * Cfg.blur / 100 * 20).toFixed(2);
-        switch (type) {
-            case 'blur':         return 'blur(' + blurPx + 'px)';
-            case 'zoomBlur':     return 'blur(' + (t * Cfg.blur / 100 * 10).toFixed(2) + 'px)';
-            case 'desaturation': return 'grayscale(' + (t * 100).toFixed(0) + '%)';
-            case 'sepia':        return 'sepia(' + (t * 100).toFixed(0) + '%)';
-            case 'ripple':       return 'blur(' + (t * Cfg.blur / 100 * 8).toFixed(2) + 'px)';
-            case 'whirl':        return 'blur(' + (t * Cfg.blur / 100 * 8).toFixed(2) + 'px)';
-            case 'dissolve':     return 'blur(' + (t * Cfg.blur / 100 * 5).toFixed(2) + 'px)';
-            default:             return null;
-        }
-    }
-
-    function updateBgBitmap(bitmap, t) {
+    function _drawBgBitmap(bitmap) {
         if (!_srcCanvas || !bitmap) return;
         var w = bitmap.width, h = bitmap.height;
         if (w <= 0 || h <= 0) return;
 
         var ctx = bitmap._context;
         ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(_srcCanvas, 0, 0, w, h);
 
-        var type = Cfg.transitionEffect || 'blur';
-
-        if (t > 0.001) {
-            if (type === 'brightness') {
-                // 흰색 오버레이 강도 증가 (화이트아웃)
-                ctx.drawImage(_srcCanvas, 0, 0, w, h);
-                ctx.globalAlpha = t;
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, w, h);
-                ctx.globalAlpha = 1;
-
-            } else if (type === 'pixelation') {
-                // 저해상도 캔버스에 그린 뒤 확대 (nearest neighbor)
-                var scale = Math.max(1, Math.round(t * 20));
-                var sw = Math.max(1, Math.floor(w / scale));
-                var sh = Math.max(1, Math.floor(h / scale));
-                var offCanvas = document.createElement('canvas');
-                offCanvas.width = sw;
-                offCanvas.height = sh;
-                offCanvas.getContext('2d').drawImage(_srcCanvas, 0, 0, sw, sh);
-                ctx.imageSmoothingEnabled = false;
-                ctx.drawImage(offCanvas, 0, 0, sw, sh, 0, 0, w, h);
-                ctx.imageSmoothingEnabled = true;
-
-            } else if (type === 'scanline') {
-                // 원본 그린 후 가로 줄 오버레이
-                ctx.drawImage(_srcCanvas, 0, 0, w, h);
-                ctx.globalAlpha = t * 0.6;
-                ctx.fillStyle = '#000000';
-                for (var sy = 0; sy < h; sy += 4) ctx.fillRect(0, sy, w, 2);
-                ctx.globalAlpha = 1;
-
-            } else if (type === 'chromatic') {
-                // R/G/B 채널을 다른 위치에 합성 (색수차 근사)
-                var cOff = Math.round(t * 10);
-                ctx.drawImage(_srcCanvas, 0, 0, w, h);
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.globalAlpha = t * 0.35;
-                ctx.drawImage(_srcCanvas,  cOff, 0, w, h);
-                ctx.drawImage(_srcCanvas, -cOff, 0, w, h);
-                ctx.globalAlpha = 1;
-                ctx.globalCompositeOperation = 'source-over';
-
-            } else {
-                // CSS filter 기반 효과 (blur, zoomBlur, desaturation, sepia, ripple, whirl, dissolve 등)
-                var f = _openCssFilter(type, t);
-                if (f) ctx.filter = f;
-                ctx.drawImage(_srcCanvas, 0, 0, w, h);
-                ctx.filter = 'none';
-            }
-        } else {
-            ctx.drawImage(_srcCanvas, 0, 0, w, h);
-        }
-
-        // 어두운 오버레이 (overlayAlpha > 0일 때)
-        if (Cfg.overlayAlpha > 0 && t > 0.001) {
-            var oa = (Cfg.overlayAlpha / 255) * t;
-            ctx.fillStyle = 'rgba(' + _overlayRGB[0] + ',' + _overlayRGB[1] + ',' + _overlayRGB[2] + ',' + oa + ')';
+        if (Cfg.overlayAlpha > 0) {
+            ctx.fillStyle = 'rgba(' + _overlayRGB[0] + ',' + _overlayRGB[1] + ',' +
+                            _overlayRGB[2] + ',' + (Cfg.overlayAlpha / 255).toFixed(3) + ')';
             ctx.fillRect(0, 0, w, h);
         }
 
         bitmap._setDirty();
     }
 
-    // ── SceneManager.snapForBackground 오버라이드 ─────────────────────────────
+    // ── SceneManager.snapForBackground: 스냅샷 복사 → PostProcess 초기화 ────
 
     var _origSnapForBg = SceneManager.snapForBackground;
     SceneManager.snapForBackground = function () {
         _origSnapForBg.call(this);
 
-        var cap = (typeof PostProcess !== 'undefined') ? PostProcess._captureCanvas : null;
-        if (!cap || cap.width <= 0) {
-            console.warn('[MenuTransition] 스냅샷 실패: PostProcess._captureCanvas 없음');
-            _srcCanvas = null;
+        // PostProcess._captureCanvas: 마지막 렌더 프레임 (최대 효과 상태)
+        var cap = _hasPostProcess() ? PostProcess._captureCanvas : null;
+        if (cap && cap.width > 0) {
+            var copy = document.createElement('canvas');
+            copy.width  = cap.width;
+            copy.height = cap.height;
+            copy.getContext('2d').drawImage(cap, 0, 0);
+            _srcCanvas = copy;
+        }
+
+        // 스냅샷에 효과가 구워졌으므로 PostProcess 효과 해제
+        _applyEffect(0);
+    };
+
+    // ── SceneManager.push 가로채기: 메뉴씬 열기 전 PostProcess 애니메이션 ───
+
+    var _origPush = SceneManager.push;
+    SceneManager.push = function (sceneClass) {
+        // 열기 애니메이션 중 중복 push 무시
+        if (_phase === 1) return;
+
+        var isMenu = typeof sceneClass === 'function' &&
+            (sceneClass === Scene_MenuBase || sceneClass.prototype instanceof Scene_MenuBase);
+
+        if (_hasPostProcess() && isMenu && _phase === 0) {
+            _phase            = 1;
+            _elapsed          = 0;
+            _t                = 0;
+            _pendingPushClass = sceneClass;
+            _mapBlurPending   = false;
+            _applyEffect(0);
+
+            // Scene_Map의 menuCalling 플래그 초기화 (반복 호출 방지)
+            var sc = SceneManager._scene;
+            if (sc && sc.menuCalling !== undefined) sc.menuCalling = false;
             return;
         }
 
-        var copy = document.createElement('canvas');
-        copy.width  = cap.width;
-        copy.height = cap.height;
-        copy.getContext('2d').drawImage(cap, 0, 0);
-        _srcCanvas = copy;
+        _origPush.call(this, sceneClass);
+    };
+
+    // ── Scene_Base.prototype.update: 열기 사전 + 닫기 PostProcess 애니메이션 ─
+
+    var _SB_update = Scene_Base.prototype.update;
+    Scene_Base.prototype.update = function () {
+        _SB_update.call(this);
+        if (this instanceof Scene_MenuBase) return;
+
+        // Phase 1: PostProcess 0→최대, 완료 시 실제 push 실행
+        if (_phase === 1) {
+            _elapsed++;
+            var rawOpen = Math.min(1, _elapsed / Cfg.duration);
+            _t = applyEase(rawOpen);
+            _applyEffect(_t);
+
+            if (rawOpen >= 1) {
+                _t = 1;
+                _applyEffect(1);
+                _suppressMenuFadeIn  = true;
+                _suppressGameFadeOut = true;
+                _origPush.call(SceneManager, _pendingPushClass);
+                _pendingPushClass = null;
+                _phase = 2;
+            }
+            return;
+        }
+
+        // 닫기: PostProcess 최대→0
+        if (_mapBlurPhase) {
+            _elapsed++;
+            var rawClose = Math.min(1, _elapsed / Cfg.duration);
+            _t = _mapBlurStartT * applyEase(1 - rawClose);
+            _applyEffect(_t);
+
+            if (rawClose >= 1) {
+                _applyEffect(0);
+                _mapBlurPhase = false;
+                _srcCanvas    = null;
+                _t            = 0;
+            }
+        }
+    };
+
+    // ── Scene_Base.prototype.startFadeOut: 게임씬 닫힐 때 억제 ───────────────
+
+    var _SB_startFadeOut = Scene_Base.prototype.startFadeOut;
+    Scene_Base.prototype.startFadeOut = function (duration, white) {
+        if (_suppressGameFadeOut && !(this instanceof Scene_MenuBase)) {
+            _suppressGameFadeOut = false;
+            return;  // 억제 — PostProcess가 시각적 전환 담당
+        }
+        _SB_startFadeOut.call(this, duration, white);
+    };
+
+    // ── Scene_Base.prototype.start: 닫기 PostProcess 시작 ────────────────────
+
+    var _SB_start = Scene_Base.prototype.start;
+    Scene_Base.prototype.start = function () {
+        _SB_start.call(this);
+        if (_mapBlurPending && !(this instanceof Scene_MenuBase)) {
+            _mapBlurPending = false;
+            _mapBlurPhase   = true;
+            _elapsed        = 0;
+            _t              = _mapBlurStartT;
+            _applyEffect(_mapBlurStartT);
+        }
+    };
+
+    // ── Scene_Base.prototype.startFadeIn: 게임씬 복귀 시 억제 ────────────────
+
+    var _SB_startFadeIn = Scene_Base.prototype.startFadeIn;
+    Scene_Base.prototype.startFadeIn = function (duration, white) {
+        if (_suppressGameFadeIn && !(this instanceof Scene_MenuBase)) {
+            _suppressGameFadeIn = false;
+            return;  // 억제 — PostProcess가 시각적 전환 담당
+        }
+        _SB_startFadeIn.call(this, duration, white);
     };
 
     // ── Scene_MenuBase 오버라이드 ─────────────────────────────────────────────
@@ -313,108 +334,61 @@
     var _SMB_create = Scene_MenuBase.prototype.create;
     Scene_MenuBase.prototype.create = function () {
         _SMB_create.call(this);
-        if (!_srcCanvas) return;
-        startOpen();
+        _setMenuBgHook(true);
+    };
+
+    var _SMB_update = Scene_MenuBase.prototype.update;
+    Scene_MenuBase.prototype.update = function () {
+        _SMB_update.call(this);
+
+        // _phase === 2: 스냅샷을 배경 비트맵에 1회 그리기
+        if (_phase === 2 && !this._bgReady &&
+                this._backgroundSprite && this._backgroundSprite.bitmap) {
+            _drawBgBitmap(this._backgroundSprite.bitmap);
+            this._bgReady = true;
+        }
     };
 
     var _SMB_terminate = Scene_MenuBase.prototype.terminate;
     Scene_MenuBase.prototype.terminate = function () {
         _SMB_terminate.call(this);
         _setMenuBgHook(false);
+        this._bgReady = false;
+        _phase = 0;
     };
 
-    // startFadeIn: 열기 애니메이션이 담당 → 즉시 완료
+    // 메뉴 열릴 때 fade-in: 즉시 완료 (PostProcess가 열기 담당)
     var _SMB_startFadeIn = Scene_MenuBase.prototype.startFadeIn;
     Scene_MenuBase.prototype.startFadeIn = function (duration, white) {
-        if (_phase === 1 || _phase === 2) {
-            _SMB_startFadeIn.call(this, 1, white);
-        } else {
-            _SMB_startFadeIn.call(this, duration, white);
+        if (_suppressMenuFadeIn) {
+            _suppressMenuFadeIn = false;
+            _SMB_startFadeIn.call(this, 1, white);  // 즉시 완료
+            return;
         }
+        _SMB_startFadeIn.call(this, duration, white);
     };
 
-    // startFadeOut: 닫기 시 즉시 완료 → 바로 씬 전환
+    // 메뉴 닫힐 때 fade-out: 억제 (즉시 씬 전환)
     var _SMB_startFadeOut = Scene_MenuBase.prototype.startFadeOut;
     Scene_MenuBase.prototype.startFadeOut = function (duration, white) {
-        if (_suppressNextFadeOut) {
-            _suppressNextFadeOut = false;
+        if (_suppressMenuFadeOut) {
+            _suppressMenuFadeOut = false;
             return;
         }
         _SMB_startFadeOut.call(this, duration, white);
     };
 
-    // 복귀씬 페이드인 억제 (PostProcess 효과가 전환 담당)
-    var _SB_startFadeIn = Scene_Base.prototype.startFadeIn;
-    Scene_Base.prototype.startFadeIn = function (duration, white) {
-        if (_suppressNextFadeIn) {
-            _suppressNextFadeIn = false;
-            return;
-        }
-        _SB_startFadeIn.call(this, duration, white);
-    };
-
-    // 메뉴씬 update: 열기 애니메이션 (canvas 2D)
-    var _SMB_update = Scene_MenuBase.prototype.update;
-    Scene_MenuBase.prototype.update = function () {
-        _SMB_update.call(this);
-
-        if (_phase === 0 || !this._backgroundSprite) return;
-
-        if (_phase === 1) {
-            _elapsed++;
-            var raw = Math.min(1, _elapsed / Cfg.duration);
-            _t = applyEase(raw);
-            if (raw >= 1) { _t = 1; _phase = 2; }
-        }
-
-        var bmp = this._backgroundSprite.bitmap;
-        if (bmp) updateBgBitmap(bmp, _t);
-    };
-
-    // ── Scene_Base 오버라이드 (닫기 PostProcess 효과 페이드) ──────────────────
-
-    var _SB_start = Scene_Base.prototype.start;
-    Scene_Base.prototype.start = function () {
-        _SB_start.call(this);
-        if (_mapBlurPending && !(this instanceof Scene_MenuBase)) {
-            _mapBlurPending = false;
-            _mapBlurPhase = true;
-            _elapsed = 0;
-            _t = _mapBlurStartT;
-            _applyTransitionEffect(_mapBlurStartT);
-        }
-    };
-
-    var _SB_update = Scene_Base.prototype.update;
-    Scene_Base.prototype.update = function () {
-        _SB_update.call(this);
-        if (!_mapBlurPhase) return;
-
-        _elapsed++;
-        var raw = Math.min(1, _elapsed / Cfg.duration);
-        _t = _mapBlurStartT * applyEase(1 - raw);
-        _applyTransitionEffect(_t);
-
-        if (raw >= 1) {
-            _applyTransitionEffect(0);
-            _mapBlurPhase = false;
-            _srcCanvas = null;
-        }
-    };
-
-    // ── SceneManager.pop 오버라이드 (닫기) ───────────────────────────────────
+    // ── SceneManager.pop 오버라이드: 닫기 PostProcess 트리거 ─────────────────
 
     if (Cfg.closeAnim) {
         var _origPop = SceneManager.pop;
         SceneManager.pop = function () {
-            var scene = this._scene;
-            if (scene instanceof Scene_MenuBase && _phase !== 0) {
+            if (SceneManager._scene instanceof Scene_MenuBase && _phase !== 0) {
                 _mapBlurStartT       = _t;
-                _suppressNextFadeOut = true;
-                _suppressNextFadeIn  = true;
+                _suppressMenuFadeOut = true;
+                _suppressGameFadeIn  = true;
                 _mapBlurPending      = true;
-                _setMenuBgHook(false);
-                _phase = 0;
+                _phase               = 0;
             }
             _origPop.call(this);
         };
