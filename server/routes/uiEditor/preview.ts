@@ -301,8 +301,8 @@ function buildPreviewHTML(useWebp: boolean): string {
       function applyPropToWindow(win, prop, value) {
         try {
           switch (prop) {
-            case 'x': win.x = value; break;
-            case 'y': win.y = value; break;
+            case 'x': win.x = value + ((win.pivot && win.pivot.x) || 0); break;
+            case 'y': win.y = value + ((win.pivot && win.pivot.y) || 0); break;
             case 'width':
               win.width = value;
               if (win._refreshAllParts) win._refreshAllParts();
