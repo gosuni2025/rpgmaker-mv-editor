@@ -119,6 +119,67 @@
  * @max 8
  * @default 2
  *
+ * @command show
+ * @text 미니맵 표시
+ * @desc 미니맵을 화면에 표시합니다.
+ *
+ * @command hide
+ * @text 미니맵 숨기기
+ * @desc 미니맵을 숨깁니다.
+ *
+ * @command toggle
+ * @text 표시/숨김 전환
+ * @desc 미니맵 표시 상태를 토글합니다.
+ *
+ * @command clearFow
+ * @text 안개 초기화
+ * @desc 현재 맵의 탐험 안개를 초기화합니다. 맵 전체가 다시 가려집니다.
+ *
+ * @command revealAll
+ * @text 전체 탐험 처리
+ * @desc 현재 맵의 모든 타일을 탐험 상태로 만듭니다.
+ *
+ * @command shape
+ * @text 모양 변경
+ * @desc 미니맵의 모양을 변경합니다.
+ *
+ * @arg value
+ * @text 모양
+ * @type select
+ * @default circle
+ *
+ * @option 원형
+ * @value circle
+ *
+ * @option 사각형
+ * @value square
+ *
+ * @command rotation
+ * @text 회전 모드 변경
+ * @desc 미니맵 회전 모드를 변경합니다.
+ *
+ * @arg value
+ * @text 회전 모드
+ * @type select
+ * @default north_fixed
+ *
+ * @option 북쪽 고정
+ * @value north_fixed
+ *
+ * @option 카메라 방향 (3D)
+ * @value rotate
+ *
+ * @command tileSize
+ * @text 타일 크기 변경
+ * @desc 미니맵에서 한 타일이 차지하는 픽셀 크기를 변경합니다.
+ *
+ * @arg value
+ * @text 크기 (px)
+ * @type number
+ * @min 1
+ * @max 16
+ * @default 4
+ *
  * @help
  * 미니맵을 화면 우측 상단에 표시합니다.
  *
@@ -126,18 +187,6 @@
  * 이벤트 노트란에 다음 태그를 입력하면 미니맵에 마커가 표시됩니다:
  *   <minimap>           기본 마커 색상으로 표시
  *   <minimap:#ff4444>   지정한 색상으로 표시
- *
- * --- 플러그인 커맨드 ---
- *   Minimap show              미니맵 표시
- *   Minimap hide              미니맵 숨기기
- *   Minimap toggle            미니맵 토글
- *   Minimap clearFow          현재 맵 안개 초기화
- *   Minimap revealAll         현재 맵 전체 탐험 처리
- *   Minimap shape circle      모양을 원형으로 변경
- *   Minimap shape square      모양을 사각형으로 변경
- *   Minimap rotation north_fixed  회전 모드: 북쪽 고정
- *   Minimap rotation rotate       회전 모드: 카메라 방향
- *   Minimap tileSize 4        타일 크기 변경 (px)
  */
 
 (function () {
