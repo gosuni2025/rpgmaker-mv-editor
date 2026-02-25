@@ -140,26 +140,6 @@
     var _mapBlurStartT  = 1;
     var _mapBlurPhase   = false;
 
-    // ── 디버그: PostProcess._captureCanvas를 /tmp에 저장 ────────────────────
-    var _debugSaved = false;
-
-    function _saveDebugShot(filename) {
-        var cap = (typeof PostProcess !== 'undefined') ? PostProcess._captureCanvas : null;
-        if (!cap) { console.warn('[MT-DEBUG] _captureCanvas 없음 :', filename); return; }
-        console.log('[MT-DEBUG] 저장 중:', filename,
-            'captureCanvas size:', cap.width, 'x', cap.height,
-            'PostProcess defined:', typeof PostProcess !== 'undefined',
-            '_transitionBlurPassH:', PostProcess._transitionBlurPassH ? 'OK' : 'NULL');
-        var dataUrl = cap.toDataURL('image/png');
-        fetch('/api/debug/save-canvas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filename: filename, dataUrl: dataUrl })
-        }).then(function(r) { return r.json(); })
-          .then(function(d) { console.log('[MT-DEBUG] 저장 완료:', d.path); })
-          .catch(function(e) { console.error('[MT-DEBUG] 저장 실패:', e); });
-    }
-
     // ── PostProcess 유틸 ──────────────────────────────────────────────────────
 
     function _hasPostProcess() {
@@ -240,8 +220,6 @@
             _srcCanvas = copy;
         }
 
-        _saveDebugShot('mt_2_after_blur.png');  // DEBUG: 블러 최대 시점
-
         // 스냅샷에 효과가 구워졌으므로 PostProcess 효과 해제
         _applyEffect(0);
     };
@@ -262,8 +240,6 @@
             _t                = 0;
             _pendingPushClass = sceneClass;
             _mapBlurPending   = false;
-            _debugSaved = false;
-            _saveDebugShot('mt_1_before_blur.png');  // DEBUG: 블러 시작 전
             _applyEffect(0);
 
             // Scene_Map의 menuCalling 플래그 초기화 (반복 호출 방지)

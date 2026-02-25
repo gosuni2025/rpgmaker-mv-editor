@@ -772,6 +772,8 @@ PostProcess.setTransitionBlur = function(pixels) {
     if (pixels <= 0.001) {
         h.enabled = false;
         v.enabled = false;
+        h.uniforms.blurRadius.value = 0;
+        v.uniforms.blurRadius.value = 0;
         return;
     }
     var rt = this._composer && this._composer.renderTarget1;
@@ -2660,6 +2662,7 @@ PostProcess._createComposer = function(rendererObj, stage) {
     this._transitionChromaticPass = tch;
     this._transitionDissolvePass = tdv;
     this._transitionScanlinePass = tsl;
+    this._transitionPasses = [tbH, tbV, tzb, tds, tsp, tbr, trp, twh, tpx, tch, tdv, tsl];
     this._lastStage = stage;
     this._composerMode = '3d';
 
@@ -2743,6 +2746,7 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
     this._transitionChromaticPass = tch;
     this._transitionDissolvePass = tdv;
     this._transitionScanlinePass = tsl;
+    this._transitionPasses = [tbH, tbV, tzb, tds, tsp, tbr, trp, twh, tpx, tch, tdv, tsl];
     this._lastStage = stage;
     this._composerMode = '2d';
 
@@ -2849,6 +2853,9 @@ PostProcess._rebuildPassOrder = function() {
         if (this._renderPass) newPasses.push(this._renderPass);
         if (this._bloomPass) newPasses.push(this._bloomPass);
         for (var i = 0; i < ppNonUI.length; i++) newPasses.push(ppNonUI[i]);
+        if (this._transitionPasses) {
+            for (var i = 0; i < this._transitionPasses.length; i++) newPasses.push(this._transitionPasses[i]);
+        }
         if (this._tiltShiftPass) newPasses.push(this._tiltShiftPass);
         if (this._uiPass) newPasses.push(this._uiPass);
         for (var i = 0; i < ppOverUI.length; i++) newPasses.push(ppOverUI[i]);
@@ -2856,6 +2863,9 @@ PostProcess._rebuildPassOrder = function() {
         if (this._2dRenderPass) newPasses.push(this._2dRenderPass);
         if (this._bloomPass) newPasses.push(this._bloomPass);
         for (var i = 0; i < ppNonUI.length; i++) newPasses.push(ppNonUI[i]);
+        if (this._transitionPasses) {
+            for (var i = 0; i < this._transitionPasses.length; i++) newPasses.push(this._transitionPasses[i]);
+        }
         if (this._2dUIRenderPass) newPasses.push(this._2dUIRenderPass);
         for (var i = 0; i < ppOverUI.length; i++) newPasses.push(ppOverUI[i]);
     }
