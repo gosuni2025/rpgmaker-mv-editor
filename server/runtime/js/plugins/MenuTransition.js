@@ -1,5 +1,5 @@
 /*:
- * @plugindesc [UITransition] 메뉴/UI 씬 배경 전환 효과 (PostProcess 셰이더)
+ * @plugindesc [MenuTransition] 메뉴/UI 씬 배경 전환 효과 (PostProcess 셰이더)
  * @author RPG Maker MV Web Editor
  *
  * @help
@@ -85,7 +85,7 @@
 (function () {
     'use strict';
 
-    var params = PluginManager.parameters('UITransition');
+    var params = PluginManager.parameters('MenuTransition');
 
     var Cfg = {
         transitionEffect: String(params.transitionEffect || 'blur'),
