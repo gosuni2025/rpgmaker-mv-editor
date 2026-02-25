@@ -5,20 +5,16 @@
  * @help
  * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 맵 화면이 점점 블러되면서
  * 어두워지는 애니메이션 후 메뉴 UI가 표시됩니다.
- * 메뉴를 닫으면 게임 씬으로 즉시 전환되고, 블러된 스냅샷 오버레이가
- * 서서히 사라지면서 라이브 게임 화면이 드러납니다.
+ * 메뉴를 닫으면 라이브 게임 캔버스에 CSS blur를 걸어 점차 해제합니다.
  *
  * 렌더링 방식:
- *   열기: Scene_Map.terminate() → snapForBackground 시점에 맵 스냅샷 취득
- *         _backgroundSprite.bitmap에 매 프레임 canvas ctx.filter:blur로 그려
- *         블러 강도와 오버레이가 t(0→1)에 따라 점진적으로 강해짐
- *   닫기: 게임 씬 위에 DOM canvas(블러 스냅샷)를 올려 t(1→0)로 페이드아웃
- *         라이브 게임이 뒤에서 실행되므로 물 쉐이더 등 부활 장면이 가려짐
+ *   열기: snapForBackground 스냅샷에 canvas ctx.filter:blur 적용 (0→max)
+ *   닫기: Graphics._canvas에 CSS filter:blur 적용 (max→0)
+ *         라이브 게임이 블러 뒤에서 실행 → 부활 글리치가 가려짐
  *
  * 타이밍 방식:
- *   - requestAnimationFrame 독립 루프 미사용
- *   - Scene_MenuBase.update() / Scene_Base.update() 호출(게임 루프)마다 프레임 카운터 증가
- *   - 게임 루프가 블로킹되면 애니메이션도 함께 일시정지 → 재개 시 이어서 진행
+ *   - Scene_MenuBase.update() / Scene_Base.update() 호출마다 프레임 카운터 증가
+ *   - 게임 루프가 블로킹되면 애니메이션도 일시정지 → 재개 시 이어서 진행
  *
  * === 효과 종류 (effect) ===
  *   blur+overlay   : 블러 + 어두운 오버레이 (기본값)
@@ -116,21 +112,32 @@
 
     var _phase   = 0;   // 0=비활성, 1=열기, 2=열림
     var _t       = 0;
-    var _elapsed = 0;   // 게임 루프 update() 호출 횟수 (프레임 카운터)
+    var _elapsed = 0;
 
-    var _srcCanvas = null;  // 스냅샷 캔버스 (PostProcess._captureCanvas 복사본)
+    var _srcCanvas = null;  // 스냅샷 캔버스 (열기 애니메이션용)
 
-    var _suppressNextFadeOut = false;  // 닫기 후 메뉴씬 검정 페이드아웃 억제
-    var _suppressNextFadeIn  = false;  // 닫기 후 복귀씬(맵 등) 페이드인 억제
+    var _suppressNextFadeOut = false;
+    var _suppressNextFadeIn  = false;
 
-    // 닫기 후 게임씬 블러 오버레이
-    var _mapBlurPending = false;  // 다음 씬 start()에서 오버레이 생성
-    var _mapBlurStartT  = 1;      // 오버레이 시작 강도 (닫힐 때의 _t)
-    var _mapBlurEl      = null;   // 오버레이 DOM canvas 엘리먼트
-    var _mapBlurPhase   = false;  // 게임씬에서 블러 페이드 진행 중
+    // 닫기 CSS blur 상태
+    var _mapBlurPending = false;  // 다음 씬 start()에서 blur 시작
+    var _mapBlurStartT  = 1;      // 닫힐 때의 _t (시작 강도)
+    var _mapBlurPhase   = false;  // 게임씬에서 blur 페이드 중
+
+    // ── CSS blur 헬퍼 ────────────────────────────────────────────────────────
+
+    function _applyCanvasBlur(t) {
+        var canvas = Graphics._canvas;
+        if (!canvas) return;
+        if (t <= 0.001 || Cfg.blur <= 0 || Cfg.effect === 'overlayOnly') {
+            canvas.style.filter = '';
+        } else {
+            var blurPx = (t * Cfg.blur / 100 * 20).toFixed(2);
+            canvas.style.filter = 'blur(' + blurPx + 'px)';
+        }
+    }
 
     // ── PostProcess.menuBgHook: 메뉴 씬 렌더링 중 bloom만 비활성화 ─────────────
-    // 스냅샷에 이미 bloom이 적용되어 있으므로 bloomPass만 비활성화.
 
     function _setMenuBgHook(active) {
         if (typeof PostProcess === 'undefined') return;
@@ -161,11 +168,11 @@
         _phase = 1;
         _t = 0;
         _mapBlurPending = false;
-        _removeMapOverlay();
+        _applyCanvasBlur(0);  // 혹시 남아있는 CSS blur 제거
         _setMenuBgHook(true);
     }
 
-    // ── 배경 비트맵 업데이트 (메뉴씬 — canvas ctx.filter 블러) ───────────────
+    // ── 배경 비트맵 업데이트 (열기 — canvas ctx.filter 블러) ─────────────────
 
     function updateBgBitmap(bitmap, t) {
         if (!_srcCanvas || !bitmap) return;
@@ -191,64 +198,7 @@
         bitmap._setDirty();
     }
 
-    // ── 게임씬 닫기 오버레이 (블러 스냅샷 DOM canvas) ────────────────────────
-
-    function _createMapOverlay(t) {
-        _removeMapOverlay();
-        if (!_srcCanvas) return;
-
-        var gameCanvas = Graphics._canvas;
-        if (!gameCanvas) return;
-
-        var canvas = document.createElement('canvas');
-        canvas.width  = _srcCanvas.width;
-        canvas.height = _srcCanvas.height;
-
-        var rect = gameCanvas.getBoundingClientRect();
-        canvas.style.cssText = 'position:fixed;pointer-events:none;z-index:100;' +
-            'top:'    + rect.top    + 'px;' +
-            'left:'   + rect.left   + 'px;' +
-            'width:'  + rect.width  + 'px;' +
-            'height:' + rect.height + 'px;';
-
-        document.body.appendChild(canvas);
-        _mapBlurEl = canvas;
-        _drawMapOverlay(t);
-    }
-
-    function _drawMapOverlay(t) {
-        if (!_mapBlurEl || !_srcCanvas) return;
-
-        var w = _mapBlurEl.width, h = _mapBlurEl.height;
-        var ctx = _mapBlurEl.getContext('2d');
-        ctx.clearRect(0, 0, w, h);
-
-        if (Cfg.effect !== 'overlayOnly' && Cfg.blur > 0) {
-            var blurPx = t * Cfg.blur / 100 * 20;
-            ctx.filter = 'blur(' + blurPx.toFixed(2) + 'px)';
-        }
-        ctx.drawImage(_srcCanvas, 0, 0, w, h);
-        ctx.filter = 'none';
-
-        if (Cfg.effect !== 'blurOnly') {
-            var oa = (Cfg.overlayAlpha / 255) * t;
-            ctx.fillStyle = 'rgba(' + _overlayRGB[0] + ',' + _overlayRGB[1] + ',' + _overlayRGB[2] + ',' + oa + ')';
-            ctx.fillRect(0, 0, w, h);
-        }
-
-        _mapBlurEl.style.opacity = t;
-    }
-
-    function _removeMapOverlay() {
-        if (_mapBlurEl) {
-            if (_mapBlurEl.parentNode) _mapBlurEl.parentNode.removeChild(_mapBlurEl);
-            _mapBlurEl = null;
-        }
-        _mapBlurPhase = false;
-    }
-
     // ── SceneManager.snapForBackground 오버라이드 ─────────────────────────────
-    // Scene_Map.terminate()에서 호출 → 이 시점의 _captureCanvas = 맵 화면
 
     var _origSnapForBg = SceneManager.snapForBackground;
     SceneManager.snapForBackground = function () {
@@ -261,7 +211,6 @@
             return;
         }
 
-        // PostProcess._captureCanvas는 다음 프레임에서 덮어쓰일 수 있으므로 복사
         var copy = document.createElement('canvas');
         copy.width  = cap.width;
         copy.height = cap.height;
@@ -284,7 +233,7 @@
         _setMenuBgHook(false);
     };
 
-    // startFadeIn: MT가 열기 애니메이션을 담당 → 페이드인 즉시 완료
+    // startFadeIn: 열기 애니메이션이 담당 → 즉시 완료
     var _SMB_startFadeIn = Scene_MenuBase.prototype.startFadeIn;
     Scene_MenuBase.prototype.startFadeIn = function (duration, white) {
         if (_phase === 1 || _phase === 2) {
@@ -304,7 +253,7 @@
         _SMB_startFadeOut.call(this, duration, white);
     };
 
-    // 복귀씬 페이드인 억제 (오버레이가 전환 담당)
+    // 복귀씬 페이드인 억제 (CSS blur가 전환 담당)
     var _SB_startFadeIn = Scene_Base.prototype.startFadeIn;
     Scene_Base.prototype.startFadeIn = function (duration, white) {
         if (_suppressNextFadeIn) {
@@ -314,7 +263,7 @@
         _SB_startFadeIn.call(this, duration, white);
     };
 
-    // 메뉴씬 update: 열기 애니메이션 (_phase 1→2)
+    // 메뉴씬 update: 열기 애니메이션
     var _SMB_update = Scene_MenuBase.prototype.update;
     Scene_MenuBase.prototype.update = function () {
         _SMB_update.call(this);
@@ -332,19 +281,17 @@
         if (bmp) updateBgBitmap(bmp, _t);
     };
 
-    // ── Scene_Base 오버라이드 (닫기 후 게임씬 오버레이 페이드) ──────────────
+    // ── Scene_Base 오버라이드 (닫기 CSS blur 페이드) ──────────────────────────
 
     var _SB_start = Scene_Base.prototype.start;
     Scene_Base.prototype.start = function () {
         _SB_start.call(this);
         if (_mapBlurPending && !(this instanceof Scene_MenuBase)) {
             _mapBlurPending = false;
-            if (_srcCanvas) {
-                _createMapOverlay(_mapBlurStartT);
-                _mapBlurPhase = true;
-                _elapsed = 0;
-                _t = _mapBlurStartT;
-            }
+            _mapBlurPhase = true;
+            _elapsed = 0;
+            _t = _mapBlurStartT;
+            _applyCanvasBlur(_mapBlurStartT);
         }
     };
 
@@ -356,10 +303,11 @@
         _elapsed++;
         var raw = Math.min(1, _elapsed / Cfg.duration);
         _t = _mapBlurStartT * applyEase(1 - raw);
-        _drawMapOverlay(_t);
+        _applyCanvasBlur(_t);
 
         if (raw >= 1) {
-            _removeMapOverlay();
+            _applyCanvasBlur(0);
+            _mapBlurPhase = false;
             _srcCanvas = null;
         }
     };
@@ -371,7 +319,7 @@
         SceneManager.pop = function () {
             var scene = this._scene;
             if (scene instanceof Scene_MenuBase && _phase !== 0) {
-                _mapBlurStartT       = _t;    // 현재 블러 강도에서 시작
+                _mapBlurStartT       = _t;
                 _suppressNextFadeOut = true;
                 _suppressNextFadeIn  = true;
                 _mapBlurPending      = true;
