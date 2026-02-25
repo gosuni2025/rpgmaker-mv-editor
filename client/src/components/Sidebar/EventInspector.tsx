@@ -4,6 +4,7 @@ import type { RPGEvent, MoveRoute } from '../../types/rpgMakerMV';
 import type { WaypointSession, WaypointPos } from '../../utils/astar';
 import { runAstar, pathToMvCommands, findNearestReachableTile } from '../../utils/astar';
 import { emitWaypointSessionChange, pushWaypointHistory } from '../MapEditor/useWaypointMode';
+import { pushEventUndoEntry } from '../../store/editingHelpers';
 import './InspectorPanel.css';
 
 /** 경로 엔트리: 자율이동 or 실행내용(코드 205) */
@@ -373,8 +374,6 @@ export default function EventInspector() {
       const groupKey = getCategoryKey(entry);
       const group = routeGroups.find(g => g.key === groupKey);
       const idxInGroup = group ? group.entries.findIndex(e => e.id === entry.id) : -1;
-      console.log('[continueFromEnd] groupKey:', groupKey, 'idxInGroup:', idxInGroup, 'groupSize:', group?.entries.length, 'entryId:', entry.id);
-
       if (group && idxInGroup > 0) {
         // 그룹의 첫 번째 경로부터 현재 entry 직전까지 순서대로 시뮬레이션
         let cx = startX;
@@ -387,7 +386,6 @@ export default function EventInspector() {
         }
         startX = cx;
         startY = cy;
-        console.log('[continueFromEnd] chained end point:', startX, startY);
       } else {
         // 그룹의 첫 번째 경로: 해당 경로 자체의 끝점에서 시작
         const moveCmds = entry.moveRoute.list.filter(c => c.code !== 0);
@@ -435,7 +433,8 @@ export default function EventInspector() {
         };
         const st = useEditorStore.getState();
         if (!st.currentMap) return;
-        const evs = [...(st.currentMap.events || [])];
+        const oldEvents = [...(st.currentMap.events || [])];
+        const evs = [...oldEvents];
         const evIdx = evs.findIndex(e => e && e.id === capturedEventId);
         if (evIdx < 0 || !evs[evIdx]) return;
         const evCopy = { ...evs[evIdx]! };
@@ -453,6 +452,7 @@ export default function EventInspector() {
         evCopy.pages = pagesCopy;
         evs[evIdx] = evCopy;
         useEditorStore.setState({ currentMap: { ...st.currentMap, events: evs } as any });
+        pushEventUndoEntry(useEditorStore.getState as any, useEditorStore.setState as any, oldEvents, evs);
       },
     };
 
