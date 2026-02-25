@@ -604,9 +604,9 @@
     if (ov.rotationY !== undefined) win.rotationY = ov.rotationY * Math.PI / 180;
     if (ov.rotationZ !== undefined) win.rotation   = ov.rotationZ * Math.PI / 180;
 
-    // 정적 X/Y 회전이 있으면 회전 기준점 (pivot) 설정
+    // 정적 회전이 있으면 회전 기준점 (pivot) 설정
     if (win.pivot) {
-      var hasStaticRotXY = !!(ov.rotationX || ov.rotationY);
+      var hasStaticRotXY = !!(ov.rotationX || ov.rotationY || ov.rotationZ);
       if (hasStaticRotXY) {
         var staticAnchor = ov.animPivot || 'center';
         var staticPv = _parsePivotAnchor(staticAnchor, win.width, win.height);

@@ -272,9 +272,10 @@ function buildPreviewHTML(useWebp: boolean): string {
         if (!win || !win.pivot) return;
         var rotX = win.rotationX !== undefined ? win.rotationX : 0;
         var rotY = win.rotationY !== undefined ? win.rotationY : 0;
+        var rotZ = win.rotation !== undefined ? win.rotation : 0;
         var screenX = win.x - win.pivot.x;
         var screenY = win.y - win.pivot.y;
-        if (rotX === 0 && rotY === 0) {
+        if (rotX === 0 && rotY === 0 && rotZ === 0) {
           win.pivot.x = 0; win.pivot.y = 0;
           win.x = screenX; win.y = screenY;
           return;
@@ -372,6 +373,8 @@ function buildPreviewHTML(useWebp: boolean): string {
             case 'rotationZ':
               if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'rotationZ', value);
               win.rotation = (value || 0) * Math.PI / 180;
+              { var _ov3 = window._uiGetOv ? window._uiGetOv(win.constructor.name) : {};
+                _applyStaticPivotToWin(win, (_ov3.animPivot) || 'center'); }
               break;
             case 'animPivot':
               if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'animPivot', value);
