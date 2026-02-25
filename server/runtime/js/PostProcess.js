@@ -729,6 +729,7 @@ PostProcess._active = false;
 PostProcess._composer = null;
 PostProcess._tiltShiftPass = null;
 PostProcess._debugSection = null;
+PostProcess.menuBgHook = null;  // MenuTransition.js가 설정: { preRender(renderer, composer), postRender(renderer) }
 
 window.PostProcess = PostProcess;
 window.ShaderPass = ShaderPass;
@@ -2609,7 +2610,9 @@ _ThreeStrategy.render = function(rendererObj, stage) {
         renderer.shadowMap.autoUpdate = false;
 
         // 렌더!
+        if (PostProcess.menuBgHook) PostProcess.menuBgHook.preRender(renderer, PostProcess._composer);
         PostProcess._composer.render();
+        if (PostProcess.menuBgHook) PostProcess.menuBgHook.postRender(renderer);
 
         renderer.shadowMap.autoUpdate = prevShadowAutoUpdate;
         Mode3D._active = true;
@@ -2655,7 +2658,9 @@ _ThreeStrategy.render = function(rendererObj, stage) {
             PostProcess._composer.setSize(w, h);
         }
 
+        if (PostProcess.menuBgHook) PostProcess.menuBgHook.preRender(renderer, PostProcess._composer);
         PostProcess._composer.render();
+        if (PostProcess.menuBgHook) PostProcess.menuBgHook.postRender(renderer);
     }
 
     // snapForBackground를 위해 마지막 렌더 프레임을 2D 캔버스에 즉시 복사.
