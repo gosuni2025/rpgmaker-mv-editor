@@ -67,27 +67,27 @@
  *
  * @param bgColor
  * @text 배경색
- * @type string
+ * @type color
  * @default #1a2030
  *
  * @param wallColor
  * @text 벽 색상
- * @type string
+ * @type color
  * @default #445566
  *
  * @param floorColor
  * @text 바닥 색상
- * @type string
+ * @type color
  * @default #7799aa
  *
  * @param playerColor
  * @text 플레이어 마커 색상
- * @type string
+ * @type color
  * @default #ffffff
  *
  * @param eventMarkerColor
  * @text 이벤트 마커 기본 색상
- * @type string
+ * @type color
  * @default #ffcc00
  *
  * @param showEvents
@@ -103,19 +103,19 @@
  *
  * @param regionColors
  * @text 리전별 색상 (JSON)
- * @desc {"리전ID":"색상"} 형식. 예: {"1":"#ff4444","2":"#44ff44","3":"#4444ff"}
- * @type string
- * @default {}
+ * @desc {"리전ID":"색상"} 형식. 리전 ID 1~255를 색상 문자열(#rrggbb)에 매핑합니다.
+ * @type json
+ * @default {"1":"#ff4444","2":"#44cc44","3":"#4488ff","4":"#ffaa00","5":"#cc44cc"}
  *
  * @param terrainColors
  * @text 지형 태그별 색상 (JSON)
- * @desc {"지형태그":"색상"} 형식. 예: {"1":"#226633","2":"#334488"}
- * @type string
- * @default {}
+ * @desc {"지형태그":"색상"} 형식. 타일의 지형 태그(0~7)를 색상에 매핑합니다.
+ * @type json
+ * @default {"1":"#226633","2":"#5588aa","3":"#887766","4":"#aaaaaa","5":"#ffeecc"}
  *
  * @param borderColor
  * @text 테두리 색상
- * @type string
+ * @type color
  * @default #aabbcc
  *
  * @param borderWidth

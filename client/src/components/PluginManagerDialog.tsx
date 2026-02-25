@@ -6,6 +6,7 @@ import AnimationPickerDialog from './EventEditor/AnimationPickerDialog';
 import { DataListPicker } from './EventEditor/dataListPicker';
 import './ProjectSettingsDialog.css';
 import { FilePickerDialog, DirPickerDialog, TextFilePickerDialog } from './PluginManagerHelpers';
+import JsonParamEditor from './JsonParamEditor';
 import { getOrderedParams, PluginParamRow } from './PluginParamEditor';
 import { usePluginManager } from './usePluginManager';
 
@@ -234,6 +235,13 @@ export default function PluginManagerDialog() {
           value={pm.selectedPlugin.parameters[pm.pickerParamIndex]?.value || ''}
           onChange={(fp) => { pm.updateParam(pm.selectedIndex, pm.pickerParamIndex, fp); pm.setPickerType(null); }}
           onClose={() => pm.setPickerType(null)} />
+      )}
+      {pm.pickerType === 'json' && pm.selectedPlugin && pm.pickerParamIndex >= 0 && (
+        <JsonParamEditor
+          value={pm.selectedPlugin.parameters[pm.pickerParamIndex]?.value || '{}'}
+          onChange={(v) => { pm.updateParam(pm.selectedIndex, pm.pickerParamIndex, v); pm.setPickerType(null); }}
+          onClose={() => pm.setPickerType(null)}
+        />
       )}
     </>
   );

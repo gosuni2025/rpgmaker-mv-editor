@@ -16,10 +16,13 @@ export interface NpcDisplayData {
   showName: boolean;  // 이름 표시 여부
 }
 
+export type MinimapMarkerShape = 'circle' | 'square' | 'diamond' | 'star' | 'triangle' | 'cross' | 'heart';
+
 export interface MinimapMarkerData {
   enabled: boolean;
-  color: string;                          // CSS 색상값 (#rrggbb)
-  shape: 'circle' | 'square' | 'diamond';
+  color: string;           // CSS 색상값 (#rrggbb)
+  shape: MinimapMarkerShape;
+  iconIndex?: number;      // 설정되면 IconSet 아이콘으로 표시 (shape 무시)
 }
 
 export interface MapData {

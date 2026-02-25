@@ -25,7 +25,7 @@ export function usePluginManager() {
   const [dirty, setDirty] = useState(false);
 
   // Picker dialog states
-  const [pickerType, setPickerType] = useState<'animation' | 'datalist' | 'file' | 'dir' | 'textfile' | null>(null);
+  const [pickerType, setPickerType] = useState<'animation' | 'datalist' | 'file' | 'dir' | 'textfile' | 'json' | null>(null);
   const [pickerParamIndex, setPickerParamIndex] = useState<number>(-1);
   const [dataListItems, setDataListItems] = useState<string[]>([]);
   const [dataListTitle, setDataListTitle] = useState('');
@@ -232,6 +232,11 @@ export function usePluginManager() {
       setPickerType('dir');
       return;
     }
+    if (type === 'json') {
+      setPickerParamIndex(paramIndex);
+      setPickerType('json');
+      return;
+    }
     const dbConfig = DB_TYPE_MAP[type];
     if (dbConfig) {
       try {
@@ -252,7 +257,7 @@ export function usePluginManager() {
   const hasPickerButton = (paramMeta: PluginParamMeta | undefined): boolean => {
     if (!paramMeta) return false;
     const type = paramMeta.type.toLowerCase();
-    return type === 'animation' || type === 'file' || type === 'dir' || type === 'textfile' || type in DB_TYPE_MAP;
+    return type === 'animation' || type === 'file' || type === 'dir' || type === 'textfile' || type === 'json' || type in DB_TYPE_MAP;
   };
 
   return {
