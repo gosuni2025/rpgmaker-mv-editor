@@ -356,8 +356,13 @@
   const _Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindows;
   Scene_Map.prototype.createAllWindows = function () {
     _Scene_Map_createAllWindows.call(this);
+    // 재호출 시(VisualNovelMode 등이 createDisplayObjects를 재실행할 때) 이전 가시성 보존
+    var savedVisible = MinimapManager._sprite
+      ? MinimapManager._visible
+      : ($gameSystem ? $gameSystem._minimapVisible : CFG.showOnStart);
+    MinimapManager.destroySprite();
     MinimapManager.createSprite(this);
-    MinimapManager.setVisible($gameSystem._minimapVisible);
+    MinimapManager.setVisible(savedVisible);
   };
 
   const _Scene_Map_update = Scene_Map.prototype.update;
