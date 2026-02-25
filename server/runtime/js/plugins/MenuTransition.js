@@ -166,7 +166,6 @@
     var _MT_animRafId    = null;
 
     var _MT_bgSprite      = null;
-    var _MT_captureNext   = false;  // true이면 다음 렌더 시 PostProcess._captureCanvas로 스냅샷 취득
     var _MT_snapshotReady = false;  // canvasTex에 유효한 스냅샷 있음
     var _MT_blurDone      = false;  // outputRT에 블러 결과 있음
 
@@ -251,15 +250,29 @@
     }
 
     // ── PostProcess._captureCanvas → CanvasTexture 스냅샷 취득 ───────────────
-    // PostProcess.js가 매 프레임 WebGL canvas를 2D canvas에 복사해둠.
-    // drawImage(webglCanvas) 시 브라우저가 Y축을 보정하므로 2D canvas는 top-left origin.
-    // CanvasTexture(flipY=false)로 업로드하면 UV (0,1)=top → 화면 상단에 올바르게 표시됨.
+    // PostProcess.js가 매 프레임 WebGL canvas를 2D canvas(_captureCanvas)에 복사해둠.
+    // SceneManager.push 시점에 즉시 호출: 이 순간의 _captureCanvas = 직전 프레임 맵 화면.
+    //
+    // Y축: drawImage(webglCanvas)는 브라우저가 Y를 보정 → 2D canvas는 top-left origin.
+    // CanvasTexture(flipY=false)로 업로드 → UV(0,1)=top → 화면 상단에 올바르게 표시.
 
     function MT_captureSnapshot(renderer) {
         var cap = (typeof PostProcess !== 'undefined') ? PostProcess._captureCanvas : null;
         if (!cap || cap.width <= 0 || cap.height <= 0) {
+            console.warn('[MenuTransition] 스냅샷 실패: PostProcess._captureCanvas 없음 또는 크기 0',
+                cap ? ('w=' + cap.width + ' h=' + cap.height) : 'null');
             _MT_snapshotReady = false;
             return;
+        }
+
+        // canvas 픽셀 샘플 (디버그: 검은 화면 여부 확인)
+        try {
+            var ctx = cap.getContext('2d');
+            var px = ctx.getImageData(Math.floor(cap.width / 2), Math.floor(cap.height / 2), 1, 1).data;
+            console.log('[MenuTransition] 스냅샷 캡처:', cap.width + 'x' + cap.height,
+                '| 중앙 픽셀 rgba=' + px[0] + ',' + px[1] + ',' + px[2] + ',' + px[3]);
+        } catch(e) {
+            console.warn('[MenuTransition] 픽셀 샘플링 실패:', e);
         }
 
         var w = cap.width;
@@ -279,6 +292,7 @@
 
         _MT_snapshotReady = true;
         _MT_blurDone = false;
+        console.log('[MenuTransition] 스냅샷 준비 완료');
     }
 
     // canvasTex → blurRT1/2 (PASSES회 H+V) → outputRT
@@ -320,19 +334,6 @@
 
     RendererStrategy.render = function (rendererObj, stage) {
 
-        // ── 캡처 플래그: PostProcess._captureCanvas로 스냅샷 취득 ──────────
-        // 먼저 렌더 실행 (PostProcess._captureLastFrame이 canvas를 최신 상태로 갱신)
-        // 렌더 완료 후 _captureCanvas에서 스냅샷 취득
-        if (_MT_captureNext) {
-            _MT_captureNext = false;
-            _origRSRender.call(this, rendererObj, stage);
-            var renderer = rendererObj && rendererObj.renderer;
-            if (renderer) {
-                MT_captureSnapshot(renderer);
-            }
-            return;
-        }
-
         // ── 메뉴 전환 효과 비활성 시 → 그냥 렌더 ───────────────────────────
         if (_MT_phase === 0 || _MT_t <= 0 || !_MT_snapshotReady) {
             _origRSRender.call(this, rendererObj, stage);
@@ -353,6 +354,7 @@
         if (!_MT_blurDone) {
             _MT_blurDone = true;
             var useBlur = Cfg.blur > 0 && Cfg.effect !== 'overlayOnly';
+            console.log('[MenuTransition] 블러 적용:', useBlur, '| canvasTex:', !!_MT_canvasTex, '| phase:', _MT_phase, '| t:', _MT_t.toFixed(2));
             if (useBlur) {
                 MT_applyBlur(renderer, Math.max(1, Math.ceil(Cfg.blur / 25)));
             } else {
@@ -380,13 +382,23 @@
         renderer.autoClear = true;
     };
 
-    // ── SceneManager.push 오버라이드 (캡처 플래그 설정) ──────────────────────
-    // push 직후 다음 renderScene에서 PostProcess._captureCanvas 스냅샷을 취득
+    // ── SceneManager.push 오버라이드 ─────────────────────────────────────────
+    // push 시점에 즉시 PostProcess._captureCanvas를 스냅샷으로 취득.
+    // 이 시점의 _captureCanvas = 직전 프레임 맵 화면 (renderScene 완료 후 갱신됨).
+    // push 이후 changeScene → renderScene에서는 이미 메뉴 씬이 렌더되므로
+    // 그 시점에 캡처하면 맵 화면을 얻을 수 없음.
 
     var _origSMPush = SceneManager.push;
     SceneManager.push = function (sceneClass) {
         if (this._scene && !(this._scene instanceof Scene_MenuBase) && !_MT_snapshotReady) {
-            _MT_captureNext = true;
+            var rendererObj = Graphics._renderer;
+            var renderer = rendererObj && rendererObj.renderer;
+            console.log('[MenuTransition] SceneManager.push →', sceneClass && sceneClass.name,
+                '| renderer:', !!renderer,
+                '| captureCanvas:', typeof PostProcess !== 'undefined' ? !!PostProcess._captureCanvas : 'no PostProcess');
+            if (renderer) {
+                MT_captureSnapshot(renderer);
+            }
         }
         _origSMPush.call(this, sceneClass);
     };
