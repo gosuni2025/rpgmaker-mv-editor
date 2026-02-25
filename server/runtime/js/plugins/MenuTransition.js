@@ -390,7 +390,7 @@
         } else {
             if (_canvasTex) _canvasTex.dispose();
             _canvasTex = new THREE.CanvasTexture(cap);
-            _canvasTex.flipY    = false;
+            _canvasTex.flipY    = true;   // canvas row0=top → UV y=1=top (올바른 방향)
             _canvasTex.minFilter = THREE.LinearFilter;
             _canvasTex.magFilter = THREE.LinearFilter;
         }
