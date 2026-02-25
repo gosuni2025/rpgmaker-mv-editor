@@ -124,16 +124,17 @@
     var _mapBlurStartT  = 1;      // 닫힐 때의 _t (시작 강도)
     var _mapBlurPhase   = false;  // 게임씬에서 blur 페이드 중
 
-    // ── CSS blur 헬퍼 ────────────────────────────────────────────────────────
+    // ── PostProcess transition blur 헬퍼 ─────────────────────────────────────
 
-    function _applyCanvasBlur(t) {
-        var canvas = Graphics._canvas;
-        if (!canvas) return;
-        if (t <= 0.001 || Cfg.blur <= 0 || Cfg.effect === 'overlayOnly') {
-            canvas.style.filter = '';
+    function _applyTransitionBlur(t) {
+        var px = (t > 0.001 && Cfg.blur > 0 && Cfg.effect !== 'overlayOnly')
+            ? t * Cfg.blur / 100 * 20 : 0;
+        if (typeof PostProcess !== 'undefined' && PostProcess.setTransitionBlur) {
+            PostProcess.setTransitionBlur(px);
         } else {
-            var blurPx = (t * Cfg.blur / 100 * 20).toFixed(2);
-            canvas.style.filter = 'blur(' + blurPx + 'px)';
+            // PostProcess 없을 때 CSS fallback
+            var canvas = Graphics._canvas;
+            if (canvas) canvas.style.filter = px > 0 ? 'blur(' + px.toFixed(2) + 'px)' : '';
         }
     }
 
@@ -168,7 +169,7 @@
         _phase = 1;
         _t = 0;
         _mapBlurPending = false;
-        _applyCanvasBlur(0);  // 혹시 남아있는 CSS blur 제거
+        _applyTransitionBlur(0);  // 혹시 남아있는 CSS blur 제거
         _setMenuBgHook(true);
     }
 
@@ -291,7 +292,7 @@
             _mapBlurPhase = true;
             _elapsed = 0;
             _t = _mapBlurStartT;
-            _applyCanvasBlur(_mapBlurStartT);
+            _applyTransitionBlur(_mapBlurStartT);
         }
     };
 
@@ -303,10 +304,10 @@
         _elapsed++;
         var raw = Math.min(1, _elapsed / Cfg.duration);
         _t = _mapBlurStartT * applyEase(1 - raw);
-        _applyCanvasBlur(_t);
+        _applyTransitionBlur(_t);
 
         if (raw >= 1) {
-            _applyCanvasBlur(0);
+            _applyTransitionBlur(0);
             _mapBlurPhase = false;
             _srcCanvas = null;
         }

@@ -730,6 +730,8 @@ PostProcess._composer = null;
 PostProcess._tiltShiftPass = null;
 PostProcess._debugSection = null;
 PostProcess.menuBgHook = null;  // MenuTransition.js가 설정: { preRender(renderer, composer), postRender(renderer) }
+PostProcess._transitionBlurPassH = null;
+PostProcess._transitionBlurPassV = null;
 
 window.PostProcess = PostProcess;
 window.ShaderPass = ShaderPass;
@@ -749,6 +751,28 @@ PostProcess.bloomConfig = {
     strength: 0.8,      // bloom 합성 강도 (0~2)
     radius: 1.0,        // 블러 반경 배율
     downscale: 4        // 블러 텍스처 축소 비율 (높을수록 넓게 번지고 가벼움)
+};
+
+// 트랜지션 블러 강도 설정 (MenuTransition 등에서 호출)
+// pixels: 0이면 비활성, 양수이면 해당 픽셀 반경으로 가우시안 블러 적용
+PostProcess.setTransitionBlur = function(pixels) {
+    var h = this._transitionBlurPassH;
+    var v = this._transitionBlurPassV;
+    if (!h || !v) return;
+    if (pixels <= 0.001) {
+        h.enabled = false;
+        v.enabled = false;
+        return;
+    }
+    var rt = this._composer && this._composer.renderTarget1;
+    var w  = rt ? rt.width  : (Graphics.width  || 816);
+    var hh = rt ? rt.height : (Graphics.height || 624);
+    h.uniforms.blurRadius.value = pixels;
+    h.uniforms.resolution.value.set(w, hh);
+    h.enabled = true;
+    v.uniforms.blurRadius.value = pixels;
+    v.uniforms.resolution.value.set(w, hh);
+    v.enabled = true;
 };
 
 //=============================================================================
@@ -843,6 +867,44 @@ var TiltShiftShader = {
         '',
         '    gl_FragColor = col / 41.0;',
         '    gl_FragColor.a = 1.0;',
+        '}'
+    ].join('\n')
+};
+
+// 분리형 가우시안 블러 셰이더 (트랜지션 효과용, H/V 2-pass)
+var _TransitionBlurShader = {
+    uniforms: {
+        tColor:     { value: null },
+        direction:  { value: new THREE.Vector2(1, 0) },
+        blurRadius: { value: 1.0 },
+        resolution: { value: new THREE.Vector2(816, 624) }
+    },
+    vertexShader: [
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vUv = uv;',
+        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+    ].join('\n'),
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform vec2 direction;',
+        'uniform float blurRadius;',
+        'uniform vec2 resolution;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec2 step = direction * blurRadius / resolution;',
+        '    vec4 color = vec4(0.0);',
+        '    color += texture2D(tColor, vUv - 4.0 * step) * 0.0162162162;',
+        '    color += texture2D(tColor, vUv - 3.0 * step) * 0.0540540541;',
+        '    color += texture2D(tColor, vUv - 2.0 * step) * 0.1216216216;',
+        '    color += texture2D(tColor, vUv - 1.0 * step) * 0.1945945946;',
+        '    color += texture2D(tColor, vUv             ) * 0.2270270270;',
+        '    color += texture2D(tColor, vUv + 1.0 * step) * 0.1945945946;',
+        '    color += texture2D(tColor, vUv + 2.0 * step) * 0.1216216216;',
+        '    color += texture2D(tColor, vUv + 3.0 * step) * 0.0540540541;',
+        '    color += texture2D(tColor, vUv + 4.0 * step) * 0.0162162162;',
+        '    gl_FragColor = color;',
         '}'
     ].join('\n')
 };
@@ -2157,6 +2219,16 @@ PostProcess._createComposer = function(rendererObj, stage) {
     // PostProcessEffects 패스들 생성 및 추가
     var ppPasses = PostProcess._createPPPasses(composer);
 
+    // Transition blur passes (트랜지션 효과용, 기본 비활성)
+    var tbH = new ShaderPass(_TransitionBlurShader);
+    tbH.uniforms.direction.value.set(1, 0);
+    tbH.enabled = false;
+    composer.addPass(tbH);
+    var tbV = new ShaderPass(_TransitionBlurShader);
+    tbV.uniforms.direction.value.set(0, 1);
+    tbV.enabled = false;
+    composer.addPass(tbV);
+
     // TiltShiftPass (화면 Y좌표 기반 DoF) - 맵에만 블러
     var tiltShiftPass = new TiltShiftPass({
         focusY: this.config.focusY,
@@ -2177,6 +2249,8 @@ PostProcess._createComposer = function(rendererObj, stage) {
     this._renderPass = renderPass;
     this._uiPass = uiPass;
     this._ppPasses = ppPasses;
+    this._transitionBlurPassH = tbH;
+    this._transitionBlurPassV = tbV;
     this._lastStage = stage;
     this._composerMode = '3d';
 
@@ -2214,6 +2288,16 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
     // PostProcessEffects 패스들 생성 및 추가
     var ppPasses = PostProcess._createPPPasses(composer);
 
+    // Transition blur passes (트랜지션 효과용, 기본 비활성)
+    var tbH = new ShaderPass(_TransitionBlurShader);
+    tbH.uniforms.direction.value.set(1, 0);
+    tbH.enabled = false;
+    composer.addPass(tbH);
+    var tbV = new ShaderPass(_TransitionBlurShader);
+    tbV.uniforms.direction.value.set(0, 1);
+    tbV.enabled = false;
+    composer.addPass(tbV);
+
     // Simple2DUIRenderPass - 블룸 적용된 맵을 화면에 복사 + UI 합성
     var uiPass = new Simple2DUIRenderPass(_prevRender, _ThreeStrategy);
     composer.addPass(uiPass);
@@ -2226,6 +2310,8 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
     this._2dRenderPass = renderPass;
     this._2dUIRenderPass = uiPass;
     this._ppPasses = ppPasses;
+    this._transitionBlurPassH = tbH;
+    this._transitionBlurPassV = tbV;
     this._lastStage = stage;
     this._composerMode = '2d';
 
