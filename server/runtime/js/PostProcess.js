@@ -2432,7 +2432,9 @@ function Simple2DUIRenderPass(prevRender, strategy) {
             'void main() {',
             '    gl_FragColor = texture2D(tDiffuse, vUv);',
             '}'
-        ].join('\n')
+        ].join('\n'),
+        depthTest: false,
+        depthWrite: false
     });
     this._copyQuad = new FullScreenQuad(this._copyMaterial);
 }
