@@ -203,11 +203,19 @@
   };
 
   Sprite_Character.prototype._createNpcName = function (name, markerData) {
-    var hasMarker = !!markerData;
-    var totalW    = hasMarker ? MARKER_D + MARKER_GAP + BITMAP_W : BITMAP_W;
-    var bitmap    = new Bitmap(totalW, BITMAP_H);
-    var ctx       = bitmap._context;
-    var cy        = Math.floor(BITMAP_H / 2);
+    var hasMarker    = !!markerData;
+    var markerBlockW = hasMarker ? MARKER_D + MARKER_GAP : 0;
+
+    // 실제 텍스트 폭을 측정해서 bitmap을 딱 맞게 생성 (마커와 이름 사이 공백 없음)
+    var measBm = new Bitmap(BITMAP_W, BITMAP_H);
+    measBm.fontSize = fontSize;
+    var textW = Math.min(measBm.measureTextWidth(name) + outlineWidth * 2 + 8, BITMAP_W);
+    textW     = Math.max(textW, 20);
+
+    var totalW = markerBlockW + textW;
+    var bitmap = new Bitmap(totalW, BITMAP_H);
+    var ctx    = bitmap._context;
+    var cy     = Math.floor(BITMAP_H / 2);
 
     if (hasMarker) {
       var cx = MARKER_R;
@@ -225,23 +233,20 @@
       }
     }
 
-    // drawText가 내부적으로 _setDirty() 호출 → ctx 변경분도 함께 업로드됨
     bitmap.fontSize     = fontSize;
     bitmap.outlineColor = outlineColor;
     bitmap.outlineWidth = outlineWidth;
     bitmap.textColor    = textColor;
-    // 텍스트는 항상 'center' 정렬 — sprite.x 보정과 함께 캐릭터 중앙에 위치
-    var textX = hasMarker ? MARKER_D + MARKER_GAP : 0;
-    bitmap.drawText(name, textX, 0, BITMAP_W, BITMAP_H, 'center');
+    bitmap.drawText(name, markerBlockW, 0, textW, BITMAP_H, 'center');
 
     var sprite    = new Sprite(bitmap);
     sprite.anchor.x = 0.5;
     sprite.anchor.y = 1.0;
     this.addChild(sprite);
     this._npcNameSprite = sprite;
-    // 마커로 bitmap이 왼쪽으로 확장됐으므로, 텍스트 중앙을 캐릭터 중앙에 맞추기 위해
-    // anchor.x=0.5 기준으로 +12.5 이동된 텍스트를 -12.5 보정 → sprite.x = -(MARKER_D+GAP)/2
-    this._npcNameMarkerOffset = hasMarker ? -Math.round((MARKER_D + MARKER_GAP) / 2) : 0;
+    // 텍스트 중심이 anchor(0.5) 기준으로 +markerBlockW/2 오른쪽에 있으므로
+    // sprite.x = -markerBlockW/2 로 보정 → 텍스트 중앙 = 캐릭터 중앙
+    this._npcNameMarkerOffset = hasMarker ? -Math.round(markerBlockW / 2) : 0;
   };
 
   Sprite_Character.prototype._destroyNpcName = function () {
