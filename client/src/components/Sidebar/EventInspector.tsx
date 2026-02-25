@@ -369,35 +369,31 @@ export default function EventInspector() {
     }
 
     let initialWaypoints: WaypointPos[] = [];
+
+    // continueFromEnd ON + 두 번째+ 경로: 이전 경로 끝점에서 이어 그리기 (웨이포인트 비어있음)
+    let chained = false;
     if (continueFromEnd) {
-      // 같은 그룹(카테고리)에서 현재 entry 이전까지의 경로를 체이닝하여 끝점 계산
       const groupKey = getCategoryKey(entry);
       const group = routeGroups.find(g => g.key === groupKey);
       const idxInGroup = group ? group.entries.findIndex(e => e.id === entry.id) : -1;
       if (group && idxInGroup > 0) {
-        // 그룹의 첫 번째 경로부터 현재 entry 직전까지 순서대로 시뮬레이션
         let cx = startX;
         let cy = startY;
         for (let i = 0; i < idxInGroup; i++) {
           const cmds = group.entries[i].moveRoute.list.filter(c => c.code !== 0);
           const d = simulateMoveRoute(cmds, cx, cy);
-          cx = d.x;
-          cy = d.y;
+          cx = d.x; cy = d.y;
         }
         startX = cx;
         startY = cy;
-      } else {
-        // 그룹의 첫 번째 경로: 해당 경로 자체의 끝점에서 시작
-        const moveCmds = entry.moveRoute.list.filter(c => c.code !== 0);
-        const dest = simulateMoveRoute(moveCmds, startX, startY);
-        startX = dest.x;
-        startY = dest.y;
+        chained = true;
       }
-      // initialWaypoints는 비어있음 — 끝점 이후를 새로 그림
-    } else {
+    }
+
+    // 그 외 (첫 번째 경로, 또는 continueFromEnd OFF): NPC 위치 → 기존 목적지를 초기 웨이포인트로
+    if (!chained) {
       const moveCmds = entry.moveRoute.list.filter(c => c.code !== 0);
       const dest = simulateMoveRoute(moveCmds, startX, startY);
-      // 기존 동작: 현재 위치 → 목적지를 초기 웨이포인트로
       if (dest.x !== startX || dest.y !== startY) {
         initialWaypoints = [{ id: crypto.randomUUID(), x: dest.x, y: dest.y }];
       } else {
