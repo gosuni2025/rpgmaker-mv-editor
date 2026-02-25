@@ -185,7 +185,7 @@
     if (ov && ov.windowStyle === 'image') {
       var m = this._margin;
       var w = this._width - m * 2, h = this._height - m * 2;
-      if (this._cursorRect.width <= 0 || this._cursorRect.height <= 0) return;
+      if (w <= 0 || h <= 0) return;
       // imageFile이 없으면 "No Image" 안내 표시
       if (!ov.imageFile) {
         var noBitmap = new Bitmap(w, h);
@@ -241,7 +241,7 @@
     var m = this._margin;
     var w = this._width - m * 2;
     var h = this._height - m * 2;
-    if (this._cursorRect.width <= 0 || this._cursorRect.height <= 0) return;
+    if (w <= 0 || h <= 0) return;
     var bitmap = new Bitmap(w, h);
     this._windowBackSprite.bitmap = bitmap;
     this._windowBackSprite.setFrame(0, 0, w, h);
@@ -289,7 +289,7 @@
     var f = getFrameInfo(entry);
     var w = this._width;
     var h = this._height;
-    if (this._cursorRect.width <= 0 || this._cursorRect.height <= 0) return;
+    if (w <= 0 || h <= 0) return;
     var bitmap = new Bitmap(w, h);
     this._windowFrameSprite.bitmap = bitmap;
     this._windowFrameSprite.setFrame(0, 0, w, h);
