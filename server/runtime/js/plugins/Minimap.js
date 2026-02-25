@@ -367,10 +367,11 @@
     _Scene_Map_createAllWindows.call(this);
     // 재호출 시(VisualNovelMode 등이 createDisplayObjects를 재실행할 때) 이전 가시성 보존
     var hasPrevSprite = !!MinimapManager._sprite;
-    // $gameSystem._minimapVisible은 setVisible()을 통해 MinimapManager._visible과 항상 동기화됨.
-    // createSprite()에서 더 이상 _visible=true 강제 초기화를 하지 않으므로 두 값은 일치해야 함.
-    // 항상 $gameSystem._minimapVisible을 사용 (세이브 데이터 반영).
-    var savedVisible = $gameSystem ? $gameSystem._minimapVisible : CFG.showOnStart;
+    // 기존 sprite가 있으면 현재 _visible(setVisible로 설정된 최신 상태)을 우선 사용.
+    // 없으면(맵 이동 등으로 sprite가 파괴된 경우) $gameSystem._minimapVisible 사용.
+    var savedVisible = hasPrevSprite
+      ? MinimapManager._visible
+      : ($gameSystem ? $gameSystem._minimapVisible : CFG.showOnStart);
     console.log('[Minimap] createAllWindows: hasPrevSprite=%s, MinimapManager._visible=%s, $gameSystem._minimapVisible=%s, savedVisible=%s',
       hasPrevSprite, MinimapManager._visible,
       $gameSystem ? $gameSystem._minimapVisible : 'N/A', savedVisible);
@@ -941,13 +942,35 @@
     update() {
       if (!this._sprite || !$gamePlayer) return;
 
-      // _threeObj가 외부(Mode3D 렌더링 등)에서 강제로 숨겨졌는지 감지
-      if (this._visible && this._sprite._threeObj &&
-          !this._sprite._threeObj.visible) {
-        console.log('[Minimap] _threeObj.visible이 외부에서 false로 변경됨 → 복원', this._sprite._threeObj);
-        this._sprite._threeObj.visible = true;
-        if (this._btnMinus && this._btnMinus._threeObj) this._btnMinus._threeObj.visible = true;
-        if (this._btnPlus  && this._btnPlus._threeObj)  this._btnPlus._threeObj.visible  = true;
+      // _threeObj 레벨에서 미니맵이 숨겨진 경우 감지 및 복원
+      if (this._visible && this._sprite) {
+        var tObj = this._sprite._threeObj;
+        if (!tObj) {
+          // Three.js 오브젝트가 없음 — 렌더링 불가
+          if (!this._warnedNoThreeObj) {
+            this._warnedNoThreeObj = true;
+            console.warn('[Minimap] sprite._threeObj가 없음 — 2D 모드에서 렌더링 안됨');
+          }
+        } else {
+          this._warnedNoThreeObj = false;
+          if (!tObj.visible) {
+            console.log('[Minimap] _threeObj.visible이 외부에서 false → 복원');
+            tObj.visible = true;
+            if (this._btnMinus && this._btnMinus._threeObj) this._btnMinus._threeObj.visible = true;
+            if (this._btnPlus  && this._btnPlus._threeObj)  this._btnPlus._threeObj.visible  = true;
+          }
+          // 부모 체인 중 숨겨진 조상이 있는지 확인
+          if (!this._checkedAncestor) {
+            this._checkedAncestor = true;
+            var p = tObj.parent;
+            while (p) {
+              if (p.visible === false) {
+                console.warn('[Minimap] 조상 컨테이너가 hidden:', p);
+              }
+              p = p.parent;
+            }
+          }
+        }
       }
 
       // 버튼은 UPDATE_INTERVAL 무관하게 매 프레임 체크
@@ -1010,8 +1033,10 @@
       if (this._sprite)   this._sprite.visible   = visible;
       if (this._btnMinus) this._btnMinus.visible  = visible;
       if (this._btnPlus)  this._btnPlus.visible   = visible;
-      console.log('[Minimap] setVisible done: sprite.visible=%s',
-        this._sprite ? this._sprite.visible : 'N/A (no sprite)');
+      this._checkedAncestor = false; // 가시성 변경 시 조상 체인 재확인
+      console.log('[Minimap] setVisible done: sprite.visible=%s, _threeObj.visible=%s',
+        this._sprite ? this._sprite.visible : 'N/A (no sprite)',
+        (this._sprite && this._sprite._threeObj) ? this._sprite._threeObj.visible : 'N/A (no _threeObj)');
     },
 
     toggleVisible() {
