@@ -420,6 +420,7 @@
                 _mapBlurPending      = true;
                 _phase               = 0;
                 _log('pop → pending=true startT=' + _mapBlurStartT.toFixed(3));
+                _applyEffect(_mapBlurStartT);  // 로딩 프레임 동안 blur 유지
             } else {
                 _log('pop → 조건 불만족 (건너뜀)');
             }
