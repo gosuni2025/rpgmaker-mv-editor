@@ -5,19 +5,16 @@
  * @help
  * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 맵 화면이 점점 블러되면서
  * 어두워지는 애니메이션 후 메뉴 UI가 표시됩니다.
- * 메뉴를 닫으면 게임 씬으로 즉시 전환되고, 블러 오버레이가 점차 사라지면서
- * 라이브 게임 화면이 드러납니다. (물 쉐이더 등 부활 장면이 블러에 가려짐)
+ * 메뉴를 닫으면 페이드 없이 즉시 게임 씬으로 전환됩니다.
  *
  * 렌더링 방식:
- *   열기: Scene_Map.terminate() → snapForBackground 시점에 맵 스냅샷 취득
- *         _backgroundSprite.bitmap에 매 프레임 canvas ctx.filter:blur로 그려
- *         블러 강도와 오버레이가 t(0→1)에 따라 점진적으로 강해짐
- *   닫기: 게임 씬(Scene_Map) 위에 DOM canvas 오버레이를 올려
- *         t(1→0)에 따라 점진적으로 사라짐 → 라이브 게임 화면이 드러남
+ *   - Scene_Map.terminate() → snapForBackground 시점에 맵 스냅샷 취득
+ *   - _backgroundSprite.bitmap에 매 프레임 canvas ctx.filter:blur로 그려
+ *     블러 강도와 오버레이가 t(0→1)에 따라 점진적으로 강해짐
  *
  * 타이밍 방식:
  *   - requestAnimationFrame 독립 루프 미사용
- *   - Scene_MenuBase.update() / Scene_Base.update() 호출(게임 루프)마다 프레임 카운터 증가
+ *   - Scene_MenuBase.update() 호출(게임 루프)마다 프레임 카운터 증가
  *   - 게임 루프가 블로킹되면 애니메이션도 함께 일시정지 → 재개 시 이어서 진행
  *
  * === 효과 종류 (effect) ===
@@ -69,7 +66,7 @@
  * @default easeOut
  *
  * @param closeAnim
- * @text 닫기 애니메이션 활성화
+ * @text 닫기 시 페이드 억제 (즉시 전환)
  * @type boolean
  * @default true
  */
@@ -123,15 +120,8 @@
     var _suppressNextFadeOut = false;  // 닫기 후 메뉴씬 검정 페이드아웃 억제
     var _suppressNextFadeIn  = false;  // 닫기 후 복귀씬(맵 등) 페이드인 억제
 
-    // 닫기 후 게임씬 블러 오버레이
-    var _mapBlurPending = false;  // 다음 씬 start()에서 오버레이 생성
-    var _mapBlurStartT  = 1;      // 오버레이 시작 블러 강도 (닫힐 때의 _t)
-    var _mapBlurCanvas  = null;   // 오버레이 DOM canvas 엘리먼트
-    var _mapBlurPhase   = false;  // 게임씬에서 블러 페이드 진행 중
-
     // ── PostProcess.menuBgHook: 메뉴 씬 렌더링 중 bloom만 비활성화 ─────────────
     // 스냅샷에 이미 bloom이 적용되어 있으므로 2D composer의 bloomPass만 비활성화.
-    // ppPasses(godRays, waveDistortion 등)는 계속 활성화하여 배경에 효과가 유지되도록 함.
 
     function _setMenuBgHook(active) {
         if (typeof PostProcess === 'undefined') return;
@@ -161,12 +151,10 @@
         _elapsed = 0;
         _phase = 1;
         _t = 0;
-        _mapBlurPending = false;
-        _removeMapOverlay();
         _setMenuBgHook(true);
     }
 
-    // ── 배경 비트맵 업데이트 (메뉴씬 — canvas ctx.filter 블러) ───────────────
+    // ── 배경 비트맵 업데이트 (canvas ctx.filter 블러) ─────────────────────────
 
     function updateBgBitmap(bitmap, t) {
         if (!_srcCanvas || !bitmap) return;
@@ -190,35 +178,6 @@
         }
 
         bitmap._setDirty();
-    }
-
-    // ── 게임씬 닫기 오버레이 (단색 div — 이미지 불필요) ──────────────────────
-
-    function _createMapOverlay() {
-        _removeMapOverlay();
-
-        var div = document.createElement('div');
-        div.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
-            'background:rgb(' + _overlayRGB[0] + ',' + _overlayRGB[1] + ',' + _overlayRGB[2] + ');' +
-            'pointer-events:none;z-index:100;';
-
-        document.body.appendChild(div);
-        _mapBlurCanvas = div;
-    }
-
-    function _drawMapOverlay(t) {
-        if (!_mapBlurCanvas) return;
-        _mapBlurCanvas.style.opacity = t;
-    }
-
-    function _removeMapOverlay() {
-        if (_mapBlurCanvas) {
-            if (_mapBlurCanvas.parentNode) {
-                _mapBlurCanvas.parentNode.removeChild(_mapBlurCanvas);
-            }
-            _mapBlurCanvas = null;
-        }
-        _mapBlurPhase = false;
     }
 
     // ── SceneManager.snapForBackground 오버라이드 ─────────────────────────────
@@ -268,7 +227,7 @@
         }
     };
 
-    // startFadeOut: 닫기 시 즉시 완료 (게임씬 오버레이가 전환 담당)
+    // startFadeOut: 닫기 시 즉시 완료 → 바로 씬 전환
     var _SMB_startFadeOut = Scene_MenuBase.prototype.startFadeOut;
     Scene_MenuBase.prototype.startFadeOut = function (duration, white) {
         if (_suppressNextFadeOut) {
@@ -283,12 +242,12 @@
     Scene_Base.prototype.startFadeIn = function (duration, white) {
         if (_suppressNextFadeIn) {
             _suppressNextFadeIn = false;
-            return;  // 즉시 표시 (오버레이가 대신 전환)
+            return;  // 즉시 표시
         }
         _SB_startFadeIn.call(this, duration, white);
     };
 
-    // 메뉴씬 update: 열기 애니메이션 (_phase 1→2)
+    // update: 게임 루프 프레임마다 _t 계산 + 배경 비트맵 업데이트
     var _SMB_update = Scene_MenuBase.prototype.update;
     Scene_MenuBase.prototype.update = function () {
         _SMB_update.call(this);
@@ -306,49 +265,17 @@
         if (bmp) updateBgBitmap(bmp, _t);
     };
 
-    // ── Scene_Base 오버라이드 (닫기 후 게임씬 블러 오버레이) ──────────────────
-
-    var _SB_start = Scene_Base.prototype.start;
-    Scene_Base.prototype.start = function () {
-        _SB_start.call(this);
-        if (_mapBlurPending && !(this instanceof Scene_MenuBase)) {
-            _mapBlurPending = false;
-            _createMapOverlay();
-            _drawMapOverlay(_mapBlurStartT);
-            _mapBlurPhase = true;
-            _elapsed = 0;
-            _t = _mapBlurStartT;
-        }
-    };
-
-    var _SB_update = Scene_Base.prototype.update;
-    Scene_Base.prototype.update = function () {
-        _SB_update.call(this);
-        if (!_mapBlurPhase) return;
-
-        _elapsed++;
-        var raw = Math.min(1, _elapsed / Cfg.duration);
-        _t = _mapBlurStartT * applyEase(1 - raw);
-        _drawMapOverlay(_t);
-
-        if (raw >= 1) {
-            _removeMapOverlay();
-            _srcCanvas = null;
-        }
-    };
-
-    // ── SceneManager.pop 오버라이드 (닫기) ───────────────────────────────────
+    // ── SceneManager.pop 오버라이드 (닫기 시 페이드 억제) ────────────────────
 
     if (Cfg.closeAnim) {
         var _origPop = SceneManager.pop;
         SceneManager.pop = function () {
             var scene = this._scene;
             if (scene instanceof Scene_MenuBase && _phase !== 0) {
-                _mapBlurStartT       = _t;    // 현재 블러 강도에서 시작
-                _suppressNextFadeOut = true;  // 메뉴씬 페이드아웃 즉시 완료
-                _suppressNextFadeIn  = true;  // 복귀씬 페이드인 억제 (오버레이가 대신)
-                _mapBlurPending      = true;  // 복귀씬 start()에서 오버레이 생성
+                _suppressNextFadeOut = true;  // 메뉴씬 페이드아웃 억제
+                _suppressNextFadeIn  = true;  // 복귀씬 페이드인 억제
                 _setMenuBgHook(false);
+                _srcCanvas = null;
                 _phase = 0;
             }
             _origPop.call(this);
