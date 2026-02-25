@@ -48,7 +48,7 @@
  * @type number
  * @min 1
  * @max 120
- * @default 20
+ * @default 40
  *
  * @param easing
  * @text 이징
@@ -270,9 +270,11 @@
     if (Cfg.closeAnim) {
         var _origPop = SceneManager.pop;
         SceneManager.pop = function () {
+            if (_phase === 3) return;  // 닫기 애니메이션 진행 중 → 추가 pop 무시
             var scene = this._scene;
-            if (scene instanceof Scene_MenuBase && _phase !== 3) {
-                scene._active = false;
+            if (scene instanceof Scene_MenuBase && _phase !== 0) {
+                // _active = false를 설정하지 않음 → update()가 계속 실행되어
+                // updateBgBitmap이 매 프레임 호출되고 닫기 애니메이션이 부드럽게 동작
                 var mgr = this;
                 startClose(function () {
                     _srcCanvas = null;
