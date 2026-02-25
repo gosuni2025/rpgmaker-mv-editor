@@ -467,13 +467,28 @@
       if (!event) return null;
       const data = $dataMap && $dataMap.minimapData && $dataMap.minimapData[event.eventId()];
       if (!data || !data.enabled) return null;
-      return { color: data.color || CFG.eventMarkerColor, shape: data.shape || 'circle' };
+      return {
+        color: data.color || CFG.eventMarkerColor,
+        shape: data.shape || 'circle',
+        iconIndex: data.iconIndex,
+      };
     },
 
     // ----------------------------------------------------------
     // 마커 그리기 헬퍼
     // ----------------------------------------------------------
-    _drawMarker(ctx, sx, sy, r, color, shape) {
+    _drawMarker(ctx, sx, sy, r, color, shape, iconBitmap, iconIndex) {
+      // 아이콘 모드: IconSet에서 해당 아이콘을 축소하여 표시
+      if (iconIndex !== undefined && iconBitmap && iconBitmap._canvas) {
+        const col  = iconIndex % 16;
+        const row  = Math.floor(iconIndex / 16);
+        const size = r * 2.4;
+        ctx.globalAlpha = 1.0;
+        ctx.drawImage(iconBitmap._canvas, col * 32, row * 32, 32, 32,
+                      sx - size / 2, sy - size / 2, size, size);
+        return;
+      }
+
       ctx.globalAlpha = 1.0;
       ctx.fillStyle   = color;
       ctx.strokeStyle = 'rgba(0,0,0,0.6)';
@@ -491,12 +506,59 @@
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
+      } else if (shape === 'star') {
+        const outer = r * 1.2;
+        const inner = r * 0.48;
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const outerAngle = (i * 2 * Math.PI / 5) - Math.PI / 2;
+          const innerAngle = outerAngle + Math.PI / 5;
+          const ox = sx + outer * Math.cos(outerAngle);
+          const oy = sy + outer * Math.sin(outerAngle);
+          const ix = sx + inner * Math.cos(innerAngle);
+          const iy = sy + inner * Math.sin(innerAngle);
+          if (i === 0) ctx.moveTo(ox, oy); else ctx.lineTo(ox, oy);
+          ctx.lineTo(ix, iy);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else if (shape === 'triangle') {
+        ctx.beginPath();
+        ctx.moveTo(sx,            sy - r * 1.3);
+        ctx.lineTo(sx + r * 1.1,  sy + r * 0.8);
+        ctx.lineTo(sx - r * 1.1,  sy + r * 0.8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else if (shape === 'cross') {
+        const w = r * 0.42;
+        ctx.fillRect(sx - w, sy - r, w * 2, r * 2);
+        ctx.fillRect(sx - r, sy - w, r * 2, w * 2);
+        ctx.strokeRect(sx - r + 0.5, sy - w + 0.5, r * 2 - 1, w * 2 - 1);
+        ctx.strokeRect(sx - w + 0.5, sy - r + 0.5, w * 2 - 1, r * 2 - 1);
+      } else if (shape === 'heart') {
+        const s = r * 0.9;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy + s * 0.9);
+        ctx.bezierCurveTo(sx - s * 1.5, sy + s * 0.1, sx - s * 1.5, sy - s, sx, sy - s * 0.3);
+        ctx.bezierCurveTo(sx + s * 1.5, sy - s, sx + s * 1.5, sy + s * 0.1, sx, sy + s * 0.9);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
       } else { // circle (기본)
         ctx.beginPath();
         ctx.arc(sx, sy, r, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
       }
+    },
+
+    _getIconBitmap() {
+      if (!this._iconBitmap) {
+        this._iconBitmap = ImageManager.loadSystem('IconSet');
+      }
+      return this._iconBitmap;
     },
 
     // ----------------------------------------------------------
@@ -576,7 +638,8 @@
         }
       }
 
-      const markerR = Math.max(2, ts * 0.8);
+      const markerR    = Math.max(2, ts * 0.8);
+      const iconBitmap = this._getIconBitmap();
 
       // ── 이벤트 마커 (EXT: minimapData) ──────────────────────────
       if (CFG.showEvents && $gameMap.events) {
@@ -593,7 +656,7 @@
           this._drawMarker(ctx,
             (ex - startX) * ts + ts * 0.5,
             (ey - startY) * ts + ts * 0.5,
-            markerR, marker.color, marker.shape);
+            markerR, marker.color, marker.shape, iconBitmap, marker.iconIndex);
         });
       }
 

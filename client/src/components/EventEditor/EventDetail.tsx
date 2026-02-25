@@ -2,7 +2,8 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import useEscClose from '../../hooks/useEscClose';
-import type { RPGEvent, EventPage, MinimapMarkerData } from '../../types/rpgMakerMV';
+import type { RPGEvent, EventPage, MinimapMarkerData, MinimapMarkerShape } from '../../types/rpgMakerMV';
+import IconPicker from '../common/IconPicker';
 import EventCommandEditor from './EventCommandEditor';
 import ImagePicker from '../common/ImagePicker';
 import MoveRouteDialog from './MoveRouteDialog';
@@ -129,12 +130,29 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
               <input type="color" value={minimapMarker.color} title="마커 색상"
                 style={{ width: 28, height: 20, padding: 1, cursor: 'pointer', border: '1px solid #555' }}
                 onChange={e => setMinimapMarker(prev => prev ? { ...prev, color: e.target.value } : null)} />
-              <select value={minimapMarker.shape} className="event-editor-input" style={{ width: 80 }}
-                onChange={e => setMinimapMarker(prev => prev ? { ...prev, shape: e.target.value as MinimapMarkerData['shape'] } : null)}>
+              <select value={minimapMarker.iconIndex !== undefined ? '__icon__' : (minimapMarker.shape ?? 'circle')}
+                className="event-editor-input" style={{ width: 90 }}
+                onChange={e => {
+                  const v = e.target.value;
+                  if (v === '__icon__') {
+                    setMinimapMarker(prev => prev ? { ...prev, iconIndex: prev.iconIndex ?? 0 } : null);
+                  } else {
+                    setMinimapMarker(prev => prev ? { ...prev, shape: v as MinimapMarkerShape, iconIndex: undefined } : null);
+                  }
+                }}>
                 <option value="circle">원형</option>
                 <option value="square">사각형</option>
                 <option value="diamond">다이아몬드</option>
+                <option value="star">별</option>
+                <option value="triangle">삼각형</option>
+                <option value="cross">십자</option>
+                <option value="heart">하트</option>
+                <option value="__icon__">아이콘</option>
               </select>
+              {minimapMarker.iconIndex !== undefined && (
+                <IconPicker value={minimapMarker.iconIndex}
+                  onChange={idx => setMinimapMarker(prev => prev ? { ...prev, iconIndex: idx } : null)} />
+              )}
             </>)}
           </label>
         </div>
