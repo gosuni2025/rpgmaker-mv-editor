@@ -115,6 +115,9 @@
     var _needsBlurredSnapshot = false;  // t=1 도달 시 블러 결과 저장 트리거
     var _srcCanvas = null;              // 스냅샷 캔버스 (PostProcess._captureCanvas 복사본)
 
+    var _suppressNextFadeOut = false;  // 닫기 후 메뉴씬 검정 페이드아웃 억제
+    var _suppressNextFadeIn  = false;  // 닫기 후 복귀씬(맵 등) 페이드인 억제
+
     // ── 애니메이션 타이머 ─────────────────────────────────────────────────────
 
     function tick() {
@@ -245,6 +248,26 @@
         }
     };
 
+    // startFadeOut: 닫기 애니메이션 완료 직후 발생하는 검정 오버레이 억제
+    var _SMB_startFadeOut = Scene_MenuBase.prototype.startFadeOut;
+    Scene_MenuBase.prototype.startFadeOut = function (duration, white) {
+        if (_suppressNextFadeOut) {
+            _suppressNextFadeOut = false;
+            return;  // 즉시 종료 (검정 페이드 없음 → isBusy()=false → 즉시 씬 전환)
+        }
+        _SMB_startFadeOut.call(this, duration, white);
+    };
+
+    // 닫기 후 복귀하는 씬(Scene_Map 등)의 페이드인 억제
+    var _SB_startFadeIn = Scene_Base.prototype.startFadeIn;
+    Scene_Base.prototype.startFadeIn = function (duration, white) {
+        if (_suppressNextFadeIn) {
+            _suppressNextFadeIn = false;
+            return;  // 즉시 표시 (검정 페이드 없음)
+        }
+        _SB_startFadeIn.call(this, duration, white);
+    };
+
     // update: 매 프레임 배경 비트맵 업데이트
     var _SMB_update = Scene_MenuBase.prototype.update;
     Scene_MenuBase.prototype.update = function () {
@@ -278,6 +301,8 @@
                 var mgr = this;
                 startClose(function () {
                     _srcCanvas = null;
+                    _suppressNextFadeOut = true;  // 메뉴씬 stop() → startFadeOut 억제
+                    _suppressNextFadeIn  = true;  // 복귀씬(맵) startFadeIn 억제
                     _origPop.call(mgr);
                 });
             } else {
