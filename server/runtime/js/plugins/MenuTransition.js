@@ -140,6 +140,14 @@
     var _mapBlurStartT  = 1;
     var _mapBlurPhase   = false;
 
+    // ── DEBUG ─────────────────────────────────────────────────────────────────
+    var _dbgFrame = 0;
+    function _log() {
+        var args = Array.prototype.slice.call(arguments);
+        args.unshift('[MT f' + _dbgFrame + ']');
+        console.log.apply(console, args);
+    }
+
     // ── PostProcess 유틸 ──────────────────────────────────────────────────────
 
     function _hasPostProcess() {
@@ -149,6 +157,7 @@
     // t: 0=효과 없음, 1=최대 강도
     function _applyEffect(t) {
         if (!_hasPostProcess()) return;
+        _log('_applyEffect(' + t.toFixed(3) + ') phase=' + _phase + ' pending=' + _mapBlurPending + ' blurPhase=' + _mapBlurPhase);
         if (t <= 0.001) {
             PostProcess.clearTransitionEffects();
             return;
@@ -260,6 +269,7 @@
 
     var _SB_update = Scene_Base.prototype.update;
     Scene_Base.prototype.update = function () {
+        _dbgFrame++;
         _SB_update.call(this);
         if (this instanceof Scene_MenuBase) return;
 
@@ -287,6 +297,9 @@
             _elapsed++;
             var rawClose = Math.min(1, _elapsed / Cfg.duration);
             _t = _mapBlurStartT * applyEase(1 - rawClose);
+            if (_elapsed <= 5 || rawClose >= 1) {
+                _log('closeAnim e=' + _elapsed + ' t=' + _t.toFixed(3));
+            }
             _applyEffect(_t);
 
             if (rawClose >= 1) {
@@ -294,6 +307,7 @@
                 _mapBlurPhase = false;
                 _srcCanvas    = null;
                 _t            = 0;
+                _log('closeAnim 완료');
             }
         }
     };
@@ -313,12 +327,15 @@
 
     var _SB_start = Scene_Base.prototype.start;
     Scene_Base.prototype.start = function () {
+        var sn = this.constructor ? this.constructor.name : '?';
+        _log('scene.start [' + sn + '] pending=' + _mapBlurPending + ' blurPhase=' + _mapBlurPhase + ' isMenu=' + (this instanceof Scene_MenuBase));
         _SB_start.call(this);
         if (_mapBlurPending && !(this instanceof Scene_MenuBase)) {
             _mapBlurPending = false;
             _mapBlurPhase   = true;
             _elapsed        = 0;
             _t              = _mapBlurStartT;
+            _log('closeAnim 시작');
             _applyEffect(_mapBlurStartT);
         }
     };
@@ -385,17 +402,36 @@
 
     // ── SceneManager.pop 오버라이드: 닫기 PostProcess 트리거 ─────────────────
 
-    // ── PostProcess._createComposer 훅: composer 재생성 시 transition blur 재적용 ──
-    // _ThreeStrategy.render에서 stage 변경 시 새 패스 객체(enabled=false)로 재생성되므로
-    // 닫기/열기 진행 중이면 즉시 재적용해야 render 전에 blur가 활성화됨
-    if (typeof PostProcess !== 'undefined' && PostProcess._createComposer) {
-        var _origCreateComposer = PostProcess._createComposer;
-        PostProcess._createComposer = function () {
-            _origCreateComposer.apply(this, arguments);
-            if (_mapBlurPending || _mapBlurPhase || _phase === 1) {
-                var reapplyT = _mapBlurPhase ? _t : (_mapBlurPending ? _mapBlurStartT : _t);
-                _applyEffect(reapplyT);
-            }
+    // ── PostProcess._createComposer / _createComposer2D 훅 ────────────────────
+    // 두 경로 모두 transition pass를 enabled=false로 재생성하므로 둘 다 훅
+    function _afterComposerCreated(label) {
+        _log(label + ' 호출됨 → composerMode=' + PostProcess._composerMode);
+        if (_mapBlurPending || _mapBlurPhase || _phase === 1) {
+            var reapplyT = _mapBlurPhase ? _t : (_mapBlurPending ? _mapBlurStartT : _t);
+            _log(label + ' 후 blur 재적용 t=' + reapplyT.toFixed(3));
+            _applyEffect(reapplyT);
+        }
+    }
+    if (typeof PostProcess !== 'undefined') {
+        if (PostProcess._createComposer) {
+            var _origCreateComposer = PostProcess._createComposer;
+            PostProcess._createComposer = function () {
+                _origCreateComposer.apply(this, arguments);
+                _afterComposerCreated('_createComposer(3D)');
+            };
+        }
+        if (PostProcess._createComposer2D) {
+            var _origCreateComposer2D = PostProcess._createComposer2D;
+            PostProcess._createComposer2D = function () {
+                _origCreateComposer2D.apply(this, arguments);
+                _afterComposerCreated('_createComposer2D');
+            };
+        }
+        // clearTransitionEffects 훅: 누가 호출하는지 추적
+        var _origClearTransition = PostProcess.clearTransitionEffects;
+        PostProcess.clearTransitionEffects = function () {
+            _log('clearTransitionEffects 호출! stack=' + (new Error().stack || '').split('\n').slice(1, 4).join(' | '));
+            _origClearTransition.call(this);
         };
     }
 
@@ -403,12 +439,14 @@
         var _origPop = SceneManager.pop;
         SceneManager.pop = function () {
             var isMenu = SceneManager._scene instanceof Scene_MenuBase;
+            _log('SceneManager.pop isMenu=' + isMenu + ' _phase=' + _phase + ' _t=' + _t.toFixed(3));
             if (isMenu && _phase !== 0) {
                 _mapBlurStartT       = _t;
                 _suppressMenuFadeOut = true;
                 _suppressGameFadeIn  = true;
                 _mapBlurPending      = true;
                 _phase               = 0;
+                _log('pop → pending=true startT=' + _mapBlurStartT.toFixed(3));
                 _applyEffect(_mapBlurStartT);  // 로딩 프레임 동안 blur 유지
             }
             _origPop.call(this);
