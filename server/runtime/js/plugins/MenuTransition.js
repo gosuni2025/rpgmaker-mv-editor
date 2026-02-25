@@ -120,6 +120,45 @@
     var _suppressNextFadeOut = false;  // 닫기 후 메뉴씬 검정 페이드아웃 억제
     var _suppressNextFadeIn  = false;  // 닫기 후 복귀씬(맵 등) 페이드인 억제
 
+    // ── PostProcess.menuBgHook: 메뉴 씬 렌더링 중 bloom/PP 비활성화 ──────────
+    // 스냅샷에 이미 bloom이 적용되어 있으므로 2D composer의 bloom을 비활성화.
+    // 비활성화하지 않으면 bloom이 이중 적용되어 화면이 밝아지는("광원이 쌔짐") 현상 발생.
+
+    function _setMenuBgHook(active) {
+        if (typeof PostProcess === 'undefined') return;
+        if (active) {
+            PostProcess.menuBgHook = {
+                preRender: function (renderer, composer) {
+                    if (PostProcess._bloomPass) {
+                        PostProcess._bloomPass._mt_was = PostProcess._bloomPass.enabled;
+                        PostProcess._bloomPass.enabled = false;
+                    }
+                    if (PostProcess._ppPasses) {
+                        for (var k in PostProcess._ppPasses) {
+                            var p = PostProcess._ppPasses[k];
+                            p._mt_was = p.enabled;
+                            p.enabled = false;
+                        }
+                    }
+                },
+                postRender: function () {
+                    if (PostProcess._bloomPass && '_mt_was' in PostProcess._bloomPass) {
+                        PostProcess._bloomPass.enabled = PostProcess._bloomPass._mt_was;
+                        delete PostProcess._bloomPass._mt_was;
+                    }
+                    if (PostProcess._ppPasses) {
+                        for (var k in PostProcess._ppPasses) {
+                            var p = PostProcess._ppPasses[k];
+                            if ('_mt_was' in p) { p.enabled = p._mt_was; delete p._mt_was; }
+                        }
+                    }
+                }
+            };
+        } else {
+            PostProcess.menuBgHook = null;
+        }
+    }
+
     // ── 애니메이션 제어 ───────────────────────────────────────────────────────
     // requestAnimationFrame 독립 루프 없음 — update()에서 프레임 카운터로 제어.
     // 게임 루프가 블로킹되면 _elapsed 증가가 멈춰 애니메이션도 일시정지됨.
@@ -128,6 +167,7 @@
         _elapsed = 0;
         _phase = 1;
         _t = 0;
+        _setMenuBgHook(true);
     }
 
     function startClose(cb) {
@@ -194,6 +234,12 @@
         _SMB_create.call(this);
         if (!_srcCanvas) return;
         startOpen();
+    };
+
+    var _SMB_terminate = Scene_MenuBase.prototype.terminate;
+    Scene_MenuBase.prototype.terminate = function () {
+        _SMB_terminate.call(this);
+        _setMenuBgHook(false);
     };
 
     // startFadeIn: MT가 열기 애니메이션을 담당 → 페이드인 즉시 완료
