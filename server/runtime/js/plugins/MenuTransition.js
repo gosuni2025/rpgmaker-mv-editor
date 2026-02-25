@@ -140,6 +140,16 @@
     var _mapBlurStartT  = 1;
     var _mapBlurPhase   = false;
 
+    // ── DEBUG ─────────────────────────────────────────────────────────────────
+    var _dbgFrame = 0;
+    var _MT_LOG = true;  // 로그 끄려면 false로
+    function _log() {
+        if (!_MT_LOG) return;
+        var args = Array.prototype.slice.call(arguments);
+        args.unshift('[MT f' + _dbgFrame + ']');
+        console.log.apply(console, args);
+    }
+
     // ── PostProcess 유틸 ──────────────────────────────────────────────────────
 
     function _hasPostProcess() {
@@ -149,6 +159,7 @@
     // t: 0=효과 없음, 1=최대 강도
     function _applyEffect(t) {
         if (!_hasPostProcess()) return;
+        _log('_applyEffect(' + t.toFixed(3) + ')');
         if (t <= 0.001) {
             PostProcess.clearTransitionEffects();
             return;
@@ -208,6 +219,7 @@
 
     var _origSnapForBg = SceneManager.snapForBackground;
     SceneManager.snapForBackground = function () {
+        _log('snapForBackground phase=' + _phase + ' pending=' + _mapBlurPending + ' startT=' + _mapBlurStartT);
         _origSnapForBg.call(this);
 
         // PostProcess._captureCanvas: 마지막 렌더 프레임 (최대 효과 상태)
@@ -223,8 +235,10 @@
         // 열기 시: 스냅샷에 효과가 구워졌으므로 PostProcess 효과 해제
         // 닫기 시(_mapBlurPending=true): 로딩 프레임 중에도 blur를 유지해야 하므로 최대값으로 설정
         if (_mapBlurPending) {
+            _log('snapForBg close-path → applyEffect(' + _mapBlurStartT + ')');
             _applyEffect(_mapBlurStartT);
         } else {
+            _log('snapForBg open-path → applyEffect(0)');
             _applyEffect(0);
         }
     };
@@ -260,6 +274,7 @@
 
     var _SB_update = Scene_Base.prototype.update;
     Scene_Base.prototype.update = function () {
+        _dbgFrame++;
         _SB_update.call(this);
         if (this instanceof Scene_MenuBase) return;
 
@@ -278,6 +293,7 @@
                 _origPush.call(SceneManager, _pendingPushClass);
                 _pendingPushClass = null;
                 _phase = 2;
+                _log('phase1 완료 → push, _t=1');
             }
             return;
         }
@@ -287,6 +303,9 @@
             _elapsed++;
             var rawClose = Math.min(1, _elapsed / Cfg.duration);
             _t = _mapBlurStartT * applyEase(1 - rawClose);
+            if (_elapsed <= 3 || rawClose >= 1) {
+                _log('closeAnim elapsed=' + _elapsed + ' rawClose=' + rawClose.toFixed(3) + ' _t=' + _t.toFixed(3));
+            }
             _applyEffect(_t);
 
             if (rawClose >= 1) {
@@ -294,6 +313,7 @@
                 _mapBlurPhase = false;
                 _srcCanvas    = null;
                 _t            = 0;
+                _log('closeAnim 완료');
             }
         }
     };
@@ -313,12 +333,15 @@
 
     var _SB_start = Scene_Base.prototype.start;
     Scene_Base.prototype.start = function () {
+        var sceneName = this.constructor ? this.constructor.name : '?';
+        _log('scene.start [' + sceneName + '] pending=' + _mapBlurPending + ' isMenuBase=' + (this instanceof Scene_MenuBase));
         _SB_start.call(this);
         if (_mapBlurPending && !(this instanceof Scene_MenuBase)) {
             _mapBlurPending = false;
             _mapBlurPhase   = true;
             _elapsed        = 0;
             _t              = _mapBlurStartT;
+            _log('closeAnim 시작 → applyEffect(' + _mapBlurStartT + ')');
             _applyEffect(_mapBlurStartT);
         }
     };
@@ -388,12 +411,17 @@
     if (Cfg.closeAnim) {
         var _origPop = SceneManager.pop;
         SceneManager.pop = function () {
-            if (SceneManager._scene instanceof Scene_MenuBase && _phase !== 0) {
+            var isMenu = SceneManager._scene instanceof Scene_MenuBase;
+            _log('SceneManager.pop isMenu=' + isMenu + ' _phase=' + _phase + ' _t=' + _t.toFixed(3));
+            if (isMenu && _phase !== 0) {
                 _mapBlurStartT       = _t;
                 _suppressMenuFadeOut = true;
                 _suppressGameFadeIn  = true;
                 _mapBlurPending      = true;
                 _phase               = 0;
+                _log('pop → pending=true startT=' + _mapBlurStartT.toFixed(3));
+            } else {
+                _log('pop → 조건 불만족 (건너뜀)');
             }
             _origPop.call(this);
         };
