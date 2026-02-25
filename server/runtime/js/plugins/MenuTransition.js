@@ -110,19 +110,21 @@
 
     // ── 상태 ─────────────────────────────────────────────────────────────────
 
-    var _phase   = 0;   // 0=비활성, 1=열기, 2=열림, 3=닫기
-    var _t       = 0;
-    var _elapsed = 0;   // 게임 루프 update() 호출 횟수 (프레임 카운터)
-    var _closeCb = null;
+    var _phase        = 0;   // 0=비활성, 1=열기, 2=열림, 3=닫기
+    var _t            = 0;
+    var _elapsed      = 0;   // 게임 루프 update() 호출 횟수 (프레임 카운터)
+    var _closeCb      = null;
+    var _pendingClose = false;  // true: 닫기 완료 후 t=0 렌더 1프레임 대기 중
 
     var _srcCanvas = null;  // 스냅샷 캔버스 (PostProcess._captureCanvas 복사본)
 
     var _suppressNextFadeOut = false;  // 닫기 후 메뉴씬 검정 페이드아웃 억제
     var _suppressNextFadeIn  = false;  // 닫기 후 복귀씬(맵 등) 페이드인 억제
 
-    // ── PostProcess.menuBgHook: 메뉴 씬 렌더링 중 bloom/PP 비활성화 ──────────
-    // 스냅샷에 이미 bloom이 적용되어 있으므로 2D composer의 bloom을 비활성화.
-    // 비활성화하지 않으면 bloom이 이중 적용되어 화면이 밝아지는("광원이 쌔짐") 현상 발생.
+    // ── PostProcess.menuBgHook: 메뉴 씬 렌더링 중 bloom만 비활성화 ─────────────
+    // 스냅샷에 이미 bloom이 적용되어 있으므로 2D composer의 bloomPass만 비활성화.
+    // ppPasses(godRays, waveDistortion 등)는 계속 활성화하여 배경에 효과가 유지되도록 함.
+    // 비활성화하면 메뉴 닫힐 때 효과가 갑자기 켜지는 현상 발생.
 
     function _setMenuBgHook(active) {
         if (typeof PostProcess === 'undefined') return;
@@ -133,24 +135,11 @@
                         PostProcess._bloomPass._mt_was = PostProcess._bloomPass.enabled;
                         PostProcess._bloomPass.enabled = false;
                     }
-                    if (PostProcess._ppPasses) {
-                        for (var k in PostProcess._ppPasses) {
-                            var p = PostProcess._ppPasses[k];
-                            p._mt_was = p.enabled;
-                            p.enabled = false;
-                        }
-                    }
                 },
                 postRender: function () {
                     if (PostProcess._bloomPass && '_mt_was' in PostProcess._bloomPass) {
                         PostProcess._bloomPass.enabled = PostProcess._bloomPass._mt_was;
                         delete PostProcess._bloomPass._mt_was;
-                    }
-                    if (PostProcess._ppPasses) {
-                        for (var k in PostProcess._ppPasses) {
-                            var p = PostProcess._ppPasses[k];
-                            if ('_mt_was' in p) { p.enabled = p._mt_was; delete p._mt_was; }
-                        }
                     }
                 }
             };
@@ -167,6 +156,7 @@
         _elapsed = 0;
         _phase = 1;
         _t = 0;
+        _pendingClose = false;
         _setMenuBgHook(true);
     }
 
@@ -174,6 +164,7 @@
         if (_phase === 0) { if (cb) cb(); return; }
         _elapsed = 0;
         _phase = 3;
+        _pendingClose = false;
         _closeCb = cb || null;
     }
 
@@ -289,9 +280,16 @@
             } else {  // phase === 3
                 _t = applyEase(1 - raw);
                 if (raw >= 1) {
-                    _t = 0; _phase = 0;
-                    if (_closeCb) { var cb = _closeCb; _closeCb = null; cb(); }
-                    return;  // _srcCanvas=null 직후이므로 bitmap 업데이트 불필요
+                    _t = 0;
+                    if (!_pendingClose) {
+                        // 1프레임 대기: t=0으로 비트맵 갱신 후 renderScene이 한 번 더 그리도록
+                        _pendingClose = true;
+                    } else {
+                        _pendingClose = false;
+                        _phase = 0;
+                        if (_closeCb) { var cb = _closeCb; _closeCb = null; cb(); }
+                        return;
+                    }
                 }
             }
         }
