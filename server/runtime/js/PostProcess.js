@@ -2366,11 +2366,16 @@ Simple2DRenderPass.prototype.render = function(renderer, writeBuffer /*, readBuf
     };
 
     // renderer.render를 래핑하여 UI Three.js 오브젝트를 직전에 숨기고 직후 복원
+    // 원래 visibility를 저장했다가 복원 (false인 오브젝트를 true로 잘못 복원하는 버그 방지)
+    var nonSpriteOrigVisible = [];
+    for (var noi = 0; noi < nonSpriteThreeObjs.length; noi++) {
+        nonSpriteOrigVisible.push(nonSpriteThreeObjs[noi].visible);
+    }
     var origRenderFn = renderer.render;
     renderer.render = function(scene, camera) {
         for (var i = 0; i < nonSpriteThreeObjs.length; i++) nonSpriteThreeObjs[i].visible = false;
         origRenderFn.call(renderer, scene, camera);
-        for (var i = 0; i < nonSpriteThreeObjs.length; i++) nonSpriteThreeObjs[i].visible = true;
+        for (var i = 0; i < nonSpriteThreeObjs.length; i++) nonSpriteThreeObjs[i].visible = nonSpriteOrigVisible[i];
     };
 
     // FOW 메쉬 숨김 (bloom 전에 렌더되지 않도록)
