@@ -268,7 +268,7 @@ export default function EventInspector() {
   useEffect(() => {
     const vis: Record<string, boolean> = {};
     for (const r of rawRoutes) {
-      vis[r.id] = r.type === 'autonomous';
+      vis[r.id] = true;
     }
     setRouteVisibility(vis);
   }, [event?.id, rawRoutes.length]);
@@ -278,7 +278,7 @@ export default function EventInspector() {
     let colorIndex = 0;
     return rawRoutes.map(r => ({
       ...r,
-      visible: routeVisibility[r.id] ?? (r.type === 'autonomous'),
+      visible: routeVisibility[r.id] ?? true,
       color: ROUTE_COLORS[colorIndex++ % ROUTE_COLORS.length],
     }));
   }, [rawRoutes, routeVisibility]);
