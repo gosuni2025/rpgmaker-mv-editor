@@ -192,55 +192,22 @@
         bitmap._setDirty();
     }
 
-    // ── 게임씬 블러 오버레이 (닫기 후) ───────────────────────────────────────
+    // ── 게임씬 닫기 오버레이 (단색 div — 이미지 불필요) ──────────────────────
 
     function _createMapOverlay() {
         _removeMapOverlay();
-        if (!_srcCanvas) return;
 
-        var gameCanvas = Graphics._canvas;
-        if (!gameCanvas) return;
+        var div = document.createElement('div');
+        div.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
+            'background:rgb(' + _overlayRGB[0] + ',' + _overlayRGB[1] + ',' + _overlayRGB[2] + ');' +
+            'pointer-events:none;z-index:100;';
 
-        var canvas = document.createElement('canvas');
-        canvas.width  = _srcCanvas.width;
-        canvas.height = _srcCanvas.height;
-
-        // 게임 캔버스의 실제 화면 위치·크기에 맞춰 오버레이 배치
-        var rect = gameCanvas.getBoundingClientRect();
-        canvas.style.cssText = 'position:fixed;pointer-events:none;z-index:100;' +
-            'top:'    + rect.top    + 'px;' +
-            'left:'   + rect.left   + 'px;' +
-            'width:'  + rect.width  + 'px;' +
-            'height:' + rect.height + 'px;';
-
-        document.body.appendChild(canvas);
-        _mapBlurCanvas = canvas;
+        document.body.appendChild(div);
+        _mapBlurCanvas = div;
     }
 
     function _drawMapOverlay(t) {
-        if (!_mapBlurCanvas || !_srcCanvas) return;
-        var w = _mapBlurCanvas.width, h = _mapBlurCanvas.height;
-        var ctx = _mapBlurCanvas.getContext('2d');
-        ctx.clearRect(0, 0, w, h);
-
-        if (t <= 0.001) {
-            _mapBlurCanvas.style.opacity = 0;
-            return;
-        }
-
-        if (Cfg.effect !== 'overlayOnly' && Cfg.blur > 0) {
-            var blurPx = t * Cfg.blur / 100 * 20;
-            ctx.filter = 'blur(' + blurPx.toFixed(2) + 'px)';
-        }
-        ctx.drawImage(_srcCanvas, 0, 0, w, h);
-        ctx.filter = 'none';
-
-        if (Cfg.effect !== 'blurOnly') {
-            var oa = (Cfg.overlayAlpha / 255) * t;
-            ctx.fillStyle = 'rgba(' + _overlayRGB[0] + ',' + _overlayRGB[1] + ',' + _overlayRGB[2] + ',' + oa + ')';
-            ctx.fillRect(0, 0, w, h);
-        }
-
+        if (!_mapBlurCanvas) return;
         _mapBlurCanvas.style.opacity = t;
     }
 
@@ -346,13 +313,11 @@
         _SB_start.call(this);
         if (_mapBlurPending && !(this instanceof Scene_MenuBase)) {
             _mapBlurPending = false;
-            if (_srcCanvas) {
-                _createMapOverlay();
-                _drawMapOverlay(_mapBlurStartT);
-                _mapBlurPhase = true;
-                _elapsed = 0;
-                _t = _mapBlurStartT;
-            }
+            _createMapOverlay();
+            _drawMapOverlay(_mapBlurStartT);
+            _mapBlurPhase = true;
+            _elapsed = 0;
+            _t = _mapBlurStartT;
         }
     };
 
