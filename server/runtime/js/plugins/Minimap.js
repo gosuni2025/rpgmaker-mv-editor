@@ -284,8 +284,8 @@
   try { CFG.regionColors  = JSON.parse(p['regionColors']  || '{}'); } catch(e) {}
   try { CFG.terrainColors = JSON.parse(p['terrainColors'] || '{}'); } catch(e) {}
 
-  const BTN_SIZE = 22; // +/- 버튼 크기 (px)
-  const BTN_GAP  = 4;  // 버튼 사이 간격
+  const BTN_SIZE = 24; // +/- 버튼 크기 (px)
+  const BTN_GAP  = 10; // 버튼 사이 간격
 
   // ============================================================
   // Game_System — 세이브 데이터
@@ -827,8 +827,10 @@
 
       if (overPlus) {
         this.setTileSize(CFG.tileSize + 1);
+        TouchInput._triggered = false; // 맵 이동으로 전파 방지
       } else if (overMinus) {
         this.setTileSize(CFG.tileSize - 1);
+        TouchInput._triggered = false; // 맵 이동으로 전파 방지
       }
     },
 

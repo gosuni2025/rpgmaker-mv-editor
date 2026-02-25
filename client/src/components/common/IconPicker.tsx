@@ -74,7 +74,20 @@ export default function IconPicker({ value, onChange, initialOpen, onClose, hide
 
   useEffect(() => {
     console.log('[IconPicker] open effect — open:', open, 'iconSheet:', !!iconSheet, 'canvasRef:', !!canvasRef.current);
-    if (open) drawSheet();
+    if (open) {
+      drawSheet();
+      setTimeout(() => {
+        const el = document.querySelector('.icon-picker-overlay') as HTMLElement | null;
+        if (el) {
+          const cs = window.getComputedStyle(el);
+          console.log('[IconPicker] overlay in DOM — display:', cs.display, 'visibility:', cs.visibility, 'opacity:', cs.opacity, 'z-index:', cs.zIndex, 'rect:', JSON.stringify(el.getBoundingClientRect()));
+        } else {
+          console.warn('[IconPicker] overlay NOT found in DOM');
+        }
+        const canvas = canvasRef.current;
+        console.log('[IconPicker] canvas size:', canvas?.width, 'x', canvas?.height);
+      }, 50);
+    }
   }, [open, drawSheet]);
 
   const getIdxFromEvent = (e: React.MouseEvent<HTMLCanvasElement>) => {
