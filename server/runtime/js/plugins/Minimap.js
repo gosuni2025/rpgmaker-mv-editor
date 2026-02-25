@@ -166,13 +166,6 @@
   try { CFG.regionColors  = JSON.parse(p['regionColors']  || '{}'); } catch(e) {}
   try { CFG.terrainColors = JSON.parse(p['terrainColors'] || '{}'); } catch(e) {}
 
-  // 회전 시 코너 잘림 방지: 대각선 길이로 캔버스 확보
-  const DIAG_SIZE = Math.ceil(CFG.size * Math.SQRT2);
-  const HALF_DIAG = DIAG_SIZE / 2;
-  const HALF_SIZE = CFG.size / 2;
-  // 캔버스 중심 → 마스크 중심 오프셋 (양수이면 캔버스가 더 크므로 바깥쪽)
-  const CANVAS_OFFSET = (DIAG_SIZE - CFG.size) / 2;
-
   // ============================================================
   // Game_System — FoW 데이터 세이브/로드
   // ============================================================
@@ -180,8 +173,8 @@
   const _Game_System_initialize = Game_System.prototype.initialize;
   Game_System.prototype.initialize = function () {
     _Game_System_initialize.call(this);
-    this._minimapFow     = {};  // { mapId: Array }
-    this._minimapVisible = CFG.enabled;
+    this._minimapFow     = {};   // { mapId: Array<0|1> }
+    this._minimapVisible = true;
   };
 
   // ============================================================
@@ -194,11 +187,9 @@
     MinimapManager.explore(this.x, this.y);
   };
 
-  // 맵 이동 후 초기 탐험
   const _Game_Player_performTransfer = Game_Player.prototype.performTransfer;
   Game_Player.prototype.performTransfer = function () {
     _Game_Player_performTransfer.call(this);
-    // performTransfer가 완료된 다음 프레임에 탐험 (맵 로드 후)
     MinimapManager._pendingExplore = true;
   };
 
@@ -221,7 +212,7 @@
   };
 
   // ============================================================
-  // Scene_Map — 미니맵 스프라이트 생성/갱신/해제
+  // Scene_Map — 미니맵 생성/갱신/해제
   // ============================================================
 
   const _Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindows;
@@ -249,32 +240,25 @@
   // ============================================================
 
   const MinimapManager = {
-    _canvas:       null,
-    _ctx:          null,
-    _baseTexture:  null,
-    _texture:      null,
-    _sprite:       null,
-    _maskGraphics: null,
-    _scene:        null,
-    _dirty:        true,
-    _lastPx:       -999,
-    _lastPy:       -999,
-    _lastYaw:      -999,
-    _lastDir:      -999,
-    _frameCount:   0,
-    _visible:      true,
+    _bitmap:         null,
+    _sprite:         null,
+    _scene:          null,
+    _dirty:          true,
+    _lastPx:         -999,
+    _lastPy:         -999,
+    _lastYaw:        -999,
+    _lastDir:        -999,
+    _frameCount:     0,
+    _visible:        true,
     _pendingExplore: false,
 
-    UPDATE_INTERVAL: 3, // N 프레임마다 갱신
+    UPDATE_INTERVAL: 3,
 
     // ----------------------------------------------------------
     // 초기화
     // ----------------------------------------------------------
     initialize() {
-      this._canvas = document.createElement('canvas');
-      this._canvas.width  = DIAG_SIZE;
-      this._canvas.height = DIAG_SIZE;
-      this._ctx = this._canvas.getContext('2d');
+      this._bitmap = new Bitmap(CFG.size, CFG.size);
     },
 
     // ----------------------------------------------------------
@@ -291,16 +275,17 @@
     explore(x, y) {
       if (!CFG.fowEnabled || !$gameMap) return;
       const mapId = $gameMap.mapId();
-      const w = $gameMap.width();
-      const h = $gameMap.height();
-      const fow = this._getFowData(mapId, w, h);
-      const r  = CFG.viewRadius;
-      const r2 = r * r;
-      for (let dy = -r; dy <= r; dy++) {
-        for (let dx = -r; dx <= r; dx++) {
+      const w     = $gameMap.width();
+      const h     = $gameMap.height();
+      const fow   = this._getFowData(mapId, w, h);
+      const r2    = CFG.viewRadius * CFG.viewRadius;
+      for (let dy = -CFG.viewRadius; dy <= CFG.viewRadius; dy++) {
+        for (let dx = -CFG.viewRadius; dx <= CFG.viewRadius; dx++) {
           if (dx * dx + dy * dy > r2) continue;
-          const nx = $gameMap.isLoopHorizontal() ? ((x + dx) % w + w) % w : x + dx;
-          const ny = $gameMap.isLoopVertical()   ? ((y + dy) % h + h) % h : y + dy;
+          const nx = $gameMap.isLoopHorizontal()
+            ? ((x + dx) % w + w) % w : x + dx;
+          const ny = $gameMap.isLoopVertical()
+            ? ((y + dy) % h + h) % h : y + dy;
           if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
             fow[ny * w + nx] = 1;
           }
@@ -321,14 +306,12 @@
       const mapId = $gameMap.mapId();
       const w = $gameMap.width();
       const h = $gameMap.height();
-      const fow = this._getFowData(mapId, w, h);
-      fow.fill(1);
+      this._getFowData(mapId, w, h).fill(1);
       this._dirty = true;
     },
 
     _isInSight(tx, ty, px, py) {
-      const dx = tx - px;
-      const dy = ty - py;
+      const dx = tx - px, dy = ty - py;
       return dx * dx + dy * dy <= CFG.viewRadius * CFG.viewRadius;
     },
 
@@ -346,77 +329,87 @@
         const c = CFG.terrainColors[String(tag)];
         if (c) return c;
       }
-      // 통행 가능 여부로 벽/바닥 구분 (4방향 모두 막혀 있으면 벽)
       const passable = [2, 4, 6, 8].some(d => $gameMap.isPassable(x, y, d));
       return passable ? CFG.floorColor : CFG.wallColor;
     },
 
     // ----------------------------------------------------------
-    // 이벤트 마커 색상 (노트 태그 기반)
+    // 이벤트 마커 색상
     // ----------------------------------------------------------
     _getEventMarkerColor(event) {
       if (!event || !event.event()) return null;
       const meta = event.event().meta;
       if (!meta || meta.minimap === undefined) return null;
-      // <minimap> → 기본색, <minimap:#rrggbb> → 지정 색상
       const val = String(meta.minimap).trim();
-      return val === 'true' || val === '' ? CFG.eventMarkerColor : val;
+      return (val === 'true' || val === '') ? CFG.eventMarkerColor : val;
     },
 
     // ----------------------------------------------------------
-    // 렌더링
+    // 렌더링 (Canvas 2D 직접 사용)
     // ----------------------------------------------------------
     _render() {
       if (!$gameMap || !$gamePlayer) return;
 
-      const ctx     = this._ctx;
+      const bitmap  = this._bitmap;
+      const ctx     = bitmap._context;
+      const s       = CFG.size;
+      const hs      = s / 2;
+      const ts      = CFG.tileSize;
       const mapId   = $gameMap.mapId();
       const mapW    = $gameMap.width();
       const mapH    = $gameMap.height();
       const px      = $gamePlayer.x;
       const py      = $gamePlayer.y;
-      const ts      = CFG.tileSize;
       const fow     = CFG.fowEnabled ? this._getFowData(mapId, mapW, mapH) : null;
 
-      // 카메라 yaw (rotate 모드 + 3D 모드 활성 시)
       let yaw = 0;
       if (CFG.rotation === 'rotate' &&
           typeof Mode3D !== 'undefined' && Mode3D._active) {
         yaw = (Mode3D._yawDeg || 0) * Math.PI / 180;
       }
 
-      ctx.clearRect(0, 0, DIAG_SIZE, DIAG_SIZE);
+      ctx.clearRect(0, 0, s, s);
 
-      // ── 배경 ──────────────────────────────────────────────
-      ctx.fillStyle = CFG.bgColor;
-      ctx.fillRect(0, 0, DIAG_SIZE, DIAG_SIZE);
-
-      // ── 회전 컨텍스트 시작 ─────────────────────────────────
+      // ── 클리핑 경로 설정 ──────────────────────────────────────
       ctx.save();
-      ctx.translate(HALF_DIAG, HALF_DIAG);
-      ctx.rotate(yaw);
-      ctx.translate(-HALF_DIAG, -HALF_DIAG);
+      ctx.beginPath();
+      if (CFG.shape === 'circle') {
+        ctx.arc(hs, hs, hs, 0, Math.PI * 2);
+      } else {
+        ctx.rect(0, 0, s, s);
+      }
+      ctx.clip();
 
-      // 뷰포트: 플레이어 중심
-      const viewW = DIAG_SIZE / ts;
-      const viewH = DIAG_SIZE / ts;
+      // ── 배경 ──────────────────────────────────────────────────
+      ctx.fillStyle = CFG.bgColor;
+      ctx.fillRect(0, 0, s, s);
+
+      // ── 회전 변환 ──────────────────────────────────────────────
+      ctx.save();
+      if (yaw !== 0) {
+        ctx.translate(hs, hs);
+        ctx.rotate(yaw);
+        ctx.translate(-hs, -hs);
+      }
+
+      // 뷰포트 범위 (플레이어 중심)
+      const viewW  = s / ts;
+      const viewH  = s / ts;
       const startX = px - viewW / 2;
       const startY = py - viewH / 2;
-      const startXI = Math.floor(startX) - 1;
-      const startYI = Math.floor(startY) - 1;
-      const endXI   = Math.ceil(startX + viewW) + 1;
-      const endYI   = Math.ceil(startY + viewH) + 1;
+      const iStartX = Math.floor(startX) - 1;
+      const iStartY = Math.floor(startY) - 1;
+      const iEndX   = Math.ceil(startX + viewW) + 1;
+      const iEndY   = Math.ceil(startY + viewH) + 1;
 
-      // ── 타일 ─────────────────────────────────────────────
-      for (let ty = startYI; ty <= endYI; ty++) {
-        for (let tx = startXI; tx <= endXI; tx++) {
-          // 루프 맵 좌표 변환
+      // ── 타일 그리기 ────────────────────────────────────────────
+      for (let ty = iStartY; ty <= iEndY; ty++) {
+        for (let tx = iStartX; tx <= iEndX; tx++) {
           const mx = $gameMap.isLoopHorizontal()
             ? ((tx % mapW) + mapW) % mapW : tx;
           const my = $gameMap.isLoopVertical()
             ? ((ty % mapH) + mapH) % mapH : ty;
 
-          // 맵 범위 밖
           if (!$gameMap.isLoopHorizontal() && (tx < 0 || tx >= mapW)) continue;
           if (!$gameMap.isLoopVertical()   && (ty < 0 || ty >= mapH)) continue;
 
@@ -424,28 +417,20 @@
           const explored = fow ? !!fow[idx] : true;
           if (!explored) continue;
 
-          const inSight  = this._isInSight(mx, my, px, py);
-          const color    = this._getTileColor(mx, my);
-
+          const inSight = this._isInSight(mx, my, px, py);
           ctx.globalAlpha = inSight ? 1.0 : 0.35;
-          ctx.fillStyle   = color;
-
-          const sx = (tx - startX) * ts;
-          const sy = (ty - startY) * ts;
-          ctx.fillRect(sx, sy, ts, ts);
+          ctx.fillStyle   = this._getTileColor(mx, my);
+          ctx.fillRect((tx - startX) * ts, (ty - startY) * ts, ts, ts);
         }
       }
 
-      // ── 이벤트 마커 ────────────────────────────────────────
+      // ── 이벤트 마커 ───────────────────────────────────────────
       if (CFG.showEvents && $gameMap.events) {
         const markerR = Math.max(2, ts * 0.8);
         $gameMap.events().forEach(event => {
           const color = this._getEventMarkerColor(event);
           if (!color) return;
-
-          const ex = event.x;
-          const ey = event.y;
-          // FoW 체크 (실제 맵 좌표로)
+          const ex = event.x, ey = event.y;
           const mx = $gameMap.isLoopHorizontal()
             ? ((ex % mapW) + mapW) % mapW : ex;
           const my = $gameMap.isLoopVertical()
@@ -460,116 +445,80 @@
           ctx.beginPath();
           ctx.arc(sx, sy, markerR, 0, Math.PI * 2);
           ctx.fill();
-          // 테두리
-          ctx.strokeStyle = '#000000';
+          ctx.strokeStyle = 'rgba(0,0,0,0.6)';
           ctx.lineWidth   = 1;
           ctx.stroke();
         });
       }
 
-      // ── 플레이어 마커 ─────────────────────────────────────
-      // 항상 캔버스 중앙에 고정
-      const playerR = Math.max(3, ts * 1.0);
-
-      // 방향 화살표 (플레이어 이동 방향)
+      // ── 플레이어 마커 (항상 중앙) ──────────────────────────────
       // direction: 2=남, 4=서, 6=동, 8=북
-      // 화살표 각도 (화면 좌표계 기준: 위=북)
-      const dirAngle = {2: Math.PI / 2, 4: Math.PI, 6: 0, 8: -Math.PI / 2};
-      // rotate 모드에서는 캔버스 자체가 yaw 회전됐으므로 역보정 필요
-      const arrowAngle = (dirAngle[$gamePlayer.direction()] || 0) - yaw;
+      const DIR_ANGLE = {2: Math.PI / 2, 4: Math.PI, 6: 0, 8: -Math.PI / 2};
+      // rotate 모드에서는 캔버스가 yaw 회전됐으므로 역보정
+      const arrowAngle = (DIR_ANGLE[$gamePlayer.direction()] || 0) - yaw;
+      const ar = Math.max(3, ts);
 
       ctx.save();
-      ctx.translate(HALF_DIAG, HALF_DIAG);
+      ctx.translate(hs, hs);
       ctx.rotate(arrowAngle);
-
-      // 화살표 본체
       ctx.globalAlpha = 1.0;
       ctx.fillStyle   = CFG.playerColor;
-      const aw = playerR * 0.9;
-      const ah = playerR * 2.2;
       ctx.beginPath();
-      ctx.moveTo(0, -ah);         // 앞 뾰족점
-      ctx.lineTo(aw, ah * 0.4);   // 오른쪽
-      ctx.lineTo(0, ah * 0.0);    // 뒤 중앙
-      ctx.lineTo(-aw, ah * 0.4);  // 왼쪽
+      ctx.moveTo(0, -ar * 2.2);       // 앞 뾰족점
+      ctx.lineTo(ar * 0.9, ar * 0.5);
+      ctx.lineTo(0, 0);
+      ctx.lineTo(-ar * 0.9, ar * 0.5);
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = '#000000';
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
       ctx.lineWidth   = 1;
       ctx.stroke();
-
       ctx.restore();
 
-      // ── 회전 컨텍스트 종료 ─────────────────────────────────
-      ctx.restore();
+      ctx.restore(); // 회전 취소
+      ctx.restore(); // 클리핑 취소
 
-      // ── 테두리 (회전 없이 마스크 경계에 그림) ───────────────
+      // ── 테두리 (클리핑 밖, 경계선) ────────────────────────────
       if (CFG.borderWidth > 0) {
-        ctx.globalAlpha = 0.8;
         ctx.strokeStyle = CFG.borderColor;
         ctx.lineWidth   = CFG.borderWidth;
+        ctx.globalAlpha = 0.85;
         if (CFG.shape === 'circle') {
           ctx.beginPath();
-          ctx.arc(HALF_DIAG, HALF_DIAG, HALF_SIZE - CFG.borderWidth / 2, 0, Math.PI * 2);
+          ctx.arc(hs, hs, hs - CFG.borderWidth / 2, 0, Math.PI * 2);
           ctx.stroke();
         } else {
-          const rx = CANVAS_OFFSET + CFG.borderWidth / 2;
-          const ry = CANVAS_OFFSET + CFG.borderWidth / 2;
-          const rw = CFG.size - CFG.borderWidth;
-          const rh = CFG.size - CFG.borderWidth;
-          ctx.strokeRect(rx, ry, rw, rh);
+          const hw = CFG.borderWidth / 2;
+          ctx.strokeRect(hw, hw, s - CFG.borderWidth, s - CFG.borderWidth);
         }
       }
+
+      // Three.js 렌더러에 변경 알림
+      bitmap._dirty = true;
+      if (bitmap._baseTexture) bitmap._baseTexture.update();
     },
 
     // ----------------------------------------------------------
-    // PIXI 스프라이트 생성
+    // 스프라이트 생성 (Scene_Map에 추가)
     // ----------------------------------------------------------
     createSprite(scene) {
       this._scene = scene;
-      if (!this._canvas) this.initialize();
+      if (!this._bitmap) this.initialize();
 
-      this._baseTexture = new PIXI.BaseTexture(this._canvas);
-      this._texture     = new PIXI.Texture(this._baseTexture);
-      this._sprite      = new PIXI.Sprite(this._texture);
+      this._sprite = new Sprite(this._bitmap);
 
-      // 마스크 생성
-      this._maskGraphics = new PIXI.Graphics();
-      this._buildMask();
-      this._sprite.mask = this._maskGraphics;
-
-      // 스프라이트 위치: 캔버스 중심이 마스크 중심과 일치하도록
       const gw = Graphics.width || Graphics.boxWidth;
-      // 마스크 중심 = (gw - MARGIN - HALF_SIZE, MARGIN + HALF_SIZE)
-      // 스프라이트 좌상단 = 마스크 중심 - HALF_DIAG
-      this._sprite.x = (gw - CFG.margin - HALF_SIZE) - HALF_DIAG;
-      this._sprite.y = (CFG.margin + HALF_SIZE) - HALF_DIAG;
+      this._sprite.x = gw - CFG.size - CFG.margin;
+      this._sprite.y = CFG.margin;
+      this._sprite.opacity = CFG.opacity;
 
-      this._sprite.alpha = CFG.opacity / 255;
-
-      scene.addChild(this._maskGraphics);
+      // _windowLayer 위에 표시 (창보다 앞)
       scene.addChild(this._sprite);
 
       this._visible = true;
       this._dirty   = true;
 
-      // 초기 탐험
       if ($gamePlayer) this.explore($gamePlayer.x, $gamePlayer.y);
-    },
-
-    _buildMask() {
-      const gw    = Graphics.width || Graphics.boxWidth;
-      const cx    = gw - CFG.margin - HALF_SIZE;
-      const cy    = CFG.margin + HALF_SIZE;
-
-      this._maskGraphics.clear();
-      this._maskGraphics.beginFill(0xffffff);
-      if (CFG.shape === 'circle') {
-        this._maskGraphics.drawCircle(cx, cy, HALF_SIZE);
-      } else {
-        this._maskGraphics.drawRect(cx - HALF_SIZE, cy - HALF_SIZE, CFG.size, CFG.size);
-      }
-      this._maskGraphics.endFill();
     },
 
     // ----------------------------------------------------------
@@ -578,14 +527,10 @@
     destroySprite() {
       if (this._sprite && this._scene) {
         this._scene.removeChild(this._sprite);
-        this._scene.removeChild(this._maskGraphics);
       }
-      if (this._baseTexture) this._baseTexture.destroy();
-      this._sprite       = null;
-      this._maskGraphics = null;
-      this._texture      = null;
-      this._baseTexture  = null;
-      this._scene        = null;
+      // Bitmap은 재사용 (맵 이동 시에도 FoW 데이터 유지)
+      this._sprite = null;
+      this._scene  = null;
     },
 
     // ----------------------------------------------------------
@@ -594,7 +539,6 @@
     update() {
       if (!this._sprite || !$gamePlayer) return;
 
-      // 맵 이동 후 초기 탐험 처리
       if (this._pendingExplore) {
         this._pendingExplore = false;
         this.explore($gamePlayer.x, $gamePlayer.y);
@@ -610,11 +554,10 @@
       const dir = $gamePlayer.direction();
       const yaw = (CFG.rotation === 'rotate' &&
                    typeof Mode3D !== 'undefined' && Mode3D._active)
-        ? Math.round(Mode3D._yawDeg || 0)
-        : 0;
+        ? Math.round(Mode3D._yawDeg || 0) : 0;
 
-      if (px  !== this._lastPx  || py  !== this._lastPy ||
-          dir !== this._lastDir || yaw !== this._lastYaw ||
+      if (px  !== this._lastPx  || py  !== this._lastPy  ||
+          dir !== this._lastDir || yaw !== this._lastYaw  ||
           this._dirty) {
         this._lastPx  = px;
         this._lastPy  = py;
@@ -622,20 +565,16 @@
         this._lastYaw = yaw;
         this._dirty   = false;
         this._render();
-        this._baseTexture.update();
       }
     },
 
     // ----------------------------------------------------------
-    // 표시/숨김 제어
+    // 표시/숨김
     // ----------------------------------------------------------
     setVisible(visible) {
       this._visible = visible;
       if ($gameSystem) $gameSystem._minimapVisible = visible;
-      if (this._sprite) {
-        this._sprite.visible       = visible;
-        this._maskGraphics.visible = visible;
-      }
+      if (this._sprite) this._sprite.visible = visible;
     },
 
     toggleVisible() {
@@ -643,9 +582,6 @@
     },
   };
 
-  // ============================================================
-  // 外部参照用 (デバッグ等)
-  // ============================================================
   window.MinimapManager = MinimapManager;
 
 })();
