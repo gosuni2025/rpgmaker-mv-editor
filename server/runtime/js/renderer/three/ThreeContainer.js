@@ -320,32 +320,65 @@ ThreeContainer.prototype.swapChildren = function(child1, child2) {
  */
 ThreeContainer.prototype.syncTransform = function() {
     var obj = this._threeObj;
-    // Rotation
     var r = this._rotation;
-    obj.rotation.x = -this._rotationX; // negate for Y-flip projection matrix (Mode3D)
-    obj.rotation.y = this._rotationY;
-    obj.rotation.z = -r; // negate because Three.js Z rotation is CCW, PIXI is CW
-
-    // Position: PIXI pivot semantics — x/y is world position of pivot point.
-    // Three.js Group rotates around its own local (0,0), so we must offset the
-    // group position to make local(pivotX, pivotY) land at world(x, y) after rotation.
-    // Formula: pos = (x - px*cos(r) - py*sin(r), y + px*sin(r) - py*cos(r))
+    var ry = this._rotationY;
+    var rx = this._rotationX;
     var px = this._pivotX, py = this._pivotY;
-    if (px !== 0 || py !== 0) {
-        var c = Math.cos(r), s = Math.sin(r);
-        obj.position.x = this._x - px * c - py * s;
-        obj.position.y = this._y + px * s - py * c;
+
+    if (ry === 0 && rx === 0) {
+        // Fast 2D path — use THREE.js euler/position/scale directly
+        obj.matrixAutoUpdate = true;
+        obj.rotation.x = 0;
+        obj.rotation.y = 0;
+        obj.rotation.z = -r;
+
+        // Position: PIXI pivot for Z rotation only
+        // Formula: pos = (x - px*cos(r) - py*sin(r), y + px*sin(r) - py*cos(r))
+        if (px !== 0 || py !== 0) {
+            var c = Math.cos(r), s = Math.sin(r);
+            obj.position.x = this._x - px * c - py * s;
+            obj.position.y = this._y + px * s - py * c;
+        } else {
+            obj.position.x = this._x;
+            obj.position.y = this._y;
+        }
+        obj.position.z = this._zIndex;
+        obj.scale.x = this._scaleX;
+        obj.scale.y = this._scaleY;
     } else {
-        obj.position.x = this._x;
-        obj.position.y = this._y;
+        // Full 3D path — manually compute matrix for correct pivot handling.
+        // Transform order: T(x,y,z) * Rz(-r) * Ry(ry) * Rx(-rx) * T(-px,-py,0) * S(sx,sy,1)
+        // This ensures rotation happens around the pivot point (px, py) in local space,
+        // so children at (0,0) correctly orbit around the PIXI anchor.
+        obj.matrixAutoUpdate = false;
+
+        if (!ThreeContainer._m1) {
+            ThreeContainer._m1 = new THREE.Matrix4();
+            ThreeContainer._m2 = new THREE.Matrix4();
+            ThreeContainer._m3 = new THREE.Matrix4();
+            ThreeContainer._m4 = new THREE.Matrix4();
+            ThreeContainer._eu = new THREE.Euler();
+        }
+        var m1 = ThreeContainer._m1, m2 = ThreeContainer._m2;
+        var m3 = ThreeContainer._m3, m4 = ThreeContainer._m4;
+
+        // S(sx, sy, 1)
+        m1.makeScale(this._scaleX, this._scaleY, 1);
+        // T(-px, -py, 0)  — shift so pivot becomes local origin
+        m2.makeTranslation(-px, -py, 0);
+        // Rz(-r) * Ry(ry) * Rx(-rx)
+        // THREE Euler 'ZYX' order (extrinsic) = Rz(z)*Ry(y)*Rx(x), so values (-rx, ry, -r)
+        ThreeContainer._eu.set(-rx, ry, -r, 'ZYX');
+        m3.makeRotationFromEuler(ThreeContainer._eu);
+        // T(x, y, z)
+        m4.makeTranslation(this._x, this._y, this._zIndex);
+
+        // Final: m4 * m3 * m2 * m1
+        obj.matrix.copy(m4).multiply(m3).multiply(m2).multiply(m1);
+        obj.matrixWorldNeedsUpdate = true;
     }
-    obj.position.z = this._zIndex;
 
-    // Scale
-    obj.scale.x = this._scaleX;
-    obj.scale.y = this._scaleY;
-
-    // Visibility
+    // Visibility (both paths)
     obj.visible = this._visible;
 };
 
