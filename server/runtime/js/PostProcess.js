@@ -732,6 +732,16 @@ PostProcess._debugSection = null;
 PostProcess.menuBgHook = null;  // MenuTransition.js가 설정: { preRender(renderer, composer), postRender(renderer) }
 PostProcess._transitionBlurPassH = null;
 PostProcess._transitionBlurPassV = null;
+PostProcess._transitionZoomBlurPass = null;
+PostProcess._transitionDesatPass = null;
+PostProcess._transitionSepiaPass = null;
+PostProcess._transitionBrightnessPass = null;
+PostProcess._transitionRipplePass = null;
+PostProcess._transitionWhirlPass = null;
+PostProcess._transitionPixelPass = null;
+PostProcess._transitionChromaticPass = null;
+PostProcess._transitionDissolvePass = null;
+PostProcess._transitionScanlinePass = null;
 
 window.PostProcess = PostProcess;
 window.ShaderPass = ShaderPass;
@@ -773,6 +783,82 @@ PostProcess.setTransitionBlur = function(pixels) {
     v.uniforms.blurRadius.value = pixels;
     v.uniforms.resolution.value.set(w, hh);
     v.enabled = true;
+};
+
+// 트랜지션 효과 단일 ON/OFF
+// type: 'blur'|'zoomBlur'|'desaturation'|'sepia'|'brightness'|'ripple'|
+//       'whirl'|'pixelation'|'chromatic'|'dissolve'|'scanline'
+// intensity: 0~1 (0이면 해당 효과 비활성)
+PostProcess.setTransitionEffect = function(type, intensity) {
+    var self = this;
+
+    // blur 는 기존 setTransitionBlur 로 위임
+    if (type === 'blur') {
+        var px = intensity > 0.001 ? intensity * 20 : 0;
+        self.setTransitionBlur(px);
+        return;
+    }
+
+    // 모든 트랜지션 패스 맵
+    var passMap = {
+        zoomBlur:    '_transitionZoomBlurPass',
+        desaturation:'_transitionDesatPass',
+        sepia:       '_transitionSepiaPass',
+        brightness:  '_transitionBrightnessPass',
+        ripple:      '_transitionRipplePass',
+        whirl:       '_transitionWhirlPass',
+        pixelation:  '_transitionPixelPass',
+        chromatic:   '_transitionChromaticPass',
+        dissolve:    '_transitionDissolvePass',
+        scanline:    '_transitionScanlinePass'
+    };
+
+    var propName = passMap[type];
+    if (!propName) return;
+
+    var pass = self[propName];
+    if (!pass) return;
+
+    if (intensity <= 0.001) {
+        pass.enabled = false;
+        pass.uniforms.intensity.value = 0;
+        return;
+    }
+
+    // pixelation 은 resolution uniform 갱신 필요
+    if (type === 'pixelation') {
+        var rt = self._composer && self._composer.renderTarget1;
+        var pw = rt ? rt.width  : (Graphics.width  || 816);
+        var ph = rt ? rt.height : (Graphics.height || 624);
+        pass.uniforms.resolution.value.set(pw, ph);
+    }
+
+    pass.uniforms.intensity.value = intensity;
+    pass.enabled = true;
+};
+
+// Ripple 애니메이션 time uniform 업데이트
+PostProcess.setTransitionRippleTime = function(t) {
+    var pass = this._transitionRipplePass;
+    if (pass) pass.uniforms.time.value = t;
+};
+
+// 모든 트랜지션 효과 비활성화
+PostProcess.clearTransitionEffects = function() {
+    this.setTransitionBlur(0);
+    var propNames = [
+        '_transitionZoomBlurPass', '_transitionDesatPass', '_transitionSepiaPass',
+        '_transitionBrightnessPass', '_transitionRipplePass', '_transitionWhirlPass',
+        '_transitionPixelPass', '_transitionChromaticPass', '_transitionDissolvePass',
+        '_transitionScanlinePass'
+    ];
+    for (var i = 0; i < propNames.length; i++) {
+        var pass = this[propNames[i]];
+        if (pass) {
+            pass.enabled = false;
+            pass.uniforms.intensity.value = 0;
+        }
+    }
 };
 
 //=============================================================================
@@ -905,6 +991,293 @@ var _TransitionBlurShader = {
         '    color += texture2D(tColor, vUv + 3.0 * step) * 0.0540540541;',
         '    color += texture2D(tColor, vUv + 4.0 * step) * 0.0162162162;',
         '    gl_FragColor = color;',
+        '}'
+    ].join('\n')
+};
+
+//=============================================================================
+// 트랜지션 효과 셰이더 (ZoomBlur, Desaturation, Sepia, Brightness, Ripple,
+//   Whirl, Pixelation, ChromaticAberration, Dissolve, ScanlineFade)
+//=============================================================================
+
+var _TransitionZoomBlurShader = {
+    uniforms: {
+        tColor:    { value: null },
+        intensity: { value: 0.0 },
+        center:    { value: new THREE.Vector2(0.5, 0.5) }
+    },
+    vertexShader: [
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vUv = uv;',
+        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+    ].join('\n'),
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float intensity;',
+        'uniform vec2 center;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec2 dir = vUv - center;',
+        '    float dist = length(dir);',
+        '    vec4 color = vec4(0.0);',
+        '    float strength = intensity * 0.15;',
+        '    int samples = 10;',
+        '    for (int i = 0; i < 10; i++) {',
+        '        float t = float(i) / 9.0;',
+        '        vec2 uv = vUv - dir * t * strength;',
+        '        color += texture2D(tColor, uv);',
+        '    }',
+        '    gl_FragColor = color / 10.0;',
+        '}'
+    ].join('\n')
+};
+
+var _TransitionDesatShader = {
+    uniforms: {
+        tColor:    { value: null },
+        intensity: { value: 0.0 }
+    },
+    vertexShader: [
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vUv = uv;',
+        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+    ].join('\n'),
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float intensity;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 texel = texture2D(tColor, vUv);',
+        '    float lum = dot(texel.rgb, vec3(0.299, 0.587, 0.114));',
+        '    vec3 gray = vec3(lum);',
+        '    gl_FragColor = vec4(mix(texel.rgb, gray, intensity), texel.a);',
+        '}'
+    ].join('\n')
+};
+
+var _TransitionSepiaShader = {
+    uniforms: {
+        tColor:    { value: null },
+        intensity: { value: 0.0 }
+    },
+    vertexShader: [
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vUv = uv;',
+        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+    ].join('\n'),
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float intensity;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 texel = texture2D(tColor, vUv);',
+        '    vec3 r = texel.rgb;',
+        '    vec3 sepia;',
+        '    sepia.r = dot(r, vec3(0.393, 0.769, 0.189));',
+        '    sepia.g = dot(r, vec3(0.349, 0.686, 0.168));',
+        '    sepia.b = dot(r, vec3(0.272, 0.534, 0.131));',
+        '    gl_FragColor = vec4(mix(r, sepia, intensity), texel.a);',
+        '}'
+    ].join('\n')
+};
+
+var _TransitionBrightnessShader = {
+    uniforms: {
+        tColor:    { value: null },
+        intensity: { value: 0.0 }
+    },
+    vertexShader: [
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vUv = uv;',
+        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+    ].join('\n'),
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float intensity;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 texel = texture2D(tColor, vUv);',
+        '    vec3 result = mix(texel.rgb, vec3(1.0), intensity);',
+        '    gl_FragColor = vec4(result, texel.a);',
+        '}'
+    ].join('\n')
+};
+
+var _TransitionRippleShader = {
+    uniforms: {
+        tColor:    { value: null },
+        intensity: { value: 0.0 },
+        time:      { value: 0.0 }
+    },
+    vertexShader: [
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vUv = uv;',
+        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+    ].join('\n'),
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float intensity;',
+        'uniform float time;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec2 center = vec2(0.5, 0.5);',
+        '    vec2 delta = vUv - center;',
+        '    float dist = length(delta);',
+        '    float wave = sin(dist * 40.0 - time * 20.0) * intensity * 0.03;',
+        '    vec2 dir = normalize(delta + vec2(0.0001));',
+        '    vec2 uv = vUv + dir * wave;',
+        '    gl_FragColor = texture2D(tColor, uv);',
+        '}'
+    ].join('\n')
+};
+
+var _TransitionWhirlShader = {
+    uniforms: {
+        tColor:    { value: null },
+        intensity: { value: 0.0 }
+    },
+    vertexShader: [
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vUv = uv;',
+        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+    ].join('\n'),
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float intensity;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec2 center = vec2(0.5, 0.5);',
+        '    vec2 delta = vUv - center;',
+        '    float dist = length(delta);',
+        '    float angle = intensity * (1.0 - dist);',
+        '    float s = sin(angle);',
+        '    float c = cos(angle);',
+        '    vec2 rotated = vec2(',
+        '        delta.x * c - delta.y * s,',
+        '        delta.x * s + delta.y * c',
+        '    );',
+        '    vec2 uv = clamp(center + rotated, 0.0, 1.0);',
+        '    gl_FragColor = texture2D(tColor, uv);',
+        '}'
+    ].join('\n')
+};
+
+var _TransitionPixelShader = {
+    uniforms: {
+        tColor:      { value: null },
+        intensity:   { value: 0.0 },
+        resolution:  { value: new THREE.Vector2(816, 624) }
+    },
+    vertexShader: [
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vUv = uv;',
+        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+    ].join('\n'),
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float intensity;',
+        'uniform vec2 resolution;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    float pixelSize = 1.0 + intensity * 63.0;',
+        '    vec2 blockSize = pixelSize / resolution;',
+        '    vec2 uv = floor(vUv / blockSize) * blockSize + blockSize * 0.5;',
+        '    gl_FragColor = texture2D(tColor, uv);',
+        '}'
+    ].join('\n')
+};
+
+var _TransitionChromaticShader = {
+    uniforms: {
+        tColor:    { value: null },
+        intensity: { value: 0.0 }
+    },
+    vertexShader: [
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vUv = uv;',
+        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+    ].join('\n'),
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float intensity;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    float amount = intensity * 0.03;',
+        '    vec2 dir = vUv - vec2(0.5);',
+        '    float r = texture2D(tColor, vUv + dir * amount).r;',
+        '    float g = texture2D(tColor, vUv).g;',
+        '    float b = texture2D(tColor, vUv - dir * amount).b;',
+        '    float a = texture2D(tColor, vUv).a;',
+        '    gl_FragColor = vec4(r, g, b, a);',
+        '}'
+    ].join('\n')
+};
+
+var _TransitionDissolveShader = {
+    uniforms: {
+        tColor:    { value: null },
+        intensity: { value: 0.0 }
+    },
+    vertexShader: [
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vUv = uv;',
+        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+    ].join('\n'),
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float intensity;',
+        'varying vec2 vUv;',
+        'float rand(vec2 co) {',
+        '    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);',
+        '}',
+        'void main() {',
+        '    vec4 texel = texture2D(tColor, vUv);',
+        '    float noise = rand(vUv);',
+        '    float alpha = step(intensity, noise);',
+        '    gl_FragColor = vec4(texel.rgb * alpha, texel.a * alpha);',
+        '}'
+    ].join('\n')
+};
+
+var _TransitionScanlineFadeShader = {
+    uniforms: {
+        tColor:    { value: null },
+        intensity: { value: 0.0 }
+    },
+    vertexShader: [
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vUv = uv;',
+        '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+    ].join('\n'),
+    fragmentShader: [
+        'uniform sampler2D tColor;',
+        'uniform float intensity;',
+        'varying vec2 vUv;',
+        'void main() {',
+        '    vec4 texel = texture2D(tColor, vUv);',
+        '    float line = mod(gl_FragCoord.y, 4.0);',
+        '    float dark = (line < 2.0) ? (1.0 - intensity * 0.8) : 1.0;',
+        '    gl_FragColor = vec4(texel.rgb * dark, texel.a);',
         '}'
     ].join('\n')
 };
@@ -2229,6 +2602,18 @@ PostProcess._createComposer = function(rendererObj, stage) {
     tbV.enabled = false;
     composer.addPass(tbV);
 
+    // 확장 트랜지션 효과 패스들 (기본 비활성)
+    var tzb = new ShaderPass(_TransitionZoomBlurShader); tzb.enabled = false; composer.addPass(tzb);
+    var tds = new ShaderPass(_TransitionDesatShader);    tds.enabled = false; composer.addPass(tds);
+    var tsp = new ShaderPass(_TransitionSepiaShader);    tsp.enabled = false; composer.addPass(tsp);
+    var tbr = new ShaderPass(_TransitionBrightnessShader); tbr.enabled = false; composer.addPass(tbr);
+    var trp = new ShaderPass(_TransitionRippleShader);   trp.enabled = false; composer.addPass(trp);
+    var twh = new ShaderPass(_TransitionWhirlShader);    twh.enabled = false; composer.addPass(twh);
+    var tpx = new ShaderPass(_TransitionPixelShader);    tpx.enabled = false; composer.addPass(tpx);
+    var tch = new ShaderPass(_TransitionChromaticShader); tch.enabled = false; composer.addPass(tch);
+    var tdv = new ShaderPass(_TransitionDissolveShader); tdv.enabled = false; composer.addPass(tdv);
+    var tsl = new ShaderPass(_TransitionScanlineFadeShader); tsl.enabled = false; composer.addPass(tsl);
+
     // TiltShiftPass (화면 Y좌표 기반 DoF) - 맵에만 블러
     var tiltShiftPass = new TiltShiftPass({
         focusY: this.config.focusY,
@@ -2251,6 +2636,16 @@ PostProcess._createComposer = function(rendererObj, stage) {
     this._ppPasses = ppPasses;
     this._transitionBlurPassH = tbH;
     this._transitionBlurPassV = tbV;
+    this._transitionZoomBlurPass = tzb;
+    this._transitionDesatPass = tds;
+    this._transitionSepiaPass = tsp;
+    this._transitionBrightnessPass = tbr;
+    this._transitionRipplePass = trp;
+    this._transitionWhirlPass = twh;
+    this._transitionPixelPass = tpx;
+    this._transitionChromaticPass = tch;
+    this._transitionDissolvePass = tdv;
+    this._transitionScanlinePass = tsl;
     this._lastStage = stage;
     this._composerMode = '3d';
 
@@ -2298,6 +2693,18 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
     tbV.enabled = false;
     composer.addPass(tbV);
 
+    // 확장 트랜지션 효과 패스들 (기본 비활성)
+    var tzb = new ShaderPass(_TransitionZoomBlurShader); tzb.enabled = false; composer.addPass(tzb);
+    var tds = new ShaderPass(_TransitionDesatShader);    tds.enabled = false; composer.addPass(tds);
+    var tsp = new ShaderPass(_TransitionSepiaShader);    tsp.enabled = false; composer.addPass(tsp);
+    var tbr = new ShaderPass(_TransitionBrightnessShader); tbr.enabled = false; composer.addPass(tbr);
+    var trp = new ShaderPass(_TransitionRippleShader);   trp.enabled = false; composer.addPass(trp);
+    var twh = new ShaderPass(_TransitionWhirlShader);    twh.enabled = false; composer.addPass(twh);
+    var tpx = new ShaderPass(_TransitionPixelShader);    tpx.enabled = false; composer.addPass(tpx);
+    var tch = new ShaderPass(_TransitionChromaticShader); tch.enabled = false; composer.addPass(tch);
+    var tdv = new ShaderPass(_TransitionDissolveShader); tdv.enabled = false; composer.addPass(tdv);
+    var tsl = new ShaderPass(_TransitionScanlineFadeShader); tsl.enabled = false; composer.addPass(tsl);
+
     // Simple2DUIRenderPass - 블룸 적용된 맵을 화면에 복사 + UI 합성
     var uiPass = new Simple2DUIRenderPass(_prevRender, _ThreeStrategy);
     composer.addPass(uiPass);
@@ -2312,6 +2719,16 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
     this._ppPasses = ppPasses;
     this._transitionBlurPassH = tbH;
     this._transitionBlurPassV = tbV;
+    this._transitionZoomBlurPass = tzb;
+    this._transitionDesatPass = tds;
+    this._transitionSepiaPass = tsp;
+    this._transitionBrightnessPass = tbr;
+    this._transitionRipplePass = trp;
+    this._transitionWhirlPass = twh;
+    this._transitionPixelPass = tpx;
+    this._transitionChromaticPass = tch;
+    this._transitionDissolvePass = tdv;
+    this._transitionScanlinePass = tsl;
     this._lastStage = stage;
     this._composerMode = '2d';
 

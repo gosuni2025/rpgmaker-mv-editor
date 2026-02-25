@@ -5,12 +5,12 @@
  * @help
  * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 맵 화면이 점점 블러되면서
  * 어두워지는 애니메이션 후 메뉴 UI가 표시됩니다.
- * 메뉴를 닫으면 라이브 게임 캔버스에 CSS blur를 걸어 점차 해제합니다.
+ * 메뉴를 닫으면 라이브 게임 캔버스에 PostProcess 트랜지션 효과를 걸어 점차 해제합니다.
  *
  * 렌더링 방식:
  *   열기: snapForBackground 스냅샷에 canvas ctx.filter:blur 적용 (0→max)
- *   닫기: Graphics._canvas에 CSS filter:blur 적용 (max→0)
- *         라이브 게임이 블러 뒤에서 실행 → 부활 글리치가 가려짐
+ *   닫기: PostProcess.setTransitionEffect()로 선택한 효과를 적용 (max→0)
+ *         라이브 게임이 효과 뒤에서 실행 → 부활 글리치가 가려짐
  *
  * 타이밍 방식:
  *   - Scene_MenuBase.update() / Scene_Base.update() 호출마다 프레임 카운터 증가
@@ -20,6 +20,19 @@
  *   blur+overlay   : 블러 + 어두운 오버레이 (기본값)
  *   blurOnly       : 블러만
  *   overlayOnly    : 블러 없이 어둡게만
+ *
+ * === 닫기 효과 종류 (closeEffect) ===
+ *   blur           : 가우시안 블러 (기본값)
+ *   zoomBlur       : 방사형 줌 블러
+ *   desaturation   : 채도 감소 (흑백)
+ *   sepia          : 세피아 색조
+ *   brightness     : 화면 밝아짐 (화이트아웃)
+ *   ripple         : 물결 왜곡
+ *   whirl          : 소용돌이
+ *   pixelation     : 픽셀화
+ *   chromatic      : 색수차
+ *   dissolve       : 노이즈 페이드
+ *   scanline       : 스캔라인 페이드
  *
  * @param effect
  * @text 효과 종류
@@ -68,6 +81,22 @@
  * @text 닫기 애니메이션 활성화
  * @type boolean
  * @default true
+ *
+ * @param closeEffect
+ * @text 닫기 효과 종류
+ * @type select
+ * @option blur
+ * @option zoomBlur
+ * @option desaturation
+ * @option sepia
+ * @option brightness
+ * @option ripple
+ * @option whirl
+ * @option pixelation
+ * @option chromatic
+ * @option dissolve
+ * @option scanline
+ * @default blur
  */
 
 (function () {
@@ -82,7 +111,8 @@
         overlayAlpha: Number(params.overlayAlpha) >= 0 ? Number(params.overlayAlpha) : 100,
         duration:     Number(params.duration)     || 40,
         easing:       String(params.easing        || 'easeOut'),
-        closeAnim:    String(params.closeAnim) !== 'false'
+        closeAnim:    String(params.closeAnim) !== 'false',
+        closeEffect:  String(params.closeEffect   || 'blur')
     };
 
     // overlayColor 'r,g,b' → [r, g, b]
@@ -124,18 +154,34 @@
     var _mapBlurStartT  = 1;      // 닫힐 때의 _t (시작 강도)
     var _mapBlurPhase   = false;  // 게임씬에서 blur 페이드 중
 
-    // ── PostProcess transition blur 헬퍼 ─────────────────────────────────────
+    // ── PostProcess transition effect 헬퍼 ───────────────────────────────────
 
-    function _applyTransitionBlur(t) {
-        var px = (t > 0.001 && Cfg.blur > 0 && Cfg.effect !== 'overlayOnly')
-            ? t * Cfg.blur / 100 * 20 : 0;
-        if (typeof PostProcess !== 'undefined' && PostProcess.setTransitionBlur) {
-            PostProcess.setTransitionBlur(px);
+    // t: 0~1 (1=최대 강도, 0=효과 없음)
+    // 선택된 Cfg.closeEffect에 따라 PostProcess API를 호출
+    // PostProcess 없을 때는 blur CSS fallback 사용
+    function _applyTransitionEffect(t) {
+        var hasEffect = (t > 0.001 && Cfg.effect !== 'overlayOnly');
+        if (typeof PostProcess !== 'undefined' && PostProcess.setTransitionEffect) {
+            if (!hasEffect) {
+                PostProcess.clearTransitionEffects();
+                return;
+            }
+            var type = Cfg.closeEffect || 'blur';
+            PostProcess.setTransitionEffect(type, t);
+            if (type === 'ripple') {
+                PostProcess.setTransitionRippleTime(t);
+            }
         } else {
-            // PostProcess 없을 때 CSS fallback
+            // PostProcess 없을 때 CSS blur fallback
+            var px = hasEffect ? t * Cfg.blur / 100 * 20 : 0;
             var canvas = Graphics._canvas;
             if (canvas) canvas.style.filter = px > 0 ? 'blur(' + px.toFixed(2) + 'px)' : '';
         }
+    }
+
+    // 후방 호환: setTransitionBlur 를 직접 호출하는 코드가 있을 경우 대비
+    function _applyTransitionBlur(t) {
+        _applyTransitionEffect(t);
     }
 
     // ── PostProcess.menuBgHook: 메뉴 씬 렌더링 중 bloom만 비활성화 ─────────────
@@ -169,7 +215,7 @@
         _phase = 1;
         _t = 0;
         _mapBlurPending = false;
-        _applyTransitionBlur(0);  // 혹시 남아있는 CSS blur 제거
+        _applyTransitionEffect(0);  // 혹시 남아있는 트랜지션 효과 제거
         _setMenuBgHook(true);
     }
 
@@ -292,7 +338,7 @@
             _mapBlurPhase = true;
             _elapsed = 0;
             _t = _mapBlurStartT;
-            _applyTransitionBlur(_mapBlurStartT);
+            _applyTransitionEffect(_mapBlurStartT);
         }
     };
 
@@ -304,10 +350,10 @@
         _elapsed++;
         var raw = Math.min(1, _elapsed / Cfg.duration);
         _t = _mapBlurStartT * applyEase(1 - raw);
-        _applyTransitionBlur(_t);
+        _applyTransitionEffect(_t);
 
         if (raw >= 1) {
-            _applyTransitionBlur(0);
+            _applyTransitionEffect(0);
             _mapBlurPhase = false;
             _srcCanvas = null;
         }
