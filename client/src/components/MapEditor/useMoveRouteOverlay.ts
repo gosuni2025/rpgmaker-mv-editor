@@ -2,7 +2,7 @@ import React from 'react';
 import useEditorStore from '../../store/useEditorStore';
 import { TILE_SIZE_PX } from '../../utils/tileHelper';
 import type { MoveRoute } from '../../types/rpgMakerMV';
-import type { RouteEntry } from '../Sidebar/EventInspector';
+import type { RouteEntry } from '../Sidebar/EventInspectorRouteUtils';
 import type { WaypointSession } from '../../utils/astar';
 import { runAstar } from '../../utils/astar';
 

@@ -4,6 +4,8 @@ import './components/ParseErrorsDialog.css';
 import './components/common/Toast.css';
 import useEditorStore from './store/useEditorStore';
 import apiClient, { ApiError } from './api/client';
+import { ToastItem } from './components/common/ToastItem';
+import { useAutoUpdateCheck } from './hooks/useAutoUpdateCheck';
 import MenuBar from './components/MenuBar/MenuBar';
 import ResizablePanel from './components/common/ResizablePanel';
 import StatusBar from './components/common/StatusBar';
@@ -48,51 +50,6 @@ import UIEditorFrameCanvas from './components/UIEditor/UIEditorFrameCanvas';
 import UIEditorFrameInspector from './components/UIEditor/UIEditorFrameInspector';
 import UIEditorCursorInspector from './components/UIEditor/UIEditorCursorInspector';
 import UIEditorSkinPreview from './components/UIEditor/UIEditorSkinPreview';
-
-function formatRelativeTime(createdAt: number, now: number): string {
-  const sec = Math.floor((now - createdAt) / 1000);
-  if (sec < 1) return '방금 전';
-  if (sec < 60) return `${sec}초 전`;
-  return `${Math.floor(sec / 60)}분 전`;
-}
-
-interface ToastItemProps {
-  toast: { id: number; message: string; persistent: boolean; createdAt: number; count: number };
-  index: number;
-  onDismiss: (id: number) => void;
-}
-
-function ToastItem({ toast, index, onDismiss }: ToastItemProps) {
-  const [now, setNow] = useState(Date.now());
-  const [pinned, setPinned] = useState(false);
-  const isPersistent = toast.persistent || pinned;
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div
-      className={`toast ${isPersistent ? 'toast-persistent' : ''} ${pinned ? 'toast-pinned' : ''}`}
-      style={{ bottom: `${40 + index * 44}px`, cursor: isPersistent ? 'default' : 'pointer' }}
-      onClick={!isPersistent ? () => setPinned(true) : undefined}
-      onAnimationEnd={(e) => {
-        if (e.animationName === 'toast-fade') onDismiss(toast.id);
-      }}
-    >
-      {toast.count > 1 && (
-        <span className="toast-count">{toast.count}</span>
-      )}
-      {toast.message}
-      <span className="toast-age">{formatRelativeTime(toast.createdAt, now)}</span>
-      {isPersistent && (
-        <button className="toast-close" onClick={(e) => { e.stopPropagation(); onDismiss(toast.id); }}>&times;</button>
-      )}
-      {!isPersistent && <div className="toast-progress" />}
-    </div>
-  );
-}
 
 export default function App() {
   const projectPath = useEditorStore((s) => s.projectPath);
@@ -140,46 +97,7 @@ export default function App() {
   }, [restoreLastProject]);
 
   // 앱 시작 시 자동 업데이트 체크 (하루 한 번)
-  useEffect(() => {
-    const STORAGE_KEY = 'rpg-editor-last-update-check';
-    const ONE_DAY_MS = 86_400_000;
-    const last = parseInt(localStorage.getItem(STORAGE_KEY) ?? '0', 10);
-    if (Date.now() - last < ONE_DAY_MS) return;
-    const timer = setTimeout(async () => {
-      try {
-        const REPO = 'gosuni2025/rpgmaker-mv-editor';
-        const info = await apiClient.get<{ type: string; version?: string; commitDate?: string }>('/version/info');
-        let hasUpdate = false;
-        if (info.type === 'release' && info.version) {
-          const ghRes = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
-            headers: { Accept: 'application/vnd.github+json' },
-          });
-          if (ghRes.ok) {
-            const gh = await ghRes.json();
-            const latestTag: string = gh.tag_name ?? '';
-            const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
-            const [aMaj, aMin, aPatch] = parse(info.version);
-            const [bMaj, bMin, bPatch] = parse(latestTag);
-            hasUpdate = aMaj < bMaj || (aMaj === bMaj && (aMin < bMin || (aMin === bMin && (aPatch ?? 0) < (bPatch ?? 0))));
-          }
-        } else if (info.type === 'git' && info.commitDate) {
-          const ghRes = await fetch(`https://api.github.com/repos/${REPO}/commits?sha=main&per_page=1`, {
-            headers: { Accept: 'application/vnd.github+json' },
-          });
-          if (ghRes.ok) {
-            const gh = await ghRes.json();
-            const latestDate: string = gh[0]?.commit?.committer?.date ?? '';
-            hasUpdate = !!latestDate && info.commitDate < latestDate;
-          }
-        }
-        localStorage.setItem(STORAGE_KEY, String(Date.now()));
-        if (hasUpdate) setShowUpdateCheckDialog(true);
-      } catch {
-        // 자동 체크 실패는 무시
-      }
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [setShowUpdateCheckDialog]);
+  useAutoUpdateCheck(useCallback(() => setShowUpdateCheckDialog(true), [setShowUpdateCheckDialog]));
 
   // 서버에서 에디터 설정 로드
   useEffect(() => {
