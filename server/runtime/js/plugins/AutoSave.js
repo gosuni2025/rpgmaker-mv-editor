@@ -150,6 +150,11 @@
     DataManager.performAutosave = function() {
         if (!$gameSystem || !$dataSystem) return false;
 
+        // 30초 쿨다운: 마지막 저장 완료로부터 30초가 지나지 않으면 무시
+        if (Date.now() - DataManager._lastAutosaveTime < AUTOSAVE_COOLDOWN_MS) {
+            return false;
+        }
+
         if (param_showNotification) {
             var scene = SceneManager._scene;
             if (scene instanceof Scene_Map && scene.queueAutosave) {
@@ -171,12 +176,20 @@
         try {
             $gameSystem.onBeforeSave();
             ok = this.saveGame(AUTOSAVE_FILE_ID);
-            if (ok) StorageManager.cleanBackup(AUTOSAVE_FILE_ID);
+            if (ok) {
+                StorageManager.cleanBackup(AUTOSAVE_FILE_ID);
+                DataManager._lastAutosaveTime = Date.now(); // 쿨다운 갱신
+            }
         } catch (e) {
             console.warn('[AutoSave] 저장 실패:', e);
         }
         return ok;
     };
+
+    /** 마지막 오토 세이브 완료 시각 (밀리초) @type {number} */
+    DataManager._lastAutosaveTime = 0;
+    /** 오토 세이브 쿨다운 (밀리초) — 30초 이내 재요청은 무시 @const {number} */
+    var AUTOSAVE_COOLDOWN_MS = 30000;
 
     /** 변수 변경 디바운스 타이머 ID @type {number|null} */
     DataManager._autosaveVariableTimer = null;
