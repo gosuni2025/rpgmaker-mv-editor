@@ -879,7 +879,7 @@
   //===========================================================================
   // 요소 오버라이드 — 각 Window 내 draw 메서드 위치/크기 커스터마이징
   //
-  // drawActorFace(actor, faceName, faceIndex, x, y, width, height) → argX=3
+  // drawActorFace(actor, x, y, width, height)                       → argX=1
   // drawActorName/Class/Nickname(actor, x, y, width)               → argX=1
   // drawActorLevel(actor, x, y)                                    → argX=1
   // drawActorIcons/Hp/Mp/Tp(actor, x, y, width)                    → argX=1
@@ -893,7 +893,7 @@
   wrapDraw(Window_Status, 'Window_Status', 'drawActorName',     'actorName',     1, 2, 3, null);
   wrapDraw(Window_Status, 'Window_Status', 'drawActorClass',    'actorClass',    1, 2, 3, null);
   wrapDraw(Window_Status, 'Window_Status', 'drawActorNickname', 'actorNickname', 1, 2, 3, null);
-  wrapDraw(Window_Status, 'Window_Status', 'drawActorFace',     'actorFace',     3, 4, 5, 6);
+  wrapDraw(Window_Status, 'Window_Status', 'drawActorFace',     'actorFace',     1, 2, 3, 4);
   wrapDraw(Window_Status, 'Window_Status', 'drawActorLevel',    'actorLevel',    1, 2, null, null);
   wrapDraw(Window_Status, 'Window_Status', 'drawActorIcons',    'actorIcons',    1, 2, 3, null);
   wrapDraw(Window_Status, 'Window_Status', 'drawActorHp',       'actorHp',       1, 2, 3, null);
@@ -907,7 +907,7 @@
   wrapDraw(Window_BattleStatus, 'Window_BattleStatus', 'drawActorTp',    'actorTp',    1, null, 3, null);
 
   // ── Window_MenuStatus (perActor — y 오버라이드 안 함) ────────────────────
-  wrapDraw(Window_MenuStatus, 'Window_MenuStatus', 'drawActorFace',    'actorFace',    3, null, 5, 6);
+  wrapDraw(Window_MenuStatus, 'Window_MenuStatus', 'drawActorFace',    'actorFace',    1, null, 3, 4);
   wrapDraw(Window_MenuStatus, 'Window_MenuStatus', 'drawSimpleStatus', 'simpleStatus', 1, null, 3, null);
 
   //===========================================================================

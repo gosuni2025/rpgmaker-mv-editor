@@ -109,7 +109,7 @@ function buildPreviewHTML(useWebp: boolean): string {
         { method:'drawActorName',     type:'actorName',     label:'이름',        argX:1, argY:2, argW:3, argH:null },
         { method:'drawActorClass',    type:'actorClass',    label:'직업',        argX:1, argY:2, argW:3, argH:null },
         { method:'drawActorNickname', type:'actorNickname', label:'별명',        argX:1, argY:2, argW:3, argH:null },
-        { method:'drawActorFace',     type:'actorFace',     label:'페이스',      argX:3, argY:4, argW:5, argH:6   },
+        { method:'drawActorFace',     type:'actorFace',     label:'페이스',      argX:1, argY:2, argW:3, argH:4   },
         { method:'drawActorLevel',    type:'actorLevel',    label:'레벨',        argX:1, argY:2, argW:null, argH:null },
         { method:'drawActorIcons',    type:'actorIcons',    label:'상태 아이콘', argX:1, argY:2, argW:3, argH:null },
         { method:'drawActorHp',       type:'actorHp',       label:'HP',          argX:1, argY:2, argW:3, argH:null },
