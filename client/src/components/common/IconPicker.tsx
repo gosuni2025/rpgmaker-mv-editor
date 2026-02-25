@@ -16,11 +16,9 @@ const ICONS_PER_ROW = 16;
 
 export default function IconPicker({ value, onChange, initialOpen, onClose, hidePreview }: IconPickerProps) {
   const [open, setOpen] = useState(initialOpen ?? false);
-  const handleClose = useCallback(() => { console.log('[IconPicker] close'); setOpen(false); onClose?.(); }, [onClose]);
+  const handleClose = useCallback(() => { setOpen(false); onClose?.(); }, [onClose]);
   useEscClose(useCallback(() => { if (open) handleClose(); }, [open, handleClose]));
   const [iconSheet, setIconSheet] = useState<HTMLImageElement | null>(null);
-
-  console.log('[IconPicker] render — open:', open, 'value:', value, 'iconSheet:', !!iconSheet);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -73,21 +71,7 @@ export default function IconPicker({ value, onChange, initialOpen, onClose, hide
   }, [iconSheet, value, scale, hoverIdx]);
 
   useEffect(() => {
-    console.log('[IconPicker] open effect — open:', open, 'iconSheet:', !!iconSheet, 'canvasRef:', !!canvasRef.current);
-    if (open) {
-      drawSheet();
-      setTimeout(() => {
-        const el = document.querySelector('.icon-picker-overlay') as HTMLElement | null;
-        if (el) {
-          const cs = window.getComputedStyle(el);
-          console.log('[IconPicker] overlay in DOM — display:', cs.display, 'visibility:', cs.visibility, 'opacity:', cs.opacity, 'z-index:', cs.zIndex, 'rect:', JSON.stringify(el.getBoundingClientRect()));
-        } else {
-          console.warn('[IconPicker] overlay NOT found in DOM');
-        }
-        const canvas = canvasRef.current;
-        console.log('[IconPicker] canvas size:', canvas?.width, 'x', canvas?.height);
-      }, 50);
-    }
+    if (open) drawSheet();
   }, [open, drawSheet]);
 
   const getIdxFromEvent = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -116,7 +100,6 @@ export default function IconPicker({ value, onChange, initialOpen, onClose, hide
       {!hidePreview && (
         <div className="icon-picker-preview" onClick={e => {
           e.stopPropagation();
-          console.log('[IconPicker] preview clicked, open was:', open);
           open ? handleClose() : setOpen(true);
         }}>
           <canvas ref={previewRef} width={ICON_SIZE} height={ICON_SIZE} />

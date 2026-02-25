@@ -146,7 +146,7 @@ export function useEventEditor(
     } else {
       const idx = events.findIndex(e => e && e.id === resolvedEventId);
       if (idx >= 0) events[idx] = editEvent;
-      useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap) } as MapData & { tilesetNames?: string[] } });
+      useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap), minimapData: buildMinimapData(currentMap) } as MapData & { tilesetNames?: string[] } });
     }
     onClose();
   }, [currentMap, currentMapId, isNew, editEvent, resolvedEventId, npcName, showNpcName, minimapMarker, onClose, setSelectedEventId]);
@@ -156,7 +156,7 @@ export function useEventEditor(
     const events = [...(currentMap.events || [])];
     const idx = events.findIndex(e => e && e.id === resolvedEventId);
     if (idx >= 0) events[idx] = JSON.parse(JSON.stringify(editEvent));
-    useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap) } as MapData & { tilesetNames?: string[] } });
+    useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap), minimapData: buildMinimapData(currentMap) } as MapData & { tilesetNames?: string[] } });
   }, [currentMap, isNew, editEvent, resolvedEventId, npcName, showNpcName, minimapMarker]);
 
   return {
