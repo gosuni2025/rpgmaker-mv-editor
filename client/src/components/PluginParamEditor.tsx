@@ -191,7 +191,7 @@ export function PluginParamRow({
         className={isEditing ? 'active' : ''}
         title={paramMeta?.desc || param.name}
       >
-        <td className="pm-param-name">{param.name}</td>
+        <td className="pm-param-name" title={param.name}>{paramMeta?.text || param.name}</td>
         <td className="pm-param-value-cell">
           <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <div style={{ flex: 1, minWidth: 0 }}>

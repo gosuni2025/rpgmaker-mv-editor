@@ -49,6 +49,7 @@ export interface PluginParamOption {
 
 export interface PluginParamMeta {
   name: string;
+  text?: string;   // @text 표시명
   desc: string;
   type: string;
   default: string;
