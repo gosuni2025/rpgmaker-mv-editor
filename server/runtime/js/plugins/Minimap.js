@@ -335,18 +335,9 @@
     if (command !== 'Minimap') return;
     const sub = (args[0] || '').toLowerCase();
     switch (sub) {
-      case 'show':
-        console.log('[Minimap] pluginCommand show: _sprite=%s, _visible=%s', !!MinimapManager._sprite, MinimapManager._visible);
-        MinimapManager.setVisible(true);
-        break;
-      case 'hide':
-        console.log('[Minimap] pluginCommand hide: _sprite=%s, _visible=%s', !!MinimapManager._sprite, MinimapManager._visible);
-        MinimapManager.setVisible(false);
-        break;
-      case 'toggle':
-        console.log('[Minimap] pluginCommand toggle: _sprite=%s, _visible=%s', !!MinimapManager._sprite, MinimapManager._visible);
-        MinimapManager.toggleVisible();
-        break;
+      case 'show':    MinimapManager.setVisible(true);  break;
+      case 'hide':    MinimapManager.setVisible(false); break;
+      case 'toggle':  MinimapManager.toggleVisible();   break;
       case 'clearfow':      MinimapManager.clearFow();                                    break;
       case 'revealall':     MinimapManager.revealAll();                                   break;
       case 'shape':         MinimapManager.setShape(args[1]);                             break;
@@ -372,9 +363,6 @@
     var savedVisible = hasPrevSprite
       ? MinimapManager._visible
       : ($gameSystem ? $gameSystem._minimapVisible : CFG.showOnStart);
-    console.log('[Minimap] createAllWindows: hasPrevSprite=%s, MinimapManager._visible=%s, $gameSystem._minimapVisible=%s, savedVisible=%s',
-      hasPrevSprite, MinimapManager._visible,
-      $gameSystem ? $gameSystem._minimapVisible : 'N/A', savedVisible);
     MinimapManager.destroySprite();
     MinimapManager.createSprite(this);
     MinimapManager.setVisible(savedVisible);
@@ -867,14 +855,15 @@
     // 스프라이트 생성
     // ----------------------------------------------------------
     createSprite(scene) {
-      console.log('[Minimap] createSprite start: _visible=%s', this._visible);
       this._scene = scene;
       if (!this._bitmap) this.initialize();
 
       this._sprite = new Sprite(this._bitmap);
       const gw = Graphics.width || Graphics.boxWidth;
       this._sprite.x = gw - CFG.size - CFG.margin - N_PAD;
-      this._sprite.y = CFG.margin - N_PAD;
+      // N_PAD만큼 위로 올려서 "N" 표시가 미니맵 원 위에 오도록 하되,
+      // OrthographicCamera(top=0)의 클리핑을 방지하기 위해 y >= 0 보장
+      this._sprite.y = Math.max(0, CFG.margin - N_PAD);
       this._sprite.opacity = CFG.opacity;
       scene.addChild(this._sprite);
 
@@ -892,14 +881,12 @@
       // _visible은 건드리지 않음 — setVisible()이 이후에 올바른 값으로 설정함
       this._dirty   = true;
       if ($gamePlayer) this.explore($gamePlayer.x, $gamePlayer.y);
-      console.log('[Minimap] createSprite done: _visible=%s (setVisible will follow)', this._visible);
     },
 
     // ----------------------------------------------------------
     // 스프라이트 해제
     // ----------------------------------------------------------
     destroySprite() {
-      console.log('[Minimap] destroySprite: _visible=%s, hasSprite=%s', this._visible, !!this._sprite);
       if (this._scene) {
         if (this._sprite)   this._scene.removeChild(this._sprite);
         if (this._btnMinus) this._scene.removeChild(this._btnMinus);
@@ -941,37 +928,6 @@
     // ----------------------------------------------------------
     update() {
       if (!this._sprite || !$gamePlayer) return;
-
-      // _threeObj 레벨에서 미니맵이 숨겨진 경우 감지 및 복원
-      if (this._visible && this._sprite) {
-        var tObj = this._sprite._threeObj;
-        if (!tObj) {
-          // Three.js 오브젝트가 없음 — 렌더링 불가
-          if (!this._warnedNoThreeObj) {
-            this._warnedNoThreeObj = true;
-            console.warn('[Minimap] sprite._threeObj가 없음 — 2D 모드에서 렌더링 안됨');
-          }
-        } else {
-          this._warnedNoThreeObj = false;
-          if (!tObj.visible) {
-            console.log('[Minimap] _threeObj.visible이 외부에서 false → 복원');
-            tObj.visible = true;
-            if (this._btnMinus && this._btnMinus._threeObj) this._btnMinus._threeObj.visible = true;
-            if (this._btnPlus  && this._btnPlus._threeObj)  this._btnPlus._threeObj.visible  = true;
-          }
-          // 부모 체인 중 숨겨진 조상이 있는지 확인
-          if (!this._checkedAncestor) {
-            this._checkedAncestor = true;
-            var p = tObj.parent;
-            while (p) {
-              if (p.visible === false) {
-                console.warn('[Minimap] 조상 컨테이너가 hidden:', p);
-              }
-              p = p.parent;
-            }
-          }
-        }
-      }
 
       // 버튼은 UPDATE_INTERVAL 무관하게 매 프레임 체크
       this._updateButtons();
@@ -1024,23 +980,21 @@
     // 표시/숨김
     // ----------------------------------------------------------
     setVisible(visible) {
-      var stack = new Error().stack.split('\n').slice(2, 5).map(function(s) { return s.trim(); }).join(' | ');
-      console.log('[Minimap] setVisible(%s): _sprite=%s, before._visible=%s, before.$gameSystem._minimapVisible=%s\n  caller: %s',
-        visible, !!this._sprite, this._visible,
-        $gameSystem ? $gameSystem._minimapVisible : 'N/A', stack);
       this._visible = visible;
       if ($gameSystem) $gameSystem._minimapVisible = visible;
       if (this._sprite)   this._sprite.visible   = visible;
       if (this._btnMinus) this._btnMinus.visible  = visible;
       if (this._btnPlus)  this._btnPlus.visible   = visible;
       this._checkedAncestor = false; // 가시성 변경 시 조상 체인 재확인
-      console.log('[Minimap] setVisible done: sprite.visible=%s, _threeObj.visible=%s',
-        this._sprite ? this._sprite.visible : 'N/A (no sprite)',
-        (this._sprite && this._sprite._threeObj) ? this._sprite._threeObj.visible : 'N/A (no _threeObj)');
+      if (visible) {
+        // 즉시 렌더링하여 빈 캔버스로 인해 투명하게 보이는 현상 방지
+        this._dirty = true;
+        this._frameCount = this.UPDATE_INTERVAL;
+        if ($gameMap && $gamePlayer) this._render();
+      }
     },
 
     toggleVisible() {
-      console.log('[Minimap] toggleVisible: _visible=%s → %s', this._visible, !this._visible);
       this.setVisible(!this._visible);
     },
 
