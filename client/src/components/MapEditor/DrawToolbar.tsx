@@ -139,12 +139,15 @@ export default function DrawToolbar() {
             {[
               { id: 'select', label: t('toolbar.select') },
               { id: 'pen', label: t('toolbar.pencil') },
+              { id: 'forceOpen', label: t('toolbar.forceOpen', '강제개방') },
               { id: 'eraser', label: t('toolbar.eraser'), eraser: true },
             ].map(({ id, label, eraser }) => (
               <button
                 key={id}
                 onClick={() => setPassageTool(id as any)}
                 className={btn(passageTool === id, false, !!eraser)}
+                style={id === 'forceOpen' && passageTool === id ? { background: 'rgba(30,160,60,0.5)', borderColor: '#4c8' } :
+                       id === 'forceOpen' ? { borderColor: '#4a6' } : undefined}
               >
                 {label}
               </button>

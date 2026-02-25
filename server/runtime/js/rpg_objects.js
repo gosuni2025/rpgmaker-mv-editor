@@ -5975,16 +5975,19 @@ Game_Map.prototype.autotileType = function(x, y, z) {
 };
 
 Game_Map.prototype.isPassable = function(x, y, d) {
-    if (!this.checkPassage(x, y, (1 << (d / 2 - 1)) & 0x0f)) return false;
-    // customPassage: 맵 단위 커스텀 통행불가
+    var bit = (1 << (d / 2 - 1)) & 0x0f;
+    // customPassage: 맵 단위 커스텀 통행 오버라이드
     var cp = $dataMap.customPassage;
     if (cp) {
         var cpVal = cp[y * this.width() + x];
         if (cpVal) {
-            var bit = (1 << (d / 2 - 1)) & 0x0f;
+            // 상위 nibble: 강제 개방 (타일셋 판정보다 우선)
+            if ((cpVal >> 4) & bit) return true;
+            // 하위 nibble: 강제 차단
             if (cpVal & bit) return false;
         }
     }
+    if (!this.checkPassage(x, y, bit)) return false;
     var objects = $dataMap.objects;
     if (objects) {
         for (var i = 0; i < objects.length; i++) {

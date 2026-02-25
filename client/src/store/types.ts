@@ -137,7 +137,7 @@ export interface EditorState {
   selectedCameraZoneIds: number[];
 
   // Passage editor
-  passageTool: 'select' | 'pen' | 'eraser';
+  passageTool: 'select' | 'pen' | 'forceOpen' | 'eraser';
   passageShape: 'freehand' | 'rectangle' | 'ellipse' | 'fill';
   selectedPassageTile: { x: number; y: number } | null;
   passageSelectionStart: { x: number; y: number } | null;

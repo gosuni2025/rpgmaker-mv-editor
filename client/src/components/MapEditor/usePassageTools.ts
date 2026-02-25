@@ -51,9 +51,11 @@ export function usePassageHandlers(
   const applyToTile = useCallback((x: number, y: number) => {
     const { passageTool } = useEditorStore.getState();
     if (passageTool === 'pen') {
-      applyPassage(x, y, 0x0F); // 전방향 불가
+      applyPassage(x, y, 0x0F); // 전방향 차단
+    } else if (passageTool === 'forceOpen') {
+      applyPassage(x, y, 0xF0); // 전방향 강제 개방
     } else {
-      applyPassage(x, y, 0); // 제거
+      applyPassage(x, y, 0); // 커스텀 제거
     }
   }, [applyPassage]);
 
@@ -62,7 +64,7 @@ export function usePassageHandlers(
     if (!map) return;
     const { passageTool } = useEditorStore.getState();
     const targetValue = getPassageValue(startX, startY);
-    const newValue = passageTool === 'pen' ? 0x0F : 0;
+    const newValue = passageTool === 'pen' ? 0x0F : passageTool === 'forceOpen' ? 0xF0 : 0;
     if (targetValue === newValue) return;
 
     const w = map.width;
@@ -86,7 +88,7 @@ export function usePassageHandlers(
     const map = useEditorStore.getState().currentMap;
     if (!map) return;
     const { passageTool } = useEditorStore.getState();
-    const newValue = passageTool === 'pen' ? 0x0F : 0;
+    const newValue = passageTool === 'pen' ? 0x0F : passageTool === 'forceOpen' ? 0xF0 : 0;
     const minX = Math.max(0, Math.min(x1, x2));
     const maxX = Math.min(map.width - 1, Math.max(x1, x2));
     const minY = Math.max(0, Math.min(y1, y2));

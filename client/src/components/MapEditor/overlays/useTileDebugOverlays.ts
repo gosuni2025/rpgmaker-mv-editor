@@ -140,10 +140,16 @@ function drawPassageTileSymbol(
   ctx: CanvasRenderingContext2D,
   cx: number, cy: number, tp: number,
   effectiveBits: number,
-  hasCustom: boolean,
+  cpVal: number,
 ) {
-  // 커스텀 오버라이드된 타일은 배경 하이라이트
-  if (hasCustom) {
+  const isForceOpen = (cpVal & 0xF0) !== 0; // 강제 개방 커스텀
+  const isCustomBlock = (cpVal & 0x0F) !== 0 && !isForceOpen; // 차단 커스텀
+
+  // 커스텀 오버라이드된 타일 배경 하이라이트
+  if (isForceOpen) {
+    ctx.fillStyle = 'rgba(40, 200, 80, 0.12)';
+    ctx.fillRect(cx - tp / 2, cy - tp / 2, tp, tp);
+  } else if (isCustomBlock) {
     ctx.fillStyle = 'rgba(255, 210, 50, 0.12)';
     ctx.fillRect(cx - tp / 2, cy - tp / 2, tp, tp);
   }
@@ -151,7 +157,13 @@ function drawPassageTileSymbol(
   const r = tp * 0.28;
   ctx.lineCap = 'round';
 
-  if (effectiveBits === 0) {
+  if (isForceOpen) {
+    // 강제 개방: 초록 ● (채운 원)
+    ctx.fillStyle = 'rgba(60, 220, 100, 0.85)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (effectiveBits === 0) {
     // 전방향 통행 가능: 흰 ○
     ctx.strokeStyle = 'rgba(210, 210, 210, 0.78)';
     ctx.lineWidth = Math.max(1, tp * 0.07);
@@ -221,9 +233,11 @@ export function usePassageOverlay(refs: PassageRefs, rendererReady: number) {
       for (let x = 0; x < mapWidth; x++) {
         const cpVal = customPassage ? (customPassage[y * mapWidth + x] || 0) : 0;
         const tilesetBits = getEffectivePassageBits(mapData, x, y, mapWidth, mapHeight, flags);
-        // customPassage 하위 nibble(차단 비트)을 타일셋 비트에 OR
-        const effectiveBits = tilesetBits | (cpVal & 0x0F);
-        drawPassageTileSymbol(ctx, x * tp + tp / 2, y * tp + tp / 2, tp, effectiveBits, cpVal !== 0);
+        // 하위 nibble(차단) OR → 상위 nibble(강제개방) AND NOT 으로 최종 비트 결정
+        const blockBits = cpVal & 0x0F;
+        const openBits = (cpVal >> 4) & 0x0F;
+        const effectiveBits = (tilesetBits | blockBits) & ~openBits;
+        drawPassageTileSymbol(ctx, x * tp + tp / 2, y * tp + tp / 2, tp, effectiveBits, cpVal);
       }
     }
 
