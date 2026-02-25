@@ -354,7 +354,7 @@
   const _Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindows;
   Scene_Map.prototype.createAllWindows = function () {
     _Scene_Map_createAllWindows.call(this);
-    if ($gameSystem._minimapVisible !== false) {
+    if (CFG.enabled && $gameSystem._minimapVisible !== false) {
       MinimapManager.createSprite(this);
     }
   };
