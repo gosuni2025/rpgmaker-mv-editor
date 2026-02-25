@@ -941,6 +941,15 @@
     update() {
       if (!this._sprite || !$gamePlayer) return;
 
+      // _threeObj가 외부(Mode3D 렌더링 등)에서 강제로 숨겨졌는지 감지
+      if (this._visible && this._sprite._threeObj &&
+          !this._sprite._threeObj.visible) {
+        console.log('[Minimap] _threeObj.visible이 외부에서 false로 변경됨 → 복원', this._sprite._threeObj);
+        this._sprite._threeObj.visible = true;
+        if (this._btnMinus && this._btnMinus._threeObj) this._btnMinus._threeObj.visible = true;
+        if (this._btnPlus  && this._btnPlus._threeObj)  this._btnPlus._threeObj.visible  = true;
+      }
+
       // 버튼은 UPDATE_INTERVAL 무관하게 매 프레임 체크
       this._updateButtons();
 
