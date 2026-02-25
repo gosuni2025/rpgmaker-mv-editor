@@ -239,19 +239,18 @@
  * 미니맵을 화면 우측 상단에 표시합니다.
  * 미니맵 하단의 -/+ 버튼으로 확대/축소할 수 있습니다.
  *
- * --- 이벤트 마커 (노트 태그) ---
- * 이벤트 노트란에 다음 태그를 입력하면 미니맵에 마커가 표시됩니다:
- *   <minimap>           기본 마커 색상으로 표시 (원형)
- *   <minimap:#ff4444>   지정한 색상으로 표시
+ * --- 이벤트 마커 ---
+ * 에디터 이벤트 에디터에서 "미니맵" 항목으로 색상·모양을 설정하면
+ * $dataMap.minimapData[eventId]에 저장되어 자동으로 표시됩니다.
  *
- * --- 커스텀 마커 ---
+ * --- 커스텀 마커 (스크립트/커맨드) ---
  * 플러그인 커맨드로 임의 좌표에 마커를 추가할 수 있습니다:
  *   Minimap addMarker npc1 5 10 #ff4444 circle
  *   Minimap addMarker boss 20 15 #ff0000 diamond
  *   Minimap removeMarker npc1
  *   Minimap clearMarkers
  *
- * 마커는 세이브 데이터에 저장됩니다.
+ * 커스텀 마커는 세이브 데이터에 저장됩니다.
  */
 
 (function () {
@@ -462,14 +461,13 @@
     },
 
     // ----------------------------------------------------------
-    // 이벤트 마커 색상 (노트 태그)
+    // 이벤트 마커 (EXT: $dataMap.minimapData[eventId])
     // ----------------------------------------------------------
-    _getEventMarkerColor(event) {
-      if (!event || !event.event()) return null;
-      const meta = event.event().meta;
-      if (!meta || meta.minimap === undefined) return null;
-      const val = String(meta.minimap).trim();
-      return (val === 'true' || val === '') ? CFG.eventMarkerColor : val;
+    _getEventMarker(event) {
+      if (!event) return null;
+      const data = $dataMap && $dataMap.minimapData && $dataMap.minimapData[event.eventId()];
+      if (!data || !data.enabled) return null;
+      return { color: data.color || CFG.eventMarkerColor, shape: data.shape || 'circle' };
     },
 
     // ----------------------------------------------------------
@@ -580,11 +578,11 @@
 
       const markerR = Math.max(2, ts * 0.8);
 
-      // ── 이벤트 마커 (노트 태그) ───────────────────────────────
+      // ── 이벤트 마커 (EXT: minimapData) ──────────────────────────
       if (CFG.showEvents && $gameMap.events) {
         $gameMap.events().forEach(event => {
-          const color = this._getEventMarkerColor(event);
-          if (!color) return;
+          const marker = this._getEventMarker(event);
+          if (!marker) return;
           const ex = event.x, ey = event.y;
           const mx = $gameMap.isLoopHorizontal()
             ? ((ex % mapW) + mapW) % mapW : ex;
@@ -595,7 +593,7 @@
           this._drawMarker(ctx,
             (ex - startX) * ts + ts * 0.5,
             (ey - startY) * ts + ts * 0.5,
-            markerR, color, 'circle');
+            markerR, marker.color, marker.shape);
         });
       }
 

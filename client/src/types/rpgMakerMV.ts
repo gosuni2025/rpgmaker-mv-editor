@@ -16,6 +16,12 @@ export interface NpcDisplayData {
   showName: boolean;  // 이름 표시 여부
 }
 
+export interface MinimapMarkerData {
+  enabled: boolean;
+  color: string;                          // CSS 색상값 (#rrggbb)
+  shape: 'circle' | 'square' | 'diamond';
+}
+
 export interface MapData {
   displayName: string;
   name?: string;
@@ -56,7 +62,8 @@ export interface MapData {
   weatherPower?: number;  // 1~9
   testStartPosition?: { x: number; y: number };  // EXT: 현재 맵 테스트용 임시 시작 위치
   customPassage?: number[];  // EXT: 맵 단위 커스텀 통행불가 (y * width + x, 비트: 0x01=DOWN, 0x02=LEFT, 0x04=RIGHT, 0x08=UP)
-  npcData?: Record<number, NpcDisplayData>;  // EXT: 이벤트별 NPC 표시 이름 (key = eventId)
+  npcData?: Record<number, NpcDisplayData>;       // EXT: 이벤트별 NPC 표시 이름 (key = eventId)
+  minimapData?: Record<number, MinimapMarkerData>; // EXT: 이벤트별 미니맵 마커 (key = eventId)
 }
 
 export interface BloomConfig {

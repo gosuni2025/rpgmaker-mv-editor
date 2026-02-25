@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useEditorStore from '../../store/useEditorStore';
 import useEscClose from '../../hooks/useEscClose';
-import type { RPGEvent, EventPage } from '../../types/rpgMakerMV';
+import type { RPGEvent, EventPage, MinimapMarkerData } from '../../types/rpgMakerMV';
 import EventCommandEditor from './EventCommandEditor';
 import ImagePicker from '../common/ImagePicker';
 import MoveRouteDialog from './MoveRouteDialog';
@@ -35,6 +35,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
   const initNpcId = isNew ? 0 : (eventId ?? 0);
   const [npcName, setNpcName] = useState<string>(() => currentMap?.npcData?.[initNpcId]?.name ?? '');
   const [showNpcName, setShowNpcName] = useState<boolean>(() => currentMap?.npcData?.[initNpcId]?.showName ?? false);
+  const [minimapMarker, setMinimapMarker] = useState<MinimapMarkerData | null>(() => currentMap?.minimapData?.[initNpcId] ?? null);
   const [showMoveRoute, setShowMoveRoute] = useState(false);
 
   const {
@@ -42,7 +43,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
     updateEvent, updatePage, updateConditions, updateImage,
     addPage, copyPage, deletePage, clearPage,
     handleOk, handleApply,
-  } = useEventEditor(event!, isNew, resolvedEventId, npcName, showNpcName, onClose);
+  } = useEventEditor(event!, isNew, resolvedEventId, npcName, showNpcName, minimapMarker, onClose);
 
   const MOVE_TYPES = useMemo(() => [0, 1, 2, 3].map(i => t(`eventDetail.moveTypes.${i}`)), [t]);
   const MOVE_SPEEDS = useMemo(() => [0, 1, 2, 3, 4, 5].map(i => t(`eventDetail.moveSpeeds.${i}`)), [t]);
@@ -112,6 +113,29 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
               {t('eventDetail.showNpcName')}
               <ExtBadge inline />
             </label>
+          </label>
+          <label className="event-editor-name-label event-editor-minimap-label">
+            미니맵:
+            <label className="event-editor-npc-show-check">
+              <input type="checkbox" checked={minimapMarker?.enabled ?? false} onChange={e => {
+                setMinimapMarker(prev => e.target.checked
+                  ? { enabled: true, color: prev?.color ?? '#ffcc00', shape: prev?.shape ?? 'circle' }
+                  : prev ? { ...prev, enabled: false } : null);
+              }} />
+              표시
+              <ExtBadge inline />
+            </label>
+            {minimapMarker?.enabled && (<>
+              <input type="color" value={minimapMarker.color} title="마커 색상"
+                style={{ width: 28, height: 20, padding: 1, cursor: 'pointer', border: '1px solid #555' }}
+                onChange={e => setMinimapMarker(prev => prev ? { ...prev, color: e.target.value } : null)} />
+              <select value={minimapMarker.shape} className="event-editor-input" style={{ width: 80 }}
+                onChange={e => setMinimapMarker(prev => prev ? { ...prev, shape: e.target.value as MinimapMarkerData['shape'] } : null)}>
+                <option value="circle">원형</option>
+                <option value="square">사각형</option>
+                <option value="diamond">다이아몬드</option>
+              </select>
+            </>)}
           </label>
         </div>
 

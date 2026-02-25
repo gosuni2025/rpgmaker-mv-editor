@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import useEditorStore from '../../store/useEditorStore';
-import type { RPGEvent, EventPage, EventConditions, EventImage, MapData, NpcDisplayData } from '../../types/rpgMakerMV';
+import type { RPGEvent, EventPage, EventConditions, EventImage, MapData, NpcDisplayData, MinimapMarkerData } from '../../types/rpgMakerMV';
 
 function getDefaultPage(): EventPage {
   return {
@@ -34,6 +34,7 @@ export function useEventEditor(
   resolvedEventId: number,
   npcName: string,
   showNpcName: boolean,
+  minimapMarker: MinimapMarkerData | null,
   onClose: () => void,
 ) {
   const currentMap = useEditorStore(s => s.currentMap);
@@ -112,6 +113,16 @@ export function useEventEditor(
     return Object.keys(updated).length > 0 ? updated : undefined;
   };
 
+  const buildMinimapData = (map: MapData): Record<number, MinimapMarkerData> | undefined => {
+    const updated = { ...(map.minimapData || {}) };
+    if (minimapMarker && minimapMarker.enabled) {
+      updated[resolvedEventId] = minimapMarker;
+    } else {
+      delete updated[resolvedEventId];
+    }
+    return Object.keys(updated).length > 0 ? updated : undefined;
+  };
+
   const handleOk = useCallback(() => {
     if (!currentMap || !currentMapId) return;
     const events = [...(currentMap.events || [])];
@@ -128,7 +139,7 @@ export function useEventEditor(
       }];
       if (undoStack.length > state.maxUndo) undoStack.shift();
       useEditorStore.setState({
-        currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap) } as MapData & { tilesetNames?: string[] },
+        currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap), minimapData: buildMinimapData(currentMap) } as MapData & { tilesetNames?: string[] },
         undoStack, redoStack: [],
       });
       setSelectedEventId(editEvent.id);
@@ -138,7 +149,7 @@ export function useEventEditor(
       useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap) } as MapData & { tilesetNames?: string[] } });
     }
     onClose();
-  }, [currentMap, currentMapId, isNew, editEvent, resolvedEventId, npcName, showNpcName, onClose, setSelectedEventId]);
+  }, [currentMap, currentMapId, isNew, editEvent, resolvedEventId, npcName, showNpcName, minimapMarker, onClose, setSelectedEventId]);
 
   const handleApply = useCallback(() => {
     if (!currentMap || isNew) return;
@@ -146,7 +157,7 @@ export function useEventEditor(
     const idx = events.findIndex(e => e && e.id === resolvedEventId);
     if (idx >= 0) events[idx] = JSON.parse(JSON.stringify(editEvent));
     useEditorStore.setState({ currentMap: { ...currentMap, events, npcData: buildNpcData(currentMap) } as MapData & { tilesetNames?: string[] } });
-  }, [currentMap, isNew, editEvent, resolvedEventId, npcName, showNpcName]);
+  }, [currentMap, isNew, editEvent, resolvedEventId, npcName, showNpcName, minimapMarker]);
 
   return {
     editEvent, page, activePage, setActivePage,
