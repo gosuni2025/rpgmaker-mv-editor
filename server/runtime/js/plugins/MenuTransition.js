@@ -162,7 +162,8 @@
     var _closeCb    = null;
     var _rafId      = null;
 
-    var _snapshotReady = false;
+    var _snapshotReady       = false;
+    var _needsBlurredSnapshot = false;  // t=1 도달 시 블러 결과 저장 트리거
 
     // Three.js 리소스
     var _canvasTex = null;   // 스냅샷 CanvasTexture (원본)
@@ -315,6 +316,12 @@
                 // 배경 블러 → outputRT (매 프레임 t에 따라 갱신)
                 renderBgToRT(renderer, w, h, _t);
 
+                // 블러 완료 시 결과 저장 (1회)
+                if (_needsBlurredSnapshot && _outputRT) {
+                    _needsBlurredSnapshot = false;
+                    saveRenderTargetPng(renderer, _outputRT, 'mt-snapshot-blurred');
+                }
+
                 // writeBuffer에 배경 blit
                 _copyMat.uniforms.tDiffuse.value = _outputRT.texture;
                 _fsq.material = _copyMat;
@@ -401,6 +408,30 @@
 
     // ── 디버그: /tmp/rpgmaker-snapshots 에 PNG 저장 ───────────────────────────
 
+    function saveRenderTargetPng(renderer, rt, name) {
+        try {
+            var w = rt.width, h = rt.height;
+            var pixels = new Uint8Array(w * h * 4);
+            renderer.readRenderTargetPixels(rt, 0, 0, w, h, pixels);
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            var imgData = ctx.createImageData(w, h);
+            // WebGL은 Y축이 반전되어 있으므로 flip
+            for (var y = 0; y < h; y++) {
+                var srcRow = (h - 1 - y) * w * 4;
+                var dstRow = y * w * 4;
+                for (var x = 0; x < w * 4; x++) {
+                    imgData.data[dstRow + x] = pixels[srcRow + x];
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+            saveCanvasPng(canvas, name);
+        } catch (e) {
+            console.warn('[MenuTransition] saveRenderTargetPng 실패:', e);
+        }
+    }
+
     function saveCanvasPng(canvas, name) {
         try {
             var dataUrl = canvas.toDataURL('image/png');
@@ -428,7 +459,7 @@
         if (_phase === 1) {
             _t = applyEase(raw);
             if (raw < 1) { _rafId = requestAnimationFrame(tick); }
-            else { _t = 1; _phase = 2; }
+            else { _t = 1; _phase = 2; _needsBlurredSnapshot = true; }
         } else if (_phase === 3) {
             _t = applyEase(1 - raw);
             if (raw < 1) { _rafId = requestAnimationFrame(tick); }
