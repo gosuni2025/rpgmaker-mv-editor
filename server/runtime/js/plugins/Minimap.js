@@ -286,6 +286,7 @@
 
   const BTN_SIZE = 26; // +/- 버튼 크기 (px)
   const BTN_GAP  = 24; // 버튼 사이 간격
+  const N_PAD    = 16; // 북쪽 N 표시를 위한 비트맵 여백 (px)
 
   // ============================================================
   // Game_System — 세이브 데이터
@@ -396,7 +397,8 @@
     // 초기화
     // ----------------------------------------------------------
     initialize() {
-      this._bitmap = new Bitmap(CFG.size, CFG.size);
+      const bw = CFG.size + N_PAD * 2;
+      this._bitmap = new Bitmap(bw, bw);
     },
 
     // ----------------------------------------------------------
@@ -593,7 +595,11 @@
         yaw = (Mode3D._yawDeg || 0) * Math.PI / 180;
       }
 
-      ctx.clearRect(0, 0, s, s);
+      ctx.clearRect(0, 0, s + N_PAD * 2, s + N_PAD * 2);
+
+      // N_PAD 여백 안쪽을 (0,0) 기준으로 사용
+      ctx.save(); // === PAD translate ===
+      ctx.translate(N_PAD, N_PAD);
 
       // ── 클리핑 ───────────────────────────────────────────────
       ctx.save();
@@ -728,6 +734,8 @@
         this._drawNorthIndicator(ctx, s, hs, yaw);
       }
 
+      ctx.restore(); // === undo PAD translate ===
+
       bitmap._dirty = true;
       if (bitmap._baseTexture) bitmap._baseTexture.update();
     },
@@ -736,19 +744,16 @@
     // 북쪽 N 표시 (회전 모드 전용)
     // ----------------------------------------------------------
     _drawNorthIndicator(ctx, s, hs, yaw) {
-      const nr   = 9;              // N 배지 반지름 (px)
       const sinY = Math.sin(yaw);
       const cosY = Math.cos(yaw);
 
       let nx, ny;
       if (CFG.shape === 'circle') {
-        // 원 테두리: 중심에서 반지름 hs 방향
         nx = hs - hs * sinY;
         ny = hs - hs * cosY;
       } else {
-        // 사각형 테두리: 중심에서 -yaw 방향으로 ray cast
-        const dx = -sinY;
-        const dy = -cosY;
+        // 사각형 테두리: 중심 → -yaw 방향 ray cast
+        const dx = -sinY, dy = -cosY;
         let t = Infinity;
         if (Math.abs(dx) > 1e-6) t = Math.min(t, (dx > 0 ? (s - hs) : hs) / Math.abs(dx));
         if (Math.abs(dy) > 1e-6) t = Math.min(t, (dy > 0 ? (s - hs) : hs) / Math.abs(dy));
@@ -757,25 +762,20 @@
       }
 
       ctx.save();
-      ctx.globalAlpha = 1.0;
-
-      // 배경 원
-      ctx.beginPath();
-      ctx.arc(nx, ny, nr, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(200,50,50,0.90)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-      ctx.lineWidth   = 1.5;
-      ctx.stroke();
-
-      // N 텍스트
-      ctx.fillStyle    = '#ffffff';
-      ctx.font         = `bold ${Math.round(nr * 1.4)}px sans-serif`;
+      ctx.globalAlpha  = 1.0;
+      ctx.font         = 'bold 15px sans-serif';
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.shadowColor  = 'rgba(0,0,0,0.7)';
-      ctx.shadowBlur   = 3;
-      ctx.fillText('N', nx, ny + 0.5);
+
+      // 검정 윤곽선으로 가독성 확보
+      ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+      ctx.lineWidth   = 4;
+      ctx.lineJoin    = 'round';
+      ctx.strokeText('N', nx, ny);
+
+      // 빨간 본문
+      ctx.fillStyle = '#ff5555';
+      ctx.fillText('N', nx, ny);
 
       ctx.restore();
     },
@@ -841,8 +841,8 @@
 
       this._sprite = new Sprite(this._bitmap);
       const gw = Graphics.width || Graphics.boxWidth;
-      this._sprite.x = gw - CFG.size - CFG.margin;
-      this._sprite.y = CFG.margin;
+      this._sprite.x = gw - CFG.size - CFG.margin - N_PAD;
+      this._sprite.y = CFG.margin - N_PAD;
       this._sprite.opacity = CFG.opacity;
       scene.addChild(this._sprite);
 
