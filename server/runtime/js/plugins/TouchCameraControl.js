@@ -308,27 +308,28 @@
             }
         }
 
-        if (is3DActive()) {
-            if (event.touches.length === 1) {
-                var touch = event.touches[0];
-                _dragState.active = true;
-                _dragState.startX = touch.pageX;
-                _dragState.startY = touch.pageY;
-                _dragState.lastX  = touch.pageX;
-                _dragState.lastY  = touch.pageY;
-                _dragState.moved  = false;
-                _suppressNextDestination = false;
-                var scene = SceneManager._scene;
-                _mapTouchTriggered = !!(scene && scene.isActive && scene.isActive() &&
-                                        $gamePlayer && $gamePlayer.canMove());
-            } else if (event.touches.length >= 2) {
-                _dragState.active = false;
-                _dragState.moved  = true;   // 핀치 → 이동 억제
-                _suppressNextDestination = true;
-                _mapTouchTriggered = false;
-                _pinchState.active   = true;
-                _pinchState.lastDist = getTouchDist(event.touches);
-            }
+        // is3DActive() 여부와 무관하게 항상 드래그/핀치 상태 초기화
+        // (로딩 중 터치 시 is3DActive()=false여서 _dragState.active가 설정 안 되는 버그 방지)
+        if (event.touches.length === 1) {
+            var touch = event.touches[0];
+            _dragState.active = true;
+            _dragState.startX = touch.pageX;
+            _dragState.startY = touch.pageY;
+            _dragState.lastX  = touch.pageX;
+            _dragState.lastY  = touch.pageY;
+            _dragState.moved  = false;
+            _suppressNextDestination = false;
+            _pinchState.active = false;
+            var scene = SceneManager._scene;
+            _mapTouchTriggered = !!(scene && scene.isActive && scene.isActive() &&
+                                    $gamePlayer && $gamePlayer.canMove());
+        } else if (event.touches.length >= 2) {
+            _dragState.active = false;
+            _dragState.moved  = true;   // 핀치 → 이동 억제
+            _suppressNextDestination = true;
+            _mapTouchTriggered = false;
+            _pinchState.active   = true;
+            _pinchState.lastDist = getTouchDist(event.touches);
         }
     };
 
