@@ -112,8 +112,7 @@
     var _closeCb    = null;
     var _rafId      = null;
 
-    var _needsBlurredSnapshot = false;  // t=1 도달 시 블러 결과 저장 트리거
-    var _srcCanvas = null;              // 스냅샷 캔버스 (PostProcess._captureCanvas 복사본)
+    var _srcCanvas = null;  // 스냅샷 캔버스 (PostProcess._captureCanvas 복사본)
 
     var _suppressNextFadeOut = false;  // 닫기 후 메뉴씬 검정 페이드아웃 억제
     var _suppressNextFadeIn  = false;  // 닫기 후 복귀씬(맵 등) 페이드인 억제
@@ -129,7 +128,7 @@
         if (_phase === 1) {
             _t = applyEase(raw);
             if (raw < 1) { _rafId = requestAnimationFrame(tick); }
-            else { _t = 1; _phase = 2; _needsBlurredSnapshot = true; }
+            else { _t = 1; _phase = 2; }
         } else if (_phase === 3) {
             _t = applyEase(1 - raw);
             if (raw < 1) { _rafId = requestAnimationFrame(tick); }
@@ -185,24 +184,6 @@
         bitmap._setDirty();
     }
 
-    // ── 디버그: /tmp/rpgmaker-snapshots 에 PNG 저장 ───────────────────────────
-
-    function saveCanvasPng(canvas, name) {
-        try {
-            var dataUrl = canvas.toDataURL('image/png');
-            fetch('/api/debug/save-snapshot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: dataUrl, name: name })
-            })
-            .then(function (r) { return r.json(); })
-            .then(function (j) { console.log('[MenuTransition] 저장됨:', j.path); })
-            .catch(function (e) { console.warn('[MenuTransition] 저장 실패:', e); });
-        } catch (e) {
-            console.warn('[MenuTransition] toDataURL 실패:', e);
-        }
-    }
-
     // ── SceneManager.snapForBackground 오버라이드 ─────────────────────────────
     // Scene_Map.terminate()에서 호출 → 이 시점의 _captureCanvas = 맵 화면
 
@@ -223,9 +204,6 @@
         copy.height = cap.height;
         copy.getContext('2d').drawImage(cap, 0, 0);
         _srcCanvas = copy;
-
-        saveCanvasPng(_srcCanvas, 'mt-snapshot-raw');
-        console.log('[MenuTransition] 스냅샷 취득:', cap.width + 'x' + cap.height);
     };
 
     // ── Scene_MenuBase 오버라이드 ─────────────────────────────────────────────
@@ -235,7 +213,6 @@
         _SMB_create.call(this);
         if (!_srcCanvas) return;
         startOpen();
-        console.log('[MenuTransition] 메뉴 열기 시작');
     };
 
     // startFadeIn: MT가 열기 애니메이션을 담당 → 페이드인 즉시 완료
@@ -276,15 +253,6 @@
         if (_phase !== 0 && this._backgroundSprite) {
             var bmp = this._backgroundSprite.bitmap;
             if (bmp) updateBgBitmap(bmp, _t);
-        }
-
-        // t=1 도달 시 블러 결과 스냅샷 저장 (1회)
-        if (_needsBlurredSnapshot && this._backgroundSprite) {
-            _needsBlurredSnapshot = false;
-            var bmp2 = this._backgroundSprite.bitmap;
-            if (bmp2 && bmp2._context) {
-                saveCanvasPng(bmp2._context.canvas, 'mt-snapshot-blurred');
-            }
         }
     };
 
