@@ -134,8 +134,14 @@ function extractRoutes(event: RPGEvent, events: (RPGEvent | null)[] | undefined)
 }
 
 // 경로 가시성을 오버레이 훅에 전달하기 위한 글로벌 이벤트
-function emitRouteVisibilityChange(entries: RouteEntry[], eventId: number, eventX: number, eventY: number) {
-  (window as any)._editorRouteEntries = { entries, eventId, eventX, eventY };
+function emitRouteVisibilityChange(
+  entries: RouteEntry[],
+  eventId: number,
+  eventX: number,
+  eventY: number,
+  startOverrides?: Record<string, { x: number; y: number }>,
+) {
+  (window as any)._editorRouteEntries = { entries, eventId, eventX, eventY, startOverrides };
   window.dispatchEvent(new CustomEvent('editor-route-visibility-change'));
 }
 
@@ -303,12 +309,38 @@ export default function EventInspector() {
   useEffect(() => {
     if (event) {
       const visibleEntries = routeEntries.filter(e => e.visible);
-      emitRouteVisibilityChange(visibleEntries, event.id, event.x, event.y);
+
+      // continueFromEnd: 그룹별로 이전 경로 끝점을 다음 경로의 시작점으로 전달
+      let startOverrides: Record<string, { x: number; y: number }> | undefined;
+      if (continueFromEnd) {
+        startOverrides = {};
+        for (const group of routeGroups) {
+          // 그룹 첫 번째 entry의 캐릭터 기본 시작점 결정
+          let cx = event.x;
+          let cy = event.y;
+          const first = group.entries[0];
+          if (first?.characterId != null && first.characterId > 0) {
+            const charEv = currentMap?.events?.find(e => e && e.id === first.characterId);
+            if (charEv) { cx = charEv.x; cy = charEv.y; }
+          }
+          // 순서대로 체이닝: i번째 entry의 시작점 = 0~(i-1) 경로들의 끝점
+          for (let i = 0; i < group.entries.length; i++) {
+            const e = group.entries[i];
+            if (i > 0) startOverrides![e.id] = { x: cx, y: cy };
+            const cmds = e.moveRoute.list.filter(c => c.code !== 0);
+            const dest = simulateMoveRoute(cmds, cx, cy);
+            cx = dest.x;
+            cy = dest.y;
+          }
+        }
+      }
+
+      emitRouteVisibilityChange(visibleEntries, event.id, event.x, event.y, startOverrides);
     } else {
       clearRouteVisibility();
     }
     return () => clearRouteVisibility();
-  }, [routeEntries, event?.id, event?.x, event?.y]);
+  }, [routeEntries, event?.id, event?.x, event?.y, continueFromEnd, routeGroups, currentMap?.events]);
 
   const toggleRoute = useCallback((id: string) => {
     setRouteVisibility(prev => ({ ...prev, [id]: !prev[id] }));
@@ -341,6 +373,7 @@ export default function EventInspector() {
       const groupKey = getCategoryKey(entry);
       const group = routeGroups.find(g => g.key === groupKey);
       const idxInGroup = group ? group.entries.findIndex(e => e.id === entry.id) : -1;
+      console.log('[continueFromEnd] groupKey:', groupKey, 'idxInGroup:', idxInGroup, 'groupSize:', group?.entries.length, 'entryId:', entry.id);
 
       if (group && idxInGroup > 0) {
         // 그룹의 첫 번째 경로부터 현재 entry 직전까지 순서대로 시뮬레이션
@@ -354,6 +387,7 @@ export default function EventInspector() {
         }
         startX = cx;
         startY = cy;
+        console.log('[continueFromEnd] chained end point:', startX, startY);
       } else {
         // 그룹의 첫 번째 경로: 해당 경로 자체의 끝점에서 시작
         const moveCmds = entry.moveRoute.list.filter(c => c.code !== 0);

@@ -485,29 +485,33 @@ export function useMoveRouteOverlay(
       eventId: number;
       eventX: number;
       eventY: number;
+      startOverrides?: Record<string, { x: number; y: number }>;
     } | null;
 
     if (inspectorData && inspectorData.entries.length > 0) {
       // 인스펙터 경로 렌더링
       inspectorData.entries.forEach((entry, idx) => {
-        // characterId로 시작 위치 결정
-        let startX = inspectorData.eventX;
-        let startY = inspectorData.eventY;
-
-        if (entry.characterId === -1) {
-          // 플레이어 위치
-          const sys = useEditorStore.getState().systemData;
-          const mapId = useEditorStore.getState().currentMapId;
-          if (sys && sys.startMapId === mapId) {
-            startX = sys.startX;
-            startY = sys.startY;
-          }
-        } else if (entry.characterId != null && entry.characterId > 0) {
-          // 다른 이벤트 위치
-          const otherEv = events.find(e => e && e.id === entry.characterId);
-          if (otherEv) {
-            startX = otherEv.x;
-            startY = otherEv.y;
+        // startOverrides가 있으면 우선 적용 (continueFromEnd 체이닝 결과)
+        let startX: number;
+        let startY: number;
+        const override = inspectorData.startOverrides?.[entry.id];
+        if (override) {
+          startX = override.x;
+          startY = override.y;
+        } else {
+          // characterId로 시작 위치 결정
+          startX = inspectorData.eventX;
+          startY = inspectorData.eventY;
+          if (entry.characterId === -1) {
+            const sys = useEditorStore.getState().systemData;
+            const mapId = useEditorStore.getState().currentMapId;
+            if (sys && sys.startMapId === mapId) {
+              startX = sys.startX;
+              startY = sys.startY;
+            }
+          } else if (entry.characterId != null && entry.characterId > 0) {
+            const otherEv = events.find(e => e && e.id === entry.characterId);
+            if (otherEv) { startX = otherEv.x; startY = otherEv.y; }
           }
         }
 
