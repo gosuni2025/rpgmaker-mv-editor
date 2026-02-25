@@ -384,6 +384,15 @@ function buildPreviewHTML(useWebp: boolean): string {
               { var _ov3 = window._uiGetOv ? window._uiGetOv(win.constructor.name) : {};
                 _applyStaticPivotToWin(win, (_ov3.animPivot) || 'center'); }
               break;
+            case 'renderCamera':
+              if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'renderCamera', value);
+              { var _ovRC = window._uiGetOv ? window._uiGetOv(win.constructor.name) : {};
+                var _rcV = value || '';
+                if (!_rcV && (_ovRC.rotationX || _ovRC.rotationY)) _rcV = 'perspective';
+                _rcV = _rcV || 'orthographic';
+                if (window._uiSetWindowLayer) window._uiSetWindowLayer(win, _rcV === 'perspective' ? 1 : 0);
+              }
+              break;
             case 'animPivot':
               if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'animPivot', value);
               _applyStaticPivotToWin(win, value || 'center');

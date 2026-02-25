@@ -696,10 +696,10 @@ function WindowInspector({ selectedWindow, override }: {
           <div className="ui-inspector-row">
             <span className="ui-inspector-label">카메라</span>
             <select
-              value={override?.renderCamera ?? 'orthographic'}
+              value={override?.renderCamera ?? 'auto'}
               onChange={(e) => {
-                const val = e.target.value as 'orthographic' | 'perspective';
-                const camVal = val === 'orthographic' ? undefined : val;
+                const val = e.target.value as 'auto' | 'orthographic' | 'perspective';
+                const camVal = val === 'auto' ? undefined : val;
                 setMeta('renderCamera', camVal);
                 const iframe = document.getElementById('ui-editor-iframe') as HTMLIFrameElement | null;
                 const iw = iframe?.contentWindow;
@@ -710,8 +710,9 @@ function WindowInspector({ selectedWindow, override }: {
               }}
               style={{ fontSize: 11, background: '#333', color: '#ddd', border: '1px solid #555', padding: '2px 4px', borderRadius: 3 }}
             >
-              <option value="orthographic">오소그래픽 (기본)</option>
-              <option value="perspective">퍼스펙티브 (3D 회전 효과)</option>
+              <option value="auto">자동 (회전 시 퍼스펙티브)</option>
+              <option value="orthographic">오소그래픽 (강제)</option>
+              <option value="perspective">퍼스펙티브 (강제)</option>
             </select>
           </div>
         </div>
