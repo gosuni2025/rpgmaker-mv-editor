@@ -2658,9 +2658,10 @@ _ThreeStrategy.render = function(rendererObj, stage) {
             PostProcess._composer.setSize(w, h);
         }
 
-        if (PostProcess.menuBgHook) PostProcess.menuBgHook.preRender(renderer, PostProcess._composer);
+        var renderer2D = rendererObj.renderer;
+        if (PostProcess.menuBgHook) PostProcess.menuBgHook.preRender(renderer2D, PostProcess._composer);
         PostProcess._composer.render();
-        if (PostProcess.menuBgHook) PostProcess.menuBgHook.postRender(renderer);
+        if (PostProcess.menuBgHook) PostProcess.menuBgHook.postRender(renderer2D);
     }
 
     // snapForBackground를 위해 마지막 렌더 프레임을 2D 캔버스에 즉시 복사.
