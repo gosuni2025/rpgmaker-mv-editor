@@ -360,15 +360,23 @@ function buildPreviewHTML(useWebp: boolean): string {
               if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'rotationX', value);
               if (win.rotationX !== undefined) win.rotationX = (value || 0) * Math.PI / 180;
               { var _ov1 = window._uiGetOv ? window._uiGetOv(win.constructor.name) : {};
-                _applyStaticPivotToWin(win, (_ov1.animPivot) || 'center'); }
-              if ((value || 0) !== 0 && window._uiSetWindowLayer) window._uiSetWindowLayer(win, 1);
+                _applyStaticPivotToWin(win, (_ov1.animPivot) || 'center');
+                var _rc1 = _ov1.renderCamera || 'auto';
+                if (window._uiSetWindowLayer) {
+                  if (_rc1 === 'orthographic') window._uiSetWindowLayer(win, 0);
+                  else if (_rc1 === 'perspective' || (value || 0) !== 0) window._uiSetWindowLayer(win, 1);
+                } }
               break;
             case 'rotationY':
               if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'rotationY', value);
               if (win.rotationY !== undefined) win.rotationY = (value || 0) * Math.PI / 180;
               { var _ov2 = window._uiGetOv ? window._uiGetOv(win.constructor.name) : {};
-                _applyStaticPivotToWin(win, (_ov2.animPivot) || 'center'); }
-              if ((value || 0) !== 0 && window._uiSetWindowLayer) window._uiSetWindowLayer(win, 1);
+                _applyStaticPivotToWin(win, (_ov2.animPivot) || 'center');
+                var _rc2 = _ov2.renderCamera || 'auto';
+                if (window._uiSetWindowLayer) {
+                  if (_rc2 === 'orthographic') window._uiSetWindowLayer(win, 0);
+                  else if (_rc2 === 'perspective' || (value || 0) !== 0) window._uiSetWindowLayer(win, 1);
+                } }
               break;
             case 'rotationZ':
               if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'rotationZ', value);

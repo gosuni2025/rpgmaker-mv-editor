@@ -1227,8 +1227,10 @@
     }
 
     win.alpha = state.baseAlpha * totalAlpha;
-    win.x = Math.round(totalX) + state.pivotX;
-    win.y = Math.round(totalY) + state.pivotY;
+    // state.screenX = getWinScreenX (pivot 제거 순수 화면 좌표) 이므로
+    // win.x 복원 시 현재 pivot을 더해야 함 (state.pivotX는 애니메이션 pivot만 추적)
+    win.x = Math.round(totalX) + ((win.pivot && win.pivot.x) || 0);
+    win.y = Math.round(totalY) + ((win.pivot && win.pivot.y) || 0);
     if (win.scale) { win.scale.x = totalScaleX; win.scale.y = totalScaleY; }
     win.rotation = (state.baseRotation || 0) + totalRotation;
     if (win.rotationX !== undefined) win.rotationX = (state.baseRotationX || 0) + totalRotationX;
