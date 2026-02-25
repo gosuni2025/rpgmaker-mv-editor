@@ -66,6 +66,12 @@ export interface UIWindowEntranceEffect {
   fromAngle?: number;  // 시작 각도 도 (기본: 180)
 }
 
+// 애니메이션 회전/줌 효과의 기준점 (3×3 앵커)
+export type AnimPivotAnchor =
+  | 'top-left' | 'top' | 'top-right'
+  | 'left' | 'center' | 'right'
+  | 'bottom-left' | 'bottom' | 'bottom-right';
+
 export interface UIWindowOverride {
   className: string;
   windowStyle?: 'default' | 'frame' | 'image';
@@ -77,6 +83,10 @@ export interface UIWindowOverride {
   y?: number;
   width?: number;
   height?: number;
+  // 정적 회전 (항상 적용, 도 단위)
+  rotationX?: number;
+  rotationY?: number;
+  rotationZ?: number;
   opacity?: number;
   backOpacity?: number;
   padding?: number;
@@ -87,6 +97,8 @@ export interface UIWindowOverride {
   elements?: Record<string, UIElementOverride>;
   entrances?: UIWindowEntranceEffect[];
   exits?: UIWindowEntranceEffect[];
+  // 등장/퇴장 애니메이션의 회전·줌 기준점
+  animPivot?: AnimPivotAnchor;
 }
 
 export type UiSkinUndoEntry = {

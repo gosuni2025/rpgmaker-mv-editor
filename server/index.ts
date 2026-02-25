@@ -107,6 +107,25 @@ export function createApp(options: AppOptions = {}) {
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.get('/api/config', (_req, res) => res.json({ demoMode: DEMO_MODE }));
 
+  // 디버그: PNG 스냅샷 저장 (MenuTransition 테스트용)
+  app.post('/api/debug/save-snapshot', (req, res) => {
+    try {
+      const { data } = req.body as { data: string };
+      const base64 = data.replace(/^data:image\/\w+;base64,/, '');
+      const buf = Buffer.from(base64, 'base64');
+      const dir = '/tmp/rpgmaker-snapshots';
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      const filename = `snapshot_${Date.now()}.png`;
+      const filepath = path.join(dir, filename);
+      fs.writeFileSync(filepath, buf);
+      // macOS: Finder로 폴더 열기
+      import('child_process').then(({ exec }) => exec(`open "${dir}"`));
+      res.json({ ok: true, path: filepath });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // MCP 서버 상태 API
   app.get('/api/mcp/status', (_req, res) => res.json(mcpManager.getStatus()));
   app.post('/api/mcp/restart', async (req, res) => {

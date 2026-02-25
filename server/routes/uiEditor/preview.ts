@@ -321,6 +321,20 @@ function buildPreviewHTML(useWebp: boolean): string {
               if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'windowStyle', value);
               if (win._refreshAllParts) win._refreshAllParts();
               break;
+            case 'rotationX':
+              if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'rotationX', value);
+              if (win.rotationX !== undefined) win.rotationX = (value || 0) * Math.PI / 180;
+              if ((value || 0) !== 0 && window._uiSetWindowLayer) window._uiSetWindowLayer(win, 1);
+              break;
+            case 'rotationY':
+              if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'rotationY', value);
+              if (win.rotationY !== undefined) win.rotationY = (value || 0) * Math.PI / 180;
+              if ((value || 0) !== 0 && window._uiSetWindowLayer) window._uiSetWindowLayer(win, 1);
+              break;
+            case 'rotationZ':
+              if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'rotationZ', value);
+              win.rotation = (value || 0) * Math.PI / 180;
+              break;
           }
         } catch (e) {
           console.warn('[UIEditorBridge] applyProp error:', prop, e);

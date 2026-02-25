@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import useEditorStore from '../../store/useEditorStore';
-import type { UIWindowInfo, UIWindowOverride, UIElementInfo, ImageRenderMode, UIWindowEntranceEffect, EntranceEffectType, EntranceEasing } from '../../store/types';
+import type { UIWindowInfo, UIWindowOverride, UIElementInfo, ImageRenderMode, UIWindowEntranceEffect, EntranceEffectType, EntranceEasing, AnimPivotAnchor } from '../../store/types';
 import DragLabel from '../common/DragLabel';
 import HelpButton from '../common/HelpButton';
 import './UIEditor.css';
@@ -170,6 +170,44 @@ const EASING_TYPES = Object.keys(EASING_LABELS) as EntranceEasing[];
 
 function makeDefaultEffect(type: EntranceEffectType): UIWindowEntranceEffect {
   return { type, duration: 300, easing: 'easeOut', delay: 0 };
+}
+
+// ── 애니메이션 회전 기준점 선택기 (3×3 그리드) ─────────────────────────────────
+
+const PIVOT_GRID: AnimPivotAnchor[][] = [
+  ['top-left', 'top', 'top-right'],
+  ['left',     'center', 'right'],
+  ['bottom-left', 'bottom', 'bottom-right'],
+];
+const PIVOT_DOTS: Record<AnimPivotAnchor, string> = {
+  'top-left': '↖', 'top': '↑', 'top-right': '↗',
+  'left': '←',    'center': '✦', 'right': '→',
+  'bottom-left': '↙', 'bottom': '↓', 'bottom-right': '↘',
+};
+
+function PivotAnchorSelector({ value, onChange }: {
+  value: AnimPivotAnchor;
+  onChange: (v: AnimPivotAnchor) => void;
+}) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 20px)', gap: 2 }}>
+      {PIVOT_GRID.map((row) =>
+        row.map((anchor) => (
+          <div key={anchor} title={anchor}
+            onClick={() => onChange(anchor)}
+            style={{
+              width: 20, height: 20,
+              border: `1px solid ${value === anchor ? '#2675bf' : '#555'}`,
+              background: value === anchor ? '#2675bf33' : '#2a2a2a',
+              cursor: 'pointer', borderRadius: 2,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 10, color: value === anchor ? '#7fb3e8' : '#888',
+            }}
+          >{PIVOT_DOTS[anchor]}</div>
+        ))
+      )}
+    </div>
+  );
 }
 
 function AnimEffectSection({ label, fieldKey, override, setMeta }: {
@@ -548,6 +586,21 @@ function WindowInspector({ selectedWindow, override }: {
           <div className="ui-inspector-row">
             <DragLabel label="높이" value={height} min={32} onChange={(v) => set('height', Math.round(v))} />
           </div>
+          <div className="ui-inspector-row">
+            <DragLabel label="회전 X" value={override?.rotationX ?? 0} min={-180} max={180}
+              onChange={(v) => set('rotationX', Math.round(v * 10) / 10)} />
+            <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>°</span>
+          </div>
+          <div className="ui-inspector-row">
+            <DragLabel label="회전 Y" value={override?.rotationY ?? 0} min={-180} max={180}
+              onChange={(v) => set('rotationY', Math.round(v * 10) / 10)} />
+            <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>°</span>
+          </div>
+          <div className="ui-inspector-row">
+            <DragLabel label="회전 Z" value={override?.rotationZ ?? 0} min={-180} max={180}
+              onChange={(v) => set('rotationZ', Math.round(v * 10) / 10)} />
+            <span style={{ fontSize: 10, color: '#888', marginLeft: 4 }}>°</span>
+          </div>
           <div className="ui-inspector-row" style={{ gap: 4 }}>
             <button
               className="ui-canvas-toolbar-btn"
@@ -655,6 +708,26 @@ function WindowInspector({ selectedWindow, override }: {
             </select>
           </div>
         </div>
+
+        {/* ── 애니메이션 회전 기준점 ── */}
+        {(() => {
+          const hasRotAnim = [...(override?.entrances ?? []), ...(override?.exits ?? [])].some(
+            (e) => e.type === 'zoom' || e.type === 'bounce' || e.type === 'rotate' || e.type === 'rotateX' || e.type === 'rotateY'
+          );
+          if (!hasRotAnim) return null;
+          return (
+            <div className="ui-inspector-section">
+              <div className="ui-inspector-section-title">애니메이션 회전 기준점</div>
+              <div className="ui-inspector-row" style={{ gap: 8, alignItems: 'flex-start' }}>
+                <span className="ui-inspector-label" style={{ paddingTop: 2 }}>앵커</span>
+                <PivotAnchorSelector
+                  value={override?.animPivot ?? 'center'}
+                  onChange={(v) => setMeta('animPivot', v)}
+                />
+              </div>
+            </div>
+          );
+        })()}
 
         <AnimEffectSection label="등장 효과" fieldKey="entrances" override={override} setMeta={setMeta} />
         <AnimEffectSection label="퇴장 효과" fieldKey="exits" override={override} setMeta={setMeta} />

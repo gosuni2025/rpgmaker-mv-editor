@@ -589,8 +589,16 @@
       if (win.refresh) win.refresh();
     }
 
+    // 정적 회전 적용 (도 → 라디안)
+    if (ov.rotationX !== undefined) win.rotationX = ov.rotationX * Math.PI / 180;
+    if (ov.rotationY !== undefined) win.rotationY = ov.rotationY * Math.PI / 180;
+    if (ov.rotationZ !== undefined) win.rotation   = ov.rotationZ * Math.PI / 180;
+
     // 렌더 카메라 (perspective / orthographic)
-    var renderCam = ov.renderCamera || 'orthographic';
+    // rotationX/Y가 있으면 perspective 자동 활성화
+    var renderCam = ov.renderCamera;
+    if (!renderCam && (ov.rotationX || ov.rotationY)) renderCam = 'perspective';
+    renderCam = renderCam || 'orthographic';
     _setWindowLayer(win, renderCam === 'perspective' ? 1 : 0);
 
     // 등장 효과 시작
@@ -1099,8 +1107,9 @@
     var screenX = getWinScreenX(win);
     var screenY = getWinScreenY(win);
     if (needPivot && win.pivot) {
-      pivotX = Math.floor((win.width || 0) / 2);
-      pivotY = Math.floor((win.height || 0) / 2);
+      var exitAnchor = (_ov[className] && _ov[className].animPivot) || 'center';
+      var exitPv = _parsePivotAnchor(exitAnchor, win.width, win.height);
+      pivotX = exitPv.x; pivotY = exitPv.y;
       win.pivot.x = pivotX;
       win.pivot.y = pivotY;
       win.x = screenX + pivotX;
@@ -1114,6 +1123,9 @@
       screenX: screenX,
       screenY: screenY,
       baseAlpha: win.alpha !== undefined ? win.alpha : 1,
+      baseRotation: win.rotation || 0,
+      baseRotationX: win.rotationX !== undefined ? win.rotationX : 0,
+      baseRotationY: win.rotationY !== undefined ? win.rotationY : 0,
       pivotX: pivotX,
       pivotY: pivotY,
       className: className,
@@ -1189,9 +1201,9 @@
     win.x = Math.round(totalX) + state.pivotX;
     win.y = Math.round(totalY) + state.pivotY;
     if (win.scale) { win.scale.x = totalScaleX; win.scale.y = totalScaleY; }
-    win.rotation = totalRotation;
-    if (win.rotationX !== undefined) win.rotationX = totalRotationX;
-    if (win.rotationY !== undefined) win.rotationY = totalRotationY;
+    win.rotation = (state.baseRotation || 0) + totalRotation;
+    if (win.rotationX !== undefined) win.rotationX = (state.baseRotationX || 0) + totalRotationX;
+    if (win.rotationY !== undefined) win.rotationY = (state.baseRotationY || 0) + totalRotationY;
   }
 
   //===========================================================================
