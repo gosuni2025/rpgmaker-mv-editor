@@ -97,6 +97,12 @@ export interface PassageHistoryEntry {
   changes: PassageChange[];
 }
 
+export interface UpperLayerHistoryEntry {
+  mapId: number;
+  type: 'upperLayer';
+  changes: PassageChange[];
+}
+
 export interface MapDeleteHistoryEntry {
   mapId: number;
   type: 'mapDelete';
@@ -121,5 +127,6 @@ export type HistoryEntry =
   | EventHistoryEntry
   | PlayerStartHistoryEntry
   | PassageHistoryEntry
+  | UpperLayerHistoryEntry
   | MapDeleteHistoryEntry
   | MapRenameHistoryEntry;

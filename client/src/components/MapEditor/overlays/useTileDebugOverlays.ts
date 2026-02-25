@@ -141,12 +141,16 @@ function drawPassageTileSymbol(
   cx: number, cy: number, tp: number,
   effectiveBits: number,
   cpVal: number,
+  isUpperLayer: boolean,
 ) {
   const isForceOpen = (cpVal & 0xF0) !== 0; // 강제 개방 커스텀
   const isCustomBlock = (cpVal & 0x0F) !== 0 && !isForceOpen; // 차단 커스텀
 
   // 커스텀 오버라이드된 타일 배경 하이라이트
-  if (isForceOpen) {
+  if (isUpperLayer) {
+    ctx.fillStyle = 'rgba(30, 80, 220, 0.18)';
+    ctx.fillRect(cx - tp / 2, cy - tp / 2, tp, tp);
+  } else if (isForceOpen) {
     ctx.fillStyle = 'rgba(40, 200, 80, 0.12)';
     ctx.fillRect(cx - tp / 2, cy - tp / 2, tp, tp);
   } else if (isCustomBlock) {
@@ -156,6 +160,19 @@ function drawPassageTileSymbol(
 
   const r = tp * 0.28;
   ctx.lineCap = 'round';
+
+  // 상단레이어: 파란 ▲ 삼각형 (추가로 그림)
+  if (isUpperLayer) {
+    ctx.fillStyle = 'rgba(80, 140, 255, 0.88)';
+    const hs = tp * 0.24; // half-size
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - hs * 1.3);
+    ctx.lineTo(cx + hs, cy + hs * 0.6);
+    ctx.lineTo(cx - hs, cy + hs * 0.6);
+    ctx.closePath();
+    ctx.fill();
+    return; // 상단레이어 표시만
+  }
 
   if (isForceOpen) {
     // 강제 개방: 초록 ● (채운 원)
@@ -197,6 +214,7 @@ export function usePassageOverlay(refs: PassageRefs, rendererReady: number) {
   const mapHeight = useEditorStore((s) => s.currentMap?.height ?? 0);
   const mapData = useEditorStore((s) => s.currentMap?.data ?? null);
   const customPassage = useEditorStore((s) => s.currentMap?.customPassage ?? null);
+  const customUpperLayer = useEditorStore((s) => s.currentMap?.customUpperLayer ?? null);
 
   useEffect(() => {
     const rendererObj = refs.rendererObjRef.current;
@@ -232,12 +250,13 @@ export function usePassageOverlay(refs: PassageRefs, rendererReady: number) {
     for (let y = 0; y < mapHeight; y++) {
       for (let x = 0; x < mapWidth; x++) {
         const cpVal = customPassage ? (customPassage[y * mapWidth + x] || 0) : 0;
+        const ulVal = customUpperLayer ? (customUpperLayer[y * mapWidth + x] || 0) : 0;
         const tilesetBits = getEffectivePassageBits(mapData, x, y, mapWidth, mapHeight, flags);
         // 하위 nibble(차단) OR → 상위 nibble(강제개방) AND NOT 으로 최종 비트 결정
         const blockBits = cpVal & 0x0F;
         const openBits = (cpVal >> 4) & 0x0F;
         const effectiveBits = (tilesetBits | blockBits) & ~openBits;
-        drawPassageTileSymbol(ctx, x * tp + tp / 2, y * tp + tp / 2, tp, effectiveBits, cpVal);
+        drawPassageTileSymbol(ctx, x * tp + tp / 2, y * tp + tp / 2, tp, effectiveBits, cpVal, ulVal !== 0);
       }
     }
 
@@ -262,7 +281,7 @@ export function usePassageOverlay(refs: PassageRefs, rendererReady: number) {
     refs.passageMeshesRef.current.push(mesh);
 
     requestRenderFrames(refs.rendererObjRef, refs.stageRef, refs.renderRequestedRef);
-  }, [editMode, mapData, customPassage, mapWidth, mapHeight, rendererReady]);
+  }, [editMode, mapData, customPassage, customUpperLayer, mapWidth, mapHeight, rendererReady]);
 }
 
 /** 통행 선택 영역 오버레이 */

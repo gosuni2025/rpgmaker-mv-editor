@@ -36,6 +36,14 @@ export function usePassageHandlers(
     return cp[y * map.width + x] || 0;
   }, []);
 
+  const getUpperLayerValue = useCallback((x: number, y: number): number => {
+    const map = useEditorStore.getState().currentMap;
+    if (!map) return 0;
+    const ul = map.customUpperLayer;
+    if (!ul) return 0;
+    return ul[y * map.width + x] || 0;
+  }, []);
+
   const applyPassage = useCallback((x: number, y: number, value: number) => {
     const map = useEditorStore.getState().currentMap;
     if (!map || x < 0 || x >= map.width || y < 0 || y >= map.height) return;
@@ -48,23 +56,38 @@ export function usePassageHandlers(
     useEditorStore.setState({ currentMap: { ...map, customPassage: cp } });
   }, [getPassageValue]);
 
+  const applyUpperLayer = useCallback((x: number, y: number, value: number) => {
+    const map = useEditorStore.getState().currentMap;
+    if (!map || x < 0 || x >= map.width || y < 0 || y >= map.height) return;
+    const oldValue = getUpperLayerValue(x, y);
+    if (oldValue === value) return;
+    pendingChanges.current.push({ x, y, oldValue, newValue: value });
+    // Immediately update map for visual feedback
+    const ul = map.customUpperLayer ? [...map.customUpperLayer] : new Array(map.width * map.height).fill(0);
+    ul[y * map.width + x] = value;
+    useEditorStore.setState({ currentMap: { ...map, customUpperLayer: ul } });
+  }, [getUpperLayerValue]);
+
   const applyToTile = useCallback((x: number, y: number) => {
     const { passageTool } = useEditorStore.getState();
     if (passageTool === 'pen') {
       applyPassage(x, y, 0x0F); // 전방향 차단
     } else if (passageTool === 'forceOpen') {
       applyPassage(x, y, 0xF0); // 전방향 강제 개방
+    } else if (passageTool === 'upperLayer') {
+      applyUpperLayer(x, y, 1); // 상단레이어 강제
     } else {
       applyPassage(x, y, 0); // 커스텀 제거
     }
-  }, [applyPassage]);
+  }, [applyPassage, applyUpperLayer]);
 
   const floodFill = useCallback((startX: number, startY: number) => {
     const map = useEditorStore.getState().currentMap;
     if (!map) return;
     const { passageTool } = useEditorStore.getState();
-    const targetValue = getPassageValue(startX, startY);
-    const newValue = passageTool === 'pen' ? 0x0F : passageTool === 'forceOpen' ? 0xF0 : 0;
+    const isUpperLayer = passageTool === 'upperLayer';
+    const targetValue = isUpperLayer ? getUpperLayerValue(startX, startY) : getPassageValue(startX, startY);
+    const newValue = passageTool === 'pen' ? 0x0F : passageTool === 'forceOpen' ? 0xF0 : passageTool === 'upperLayer' ? 1 : 0;
     if (targetValue === newValue) return;
 
     const w = map.width;
@@ -77,18 +100,22 @@ export function usePassageHandlers(
       const key = `${x},${y}`;
       if (visited.has(key)) continue;
       if (x < 0 || x >= w || y < 0 || y >= h) continue;
-      if (getPassageValue(x, y) !== targetValue) continue;
+      const curVal = isUpperLayer ? getUpperLayerValue(x, y) : getPassageValue(x, y);
+      if (curVal !== targetValue) continue;
       visited.add(key);
-      applyPassage(x, y, newValue);
+      if (isUpperLayer) applyUpperLayer(x, y, newValue);
+      else applyPassage(x, y, newValue);
       queue.push({ x: x - 1, y }, { x: x + 1, y }, { x, y: y - 1 }, { x, y: y + 1 });
     }
-  }, [getPassageValue, applyPassage]);
+  }, [getPassageValue, getUpperLayerValue, applyPassage, applyUpperLayer]);
 
   const applyArea = useCallback((x1: number, y1: number, x2: number, y2: number, shape: 'rectangle' | 'ellipse') => {
     const map = useEditorStore.getState().currentMap;
     if (!map) return;
     const { passageTool } = useEditorStore.getState();
-    const newValue = passageTool === 'pen' ? 0x0F : passageTool === 'forceOpen' ? 0xF0 : 0;
+    const isUpperLayer = passageTool === 'upperLayer';
+    const newValue = passageTool === 'pen' ? 0x0F : passageTool === 'forceOpen' ? 0xF0 : passageTool === 'upperLayer' ? 1 : 0;
+    const apply = isUpperLayer ? applyUpperLayer : applyPassage;
     const minX = Math.max(0, Math.min(x1, x2));
     const maxX = Math.min(map.width - 1, Math.max(x1, x2));
     const minY = Math.max(0, Math.min(y1, y2));
@@ -97,7 +124,7 @@ export function usePassageHandlers(
     if (shape === 'rectangle') {
       for (let y = minY; y <= maxY; y++) {
         for (let x = minX; x <= maxX; x++) {
-          applyPassage(x, y, newValue);
+          apply(x, y, newValue);
         }
       }
     } else {
@@ -111,12 +138,12 @@ export function usePassageHandlers(
           const dx = (x - cx) / rx;
           const dy = (y - cy) / ry;
           if (dx * dx + dy * dy <= 1) {
-            applyPassage(x, y, newValue);
+            apply(x, y, newValue);
           }
         }
       }
     }
-  }, [applyPassage]);
+  }, [applyPassage, applyUpperLayer]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLElement>) => {
     if (e.button !== 0) return false;
@@ -177,7 +204,11 @@ export function usePassageHandlers(
       isDrawing.current = false;
       // 즉시 commit
       if (pendingChanges.current.length > 0) {
-        useEditorStore.getState().updateCustomPassage(pendingChanges.current);
+        if (passageTool === 'upperLayer') {
+          useEditorStore.getState().updateCustomUpperLayer(pendingChanges.current);
+        } else {
+          useEditorStore.getState().updateCustomPassage(pendingChanges.current);
+        }
         pendingChanges.current = [];
       }
     } else if (passageShape === 'rectangle' || passageShape === 'ellipse') {
@@ -296,7 +327,12 @@ export function usePassageHandlers(
     lastTile.current = null;
 
     if (pendingChanges.current.length > 0) {
-      useEditorStore.getState().updateCustomPassage(pendingChanges.current);
+      const { passageTool } = useEditorStore.getState();
+      if (passageTool === 'upperLayer') {
+        useEditorStore.getState().updateCustomUpperLayer(pendingChanges.current);
+      } else {
+        useEditorStore.getState().updateCustomPassage(pendingChanges.current);
+      }
       pendingChanges.current = [];
     }
     return true;

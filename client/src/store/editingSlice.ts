@@ -8,7 +8,7 @@ import {
 } from './tileOperations';
 import { resizeMapOp, shiftMapOp } from './mapResizeOperations';
 import {
-  copyPassageOp, cutPassageOp, pastePassageOp, deletePassageOp, movePassageOp, updateCustomPassageOp,
+  copyPassageOp, cutPassageOp, pastePassageOp, deletePassageOp, movePassageOp, updateCustomPassageOp, updateCustomUpperLayerOp,
 } from './passageOperations';
 import {
   addEventOp, copyEventOp, cutEventOp, pasteEventOp, deleteEventOp,
@@ -27,7 +27,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   'objectSubMode' | 'selectedObjectId' | 'selectedObjectIds' | 'objectSelectionStart' | 'objectSelectionEnd' | 'isObjectPasting' | 'objectPastePreviewPos' |
   'selectedCameraZoneId' | 'selectedCameraZoneIds' | 'undoStack' | 'redoStack' |
   'passageTool' | 'passageShape' | 'selectedPassageTile' | 'passageSelectionStart' | 'passageSelectionEnd' | 'isPassagePasting' | 'passagePastePreviewPos' |
-  'setPassageTool' | 'setPassageShape' | 'setSelectedPassageTile' | 'updateCustomPassage' |
+  'setPassageTool' | 'setPassageShape' | 'setSelectedPassageTile' | 'updateCustomPassage' | 'updateCustomUpperLayer' |
   'setPassageSelection' | 'clearPassageSelection' | 'setIsPassagePasting' | 'setPassagePastePreviewPos' |
   'copyPassage' | 'cutPassage' | 'pastePassage' | 'deletePassage' | 'movePassage' |
   'updateMapTile' | 'updateMapTiles' | 'pushUndo' | 'undo' | 'redo' | 'resizeMap' | 'shiftMap' |
@@ -159,7 +159,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   commitCameraZoneDragUndo: (snapshotZones: CameraZone[]) => commitCameraZoneDragUndoOp(get, set, snapshotZones),
 
   // Passage operations (delegated)
-  setPassageTool: (tool: 'select' | 'pen' | 'eraser') => {
+  setPassageTool: (tool: 'select' | 'pen' | 'forceOpen' | 'upperLayer' | 'eraser') => {
     const updates: Partial<EditorState> = { passageTool: tool };
     if (tool !== 'select') {
       updates.passageSelectionStart = null;
@@ -181,6 +181,7 @@ export const editingSlice: SliceCreator<Pick<EditorState,
   deletePassage: (x1: number, y1: number, x2: number, y2: number) => deletePassageOp(get, set, x1, y1, x2, y2),
   movePassage: (srcX1: number, srcY1: number, srcX2: number, srcY2: number, destX: number, destY: number) => movePassageOp(get, set, srcX1, srcY1, srcX2, srcY2, destX, destY),
   updateCustomPassage: (changes: PassageChange[]) => updateCustomPassageOp(get, set, changes),
+  updateCustomUpperLayer: (changes: PassageChange[]) => updateCustomUpperLayerOp(get, set, changes),
 
   // UI setters
   setEditMode: (mode: 'map' | 'event' | 'light' | 'object' | 'cameraZone' | 'passage') => {

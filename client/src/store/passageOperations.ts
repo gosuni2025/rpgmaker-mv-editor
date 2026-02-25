@@ -1,4 +1,4 @@
-import type { EditorState, PassageChange, PassageHistoryEntry } from './types';
+import type { EditorState, PassageChange, PassageHistoryEntry, UpperLayerHistoryEntry } from './types';
 
 type SetFn = (partial: Partial<EditorState> | ((s: EditorState) => Partial<EditorState>)) => void;
 type GetFn = () => EditorState;
@@ -140,4 +140,26 @@ export function updateCustomPassageOp(get: GetFn, set: SetFn, changes: PassageCh
     undoStack: newStack,
     redoStack: [],
   });
+}
+
+export function updateCustomUpperLayerOp(get: GetFn, set: SetFn, changes: PassageChange[]) {
+  const { currentMap, currentMapId, undoStack } = get();
+  if (!currentMap || !currentMapId || changes.length === 0) return;
+  const w = currentMap.width;
+  const h = currentMap.height;
+  const ul = currentMap.customUpperLayer ? [...currentMap.customUpperLayer] : new Array(w * h).fill(0);
+  const merged = new Map<string, PassageChange>();
+  for (const c of changes) {
+    const key = `${c.x},${c.y}`;
+    const existing = merged.get(key);
+    if (existing) existing.newValue = c.newValue;
+    else merged.set(key, { ...c });
+  }
+  const mergedChanges = [...merged.values()].filter(c => c.oldValue !== c.newValue);
+  if (mergedChanges.length === 0) return;
+  for (const c of mergedChanges) ul[c.y * w + c.x] = c.newValue;
+  const entry: UpperLayerHistoryEntry = { mapId: currentMapId, type: 'upperLayer', changes: mergedChanges };
+  const newStack = [...undoStack, entry];
+  if (newStack.length > get().maxUndo) newStack.shift();
+  set({ currentMap: { ...currentMap, customUpperLayer: ul }, undoStack: newStack, redoStack: [] });
 }

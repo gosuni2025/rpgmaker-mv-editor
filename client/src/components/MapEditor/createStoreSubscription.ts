@@ -227,5 +227,14 @@ export function createStoreSubscription(params: {
       }
       requestRender();
     }
+
+    // 상단레이어 커스텀 변경 시 $dataMap에 반영하고 tilemap repaint
+    if (state.currentMap?.customUpperLayer !== prevState.currentMap?.customUpperLayer) {
+      if (w.$dataMap) {
+        w.$dataMap.customUpperLayer = state.currentMap?.customUpperLayer || null;
+      }
+      if (spriteset._tilemap) spriteset._tilemap._needsRepaint = true;
+      requestRender();
+    }
   });
 }

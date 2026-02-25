@@ -140,6 +140,7 @@ export default function DrawToolbar() {
               { id: 'select', label: t('toolbar.select') },
               { id: 'pen', label: t('toolbar.pencil') },
               { id: 'forceOpen', label: t('toolbar.forceOpen', '강제개방') },
+              { id: 'upperLayer', label: t('toolbar.upperLayer', '상단레이어') },
               { id: 'eraser', label: t('toolbar.eraser'), eraser: true },
             ].map(({ id, label, eraser }) => (
               <button
@@ -147,7 +148,9 @@ export default function DrawToolbar() {
                 onClick={() => setPassageTool(id as any)}
                 className={btn(passageTool === id, false, !!eraser)}
                 style={id === 'forceOpen' && passageTool === id ? { background: 'rgba(30,160,60,0.5)', borderColor: '#4c8' } :
-                       id === 'forceOpen' ? { borderColor: '#4a6' } : undefined}
+                       id === 'forceOpen' ? { borderColor: '#4a6' } :
+                       id === 'upperLayer' && passageTool === id ? { background: 'rgba(30,100,220,0.5)', borderColor: '#48f' } :
+                       id === 'upperLayer' ? { borderColor: '#46a' } : undefined}
               >
                 {label}
               </button>

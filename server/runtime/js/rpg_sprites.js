@@ -2562,6 +2562,27 @@ Spriteset_Map.prototype.createTilemap = function() {
     this._tilemap.verticalWrap = $gameMap.isLoopVertical();
     this.loadTileset();
     this._baseSprite.addChild(this._tilemap);
+    // customUpperLayer 패치: 해당 위치 타일을 강제로 upper layer에 렌더링
+    var tilemap = this._tilemap;
+    var origPaintTiles = tilemap._paintTiles;
+    tilemap._paintTiles = function(startX, startY, x, y) {
+        this._customUpperLayerMx = startX + x;
+        this._customUpperLayerMy = startY + y;
+        origPaintTiles.call(this, startX, startY, x, y);
+    };
+    var origIsHigherTile = tilemap._isHigherTile;
+    tilemap._isHigherTile = function(tileId) {
+        var ul = $dataMap && $dataMap.customUpperLayer;
+        if (ul) {
+            var mx = this._customUpperLayerMx;
+            var my = this._customUpperLayerMy;
+            if (mx !== undefined && my !== undefined) {
+                var idx = my * $dataMap.width + mx;
+                if (ul[idx]) return true;
+            }
+        }
+        return origIsHigherTile.call(this, tileId);
+    };
 };
 
 Spriteset_Map.prototype.loadTileset = function() {
