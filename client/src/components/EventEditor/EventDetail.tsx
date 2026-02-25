@@ -115,12 +115,12 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
               <ExtBadge inline />
             </label>
           </label>
-          <label className="event-editor-name-label event-editor-minimap-label">
+          <div className="event-editor-name-label event-editor-minimap-label">
             미니맵:
             <label className="event-editor-npc-show-check">
               <input type="checkbox" checked={minimapMarker?.enabled ?? false} onChange={e => {
                 setMinimapMarker(prev => e.target.checked
-                  ? { enabled: true, color: prev?.color ?? '#ffcc00', shape: prev?.shape ?? 'circle' }
+                  ? { enabled: true, color: prev?.color ?? '#ffcc00', shape: prev?.shape ?? 'circle', iconIndex: prev?.iconIndex }
                   : prev ? { ...prev, enabled: false } : null);
               }} />
               표시
@@ -154,7 +154,7 @@ export default function EventDetail({ eventId, pendingEvent, onClose }: EventDet
                   onChange={idx => setMinimapMarker(prev => prev ? { ...prev, iconIndex: idx } : null)} />
               )}
             </>)}
-          </label>
+          </div>
         </div>
 
         <div className="event-editor-pagebar">

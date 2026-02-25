@@ -723,8 +723,61 @@
         }
       }
 
+      // ── 북쪽 N 표시 (회전 모드) ──────────────────────────────
+      if (CFG.rotation === 'rotate') {
+        this._drawNorthIndicator(ctx, s, hs, yaw);
+      }
+
       bitmap._dirty = true;
       if (bitmap._baseTexture) bitmap._baseTexture.update();
+    },
+
+    // ----------------------------------------------------------
+    // 북쪽 N 표시 (회전 모드 전용)
+    // ----------------------------------------------------------
+    _drawNorthIndicator(ctx, s, hs, yaw) {
+      const nr   = 9;              // N 배지 반지름 (px)
+      const sinY = Math.sin(yaw);
+      const cosY = Math.cos(yaw);
+
+      let nx, ny;
+      if (CFG.shape === 'circle') {
+        // 원 테두리: 중심에서 반지름 hs 방향
+        nx = hs - hs * sinY;
+        ny = hs - hs * cosY;
+      } else {
+        // 사각형 테두리: 중심에서 -yaw 방향으로 ray cast
+        const dx = -sinY;
+        const dy = -cosY;
+        let t = Infinity;
+        if (Math.abs(dx) > 1e-6) t = Math.min(t, (dx > 0 ? (s - hs) : hs) / Math.abs(dx));
+        if (Math.abs(dy) > 1e-6) t = Math.min(t, (dy > 0 ? (s - hs) : hs) / Math.abs(dy));
+        nx = hs + t * dx;
+        ny = hs + t * dy;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = 1.0;
+
+      // 배경 원
+      ctx.beginPath();
+      ctx.arc(nx, ny, nr, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(200,50,50,0.90)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+
+      // N 텍스트
+      ctx.fillStyle    = '#ffffff';
+      ctx.font         = `bold ${Math.round(nr * 1.4)}px sans-serif`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor  = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur   = 3;
+      ctx.fillText('N', nx, ny + 0.5);
+
+      ctx.restore();
     },
 
     // ----------------------------------------------------------
