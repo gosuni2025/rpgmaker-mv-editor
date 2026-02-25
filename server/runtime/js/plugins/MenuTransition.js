@@ -408,6 +408,21 @@
 
     // ── SceneManager.pop 오버라이드: 닫기 PostProcess 트리거 ─────────────────
 
+    // ── PostProcess._createComposer 훅: composer 재생성 시 transition blur 재적용 ──
+    // _ThreeStrategy.render에서 stage 변경 시 새 패스 객체(enabled=false)로 재생성되므로
+    // 닫기/열기 진행 중이면 즉시 재적용해야 render 전에 blur가 활성화됨
+    if (typeof PostProcess !== 'undefined' && PostProcess._createComposer) {
+        var _origCreateComposer = PostProcess._createComposer;
+        PostProcess._createComposer = function () {
+            _origCreateComposer.apply(this, arguments);
+            if (_mapBlurPending || _mapBlurPhase || _phase === 1) {
+                var reapplyT = _mapBlurPhase ? _t : (_mapBlurPending ? _mapBlurStartT : _t);
+                _log('_createComposer 후 blur 재적용 t=' + reapplyT.toFixed(3));
+                _applyEffect(reapplyT);
+            }
+        };
+    }
+
     if (Cfg.closeAnim) {
         var _origPop = SceneManager.pop;
         SceneManager.pop = function () {
