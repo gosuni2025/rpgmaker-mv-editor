@@ -64,6 +64,27 @@ function simulateMoveRoute(
   return { x, y };
 }
 
+/** 경로 그룹 (카테고리별) */
+interface RouteGroup {
+  key: string;
+  label: string;
+  entries: RouteEntry[];
+}
+
+function getCategoryKey(entry: Omit<RouteEntry, 'visible' | 'color'>): string {
+  if (entry.type === 'autonomous') return 'autonomous';
+  if (entry.characterId === -1) return 'player';
+  if (entry.characterId === 0 || entry.characterId == null) return 'self';
+  return `ev_${entry.characterId}`;
+}
+
+function getCategoryLabel(entry: Omit<RouteEntry, 'visible' | 'color'>, events: (RPGEvent | null)[] | undefined): string {
+  if (entry.type === 'autonomous') return '자율 이동';
+  if (entry.characterId === -1) return '플레이어';
+  if (entry.characterId === 0 || entry.characterId == null) return '해당 이벤트';
+  return getCharacterName(entry.characterId, events);
+}
+
 /** 이벤트의 모든 페이지에서 경로를 추출 */
 function extractRoutes(event: RPGEvent, events: (RPGEvent | null)[] | undefined): Omit<RouteEntry, 'visible' | 'color'>[] {
   const routes: Omit<RouteEntry, 'visible' | 'color'>[] = [];
@@ -77,7 +98,7 @@ function extractRoutes(event: RPGEvent, events: (RPGEvent | null)[] | undefined)
       if (hasActualMoves) {
         routes.push({
           id: `auto_p${pi}`,
-          label: `P${pi + 1}: 자율이동`,
+          label: `P${pi + 1}`,
           type: 'autonomous',
           pageIndex: pi,
           characterId: 0,
@@ -94,10 +115,9 @@ function extractRoutes(event: RPGEvent, events: (RPGEvent | null)[] | undefined)
           const charId = cmd.parameters[0] as number;
           const route = cmd.parameters[1] as MoveRoute;
           if (route && route.list && route.list.some(mc => mc.code !== 0)) {
-            const charName = getCharacterName(charId, events);
             routes.push({
               id: `cmd_p${pi}_c${ci}`,
-              label: `P${pi + 1}: 이동루트 → ${charName}`,
+              label: `P${pi + 1}`,
               type: 'command',
               pageIndex: pi,
               commandIndex: ci,
@@ -241,6 +261,9 @@ export default function EventInspector() {
   // 경로 가시성 상태
   const [routeVisibility, setRouteVisibility] = useState<Record<string, boolean>>({});
 
+  // 경로 끝 지점부터 다음 경로 그리기 옵션
+  const [continueFromEnd, setContinueFromEnd] = useState(false);
+
   // 이벤트가 바뀌면 가시성 초기화: 자율이동은 켜고, 나머지는 끈 상태로
   useEffect(() => {
     const vis: Record<string, boolean> = {};
@@ -259,6 +282,22 @@ export default function EventInspector() {
       color: ROUTE_COLORS[colorIndex++ % ROUTE_COLORS.length],
     }));
   }, [rawRoutes, routeVisibility]);
+
+  // 카테고리별 그룹핑
+  const routeGroups = useMemo((): RouteGroup[] => {
+    const map = new Map<string, RouteGroup>();
+    const order: string[] = [];
+    for (const entry of routeEntries) {
+      const key = getCategoryKey(entry);
+      const label = getCategoryLabel(entry, currentMap?.events);
+      if (!map.has(key)) {
+        map.set(key, { key, label, entries: [] });
+        order.push(key);
+      }
+      map.get(key)!.entries.push(entry);
+    }
+    return order.map(k => map.get(k)!);
+  }, [routeEntries, currentMap?.events]);
 
   // 오버레이에 가시성 전파
   useEffect(() => {
@@ -296,20 +335,25 @@ export default function EventInspector() {
       if (charEv) { startX = charEv.x; startY = charEv.y; }
     }
 
-    // 기존 경로 시뮬레이션으로 최종 목적지 파악
     const moveCmds = entry.moveRoute.list.filter(c => c.code !== 0);
     const dest = simulateMoveRoute(moveCmds, startX, startY);
 
-    // 최종 목적지가 시작점과 다르면 목적지를 초기 웨이포인트로
     let initialWaypoints: WaypointPos[] = [];
-    if (dest.x !== startX || dest.y !== startY) {
-      initialWaypoints = [{ id: crypto.randomUUID(), x: dest.x, y: dest.y }];
+    if (continueFromEnd) {
+      // 경로 끝 지점부터 다음 경로 그리기: 끝점을 새 시작점으로, 웨이포인트 비움
+      startX = dest.x;
+      startY = dest.y;
     } else {
-      const ms = useEditorStore.getState();
-      const tf = ms.tilesetInfo;
-      if (tf) {
-        const nearby = findNearestReachableTile(startX, startY, currentMap.data, currentMap.width, currentMap.height, tf.flags);
-        if (nearby) initialWaypoints = [{ id: crypto.randomUUID(), x: nearby.x, y: nearby.y }];
+      // 기존 동작: 현재 위치 → 목적지를 초기 웨이포인트로
+      if (dest.x !== startX || dest.y !== startY) {
+        initialWaypoints = [{ id: crypto.randomUUID(), x: dest.x, y: dest.y }];
+      } else {
+        const ms = useEditorStore.getState();
+        const tf = ms.tilesetInfo;
+        if (tf) {
+          const nearby = findNearestReachableTile(startX, startY, currentMap.data, currentMap.width, currentMap.height, tf.flags);
+          if (nearby) initialWaypoints = [{ id: crypto.randomUUID(), x: nearby.x, y: nearby.y }];
+        }
       }
     }
 
@@ -363,7 +407,7 @@ export default function EventInspector() {
     (window as any)._editorWaypointSession = session;
     pushWaypointHistory(session);
     emitWaypointSessionChange();
-  }, [waypointSession, event, currentMap]);
+  }, [waypointSession, event, currentMap, continueFromEnd]);
 
   // 이벤트 미선택
   if (!event) {
@@ -548,32 +592,49 @@ export default function EventInspector() {
             </span>
           )}
         </div>
+        {routeEntries.length > 0 && !waypointSession && (
+          <label className="waypoint-checkbox" style={{ marginBottom: 6, fontSize: 11 }}>
+            <input
+              type="checkbox"
+              checked={continueFromEnd}
+              onChange={e => setContinueFromEnd(e.target.checked)}
+            />
+            경로 끝 지점부터 다음 경로 그리기
+          </label>
+        )}
         {routeEntries.length === 0 ? (
           <div style={{ color: '#666', fontSize: 11, padding: '4px 0' }}>경로 없음</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {routeEntries.map((entry) => (
-              <div
-                key={entry.id}
-                className={`event-route-item ${entry.visible ? 'visible' : 'hidden'}`}
-                onClick={() => toggleRoute(entry.id)}
-              >
-                <span
-                  className="event-route-swatch"
-                  style={{ backgroundColor: entry.visible ? entry.color : '#555' }}
-                />
-                <span className="event-route-label">{entry.label}</span>
-                <span className="event-route-count">
-                  {entry.moveRoute.list.filter(c => c.code !== 0).length}개
-                </span>
-                <button
-                  className="event-route-reset-btn"
-                  onClick={(e) => { e.stopPropagation(); startWaypointFromRoute(entry); }}
-                  disabled={!!waypointSession}
-                  title="웨이포인트로 경로 재설정"
-                >
-                  재설정
-                </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {routeGroups.map((group) => (
+              <div key={group.key} className="event-route-group">
+                <div className="event-route-group-header">{group.label}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {group.entries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className={`event-route-item ${entry.visible ? 'visible' : 'hidden'}`}
+                      onClick={() => toggleRoute(entry.id)}
+                    >
+                      <span
+                        className="event-route-swatch"
+                        style={{ backgroundColor: entry.visible ? entry.color : '#555' }}
+                      />
+                      <span className="event-route-label">{entry.label}</span>
+                      <span className="event-route-count">
+                        {entry.moveRoute.list.filter(c => c.code !== 0).length}개
+                      </span>
+                      <button
+                        className="event-route-reset-btn"
+                        onClick={(e) => { e.stopPropagation(); startWaypointFromRoute(entry); }}
+                        disabled={!!waypointSession}
+                        title="웨이포인트로 경로 재설정"
+                      >
+                        재설정
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
