@@ -3,47 +3,49 @@
  * @author RPG Maker MV Web Editor
  *
  * @help
- * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 맵 화면이 점점 블러되면서
- * 어두워지는 애니메이션 후 메뉴 UI가 표시됩니다.
- * 메뉴를 닫으면 라이브 게임 캔버스에 PostProcess 트랜지션 효과를 걸어 점차 해제합니다.
+ * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 지정한 전환 효과로 맵 화면이 변화하며
+ * 메뉴 UI가 표시됩니다. 메뉴를 닫으면 PostProcess 셰이더로 역방향 효과를 해제합니다.
  *
  * 렌더링 방식:
- *   열기: snapForBackground 스냅샷에 canvas ctx.filter:blur 적용 (0→max)
- *   닫기: PostProcess.setTransitionEffect()로 선택한 효과를 적용 (max→0)
+ *   열기: snapForBackground 스냅샷에 canvas 2D 효과 적용 (0→최대)
+ *   닫기: PostProcess.setTransitionEffect()로 동일 효과 적용 (최대→0)
  *         라이브 게임이 효과 뒤에서 실행 → 부활 글리치가 가려짐
  *
  * 타이밍 방식:
  *   - Scene_MenuBase.update() / Scene_Base.update() 호출마다 프레임 카운터 증가
  *   - 게임 루프가 블로킹되면 애니메이션도 일시정지 → 재개 시 이어서 진행
  *
- * === 효과 종류 (effect) ===
- *   blur+overlay   : 블러 + 어두운 오버레이 (기본값)
- *   blurOnly       : 블러만
- *   overlayOnly    : 블러 없이 어둡게만
+ * === 전환 효과 종류 (transitionEffect) ===
+ *   blur        : 가우시안 블러 (기본값)
+ *   zoomBlur    : 방사형 줌 블러
+ *   desaturation: 채도 감소 (흑백)
+ *   sepia       : 세피아 색조
+ *   brightness  : 화이트아웃 (밝아짐)
+ *   ripple      : 물결 왜곡
+ *   whirl       : 소용돌이
+ *   pixelation  : 픽셀화
+ *   chromatic   : 색수차
+ *   dissolve    : 노이즈 페이드
+ *   scanline    : 스캔라인 페이드
  *
- * === 닫기 효과 종류 (closeEffect) ===
- *   blur           : 가우시안 블러 (기본값)
- *   zoomBlur       : 방사형 줌 블러
- *   desaturation   : 채도 감소 (흑백)
- *   sepia          : 세피아 색조
- *   brightness     : 화면 밝아짐 (화이트아웃)
- *   ripple         : 물결 왜곡
- *   whirl          : 소용돌이
- *   pixelation     : 픽셀화
- *   chromatic      : 색수차
- *   dissolve       : 노이즈 페이드
- *   scanline       : 스캔라인 페이드
- *
- * @param effect
- * @text 효과 종류
+ * @param transitionEffect
+ * @text 전환 효과 종류
  * @type select
- * @option blur+overlay
- * @option blurOnly
- * @option overlayOnly
- * @default blur+overlay
+ * @option blur
+ * @option zoomBlur
+ * @option desaturation
+ * @option sepia
+ * @option brightness
+ * @option ripple
+ * @option whirl
+ * @option pixelation
+ * @option chromatic
+ * @option dissolve
+ * @option scanline
+ * @default blur
  *
  * @param blur
- * @text 블러 강도 (0-100)
+ * @text 블러 강도 (0-100) [blur/zoomBlur 효과에 사용]
  * @type number
  * @min 0
  * @max 100
@@ -55,7 +57,7 @@
  * @default 0,0,0
  *
  * @param overlayAlpha
- * @text 오버레이 불투명도 (0-255)
+ * @text 오버레이 불투명도 (0-255, 0이면 비활성)
  * @type number
  * @min 0
  * @max 255
@@ -81,22 +83,6 @@
  * @text 닫기 애니메이션 활성화
  * @type boolean
  * @default true
- *
- * @param closeEffect
- * @text 닫기 효과 종류
- * @type select
- * @option blur
- * @option zoomBlur
- * @option desaturation
- * @option sepia
- * @option brightness
- * @option ripple
- * @option whirl
- * @option pixelation
- * @option chromatic
- * @option dissolve
- * @option scanline
- * @default blur
  */
 
 (function () {
@@ -105,14 +91,13 @@
     var params = PluginManager.parameters('MenuTransition');
 
     var Cfg = {
-        effect:       String(params.effect       || 'blur+overlay'),
+        transitionEffect: String(params.transitionEffect || 'blur'),
         blur:         Number(params.blur)         >= 0 ? Number(params.blur) : 40,
         overlayColor: String(params.overlayColor  || '0,0,0'),
         overlayAlpha: Number(params.overlayAlpha) >= 0 ? Number(params.overlayAlpha) : 100,
         duration:     Number(params.duration)     || 40,
         easing:       String(params.easing        || 'easeOut'),
-        closeAnim:    String(params.closeAnim) !== 'false',
-        closeEffect:  String(params.closeEffect   || 'blur')
+        closeAnim:    String(params.closeAnim) !== 'false'
     };
 
     // overlayColor 'r,g,b' → [r, g, b]
@@ -149,39 +134,34 @@
     var _suppressNextFadeOut = false;
     var _suppressNextFadeIn  = false;
 
-    // 닫기 CSS blur 상태
-    var _mapBlurPending = false;  // 다음 씬 start()에서 blur 시작
+    // 닫기 PostProcess 상태
+    var _mapBlurPending = false;  // 다음 씬 start()에서 효과 시작
     var _mapBlurStartT  = 1;      // 닫힐 때의 _t (시작 강도)
-    var _mapBlurPhase   = false;  // 게임씬에서 blur 페이드 중
+    var _mapBlurPhase   = false;  // 게임씬에서 효과 페이드 중
 
-    // ── PostProcess transition effect 헬퍼 ───────────────────────────────────
+    // ── PostProcess transition effect 헬퍼 (닫기용) ───────────────────────────
 
     // t: 0~1 (1=최대 강도, 0=효과 없음)
-    // 선택된 Cfg.closeEffect에 따라 PostProcess API를 호출
-    // PostProcess 없을 때는 blur CSS fallback 사용
+    // PostProcess 없을 때는 blur CSS fallback
     function _applyTransitionEffect(t) {
-        var hasEffect = (t > 0.001 && Cfg.effect !== 'overlayOnly');
         if (typeof PostProcess !== 'undefined' && PostProcess.setTransitionEffect) {
-            if (!hasEffect) {
+            if (t <= 0.001) {
                 PostProcess.clearTransitionEffects();
                 return;
             }
-            var type = Cfg.closeEffect || 'blur';
-            PostProcess.setTransitionEffect(type, t);
-            if (type === 'ripple') {
-                PostProcess.setTransitionRippleTime(t);
+            var type = Cfg.transitionEffect || 'blur';
+            if (type === 'blur') {
+                PostProcess.setTransitionBlur(t * Cfg.blur / 100 * 20);
+            } else {
+                PostProcess.setTransitionEffect(type, t);
+                if (type === 'ripple') PostProcess.setTransitionRippleTime(t);
             }
         } else {
             // PostProcess 없을 때 CSS blur fallback
-            var px = hasEffect ? t * Cfg.blur / 100 * 20 : 0;
+            var px = t > 0.001 ? t * Cfg.blur / 100 * 20 : 0;
             var canvas = Graphics._canvas;
             if (canvas) canvas.style.filter = px > 0 ? 'blur(' + px.toFixed(2) + 'px)' : '';
         }
-    }
-
-    // 후방 호환: setTransitionBlur 를 직접 호출하는 코드가 있을 경우 대비
-    function _applyTransitionBlur(t) {
-        _applyTransitionEffect(t);
     }
 
     // ── PostProcess.menuBgHook: 메뉴 씬 렌더링 중 bloom만 비활성화 ─────────────
@@ -215,11 +195,26 @@
         _phase = 1;
         _t = 0;
         _mapBlurPending = false;
-        _applyTransitionEffect(0);  // 혹시 남아있는 트랜지션 효과 제거
+        _applyTransitionEffect(0);  // 혹시 남아있는 PostProcess 효과 제거
         _setMenuBgHook(true);
     }
 
-    // ── 배경 비트맵 업데이트 (열기 — canvas ctx.filter 블러) ─────────────────
+    // ── 배경 비트맵 업데이트 (열기 — canvas 2D 효과) ─────────────────────────
+
+    // 효과별 CSS filter 문자열 반환 (null이면 filter 없음)
+    function _openCssFilter(type, t) {
+        var blurPx = (t * Cfg.blur / 100 * 20).toFixed(2);
+        switch (type) {
+            case 'blur':         return 'blur(' + blurPx + 'px)';
+            case 'zoomBlur':     return 'blur(' + (t * Cfg.blur / 100 * 10).toFixed(2) + 'px)';
+            case 'desaturation': return 'grayscale(' + (t * 100).toFixed(0) + '%)';
+            case 'sepia':        return 'sepia(' + (t * 100).toFixed(0) + '%)';
+            case 'ripple':       return 'blur(' + (t * Cfg.blur / 100 * 8).toFixed(2) + 'px)';
+            case 'whirl':        return 'blur(' + (t * Cfg.blur / 100 * 8).toFixed(2) + 'px)';
+            case 'dissolve':     return 'blur(' + (t * Cfg.blur / 100 * 5).toFixed(2) + 'px)';
+            default:             return null;
+        }
+    }
 
     function updateBgBitmap(bitmap, t) {
         if (!_srcCanvas || !bitmap) return;
@@ -229,14 +224,62 @@
         var ctx = bitmap._context;
         ctx.clearRect(0, 0, w, h);
 
-        if (Cfg.effect !== 'overlayOnly' && Cfg.blur > 0 && t > 0.001) {
-            var blurPx = t * Cfg.blur / 100 * 20;
-            ctx.filter = 'blur(' + blurPx.toFixed(2) + 'px)';
-        }
-        ctx.drawImage(_srcCanvas, 0, 0, w, h);
-        ctx.filter = 'none';
+        var type = Cfg.transitionEffect || 'blur';
 
-        if (Cfg.effect !== 'blurOnly' && t > 0.001) {
+        if (t > 0.001) {
+            if (type === 'brightness') {
+                // 흰색 오버레이 강도 증가 (화이트아웃)
+                ctx.drawImage(_srcCanvas, 0, 0, w, h);
+                ctx.globalAlpha = t;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, w, h);
+                ctx.globalAlpha = 1;
+
+            } else if (type === 'pixelation') {
+                // 저해상도 캔버스에 그린 뒤 확대 (nearest neighbor)
+                var scale = Math.max(1, Math.round(t * 20));
+                var sw = Math.max(1, Math.floor(w / scale));
+                var sh = Math.max(1, Math.floor(h / scale));
+                var offCanvas = document.createElement('canvas');
+                offCanvas.width = sw;
+                offCanvas.height = sh;
+                offCanvas.getContext('2d').drawImage(_srcCanvas, 0, 0, sw, sh);
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(offCanvas, 0, 0, sw, sh, 0, 0, w, h);
+                ctx.imageSmoothingEnabled = true;
+
+            } else if (type === 'scanline') {
+                // 원본 그린 후 가로 줄 오버레이
+                ctx.drawImage(_srcCanvas, 0, 0, w, h);
+                ctx.globalAlpha = t * 0.6;
+                ctx.fillStyle = '#000000';
+                for (var sy = 0; sy < h; sy += 4) ctx.fillRect(0, sy, w, 2);
+                ctx.globalAlpha = 1;
+
+            } else if (type === 'chromatic') {
+                // R/G/B 채널을 다른 위치에 합성 (색수차 근사)
+                var cOff = Math.round(t * 10);
+                ctx.drawImage(_srcCanvas, 0, 0, w, h);
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.globalAlpha = t * 0.35;
+                ctx.drawImage(_srcCanvas,  cOff, 0, w, h);
+                ctx.drawImage(_srcCanvas, -cOff, 0, w, h);
+                ctx.globalAlpha = 1;
+                ctx.globalCompositeOperation = 'source-over';
+
+            } else {
+                // CSS filter 기반 효과 (blur, zoomBlur, desaturation, sepia, ripple, whirl, dissolve 등)
+                var f = _openCssFilter(type, t);
+                if (f) ctx.filter = f;
+                ctx.drawImage(_srcCanvas, 0, 0, w, h);
+                ctx.filter = 'none';
+            }
+        } else {
+            ctx.drawImage(_srcCanvas, 0, 0, w, h);
+        }
+
+        // 어두운 오버레이 (overlayAlpha > 0일 때)
+        if (Cfg.overlayAlpha > 0 && t > 0.001) {
             var oa = (Cfg.overlayAlpha / 255) * t;
             ctx.fillStyle = 'rgba(' + _overlayRGB[0] + ',' + _overlayRGB[1] + ',' + _overlayRGB[2] + ',' + oa + ')';
             ctx.fillRect(0, 0, w, h);
@@ -300,7 +343,7 @@
         _SMB_startFadeOut.call(this, duration, white);
     };
 
-    // 복귀씬 페이드인 억제 (CSS blur가 전환 담당)
+    // 복귀씬 페이드인 억제 (PostProcess 효과가 전환 담당)
     var _SB_startFadeIn = Scene_Base.prototype.startFadeIn;
     Scene_Base.prototype.startFadeIn = function (duration, white) {
         if (_suppressNextFadeIn) {
@@ -310,7 +353,7 @@
         _SB_startFadeIn.call(this, duration, white);
     };
 
-    // 메뉴씬 update: 열기 애니메이션
+    // 메뉴씬 update: 열기 애니메이션 (canvas 2D)
     var _SMB_update = Scene_MenuBase.prototype.update;
     Scene_MenuBase.prototype.update = function () {
         _SMB_update.call(this);
@@ -328,7 +371,7 @@
         if (bmp) updateBgBitmap(bmp, _t);
     };
 
-    // ── Scene_Base 오버라이드 (닫기 CSS blur 페이드) ──────────────────────────
+    // ── Scene_Base 오버라이드 (닫기 PostProcess 효과 페이드) ──────────────────
 
     var _SB_start = Scene_Base.prototype.start;
     Scene_Base.prototype.start = function () {
