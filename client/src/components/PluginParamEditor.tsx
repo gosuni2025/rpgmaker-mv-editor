@@ -46,10 +46,13 @@ export function getOrderedParams(plugin: PluginEntry, metadata: Record<string, P
   const result: { paramIndex: number; meta?: PluginParamMeta }[] = [];
 
   for (const pm of metaParams) {
-    const paramIndex = plugin.parameters.findIndex(p => p.name === pm.name);
-    if (paramIndex >= 0) {
-      result.push({ paramIndex, meta: pm });
+    let paramIndex = plugin.parameters.findIndex(p => p.name === pm.name);
+    if (paramIndex < 0) {
+      // plugins.js에 아직 없는 meta param → 기본값으로 동적 추가
+      plugin.parameters.push({ name: pm.name, value: pm.default });
+      paramIndex = plugin.parameters.length - 1;
     }
+    result.push({ paramIndex, meta: pm });
   }
 
   const metaNames = new Set(metaParams.map(pm => pm.name));
