@@ -1,5 +1,5 @@
 /*:
- * @plugindesc [v1.0] 미니맵 — FoW, 리전 색상, 2D/3D 지원
+ * @plugindesc [v1.1] 미니맵 — FoW, 리전 색상, 커스텀 마커, 2D/3D 지원
  * @author Claude
  *
  * @param enabled
@@ -133,7 +133,7 @@
  *
  * @command clearFow
  * @text 안개 초기화
- * @desc 현재 맵의 탐험 안개를 초기화합니다. 맵 전체가 다시 가려집니다.
+ * @desc 현재 맵의 탐험 안개를 초기화합니다.
  *
  * @command revealAll
  * @text 전체 탐험 처리
@@ -180,13 +180,78 @@
  * @max 16
  * @default 4
  *
+ * @command addMarker
+ * @text 마커 추가
+ * @desc 미니맵에 커스텀 마커를 추가합니다. 같은 ID가 있으면 덮어씁니다.
+ *
+ * @arg id
+ * @text 마커 ID
+ * @desc 고유 식별자. 나중에 이 ID로 마커를 삭제할 수 있습니다.
+ * @type string
+ * @default marker1
+ *
+ * @arg x
+ * @text X 좌표
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg y
+ * @text Y 좌표
+ * @type number
+ * @min 0
+ * @default 0
+ *
+ * @arg color
+ * @text 색상
+ * @desc CSS 색상값. 예: #ff4444, rgba(255,100,0,0.8)
+ * @type string
+ * @default #ff4444
+ *
+ * @arg shape
+ * @text 모양
+ * @type select
+ * @default circle
+ *
+ * @option 원형
+ * @value circle
+ *
+ * @option 사각형
+ * @value square
+ *
+ * @option 다이아몬드
+ * @value diamond
+ *
+ * @command removeMarker
+ * @text 마커 삭제
+ * @desc ID로 마커를 삭제합니다.
+ *
+ * @arg id
+ * @text 마커 ID
+ * @type string
+ * @default marker1
+ *
+ * @command clearMarkers
+ * @text 마커 전체 삭제
+ * @desc 모든 커스텀 마커를 삭제합니다.
+ *
  * @help
  * 미니맵을 화면 우측 상단에 표시합니다.
+ * 미니맵 하단의 -/+ 버튼으로 확대/축소할 수 있습니다.
  *
- * --- 이벤트 마커 ---
+ * --- 이벤트 마커 (노트 태그) ---
  * 이벤트 노트란에 다음 태그를 입력하면 미니맵에 마커가 표시됩니다:
- *   <minimap>           기본 마커 색상으로 표시
+ *   <minimap>           기본 마커 색상으로 표시 (원형)
  *   <minimap:#ff4444>   지정한 색상으로 표시
+ *
+ * --- 커스텀 마커 ---
+ * 플러그인 커맨드로 임의 좌표에 마커를 추가할 수 있습니다:
+ *   Minimap addMarker npc1 5 10 #ff4444 circle
+ *   Minimap addMarker boss 20 15 #ff0000 diamond
+ *   Minimap removeMarker npc1
+ *   Minimap clearMarkers
+ *
+ * 마커는 세이브 데이터에 저장됩니다.
  */
 
 (function () {
@@ -220,15 +285,19 @@
   try { CFG.regionColors  = JSON.parse(p['regionColors']  || '{}'); } catch(e) {}
   try { CFG.terrainColors = JSON.parse(p['terrainColors'] || '{}'); } catch(e) {}
 
+  const BTN_SIZE = 22; // +/- 버튼 크기 (px)
+  const BTN_GAP  = 4;  // 버튼 사이 간격
+
   // ============================================================
-  // Game_System — FoW 데이터 세이브/로드
+  // Game_System — 세이브 데이터
   // ============================================================
 
   const _Game_System_initialize = Game_System.prototype.initialize;
   Game_System.prototype.initialize = function () {
     _Game_System_initialize.call(this);
-    this._minimapFow     = {};   // { mapId: Array<0|1> }
+    this._minimapFow     = {};
     this._minimapVisible = true;
+    this._minimapMarkers = []; // [{id, x, y, color, shape}]
   };
 
   // ============================================================
@@ -257,19 +326,22 @@
     if (command !== 'Minimap') return;
     const sub = (args[0] || '').toLowerCase();
     switch (sub) {
-      case 'show':      MinimapManager.setVisible(true);        break;
-      case 'hide':      MinimapManager.setVisible(false);       break;
-      case 'toggle':    MinimapManager.toggleVisible();         break;
-      case 'clearfow':  MinimapManager.clearFow();              break;
-      case 'revealall': MinimapManager.revealAll();             break;
-      case 'shape':     MinimapManager.setShape(args[1]);       break;
-      case 'rotation':  MinimapManager.setRotation(args[1]);   break;
-      case 'tilesize':  MinimapManager.setTileSize(args[1]);   break;
+      case 'show':          MinimapManager.setVisible(true);                              break;
+      case 'hide':          MinimapManager.setVisible(false);                             break;
+      case 'toggle':        MinimapManager.toggleVisible();                               break;
+      case 'clearfow':      MinimapManager.clearFow();                                    break;
+      case 'revealall':     MinimapManager.revealAll();                                   break;
+      case 'shape':         MinimapManager.setShape(args[1]);                             break;
+      case 'rotation':      MinimapManager.setRotation(args[1]);                          break;
+      case 'tilesize':      MinimapManager.setTileSize(args[1]);                          break;
+      case 'addmarker':     MinimapManager.addMarker(args[1], args[2], args[3], args[4], args[5]); break;
+      case 'removemarker':  MinimapManager.removeMarker(args[1]);                         break;
+      case 'clearmarkers':  MinimapManager.clearMarkers();                                break;
     }
   };
 
   // ============================================================
-  // Scene_Map — 미니맵 생성/갱신/해제
+  // Scene_Map
   // ============================================================
 
   const _Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindows;
@@ -299,6 +371,8 @@
   const MinimapManager = {
     _bitmap:         null,
     _sprite:         null,
+    _btnPlus:        null,
+    _btnMinus:       null,
     _scene:          null,
     _dirty:          true,
     _lastPx:         -999,
@@ -353,17 +427,14 @@
 
     clearFow() {
       if (!$gameMap) return;
-      const mapId = $gameMap.mapId();
-      if ($gameSystem._minimapFow) delete $gameSystem._minimapFow[mapId];
+      if ($gameSystem._minimapFow) delete $gameSystem._minimapFow[$gameMap.mapId()];
       this._dirty = true;
     },
 
     revealAll() {
       if (!$gameMap) return;
-      const mapId = $gameMap.mapId();
-      const w = $gameMap.width();
-      const h = $gameMap.height();
-      this._getFowData(mapId, w, h).fill(1);
+      const w = $gameMap.width(), h = $gameMap.height();
+      this._getFowData($gameMap.mapId(), w, h).fill(1);
       this._dirty = true;
     },
 
@@ -391,7 +462,7 @@
     },
 
     // ----------------------------------------------------------
-    // 이벤트 마커 색상
+    // 이벤트 마커 색상 (노트 태그)
     // ----------------------------------------------------------
     _getEventMarkerColor(event) {
       if (!event || !event.event()) return null;
@@ -402,22 +473,51 @@
     },
 
     // ----------------------------------------------------------
-    // 렌더링 (Canvas 2D 직접 사용)
+    // 마커 그리기 헬퍼
+    // ----------------------------------------------------------
+    _drawMarker(ctx, sx, sy, r, color, shape) {
+      ctx.globalAlpha = 1.0;
+      ctx.fillStyle   = color;
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth   = 1;
+
+      if (shape === 'square') {
+        ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
+        ctx.strokeRect(sx - r + 0.5, sy - r + 0.5, r * 2 - 1, r * 2 - 1);
+      } else if (shape === 'diamond') {
+        ctx.beginPath();
+        ctx.moveTo(sx,     sy - r * 1.3);
+        ctx.lineTo(sx + r, sy);
+        ctx.lineTo(sx,     sy + r * 1.3);
+        ctx.lineTo(sx - r, sy);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else { // circle (기본)
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    },
+
+    // ----------------------------------------------------------
+    // 렌더링
     // ----------------------------------------------------------
     _render() {
       if (!$gameMap || !$gamePlayer) return;
 
-      const bitmap  = this._bitmap;
-      const ctx     = bitmap._context;
-      const s       = CFG.size;
-      const hs      = s / 2;
-      const ts      = CFG.tileSize;
-      const mapId   = $gameMap.mapId();
-      const mapW    = $gameMap.width();
-      const mapH    = $gameMap.height();
-      const px      = $gamePlayer.x;
-      const py      = $gamePlayer.y;
-      const fow     = CFG.fowEnabled ? this._getFowData(mapId, mapW, mapH) : null;
+      const bitmap = this._bitmap;
+      const ctx    = bitmap._context;
+      const s      = CFG.size;
+      const hs     = s / 2;
+      const ts     = CFG.tileSize;
+      const mapId  = $gameMap.mapId();
+      const mapW   = $gameMap.width();
+      const mapH   = $gameMap.height();
+      const px     = $gamePlayer.x;
+      const py     = $gamePlayer.y;
+      const fow    = CFG.fowEnabled ? this._getFowData(mapId, mapW, mapH) : null;
 
       let yaw = 0;
       if (CFG.rotation === 'rotate' &&
@@ -427,7 +527,7 @@
 
       ctx.clearRect(0, 0, s, s);
 
-      // ── 클리핑 경로 설정 ──────────────────────────────────────
+      // ── 클리핑 ───────────────────────────────────────────────
       ctx.save();
       ctx.beginPath();
       if (CFG.shape === 'circle') {
@@ -437,11 +537,10 @@
       }
       ctx.clip();
 
-      // ── 배경 ──────────────────────────────────────────────────
       ctx.fillStyle = CFG.bgColor;
       ctx.fillRect(0, 0, s, s);
 
-      // ── 회전 변환 ──────────────────────────────────────────────
+      // ── 회전 변환 ─────────────────────────────────────────────
       ctx.save();
       if (yaw !== 0) {
         ctx.translate(hs, hs);
@@ -449,17 +548,16 @@
         ctx.translate(-hs, -hs);
       }
 
-      // 뷰포트 범위 (플레이어 중심)
-      const viewW  = s / ts;
-      const viewH  = s / ts;
-      const startX = px - viewW / 2;
-      const startY = py - viewH / 2;
+      const viewW   = s / ts;
+      const viewH   = s / ts;
+      const startX  = px - viewW / 2;
+      const startY  = py - viewH / 2;
       const iStartX = Math.floor(startX) - 1;
       const iStartY = Math.floor(startY) - 1;
       const iEndX   = Math.ceil(startX + viewW) + 1;
       const iEndY   = Math.ceil(startY + viewH) + 1;
 
-      // ── 타일 그리기 ────────────────────────────────────────────
+      // ── 타일 ─────────────────────────────────────────────────
       for (let ty = iStartY; ty <= iEndY; ty++) {
         for (let tx = iStartX; tx <= iEndX; tx++) {
           const mx = $gameMap.isLoopHorizontal()
@@ -470,8 +568,7 @@
           if (!$gameMap.isLoopHorizontal() && (tx < 0 || tx >= mapW)) continue;
           if (!$gameMap.isLoopVertical()   && (ty < 0 || ty >= mapH)) continue;
 
-          const idx      = my * mapW + mx;
-          const explored = fow ? !!fow[idx] : true;
+          const explored = fow ? !!fow[my * mapW + mx] : true;
           if (!explored) continue;
 
           const inSight = this._isInSight(mx, my, px, py);
@@ -481,9 +578,10 @@
         }
       }
 
-      // ── 이벤트 마커 ───────────────────────────────────────────
+      const markerR = Math.max(2, ts * 0.8);
+
+      // ── 이벤트 마커 (노트 태그) ───────────────────────────────
       if (CFG.showEvents && $gameMap.events) {
-        const markerR = Math.max(2, ts * 0.8);
         $gameMap.events().forEach(event => {
           const color = this._getEventMarkerColor(event);
           if (!color) return;
@@ -494,26 +592,32 @@
             ? ((ey % mapH) + mapH) % mapH : ey;
           if (mx < 0 || mx >= mapW || my < 0 || my >= mapH) return;
           if (fow && !fow[my * mapW + mx]) return;
-
-          const sx = (ex - startX) * ts + ts * 0.5;
-          const sy = (ey - startY) * ts + ts * 0.5;
-          ctx.globalAlpha = 1.0;
-          ctx.fillStyle   = color;
-          ctx.beginPath();
-          ctx.arc(sx, sy, markerR, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-          ctx.lineWidth   = 1;
-          ctx.stroke();
+          this._drawMarker(ctx,
+            (ex - startX) * ts + ts * 0.5,
+            (ey - startY) * ts + ts * 0.5,
+            markerR, color, 'circle');
         });
       }
 
-      // ── 플레이어 마커 (항상 중앙) ──────────────────────────────
-      // direction: 2=남, 4=서, 6=동, 8=북
-      const DIR_ANGLE = {2: Math.PI / 2, 4: Math.PI, 6: 0, 8: -Math.PI / 2};
-      // rotate 모드에서는 캔버스가 yaw 회전됐으므로 역보정
+      // ── 커스텀 마커 ───────────────────────────────────────────
+      const customMarkers = ($gameSystem._minimapMarkers || []);
+      customMarkers.forEach(m => {
+        const mx = $gameMap.isLoopHorizontal()
+          ? ((m.x % mapW) + mapW) % mapW : m.x;
+        const my = $gameMap.isLoopVertical()
+          ? ((m.y % mapH) + mapH) % mapH : m.y;
+        if (mx < 0 || mx >= mapW || my < 0 || my >= mapH) return;
+        if (fow && !fow[my * mapW + mx]) return;
+        this._drawMarker(ctx,
+          (m.x - startX) * ts + ts * 0.5,
+          (m.y - startY) * ts + ts * 0.5,
+          markerR, m.color || CFG.eventMarkerColor, m.shape || 'circle');
+      });
+
+      // ── 플레이어 마커 (항상 중앙) ─────────────────────────────
+      const DIR_ANGLE  = {2: Math.PI / 2, 4: Math.PI, 6: 0, 8: -Math.PI / 2};
       const arrowAngle = (DIR_ANGLE[$gamePlayer.direction()] || 0) - yaw;
-      const ar = Math.max(3, ts);
+      const ar         = Math.max(3, ts);
 
       ctx.save();
       ctx.translate(hs, hs);
@@ -521,10 +625,10 @@
       ctx.globalAlpha = 1.0;
       ctx.fillStyle   = CFG.playerColor;
       ctx.beginPath();
-      ctx.moveTo(0, -ar * 2.2);       // 앞 뾰족점
-      ctx.lineTo(ar * 0.9, ar * 0.5);
-      ctx.lineTo(0, 0);
-      ctx.lineTo(-ar * 0.9, ar * 0.5);
+      ctx.moveTo(0,          -ar * 2.2);
+      ctx.lineTo(ar * 0.9,   ar * 0.5);
+      ctx.lineTo(0,          0);
+      ctx.lineTo(-ar * 0.9,  ar * 0.5);
       ctx.closePath();
       ctx.fill();
       ctx.strokeStyle = 'rgba(0,0,0,0.7)';
@@ -535,7 +639,7 @@
       ctx.restore(); // 회전 취소
       ctx.restore(); // 클리핑 취소
 
-      // ── 테두리 (클리핑 밖, 경계선) ────────────────────────────
+      // ── 테두리 ────────────────────────────────────────────────
       if (CFG.borderWidth > 0) {
         ctx.strokeStyle = CFG.borderColor;
         ctx.lineWidth   = CFG.borderWidth;
@@ -550,31 +654,82 @@
         }
       }
 
-      // Three.js 렌더러에 변경 알림
       bitmap._dirty = true;
       if (bitmap._baseTexture) bitmap._baseTexture.update();
     },
 
     // ----------------------------------------------------------
-    // 스프라이트 생성 (Scene_Map에 추가)
+    // +/- 버튼 생성
+    // ----------------------------------------------------------
+    _makeButton(label) {
+      const bm  = new Bitmap(BTN_SIZE, BTN_SIZE);
+      const ctx = bm._context;
+
+      // 배경
+      ctx.fillStyle = 'rgba(20,30,50,0.85)';
+      ctx.fillRect(0, 0, BTN_SIZE, BTN_SIZE);
+      // 테두리
+      ctx.strokeStyle = '#7799aa';
+      ctx.lineWidth   = 1;
+      ctx.strokeRect(0.5, 0.5, BTN_SIZE - 1, BTN_SIZE - 1);
+
+      bm.fontSize   = 15;
+      bm.textColor  = '#ffffff';
+      bm.drawText(label, 0, 0, BTN_SIZE, BTN_SIZE, 'center');
+
+      bm._dirty = true;
+      if (bm._baseTexture) bm._baseTexture.update();
+
+      const sp    = new Sprite(bm);
+      sp.opacity  = 180;
+      return sp;
+    },
+
+    _btnX(side) {
+      // side: 'minus' | 'plus'
+      const gw = Graphics.width || Graphics.boxWidth;
+      const cx = gw - CFG.margin - CFG.size / 2; // 미니맵 수평 중앙
+      const totalW = BTN_SIZE * 2 + BTN_GAP;
+      const left   = cx - totalW / 2;
+      return side === 'minus' ? left : left + BTN_SIZE + BTN_GAP;
+    },
+
+    _btnY() {
+      return CFG.margin + CFG.size + 4;
+    },
+
+    _isInRect(sprite, tx, ty) {
+      return tx >= sprite.x && tx < sprite.x + BTN_SIZE &&
+             ty >= sprite.y && ty < sprite.y + BTN_SIZE;
+    },
+
+    // ----------------------------------------------------------
+    // 스프라이트 생성
     // ----------------------------------------------------------
     createSprite(scene) {
       this._scene = scene;
       if (!this._bitmap) this.initialize();
 
       this._sprite = new Sprite(this._bitmap);
-
       const gw = Graphics.width || Graphics.boxWidth;
       this._sprite.x = gw - CFG.size - CFG.margin;
       this._sprite.y = CFG.margin;
       this._sprite.opacity = CFG.opacity;
-
-      // _windowLayer 위에 표시 (창보다 앞)
       scene.addChild(this._sprite);
+
+      // +/- 버튼
+      this._btnMinus = this._makeButton('－');
+      this._btnMinus.x = this._btnX('minus');
+      this._btnMinus.y = this._btnY();
+      scene.addChild(this._btnMinus);
+
+      this._btnPlus = this._makeButton('＋');
+      this._btnPlus.x = this._btnX('plus');
+      this._btnPlus.y = this._btnY();
+      scene.addChild(this._btnPlus);
 
       this._visible = true;
       this._dirty   = true;
-
       if ($gamePlayer) this.explore($gamePlayer.x, $gamePlayer.y);
     },
 
@@ -582,12 +737,38 @@
     // 스프라이트 해제
     // ----------------------------------------------------------
     destroySprite() {
-      if (this._sprite && this._scene) {
-        this._scene.removeChild(this._sprite);
+      if (this._scene) {
+        if (this._sprite)   this._scene.removeChild(this._sprite);
+        if (this._btnMinus) this._scene.removeChild(this._btnMinus);
+        if (this._btnPlus)  this._scene.removeChild(this._btnPlus);
       }
-      // Bitmap은 재사용 (맵 이동 시에도 FoW 데이터 유지)
-      this._sprite = null;
-      this._scene  = null;
+      this._sprite   = null;
+      this._btnMinus = null;
+      this._btnPlus  = null;
+      this._scene    = null;
+    },
+
+    // ----------------------------------------------------------
+    // 버튼 입력 처리 (매 프레임)
+    // ----------------------------------------------------------
+    _updateButtons() {
+      if (!this._btnPlus || !this._btnMinus || !this._visible) return;
+
+      const tx = TouchInput.x, ty = TouchInput.y;
+      const overPlus  = this._isInRect(this._btnPlus,  tx, ty);
+      const overMinus = this._isInRect(this._btnMinus, tx, ty);
+
+      // hover 피드백
+      this._btnPlus.opacity  = overPlus  ? 255 : 180;
+      this._btnMinus.opacity = overMinus ? 255 : 180;
+
+      if (!TouchInput.isTriggered()) return;
+
+      if (overPlus) {
+        this.setTileSize(CFG.tileSize + 1);
+      } else if (overMinus) {
+        this.setTileSize(CFG.tileSize - 1);
+      }
     },
 
     // ----------------------------------------------------------
@@ -595,6 +776,9 @@
     // ----------------------------------------------------------
     update() {
       if (!this._sprite || !$gamePlayer) return;
+
+      // 버튼은 UPDATE_INTERVAL 무관하게 매 프레임 체크
+      this._updateButtons();
 
       if (this._pendingExplore) {
         this._pendingExplore = false;
@@ -631,13 +815,18 @@
     setVisible(visible) {
       this._visible = visible;
       if ($gameSystem) $gameSystem._minimapVisible = visible;
-      if (this._sprite) this._sprite.visible = visible;
+      if (this._sprite)   this._sprite.visible   = visible;
+      if (this._btnMinus) this._btnMinus.visible  = visible;
+      if (this._btnPlus)  this._btnPlus.visible   = visible;
     },
 
     toggleVisible() {
       this.setVisible(!this._visible);
     },
 
+    // ----------------------------------------------------------
+    // 설정 변경
+    // ----------------------------------------------------------
     setShape(shape) {
       if (shape !== 'circle' && shape !== 'square') return;
       CFG.shape = shape;
@@ -654,6 +843,35 @@
       const n = parseInt(val);
       if (!n || n < 1 || n > 16) return;
       CFG.tileSize = n;
+      this._dirty  = true;
+    },
+
+    // ----------------------------------------------------------
+    // 커스텀 마커
+    // ----------------------------------------------------------
+    addMarker(id, x, y, color, shape) {
+      if (!id) return;
+      if (!$gameSystem._minimapMarkers) $gameSystem._minimapMarkers = [];
+      // 같은 ID 덮어쓰기
+      $gameSystem._minimapMarkers = $gameSystem._minimapMarkers.filter(m => m.id !== id);
+      $gameSystem._minimapMarkers.push({
+        id,
+        x:     parseInt(x)  || 0,
+        y:     parseInt(y)  || 0,
+        color: color        || CFG.eventMarkerColor,
+        shape: shape        || 'circle',
+      });
+      this._dirty = true;
+    },
+
+    removeMarker(id) {
+      if (!id || !$gameSystem._minimapMarkers) return;
+      $gameSystem._minimapMarkers = $gameSystem._minimapMarkers.filter(m => m.id !== id);
+      this._dirty = true;
+    },
+
+    clearMarkers() {
+      if ($gameSystem) $gameSystem._minimapMarkers = [];
       this._dirty = true;
     },
   };
