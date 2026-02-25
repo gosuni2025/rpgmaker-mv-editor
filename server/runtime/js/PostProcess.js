@@ -3133,6 +3133,19 @@ _ThreeStrategy.render = function(rendererObj, stage) {
             PostProcess._2dUIRenderPass._stage = stage;
         }
 
+        // stage를 scene에 연결 (3D 경로와 동일)
+        var scene2d = rendererObj.scene;
+        if (scene2d && stage._threeObj && stage._threeObj.parent !== scene2d) {
+            if (scene2d._stageObj) scene2d.remove(scene2d._stageObj);
+            scene2d.add(stage._threeObj);
+            scene2d._stageObj = stage._threeObj;
+        }
+
+        // updateTransform + hierarchy sync (비트맵 업데이트, 변환 동기화, visibility 상태 복원)
+        rendererObj._drawOrderCounter = 0;
+        if (stage.updateTransform) stage.updateTransform();
+        this._syncHierarchy(rendererObj, stage);
+
         // renderToScreen 재조정
         PostProcess._updateRenderToScreen();
 

@@ -367,6 +367,9 @@
             for (var i = 0; i < children.length; i++) {
                 var child = children[i];
                 if (child._visible !== false && child.visible !== false) {
+                    // visible 자식은 _threeObj.visible을 명시적으로 true 복원
+                    // (이전 프레임에서 visibility management가 false로 설정했을 수 있음)
+                    if (child._threeObj) child._threeObj.visible = true;
                     this._syncHierarchy(rendererObj, child, worldAlpha);
                 } else if (child._threeObj) {
                     child._threeObj.visible = false;
