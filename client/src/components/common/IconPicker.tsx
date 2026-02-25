@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import useEscClose from '../../hooks/useEscClose';
 import './IconPicker.css';
 
@@ -102,7 +103,7 @@ export default function IconPicker({ value, onChange, initialOpen, onClose, hide
           <span>#{value}</span>
         </div>
       )}
-      {open && (
+      {open && createPortal(
         <div className="icon-picker-overlay" onClick={handleClose}>
           <div className="icon-picker-dialog" onClick={e => e.stopPropagation()}>
             <div className="icon-picker-dialog-header">
@@ -119,7 +120,8 @@ export default function IconPicker({ value, onChange, initialOpen, onClose, hide
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
