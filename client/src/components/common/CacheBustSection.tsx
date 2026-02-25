@@ -104,7 +104,6 @@ export default function CacheBustSection({ opts, onChange }: Props) {
             <div>· {t('deploy.cacheBust.filterUnusedDesc2')}</div>
             <div>· {t('deploy.cacheBust.filterUnusedDesc3')}</div>
             <div style={{ marginTop: 4, color: '#e8a040' }}>⚠ {t('deploy.cacheBust.filterUnusedWarn')}</div>
-            <div style={{ marginTop: 4, color: '#5af' }}>ℹ {t('deploy.cacheBust.filterUnusedItchio')}</div>
           </HelpButton>
         </div>
       </div>
