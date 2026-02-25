@@ -428,7 +428,6 @@
         // createBackground() 이후에 _backgroundSprite 가 설정됨
         _MT_bgSprite   = this._backgroundSprite || null;
         _MT_bgCaptured = false;
-        if (_MT_bgTex) { _MT_bgTex.dispose(); _MT_bgTex = null; }
         MT_startOpen(Cfg.duration * (1000 / 60));
     };
 
