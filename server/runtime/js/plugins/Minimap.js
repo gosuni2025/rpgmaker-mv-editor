@@ -335,9 +335,18 @@
     if (command !== 'Minimap') return;
     const sub = (args[0] || '').toLowerCase();
     switch (sub) {
-      case 'show':          MinimapManager.setVisible(true);                              break;
-      case 'hide':          MinimapManager.setVisible(false);                             break;
-      case 'toggle':        MinimapManager.toggleVisible();                               break;
+      case 'show':
+        console.log('[Minimap] pluginCommand show: _sprite=%s, _visible=%s', !!MinimapManager._sprite, MinimapManager._visible);
+        MinimapManager.setVisible(true);
+        break;
+      case 'hide':
+        console.log('[Minimap] pluginCommand hide: _sprite=%s, _visible=%s', !!MinimapManager._sprite, MinimapManager._visible);
+        MinimapManager.setVisible(false);
+        break;
+      case 'toggle':
+        console.log('[Minimap] pluginCommand toggle: _sprite=%s, _visible=%s', !!MinimapManager._sprite, MinimapManager._visible);
+        MinimapManager.toggleVisible();
+        break;
       case 'clearfow':      MinimapManager.clearFow();                                    break;
       case 'revealall':     MinimapManager.revealAll();                                   break;
       case 'shape':         MinimapManager.setShape(args[1]);                             break;
@@ -357,9 +366,13 @@
   Scene_Map.prototype.createAllWindows = function () {
     _Scene_Map_createAllWindows.call(this);
     // 재호출 시(VisualNovelMode 등이 createDisplayObjects를 재실행할 때) 이전 가시성 보존
-    var savedVisible = MinimapManager._sprite
+    var hasPrevSprite = !!MinimapManager._sprite;
+    var savedVisible = hasPrevSprite
       ? MinimapManager._visible
       : ($gameSystem ? $gameSystem._minimapVisible : CFG.showOnStart);
+    console.log('[Minimap] createAllWindows: hasPrevSprite=%s, MinimapManager._visible=%s, $gameSystem._minimapVisible=%s, savedVisible=%s',
+      hasPrevSprite, MinimapManager._visible,
+      $gameSystem ? $gameSystem._minimapVisible : 'N/A', savedVisible);
     MinimapManager.destroySprite();
     MinimapManager.createSprite(this);
     MinimapManager.setVisible(savedVisible);
@@ -852,6 +865,7 @@
     // 스프라이트 생성
     // ----------------------------------------------------------
     createSprite(scene) {
+      console.log('[Minimap] createSprite start: _visible=%s', this._visible);
       this._scene = scene;
       if (!this._bitmap) this.initialize();
 
@@ -876,12 +890,14 @@
       this._visible = true;
       this._dirty   = true;
       if ($gamePlayer) this.explore($gamePlayer.x, $gamePlayer.y);
+      console.log('[Minimap] createSprite done: _visible=%s (will be overridden by setVisible)', this._visible);
     },
 
     // ----------------------------------------------------------
     // 스프라이트 해제
     // ----------------------------------------------------------
     destroySprite() {
+      console.log('[Minimap] destroySprite: _visible=%s, hasSprite=%s', this._visible, !!this._sprite);
       if (this._scene) {
         if (this._sprite)   this._scene.removeChild(this._sprite);
         if (this._btnMinus) this._scene.removeChild(this._btnMinus);
@@ -975,14 +991,20 @@
     // 표시/숨김
     // ----------------------------------------------------------
     setVisible(visible) {
+      console.log('[Minimap] setVisible(%s): _sprite=%s, before._visible=%s, before.$gameSystem._minimapVisible=%s',
+        visible, !!this._sprite, this._visible,
+        $gameSystem ? $gameSystem._minimapVisible : 'N/A');
       this._visible = visible;
       if ($gameSystem) $gameSystem._minimapVisible = visible;
       if (this._sprite)   this._sprite.visible   = visible;
       if (this._btnMinus) this._btnMinus.visible  = visible;
       if (this._btnPlus)  this._btnPlus.visible   = visible;
+      console.log('[Minimap] setVisible done: sprite.visible=%s',
+        this._sprite ? this._sprite.visible : 'N/A (no sprite)');
     },
 
     toggleVisible() {
+      console.log('[Minimap] toggleVisible: _visible=%s → %s', this._visible, !this._visible);
       this.setVisible(!this._visible);
     },
 
