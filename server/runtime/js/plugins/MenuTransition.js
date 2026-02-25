@@ -117,11 +117,29 @@
     var _suppressNextFadeOut = false;  // 닫기 후 메뉴씬 검정 페이드아웃 억제
     var _suppressNextFadeIn  = false;  // 닫기 후 복귀씬(맵 등) 페이드인 억제
 
+    // ── 디버그 타이밍 ────────────────────────────────────────────────────────
+    var _dbgLastTick   = 0;  // 마지막 tick() 호출 시각
+    var _dbgLastUpdate = 0;  // 마지막 update() 호출 시각 (phase=3 한정)
+    var _dbgTickGaps   = []; // 마지막 5개 tick 간격 (ms)
+
+    function _dbgRecordTick() {
+        var now = Date.now();
+        if (_dbgLastTick > 0) {
+            var gap = now - _dbgLastTick;
+            _dbgTickGaps.push(gap);
+            if (_dbgTickGaps.length > 8) _dbgTickGaps.shift();
+            if (gap > 25) console.warn('[MT] tick 지연 ' + gap + 'ms (phase=' + _phase + ', t=' + _t.toFixed(3) + ')');
+        }
+        _dbgLastTick = now;
+    }
+
     // ── 애니메이션 타이머 ─────────────────────────────────────────────────────
 
     function tick() {
         _rafId = null;
         if (_phase === 0) return;
+
+        _dbgRecordTick();
 
         var raw = Math.min(1, (Date.now() - _startTime) / Math.max(1, _durationMs));
 
@@ -133,6 +151,7 @@
             _t = applyEase(1 - raw);
             if (raw < 1) { _rafId = requestAnimationFrame(tick); }
             else {
+                console.log('[MT] 닫기 완료. tick 간격(ms):', _dbgTickGaps.join(', '));
                 _t = 0; _phase = 0;
                 if (_closeCb) { var cb = _closeCb; _closeCb = null; cb(); }
             }
@@ -251,6 +270,15 @@
         _SMB_update.call(this);
 
         if (_phase !== 0 && this._backgroundSprite) {
+            // 닫기 중 update() 호출 간격 감시
+            if (_phase === 3) {
+                var now = Date.now();
+                if (_dbgLastUpdate > 0) {
+                    var gap = now - _dbgLastUpdate;
+                    if (gap > 25) console.warn('[MT] update 지연 ' + gap + 'ms (t=' + _t.toFixed(3) + ')');
+                }
+                _dbgLastUpdate = now;
+            }
             var bmp = this._backgroundSprite.bitmap;
             if (bmp) updateBgBitmap(bmp, _t);
         }
@@ -269,9 +297,12 @@
                 var mgr = this;
                 startClose(function () {
                     _srcCanvas = null;
-                    _suppressNextFadeOut = true;  // 메뉴씬 stop() → startFadeOut 억제
-                    _suppressNextFadeIn  = true;  // 복귀씬(맵) startFadeIn 억제
+                    _suppressNextFadeOut = true;
+                    _suppressNextFadeIn  = true;
+                    var t0 = Date.now();
+                    console.log('[MT] _origPop 호출');
                     _origPop.call(mgr);
+                    console.log('[MT] _origPop 완료, 소요=' + (Date.now() - t0) + 'ms');
                 });
             } else {
                 _origPop.call(this);
