@@ -11,6 +11,11 @@
  *   - _backgroundSprite.bitmap에 매 프레임 canvas ctx.filter:blur로 그려
  *     블러 강도와 오버레이가 t(0→1)에 따라 점진적으로 강해짐
  *
+ * 타이밍 방식:
+ *   - requestAnimationFrame 독립 루프 미사용
+ *   - Scene_MenuBase.update() 호출(게임 루프)마다 프레임 카운터 증가
+ *   - 게임 루프가 블로킹되면 애니메이션도 함께 일시정지 → 재개 시 이어서 진행
+ *
  * === 효과 종류 (effect) ===
  *   blur+overlay   : 블러 + 어두운 오버레이 (기본값)
  *   blurOnly       : 블러만
@@ -44,7 +49,7 @@
  * @default 100
  *
  * @param duration
- * @text 전환 시간 (프레임, 60fps 기준)
+ * @text 전환 시간 (게임 루프 프레임 수, 60fps 기준)
  * @type number
  * @min 1
  * @max 120
@@ -75,7 +80,7 @@
         blur:         Number(params.blur)         >= 0 ? Number(params.blur) : 40,
         overlayColor: String(params.overlayColor  || '0,0,0'),
         overlayAlpha: Number(params.overlayAlpha) >= 0 ? Number(params.overlayAlpha) : 100,
-        duration:     Number(params.duration)     || 20,
+        duration:     Number(params.duration)     || 40,
         easing:       String(params.easing        || 'easeOut'),
         closeAnim:    String(params.closeAnim) !== 'false'
     };
@@ -105,74 +110,31 @@
 
     // ── 상태 ─────────────────────────────────────────────────────────────────
 
-    var _phase      = 0;   // 0=비활성, 1=열기, 2=열림, 3=닫기
-    var _t          = 0;
-    var _startTime  = 0;
-    var _durationMs = 0;
-    var _closeCb    = null;
-    var _rafId      = null;
+    var _phase   = 0;   // 0=비활성, 1=열기, 2=열림, 3=닫기
+    var _t       = 0;
+    var _elapsed = 0;   // 게임 루프 update() 호출 횟수 (프레임 카운터)
+    var _closeCb = null;
 
     var _srcCanvas = null;  // 스냅샷 캔버스 (PostProcess._captureCanvas 복사본)
 
     var _suppressNextFadeOut = false;  // 닫기 후 메뉴씬 검정 페이드아웃 억제
     var _suppressNextFadeIn  = false;  // 닫기 후 복귀씬(맵 등) 페이드인 억제
 
-    // ── 디버그 타이밍 ────────────────────────────────────────────────────────
-    var _dbgLastTick   = 0;  // 마지막 tick() 호출 시각
-    var _dbgLastUpdate = 0;  // 마지막 update() 호출 시각 (phase=3 한정)
-    var _dbgTickGaps   = []; // 마지막 5개 tick 간격 (ms)
-
-    function _dbgRecordTick() {
-        var now = Date.now();
-        if (_dbgLastTick > 0) {
-            var gap = now - _dbgLastTick;
-            _dbgTickGaps.push(gap);
-            if (_dbgTickGaps.length > 8) _dbgTickGaps.shift();
-            if (gap > 25) console.warn('[MT] tick 지연 ' + gap + 'ms (phase=' + _phase + ', t=' + _t.toFixed(3) + ')');
-        }
-        _dbgLastTick = now;
-    }
-
-    // ── 애니메이션 타이머 ─────────────────────────────────────────────────────
-
-    function tick() {
-        _rafId = null;
-        if (_phase === 0) return;
-
-        _dbgRecordTick();
-
-        var raw = Math.min(1, (Date.now() - _startTime) / Math.max(1, _durationMs));
-
-        if (_phase === 1) {
-            _t = applyEase(raw);
-            if (raw < 1) { _rafId = requestAnimationFrame(tick); }
-            else { _t = 1; _phase = 2; }
-        } else if (_phase === 3) {
-            _t = applyEase(1 - raw);
-            if (raw < 1) { _rafId = requestAnimationFrame(tick); }
-            else {
-                console.log('[MT] 닫기 완료. tick 간격(ms):', _dbgTickGaps.join(', '));
-                _t = 0; _phase = 0;
-                if (_closeCb) { var cb = _closeCb; _closeCb = null; cb(); }
-            }
-        }
-    }
+    // ── 애니메이션 제어 ───────────────────────────────────────────────────────
+    // requestAnimationFrame 독립 루프 없음 — update()에서 프레임 카운터로 제어.
+    // 게임 루프가 블로킹되면 _elapsed 증가가 멈춰 애니메이션도 일시정지됨.
 
     function startOpen() {
-        if (_rafId) cancelAnimationFrame(_rafId);
-        _durationMs = Cfg.duration * (1000 / 60);
-        _startTime  = Date.now();
-        _phase = 1; _t = 0;
-        _rafId = requestAnimationFrame(tick);
+        _elapsed = 0;
+        _phase = 1;
+        _t = 0;
     }
 
     function startClose(cb) {
         if (_phase === 0) { if (cb) cb(); return; }
-        if (_rafId) cancelAnimationFrame(_rafId);
-        _durationMs = Cfg.duration * (1000 / 60);
-        _startTime  = Date.now();
-        _phase = 3; _closeCb = cb || null;
-        _rafId = requestAnimationFrame(tick);
+        _elapsed = 0;
+        _phase = 3;
+        _closeCb = cb || null;
     }
 
     // ── 배경 비트맵 업데이트 (canvas ctx.filter 블러) ─────────────────────────
@@ -249,7 +211,7 @@
     Scene_MenuBase.prototype.startFadeOut = function (duration, white) {
         if (_suppressNextFadeOut) {
             _suppressNextFadeOut = false;
-            return;  // 즉시 종료 (검정 페이드 없음 → isBusy()=false → 즉시 씬 전환)
+            return;  // 즉시 종료 (isBusy()=false → 즉시 씬 전환)
         }
         _SMB_startFadeOut.call(this, duration, white);
     };
@@ -259,29 +221,37 @@
     Scene_Base.prototype.startFadeIn = function (duration, white) {
         if (_suppressNextFadeIn) {
             _suppressNextFadeIn = false;
-            return;  // 즉시 표시 (검정 페이드 없음)
+            return;  // 즉시 표시
         }
         _SB_startFadeIn.call(this, duration, white);
     };
 
-    // update: 매 프레임 배경 비트맵 업데이트
+    // update: 게임 루프 프레임마다 _t 계산 + 배경 비트맵 업데이트
     var _SMB_update = Scene_MenuBase.prototype.update;
     Scene_MenuBase.prototype.update = function () {
         _SMB_update.call(this);
 
-        if (_phase !== 0 && this._backgroundSprite) {
-            // 닫기 중 update() 호출 간격 감시
-            if (_phase === 3) {
-                var now = Date.now();
-                if (_dbgLastUpdate > 0) {
-                    var gap = now - _dbgLastUpdate;
-                    if (gap > 25) console.warn('[MT] update 지연 ' + gap + 'ms (t=' + _t.toFixed(3) + ')');
+        if (_phase === 0 || !this._backgroundSprite) return;
+
+        // 프레임 카운터로 _t 계산 — 게임 루프가 블로킹되면 카운터도 멈춤
+        if (_phase === 1 || _phase === 3) {
+            _elapsed++;
+            var raw = Math.min(1, _elapsed / Cfg.duration);
+            if (_phase === 1) {
+                _t = applyEase(raw);
+                if (raw >= 1) { _t = 1; _phase = 2; }
+            } else {  // phase === 3
+                _t = applyEase(1 - raw);
+                if (raw >= 1) {
+                    _t = 0; _phase = 0;
+                    if (_closeCb) { var cb = _closeCb; _closeCb = null; cb(); }
+                    return;  // _srcCanvas=null 직후이므로 bitmap 업데이트 불필요
                 }
-                _dbgLastUpdate = now;
             }
-            var bmp = this._backgroundSprite.bitmap;
-            if (bmp) updateBgBitmap(bmp, _t);
         }
+
+        var bmp = this._backgroundSprite.bitmap;
+        if (bmp) updateBgBitmap(bmp, _t);
     };
 
     // ── SceneManager.pop 오버라이드 (닫기 애니메이션) ────────────────────────
@@ -292,17 +262,12 @@
             if (_phase === 3) return;  // 닫기 애니메이션 진행 중 → 추가 pop 무시
             var scene = this._scene;
             if (scene instanceof Scene_MenuBase && _phase !== 0) {
-                // _active = false를 설정하지 않음 → update()가 계속 실행되어
-                // updateBgBitmap이 매 프레임 호출되고 닫기 애니메이션이 부드럽게 동작
                 var mgr = this;
                 startClose(function () {
                     _srcCanvas = null;
-                    _suppressNextFadeOut = true;
-                    _suppressNextFadeIn  = true;
-                    var t0 = Date.now();
-                    console.log('[MT] _origPop 호출');
+                    _suppressNextFadeOut = true;  // 메뉴씬 stop() → startFadeOut 억제
+                    _suppressNextFadeIn  = true;  // 복귀씬(맵) startFadeIn 억제
                     _origPop.call(mgr);
-                    console.log('[MT] _origPop 완료, 소요=' + (Date.now() - t0) + 'ms');
                 });
             } else {
                 _origPop.call(this);
