@@ -60,13 +60,16 @@ function redoWaypoint() {
 function canvasToTile(
   e: MouseEvent,
   canvas: HTMLCanvasElement,
+  zoomLevel: number,
 ): { x: number; y: number } | null {
-  const rect = canvas.getBoundingClientRect();
+  // useMapTools.ts의 getScreenPos와 동일한 방식:
+  // canvas 부모 컨테이너 기준 + zoomLevel 보정
+  const container = canvas.parentElement;
+  if (!container) return null;
+  const rect = container.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) return null;
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  const cx = (e.clientX - rect.left) * scaleX;
-  const cy = (e.clientY - rect.top) * scaleY;
+  const cx = (e.clientX - rect.left) / zoomLevel;
+  const cy = (e.clientY - rect.top) / zoomLevel;
   return {
     x: Math.floor(cx / TILE_SIZE_PX),
     y: Math.floor(cy / TILE_SIZE_PX),
@@ -130,6 +133,7 @@ export function emitWaypointSessionChange() {
 
 export function useWaypointMode(webglCanvasRef: React.RefObject<HTMLCanvasElement | null>) {
   const editMode = useEditorStore(s => s.editMode);
+  const zoomLevel = useEditorStore(s => s.zoomLevel);
   const draggingIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -164,7 +168,7 @@ export function useWaypointMode(webglCanvasRef: React.RefObject<HTMLCanvasElemen
       const session = (window as any)._editorWaypointSession as WaypointSession | null;
       if (!session) return;
 
-      const tile = canvasToTile(e, canvas);
+      const tile = canvasToTile(e, canvas, zoomLevel);
       if (!tile) return;
 
       const existing = findWaypointAt(session, tile.x, tile.y);
@@ -218,7 +222,7 @@ export function useWaypointMode(webglCanvasRef: React.RefObject<HTMLCanvasElemen
       const session = (window as any)._editorWaypointSession as WaypointSession | null;
       if (!session) return;
 
-      const tile = canvasToTile(e, canvas);
+      const tile = canvasToTile(e, canvas, zoomLevel);
       if (!tile) return;
 
       const wp = session.waypoints.find(w => w.id === draggingId);
@@ -245,5 +249,5 @@ export function useWaypointMode(webglCanvasRef: React.RefObject<HTMLCanvasElemen
       canvas.removeEventListener('mousemove', onMouseMove, true);
       canvas.removeEventListener('mouseup', onMouseUp, true);
     };
-  }, [webglCanvasRef, editMode]);
+  }, [webglCanvasRef, editMode, zoomLevel]);
 }
