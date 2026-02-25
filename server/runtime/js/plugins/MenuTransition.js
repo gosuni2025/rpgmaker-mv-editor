@@ -166,8 +166,9 @@
     var _MT_t         = 0;   // 현재 진행 (0→1)
     var _MT_closeCb   = null;
 
-    // 배경 스프라이트 참조 (UI 분리 렌더용)
-    var _MT_bgSprite = null;   // Scene_MenuBase._backgroundSprite 참조
+    // 배경/오버레이 스프라이트 참조
+    var _MT_bgSprite      = null;   // Scene_MenuBase._backgroundSprite
+    var _MT_overlaySprite = null;   // 스프라이트 방식 오버레이 (블러 없을 때)
 
     // Three.js 리소스
     var _MT_captureRT = null;  // 원본 렌더 캡처
@@ -308,7 +309,6 @@
 
         _origRSRender = RendererStrategy.render;
         RendererStrategy.render = function (rendererObj, stage) {
-            // MT 비활성: 원본 렌더 그대로
             if (_MT_phase === 0 || _MT_t <= 0) {
                 _origRSRender.call(this, rendererObj, stage);
                 return;
@@ -324,36 +324,29 @@
             var h = rendererObj._height;
             MT_initResources(renderer, w, h);
 
-            // ── 매 프레임: 배경 스프라이트 숨기고 씬 렌더 → captureRT ───────
-            // bgSprite를 숨기면 3D 씬 오브젝트(맵 타일 등)가 그대로 보임
-            if (_MT_bgSprite) _MT_bgSprite.visible = false;
+            // ── 전체 씬 캡처 (bgSprite 포함 = 맵 스냅샷 + UI) → captureRT ──
             var origSetRT = renderer.setRenderTarget.bind(renderer);
             renderer.setRenderTarget = function (target) {
                 origSetRT(target === null ? _MT_captureRT : target);
             };
             _origRSRender.call(this, rendererObj, stage);
             renderer.setRenderTarget = origSetRT;
-            if (_MT_bgSprite) _MT_bgSprite.visible = true;
 
             // ── 블러 → outputRT ─────────────────────────────────────────────
-            var needBlur = (Cfg.effect !== 'overlayOnly') && (Cfg.blur > 0);
-            if (needBlur) {
-                MT_applyBlur(renderer, Math.max(1, Math.ceil(Cfg.blur / 25)));
-            }
+            MT_applyBlur(renderer, Math.max(1, Math.ceil(Cfg.blur / 25)));
 
             // ── 블러된 배경 → 화면 ──────────────────────────────────────────
             var t  = _MT_t;
-            var bgTex = needBlur ? _MT_outputRT.texture : _MT_captureRT.texture;
             var oa = (Cfg.effect === 'blurOnly') ? 0 : (Cfg.overlayAlpha / 255 * t);
 
-            _MT_compMat.uniforms.tDiffuse.value     = bgTex;
+            _MT_compMat.uniforms.tDiffuse.value     = _MT_outputRT.texture;
             _MT_compMat.uniforms.blurMix.value      = t;
             _MT_compMat.uniforms.overlayAlpha.value = oa;
             _MT_fsq.material = _MT_compMat;
             renderer.setRenderTarget(null);
             _MT_fsq.render(renderer);
 
-            // ── UI만 위에 렌더 (배경 숨기고, 화면 클리어 없이) ────────────
+            // ── UI만 위에 렌더 (bgSprite 숨기고, 화면 클리어 없이) ──────────
             if (_MT_bgSprite) _MT_bgSprite.visible = false;
             renderer.autoClear = false;
             _origRSRender.call(this, rendererObj, stage);
@@ -395,6 +388,11 @@
                 if (_MT_closeCb) { var cb = _MT_closeCb; _MT_closeCb = null; cb(); }
             }
         }
+
+        // 스프라이트 오버레이 opacity 동기화 (블러 없을 때)
+        if (_MT_overlaySprite) {
+            _MT_overlaySprite.opacity = Math.round(Cfg.overlayAlpha * _MT_t);
+        }
     }
 
     function MT_startOpen(durationMs) {
@@ -420,10 +418,27 @@
 
     var _SMB_create = Scene_MenuBase.prototype.create;
     Scene_MenuBase.prototype.create = function () {
-        MT_installHook();
         _SMB_create.call(this);
-        // createBackground() 이후에 _backgroundSprite 가 설정됨
         _MT_bgSprite = this._backgroundSprite || null;
+
+        var useBlur = Cfg.blur > 0 && Cfg.effect !== 'overlayOnly';
+
+        if (useBlur) {
+            // 블러: 렌더 훅으로 캡처→블러→합성
+            MT_installHook();
+        } else {
+            // 오버레이만: bgSprite 바로 위에 반투명 스프라이트 삽입 (캡처 없음)
+            var bmp = new Bitmap(Graphics.width, Graphics.height);
+            var r = Math.round(_overlayRGB[0] * 255);
+            var g = Math.round(_overlayRGB[1] * 255);
+            var b = Math.round(_overlayRGB[2] * 255);
+            bmp.fillAll('rgba(' + r + ',' + g + ',' + b + ',1)');
+            _MT_overlaySprite = new Sprite(bmp);
+            _MT_overlaySprite.opacity = 0;
+            var idx = _MT_bgSprite ? (this.getChildIndex(_MT_bgSprite) + 1) : 0;
+            this.addChildAt(_MT_overlaySprite, idx);
+        }
+
         MT_startOpen(Cfg.duration * (1000 / 60));
     };
 
