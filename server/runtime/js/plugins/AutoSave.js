@@ -42,6 +42,15 @@
  * @type boolean
  * @default true
  *
+ * @param saveCooldown
+ * @parent --- 자동 저장 조건 ---
+ * @text 저장 쿨다운 (초)
+ * @desc 마지막 자동 저장 완료 후 이 시간(초)이 지나야 다시 저장됩니다. 0이면 쿨다운 없음.
+ * @type number
+ * @min 0
+ * @max 3600
+ * @default 30
+ *
  * @param --- 표시 설정 ---
  * @default
  *
@@ -87,6 +96,11 @@
  *      - 메인 메뉴·아이템·스킬·장비·상태 화면을 닫고
  *        맵으로 돌아올 때 저장
  *
+ *   ※ 저장 쿨다운 (기본 30초)
+ *      - 마지막 자동 저장 완료 후 설정한 시간이 지나야 다시 저장됨
+ *      - 연속 이벤트로 트리거가 반복되어도 과도한 저장 방지
+ *      - 0으로 설정하면 쿨다운 없이 매번 저장
+ *
  * ----------------------------------------------------------------
  * ■ 자동 저장 알림 (화면 우상단)
  * ----------------------------------------------------------------
@@ -131,6 +145,8 @@
     var param_variableDelay    = Number(parameters['variableChangeDelay'] || 500);
     /** @type {boolean} 메뉴 닫기 후 자동 저장 */
     var param_onMenu           = (parameters['enableAfterMenu']        !== 'false');
+    /** @type {number} 저장 쿨다운 (밀리초) */
+    var param_cooldownMs       = Number(parameters['saveCooldown'] !== undefined ? parameters['saveCooldown'] : 30) * 1000;
     /** @type {string} 슬롯 레이블 */
     var param_slotLabel        = String(parameters['slotLabel'] || '오토 세이브');
     /** @type {boolean} 저장 알림 표시 */
@@ -150,8 +166,8 @@
     DataManager.performAutosave = function() {
         if (!$gameSystem || !$dataSystem) return false;
 
-        // 30초 쿨다운: 마지막 저장 완료로부터 30초가 지나지 않으면 무시
-        if (Date.now() - DataManager._lastAutosaveTime < AUTOSAVE_COOLDOWN_MS) {
+        // 쿨다운: 마지막 저장 완료로부터 param_cooldownMs가 지나지 않으면 무시
+        if (param_cooldownMs > 0 && Date.now() - DataManager._lastAutosaveTime < param_cooldownMs) {
             return false;
         }
 
@@ -188,8 +204,6 @@
 
     /** 마지막 오토 세이브 완료 시각 (밀리초) @type {number} */
     DataManager._lastAutosaveTime = 0;
-    /** 오토 세이브 쿨다운 (밀리초) — 30초 이내 재요청은 무시 @const {number} */
-    var AUTOSAVE_COOLDOWN_MS = 30000;
 
     /** 변수 변경 디바운스 타이머 ID @type {number|null} */
     DataManager._autosaveVariableTimer = null;
