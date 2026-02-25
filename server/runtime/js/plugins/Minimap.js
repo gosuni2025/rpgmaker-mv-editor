@@ -95,6 +95,12 @@
  * @type boolean
  * @default true
  *
+ * @param iconFixedSize
+ * @text 아이콘 마커 고정 크기
+ * @desc 활성화 시 아이콘 마커가 줌에 관계없이 항상 일정한 크기로 표시됩니다.
+ * @type boolean
+ * @default true
+ *
  * @param regionColors
  * @text 리전별 색상 (JSON)
  * @desc {"리전ID":"색상"} 형식. 예: {"1":"#ff4444","2":"#44ff44","3":"#4444ff"}
@@ -275,6 +281,7 @@
     playerColor:      p['playerColor'] || '#ffffff',
     eventMarkerColor: p['eventMarkerColor'] || '#ffcc00',
     showEvents:       p['showEvents'] !== 'false',
+    iconFixedSize:    p['iconFixedSize'] !== 'false',
     borderColor:      p['borderColor'] || '#aabbcc',
     borderWidth:      parseInt(p['borderWidth']) || 2,
     regionColors:     {},
@@ -492,7 +499,9 @@
       if (iconIndex !== undefined && iconBitmap && iconBitmap._canvas) {
         const col  = iconIndex % 16;
         const row  = Math.floor(iconIndex / 16);
-        const size = r * 2.4;
+        // iconFixedSize=true(기본): 줌에 관계없이 항상 16px 고정
+        // iconFixedSize=false: tileSize에 비례
+        const size = CFG.iconFixedSize ? 16 : r * 2.4;
         ctx.globalAlpha = 1.0;
         ctx.drawImage(iconBitmap._canvas, col * 32, row * 32, 32, 32,
                       sx - size / 2, sy - size / 2, size, size);
