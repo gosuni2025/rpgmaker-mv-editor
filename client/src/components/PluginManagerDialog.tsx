@@ -236,13 +236,19 @@ export default function PluginManagerDialog() {
           onChange={(fp) => { pm.updateParam(pm.selectedIndex, pm.pickerParamIndex, fp); pm.setPickerType(null); }}
           onClose={() => pm.setPickerType(null)} />
       )}
-      {pm.pickerType === 'json' && pm.selectedPlugin && pm.pickerParamIndex >= 0 && (
-        <JsonParamEditor
-          value={pm.selectedPlugin.parameters[pm.pickerParamIndex]?.value || '{}'}
-          onChange={(v) => { pm.updateParam(pm.selectedIndex, pm.pickerParamIndex, v); pm.setPickerType(null); }}
-          onClose={() => pm.setPickerType(null)}
-        />
-      )}
+      {pm.pickerType === 'json' && pm.selectedPlugin && pm.pickerParamIndex >= 0 && (() => {
+        const jsonParam = pm.selectedPlugin.parameters[pm.pickerParamIndex];
+        const jsonMeta = pm.selectedMeta?.params.find(p => p.name === jsonParam?.name);
+        return (
+          <JsonParamEditor
+            value={jsonParam?.value || '{}'}
+            onChange={(v) => { pm.updateParam(pm.selectedIndex, pm.pickerParamIndex, v); pm.setPickerType(null); }}
+            onClose={() => pm.setPickerType(null)}
+            title={jsonMeta?.text || jsonParam?.name}
+            desc={jsonMeta?.desc}
+          />
+        );
+      })()}
     </>
   );
 }

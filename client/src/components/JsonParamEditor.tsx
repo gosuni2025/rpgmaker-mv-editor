@@ -9,9 +9,11 @@ interface JsonParamEditorProps {
   value: string;
   onChange: (v: string) => void;
   onClose: () => void;
+  title?: string;
+  desc?: string;
 }
 
-export default function JsonParamEditor({ value, onChange, onClose }: JsonParamEditorProps) {
+export default function JsonParamEditor({ value, onChange, onClose, title, desc }: JsonParamEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const [error, setError] = useState('');
@@ -64,10 +66,15 @@ export default function JsonParamEditor({ value, onChange, onClose }: JsonParamE
       <div className="db-dialog" style={{ width: 560, height: 'auto', maxHeight: '80vh' }}
            onClick={e => e.stopPropagation()}>
         <div className="db-dialog-header">
-          <h2>JSON 편집</h2>
+          <h2>JSON 편집{title ? ` — ${title}` : ''}</h2>
           <button className="db-dialog-close" onClick={onClose}>&times;</button>
         </div>
         <div className="db-dialog-body" style={{ flexDirection: 'column', padding: 8, overflow: 'hidden' }}>
+          {desc && (
+            <div style={{ marginBottom: 6, padding: '5px 8px', background: '#1e2a3a', border: '1px solid #2675bf55', borderRadius: 3, color: '#8ab4d4', fontSize: 11, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+              {desc.replace(/\\n/g, '\n')}
+            </div>
+          )}
           <div ref={editorRef} style={{ flex: 1, overflow: 'hidden', border: '1px solid #555', borderRadius: 3 }} />
           {error && <div style={{ color: '#e55', fontSize: 11, marginTop: 4, padding: '0 4px' }}>⚠ {error}</div>}
         </div>

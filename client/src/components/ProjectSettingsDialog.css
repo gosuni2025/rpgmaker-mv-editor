@@ -445,6 +445,7 @@
 
 .pm-param-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 12px;
 }
@@ -485,6 +486,8 @@
 
 .pm-param-value-cell {
   min-width: 0;
+  max-width: 0;
+  overflow: hidden;
 }
 
 .pm-param-value-cell input,
