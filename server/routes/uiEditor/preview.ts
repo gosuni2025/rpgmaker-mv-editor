@@ -192,10 +192,13 @@ function buildPreviewHTML(useWebp: boolean): string {
 
       function extractWindowInfo(win, id) {
         var tone = win._colorTone || [0, 0, 0, 0];
+        // pivot 보정: win.x는 screenX + pivot.x 이므로 pivot을 빼서 실제 화면 좌표로 복원
+        var pivotX = (win.pivot && win.pivot.x) || 0;
+        var pivotY = (win.pivot && win.pivot.y) || 0;
         return {
           id: id,
           className: win.constructor ? win.constructor.name : 'Unknown',
-          x: Math.round(win.x), y: Math.round(win.y),
+          x: Math.round(win.x - pivotX), y: Math.round(win.y - pivotY),
           width: Math.round(win.width), height: Math.round(win.height),
           opacity: typeof win.opacity !== 'undefined' ? win.opacity : 255,
           backOpacity: typeof win.backOpacity !== 'undefined' ? win.backOpacity : 192,
