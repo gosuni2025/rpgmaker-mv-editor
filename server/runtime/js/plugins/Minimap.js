@@ -128,11 +128,16 @@
  *   <minimap:#ff4444>   지정한 색상으로 표시
  *
  * --- 플러그인 커맨드 ---
- *   Minimap show        미니맵 표시
- *   Minimap hide        미니맵 숨기기
- *   Minimap toggle      미니맵 토글
- *   Minimap clearFow    현재 맵 안개 초기화
- *   Minimap revealAll   현재 맵 전체 탐험 처리
+ *   Minimap show              미니맵 표시
+ *   Minimap hide              미니맵 숨기기
+ *   Minimap toggle            미니맵 토글
+ *   Minimap clearFow          현재 맵 안개 초기화
+ *   Minimap revealAll         현재 맵 전체 탐험 처리
+ *   Minimap shape circle      모양을 원형으로 변경
+ *   Minimap shape square      모양을 사각형으로 변경
+ *   Minimap rotation north_fixed  회전 모드: 북쪽 고정
+ *   Minimap rotation rotate       회전 모드: 카메라 방향
+ *   Minimap tileSize 4        타일 크기 변경 (px)
  */
 
 (function () {
@@ -203,11 +208,14 @@
     if (command !== 'Minimap') return;
     const sub = (args[0] || '').toLowerCase();
     switch (sub) {
-      case 'show':      MinimapManager.setVisible(true);  break;
-      case 'hide':      MinimapManager.setVisible(false); break;
-      case 'toggle':    MinimapManager.toggleVisible();   break;
-      case 'clearfow':  MinimapManager.clearFow();        break;
-      case 'revealall': MinimapManager.revealAll();       break;
+      case 'show':      MinimapManager.setVisible(true);        break;
+      case 'hide':      MinimapManager.setVisible(false);       break;
+      case 'toggle':    MinimapManager.toggleVisible();         break;
+      case 'clearfow':  MinimapManager.clearFow();              break;
+      case 'revealall': MinimapManager.revealAll();             break;
+      case 'shape':     MinimapManager.setShape(args[1]);       break;
+      case 'rotation':  MinimapManager.setRotation(args[1]);   break;
+      case 'tilesize':  MinimapManager.setTileSize(args[1]);   break;
     }
   };
 
@@ -579,6 +587,25 @@
 
     toggleVisible() {
       this.setVisible(!this._visible);
+    },
+
+    setShape(shape) {
+      if (shape !== 'circle' && shape !== 'square') return;
+      CFG.shape = shape;
+      this._dirty = true;
+    },
+
+    setRotation(mode) {
+      if (mode !== 'north_fixed' && mode !== 'rotate') return;
+      CFG.rotation = mode;
+      this._dirty = true;
+    },
+
+    setTileSize(val) {
+      const n = parseInt(val);
+      if (!n || n < 1 || n > 16) return;
+      CFG.tileSize = n;
+      this._dirty = true;
     },
   };
 
