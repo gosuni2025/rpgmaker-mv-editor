@@ -167,8 +167,7 @@
     var _MT_closeCb   = null;
 
     // 배경 스프라이트 참조 (UI 분리 렌더용)
-    var _MT_bgSprite   = null;   // Scene_MenuBase._backgroundSprite 참조
-    var _MT_bgCaptured = false;  // 첫 프레임 캡처 & 블러 완료 여부
+    var _MT_bgSprite = null;   // Scene_MenuBase._backgroundSprite 참조
 
     // Three.js 리소스
     var _MT_captureRT = null;  // 원본 렌더 캡처
@@ -325,27 +324,25 @@
             var h = rendererObj._height;
             MT_initResources(renderer, w, h);
 
-            // ── 최초 1회: 첫 렌더 프레임을 캡처 → 블러 (정적 배경) ─────────
-            // 캔버스 픽셀 읽기 대신 setRenderTarget(null) 인터셉트로 신뢰성 있게 캡처
-            if (!_MT_bgCaptured) {
-                var origSetRT0 = renderer.setRenderTarget.bind(renderer);
-                renderer.setRenderTarget = function (target) {
-                    origSetRT0(target === null ? _MT_captureRT : target);
-                };
-                _origRSRender.call(this, rendererObj, stage);
-                renderer.setRenderTarget = origSetRT0;
+            // ── 매 프레임: 배경 스프라이트 숨기고 씬 렌더 → captureRT ───────
+            // bgSprite를 숨기면 3D 씬 오브젝트(맵 타일 등)가 그대로 보임
+            if (_MT_bgSprite) _MT_bgSprite.visible = false;
+            var origSetRT = renderer.setRenderTarget.bind(renderer);
+            renderer.setRenderTarget = function (target) {
+                origSetRT(target === null ? _MT_captureRT : target);
+            };
+            _origRSRender.call(this, rendererObj, stage);
+            renderer.setRenderTarget = origSetRT;
+            if (_MT_bgSprite) _MT_bgSprite.visible = true;
 
-                // 블러 → _MT_outputRT
-                if (Cfg.effect !== 'overlayOnly' && Cfg.blur > 0) {
-                    MT_applyBlur(renderer, Math.max(1, Math.ceil(Cfg.blur / 25)));
-                }
-                _MT_bgCaptured = true;
-                // 첫 프레임은 이 아래로 fall-through: 블러 배경 + UI 렌더
+            // ── 블러 → outputRT ─────────────────────────────────────────────
+            var needBlur = (Cfg.effect !== 'overlayOnly') && (Cfg.blur > 0);
+            if (needBlur) {
+                MT_applyBlur(renderer, Math.max(1, Math.ceil(Cfg.blur / 25)));
             }
 
-            // ── 블러 배경 → 화면 ────────────────────────────────────────────
+            // ── 블러된 배경 → 화면 ──────────────────────────────────────────
             var t  = _MT_t;
-            var needBlur = (Cfg.effect !== 'overlayOnly') && (Cfg.blur > 0);
             var bgTex = needBlur ? _MT_outputRT.texture : _MT_captureRT.texture;
             var oa = (Cfg.effect === 'blurOnly') ? 0 : (Cfg.overlayAlpha / 255 * t);
 
@@ -356,7 +353,7 @@
             renderer.setRenderTarget(null);
             _MT_fsq.render(renderer);
 
-            // ── 배경 스프라이트 숨기고 UI만 위에 렌더 (화면 클리어 없이) ────
+            // ── UI만 위에 렌더 (배경 숨기고, 화면 클리어 없이) ────────────
             if (_MT_bgSprite) _MT_bgSprite.visible = false;
             renderer.autoClear = false;
             _origRSRender.call(this, rendererObj, stage);
@@ -426,8 +423,7 @@
         MT_installHook();
         _SMB_create.call(this);
         // createBackground() 이후에 _backgroundSprite 가 설정됨
-        _MT_bgSprite   = this._backgroundSprite || null;
-        _MT_bgCaptured = false;
+        _MT_bgSprite = this._backgroundSprite || null;
         MT_startOpen(Cfg.duration * (1000 / 60));
     };
 
