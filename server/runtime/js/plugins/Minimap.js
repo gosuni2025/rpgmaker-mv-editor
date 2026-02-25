@@ -2,8 +2,9 @@
  * @plugindesc [v1.1] 미니맵 — FoW, 리전 색상, 커스텀 마커, 2D/3D 지원
  * @author Claude
  *
- * @param enabled
- * @text 활성화
+ * @param showOnStart
+ * @text 시작 시 표시
+ * @desc 게임 시작(맵 진입) 시 미니맵을 표시할지 여부. false로 하면 숨겨진 상태로 시작하며 플러그인 커맨드로 표시할 수 있습니다.
  * @type boolean
  * @default true
  *
@@ -266,7 +267,7 @@
   const p = PluginManager.parameters(PLUGIN_NAME);
 
   const CFG = {
-    enabled:          p['enabled'] !== 'false',
+    showOnStart:      p['showOnStart'] !== 'false',
     shape:            p['shape'] || 'circle',
     size:             parseInt(p['size']) || 160,
     margin:           parseInt(p['margin']) || 10,
@@ -303,7 +304,7 @@
   Game_System.prototype.initialize = function () {
     _Game_System_initialize.call(this);
     this._minimapFow     = {};
-    this._minimapVisible = true;
+    this._minimapVisible = CFG.showOnStart;
     this._minimapMarkers = []; // [{id, x, y, color, shape}]
   };
 
@@ -354,9 +355,8 @@
   const _Scene_Map_createAllWindows = Scene_Map.prototype.createAllWindows;
   Scene_Map.prototype.createAllWindows = function () {
     _Scene_Map_createAllWindows.call(this);
-    if (CFG.enabled && $gameSystem._minimapVisible !== false) {
-      MinimapManager.createSprite(this);
-    }
+    MinimapManager.createSprite(this);
+    MinimapManager.setVisible($gameSystem._minimapVisible);
   };
 
   const _Scene_Map_update = Scene_Map.prototype.update;
