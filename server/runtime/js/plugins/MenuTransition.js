@@ -6,8 +6,8 @@
  * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 배경이 부드럽게 블러+페이드됩니다.
  *
  * 렌더링 방식:
- *   - SceneManager.push 직후 다음 renderScene에서 맵을 정상 렌더한 뒤
- *     main framebuffer를 copyFramebufferToTexture로 captureRT에 복사
+ *   - SceneManager.push 직후 PostProcess._captureCanvas (매 프레임 갱신되는
+ *     2D canvas 스냅샷)를 THREE.CanvasTexture로 변환하여 스냅샷 취득
  *   - 이후 메뉴 씬에서는 저장된 스냅샷을 배경으로, 현재 씬(메뉴 UI)을
  *     autoClear=false 로 그 위에 렌더링
  *
@@ -166,12 +166,12 @@
     var _MT_animRafId    = null;
 
     var _MT_bgSprite      = null;
-    var _MT_captureNext   = false;  // true이면 다음 렌더 시 main framebuffer 복사
-    var _MT_snapshotReady = false;  // captureRT에 유효한 스냅샷 있음
+    var _MT_captureNext   = false;  // true이면 다음 렌더 시 PostProcess._captureCanvas로 스냅샷 취득
+    var _MT_snapshotReady = false;  // canvasTex에 유효한 스냅샷 있음
     var _MT_blurDone      = false;  // outputRT에 블러 결과 있음
 
     // Three.js 리소스
-    var _MT_captureRT = null;
+    var _MT_canvasTex = null;   // PostProcess._captureCanvas 기반 CanvasTexture
     var _MT_blurRT1   = null;
     var _MT_blurRT2   = null;
     var _MT_outputRT  = null;
@@ -191,10 +191,6 @@
 
         function needsNew(rt, pw, ph) { return !rt || rt.width !== pw || rt.height !== ph; }
 
-        if (needsNew(_MT_captureRT, w, h)) {
-            if (_MT_captureRT) _MT_captureRT.dispose();
-            _MT_captureRT = new THREE.WebGLRenderTarget(w, h, rtOpts);
-        }
         if (needsNew(_MT_blurRT1, sw, sh)) {
             if (_MT_blurRT1) _MT_blurRT1.dispose();
             _MT_blurRT1 = new THREE.WebGLRenderTarget(sw, sh, rtOpts);
@@ -254,11 +250,42 @@
         }
     }
 
-    // captureRT → blurRT1/2 (PASSES회 H+V) → outputRT
+    // ── PostProcess._captureCanvas → CanvasTexture 스냅샷 취득 ───────────────
+    // PostProcess.js가 매 프레임 WebGL canvas를 2D canvas에 복사해둠.
+    // drawImage(webglCanvas) 시 브라우저가 Y축을 보정하므로 2D canvas는 top-left origin.
+    // CanvasTexture(flipY=false)로 업로드하면 UV (0,1)=top → 화면 상단에 올바르게 표시됨.
+
+    function MT_captureSnapshot(renderer) {
+        var cap = (typeof PostProcess !== 'undefined') ? PostProcess._captureCanvas : null;
+        if (!cap || cap.width <= 0 || cap.height <= 0) {
+            _MT_snapshotReady = false;
+            return;
+        }
+
+        var w = cap.width;
+        var h = cap.height;
+        MT_initResources(renderer, w, h);
+
+        if (_MT_canvasTex && _MT_canvasTex.image === cap) {
+            // 같은 canvas 재사용 — needsUpdate만 설정
+            _MT_canvasTex.needsUpdate = true;
+        } else {
+            if (_MT_canvasTex) _MT_canvasTex.dispose();
+            _MT_canvasTex = new THREE.CanvasTexture(cap);
+            _MT_canvasTex.flipY = false;  // drawImage가 이미 Y보정 완료
+            _MT_canvasTex.minFilter = THREE.LinearFilter;
+            _MT_canvasTex.magFilter = THREE.LinearFilter;
+        }
+
+        _MT_snapshotReady = true;
+        _MT_blurDone = false;
+    }
+
+    // canvasTex → blurRT1/2 (PASSES회 H+V) → outputRT
     function MT_applyBlur(renderer, PASSES) {
         var sw = _MT_blurRT1.width, sh = _MT_blurRT1.height;
 
-        _MT_copyMat.uniforms.tDiffuse.value = _MT_captureRT.texture;
+        _MT_copyMat.uniforms.tDiffuse.value = _MT_canvasTex;
         _MT_fsq.material = _MT_copyMat;
         renderer.setRenderTarget(_MT_blurRT1);
         renderer.clear();
@@ -293,29 +320,15 @@
 
     RendererStrategy.render = function (rendererObj, stage) {
 
-        // ── 캡처 플래그: 이번 프레임 맵을 정상 렌더 후 main framebuffer 복사 ──
+        // ── 캡처 플래그: PostProcess._captureCanvas로 스냅샷 취득 ──────────
+        // 먼저 렌더 실행 (PostProcess._captureLastFrame이 canvas를 최신 상태로 갱신)
+        // 렌더 완료 후 _captureCanvas에서 스냅샷 취득
         if (_MT_captureNext) {
             _MT_captureNext = false;
-
-            // 맵을 main framebuffer에 정상 렌더
             _origRSRender.call(this, rendererObj, stage);
-
-            // main framebuffer → captureRT (copyFramebufferToTexture)
             var renderer = rendererObj && rendererObj.renderer;
             if (renderer) {
-                var w = rendererObj._width || Graphics.width;
-                var h = rendererObj._height || Graphics.height;
-                MT_initResources(renderer, w, h);
-                renderer.setRenderTarget(null);
-                try {
-                    // Three.js 새 API: copyFramebufferToTexture(texture, position?, level?)
-                    renderer.copyFramebufferToTexture(_MT_captureRT.texture);
-                    _MT_snapshotReady = true;
-                    _MT_blurDone = false;
-                } catch (e) {
-                    console.warn('[MenuTransition] copyFramebufferToTexture 실패:', e);
-                    _MT_snapshotReady = false;
-                }
+                MT_captureSnapshot(renderer);
             }
             return;
         }
@@ -336,14 +349,14 @@
         var h = rendererObj._height;
         MT_initResources(renderer, w, h);
 
-        // ── Step 1: captureRT → outputRT (블러는 최초 1회만) ────────────────
+        // ── Step 1: canvasTex → outputRT (블러는 최초 1회만) ────────────────
         if (!_MT_blurDone) {
             _MT_blurDone = true;
             var useBlur = Cfg.blur > 0 && Cfg.effect !== 'overlayOnly';
             if (useBlur) {
                 MT_applyBlur(renderer, Math.max(1, Math.ceil(Cfg.blur / 25)));
             } else {
-                _MT_copyMat.uniforms.tDiffuse.value = _MT_captureRT.texture;
+                _MT_copyMat.uniforms.tDiffuse.value = _MT_canvasTex;
                 _MT_fsq.material = _MT_copyMat;
                 renderer.setRenderTarget(_MT_outputRT);
                 renderer.clear();
@@ -368,7 +381,7 @@
     };
 
     // ── SceneManager.push 오버라이드 (캡처 플래그 설정) ──────────────────────
-    // push 직후 renderScene에서 맵이 정상 렌더된 뒤 캡처
+    // push 직후 다음 renderScene에서 PostProcess._captureCanvas 스냅샷을 취득
 
     var _origSMPush = SceneManager.push;
     SceneManager.push = function (sceneClass) {
