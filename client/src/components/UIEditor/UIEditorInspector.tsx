@@ -709,20 +709,21 @@ function WindowInspector({ selectedWindow, override }: {
           </div>
         </div>
 
-        {/* ── 애니메이션 회전 기준점 ── */}
+        {/* ── 회전 기준점 ── */}
         {(() => {
+          const hasRotXY = !!(override?.rotationX || override?.rotationY);
           const hasRotAnim = [...(override?.entrances ?? []), ...(override?.exits ?? [])].some(
             (e) => e.type === 'zoom' || e.type === 'bounce' || e.type === 'rotate' || e.type === 'rotateX' || e.type === 'rotateY'
           );
-          if (!hasRotAnim) return null;
+          if (!hasRotXY && !hasRotAnim) return null;
           return (
             <div className="ui-inspector-section">
-              <div className="ui-inspector-section-title">애니메이션 회전 기준점</div>
+              <div className="ui-inspector-section-title">회전 기준점</div>
               <div className="ui-inspector-row" style={{ gap: 8, alignItems: 'flex-start' }}>
                 <span className="ui-inspector-label" style={{ paddingTop: 2 }}>앵커</span>
                 <PivotAnchorSelector
                   value={override?.animPivot ?? 'center'}
-                  onChange={(v) => setMeta('animPivot', v)}
+                  onChange={(v) => set('animPivot', v)}
                 />
               </div>
             </div>

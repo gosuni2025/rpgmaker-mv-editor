@@ -440,6 +440,11 @@
   }
   window._uiSetWindowLayer = _setWindowLayer;
 
+  /** _ov 항목 읽기 (preview.ts의 applyPropToWindow에서 사용) */
+  window._uiGetOv = function(className) {
+    return _ov[className] || {};
+  };
+
   /** 런타임에서 _ov 항목 삭제 (RMMV 기본값으로 리셋 시 사용) */
   window._uiThemeClearOv = function(className) {
     delete _ov[className];
@@ -593,6 +598,25 @@
     if (ov.rotationX !== undefined) win.rotationX = ov.rotationX * Math.PI / 180;
     if (ov.rotationY !== undefined) win.rotationY = ov.rotationY * Math.PI / 180;
     if (ov.rotationZ !== undefined) win.rotation   = ov.rotationZ * Math.PI / 180;
+
+    // 정적 X/Y 회전이 있으면 회전 기준점 (pivot) 설정
+    if (win.pivot) {
+      var hasStaticRotXY = !!(ov.rotationX || ov.rotationY);
+      if (hasStaticRotXY) {
+        var staticAnchor = ov.animPivot || 'center';
+        var staticPv = _parsePivotAnchor(staticAnchor, win.width, win.height);
+        // 화면 좌표 = ov.x (undefined이면 원본 MV 위치)
+        var ssx = ov.x !== undefined ? ov.x : win._uiThemeOriginal.x;
+        var ssy = ov.y !== undefined ? ov.y : win._uiThemeOriginal.y;
+        win.pivot.x = staticPv.x;
+        win.pivot.y = staticPv.y;
+        win.x = ssx + staticPv.x;
+        win.y = ssy + staticPv.y;
+      } else {
+        win.pivot.x = 0;
+        win.pivot.y = 0;
+      }
+    }
 
     // 렌더 카메라 (perspective / orthographic)
     // rotationX/Y가 있으면 perspective 자동 활성화

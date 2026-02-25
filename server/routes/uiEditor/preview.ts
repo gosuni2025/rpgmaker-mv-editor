@@ -264,6 +264,37 @@ function buildPreviewHTML(useWebp: boolean): string {
         return found;
       }
 
+      // 정적 rotationX/Y에 맞춰 pivot 설정 헬퍼 (회전 중심을 anchor 기준으로 보정)
+      function _applyStaticPivotToWin(win, anchor) {
+        if (!win || !win.pivot) return;
+        var rotX = win.rotationX !== undefined ? win.rotationX : 0;
+        var rotY = win.rotationY !== undefined ? win.rotationY : 0;
+        var screenX = win.x - win.pivot.x;
+        var screenY = win.y - win.pivot.y;
+        if (rotX === 0 && rotY === 0) {
+          win.pivot.x = 0; win.pivot.y = 0;
+          win.x = screenX; win.y = screenY;
+          return;
+        }
+        var rx = 0.5, ry = 0.5;
+        switch (anchor || 'center') {
+          case 'top-left':    rx=0;   ry=0;   break;
+          case 'top':         rx=0.5; ry=0;   break;
+          case 'top-right':   rx=1;   ry=0;   break;
+          case 'left':        rx=0;   ry=0.5; break;
+          case 'center':      rx=0.5; ry=0.5; break;
+          case 'right':       rx=1;   ry=0.5; break;
+          case 'bottom-left': rx=0;   ry=1;   break;
+          case 'bottom':      rx=0.5; ry=1;   break;
+          case 'bottom-right':rx=1;   ry=1;   break;
+        }
+        var px = Math.floor((win.width||0) * rx);
+        var py = Math.floor((win.height||0) * ry);
+        win.pivot.x = px; win.pivot.y = py;
+        win.x = screenX + px;
+        win.y = screenY + py;
+      }
+
       function applyPropToWindow(win, prop, value) {
         try {
           switch (prop) {
@@ -324,16 +355,24 @@ function buildPreviewHTML(useWebp: boolean): string {
             case 'rotationX':
               if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'rotationX', value);
               if (win.rotationX !== undefined) win.rotationX = (value || 0) * Math.PI / 180;
+              { var _ov1 = window._uiGetOv ? window._uiGetOv(win.constructor.name) : {};
+                _applyStaticPivotToWin(win, (_ov1.animPivot) || 'center'); }
               if ((value || 0) !== 0 && window._uiSetWindowLayer) window._uiSetWindowLayer(win, 1);
               break;
             case 'rotationY':
               if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'rotationY', value);
               if (win.rotationY !== undefined) win.rotationY = (value || 0) * Math.PI / 180;
+              { var _ov2 = window._uiGetOv ? window._uiGetOv(win.constructor.name) : {};
+                _applyStaticPivotToWin(win, (_ov2.animPivot) || 'center'); }
               if ((value || 0) !== 0 && window._uiSetWindowLayer) window._uiSetWindowLayer(win, 1);
               break;
             case 'rotationZ':
               if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'rotationZ', value);
               win.rotation = (value || 0) * Math.PI / 180;
+              break;
+            case 'animPivot':
+              if (window._uiThemeUpdateOv) window._uiThemeUpdateOv(win.constructor.name, 'animPivot', value);
+              _applyStaticPivotToWin(win, value || 'center');
               break;
           }
         } catch (e) {
