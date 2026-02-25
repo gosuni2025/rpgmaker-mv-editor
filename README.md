@@ -1,8 +1,8 @@
 # RPG Maker MV Editor
 
-| **[에디터 데모 페이지](https://rpgmakerdemo.gosuni.com/)** (저장 안됨) | **[데모 프로젝트](https://rpgmaker-mv-claudetest.netlify.app/)** |
+| **[에디터 데모 페이지](https://rpgmakerdemo.gosuni.com/)** (저장 안됨) | **[데모 프로젝트](https://rpgmaker-mv-claudetest.pages.dev/)** |
 |---|---|
-| [![에디터 데모](docs/screenshot-editor.png)](https://rpgmakerdemo.gosuni.com/) | [![데모 프로젝트](docs/screenshot-game.png)](https://rpgmaker-mv-claudetest.netlify.app/) |
+| [![에디터 데모](docs/screenshot-editor.png)](https://rpgmakerdemo.gosuni.com/) | [![데모 프로젝트](docs/screenshot-game.png)](https://rpgmaker-mv-claudetest.pages.dev/) |
 
 RPG Maker MV 프로젝트를 웹 브라우저에서 편집할 수 있는 데스크톱 에디터입니다.
 
