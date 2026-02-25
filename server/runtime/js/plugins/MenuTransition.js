@@ -164,19 +164,21 @@
         _MT_animRafId  = requestAnimationFrame(MT_tick);
     }
 
-    // ── 디버그용: canvas를 PNG 파일로 다운로드 ────────────────────────────────
+    // ── 디버그용: canvas를 /tmp/rpgmaker-snapshots 에 저장 ────────────────────
 
-    function MT_saveCanvasPng(canvas, filename) {
+    function MT_saveCanvasPng(canvas, name) {
         try {
-            var link = document.createElement('a');
-            link.download = filename;
-            link.href = canvas.toDataURL('image/png');
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            console.log('[MenuTransition] 스크린샷 저장:', filename, canvas.width + 'x' + canvas.height);
+            var dataUrl = canvas.toDataURL('image/png');
+            fetch('/api/debug/save-snapshot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: dataUrl, name: name })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (j) { console.log('[MenuTransition] 스냅샷 저장됨:', j.path); })
+            .catch(function (e) { console.warn('[MenuTransition] 스냅샷 저장 실패:', e); });
         } catch (e) {
-            console.warn('[MenuTransition] 스크린샷 저장 실패:', e);
+            console.warn('[MenuTransition] toDataURL 실패:', e);
         }
     }
 
