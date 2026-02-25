@@ -718,11 +718,6 @@ function WindowInspector({ selectedWindow, override }: {
 
         {/* ── 회전 기준점 ── */}
         {(() => {
-          const hasRotXY = !!(override?.rotationX || override?.rotationY);
-          const hasRotAnim = [...(override?.entrances ?? []), ...(override?.exits ?? [])].some(
-            (e) => e.type === 'zoom' || e.type === 'bounce' || e.type === 'rotate' || e.type === 'rotateX' || e.type === 'rotateY'
-          );
-          if (!hasRotXY && !hasRotAnim) return null;
           return (
             <div className="ui-inspector-section">
               <div className="ui-inspector-section-title">회전 기준점</div>
