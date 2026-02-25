@@ -4,7 +4,14 @@
  *
  * @help
  * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 배경이 부드럽게 블러+페이드됩니다.
- * RendererStrategy.render 를 후킹하여 실제 렌더 출력에 GPU 블러를 적용합니다.
+ *
+ * 렌더링 방식: 씬위에 씬 (scene-on-scene)
+ *   1. SceneManager._stack 에서 이전 씬(Scene_Map)을 오프스크린 RT에 렌더링
+ *   2. 해당 프레임에 블러 + 오버레이 적용
+ *   3. 처리된 배경을 화면에 출력
+ *   4. 현재 메뉴 씬을 autoClear=false 로 그 위에 렌더링
+ *
+ * 따라서 배경 게임 화면이 실시간으로 계속 업데이트됩니다.
  *
  * === 효과 종류 (effect) ===
  *   blur+overlay   : 가우시안 블러 + 어두운 오버레이 (기본값)
@@ -138,19 +145,15 @@
         '}'
     ].join('\n');
 
-    // 최종 합성: 블러 결과 + 오버레이
+    // 최종 합성: 배경(블러/원본) + 오버레이
     var _COMPOSITE_FS = [
         'uniform sampler2D tDiffuse;',
-        'uniform float blurMix;',    // 0=원본, 1=완전블러
-        'uniform float overlayAlpha;', // 0-1
+        'uniform float overlayAlpha;',  // 0-1
         'uniform vec3 overlayColor;',
         'varying vec2 vUv;',
         'void main() {',
         '    vec4 c = texture2D(tDiffuse, vUv);',
-        // blurMix: 블러 텍스처를 원본에 알파 블렌딩 (blurMix=1 이면 완전 블러)
-        // overlayAlpha: 위에 추가로 어두운 오버레이
-        '    vec3 col = c.rgb;',
-        '    col = mix(col, overlayColor, overlayAlpha);',
+        '    vec3 col = mix(c.rgb, overlayColor, overlayAlpha);',
         '    gl_FragColor = vec4(col, 1.0);',
         '}'
     ].join('\n');
@@ -166,29 +169,26 @@
     var _MT_t         = 0;   // 현재 진행 (0→1)
     var _MT_closeCb   = null;
 
-    // 배경/오버레이 스프라이트 참조
-    var _MT_bgSprite      = null;   // Scene_MenuBase._backgroundSprite
-    var _MT_overlaySprite = null;   // 스프라이트 방식 오버레이 (블러 없을 때)
+    var _MT_bgSprite  = null;   // Scene_MenuBase._backgroundSprite (숨김 처리용)
 
     // Three.js 리소스
-    var _MT_captureRT = null;  // 원본 렌더 캡처
-    var _MT_blurRT1   = null;  // 소형 텍스처 A
-    var _MT_blurRT2   = null;  // 소형 텍스처 B
-    var _MT_outputRT  = null;  // 블러 결과 (원본 사이즈)
+    var _MT_captureRT = null;  // 이전 씬 렌더 캡처
+    var _MT_blurRT1   = null;  // 소형 텍스처 A (블러 ping-pong)
+    var _MT_blurRT2   = null;  // 소형 텍스처 B (블러 ping-pong)
+    var _MT_outputRT  = null;  // 블러/처리 결과 (원본 사이즈)
 
     var _MT_fsq       = null;
     var _MT_hMat      = null;
     var _MT_vMat      = null;
     var _MT_copyMat   = null;
-    var _MT_compMat   = null;  // composite material
+    var _MT_compMat   = null;
 
     // ── GPU 리소스 초기화/해제 ────────────────────────────────────────────────
 
     function MT_initResources(renderer, w, h) {
         var rtOpts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
 
-        // 1/4 다운스케일 — SCALE=8 은 너무 뭉개짐, SCALE=4 로 형태 보존
-        // 실효 블러 반경 ≈ sigma_small * sqrt(passes) * SCALE 전체픽셀
+        // 1/4 다운스케일 — 블러 텍스처용
         var SCALE = 4;
         var sw = Math.max(1, Math.round(w / SCALE));
         var sh = Math.max(1, Math.round(h / SCALE));
@@ -216,7 +216,7 @@
             _MT_fsq = new FullScreenQuad(new THREE.MeshBasicMaterial());
         }
 
-        // sigma = blur / 100 * 8  →  blur=0 : 0(스킵), blur=30 : 2.4, blur=100 : 8
+        // sigma: blur=0 → 스킵, blur=30 → 2.4, blur=100 → 8
         var sigma = Math.max(0.1, Cfg.blur / 100 * 8);
 
         if (!_MT_copyMat) {
@@ -250,7 +250,6 @@
             _MT_compMat = new THREE.ShaderMaterial({
                 uniforms: {
                     tDiffuse:     { value: null },
-                    blurMix:      { value: 0 },
                     overlayAlpha: { value: 0 },
                     overlayColor: { value: new THREE.Vector3(_overlayRGB[0], _overlayRGB[1], _overlayRGB[2]) }
                 },
@@ -264,16 +263,15 @@
     function MT_applyBlur(renderer, PASSES) {
         var sw = _MT_blurRT1.width, sh = _MT_blurRT1.height;
 
-        // 1. captureRT → blurRT1 (다운스케일)
+        // 1. captureRT → blurRT1 (다운스케일 복사)
         _MT_copyMat.uniforms.tDiffuse.value = _MT_captureRT.texture;
         _MT_fsq.material = _MT_copyMat;
         renderer.setRenderTarget(_MT_blurRT1);
         renderer.clear();
         _MT_fsq.render(renderer);
 
-        // 2. 소형 텍스처에서 PASSES회 H+V 블러 (ping-pong blurRT1 ↔ blurRT2)
+        // 2. 소형 텍스처에서 PASSES회 H+V 블러 (ping-pong)
         for (var p = 0; p < PASSES; p++) {
-            // H: blurRT1 → blurRT2
             _MT_hMat.uniforms.tDiffuse.value = _MT_blurRT1.texture;
             _MT_hMat.uniforms.stepX.value = 1.0 / sw;
             _MT_fsq.material = _MT_hMat;
@@ -281,7 +279,6 @@
             renderer.clear();
             _MT_fsq.render(renderer);
 
-            // V: blurRT2 → blurRT1
             _MT_vMat.uniforms.tDiffuse.value = _MT_blurRT2.texture;
             _MT_vMat.uniforms.stepY.value = 1.0 / sh;
             _MT_fsq.material = _MT_vMat;
@@ -291,7 +288,7 @@
         }
         // 결과: blurRT1
 
-        // 3. blurRT1 → outputRT (업스케일)
+        // 3. blurRT1 → outputRT (업스케일 복사)
         _MT_copyMat.uniforms.tDiffuse.value = _MT_blurRT1.texture;
         _MT_fsq.material = _MT_copyMat;
         renderer.setRenderTarget(_MT_outputRT);
@@ -300,8 +297,10 @@
     }
 
     // ── RendererStrategy.render 후킹 ─────────────────────────────────────────
-    // ThreeRendererStrategy.js 의 color matrix 후킹과 동일한 패턴.
-    // setRenderTarget(null) 를 가로채 → 오프스크린 RT에 렌더 → 블러+오버레이 합성 → 화면 출력.
+    // 씬위에 씬(scene-on-scene) 렌더링:
+    //   1) 이전 씬(맵)을 captureRT에 렌더 → 블러/오버레이 처리
+    //   2) 처리된 배경을 화면에 출력
+    //   3) 현재 씬(메뉴)을 autoClear=false 로 그 위에 렌더
 
     function MT_installHook() {
         if (_hookInstalled) return;
@@ -324,52 +323,59 @@
             var h = rendererObj._height;
             MT_initResources(renderer, w, h);
 
-            // ── 전체 씬 캡처 (bgSprite 포함 = 맵 스냅샷 + UI) → captureRT ──
-            var origSetRT = renderer.setRenderTarget.bind(renderer);
-            renderer.setRenderTarget = function (target) {
-                origSetRT(target === null ? _MT_captureRT : target);
-            };
-            _origRSRender.call(this, rendererObj, stage);
-            renderer.setRenderTarget = origSetRT;
+            // ── Step 1: 이전 씬(Scene_Map) → captureRT ──────────────────────
+            var stack = SceneManager._stack;
+            var prevScene = stack && stack.length > 0 ? stack[stack.length - 1] : null;
+            var bgStage = prevScene || stage;
 
-            // ── 블러 → outputRT ─────────────────────────────────────────────
-            MT_applyBlur(renderer, Math.max(1, Math.ceil(Cfg.blur / 25)));
+            renderer.setRenderTarget(_MT_captureRT);
+            renderer.clear();
+            _origRSRender.call(this, rendererObj, bgStage);
 
-            // ── 블러된 배경 → 화면 ──────────────────────────────────────────
+            // ── Step 2: 블러 또는 직접 복사 → outputRT ──────────────────────
+            var useBlur = Cfg.blur > 0 && Cfg.effect !== 'overlayOnly';
+            if (useBlur) {
+                MT_applyBlur(renderer, Math.max(1, Math.ceil(Cfg.blur / 25)));
+            } else {
+                // 블러 없이 captureRT → outputRT 복사
+                _MT_copyMat.uniforms.tDiffuse.value = _MT_captureRT.texture;
+                _MT_fsq.material = _MT_copyMat;
+                renderer.setRenderTarget(_MT_outputRT);
+                renderer.clear();
+                _MT_fsq.render(renderer);
+            }
+
+            // ── Step 3: 처리된 배경 + 오버레이 → 화면 ──────────────────────
             var t  = _MT_t;
             var oa = (Cfg.effect === 'blurOnly') ? 0 : (Cfg.overlayAlpha / 255 * t);
-
             _MT_compMat.uniforms.tDiffuse.value     = _MT_outputRT.texture;
-            _MT_compMat.uniforms.blurMix.value      = t;
             _MT_compMat.uniforms.overlayAlpha.value = oa;
             _MT_fsq.material = _MT_compMat;
             renderer.setRenderTarget(null);
+            renderer.clear();
             _MT_fsq.render(renderer);
 
-            // ── UI만 위에 렌더 (bgSprite 숨기고, 화면 클리어 없이) ──────────
-            if (_MT_bgSprite) _MT_bgSprite.visible = false;
+            // ── Step 4: 현재 씬(메뉴 UI) — autoClear=false 로 배경 위에 ─────
             renderer.autoClear = false;
             _origRSRender.call(this, rendererObj, stage);
             renderer.autoClear = true;
-            if (_MT_bgSprite) _MT_bgSprite.visible = true;
         };
     }
 
     // ── 애니메이션 타이머 (requestAnimationFrame 기반) ───────────────────────
 
-    var _MT_animRafId = null;
+    var _MT_animRafId  = null;
     var _MT_durationMs = 0;
 
     function MT_tick() {
         _MT_animRafId = null;
         if (_MT_phase === 0) return;
 
-        var now = Date.now();
+        var now     = Date.now();
         var elapsed = now - _MT_startTime;
-        var raw = Math.min(1, elapsed / Math.max(1, _MT_durationMs));
+        var raw     = Math.min(1, elapsed / Math.max(1, _MT_durationMs));
 
         if (_MT_phase === 1) {
-            // 열기
             _MT_t = applyEase(raw);
             if (raw < 1) {
                 _MT_animRafId = requestAnimationFrame(MT_tick);
@@ -378,7 +384,6 @@
                 _MT_phase = 2;
             }
         } else if (_MT_phase === 3) {
-            // 닫기
             _MT_t = applyEase(1 - raw);
             if (raw < 1) {
                 _MT_animRafId = requestAnimationFrame(MT_tick);
@@ -387,11 +392,6 @@
                 _MT_phase = 0;
                 if (_MT_closeCb) { var cb = _MT_closeCb; _MT_closeCb = null; cb(); }
             }
-        }
-
-        // 스프라이트 오버레이 opacity 동기화 (블러 없을 때)
-        if (_MT_overlaySprite) {
-            _MT_overlaySprite.opacity = Math.round(Cfg.overlayAlpha * _MT_t);
         }
     }
 
@@ -421,24 +421,13 @@
         _SMB_create.call(this);
         _MT_bgSprite = this._backgroundSprite || null;
 
-        var useBlur = Cfg.blur > 0 && Cfg.effect !== 'overlayOnly';
-
-        if (useBlur) {
-            // 블러: 렌더 훅으로 캡처→블러→합성
-            MT_installHook();
-        } else {
-            // 오버레이만: bgSprite 바로 위에 반투명 스프라이트 삽입 (캡처 없음)
-            var bmp = new Bitmap(Graphics.width, Graphics.height);
-            var r = Math.round(_overlayRGB[0] * 255);
-            var g = Math.round(_overlayRGB[1] * 255);
-            var b = Math.round(_overlayRGB[2] * 255);
-            bmp.fillAll('rgba(' + r + ',' + g + ',' + b + ',1)');
-            _MT_overlaySprite = new Sprite(bmp);
-            _MT_overlaySprite.opacity = 0;
-            var idx = _MT_bgSprite ? (this.getChildIndex(_MT_bgSprite) + 1) : 0;
-            this.addChildAt(_MT_overlaySprite, idx);
+        // Scene_MenuBase의 기본 배경 스프라이트 숨기기
+        // 렌더 훅이 이전 씬(맵)을 배경으로 직접 렌더링하므로 불필요
+        if (_MT_bgSprite) {
+            _MT_bgSprite.visible = false;
         }
 
+        MT_installHook();
         MT_startOpen(Cfg.duration * (1000 / 60));
     };
 
