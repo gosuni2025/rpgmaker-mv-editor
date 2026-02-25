@@ -5,15 +5,19 @@
  * @help
  * 메뉴·아이템·스킬 등 UI 씬이 열릴 때 맵 화면이 점점 블러되면서
  * 어두워지는 애니메이션 후 메뉴 UI가 표시됩니다.
+ * 메뉴를 닫으면 게임 씬으로 즉시 전환되고, 블러 오버레이가 점차 사라지면서
+ * 라이브 게임 화면이 드러납니다. (물 쉐이더 등 부활 장면이 블러에 가려짐)
  *
  * 렌더링 방식:
- *   - Scene_Map.terminate() → snapForBackground 시점에 맵 스냅샷 취득
- *   - _backgroundSprite.bitmap에 매 프레임 canvas ctx.filter:blur로 그려
- *     블러 강도와 오버레이가 t(0→1)에 따라 점진적으로 강해짐
+ *   열기: Scene_Map.terminate() → snapForBackground 시점에 맵 스냅샷 취득
+ *         _backgroundSprite.bitmap에 매 프레임 canvas ctx.filter:blur로 그려
+ *         블러 강도와 오버레이가 t(0→1)에 따라 점진적으로 강해짐
+ *   닫기: 게임 씬(Scene_Map) 위에 DOM canvas 오버레이를 올려
+ *         t(1→0)에 따라 점진적으로 사라짐 → 라이브 게임 화면이 드러남
  *
  * 타이밍 방식:
  *   - requestAnimationFrame 독립 루프 미사용
- *   - Scene_MenuBase.update() 호출(게임 루프)마다 프레임 카운터 증가
+ *   - Scene_MenuBase.update() / Scene_Base.update() 호출(게임 루프)마다 프레임 카운터 증가
  *   - 게임 루프가 블로킹되면 애니메이션도 함께 일시정지 → 재개 시 이어서 진행
  *
  * === 효과 종류 (effect) ===
@@ -110,21 +114,24 @@
 
     // ── 상태 ─────────────────────────────────────────────────────────────────
 
-    var _phase        = 0;   // 0=비활성, 1=열기, 2=열림, 3=닫기
-    var _t            = 0;
-    var _elapsed      = 0;   // 게임 루프 update() 호출 횟수 (프레임 카운터)
-    var _closeCb      = null;
-    var _pendingClose = false;  // true: 닫기 완료 후 t=0 렌더 1프레임 대기 중
+    var _phase   = 0;   // 0=비활성, 1=열기, 2=열림
+    var _t       = 0;
+    var _elapsed = 0;   // 게임 루프 update() 호출 횟수 (프레임 카운터)
 
     var _srcCanvas = null;  // 스냅샷 캔버스 (PostProcess._captureCanvas 복사본)
 
     var _suppressNextFadeOut = false;  // 닫기 후 메뉴씬 검정 페이드아웃 억제
     var _suppressNextFadeIn  = false;  // 닫기 후 복귀씬(맵 등) 페이드인 억제
 
+    // 닫기 후 게임씬 블러 오버레이
+    var _mapBlurPending = false;  // 다음 씬 start()에서 오버레이 생성
+    var _mapBlurStartT  = 1;      // 오버레이 시작 블러 강도 (닫힐 때의 _t)
+    var _mapBlurCanvas  = null;   // 오버레이 DOM canvas 엘리먼트
+    var _mapBlurPhase   = false;  // 게임씬에서 블러 페이드 진행 중
+
     // ── PostProcess.menuBgHook: 메뉴 씬 렌더링 중 bloom만 비활성화 ─────────────
     // 스냅샷에 이미 bloom이 적용되어 있으므로 2D composer의 bloomPass만 비활성화.
     // ppPasses(godRays, waveDistortion 등)는 계속 활성화하여 배경에 효과가 유지되도록 함.
-    // 비활성화하면 메뉴 닫힐 때 효과가 갑자기 켜지는 현상 발생.
 
     function _setMenuBgHook(active) {
         if (typeof PostProcess === 'undefined') return;
@@ -148,27 +155,18 @@
         }
     }
 
-    // ── 애니메이션 제어 ───────────────────────────────────────────────────────
-    // requestAnimationFrame 독립 루프 없음 — update()에서 프레임 카운터로 제어.
-    // 게임 루프가 블로킹되면 _elapsed 증가가 멈춰 애니메이션도 일시정지됨.
+    // ── 열기 애니메이션 ───────────────────────────────────────────────────────
 
     function startOpen() {
         _elapsed = 0;
         _phase = 1;
         _t = 0;
-        _pendingClose = false;
+        _mapBlurPending = false;
+        _removeMapOverlay();
         _setMenuBgHook(true);
     }
 
-    function startClose(cb) {
-        if (_phase === 0) { if (cb) cb(); return; }
-        _elapsed = 0;
-        _phase = 3;
-        _pendingClose = false;
-        _closeCb = cb || null;
-    }
-
-    // ── 배경 비트맵 업데이트 (canvas ctx.filter 블러) ─────────────────────────
+    // ── 배경 비트맵 업데이트 (메뉴씬 — canvas ctx.filter 블러) ───────────────
 
     function updateBgBitmap(bitmap, t) {
         if (!_srcCanvas || !bitmap) return;
@@ -178,7 +176,6 @@
         var ctx = bitmap._context;
         ctx.clearRect(0, 0, w, h);
 
-        // 블러 적용 후 원본 드로우
         if (Cfg.effect !== 'overlayOnly' && Cfg.blur > 0 && t > 0.001) {
             var blurPx = t * Cfg.blur / 100 * 20;
             ctx.filter = 'blur(' + blurPx.toFixed(2) + 'px)';
@@ -186,7 +183,6 @@
         ctx.drawImage(_srcCanvas, 0, 0, w, h);
         ctx.filter = 'none';
 
-        // 오버레이
         if (Cfg.effect !== 'blurOnly' && t > 0.001) {
             var oa = (Cfg.overlayAlpha / 255) * t;
             ctx.fillStyle = 'rgba(' + _overlayRGB[0] + ',' + _overlayRGB[1] + ',' + _overlayRGB[2] + ',' + oa + ')';
@@ -194,6 +190,68 @@
         }
 
         bitmap._setDirty();
+    }
+
+    // ── 게임씬 블러 오버레이 (닫기 후) ───────────────────────────────────────
+
+    function _createMapOverlay() {
+        _removeMapOverlay();
+        if (!_srcCanvas) return;
+
+        var gameCanvas = Graphics._canvas;
+        if (!gameCanvas) return;
+
+        var canvas = document.createElement('canvas');
+        canvas.width  = _srcCanvas.width;
+        canvas.height = _srcCanvas.height;
+
+        // 게임 캔버스의 실제 화면 위치·크기에 맞춰 오버레이 배치
+        var rect = gameCanvas.getBoundingClientRect();
+        canvas.style.cssText = 'position:fixed;pointer-events:none;z-index:100;' +
+            'top:'    + rect.top    + 'px;' +
+            'left:'   + rect.left   + 'px;' +
+            'width:'  + rect.width  + 'px;' +
+            'height:' + rect.height + 'px;';
+
+        document.body.appendChild(canvas);
+        _mapBlurCanvas = canvas;
+    }
+
+    function _drawMapOverlay(t) {
+        if (!_mapBlurCanvas || !_srcCanvas) return;
+        var w = _mapBlurCanvas.width, h = _mapBlurCanvas.height;
+        var ctx = _mapBlurCanvas.getContext('2d');
+        ctx.clearRect(0, 0, w, h);
+
+        if (t <= 0.001) {
+            _mapBlurCanvas.style.opacity = 0;
+            return;
+        }
+
+        if (Cfg.effect !== 'overlayOnly' && Cfg.blur > 0) {
+            var blurPx = t * Cfg.blur / 100 * 20;
+            ctx.filter = 'blur(' + blurPx.toFixed(2) + 'px)';
+        }
+        ctx.drawImage(_srcCanvas, 0, 0, w, h);
+        ctx.filter = 'none';
+
+        if (Cfg.effect !== 'blurOnly') {
+            var oa = (Cfg.overlayAlpha / 255) * t;
+            ctx.fillStyle = 'rgba(' + _overlayRGB[0] + ',' + _overlayRGB[1] + ',' + _overlayRGB[2] + ',' + oa + ')';
+            ctx.fillRect(0, 0, w, h);
+        }
+
+        _mapBlurCanvas.style.opacity = t;
+    }
+
+    function _removeMapOverlay() {
+        if (_mapBlurCanvas) {
+            if (_mapBlurCanvas.parentNode) {
+                _mapBlurCanvas.parentNode.removeChild(_mapBlurCanvas);
+            }
+            _mapBlurCanvas = null;
+        }
+        _mapBlurPhase = false;
     }
 
     // ── SceneManager.snapForBackground 오버라이드 ─────────────────────────────
@@ -243,7 +301,7 @@
         }
     };
 
-    // startFadeOut: 닫기 애니메이션 완료 직후 발생하는 검정 오버레이 억제
+    // startFadeOut: 닫기 시 즉시 완료 (게임씬 오버레이가 전환 담당)
     var _SMB_startFadeOut = Scene_MenuBase.prototype.startFadeOut;
     Scene_MenuBase.prototype.startFadeOut = function (duration, white) {
         if (_suppressNextFadeOut) {
@@ -258,64 +316,77 @@
     Scene_Base.prototype.startFadeIn = function (duration, white) {
         if (_suppressNextFadeIn) {
             _suppressNextFadeIn = false;
-            return;  // 즉시 표시
+            return;  // 즉시 표시 (오버레이가 대신 전환)
         }
         _SB_startFadeIn.call(this, duration, white);
     };
 
-    // update: 게임 루프 프레임마다 _t 계산 + 배경 비트맵 업데이트
+    // 메뉴씬 update: 열기 애니메이션 (_phase 1→2)
     var _SMB_update = Scene_MenuBase.prototype.update;
     Scene_MenuBase.prototype.update = function () {
         _SMB_update.call(this);
 
         if (_phase === 0 || !this._backgroundSprite) return;
 
-        // 프레임 카운터로 _t 계산 — 게임 루프가 블로킹되면 카운터도 멈춤
-        if (_phase === 1 || _phase === 3) {
+        if (_phase === 1) {
             _elapsed++;
             var raw = Math.min(1, _elapsed / Cfg.duration);
-            if (_phase === 1) {
-                _t = applyEase(raw);
-                if (raw >= 1) { _t = 1; _phase = 2; }
-            } else {  // phase === 3
-                _t = applyEase(1 - raw);
-                if (raw >= 1) {
-                    _t = 0;
-                    if (!_pendingClose) {
-                        // 1프레임 대기: t=0으로 비트맵 갱신 후 renderScene이 한 번 더 그리도록
-                        _pendingClose = true;
-                    } else {
-                        _pendingClose = false;
-                        _phase = 0;
-                        if (_closeCb) { var cb = _closeCb; _closeCb = null; cb(); }
-                        return;
-                    }
-                }
-            }
+            _t = applyEase(raw);
+            if (raw >= 1) { _t = 1; _phase = 2; }
         }
 
         var bmp = this._backgroundSprite.bitmap;
         if (bmp) updateBgBitmap(bmp, _t);
     };
 
-    // ── SceneManager.pop 오버라이드 (닫기 애니메이션) ────────────────────────
+    // ── Scene_Base 오버라이드 (닫기 후 게임씬 블러 오버레이) ──────────────────
+
+    var _SB_start = Scene_Base.prototype.start;
+    Scene_Base.prototype.start = function () {
+        _SB_start.call(this);
+        if (_mapBlurPending && !(this instanceof Scene_MenuBase)) {
+            _mapBlurPending = false;
+            if (_srcCanvas) {
+                _createMapOverlay();
+                _drawMapOverlay(_mapBlurStartT);
+                _mapBlurPhase = true;
+                _elapsed = 0;
+                _t = _mapBlurStartT;
+            }
+        }
+    };
+
+    var _SB_update = Scene_Base.prototype.update;
+    Scene_Base.prototype.update = function () {
+        _SB_update.call(this);
+        if (!_mapBlurPhase) return;
+
+        _elapsed++;
+        var raw = Math.min(1, _elapsed / Cfg.duration);
+        _t = _mapBlurStartT * applyEase(1 - raw);
+        _drawMapOverlay(_t);
+
+        if (raw >= 1) {
+            _removeMapOverlay();
+            _srcCanvas = null;
+        }
+    };
+
+    // ── SceneManager.pop 오버라이드 (닫기) ───────────────────────────────────
 
     if (Cfg.closeAnim) {
         var _origPop = SceneManager.pop;
         SceneManager.pop = function () {
-            if (_phase === 3) return;  // 닫기 애니메이션 진행 중 → 추가 pop 무시
             var scene = this._scene;
             if (scene instanceof Scene_MenuBase && _phase !== 0) {
-                var mgr = this;
-                startClose(function () {
-                    _srcCanvas = null;
-                    _suppressNextFadeOut = true;  // 메뉴씬 stop() → startFadeOut 억제
-                    _suppressNextFadeIn  = true;  // 복귀씬(맵) startFadeIn 억제
-                    _origPop.call(mgr);
-                });
-            } else {
-                _origPop.call(this);
+                _mapBlurStartT       = _t;    // 현재 블러 강도에서 시작
+                _suppressNextFadeOut = true;  // 메뉴씬 페이드아웃 즉시 완료
+                _suppressNextFadeIn  = true;  // 복귀씬 페이드인 억제 (오버레이가 대신)
+                _mapBlurPending      = true;  // 복귀씬 start()에서 오버레이 생성
+                _setMenuBgHook(false);
+                _phase = 0;
             }
+            _origPop.call(this);
         };
     }
 
