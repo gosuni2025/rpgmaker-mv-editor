@@ -205,7 +205,8 @@ export function usePassageOverlay(refs: PassageRefs, rendererReady: number) {
       return;
     }
 
-    const flags: number[] = (window as any).$dataSystem?.tilesetFlags ?? [];
+    // $gameMap.tilesetFlags() → $dataTilesets[tilesetId].flags
+    const flags: number[] = (window as any).$gameMap?.tilesetFlags?.() ?? [];
 
     // WebGL 텍스처 최대 크기(4096) 내에서 타일당 픽셀 수 결정
     const maxTexSize = 4096;
