@@ -185,7 +185,7 @@
     if (ov && ov.windowStyle === 'image') {
       var m = this._margin;
       var w = this._width - m * 2, h = this._height - m * 2;
-      if (w <= 0 || h <= 0) return;
+      if (this._cursorRect.width <= 0 || this._cursorRect.height <= 0) return;
       // imageFile이 없으면 "No Image" 안내 표시
       if (!ov.imageFile) {
         var noBitmap = new Bitmap(w, h);
@@ -241,7 +241,7 @@
     var m = this._margin;
     var w = this._width - m * 2;
     var h = this._height - m * 2;
-    if (w <= 0 || h <= 0) return;
+    if (this._cursorRect.width <= 0 || this._cursorRect.height <= 0) return;
     var bitmap = new Bitmap(w, h);
     this._windowBackSprite.bitmap = bitmap;
     this._windowBackSprite.setFrame(0, 0, w, h);
@@ -289,7 +289,7 @@
     var f = getFrameInfo(entry);
     var w = this._width;
     var h = this._height;
-    if (w <= 0 || h <= 0) return;
+    if (this._cursorRect.width <= 0 || this._cursorRect.height <= 0) return;
     var bitmap = new Bitmap(w, h);
     this._windowFrameSprite.bitmap = bitmap;
     this._windowFrameSprite.setFrame(0, 0, w, h);
@@ -324,7 +324,7 @@
     var y = this._cursorRect.y + pad - oy - Math.floor(cp / 2);
     var w = this._cursorRect.width + cp;
     var h = this._cursorRect.height + cp;
-    if (w <= 0 || h <= 0) return;
+    if (this._cursorRect.width <= 0 || this._cursorRect.height <= 0) return;
 
     var p  = entry.cursorX;
     var q  = entry.cursorY;
@@ -893,11 +893,28 @@
     }
   }
 
+  /** animPivot 앵커명 → {x, y} 픽셀 좌표 변환 (w/h 기준) */
+  function _parsePivotAnchor(anchor, w, h) {
+    var rx = 0.5, ry = 0.5;
+    switch (anchor) {
+      case 'top-left':    rx = 0;   ry = 0;   break;
+      case 'top':         rx = 0.5; ry = 0;   break;
+      case 'top-right':   rx = 1;   ry = 0;   break;
+      case 'left':        rx = 0;   ry = 0.5; break;
+      case 'center':      rx = 0.5; ry = 0.5; break;
+      case 'right':       rx = 1;   ry = 0.5; break;
+      case 'bottom-left': rx = 0;   ry = 1;   break;
+      case 'bottom':      rx = 0.5; ry = 1;   break;
+      case 'bottom-right':rx = 1;   ry = 1;   break;
+    }
+    return { x: Math.floor((w || 0) * rx), y: Math.floor((h || 0) * ry) };
+  }
+
   /** 등장 애니메이션 시작 — applyLayout 후 호출 */
   function startEntranceAnimation(win, entrances, className) {
     if (!entrances || entrances.length === 0) return;
 
-    // zoom / bounce / rotate 효과가 있으면 창 중심 pivot 설정
+    // zoom / bounce / rotate 효과가 있으면 animPivot 기준 pivot 설정
     var needPivot = entrances.some(function (e) {
       return e.type === 'zoom' || e.type === 'rotate' || e.type === 'bounce' ||
              e.type === 'rotateX' || e.type === 'rotateY';
@@ -905,8 +922,9 @@
     var pivotX = 0, pivotY = 0;
     var originalX = win.x, originalY = win.y;
     if (needPivot && win.pivot) {
-      pivotX = Math.floor((win.width || 0) / 2);
-      pivotY = Math.floor((win.height || 0) / 2);
+      var anchor = (_ov[className] && _ov[className].animPivot) || 'center';
+      var pv = _parsePivotAnchor(anchor, win.width, win.height);
+      pivotX = pv.x; pivotY = pv.y;
       win.pivot.x = pivotX;
       win.pivot.y = pivotY;
       // pivot 변경 시 화면 위치 보정
@@ -922,6 +940,9 @@
       baseX: win.x,                // pivot 보정 후 x
       baseY: win.y,
       baseAlpha: win.alpha !== undefined ? win.alpha : 1,
+      baseRotation: win.rotation || 0,
+      baseRotationX: win.rotationX !== undefined ? win.rotationX : 0,
+      baseRotationY: win.rotationY !== undefined ? win.rotationY : 0,
       pivotX: pivotX,
       pivotY: pivotY,
       className: className,
@@ -1000,9 +1021,9 @@
     win.x = Math.round(totalX) + state.pivotX;
     win.y = Math.round(totalY) + state.pivotY;
     if (win.scale) { win.scale.x = totalScaleX; win.scale.y = totalScaleY; }
-    win.rotation = totalRotation;
-    if (win.rotationX !== undefined) win.rotationX = totalRotationX;
-    if (win.rotationY !== undefined) win.rotationY = totalRotationY;
+    win.rotation = (state.baseRotation || 0) + totalRotation;
+    if (win.rotationX !== undefined) win.rotationX = (state.baseRotationX || 0) + totalRotationX;
+    if (win.rotationY !== undefined) win.rotationY = (state.baseRotationY || 0) + totalRotationY;
   }
 
   /** 등장 애니메이션이 완전히 끝났는지 확인 */
@@ -1024,9 +1045,9 @@
       xs.elapsed += 1000 / 60;
       if (_isEntranceDone(xs.elapsed, xs.effects)) {
         this.alpha = 0;
-        this.rotation = 0;
-        if (this.rotationX !== undefined) this.rotationX = 0;
-        if (this.rotationY !== undefined) this.rotationY = 0;
+        this.rotation = xs.baseRotation || 0;
+        if (this.rotationX !== undefined) this.rotationX = xs.baseRotationX || 0;
+        if (this.rotationY !== undefined) this.rotationY = xs.baseRotationY || 0;
         this._uiExit = null;
       } else {
         _applyExitFrame(this, xs.elapsed);
@@ -1049,9 +1070,9 @@
       }
       this.alpha = state.baseAlpha;
       if (this.scale) { this.scale.x = 1; this.scale.y = 1; }
-      this.rotation = 0;
-      if (this.rotationX !== undefined) this.rotationX = 0;
-      if (this.rotationY !== undefined) this.rotationY = 0;
+      this.rotation = state.baseRotation || 0;
+      if (this.rotationX !== undefined) this.rotationX = state.baseRotationX || 0;
+      if (this.rotationY !== undefined) this.rotationY = state.baseRotationY || 0;
       this._uiEntrance = null;
     } else {
       _applyEntranceFrame(this, state.elapsed);
