@@ -10,7 +10,7 @@ import DatabaseList from './DatabaseList';
 import apiClient from '../../api/client';
 import { useDatabaseTab } from './useDatabaseTab';
 import { makeScopeOptions, makeOccasionOptions, makeHitTypeOptions } from './dbConstants';
-import type { RefItem } from './dbConstants';
+import { useDbRef } from './useDbRef';
 
 const DEFAULT_DAMAGE: Damage = { critical: false, elementId: 0, formula: '', type: 0, variance: 0 };
 
@@ -59,7 +59,7 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
     useDatabaseTab(data, onChange, createNewSkill, deepCopySkill);
   const [skillTypes, setSkillTypes] = useState<string[]>([]);
   const [weaponTypes, setWeaponTypes] = useState<string[]>([]);
-  const [animations, setAnimations] = useState<RefItem[]>([]);
+  const animations = useDbRef('/database/animations');
   const [showAnimPicker, setShowAnimPicker] = useState(false);
 
   const SCOPE_OPTIONS = makeScopeOptions(t);
@@ -70,9 +70,6 @@ export default function SkillsTab({ data, onChange }: SkillsTabProps) {
     apiClient.get<{ skillTypes?: string[]; weaponTypes?: string[] }>('/database/system').then(sys => {
       if (sys.skillTypes) setSkillTypes(sys.skillTypes);
       if (sys.weaponTypes) setWeaponTypes(sys.weaponTypes);
-    }).catch(() => {});
-    apiClient.get<(RefItem | null)[]>('/database/animations').then(d => {
-      setAnimations(d.filter(Boolean) as RefItem[]);
     }).catch(() => {});
   }, []);
 

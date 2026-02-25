@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Item, Damage, Effect } from '../../types/rpgMakerMV';
 import IconPicker from '../common/IconPicker';
@@ -7,10 +7,9 @@ import TranslateButton from '../common/TranslateButton';
 import EffectsEditor from '../common/EffectsEditor';
 import AnimationPickerDialog from '../EventEditor/AnimationPickerDialog';
 import DatabaseList from './DatabaseList';
-import apiClient from '../../api/client';
 import { useDatabaseTab } from './useDatabaseTab';
 import { makeScopeOptions, makeOccasionOptions, makeHitTypeOptions } from './dbConstants';
-import type { RefItem } from './dbConstants';
+import { useDbRef } from './useDbRef';
 
 const DEFAULT_DAMAGE: Damage = { critical: false, elementId: 0, formula: '', type: 0, variance: 20 };
 
@@ -47,18 +46,12 @@ export default function ItemsTab({ data, onChange }: ItemsTabProps) {
   const { t } = useTranslation();
   const { selectedId, setSelectedId, selectedItem, handleFieldChange, handleAdd, handleDelete, handleDuplicate, handleReorder } =
     useDatabaseTab(data, onChange, createNewItem, deepCopyItem);
-  const [animations, setAnimations] = useState<RefItem[]>([]);
+  const animations = useDbRef('/database/animations');
   const [showAnimPicker, setShowAnimPicker] = useState(false);
 
   const SCOPE_OPTIONS = makeScopeOptions(t);
   const OCCASION_OPTIONS = makeOccasionOptions(t);
   const HIT_TYPE_OPTIONS = makeHitTypeOptions(t);
-
-  useEffect(() => {
-    apiClient.get<(RefItem | null)[]>('/database/animations').then(d => {
-      setAnimations(d.filter(Boolean) as RefItem[]);
-    }).catch(() => {});
-  }, []);
 
   return (
     <div className="db-tab-layout">

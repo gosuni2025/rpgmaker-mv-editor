@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
 import ImagePicker from '../common/ImagePicker';
 import './UIEditor.css';
@@ -108,7 +109,7 @@ function SkinList() {
   const loadSkins = useCallback(() => {
     if (!projectPath) return;
     setLoading(true);
-    fetch('/api/ui-editor/skins').then((r) => r.json())
+    apiClient.get<{ skins: SkinEntry[]; defaultSkin: string; defaultFrameSkin: string; defaultCursorSkin: string }>('/ui-editor/skins')
       .then((skinsData) => {
         const list: SkinEntry[] = skinsData.skins ?? [];
         setSkins(list);

@@ -1,4 +1,5 @@
 import type { EditorState, SliceCreator } from './types';
+import apiClient from '../api/client';
 import { DEFAULT_MAX_UNDO, DEFAULT_ZOOM_STEP, MIN_ZOOM, MAX_ZOOM, TOOLBAR_STORAGE_KEY } from './types';
 import type { RendererInitError } from './types';
 
@@ -30,7 +31,7 @@ export const uiSlice: SliceCreator<Pick<EditorState,
   'setTransparentColor' | 'setMaxUndo' | 'setZoomStep' | 'demoMode'
 >> = (set, get) => {
   // 서버 config 페치 (1회)
-  fetch('/api/config').then(r => r.json()).then((cfg: { demoMode?: boolean }) => {
+  apiClient.get<{ demoMode?: boolean }>('/config').then((cfg) => {
     if (cfg.demoMode) set({ demoMode: true });
   }).catch(() => {});
 

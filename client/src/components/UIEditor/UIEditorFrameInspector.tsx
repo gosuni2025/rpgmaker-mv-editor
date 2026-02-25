@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
 import './UIEditor.css';
@@ -40,10 +41,9 @@ export default function UIEditorFrameInspector() {
 
   useEffect(() => {
     if (!uiSelectedSkin) { setSkinLabel(''); return; }
-    fetch('/api/ui-editor/skins')
-      .then((r) => r.json())
+    apiClient.get<{ skins: { name: string; label?: string }[] }>('/ui-editor/skins')
       .then((d) => {
-        const entry = (d.skins ?? []).find((s: { name: string; label?: string }) => s.name === uiSelectedSkin);
+        const entry = (d.skins ?? []).find((s) => s.name === uiSelectedSkin);
         setSkinLabel(entry?.label ?? '');
       })
       .catch(() => {});
@@ -63,11 +63,7 @@ export default function UIEditorFrameInspector() {
   const handleSetDefault = async () => {
     if (!projectPath || !uiSelectedSkin) return;
     try {
-      await fetch('/api/ui-editor/skins/default', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ defaultFrameSkin: uiSelectedSkin }),
-      });
+      await apiClient.put('/ui-editor/skins/default', { defaultFrameSkin: uiSelectedSkin });
       triggerSkinsReload();
       useEditorStore.getState().showToast(`프레임 기본 스킨: ${uiSelectedSkin} 설정됨`);
     } catch {

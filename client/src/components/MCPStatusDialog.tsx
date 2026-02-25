@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import apiClient from '../api/client';
 import './MCPStatusDialog.css';
 
 interface McpLog {
@@ -50,11 +51,8 @@ export default function MCPStatusDialog({ onClose }: Props) {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/mcp/status');
-      if (!res.ok) return;
-      const data: McpStatus = await res.json();
+      const data = await apiClient.get<McpStatus>('/mcp/status');
       setStatus(prev => {
-        // 포트 입력창이 비어있으면 서버 포트로 초기화
         if (prev === null) setPortInput(String(data.port));
         return data;
       });
@@ -107,12 +105,7 @@ export default function MCPStatusDialog({ onClose }: Props) {
     }
     setRestarting(true);
     try {
-      const res = await fetch('/api/mcp/restart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ port }),
-      });
-      const data = await res.json();
+      const data = await apiClient.post<McpStatus>('/mcp/restart', { port });
       setStatus(data);
     } catch (err) {
       alert('재시작 실패: ' + String(err));
@@ -122,7 +115,7 @@ export default function MCPStatusDialog({ onClose }: Props) {
   }, [portInput]);
 
   const handleStop = useCallback(async () => {
-    await fetch('/api/mcp/stop', { method: 'POST' });
+    await apiClient.post('/mcp/stop', {});
     fetchStatus();
   }, [fetchStatus]);
 

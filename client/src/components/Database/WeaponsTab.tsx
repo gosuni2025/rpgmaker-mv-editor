@@ -9,7 +9,7 @@ import DatabaseList from './DatabaseList';
 import DbParamsGrid from './DbParamsGrid';
 import apiClient from '../../api/client';
 import { useDatabaseTab } from './useDatabaseTab';
-import type { RefItem } from './dbConstants';
+import { useDbRef } from './useDbRef';
 
 function createNewWeapon(id: number): Weapon {
   return {
@@ -36,15 +36,12 @@ export default function WeaponsTab({ data, onChange }: WeaponsTabProps) {
   const { selectedId, setSelectedId, selectedItem, handleFieldChange, handleAdd, handleDelete, handleDuplicate, handleReorder } =
     useDatabaseTab(data, onChange, createNewWeapon, deepCopyWeapon);
   const [weaponTypes, setWeaponTypes] = useState<string[]>([]);
-  const [animations, setAnimations] = useState<RefItem[]>([]);
+  const animations = useDbRef('/database/animations');
   const [showAnimPicker, setShowAnimPicker] = useState(false);
 
   useEffect(() => {
     apiClient.get<{ weaponTypes?: string[] }>('/database/system').then(sys => {
       if (sys.weaponTypes) setWeaponTypes(sys.weaponTypes);
-    }).catch(() => {});
-    apiClient.get<(RefItem | null)[]>('/database/animations').then(d => {
-      setAnimations(d.filter(Boolean) as RefItem[]);
     }).catch(() => {});
   }, []);
 

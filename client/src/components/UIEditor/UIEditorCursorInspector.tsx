@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import apiClient from '../../api/client';
 import useEditorStore from '../../store/useEditorStore';
 import DragLabel from '../common/DragLabel';
 import './UIEditor.css';
@@ -61,11 +62,7 @@ export default function UIEditorCursorInspector() {
   const handleSetDefault = async () => {
     if (!projectPath || !uiSelectedSkin) return;
     try {
-      await fetch('/api/ui-editor/skins/default', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ defaultCursorSkin: uiSelectedSkin }),
-      });
+      await apiClient.put('/ui-editor/skins/default', { defaultCursorSkin: uiSelectedSkin });
       triggerSkinsReload();
       useEditorStore.getState().showToast(`커서 기본 스킨: ${uiSelectedSkin} 설정됨`);
     } catch {

@@ -1,4 +1,4 @@
-import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, EditorAmbientLight, EditorDirectionalLight, EditorPlayerLight, EditorSpotLight, EditorShadowSettings, EditorLights, MapObject, RPGEvent, CameraZone } from '../types/rpgMakerMV';
+import type { MapInfo, MapData, TilesetData, SystemData, EditorPointLight, EditorAmbientLight, EditorDirectionalLight, EditorPlayerLight, EditorSpotLight, EditorShadowSettings, EditorLights, MapObject, RPGEvent, CameraZone, PostProcessConfig, PostProcessEffectParams } from '../types/rpgMakerMV';
 
 // Re-exports — 기존 import 경로 유지를 위해
 export * from './constants';
@@ -156,9 +156,9 @@ export interface EditorState {
   shadowLight: boolean;
   disableFow: boolean;
   // Post-processing config (맵 데이터에 저장됨)
-  postProcessConfig: Record<string, { enabled: boolean; [key: string]: any }>;
-  setPostProcessConfig: (config: Record<string, { enabled: boolean; [key: string]: any }>) => void;
-  updatePostProcessEffect: (effectKey: string, params: { enabled?: boolean; [key: string]: any }) => void;
+  postProcessConfig: PostProcessConfig;
+  setPostProcessConfig: (config: PostProcessConfig) => void;
+  updatePostProcessEffect: (effectKey: string, params: Partial<PostProcessEffectParams>) => void;
 
   // Palette tab
   paletteTab: 'A' | 'B' | 'C' | 'D' | 'E' | 'R';

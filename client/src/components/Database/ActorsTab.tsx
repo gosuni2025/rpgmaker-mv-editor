@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Actor, Trait } from '../../types/rpgMakerMV';
 import ImagePicker from '../common/ImagePicker';
 import TraitsEditor from '../common/TraitsEditor';
 import TranslateButton from '../common/TranslateButton';
 import DatabaseList from './DatabaseList';
-import apiClient from '../../api/client';
 import { useDatabaseTab } from './useDatabaseTab';
-import type { RefItem } from './dbConstants';
+import { useDbRef } from './useDbRef';
 
 interface ActorsTabProps {
   data: (Actor | null)[] | undefined;
@@ -40,17 +39,11 @@ export default function ActorsTab({ data, onChange }: ActorsTabProps) {
   const { t } = useTranslation();
   const { selectedId, setSelectedId, selectedItem, handleFieldChange, handleAdd, handleDelete, handleDuplicate, handleReorder } =
     useDatabaseTab(data, onChange, createNewActor);
-  const [classes, setClasses] = useState<RefItem[]>([]);
-  const [weapons, setWeapons] = useState<RefItem[]>([]);
-  const [armors, setArmors] = useState<RefItem[]>([]);
+  const classes = useDbRef('/database/classes');
+  const weapons = useDbRef('/database/weapons');
+  const armors = useDbRef('/database/armors');
 
   const EQUIP_SLOT_NAMES = [t('fields.equipSlots.weapon'), t('fields.equipSlots.shield'), t('fields.equipSlots.head'), t('fields.equipSlots.body'), t('fields.equipSlots.accessory')];
-
-  useEffect(() => {
-    apiClient.get<(RefItem | null)[]>('/database/classes').then(d => setClasses(d.filter(Boolean) as RefItem[])).catch(() => {});
-    apiClient.get<(RefItem | null)[]>('/database/weapons').then(d => setWeapons(d.filter(Boolean) as RefItem[])).catch(() => {});
-    apiClient.get<(RefItem | null)[]>('/database/armors').then(d => setArmors(d.filter(Boolean) as RefItem[])).catch(() => {});
-  }, []);
 
   const handleEquipChange = (index: number, value: number) => {
     const equips = [...(selectedItem?.equips || [0, 0, 0, 0, 0])];

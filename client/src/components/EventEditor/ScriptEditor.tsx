@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import apiClient from '../../api/client';
 import { EditorView, basicSetup } from 'codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -134,9 +135,8 @@ export function ScriptEditor({ p, followCommands, onOk, onCancel }: ScriptEditor
   // ─── 파일 목록 로드 ───
   useEffect(() => {
     if (activeTab !== 'file') return;
-    fetch('/api/project/js-files?dir=js')
-      .then(r => r.json())
-      .then((files: string[]) => setFileList(files.filter(f => f.endsWith('.js'))))
+    apiClient.get<string[]>('/project/js-files?dir=js')
+      .then((files) => setFileList(files.filter(f => f.endsWith('.js'))))
       .catch(() => setFileList([]));
   }, [activeTab]);
 
