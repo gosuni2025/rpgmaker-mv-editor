@@ -220,8 +220,13 @@
             _srcCanvas = copy;
         }
 
-        // 스냅샷에 효과가 구워졌으므로 PostProcess 효과 해제
-        _applyEffect(0);
+        // 열기 시: 스냅샷에 효과가 구워졌으므로 PostProcess 효과 해제
+        // 닫기 시(_mapBlurPending=true): 로딩 프레임 중에도 blur를 유지해야 하므로 최대값으로 설정
+        if (_mapBlurPending) {
+            _applyEffect(_mapBlurStartT);
+        } else {
+            _applyEffect(0);
+        }
     };
 
     // ── SceneManager.push 가로채기: 메뉴씬 열기 전 PostProcess 애니메이션 ───
