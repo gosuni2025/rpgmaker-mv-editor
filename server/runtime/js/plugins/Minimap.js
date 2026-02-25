@@ -322,6 +322,7 @@
   Game_Player.prototype.performTransfer = function () {
     _Game_Player_performTransfer.call(this);
     MinimapManager._pendingExplore = true;
+    MinimapManager._lastEventPos   = {};
   };
 
   // ============================================================
@@ -397,6 +398,7 @@
     _frameCount:     0,
     _visible:        true,
     _pendingExplore: false,
+    _lastEventPos:   {},  // { eventId: 'x,y' }
 
     UPDATE_INTERVAL: 3,
 
@@ -936,6 +938,21 @@
       const yaw = (CFG.rotation === 'rotate' &&
                    typeof Mode3D !== 'undefined' && Mode3D._active)
         ? Math.round(Mode3D._yawDeg || 0) : 0;
+
+      // 이벤트 위치 변화 감지
+      if (CFG.showEvents && $gameMap && $gameMap.events) {
+        const evs = $gameMap.events();
+        for (let i = 0; i < evs.length; i++) {
+          const ev = evs[i];
+          if (!ev) continue;
+          const key = ev.eventId();
+          const pos = ev.x + ',' + ev.y;
+          if (this._lastEventPos[key] !== pos) {
+            this._lastEventPos[key] = pos;
+            this._dirty = true;
+          }
+        }
+      }
 
       if (px  !== this._lastPx  || py  !== this._lastPy  ||
           dir !== this._lastDir || yaw !== this._lastYaw  ||
