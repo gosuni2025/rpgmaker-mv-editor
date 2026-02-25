@@ -335,15 +335,36 @@ export default function EventInspector() {
       if (charEv) { startX = charEv.x; startY = charEv.y; }
     }
 
-    const moveCmds = entry.moveRoute.list.filter(c => c.code !== 0);
-    const dest = simulateMoveRoute(moveCmds, startX, startY);
-
     let initialWaypoints: WaypointPos[] = [];
     if (continueFromEnd) {
-      // 경로 끝 지점부터 다음 경로 그리기: 끝점을 새 시작점으로, 웨이포인트 비움
-      startX = dest.x;
-      startY = dest.y;
+      // 같은 그룹(카테고리)에서 현재 entry 이전까지의 경로를 체이닝하여 끝점 계산
+      const groupKey = getCategoryKey(entry);
+      const group = routeGroups.find(g => g.key === groupKey);
+      const idxInGroup = group ? group.entries.findIndex(e => e.id === entry.id) : -1;
+
+      if (group && idxInGroup > 0) {
+        // 그룹의 첫 번째 경로부터 현재 entry 직전까지 순서대로 시뮬레이션
+        let cx = startX;
+        let cy = startY;
+        for (let i = 0; i < idxInGroup; i++) {
+          const cmds = group.entries[i].moveRoute.list.filter(c => c.code !== 0);
+          const d = simulateMoveRoute(cmds, cx, cy);
+          cx = d.x;
+          cy = d.y;
+        }
+        startX = cx;
+        startY = cy;
+      } else {
+        // 그룹의 첫 번째 경로: 해당 경로 자체의 끝점에서 시작
+        const moveCmds = entry.moveRoute.list.filter(c => c.code !== 0);
+        const dest = simulateMoveRoute(moveCmds, startX, startY);
+        startX = dest.x;
+        startY = dest.y;
+      }
+      // initialWaypoints는 비어있음 — 끝점 이후를 새로 그림
     } else {
+      const moveCmds = entry.moveRoute.list.filter(c => c.code !== 0);
+      const dest = simulateMoveRoute(moveCmds, startX, startY);
       // 기존 동작: 현재 위치 → 목적지를 초기 웨이포인트로
       if (dest.x !== startX || dest.y !== startY) {
         initialWaypoints = [{ id: crypto.randomUUID(), x: dest.x, y: dest.y }];
@@ -407,7 +428,7 @@ export default function EventInspector() {
     (window as any)._editorWaypointSession = session;
     pushWaypointHistory(session);
     emitWaypointSessionChange();
-  }, [waypointSession, event, currentMap, continueFromEnd]);
+  }, [waypointSession, event, currentMap, continueFromEnd, routeGroups]);
 
   // 이벤트 미선택
   if (!event) {
