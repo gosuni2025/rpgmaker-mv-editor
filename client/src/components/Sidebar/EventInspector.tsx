@@ -262,7 +262,7 @@ export default function EventInspector() {
   const [routeVisibility, setRouteVisibility] = useState<Record<string, boolean>>({});
 
   // 경로 끝 지점부터 다음 경로 그리기 옵션
-  const [continueFromEnd, setContinueFromEnd] = useState(false);
+  const [continueFromEnd, setContinueFromEnd] = useState(true);
 
   // 이벤트가 바뀌면 가시성 초기화: 자율이동은 켜고, 나머지는 끈 상태로
   useEffect(() => {
