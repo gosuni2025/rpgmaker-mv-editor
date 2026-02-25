@@ -1310,10 +1310,18 @@
             if (args[0] === 'on') {
                 ConfigManager.mode3d = true;
                 if ($gameSystem) $gameSystem._mode3dOverride = true;
+                // 모드 전환 시 타일맵 메시 강제 재생성 (물 쉐이더 material 전환 보장)
+                if (window.ShadowLight && Mode3D._spriteset) {
+                    ShadowLight._resetTilemapMeshes(Mode3D._spriteset._tilemap);
+                }
             }
             if (args[0] === 'off') {
                 ConfigManager.mode3d = false;
                 if ($gameSystem) $gameSystem._mode3dOverride = false;
+                // 모드 전환 시 타일맵 메시 강제 재생성 (물 쉐이더 material 전환 보장)
+                if (window.ShadowLight && Mode3D._spriteset) {
+                    ShadowLight._resetTilemapMeshes(Mode3D._spriteset._tilemap);
+                }
             }
             if (args[0] === 'tilt' && args[1]) {
                 var tiltVal = parseFloat(args[1]);
