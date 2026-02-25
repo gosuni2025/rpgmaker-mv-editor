@@ -957,6 +957,20 @@ var TiltShiftShader = {
     ].join('\n')
 };
 
+// Transition ShaderPass helper: ShaderPass는 tDiffuse만 자동 세팅하지만
+// transition 셰이더들은 tColor를 사용하므로, render 시 tColor를 수동 세팅하는 wrapper
+function _makeTransitionPass(shader) {
+    var pass = new ShaderPass(shader);
+    var _orig = pass.render.bind(pass);
+    pass.render = function(renderer, writeBuffer, readBuffer, deltaTime, maskActive) {
+        if (this.uniforms.tColor) {
+            this.uniforms.tColor.value = readBuffer.texture;
+        }
+        _orig(renderer, writeBuffer, readBuffer, deltaTime, maskActive);
+    };
+    return pass;
+}
+
 // 분리형 가우시안 블러 셰이더 (트랜지션 효과용, H/V 2-pass)
 var _TransitionBlurShader = {
     uniforms: {
@@ -2593,26 +2607,26 @@ PostProcess._createComposer = function(rendererObj, stage) {
     var ppPasses = PostProcess._createPPPasses(composer);
 
     // Transition blur passes (트랜지션 효과용, 기본 비활성)
-    var tbH = new ShaderPass(_TransitionBlurShader);
+    var tbH = _makeTransitionPass(_TransitionBlurShader);
     tbH.uniforms.direction.value.set(1, 0);
     tbH.enabled = false;
     composer.addPass(tbH);
-    var tbV = new ShaderPass(_TransitionBlurShader);
+    var tbV = _makeTransitionPass(_TransitionBlurShader);
     tbV.uniforms.direction.value.set(0, 1);
     tbV.enabled = false;
     composer.addPass(tbV);
 
     // 확장 트랜지션 효과 패스들 (기본 비활성)
-    var tzb = new ShaderPass(_TransitionZoomBlurShader); tzb.enabled = false; composer.addPass(tzb);
-    var tds = new ShaderPass(_TransitionDesatShader);    tds.enabled = false; composer.addPass(tds);
-    var tsp = new ShaderPass(_TransitionSepiaShader);    tsp.enabled = false; composer.addPass(tsp);
-    var tbr = new ShaderPass(_TransitionBrightnessShader); tbr.enabled = false; composer.addPass(tbr);
-    var trp = new ShaderPass(_TransitionRippleShader);   trp.enabled = false; composer.addPass(trp);
-    var twh = new ShaderPass(_TransitionWhirlShader);    twh.enabled = false; composer.addPass(twh);
-    var tpx = new ShaderPass(_TransitionPixelShader);    tpx.enabled = false; composer.addPass(tpx);
-    var tch = new ShaderPass(_TransitionChromaticShader); tch.enabled = false; composer.addPass(tch);
-    var tdv = new ShaderPass(_TransitionDissolveShader); tdv.enabled = false; composer.addPass(tdv);
-    var tsl = new ShaderPass(_TransitionScanlineFadeShader); tsl.enabled = false; composer.addPass(tsl);
+    var tzb = _makeTransitionPass(_TransitionZoomBlurShader); tzb.enabled = false; composer.addPass(tzb);
+    var tds = _makeTransitionPass(_TransitionDesatShader);    tds.enabled = false; composer.addPass(tds);
+    var tsp = _makeTransitionPass(_TransitionSepiaShader);    tsp.enabled = false; composer.addPass(tsp);
+    var tbr = _makeTransitionPass(_TransitionBrightnessShader); tbr.enabled = false; composer.addPass(tbr);
+    var trp = _makeTransitionPass(_TransitionRippleShader);   trp.enabled = false; composer.addPass(trp);
+    var twh = _makeTransitionPass(_TransitionWhirlShader);    twh.enabled = false; composer.addPass(twh);
+    var tpx = _makeTransitionPass(_TransitionPixelShader);    tpx.enabled = false; composer.addPass(tpx);
+    var tch = _makeTransitionPass(_TransitionChromaticShader); tch.enabled = false; composer.addPass(tch);
+    var tdv = _makeTransitionPass(_TransitionDissolveShader); tdv.enabled = false; composer.addPass(tdv);
+    var tsl = _makeTransitionPass(_TransitionScanlineFadeShader); tsl.enabled = false; composer.addPass(tsl);
 
     // TiltShiftPass (화면 Y좌표 기반 DoF) - 맵에만 블러
     var tiltShiftPass = new TiltShiftPass({
@@ -2684,26 +2698,26 @@ PostProcess._createComposer2D = function(rendererObj, stage) {
     var ppPasses = PostProcess._createPPPasses(composer);
 
     // Transition blur passes (트랜지션 효과용, 기본 비활성)
-    var tbH = new ShaderPass(_TransitionBlurShader);
+    var tbH = _makeTransitionPass(_TransitionBlurShader);
     tbH.uniforms.direction.value.set(1, 0);
     tbH.enabled = false;
     composer.addPass(tbH);
-    var tbV = new ShaderPass(_TransitionBlurShader);
+    var tbV = _makeTransitionPass(_TransitionBlurShader);
     tbV.uniforms.direction.value.set(0, 1);
     tbV.enabled = false;
     composer.addPass(tbV);
 
     // 확장 트랜지션 효과 패스들 (기본 비활성)
-    var tzb = new ShaderPass(_TransitionZoomBlurShader); tzb.enabled = false; composer.addPass(tzb);
-    var tds = new ShaderPass(_TransitionDesatShader);    tds.enabled = false; composer.addPass(tds);
-    var tsp = new ShaderPass(_TransitionSepiaShader);    tsp.enabled = false; composer.addPass(tsp);
-    var tbr = new ShaderPass(_TransitionBrightnessShader); tbr.enabled = false; composer.addPass(tbr);
-    var trp = new ShaderPass(_TransitionRippleShader);   trp.enabled = false; composer.addPass(trp);
-    var twh = new ShaderPass(_TransitionWhirlShader);    twh.enabled = false; composer.addPass(twh);
-    var tpx = new ShaderPass(_TransitionPixelShader);    tpx.enabled = false; composer.addPass(tpx);
-    var tch = new ShaderPass(_TransitionChromaticShader); tch.enabled = false; composer.addPass(tch);
-    var tdv = new ShaderPass(_TransitionDissolveShader); tdv.enabled = false; composer.addPass(tdv);
-    var tsl = new ShaderPass(_TransitionScanlineFadeShader); tsl.enabled = false; composer.addPass(tsl);
+    var tzb = _makeTransitionPass(_TransitionZoomBlurShader); tzb.enabled = false; composer.addPass(tzb);
+    var tds = _makeTransitionPass(_TransitionDesatShader);    tds.enabled = false; composer.addPass(tds);
+    var tsp = _makeTransitionPass(_TransitionSepiaShader);    tsp.enabled = false; composer.addPass(tsp);
+    var tbr = _makeTransitionPass(_TransitionBrightnessShader); tbr.enabled = false; composer.addPass(tbr);
+    var trp = _makeTransitionPass(_TransitionRippleShader);   trp.enabled = false; composer.addPass(trp);
+    var twh = _makeTransitionPass(_TransitionWhirlShader);    twh.enabled = false; composer.addPass(twh);
+    var tpx = _makeTransitionPass(_TransitionPixelShader);    tpx.enabled = false; composer.addPass(tpx);
+    var tch = _makeTransitionPass(_TransitionChromaticShader); tch.enabled = false; composer.addPass(tch);
+    var tdv = _makeTransitionPass(_TransitionDissolveShader); tdv.enabled = false; composer.addPass(tdv);
+    var tsl = _makeTransitionPass(_TransitionScanlineFadeShader); tsl.enabled = false; composer.addPass(tsl);
 
     // Simple2DUIRenderPass - 블룸 적용된 맵을 화면에 복사 + UI 합성
     var uiPass = new Simple2DUIRenderPass(_prevRender, _ThreeStrategy);

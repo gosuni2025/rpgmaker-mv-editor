@@ -144,6 +144,18 @@ export function createApp(options: AppOptions = {}) {
   app.use('/api/version', versionRoutes);
   app.use('/api/ui-editor', uiEditorRoutes);
 
+  // 디버그: 캔버스 이미지를 /tmp/mt_debug에 저장
+  app.post('/api/debug/save-canvas', (req, res) => {
+    const { filename, dataUrl } = req.body as { filename: string; dataUrl: string };
+    const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
+    const dir = '/tmp/mt_debug';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const filePath = path.join(dir, filename);
+    fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
+    console.log('[debug] saved:', filePath);
+    res.json({ ok: true, path: filePath });
+  });
+
   // Electron 패키징 시 클라이언트 정적 파일 서빙
   if (options.clientDistPath) {
     app.use(express.static(options.clientDistPath));
