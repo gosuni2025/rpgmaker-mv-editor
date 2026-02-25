@@ -367,9 +367,10 @@
     _Scene_Map_createAllWindows.call(this);
     // 재호출 시(VisualNovelMode 등이 createDisplayObjects를 재실행할 때) 이전 가시성 보존
     var hasPrevSprite = !!MinimapManager._sprite;
-    var savedVisible = hasPrevSprite
-      ? MinimapManager._visible
-      : ($gameSystem ? $gameSystem._minimapVisible : CFG.showOnStart);
+    // $gameSystem._minimapVisible은 setVisible()을 통해 MinimapManager._visible과 항상 동기화됨.
+    // createSprite()에서 더 이상 _visible=true 강제 초기화를 하지 않으므로 두 값은 일치해야 함.
+    // 항상 $gameSystem._minimapVisible을 사용 (세이브 데이터 반영).
+    var savedVisible = $gameSystem ? $gameSystem._minimapVisible : CFG.showOnStart;
     console.log('[Minimap] createAllWindows: hasPrevSprite=%s, MinimapManager._visible=%s, $gameSystem._minimapVisible=%s, savedVisible=%s',
       hasPrevSprite, MinimapManager._visible,
       $gameSystem ? $gameSystem._minimapVisible : 'N/A', savedVisible);
@@ -887,10 +888,10 @@
       this._btnPlus.y = this._btnY();
       scene.addChild(this._btnPlus);
 
-      this._visible = true;
+      // _visible은 건드리지 않음 — setVisible()이 이후에 올바른 값으로 설정함
       this._dirty   = true;
       if ($gamePlayer) this.explore($gamePlayer.x, $gamePlayer.y);
-      console.log('[Minimap] createSprite done: _visible=%s (will be overridden by setVisible)', this._visible);
+      console.log('[Minimap] createSprite done: _visible=%s (setVisible will follow)', this._visible);
     },
 
     // ----------------------------------------------------------
@@ -991,9 +992,10 @@
     // 표시/숨김
     // ----------------------------------------------------------
     setVisible(visible) {
-      console.log('[Minimap] setVisible(%s): _sprite=%s, before._visible=%s, before.$gameSystem._minimapVisible=%s',
+      var stack = new Error().stack.split('\n').slice(2, 5).map(function(s) { return s.trim(); }).join(' | ');
+      console.log('[Minimap] setVisible(%s): _sprite=%s, before._visible=%s, before.$gameSystem._minimapVisible=%s\n  caller: %s',
         visible, !!this._sprite, this._visible,
-        $gameSystem ? $gameSystem._minimapVisible : 'N/A');
+        $gameSystem ? $gameSystem._minimapVisible : 'N/A', stack);
       this._visible = visible;
       if ($gameSystem) $gameSystem._minimapVisible = visible;
       if (this._sprite)   this._sprite.visible   = visible;
