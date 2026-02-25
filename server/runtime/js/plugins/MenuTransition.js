@@ -252,16 +252,13 @@
 
         var sigma = t * Cfg.blur / 100 * 8;
         var sw = _blurRT1.width, sh = _blurRT1.height;
+        var compositeSource;  // 오버레이 합성 소스 (outputRT와 다른 텍스처)
 
         if (sigma < 0.1 || Cfg.effect === 'overlayOnly') {
-            // 블러 없이 원본 → outputRT
-            _copyMat.uniforms.tDiffuse.value = _canvasTex;
-            _fsq.material = _copyMat;
-            renderer.setRenderTarget(_outputRT);
-            renderer.clear();
-            _fsq.render(renderer);
+            // 블러 없이 원본 캔버스 텍스처를 합성 소스로 직접 사용
+            compositeSource = _canvasTex;
         } else {
-            // 다운샘플 → H blur → V blur → 업샘플
+            // 다운샘플 → H blur → V blur (결과: _blurRT1)
             _copyMat.uniforms.tDiffuse.value = _canvasTex;
             _fsq.material = _copyMat;
             renderer.setRenderTarget(_blurRT1);
@@ -284,17 +281,13 @@
             renderer.clear();
             _fsq.render(renderer);
 
-            // 업샘플 → outputRT
-            _copyMat.uniforms.tDiffuse.value = _blurRT1.texture;
-            _fsq.material = _copyMat;
-            renderer.setRenderTarget(_outputRT);
-            renderer.clear();
-            _fsq.render(renderer);
+            // _blurRT1에 블러 완성 — outputRT와 다른 텍스처이므로 자기참조 없음
+            compositeSource = _blurRT1.texture;
         }
 
-        // 오버레이 합성
+        // 오버레이 합성: compositeSource → outputRT (자기참조 없음)
         var oa = (Cfg.effect === 'blurOnly') ? 0 : (Cfg.overlayAlpha / 255 * t);
-        _compMat.uniforms.tDiffuse.value     = _outputRT.texture;
+        _compMat.uniforms.tDiffuse.value     = compositeSource;
         _compMat.uniforms.overlayAlpha.value = oa;
         _fsq.material = _compMat;
         renderer.setRenderTarget(_outputRT);
